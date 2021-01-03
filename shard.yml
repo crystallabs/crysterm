@@ -1,0 +1,17 @@
+name: crysterm
+version: 0.1.0
+
+authors:
+  - your-name-here <your-email-here>
+
+crystal: 0.35.1
+
+license: MIT
+
+dependencies:
+  tput:
+    path: ../tput
+  crystallabs-helpers:
+    #github: crystallabs/crystallabs-helpers.cr
+    #branch: master
+    path: ../crystallabs-helpers.cr
