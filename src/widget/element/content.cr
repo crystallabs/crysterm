@@ -112,7 +112,124 @@ module Crysterm::Widget
 
       # Convert `{red-fg}foo{/red-fg}` to `\x1b[31mfoo\x1b[39m`.
       def _parse_tags(text)
-        text
+        if (!@parse_tags)
+          return text
+        end
+        unless (text =~ /{\/?[\w\-,;!#]*}/)
+          return text
+        end
+
+        outbuf = ""
+        #state
+
+        bg = [] of String
+        fg = [] of String
+        flag = [] of String
+
+        cap=nil
+        #slash
+        #param
+        #attr
+        esc=nil
+
+        loop do
+          if (!esc && (cap = text.match /^{escape}/))
+            text = text[cap[0].size..]
+            esc = true
+            next
+          end
+
+          if (esc && (cap = text.match /^([\s\S]+?){\/escape}/))
+            text = text[cap[0].size..]
+            outbuf += cap[1]
+            esc = false
+            next
+          end
+
+          if (esc)
+            # raise "Unterminated escape tag."
+            outbuf += text
+            break
+          end
+
+          if (cap = text.match /^{(\/?)([\w\-,;!#]*)}/)
+            text = text[cap[0].size..]
+            slash = cap[1] == '/'
+            param = cap[2].gsub(/-/, ' ')
+
+            if (param == "open")
+              outbuf += '{'
+              next
+            elsif (param == "close")
+              outbuf += '}'
+              next
+            end
+
+            if (param[-3..] == " bg")
+              state = bg
+            elsif (param[-3..] == " fg")
+              state = fg
+            else
+              state = flag
+            end
+
+            if (slash)
+              if (!param)
+                # TODO
+                #outbuf += @screen.program._attr("normal")
+                bg.clear
+                fg.clear
+                flag.clear
+              else
+                # TODO
+                #attr = @screen.program._attr(param, false)
+                attr = nil
+                if (attr.nil?)
+                  outbuf += cap[0]
+                else
+                  # D O:
+                  # if (param !== state[state.size - 1])
+                  #   throw new Error('Misnested tags.')
+                  # }
+                  state.pop
+                  if (state.size>0)
+                    # TODO
+                    #outbuf += @screen.program._attr(state[state.size - 1])
+                  else
+                    outbuf += attr
+                  end
+                end
+              end
+            else
+              if (!param)
+                outbuf += cap[0]
+              else
+                # TODO
+                #attr = @screen.program._attr(param)
+                attr = nil
+                if (attr.nil?)
+                  outbuf += cap[0]
+                else
+                  state.push(param)
+                  outbuf += attr
+                end
+              end
+            end
+
+            next
+          end
+
+          if (cap = text.match /^[\s\S]+?(?={\/?[\w\-,;!#]*})/)
+            text = text[cap[0].size..]
+            outbuf += cap[0]
+            next
+          end
+
+          outbuf += text
+          break
+        end
+
+        return outbuf
       end
 
       def _parse_attr(lines)
