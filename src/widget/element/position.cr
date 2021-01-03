@@ -256,17 +256,19 @@ module Crysterm::Widget
         abottom - @parent.not_nil!.abottom
       end
 
-      def width=(val)
+      def width=(val : Int)
         return if @width == val
-        #this.emit ResizeEvent
         clear_pos
         @position.width = val
+        this.emit ResizeEvent
+        val
       end
       def height=(val)
         return if @height == val
-        #this.emit ResizeEvent
         clear_pos
         @position.height = val
+        this.emit ResizeEvent
+        val
       end
 
       def aleft=(val)
@@ -277,26 +279,28 @@ module Crysterm::Widget
           else
             expr = val.split(/(?=\+|-)/)
             val = expr[0]
-            #val = +val.slice(0, -1) / 100 # wt
-            val = @screen.width * val
-            val += (expr[1] || 0)
+            val = val.slice[0...-1].to_i / 100
+            val = (@screen.width * val).to_i
+            val += expr[1]
           end
         end
         val -= @parent.not_nil!.aleft
-        return if (@position.left == val)
-        #emit MoveEvent
+        if (@position.left == val)
+          return
+        end
         clear_pos
-
         @position.left = val
+        emit MoveEvent
+        val
       end
 
       def aright=(val)
         val -= @parent.not_nil!.aright
         return if (@position.right == val)
-        #emit MoveEvent
         clear_pos
-
         @position.right = val
+        emit MoveEvent
+        val
       end
 
       def atop=(val)
@@ -307,58 +311,59 @@ module Crysterm::Widget
           else
             expr = val.split(/(?=\+|-)/)
             val = expr[0].to_i
-            #val = +val.slice(0, -1) / 100 # wt
-            val = @screen.height * val
-            val += (expr[1] || 0)
+            val = val[0...-1].to_i / 100
+            val = (@screen.height * val).to_i
+            val += expr[1]
           end
         end
         val -= @parent.not_nil!.atop
         return if (@position.top == val)
-        #emit MoveEvent
         clear_pos
-
         @position.top = val
+        emit MoveEvent
+        val
       end
 
       def abottom=(val)
         val -= @parent.not_nil!.abottom
         return if (@position.bottom == val)
-        #emit MoveEvent
         clear_pos
-
         @position.bottom = val
+        emit MoveEvent
+        val
       end
 
-      def rleft=(val)
+      # TODO add restrictions to all these args up and below
+      def rleft=(val : Int)
         return if (@position.left == val)
-        #emit MoveEvent
         clear_pos
-
         @position.left = val
+        emit MoveEvent
+        val
       end
 
       def rright=(val)
         return if (@position.right == val)
-        #emit MoveEvent
         clear_pos
-
         @position.right = val
+        emit MoveEvent
+        val
       end
 
       def rtop=(val)
         return if (@position.top == val)
-        #emit MoveEvent
         clear_pos
-
         @position.top = val
+        emit MoveEvent
+        val
       end
 
       def rbottom=(val)
         return if (@position.bottom == val)
-        #emit MoveEvent
         clear_pos
-
         @position.bottom = val
+        emit MoveEvent
+        val
       end
 
       def ileft
@@ -396,8 +401,7 @@ module Crysterm::Widget
       end
 
       def tpadding
-        return @padding.left + @padding.top
-          + @padding.right + @padding.bottom
+        @padding.left + @padding.top + @padding.right + @padding.bottom
       end
 
       # Rendition and rendering
