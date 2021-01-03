@@ -26,12 +26,14 @@ module Crysterm::Widget
         width = @position.width || 0
         case width
         when String
-          width = "50%" if width == "half"
+          if width == "half"
+            width = "50%"
+          end
           expr = width.split /(?=\+|-)/
-          width = expr[0].to_i
-          #width = width.slice(0, -1) / 100 # TODO wt?
-          width = parent.width * width.to_i
-          width += (expr[1].to_i || 0)
+          width = expr[0]
+          width = width[0...-1].to_i / 100
+          width = (parent.width * width).to_i
+          width += expr[1].to_i # Can be empty/nil XXX. Same note below
           return width
         end
 
@@ -49,16 +51,16 @@ module Crysterm::Widget
             end
             expr = left.split(/(?=\+|-)/)
             left = expr[0]
-            #left = left.slice(0, -1) / 100; # wt
-            left = parent.width * left.to_i
-            left += (expr[1].to_i || 0)
+            left = left[0...-1].to_i / 100
+            left = (parent.width * left).to_i
+            left += expr[1].to_i
           end
           width = parent.width - (@position.right || 0) - left
           if (@screen.auto_padding)
             if ((@position.left.any? || @position.right.nil?) && @position.left != "center")
-              width -= @parent.not_nil!.ileft
+              width -= parent.ileft
             end
-            width -= @parent.not_nil!.iright
+            width -= parent.iright
           end
         end
 
@@ -70,16 +72,19 @@ module Crysterm::Widget
       end
 
       def _get_height(get)
-        parent = get ? @parent.not_nil!._get_pos : @parent.not_nil!
-        height = @position.height || 0
+        raise "No parent" unless parent = @parent
+        parent = get ? parent._get_pos : parent
+        height = @position.height
         case height
         when String
-          height = "50%" if height == "half"
+          if height == "half"
+            height = "50%"
+          end
           expr = height.split /(?=\+|-)/
-          height = expr[0].to_i
-          #height = height.slice(0, -1) / 100 # TODO wt?
-          height = parent.height * height
-          height += (expr[1].to_i || 0)
+          height = expr[0]
+          height = height[0...-1].to_i / 100
+          height = (parent.height * height).to_i
+          height += expr[1].to_i
           return height
         end
 
@@ -96,17 +101,17 @@ module Crysterm::Widget
               top = "50%"
             end
             expr = top.split(/(?=\+|-)/)
-            top = expr[0].to_i
-            #top = top.slice(0, -1) / 100; # wt
-            top = parent.height * top
-            top += (expr[1].to_i || 0)
+            top = expr[0]
+            top = top[0...-1].to_i / 100; # wt
+            top = (parent.height * top).to_i
+            top += expr[1].to_i
           end
           height = parent.height - (@position.bottom || 0) - top
           if (@screen.auto_padding)
             if ((@position.top.any? || @position.bottom.nil?) && @position.top != "center")
-              height -= @parent.not_nil!.itop
+              height -= parent.itop
             end
-            height -= @parent.not_nil!.ibottom
+            height -= parent.ibottom
           end
         end
 
@@ -124,14 +129,16 @@ module Crysterm::Widget
         left = @position.left || 0
         case left
         when String
-          left = "50%" if left == "half"
+          if left == "half"
+            left = "50%"
+          end
           expr = left.split /(?=\+|-)/
           left = expr[0]
-          #left = left.slice(0, -1) / 100 # TODO wt?
-          left = parent.width * left.to_i
-          left += (expr[1].to_i || 0)
+          left = left[0...-1].to_i / 100
+          left = (parent.width * left).to_i
+          left += expr[1].to_i
           if @position.left == "center"
-            left -= (_get_width(get)||0) // 2
+            left -= (_get_width(get)) // 2
           end
         end
 
@@ -141,11 +148,11 @@ module Crysterm::Widget
 
         if (@screen.auto_padding)
           if ((@position.left.any? || @position.right.nil?) && @position.left != "center")
-            left += @parent.not_nil!.ileft
+            left += parent.ileft
           end
         end
 
-        (@parent.not_nil!.aleft||0) + left
+        (parent.aleft||0) + left
       end
 
       def aleft
@@ -153,18 +160,19 @@ module Crysterm::Widget
       end
 
       def _get_right(get)
-        parent = get ? @parent.not_nil!._get_pos : @parent.not_nil!
+        raise "No parent" unless parent = @parent
+        parent = get ? parent._get_pos : parent
 
         if @position.right.nil? && @position.left.any?
-          right = @screen.width - _get_left(get) + _get_width(get)
+          right = @screen.width - (_get_left(get) + _get_width(get))
           if (@screen.auto_padding)
-            right += @parent.not_nil!.iright
+            right += parent.iright
           end
         end
 
-        right = (@parent.not_nil!.aright||0) + (@position.right||0)
+        right = (parent.aright||0) + (@position.right||0)
         if (@screen.auto_padding)
-          right += @parent.not_nil!.iright
+          right += parent.iright
         end
 
         right
@@ -175,32 +183,35 @@ module Crysterm::Widget
       end
 
       def _get_top(get)
-        parent = get ? @parent.not_nil!._get_pos : @parent.not_nil!
+        raise "No parent" unless parent = @parent
+        parent = get ? parent._get_pos : parent
         top = @position.top || 0
         case top
         when String
-          top = "50%" if top == "center"
+          if top == "center"
+            top = "50%"
+          end
           expr = top.split /(?=\+|-)/
-          top = expr[0].to_i
-          #top = top.slice(0, -1) / 100 # TODO wt?
-          top = parent.height * top
-          top += (expr[1].to_i || 0)
+          top = expr[0]
+          top = top[0...-1].to_i / 100
+          top = (parent.height * top).to_i
+          top += expr[1].to_i
           if top == "center"
             top -= _get_height(get) // 2
           end
-          return top
         end
 
         if @position.top.nil? && @position.bottom.any?
-          top = @screen.height - _get_height(get) + _get_bottom(get)
-          if (@screen.auto_padding)
-            if((@position.top.any? || @position.bottom.nil?) && @position.top != "center")
-              top += @parent.not_nil!.itop
-            end
+          return @screen.height - _get_height(get) - _get_bottom(get)
+        end
+
+        if (@screen.auto_padding)
+          if((@position.top.any? || @position.bottom.nil?) && @position.top != "center")
+            top += parent.itop
           end
         end
 
-        (@parent.not_nil!.atop||0) + top
+        (parent.atop||0) + top
       end
 
       def atop
@@ -208,20 +219,21 @@ module Crysterm::Widget
       end
 
       def _get_bottom(get)
-        parent = get ? @parent.not_nil!._get_pos : @parent.not_nil!
+        raise "No parent" unless parent = @parent
+        parent = get ? parent._get_pos : parent
 
         if @position.bottom.nil? && @position.top.any?
-          bottom = @screen.height - _get_top(get) + _get_height(get)
+          bottom = @screen.height - (_get_top(get) + _get_height(get))
           if (@screen.auto_padding)
-            bottom += @parent.not_nil!.ibottom
+            bottom += parent.ibottom
           end
           return bottom
         end
 
-        bottom = (@parent.not_nil!.abottom||0) + (@position.bottom||0)
+        bottom = (parent.abottom||0) + (@position.bottom||0)
 
         if (@screen.auto_padding)
-          bottom += @parent.not_nil!.ibottom
+          bottom += parent.ibottom
         end
 
         bottom

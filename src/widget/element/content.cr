@@ -2,6 +2,10 @@ module Crysterm::Widget
   class Element < Node
     module Content
 
+      class ::String
+        property attr = [] of Int32
+      end
+
       class CLines < Array(String)
         property string = ""
         property mwidth = 0
@@ -15,7 +19,7 @@ module Crysterm::Widget
         property rtof = [] of Int32
         property ci = [] of Int32
 
-        property attr = [] of String # TODO or Int32
+        property attr : Array(Int32)? = [] of Int32
 
         property ci = [] of Int32
       end
@@ -233,7 +237,37 @@ module Crysterm::Widget
       end
 
       def _parse_attr(lines)
-        Array.new(lines.size, "")
+        # TODO
+        dattr = @screen.dattr #sattr(@style)
+        attr = dattr
+        attrs = [] of Int32
+        #line
+        #i
+        #j
+        #c
+
+        if (lines[0].attr == attr)
+          return
+        end
+
+        (0...lines.size).each do |j|
+          line = lines[j]
+          attrs.push attr
+          unless attrs.size == j+1
+            raise "indexing error"
+          end
+          (0...line.size).each do |i|
+            if (line[i] == "\x1b")
+              if (c = line[1..].match /^\x1b\[[\d;]*m/)
+                attr = @screen.attr_code(c[0], attr, dattr)
+                i += c[0].size - 1
+              end
+            end
+          end
+          j += 1
+        end
+
+        return attrs
       end
 
       def _wrap_content(content, width)

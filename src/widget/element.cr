@@ -208,14 +208,18 @@ module Crysterm
         return line if len == 0
         return line if s < 0
 
-        case align
-        when "center"
+        if align == "center"
           s = " " * (((s//2))+1)
           return s + line + s
-        when "right"
+        elsif align == "right"
           s = " " * (s+1)
-        else
-          raise "TODO"
+          return s + line
+        elsif @parse_tags && line.index /\{|\}/
+          parts = line.split /\{|\}/
+          cparts = cline.split /\{|\}/
+          s = Math.max(width - cparts[0].size - cparts[1].size, 0)
+          s = " " * s # XXX s+1 ?
+          "#{parts[0]}#{s}#{parts[1]}"
         end
 
         line
@@ -224,29 +228,11 @@ module Crysterm
       def visible?
         el = self
         while el
-          return false if el.detached
-          return false if el.hidden
+          return false if el.detached?
+          return false if el.hidden?
           el = el.parent
         end 
         true
-      end
-
-      def screenshot(xi=nil,xl=nil,yi=nil,yl=nil)
-        xi = @lpos.xi + @ileft + (xi||0)
-        if xl
-          xl = @lpos.xi + @ileft + (xl||0)
-        else
-          xl = @lpos.xl - @iright
-        end
-
-        yi = @lpos.yi + @itop + (yi||0)
-        if yl
-          yl = @lpos.yi + @itop + (yl||0)
-        else
-          yl = @lpos.yl - @ibottom
-        end
-
-        @screen.screenshot xi, xl, yi, yl
       end
 
       def _detached?
@@ -256,8 +242,12 @@ module Crysterm
           return true if !el.parent
           el = el.parent
         end
+        false
       end
 
+      def draggable?
+        @_draggable == true
+      end
       def draggable=(draggable : Bool)
         draggable ? enable_drag(draggable) : disable_drag
       end
@@ -308,6 +298,24 @@ module Crysterm
 
       def free
         # Remove all listeners
+      end
+
+      def screenshot(xi=nil,xl=nil,yi=nil,yl=nil)
+        xi = @lpos.xi + @ileft + (xi||0)
+        if xl
+          xl = @lpos.xi + @ileft + (xl||0)
+        else
+          xl = @lpos.xl - @iright
+        end
+
+        yi = @lpos.yi + @itop + (yi||0)
+        if yl
+          yl = @lpos.yi + @itop + (yl||0)
+        else
+          yl = @lpos.yl - @ibottom
+        end
+
+        @screen.screenshot xi, xl, yi, yl
       end
 
     end

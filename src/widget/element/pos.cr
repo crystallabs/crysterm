@@ -55,6 +55,11 @@ module Crysterm::Widget
         property width : Int32 = 0
         property height : Int32 = 0
 
+        property ileft : Int32 = 0
+        property itop : Int32 = 0
+        property iright : Int32 = 0
+        property ibottom : Int32 = 0
+
         def initialize(
           @xi =0,
           @xl =0,
