@@ -20,4 +20,7 @@ module Crysterm
     event PreRenderEvent
     event PostRenderEvent
     event DrawEvent
+
+    event SetContentEvent
+    event ParsedContentEvent
 end

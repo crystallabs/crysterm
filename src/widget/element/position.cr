@@ -473,13 +473,15 @@ module Crysterm::Widget
 
       def _get_pos
         pos = @lpos
-        return pos if pos.aleft.any?
-        pos.aleft = pos.xi
-        pos.atop = pos.yi
-        pos.aright = @screen.cols - pos.xl
-        pos.abottom = @screen.rows - pos.yl
-        pos.width = pos.xl - pos.xi
-        pos.height = pos.yl - pos.yi
+        pos.try do |pos|
+          return pos if pos.aleft.any?
+          pos.aleft = pos.xi
+          pos.atop = pos.yi
+          pos.aright = @screen.cols - pos.xl
+          pos.abottom = @screen.rows - pos.yl
+          pos.width = pos.xl - pos.xi
+          pos.height = pos.yl - pos.yi
+        end
         pos
       end
 

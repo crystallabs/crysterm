@@ -33,6 +33,9 @@ module Crysterm
       property? draggable = false
       property? scrollable = false
 
+      # XXX is this bool?
+      property scrollbar : Bool = false
+
       # XXX shat
       # Used only for lists
       property _isList = false
@@ -96,7 +99,10 @@ module Crysterm
         #hover_bg=nil,
         @draggable=false,
         focused=false,
-        @parse_tags=false, # XXX change to true later
+
+        # synonyms
+        parse_tags=false, # XXX change to true later
+        tags=false,
       )
         super()
 
@@ -136,15 +142,19 @@ module Crysterm
         end
         # Add border style to style # TODO
 
-        set_content(content) if content
+        set_content(content, true) if content
         set_label(label) if label
         set_hover(hover_text) if hover_text
 
+        @parse_tags = parse_tags || tags
+
         #on(AddHandlerEvent) { |wrapper| }
 
-        #on(ResizeEvent) { parse_content }
-        #on(AttachEvent) { parse_content }
-        ##on(DettachEvent) { @lpos = nil }
+        on(ResizeEvent) { parse_content }
+        on(AttachEvent) { parse_content }
+        #on(DetachEvent) { @lpos = nil }
+
+        # Style related stuff ...
 
         focus if focused
       end
@@ -170,14 +180,14 @@ module Crysterm
         return if @hidden
         clear_pos
         @hidden = true
-        #emit HideEvent
+        emit HideEvent
         @screen.try &.rewind_focus if focused?
       end
 
       def show
         return unless @hidden
         @hidden=false
-        #emit ShowEvent
+        emit ShowEvent
       end
 
       def toggle

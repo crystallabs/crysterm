@@ -2,27 +2,22 @@ module Crysterm::Widget
   class Element < Node
     module Content
 
-      class CLines
+      class CLines < Array(String)
         property string = ""
-        def size
-          string.size
-        end
         property mwidth = 0
         property width = 0
         property content = ""
-        def attr=(arg)
-          ""
-        end
-        def attr
-          ""
-        end
-        def join(delim)
-          @content
-        end
+        property real = [] of String
+
+        property fake = [] of String
+
+        property ftor = [] of Array(Int32)
+        property rtof = [] of Int32
         property ci = [] of Int32
-        def initialize(content : String? = nil)
-          @content = content
-        end
+
+        property attr = [] of String # TODO or Int32
+
+        property ci = [] of Int32
       end
 
       property _clines = CLines.new
@@ -31,29 +26,30 @@ module Crysterm::Widget
         clear_pos unless no_clear
         @content = content
         parse_content(no_tags)
-        #emit(SetContentEvent)
+        emit(SetContentEvent)
       end
       def get_content
-        return "" unless @_clines
+        return "" unless @_clines || @_clines.empty? # XXX leave only .empty?
         @_clines.fake.join "\n"
       end
 
       def parse_content(no_tags=true)
         return false if detached?
+
         Log.trace { "Element not detached; parsing content: #{@content}" }
 
         width = @width - @iwidth
-        if (@_clines.nil? ||
+        if (@_clines.nil? || @_clines.empty? ||
             @_clines.width != width ||
             @_clines.content != @content)
-          content = @content
+          content = @content || ""
 
-          content = content.try { |content|
-              content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
-              .gsub(/\x1b(?!\[[\d;]*m)/, "")
-              .gsub(/\r\n|\r/, "\n")
-              .gsub(/\t/, @screen.tabc)
-            }
+          content =
+            content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
+            .gsub(/\x1b(?!\[[\d;]*m)/, "")
+            .gsub(/\r\n|\r/, "\n")
+            .gsub(/\t/, @screen.tabc)
+
           Log.trace { "Internal content is #{content}" }
 
           if true #(@screen.full_unicode)
@@ -95,16 +91,15 @@ module Crysterm::Widget
           @_clines.content = @content
           @_clines.attr = _parse_attr @_clines
           @_clines.ci = [] of Int32
-          # TODO
-          #@_clines.reduce(function(total, line) do
-          #  @_clines.ci.push(total)
-          #  return total + line.length + 1
-          #endbind(self), 0)
+          @_clines.reduce(0) do |total, line|
+            @_clines.ci.push(total)
+            return total + line.size + 1
+          end
 
           @_pcontent = @_clines.join "\n"
           Log.trace { @_pcontent }
           Log.trace { "#{@width} x #{@height}" }
-          #@emit ParsedContentEvent
+          emit ParsedContentEvent
 
           return true
         end
@@ -125,7 +120,155 @@ module Crysterm::Widget
       end
 
       def _wrap_content(content, width)
-        CLines.new content
+        tags = @parse_tags
+        state = @align
+        wrap = @wrap
+        margin = 0
+        rtof = [] of Int32
+        ftor = [] of Array(Int32)
+        #outbuf = [] of String
+        outbuf = CLines.new
+        no = 0
+        #line
+        #align
+        #cap
+        #total
+        #i
+        #part
+        #j
+        #lines
+        #rest
+
+        lines = content.split "\n"
+
+        if !content || content.empty?
+          ret = CLines.new
+          ret.push(content)
+          ret.rtof = [0]
+          ret.ftor = [[0]]
+          ret.fake = lines
+          ret.real = outbuf
+          ret.mwidth = 0
+          return ret
+        end
+
+        if (@scrollbar)
+          margin+=1
+        end
+        if (@type == :textarea)
+          margin+=1
+        end
+        if (width > margin)
+          width -= margin
+        end
+
+#      main:
+        while no < lines.size
+          line = lines[no]
+          align = state
+
+          ftor.push([] of Int32)
+
+          # Handle alignment tags.
+          if (tags)
+            if (cap = line.match /^{(left|center|right)}/)
+              line = line[cap[0].size..]
+              align = state = (cap[1] != "left") ? cap[1] : nil
+            end
+            if (cap = line.match /{\/(left|center|right)}$/)
+              line = line[0..(line.size - cap[0].size)]
+              #state = null
+              state = @align
+            end
+          end
+
+          # If the string is apparently too long, wrap it.
+          loop_ret = while (line.size > width)
+            # Measure the real width of the string.
+            total = 0
+            i = 0
+            while i < line.size
+              while (line[i] == "\x1b")
+                while (line[i] && line[i] != 'm')
+                  i += 1
+                end
+              end
+              if (line[i]?.nil?)
+                break
+              end
+              total += 1
+              if (total == width)
+                # If we're not wrapping the text, we have to finish up the rest of
+                # the control sequences before cutting off the line.
+                i+=1
+                if (!wrap)
+                  rest = line[i..].scan(/\x1b\[[^m]*m/)
+                  rest = rest.any? ? rest.join : ""
+                  outbuf.push(_align(line[0...i] + rest, width, align))
+                  ftor[no].push(outbuf.size - 1)
+                  rtof.push(no)
+                  break :main
+                end
+                # XXX
+                #if (!this.screen.fullUnicode)
+                  # Try to find a space to break on.
+                  if (i != line.size)
+                    j = i
+                    while (j > i - 10 && j > 0 && (j-=1) && line[j] != " ")
+                      if (line[j] == " ")
+                        i = j + 1
+                      end
+                    end
+                  end
+                #end
+                break
+              end
+              i += 1
+            end
+
+            part = line[0...i]
+            line = line[i..]
+
+            outbuf.push(_align(part, width, align))
+            ftor[no].push(outbuf.size - 1)
+            rtof.push(no)
+
+            # Make sure we didn't wrap the line to the very end, otherwise
+            # we get a pointless empty line after a newline.
+            if (line == "")
+              break :main
+            end
+
+            # If only an escape code got cut off, at it to `part`.
+            if (line.match /^(?:\x1b[\[\d;]*m)+$/)
+              outbuf[outbuf.size - 1] += line
+              break :main
+            end
+          end
+
+          if loop_ret == :main
+            next
+          end
+
+          outbuf.push(_align(line, width, align))
+          ftor[no].push(outbuf.size - 1)
+          rtof.push(no)
+
+          no += 1
+        end
+
+        outbuf.rtof = rtof
+        outbuf.ftor = ftor
+        outbuf.fake = lines
+        outbuf.real = outbuf
+
+        outbuf.mwidth = outbuf.reduce(0) do |current, line|
+          line = line.gsub(/\x1b\[[\d;]*m/, "")
+          # XXX Does it need explicit addition to `current`?
+          line.size > current ? line.size : current
+        end
+
+        return outbuf
       end
 
       def set_text(content="", no_clear=false)

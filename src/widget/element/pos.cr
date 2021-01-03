@@ -34,7 +34,7 @@ module Crysterm::Widget
 
       property border = Tput::Border.new
 
-      property lpos : LPos
+      property lpos : LPos = LPos.new
 
       class LPos
         property xi : Int32=0
@@ -75,8 +75,6 @@ module Crysterm::Widget
         )
         end
       end
-
-      property lpos : LPos = LPos.new
     end
   end
 end
