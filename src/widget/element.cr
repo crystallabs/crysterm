@@ -50,7 +50,7 @@ module Crysterm
       # Does it accept keyboard input?
       @input = false
 
-      #@parse_tags = true
+      @parse_tags = false
 
       property border : Tput::Border? = nil
       property child_base = 0
@@ -80,7 +80,6 @@ module Crysterm
         @wrap=false, # XXX change to true later
         @align= :left,
         @valign = :top,
-        tags=nil,
         position : Tput::Position? = nil,
         @shrink=false,
         @no_overflow=true,
@@ -91,12 +90,13 @@ module Crysterm
         padding : Int32 | Tput::Padding = 0,
         border : Tput::BorderType | Tput::Border | Nil = nil,
         #@clickable=false,
-        content="",
+        content=nil,
         label=nil,
         hover_text=nil,
         #hover_bg=nil,
         @draggable=false,
-        focused=false
+        focused=false,
+        @parse_tags=false, # XXX change to true later
       )
         super()
 
@@ -134,8 +134,8 @@ module Crysterm
         when Tput::Border
           @border = border
         end
+        # Add border style to style # TODO
 
-        @content = "" # XXX SHIT
         set_content(content) if content
         set_label(label) if label
         set_hover(hover_text) if hover_text
