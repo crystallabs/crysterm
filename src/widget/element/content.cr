@@ -430,12 +430,12 @@ module Crysterm::Widget
         get_content.gsub /\x1b\[[\d;]*m/, ""
       end
 
-      def insert_line(i, line)
+      def insert_line(i=nil, line="")
         if (line.is_a? String)
           line = line.split("\n")
         end
 
-        if (i != i || i.nil?)
+        if (i.nil?)
           i = @_clines.ftor.size
         end
 
@@ -470,7 +470,7 @@ module Crysterm::Widget
 
         if (diff > 0)
           pos = _get_coords
-          if (!pos)
+          if (!pos || pos==0)
             return
           end
 
@@ -487,10 +487,10 @@ module Crysterm::Widget
         end
       end
 
-      def delete_line(i, n=1)
+      def delete_line(i=nil, n=1)
         n = n
 
-        if (i != i || i.nil?)
+        if (i.nil?)
           i = @_clines.ftor.size - 1
         end
 
@@ -505,7 +505,7 @@ module Crysterm::Widget
 
         while (n>0)
           n -= 1
-          @_clines.fake.splice(i, 1)
+          @_clines.fake.delete_at i
         end
 
         set_content(@_clines.fake.join("\n"), true)
@@ -517,7 +517,7 @@ module Crysterm::Widget
 
         if (diff > 0)
           pos = _get_coords
-          if (!pos or pos==0)
+          if (!pos || pos==0)
             return
           end
 
@@ -562,7 +562,7 @@ module Crysterm::Widget
         i = Math.min(h, @_clines.size - 1)
         fake = @_clines.rtof[i]
 
-        n = n || 1
+        n = 1 if !n || n==0
 
         delete_line(fake - (n - 1), n)
       end
@@ -622,15 +622,15 @@ module Crysterm::Widget
       end
 
       def get_lines()
-        @_clines.fake #.to_a? / .split "\n" ?
+        @_clines.fake.dup
       end
 
       def get_screen_lines()
-        @_clines #.to_a? / .split "\n" ?
+        @_clines.dup
       end
 
       def str_width(text)
-        #text = parse_tags ? helpers.strip_tags(text) : text
+        text = @parse_tags ? helpers.strip_tags(text) : text
         #return @screen.full_unicode ? unicode.str_width(text) : helpers.drop_unicode(text).size
         text = text
         text.size # or bytesize?
