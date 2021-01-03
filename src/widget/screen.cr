@@ -327,17 +327,15 @@ module Crysterm
         alloc dirty: true
       end
 
-      # TODO
       def leave
         # TODO make it possible to work without switching the whole
         # program to alt buffer.
         return unless program.tput.is_alt
-        # TODO Enable all in this function
 
         put(s.keypad_local?)
 
-        if( (@program.scroll_top != 0) ||
-            @program.scroll_bottom != program.tput.screen.height - 1)
+        if( (program.scroll_top != 0) ||
+            program.scroll_bottom != program.tput.screen.height - 1)
           this.program.csr(0, program.tput.screen.height - 1);
         end
 
@@ -346,6 +344,7 @@ module Crysterm
         program.tput.show_cursor
         alloc
 
+        # TODO Enable all in this function
         #if (this._listenedMouse) {
         #  this.program.disableMouse();
         #}

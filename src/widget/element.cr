@@ -20,13 +20,13 @@ module Crysterm
       @no_overflow : Bool
       @dock_borders : Bool
       @shadow : Bool
-      @hidden = false
-      @fixed = false
+      property? hidden = false
+      property? fixed = false
       @align = :left # Enum or class
       @valign = :top
-      @wrap = true
-      @shrink = false
-      @ch = " "
+      property? wrap = false # XXX change to true
+      property shrink = false # XXX add ?
+      property ch = ' '
 
       property? clickable = false
       property? keyable = false
@@ -52,7 +52,7 @@ module Crysterm
 
       #@parse_tags = true
 
-      property border = Tput::Border.new
+      property border : Tput::Border? = nil
       property child_base = 0
 
       property content = ""
@@ -61,21 +61,35 @@ module Crysterm
 
       property? _no_fill = false
 
+      property padding : Tput::Padding
+
       def initialize(
         @name,
-        top=0,
+
+        # These end up being part of Position.
+        # If position is specified, these are ignored.
         left=0,
+        top=0,
+        right=0,
+        bottom=0,
         width=0,
         height=0,
+
+        @hidden=false,
+        @fixed=false,
+        @wrap=false, # XXX change to true later
+        @align= :left,
+        @valign = :top,
         tags=nil,
-        @position=Tput::Position.new,
-        @shrink=true,
+        position : Tput::Position? = nil,
+        @shrink=false,
         @no_overflow=true,
         @dock_borders=true,
-        @shadow=true,
-        #@style=Style.new,
-        @padding = ::Tput::Padding.new, # Move out of tput XXX
-        ##@border=
+        @shadow=false,
+        # TODO - style
+        style : Style? = nil,
+        padding : Int32 | Tput::Padding = 0,
+        border : Tput::BorderType | Tput::Border | Nil = nil,
         #@clickable=false,
         content="",
         label=nil,
@@ -85,6 +99,41 @@ module Crysterm
         focused=false
       )
         super()
+
+        if position
+          @position = position
+        else
+          @position = Tput::Position.new \
+            left: left,
+            top: top,
+            right: right,
+            bottom: bottom,
+            width: width || 0,
+            height: height || 0
+        end
+        @shrink = true if @position.shrink?
+
+        if style
+          @style = style
+        else
+          @style = Style.new # defaults are in the class initializer
+        end
+
+        case padding
+        when Int
+          @padding = Tput::Padding.new padding, padding, padding, padding
+        when Tput::Padding
+          @padding = padding
+        else
+          raise "Invalid padding argument"
+        end
+
+        case border
+        when Tput::BorderType
+          @border = Tput::Border.new type: border
+        when Tput::Border
+          @border = border
+        end
 
         @content = "" # XXX SHIT
         set_content(content) if content

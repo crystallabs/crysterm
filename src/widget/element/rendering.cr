@@ -430,20 +430,22 @@ module Crysterm::Widget
 
         @lpos = coords
 
-        if (@border && @border.type == Tput::BorderStyle::Line)
-          @screen._border_stops[coords.yi] = true
-          @screen._border_stops[coords.yl - 1] = true
-          # if (!@screen._border_stops[coords.yi])
-          #   @screen._border_stops[coords.yi] = { xi: coords.xi, xl: coords.xl }
-          # else
-          #   if (@screen._border_stops[coords.yi].xi > coords.xi)
-          #     @screen._border_stops[coords.yi].xi = coords.xi
-          #   end
-          #   if (@screen._border_stops[coords.yi].xl < coords.xl)
-          #     @screen._border_stops[coords.yi].xl = coords.xl
-          #   end
-          # end
-          # @screen._border_stops[coords.yl - 1] = @screen._border_stops[coords.yi]
+        @border.try do |border|
+          if (border.type == Tput::BorderType::Line)
+            @screen._border_stops[coords.yi] = true
+            @screen._border_stops[coords.yl - 1] = true
+            # if (!@screen._border_stops[coords.yi])
+            #   @screen._border_stops[coords.yi] = { xi: coords.xi, xl: coords.xl }
+            # else
+            #   if (@screen._border_stops[coords.yi].xi > coords.xi)
+            #     @screen._border_stops[coords.yi].xi = coords.xi
+            #   end
+            #   if (@screen._border_stops[coords.yi].xl < coords.xl)
+            #     @screen._border_stops[coords.yi].xl = coords.xl
+            #   end
+            # end
+            # @screen._border_stops[coords.yl - 1] = @screen._border_stops[coords.yi]
+          end
         end
 
         dattr = 0 #sattr(@style)
@@ -482,7 +484,7 @@ module Crysterm::Widget
                 #lines[y][x].attr= colors.blend(attr, lines[y][x].attr)
                 # D O:
                 # lines[y][x].char = bch
-                # XXX but do this: lines[y].dirty = true
+                lines[y].dirty = true
               end
             end
           else
@@ -582,14 +584,14 @@ module Crysterm::Widget
                   # TODO
                   #lines[y][x].attr = colors.blend(attr, lines[y][x].attr)
                   if (content.try &.[ci]?)
-                    lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
+                    lines[y][x].char = ch
                   end
-                  # XXX lines[y].dirty = true
+                  lines[y].dirty = true
                 else
-                  if (attr != cell.attr || ch[0] != cell.char)
+                  if (attr != cell.attr || ch != cell.char)
                     # XXX lines[y][x].attr = attr
-                    lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
-                    # XXX lines[y].dirty = true
+                    lines[y][x].char = ch
+                    lines[y].dirty = true
                   end
                 end
                 x += 1
@@ -636,12 +638,12 @@ module Crysterm::Widget
               if (content[ci])
                 lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
               end
-              # XXX lines[y].dirty = true
+              lines[y].dirty = true
             else
               if (attr != cell.attr || ch != cell.char)
                 # XXX lines[y][x].attr = attr
                 lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
-                # XXX lines[y].dirty = true
+                lines[y].dirty = true
               end
             end
           end
@@ -687,7 +689,7 @@ module Crysterm::Widget
         ###    if (attr != cell.attr || ch != cell.char)
         ###      lines[y][x].attr = attr
         ###      lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
-        ###      # XXX lines[y].dirty = true
+        ###      lines[y].dirty = true
         ###    end
         ###  end
         ###end
@@ -707,7 +709,7 @@ module Crysterm::Widget
         end
 
         # Draw the border.
-        if (@border)
+        if (border = @border)
           battr = 0 #sattr(@style.border)
           y = yi
           if (coords.notop)
@@ -727,52 +729,52 @@ module Crysterm::Widget
             if (!cell)
               next
             end
-            if (@border.type == "line")
+            if (border.type == "line")
               if (x == xi)
                 ch = '\u250c'; # '┌'
-                if (!@border.left)
-                  if (@border.top)
+                if (!border.left)
+                  if (border.top)
                     ch = '\u2500'; # '─'
                   else
                    next 
                   end
                 else
-                  if (!@border.top)
+                  if (!border.top)
                     ch = '\u2502'; # '│'
                   end
                 end
               elsif (x == xl - 1)
                 ch = '\u2510'; # '┐'
-                if (!@border.right)
-                  if (@border.top)
+                if (!border.right)
+                  if (border.top)
                     ch = '\u2500'; # '─'
                   else
                     next
                   end
                 else
-                  if (!@border.top)
+                  if (!border.top)
                     ch = '\u2502'; # '│'
                   end
                 end
               else
                 ch = '\u2500'; # '─'
               end
-            elsif (@border.type == "bg")
-              ch = @border.ch
+            elsif (border.type == "bg")
+              ch = border.ch
             end
-            if (!@border.top && x != xi && x != xl - 1)
+            if (!border.top && x != xi && x != xl - 1)
               ch = ' '
               if (dattr != cell.attr || ch != cell.char)
                 # XXX lines[y][x].attr = dattr
                 lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
-                # XXX lines[y].dirty = true
+                lines[y].dirty = true
                 next
               end
             end
             if (battr != cell.attr || ch != cell.char)
               # XXX lines[y][x].attr = battr
               lines[y][x].char = ch.is_a?(String) ? ch[0] : (ch||' ')
-              # XXX lines[y].dirty = true
+              lines[y].dirty = true
             end
           end
           y = yi + 1
@@ -782,17 +784,17 @@ module Crysterm::Widget
             end
             cell = lines[y][xi]
             if (cell)
-              if (@border.left)
-                if (@border.type == "line")
+              if (border.left)
+                if (border.type == "line")
                   ch = '\u2502'; # '│'
-                elsif (@border.type == "bg")
-                  ch = @border.ch
+                elsif (border.type == "bg")
+                  ch = border.ch
                 end
                 if (!coords.noleft)
                   if (battr != cell.attr || ch != cell.char)
                     lines[y][xi].attr = battr
                     lines[y][xi].char = ch.is_a?(String) ? ch[0] : (ch||' ')
-                    # XXX lines[y].dirty = true
+                    lines[y].dirty = true
                   end
                 end
               else
@@ -800,23 +802,23 @@ module Crysterm::Widget
                 if (dattr != cell.attr || ch != cell.char)
                   lines[y][xi].attr = dattr
                   lines[y][xi].char = ch.is_a?(String) ? ch[0] : (ch||' ')
-                  # XXX lines[y].dirty = true
+                  lines[y].dirty = true
                 end
               end
             end
             cell = lines[y][xl - 1]
             if (cell)
-              if (@border.right)
-                if (@border.type == "line")
+              if (border.right)
+                if (border.type == "line")
                   ch = '\u2502'; # '│'
-                elsif (@border.type == "bg")
-                  ch = @border.ch
+                elsif (border.type == "bg")
+                  ch = border.ch
                 end
                 if (!coords.noright)
                   if (battr != cell.attr || ch != cell.char)
                     lines[y][xl - 1].attr = battr
                     lines[y][xl - 1].char = ch.is_a?(String) ? ch[0] : (ch||' ')
-                    # XXX lines[y].dirty = true
+                    lines[y].dirty = true
                   end
                 end
               else
@@ -824,7 +826,7 @@ module Crysterm::Widget
                 if (dattr != cell.attr || ch != cell.char)
                   lines[y][xl - 1].attr = dattr
                   lines[y][xl - 1].char = ch.is_a?(String) ? ch[0] : (ch||' ')
-                  # XXX lines[y].dirty = true
+                  lines[y].dirty = true
                 end
               end
             end
@@ -848,52 +850,52 @@ module Crysterm::Widget
             if (!cell)
               next
             end
-            if (@border.type == "line")
+            if (border.type == "line")
               if (x == xi)
                 ch = '\u2514'; # '└'
-                if (!@border.left)
-                  if (@border.bottom)
+                if (!border.left)
+                  if (border.bottom)
                     ch = '\u2500'; # '─'
                   else
                     next
                   end
                 else
-                  if (!@border.bottom)
+                  if (!border.bottom)
                     ch = '\u2502'; # '│'
                   end
                 end
               elsif (x == xl - 1)
                 ch = '\u2518'; # '┘'
-                if (!@border.right)
-                  if (@border.bottom)
+                if (!border.right)
+                  if (border.bottom)
                     ch = '\u2500'; # '─'
                   else
                     next
                   end
                 else
-                  if (!@border.bottom)
+                  if (!border.bottom)
                     ch = '\u2502'; # '│'
                   end
                 end
               else
                 ch = '\u2500'; # '─'
               end
-            elsif (@border.type == "bg")
-              ch = @border.ch
+            elsif (border.type == "bg")
+              ch = border.ch
             end
-            if (!@border.bottom && x != xi && x != xl - 1)
+            if (!border.bottom && x != xi && x != xl - 1)
               ch = ' '
               if (dattr != cell.attr || ch != cell.char)
                 # XXX lines[y][x].attr = dattr
                 lines[y][x].char = ch.is_a?(String) ? ch[0] : (ch||' ')
-                # XXX lines[y].dirty = true
+                lines[y].dirty = true
               end
               next
             end
             if (battr != cell.attr || ch != cell.char)
               # XXX lines[y][x].attr = battr
               lines[y][x].char = ch.is_a?(String) ? ch[0] : (ch||' ')
-              # XXX lines[y].dirty = true
+              lines[y].dirty = true
             end
           end
         end
@@ -913,7 +915,7 @@ module Crysterm::Widget
               # lines[y][x].attr = colors.blend(@dattr, lines[y][x].attr)
               # TODO
               #lines[y][x].attr = colors.blend(lines[y][x].attr)
-              # XXX lines[y].dirty = true
+              lines[y].dirty = true
               x+=1
             end
             y += 1
@@ -931,16 +933,14 @@ module Crysterm::Widget
               # lines[y][x].attr = colors.blend(@dattr, lines[y][x].attr)
               # TODO
               #lines[y][x].attr = colors.blend(lines[y][x].attr)
-              # XXX lines[y].dirty = true
+              lines[y].dirty = true
             end
             y += 1
           end
         end
 
-
         coords
       end
-
     end
   end
 end
