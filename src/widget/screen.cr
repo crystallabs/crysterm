@@ -557,14 +557,14 @@ module Crysterm
                   attr = data
                 end
                 #######################
-                #temp = IO::Memory.new
-                #old = program.output
-                #program.output = temp
-                ## TODO
-                ##outbuf += program.tput.cup(y, x)
-                ##outbuf += program.tput.el
-                #outbuf += temp.gets_to_end
-                #program.output = old
+                # XXX BAD HAQ
+                temp = IO::Memory.new
+                old = program.output
+                program.output = temp
+                program.tput.cup(y, x)
+                program.tput.el
+                outbuf += temp.gets_to_end
+                program.output = old
                 #######################
                 (x...line.size).each do |xx|
                   o[xx].attr = data

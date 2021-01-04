@@ -21,16 +21,12 @@ module Crysterm
     @@instances = [] of self
     @@_bound = false
 
-    class MyFD < IO::FileDescriptor
-      include EventHandler
-    end
-
     # wth?
     property x = 0
     property y = 0
 
-    property input : MyFD
-    property output : MyFD
+    property input : IO
+    property output : IO
     #@log : Bool
     @type = :program
     @index : Int32 = -1 # -1 so that assignments start from 0
@@ -67,8 +63,8 @@ module Crysterm
     @dump = true
 
     def initialize(
-      @input = MyFD.new(STDIN.fd),
-      @output = MyFD.new(STDOUT.fd),
+      @input = STDIN.dup,
+      @output = STDOUT.dup,
       @log = ::Log.for(self.class),
       @use_buffer = true,
       @force_unicode = false,
@@ -87,14 +83,15 @@ module Crysterm
       @cols = ::Term::Screen.cols || 1
       @rows = ::Term::Screen.rows || 1
 
-      if @dump
-        @input.on(DataEvent) { |d|
-          Log.info { p d }
-        }
-        @output.on(DataEvent) { |d|
-          Log.info { p d }
-        }
-      end
+      # TODO. This doesn't work now that i/o isn't subclass.
+      #if @dump
+      #  @input.on(DataEvent) { |d|
+      #    Log.info { p d }
+      #  }
+      #  @output.on(DataEvent) { |d|
+      #    Log.info { p d }
+      #  }
+      #end
 
       @scroll_top = 0
       @scroll_bottom = @rows - 1
