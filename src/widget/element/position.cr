@@ -23,6 +23,9 @@ module Crysterm::Widget
       def _get_width(get)
         raise "No parent" unless parent = @parent
         parent = get ? parent._get_pos : parent
+        unless parent
+          raise "Something"
+        end
         width = @position.width || 0
         case width
         when String
@@ -74,6 +77,9 @@ module Crysterm::Widget
       def _get_height(get)
         raise "No parent" unless parent = @parent
         parent = get ? parent._get_pos : parent
+        unless parent
+          raise "Something"
+        end
         height = @position.height
         case height
         when String
@@ -125,6 +131,9 @@ module Crysterm::Widget
       def _get_left(get)
         raise "No parent" unless parent = @parent
         parent = get ? parent._get_pos : parent
+        unless parent
+          raise "Something"
+        end
 
         left = @position.left || 0
         case left
@@ -162,6 +171,9 @@ module Crysterm::Widget
       def _get_right(get)
         raise "No parent" unless parent = @parent
         parent = get ? parent._get_pos : parent
+        unless parent
+          raise "Something"
+        end
 
         if @position.right.nil? && @position.left.any?
           right = @screen.width - (_get_left(get) + _get_width(get))
@@ -185,6 +197,9 @@ module Crysterm::Widget
       def _get_top(get)
         raise "No parent" unless parent = @parent
         parent = get ? parent._get_pos : parent
+        unless parent
+          raise "Something"
+        end
         top = @position.top || 0
         case top
         when String
@@ -221,6 +236,9 @@ module Crysterm::Widget
       def _get_bottom(get)
         raise "No parent" unless parent = @parent
         parent = get ? parent._get_pos : parent
+        unless parent
+          raise "Something"
+        end
 
         if @position.bottom.nil? && @position.top.any?
           bottom = @screen.height - (_get_top(get) + _get_height(get))
@@ -434,26 +452,26 @@ module Crysterm::Widget
       end
 
       def _get_shrink(xi, xl, yi, yl, get)
-        shrinkBox = _get_shrink_box(xi, xl, yi, yl, get)
-        shrinkContent = _get_shrink_content(xi, xl, yi, yl)
+        shrink_box = _get_shrink_box(xi, xl, yi, yl, get)
+        shrink_content = _get_shrink_content(xi, xl, yi, yl)
         xll = xl
         yll = yl
 
         # Figure out which one is bigger and use it.
-        if (shrinkBox.xl - shrinkBox.xi > shrinkContent.xl - shrinkContent.xi)
-          xi = shrinkBox.xi
-          xl = shrinkBox.xl
+        if (shrink_box.xl - shrink_box.xi > shrink_content.xl - shrink_content.xi)
+          xi = shrink_box.xi
+          xl = shrink_box.xl
         else
-          xi = shrinkContent.xi
-          xl = shrinkContent.xl
+          xi = shrink_content.xi
+          xl = shrink_content.xl
         end
 
-        if (shrinkBox.yl - shrinkBox.yi > shrinkContent.yl - shrinkContent.yi)
-          yi = shrinkBox.yi
-          yl = shrinkBox.yl
+        if (shrink_box.yl - shrink_box.yi > shrink_content.yl - shrink_content.yi)
+          yi = shrink_box.yi
+          yl = shrink_box.yl
         else
-          yi = shrinkContent.yi
-          yl = shrinkContent.yl
+          yi = shrink_content.yi
+          yl = shrink_content.yl
         end
 
         # Recenter shrunken elements.

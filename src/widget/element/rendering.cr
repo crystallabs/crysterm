@@ -159,6 +159,7 @@ module Crysterm::Widget
           return
         end
 
+        # D O:
         # if (@parent._rendering)
         #   get = true
         # end
@@ -181,8 +182,7 @@ module Crysterm::Widget
 
         # Attempt to shrink the element base on the
         # size of the content and child elements.
-        # TODO
-        if false #(@shrink)
+        if @shrink
           coords = _get_shrink(xi, xl, yi, yl, get)
           xi = coords.xi
           xl = coords.xl
@@ -281,16 +281,21 @@ module Crysterm::Widget
           end
 
           # Shouldn't be necessary.
-          # assert.ok(yi < yl)
+          # (yi < yl) || raise "No good"
           if (yi >= yl)
             p :failsafe
             return
           end
 
+          unless el_lpos = el.lpos
+            puts :Unexpected
+            return
+          end
+
           # Could allow overlapping stuff in scrolling elements
           # if we cleared the pending buffer before every draw.
-          if (xi < el.lpos.xi)
-            xi = el.lpos.xi
+          if (xi < el_lpos.xi)
+            xi = el_lpos.xi
             noleft = true
             if (@border)
               xi-=1
@@ -299,8 +304,8 @@ module Crysterm::Widget
               xi+=1
             end
           end
-          if (xl > el.lpos.xl)
-            xl = el.lpos.xl
+          if (xl > el_lpos.xl)
+            xl = el_lpos.xl
             noright = true
             if (@border)
               xl+=1
@@ -319,7 +324,7 @@ module Crysterm::Widget
 
         parent = @parent.not_nil!
 
-        # TODO
+        # TODO causes may-hem
         #if (@no_overflow && parent.lpos)
         #  if (xi < parent.lpos.xi + parent.ileft)
         #    xi = parent.lpos.xi + parent.ileft
@@ -335,10 +340,11 @@ module Crysterm::Widget
         #  end
         #end
 
+        # D O:
         # if (parent.lpos)
         #   parent.lpos._scroll_bottom = Math.max(parent.lpos._scroll_bottom, yl)
         # end
-          p xi, xl, yi, xl
+        #p xi, xl, yi, xl
 
         v = LPos.new \
           xi: xi,
@@ -359,24 +365,24 @@ module Crysterm::Widget
       def render()
         emit PreRenderEvent
 
-        parse_content()
+        parse_content
 
         coords = _get_coords(true)
         if (!coords)
-          @lpos = LPos.new # XXX Originally, should delete value
+          @lpos = nil
           return
         end
 
         if (coords.xl - coords.xi <= 0)
           coords.xl = Math.max(coords.xl, coords.xi)
           p :bad1
-          #return
+          return
         end
 
         if (coords.yl - coords.yi <= 0)
           coords.yl = Math.max(coords.yl, coords.yi)
           p :bad2
-          #return
+          return
         end
 
         lines = @screen.lines
@@ -389,9 +395,8 @@ module Crysterm::Widget
         #cell
         #attr
         #ch
-        content = @_pcontent
-        # TODO
-        ci = 0 #@_clines.ci[coords.base]
+        content = @_pcontent || ""
+        ci = @_clines.ci[coords.base]
         #battr
         #dattr
         #c
@@ -426,7 +431,8 @@ module Crysterm::Widget
         # end
 
         if (coords.base >= @_clines.ci.size)
-          ci = @_pcontent.try(&.size) || 0
+          # Can be @_pcontent, but this is the same here, plus not_nil!
+          ci = content.size
         end
 
         @lpos = coords
@@ -435,6 +441,7 @@ module Crysterm::Widget
           if (border.type == Tput::BorderType::Line)
             @screen._border_stops[coords.yi] = true
             @screen._border_stops[coords.yl - 1] = true
+            # D O:
             # if (!@screen._border_stops[coords.yi])
             #   @screen._border_stops[coords.yi] = { xi: coords.xi, xl: coords.xl }
             # else
@@ -449,15 +456,13 @@ module Crysterm::Widget
           end
         end
 
-        dattr = 0 #sattr(@style)
+        dattr = sattr(@style)
         attr = dattr
 
         # If we're in a scrollable text box, check to
         # see which attributes this line starts with.
         if (ci > 0)
-          # TODO
-          #attr = @_clines.attr[Math.min(coords.base, @_clines.size - 1)]
-          attr = 0
+          attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || 0
         end
 
         if (@border)
@@ -472,17 +477,18 @@ module Crysterm::Widget
         # To deal with this, we can just fill the whole thing
         # ahead of time. This could be optimized.
         if (tpadding || (@valign && @valign != "top"))
-          if false # XXX (@style.transparent)
+          if @style.try &.transparent
             (Math.max(yi, 0)...yl).each do |y|
-              if (!lines[y])
+              if (!lines[y]?)
                 break
               end
               (Math.max(xi, 0)...xl).each do |x|
-                if (!lines[y][x])
+                if (!lines[y][x]?)
                   break
                 end
                 # TODO
                 #lines[y][x].attr= colors.blend(attr, lines[y][x].attr)
+                lines[y][x].attr= 0
                 # D O:
                 # lines[y][x].char = bch
                 lines[y].dirty = true
@@ -500,7 +506,7 @@ module Crysterm::Widget
           yl -= @padding.bottom
         end
 
-        # Determine where to place the text if it"s vertically aligned.
+        # Determine where to place the text if it's vertically aligned.
         if (@valign == "middle" || @valign == "bottom")
           visible = yl - yi
           if (@_clines.size < visible)
@@ -516,7 +522,7 @@ module Crysterm::Widget
 
         # Draw the content and background.
         (yi...yl).each do |y|
-          if (!lines[y])
+          if (!lines[y]?)
             if (y >= @screen.height || yl < @ibottom)
               break
             else
@@ -524,7 +530,7 @@ module Crysterm::Widget
             end
           end
           (xi...xl).each do |x|
-            cell = lines[y][x]
+            cell = lines[y][x]?
             if (!cell)
               if (x >= @screen.width || xl < @iright)
                 break
@@ -533,7 +539,7 @@ module Crysterm::Widget
               end
             end
 
-            ch = content.try{ |c| c[ci]? } || bch
+            ch = content[ci]? || bch
             ci += 1
 
             # D O:
@@ -543,18 +549,19 @@ module Crysterm::Widget
 
             # Handle escape codes.
             while (ch == "\x1b")
-              cnt = (content||"")[(ci-1)..]
-              if (cnt && ( c = cnt.match /^\x1b\[[\d;]*m/))
+              cnt = content[(ci-1)..]
+              if (c = cnt.match /^\x1b\[[\d;]*m/)
                 ci += c[0].size - 1
                 attr = @screen.attr_code(c[0], attr, dattr)
+                # D O:
                 # Ignore foreground changes for selected items.
-                # XXX Enable when lists exist, then restrict to List
+                # XXX But, Enable when lists exist, then restrict to List
                 #if (parent = @parent) && parent.is_a? Crysterm::Widget::Element
                 #  if (parent._isList && parent.interactive && parent.items[parent.selected] == self && parent.options.invert_selected != false)
                 #    attr = (attr & ~(0x1ff << 9)) | (dattr & (0x1ff << 9))
                 #  end
                 #end
-                ch = content.try(&.[ci]?) || bch
+                ch = content[ci] || bch
                 ci += 1
               else
                 break
@@ -569,7 +576,7 @@ module Crysterm::Widget
               # If we're on the first cell and we find a newline and the last cell
               # of the last line was not a newline, let's just treat this like the
               # newline was already "counted".
-              if (x == xi && y != yi && content.try { |c| c[ci - 2]? != '\n'})
+              if ((x == xi) && (y != yi) && (content[ci - 2]? != '\n'))
                 x-=1
                 next
               end
@@ -577,20 +584,21 @@ module Crysterm::Widget
               # outer loop, and continue to it instead.
               ch = bch
               while(x < xl)
-                cell = lines[y][x]
+                cell = lines[y][x]?
                 if (!cell)
                   break
                 end
-                if false #(@style.transparent)
+                if @style.try &.transparent
                   # TODO
                   #lines[y][x].attr = colors.blend(attr, lines[y][x].attr)
-                  if (content.try &.[ci]?)
+                  lines[y][x].attr = 0
+                  if (content[ci]?)
                     lines[y][x].char = ch
                   end
                   lines[y].dirty = true
                 else
                   if (attr != cell.attr || ch != cell.char)
-                    # XXX lines[y][x].attr = attr
+                    lines[y][x].attr = attr
                     lines[y][x].char = ch
                     lines[y].dirty = true
                   end
@@ -599,8 +607,6 @@ module Crysterm::Widget
               end
               next
             end
-
-            content ||= "" # Enough of if()s
 
             # TODO
             #if (@screen.full_unicode && content[ci - 1])
@@ -630,20 +636,17 @@ module Crysterm::Widget
               #end
             end
 
-            if (@_no_fill)
-              next
-            end
-
-            if false # (@style.transparent) XXX
+            if @style.try &.transparent
               # XXX lines[y][x].attr = colors.blend(attr, lines[y][x].attr)
-              if (content[ci])
-                lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
+              lines[y][x].attr = 0
+              if (content[ci]?)
+                lines[y][x].char = ch
               end
               lines[y].dirty = true
             else
-              if (attr != cell.attr || ch != cell.char)
-                # XXX lines[y][x].attr = attr
-                lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
+              if ((attr != cell.attr) || (ch != cell.char))
+                lines[y][x].attr = attr
+                lines[y][x].char = ch
                 lines[y].dirty = true
               end
             end
@@ -652,14 +655,17 @@ module Crysterm::Widget
 
         # Draw the scrollbar.
         # Could possibly draw this after all child elements.
+        if (@scrollbar)
+          # D O:
+          # i = @get_scroll_height()
+          # TODO:
+          # (Scroll bottom is from scrollable)
+          #i = Math.max(@_clines.size, _scroll_bottom)
+          i = @_clines.size
+        end
         if (coords.notop || coords.nobot)
           i = -Int32::MAX
         end
-        ###if (@scrollbar)
-        ###  # XXX
-        ###  # i = @get_scroll_height()
-        ###  i = Math.max(@_clines.size, _scroll_bottom())
-        ###end
         ###if (@scrollbar && (yl - yi) < i)
         ###  x = xl - 1
         ###  if (@scrollbar.ignore_border && @border)
@@ -711,13 +717,13 @@ module Crysterm::Widget
 
         # Draw the border.
         if (border = @border)
-          battr = 0 #sattr(@style.border)
+          battr = sattr(@style.not_nil!.border)
           y = yi
           if (coords.notop)
             y = -1
           end
           (xi...xl).each do |x|
-            if (!lines[y])
+            if (!lines[y]?)
               break
             end
             if (coords.noleft && x == xi)
@@ -726,43 +732,44 @@ module Crysterm::Widget
             if (coords.noright && x == xl - 1)
               next
             end
-            cell = lines[y][x]
+            cell = lines[y][x]?
             if (!cell)
               next
             end
-            if (border.type == "line")
-              if (x == xi)
-                ch = '\u250c'; # '┌'
-                if (!border.left)
-                  if (border.top)
-                    ch = '\u2500'; # '─'
-                  else
-                   next 
-                  end
-                else
-                  if (!border.top)
-                    ch = '\u2502'; # '│'
-                  end
-                end
-              elsif (x == xl - 1)
-                ch = '\u2510'; # '┐'
-                if (!border.right)
-                  if (border.top)
-                    ch = '\u2500'; # '─'
-                  else
-                    next
-                  end
-                else
-                  if (!border.top)
-                    ch = '\u2502'; # '│'
-                  end
-                end
-              else
-                ch = '\u2500'; # '─'
-              end
-            elsif (border.type == "bg")
-              ch = border.ch
-            end
+            # TODO Enable
+            #if (border.type == "line")
+            #  if (x == xi)
+            #    ch = '\u250c'; # '┌'
+            #    if (!border.left)
+            #      if (border.top)
+            #        ch = '\u2500'; # '─'
+            #      else
+            #       next
+            #      end
+            #    else
+            #      if (!border.top)
+            #        ch = '\u2502'; # '│'
+            #      end
+            #    end
+            #  elsif (x == xl - 1)
+            #    ch = '\u2510'; # '┐'
+            #    if (!border.right)
+            #      if (border.top)
+            #        ch = '\u2500'; # '─'
+            #      else
+            #        next
+            #      end
+            #    else
+            #      if (!border.top)
+            #        ch = '\u2502'; # '│'
+            #      end
+            #    end
+            #  else
+            #    ch = '\u2500'; # '─'
+            #  end
+            #elsif (border.type == "bg")
+            #  ch = border.ch
+            #end
             if (!border.top && x != xi && x != xl - 1)
               ch = ' '
               if (dattr != cell.attr || ch != cell.char)

@@ -29,6 +29,7 @@ module Crysterm
       property transparent : Bool
       #property hover : Bool
       #property focus : Bool
+      property border : Style? = nil
 
       def initialize(
         @fg = "white",
@@ -38,7 +39,8 @@ module Crysterm
         @blink = false,
         @inverse = false,
         @invisible = false,
-        @transparent = false
+        @transparent = false,
+        @border = nil,
       )
       end
     end
