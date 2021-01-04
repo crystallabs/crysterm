@@ -39,13 +39,14 @@ module Crysterm::Widget
         if (get)
           _lpos = @lpos
           @lpos = LPos.new xi: xi, xl: xl, yi: yi, yl: yl
-          # Disabled originally:
+          # D O:
           #@shrink = false
         end
 
         @children.each_with_index do |el, i|
           ret = el._get_coords(get)
 
+          # D O:
           # Or just (seemed to work, but probably not good):
           # ret = el.lpos || @lpos
 
@@ -93,7 +94,8 @@ module Crysterm::Widget
         end
 
         if (get)
-          @lpos = _lpos || LPos.new # XXX || crap
+          @lpos = _lpos.not_nil!
+          # D O:
           #@shrink = true
         end
 
@@ -124,7 +126,6 @@ module Crysterm::Widget
             end
           end
         end
-
         if (@position.height.nil?  && (@position.top.nil?  || @position.bottom.nil?) && (!@scrollable || @_isList))
           # NOTE: Lists get special treatment if they are shrunken - assume they
           # want all list items showing. This is one case we can calculate the

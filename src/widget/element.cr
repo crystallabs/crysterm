@@ -284,8 +284,7 @@ module Crysterm
           bg = style.bg
         end
 
-        #if style.bold? bold()
-        #,,,
+        # Support style.* being Procs
 
         ((style.invisible ? 16 : 0) << 18) |
         ((style.inverse ? 8 : 0) << 18)    |
