@@ -15,3 +15,7 @@ dependencies:
     #github: crystallabs/crystallabs-helpers.cr
     #branch: master
     path: ../crystallabs-helpers.cr
+  term_colors:
+    #github: crystallabs/term_colors
+    #branch: master
+    path: ../term_colors

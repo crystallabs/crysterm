@@ -294,9 +294,9 @@ module Crysterm
         ((style.inverse ? 8 : 0) << 18)    |
         ((style.blink ? 4 : 0) << 18)      |
         ((style.underline ? 2 : 0) << 18)  |
-        ((style.bold ? 1 : 0) << 18)       #|
-        #(colors.convert(fg) << 9)    |
-        #colors.convert(bg)
+        ((style.bold ? 1 : 0) << 18)       |
+        (Colors.convert(fg) << 9)    |
+        Colors.convert(bg)
       end
 
       def free

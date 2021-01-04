@@ -396,6 +396,7 @@ module Crysterm::Widget
         #attr
         #ch
         content = @_pcontent || ""
+        Log.trace { content }
         ci = @_clines.ci[coords.base]
         #battr
         #dattr
@@ -486,9 +487,7 @@ module Crysterm::Widget
                 if (!lines[y][x]?)
                   break
                 end
-                # TODO
-                #lines[y][x].attr= colors.blend(attr, lines[y][x].attr)
-                lines[y][x].attr= 0
+                lines[y][x].attr= Colors.blend(attr, lines[y][x].attr)
                 # D O:
                 # lines[y][x].char = bch
                 lines[y].dirty = true
@@ -540,6 +539,7 @@ module Crysterm::Widget
             end
 
             ch = content[ci]? || bch
+            #Log.trace { ch }
             ci += 1
 
             # D O:
@@ -568,6 +568,8 @@ module Crysterm::Widget
               end
             end
 
+            #Log.trace { ch }
+
             # Handle newlines.
             if (ch == '\t')
               ch = bch
@@ -589,9 +591,7 @@ module Crysterm::Widget
                   break
                 end
                 if @style.try &.transparent
-                  # TODO
-                  #lines[y][x].attr = colors.blend(attr, lines[y][x].attr)
-                  lines[y][x].attr = 0
+                  lines[y][x].attr = Colors.blend(attr, lines[y][x].attr)
                   if (content[ci]?)
                     lines[y][x].char = ch
                   end
@@ -637,8 +637,7 @@ module Crysterm::Widget
             end
 
             if @style.try &.transparent
-              # XXX lines[y][x].attr = colors.blend(attr, lines[y][x].attr)
-              lines[y][x].attr = 0
+              lines[y][x].attr = Colors.blend(attr, lines[y][x].attr)
               if (content[ci]?)
                 lines[y][x].char = ch
               end
@@ -923,10 +922,8 @@ module Crysterm::Widget
                 break
               end
               # D O:
-              # lines[y][x].attr = colors.blend(@dattr, lines[y][x].attr)
-              # TODO
-              #lines[y][x].attr = colors.blend(lines[y][x].attr)
-              lines[y][x].attr = 0
+              # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
+              lines[y][x].attr = Colors.blend(lines[y][x].attr)
               lines[y].dirty = true
               x+=1
             end
@@ -943,10 +940,8 @@ module Crysterm::Widget
                 break
               end
               # D O:
-              # lines[y][x].attr = colors.blend(@dattr, lines[y][x].attr)
-              # TODO
-              #lines[y][x].attr = colors.blend(lines[y][x].attr)
-              lines[y][x].attr = 0
+              # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
+              lines[y][x].attr = Colors.blend(lines[y][x].attr)
               lines[y].dirty = true
             end
             y += 1

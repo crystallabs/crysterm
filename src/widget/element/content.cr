@@ -97,7 +97,7 @@ module Crysterm::Widget
           @_clines.ci = [] of Int32
           @_clines.reduce(0) do |total, line|
             @_clines.ci.push(total)
-            return total + line.size + 1
+            total + line.size + 1
           end
 
           @_pcontent = @_clines.join "\n"
@@ -105,7 +105,7 @@ module Crysterm::Widget
           Log.trace { "#{@width} x #{@height}" }
           emit ParsedContentEvent
 
-          return true
+          true
         end
 
         # Need to calculate this every time because the default fg/bg may change.

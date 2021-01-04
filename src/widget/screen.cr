@@ -427,7 +427,7 @@ module Crysterm
         #return this.program.cursorShape(this.cursor.shape, this.cursor.blink);
       end
       def cursor_color(color)
-        #@cursor.color = color.try { |c| colors.convert(c) }
+        #@cursor.color = color.try { |c| Colors.convert(c) }
         #@cursor._set = true
 
         #if (@cursor.artificial)
@@ -480,7 +480,7 @@ module Crysterm
       end
 
       def draw(start=0, stop=@lines.size-1)
-        #// this.emit('predraw');
+        # this.emit('predraw');
 
         #var x , y , line , out , ch , data , attr , fg , bg , flags;
         #var main = '' , pre , post;
@@ -501,11 +501,12 @@ module Crysterm
         (start..stop).each do |y|
           line = @lines[y]
           o = @olines[y]
+          #Log.trace { line } if line.any? &.char.!=(' ')
 
           # TODO with this it's skipping everything
-          #if (!line.dirty && !(@cursor.try &.artificial && (y == program.y)))
-          #  next
-          #end
+          if (!line.dirty && !(@cursor.try &.artificial && (y == program.y)))
+            next
+          end
           line.dirty = false
 
           # Assume line is dirty by continuing: (XXX need to optimize)
@@ -518,7 +519,7 @@ module Crysterm
             ch = line[x].char
 
             c = @cursor.not_nil!
-            #// Render the artificial cursor.
+            # Render the artificial cursor.
             if (c.artificial && !c._hidden && c._state && x == program.x && y == program.y)
               cattr = _cursor_attr(c, data)
               if (cattr.char)
@@ -527,9 +528,9 @@ module Crysterm
               data = cattr.attr
             end
 
-            #// Take advantage of xterm's back_color_erase feature by using a
-            #// lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
-            #// the bg for non BCE terminals worth the overhead?
+            # Take advantage of xterm's back_color_erase feature by using a
+            # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
+            # the bg for non BCE terminals worth the overhead?
             if (@use_bce &&
                 ch == ' ' &&
                 (program.tput.terminfo.try &.get(Unibilium::Entry::Boolean::Back_color_erase) ||
@@ -795,9 +796,8 @@ module Crysterm
           end
 
           if outbuf
-            # TODO
-            #main += program.tput.cup(y, 0) + outbuf
-            main += outbuf
+            # TODO, again remove strings use
+            main += String.new(s.cup(y, 0).to_slice) + outbuf
           end
         end
 
@@ -950,7 +950,7 @@ module Crysterm
       end
 
       def _reduce_color(col)
-        col
+        Colors.reduce(col, program.tput.features.number_of_colors)
       end
 
       def clear_region(xi, xl, yi, yl, override)
@@ -1392,8 +1392,7 @@ module Crysterm
                 break
               elsif (c == 48 && code[i+1] == 2)
                 i += 2
-                # TODO
-                #bg = colors.match(code[i], code[i+1], code[i+2])
+                bg = Colors.match(code[i].to_i, code[i+1].to_i, code[i+2].to_i)
                 if (bg == -1)
                   bg = dfl & 0x1ff
                 end
@@ -1405,8 +1404,7 @@ module Crysterm
                 break
               elsif (c == 38 && code[i+1] == 2)
                 i += 2
-                # TODO
-                #fg = colors.match(code[i], code[i+1], code[i+2])
+                fg = Colors.match(code[i].to_i, code[i+1].to_i, code[i+2].to_i)
                 if (fg == -1)
                   fg = (dfl >> 9) & 0x1ff
                 end
