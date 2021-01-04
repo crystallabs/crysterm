@@ -387,6 +387,7 @@ module Crysterm
 
       #################
 
+      # TODO
       def cursor_shape(shape, blink)
         #@cursor.shape = shape || 'block'
         #@cursor.blink = blink || false
@@ -555,9 +556,16 @@ module Crysterm
                   outbuf += code_attr(data)
                   attr = data
                 end
-                # TODO Joooj
-                #outbuf += program.tput.cup(y, x)
-                #outbuf += program.tput.el()
+                #######################
+                #temp = IO::Memory.new
+                #old = program.output
+                #program.output = temp
+                ## TODO
+                ##outbuf += program.tput.cup(y, x)
+                ##outbuf += program.tput.el
+                #outbuf += temp.gets_to_end
+                #program.output = old
+                #######################
                 (x...line.size).each do |xx|
                   o[xx].attr = data
                   o[xx].char = ' '
@@ -1322,7 +1330,7 @@ module Crysterm
       # Convert an SGR string to our own attribute format.
       def attr_code(code, cur, dfl)
         if cur.is_a? Char
-          raise "It's char ey"
+          raise "It's a char ey"
         end
         flags = (cur >> 18) & 0x1ff
         fg = (cur >> 9) & 0x1ff
@@ -1330,14 +1338,13 @@ module Crysterm
         #c
         #i
 
-        # XXX something incorrect here?
-        code = code[2..-1].to_s.split(';')
-        if (!code[0]?)
+        code = code[2...-1].split(';')
+        if (!code[0]? || code[0].blank?)
           code[0] = "0"
         end
 
         (0..code.size).each do |i|
-          c = code[i][0] || '0'
+          c = !code[i].blank? ? code[i].to_i : 0
           case c
             when 0 # normal
               bg = dfl & 0x1ff
@@ -1410,22 +1417,21 @@ module Crysterm
                 i += 2
                 break
               end
-              co = c.ord
-              if (co >= 40 && co <= 47)
-                bg = co - 40
-              elsif (co >= 100 && co <= 107)
-                bg = co - 100
+              if (c >= 40 && c <= 47)
+                bg = c - 40
+              elsif (c >= 100 && c <= 107)
+                bg = c - 100
                 bg += 8
-              elsif (co == 49)
+              elsif (c == 49)
                 bg = dfl & 0x1ff
-              elsif (co >= 30 && co <= 37)
-                fg = co - 30
-              elsif (co >= 90 && co <= 97)
-                fg = co - 90
+              elsif (c >= 30 && c <= 37)
+                fg = c - 30
+              elsif (c >= 90 && c <= 97)
+                fg = c - 90
                 fg += 8
-              elsif (co == 39)
+              elsif (c == 39)
                 fg = (dfl >> 9) & 0x1ff
-              elsif (co == 100)
+              elsif (c == 100)
                 fg = (dfl >> 9) & 0x1ff
                 bg = dfl & 0x1ff
               end

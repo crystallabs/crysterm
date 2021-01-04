@@ -29,8 +29,8 @@ module Crysterm
     property x = 0
     property y = 0
 
-    @input : MyFD
-    @output : MyFD
+    property input : MyFD
+    property output : MyFD
     #@log : Bool
     @type = :program
     @index : Int32 = -1 # -1 so that assignments start from 0
