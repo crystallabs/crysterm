@@ -281,7 +281,7 @@ module Crysterm::Widget
         this.emit ResizeEvent
         val
       end
-      def height=(val)
+      def height=(val : Int)
         return if @height == val
         clear_pos
         @position.height = val
@@ -289,7 +289,7 @@ module Crysterm::Widget
         val
       end
 
-      def aleft=(val)
+      def aleft=(val : Int)
         if (val.is_a? String)
           if (val == "center")
             val = @screen.width // 2
@@ -312,7 +312,7 @@ module Crysterm::Widget
         val
       end
 
-      def aright=(val)
+      def aright=(val : Int)
         val -= @parent.not_nil!.aright
         return if (@position.right == val)
         clear_pos
@@ -321,7 +321,7 @@ module Crysterm::Widget
         val
       end
 
-      def atop=(val)
+      def atop=(val : Int)
         if (val.is_a? String)
           if (val == "center")
             val = @screen.height // 2
@@ -342,7 +342,7 @@ module Crysterm::Widget
         val
       end
 
-      def abottom=(val)
+      def abottom=(val : Int)
         val -= @parent.not_nil!.abottom
         return if (@position.bottom == val)
         clear_pos
@@ -351,7 +351,6 @@ module Crysterm::Widget
         val
       end
 
-      # TODO add restrictions to all these args up and below
       def rleft=(val : Int)
         return if (@position.left == val)
         clear_pos
@@ -360,7 +359,7 @@ module Crysterm::Widget
         val
       end
 
-      def rright=(val)
+      def rright=(val : Int)
         return if (@position.right == val)
         clear_pos
         @position.right = val
@@ -368,7 +367,7 @@ module Crysterm::Widget
         val
       end
 
-      def rtop=(val)
+      def rtop=(val : Int)
         return if (@position.top == val)
         clear_pos
         @position.top = val
@@ -376,7 +375,7 @@ module Crysterm::Widget
         val
       end
 
-      def rbottom=(val)
+      def rbottom=(val : Int)
         return if (@position.bottom == val)
         clear_pos
         @position.bottom = val

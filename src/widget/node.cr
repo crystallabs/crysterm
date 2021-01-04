@@ -84,10 +84,9 @@ module Crysterm
          return
         end
 
-        # TODO Enable
-        #if element.screen != @screen
-        #  raise Exception.new("Cannot switch a node's screen.");
-        #end
+        if element.screen != @screen
+          raise Exception.new("Cannot switch a node's screen.");
+        end
 
         element.detach
         element.parent = self
@@ -96,16 +95,15 @@ module Crysterm
 
         @children.insert i, element
 
-        # TODO Enable
-        #element.emit(ReparentEvent, self);
-        #emit(AdoptEvent, element);
+        element.emit(ReparentEvent, self);
+        emit(AdoptEvent, element);
 
         emt = ->(el : Node) {
           n = el.detached? != @detached
           el.detached = @detached
-          # TODO Enable
-          #el.emit(AttachEvent) if n
-          #el.children.each do |c| c.emt end # wt
+          el.emit(AttachEvent) if n
+          # TODO
+          #el.children.each do |c| c.emt end
         }
         emt.call element
         #(function emit(el)
@@ -116,9 +114,9 @@ module Crysterm
         #})(element);
 
         # TODO enable
-        #unless @screen.focused
-        #  @screen.focused = element
-        #end
+        unless @screen.focused
+          @screen.focused = element
+        end
       end
 
       def detach
@@ -130,8 +128,7 @@ module Crysterm
 
         return unless i = @children.index(element)
 
-        # TODO Enable
-        #element.clear_pos();
+        element.clear_pos
 
         element.parent = nil
         @children.delete_at i
@@ -144,9 +141,8 @@ module Crysterm
         #  @screen.keyable.delete_at i
         #end
 
-        # TODO Enable
-        #element.emit(ReparentEvent, nil)
-        #emit(RemoveEvent, element);
+        element.emit(ReparentEvent, nil)
+        emit(RemoveEvent, element);
 
         #s= @screen
         #raise Exception.new() unless s
@@ -162,10 +158,10 @@ module Crysterm
         }
         emt.call element
 
-        # TODO Enable
-        #if @screen.focused == element
-        #  @screen.rewind_focus
-        #end
+        if @screen.focused == element
+          # TODO
+          #@screen.rewind_focus
+        end
       end
 
       def prepend(element)
@@ -190,8 +186,7 @@ module Crysterm
         end
         detach
         @destroyed = true
-        # TODO Enable
-        #emit DestroyedEvent
+        emit DestroyedEvent
       end
 
       # TODO

@@ -23,4 +23,8 @@ module Crysterm
 
     event SetContentEvent
     event ParsedContentEvent
+
+    event ReparentEvent, element : Widget::Node?
+    event AdoptEvent, element : Widget::Element
+    event RemoveEvent, element : Widget::Element
 end

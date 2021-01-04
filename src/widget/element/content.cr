@@ -237,8 +237,7 @@ module Crysterm::Widget
       end
 
       def _parse_attr(lines)
-        # TODO
-        dattr = @screen.dattr #sattr(@style)
+        dattr = sattr(@style)
         attr = dattr
         attrs = [] of Int32
         #line

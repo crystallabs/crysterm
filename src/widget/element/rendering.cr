@@ -228,9 +228,8 @@ module Crysterm::Widget
             return
           end
 
-          # TODO: Figure out how to fix base (and cbase to only
+          # Figure out how to fix base (and cbase) to only
           # take into account the *parent's* padding.
-
           yi -= ppos.base
           yl -= ppos.base
 
@@ -324,21 +323,20 @@ module Crysterm::Widget
 
         parent = @parent.not_nil!
 
-        # TODO causes may-hem
-        #if (@no_overflow && parent.lpos)
-        #  if (xi < parent.lpos.xi + parent.ileft)
-        #    xi = parent.lpos.xi + parent.ileft
-        #  end
-        #  if (xl > parent.lpos.xl - parent.iright)
-        #    xl = parent.lpos.xl - parent.iright
-        #  end
-        #  if (yi < parent.lpos.yi + parent.itop)
-        #    yi = parent.lpos.yi + parent.itop
-        #  end
-        #  if (yl > parent.lpos.yl - parent.ibottom)
-        #    yl = parent.lpos.yl - parent.ibottom
-        #  end
-        #end
+        if (@no_overflow && (plp = parent.lpos))
+          if (xi < plp.xi + parent.ileft)
+            xi = plp.xi + parent.ileft
+          end
+          if (xl > plp.xl - parent.iright)
+            xl = plp.xl - parent.iright
+          end
+          if (yi < plp.yi + parent.itop)
+            yi = plp.yi + parent.itop
+          end
+          if (yl > plp.yl - parent.ibottom)
+            yl = plp.yl - parent.ibottom
+          end
+        end
 
         # D O:
         # if (parent.lpos)
