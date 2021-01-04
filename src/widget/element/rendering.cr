@@ -736,61 +736,61 @@ module Crysterm::Widget
             if (!cell)
               next
             end
-            # TODO Enable
-            #if (border.type == "line")
-            #  if (x == xi)
-            #    ch = '\u250c'; # '┌'
-            #    if (!border.left)
-            #      if (border.top)
-            #        ch = '\u2500'; # '─'
-            #      else
-            #       next
-            #      end
-            #    else
-            #      if (!border.top)
-            #        ch = '\u2502'; # '│'
-            #      end
-            #    end
-            #  elsif (x == xl - 1)
-            #    ch = '\u2510'; # '┐'
-            #    if (!border.right)
-            #      if (border.top)
-            #        ch = '\u2500'; # '─'
-            #      else
-            #        next
-            #      end
-            #    else
-            #      if (!border.top)
-            #        ch = '\u2502'; # '│'
-            #      end
-            #    end
-            #  else
-            #    ch = '\u2500'; # '─'
-            #  end
-            #elsif (border.type == "bg")
-            #  ch = border.ch
-            #end
+            # XXX change type -- BorderType is an enum
+            if (border.type == "line")
+              if (x == xi)
+                ch = '\u250c'; # '┌'
+                if (!border.left)
+                  if (border.top)
+                    ch = '\u2500'; # '─'
+                  else
+                   next
+                  end
+                else
+                  if (!border.top)
+                    ch = '\u2502'; # '│'
+                  end
+                end
+              elsif (x == xl - 1)
+                ch = '\u2510'; # '┐'
+                if (!border.right)
+                  if (border.top)
+                    ch = '\u2500'; # '─'
+                  else
+                    next
+                  end
+                else
+                  if (!border.top)
+                    ch = '\u2502'; # '│'
+                  end
+                end
+              else
+                ch = '\u2500'; # '─'
+              end
+            elsif (border.type == "bg")
+              ch = border.ch
+            end
             if (!border.top && x != xi && x != xl - 1)
               ch = ' '
               if (dattr != cell.attr || ch != cell.char)
-                # XXX lines[y][x].attr = dattr
-                lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
+                lines[y][x].attr = dattr
+                lines[y][x].char = ch
                 lines[y].dirty = true
                 next
               end
             end
             if (battr != cell.attr || ch != cell.char)
-              # XXX lines[y][x].attr = battr
-              lines[y][x].char = ch.is_a?(String) ? ch[0] : (ch||' ')
+              lines[y][x].attr = battr
+              lines[y][x].char = ch ? ch : ' ' # XXX why ch can be nil?
               lines[y].dirty = true
             end
           end
           y = yi + 1
           while(y < yl - 1)
-            if (!lines[y])
+            if (!lines[y]?)
               next
             end
-            cell = lines[y][xi]
+            cell = lines[y][xi]?
             if (cell)
               if (border.left)
                 if (border.type == "line")
@@ -801,7 +801,7 @@ module Crysterm::Widget
                 if (!coords.noleft)
                   if (battr != cell.attr || ch != cell.char)
                     lines[y][xi].attr = battr
-                    lines[y][xi].char = ch.is_a?(String) ? ch[0] : (ch||' ')
+                    lines[y][xi].char = ch ? ch : ' '
                     lines[y].dirty = true
                   end
                 end
@@ -809,14 +809,15 @@ module Crysterm::Widget
                 ch = ' '
                 if (dattr != cell.attr || ch != cell.char)
                   lines[y][xi].attr = dattr
-                  lines[y][xi].char = ch.is_a?(String) ? ch[0] : (ch||' ')
+                  lines[y][xi].char = ch ? ch : ' '
                   lines[y].dirty = true
                 end
               end
             end
-            cell = lines[y][xl - 1]
+            cell = lines[y][xl - 1]?
             if (cell)
               if (border.right)
+                # XXX same here, change type
                 if (border.type == "line")
                   ch = '\u2502'; # '│'
                 elsif (border.type == "bg")
@@ -825,7 +826,7 @@ module Crysterm::Widget
                 if (!coords.noright)
                   if (battr != cell.attr || ch != cell.char)
                     lines[y][xl - 1].attr = battr
-                    lines[y][xl - 1].char = ch.is_a?(String) ? ch[0] : (ch||' ')
+                    lines[y][xl - 1].char = ch ? ch : ' '
                     lines[y].dirty = true
                   end
                 end
@@ -833,7 +834,7 @@ module Crysterm::Widget
                 ch = ' '
                 if (dattr != cell.attr || ch != cell.char)
                   lines[y][xl - 1].attr = dattr
-                  lines[y][xl - 1].char = ch.is_a?(String) ? ch[0] : (ch||' ')
+                  lines[y][xl - 1].char = ch ? ch : ' '
                   lines[y].dirty = true
                 end
               end
@@ -845,7 +846,7 @@ module Crysterm::Widget
             y = -1
           end
           (xi...xl).each do |x|
-            if (!lines[y])
+            if (!lines[y]?)
               break
             end
             if (coords.noleft && x == xi)
@@ -854,10 +855,11 @@ module Crysterm::Widget
             if (coords.noright && x == xl - 1)
               next
             end
-            cell = lines[y][x]
+            cell = lines[y][x]?
             if (!cell)
               next
             end
+            # XXX change type, it's an enum
             if (border.type == "line")
               if (x == xi)
                 ch = '\u2514'; # '└'
@@ -894,15 +896,15 @@ module Crysterm::Widget
             if (!border.bottom && x != xi && x != xl - 1)
               ch = ' '
               if (dattr != cell.attr || ch != cell.char)
-                # XXX lines[y][x].attr = dattr
-                lines[y][x].char = ch.is_a?(String) ? ch[0] : (ch||' ')
+                lines[y][x].attr = dattr
+                lines[y][x].char = ch ? ch : ' '
                 lines[y].dirty = true
               end
               next
             end
             if (battr != cell.attr || ch != cell.char)
-              # XXX lines[y][x].attr = battr
-              lines[y][x].char = ch.is_a?(String) ? ch[0] : (ch||' ')
+              lines[y][x].attr = battr
+              lines[y][x].char = ch ? ch : ' '
               lines[y].dirty = true
             end
           end
@@ -912,17 +914,19 @@ module Crysterm::Widget
           # right
           y = Math.max(yi + 1, 0)
           while(y<yl)
-            if (!lines[y])
+            if (!lines[y]?)
               break
             end
             x = xl
             while( x < xl + 2)
-              if (!lines[y][x])
+              if (!lines[y][x]?)
                 break
               end
+              # D O:
               # lines[y][x].attr = colors.blend(@dattr, lines[y][x].attr)
               # TODO
               #lines[y][x].attr = colors.blend(lines[y][x].attr)
+              lines[y][x].attr = 0
               lines[y].dirty = true
               x+=1
             end
@@ -931,21 +935,34 @@ module Crysterm::Widget
           # bottom
           y = yl
           while(y<yl+1)
-            if (!lines[y])
+            if (!lines[y]?)
               break
             end
             (Math.max(xi + 1, 0)...xl).each do |x|
-              if (!lines[y][x])
+              if (!lines[y][x]?)
                 break
               end
+              # D O:
               # lines[y][x].attr = colors.blend(@dattr, lines[y][x].attr)
               # TODO
               #lines[y][x].attr = colors.blend(lines[y][x].attr)
+              lines[y][x].attr = 0
               lines[y].dirty = true
             end
             y += 1
           end
         end
+
+        @children.each do |el|
+          if el.screen._ci != -1
+            el.index = el.screen._ci
+            el.screen._ci += 1
+          end
+
+          el.render
+        end
+
+        emit RenderEvent #, coords
 
         coords
       end

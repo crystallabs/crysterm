@@ -140,7 +140,7 @@ module Crysterm
       @grab_keys = false
       @lock_keys = false
       @_buf = ""
-      @_ci = -1
+      property _ci = -1
 
       getter! cursor : Tput::Cursor
 

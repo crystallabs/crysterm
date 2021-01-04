@@ -278,7 +278,7 @@ module Crysterm
         self.index= 0
       end
 
-      def sattr(style, fg=nil, bg=nil
+      def sattr(style, fg=nil, bg=nil)
 
         # TODO see why this can be nil
         style = style.not_nil!
