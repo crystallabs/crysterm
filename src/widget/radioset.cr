@@ -4,7 +4,7 @@ module Crysterm
   module Widget
     # Radio set element
     class RadioSet < Box
-      @type = :"radio-set"
+      @type = :radioset
 
       # Possibly (originally disabled)
       #@style = @parent.style

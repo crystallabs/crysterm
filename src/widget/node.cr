@@ -78,6 +78,11 @@ module Crysterm
       def append(element)
         insert element, @children.size
       end
+      def append(*elements)
+        elements.each do |el|
+          insert el, @children.size
+        end
+      end
 
       def insert(element, i=-1)
         if element.is_a? Screen

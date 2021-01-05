@@ -28,4 +28,12 @@ module Crysterm
     event ReparentEvent, element : Widget::Node?
     event AdoptEvent, element : Widget::Element
     event RemoveEvent, element : Widget::Element
+
+    #event KeyPressEvent, ch : Char, key : Key
+    event ClickEvent
+
+    event PressEvent
+
+    event CheckEvent
+    event UnCheckEvent
 end

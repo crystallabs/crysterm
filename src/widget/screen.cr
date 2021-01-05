@@ -137,8 +137,8 @@ module Crysterm
       #@history = [] of
       @clickable = [] of Node
       @keyable = [] of Node
-      @grab_keys = false
-      @lock_keys = false
+      property grab_keys = false
+      property lock_keys = false
       @_buf = ""
       property _ci = -1
 
@@ -843,13 +843,13 @@ module Crysterm
           pre = ""
           post = ""
 
-          pre += "#{program.tput.sc}"
-          post += "#{program.tput.rc}"
-
-          if !program.cursor_hidden
-            pre += "#{program.tput.civis}"
-            post += "#{program.tput.cnorm}"
-          end
+          # TODO enable this shit, when fixed
+          #pre += "#{program.tput.sc}"
+          #post += "#{program.tput.rc}"
+          #if !program.cursor_hidden
+          #  pre += "#{program.tput.civis}"
+          #  post += "#{program.tput.cnorm}"
+          #end
 
           # D O:
           # program.flush()

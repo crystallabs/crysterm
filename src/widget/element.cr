@@ -43,6 +43,8 @@ module Crysterm
       property interactive = false
       # XXX shat
 
+      property auto_focus = false
+
       property position : Tput::Position
 
       property top=0
@@ -67,7 +69,7 @@ module Crysterm
       property padding : Tput::Padding
 
       def initialize(
-        @name,
+        name=nil,
 
         # These end up being part of Position.
         # If position is specified, these are ignored.
@@ -105,6 +107,8 @@ module Crysterm
         tags=false,
       )
         super()
+
+        @name ||= "#{@type}-#{@uid}"
 
         if position
           @position = position
@@ -181,7 +185,8 @@ module Crysterm
         clear_pos
         @hidden = true
         emit HideEvent
-        @screen.try &.rewind_focus if focused?
+        # TODO
+        #@screen.try &.rewind_focus if focused?
       end
 
       def show
@@ -190,7 +195,7 @@ module Crysterm
         emit ShowEvent
       end
 
-      def toggle
+      def toggle_visibility
         @hidden ? show : hide
       end
 

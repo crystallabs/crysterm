@@ -14,6 +14,7 @@ module Crysterm::Widget
   class Element < Node
     module Rendering
       include Crysterm::Widget::Element::Pos
+      include Crystallabs::Helpers::Alias_Methods
 
       property items = [] of String
 
@@ -90,7 +91,6 @@ module Crysterm::Widget
           # end
 
           if (!ppos)
-            p :no_ppos
             return
           end
 
@@ -111,7 +111,6 @@ module Crysterm::Widget
           if (yi < ppos.yi + b)
             if (yl - 1 < ppos.yi + b)
               # Is above.
-              p :is_above
               return
             else
               # Is partially covered above.
@@ -129,7 +128,6 @@ module Crysterm::Widget
           elsif (yl > ppos.yl - b)
             if (yi > ppos.yl - 1 - b)
               # Is below.
-              p :is_below
               return
             else
               # Is partially covered below.
@@ -148,7 +146,6 @@ module Crysterm::Widget
           # Shouldn't be necessary.
           # (yi < yl) || raise "No good"
           if (yi >= yl)
-            p :failsafe
             return
           end
 
@@ -222,11 +219,10 @@ module Crysterm::Widget
           notop: notop || false,
           nobot: nobot || false,
           renders: @screen.renders
-        p v
         v
       end
 
-      def render()
+      def _render
         emit PreRenderEvent
 
         parse_content
@@ -240,13 +236,11 @@ module Crysterm::Widget
 
         if (coords.xl - coords.xi <= 0)
           coords.xl = Math.max(coords.xl, coords.xi)
-          p :bad1
           return
         end
 
         if (coords.yl - coords.yi <= 0)
           coords.yl = Math.max(coords.yl, coords.yi)
-          p :bad2
           return
         end
 
@@ -830,6 +824,10 @@ module Crysterm::Widget
 
         coords
       end
+      def render
+        _render
+      end
+
     end
   end
 end
