@@ -197,147 +197,25 @@ module Crysterm
         self
       end
 
+      # Nop for the basic class
+      def free
+      end
 
-#      EventHandler.event ReparentEvent, node : Node?
-#      EventHandler.event AdoptEvent, node : Node
-#      EventHandler.event RemoveEvent, node : Node
-#
-##      property :parent, :screen, :detached
-#
-##      #def self.uid; @@uid end
-##      #def self.uid=( i); @@uid= i end
-#
-##
-##      @data : String?
-#
-#
-#
-##      def free()
-##        return;
-##      end
-##
-###
-###def forDescendants(iter, s)
-###  if (s) iter(self);
-###  @children.forEach(function emit(el)
-###    iter(el);
-###    el.children.forEach(emit);
-###  });
-###};
-###
-###def forAncestors(iter, s)
-###  var el = self;
-###  if (s) iter(self);
-###  while (el = el.parent)
-###    iter(el);
-###  }
-###};
-###
-###def collectDescendants(s)
-###  var out = [];
-###  @forDescendants(function(el)
-###    out.push(el);
-###  }, s);
-###  return out;
-###};
-###
-###def collectAncestors(s)
-###  var out = [];
-###  @forAncestors(function(el)
-###    out.push(el);
-###  }, s);
-###  return out;
-###};
-###
-###def emitDescendants()
-###  var args = Array.prototype.slice(arguments)
-###    , iter;
-###
-###  if (typeof args[args.size - 1] == "function")
-###    iter = args.pop();
-###  }
-###
-###  return @forDescendants(function(el)
-###    if (iter) iter(el);
-###    el.emit.apply(el, args);
-###  }, true);
-###};
-###
-###def emitAncestors()
-###  var args = Array.prototype.slice(arguments)
-###    , iter;
-###
-###  if (typeof args[args.size - 1] == "function")
-###    iter = args.pop();
-###  }
-###
-###  return @forAncestors(function(el)
-###    if (iter) iter(el);
-###    el.emit.apply(el, args);
-###  }, true);
-###};
-###
-###def hasDescendant(target)
-###  return (function find(el)
-###    for (var i = 0; i < el.children.size; i++)
-###      if (el.children[i] == target)
-###        return true;
-###      }
-###      if (find(el.children[i]) == true)
-###        return true;
-###      }
-###    }
-###    return false;
-###  })(self);
-###};
-###
-###def hasAncestor(target)
-###  var el = self;
-###  while (el = el.parent)
-###    if (el == target) return true;
-###  }
-###  return false;
-###};
-###
-###def get(name, value)
-###  if (@data.hasOwnProperty(name))
-###    return @data[name];
-###  }
-###  return value;
-###};
-###
-###def set(name, value)
-###  return @data[name] = value;
-###};
+      def has_ancestor?(obj)
+        el = self
+        while el = el.parent
+          return true if el == obj
+        end
+        false
+      end
 
+      def has_descendant?(obj)
+        @children.each do |el|
+          return true if el == obj
+          return true if el.has_descendant? obj
+        end
+        false
+      end
     end
   end
 end
-
-#require "./screen"
-#
-#s = Crysterm::Widget::Screen.new
-#
-#class X < Crysterm::Widget::Node
-#  def initialize(**arg)
-#    super **arg
-#  end
-#end
-#class Y < Crysterm::Widget::Node
-#  def initialize(**arg)
-#    super **arg
-#  end
-#end
-#a = X.new
-#b= Y.new
-#
-##p a
-##p b
-#s = Crysterm::Widget::Screen.global
-#
-#s.render
-#s.draw
-#sleep 2
-#s.leave
-#
-

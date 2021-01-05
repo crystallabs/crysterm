@@ -4,6 +4,7 @@ module Crysterm
     include EventHandler
 
     event DataEvent, data : String
+    event WarningEvent, message : String
 
     event ResizeEvent
     event AttachEvent

@@ -22,8 +22,8 @@ module Crysterm
       @shadow : Bool
       property? hidden = false
       property? fixed = false
-      @align = :left # Enum or class
-      @valign = :top
+      @align = "left" # Enum or class
+      @valign = "top"
       property? wrap = false # XXX change to true
       property shrink = false # XXX add ?
       property ch = ' '
@@ -81,8 +81,8 @@ module Crysterm
         @hidden=false,
         @fixed=false,
         @wrap=false, # XXX change to true later
-        @align= :left,
-        @valign = :top,
+        @align= "left",
+        @valign = "top",
         position : Tput::Position? = nil,
         @shrink=false,
         @no_overflow=true,
@@ -256,7 +256,7 @@ module Crysterm
       def disable_drag
       end
 
-      def index=(index)
+      def setIndex(index)
         return unless parent = @parent
         if index<0
           index = parent.children.size + index
@@ -269,18 +269,18 @@ module Crysterm
         return unless i
 
         parent.children.insert index, parent.children.delete_at i
-
+        nil
       end
       def front!
-        self.index= -1
+        setIndex -1
       end
       def back!
-        self.index= 0
+        setIndex 0
       end
 
-      def sattr(style, fg=nil, bg=nil)
+      def self.sattr(style, fg=nil, bg=nil)
 
-        # TODO see why this can be nil
+        # See why this can be nil
         style = style.not_nil!
 
         if fg.nil? && bg.nil?
@@ -297,6 +297,9 @@ module Crysterm
         ((style.bold ? 1 : 0) << 18)       |
         (Colors.convert(fg) << 9)    |
         Colors.convert(bg)
+      end
+      def sattr(style, fg=nil, bg=nil)
+        self.class.sattr style, fg, bg
       end
 
       def free
@@ -319,6 +322,9 @@ module Crysterm
         end
 
         @screen.screenshot xi, xl, yi, yl
+      end
+
+      def _update_cursor(arg)
       end
 
     end

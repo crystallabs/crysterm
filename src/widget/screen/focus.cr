@@ -1,6 +1,6 @@
 module Crysterm
   module Widget
-    class Element < Node
+    class Screen < Node
       module Focus
         include Crystallabs::Helpers::Alias_Methods
 

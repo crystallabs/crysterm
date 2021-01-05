@@ -179,6 +179,7 @@ module Crysterm::Widget
         #nobot
         #ppos
         #b
+        #Log.trace { yl }
 
         # Attempt to shrink the element base on the
         # size of the content and child elements.
@@ -366,6 +367,7 @@ module Crysterm::Widget
         parse_content
 
         coords = _get_coords(true)
+        Log.trace { coords.inspect }
         if (!coords)
           @lpos = nil
           return
@@ -393,8 +395,8 @@ module Crysterm::Widget
         #cell
         #attr
         #ch
+        #Log.trace { lines.inspect }
         content = @_pcontent || ""
-        Log.trace { content }
         ci = @_clines.ci[coords.base]
         #battr
         #dattr
@@ -475,7 +477,7 @@ module Crysterm::Widget
         # content-drawing loop will skip a few cells/lines.
         # To deal with this, we can just fill the whole thing
         # ahead of time. This could be optimized.
-        if (tpadding || (@valign && @valign != "top"))
+        if ((tpadding!=0) || (@valign && (@valign != "top")))
           if @style.try &.transparent
             (Math.max(yi, 0)...yl).each do |y|
               if (!lines[y]?)
@@ -496,7 +498,7 @@ module Crysterm::Widget
           end
         end
 
-        if (tpadding)
+        if (tpadding != 0)
           xi += @padding.left
           xl -= @padding.right
           yi += @padding.top 
@@ -518,6 +520,7 @@ module Crysterm::Widget
         end
 
         # Draw the content and background.
+        #yi.step to: yl-1 do |y|
         (yi...yl).each do |y|
           if (!lines[y]?)
             if (y >= @screen.height || yl < @ibottom)
@@ -526,6 +529,7 @@ module Crysterm::Widget
               next
             end
           end
+          # TODO - make cell exist only if there's something to be drawn there?
           (xi...xl).each do |x|
             cell = lines[y][x]?
             if (!cell)
@@ -537,7 +541,7 @@ module Crysterm::Widget
             end
 
             ch = content[ci]? || bch
-            #Log.trace { ch }
+            #Log.trace { ci }
             ci += 1
 
             # D O:
@@ -566,8 +570,6 @@ module Crysterm::Widget
               end
             end
 
-            #Log.trace { ch }
-
             # Handle newlines.
             if (ch == '\t')
               ch = bch
@@ -595,7 +597,7 @@ module Crysterm::Widget
                   end
                   lines[y].dirty = true
                 else
-                  if (attr != cell.attr || ch != cell.char)
+                  if ((attr != cell.attr) || (ch != cell.char))
                     lines[y][x].attr = attr
                     lines[y][x].char = ch
                     lines[y].dirty = true
@@ -632,6 +634,10 @@ module Crysterm::Widget
               #  ch = content[ci - 1] + content[ci]
               #  ci++
               #end
+            end
+
+            if @_no_fill
+              next
             end
 
             if @style.try &.transparent

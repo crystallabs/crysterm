@@ -1,6 +1,6 @@
 require "./node"
 require "../program"
-require "./element/*"
+require "./screen/*"
 
 module Crysterm
   module Widget
@@ -25,7 +25,7 @@ module Crysterm
 
     # Represents a screen. `Screen` and `Element` are two lowest-level classes after `EventEmitter` and `Node`.
     class Screen < Node
-      include Element::Focus
+      include Screen::Focus
       include Element::Pos
 
       @angles = {
@@ -86,22 +86,22 @@ module Crysterm
       # represented by 4 bits ordered like this:
       # [langle][uangle][rangle][dangle]
       @angle_table = {
-        0 => "", # ?               "0000" 
-        1 => "\u2502", # "│" # ?   "0001" 
-        2 => "\u2500", # "─" # ??  "0010" 
-        3 => "\u250c", # "┌"       "0011" 
-        4 => "\u2502", # "│" # ?   "0100" 
-        5 => "\u2502", # "│"       "0101" 
-        6 => "\u2514", # "└"       "0110" 
-        7 => "\u251c", # "├"       "0111" 
-        8 => "\u2500", # "─" # ??  "1000" 
-        9 => "\u2510", # "┐"       "1001" 
-       10 => "\u2500", # "─" # ??  "1010" 
-       11 => "\u252c", # "┬"       "1011" 
-       12 => "\u2518", # "┘"       "1100" 
-       13 => "\u2524", # "┤"       "1101" 
-       14 => "\u2534", # "┴"       "1110" 
-       15 => "\u253c"  # "┼"       "1111" 
+        0 => ' ', # ?               "0000"
+        1 => '\u2502', # '│' # ?   '0001'
+        2 => '\u2500', # '─' # ??  '0010'
+        3 => '\u250c', # '┌'       '0011'
+        4 => '\u2502', # '│' # ?   '0100'
+        5 => '\u2502', # '│'       '0101'
+        6 => '\u2514', # '└'       '0110'
+        7 => '\u251c', # '├'       '0111'
+        8 => '\u2500', # '─' # ??  '1000'
+        9 => '\u2510', # '┐'       '1001'
+       10 => '\u2500', # '─' # ??  '1010'
+       11 => '\u252c', # '┬'       '1011'
+       12 => '\u2518', # '┘'       '1100'
+       13 => '\u2524', # '┤'       '1101'
+       14 => '\u2534', # '┴'       '1110'
+       15 => '\u253c'  # '┼'       '1111'
       }
 
       @ignore_dock_contrast = false
@@ -134,7 +134,7 @@ module Crysterm
       getter title : String?
 
       #@hover = nil
-      #@history = [] of 
+      #@history = [] of
       @clickable = [] of Node
       @keyable = [] of Node
       @grab_keys = false
@@ -142,7 +142,7 @@ module Crysterm
       @_buf = ""
       property _ci = -1
 
-      getter! cursor : Tput::Cursor
+      getter cursor = Tput::Cursor.new
 
       @_border_stops = BorderStops.new
 
@@ -165,7 +165,7 @@ module Crysterm
       property lines = Array(Row).new
       property olines = Array(Row).new
 
-      property auto_padding = false
+      property auto_padding = true
 
       property top=0
       property left=0
@@ -177,7 +177,7 @@ module Crysterm
 
       def initialize(
         program = nil,
-        @auto_padding = false,
+        @auto_padding = true,
         @tab_size = 4,
         @dock_borders = false,
         @ignore_locked = [] of Element, # or Node
@@ -203,7 +203,23 @@ module Crysterm
         @cursor = ::Tput::Cursor.new
 
         # Events:
-        # resize, focus, blur, warning, addhandler, 
+        # addhander,
+
+        program.on(ResizeEvent) do
+          alloc
+          render
+          emit ResizeEvent
+          @children.each do |c| c.emit ResizeEvent end
+        end
+        program.on(FocusEvent) do
+          emit FocusEvent
+        end
+        program.on(BlurEvent) do
+          emit BlurEvent
+        end
+        program.on(WarningEvent) do |e|
+          emit WarningEvent.new e.message
+        end
 
         @renders = 0
 
@@ -274,11 +290,17 @@ module Crysterm
       end
 
       def enter
+        # TODO make it possible to work without switching the whole
+        # program to alt buffer.
         return if program.tput.is_alt
 
         if !cursor._set
-          cursor_shape cursor.shape, cursor.blink
-          cursor_color cursor.color
+          if cursor.shape
+            cursor_shape cursor.shape, cursor.blink
+          end
+          if cursor.color
+            cursor_color cursor.color
+          end
         end
 
         # XXX
@@ -336,7 +358,7 @@ module Crysterm
 
         if( (program.scroll_top != 0) ||
             program.scroll_bottom != program.tput.screen.height - 1)
-          this.program.csr(0, program.tput.screen.height - 1);
+          this.program.csr(0, program.tput.screen.height - 1)
         end
 
         # XXX For some reason if alloc/clear() is before this
@@ -345,9 +367,9 @@ module Crysterm
         alloc
 
         # TODO Enable all in this function
-        #if (this._listenedMouse) {
-        #  this.program.disableMouse();
-        #}
+        #if (this._listened_mouse)
+        #  program.disable_mouse
+        #end
 
         program.tput.normal_buffer
         if cursor._set
@@ -364,14 +386,19 @@ module Crysterm
       def destroy
         leave
         if @@instances.delete self
-          if @@instances.empty?
+          if @@instances.any?
+            @@global = @@instances[0]
+          else
+            @@global = nil
+            # TODO remove all signal handlers set up on the app's process
             @@_bound = false
           end
 
           @destroyed = true
           emit DestroyEvent
-          _destroy
+          destroy # XXX Call itself again or what?
         end
+
         program.destroy
       end
 
@@ -385,57 +412,60 @@ module Crysterm
       def width; cols end
       def height; rows end
 
-      #################
+      def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
+        @cursor.shape = shape
+        @cursor.blink = blink
+        @cursor._set = true
 
-      # TODO
-      def cursor_shape(shape, blink)
-        #@cursor.shape = shape || 'block'
-        #@cursor.blink = blink || false
-        #@cursor._set = true
+        if @cursor.artificial
+          raise "Not supported yet"
+          #if !program.hide_cursor_old
+          #  hide_cursor = program.hide_cursor
+          #  program.tput.hide_cursor_old = program.hide_cursor
+          #  program.tput.hide_cursor = ->{
+          #    hide_cursor.call(program)
+          #    @cursor._hidden = true
+          #    if (@renders > 0)
+          #      render
+          #    end
+          #  }
+          #end
+          #if (!program.showCursor_old)
+          #  var showCursor = program.showCursor
+          #  program.showCursor_old = program.showCursor
+          #  program.showCursor = function()
+          #    self.cursor._hidden = false
+          #    if (program._exiting) showCursor.call(program)
+          #    if (self.renders) self.render()
+          #  }
+          #end
+          #if (!@_cursorBlink)
+          #  @_cursorBlink = setInterval(function()
+          #    if (!self.cursor.blink) return
+          #    self.cursor._state ^= 1
+          #    if (self.renders) self.render()
+          #  }, 500)
+          #  if (@_cursorBlink.unref)
+          #    @_cursorBlink.unref()
+          #  end
+          #end
+          return true
+        end
 
-        #if (@cursor.artificial)
-        #  if (!@program.hide_cursor_old)
-        #    hide_cursor = @program.hide_cursor
-        #    @program.hide_cursor_old = @program.hide_cursor
-        #    @program.hide_cursor = ->{
-        #      hide_cursor.call(program)
-        #      self.cursor._hidden = true
-        #      if (self.renders) self.render()
-        #    }
-        #  end
-        #  if (!@program.showCursor_old)
-        #    var showCursor = @program.showCursor
-        #    @program.showCursor_old = @program.showCursor
-        #    @program.showCursor = function()
-        #      self.cursor._hidden = false
-        #      if (program._exiting) showCursor.call(program)
-        #      if (self.renders) self.render()
-        #    }
-        #  end
-        #  if (!@_cursorBlink)
-        #    @_cursorBlink = setInterval(function()
-        #      if (!self.cursor.blink) return
-        #      self.cursor._state ^= 1
-        #      if (self.renders) self.render()
-        #    }, 500)
-        #    if (@_cursorBlink.unref)
-        #      @_cursorBlink.unref()
-        #    end
-        #  end
-        #  return true
-        #end
-
-        #return this.program.cursorShape(this.cursor.shape, this.cursor.blink);
+        program.tput.cursor_shape(@cursor.shape, @cursor.blink)
       end
-      def cursor_color(color)
-        #@cursor.color = color.try { |c| Colors.convert(c) }
-        #@cursor._set = true
+      def cursor_color(color : Tput::Color? = nil)
+        @cursor.color = color.try do |c|
+          Tput::Color.new Colors.convert(c.value)
+        end
+        @cursor._set = true
 
-        #if (@cursor.artificial)
-        #  return true
-        #end
+        if (@cursor.artificial)
+          return true
+        end
 
-        #program.cursor_color(colors.ncolors[this.cursor.color])
+        # XXX probably this isn't fully right
+        program.tput.cursor_color(@cursor.color.to_s.downcase)
       end
 
       def render
@@ -468,12 +498,10 @@ module Crysterm
 
         draw 0, @lines.size - 1
 
-        # XXX Workaround to deal with cursor pos before the screen
+        # Workaround to deal with cursor pos before the screen
         # has rendered and lpos is not reliable (stale).
-        # TODO enable
-        #if (@focused && @focused._update_cursor)
-        #  @focused._update_cursor(true)
-        #end
+        # Only some element have this functions; for others it's a noop.
+        @focused.try &._update_cursor(true)
 
         @renders+=1
 
@@ -481,13 +509,12 @@ module Crysterm
       end
 
       def draw(start=0, stop=@lines.size-1)
+        # D O:
         # this.emit('predraw');
-
-        #var x , y , line , out , ch , data , attr , fg , bg , flags;
-        #var main = '' , pre , post;
-        #var clr , neq , xx;
-        #var lx = -1 , ly = -1 , o;
-        #var acs;
+        #x , y , line , out , ch , data , attr , fg , bg , flags
+        #pre , post
+        #clr , neq , xx
+        #acs
         main = ""
         lx = -1
         ly = -1
@@ -499,12 +526,14 @@ module Crysterm
           @_buf = ""
         end
 
+        Log.trace { "Drawing #{start}..#{stop}" }
+
         (start..stop).each do |y|
           line = @lines[y]
           o = @olines[y]
           #Log.trace { line } if line.any? &.char.!=(' ')
 
-          if (!line.dirty && !(@cursor.try &.artificial && (y == program.y)))
+          if (!line.dirty && !(cursor.artificial && (y == program.y)))
             next
           end
           line.dirty = false
@@ -518,9 +547,9 @@ module Crysterm
             data = line[x].attr
             ch = line[x].char
 
-            c = @cursor.not_nil!
+            c = cursor
             # Render the artificial cursor.
-            if (c.artificial && !c._hidden && c._state && x == program.x && y == program.y)
+            if (c.artificial && !c._hidden && (c._state!=0) && (x == program.x) && (y == program.y))
               cattr = _cursor_attr(c, data)
               if (cattr.char)
                 ch = cattr.char
@@ -533,9 +562,9 @@ module Crysterm
             # the bg for non BCE terminals worth the overhead?
             if (@use_bce &&
                 ch == ' ' &&
-                (program.tput.terminfo.try &.get(Unibilium::Entry::Boolean::Back_color_erase) ||
-                (data & 0x1ff) == (@dattr & 0x1ff)) &&
-                ((data >> 18) & 8) == ((@dattr >> 18) & 8))
+                (program.tput.terminfo.try &.get(Unibilium::Entry::Boolean::Back_color_erase) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
+                (((data >> 18) & 8) == ((@dattr >> 18) & 8)))
+
               clr = true
               neq = false
 
@@ -603,7 +632,6 @@ module Crysterm
               #//   x = xx - 1;
               #//   continue;
               #// }
-
               #// Skip to the next line if the
               #// rest of the line is already drawn.
               #// if (!neq) {
@@ -631,16 +659,13 @@ module Crysterm
               next
             elsif (lx != -1)
               if (s.parm_right_cursor?)
-                outbuf += String.new ((y == ly) ?
-                  s.cuf(x - lx) :
-                  s.cup(y, x))
+                outbuf += String.new ((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
               else
                 outbuf += String.new s.cup(y, x)
               end
               lx = -1
               ly = -1
             end
-            # Must not be tuple for @.. XXX
             o[x].attr = data
             o[x].char = ch
 
@@ -656,27 +681,27 @@ module Crysterm
                 flags = data >> 18;
 
                 # bold
-                if (flags & 1)
+                if ((flags & 1) != 0)
                   outbuf += "1;";
                 end
 
                 # underline
-                if (flags & 2)
+                if ((flags & 2) != 0)
                   outbuf += "4;";
                 end
 
                 # blink
-                if (flags & 4)
+                if ((flags & 4) != 0)
                   outbuf += "5;";
                 end
 
                 # inverse
-                if (flags & 8)
+                if ((flags & 8) != 0)
                   outbuf += "7;";
                 end
 
                 # invisible
-                if (flags & 16)
+                if ((flags & 16) != 0)
                   outbuf += "8;";
                 end
 
@@ -711,10 +736,11 @@ module Crysterm
                 end
 
                 if (outbuf[-1] == ';')
-                  outbuf = outbuf[..-2]
+                  outbuf = outbuf[...-1]
                 end
 
                 outbuf += "m"
+                Log.trace { outbuf.inspect }
               end
             end
 
@@ -766,12 +792,12 @@ module Crysterm
                 # table would fail the check of: program.tput.features.acscr[ch]
                 if (program.tput.features.acscr[ch]?)
                   if (acs)
-                    ch = program.tput.features.acscr[ch]?;
+                    ch = program.tput.features.acscr[ch]
                   else
-                    ch = "#{s.smacs?}#{program.tput.features.acscr[ch]?}"
-                    acs = true;
+                    ch = "#{s.smacs?}#{program.tput.features.acscr[ch]}"
+                    acs = true
                   end
-                elsif (acs)
+                elsif acs
                   ch = "#{s.rmacs?}#{ch}"
                   acs = false;
                 end
@@ -787,49 +813,51 @@ module Crysterm
               # NOTE: It could be the case that the $LANG
               # is all that matters in some cases:
               # if (!program.tput.unicode && ch > '~') {
-              if (!program.tput.features.unicode? && ( program.terminfo.try(&.extensions.get_num?("U8")) != 1) && ch > '~')
+              if (!program.tput.features.unicode? && ( program.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
                 # TODO
                 #ch = Tput::Data::UtoA[ch]? || '?';
                 ch = '?'
               end
             end
 
-            outbuf += ch.to_s;
-            attr = data;
+            outbuf += ch
+            attr = data
           end
 
           if (attr != @dattr)
             outbuf += "\x1b[m"
           end
 
-          if outbuf
+          unless outbuf.empty?
             # TODO, again remove strings use
             main += String.new(s.cup(y, 0).to_slice) + outbuf
           end
         end
 
         if (acs)
-          main += "#{s.try &.rmacs?}"
-          acs = false;
+          main += "#{s.rmacs}"
+          acs = false
         end
 
-        unless main.blank?
+        unless main.empty?
           pre = ""
           post = ""
 
           pre += "#{program.tput.sc}"
           post += "#{program.tput.rc}"
 
-          if !program.tput.cursor_hidden?
+          if !program.cursor_hidden
             pre += "#{program.tput.civis}"
             post += "#{program.tput.cnorm}"
           end
 
-          #// program.flush();
-          #// program._owrite(pre + main + post);
-          program.tput._print(pre + main + post);
+          # D O:
+          # program.flush()
+          # program._owrite(pre + main + post)
+          program.tput._print(pre + main + post)
         end
 
+        # D O:
         #emit DrawEvent
       end
 
@@ -841,27 +869,27 @@ module Crysterm
         outbuf = ""
 
         # bold
-        if (flags & 1)
+        if ((flags & 1) != 0)
           outbuf += "1;"
         end
 
         # underline
-        if (flags & 2)
+        if ((flags & 2) != 0)
           outbuf += "4;"
         end
 
         # blink
-        if (flags & 4)
+        if ((flags & 4) != 0)
           outbuf += "5;"
         end
 
         # inverse
-        if (flags & 8)
+        if ((flags & 8) != 0)
           outbuf += "7;"
         end
 
         # invisible
-        if (flags & 16)
+        if ((flags & 16) != 0)
           outbuf += "8;"
         end
 
@@ -902,11 +930,22 @@ module Crysterm
         "\x1b[#{outbuf}m"
       end
 
+      def cursor_reset
+        @cursor.shape = Tput::CursorShape::Block
+        @cursor.blink = false
+        @cursor.color = nil
+        @cursor._set = false
+
+        # TODO if artificial cursor
+
+        program.tput.cursor_reset
+      end
+      alias_previous reset_cursor
+
       def _cursor_attr(cursor, dattr=nil)
         attr = dattr || @dattr
         #cattr
         #ch
-
         if (cursor.shape == Tput::CursorShape::Line)
           attr &= ~(0x1ff << 9)
           attr |= 7 << 9
@@ -919,30 +958,26 @@ module Crysterm
           attr &= ~(0x1ff << 9)
           attr |= 7 << 9
           attr |= 8 << 18
-        # TODO Enable
-        #elsif false #(cursor.shape == 'object' && cursor.shape)
-        #  cattr = Element.sattr(cursor, cursor.shape)
-
-        #  if (cursor.shape.bold || cursor.shape.underline ||
-        #      cursor.shape.blink || cursor.shape.inverse ||
-        #      cursor.shape.invisible)
-        #    attr &= ~(0x1ff << 18)
-        #    attr |= ((cattr >> 18) & 0x1ff) << 18
-        #  end
-
-        #  if (cursor.shape.fg)
-        #    attr &= ~(0x1ff << 9)
-        #    attr |= ((cattr >> 9) & 0x1ff) << 9
-        #  end
-
-        #  if (cursor.shape.bg)
-        #    attr &= ~(0x1ff << 0)
-        #    attr |= cattr & 0x1ff
-        #  end
-
-        #  if (cursor.shape.ch)
-        #    ch = cursor.shape.ch
-        #  end
+        elsif (cursor.shape)
+          # TODO
+          #cattr = Element.sattr(cursor, cursor.shape)
+          #if (cursor.shape.bold || cursor.shape.underline ||
+          #    cursor.shape.blink || cursor.shape.inverse ||
+          #    cursor.shape.invisible)
+          #  attr &= ~(0x1ff << 18)
+          #  attr |= ((cattr >> 18) & 0x1ff) << 18
+          #end
+          #if (cursor.shape.fg)
+          #  attr &= ~(0x1ff << 9)
+          #  attr |= ((cattr >> 9) & 0x1ff) << 9
+          #end
+          #if (cursor.shape.bg)
+          #  attr &= ~(0x1ff << 0)
+          #  attr |= cattr & 0x1ff
+          #end
+          #if (cursor.shape.ch)
+          #  ch = cursor.shape.ch
+          #end
         end
 
         unless (cursor.color.nil?)
@@ -979,17 +1014,12 @@ module Crysterm
 
           xx = xi
           while xx < xl
-            cell = lines[yi][xx]
+            cell = lines[yi][xx]?
             break unless cell
 
-            if (override || attr != cell.attr || ch != cell.char)
-              lines[yi][xx].attr = attr;
-              lines[yi][xx].char = case ch
-                when Char
-                  ch
-                else
-                  ch[0]
-                end
+            if (override || (attr != cell.attr) || (ch != cell.char))
+              lines[yi][xx].attr = attr
+              lines[yi][xx].char = ch
               lines[yi].dirty = true;
             end
 
@@ -1003,17 +1033,15 @@ module Crysterm
       end
 
       def blank_line(ch, dirty)
-        o = [] of Cell
-        cols.times do |x|
-          o.push [@dattr, ch || ' ']
-        end
+        o = Row.new cols, [@dattr, ch]
         o.dirty = dirty
         o
       end
 
       def insert_line(n, y, top, bottom)
+        # D O:
         # if (y == top)
-        #  return this.insertLine_nc(n, y, top, bottom)
+        #  return insert_line_nc(n, y, top, bottom)
         # end
 
         if (!program.tput.has?(change_scroll_region) ||
@@ -1030,8 +1058,7 @@ module Crysterm
 
         j = bottom + 1
 
-        while n > 0
-          n -= 1
+        n.times do
           @lines.insert y, blank_line
           @lines.delete_at j
           @olines.insert y, blank_line
@@ -1056,8 +1083,7 @@ module Crysterm
 
         j = bottom + 1
 
-        while n > 0
-          n -= 1
+        n.times do
           @lines.insert y, blank_line
           @lines.delete_at j
           @olines.insert y, blank_line
@@ -1077,13 +1103,12 @@ module Crysterm
 
         @_buf += program.tput.csr(top, bottom)
         @_buf += program.tput.cup(bottom, 0)
-        @_buf += "\n" * (n+1)
+        @_buf += "\n" * n
         @_buf += program.tput.csr(0, height - 1)
 
         j = bottom + 1
 
-        while n > 0
-          n -= 1
+        n.times do
           @lines.insert j, blank_line
           @lines.delete_at y
           @olines.insert j, blank_line
@@ -1140,7 +1165,7 @@ module Crysterm
           if (pos.yl > height)
             return pos._clean_sides = false
           end
-          if (width - (pos.xl - pos.xi) < 40)
+          if ((width - (pos.xl - pos.xi)) < 40)
             return pos._clean_sides = true
           end
           return pos._clean_sides = false
@@ -1150,13 +1175,13 @@ module Crysterm
           return false
         end
 
+        # D O:
         # The scrollbar can't update properly, and there's also a
         # chance that the scrollbar may get moved around senselessly.
         # NOTE: In pratice, this doesn't seem to be the case.
-        # if (@scrollbar)
-        #   return pos._clean_sides = false
-        # end
-
+        #if (@scrollbar)
+        #  return pos._clean_sides = false
+        #end
         # Doesn't matter if we're only a height of 1.
         # if ((pos.yl - el.ibottom) - (pos.yi + el.itop) <= 1)
         #   return pos._clean_sides = false
@@ -1175,14 +1200,14 @@ module Crysterm
         if (pos.yl > height)
           return pos._clean_sides = false
         end
-        if (pos.xi - 1 < 0)
+        if ((pos.xi - 1) < 0)
           return pos._clean_sides = true
         end
         if (pos.xl > width)
           return pos._clean_sides = true
         end
 
-        x = pos.xi
+        x = pos.xi-1
         while x >= 0
           if (!@olines[yi]?)
             break
@@ -1193,7 +1218,7 @@ module Crysterm
               break
             end
             ch = @olines[y][x]
-            if (ch[0] != first[0] || ch[1] != first[1])
+            if ((ch.attr != first.attr) || (ch.char != first.char))
               return pos._clean_sides = false
             end
           end
@@ -1210,14 +1235,14 @@ module Crysterm
               break
             end
             ch = @olines[y][x]
-            if (ch[0] != first[0] || ch[1] != first[1])
+            if ((ch.attr != first.attr) || (ch.char != first.char))
               return pos._clean_sides = false
             end
           end
           x += 1
         end
 
-        return pos._clean_sides = true
+        pos._clean_sides = true
       end
 
       def _get_pos
@@ -1232,8 +1257,8 @@ module Crysterm
         #x
         #ch
 
-        # var keys, stop
-        #
+        # D O:
+        # keys, stop
         # keys = Object.keys(this._borderStops)
         #   .map(function(k) { return +k; })
         #   .sort(function(a, b) { return a - b; })
@@ -1246,20 +1271,14 @@ module Crysterm
 
         stops = stops.keys.map(&.to_i).sort { |a, b| a - b }
 
-        (0...stops.size).each do |i|
-          y = stops[i]
-          if (!lines[y])
+        stops.each do |y|
+          if (!lines[y]?)
             next
           end
-          (0...width).each do |x|
+          width.times do |x|
             ch = lines[y][x].char
-            if (@angles[ch])
-              lines[y][x].char =
-                case x = _get_angle(lines, x, y)
-                when Char then x
-                when String then x[0]
-                else ' '
-                end
+            if @angles[ch]?
+              lines[y][x].char = _get_angle lines, x, y
               lines[y].dirty = true
             end
           end
@@ -1324,7 +1343,7 @@ module Crysterm
         #   }
         # }
 
-        @angle_table[angle] || ch
+        @angle_table[angle]? || ch
       end
 
       # Convert an SGR string to our own attribute format.
@@ -1339,12 +1358,12 @@ module Crysterm
         #i
 
         code = code[2...-1].split(';')
-        if (!code[0]? || code[0].blank?)
+        if (!code[0]? || code[0].empty?)
           code[0] = "0"
         end
 
         (0..code.size).each do |i|
-          c = !code[i].blank? ? code[i].to_i : 0
+          c = !code[i].empty? ? code[i].to_i : 0
           case c
             when 0 # normal
               bg = dfl & 0x1ff

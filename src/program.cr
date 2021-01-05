@@ -36,6 +36,8 @@ module Crysterm
     getter terminfo : Unibilium::Terminfo?
     getter! tput : ::Tput
 
+    property hide_cursor_old : Bool = false
+
     @_tput_set_up = false
 
     @scroll_bottom : Int32
@@ -44,7 +46,7 @@ module Crysterm
 
     getter _title : String?
 
-    @cursor_hidden = false
+    getter cursor_hidden = false
     record CursorState, x : Int32, y : Int32, hidden : Bool
 
     @saved = {} of String => CursorState

@@ -101,8 +101,6 @@ module Crysterm::Widget
           end
 
           @_pcontent = @_clines.join "\n"
-          Log.trace { @_pcontent }
-          Log.trace { "#{@width} x #{@height}" }
           emit ParsedContentEvent
 
           true
