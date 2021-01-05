@@ -421,6 +421,142 @@ module Crysterm::Widget
         @padding.left + @padding.top + @padding.right + @padding.bottom
       end
 
+      def _get_shrink_box(xi, xl, yi, yl, get)
+        if (@children.size == 0)
+          return ShrinkBox.new xi: xi, xl: xi + 1, yi: yi, yl: yi + 1
+        end
+
+        #i, el, ret,
+        mxi = xi
+        mxl = xi + 1
+        myi = yi
+        myl = yi + 1
+
+        # This is a chicken and egg problem. We need to determine how the children
+        # will render in order to determine how this element renders, but it in
+        # order to figure out how the children will render, they need to know
+        # exactly how their parent renders, so, we can give them what we have so
+        # far.
+        #_lpos
+        if (get)
+          _lpos = @lpos
+          @lpos = LPos.new xi: xi, xl: xl, yi: yi, yl: yl
+          # D O:
+          #@shrink = false
+        end
+
+        @children.each_with_index do |el, i|
+          ret = el._get_coords(get)
+
+          # D O:
+          # Or just (seemed to work, but probably not good):
+          # ret = el.lpos || @lpos
+
+          if (!ret)
+            next
+          end
+
+          # Since the parent element is shrunk, and the child elements think it's
+          # going to take up as much space as possible, an element anchored to the
+          # right or bottom will inadvertantly make the parent's shrunken size as
+          # large as possible. So, we can just use the height and/or width the of
+          # element.
+          # if (get)
+          if (el.position.left.nil? && el.position.right.any?)
+            ret.xl = xi + (ret.xl - ret.xi)
+            ret.xi = xi
+            if (@screen.auto_padding)
+              # Maybe just do this no matter what.
+              ret.xl += @ileft
+              ret.xi += @ileft
+            end
+          end
+          if (el.position.top.nil? && el.position.bottom.any?)
+            ret.yl = yi + (ret.yl - ret.yi)
+            ret.yi = yi
+            if (@screen.auto_padding)
+              # Maybe just do this no matter what.
+              ret.yl += @itop
+              ret.yi += @itop
+            end
+          end
+
+          if (ret.xi < mxi)
+            mxi = ret.xi
+          end
+          if (ret.xl > mxl)
+            mxl = ret.xl
+          end
+          if (ret.yi < myi)
+            myi = ret.yi
+          end
+          if (ret.yl > myl)
+            myl = ret.yl
+          end
+        end
+
+        if (get)
+          @lpos = _lpos
+          # D O:
+          #@shrink = true
+        end
+
+        if (@position.width.nil?  && (@position.left.nil?  || @position.right.nil?))
+          if (@position.left.nil? && @position.right.any?)
+            xi = xl - (mxl - mxi)
+            if (!@screen.auto_padding)
+              xi -= @padding.left + @padding.right
+            else
+              xi -= @ileft
+            end
+          else
+            xl = mxl
+            if (!@screen.auto_padding)
+              xl += @padding.left + @padding.right
+              # XXX Temporary workaround until we decide to make auto_padding default.
+              # See widget-listtable.js for an example of why this is necessary.
+              # XXX Maybe just to this for all this being that this would affect
+              # width shrunken normal shrunken lists as well.
+              # if (@_isList)
+              if (@type == :"list-table")
+                xl -= @padding.left + @padding.right
+                xl += @iright
+              end
+            else
+              # D O:
+              #xl += @padding.right
+              xl += @iright
+            end
+          end
+        end
+        if (@position.height.nil?  && (@position.top.nil?  || @position.bottom.nil?) && (!@scrollable || @_isList))
+          # NOTE: Lists get special treatment if they are shrunken - assume they
+          # want all list items showing. This is one case we can calculate the
+          # height based on items/boxes.
+          if (@_isList)
+            myi = 0 - @itop
+            myl = @items.size + @ibottom
+          end
+          if (@position.top.nil? && @position.bottom.any?)
+            yi = yl - (myl - myi)
+            if (!@screen.auto_padding)
+              yi -= @padding.top + @padding.bottom
+            else
+              yi -= @itop
+            end
+          else
+            yl = myl
+            if (!@screen.auto_padding)
+              yl += @padding.top + @padding.bottom
+            else
+              yl += @ibottom
+            end
+          end
+        end
+
+        ShrinkBox.new xi: xi, xl: xl, yi: yi, yl: yl
+      end
+
       # Rendition and rendering
       def _get_shrink_content(xi, xl, yi, yl)
         h = @_clines.size
