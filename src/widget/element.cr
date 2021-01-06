@@ -118,8 +118,8 @@ module Crysterm
             top: top,
             right: right,
             bottom: bottom,
-            width: width || 0,
-            height: height || 0
+            width: width,
+            height: height
         end
         @shrink = true if @position.shrink?
 

@@ -1,4 +1,5 @@
 module Crysterm
+
 #    class Position
 #      @left : Int32
 #      @right : Int32
