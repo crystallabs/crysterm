@@ -10,13 +10,13 @@ require "./widget/*"
 
 module Crysterm
 
-  class Program
+  class Application
     ##include EventHandler
     include Methods
     include Macros
     include EventHandler
 
-    @@global : self?
+    class_getter! global : self?
     @@total = 0
     @@instances = [] of self
     @@_bound = false
@@ -28,7 +28,7 @@ module Crysterm
     property input : IO
     property output : IO
     #@log : Bool
-    @type = :program
+    @type = :application
     @index : Int32 = -1 # -1 so that assignments start from 0
     property use_buffer : Bool # useBuffer
     property resize_timeout : Int32
@@ -105,7 +105,7 @@ module Crysterm
 
       @_buf
 
-      #bind
+      bind
       # TODO _flush = this.flush.bind(this)
 
       @tput = setup_tput terminfo

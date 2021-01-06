@@ -1,5 +1,5 @@
 require "./node"
-require "../program"
+require "../application"
 require "./screen/*"
 
 module Crysterm
@@ -109,7 +109,7 @@ module Crysterm
       @use_bce = false
 
       macro put(arg)
-        program.tput.shim.try { |s| {{arg}}.try { |data| program.tput._write data }}
+        application.tput.shim.try { |s| {{arg}}.try { |data| application.tput._write data }}
       end
 
       class_getter instances = [] of self
@@ -122,7 +122,7 @@ module Crysterm
 
       @type= :screen
 
-      property! program : Program
+      property! application : Application
       property focused : Element?
 
       getter! tabc : String
@@ -176,7 +176,7 @@ module Crysterm
       property _border_stops = {} of Int32 => Bool
 
       def initialize(
-        program = nil,
+        application = nil,
         @auto_padding = true,
         @tab_size = 4,
         @dock_borders = false,
@@ -185,17 +185,17 @@ module Crysterm
       )
         bind
 
-        @program = program || Program.new
+        @application = application || Application.new
         #ensure tput.zero_based = true, use_bufer=true
         # set resizeTimeout
 
-        # Tput is accessed via program.tput
+        # Tput is accessed via application.tput
 
         super()
 
         @tabc = " " * @tab_size
 
-        # _unicode is program.tput.features.unicode?
+        # _unicode is application.tput.features.unicode?
         # todo: wth full_unicode?
 
         # TODO Make sure things like Tput::Output::Cursor do not
@@ -205,19 +205,19 @@ module Crysterm
         # Events:
         # addhander,
 
-        program.on(ResizeEvent) do
+        application.on(ResizeEvent) do
           alloc
           render
           emit ResizeEvent
           @children.each do |c| c.emit ResizeEvent end
         end
-        program.on(FocusEvent) do
+        application.on(FocusEvent) do
           emit FocusEvent
         end
-        program.on(BlurEvent) do
+        application.on(BlurEvent) do
           emit BlurEvent
         end
-        program.on(WarningEvent) do |e|
+        application.on(WarningEvent) do |e|
           emit WarningEvent.new e.message
         end
 
@@ -233,11 +233,11 @@ module Crysterm
         #  f.call self
         #}
 
-        program.on(FocusEvent) {
+        application.on(FocusEvent) {
           emit FocusEvent
         }
 
-        program.on(BlurEvent) {
+        application.on(BlurEvent) {
           emit BlurEvent
         }
 
@@ -291,8 +291,8 @@ module Crysterm
 
       def enter
         # TODO make it possible to work without switching the whole
-        # program to alt buffer.
-        return if program.tput.is_alt
+        # application to alt buffer.
+        return if application.tput.is_alt
 
         if !cursor._set
           if cursor.shape
@@ -308,19 +308,19 @@ module Crysterm
           `cls`
         {% end %}
 
-        program.tput.alternate_buffer
+        application.tput.alternate_buffer
         put(s.keypad_xmit?) # enter_keyboard_transmit_mode
-        put(s.change_scroll_region?(0, program.tput.screen.height-1))
-        program.tput.hide_cursor
-        program.tput.cursor_pos 0, 0
+        put(s.change_scroll_region?(0, application.tput.screen.height-1))
+        application.tput.hide_cursor
+        application.tput.cursor_pos 0, 0
         put(s.ena_acs?) # enable_acs
 
         alloc
       end
 
       def alloc(dirty=false)
-        rows = program.tput.screen.height
-        cols = program.tput.screen.width
+        rows = application.tput.screen.height
+        cols = application.tput.screen.width
 
         # Initialize @lines better than this.
         rows.times do |i|
@@ -342,7 +342,7 @@ module Crysterm
           @olines[-1].dirty = dirty
         end
 
-        program.tput.clear
+        application.tput.clear
       end
 
       def realloc
@@ -351,32 +351,32 @@ module Crysterm
 
       def leave
         # TODO make it possible to work without switching the whole
-        # program to alt buffer.
-        return unless program.tput.is_alt
+        # application to alt buffer.
+        return unless application.tput.is_alt
 
         put(s.keypad_local?)
 
-        if( (program.scroll_top != 0) ||
-            program.scroll_bottom != program.tput.screen.height - 1)
-          this.program.csr(0, program.tput.screen.height - 1)
+        if( (application.scroll_top != 0) ||
+            application.scroll_bottom != application.tput.screen.height - 1)
+          this.application.csr(0, application.tput.screen.height - 1)
         end
 
         # XXX For some reason if alloc/clear() is before this
         # line, it doesn't work on linux console.
-        program.tput.show_cursor
+        application.tput.show_cursor
         alloc
 
         # TODO Enable all in this function
         #if (this._listened_mouse)
-        #  program.disable_mouse
+        #  application.disable_mouse
         #end
 
-        program.tput.normal_buffer
+        application.tput.normal_buffer
         if cursor._set
-          program.tput.cursor_reset
+          application.tput.cursor_reset
         end
 
-        program.tput.flush
+        application.tput.flush
 
         {% if flag? :windows %}
           `cls`
@@ -399,7 +399,7 @@ module Crysterm
           destroy # XXX Call itself again or what?
         end
 
-        program.destroy
+        application.destroy
       end
 
       # Debug
@@ -407,8 +407,8 @@ module Crysterm
       end
 
       # XXX Crutch. Remove when everything's in place.
-      def cols; program.tput.screen.width end
-      def rows; program.tput.screen.height end
+      def cols; application.tput.screen.width end
+      def rows; application.tput.screen.height end
       def width; cols end
       def height; rows end
 
@@ -419,23 +419,23 @@ module Crysterm
 
         if @cursor.artificial
           raise "Not supported yet"
-          #if !program.hide_cursor_old
-          #  hide_cursor = program.hide_cursor
-          #  program.tput.hide_cursor_old = program.hide_cursor
-          #  program.tput.hide_cursor = ->{
-          #    hide_cursor.call(program)
+          #if !application.hide_cursor_old
+          #  hide_cursor = application.hide_cursor
+          #  application.tput.hide_cursor_old = application.hide_cursor
+          #  application.tput.hide_cursor = ->{
+          #    hide_cursor.call(application)
           #    @cursor._hidden = true
           #    if (@renders > 0)
           #      render
           #    end
           #  }
           #end
-          #if (!program.showCursor_old)
-          #  var showCursor = program.showCursor
-          #  program.showCursor_old = program.showCursor
-          #  program.showCursor = function()
+          #if (!application.showCursor_old)
+          #  var showCursor = application.showCursor
+          #  application.showCursor_old = application.showCursor
+          #  application.showCursor = function()
           #    self.cursor._hidden = false
-          #    if (program._exiting) showCursor.call(program)
+          #    if (application._exiting) showCursor.call(application)
           #    if (self.renders) self.render()
           #  }
           #end
@@ -452,7 +452,7 @@ module Crysterm
           return true
         end
 
-        program.tput.cursor_shape(@cursor.shape, @cursor.blink)
+        application.tput.cursor_shape(@cursor.shape, @cursor.blink)
       end
       def cursor_color(color : Tput::Color? = nil)
         @cursor.color = color.try do |c|
@@ -465,7 +465,7 @@ module Crysterm
         end
 
         # XXX probably this isn't fully right
-        program.tput.cursor_color(@cursor.color.to_s.downcase)
+        application.tput.cursor_color(@cursor.color.to_s.downcase)
       end
 
       def render
@@ -519,7 +519,7 @@ module Crysterm
         lx = -1
         ly = -1
         acs = false
-        s = program.tput.shim.not_nil!
+        s = application.tput.shim.not_nil!
 
         if @_buf
           main += @_buf
@@ -533,7 +533,7 @@ module Crysterm
           o = @olines[y]
           #Log.trace { line } if line.any? &.char.!=(' ')
 
-          if (!line.dirty && !(cursor.artificial && (y == program.y)))
+          if (!line.dirty && !(cursor.artificial && (y == application.y)))
             next
           end
           line.dirty = false
@@ -549,7 +549,7 @@ module Crysterm
 
             c = cursor
             # Render the artificial cursor.
-            if (c.artificial && !c._hidden && (c._state!=0) && (x == program.x) && (y == program.y))
+            if (c.artificial && !c._hidden && (c._state!=0) && (x == application.x) && (y == application.y))
               cattr = _cursor_attr(c, data)
               if (cattr.char)
                 ch = cattr.char
@@ -562,7 +562,7 @@ module Crysterm
             # the bg for non BCE terminals worth the overhead?
             if (@use_bce &&
                 ch == ' ' &&
-                (program.tput.terminfo.try &.get(Unibilium::Entry::Boolean::Back_color_erase) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
+                (application.tput.terminfo.try &.get(Unibilium::Entry::Boolean::Back_color_erase) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
                 (((data >> 18) & 8) == ((@dattr >> 18) & 8)))
 
               clr = true
@@ -588,12 +588,12 @@ module Crysterm
                 #######################
                 # XXX BAD HAQ
                 temp = IO::Memory.new
-                old = program.output
-                program.output = temp
-                program.tput.cup(y, x)
-                program.tput.el
+                old = application.output
+                application.output = temp
+                application.tput.cup(y, x)
+                application.tput.el
                 outbuf += temp.gets_to_end
-                program.output = old
+                application.output = old
                 #######################
                 (x...line.size).each do |xx|
                   o[xx].attr = data
@@ -607,27 +607,27 @@ module Crysterm
               #// and start over drawing the rest of line. Might
               #// not be worth it. Try to use ECH if the terminal
               #// supports it. Maybe only try to use ECH here.
-              #// #//if (program.tput.strings.erase_chars)
+              #// #//if (application.tput.strings.erase_chars)
               #// if (!clr && neq && (xx - x) > 10) {
               #//   lx = -1, ly = -1;
               #//   if (data != attr) {
               #//     outbuf += @codeAttr(data);
               #//     attr = data;
               #//   }
-              #//   outbuf += program.tput.cup(y, x);
-              #//   if (program.tput.strings.erase_chars) {
+              #//   outbuf += application.tput.cup(y, x);
+              #//   if (application.tput.strings.erase_chars) {
               #//     #// Use erase_chars to avoid erasing the whole line.
-              #//     outbuf += program.tput.ech(xx - x);
+              #//     outbuf += application.tput.ech(xx - x);
               #//   } else {
-              #//     outbuf += program.tput.el();
+              #//     outbuf += application.tput.el();
               #//   }
-              #//   if (program.tput.strings.parm_right_cursor) {
-              #//     outbuf += program.tput.cuf(xx - x);
+              #//   if (application.tput.strings.parm_right_cursor) {
+              #//     outbuf += application.tput.cuf(xx - x);
               #//   } else {
-              #//     outbuf += program.tput.cup(y, xx);
+              #//     outbuf += application.tput.cup(y, xx);
               #//   }
               #//   @fillRegion(data, ' ',
-              #//     x, program.tput.strings.erase_chars ? xx : line.length,
+              #//     x, application.tput.strings.erase_chars ? xx : line.length,
               #//     y, y + 1);
               #//   x = xx - 1;
               #//   continue;
@@ -783,18 +783,18 @@ module Crysterm
             # It is possible there is a terminal out there
             # somewhere that does not support ACS, but
             # supports UTF8, but I imagine it's unlikely.
-            # Maybe remove !program.tput.unicode check, however,
+            # Maybe remove !application.tput.unicode check, however,
             # this seems to be the way ncurses does it.
             if s
-              if (s.enter_alt_charset_mode? && !program.tput.features.broken_acs? && (program.tput.features.acscr[ch]? || acs))
-                # Fun fact: even if program.tput.brokenACS wasn't checked here,
+              if (s.enter_alt_charset_mode? && !application.tput.features.broken_acs? && (application.tput.features.acscr[ch]? || acs))
+                # Fun fact: even if application.tput.brokenACS wasn't checked here,
                 # the linux console would still work fine because the acs
-                # table would fail the check of: program.tput.features.acscr[ch]
-                if (program.tput.features.acscr[ch]?)
+                # table would fail the check of: application.tput.features.acscr[ch]
+                if (application.tput.features.acscr[ch]?)
                   if (acs)
-                    ch = program.tput.features.acscr[ch]
+                    ch = application.tput.features.acscr[ch]
                   else
-                    ch = "#{s.smacs?}#{program.tput.features.acscr[ch]}"
+                    ch = "#{s.smacs?}#{application.tput.features.acscr[ch]}"
                     acs = true
                   end
                 elsif acs
@@ -812,8 +812,8 @@ module Crysterm
               # like sun-color.
               # NOTE: It could be the case that the $LANG
               # is all that matters in some cases:
-              # if (!program.tput.unicode && ch > '~') {
-              if (!program.tput.features.unicode? && ( program.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
+              # if (!application.tput.unicode && ch > '~') {
+              if (!application.tput.features.unicode? && ( application.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
                 # TODO
                 #ch = Tput::Data::UtoA[ch]? || '?';
                 ch = '?'
@@ -844,17 +844,17 @@ module Crysterm
           post = ""
 
           # TODO enable this shit, when fixed
-          #pre += "#{program.tput.sc}"
-          #post += "#{program.tput.rc}"
-          #if !program.cursor_hidden
-          #  pre += "#{program.tput.civis}"
-          #  post += "#{program.tput.cnorm}"
+          #pre += "#{application.tput.sc}"
+          #post += "#{application.tput.rc}"
+          #if !application.cursor_hidden
+          #  pre += "#{application.tput.civis}"
+          #  post += "#{application.tput.cnorm}"
           #end
 
           # D O:
-          # program.flush()
-          # program._owrite(pre + main + post)
-          program.tput._print(pre + main + post)
+          # application.flush()
+          # application._owrite(pre + main + post)
+          application.tput._print(pre + main + post)
         end
 
         # D O:
@@ -938,7 +938,7 @@ module Crysterm
 
         # TODO if artificial cursor
 
-        program.tput.cursor_reset
+        application.tput.cursor_reset
       end
       alias_previous reset_cursor
 
@@ -992,7 +992,7 @@ module Crysterm
       end
 
       def _reduce_color(col)
-        Colors.reduce(col, program.tput.features.number_of_colors)
+        Colors.reduce(col, application.tput.features.number_of_colors)
       end
 
       def clear_region(xi, xl, yi, yl, override)
@@ -1044,17 +1044,17 @@ module Crysterm
         #  return insert_line_nc(n, y, top, bottom)
         # end
 
-        if (!program.tput.has?(change_scroll_region) ||
-            !program.tput.has?(delete_line) ||
-            !program.tput.has?(insert_line))
+        if (!application.tput.has?(change_scroll_region) ||
+            !application.tput.has?(delete_line) ||
+            !application.tput.has?(insert_line))
           STDERR.puts "Missing needed terminfo capabilities"
           return
         end
 
-        @_buf += program.tput.csr(top, bottom)
-        @_buf += program.tput.cup(y, 0)
-        @_buf += program.tput.il(n)
-        @_buf += program.tput.csr(0, height - 1)
+        @_buf += application.tput.csr(top, bottom)
+        @_buf += application.tput.cup(y, 0)
+        @_buf += application.tput.il(n)
+        @_buf += application.tput.csr(0, height - 1)
 
         j = bottom + 1
 
@@ -1070,16 +1070,16 @@ module Crysterm
       # Scroll down (up cursor-wise).
       # This will only work for top line deletion as opposed to arbitrary lines.
       def insert_line_nc(n, y, top, bottom)
-        if (!program.tput.has?(change_scroll_region) ||
-            !program.tput.has?(delete_line))
+        if (!application.tput.has?(change_scroll_region) ||
+            !application.tput.has?(delete_line))
           STDERR.puts "Missing needed terminfo capabilities"
           return
         end
 
-        @_buf += program.tput.csr(top, bottom)
-        @_buf += program.tput.cup(top, 0)
-        @_buf += program.tput.dl(n)
-        @_buf += program.tput.csr(0, height - 1)
+        @_buf += application.tput.csr(top, bottom)
+        @_buf += application.tput.cup(top, 0)
+        @_buf += application.tput.dl(n)
+        @_buf += application.tput.csr(0, height - 1)
 
         j = bottom + 1
 
@@ -1095,16 +1095,16 @@ module Crysterm
       # Scroll down (up cursor-wise).
       # This will only work for top line deletion as opposed to arbitrary lines.
       def delete_line_nc(n, y, top, bottom)
-        if (!program.tput.has?(change_scroll_region) ||
-            !program.tput.has?(delete_line))
+        if (!application.tput.has?(change_scroll_region) ||
+            !application.tput.has?(delete_line))
           STDERR.puts "Missing needed terminfo capabilities"
           return
         end
 
-        @_buf += program.tput.csr(top, bottom)
-        @_buf += program.tput.cup(bottom, 0)
+        @_buf += application.tput.csr(top, bottom)
+        @_buf += application.tput.cup(bottom, 0)
         @_buf += "\n" * n
-        @_buf += program.tput.csr(0, height - 1)
+        @_buf += application.tput.csr(0, height - 1)
 
         j = bottom + 1
 

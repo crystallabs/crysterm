@@ -37,14 +37,14 @@ module Crysterm
         on(FocusEvent) do
           lpos = @lpos
           next if !lpos
-          @screen.program.tput.lsave_cursor "checkbox"
+          @screen.application.tput.lsave_cursor "checkbox"
           # XXX can this be a tput call? or needs more logic in crysterm?
-          @screen.program.tput.cup lpos.yi, lpos.xi + 1
-          @screen.program.tput.show_cursor
+          @screen.application.tput.cup lpos.yi, lpos.xi + 1
+          @screen.application.tput.show_cursor
         end
 
         on(BlurEvent) do
-          @screen.program.tput.lrestore_cursor "checkbox", true
+          @screen.application.tput.lrestore_cursor "checkbox", true
         end
       end
 
