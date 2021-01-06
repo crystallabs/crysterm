@@ -142,7 +142,7 @@ module Crysterm
       @_buf = ""
       property _ci = -1
 
-      getter cursor = Tput::Cursor.new
+      getter cursor = Cursor.new
 
       @_border_stops = BorderStops.new
 
@@ -185,7 +185,7 @@ module Crysterm
       )
         bind
 
-        @application = application || Application.new
+        @application = application ||= Application.new
         #ensure tput.zero_based = true, use_bufer=true
         # set resizeTimeout
 
@@ -198,9 +198,7 @@ module Crysterm
         # _unicode is application.tput.features.unicode?
         # todo: wth full_unicode?
 
-        # TODO Make sure things like Tput::Output::Cursor do not
-        # exist as Tput::Cursor! Then rename this to just Cursor.
-        @cursor = ::Tput::Cursor.new
+        @cursor = Cursor.new
 
         # Events:
         # addhander,
@@ -412,7 +410,7 @@ module Crysterm
       def width; cols end
       def height; rows end
 
-      def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
+      def cursor_shape(shape : CursorShape = CursorShape::Block, blink : Bool = false)
         @cursor.shape = shape
         @cursor.blink = blink
         @cursor._set = true
@@ -813,7 +811,7 @@ module Crysterm
               # NOTE: It could be the case that the $LANG
               # is all that matters in some cases:
               # if (!application.tput.unicode && ch > '~') {
-              if (!application.tput.features.unicode? && ( application.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
+              if (!application.tput.features.unicode? && ( application.tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
                 # TODO
                 #ch = Tput::Data::UtoA[ch]? || '?';
                 ch = '?'
@@ -931,7 +929,7 @@ module Crysterm
       end
 
       def cursor_reset
-        @cursor.shape = Tput::CursorShape::Block
+        @cursor.shape = CursorShape::Block
         @cursor.blink = false
         @cursor.color = nil
         @cursor._set = false
@@ -946,15 +944,15 @@ module Crysterm
         attr = dattr || @dattr
         #cattr
         #ch
-        if (cursor.shape == Tput::CursorShape::Line)
+        if (cursor.shape == CursorShape::Line)
           attr &= ~(0x1ff << 9)
           attr |= 7 << 9
           ch = '\u2502'
-        elsif (cursor.shape == Tput::CursorShape::Underline)
+        elsif (cursor.shape == CursorShape::Underline)
           attr &= ~(0x1ff << 9)
           attr |= 7 << 9
           attr |= 2 << 18
-        elsif (cursor.shape == Tput::CursorShape::Block)
+        elsif (cursor.shape == CursorShape::Block)
           attr &= ~(0x1ff << 9)
           attr |= 7 << 9
           attr |= 8 << 18

@@ -33,7 +33,7 @@ module Crysterm
     property use_buffer : Bool # useBuffer
     property resize_timeout : Int32
 
-    getter terminfo : Unibilium::Terminfo?
+    #getter terminfo : Unibilium::Terminfo?
     getter! tput : ::Tput
 
     property hide_cursor_old : Bool = false
@@ -71,7 +71,7 @@ module Crysterm
       @use_buffer = true,
       @force_unicode = false,
       @resize_timeout = 1, # TODO value
-      terminfo = nil,
+      terminfo : Bool | Unibilium::Terminfo = true,
       @dump=true,
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}",
     )
@@ -129,11 +129,18 @@ module Crysterm
       # TODO the exit handler
     end
 
-    def setup_tput(terminfo=nil)
+    def setup_tput(terminfo : Bool | Unibilium::Terminfo = true)
       unless @_tput_set_up
         @_tput_set_up = true
 
-        @terminfo = terminfo || Unibilium::Terminfo.from_env
+        @terminfo = case terminfo
+        when true
+          Unibilium::Terminfo.from_env
+        when false
+          nil
+        when Unibilium::Terminfo
+          terminfo.as Unibilium::Terminfo
+        end
 
         @tput = ::Tput.new(
           terminfo: @terminfo,
