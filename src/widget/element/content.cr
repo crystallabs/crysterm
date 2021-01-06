@@ -172,7 +172,6 @@ module Crysterm::Widget
             elsif (param[-3..] == " fg")
               state = fg
             else
-              STDERR.puts flag
               state = flag
             end
 
