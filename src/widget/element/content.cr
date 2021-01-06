@@ -37,10 +37,10 @@ module Crysterm::Widget
         @_clines.fake.join "\n"
       end
 
-      def parse_content(no_tags=true)
+      def parse_content(no_tags=false)
         return false if detached?
 
-        Log.trace { "Element not detached; parsing content: #{@content}" }
+        Log.trace { "Element not detached; parsing content: #{@content.inspect}" }
 
         width = @width - @iwidth
         if (@_clines.nil? || @_clines.empty? ||
@@ -54,7 +54,7 @@ module Crysterm::Widget
             .gsub(/\r\n|\r/, "\n")
             .gsub(/\t/, @screen.tabc)
 
-          Log.trace { "Internal content is #{content}" }
+          Log.trace { "Internal content is #{content.inspect}" }
 
           if true #(@screen.full_unicode)
             # double-width chars will eat the next char after render. create a
@@ -88,7 +88,7 @@ module Crysterm::Widget
           if !no_tags
             content = _parse_tags content
           end
-          Log.trace { "After _parse_tags: #{content}" }
+          Log.trace { "After _parse_tags: #{content.inspect}" }
 
           @_clines = _wrap_content(content, width)
           @_clines.width = width
@@ -156,8 +156,8 @@ module Crysterm::Widget
 
           if (cap = text.match /^{(\/?)([\w\-,;!#]*)}/)
             text = text[cap[0].size..]
-            slash = cap[1] == '/'
-            param = cap[2].gsub(/-/, ' ')
+            slash = (cap[1] == '/')
+            param = (cap[2].gsub(/-/, ' '))
 
             if (param == "open")
               outbuf += '{'
@@ -172,19 +172,18 @@ module Crysterm::Widget
             elsif (param[-3..] == " fg")
               state = fg
             else
+              STDERR.puts flag
               state = flag
             end
 
             if (slash)
               if (!param)
-                # TODO
-                #outbuf += @screen.application._attr("normal")
+                outbuf += @screen.application.tput._attr("normal")
                 bg.clear
                 fg.clear
                 flag.clear
               else
-                # TODO
-                #attr = @screen.application._attr(param, false)
+                attr = @screen.application.tput._attr(param, false)
                 attr = nil
                 if (attr.nil?)
                   outbuf += cap[0]
@@ -195,8 +194,7 @@ module Crysterm::Widget
                   # }
                   state.pop
                   if (state.size>0)
-                    # TODO
-                    #outbuf += @screen.application._attr(state[state.size - 1])
+                    outbuf += @screen.application.tput._attr(state[state.size - 1])
                   else
                     outbuf += attr
                   end
@@ -206,9 +204,7 @@ module Crysterm::Widget
               if (!param)
                 outbuf += cap[0]
               else
-                # TODO
-                #attr = @screen.application._attr(param)
-                attr = nil
+                attr = @screen.application.tput._attr(param)
                 if (attr.nil?)
                   outbuf += cap[0]
                 else

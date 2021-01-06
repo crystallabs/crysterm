@@ -727,9 +727,9 @@ module Crysterm
                       fg -= 8;
                       fg += 90;
                     end
-                    outbuf += "#{fg};";
+                    outbuf += "#{fg};"
                   else
-                    outbuf += "38;5;#{fg};";
+                    outbuf += "38;5;#{fg};"
                   end
                 end
 
@@ -737,7 +737,7 @@ module Crysterm
                   outbuf = outbuf[...-1]
                 end
 
-                outbuf += "m"
+                outbuf += 'm'
                 Log.trace { outbuf.inspect }
               end
             end
@@ -788,16 +788,20 @@ module Crysterm
                 # Fun fact: even if application.tput.brokenACS wasn't checked here,
                 # the linux console would still work fine because the acs
                 # table would fail the check of: application.tput.features.acscr[ch]
+                # TODO This is nasty. Char gets changed to string
+                # when sm/rm is added to the stream.
                 if (application.tput.features.acscr[ch]?)
                   if (acs)
                     ch = application.tput.features.acscr[ch]
                   else
-                    ch = "#{s.smacs?}#{application.tput.features.acscr[ch]}"
+                    sm = String.new s.smacs
+                    ch = sm + application.tput.features.acscr[ch]
                     acs = true
                   end
                 elsif acs
-                  ch = "#{s.rmacs?}#{ch}"
-                  acs = false;
+                  rm = String.new s.rmacs
+                  ch = rm + ch
+                  acs = false
                 end
               end
             else
@@ -833,7 +837,7 @@ module Crysterm
         end
 
         if (acs)
-          main += "#{s.rmacs}"
+          main += String.new s.rmacs
           acs = false
         end
 
@@ -841,13 +845,13 @@ module Crysterm
           pre = ""
           post = ""
 
-          # TODO enable this shit, when fixed
-          #pre += "#{application.tput.sc}"
-          #post += "#{application.tput.rc}"
-          #if !application.cursor_hidden
-          #  pre += "#{application.tput.civis}"
-          #  post += "#{application.tput.cnorm}"
-          #end
+          # TODO This unconditionally calls methods. Do they exist?
+          pre += String.new s.sc
+          post += String.new s.rc
+          if !application.cursor_hidden
+            pre += String.new s.civis
+            post += String.new s.cnorm
+          end
 
           # D O:
           # application.flush()
@@ -1001,10 +1005,10 @@ module Crysterm
         lines = @lines
 
         if (xi < 0)
-          xi = 0;
+          xi = 0
         end
         if (yi < 0)
-          yi = 0;
+          yi = 0
         end
 
         while yi < yl
@@ -1457,7 +1461,7 @@ module Crysterm
         end
 
         if flags.is_a? Int32 && fg.is_a? Int32 && bg.is_a? Int32
-          (flags << 18) | (fg << 9) | bg;
+          (flags << 18) | (fg << 9) | bg
         else
           raise "Vars are string?!"
         end

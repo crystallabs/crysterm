@@ -55,9 +55,9 @@ module Crysterm
       # Does it accept keyboard input?
       @input = false
 
-      @parse_tags = false
+      @parse_tags = true
 
-      property border : Tput::Border? = nil
+      property border : Tput::Border?
       property child_base = 0
 
       property content = ""
@@ -93,7 +93,7 @@ module Crysterm
         # TODO - style
         style : Style? = nil,
         padding : Int32 | Tput::Padding = 0,
-        border : Tput::BorderType | Tput::Border | Nil = nil,
+        border : Tput::Border | Nil = nil,
         #@clickable=false,
         content=nil,
         label=nil,
@@ -103,8 +103,7 @@ module Crysterm
         focused=false,
 
         # synonyms
-        parse_tags=false, # XXX change to true later
-        tags=false,
+        parse_tags=true,
       )
         super()
 
@@ -138,19 +137,14 @@ module Crysterm
           raise "Invalid padding argument"
         end
 
-        case border
-        when Tput::BorderType
-          @border = Tput::Border.new type: border
-        when Tput::Border
-          @border = border
-        end
+        @border = border
         # Add border style to style # TODO
 
         set_content(content, true) if content
         set_label(label) if label
         set_hover(hover_text) if hover_text
 
-        @parse_tags = parse_tags || tags
+        @parse_tags = parse_tags
 
         #on(AddHandlerEvent) { |wrapper| }
 

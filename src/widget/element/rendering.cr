@@ -515,53 +515,55 @@ module Crysterm::Widget
           end
         end
 
-        # Draw the scrollbar.
-        # Could possibly draw this after all child elements.
-        if (@scrollbar)
-          # D O:
-          # i = @get_scroll_height()
-          # TODO:
-          # (Scroll bottom is from scrollable)
-          #i = Math.max(@_clines.size, _scroll_bottom)
-          i = @_clines.size
-        end
         if (coords.notop || coords.nobot)
           i = -Int32::MAX
         end
-        ###if (@scrollbar && (yl - yi) < i)
-        ###  x = xl - 1
-        ###  if (@scrollbar.ignore_border && @border)
-        ###    x+=1
-        ###  end
-        ###  if (@always_scroll)
-        ###    y = @child_base / (i - (yl - yi))
-        ###  else
-        ###    y = (@child_base + @child_offset) / (i - 1)
-        ###  end
-        ###  y = yi + ((yl - yi) * y)
-        ###  if (y >= yl)
-        ###    y = yl - 1
-        ###  end
-        ###  cell = lines[y] && lines[y][x]
-        ###  if (cell)
-        ###    if (@track)
-        ###      ch = @track.ch || ' '
-        ###      attr = sattr(@style.track,
-        ###        @style.track.fg || @style.fg,
-        ###        @style.track.bg || @style.bg)
-        ###      @screen.fill_region(attr, ch, x, x + 1, yi, yl)
-        ###    end
-        ###    ch = @scrollbar.ch || ' '
-        ###    attr = sattr(@style.scrollbar,
-        ###      @style.scrollbar.fg || @style.fg,
-        ###      @style.scrollbar.bg || @style.bg)
-        ###    if (attr != cell.attr || ch != cell.char)
-        ###      lines[y][x].attr = attr
-        ###      lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
-        ###      lines[y].dirty = true
-        ###    end
-        ###  end
-        ###end
+        # Draw the scrollbar.
+        # Could possibly draw this after all child elements.
+        # TODO
+        #@scrollbar.try do |scrollbar|
+        #  # D O:
+        #  # i = @get_scroll_height()
+        #  # TODO:
+        #  # (Scroll bottom is from scrollable)
+        #  #i = Math.max(@_clines.size, _scroll_bottom)
+        #  i = @_clines.size
+
+        #  if ((yl - yi) < i)
+        #    x = xl - 1
+        #    if (scrollbar.ignore_border && @border)
+        #      x+=1
+        #    end
+        #    if (@always_scroll)
+        #      y = @child_base / (i - (yl - yi))
+        #    else
+        #      y = (@child_base + @child_offset) / (i - 1)
+        #    end
+        #    y = yi + ((yl - yi) * y)
+        #    if (y >= yl)
+        #      y = yl - 1
+        #    end
+        #    cell = lines[y] && lines[y][x]
+        #    if (cell)
+        #      if (@track)
+        #        ch = @track.ch || ' '
+        #        attr = sattr(@style.track,
+        #          @style.track.fg || @style.fg,
+        #          @style.track.bg || @style.bg)
+        #        @screen.fill_region(attr, ch, x, x + 1, yi, yl)
+        #      end
+        #      ch = scrollbar.ch || ' '
+        #      attr = sattr(@style.scrollbar,
+        #        @style.scrollbar.fg || @style.fg,
+        #        @style.scrollbar.bg || @style.bg)
+        #      if (attr != cell.attr || ch != cell.char)
+        #        lines[y][x].attr = attr
+        #        lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
+        #        lines[y].dirty = true
+        #      end
+        #    end
+        #  end
+        #end
 
         if (@border)
           xi-=1
@@ -579,7 +581,7 @@ module Crysterm::Widget
 
         # Draw the border.
         if (border = @border)
-          battr = sattr(@style.not_nil!.border)
+          battr = sattr(@style.try &.border)
           y = yi
           if (coords.notop)
             y = -1
@@ -598,8 +600,7 @@ module Crysterm::Widget
             if (!cell)
               next
             end
-            # XXX change type -- BorderType is an enum
-            if (border.type == "line")
+            if (border.type == BorderType::Line)
               if (x == xi)
                 ch = '\u250c'; # '┌'
                 if (!border.left)
@@ -629,7 +630,7 @@ module Crysterm::Widget
               else
                 ch = '\u2500'; # '─'
               end
-            elsif (border.type == "bg")
+            elsif (border.type == BorderType::Bg)
               ch = border.ch
             end
             if (!border.top && x != xi && x != xl - 1)
@@ -655,9 +656,9 @@ module Crysterm::Widget
             cell = lines[y][xi]?
             if (cell)
               if (border.left)
-                if (border.type == "line")
+                if (border.type == BorderType::Line)
                   ch = '\u2502'; # '│'
-                elsif (border.type == "bg")
+                elsif (border.type == BorderType::Bg)
                   ch = border.ch
                 end
                 if (!coords.noleft)
@@ -680,9 +681,9 @@ module Crysterm::Widget
             if (cell)
               if (border.right)
                 # XXX same here, change type
-                if (border.type == "line")
+                if (border.type == BorderType::Line)
                   ch = '\u2502'; # '│'
-                elsif (border.type == "bg")
+                elsif (border.type == BorderType::Bg)
                   ch = border.ch
                 end
                 if (!coords.noright)
@@ -721,8 +722,7 @@ module Crysterm::Widget
             if (!cell)
               next
             end
-            # XXX change type, it's an enum
-            if (border.type == "line")
+            if (border.type == BorderType::Line)
               if (x == xi)
                 ch = '\u2514'; # '└'
                 if (!border.left)
@@ -752,7 +752,7 @@ module Crysterm::Widget
               else
                 ch = '\u2500'; # '─'
               end
-            elsif (border.type == "bg")
+            elsif (border.type == BorderType::Bg)
               ch = border.ch
             end
             if (!border.bottom && x != xi && x != xl - 1)
@@ -775,7 +775,7 @@ module Crysterm::Widget
         if (@shadow)
           # right
           y = Math.max(yi + 1, 0)
-          while(y<yl)
+          while(y<yl+1)
             if (!lines[y]?)
               break
             end

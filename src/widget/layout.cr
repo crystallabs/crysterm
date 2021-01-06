@@ -95,13 +95,13 @@ module Crysterm
               # Compensate with width:
               # el.position.width = el.width + (highWidth - el.width)
               # Compensate with position:
-              el.position.left += high_width - (llp.xl - llp.xi)
+              el.position.left = el.position.left.as(Int) + high_width - (llp.xl - llp.xi)
             end
 
             # If our child does not overlap the right side of the Layout, set it's
             # `top`/`y` to the current `rowOffset` (the coordinate for the current
             # row).
-            if (el.position.left + el.width <= width)
+            if (el.position.left.as(Int) + el.width <= width)
               el.position.top = row_offset
             else
               # Otherwise we need to start a new row and calculate a new
@@ -131,7 +131,7 @@ module Crysterm
               if (!rendered?(l))
                 next
               end
-              abs = (el.position.left - (l.lpos.not_nil!.xi - xi)).abs
+              abs = (el.position.left.as(Int) - (l.lpos.not_nil!.xi - xi)).abs
               # D O:
               # if (abs < abovea && (l.lpos.xl - l.lpos.xi) <= el.width)
               if (abs < abovea)
@@ -146,7 +146,7 @@ module Crysterm
 
           # If our child overflows the Layout, do not render it!
           # Disable this feature for now.
-          if (el.position.top + el.height > height)
+          if (el.position.top.as(Int) + el.height > height)
             # Returning false tells blessed to ignore this child.
             # return false
           end
