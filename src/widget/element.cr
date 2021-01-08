@@ -71,12 +71,12 @@ module Crysterm
 
         # These end up being part of Position.
         # If position is specified, these are ignored.
-        left=0,
-        top=0,
-        right=0,
-        bottom=0,
-        width=0,
-        height=0,
+        left=nil,
+        top=nil,
+        right=nil,
+        bottom=nil,
+        width=nil,
+        height=nil,
 
         @hidden=false,
         @fixed=false,

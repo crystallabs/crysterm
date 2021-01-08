@@ -228,7 +228,6 @@ module Crysterm::Widget
         parse_content
 
         coords = _get_coords(true)
-        Log.trace { coords.inspect }
         if (!coords)
           @lpos = nil
           return

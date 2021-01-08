@@ -20,7 +20,7 @@ module Crysterm::Widget
         unless parent
           raise "Something"
         end
-        width = @position.width || 0
+        width = @position.width
         case width
         when String
           if width == "half"
