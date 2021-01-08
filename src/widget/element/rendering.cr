@@ -53,7 +53,7 @@ module Crysterm::Widget
         #ch
         #Log.trace { lines.inspect }
         content = @_pcontent || ""
-        ci = @_clines.ci[coords.base]
+        ci = @_clines.ci[coords.base]? || 0 # XXX Is it ok that array lookup can be nil? and defaulting to 0?
         #battr
         #dattr
         #c

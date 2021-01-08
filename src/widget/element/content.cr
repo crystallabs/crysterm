@@ -353,7 +353,7 @@ module Crysterm::Widget
                   break :main
                 end
                 # XXX
-                #if (!this.screen.fullUnicode)
+                #if (!screen.fullUnicode)
                   # Try to find a space to break on.
                   if (i != line.size)
                     j = i

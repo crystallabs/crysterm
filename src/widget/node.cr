@@ -114,22 +114,15 @@ module Crysterm
         element.emit(ReparentEvent, self);
         emit(AdoptEvent, element);
 
+        emt = uninitialized Node -> Nil
         emt = ->(el : Node) {
           n = el.detached? != @detached
           el.detached = @detached
           el.emit(AttachEvent) if n
-          # TODO
-          #el.children.each do |c| c.emt end
+          el.children.each do |c| emt.call c end
         }
         emt.call element
-        #(function emit(el)
-        #  var n = el.detached != self.detached;
-        #  el.detached = self.detached;
-        #  if (n) el.emit("attach");
-        #  el.children.forEach(emit);
-        #})(element);
 
-        # TODO enable
         unless @screen.focused
           @screen.focused = element
         end
@@ -202,7 +195,7 @@ module Crysterm
         end
         detach
         @destroyed = true
-        emit DestroyedEvent
+        emit DestroyEvent
       end
 
       # TODO

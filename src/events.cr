@@ -27,7 +27,7 @@ module Crysterm
 
     event ReparentEvent, element : Widget::Node?
     event AdoptEvent, element : Widget::Element
-    event RemoveEvent, element : Widget::Element
+    event RemoveEvent, node : Widget::Node
 
     event KeyEvent, key : Tput::Key
 

@@ -18,8 +18,10 @@ module Crysterm
 
     class_getter! global : self?
     @@total = 0
-    @@instances = [] of self
+    class_getter instances = [] of self
     @@_bound = false
+
+    property _exiting = false
 
     # wth?
     property x = 0
@@ -31,7 +33,7 @@ module Crysterm
     @type = :application
     @index : Int32 = -1 # -1 so that assignments start from 0
     property use_buffer : Bool # useBuffer
-    property resize_timeout : Int32
+    property resize_timeout : Time::Span
 
     #getter terminfo : Unibilium::Terminfo?
     getter! tput : ::Tput
@@ -62,6 +64,9 @@ module Crysterm
     @saved_x : Int32 = 0
     @saved_y : Int32 = 0
 
+    property scroll_top : Int32
+    property scroll_bottom : Int32
+
     @dump = true
 
     @_listened_keys : Bool = false
@@ -72,7 +77,7 @@ module Crysterm
       @log = ::Log.for(self.class),
       @use_buffer = true,
       @force_unicode = false,
-      @resize_timeout = 1, # TODO value
+      @resize_timeout = 0.3.seconds,
       terminfo : Bool | Unibilium::Terminfo = true,
       @dump=true,
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}",
@@ -97,18 +102,14 @@ module Crysterm
       #  }
       #end
 
-      @scroll_top = 0
-      @scroll_bottom = @rows - 1
-
       # XXX This is just name of term. Run terminfo init,
       # then read this from there, not here.
       #@_terminal = terminal.downcase
 
-
-      @_buf
+      @scroll_top = 0
+      @scroll_bottom = @rows - 1
 
       bind
-      # TODO _flush = this.flush.bind(this)
 
       @tput = setup_tput terminfo
 
@@ -127,7 +128,17 @@ module Crysterm
       return if @@_bound
       @@_bound = true
 
-      # TODO the exit handler
+      at_exit {
+        Crysterm::Application.instances.each do |app|
+          # XXX Do we restore window title ourselves?
+          #if app._original_title
+          #  app.tput.set_title(...)
+          #end
+
+          app.tput.flush
+          app._exiting = true
+        end
+      }
     end
 
     def setup_tput(terminfo : Bool | Unibilium::Terminfo = true)
@@ -165,10 +176,6 @@ module Crysterm
       show_cursor
 
       #disable_mouse if mouse_enabled
-
-      # TODO - zamijeniti sve pozive na IO.write sa _owrite,
-      # a onda u toj funkciji dropati sve writeove ako je
-      # u pause modu.
     end
 
     def resume
@@ -238,6 +245,26 @@ module Crysterm
             #emit Key(Name)_Event...
           end
         end
+      end
+    end
+
+    def destroy
+      if @@instances.delete self
+        tput.flush
+        @_exiting = true
+
+        if @@instances.any?
+          @@global = @@instances[0]
+        else
+          @@global = nil
+          # TODO remove all signal handlers set up on the app's process
+          @@_bound = false
+        end
+
+        # XXX reset terminal back to usable
+
+        @destroyed = true
+        emit DestroyEvent
       end
     end
 

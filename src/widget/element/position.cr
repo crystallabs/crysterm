@@ -473,14 +473,14 @@ module Crysterm::Widget
         return if @width == val
         clear_pos
         @position.width = val
-        this.emit ResizeEvent
+        emit ResizeEvent
         val
       end
       def height=(val : Int)
         return if @height == val
         clear_pos
         @position.height = val
-        this.emit ResizeEvent
+        emit ResizeEvent
         val
       end
 

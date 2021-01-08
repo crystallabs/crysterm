@@ -204,12 +204,22 @@ module Crysterm
         # Events:
         # addhander,
 
+
+
         application.on(ResizeEvent) do
           alloc
           render
-          emit ResizeEvent
-          @children.each do |c| c.emit ResizeEvent end
+
+          # TODO replace all places using uninitialized directly with
+          # a call to for_descendants { block } or similar
+          f = uninitialized Node -> Nil
+          f = ->(el : Node) {
+            el.emit ResizeEvent
+            el.children.each do |c| f.call c end
+          }
+          f.call self
         end
+
         application.on(FocusEvent) do
           emit FocusEvent
         end
@@ -221,16 +231,6 @@ module Crysterm
         end
 
         @renders = 0
-
-        # TODO
-        #p.on(ResizeEvent) {
-        #  alloc
-        #  render
-        #  f = uninitialized Node -> Bool
-        #  #f = ->(el : Node) { el.emit ResizeEvent; el.children.each do |c| f.call c end; true }
-        #  f = ->(el : Node) { el.children.each do |c| f.call c end; true }
-        #  f.call self
-        #}
 
         application.on(FocusEvent) {
           emit FocusEvent
@@ -250,7 +250,7 @@ module Crysterm
         application.on(KeyPressEvent) do |e|
           el = @focused || self
           while !e.accepted? && el
-            # TODO emit only if enabled
+            # XXX emit only if widget enabled?
             el.emit e
             el = el.parent
           end
@@ -316,21 +316,6 @@ module Crysterm
         @@_bound = true
 
         # TODO Enable
-        #process.on('uncaughtException', Screen._exceptionHandler(err) {
-        #  if (process.listeners('uncaughtException').length > 1) {
-        #    return;
-        #  }
-        #  Screen.instances.slice().forEach(function(screen) {
-        #    screen.destroy();
-        #  });
-        #  err = err || new Error('Uncaught Exception.');
-        #  console.error(err.stack ? err.stack + '' : err + '');
-        #  nextTick(function() {
-        #    process.exit(1);
-        #  });
-        #});
-
-        # TODO Enable
         #['SIGTERM', 'SIGINT', 'SIGQUIT'].forEach(function(signal) {
         #  var name = '_' + signal.toLowerCase() + 'Handler';
         #  process.on(signal, Screen[name]() {
@@ -343,12 +328,11 @@ module Crysterm
         #  });
         #});
 
-        # TODO Enable
-        #process.on('exit', Screen._exitHandler() {
-        #  Screen.instances.slice().forEach(function(screen) {
-        #    screen.destroy();
-        #  });
-        #});
+        at_exit {
+          Crysterm::Screen.instances.each do |screen|
+            screen.destroy
+          end
+        }
       end
 
       def enter
@@ -420,7 +404,7 @@ module Crysterm
 
         if( (application.scroll_top != 0) ||
             application.scroll_bottom != application.tput.screen.height - 1)
-          this.application.csr(0, application.tput.screen.height - 1)
+          application.tput.csr(0, application.tput.screen.height - 1)
         end
 
         # XXX For some reason if alloc/clear() is before this
@@ -458,7 +442,8 @@ module Crysterm
 
           @destroyed = true
           emit DestroyEvent
-          destroy # XXX Call itself again or what?
+
+          super
         end
 
         application.destroy
@@ -1025,7 +1010,6 @@ module Crysterm
           attr |= 7 << 9
           attr |= 8 << 18
         elsif (cursor.shape)
-          # TODO
           #cattr = Element.sattr(cursor, cursor.shape)
           #if (cursor.shape.bold || cursor.shape.underline ||
           #    cursor.shape.blink || cursor.shape.inverse ||
@@ -1529,6 +1513,10 @@ module Crysterm
         else
           raise "Vars are string?!"
         end
+      end
+
+      # Unused; just compatibility with `Node` interface.
+      def clear_pos
       end
 
     end
