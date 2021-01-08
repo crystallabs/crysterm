@@ -88,7 +88,6 @@ module Crysterm
         @no_overflow=true,
         @dock_borders=true,
         @shadow=false,
-        # TODO - style
         style : Style? = nil,
         padding : Int32 | Tput::Padding = 0,
         border : Tput::Border | Nil = nil,

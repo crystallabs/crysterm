@@ -42,8 +42,6 @@ module Crysterm
 
     @_tput_set_up = false
 
-    @scroll_bottom : Int32
-
     getter is_alt = false
 
     getter _title : String?
@@ -63,9 +61,6 @@ module Crysterm
     @y : Int32 = 0
     @saved_x : Int32 = 0
     @saved_y : Int32 = 0
-
-    property scroll_top : Int32
-    property scroll_bottom : Int32
 
     @dump = true
 
@@ -105,9 +100,6 @@ module Crysterm
       # XXX This is just name of term. Run terminfo init,
       # then read this from there, not here.
       #@_terminal = terminal.downcase
-
-      @scroll_top = 0
-      @scroll_bottom = @rows - 1
 
       bind
 

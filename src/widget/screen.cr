@@ -402,8 +402,8 @@ module Crysterm
 
         put(s.keypad_local?)
 
-        if( (application.scroll_top != 0) ||
-            application.scroll_bottom != application.tput.screen.height - 1)
+        if( (application.tput.scroll_top != 0) ||
+            application.tput.scroll_bottom != application.tput.screen.height - 1)
           application.tput.csr(0, application.tput.screen.height - 1)
         end
 

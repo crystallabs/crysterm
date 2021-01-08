@@ -317,14 +317,13 @@ module Crysterm::Widget
         end
         # Draw the scrollbar.
         # Could possibly draw this after all child elements.
-        # TODO
         #@scrollbar.try do |scrollbar|
         #  # D O:
         #  # i = @get_scroll_height()
         #  # TODO:
         #  # (Scroll bottom is from scrollable)
-        #  #i = Math.max(@_clines.size, _scroll_bottom)
-        #  i = @_clines.size
+        #  #i = Math.max(@_clines.size, _scroll_bottom())
+        #  i = Math.max(@_clines.size, 0)
 
         #  if ((yl - yi) < i)
         #    x = xl - 1
