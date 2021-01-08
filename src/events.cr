@@ -29,6 +29,23 @@ module Crysterm
     event AdoptEvent, element : Widget::Element
     event RemoveEvent, element : Widget::Element
 
+    event KeyEvent, key : Tput::Key
+
+    class KeyPressEvent < EventHandler::Event
+      property char : Char
+      property key : Tput::Key?
+      property sequence : Array(Char)
+      property? accepted : Bool = false
+      def initialize(@char, @key=nil, @sequence=[@char])
+      end
+      def accept!
+        @accepted = true
+      end
+      def ignore!
+        @accepted = false
+      end
+    end
+
     #event KeyPressEvent, ch : Char, key : Key
     event ClickEvent
 
@@ -36,4 +53,6 @@ module Crysterm
 
     event CheckEvent
     event UnCheckEvent
+
+    event MoveEvent
 end

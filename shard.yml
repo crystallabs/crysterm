@@ -19,3 +19,5 @@ dependencies:
     #github: crystallabs/term_colors
     #branch: master
     path: ../term_colors
+  w3m_image_display:
+    github: SamualLB/w3mimagedisplay

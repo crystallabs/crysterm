@@ -124,6 +124,7 @@ module Crysterm
 
       property! application : Application
       property focused : Element?
+      property _saved_focus : Element?
 
       getter! tabc : String
 
@@ -239,9 +240,72 @@ module Crysterm
           emit BlurEvent
         }
 
+        _listen_keys
+
         enter
         post_enter
       end
+
+      def _listen_keys
+        application.on(KeyPressEvent) do |e|
+          el = @focused || self
+          while !e.accepted? && el
+            # TODO emit only if enabled
+            el.emit e
+            el = el.parent
+          end
+        end
+      end
+
+      #def _listen_keys(el)
+      #  if (el && !~this.keyable.indexOf(el))
+      #    el.keyable = true
+      #    this.keyable.push(el)
+      #  end
+
+      #  if (this._listenedKeys) return
+      #  this._listenedKeys = true
+
+      #  # NOTE: The event emissions used to be reversed:
+      #  # element + screen
+      #  # They are now:
+      #  # screen + element
+      #  # After the first keypress emitted, the handler
+      #  # checks to make sure grabKeys, lockKeys, and focused
+      #  # weren't changed, and handles those situations appropriately.
+      #  this.program.on('keypress', function(ch, key)
+      #    if (@lockKeys && !~@ignoreLocked.indexOf(key.full))
+      #      return
+      #    end
+
+      #    var focused = @focused
+      #      , grabKeys = @grabKeys
+
+      #    if (!grabKeys || ~@ignoreLocked.indexOf(key.full))
+      #      @emit('keypress', ch, key)
+      #      @emit('key ' + key.full, ch, key)
+      #    end
+
+      #    # If something changed from the screen key handler, stop.
+      #    if (@grabKeys !== grabKeys || @lockKeys)
+      #      return
+      #    end
+
+      #    if (focused && focused.keyable)
+      #      focused.emit('keypress', ch, key)
+      #      focused.emit('key ' + key.full, ch, key)
+      #    end
+      #  })
+      #end
+
+      #def enable_keys(el)
+      #  _listen_keys(el)
+      #end
+
+      #def enable_input(el)
+      #  _listen_mouse(el)
+      #  _listen_keys(el)
+      #end
 
       def bind
         @@global = self unless @@global

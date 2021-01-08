@@ -15,7 +15,6 @@ module Crysterm
       include Element::Pos
 
       @type = :element
-      @name : String
 
       @no_overflow : Bool
       @dock_borders : Bool
@@ -69,7 +68,6 @@ module Crysterm
       property padding : Tput::Padding
 
       def initialize(
-        name=nil,
 
         # These end up being part of Position.
         # If position is specified, these are ignored.
@@ -104,10 +102,10 @@ module Crysterm
 
         # synonyms
         parse_tags=true,
-      )
-        super()
 
-        @name ||= "#{@type}-#{@uid}"
+        **node
+      )
+        super **node
 
         if position
           @position = position
@@ -278,7 +276,6 @@ module Crysterm
       end
 
       def self.sattr(style, fg=nil, bg=nil)
-
         # See why this can be nil
         style = style.not_nil!
 

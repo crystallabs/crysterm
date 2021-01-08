@@ -64,6 +64,8 @@ module Crysterm
 
     @dump = true
 
+    @_listened_keys : Bool = false
+
     def initialize(
       @input = STDIN.dup,
       @output = STDOUT.dup,
@@ -110,8 +112,7 @@ module Crysterm
 
       @tput = setup_tput terminfo
 
-      # TODO
-      #listen
+      listen
     end
 
     def bind
@@ -179,6 +180,65 @@ module Crysterm
 
     def title=(title)
       set_title title
+    end
+
+    def listen
+      # Potentially reset window title on exit:
+      #if !rxvt?
+      #  if (!vte?)
+      #    set_title_mode_feature 3
+      #  end
+      #  manipulate_window(21) { |err, data|
+      #    return if err
+      #    @_original_title = data.text
+      #  }
+      #end
+
+      # Listen for keys/mouse on input
+      #if (@input._our_input == 0)
+      #  @input._out_input = 1;
+        _listen_keys
+      #} else
+      #  @input._our_input += 1
+      #end
+
+      #on(AddHandlerEvent) do |wrapper|
+      #  if wrapper.event.is_a?(KeyPressEvent) # or MouseEvent
+      #    # remove self...
+      #    if (@input.set_raw_mode && !@input.raw?)
+      #      @input.set_raw_mode true
+      #      @input.resume
+      #    end
+      #  end
+      #end
+      #on(AddHandlerEvent) do |wrapper|
+      #  if (wrapper.is_a? MouseEvent)
+      #    off(AddHandlerEvent, self)
+      #    bind_mouse
+      #  end
+      #end
+      # Listen for resize on output
+      #if (@output._our_output==0)
+      #  @output._our_output = 1
+      #  _listen_output
+      #else
+      #  @output._our_output += 1
+      #end
+    end
+
+    def _listen_keys
+      return if @_listened_keys
+      @_listened_keys = true
+      spawn do
+        tput.listen do |char, key, sequence|
+          @@instances.each do |app|
+            next if app.input != @input
+            emit KeyPressEvent.new char, key, sequence
+            # TODO - possibly also:
+            #emit Key(Name)_Event...
+          end
+        end
+      end
     end
 
   end

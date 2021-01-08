@@ -26,13 +26,18 @@ module Crysterm
 
       property index = -1
 
+      property name : String
+
       def initialize(
+        name=nil,
         screen = nil,
         @parent = nil,
         index = -1,
         children = [] of Element
       )
         @uid = next_uid
+
+        @name = name || "#{@type}-#{@uid}"
 
         @screen = screen || determine_screen
 
@@ -98,7 +103,13 @@ module Crysterm
 
         element.screen = @screen # Isn't it already?
 
-        @children.insert i, element
+        #if i == -1
+        #  @children.push element
+        #elsif i == 0
+        #  @children.unshift element
+        #else
+          @children.insert i, element
+        #end
 
         element.emit(ReparentEvent, self);
         emit(AdoptEvent, element);

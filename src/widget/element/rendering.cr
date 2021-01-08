@@ -20,7 +20,7 @@ module Crysterm::Widget
 
       # Here be dragons
 
-      def _get_coords(get, noscroll=false)
+      def _get_coords(get=false, noscroll=false)
         if (@hidden)
           return
         end
