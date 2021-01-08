@@ -9,10 +9,10 @@ module Crysterm::Widget
       property right=0
       property bottom=0
 
-      property aleft=0
-      property atop=0
-      property aright=0
-      property abottom=0
+      property aleft   : Int32? = nil
+      property atop    : Int32? = nil
+      property aright  : Int32? = nil
+      property abottom : Int32? = nil
 
       property rleft=0
       property rtop=0
@@ -37,10 +37,10 @@ module Crysterm::Widget
       property lpos : LPos? = nil
 
       class LPos
-        property xi : Int32=0
-        property xl : Int32=0
-        property yi : Int32=0
-        property yl : Int32=0
+        property xi : Int32 = 0
+        property xl : Int32 = 0
+        property yi : Int32 = 0
+        property yl : Int32 = 0
         property base : Int32=0
         property noleft : Bool=false
         property noright : Bool=false
@@ -48,12 +48,12 @@ module Crysterm::Widget
         property nobot : Bool=false
         property renders = 0
 
-        property aleft : Int32 = 0
-        property atop : Int32 = 0
-        property aright : Int32 = 0
-        property abottom : Int32 = 0
-        property width : Int32 = 0
-        property height : Int32 = 0
+        property aleft : Int32? = nil
+        property atop : Int32? = nil
+        property aright : Int32? = nil
+        property abottom : Int32? = nil
+        property width : Int32? = nil
+        property height : Int32? = nil
 
         property ileft : Int32 = 0
         property itop : Int32 = 0
@@ -71,12 +71,12 @@ module Crysterm::Widget
           @notop =false,
           @nobot =false,
           @renders =0,
-          @aleft  = 0,
-          @atop  = 0,
-          @aright  = 0,
-          @abottom  = 0,
-          @width  = 0,
-          @height  = 0,
+          @aleft  = nil,
+          @atop  = nil,
+          @aright  = nil,
+          @abottom  = nil,
+          @width  = nil,
+          @height  = nil,
         )
         end
       end

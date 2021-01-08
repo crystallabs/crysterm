@@ -10,10 +10,10 @@ module Crysterm
       @spinner : Fiber?
       @interval : Time::Span
 
-      @should_exit = false
+      @should_exit = true
 
-      getter! icons : Tuple(Text,Text,Text,Text)
-      getter! icon : Text
+      getter icons : Array(String)
+      getter icon : Text
 
       def initialize(
         @interval = 0.2.seconds,
@@ -22,38 +22,35 @@ module Crysterm
 
         super **box
 
-        #@text = box["content"]? || ""
+        @icons = [ "|", "/", "-", "\\" ]
 
-        @icons = {
-          Text.new(parent: self, align: "center",
-            top: 2, left: 1, right: 1, height: 1, content: "|"),
-          Text.new(parent: self, align: "center",
-            top: 2, left: 1, right: 1, height: 1, content: "/"),
-          Text.new(parent: self, align: "center",
-            top: 2, left: 1, right: 1, height: 1, content: "-"),
-          Text.new(parent: self, align: "center",
-            top: 2, left: 1, right: 1, height: 1, content: "\\")
-        }
-        @icon = icons[0]
+        @pos = 0
 
-        # Should be done in super?
-        #@text = box["content"]? || ""
-        #set_content @text
+        @icon = Text.new \
+          align: "center",
+          top: 2,
+          left: 1,
+          right: 1,
+          height: 1,
+          content: @icons[0]
+
+        append @icon
       end
 
-      def start(text)
-        return if @should_exit
+      def start(text=nil)
+        #return if @should_exit
         @should_exit = false
 
         show
-        set_content text
+        set_content text || @content
+
+        @screen.lock_keys = true
 
         @spinner = Fiber.new {
-          pos = 0
           loop do
             break if @should_exit
-            @icon = icons[pos]
-            pos = (pos + 1) % icons.size
+            @icon.set_content icons[@pos]
+            @pos = (@pos + 1) % icons.size
             @screen.render
             sleep @interval
           end
@@ -62,8 +59,8 @@ module Crysterm
 
       def stop
         @screen.lock_keys = false
-        @should_exit = true
         hide
+        @should_exit = true
         render
       end
 

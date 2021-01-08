@@ -12,6 +12,208 @@ module Crysterm::Widget
         @screen.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
       end
 
+      def _get_coords(get=false, noscroll=false)
+        if (@hidden)
+          return
+        end
+
+        # D O:
+        # if (@parent._rendering)
+        #   get = true
+        # end
+
+        xi = _get_left(get)
+        xl = xi + _get_width(get)
+        yi = _get_top(get)
+        yl = yi + _get_height(get)
+        base = @child_base || 0
+        el = self
+        fixed = @fixed
+        #coords
+        #v
+        #noleft
+        #noright
+        #notop
+        #nobot
+        #ppos
+        #b
+        #Log.trace { yl }
+
+        # Attempt to shrink the element base on the
+        # size of the content and child elements.
+        if @shrink
+          coords = _get_shrink(xi, xl, yi, yl, get)
+          xi = coords.xi
+          xl = coords.xl
+          yi = coords.yi
+          yl = coords.yl
+        end
+
+        # Find a scrollable ancestor if we have one.
+        while (el = el.parent)
+          if (el.scrollable?)
+            if (fixed)
+              fixed = false
+              next
+            end
+            break
+          end
+        end
+
+        # Check to make sure we're visible and
+        # inside of the visible scroll area.
+        # NOTE: Lists have a property where only
+        # the list items are obfuscated.
+
+        # Old way of doing things, this would not render right if a shrunken element
+        # with lots of boxes in it was within a scrollable element.
+        # See: $ c test/widget-shrink-fail.cr
+        # thisparent = @parent
+
+        thisparent = el
+        # Using thisparent && el here to restrict both to non-nil
+
+        if (thisparent && el && !noscroll)
+          ppos = thisparent.lpos
+
+          # The shrink option can cause a stack overflow
+          # by calling _get_coords on the child again.
+          # if (!get && !thisparent.shrink)
+          #   ppos = thisparent._get_coords()
+          # end
+
+          if (!ppos)
+            return
+          end
+
+          # Figure out how to fix base (and cbase) to only
+          # take into account the *parent's* padding.
+          yi -= ppos.base
+          yl -= ppos.base
+
+          b = thisparent.border ? 1 : 0
+
+          # XXX
+          # Fixes non-`fixed` labels to work with scrolling (they're ON the border):
+          # if (@position.left < 0 || @position.right < 0 || @position.top < 0 || @position.bottom < 0)
+          if (@_isLabel)
+            b = 0
+          end
+
+          if (yi < ppos.yi + b)
+            if (yl - 1 < ppos.yi + b)
+              # Is above.
+              return
+            else
+              # Is partially covered above.
+              notop = true
+              v = ppos.yi - yi
+              if (@border)
+                v-=1
+              end
+              if (thisparent.border)
+                v+=1
+              end
+              base += v
+              yi += v
+            end
+          elsif (yl > ppos.yl - b)
+            if (yi > ppos.yl - 1 - b)
+              # Is below.
+              return
+            else
+              # Is partially covered below.
+              nobot = true
+              v = yl - ppos.yl
+              if (@border)
+                v-=1
+              end
+              if (thisparent.border)
+                v+=1
+              end
+              yl -= v
+            end
+          end
+
+          # Shouldn't be necessary.
+          # (yi < yl) || raise "No good"
+          if (yi >= yl)
+            return
+          end
+
+          unless el_lpos = el.lpos
+            puts :Unexpected
+            return
+          end
+
+          # Could allow overlapping stuff in scrolling elements
+          # if we cleared the pending buffer before every draw.
+          if (xi < el_lpos.xi)
+            xi = el_lpos.xi
+            noleft = true
+            if (@border)
+              xi-=1
+            end
+            if (thisparent.border)
+              xi+=1
+            end
+          end
+          if (xl > el_lpos.xl)
+            xl = el_lpos.xl
+            noright = true
+            if (@border)
+              xl+=1
+            end
+            if (thisparent.border)
+              xl-=1
+            end
+          end
+          #if (xi > xl)
+          #  return
+          #end
+          if (xi >= xl)
+            return
+          end
+        end
+
+        parent = @parent.not_nil!
+
+        if (@no_overflow && (plp = parent.lpos))
+          if (xi < plp.xi + parent.ileft)
+            xi = plp.xi + parent.ileft
+          end
+          if (xl > plp.xl - parent.iright)
+            xl = plp.xl - parent.iright
+          end
+          if (yi < plp.yi + parent.itop)
+            yi = plp.yi + parent.itop
+          end
+          if (yl > plp.yl - parent.ibottom)
+            yl = plp.yl - parent.ibottom
+          end
+        end
+
+        # D O:
+        # if (parent.lpos)
+        #   parent.lpos._scroll_bottom = Math.max(parent.lpos._scroll_bottom, yl)
+        # end
+        #p xi, xl, yi, xl
+
+        v = LPos.new \
+          xi: xi,
+          xl: xl,
+          yi: yi,
+          yl: yl,
+          base: base,
+          # TODO || falses
+          noleft: noleft || false,
+          noright: noright || false,
+          notop: notop || false,
+          nobot: nobot || false,
+          renders: @screen.renders
+        v
+      end
+
       # Positioning
 
       def _get_width(get)
@@ -29,7 +231,7 @@ module Crysterm::Widget
           expr = width.split /(?=\+|-)/
           width = expr[0]
           width = width[0...-1].to_f / 100
-          width = (parent.width * width).to_i
+          width = ((parent.width||0) * width).to_i
           width += expr[1].to_i if expr[1]?
           return width
         end
@@ -49,10 +251,10 @@ module Crysterm::Widget
             expr = left.split(/(?=\+|-)/)
             left = expr[0]
             left = left[0...-1].to_f / 100
-            left = (parent.width * left).to_i
+            left = ((parent.width||0) * left).to_i
             left += expr[1].to_i if expr[1]?
           end
-          width = parent.width - (@position.right || 0) - left
+          width = (parent.width||0) - (@position.right || 0) - left
           if (@screen.auto_padding)
             if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
               width -= parent.ileft
@@ -83,7 +285,7 @@ module Crysterm::Widget
           expr = height.split /(?=\+|-)/
           height = expr[0]
           height = height[0...-1].to_f / 100
-          height = (parent.height * height).to_i
+          height = ((parent.height||0) * height).to_i
           height += expr[1].to_i if expr[1]?
           return height
         end
@@ -103,10 +305,10 @@ module Crysterm::Widget
             expr = top.split(/(?=\+|-)/)
             top = expr[0]
             top = top[0...-1].to_f / 100;
-            top = (parent.height * top).to_i
+            top = ((parent.height||0) * top).to_i
             top += expr[1].to_i if expr[1]?
           end
-          height = parent.height - (@position.bottom || 0) - top
+          height = (parent.height||0) - (@position.bottom || 0) - top
           if (@screen.auto_padding)
             if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
               height -= parent.itop
@@ -137,7 +339,7 @@ module Crysterm::Widget
           expr = left.split /(?=\+|-)/
           left = expr[0]
           left = left[0...-1].to_f / 100
-          left = (parent.width * left).to_i
+          left = ((parent.width||0) * left).to_i
           left += expr[1].to_i if expr[1]?
           if @position.left == "center"
             left -= (_get_width(get)) // 2
@@ -154,7 +356,8 @@ module Crysterm::Widget
           end
         end
 
-        (parent.aleft||0) + left
+        left = (parent.aleft||0) + left
+        left
       end
 
       def aleft
@@ -201,7 +404,7 @@ module Crysterm::Widget
           expr = top.split /(?=\+|-)/
           top = expr[0]
           top = top[0...-1].to_f / 100
-          top = (parent.height * top).to_i
+          top = ((parent.height||0) * top).to_i
           top += expr[1].to_i if expr[1]?
           if @position.top == "center"
             top -= _get_height(get) // 2
