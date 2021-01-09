@@ -144,6 +144,7 @@ module Crysterm
     @_border_stops = BorderStops.new
 
     class Cell
+      include Comparable(self)
       # Same as @dattr
       property attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
       property char : Char = ' '
@@ -152,6 +153,20 @@ module Crysterm
       def initialize(@char)
       end
       def initialize
+      end
+      def <=>(other : Cell)
+        if (d = @attr <=> other.attr) == 0
+          @char <=> other.char
+        else
+          d
+        end
+      end
+      def <=>(other : Tuple(Int32,Char))
+        if (d = @attr <=> other[0]) == 0
+          @char <=> other[1]
+        else
+          d
+        end
       end
     end
 
@@ -612,11 +627,11 @@ module Crysterm
             neq = false
 
             (x...line.size).each do |xx|
-              if (line[xx].attr != data || line[xx].char != ' ')
+              if line[xx] != {data, ' '}
                 clr = false
                 break
               end
-              if (line[xx].attr != o[xx].attr || line[xx].char != o[xx].char)
+              if line[xx] != o[xx]
                 neq = true
               end
             end
@@ -1063,7 +1078,7 @@ module Crysterm
           cell = lines[yi][xx]?
           break unless cell
 
-          if (override || (attr != cell.attr) || (ch != cell.char))
+          if override || cell != {attr, ch}
             lines[yi][xx].attr = attr
             lines[yi][xx].char = ch
             lines[yi].dirty = true;
@@ -1264,7 +1279,7 @@ module Crysterm
             break
           end
           ch = @olines[y][x]
-          if ((ch.attr != first.attr) || (ch.char != first.char))
+          if ch != first
             return pos._clean_sides = false
           end
         end
@@ -1281,7 +1296,7 @@ module Crysterm
             break
           end
           ch = @olines[y][x]
-          if ((ch.attr != first.attr) || (ch.char != first.char))
+          if ch != first
             return pos._clean_sides = false
           end
         end

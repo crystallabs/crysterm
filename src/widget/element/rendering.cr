@@ -253,7 +253,7 @@ module Crysterm
                   end
                   lines[y].dirty = true
                 else
-                  if ((attr != cell.attr) || (ch != cell.char))
+                  if cell != {attr, ch}
                     lines[y][x].attr = attr
                     lines[y][x].char = ch
                     lines[y].dirty = true
@@ -303,7 +303,7 @@ module Crysterm
               end
               lines[y].dirty = true
             else
-              if ((attr != cell.attr) || (ch != cell.char))
+              if cell != {attr, ch}
                 lines[y][x].attr = attr
                 lines[y][x].char = ch
                 lines[y].dirty = true
@@ -352,7 +352,7 @@ module Crysterm
         #      attr = sattr(@style.scrollbar,
         #        @style.scrollbar.fg || @style.fg,
         #        @style.scrollbar.bg || @style.bg)
-        #      if (attr != cell.attr || ch != cell.char)
+        #      if cell != {attr, ch}
         #        lines[y][x].attr = attr
         #        lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
         #        lines[y].dirty = true
@@ -431,14 +431,14 @@ module Crysterm
             end
             if (!border.top && x != xi && x != xl - 1)
               ch = ' '
-              if (dattr != cell.attr || ch != cell.char)
+              if cell != {dattr, ch}
                 lines[y][x].attr = dattr
                 lines[y][x].char = ch
                 lines[y].dirty = true
                 next
               end
             end
-            if (battr != cell.attr || ch != cell.char)
+            if cell != {battr, ch}
               lines[y][x].attr = battr
               lines[y][x].char = ch ? ch : ' ' # XXX why ch can be nil?
               lines[y].dirty = true
@@ -458,7 +458,7 @@ module Crysterm
                   ch = border.ch
                 end
                 if (!coords.noleft)
-                  if (battr != cell.attr || ch != cell.char)
+                  if cell != {battr, ch}
                     lines[y][xi].attr = battr
                     lines[y][xi].char = ch ? ch : ' '
                     lines[y].dirty = true
@@ -466,7 +466,7 @@ module Crysterm
                 end
               else
                 ch = ' '
-                if (dattr != cell.attr || ch != cell.char)
+                if cell != {dattr, ch}
                   lines[y][xi].attr = dattr
                   lines[y][xi].char = ch ? ch : ' '
                   lines[y].dirty = true
@@ -482,7 +482,7 @@ module Crysterm
                   ch = border.ch
                 end
                 if (!coords.noright)
-                  if (battr != cell.attr || ch != cell.char)
+                  if cell != {battr, ch}
                     lines[y][xl - 1].attr = battr
                     lines[y][xl - 1].char = ch ? ch : ' '
                     lines[y].dirty = true
@@ -490,7 +490,7 @@ module Crysterm
                 end
               else
                 ch = ' '
-                if (dattr != cell.attr || ch != cell.char)
+                if cell != {dattr, ch}
                   lines[y][xl - 1].attr = dattr
                   lines[y][xl - 1].char = ch ? ch : ' '
                   lines[y].dirty = true
@@ -552,14 +552,14 @@ module Crysterm
             end
             if (!border.bottom && x != xi && x != xl - 1)
               ch = ' '
-              if (dattr != cell.attr || ch != cell.char)
+              if cell != {dattr, ch}
                 lines[y][x].attr = dattr
                 lines[y][x].char = ch ? ch : ' '
                 lines[y].dirty = true
               end
               next
             end
-            if (battr != cell.attr || ch != cell.char)
+            if cell != {battr, ch}
               lines[y][x].attr = battr
               lines[y][x].char = ch ? ch : ' '
               lines[y].dirty = true
