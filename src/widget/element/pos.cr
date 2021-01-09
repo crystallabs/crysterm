@@ -32,8 +32,6 @@ module Crysterm
       # Heh.
       property? scrollable = false
 
-      property border = Tput::Border.new
-
       property lpos : LPos? = nil
 
       class LPos

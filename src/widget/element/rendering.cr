@@ -95,7 +95,7 @@ module Crysterm
         @lpos = coords
 
         @border.try do |border|
-          if (border.type == Tput::BorderType::Line)
+          if (border.type == BorderType::Line)
             @screen._border_stops[coords.yi] = true
             @screen._border_stops[coords.yl - 1] = true
             # D O:

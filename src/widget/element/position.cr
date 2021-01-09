@@ -71,9 +71,9 @@ module Crysterm
         # thisparent = @parent
 
         thisparent = el
-        # Using thisparent && el here to restrict both to non-nil
 
-        if (thisparent && el && !noscroll)
+        # Using thisparent && el here to restrict both to non-nil
+        if (thisparent && el && !noscroll && thisparent.is_a? Element)
           ppos = thisparent.lpos
 
           # The shrink option can cause a stack overflow

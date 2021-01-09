@@ -53,7 +53,7 @@ module Crysterm
 
     @parse_tags = true
 
-    property border : Tput::Border?
+    property border : Border?
     property child_base = 0
 
     property content = ""
@@ -87,7 +87,7 @@ module Crysterm
       @shadow=false,
       style : Style? = nil,
       padding : Int32 | Padding = 0,
-      border : Tput::Border | Nil = nil,
+      border = nil,
       #@clickable=false,
       content=nil,
       label=nil,
@@ -131,8 +131,16 @@ module Crysterm
         raise "Invalid padding argument"
       end
 
-      @border = border
-      # Add border style to style # TODO
+      @border = case border
+      when true
+        Border.new BorderType::Line
+      when BorderType
+        Border.new border
+      when Border
+        border
+      else
+        raise "Invalid border argument"
+      end
 
       set_content(content, true) if content
       set_label(label) if label
