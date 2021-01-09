@@ -64,27 +64,56 @@ module Crysterm
       end
     end
 
-    #class Border
-    #  @left : Int32
-    #  @top : Int32
-    #  @right : Int32
-    #  @bottom : Int32
+    class Border
+      property type = BorderType::Bg
+      property ch = ' '
+      property left : Bool = true
+      property top : Bool = true
+      property right : Bool = true
+      property bottom : Bool = true
+      def initialize(
+        @type = BorderType::Bg,
+        @ch = ' ',
+        @left = true,
+        @top = true,
+        @right = true,
+        @bottom = true
+      )
+      end
 
-    #  def initialize(
-    #    @left=0,
-    #    @top=0,
-    #    @right=0,
-    #    @bottom=0
-    #  )
-    #  end
+      def any?
+        !!((@type != BorderType::None) && (@left || @top || @right || @bottom))
+      end
+    end
 
-    #  def initialize(all)
-    #    @left = @top = @right = @bottom = all
-    #  end
-    #end
+    class BorderSomething
+      property fg
+      property bg
+    end
+
+    enum BorderType
+      None
+      Bg
+      Fg
+      Line
+      #Dotted
+      #Dashed
+      #Solid
+      #Double
+      #DotDash
+      #DotDotDash
+      #Groove
+      #Ridge
+      #Inset
+      #Outset
+    end
+
+    class FocusEffects
+      property bg
+    end
 
     class HoverEffects
-      @bg : String = "black"
+      property bg : String = "black"
     end
 
     enum LayoutType
