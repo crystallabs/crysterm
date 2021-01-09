@@ -6,7 +6,6 @@ module Crysterm
     class Layout < Element
       include EventHandler
 
-      @type = :layout
       @layout : String
       @renderer : Proc(Element, Int32)?
 

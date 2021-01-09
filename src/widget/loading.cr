@@ -5,8 +5,6 @@ module Crysterm
   module Widget
     # Box element
     class Loading < Box
-      @type = :loading
-
       @spinner : Fiber?
       @interval : Time::Span
 

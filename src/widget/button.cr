@@ -8,8 +8,6 @@ module Crysterm
     class Button < Input
       include EventHandler
 
-      @type = :button
-
       getter value = false
 
       def initialize(**element)

@@ -713,7 +713,7 @@ module Crysterm::Widget
               # XXX Maybe just to this for all this being that this would affect
               # width shrunken normal shrunken lists as well.
               # if (@_isList)
-              if (@type == :"list-table")
+              if is_a? Widget::ListTable
                 xl -= @padding.left + @padding.right
                 xl += @iright
               end

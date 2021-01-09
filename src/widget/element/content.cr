@@ -298,7 +298,7 @@ module Crysterm::Widget
         if (@scrollbar)
           margin+=1
         end
-        if (@type == :textarea)
+        if is_a? Widget::TextArea
           margin+=1
         end
         if (width > margin)

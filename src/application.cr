@@ -30,7 +30,6 @@ module Crysterm
     property input : IO
     property output : IO
     #@log : Bool
-    @type = :application
     @index : Int32 = -1 # -1 so that assignments start from 0
     property use_buffer : Bool # useBuffer
     property resize_timeout : Time::Span

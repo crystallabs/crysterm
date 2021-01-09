@@ -14,8 +14,6 @@ module Crysterm
       include Element::Rendering
       include Element::Pos
 
-      @type = :element
-
       @no_overflow : Bool
       @dock_borders : Bool
       @shadow : Bool
@@ -234,7 +232,7 @@ module Crysterm
       def _detached?
         el = self
         while el
-          return false if el.type == :screen
+          return false if el.is_a? Widget::Screen
           return true if !el.parent
           el = el.parent
         end

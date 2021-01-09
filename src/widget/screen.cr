@@ -120,8 +120,6 @@ module Crysterm
         instances[0]?.not_nil!
       end
 
-      @type= :screen
-
       property! application : Application
       property focused : Element?
       property _saved_focus : Element?

@@ -4,8 +4,6 @@ module Crysterm
   module Widget
     # Line element
     class Line < Box
-      @type = :line
-
       @orientation = :vertical
 
       def initialize(@orientation)
@@ -17,7 +15,7 @@ module Crysterm
 
         super
 
-        @ch = (!@type || (@type==:line)) ?
+        @ch = (is_a? Widget::Line) ?
           (@orientation == :horizontal ? '-' : '|') :
           (@ch || "")
 

@@ -20,8 +20,6 @@ module Crysterm
 
       property children = [] of Element
 
-      getter type = :node
-
       property? detached : Bool = false
 
       property index = -1
@@ -37,13 +35,13 @@ module Crysterm
       )
         @uid = next_uid
 
-        @name = name || "#{@type}-#{@uid}"
+        @name = name || "#{self.class.name}-#{@uid}"
 
         @screen = screen || determine_screen
 
         # $ = _ = JSON/YAML::Any
 
-        if @type != :screen
+        if !(is_a? Widget::Screen)
           @detached = true
         end
 
@@ -65,10 +63,10 @@ module Crysterm
           Screen.global
         elsif @parent
           s= @parent
-          while s  && (s.type != :screen)
+          while s  && !(s.is_a? Widget::Screen)
             s = s.parent
           end
-          if s.is_a? Screen
+          if s.is_a? Widget::Screen
             s
           else
             raise Exception.new("No active screen found in parent chain.");

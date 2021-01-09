@@ -8,8 +8,6 @@ module Crysterm
     class Checkbox < Input
       include EventHandler
 
-      @type = :checkbox
-
       getter value = false
 
       def initialize(value=false, **element)

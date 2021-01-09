@@ -6,8 +6,6 @@ module Crysterm
     class RadioButton < Checkbox
       include EventHandler
 
-      @type = :radiobutton
-
       getter value = false
 
       def initialize(value=false, **element)
@@ -18,14 +16,14 @@ module Crysterm
         on(CheckEvent) do
           el = self
           while el && (el = el.parent)
-            if el.type == :radioset || el.type == :form
+            if el.is_a?(Widget::RadioSet) || el.is_a?(Widget::Form)
               break
             end
             el = el || parent
 
             el.try &.children.each do |cel|
-              next if cel.type != :radiobutton || cel == self
-              cel.uncheck if cel.is_a? RadioButton
+              next if !(cel.is_a? Widget::RadioButton) || cel == self
+              cel.uncheck if cel.is_a? Widget::RadioButton
             end
           end
         end
