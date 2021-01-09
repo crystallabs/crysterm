@@ -612,10 +612,6 @@ module Crysterm::Widget
         (@border ? 2 : 0) + @padding.top + @padding.bottom
       end
 
-      def tpadding
-        @padding.left + @padding.top + @padding.right + @padding.bottom
-      end
-
       def _get_shrink_box(xi, xl, yi, yl, get)
         if (@children.size == 0)
           return ShrinkBox.new xi: xi, xl: xi + 1, yi: yi, yl: yi + 1

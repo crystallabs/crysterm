@@ -47,21 +47,20 @@ module Crysterm
     end
 
     class Padding
-      @left : Int32
-      @top : Int32
-      @right : Int32
-      @bottom : Int32
+      property left : Int32
+      property top : Int32
+      property right : Int32
+      property bottom : Int32
 
-      def initialize(
-        @left=0,
-        @top=0,
-        @right=0,
-        @bottom=0
-      )
+      def initialize(all)
+        @left = @top = @right = @bottom = all
       end
 
-      def initialize(all=0)
-        @left = @top = @right = @bottom = all
+      def initialize(@left=0, @top=0, @right=0, @bottom=0)
+      end
+
+      def any?
+        (@left + @top + @right + @bottom) > 0
       end
     end
 

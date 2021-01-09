@@ -128,7 +128,7 @@ module Crysterm
 
       property dattr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
 
-      property padding = Tput::Padding.new
+      property padding = Padding.new
 
       getter title : String?
 

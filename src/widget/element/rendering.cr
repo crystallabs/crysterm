@@ -133,7 +133,7 @@ module Crysterm::Widget
         # content-drawing loop will skip a few cells/lines.
         # To deal with this, we can just fill the whole thing
         # ahead of time. This could be optimized.
-        if ((tpadding!=0) || (@valign && (@valign != "top")))
+        if (@padding.any? || (@valign && (@valign != "top")))
           if @style.try &.transparent
             (Math.max(yi, 0)...yl).each do |y|
               if (!lines[y]?)
@@ -154,7 +154,7 @@ module Crysterm::Widget
           end
         end
 
-        if (tpadding != 0)
+        if @padding.any?
           xi += @padding.left
           xl -= @padding.right
           yi += @padding.top 
@@ -368,7 +368,7 @@ module Crysterm::Widget
           yl+=1
         end
 
-        if (tpadding)
+        if @padding.any?
           xi -= @padding.left
           xl += @padding.right
           yi -= @padding.top

@@ -180,7 +180,7 @@ module Crysterm
           coords.yl-=1
         end
 
-        if (tpadding)
+        if @padding.any?
           coords.xi += @padding.left
           coords.xl -= @padding.right
           coords.yi += @padding.top
@@ -196,7 +196,7 @@ module Crysterm
           coords.yl+=1
         end
 
-        if (tpadding)
+        if @padding.any?
           coords.xi -= @padding.left
           coords.xl += @padding.right
           coords.yi -= @padding.top

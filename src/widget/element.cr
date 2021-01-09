@@ -63,7 +63,7 @@ module Crysterm
 
       property? _no_fill = false
 
-      property padding : Tput::Padding
+      property padding : Padding
 
       def initialize(
 
@@ -87,7 +87,7 @@ module Crysterm
         @dock_borders=true,
         @shadow=false,
         style : Style? = nil,
-        padding : Int32 | Tput::Padding = 0,
+        padding : Int32 | Padding = 0,
         border : Tput::Border | Nil = nil,
         #@clickable=false,
         content=nil,
@@ -125,8 +125,8 @@ module Crysterm
 
         case padding
         when Int
-          @padding = Tput::Padding.new padding, padding, padding, padding
-        when Tput::Padding
+          @padding = Padding.new padding
+        when Padding
           @padding = padding
         else
           raise "Invalid padding argument"
