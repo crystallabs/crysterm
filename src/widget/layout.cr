@@ -10,7 +10,7 @@ module Crysterm
       @layout : String
       @renderer : Proc(Element, Int32)?
 
-      def initialize(@layout="inline", @renderer=nil, **el)
+      def initialize(@layout=LayoutType::Inline, @renderer=nil, **el)
         if (!el["width"]? && (!el["left"]? && !el["right"])) ||
            (!el["height"]? && (!el["top"]? && !el["bottom"]))
           raise "Layout must have width and height"
@@ -65,7 +65,7 @@ module Crysterm
         high_width = 0
 
         # Figure out highest child element
-        if @layout == "grid"
+        if @layout == LayoutType::Grid
           high_width = @children.reduce(0) { |o, el|
             Math.max o, el.width
           }
@@ -91,7 +91,7 @@ module Crysterm
             el.position.left = llp.xl - xi
 
             # Make sure the position matches the highest width element
-            if (@layout == "grid")
+            if (@layout == LayoutType::Grid)
               # Compensate with width:
               # el.position.width = el.width + (highWidth - el.width)
               # Compensate with position:
@@ -123,7 +123,7 @@ module Crysterm
           end
 
           # Make sure the elements on lower rows graviatate up as much as possible
-          if (@layout == "inline")
+          if (@layout == LayoutType::Inline)
             above = nil
             abovea = Int32::MAX
             (last_row_index...row_index).each do |j|

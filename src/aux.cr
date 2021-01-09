@@ -87,4 +87,9 @@ module Crysterm
     class HoverEffects
       @bg : String = "black"
     end
+
+    enum LayoutType
+      Inline = 1
+      Grid = 2
+    end
 end
