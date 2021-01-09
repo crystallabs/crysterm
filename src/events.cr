@@ -13,8 +13,8 @@ module Crysterm
   event HideEvent
   event ShowEvent
 
-  event BlurEvent
-  event FocusEvent
+  event BlurEvent, el : Element? = nil
+  event FocusEvent, el : Element? = nil
   event DestroyEvent
 
   event RenderEvent

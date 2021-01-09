@@ -173,17 +173,12 @@ module Crysterm
     def set_effects
     end
 
-    def focused?
-      @screen.focused == self
-    end
-
     def hide
       return if @hidden
       clear_pos
       @hidden = true
       emit HideEvent
-      # TODO
-      # @screen.try &.rewind_focus if focused?
+      @screen.rewind_focus if focused?
     end
 
     def show
@@ -198,6 +193,10 @@ module Crysterm
 
     def focus
       @screen.focused = self
+    end
+
+    def focused?
+      @screen.focused == self
     end
 
     def _align(line, width, align)

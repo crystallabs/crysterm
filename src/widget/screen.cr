@@ -122,7 +122,6 @@ module Crysterm
     end
 
     property! application : Application
-    property focused : Element?
     property _saved_focus : Element?
 
     getter! tabc : String
@@ -134,7 +133,7 @@ module Crysterm
     getter title : String?
 
     # @hover = nil
-    # @history = [] of
+    @history = [] of Element
     @clickable = [] of Node
     @keyable = [] of Node
     property grab_keys = false
@@ -267,7 +266,7 @@ module Crysterm
 
     def _listen_keys
       application.on(KeyPressEvent) do |e|
-        el = @focused || self
+        el = focused || self
         while !e.accepted? && el
           # XXX emit only if widget enabled?
           el.emit e
@@ -297,7 +296,6 @@ module Crysterm
     #      return
     #    end
 
-    #    var focused = @focused
     #      , grabKeys = @grabKeys
 
     #    if (!grabKeys || ~@ignoreLocked.indexOf(key.full))
@@ -310,7 +308,7 @@ module Crysterm
     #      return
     #    end
 
-    #    if (focused && focused.keyable)
+    #    if (focused.try &.keyable)
     #      focused.emit('keypress', ch, key)
     #      focused.emit('key ' + key.full, ch, key)
     #    end
@@ -578,7 +576,7 @@ module Crysterm
       # Workaround to deal with cursor pos before the screen
       # has rendered and lpos is not reliable (stale).
       # Only some element have this functions; for others it's a noop.
-      @focused.try &._update_cursor(true)
+      focused.try &._update_cursor(true)
 
       @renders += 1
 
@@ -1546,5 +1544,12 @@ module Crysterm
     # Unused; just compatibility with `Node` interface.
     def clear_pos
     end
+    def hidden?
+      false
+    end
+    def child_base
+      0
+    end
+
   end
 end

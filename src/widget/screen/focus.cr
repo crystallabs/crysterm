@@ -10,7 +10,7 @@ module Crysterm
           return
         end
 
-        i = @keyable.index(@focused) || return
+        i = @keyable.index(focused) || return
 
         if (offset > 0)
           while offset > 0
@@ -51,91 +51,99 @@ module Crysterm
       end
 
       def save_focus
-        @_saved_focus = @focused
+        @_saved_focus = focused
       end
 
       def restore_focus
         return unless sf = @_saved_focus
         sf.focus
         @_saved_focus = nil
-        @focused
+        focused
       end
+
+      def focus_push(el)
+        return if !el
+        old = @history[-1]?
+        while @history.size >= 10
+          @history.shift
+        end
+        @history.push el
+        _focus el, old
+      end
+
+      def focus_pop
+        old = @history.pop
+        if el = @history[-1]?
+          _focus el, old
+        end
+        return old
+      end
+
+      def rewind_focus
+        old = @history.pop
+
+        while @history.size > 0
+          el = @history.pop
+          if !el.detached? && el.visible?
+            @history.push el
+            _focus el, old
+            return el
+          end
+        end
+
+        if old
+          old.emit BlurEvent
+        end
+      end
+
+      def _focus(cur : Element, old : Element? = nil)
+        # Find a scrollable ancestor if we have one.
+        el = cur
+        while el = el.parent
+          if el.scrollable?
+            break
+          end
+        end
+
+        # TODO is it valid that this isn't Element?
+        #unless el.is_a? Element
+        #  raise "Unexpected"
+        #end
+
+        # If we're in a scrollable element,
+        # automatically scroll to the focused element.
+        if (el && !el.detached?)
+          # NOTE: This is different from the other "visible" values - it needs the
+          # visible height of the scrolling element itself, not the element within it.
+          visible = cur.screen.height - el.atop.not_nil! - el.itop.not_nil! - el.abottom.not_nil! - el.ibottom.not_nil!
+          if cur.rtop < el.child_base
+            # TODO Enable
+            #el.scroll_to cur.rtop
+            cur.screen.render
+          elsif (cur.rtop + cur.height - cur.ibottom) > (el.child_base + visible)
+            # Explanation for el.itop here: takes into account scrollable elements
+            # with borders otherwise the element gets covered by the bottom border:
+            # TODO Enable
+            #el.scroll_to cur.rtop - (el.height - cur.height) + el.itop, true
+            cur.screen.render
+          end
+        end
+
+        if old
+          old.emit BlurEvent, cur
+        end
+
+        cur.emit FocusEvent, old
+      end
+
+      def focused
+       @history[-1]?
+      end
+
+      def focused=(el)
+        focus_push el
+      end
+
     end
   end
 end
-
-# focusPush = function(el)
-#  if (!el) return
-#  var old = @history[@history.size - 1]
-#  if (@history.size === 10)
-#    @history.shift()
-#  }
-#  @history.push(el)
-#  _focus(el, old)
-# }
-#
-# def focus_pop
-#  var old = @history.pop()
-#  if (@history.size)
-#    _focus(@history[@history.size - 1], old)
-#  }
-#  return old
-# end
-
-# rewindFocus = function()
-#  var old = this.history.pop()
-#    , el
-#
-#  while (this.history.size)
-#    el = this.history.pop()
-#    if (!el.detached && el.visible)
-#      this.history.push(el)
-#      this._focus(el, old)
-#      return el
-#    }
-#  }
-#
-#  if (old)
-#    old.emit('blur')
-#  }
-# }
-#
-# _focus = function(self, old)
-#  // Find a scrollable ancestor if we have one.
-#  var el = self
-#  while (el = el.parent)
-#    if (el.scrollable) break
-#  }
-#
-#  // If we're in a scrollable element,
-#  // automatically scroll to the focused element.
-#  if (el && !el.detached)
-#    // NOTE: This is different from the other "visible" values - it needs the
-#    // visible height of the scrolling element itself, not the element within
-#    // it.
-#    var visible = self.screen.height - el.atop - el.itop - el.abottom - el.ibottom
-#    if (self.rtop < el.childBase)
-#      el.scrollTo(self.rtop)
-#      self.screen.render()
-#    } else if (self.rtop + self.height - self.ibottom > el.childBase + visible)
-#      // Explanation for el.itop here: takes into account scrollable elements
-#      // with borders otherwise the element gets covered by the bottom border:
-#      el.scrollTo(self.rtop - (el.height - self.height) + el.itop, true)
-#      self.screen.render()
-#    }
-#  }
-#
-#  if (old)
-#    old.emit('blur', self)
-#  }
-#
-#  self.emit('focus', old)
-# }
-#
-# __defineGetter__('focused', function()
-#  return this.history[this.history.size - 1]
-# })
-#
-# __defineSetter__('focused', function(el)
-#  return this.focusPush(el)
-# })

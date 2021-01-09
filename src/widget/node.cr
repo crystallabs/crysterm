@@ -165,8 +165,7 @@ module Crysterm
       emt.call element
 
       if @screen.focused == element
-        # TODO
-        # @screen.rewind_focus
+        @screen.rewind_focus
       end
     end
 
