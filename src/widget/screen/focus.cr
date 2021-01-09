@@ -1,67 +1,65 @@
 module Crysterm
-  module Widget
-    class Screen < Node
-      module Focus
-        include Crystallabs::Helpers::Alias_Methods
+  class Screen < Node
+    module Focus
+      include Crystallabs::Helpers::Alias_Methods
 
-        def focus_offset(offset)
-          shown = @keyable.select{ |el| !el.detached? && el.visible? }.size
+      def focus_offset(offset)
+        shown = @keyable.select{ |el| !el.detached? && el.visible? }.size
 
-          if (shown==0 || offset ==0)
-            return
-          end
+        if (shown==0 || offset ==0)
+          return
+        end
 
-          i = @keyable.index(@focused) || return
+        i = @keyable.index(@focused) || return
 
-          if (offset > 0)
-            while offset > 0
-              offset -= 1
-              i += 1
-              if (i > @keyable.size - 1)
-                i = 0
-              end
-              if (@keyable[i].detached? || !@keyable[i].visible?)
-                offset += 1
-              end
+        if (offset > 0)
+          while offset > 0
+            offset -= 1
+            i += 1
+            if (i > @keyable.size - 1)
+              i = 0
             end
-          else
-            offset = -offset
-            while offset > 0
-              offset -= 1
-              i -= 1
-              if (i < 0)
-                i = @keyable.size - 1
-              end
-              if (@keyable[i].detached? || !@keyable[i].visible?)
-                offset += 1
-              end
+            if (@keyable[i].detached? || !@keyable[i].visible?)
+              offset += 1
             end
           end
-
-          @keyable[i].focus
+        else
+          offset = -offset
+          while offset > 0
+            offset -= 1
+            i -= 1
+            if (i < 0)
+              i = @keyable.size - 1
+            end
+            if (@keyable[i].detached? || !@keyable[i].visible?)
+              offset += 1
+            end
+          end
         end
 
-        def focus_previous
-          focus_offset -1
-        end
-        alias_previous focus_prev
-
-        def focus_next
-          focus_offset 1
-        end
-
-        def save_focus
-          @_saved_focus = @focused
-        end
-
-        def restore_focus
-          return unless sf = @_saved_focus
-          sf.focus
-          @_saved_focus = nil
-          @focused
-        end
-
+        @keyable[i].focus
       end
+
+      def focus_previous
+        focus_offset -1
+      end
+      alias_previous focus_prev
+
+      def focus_next
+        focus_offset 1
+      end
+
+      def save_focus
+        @_saved_focus = @focused
+      end
+
+      def restore_focus
+        return unless sf = @_saved_focus
+        sf.focus
+        @_saved_focus = nil
+        @focused
+      end
+
     end
   end
 end

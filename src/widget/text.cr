@@ -1,10 +1,8 @@
 require "./node"
 
 module Crysterm
-  module Widget
-    # Text element
-    class Text < Element
-      @shrink = true
-    end
+  # Text element
+  class Text < Element
+    @shrink = true
   end
 end

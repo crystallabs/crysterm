@@ -1,4 +1,4 @@
-module Crysterm::Widget
+module Crysterm
   class Element < Node
     module Pos
 

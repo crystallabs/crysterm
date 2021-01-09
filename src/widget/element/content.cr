@@ -1,4 +1,4 @@
-module Crysterm::Widget
+module Crysterm
   class Element < Node
     module Content
 
@@ -298,7 +298,7 @@ module Crysterm::Widget
         if (@scrollbar)
           margin+=1
         end
-        if is_a? Widget::TextArea
+        if is_a? TextArea
           margin+=1
         end
         if (width > margin)

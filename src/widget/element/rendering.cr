@@ -10,10 +10,10 @@ class Crysterm::ShrinkBox
   end
 end
 
-module Crysterm::Widget
+module Crysterm
   class Element < Node
     module Rendering
-      include Crysterm::Widget::Element::Pos
+      include Crysterm::Element::Pos
       include Crystallabs::Helpers::Alias_Methods
 
       property items = [] of String
@@ -214,7 +214,7 @@ module Crysterm::Widget
                 # D O:
                 # Ignore foreground changes for selected items.
                 # XXX But, Enable when lists exist, then restrict to List
-                #if (parent = @parent) && parent.is_a? Crysterm::Widget::Element
+                #if (parent = @parent) && parent.is_a? Crysterm::Element
                 #  if (parent._isList && parent.interactive && parent.items[parent.selected] == self && parent.options.invert_selected != false)
                 #    attr = (attr & ~(0x1ff << 9)) | (dattr & (0x1ff << 9))
                 #  end
