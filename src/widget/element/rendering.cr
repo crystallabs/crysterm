@@ -476,7 +476,6 @@ module Crysterm::Widget
             cell = lines[y][xl - 1]?
             if (cell)
               if (border.right)
-                # XXX same here, change type
                 if (border.type == BorderType::Line)
                   ch = '\u2502'; # '│'
                 elsif (border.type == BorderType::Bg)

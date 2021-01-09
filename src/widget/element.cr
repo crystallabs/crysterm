@@ -48,7 +48,7 @@ module Crysterm
 
       property top=0
       property left=0
-      property width=0
+      setter width=0
       property height=0
 
       # Does it accept keyboard input?

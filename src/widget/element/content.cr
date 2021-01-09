@@ -624,7 +624,7 @@ module Crysterm::Widget
       def str_width(text)
         text = @parse_tags ? helpers.strip_tags(text) : text
         #return @screen.full_unicode ? unicode.str_width(text) : helpers.drop_unicode(text).size
-        text = text
+        #text = text
         text.size # or bytesize?
       end
 
