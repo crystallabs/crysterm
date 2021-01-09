@@ -8,6 +8,7 @@ module Crysterm
     property xi : Int32?
     property xl : Int32?
   end
+
   class BorderStops < Hash(Int32, BorderStop)
     def []=(idx : Int32, arg)
       self[idx]? || (self[idx] = BorderStop.new)
@@ -37,7 +38,7 @@ module Crysterm
       '\u2534' => true, # '┴'
       '\u252c' => true, # '┬'
       '\u2502' => true, # '│'
-      '\u2500' => true  # '─'
+      '\u2500' => true, # '─'
     }
 
     @langles = {
@@ -47,7 +48,7 @@ module Crysterm
       '\u251c' => true, # '├'
       '\u2534' => true, # '┴'
       '\u252c' => true, # '┬'
-      '\u2500' => true  # '─'
+      '\u2500' => true, # '─'
     }
 
     @uangles = {
@@ -57,7 +58,7 @@ module Crysterm
       '\u251c' => true, # '├'
       '\u2524' => true, # '┤'
       '\u252c' => true, # '┬'
-      '\u2502' => true  # '│'
+      '\u2502' => true, # '│'
     }
 
     @rangles = {
@@ -67,7 +68,7 @@ module Crysterm
       '\u2524' => true, # '┤'
       '\u2534' => true, # '┴'
       '\u252c' => true, # '┬'
-      '\u2500' => true  # '─'
+      '\u2500' => true, # '─'
     }
 
     @dangles = {
@@ -77,29 +78,29 @@ module Crysterm
       '\u251c' => true, # '├'
       '\u2524' => true, # '┤'
       '\u2534' => true, # '┴'
-      '\u2502' => true  # '│'
+      '\u2502' => true, # '│'
     }
 
     # Every ACS angle character can be
     # represented by 4 bits ordered like this:
     # [langle][uangle][rangle][dangle]
     @angle_table = {
-      0 => ' ', # ?               "0000"
-      1 => '\u2502', # '│' # ?   '0001'
-      2 => '\u2500', # '─' # ??  '0010'
-      3 => '\u250c', # '┌'       '0011'
-      4 => '\u2502', # '│' # ?   '0100'
-      5 => '\u2502', # '│'       '0101'
-      6 => '\u2514', # '└'       '0110'
-      7 => '\u251c', # '├'       '0111'
-      8 => '\u2500', # '─' # ??  '1000'
-      9 => '\u2510', # '┐'       '1001'
-     10 => '\u2500', # '─' # ??  '1010'
-     11 => '\u252c', # '┬'       '1011'
-     12 => '\u2518', # '┘'       '1100'
-     13 => '\u2524', # '┤'       '1101'
-     14 => '\u2534', # '┴'       '1110'
-     15 => '\u253c'  # '┼'       '1111'
+       0 => ' ',      # ?               "0000"
+       1 => '\u2502', # '│' # ?   '0001'
+       2 => '\u2500', # '─' # ??  '0010'
+       3 => '\u250c', # '┌'       '0011'
+       4 => '\u2502', # '│' # ?   '0100'
+       5 => '\u2502', # '│'       '0101'
+       6 => '\u2514', # '└'       '0110'
+       7 => '\u251c', # '├'       '0111'
+       8 => '\u2500', # '─' # ??  '1000'
+       9 => '\u2510', # '┐'       '1001'
+      10 => '\u2500', # '─' # ??  '1010'
+      11 => '\u252c', # '┬'       '1011'
+      12 => '\u2518', # '┘'       '1100'
+      13 => '\u2524', # '┤'       '1101'
+      14 => '\u2534', # '┴'       '1110'
+      15 => '\u253c', # '┼'       '1111'
     }
 
     @ignore_dock_contrast = false
@@ -111,9 +112,11 @@ module Crysterm
     end
 
     class_getter instances = [] of self
+
     def self.total
       @@instances.size
     end
+
     def self.global
       instances[0]?.not_nil!
     end
@@ -130,8 +133,8 @@ module Crysterm
 
     getter title : String?
 
-    #@hover = nil
-    #@history = [] of
+    # @hover = nil
+    # @history = [] of
     @clickable = [] of Node
     @keyable = [] of Node
     property grab_keys = false
@@ -148,12 +151,16 @@ module Crysterm
       # Same as @dattr
       property attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
       property char : Char = ' '
+
       def initialize(@attr, @char)
       end
+
       def initialize(@char)
       end
+
       def initialize
       end
+
       def <=>(other : Cell)
         if (d = @attr <=> other.attr) == 0
           @char <=> other.char
@@ -161,7 +168,8 @@ module Crysterm
           d
         end
       end
-      def <=>(other : Tuple(Int32,Char))
+
+      def <=>(other : Tuple(Int32, Char))
         if (d = @attr <=> other[0]) == 0
           @char <=> other[1]
         else
@@ -179,10 +187,10 @@ module Crysterm
 
     property auto_padding = true
 
-    property top=0
-    property left=0
-    property width=0
-    property height=0
+    property top = 0
+    property left = 0
+    property width = 0
+    property height = 0
 
     property? dock_borders
     property _border_stops = {} of Int32 => Bool
@@ -193,12 +201,12 @@ module Crysterm
       @tab_size = 4,
       @dock_borders = false,
       @ignore_locked = [] of Element, # or Node
-      @title = nil,
+      @title = nil
     )
       bind
 
       @application = application ||= Application.new
-      #ensure tput.zero_based = true, use_bufer=true
+      # ensure tput.zero_based = true, use_bufer=true
       # set resizeTimeout
 
       # Tput is accessed via application.tput
@@ -215,8 +223,6 @@ module Crysterm
       # Events:
       # addhander,
 
-
-
       application.on(ResizeEvent) do
         alloc
         render
@@ -226,7 +232,9 @@ module Crysterm
         f = uninitialized Node -> Nil
         f = ->(el : Node) {
           el.emit ResizeEvent
-          el.children.each do |c| f.call c end
+          el.children.each do |c|
+            f.call c
+          end
         }
         f.call self
       end
@@ -268,7 +276,7 @@ module Crysterm
       end
     end
 
-    #def _listen_keys(el)
+    # def _listen_keys(el)
     #  if (el && !~this.keyable.indexOf(el))
     #    el.keyable = true
     #    this.keyable.push(el)
@@ -307,27 +315,27 @@ module Crysterm
     #      focused.emit('key ' + key.full, ch, key)
     #    end
     #  })
-    #end
+    # end
 
-    #def enable_keys(el)
+    # def enable_keys(el)
     #  _listen_keys(el)
-    #end
+    # end
 
-    #def enable_input(el)
+    # def enable_input(el)
     #  _listen_mouse(el)
     #  _listen_keys(el)
-    #end
+    # end
 
     def bind
       @@global = self unless @@global
 
-      @@instances << self #unless @@instances.includes? self
+      @@instances << self # unless @@instances.includes? self
 
       return if @@_bound
       @@_bound = true
 
       # TODO Enable
-      #['SIGTERM', 'SIGINT', 'SIGQUIT'].forEach(function(signal) {
+      # ['SIGTERM', 'SIGINT', 'SIGQUIT'].forEach(function(signal) {
       #  var name = '_' + signal.toLowerCase() + 'Handler';
       #  process.on(signal, Screen[name]() {
       #    if (process.listeners(signal).length > 1) {
@@ -337,7 +345,7 @@ module Crysterm
       #      process.exit(0);
       #    });
       #  });
-      #});
+      # });
 
       at_exit {
         Crysterm::Screen.instances.each do |screen|
@@ -367,7 +375,7 @@ module Crysterm
 
       application.tput.alternate_buffer
       put(s.keypad_xmit?) # enter_keyboard_transmit_mode
-      put(s.change_scroll_region?(0, application.tput.screen.height-1))
+      put(s.change_scroll_region?(0, application.tput.screen.height - 1))
       application.tput.hide_cursor
       application.tput.cursor_pos 0, 0
       put(s.ena_acs?) # enable_acs
@@ -375,7 +383,7 @@ module Crysterm
       alloc
     end
 
-    def alloc(dirty=false)
+    def alloc(dirty = false)
       rows = application.tput.screen.height
       cols = application.tput.screen.width
 
@@ -413,8 +421,8 @@ module Crysterm
 
       put(s.keypad_local?)
 
-      if( (application.tput.scroll_top != 0) ||
-          application.tput.scroll_bottom != application.tput.screen.height - 1)
+      if ((application.tput.scroll_top != 0) ||
+         application.tput.scroll_bottom != application.tput.screen.height - 1)
         application.tput.csr(0, application.tput.screen.height - 1)
       end
 
@@ -424,9 +432,9 @@ module Crysterm
       alloc
 
       # TODO Enable all in this function
-      #if (this._listened_mouse)
+      # if (this._listened_mouse)
       #  application.disable_mouse
-      #end
+      # end
 
       application.tput.normal_buffer
       if cursor._set
@@ -465,10 +473,21 @@ module Crysterm
     end
 
     # XXX Crutch. Remove when everything's in place.
-    def cols; application.tput.screen.width end
-    def rows; application.tput.screen.height end
-    def width; cols end
-    def height; rows end
+    def cols
+      application.tput.screen.width
+    end
+
+    def rows
+      application.tput.screen.height
+    end
+
+    def width
+      cols
+    end
+
+    def height
+      rows
+    end
 
     def cursor_shape(shape : CursorShape = CursorShape::Block, blink : Bool = false)
       @cursor.shape = shape
@@ -477,7 +496,7 @@ module Crysterm
 
       if @cursor.artificial
         raise "Not supported yet"
-        #if !application.hide_cursor_old
+        # if !application.hide_cursor_old
         #  hide_cursor = application.hide_cursor
         #  application.tput.hide_cursor_old = application.hide_cursor
         #  application.tput.hide_cursor = ->{
@@ -487,8 +506,8 @@ module Crysterm
         #      render
         #    end
         #  }
-        #end
-        #if (!application.showCursor_old)
+        # end
+        # if (!application.showCursor_old)
         #  var showCursor = application.showCursor
         #  application.showCursor_old = application.showCursor
         #  application.showCursor = function()
@@ -496,8 +515,8 @@ module Crysterm
         #    if (application._exiting) showCursor.call(application)
         #    if (self.renders) self.render()
         #  }
-        #end
-        #if (!@_cursorBlink)
+        # end
+        # if (!@_cursorBlink)
         #  @_cursorBlink = setInterval(function()
         #    if (!self.cursor.blink) return
         #    self.cursor._state ^= 1
@@ -506,12 +525,13 @@ module Crysterm
         #  if (@_cursorBlink.unref)
         #    @_cursorBlink.unref()
         #  end
-        #end
+        # end
         return true
       end
 
       application.tput.cursor_shape(@cursor.shape, @cursor.blink)
     end
+
     def cursor_color(color : Tput::Color? = nil)
       @cursor.color = color.try do |c|
         Tput::Color.new Colors.convert(c.value)
@@ -544,12 +564,11 @@ module Crysterm
       @children.each do |el|
         el.index = @_ci
         @_ci += 1
-        #el._rendering = true;
+        # el._rendering = true;
         el.render
-        #el._rendering = false;
+        # el._rendering = false;
       end
-      @_ci = -1;
-
+      @_ci = -1
       if (@screen.dock_borders?)
         _dock_borders
       end
@@ -561,18 +580,18 @@ module Crysterm
       # Only some element have this functions; for others it's a noop.
       @focused.try &._update_cursor(true)
 
-      @renders+=1
+      @renders += 1
 
       emit RenderEvent
     end
 
-    def draw(start=0, stop=@lines.size-1)
+    def draw(start = 0, stop = @lines.size - 1)
       # D O:
       # this.emit('predraw');
-      #x , y , line , out , ch , data , attr , fg , bg , flags
-      #pre , post
-      #clr , neq , xx
-      #acs
+      # x , y , line , out , ch , data , attr , fg , bg , flags
+      # pre , post
+      # clr , neq , xx
+      # acs
       main = ""
       lx = -1
       ly = -1
@@ -589,7 +608,7 @@ module Crysterm
       (start..stop).each do |y|
         line = @lines[y]
         o = @olines[y]
-        #Log.trace { line } if line.any? &.char.!=(' ')
+        # Log.trace { line } if line.any? &.char.!=(' ')
 
         if (!line.dirty && !(cursor.artificial && (y == application.y)))
           next
@@ -607,7 +626,7 @@ module Crysterm
 
           c = cursor
           # Render the artificial cursor.
-          if (c.artificial && !c._hidden && (c._state!=0) && (x == application.x) && (y == application.y))
+          if (c.artificial && !c._hidden && (c._state != 0) && (x == application.x) && (y == application.y))
             cattr = _cursor_attr(c, data)
             if (cattr.char)
               ch = cattr.char
@@ -619,10 +638,9 @@ module Crysterm
           # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
           # the bg for non BCE terminals worth the overhead?
           if (@use_bce &&
-              ch == ' ' &&
-              (application.tput.terminfo.try &.get(Unibilium::Entry::Boolean::Back_color_erase) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
-              (((data >> 18) & 8) == ((@dattr >> 18) & 8)))
-
+             ch == ' ' &&
+             (application.tput.terminfo.try &.get(Unibilium::Entry::Boolean::Back_color_erase) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
+             (((data >> 18) & 8) == ((@dattr >> 18) & 8)))
             clr = true
             neq = false
 
@@ -661,49 +679,49 @@ module Crysterm
             end
 
             # Disabled originally:
-            #// If there's more than 10 spaces, use EL regardless
-            #// and start over drawing the rest of line. Might
-            #// not be worth it. Try to use ECH if the terminal
-            #// supports it. Maybe only try to use ECH here.
-            #// #//if (application.tput.strings.erase_chars)
-            #// if (!clr && neq && (xx - x) > 10) {
-            #//   lx = -1, ly = -1;
-            #//   if (data != attr) {
-            #//     outbuf += @codeAttr(data);
-            #//     attr = data;
-            #//   }
-            #//   outbuf += application.tput.cup(y, x);
-            #//   if (application.tput.strings.erase_chars) {
-            #//     #// Use erase_chars to avoid erasing the whole line.
-            #//     outbuf += application.tput.ech(xx - x);
-            #//   } else {
-            #//     outbuf += application.tput.el();
-            #//   }
-            #//   if (application.tput.strings.parm_right_cursor) {
-            #//     outbuf += application.tput.cuf(xx - x);
-            #//   } else {
-            #//     outbuf += application.tput.cup(y, xx);
-            #//   }
-            #//   @fillRegion(data, ' ',
-            #//     x, application.tput.strings.erase_chars ? xx : line.length,
-            #//     y, y + 1);
-            #//   x = xx - 1;
-            #//   continue;
-            #// }
-            #// Skip to the next line if the
-            #// rest of the line is already drawn.
-            #// if (!neq) {
-            #//   for (; xx < line.length; xx++) {
-            #//     if (line[xx][0] != o[xx][0] || line[xx][1] != o[xx][1]) {
-            #//       neq = true;
-            #//       break;
-            #//     }
-            #//   }
-            #//   if (!neq) {
-            #//     attr = data;
-            #//     break;
-            #//   }
-            #// }
+            # // If there's more than 10 spaces, use EL regardless
+            # // and start over drawing the rest of line. Might
+            # // not be worth it. Try to use ECH if the terminal
+            # // supports it. Maybe only try to use ECH here.
+            # // #//if (application.tput.strings.erase_chars)
+            # // if (!clr && neq && (xx - x) > 10) {
+            # //   lx = -1, ly = -1;
+            # //   if (data != attr) {
+            # //     outbuf += @codeAttr(data);
+            # //     attr = data;
+            # //   }
+            # //   outbuf += application.tput.cup(y, x);
+            # //   if (application.tput.strings.erase_chars) {
+            # //     #// Use erase_chars to avoid erasing the whole line.
+            # //     outbuf += application.tput.ech(xx - x);
+            # //   } else {
+            # //     outbuf += application.tput.el();
+            # //   }
+            # //   if (application.tput.strings.parm_right_cursor) {
+            # //     outbuf += application.tput.cuf(xx - x);
+            # //   } else {
+            # //     outbuf += application.tput.cup(y, xx);
+            # //   }
+            # //   @fillRegion(data, ' ',
+            # //     x, application.tput.strings.erase_chars ? xx : line.length,
+            # //     y, y + 1);
+            # //   x = xx - 1;
+            # //   continue;
+            # // }
+            # // Skip to the next line if the
+            # // rest of the line is already drawn.
+            # // if (!neq) {
+            # //   for (; xx < line.length; xx++) {
+            # //     if (line[xx][0] != o[xx][0] || line[xx][1] != o[xx][1]) {
+            # //       neq = true;
+            # //       break;
+            # //     }
+            # //   }
+            # //   if (!neq) {
+            # //     attr = data;
+            # //     break;
+            # //   }
+            # // }
           end
 
           # Optimize by comparing the real output
@@ -729,63 +747,62 @@ module Crysterm
 
           if (data != attr)
             if (attr != @dattr)
-              outbuf += "\x1b[m";
+              outbuf += "\x1b[m"
             end
             if (data != @dattr)
               outbuf += "\x1b["
 
-              bg = data & 0x1ff;
-              fg = (data >> 9) & 0x1ff;
-              flags = data >> 18;
-
+              bg = data & 0x1ff
+              fg = (data >> 9) & 0x1ff
+              flags = data >> 18
               # bold
               if ((flags & 1) != 0)
-                outbuf += "1;";
+                outbuf += "1;"
               end
 
               # underline
               if ((flags & 2) != 0)
-                outbuf += "4;";
+                outbuf += "4;"
               end
 
               # blink
               if ((flags & 4) != 0)
-                outbuf += "5;";
+                outbuf += "5;"
               end
 
               # inverse
               if ((flags & 8) != 0)
-                outbuf += "7;";
+                outbuf += "7;"
               end
 
               # invisible
               if ((flags & 16) != 0)
-                outbuf += "8;";
+                outbuf += "8;"
               end
 
               if (bg != 0x1ff)
-                bg = _reduce_color(bg);
+                bg = _reduce_color(bg)
                 if (bg < 16)
                   if (bg < 8)
-                    bg += 40;
+                    bg += 40
                   elsif (bg < 16)
-                    bg -= 8;
-                    bg += 100;
+                    bg -= 8
+                    bg += 100
                   end
-                  outbuf += "#{bg};";
+                  outbuf += "#{bg};"
                 else
-                  outbuf += "48;5;#{bg};";
+                  outbuf += "48;5;#{bg};"
                 end
               end
 
               if (fg != 0x1ff)
-                fg = _reduce_color(fg);
+                fg = _reduce_color(fg)
                 if (fg < 16)
                   if (fg < 8)
-                    fg += 30;
+                    fg += 30
                   elsif (fg < 16)
-                    fg -= 8;
-                    fg += 90;
+                    fg -= 8
+                    fg += 90
                   end
                   outbuf += "#{fg};"
                 else
@@ -803,9 +820,9 @@ module Crysterm
           end
 
           # TODO Enable this
-          ## If we find a double-width char, eat the next character which should be
-          ## a space due to parseContent's behavior.
-          #if (@fullUnicode)
+          # # If we find a double-width char, eat the next character which should be
+          # # a space due to parseContent's behavior.
+          # if (@fullUnicode)
           #  # If this is a surrogate pair double-width char, we can ignore it
           #  # because parseContent already counted it as length=2.
           #  if (unicode.charWidth(line[x].char) == 2)
@@ -828,7 +845,7 @@ module Crysterm
           #      o[++x].char = '\0'
           #    end
           #  end
-          #end
+          # end
 
           # Attempt to use ACS for supported characters.
           # This is not ideal, but it's how ncurses works.
@@ -875,9 +892,9 @@ module Crysterm
             # NOTE: It could be the case that the $LANG
             # is all that matters in some cases:
             # if (!application.tput.unicode && ch > '~') {
-            if (!application.tput.features.unicode? && ( application.tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
+            if (!application.tput.features.unicode? && (application.tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
               # TODO
-              #ch = Tput::Data::UtoA[ch]? || '?';
+              # ch = Tput::Data::UtoA[ch]? || '?';
               ch = '?'
             end
           end
@@ -920,7 +937,7 @@ module Crysterm
       end
 
       # D O:
-      #emit DrawEvent
+      # emit DrawEvent
     end
 
     # Convert our own attribute format to an SGR string.
@@ -1002,12 +1019,13 @@ module Crysterm
 
       application.tput.cursor_reset
     end
+
     alias_previous reset_cursor
 
-    def _cursor_attr(cursor, dattr=nil)
+    def _cursor_attr(cursor, dattr = nil)
       attr = dattr || @dattr
-      #cattr
-      #ch
+      # cattr
+      # ch
       if (cursor.shape == CursorShape::Line)
         attr &= ~(0x1ff << 9)
         attr |= 7 << 9
@@ -1021,24 +1039,24 @@ module Crysterm
         attr |= 7 << 9
         attr |= 8 << 18
       elsif (cursor.shape)
-        #cattr = Element.sattr(cursor, cursor.shape)
-        #if (cursor.shape.bold || cursor.shape.underline ||
+        # cattr = Element.sattr(cursor, cursor.shape)
+        # if (cursor.shape.bold || cursor.shape.underline ||
         #    cursor.shape.blink || cursor.shape.inverse ||
         #    cursor.shape.invisible)
         #  attr &= ~(0x1ff << 18)
         #  attr |= ((cattr >> 18) & 0x1ff) << 18
-        #end
-        #if (cursor.shape.fg)
+        # end
+        # if (cursor.shape.fg)
         #  attr &= ~(0x1ff << 9)
         #  attr |= ((cattr >> 9) & 0x1ff) << 9
-        #end
-        #if (cursor.shape.bg)
+        # end
+        # if (cursor.shape.bg)
         #  attr &= ~(0x1ff << 0)
         #  attr |= cattr & 0x1ff
-        #end
-        #if (cursor.shape.ch)
+        # end
+        # if (cursor.shape.ch)
         #  ch = cursor.shape.ch
-        #end
+        # end
       end
 
       unless (cursor.color.nil?)
@@ -1049,7 +1067,6 @@ module Crysterm
       return Cell.new \
         attr: attr,
         char: ch || ' '
-
     end
 
     def _reduce_color(col)
@@ -1060,7 +1077,7 @@ module Crysterm
       fill_region @dattr, ' ', xi, xl, yi, yl, override
     end
 
-    def fill_region(attr, ch, xi, xl, yi, yl, override=false)
+    def fill_region(attr, ch, xi, xl, yi, yl, override = false)
       lines = @lines
 
       if (xi < 0)
@@ -1081,7 +1098,7 @@ module Crysterm
           if override || cell != {attr, ch}
             lines[yi][xx].attr = attr
             lines[yi][xx].char = ch
-            lines[yi].dirty = true;
+            lines[yi].dirty = true
           end
 
           xx += 1
@@ -1106,8 +1123,8 @@ module Crysterm
       # end
 
       if (!application.tput.has?(change_scroll_region) ||
-          !application.tput.has?(delete_line) ||
-          !application.tput.has?(insert_line))
+         !application.tput.has?(delete_line) ||
+         !application.tput.has?(insert_line))
         STDERR.puts "Missing needed terminfo capabilities"
         return
       end
@@ -1132,7 +1149,7 @@ module Crysterm
     # This will only work for top line deletion as opposed to arbitrary lines.
     def insert_line_nc(n, y, top, bottom)
       if (!application.tput.has?(change_scroll_region) ||
-          !application.tput.has?(delete_line))
+         !application.tput.has?(delete_line))
         STDERR.puts "Missing needed terminfo capabilities"
         return
       end
@@ -1157,7 +1174,7 @@ module Crysterm
     # This will only work for top line deletion as opposed to arbitrary lines.
     def delete_line_nc(n, y, top, bottom)
       if (!application.tput.has?(change_scroll_region) ||
-          !application.tput.has?(delete_line))
+         !application.tput.has?(delete_line))
         STDERR.puts "Missing needed terminfo capabilities"
         return
       end
@@ -1240,9 +1257,9 @@ module Crysterm
       # The scrollbar can't update properly, and there's also a
       # chance that the scrollbar may get moved around senselessly.
       # NOTE: In pratice, this doesn't seem to be the case.
-      #if (@scrollbar)
+      # if (@scrollbar)
       #  return pos._clean_sides = false
-      #end
+      # end
       # Doesn't matter if we're only a height of 1.
       # if ((pos.yl - el.ibottom) - (pos.yi + el.itop) <= 1)
       #   return pos._clean_sides = false
@@ -1250,10 +1267,10 @@ module Crysterm
 
       yi = pos.yi + el.itop
       yl = pos.yl - el.ibottom
-      #first
-      #ch
-      #x
-      #y
+      # first
+      # ch
+      # x
+      # y
 
       if (pos.yi < 0)
         return pos._clean_sides = false
@@ -1268,7 +1285,7 @@ module Crysterm
         return pos._clean_sides = true
       end
 
-      x = pos.xi-1
+      x = pos.xi - 1
       while x >= 0
         if (!@olines[yi]?)
           break
@@ -1313,10 +1330,10 @@ module Crysterm
     def _dock_borders
       lines = @lines
       stops = @_border_stops
-      #i
-      #y
-      #x
-      #ch
+      # i
+      # y
+      # x
+      # ch
 
       # D O:
       # keys, stop
@@ -1415,8 +1432,8 @@ module Crysterm
       flags = (cur >> 18) & 0x1ff
       fg = (cur >> 9) & 0x1ff
       bg = cur & 0x1ff
-      #c
-      #i
+      # c
+      # i
 
       code = code[2...-1].split(';')
       if (!code[0]? || code[0].empty?)
@@ -1426,96 +1443,96 @@ module Crysterm
       (0..code.size).each do |i|
         c = !code[i].empty? ? code[i].to_i : 0
         case c
-          when 0 # normal
-            bg = dfl & 0x1ff
-            fg = (dfl >> 9) & 0x1ff
-            flags = (dfl >> 18) & 0x1ff
+        when 0 # normal
+          bg = dfl & 0x1ff
+          fg = (dfl >> 9) & 0x1ff
+          flags = (dfl >> 18) & 0x1ff
+          break
+        when 1 # bold
+          flags |= 1
+          break
+        when 22
+          flags = (dfl >> 18) & 0x1ff
+          break
+        when 4 # underline
+          flags |= 2
+          break
+        when 24
+          flags = (dfl >> 18) & 0x1ff
+          break
+        when 5 # blink
+          flags |= 4
+          break
+        when 25
+          flags = (dfl >> 18) & 0x1ff
+          break
+        when 7 # inverse
+          flags |= 8
+          break
+        when 27
+          flags = (dfl >> 18) & 0x1ff
+          break
+        when 8 # invisible
+          flags |= 16
+          break
+        when 28
+          flags = (dfl >> 18) & 0x1ff
+          break
+        when 39 # default fg
+          fg = (dfl >> 9) & 0x1ff
+          break
+        when 49 # default bg
+          bg = dfl & 0x1ff
+          break
+        when 100 # default fg/bg
+          fg = (dfl >> 9) & 0x1ff
+          bg = dfl & 0x1ff
+          break
+        else # color
+          if (c == 48 && code[i + 1] == 5)
+            i += 2
+            bg = code[i]
             break
-          when 1 # bold
-            flags |= 1
-            break
-          when 22
-            flags = (dfl >> 18) & 0x1ff
-            break
-          when 4 # underline
-            flags |= 2
-            break
-          when 24
-            flags = (dfl >> 18) & 0x1ff
-            break
-          when 5 # blink
-            flags |= 4
-            break
-          when 25
-            flags = (dfl >> 18) & 0x1ff
-            break
-          when 7 # inverse
-            flags |= 8
-            break
-          when 27
-            flags = (dfl >> 18) & 0x1ff
-            break
-          when 8 # invisible
-            flags |= 16
-            break
-          when 28
-            flags = (dfl >> 18) & 0x1ff
-            break
-          when 39 # default fg
-            fg = (dfl >> 9) & 0x1ff
-            break
-          when 49 # default bg
-            bg = dfl & 0x1ff
-            break
-          when 100 # default fg/bg
-            fg = (dfl >> 9) & 0x1ff
-            bg = dfl & 0x1ff
-            break
-          else # color
-            if (c == 48 && code[i+1] == 5)
-              i += 2
-              bg = code[i]
-              break
-            elsif (c == 48 && code[i+1] == 2)
-              i += 2
-              bg = Colors.match(code[i].to_i, code[i+1].to_i, code[i+2].to_i)
-              if (bg == -1)
-                bg = dfl & 0x1ff
-              end
-              i += 2
-              break
-            elsif (c == 38 && code[i+1] == 5)
-              i += 2
-              fg = code[i]
-              break
-            elsif (c == 38 && code[i+1] == 2)
-              i += 2
-              fg = Colors.match(code[i].to_i, code[i+1].to_i, code[i+2].to_i)
-              if (fg == -1)
-                fg = (dfl >> 9) & 0x1ff
-              end
-              i += 2
-              break
-            end
-            if (c >= 40 && c <= 47)
-              bg = c - 40
-            elsif (c >= 100 && c <= 107)
-              bg = c - 100
-              bg += 8
-            elsif (c == 49)
-              bg = dfl & 0x1ff
-            elsif (c >= 30 && c <= 37)
-              fg = c - 30
-            elsif (c >= 90 && c <= 97)
-              fg = c - 90
-              fg += 8
-            elsif (c == 39)
-              fg = (dfl >> 9) & 0x1ff
-            elsif (c == 100)
-              fg = (dfl >> 9) & 0x1ff
+          elsif (c == 48 && code[i + 1] == 2)
+            i += 2
+            bg = Colors.match(code[i].to_i, code[i + 1].to_i, code[i + 2].to_i)
+            if (bg == -1)
               bg = dfl & 0x1ff
             end
+            i += 2
             break
+          elsif (c == 38 && code[i + 1] == 5)
+            i += 2
+            fg = code[i]
+            break
+          elsif (c == 38 && code[i + 1] == 2)
+            i += 2
+            fg = Colors.match(code[i].to_i, code[i + 1].to_i, code[i + 2].to_i)
+            if (fg == -1)
+              fg = (dfl >> 9) & 0x1ff
+            end
+            i += 2
+            break
+          end
+          if (c >= 40 && c <= 47)
+            bg = c - 40
+          elsif (c >= 100 && c <= 107)
+            bg = c - 100
+            bg += 8
+          elsif (c == 49)
+            bg = dfl & 0x1ff
+          elsif (c >= 30 && c <= 37)
+            fg = c - 30
+          elsif (c >= 90 && c <= 97)
+            fg = c - 90
+            fg += 8
+          elsif (c == 39)
+            fg = (dfl >> 9) & 0x1ff
+          elsif (c == 100)
+            fg = (dfl >> 9) & 0x1ff
+            bg = dfl & 0x1ff
+          end
+          break
         end
       end
 
@@ -1529,7 +1546,5 @@ module Crysterm
     # Unused; just compatibility with `Node` interface.
     def clear_pos
     end
-
   end
-
 end

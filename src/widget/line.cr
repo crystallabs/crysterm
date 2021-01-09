@@ -14,16 +14,14 @@ module Crysterm
 
       super
 
-      @ch = (is_a? Line) ?
-        (@orientation == :horizontal ? '-' : '|') :
-        (@ch || "")
+      @ch = (is_a? Line) ? (@orientation == :horizontal ? '-' : '|') : (@ch || "")
 
       @border = {
-        "type" => "bg"
+        "type" => "bg",
       }
 
       # TODO
-      #@style.border=@style
+      # @style.border=@style
     end
   end
 end

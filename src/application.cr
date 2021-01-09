@@ -9,9 +9,8 @@ require "./widget/node"
 require "./widget/*"
 
 module Crysterm
-
   class Application
-    ##include EventHandler
+    # #include EventHandler
     include Methods
     include Macros
     include EventHandler
@@ -29,12 +28,12 @@ module Crysterm
 
     property input : IO
     property output : IO
-    #@log : Bool
-    @index : Int32 = -1 # -1 so that assignments start from 0
+    # @log : Bool
+    @index : Int32 = -1        # -1 so that assignments start from 0
     property use_buffer : Bool # useBuffer
     property resize_timeout : Time::Span
 
-    #getter terminfo : Unibilium::Terminfo?
+    # getter terminfo : Unibilium::Terminfo?
     getter! tput : ::Tput
 
     property hide_cursor_old : Bool = false
@@ -73,10 +72,9 @@ module Crysterm
       @force_unicode = false,
       @resize_timeout = 0.3.seconds,
       terminfo : Bool | Unibilium::Terminfo = true,
-      @dump=true,
-      @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}",
+      @dump = true,
+      @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
-
       @x = 0
       @y = 0
       @saved_x = 0
@@ -87,18 +85,18 @@ module Crysterm
       @rows = ::Term::Screen.rows || 1
 
       # TODO. This doesn't work now that i/o isn't subclass.
-      #if @dump
+      # if @dump
       #  @input.on(DataEvent) { |d|
       #    Log.info { p d }
       #  }
       #  @output.on(DataEvent) { |d|
       #    Log.info { p d }
       #  }
-      #end
+      # end
 
       # XXX This is just name of term. Run terminfo init,
       # then read this from there, not here.
-      #@_terminal = terminal.downcase
+      # @_terminal = terminal.downcase
 
       bind
 
@@ -122,9 +120,9 @@ module Crysterm
       at_exit {
         Crysterm::Application.instances.each do |app|
           # XXX Do we restore window title ourselves?
-          #if app._original_title
+          # if app._original_title
           #  app.tput.set_title(...)
-          #end
+          # end
 
           app.tput.flush
           app._exiting = true
@@ -137,21 +135,21 @@ module Crysterm
         @_tput_set_up = true
 
         @terminfo = case terminfo
-        when true
-          Unibilium::Terminfo.from_env
-        when false
-          nil
-        when Unibilium::Terminfo
-          terminfo.as Unibilium::Terminfo
-        end
+                    when true
+                      Unibilium::Terminfo.from_env
+                    when false
+                      nil
+                    when Unibilium::Terminfo
+                      terminfo.as Unibilium::Terminfo
+                    end
 
         @tput = ::Tput.new(
           terminfo: @terminfo,
           # TODO these options
-          #term: @term,
-          #padding: @padding,
-          #extended: @extended,
-          #termcap: @termcap,
+          # term: @term,
+          # padding: @padding,
+          # extended: @extended,
+          # termcap: @termcap,
           use_buffer: @use_buffer,
           force_unicode: @force_unicode
         )
@@ -166,7 +164,7 @@ module Crysterm
       normal_buffer if is_alt
       show_cursor
 
-      #disable_mouse if mouse_enabled
+      # disable_mouse if mouse_enabled
     end
 
     def resume
@@ -175,14 +173,13 @@ module Crysterm
       end
     end
 
-
     def title=(title)
       set_title title
     end
 
     def listen
       # Potentially reset window title on exit:
-      #if !rxvt?
+      # if !rxvt?
       #  if (!vte?)
       #    set_title_mode_feature 3
       #  end
@@ -190,17 +187,17 @@ module Crysterm
       #    return if err
       #    @_original_title = data.text
       #  }
-      #end
+      # end
 
       # Listen for keys/mouse on input
-      #if (@input._our_input == 0)
+      # if (@input._our_input == 0)
       #  @input._out_input = 1;
-        _listen_keys
-      #} else
+      _listen_keys
+      # } else
       #  @input._our_input += 1
-      #end
+      # end
 
-      #on(AddHandlerEvent) do |wrapper|
+      # on(AddHandlerEvent) do |wrapper|
       #  if wrapper.event.is_a?(KeyPressEvent) # or MouseEvent
       #    # remove self...
       #    if (@input.set_raw_mode && !@input.raw?)
@@ -208,20 +205,20 @@ module Crysterm
       #      @input.resume
       #    end
       #  end
-      #end
-      #on(AddHandlerEvent) do |wrapper|
+      # end
+      # on(AddHandlerEvent) do |wrapper|
       #  if (wrapper.is_a? MouseEvent)
       #    off(AddHandlerEvent, self)
       #    bind_mouse
       #  end
-      #end
+      # end
       # Listen for resize on output
-      #if (@output._our_output==0)
+      # if (@output._our_output==0)
       #  @output._our_output = 1
       #  _listen_output
-      #else
+      # else
       #  @output._our_output += 1
-      #end
+      # end
     end
 
     def _listen_keys
@@ -233,7 +230,7 @@ module Crysterm
             next if app.input != @input
             emit KeyPressEvent.new char, key, sequence
             # TODO - possibly also:
-            #emit Key(Name)_Event...
+            # emit Key(Name)_Event...
           end
         end
       end
@@ -258,6 +255,5 @@ module Crysterm
         emit DestroyEvent
       end
     end
-
   end
 end

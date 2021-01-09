@@ -6,7 +6,8 @@ class Crysterm::ShrinkBox
   property yi : Int32 = 0
   property yl : Int32 = 0
   property get : Bool = false
-  def initialize(xi,xl,yi,yl, get=false)
+
+  def initialize(xi, xl, yi, yl, get = false)
   end
 end
 
@@ -46,19 +47,19 @@ module Crysterm
         xl = coords.xl
         yi = coords.yi
         yl = coords.yl
-        #x
-        #y
-        #cell
-        #attr
-        #ch
-        #Log.trace { lines.inspect }
+        # x
+        # y
+        # cell
+        # attr
+        # ch
+        # Log.trace { lines.inspect }
         content = @_pcontent || ""
         ci = @_clines.ci[coords.base]? || 0 # XXX Is it ok that array lookup can be nil? and defaulting to 0?
-        #battr
-        #dattr
-        #c
-        #visible
-        #i
+        # battr
+        # dattr
+        # c
+        # visible
+        # i
         bch = @ch
 
         # Disabled originally:
@@ -123,10 +124,10 @@ module Crysterm
         end
 
         if (@border)
-          xi+=1
-          xl-=1
-          yi+=1
-          yl-=1
+          xi += 1
+          xl -= 1
+          yi += 1
+          yl -= 1
         end
 
         # If we have padding/valign, that means the
@@ -143,7 +144,7 @@ module Crysterm
                 if (!lines[y][x]?)
                   break
                 end
-                lines[y][x].attr= Colors.blend(attr, lines[y][x].attr)
+                lines[y][x].attr = Colors.blend(attr, lines[y][x].attr)
                 # D O:
                 # lines[y][x].char = bch
                 lines[y].dirty = true
@@ -157,7 +158,7 @@ module Crysterm
         if @padding.any?
           xi += @padding.left
           xl -= @padding.right
-          yi += @padding.top 
+          yi += @padding.top
           yl -= @padding.bottom
         end
 
@@ -176,7 +177,7 @@ module Crysterm
         end
 
         # Draw the content and background.
-        #yi.step to: yl-1 do |y|
+        # yi.step to: yl-1 do |y|
         (yi...yl).each do |y|
           if (!lines[y]?)
             if (y >= @screen.height || yl < @ibottom)
@@ -197,7 +198,7 @@ module Crysterm
             end
 
             ch = content[ci]? || bch
-            #Log.trace { ci }
+            # Log.trace { ci }
             ci += 1
 
             # D O:
@@ -207,18 +208,18 @@ module Crysterm
 
             # Handle escape codes.
             while (ch == "\x1b")
-              cnt = content[(ci-1)..]
+              cnt = content[(ci - 1)..]
               if (c = cnt.match /^\x1b\[[\d;]*m/)
                 ci += c[0].size - 1
                 attr = @screen.attr_code(c[0], attr, dattr)
                 # D O:
                 # Ignore foreground changes for selected items.
                 # XXX But, Enable when lists exist, then restrict to List
-                #if (parent = @parent) && parent.is_a? Crysterm::Element
+                # if (parent = @parent) && parent.is_a? Crysterm::Element
                 #  if (parent._isList && parent.interactive && parent.items[parent.selected] == self && parent.options.invert_selected != false)
                 #    attr = (attr & ~(0x1ff << 9)) | (dattr & (0x1ff << 9))
                 #  end
-                #end
+                # end
                 ch = content[ci] || bch
                 ci += 1
               else
@@ -235,13 +236,13 @@ module Crysterm
               # of the last line was not a newline, let's just treat this like the
               # newline was already "counted".
               if ((x == xi) && (y != yi) && (content[ci - 2]? != '\n'))
-                x-=1
+                x -= 1
                 next
               end
               # We could use fill_region here, name the
               # outer loop, and continue to it instead.
               ch = bch
-              while(x < xl)
+              while (x < xl)
                 cell = lines[y][x]?
                 if (!cell)
                   break
@@ -265,13 +266,13 @@ module Crysterm
             end
 
             # TODO
-            #if (@screen.full_unicode && content[ci - 1])
+            # if (@screen.full_unicode && content[ci - 1])
             if (content.try &.[ci - 1]?)
               point = content.codepoint_at(ci - 1)
               # TODO
-              ## Handle combining chars:
-              ## Make sure they get in the same cell and are counted as 0.
-              #if (unicode.combining[point])
+              # # Handle combining chars:
+              # # Make sure they get in the same cell and are counted as 0.
+              # if (unicode.combining[point])
               #  if (point > 0x00ffff)
               #    ch = content[ci - 1] + content[ci]
               #    ci++
@@ -283,13 +284,13 @@ module Crysterm
               #  end
               #  x-=1
               #  next
-              #end
+              # end
               # Handle surrogate pairs:
               # Make sure we put surrogate pair chars in one cell.
-              #if (point > 0x00ffff)
+              # if (point > 0x00ffff)
               #  ch = content[ci - 1] + content[ci]
               #  ci++
-              #end
+              # end
             end
 
             if @_no_fill
@@ -317,7 +318,7 @@ module Crysterm
         end
         # Draw the scrollbar.
         # Could possibly draw this after all child elements.
-        #@scrollbar.try do |scrollbar|
+        # @scrollbar.try do |scrollbar|
         #  # D O:
         #  # i = @get_scroll_height()
         #  # TODO:
@@ -359,13 +360,13 @@ module Crysterm
         #      end
         #    end
         #  end
-        #end
+        # end
 
         if (@border)
-          xi-=1
-          xl+=1
-          yi-=1
-          yl+=1
+          xi -= 1
+          xl += 1
+          yi -= 1
+          yl += 1
         end
 
         if @padding.any?
@@ -398,33 +399,38 @@ module Crysterm
             end
             if (border.type == BorderType::Line)
               if (x == xi)
-                ch = '\u250c'; # '┌'
+                ch = '\u250c' # '┌'
                 if (!border.left)
                   if (border.top)
-                    ch = '\u2500'; # '─'
-                  else
-                   next
-                  end
-                else
-                  if (!border.top)
-                    ch = '\u2502'; # '│'
-                  end
-                end
-              elsif (x == xl - 1)
-                ch = '\u2510'; # '┐'
-                if (!border.right)
-                  if (border.top)
-                    ch = '\u2500'; # '─'
+                    ch = '\u2500'
+                    # '─'
                   else
                     next
                   end
                 else
                   if (!border.top)
-                    ch = '\u2502'; # '│'
+                    ch = '\u2502'
+                    # '│'
+                  end
+                end
+              elsif (x == xl - 1)
+                ch = '\u2510' # '┐'
+                if (!border.right)
+                  if (border.top)
+                    ch = '\u2500'
+                    # '─'
+                  else
+                    next
+                  end
+                else
+                  if (!border.top)
+                    ch = '\u2502'
+                    # '│'
                   end
                 end
               else
-                ch = '\u2500'; # '─'
+                ch = '\u2500'
+                # '─'
               end
             elsif (border.type == BorderType::Bg)
               ch = border.ch
@@ -445,7 +451,7 @@ module Crysterm
             end
           end
           y = yi + 1
-          while(y < yl - 1)
+          while (y < yl - 1)
             if (!lines[y]?)
               next
             end
@@ -453,7 +459,8 @@ module Crysterm
             if (cell)
               if (border.left)
                 if (border.type == BorderType::Line)
-                  ch = '\u2502'; # '│'
+                  ch = '\u2502'
+                  # '│'
                 elsif (border.type == BorderType::Bg)
                   ch = border.ch
                 end
@@ -477,7 +484,8 @@ module Crysterm
             if (cell)
               if (border.right)
                 if (border.type == BorderType::Line)
-                  ch = '\u2502'; # '│'
+                  ch = '\u2502'
+                  # '│'
                 elsif (border.type == BorderType::Bg)
                   ch = border.ch
                 end
@@ -519,33 +527,38 @@ module Crysterm
             end
             if (border.type == BorderType::Line)
               if (x == xi)
-                ch = '\u2514'; # '└'
+                ch = '\u2514' # '└'
                 if (!border.left)
                   if (border.bottom)
-                    ch = '\u2500'; # '─'
+                    ch = '\u2500'
+                    # '─'
                   else
                     next
                   end
                 else
                   if (!border.bottom)
-                    ch = '\u2502'; # '│'
+                    ch = '\u2502'
+                    # '│'
                   end
                 end
               elsif (x == xl - 1)
-                ch = '\u2518'; # '┘'
+                ch = '\u2518' # '┘'
                 if (!border.right)
                   if (border.bottom)
-                    ch = '\u2500'; # '─'
+                    ch = '\u2500'
+                    # '─'
                   else
                     next
                   end
                 else
                   if (!border.bottom)
-                    ch = '\u2502'; # '│'
+                    ch = '\u2502'
+                    # '│'
                   end
                 end
               else
-                ch = '\u2500'; # '─'
+                ch = '\u2500'
+                # '─'
               end
             elsif (border.type == BorderType::Bg)
               ch = border.ch
@@ -570,12 +583,12 @@ module Crysterm
         if (@shadow)
           # right
           y = Math.max(yi + 1, 0)
-          while(y<yl+1)
+          while (y < yl + 1)
             if (!lines[y]?)
               break
             end
             x = xl
-            while( x < xl + 2)
+            while (x < xl + 2)
               if (!lines[y][x]?)
                 break
               end
@@ -583,13 +596,13 @@ module Crysterm
               # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
               lines[y][x].attr = Colors.blend(lines[y][x].attr)
               lines[y].dirty = true
-              x+=1
+              x += 1
             end
             y += 1
           end
           # bottom
           y = yl
-          while(y<yl+1)
+          while (y < yl + 1)
             if (!lines[y]?)
               break
             end
@@ -615,14 +628,14 @@ module Crysterm
           el.render
         end
 
-        emit RenderEvent #, coords
+        emit RenderEvent # , coords
 
         coords
       end
+
       def render
         _render
       end
-
     end
   end
 end

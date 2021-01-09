@@ -11,20 +11,20 @@ module Crysterm
 
     def initialize(**element)
       super **element
-      ## TODO all element's options
-      #on(KeyPressEvent) do |key|
+      # # TODO all element's options
+      # on(KeyPressEvent) do |key|
       #  if key.name==Enter || Space
       #    press
       #  end
-      #end
+      # end
 
       # TODO - why conditional? could be cool to trigger clicks by
       # events even if mouse is disabled.
-      #if mouse
-        on(ClickEvent) do
-          press
-        end
-      #end
+      # if mouse
+      on(ClickEvent) do
+        press
+      end
+      # end
     end
 
     def press

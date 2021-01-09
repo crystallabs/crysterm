@@ -12,27 +12,30 @@ module Crysterm
     @_value = ""
 
     def initialize(
-      @input_on_focus=false,
-      @scrollable=true,
+      @input_on_focus = false,
+      @scrollable = true,
       **input
     )
-
       super **input
 
-      on(ResizeEvent) do _update_cursor end
-      on(MoveEvent) do _update_cursor end
+      on(ResizeEvent) do
+        _update_cursor
+      end
+      on(MoveEvent) do
+        _update_cursor
+      end
 
-      #_listen_keys
+      # _listen_keys
 
       on KeyPressEvent, ->_listener(KeyPressEvent)
     end
 
     def _listener(e)
       case e.key
-        when nil
-          @value = @value + e.char
-        when Tput::Key::Backspace
-          @value = @value[...-1]
+      when nil
+        @value = @value + e.char
+      when Tput::Key::Backspace
+        @value = @value[...-1]
       end
       render
     end
@@ -46,7 +49,6 @@ module Crysterm
         if e.key.try &.==(Tput::Key::Return)
           read_input
         end
-        
       end
     end
 
@@ -62,15 +64,15 @@ module Crysterm
       end
 
       # TODO
-      #grab_keys -> yes
+      # grab_keys -> yes
 
       _update_cursor
       @screen.application.tput.show_cursor
       # D O:
-      #@screen.application.tput.sgr "normal"
+      # @screen.application.tput.sgr "normal"
     end
 
-    def _update_cursor(get=false)
+    def _update_cursor(get = false)
       return if @screen.focused != self
 
       lpos = get ? @lpos : _get_coords
@@ -125,7 +127,7 @@ module Crysterm
     end
 
     def clear_value
-      @value= ""
+      @value = ""
     end
 
     def set_value(value)
@@ -140,6 +142,7 @@ module Crysterm
       _update_cursor
       render
     end
+
     def set_value
       set_value @value
     end
@@ -148,7 +151,7 @@ module Crysterm
       # XXX workaround
       if (@_clines.size - @child_base) > (@height - @iheight)
         # TODO
-        #scroll @_clines.size
+        # scroll @_clines.size
       end
     end
 

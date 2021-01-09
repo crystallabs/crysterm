@@ -18,8 +18,8 @@ module Crysterm
     # end
     #
     # person = Person.new "John"
-    # person.name #=> "John"
-    # person.full_name #=> "John"
+    # person.name      # => "John"
+    # person.full_name # => "John"
     # ```
     #
     # This macro was present in Crystal until commit 7c3239ee505e07544ec372839efed527801d210a.

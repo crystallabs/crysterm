@@ -4,15 +4,14 @@ end
 module Crysterm
   class Element < Node
     module Position
-
-      def clear_pos(get=false, override=false)
+      def clear_pos(get = false, override = false)
         return if @detached
         lpos = _get_coords(get)
         return unless lpos
         @screen.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
       end
 
-      def _get_coords(get=false, noscroll=false)
+      def _get_coords(get = false, noscroll = false)
         if (@hidden)
           return
         end
@@ -29,15 +28,15 @@ module Crysterm
         base = @child_base || 0
         el = self
         fixed = @fixed
-        #coords
-        #v
-        #noleft
-        #noright
-        #notop
-        #nobot
-        #ppos
-        #b
-        #Log.trace { yl }
+        # coords
+        # v
+        # noleft
+        # noright
+        # notop
+        # nobot
+        # ppos
+        # b
+        # Log.trace { yl }
 
         # Attempt to shrink the element base on the
         # size of the content and child elements.
@@ -109,10 +108,10 @@ module Crysterm
               notop = true
               v = ppos.yi - yi
               if (@border)
-                v-=1
+                v -= 1
               end
               if (thisparent.border)
-                v+=1
+                v += 1
               end
               base += v
               yi += v
@@ -126,10 +125,10 @@ module Crysterm
               nobot = true
               v = yl - ppos.yl
               if (@border)
-                v-=1
+                v -= 1
               end
               if (thisparent.border)
-                v+=1
+                v += 1
               end
               yl -= v
             end
@@ -152,25 +151,25 @@ module Crysterm
             xi = el_lpos.xi
             noleft = true
             if (@border)
-              xi-=1
+              xi -= 1
             end
             if (thisparent.border)
-              xi+=1
+              xi += 1
             end
           end
           if (xl > el_lpos.xl)
             xl = el_lpos.xl
             noright = true
             if (@border)
-              xl+=1
+              xl += 1
             end
             if (thisparent.border)
-              xl-=1
+              xl -= 1
             end
           end
-          #if (xi > xl)
+          # if (xi > xl)
           #  return
-          #end
+          # end
           if (xi >= xl)
             return
           end
@@ -197,7 +196,7 @@ module Crysterm
         # if (parent.lpos)
         #   parent.lpos._scroll_bottom = Math.max(parent.lpos._scroll_bottom, yl)
         # end
-        #p xi, xl, yi, xl
+        # p xi, xl, yi, xl
 
         v = LPos.new \
           xi: xi,
@@ -231,7 +230,7 @@ module Crysterm
           expr = width.split /(?=\+|-)/
           width = expr[0]
           width = width[0...-1].to_f / 100
-          width = ((parent.width||0) * width).to_i
+          width = ((parent.width || 0) * width).to_i
           width += expr[1].to_i if expr[1]?
           return width
         end
@@ -251,10 +250,10 @@ module Crysterm
             expr = left.split(/(?=\+|-)/)
             left = expr[0]
             left = left[0...-1].to_f / 100
-            left = ((parent.width||0) * left).to_i
+            left = ((parent.width || 0) * left).to_i
             left += expr[1].to_i if expr[1]?
           end
-          width = (parent.width||0) - (@position.right || 0) - left
+          width = (parent.width || 0) - (@position.right || 0) - left
           if (@screen.auto_padding)
             if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
               width -= parent.ileft
@@ -285,7 +284,7 @@ module Crysterm
           expr = height.split /(?=\+|-)/
           height = expr[0]
           height = height[0...-1].to_f / 100
-          height = ((parent.height||0) * height).to_i
+          height = ((parent.height || 0) * height).to_i
           height += expr[1].to_i if expr[1]?
           return height
         end
@@ -304,11 +303,11 @@ module Crysterm
             end
             expr = top.split(/(?=\+|-)/)
             top = expr[0]
-            top = top[0...-1].to_f / 100;
-            top = ((parent.height||0) * top).to_i
+            top = top[0...-1].to_f / 100
+            top = ((parent.height || 0) * top).to_i
             top += expr[1].to_i if expr[1]?
           end
-          height = (parent.height||0) - (@position.bottom || 0) - top
+          height = (parent.height || 0) - (@position.bottom || 0) - top
           if (@screen.auto_padding)
             if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
               height -= parent.itop
@@ -339,7 +338,7 @@ module Crysterm
           expr = left.split /(?=\+|-)/
           left = expr[0]
           left = left[0...-1].to_f / 100
-          left = ((parent.width||0) * left).to_i
+          left = ((parent.width || 0) * left).to_i
           left += expr[1].to_i if expr[1]?
           if @position.left == "center"
             left -= (_get_width(get)) // 2
@@ -356,7 +355,7 @@ module Crysterm
           end
         end
 
-        left = (parent.aleft||0) + left
+        left = (parent.aleft || 0) + left
         left
       end
 
@@ -378,7 +377,7 @@ module Crysterm
           end
         end
 
-        right = (parent.aright||0) + (@position.right||0)
+        right = (parent.aright || 0) + (@position.right || 0)
         if (@screen.auto_padding)
           right += parent.iright
         end
@@ -404,7 +403,7 @@ module Crysterm
           expr = top.split /(?=\+|-)/
           top = expr[0]
           top = top[0...-1].to_f / 100
-          top = ((parent.height||0) * top).to_i
+          top = ((parent.height || 0) * top).to_i
           top += expr[1].to_i if expr[1]?
           if @position.top == "center"
             top -= _get_height(get) // 2
@@ -416,12 +415,12 @@ module Crysterm
         end
 
         if (@screen.auto_padding)
-          if((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
+          if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
             top += parent.itop
           end
         end
 
-        (parent.atop||0) + top
+        (parent.atop || 0) + top
       end
 
       def atop
@@ -443,7 +442,7 @@ module Crysterm
           return bottom
         end
 
-        bottom = (parent.abottom||0) + (@position.bottom||0)
+        bottom = (parent.abottom || 0) + (@position.bottom || 0)
 
         if (@screen.auto_padding)
           bottom += parent.ibottom
@@ -459,12 +458,15 @@ module Crysterm
       def rleft
         aleft - @parent.not_nil!.aleft
       end
+
       def rright
         aright - @parent.not_nil!.aright
       end
+
       def rtop
         atop - @parent.not_nil!.atop
       end
+
       def rbottom
         abottom - @parent.not_nil!.abottom
       end
@@ -476,6 +478,7 @@ module Crysterm
         emit ResizeEvent
         val
       end
+
       def height=(val : Int)
         return if @height == val
         clear_pos
@@ -617,7 +620,7 @@ module Crysterm
           return ShrinkBox.new xi: xi, xl: xi + 1, yi: yi, yl: yi + 1
         end
 
-        #i, el, ret,
+        # i, el, ret,
         mxi = xi
         mxl = xi + 1
         myi = yi
@@ -628,12 +631,12 @@ module Crysterm
         # order to figure out how the children will render, they need to know
         # exactly how their parent renders, so, we can give them what we have so
         # far.
-        #_lpos
+        # _lpos
         if (get)
           _lpos = @lpos
           @lpos = LPos.new xi: xi, xl: xl, yi: yi, yl: yl
           # D O:
-          #@shrink = false
+          # @shrink = false
         end
 
         @children.each_with_index do |el, i|
@@ -689,10 +692,10 @@ module Crysterm
         if (get)
           @lpos = _lpos
           # D O:
-          #@shrink = true
+          # @shrink = true
         end
 
-        if (@position.width.nil?  && (@position.left.nil?  || @position.right.nil?))
+        if (@position.width.nil? && (@position.left.nil? || @position.right.nil?))
           if (@position.left.nil? && !@position.right.nil?)
             xi = xl - (mxl - mxi)
             if (!@screen.auto_padding)
@@ -715,12 +718,12 @@ module Crysterm
               end
             else
               # D O:
-              #xl += @padding.right
+              # xl += @padding.right
               xl += @iright
             end
           end
         end
-        if (@position.height.nil?  && (@position.top.nil?  || @position.bottom.nil?) && (!@scrollable || @_isList))
+        if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) && (!@scrollable || @_isList))
           # NOTE: Lists get special treatment if they are shrunken - assume they
           # want all list items showing. This is one case we can calculate the
           # height based on items/boxes.
@@ -753,9 +756,8 @@ module Crysterm
         h = @_clines.size
         w = @_clines.mwidth || 1
 
-        if (@position.width.nil?  &&
-           (@position.left.nil?  || @position.right.nil?))
-
+        if (@position.width.nil? &&
+           (@position.left.nil? || @position.right.nil?))
           if (@position.left.nil? && !@position.right.nil?)
             xi = xl - w - @iwidth
           else
@@ -763,10 +765,9 @@ module Crysterm
           end
         end
 
-        if (@position.height.nil?  &&
-           (@position.top.nil?  || @position.bottom.nil?) &&
+        if (@position.height.nil? &&
+           (@position.top.nil? || @position.bottom.nil?) &&
            (!@scrollable || @_isList))
-
           if (@position.top.nil? && !@position.bottom.nil?)
             yi = yl - h - @iheight
           else
@@ -846,15 +847,37 @@ module Crysterm
       end
 
       # Relative coordinates as default properties
-      def left() @rleft end
-      def right() @rright end
-      def top() @rtop end
-      def bottom() @rbottom end
+      def left
+        @rleft
+      end
 
-      def left=(arg) @rleft=arg end
-      def right=(arg) @rright=arg end
-      def top=(arg) @rtop=arg end
-      def bottom=(arg) @rbottom=arg end
+      def right
+        @rright
+      end
+
+      def top
+        @rtop
+      end
+
+      def bottom
+        @rbottom
+      end
+
+      def left=(arg)
+        @rleft = arg
+      end
+
+      def right=(arg)
+        @rright = arg
+      end
+
+      def top=(arg)
+        @rtop = arg
+      end
+
+      def bottom=(arg)
+        @rbottom = arg
+      end
     end
   end
 end

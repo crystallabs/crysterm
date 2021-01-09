@@ -1,21 +1,20 @@
 module Crysterm
   # Mixin containing helper functions
   module Helpers
-
     # 'merge' function exists as Crystal builtin
 
     # Sorts array alphabetically by property 'name'.
     def asort(obj)
-      obj.sort do |a,b|
+      obj.sort do |a, b|
         a = a.not_nil!.name.not_nil!.downcase
         b = b.not_nil!.name.not_nil!.downcase
 
         if ((a[0] == '.') && (b[0] == '.'))
-          a = a[1];
-          b = b[1];
+          a = a[1]
+          b = b[1]
         else
-          a = a[0];
-          b = b[0];
+          a = a[0]
+          b = b[0]
         end
 
         a > b ? 1 : (a < b ? -1 : 0)
@@ -24,7 +23,7 @@ module Crysterm
 
     # Sorts array numerically by property 'index'
     def hsort(obj)
-      obj.sort do |a,b|
+      obj.sort do |a, b|
         b.index - a.index
       end
     end
@@ -36,16 +35,16 @@ module Crysterm
     # box.set_content("escaped content: " + escape("{bold}{/bold}"))
     # '''
     def escape(text)
-      text.gsub(/[{}]/) {|ch|
+      text.gsub(/[{}]/) { |ch|
         ch == "{" ? "{open}" : "{close}"
       }
     end
 
     # Generates text tags based on the given style definition.
     # ```
-    # obj.generate_tags( {"fg" => "lightblack"}, "text") # => "{light-black-fg}text{/light-black-fg}"
+    # obj.generate_tags({"fg" => "lightblack"}, "text") # => "{light-black-fg}text{/light-black-fg}"
     # ```
-    def generate_tags(style : Hash(String,String | Bool) = {} of String => String | Bool)
+    def generate_tags(style : Hash(String, String | Bool) = {} of String => String | Bool)
       open = ""
       close = ""
 
@@ -64,12 +63,12 @@ module Crysterm
       end
 
       {
-        open: open,
-        close: close
+        open:  open,
+        close: close,
       }
     end
 
-    def generate_tags(style : Hash(String,String | Bool), text : String)
+    def generate_tags(style : Hash(String, String | Bool), text : String)
       v = generate_tags style
       v[:open] + text + v[:close]
     end
@@ -87,27 +86,27 @@ module Crysterm
     # Finds a file with name 'target' inside toplevel directory 'start'.
     # XXX Possibly replace with github: mlobl/finder
     def find_file(start, target)
-      if start== "/dev" || start== "/sys" || start== "/proc" || start== "/net"
+      if start == "/dev" || start == "/sys" || start == "/proc" || start == "/net"
         return nil
       end
-      files= begin
+      files = begin
         # https://github.com/crystal-lang/crystal/issues/4807
         Dir.children start
       rescue e : Exception
         [] of String
       end
       files.each do |file|
-        full= File.join start, file
-        if file==target
+        full = File.join start, file
+        if file == target
           return full
         end
-        stat= begin
+        stat = begin
           File.info full, follow_symlinks: false
         rescue e : Exception
           nil
         end
         if stat && stat.directory? && !stat.symlink?
-          f= find_file full, target
+          f = find_file full, target
           if f
             return f
           end
@@ -117,24 +116,24 @@ module Crysterm
     end
 
     private def find(prefix, word)
-      w0= word[0].to_s
-      file = File.join(prefix, w0);
+      w0 = word[0].to_s
+      file = File.join(prefix, w0)
       begin
-        File.info(file); # Test existence basically. # XXX needs to be replaced with if( -e FILE), in multiple places
-        return file;
+        File.info(file) # Test existence basically. # XXX needs to be replaced with if( -e FILE), in multiple places
+        return file
       rescue e : Exception
       end
 
-      ch = w0.char_at( 0).to_s
+      ch = w0.char_at(0).to_s
       if (ch.size < 2)
-        ch = "0" + ch;
+        ch = "0" + ch
       end
 
       # XXX path.resolve
-      file = File.join(prefix, ch);
+      file = File.join(prefix, ch)
       begin
-        File.info(file);
-        return file;
+        File.info(file)
+        return file
       rescue e : Exception
       end
 
@@ -143,10 +142,9 @@ module Crysterm
 
     # Drops any >U+FFFF characters in the text.
     def drop_unicode(text)
-      return "" if text.nil? || text.size==0
+      return "" if text.nil? || text.size == 0
       # TODO
-      return text.gsub(::Crysterm::Unicode::AllRegex, "??") #.gsub(@unicode.chars["combining"], "").gsub(@unicode.chars["surrogate"], "?");
+      return text.gsub(::Crysterm::Unicode::AllRegex, "??") # .gsub(@unicode.chars["combining"], "").gsub(@unicode.chars["surrogate"], "?");
     end
-
   end
 end

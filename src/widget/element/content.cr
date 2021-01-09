@@ -1,7 +1,6 @@
 module Crysterm
   class Element < Node
     module Content
-
       class ::String
         property attr = [] of Int32
       end
@@ -26,61 +25,62 @@ module Crysterm
 
       property _clines = CLines.new
 
-      def set_content(content = "", no_clear=false, no_tags=false)
+      def set_content(content = "", no_clear = false, no_tags = false)
         clear_pos unless no_clear
         @content = content
         parse_content(no_tags)
         emit(SetContentEvent)
       end
+
       def get_content
         return "" unless @_clines || @_clines.empty? # XXX leave only .empty?
         @_clines.fake.join "\n"
       end
 
-      def parse_content(no_tags=false)
+      def parse_content(no_tags = false)
         return false if detached?
 
         Log.trace { "Element not detached; parsing content: #{@content.inspect}" }
 
         width = @width - @iwidth
         if (@_clines.nil? || @_clines.empty? ||
-            @_clines.width != width ||
-            @_clines.content != @content)
+           @_clines.width != width ||
+           @_clines.content != @content)
           content = @content || ""
 
           content =
             content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
-            .gsub(/\x1b(?!\[[\d;]*m)/, "")
-            .gsub(/\r\n|\r/, "\n")
-            .gsub(/\t/, @screen.tabc)
+              .gsub(/\x1b(?!\[[\d;]*m)/, "")
+              .gsub(/\r\n|\r/, "\n")
+              .gsub(/\t/, @screen.tabc)
 
           Log.trace { "Internal content is #{content.inspect}" }
 
-          if true #(@screen.full_unicode)
+          if true # (@screen.full_unicode)
             # double-width chars will eat the next char after render. create a
             # blank character after it so it doesn't eat the real next char.
             # TODO
-            #content = content.replace(unicode.chars.all, '$1\x03')
+            # content = content.replace(unicode.chars.all, '$1\x03')
 
             # iTerm2 cannot render combining characters properly.
             if @screen.application.tput.emulator.iterm2?
               # TODO
-              #content = content.replace(unicode.chars.combining, "")
+              # content = content.replace(unicode.chars.combining, "")
             end
           else
             # no double-width: replace them with question-marks.
             # TODO
-            #content = content.gsub unicode.chars.all, "??"
+            # content = content.gsub unicode.chars.all, "??"
             # delete combining characters since they're 0-width anyway.
             # NOTE: We could drop this, the non-surrogates would get changed to ? by
             # the unicode filter, and surrogates changed to ? by the surrogate
             # regex. however, the user might expect them to be 0-width.
             # NOTE: Might be better for performance to drop!
             # TODO
-            #content = content.replace(unicode.chars.combining, '')
+            # content = content.replace(unicode.chars.combining, '')
             # no surrogate pairs: replace them with question-marks.
             # TODO
-            #content = content.replace(unicode.chars.surrogate, '?')
+            # content = content.replace(unicode.chars.surrogate, '?')
             # XXX Deduplicate code here:
             # content = helpers.dropUnicode(content)
           end
@@ -122,17 +122,17 @@ module Crysterm
         end
 
         outbuf = ""
-        #state
+        # state
 
         bg = [] of String
         fg = [] of String
         flag = [] of String
 
-        cap=nil
-        #slash
-        #param
-        #attr
-        esc=nil
+        cap = nil
+        # slash
+        # param
+        # attr
+        esc = nil
 
         loop do
           if (!esc && (cap = text.match /^{escape}/))
@@ -192,7 +192,7 @@ module Crysterm
                   #   throw new Error('Misnested tags.')
                   # }
                   state.pop
-                  if (state.size>0)
+                  if (state.size > 0)
                     outbuf += @screen.application.tput._attr(state[state.size - 1])
                   else
                     outbuf += attr
@@ -233,10 +233,10 @@ module Crysterm
         dattr = sattr(@style)
         attr = dattr
         attrs = [] of Int32
-        #line
-        #i
-        #j
-        #c
+        # line
+        # i
+        # j
+        # c
 
         if (lines[0].attr == attr)
           return
@@ -245,7 +245,7 @@ module Crysterm
         (0...lines.size).each do |j|
           line = lines[j]
           attrs.push attr
-          unless attrs.size == j+1
+          unless attrs.size == j + 1
             raise "indexing error"
           end
           (0...line.size).each do |i|
@@ -269,18 +269,18 @@ module Crysterm
         margin = 0
         rtof = [] of Int32
         ftor = [] of Array(Int32)
-        #outbuf = [] of String
+        # outbuf = [] of String
         outbuf = CLines.new
         no = 0
-        #line
-        #align
-        #cap
-        #total
-        #i
-        #part
-        #j
-        #lines
-        #rest
+        # line
+        # align
+        # cap
+        # total
+        # i
+        # part
+        # j
+        # lines
+        # rest
 
         lines = content.split "\n"
 
@@ -296,16 +296,16 @@ module Crysterm
         end
 
         if (@scrollbar)
-          margin+=1
+          margin += 1
         end
         if is_a? TextArea
-          margin+=1
+          margin += 1
         end
         if (width > margin)
           width -= margin
         end
 
-#      main:
+        #      main:
         while no < lines.size
           line = lines[no]
           align = state
@@ -320,7 +320,7 @@ module Crysterm
             end
             if (cap = line.match /{\/(left|center|right)}$/)
               line = line[0..(line.size - cap[0].size)]
-              #state = null
+              # state = null
               state = @align
             end
           end
@@ -343,7 +343,7 @@ module Crysterm
               if (total == width)
                 # If we're not wrapping the text, we have to finish up the rest of
                 # the control sequences before cutting off the line.
-                i+=1
+                i += 1
                 if (!wrap)
                   rest = line[i..].scan(/\x1b\[[^m]*m/)
                   rest = rest.any? ? rest.join : ""
@@ -353,17 +353,17 @@ module Crysterm
                   break :main
                 end
                 # XXX
-                #if (!screen.fullUnicode)
-                  # Try to find a space to break on.
-                  if (i != line.size)
-                    j = i
-                    while (j > i - 10 && j > 0 && (j-=1) && line[j] != " ")
-                      if (line[j] == " ")
-                        i = j + 1
-                      end
+                # if (!screen.fullUnicode)
+                # Try to find a space to break on.
+                if (i != line.size)
+                  j = i
+                  while (j > i - 10 && j > 0 && (j -= 1) && line[j] != " ")
+                    if (line[j] == " ")
+                      i = j + 1
                     end
                   end
-                #end
+                end
+                # end
                 break
               end
               i += 1
@@ -414,15 +414,16 @@ module Crysterm
         return outbuf
       end
 
-      def set_text(content="", no_clear=false)
+      def set_text(content = "", no_clear = false)
         content = content.gsub /\x1b\[[\d;]*m/, ""
         set_content content, no_clear, true
       end
+
       def get_text
         get_content.gsub /\x1b\[[\d;]*m/, ""
       end
 
-      def insert_line(i=nil, line="")
+      def insert_line(i = nil, line = "")
         if (line.is_a? String)
           line = line.split("\n")
         end
@@ -442,8 +443,8 @@ module Crysterm
         # NOTE: Could possibly compare the first and last ftor line numbers to see
         # if they"re the same, or if they fit in the visible region entirely.
         start = @_clines.size
-        #diff
-        #real
+        # diff
+        # real
 
         if (i >= @_clines.ftor.size)
           real = @_clines.ftor[@_clines.ftor.size - 1]
@@ -462,7 +463,7 @@ module Crysterm
 
         if (diff > 0)
           pos = _get_coords
-          if (!pos || pos==0)
+          if (!pos || pos == 0)
             return
           end
 
@@ -479,7 +480,7 @@ module Crysterm
         end
       end
 
-      def delete_line(i=nil, n=1)
+      def delete_line(i = nil, n = 1)
         n = n
 
         if (i.nil?)
@@ -492,10 +493,10 @@ module Crysterm
         # NOTE: Could possibly compare the first and last ftor line numbers to see
         # if they"re the same, or if they fit in the visible region entirely.
         start = @_clines.size
-        #diff
+        # diff
         real = @_clines.ftor[i][0]
 
-        while (n>0)
+        while (n > 0)
           n -= 1
           @_clines.fake.delete_at i
         end
@@ -509,7 +510,7 @@ module Crysterm
 
         if (diff > 0)
           pos = _get_coords
-          if (!pos || pos==0)
+          if (!pos || pos == 0)
             return
           end
 
@@ -554,7 +555,7 @@ module Crysterm
         i = Math.min(h, @_clines.size - 1)
         fake = @_clines.rtof[i]
 
-        n = 1 if !n || n==0
+        n = 1 if !n || n == 0
 
         delete_line(fake - (n - 1), n)
       end
@@ -613,21 +614,20 @@ module Crysterm
         delete_line(@_clines.fake.size - 1, n)
       end
 
-      def get_lines()
+      def get_lines
         @_clines.fake.dup
       end
 
-      def get_screen_lines()
+      def get_screen_lines
         @_clines.dup
       end
 
       def str_width(text)
         text = @parse_tags ? helpers.strip_tags(text) : text
-        #return @screen.full_unicode ? unicode.str_width(text) : helpers.drop_unicode(text).size
-        #text = text
+        # return @screen.full_unicode ? unicode.str_width(text) : helpers.drop_unicode(text).size
+        # text = text
         text.size # or bytesize?
       end
-
     end
   end
 end

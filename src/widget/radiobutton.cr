@@ -7,7 +7,7 @@ module Crysterm
 
     getter value = false
 
-    def initialize(value=false, **element)
+    def initialize(value = false, **element)
       super **element
       @text = element["content"]? || ""
       @value = value

@@ -20,7 +20,7 @@ module Crysterm
     property? fixed = false
     @align = "left" # Enum or class
     @valign = "top"
-    property? wrap = false # XXX change to true
+    property? wrap = false  # XXX change to true
     property shrink = false # XXX add ?
     property ch = ' '
 
@@ -43,10 +43,10 @@ module Crysterm
 
     property position : Tput::Position
 
-    property top=0
-    property left=0
-    setter width=0
-    property height=0
+    property top = 0
+    property left = 0
+    setter width = 0
+    property height = 0
 
     # Does it accept keyboard input?
     @input = false
@@ -65,39 +65,38 @@ module Crysterm
     property padding : Padding
 
     def initialize(
-
       # These end up being part of Position.
       # If position is specified, these are ignored.
-      left=nil,
-      top=nil,
-      right=nil,
-      bottom=nil,
-      width=nil,
-      height=nil,
+      left = nil,
+      top = nil,
+      right = nil,
+      bottom = nil,
+      width = nil,
+      height = nil,
 
-      @hidden=false,
-      @fixed=false,
-      @wrap=false, # XXX change to true later
-      @align= "left",
+      @hidden = false,
+      @fixed = false,
+      @wrap = false, # XXX change to true later
+      @align = "left",
       @valign = "top",
       position : Tput::Position? = nil,
-      @shrink=false,
-      @no_overflow=true,
-      @dock_borders=true,
-      @shadow=false,
+      @shrink = false,
+      @no_overflow = true,
+      @dock_borders = true,
+      @shadow = false,
       style : Style? = nil,
       padding : Int32 | Padding = 0,
       border = nil,
-      #@clickable=false,
-      content=nil,
-      label=nil,
-      hover_text=nil,
-      #hover_bg=nil,
-      @draggable=false,
-      focused=false,
+      # @clickable=false,
+      content = nil,
+      label = nil,
+      hover_text = nil,
+      # hover_bg=nil,
+      @draggable = false,
+      focused = false,
 
       # synonyms
-      parse_tags=true,
+      parse_tags = true,
 
       **node
     )
@@ -132,15 +131,15 @@ module Crysterm
       end
 
       @border = case border
-      when true
-        Border.new BorderType::Line
-      when BorderType
-        Border.new border
-      when Border
-        border
-      else
-        raise "Invalid border argument"
-      end
+                when true
+                  Border.new BorderType::Line
+                when BorderType
+                  Border.new border
+                when Border
+                  border
+                else
+                  raise "Invalid border argument"
+                end
 
       set_content(content, true) if content
       set_label(label) if label
@@ -148,11 +147,11 @@ module Crysterm
 
       @parse_tags = parse_tags
 
-      #on(AddHandlerEvent) { |wrapper| }
+      # on(AddHandlerEvent) { |wrapper| }
 
       on(ResizeEvent) { parse_content }
       on(AttachEvent) { parse_content }
-      #on(DetachEvent) { @lpos = nil }
+      # on(DetachEvent) { @lpos = nil }
 
       # Style related stuff ...
 
@@ -161,15 +160,17 @@ module Crysterm
 
     def set_label(label)
     end
+
     def remove_label
     end
 
     def set_hover(hover_text)
     end
+
     def remove_hover
     end
 
-    def set_effects()
+    def set_effects
     end
 
     def focused?
@@ -182,12 +183,12 @@ module Crysterm
       @hidden = true
       emit HideEvent
       # TODO
-      #@screen.try &.rewind_focus if focused?
+      # @screen.try &.rewind_focus if focused?
     end
 
     def show
       return unless @hidden
-      @hidden=false
+      @hidden = false
       emit ShowEvent
     end
 
@@ -210,10 +211,10 @@ module Crysterm
       return line if s < 0
 
       if align == "center"
-        s = " " * (((s//2))+1)
+        s = " " * (((s//2)) + 1)
         return s + line + s
       elsif align == "right"
-        s = " " * (s+1)
+        s = " " * (s + 1)
         return s + line
       elsif @parse_tags && line.index /\{|\}/
         parts = line.split /\{|\}/
@@ -232,7 +233,7 @@ module Crysterm
         return false if el.detached?
         return false if el.hidden?
         el = el.parent
-      end 
+      end
       true
     end
 
@@ -249,17 +250,20 @@ module Crysterm
     def draggable?
       @_draggable == true
     end
+
     def draggable=(draggable : Bool)
       draggable ? enable_drag(draggable) : disable_drag
     end
+
     def enable_drag(x)
     end
+
     def disable_drag
     end
 
     def setIndex(index)
       return unless parent = @parent
-      if index<0
+      if index < 0
         index = parent.children.size + index
       end
 
@@ -272,14 +276,16 @@ module Crysterm
       parent.children.insert index, parent.children.delete_at i
       nil
     end
+
     def front!
       setIndex -1
     end
+
     def back!
       setIndex 0
     end
 
-    def self.sattr(style, fg=nil, bg=nil)
+    def self.sattr(style, fg = nil, bg = nil)
       # See why this can be nil
       style = style.not_nil!
 
@@ -291,14 +297,15 @@ module Crysterm
       # Support style.* being Procs
 
       ((style.invisible ? 16 : 0) << 18) |
-      ((style.inverse ? 8 : 0) << 18)    |
-      ((style.blink ? 4 : 0) << 18)      |
-      ((style.underline ? 2 : 0) << 18)  |
-      ((style.bold ? 1 : 0) << 18)       |
-      (Colors.convert(fg) << 9)    |
-      Colors.convert(bg)
+        ((style.inverse ? 8 : 0) << 18) |
+        ((style.blink ? 4 : 0) << 18) |
+        ((style.underline ? 2 : 0) << 18) |
+        ((style.bold ? 1 : 0) << 18) |
+        (Colors.convert(fg) << 9) |
+        Colors.convert(bg)
     end
-    def sattr(style, fg=nil, bg=nil)
+
+    def sattr(style, fg = nil, bg = nil)
       self.class.sattr style, fg, bg
     end
 
@@ -306,17 +313,17 @@ module Crysterm
       # Remove all listeners
     end
 
-    def screenshot(xi=nil,xl=nil,yi=nil,yl=nil)
-      xi = @lpos.xi + @ileft + (xi||0)
+    def screenshot(xi = nil, xl = nil, yi = nil, yl = nil)
+      xi = @lpos.xi + @ileft + (xi || 0)
       if xl
-        xl = @lpos.xi + @ileft + (xl||0)
+        xl = @lpos.xi + @ileft + (xl || 0)
       else
         xl = @lpos.xl - @iright
       end
 
-      yi = @lpos.yi + @itop + (yi||0)
+      yi = @lpos.yi + @itop + (yi || 0)
       if yl
-        yl = @lpos.yi + @itop + (yl||0)
+        yl = @lpos.yi + @itop + (yl || 0)
       else
         yl = @lpos.yl - @ibottom
       end
@@ -326,6 +333,5 @@ module Crysterm
 
     def _update_cursor(arg)
     end
-
   end
 end

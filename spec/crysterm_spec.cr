@@ -3,10 +3,10 @@ require "./spec_helper"
 class X
   include Crysterm::Helpers
 end
+
 x = X.new
 
 describe Crysterm do
-
   describe "escape" do
     it "wraps/escapes { and }" do
       x.escape("my").should eq "my"
@@ -17,14 +17,14 @@ describe Crysterm do
 
   describe "generate_tags" do
     it "returns named tuple when invoked without text" do
-      x.generate_tags( {"fg" => "lightblack"}).should eq({
-        open: "{light-black-fg}",
-        close: "{/light-black-fg}"
+      x.generate_tags({"fg" => "lightblack"}).should eq({
+        open:  "{light-black-fg}",
+        close: "{/light-black-fg}",
       })
     end
 
     it "returns text wrapped when invoked with text" do
-      x.generate_tags( {"fg" => "lightblack"}, " text ").should eq \
+      x.generate_tags({"fg" => "lightblack"}, " text ").should eq \
         "{light-black-fg} text {/light-black-fg}"
     end
   end
@@ -53,5 +53,4 @@ describe Crysterm do
       x.clean_tags("   1\e[1;2m{tag}text\e[0m{/tag}2  ").should eq "1text2"
     end
   end
-
 end

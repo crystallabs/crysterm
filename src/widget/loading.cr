@@ -16,10 +16,9 @@ module Crysterm
       @interval = 0.2.seconds,
       **box
     )
-
       super **box
 
-      @icons = [ "|", "/", "-", "\\" ]
+      @icons = ["|", "/", "-", "\\"]
 
       @pos = 0
 
@@ -34,8 +33,8 @@ module Crysterm
       append @icon
     end
 
-    def start(text=nil)
-      #return if @should_exit
+    def start(text = nil)
+      # return if @should_exit
       @should_exit = false
 
       show

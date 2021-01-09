@@ -9,27 +9,27 @@ module Crysterm
 
     getter value = false
 
-    def initialize(value=false, **element)
+    def initialize(value = false, **element)
       super **element
 
       @text = element["content"]? || ""
       @value = value
 
-      #on(KeyPressEvent) do |key|
+      # on(KeyPressEvent) do |key|
       #  if key.name==Enter || Space
       #    toggle
       #    @screen.render
       #  end
-      #end
+      # end
 
       # TODO - why conditional? could be cool to trigger clicks by
       # events even if mouse is disabled.
-      #if mouse
-        on(ClickEvent) do
-          toggle
-          @screen.render
-        end
-      #end
+      # if mouse
+      on(ClickEvent) do
+        toggle
+        @screen.render
+      end
+      # end
 
       on(FocusEvent) do
         lpos = @lpos

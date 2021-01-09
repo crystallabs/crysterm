@@ -6,7 +6,7 @@ module Crysterm
   # Base class that everything inherits from.
   # Only EventEmitter is lower-level than this.
   abstract class Node
-    @@uid= 0
+    @@uid = 0
 
     include EventHandler
 
@@ -25,7 +25,7 @@ module Crysterm
     property name : String
 
     def initialize(
-      name=nil,
+      name = nil,
       screen = nil,
       @parent = nil,
       index = -1,
@@ -60,38 +60,39 @@ module Crysterm
       if Screen.total == 1
         Screen.global
       elsif @parent
-        s= @parent
-        while s  && !(s.is_a? Screen)
+        s = @parent
+        while s && !(s.is_a? Screen)
           s = s.parent
         end
         if s.is_a? Screen
           s
         else
-          raise Exception.new("No active screen found in parent chain.");
+          raise Exception.new("No active screen found in parent chain.")
         end
       elsif Screen.total > 0
         Screen.instances[-1]
       else
-        raise Exception.new("No active screen found anywhere.");
+        raise Exception.new("No active screen found anywhere.")
       end
     end
 
     def append(element)
       insert element, @children.size
     end
+
     def append(*elements)
       elements.each do |el|
         insert el, @children.size
       end
     end
 
-    def insert(element, i=-1)
+    def insert(element, i = -1)
       if element.is_a? Screen
-       return
+        return
       end
 
       if element.screen != @screen
-        raise Exception.new("Cannot switch a node's screen.");
+        raise Exception.new("Cannot switch a node's screen.")
       end
 
       element.detach
@@ -99,23 +100,24 @@ module Crysterm
 
       element.screen = @screen # Isn't it already?
 
-      #if i == -1
+      # if i == -1
       #  @children.push element
-      #elsif i == 0
+      # elsif i == 0
       #  @children.unshift element
-      #else
-        @children.insert i, element
-      #end
+      # else
+      @children.insert i, element
+      # end
 
-      element.emit(ReparentEvent, self);
-      emit(AdoptEvent, element);
-
+      element.emit(ReparentEvent, self)
+      emit(AdoptEvent, element)
       emt = uninitialized Node -> Nil
       emt = ->(el : Node) {
         n = el.detached? != @detached
         el.detached = @detached
         el.emit(AttachEvent) if n
-        el.children.each do |c| emt.call c end
+        el.children.each do |c|
+          emt.call c
+        end
       }
       emt.call element
 
@@ -139,33 +141,32 @@ module Crysterm
       @children.delete_at i
 
       # TODO Enable
-      #if i = @screen.clickable.index(element)
+      # if i = @screen.clickable.index(element)
       #  @screen.clickable.delete_at i
-      #end
-      #if i = @screen.keyable.index(element)
+      # end
+      # if i = @screen.keyable.index(element)
       #  @screen.keyable.delete_at i
-      #end
+      # end
 
       element.emit(ReparentEvent, nil)
-      emit(RemoveEvent, element);
-
-      #s= @screen
-      #raise Exception.new() unless s
-      #screen_clickable= s.clickable
-      #screen_keyable= s.keyable
+      emit(RemoveEvent, element)
+      # s= @screen
+      # raise Exception.new() unless s
+      # screen_clickable= s.clickable
+      # screen_keyable= s.keyable
 
       emt = ->(el : Node) {
         n = el.detached? != @detached
         el.detached = true
         # TODO Enable
-        #el.emit(DetachEvent) if n
-        #el.children.each do |c| c.emt end # wt
+        # el.emit(DetachEvent) if n
+        # el.children.each do |c| c.emt end # wt
       }
       emt.call element
 
       if @screen.focused == element
         # TODO
-        #@screen.rewind_focus
+        # @screen.rewind_focus
       end
     end
 

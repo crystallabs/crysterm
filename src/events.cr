@@ -1,58 +1,61 @@
 require "event_handler"
 
 module Crysterm
-    include EventHandler
+  include EventHandler
 
-    event DataEvent, data : String
-    event WarningEvent, message : String
+  event DataEvent, data : String
+  event WarningEvent, message : String
 
-    event ResizeEvent
-    event AttachEvent
-    event DetachEvent
+  event ResizeEvent
+  event AttachEvent
+  event DetachEvent
 
-    event HideEvent
-    event ShowEvent
+  event HideEvent
+  event ShowEvent
 
-    event BlurEvent
-    event FocusEvent
-    event DestroyEvent
+  event BlurEvent
+  event FocusEvent
+  event DestroyEvent
 
-    event RenderEvent
-    event PreRenderEvent
-    event PostRenderEvent
-    event DrawEvent
+  event RenderEvent
+  event PreRenderEvent
+  event PostRenderEvent
+  event DrawEvent
 
-    event SetContentEvent
-    event ParsedContentEvent
+  event SetContentEvent
+  event ParsedContentEvent
 
-    event ReparentEvent, element : Node?
-    event AdoptEvent, element : Element
-    event RemoveEvent, node : Node
+  event ReparentEvent, element : Node?
+  event AdoptEvent, element : Element
+  event RemoveEvent, node : Node
 
-    event KeyEvent, key : Tput::Key
+  event KeyEvent, key : Tput::Key
 
-    class KeyPressEvent < EventHandler::Event
-      property char : Char
-      property key : Tput::Key?
-      property sequence : Array(Char)
-      property? accepted : Bool = false
-      def initialize(@char, @key=nil, @sequence=[@char])
-      end
-      def accept!
-        @accepted = true
-      end
-      def ignore!
-        @accepted = false
-      end
+  class KeyPressEvent < EventHandler::Event
+    property char : Char
+    property key : Tput::Key?
+    property sequence : Array(Char)
+    property? accepted : Bool = false
+
+    def initialize(@char, @key = nil, @sequence = [@char])
     end
 
-    #event KeyPressEvent, ch : Char, key : Key
-    event ClickEvent
+    def accept!
+      @accepted = true
+    end
 
-    event PressEvent
+    def ignore!
+      @accepted = false
+    end
+  end
 
-    event CheckEvent
-    event UnCheckEvent
+  # event KeyPressEvent, ch : Char, key : Key
+  event ClickEvent
 
-    event MoveEvent
+  event PressEvent
+
+  event CheckEvent
+  event UnCheckEvent
+
+  event MoveEvent
 end

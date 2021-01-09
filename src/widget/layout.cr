@@ -8,7 +8,7 @@ module Crysterm
     @layout : String
     @renderer : Proc(Element, Int32)?
 
-    def initialize(@layout=LayoutType::Inline, @renderer=nil, **el)
+    def initialize(@layout = LayoutType::Inline, @renderer = nil, **el)
       if (!el["width"]? && (!el["left"]? && !el["right"])) ||
          (!el["height"]? && (!el["top"]? && !el["bottom"]))
         raise "Layout must have width and height"
@@ -173,10 +173,10 @@ module Crysterm
       @lpos = coords
 
       if (@border)
-        coords.xi+=1
-        coords.xl-=1
-        coords.yi+=1
-        coords.yl-=1
+        coords.xi += 1
+        coords.xl -= 1
+        coords.yi += 1
+        coords.yl -= 1
       end
 
       if @padding.any?
@@ -189,10 +189,10 @@ module Crysterm
       iterator = renderer(coords)
 
       if (@border)
-        coords.xi-=1
-        coords.xl+=1
-        coords.yi-=1
-        coords.yl+=1
+        coords.xi -= 1
+        coords.xl += 1
+        coords.yi -= 1
+        coords.yl += 1
       end
 
       if @padding.any?
@@ -225,7 +225,7 @@ module Crysterm
         # end
       end
 
-      _emit RenderEvent #, coords
+      _emit RenderEvent # , coords
 
       coords
     end

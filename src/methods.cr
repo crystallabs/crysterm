@@ -2,27 +2,26 @@ module Crysterm
   module Methods
     include Crysterm::Macros
 
-#    # CSI Ps ; Ps H
-#    # Cursor Position [row;column] (default = [1,1]) (CUP).
-#    def cup(row,col)
-#      if !@zero
-#        row = (row || 1) - 1
-#        col = (col || 1) - 1
-#      else
-#        row = row || 0
-#        col = col || 0
-#      end
-#      @x = col
-#      @y = row
-#      _ncoords()
-#      if tput = @tput
-#        put ::Unibilium::Entry::String::Cursor_address, row, col
-#      else
-#        _write("\x1b[" + (row + 1).to_s + ";" + (col + 1).to_s + "H")
-#      end
-#    end
-#    #alias_previous cup, pos, cursor_address, cursor_pos
-
+    #    # CSI Ps ; Ps H
+    #    # Cursor Position [row;column] (default = [1,1]) (CUP).
+    #    def cup(row,col)
+    #      if !@zero
+    #        row = (row || 1) - 1
+    #        col = (col || 1) - 1
+    #      else
+    #        row = row || 0
+    #        col = col || 0
+    #      end
+    #      @x = col
+    #      @y = row
+    #      _ncoords()
+    #      if tput = @tput
+    #        put ::Unibilium::Entry::String::Cursor_address, row, col
+    #      else
+    #        _write("\x1b[" + (row + 1).to_s + ";" + (col + 1).to_s + "H")
+    #      end
+    #    end
+    #    #alias_previous cup, pos, cursor_address, cursor_pos
 
     # CSI > Ps; Ps m
     #   Set or reset resource-values used by xterm to decide whether
@@ -53,10 +52,9 @@ module Crysterm
     #   keys to make an extended sequence of functions rather than
     #   adding a parameter to each function key to denote the modi-
     #   fiers.
-    def disable_modifiers(param=nil)
+    def disable_modifiers(param = nil)
       _write("\x1b[>" + (param || "") + 'n')
     end
-
 
     # CSI Ps " q
     #   Select character protection attribute (DECSCA).  Valid values
@@ -64,9 +62,10 @@ module Crysterm
     #     Ps = 0  -> DECSED and DECSEL can erase (default).
     #     Ps = 1  -> DECSED and DECSEL cannot erase.
     #     Ps = 2  -> DECSED and DECSEL can erase.
-    def set_char_protection_attr(param=nil)
+    def set_char_protection_attr(param = nil)
       _write("\x1b[" + (param || 0) + "\"q")
     end
+
     alias_previous decsca
 
     # CSI ? Pm r
@@ -94,9 +93,10 @@ module Crysterm
     #     Pn = 1  <- 2  8  receive 38.4k baud.
     #     Pn = 1  <- clock multiplier.
     #     Pn = 0  <- STP flags.
-    def request_parameters(param=nil)
+    def request_parameters(param = nil)
       _write("\x1b[" + (param || 0) + "x")
     end
+
     alias_previous decreqtparm
 
     #
@@ -106,18 +106,20 @@ module Crysterm
     def mc5
       has_and_put("mc5") || has_and_put("mc", "5")
     end
+
     alias_previous prtr_on, po
 
     def mc4
       has_and_put("mc4") || has_and_put("mc", "4")
     end
+
     alias_previous prtr_off, pf
 
     def mc5p
       has_and_put("mc5p") || has_and_put("mc", "?5")
     end
-    alias_previous prtr_non, pO
 
+    alias_previous prtr_non, pO
   end
 end
 
@@ -223,4 +225,4 @@ end
 #    # TODO decrqlp
 #
 #  end
-#end
+# end

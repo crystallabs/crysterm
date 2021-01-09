@@ -4,9 +4,9 @@ module Crysterm
       include Crystallabs::Helpers::Alias_Methods
 
       def focus_offset(offset)
-        shown = @keyable.select{ |el| !el.detached? && el.visible? }.size
+        shown = @keyable.select { |el| !el.detached? && el.visible? }.size
 
-        if (shown==0 || offset ==0)
+        if (shown == 0 || offset == 0)
           return
         end
 
@@ -43,6 +43,7 @@ module Crysterm
       def focus_previous
         focus_offset -1
       end
+
       alias_previous focus_prev
 
       def focus_next
@@ -59,12 +60,11 @@ module Crysterm
         @_saved_focus = nil
         @focused
       end
-
     end
   end
 end
 
-#focusPush = function(el)
+# focusPush = function(el)
 #  if (!el) return
 #  var old = @history[@history.size - 1]
 #  if (@history.size === 10)
@@ -72,18 +72,17 @@ end
 #  }
 #  @history.push(el)
 #  _focus(el, old)
-#}
+# }
 #
-#def focus_pop
+# def focus_pop
 #  var old = @history.pop()
 #  if (@history.size)
 #    _focus(@history[@history.size - 1], old)
 #  }
 #  return old
-#end
+# end
 
-
-#rewindFocus = function()
+# rewindFocus = function()
 #  var old = this.history.pop()
 #    , el
 #
@@ -99,9 +98,9 @@ end
 #  if (old)
 #    old.emit('blur')
 #  }
-#}
+# }
 #
-#_focus = function(self, old)
+# _focus = function(self, old)
 #  // Find a scrollable ancestor if we have one.
 #  var el = self
 #  while (el = el.parent)
@@ -131,12 +130,12 @@ end
 #  }
 #
 #  self.emit('focus', old)
-#}
+# }
 #
-#__defineGetter__('focused', function()
+# __defineGetter__('focused', function()
 #  return this.history[this.history.size - 1]
-#})
+# })
 #
-#__defineSetter__('focused', function(el)
+# __defineSetter__('focused', function(el)
 #  return this.focusPush(el)
-#})
+# })
