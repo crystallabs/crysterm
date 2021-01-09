@@ -222,5 +222,51 @@ module Crysterm
       end
       false
     end
+
+    def each_descendant(with_self : Bool = false) : Nil
+      yield self if with_self
+
+      f = uninitialized Node -> Nil
+      f = ->(el : Node) {
+        yield el
+        el.children.each do |c|
+          f.call c
+        end
+      }
+
+      @children.each do |el|
+        f.call el
+      end
+    end
+
+    def each_ancestor(with_self : Bool = false) : Nil
+      yield self if with_self
+
+      el = self
+      while el = el.parent
+        yield el
+      end
+    end
+
+    def collect_descendants(el : Node) : Array(Node)
+      children = [] of Node
+      each_descendant { |el| children << el }
+      children
+    end
+
+    def collect_ancestors(el : Node) : Array(Node)
+      parents = [] of Node
+      each_ancestor { |el| parents << el }
+      parents
+    end
+
+    def emit_descendants(ev : EventHandler::Event) : Nil
+      each_descendant { |el| el.emit ev }
+    end
+
+    def emit_ancestors(ev : EventHandler::Event) : Nil
+      each_ancestor { |el| el.emit ev }
+    end
+
   end
 end
