@@ -9,18 +9,24 @@ module Crysterm
 
     @should_exit = true
 
+    @orig_text = ""
+    @text : String?
+
     getter icons : Array(String)
     getter icon : Text
 
     def initialize(
       @interval = 0.2.seconds,
+      content = "",
+      @icons = ["|", "/", "-", "\\"],
+      @step = 1,
       **box
     )
-      super **box
+      super **box, content: content
 
-      @icons = ["|", "/", "-", "\\"]
+      @orig_content = content
 
-      @pos = 0
+      @pos = 0 #@step > 0 ? (@step - 1) : @step
 
       @icon = Text.new \
         align: "center",
@@ -33,12 +39,12 @@ module Crysterm
       append @icon
     end
 
-    def start(text = nil)
+    def start(@text = nil)
       # return if @should_exit
       @should_exit = false
 
       show
-      set_content text || @content
+      set_content @text || @orig_content
 
       @screen.lock_keys = true
 
@@ -46,7 +52,7 @@ module Crysterm
         loop do
           break if @should_exit
           @icon.set_content icons[@pos]
-          @pos = (@pos + 1) % icons.size
+          @pos = (@pos + @step) % icons.size
           @screen.render
           sleep @interval
         end
@@ -57,11 +63,19 @@ module Crysterm
       @screen.lock_keys = false
       hide
       @should_exit = true
+      @text = nil
       render
     end
 
     def toggle
       @should_exit ? start : stop
     end
+
+    def render
+      clear_pos true
+      set_content "#{@icon.content} #{@text || @orig_content}", true
+      super false
+    end
+
   end
 end

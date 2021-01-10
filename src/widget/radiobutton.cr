@@ -15,7 +15,7 @@ module Crysterm
       on(CheckEvent) do
         el = self
         while el && (el = el.parent)
-          if el.is_a?(RadioSet) || el.is_a?(Form)
+          if el.is_a?(RadioSet) #|| el.is_a?(Form)
             break
           end
           el = el || parent

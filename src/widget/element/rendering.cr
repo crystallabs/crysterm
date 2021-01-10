@@ -21,7 +21,7 @@ module Crysterm
 
       # Here be dragons
 
-      def _render
+      def _render(with_children = true)
         emit PreRenderEvent
 
         parse_content
@@ -619,13 +619,15 @@ module Crysterm
           end
         end
 
-        @children.each do |el|
-          if el.screen._ci != -1
-            el.index = el.screen._ci
-            el.screen._ci += 1
-          end
+        if with_children
+          @children.each do |el|
+            if el.screen._ci != -1
+              el.index = el.screen._ci
+              el.screen._ci += 1
+            end
 
-          el.render
+            el.render
+          end
         end
 
         emit RenderEvent # , coords
@@ -633,8 +635,8 @@ module Crysterm
         coords
       end
 
-      def render
-        _render
+      def render(with_children=true)
+        _render with_children
       end
     end
   end
