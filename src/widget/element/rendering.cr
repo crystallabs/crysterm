@@ -1,13 +1,13 @@
 require "./pos"
 
 class Crysterm::ShrinkBox
-  property xi : Int32 = 0
-  property xl : Int32 = 0
-  property yi : Int32 = 0
-  property yl : Int32 = 0
-  property get : Bool = false
+  property xi : Int32
+  property xl : Int32
+  property yi : Int32
+  property yl : Int32
+  property get : Bool
 
-  def initialize(xi, xl, yi, yl, get = false)
+  def initialize(@xi, @xl, @yi, @yl, @get = false)
   end
 end
 

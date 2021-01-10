@@ -6,7 +6,7 @@ require "./element/content"
 require "./element/pos"
 
 module Crysterm
-  class Element < Node
+  abstract class Element < Node
     include EventHandler
     include Element::Position
     include Element::Content
@@ -98,6 +98,8 @@ module Crysterm
       # synonyms
       parse_tags = true,
 
+      auto_focus = false,
+
       **node
     )
       super **node
@@ -133,6 +135,8 @@ module Crysterm
       @border = case border
                 when true
                   Border.new BorderType::Line
+                when nil
+                  # Nothing
                 when BorderType
                   Border.new border
                 when Border

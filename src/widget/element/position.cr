@@ -355,8 +355,7 @@ module Crysterm
           end
         end
 
-        left = (parent.aleft || 0) + left
-        left
+        (parent.aleft || 0) + left
       end
 
       def aleft
@@ -814,7 +813,7 @@ module Crysterm
           yl += yll
         end
 
-        return ShrinkBox.new xi: xi, xl: xl, yi: yi, yl: yl
+        ShrinkBox.new xi: xi, xl: xl, yi: yi, yl: yl
       end
 
       # The below methods are a bit confusing: basically
