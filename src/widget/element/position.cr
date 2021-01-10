@@ -755,22 +755,27 @@ module Crysterm
         h = @_clines.size
         w = @_clines.mwidth || 1
 
-        if (@position.width.nil? &&
-           (@position.left.nil? || @position.right.nil?))
+        # The extra IFs which are commented appear unnecessary.
+        # If a person sets shrink: true, this is expected to happen
+        # no matter what; not only if other coordinates are also left empty.
+
+        #if (@position.width.nil? &&
+        #   (@position.left.nil? || @position.right.nil?))
           if (@position.left.nil? && !@position.right.nil?)
             xi = xl - w - @iwidth
           else
             xl = xi + w + @iwidth
           end
-        end
+        #end
 
-        if (@position.height.nil? &&
-           (@position.top.nil? || @position.bottom.nil?) &&
-           (!@scrollable || @_isList))
+        #if (@position.height.nil? &&
+        #   (@position.top.nil? || @position.bottom.nil?) &&
+        #   (!@scrollable || @_isList))
+        if (!@scrollable || @_isList)
           if (@position.top.nil? && !@position.bottom.nil?)
-            yi = yl - h - @iheight
+            yi = yl - h - (@iheight == 1 ? 0 : @iheight)
           else
-            yl = yi + h + @iheight
+            yl = yi + h + (@iheight == 1 ? 0 : @iheight)
           end
         end
 

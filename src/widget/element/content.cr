@@ -263,7 +263,6 @@ module Crysterm
       end
 
       def _wrap_content(content, width)
-        tags = @parse_tags
         state = @align
         wrap = @wrap
         margin = 0
@@ -271,7 +270,6 @@ module Crysterm
         ftor = [] of Array(Int32)
         # outbuf = [] of String
         outbuf = CLines.new
-        no = 0
         # line
         # align
         # cap
@@ -282,18 +280,17 @@ module Crysterm
         # lines
         # rest
 
-        lines = content.split "\n"
-
         if !content || content.empty?
-          ret = CLines.new
-          ret.push(content)
-          ret.rtof = [0]
-          ret.ftor = [[0]]
-          ret.fake = lines
-          ret.real = outbuf
-          ret.mwidth = 0
-          return ret
+          outbuf.push(content)
+          outbuf.rtof = [0]
+          outbuf.ftor = [[0]]
+          outbuf.fake = [] of String
+          outbuf.real = outbuf
+          outbuf.mwidth = 0
+          return outbuf
         end
+
+        lines = content.split "\n"
 
         if (@scrollbar)
           margin += 1
@@ -306,6 +303,7 @@ module Crysterm
         end
 
         #      main:
+        no = 0
         while no < lines.size
           line = lines[no]
           align = state
@@ -313,13 +311,13 @@ module Crysterm
           ftor.push([] of Int32)
 
           # Handle alignment tags.
-          if (tags)
+          if @parse_tags
             if (cap = line.match /^{(left|center|right)}/)
               line = line[cap[0].size..]
               align = state = (cap[1] != "left") ? cap[1] : nil
             end
             if (cap = line.match /{\/(left|center|right)}$/)
-              line = line[0..(line.size - cap[0].size)]
+              line = line[0...(line.size - cap[0].size)]
               # state = null
               state = @align
             end
@@ -352,12 +350,12 @@ module Crysterm
                   rtof.push(no)
                   break :main
                 end
-                # XXX
+                # XXX TODO
                 # if (!screen.fullUnicode)
-                # Try to find a space to break on.
+                # Try to find a char to break on.
                 if (i != line.size)
                   j = i
-                  while (j > i - 10 && j > 0 && (j -= 1) && line[j] != " ")
+                  while ((j > i - 10) && (j > 0) && (j -= 1) && (line[j] != " "))
                     if (line[j] == " ")
                       i = j + 1
                     end
@@ -393,9 +391,11 @@ module Crysterm
             next
           end
 
-          outbuf.push(_align(line, width, align))
-          ftor[no].push(outbuf.size - 1)
-          rtof.push(no)
+          if line && !line.blank?
+            outbuf.push(_align(line, width, align))
+            ftor[no].push(outbuf.size - 1)
+            rtof.push(no)
+          end
 
           no += 1
         end
