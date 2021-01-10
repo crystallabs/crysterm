@@ -1544,12 +1544,13 @@ module Crysterm
     # Unused; just compatibility with `Node` interface.
     def clear_pos
     end
+
     def hidden?
       false
     end
+
     def child_base
       0
     end
-
   end
 end

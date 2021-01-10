@@ -106,9 +106,9 @@ module Crysterm
         end
 
         # TODO is it valid that this isn't Element?
-        #unless el.is_a? Element
+        # unless el.is_a? Element
         #  raise "Unexpected"
-        #end
+        # end
 
         # If we're in a scrollable element,
         # automatically scroll to the focused element.
@@ -118,13 +118,13 @@ module Crysterm
           visible = cur.screen.height - el.atop.not_nil! - el.itop.not_nil! - el.abottom.not_nil! - el.ibottom.not_nil!
           if cur.rtop < el.child_base
             # TODO Enable
-            #el.scroll_to cur.rtop
+            # el.scroll_to cur.rtop
             cur.screen.render
           elsif (cur.rtop + cur.height - cur.ibottom) > (el.child_base + visible)
             # Explanation for el.itop here: takes into account scrollable elements
             # with borders otherwise the element gets covered by the bottom border:
             # TODO Enable
-            #el.scroll_to cur.rtop - (el.height - cur.height) + el.itop, true
+            # el.scroll_to cur.rtop - (el.height - cur.height) + el.itop, true
             cur.screen.render
           end
         end
@@ -137,13 +137,12 @@ module Crysterm
       end
 
       def focused
-       @history[-1]?
+        @history[-1]?
       end
 
       def focused=(el)
         focus_push el
       end
-
     end
   end
 end

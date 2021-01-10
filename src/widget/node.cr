@@ -266,6 +266,5 @@ module Crysterm
     def emit_ancestors(ev : EventHandler::Event) : Nil
       each_ancestor { |el| el.emit ev }
     end
-
   end
 end

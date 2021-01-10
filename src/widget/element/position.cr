@@ -759,16 +759,16 @@ module Crysterm
         # If a person sets shrink: true, this is expected to happen
         # no matter what; not only if other coordinates are also left empty.
 
-        #if (@position.width.nil? &&
+        # if (@position.width.nil? &&
         #   (@position.left.nil? || @position.right.nil?))
-          if (@position.left.nil? && !@position.right.nil?)
-            xi = xl - w - @iwidth
-          else
-            xl = xi + w + @iwidth
-          end
-        #end
+        if (@position.left.nil? && !@position.right.nil?)
+          xi = xl - w - @iwidth
+        else
+          xl = xi + w + @iwidth
+        end
+        # end
 
-        #if (@position.height.nil? &&
+        # if (@position.height.nil? &&
         #   (@position.top.nil? || @position.bottom.nil?) &&
         #   (!@scrollable || @_isList))
         if (!@scrollable || @_isList)
