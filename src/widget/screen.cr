@@ -107,8 +107,10 @@ module Crysterm
 
     @use_bce = false
 
-    macro put(arg)
-      application.tput.shim.try { |s| {{arg}}.try { |data| application.tput._write data }}
+    def put
+      application.tput.shim.try { |s|
+        yield(s).try { |data| application.tput._write data }
+      }
     end
 
     class_getter instances = [] of self
@@ -372,11 +374,11 @@ module Crysterm
       {% end %}
 
       application.tput.alternate_buffer
-      put(s.keypad_xmit?) # enter_keyboard_transmit_mode
-      put(s.change_scroll_region?(0, application.tput.screen.height - 1))
+      put(&.keypad_xmit?) # enter_keyboard_transmit_mode
+      put(&.change_scroll_region?(0, application.tput.screen.height - 1))
       application.tput.hide_cursor
       application.tput.cursor_pos 0, 0
-      put(s.ena_acs?) # enable_acs
+      put(&.ena_acs?) # enable_acs
 
       alloc
     end
@@ -417,7 +419,7 @@ module Crysterm
       # application to alt buffer.
       return unless application.tput.is_alt
 
-      put(s.keypad_local?)
+      put(&.keypad_local?)
 
       if ((application.tput.scroll_top != 0) ||
          application.tput.scroll_bottom != application.tput.screen.height - 1)
@@ -1120,9 +1122,9 @@ module Crysterm
       #  return insert_line_nc(n, y, top, bottom)
       # end
 
-      if (!application.tput.has?(change_scroll_region) ||
-         !application.tput.has?(delete_line) ||
-         !application.tput.has?(insert_line))
+      if (!application.tput.has?(&.change_scroll_region?) ||
+         !application.tput.has?(&.delete_line?) ||
+         !application.tput.has?(&.insert_line?))
         STDERR.puts "Missing needed terminfo capabilities"
         return
       end
@@ -1146,8 +1148,8 @@ module Crysterm
     # Scroll down (up cursor-wise).
     # This will only work for top line deletion as opposed to arbitrary lines.
     def insert_line_nc(n, y, top, bottom)
-      if (!application.tput.has?(change_scroll_region) ||
-         !application.tput.has?(delete_line))
+      if (!application.tput.has?(&.change_scroll_region?) ||
+         !application.tput.has?(&.delete_line?))
         STDERR.puts "Missing needed terminfo capabilities"
         return
       end
@@ -1171,8 +1173,8 @@ module Crysterm
     # Scroll down (up cursor-wise).
     # This will only work for top line deletion as opposed to arbitrary lines.
     def delete_line_nc(n, y, top, bottom)
-      if (!application.tput.has?(change_scroll_region) ||
-         !application.tput.has?(delete_line))
+      if (!application.tput.has?(&.change_scroll_region?) ||
+         !application.tput.has?(&.delete_line?))
         STDERR.puts "Missing needed terminfo capabilities"
         return
       end
