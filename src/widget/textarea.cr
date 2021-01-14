@@ -105,21 +105,21 @@ module Crysterm
 
       # XXX Not sure, but this may still sometimes
       # cause problems when leaving editor.
-      if (cy == app.y && cx == app.x)
+      if (cy == @screen.application.tput.cursor.y && cx == @screen.application.tput.cursor.x)
         return
       end
 
-      if (cy == app.y)
-        if (cx > app.x)
-          app.tput.cuf(cx - app.x)
-        elsif (cx < app.x)
-          app.tput.cub(app.x - cx)
+      if (cy == @screen.application.tput.cursor.y)
+        if (cx > @screen.application.tput.cursor.x)
+          app.tput.cuf(cx - @screen.application.tput.cursor.x)
+        elsif (cx < @screen.application.tput.cursor.x)
+          app.tput.cub(@screen.application.tput.cursor.x - cx)
         end
-      elsif (cx === app.x)
-        if (cy > app.y)
-          app.tput.cud(cy - app.y)
-        elsif (cy < app.y)
-          app.tput.cuu(app.y - cy)
+      elsif (cx === @screen.application.tput.cursor.x)
+        if (cy > @screen.application.tput.cursor.y)
+          app.tput.cud(cy - @screen.application.tput.cursor.y)
+        elsif (cy < @screen.application.tput.cursor.y)
+          app.tput.cuu(@screen.application.tput.cursor.y - cy)
         end
       else
         app.tput.cup(cy, cx)

@@ -9,7 +9,9 @@ module Crysterm
         property string = ""
         property mwidth = 0
         property width = 0
-        property content = ""
+
+        property content : String = ""
+
         property real = [] of String
 
         property fake = [] of String
@@ -24,6 +26,12 @@ module Crysterm
       end
 
       property _clines = CLines.new
+
+      # Element's text content. Includes any attributes and tags.
+      property content : String = ""
+
+      # Printable, word-wrapped content, ready for rendering into the element.
+      private property _pcontent : String?
 
       def set_content(content = "", no_clear = false, no_tags = false)
         clear_pos unless no_clear

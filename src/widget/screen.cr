@@ -103,8 +103,6 @@ module Crysterm
       15 => '\u253c', # '┼'       '1111'
     }
 
-    @ignore_dock_contrast = false
-
     @use_bce = false
 
     def put
@@ -123,7 +121,37 @@ module Crysterm
       instances[0]?.not_nil!
     end
 
+    @@_bound = false
+
+    # Associated `Crysterm` instance. The default application object
+    # will be created/used if it is not provided explicitly.
     property! application : Application
+
+    # Attempt to perform CSR optimization on all possible elements,
+    # and not just on full-width ones, i.e. those with uniform cells to their sides.
+    # This is known to cause flickering with elements that are not full-width, but
+    # it is more optimal for terminal rendering.
+    property smart_csr : Bool = false
+
+    # Enable CSR on any element within 20 columns of the screen edges on either side.
+    # It is faster than smart_csr, but may cause flickering depending on what is on
+    # each side of the element.
+    property fast_csr : Bool = false
+
+    # Attempt to perform back_color_erase optimizations for terminals that support it.
+    # It will also work with terminals that don't support it, but only on lines with
+    # the default background color. As it stands with the current implementation,
+    # it's uncertain how much terminal performance this adds at the cost of code overhead.
+    property use_bce : Bool = false
+
+    # Width of tabs in elements' content.
+    property tab_size : Int32
+
+    # Array of keys to ignore when keys are locked or grabbed. Useful for defining
+    # keys that will always execute their action (e.g. exit a program) regardless of
+    # whether keys are locked.
+    property ignore_locked : Array(Element)
+
     property _saved_focus : Element?
 
     getter! tabc : String
@@ -134,12 +162,19 @@ module Crysterm
 
     getter title : String?
 
-    # @hover = nil
+    # Currently hovered element. Best set only if mouse events are enabled.
+    @hover : Element? = nil
+
     @history = [] of Element
     @clickable = [] of Node
     @keyable = [] of Node
+
+    # Is focused element grabbing and receiving all keypresses?
     property grab_keys = false
+
+    # Are keypresses prevented from being sent to any element?
     property lock_keys = false
+
     @_buf = ""
     property _ci = -1
 
@@ -186,14 +221,29 @@ module Crysterm
     property lines = Array(Row).new
     property olines = Array(Row).new
 
+    # Automatically position child elements with border and padding in mind.
     property auto_padding = true
 
-    property top = 0
-    property left = 0
-    property width = 0
-    property height = 0
-
+    # Automatically "dock" borders with other elements instead of overlapping,
+    # depending on position.
+    #     These border-overlapped elements:
+    #     ┌─────────┌─────────┐
+    #     │ box1    │ box2    │
+    #     └─────────└─────────┘
+    #     Become:
+    #     ┌─────────┬─────────┐
+    #     │ box1    │ box2    │
+    #     └─────────┴─────────┘
     property? dock_borders
+
+    # Dockable borders will not dock if the colors or attributes are different.
+    # This option will allow docking regardless. It may produce odd looking
+    # multi-colored borders.
+    @ignore_dock_contrast = false
+
+    # Send focus events after mouse is enabled?
+    property send_focus = false
+
     property _border_stops = {} of Int32 => Bool
 
     def initialize(
@@ -383,6 +433,7 @@ module Crysterm
       alloc
     end
 
+    # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
     def alloc(dirty = false)
       rows = application.tput.screen.height
       cols = application.tput.screen.width
@@ -410,6 +461,7 @@ module Crysterm
       application.tput.clear
     end
 
+    # Reallocates screen buffers and clear the screen.
     def realloc
       alloc dirty: true
     end
@@ -448,6 +500,9 @@ module Crysterm
       {% end %}
     end
 
+    # Destroys self and removes it from the global list of `Screen`s.
+    # Also remove all global events relevant to the object.
+    # If no screens remain, the application is essentially reset to its initial state.
     def destroy
       leave
       if @@instances.delete self
@@ -472,19 +527,28 @@ module Crysterm
     def post_enter
     end
 
-    # XXX Crutch. Remove when everything's in place.
-    def cols
+    # Returns current screen width.
+    # XXX Remove in favor of other ways to retrieve it.
+    def columns
+      # XXX replace with a per-screen method
       application.tput.screen.width
     end
 
+    # Returns current screen height.
+    # XXX Remove in favor of other ways to retrieve it.
     def rows
+      # XXX replace with a per-screen method
       application.tput.screen.height
     end
 
+    # Returns current screen width.
+    # XXX Remove in favor of other ways to retrieve it.
     def width
-      cols
+      columns
     end
 
+    # Returns current screen height.
+    # XXX Remove in favor of other ways to retrieve it.
     def height
       rows
     end
@@ -585,6 +649,7 @@ module Crysterm
       emit RenderEvent
     end
 
+    # Draws the screen based on the contents of the output buffer.
     def draw(start = 0, stop = @lines.size - 1)
       # D O:
       # this.emit('predraw');
@@ -610,7 +675,7 @@ module Crysterm
         o = @olines[y]
         # Log.trace { line } if line.any? &.char.!=(' ')
 
-        if (!line.dirty && !(cursor.artificial && (y == application.y)))
+        if (!line.dirty && !(cursor.artificial && (y == application.tput.cursor.y)))
           next
         end
         line.dirty = false
@@ -626,7 +691,7 @@ module Crysterm
 
           c = cursor
           # Render the artificial cursor.
-          if (c.artificial && !c._hidden && (c._state != 0) && (x == application.x) && (y == application.y))
+          if (c.artificial && !c._hidden && (c._state != 0) && (x == application.tput.cursor.x) && (y == application.tput.cursor.y))
             cattr = _cursor_attr(c, data)
             if (cattr.char)
               ch = cattr.char
@@ -662,14 +727,15 @@ module Crysterm
                 attr = data
               end
               #######################
-              # XXX BAD HAQ
+              # XXX BAD HAQ -- replace with @ret that has been
+              # added in the meantime!
               temp = IO::Memory.new
-              old = application.output
-              application.output = temp
+              old = application.tput.output
+              application.tput.output = temp
               application.tput.cup(y, x)
               application.tput.el
               outbuf += temp.gets_to_end
-              application.output = old
+              application.tput.output = old
               #######################
               (x...line.size).each do |xx|
                 o[xx].attr = data
@@ -925,7 +991,7 @@ module Crysterm
         # TODO This unconditionally calls methods. Do they exist?
         pre += String.new s.sc
         post += String.new s.rc
-        if !application.cursor_hidden
+        if !application.tput.cursor_hidden?
           pre += String.new s.civis
           post += String.new s.cnorm
         end
@@ -1073,10 +1139,12 @@ module Crysterm
       Colors.reduce(col, application.tput.features.number_of_colors)
     end
 
+    # Clears any chosen region on the screen.
     def clear_region(xi, xl, yi, yl, override)
       fill_region @dattr, ' ', xi, xl, yi, yl, override
     end
 
+    # Fills any chosen region on the screen with chosen character and attributes.
     def fill_region(attr, ch, xi, xl, yi, yl, override = false)
       lines = @lines
 
@@ -1116,6 +1184,7 @@ module Crysterm
       o
     end
 
+    # Inserts lines into the screen. (If CSR is used, it bypasses the output buffer.)
     def insert_line(n, y, top, bottom)
       # D O:
       # if (y == top)
@@ -1144,6 +1213,8 @@ module Crysterm
       end
     end
 
+    # Inserts lines into the screen using ncurses-compatible method. (If CSR is used, it bypasses the output buffer.)
+    #
     # This is how ncurses does it.
     # Scroll down (up cursor-wise).
     # This will only work for top line deletion as opposed to arbitrary lines.
@@ -1169,6 +1240,38 @@ module Crysterm
       end
     end
 
+    # Deletes lines from the screen. (If CSR is used, it bypasses the output buffer.)
+    def delete_line(n, y, top, bottom)
+      # D O:
+      # if (y == top)
+      #   return delete_line_nc(n, y, top, bottom)
+      # end
+
+      if (!application.tput.has?(&.change_scroll_region?) ||
+         !application.tput.has?(&.delete_line?) ||
+         !application.tput.has?(&.insert_line?))
+        STDERR.puts "Missing needed terminfo capabilities"
+        return
+      end
+
+      this._buf += this.tput.csr(top, bottom);
+      this._buf += this.tput.cup(y, 0);
+      this._buf += this.tput.dl(n);
+      this._buf += this.tput.csr(0, this.height - 1);
+
+      var j = bottom + 1;
+
+      while n > 0
+        n -= 1
+        @lines.insert y, blank_line
+        @lines.delete_at y
+        @olines.insert y, blank_line
+        @olines.delete_at y
+      end
+    end
+
+    # Deletes lines from the screen using ncurses-compatible method. (If CSR is used, it bypasses the output buffer.)
+    #
     # This is how ncurses does it.
     # Scroll down (up cursor-wise).
     # This will only work for top line deletion as opposed to arbitrary lines.
@@ -1194,18 +1297,22 @@ module Crysterm
       end
     end
 
+    # Inserts line at bottom of screen.
     def insert_bottom(top, bottom)
       delete_line(1, top, top, bottom)
     end
 
+    # Inserts line at top of screen.
     def insert_top(top, bottom)
       insert_line(1, top, top, bottom)
     end
 
+    # Deletes line at bottom of screen.
     def delete_bottom(top, bottom)
       clear_region(0, width, bottom, bottom)
     end
 
+    # Deletes line at top of screen.
     def delete_top(top, bottom)
       # Same as: insert_bottom(top, bottom)
       delete_line(1, top, top, bottom)

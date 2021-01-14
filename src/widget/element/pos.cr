@@ -3,14 +3,28 @@ module Crysterm
     module Pos
       property renders = 0
 
+      # Relative left offset.
       property left = 0
+
+      # Relative top offset.
       property top = 0
+
+      # Relative right offset.
       property right = 0
+
+      # Relative bottom offset.
       property bottom = 0
 
+      # Absolute left offset.
       property aleft : Int32? = nil
+
+      # Absolute top offset.
       property atop : Int32? = nil
+
+      # Absolute right offset.
       property aright : Int32? = nil
+
+      # Absolute bottom offset.
       property abottom : Int32? = nil
 
       property rleft = 0

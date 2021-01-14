@@ -23,7 +23,7 @@ module Crysterm
       top: 2,
       width: 20,
       height: 1,
-      shrink: true,
+      resizable: true,
       content: "Cancel",
       align: "center",
       # bg: "black",

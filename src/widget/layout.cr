@@ -70,9 +70,9 @@ module Crysterm
       end
 
       ->(el : Element, i : Int32) {
-        # Make our children shrinkable. If they don't have a height, for
+        # Make our children resizable. If they don't have a height, for
         # example, calculate it for them.
-        el.shrink = true
+        el.resizable = true
 
         # Find the previous rendered child's coordinates
         last = get_last i

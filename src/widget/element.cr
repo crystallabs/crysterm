@@ -13,36 +13,63 @@ module Crysterm
     include Element::Rendering
     include Element::Pos
 
-    @no_overflow : Bool
+    # document XXX
+    property no_overflow : Bool
+
+    # Dock borders? (See `Screen#dock_borders?` for more information)
     @dock_borders : Bool
-    @shadow : Bool
+
+    # Draw half-transparent shadow on the element's right and bottom?
+    property shadow : Bool
+
+    # Is element hidden? Hidden elements are not rendered on the screen and their dimensions don't use screen space.
     property? hidden = false
-    property? fixed = false
+
+    # 
+    private property? fixed = false
+
+    # Horizontal text alignment
     @align = "left" # Enum or class
+
+    # Vertical text alignment
     @valign = "top"
-    property? wrap = false  # XXX change to true
-    property shrink = false # XXX add ?
+
+    # Can element's content be word-wrapped?
+    property? wrap = true
+
+    # Can width/height be auto-adjusted during rendering based on content and child elements?
+    property? resizable = false
+
+    # Element's blank/fill character for rendering.
     property ch = ' '
 
+    # Is element clickable?
     property? clickable = false
+
+    # Can element receive keyboard input?
     property? keyable = false
+
+    # Is element draggable?
     property? draggable = false
+
+    # Is element scrollable?
     property? scrollable = false
 
     # XXX is this bool?
     property scrollbar : Bool = false
 
-    # XXX shat
+    # XXX FIX
     # Used only for lists
     property _isList = false
     property _isLabel = false
     property interactive = false
-    # XXX shat
+    # XXX
 
     property auto_focus = false
 
     property position : Tput::Position
 
+    # XXX why are these here and not in @position?
     property top = 0
     property left = 0
     setter width = 0
@@ -51,18 +78,19 @@ module Crysterm
     # Does it accept keyboard input?
     @input = false
 
-    @parse_tags = true
+    # Is element's content to be parsed for tags?
+    property? parse_tags = true
 
-    property border : Border?
+    # Offset from the top of the scroll content.
     property child_base = 0
-
-    property content = ""
-
-    property _pcontent : String?
 
     property? _no_fill = false
 
+    # Amount of padding on the inside of the element
     property padding : Padding
+
+    # Element's border.
+    property border : Border?
 
     def initialize(
       # These end up being part of Position.
@@ -76,11 +104,11 @@ module Crysterm
 
       @hidden = false,
       @fixed = false,
-      @wrap = false, # XXX change to true later
+      @wrap = true,
       @align = "left",
       @valign = "top",
       position : Tput::Position? = nil,
-      @shrink = false,
+      @resizable = false,
       @no_overflow = true,
       @dock_borders = true,
       @shadow = false,
@@ -115,7 +143,7 @@ module Crysterm
           width: width,
           height: height
       end
-      @shrink = true if @position.shrink?
+      @resizable = true if @position.resizable?
 
       if style
         @style = style
@@ -208,7 +236,7 @@ module Crysterm
 
       cline = line.gsub /\x1b\[[\d;]*m/, ""
       len = cline.size
-      s = @shrink ? 0 : width - len
+      s = @resizable ? 0 : width - len
 
       return line if len == 0
       return line if s < 0

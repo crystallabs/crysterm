@@ -10,19 +10,30 @@ module Crysterm
 
     include EventHandler
 
-    property? destroyed = false
-
-    property screen : Screen
-    property parent : Node?
+    # Unique ID. Auto-incremented.
     property uid : Int32
 
+    property? destroyed = false
+
+    # Screen owning this element.
+    # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
+    property screen : Screen
+
+    # Node's parent `Element` or `Screen`, if any.
+    property parent : Node?
+
+    # Node's children `Element`s.
     property children = [] of Element
 
     property? detached : Bool = false
 
+    # Element's render (order) index that was determined/used during the last `#render` call.
     property index = -1
 
     property name : String
+
+    # Storage for any miscellaneous data.
+    property data : JSON::Any?
 
     def initialize(
       name = nil,
@@ -126,6 +137,8 @@ module Crysterm
       end
     end
 
+    # Removes node from its parent.
+    # This is identical to calling `#remove` on the parent object.
     def detach
       @parent.try { |p| p.remove self }
     end
@@ -169,16 +182,19 @@ module Crysterm
       end
     end
 
+    # Prepends node to the list of children
     def prepend(element)
       insert element, 0
     end
 
+    # Adds node to the list of children before the specified `other` element
     def insert_before(element, other)
       if i = @children.index other
         insert element, i
       end
     end
 
+    # Adds node to the list of children after the specified `other` element
     def insert_after(element, other)
       if i = @children.index other
         insert element, i + 1
@@ -259,10 +275,12 @@ module Crysterm
       parents
     end
 
+    # Emits `ev` on all children nodes, recursively.
     def emit_descendants(ev : EventHandler::Event) : Nil
       each_descendant { |el| el.emit ev }
     end
 
+    # Emits `ev` on all parent nodes.
     def emit_ancestors(ev : EventHandler::Event) : Nil
       each_ancestor { |el| el.emit ev }
     end

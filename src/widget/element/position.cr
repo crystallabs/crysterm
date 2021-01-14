@@ -38,9 +38,9 @@ module Crysterm
         # b
         # Log.trace { yl }
 
-        # Attempt to shrink the element base on the
+        # Attempt to resize the element based on the
         # size of the content and child elements.
-        if @shrink
+        if @resizable
           coords = _get_shrink(xi, xl, yi, yl, get)
           xi = coords.xi
           xl = coords.xl
@@ -75,9 +75,9 @@ module Crysterm
         if (thisparent && el && !noscroll && thisparent.is_a? Element)
           ppos = thisparent.lpos
 
-          # The shrink option can cause a stack overflow
+          # The resizable option can cause a stack overflow
           # by calling _get_coords on the child again.
-          # if (!get && !thisparent.shrink)
+          # if (!get && !thisparent.resizable?)
           #   ppos = thisparent._get_coords()
           # end
 
@@ -635,7 +635,7 @@ module Crysterm
           _lpos = @lpos
           @lpos = LPos.new xi: xi, xl: xl, yi: yi, yl: yl
           # D O:
-          # @shrink = false
+          # @resizable? = false
         end
 
         @children.each_with_index do |el, i|
@@ -691,7 +691,7 @@ module Crysterm
         if (get)
           @lpos = _lpos
           # D O:
-          # @shrink = true
+          # @resizable? = true
         end
 
         if (@position.width.nil? && (@position.left.nil? || @position.right.nil?))
@@ -756,7 +756,7 @@ module Crysterm
         w = @_clines.mwidth || 1
 
         # The extra IFs which are commented appear unnecessary.
-        # If a person sets shrink: true, this is expected to happen
+        # If a person sets resizable: true, this is expected to happen
         # no matter what; not only if other coordinates are also left empty.
 
         # if (@position.width.nil? &&
@@ -842,7 +842,7 @@ module Crysterm
           return pos if !pos.aleft.nil?
           pos.aleft = pos.xi
           pos.atop = pos.yi
-          pos.aright = @screen.cols - pos.xl
+          pos.aright = @screen.columns - pos.xl
           pos.abottom = @screen.rows - pos.yl
           pos.width = pos.xl - pos.xi
           pos.height = pos.yl - pos.yi

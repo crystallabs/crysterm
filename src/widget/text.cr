@@ -3,6 +3,6 @@ require "./node"
 module Crysterm
   # Text element
   class Text < Element
-    @shrink = true
+    @resizable = true
   end
 end

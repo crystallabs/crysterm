@@ -15,20 +15,19 @@ module Crysterm
     include Macros
     include EventHandler
 
-    class_getter! global : self?
-    @@total = 0
     class_getter instances = [] of self
+
+    def self.total
+      @@instances.size
+    end
+
+    def self.global
+      instances[0]?.not_nil!
+    end
+
     @@_bound = false
 
     property _exiting = false
-
-    # Input stream
-    property input : IO
-
-    # Output stream
-    property output : IO
-
-    # @log : Bool
 
     @index : Int32 = -1        # -1 so that assignments start from 0
 
@@ -45,22 +44,15 @@ module Crysterm
     # Tput object.
     getter! tput : ::Tput
 
-    property hide_cursor_old : Bool = false
-
     @_tput_set_up = false
 
-    getter is_alt = false
-
     getter _title : String?
-
-    getter cursor_hidden = false
-    record CursorState, x : Int32, y : Int32, hidden : Bool
 
     @_listened_keys : Bool = false
 
     def initialize(
-      @input = STDIN.dup,
-      @output = STDOUT.dup,
+      input = STDIN.dup,
+      output = STDOUT.dup,
       @log = ::Log.for(self.class),
       @use_buffer = true,
       @force_unicode = false,
@@ -75,7 +67,7 @@ module Crysterm
 
       bind
 
-      @tput = setup_tput terminfo
+      @tput = setup_tput input, output, terminfo
 
       listen
     end
@@ -83,11 +75,7 @@ module Crysterm
     def bind
       @@global = self unless @@global
 
-      unless @@instances.includes? self
-        @@instances << self
-        @index = @@total
-        @@total += 1
-      end
+      @@instances << self # unless @@instances.includes? self
 
       return if @@_bound
       @@_bound = true
@@ -105,7 +93,7 @@ module Crysterm
       }
     end
 
-    def setup_tput(terminfo : Bool | Unibilium::Terminfo = true)
+    def setup_tput(input : IO, output : IO, terminfo : Bool | Unibilium::Terminfo = true)
       unless @_tput_set_up
         @_tput_set_up = true
 
@@ -120,6 +108,8 @@ module Crysterm
 
         @tput = ::Tput.new(
           terminfo: @terminfo,
+          input: input,
+          output: output,
           # TODO these options
           # term: @term,
           # padding: @padding,
@@ -151,19 +141,19 @@ module Crysterm
       # end
 
       # Listen for keys/mouse on input
-      # if (@input._our_input == 0)
-      #  @input._out_input = 1;
+      # if (@tput.input._our_input == 0)
+      #  @tput.input._out_input = 1;
       _listen_keys
       # } else
-      #  @input._our_input += 1
+      #  @tput.input._our_input += 1
       # end
 
       # on(AddHandlerEvent) do |wrapper|
       #  if wrapper.event.is_a?(KeyPressEvent) # or MouseEvent
       #    # remove self...
-      #    if (@input.set_raw_mode && !@input.raw?)
-      #      @input.set_raw_mode true
-      #      @input.resume
+      #    if (@tput.input.set_raw_mode && !@tput.input.raw?)
+      #      @tput.input.set_raw_mode true
+      #      @tput.input.resume
       #    end
       #  end
       # end
@@ -188,7 +178,12 @@ module Crysterm
       spawn do
         tput.listen do |char, key, sequence|
           @@instances.each do |app|
-            next if app.input != @input
+
+            # XXX What to do here -- i/o has been removed from this class.
+            # It only exists in tput, so how to check/compare?
+            # Do we need to add it back in?
+            #next if app.input != @tput.input
+
             emit KeyPressEvent.new char, key, sequence
             # TODO - possibly also:
             # emit Key(Name)_Event...

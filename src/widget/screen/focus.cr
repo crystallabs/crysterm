@@ -3,6 +3,7 @@ module Crysterm
     module Focus
       include Crystallabs::Helpers::Alias_Methods
 
+      # Focuses an element by an offset in the list of focusable elements.
       def focus_offset(offset)
         shown = @keyable.select { |el| !el.detached? && el.visible? }.size
 
@@ -40,20 +41,24 @@ module Crysterm
         @keyable[i].focus
       end
 
+      # Focuses previous element in the list of focusable elements.
       def focus_previous
         focus_offset -1
       end
 
       alias_previous focus_prev
 
+      # Focuses next element in the list of focusable elements.
       def focus_next
         focus_offset 1
       end
 
+      # Saves/remembers the currently focused element.
       def save_focus
         @_saved_focus = focused
       end
 
+      # Restores focus to the previously saved focused element.
       def restore_focus
         return unless sf = @_saved_focus
         sf.focus
@@ -61,6 +66,7 @@ module Crysterm
         focused
       end
 
+      # Focuses element `el`. Equivalent to `@screen.focused = el`.
       def focus_push(el)
         return if !el
         old = @history[-1]?
@@ -71,6 +77,7 @@ module Crysterm
         _focus el, old
       end
 
+      # Removes focus from the current element and focuses the element that was previously in focus.
       def focus_pop
         old = @history.pop
         if el = @history[-1]?
@@ -79,6 +86,7 @@ module Crysterm
         return old
       end
 
+      # "Rewinds" focus to the most recent visible and attached element.
       def rewind_focus
         old = @history.pop
 
@@ -136,10 +144,12 @@ module Crysterm
         cur.emit FocusEvent, old
       end
 
+      # Returns the current/top element from the focus history list.
       def focused
         @history[-1]?
       end
 
+      # Makes `el` become the current/top element in the focus history list.
       def focused=(el)
         focus_push el
       end
