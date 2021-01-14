@@ -22,18 +22,27 @@ module Crysterm
 
     property _exiting = false
 
-    # wth?
-    property x = 0
-    property y = 0
-
+    # Input stream
     property input : IO
+
+    # Output stream
     property output : IO
+
     # @log : Bool
+
     @index : Int32 = -1        # -1 so that assignments start from 0
-    property use_buffer : Bool # useBuffer
+
+    # Amount of time to wait before redrawing the screen, after the
+    # terminal resize event is received.
     property resize_timeout : Time::Span
 
+    # Force Unicode (UTF-8) even if auto-detection did not discover
+    # terminal support for it?
+    property force_unicode = false
+
     # getter terminfo : Unibilium::Terminfo?
+
+    # Tput object.
     getter! tput : ::Tput
 
     property hide_cursor_old : Bool = false
@@ -47,21 +56,6 @@ module Crysterm
     getter cursor_hidden = false
     record CursorState, x : Int32, y : Int32, hidden : Bool
 
-    @saved = {} of String => CursorState
-
-    @ret = false
-
-    @exiting = false
-
-    getter _buf : String? = nil
-
-    @x : Int32 = 0
-    @y : Int32 = 0
-    @saved_x : Int32 = 0
-    @saved_y : Int32 = 0
-
-    @dump = true
-
     @_listened_keys : Bool = false
 
     def initialize(
@@ -72,31 +66,12 @@ module Crysterm
       @force_unicode = false,
       @resize_timeout = 0.3.seconds,
       terminfo : Bool | Unibilium::Terminfo = true,
-      @dump = true,
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
-      @x = 0
-      @y = 0
-      @saved_x = 0
-      @saved_y = 0
 
       # TODO make these check @output, not STDOUT which is probably used.
       @cols = ::Term::Screen.cols || 1
       @rows = ::Term::Screen.rows || 1
-
-      # TODO. This doesn't work now that i/o isn't subclass.
-      # if @dump
-      #  @input.on(DataEvent) { |d|
-      #    Log.info { p d }
-      #  }
-      #  @output.on(DataEvent) { |d|
-      #    Log.info { p d }
-      #  }
-      # end
-
-      # XXX This is just name of term. Run terminfo init,
-      # then read this from there, not here.
-      # @_terminal = terminal.downcase
 
       bind
 
@@ -157,20 +132,6 @@ module Crysterm
         # TODO tput stuff till end of function
       end
       @tput
-    end
-
-    def pause
-      lsave_cursor "pause"
-      normal_buffer if is_alt
-      show_cursor
-
-      # disable_mouse if mouse_enabled
-    end
-
-    def resume
-      if responds_to? :_resume
-        _resume
-      end
     end
 
     def title=(title)
@@ -255,5 +216,14 @@ module Crysterm
         emit DestroyEvent
       end
     end
+
+    # We can't name the function 'out'. But it is here for reference only.
+    # To print to a temporary buffer rather than @output, initialize
+    # @tput.ret to an IO. Then all writes will go there instead of to @output.
+    # While @tput.ret is nil, output goes to output as usual.
+    # NOTE Check how does this affect behavior with the local @_buf element.
+    #def out
+    #end
+
   end
 end
