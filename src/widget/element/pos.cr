@@ -3,18 +3,6 @@ module Crysterm
     module Pos
       property renders = 0
 
-      # Relative left offset.
-      property left = 0
-
-      # Relative top offset.
-      property top = 0
-
-      # Relative right offset.
-      property right = 0
-
-      # Relative bottom offset.
-      property bottom = 0
-
       # Absolute left offset.
       property aleft : Int32? = nil
 
@@ -27,10 +15,27 @@ module Crysterm
       # Absolute bottom offset.
       property abottom : Int32? = nil
 
+      # Relative left offset.
       property rleft = 0
+
+      # Relative top offset.
       property rtop = 0
+
+      # Relative right offset.
       property rright = 0
+
+      # Relative bottom offset.
       property rbottom = 0
+
+      # Relative coordinates as default properties
+      def left; @rleft end
+      def right; @rright end
+      def top; @rtop end
+      def bottom; @rbottom end
+      def left=(arg); @rleft = arg end
+      def right=(arg); @rright = arg end
+      def top=(arg); @rtop = arg end
+      def bottom=(arg); @rbottom = arg end
 
       property position = Tput::Position.new
 
