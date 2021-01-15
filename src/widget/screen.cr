@@ -156,6 +156,7 @@ module Crysterm
 
     getter! tabc : String
 
+    # Default cell attribute
     property dattr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
 
     property padding = Padding.new
@@ -179,47 +180,6 @@ module Crysterm
     property _ci = -1
 
     getter cursor = Cursor.new
-
-    @_border_stops = BorderStops.new
-
-    class Cell
-      include Comparable(self)
-      # Same as @dattr
-      property attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
-      property char : Char = ' '
-
-      def initialize(@attr, @char)
-      end
-
-      def initialize(@char)
-      end
-
-      def initialize
-      end
-
-      def <=>(other : Cell)
-        if (d = @attr <=> other.attr) == 0
-          @char <=> other.char
-        else
-          d
-        end
-      end
-
-      def <=>(other : Tuple(Int32, Char))
-        if (d = @attr <=> other[0]) == 0
-          @char <=> other[1]
-        else
-          d
-        end
-      end
-    end
-
-    class Row < Array(Cell)
-      property dirty = false
-    end
-
-    property lines = Array(Row).new
-    property olines = Array(Row).new
 
     # Automatically position child elements with border and padding in mind.
     property auto_padding = true
@@ -246,6 +206,9 @@ module Crysterm
 
     property _border_stops = {} of Int32 => Bool
 
+    property lines = Array(Row).new
+    property olines = Array(Row).new
+
     def initialize(
       application = nil,
       @auto_padding = true,
@@ -266,8 +229,8 @@ module Crysterm
 
       @tabc = " " * @tab_size
 
-      # _unicode is application.tput.features.unicode?
-      # todo: wth full_unicode?
+      # _unicode is application.tput.features.unicode
+      # full_unicode? is option full_unicode? + _unicode
 
       @cursor = Cursor.new
 
@@ -278,8 +241,6 @@ module Crysterm
         alloc
         render
 
-        # TODO replace all places using uninitialized directly with
-        # a call to for_descendants { block } or similar
         f = uninitialized Node -> Nil
         f = ->(el : Node) {
           el.emit ResizeEvent
@@ -287,6 +248,9 @@ module Crysterm
             f.call c
           end
         }
+
+        # TODO replace all places using uninitialized directly with
+        # a call to for_descendants { block } or similar
         f.call self
       end
 
@@ -299,8 +263,6 @@ module Crysterm
       application.on(WarningEvent) do |e|
         emit WarningEvent.new e.message
       end
-
-      @renders = 0
 
       application.on(FocusEvent) {
         emit FocusEvent
@@ -1653,6 +1615,7 @@ module Crysterm
     # Unused; just compatibility with `Node` interface.
     def clear_pos
     end
+    property border : Border?
 
     def hidden?
       false

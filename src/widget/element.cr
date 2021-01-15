@@ -4,6 +4,7 @@ require "./node"
 require "./element/position"
 require "./element/content"
 require "./element/pos"
+require "./element/rendering"
 
 module Crysterm
   abstract class Element < Node
