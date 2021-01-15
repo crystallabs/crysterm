@@ -36,7 +36,7 @@ module Crysterm
         elsif @censor
           set_content "*" * value.size
         else
-          visible = -(@width - @iwidth - 1)
+          visible = -(@width - iwidth - 1)
           val = @value.gsub /\t/, @screen.tabc
           set_content val[...visible]
         end

@@ -91,7 +91,7 @@ module Crysterm
 
       line = Math.min(
         @_clines.size - 1 - (@child_base || 0),
-        (lpos.yl - lpos.yi) - @iheight - 1
+        (lpos.yl - lpos.yi) - iheight - 1
       )
 
       # When calling clear_value() on a full textarea with a border, the first
@@ -99,9 +99,9 @@ module Crysterm
       # positive.
       line = Math.max(0, line)
 
-      cy = lpos.yi + @itop + line
+      cy = lpos.yi + itop + line
       # TODO -- don't check size but string width!!
-      cx = lpos.xi + @ileft + (last).size
+      cx = lpos.xi + ileft + (last).size
 
       # XXX Not sure, but this may still sometimes
       # cause problems when leaving editor.
@@ -149,7 +149,7 @@ module Crysterm
 
     def _type_scroll
       # XXX workaround
-      if (@_clines.size - @child_base) > (@height - @iheight)
+      if (@_clines.size - @child_base) > (@height - iheight)
         # TODO
         # scroll @_clines.size
       end

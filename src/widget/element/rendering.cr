@@ -62,9 +62,9 @@ module Crysterm
 
         # Disabled originally:
         # Clip content if it's off the edge of the screen
-        # if (xi + @ileft < 0 || yi + @itop < 0)
+        # if (xi + ileft < 0 || yi + itop < 0)
         #   clines = @_clines.slice()
-        #   if (xi + @ileft < 0)
+        #   if (xi + ileft < 0)
         #     for (i = 0; i < clines.size; i++)
         #       t = 0
         #       csi = ''
@@ -75,13 +75,13 @@ module Crysterm
         #           while (clines[i][j++] != 'm') csi += clines[i][j]
         #           csis += csi
         #         end
-        #         if (++t == -(xi + @ileft) + 1) break
+        #         if (++t == -(xi + ileft) + 1) break
         #       end
         #       clines[i] = csis + clines[i].substring(j)
         #     end
         #   end
-        #   if (yi + @itop < 0)
-        #     clines = clines.slice(-(yi + @itop))
+        #   if (yi + itop < 0)
+        #     clines = clines.slice(-(yi + itop))
         #   end
         #   content = clines.join('\n')
         # end
@@ -178,7 +178,7 @@ module Crysterm
         # yi.step to: yl-1 do |y|
         (yi...yl).each do |y|
           if (!lines[y]?)
-            if (y >= @screen.height || yl < @ibottom)
+            if (y >= @screen.height || yl < ibottom)
               break
             else
               next
@@ -188,7 +188,7 @@ module Crysterm
           (xi...xl).each do |x|
             cell = lines[y][x]?
             if (!cell)
-              if (x >= @screen.width || xl < @iright)
+              if (x >= @screen.width || xl < iright)
                 break
               else
                 next

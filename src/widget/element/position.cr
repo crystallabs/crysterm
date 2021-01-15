@@ -660,8 +660,8 @@ module Crysterm
             ret.xi = xi
             if (@screen.auto_padding)
               # Maybe just do this no matter what.
-              ret.xl += @ileft
-              ret.xi += @ileft
+              ret.xl += ileft
+              ret.xi += ileft
             end
           end
           if (el.position.top.nil? && !el.position.bottom.nil?)
@@ -669,8 +669,8 @@ module Crysterm
             ret.yi = yi
             if (@screen.auto_padding)
               # Maybe just do this no matter what.
-              ret.yl += @itop
-              ret.yi += @itop
+              ret.yl += itop
+              ret.yi += itop
             end
           end
 
@@ -700,7 +700,7 @@ module Crysterm
             if (!@screen.auto_padding)
               xi -= @padding.left + @padding.right
             else
-              xi -= @ileft
+              xi -= ileft
             end
           else
             xl = mxl
@@ -713,12 +713,12 @@ module Crysterm
               # if (@_isList)
               if is_a? ListTable
                 xl -= @padding.left + @padding.right
-                xl += @iright
+                xl += iright
               end
             else
               # D O:
               # xl += @padding.right
-              xl += @iright
+              xl += iright
             end
           end
         end
@@ -727,22 +727,22 @@ module Crysterm
           # want all list items showing. This is one case we can calculate the
           # height based on items/boxes.
           if (@_isList)
-            myi = 0 - @itop
-            myl = @items.size + @ibottom
+            myi = 0 - itop
+            myl = @items.size + ibottom
           end
           if (@position.top.nil? && !@position.bottom.nil?)
             yi = yl - (myl - myi)
             if (!@screen.auto_padding)
               yi -= @padding.top + @padding.bottom
             else
-              yi -= @itop
+              yi -= itop
             end
           else
             yl = myl
             if (!@screen.auto_padding)
               yl += @padding.top + @padding.bottom
             else
-              yl += @ibottom
+              yl += ibottom
             end
           end
         end
@@ -762,9 +762,9 @@ module Crysterm
         # if (@position.width.nil? &&
         #   (@position.left.nil? || @position.right.nil?))
         if (@position.left.nil? && !@position.right.nil?)
-          xi = xl - w - @iwidth
+          xi = xl - w - iwidth
         else
-          xl = xi + w + @iwidth
+          xl = xi + w + iwidth
         end
         # end
 
@@ -773,9 +773,9 @@ module Crysterm
         #   (!@scrollable || @_isList))
         if (!@scrollable || @_isList)
           if (@position.top.nil? && !@position.bottom.nil?)
-            yi = yl - h - (@iheight == 1 ? 0 : @iheight)
+            yi = yl - h - (iheight == 1 ? 0 : iheight)
           else
-            yl = yi + h + (@iheight == 1 ? 0 : @iheight)
+            yl = yi + h + (iheight == 1 ? 0 : iheight)
           end
         end
 

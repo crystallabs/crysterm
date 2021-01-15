@@ -172,7 +172,6 @@ module Crysterm
             text = text[cap[0].size..]
             slash = (cap[1] == "/")
             param = (cap[2].gsub(/-/, ' '))
-            #STDERR.puts cap.inspect
 
             if (param == "open")
               outbuf += '{'
