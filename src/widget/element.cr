@@ -182,6 +182,7 @@ module Crysterm
 
       on(ResizeEvent) { parse_content }
       on(AttachEvent) { parse_content }
+
       # on(DetachEvent) { @lpos = nil }
 
       # Style related stuff ...

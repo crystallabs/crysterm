@@ -59,8 +59,8 @@ module Crysterm
 
         Log.trace { "Element not detached; parsing content: #{@content.inspect}" }
 
-        width = @width - @iwidth
-        if (@_clines.nil? || @_clines.empty? || @_clines.width != width || @_clines.content != @content)
+        colwidth = width - iwidth
+        if (@_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content != @content)
 
           content =
             @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
@@ -104,8 +104,8 @@ module Crysterm
           end
           Log.trace { "After _parse_tags: #{content.inspect}" }
 
-          @_clines = _wrap_content(content, width)
-          @_clines.width = width
+          @_clines = _wrap_content(content, colwidth)
+          @_clines.width = colwidth
           @_clines.content = @content
           @_clines.attr = _parse_attr @_clines
           @_clines.ci = [] of Int32
@@ -276,7 +276,7 @@ module Crysterm
         return attrs
       end
 
-      def _wrap_content(content, width)
+      def _wrap_content(content, colwidth)
         state = @align
         wrap = @wrap
         margin = 0
@@ -312,8 +312,8 @@ module Crysterm
         if is_a? TextArea
           margin += 1
         end
-        if (width > margin)
-          width -= margin
+        if (colwidth > margin)
+          colwidth -= margin
         end
 
         #      main:
@@ -339,7 +339,7 @@ module Crysterm
           end
 
           # If the string is apparently too long, wrap it.
-          loop_ret = while (line.size > width)
+          loop_ret = while (line.size > colwidth)
             # Measure the real width of the string.
             total = 0
             i = 0
@@ -353,14 +353,14 @@ module Crysterm
                 break
               end
               total += 1
-              if (total == width)
+              if (total == colwidth)
                 # If we're not wrapping the text, we have to finish up the rest of
                 # the control sequences before cutting off the line.
                 i += 1
                 if (!wrap)
                   rest = line[i..].scan(/\x1b\[[^m]*m/)
                   rest = rest.any? ? rest.join : ""
-                  outbuf.push _align(line[0...i] + rest, width, align)
+                  outbuf.push _align(line[0...i] + rest, colwidth, align)
                   ftor[no].push(outbuf.size - 1)
                   rtof.push(no)
                   break :main
@@ -387,7 +387,7 @@ module Crysterm
             part = line[0...i]
             line = line[i..]
 
-            outbuf.push _align(part, width, align)
+            outbuf.push _align(part, colwidth, align)
             ftor[no].push(outbuf.size - 1)
             rtof.push(no)
 
@@ -409,7 +409,7 @@ module Crysterm
           end
 
           if line && !line.blank?
-            outbuf.push(_align(line, width, align))
+            outbuf.push(_align(line, colwidth, align))
             ftor[no].push(outbuf.size - 1)
             rtof.push(no)
           end
