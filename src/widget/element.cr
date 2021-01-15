@@ -203,9 +203,6 @@ module Crysterm
     def remove_hover
     end
 
-    def set_effects
-    end
-
     def hide
       return if @hidden
       clear_pos

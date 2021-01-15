@@ -68,24 +68,10 @@ module Crysterm
         focus_offset 1
       end
 
-      # Saves/remembers the currently focused element.
-      def save_focus
-        @_saved_focus = focused
-      end
-
-      # Restores focus to the previously saved focused element.
-      def restore_focus
-        return unless sf = @_saved_focus
-        sf.focus
-        @_saved_focus = nil
-        focused
-      end
-
       # Focuses element `el`. Equivalent to `@screen.focused = el`.
       def focus_push(el)
-        return if !el
         old = @history[-1]?
-        while @history.size >= 10
+        while @history.size >= 10 # XXX non-configurable at the moment
           @history.shift
         end
         @history.push el
@@ -101,7 +87,22 @@ module Crysterm
         return old
       end
 
+      # Saves/remembers the currently focused element.
+      def save_focus
+        @_saved_focus = focused
+      end
+
+      # Restores focus to the previously saved focused element.
+      def restore_focus
+        return unless sf = @_saved_focus
+        sf.focus
+        @_saved_focus = nil
+        focused
+      end
+
       # "Rewinds" focus to the most recent visible and attached element.
+      #
+      # As a side-effect, prunes the focus history list.
       def rewind_focus
         old = @history.pop
 
@@ -138,6 +139,7 @@ module Crysterm
         if (el && !el.detached?)
           # NOTE: This is different from the other "visible" values - it needs the
           # visible height of the scrolling element itself, not the element within it.
+          # NOTE why a/i values can be nil?
           visible = cur.screen.height - el.atop.not_nil! - el.itop.not_nil! - el.abottom.not_nil! - el.ibottom.not_nil!
           if cur.rtop < el.child_base
             # TODO Enable
