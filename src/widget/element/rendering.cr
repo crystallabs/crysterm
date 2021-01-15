@@ -1,5 +1,3 @@
-require "./pos"
-
 class Crysterm::ShrinkBox
   property xi : Int32
   property xl : Int32
@@ -14,7 +12,6 @@ end
 module Crysterm
   class Element < Node
     module Rendering
-      include Crysterm::Element::Pos
       include Crystallabs::Helpers::Alias_Methods
 
       property items = [] of String
