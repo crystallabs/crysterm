@@ -1,6 +1,4 @@
 require "event_handler"
-require "./element/position"
-require "./element/rendering"
 
 module Crysterm
   # Base class that everything inherits from.
