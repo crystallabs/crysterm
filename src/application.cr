@@ -88,7 +88,7 @@ module Crysterm
           # end
 
           app.tput.flush
-          app._exiting = true
+          app.tput._exiting = true
         end
       }
     end
@@ -131,7 +131,7 @@ module Crysterm
     def listen
       # Potentially reset window title on exit:
       # if !rxvt?
-      #  if (!vte?)
+      #  if !vte?
       #    set_title_mode_feature 3
       #  end
       #  manipulate_window(21) { |err, data|
@@ -142,9 +142,10 @@ module Crysterm
 
       # Listen for keys/mouse on input
       # if (@tput.input._our_input == 0)
-      #  @tput.input._out_input = 1;
+      #  @tput.input._out_input = 1
       _listen_keys
-      # } else
+      #_listen_mouse
+      # else
       #  @tput.input._our_input += 1
       # end
 
@@ -186,7 +187,13 @@ module Crysterm
 
             emit KeyPressEvent.new char, key, sequence
             # TODO - possibly also:
-            # emit Key(Name)_Event...
+            # if key
+            #   emit key_event[key].new char, key, sequence
+            # end
+            # But this requires a file with mappings of:
+            # key enums value => key event class
+            # It does seem more convenient for the users than
+            # listening for all keys in their code though...
           end
         end
       end
@@ -195,17 +202,18 @@ module Crysterm
     def destroy
       if @@instances.delete self
         tput.flush
-        @_exiting = true
+        tput._exiting = true
 
         if @@instances.any?
           @@global = @@instances[0]
         else
           @@global = nil
           # TODO remove all signal handlers set up on the app's process
+          # Primarily, exit handler
           @@_bound = false
         end
 
-        # XXX reset terminal back to usable
+        # TODO rest of stuf; e.g. reset terminal back to usable
 
         @destroyed = true
         emit DestroyEvent
