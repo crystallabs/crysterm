@@ -455,19 +455,19 @@ module Crysterm
       end
 
       def rleft
-        aleft - @parent.not_nil!.aleft
+        aleft.not_nil! - @parent.not_nil!.aleft.not_nil!
       end
 
       def rright
-        aright - @parent.not_nil!.aright
+        aright.not_nil! - @parent.not_nil!.aright.not_nil!
       end
 
       def rtop
-        atop - @parent.not_nil!.atop
+        atop.not_nil! - @parent.not_nil!.atop.not_nil!
       end
 
       def rbottom
-        abottom - @parent.not_nil!.abottom
+        abottom.not_nil! - @parent.not_nil!.abottom.not_nil!
       end
 
       def width=(val : Int)

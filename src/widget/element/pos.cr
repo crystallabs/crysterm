@@ -15,18 +15,6 @@ module Crysterm
       # Absolute bottom offset.
       property abottom : Int32? = nil
 
-      # Relative left offset.
-      property rleft = 0
-
-      # Relative top offset.
-      property rtop = 0
-
-      # Relative right offset.
-      property rright = 0
-
-      # Relative bottom offset.
-      property rbottom = 0
-
       # Relative coordinates as default properties
       def left; @rleft end
       def right; @rright end
