@@ -105,12 +105,6 @@ module Crysterm
 
     @use_bce = false
 
-    def put
-      application.tput.shim.try { |s|
-        yield(s).try { |data| application.tput._write data }
-      }
-    end
-
     class_getter instances = [] of self
 
     def self.total
@@ -152,8 +146,6 @@ module Crysterm
     # whether keys are locked.
     property ignore_locked : Array(Element)
 
-    property _saved_focus : Element?
-
     getter! tabc : String
 
     # Default cell attribute
@@ -161,25 +153,11 @@ module Crysterm
 
     property padding = Padding.new
 
-    getter title : String?
-
     # Currently hovered element. Best set only if mouse events are enabled.
     @hover : Element? = nil
 
-    @history = [] of Element
-    @clickable = [] of Node
-    @keyable = [] of Node
-
-    # Is focused element grabbing and receiving all keypresses?
-    property grab_keys = false
-
-    # Are keypresses prevented from being sent to any element?
-    property lock_keys = false
-
     @_buf = ""
     property _ci = -1
-
-    getter cursor = Cursor.new
 
     # Automatically position child elements with border and padding in mind.
     property auto_padding = true
@@ -201,13 +179,12 @@ module Crysterm
     # multi-colored borders.
     @ignore_dock_contrast = false
 
-    # Send focus events after mouse is enabled?
-    property send_focus = false
-
     property _border_stops = {} of Int32 => Bool
 
     property lines = Array(Row).new
     property olines = Array(Row).new
+
+    getter cursor = Cursor.new
 
     def initialize(
       application = nil,
@@ -215,7 +192,8 @@ module Crysterm
       @tab_size = 4,
       @dock_borders = false,
       @ignore_locked = [] of Element, # or Node
-      @title = nil
+      title = nil,
+      @cursor = Cursor.new
     )
       bind
 
@@ -232,25 +210,21 @@ module Crysterm
       # _unicode is application.tput.features.unicode
       # full_unicode? is option full_unicode? + _unicode
 
-      @cursor = Cursor.new
-
       # Events:
       # addhander,
+
+      self.title = title if title
 
       application.on(ResizeEvent) do
         alloc
         render
 
+        # XXX Can we replace this with each_descendant?
         f = uninitialized Node -> Nil
         f = ->(el : Node) {
           el.emit ResizeEvent
-          el.children.each do |c|
-            f.call c
-          end
+          el.children.each { |c| f.call c }
         }
-
-        # TODO replace all places using uninitialized directly with
-        # a call to for_descendants { block } or similar
         f.call self
       end
 
@@ -261,82 +235,86 @@ module Crysterm
         emit BlurEvent
       end
       application.on(WarningEvent) do |e|
-        emit WarningEvent.new e.message
+        emit e
       end
 
-      application.on(FocusEvent) {
-        emit FocusEvent
-      }
-
-      application.on(BlurEvent) {
-        emit BlurEvent
-      }
-
       _listen_keys
+      #_listen_mouse # XXX
 
       enter
       post_enter
     end
 
-    def _listen_keys
+    # This is for the bottom-up approach where the keys are
+    # passed onto the focused widget, and from there eventually
+    # propagated to the top.
+    #def _listen_keys
+    #  application.on(KeyPressEvent) do |e|
+    #    el = focused || self
+    #    while !e.accepted? && el
+    #      # XXX emit only if widget enabled?
+    #      el.emit e
+    #      el = el.parent
+    #    end
+    #  end
+    #end
+
+    # And this is for the other/alternative method where the screen
+    # first gets the keys, then potentially passes onto children
+    # elements.
+    def _listen_keys(el : Element? = nil)
+      if (el && !@keyable.includes? el)
+        el.keyable = true
+        @keyable.push el
+      end
+
+      return if @_listenedKeys
+      @_listenedKeys = true
+
+      # NOTE: The event emissions used to be reversed:
+      # element + screen
+      # They are now:
+      # screen + element
+      # After the first keypress emitted, the handler
+      # checks to make sure grab_keys, lock_keys, and focused
+      # weren't changed, and handles those situations appropriately.
       application.on(KeyPressEvent) do |e|
-        el = focused || self
-        while !e.accepted? && el
-          # XXX emit only if widget enabled?
-          el.emit e
-          el = el.parent
+        if @lock_keys && !@ignore_locked.includes?(e.key)
+          next
+        end
+
+        focsd = focused
+        grab_keys = @grab_keys
+
+        if !grab_keys || !@ignore_locked.includes?(e.key)
+          emit e
+          # XXX Potentially also emit individual key
+          #emit(keyname + event, e.ch, e.key, e.sequence)
+        end
+
+        # If something changed from the screen key handler, stop.
+        if (@grab_keys != grab_keys) || @lock_keys
+          next
+        end
+
+        focsd.try do |focd|
+          if focd.keyable?
+            focd.emit e
+            # XXX Again, potentially also emit individual key
+            #emit(keyname + event, e.ch, e.key, e.sequence)
+          end
         end
       end
     end
 
-    # def _listen_keys(el)
-    #  if (el && !~this.keyable.indexOf(el))
-    #    el.keyable = true
-    #    this.keyable.push(el)
-    #  end
+    def enable_keys(el=nil)
+      _listen_keys(el)
+    end
 
-    #  if (this._listenedKeys) return
-    #  this._listenedKeys = true
-
-    #  # NOTE: The event emissions used to be reversed:
-    #  # element + screen
-    #  # They are now:
-    #  # screen + element
-    #  # After the first keypress emitted, the handler
-    #  # checks to make sure grabKeys, lockKeys, and focused
-    #  # weren't changed, and handles those situations appropriately.
-    #  this.program.on('keypress', function(ch, key)
-    #    if (@lockKeys && !~@ignoreLocked.indexOf(key.full))
-    #      return
-    #    end
-
-    #      , grabKeys = @grabKeys
-
-    #    if (!grabKeys || ~@ignoreLocked.indexOf(key.full))
-    #      @emit('keypress', ch, key)
-    #      @emit('key ' + key.full, ch, key)
-    #    end
-
-    #    # If something changed from the screen key handler, stop.
-    #    if (@grabKeys !== grabKeys || @lockKeys)
-    #      return
-    #    end
-
-    #    if (focused.try &.keyable)
-    #      focused.emit('keypress', ch, key)
-    #      focused.emit('key ' + key.full, ch, key)
-    #    end
-    #  })
-    # end
-
-    # def enable_keys(el)
-    #  _listen_keys(el)
-    # end
-
-    # def enable_input(el)
-    #  _listen_mouse(el)
-    #  _listen_keys(el)
-    # end
+    def enable_input(el=nil)
+      #_listen_mouse(el)
+      _listen_keys(el)
+    end
 
     def bind
       @@global = self unless @@global
@@ -347,23 +325,15 @@ module Crysterm
       @@_bound = true
 
       # TODO Enable
-      # ['SIGTERM', 'SIGINT', 'SIGQUIT'].forEach(function(signal) {
-      #  var name = '_' + signal.toLowerCase() + 'Handler';
-      #  process.on(signal, Screen[name]() {
-      #    if (process.listeners(signal).length > 1) {
+      # ['SIGTERM', 'SIGINT', 'SIGQUIT'].each do |signal|
+      #  name = '_' + signal.toLowerCase() + 'Handler'
+      #  Signal::<>.trap do
+      #    if listeners(signal).size > 1
       #      return;
-      #    }
-      #    nextTick(function() {
-      #      process.exit(0);
-      #    });
-      #  });
-      # });
-
-      at_exit {
-        Crysterm::Screen.instances.each do |screen|
-          screen.destroy
-        end
-      }
+      #    end
+      #    process.exit(0);
+      #  end
+      # end
     end
 
     def enter
@@ -380,30 +350,28 @@ module Crysterm
         end
       end
 
-      # XXX
+      # XXX Livable, but boy no.
       {% if flag? :windows %}
         `cls`
       {% end %}
 
+      at = application.tput
       application.tput.alternate_buffer
-      put(&.keypad_xmit?) # enter_keyboard_transmit_mode
-      put(&.change_scroll_region?(0, application.tput.screen.height - 1))
+      application.tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
+      application.tput.put(&.change_scroll_region?(0, height - 1))
       application.tput.hide_cursor
       application.tput.cursor_pos 0, 0
-      put(&.ena_acs?) # enable_acs
+      application.tput.put(&.ena_acs?) # enable_acs
 
       alloc
     end
 
     # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
     def alloc(dirty = false)
-      rows = application.tput.screen.height
-      cols = application.tput.screen.width
-
       # Initialize @lines better than this.
       rows.times do |i|
         col = Row.new
-        cols.times do
+        columns.times do
           col.push Cell.new
         end
         @lines.push col
@@ -413,7 +381,7 @@ module Crysterm
       # Initialize @lines better than this.
       rows.times do |i|
         col = Row.new
-        cols.times do
+        columns.times do
           col.push Cell.new
         end
         @olines.push col
@@ -430,14 +398,13 @@ module Crysterm
 
     def leave
       # TODO make it possible to work without switching the whole
-      # application to alt buffer.
+      # application to alt buffer. (Same note as in `enter`).
       return unless application.tput.is_alt
 
-      put(&.keypad_local?)
+      application.tput.put(&.keypad_local?)
 
-      if ((application.tput.scroll_top != 0) ||
-         application.tput.scroll_bottom != application.tput.screen.height - 1)
-        application.tput.csr(0, application.tput.screen.height - 1)
+      if (application.tput.scroll_top != 0) || (application.tput.scroll_bottom != height - 1)
+        application.tput.set_scroll_region(0, application.tput.screen.height - 1)
       end
 
       # XXX For some reason if alloc/clear() is before this
@@ -457,9 +424,14 @@ module Crysterm
 
       application.tput.flush
 
+      # :-)
       {% if flag? :windows %}
         `cls`
       {% end %}
+    end
+
+    # Debug helpers/setup
+    def post_enter
     end
 
     # Destroys self and removes it from the global list of `Screen`s.
@@ -483,10 +455,6 @@ module Crysterm
       end
 
       application.destroy
-    end
-
-    # Debug
-    def post_enter
     end
 
     # Returns current screen width.
@@ -590,12 +558,16 @@ module Crysterm
       @children.each do |el|
         el.index = @_ci
         @_ci += 1
-        # el._rendering = true;
+        # D O:
+        # el._rendering = true
         el.render
-        # el._rendering = false;
+        # D O:
+        # el._rendering = false
       end
       @_ci = -1
-      if (@screen.dock_borders?)
+
+      #if (@screen.dock_borders?) # XXX why we do @screen here? Can we do without?
+      if @dock_borders
         _dock_borders
       end
 
@@ -614,7 +586,7 @@ module Crysterm
     # Draws the screen based on the contents of the output buffer.
     def draw(start = 0, stop = @lines.size - 1)
       # D O:
-      # this.emit('predraw');
+      # emit PreDrawEvent
       # x , y , line , out , ch , data , attr , fg , bg , flags
       # pre , post
       # clr , neq , xx
@@ -626,6 +598,7 @@ module Crysterm
       s = application.tput.shim.not_nil!
 
       if @_buf
+        # TODO Turn main, and if possible @_buf, into a string builder.
         main += @_buf
         @_buf = ""
       end
@@ -655,7 +628,7 @@ module Crysterm
           # Render the artificial cursor.
           if (c.artificial && !c._hidden && (c._state != 0) && (x == application.tput.cursor.x) && (y == application.tput.cursor.y))
             cattr = _cursor_attr(c, data)
-            if (cattr.char)
+            if (cattr.char) # XXX Can cattr.char even not be truthy?
               ch = cattr.char
             end
             data = cattr.attr
@@ -664,9 +637,8 @@ module Crysterm
           # Take advantage of xterm's back_color_erase feature by using a
           # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
           # the bg for non BCE terminals worth the overhead?
-          if (@use_bce &&
-             ch == ' ' &&
-             (application.tput.terminfo.try &.get(Unibilium::Entry::Boolean::Back_color_erase) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
+          if (@use_bce && (ch == ' ') &&
+             (application.tput.has?(&.back_color_erase?) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
              (((data >> 18) & 8) == ((@dattr >> 18) & 8)))
             clr = true
             neq = false
@@ -688,17 +660,17 @@ module Crysterm
                 outbuf += code_attr(data)
                 attr = data
               end
-              #######################
-              # XXX BAD HAQ -- replace with @ret that has been
-              # added in the meantime!
-              temp = IO::Memory.new
-              old = application.tput.output
-              application.tput.output = temp
-              application.tput.cup(y, x)
-              application.tput.el
-              outbuf += temp.gets_to_end
-              application.tput.output = old
-              #######################
+
+              #### Temporarily diverts output. ####
+              # XXX See if it causes problems when multithreaded or something?
+              (application.tput.ret = IO::Memory.new).try do |ret|
+                application.tput.cup(y, x)
+                application.tput.el
+                outbuf += ret.gets_to_end
+                application.tput.ret = nil
+              end
+              #### #### ####
+
               (x...line.size).each do |xx|
                 o[xx].attr = data
                 o[xx].char = ' '
@@ -706,56 +678,53 @@ module Crysterm
               break
             end
 
-            # Disabled originally:
-            # // If there's more than 10 spaces, use EL regardless
-            # // and start over drawing the rest of line. Might
-            # // not be worth it. Try to use ECH if the terminal
-            # // supports it. Maybe only try to use ECH here.
-            # // #//if (application.tput.strings.erase_chars)
-            # // if (!clr && neq && (xx - x) > 10) {
-            # //   lx = -1, ly = -1;
-            # //   if (data != attr) {
-            # //     outbuf += @codeAttr(data);
-            # //     attr = data;
-            # //   }
-            # //   outbuf += application.tput.cup(y, x);
-            # //   if (application.tput.strings.erase_chars) {
-            # //     #// Use erase_chars to avoid erasing the whole line.
-            # //     outbuf += application.tput.ech(xx - x);
-            # //   } else {
-            # //     outbuf += application.tput.el();
-            # //   }
-            # //   if (application.tput.strings.parm_right_cursor) {
-            # //     outbuf += application.tput.cuf(xx - x);
-            # //   } else {
-            # //     outbuf += application.tput.cup(y, xx);
-            # //   }
-            # //   @fillRegion(data, ' ',
-            # //     x, application.tput.strings.erase_chars ? xx : line.length,
-            # //     y, y + 1);
-            # //   x = xx - 1;
-            # //   continue;
-            # // }
-            # // Skip to the next line if the
-            # // rest of the line is already drawn.
-            # // if (!neq) {
-            # //   for (; xx < line.length; xx++) {
-            # //     if (line[xx][0] != o[xx][0] || line[xx][1] != o[xx][1]) {
-            # //       neq = true;
-            # //       break;
-            # //     }
-            # //   }
-            # //   if (!neq) {
-            # //     attr = data;
-            # //     break;
-            # //   }
-            # // }
+            # D O:
+            # If there's more than 10 spaces, use EL regardless
+            # and start over drawing the rest of line. Might
+            # not be worth it. Try to use ECH if the terminal
+            # supports it. Maybe only try to use ECH here.
+            # #if (application.tput.strings.erase_chars)
+            # if (!clr && neq && (xx - x) > 10)
+            #   lx = -1; ly = -1
+            #   if (data != attr)
+            #     outbuf += code_attr(data)
+            #     attr = data
+            #   end
+            #   outbuf += application.tput.cup(y, x)
+            #   if (application.tput.strings.erase_chars)
+            #     # Use erase_chars to avoid erasing the whole line.
+            #     outbuf += application.tput.ech(xx - x)
+            #   else
+            #     outbuf += application.tput.el()
+            #   end
+            #   if (application.tput.strings.parm_right_cursor)
+            #     outbuf += application.tput.cuf(xx - x)
+            #   else
+            #     outbuf += application.tput.cup(y, xx)
+            #   end
+            #   fill_region(data, ' ', x, application.tput.strings.erase_chars ? xx : line.length, y, y + 1)
+            #   x = xx - 1
+            #   next
+            # end
+            # Skip to the next line if the rest of the line is already drawn.
+            # if (!neq)
+            #   for (; xx < line.length; xx++)
+            #     if (line[xx][0] != o[xx][0] || line[xx][1] != o[xx][1])
+            #       neq = true
+            #       break
+            #     end
+            #   end
+            #   if !neq
+            #     attr = data
+            #     break
+            #   end
+            # end
           end
 
           # Optimize by comparing the real output
           # buffer to the pending output buffer.
           # TODO Avoid using Strings
-          if (data == o[x].attr && ch == o[x].char)
+          if o[x] == {data, ch}
             if (lx == -1)
               lx = x
               ly = y
@@ -1624,5 +1593,11 @@ module Crysterm
     def child_base
       0
     end
+
+    # XXX for now, this just forwards to parent. But in reality,
+    # it should be able to have its own title, and when it goes
+    # in/out of focus, that title should be set/restored.
+    def title; @application.title end
+    def title=(arg); @application.title= arg end
   end
 end

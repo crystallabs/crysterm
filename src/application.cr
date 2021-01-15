@@ -80,7 +80,10 @@ module Crysterm
       return if @@_bound
       @@_bound = true
 
-      at_exit {
+      at_exit do
+        # XXX Should these completely separate loops somehow
+        # be rearranged and/or combined more nicely?
+
         Crysterm::Application.instances.each do |app|
           # XXX Do we restore window title ourselves?
           # if app._original_title
@@ -90,7 +93,11 @@ module Crysterm
           app.tput.flush
           app.tput._exiting = true
         end
-      }
+
+        Crysterm::Screen.instances.each do |screen|
+          screen.destroy
+        end
+      end
     end
 
     def setup_tput(input : IO, output : IO, terminfo : Bool | Unibilium::Terminfo = true)
