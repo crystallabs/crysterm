@@ -41,8 +41,17 @@ module Crysterm
       end
 
       def get_content
-        return "" unless @_clines || @_clines.empty? # XXX leave only .empty?
+        return "" if !@_clines || @_clines.empty? # XXX leave only .empty?
         @_clines.fake.join "\n"
+      end
+
+      def set_text(content = "", no_clear = false)
+        content = content.gsub /\x1b\[[\d;]*m/, ""
+        set_content content, no_clear, true
+      end
+
+      def get_text
+        get_content.gsub /\x1b\[[\d;]*m/, ""
       end
 
       def parse_content(no_tags = false)
@@ -51,13 +60,10 @@ module Crysterm
         Log.trace { "Element not detached; parsing content: #{@content.inspect}" }
 
         width = @width - @iwidth
-        if (@_clines.nil? || @_clines.empty? ||
-           @_clines.width != width ||
-           @_clines.content != @content)
-          content = @content || ""
+        if (@_clines.nil? || @_clines.empty? || @_clines.width != width || @_clines.content != @content)
 
           content =
-            content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
+            @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
               .gsub(/\x1b(?!\[[\d;]*m)/, "")
               .gsub(/\r\n|\r/, "\n")
               .gsub(/\t/, @screen.tabc)
@@ -111,7 +117,7 @@ module Crysterm
           @_pcontent = @_clines.join "\n"
           emit ParsedContentEvent
 
-          true
+          return true
         end
 
         # Need to calculate this every time because the default fg/bg may change.
@@ -164,8 +170,9 @@ module Crysterm
 
           if (cap = text.match /^{(\/?)([\w\-,;!#]*)}/)
             text = text[cap[0].size..]
-            slash = (cap[1] == '/')
+            slash = (cap[1] == "/")
             param = (cap[2].gsub(/-/, ' '))
+            #STDERR.puts cap.inspect
 
             if (param == "open")
               outbuf += '{'
@@ -184,14 +191,13 @@ module Crysterm
             end
 
             if (slash)
-              if (!param)
-                outbuf += @screen.application.tput._attr("normal")
+              if (!param || param.blank?)
+                outbuf += @screen.application.tput._attr("normal") || ""
                 bg.clear
                 fg.clear
                 flag.clear
               else
                 attr = @screen.application.tput._attr(param, false)
-                attr = nil
                 if (attr.nil?)
                   outbuf += cap[0]
                 else
@@ -201,7 +207,7 @@ module Crysterm
                   # }
                   state.pop
                   if (state.size > 0)
-                    outbuf += @screen.application.tput._attr(state[state.size - 1])
+                    outbuf += @screen.application.tput._attr(state[-1]) || ""
                   else
                     outbuf += attr
                   end
@@ -423,15 +429,6 @@ module Crysterm
         end
 
         return outbuf
-      end
-
-      def set_text(content = "", no_clear = false)
-        content = content.gsub /\x1b\[[\d;]*m/, ""
-        set_content content, no_clear, true
-      end
-
-      def get_text
-        get_content.gsub /\x1b\[[\d;]*m/, ""
       end
 
       def insert_line(i = nil, line = "")

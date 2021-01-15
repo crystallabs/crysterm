@@ -206,7 +206,8 @@ module Crysterm
       clear_pos
       @hidden = true
       emit HideEvent
-      @screen.rewind_focus if focused?
+      #@screen.rewind_focus if focused?
+      @screen.rewind_focus if @screen.focused == self
     end
 
     def show
@@ -228,7 +229,7 @@ module Crysterm
     end
 
     def _align(line, width, align)
-      return line unless align
+      #return line unless align
 
       cline = line.gsub /\x1b\[[\d;]*m/, ""
       len = cline.size
