@@ -27,14 +27,6 @@ module Crysterm
 
       property position = Tput::Position.new
 
-      # XXX Turn these to Position struct
-      property ileft = 0
-      property itop = 0
-      property iright = 0
-      property ibottom = 0
-      property iwidth = 0
-      property iheight = 0
-
       # Heh.
       property? scrollable = false
 

@@ -117,7 +117,7 @@ module Crysterm
       padding : Int32 | Padding = 0,
       border = nil,
       # @clickable=false,
-      content = nil,
+      content = "",
       label = nil,
       hover_text = nil,
       # hover_bg=nil,
@@ -174,15 +174,13 @@ module Crysterm
                   raise "Invalid border argument"
                 end
 
-      set_content(content, true) if content
+      set_content(content, true)
       set_label(label) if label
       set_hover(hover_text) if hover_text
 
       # on(AddHandlerEvent) { |wrapper| }
-
       on(ResizeEvent) { parse_content }
       on(AttachEvent) { parse_content }
-
       # on(DetachEvent) { @lpos = nil }
 
       # Style related stuff ...
