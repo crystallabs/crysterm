@@ -125,7 +125,7 @@ module Crysterm
       focused = false,
 
       # synonyms
-      parse_tags = true,
+      @parse_tags = true,
 
       auto_focus = false,
 
@@ -177,8 +177,6 @@ module Crysterm
       set_content(content, true) if content
       set_label(label) if label
       set_hover(hover_text) if hover_text
-
-      @parse_tags = parse_tags
 
       # on(AddHandlerEvent) { |wrapper| }
 
@@ -277,7 +275,7 @@ module Crysterm
     end
 
     def draggable?
-      @_draggable == true
+      @_draggable
     end
 
     def draggable=(draggable : Bool)
@@ -285,12 +283,14 @@ module Crysterm
     end
 
     def enable_drag(x)
+      @_draggable = true
     end
 
     def disable_drag
+      @_draggable = false
     end
 
-    def setIndex(index)
+    def set_index(index)
       return unless parent = @parent
       if index < 0
         index = parent.children.size + index
@@ -307,11 +307,11 @@ module Crysterm
     end
 
     def front!
-      setIndex -1
+      set_index -1
     end
 
     def back!
-      setIndex 0
+      set_index 0
     end
 
     def self.sattr(style, fg = nil, bg = nil)

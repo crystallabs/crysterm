@@ -839,7 +839,10 @@ module Crysterm
       def _get_pos
         pos = @lpos
         pos.try do |pos|
+
+          # If it already has a pos, just return.
           return pos if !pos.aleft.nil?
+
           pos.aleft = pos.xi
           pos.atop = pos.yi
           pos.aright = @screen.columns - pos.xl
@@ -847,6 +850,7 @@ module Crysterm
           pos.width = pos.xl - pos.xi
           pos.height = pos.yl - pos.yi
         end
+
         pos
       end
     end

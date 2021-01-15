@@ -257,7 +257,7 @@ module Crysterm
             raise "indexing error"
           end
           (0...line.size).each do |i|
-            if (line[i] == "\x1b")
+            if (line[i] == "\e")
               if (c = line[1..].match /^\x1b\[[\d;]*m/)
                 attr = @screen.attr_code(c[0], attr, dattr)
                 i += c[0].size - 1
@@ -316,7 +316,7 @@ module Crysterm
           line = lines[no]
           align = state
 
-          ftor.push([] of Int32)
+          ftor.push [] of Int32
 
           # Handle alignment tags.
           if @parse_tags
@@ -326,6 +326,7 @@ module Crysterm
             end
             if (cap = line.match /{\/(left|center|right)}$/)
               line = line[0...(line.size - cap[0].size)]
+              # D O:
               # state = null
               state = @align
             end
@@ -337,7 +338,7 @@ module Crysterm
             total = 0
             i = 0
             while i < line.size
-              while (line[i] == "\x1b")
+              while (line[i] == "\e")
                 while (line[i] && line[i] != 'm')
                   i += 1
                 end
@@ -353,7 +354,7 @@ module Crysterm
                 if (!wrap)
                   rest = line[i..].scan(/\x1b\[[^m]*m/)
                   rest = rest.any? ? rest.join : ""
-                  outbuf.push(_align(line[0...i] + rest, width, align))
+                  outbuf.push _align(line[0...i] + rest, width, align)
                   ftor[no].push(outbuf.size - 1)
                   rtof.push(no)
                   break :main
@@ -363,8 +364,10 @@ module Crysterm
                 # Try to find a char to break on.
                 if (i != line.size)
                   j = i
-                  while ((j > i - 10) && (j > 0) && (j -= 1) && (line[j] != " "))
-                    if (line[j] == " ")
+                  # TODO how can the condition and subsequent IF ever match
+                  # with the line[j] thing?
+                  while ((j > i - 10) && (j > 0) && (j -= 1) && (line[j] != ' '))
+                    if (line[j] == ' ')
                       i = j + 1
                     end
                   end
@@ -378,7 +381,7 @@ module Crysterm
             part = line[0...i]
             line = line[i..]
 
-            outbuf.push(_align(part, width, align))
+            outbuf.push _align(part, width, align)
             ftor[no].push(outbuf.size - 1)
             rtof.push(no)
 
@@ -415,7 +418,7 @@ module Crysterm
 
         outbuf.mwidth = outbuf.reduce(0) do |current, line|
           line = line.gsub(/\x1b\[[\d;]*m/, "")
-          # XXX Does it need explicit addition to `current`?
+          # XXX Does reduce() need explicit addition to `current`?
           line.size > current ? line.size : current
         end
 
