@@ -238,16 +238,16 @@ module Crysterm
       return line if s < 0
 
       if align == "center"
-        s = " " * (((s//2)) + 1)
+        s = " " * (s//2)
         return s + line + s
       elsif align == "right"
-        s = " " * (s + 1)
+        s = " " * s
         return s + line
       elsif @parse_tags && line.index /\{|\}/
         parts = line.split /\{|\}/
         cparts = cline.split /\{|\}/
         s = Math.max(width - cparts[0].size - cparts[1].size, 0)
-        s = " " * s # XXX s+1 ?
+        s = " " * s
         "#{parts[0]}#{s}#{parts[1]}"
       end
 
