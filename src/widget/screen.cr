@@ -351,12 +351,14 @@ module Crysterm
     def clear_pos
     end
     property border : Border?
+
     # XXX These below are crap...
+    # Inner/content positions:
     property ileft = 0
     property itop = 0
     property iright = 0
     property ibottom = 0
-    property iwidth = 0
+    property iwidth = 0 # XXX do width/height need to be columns/rows here?
     property iheight = 0
     # End of unused parts.
 

@@ -3,35 +3,43 @@ require "./element"
 require "./input"
 
 module Crysterm
-  # Button element
-  class Button < Input
-    include EventHandler
+  module Widget
+    # Button element
+    class Button < Input
+      include EventHandler
 
-    getter value = false
+      # XXX Do we need this at all? See how `press` is implemented; switching this
+      # to true then back to false seems like a bad choice for multiple threads.
+      # Why not just assume that a PressEvent implies a yes/valid/active click?
+      getter value = false
 
-    def initialize(**element)
-      super **element
-      # # TODO all element's options
-      # on(KeyPressEvent) do |key|
-      #  if key.name==Enter || Space
-      #    press
-      #  end
-      # end
+      @keyable = true
 
-      # TODO - why conditional? could be cool to trigger clicks by
-      # events even if mouse is disabled.
-      # if mouse
-      on(ClickEvent) do
-        press
+      def initialize(**input)
+        super **input
+
+        on(KeyPressEvent) do |e|
+          #if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
+          if e.key == Tput::Key::Enter || e.char == ' '
+            press
+          end
+        end
+
+        # TODO - why conditional? could be cool to trigger clicks by
+        # events even if mouse is disabled.
+        # if mouse
+          on(ClickEvent) do |e|
+            press
+          end
+        # end
       end
-      # end
-    end
 
-    def press
-      focus
-      @value = true
-      emit PressEvent
-      @value = false
+      def press
+        focus
+        @value = true
+        emit PressEvent
+        @value = false
+      end
     end
   end
 end

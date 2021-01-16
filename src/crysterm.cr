@@ -13,6 +13,7 @@ require "./widget/*"
 
 module Crysterm
   include Tput::Namespace
+  include Widget
 
   def self.app
     Application.global

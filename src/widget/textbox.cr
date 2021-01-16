@@ -15,7 +15,7 @@ module Crysterm
 
     def _listener(e)
       case e.key
-      when Tput::Key::Return
+      when Tput::Key::Enter
         # TODO
         #_done nil, @value
       else

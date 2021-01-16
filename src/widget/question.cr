@@ -58,7 +58,7 @@ module Crysterm
         c = e.char
         k = e.key
 
-        if (k != Tput::Key::Return &&
+        if (k != Tput::Key::Enter &&
            k != Tput::Key::Escape &&
            c != 'q' &&
            c != 'y' &&
@@ -66,7 +66,7 @@ module Crysterm
           next
         end
 
-        done.call nil, k == Tput::Key::Return || e.char == 'y'
+        done.call nil, k == Tput::Key::Enter || e.char == 'y'
       end
 
       ev_ok = @ok.on(PressEvent) do

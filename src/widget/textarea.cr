@@ -46,7 +46,7 @@ module Crysterm
         next if @input_on_focus && (@screen.focused != self)
         next if @_reading
 
-        if e.key.try &.==(Tput::Key::Return)
+        if e.key.try &.==(Tput::Key::Enter)
           read_input
         end
       end

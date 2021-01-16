@@ -154,7 +154,7 @@ module Crysterm
 
       case padding
       when Int
-        @padding = Padding.new padding
+        @padding = Padding.new padding, padding, padding, padding
       when Padding
         @padding = padding
       else
