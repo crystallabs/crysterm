@@ -205,7 +205,7 @@ module Crysterm
             # end
 
             # Handle escape codes.
-            while (ch == "\x1b")
+            while (ch == '\e')
               cnt = content[(ci - 1)..]
               if (c = cnt.match /^\x1b\[[\d;]*m/)
                 ci += c[0].size - 1
