@@ -109,7 +109,7 @@ module Crysterm
       @align = "left",
       @valign = "top",
       position : Tput::Position? = nil,
-      @resizable = false,
+      resizable = nil,
       @no_overflow = true,
       @dock_borders = true,
       @shadow = false,
@@ -131,6 +131,8 @@ module Crysterm
 
       **node
     )
+      resizable.try { |v| @resizable = v }
+
       super **node
 
       if position

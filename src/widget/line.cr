@@ -4,22 +4,24 @@ module Crysterm
   module Widget
     # Line element
     class Line < Box
-      @orientation = :vertical
+      @orientation = Orientation::Vertical
 
-      def initialize(@orientation)
-        if @orientation == :vertical
+      def initialize(orientation=nil, **box)
+
+        orientation.try { |v| @orientation = v }
+
+        if @orientation == Orientation::Vertical
           @width = 1
         else
           @height = 1
         end
 
-        super
+        super **box
 
-        @ch = (is_a? Line) ? (@orientation == :horizontal ? '-' : '|') : (@ch || "")
+        # TODO possibly replace -/| with ACS chars?
+        @ch = (is_a? Line) ? (@orientation == :horizontal ? '-' : '|') : @ch
 
-        @border = {
-          "type" => "bg",
-        }
+        @border = Border.new type: BorderType::Bg
 
         # TODO
         # @style.border=@style

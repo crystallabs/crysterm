@@ -2,9 +2,11 @@ require "./node"
 
 module Crysterm
   module Widget
-    # Text element
+
+    # TODO Check if this is honored
+    @resizable = true
+
     class Text < Element
-      @resizable = true
     end
   end
 end
