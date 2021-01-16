@@ -1,7 +1,6 @@
 module Crysterm
   class Screen < Node
     module Rendering
-
       class BorderStop
         property? yes = false
         property xi : Int32?
@@ -139,7 +138,7 @@ module Crysterm
         end
         @_ci = -1
 
-        #if (@screen.dock_borders?) # XXX why we do @screen here? Can we do without?
+        # if (@screen.dock_borders?) # XXX why we do @screen here? Can we do without?
         if @dock_borders
           _dock_borders
         end

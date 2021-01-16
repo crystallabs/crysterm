@@ -839,7 +839,6 @@ module Crysterm
       def _get_pos
         pos = @lpos
         pos.try do |pos|
-
           # If it already has a pos, just return.
           return pos if !pos.aleft.nil?
 

@@ -6,7 +6,6 @@ module Crysterm
   module Widget
     # Question element
     class Question < Box
-
       property text : String = ""
 
       # TODO Positioning is bad for buttons.
@@ -21,11 +20,11 @@ module Crysterm
         resizable: true,
         content: "Okay",
         align: "center",
-        #bg: "black",
-        #hover_bg: "blue",
+        # bg: "black",
+        # hover_bg: "blue",
         auto_focus: false,
-        # mouse: true
-      )
+              # mouse: true
+)
 
       @cancel = Button.new(
         left: 8,
@@ -35,14 +34,13 @@ module Crysterm
         resizable: true,
         content: "Cancel",
         align: "center",
-        #bg: "black",
-        #hover_bg: "blue",
+        # bg: "black",
+        # hover_bg: "blue",
         auto_focus: false,
-        # mouse: true
-      )
+              # mouse: true
+)
 
       def initialize(**box)
-
         box["content"]?.try do |c|
           @text = c
         end

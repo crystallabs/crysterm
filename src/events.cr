@@ -27,10 +27,10 @@ module Crysterm
   # Emitter at the end or rendering/drawing.
   event RenderEvent
 
-  #event PostRenderEvent
+  # event PostRenderEvent
 
   # Emitted at the end of drawing. Currently disabled/unused.
-  #event DrawEvent
+  # event DrawEvent
 
   event SetContentEvent
   event ParsedContentEvent
@@ -49,9 +49,6 @@ module Crysterm
 
   # Emitted when node is detached from a screen directly or somewhere in its ancestry
   event DetachEvent
-
-
-
 
   event KeyEvent, key : Tput::Key
 

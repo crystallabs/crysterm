@@ -4,7 +4,6 @@ require "./element"
 module Crysterm
   module Widget
     class ProgressBar < Input
-
       property filled : Int32 = 0
       property value : Int32 = 0
       property pch : Char = ' '
@@ -29,28 +28,26 @@ module Crysterm
         @mouse = false,
         **input
       )
-
         super **input
 
         @value = @filled
 
         if @keys
           on(KeyPressEvent) do |e|
-
             # Since the keys aren't conflicting, support both regardless
             # of orientation.
-            #case @orientation
-            #when Orientation::Vertical
+            # case @orientation
+            # when Orientation::Vertical
             #  back_keys = [Tput::Key::Down]
             #  back_chars = ['j']
             #  forward_keys = [Tput::Key::Up]
             #  forward_chars = ['k']
-            #else #when Orientation::Horizontal
+            # else #when Orientation::Horizontal
             #  back_keys = [Tput::Key::Left]
             #  back_chars = ['h']
             #  forward_keys = [Tput::Key::Right]
             #  forward_chars = ['l']
-            #end
+            # end
 
             back_keys = [Tput::Key::Left, Tput::Key::Down]
             back_chars = ['h', 'j']

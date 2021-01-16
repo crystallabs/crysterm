@@ -3,10 +3,9 @@ require "./node"
 module Crysterm
   module Widget
     class TextBox < TextArea
-
       def initialize(
-        @secret=false,
-        @censor=false,
+        @secret = false,
+        @censor = false,
         **textarea
       )
         @scrollable = false
@@ -18,13 +17,13 @@ module Crysterm
         case e.key
         when Tput::Key::Enter
           # TODO
-          #_done nil, @value
+          # _done nil, @value
         else
           @value = @value + e.char
         end
       end
 
-      def set_value(value=nil)
+      def set_value(value = nil)
         value ||= @value
 
         if @_value != value
@@ -45,7 +44,6 @@ module Crysterm
           _update_cursor
         end
       end
-
     end
   end
 end

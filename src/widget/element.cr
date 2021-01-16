@@ -26,7 +26,7 @@ module Crysterm
     # Is element hidden? Hidden elements are not rendered on the screen and their dimensions don't use screen space.
     property? hidden = false
 
-    # 
+    #
     private property? fixed = false
 
     # Horizontal text alignment
@@ -205,7 +205,7 @@ module Crysterm
       clear_pos
       @hidden = true
       emit HideEvent
-      #@screen.rewind_focus if focused?
+      # @screen.rewind_focus if focused?
       @screen.rewind_focus if @screen.focused == self
     end
 
@@ -228,7 +228,7 @@ module Crysterm
     end
 
     def _align(line, width, align)
-      #return line unless align
+      # return line unless align
 
       cline = line.gsub /\x1b\[[\d;]*m/, ""
       len = cline.size

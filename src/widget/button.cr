@@ -17,7 +17,7 @@ module Crysterm
         super **input
 
         on(KeyPressEvent) do |e|
-          #if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
+          # if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
           if e.key == Tput::Key::Enter || e.char == ' '
             e.accept!
             press
@@ -27,10 +27,10 @@ module Crysterm
         # TODO - why conditional? could be cool to trigger clicks by
         # events even if mouse is disabled.
         # if mouse
-          on(ClickEvent) do |e|
-            #e.accept!
-            press
-          end
+        on(ClickEvent) do |e|
+          # e.accept!
+          press
+        end
         # end
       end
 

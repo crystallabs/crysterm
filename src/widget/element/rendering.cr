@@ -633,7 +633,7 @@ module Crysterm
         coords
       end
 
-      def render(with_children=true)
+      def render(with_children = true)
         _render with_children
       end
     end

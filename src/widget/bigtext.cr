@@ -5,7 +5,6 @@ require "./box"
 module Crysterm
   module Widget
     class BigText < Widget::Box
-
       property font : String = "src/fonts/ter-u14n.json"
       property font_bold : String = "src/fonts/ter-u14b.json"
       property fch : Char = ' '
@@ -17,13 +16,13 @@ module Crysterm
       # Also, character for fg/bg, etc.
 
       # Currently active font
-      property active : Hash(String, Array(Array(Int32))) #JSON::Any
+      property active : Hash(String, Array(Array(Int32))) # JSON::Any
 
       # Normal font
-      property normal : Hash(String, Array(Array(Int32))) #JSON::Any
+      property normal : Hash(String, Array(Array(Int32))) # JSON::Any
 
       # Bold font
-      property bold : Hash(String, Array(Array(Int32))) #JSON::Any
+      property bold : Hash(String, Array(Array(Int32))) # JSON::Any
 
       property _shrink_width : Bool = false
       property _shrink_height : Bool = false
@@ -34,7 +33,6 @@ module Crysterm
         font_bold = "src/fonts/ter-u14b.json",
         **box
       )
-
         @ratio = Size.new 0, 0
 
         @normal = load_font @font
@@ -51,7 +49,6 @@ module Crysterm
         else
           @active = @normal
         end
-
       end
 
       def load_font(filename)
@@ -65,7 +62,7 @@ module Crysterm
           font[ch] = convert_letter ch, lines
         end
 
-        #font.delete " "
+        # font.delete " "
         font
       end
 
@@ -78,7 +75,7 @@ module Crysterm
         lines = lines.map do |line|
           chs = line.split ""
           chs = chs.map do |ch|
-            ( ch == " " ) ? 0 : 1
+            (ch == " ") ? 0 : 1
           end
           while chs.size < @ratio.width
             chs.push 0
@@ -106,15 +103,15 @@ module Crysterm
         if (@position.width.nil? || @_shrink_width)
           # D O:
           # if (@width - @iwidth < @ratio.width * @text.length + 1)
-            @position.width = @ratio.width * @text.size + 1
-            @_shrink_width = true
+          @position.width = @ratio.width * @text.size + 1
+          @_shrink_width = true
           # end
         end
         if (@position.height.nil? || @_shrink_height)
           # D O:
           # if (@height - @iheight < @ratio.height + 0)
-            @position.height = @ratio.height + 0
-            @_shrink_height = true
+          @position.height = @ratio.height + 0
+          @_shrink_height = true
           # end
         end
         coords = _render
@@ -143,10 +140,10 @@ module Crysterm
           end
           y = top
           while y < Math.min(bottom, top + @ratio.height)
-            #unless !lines[y]?
+            # unless !lines[y]?
             #  y += 1
             #  next
-            #end
+            # end
             mline = map[y - top]
             next unless mline
             mx = 0
@@ -174,7 +171,6 @@ module Crysterm
 
         coords
       end
-
     end
   end
 end

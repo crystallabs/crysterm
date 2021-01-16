@@ -61,7 +61,6 @@ module Crysterm
 
         colwidth = width - iwidth
         if (@_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content != @content)
-
           content =
             @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
               .gsub(/\x1b(?!\[[\d;]*m)/, "")

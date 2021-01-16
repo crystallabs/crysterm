@@ -12,22 +12,22 @@ module Crysterm
       # other elements. So that one can even make a widget
       # where only 1 is unchecked, the rest are all checked.
 
-      #getter value = false
+      # getter value = false
 
-      #def initialize(value = false, **element)
+      # def initialize(value = false, **element)
       def initialize(**checkbox)
         super **checkbox
 
         on(CheckEvent) do
           el = self
           while el && (el = el.parent)
-            if el.is_a?(RadioSet) #|| el.is_a?(Form)
+            if el.is_a?(RadioSet) # || el.is_a?(Form)
               break
             end
             el = el || parent
 
             el.try &.each_descendant do |cel|
-              #next if !(cel.is_a? RadioButton) || cel == self
+              # next if !(cel.is_a? RadioButton) || cel == self
               cel.uncheck if cel.is_a?(RadioButton) && cel != self
             end
           end
@@ -42,21 +42,21 @@ module Crysterm
 
       # XXX All these should be inherited from checkbox.
       #
-      #def check
+      # def check
       #  return if @value
       #  @value = true
       #  emit CheckEvent
-      #end
+      # end
 
-      #def uncheck
+      # def uncheck
       #  return unless @value
       #  @value = false
       #  emit UnCheckEvent
-      #end
+      # end
 
-      #def toggle
+      # def toggle
       #  check
-      #end
+      # end
     end
   end
 end

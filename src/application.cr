@@ -29,7 +29,7 @@ module Crysterm
 
     property _exiting = false
 
-    @index : Int32 = -1        # -1 so that assignments start from 0
+    @index : Int32 = -1 # -1 so that assignments start from 0
 
     # Amount of time to wait before redrawing the screen, after the
     # terminal resize event is received.
@@ -60,7 +60,6 @@ module Crysterm
       terminfo : Bool | Unibilium::Terminfo = true,
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
-
       # TODO make these check @output, not STDOUT which is probably used.
       @cols = ::Term::Screen.cols || 1
       @rows = ::Term::Screen.rows || 1
@@ -151,7 +150,7 @@ module Crysterm
       # if (@tput.input._our_input == 0)
       #  @tput.input._out_input = 1
       _listen_keys
-      #_listen_mouse
+      # _listen_mouse
       # else
       #  @tput.input._our_input += 1
       # end
@@ -186,11 +185,10 @@ module Crysterm
       spawn do
         tput.listen do |char, key, sequence|
           @@instances.each do |app|
-
             # XXX What to do here -- i/o has been removed from this class.
             # It only exists in tput, so how to check/compare?
             # Do we need to add it back in?
-            #next if app.input != @tput.input
+            # next if app.input != @tput.input
 
             emit KeyPressEvent.new char, key, sequence
             # TODO - possibly also:
@@ -232,8 +230,8 @@ module Crysterm
     # @tput.ret to an IO. Then all writes will go there instead of to @output.
     # While @tput.ret is nil, output goes to output as usual.
     # NOTE Check how does this affect behavior with the local @_buf element.
-    #def out
-    #end
+    # def out
+    # end
 
   end
 end

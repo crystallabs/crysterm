@@ -16,14 +16,37 @@ module Crysterm
       property abottom : Int32? = nil
 
       # Relative coordinates as default properties
-      def left; @rleft end
-      def right; @rright end
-      def top; @rtop end
-      def bottom; @rbottom end
-      def left=(arg); @rleft = arg end
-      def right=(arg); @rright = arg end
-      def top=(arg); @rtop = arg end
-      def bottom=(arg); @rbottom = arg end
+      def left
+        @rleft
+      end
+
+      def right
+        @rright
+      end
+
+      def top
+        @rtop
+      end
+
+      def bottom
+        @rbottom
+      end
+
+      def left=(arg)
+        @rleft = arg
+      end
+
+      def right=(arg)
+        @rright = arg
+      end
+
+      def top=(arg)
+        @rtop = arg
+      end
+
+      def bottom=(arg)
+        @rbottom = arg
+      end
 
       property position = Tput::Position.new
 

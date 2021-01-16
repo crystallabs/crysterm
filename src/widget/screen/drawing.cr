@@ -1,7 +1,6 @@
 module Crysterm
   class Screen < Node
     module Drawing
-
       # Draws the screen based on the contents of the output buffer.
       def draw(start = 0, stop = @lines.size - 1)
         # D O:
@@ -80,7 +79,7 @@ module Crysterm
                   attr = data
                 end
 
-                #### Temporarily diverts output. ####
+                # ### Temporarily diverts output. ####
                 # XXX See if it causes problems when multithreaded or something?
                 (application.tput.ret = IO::Memory.new).try do |ret|
                   application.tput.cup(y, x)
@@ -201,7 +200,7 @@ module Crysterm
                   if (bg < 16)
                     if (bg < 8)
                       bg += 40
-                    else #elsif (bg < 16)
+                    else # elsif (bg < 16)
                       bg -= 8
                       bg += 100
                     end
@@ -216,7 +215,7 @@ module Crysterm
                   if (fg < 16)
                     if (fg < 8)
                       fg += 30
-                    else #elsif (fg < 16)
+                    else # elsif (fg < 16)
                       fg -= 8
                       fg += 90
                     end
@@ -443,13 +442,11 @@ module Crysterm
           return
         end
 
-        this._buf += this.tput.csr(top, bottom);
-        this._buf += this.tput.cup(y, 0);
-        this._buf += this.tput.dl(n);
-        this._buf += this.tput.csr(0, this.height - 1);
-
-        var j = bottom + 1;
-
+        this._buf += this.tput.csr(top, bottom)
+        this._buf += this.tput.cup(y, 0)
+        this._buf += this.tput.dl(n)
+        this._buf += this.tput.csr(0, this.height - 1)
+        var j = bottom + 1
         while n > 0
           n -= 1
           @lines.insert y, blank_line

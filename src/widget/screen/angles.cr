@@ -2,7 +2,6 @@ module Crysterm
   # Represents a screen. `Screen` and `Element` are two lowest-level classes after `EventEmitter` and `Node`.
   class Screen < Node
     module Angles
-
       @angles = {
         '\u2518' => true, # '┘'
         '\u2510' => true, # '┐'

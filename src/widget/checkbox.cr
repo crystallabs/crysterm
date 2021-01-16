@@ -30,7 +30,7 @@ module Crysterm
         end
 
         on(KeyPressEvent) do |e|
-          #if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
+          # if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
           if e.key == Tput::Key::Enter || e.char == ' '
             e.accept!
             toggle
@@ -41,10 +41,10 @@ module Crysterm
         # TODO - why conditional? could be cool to trigger clicks by
         # events even if mouse is disabled.
         # if mouse
-          on(ClickEvent) do
-            toggle
-            @screen.render
-          end
+        on(ClickEvent) do
+          toggle
+          @screen.render
+        end
         # end
 
         on(FocusEvent) do

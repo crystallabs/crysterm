@@ -29,14 +29,13 @@ module Crysterm
         @step = 1,
         **box
       )
-
         box["content"]?.try do |c|
           @orig_text = c
         end
 
         super **box
 
-        @pos = 0 #@step > 0 ? (@step - 1) : @step
+        @pos = 0 # @step > 0 ? (@step - 1) : @step
 
         @icon = Text.new \
           align: "center",
@@ -97,7 +96,6 @@ module Crysterm
           super
         end
       end
-
     end
   end
 end

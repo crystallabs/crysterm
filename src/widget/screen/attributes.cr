@@ -150,7 +150,7 @@ module Crysterm
           if (bg < 16)
             if (bg < 8)
               bg += 40
-            else #elsif (bg < 16)
+            else # elsif (bg < 16)
               bg -= 8
               bg += 100
             end
@@ -165,7 +165,7 @@ module Crysterm
           if (fg < 16)
             if (fg < 8)
               fg += 30
-            else #elsif (fg < 16)
+            else # elsif (fg < 16)
               fg -= 8
               fg += 90
             end

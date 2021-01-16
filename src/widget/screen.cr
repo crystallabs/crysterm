@@ -3,7 +3,6 @@ require "../application"
 require "./screen/*"
 
 module Crysterm
-
   # Represents a screen. `Screen` and `Element` are two lowest-level classes after `EventEmitter` and `Node`.
   class Screen < Node
     include Screen::Focus
@@ -91,7 +90,7 @@ module Crysterm
       end
 
       _listen_keys
-      #_listen_mouse # XXX
+      # _listen_mouse # XXX
 
       enter
       post_enter
@@ -100,7 +99,7 @@ module Crysterm
     # This is for the bottom-up approach where the keys are
     # passed onto the focused widget, and from there eventually
     # propagated to the top.
-    #def _listen_keys
+    # def _listen_keys
     #  application.on(KeyPressEvent) do |e|
     #    el = focused || self
     #    while !e.accepted? && el
@@ -109,7 +108,7 @@ module Crysterm
     #      el = el.parent
     #    end
     #  end
-    #end
+    # end
 
     # And this is for the other/alternative method where the screen
     # first gets the keys, then potentially passes onto children
@@ -141,7 +140,7 @@ module Crysterm
         if !grab_keys || !@ignore_locked.includes?(e.key)
           emit e
           # XXX Potentially also emit individual key
-          #emit(keyname + event, e.ch, e.key, e.sequence)
+          # emit(keyname + event, e.ch, e.key, e.sequence)
         end
 
         # If something changed from the screen key handler, stop.
@@ -153,26 +152,28 @@ module Crysterm
           if focd.keyable?
             focd.emit e
             # XXX Again, potentially also emit individual key
-            #emit(keyname + event, e.ch, e.key, e.sequence)
+            # emit(keyname + event, e.ch, e.key, e.sequence)
           end
         end
       end
     end
 
-    def enable_keys(el=nil)
+    def enable_keys(el = nil)
       _listen_keys(el)
     end
 
-    def enable_input(el=nil)
-      #_listen_mouse(el)
+    def enable_input(el = nil)
+      # _listen_mouse(el)
       _listen_keys(el)
     end
 
     # TODO Empty for now
     def key(key, handler)
     end
+
     def once_key(key, handler)
     end
+
     def remove_key(key, wrapper)
     end
 
@@ -350,6 +351,7 @@ module Crysterm
     # Unused parts: just compatibility with `Node` interface.
     def clear_pos
     end
+
     property border : Border?
 
     # XXX These below are crap...
@@ -360,6 +362,7 @@ module Crysterm
     property ibottom = 0
     property iwidth = 0 # XXX do width/height need to be columns/rows here?
     property iheight = 0
+
     # End of unused parts.
 
     def hidden?
@@ -373,8 +376,13 @@ module Crysterm
     # XXX for now, this just forwards to parent. But in reality,
     # it should be able to have its own title, and when it goes
     # in/out of focus, that title should be set/restored.
-    def title; @application.title end
-    def title=(arg); @application.title= arg end
+    def title
+      @application.title
+    end
+
+    def title=(arg)
+      @application.title = arg
+    end
 
     def sigtstp(callback)
       application.sigtstp {
@@ -384,6 +392,5 @@ module Crysterm
         callback.call if callback
       }
     end
-
   end
 end
