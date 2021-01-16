@@ -103,7 +103,7 @@ module Crysterm
       width = nil,
       height = nil,
 
-      @hidden = false,
+      hidden = nil,
       @fixed = false,
       @wrap = true,
       @align = "left",
@@ -132,6 +132,7 @@ module Crysterm
       **node
     )
       resizable.try { |v| @resizable = v }
+      hidden.try { |v| @hidden = v }
 
       super **node
 

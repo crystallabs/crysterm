@@ -3,24 +3,22 @@ require "./node"
 module Crysterm
   module Widget
     class TextBox < TextArea
+
+      property secret : Bool = false
+      property censor : Bool = false
+      property value : String = ""
+
       def initialize(
-        @secret = false,
-        @censor = false,
+        secret = nil,
+        censor = nil,
         **textarea
       )
         @scrollable = false
 
         super **textarea
-      end
 
-      def _listener(e)
-        case e.key
-        when Tput::Key::Enter
-          # TODO
-          # _done nil, @value
-        else
-          @value = @value + e.char
-        end
+        secret.try { |v| @secret = v }
+        censor.try { |v| @censor = v }
       end
 
       def set_value(value = nil)
@@ -36,14 +34,21 @@ module Crysterm
           elsif @censor
             set_content "*" * value.size
           else
-            visible = -(@width - iwidth - 1)
+            visible = -(width - iwidth - 1)
             val = @value.gsub /\t/, @screen.tabc
-            set_content val[...visible]
+            set_content val[visible...]
           end
 
           _update_cursor
         end
       end
+
+      def submit
+        # TODO
+        #return unless @__listener
+        #@__listener.call '\r', { "name" => "enter" }
+      end
+
     end
   end
 end

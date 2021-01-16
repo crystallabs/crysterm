@@ -53,7 +53,7 @@ module Crysterm
         end
       end
 
-      def read_input
+      def read_input(&callback : Proc(String, String, Nil))
         return if @_reading
         @_reading = true
 
@@ -159,6 +159,9 @@ module Crysterm
       def render
         set_value
         super
+      end
+
+      def cancel
       end
     end
   end

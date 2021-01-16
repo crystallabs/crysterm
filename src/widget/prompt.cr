@@ -4,8 +4,7 @@ require "./box"
 
 module Crysterm
   module Widget
-    # Question element
-    class Question < Box
+    class Prompt < Box
       property text : String = ""
 
       @hidden = true
@@ -13,12 +12,22 @@ module Crysterm
       # TODO Positioning is bad for buttons.
       # Use a layout for buttons.
       # Also, make unlimited number of buttons/choices possible.
+      # XXX Same fixes here and in Question element.
+      # Actually OK/Cancel buttons need to be imported from Question.
+
+      @textinput = TextBox.new(
+        top: 3,
+        height: 1,
+        left: 2,
+        right: 2,
+
+      )
 
       @ok = Button.new(
-        left: 1,
-        top: 4,
-        width: 6,
+        top: 5,
         height: 1,
+        width: 6,
+        left: 2,
         resizable: true,
         content: "Okay",
         align: "center",
@@ -29,8 +38,8 @@ module Crysterm
 )
 
       @cancel = Button.new(
-        left: 8,
-        top: 4,
+        left: 10,
+        top: 5,
         width: 8,
         height: 1,
         resizable: true,
@@ -49,63 +58,47 @@ module Crysterm
 
         super **box
 
-        # Should not be needed when ivar exists already set
-        #@hidden = box["hidden"]?.nil? ? true : box["hidden"]? || false
-
+        append @textinput
         append @ok
         append @cancel
       end
 
-      def ask(text = nil, &block : String?, Bool -> Nil)
-        # D O:
-        # Keep above:
-        # @parent.try do |p|
-        #   detach
-        #   p.append self
-        # end
-
+      def read_input(text = nil, value = "", &callback : Proc(String, String, Nil))
         set_content text || @text
         show
 
-        done = uninitialized String?, Bool -> Nil
+        @textinput.value = value
 
-        ev_keys = @screen.on(KeyPressEvent) do |e|
-          # if (e.key == 'mouse')
-          #  return
-          # end
-          c = e.char
-          k = e.key
+        @screen.save_focus
+        #focus
 
-          if (k != Tput::Key::Enter && k != Tput::Key::Escape && c != 'q' && c != 'y' && c != 'n')
-            next
-          end
-
-          done.call nil, k == Tput::Key::Enter || e.char == 'y'
-        end
+        #ev_keys = @screen.on(KeyPressEvent) do |e|
+        #  next unless (e.key == Tput::Key::Enter || e.key == Tput::Key::Escape)
+        #  done.call nil, e.key == Tput::Key::Enter
+        #end
 
         ev_ok = @ok.on(PressEvent) do
-          done.call nil, true
+          @textinput.submit
         end
 
         ev_cancel = @cancel.on(PressEvent) do
-          done.call nil, false
+          @textinput.cancel
         end
 
-        @screen.save_focus
-        focus
-
-        done = ->(err : String?, data : Bool) do
+        @textinput.read_input do |err, data|
           hide
           @screen.restore_focus
-          @screen.off KeyPressEvent, ev_keys
           @ok.off PressEvent, ev_ok
           @cancel.off PressEvent, ev_cancel
-          block.call err, data
-          @screen.render
+
+          callback.try do |c|
+            c.call err, data
+          end
         end
 
         @screen.render
       end
+
     end
   end
 end
