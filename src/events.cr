@@ -81,4 +81,9 @@ module Crysterm
   event MoveEvent
 
   event CompleteEvent
+
+  event SubmitEvent, value : String
+  event CancelEvent, value : String
+  event ActionEvent, value : String
+
 end

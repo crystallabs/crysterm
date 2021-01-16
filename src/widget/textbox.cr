@@ -6,7 +6,7 @@ module Crysterm
 
       property secret : Bool = false
       property censor : Bool = false
-      property value : String = ""
+      #property value : String = ""
 
       def initialize(
         secret = nil,

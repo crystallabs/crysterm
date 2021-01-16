@@ -1,6 +1,8 @@
 module Crysterm
   class Element < Node
     module Content
+      include Helpers
+
       class ::String
         property attr = [] of Int32
       end
@@ -629,7 +631,7 @@ module Crysterm
       end
 
       def str_width(text)
-        text = @parse_tags ? helpers.strip_tags(text) : text
+        text = @parse_tags ? strip_tags(text) : text
         # return @screen.full_unicode ? unicode.str_width(text) : helpers.drop_unicode(text).size
         # text = text
         text.size # or bytesize?
