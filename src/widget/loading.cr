@@ -2,80 +2,102 @@ require "./node"
 require "./element"
 
 module Crysterm
-  # Box element
-  class Loading < Box
-    @spinner : Fiber?
-    @interval : Time::Span
+  module Widget
+    # Box element
+    class Loading < Box
+      @spinner : Fiber?
 
-    @should_exit = true
+      @interval : Time::Span
 
-    @orig_text = ""
-    @text : String?
+      property? compact = false
 
-    getter icons : Array(String)
-    getter icon : Text
+      protected property should_exit = true
 
-    def initialize(
-      @interval = 0.2.seconds,
-      content = "",
-      @icons = ["|", "/", "-", "\\"],
-      @step = 1,
-      **box
-    )
-      super **box, content: content
+      @orig_text = ""
+      @text : String?
 
-      @orig_content = content
+      # XXX Use a better name than 'icons', so that it doesn't
+      # seem to imply longer text can't be used.
 
-      @pos = 0 #@step > 0 ? (@step - 1) : @step
+      getter icons : Array(String)
+      getter icon : Text
 
-      @icon = Text.new \
-        align: "center",
-        top: 2,
-        left: 1,
-        right: 1,
-        height: 1,
-        content: @icons[0]
+      def initialize(
+        @compact = false,
+        @interval = 0.2.seconds,
+        @icons = ["|", "/", "-", "\\"],
+        @step = 1,
+        **box
+      )
 
-      append @icon
-    end
-
-    def start(@text = nil)
-      # return if @should_exit
-      @should_exit = false
-
-      show
-      set_content @text || @orig_content
-
-      @screen.lock_keys = true
-
-      @spinner = Fiber.new {
-        loop do
-          break if @should_exit
-          @icon.set_content icons[@pos]
-          @pos = (@pos + @step) % icons.size
-          @screen.render
-          sleep @interval
+        box["content"]?.try do |c|
+          @orig_text = c
         end
-      }.enqueue
-    end
 
-    def stop
-      @screen.lock_keys = false
-      hide
-      @should_exit = true
-      @text = nil
-      render
-    end
+        super **box
 
-    def toggle
-      @should_exit ? start : stop
-    end
+        @pos = 0 #@step > 0 ? (@step - 1) : @step
 
-    def render
-      clear_pos true
-      set_content "#{@icon.content} #{@text || @orig_content}", true
-      super false
-    end
+        @icon = Text.new \
+          align: "center",
+          top: 2,
+          left: 1,
+          right: 1,
+          height: 1,
+          content: @icons[0]
 
+        append @icon
+      end
+
+      def start(@text = nil)
+        # return if @should_exit
+        @should_exit = false
+
+        # XXX Keep on top:
+        # @parent.try do |p|
+        #   detach
+        #   p.append self
+        # end
+
+        show
+        set_content @text || @orig_text
+
+        @screen.lock_keys = true
+
+        @spinner = Fiber.new {
+          loop do
+            break if @should_exit
+            @icon.set_content icons[@pos]
+            @pos = (@pos + @step) % icons.size
+            @screen.render
+            sleep @interval
+          end
+        }.enqueue
+      end
+
+      def stop
+        @screen.lock_keys = false
+        hide
+        @should_exit = true
+        @text = nil
+        @screen.render
+      end
+
+      def toggle
+        @should_exit ? start : stop
+      end
+
+      def render
+        clear_pos true
+        if compact?
+          set_content "#{@icon.content} #{@text || @orig_text}", true
+          super false
+        else
+          set_content @text || @orig_text
+          super
+        end
+      end
+
+    end
   end
 end

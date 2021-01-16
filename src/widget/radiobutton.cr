@@ -1,53 +1,62 @@
 require "./radioset"
 
 module Crysterm
-  # Radio button element
-  class RadioButton < Checkbox
-    include EventHandler
+  module Widget
+    # Radio button element
+    class RadioButton < Checkbox
+      include EventHandler
 
-    getter value = false
+      # TODO option for changing icons
 
-    def initialize(value = false, **element)
-      super **element
-      @text = element["content"]? || ""
-      @value = value
+      # Add support for real toggling instead of unchecking
+      # other elements. So that one can even make a widget
+      # where only 1 is unchecked, the rest are all checked.
 
-      on(CheckEvent) do
-        el = self
-        while el && (el = el.parent)
-          if el.is_a?(RadioSet) #|| el.is_a?(Form)
-            break
-          end
-          el = el || parent
+      #getter value = false
 
-          el.try &.children.each do |cel|
-            next if !(cel.is_a? RadioButton) || cel == self
-            cel.uncheck if cel.is_a? RadioButton
+      #def initialize(value = false, **element)
+      def initialize(**checkbox)
+        super **checkbox
+
+        on(CheckEvent) do
+          el = self
+          while el && (el = el.parent)
+            if el.is_a?(RadioSet) #|| el.is_a?(Form)
+              break
+            end
+            el = el || parent
+
+            el.try &.each_descendant do |cel|
+              #next if !(cel.is_a? RadioButton) || cel == self
+              cel.uncheck if cel.is_a?(RadioButton) && cel != self
+            end
           end
         end
       end
-    end
 
-    def render
-      clear_pos true
-      set_content ("(" + (@value ? '*' : ' ') + ") " + @text), true
-      super
-    end
+      def render
+        clear_pos true
+        set_content ("(" + (@value ? '*' : ' ') + ") " + @text), true
+        super false
+      end
 
-    def check
-      return if @value
-      @value = true
-      emit CheckEvent
-    end
+      # XXX All these should be inherited from checkbox.
+      #
+      #def check
+      #  return if @value
+      #  @value = true
+      #  emit CheckEvent
+      #end
 
-    def uncheck
-      return unless @value
-      @value = false
-      emit UnCheckEvent
-    end
+      #def uncheck
+      #  return unless @value
+      #  @value = false
+      #  emit UnCheckEvent
+      #end
 
-    def toggle
-      check
+      #def toggle
+      #  check
+      #end
     end
   end
 end

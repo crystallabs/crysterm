@@ -1,8 +1,10 @@
 require "./node"
 
 module Crysterm
-  # Text element
-  class Text < Element
-    @resizable = true
+  module Widget
+    # Text element
+    class Text < Element
+      @resizable = true
+    end
   end
 end

@@ -236,12 +236,12 @@ module Crysterm
       false
     end
 
-    def each_descendant(with_self : Bool = false) : Nil
-      yield self if with_self
+    def each_descendant(with_self : Bool = false, &block : Proc(Node, Nil)) : Nil
+      block.call(self) if with_self
 
       f = uninitialized Node -> Nil
       f = ->(el : Node) {
-        yield el
+        block.call el
         el.children.each do |c|
           f.call c
         end

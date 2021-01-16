@@ -78,8 +78,10 @@ module Crysterm
 
   event PressEvent
 
-  event CheckEvent
-  event UnCheckEvent
+  event CheckEvent, value : Bool
+  event UnCheckEvent, value : Bool
 
   event MoveEvent
+
+  event CompleteEvent
 end

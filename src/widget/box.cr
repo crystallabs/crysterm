@@ -3,6 +3,8 @@ require "./element"
 
 module Crysterm
   # Box element
-  class Box < Element
+  module Widget
+    class Box < Element
+    end
   end
 end

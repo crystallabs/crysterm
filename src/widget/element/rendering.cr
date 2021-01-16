@@ -451,7 +451,7 @@ module Crysterm
           y = yi + 1
           while (y < yl - 1)
             if (!lines[y]?)
-              next
+              break
             end
             cell = lines[y][xi]?
             if (cell)

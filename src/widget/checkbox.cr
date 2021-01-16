@@ -3,68 +3,85 @@ require "./element"
 require "./input"
 
 module Crysterm
-  # Checkbox element
-  class Checkbox < Input
-    include EventHandler
+  module Widget
+    # Checkbox element
+    class Checkbox < Input
+      include EventHandler
 
-    getter value = false
+      # TODO support for changing icons
 
-    def initialize(value = false, **element)
-      super **element
+      # TODO potentially, turn toggle() into toggle_value() which
+      # does just that, and toggle_checked() which does what toggle()
+      # currently does and also calls render.
 
-      @text = element["content"]? || ""
-      @value = value
+      property? checked : Bool = false
+      property value : Bool = false
+      property text : String = ""
 
-      # on(KeyPressEvent) do |key|
-      #  if key.name==Enter || Space
-      #    toggle
-      #    @screen.render
-      #  end
-      # end
+      def initialize(checked : Bool = false, value : Bool? = nil, **input)
+        super **input
 
-      # TODO - why conditional? could be cool to trigger clicks by
-      # events even if mouse is disabled.
-      # if mouse
-      on(ClickEvent) do
-        toggle
-        @screen.render
+        @checked = checked
+
+        @value = value.nil? ? checked : value
+
+        input["content"]?.try do |c|
+          @text = c
+        end
+
+        on(KeyPressEvent) do |e|
+          #if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
+          if e.key == Tput::Key::Enter || e.char == ' '
+            e.accept!
+            toggle
+            @screen.render
+          end
+        end
+
+        # TODO - why conditional? could be cool to trigger clicks by
+        # events even if mouse is disabled.
+        # if mouse
+          on(ClickEvent) do
+            toggle
+            @screen.render
+          end
+        # end
+
+        on(FocusEvent) do
+          next unless lpos = @lpos
+          @screen.application.tput.lsave_cursor "checkbox"
+          @screen.application.tput.cursor_pos lpos.yi, lpos.xi + 1
+          @screen.application.tput.show_cursor
+        end
+
+        on(BlurEvent) do
+          @screen.application.tput.lrestore_cursor "checkbox", true
+        end
       end
-      # end
 
-      on(FocusEvent) do
-        lpos = @lpos
-        next if !lpos
-        @screen.application.tput.lsave_cursor "checkbox"
-        # XXX can this be a tput call? or needs more logic in crysterm?
-        @screen.application.tput.cup lpos.yi, lpos.xi + 1
-        @screen.application.tput.show_cursor
+      def render
+        clear_pos true
+        set_content ("[" + (checked? ? 'x' : ' ') + "] " + @text), true
+        super false
       end
 
-      on(BlurEvent) do
-        @screen.application.tput.lrestore_cursor "checkbox", true
+      def check
+        return if checked?
+        @checked = true
+        @value = !@value
+        emit CheckEvent, @value
       end
-    end
 
-    def render
-      clear_pos true
-      set_content ("[" + (@value ? 'x' : ' ') + "] " + @text), true
-      super
-    end
+      def uncheck
+        return unless checked?
+        @checked = false
+        @value = !@value
+        emit UnCheckEvent, @value
+      end
 
-    def check
-      return if @value
-      @value = true
-      emit CheckEvent
-    end
-
-    def uncheck
-      return unless @value
-      @value = false
-      emit UnCheckEvent
-    end
-
-    def toggle
-      @value ? uncheck : check
+      def toggle
+        checked? ? uncheck : check
+      end
     end
   end
 end
