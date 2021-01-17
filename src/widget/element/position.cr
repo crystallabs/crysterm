@@ -177,7 +177,7 @@ module Crysterm
 
         parent = @parent.not_nil!
 
-        if (@no_overflow && (plp = parent.lpos))
+        if ((parent.overflow == Overflow::ShrinkElement) && (plp = parent.lpos))
           if (xi < plp.xi + parent.ileft)
             xi = plp.xi + parent.ileft
           end

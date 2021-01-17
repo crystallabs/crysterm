@@ -120,4 +120,11 @@ module Crysterm
     Inline = 1
     Grid   = 2
   end
+
+  enum Overflow
+    Ignore
+    ShrinkElement
+    SkipElement
+    StopRendering
+  end
 end

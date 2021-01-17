@@ -348,22 +348,24 @@ module Crysterm
       self
     end
 
-    # Unused parts: just compatibility with `Node` interface.
+    ##### Unused parts: just compatibility with `Node` interface.
     def clear_pos
     end
 
     property border : Border?
 
-    # XXX These below are crap...
     # Inner/content positions:
+    # XXX Remove when possible
     property ileft = 0
     property itop = 0
     property iright = 0
     property ibottom = 0
-    property iwidth = 0 # XXX do width/height need to be columns/rows here?
-    property iheight = 0
+    #property iwidth = 0
+    #property iheight = 0
 
-    # End of unused parts.
+    property overflow = Overflow::Ignore
+
+    ##### End of unused parts.
 
     def hidden?
       false

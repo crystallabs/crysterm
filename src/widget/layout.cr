@@ -148,12 +148,9 @@ module Crysterm
           end
         end
 
-        # If our child overflows the Layout, do not render it!
-        # Disable this feature for now.
-        if (el.position.top.as(Int) + el.height > height)
-          # D O:
-          # Returning false makes us ignore this child.
-          # return false
+        # If our child overflows the Layout, skip it?
+        if (el.position.top.as(Int) + el.position.height.as(Int) > height)
+          return @overflow
         end
       }
     end
@@ -216,9 +213,13 @@ module Crysterm
         end
 
         rendered = iterator.call(el, i)
-        if rendered == false
+        case rendered
+        when Overflow::SkipElement
           el.lpos = nil
-          return
+          next
+        when Overflow::StopRendering
+          el.lpos = nil
+          break
         end
 
         # D O:
