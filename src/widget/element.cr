@@ -225,6 +225,10 @@ module Crysterm
     end
 
     def focus
+      # XXX Prevents getting multiple `FocusEvent`s. Remains to be
+      # seen whether that's good, or it should always happen, even
+      # if someone calls `#focus` multiple times in a row.
+      return if focused?
       @screen.focused = self
     end
 
