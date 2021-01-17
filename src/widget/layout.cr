@@ -5,12 +5,14 @@ module Crysterm
   class Layout < Element
     include EventHandler
 
-    @layout : String
+    @layout : LayoutType
     @renderer : Proc(Element, Int32)?
 
-    def initialize(@layout = LayoutType::Inline, @renderer = nil, **el)
-      if (!el["width"]? && (!el["left"]? && !el["right"])) ||
-         (!el["height"]? && (!el["top"]? && !el["bottom"]))
+    def initialize(@layout = LayoutType::Inline, @renderer = nil, **element)
+      el = element
+
+      if (!el["width"]? && (!el["left"]? && !el["right"]?)) ||
+         (!el["height"]? && (!el["top"]? && !el["bottom"]?))
         raise "Layout must have width and height"
       end
 
