@@ -8,12 +8,13 @@ module Crysterm
       property censor : Bool = false
       #property value : String = ""
 
+      @scrollable = false
+
       def initialize(
         secret = nil,
         censor = nil,
         **textarea
       )
-        @scrollable = false
 
         super **textarea
 
@@ -21,7 +22,15 @@ module Crysterm
         censor.try { |v| @censor = v }
       end
 
-      def set_value(value = nil)
+      def _listener(e : KeyPressEvent)
+        if e.key == Tput::Key::Enter
+          @_done.try &.call nil, @value
+          return
+        end
+        super
+      end
+
+      def value=(value=nil)
         value ||= @value
 
         if @_value != value
@@ -34,9 +43,12 @@ module Crysterm
           elsif @censor
             set_content "*" * value.size
           else
-            visible = -(width - iwidth - 1)
             val = @value.gsub /\t/, @screen.tabc
-            set_content val[visible...]
+            visible = (width - iwidth - 1)
+            if visible > val.size
+              visible = val.size
+            end
+            set_content val[-visible..]
           end
 
           _update_cursor
@@ -44,9 +56,7 @@ module Crysterm
       end
 
       def submit
-        # TODO
-        #return unless @__listener
-        #@__listener.call '\r', { "name" => "enter" }
+        @__listener.try &.call KeyPressEvent.new '\r', Tput::Key::Enter
       end
 
     end

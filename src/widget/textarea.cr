@@ -14,7 +14,7 @@ module Crysterm
       getter value : String = ""
       @_value = ""
 
-      property _done : Proc(KeyPressEvent, Nil)?
+      property _done : Proc(String?, String?, Nil)?
       property __done : Proc(String?, String?, Nil)?
       property __listener : Proc(KeyPressEvent, Nil)?
 
@@ -156,7 +156,7 @@ module Crysterm
           # TODO can optimize by writing directly to screen buffer
           # here.
           if k == Tput::Key::Escape
-            done
+            done.try &.call nil, nil
           elsif k == Tput::Key::Backspace
             if @value.size > 0
               # TODO if full unicode...
