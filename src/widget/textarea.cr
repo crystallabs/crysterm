@@ -91,9 +91,12 @@ module Crysterm
 
         # XXX Not sure, but this may still sometimes
         # cause problems when leaving editor.
-        if (cy == app.tput.cursor.y && cx == app.tput.cursor.x)
-          return
-        end
+        # E O:
+        #if (cy == app.tput.cursor.y) && (cx == app.tput.cursor.x)
+        #  return
+        #end
+        # That check is redundant because the below logic also does
+        # the same (no-op if cursor is already at coords.)
 
         if (cy == app.tput.cursor.y)
           if (cx > app.tput.cursor.x)
@@ -101,7 +104,7 @@ module Crysterm
           elsif (cx < app.tput.cursor.x)
             app.tput.cub(app.tput.cursor.x - cx)
           end
-        elsif (cx === app.tput.cursor.x)
+        elsif (cx == app.tput.cursor.x)
           if (cy > app.tput.cursor.y)
             app.tput.cud(cy - app.tput.cursor.y)
           elsif (cy < app.tput.cursor.y)
@@ -132,10 +135,14 @@ module Crysterm
       def _listener(e)
         done = @_done
         value = @value
+        also_check_char = false
 
         if k = e.key
           #return if k == Tput::Key::Return
-          #ch = '\n' if k == Tput::Key::Enter
+          if k == Tput::Key::Enter
+            e.char = '\n'
+            also_check_char = true
+          end
 
           # TODO handle directions
           if [Tput::Key::Left, Tput::Key::Up, Tput::Key::Right, Tput::Key::Down].includes? k
@@ -159,8 +166,9 @@ module Crysterm
               end
             end
           end
+        end
 
-        elsif e.char # so, !e.key
+        if e.char && (!e.key || also_check_char)
           # XXX damn, to_s
           unless e.char.to_s.match /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
             @value += e.char
@@ -225,10 +233,10 @@ module Crysterm
         @screen.grab_keys = true
 
         _update_cursor
-
         @screen.application.tput.show_cursor
+
         # D O:
-        # @screen.application.tput.sgr "normal"
+        #@screen.application.tput.sgr "normal"
 
         # Define _done_default
 

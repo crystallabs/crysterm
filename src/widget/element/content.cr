@@ -33,11 +33,16 @@ module Crysterm
       property content : String = ""
 
       # Printable, word-wrapped content, ready for rendering into the element.
-      private property _pcontent : String?
+      property _pcontent : String?
 
       def set_content(content = "", no_clear = false, no_tags = false)
         clear_pos unless no_clear
+
+        # XXX make it possible to have `update_context`, which only updates
+        # internal structures, not @content (for rendering purposes, where
+        # original content should not be modified).
         @content = content
+
         parse_content(no_tags)
         emit(SetContentEvent)
       end
@@ -408,7 +413,7 @@ module Crysterm
             next
           end
 
-          if line && !line.blank?
+          if line
             outbuf.push(_align(line, colwidth, align))
             ftor[no].push(outbuf.size - 1)
             rtof.push(no)

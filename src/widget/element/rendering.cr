@@ -260,7 +260,10 @@ module Crysterm
                 end
                 x += 1
               end
-              next
+
+              # It was a newline; we've filled the row to the end, we
+              # can move to the next row.
+              break
             end
 
             # TODO

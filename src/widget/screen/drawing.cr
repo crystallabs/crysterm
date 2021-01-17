@@ -335,10 +335,11 @@ module Crysterm
         unless main.empty?
           pre = ""
           post = ""
+          hidden = application.tput.cursor_hidden?
 
           (application.tput.ret = IO::Memory.new).try do |ret|
             application.tput.save_cursor
-            if !application.tput.cursor_hidden?
+            if !hidden
               application.tput.hide_cursor
             end
 
@@ -348,7 +349,7 @@ module Crysterm
 
           (application.tput.ret = IO::Memory.new).try do |ret|
             application.tput.restore_cursor
-            if !application.tput.cursor_hidden?
+            if !hidden
               application.tput.show_cursor
             end
 
