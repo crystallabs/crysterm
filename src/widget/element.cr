@@ -14,8 +14,12 @@ module Crysterm
     include Element::Rendering
     include Element::Pos
 
-    # document XXX
-    property no_overflow : Bool
+    # Forcibly shrink widget when necessary to prevent overflowing the parent's dimensions?
+    #
+    # When false, overflow will be allowed, and overflowed elements will still be displayed,
+    # rendering outside of the parent's margins. There is support in the code for also
+    # not showing overflowing elements, but this feature is currently disabled and non-configurable.
+    property no_overflow : Bool = false
 
     # Dock borders? (See `Screen#dock_borders?` for more information)
     @dock_borders : Bool
@@ -110,7 +114,7 @@ module Crysterm
       @valign = "top",
       position : Tput::Position? = nil,
       resizable = nil,
-      @no_overflow = true,
+      no_overflow = nil,
       @dock_borders = true,
       @shadow = false,
       style : Style? = nil,
@@ -135,6 +139,7 @@ module Crysterm
       resizable.try { |v| @resizable = v }
       hidden.try { |v| @hidden = v }
       scrollable.try { |v| @scrollable = v }
+      no_overflow.try { |v| @no_overflow = v }
 
       super **node
 

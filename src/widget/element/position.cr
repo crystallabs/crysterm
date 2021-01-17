@@ -216,8 +216,8 @@ module Crysterm
       # Positioning
 
       def _get_width(get)
-        raise "No parent" unless parent = @parent
-        parent = get ? parent._get_pos : parent
+
+        parent = get ? @parent.try(&._get_pos) : @parent
         unless parent
           raise "Something"
         end
@@ -254,11 +254,14 @@ module Crysterm
             left += expr[1].to_i if expr[1]?
           end
           width = (parent.width || 0) - (@position.right || 0) - left
-          if (@screen.auto_padding)
-            if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
-              width -= parent.ileft
+
+          @parent.try do |pparent|
+            if (@screen.auto_padding)
+              if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
+                width -= pparent.ileft
+              end
+              width -= pparent.iright
             end
-            width -= parent.iright
           end
         end
 
@@ -270,8 +273,8 @@ module Crysterm
       end
 
       def _get_height(get)
-        raise "No parent" unless parent = @parent
-        parent = get ? parent._get_pos : parent
+
+        parent = get ? @parent.try(&._get_pos) : @parent
         unless parent
           raise "Something"
         end
@@ -308,11 +311,14 @@ module Crysterm
             top += expr[1].to_i if expr[1]?
           end
           height = (parent.height || 0) - (@position.bottom || 0) - top
-          if (@screen.auto_padding)
-            if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
-              height -= parent.itop
+
+          @parent.try do |pparent|
+            if (@screen.auto_padding)
+              if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
+                height -= pparent.itop
+              end
+              height -= pparent.ibottom
             end
-            height -= parent.ibottom
           end
         end
 
@@ -324,8 +330,8 @@ module Crysterm
       end
 
       def _get_left(get)
-        raise "No parent" unless parent = @parent
-        parent = get ? parent._get_pos : parent
+
+        parent = get ? @parent.try(&._get_pos) : @parent
         unless parent
           raise "Something"
         end
@@ -349,9 +355,11 @@ module Crysterm
           return @screen.width - _get_width(get) - _get_right(get)
         end
 
-        if (@screen.auto_padding)
-          if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
-            left += parent.ileft
+        @parent.try do |pparent|
+          if (@screen.auto_padding)
+            if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
+              left += pparent.ileft
+            end
           end
         end
 
@@ -363,22 +371,26 @@ module Crysterm
       end
 
       def _get_right(get)
-        raise "No parent" unless parent = @parent
-        parent = get ? parent._get_pos : parent
+
+        parent = get ? @parent.try(&._get_pos) : @parent
         unless parent
           raise "Something"
         end
 
         if @position.right.nil? && !@position.left.nil?
           right = @screen.width - (_get_left(get) + _get_width(get))
-          if (@screen.auto_padding)
-            right += parent.iright
+          @parent.try do |pparent|
+            if (@screen.auto_padding)
+              right += pparent.iright
+            end
           end
         end
 
         right = (parent.aright || 0) + (@position.right || 0)
-        if (@screen.auto_padding)
-          right += parent.iright
+        @parent.try do |pparent|
+          if (@screen.auto_padding)
+            right += pparent.iright
+          end
         end
 
         right
@@ -389,8 +401,8 @@ module Crysterm
       end
 
       def _get_top(get)
-        raise "No parent" unless parent = @parent
-        parent = get ? parent._get_pos : parent
+
+        parent = get ? @parent.try(&._get_pos) : @parent
         unless parent
           raise "Something"
         end
@@ -413,9 +425,11 @@ module Crysterm
           return @screen.height - _get_height(get) - _get_bottom(get)
         end
 
-        if (@screen.auto_padding)
-          if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
-            top += parent.itop
+        @parent.try do |pparent|
+          if (@screen.auto_padding)
+            if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
+              top += pparent.itop
+            end
           end
         end
 
@@ -427,24 +441,28 @@ module Crysterm
       end
 
       def _get_bottom(get)
-        raise "No parent" unless parent = @parent
-        parent = get ? parent._get_pos : parent
+
+        parent = get ? @parent.try(&._get_pos) : @parent
         unless parent
           raise "Something"
         end
 
         if @position.bottom.nil? && !@position.top.nil?
           bottom = @screen.height - (_get_top(get) + _get_height(get))
-          if (@screen.auto_padding)
-            bottom += parent.ibottom
+          @parent.try do |pparent|
+            if (@screen.auto_padding)
+              bottom += pparent.ibottom
+            end
           end
           return bottom
         end
 
         bottom = (parent.abottom || 0) + (@position.bottom || 0)
 
-        if (@screen.auto_padding)
-          bottom += parent.ibottom
+        @parent.try do |pparent|
+          if (@screen.auto_padding)
+            bottom += pparent.ibottom
+          end
         end
 
         bottom
@@ -614,8 +632,10 @@ module Crysterm
         (@border ? 2 : 0) + @padding.top + @padding.bottom
       end
 
+      # Rendition and rendering
+
       def _get_shrink_box(xi, xl, yi, yl, get)
-        if (@children.size == 0)
+        if @children.empty?
           return ShrinkBox.new xi: xi, xl: xi + 1, yi: yi, yl: yi + 1
         end
 
@@ -635,7 +655,7 @@ module Crysterm
           _lpos = @lpos
           @lpos = LPos.new xi: xi, xl: xl, yi: yi, yl: yl
           # D O:
-          # @resizable? = false
+          # @resizable = false
         end
 
         @children.each_with_index do |el, i|
@@ -691,7 +711,7 @@ module Crysterm
         if (get)
           @lpos = _lpos
           # D O:
-          # @resizable? = true
+          # @resizable = true
         end
 
         if (@position.width.nil? && (@position.left.nil? || @position.right.nil?))
@@ -707,9 +727,10 @@ module Crysterm
             if (!@screen.auto_padding)
               xl += @padding.left + @padding.right
               # XXX Temporary workaround until we decide to make auto_padding default.
-              # See widget-listtable.js for an example of why this is necessary.
+              # See widget-listtable for an example of why this is necessary.
               # XXX Maybe just to this for all this being that this would affect
               # width shrunken normal shrunken lists as well.
+              # D O:
               # if (@_isList)
               if is_a? ListTable
                 xl -= @padding.left + @padding.right
@@ -750,7 +771,6 @@ module Crysterm
         ShrinkBox.new xi: xi, xl: xl, yi: yi, yl: yl
       end
 
-      # Rendition and rendering
       def _get_shrink_content(xi, xl, yi, yl)
         h = @_clines.size
         w = @_clines.mwidth || 1
@@ -759,23 +779,21 @@ module Crysterm
         # If a person sets resizable: true, this is expected to happen
         # no matter what; not only if other coordinates are also left empty.
 
-        # if (@position.width.nil? &&
-        #   (@position.left.nil? || @position.right.nil?))
-        if (@position.left.nil? && !@position.right.nil?)
-          xi = xl - w - iwidth
-        else
-          xl = xi + w + iwidth
+         if (@position.width.nil? && (@position.left.nil? || @position.right.nil?))
+          if @position.left.nil? && !@position.right.nil?
+            xi = xl - w - iwidth
+          else
+            xl = xi + w + iwidth
+          end
         end
         # end
 
-        # if (@position.height.nil? &&
-        #   (@position.top.nil? || @position.bottom.nil?) &&
-        #   (!@scrollable || @_isList))
-        if (!@scrollable || @_isList)
+         if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) &&
+           (!@scrollable || @_isList))
           if (@position.top.nil? && !@position.bottom.nil?)
-            yi = yl - h - (iheight == 1 ? 0 : iheight)
+            yi = yl - h - iheight #(iheight == 1 ? 0 : iheight)
           else
-            yl = yi + h + (iheight == 1 ? 0 : iheight)
+            yl = yi + h + iheight #(iheight == 1 ? 0 : iheight)
           end
         end
 
@@ -840,7 +858,7 @@ module Crysterm
         pos = @lpos
         pos.try do |pos|
           # If it already has a pos, just return.
-          return pos if !pos.aleft.nil?
+          return pos if !pos.responds_to? :aleft
 
           pos.aleft = pos.xi
           pos.atop = pos.yi

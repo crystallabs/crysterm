@@ -26,8 +26,8 @@ module Crysterm
 
     # Get last coordinates of a child element
     def get_last(i)
-      i -= 1
       i.downto 1 do
+        i -= 1
         return @children[i] if rendered?(@children[i])
       end
       nil
@@ -122,13 +122,15 @@ module Crysterm
           end
         end
 
-        # Make sure the elements on lower rows graviatate up as much as possible
+        # Make sure the elements on lower rows gravitate up as much as possible
         if (@layout == LayoutType::Inline)
           above = nil
           abovea = Int32::MAX
-          (last_row_index...row_index).each do |j|
+          j = last_row_index
+          while j < row_index
             l = @children[j]
             if (!rendered?(l))
+              j += 1
               next
             end
             abs = (el.position.left.as(Int) - (l.lpos.not_nil!.xi - xi)).abs
@@ -138,8 +140,10 @@ module Crysterm
               above = l
               abovea = abs
             end
+
+            j+= 1
           end
-          if (above)
+          if above
             el.position.top = above.lpos.not_nil!.yl - yi
           end
         end
@@ -147,7 +151,8 @@ module Crysterm
         # If our child overflows the Layout, do not render it!
         # Disable this feature for now.
         if (el.position.top.as(Int) + el.height > height)
-          # Returning false tells blessed to ignore this child.
+          # D O:
+          # Returning false makes us ignore this child.
           # return false
         end
       }
@@ -211,7 +216,7 @@ module Crysterm
         end
 
         rendered = iterator.call(el, i)
-        if (rendered == false)
+        if rendered == false
           el.lpos = nil
           return
         end

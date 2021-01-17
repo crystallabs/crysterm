@@ -74,10 +74,10 @@ module Crysterm
         property width : Int32? = nil
         property height : Int32? = nil
 
-        property ileft : Int32 = 0
-        property itop : Int32 = 0
-        property iright : Int32 = 0
-        property ibottom : Int32 = 0
+        #property ileft : Int32 = 0
+        #property itop : Int32 = 0
+        #property iright : Int32 = 0
+        #property ibottom : Int32 = 0
 
         def initialize(
           @xi = 0,
@@ -90,6 +90,8 @@ module Crysterm
           @notop = false,
           @nobot = false,
           @renders = 0,
+
+          # Disable all this:
           @aleft = nil,
           @atop = nil,
           @aright = nil,
