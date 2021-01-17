@@ -325,11 +325,12 @@ module Crysterm
 
     def self.sattr(style, fg = nil, bg = nil)
       # See why this can be nil
-      style = style.not_nil!
+      # XXX Don't insert default this crude.
+      style = style || Style.new
 
       if fg.nil? && bg.nil?
-        fg = style.fg
-        bg = style.bg
+        fg = style.try &.fg
+        bg = style.try &.bg
       end
 
       # Support style.* being Procs
