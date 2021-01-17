@@ -84,7 +84,7 @@ module Crysterm
                 (application.tput.ret = IO::Memory.new).try do |ret|
                   application.tput.cup(y, x)
                   application.tput.el
-                  outbuf += ret.gets_to_end
+                  outbuf += ret.rewind.gets_to_end
                   application.tput.ret = nil
                 end
                 #### #### ####
@@ -343,7 +343,7 @@ module Crysterm
               application.tput.hide_cursor
             end
 
-            pre += ret.gets_to_end
+            pre += ret.rewind.gets_to_end
             application.tput.ret = nil
           end
 
@@ -353,7 +353,7 @@ module Crysterm
               application.tput.show_cursor
             end
 
-            post += ret.gets_to_end
+            post += ret.rewind.gets_to_end
             application.tput.ret = nil
           end
 

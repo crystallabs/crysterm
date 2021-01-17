@@ -54,7 +54,7 @@ module Crysterm
       input = STDIN.dup,
       output = STDOUT.dup,
       @log = ::Log.for(self.class),
-      @use_buffer = true,
+      @use_buffer = false,
       @force_unicode = false,
       @resize_timeout = 0.3.seconds,
       terminfo : Bool | Unibilium::Terminfo = true,
