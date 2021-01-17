@@ -120,6 +120,7 @@ module Crysterm
       content = "",
       label = nil,
       hover_text = nil,
+      scrollable = nil,
       # hover_bg=nil,
       @draggable = false,
       focused = false,
@@ -133,6 +134,7 @@ module Crysterm
     )
       resizable.try { |v| @resizable = v }
       hidden.try { |v| @hidden = v }
+      scrollable.try { |v| @scrollable = v }
 
       super **node
 
