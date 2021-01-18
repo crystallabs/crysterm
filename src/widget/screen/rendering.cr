@@ -20,6 +20,8 @@ module Crysterm
         end
       end
 
+      #class_property auto_draw = false
+
       @_buf = ""
       property _ci = -1
 
@@ -112,7 +114,7 @@ module Crysterm
         end
       end
 
-      def render
+      def render(draw = true) #@@auto_draw)
         return if destroyed?
 
         emit PreRenderEvent
@@ -143,7 +145,9 @@ module Crysterm
           _dock_borders
         end
 
-        draw 0, @lines.size - 1
+        #draw 0, @lines.size - 1 if draw
+        #self.draw if draw
+        schedule_draw
 
         # Workaround to deal with cursor pos before the screen
         # has rendered and lpos is not reliable (stale).

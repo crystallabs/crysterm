@@ -58,7 +58,8 @@ module Crysterm
     property sequence : Array(Char)
     property? accepted : Bool = false
 
-    def initialize(@char, @key = nil, @sequence = [@char])
+    def initialize(char, @key = nil, @sequence = [char])
+      @char = char
     end
 
     def accept!

@@ -94,6 +94,8 @@ module Crysterm
 
       enter
       post_enter
+
+      spawn draw_loop
     end
 
     # This is for the bottom-up approach where the keys are
@@ -300,6 +302,9 @@ module Crysterm
     # If no screens remain, the application is essentially reset to its initial state.
     def destroy
       leave
+
+      @draw_flag.set 2
+
       if @@instances.delete self
         if @@instances.any?
           @@global = @@instances[0]

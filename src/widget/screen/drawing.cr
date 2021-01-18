@@ -1,6 +1,32 @@
 module Crysterm
   class Screen < Node
     module Drawing
+
+      @draw_flag : Atomic(UInt8) = Atomic.new 0u8
+      @channel : Channel(Bool) = Channel(Bool).new
+      @interval : Float64 = 1/29
+
+      def schedule_draw
+        _old, succeeded = @draw_flag.compare_and_set 0, 1
+        if succeeded
+          @channel.send true
+        end
+      end
+
+      def draw_loop
+        loop do
+          if @channel.receive
+            sleep @interval
+          end
+          draw
+          if @draw_flag.lazy_get == 2
+            break
+          else
+            @draw_flag.swap 0
+          end
+        end
+      end
+
       # Draws the screen based on the contents of the output buffer.
       def draw(start = 0, stop = @lines.size - 1)
         # D O:

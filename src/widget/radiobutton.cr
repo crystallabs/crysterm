@@ -24,12 +24,16 @@ module Crysterm
             if el.is_a?(RadioSet) # || el.is_a?(Form)
               break
             end
-            el = el || parent
+          end
+          el = el || parent
 
-            el.try &.each_descendant do |cel|
-              # next if !(cel.is_a? RadioButton) || cel == self
-              cel.uncheck if cel.is_a?(RadioButton) && cel != self
-            end
+          #el.try &.each_descendant do |cel|
+          #  # next if !(cel.is_a? RadioButton) || cel == self
+          #  cel.toggle if cel.is_a?(RadioButton) && cel != self
+          #end
+          el.try &.children.each do |cel|
+            # next if !(cel.is_a? RadioButton) || cel == self
+            cel.uncheck if cel.is_a?(RadioButton) && cel != self
           end
         end
       end
@@ -40,23 +44,6 @@ module Crysterm
         super false
       end
 
-      # XXX All these should be inherited from checkbox.
-      #
-      # def check
-      #  return if @value
-      #  @value = true
-      #  emit CheckEvent
-      # end
-
-      # def uncheck
-      #  return unless @value
-      #  @value = false
-      #  emit UnCheckEvent
-      # end
-
-      # def toggle
-      #  check
-      # end
     end
   end
 end

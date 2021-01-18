@@ -11,7 +11,7 @@ module Crysterm
 
       property __update_cursor : Proc(Nil)?
 
-      getter value : String = ""
+      property value : String = ""
       @_value = ""
 
       property _done : Proc(String?, String?, Nil)?
