@@ -20,6 +20,31 @@ module Crysterm
         end
       end
 
+      @render_flag : Atomic(UInt8) = Atomic.new 0u8
+      @render_channel : Channel(Bool) = Channel(Bool).new
+      @interval : Float64 = 1/29
+
+      def schedule_render
+        _old, succeeded = @render_flag.compare_and_set 0, 1
+        if succeeded
+          @render_channel.send true
+        end
+      end
+
+      def render_loop
+        loop do
+          if @render_channel.receive
+            sleep @interval
+          end
+          _render
+          if @render_flag.lazy_get == 2
+            break
+          else
+            @render_flag.swap 0
+          end
+        end
+      end
+
       #class_property auto_draw = false
 
       @_buf = ""
@@ -114,7 +139,13 @@ module Crysterm
         end
       end
 
-      def render(draw = true) #@@auto_draw)
+      # Delayed render (user render)
+      def render
+        schedule_render
+      end
+
+      # Real render
+      def _render #(draw = true) #@@auto_draw)
         return if destroyed?
 
         emit PreRenderEvent
@@ -147,7 +178,7 @@ module Crysterm
 
         #draw 0, @lines.size - 1 if draw
         #self.draw if draw
-        schedule_draw
+        draw
 
         # Workaround to deal with cursor pos before the screen
         # has rendered and lpos is not reliable (stale).
