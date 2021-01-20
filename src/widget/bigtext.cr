@@ -73,9 +73,9 @@ module Crysterm
         end
 
         lines = lines.map do |line|
-          chs = line.split ""
+          chs = line.chars #line.split ""
           chs = chs.map do |ch|
-            (ch == " ") ? 0 : 1
+            (ch == ' ') ? 0 : 1
           end
           while chs.size < @ratio.width
             chs.push 0

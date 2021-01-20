@@ -39,9 +39,9 @@ module Crysterm
         end
       end
 
-      @rps = Average.new 60
-      @dps = Average.new 60
-      @fps = Average.new 60
+      @rps = Average.new 30
+      @dps = Average.new 30
+      @fps = Average.new 30
 
       def render_loop
         loop do
