@@ -31,6 +31,18 @@ module Crysterm
         end
       end
 
+      class Average < Deque(Int32)
+        def avg(value)
+          shift if size == @capacity
+          push value
+          sum // size
+        end
+      end
+
+      @rps = Average.new 300
+      @dps = Average.new 300
+      @fps = Average.new 300
+
       def render_loop
         loop do
           if @render_channel.receive
@@ -146,6 +158,8 @@ module Crysterm
 
       # Real render
       def _render #(draw = true) #@@auto_draw)
+        t1 = Time.monotonic
+
         return if destroyed?
 
         emit PreRenderEvent
@@ -176,6 +190,8 @@ module Crysterm
           _dock_borders
         end
 
+        t2 = Time.monotonic
+
         #draw 0, @lines.size - 1 if draw
         #self.draw if draw
         draw
@@ -188,6 +204,21 @@ module Crysterm
         @renders += 1
 
         emit RenderEvent
+
+        t3 = Time.monotonic
+
+        if pos = @show_fps
+          #{ rps, dps, fps }
+          ps = { 1//(t2 - t1).total_seconds, 1//(t3 - t2).total_seconds, 1//(t3 - t1).total_seconds }
+
+          @screen.application.tput.save_cursor
+          @screen.application.tput.pos pos
+          @screen.application.tput._print { |io| io << "R/D/FPS: " << ps[0] << '/' << ps[1] << '/' << ps[2] }
+          if @show_avg
+            @screen.application.tput._print { |io| io << " (" << @rps.avg(ps[0]) << '/' << @dps.avg(ps[1]) << '/' << @fps.avg(ps[2]) << ')' }
+          end
+          @screen.application.tput.restore_cursor
+        end
       end
     end
   end

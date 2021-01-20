@@ -2,6 +2,9 @@ module Crysterm
   class Screen < Node
     module Drawing
 
+      @outbuf : IO::Memory = IO::Memory.new 10240
+      @main : IO::Memory = IO::Memory.new 10240
+
       # Draws the screen based on the contents of the output buffer.
       def draw(start = 0, stop = @lines.size - 1)
         # D O:
@@ -10,15 +13,15 @@ module Crysterm
         # pre , post
         # clr , neq , xx
         # acs
-        main = ""
+        @main.clear
+        @outbuf.clear
         lx = -1
         ly = -1
         acs = false
         s = application.tput.shim.not_nil!
 
         if @_buf
-          # TODO Turn main, and if possible @_buf, into a string builder.
-          main += @_buf
+          @main.print @_buf
           @_buf = ""
         end
 
@@ -36,7 +39,8 @@ module Crysterm
 
           # Assume line is dirty by continuing: (XXX need to optimize)
 
-          outbuf = ""
+          @outbuf.clear
+
           attr = @dattr
 
           line.size.times do |x|
@@ -76,7 +80,7 @@ module Crysterm
                 lx = -1
                 ly = -1
                 if (data != attr)
-                  outbuf += code_attr(data)
+                  @outbuf.print code_attr(data)
                   attr = data
                 end
 
@@ -85,7 +89,7 @@ module Crysterm
                 (application.tput.ret = IO::Memory.new).try do |ret|
                   application.tput.cup(y, x)
                   application.tput.el
-                  outbuf += ret.rewind.gets_to_end
+                  @outbuf .print ret.rewind.gets_to_end
                   application.tput.ret = nil
                 end
                 #### #### ####
@@ -106,20 +110,20 @@ module Crysterm
               # if (!clr && neq && (xx - x) > 10)
               #   lx = -1; ly = -1
               #   if (data != attr)
-              #     outbuf += code_attr(data)
+              #     @outbuf.print code_attr(data)
               #     attr = data
               #   end
-              #   outbuf += application.tput.cup(y, x)
+              #   @outbuf.print application.tput.cup(y, x)
               #   if (application.tput.strings.erase_chars)
               #     # Use erase_chars to avoid erasing the whole line.
-              #     outbuf += application.tput.ech(xx - x)
+              #     @outbuf.print application.tput.ech(xx - x)
               #   else
-              #     outbuf += application.tput.el()
+              #     @outbuf.print application.tput.el()
               #   end
               #   if (application.tput.strings.parm_right_cursor)
-              #     outbuf += application.tput.cuf(xx - x)
+              #     @outbuf.print application.tput.cuf(xx - x)
               #   else
-              #     outbuf += application.tput.cup(y, xx)
+              #     @outbuf.print application.tput.cup(y, xx)
               #   end
               #   fill_region(data, ' ', x, application.tput.strings.erase_chars ? xx : line.length, y, y + 1)
               #   x = xx - 1
@@ -151,9 +155,9 @@ module Crysterm
               next
             elsif (lx != -1)
               if (s.parm_right_cursor?)
-                outbuf += String.new ((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
+                @outbuf.print String.new ((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
               else
-                outbuf += String.new s.cup(y, x)
+                @outbuf.print String.new s.cup(y, x)
               end
               lx = -1
               ly = -1
@@ -161,39 +165,45 @@ module Crysterm
             o[x].attr = data
             o[x].char = ch
 
+
             if (data != attr)
               if (attr != @dattr)
-                outbuf += "\x1b[m"
+                @outbuf.print "\x1b[m"
               end
               if (data != @dattr)
-                outbuf += "\x1b["
+                @outbuf.print "\x1b["
+
+                # This will keep track whether any of the attrs were
+                # written into the buffer. If they were, then we'll seek
+                # to (current_pos)-1 to delete the last ';'
+                outbuf_size = @outbuf.size
 
                 bg = data & 0x1ff
                 fg = (data >> 9) & 0x1ff
                 flags = data >> 18
                 # bold
                 if ((flags & 1) != 0)
-                  outbuf += "1;"
+                  @outbuf.print "1;"
                 end
 
                 # underline
                 if ((flags & 2) != 0)
-                  outbuf += "4;"
+                  @outbuf.print "4;"
                 end
 
                 # blink
                 if ((flags & 4) != 0)
-                  outbuf += "5;"
+                  @outbuf.print "5;"
                 end
 
                 # inverse
                 if ((flags & 8) != 0)
-                  outbuf += "7;"
+                  @outbuf.print "7;"
                 end
 
                 # invisible
                 if ((flags & 16) != 0)
-                  outbuf += "8;"
+                  @outbuf.print "8;"
                 end
 
                 if (bg != 0x1ff)
@@ -205,9 +215,9 @@ module Crysterm
                       bg -= 8
                       bg += 100
                     end
-                    outbuf += "#{bg};"
+                    @outbuf.print "#{bg};"
                   else
-                    outbuf += "48;5;#{bg};"
+                    @outbuf.print "48;5;#{bg};"
                   end
                 end
 
@@ -220,18 +230,20 @@ module Crysterm
                       fg -= 8
                       fg += 90
                     end
-                    outbuf += "#{fg};"
+                    @outbuf.print "#{fg};"
                   else
-                    outbuf += "38;5;#{fg};"
+                    @outbuf.print "38;5;#{fg};"
                   end
                 end
 
-                if (outbuf[-1] == ';')
-                  outbuf = outbuf[...-1]
+                if @outbuf.size != outbuf_size
+                  # Something was written to the buffer during the code above,
+                  # and it surely contains a ';' at the end. Conveniently remove it.
+                  @outbuf.seek -1, IO::Seek::Current
                 end
 
-                outbuf += 'm'
-                Log.trace { outbuf.inspect }
+                @outbuf.print 'm'
+                #Log.trace { @outbuf.inspect }
               end
             end
 
@@ -314,26 +326,27 @@ module Crysterm
               end
             end
 
-            outbuf += ch
+            @outbuf.print ch
             attr = data
           end
 
           if (attr != @dattr)
-            outbuf += "\x1b[m"
+            @outbuf.print "\x1b[m"
           end
 
-          unless outbuf.empty?
-            # TODO, again remove strings use
-            main += String.new(s.cup(y, 0).to_slice) + outbuf
+          unless @outbuf.empty?
+            #STDERR.puts @outbuf.size
+            @main.write s.cup(y, 0) #.to_slice)
+            @main.print @outbuf.rewind.gets_to_end
           end
         end
 
         if (acs)
-          main += String.new s.rmacs
+          @main.write s.rmacs
           acs = false
         end
 
-        unless main.empty?
+        unless @main.size == 0
           pre = ""
           post = ""
           hidden = application.tput.cursor_hidden?
@@ -360,12 +373,12 @@ module Crysterm
 
           # D O:
           # application.flush()
-          # application._owrite(pre + main + post)
-          application.tput._print(pre + main + post)
+          # application._owrite(pre + @main + post)
+          application.tput._print { |io| io << pre << @main.rewind.gets_to_end << post }
         end
 
         # D O:
-        emit DrawEvent
+        #emit DrawEvent
       end
 
       def blank_line(ch, dirty)
