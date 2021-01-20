@@ -39,9 +39,9 @@ module Crysterm
         end
       end
 
-      @rps = Average.new 300
-      @dps = Average.new 300
-      @fps = Average.new 300
+      @rps = Average.new 60
+      @dps = Average.new 60
+      @fps = Average.new 60
 
       def render_loop
         loop do
@@ -59,7 +59,7 @@ module Crysterm
 
       #class_property auto_draw = false
 
-      @_buf = ""
+      @_buf = IO::Memory.new
       property _ci = -1
 
       property _border_stops = {} of Int32 => Bool

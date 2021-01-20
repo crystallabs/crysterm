@@ -20,9 +20,9 @@ module Crysterm
         acs = false
         s = application.tput.shim.not_nil!
 
-        if @_buf
+        if @_buf.size > 0
           @main.print @_buf
-          @_buf = ""
+          @_buf.clear
         end
 
         Log.trace { "Drawing #{start}..#{stop}" }
@@ -401,10 +401,10 @@ module Crysterm
           return
         end
 
-        @_buf += application.tput.csr(top, bottom)
-        @_buf += application.tput.cup(y, 0)
-        @_buf += application.tput.il(n)
-        @_buf += application.tput.csr(0, height - 1)
+        @_buf.write application.tput.csr(top, bottom)
+        @_buf.write application.tput.cup(y, 0)
+        @_buf.write application.tput.il(n)
+        @_buf.write application.tput.csr(0, height - 1)
 
         j = bottom + 1
 
@@ -428,10 +428,10 @@ module Crysterm
           return
         end
 
-        @_buf += application.tput.csr(top, bottom)
-        @_buf += application.tput.cup(top, 0)
-        @_buf += application.tput.dl(n)
-        @_buf += application.tput.csr(0, height - 1)
+        @_buf.write application.tput.csr(top, bottom)
+        @_buf.write application.tput.cup(top, 0)
+        @_buf.write application.tput.dl(n)
+        @_buf.write application.tput.csr(0, height - 1)
 
         j = bottom + 1
 
@@ -457,10 +457,10 @@ module Crysterm
           return
         end
 
-        this._buf += this.tput.csr(top, bottom)
-        this._buf += this.tput.cup(y, 0)
-        this._buf += this.tput.dl(n)
-        this._buf += this.tput.csr(0, this.height - 1)
+        @_buf.write this.tput.csr(top, bottom)
+        @_buf.write this.tput.cup(y, 0)
+        @_buf.write this.tput.dl(n)
+        @_buf.write this.tput.csr(0, this.height - 1)
         var j = bottom + 1
         while n > 0
           n -= 1
@@ -483,10 +483,10 @@ module Crysterm
           return
         end
 
-        @_buf += application.tput.csr(top, bottom)
-        @_buf += application.tput.cup(bottom, 0)
-        @_buf += "\n" * n
-        @_buf += application.tput.csr(0, height - 1)
+        @_buf.write application.tput.csr(top, bottom)
+        @_buf.write application.tput.cup(bottom, 0)
+        @_buf.write "\n" * n
+        @_buf.write application.tput.csr(0, height - 1)
 
         j = bottom + 1
 
