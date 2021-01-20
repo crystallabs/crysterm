@@ -5,6 +5,9 @@ module Crysterm
       @outbuf : IO::Memory = IO::Memory.new 10240
       @main : IO::Memory = IO::Memory.new 10240
 
+      @pre = IO::Memory.new 1024
+      @post = IO::Memory.new 1024
+
       # Draws the screen based on the contents of the output buffer.
       def draw(start = 0, stop = @lines.size - 1)
         # D O:
@@ -155,9 +158,9 @@ module Crysterm
               next
             elsif (lx != -1)
               if (s.parm_right_cursor?)
-                @outbuf.print String.new ((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
+                @outbuf.write ((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
               else
-                @outbuf.print String.new s.cup(y, x)
+                @outbuf.write s.cup(y, x)
               end
               lx = -1
               ly = -1
@@ -215,9 +218,9 @@ module Crysterm
                       bg -= 8
                       bg += 100
                     end
-                    @outbuf.print "#{bg};"
+                    @outbuf << bg << ';'
                   else
-                    @outbuf.print "48;5;#{bg};"
+                    @outbuf << "48;5;" << bg << ';'
                   end
                 end
 
@@ -230,9 +233,9 @@ module Crysterm
                       fg -= 8
                       fg += 90
                     end
-                    @outbuf.print "#{fg};"
+                    @outbuf << fg << ';'
                   else
-                    @outbuf.print "38;5;#{fg};"
+                    @outbuf << "38;5;" << fg << ';'
                   end
                 end
 
@@ -288,6 +291,12 @@ module Crysterm
             # supports UTF8, but I imagine it's unlikely.
             # Maybe remove !application.tput.unicode check, however,
             # this seems to be the way ncurses does it.
+            #
+            # Note the behavior of this IF/ELSE block. It may decide to
+            # print to @outbuf certain prefix data, but after the IF/ELSE block
+            # the 'ch' is always written. This logic is taken for speed. In the
+            # case that the contents of the IF/ELSE block change in incompatible
+            # way, this should be had in mind.
             if s
               if (s.enter_alt_charset_mode? && !application.tput.features.broken_acs? && (application.tput.features.acscr[ch]? || acs))
                 # Fun fact: even if application.tput.brokenACS wasn't checked here,
@@ -299,13 +308,19 @@ module Crysterm
                   if (acs)
                     ch = application.tput.features.acscr[ch]
                   else
-                    sm = String.new s.smacs
-                    ch = sm + application.tput.features.acscr[ch]
+                    #sm = String.new s.smacs
+                    #ch = sm + application.tput.features.acscr[ch]
+                    # Instead, just print prefix and set new char:
+                    @outbuf.write s.smacs
+                    ch = application.tput.features.acscr[ch]
+
                     acs = true
                   end
                 elsif acs
-                  rm = String.new s.rmacs
-                  ch = rm + ch
+                  #rm = String.new s.rmacs
+                  #ch = rm + ch
+                  # Instead, similar as above:
+                  @outbuf.write s.rmacs
                   acs = false
                 end
               end
@@ -326,7 +341,9 @@ module Crysterm
               end
             end
 
+            # Now print the char itself.
             @outbuf.print ch
+
             attr = data
           end
 
@@ -347,8 +364,8 @@ module Crysterm
         end
 
         unless @main.size == 0
-          pre = ""
-          post = ""
+          @pre.clear
+          @post.clear
           hidden = application.tput.cursor_hidden?
 
           (application.tput.ret = IO::Memory.new).try do |ret|
@@ -357,7 +374,7 @@ module Crysterm
               application.tput.hide_cursor
             end
 
-            pre += ret.rewind.gets_to_end
+            @pre << ret.rewind.gets_to_end
             application.tput.ret = nil
           end
 
@@ -367,14 +384,14 @@ module Crysterm
               application.tput.show_cursor
             end
 
-            post += ret.rewind.gets_to_end
+            @post << ret.rewind.gets_to_end
             application.tput.ret = nil
           end
 
           # D O:
           # application.flush()
-          # application._owrite(pre + @main + post)
-          application.tput._print { |io| io << pre << @main.rewind.gets_to_end << post }
+          # application._owrite(@pre + @main + @post)
+          application.tput._print { |io| io << @pre << @main.rewind.gets_to_end << @post }
         end
 
         # D O:
@@ -485,7 +502,7 @@ module Crysterm
 
         @_buf.write application.tput.csr(top, bottom)
         @_buf.write application.tput.cup(bottom, 0)
-        @_buf.write "\n" * n
+        n.times do @_buf.write "\n" end
         @_buf.write application.tput.csr(0, height - 1)
 
         j = bottom + 1
