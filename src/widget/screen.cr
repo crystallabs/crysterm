@@ -37,6 +37,9 @@ module Crysterm
     # Currently hovered element. Best set only if mouse events are enabled.
     @hover : Element? = nil
 
+    property show_fps : Point? = Point[-1,0]
+    property? show_avg = true
+
     def initialize(
       application = nil,
       @auto_padding = true,
@@ -136,7 +139,6 @@ module Crysterm
           next
         end
 
-        focsd = focused
         grab_keys = @grab_keys
 
         if !grab_keys || !@ignore_locked.includes?(e.key)
@@ -150,11 +152,19 @@ module Crysterm
           next
         end
 
-        focsd.try do |focd|
-          if focd.keyable?
-            focd.emit e
-            # XXX Again, potentially also emit individual key
-            # emit(keyname + event, e.ch, e.key, e.sequence)
+        # Here we pass the key press onto the focused widget. Then
+        # we keep passing it through the parent tree until someone
+        # `#accept!`s the key. If it reaches the toplevel Element
+        # and it isn't handled, we drop/ignore it.
+        focused.try do |el|
+          while el && el.is_a? Element
+            if el.keyable?
+              el.emit e
+              # XXX Again, potentially also emit individual key
+              # emit(keyname + event, e.ch, e.key, e.sequence)
+            end
+
+            e.accepted? ? break : el.parent
           end
         end
       end
