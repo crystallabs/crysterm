@@ -1,3 +1,10 @@
+#struct Value
+#  def ==(other)
+#    STDERR.puts("#{self.inspect} == #{other.inspect}")
+#    false
+#  end
+#end
+
 module Crysterm
   class Element < Node
     module Content
@@ -268,7 +275,7 @@ module Crysterm
             raise "indexing error"
           end
           (0...line.size).each do |i|
-            if (line[i] == "\e")
+            if (line[i] == '\e')
               if (c = line[1..].match /^\x1b\[[\d;]*m/)
                 attr = @screen.attr_code(c[0], attr, dattr)
                 i += c[0].size - 1
@@ -282,7 +289,7 @@ module Crysterm
       end
 
       def _wrap_content(content, colwidth)
-        state = @align
+        default_state = @align
         wrap = @wrap
         margin = 0
         rtof = [] of Int32
@@ -325,7 +332,7 @@ module Crysterm
         no = 0
         while no < lines.size
           line = lines[no]
-          align = state
+          align = default_state
 
           ftor.push [] of Int32
 
@@ -333,13 +340,19 @@ module Crysterm
           if @parse_tags
             if (cap = line.match /^{(left|center|right)}/)
               line = line[cap[0].size..]
-              align = state = (cap[1] != "left") ? cap[1] : nil
+              align = default_state = case cap[1]
+              when "center"
+                AlignmentFlag::Center
+              when "left"
+                AlignmentFlag::Left
+              else
+                AlignmentFlag::Right
+              end
             end
             if (cap = line.match /{\/(left|center|right)}$/)
               line = line[0...(line.size - cap[0].size)]
-              # D O:
-              # state = null
-              state = @align
+              # Reset default_state to whatever alignment the widget has by default.
+              default_state = @align
             end
           end
 
@@ -349,7 +362,7 @@ module Crysterm
             total = 0
             i = 0
             while i < line.size
-              while (line[i] == "\e")
+              while (line[i] == '\e')
                 while (line[i] && line[i] != 'm')
                   i += 1
                 end
@@ -434,6 +447,40 @@ module Crysterm
         end
 
         return outbuf
+      end
+
+      def _align(line, width, align)
+        # Optimization - deal with Left right away. If we want to do
+        # more work even for Left in the future, then add it in the
+        # standard IFs below.
+        return line if (align & AlignmentFlag::Left) != AlignmentFlag::None
+
+        cline = line.gsub /\x1b\[[\d;]*m/, ""
+        len = cline.size
+        s = @resizable ? 0 : width - len
+
+        return line if len == 0
+        return line if s < 0
+
+        if (align & AlignmentFlag::HCenter) != AlignmentFlag::None
+          s = " " * (s//2)
+          return s + line + s
+        elsif (align & AlignmentFlag::Right) != 0 #AlignmentFlag::None
+          s = " " * s
+          return s + line
+        elsif @parse_tags && line.index /\{|\}/
+          # XXX This is basically AlignmentFlag::Spread, but not sure
+          # how to put that as a flag yet. Maybe this (or another)
+          # widget flag could mean to spread words to fill up the whole
+          # line, increasing spaces between them?
+          parts = line.split /\{|\}/
+          cparts = cline.split /\{|\}/
+          s = Math.max(width - cparts[0].size - cparts[1].size, 0)
+          s = " " * s
+          "#{parts[0]}#{s}#{parts[1]}"
+        end
+
+        line
       end
 
       def insert_line(i = nil, line = "")

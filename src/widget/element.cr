@@ -30,7 +30,7 @@ module Crysterm
     private property? fixed = false
 
     # Horizontal text alignment
-    @align = "left" # Enum or class
+    @align = AlignmentFlag::Left
 
     # Vertical text alignment
     @valign = "top"
@@ -106,7 +106,7 @@ module Crysterm
       hidden = nil,
       @fixed = false,
       @wrap = true,
-      @align = "left",
+      @align = AlignmentFlag::Left,
       @valign = "top",
       position : Tput::Position? = nil,
       resizable = nil,
@@ -235,33 +235,6 @@ module Crysterm
 
     def focused?
       @screen.focused == self
-    end
-
-    def _align(line, width, align)
-      # return line unless align
-
-      cline = line.gsub /\x1b\[[\d;]*m/, ""
-      len = cline.size
-      s = @resizable ? 0 : width - len
-
-      return line if len == 0
-      return line if s < 0
-
-      if align == "center"
-        s = " " * (s//2)
-        return s + line + s
-      elsif align == "right"
-        s = " " * s
-        return s + line
-      elsif @parse_tags && line.index /\{|\}/
-        parts = line.split /\{|\}/
-        cparts = cline.split /\{|\}/
-        s = Math.max(width - cparts[0].size - cparts[1].size, 0)
-        s = " " * s
-        "#{parts[0]}#{s}#{parts[1]}"
-      end
-
-      line
     end
 
     def visible?
