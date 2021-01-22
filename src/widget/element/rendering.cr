@@ -132,7 +132,7 @@ module Crysterm
         # content-drawing loop will skip a few cells/lines.
         # To deal with this, we can just fill the whole thing
         # ahead of time. This could be optimized.
-        if (@padding.any? || (@valign && (@valign != "top")))
+        if (@padding.any? || (!@valign.top?))
           if @style.try &.transparent
             (Math.max(yi, 0)...yl).each do |y|
               if (!lines[y]?)
@@ -161,13 +161,13 @@ module Crysterm
         end
 
         # Determine where to place the text if it's vertically aligned.
-        if (@valign == "middle" || @valign == "bottom")
+        if @valign.v_center? || @valign.bottom?
           visible = yl - yi
           if (@_clines.size < visible)
-            if (@valign == "middle")
+            if @valign.v_center?
               visible = visible // 2
               visible -= @_clines.size // 2
-            elsif (@valign == "bottom")
+            elsif @valign.bottom?
               visible -= @_clines.size
             end
             ci -= visible * (xl - xi)
