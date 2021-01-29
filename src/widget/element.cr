@@ -68,7 +68,7 @@ module Crysterm
 
     property auto_focus = false
 
-    property position : RPosition
+    property position : Tput::Position
 
     # XXX why are these here and not in @position?
     property top = 0
@@ -108,7 +108,7 @@ module Crysterm
       @wrap = true,
       @align = AlignmentFlag::Left,
       @valign = AlignmentFlag::Top,
-      position : Position? = nil,
+      position : Tput::Position? = nil,
       resizable = nil,
       overflow : Overflow? = nil,
       @dock_borders = true,
@@ -139,6 +139,19 @@ module Crysterm
 
       super **node
 
+      if position
+        @position = position
+      else
+        @position = Tput::Position.new \
+          left: left,
+          top: top,
+          right: right,
+          bottom: bottom,
+          width: width,
+          height: height
+      end
+      @resizable = true if @position.resizable?
+
       if style
         @style = style
       else
@@ -166,21 +179,6 @@ module Crysterm
                 else
                   raise "Invalid border argument"
                 end
-
-      if position
-        @position = position
-      else
-        @position = RPosition.new \
-          element: self,
-          left: left,
-          top: top,
-          right: right,
-          bottom: bottom,
-          width: width,
-          height: height
-      end
-
-      @resizable = true if @position.resizable?
 
       set_content(content, true)
       set_label(label) if label

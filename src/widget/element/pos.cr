@@ -48,6 +48,8 @@ module Crysterm
         @rbottom = arg
       end
 
+      property position = Tput::Position.new
+
       # Heh.
       property? scrollable = false
 

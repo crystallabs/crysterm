@@ -1,4 +1,22 @@
 module Crysterm
+  #    class Position
+  #      @left : Int32
+  #      @right : Int32
+  #      @top : Int32
+  #      @bottom : Int32
+  #      @width : Int32
+  #      @height : Int32
+  #
+  #      def initialize(
+  #        @left=0,
+  #        @right=0,
+  #        @top=0,
+  #        @bottom=0,
+  #        @width=1,
+  #        @height=1,
+  #      )
+  #      end
+  #    end
 
   class Style
     property fg : String
@@ -109,113 +127,4 @@ module Crysterm
     SkipElement
     StopRendering
   end
-
-  class RPosition
-    @element : Element
-
-    setter left : Int32 | String | Nil
-    setter top : Int32 | String | Nil
-    setter right : Int32 | Nil
-    setter bottom : Int32 | Nil
-    setter width : Int32 | String | Nil
-    setter height : Int32 | String | Nil
-    property? resizable = false
-
-    def initialize(@element, @left = nil, @top = nil, @right = nil, @bottom = nil, width = nil, height = nil)
-      if width == "resizable"
-        @resizable = true
-      else
-        @width = width
-      end
-
-      if height == "resizable"
-        @resizable = true
-      else
-        @height = height
-      end
-    end
-
-    def left(get = false)
-      case v = @left
-      when Int
-        v
-      when String
-        if v == "center"
-          v = "50%"
-        end
-        expr = v.split /(?=\+|-)/
-        v = expr[0]
-        v = v[0...-1].to_f / 100
-        v = ((@element.parent.try(&.width) || 0) * v).to_i
-        v += expr[1].to_i if expr[1]?
-        if @left == "center"
-          v -= (@element._get_width(get)) // 2
-        end
-        v
-      end
-    end
-    def top(get=false)
-      case v = @top
-      when Int
-        v
-      when String
-        if (v == "center")
-          v = "50%"
-        end
-        expr = v.split(/(?=\+|-)/)
-        v = expr[0]
-        v = v[0...-1].to_f / 100
-        v = ((@element.parent.try &.height || 0) * v).to_i
-        v += expr[1].to_i if expr[1]?
-        if @top == "center"
-          v -= @element._get_height(get) // 2
-        end
-      end
-    end
-    def right(get=false)
-      case v = @right
-      when Int
-        v
-      end
-    end
-    def bottom(get=false)
-      case v = @bottom
-      when Int
-        v
-      end
-    end
-    def width(get=false)
-      case v = @width
-      when Int
-        v
-      when String
-        if v == "half"
-          v = "50%"
-        end
-        expr = v.split /(?=\+|-)/
-        v = expr[0]
-        v = v[0...-1].to_f / 100
-        v = ((@element.parent.try(&.width) || 0) * v).to_i
-        v += expr[1].to_i if expr[1]?
-        v
-      end
-    end
-    def height(get=false)
-      case v = @height
-      when Int
-        v
-      when String
-        if v == "half"
-          v = "50%"
-        end
-        expr = v.split /(?=\+|-)/
-        v = expr[0]
-        v = v[0...-1].to_f / 100
-        v = ((@element.parent.try &.height || 0) * v).to_i
-        v += expr[1].to_i if expr[1]?
-        v
-      end
-    end
-  end
-
 end

@@ -221,7 +221,19 @@ module Crysterm
         unless parent
           raise "Something"
         end
-        width = @position.width(get)
+        width = @position.width
+        case width
+        when String
+          if width == "half"
+            width = "50%"
+          end
+          expr = width.split /(?=\+|-)/
+          width = expr[0]
+          width = width[0...-1].to_f / 100
+          width = ((parent.width || 0) * width).to_i
+          width += expr[1].to_i if expr[1]?
+          return width
+        end
 
         # This is for if the element is being streched or shrunken.
         # Although the width for shrunken elements is calculated
@@ -231,13 +243,21 @@ module Crysterm
         # calculated here.
         if width.nil?
           left = @position.left || 0
+          if left.is_a? String
+            if (left == "center")
+              left = "50%"
+            end
+            expr = left.split(/(?=\+|-)/)
+            left = expr[0]
+            left = left[0...-1].to_f / 100
+            left = ((parent.width || 0) * left).to_i
+            left += expr[1].to_i if expr[1]?
+          end
           width = (parent.width || 0) - (@position.right || 0) - left
 
           @parent.try do |pparent|
             if (@screen.auto_padding)
-              # TODO can this work ok without check for center?
-              #if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
-              if !@position.left.nil? || @position.right.nil?
+              if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
                 width -= pparent.ileft
               end
               width -= pparent.iright
@@ -258,7 +278,19 @@ module Crysterm
         unless parent
           raise "Something"
         end
-        height = @position.height(get)
+        height = @position.height
+        case height
+        when String
+          if height == "half"
+            height = "50%"
+          end
+          expr = height.split /(?=\+|-)/
+          height = expr[0]
+          height = height[0...-1].to_f / 100
+          height = ((parent.height || 0) * height).to_i
+          height += expr[1].to_i if expr[1]?
+          return height
+        end
 
         # This is for if the element is being streched or shrunken.
         # Although the height for shrunken elements is calculated
@@ -267,13 +299,22 @@ module Crysterm
         # decided by the height the element, so it needs to be
         # calculated here.
         if height.nil?
-          top = @position.top(get) || 0
+          top = @position.top || 0
+          if top.is_a? String
+            if (top == "center")
+              top = "50%"
+            end
+            expr = top.split(/(?=\+|-)/)
+            top = expr[0]
+            top = top[0...-1].to_f / 100
+            top = ((parent.height || 0) * top).to_i
+            top += expr[1].to_i if expr[1]?
+          end
           height = (parent.height || 0) - (@position.bottom || 0) - top
 
           @parent.try do |pparent|
             if (@screen.auto_padding)
-              # TODO @position.top can't be string any more
-              if ((!@position.top.nil? || @position.bottom.nil?)) # && @position.top != "center")
+              if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
                 height -= pparent.itop
               end
               height -= pparent.ibottom
@@ -295,7 +336,20 @@ module Crysterm
           raise "Something"
         end
 
-        left = @position.left(get) || 0
+        left = @position.left || 0
+        if left.is_a? String
+          if left == "center"
+            left = "50%"
+          end
+          expr = left.split /(?=\+|-)/
+          left = expr[0]
+          left = left[0...-1].to_f / 100
+          left = ((parent.width || 0) * left).to_i
+          left += expr[1].to_i if expr[1]?
+          if @position.left == "center"
+            left -= (_get_width(get)) // 2
+          end
+        end
 
         if @position.left.nil? && !@position.right.nil?
           return @screen.width - _get_width(get) - _get_right(get)
@@ -353,6 +407,19 @@ module Crysterm
           raise "Something"
         end
         top = @position.top || 0
+        if top.is_a? String
+          if top == "center"
+            top = "50%"
+          end
+          expr = top.split /(?=\+|-)/
+          top = expr[0]
+          top = top[0...-1].to_f / 100
+          top = ((parent.height || 0) * top).to_i
+          top += expr[1].to_i if expr[1]?
+          if @position.top == "center"
+            top -= _get_height(get) // 2
+          end
+        end
 
         if @position.top.nil? && !@position.bottom.nil?
           return @screen.height - _get_height(get) - _get_bottom(get)
