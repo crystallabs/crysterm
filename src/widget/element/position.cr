@@ -497,7 +497,7 @@ module Crysterm
       end
 
       def height=(val : Int)
-        return if @height == val
+        return if height == val
         clear_pos
         @position.height = val
         emit ResizeEvent
@@ -540,7 +540,7 @@ module Crysterm
         if (val.is_a? String)
           if (val == "center")
             val = @screen.height // 2
-            val -= @height // 2
+            val -= height // 2
           else
             expr = val.split(/(?=\+|-)/)
             val = expr[0].to_i

@@ -65,10 +65,14 @@ module Crysterm
     property position : Tput::Position
 
     # XXX why are these here and not in @position?
-    property top = 0
-    property left = 0
-    setter width = 0
-    property height = 0
+    #property top = 0
+    #property left = 0
+    #setter width = 0
+    #property height = 0
+    def top; _get_top false end
+    def left; _get_left false end
+    def height; _get_height false end
+    def width; _get_width false end
 
     # Does it accept keyboard input?
     @input = false
@@ -236,7 +240,7 @@ module Crysterm
     # Potentially use this where ever .scrollable? is used
     def really_scrollable?
       return @scrollable if @resizable
-      get_scroll_height > @height
+      get_scroll_height > height
     end
 
     def get_scroll
@@ -254,11 +258,11 @@ module Crysterm
 
       # D O
       # XXX
-      #max = get_scroll_height - (@height - iheight)
+      #max = get_scroll_height - (height - iheight)
 
-      max = @_clines.size - (@height - iheight)
+      max = @_clines.size - (height - iheight)
       max = 0 if max < 0
-      emax = @_scroll_bottom - (@height - iheight)
+      emax = @_scroll_bottom - (height - iheight)
       emax = 0 if emax < 0
 
       @child_base = Math.min @child_base, Math.max emax, max 
@@ -360,7 +364,7 @@ module Crysterm
       return if @detached
 
       # Handle scrolling.
-      visible = @height - iheight
+      visible = height - iheight
       base = @child_base
 
       if (@always_scroll || always)
@@ -400,13 +404,13 @@ module Crysterm
 
       # D O:
       # XXX
-      # max = get_scroll_height - (@height - iheight)
+      # max = get_scroll_height - (height - iheight)
 
-      max = @_clines.size - (@height - iheight)
+      max = @_clines.size - (height - iheight)
       if (max < 0)
         max = 0
       end
-      emax = _scroll_bottom - (@height - iheight)
+      emax = _scroll_bottom - (height - iheight)
       if (emax < 0)
         emax = 0
       end
