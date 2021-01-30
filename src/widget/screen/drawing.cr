@@ -398,8 +398,8 @@ module Crysterm
         #emit DrawEvent
       end
 
-      def blank_line(ch, dirty)
-        o = Row.new cols, [@dattr, ch]
+      def blank_line(ch = ' ', dirty = false)
+        o = Row.new width, {@dattr, ch}
         o.dirty = dirty
         o
       end
@@ -418,10 +418,15 @@ module Crysterm
           return
         end
 
-        @_buf.write application.tput.csr(top, bottom)
-        @_buf.write application.tput.cup(y, 0)
-        @_buf.write application.tput.il(n)
-        @_buf.write application.tput.csr(0, height - 1)
+        (application.tput.ret = IO::Memory.new).try do |ret|
+          application.tput.set_scroll_region(top, bottom)
+          application.tput.cup(y, 0)
+          application.tput.il(n)
+          application.tput.set_scroll_region(0, height - 1)
+
+          @_buf.print ret.rewind.gets_to_end
+          application.tput.ret = nil
+        end
 
         j = bottom + 1
 
@@ -445,10 +450,15 @@ module Crysterm
           return
         end
 
-        @_buf.write application.tput.csr(top, bottom)
-        @_buf.write application.tput.cup(top, 0)
-        @_buf.write application.tput.dl(n)
-        @_buf.write application.tput.csr(0, height - 1)
+        (application.tput.ret = IO::Memory.new).try do |ret|
+          application.tput.set_scroll_region(top, bottom)
+          application.tput.cup(top, 0)
+          application.tput.dl(n)
+          application.tput.set_scroll_region(0, height - 1)
+
+          @_buf.print ret.rewind.gets_to_end
+          application.tput.ret = nil
+        end
 
         j = bottom + 1
 
@@ -474,11 +484,18 @@ module Crysterm
           return
         end
 
-        @_buf.write this.tput.csr(top, bottom)
-        @_buf.write this.tput.cup(y, 0)
-        @_buf.write this.tput.dl(n)
-        @_buf.write this.tput.csr(0, this.height - 1)
-        var j = bottom + 1
+        # XXX temporarily diverts output
+        (application.tput.ret = IO::Memory.new).try do |ret|
+          application.tput.set_scroll_region(top, bottom)
+          application.tput.cup(y, 0)
+          application.tput.dl(n)
+          application.tput.set_scroll_region(0, height - 1) # XXX @height should be used?
+
+          @_buf.print ret.rewind.gets_to_end
+          application.tput.ret = nil
+        end
+
+        j = bottom + 1
         while n > 0
           n -= 1
           @lines.insert y, blank_line
@@ -500,10 +517,16 @@ module Crysterm
           return
         end
 
-        @_buf.write application.tput.csr(top, bottom)
-        @_buf.write application.tput.cup(bottom, 0)
-        n.times do @_buf.write "\n" end
-        @_buf.write application.tput.csr(0, height - 1)
+        # XXX temporarily diverts output
+        (application.tput.ret = IO::Memory.new).try do |ret|
+          application.tput.set_scroll_region(top, bottom)
+          application.tput.cup(bottom, 0)
+          ret.print "\n" * n
+          application.tput.set_scroll_region(0, height - 1)
+
+          @_buf.print ret.rewind.gets_to_end
+          application.tput.ret = nil
+        end
 
         j = bottom + 1
 

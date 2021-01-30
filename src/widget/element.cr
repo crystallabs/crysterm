@@ -53,12 +53,6 @@ module Crysterm
     # Is element draggable?
     property? draggable = false
 
-    # Is element scrollable?
-    property? scrollable = false
-
-    # XXX is this bool?
-    property scrollbar : Bool = false
-
     # XXX FIX
     # Used only for lists
     property _isList = false
@@ -82,8 +76,29 @@ module Crysterm
     # Is element's content to be parsed for tags?
     property? parse_tags = true
 
+    property keys : Bool = true
+    property ignore_keys : Bool = false
+
+    # START SCROLLABLE
+
+    # Is element scrollable?
+    property? scrollable = false
+
+    # XXX is this bool?
+    property scrollbar : Bool = false
+
     # Offset from the top of the scroll content.
     property child_base = 0
+
+    property child_offset = 0
+
+    property base_limit = Int32::MAX
+
+    property? always_scroll : Bool = false
+
+    property _scroll_bottom : Int32 = 0
+
+    # END SCROLLABLE
 
     property? _no_fill = false
 
@@ -114,7 +129,7 @@ module Crysterm
       @dock_borders = true,
       @shadow = false,
       style : Style? = nil,
-      padding : Int32 | Padding = 0,
+      padding : Padding | Int32 = 0,
       border = nil,
       # @clickable=false,
       content = "",
@@ -189,9 +204,244 @@ module Crysterm
       on(AttachEvent) { parse_content }
       # on(DetachEvent) { @lpos = nil }
 
+
       # Style related stuff ...
+      # TODO from scrollable box
+      if @scrollbar
+        ...
+      end
+
+      ## TODO same as above
+      #if @mouse
+      #end
+
+      if @keys && !@ignore_keys
+        on(KeyPressEvent) do |e|
+          # TODO keys
+        end
+      end
+
+      if @scrollable
+        # XXX remove handler when scrollable is turned off?
+        on(ParsedContentEvent) do
+          _recalculate_index
+        end
+
+        _recalculate_index
+      end
 
       focus if focused
+    end
+
+    # Potentially use this where ever .scrollable? is used
+    def really_scrollable?
+      return @scrollable if @resizable
+      get_scroll_height > @height
+    end
+
+    def get_scroll
+      @child_base + @child_offset
+    end
+
+    def scroll_to(offset, always)
+      scroll 0
+      scroll offset - (@child_base + @child_offset), always
+    end
+    # aka set_scroll
+
+    def _recalculate_index
+      return 0 if @detached || !@scrollable
+
+      # D O
+      # XXX
+      #max = get_scroll_height - (@height - iheight)
+
+      max = @_clines.size - (@height - iheight)
+      max = 0 if max < 0
+      emax = @_scroll_bottom - (@height - iheight)
+      emax = 0 if emax < 0
+
+      @child_base = Math.min @child_base, Math.max emax, max 
+
+      if @child_base < 0
+        @child_base = 0
+      elsif @child_base > @base_limit
+        @child_base = @base_limit
+      end
+    end
+
+    def get_scroll_height
+      Math.max @_clines.size, @_scroll_bottom
+    end
+
+    def set_scroll_perc(i)
+      # D O
+      # XXX
+      # m = @get_scroll_height
+      m = Math.max @_clines.size, @_scroll_bottom
+      scroll_to ((i / 100) * m).to_i
+    end
+
+    def reset_scroll
+      return unless @scrollable
+      @child_offset = 0
+      @child_base = 0
+      return emit ScrollEvent
+    end
+
+    def get_scroll_perc(s)
+      pos = @lpos || @_get_coords
+      if !pos
+        return s ? -1 : 0
+      end
+
+      height = (pos.yl - pos.yi) - iheight
+      i = get_scroll_height
+      #p
+
+      if (height < i)
+        if @always_scroll
+          p = @child_base / (i - height)
+        else
+          p = (@child_base + @child_offset) / (i - 1)
+        end
+        return p * 100
+      end
+
+      return s ? -1 : 0
+    end
+
+    def _scroll_bottom
+      return 0 unless @scrollable
+
+      # We could just calculate the children, but we can
+      # optimize for lists by just returning the items.length.
+      # XXX _isList!
+      if @_isList
+        return @items ? @items.size : 0
+      end
+
+      @lpos.try do |lpos|
+        if lpos._scroll_bottom != 0
+          return lpos._scroll_bottom
+        end
+      end
+
+      bottom = @children.reduce(0) do |current, el|
+        # el.height alone does not calculate the shrunken height, we need to use
+        # get_coords. A shrunken box inside a scrollable element will not grow any
+        # larger than the scrollable element's context regardless of how much
+        # content is in the shrunken box, unless we do this (call get_coords
+        # without the scrollable calculation):
+        # See: $ test/widget-shrink-fail-2
+        if !el.detached?
+          lpos = el._get_coords false, true
+          if lpos
+            return Math.max(current, el.rtop + (lpos.yl - lpos.yi))
+          end
+        end
+        return Math.max(current, el.rtop + el.height)
+      end
+
+      # XXX Use this? Makes .get_scroll_height useless
+      # if bottom < @_clines.size
+      #   bottom = @_clines.size
+      # end
+
+      @lpos.try do |lpos|
+        lpos._scroll_bottom = bottom
+      end
+
+      bottom
+    end
+
+    def scroll(offset, always=false)
+      return unless @scrollable
+      return if @detached
+
+      # Handle scrolling.
+      visible = @height - iheight
+      base = @child_base
+
+      if (@always_scroll || always)
+        # Semi-workaround
+        @child_offset = offset > 0 ? visible - 1 + offset : offset
+      else
+        @child_offset += offset
+      end
+
+      if (@child_offset > visible - 1)
+        d = @child_offset - (visible - 1)
+        @child_offset -= d
+        @child_base += d
+      elsif (@child_offset < 0)
+        d = @child_offset
+        @child_offset += -d
+        @child_base += d
+      end
+
+      if (@child_base < 0)
+        @child_base = 0
+      elsif (@child_base > @base_limit)
+        @child_base = @base_limit
+      end
+
+      # Find max "bottom" value for
+      # content and descendant elements.
+      # Scroll the content if necessary.
+      if (@child_base == base)
+        return emit ScrollEvent
+      end
+
+      # When scrolling text, we want to be able to handle SGR codes as well as line
+      # feeds. This allows us to take preformatted text output from other programs
+      # and put it in a scrollable text box.
+      parse_content
+
+      # D O:
+      # XXX
+      # max = get_scroll_height - (@height - iheight)
+
+      max = @_clines.size - (@height - iheight)
+      if (max < 0)
+        max = 0
+      end
+      emax = _scroll_bottom - (@height - iheight)
+      if (emax < 0)
+        emax = 0
+      end
+
+      @child_base = Math.min @child_base, Math.max(emax, max)
+
+      if (@child_base < 0)
+        @child_base = 0
+      elsif (@child_base > @base_limit)
+        @child_base = @base_limit
+      end
+
+      # Optimize scrolling with CSR + IL/DL.
+      p = @lpos
+      # Only really need _getCoords() if we want
+      # to allow nestable scrolling elements...
+      # or if we **really** want shrinkable
+      # scrolling elements.
+      # p = @_get_coords
+      if (p && @child_base != base && @screen.clean_sides(self))
+        t = p.yi + itop
+        b = p.yl - ibottom - 1
+        d = @child_base - base
+
+        if (d > 0 && d < visible)
+          # scrolled down
+          @screen.delete_line(d, t, t, b)
+        elsif (d < 0 && -d < visible)
+          # scrolled up
+          d = -d
+          @screen.insert_line(d, t, t, b)
+        end
+      end
+
+      emit ScrollEvent
     end
 
     def set_label(label)

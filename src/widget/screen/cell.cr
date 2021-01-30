@@ -33,5 +33,13 @@ module Crysterm
 
   class Row < Array(Cell)
     property dirty = false
+
+    def initialize
+      super
+    end
+
+    def initialize(width, cell : Cell | Tuple(Int32, Char) = {@attr, @char})
+      super width
+    end
   end
 end

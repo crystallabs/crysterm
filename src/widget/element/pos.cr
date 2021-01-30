@@ -79,6 +79,9 @@ module Crysterm
         #property iright : Int32 = 0
         #property ibottom : Int32 = 0
 
+        property _scroll_bottom : Int32 = 0
+        property _clean_sides : Bool = false
+
         def initialize(
           @xi = 0,
           @xl = 0,

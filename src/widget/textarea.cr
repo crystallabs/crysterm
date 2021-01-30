@@ -185,8 +185,7 @@ module Crysterm
         # XXX workaround
         h = @height - iheight
         if (@_clines.size - @child_base) > h
-          # TODO
-          # scroll @_clines.size
+          scroll @_clines.size
         end
       end
 

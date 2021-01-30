@@ -3,6 +3,8 @@ require "event_handler"
 module Crysterm
   include EventHandler
 
+  event ScrollEvent
+
   event DataEvent, data : String
   event WarningEvent, message : String
 
