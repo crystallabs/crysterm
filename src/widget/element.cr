@@ -54,10 +54,10 @@ module Crysterm
     # Used only for lists
     property _isList = false
     property _isLabel = false
-    property interactive = false
+    property? interactive = false
     # XXX
 
-    property auto_focus = false
+    property? auto_focus = false
 
     property position : Tput::Position
 
@@ -79,16 +79,16 @@ module Crysterm
     # Is element's content to be parsed for tags?
     property? parse_tags = true
 
-    property keys : Bool = true
-    property ignore_keys : Bool = false
+    property? keys : Bool = true
+    property? ignore_keys : Bool = false
 
     # START SCROLLABLE
 
     # Is element scrollable?
     property? scrollable = false
 
-    property scrollbar : Bool = false
-    property track : Bool = false
+    property? scrollbar : Bool = false
+    property? track : Bool = false
 
     # Offset from the top of the scroll content.
     property child_base = 0

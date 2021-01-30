@@ -214,7 +214,7 @@ module Crysterm
                 # Ignore foreground changes for selected items.
                 # XXX But, Enable when lists exist, then restrict to List
                 # if (parent = @parent) && parent.is_a? Crysterm::Element
-                #  if (parent._isList && parent.interactive && parent.items[parent.selected] == self && parent.options.invert_selected != false)
+                #  if (parent._isList && parent.interactive? && parent.items[parent.selected] == self && parent.options.invert_selected != false)
                 #    attr = (attr & ~(0x1ff << 9)) | (dattr & (0x1ff << 9))
                 #  end
                 # end
