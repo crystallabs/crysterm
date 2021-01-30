@@ -33,7 +33,7 @@ module Crysterm
     width: 36,
     height: 3,
     border: BorderType::Line,
-    align: AlignmentFlag::HCenter,
+    align: AlignFlag::HCenter,
     content: "Click me, I am a button.",
     shadow: true,
     style: Style.new(
@@ -82,7 +82,7 @@ module Crysterm
 
   loading = Loading.new \
     parent: layout,
-    align: AlignmentFlag::HCenter,
+    align: AlignFlag::HCenter,
     width: 36,
     height: 18,
     icons: [ "Preparing", "Loading", "Processing", "Saving", "Analyzing" ],
@@ -172,7 +172,7 @@ module Crysterm
 
   loading2 = Loading.new \
     parent: layout,
-    align: AlignmentFlag::Right,
+    align: AlignFlag::Right,
     compact: true,
     interval: 0.2.seconds,
     width: 36,

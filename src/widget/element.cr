@@ -30,10 +30,10 @@ module Crysterm
     private property? fixed = false
 
     # Horizontal text alignment
-    property align = AlignmentFlag::Left
+    property align = AlignFlag::Left
 
     # Vertical text alignment
-    property valign = AlignmentFlag::Top
+    property valign = AlignFlag::Top
 
     # Can element's content be word-wrapped?
     property? wrap = true
@@ -127,8 +127,8 @@ module Crysterm
       hidden = nil,
       @fixed = false,
       @wrap = true,
-      @align = AlignmentFlag::Left,
-      @valign = AlignmentFlag::Top,
+      @align = AlignFlag::Left,
+      @valign = AlignFlag::Top,
       position : Tput::Position? = nil,
       resizable = nil,
       overflow : Overflow? = nil,

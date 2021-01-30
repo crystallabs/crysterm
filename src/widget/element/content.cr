@@ -342,11 +342,11 @@ module Crysterm
               line = line[cap[0].size..]
               align = default_state = case cap[1]
               when "center"
-                AlignmentFlag::Center
+                AlignFlag::Center
               when "left"
-                AlignmentFlag::Left
+                AlignFlag::Left
               else
-                AlignmentFlag::Right
+                AlignFlag::Right
               end
             end
             if (cap = line.match /{\/(left|center|right)}$/)
@@ -453,7 +453,7 @@ module Crysterm
         # Optimization - deal with Left right away. If we want to do
         # more work even for Left in the future, then add it in the
         # standard IFs below.
-        return line if (align & AlignmentFlag::Left) != AlignmentFlag::None
+        return line if (align & AlignFlag::Left) != AlignFlag::None
 
         cline = line.gsub /\x1b\[[\d;]*m/, ""
         len = cline.size
@@ -462,14 +462,14 @@ module Crysterm
         return line if len == 0
         return line if s < 0
 
-        if (align & AlignmentFlag::HCenter) != AlignmentFlag::None
+        if (align & AlignFlag::HCenter) != AlignFlag::None
           s = " " * (s//2)
           return s + line + s
-        elsif (align & AlignmentFlag::Right) != 0 #AlignmentFlag::None
+        elsif (align & AlignFlag::Right) != 0 #AlignFlag::None
           s = " " * s
           return s + line
         elsif @parse_tags && line.index /\{|\}/
-          # XXX This is basically AlignmentFlag::Spread, but not sure
+          # XXX This is basically AlignFlag::Spread, but not sure
           # how to put that as a flag yet. Maybe this (or another)
           # widget flag could mean to spread words to fill up the whole
           # line, increasing spaces between them?
