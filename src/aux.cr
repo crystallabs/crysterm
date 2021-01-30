@@ -30,6 +30,7 @@ module Crysterm
     # property hover : Bool
     # property focus : Bool
     property border : Style? = nil
+    property scrollbar : Style? = nil
 
     def initialize(
       @fg = "white",
@@ -40,7 +41,8 @@ module Crysterm
       @inverse = false,
       @invisible = false,
       @transparent = false,
-      @border = nil
+      @border = nil,
+      @scrollbar = nil,
     )
     end
   end

@@ -64,6 +64,8 @@ module Crysterm
 
     property position : Tput::Position
 
+    property? vi : Bool = false
+
     # XXX why are these here and not in @position?
     #property top = 0
     #property left = 0
@@ -208,11 +210,41 @@ module Crysterm
       on(AttachEvent) { parse_content }
       # on(DetachEvent) { @lpos = nil }
 
-
-      # Style related stuff ...
-      # TODO from scrollable box
+      # TODO what do we want to do here?
       if @scrollbar
-        ...
+        #@scrollbar.ch ||= ' '
+        #@style.scrollbar = @style.scrollbar # || @scrollbar.style
+        #if @style.scrollbar.nil?
+        #  @style.scrollbar = Style.new
+        #  @style.scrollbar.fg = @scrollbar.fg
+        #  @style.scrollbar.bg = @scrollbar.bg
+        #  @style.scrollbar.bold = @scrollbar.bold
+        #  @style.scrollbar.underline = @scrollbar.underline
+        #  @style.scrollbar.inverse = @scrollbar.inverse
+        #  @style.scrollbar.invisible = @scrollbar.invisible
+        #}
+        ##@scrollbar.style = @style.scrollbar
+        #if (@track) # || @scrollbar.track)
+        #  #@track = @scrollbar.track || @track
+        #  @style.track = @style.scrollbar.track || @style.track
+        #  @track.ch ||= ' '
+        #  #@style.track = @style.track || @track.style
+        #  #if @style.track.nil?
+        #  #  @style.track = Style.new
+        #  #  @style.track.fg = @track.fg
+        #  #  @style.track.bg = @track.bg
+        #  #  @style.track.bold = @track.bold
+        #  #  @style.track.underline = @track.underline
+        #  #  @style.track.inverse = @track.inverse
+        #  #  @style.track.invisible = @track.invisible
+        #  #end
+        #  #@track.style = @style.track
+        #end
+        # Allow controlling of the scrollbar via the mouse:
+        # TODO
+        #if (@mouse)
+        #  # TODO
+        #end
       end
 
       ## TODO same as above
@@ -221,7 +253,55 @@ module Crysterm
 
       if @keys && !@ignore_keys
         on(KeyPressEvent) do |e|
-          # TODO keys
+          key = e.key
+          ch = e.char
+
+          if (key == Tput::Key::Up || (@vi && ch == 'k'))
+            scroll(-1)
+            @screen.render
+            next
+          end
+          if (key == Tput::Key::Down || (@vi && ch == 'j'))
+            scroll(1)
+            @screen.render
+            next
+          end
+
+          if @vi
+            case key
+            when Tput::Key::CtrlU
+              offs = -height // 2
+              scroll offs == 0 ? -1 : offs
+              @screen.render
+              next
+            when Tput::Key::CtrlD
+              offs = height // 2
+              scroll offs == 0 ? 1 : offs
+              @screen.render
+              next
+            when Tput::Key::CtrlB
+              offs = -height
+              scroll offs == 0 ? -1 : offs
+              @screen.render
+              next
+            when Tput::Key::CtrlF
+              offs = height
+              scroll offs == 0 ? 1 : offs
+              @screen.render
+              next
+            end
+
+            case ch
+            when 'g'
+              scroll_to 0
+              @screen.render
+              next
+            when 'G'
+              scroll_to get_scroll_height
+              @screen.render
+              next
+            end
+          end
         end
       end
 
@@ -247,7 +327,7 @@ module Crysterm
       @child_base + @child_offset
     end
 
-    def scroll_to(offset, always)
+    def scroll_to(offset, always=false)
       scroll 0
       scroll offset - (@child_base + @child_offset), always
     end
