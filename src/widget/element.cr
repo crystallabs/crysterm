@@ -41,9 +41,6 @@ module Crysterm
     # Can width/height be auto-adjusted during rendering based on content and child elements?
     property? resizable = false
 
-    # Element's blank/fill character for rendering.
-    property ch = ' '
-
     # Is element clickable?
     property? clickable = false
 

@@ -58,7 +58,7 @@ module Crysterm
         # c
         # visible
         # i
-        bch = @ch
+        bch = @style.char
 
         # Disabled originally:
         # Clip content if it's off the edge of the screen

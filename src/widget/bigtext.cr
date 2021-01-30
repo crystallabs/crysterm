@@ -152,10 +152,10 @@ module Crysterm
               break if mcell.nil?
               if (@fch && @fch != ' ')
                 lines[y][x + mx].attr = dattr
-                lines[y][x + mx].char = mcell == 1 ? @fch : @ch
+                lines[y][x + mx].char = mcell == 1 ? @fch : @style.char
               else
                 lines[y][x + mx].attr = mcell == 1 ? attr : dattr
-                lines[y][x + mx].char = mcell == 1 ? ' ' : @ch
+                lines[y][x + mx].char = mcell == 1 ? ' ' : @style.char
               end
 
               mx += 1
