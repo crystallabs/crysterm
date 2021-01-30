@@ -77,7 +77,6 @@ Currently the basics of everything are working, as seen in the demo.
 
 The roadmap, roughly:
 
-1. Support scrolling inside text widgets
 1. Improve API (minimal amount of code to do things, sane defaults, etc.)
 1. Improve keyboard support (if/when necessary, seems OK for now)
 1. Gradually support mouse

@@ -18,10 +18,10 @@ module Crysterm
     property overflow = Overflow::Ignore
 
     # Dock borders? (See `Screen#dock_borders?` for more information)
-    @dock_borders : Bool
+    property? dock_borders : Bool
 
     # Draw half-transparent shadow on the element's right and bottom?
-    property shadow : Bool
+    property? shadow : Bool
 
     # Is element hidden? Hidden elements are not rendered on the screen and their dimensions don't use screen space.
     property? hidden = false

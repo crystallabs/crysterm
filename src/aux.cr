@@ -36,7 +36,7 @@ module Crysterm
     property char : Char = ' '
 
     # For scrollbar
-    property? ignore_border : Bool = false
+    property? ignore_border : Bool
 
     def initialize(
       @fg = "white",
@@ -48,6 +48,7 @@ module Crysterm
       @invisible = false,
       @transparent = false,
       @char = ' ',
+      @ignore_border = false
     )
     end
   end
