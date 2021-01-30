@@ -90,8 +90,8 @@ module Crysterm
     # Is element scrollable?
     property? scrollable = false
 
-    # XXX is this bool?
     property scrollbar : Bool = false
+    property track : Bool = false
 
     # Offset from the top of the scroll content.
     property child_base = 0
@@ -134,7 +134,7 @@ module Crysterm
       overflow : Overflow? = nil,
       @dock_borders = true,
       @shadow = false,
-      style : Style? = nil,
+      style : Style = Style.new, # Previously: Style? = nil
       padding : Padding | Int32 = 0,
       border = nil,
       # @clickable=false,
@@ -151,12 +151,18 @@ module Crysterm
 
       auto_focus = false,
 
+      scrollbar = nil,
+      track = nil,
+
       **node
     )
       resizable.try { |v| @resizable = v }
       hidden.try { |v| @hidden = v }
       scrollable.try { |v| @scrollable = v }
       overflow.try { |v| @overflow = v }
+
+      scrollbar.try { |v| @scrollbar = v }
+      track.try { |v| @track = v }
 
       super **node
 
@@ -210,7 +216,6 @@ module Crysterm
       on(AttachEvent) { parse_content }
       # on(DetachEvent) { @lpos = nil }
 
-      # TODO what do we want to do here?
       if @scrollbar
         #@scrollbar.ch ||= ' '
         #@style.scrollbar = @style.scrollbar # || @scrollbar.style
@@ -306,7 +311,7 @@ module Crysterm
       end
 
       if @scrollable
-        # XXX remove handler when scrollable is turned off?
+        # XXX also remove handler when scrollable is turned off?
         on(ParsedContentEvent) do
           _recalculate_index
         end

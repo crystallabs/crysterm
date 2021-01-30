@@ -18,7 +18,11 @@ module Crysterm
   #      end
   #    end
 
-  class Style
+  class BasicStyle
+    # Potentially make all subelements be filled in here,
+    # and if they're a new Style class have it know its
+    # Style parent. This way we could default values to
+    # the parent value.
     property fg : String
     property bg : String
     property bold : Bool
@@ -29,8 +33,10 @@ module Crysterm
     property transparent : Bool
     # property hover : Bool
     # property focus : Bool
-    property border : Style? = nil
-    property scrollbar : Style? = nil
+    property char : Char = ' '
+
+    # For scrollbar
+    property? ignore_border : Bool = false
 
     def initialize(
       @fg = "white",
@@ -41,9 +47,23 @@ module Crysterm
       @inverse = false,
       @invisible = false,
       @transparent = false,
+      @char = ' ',
+    )
+    end
+  end
+
+  class Style < BasicStyle
+    property border : BasicStyle? = BasicStyle.new
+    property scrollbar : BasicStyle? = BasicStyle.new
+    property track : BasicStyle? = BasicStyle.new
+
+    def initialize(
       @border = nil,
       @scrollbar = nil,
+      @track = nil,
+      **basic_style
     )
+      super **basic_style
     end
   end
 

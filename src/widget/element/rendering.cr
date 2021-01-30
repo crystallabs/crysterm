@@ -319,49 +319,43 @@ module Crysterm
         end
         # Draw the scrollbar.
         # Could possibly draw this after all child elements.
-        # @scrollbar.try do |scrollbar|
-        #  # D O:
-        #  # i = @get_scroll_height()
-        #  # TODO:
-        #  # (Scroll bottom is from scrollable)
-        #  #i = Math.max(@_clines.size, _scroll_bottom())
-        #  i = Math.max(@_clines.size, 0)
+        @scrollbar.try do |scrollbar|
+          # D O:
+          # i = @get_scroll_height()
+          i = Math.max @_clines.size, _scroll_bottom
 
-        #  if ((yl - yi) < i)
-        #    x = xl - 1
-        #    if (scrollbar.ignore_border && @border)
-        #      x+=1
-        #    end
-        #    if (@always_scroll)
-        #      y = @child_base / (i - (yl - yi))
-        #    else
-        #      y = (@child_base + @child_offset) / (i - 1)
-        #    end
-        #    y = yi + ((yl - yi) * y)
-        #    if (y >= yl)
-        #      y = yl - 1
-        #    end
-        #    cell = lines[y] && lines[y][x]
-        #    if (cell)
-        #      if (@track)
-        #        ch = @track.ch || ' '
-        #        attr = sattr(@style.track,
-        #          @style.track.fg || @style.fg,
-        #          @style.track.bg || @style.bg)
-        #        @screen.fill_region(attr, ch, x, x + 1, yi, yl)
-        #      end
-        #      ch = scrollbar.ch || ' '
-        #      attr = sattr(@style.scrollbar,
-        #        @style.scrollbar.fg || @style.fg,
-        #        @style.scrollbar.bg || @style.bg)
-        #      if cell != {attr, ch}
-        #        lines[y][x].attr = attr
-        #        lines[y][x].char = ch.is_a?(String) ? ch[0] : ch
-        #        lines[y].dirty = true
-        #      end
-        #    end
-        #  end
-        # end
+          if ((yl - yi) < i)
+            x = xl - 1
+            # XXX remove try's
+            if ((@style.try &.scrollbar.try &.ignore_border?) && @border)
+              x+=1
+            end
+            if (@always_scroll)
+              y = @child_base / (i - (yl - yi))
+            else
+              y = (@child_base + @child_offset) / (i - 1)
+            end
+            y = yi + ((yl - yi) * y).to_i
+            if (y >= yl)
+              y = yl - 1
+            end
+            cell = lines[y] && lines[y][x]
+            if (cell)
+              if (@track)
+                ch = (@style.try &.track.try &.char) || ' '
+                attr = sattr(@style.track || @style, @style.track.try(&.fg) || @style.fg, @style.track.try(&.bg) || @style.bg)
+                @screen.fill_region(attr, ch, x, x + 1, yi, yl)
+              end
+              ch = (@style.try &.scrollbar.try &.char) || ' '
+              attr = sattr(@style.scrollbar || @style, @style.scrollbar.try(&.fg) || @style.fg, @style.scrollbar.try(&.bg) || @style.bg)
+              if cell != {attr, ch}
+                lines[y][x].attr = attr
+                lines[y][x].char = ch
+                lines[y].dirty = true
+              end
+            end
+          end
+        end
 
         if (@border)
           xi -= 1
