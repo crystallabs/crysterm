@@ -426,7 +426,7 @@ module Crysterm
       application.sigtstp {
         alloc
         render
-        application.lrestore_cursor "pause", true
+        application.lrestore_cursor :pause, true
         callback.call if callback
       }
     end
