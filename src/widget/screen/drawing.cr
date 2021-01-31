@@ -63,7 +63,7 @@ module Crysterm
             # Take advantage of xterm's back_color_erase feature by using a
             # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
             # the bg for non BCE terminals worth the overhead?
-            if (@use_bce && (ch == ' ') &&
+            if (@optimization.bce? && (ch == ' ') &&
                (application.tput.has?(&.back_color_erase?) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
                (((data >> 18) & 8) == ((@dattr >> 18) & 8)))
               clr = true
@@ -583,7 +583,7 @@ module Crysterm
           return pos._clean_sides = true
         end
 
-        if (@fast_csr)
+        if @optimization.fast_csr?
           # Maybe just do this instead of parsing.
           if (pos.yi < 0)
             return pos._clean_sides = false
@@ -597,7 +597,7 @@ module Crysterm
           return pos._clean_sides = false
         end
 
-        if (!@smart_csr)
+        unless @optimization.smart_csr?
           return false
         end
 

@@ -18,6 +18,13 @@ module Crysterm
   #      end
   #    end
 
+  @[Flags]
+  enum OptimizationFlag
+    FastCSR
+    SmartCSR
+    BCE
+  end
+
   class BasicStyle
     # Potentially make all subelements be filled in here,
     # and if they're a new Style class have it know its
