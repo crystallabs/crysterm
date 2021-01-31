@@ -272,24 +272,32 @@ module Crysterm
           if @vi
             case key
             when Tput::Key::CtrlU
-              offs = -height // 2
-              scroll offs == 0 ? -1 : offs
-              @screen.render
+              height.try do |h|
+                offs = -h // 2
+                scroll offs == 0 ? -1 : offs
+                @screen.render
+              end
               next
             when Tput::Key::CtrlD
-              offs = height // 2
-              scroll offs == 0 ? 1 : offs
-              @screen.render
+              height.try do |h|
+                offs = h // 2
+                scroll offs == 0 ? 1 : offs
+                @screen.render
+              end
               next
             when Tput::Key::CtrlB
-              offs = -height
-              scroll offs == 0 ? -1 : offs
-              @screen.render
+              height.try do |h|
+                offs = -h
+                scroll offs == 0 ? -1 : offs
+                @screen.render
+              end
               next
             when Tput::Key::CtrlF
-              offs = height
-              scroll offs == 0 ? 1 : offs
-              @screen.render
+              height.try do |h|
+                offs = h
+                scroll offs == 0 ? 1 : offs
+                @screen.render
+              end
               next
             end
 
