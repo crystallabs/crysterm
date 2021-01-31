@@ -142,9 +142,7 @@ module Crysterm
         grab_keys = @grab_keys
 
         if !grab_keys || !@ignore_locked.includes?(e.key)
-          emit e
-          # XXX Potentially also emit individual key
-          # emit(keyname + event, e.ch, e.key, e.sequence)
+          emit_key self, e
         end
 
         # If something changed from the screen key handler, stop.
@@ -159,12 +157,32 @@ module Crysterm
         focused.try do |el|
           while el && el.is_a? Element
             if el.keyable?
-              el.emit e
-              # XXX Again, potentially also emit individual key
-              # emit(keyname + event, e.ch, e.key, e.sequence)
+              emit_key el, e
             end
 
             e.accepted? ? break : el.parent
+          end
+        end
+      end
+    end
+
+    # Emits a KeyPressEvent as usual and also emits an event for
+    # the individual key, if any.
+    #
+    # This allows listeners to not only listen for a generic
+    # `KeyPressEvent` and then check for `#key`, but they can
+    # directly listen for e.g. `KeyPressEvent::CtrlP`.
+    @[AlwaysInline]
+    def emit_key(el, e : Event)
+      if handlers(e.class).any?
+        el.emit e
+      end
+      if e.key
+        Crysterm::Application.key_events[e.key]?.try do |keycls|
+          if handlers(keycls).any?
+            el.emit e.unsafe_as keycls
+            # OR (avoiding unsafe_as):
+            #el.emit keycls.new e.char, e.key, e.sequence
           end
         end
       end

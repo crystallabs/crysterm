@@ -17,6 +17,7 @@ module Crysterm
     include EventHandler
 
     class_getter instances = [] of self
+    class_property key_events = {} of Tput::Key => KeyPressEvent.class
 
     def self.total
       @@instances.size
@@ -211,14 +212,6 @@ module Crysterm
             # next if app.input != @tput.input
 
             emit KeyPressEvent.new char, key, sequence
-            # TODO - possibly also:
-            # if key
-            #   emit key_event[key].new char, key, sequence
-            # end
-            # But this requires a file with mappings of:
-            # key enums value => key event class
-            # It does seem more convenient for the users than
-            # listening for all keys in their code though...
           end
         end
       end

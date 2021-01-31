@@ -71,9 +71,15 @@ module Crysterm
     def ignore!
       @accepted = false
     end
+
+    # This macro takes all enum members from Tput::Key
+    # and creates a KeyPressEvent::<member> event for them.
+    {% for m in Tput::Key.constants %}
+      class {{m.id}} < KeyPressEvent; end
+      Application.key_events[ Tput::Key::{{m.id}} ] = {{m.id}}
+    {% end %}
   end
 
-  # event KeyPressEvent, ch : Char, key : Key
   event ClickEvent
 
   event PressEvent
