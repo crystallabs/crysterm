@@ -142,14 +142,18 @@ module Crysterm
           # NOTE why a/i values can be nil?
           visible = cur.screen.height - el.atop.not_nil! - el.itop.not_nil! - el.abottom.not_nil! - el.ibottom.not_nil!
           if cur.rtop < el.child_base
-            # TODO Enable
-            # el.scroll_to cur.rtop
+            # XXX remove 'if' when Screen is no longer parent of elements
+            if el.is_a? Element
+              el.scroll_to cur.rtop
+            end
             cur.screen.render
           elsif (cur.rtop + cur.height - cur.ibottom) > (el.child_base + visible)
             # Explanation for el.itop here: takes into account scrollable elements
             # with borders otherwise the element gets covered by the bottom border:
-            # TODO Enable
-            # el.scroll_to cur.rtop - (el.height - cur.height) + el.itop, true
+            # XXX remove 'if' when Screen is no longer parent of elements
+            if el.is_a? Element
+              el.scroll_to cur.rtop - (el.height - cur.height) + el.itop, true
+            end
             cur.screen.render
           end
         end
