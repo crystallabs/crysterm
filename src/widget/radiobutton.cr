@@ -27,14 +27,15 @@ module Crysterm
           end
           el = el || parent
 
-          #el.try &.each_descendant do |cel|
-          #  # next if !(cel.is_a? RadioButton) || cel == self
-          #  cel.toggle if cel.is_a?(RadioButton) && cel != self
-          #end
-          el.try &.children.each do |cel|
+          el.try &.each_descendant do |cel|
             # next if !(cel.is_a? RadioButton) || cel == self
+            #cel.toggle if cel.is_a?(RadioButton) && cel != self
             cel.uncheck if cel.is_a?(RadioButton) && cel != self
           end
+          #el.try &.children.each do |cel|
+          #  # next if !(cel.is_a? RadioButton) || cel == self
+          #  cel.uncheck if cel.is_a?(RadioButton) && cel != self
+          #end
         end
       end
 
