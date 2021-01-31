@@ -86,12 +86,12 @@ module Crysterm
     end
 
     def append(element)
-      insert element, @children.size
+      insert element
     end
 
     def append(*elements)
       elements.each do |el|
-        insert el, @children.size
+        insert el
       end
     end
 
