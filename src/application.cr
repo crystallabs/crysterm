@@ -17,7 +17,7 @@ module Crysterm
     include EventHandler
 
     class_getter instances = [] of self
-    class_property key_events = {} of Tput::Key => KeyPressEvent.class
+    class_property key_events = Hash(Tput::Key, KeyPressEvent.class).new initial_capacity: {{ Tput::Key.constants.size }}
 
     def self.total
       @@instances.size
