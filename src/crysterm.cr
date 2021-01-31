@@ -2,6 +2,7 @@ require "term_colors"
 require "crystallabs-helpers"
 require "tput"
 
+require "./version"
 require "./macros"
 require "./colors"
 require "./helpers"

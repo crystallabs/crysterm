@@ -4,12 +4,13 @@ require "tput"
 require "log"
 
 require "./macros"
+require "./core_application"
 require "./methods"
 require "./widget/node"
 require "./widget/*"
 
 module Crysterm
-  class Application
+  class Application < CoreApplication
     # #include EventHandler
     include Methods
     include Macros
@@ -49,6 +50,25 @@ module Crysterm
     getter _title : String?
 
     @_listened_keys : Bool = false
+
+    # Automatically display SIP when entering widgets that accept keyboard input.
+    property? auto_sip_enabled : Bool = true
+
+    # TODO
+    # application:
+    #cursor.flash.time, double.click.interval,
+    # keyboard.input.interval, start.drag.distance,
+    # start.drag.time,
+    #stylesheet -> string
+    # wheelscrolllines
+    #close.all.windows, active.modal.window, active.popup.window
+    # active.window, alert(), all_widgets
+    # AboutToQuitEvent
+    #ability to set terminal font
+    #something about effects
+    #NavigationMode
+    #palette?
+    #set.active.screen
 
     def initialize(
       input = STDIN.dup,
@@ -223,6 +243,10 @@ module Crysterm
         @destroyed = true
         emit DestroyEvent
       end
+    end
+
+    def about_crysterm
+      "Crysterm v#{Crysterm::VERSION}, Tput v#{Tput::VERSION}"
     end
 
     # We can't name the function 'out'. But it is here for reference only.
