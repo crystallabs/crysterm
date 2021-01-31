@@ -32,7 +32,7 @@ module Crysterm
     # Array of keys to ignore when keys are locked or grabbed. Useful for defining
     # keys that will always execute their action (e.g. exit a program) regardless of
     # whether keys are locked.
-    property ignore_locked : Array(Element)
+    property ignore_locked = Array(Tput::Key).new
 
     # Currently hovered element. Best set only if mouse events are enabled.
     @hover : Element? = nil
@@ -45,11 +45,13 @@ module Crysterm
       @auto_padding = true,
       @tab_size = 4,
       @dock_borders = false,
-      @ignore_locked = [] of Element, # or Node
+      ignore_locked : Array(Tput::Key)? = nil,
       title = nil,
       @cursor = Tput::Namespace::Cursor.new
     )
       bind
+
+      ignore_locked.try { |v| @ignore_locked.push v }
 
       @application = application ||= Application.new
       # ensure tput.zero_based = true, use_bufer=true
@@ -130,7 +132,7 @@ module Crysterm
       # NOTE: The event emissions used to be reversed:
       # element + screen
       # They are now:
-      # screen + element
+      # screen, element and el's parents until one #accept!s it.
       # After the first keypress emitted, the handler
       # checks to make sure grab_keys, lock_keys, and focused
       # weren't changed, and handles those situations appropriately.
@@ -140,8 +142,7 @@ module Crysterm
         end
 
         grab_keys = @grab_keys
-
-        if !grab_keys || !@ignore_locked.includes?(e.key)
+        if !grab_keys || @ignore_locked.includes?(e.key)
           emit_key self, e
         end
 
@@ -160,7 +161,11 @@ module Crysterm
               emit_key el, e
             end
 
-            e.accepted? ? break : el.parent
+            if e.accepted?
+              break
+            end
+
+            el = el.parent
           end
         end
       end
@@ -174,15 +179,13 @@ module Crysterm
     # directly listen for e.g. `KeyPressEvent::CtrlP`.
     @[AlwaysInline]
     def emit_key(el, e : Event)
-      if handlers(e.class).any?
+      if el.handlers(e.class).any?
         el.emit e
       end
       if e.key
         Crysterm::Application.key_events[e.key]?.try do |keycls|
-          if handlers(keycls).any?
-            el.emit e.unsafe_as keycls
-            # OR (avoiding unsafe_as):
-            #el.emit keycls.new e.char, e.key, e.sequence
+          if el.handlers(keycls).any?
+            el.emit keycls.new e.char, e.key, e.sequence
           end
         end
       end
