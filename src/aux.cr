@@ -30,33 +30,46 @@ module Crysterm
     # and if they're a new Style class have it know its
     # Style parent. This way we could default values to
     # the parent value.
-    property fg : String
-    property bg : String
-    property bold : Bool
-    property underline : Bool
-    property blink : Bool
-    property inverse : Bool
-    property invisible : Bool
-    property transparent : Bool
+    property fg : String = "white"
+    property bg : String = "black"
+    property bold : Bool = false
+    property underline : Bool = false
+    property blink : Bool = false
+    property inverse : Bool = false
+    property invisible : Bool = false
+    property transparent : Bool = false
     # property hover : Bool
     # property focus : Bool
     property char : Char = ' '
+    property fchar : Char = ' '
 
     # For scrollbar
     property? ignore_border : Bool
 
     def initialize(
-      @fg = "white",
-      @bg = "black",
-      @bold = false,
-      @underline = false,
-      @blink = false,
-      @inverse = false,
-      @invisible = false,
-      @transparent = false,
-      @char = ' ',
-      @ignore_border = false
+      fg = nil,
+      bg = nil,
+      bold = nil,
+      underline = nil,
+      blink = nil,
+      inverse = nil,
+      invisible = nil,
+      transparent = nil,
+      char = nil,
+      fchar = nil,
+      ignore_border = nil,
     )
+      fg.try { |v| @fg = v }
+      bg.try { |v| @bg = v }
+      bold.try { |v| @bold = v }
+      underline.try { |v| @underline = v }
+      blink.try { |v| @blink = v }
+      inverse.try { |v| @inverse = v }
+      invisible.try { |v| @invisible = v }
+      transparent.try { |v| @transparent = v }
+      char.try { |v| @char = v }
+      fchar.try { |v| @fchar = v }
+      ignore_border.try { |v| @ignore_border = v }
     end
   end
 

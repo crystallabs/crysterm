@@ -270,9 +270,11 @@ module Crysterm
           end
 
           if @vi
+            # XXX remove all those protections for height being Int
             case key
             when Tput::Key::CtrlU
               height.try do |h|
+                next unless h.is_a? Int
                 offs = -h // 2
                 scroll offs == 0 ? -1 : offs
                 @screen.render
@@ -280,6 +282,7 @@ module Crysterm
               next
             when Tput::Key::CtrlD
               height.try do |h|
+                next unless h.is_a? Int
                 offs = h // 2
                 scroll offs == 0 ? 1 : offs
                 @screen.render
@@ -287,6 +290,7 @@ module Crysterm
               next
             when Tput::Key::CtrlB
               height.try do |h|
+                next unless h.is_a? Int
                 offs = -h
                 scroll offs == 0 ? -1 : offs
                 @screen.render
@@ -294,6 +298,7 @@ module Crysterm
               next
             when Tput::Key::CtrlF
               height.try do |h|
+                next unless h.is_a? Int
                 offs = h
                 scroll offs == 0 ? 1 : offs
                 @screen.render

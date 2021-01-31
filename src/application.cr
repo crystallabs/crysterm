@@ -231,7 +231,7 @@ module Crysterm
           @@_bound = false
         end
 
-        # TODO rest of stuf; e.g. reset terminal back to usable
+        # TODO rest of stuff; e.g. reset terminal back to usable
 
         @destroyed = true
         emit DestroyEvent

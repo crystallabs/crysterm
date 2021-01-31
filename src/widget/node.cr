@@ -34,9 +34,9 @@ module Crysterm
     property data : JSON::Any?
 
     def initialize(
+      @parent = nil,
       name = nil,
       screen = nil,
-      @parent = nil,
       index = -1,
       children = [] of Element
     )

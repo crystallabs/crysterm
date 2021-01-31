@@ -40,6 +40,8 @@ module Crysterm
     property show_fps : Point? = Point[-1,0]
     property? show_avg = true
 
+    property optimization : OptimizationFlag = OptimizationFlag::None
+
     def initialize(
       application = nil,
       @auto_padding = true,
@@ -47,11 +49,13 @@ module Crysterm
       @dock_borders = false,
       ignore_locked : Array(Tput::Key)? = nil,
       title = nil,
-      @cursor = Tput::Namespace::Cursor.new
+      @cursor = Tput::Namespace::Cursor.new,
+      optimization = nil
     )
       bind
 
       ignore_locked.try { |v| @ignore_locked.push v }
+      optimization.try { |v| @optimization = v }
 
       @application = application ||= Application.new
       # ensure tput.zero_based = true, use_bufer=true
