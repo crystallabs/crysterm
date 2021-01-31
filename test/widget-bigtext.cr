@@ -21,7 +21,7 @@ module Crysterm
       fg: "red",
       bg: "blue",
       bold: false,
-      fchar: ' ',
+      #fchar: ' ',
       char: '\u2592',
     )
 

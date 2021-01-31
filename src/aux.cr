@@ -41,7 +41,7 @@ module Crysterm
     # property hover : Bool
     # property focus : Bool
     property char : Char = ' '
-    property fchar : Char = ' '
+    #property fchar : Char = ' '
 
     # For scrollbar
     property? ignore_border : Bool
@@ -56,7 +56,7 @@ module Crysterm
       invisible = nil,
       transparent = nil,
       char = nil,
-      fchar = nil,
+      #fchar = nil,
       ignore_border = nil,
     )
       fg.try { |v| @fg = v }
@@ -68,7 +68,7 @@ module Crysterm
       invisible.try { |v| @invisible = v }
       transparent.try { |v| @transparent = v }
       char.try { |v| @char = v }
-      fchar.try { |v| @fchar = v }
+      #fchar.try { |v| @fchar = v }
       ignore_border.try { |v| @ignore_border = v }
     end
   end

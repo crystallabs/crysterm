@@ -7,11 +7,10 @@ module Crysterm
     class BigText < Widget::Box
       property font : String = "src/fonts/ter-u14n.json"
       property font_bold : String = "src/fonts/ter-u14b.json"
-      property fch : Char = ' '
       property ratio : Size = Size.new 0, 0
       property text = ""
 
-      # TODO This isn't very useful.
+      # TODO This isn't very useful as-is.
       # Support font scaling, etc.
       # Also, character for fg/bg, etc.
 
@@ -28,7 +27,6 @@ module Crysterm
       property _shrink_height : Bool = false
 
       def initialize(
-        fch = ' ',
         font = "src/fonts/ter-u14n.json",
         font_bold = "src/fonts/ter-u14b.json",
         **box
@@ -150,13 +148,13 @@ module Crysterm
             while mx < @ratio.width
               mcell = mline[mx]
               break if mcell.nil?
-              if (@fch && @fch != ' ')
-                lines[y][x + mx].attr = dattr
-                lines[y][x + mx].char = mcell == 1 ? @fch : @style.char
-              else
+              #if (@fch && @fch != ' ')
+              #  lines[y][x + mx].attr = dattr
+              #  lines[y][x + mx].char = mcell == 1 ? @fch : @style.char
+              #else
                 lines[y][x + mx].attr = mcell == 1 ? attr : dattr
                 lines[y][x + mx].char = mcell == 1 ? ' ' : @style.char
-              end
+              #end
 
               mx += 1
             end
