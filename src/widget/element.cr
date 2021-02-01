@@ -111,6 +111,8 @@ module Crysterm
     # Element's border.
     property border : Border?
 
+    property style : Style
+
     def initialize(
       # These end up being part of Position.
       # If position is specified, these are ignored.
@@ -131,7 +133,7 @@ module Crysterm
       overflow : Overflow? = nil,
       @dock_borders = true,
       @shadow = false,
-      style : Style = Style.new, # Previously: Style? = nil
+      @style = Style.new, # Previously: Style? = nil
       padding : Padding | Int32 = 0,
       border = nil,
       # @clickable=false,
@@ -646,14 +648,10 @@ module Crysterm
       set_index 0
     end
 
-    def self.sattr(style, fg = nil, bg = nil)
-      # See why this can be nil
-      # XXX Don't insert default this crude.
-      style = style || Style.new
-
+    def self.sattr(style : BasicStyle, fg = nil, bg = nil)
       if fg.nil? && bg.nil?
-        fg = style.try &.fg
-        bg = style.try &.bg
+        fg = style.fg
+        bg = style.bg
       end
 
       # Support style.* being Procs
@@ -667,7 +665,7 @@ module Crysterm
         Colors.convert(bg)
     end
 
-    def sattr(style, fg = nil, bg = nil)
+    def sattr(style : BasicStyle, fg = nil, bg = nil)
       self.class.sattr style, fg, bg
     end
 

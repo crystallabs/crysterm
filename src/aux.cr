@@ -41,6 +41,7 @@ module Crysterm
     # property hover : Bool
     # property focus : Bool
     property char : Char = ' '
+    property pchar : Char = ' '
     #property fchar : Char = ' '
 
     # For scrollbar
@@ -77,11 +78,13 @@ module Crysterm
     property border : BasicStyle? = BasicStyle.new
     property scrollbar : BasicStyle? = BasicStyle.new
     property track : BasicStyle? = BasicStyle.new
+    property bar : BasicStyle? = BasicStyle.new
 
     def initialize(
       @border = nil,
       @scrollbar = nil,
       @track = nil,
+      @bar = nil,
       **basic_style
     )
       super **basic_style

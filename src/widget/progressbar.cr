@@ -26,9 +26,12 @@ module Crysterm
         @pch = ' ',
         @keys = true,
         @mouse = false,
+        orientation = nil,
         **input
       )
         super **input
+
+        orientation.try { |v| @orientation = v }
 
         @value = @filled
 
@@ -87,17 +90,16 @@ module Crysterm
           yl -= 1
         end
 
-        if @orientation == Orientation::Vertical
-          yi = yi + ((yl - yi) - (((yl - yi) * (@filled // 100)).to_i))
-        else
+        if @orientation == Orientation::Horizontal
           xl = xi + ((xl - xi) * (@filled / 100)).to_i
+        else
+          yi = yi + ((yl - yi) - (((yl - yi) * (@filled / 100)).to_i))
         end
 
-        s = @style.try(&.dup) || Style.new
-        s.fg, s.bg = s.bg, s.fg
-        dattr = sattr s
+        s = @style.bar || @style
+        dattr = sattr s, s.bg, s.fg
 
-        @screen.fill_region dattr, @pch, xi, xl, yi, yl
+        @screen.fill_region dattr, @style.pchar, xi, xl, yi, yl
 
         if pc = @_pcontent
           line = @screen.lines[yi]
