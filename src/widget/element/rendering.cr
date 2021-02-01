@@ -185,7 +185,9 @@ module Crysterm
             end
           end
           # TODO - make cell exist only if there's something to be drawn there?
-          (xi...xl).each do |x|
+          x = xi - 1
+          while x < xl - 1
+            x += 1
             cell = lines[y][x]?
             if (!cell)
               if (x >= @screen.width || xl < iright)
@@ -245,7 +247,7 @@ module Crysterm
                 if (!cell)
                   break
                 end
-                if @style.try &.transparent
+                if @style.transparent
                   lines[y][x].attr = Colors.blend(attr, lines[y][x].attr)
                   if (content[ci]?)
                     lines[y][x].char = ch
@@ -263,7 +265,7 @@ module Crysterm
 
               # It was a newline; we've filled the row to the end, we
               # can move to the next row.
-              break
+              next
             end
 
             # TODO
@@ -373,7 +375,7 @@ module Crysterm
 
         # Draw the border.
         if (border = @border)
-          battr = sattr(@style.try &.border)
+          battr = sattr(@style.border || @style)
           y = yi
           if (coords.notop)
             y = -1
