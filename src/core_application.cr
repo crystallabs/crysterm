@@ -1,3 +1,7 @@
+require "toka"
+require "i18n"
+require "event_handler"
+
 module Crysterm
 
   abstract class CoreApplication

@@ -321,7 +321,7 @@ module Crysterm
         if (@scrollbar)
           margin += 1
         end
-        if is_a? TextArea
+        if is_a? Widget::TextArea
           margin += 1
         end
         if (colwidth > margin)

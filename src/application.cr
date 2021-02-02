@@ -1,16 +1,14 @@
-require "event_handler"
 require "term-screen"
-require "tput"
 require "log"
 
 require "./macros"
-require "./core_application"
+require "./tui_application"
 require "./methods"
 require "./widget/node"
 require "./widget/*"
 
 module Crysterm
-  class Application < CoreApplication
+  class Application < TuiApplication
     # #include EventHandler
     include Methods
     include Macros
