@@ -403,6 +403,18 @@ module Crysterm
     #property iwidth = 0
     #property iheight = 0
 
+    # Relative positions are the default and are aliased to the
+    # left/top/right/bottom methods.
+    getter rleft = 0
+    getter rtop = 0
+    getter rright = 0
+    getter rbottom = 0
+    # And these are the absolute ones; they're also 0.
+    getter aleft = 0
+    getter atop = 0
+    getter aright = 0
+    getter abottom = 0
+
     property overflow = Overflow::Ignore
 
     ##### End of unused parts.
