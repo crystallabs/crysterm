@@ -1,3 +1,7 @@
+require "toka"
+require "i18n"
+
+require "event_handler"
 require "term_colors"
 require "crystallabs-helpers"
 require "tput"

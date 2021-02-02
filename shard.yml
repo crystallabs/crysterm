@@ -21,3 +21,5 @@ dependencies:
     path: ../term_colors
   w3m_image_display:
     github: SamualLB/w3mimagedisplay
+  i18n:
+    github: BrucePerens/i18n
