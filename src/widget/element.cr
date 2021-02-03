@@ -601,9 +601,12 @@ module Crysterm
     def _detached?
       el = self
       while el
-        return false if el.is_a? Screen
-        return true if !el.parent
-        el = el.parent
+        return true unless el.screen
+
+        # XXX is that check above enough? Could be. If not, the alternative
+        # would be:
+        #return false if Screen === el
+        #return true unless el = el.parent_or_screen
       end
       false
     end

@@ -66,23 +66,33 @@ module Crysterm
     end
 
     def determine_screen
-      if Screen.total == 1
-        Screen.global
-      elsif @parent
-        s = @parent
-        while s && !(s.is_a? Screen)
-          s = s.parent
-        end
-        if s.is_a? Screen
-          s
-        else
-          raise Exception.new("No active screen found in parent chain.")
-        end
-      elsif Screen.total > 0
-        Screen.instances[-1]
-      else
-        raise Exception.new("No active screen found anywhere.")
-      end
+      #if Screen.total == 1
+      #  Screen.global
+      #elsif @parent
+      #  s = @parent
+      #  while s && !(s.is_a? Screen)
+      #    s = s.parent_or_screen
+      #  end
+      #  if s.is_a? Screen
+      #    s
+      #  else
+      #    raise Exception.new("No active screen found in parent chain.")
+      #  end
+      #elsif Screen.total > 0
+      #  Screen.instances[-1]
+      #else
+      #  raise Exception.new("No active screen found anywhere.")
+      #end
+
+      # XXX this is simpler than the above, yet same effect:
+      Screen.instances[-1]? || raise Exception.new("No active screen found.")
+    end
+
+    # Returns parent `Element` (if any) or `Screen` to which the widget may be attached.
+    # If the widget already is `Screen`, returns `nil`.
+    def parent_or_screen
+      return nil if Screen === self
+      @parent || @screen
     end
 
     def append(element)
@@ -96,8 +106,11 @@ module Crysterm
     end
 
     def insert(element, i = -1)
+
+      # XXX Never triggers. But needs to be here for type safety.
+      # Hopefully can be removed when Screen is no longer parent of any Elements.
       if element.is_a? Screen
-        return
+        raise "Unexpected"
       end
 
       if element.screen != @screen
@@ -105,9 +118,8 @@ module Crysterm
       end
 
       element.detach
-      element.parent = self
 
-      element.screen = @screen # Isn't it already?
+      element.screen = @screen
 
       # if i == -1
       #  @children.push element
@@ -117,8 +129,12 @@ module Crysterm
       @children.insert i, element
       # end
 
-      element.emit(ReparentEvent, self)
-      emit(AdoptEvent, element)
+      unless Screen === self
+        element.parent = self
+        element.emit(ReparentEvent, self)
+        emit(AdoptEvent, element)
+      end
+
       emt = uninitialized Node -> Nil
       emt = ->(el : Node) {
         n = el.detached? != @detached
