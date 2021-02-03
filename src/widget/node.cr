@@ -18,7 +18,7 @@ module Crysterm
     property screen : Screen
 
     # Node's parent `Element` or `Screen`, if any.
-    property parent : Node?
+    property parent : Element?
 
     # Node's children `Element`s.
     property children = [] of Element
@@ -129,7 +129,7 @@ module Crysterm
       @children.insert i, element
       # end
 
-      unless Screen === self
+      unless self.is_a? Screen
         element.parent = self
         element.emit(ReparentEvent, self)
         emit(AdoptEvent, element)

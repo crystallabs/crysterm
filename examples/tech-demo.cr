@@ -5,7 +5,7 @@ module Crysterm
 
   s = Screen.new
   b = layout = Layout.new(
-    parent: s,
+    #parent: s,
     top: 0,
     left: 0,
     #width: "50%",
@@ -19,6 +19,7 @@ module Crysterm
   )
 
   #b.focus
+  s.append b
 
   box = Box.new(
     parent: layout,
@@ -149,7 +150,7 @@ module Crysterm
   )
 
   boxtp2 = Box.new(
-    parent: s,
+    #parent: s,
     width: 60,
     height: 16,
     top: 24,
@@ -159,7 +160,7 @@ module Crysterm
     style: Style.new( "bg": "#870087")
   )
   boxtp1 = Box.new(
-    parent: s,
+    #parent: s,
     top: 20,
     left: 150,
     width: 60,
@@ -169,6 +170,8 @@ module Crysterm
     shadow: true,
     style: Style.new( "bg": "#729fcf", transparent: true)
   )
+  s.append boxtp2
+  s.append boxtp1
 
   loading2 = Loading.new \
     parent: layout,
@@ -221,9 +224,7 @@ module Crysterm
     i += 1
     Fiber.yield
     sleep 0.2
-  end
-  end
+  end end
 
-
- sleep
+  sleep
 end

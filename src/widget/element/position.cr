@@ -175,7 +175,7 @@ module Crysterm
           end
         end
 
-        parent = @parent.not_nil!
+        parent = (parent_or_screen).not_nil!
 
         if ((parent.overflow == Overflow::ShrinkElement) && (plp = parent.lpos))
           if (xi < plp.xi + parent.ileft)
@@ -217,7 +217,7 @@ module Crysterm
 
       def _get_width(get)
 
-        parent = get ? @parent.try(&._get_pos) : @parent
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
           raise "Something"
         end
@@ -274,7 +274,7 @@ module Crysterm
 
       def _get_height(get)
 
-        parent = get ? @parent.try(&._get_pos) : @parent
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
           raise "Something"
         end
@@ -331,7 +331,7 @@ module Crysterm
 
       def _get_left(get)
 
-        parent = get ? @parent.try(&._get_pos) : @parent
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
           raise "Something"
         end
@@ -372,7 +372,7 @@ module Crysterm
 
       def _get_right(get)
 
-        parent = get ? @parent.try(&._get_pos) : @parent
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
           raise "Something"
         end
@@ -402,7 +402,7 @@ module Crysterm
 
       def _get_top(get)
 
-        parent = get ? @parent.try(&._get_pos) : @parent
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
           raise "Something"
         end
@@ -442,7 +442,7 @@ module Crysterm
 
       def _get_bottom(get)
 
-        parent = get ? @parent.try(&._get_pos) : @parent
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
           raise "Something"
         end
@@ -473,19 +473,19 @@ module Crysterm
       end
 
       def rleft
-        aleft.not_nil! - @parent.not_nil!.aleft.not_nil!
+        aleft.not_nil! - (parent_or_screen).not_nil!.aleft.not_nil!
       end
 
       def rright
-        aright.not_nil! - @parent.not_nil!.aright.not_nil!
+        aright.not_nil! - (parent_or_screen).not_nil!.aright.not_nil!
       end
 
       def rtop
-        atop.not_nil! - @parent.not_nil!.atop.not_nil!
+        atop.not_nil! - (parent_or_screen).not_nil!.atop.not_nil!
       end
 
       def rbottom
-        abottom.not_nil! - @parent.not_nil!.abottom.not_nil!
+        abottom.not_nil! - (parent_or_screen).not_nil!.abottom.not_nil!
       end
 
       def width=(val : Int)
@@ -517,7 +517,7 @@ module Crysterm
             val += expr[1] if expr[1]?
           end
         end
-        val -= @parent.not_nil!.aleft
+        val -= (parent_or_screen).not_nil!.aleft
         if (@position.left == val)
           return
         end
@@ -528,7 +528,7 @@ module Crysterm
       end
 
       def aright=(val : Int)
-        val -= @parent.not_nil!.aright
+        val -= (parent_or_screen).not_nil!.aright
         return if (@position.right == val)
         clear_pos
         @position.right = val
@@ -549,7 +549,7 @@ module Crysterm
             val += expr[1] if expr[1]?
           end
         end
-        val -= @parent.not_nil!.atop
+        val -= (parent_or_screen).not_nil!.atop
         return if (@position.top == val)
         clear_pos
         @position.top = val
@@ -558,7 +558,7 @@ module Crysterm
       end
 
       def abottom=(val : Int)
-        val -= @parent.not_nil!.abottom
+        val -= (parent_or_screen).not_nil!.abottom
         return if (@position.bottom == val)
         clear_pos
         @position.bottom = val
