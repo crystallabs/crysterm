@@ -37,7 +37,7 @@ module Crysterm
     property blink : Bool = false
     property inverse : Bool = false
     property invisible : Bool = false
-    property transparent : Bool = false
+    property transparent : Float64? = nil
     # property hover : Bool
     # property focus : Bool
     property char : Char = ' '
@@ -67,7 +67,7 @@ module Crysterm
       blink.try { |v| @blink = v }
       inverse.try { |v| @inverse = v }
       invisible.try { |v| @invisible = v }
-      transparent.try { |v| @transparent = v }
+      transparent.try { |v| @transparent = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
       char.try { |v| @char = v }
       #fchar.try { |v| @fchar = v }
       ignore_border.try { |v| @ignore_border = v }

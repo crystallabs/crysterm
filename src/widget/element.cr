@@ -20,8 +20,8 @@ module Crysterm
     # Dock borders? (See `Screen#dock_borders?` for more information)
     property? dock_borders : Bool
 
-    # Draw half-transparent shadow on the element's right and bottom?
-    property? shadow : Bool
+    # Draw shadow on the element's right and bottom? Can be `true` for opacity 0.5, or a specific Float.
+    property shadow : Float64?
 
     # Is element hidden? Hidden elements are not rendered on the screen and their dimensions don't use screen space.
     property? hidden = false
@@ -132,7 +132,7 @@ module Crysterm
       resizable = nil,
       overflow : Overflow? = nil,
       @dock_borders = true,
-      @shadow = false,
+      shadow = nil,
       @style = Style.new, # Previously: Style? = nil
       padding : Padding | Int32 = 0,
       border = nil,
@@ -159,6 +159,7 @@ module Crysterm
       hidden.try { |v| @hidden = v }
       scrollable.try { |v| @scrollable = v }
       overflow.try { |v| @overflow = v }
+      shadow.try { |v| @shadow = v.is_a?(Bool) ? ( v ? 0.5 : nil ) : v }
 
       scrollbar.try { |v| @scrollbar = v }
       track.try { |v| @track = v }
