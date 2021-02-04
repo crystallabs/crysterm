@@ -151,7 +151,7 @@ module Crysterm
         end
 
         # If something changed from the screen key handler, stop.
-        if (@grab_keys != grab_keys) || @lock_keys
+        if (@grab_keys != grab_keys) || @lock_keys || e.accepted?
           next
         end
 

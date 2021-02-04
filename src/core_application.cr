@@ -2,6 +2,8 @@ require "toka"
 require "i18n"
 require "event_handler"
 
+require "./core_application/options"
+
 module Crysterm
 
   abstract class CoreApplication
@@ -53,17 +55,15 @@ module Crysterm
     end
 
     def parse_arguments
-      @arguments.merge Arguments.new unparsed_arguments
+      @arguments.merge Options.new unparsed_arguments
     end
 
-    class Options
-      Toka.mapping({
-        setuid_allowed: {
-          type: Bool,
-          default: false,
-          description: "Is the application allowed to run setuid on UNIX platforms?"
-        }
-      })
+    def self.about
+      "Crysterm v#{Crysterm::VERSION}, Tput v#{Tput::VERSION}"
+    end
+
+    def about
+      self.class.about
     end
 
   end

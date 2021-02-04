@@ -236,10 +236,6 @@ module Crysterm
       end
     end
 
-    def about_crysterm
-      "Crysterm v#{Crysterm::VERSION}, Tput v#{Tput::VERSION}"
-    end
-
     # We can't name the function 'out'. But it is here for reference only.
     # To print to a temporary buffer rather than @output, initialize
     # @tput.ret to an IO. Then all writes will go there instead of to @output.
