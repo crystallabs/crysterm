@@ -220,7 +220,7 @@ module Crysterm
                 #    attr = (attr & ~(0x1ff << 9)) | (dattr & (0x1ff << 9))
                 #  end
                 # end
-                ch = content[ci] || bch
+                ch = content[ci]? || bch
                 ci += 1
               else
                 break
