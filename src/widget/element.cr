@@ -1,4 +1,4 @@
-require "../aux"
+require "../namespace"
 require "../events"
 require "./node"
 require "./element/position"

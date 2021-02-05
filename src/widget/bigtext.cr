@@ -5,8 +5,8 @@ require "./box"
 module Crysterm
   module Widget
     class BigText < Widget::Box
-      property font : String = "src/fonts/ter-u14n.json"
-      property font_bold : String = "src/fonts/ter-u14b.json"
+      property font : String = "#{__DIR__}/../fonts/ter-u14n.json"
+      property font_bold : String = "#{__DIR__}/../fonts/ter-u14b.json"
       property ratio : Size = Size.new 0, 0
       property text = ""
 

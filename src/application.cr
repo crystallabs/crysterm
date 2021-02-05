@@ -21,8 +21,8 @@ module Crysterm
       @@instances.size
     end
 
-    def self.global
-      instances[0]?.not_nil!
+    def self.global(create = true)
+      ( instances[0]? || (create ? new : nil)).not_nil!
     end
 
     @@_bound = false
@@ -243,6 +243,11 @@ module Crysterm
     # NOTE Check how does this affect behavior with the local @_buf element.
     # def out
     # end
+
+    def exec(screen : Screen?)
+      (screen || Screen.global(true)).render
+      super
+    end
 
   end
 end

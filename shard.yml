@@ -23,3 +23,5 @@ dependencies:
     github: SamualLB/w3mimagedisplay
   i18n:
     github: BrucePerens/i18n
+  event_handler:
+    github: crystallabs/event_handler

@@ -36,7 +36,7 @@ module Crysterm
     def initialize(
       @parent = nil,
       name = nil,
-      screen = nil,
+      @screen = determine_screen || Screen.global(true),
       index = -1,
       children = [] of Element
     )
@@ -44,7 +44,7 @@ module Crysterm
 
       @name = name || "#{self.class.name}-#{@uid}"
 
-      @screen = screen || determine_screen
+      #@screen = screen || determine_screen
 
       # $ = _ = JSON/YAML::Any
 
@@ -66,26 +66,22 @@ module Crysterm
     end
 
     def determine_screen
-      #if Screen.total == 1
-      #  Screen.global
-      #elsif @parent
-      #  s = @parent
-      #  while s && !(s.is_a? Screen)
-      #    s = s.parent_or_screen
-      #  end
-      #  if s.is_a? Screen
-      #    s
-      #  else
-      #    raise Exception.new("No active screen found in parent chain.")
-      #  end
-      #elsif Screen.total > 0
-      #  Screen.instances[-1]
+      if Screen.total == 1
+        Screen.global
+      elsif s = @parent
+        while s && !(s.is_a? Screen)
+          s = s.parent_or_screen
+        end
+        if s.is_a? Screen
+          s
+        #else
+        #  raise Exception.new("No active screen found in parent chain.")
+        end
+      elsif Screen.total > 0
+        Screen.instances[-1]
       #else
       #  raise Exception.new("No active screen found anywhere.")
-      #end
-
-      # XXX this is simpler than the above, yet same effect:
-      Screen.instances[-1]? || raise Exception.new("No active screen found.")
+      end
     end
 
     # Returns parent `Element` (if any) or `Screen` to which the widget may be attached.
