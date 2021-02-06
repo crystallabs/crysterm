@@ -12,9 +12,8 @@ dependencies:
   tput:
     path: ../tput
   crystallabs-helpers:
-    #github: crystallabs/crystallabs-helpers.cr
-    #branch: master
-    path: ../crystallabs-helpers.cr
+    github: crystallabs/crystallabs-helpers.cr
+    branch: master
   term_colors:
     #github: crystallabs/term_colors
     #branch: master
