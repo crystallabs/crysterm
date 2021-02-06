@@ -8,7 +8,6 @@ module Crysterm
   s = Screen.new optimization: OptimizationFlag::SmartCSR
 
   b = BigText.new \
-    parent: s,
     content: "Hello",
     #parse_tags: true,
     resizable: true,
@@ -25,6 +24,7 @@ module Crysterm
       char: '\u2592',
     )
 
+  s.append b
   b.focus
   s.render
 

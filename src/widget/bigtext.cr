@@ -27,16 +27,16 @@ module Crysterm
       property _shrink_height : Bool = false
 
       def initialize(
-        font = "src/fonts/ter-u14n.json",
-        font_bold = "src/fonts/ter-u14b.json",
+        font = "#{__DIR__}/../fonts/ter-u14n.json",
+        font_bold = "#{__DIR__}/../fonts/ter-u14b.json",
         **box
       )
-        @ratio = Size.new 0, 0
+        #@ratio = Size.new 0, 0
 
-        @normal = load_font @font
-        @bold = load_font @font_bold
+        @normal = load_font font
+        @bold = load_font font_bold
 
-        box["content"].try do |c|
+        box["content"]?.try do |c|
           @text = c
         end
 
@@ -127,9 +127,13 @@ module Crysterm
         flags = (dattr >> 18) & 0x1ff
         attr = (flags << 18) | (bg << 9) | fg
 
-        x = left
+        max_chars = Math.min @text.size, (right-left)//@ratio.width
+
         i = 0
-        while x < right
+
+        x = @align.right? ? (right-max_chars*@ratio.width) : left
+        while i < max_chars
+
           ch = @text[i]?.try &.to_s
           break unless ch
           map = @active[ch]?
