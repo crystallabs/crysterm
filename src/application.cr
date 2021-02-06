@@ -246,7 +246,7 @@ module Crysterm
 
     def exec(screen : Screen?)
       (screen || Screen.global(true)).render
-      super
+      super()
     end
 
   end

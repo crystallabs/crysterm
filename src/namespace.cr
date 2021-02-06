@@ -20,6 +20,8 @@ module Crysterm
     #    end
     include Tput::Namespace
 
+    Application = Crysterm::Application
+
     @[Flags]
     enum OptimizationFlag
       FastCSR

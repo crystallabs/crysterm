@@ -36,7 +36,7 @@ module Crysterm
     def initialize(
       @parent = nil,
       name = nil,
-      @screen = determine_screen || Screen.global(true),
+      @screen = determine_screen,
       index = -1,
       children = [] of Element
     )
@@ -66,8 +66,10 @@ module Crysterm
     end
 
     def determine_screen
-      if Screen.total == 1
-        Screen.global
+      scr = if Screen.total <= 1
+        # This will use the first screen or create one if none created yet.
+        # (Auto-creation helps writing scripts with less code.)
+        Screen.global true
       elsif s = @parent
         while s && !(s.is_a? Screen)
           s = s.parent_or_screen
@@ -79,9 +81,13 @@ module Crysterm
         end
       elsif Screen.total > 0
         Screen.instances[-1]
-      #else
-      #  raise Exception.new("No active screen found anywhere.")
       end
+
+      unless scr
+        raise Exception.new("No Screen found anywhere. Create one with Screen.new")
+      end
+
+      scr
     end
 
     # Returns parent `Element` (if any) or `Screen` to which the widget may be attached.
