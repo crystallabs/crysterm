@@ -2,7 +2,7 @@ name: crysterm
 version: 0.1.0
 
 authors:
-  - your-name-here <your-email-here>
+  - Davor Ocelic <docelic@crystallabs.io>
 
 crystal: 0.35.1
 
@@ -20,7 +20,7 @@ dependencies:
     branch: master
   w3m_image_display:
     github: SamualLB/w3mimagedisplay
-  i18n:
-    github: BrucePerens/i18n
+  #i18n:
+  #  github: BrucePerens/i18n
   event_handler:
     github: crystallabs/event_handler

@@ -117,7 +117,7 @@ module Crysterm
           end
 
           if old
-            old.emit BlurEvent
+            old.emit Crysterm::Event::Blur
           end
         end
 
@@ -160,10 +160,10 @@ module Crysterm
           end
 
           if old
-            old.emit BlurEvent, cur
+            old.emit Crysterm::Event::Blur, cur
           end
 
-          cur.emit FocusEvent, old
+          cur.emit Crysterm::Event::Focus, old
         end
 
         # Returns the current/top element from the focus history list.

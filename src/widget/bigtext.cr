@@ -5,23 +5,26 @@ require "./box"
 module Crysterm
   module Widget
     class BigText < Widget::Box
+
+      # TODO Why these two default values generate an error (not initialized) if removed?
       property font : String = "#{__DIR__}/../fonts/ter-u14n.json"
       property font_bold : String = "#{__DIR__}/../fonts/ter-u14b.json"
-      property ratio : Size = Size.new 0, 0
+
+      property ratio : Tput::Size = Tput::Size.new 0, 0
       property text = ""
 
       # TODO This isn't very useful as-is.
       # Support font scaling, etc.
       # Also, character for fg/bg, etc.
 
-      # Currently active font
-      property active : Hash(String, Array(Array(Int32))) # JSON::Any
-
       # Normal font
       property normal : Hash(String, Array(Array(Int32))) # JSON::Any
 
       # Bold font
       property bold : Hash(String, Array(Array(Int32))) # JSON::Any
+
+      # Currently active font (points to normal or bold)
+      property active : Hash(String, Array(Array(Int32))) # JSON::Any
 
       property _shrink_width : Bool = false
       property _shrink_height : Bool = false
@@ -142,6 +145,7 @@ module Crysterm
           end
           y = top
           while y < Math.min(bottom, top + @ratio.height)
+            # XXX Not sure if this needs to be activated/used, or can be deleted
             # unless !lines[y]?
             #  y += 1
             #  next
@@ -152,6 +156,8 @@ module Crysterm
             while mx < @ratio.width
               mcell = mline[mx]
               break if mcell.nil?
+
+              # TODO Disabled because currently fch doesn't exist or something? Or was renamed?
               #if (@fch && @fch != ' ')
               #  lines[y][x + mx].attr = dattr
               #  lines[y][x + mx].char = mcell == 1 ? @fch : @style.char

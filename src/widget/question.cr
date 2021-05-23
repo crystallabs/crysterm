@@ -21,7 +21,7 @@ module Crysterm
         height: 1,
         resizable: true,
         content: "Okay",
-        align: AlignFlag::Center,
+        align: Tput::AlignFlag::Center,
         # bg: "black",
         # hover_bg: "blue",
         auto_focus: false,
@@ -35,7 +35,7 @@ module Crysterm
         height: 1,
         resizable: true,
         content: "Cancel",
-        align: AlignFlag::Center,
+        align: Tput::AlignFlag::Center,
         # bg: "black",
         # hover_bg: "blue",
         auto_focus: false,
@@ -69,7 +69,7 @@ module Crysterm
 
         done = uninitialized String?, Bool -> Nil
 
-        ev_keys = @screen.on(KeyPressEvent) do |e|
+        ev_keys = @screen.on(Crysterm::Event::KeyPress) do |e|
           # if (e.key == 'mouse')
           #  return
           # end
@@ -83,11 +83,11 @@ module Crysterm
           done.call nil, k == Tput::Key::Enter || e.char == 'y'
         end
 
-        ev_ok = @ok.on(PressEvent) do
+        ev_ok = @ok.on(Crysterm::Event::Press) do
           done.call nil, true
         end
 
-        ev_cancel = @cancel.on(PressEvent) do
+        ev_cancel = @cancel.on(Crysterm::Event::Press) do
           done.call nil, false
         end
 
@@ -97,9 +97,9 @@ module Crysterm
         done = ->(err : String?, data : Bool) do
           hide
           @screen.restore_focus
-          @screen.off KeyPressEvent, ev_keys
-          @ok.off PressEvent, ev_ok
-          @cancel.off PressEvent, ev_cancel
+          @screen.off Crysterm::Event::KeyPress, ev_keys
+          @ok.off Crysterm::Event::Press, ev_ok
+          @cancel.off Crysterm::Event::Press, ev_cancel
           block.call err, data
           @screen.render
         end

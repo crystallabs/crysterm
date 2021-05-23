@@ -29,7 +29,7 @@ module Crysterm
           @text = c
         end
 
-        on(KeyPressEvent) do |e|
+        on(Crysterm::Event::KeyPress) do |e|
           # if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
           if e.key == Tput::Key::Enter || e.char == ' '
             e.accept!
@@ -38,23 +38,20 @@ module Crysterm
           end
         end
 
-        # TODO - why conditional? could be cool to trigger clicks by
-        # events even if mouse is disabled.
-        # if mouse
-        on(ClickEvent) do
+        on(Crysterm::Event::Click) do
           toggle
           @screen.render
         end
         # end
 
-        on(FocusEvent) do
+        on(Crysterm::Event::Focus) do
           next unless lpos = @lpos
           @screen.application.tput.lsave_cursor :checkbox
           @screen.application.tput.cursor_pos lpos.yi, lpos.xi + 1
           @screen.application.tput.show_cursor
         end
 
-        on(BlurEvent) do
+        on(Crysterm::Event::Blur) do
           @screen.application.tput.lrestore_cursor :checkbox, true
         end
       end
@@ -69,14 +66,14 @@ module Crysterm
         return if checked?
         @checked = true
         @value = !@value
-        emit CheckEvent, @value
+        emit Crysterm::Event::Check, @value
       end
 
       def uncheck
         return unless checked?
         @checked = false
         @value = !@value
-        emit UnCheckEvent, @value
+        emit Crysterm::Event::UnCheck, @value
       end
 
       def toggle

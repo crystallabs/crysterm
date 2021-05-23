@@ -4,13 +4,13 @@ module Crysterm
   module Widget
     # Line element
     class Line < Box
-      @orientation = Orientation::Vertical
+      @orientation = Tput::Orientation::Vertical
 
       def initialize(orientation=nil, **box)
 
         orientation.try { |v| @orientation = v }
 
-        if @orientation == Orientation::Vertical
+        if @orientation == Tput::Orientation::Vertical
           @width = 1
         else
           @height = 1

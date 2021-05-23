@@ -30,7 +30,7 @@ module Crysterm
         left: 2,
         resizable: true,
         content: "Okay",
-        align: AlignFlag::Center,
+        align: Tput::AlignFlag::Center,
         # bg: "black",
         # hover_bg: "blue",
         auto_focus: false,
@@ -44,7 +44,7 @@ module Crysterm
         height: 1,
         resizable: true,
         content: "Cancel",
-        align: AlignFlag::Center,
+        align: Tput::AlignFlag::Center,
         # bg: "black",
         # hover_bg: "blue",
         auto_focus: false,
@@ -72,24 +72,24 @@ module Crysterm
         @screen.save_focus
         #focus
 
-        #ev_keys = @screen.on(KeyPressEvent) do |e|
+        #ev_keys = @screen.on(Event::KeyPress) do |e|
         #  next unless (e.key == Tput::Key::Enter || e.key == Tput::Key::Escape)
         #  done.call nil, e.key == Tput::Key::Enter
         #end
 
-        ev_ok = @ok.on(PressEvent) do
+        ev_ok = @ok.on(Event::Press) do
           @textinput.submit
         end
 
-        ev_cancel = @cancel.on(PressEvent) do
+        ev_cancel = @cancel.on(Event::Press) do
           @textinput.cancel
         end
 
         @textinput.read_input do |err, data|
           hide
           @screen.restore_focus
-          @ok.off PressEvent, ev_ok
-          @cancel.off PressEvent, ev_cancel
+          @ok.off Event::Press, ev_ok
+          @cancel.off Event::Press, ev_cancel
 
           callback.try do |c|
             c.call err, data

@@ -1,0 +1,20 @@
+# Source Code
+
+In the code, questions and/or things to verify at some later point are identified with "XXX".
+
+Things to change/improve are identified with "TODO".
+
+# List of TODOs
+
+All XXX and TODO items in the sources.
+
+Currently events are emitted whereever needed with just e.g.: `emit SomeEvent, ...`.
+See if this is OK, or if events to emit should be passed via a channel and always be emitted from a single/same Fiber.
+
+Examine effect of `use_buffer` variable in Tput, and see whether it can be completely removed, or it can be used
+meaningfully in some way?
+
+There is a concept of Unicode and "full Unicode". Full being the one with all Unicode stuff that Crystal currently 
+does not support outside of its UTF-8 support. See what to do this over time - is there a chance Crystal would
+support more, or the idea of "full Unicode" needs to be just dropped from the sources.
+

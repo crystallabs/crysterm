@@ -12,7 +12,7 @@ module Crysterm
         # Draws the screen based on the contents of the output buffer.
         def draw(start = 0, stop = @lines.size - 1)
           # D O:
-          # emit PreDrawEvent
+          # emit Event::PreDraw
           # x , y , line , out , ch , data , attr , fg , bg , flags
           # pre , post
           # clr , neq , xx
@@ -396,7 +396,7 @@ module Crysterm
           end
 
           # D O:
-          #emit DrawEvent
+          #emit Event::Draw
         end
 
         def blank_line(ch = ' ', dirty = false)

@@ -38,7 +38,7 @@ module Crysterm
       # Currently hovered element. Best set only if mouse events are enabled.
       @hover : Element? = nil
 
-      property show_fps : Point? = Point[-1,0]
+      property show_fps : Tput::Point? = Tput::Point[-1,0]
       property? show_avg = true
 
       property optimization : OptimizationFlag = OptimizationFlag::None
@@ -76,26 +76,26 @@ module Crysterm
 
         self.title = title if title
 
-        application.on(ResizeEvent) do
+        application.on(Crysterm::Event::Resize) do
           alloc
           render
 
           # XXX Can we replace this with each_descendant?
           f = uninitialized Node -> Nil
           f = ->(el : Node) {
-            el.emit ResizeEvent
+            el.emit Crysterm::Event::Resize
             el.children.each { |c| f.call c }
           }
           f.call self
         end
 
-        application.on(FocusEvent) do
-          emit FocusEvent
+        application.on(Crysterm::Event::Focus) do
+          emit Crysterm::Event::Focus
         end
-        application.on(BlurEvent) do
-          emit BlurEvent
+        application.on(Crysterm::Event::Blur) do
+          emit Crysterm::Event::Blur
         end
-        application.on(WarningEvent) do |e|
+        application.on(Crysterm::Event::Warning) do |e|
           emit e
         end
 
@@ -112,7 +112,7 @@ module Crysterm
       # passed onto the focused widget, and from there eventually
       # propagated to the top.
       # def _listen_keys
-      #  application.on(KeyPressEvent) do |e|
+      #  application.on(Crysterm::Event::KeyPress) do |e|
       #    el = focused || self
       #    while !e.accepted? && el
       #      # XXX emit only if widget enabled?
@@ -141,7 +141,7 @@ module Crysterm
         # After the first keypress emitted, the handler
         # checks to make sure grab_keys, lock_keys, and focused
         # weren't changed, and handles those situations appropriately.
-        application.on(KeyPressEvent) do |e|
+        application.on(Crysterm::Event::KeyPress) do |e|
           if @lock_keys && !@ignore_locked.includes?(e.key)
             next
           end
@@ -176,12 +176,12 @@ module Crysterm
         end
       end
 
-      # Emits a KeyPressEvent as usual and also emits an event for
+      # Emits a Event::KeyPress as usual and also emits an event for
       # the individual key, if any.
       #
       # This allows listeners to not only listen for a generic
-      # `KeyPressEvent` and then check for `#key`, but they can
-      # directly listen for e.g. `KeyPressEvent::CtrlP`.
+      # `Event::KeyPress` and then check for `#key`, but they can
+      # directly listen for e.g. `Event::KeyPress::CtrlP`.
       @[AlwaysInline]
       def emit_key(el, e : Event)
         if el.handlers(e.class).any?
@@ -351,7 +351,7 @@ module Crysterm
           end
 
           @destroyed = true
-          emit DestroyEvent
+          emit Crysterm::Event::Destroy
 
           super
         end

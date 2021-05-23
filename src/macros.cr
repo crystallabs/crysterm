@@ -33,7 +33,6 @@ module Crysterm
     macro alias_previous(*new_methods)
       {% for new_method in new_methods %}
         alias_method new_method, {{@type.methods.last.name}}
-        #p "{{new_method}} -> {{@type.methods.last.name}}"
       {% end %}
     end
   end

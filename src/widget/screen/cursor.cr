@@ -5,7 +5,7 @@ module Crysterm
         include Macros
         getter cursor = Tput::Namespace::Cursor.new
 
-        def cursor_shape(shape : CursorShape = CursorShape::Block, blink : Bool = false)
+        def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
           @cursor.shape = shape
           @cursor.blink = blink
           @cursor._set = true
@@ -75,15 +75,15 @@ module Crysterm
           attr = dattr || @dattr
           # cattr
           # ch
-          if (cursor.shape == CursorShape::Line)
+          if (cursor.shape == Tput::CursorShape::Line)
             attr &= ~(0x1ff << 9)
             attr |= 7 << 9
             ch = '\u2502'
-          elsif (cursor.shape == CursorShape::Underline)
+          elsif (cursor.shape == Tput::CursorShape::Underline)
             attr &= ~(0x1ff << 9)
             attr |= 7 << 9
             attr |= 2 << 18
-          elsif (cursor.shape == CursorShape::Block)
+          elsif (cursor.shape == Tput::CursorShape::Block)
             attr &= ~(0x1ff << 9)
             attr |= 7 << 9
             attr |= 8 << 18

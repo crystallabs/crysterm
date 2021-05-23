@@ -13,11 +13,11 @@ module Crysterm
 
     property? destroyed = false
 
-    # Screen owning this element.
-    # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
-    property screen : Screen
+    # Widget::Screen owning this element.
+    # Each element must belong to a Widget::Screen if it is to be rendered/displayed anywhere.
+    property screen : Widget::Screen
 
-    # Node's parent `Element` or `Screen`, if any.
+    # Node's parent `Element`, if any.
     property parent : Element?
 
     # Node's children `Element`s.
@@ -48,7 +48,7 @@ module Crysterm
 
       # $ = _ = JSON/YAML::Any
 
-      if !(is_a? Screen)
+      if !(is_a? Widget::Screen)
         @detached = true
       end
 
@@ -66,25 +66,25 @@ module Crysterm
     end
 
     def determine_screen
-      scr = if Screen.total <= 1
+      scr = if Widget::Screen.total <= 1
         # This will use the first screen or create one if none created yet.
         # (Auto-creation helps writing scripts with less code.)
-        Screen.global true
+        Widget::Screen.global true
       elsif s = @parent
-        while s && !(s.is_a? Screen)
+        while s && !(s.is_a? Widget::Screen)
           s = s.parent_or_screen
         end
-        if s.is_a? Screen
+        if s.is_a? Widget::Screen
           s
         #else
         #  raise Exception.new("No active screen found in parent chain.")
         end
-      elsif Screen.total > 0
-        Screen.instances[-1]
+      elsif Widget::Screen.total > 0
+        Widget::Screen.instances[-1]
       end
 
       unless scr
-        raise Exception.new("No Screen found anywhere. Create one with Screen.new")
+        raise Exception.new("No Widget::Screen found anywhere. Create one with Widget::Screen.new")
       end
 
       scr
@@ -93,7 +93,7 @@ module Crysterm
     # Returns parent `Element` (if any) or `Screen` to which the widget may be attached.
     # If the widget already is `Screen`, returns `nil`.
     def parent_or_screen
-      return nil if Screen === self
+      return nil if Widget::Screen === self
       @parent || @screen
     end
 
@@ -110,8 +110,8 @@ module Crysterm
     def insert(element, i = -1)
 
       # XXX Never triggers. But needs to be here for type safety.
-      # Hopefully can be removed when Screen is no longer parent of any Elements.
-      if element.is_a? Screen
+      # Hopefully can be removed when Widget::Screen is no longer parent of any Elements.
+      if element.is_a? Widget::Screen
         raise "Unexpected"
       end
 
@@ -131,17 +131,17 @@ module Crysterm
       @children.insert i, element
       # end
 
-      unless self.is_a? Screen
+      unless self.is_a? Widget::Screen
         element.parent = self
-        element.emit(ReparentEvent, self)
-        emit(AdoptEvent, element)
+        element.emit Crysterm::Event::Reparent, self
+        emit Crysterm::Event::Adopt, element
       end
 
       emt = uninitialized Node -> Nil
       emt = ->(el : Node) {
         n = el.detached? != @detached
         el.detached = @detached
-        el.emit(AttachEvent) if n
+        el.emit Crysterm::Event::Attach if n
         el.children.each do |c|
           emt.call c
         end
@@ -177,8 +177,8 @@ module Crysterm
       #  @screen.keyable.delete_at i
       # end
 
-      element.emit(ReparentEvent, nil)
-      emit(RemoveEvent, element)
+      element.emit(Crysterm::Event::Reparent, nil)
+      emit(Crysterm::Event::Remove, element)
       # s= @screen
       # raise Exception.new() unless s
       # screen_clickable= s.clickable
@@ -188,7 +188,7 @@ module Crysterm
         n = el.detached? != @detached
         el.detached = true
         # TODO Enable
-        # el.emit(DetachEvent) if n
+        # el.emit(Event::Detach) if n
         # el.children.each do |c| c.emt end # wt
       }
       emt.call element
@@ -223,7 +223,7 @@ module Crysterm
       end
       detach
       @destroyed = true
-      emit DestroyEvent
+      emit Crysterm::Event::Destroy
     end
 
     # TODO

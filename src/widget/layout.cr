@@ -158,7 +158,7 @@ module Crysterm
       end
 
       def render
-        _emit PreRenderEvent
+        _emit Crysterm::Event::PreRender
 
         coords = _render_coords
         if (!coords)
@@ -235,7 +235,7 @@ module Crysterm
           # end
         end
 
-        _emit RenderEvent # , coords
+        _emit Crysterm::Event::Render # , coords
 
         coords
       end

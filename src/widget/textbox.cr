@@ -22,7 +22,7 @@ module Crysterm
         censor.try { |v| @censor = v }
       end
 
-      def _listener(e : KeyPressEvent)
+      def _listener(e : Crysterm::Event::KeyPress)
         if e.key == Tput::Key::Enter
           @_done.try &.call nil, @value
           return
@@ -56,7 +56,7 @@ module Crysterm
       end
 
       def submit
-        @__listener.try &.call KeyPressEvent.new '\r', Tput::Key::Enter
+        @__listener.try &.call Crysterm::Event::KeyPress.new '\r', Tput::Key::Enter
       end
 
     end

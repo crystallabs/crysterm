@@ -165,7 +165,7 @@ module Crysterm
 
           return if destroyed?
 
-          emit PreRenderEvent
+          emit Crysterm::Event::PreRender
 
           @_border_stops.clear
 
@@ -206,7 +206,7 @@ module Crysterm
 
           @renders += 1
 
-          emit RenderEvent
+          emit Crysterm::Event::Render
 
           t3 = Time.monotonic
 
