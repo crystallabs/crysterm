@@ -18,7 +18,7 @@ module Crysterm
 
       # Here be dragons
 
-      # Render all child elements into the output buffer.
+      # Renders all child elements into the output buffer.
       def _render(with_children = true)
         emit Crysterm::Event::PreRender
 

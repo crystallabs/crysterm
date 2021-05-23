@@ -4,13 +4,13 @@ require "./namespace"
 module Crysterm
   include Namespace
 
-  # Helper to create or return the main `Application`
+  # Helper to create or return the main `App`
   def self.app
-    Application.global true
+    App.global true
   end
 end
 
-require "./application"
+require "./app"
 
 #    class Position
 #      @left : Int32

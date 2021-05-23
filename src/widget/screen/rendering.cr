@@ -214,13 +214,13 @@ module Crysterm
             #{ rps, dps, fps }
             ps = { 1//(t2 - t1).total_seconds, 1//(t3 - t2).total_seconds, 1//(t3 - t1).total_seconds }
 
-            @screen.application.tput.save_cursor
-            @screen.application.tput.pos pos
-            @screen.application.tput._print { |io| io << "R/D/FPS: " << ps[0] << '/' << ps[1] << '/' << ps[2] }
+            @screen.app.tput.save_cursor
+            @screen.app.tput.pos pos
+            @screen.app.tput._print { |io| io << "R/D/FPS: " << ps[0] << '/' << ps[1] << '/' << ps[2] }
             if @show_avg
-              @screen.application.tput._print { |io| io << " (" << @rps.avg(ps[0]) << '/' << @dps.avg(ps[1]) << '/' << @fps.avg(ps[2]) << ')' }
+              @screen.app.tput._print { |io| io << " (" << @rps.avg(ps[0]) << '/' << @dps.avg(ps[1]) << '/' << @fps.avg(ps[2]) << ')' }
             end
-            @screen.application.tput.restore_cursor
+            @screen.app.tput.restore_cursor
           end
         end
       end

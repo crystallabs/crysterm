@@ -1,5 +1,5 @@
 module Crysterm
-  class Application
+  class App
     # Tput-related part of an App's instance.
     module Tput
       # Tput object. XXX Any way to succeed turning this into `getter` without `!`?

@@ -90,7 +90,7 @@ module Crysterm
             # content = content.replace(unicode.chars.all, '$1\x03')
 
             # iTerm2 cannot render combining characters properly.
-            if @screen.application.tput.emulator.iterm2?
+            if @screen.app.tput.emulator.iterm2?
               # TODO
               # content = content.replace(unicode.chars.combining, "")
             end
@@ -204,12 +204,12 @@ module Crysterm
 
             if (slash)
               if (!param || param.blank?)
-                outbuf += @screen.application.tput._attr("normal") || ""
+                outbuf += @screen.app.tput._attr("normal") || ""
                 bg.clear
                 fg.clear
                 flag.clear
               else
-                attr = @screen.application.tput._attr(param, false)
+                attr = @screen.app.tput._attr(param, false)
                 if (attr.nil?)
                   outbuf += cap[0]
                 else
@@ -219,7 +219,7 @@ module Crysterm
                   # }
                   state.pop
                   if (state.size > 0)
-                    outbuf += @screen.application.tput._attr(state[-1]) || ""
+                    outbuf += @screen.app.tput._attr(state[-1]) || ""
                   else
                     outbuf += attr
                   end
@@ -229,7 +229,7 @@ module Crysterm
               if (!param)
                 outbuf += cap[0]
               else
-                attr = @screen.application.tput._attr(param)
+                attr = @screen.app.tput._attr(param)
                 if (attr.nil?)
                   outbuf += cap[0]
                 else

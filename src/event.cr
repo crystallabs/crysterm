@@ -78,7 +78,7 @@ module Crysterm
       # and creates a KeyPress::<member> event for them.
       {% for m in Tput::Key.constants %}
         class {{m.id}} < KeyPress; end
-        Application.key_events[ Tput::Key::{{m.id}} ] = {{m.id}}
+        App.key_events[ Tput::Key::{{m.id}} ] = {{m.id}}
       {% end %}
     end
 

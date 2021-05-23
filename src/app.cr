@@ -5,7 +5,7 @@ require "tput"
 require "term_colors"
 require "crystallabs-helpers"
 
-require "./application/*"
+require "./app/*"
 
 require "./version"
 require "./macros"
@@ -17,7 +17,7 @@ require "./widget/*"
 
 module Crysterm
   # Main Crysterm class. All applications begin by instantiating or subclassing this class.
-  class Application
+  class App
     include EventHandler # Event model
 
     include Metadata # Simple metadata about the app
@@ -64,7 +64,7 @@ module Crysterm
     end
 
     def about
-      "#{@application_name} #{@application_version}"
+      "#{@app_name} #{@app_version}"
     end
   end
 end

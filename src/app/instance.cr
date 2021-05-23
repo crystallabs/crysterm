@@ -1,6 +1,6 @@
 module Crysterm
-  class Application
-    # Functionality related to instances of an `Application`.
+  class App
+    # Functionality related to instances of an `App`.
     module Instance
       macro included
         class_getter instances = [] of self
@@ -74,7 +74,7 @@ module Crysterm
         end
       end
 
-      # Returns true if the application objects are being destroyed; otherwise returns false.
+      # Returns true if the app objects are being destroyed; otherwise returns false.
       property? exiting : Bool = false
       # XXX Is this an alias with `closing_down?`
 
