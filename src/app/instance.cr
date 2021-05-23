@@ -46,9 +46,9 @@ module Crysterm
         end
       end
 
-      def exec(screen : Screen?)
-        (screen || Screen.global(true)).render
-        super()
+      def exec(screen : Crysterm::Widget::Screen? = nil)
+        (screen || Crysterm::Widget::Screen.global(true)).render
+        sleep
       end
 
       def destroy

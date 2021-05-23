@@ -36,7 +36,7 @@ module Crysterm
     def initialize(
       @parent = nil,
       name = nil,
-      @screen = determine_screen,
+      screen = determine_screen,
       index = -1,
       children = [] of Element
     )
@@ -44,14 +44,15 @@ module Crysterm
 
       @name = name || "#{self.class.name}-#{@uid}"
 
-      #@screen = screen || determine_screen
-
       # $ = _ = JSON/YAML::Any
 
+      @screen = screen # NOTE No effect. Here just to avoid warning about not being initialized.
       if !(is_a? Widget::Screen)
         @detached = true
+        screen.append self
       end
 
+      # Add element to either its parent, or some screen that is found.
       @parent.try do |parent|
         parent.append self
       end
