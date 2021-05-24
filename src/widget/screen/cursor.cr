@@ -5,17 +5,17 @@ module Crysterm
         include Macros
         getter cursor = Tput::Namespace::Cursor.new
 
-        def cursor_shape(shape : CursorShape = CursorShape::Block, blink : Bool = false)
+        def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
           @cursor.shape = shape
           @cursor.blink = blink
           @cursor._set = true
 
           if @cursor.artificial
             raise "Not supported yet"
-            # if !application.hide_cursor_old
-            #  hide_cursor = application.hide_cursor
-            #  application.tput.hide_cursor_old = application.hide_cursor
-            #  application.tput.hide_cursor = ->{
+            # if !app.hide_cursor_old
+            #  hide_cursor = app.hide_cursor
+            #  app.tput.hide_cursor_old = app.hide_cursor
+            #  app.tput.hide_cursor = ->{
             #    hide_cursor.call(application)
             #    @cursor._hidden = true
             #    if (@renders > 0)
@@ -23,12 +23,12 @@ module Crysterm
             #    end
             #  }
             # end
-            # if (!application.showCursor_old)
-            #  var showCursor = application.showCursor
-            #  application.showCursor_old = application.showCursor
-            #  application.showCursor = function()
+            # if (!app.showCursor_old)
+            #  var showCursor = app.showCursor
+            #  app.showCursor_old = app.showCursor
+            #  app.showCursor = function()
             #    self.cursor._hidden = false
-            #    if (application._exiting) showCursor.call(application)
+            #    if (app._exiting) showCursor.call(application)
             #    if (self.renders) self.render()
             #  }
             # end
@@ -45,7 +45,7 @@ module Crysterm
             return true
           end
 
-          application.tput.cursor_shape @cursor.shape, @cursor.blink
+          app.tput.cursor_shape @cursor.shape, @cursor.blink
         end
 
         def cursor_color(color : Tput::Color? = nil)
@@ -59,14 +59,14 @@ module Crysterm
           end
 
           # TODO probably this isn't fully right
-          application.tput.cursor_color(@cursor.color.to_s.downcase)
+          app.tput.cursor_color(@cursor.color.to_s.downcase)
         end
 
         def cursor_reset
           @cursor = Tput::Namespace::Cursor.new
           # TODO if artificial cursor
 
-          application.tput.cursor_reset
+          app.tput.cursor_reset
         end
 
         alias_previous reset_cursor
@@ -75,15 +75,15 @@ module Crysterm
           attr = dattr || @dattr
           # cattr
           # ch
-          if (cursor.shape == CursorShape::Line)
+          if (cursor.shape == Tput::CursorShape::Line)
             attr &= ~(0x1ff << 9)
             attr |= 7 << 9
             ch = '\u2502'
-          elsif (cursor.shape == CursorShape::Underline)
+          elsif (cursor.shape == Tput::CursorShape::Underline)
             attr &= ~(0x1ff << 9)
             attr |= 7 << 9
             attr |= 2 << 18
-          elsif (cursor.shape == CursorShape::Block)
+          elsif (cursor.shape == Tput::CursorShape::Block)
             attr &= ~(0x1ff << 9)
             attr |= 7 << 9
             attr |= 8 << 18
@@ -120,7 +120,7 @@ module Crysterm
         end
 
         def _reduce_color(col)
-          Colors.reduce(col, application.tput.features.number_of_colors)
+          Colors.reduce(col, app.tput.features.number_of_colors)
         end
       end
     end

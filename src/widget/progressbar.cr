@@ -7,7 +7,7 @@ module Crysterm
       property filled : Int32 = 0
       property value : Int32 = 0
       property pch : Char = ' '
-      property orientation : Orientation = Orientation::Horizontal
+      property orientation : Tput::Orientation = Tput::Orientation::Horizontal
 
       # TODO Add new options:
       # min value and max value
@@ -36,16 +36,16 @@ module Crysterm
         @value = @filled
 
         if @keys
-          on(KeyPressEvent) do |e|
+          on(Crysterm::Event::KeyPress) do |e|
             # Since the keys aren't conflicting, support both regardless
             # of orientation.
             # case @orientation
-            # when Orientation::Vertical
+            # when Tput::Orientation::Vertical
             #  back_keys = [Tput::Key::Down]
             #  back_chars = ['j']
             #  forward_keys = [Tput::Key::Up]
             #  forward_chars = ['k']
-            # else #when Orientation::Horizontal
+            # else #when Tput::Orientation::Horizontal
             #  back_keys = [Tput::Key::Left]
             #  back_chars = ['h']
             #  forward_keys = [Tput::Key::Right]
@@ -90,7 +90,7 @@ module Crysterm
           yl -= 1
         end
 
-        if @orientation == Orientation::Horizontal
+        if @orientation == Tput::Orientation::Horizontal
           xl = xi + ((xl - xi) * (@filled / 100)).to_i
         else
           yi = yi + ((yl - yi) - (((yl - yi) * (@filled / 100)).to_i))
@@ -118,7 +118,7 @@ module Crysterm
         f = 100 if f > 100
         @filled = f
         if @filled == 100
-          emit CompleteEvent
+          emit Crysterm::Event::Complete
         end
         @value = @filled
       end
@@ -129,7 +129,7 @@ module Crysterm
       end
 
       def reset
-        emit ResetEvent
+        emit Crysterm::Event::Reset
         @filled = 0
         @value = @filled
       end

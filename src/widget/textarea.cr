@@ -16,11 +16,11 @@ module Crysterm
 
       property _done : Proc(String?, String?, Nil)?
       property __done : Proc(String?, String?, Nil)?
-      property __listener : Proc(KeyPressEvent, Nil)?
+      property __listener : Proc(Crysterm::Event::KeyPress, Nil)?
 
-      @ev_read_input_on_focus : FocusEvent::Wrapper?
-      @ev_enter : KeyPressEvent::Wrapper?
-      @ev_reading : KeyPressEvent::Wrapper?
+      @ev_read_input_on_focus : Crysterm::Event::Focus::Wrapper?
+      @ev_enter : Crysterm::Event::KeyPress::Wrapper?
+      @ev_reading : Crysterm::Event::KeyPress::Wrapper?
 
       def initialize(
         input_on_focus = false,
@@ -38,17 +38,17 @@ module Crysterm
 
         @__update_cursor = ->_update_cursor
 
-        on(ResizeEvent) do
+        on(Crysterm::Event::Resize) do
           @__update_cursor.try &.call
         end
-        on(MoveEvent) do
+        on(Crysterm::Event::Move) do
           @__update_cursor.try &.call
         end
 
         self.input_on_focus= input_on_focus
 
         if !@input_on_focus && keys
-          @ev_enter = on(KeyPressEvent) do |e|
+          @ev_enter = on(Crysterm::Event::KeyPress) do |e|
             next if @_reading
             if e.key.try &.==(Tput::Key::Enter)
               next read_input
@@ -66,7 +66,7 @@ module Crysterm
         return unless lpos
 
         last = @_clines[-1]
-        app = @screen.application
+        app = @screen.app
 
         # Stop a situation where the textarea begins scrolling
         # and the last cline appears to always be empty from the
@@ -119,11 +119,11 @@ module Crysterm
         @input_on_focus = yes
 
         # Always remove any current handler
-        @ev_read_input_on_focus.try { |w| off FocusEvent, w }
+        @ev_read_input_on_focus.try { |w| off Crysterm::Event::Focus, w }
 
         # Then add the new one if asked
         if yes
-          @ev_read_input_on_focus = on(FocusEvent) do |e|
+          @ev_read_input_on_focus = on(Crysterm::Event::Focus) do |e|
             read_input
           end
         end
@@ -209,14 +209,14 @@ module Crysterm
       end
 
       def submit
-        #@__listener.try &.call KeyPressEvent.new '\n', Tput::Key::Enter
+        #@__listener.try &.call Crysterm::Event::KeyPress.new '\n', Tput::Key::Enter
         return unless @__listener
-        @__listener.try &.call KeyPressEvent.new '\n', Tput::Key::Enter
+        @__listener.try &.call Crysterm::Event::KeyPress.new '\n', Tput::Key::Enter
       end
       def cancel
-        #@__listener.try &.call KeyPressEvent.new '\e', Tput::Key::Escape
+        #@__listener.try &.call Crysterm::Event::KeyPress.new '\e', Tput::Key::Escape
         return unless @__listener
-        @__listener.try &.call KeyPressEvent.new '\e', Tput::Key::Escape
+        @__listener.try &.call Crysterm::Event::KeyPress.new '\e', Tput::Key::Escape
       end
 
       def clear_value
@@ -232,24 +232,24 @@ module Crysterm
         @screen.grab_keys = true
 
         _update_cursor
-        @screen.application.tput.show_cursor
+        @screen.app.tput.show_cursor
 
         # D O:
-        #@screen.application.tput.sgr "normal"
+        #@screen.app.tput.sgr "normal"
 
         # Define _done_default
 
-        @__listener = ->_listener(KeyPressEvent)
+        @__listener = ->_listener(Crysterm::Event::KeyPress)
 
-        #@ev_reading.try { |w| off KeyPressEvent, w }
+        #@ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
 
-        @ev_reading = on(KeyPressEvent) { |e|
+        @ev_reading = on(Crysterm::Event::KeyPress) { |e|
           @__listener.try &.call e
         }
 
         @__done = ->_done_default(String?,String?)
 
-        on(BlurEvent) {
+        on(Crysterm::Event::Blur) {
           @__done.try &.call nil, nil
         }
       end
@@ -273,17 +273,17 @@ module Crysterm
 
         #return if self(block).done?
 
-        @ev_reading.try { |w| off KeyPressEvent, w }
+        @ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
         @_reading = false
 
         @_callback = nil
         @_done = nil
-        # XXX off KeyPressEvent, @__listener.wrapper
+        # XXX off Crysterm::Event::KeyPress, @__listener.wrapper
         @__listener = nil
-        #XXX off BlurEvent, @__done.wrapper
+        #XXX off Crysterm::Event::Blur, @__done.wrapper
         @__done = nil
 
-        @screen.application.tput.hide_cursor
+        @screen.app.tput.hide_cursor
         @screen.grab_keys = false
 
         unless focused?
@@ -301,12 +301,12 @@ module Crysterm
         if err
           raise err # XXX just temporary
         elsif value
-          emit SubmitEvent, value
+          emit Crysterm::Event::Submit, value
         else
-          emit CancelEvent, value
+          emit Crysterm::Event::Cancel, value
         end
 
-        emit ActionEvent, value
+        emit Crysterm::Event::Action, value
 
         nil
       end

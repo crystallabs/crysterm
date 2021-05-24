@@ -12,7 +12,7 @@ module Crysterm
         # Draws the screen based on the contents of the output buffer.
         def draw(start = 0, stop = @lines.size - 1)
           # D O:
-          # emit PreDrawEvent
+          # emit Event::PreDraw
           # x , y , line , out , ch , data , attr , fg , bg , flags
           # pre , post
           # clr , neq , xx
@@ -22,7 +22,7 @@ module Crysterm
           lx = -1
           ly = -1
           acs = false
-          s = application.tput.shim.not_nil!
+          s = app.tput.shim.not_nil!
 
           if @_buf.size > 0
             @main.print @_buf
@@ -36,7 +36,7 @@ module Crysterm
             o = @olines[y]
             # Log.trace { line } if line.any? &.char.!=(' ')
 
-            if (!line.dirty && !(cursor.artificial && (y == application.tput.cursor.y)))
+            if (!line.dirty && !(cursor.artificial && (y == app.tput.cursor.y)))
               next
             end
             line.dirty = false
@@ -53,7 +53,7 @@ module Crysterm
 
               c = cursor
               # Render the artificial cursor.
-              if (c.artificial && !c._hidden && (c._state != 0) && (x == application.tput.cursor.x) && (y == application.tput.cursor.y))
+              if (c.artificial && !c._hidden && (c._state != 0) && (x == app.tput.cursor.x) && (y == app.tput.cursor.y))
                 cattr = _cursor_attr(c, data)
                 if (cattr.char) # XXX Can cattr.char even not be truthy?
                   ch = cattr.char
@@ -65,7 +65,7 @@ module Crysterm
               # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
               # the bg for non BCE terminals worth the overhead?
               if (@optimization.bce? && (ch == ' ') &&
-                 (application.tput.has?(&.back_color_erase?) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
+                 (app.tput.has?(&.back_color_erase?) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
                  (((data >> 18) & 8) == ((@dattr >> 18) & 8)))
                 clr = true
                 neq = false
@@ -90,11 +90,11 @@ module Crysterm
 
                   # ### Temporarily diverts output. ####
                   # XXX See if it causes problems when multithreaded or something?
-                  (application.tput.ret = IO::Memory.new).try do |ret|
-                    application.tput.cup(y, x)
-                    application.tput.el
+                  (app.tput.ret = IO::Memory.new).try do |ret|
+                    app.tput.cup(y, x)
+                    app.tput.el
                     @outbuf .print ret.rewind.gets_to_end
-                    application.tput.ret = nil
+                    app.tput.ret = nil
                   end
                   #### #### ####
 
@@ -110,26 +110,26 @@ module Crysterm
                 # and start over drawing the rest of line. Might
                 # not be worth it. Try to use ECH if the terminal
                 # supports it. Maybe only try to use ECH here.
-                # #if (application.tput.strings.erase_chars)
+                # #if (app.tput.strings.erase_chars)
                 # if (!clr && neq && (xx - x) > 10)
                 #   lx = -1; ly = -1
                 #   if (data != attr)
                 #     @outbuf.print code_attr(data)
                 #     attr = data
                 #   end
-                #   @outbuf.print application.tput.cup(y, x)
-                #   if (application.tput.strings.erase_chars)
+                #   @outbuf.print app.tput.cup(y, x)
+                #   if (app.tput.strings.erase_chars)
                 #     # Use erase_chars to avoid erasing the whole line.
-                #     @outbuf.print application.tput.ech(xx - x)
+                #     @outbuf.print app.tput.ech(xx - x)
                 #   else
-                #     @outbuf.print application.tput.el()
+                #     @outbuf.print app.tput.el()
                 #   end
-                #   if (application.tput.strings.parm_right_cursor)
-                #     @outbuf.print application.tput.cuf(xx - x)
+                #   if (app.tput.strings.parm_right_cursor)
+                #     @outbuf.print app.tput.cuf(xx - x)
                 #   else
-                #     @outbuf.print application.tput.cup(y, xx)
+                #     @outbuf.print app.tput.cup(y, xx)
                 #   end
-                #   fill_region(data, ' ', x, application.tput.strings.erase_chars ? xx : line.length, y, y + 1)
+                #   fill_region(data, ' ', x, app.tput.strings.erase_chars ? xx : line.length, y, y + 1)
                 #   x = xx - 1
                 #   next
                 # end
@@ -290,7 +290,7 @@ module Crysterm
               # It is possible there is a terminal out there
               # somewhere that does not support ACS, but
               # supports UTF8, but I imagine it's unlikely.
-              # Maybe remove !application.tput.unicode check, however,
+              # Maybe remove !app.tput.unicode check, however,
               # this seems to be the way ncurses does it.
               #
               # Note the behavior of this IF/ELSE block. It may decide to
@@ -299,21 +299,21 @@ module Crysterm
               # case that the contents of the IF/ELSE block change in incompatible
               # way, this should be had in mind.
               if s
-                if (s.enter_alt_charset_mode? && !application.tput.features.broken_acs? && (application.tput.features.acscr[ch]? || acs))
-                  # Fun fact: even if application.tput.brokenACS wasn't checked here,
+                if (s.enter_alt_charset_mode? && !app.tput.features.broken_acs? && (app.tput.features.acscr[ch]? || acs))
+                  # Fun fact: even if app.tput.brokenACS wasn't checked here,
                   # the linux console would still work fine because the acs
-                  # table would fail the check of: application.tput.features.acscr[ch]
+                  # table would fail the check of: app.tput.features.acscr[ch]
                   # TODO This is nasty. Char gets changed to string
                   # when sm/rm is added to the stream.
-                  if (application.tput.features.acscr[ch]?)
+                  if (app.tput.features.acscr[ch]?)
                     if (acs)
-                      ch = application.tput.features.acscr[ch]
+                      ch = app.tput.features.acscr[ch]
                     else
                       #sm = String.new s.smacs
-                      #ch = sm + application.tput.features.acscr[ch]
+                      #ch = sm + app.tput.features.acscr[ch]
                       # Instead, just print prefix and set new char:
                       @outbuf.write s.smacs
-                      ch = application.tput.features.acscr[ch]
+                      ch = app.tput.features.acscr[ch]
 
                       acs = true
                     end
@@ -335,8 +335,8 @@ module Crysterm
                 # like sun-color.
                 # NOTE: It could be the case that the $LANG
                 # is all that matters in some cases:
-                # if (!application.tput.unicode && ch > '~') {
-                if (!application.tput.features.unicode? && (application.tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
+                # if (!app.tput.unicode && ch > '~') {
+                if (!app.tput.features.unicode? && (app.tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
                   # Reduction of ACS into ASCII chars.
                   ch = Tput::ACSC::Data[ch]?.try(&.[2]) || '?'
                 end
@@ -367,36 +367,36 @@ module Crysterm
           unless @main.size == 0
             @pre.clear
             @post.clear
-            hidden = application.tput.cursor_hidden?
+            hidden = app.tput.cursor_hidden?
 
-            (application.tput.ret = IO::Memory.new).try do |ret|
-              application.tput.save_cursor
+            (app.tput.ret = IO::Memory.new).try do |ret|
+              app.tput.save_cursor
               if !hidden
-                application.tput.hide_cursor
+                app.tput.hide_cursor
               end
 
               @pre << ret.rewind.gets_to_end
-              application.tput.ret = nil
+              app.tput.ret = nil
             end
 
-            (application.tput.ret = IO::Memory.new).try do |ret|
-              application.tput.restore_cursor
+            (app.tput.ret = IO::Memory.new).try do |ret|
+              app.tput.restore_cursor
               if !hidden
-                application.tput.show_cursor
+                app.tput.show_cursor
               end
 
               @post << ret.rewind.gets_to_end
-              application.tput.ret = nil
+              app.tput.ret = nil
             end
 
             # D O:
-            # application.flush()
-            # application._owrite(@pre + @main + @post)
-            application.tput._print { |io| io << @pre << @main.rewind.gets_to_end << @post }
+            # app.flush()
+            # app._owrite(@pre + @main + @post)
+            app.tput._print { |io| io << @pre << @main.rewind.gets_to_end << @post }
           end
 
           # D O:
-          #emit DrawEvent
+          #emit Event::Draw
         end
 
         def blank_line(ch = ' ', dirty = false)
@@ -412,21 +412,21 @@ module Crysterm
           #  return insert_line_nc(n, y, top, bottom)
           # end
 
-          if (!application.tput.has?(&.change_scroll_region?) ||
-             !application.tput.has?(&.delete_line?) ||
-             !application.tput.has?(&.insert_line?))
+          if (!app.tput.has?(&.change_scroll_region?) ||
+             !app.tput.has?(&.delete_line?) ||
+             !app.tput.has?(&.insert_line?))
             STDERR.puts "Missing needed terminfo capabilities"
             return
           end
 
-          (application.tput.ret = IO::Memory.new).try do |ret|
-            application.tput.set_scroll_region(top, bottom)
-            application.tput.cup(y, 0)
-            application.tput.il(n)
-            application.tput.set_scroll_region(0, height - 1)
+          (app.tput.ret = IO::Memory.new).try do |ret|
+            app.tput.set_scroll_region(top, bottom)
+            app.tput.cup(y, 0)
+            app.tput.il(n)
+            app.tput.set_scroll_region(0, height - 1)
 
             @_buf.print ret.rewind.gets_to_end
-            application.tput.ret = nil
+            app.tput.ret = nil
           end
 
           j = bottom + 1
@@ -445,20 +445,20 @@ module Crysterm
         # Scroll down (up cursor-wise).
         # This will only work for top line deletion as opposed to arbitrary lines.
         def insert_line_nc(n, y, top, bottom)
-          if (!application.tput.has?(&.change_scroll_region?) ||
-             !application.tput.has?(&.delete_line?))
+          if (!app.tput.has?(&.change_scroll_region?) ||
+             !app.tput.has?(&.delete_line?))
             STDERR.puts "Missing needed terminfo capabilities"
             return
           end
 
-          (application.tput.ret = IO::Memory.new).try do |ret|
-            application.tput.set_scroll_region(top, bottom)
-            application.tput.cup(top, 0)
-            application.tput.dl(n)
-            application.tput.set_scroll_region(0, height - 1)
+          (app.tput.ret = IO::Memory.new).try do |ret|
+            app.tput.set_scroll_region(top, bottom)
+            app.tput.cup(top, 0)
+            app.tput.dl(n)
+            app.tput.set_scroll_region(0, height - 1)
 
             @_buf.print ret.rewind.gets_to_end
-            application.tput.ret = nil
+            app.tput.ret = nil
           end
 
           j = bottom + 1
@@ -478,22 +478,22 @@ module Crysterm
           #   return delete_line_nc(n, y, top, bottom)
           # end
 
-          if (!application.tput.has?(&.change_scroll_region?) ||
-             !application.tput.has?(&.delete_line?) ||
-             !application.tput.has?(&.insert_line?))
+          if (!app.tput.has?(&.change_scroll_region?) ||
+             !app.tput.has?(&.delete_line?) ||
+             !app.tput.has?(&.insert_line?))
             STDERR.puts "Missing needed terminfo capabilities"
             return
           end
 
           # XXX temporarily diverts output
-          (application.tput.ret = IO::Memory.new).try do |ret|
-            application.tput.set_scroll_region(top, bottom)
-            application.tput.cup(y, 0)
-            application.tput.dl(n)
-            application.tput.set_scroll_region(0, height - 1) # XXX @height should be used?
+          (app.tput.ret = IO::Memory.new).try do |ret|
+            app.tput.set_scroll_region(top, bottom)
+            app.tput.cup(y, 0)
+            app.tput.dl(n)
+            app.tput.set_scroll_region(0, height - 1) # XXX @height should be used?
 
             @_buf.print ret.rewind.gets_to_end
-            application.tput.ret = nil
+            app.tput.ret = nil
           end
 
           j = bottom + 1
@@ -512,21 +512,21 @@ module Crysterm
         # Scroll down (up cursor-wise).
         # This will only work for top line deletion as opposed to arbitrary lines.
         def delete_line_nc(n, y, top, bottom)
-          if (!application.tput.has?(&.change_scroll_region?) ||
-             !application.tput.has?(&.delete_line?))
+          if (!app.tput.has?(&.change_scroll_region?) ||
+             !app.tput.has?(&.delete_line?))
             STDERR.puts "Missing needed terminfo capabilities"
             return
           end
 
           # XXX temporarily diverts output
-          (application.tput.ret = IO::Memory.new).try do |ret|
-            application.tput.set_scroll_region(top, bottom)
-            application.tput.cup(bottom, 0)
+          (app.tput.ret = IO::Memory.new).try do |ret|
+            app.tput.set_scroll_region(top, bottom)
+            app.tput.cup(bottom, 0)
             ret.print "\n" * n
-            application.tput.set_scroll_region(0, height - 1)
+            app.tput.set_scroll_region(0, height - 1)
 
             @_buf.print ret.rewind.gets_to_end
-            application.tput.ret = nil
+            app.tput.ret = nil
           end
 
           j = bottom + 1

@@ -1,5 +1,5 @@
 require "./node"
-require "../application"
+require "../app"
 require "./screen/*"
 
 module Crysterm
@@ -26,9 +26,9 @@ module Crysterm
 
       @@_bound = false
 
-      # Associated `Crysterm` instance. The default application object
+      # Associated `Crysterm` instance. The default app object
       # will be created/used if it is not provided explicitly.
-      property! application : Application
+      property! app : App
 
       # Array of keys to ignore when keys are locked or grabbed. Useful for defining
       # keys that will always execute their action (e.g. exit a program) regardless of
@@ -38,13 +38,13 @@ module Crysterm
       # Currently hovered element. Best set only if mouse events are enabled.
       @hover : Element? = nil
 
-      property show_fps : Point? = Point[-1,0]
+      property show_fps : Tput::Point? = Tput::Point[-1,0]
       property? show_avg = true
 
       property optimization : OptimizationFlag = OptimizationFlag::None
 
       def initialize(
-        @application = Application.global(true),
+        @app = App.global(true),
         @auto_padding = true,
         @tab_size = 4,
         @dock_borders = false,
@@ -58,17 +58,17 @@ module Crysterm
         ignore_locked.try { |v| @ignore_locked.push v }
         optimization.try { |v| @optimization = v }
 
-        #@application = application || Application.global true
+        #@app = app || App.global true
         # ensure tput.zero_based = true, use_bufer=true
         # set resizeTimeout
 
-        # Tput is accessed via application.tput
+        # Tput is accessed via app.tput
 
         super()
 
         @tabc = " " * @tab_size
 
-        # _unicode is application.tput.features.unicode
+        # _unicode is app.tput.features.unicode
         # full_unicode? is option full_unicode? + _unicode
 
         # Events:
@@ -76,26 +76,26 @@ module Crysterm
 
         self.title = title if title
 
-        application.on(ResizeEvent) do
+        app.on(Crysterm::Event::Resize) do
           alloc
           render
 
           # XXX Can we replace this with each_descendant?
           f = uninitialized Node -> Nil
           f = ->(el : Node) {
-            el.emit ResizeEvent
+            el.emit Crysterm::Event::Resize
             el.children.each { |c| f.call c }
           }
           f.call self
         end
 
-        application.on(FocusEvent) do
-          emit FocusEvent
+        app.on(Crysterm::Event::Focus) do
+          emit Crysterm::Event::Focus
         end
-        application.on(BlurEvent) do
-          emit BlurEvent
+        app.on(Crysterm::Event::Blur) do
+          emit Crysterm::Event::Blur
         end
-        application.on(WarningEvent) do |e|
+        app.on(Crysterm::Event::Warning) do |e|
           emit e
         end
 
@@ -112,7 +112,7 @@ module Crysterm
       # passed onto the focused widget, and from there eventually
       # propagated to the top.
       # def _listen_keys
-      #  application.on(KeyPressEvent) do |e|
+      #  app.on(Crysterm::Event::KeyPress) do |e|
       #    el = focused || self
       #    while !e.accepted? && el
       #      # XXX emit only if widget enabled?
@@ -141,7 +141,7 @@ module Crysterm
         # After the first keypress emitted, the handler
         # checks to make sure grab_keys, lock_keys, and focused
         # weren't changed, and handles those situations appropriately.
-        application.on(KeyPressEvent) do |e|
+        app.on(Crysterm::Event::KeyPress) do |e|
           if @lock_keys && !@ignore_locked.includes?(e.key)
             next
           end
@@ -176,19 +176,19 @@ module Crysterm
         end
       end
 
-      # Emits a KeyPressEvent as usual and also emits an event for
+      # Emits a Event::KeyPress as usual and also emits an event for
       # the individual key, if any.
       #
       # This allows listeners to not only listen for a generic
-      # `KeyPressEvent` and then check for `#key`, but they can
-      # directly listen for e.g. `KeyPressEvent::CtrlP`.
+      # `Event::KeyPress` and then check for `#key`, but they can
+      # directly listen for e.g. `Event::KeyPress::CtrlP`.
       @[AlwaysInline]
       def emit_key(el, e : Event)
         if el.handlers(e.class).any?
           el.emit e
         end
         if e.key
-          Crysterm::Application.key_events[e.key]?.try do |keycls|
+          Crysterm::App.key_events[e.key]?.try do |keycls|
             if el.handlers(keycls).any?
               el.emit keycls.new e.char, e.key, e.sequence
             end
@@ -237,8 +237,8 @@ module Crysterm
 
       def enter
         # TODO make it possible to work without switching the whole
-        # application to alt buffer.
-        return if application.tput.is_alt
+        # app to alt buffer.
+        return if app.tput.is_alt
 
         if !cursor._set
           if cursor.shape
@@ -254,13 +254,13 @@ module Crysterm
           `cls`
         {% end %}
 
-        at = application.tput
-        application.tput.alternate_buffer
-        application.tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
-        application.tput.put(&.change_scroll_region?(0, height - 1))
-        application.tput.hide_cursor
-        application.tput.cursor_pos 0, 0
-        application.tput.put(&.ena_acs?) # enable_acs
+        at = app.tput
+        app.tput.alternate_buffer
+        app.tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
+        app.tput.put(&.change_scroll_region?(0, height - 1))
+        app.tput.hide_cursor
+        app.tput.cursor_pos 0, 0
+        app.tput.put(&.ena_acs?) # enable_acs
 
         alloc
       end
@@ -287,7 +287,7 @@ module Crysterm
           @olines[-1].dirty = dirty
         end
 
-        application.tput.clear
+        app.tput.clear
       end
 
       # Reallocates screen buffers and clear the screen.
@@ -297,31 +297,31 @@ module Crysterm
 
       def leave
         # TODO make it possible to work without switching the whole
-        # application to alt buffer. (Same note as in `enter`).
-        return unless application.tput.is_alt
+        # app to alt buffer. (Same note as in `enter`).
+        return unless app.tput.is_alt
 
-        application.tput.put(&.keypad_local?)
+        app.tput.put(&.keypad_local?)
 
-        if (application.tput.scroll_top != 0) || (application.tput.scroll_bottom != height - 1)
-          application.tput.set_scroll_region(0, application.tput.screen.height - 1)
+        if (app.tput.scroll_top != 0) || (app.tput.scroll_bottom != height - 1)
+          app.tput.set_scroll_region(0, app.tput.screen.height - 1)
         end
 
         # XXX For some reason if alloc/clear() is before this
         # line, it doesn't work on linux console.
-        application.tput.show_cursor
+        app.tput.show_cursor
         alloc
 
         # TODO Enable all in this function
         # if (this._listened_mouse)
-        #  application.disable_mouse
+        #  app.disable_mouse
         # end
 
-        application.tput.normal_buffer
+        app.tput.normal_buffer
         if cursor._set
-          application.tput.cursor_reset
+          app.tput.cursor_reset
         end
 
-        application.tput.flush
+        app.tput.flush
 
         # :-)
         {% if flag? :windows %}
@@ -335,7 +335,7 @@ module Crysterm
 
       # Destroys self and removes it from the global list of `Screen`s.
       # Also remove all global events relevant to the object.
-      # If no screens remain, the application is essentially reset to its initial state.
+      # If no screens remain, the app is essentially reset to its initial state.
       def destroy
         leave
 
@@ -351,26 +351,26 @@ module Crysterm
           end
 
           @destroyed = true
-          emit DestroyEvent
+          emit Crysterm::Event::Destroy
 
           super
         end
 
-        application.destroy
+        app.destroy
       end
 
       # Returns current screen width.
       # XXX Remove in favor of other ways to retrieve it.
       def columns
         # XXX replace with a per-screen method
-        application.tput.screen.width
+        app.tput.screen.width
       end
 
       # Returns current screen height.
       # XXX Remove in favor of other ways to retrieve it.
       def rows
         # XXX replace with a per-screen method
-        application.tput.screen.height
+        app.tput.screen.height
       end
 
       # Returns current screen width.
@@ -432,18 +432,18 @@ module Crysterm
       # it should be able to have its own title, and when it goes
       # in/out of focus, that title should be set/restored.
       def title
-        @application.title
+        @app.title
       end
 
       def title=(arg)
-        @application.title = arg
+        @app.title = arg
       end
 
       def sigtstp(callback)
-        application.sigtstp {
+        app.sigtstp {
           alloc
           render
-          application.lrestore_cursor :pause, true
+          app.lrestore_cursor :pause, true
           callback.call if callback
         }
       end

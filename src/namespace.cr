@@ -1,33 +1,49 @@
+# Main Crysterm module and namespace.
 module Crysterm
   module Namespace
-    #    class Position
-    #      @left : Int32
-    #      @right : Int32
-    #      @top : Int32
-    #      @bottom : Int32
-    #      @width : Int32
-    #      @height : Int32
-    #
-    #      def initialize(
-    #        @left=0,
-    #        @right=0,
-    #        @top=0,
-    #        @bottom=0,
-    #        @width=1,
-    #        @height=1,
-    #      )
-    #      end
-    #    end
-    include Tput::Namespace
-
-    Application = Crysterm::Application
-
+    # Rendering and drawing optimization flags.
     @[Flags]
     enum OptimizationFlag
       FastCSR
       SmartCSR
       BCE
     end
+
+    # Type of border to draw.
+    # XXX Should no border be signified by None value here, or by just @border being nil?
+    enum BorderType
+      None
+      Bg
+      Fg
+      Line
+      # Dotted
+      # Dashed
+      # Solid
+      # Double
+      # DotDash
+      # DotDotDash
+      # Groove
+      # Ridge
+      # Inset
+      # Outset
+    end
+
+    # Type of layout to use in a `Layout`.
+    enum LayoutType
+      Inline = 1
+      Grid   = 2 # Table-like
+    end
+
+    # Overflow behavior when rendering and drawing elements.
+    enum Overflow
+      Ignore
+      ShrinkElement
+      SkipElement
+      StopRendering
+    end
+
+    ##################################
+    # Start of part that needs to be verified and/or cleaned up.
 
     class BasicStyle
       # Potentially make all subelements be filled in here,
@@ -46,7 +62,7 @@ module Crysterm
       # property focus : Bool
       property char : Char = ' '
       property pchar : Char = ' '
-      #property fchar : Char = ' '
+      # property fchar : Char = ' '
 
       # For scrollbar
       property? ignore_border : Bool
@@ -61,8 +77,8 @@ module Crysterm
         invisible = nil,
         transparent = nil,
         char = nil,
-        #fchar = nil,
-        ignore_border = nil,
+        # fchar = nil,
+        ignore_border = nil
       )
         fg.try { |v| @fg = v }
         bg.try { |v| @bg = v }
@@ -73,7 +89,7 @@ module Crysterm
         invisible.try { |v| @invisible = v }
         transparent.try { |v| @transparent = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
         char.try { |v| @char = v }
-        #fchar.try { |v| @fchar = v }
+        # fchar.try { |v| @fchar = v }
         ignore_border.try { |v| @ignore_border = v }
       end
     end
@@ -141,23 +157,6 @@ module Crysterm
       property bg
     end
 
-    enum BorderType
-      None
-      Bg
-      Fg
-      Line
-      # Dotted
-      # Dashed
-      # Solid
-      # Double
-      # DotDash
-      # DotDotDash
-      # Groove
-      # Ridge
-      # Inset
-      # Outset
-    end
-
     class FocusEffects
       property bg
     end
@@ -166,16 +165,33 @@ module Crysterm
       property bg : String = "black"
     end
 
-    enum LayoutType
-      Inline = 1
-      Grid   = 2
-    end
+    # End of part that needs to be verified and/or cleaned up.
+    ##################################
 
-    enum Overflow
-      Ignore
-      ShrinkElement
-      SkipElement
-      StopRendering
+    # Helper to create an `App`
+    def self.app
+      App.global true
     end
   end
 end
+
+require "./app"
+
+#    class Position
+#      @left : Int32
+#      @right : Int32
+#      @top : Int32
+#      @bottom : Int32
+#      @width : Int32
+#      @height : Int32
+#
+#      def initialize(
+#        @left=0,
+#        @right=0,
+#        @top=0,
+#        @bottom=0,
+#        @width=1,
+#        @height=1,
+#      )
+#      end
+#    end

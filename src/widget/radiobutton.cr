@@ -18,7 +18,7 @@ module Crysterm
       def initialize(**checkbox)
         super **checkbox
 
-        on(CheckEvent) do
+        on(Crysterm::Event::Check) do
           el = self
           while el && (el = el.parent)
             if el.is_a?(RadioSet) # || el.is_a?(Form)

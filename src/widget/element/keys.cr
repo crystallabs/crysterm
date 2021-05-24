@@ -6,16 +6,16 @@ module Crysterm
       # Just aliases for listening to keys
 
       # def key(*args)
-      #  #application.key(*args)
+      #  #app.key(*args)
       # end
 
       # def once_key(*args)
-      #  #application.once_key(*args)
+      #  #app.once_key(*args)
       # end
       # alias_previous once
 
       # def remove_key(*args)
-      #  #application.unkey(*args)
+      #  #app.unkey(*args)
       # end
       # alias_previous unkey
 

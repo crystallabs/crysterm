@@ -18,9 +18,9 @@ module Crysterm
 
       # Here be dragons
 
-      # Render all child elements into the output buffer.
+      # Renders all child elements into the output buffer.
       def _render(with_children = true)
-        emit PreRenderEvent
+        emit Crysterm::Event::PreRender
 
         parse_content
 
@@ -627,7 +627,7 @@ module Crysterm
           end
         end
 
-        emit RenderEvent # , coords
+        emit Crysterm::Event::Render # , coords
 
         coords
       end

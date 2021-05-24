@@ -492,7 +492,7 @@ module Crysterm
         return if @width == val
         clear_pos
         @position.width = val
-        emit ResizeEvent
+        emit Event::Resize
         val
       end
 
@@ -500,7 +500,7 @@ module Crysterm
         return if height == val
         clear_pos
         @position.height = val
-        emit ResizeEvent
+        emit Event::Resize
         val
       end
 
@@ -523,7 +523,7 @@ module Crysterm
         end
         clear_pos
         @position.left = val
-        emit MoveEvent
+        emit Event::Move
         val
       end
 
@@ -532,7 +532,7 @@ module Crysterm
         return if (@position.right == val)
         clear_pos
         @position.right = val
-        emit MoveEvent
+        emit Event::Move
         val
       end
 
@@ -553,7 +553,7 @@ module Crysterm
         return if (@position.top == val)
         clear_pos
         @position.top = val
-        emit MoveEvent
+        emit Event::Move
         val
       end
 
@@ -562,7 +562,7 @@ module Crysterm
         return if (@position.bottom == val)
         clear_pos
         @position.bottom = val
-        emit MoveEvent
+        emit Event::Move
         val
       end
 
@@ -570,7 +570,7 @@ module Crysterm
         return if (@position.left == val)
         clear_pos
         @position.left = val
-        emit MoveEvent
+        emit Event::Move
         val
       end
 
@@ -578,7 +578,7 @@ module Crysterm
         return if (@position.right == val)
         clear_pos
         @position.right = val
-        emit MoveEvent
+        emit Event::Move
         val
       end
 
@@ -586,7 +586,7 @@ module Crysterm
         return if (@position.top == val)
         clear_pos
         @position.top = val
-        emit MoveEvent
+        emit Event::Move
         val
       end
 
@@ -594,7 +594,7 @@ module Crysterm
         return if (@position.bottom == val)
         clear_pos
         @position.bottom = val
-        emit MoveEvent
+        emit Event::Move
         val
       end
 

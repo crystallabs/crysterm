@@ -1,8 +1,6 @@
 module Crysterm
   # Mixin containing helper functions
   module Helpers
-    # 'merge' function exists as Crystal builtin
-
     # Sorts array alphabetically by property 'name'.
     def asort(obj)
       obj.sort do |a, b|
@@ -68,17 +66,18 @@ module Crysterm
       }
     end
 
+    # :ditto:
     def generate_tags(style : Hash(String, String | Bool), text : String)
       v = generate_tags style
       v[:open] + text + v[:close]
     end
 
-    # Strips text of tags and SGR sequences.
+    # Strips text of {...} tags and SGR sequences.
     def strip_tags(text : String)
       text.gsub(/\{(\/?)([\w\-,;!#]*)\}/, "").gsub(/\x1b\[[\d;]*m/, "")
     end
 
-    # Strips text of tags and SGR sequences (like strip_tags does), and also removes leading/trailing whitespaces.
+    # Strips text of {...} tags and SGR sequences like `strip_tags` does, but also removes leading/trailing whitespaces.
     def clean_tags(text)
       strip_tags(text).strip
     end

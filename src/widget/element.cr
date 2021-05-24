@@ -1,10 +1,10 @@
-require "../namespace"
-require "../events"
+require "../event"
 require "./node"
 require "./element/position"
 require "./element/content"
 require "./element/pos"
 require "./element/rendering"
+require "../crysterm"
 
 module Crysterm
   abstract class Element < Node
@@ -30,10 +30,10 @@ module Crysterm
     private property? fixed = false
 
     # Horizontal text alignment
-    property align = AlignFlag::Left
+    property align = Tput::AlignFlag::Left
 
     # Vertical text alignment
-    property valign = AlignFlag::Top
+    property valign = Tput::AlignFlag::Top
 
     # Can element's content be word-wrapped?
     property? wrap = true
@@ -126,8 +126,8 @@ module Crysterm
       hidden = nil,
       @fixed = false,
       @wrap = true,
-      @align = AlignFlag::Left,
-      @valign = AlignFlag::Top,
+      @align = Tput::AlignFlag::Left,
+      @valign = Tput::AlignFlag::Top,
       position : Tput::Position? = nil,
       resizable = nil,
       overflow : Overflow? = nil,
@@ -135,7 +135,7 @@ module Crysterm
       shadow = nil,
       @style = Style.new, # Previously: Style? = nil
       padding : Padding | Int32 = 0,
-      border = nil,
+      border = true, #nil,
       # @clickable=false,
       content = "",
       label = nil,
@@ -212,9 +212,9 @@ module Crysterm
       set_hover(hover_text) if hover_text
 
       # on(AddHandlerEvent) { |wrapper| }
-      on(ResizeEvent) { parse_content }
-      on(AttachEvent) { parse_content }
-      # on(DetachEvent) { @lpos = nil }
+      on(Crysterm::Event::Resize) { parse_content }
+      on(Crysterm::Event::Attach) { parse_content }
+      # on(Crysterm::Event::Detach) { @lpos = nil }
 
       if @scrollbar
         #@scrollbar.ch ||= ' '
@@ -257,7 +257,7 @@ module Crysterm
       #end
 
       if @keys && !@ignore_keys
-        on(KeyPressEvent) do |e|
+        on(Crysterm::Event::KeyPress) do |e|
           key = e.key
           ch = e.char
 
@@ -325,7 +325,7 @@ module Crysterm
 
       if @scrollable
         # XXX also remove handler when scrollable is turned off?
-        on(ParsedContentEvent) do
+        on(Crysterm::Event::ParsedContent) do
           _recalculate_index
         end
 
@@ -388,7 +388,7 @@ module Crysterm
       return unless @scrollable
       @child_offset = 0
       @child_base = 0
-      return emit ScrollEvent
+      return emit Crysterm::Event::Scroll
     end
 
     def get_scroll_perc(s)
@@ -492,7 +492,7 @@ module Crysterm
       # content and descendant elements.
       # Scroll the content if necessary.
       if (@child_base == base)
-        return emit ScrollEvent
+        return emit Crysterm::Event::Scroll
       end
 
       # When scrolling text, we want to be able to handle SGR codes as well as line
@@ -543,7 +543,7 @@ module Crysterm
         end
       end
 
-      emit ScrollEvent
+      emit Crysterm::Event::Scroll
     end
 
     def set_label(label)
@@ -562,7 +562,7 @@ module Crysterm
       return if @hidden
       clear_pos
       @hidden = true
-      emit HideEvent
+      emit Crysterm::Event::Hide
       # @screen.rewind_focus if focused?
       @screen.rewind_focus if @screen.focused == self
     end
@@ -570,7 +570,7 @@ module Crysterm
     def show
       return unless @hidden
       @hidden = false
-      emit ShowEvent
+      emit Crysterm::Event::Show
     end
 
     def toggle_visibility
@@ -578,7 +578,7 @@ module Crysterm
     end
 
     def focus
-      # XXX Prevents getting multiple `FocusEvent`s. Remains to be
+      # XXX Prevents getting multiple `Event::Focus`s. Remains to be
       # seen whether that's good, or it should always happen, even
       # if someone calls `#focus` multiple times in a row.
       return if focused?

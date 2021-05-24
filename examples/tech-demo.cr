@@ -2,6 +2,7 @@ require "../src/crysterm"
 
 module Crysterm
   include Tput::Namespace
+  include Crysterm::Widget
 
   s = Screen.new
   b = layout = Layout.new(
@@ -184,7 +185,7 @@ module Crysterm
     border: Border.new(type: BorderType::Line)
 
 
- s.on(KeyPressEvent) do |e|
+ s.on(Event::KeyPress) do |e|
    # e.accept!
    STDERR.puts e.inspect
    if e.char == 'q'
@@ -210,7 +211,7 @@ module Crysterm
     end
 
     if ch = textv[i]?
-      textarea.emit KeyPressEvent.new ch
+      textarea.emit Event::KeyPress.new ch
     else
       i = 0
     end

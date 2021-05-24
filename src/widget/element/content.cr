@@ -51,7 +51,7 @@ module Crysterm
         @content = content
 
         parse_content(no_tags)
-        emit(SetContentEvent)
+        emit(Crysterm::Event::SetContent)
       end
 
       def get_content
@@ -90,7 +90,7 @@ module Crysterm
             # content = content.replace(unicode.chars.all, '$1\x03')
 
             # iTerm2 cannot render combining characters properly.
-            if @screen.application.tput.emulator.iterm2?
+            if @screen.app.tput.emulator.iterm2?
               # TODO
               # content = content.replace(unicode.chars.combining, "")
             end
@@ -128,7 +128,7 @@ module Crysterm
           end
 
           @_pcontent = @_clines.join "\n"
-          emit ParsedContentEvent
+          emit Crysterm::Event::ParsedContent
 
           return true
         end
@@ -204,12 +204,12 @@ module Crysterm
 
             if (slash)
               if (!param || param.blank?)
-                outbuf += @screen.application.tput._attr("normal") || ""
+                outbuf += @screen.app.tput._attr("normal") || ""
                 bg.clear
                 fg.clear
                 flag.clear
               else
-                attr = @screen.application.tput._attr(param, false)
+                attr = @screen.app.tput._attr(param, false)
                 if (attr.nil?)
                   outbuf += cap[0]
                 else
@@ -219,7 +219,7 @@ module Crysterm
                   # }
                   state.pop
                   if (state.size > 0)
-                    outbuf += @screen.application.tput._attr(state[-1]) || ""
+                    outbuf += @screen.app.tput._attr(state[-1]) || ""
                   else
                     outbuf += attr
                   end
@@ -229,7 +229,7 @@ module Crysterm
               if (!param)
                 outbuf += cap[0]
               else
-                attr = @screen.application.tput._attr(param)
+                attr = @screen.app.tput._attr(param)
                 if (attr.nil?)
                   outbuf += cap[0]
                 else
@@ -342,11 +342,11 @@ module Crysterm
               line = line[cap[0].size..]
               align = default_state = case cap[1]
               when "center"
-                AlignFlag::Center
+                Tput::AlignFlag::Center
               when "left"
-                AlignFlag::Left
+                Tput::AlignFlag::Left
               else
-                AlignFlag::Right
+                Tput::AlignFlag::Right
               end
             end
             if (cap = line.match /{\/(left|center|right)}$/)
@@ -453,7 +453,7 @@ module Crysterm
         # Optimization - deal with Left right away. If we want to do
         # more work even for Left in the future, then add it in the
         # standard IFs below.
-        return line if (align & AlignFlag::Left) != AlignFlag::None
+        return line if (align & Tput::AlignFlag::Left) != Tput::AlignFlag::None
 
         cline = line.gsub /\x1b\[[\d;]*m/, ""
         len = cline.size
@@ -462,14 +462,14 @@ module Crysterm
         return line if len == 0
         return line if s < 0
 
-        if (align & AlignFlag::HCenter) != AlignFlag::None
+        if (align & Tput::AlignFlag::HCenter) != Tput::AlignFlag::None
           s = " " * (s//2)
           return s + line + s
-        elsif (align & AlignFlag::Right) != 0 #AlignFlag::None
+        elsif (align & Tput::AlignFlag::Right) != 0 #AlignFlag::None
           s = " " * s
           return s + line
         elsif @parse_tags && line.index /\{|\}/
-          # XXX This is basically AlignFlag::Spread, but not sure
+          # XXX This is basically Tput::AlignFlag::Spread, but not sure
           # how to put that as a flag yet. Maybe this (or another)
           # widget flag could mean to spread words to fill up the whole
           # line, increasing spaces between them?
