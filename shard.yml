@@ -1,12 +1,12 @@
 name: crysterm
-version: 0.1.0
+version: 1.0.0
 
 authors:
   - Davor Ocelic <docelic@crystallabs.io>
 
-crystal: 0.35.1
+crystal: 1.0.0
 
-license: MIT
+license: AGPLv3
 
 dependencies:
   tput:
@@ -14,7 +14,7 @@ dependencies:
     branch: master
   crystallabs-helpers:
     github: crystallabs/crystallabs-helpers.cr
-    branch: master
+    version: ~> 1.0
   term_colors:
     github: crystallabs/term_colors
     version: ~> 1.0
