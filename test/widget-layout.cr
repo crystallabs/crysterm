@@ -5,7 +5,7 @@ require "../src/crysterm"
 # test file to get the same behavior is in file widget-layout.cr.blessed-patch.
 
 module Crysterm
-  include Crysterm::Widget # Just for convenience, to not have to write e.g. `Widget::Screen`
+  include Widget # Just for convenience, to not have to write e.g. `Widget::Screen`
 
   s = Screen.new optimization: OptimizationFlag::SmartCSR #, auto_padding: true # auto padding is true in Crysterm by default
 
@@ -159,16 +159,16 @@ module Crysterm
     end
   end
 
- s.on(Event::KeyPress) do |e|
-   #STDERR.puts e.inspect
-   if e.char == 'q'
-     #e.accept!
-     s.destroy
-     exit
-   end
- end
+  s.on(Event::KeyPress) do |e|
+    #STDERR.puts e.inspect
+    if e.char == 'q'
+      #e.accept!
+      s.destroy
+      exit
+    end
+  end
 
- s.render
+  s.render
 
- s.app.exec # We use exec to run the main loop. Similar to Qt.
+  s.app.exec # We use exec to run the main loop. Similar to Qt.
 end

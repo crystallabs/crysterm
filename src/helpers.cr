@@ -38,6 +38,14 @@ module Crysterm
       }
     end
 
+    # Returns text with tags parsed.
+    #
+    # This is a convenience function that creates a `Widget` on every call.
+    # Do not use as-is in production; better use `_parse_tags` on your existing widgets.
+    def parse_tags(text, screen = Widget::Screen.global)
+      Widget::Element.new(screen: screen)._parse_tags(text)
+    end
+
     # Generates text tags based on the given style definition.
     # ```
     # obj.generate_tags({"fg" => "lightblack"}, "text") # => "{light-black-fg}text{/light-black-fg}"
