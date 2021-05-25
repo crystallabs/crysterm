@@ -450,11 +450,8 @@ module Crysterm
           return outbuf
         end
 
-        def _align(line, width, align)
-          # Optimization - deal with Left right away. If we want to do
-          # more work even for Left in the future, then add it in the
-          # standard IFs below.
-          return line if (align & Tput::AlignFlag::Left) != Tput::AlignFlag::None
+        def _align(line, width, align = Tput::AlignFlag::None)
+          return line if align.none?
 
           cline = line.gsub /\x1b\[[\d;]*m/, ""
           len = cline.size
@@ -466,7 +463,7 @@ module Crysterm
           if (align & Tput::AlignFlag::HCenter) != Tput::AlignFlag::None
             s = " " * (s//2)
             return s + line + s
-          elsif (align & Tput::AlignFlag::Right) != 0 #AlignFlag::None
+          elsif (align & Tput::AlignFlag::Right) != Tput::AlignFlag::None
             s = " " * s
             return s + line
           elsif @parse_tags && line.index /\{|\}/
@@ -476,9 +473,9 @@ module Crysterm
             # line, increasing spaces between them?
             parts = line.split /\{|\}/
             cparts = cline.split /\{|\}/
-            s = Math.max(width - cparts[0].size - cparts[1].size, 0)
+            s = Math.max(width - cparts[0].size - cparts[2].size, 0)
             s = " " * s
-            "#{parts[0]}#{s}#{parts[1]}"
+            return "#{parts[0]}#{s}#{parts[2]}"
           end
 
           line
@@ -498,7 +495,7 @@ module Crysterm
           while (@_clines.fake.size < i)
             @_clines.fake.push("")
             @_clines.ftor.push([@_clines.push("").size - 1])
-            @_clines.rtof(@_clines.fake.size - 1)
+            @_clines.rtof[@_clines.fake.size - 1]
           end
 
           # NOTE: Could possibly compare the first and last ftor line numbers to see
@@ -509,7 +506,7 @@ module Crysterm
 
           if (i >= @_clines.ftor.size)
             real = @_clines.ftor[@_clines.ftor.size - 1]
-            real = real[real.size - 1] + 1
+            real = real[-1] + 1
           else
             real = @_clines.ftor[i][0]
           end
@@ -528,22 +525,20 @@ module Crysterm
               return
             end
 
-            height = pos.yl - pos.yi - @iheight
+            height = pos.yl - pos.yi - iheight
             base = @child_base || 0
             visible = real >= base && real - base < height
 
             if (pos && visible && @screen.clean_sides(self))
               @screen.insert_line(diff,
-                pos.yi + @itop + real - base,
+                pos.yi + itop + real - base,
                 pos.yi,
-                pos.yl - @ibottom - 1)
+                pos.yl - ibottom - 1)
             end
           end
         end
 
         def delete_line(i = nil, n = 1)
-          n = n
-
           if (i.nil?)
             i = @_clines.ftor.size - 1
           end
@@ -575,16 +570,16 @@ module Crysterm
               return
             end
 
-            height = pos.yl - pos.yi - @iheight
+            height = pos.yl - pos.yi - iheight
 
             base = @child_base || 0
             visible = real >= base && real - base < height
 
             if (pos && visible && @screen.clean_sides(self))
               @screen.delete_line(diff,
-                pos.yi + @itop + real - base,
+                pos.yi + itop + real - base,
                 pos.yi,
-                pos.yl - @ibottom - 1)
+                pos.yl - ibottom - 1)
             end
           end
 
@@ -599,20 +594,20 @@ module Crysterm
         end
 
         def insert_bottom(line)
-          h = (@child_base || 0) + @height - @iheight
+          h = (@child_base || 0) + height - iheight
           i = Math.min(h, @_clines.size)
           fake = @_clines.rtof[i - 1] + 1
 
           insert_line(fake, line)
         end
 
-        def delete_top(n)
+        def delete_top(n = 1)
           fake = @_clines.rtof[@child_base || 0]
           delete_line(fake, n)
         end
 
         def delete_bottom(n)
-          h = (@child_base || 0) + @height - 1 - @iheight
+          h = (@child_base || 0) + height - 1 - iheight
           i = Math.min(h, @_clines.size - 1)
           fake = @_clines.rtof[i]
 
