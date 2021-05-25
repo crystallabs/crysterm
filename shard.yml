@@ -1,12 +1,12 @@
 name: crysterm
-version: 0.1.0
+version: 1.0.0
 
 authors:
   - Davor Ocelic <docelic@crystallabs.io>
 
-crystal: 0.35.1
+crystal: 1.0.0
 
-license: MIT
+license: AGPLv3
 
 dependencies:
   tput:
@@ -14,13 +14,14 @@ dependencies:
     branch: master
   crystallabs-helpers:
     github: crystallabs/crystallabs-helpers.cr
-    branch: master
+    version: ~> 1.0
   term_colors:
     github: crystallabs/term_colors
-    branch: master
+    version: ~> 1.0
   w3m_image_display:
     github: SamualLB/w3mimagedisplay
   #i18n:
   #  github: BrucePerens/i18n
   event_handler:
     github: crystallabs/event_handler
+    version: ~> 1.0
