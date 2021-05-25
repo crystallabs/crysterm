@@ -1,0 +1,41 @@
+Wishlist for Crystal features:
+
+
+1) Loops with labels, using whatever syntax would be appropriate, e.g.:
+
+```
+outer: while true
+  while true
+    break :outer
+  end
+end
+```
+
+2) Indirect initialization. This to work without throwing error:
+
+```
+class X
+  @x : Bool
+
+  def initialize
+    set_vars
+  end
+
+  def set_vars
+    @x ||= true
+  end
+end
+```
+
+3) Introducing 'undefined' or similar to mean unspecified values. E.g.:
+
+```
+class X
+  @var = "test"
+
+  def initialize (@var = undefined)
+    puts @var # ==> "test"
+  end
+
+end
+```

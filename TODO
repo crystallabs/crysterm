@@ -44,3 +44,5 @@ places. However, when specifying widget sizes or position, percentages are still
 e.g. "80%", top/left support a special string value of "center", and width/height support "resizable". Strings
 can stay as a supported option (for convenience of loading settings from text files, etc.?), but see if those
 can be replaced with enums or similar, and with things like 80.percent() or something.
+
+Fix screen.destroy() so that it does the same as in Blessed (destroy screen, reset term, exit).

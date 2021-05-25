@@ -13,12 +13,6 @@ module Crysterm
         @clickable = [] of Node
         @keyable = [] of Node
 
-        # Is focused element grabbing and receiving all keypresses?
-        property grab_keys = false
-
-        # Are keypresses prevented from being sent to any element?
-        property lock_keys = false
-
         # Focuses an element by an offset in the list of focusable elements.
         def focus_offset(offset)
           shown = @keyable.select { |el| !el.detached? && el.visible? }.size

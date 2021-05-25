@@ -30,6 +30,12 @@ module Crysterm
       # will be created/used if it is not provided explicitly.
       property! app : App
 
+      # Is focused element grabbing and receiving all keypresses?
+      property grab_keys = false
+
+      # Are keypresses prevented from being sent to any element?
+      property lock_keys = false
+
       # Array of keys to ignore when keys are locked or grabbed. Useful for defining
       # keys that will always execute their action (e.g. exit a program) regardless of
       # whether keys are locked.
@@ -49,13 +55,14 @@ module Crysterm
         @tab_size = 4,
         @dock_borders = false,
         ignore_locked : Array(Tput::Key)? = nil,
+        @lock_keys = false,
         title = nil,
         @cursor = Tput::Namespace::Cursor.new,
         optimization = nil
       )
         bind
 
-        ignore_locked.try { |v| @ignore_locked.push v }
+        ignore_locked.try { |v| @ignore_locked += v }
         optimization.try { |v| @optimization = v }
 
         #@app = app || App.global true

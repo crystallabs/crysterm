@@ -32,6 +32,10 @@ module Crysterm
     # The value is returned from the local variable; it is not read from the terminal window's title.
     getter title : String? = nil
 
+    property input : IO::FileDescriptor = STDIN.dup
+
+    property output : IO::FileDescriptor = STDOUT.dup
+
     # Sets title locally and in the terminal's window bar when possible
     def title=(@title)
       @tput.title = @title
