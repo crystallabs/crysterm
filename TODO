@@ -36,5 +36,11 @@ TextArea widget has an attribute input_on_focus=Bool. By default it is false, an
 pressed for the widget to start accepting input. But setting it to true, so that input would be accepted as soon
 as / whenever the widget is in focus, does not work correctly and needs fixing.
 
-In test/widget-padding.cr, this test differs from blessed in the background color of the border. Find this
-exact code and make it identical.
+In test/widget-padding.cr and test/widget-bigtext.cr, those test differs from blessed in the background color of
+the border. Find this exact code and make it identical.
+
+In Crysterm, which should aim to be fully OO & clean code, strings have been replaced with enum values in many
+places. However, when specifying widget sizes or position, percentages are still typically given with strings,
+e.g. "80%", top/left support a special string value of "center", and width/height support "resizable". Strings
+can stay as a supported option (for convenience of loading settings from text files, etc.?), but see if those
+can be replaced with enums or similar, and with things like 80.percent() or something.
