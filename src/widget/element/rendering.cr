@@ -342,7 +342,10 @@ module Crysterm
               if (y >= yl)
                 y = yl - 1
               end
-              cell = lines[y] && lines[y][x]
+              # XXX The '?' was added ad-hoc to prevent exceptions when something goes out of
+              # bounds (e.g. size of widget given too small for content).
+              # Is there any better way to handle?
+              cell = lines[y]? && lines[y][x]?
               if (cell)
                 if (@track)
                   ch = (@style.try &.track.try &.char) || ' '

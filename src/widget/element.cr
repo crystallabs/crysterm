@@ -136,7 +136,7 @@ module Crysterm
         shadow = nil,
         @style = Style.new, # Previously: Style? = nil
         padding : Padding | Int32 = 0,
-        border = true, #nil,
+        border = nil,
         # @clickable=false,
         content = "",
         label = nil,
