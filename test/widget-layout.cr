@@ -170,5 +170,5 @@ module Crysterm
 
  s.render
 
- s.app.exec
+ s.app.exec # We use exec to run the main loop. Similar to Qt.
 end

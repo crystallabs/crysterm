@@ -1,4 +1,6 @@
 module Crysterm
-  class ListTable < Element
+  module Widget
+    class ListTable < Element
+    end
   end
 end

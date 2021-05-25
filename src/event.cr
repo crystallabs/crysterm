@@ -17,10 +17,10 @@ module Crysterm
     event Show
 
     # Emitted when element focuses. Requires terminal supporting the focus protocol.
-    event Focus, el : Element? = nil
+    event Focus, el : Widget::Element? = nil
 
     # Emitted when element goes out of focus. Requires terminal supporting the focus protocol.
-    event Blur, el : Element? = nil
+    event Blur, el : Widget::Element? = nil
 
     # Emitted when a `Screen` is destroyed. Probably only useful when using multiple screens.
     event Destroy
@@ -43,7 +43,7 @@ module Crysterm
     event Reparent, element : Node?
 
     # Emitted when node is added to parent
-    event Adopt, element : Element
+    event Adopt, element : Widget::Element
 
     # Emitted when node is removed from its current parent
     event Remove, node : Node

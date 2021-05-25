@@ -17,11 +17,11 @@ module Crysterm
     # Each element must belong to a Widget::Screen if it is to be rendered/displayed anywhere.
     property screen : Widget::Screen
 
-    # Node's parent `Element`, if any.
-    property parent : Element?
+    # Node's parent `Widget::Element`, if any.
+    property parent : Widget::Element?
 
     # Node's children `Element`s.
-    property children = [] of Element
+    property children = [] of Widget::Element
 
     property? detached : Bool = false
 
@@ -38,7 +38,7 @@ module Crysterm
       name = nil,
       screen = determine_screen,
       index = -1,
-      children = [] of Element
+      children = [] of Widget::Element
     )
       @uid = next_uid
 
