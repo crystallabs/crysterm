@@ -33,8 +33,8 @@ module Crysterm
       exit
     end
   end
- 
+
   s.render
- 
+
   s.app.exec
 end

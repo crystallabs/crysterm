@@ -329,9 +329,16 @@ module Crysterm
             colwidth -= margin
           end
 
+          # What follows is a relatively large loop with subloops, all implemented with 'loop do'.
+          # This is to simultaneously work around 2 issues in Crystal -- (1) not having loop labels,
+          # and (2) while loop mistakenly not returning break's return value. Elegance is impacted.
+
           #      main:
           no = 0
-          while no < lines.size
+          # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
+          loop do
+            break unless no < lines.size
+
             line = lines[no]
             align = default_state
 
@@ -358,11 +365,15 @@ module Crysterm
             end
 
             # If the string is apparently too long, wrap it.
-            loop_ret = while (line.size > colwidth)
+            # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
+            loop_ret = loop do
+              break unless line.size > colwidth
               # Measure the real width of the string.
               total = 0
               i = 0
-              while i < line.size
+              # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
+              loop do
+                break unless i < line.size
                 while (line[i] == '\e')
                   while (line[i] && line[i] != 'm')
                     i += 1
@@ -424,14 +435,13 @@ module Crysterm
             end
 
             if loop_ret == :main
+              no += 1
               next
             end
 
-            if line
-              outbuf.push(_align(line, colwidth, align))
-              ftor[no].push(outbuf.size - 1)
-              rtof.push(no)
-            end
+            outbuf.push(_align(line, colwidth, align))
+            ftor[no].push(outbuf.size - 1)
+            rtof.push(no)
 
             no += 1
           end
