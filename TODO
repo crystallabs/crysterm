@@ -1,10 +1,23 @@
-# Source Code
+# Source Code TODOs
 
 In the code, questions and/or things to verify at some later point are identified with "XXX".
 
 Things to change/improve are identified with "TODO".
 
-# List of TODOs
+The same things that have been moved from app.cr into app/instance.cr, do the same logical
+thing with those methods in src/widget/screen.cr
+
+src/app/instance.cr: #bind, #exec, #destroy
+src/app/tput.cr -> review everything
+src/namespace.cr -> cleanup some definitions
+src/app.cr -> avoid use of Term::Screen, and make sure to check the size of @output, not STDOUT
+src/event.cr -> add descriptions of all events
+
+src/widget/overlayimage.cr -> is that OK or more work needs to be done?
+src/widget/bigtext.cr -> is that OK or more work needs to be done?
+src/widget/question.cr -> needs more work
+
+# List of TODOs in no particular order
 
 All XXX and TODO items in the sources.
 
@@ -23,8 +36,25 @@ On an element, top/left/width/height can also be a string. Also allow Symbols to
 Currently, every widget must have a `Screen`. This should not be so. See what try()s have to be added to allow
 `screen` of a widget to remain uninitialized. (Such widgets would simply never be rendered since they're not
 on any screen, but it should otherwise be possible to create a hierarchy of widgets in memory.)
-Skip this only if doing it would be too inconvenient (e.g. if even basic functions require values that are only
-known after a Screen is associated.)
+But, don't bother if this only if doing it would be too inconvenient (e.g. if even basic functions require
+values that are only known after a Screen is associated.)
+
+Screen is currently autocreated if not created explicitly. See if it would make sense to move to a model where
+a Screen needs to be created explicitly. This could make sense because creating a Screen, just like in blessed,
+automatically activates it and switches to alternate buffer. Maybe not everyone wants that, depending on the type
+of app.
+
+See if an option could be added to control whether a Screen will use alternate buffer or not.
+
+See if it would make sense to name/rename all EventHandler events in such a way that the name identifies whether
+the action is about to happen, or has happened. In that case, e.g. Event::Render would mean the event has been
+triggered before the actual action, and Event::Rendered would mean it was triggered after.
+
+See if it would be of any benefit to mark certain methods with @[AlwaysInline].
+
+Make sure that the background character for a cell is always configurable and never literally taken to be ' '.
+This will allow someone to completely change what the background char is. I guess this has already been done
+to a good extent, but verifying/confirming it would be good.
 
 When specifying top/left, it is possible to say "center". This will center the widget, and is different than
 saying "50%". For example, for a screen of 100 and width 50, "center" will make it begin at 25, while "50%" will
@@ -48,3 +78,19 @@ can be replaced with enums or similar, and with things like 80.percent() or some
 Fix screen.destroy() so that it does the same as in Blessed (destroy screen, reset term, exit).
 
 In test/widget-valign.cr, the content of the widget is displayed twice. Determine why and fix.
+
+For good OO, and like in Qt, it would be good if all functions that deal with Points, Sizes, and Dimensions,
+would also accept those specific classes/structs that we'd define, rather than just numbers/Ints. This already
+exists to an extent, e.g. in Tput there is class Size, Point, etc. These should be used more throughout the
+codebase, and any other relevant new ones added.
+
+See if it would make sense to actually put everything from Crysterm::Widget::Element class into Crysterm::Widget.
+Logically it could make sense, since Element is just base/abstract Widget? Also, on a related note, see if Node
+should be moved out of Widget, and also whether Screen should be moved out of Widget, since it only inherits
+from Node, not Widget.
+
+Would anything be gained by using a Set instead of an Array as the containing element for individuall Cell's
+which represent all chars/cells on the screen?
+
+Blessed recognizes a concept of Unicode and Full Unicode. I guess Unicode is what Crystal currently supports.
+How to deal with the whole other side of things (Full Unicode)? Implement if possible.

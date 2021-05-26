@@ -8,9 +8,6 @@ module Crysterm
     class Button < Input
       include EventHandler
 
-      # XXX Do we need this at all? See how `press` is implemented; switching this
-      # to true then back to false seems like a bad choice for multiple threads.
-      # Why not just assume that a Event::Press implies a yes/valid/active click?
       getter value = false
 
       def initialize(**input)

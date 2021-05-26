@@ -1,14 +1,19 @@
 module Crysterm
   class App
     # Functionality related to instances of an `App`.
+    #
+    # In general, this functionality exists so that multiple, separate `App`s
+    # could exist within a single process.
     module Instance
       macro included
         class_getter instances = [] of self
 
+        # Returns number of `App` instances
         def self.total
           @@instances.size
         end
 
+        # Creates and/or returns the "global" (by default the first) instance of `App`
         def self.global(create = true)
           ( instances[0]? || (create ? new : nil)).not_nil!
         end
@@ -16,6 +21,7 @@ module Crysterm
         @@_bound = false
       end
 
+      # Registers an `App`. Happens automatically during `initialize`; generally not used directly.
       def bind
         @@global = self unless @@global
 
@@ -26,7 +32,8 @@ module Crysterm
 
         at_exit do
           # XXX Should these completely separate loops somehow
-          # be rearranged and/or combined more nicely?
+          # be rearranged and/or combined more nicely? Is defining this
+          # per each App instance that calls bind even OK?
 
           self.class.instances.each do |app|
             # XXX Do we restore window title ourselves?
@@ -46,11 +53,13 @@ module Crysterm
         end
       end
 
+      # Runs the app, similar to how it is done in the Qt framework.
       def exec(screen : Crysterm::Widget::Screen? = nil)
         (screen || Crysterm::Widget::Screen.global(true)).render
         sleep
       end
 
+      # Destroys an `App` instance
       def destroy
         if @@instances.delete self
           tput.try do |tput|

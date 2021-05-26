@@ -84,7 +84,7 @@ module Crysterm
 
         property optimization : OptimizationFlag = OptimizationFlag::None
 
-        # XXX move somewhere else
+        # XXX move somewhere else?
         # Default cell attribute
         property dattr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
 

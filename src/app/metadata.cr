@@ -1,8 +1,10 @@
 module Crysterm
   class App
     # Meta data about the app.
+    #
+    # This data is similar to convenient metadata existing in Qt apps.
     module Metadata
-      # Name of this app. If unset, defaults to the path of the currently running program.
+      # Name of the app. If unset, defaults to the path of the currently running program.
       property app_name : String = Process.executable_path || PROGRAM_NAME
 
       # App version. If unset, defaults to Crystal app's VERSION string.

@@ -1,5 +1,5 @@
-# Main Crysterm module and namespace.
 module Crysterm
+  # Module holding the general namespace for Crysterm
   module Namespace
     # Rendering and drawing optimization flags.
     @[Flags]
@@ -45,7 +45,12 @@ module Crysterm
     ##################################
     # Start of part that needs to be verified and/or cleaned up.
 
-    class BasicStyle
+    class Style
+      property border : Style?
+      property scrollbar : Style?
+      property track : Style?
+      property bar : Style?
+
       # Potentially make all subelements be filled in here,
       # and if they're a new Style class have it know its
       # Style parent. This way we could default values to
@@ -68,6 +73,10 @@ module Crysterm
       property? ignore_border : Bool
 
       def initialize(
+        @border = nil,
+        @scrollbar = nil,
+        @track = nil,
+        @bar = nil,
         fg = nil,
         bg = nil,
         bold = nil,
@@ -91,23 +100,6 @@ module Crysterm
         char.try { |v| @char = v }
         # fchar.try { |v| @fchar = v }
         ignore_border.try { |v| @ignore_border = v }
-      end
-    end
-
-    class Style < BasicStyle
-      property border : BasicStyle? = BasicStyle.new
-      property scrollbar : BasicStyle? = BasicStyle.new
-      property track : BasicStyle? = BasicStyle.new
-      property bar : BasicStyle? = BasicStyle.new
-
-      def initialize(
-        @border = nil,
-        @scrollbar = nil,
-        @track = nil,
-        @bar = nil,
-        **basic_style
-      )
-        super **basic_style
       end
     end
 

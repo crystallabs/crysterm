@@ -235,7 +235,7 @@ module Crysterm
           # end
         end
 
-        _emit Crysterm::Event::Render # , coords
+        _emit Crysterm::Event::Render # , coords # XXX add param to the event
 
         coords
       end

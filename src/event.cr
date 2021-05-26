@@ -8,6 +8,7 @@ module Crysterm
     event Scroll
 
     event Data, data : String
+
     event Warning, message : String
 
     # Emitted when screen is resized.

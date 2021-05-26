@@ -653,7 +653,7 @@ module Crysterm
         set_index 0
       end
 
-      def self.sattr(style : BasicStyle, fg = nil, bg = nil)
+      def self.sattr(style : Style, fg = nil, bg = nil)
         if fg.nil? && bg.nil?
           fg = style.fg
           bg = style.bg
@@ -670,7 +670,7 @@ module Crysterm
           Colors.convert(bg)
       end
 
-      def sattr(style : BasicStyle, fg = nil, bg = nil)
+      def sattr(style : Style, fg = nil, bg = nil)
         self.class.sattr style, fg, bg
       end
 
