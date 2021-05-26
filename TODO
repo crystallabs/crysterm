@@ -46,3 +46,5 @@ can stay as a supported option (for convenience of loading settings from text fi
 can be replaced with enums or similar, and with things like 80.percent() or something.
 
 Fix screen.destroy() so that it does the same as in Blessed (destroy screen, reset term, exit).
+
+In test/widget-valign.cr, the content of the widget is displayed twice. Determine why and fix.
