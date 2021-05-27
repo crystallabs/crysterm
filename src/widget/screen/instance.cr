@@ -56,7 +56,7 @@ module Crysterm
               @@_bound = false
             end
 
-            @destroyed = true # XXX
+            #@destroyed = true # XXX
             emit Crysterm::Event::Destroy
 
             super
@@ -76,7 +76,7 @@ end
 # 1. If line 54 is uncommented, then compilation fails with:
 # Error: class variable '@@global' of Crysterm::Widget::Screen is already defined as Nil in Crysterm::Widget::Screen::Instance
 #
-# 2. If line 59 is uncommented (which it is now, to trigger the bug), then either the compilation or beginning of runtime fail with:
+# 2. If line 59 is uncommented, then either the compilation or beginning of runtime fail with:
 # Invalid memory access (signal 11) at address 0x0
 # [0x7f21954f0bf6] ???
 # [0x7f219543fab2] ???
