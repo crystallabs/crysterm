@@ -6,12 +6,12 @@ module Crysterm
 
   s = Screen.new
   b = layout = Layout.new(
-    #parent: s,
+    # parent: s,
     top: 0,
     left: 0,
-    #width: "50%",
-    #height: "50%",
-    #border: BorderType::Line,
+    # width: "50%",
+    # height: "50%",
+    # border: BorderType::Line,
     layout: LayoutType::Grid,
     overflow: Overflow::Ignore,
     style: Style.new(
@@ -19,7 +19,7 @@ module Crysterm
     )
   )
 
-  #b.focus
+  # b.focus
   s.append b
 
   box = Box.new(
@@ -81,13 +81,12 @@ module Crysterm
       ),
     )
 
-
   loading = Loading.new \
     parent: layout,
     align: AlignFlag::HCenter,
     width: 36,
     height: 18,
-    icons: [ "Preparing", "Loading", "Processing", "Saving", "Analyzing" ],
+    icons: ["Preparing", "Loading", "Processing", "Saving", "Analyzing"],
     content: "Please wait...",
     border: Border.new(type: BorderType::Line),
     style: Style.new(transparent: true, fg: "white", bg: "black", border: Style.new(fg: "white", bg: "black"))
@@ -109,9 +108,9 @@ module Crysterm
         fg: "#ffffff"
       ),
     )
-  question.ask {}
+  question.ask { }
 
-  #overlayimage = OverlayImage.new \
+  # overlayimage = OverlayImage.new \
   #  parent: layout,
   #  width: 36,
   #  height: 18,
@@ -151,17 +150,17 @@ module Crysterm
   )
 
   boxtp2 = Box.new(
-    #parent: s,
+    # parent: s,
     width: 60,
     height: 16,
     top: 24,
     left: 160,
     border: BorderType::Bg,
     content: "Hello, World! See translucency and shadow.",
-    style: Style.new( "bg": "#870087")
+    style: Style.new("bg": "#870087")
   )
   boxtp1 = Box.new(
-    #parent: s,
+    # parent: s,
     top: 20,
     left: 150,
     width: 60,
@@ -169,7 +168,7 @@ module Crysterm
     border: BorderType::Line,
     content: "See indeed.",
     shadow: true,
-    style: Style.new( "bg": "#729fcf", transparent: true)
+    style: Style.new("bg": "#729fcf", transparent: true)
   )
   s.append boxtp2
   s.append boxtp1
@@ -184,48 +183,49 @@ module Crysterm
     content: "In progress!...",
     border: Border.new(type: BorderType::Line)
 
+  s.on(Event::KeyPress) do |e|
+    # e.accept!
+    STDERR.puts e.inspect
+    if e.char == 'q'
+      exit
+    end
+  end
 
- s.on(Event::KeyPress) do |e|
-   # e.accept!
-   STDERR.puts e.inspect
-   if e.char == 'q'
-     exit
-   end
- end
+  s.render
 
- s.render
-
- textv = "TextArea. This is a multi-line user input enabled widget with automatic content wrapping. There is a lot of text that can fit it, when the terminal doesn't use too big font."
- textboxv = " This will add more text to textbox and always show only visible portion."
+  textv = "TextArea. This is a multi-line user input enabled widget with automatic content wrapping. There is a lot of text that can fit it, when the terminal doesn't use too big font."
+  textboxv = " This will add more text to textbox and always show only visible portion."
 
   textarea.focus
   loading.start
   loading2.start
   i = 0
-  spawn do loop do
-    [checkbox1,checkbox2,checkbox3,checkbox4][ i % 4 ].toggle
-    [radio1,radio2,radio3,radio4][ i % 4 ].check
-    progressbar.filled += 5
-    if progressbar.filled == 100
-      progressbar.filled = 0
-    end
+  spawn do
+    loop do
+      [checkbox1, checkbox2, checkbox3, checkbox4][i % 4].toggle
+      [radio1, radio2, radio3, radio4][i % 4].check
+      progressbar.filled += 5
+      if progressbar.filled == 100
+        progressbar.filled = 0
+      end
 
-    if ch = textv[i]?
-      textarea.emit Event::KeyPress.new ch
-    else
-      i = 0
-    end
+      if ch = textv[i]?
+        textarea.emit Event::KeyPress.new ch
+      else
+        i = 0
+      end
 
-    new_letter = textboxv[i]?
-    if new_letter
-      textbox.value += new_letter
-    else
-      textbox.value = ""
+      new_letter = textboxv[i]?
+      if new_letter
+        textbox.value += new_letter
+      else
+        textbox.value = ""
+      end
+      i += 1
+      Fiber.yield
+      sleep 0.2
     end
-    i += 1
-    Fiber.yield
-    sleep 0.2
-  end end
+  end
 
   sleep
 end
