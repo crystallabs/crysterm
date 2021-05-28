@@ -1,9 +1,7 @@
-require "./node"
-require "./element"
 require "./input"
 
 module Crysterm
-  module Widget
+  class Widget
     # Button element
     class Button < Input
       include EventHandler

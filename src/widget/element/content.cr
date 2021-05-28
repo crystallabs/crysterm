@@ -6,8 +6,17 @@
 #end
 
 module Crysterm
-  module Widget
-    class Element < Node
+  class Widget
+    class Element
+    end
+    class Box < Widget
+    end
+    class Input < Box
+    end
+    class TextArea < Input
+    end
+
+    class Element
       module Content
         include Helpers
 

@@ -1,19 +1,24 @@
-require "term-screen"
-require "log"
+#require "event_handler"
+#require "term-screen"
+#require "log"
+#
+#require "tput"
+#require "term_colors"
+#require "crystallabs-helpers"
 
-require "tput"
-require "term_colors"
-require "crystallabs-helpers"
+#require "./version"
+#require "./macros"
+#require "./colors"
+#require "./helpers"
+#require "./event"
 
-require "./app/*"
-
-require "./version"
-require "./macros"
-require "./colors"
-require "./helpers"
-
-require "./widget/node"
-require "./widget/*"
+require "./app/metadata"
+require "./app/tput"
+require "./app/instance"
+#require "./node"
+#require "./screen"
+#
+#require "./widget/*"
 
 module Crysterm
   # Main Crysterm class. All applications begin by instantiating or subclassing this class.

@@ -1,9 +1,9 @@
 require "./radioset"
 
 module Crysterm
-  module Widget
+  class Widget
     # Layout
-    class Layout < Element
+    class Layout < Widget
       include EventHandler
 
       @layout : LayoutType
@@ -72,7 +72,7 @@ module Crysterm
           }
         end
 
-        ->(el : Element, i : Int32) {
+        ->(el : Widget, i : Int32) {
           # Make our children resizable. If they don't have a height, for
           # example, calculate it for them.
           el.resizable = true

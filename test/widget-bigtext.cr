@@ -1,11 +1,10 @@
 require "../src/crysterm"
 
 module Crysterm
-  include Widget
 
   s = Screen.new optimization: OptimizationFlag::SmartCSR
 
-  b = BigText.new \
+  b = Widget::BigText.new \
     screen: s,
     content: "Hello",
     resizable: true,

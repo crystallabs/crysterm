@@ -1,8 +1,5 @@
-require "./node"
-require "./element"
-
 module Crysterm
-  module Widget
+  class Widget
     # Box element
     class Loading < Box
       @spinner : Fiber?

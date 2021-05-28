@@ -1,6 +1,6 @@
 module Crysterm
-  module Widget
-    class Element < Node
+  class Widget
+    class Element
       module Keys
         include Crystallabs::Helpers::Alias_Methods
 

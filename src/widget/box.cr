@@ -1,10 +1,7 @@
-require "./node"
-require "./element"
-
 module Crysterm
   # Box element
-  module Widget
-    class Box < Element
+  class Widget
+    class Box < Widget
     end
   end
 end

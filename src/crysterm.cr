@@ -1,4 +1,16 @@
+require "json"
+require "event_handler"
+
+require "./version"
+require "./macros"
 require "./namespace"
+require "./event"
+require "./app"
+require "./helpers"
+require "./colors"
+require "./screen"
+
+require "./widget/*"
 
 # Main Crysterm module and namespace.
 module Crysterm
@@ -9,11 +21,9 @@ module Crysterm
     App.global true
   end
 
-  # Creates and/or returns main `Widget::Screen`
+  # Creates and/or returns main `Screen`
   def self.screen
-    Widget::Screen.global true
+    Screen.global true
   end
 
 end
-
-require "./app"

@@ -1,3 +1,5 @@
+require "tput"
+
 module Crysterm
   class App
     # Tput-related part of an App's instance.
@@ -10,10 +12,6 @@ module Crysterm
 
       # Amount of time to wait before redrawing the screen, after the terminal resize event is received.
       property resize_timeout : Time::Span
-
-      macro included
-        class_property key_events = Hash(::Tput::Key, Crysterm::Event::KeyPress.class).new initial_capacity: {{ ::Tput::Key.constants.size }}
-      end
 
       @_listened_keys : Bool = false
 

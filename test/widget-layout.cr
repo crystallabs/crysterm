@@ -5,11 +5,10 @@ require "../src/crysterm"
 # test file to get the same behavior is in file widget-layout.cr.blessed-patch.
 
 module Crysterm
-  include Widget # Just for convenience, to not have to write e.g. `Widget::Screen`
 
   s = Screen.new optimization: OptimizationFlag::SmartCSR #, auto_padding: true # auto padding is true in Crysterm by default
 
-  l = layout = Layout.new(
+  l = layout = Widget::Layout.new(
     screen: s,
     top: "center",
     left: "center",
@@ -26,7 +25,7 @@ module Crysterm
     )
   )
 
-  box1 = Box.new(
+  box1 = Widget::Box.new(
     parent: layout,
     top: "center",
     left: "center",
@@ -36,7 +35,7 @@ module Crysterm
     content: "1"
   )
 
-  box2 = Box.new(
+  box2 = Widget::Box.new(
     parent: layout,
     top: 0,
     left: 0,
@@ -46,7 +45,7 @@ module Crysterm
     content: "2"
   )
 
-  box3 = Box.new(
+  box3 = Widget::Box.new(
     parent: layout,
     top: 0,
     left: 0,
@@ -56,7 +55,7 @@ module Crysterm
     content: "3"
   )
 
-  box4 = Box.new(
+  box4 = Widget::Box.new(
     parent: layout,
     top: 0,
     left: 0,
@@ -66,7 +65,7 @@ module Crysterm
     content: "4"
   )
 
-  box5 = Box.new(
+  box5 = Widget::Box.new(
     parent: layout,
     top: 0,
     left: 0,
@@ -76,7 +75,7 @@ module Crysterm
     content: "5"
   )
 
-  box6 = Box.new(
+  box6 = Widget::Box.new(
     parent: layout,
     top: 0,
     left: 0,
@@ -86,7 +85,7 @@ module Crysterm
     content: "6"
   )
 
-  box7 = Box.new(
+  box7 = Widget::Box.new(
     parent: layout,
     top: 0,
     left: 0,
@@ -96,7 +95,7 @@ module Crysterm
     content: "7"
   )
 
-  box8 = Box.new(
+  box8 = Widget::Box.new(
     parent: layout,
     top: "center",
     left: "center",
@@ -106,7 +105,7 @@ module Crysterm
     content: "8"
   )
 
-  box9 = Box.new(
+  box9 = Widget::Box.new(
     parent: layout,
     top: 0,
     left: 0,
@@ -116,7 +115,7 @@ module Crysterm
     content: "9"
   )
 
-  box10 = Box.new(
+  box10 = Widget::Box.new(
     parent: layout,
     top: "center",
     left: "center",
@@ -126,7 +125,7 @@ module Crysterm
     content: "10"
   )
 
-  box11 = Box.new(
+  box11 = Widget::Box.new(
     parent: layout,
     top: 0,
     left: 0,
@@ -136,7 +135,7 @@ module Crysterm
     content: "11"
   )
 
-  box12 = Box.new(
+  box12 = Widget::Box.new(
     parent: layout,
     top: "center",
     left: "center",
@@ -149,7 +148,7 @@ module Crysterm
   if ARGV[0]? != "grid"
     sizes = [ 0.2, 1, 0.3, 0.6, 0.3, 0.9, 0.2, 0.75, 0.1, 0.99 ]
     10.times do |i|
-       b = Box.new(
+       b = Widget::Box.new(
           parent: layout,
           width: sizes[i] > 0.5 ? 10 : 20,
           height: sizes[i] > 0.5 ? 5 : 10,

@@ -1,7 +1,7 @@
 require "./radioset"
 
 module Crysterm
-  module Widget
+  class Widget
     # Radio button element
     class RadioButton < Checkbox
       include EventHandler

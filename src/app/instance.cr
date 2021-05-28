@@ -47,15 +47,16 @@ module Crysterm
             end
           end
 
-          Crysterm::Widget::Screen.instances.each do |screen|
-            screen.destroy
-          end
+          # XXX Probably shouldn't be done here, but via regular methods
+          #Crysterm::Screen.instances.each do |screen|
+          #  screen.destroy
+          #end
         end
       end
 
       # Runs the app, similar to how it is done in the Qt framework.
-      def exec(screen : Crysterm::Widget::Screen? = nil)
-        (screen || Crysterm::Widget::Screen.global(true)).render
+      def exec(screen : Crysterm::Screen? = nil)
+        (screen || Crysterm::Screen.global(true)).render
         sleep
       end
 
@@ -81,7 +82,7 @@ module Crysterm
           @destroyed = true
           emit Crysterm::Event::Destroy
 
-          if Widget::Screen.instances.empty?
+          if Screen.instances.empty?
             @input.cooked! # XXX This is maybe to basic of a "return to previous state" method.
             exit
           end

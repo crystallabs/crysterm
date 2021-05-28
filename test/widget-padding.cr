@@ -1,7 +1,7 @@
 require "../src/crysterm"
 
 module Crysterm
-  include Widget # Just for convenience, to not have to write e.g. `Widget::Screen`
+  include Widget # Just for convenience, to not have to write e.g. `Screen`
 
   s = Screen.new
 

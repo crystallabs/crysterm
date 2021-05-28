@@ -1,8 +1,8 @@
-require "./node"
+require "../node"
 require "./box"
 
 module Crysterm
-  module Widget
+  class Widget
     # Abstract input element
     class Input < Box
       @keyable = true

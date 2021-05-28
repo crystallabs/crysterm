@@ -1,12 +1,12 @@
-require "./node"
+require "../node"
 
 module Crysterm
-  module Widget
+  class Widget
 
     # TODO Check if this is honored
     @resizable = true
 
-    class Text < Element
+    class Text < Widget
     end
   end
 end

@@ -1,9 +1,7 @@
-require "./node"
-require "./element"
 require "w3m_image_display"
 
 module Crysterm
-  module Widget
+  class Widget
     # Good example of w3mimgdisplay commands:
     # https://github.com/hut/ranger/blob/master/ranger/ext/img_display.py
 

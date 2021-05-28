@@ -1,9 +1,7 @@
-require "./node"
-require "./element"
 require "./box"
 
 module Crysterm
-  module Widget
+  class Widget
     class BigText < Widget::Box
 
       # TODO Why these two default values generate an error (not initialized) if removed?

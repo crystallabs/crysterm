@@ -1,7 +1,7 @@
-require "./node"
+require "../node"
 
 module Crysterm
-  module Widget
+  class Widget
     # Line element
     class Line < Box
       @orientation = Tput::Orientation::Vertical

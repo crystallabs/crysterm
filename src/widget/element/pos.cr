@@ -1,6 +1,6 @@
 module Crysterm
-  module Widget
-    class Element < Node
+  class Widget
+    class Element
       module Pos
         property renders = 0
 

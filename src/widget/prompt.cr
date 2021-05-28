@@ -1,9 +1,7 @@
-require "./node"
-require "./element"
 require "./box"
 
 module Crysterm
-  module Widget
+  class Widget
     class Prompt < Box
       property text : String = ""
 

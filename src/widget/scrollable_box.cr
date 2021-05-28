@@ -1,5 +1,5 @@
 module Crysterm
-  module Widget
+  class Widget
     class ScrollableBox < Box
     end
   end

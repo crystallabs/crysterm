@@ -1,5 +1,10 @@
 # Source Code TODOs
 
+As a leftover from big class hierarchy change, the supporting files for src/widget.cr are still left in
+src/widget/element/*. They are there because they are support files, and putting them under e.g.
+widget/ would clash with actual widgets there. So, just fix this. Most probably by just putting it all
+in the same file of widget.cr, but while keeping a class hierarchy for manageable length of sources.
+
 In the code, questions and/or things to verify at some later point are identified with "XXX".
 
 Things to change/improve are identified with "TODO".

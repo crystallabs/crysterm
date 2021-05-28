@@ -1,7 +1,7 @@
-require "./node"
+require "../node"
 
 module Crysterm
-  module Widget
+  class Widget
     class TextBox < TextArea
 
       property secret : Bool = false

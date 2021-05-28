@@ -1,9 +1,12 @@
-abstract class Crysterm::Node
-end
-
 module Crysterm
-  module Widget
-    class Element < Node
+  class Widget
+    class Element
+    end
+
+    class ListTable < Widget
+    end
+
+    class Element
       module Position
         def clear_pos(get = false, override = false)
           return if @detached

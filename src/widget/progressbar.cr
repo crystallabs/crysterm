@@ -1,8 +1,5 @@
-require "./node"
-require "./element"
-
 module Crysterm
-  module Widget
+  class Widget
     class ProgressBar < Input
       property filled : Int32 = 0
       property value : Int32 = 0

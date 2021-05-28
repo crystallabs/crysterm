@@ -1,7 +1,7 @@
-require "./node"
+require "../node"
 
 module Crysterm
-  module Widget
+  class Widget
     # Text area element
     class TextArea < Input
       @_reading = false

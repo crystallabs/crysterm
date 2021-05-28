@@ -1,7 +1,7 @@
-require "./node"
+require "../node"
 
 module Crysterm
-  module Widget
+  class Widget
     # Radio set element
     class RadioSet < Box
       # Possibly (originally disabled)

@@ -1,48 +1,46 @@
 module Crysterm
-  module Widget
-    class Screen
-      class Cell
-        include Comparable(self)
-        # Same as @dattr
-        property attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
-        property char : Char = ' '
+  class Screen
+    class Cell
+      include Comparable(self)
+      # Same as @dattr
+      property attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
+      property char : Char = ' '
 
-        def initialize(@attr, @char)
-        end
+      def initialize(@attr, @char)
+      end
 
-        def initialize(@char)
-        end
+      def initialize(@char)
+      end
 
-        def initialize
-        end
+      def initialize
+      end
 
-        def <=>(other : Cell)
-          if (d = @attr <=> other.attr) == 0
-            @char <=> other.char
-          else
-            d
-          end
-        end
-
-        def <=>(other : Tuple(Int32, Char))
-          if (d = @attr <=> other[0]) == 0
-            @char <=> other[1]
-          else
-            d
-          end
+      def <=>(other : Cell)
+        if (d = @attr <=> other.attr) == 0
+          @char <=> other.char
+        else
+          d
         end
       end
 
-      class Row < Array(Cell)
-        property dirty = false
-
-        def initialize
-          super
+      def <=>(other : Tuple(Int32, Char))
+        if (d = @attr <=> other[0]) == 0
+          @char <=> other[1]
+        else
+          d
         end
+      end
+    end
 
-        def initialize(width, cell : Cell | Tuple(Int32, Char) = {@attr, @char})
-          super width
-        end
+    class Row < Array(Cell)
+      property dirty = false
+
+      def initialize
+        super
+      end
+
+      def initialize(width, cell : Cell | Tuple(Int32, Char) = {@attr, @char})
+        super width
       end
     end
   end

@@ -1,6 +1,6 @@
 module Crysterm
-  module Widget
-    abstract class Element < Node
+  class Widget
+    abstract class Element
 
       class_property style : Style = Style.new
 
