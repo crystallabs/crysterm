@@ -1,6 +1,6 @@
 module Crysterm
   module Widget
-    class Screen < Node
+    class Screen
       module Instance
 
         macro included
@@ -56,10 +56,10 @@ module Crysterm
               @@_bound = false
             end
 
-            #@destroyed = true # XXX
+            @destroyed = true
             emit Crysterm::Event::Destroy
 
-            super
+            #super # No longer exists since we're not subclass of Node any more
           end
 
           app.destroy
@@ -69,26 +69,3 @@ module Crysterm
     end
   end
 end
-
-# Observed behavior (2 issues in function destroy()):
-# Function destroy() is not called by the time the issues happen, but still:
-#
-# 1. If line 54 is uncommented, then compilation fails with:
-# Error: class variable '@@global' of Crysterm::Widget::Screen is already defined as Nil in Crysterm::Widget::Screen::Instance
-#
-# 2. If line 59 is uncommented, then either the compilation or beginning of runtime fail with:
-# Invalid memory access (signal 11) at address 0x0
-# [0x7f21954f0bf6] ???
-# [0x7f219543fab2] ???
-# [0x7f2196487e0f] ???
-#
-#
-# How to reproduce (I used Crystal 1.0.0):
-# git clone https://github.com/crystallabs/crysterm
-# cd crysterm
-# shards --ignore-crystal-version
-# crystal  examples/tech-demo.cr 
-#
-# (If tech-demo.cr runs without crashing, you can exit it by killing the process,
-# just run `pkill crystal` (assuming nothing else with `crystal` is currently running
-# on your system))

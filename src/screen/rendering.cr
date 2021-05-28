@@ -1,6 +1,6 @@
 module Crysterm
   module Widget
-    class Screen < Node
+    class Screen
       module Rendering
         class BorderStop
           property? yes = false
@@ -214,13 +214,13 @@ module Crysterm
             #{ rps, dps, fps }
             ps = { 1//(t2 - t1).total_seconds, 1//(t3 - t2).total_seconds, 1//(t3 - t1).total_seconds }
 
-            @screen.app.tput.save_cursor
-            @screen.app.tput.pos pos
-            @screen.app.tput._print { |io| io << "R/D/FPS: " << ps[0] << '/' << ps[1] << '/' << ps[2] }
+            app.tput.save_cursor
+            app.tput.pos pos
+            app.tput._print { |io| io << "R/D/FPS: " << ps[0] << '/' << ps[1] << '/' << ps[2] }
             if @show_avg
-              @screen.app.tput._print { |io| io << " (" << @rps.avg(ps[0]) << '/' << @dps.avg(ps[1]) << '/' << @fps.avg(ps[2]) << ')' }
+              app.tput._print { |io| io << " (" << @rps.avg(ps[0]) << '/' << @dps.avg(ps[1]) << '/' << @fps.avg(ps[2]) << ')' }
             end
-            @screen.app.tput.restore_cursor
+            app.tput.restore_cursor
           end
         end
       end

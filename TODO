@@ -94,3 +94,10 @@ which represent all chars/cells on the screen?
 
 Blessed recognizes a concept of Unicode and Full Unicode. I guess Unicode is what Crystal currently supports.
 How to deal with the whole other side of things (Full Unicode)? Implement if possible.
+
+Some elements of Style should have defaults. See whether it makes sense, as an example, for @style.bar to
+fallback to @style if `bar` specifically isn't styled. Or, if this produces undesirable results, see if `bar`
+can have a default, possibly calculated in-place to always be distinctive (if needed) from the main style
+by running a method to pick a color of different value.
+Or, maybe the whole thing needs to be replaced by a fully general Style that can actually act as an App
+theme, with all the functions/fallback for that embedded in the class.

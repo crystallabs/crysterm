@@ -1,6 +1,6 @@
 module Crysterm
   module Widget
-    class Screen < Node
+    class Screen
       module Attributes
         # Convert an SGR string to our own attribute format.
         def attr_code(code, cur, dfl)

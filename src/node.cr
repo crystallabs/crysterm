@@ -11,92 +11,18 @@ module Crysterm
     # Unique ID. Auto-incremented.
     property uid : Int32
 
-    property? destroyed = false
-
     # Widget::Screen owning this element.
     # Each element must belong to a Widget::Screen if it is to be rendered/displayed anywhere.
     property screen : Widget::Screen
 
-    # Node's parent `Widget::Element`, if any.
-    property parent : Widget::Element?
+    ######### COMMON WITH SCREEN
 
     # Node's children `Element`s.
     property children = [] of Widget::Element
 
+    property? destroyed = false
+
     property? detached : Bool = false
-
-    # Element's render (order) index that was determined/used during the last `#render` call.
-    property index = -1
-
-    property name : String
-
-    # Storage for any miscellaneous data.
-    property data : JSON::Any?
-
-    def initialize(
-      @parent = nil,
-      name = nil,
-      screen = determine_screen,
-      index = -1,
-      children = [] of Widget::Element
-    )
-      @uid = next_uid
-
-      @name = name || "#{self.class.name}-#{@uid}"
-
-      # $ = _ = JSON/YAML::Any
-
-      @screen = screen # NOTE No effect. Here just to avoid warning about not being initialized.
-      if !(is_a? Widget::Screen)
-        @detached = true
-        screen.append self
-      end
-
-      # Add element to either its parent, or some screen that is found.
-      @parent.try do |parent|
-        parent.append self
-      end
-
-      children.each do |child|
-        append child
-      end
-    end
-
-    def next_uid
-      @@uid += 1
-    end
-
-    def determine_screen
-      scr = if Widget::Screen.total <= 1
-        # This will use the first screen or create one if none created yet.
-        # (Auto-creation helps writing scripts with less code.)
-        Widget::Screen.global true
-      elsif s = @parent
-        while s && !(s.is_a? Widget::Screen)
-          s = s.parent_or_screen
-        end
-        if s.is_a? Widget::Screen
-          s
-        #else
-        #  raise Exception.new("No active screen found in parent chain.")
-        end
-      elsif Widget::Screen.total > 0
-        Widget::Screen.instances[-1]
-      end
-
-      unless scr
-        raise Exception.new("No Widget::Screen found anywhere. Create one with Widget::Screen.new")
-      end
-
-      scr
-    end
-
-    # Returns parent `Element` (if any) or `Screen` to which the widget may be attached.
-    # If the widget already is `Screen`, returns `nil`.
-    def parent_or_screen
-      return nil if Widget::Screen === self
-      @parent || @screen
-    end
 
     def append(element)
       insert element
@@ -109,13 +35,6 @@ module Crysterm
     end
 
     def insert(element, i = -1)
-
-      # XXX Never triggers. But needs to be here for type safety.
-      # Hopefully can be removed when Widget::Screen is no longer parent of any Elements.
-      if element.is_a? Widget::Screen
-        raise "Unexpected"
-      end
-
       if element.screen != @screen
         raise Exception.new("Cannot switch a node's screen.")
       end
@@ -132,11 +51,9 @@ module Crysterm
       @children.insert i, element
       # end
 
-      unless self.is_a? Widget::Screen
-        element.parent = self
-        element.emit Crysterm::Event::Reparent, self
-        emit Crysterm::Event::Adopt, element
-      end
+      element.parent = self
+      element.emit Crysterm::Event::Reparent, self
+      emit Crysterm::Event::Adopt, element
 
       emt = uninitialized Node -> Nil
       emt = ->(el : Node) {
@@ -216,6 +133,81 @@ module Crysterm
       if i = @children.index other
         insert element, i + 1
       end
+    end
+
+    ######### END OF COMMON WITH SCREEN
+
+
+    # Node's parent `Widget::Element`, if any.
+    property parent : Widget::Element?
+
+    # Element's render (order) index that was determined/used during the last `#render` call.
+    property index = -1
+
+    property name : String
+
+    # Storage for any miscellaneous data.
+    property data : JSON::Any?
+
+    def initialize(
+      @parent = nil,
+      name = nil,
+      @screen = determine_screen,
+      index = -1,
+      children = [] of Widget::Element
+    )
+      @uid = next_uid
+
+      @name = name || "#{self.class.name}-#{@uid}"
+
+      # $ = _ = JSON/YAML::Any
+
+      @screen.try &.append self
+
+      # Add element to either its parent, or some screen that is found.
+      @parent.try do |parent|
+        parent.append self
+      end
+
+      children.each do |child|
+        append child
+      end
+    end
+
+    def next_uid
+      @@uid += 1
+    end
+
+    def determine_screen
+      scr = if Widget::Screen.total <= 1
+        # This will use the first screen or create one if none created yet.
+        # (Auto-creation helps writing scripts with less code.)
+        Widget::Screen.global true
+      elsif s = @parent
+        while s && !(s.is_a? Widget::Screen)
+          s = s.parent_or_screen
+        end
+        if s.is_a? Widget::Screen
+          s
+        #else
+        #  raise Exception.new("No active screen found in parent chain.")
+        end
+      elsif Widget::Screen.total > 0
+        Widget::Screen.instances[-1]
+      end
+
+      unless scr
+        raise Exception.new("No Widget::Screen found anywhere. Create one with Widget::Screen.new")
+      end
+
+      scr
+    end
+
+    # Returns parent `Element` (if any) or `Screen` to which the widget may be attached.
+    # If the widget already is `Screen`, returns `nil`.
+    def parent_or_screen
+      return nil if Widget::Screen === self
+      @parent || @screen
     end
 
     def destroy

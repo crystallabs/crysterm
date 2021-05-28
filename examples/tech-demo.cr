@@ -196,7 +196,7 @@ module Crysterm
   textv = "TextArea. This is a multi-line user input enabled widget with automatic content wrapping. There is a lot of text that can fit it, when the terminal doesn't use too big font."
   textboxv = " This will add more text to textbox and always show only visible portion."
 
-  textarea.focus
+  #textarea.focus
   loading.start
   loading2.start
   i = 0

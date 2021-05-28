@@ -5,7 +5,9 @@ require "./screen/*"
 module Crysterm
   module Widget
     # Represents a screen. `Screen` and `Element` are two lowest-level classes after `EventEmitter` and `Node`.
-    class Screen < Node
+    class Screen
+      include EventHandler
+
       include Instance
       include Focus
       include Attributes
@@ -14,6 +16,131 @@ module Crysterm
       include Drawing
       include Cursor
       include Element::Pos
+
+    ######### COMMON WITH NODE
+
+    # Node's children `Element`s.
+    property children = [] of Widget::Element
+
+    property? destroyed = false
+
+    # Is this `Screen` detached?
+    #
+    # Screen is a self-sufficient element, so by default it is always considered 'attached'.
+    # This value could in the future be used to maybe hide/deactivate screens temporarily etc.
+    property? detached = false
+
+    def append(element)
+      insert element
+    end
+
+    def append(*elements)
+      elements.each do |el|
+        insert el
+      end
+    end
+
+    def insert(element, i = -1)
+
+      # XXX Never triggers. But needs to be here for type safety.
+      # Hopefully can be removed when Widget::Screen is no longer parent of any Elements.
+      if element.is_a? Widget::Screen
+        raise "Unexpected"
+      end
+
+      element.detach
+
+      element.screen = self
+
+      # if i == -1
+      #  @children.push element
+      # elsif i == 0
+      #  @children.unshift element
+      # else
+      @children.insert i, element
+      # end
+
+      emt = uninitialized Node -> Nil
+      emt = ->(el : Node) {
+        n = el.detached? != @detached
+        el.detached = @detached
+        el.emit Crysterm::Event::Attach if n
+        el.children.each do |c|
+          emt.call c
+        end
+      }
+      emt.call element
+
+      unless self.focused
+        self.focused = element
+      end
+    end
+
+    # Removes node from its parent.
+    # This is identical to calling `#remove` on the parent object.
+    def detach
+      @parent.try { |p| p.remove self }
+    end
+
+    def remove(element)
+      return if element.parent != self
+
+      return unless i = @children.index(element)
+
+      element.clear_pos
+
+      element.parent = nil
+      @children.delete_at i
+
+      # TODO Enable
+      # if i = @screen.clickable.index(element)
+      #  @screen.clickable.delete_at i
+      # end
+      # if i = @screen.keyable.index(element)
+      #  @screen.keyable.delete_at i
+      # end
+
+      element.emit(Crysterm::Event::Reparent, nil)
+      emit(Crysterm::Event::Remove, element)
+      # s= @screen
+      # raise Exception.new() unless s
+      # screen_clickable= s.clickable
+      # screen_keyable= s.keyable
+
+      emt = ->(el : Node) {
+        n = el.detached? != @detached
+        el.detached = true
+        # TODO Enable
+        # el.emit(Event::Detach) if n
+        # el.children.each do |c| c.emt end # wt
+      }
+      emt.call element
+
+      if focused == element
+        rewind_focus
+      end
+    end
+
+    # Prepends node to the list of children
+    def prepend(element)
+      insert element, 0
+    end
+
+    # Adds node to the list of children before the specified `other` element
+    def insert_before(element, other)
+      if i = @children.index other
+        insert element, i
+      end
+    end
+
+    # Adds node to the list of children after the specified `other` element
+    def insert_after(element, other)
+      if i = @children.index other
+        insert element, i + 1
+      end
+    end
+
+    ######### END OF COMMON WITH SCREEN
 
       # Associated `Crysterm` instance. The default app object
       # will be created/used if it is not provided explicitly.
@@ -60,7 +187,7 @@ module Crysterm
 
         # Tput is accessed via app.tput
 
-        super()
+        #super() No longer calling super, we are not subclass of Node any more
 
         @tabc = " " * @tab_size
 
@@ -77,8 +204,8 @@ module Crysterm
           render
 
           # XXX Can we replace this with each_descendant?
-          f = uninitialized Node -> Nil
-          f = ->(el : Node) {
+          f = uninitialized Node | Widget::Screen -> Nil
+          f = ->(el : Node | Widget::Screen ) {
             el.emit Crysterm::Event::Resize
             el.children.each { |c| f.call c }
           }

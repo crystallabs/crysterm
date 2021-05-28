@@ -1,6 +1,6 @@
 module Crysterm
   module Widget
-    class Screen < Node
+    class Screen
       module Drawing
 
         @outbuf : IO::Memory = IO::Memory.new 10240

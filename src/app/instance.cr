@@ -80,6 +80,11 @@ module Crysterm
 
           @destroyed = true
           emit Crysterm::Event::Destroy
+
+          if Widget::Screen.instances.empty?
+            @input.cooked! # XXX This is maybe to basic of a "return to previous state" method.
+            exit
+          end
         end
       end
 

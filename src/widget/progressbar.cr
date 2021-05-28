@@ -96,12 +96,16 @@ module Crysterm
           yi = yi + ((yl - yi) - (((yl - yi) * (@filled / 100)).to_i))
         end
 
+        # XXX These differ a little from Blessed. See why and adjust to work
+        # like Blessed if it makes sense
         s = @style.bar || @style
         dattr = sattr s, s.bg, s.fg
 
         @screen.fill_region dattr, @style.pchar, xi, xl, yi, yl
 
-        if pc = @_pcontent
+        # Why here the formatted content is only in @_pcontent, while in blessed
+        # it appears to be in `this.content` directly?
+        if (pc = @_pcontent) && !pc.empty?
           line = @screen.lines[yi]
           pc.each_char_with_index do |c, i|
             line[xi + i].char = c
@@ -117,7 +121,7 @@ module Crysterm
         f = 0 if f < 0
         f = 100 if f > 100
         @filled = f
-        if @filled == 100
+        if f == 100
           emit Crysterm::Event::Complete
         end
         @value = @filled

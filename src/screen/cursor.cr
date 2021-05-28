@@ -1,6 +1,6 @@
 module Crysterm
   module Widget
-    class Screen < Node
+    class Screen
       module Cursor
         include Macros
         getter cursor = Tput::Namespace::Cursor.new

@@ -1,6 +1,6 @@
 module Crysterm
   module Widget
-    class Screen < Node
+    class Screen
       class Cell
         include Comparable(self)
         # Same as @dattr
