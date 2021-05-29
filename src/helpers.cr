@@ -42,8 +42,8 @@ module Crysterm
     #
     # This is a convenience function that creates a `Widget` on every call.
     # Do not use as-is in production; better use `_parse_tags` on your existing widgets.
-    def parse_tags(text, screen = Screen.global)
-      Widget.new(screen: screen)._parse_tags(text)
+    def parse_tags(text, window = Window.global)
+      Widget.new(window: window)._parse_tags(text)
     end
 
     # Generates text tags based on the given style definition.

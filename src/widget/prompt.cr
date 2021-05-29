@@ -67,10 +67,10 @@ module Crysterm
 
         @textinput.value = value
 
-        @screen.save_focus
+        @window.save_focus
         #focus
 
-        #ev_keys = @screen.on(Event::KeyPress) do |e|
+        #ev_keys = @window.on(Event::KeyPress) do |e|
         #  next unless (e.key == Tput::Key::Enter || e.key == Tput::Key::Escape)
         #  done.call nil, e.key == Tput::Key::Enter
         #end
@@ -85,7 +85,7 @@ module Crysterm
 
         @textinput.read_input do |err, data|
           hide
-          @screen.restore_focus
+          @window.restore_focus
           @ok.off Event::Press, ev_ok
           @cancel.off Event::Press, ev_cancel
 
@@ -94,7 +94,7 @@ module Crysterm
           end
         end
 
-        @screen.render
+        @window.render
       end
 
     end

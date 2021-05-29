@@ -3,7 +3,7 @@ require "../src/crysterm"
 module Crysterm
   include Tput::Namespace
 
-  s = Screen.new
+  s = Window.new
   b = layout = Widget::Layout.new(
     # parent: s,
     top: 0,

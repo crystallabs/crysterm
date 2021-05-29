@@ -209,9 +209,9 @@ module Crysterm
         end
 
         @children.each_with_index do |el, i|
-          if (el.screen._ci != -1)
-            el.index = el.screen._ci
-            el.screen._ci += 1
+          if (el.window._ci != -1)
+            el.index = el.window._ci
+            el.window._ci += 1
           end
 
           rendered = iterator.call(el, i)
@@ -225,12 +225,12 @@ module Crysterm
           end
 
           # D O:
-          # if (el.screen._rendering)
+          # if (el.window._rendering)
           #   el._rendering = true;
           # end
           el.render
           # D O:
-          # if (el.screen._rendering)
+          # if (el.window._rendering)
           #   el._rendering = false;
           # end
         end

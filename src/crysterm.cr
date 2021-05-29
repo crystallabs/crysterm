@@ -9,7 +9,7 @@ require "./event"
 require "./app"
 require "./helpers"
 require "./colors"
-require "./screen"
+require "./window"
 
 require "./widget/*"
 
@@ -22,9 +22,9 @@ module Crysterm
     App.global true
   end
 
-  # Creates and/or returns main `Screen`
-  def self.screen
-    Screen.global true
+  # Creates and/or returns main `Window`
+  def self.window
+    Window.global true
   end
 
   # TODO install WINCH handler

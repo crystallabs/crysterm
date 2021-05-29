@@ -20,7 +20,7 @@ module Crysterm
 
         @image = W3MImageDisplay::Image.new @file
 
-        @screen.on(Event::Render) do
+        @window.on(Event::Render) do
           # TODO - get coords of content only, without borders/padding
           pos = _get_coords(true).not_nil!
           @border.try do |b|

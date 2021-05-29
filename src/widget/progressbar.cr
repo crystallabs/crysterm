@@ -56,11 +56,11 @@ module Crysterm
 
             if back_keys.includes?(e.key) || back_chars.includes?(e.char)
               progress -5
-              @screen.render
+              @window.render
               next
             elsif forward_keys.includes?(e.key) || forward_chars.includes?(e.char)
               progress 5
-              @screen.render
+              @window.render
               next
             end
           end
@@ -98,12 +98,12 @@ module Crysterm
         s = @style.bar || @style
         dattr = sattr s, s.bg, s.fg
 
-        @screen.fill_region dattr, @style.pchar, xi, xl, yi, yl
+        @window.fill_region dattr, @style.pchar, xi, xl, yi, yl
 
         # Why here the formatted content is only in @_pcontent, while in blessed
         # it appears to be in `this.content` directly?
         if (pc = @_pcontent) && !pc.empty?
-          line = @screen.lines[yi]
+          line = @window.lines[yi]
           pc.each_char_with_index do |c, i|
             line[xi + i].char = c
           end

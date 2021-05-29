@@ -4,7 +4,7 @@ module Crysterm
   # Crysterm application. All apps begin by instantiating or subclassing this class.
   #
   # If an `App` object is not explicitly created, its creation will be
-  # implicitly performed at the time of creation of first `Screen`.
+  # implicitly performed at the time of creation of first `Window`.
   class App
     include EventHandler # Event model
 
@@ -39,7 +39,7 @@ module Crysterm
     # Force Unicode (UTF-8) even if auto-detection did not discover terminal support for it?
     property? force_unicode = false
 
-    # Amount of time to wait before redrawing the screen, after the terminal resize event is received.
+    # Amount of time to wait before redrawing the window, after the terminal resize event is received.
     #
     # The default, and also the value used in Qt, is 0.3 seconds. An alternative setting used in console
     # apps is 0.2 seconds.
@@ -48,7 +48,7 @@ module Crysterm
     # True if the `App` objects are being destroyed to exit program; otherwise returns false.
     # property? exiting : Bool = false
 
-    # Default application title, inherited by `Screen`s
+    # Default application title, inherited by `Window`s
     getter title : String? = nil
 
     # Input IO
@@ -193,14 +193,14 @@ module Crysterm
     #
     # This is similar to how it is done in the Qt framework.
     #
-    # This function will render the specified `screen` or global `Screen`.
-    def exec(screen : Crysterm::Screen? = nil)
-      if s = screen || Crysterm::Screen.global
+    # This function will render the specified `window` or global `Window`.
+    def exec(window : Crysterm::Window? = nil)
+      if s = window || Crysterm::Window.global
         s.render
       else
         # XXX This part might be changed in the future, if we allow running line-
-        # rather than screen-based apps, or if we allow something headless.
-        raise Exception.new "No Screen exists, there is nothing to render and run."
+        # rather than window-based apps, or if we allow something headless.
+        raise Exception.new "No Window exists, there is nothing to render and run."
       end
 
       sleep
@@ -208,7 +208,7 @@ module Crysterm
 
     # Destroys current `App`
     def destroy
-      Screen.instances.each &.destroy
+      Window.instances.each &.destroy
       @@instances.delete self
       @destroyed = true
       emit Crysterm::Event::Destroy
@@ -230,4 +230,4 @@ end
 # something about effects
 # NavigationMode
 # palette?
-# set.active.screen
+# set.active.window

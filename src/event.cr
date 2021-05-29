@@ -13,7 +13,7 @@ module Crysterm
 
     event Warning, message : String
 
-    # Emitted when screen is resized.
+    # Emitted when window is resized.
     event Resize
 
     event Hide

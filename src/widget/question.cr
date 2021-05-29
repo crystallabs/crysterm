@@ -67,7 +67,7 @@ module Crysterm
 
         done = uninitialized String?, Bool -> Nil
 
-        ev_keys = @screen.on(Crysterm::Event::KeyPress) do |e|
+        ev_keys = @window.on(Crysterm::Event::KeyPress) do |e|
           # if (e.key == 'mouse')
           #  return
           # end
@@ -89,20 +89,20 @@ module Crysterm
           done.call nil, false
         end
 
-        @screen.save_focus
+        @window.save_focus
         focus
 
         done = ->(err : String?, data : Bool) do
           hide
-          @screen.restore_focus
-          @screen.off Crysterm::Event::KeyPress, ev_keys
+          @window.restore_focus
+          @window.off Crysterm::Event::KeyPress, ev_keys
           @ok.off Crysterm::Event::Press, ev_ok
           @cancel.off Crysterm::Event::Press, ev_cancel
           block.call err, data
-          @screen.render
+          @window.render
         end
 
-        @screen.render
+        @window.render
       end
     end
   end

@@ -32,25 +32,25 @@ module Crysterm
           if e.key == Tput::Key::Enter || e.char == ' '
             e.accept!
             toggle
-            @screen.render
+            @window.render
           end
         end
 
         on(Crysterm::Event::Click) do
           toggle
-          @screen.render
+          @window.render
         end
         # end
 
         on(Crysterm::Event::Focus) do
           next unless lpos = @lpos
-          @screen.app.tput.lsave_cursor :checkbox
-          @screen.app.tput.cursor_pos lpos.yi, lpos.xi + 1
-          @screen.app.tput.show_cursor
+          @window.app.tput.lsave_cursor :checkbox
+          @window.app.tput.cursor_pos lpos.yi, lpos.xi + 1
+          @window.app.tput.show_cursor
         end
 
         on(Crysterm::Event::Blur) do
-          @screen.app.tput.lrestore_cursor :checkbox, true
+          @window.app.tput.lrestore_cursor :checkbox, true
         end
       end
 
