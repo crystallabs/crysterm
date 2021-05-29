@@ -1,151 +1,80 @@
+require "event_handler"
+
 module Crysterm
-  # Main Crysterm class. All applications begin by instantiating or subclassing this class.
+  # Crysterm application. All apps begin by instantiating or subclassing this class.
+  #
+  # If an `App` object is not explicitly created, its creation will be
+  # implicitly performed at the time of creation of first `Screen`.
   class App
     include EventHandler # Event model
 
-    # Name of the app. If unset, defaults to the path of the currently running program.
-    property app_name : String = Process.executable_path || PROGRAM_NAME
-
-    # App version. If unset, defaults to Crystal app's VERSION string.
-    property app_version : String = VERSION
-
-    # Internet domain of the organization that wrote this app.
-    property organization_domain : String = ""
-
-    # Name of the organization that wrote this app. If unset, defaults to organization's internet domain.
-    property organization_name : String { @organization_domain }
-
+    # List of existing instances.
+    #
+    # For automatic management of this list, make sure that `#bind` is called at
+    # creation of `App`s and that `#destroy` is called at termination.
+    #
+    # `#bind` does not have to be called explicitly because it happens during `#initialize`.
+    # `#destroy` does need to be called, and if/when calling `#destroy` results in no `App`s
+    # remaining, program will exit.
     class_getter instances = [] of self
 
-    # Tput object. XXX Any way to succeed turning this into `getter` without `!`?
-    getter! tput : ::Tput
-
-    # Force Unicode (UTF-8) even if auto-detection did not discover terminal support for it?
-    property force_unicode = false
-
-    # Amount of time to wait before redrawing the screen, after the terminal resize event is received.
-    property resize_timeout : Time::Span
-
-    @_listened_keys : Bool = false
-
-    # Returns number of `App` instances
+    # Returns number of created `App` instances
     def self.total
       @@instances.size
     end
 
-    # Creates and/or returns the "global" (by default the first) instance of `App`
-    def self.global(create = true)
-      ( instances[0]? || (create ? new : nil)).not_nil!
-    end
-
-    @@_bound = false
-
-    # Registers an `App`. Happens automatically during `initialize`; generally not used directly.
-    def bind
-      @@global = self unless @@global
-
-      @@instances << self # unless @@instances.includes? self
-
-      return if @@_bound
-      @@_bound = true
-
-      at_exit do
-        # XXX Should these completely separate loops somehow
-        # be rearranged and/or combined more nicely? Is defining this
-        # per each App instance that calls bind even OK?
-
-        self.class.instances.each do |app|
-          # XXX Do we restore window title ourselves?
-          # if app._original_title
-          #  app.tput.set_title(...)
-          # end
-
-          app.tput.try do |tput|
-            tput.flush
-            tput._exiting = true
-          end
-        end
-
-        # XXX Probably shouldn't be done here, but via regular methods
-        #Crysterm::Screen.instances.each do |screen|
-        #  screen.destroy
-        #end
-      end
-    end
-
-    # Runs the app, similar to how it is done in the Qt framework.
-    def exec(screen : Crysterm::Screen? = nil)
-      (screen || Crysterm::Screen.global(true)).render
-      sleep
-    end
-
-    # Destroys an `App` instance
-    def destroy
-      if @@instances.delete self
-        tput.try do |tput|
-          tput.flush
-          tput._exiting = true
-        end
-
-        if @@instances.any?
-          @@global = @@instances[0]
-        else
-          @@global = nil
-          # TODO remove all signal handlers set up on the app's process
-          # Primarily, exit handler
-          @@_bound = false
-        end
-
-        # TODO rest of stuff; e.g. reset terminal back to usable
-
-        @destroyed = true
-        emit Crysterm::Event::Destroy
-
-        if Screen.instances.empty?
-          @input.cooked! # XXX This is maybe to basic of a "return to previous state" method.
-          exit
-        end
-      end
-    end
-
-    # Returns true if the app objects are being destroyed; otherwise returns false.
-    property? exiting : Bool = false
-    # XXX Is this an alias with `closing_down?`
-
-    # XXX Is there a difference between `exiting` and `_exiting`, or those are the same? Adjust if needed.
-    property? _exiting = false
-
-    # End of stuff related to multiple instances
-
-    # XXX Save/restore all state here. What else? Stop main loop etc.?
-    def quit
-      @exiting = true
-    end
-
-    # Current application title
+    # Creates and/or returns the "global" (first) instance of `App`.
     #
-    # This value is dependent on the state of the application; title may vary during execution.
-    # The value is returned from the local variable; it is not read from the terminal window's title.
+    # An alternative approach, which is currently not implemented, would be to hold the global `App`
+    # in a class variable, and return it here. In that way, the choice of the default/global `App`
+    # would be configurable in runtime.
+    def self.global(create = true)
+      (instances[0]? || (create ? new : nil)).not_nil!
+    end
+
+    # Access to instance of `Tput`, used for affecting the terminal/IO.
+    getter! tput : ::Tput
+    # XXX Any way to succeed turning this into `getter` without `!`?
+
+    # Force Unicode (UTF-8) even if auto-detection did not discover terminal support for it?
+    property? force_unicode = false
+
+    # Amount of time to wait before redrawing the screen, after the terminal resize event is received.
+    #
+    # The default, and also the value used in Qt, is 0.3 seconds. An alternative setting used in console
+    # apps is 0.2 seconds.
+    property resize_timeout : Time::Span = 0.3.seconds
+
+    # True if the `App` objects are being destroyed to exit program; otherwise returns false.
+    # property? exiting : Bool = false
+
+    # Default application title, inherited by `Screen`s
     getter title : String? = nil
 
+    # Input IO
     property input : IO::FileDescriptor = STDIN.dup
 
+    # Output IO
     property output : IO::FileDescriptor = STDOUT.dup
 
-    # Sets title locally and in the terminal's window bar when possible
-    def title=(@title)
-      @tput.title = @title
-    end
+    # :nodoc:
+    @_listened_keys : Bool = false
+    # XXX groom this
+
+    # :nodoc: Flag indicating whether at least one `App` has called `#bind`.
+    @@_bound = false
 
     def initialize(
       input = STDIN.dup,
       output = STDOUT.dup,
       @use_buffer = false,
       @force_unicode = false,
-      @resize_timeout = 0.3.seconds,
+      resize_timeout : Time::Span? = nil,
       terminfo : Bool | Unibilium::Terminfo = true,
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
+      resize_timeout.try { |v| @resize_timeout = v }
+
       # TODO make these check @output, not STDOUT which is probably used.
       @cols = ::Term::Screen.cols || 1
       @rows = ::Term::Screen.rows || 1
@@ -157,14 +86,12 @@ module Crysterm
       listen
     end
 
-    # XXX Btw question, do we want to emit events from anywhere (like now), or we want to dedicate a queue/channel through which they're emitted?
+    # Registers an `App`. Happens automatically during `initialize`; generally not used directly.
+    def bind
+      @@instances << self unless @@instances.includes? self
 
-    def self.about
-      "Crysterm #{Crysterm::VERSION}, Tput #{::Tput::VERSION}"
-    end
-
-    def about
-      "#{@app_name} #{@app_version}"
+      return if @@_bound
+      @@_bound = true
     end
 
     def setup_tput(input : IO, output : IO, terminfo : Bool | Unibilium::Terminfo = true)
@@ -193,6 +120,11 @@ module Crysterm
       # TODO tput stuff till end of function
 
       @tput
+    end
+
+    # Sets title locally and in the terminal's window bar when possible
+    def title=(@title)
+      @tput.title = @title
     end
 
     def listen
@@ -257,14 +189,30 @@ module Crysterm
       end
     end
 
-    # We can't name the function 'out'. But it is here for reference only.
-    # To print to a temporary buffer rather than @output, initialize
-    # @tput.ret to an IO. Then all writes will go there instead of to @output.
-    # While @tput.ret is nil, output goes to output as usual.
-    # NOTE Check how does this affect behavior with the local @_buf element.
-    # def out
-    # end
+    # Runs the app and starts main loop.
+    #
+    # This is similar to how it is done in the Qt framework.
+    #
+    # This function will render the specified `screen` or global `Screen`.
+    def exec(screen : Crysterm::Screen? = nil)
+      if s = screen || Crysterm::Screen.global
+        s.render
+      else
+        # XXX This part might be changed in the future, if we allow running line-
+        # rather than screen-based apps, or if we allow something headless.
+        raise Exception.new "No Screen exists, there is nothing to render and run."
+      end
 
+      sleep
+    end
+
+    # Destroys current `App`
+    def destroy
+      Screen.instances.each &.destroy
+      @@instances.delete self
+      @destroyed = true
+      emit Crysterm::Event::Destroy
+    end
   end
 end
 

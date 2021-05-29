@@ -27,4 +27,6 @@ module Crysterm
     Screen.global true
   end
 
+  # TODO install WINCH handler
+
 end
