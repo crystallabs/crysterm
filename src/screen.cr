@@ -3,30 +3,30 @@ require "event_handler"
 module Crysterm
   # Crysterm application. All apps begin by instantiating or subclassing this class.
   #
-  # If an `App` object is not explicitly created, its creation will be
+  # If an `Screen` object is not explicitly created, its creation will be
   # implicitly performed at the time of creation of first `Window`.
-  class App
+  class Screen
     include EventHandler # Event model
 
     # List of existing instances.
     #
     # For automatic management of this list, make sure that `#bind` is called at
-    # creation of `App`s and that `#destroy` is called at termination.
+    # creation of `Screen`s and that `#destroy` is called at termination.
     #
     # `#bind` does not have to be called explicitly because it happens during `#initialize`.
-    # `#destroy` does need to be called, and if/when calling `#destroy` results in no `App`s
+    # `#destroy` does need to be called, and if/when calling `#destroy` results in no `Screen`s
     # remaining, program will exit.
     class_getter instances = [] of self
 
-    # Returns number of created `App` instances
+    # Returns number of created `Screen` instances
     def self.total
       @@instances.size
     end
 
-    # Creates and/or returns the "global" (first) instance of `App`.
+    # Creates and/or returns the "global" (first) instance of `Screen`.
     #
-    # An alternative approach, which is currently not implemented, would be to hold the global `App`
-    # in a class variable, and return it here. In that way, the choice of the default/global `App`
+    # An alternative approach, which is currently not implemented, would be to hold the global `Screen`
+    # in a class variable, and return it here. In that way, the choice of the default/global `Screen`
     # would be configurable in runtime.
     def self.global(create = true)
       (instances[0]? || (create ? new : nil)).not_nil!
@@ -45,7 +45,7 @@ module Crysterm
     # apps is 0.2 seconds.
     property resize_timeout : Time::Span = 0.3.seconds
 
-    # True if the `App` objects are being destroyed to exit program; otherwise returns false.
+    # True if the `Screen` objects are being destroyed to exit program; otherwise returns false.
     # property? exiting : Bool = false
 
     # Default application title, inherited by `Window`s
@@ -61,7 +61,7 @@ module Crysterm
     @_listened_keys : Bool = false
     # XXX groom this
 
-    # :nodoc: Flag indicating whether at least one `App` has called `#bind`.
+    # :nodoc: Flag indicating whether at least one `Screen` has called `#bind`.
     @@_bound = false
 
     def initialize(
@@ -86,7 +86,7 @@ module Crysterm
       listen
     end
 
-    # Registers an `App`. Happens automatically during `initialize`; generally not used directly.
+    # Registers an `Screen`. Happens automatically during `initialize`; generally not used directly.
     def bind
       @@instances << self unless @@instances.includes? self
 
@@ -206,7 +206,7 @@ module Crysterm
       sleep
     end
 
-    # Destroys current `App`
+    # Destroys current `Screen`
     def destroy
       Window.instances.each &.destroy
       @@instances.delete self

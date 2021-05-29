@@ -160,14 +160,12 @@ module Crysterm
     # End of part that needs to be verified and/or cleaned up.
     ##################################
 
-    # Helper to create an `App`
-    def self.app
-      App.global true
+    # Helper to create an `Screen`
+    def self.screen
+      Screen.global true
     end
   end
 end
-
-require "./app"
 
 #    class Position
 #      @left : Int32

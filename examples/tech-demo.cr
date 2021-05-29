@@ -3,7 +3,7 @@ require "../src/crysterm"
 module Crysterm
   include Tput::Namespace
 
-  s = Window.new
+  w = Window.new
   b = layout = Widget::Layout.new(
     # parent: s,
     top: 0,
@@ -16,7 +16,7 @@ module Crysterm
   )
 
   # b.focus
-  s.append b
+  w.append b
 
   box = Widget::Box.new(
     parent: layout,
@@ -166,8 +166,8 @@ module Crysterm
     shadow: true,
     style: Style.new("bg": "#729fcf", transparent: true)
   )
-  s.append boxtp2
-  s.append boxtp1
+  w.append boxtp2
+  w.append boxtp1
 
   loading2 = Widget::Loading.new \
     parent: layout,
@@ -179,7 +179,7 @@ module Crysterm
     content: "In progress!...",
     border: Border.new(type: BorderType::Line)
 
-  s.on(Event::KeyPress) do |e|
+  w.on(Event::KeyPress) do |e|
     # e.accept!
     STDERR.puts e.inspect
     if e.char == 'q'
@@ -187,7 +187,7 @@ module Crysterm
     end
   end
 
-  s.render
+  w.render
 
   textv = "TextArea. This is a multi-line user input enabled widget with automatic content wrapping. There is a lot of text that can fit it, when the terminal doesn't use too big font."
   textboxv = " This will add more text to textbox and always show only visible portion."
@@ -223,7 +223,7 @@ module Crysterm
     end
   end
 
-  s.render
+  w.render
 
-  s.app.exec
+  w.screen.exec
 end

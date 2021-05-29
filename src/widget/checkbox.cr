@@ -44,13 +44,13 @@ module Crysterm
 
         on(Crysterm::Event::Focus) do
           next unless lpos = @lpos
-          @window.app.tput.lsave_cursor :checkbox
-          @window.app.tput.cursor_pos lpos.yi, lpos.xi + 1
-          @window.app.tput.show_cursor
+          @window.screen.tput.lsave_cursor :checkbox
+          @window.screen.tput.cursor_pos lpos.yi, lpos.xi + 1
+          @window.screen.tput.show_cursor
         end
 
         on(Crysterm::Event::Blur) do
-          @window.app.tput.lrestore_cursor :checkbox, true
+          @window.screen.tput.lrestore_cursor :checkbox, true
         end
       end
 

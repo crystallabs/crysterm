@@ -1,4 +1,4 @@
-require "./app"
+require "./screen"
 require "./macros"
 require "./widget"
 
@@ -382,10 +382,10 @@ module Crysterm
 
         if @cursor.artificial
           raise "Not supported yet"
-          # if !app.hide_cursor_old
-          #  hide_cursor = app.hide_cursor
-          #  app.tput.hide_cursor_old = app.hide_cursor
-          #  app.tput.hide_cursor = ->{
+          # if !screen.hide_cursor_old
+          #  hide_cursor = screen.hide_cursor
+          #  screen.tput.hide_cursor_old = screen.hide_cursor
+          #  screen.tput.hide_cursor = ->{
           #    hide_cursor.call(application)
           #    @cursor._hidden = true
           #    if (@renders > 0)
@@ -393,12 +393,12 @@ module Crysterm
           #    end
           #  }
           # end
-          # if (!app.showCursor_old)
-          #  var showCursor = app.showCursor
-          #  app.showCursor_old = app.showCursor
-          #  app.showCursor = function()
+          # if (!screen.showCursor_old)
+          #  var showCursor = screen.showCursor
+          #  screen.showCursor_old = screen.showCursor
+          #  screen.showCursor = function()
           #    self.cursor._hidden = false
-          #    if (app._exiting) showCursor.call(application)
+          #    if (screen._exiting) showCursor.call(application)
           #    if (self.renders) self.render()
           #  }
           # end
@@ -415,7 +415,7 @@ module Crysterm
           return true
         end
 
-        app.tput.cursor_shape @cursor.shape, @cursor.blink
+        screen.tput.cursor_shape @cursor.shape, @cursor.blink
       end
 
       def cursor_color(color : Tput::Color? = nil)
@@ -429,14 +429,14 @@ module Crysterm
         end
 
         # TODO probably this isn't fully right
-        app.tput.cursor_color(@cursor.color.to_s.downcase)
+        screen.tput.cursor_color(@cursor.color.to_s.downcase)
       end
 
       def cursor_reset
         @cursor = Tput::Namespace::Cursor.new
         # TODO if artificial cursor
 
-        app.tput.cursor_reset
+        screen.tput.cursor_reset
       end
 
       alias_previous reset_cursor
@@ -490,7 +490,7 @@ module Crysterm
       end
 
       def _reduce_color(col)
-        Colors.reduce(col, app.tput.features.number_of_colors)
+        Colors.reduce(col, screen.tput.features.number_of_colors)
       end
     end
 
@@ -877,13 +877,13 @@ module Crysterm
           #{ rps, dps, fps }
           ps = { 1//(t2 - t1).total_seconds, 1//(t3 - t2).total_seconds, 1//(t3 - t1).total_seconds }
 
-          app.tput.save_cursor
-          app.tput.pos pos
-          app.tput._print { |io| io << "R/D/FPS: " << ps[0] << '/' << ps[1] << '/' << ps[2] }
+          screen.tput.save_cursor
+          screen.tput.pos pos
+          screen.tput._print { |io| io << "R/D/FPS: " << ps[0] << '/' << ps[1] << '/' << ps[2] }
           if @show_avg
-            app.tput._print { |io| io << " (" << @rps.avg(ps[0]) << '/' << @dps.avg(ps[1]) << '/' << @fps.avg(ps[2]) << ')' }
+            screen.tput._print { |io| io << " (" << @rps.avg(ps[0]) << '/' << @dps.avg(ps[1]) << '/' << @fps.avg(ps[2]) << ')' }
           end
-          app.tput.restore_cursor
+          screen.tput.restore_cursor
         end
       end
     end
@@ -909,7 +909,7 @@ module Crysterm
         lx = -1
         ly = -1
         acs = false
-        s = app.tput.shim.not_nil!
+        s = screen.tput.shim.not_nil!
 
         if @_buf.size > 0
           @main.print @_buf
@@ -923,7 +923,7 @@ module Crysterm
           o = @olines[y]
           # Log.trace { line } if line.any? &.char.!=(' ')
 
-          if (!line.dirty && !(cursor.artificial && (y == app.tput.cursor.y)))
+          if (!line.dirty && !(cursor.artificial && (y == screen.tput.cursor.y)))
             next
           end
           line.dirty = false
@@ -940,7 +940,7 @@ module Crysterm
 
             c = cursor
             # Render the artificial cursor.
-            if (c.artificial && !c._hidden && (c._state != 0) && (x == app.tput.cursor.x) && (y == app.tput.cursor.y))
+            if (c.artificial && !c._hidden && (c._state != 0) && (x == screen.tput.cursor.x) && (y == screen.tput.cursor.y))
               cattr = _cursor_attr(c, data)
               if (cattr.char) # XXX Can cattr.char even not be truthy?
                 ch = cattr.char
@@ -952,7 +952,7 @@ module Crysterm
             # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
             # the bg for non BCE terminals worth the overhead?
             if (@optimization.bce? && (ch == ' ') &&
-               (app.tput.has?(&.back_color_erase?) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
+               (screen.tput.has?(&.back_color_erase?) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
                (((data >> 18) & 8) == ((@dattr >> 18) & 8)))
               clr = true
               neq = false
@@ -977,11 +977,11 @@ module Crysterm
 
                 # ### Temporarily diverts output. ####
                 # XXX See if it causes problems when multithreaded or something?
-                (app.tput.ret = IO::Memory.new).try do |ret|
-                  app.tput.cup(y, x)
-                  app.tput.el
+                (screen.tput.ret = IO::Memory.new).try do |ret|
+                  screen.tput.cup(y, x)
+                  screen.tput.el
                   @outbuf .print ret.rewind.gets_to_end
-                  app.tput.ret = nil
+                  screen.tput.ret = nil
                 end
                 #### #### ####
 
@@ -997,26 +997,26 @@ module Crysterm
               # and start over drawing the rest of line. Might
               # not be worth it. Try to use ECH if the terminal
               # supports it. Maybe only try to use ECH here.
-              # #if (app.tput.strings.erase_chars)
+              # #if (screen.tput.strings.erase_chars)
               # if (!clr && neq && (xx - x) > 10)
               #   lx = -1; ly = -1
               #   if (data != attr)
               #     @outbuf.print code_attr(data)
               #     attr = data
               #   end
-              #   @outbuf.print app.tput.cup(y, x)
-              #   if (app.tput.strings.erase_chars)
+              #   @outbuf.print screen.tput.cup(y, x)
+              #   if (screen.tput.strings.erase_chars)
               #     # Use erase_chars to avoid erasing the whole line.
-              #     @outbuf.print app.tput.ech(xx - x)
+              #     @outbuf.print screen.tput.ech(xx - x)
               #   else
-              #     @outbuf.print app.tput.el()
+              #     @outbuf.print screen.tput.el()
               #   end
-              #   if (app.tput.strings.parm_right_cursor)
-              #     @outbuf.print app.tput.cuf(xx - x)
+              #   if (screen.tput.strings.parm_right_cursor)
+              #     @outbuf.print screen.tput.cuf(xx - x)
               #   else
-              #     @outbuf.print app.tput.cup(y, xx)
+              #     @outbuf.print screen.tput.cup(y, xx)
               #   end
-              #   fill_region(data, ' ', x, app.tput.strings.erase_chars ? xx : line.length, y, y + 1)
+              #   fill_region(data, ' ', x, screen.tput.strings.erase_chars ? xx : line.length, y, y + 1)
               #   x = xx - 1
               #   next
               # end
@@ -1177,7 +1177,7 @@ module Crysterm
             # It is possible there is a terminal out there
             # somewhere that does not support ACS, but
             # supports UTF8, but I imagine it's unlikely.
-            # Maybe remove !app.tput.unicode check, however,
+            # Maybe remove !screen.tput.unicode check, however,
             # this seems to be the way ncurses does it.
             #
             # Note the behavior of this IF/ELSE block. It may decide to
@@ -1186,21 +1186,21 @@ module Crysterm
             # case that the contents of the IF/ELSE block change in incompatible
             # way, this should be had in mind.
             if s
-              if (s.enter_alt_charset_mode? && !app.tput.features.broken_acs? && (app.tput.features.acscr[ch]? || acs))
-                # Fun fact: even if app.tput.brokenACS wasn't checked here,
+              if (s.enter_alt_charset_mode? && !screen.tput.features.broken_acs? && (screen.tput.features.acscr[ch]? || acs))
+                # Fun fact: even if screen.tput.brokenACS wasn't checked here,
                 # the linux console would still work fine because the acs
-                # table would fail the check of: app.tput.features.acscr[ch]
+                # table would fail the check of: screen.tput.features.acscr[ch]
                 # TODO This is nasty. Char gets changed to string
                 # when sm/rm is added to the stream.
-                if (app.tput.features.acscr[ch]?)
+                if (screen.tput.features.acscr[ch]?)
                   if (acs)
-                    ch = app.tput.features.acscr[ch]
+                    ch = screen.tput.features.acscr[ch]
                   else
                     #sm = String.new s.smacs
-                    #ch = sm + app.tput.features.acscr[ch]
+                    #ch = sm + screen.tput.features.acscr[ch]
                     # Instead, just print prefix and set new char:
                     @outbuf.write s.smacs
-                    ch = app.tput.features.acscr[ch]
+                    ch = screen.tput.features.acscr[ch]
 
                     acs = true
                   end
@@ -1222,8 +1222,8 @@ module Crysterm
               # like sun-color.
               # NOTE: It could be the case that the $LANG
               # is all that matters in some cases:
-              # if (!app.tput.unicode && ch > '~') {
-              if (!app.tput.features.unicode? && (app.tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
+              # if (!screen.tput.unicode && ch > '~') {
+              if (!screen.tput.features.unicode? && (screen.tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
                 # Reduction of ACS into ASCII chars.
                 ch = Tput::ACSC::Data[ch]?.try(&.[2]) || '?'
               end
@@ -1254,32 +1254,32 @@ module Crysterm
         unless @main.size == 0
           @pre.clear
           @post.clear
-          hidden = app.tput.cursor_hidden?
+          hidden = screen.tput.cursor_hidden?
 
-          (app.tput.ret = IO::Memory.new).try do |ret|
-            app.tput.save_cursor
+          (screen.tput.ret = IO::Memory.new).try do |ret|
+            screen.tput.save_cursor
             if !hidden
-              app.tput.hide_cursor
+              screen.tput.hide_cursor
             end
 
             @pre << ret.rewind.gets_to_end
-            app.tput.ret = nil
+            screen.tput.ret = nil
           end
 
-          (app.tput.ret = IO::Memory.new).try do |ret|
-            app.tput.restore_cursor
+          (screen.tput.ret = IO::Memory.new).try do |ret|
+            screen.tput.restore_cursor
             if !hidden
-              app.tput.show_cursor
+              screen.tput.show_cursor
             end
 
             @post << ret.rewind.gets_to_end
-            app.tput.ret = nil
+            screen.tput.ret = nil
           end
 
           # D O:
-          # app.flush()
-          # app._owrite(@pre + @main + @post)
-          app.tput._print { |io| io << @pre << @main.rewind.gets_to_end << @post }
+          # screen.flush()
+          # screen._owrite(@pre + @main + @post)
+          screen.tput._print { |io| io << @pre << @main.rewind.gets_to_end << @post }
         end
 
         # D O:
@@ -1299,21 +1299,21 @@ module Crysterm
         #  return insert_line_nc(n, y, top, bottom)
         # end
 
-        if (!app.tput.has?(&.change_scroll_region?) ||
-           !app.tput.has?(&.delete_line?) ||
-           !app.tput.has?(&.insert_line?))
+        if (!screen.tput.has?(&.change_scroll_region?) ||
+           !screen.tput.has?(&.delete_line?) ||
+           !screen.tput.has?(&.insert_line?))
           STDERR.puts "Missing needed terminfo capabilities"
           return
         end
 
-        (app.tput.ret = IO::Memory.new).try do |ret|
-          app.tput.set_scroll_region(top, bottom)
-          app.tput.cup(y, 0)
-          app.tput.il(n)
-          app.tput.set_scroll_region(0, height - 1)
+        (screen.tput.ret = IO::Memory.new).try do |ret|
+          screen.tput.set_scroll_region(top, bottom)
+          screen.tput.cup(y, 0)
+          screen.tput.il(n)
+          screen.tput.set_scroll_region(0, height - 1)
 
           @_buf.print ret.rewind.gets_to_end
-          app.tput.ret = nil
+          screen.tput.ret = nil
         end
 
         j = bottom + 1
@@ -1332,20 +1332,20 @@ module Crysterm
       # Scroll down (up cursor-wise).
       # This will only work for top line deletion as opposed to arbitrary lines.
       def insert_line_nc(n, y, top, bottom)
-        if (!app.tput.has?(&.change_scroll_region?) ||
-           !app.tput.has?(&.delete_line?))
+        if (!screen.tput.has?(&.change_scroll_region?) ||
+           !screen.tput.has?(&.delete_line?))
           STDERR.puts "Missing needed terminfo capabilities"
           return
         end
 
-        (app.tput.ret = IO::Memory.new).try do |ret|
-          app.tput.set_scroll_region(top, bottom)
-          app.tput.cup(top, 0)
-          app.tput.dl(n)
-          app.tput.set_scroll_region(0, height - 1)
+        (screen.tput.ret = IO::Memory.new).try do |ret|
+          screen.tput.set_scroll_region(top, bottom)
+          screen.tput.cup(top, 0)
+          screen.tput.dl(n)
+          screen.tput.set_scroll_region(0, height - 1)
 
           @_buf.print ret.rewind.gets_to_end
-          app.tput.ret = nil
+          screen.tput.ret = nil
         end
 
         j = bottom + 1
@@ -1365,22 +1365,22 @@ module Crysterm
         #   return delete_line_nc(n, y, top, bottom)
         # end
 
-        if (!app.tput.has?(&.change_scroll_region?) ||
-           !app.tput.has?(&.delete_line?) ||
-           !app.tput.has?(&.insert_line?))
+        if (!screen.tput.has?(&.change_scroll_region?) ||
+           !screen.tput.has?(&.delete_line?) ||
+           !screen.tput.has?(&.insert_line?))
           STDERR.puts "Missing needed terminfo capabilities"
           return
         end
 
         # XXX temporarily diverts output
-        (app.tput.ret = IO::Memory.new).try do |ret|
-          app.tput.set_scroll_region(top, bottom)
-          app.tput.cup(y, 0)
-          app.tput.dl(n)
-          app.tput.set_scroll_region(0, height - 1) # XXX @height should be used?
+        (screen.tput.ret = IO::Memory.new).try do |ret|
+          screen.tput.set_scroll_region(top, bottom)
+          screen.tput.cup(y, 0)
+          screen.tput.dl(n)
+          screen.tput.set_scroll_region(0, height - 1) # XXX @height should be used?
 
           @_buf.print ret.rewind.gets_to_end
-          app.tput.ret = nil
+          screen.tput.ret = nil
         end
 
         j = bottom + 1
@@ -1399,21 +1399,21 @@ module Crysterm
       # Scroll down (up cursor-wise).
       # This will only work for top line deletion as opposed to arbitrary lines.
       def delete_line_nc(n, y, top, bottom)
-        if (!app.tput.has?(&.change_scroll_region?) ||
-           !app.tput.has?(&.delete_line?))
+        if (!screen.tput.has?(&.change_scroll_region?) ||
+           !screen.tput.has?(&.delete_line?))
           STDERR.puts "Missing needed terminfo capabilities"
           return
         end
 
         # XXX temporarily diverts output
-        (app.tput.ret = IO::Memory.new).try do |ret|
-          app.tput.set_scroll_region(top, bottom)
-          app.tput.cup(bottom, 0)
+        (screen.tput.ret = IO::Memory.new).try do |ret|
+          screen.tput.set_scroll_region(top, bottom)
+          screen.tput.cup(bottom, 0)
           ret.print "\n" * n
-          app.tput.set_scroll_region(0, height - 1)
+          screen.tput.set_scroll_region(0, height - 1)
 
           @_buf.print ret.rewind.gets_to_end
-          app.tput.ret = nil
+          screen.tput.ret = nil
         end
 
         j = bottom + 1
@@ -1668,7 +1668,7 @@ module Crysterm
         #super # No longer exists since we're not subclass of Node any more
       end
 
-      app.destroy
+      screen.destroy
     end
 
     ######### COMMON WITH NODE
@@ -1798,7 +1798,7 @@ module Crysterm
 
     # Associated `Crysterm` instance. The default app object
     # will be created/used if it is not provided explicitly.
-    property! app : App
+    property! screen : Screen
 
     # Is focused element grabbing and receiving all keypresses?
     property grab_keys = false
@@ -1820,7 +1820,7 @@ module Crysterm
     property optimization : OptimizationFlag = OptimizationFlag::None
 
     def initialize(
-      @app = App.global(true),
+      @screen = Screen.global(true),
       @auto_padding = true,
       @tab_size = 4,
       @dock_borders = false,
@@ -1835,17 +1835,17 @@ module Crysterm
       ignore_locked.try { |v| @ignore_locked += v }
       optimization.try { |v| @optimization = v }
 
-      #@app = app || App.global true
+      #@screen = screen || Screen.global true
       # ensure tput.zero_based = true, use_bufer=true
       # set resizeTimeout
 
-      # Tput is accessed via app.tput
+      # Tput is accessed via screen.tput
 
       #super() No longer calling super, we are not subclass of Widget any more
 
       @tabc = " " * @tab_size
 
-      # _unicode is app.tput.features.unicode
+      # _unicode is screen.tput.features.unicode
       # full_unicode? is option full_unicode? + _unicode
 
       # Events:
@@ -1853,7 +1853,7 @@ module Crysterm
 
       self.title = title if title
 
-      app.on(Crysterm::Event::Resize) do
+      screen.on(Crysterm::Event::Resize) do
         alloc
         render
 
@@ -1867,13 +1867,13 @@ module Crysterm
       end
 
       # TODO Originally, these exist. See about reenabling them.
-      #app.on(Crysterm::Event::Focus) do
+      #screen.on(Crysterm::Event::Focus) do
       #  emit Crysterm::Event::Focus
       #end
-      #app.on(Crysterm::Event::Blur) do
+      #screen.on(Crysterm::Event::Blur) do
       #  emit Crysterm::Event::Blur
       #end
-      #app.on(Crysterm::Event::Warning) do |e|
+      #screen.on(Crysterm::Event::Warning) do |e|
       #  emit e
       #end
 
@@ -1890,7 +1890,7 @@ module Crysterm
     # passed onto the focused widget, and from there eventually
     # propagated to the top.
     # def _listen_keys
-    #  app.on(Crysterm::Event::KeyPress) do |e|
+    #  screen.on(Crysterm::Event::KeyPress) do |e|
     #    el = focused || self
     #    while !e.accepted? && el
     #      # XXX emit only if widget enabled?
@@ -1919,7 +1919,7 @@ module Crysterm
       # After the first keypress emitted, the handler
       # checks to make sure grab_keys, lock_keys, and focused
       # weren't changed, and handles those situations appropriately.
-      app.on(Crysterm::Event::KeyPress) do |e|
+      screen.on(Crysterm::Event::KeyPress) do |e|
         if @lock_keys && !@ignore_locked.includes?(e.key)
           next
         end
@@ -1996,7 +1996,7 @@ module Crysterm
     def enter
       # TODO make it possible to work without switching the whole
       # app to alt buffer.
-      return if app.tput.is_alt
+      return if screen.tput.is_alt
 
       if !cursor._set
         if cursor.shape
@@ -2012,13 +2012,13 @@ module Crysterm
         `cls`
       {% end %}
 
-      at = app.tput
-      app.tput.alternate_buffer
-      app.tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
-      app.tput.put(&.change_scroll_region?(0, height - 1))
-      app.tput.hide_cursor
-      app.tput.cursor_pos 0, 0
-      app.tput.put(&.ena_acs?) # enable_acs
+      at = screen.tput
+      screen.tput.alternate_buffer
+      screen.tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
+      screen.tput.put(&.change_scroll_region?(0, height - 1))
+      screen.tput.hide_cursor
+      screen.tput.cursor_pos 0, 0
+      screen.tput.put(&.ena_acs?) # enable_acs
 
       alloc
     end
@@ -2045,7 +2045,7 @@ module Crysterm
         @olines[-1].dirty = dirty
       end
 
-      app.tput.clear
+      screen.tput.clear
     end
 
     # Reallocates window buffers and clear the window.
@@ -2056,30 +2056,30 @@ module Crysterm
     def leave
       # TODO make it possible to work without switching the whole
       # app to alt buffer. (Same note as in `enter`).
-      return unless app.tput.is_alt
+      return unless screen.tput.is_alt
 
-      app.tput.put(&.keypad_local?)
+      screen.tput.put(&.keypad_local?)
 
-      if (app.tput.scroll_top != 0) || (app.tput.scroll_bottom != height - 1)
-        app.tput.set_scroll_region(0, app.tput.screen.height - 1)
+      if (screen.tput.scroll_top != 0) || (screen.tput.scroll_bottom != height - 1)
+        screen.tput.set_scroll_region(0, screen.tput.screen.height - 1)
       end
 
       # XXX For some reason if alloc/clear() is before this
       # line, it doesn't work on linux console.
-      app.tput.show_cursor
+      screen.tput.show_cursor
       alloc
 
       # TODO Enable all in this function
       # if (this._listened_mouse)
-      #  app.disable_mouse
+      #  screen.disable_mouse
       # end
 
-      app.tput.normal_buffer
+      screen.tput.normal_buffer
       if cursor._set
-        app.tput.cursor_reset
+        screen.tput.cursor_reset
       end
 
-      app.tput.flush
+      screen.tput.flush
 
       # :-)
       {% if flag? :windows %}
@@ -2095,14 +2095,14 @@ module Crysterm
     # XXX Remove in favor of other ways to retrieve it.
     def columns
       # XXX replace with a per-window method
-      app.tput.screen.width
+      screen.tput.screen.width
     end
 
     # Returns current window height.
     # XXX Remove in favor of other ways to retrieve it.
     def rows
       # XXX replace with a per-window method
-      app.tput.screen.height
+      screen.tput.screen.height
     end
 
     # Returns current window width.
@@ -2164,18 +2164,18 @@ module Crysterm
     # it should be able to have its own title, and when it goes
     # in/out of focus, that title should be set/restored.
     def title
-      @app.title
+      @screen.title
     end
 
     def title=(arg)
-      @app.title = arg
+      @screen.title = arg
     end
 
     def sigtstp(callback)
-      app.sigtstp {
+      screen.sigtstp {
         alloc
         render
-        app.lrestore_cursor :pause, true
+        screen.lrestore_cursor :pause, true
         callback.call if callback
       }
     end

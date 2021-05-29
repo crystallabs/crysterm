@@ -6,7 +6,7 @@ require "./version"
 require "./macros"
 require "./namespace"
 require "./event"
-require "./app"
+require "./screen"
 require "./helpers"
 require "./colors"
 require "./window"
@@ -17,9 +17,9 @@ require "./widget/*"
 module Crysterm
   include Namespace
 
-  # Creates and/or returns main `App`
-  def self.app
-    App.global true
+  # Creates and/or returns main `Screen`
+  def self.screen
+    Screen.global true
   end
 
   # Creates and/or returns main `Window`
