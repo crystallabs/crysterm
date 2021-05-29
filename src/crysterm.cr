@@ -31,6 +31,18 @@ module Crysterm
     schedule_resize
   end
 
+  Signal::TERM.trap do
+    exit
+  end
+
+  Signal::QUIT.trap do
+    exit
+  end
+
+  Signal::KILL.trap do
+    exit
+  end
+
   # Creates and/or returns main `Screen`
   def self.screen
     Screen.global true
@@ -67,4 +79,8 @@ module Crysterm
   end
 
   spawn resize_loop
+
+  at_exit do
+    Screen.instances.each &.destroy
+  end
 end

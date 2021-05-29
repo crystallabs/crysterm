@@ -199,6 +199,7 @@ module Crysterm
     def destroy
       Window.instances.each &.destroy
       @@instances.delete self
+      @input.cooked!
       @destroyed = true
       emit Crysterm::Event::Destroy
     end
