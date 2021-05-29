@@ -26,7 +26,7 @@ module Crysterm
         **input
       )
         # Will be taken care of by default above, and parent
-        #scrollable.try { |v| @scrollable = v }
+        # scrollable.try { |v| @scrollable = v }
 
         @value = input["content"]? || ""
 
@@ -43,7 +43,7 @@ module Crysterm
           @__update_cursor.try &.call
         end
 
-        self.input_on_focus= input_on_focus
+        self.input_on_focus = input_on_focus
 
         if !@input_on_focus && keys
           @ev_enter = on(Crysterm::Event::KeyPress) do |e|
@@ -58,7 +58,7 @@ module Crysterm
       end
 
       def _update_cursor(get = false)
-        return unless focused? #if @window.focused != self
+        return unless focused? # if @window.focused != self
 
         lpos = get ? @lpos : _get_coords
         return unless lpos
@@ -90,9 +90,9 @@ module Crysterm
         # XXX Not sure, but this may still sometimes
         # cause problems when leaving editor.
         # E O:
-        #if (cy == app.tput.cursor.y) && (cx == app.tput.cursor.x)
+        # if (cy == app.tput.cursor.y) && (cx == app.tput.cursor.x)
         #  return
-        #end
+        # end
         # That check is redundant because the below logic also does
         # the same (no-op if cursor is already at coords.)
 
@@ -136,7 +136,7 @@ module Crysterm
         also_check_char = false
 
         if k = e.key
-          #return if k == Tput::Key::Return
+          # return if k == Tput::Key::Return
           if k == Tput::Key::Enter
             e.char = '\n'
             also_check_char = true
@@ -147,9 +147,9 @@ module Crysterm
           end
 
           # XXX
-          #if @keys && CtrlE
+          # if @keys && CtrlE
           #  # return(Invoke editor)
-          #end
+          # end
 
           # TODO can optimize by writing directly to window buffer
           # here.
@@ -176,7 +176,6 @@ module Crysterm
         if @value != value
           @window.render
         end
-
       end
 
       def _type_scroll
@@ -187,9 +186,9 @@ module Crysterm
         end
       end
 
-      def value=(value=nil)
+      def value=(value = nil)
         if value.nil?
-          value= @value
+          value = @value
         end
 
         return if @_value == value
@@ -207,18 +206,19 @@ module Crysterm
       end
 
       def submit
-        #@__listener.try &.call Crysterm::Event::KeyPress.new '\n', Tput::Key::Enter
+        # @__listener.try &.call Crysterm::Event::KeyPress.new '\n', Tput::Key::Enter
         return unless @__listener
         @__listener.try &.call Crysterm::Event::KeyPress.new '\n', Tput::Key::Enter
       end
+
       def cancel
-        #@__listener.try &.call Crysterm::Event::KeyPress.new '\e', Tput::Key::Escape
+        # @__listener.try &.call Crysterm::Event::KeyPress.new '\e', Tput::Key::Escape
         return unless @__listener
         @__listener.try &.call Crysterm::Event::KeyPress.new '\e', Tput::Key::Escape
       end
 
       def clear_value
-        self.value= ""
+        self.value = ""
       end
 
       def _read_input
@@ -233,19 +233,19 @@ module Crysterm
         @window.screen.tput.show_cursor
 
         # D O:
-        #@window.screen.tput.sgr "normal"
+        # @window.screen.tput.sgr "normal"
 
         # Define _done_default
 
         @__listener = ->_listener(Crysterm::Event::KeyPress)
 
-        #@ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
+        # @ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
 
         @ev_reading = on(Crysterm::Event::KeyPress) { |e|
           @__listener.try &.call e
         }
 
-        @__done = ->_done_default(String?,String?)
+        @__done = ->_done_default(String?, String?)
 
         on(Crysterm::Event::Blur) {
           @__done.try &.call nil, nil
@@ -266,10 +266,10 @@ module Crysterm
         _read_input
       end
 
-      def __done_default(err=nil, data=nil)
+      def __done_default(err = nil, data = nil)
         return unless @_reading
 
-        #return if self(block).done?
+        # return if self(block).done?
 
         @ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
         @_reading = false
@@ -278,7 +278,7 @@ module Crysterm
         @_done = nil
         # XXX off Crysterm::Event::KeyPress, @__listener.wrapper
         @__listener = nil
-        #XXX off Crysterm::Event::Blur, @__done.wrapper
+        # XXX off Crysterm::Event::Blur, @__done.wrapper
         @__done = nil
 
         @window.screen.tput.hide_cursor
@@ -290,7 +290,7 @@ module Crysterm
 
         if @input_on_focus
           # TODO causes Error running at_exit handler: Index out of bounds
-          #@window.rewind_focus
+          # @window.rewind_focus
         end
 
         # damn
@@ -309,11 +309,11 @@ module Crysterm
         nil
       end
 
-      def _done_default(err=nil, data=nil)
+      def _done_default(err = nil, data = nil)
         __done_default err, data
       end
 
-      def _done_default(err=nil, data=nil, &callback : Proc(String,String,Nil))
+      def _done_default(err = nil, data = nil, &callback : Proc(String, String, Nil))
         __done_default err, data
         callback.call err, value
       end

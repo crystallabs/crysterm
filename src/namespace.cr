@@ -10,9 +10,8 @@ module Crysterm
     end
 
     # Type of border to draw.
-    # XXX Should no border be signified by None value here, or by just @border being nil?
     enum BorderType
-      None
+      # None
       Bg
       Fg
       Line
@@ -30,27 +29,21 @@ module Crysterm
 
     # Type of layout to use in a `Layout`.
     enum LayoutType
-      Inline = 1
+      Inline = 1 # Masonry-like
       Grid   = 2 # Table-like
     end
 
     # Overflow behavior when rendering and drawing elements.
     enum Overflow
-      Ignore
-      ShrinkWidget
-      SkipWidget
-      StopRendering
+      Ignore        # Render without changes
+      ShrinkWidget  # Make the Widget smaller to fit
+      SkipWidget    # Do not render the widget
+      StopRendering # End rendering cycle (leave current and remaining widgets unrendered)
+      # XXX Check whether StopRendering / SkipWidget work OK with things like focus etc.
+      # They should be skipped, of course, if they are not rendered.
     end
 
-    ##################################
-    # Start of part that needs to be verified and/or cleaned up.
-
     class Style
-      property border : Style?
-      property scrollbar : Style?
-      property track : Style?
-      property bar : Style?
-
       # Potentially make all subelements be filled in here,
       # and if they're a new Style class have it know its
       # Style parent. This way we could default values to
@@ -65,12 +58,20 @@ module Crysterm
       property transparent : Float64? = nil
       # property hover : Bool
       # property focus : Bool
+
       property char : Char = ' '
       property pchar : Char = ' '
       # property fchar : Char = ' '
+      # XXX is pchar == percent character?
+      # XXX Replace char with fchar (fg char) and bchar (bg char)?
 
       # For scrollbar
       property? ignore_border : Bool
+
+      property border : Style?
+      property scrollbar : Style?
+      property track : Style?
+      property bar : Style?
 
       def initialize(
         @border = nil,
@@ -140,7 +141,7 @@ module Crysterm
       end
 
       def any?
-        !!((@type != BorderType::None) && (@left || @top || @right || @bottom))
+        !!(@left || @top || @right || @bottom)
       end
     end
 
@@ -156,32 +157,5 @@ module Crysterm
     class HoverEffects
       property bg : String = "black"
     end
-
-    # End of part that needs to be verified and/or cleaned up.
-    ##################################
-
-    # Helper to create an `Screen`
-    def self.screen
-      Screen.global true
-    end
   end
 end
-
-#    class Position
-#      @left : Int32
-#      @right : Int32
-#      @top : Int32
-#      @bottom : Int32
-#      @width : Int32
-#      @height : Int32
-#
-#      def initialize(
-#        @left=0,
-#        @right=0,
-#        @top=0,
-#        @bottom=0,
-#        @width=1,
-#        @height=1,
-#      )
-#      end
-#    end

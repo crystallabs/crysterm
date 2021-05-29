@@ -1,12 +1,10 @@
 require "../src/crysterm"
 
 module Crysterm
-  include Widget # Just for convenience, to not have to write e.g. `Screen`
+  w = Window.new
 
-  s = Screen.new
-
-  b = Box.new(
-    screen: s,
+  b = Widget::Box.new(
+    window: w,
     style: Style.new(
       bg: "blue",
     ),
@@ -17,27 +15,27 @@ module Crysterm
     content: "{yellow-fg}line{/yellow-fg}{|}1"
   )
 
-  s.on(Event::KeyPress) do |e|
-    #STDERR.puts e.inspect
+  w.on(Event::KeyPress) do |e|
+    # STDERR.puts e.inspect
     if e.char == 'q'
-      #e.accept!
-      s.destroy
+      # e.accept!
+      w.destroy
       exit
     end
   end
- 
-  s.render
+
+  w.render
 
   b.insert_bottom "{yellow-fg}line{/yellow-fg}{|}2"
   b.insert_top "{yellow-fg}line{/yellow-fg}{|}0"
- 
-  s.render
+
+  w.render
 
   sleep 2
 
   b.delete_top
 
-  s.render
- 
-  s.app.exec
+  w.render
+
+  w.screen.exec
 end

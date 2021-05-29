@@ -2,21 +2,50 @@ require "event_handler"
 require "tput"
 
 module Crysterm
-  # Collection of all events used by Crysterm.
+  # Collection of all events used by Crysterm
   module Event
-
     include EventHandler
 
+    # Emitted when element is attached to a window directly or somewhere in its ancestry
+    event Attach
+
+    # Emitted when element is detached from a window directly or somewhere in its ancestry
+    event Detach
+
+    # Emitted when element gains a new parent
+    event Reparent, element : Widget?
+
+    # Emitted when element is added to parent
+    event Adopt, element : Widget
+
+    # Emitted when element is removed from its current parent
+    event Remove, element : Widget
+
+    # Emitted when Widget is destroyed
+    event Destroy
+
+    # Emitted when element focuses. Requires terminal supporting the focus protocol.
+    event Focus, el : Widget? = nil
+
+    # Emitted when element goes out of focus. Requires terminal supporting the focus protocol.
+    event Blur, el : Widget? = nil
+
+    # Emitted when widget scrolls
     event Scroll
 
+    # Emitted on some data
     event Data, data : String
 
+    # Emitted on a warning event
     event Warning, message : String
 
     # Emitted when window is resized.
     event Resize
 
+    # Emitted when object is hidden
     event Hide
+
+    # Emitted when object is shown
     event Show
 
     # Emitted at the beginning of rendering/drawing.

@@ -3,8 +3,9 @@ require "./macros"
 require "./widget"
 
 module Crysterm
-  # Represents a window. `Window` and `Element` are two lowest-level classes after `EventEmitter` and `Node`.
+  # Represents a window.
   class Window
+    # Collection of helper chars for drawing borders and their angles
     module Angles
       @angles = {
         '\u2518' => true, # '┘'
@@ -82,6 +83,7 @@ module Crysterm
         15 => '\u253c', # '┼'       '1111'
       }
 
+      # Returns appropriate angle char for point (y,x) within lines buffer
       def _get_angle(lines, x, y)
         angle = 0
         attr = lines[y][x].attr
@@ -144,8 +146,9 @@ module Crysterm
       end
     end
 
+    # Conversion between SGR sequences and Crysterm's attribute format
     module Attributes
-      # Convert an SGR string to our own attribute format.
+      # Converts an SGR string to our own attribute format.
       def attr_code(code, cur, dfl)
         flags = (cur >> 18) & 0x1ff
         fg = (cur >> 9) & 0x1ff
@@ -257,7 +260,7 @@ module Crysterm
         (flags << 18) | (fg << 9) | bg
       end
 
-      # Convert our own attribute format to an SGR string.
+      # Converts our own attribute format to an SGR string.
       def code_attr(code)
         flags = (code >> 18) & 0x1ff
         fg = (code >> 9) & 0x1ff
@@ -327,6 +330,7 @@ module Crysterm
       end
     end
 
+    # Individual window cell
     class Cell
       include Comparable(self)
       # Same as @dattr
@@ -359,6 +363,7 @@ module Crysterm
       end
     end
 
+    # Individual window row
     class Row < Array(Cell)
       property dirty = false
 
@@ -371,10 +376,12 @@ module Crysterm
       end
     end
 
+    # Terminal (not mouse) cursor
     module Cursor
       include Macros
       getter cursor = Tput::Namespace::Cursor.new
 
+      # Sets cursor shape
       def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
         @cursor.shape = shape
         @cursor.blink = blink
@@ -418,6 +425,7 @@ module Crysterm
         screen.tput.cursor_shape @cursor.shape, @cursor.blink
       end
 
+      # Sets cursor color
       def cursor_color(color : Tput::Color? = nil)
         @cursor.color = color.try do |c|
           Tput::Color.new Colors.convert(c.value)
@@ -432,6 +440,7 @@ module Crysterm
         screen.tput.cursor_color(@cursor.color.to_s.downcase)
       end
 
+      # Resets cursor
       def cursor_reset
         @cursor = Tput::Namespace::Cursor.new
         # TODO if artificial cursor
@@ -441,6 +450,7 @@ module Crysterm
 
       alias_previous reset_cursor
 
+      # :nodoc:
       def _cursor_attr(cursor, dattr = nil)
         attr = dattr || @dattr
         # cattr
@@ -489,11 +499,16 @@ module Crysterm
           char: ch || ' '
       end
 
-      def _reduce_color(col)
+      # Reduces color if needed (minmal helper function)
+      private def _reduce_color(col)
         Colors.reduce(col, screen.tput.features.number_of_colors)
       end
     end
 
+    # Widget focus.
+    #
+    # Broader in scope than mouse focus, since widget focus can be affected
+    # by keys (Tab/Shift+Tab etc.) and operate without mouse.
     module Focus
       include Crystallabs::Helpers::Alias_Methods
 
@@ -664,6 +679,7 @@ module Crysterm
       end
     end
 
+    # Things related to rendering (setting up memory state for display)
     module Rendering
       class BorderStop
         property? yes = false
@@ -721,29 +737,29 @@ module Crysterm
         end
       end
 
-      #class_property auto_draw = false
+      # class_property auto_draw = false
 
       @_buf = IO::Memory.new
       property _ci = -1
 
       property _border_stops = {} of Int32 => Bool
 
-      ## Attempt to perform CSR optimization on all possible elements,
-      ## and not just on full-width ones, i.e. those with uniform cells to their sides.
-      ## This is known to cause flickering with elements that are not full-width, but
-      ## it is more optimal for terminal rendering.
-      #property smart_csr : Bool = false
+      # # Attempt to perform CSR optimization on all possible elements,
+      # # and not just on full-width ones, i.e. those with uniform cells to their sides.
+      # # This is known to cause flickering with elements that are not full-width, but
+      # # it is more optimal for terminal rendering.
+      # property smart_csr : Bool = false
 
-      ## Enable CSR on any element within 20 columns of the window edges on either side.
-      ## It is faster than smart_csr, but may cause flickering depending on what is on
-      ## each side of the element.
-      #property fast_csr : Bool = false
+      # # Enable CSR on any element within 20 columns of the window edges on either side.
+      # # It is faster than smart_csr, but may cause flickering depending on what is on
+      # # each side of the element.
+      # property fast_csr : Bool = false
 
-      ## Attempt to perform back_color_erase optimizations for terminals that support it.
-      ## It will also work with terminals that don't support it, but only on lines with
-      ## the default background color. As it stands with the current implementation,
-      ## it's uncertain how much terminal performance this adds at the cost of code overhead.
-      #property use_bce : Bool = false
+      # # Attempt to perform back_color_erase optimizations for terminals that support it.
+      # # It will also work with terminals that don't support it, but only on lines with
+      # # the default background color. As it stands with the current implementation,
+      # # it's uncertain how much terminal performance this adds at the cost of code overhead.
+      # property use_bce : Bool = false
 
       property optimization : OptimizationFlag = OptimizationFlag::None
 
@@ -823,7 +839,7 @@ module Crysterm
       end
 
       # Real render
-      def _render #(draw = true) #@@auto_draw)
+      def _render # (draw = true) #@@auto_draw)
         t1 = Time.monotonic
 
         return if destroyed?
@@ -858,8 +874,8 @@ module Crysterm
 
         t2 = Time.monotonic
 
-        #draw 0, @lines.size - 1 if draw
-        #self.draw if draw
+        # draw 0, @lines.size - 1 if draw
+        # self.draw if draw
         draw
 
         # Workaround to deal with cursor pos before the window
@@ -874,8 +890,8 @@ module Crysterm
         t3 = Time.monotonic
 
         if pos = @show_fps
-          #{ rps, dps, fps }
-          ps = { 1//(t2 - t1).total_seconds, 1//(t3 - t2).total_seconds, 1//(t3 - t1).total_seconds }
+          # { rps, dps, fps }
+          ps = {1//(t2 - t1).total_seconds, 1//(t3 - t2).total_seconds, 1//(t3 - t1).total_seconds}
 
           screen.tput.save_cursor
           screen.tput.pos pos
@@ -888,8 +904,8 @@ module Crysterm
       end
     end
 
+    # Things related to drawing (displaying rendered state to screen)
     module Drawing
-
       @outbuf : IO::Memory = IO::Memory.new 10240
       @main : IO::Memory = IO::Memory.new 10240
 
@@ -980,7 +996,7 @@ module Crysterm
                 (screen.tput.ret = IO::Memory.new).try do |ret|
                   screen.tput.cup(y, x)
                   screen.tput.el
-                  @outbuf .print ret.rewind.gets_to_end
+                  @outbuf.print ret.rewind.gets_to_end
                   screen.tput.ret = nil
                 end
                 #### #### ####
@@ -1055,7 +1071,6 @@ module Crysterm
             end
             o[x].attr = data
             o[x].char = ch
-
 
             if (data != attr)
               if (attr != @dattr)
@@ -1134,7 +1149,7 @@ module Crysterm
                 end
 
                 @outbuf.print 'm'
-                #Log.trace { @outbuf.inspect }
+                # Log.trace { @outbuf.inspect }
               end
             end
 
@@ -1196,8 +1211,8 @@ module Crysterm
                   if (acs)
                     ch = screen.tput.features.acscr[ch]
                   else
-                    #sm = String.new s.smacs
-                    #ch = sm + screen.tput.features.acscr[ch]
+                    # sm = String.new s.smacs
+                    # ch = sm + screen.tput.features.acscr[ch]
                     # Instead, just print prefix and set new char:
                     @outbuf.write s.smacs
                     ch = screen.tput.features.acscr[ch]
@@ -1205,8 +1220,8 @@ module Crysterm
                     acs = true
                   end
                 elsif acs
-                  #rm = String.new s.rmacs
-                  #ch = rm + ch
+                  # rm = String.new s.rmacs
+                  # ch = rm + ch
                   # Instead, similar as above:
                   @outbuf.write s.rmacs
                   acs = false
@@ -1240,8 +1255,8 @@ module Crysterm
           end
 
           unless @outbuf.empty?
-            #STDERR.puts @outbuf.size
-            @main.write s.cup(y, 0) #.to_slice)
+            # STDERR.puts @outbuf.size
+            @main.write s.cup(y, 0) # .to_slice)
             @main.print @outbuf.rewind.gets_to_end
           end
         end
@@ -1283,7 +1298,7 @@ module Crysterm
         end
 
         # D O:
-        #emit Event::Draw
+        # emit Event::Draw
       end
 
       def blank_line(ch = ' ', dirty = false)
@@ -1599,7 +1614,6 @@ module Crysterm
 end
 
 module Crysterm
-  # Represents a window. `Window` and `Widget` are two lowest-level classes after `EventEmitter` and `Widget`.
   class Window
     include EventHandler
 
@@ -1654,24 +1668,20 @@ module Crysterm
       @render_flag.set 2
 
       if @@instances.delete self
-        if @@instances.any?
-          @@global = @@instances[0]
-        else
-          #@@global = nil # XXX
-          # TODO remove all signal handlers set up on the app's process
+        if @@instances.empty?
           @@_bound = false
         end
 
         @destroyed = true
         emit Crysterm::Event::Destroy
 
-        #super # No longer exists since we're not subclass of Node any more
+        # super # No longer exists since we're not subclass of Node any more
       end
 
       screen.destroy
     end
 
-    ######### COMMON WITH NODE
+    # ######## COMMON WITH NODE
 
     # Widget's children `Widget`s.
     property children = [] of Widget
@@ -1695,7 +1705,6 @@ module Crysterm
     end
 
     def insert(element, i = -1)
-
       # XXX Never triggers. But needs to be here for type safety.
       # Hopefully can be removed when Window is no longer parent of any Widgets.
       if element.is_a? Window
@@ -1794,7 +1803,7 @@ module Crysterm
       end
     end
 
-    ######### END OF COMMON WITH SCREEN
+    # ######## END OF COMMON WITH SCREEN
 
     # Associated `Crysterm` instance. The default app object
     # will be created/used if it is not provided explicitly.
@@ -1814,7 +1823,7 @@ module Crysterm
     # Currently hovered element. Best set only if mouse events are enabled.
     @hover : Widget? = nil
 
-    property show_fps : Tput::Point? = Tput::Point[-1,0]
+    property show_fps : Tput::Point? = Tput::Point[-1, 0]
     property? show_avg = true
 
     property optimization : OptimizationFlag = OptimizationFlag::None
@@ -1835,13 +1844,13 @@ module Crysterm
       ignore_locked.try { |v| @ignore_locked += v }
       optimization.try { |v| @optimization = v }
 
-      #@screen = screen || Screen.global true
+      # @screen = screen || Screen.global true
       # ensure tput.zero_based = true, use_bufer=true
       # set resizeTimeout
 
       # Tput is accessed via screen.tput
 
-      #super() No longer calling super, we are not subclass of Widget any more
+      # super() No longer calling super, we are not subclass of Widget any more
 
       @tabc = " " * @tab_size
 
@@ -1859,7 +1868,7 @@ module Crysterm
 
         # XXX Can we replace this with each_descendant?
         f = uninitialized Widget | Window -> Nil
-        f = ->(el : Widget | Window ) {
+        f = ->(el : Widget | Window) {
           el.emit Crysterm::Event::Resize
           el.children.each { |c| f.call c }
         }
@@ -1867,15 +1876,15 @@ module Crysterm
       end
 
       # TODO Originally, these exist. See about reenabling them.
-      #screen.on(Crysterm::Event::Focus) do
+      # screen.on(Crysterm::Event::Focus) do
       #  emit Crysterm::Event::Focus
-      #end
-      #screen.on(Crysterm::Event::Blur) do
+      # end
+      # screen.on(Crysterm::Event::Blur) do
       #  emit Crysterm::Event::Blur
-      #end
-      #screen.on(Crysterm::Event::Warning) do |e|
+      # end
+      # screen.on(Crysterm::Event::Warning) do |e|
       #  emit e
-      #end
+      # end
 
       _listen_keys
       # _listen_mouse # XXX
@@ -2121,7 +2130,7 @@ module Crysterm
       self
     end
 
-    ##### Unused parts: just compatibility with `Widget` interface.
+    # #### Unused parts: just compatibility with `Widget` interface.
     def clear_pos
     end
 
@@ -2133,8 +2142,8 @@ module Crysterm
     property itop = 0
     property iright = 0
     property ibottom = 0
-    #property iwidth = 0
-    #property iheight = 0
+    # property iwidth = 0
+    # property iheight = 0
 
     # Relative positions are the default and are aliased to the
     # left/top/right/bottom methods.
@@ -2150,7 +2159,7 @@ module Crysterm
 
     property overflow = Overflow::Ignore
 
-    ##### End of unused parts.
+    # #### End of unused parts.
 
     def hidden?
       false

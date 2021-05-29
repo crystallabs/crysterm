@@ -5,6 +5,11 @@ module Crysterm
   class Widget
     include EventHandler
 
+    # Used to represent minimal widget dimensions, after running a method
+    # to determine them.
+    #
+    # Used only internally; could be replaced by anything else that has
+    # the necessary properties.
     class ShrinkBox
       property xi : Int32
       property xl : Int32
@@ -18,40 +23,15 @@ module Crysterm
 
     class Box < Widget
     end
+
     class ListTable < Widget
     end
+
     class Input < Box
     end
+
     class TextArea < Input
     end
-  end
-
-  module Event
-    include EventHandler
-
-    # Emitted when element is attached to a window directly or somewhere in its ancestry
-    event Attach
-
-    # Emitted when element is detached from a window directly or somewhere in its ancestry
-    event Detach
-
-    # Emitted when element gains a new parent
-    event Reparent, element : Widget?
-
-    # Emitted when element is added to parent
-    event Adopt, element : Widget
-
-    # Emitted when element is removed from its current parent
-    event Remove, element : Widget
-
-    # Emitted when Widget is destroyed
-    event Destroy
-
-    # Emitted when element focuses. Requires terminal supporting the focus protocol.
-    event Focus, el : Widget? = nil
-
-    # Emitted when element goes out of focus. Requires terminal supporting the focus protocol.
-    event Blur, el : Widget? = nil
   end
 
   class Widget
@@ -129,10 +109,10 @@ module Crysterm
         property width : Int32? = nil
         property height : Int32? = nil
 
-        #property ileft : Int32 = 0
-        #property itop : Int32 = 0
-        #property iright : Int32 = 0
-        #property ibottom : Int32 = 0
+        # property ileft : Int32 = 0
+        # property itop : Int32 = 0
+        # property iright : Int32 = 0
+        # property ibottom : Int32 = 0
 
         property _scroll_bottom : Int32 = 0
         property _clean_sides : Bool = false
@@ -374,7 +354,6 @@ module Crysterm
       # Positioning
 
       def _get_width(get)
-
         parent = get ? (parent_or_window).try(&._get_pos) : (parent_or_window)
         unless parent
           raise "Something"
@@ -431,7 +410,6 @@ module Crysterm
       end
 
       def _get_height(get)
-
         parent = get ? (parent_or_window).try(&._get_pos) : (parent_or_window)
         unless parent
           raise "Something"
@@ -488,7 +466,6 @@ module Crysterm
       end
 
       def _get_left(get)
-
         parent = get ? (parent_or_window).try(&._get_pos) : (parent_or_window)
         unless parent
           raise "Something"
@@ -529,7 +506,6 @@ module Crysterm
       end
 
       def _get_right(get)
-
         parent = get ? (parent_or_window).try(&._get_pos) : (parent_or_window)
         unless parent
           raise "Something"
@@ -559,7 +535,6 @@ module Crysterm
       end
 
       def _get_top(get)
-
         parent = get ? (parent_or_window).try(&._get_pos) : (parent_or_window)
         unless parent
           raise "Something"
@@ -599,7 +574,6 @@ module Crysterm
       end
 
       def _get_bottom(get)
-
         parent = get ? (parent_or_window).try(&._get_pos) : (parent_or_window)
         unless parent
           raise "Something"
@@ -937,7 +911,7 @@ module Crysterm
         # If a person sets resizable: true, this is expected to happen
         # no matter what; not only if other coordinates are also left empty.
 
-         if (@position.width.nil? && (@position.left.nil? || @position.right.nil?))
+        if (@position.width.nil? && (@position.left.nil? || @position.right.nil?))
           if @position.left.nil? && !@position.right.nil?
             xi = xl - w - iwidth
           else
@@ -946,12 +920,12 @@ module Crysterm
         end
         # end
 
-         if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) &&
+        if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) &&
            (!@scrollable || @_isList))
           if (@position.top.nil? && !@position.bottom.nil?)
-            yi = yl - h - iheight #(iheight == 1 ? 0 : iheight)
+            yi = yl - h - iheight # (iheight == 1 ? 0 : iheight)
           else
-            yl = yi + h + iheight #(iheight == 1 ? 0 : iheight)
+            yl = yi + h + iheight # (iheight == 1 ? 0 : iheight)
           end
         end
 
@@ -1031,7 +1005,6 @@ module Crysterm
     end
 
     module Content
-
       include Helpers
 
       class CLines < Array(String)
@@ -1368,13 +1341,13 @@ module Crysterm
             if (cap = line.match /^{(left|center|right)}/)
               line = line[cap[0].size..]
               align = default_state = case cap[1]
-              when "center"
-                Tput::AlignFlag::Center
-              when "left"
-                Tput::AlignFlag::Left
-              else
-                Tput::AlignFlag::Right
-              end
+                                      when "center"
+                                        Tput::AlignFlag::Center
+                                      when "left"
+                                        Tput::AlignFlag::Left
+                                      else
+                                        Tput::AlignFlag::Right
+                                      end
             end
             if (cap = line.match /{\/(left|center|right)}$/)
               line = line[0...(line.size - cap[0].size)]
@@ -2034,7 +2007,7 @@ module Crysterm
             x = xl - 1
             # XXX remove try's
             if ((@style.try &.scrollbar.try &.ignore_border?) && @border)
-              x+=1
+              x += 1
             end
             if (@always_scroll)
               y = @child_base / (i - (yl - yi))
@@ -2368,7 +2341,7 @@ module Crysterm
 
     class_property style : Style = Style.new
 
-    ######### COMMON WITH SCREEN
+    # ######## COMMON WITH SCREEN
 
     property? destroyed = false
 
@@ -2431,14 +2404,25 @@ module Crysterm
     property? vi : Bool = false
 
     # XXX why are these here and not in @position?
-    #property top = 0
-    #property left = 0
-    #setter width = 0
-    #property height = 0
-    def top; _get_top false end
-    def left; _get_left false end
-    def height; _get_height false end
-    def width; _get_width false end
+    # property top = 0
+    # property left = 0
+    # setter width = 0
+    # property height = 0
+    def top
+      _get_top false
+    end
+
+    def left
+      _get_left false
+    end
+
+    def height
+      _get_height false
+    end
+
+    def width
+      _get_width false
+    end
 
     # Does it accept keyboard input?
     @input = false
@@ -2525,13 +2509,12 @@ module Crysterm
       @window = determine_window,
       index = -1,
       children = [] of Widget
-
     )
       resizable.try { |v| @resizable = v }
       hidden.try { |v| @hidden = v }
       scrollable.try { |v| @scrollable = v }
       overflow.try { |v| @overflow = v }
-      shadow.try { |v| @shadow = v.is_a?(Bool) ? ( v ? 0.5 : nil ) : v }
+      shadow.try { |v| @shadow = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
 
       scrollbar.try { |v| @scrollbar = v }
       track.try { |v| @track = v }
@@ -2598,9 +2581,9 @@ module Crysterm
       # on(Crysterm::Event::Detach) { @lpos = nil }
 
       if @scrollbar
-        #@scrollbar.ch ||= ' '
-        #@style.scrollbar = @style.scrollbar # || @scrollbar.style
-        #if @style.scrollbar.nil?
+        # @scrollbar.ch ||= ' '
+        # @style.scrollbar = @style.scrollbar # || @scrollbar.style
+        # if @style.scrollbar.nil?
         #  @style.scrollbar = Style.new
         #  @style.scrollbar.fg = @scrollbar.fg
         #  @style.scrollbar.bg = @scrollbar.bg
@@ -2608,9 +2591,9 @@ module Crysterm
         #  @style.scrollbar.underline = @scrollbar.underline
         #  @style.scrollbar.inverse = @scrollbar.inverse
         #  @style.scrollbar.invisible = @scrollbar.invisible
-        #}
-        ##@scrollbar.style = @style.scrollbar
-        #if (@track) # || @scrollbar.track)
+        # }
+        # #@scrollbar.style = @style.scrollbar
+        # if (@track) # || @scrollbar.track)
         #  #@track = @scrollbar.track || @track
         #  @style.track = @style.scrollbar.track || @style.track
         #  @track.ch ||= ' '
@@ -2625,17 +2608,17 @@ module Crysterm
         #  #  @style.track.invisible = @track.invisible
         #  #end
         #  #@track.style = @style.track
-        #end
+        # end
         # Allow controlling of the scrollbar via the mouse:
         # TODO
-        #if (@mouse)
+        # if (@mouse)
         #  # TODO
-        #end
+        # end
       end
 
-      ## TODO same as above
-      #if @mouse
-      #end
+      # # TODO same as above
+      # if @mouse
+      # end
 
       if @keys && !@ignore_keys
         on(Crysterm::Event::KeyPress) do |e|
@@ -2726,10 +2709,11 @@ module Crysterm
       @child_base + @child_offset
     end
 
-    def scroll_to(offset, always=false)
+    def scroll_to(offset, always = false)
       scroll 0
       scroll offset - (@child_base + @child_offset), always
     end
+
     # aka set_scroll
 
     def _recalculate_index
@@ -2737,14 +2721,14 @@ module Crysterm
 
       # D O
       # XXX
-      #max = get_scroll_height - (height - iheight)
+      # max = get_scroll_height - (height - iheight)
 
       max = @_clines.size - (height - iheight)
       max = 0 if max < 0
       emax = @_scroll_bottom - (height - iheight)
       emax = 0 if emax < 0
 
-      @child_base = Math.min @child_base, Math.max emax, max 
+      @child_base = Math.min @child_base, Math.max emax, max
 
       if @child_base < 0
         @child_base = 0
@@ -2780,7 +2764,7 @@ module Crysterm
 
       height = (pos.yl - pos.yi) - iheight
       i = get_scroll_height
-      #p
+      # p
 
       if (height < i)
         if @always_scroll
@@ -2838,7 +2822,7 @@ module Crysterm
       bottom
     end
 
-    def scroll(offset, always=false)
+    def scroll(offset, always = false)
       return unless @scrollable
       return if @detached
 
@@ -2987,8 +2971,8 @@ module Crysterm
 
         # XXX is that check above enough? Could be. If not, the alternative
         # would be:
-        #return false if Window === el
-        #return true unless el = el.parent_or_window
+        # return false if Window === el
+        # return true unless el = el.parent_or_window
       end
       false
     end
@@ -3196,21 +3180,21 @@ module Crysterm
 
     def determine_window
       scr = if Window.total <= 1
-        # This will use the first window or create one if none created yet.
-        # (Auto-creation helps writing scripts with less code.)
-        Window.global true
-      elsif s = @parent
-        while s && !(s.is_a? Window)
-          s = s.parent_or_window
-        end
-        if s.is_a? Window
-          s
-        #else
-        #  raise Exception.new("No active window found in parent chain.")
-        end
-      elsif Window.total > 0
-        Window.instances[-1]
-      end
+              # This will use the first window or create one if none created yet.
+              # (Auto-creation helps writing scripts with less code.)
+              Window.global true
+            elsif s = @parent
+              while s && !(s.is_a? Window)
+                s = s.parent_or_window
+              end
+              if s.is_a? Window
+                s
+                # else
+                #  raise Exception.new("No active window found in parent chain.")
+              end
+            elsif Window.total > 0
+              Window.instances[-1]
+            end
 
       unless scr
         raise Exception.new("No Window found anywhere. Create one with Window.new")

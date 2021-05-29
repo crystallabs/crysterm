@@ -142,7 +142,7 @@ module Crysterm
                 abovea = abs
               end
 
-              j+= 1
+              j += 1
             end
             if above
               el.position.top = above.lpos.not_nil!.yl - yi

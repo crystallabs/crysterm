@@ -4,8 +4,7 @@ module Crysterm
     class Line < Box
       @orientation = Tput::Orientation::Vertical
 
-      def initialize(orientation=nil, **box)
-
+      def initialize(orientation = nil, **box)
         orientation.try { |v| @orientation = v }
 
         if @orientation == Tput::Orientation::Vertical

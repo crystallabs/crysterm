@@ -1,9 +1,11 @@
+require "mutex"
+
 require "event_handler"
 
 module Crysterm
-  # Crysterm application. All apps begin by instantiating or subclassing this class.
+  # A screen / physical display for Crysterm. Can be created on anything that is an IO.
   #
-  # If an `Screen` object is not explicitly created, its creation will be
+  # If a `Screen` object is not explicitly created, its creation will be
   # implicitly performed at the time of creation of first `Window`.
   class Screen
     include EventHandler # Event model
@@ -14,8 +16,7 @@ module Crysterm
     # creation of `Screen`s and that `#destroy` is called at termination.
     #
     # `#bind` does not have to be called explicitly because it happens during `#initialize`.
-    # `#destroy` does need to be called, and if/when calling `#destroy` results in no `Screen`s
-    # remaining, program will exit.
+    # `#destroy` does need to be called.
     class_getter instances = [] of self
 
     # Returns number of created `Screen` instances
@@ -27,26 +28,22 @@ module Crysterm
     #
     # An alternative approach, which is currently not implemented, would be to hold the global `Screen`
     # in a class variable, and return it here. In that way, the choice of the default/global `Screen`
-    # would be configurable in runtime.
+    # at a particular time would be configurable in runtime.
     def self.global(create = true)
       (instances[0]? || (create ? new : nil)).not_nil!
     end
 
-    # Access to instance of `Tput`, used for affecting the terminal/IO.
-    getter! tput : ::Tput
-    # XXX Any way to succeed turning this into `getter` without `!`?
+    # :nodoc: Flag indicating whether at least one `Screen` has called `#bind`.
+    @@_bound = false
 
     # Force Unicode (UTF-8) even if auto-detection did not discover terminal support for it?
     property? force_unicode = false
 
-    # Amount of time to wait before redrawing the window, after the terminal resize event is received.
-    #
-    # The default, and also the value used in Qt, is 0.3 seconds. An alternative setting used in console
-    # apps is 0.2 seconds.
-    property resize_timeout : Time::Span = 0.3.seconds
-
     # True if the `Screen` objects are being destroyed to exit program; otherwise returns false.
     # property? exiting : Bool = false
+
+    # True if/after `#destroy` has ran.
+    property? destroyed = false
 
     # Default application title, inherited by `Window`s
     getter title : String? = nil
@@ -57,44 +54,28 @@ module Crysterm
     # Output IO
     property output : IO::FileDescriptor = STDOUT.dup
 
+    # Access to instance of `Tput`, used for affecting the terminal/IO.
+    getter! tput : ::Tput
+    # XXX Any way to succeed turning this into `getter` without `!`?
+
     # :nodoc:
     @_listened_keys : Bool = false
     # XXX groom this
 
-    # :nodoc: Flag indicating whether at least one `Screen` has called `#bind`.
-    @@_bound = false
+    @mutex = Mutex.new
 
     def initialize(
       input = STDIN.dup,
       output = STDOUT.dup,
       @use_buffer = false,
       @force_unicode = false,
-      resize_timeout : Time::Span? = nil,
       terminfo : Bool | Unibilium::Terminfo = true,
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
-      resize_timeout.try { |v| @resize_timeout = v }
-
       # TODO make these check @output, not STDOUT which is probably used.
       @cols = ::Term::Screen.cols || 1
       @rows = ::Term::Screen.rows || 1
 
-      @tput = setup_tput input, output, terminfo
-
-      bind
-
-      listen
-    end
-
-    # Registers an `Screen`. Happens automatically during `initialize`; generally not used directly.
-    def bind
-      @@instances << self unless @@instances.includes? self
-
-      return if @@_bound
-      @@_bound = true
-    end
-
-    def setup_tput(input : IO, output : IO, terminfo : Bool | Unibilium::Terminfo = true)
       @terminfo = case terminfo
                   when true
                     Unibilium::Terminfo.from_env
@@ -117,9 +98,17 @@ module Crysterm
         force_unicode: @force_unicode
       )
 
-      # TODO tput stuff till end of function
+      @mutex.synchronize do
+        unless @@instances.includes? self
+          @@instances << self
+          return if @@_bound
+          @@_bound = true
+          # ... Can do anything else here, which will execute only for first
+          # screen created in the program
+        end
+      end
 
-      @tput
+      listen
     end
 
     # Sets title locally and in the terminal's window bar when possible
@@ -127,6 +116,29 @@ module Crysterm
       @tput.title = @title
     end
 
+    # Displays the main window, set up IO hooks, and starts the main loop.
+    #
+    # This is similar to how it is done in the Qt framework.
+    #
+    # This function will render the specified `window` or global `Window`.
+    #
+    # Note that if using multiple `Screen`s, currently you should provide `window` argument explicitly.
+    def exec(window : Crysterm::Window? = nil)
+      if s = window || Crysterm::Window.global
+        s.render
+      else
+        # XXX This part might be changed in the future, if we allow running line-
+        # rather than window-based apps, or if we allow something headless.
+        raise Exception.new "No Window exists, there is nothing to render and run."
+      end
+
+      listen
+
+      # The main loop is currently just a sleep :)
+      sleep
+    end
+
+    # Sets up IO listeners for keyboard (and mouse, but mouse is currently unsupported).
     def listen
       # Potentially reset window title on exit:
       # if !rxvt?
@@ -172,38 +184,15 @@ module Crysterm
       # end
     end
 
+    # :nodoc:
     def _listen_keys
       return if @_listened_keys
       @_listened_keys = true
       spawn do
         tput.listen do |char, key, sequence|
-          @@instances.each do |app|
-            # XXX What to do here -- i/o has been removed from this class.
-            # It only exists in tput, so how to check/compare?
-            # Do we need to add it back in?
-            # next if app.input != @tput.input
-
-            emit Crysterm::Event::KeyPress.new char, key, sequence
-          end
+          emit Crysterm::Event::KeyPress.new char, key, sequence
         end
       end
-    end
-
-    # Runs the app and starts main loop.
-    #
-    # This is similar to how it is done in the Qt framework.
-    #
-    # This function will render the specified `window` or global `Window`.
-    def exec(window : Crysterm::Window? = nil)
-      if s = window || Crysterm::Window.global
-        s.render
-      else
-        # XXX This part might be changed in the future, if we allow running line-
-        # rather than window-based apps, or if we allow something headless.
-        raise Exception.new "No Window exists, there is nothing to render and run."
-      end
-
-      sleep
     end
 
     # Destroys current `Screen`

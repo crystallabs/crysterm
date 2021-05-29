@@ -18,7 +18,6 @@ module Crysterm
         height: 1,
         left: 2,
         right: 2,
-
       )
 
       @ok = Button.new(
@@ -68,26 +67,26 @@ module Crysterm
         @textinput.value = value
 
         @window.save_focus
-        #focus
+        # focus
 
-        #ev_keys = @window.on(Event::KeyPress) do |e|
+        # ev_keys = @window.on(Event::KeyPress) do |e|
         #  next unless (e.key == Tput::Key::Enter || e.key == Tput::Key::Escape)
         #  done.call nil, e.key == Tput::Key::Enter
-        #end
+        # end
 
-        ev_ok = @ok.on(Event::Press) do
+        ev_ok = @ok.on(::Crysterm::Event::Press) do
           @textinput.submit
         end
 
-        ev_cancel = @cancel.on(Event::Press) do
+        ev_cancel = @cancel.on(::Crysterm::Event::Press) do
           @textinput.cancel
         end
 
         @textinput.read_input do |err, data|
           hide
           @window.restore_focus
-          @ok.off Event::Press, ev_ok
-          @cancel.off Event::Press, ev_cancel
+          @ok.off ::Crysterm::Event::Press, ev_ok
+          @cancel.off ::Crysterm::Event::Press, ev_cancel
 
           callback.try do |c|
             c.call err, data
@@ -96,7 +95,6 @@ module Crysterm
 
         @window.render
       end
-
     end
   end
 end

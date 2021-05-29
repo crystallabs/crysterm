@@ -1,5 +1,7 @@
 # Source Code TODOs
 
+Widget 'Loading' seems broken, and Progressbar, Question, Line
+
 During commits of May 28, for some reason Layouts (maybe other widgets?) don't behave as they did.
 Specifically for Layouts, Layouts now need width/height where previously this wasn't needed.
 (Maybe screen's append function doesn't do all it should?)
@@ -12,10 +14,6 @@ In the code, questions and/or things to verify at some later point are identifie
 
 Things to change/improve are identified with "TODO".
 
-The same things that have been moved from app.cr into app/instance.cr, do the same logical
-thing with those methods in src/widget/screen.cr
-
-src/app/instance.cr: #bind, #exec, #destroy
 src/app/tput.cr -> review everything
 src/namespace.cr -> cleanup some definitions
 src/app.cr -> avoid use of Term::Screen, and make sure to check the size of @output, not STDOUT
@@ -27,7 +25,10 @@ src/widget/question.cr -> needs more work
 
 # List of TODOs in no particular order
 
-All XXX and TODO items in the sources.
+Currently, when a Screen is listening for keyboard, it does this keypress by keypress. See how this affects
+pasting blocks of text into the terminal via mouse. Maybe they could be a "batch" mode where, if a paste
+is detected (possibly by realizing that multiple bytes became available at the same time?), all this
+text is processed as a plain text, at once? Maybe with a flag/toggle to do so?
 
 Currently events are emitted whereever needed with just e.g.: `emit SomeEvent, ...`.
 See if this is OK, or if events to emit should be passed via a channel and always be emitted from a single/same Fiber.

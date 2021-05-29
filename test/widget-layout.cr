@@ -5,11 +5,10 @@ require "../src/crysterm"
 # test file to get the same behavior is in file widget-layout.cr.blessed-patch.
 
 module Crysterm
-
-  s = Screen.new optimization: OptimizationFlag::SmartCSR #, auto_padding: true # auto padding is true in Crysterm by default
+  w = Window.new optimization: OptimizationFlag::SmartCSR # , auto_padding: true # auto padding is true in Crysterm by default
 
   l = layout = Widget::Layout.new(
-    screen: s,
+    window: w,
     top: "center",
     left: "center",
     width: "50%",
@@ -18,11 +17,11 @@ module Crysterm
     layout: ARGV[0]? == "grid" ? LayoutType::Grid : LayoutType::Inline,
     overflow: Overflow::Ignore, # Setting not existing in Blessed. Controls what to do when widget is overflowina available space. Value of 'ignore' ignores the issue and renders such widgets overflown.
     style: Style.new(
-      bg: "red",
-      border: Style.new(
-        fg: "blue"
-      )
+    bg: "red",
+    border: Style.new(
+      fg: "blue"
     )
+  )
   )
 
   box1 = Widget::Box.new(
@@ -146,28 +145,28 @@ module Crysterm
   )
 
   if ARGV[0]? != "grid"
-    sizes = [ 0.2, 1, 0.3, 0.6, 0.3, 0.9, 0.2, 0.75, 0.1, 0.99 ]
+    sizes = [0.2, 1, 0.3, 0.6, 0.3, 0.9, 0.2, 0.75, 0.1, 0.99]
     10.times do |i|
-       b = Widget::Box.new(
-          parent: layout,
-          width: sizes[i] > 0.5 ? 10 : 20,
-          height: sizes[i] > 0.5 ? 5 : 10,
-          border: Crysterm::BorderType::Line,
-          content: (i + 1 + 12).to_s
-       )
+      b = Widget::Box.new(
+        parent: layout,
+        width: sizes[i] > 0.5 ? 10 : 20,
+        height: sizes[i] > 0.5 ? 5 : 10,
+        border: Crysterm::BorderType::Line,
+        content: (i + 1 + 12).to_s
+      )
     end
   end
 
-  s.on(Event::KeyPress) do |e|
-    #STDERR.puts e.inspect
+  w.on(Event::KeyPress) do |e|
+    # STDERR.puts e.inspect
     if e.char == 'q'
-      #e.accept!
-      s.destroy
+      # e.accept!
+      w.screen.destroy
       exit
     end
   end
 
-  s.render
+  w.render
 
-  s.app.exec # We use exec to run the main loop. Similar to Qt.
+  w.screen.exec # We use exec to run the main loop. Similar to Qt.
 end

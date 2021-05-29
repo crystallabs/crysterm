@@ -48,7 +48,7 @@ module Crysterm
         super **box
 
         # Should not be needed when ivar exists already set
-        #@hidden = box["hidden"]?.nil? ? true : box["hidden"]? || false
+        # @hidden = box["hidden"]?.nil? ? true : box["hidden"]? || false
 
         append @ok
         append @cancel

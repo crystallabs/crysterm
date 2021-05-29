@@ -3,7 +3,6 @@ require "./box"
 module Crysterm
   class Widget
     class BigText < Widget::Box
-
       # TODO Why these two default values generate an error (not initialized) if removed?
       property font : String = "#{__DIR__}/../fonts/ter-u14n.json"
       property font_bold : String = "#{__DIR__}/../fonts/ter-u14b.json"
@@ -32,7 +31,7 @@ module Crysterm
         font_bold = "#{__DIR__}/../fonts/ter-u14b.json",
         **box
       )
-        #@ratio = Size.new 0, 0
+        # @ratio = Size.new 0, 0
 
         @normal = load_font font
         @bold = load_font font_bold
@@ -72,7 +71,7 @@ module Crysterm
         end
 
         lines = lines.map do |line|
-          chs = line.chars #line.split ""
+          chs = line.chars # line.split ""
           chs = chs.map do |ch|
             (ch == ' ') ? 0 : 1
           end
@@ -128,13 +127,12 @@ module Crysterm
         flags = (dattr >> 18) & 0x1ff
         attr = (flags << 18) | (bg << 9) | fg
 
-        max_chars = Math.min @text.size, (right-left)//@ratio.width
+        max_chars = Math.min @text.size, (right - left)//@ratio.width
 
         i = 0
 
-        x = @align.right? ? (right-max_chars*@ratio.width) : left
+        x = @align.right? ? (right - max_chars*@ratio.width) : left
         while i < max_chars
-
           ch = @text[i]?.try &.to_s
           break unless ch
           map = @active[ch]?
@@ -156,13 +154,13 @@ module Crysterm
               break if mcell.nil?
 
               # TODO Disabled because currently fch doesn't exist or something? Or was renamed?
-              #if (@fch && @fch != ' ')
+              # if (@fch && @fch != ' ')
               #  lines[y][x + mx].attr = dattr
               #  lines[y][x + mx].char = mcell == 1 ? @fch : @style.char
-              #else
-                lines[y][x + mx].attr = mcell == 1 ? attr : dattr
-                lines[y][x + mx].char = mcell == 1 ? ' ' : @style.char
-              #end
+              # else
+              lines[y][x + mx].attr = mcell == 1 ? attr : dattr
+              lines[y][x + mx].char = mcell == 1 ? ' ' : @style.char
+              # end
 
               mx += 1
             end

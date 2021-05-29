@@ -1,12 +1,10 @@
 require "../src/crysterm"
 
 module Crysterm
-  include Widget # Just for convenience, to not have to write e.g. `Screen`
+  w = Window.new optimization: OptimizationFlag::SmartCSR, auto_padding: false
 
-  s = Screen.new optimization: OptimizationFlag::SmartCSR, auto_padding: false
-
-  b = Box.new(
-    screen: s,
+  b = Widget::Box.new(
+    window: w,
     top: "center",
     left: "center",
     width: "50%",
@@ -18,16 +16,16 @@ module Crysterm
     border: true
   )
 
-  s.on(Event::KeyPress) do |e|
-    #STDERR.puts e.inspect
+  w.on(Event::KeyPress) do |e|
+    # STDERR.puts e.inspect
     if e.char == 'q'
-      #e.accept!
-      s.destroy
+      # e.accept!
+      w.destroy
       exit
     end
   end
 
-  s.render
+  w.render
 
-  s.app.exec
+  w.screen.exec
 end

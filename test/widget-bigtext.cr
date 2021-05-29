@@ -1,32 +1,35 @@
 require "../src/crysterm"
 
 module Crysterm
+  include Tput::Namespace
 
-  s = Screen.new optimization: OptimizationFlag::SmartCSR
+  w = Window.new optimization: OptimizationFlag::SmartCSR
 
   b = Widget::BigText.new \
-    screen: s,
     content: "Hello",
+    # parse_tags: true,
     resizable: true,
     width: "80%",
     height: "resizable",
     border: BorderType::Line,
 
-    #shadow: true,
+    # shadow: true,
     style: Style.new(
       fg: "red",
       bg: "blue",
       bold: false,
-      #fchar: ' ',
+      # fchar: ' ',
       char: '\u2592',
     )
 
-  s.render
+  w.append b
+  b.focus
+  w.render
 
-  s.on(Event::KeyPress) do |e|
+  w.on(Event::KeyPress) do |e|
     e.accept!
     if e.char == 'q'
-      s.destroy
+      w.destroy
       exit
     end
   end

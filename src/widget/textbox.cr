@@ -1,7 +1,6 @@
 module Crysterm
   class Widget
     class TextBox < TextArea
-
       property secret : Bool = false
       property censor : Bool = false
       getter value : String = ""
@@ -13,7 +12,6 @@ module Crysterm
         censor = nil,
         **textarea
       )
-
         super **textarea
 
         secret.try { |v| @secret = v }
@@ -28,7 +26,7 @@ module Crysterm
         super
       end
 
-      def value=(value=nil)
+      def value=(value = nil)
         value ||= @value
 
         if @_value != value
@@ -56,7 +54,6 @@ module Crysterm
       def submit
         @__listener.try &.call Crysterm::Event::KeyPress.new '\r', Tput::Key::Enter
       end
-
     end
   end
 end

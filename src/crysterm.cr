@@ -17,6 +17,20 @@ require "./widget/*"
 module Crysterm
   include Namespace
 
+  @@resize_flag : Atomic(UInt8) = Atomic.new 0u8
+  @@resize_channel : Channel(Bool) = Channel(Bool).new
+
+  # Amount of time to wait before redrawing the window, after the terminal resize event is received.
+  #
+  # The default, and also the value used in Qt, is 0.3 seconds. An alternative setting used in console
+  # apps is 0.2 seconds.
+  class_property resize_interval : Time::Span = 0.3.seconds
+  # class_property resize_interval : Float = 1/29
+
+  Signal::WINCH.trap do
+    schedule_resize
+  end
+
   # Creates and/or returns main `Screen`
   def self.screen
     Screen.global true
@@ -27,6 +41,30 @@ module Crysterm
     Window.global true
   end
 
-  # TODO install WINCH handler
+  def self.schedule_resize
+    _old, succeeded = @@resize_flag.compare_and_set 0, 1
+    if succeeded
+      @@resize_channel.send true
+    end
+  end
 
+  def self.resize_loop
+    loop do
+      if @@resize_channel.receive
+        sleep @@resize_interval
+      end
+      _resize
+      if @@resize_flag.lazy_get == 2
+        break
+      else
+        @@resize_flag.swap 0
+      end
+    end
+  end
+
+  def self._resize
+    # TODO For all `Screen`s, run function to recheck size.
+  end
+
+  spawn resize_loop
 end

@@ -3,10 +3,10 @@ require "../src/crysterm"
 module Crysterm
   include Widget # Just for convenience, to not have to write e.g. `Screen`
 
-  s = Screen.new lock_keys: true, ignore_locked: [ Tput::Key::CtrlQ ]
+  w = Window.new lock_keys: true, ignore_locked: [Tput::Key::CtrlQ]
 
   b = Box.new(
-    screen: s,
+    window: w,
     top: "center",
     left: "center",
     width: "70%",
@@ -15,13 +15,13 @@ module Crysterm
     content: "Press Ctrl+q to quit. It should work even though screen's keys are locked."
   )
 
-  s.on(Event::KeyPress) do |e|
+  w.on(Event::KeyPress) do |e|
     if e.key == Tput::Key::CtrlQ
-      s.destroy
-      
+      w.destroy
+
       case ARGV[0]?
       when "resume"
-        #App.global.input.resume # XXX no resume() on IO::FileDescriptor
+        # App.global.input.resume # XXX no resume() on IO::FileDescriptor
         puts "Resuming stdin (not implemented!)"
       when "end"
         App.global.input.cooked!
@@ -35,7 +35,7 @@ module Crysterm
     end
   end
 
-  s.render
+  w.render
 
-  s.app.exec
+  w.screen.exec
 end
