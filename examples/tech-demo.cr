@@ -8,14 +8,11 @@ module Crysterm
     # parent: s,
     top: 0,
     left: 0,
-    # width: "50%",
-    # height: "50%",
+    width: "100%",
+    height: "100%",
     # border: BorderType::Line,
     layout: LayoutType::Grid,
     overflow: Overflow::Ignore,
-    style: Style.new(
-      bg: "black",
-    )
   )
 
   # b.focus
@@ -195,7 +192,7 @@ module Crysterm
   textv = "TextArea. This is a multi-line user input enabled widget with automatic content wrapping. There is a lot of text that can fit it, when the terminal doesn't use too big font."
   textboxv = " This will add more text to textbox and always show only visible portion."
 
-  #textarea.focus
+  textarea.focus
   loading.start
   loading2.start
   i = 0
@@ -226,5 +223,7 @@ module Crysterm
     end
   end
 
-  sleep
+  s.render
+
+  s.app.exec
 end

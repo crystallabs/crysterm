@@ -247,12 +247,6 @@ module Crysterm
       end
       @resizable = true if @position.resizable?
 
-      if style
-        @style = style
-      else
-        @style = Style.new # defaults are in the class initializer
-      end
-
       case padding
       when Int
         @padding = Padding.new padding, padding, padding, padding
@@ -276,8 +270,10 @@ module Crysterm
                 end
 
       # Add element to parent
-      @parent.try do |parent|
+      if parent = @parent
         parent.append self
+      elsif screen = @screen
+        screen.try &.append self
       end
 
       children.each do |child|
@@ -933,11 +929,6 @@ module Crysterm
 
     # TODO
     # get/set functions for data JSON
-
-    # Moved here from screen. This is node's attribute.
-    def _get_pos
-      self
-    end
 
     # Nop for the basic class
     def free
