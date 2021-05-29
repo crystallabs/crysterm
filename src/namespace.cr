@@ -37,8 +37,8 @@ module Crysterm
     # Overflow behavior when rendering and drawing elements.
     enum Overflow
       Ignore
-      ShrinkElement
-      SkipElement
+      ShrinkWidget
+      SkipWidget
       StopRendering
     end
 

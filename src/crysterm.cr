@@ -1,6 +1,7 @@
 require "json"
 require "event_handler"
 
+require "./ext"
 require "./version"
 require "./macros"
 require "./namespace"

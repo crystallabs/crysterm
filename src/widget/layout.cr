@@ -7,7 +7,7 @@ module Crysterm
       include EventHandler
 
       @layout : LayoutType
-      @renderer : Proc(Element, Int32)?
+      @renderer : Proc(Widget, Int32)?
 
       def initialize(@layout = LayoutType::Inline, @renderer = nil, **element)
         el = element
@@ -216,7 +216,7 @@ module Crysterm
 
           rendered = iterator.call(el, i)
           case rendered
-          when Overflow::SkipElement
+          when Overflow::SkipWidget
             el.lpos = nil
             next
           when Overflow::StopRendering

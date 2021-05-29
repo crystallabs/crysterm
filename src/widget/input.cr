@@ -1,4 +1,3 @@
-require "../node"
 require "./box"
 
 module Crysterm

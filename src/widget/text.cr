@@ -1,5 +1,3 @@
-require "../node"
-
 module Crysterm
   class Widget
 

@@ -8,11 +8,6 @@ Also during commits of 27th/28th, the tech-demo.cr example started exhibiting so
 - Progress bar title is no longer centered, where previously it was
 - Some rendering artifacts are seen
 
-As a leftover from big class hierarchy change, the supporting files for src/widget.cr are still left in
-src/widget/element/*. They are there because they are support files, and putting them under e.g.
-widget/ would clash with actual widgets there. So, just fix this. Most probably by just putting it all
-in the same file of widget.cr, but while keeping a class hierarchy for manageable length of sources.
-
 In the code, questions and/or things to verify at some later point are identified with "XXX".
 
 Things to change/improve are identified with "TODO".
