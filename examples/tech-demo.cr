@@ -2,9 +2,10 @@ require "../src/crysterm"
 
 module Crysterm
   include Tput::Namespace
+  include Widgets
 
   w = Window.new
-  b = layout = Widget::Layout.new(
+  b = layout = Layout.new(
     # parent: s,
     top: 0,
     left: 0,
@@ -18,7 +19,7 @@ module Crysterm
   # b.focus
   w.append b
 
-  box = Widget::Box.new(
+  box = Box.new(
     parent: layout,
     width: 36,
     height: 18,
@@ -26,7 +27,7 @@ module Crysterm
     content: "Plain box with some content."
   )
 
-  button = Widget::Button.new(
+  button = Button.new(
     parent: layout,
     width: 36,
     height: 3,
@@ -43,24 +44,24 @@ module Crysterm
     )
   )
 
-  checkboxes = Widget::Box.new(
+  checkboxes = Box.new(
     parent: layout,
     width: 18,
     height: 18,
     border: BorderType::Bg,
   )
-  checkbox1 = Widget::Checkbox.new parent: checkboxes, content: "Checkbox 1", top: 0
-  checkbox2 = Widget::Checkbox.new parent: checkboxes, content: "Checkbox 2", top: 2
-  checkbox3 = Widget::Checkbox.new parent: checkboxes, content: "Checkbox 3", top: 4
-  checkbox4 = Widget::Checkbox.new parent: checkboxes, content: "Checkbox 4", top: 6
+  checkbox1 = Checkbox.new parent: checkboxes, content: "Checkbox 1", top: 0
+  checkbox2 = Checkbox.new parent: checkboxes, content: "Checkbox 2", top: 2
+  checkbox3 = Checkbox.new parent: checkboxes, content: "Checkbox 3", top: 4
+  checkbox4 = Checkbox.new parent: checkboxes, content: "Checkbox 4", top: 6
 
-  radioset = Widget::RadioSet.new parent: layout, width: 20, height: 18
-  radio1 = Widget::RadioButton.new parent: radioset, content: "Radio button 1", top: 1
-  radio2 = Widget::RadioButton.new parent: radioset, content: "Radio button 2", top: 3
-  radio3 = Widget::RadioButton.new parent: radioset, content: "Radio button 3", top: 5
-  radio4 = Widget::RadioButton.new parent: radioset, content: "Radio button 4", top: 7
+  radioset = RadioSet.new parent: layout, width: 20, height: 18
+  radio1 = RadioButton.new parent: radioset, content: "Radio button 1", top: 1
+  radio2 = RadioButton.new parent: radioset, content: "Radio button 2", top: 3
+  radio3 = RadioButton.new parent: radioset, content: "Radio button 3", top: 5
+  radio4 = RadioButton.new parent: radioset, content: "Radio button 4", top: 7
 
-  progressbar = Widget::ProgressBar.new \
+  progressbar = ProgressBar.new \
     parent: layout,
     content: "{center}Progress bar{/center}",
     filled: 50,
@@ -77,7 +78,7 @@ module Crysterm
       ),
     )
 
-  loading = Widget::Loading.new \
+  loading = Loading.new \
     parent: layout,
     align: AlignFlag::HCenter,
     width: 36,
@@ -87,7 +88,7 @@ module Crysterm
     border: Border.new(type: BorderType::Line),
     style: Style.new(transparent: true, fg: "white", bg: "black", border: Style.new(fg: "white", bg: "black"))
 
-  question = Widget::Question.new \
+  question = Question.new \
     parent: layout,
     content: "Question: {bold}HOT{/bold} or NOT?",
     # hidden: false,
@@ -106,7 +107,7 @@ module Crysterm
     )
   question.ask { }
 
-  # overlayimage = Widget::OverlayImage.new \
+  # overlayimage = OverlayImage.new \
   #  parent: layout,
   #  width: 36,
   #  height: 18,
@@ -120,7 +121,7 @@ module Crysterm
   #    ),
   #  )
 
-  bigtext = Widget::BigText.new(
+  bigtext = BigText.new(
     parent: layout,
     width: 36,
     height: 18,
@@ -128,7 +129,7 @@ module Crysterm
     content: "Big"
   )
 
-  textarea = Widget::TextArea.new(
+  textarea = TextArea.new(
     parent: layout,
     width: 36,
     input_on_focus: true,
@@ -137,7 +138,7 @@ module Crysterm
     content: ""
   )
 
-  textbox = Widget::TextBox.new(
+  textbox = TextBox.new(
     parent: layout,
     width: 36,
     height: 3,
@@ -145,7 +146,7 @@ module Crysterm
     content: "TextBox. One-line element."
   )
 
-  boxtp2 = Widget::Box.new(
+  boxtp2 = Box.new(
     # parent: s,
     width: 60,
     height: 16,
@@ -155,7 +156,7 @@ module Crysterm
     content: "Hello, World! See translucency and shadow.",
     style: Style.new("bg": "#870087")
   )
-  boxtp1 = Widget::Box.new(
+  boxtp1 = Box.new(
     # parent: s,
     top: 14,
     left: 150,
@@ -169,7 +170,7 @@ module Crysterm
   w.append boxtp2
   w.append boxtp1
 
-  loading2 = Widget::Loading.new \
+  loading2 = Loading.new \
     parent: layout,
     align: AlignFlag::Right,
     compact: true,
