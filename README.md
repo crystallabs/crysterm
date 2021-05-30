@@ -47,11 +47,11 @@ Transparency, color blending
 
 As mentioned, Crysterm is inspired by Blessed, Blessed-contrib, and Qt.
 
-Blessed is a large, self-contained framework, whose authors have, apart from Blessed itself, implemented all the
-necessary/prerequisite components themselves, including an event model (a copy of an early Node.js EventEmitter),
-complete termcap/terminfo system (parsing, compilation, output and input from terminal devices, i.e. a better
-version of Ncurses), all types of mouse support, Unicode handling, color manipulation routines, etc.
-These implementations have been embedded in the source code of Blessed itself, reducing the potential for their
+Blessed is a large, self-contained framework. Apart from implementing Blessed, its authors have also implemented
+all the necessary/prerequisite components, including an event model (a copy of an early Node.js EventEmitter),
+complete termcap/terminfo system (parsing, compilation, output, and input from terminal devices; in a word an
+alternative to ncurses), all types of mouse support, Unicode handling, color manipulation routines, etc.
+However, these implementations have been mixed with the rest of source code, reducing the potential for their
 reuse.
 
 In Crysterm, the equivalents of those components have been extracted into individual shards to make them available
@@ -71,7 +71,7 @@ of unibilium is not planned. Both unibilium and native terminfo implementation f
 Benoit de Chezelles (@bew).)
 
 Crysterm closely follows Blessed, and copies of Blessed's comments have been included in Crysterm's sources for
-easier correlation and search between code, files and features. A copy of Blessed's repository also exists in
+easier correlation and search between code, files, and features. A copy of Blessed's repository also exists in
 [docelic/blessed-clean](https://github.com/docelic/blessed-clean). It is a temporary repository in which
 files are deleted after their contents are reviewed and discarded or implemented in Crysterm.
 
@@ -79,73 +79,78 @@ High-level development plan for Crysterm looks as follows:
 
 1. Improving Crysterm itself (fixing bugs, replacing strings with better data types (enums, classes, etc.), and doing new development).
 1. Porting everything of value remaining in blessed-clean (most notably, parsing of terminfo command responses from terminal isn't implemented, mouse support is missing, and a number of final widgets)
-1. Since Blessed repository is no longer in active development, reviewing the updates Blessed has received in forked repositories neo-blessed and blessed-ng, and using them in Crysterm where applicable
+1. (Because Blessed is no longer in active development) Reviewing the updates Blessed has received in forked repositories neo-blessed and blessed-ng, and using them in Crysterm where applicable
 1. Porting over widgets & ideas from blessed-contrib
 1. Developing more line-oriented features. Currently Crysterm is suited for full-screen app development. It would be great if line-based features were added, and if then various small line-based utilities that exist as shards/apps for Crystal would be ported to become Crysterm's line- or window-based widgets
 1. Adding features and principles from Qt
 
-For other/more specific development and contribution ideas, scan sources for "TODO", "NOTE", or "XXX",  see file `TODO`, or see general Crystal wishlist in file `CRYSTAL-WISHLIST`.
+Those are generalal guidelines. For smaller, more specific development/contribution tasks, grep sources for "TODO", "NOTE", and "XXX",  see file `TODO`, and see general Crystal wishlist in file `CRYSTAL-WISHLIST`.
 
 ### Event model
 
-Event model is at the very core of the Crysterm library, implemented via [EventHandler](https://github.com/crystallabs/event_handler).
+Event model is at the very core of Crysterm, implemented via [EventHandler](https://github.com/crystallabs/event_handler).
 
 The events used by Crysterm and its widgets are defined in `src/events.cr`.
 
 ### Class Hierarchy
 
 1. Top-level class is `Screen`. It represents a physical device / terminal used for `@input` and `@output` (Blessed calls this `Program`)
-1. Each screen can have one or more `Window`s (Blessed calls this `Screen`). Windows are full-screen and always occupy full screen
-1. Each window can have one or more `Widget`s which implement the final usefulness
+1. Each screen can have one or more `Window`s (Blessed calls this `Screen`). Windows are always full-screen and represent the whole surface of a Screen
+1. Each window can have one or more `Widget`s, arranged appropriately and implementing final apps
 
-Widgets can be added to windows directly, but some widgets are particularly suitable for containing child elements.
-Most notably the `Layout` widget which can auto-size and auto-position contained widgets in the form of a grid or inline (masonry-like) layout (`LayoutType::{Grid,Inline}`).
+Widgets can be added to windows directly, but some widgets are particularly suitable for containing other/child widgets.
+Most notably this is the `Layout` widget which can auto-size and auto-position contained widgets in the form of a grid or inline (masonry-like) layout (`LayoutType::{Grid,Inline}`).
 
 There is currently no widget that would represent a GUI-like window, like `QWindow` or `QMainWindow` in Qt.
 I am considering adding such a widget by renaming `Screen` to `Display`, current `Window` to `Screen`,
-and then adding `class [Main]Window < Widget`.
+and then adding "Window" (`class [Main]Window < Widget`).
 
-All mentioned classes `include` [EventHandler](https://github.com/crystallabs/event_handler) for events-based
-behaviors.
+All mentioned classes `include` [EventHandler](https://github.com/crystallabs/event_handler) for event-based
+behavior.
 
 ### Positioning and Layouts
 
-Widget positions and sizes work like in Blessed. They can be specified as numbers (e.g. 10), percentages (e.g. "10%"), both (e.g. "10%+2"), or specific keywords ("center", which has an effect of `50% - self.with_or_height//2`).
+Widget positions and sizes work like in Blessed. They can be specified as numbers (e.g. 10), percentages (e.g. "10%"), both (e.g. "10%+2"), or specific keywords (e.g. "center", which has an effect of `50% - self.with_or_height//2`).
 
 That model is simple and works quite OK, although it is not as developed as the model in Qt. For example, there is no way to shrink or grow widgets disproportionally when window is resized, and
-there is no way to define maximum or minimum size. (Well, minimum size calculation does exist for resizable widgets, but only in the form which tries to find the real minimum size based on
-contents rather than programmer's wish. (In Blessed, what we call "resizable" is called "shrinkable" even though it can also grow.))
+there is no way to define maximum or minimum size. (Well, minimum size calculation does exist for resizable widgets, but only for trying to find the minimum size based on
+contents rather than programmer's wishes. (In Blessed, what we call "resizable" is called "shrinkable" even though it can also grow.))
 
-Speaking of layouts, the one layout engine currently existing, `Widget::Layout`, is equivalent to Blessed's. It can arrange widgets in drid-like or masonry-like style.
+Speaking of layouts, the one layout engine currently existing, `Widget::Layout`, is equivalent to Blessed's. It can arrange widgets in a grid-like or masonry-like style.
 There are no equivalents of Qt's `QBoxLayout`.
 
-However, both the positioning and layout code is very manageable and adding Qt-like or other features is only a matter of very reasonable development time.
-(Whether various layouts would then still inherit from `Widget` or not be based on it (like in Qt) is open for consideration.)
+The positioning and layout code is very manageable; adding new Qt-like or other features is not a big task.
+(Whether various layouts would then still inherit from `Widget` or not (like they don't in Qt) is open for consideration.)
 
-Finally, worth noting, there are currently some differences in the type of values supported for `top`, `left`, `width`, `height`, `align`, and `valign`. It would be
-good if all these could be unified to accept the same flexible/unified specification, and if the list of supported specifications would even grow over time.
-(One could pass a block or proc, in which case it'd be called to get the value.)
+Finally, worth noting, there are currently some differences in the exact types or combinations of mentioned values supported for `top`, `left`, `width`, `height`, `align`, and `valign`. It would be
+good if all these could be adjusted to accept the same flexible/unified specification, and if the list of supported specifications would even grow over time.
+(For example, one could want to pass a block or proc, in which case it'd be called to get the value.)
 
 ### Rendering and Drawing
 
 Windows contain widgets. To make windows appear on screen with all the expected contents and current state,
-one calls `Window#render`. This functions calls `Widget#render` on each of immediate children elements which
+one calls `Window#render`. This functions calls `Widget#render` on each of immediate child element, which
 results in the final/rendered state reflected in internal memory.
 
-At the end of rendering, `Window#draw` is called which makes any changes in internal state appear on the
+At the end of rendering, `Window#draw` is automatically called which makes any changes in internal state appear on the
 screen. For efficiency, painter's algorithm is used, only changes ("damage") are rendered, and renderer
 can optionally make use of CSR (change-scroll-region) and/or BCE (back-color-erase) optimizations
 (see `OptimizationFlag`).
 
+When state has been set up for the first time and the program is to start running the display, one
+generally calls `Screen#exec`. This renders the specified (or default) window and starts running the
+program.
+
 ### Text Attributes
 
-Generally speaking, to define foreground and background colors and attributes for strings, one can embed
-appropriate escape sequences into the strings themselves or use Crystal's `Colorize` module.
-
-Crysterm is interoperable with those two approaches, but also implements its own concept of "tags" in strings,
+Crysterm implements its own concept of "tags" in strings,
 such as "{lightblue-fg} text in light blue {/lightblue-fg}". Tags can be embedded in strings directly, applied
-from a Hash with `generate_tags`, and removed from a string with `strip_tags` or `clean_tags`.
+from a Hash with `generate_tags`, or removed from a string with `strip_tags` or `clean_tags`.
 Any existing strings where "{}" should not be interpreted can be protected with `escape_tags`.
+
+One could also define foreground and background colors and attributes by manually
+embedding the appropriate escape sequences into strings or using Crystal's `Colorize` module.
+Crysterm is interoperable with those approaches.
 
 ### Testing
 
