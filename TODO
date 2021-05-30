@@ -20,6 +20,9 @@ state in which all parents keep a reference to the child widget, while the child
 it belongs to the last/most-recently added parent. Check if this is the case, and/or fix whatever
 issues may be revealed while testing this.
 
+In test/widget-valign.cr, the content of the widget is displayed twice. Determine why and fix.
+Also in the Hello, World example, if using valign, the rendering is incorrect.
+
 In the code, questions and/or things to verify at some later point are identified with "XXX".
 
 Things to change/improve are identified with "TODO".
@@ -101,8 +104,6 @@ can be replaced with enums or similar, and with things like 80.percent() or some
 
 Fix screen.destroy() so that it does the same as in Blessed (destroy screen, reset term, exit).
 
-In test/widget-valign.cr, the content of the widget is displayed twice. Determine why and fix.
-
 For good OO, and like in Qt, it would be good if all functions that deal with Points, Sizes, and Dimensions,
 would also accept those specific classes/structs that we'd define, rather than just numbers/Ints. This already
 exists to an extent, e.g. in Tput there is class Size, Point, etc. These should be used more throughout the
@@ -125,3 +126,10 @@ can have a default, possibly calculated in-place to always be distinctive (if ne
 by running a method to pick a color of different value.
 Or, maybe the whole thing needs to be replaced by a fully general Style that can actually act as an App
 theme, with all the functions/fallback for that embedded in the class.
+
+Speaking of Style, some things, like Style#border, and Border class, are not in sync. Maybe Border class
+is completely unused and should be fixed / sorted out?
+
+The positioning of widgets, with Position, Pos, LPos, and so on, at the moment works, but there
+are certainly some unused variables, and/or there might be some methods within those that do not
+work. Review the whole thing for final trimming & verification.

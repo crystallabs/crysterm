@@ -1,6 +1,8 @@
 module Crysterm
   # Module holding the general namespace for Crysterm
   module Namespace
+    Widget = ::Crysterm::Widget
+
     # Rendering and drawing optimization flags.
     @[Flags]
     enum OptimizationFlag

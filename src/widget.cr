@@ -624,7 +624,7 @@ module Crysterm
         return if @width == val
         clear_pos
         @position.width = val
-        emit Event::Resize
+        emit ::Crysterm::Event::Resize
         val
       end
 
@@ -632,7 +632,7 @@ module Crysterm
         return if height == val
         clear_pos
         @position.height = val
-        emit Event::Resize
+        emit ::Crysterm::Event::Resize
         val
       end
 
@@ -655,7 +655,7 @@ module Crysterm
         end
         clear_pos
         @position.left = val
-        emit Event::Move
+        emit ::Crysterm::Event::Move
         val
       end
 
@@ -664,7 +664,7 @@ module Crysterm
         return if (@position.right == val)
         clear_pos
         @position.right = val
-        emit Event::Move
+        emit ::Crysterm::Event::Move
         val
       end
 
@@ -685,7 +685,7 @@ module Crysterm
         return if (@position.top == val)
         clear_pos
         @position.top = val
-        emit Event::Move
+        emit ::Crysterm::Event::Move
         val
       end
 
@@ -694,7 +694,7 @@ module Crysterm
         return if (@position.bottom == val)
         clear_pos
         @position.bottom = val
-        emit Event::Move
+        emit ::Crysterm::Event::Move
         val
       end
 
@@ -702,7 +702,7 @@ module Crysterm
         return if (@position.left == val)
         clear_pos
         @position.left = val
-        emit Event::Move
+        emit ::Crysterm::Event::Move
         val
       end
 
@@ -710,7 +710,7 @@ module Crysterm
         return if (@position.right == val)
         clear_pos
         @position.right = val
-        emit Event::Move
+        emit ::Crysterm::Event::Move
         val
       end
 
@@ -718,7 +718,7 @@ module Crysterm
         return if (@position.top == val)
         clear_pos
         @position.top = val
-        emit Event::Move
+        emit ::Crysterm::Event::Move
         val
       end
 
@@ -726,7 +726,7 @@ module Crysterm
         return if (@position.bottom == val)
         clear_pos
         @position.bottom = val
-        emit Event::Move
+        emit ::Crysterm::Event::Move
         val
       end
 
@@ -3188,7 +3188,7 @@ module Crysterm
     end
 
     def determine_window
-      scr = if Window.total <= 1
+      win = if Window.total <= 1
               # This will use the first window or create one if none created yet.
               # (Auto-creation helps writing scripts with less code.)
               Window.global true
@@ -3205,11 +3205,11 @@ module Crysterm
               Window.instances[-1]
             end
 
-      unless scr
+      unless win
         raise Exception.new("No Window found anywhere. Create one with Window.new")
       end
 
-      scr
+      win
     end
 
     # Returns parent `Widget` (if any) or `Window` to which the widget may be attached.
