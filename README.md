@@ -9,7 +9,7 @@ Crysterm is a console/terminal toolkit for Crystal.
 It tries to follow closely the implementation and behavior of the libraries that inspired it,
 [Blessed](https://github.com/chjj/blessed) and [Blessed-contrib](https://github.com/yaronn/blessed-contrib)
 for Node.js. However, being implemented in Crystal (a proper OO language), it tries to use the language's
-best practices, avoid bugs and problems found from Blessed, and also (especially in the future) incorporate
+best practices, avoid bugs and problems found in Blessed, and also (especially in the future) incorporate
 some aspects of [Qt](https://doc.qt.io/).
 
 ## Trying it out
@@ -45,19 +45,17 @@ Transparency, color blending
 
 ### Introduction
 
-As mentioned, Crysterm is inspired by
-[Blessed](https://github.com/chjj/blessed), [Blessed-contrib](https://github.com/yaronn/blessed-contrib), and Qt.
+As mentioned, Crysterm is inspired by Blessed, Blessed-contrib, and Qt.
 
 Blessed is a large, self-contained framework, whose authors have, apart from Blessed itself, implemented all the
 necessary/prerequisite components themselves, including an event model (a copy of an early Node.js EventEmitter),
 complete termcap/terminfo system (parsing, compilation, output and input from terminal devices, i.e. a better
 version of Ncurses), all types of mouse support, Unicode handling, color manipulation routines, etc.
-
 These implementations have been embedded in the source code of Blessed itself, reducing the potential for their
 reuse.
 
-In Crysterm, the equivalents of those components have been extracted into individual shards to make them usable
-in the whole Crystal ecosystem. The event model has been implemented in
+In Crysterm, the equivalents of those components have been extracted into individual shards to make them available
+to the whole Crystal ecosystem. The event model has been implemented in
 [EventHandler](https://github.com/crystallabs/event_handler), color routines in
 [term_colors](https://github.com/crystallabs/term_colors), terminal output in
 [tput.cr](https://github.com/crystallabs/tput.cr), and terminfo library in
@@ -65,64 +63,79 @@ in the whole Crystal ecosystem. The event model has been implemented in
 
 Unibilium.cr represents Crystal's bindings for
 a C terminfo library called [unibilium](https://github.com/neovim/unibilium/), now maintained by Neovim.
-The package exists for a good number of operating systems and distributions, and one only needs the library
-files, not headers.
+The package exists for a good number of operating systems and distributions, and one only needs the binary
+library installed, not headers.
 There is also a mostly working Crystal-native terminfo library available in
 [terminfo.cr](https://github.com/docelic/terminfo.cr) but, due to other priorities, trying to use that instead
-of unibilium is not planned. Both of these terminfo implementations for Crystal were authored by 
+of unibilium is not planned. Both unibilium and native terminfo implementation for Crystal were implemented by 
 Benoit de Chezelles (@bew).)
 
-Since Crysterm closely follows Blessed, a copy of Blessed's repository exists in
-[docelic/blessed-clean](https://github.com/docelic/blessed-clean). This is a temporary repository in which
-files are deleted after their contents are reviewed and discarded or reimplemented in Crysterm.
+Crysterm closely follows Blessed, and copies of Blessed's comments have been included in Crysterm's sources for
+easier correlation and search between code, files and features. A copy of Blessed's repository also exists in
+[docelic/blessed-clean](https://github.com/docelic/blessed-clean). It is a temporary repository in which
+files are deleted after their contents are reviewed and discarded or implemented in Crysterm.
 
-High-level development plan for Crysterm:
+High-level development plan for Crysterm looks as follows:
 
-1. Improving Crysterm itself (fixing bugs, replacing strings with better data types (enums, classes, etc.), and everything else)
-2. Porting everything of value from blessed-clean (most notably, the complete mouse support still remains to be done as well as a good number of widgets)
-3. Since Blessed repository is no longer in active development, reviewing the updates Blessed has received in forked repositories neo-blessed and blessed-ng, and using them in Crysterm where applicable
-4. Porting over widgets & ideas from blessed-contrib
+1. Improving Crysterm itself (fixing bugs, replacing strings with better data types (enums, classes, etc.), and doing new development).
+1. Porting everything of value remaining in blessed-clean (most notably, parsing of terminfo command responses from terminal isn't implemented, mouse support is missing, and a number of final widgets)
+1. Since Blessed repository is no longer in active development, reviewing the updates Blessed has received in forked repositories neo-blessed and blessed-ng, and using them in Crysterm where applicable
+1. Porting over widgets & ideas from blessed-contrib
+1. Developing more line-oriented features. Currently Crysterm is suited for full-screen app development. It would be great if line-based features were added, and if then various small line-based utilities that exist as shards/apps for Crystal would be ported to become Crysterm's line- or window-based widgets
+1. Adding features and principles from Qt
+
+For other/more specific development and contribution ideas, scan sources for "TODO", "NOTE", or "XXX",  see file `TODO`, or see general Crystal wishlist in file `CRYSTAL-WISHLIST`.
 
 ### Event model
 
-Event model is at the very core of the Crysterm library.
+Event model is at the very core of the Crysterm library, implemented via [EventHandler](https://github.com/crystallabs/event_handler).
 
-The basic class `Event` and system's built-in events come from the `event_handler` shard.
+The events used by Crysterm and its widgets are defined in `src/events.cr`.
 
-The necessary additional events used by built-in widgets are defined in `src/events.cr`.
+### Class Hierarchy
 
-The final event module (mixin) named `EventHandler` also comes from the `event_handler` shard. It provides all the macros and functions needed for a class to be event-enabled, that is, to accept event handlers and emit events.
-Every class that wants to emit its events needs to `include EventHandler`.
+1. Top-level class is `Screen`. It represents a physical device / terminal used for `@input` and `@output` (Blessed calls this `Program`)
+1. Each screen can have one or more `Window`s (Blessed calls this `Screen`). Windows are full-screen and always occupy full screen
+1. Each window can have one or more `Widget`s which implement the final usefulness
 
-For more information about the event model, please see https://github.com/crystallabs/event_handler.
+Widgets can be added to windows directly, but some widgets are particularly suitable for containing child elements.
+Most notably the `Layout` widget which can auto-size and auto-position contained widgets in the form of a grid or inline (masonry-like) layout (`LayoutType::{Grid,Inline}`).
 
-### Class hierarchy
+There is currently no widget that would represent a GUI-like window, like `QWindow` or `QMainWindow` in Qt.
+I am considering adding such a widget by renaming `Screen` to `Display`, current `Window` to `Screen`,
+and then adding `class [Main]Window < Widget`.
 
-Class `Event` represents the parent class of all events.
+All mentioned classes `include` [EventHandler](https://github.com/crystallabs/event_handler) for events-based
+behaviors.
 
-Module `EventHandler` adds methods for adding and removing event handlers, and emitting events.
+### Positioning and Layouts
 
-Basic crysterm class `Node` includes `EventHandler`.
+Widget positions and sizes work like in Blessed. They can be specified as numbers (e.g. 10), percentages (e.g. "10%"), both (e.g. "10%+2"), or specific keywords ("center", which has an effect of `50% - self.with_or_height//2`).
 
-Class `Screen` (of which there can be multiple in a running application) inherits from `Node`.
+That model is simple and works quite OK, although it is not as developed as the model in Qt. For example, there is no way to shrink or grow widgets disproportionally when window is resized, and
+there is no way to define maximum or minimum size. (Well, minimum size calculation does exist for resizable widgets, but only in the form which tries to find the real minimum size based on
+contents rather than programmer's wish. (In Blessed, what we call "resizable" is called "shrinkable" even though it can also grow.))
 
-Class `Element` inherits from `Node`.
+Speaking of layouts, the one layout engine currently existing, `Widget::Layout`, is equivalent to Blessed's. It can arrange widgets in drid-like or masonry-like style.
+There are no equivalents of Qt's `QBoxLayout`.
 
-All other widgets, including layouts, inherit from `Element` or some of its subclasses such as `Box` or `List`.
+However, both the positioning and layout code is very manageable and adding Qt-like or other features is only a matter of very reasonable development time.
+(Whether various layouts would then still inherit from `Widget` or not be based on it (like in Qt) is open for consideration.)
 
-(NOTE: Currently `Screen` does not inherit from `Element`, yet it behaves in some aspects as one,
-and also in a hierarchy chain it is a `@parent` of all elements on it (in addition to also being
-set as `@screen` on every element in it). This should be improved so that `Screen` is not a
-parent of `Element`s.)
+Finally, worth noting, there are currently some differences in the type of values supported for `top`, `left`, `width`, `height`, `align`, and `valign`. It would be
+good if all these could be unified to accept the same flexible/unified specification, and if the list of supported specifications would even grow over time.
+(One could pass a block or proc, in which case it'd be called to get the value.)
 
-### Drawing
+### Rendering and Drawing
 
-Crysterm does not use ncurses. It uses its own functionality to detect term characteristics, parse terminfo,
-and configure the program to output correct escape sequences for the current terminal.
+Windows contain widgets. To make windows appear on screen with all the expected contents and current state,
+one calls `Window#render`. This functions calls `Widget#render` on each of immediate children elements which
+results in the final/rendered state reflected in internal memory.
 
-The renderer makes use of CSR (change-scroll-region) and BCE (back-color-erase). It draws the screen using
-the painter's algorithm, with smart cursor movements and screen damage buffer.
-Only the change (damage) is updated on the screen. All optimizations can be enabled/disabled via options.
+At the end of rendering, `Window#draw` is called which makes any changes in internal state appear on the
+screen. For efficiency, painter's algorithm is used, only changes ("damage") are rendered, and renderer
+can optionally make use of CSR (change-scroll-region) and/or BCE (back-color-erase) optimizations
+(see `OptimizationFlag`).
 
 ### Text Attributes
 
@@ -134,21 +147,17 @@ such as "{lightblue-fg} text in light blue {/lightblue-fg}". Tags can be embedde
 from a Hash with `generate_tags`, and removed from a string with `strip_tags` or `clean_tags`.
 Any existing strings where "{}" should not be interpreted can be protected with `escape_tags`.
 
-### Roadmap
-
-Currently the basics of everything are working, as seen in the demo.
-
-The roadmap, roughly:
-
-1. Improve API (minimal amount of code to do things, sane defaults, etc.)
-1. Improve keyboard support (if/when necessary, seems OK for now)
-1. Gradually support mouse
-1. Support reading values from terminals
-1. Probably more things
-
 ### Testing
 
 Run `crystal spec` as usual.
+
+More specs need to be added.
+
+One option for testing, currently not used, would be to support a way where all output (terminal
+sequences etc.) is written to an IO which is a file. Then simply the contents of that file are
+compared with a known-good snapshot.
+
+This would allow testing complete programs and a bunch of functionality at once, efficiently.
 
 ### Documentation
 
