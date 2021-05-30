@@ -469,7 +469,7 @@ module Crysterm
           attr |= 8 << 18
         elsif (cursor.shape)
           # TODO
-          # cattr = Element.sattr(cursor, cursor.shape)
+          # cattr = Widget.sattr(cursor, cursor.shape)
           # if (cursor.shape.bold || cursor.shape.underline ||
           #    cursor.shape.blink || cursor.shape.inverse ||
           #    cursor.shape.invisible)
@@ -571,7 +571,7 @@ module Crysterm
         focus_offset 1
       end
 
-      # Focuses element `el`. Equivalent to `@window.focused = el`.
+      # Focuses element `el`. Equivalent to `@screen.focused = el`.
       def focus_push(el)
         old = @history[-1]?
         while @history.size >= 10 # XXX non-configurable at the moment
@@ -867,7 +867,7 @@ module Crysterm
         end
         @_ci = -1
 
-        # if (@window.dock_borders?) # XXX why we do @window here? Can we do without?
+        # if (@screen.dock_borders?) # XXX why we do @screen here? Can we do without?
         if @dock_borders
           _dock_borders
         end
@@ -1756,16 +1756,16 @@ module Crysterm
       @children.delete_at i
 
       # TODO Enable
-      # if i = @window.clickable.index(element)
-      #  @window.clickable.delete_at i
+      # if i = @screen.clickable.index(element)
+      #  @screen.clickable.delete_at i
       # end
-      # if i = @window.keyable.index(element)
-      #  @window.keyable.delete_at i
+      # if i = @screen.keyable.index(element)
+      #  @screen.keyable.delete_at i
       # end
 
       element.emit(Crysterm::Event::Reparent, nil)
       emit(Crysterm::Event::Remove, element)
-      # s= @window
+      # s= @screen
       # raise Exception.new() unless s
       # window_clickable= s.clickable
       # window_keyable= s.keyable

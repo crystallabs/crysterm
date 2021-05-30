@@ -2506,7 +2506,7 @@ module Crysterm
 
       @parent = nil,
       name = nil,
-      @window = determine_window,
+      @window = determine_window, # NOTE a todo item about this is in file TODO
       index = -1,
       children = [] of Widget
     )
@@ -2563,8 +2563,8 @@ module Crysterm
       # Add element to parent
       if parent = @parent
         parent.append self
-      elsif window = @window
-        window.try &.append self
+      #elsif window # XXX Don't do; see above for arg @window, and see TODO file
+      #  window.try &.append self
       end
 
       children.each do |child|

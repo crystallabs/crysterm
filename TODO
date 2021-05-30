@@ -1,14 +1,24 @@
 # Source Code TODOs
 
-Widget 'Loading' seems broken, and Progressbar, Question, Line
+Question, Line -> Fix those widgets or they work?
 
 During commits of May 28, for some reason Layouts (maybe other widgets?) don't behave as they did.
 Specifically for Layouts, Layouts now need width/height where previously this wasn't needed.
 (Maybe screen's append function doesn't do all it should?)
 
-Also during commits of 27th/28th, the tech-demo.cr example started exhibiting some artifacts:
-- Progress bar title is no longer centered, where previously it was
-- Some rendering artifacts are seen
+In Widget, @window property is non-nil. If parent is specified, @window gets set to that of the
+parent. If window is specified, it gets set to that. And if window is not specified, the global/
+default window is half-assigned (child thinks that's its window, but window doesn't have that
+child in its list of children, because Window#append was not called). This situation is, at the
+moment, necessary for the current code to work, because many lookups from children into @window
+are made, and also they must NOT exist as children of @window (only top-level, immediate children
+should be in @window's.children list). This should be fixed such that @window becomes nilable and
+all logic everywhere is adjusted accordingly.
+
+Currently it seems possible to append a widget to multiple parents. This produces an inconsistent
+state in which all parents keep a reference to the child widget, while the child widget thinks
+it belongs to the last/most-recently added parent. Check if this is the case, and/or fix whatever
+issues may be revealed while testing this.
 
 In the code, questions and/or things to verify at some later point are identified with "XXX".
 
@@ -24,6 +34,11 @@ src/widget/bigtext.cr -> is that OK or more work needs to be done?
 src/widget/question.cr -> needs more work
 
 # List of TODOs in no particular order
+
+auto_padding is here defined on Window (equivalent of Blessed's Screen). Is it defined in Blessed in
+its Screen too, or it belongs to a different place? (Like, why would auto-padding be on a window
+level, instead of e.g. Screen or global? This would remove some conditional testing whether @window
+is defined.)
 
 Currently, when a Screen is listening for keyboard, it does this keypress by keypress. See how this affects
 pasting blocks of text into the terminal via mouse. Maybe they could be a "batch" mode where, if a paste

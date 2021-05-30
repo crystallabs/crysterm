@@ -124,8 +124,8 @@ module Crysterm
     #
     # Note that if using multiple `Screen`s, currently you should provide `window` argument explicitly.
     def exec(window : Crysterm::Window? = nil)
-      if s = window || Crysterm::Window.global
-        s.render
+      if w = window || Crysterm::Window.global
+        w.render
       else
         # XXX This part might be changed in the future, if we allow running line-
         # rather than window-based apps, or if we allow something headless.
