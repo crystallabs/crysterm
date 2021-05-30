@@ -1457,7 +1457,16 @@ module Crysterm
 
         cline = line.gsub /\x1b\[[\d;]*m/, ""
         len = cline.size
-        s = @resizable ? 0 : width - len
+
+        # XXX In blessed's code (and here) it was done only with this commented
+        # line below. But after/around the May 28 2021 changes, this stopped
+        # centering texts. Upon investigation, it was found this is because a
+        # Layout sets all its children to #resizable=true (shrink=true in blessed),
+        # so the free width (s) results being 0 here. But why this code worked
+        # up to May is unexplained, since no obvious changes were done in this
+        # code. Or, cn this be a bug we unintentionally fixed?
+        #s = @resizable ? 0 : width - len
+        s = (@resizable && !width) ? 0 : width - len
 
         return line if len == 0
         return line if s < 0

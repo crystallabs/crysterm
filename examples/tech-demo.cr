@@ -149,7 +149,7 @@ module Crysterm
     # parent: s,
     width: 60,
     height: 16,
-    top: 24,
+    top: 18,
     left: 160,
     border: BorderType::Bg,
     content: "Hello, World! See translucency and shadow.",
@@ -157,7 +157,7 @@ module Crysterm
   )
   boxtp1 = Widget::Box.new(
     # parent: s,
-    top: 20,
+    top: 14,
     left: 150,
     width: 60,
     height: 14,
@@ -201,7 +201,7 @@ module Crysterm
       [checkbox1, checkbox2, checkbox3, checkbox4][i % 4].toggle
       [radio1, radio2, radio3, radio4][i % 4].check
       progressbar.filled += 5
-      if progressbar.filled == 100
+      if progressbar.filled > 100
         progressbar.filled = 0
       end
 
