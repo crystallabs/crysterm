@@ -30,15 +30,58 @@ again.)
 ## Screenshots
 
 Animated demo
+
 ![Crysterm Demo Video](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/2020-01-29-1.gif)
 
-Transparency, color blending
-![Crysterm Color Blending](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/transparency.png)
-
 Layout engine (masonry layout)
+
 ![Crysterm Masonry Layout](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/layout.png)
 
-## User Manual
+Transparency, color blending
+
+![Crysterm Color Blending](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/transparency.png)
+
+## Development
+
+### Introduction
+
+As mentioned, Crysterm is inspired by
+[Blessed](https://github.com/chjj/blessed), [Blessed-contrib](https://github.com/yaronn/blessed-contrib), and Qt.
+
+Blessed is a large, self-contained framework, whose authors have, apart from Blessed itself, implemented all the
+necessary/prerequisite components themselves, including an event model (a copy of an early Node.js EventEmitter),
+complete termcap/terminfo system (parsing, compilation, output and input from terminal devices, i.e. a better
+version of Ncurses), all types of mouse support, Unicode handling, color manipulation routines, etc.
+
+These implementations have been embedded in the source code of Blessed itself, reducing the potential for their
+reuse.
+
+In Crysterm, the equivalents of those components have been extracted into individual shards to make them usable
+in the whole Crystal ecosystem. The event model has been implemented in
+[EventHandler](https://github.com/crystallabs/event_handler), color routines in
+[term_colors](https://github.com/crystallabs/term_colors), terminal output in
+[tput.cr](https://github.com/crystallabs/tput.cr), and terminfo library in
+[unibilium.cr](https://github.com/crystallabs/unibilium.cr).
+
+Unibilium.cr represents Crystal's bindings for
+a C terminfo library called [unibilium](https://github.com/neovim/unibilium/), now maintained by Neovim.
+The package exists for a good number of operating systems and distributions, and one only needs the library
+files, not headers.
+There is also a mostly working Crystal-native terminfo library available in
+[terminfo.cr](https://github.com/docelic/terminfo.cr) but, due to other priorities, trying to use that instead
+of unibilium is not planned. Both of these terminfo implementations for Crystal were authored by 
+Benoit de Chezelles (@bew).)
+
+Since Crysterm closely follows Blessed, a copy of Blessed's repository exists in
+[docelic/blessed-clean](https://github.com/docelic/blessed-clean). This is a temporary repository in which
+files are deleted after their contents are reviewed and discarded or reimplemented in Crysterm.
+
+High-level development plan for Crysterm:
+
+1. Improving Crysterm itself (fixing bugs, replacing strings with better data types (enums, classes, etc.), and everything else)
+2. Porting everything of value from blessed-clean (most notably, the complete mouse support still remains to be done as well as a good number of widgets)
+3. Since Blessed repository is no longer in active development, reviewing the updates Blessed has received in forked repositories neo-blessed and blessed-ng, and using them in Crysterm where applicable
+4. Porting over widgets & ideas from blessed-contrib
 
 ### Event model
 
@@ -113,7 +156,7 @@ Run `crystal docs` as usual.
 
 ## Thanks
 
-* All the fine folks on FreeNode IRC channel #crystal-lang and on Crystal's Gitter channel https://gitter.im/crystal-lang/crystal
+* All the fine folks on Libera.Chat IRC channel #crystal-lang and on Crystal's Gitter channel https://gitter.im/crystal-lang/crystal
 
 ## Other projects
 
@@ -131,7 +174,7 @@ Colors-related:
 - https://github.com/veelenga/rainbow-spec - Rainbow spec formatter for Crystal
 - https://github.com/watzon/cor - Make working with colors in Crystal fun!
 - https://github.com/icyleaf/terminal - Terminal output styling
-- https://github.com/ndudnicz/selenite - Color representation convertion methods (rgb, hsv, hsl, ...) for Crystal
+- https://github.com/ndudnicz/selenite - Color representation conversion methods (rgb, hsv, hsl, ...) for Crystal
 - https://github.com/jaydorsey/colorls-cr - Crystal toy app for colorizing LS output
 
 Event-related:
