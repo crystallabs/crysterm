@@ -6,9 +6,9 @@
 
 Crysterm is a console/terminal toolkit for Crystal.
 
-It tries to follow closely the implementation and behavior of the libraries that inspired it,
+At the moment it follows closely the implementation and behavior of the libraries that inspired it,
 [Blessed](https://github.com/chjj/blessed) and [Blessed-contrib](https://github.com/yaronn/blessed-contrib)
-for Node.js. However, being implemented in Crystal (a proper OO language), it tries to use the language's
+for Node.js. However, being implemented in Crystal (an OO language), it tries to use the language's
 best practices, avoid bugs and problems found in Blessed, and also (especially in the future) incorporate
 some aspects of [Qt](https://doc.qt.io/).
 
@@ -136,6 +136,10 @@ At the end of rendering, `Window#draw` is automatically called which makes any c
 screen. For efficiency, painter's algorithm is used, only changes ("damage") are rendered, and renderer
 can optionally make use of CSR (change-scroll-region) and/or BCE (back-color-erase) optimizations
 (see `OptimizationFlag`).
+
+Calling `render` whereever appropriate is not a concern because there is code making sure that render
+runs at most once per unit of time (currently 1/29th of a second) and all accumulated changes are
+rendered in one pass.
 
 When state has been set up for the first time and the program is to start running the display, one
 generally calls `Screen#exec`. This renders the specified (or default) window and starts running the
