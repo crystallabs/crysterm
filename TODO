@@ -38,6 +38,10 @@ src/widget/question.cr -> needs more work
 
 # List of TODOs in no particular order
 
+In Crystal, it is customary to call getter and setters. But inherited from Blessed, some setters are now
+still called `set_...`. This causes getters to work OK, but the usual xyz= setters have no (or unexpected)
+behavior. Bring law and order into that area.
+
 auto_padding is here defined on Window (equivalent of Blessed's Screen). Is it defined in Blessed in
 its Screen too, or it belongs to a different place? (Like, why would auto-padding be on a window
 level, instead of e.g. Screen or global? This would remove some conditional testing whether @window
