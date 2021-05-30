@@ -8,9 +8,7 @@ Crysterm is a console/terminal toolkit for Crystal.
 
 It tries to follow closely the implementation and behavior of the libraries that inspired it,
 [Blessed](https://github.com/chjj/blessed) and [Blessed-contrib](https://github.com/yaronn/blessed-contrib)
-for Node.js.
-
-However, being implemented in Crystal (a proper OO language), it tries to adopt to the language's
+for Node.js. However, being implemented in Crystal (a proper OO language), it tries to use the language's
 best practices, avoid bugs and problems found from Blessed, and also (especially in the future) incorporate
 some aspects of [Qt](https://doc.qt.io/).
 
@@ -26,19 +24,19 @@ crystal examples/hello2.cr
 crystal examples/tech-demo.cr
 ```
 
-(If you get an Exception trying to run tech-demo example, maximize your terminal window and try
+(If you get an Exception trying to run the "tech-demo" example, maximize your terminal window and try
 again.)
 
 ## Screenshots
 
-Animated demo:
+Animated demo
 ![Crysterm Demo Video](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/2020-01-29-1.gif)
 
-# Transparency:
-![Crysterm Demo Video](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/transparency.gif)
+Transparency, color blending
+![Crysterm Color Blending](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/transparency.png)
 
-# Layout engine (masonry layout):
-![Crysterm Demo Video](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/layout.gif)
+Layout engine (masonry layout)
+![Crysterm Masonry Layout](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/layout.png)
 
 ## User Manual
 
