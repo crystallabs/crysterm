@@ -1,10 +1,10 @@
 require "../src/crysterm"
 
 module Crysterm
-  w = Window.new
+  w = Screen.new
 
   b = Widget::Box.new(
-    window: w,
+    screen: w,
     style: Style.new(
       bg: "blue",
     ),

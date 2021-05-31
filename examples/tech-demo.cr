@@ -4,7 +4,7 @@ module Crysterm
   include Tput::Namespace
   include Widgets
 
-  w = Window.new
+  w = Screen.new
   b = layout = Layout.new(
     # parent: s,
     top: 0,

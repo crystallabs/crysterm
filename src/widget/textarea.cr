@@ -32,7 +32,7 @@ module Crysterm
 
         super **input
 
-        @window._listen_keys self
+        @screen._listen_keys self
 
         @__update_cursor = ->_update_cursor
 
@@ -58,13 +58,13 @@ module Crysterm
       end
 
       def _update_cursor(get = false)
-        return unless focused? # if @window.focused != self
+        return unless focused? # if @screen.focused != self
 
         lpos = get ? @lpos : _get_coords
         return unless lpos
 
         last = @_clines[-1]
-        app = @window.display
+        app = @screen.display
 
         # Stop a situation where the textarea begins scrolling
         # and the last cline appears to always be empty from the
@@ -151,7 +151,7 @@ module Crysterm
           #  # return(Invoke editor)
           # end
 
-          # TODO can optimize by writing directly to window buffer
+          # TODO can optimize by writing directly to screen buffer
           # here.
           if k == Tput::Key::Escape
             done.try &.call nil, nil
@@ -174,7 +174,7 @@ module Crysterm
         end
 
         if @value != value
-          @window.render
+          @screen.render
         end
       end
 
@@ -223,17 +223,17 @@ module Crysterm
 
       def _read_input
         if !focused?
-          @window.save_focus
+          @screen.save_focus
           focus
         end
 
-        @window.grab_keys = true
+        @screen.grab_keys = true
 
         _update_cursor
-        @window.display.tput.show_cursor
+        @screen.display.tput.show_cursor
 
         # D O:
-        # @window.display.tput.sgr "normal"
+        # @screen.display.tput.sgr "normal"
 
         # Define _done_default
 
@@ -281,16 +281,16 @@ module Crysterm
         # XXX off Crysterm::Event::Blur, @__done.wrapper
         @__done = nil
 
-        @window.display.tput.hide_cursor
-        @window.grab_keys = false
+        @screen.display.tput.hide_cursor
+        @screen.grab_keys = false
 
         unless focused?
-          @window.restore_focus
+          @screen.restore_focus
         end
 
         if @input_on_focus
           # TODO causes Error running at_exit handler: Index out of bounds
-          # @window.rewind_focus
+          # @screen.rewind_focus
         end
 
         # damn

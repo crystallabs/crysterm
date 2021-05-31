@@ -3,7 +3,7 @@ require "../src/crysterm"
 module Crysterm
   include Tput::Namespace
 
-  w = Window.new optimization: OptimizationFlag::SmartCSR
+  w = Screen.new optimization: OptimizationFlag::SmartCSR
 
   b = Widget::BigText.new \
     content: "Hello",

@@ -115,7 +115,7 @@ module Crysterm
         coords = _render
         return unless coords
 
-        lines = @window.lines
+        lines = @screen.lines
         left = coords.xi + ileft
         top = coords.yi + itop
         right = coords.xl - iright

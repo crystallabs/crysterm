@@ -9,7 +9,7 @@ require "./event"
 require "./display"
 require "./helpers"
 require "./colors"
-require "./window"
+require "./screen"
 
 require "./widget/*"
 require "./widgets"
@@ -21,7 +21,7 @@ module Crysterm
   @@resize_flag : Atomic(UInt8) = Atomic.new 0u8
   @@resize_channel : Channel(Bool) = Channel(Bool).new
 
-  # Amount of time to wait before redrawing the window, after the terminal resize event is received.
+  # Amount of time to wait before redrawing the screen, after the terminal resize event is received.
   #
   # The default, and also the value used in Qt, is 0.3 seconds. An alternative setting used in console
   # apps is 0.2 seconds.
@@ -49,9 +49,9 @@ module Crysterm
     Display.global true
   end
 
-  # Creates and/or returns main `Window`
-  def self.window
-    Window.global true
+  # Creates and/or returns main `Screen`
+  def self.screen
+    Screen.global true
   end
 
   def self.schedule_resize

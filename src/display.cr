@@ -6,7 +6,7 @@ module Crysterm
   # A display / physical display for Crysterm. Can be created on anything that is an IO.
   #
   # If a `Display` object is not explicitly created, its creation will be
-  # implicitly performed at the time of creation of first `Window`.
+  # implicitly performed at the time of creation of first `Screen`.
   class Display
     include EventHandler # Event model
 
@@ -45,7 +45,7 @@ module Crysterm
     # True if/after `#destroy` has ran.
     property? destroyed = false
 
-    # Default application title, inherited by `Window`s
+    # Default application title, inherited by `Screen`s
     getter title : String? = nil
 
     # Input IO
@@ -70,7 +70,7 @@ module Crysterm
       @use_buffer = false,
       @force_unicode = false,
       terminfo : Bool | Unibilium::Terminfo = true,
-      @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
+      @term = ENV["TERM"]? || "{% if flag?(:screens) %}screens-ansi{% else %}xterm{% end %}"
     )
       # TODO make these check @output, not STDOUT which is probably used.
       @cols = ::Term::Screen.cols || 1
@@ -111,25 +111,25 @@ module Crysterm
       listen
     end
 
-    # Sets title locally and in the terminal's window bar when possible
+    # Sets title locally and in the terminal's screen bar when possible
     def title=(@title)
       @tput.title = @title
     end
 
-    # Displays the main window, set up IO hooks, and starts the main loop.
+    # Displays the main screen, set up IO hooks, and starts the main loop.
     #
     # This is similar to how it is done in the Qt framework.
     #
-    # This function will render the specified `window` or global `Window`.
+    # This function will render the specified `screen` or global `Screen`.
     #
-    # Note that if using multiple `Display`s, currently you should provide `window` argument explicitly.
-    def exec(window : Crysterm::Window? = nil)
-      if w = window || Crysterm::Window.global
+    # Note that if using multiple `Display`s, currently you should provide `screen` argument explicitly.
+    def exec(screen : Crysterm::Screen? = nil)
+      if w = screen || Crysterm::Screen.global
         w.render
       else
         # XXX This part might be changed in the future, if we allow running line-
-        # rather than window-based apps, or if we allow something headless.
-        raise Exception.new "No Window exists, there is nothing to render and run."
+        # rather than screen-based apps, or if we allow something headless.
+        raise Exception.new "No Screen exists, there is nothing to render and run."
       end
 
       listen
@@ -140,12 +140,12 @@ module Crysterm
 
     # Sets up IO listeners for keyboard (and mouse, but mouse is currently unsupported).
     def listen
-      # Potentially reset window title on exit:
+      # Potentially reset screen title on exit:
       # if !rxvt?
       #  if !vte?
       #    set_title_mode_feature 3
       #  end
-      #  manipulate_window(21) { |err, data|
+      #  manipulate_screen(21) { |err, data|
       #    return if err
       #    @_original_title = data.text
       #  }
@@ -197,7 +197,7 @@ module Crysterm
 
     # Destroys current `Display`
     def destroy
-      Window.instances.each &.destroy
+      Screen.instances.each &.destroy
       @@instances.delete self
       @input.cooked!
       @destroyed = true
@@ -213,11 +213,11 @@ end
 # start.drag.time,
 # stylesheet -> string
 # wheelscrolllines
-# close.all.windows, active.modal.window, active.popup.window
-# active.window, alert(), all_widgets
+# close.all.screens, active.modal.screen, active.popup.screen
+# active.screen, alert(), all_widgets
 # Event::AboutToQuit
 # ability to set terminal font
 # something about effects
 # NavigationMode
 # palette?
-# set.active.window
+# set.active.screen

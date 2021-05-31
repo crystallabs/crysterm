@@ -1,10 +1,10 @@
 require "../src/crysterm"
 
 module Crysterm
-  w = Window.new optimization: OptimizationFlag::SmartCSR, auto_padding: false
+  w = Screen.new optimization: OptimizationFlag::SmartCSR, auto_padding: false
 
   b = Widget::Box.new(
-    window: w,
+    screen: w,
     top: "center",
     left: "center",
     width: "50%",

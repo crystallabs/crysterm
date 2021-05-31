@@ -3,10 +3,10 @@ require "../src/crysterm"
 module Crysterm
   include Widget # Just for convenience, to not have to write e.g. `Display`
 
-  w = Window.new lock_keys: true, ignore_locked: [Tput::Key::CtrlQ]
+  w = Screen.new lock_keys: true, ignore_locked: [Tput::Key::CtrlQ]
 
   b = Box.new(
-    window: w,
+    screen: w,
     top: "center",
     left: "center",
     width: "70%",

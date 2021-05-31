@@ -58,25 +58,25 @@ module Crysterm
         show
         set_content @text || @orig_text
 
-        @window.lock_keys = true
+        @screen.lock_keys = true
 
         @spinner = Fiber.new {
           loop do
             break if @should_exit
             @icon.set_content icons[@pos]
             @pos = (@pos + @step) % icons.size
-            @window.render
+            @screen.render
             sleep @interval
           end
         }.enqueue
       end
 
       def stop
-        @window.lock_keys = false
+        @screen.lock_keys = false
         hide
         @should_exit = true
         @text = nil
-        @window.render
+        @screen.render
       end
 
       def toggle

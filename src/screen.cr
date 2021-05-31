@@ -3,8 +3,8 @@ require "./macros"
 require "./widget"
 
 module Crysterm
-  # Represents a window.
-  class Window
+  # Represents a screen.
+  class Screen
     # Collection of helper chars for drawing borders and their angles
     module Angles
       @angles = {
@@ -330,7 +330,7 @@ module Crysterm
       end
     end
 
-    # Individual window cell
+    # Individual screen cell
     class Cell
       include Comparable(self)
       # Same as @dattr
@@ -363,7 +363,7 @@ module Crysterm
       end
     end
 
-    # Individual window row
+    # Individual screen row
     class Row < Array(Cell)
       property dirty = false
 
@@ -643,21 +643,21 @@ module Crysterm
           # NOTE: This is different from the other "visible" values - it needs the
           # visible height of the scrolling element itself, not the element within it.
           # NOTE why a/i values can be nil?
-          visible = cur.window.height - el.atop.not_nil! - el.itop.not_nil! - el.abottom.not_nil! - el.ibottom.not_nil!
+          visible = cur.screen.height - el.atop.not_nil! - el.itop.not_nil! - el.abottom.not_nil! - el.ibottom.not_nil!
           if cur.rtop < el.child_base
-            # XXX remove 'if' when Window is no longer parent of elements
+            # XXX remove 'if' when Screen is no longer parent of elements
             if el.is_a? Widget
               el.scroll_to cur.rtop
             end
-            cur.window.render
+            cur.screen.render
           elsif (cur.rtop + cur.height - cur.ibottom) > (el.child_base + visible)
             # Explanation for el.itop here: takes into account scrollable elements
             # with borders otherwise the element gets covered by the bottom border:
-            # XXX remove 'if' when Window is no longer parent of elements
+            # XXX remove 'if' when Screen is no longer parent of elements
             if el.is_a? Widget
               el.scroll_to cur.rtop - (el.height - cur.height) + el.itop, true
             end
-            cur.window.render
+            cur.screen.render
           end
         end
 
@@ -750,7 +750,7 @@ module Crysterm
       # # it is more optimal for terminal rendering.
       # property smart_csr : Bool = false
 
-      # # Enable CSR on any element within 20 columns of the window edges on either side.
+      # # Enable CSR on any element within 20 columns of the screen edges on either side.
       # # It is faster than smart_csr, but may cause flickering depending on what is on
       # # each side of the element.
       # property fast_csr : Bool = false
@@ -850,11 +850,11 @@ module Crysterm
 
         # TODO: Possibly get rid of .dirty altogether.
         # TODO: Could possibly drop .dirty and just clear the `lines` buffer every
-        # time before a window.render. This way clearRegion doesn't have to be
+        # time before a screen.render. This way clearRegion doesn't have to be
         # called in arbitrary places for the sake of clearing a spot where an
         # element used to be (e.g. when an element moves or is hidden). There could
         # be some overhead though.
-        # window.clearRegion(0, this.cols, 0, this.rows);
+        # screen.clearRegion(0, this.cols, 0, this.rows);
         @_ci = 0
         @children.each do |el|
           el.index = @_ci
@@ -878,7 +878,7 @@ module Crysterm
         # self.draw if draw
         draw
 
-        # Workaround to deal with cursor pos before the window
+        # Workaround to deal with cursor pos before the screen
         # has rendered and lpos is not reliable (stale).
         # Only some element have this functions; for others it's a noop.
         focused.try &._update_cursor(true)
@@ -912,7 +912,7 @@ module Crysterm
       @pre = IO::Memory.new 1024
       @post = IO::Memory.new 1024
 
-      # Draws the window based on the contents of the output buffer.
+      # Draws the screen based on the contents of the output buffer.
       def draw(start = 0, stop = @lines.size - 1)
         # D O:
         # emit Event::PreDraw
@@ -1307,7 +1307,7 @@ module Crysterm
         o
       end
 
-      # Inserts lines into the window. (If CSR is used, it bypasses the output buffer.)
+      # Inserts lines into the screen. (If CSR is used, it bypasses the output buffer.)
       def insert_line(n, y, top, bottom)
         # D O:
         # if (y == top)
@@ -1341,7 +1341,7 @@ module Crysterm
         end
       end
 
-      # Inserts lines into the window using ncurses-compatible method. (If CSR is used, it bypasses the output buffer.)
+      # Inserts lines into the screen using ncurses-compatible method. (If CSR is used, it bypasses the output buffer.)
       #
       # This is how ncurses does it.
       # Scroll down (up cursor-wise).
@@ -1373,7 +1373,7 @@ module Crysterm
         end
       end
 
-      # Deletes lines from the window. (If CSR is used, it bypasses the output buffer.)
+      # Deletes lines from the screen. (If CSR is used, it bypasses the output buffer.)
       def delete_line(n, y, top, bottom)
         # D O:
         # if (y == top)
@@ -1408,7 +1408,7 @@ module Crysterm
         end
       end
 
-      # Deletes lines from the window using ncurses-compatible method. (If CSR is used, it bypasses the output buffer.)
+      # Deletes lines from the screen using ncurses-compatible method. (If CSR is used, it bypasses the output buffer.)
       #
       # This is how ncurses does it.
       # Scroll down (up cursor-wise).
@@ -1441,22 +1441,22 @@ module Crysterm
         end
       end
 
-      # Inserts line at bottom of window.
+      # Inserts line at bottom of screen.
       def insert_bottom(top, bottom)
         delete_line(1, top, top, bottom)
       end
 
-      # Inserts line at top of window.
+      # Inserts line at top of screen.
       def insert_top(top, bottom)
         insert_line(1, top, top, bottom)
       end
 
-      # Deletes line at bottom of window.
+      # Deletes line at bottom of screen.
       def delete_bottom(top, bottom)
         clear_region(0, width, bottom, bottom)
       end
 
-      # Deletes line at top of window.
+      # Deletes line at top of screen.
       def delete_top(top, bottom)
         # Same as: insert_bottom(top, bottom)
         delete_line(1, top, top, bottom)
@@ -1574,12 +1574,12 @@ module Crysterm
         pos._clean_sides = true
       end
 
-      # Clears any chosen region on the window.
+      # Clears any chosen region on the screen.
       def clear_region(xi, xl, yi, yl, override)
         fill_region @dattr, ' ', xi, xl, yi, yl, override
       end
 
-      # Fills any chosen region on the window with chosen character and attributes.
+      # Fills any chosen region on the screen with chosen character and attributes.
       def fill_region(attr, ch, xi, xl, yi, yl, override = false)
         lines = @lines
 
@@ -1614,7 +1614,7 @@ module Crysterm
 end
 
 module Crysterm
-  class Window
+  class Screen
     include EventHandler
 
     include Focus
@@ -1627,7 +1627,7 @@ module Crysterm
 
     class_getter instances = [] of self
 
-    @@global : Crysterm::Window?
+    @@global : Crysterm::Screen?
 
     def self.total
       @@instances.size
@@ -1659,9 +1659,9 @@ module Crysterm
       # end
     end
 
-    # Destroys self and removes it from the global list of `Window`s.
+    # Destroys self and removes it from the global list of `Screen`s.
     # Also remove all global events relevant to the object.
-    # If no windows remain, the app is essentially reset to its initial state.
+    # If no screens remain, the app is essentially reset to its initial state.
     def destroy
       leave
 
@@ -1688,10 +1688,10 @@ module Crysterm
 
     property? destroyed = false
 
-    # Is this `Window` detached?
+    # Is this `Screen` detached?
     #
-    # Window is a self-sufficient element, so by default it is always considered 'attached'.
-    # This value could in the future be used to maybe hide/deactivate windows temporarily etc.
+    # Screen is a self-sufficient element, so by default it is always considered 'attached'.
+    # This value could in the future be used to maybe hide/deactivate screens temporarily etc.
     property? detached = false
 
     def append(element)
@@ -1706,14 +1706,14 @@ module Crysterm
 
     def insert(element, i = -1)
       # XXX Never triggers. But needs to be here for type safety.
-      # Hopefully can be removed when Window is no longer parent of any Widgets.
-      if element.is_a? Window
+      # Hopefully can be removed when Screen is no longer parent of any Widgets.
+      if element.is_a? Screen
         raise "Unexpected"
       end
 
       element.detach
 
-      element.window = self
+      element.screen = self
 
       # if i == -1
       #  @children.push element
@@ -1767,8 +1767,8 @@ module Crysterm
       emit(Crysterm::Event::Remove, element)
       # s= @display
       # raise Exception.new() unless s
-      # window_clickable= s.clickable
-      # window_keyable= s.keyable
+      # screen_clickable= s.clickable
+      # screen_keyable= s.keyable
 
       emt = ->(el : Widget) {
         n = el.detached? != @detached
@@ -1867,8 +1867,8 @@ module Crysterm
         render
 
         # XXX Can we replace this with each_descendant?
-        f = uninitialized Widget | Window -> Nil
-        f = ->(el : Widget | Window) {
+        f = uninitialized Widget | Screen -> Nil
+        f = ->(el : Widget | Screen) {
           el.emit Crysterm::Event::Resize
           el.children.each { |c| f.call c }
         }
@@ -1909,7 +1909,7 @@ module Crysterm
     #  end
     # end
 
-    # And this is for the other/alternative method where the window
+    # And this is for the other/alternative method where the screen
     # first gets the keys, then potentially passes onto children
     # elements.
     def _listen_keys(el : Widget? = nil)
@@ -1922,9 +1922,9 @@ module Crysterm
       @_listenedKeys = true
 
       # NOTE: The event emissions used to be reversed:
-      # element + window
+      # element + screen
       # They are now:
-      # window, element and el's parents until one #accept!s it.
+      # screen, element and el's parents until one #accept!s it.
       # After the first keypress emitted, the handler
       # checks to make sure grab_keys, lock_keys, and focused
       # weren't changed, and handles those situations appropriately.
@@ -1938,7 +1938,7 @@ module Crysterm
           emit_key self, e
         end
 
-        # If something changed from the window key handler, stop.
+        # If something changed from the screen key handler, stop.
         if (@grab_keys != grab_keys) || @lock_keys || e.accepted?
           next
         end
@@ -2017,7 +2017,7 @@ module Crysterm
       end
 
       # XXX Livable, but boy no.
-      {% if flag? :windows %}
+      {% if flag? :screens %}
         `cls`
       {% end %}
 
@@ -2032,7 +2032,7 @@ module Crysterm
       alloc
     end
 
-    # Allocates window buffers (a new pending/staging buffer and a new output buffer).
+    # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
     def alloc(dirty = false)
       # Initialize @lines better than this.
       rows.times do |i|
@@ -2057,7 +2057,7 @@ module Crysterm
       display.tput.clear
     end
 
-    # Reallocates window buffers and clear the window.
+    # Reallocates screen buffers and clear the screen.
     def realloc
       alloc dirty: true
     end
@@ -2091,7 +2091,7 @@ module Crysterm
       display.tput.flush
 
       # :-)
-      {% if flag? :windows %}
+      {% if flag? :screens %}
         `cls`
       {% end %}
     end
@@ -2100,27 +2100,27 @@ module Crysterm
     def post_enter
     end
 
-    # Returns current window width.
+    # Returns current screen width.
     # XXX Remove in favor of other ways to retrieve it.
     def columns
-      # XXX replace with a per-window method
+      # XXX replace with a per-screen method
       display.tput.screen.width
     end
 
-    # Returns current window height.
+    # Returns current screen height.
     # XXX Remove in favor of other ways to retrieve it.
     def rows
-      # XXX replace with a per-window method
+      # XXX replace with a per-screen method
       display.tput.screen.height
     end
 
-    # Returns current window width.
+    # Returns current screen width.
     # XXX Remove in favor of other ways to retrieve it.
     def width
       columns
     end
 
-    # Returns current window height.
+    # Returns current screen height.
     # XXX Remove in favor of other ways to retrieve it.
     def height
       rows

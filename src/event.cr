@@ -6,10 +6,10 @@ module Crysterm
   module Event
     include EventHandler
 
-    # Emitted when element is attached to a window directly or somewhere in its ancestry
+    # Emitted when element is attached to a screen directly or somewhere in its ancestry
     event Attach
 
-    # Emitted when element is detached from a window directly or somewhere in its ancestry
+    # Emitted when element is detached from a screen directly or somewhere in its ancestry
     event Detach
 
     # Emitted when element gains a new parent
@@ -39,7 +39,7 @@ module Crysterm
     # Emitted on a warning event
     event Warning, message : String
 
-    # Emitted when window is resized.
+    # Emitted when screen is resized.
     event Resize
 
     # Emitted when object is hidden

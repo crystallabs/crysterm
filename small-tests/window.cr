@@ -5,7 +5,7 @@ class X
   include EventHandler
 
   def initialize
-    w = Window.new
+    w = Screen.new
 
     # l = Widget::Layout.new width: "100%", height: "100%", border: true, style: Style.new( fg: "black", bg: "white" )
     # w.append l

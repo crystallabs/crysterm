@@ -81,7 +81,7 @@ High-level development plan for Crysterm looks as follows:
 1. Porting everything of value remaining in blessed-clean (most notably, parsing of terminfo command responses from terminal isn't implemented, mouse support is missing, and a number of final widgets)
 1. (Because Blessed is no longer in active development) Reviewing the updates Blessed has received in forked repositories neo-blessed and blessed-ng, and using them in Crysterm where applicable
 1. Porting over widgets & ideas from blessed-contrib
-1. Developing more line-oriented features. Currently Crysterm is suited for full-screen app development. It would be great if line-based features were added, and if then various small line-based utilities that exist as shards/apps for Crystal would be ported to become Crysterm's line- or window-based widgets
+1. Developing more line-oriented features. Currently Crysterm is suited for full-screen app development. It would be great if line-based features were added, and if then various small line-based utilities that exist as shards/apps for Crystal would be ported to become Crysterm's line- or screen-based widgets
 1. Adding features and principles from Qt
 
 Those are generalal guidelines. For smaller, more specific development/contribution tasks, grep sources for "TODO", "NOTE", and "XXX",  see file `TODO`, and see general Crystal wishlist in file `CRYSTAL-WISHLIST`.
@@ -94,16 +94,15 @@ The events used by Crysterm and its widgets are defined in `src/events.cr`.
 
 ### Class Hierarchy
 
-1. Top-level class is `Screen`. It represents a physical device / terminal used for `@input` and `@output` (Blessed calls this `Program`)
-1. Each screen can have one or more `Window`s (Blessed calls this `Screen`). Windows are always full-screen and represent the whole surface of a Screen
-1. Each window can have one or more `Widget`s, arranged appropriately and implementing final apps
+1. Top-level class is `Display`. It represents a physical device / terminal used for `@input` and `@output` (Blessed calls this `Program`)
+1. Each display can have one or more `Screen`s (Blessed also calls this `Screen`). Screens are always full-screen and represent the whole surface of a Display
+1. Each screen can have one or more `Widget`s, arranged appropriately to implement final apps
 
-Widgets can be added to windows directly, but some widgets are particularly suitable for containing other/child widgets.
+Widgets can be added and positioned on the screen directly, but some widgets are particularly suitable for containing and arranging other/child widgets.
 Most notably this is the `Layout` widget which can auto-size and auto-position contained widgets in the form of a grid or inline (masonry-like) layout (`LayoutType::{Grid,Inline}`).
 
-There is currently no widget that would represent a GUI-like window, like `QWindow` or `QMainWindow` in Qt.
-I am considering adding such a widget by renaming `Screen` to `Display`, current `Window` to `Screen`,
-and then adding "Window" (`class [Main]Window < Widget`).
+There are currently no widgets that would represent GUI windows like `QWindow` or `QMainWindow` in Qt
+(with title bar, menu bar, status bar, etc.), but implementing them is planned. (`Window`s will be considered `Widget`s.)
 
 All mentioned classes `include` [EventHandler](https://github.com/crystallabs/event_handler) for event-based
 behavior.
@@ -128,12 +127,12 @@ good if all these could be adjusted to accept the same flexible/unified specific
 
 ### Rendering and Drawing
 
-Windows contain widgets. To make windows appear on screen with all the expected contents and current state,
-one calls `Window#render`. This functions calls `Widget#render` on each of immediate child element, which
+Screens contain widgets. To make screens appear on display with all the expected contents and current state,
+one calls `Screen#render`. This functions calls `Widget#render` on each of immediate child element, which
 results in the final/rendered state reflected in internal memory.
 
-At the end of rendering, `Window#draw` is automatically called which makes any changes in internal state appear on the
-screen. For efficiency, painter's algorithm is used, only changes ("damage") are rendered, and renderer
+At the end of rendering, `Screen#draw` is automatically called which makes any changes in internal state appear on the
+display. For efficiency, painter's algorithm is used, only changes ("damage") are rendered, and renderer
 can optionally make use of CSR (change-scroll-region) and/or BCE (back-color-erase) optimizations
 (see `OptimizationFlag`).
 
@@ -142,7 +141,7 @@ runs at most once per unit of time (currently 1/29th of a second) and all accumu
 rendered in one pass.
 
 When state has been set up for the first time and the program is to start running the display, one
-generally calls `Screen#exec`. This renders the specified (or default) window and starts running the
+generally calls `Display#exec`. This renders the specified (or default) screen and starts running the
 program.
 
 ### Text Attributes
