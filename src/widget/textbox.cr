@@ -5,14 +5,15 @@ module Crysterm
       property censor : Bool = false
       getter value : String = ""
 
-      @scrollable = false
-
       def initialize(
         secret = nil,
         censor = nil,
+        parse_tags = false,
+        input_on_focus = true,
+        scrollable = false,
         **textarea
       )
-        super **textarea
+        super **textarea, parse_tags: parse_tags, input_on_focus: input_on_focus, scrollable: scrollable
 
         secret.try { |v| @secret = v }
         censor.try { |v| @censor = v }
