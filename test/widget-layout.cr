@@ -161,12 +161,12 @@ module Crysterm
     # STDERR.puts e.inspect
     if e.char == 'q'
       # e.accept!
-      w.screen.destroy
+      w.display.destroy
       exit
     end
   end
 
   w.render
 
-  w.screen.exec # We use exec to run the main loop. Similar to Qt.
+  w.display.exec # We use exec to run the main loop. Similar to Qt.
 end

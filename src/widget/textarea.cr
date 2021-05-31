@@ -64,7 +64,7 @@ module Crysterm
         return unless lpos
 
         last = @_clines[-1]
-        app = @window.screen
+        app = @window.display
 
         # Stop a situation where the textarea begins scrolling
         # and the last cline appears to always be empty from the
@@ -230,10 +230,10 @@ module Crysterm
         @window.grab_keys = true
 
         _update_cursor
-        @window.screen.tput.show_cursor
+        @window.display.tput.show_cursor
 
         # D O:
-        # @window.screen.tput.sgr "normal"
+        # @window.display.tput.sgr "normal"
 
         # Define _done_default
 
@@ -281,7 +281,7 @@ module Crysterm
         # XXX off Crysterm::Event::Blur, @__done.wrapper
         @__done = nil
 
-        @window.screen.tput.hide_cursor
+        @window.display.tput.hide_cursor
         @window.grab_keys = false
 
         unless focused?

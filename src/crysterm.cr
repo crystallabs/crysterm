@@ -6,7 +6,7 @@ require "./version"
 require "./macros"
 require "./namespace"
 require "./event"
-require "./screen"
+require "./display"
 require "./helpers"
 require "./colors"
 require "./window"
@@ -44,9 +44,9 @@ module Crysterm
     exit
   end
 
-  # Creates and/or returns main `Screen`
-  def self.screen
-    Screen.global true
+  # Creates and/or returns main `Display`
+  def self.display
+    Display.global true
   end
 
   # Creates and/or returns main `Window`
@@ -76,12 +76,12 @@ module Crysterm
   end
 
   def self._resize
-    # TODO For all `Screen`s, run function to recheck size.
+    # TODO For all `Display`s, run function to recheck size.
   end
 
   spawn resize_loop
 
   at_exit do
-    Screen.instances.each &.destroy
+    Display.instances.each &.destroy
   end
 end

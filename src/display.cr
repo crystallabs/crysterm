@@ -3,43 +3,43 @@ require "mutex"
 require "event_handler"
 
 module Crysterm
-  # A screen / physical display for Crysterm. Can be created on anything that is an IO.
+  # A display / physical display for Crysterm. Can be created on anything that is an IO.
   #
-  # If a `Screen` object is not explicitly created, its creation will be
+  # If a `Display` object is not explicitly created, its creation will be
   # implicitly performed at the time of creation of first `Window`.
-  class Screen
+  class Display
     include EventHandler # Event model
 
     # List of existing instances.
     #
     # For automatic management of this list, make sure that `#bind` is called at
-    # creation of `Screen`s and that `#destroy` is called at termination.
+    # creation of `Display`s and that `#destroy` is called at termination.
     #
     # `#bind` does not have to be called explicitly because it happens during `#initialize`.
     # `#destroy` does need to be called.
     class_getter instances = [] of self
 
-    # Returns number of created `Screen` instances
+    # Returns number of created `Display` instances
     def self.total
       @@instances.size
     end
 
-    # Creates and/or returns the "global" (first) instance of `Screen`.
+    # Creates and/or returns the "global" (first) instance of `Display`.
     #
-    # An alternative approach, which is currently not implemented, would be to hold the global `Screen`
-    # in a class variable, and return it here. In that way, the choice of the default/global `Screen`
+    # An alternative approach, which is currently not implemented, would be to hold the global `Display`
+    # in a class variable, and return it here. In that way, the choice of the default/global `Display`
     # at a particular time would be configurable in runtime.
     def self.global(create = true)
       (instances[0]? || (create ? new : nil)).not_nil!
     end
 
-    # :nodoc: Flag indicating whether at least one `Screen` has called `#bind`.
+    # :nodoc: Flag indicating whether at least one `Display` has called `#bind`.
     @@_bound = false
 
     # Force Unicode (UTF-8) even if auto-detection did not discover terminal support for it?
     property? force_unicode = false
 
-    # True if the `Screen` objects are being destroyed to exit program; otherwise returns false.
+    # True if the `Display` objects are being destroyed to exit program; otherwise returns false.
     # property? exiting : Bool = false
 
     # True if/after `#destroy` has ran.
@@ -104,7 +104,7 @@ module Crysterm
           return if @@_bound
           @@_bound = true
           # ... Can do anything else here, which will execute only for first
-          # screen created in the program
+          # display created in the program
         end
       end
 
@@ -122,7 +122,7 @@ module Crysterm
     #
     # This function will render the specified `window` or global `Window`.
     #
-    # Note that if using multiple `Screen`s, currently you should provide `window` argument explicitly.
+    # Note that if using multiple `Display`s, currently you should provide `window` argument explicitly.
     def exec(window : Crysterm::Window? = nil)
       if w = window || Crysterm::Window.global
         w.render
@@ -195,7 +195,7 @@ module Crysterm
       end
     end
 
-    # Destroys current `Screen`
+    # Destroys current `Display`
     def destroy
       Window.instances.each &.destroy
       @@instances.delete self

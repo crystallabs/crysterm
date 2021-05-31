@@ -3,15 +3,15 @@ require "../src/crysterm"
 class MyProg
   include Crysterm
 
-  # `Screen` is a phyiscal device (terminal screen).
+  # `Display` is a phyiscal device (terminal hardware or emulator).
   # It can be instantiated manually as shown, or for quick coding it can be
   # skipped and it will be created automatically when needed.
-  s = Screen.new
+  s = Display.new
 
   # `Window` is a full-screen surface which contains visual elements (Widgets),
   # on which graphics is rendered, and which is then drawn onto the terminal.
-  # An app can have multiple screens, but only one can be showing at a time.
-  w = Window.new screen: s
+  # An app can have multiple windows, but only one can be showing at a time.
+  w = Window.new display: s
 
   # `Box` is one of the available widgets. It is a read-only space for
   # displaying text etc. In Qt terms, this is a Label.

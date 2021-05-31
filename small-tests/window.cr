@@ -16,7 +16,7 @@ class X
       height: 10,
       top: 4,
       left: 8,
-      content: "Heyo", # "center", left: "center" #, border: true #, screen: s
+      content: "Heyo", # "center", left: "center" #, border: true #, display: s
       border: true,
       style: Style.new(fg: "yellow", bg: "red")
 
@@ -26,7 +26,7 @@ class X
       height: 10,
       top: 2,
       left: 20,
-      content: "Heyo", # "center", left: "center" #, border: true #, screen: s
+      content: "Heyo", # "center", left: "center" #, border: true #, display: s
       border: true,
       style: Style.new(fg: "black", bg: "red")
 
@@ -39,7 +39,7 @@ class X
 
     w.render
 
-    w.screen.exec
+    w.display.exec
   end
 end
 

@@ -1,7 +1,7 @@
 require "../src/crysterm"
 
 module Crysterm
-  include Widget # Just for convenience, to not have to write e.g. `Screen`
+  include Widget # Just for convenience, to not have to write e.g. `Display`
 
   w = Window.new lock_keys: true, ignore_locked: [Tput::Key::CtrlQ]
 
@@ -12,7 +12,7 @@ module Crysterm
     width: "70%",
     height: "resizable",
     border: true,
-    content: "Press Ctrl+q to quit. It should work even though screen's keys are locked."
+    content: "Press Ctrl+q to quit. It should work even though display's keys are locked."
   )
 
   w.on(Event::KeyPress) do |e|
@@ -37,5 +37,5 @@ module Crysterm
 
   w.render
 
-  w.screen.exec
+  w.display.exec
 end

@@ -226,5 +226,5 @@ module Crysterm
 
   w.render
 
-  w.screen.exec
+  w.display.exec
 end
