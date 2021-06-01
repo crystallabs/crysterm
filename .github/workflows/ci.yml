@@ -1,3 +1,5 @@
+name: Linux CI
+
 on:
   push:
   pull_request:
