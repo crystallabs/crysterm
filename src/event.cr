@@ -98,13 +98,13 @@ module Crysterm
         @accepted = false
       end
 
-      Key_events = {} of ::Tput::Key => self.class
+      KEYS = {} of ::Tput::Key => self.class
 
       # This macro takes all enum members from Tput::Key
       # and creates a KeyPress::<member> event for them.
       {% for m in ::Tput::Key.constants %}
         class {{m.id}} < self; end
-        Key_events[ ::Tput::Key::{{m.id}} ] = {{m.id}}
+        KEYS[ ::Tput::Key::{{m.id}} ] = {{m.id}}
       {% end %}
     end
   end

@@ -151,7 +151,7 @@ module Crysterm
     def drop_unicode(text)
       return "" if text.nil? || text.size == 0
       # TODO
-      return text.gsub(::Crysterm::Unicode::AllRegex, "??") # .gsub(@unicode.chars["combining"], "").gsub(@unicode.chars["surrogate"], "?");
+      text.gsub(::Crysterm::Unicode::AllRegex, "??") # .gsub(@unicode.chars["combining"], "").gsub(@unicode.chars["surrogate"], "?");
     end
   end
 end

@@ -33,11 +33,11 @@ Animated demo
 
 ![Crysterm Demo Video](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/2020-01-29-1.gif)
 
-Layout engine (masonry layout)
+Layout engine (showing inline/masonry layout)
 
 ![Crysterm Masonry Layout](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/layout.png)
 
-Transparency, color blending
+Transparency, color blending, shadow
 
 ![Crysterm Color Blending](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/transparency.png)
 
@@ -98,22 +98,22 @@ The events used by Crysterm and its widgets are defined in `src/events.cr`.
 1. Each display can have one or more `Screen`s (Blessed also calls this `Screen`). Screens are always full-screen and represent the whole surface of a Display
 1. Each screen can have one or more `Widget`s, arranged appropriately to implement final apps
 
-Widgets can be added and positioned on the screen directly, but some widgets are particularly suitable for containing and arranging other/child widgets.
+Widgets can be added and positioned on the screen directly, but some widgets are particularly suitable for containing or arranging other/child widgets.
 Most notably this is the `Layout` widget which can auto-size and auto-position contained widgets in the form of a grid or inline (masonry-like) layout (`LayoutType::{Grid,Inline}`).
 
 There are currently no widgets that would represent GUI windows like `QWindow` or `QMainWindow` in Qt
-(with title bar, menu bar, status bar, etc.), but implementing them is planned. (`Window`s will be considered `Widget`s.)
+(having title bar, menu bar, status bar, etc.), but implementing them is planned. (`Window`s too will inherit from `Widget`.)
 
 All mentioned classes `include` [EventHandler](https://github.com/crystallabs/event_handler) for event-based
 behavior.
 
 ### Positioning and Layouts
 
-Widget positions and sizes work like in Blessed. They can be specified as numbers (e.g. 10), percentages (e.g. "10%"), both (e.g. "10%+2"), or specific keywords (e.g. "center", which has an effect of `50% - self.with_or_height//2`).
+Widget positions and sizes work like in Blessed. They can be specified as numbers (e.g. 10), percentages (e.g. "10%"), both (e.g. "10%+2"), or specific keywords (e.g. "center", which has an effect of `50% - self.width_or_height//2`).
 
 That model is simple and works quite OK, although it is not as developed as the model in Qt. For example, there is no way to shrink or grow widgets disproportionally when window is resized, and
-there is no way to define maximum or minimum size. (Well, minimum size calculation does exist for resizable widgets, but only for trying to find the minimum size based on
-contents rather than programmer's wishes. (In Blessed, what we call "resizable" is called "shrinkable" even though it can also grow.))
+there is no way to define maximum or minimum size. (Well, minimum size calculation does exist for resizable widgets, but only for trying to find the minimum size based on actual
+contents, rather than programmer's wishes. (In Blessed, what we call "resizable" is called "shrinkable" even though it can also grow.))
 
 Speaking of layouts, the one layout engine currently existing, `Widget::Layout`, is equivalent to Blessed's. It can arrange widgets in a grid-like or masonry-like style.
 There are no equivalents of Qt's `QBoxLayout`.
@@ -128,7 +128,7 @@ good if all these could be adjusted to accept the same flexible/unified specific
 ### Rendering and Drawing
 
 Screens contain widgets. To make screens appear on display with all the expected contents and current state,
-one calls `Screen#render`. This functions calls `Widget#render` on each of immediate child element, which
+one calls `Screen#render`. This function calls `Widget#render` on each of immediate child elements, which
 results in the final/rendered state reflected in internal memory.
 
 At the end of rendering, `Screen#draw` is automatically called which makes any changes in internal state appear on the
@@ -154,6 +154,12 @@ Any existing strings where "{}" should not be interpreted can be protected with 
 One could also define foreground and background colors and attributes by manually
 embedding the appropriate escape sequences into strings or using Crystal's `Colorize` module.
 Crysterm is interoperable with those approaches.
+
+### Performance
+
+By default, for development, frames-per-second value is displayed at the bottom of every Screen. When displaying FPS is enabled, Crysterm measures time needed to complete rendering and drawing cycles, and displays them as "R/D/FPS" (estimated renderings per second, drawings per second, and total/combined frames per second).
+
+Because the rendering+drawing cycle happens up to 29 times per second, the FPS value should stay above 30 of frame skipping could occur.
 
 ### Testing
 

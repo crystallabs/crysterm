@@ -58,8 +58,6 @@ module Crysterm
         show
         set_content @text || @orig_text
 
-        @screen.lock_keys = true
-
         @spinner = Fiber.new {
           loop do
             break if @should_exit
@@ -72,7 +70,6 @@ module Crysterm
       end
 
       def stop
-        @screen.lock_keys = false
         hide
         @should_exit = true
         @text = nil

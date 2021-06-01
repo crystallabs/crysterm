@@ -232,7 +232,7 @@ module Crysterm
               if (fg == -1)
                 fg = (dfl >> 9) & 0x1ff
               end
-              i += 2
+              i += 2 # XXX Why ameba says this is no-op?
               break
             end
             if (c >= 40 && c <= 47)
@@ -419,7 +419,7 @@ module Crysterm
           #    @_cursorBlink.unref()
           #  end
           # end
-          return true
+          # return true
         end
 
         display.tput.cursor_shape @cursor.shape, @cursor.blink
@@ -494,9 +494,7 @@ module Crysterm
           attr |= cursor.color.value << 9
         end
 
-        return Cell.new \
-          attr: attr,
-          char: ch || ' '
+        Cell.new attr: attr, char: ch || ' '
       end
 
       # Reduces color if needed (minmal helper function)
@@ -523,7 +521,7 @@ module Crysterm
 
       # Focuses an element by an offset in the list of focusable elements.
       def focus_offset(offset)
-        shown = @keyable.select { |el| !el.detached? && el.visible? }.size
+        shown = @keyable.count { |el| !el.detached? && el.visible? }
 
         if (shown == 0 || offset == 0)
           return
@@ -587,7 +585,7 @@ module Crysterm
         if el = @history[-1]?
           _focus el, old
         end
-        return old
+        old
       end
 
       # Saves/remembers the currently focused element.
@@ -906,8 +904,8 @@ module Crysterm
 
     # Things related to drawing (displaying rendered state to display)
     module Drawing
-      @outbuf : IO::Memory = IO::Memory.new 10240
-      @main : IO::Memory = IO::Memory.new 10240
+      @outbuf : IO::Memory = IO::Memory.new 10_240
+      @main : IO::Memory = IO::Memory.new 10_240
 
       @pre = IO::Memory.new 1024
       @post = IO::Memory.new 1024
@@ -1398,7 +1396,7 @@ module Crysterm
           display.tput.ret = nil
         end
 
-        j = bottom + 1
+        # j = bottom + 1 # Unused
         while n > 0
           n -= 1
           @lines.insert y, blank_line
@@ -1554,21 +1552,21 @@ module Crysterm
           x -= 1
         end
 
-        (pos.xl...width).each do |x|
+        (pos.xl...width).each do |x2|
           if (!@olines[yi]?)
             break
           end
-          first = @olines[yi][x]
+          first = @olines[yi][x2]
           (yi...yl).each do |y|
-            if (!@olines[y] || !@olines[y][x])
+            if (!@olines[y] || !@olines[y][x2])
               break
             end
-            ch = @olines[y][x]
+            ch = @olines[y][x2]
             if ch != first
               return pos._clean_sides = false
             end
           end
-          x += 1
+          x2 += 1
         end
 
         pos._clean_sides = true
@@ -1918,8 +1916,8 @@ module Crysterm
         @keyable.push el
       end
 
-      return if @_listenedKeys
-      @_listenedKeys = true
+      return if @_listened_keys
+      @_listened_keys = true
 
       # NOTE: The event emissions used to be reversed:
       # element + screen
@@ -1947,17 +1945,17 @@ module Crysterm
         # we keep passing it through the parent tree until someone
         # `#accept!`s the key. If it reaches the toplevel Widget
         # and it isn't handled, we drop/ignore it.
-        focused.try do |el|
-          while el && el.is_a? Widget
-            if el.keyable?
-              emit_key el, e
+        focused.try do |el2|
+          while el2 && el2.is_a? Widget
+            if el2.keyable?
+              emit_key el2, e
             end
 
             if e.accepted?
               break
             end
 
-            el = el.parent
+            el2 = el2.parent
           end
         end
       end
@@ -1975,7 +1973,7 @@ module Crysterm
         el.emit e
       end
       if e.key
-        Crysterm::Event::KeyPress::Key_events[e.key]?.try do |keycls|
+        Crysterm::Event::KeyPress::KEYS[e.key]?.try do |keycls|
           if el.handlers(keycls).any?
             el.emit keycls.new e.char, e.key, e.sequence
           end
@@ -2021,7 +2019,6 @@ module Crysterm
         `cls`
       {% end %}
 
-      at = display.tput
       display.tput.alternate_buffer
       display.tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
       display.tput.put(&.change_scroll_region?(0, height - 1))
@@ -2035,7 +2032,7 @@ module Crysterm
     # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
     def alloc(dirty = false)
       # Initialize @lines better than this.
-      rows.times do |i|
+      rows.times do # |i|
         col = Row.new
         columns.times do
           col.push Cell.new
@@ -2045,7 +2042,7 @@ module Crysterm
       end
 
       # Initialize @lines better than this.
-      rows.times do |i|
+      rows.times do # |i|
         col = Row.new
         columns.times do
           col.push Cell.new

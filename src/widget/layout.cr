@@ -108,11 +108,11 @@ module Crysterm
               # Otherwise we need to start a new row and calculate a new
               # `rowOffset` and `rowIndex` (the index of the child on the current
               # row).
-              row_offset += @children[row_index...i].reduce(0) { |o, el|
-                if (!rendered?(el))
+              row_offset += @children[row_index...i].reduce(0) { |o, el2|
+                if (!rendered?(el2))
                   o
                 else
-                  elp = el.lpos.not_nil!
+                  elp = el2.lpos.not_nil!
                   Math.max o, elp.yl - elp.yi
                 end
               }

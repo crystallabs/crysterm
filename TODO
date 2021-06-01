@@ -137,3 +137,9 @@ is completely unused and should be fixed / sorted out?
 The positioning of widgets, with Position, Pos, LPos, and so on, at the moment works, but there
 are certainly some unused variables, and/or there might be some methods within those that do not
 work. Review the whole thing for final trimming & verification.
+
+In rendering, there is Overflow enum used as a return type, which defines what to do if a widget can't
+be rendered without overflowing. Add MoveWidget or similar as another option. It would have the effect
+of moving the widget so it can render. A use case for this would be e.g. auto-completion boxes or similar
+which pop-up. For simplicity the developer would just have them pop up at the desired location, and
+Crystem would adjust for overflow automatically.

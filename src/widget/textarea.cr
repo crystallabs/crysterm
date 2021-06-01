@@ -121,7 +121,7 @@ module Crysterm
 
         # Then add the new one if asked
         if yes
-          @ev_read_input_on_focus = on(Crysterm::Event::Focus) do |e|
+          @ev_read_input_on_focus = on(Crysterm::Event::Focus) do # |e|
             read_input
           end
         end
@@ -201,7 +201,7 @@ module Crysterm
       end
 
       def render
-        self.value=()
+        self.value = nil
         super # OR _render
       end
 

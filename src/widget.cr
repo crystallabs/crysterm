@@ -233,7 +233,7 @@ module Crysterm
           # XXX
           # Fixes non-`fixed` labels to work with scrolling (they're ON the border):
           # if (@position.left < 0 || @position.right < 0 || @position.top < 0 || @position.bottom < 0)
-          if (@_isLabel)
+          if (@_is_label)
             b = 0
           end
 
@@ -790,7 +790,8 @@ module Crysterm
           # @resizable = false
         end
 
-        @children.each_with_index do |el, i|
+        # @children.each_with_index do |el, _|
+        @children.each do |el|
           ret = el._get_coords(get)
 
           # D O:
@@ -863,7 +864,7 @@ module Crysterm
               # XXX Maybe just to this for all this being that this would affect
               # width shrunken normal shrunken lists as well.
               # D O:
-              # if (@_isList)
+              # if (@_is_listt)
               if is_a? ListTable
                 xl -= @padding.left + @padding.right
                 xl += iright
@@ -875,11 +876,11 @@ module Crysterm
             end
           end
         end
-        if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) && (!@scrollable || @_isList))
+        if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) && (!@scrollable || @_is_listt))
           # NOTE: Lists get special treatment if they are shrunken - assume they
           # want all list items showing. This is one case we can calculate the
           # height based on items/boxes.
-          if (@_isList)
+          if (@_is_listt)
             myi = 0 - itop
             myl = @items.size + ibottom
           end
@@ -921,7 +922,7 @@ module Crysterm
         # end
 
         if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) &&
-           (!@scrollable || @_isList))
+           (!@scrollable || @_is_listt))
           if (@position.top.nil? && !@position.bottom.nil?)
             yi = yl - h - iheight # (iheight == 1 ? 0 : iheight)
           else
@@ -988,16 +989,16 @@ module Crysterm
 
       def _get_pos
         pos = @lpos
-        pos.try do |pos|
-          # If it already has a pos, just return.
-          return pos if !pos.responds_to? :aleft
+        pos.try do |pos2|
+          # If it already has a pos2, just return.
+          return pos2 if !pos2.responds_to? :aleft
 
-          pos.aleft = pos.xi
-          pos.atop = pos.yi
-          pos.aright = @screen.columns - pos.xl
-          pos.abottom = @screen.rows - pos.yl
-          pos.width = pos.xl - pos.xi
-          pos.height = pos.yl - pos.yi
+          pos2.aleft = pos2.xi
+          pos2.atop = pos2.yi
+          pos2.aright = @screen.columns - pos2.xl
+          pos2.abottom = @screen.rows - pos2.yl
+          pos2.width = pos2.xl - pos2.xi
+          pos2.height = pos2.yl - pos2.yi
         end
 
         pos
@@ -1245,7 +1246,7 @@ module Crysterm
           break
         end
 
-        return outbuf
+        outbuf
       end
 
       def _parse_attr(lines)
@@ -1271,14 +1272,14 @@ module Crysterm
             if (line[i] == '\e')
               if (c = line[1..].match /^\x1b\[[\d;]*m/)
                 attr = @screen.attr_code(c[0], attr, dattr)
-                i += c[0].size - 1
+                # i += c[0].size - 1 # Unused
               end
             end
           end
-          j += 1
+          # j += 1 # Unused
         end
 
-        return attrs
+        attrs
       end
 
       def _wrap_content(content, colwidth)
@@ -1449,7 +1450,7 @@ module Crysterm
           line.size > current ? line.size : current
         end
 
-        return outbuf
+        outbuf
       end
 
       def _align(line, width, align = Tput::AlignFlag::None)
@@ -1465,7 +1466,7 @@ module Crysterm
         # so the free width (s) results being 0 here. But why this code worked
         # up to May is unexplained, since no obvious changes were done in this
         # code. Or, cn this be a bug we unintentionally fixed?
-        #s = @resizable ? 0 : width - len
+        # s = @resizable ? 0 : width - len
         s = (@resizable && !width) ? 0 : width - len
 
         return line if len == 0
@@ -1902,7 +1903,10 @@ module Crysterm
                 # Ignore foreground changes for selected items.
                 # XXX But, Enable when lists exist, then restrict to List
                 # if (parent = @parent) && parent.is_a? Crysterm::Widget
-                #  if (parent._isList && parent.interactive? && parent.items[parent.selected] == self && parent.options.invert_selected != false)
+                #  if (parent._is_listt &&
+                #    parent.interactive? &&
+                #      parent.items[parent.selected] == self &&
+                #       parent.options.invert_selected != false)
                 #    attr = (attr & ~(0x1ff << 9)) | (dattr & (0x1ff << 9))
                 #  end
                 # end
@@ -1957,7 +1961,7 @@ module Crysterm
             # TODO
             # if (@screen.full_unicode && content[ci - 1])
             if (content.try &.[ci - 1]?)
-              point = content.codepoint_at(ci - 1)
+              # point = content.codepoint_at(ci - 1) # Unused
               # TODO
               # # Handle combining chars:
               # # Make sure they get in the same cell and are counted as 0.
@@ -2007,9 +2011,9 @@ module Crysterm
         end
         # Draw the scrollbar.
         # Could possibly draw this after all child elements.
-        @scrollbar.try do |scrollbar|
-          # D O:
-          # i = @get_scroll_height()
+        @scrollbar.try do |_| # scrollbar|
+        # D O:
+        # i = @get_scroll_height()
           i = Math.max @_clines.size, _scroll_bottom
 
           if ((yl - yi) < i)
@@ -2292,13 +2296,13 @@ module Crysterm
             if (!lines[y]?)
               break
             end
-            (Math.max(xi + 1, 0)...xl).each do |x|
-              if (!lines[y][x]?)
+            (Math.max(xi + 1, 0)...xl).each do |x2|
+              if (!lines[y][x2]?)
                 break
               end
               # D O:
               # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
-              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: shadow)
+              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: shadow)
               lines[y].dirty = true
             end
             y += 1
@@ -2401,8 +2405,8 @@ module Crysterm
 
     # XXX FIX
     # Used only for lists
-    property _isList = false
-    property _isLabel = false
+    property _is_listt = false
+    property _is_label = false
     property? interactive = false
     # XXX
 
@@ -2572,8 +2576,8 @@ module Crysterm
       # Add element to parent
       if parent = @parent
         parent.append self
-      #elsif screen # XXX Don't do; see above for arg @screen, and see TODO file
-      #  screen.try &.append self
+        # elsif screen # XXX Don't do; see above for arg @screen, and see TODO file
+        #  screen.try &.append self
       end
 
       children.each do |child|
@@ -2762,7 +2766,7 @@ module Crysterm
       return unless @scrollable
       @child_offset = 0
       @child_base = 0
-      return emit Crysterm::Event::Scroll
+      emit Crysterm::Event::Scroll
     end
 
     def get_scroll_perc(s)
@@ -2784,7 +2788,7 @@ module Crysterm
         return p * 100
       end
 
-      return s ? -1 : 0
+      s ? -1 : 0
     end
 
     def _scroll_bottom
@@ -2792,8 +2796,8 @@ module Crysterm
 
       # We could just calculate the children, but we can
       # optimize for lists by just returning the items.length.
-      # XXX _isList!
-      if @_isList
+      # XXX _is_listt!
+      if @_is_listt
         return @items ? @items.size : 0
       end
 
@@ -3151,7 +3155,7 @@ module Crysterm
       # screen_keyable= s.keyable
 
       emt = ->(el : Widget) {
-        n = el.detached? != @detached
+        # n = el.detached? != @detached # Unused
         el.detached = true
         # TODO Enable
         # el.emit(Event::Detach) if n
@@ -3235,7 +3239,7 @@ module Crysterm
     def free
     end
 
-    def has_ancestor?(obj)
+    def ancestor?(obj)
       el = self
       while el = el.parent
         return true if el == obj
@@ -3243,10 +3247,10 @@ module Crysterm
       false
     end
 
-    def has_descendant?(obj)
+    def descendant?(obj)
       @children.each do |el|
         return true if el == obj
-        return true if el.has_descendant? obj
+        return true if el.descendant? obj
       end
       false
     end
@@ -3278,24 +3282,24 @@ module Crysterm
 
     def collect_descendants(el : Widget) : Array(Widget)
       children = [] of Widget
-      each_descendant { |el| children << el }
+      each_descendant { |e| children << e }
       children
     end
 
     def collect_ancestors(el : Widget) : Array(Widget)
       parents = [] of Widget
-      each_ancestor { |el| parents << el }
+      each_ancestor { |e| parents << e }
       parents
     end
 
     # Emits `ev` on all children nodes, recursively.
     def emit_descendants(ev : EventHandler::Event) : Nil
-      each_descendant { |el| el.emit ev }
+      each_descendant { |e| el.emit e }
     end
 
     # Emits `ev` on all parent nodes.
     def emit_ancestors(ev : EventHandler::Event) : Nil
-      each_ancestor { |el| el.emit ev }
+      each_ancestor { |e| el.emit e }
     end
   end
 end

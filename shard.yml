@@ -25,3 +25,6 @@ dependencies:
   event_handler:
     github: crystallabs/event_handler
     version: ~> 1.0
+  ameba:
+    github: crystal-ameba/ameba
+    version: ~> 0.13.0

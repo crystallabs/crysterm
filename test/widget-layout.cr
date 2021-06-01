@@ -15,7 +15,8 @@ module Crysterm
     height: "50%",
     border: BorderType::Line,
     layout: ARGV[0]? == "grid" ? LayoutType::Grid : LayoutType::Inline,
-    overflow: Overflow::Ignore, # Setting not existing in Blessed. Controls what to do when widget is overflowina available space. Value of 'ignore' ignores the issue and renders such widgets overflown.
+    overflow: Overflow::Ignore, # Setting not existing in Blessed. Controls what to do when widget is overflowing
+    # available space. Value of 'ignore' ignores the issue and renders such widgets overflown.
     style: Style.new(
     bg: "red",
     border: Style.new(
@@ -147,7 +148,7 @@ module Crysterm
   if ARGV[0]? != "grid"
     sizes = [0.2, 1, 0.3, 0.6, 0.3, 0.9, 0.2, 0.75, 0.1, 0.99]
     10.times do |i|
-      b = Widget::Box.new(
+      Widget::Box.new(
         parent: layout,
         width: sizes[i] > 0.5 ? 10 : 20,
         height: sizes[i] > 0.5 ? 5 : 10,

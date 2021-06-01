@@ -4,7 +4,7 @@ module Crysterm
   include Tput::Namespace
   include Widgets
 
-  w = Screen.new
+  s = Screen.new
   b = layout = Layout.new(
     # parent: s,
     top: 0,
@@ -17,7 +17,7 @@ module Crysterm
   )
 
   # b.focus
-  w.append b
+  s.append b
 
   box = Box.new(
     parent: layout,
@@ -132,7 +132,7 @@ module Crysterm
   textarea = TextArea.new(
     parent: layout,
     width: 36,
-    input_on_focus: true,
+    input_on_focus: false,
     height: 18,
     border: BorderType::Line,
     content: ""
@@ -153,7 +153,7 @@ module Crysterm
     top: 18,
     left: 160,
     border: BorderType::Bg,
-    content: "Hello, World! See translucency and shadow.",
+    content: "Hello, World! See translucency and shados.",
     style: Style.new("bg": "#870087")
   )
   boxtp1 = Box.new(
@@ -167,8 +167,8 @@ module Crysterm
     shadow: true,
     style: Style.new("bg": "#729fcf", transparent: true)
   )
-  w.append boxtp2
-  w.append boxtp1
+  s.append boxtp2
+  s.append boxtp1
 
   loading2 = Loading.new \
     parent: layout,
@@ -180,17 +180,18 @@ module Crysterm
     content: "In progress!...",
     border: Border.new(type: BorderType::Line)
 
-  w.on(Event::KeyPress) do |e|
+  s.on(Event::KeyPress) do |e|
     # e.accept!
-    STDERR.puts e.inspect
-    if e.char == 'q'
+    if e.key == ::Tput::Key::CtrlQ || e.char == 'q'
+      s.display.destroy
       exit
     end
   end
 
-  w.render
+  s.render
 
-  textv = "TextArea. This is a multi-line user input enabled widget with automatic content wrapping. There is a lot of text that can fit it, when the terminal doesn't use too big font."
+  textv = "TextArea. This is a multi-line user input enabled widget with automatic content wrapping. " +
+          "There is a lot of text that can fit it, when the terminal doesn't use too big font."
   textboxv = " This will add more text to textbox and always show only visible portion."
 
   textarea.focus
@@ -224,7 +225,7 @@ module Crysterm
     end
   end
 
-  w.render
+  s.render
 
-  w.display.exec
+  s.display.exec
 end

@@ -72,8 +72,8 @@ module Crysterm
 
         lines = lines.map do |line|
           chs = line.chars # line.split ""
-          chs = chs.map do |ch|
-            (ch == ' ') ? 0 : 1
+          chs = chs.map do |ch2|
+            (ch2 == ' ') ? 0 : 1
           end
           while chs.size < @ratio.width
             chs.push 0
@@ -83,7 +83,7 @@ module Crysterm
 
         while lines.size < @ratio.height
           line = [] of Int32
-          (0...@ratio.width).each do |i|
+          (0...@ratio.width).each do # |i|
             line.push 0
           end
           lines.push line

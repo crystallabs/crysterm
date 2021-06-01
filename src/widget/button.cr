@@ -19,8 +19,8 @@ module Crysterm
           end
         end
 
-        on(Crysterm::Event::Click) do |e|
-          # e.accept!
+        on(Crysterm::Event::Click) do # |e|
+        # e.accept!
           press
         end
         # end
