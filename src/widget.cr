@@ -1484,10 +1484,15 @@ module Crysterm
           # widget flag could mean to spread words to fill up the whole
           # line, increasing spaces between them?
           parts = line.split /\{|\}/
+
           cparts = cline.split /\{|\}/
-          s = Math.max(width - cparts[0].size - cparts[2].size, 0)
-          s = " " * s
-          return "#{parts[0]}#{s}#{parts[2]}"
+          if cparts[0]? && cparts[2]? # Don't trip on just single { or }
+            s = Math.max(width - cparts[0].size - cparts[2].size, 0)
+            s = " " * s
+            return "#{parts[0]}#{s}#{parts[2]}"
+          else
+            # Nothing; will default to returning `line` below.
+          end
         end
 
         line

@@ -143,3 +143,10 @@ be rendered without overflowing. Add MoveWidget or similar as another option. It
 of moving the widget so it can render. A use case for this would be e.g. auto-completion boxes or similar
 which pop-up. For simplicity the developer would just have them pop up at the desired location, and
 Crystem would adjust for overflow automatically.
+
+It is not 100% defined what happens if a Widget has parse_tags true, and there is syntax error in the
+tags. A syntax error is something as simple or just { or }. In the case of one {, { remains in input and
+the rest is removed. In all other cases (more {s or one or more }s), the whole section is removed.
+This should be fixed/standardized. Offhand, either always removing everything, or always removing anything
+that's invalid as-is. (Didn't check yet how blessed does it.)
+
