@@ -22,8 +22,8 @@ jobs:
         run: shards update --ignore-crystal-version
       - name: Run tests
         run: crystal spec --order=random --error-on-warnings
-			- name: Build example
-				run: crystal build examples/tech-demo.cr
+      - name: Build example
+        run: crystal build examples/tech-demo.cr
       - name: Check formatting
         run: crystal tool format --check
   release_linux:
