@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Build binaries
         run: |
-          shards update --production --release --static --no-debug
+          shards update --production --release --static --no-debug --ignore-crystal-version
           crystal build --time --release --static --no-debug -o bin/tech-demo examples/tech-demo.cr
           crystal build --time --release --static --no-debug -o bin/hello examples/hello.cr
           crystal build --time --release --static --no-debug -o bin/hello2 examples/hello2.cr
