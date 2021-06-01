@@ -32,7 +32,7 @@ jobs:
       image: crystallang/crystal:latest-alpine
     steps:
       - name: Install packages
-        run: sudo apk add unibilium unibilium-dev
+        run: apk add unibilium unibilium-dev
       - name: Download source
         uses: actions/checkout@v2
       - name: Build binaries
