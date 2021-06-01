@@ -2483,6 +2483,7 @@ module Crysterm
     property style : Style
 
     def initialize(
+      *,
       # These end up being part of Position.
       # If position is specified, these are ignored.
       left = nil,
