@@ -1,0 +1,37 @@
+on:
+  push:
+  pull_request:
+    branches: [master]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download source
+        uses: actions/checkout@v2
+      - name: Install packages
+        run: sudo apt-get -qy install libunibilium4
+      - name: Install Crystal
+        uses: oprypin/install-crystal@v1
+      - name: Cache shards
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/shards
+          key: ${{ runner.os }}-shards-${{ hashFiles('shard.yml') }}
+          restore-keys: ${{ runner.os }}-shards-
+      - name: Install shards
+        run: shards update --ignore-crystal-version
+      - name: Run tests
+        run: crystal spec --order=random --error-on-warnings
+			- name: Build example
+				run: crystal build examples/tech-demo.cr
+      - name: Check formatting
+        run: crystal tool format --check
+  release_linux:
+    runs-on: ubuntu-latest
+    container:
+      image: crystallang/crystal:latest-alpine
+    steps:
+      - uses: actions/checkout@v2
+      - run: shards build --production --release --static --no-debug -o bin/tech-demo examples/tech-demo.cr
+      - run: shards build --production --release --static --no-debug -o bin/hello examples/hello.cr
+      - run: shards build --production --release --static --no-debug -o bin/hello2 examples/hello2.cr

@@ -1,8 +1,0 @@
-language: crystal
-
-crystal:
-  - latest
-
-script:
-  - crystal spec
-  - crystal tool format --check
