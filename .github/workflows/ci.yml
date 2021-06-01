@@ -31,6 +31,8 @@ jobs:
     container:
       image: crystallang/crystal:latest-alpine
     steps:
+      - name: Install packages
+        run: sudo apk add unibilium unibilium-dev
       - uses: actions/checkout@v2
         run: |
           shards update --ignore-crystal-version
