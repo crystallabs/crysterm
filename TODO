@@ -1,5 +1,10 @@
 # Source Code TODOs
 
+In the code, questions and/or things to verify at some later point are identified with "XXX".
+Things to change/improve are identified with "TODO".
+
+But there's more, as follows :)
+
 Question, Line -> Fix those widgets or they work?
 
 During commits of May 28, for some reason Layouts (maybe other widgets?) don't behave as they did.
@@ -20,12 +25,8 @@ state in which all parents keep a reference to the child widget, while the child
 it belongs to the last/most-recently added parent. Check if this is the case, and/or fix whatever
 issues may be revealed while testing this.
 
-In test/widget-valign.cr, the content of the widget is displayed twice. Determine why and fix.
-Also in the Hello, World example, if using valign, the rendering is incorrect.
-
-In the code, questions and/or things to verify at some later point are identified with "XXX".
-
-Things to change/improve are identified with "TODO".
+In test/widget-valign.cr, the content of the widget is displayed twice (or even, now doesn't display
+anything). Determine why and fix. Also in the Hello, World example, if using valign, the rendering is incorrect.
 
 src/app/tput.cr -> review everything
 src/namespace.cr -> cleanup some definitions
@@ -93,10 +94,6 @@ make it begin at 50. Now, when using percentages, it is possible to say e.g. "50
 widget starting at 60 in our example). But it appears it is not possible to use the +- specifier if "center"
 is used. Support specifying +- in all cases.
 
-TextArea widget has an attribute input_on_focus=Bool. By default it is false, and in turn requires Enter to be
-pressed for the widget to start accepting input. But setting it to true, so that input would be accepted as soon
-as / whenever the widget is in focus, does not work correctly and needs fixing.
-
 In test/widget-padding.cr and test/widget-bigtext.cr, those test differs from blessed in the background color of
 the border. Find this exact code and make it identical.
 
@@ -106,23 +103,16 @@ e.g. "80%", top/left support a special string value of "center", and width/heigh
 can stay as a supported option (for convenience of loading settings from text files, etc.?), but see if those
 can be replaced with enums or similar, and with things like 80.percent() or something.
 
-Fix screen.destroy() so that it does the same as in Blessed (destroy screen, reset term, exit).
+Fix screen.destroy() so that it does the same as in Blessed (destroy screen, reset term, exit). Does it really
+do that in blessed?
 
 For good OO, and like in Qt, it would be good if all functions that deal with Points, Sizes, and Dimensions,
 would also accept those specific classes/structs that we'd define, rather than just numbers/Ints. This already
 exists to an extent, e.g. in Tput there is class Size, Point, etc. These should be used more throughout the
 codebase, and any other relevant new ones added.
 
-See if it would make sense to actually put everything from Crysterm::Widget::Element class into Crysterm::Widget.
-Logically it could make sense, since Element is just base/abstract Widget? Also, on a related note, see if Node
-should be moved out of Widget, and also whether Screen should be moved out of Widget, since it only inherits
-from Node, not Widget.
-
 Would anything be gained by using a Set instead of an Array as the containing element for individuall Cell's
 which represent all chars/cells on the screen?
-
-Blessed recognizes a concept of Unicode and Full Unicode. I guess Unicode is what Crystal currently supports.
-How to deal with the whole other side of things (Full Unicode)? Implement if possible.
 
 Some elements of Style should have defaults. See whether it makes sense, as an example, for @style.bar to
 fallback to @style if `bar` specifically isn't styled. Or, if this produces undesirable results, see if `bar`

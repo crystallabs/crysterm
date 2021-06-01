@@ -4,7 +4,7 @@ module Crysterm
   include Tput::Namespace
   include Widgets
 
-  s = Screen.new
+  s = Screen.new ignore_locked: [Tput::Key::CtrlQ]
   b = layout = Layout.new(
     # parent: s,
     top: 0,
@@ -132,7 +132,7 @@ module Crysterm
   textarea = TextArea.new(
     parent: layout,
     width: 36,
-    input_on_focus: false,
+    input_on_focus: true,
     height: 18,
     border: BorderType::Line,
     content: ""
@@ -153,7 +153,7 @@ module Crysterm
     top: 18,
     left: 160,
     border: BorderType::Bg,
-    content: "Hello, World! See translucency and shados.",
+    content: "Hello, World! See translucency and shadow.",
     style: Style.new("bg": "#870087")
   )
   boxtp1 = Box.new(
