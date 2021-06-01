@@ -9,7 +9,7 @@ jobs:
       - name: Download source
         uses: actions/checkout@v2
       - name: Install packages
-        run: sudo apt-get -qy install libunibilium4
+        run: sudo apt-get -qy install libunibilium4 libunibilium-dev
       - name: Install Crystal
         uses: oprypin/install-crystal@v1
       - name: Cache shards
