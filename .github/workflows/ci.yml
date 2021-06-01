@@ -33,7 +33,8 @@ jobs:
     steps:
       - name: Install packages
         run: sudo apk add unibilium unibilium-dev
-      - uses: actions/checkout@v2
+      - name: Build binaries
+        uses: actions/checkout@v2
         run: |
           shards update --ignore-crystal-version
           shards build --production --release --static --no-debug -o bin/tech-demo examples/tech-demo.cr
