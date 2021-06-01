@@ -32,6 +32,8 @@ jobs:
       image: crystallang/crystal:latest-alpine
     steps:
       - uses: actions/checkout@v2
-      - run: shards build --production --release --static --no-debug -o bin/tech-demo examples/tech-demo.cr
-      - run: shards build --production --release --static --no-debug -o bin/hello examples/hello.cr
-      - run: shards build --production --release --static --no-debug -o bin/hello2 examples/hello2.cr
+        run: |
+          shards update --ignore-crystal-version
+          shards build --production --release --static --no-debug -o bin/tech-demo examples/tech-demo.cr
+          shards build --production --release --static --no-debug -o bin/hello examples/hello.cr
+          shards build --production --release --static --no-debug -o bin/hello2 examples/hello2.cr
