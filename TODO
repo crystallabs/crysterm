@@ -149,4 +149,3 @@ tags. A syntax error is something as simple or just { or }. In the case of one {
 the rest is removed. In all other cases (more {s or one or more }s), the whole section is removed.
 This should be fixed/standardized. Offhand, either always removing everything, or always removing anything
 that's invalid as-is. (Didn't check yet how blessed does it.)
-

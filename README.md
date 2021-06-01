@@ -54,7 +54,7 @@ alternative to ncurses), all types of mouse support, Unicode handling, color man
 However, these implementations have been mixed with the rest of source code, reducing the potential for their
 reuse.
 
-In Crysterm, the equivalents of those components have been extracted into individual shards to make them available
+In Crysterm, the equivalents of those components have been created as individual shards, making them available
 to the whole Crystal ecosystem. The event model has been implemented in
 [EventHandler](https://github.com/crystallabs/event_handler), color routines in
 [term_colors](https://github.com/crystallabs/term_colors), terminal output in
@@ -67,8 +67,8 @@ The package exists for a good number of operating systems and distributions, and
 library installed, not headers.
 There is also a mostly working Crystal-native terminfo library available in
 [terminfo.cr](https://github.com/docelic/terminfo.cr) but, due to other priorities, trying to use that instead
-of unibilium is not planned. Both unibilium and native terminfo implementation for Crystal were implemented by 
-Benoit de Chezelles (@bew).)
+of unibilium is not planned. Both unibilium and native terminfo implementation for Crystal were initially
+implemented by Benoit de Chezelles (@bew).)
 
 Crysterm closely follows Blessed, and copies of Blessed's comments have been included in Crysterm's sources for
 easier correlation and search between code, files, and features. A copy of Blessed's repository also exists in
@@ -113,7 +113,7 @@ Widget positions and sizes work like in Blessed. They can be specified as number
 
 That model is simple and works quite OK, although it is not as developed as the model in Qt. For example, there is no way to shrink or grow widgets disproportionally when window is resized, and
 there is no way to define maximum or minimum size. (Well, minimum size calculation does exist for resizable widgets, but only for trying to find the minimum size based on actual
-contents, rather than programmer's wishes. (In Blessed, what we call "resizable" is called "shrinkable" even though it can also grow.))
+contents, rather than programmer's wishes. (What we call "resizable" is called "shrink" in Blessed, even though it can also grow.))
 
 Speaking of layouts, the one layout engine currently existing, `Widget::Layout`, is equivalent to Blessed's. It can arrange widgets in a grid-like or masonry-like style.
 There are no equivalents of Qt's `QBoxLayout`.
