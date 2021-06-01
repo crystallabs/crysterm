@@ -33,12 +33,11 @@ jobs:
     steps:
       - name: Install packages
         run: apk add unibilium unibilium-dev
-    shards update --ignore-crystal-version
       - name: Download source
         uses: actions/checkout@v2
       - name: Build binaries
         run: |
-          shards update --ignore-crystal-version
+          shards update --production --release --static --no-debug
           crystal build --time --release --static --no-debug -o bin/tech-demo examples/tech-demo.cr
           crystal build --time --release --static --no-debug -o bin/hello examples/hello.cr
           crystal build --time --release --static --no-debug -o bin/hello2 examples/hello2.cr
