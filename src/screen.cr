@@ -1835,7 +1835,8 @@ module Crysterm
       @lock_keys = false,
       title = nil,
       @cursor = Tput::Namespace::Cursor.new,
-      optimization = nil
+      optimization = OptimizationFlag::SmartCSR | OptimizationFlag::BCE,
+      alt = true
     )
       bind
 
@@ -1887,7 +1888,7 @@ module Crysterm
       _listen_keys
       # _listen_mouse # XXX
 
-      enter
+      enter if alt # Only do clear-screen/full-screen if user wants alternate buffer
       post_enter
 
       spawn render_loop
