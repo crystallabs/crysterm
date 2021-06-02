@@ -20,11 +20,6 @@ are made, and also they must NOT exist as children of @window (only top-level, i
 should be in @window's.children list). This should be fixed such that @window becomes nilable and
 all logic everywhere is adjusted accordingly.
 
-Currently it seems possible to append a widget to multiple parents. This produces an inconsistent
-state in which all parents keep a reference to the child widget, while the child widget thinks
-it belongs to the last/most-recently added parent. Check if this is the case, and/or fix whatever
-issues may be revealed while testing this.
-
 In test/widget-valign.cr, the content of the widget is displayed twice (or even, now doesn't display
 anything). Determine why and fix. Also in the Hello, World example, if using valign, the rendering is incorrect.
 

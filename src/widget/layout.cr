@@ -14,10 +14,12 @@ module Crysterm
 
         if (!el["width"]? && (!el["left"]? && !el["right"]?)) ||
            (!el["height"]? && (!el["top"]? && !el["bottom"]?))
-          raise "Layout must have width and height"
+          #raise "Layout must have width and height"
+          super **el, width: "100%", height: "100%"
+        else
+          super **el
         end
 
-        super **element
       end
 
       def rendered?(el)
