@@ -5,10 +5,9 @@ require "../src/crysterm"
 # test file to get the same behavior is in file widget-layout.cr.blessed-patch.
 
 module Crysterm
-  w = Screen.new optimization: OptimizationFlag::SmartCSR # , auto_padding: true # auto padding is true in Crysterm by default
+  s = Screen.new optimization: OptimizationFlag::SmartCSR # , auto_padding: true # auto padding is true in Crysterm by default
 
   l = layout = Widget::Layout.new(
-    screen: w,
     top: "center",
     left: "center",
     width: "50%",
@@ -18,12 +17,14 @@ module Crysterm
     overflow: Overflow::Ignore, # Setting not existing in Blessed. Controls what to do when widget is overflowing
     # available space. Value of 'ignore' ignores the issue and renders such widgets overflown.
     style: Style.new(
-    bg: "red",
-    border: Style.new(
-      fg: "blue"
+      bg: "red",
+      border: Style.new(
+        fg: "blue"
+      )
     )
   )
-  )
+
+  s.append l
 
   box1 = Widget::Box.new(
     parent: layout,
@@ -158,16 +159,16 @@ module Crysterm
     end
   end
 
-  w.on(Event::KeyPress) do |e|
+  s.on(Event::KeyPress) do |e|
     # STDERR.puts e.inspect
     if e.char == 'q'
       # e.accept!
-      w.display.destroy
+      s.display.destroy
       exit
     end
   end
 
-  w.render
+  s.render
 
-  w.display.exec # We use exec to run the main loop. Similar to Qt.
+  s.display.exec # We use exec to run the main loop. Similar to Qt.
 end

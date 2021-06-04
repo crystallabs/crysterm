@@ -16,8 +16,8 @@ class X
       border: true,
       style: Style.new(fg: "yellow", bg: "red")
 
-    i2 = Widget::Layout.new
-    i3 = Widget::Layout.new
+    i2 = Widget::Layout.new width: "100%", height: "100%"
+    i3 = Widget::Layout.new width: "100%", height: "100%"
 
     i2.append i1
     i3.append i1

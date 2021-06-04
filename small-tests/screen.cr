@@ -5,10 +5,10 @@ class X
   include EventHandler
 
   def initialize
-    w = Screen.new
+    s = Screen.new
 
     # l = Widget::Layout.new width: "100%", height: "100%", border: true, style: Style.new( fg: "black", bg: "white" )
-    # w.append l
+    # s.append l
 
     # parent: l,
     i = Widget::Box.new \
@@ -16,7 +16,7 @@ class X
       height: 10,
       top: 4,
       left: 8,
-      content: "Heyo", # "center", left: "center" #, border: true #, display: s
+      content: "Test", # "center", left: "center" #, border: true #, display: s
       border: true,
       style: Style.new(fg: "yellow", bg: "red")
 
@@ -26,20 +26,23 @@ class X
       height: 10,
       top: 2,
       left: 20,
-      content: "Heyo", # "center", left: "center" #, border: true #, display: s
+      content: "Test", # "center", left: "center" #, border: true #, display: s
       border: true,
       style: Style.new(fg: "black", bg: "red")
 
-    on(Crysterm::Event::KeyPress) do |e|
-      if e.char == 'q'
-        w.destroy
+    s.append i
+    s.append i2
+
+    s.on(Crysterm::Event::KeyPress) do |e|
+      if e.char == 'q' || e.key = ::Tput::Key::CtrlQ
+        s.destroy
         exit
       end
     end
 
-    w.render
+    s.render
 
-    w.display.exec
+    s.display.exec
   end
 end
 

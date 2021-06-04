@@ -1,12 +1,12 @@
 require "../src/crysterm"
 
 module Crysterm
-  include Widget # Just for convenience, to not have to write e.g. `Display`
+  include Widgets # Just for convenience, to not have to write e.g. `Widget::Box`
 
-  w = Screen.new lock_keys: true, ignore_locked: [Tput::Key::CtrlQ]
+  s = Screen.new lock_keys: true, ignore_locked: [Tput::Key::CtrlQ]
 
   b = Box.new(
-    screen: w,
+    screen: s,
     top: "center",
     left: "center",
     width: "70%",
@@ -15,18 +15,22 @@ module Crysterm
     content: "Press Ctrl+q to quit. It should work even though display's keys are locked."
   )
 
-  w.on(Event::KeyPress) do |e|
+  s.append b
+
+  s.on(Event::KeyPress) do |e|
     if e.key == Tput::Key::CtrlQ
-      w.destroy
+      s.destroy
 
       case ARGV[0]?
       when "resume"
-        # App.global.input.resume # XXX no resume() on IO::FileDescriptor
-        puts "Resuming stdin (not implemented!)"
+        # Display.global.input.resume # XXX no resume() on IO::FileDescriptor
+        puts "Resuming stdin (not implemented)"
       when "end"
-        App.global.input.cooked!
-        App.global.input.close
-        puts "Ending stdin"
+        # This will happen on at_exit; not needed to do here.
+        # Well, can do both, but then at_exit handler will throw -EBADF
+        #Display.global.input.cooked!
+        #Display.global.input.close
+        puts "Ending stdin (not implemented)"
       else
         puts "Not resuming nor ending. Can also run test with argument 'resume' or 'end'."
       end
@@ -35,7 +39,7 @@ module Crysterm
     end
   end
 
-  w.render
+  s.render
 
-  w.display.exec
+  s.display.exec
 end

@@ -6,12 +6,12 @@ class MyProg
   # `Display` is a phyiscal device (terminal hardware or emulator).
   # It can be instantiated manually as shown, or for quick coding it can be
   # skipped and it will be created automatically when needed.
-  s = Display.new
+  d = Display.new
 
   # `Screen` is a full-screen surface which contains visual elements (Widgets),
   # on which graphics is rendered, and which is then drawn onto the terminal.
   # An app can have multiple screens, but only one can be showing at a time.
-  w = Screen.new display: s
+  s = Screen.new display: d
 
   # `Box` is one of the available widgets. It is a read-only space for
   # displaying text etc. In Qt terms, this is a Label.
@@ -29,7 +29,7 @@ class MyProg
     # Add box to the Screen, because it is a top-level widget without a parent.
     # If there is a parent, you would call `Widget#append` on the parent object,
     # not on the screen.
-  w.append b
+  s.append b
 
   b.focus
 
@@ -49,14 +49,14 @@ class MyProg
   spawn do
     loop do
       sleep 2
-      b.rtop = rand(w.height - b.height - 1) + 1
-      b.rleft = rand(w.width - b.width)
+      b.rtop = rand(s.height - b.height - 1) + 1
+      b.rleft = rand(s.width - b.width)
 
       # s.tput.cursor_pos b.top, b.left + b.width//2
 
-      w.render
+      s.render
     end
   end
 
-  s.exec
+  d.exec
 end

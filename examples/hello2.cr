@@ -6,12 +6,12 @@ class MyProg
   # `Display` is a phyiscal device (terminal hardware or emulator).
   # It can be instantiated manually as shown, or for quick coding it can be
   # skipped and it will be created automatically when needed.
-  s = Display.new
+  d = Display.new
 
   # `Screen` is a full-screen surface which contains visual elements (Widgets),
   # on which graphics is rendered, and which is then drawn onto the terminal.
   # An app can have multiple screens, but only one can be showing at a time.
-  w = Screen.new display: s
+  s = Screen.new display: d
 
   # `Box` is one of the available widgets. It is a read-only space for
   # displaying text etc. In Qt terms, this is a Label.
@@ -34,8 +34,8 @@ class MyProg
     height: 1,
     style: Style.new(fg: "black", bg: "green")
 
-  w.append b
-  w.append input
+  s.append b
+  s.append input
 
   input.focus
 
@@ -43,23 +43,23 @@ class MyProg
   # before being passed onto the focused widget, and then up its parent
   # tree. So attaching a handler to `Display` is the correct way to handle
   # the key press as early as possible.
-  s.on(Event::KeyPress) do |e|
+  d.on(Event::KeyPress) do |e|
     if e.key == Tput::Key::CtrlQ
       exit
     end
   end
 
   # Just basic (suboptimal) way to handle enter pressed in the input box.
-  # But well, livable for now.
+  # But well, livable for nos.
   input.on(Event::KeyPress) do |e|
     if e.key == Tput::Key::Enter
       c = input.content
       c = "~" if c == ""
       b.content += c + "\n"
       input.value = ""
-      w.render
+      s.render
     end
   end
 
-  s.exec
+  d.exec
 end

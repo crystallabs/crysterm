@@ -3,7 +3,7 @@ require "../src/crysterm"
 module Crysterm
   include Tput::Namespace
 
-  w = Screen.new optimization: OptimizationFlag::SmartCSR
+  s = Screen.new optimization: OptimizationFlag::SmartCSR
 
   b = Widget::BigText.new \
     content: "Hello",
@@ -22,14 +22,14 @@ module Crysterm
       char: '\u2592',
     )
 
-  w.append b
+  s.append b
   b.focus
-  w.render
+  s.render
 
-  w.on(Event::KeyPress) do |e|
+  s.on(Event::KeyPress) do |e|
     e.accept!
     if e.char == 'q'
-      w.destroy
+      s.destroy
       exit
     end
   end

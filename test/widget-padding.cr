@@ -1,10 +1,9 @@
 require "../src/crysterm"
 
 module Crysterm
-  w = Screen.new
+  s = Screen.new
 
   b = Widget::Box.new(
-    screen: w,
     border: BorderType::Line,
     style: Style.new(
       bg: "red",
@@ -23,16 +22,18 @@ module Crysterm
     padding: 2
   )
 
-  w.on(Event::KeyPress) do |e|
+  s.append b
+
+  s.on(Event::KeyPress) do |e|
     # STDERR.puts e.inspect
     if e.char == 'q'
       # e.accept!
-      w.destroy
+      s.destroy
       exit
     end
   end
 
-  w.render
+  s.render
 
-  w.display.exec
+  s.display.exec
 end

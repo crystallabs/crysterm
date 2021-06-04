@@ -14,8 +14,7 @@ module Crysterm
 
         if (!el["width"]? && (!el["left"]? && !el["right"]?)) ||
            (!el["height"]? && (!el["top"]? && !el["bottom"]?))
-          #raise "Layout must have width and height"
-          super **el, width: "100%", height: "100%"
+          raise "Layout must have width and height"
         else
           super **el
         end
@@ -224,6 +223,8 @@ module Crysterm
           when Overflow::StopRendering
             el.lpos = nil
             break
+          when Overflow::MoveWidget
+            raise Exception.new "Not implemented yet"
           end
 
           # D O:

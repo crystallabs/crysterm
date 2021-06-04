@@ -41,6 +41,7 @@ module Crysterm
       ShrinkWidget  # Make the Widget smaller to fit
       SkipWidget    # Do not render the widget
       StopRendering # End rendering cycle (leave current and remaining widgets unrendered)
+      MoveWidget    # Move so that it doesn't overflow if possible (e.g. auto-completion popups)
       # XXX Check whether StopRendering / SkipWidget work OK with things like focus etc.
       # They should be skipped, of course, if they are not rendered.
     end

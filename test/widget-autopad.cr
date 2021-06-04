@@ -1,16 +1,19 @@
 require "../src/crysterm"
 
 module Crysterm
-  w = Screen.new optimization: OptimizationFlag::SmartCSR # , auto_padding: true # (Already the default)
+  s = Screen.new optimization: OptimizationFlag::SmartCSR # , auto_padding: true # (Already the default)
 
   b = Widget::Box.new(
-    screen: w,
     top: "center",
     left: "center",
     width: 20,
     height: 10,
     border: true,
   )
+
+  # Must add the Widget to screen in this way for the moment
+  s.append b
+
 
   b2 = Widget::Box.new(
     parent: b,
@@ -21,16 +24,16 @@ module Crysterm
     border: true,
   )
 
-  w.on(Event::KeyPress) do |e|
+  s.on(Event::KeyPress) do |e|
     # STDERR.puts e.inspect
     if e.char == 'q'
       # e.accept!
-      w.destroy
+      s.destroy
       exit
     end
   end
 
-  w.render
+  s.render
 
-  w.display.exec
+  s.display.exec
 end

@@ -1,31 +1,30 @@
 require "../src/crysterm"
 
 module Crysterm
-  w = Screen.new optimization: OptimizationFlag::SmartCSR, auto_padding: false
+  s = Screen.new auto_padding: false
 
   b = Widget::Box.new(
-    screen: w,
     top: "center",
     left: "center",
     width: "50%",
     height: 5,
-    align: Tput::AlignFlag::Center,
-    valign: Tput::AlignFlag::Center,
+    align: Tput::AlignFlag::HCenter,
+    valign: Tput::AlignFlag::VCenter,
     # valign: AlignFlag::Bottom,
     content: "Foobar.",
     border: true
   )
 
-  w.on(Event::KeyPress) do |e|
+  s.append b
+
+  s.on(Event::KeyPress) do |e|
     # STDERR.puts e.inspect
     if e.char == 'q'
       # e.accept!
-      w.destroy
+      s.destroy
       exit
     end
   end
 
-  w.render
-
-  w.display.exec
+  s.display.exec
 end
