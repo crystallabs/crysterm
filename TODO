@@ -7,6 +7,9 @@ But there's more, as follows :)
 
 Question, Line -> Fix those widgets or they work?
 
+Separate all TODOs into (a) specific things/bugs to fix, and (b) theoretical/non-critical
+TODOs.
+
 During commits of May 28, for some reason Layouts (maybe other widgets?) don't behave as they did.
 Specifically for Layouts, Layouts now need width/height where previously this wasn't needed.
 (Maybe screen's append function doesn't do all it should?)

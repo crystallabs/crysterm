@@ -163,7 +163,7 @@ module Crysterm
         xl = xi + _get_width(get)
         yi = _get_top(get)
         yl = yi + _get_height(get)
-        base = @child_base || 0
+        base = @child_base
         el = self
         fixed = @fixed
         # coords
@@ -1543,7 +1543,7 @@ module Crysterm
           end
 
           height = pos.yl - pos.yi - iheight
-          base = @child_base || 0
+          base = @child_base
           visible = real >= base && real - base < height
 
           if (pos && visible && @screen.clean_sides(self))
@@ -1589,7 +1589,7 @@ module Crysterm
 
           height = pos.yl - pos.yi - iheight
 
-          base = @child_base || 0
+          base = @child_base
           visible = real >= base && real - base < height
 
           if (pos && visible && @screen.clean_sides(self))
@@ -1606,12 +1606,12 @@ module Crysterm
       end
 
       def insert_top(line)
-        fake = @_clines.rtof[@child_base || 0]
+        fake = @_clines.rtof[@child_base]
         insert_line(fake, line)
       end
 
       def insert_bottom(line)
-        h = (@child_base || 0) + height - iheight
+        h = (@child_base) + height - iheight
         i = Math.min(h, @_clines.size)
         fake = @_clines.rtof[i - 1] + 1
 
@@ -1619,12 +1619,12 @@ module Crysterm
       end
 
       def delete_top(n = 1)
-        fake = @_clines.rtof[@child_base || 0]
+        fake = @_clines.rtof[@child_base]
         delete_line(fake, n)
       end
 
       def delete_bottom(n)
-        h = (@child_base || 0) + height - 1 - iheight
+        h = (@child_base) + height - 1 - iheight
         i = Math.min(h, @_clines.size - 1)
         fake = @_clines.rtof[i]
 
@@ -1643,7 +1643,7 @@ module Crysterm
       end
 
       def set_baseline(i, line)
-        fake = @_clines.rtof[@child_base || 0]
+        fake = @_clines.rtof[@child_base]
         set_line(fake + i, line)
       end
 
@@ -1654,7 +1654,7 @@ module Crysterm
       end
 
       def get_baseline(i)
-        fake = @_clines.rtof[@child_base || 0]
+        fake = @_clines.rtof[@child_base]
         get_line(fake + i)
       end
 
@@ -1664,7 +1664,7 @@ module Crysterm
       end
 
       def clear_base_line(i)
-        fake = @_clines.rtof[@child_base || 0]
+        fake = @_clines.rtof[@child_base]
         clear_line(fake + i)
       end
 

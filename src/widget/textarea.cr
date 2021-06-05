@@ -61,10 +61,11 @@ module Crysterm
         return unless focused? # if @screen.focused != self
 
         lpos = get ? @lpos : _get_coords
+        # XXX is above a bug and should be vice-versa? `get ? _get_coords : @lpos`
         return unless lpos
 
         last = @_clines[-1]
-        app = @screen.display
+        display = @screen.display
 
         # Stop a situation where the textarea begins scrolling
         # and the last cline appears to always be empty from the
@@ -75,7 +76,7 @@ module Crysterm
         end
 
         line = Math.min(
-          @_clines.size - 1 - (@child_base || 0),
+          @_clines.size - 1 - (@child_base),
           (lpos.yl - lpos.yi) - iheight - 1
         )
 
@@ -90,26 +91,26 @@ module Crysterm
         # XXX Not sure, but this may still sometimes
         # cause problems when leaving editor.
         # E O:
-        # if (cy == app.tput.cursor.y) && (cx == app.tput.cursor.x)
+        # if (cy == display.tput.cursor.y) && (cx == display.tput.cursor.x)
         #  return
         # end
         # That check is redundant because the below logic also does
         # the same (no-op if cursor is already at coords.)
 
-        if (cy == app.tput.cursor.y)
-          if (cx > app.tput.cursor.x)
-            app.tput.cuf(cx - app.tput.cursor.x)
-          elsif (cx < app.tput.cursor.x)
-            app.tput.cub(app.tput.cursor.x - cx)
+        if (cy == display.tput.cursor.y)
+          if (cx > display.tput.cursor.x)
+            display.tput.cuf(cx - display.tput.cursor.x)
+          elsif (cx < display.tput.cursor.x)
+            display.tput.cub(display.tput.cursor.x - cx)
           end
-        elsif (cx == app.tput.cursor.x)
-          if (cy > app.tput.cursor.y)
-            app.tput.cud(cy - app.tput.cursor.y)
-          elsif (cy < app.tput.cursor.y)
-            app.tput.cuu(app.tput.cursor.y - cy)
+        elsif (cx == display.tput.cursor.x)
+          if (cy > display.tput.cursor.y)
+            display.tput.cud(cy - display.tput.cursor.y)
+          elsif (cy < display.tput.cursor.y)
+            display.tput.cuu(display.tput.cursor.y - cy)
           end
         else
-          app.tput.cup(cy, cx)
+          display.tput.cup(cy, cx)
         end
       end
 
