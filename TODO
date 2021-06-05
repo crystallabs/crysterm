@@ -1,18 +1,25 @@
-# Source Code TODOs
+# Immediate Source Code TODOs
 
-In the code, questions and/or things to verify at some later point are identified with "XXX".
-Things to change/improve are identified with "TODO".
+Review & fix all widgets' code
 
-But there's more, as follows :)
+Fix TextArea cursor when it reaches end of line and continues to the next.
 
-Question, Line -> Fix those widgets or they work?
+src/app/tput.cr -> review everything
+src/namespace.cr -> cleanup some definitions
+src/app.cr -> avoid use of Term::Screen, and make sure to check the size of @output, not STDOUT
+src/event.cr -> add descriptions of all events
 
-Separate all TODOs into (a) specific things/bugs to fix, and (b) theoretical/non-critical
-TODOs.
+src/widget/overlayimage.cr -> is that OK or more work needs to be done?
+src/widget/bigtext.cr -> is that OK or more work needs to be done?
+src/widget/question.cr -> needs more work (check why it breaks with padding: 1)
 
-During commits of May 28, for some reason Layouts (maybe other widgets?) don't behave as they did.
-Specifically for Layouts, Layouts now need width/height where previously this wasn't needed.
-(Maybe screen's append function doesn't do all it should?)
+Streamline Style class
+
+Support resizing
+
+Profile the app
+
+Make uniform passing of args to classes, with class decls, function arguments, and arg.try...
 
 In Widget, @window property is non-nil. If parent is specified, @window gets set to that of the
 parent. If window is specified, it gets set to that. And if window is not specified, the global/
@@ -23,46 +30,22 @@ are made, and also they must NOT exist as children of @window (only top-level, i
 should be in @window's.children list). This should be fixed such that @window becomes nilable and
 all logic everywhere is adjusted accordingly.
 
-In TextArea widget, arrows can be used for scrolling and it works correctly.
-However, the cursor position isn't reflected when using the arrows, so it's not clear what is happening,
-and also positioning within existing lines/text doesn't work because of that.
-
-src/app/tput.cr -> review everything
-src/namespace.cr -> cleanup some definitions
-src/app.cr -> avoid use of Term::Screen, and make sure to check the size of @output, not STDOUT
-src/event.cr -> add descriptions of all events
-
-src/widget/overlayimage.cr -> is that OK or more work needs to be done?
-src/widget/bigtext.cr -> is that OK or more work needs to be done?
-src/widget/question.cr -> needs more work
-
-# List of TODOs in no particular order
-
 In Crystal, it is customary to call getter and setters. But inherited from Blessed, some setters are now
 still called `set_...`. This causes getters to work OK, but the usual xyz= setters have no (or unexpected)
-behavior. Bring law and order into that area.
+behavior.
+Also define does top/left= modify abs or rel values? (Should be rel?)
+
+Mention ttystudio for fonts
 
 auto_padding is here defined on Window (equivalent of Blessed's Screen). Is it defined in Blessed in
 its Screen too, or it belongs to a different place? (Like, why would auto-padding be on a window
 level, instead of e.g. Screen or global? This would remove some conditional testing whether @window
 is defined.)
 
-Currently, when a Screen is listening for keyboard, it does this keypress by keypress. See how this affects
-pasting blocks of text into the terminal via mouse. Maybe they could be a "batch" mode where, if a paste
-is detected (possibly by realizing that multiple bytes became available at the same time?), all this
-text is processed as a plain text, at once? Maybe with a flag/toggle to do so?
-
-Currently events are emitted whereever needed with just e.g.: `emit SomeEvent, ...`.
-See if this is OK, or if events to emit should be passed via a channel and always be emitted from a single/same Fiber.
-
-Examine effect of `use_buffer` variable in Tput, and see whether it can be completely removed, or it can be used
-meaningfully in some way?
-
 There is a concept of Unicode and "full Unicode". Full being the one with all Unicode stuff that Crystal currently 
 does not support outside of its UTF-8 support. See what to do this over time - is there a chance Crystal would
-support more, or the idea of "full Unicode" needs to be just dropped from the sources.
-
-On an element, top/left/width/height can also be a string. Also allow Symbols to be used.
+support more? Yes:
+https://github.com/crystal-lang/crystal/pull/10721#
 
 Currently, every widget must have a `Screen`. This should not be so. See what try()s have to be added to allow
 `screen` of a widget to remain uninitialized. (Such widgets would simply never be rendered since they're not
@@ -70,28 +53,9 @@ on any screen, but it should otherwise be possible to create a hierarchy of widg
 But, don't bother if this only if doing it would be too inconvenient (e.g. if even basic functions require
 values that are only known after a Screen is associated.)
 
-Screen is currently autocreated if not created explicitly. See if it would make sense to move to a model where
-a Screen needs to be created explicitly. This could make sense because creating a Screen, just like in blessed,
-automatically activates it and switches to alternate buffer. Maybe not everyone wants that, depending on the type
-of app.
-
-See if an option could be added to control whether a Screen will use alternate buffer or not.
-
-See if it would make sense to name/rename all EventHandler events in such a way that the name identifies whether
-the action is about to happen, or has happened. In that case, e.g. Event::Render would mean the event has been
-triggered before the actual action, and Event::Rendered would mean it was triggered after.
-
-See if it would be of any benefit to mark certain methods with @[AlwaysInline].
-
 Make sure that the background character for a cell is always configurable and never literally taken to be ' '.
 This will allow someone to completely change what the background char is. I guess this has already been done
 to a good extent, but verifying/confirming it would be good.
-
-When specifying top/left, it is possible to say "center". This will center the widget, and is different than
-saying "50%". For example, for a screen of 100 and width 50, "center" will make it begin at 25, while "50%" will
-make it begin at 50. Now, when using percentages, it is possible to say e.g. "50%+10" (This would result in
-widget starting at 60 in our example). But it appears it is not possible to use the +- specifier if "center"
-is used. Support specifying +- in all cases.
 
 In test/widget-padding.cr and test/widget-bigtext.cr, those test differs from blessed in the background color of
 the border. Find this exact code and make it identical.
@@ -102,15 +66,12 @@ e.g. "80%", top/left support a special string value of "center", and width/heigh
 can stay as a supported option (for convenience of loading settings from text files, etc.?), but see if those
 can be replaced with enums or similar, and with things like 80.percent() or something.
 
-Fix screen.destroy() so that it does the same as in Blessed (destroy screen, reset term, exit). Does it really
-do that in blessed?
-
 For good OO, and like in Qt, it would be good if all functions that deal with Points, Sizes, and Dimensions,
 would also accept those specific classes/structs that we'd define, rather than just numbers/Ints. This already
 exists to an extent, e.g. in Tput there is class Size, Point, etc. These should be used more throughout the
 codebase, and any other relevant new ones added.
 
-Would anything be gained by using a Set instead of an Array as the containing element for individuall Cell's
+Would anything be gained by using a Set instead of an Array as the containing element for individual Cell's
 which represent all chars/cells on the screen?
 
 Some elements of Style should have defaults. See whether it makes sense, as an example, for @style.bar to
@@ -123,6 +84,87 @@ theme, with all the functions/fallback for that embedded in the class.
 Speaking of Style, some things, like Style#border, and Border class, are not in sync. Maybe Border class
 is completely unused and should be fixed / sorted out?
 
+It is not 100% defined what happens if a Widget has parse_tags true, and there is syntax error in the
+tags. A syntax error is something as simple or just { or }. In the case of one {, { remains in input and
+the rest is removed. In all other cases (more {s or one or more }s), the whole section is removed.
+This should be fixed/standardized. Offhand, either always removing everything, or always removing anything
+that's invalid as-is. (Didn't check yet how blessed does it.)
+
+Investigate behavior of ignore_border on scrollbar. Why scrollbar isn't on top of border?
+
+Performance improvements. In widgets and everywhere, but specifically:
+- for draw() - would it help if there was a region to draw manually managed, or current do-all code is fine?
+- for render/draw - any benefit from draw() being separately schedulable? Also, how to keep track of rendering
+  and skip it if nothing has changed? And where in memory is rendering? in screen or in widget?
+- Can parse_content be called less times, and can `if @parse_tags` be checked less times?
+
+Make all widgets able to have their own cursor type when they're in focus
+
+Sort out Position and LPos.
+
+Implement generic functions for all size/position values. Can take all formats, but when invoked
+always returns the specific numeric value. (Patch for this was done ??)
+
+See if it's possible that @content is never re-set to parsed value, and that it always contains direct/raw
+user input? If yes, then @text hacks wouldn't be needed.
+
+Support resizing - basis is in _listen_output
+
+@ret is now used for diverting output. See if even better, it could be a block that yields and
+writes to given IO.
+
+Check if dock_borders is really checked on Screen and also at individual element?
+
+Is there perf benefit to manually checking if there are event listeners before emitting events?
+
+Make tab_size/tabc be properties on widget
+
+Implement artificial cursor (with cursorFlashTime option), scrollbar, streamline keys, ...
+
+Stop all event handlers on Screen.destroy
+
+In the code, questions and/or things to verify at some later point are identified with "XXX".
+Things to change/improve are identified with "TODO".
+
+# TODOs in Theory / for Discussion
+
+Most of these can be ignored, they are highly contextual.
+
+After commits of May 28, for some reason Layouts (maybe other widgets?) don't behave as they did.
+Specifically for Layouts, Layouts now need width/height where previously this wasn't needed.
+(Maybe screen's append function doesn't do all it should?)
+
+In TextArea widget, arrows can be used for scrolling and it works correctly.
+However, the cursor position isn't reflected when using the arrows, so it's not clear what is happening,
+and also positioning within existing lines/text doesn't work because of that. Well, the y movement was
+added to make it clearer. But maybe we should leave this as-is for now, or make further improvements
+in a separate/different widget altogether.
+
+Currently, when a Screen is listening for keyboard, it does this keypress by keypress. See how this affects
+pasting blocks of text into the terminal via mouse. Maybe they could be a "batch" mode where, if a paste
+is detected (possibly by realizing that multiple bytes became available at the same time?), all this
+text is processed as a plain text, at once? Maybe with a flag/toggle to do so?
+
+Currently events are emitted where ever needed with just e.g.: `emit SomeEvent, ...`.
+See if this is OK, or if events to emit should be passed via a channel and always be emitted from a single/same Fiber.
+
+Examine effect of `use_buffer` variable in Tput, and see whether it can be completely removed, or it can be used
+meaningfully in some way?
+
+On an element, top/left/width/height can also be a string. Also allow Symbols to be used?
+
+See if it would make sense to name/rename all EventHandler events in such a way that the name identifies whether
+the action is about to happen, or has happened. In that case, e.g. Event::Render would mean the event has been
+triggered before the actual action, and Event::Rendered would mean it was triggered after.
+
+See if it would be of any benefit to mark certain methods with @[AlwaysInline].
+
+When specifying top/left, it is possible to say "center". This will center the widget, and is different than
+saying "50%". For example, for a screen of 100 and width 50, "center" will make it begin at 25, while "50%" will
+make it begin at 50. Now, when using percentages, it is possible to say e.g. "50%+10" (This would result in
+widget starting at 60 in our example). But it appears it is not possible to use the +- specifier if "center"
+is used. Support specifying +- in all cases.
+
 The positioning of widgets, with Position, Pos, LPos, and so on, at the moment works, but there
 are certainly some unused variables, and/or there might be some methods within those that do not
 work. Review the whole thing for final trimming & verification.
@@ -131,10 +173,14 @@ In rendering, there is Overflow enum used as a return type, which defines what t
 be rendered without overflowing. Add MoveWidget or similar as another option. It would have the effect
 of moving the widget so it can render. A use case for this would be e.g. auto-completion boxes or similar
 which pop-up. For simplicity the developer would just have them pop up at the desired location, and
-Crystem would adjust for overflow automatically.
+Crysterm would adjust for overflow automatically.
 
-It is not 100% defined what happens if a Widget has parse_tags true, and there is syntax error in the
-tags. A syntax error is something as simple or just { or }. In the case of one {, { remains in input and
-the rest is removed. In all other cases (more {s or one or more }s), the whole section is removed.
-This should be fixed/standardized. Offhand, either always removing everything, or always removing anything
-that's invalid as-is. (Didn't check yet how blessed does it.)
+More widgets - from Blessed, slap text editor, Blessed-contrib, and Qt.
+
+Qt's approach to sizing widgets (policy, min/max, etc.)
+
+Support "Alternate" style in Style.
+
+In colors, do we want to convert #aabbcc notation to classes/structs?
+
+Add max len to text widgets

@@ -59,26 +59,33 @@ module Crysterm
       property inverse : Bool = false
       property invisible : Bool = false
       property transparent : Float64? = nil
-      # property hover : Bool
-      # property focus : Bool
 
-      property char : Char = ' '
-      property pchar : Char = ' '
+      # NOTE: Eventually reduce/streamline these
+      property char : Char = ' '  # Generic char
+      property pchar : Char = ' ' # Percent char
+      property fchar : Char = ' ' # Foreground char
+      property bchar : Char = ' ' # Bg char
       # property fchar : Char = ' '
-      # XXX is pchar == percent character?
-      # XXX Replace char with fchar (fg char) and bchar (bg char)?
 
       # For scrollbar
       property? ignore_border : Bool
 
+      # Each of these are separate subelements that can be styled.
+      # If any of them is not defined, it defaults to main/parent style.
       property border : Style?
       property scrollbar : Style?
+      property focus : Style?
+      property hover : Style?
+      property shadow : Style?
       property track : Style?
       property bar : Style?
 
       def initialize(
         @border = nil,
         @scrollbar = nil,
+        @focus = nil,
+        @hover = nil,
+        @shadow = nil,
         @track = nil,
         @bar = nil,
         fg = nil,
@@ -90,7 +97,9 @@ module Crysterm
         invisible = nil,
         transparent = nil,
         char = nil,
-        # fchar = nil,
+        pchar = nil,
+        fchar = nil,
+        bchar = nil,
         ignore_border = nil
       )
         fg.try { |v| @fg = v }
@@ -102,7 +111,9 @@ module Crysterm
         invisible.try { |v| @invisible = v }
         transparent.try { |v| @transparent = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
         char.try { |v| @char = v }
-        # fchar.try { |v| @fchar = v }
+        pchar.try { |v| @pchar = v }
+        fchar.try { |v| @fchar = v }
+        bchar.try { |v| @bchar = v }
         ignore_border.try { |v| @ignore_border = v }
       end
     end
@@ -146,11 +157,6 @@ module Crysterm
       def any?
         !!(@left || @top || @right || @bottom)
       end
-    end
-
-    class BorderSomething
-      property fg
-      property bg
     end
 
     class FocusEffects

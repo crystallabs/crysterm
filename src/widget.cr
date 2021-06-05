@@ -199,7 +199,7 @@ module Crysterm
 
         # Check to make sure we're visible and
         # inside of the visible scroll area.
-        # NOTE: Lists have a property where only
+        # Note: Lists have a property where only
         # the list items are obfuscated.
 
         # Old way of doing things, this would not render right if a shrunken element
@@ -877,7 +877,7 @@ module Crysterm
           end
         end
         if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) && (!@scrollable || @_is_listt))
-          # NOTE: Lists get special treatment if they are shrunken - assume they
+          # Note: Lists get special treatment if they are shrunken - assume they
           # want all list items showing. This is one case we can calculate the
           # height based on items/boxes.
           if (@_is_listt)
@@ -1093,10 +1093,10 @@ module Crysterm
             # TODO
             # content = content.gsub unicode.chars.all, "??"
             # delete combining characters since they're 0-width anyway.
-            # NOTE: We could drop this, the non-surrogates would get changed to ? by
+            # Note: We could drop this, the non-surrogates would get changed to ? by
             # the unicode filter, and surrogates changed to ? by the surrogate
             # regex. however, the user might expect them to be 0-width.
-            # NOTE: Might be better for performance to drop!
+            # Note: Might be better for performance to drop it!
             # TODO
             # content = content.replace(unicode.chars.combining, '')
             # no surrogate pairs: replace them with question-marks.
@@ -1516,7 +1516,7 @@ module Crysterm
         end
 
         # NOTE: Could possibly compare the first and last ftor line numbers to see
-        # if they"re the same, or if they fit in the visible region entirely.
+        # if they're the same, or if they fit in the visible region entirely.
         start = @_clines.size
         # diff
         # real
@@ -1564,7 +1564,7 @@ module Crysterm
         i = Math.min(i, @_clines.ftor.size - 1)
 
         # NOTE: Could possibly compare the first and last ftor line numbers to see
-        # if they"re the same, or if they fit in the visible region entirely.
+        # if they're the same, or if they fit in the visible region entirely.
         start = @_clines.size
         # diff
         real = @_clines.ftor[i][0]

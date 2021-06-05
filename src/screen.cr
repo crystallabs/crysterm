@@ -638,7 +638,7 @@ module Crysterm
         # If we're in a scrollable element,
         # automatically scroll to the focused element.
         if (el && !el.detached?)
-          # NOTE: This is different from the other "visible" values - it needs the
+          # Note: This is different from the other "visible" values - it needs the
           # visible height of the scrolling element itself, not the element within it.
           # NOTE why a/i values can be nil?
           visible = cur.screen.height - el.atop.not_nil! - el.itop.not_nil! - el.abottom.not_nil! - el.ibottom.not_nil!
@@ -651,10 +651,11 @@ module Crysterm
           elsif (cur.rtop + cur.height - cur.ibottom) > (el.child_base + visible)
             # Explanation for el.itop here: takes into account scrollable elements
             # with borders otherwise the element gets covered by the bottom border:
-            # XXX remove 'if' when Screen is no longer parent of elements
-            if el.is_a? Widget
-              el.scroll_to cur.rtop - (el.height - cur.height) + el.itop, true
-            end
+            # XXX remove 'if' when Screen is no longer parent of elements (Now it's not
+            # so removing. Eventually remove this note altogether.)
+            # if el.is_a? Widget
+            el.scroll_to cur.rtop - (el.height - cur.height) + el.itop, true
+            # end
             cur.screen.render
           end
         end
@@ -1233,7 +1234,7 @@ module Crysterm
               # are it does not support UTF8. This is probably
               # the "safest" way to do @ Should fix things
               # like sun-color.
-              # NOTE: It could be the case that the $LANG
+              # Note: It could be the case that the $LANG
               # is all that matters in some cases:
               # if (!display.tput.unicode && ch > '~') {
               if (!display.tput.features.unicode? && (display.tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
@@ -1920,7 +1921,7 @@ module Crysterm
       return if @_listened_keys
       @_listened_keys = true
 
-      # NOTE: The event emissions used to be reversed:
+      # Note: The event emissions used to be reversed:
       # element + screen
       # They are now:
       # screen, element and el's parents until one #accept!s it.
