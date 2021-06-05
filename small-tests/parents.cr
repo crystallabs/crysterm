@@ -5,7 +5,7 @@ class X
   include EventHandler
 
   def initialize
-    s = Screen.new ignore_locked: [ ::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ ]
+    s = Screen.new ignore_locked: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
     i1 = Widget::TextBox.new \
       width: 10,
@@ -25,7 +25,6 @@ class X
     STDERR.puts i1.parent.hash,
       i2.children.size,
       i3.children.size
-
   end
 end
 

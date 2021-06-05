@@ -1703,6 +1703,31 @@ module Crysterm
       end
     end
 
+    class StringIndex
+      def initialize(@object : String) : String?
+      end
+
+      def [](i : Int)
+        i < 0 ? nil : @object[i]
+      end
+
+      def []?(i : Int)
+        i < 0 ? nil : @object[i]?
+      end
+
+      def [](range : Range)
+        @object[range]
+      end
+
+      # def []?(range : Range)
+      # @object[range]
+      # end
+
+      def size
+        @object.size
+      end
+    end
+
     module Rendering
       include Crystallabs::Helpers::Alias_Methods
 
@@ -1743,7 +1768,7 @@ module Crysterm
         # attr
         # ch
         # Log.trace { lines.inspect }
-        content = @_pcontent || ""
+        content = StringIndex.new @_pcontent || ""
         ci = @_clines.ci[coords.base]? || 0 # XXX Is it ok that array lookup can be nil? and defaulting to 0?
         # battr
         # dattr

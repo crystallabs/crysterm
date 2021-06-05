@@ -18,7 +18,6 @@ module Crysterm
         else
           super **el
         end
-
       end
 
       def rendered?(el)

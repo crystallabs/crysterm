@@ -20,8 +20,9 @@ are made, and also they must NOT exist as children of @window (only top-level, i
 should be in @window's.children list). This should be fixed such that @window becomes nilable and
 all logic everywhere is adjusted accordingly.
 
-In test/widget-valign.cr, the content of the widget is displayed twice (or even, now doesn't display
-anything). Determine why and fix. Also in the Hello, World example, if using valign, the rendering is incorrect.
+In TextArea widget, arrows can be used for scrolling and it works correctly.
+However, the cursor position isn't reflected when using the arrows, so it's not clear what is happening,
+and also positioning within existing lines/text doesn't work because of that.
 
 src/app/tput.cr -> review everything
 src/namespace.cr -> cleanup some definitions

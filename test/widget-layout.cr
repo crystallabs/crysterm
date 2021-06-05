@@ -17,11 +17,11 @@ module Crysterm
     overflow: Overflow::Ignore, # Setting not existing in Blessed. Controls what to do when widget is overflowing
     # available space. Value of 'ignore' ignores the issue and renders such widgets overflown.
     style: Style.new(
-      bg: "red",
-      border: Style.new(
-        fg: "blue"
-      )
+    bg: "red",
+    border: Style.new(
+      fg: "blue"
     )
+  )
   )
 
   s.append l

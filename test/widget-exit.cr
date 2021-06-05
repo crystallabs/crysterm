@@ -28,8 +28,8 @@ module Crysterm
       when "end"
         # This will happen on at_exit; not needed to do here.
         # Well, can do both, but then at_exit handler will throw -EBADF
-        #Display.global.input.cooked!
-        #Display.global.input.close
+        # Display.global.input.cooked!
+        # Display.global.input.close
         puts "Ending stdin (not implemented)"
       else
         puts "Not resuming nor ending. Can also run test with argument 'resume' or 'end'."

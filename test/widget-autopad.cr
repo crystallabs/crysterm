@@ -14,7 +14,6 @@ module Crysterm
   # Must add the Widget to screen in this way for the moment
   s.append b
 
-
   b2 = Widget::Box.new(
     parent: b,
     top: 0,
