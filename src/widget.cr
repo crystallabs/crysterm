@@ -2484,9 +2484,14 @@ module Crysterm
     property? scrollbar : Bool = false
     property? track : Bool = false
 
-    # Offset from the top of the scroll content.
+    # Offset from the top of content (in number of lines) due to scrolling.
+    # E.g. 0 == no scroll (first line is visible/shown at the top), or
+    # 5 == 5 lines are hidden due to scroll, 6th line of content is first to
+    # be displayed.
     property child_base = 0
 
+    # Offset of cursor (in number of lines) within Widget. Value of 0 means
+    # cursor being at first line of visible (potentially scrolled) content.
     property child_offset = 0
 
     property base_limit = Int32::MAX
@@ -2827,7 +2832,7 @@ module Crysterm
 
       # We could just calculate the children, but we can
       # optimize for lists by just returning the items.length.
-      # XXX _is_listt!
+      # XXX _is_list!
       if @_is_listt
         return @items ? @items.size : 0
       end
@@ -2866,12 +2871,18 @@ module Crysterm
       bottom
     end
 
+    # Scrolls widget by `offset` lines down or up
     def scroll(offset, always = false)
       return unless @scrollable
       return if @detached
 
       # Handle scrolling.
+      # visible == amount of actual content lines visible in the widget. E.g. for
+      # a widget of height=4 and border (which renders within height), the amount
+      # of visible lines == 2.
       visible = height - iheight
+      # Current scrolling amount, i.e. the index of the first line of content which
+      # is actually shown. (base == 2 means content is showing from its 3rd line onwards)
       base = @child_base
 
       if (@always_scroll || always)

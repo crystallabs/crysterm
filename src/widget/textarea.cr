@@ -64,19 +64,28 @@ module Crysterm
         # XXX is above a bug and should be vice-versa? `get ? _get_coords : @lpos`
         return unless lpos
 
-        last = @_clines[-1]
+        # Previously, cursor was always positioned on last line. That's why the
+        # variable is called `last`. But now we try to position it really on the
+        # line that has the cursor (in case of movement and/or scrolling), and
+        # not to the last line. Variable name, for now, remains the same.
+        # last = @_clines[-1]
+        last = @_clines[@child_base + @child_offset]? || @_clines[-1]
         display = @screen.display
 
-        # Stop a situation where the textarea begins scrolling
-        # and the last cline appears to always be empty from the
-        # _type_scroll `+ '\n'` thing.
-        # Maybe not necessary anymore?
-        if (last == "" && @value[-1]? != '\n')
-          last = @_clines[-2]? || ""
-        end
+        # In line with the above, now that `last`s content is different, let's
+        # try disabling this:
+        # # Stop a situation where the textarea begins scrolling
+        # # and the last cline appears to always be empty from the
+        # # _type_scroll `+ '\n'` thing.
+        # # Maybe not necessary anymore?
+        # if (last == "" && @value[-1]? != '\n')
+        #  last = @_clines[-2]? || ""
+        # end
 
+        # Same here, do updated calculation which takes scrolling into
+        # account and allows for cursor movements between lines of content.
         line = Math.min(
-          @_clines.size - 1 - (@child_base),
+          (@child_offset),
           (lpos.yl - lpos.yi) - iheight - 1
         )
 
@@ -168,7 +177,7 @@ module Crysterm
         end
 
         if e.char && (!e.key || also_check_char)
-          # XXX damn, to_s
+          # XXX can we avoid to_s ?
           unless e.char.to_s.match /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
             @value += e.char
           end
