@@ -155,6 +155,22 @@ One could also define foreground and background colors and attributes by manuall
 embedding the appropriate escape sequences into strings or using Crystal's `Colorize` module.
 Crysterm is interoperable with those approaches.
 
+### Styling
+
+Every `Widget` has an attribute `style`, defining the colors and attributes to use during rendering.
+If no style is explicitly defined, the default style is instantiated. Apart from styling the widget
+itself, each `Style` may have overriding style definitions for widget's possible subelements
+(border, scrollbar, shadow, track, bar, item, header, cell) and states (focus, blur, hover, selected).
+
+If any of these subelements have more specific settings which define substantial behavior and not
+just visual aspects, they are defined as properties directly on the widget (e.g. `Widget#border,
+`Widget#scrollbar`, etc.). These properties also serve as toggles to turn on or off respective
+behaviors.
+
+The final goal, currently not implemented, is to be able to define one or a couple `Style` instances
+which would apply to, and style, the whole program. Additionally, these definitions would be
+serializable to YAML, enabling convenient theming.
+
 ### Performance
 
 By default, for development, frames-per-second value is displayed at the bottom of every Screen. When displaying FPS is enabled, Crysterm measures time needed to complete rendering and drawing cycles, and displays them as "R/D/FPS" (estimated renderings per second, drawings per second, and total/combined frames per second).

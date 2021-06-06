@@ -73,11 +73,17 @@ module Crysterm
       # If any of them is not defined, it defaults to main/parent style.
       setter border : Style?
       setter scrollbar : Style?
-      setter focus : Style?
-      setter hover : Style?
       setter shadow : Style?
       setter track : Style?
       setter bar : Style?
+      setter item : Style?
+      setter header : Style?
+      setter cell : Style?
+
+      setter blur : Style?
+      setter focus : Style?
+      setter hover : Style?
+      setter selected : Style?
 
       def border
         @border || self
@@ -107,6 +113,26 @@ module Crysterm
         @bar || self
       end
 
+      def selected
+        @selected || self
+      end
+
+      def item
+        @item || self
+      end
+
+      def header
+        @header || self
+      end
+
+      def cell
+        @cell || self
+      end
+
+      def blur
+        @blur || self
+      end
+
       def initialize(
         @border = nil,
         @scrollbar = nil,
@@ -115,6 +141,10 @@ module Crysterm
         @shadow = nil,
         @track = nil,
         @bar = nil,
+        @selected = nil,
+        @item = nil,
+        @header = nil,
+        @cell = nil,
         fg = nil,
         bg = nil,
         bold = nil,

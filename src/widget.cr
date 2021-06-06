@@ -2049,7 +2049,7 @@ module Crysterm
           if ((yl - yi) < i)
             x = xl - 1
             # XXX remove try's
-            if ((@style.try &.scrollbar.try &.ignore_border?) && @border)
+            if ((@style.scrollbar.ignore_border?) && @border)
               x += 1
             end
             if (@always_scroll)
@@ -2067,11 +2067,11 @@ module Crysterm
             cell = lines[y]? && lines[y][x]?
             if (cell)
               if (@track)
-                ch = (@style.try &.track.try &.char) || ' '
+                ch = (@style.track.char) || ' '
                 attr = sattr(@style.track || @style, @style.track.try(&.fg) || @style.fg, @style.track.try(&.bg) || @style.bg)
                 @screen.fill_region(attr, ch, x, x + 1, yi, yl)
               end
-              ch = (@style.try &.scrollbar.try &.char) || ' '
+              ch = (@style.scrollbar.char) || ' '
               attr = sattr(@style.scrollbar || @style, @style.scrollbar.try(&.fg) || @style.fg, @style.scrollbar.try(&.bg) || @style.bg)
               if cell != {attr, ch}
                 lines[y][x].attr = attr
