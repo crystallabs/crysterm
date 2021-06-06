@@ -13,7 +13,6 @@ module Crysterm
 
     # Type of border to draw.
     enum BorderType
-      # None
       Bg
       Fg
       Line
@@ -72,13 +71,41 @@ module Crysterm
 
       # Each of these are separate subelements that can be styled.
       # If any of them is not defined, it defaults to main/parent style.
-      property border : Style?
-      property scrollbar : Style?
-      property focus : Style?
-      property hover : Style?
-      property shadow : Style?
-      property track : Style?
-      property bar : Style?
+      setter border : Style?
+      setter scrollbar : Style?
+      setter focus : Style?
+      setter hover : Style?
+      setter shadow : Style?
+      setter track : Style?
+      setter bar : Style?
+
+      def border
+        @border || self
+      end
+
+      def scrollbar
+        @scrollbar || self
+      end
+
+      def focus
+        @focus || self
+      end
+
+      def hover
+        @hover || self
+      end
+
+      def shadow
+        @shadow || self
+      end
+
+      def track
+        @track || self
+      end
+
+      def bar
+        @bar || self
+      end
 
       def initialize(
         @border = nil,
@@ -137,8 +164,7 @@ module Crysterm
     end
 
     class Border
-      property type = BorderType::Bg
-      property ch = ' '
+      property type = BorderType::Line
       property left : Bool = true
       property top : Bool = true
       property right : Bool = true
@@ -146,7 +172,6 @@ module Crysterm
 
       def initialize(
         @type = BorderType::Bg,
-        @ch = ' ',
         @left = true,
         @top = true,
         @right = true,

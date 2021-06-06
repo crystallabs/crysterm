@@ -2153,7 +2153,7 @@ module Crysterm
                 # '─'
               end
             elsif (border.type == BorderType::Bg)
-              ch = border.ch
+              ch = @style.border.char
             end
             if (!border.top && x != xi && x != xl - 1)
               ch = ' '
@@ -2182,7 +2182,7 @@ module Crysterm
                   ch = '\u2502'
                   # '│'
                 elsif (border.type == BorderType::Bg)
-                  ch = border.ch
+                  ch = @style.border.char
                 end
                 if (!coords.noleft)
                   if cell != {battr, ch}
@@ -2207,7 +2207,7 @@ module Crysterm
                   ch = '\u2502'
                   # '│'
                 elsif (border.type == BorderType::Bg)
-                  ch = border.ch
+                  ch = @style.border.char
                 end
                 if (!coords.noright)
                   if cell != {battr, ch}
@@ -2281,7 +2281,7 @@ module Crysterm
                 # '─'
               end
             elsif (border.type == BorderType::Bg)
-              ch = border.ch
+              ch = @style.border.char
             end
             if (!border.bottom && x != xi && x != xl - 1)
               ch = ' '
