@@ -55,7 +55,7 @@ class MyProg
     if e.key == Tput::Key::Enter
       c = input.content
       c = "~" if c == ""
-      b.content += c + "\n"
+      b.set_content b.content + c + "\n"
       input.value = ""
       s.render
     end

@@ -70,8 +70,6 @@ writes to given IO.
 
 Is there perf benefit to manually checking if there are event listeners before emitting events?
 
-Make tab_size/tabc be properties on widget
-
 Implement artificial cursor (with cursorFlashTime option), scrollbar, streamline keys, ...
 
 Stop all event handlers on Screen.destroy

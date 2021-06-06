@@ -1073,7 +1073,7 @@ module Crysterm
             @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
               .gsub(/\x1b(?!\[[\d;]*m)/, "")
               .gsub(/\r\n|\r/, "\n")
-              .gsub(/\t/, screen.tabc)
+              .gsub(/\t/, @tabc)
 
           Log.trace { "Internal content is #{content.inspect}" }
 
@@ -2512,6 +2512,10 @@ module Crysterm
 
     property style : Style
 
+    # Width of tabs in elements' content.
+    property tab_size : Int32
+    getter! tabc : String
+
     def initialize(
       *,
       # These end up being part of Position.
@@ -2557,8 +2561,11 @@ module Crysterm
       @screen = determine_screen, # NOTE a todo item about this is in file TODO
       index = -1,
       children = [] of Widget,
-      @auto_padding = true
+      @auto_padding = true,
+      @tab_size = ::Crysterm::TAB_SIZE,
+      tabc = nil
     )
+      @tabc = tabc || (" " * @tab_size)
       resizable.try { |v| @resizable = v }
       hidden.try { |v| @hidden = v }
       scrollable.try { |v| @scrollable = v }

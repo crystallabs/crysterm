@@ -18,6 +18,8 @@ require "./widgets"
 module Crysterm
   include Namespace
 
+  TAB_SIZE = 4
+
   @@resize_flag : Atomic(UInt8) = Atomic.new 0u8
   @@resize_channel : Channel(Bool) = Channel(Bool).new
 

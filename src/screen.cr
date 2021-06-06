@@ -788,11 +788,6 @@ module Crysterm
       property lines = Array(Row).new
       property olines = Array(Row).new
 
-      # Width of tabs in elements' content.
-      property tab_size : Int32
-
-      getter! tabc : String
-
       def _dock_borders
         lines = @lines
         stops = @_border_stops
@@ -1826,7 +1821,6 @@ module Crysterm
 
     def initialize(
       @display = Display.global(true),
-      @tab_size = 4,
       @dock_borders = false,
       ignore_locked : Array(Tput::Key)? = nil,
       @lock_keys = false,
@@ -1847,8 +1841,6 @@ module Crysterm
       # Tput is accessed via display.tput
 
       # super() No longer calling super, we are not subclass of Widget any more
-
-      @tabc = " " * @tab_size
 
       # _unicode is display.tput.features.unicode
       # full_unicode? is option full_unicode? + _unicode
