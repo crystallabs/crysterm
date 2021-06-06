@@ -201,7 +201,7 @@ module Crysterm
       property bottom : Bool = true
 
       def initialize(
-        @type = BorderType::Bg,
+        @type = BorderType::Line,
         @left = true,
         @top = true,
         @right = true,

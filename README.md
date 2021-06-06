@@ -163,12 +163,12 @@ itself, each `Style` may have overriding style definitions for widget's possible
 (border, scrollbar, shadow, track, bar, item, header, cell) and states (focus, blur, hover, selected).
 
 If any of these subelements have more specific settings which define substantial behavior and not
-just visual aspects, they are defined as properties directly on the widget (e.g. `Widget#border,
-`Widget#scrollbar`, etc.). These properties also serve as toggles to turn on or off respective
-behaviors.
+just visual aspects, they are defined as properties directly on the widget (e.g. `Widget#border`,
+`Widget#scrollbar`, etc.). These properties also serve as toggles that turn on or off respective
+elements.
 
-The final goal, currently not implemented, is to be able to define one or a couple `Style` instances
-which would apply to, and style, the whole program. Additionally, these definitions would be
+The final goal (still to be implemented) is to be able to define one or a couple `Style` instances
+which would apply to, and style, all widgets. Additionally, these definitions would be
 serializable to YAML, enabling convenient theming.
 
 ### Performance
