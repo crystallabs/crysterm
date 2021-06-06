@@ -68,8 +68,6 @@ Support resizing - basis is in _listen_output
 @ret is now used for diverting output. See if even better, it could be a block that yields and
 writes to given IO.
 
-Check if dock_borders is really checked on Screen and also at individual element?
-
 Is there perf benefit to manually checking if there are event listeners before emitting events?
 
 Make tab_size/tabc be properties on widget

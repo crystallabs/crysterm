@@ -2403,9 +2403,6 @@ module Crysterm
     # What action to take when widget would overflow parent's boundaries?
     property overflow = Overflow::Ignore
 
-    # Dock borders? (See `Screen#dock_borders?` for more information)
-    property? dock_borders : Bool
-
     # Draw shadow on the element's right and bottom? Can be `true` for opacity 0.5, or a specific Float.
     property shadow : Float64?
 
@@ -2534,7 +2531,6 @@ module Crysterm
       position : Tput::Position? = nil,
       resizable = nil,
       overflow : Overflow? = nil,
-      @dock_borders = true,
       shadow = nil,
       @style = Style.new, # Previously: Style? = nil
       padding : Padding | Int32 = 0,
