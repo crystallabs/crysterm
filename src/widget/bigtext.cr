@@ -2,6 +2,9 @@ require "./box"
 
 module Crysterm
   class Widget
+    # Widget for displaying text in big font.
+    #
+    # Fonts can be converted from BDF to the required JSON format using https://github.com/chjj/ttystudio
     class BigText < Widget::Box
       # TODO Why these two default values generate an error (not initialized) if removed?
       property font : String = "#{__DIR__}/../fonts/ter-u14n.json"
