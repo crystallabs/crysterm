@@ -59,27 +59,44 @@ module Crysterm
     # Emitted at the end of drawing. Currently disabled/unused.
     # event Draw
 
+    # Emitted after Widget's content is defined
     event SetContent
+
+    # Emitted after Widget's content is parsed
     event ParsedContent
 
+    # Emitted on mouse click
     event Click
 
+    # Emitted on button press
     event Press
 
+    # Emitted on checkbox checked
     event Check, value : Bool
+
+    # Emitted on checkbox unchecked
     event UnCheck, value : Bool
 
+    # Emitted when Widget's position is changed
     event Move
 
+    # Emitted on something being completed (e.g. progressbar reaching 100%)
     event Complete
+
+    # Emitted on something being reset (e.g. progressbar reset to 0%)
     event Reset
 
+    # Emitted on value submitted (e.g. in text forms)
     event Submit, value : String
+
+    # Emitted on value canceled (e.g. in text forms)
     event Cancel, value : String
+
     event Action, value : String
 
-    event Key, key : ::Tput::Key
+    #event Key, key : ::Tput::Key
 
+    # Emitted on key pressed
     class KeyPress < EventHandler::Event
       property char : Char
       property key : ::Tput::Key?
