@@ -768,9 +768,6 @@ module Crysterm
 
       property padding = Padding.new
 
-      # Automatically position child elements with border and padding in mind.
-      property auto_padding = true
-
       # Automatically "dock" borders with other elements instead of overlapping,
       # depending on position.
       #     These border-overlapped elements:
@@ -1829,7 +1826,6 @@ module Crysterm
 
     def initialize(
       @display = Display.global(true),
-      @auto_padding = true,
       @tab_size = 4,
       @dock_borders = false,
       ignore_locked : Array(Tput::Key)? = nil,

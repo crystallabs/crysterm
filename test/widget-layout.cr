@@ -5,7 +5,7 @@ require "../src/crysterm"
 # test file to get the same behavior is in file widget-layout.cr.blessed-patch.
 
 module Crysterm
-  s = Screen.new optimization: OptimizationFlag::SmartCSR # , auto_padding: true # auto padding is true in Crysterm by default
+  s = Screen.new optimization: OptimizationFlag::SmartCSR
 
   l = layout = Widget::Layout.new(
     top: "center",

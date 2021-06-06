@@ -1,7 +1,7 @@
 require "../src/crysterm"
 
 module Crysterm
-  s = Screen.new optimization: OptimizationFlag::SmartCSR # , auto_padding: true # (Already the default)
+  s = Screen.new optimization: OptimizationFlag::SmartCSR
 
   b = Widget::Box.new(
     top: "center",

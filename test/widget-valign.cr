@@ -1,7 +1,7 @@
 require "../src/crysterm"
 
 module Crysterm
-  s = Screen.new auto_padding: false
+  s = Screen.new
 
   b = Widget::Box.new(
     top: "center",
@@ -12,7 +12,8 @@ module Crysterm
     valign: Tput::AlignFlag::VCenter,
     # valign: AlignFlag::Bottom,
     content: "Foobar.",
-    border: true
+    border: true,
+    auto_padding: false
   )
 
   s.append b

@@ -393,7 +393,7 @@ module Crysterm
           width = (parent.width || 0) - (@position.right || 0) - left
 
           @parent.try do |pparent|
-            if (@screen.auto_padding)
+            if (@auto_padding)
               if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
                 width -= pparent.ileft
               end
@@ -449,7 +449,7 @@ module Crysterm
           height = (parent.height || 0) - (@position.bottom || 0) - top
 
           @parent.try do |pparent|
-            if (@screen.auto_padding)
+            if (@auto_padding)
               if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
                 height -= pparent.itop
               end
@@ -491,7 +491,7 @@ module Crysterm
         end
 
         @parent.try do |pparent|
-          if (@screen.auto_padding)
+          if (@auto_padding)
             if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
               left += pparent.ileft
             end
@@ -514,7 +514,7 @@ module Crysterm
         if @position.right.nil? && !@position.left.nil?
           right = @screen.width - (_get_left(get) + _get_width(get))
           @parent.try do |pparent|
-            if (@screen.auto_padding)
+            if (@auto_padding)
               right += pparent.iright
             end
           end
@@ -522,7 +522,7 @@ module Crysterm
 
         right = (parent.aright || 0) + (@position.right || 0)
         @parent.try do |pparent|
-          if (@screen.auto_padding)
+          if (@auto_padding)
             right += pparent.iright
           end
         end
@@ -559,7 +559,7 @@ module Crysterm
         end
 
         @parent.try do |pparent|
-          if (@screen.auto_padding)
+          if (@auto_padding)
             if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
               top += pparent.itop
             end
@@ -582,7 +582,7 @@ module Crysterm
         if @position.bottom.nil? && !@position.top.nil?
           bottom = @screen.height - (_get_top(get) + _get_height(get))
           @parent.try do |pparent|
-            if (@screen.auto_padding)
+            if (@auto_padding)
               bottom += pparent.ibottom
             end
           end
@@ -592,7 +592,7 @@ module Crysterm
         bottom = (parent.abottom || 0) + (@position.bottom || 0)
 
         @parent.try do |pparent|
-          if (@screen.auto_padding)
+          if (@auto_padding)
             bottom += pparent.ibottom
           end
         end
@@ -811,7 +811,7 @@ module Crysterm
           if (el.position.left.nil? && !el.position.right.nil?)
             ret.xl = xi + (ret.xl - ret.xi)
             ret.xi = xi
-            if (@screen.auto_padding)
+            if (@auto_padding)
               # Maybe just do this no matter what.
               ret.xl += ileft
               ret.xi += ileft
@@ -820,7 +820,7 @@ module Crysterm
           if (el.position.top.nil? && !el.position.bottom.nil?)
             ret.yl = yi + (ret.yl - ret.yi)
             ret.yi = yi
-            if (@screen.auto_padding)
+            if (@auto_padding)
               # Maybe just do this no matter what.
               ret.yl += itop
               ret.yi += itop
@@ -850,14 +850,14 @@ module Crysterm
         if (@position.width.nil? && (@position.left.nil? || @position.right.nil?))
           if (@position.left.nil? && !@position.right.nil?)
             xi = xl - (mxl - mxi)
-            if (!@screen.auto_padding)
+            if (!@auto_padding)
               xi -= @padding.left + @padding.right
             else
               xi -= ileft
             end
           else
             xl = mxl
-            if (!@screen.auto_padding)
+            if (!@auto_padding)
               xl += @padding.left + @padding.right
               # XXX Temporary workaround until we decide to make auto_padding default.
               # See widget-listtable for an example of why this is necessary.
@@ -886,14 +886,14 @@ module Crysterm
           end
           if (@position.top.nil? && !@position.bottom.nil?)
             yi = yl - (myl - myi)
-            if (!@screen.auto_padding)
+            if (!@auto_padding)
               yi -= @padding.top + @padding.bottom
             else
               yi -= itop
             end
           else
             yl = myl
-            if (!@screen.auto_padding)
+            if (!@auto_padding)
               yl += @padding.top + @padding.bottom
             else
               yl += ibottom
@@ -2384,6 +2384,9 @@ module Crysterm
 
     class_property style : Style = Style.new
 
+    # Automatically position child elements with border and padding in mind.
+    property auto_padding = true
+
     # ######## COMMON WITH SCREEN
 
     property? destroyed = false
@@ -2557,7 +2560,8 @@ module Crysterm
       name = nil,
       @screen = determine_screen, # NOTE a todo item about this is in file TODO
       index = -1,
-      children = [] of Widget
+      children = [] of Widget,
+      @auto_padding = true
     )
       resizable.try { |v| @resizable = v }
       hidden.try { |v| @hidden = v }
