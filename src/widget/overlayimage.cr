@@ -10,6 +10,8 @@ module Crysterm
       property file : String
       @image : W3MImageDisplay::Image?
 
+      @ev_render : Crysterm::Event::Render::Wrapper?
+
       def initialize(
         @file = "/tmp/w3mimagedisplay/examples/image.jpg",
         @stretch = false,
@@ -20,25 +22,33 @@ module Crysterm
 
         @image = W3MImageDisplay::Image.new @file
 
-        @screen.on(::Crysterm::Event::Render) do
-          # TODO - get coords of content only, without borders/padding
-          pos = _get_coords(true).not_nil!
-          @border.try do |b|
-            if b.left
-              pos.xi += 1
+        on(::Crysterm::Event::Attach) do
+          @ev_render = screen.on(::Crysterm::Event::Render) do
+            # TODO - get coords of content only, without borders/padding
+            pos = _get_coords(true).not_nil!
+            @border.try do |b|
+              if b.left
+                pos.xi += 1
+              end
+              if b.right
+                pos.xl -= 1
+              end
+              if b.top
+                pos.yi += 1
+              end
+              if b.bottom
+                pos.yl -= 1
+              end
             end
-            if b.right
-              pos.xl -= 1
-            end
-            if b.top
-              pos.yi += 1
-            end
-            if b.bottom
-              pos.yl -= 1
-            end
-          end
 
-          @image.try &.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
+            @image.try &.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
+          end
+        end
+
+        on(::Crysterm::Event::Detach) do
+          @ev_render.try do |ev|
+            screen.off ::Crysterm::Event::Render, ev
+          end
         end
       end
     end

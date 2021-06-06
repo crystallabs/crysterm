@@ -63,7 +63,7 @@ module Crysterm
             break if @should_exit
             @icon.set_content icons[@pos]
             @pos = (@pos + @step) % icons.size
-            @screen.render
+            screen.render
             sleep @interval
           end
         }.enqueue
@@ -73,7 +73,7 @@ module Crysterm
         hide
         @should_exit = true
         @text = nil
-        @screen.render
+        screen.render
       end
 
       def toggle

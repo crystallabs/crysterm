@@ -16,6 +16,11 @@ module Crysterm
       property value : Bool = false
       property text : String = ""
 
+      @ev_keypress : Crysterm::Event::KeyPress::Wrapper?
+      @ev_click : Crysterm::Event::Click::Wrapper?
+      @ev_focus : Crysterm::Event::Focus::Wrapper?
+      @ev_blur : Crysterm::Event::Blur::Wrapper?
+
       def initialize(checked : Bool = false, value : Bool? = nil, **input)
         super **input
 
@@ -27,30 +32,46 @@ module Crysterm
           @text = c
         end
 
-        on(Crysterm::Event::KeyPress) do |e|
-          # if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
-          if e.key == Tput::Key::Enter || e.char == ' '
-            e.accept!
+        on(::Crysterm::Event::Attach) do
+          @ev_keypress = on(Crysterm::Event::KeyPress) do |e|
+            # if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
+            if e.key == Tput::Key::Enter || e.char == ' '
+              e.accept!
+              toggle
+              screen.render
+            end
+          end
+
+          @ev_click = on(Crysterm::Event::Click) do
             toggle
-            @screen.render
+            screen.render
+          end
+
+          @ev_focus = on(Crysterm::Event::Focus) do
+            next unless lpos = @lpos
+            screen.display.tput.lsave_cursor :checkbox
+            screen.display.tput.cursor_pos lpos.yi, lpos.xi + 1
+            screen.display.tput.show_cursor
+          end
+
+          @ev_blur = on(Crysterm::Event::Blur) do
+            screen.display.tput.lrestore_cursor :checkbox, true
           end
         end
 
-        on(Crysterm::Event::Click) do
-          toggle
-          @screen.render
-        end
-        # end
-
-        on(Crysterm::Event::Focus) do
-          next unless lpos = @lpos
-          @screen.display.tput.lsave_cursor :checkbox
-          @screen.display.tput.cursor_pos lpos.yi, lpos.xi + 1
-          @screen.display.tput.show_cursor
-        end
-
-        on(Crysterm::Event::Blur) do
-          @screen.display.tput.lrestore_cursor :checkbox, true
+        on(::Crysterm::Event::Detach) do
+          @ev_keypress.try do |ev|
+            screen.off ::Crysterm::Event::KeyPress, ev
+          end
+          @ev_click.try do |ev|
+            screen.off ::Crysterm::Event::Click, ev
+          end
+          @ev_focus.try do |ev|
+            screen.off ::Crysterm::Event::Focus, ev
+          end
+          @ev_blur.try do |ev|
+            screen.off ::Crysterm::Event::Blur, ev
+          end
         end
       end
 

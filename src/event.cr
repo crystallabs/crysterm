@@ -94,7 +94,7 @@ module Crysterm
 
     event Action, value : String
 
-    #event Key, key : ::Tput::Key
+    # event Key, key : ::Tput::Key
 
     # Emitted on key pressed
     class KeyPress < EventHandler::Event

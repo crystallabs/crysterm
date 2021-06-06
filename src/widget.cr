@@ -146,7 +146,7 @@ module Crysterm
         return if @detached
         lpos = _get_coords(get)
         return unless lpos
-        @screen.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
+        screen.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
       end
 
       def _get_coords(get = false, noscroll = false)
@@ -347,7 +347,7 @@ module Crysterm
           noright: noright || false,
           notop: notop || false,
           nobot: nobot || false,
-          renders: @screen.renders
+          renders: screen.renders
         v
       end
 
@@ -487,7 +487,7 @@ module Crysterm
         end
 
         if @position.left.nil? && !@position.right.nil?
-          return @screen.width - _get_width(get) - _get_right(get)
+          return screen.width - _get_width(get) - _get_right(get)
         end
 
         @parent.try do |pparent|
@@ -512,7 +512,7 @@ module Crysterm
         end
 
         if @position.right.nil? && !@position.left.nil?
-          right = @screen.width - (_get_left(get) + _get_width(get))
+          right = screen.width - (_get_left(get) + _get_width(get))
           @parent.try do |pparent|
             if (@auto_padding)
               right += pparent.iright
@@ -555,7 +555,7 @@ module Crysterm
         end
 
         if @position.top.nil? && !@position.bottom.nil?
-          return @screen.height - _get_height(get) - _get_bottom(get)
+          return screen.height - _get_height(get) - _get_bottom(get)
         end
 
         @parent.try do |pparent|
@@ -580,7 +580,7 @@ module Crysterm
         end
 
         if @position.bottom.nil? && !@position.top.nil?
-          bottom = @screen.height - (_get_top(get) + _get_height(get))
+          bottom = screen.height - (_get_top(get) + _get_height(get))
           @parent.try do |pparent|
             if (@auto_padding)
               bottom += pparent.ibottom
@@ -639,13 +639,13 @@ module Crysterm
       def aleft=(val : Int)
         if (val.is_a? String)
           if (val == "center")
-            val = @screen.width // 2
+            val = screen.width // 2
             val -= @width // 2
           else
             expr = val.split(/(?=\+|-)/)
             val = expr[0]
             val = val.slice[0...-1].to_f / 100
-            val = (@screen.width * val).to_i
+            val = (screen.width * val).to_i
             val += expr[1] if expr[1]?
           end
         end
@@ -671,13 +671,13 @@ module Crysterm
       def atop=(val : Int)
         if (val.is_a? String)
           if (val == "center")
-            val = @screen.height // 2
+            val = screen.height // 2
             val -= height // 2
           else
             expr = val.split(/(?=\+|-)/)
             val = expr[0].to_i
             val = val[0...-1].to_f / 100
-            val = (@screen.height * val).to_i
+            val = (screen.height * val).to_i
             val += expr[1] if expr[1]?
           end
         end
@@ -995,8 +995,8 @@ module Crysterm
 
           pos2.aleft = pos2.xi
           pos2.atop = pos2.yi
-          pos2.aright = @screen.columns - pos2.xl
-          pos2.abottom = @screen.rows - pos2.yl
+          pos2.aright = screen.columns - pos2.xl
+          pos2.abottom = screen.rows - pos2.yl
           pos2.width = pos2.xl - pos2.xi
           pos2.height = pos2.yl - pos2.yi
         end
@@ -1031,7 +1031,7 @@ module Crysterm
       property _clines = CLines.new
 
       # Widget's text content. Includes any attributes and tags.
-      property content : String = ""
+      getter content : String = ""
 
       # Printable, word-wrapped content, ready for rendering into the element.
       property _pcontent : String?
@@ -1073,18 +1073,18 @@ module Crysterm
             @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
               .gsub(/\x1b(?!\[[\d;]*m)/, "")
               .gsub(/\r\n|\r/, "\n")
-              .gsub(/\t/, @screen.tabc)
+              .gsub(/\t/, screen.tabc)
 
           Log.trace { "Internal content is #{content.inspect}" }
 
-          if true # (@screen.full_unicode)
+          if true # (screen.full_unicode)
             # double-width chars will eat the next char after render. create a
             # blank character after it so it doesn't eat the real next char.
             # TODO
             # content = content.replace(unicode.chars.all, '$1\x03')
 
             # iTerm2 cannot render combining characters properly.
-            if @screen.display.tput.emulator.iterm2?
+            if screen.display.tput.emulator.iterm2?
               # TODO
               # content = content.replace(unicode.chars.combining, "")
             end
@@ -1198,12 +1198,12 @@ module Crysterm
 
             if (slash)
               if (!param || param.blank?)
-                outbuf += @screen.display.tput._attr("normal") || ""
+                outbuf += screen.display.tput._attr("normal") || ""
                 bg.clear
                 fg.clear
                 flag.clear
               else
-                attr = @screen.display.tput._attr(param, false)
+                attr = screen.display.tput._attr(param, false)
                 if (attr.nil?)
                   outbuf += cap[0]
                 else
@@ -1213,7 +1213,7 @@ module Crysterm
                   # }
                   state.pop
                   if (state.size > 0)
-                    outbuf += @screen.display.tput._attr(state[-1]) || ""
+                    outbuf += screen.display.tput._attr(state[-1]) || ""
                   else
                     outbuf += attr
                   end
@@ -1223,7 +1223,7 @@ module Crysterm
               if (!param)
                 outbuf += cap[0]
               else
-                attr = @screen.display.tput._attr(param)
+                attr = screen.display.tput._attr(param)
                 if (attr.nil?)
                   outbuf += cap[0]
                 else
@@ -1271,7 +1271,7 @@ module Crysterm
           (0...line.size).each do |i|
             if (line[i] == '\e')
               if (c = line[1..].match /^\x1b\[[\d;]*m/)
-                attr = @screen.attr_code(c[0], attr, dattr)
+                attr = screen.attr_code(c[0], attr, dattr)
                 # i += c[0].size - 1 # Unused
               end
             end
@@ -1546,8 +1546,8 @@ module Crysterm
           base = @child_base
           visible = real >= base && real - base < height
 
-          if (pos && visible && @screen.clean_sides(self))
-            @screen.insert_line(diff,
+          if (pos && visible && screen.clean_sides(self))
+            screen.insert_line(diff,
               pos.yi + itop + real - base,
               pos.yi,
               pos.yl - ibottom - 1)
@@ -1592,8 +1592,8 @@ module Crysterm
           base = @child_base
           visible = real >= base && real - base < height
 
-          if (pos && visible && @screen.clean_sides(self))
-            @screen.delete_line(diff,
+          if (pos && visible && screen.clean_sides(self))
+            screen.delete_line(diff,
               pos.yi + itop + real - base,
               pos.yi,
               pos.yl - ibottom - 1)
@@ -1697,7 +1697,7 @@ module Crysterm
 
       def str_width(text)
         text = @parse_tags ? strip_tags(text) : text
-        # return @screen.full_unicode ? unicode.str_width(text) : helpers.drop_unicode(text).size
+        # return screen.full_unicode ? unicode.str_width(text) : helpers.drop_unicode(text).size
         # text = text
         text.size # or bytesize?
       end
@@ -1757,7 +1757,7 @@ module Crysterm
           return
         end
 
-        lines = @screen.lines
+        lines = screen.lines
         xi = coords.xi
         xl = coords.xl
         yi = coords.yi
@@ -1812,20 +1812,20 @@ module Crysterm
 
         @border.try do |border|
           if (border.type == BorderType::Line)
-            @screen._border_stops[coords.yi] = true
-            @screen._border_stops[coords.yl - 1] = true
+            screen._border_stops[coords.yi] = true
+            screen._border_stops[coords.yl - 1] = true
             # D O:
-            # if (!@screen._border_stops[coords.yi])
-            #   @screen._border_stops[coords.yi] = { xi: coords.xi, xl: coords.xl }
+            # if (!screen._border_stops[coords.yi])
+            #   screen._border_stops[coords.yi] = { xi: coords.xi, xl: coords.xl }
             # else
-            #   if (@screen._border_stops[coords.yi].xi > coords.xi)
-            #     @screen._border_stops[coords.yi].xi = coords.xi
+            #   if (screen._border_stops[coords.yi].xi > coords.xi)
+            #     screen._border_stops[coords.yi].xi = coords.xi
             #   end
-            #   if (@screen._border_stops[coords.yi].xl < coords.xl)
-            #     @screen._border_stops[coords.yi].xl = coords.xl
+            #   if (screen._border_stops[coords.yi].xl < coords.xl)
+            #     screen._border_stops[coords.yi].xl = coords.xl
             #   end
             # end
-            # @screen._border_stops[coords.yl - 1] = @screen._border_stops[coords.yi]
+            # screen._border_stops[coords.yl - 1] = screen._border_stops[coords.yi]
           end
         end
 
@@ -1866,7 +1866,7 @@ module Crysterm
               end
             end
           else
-            @screen.fill_region(dattr, bch, xi, xl, yi, yl)
+            screen.fill_region(dattr, bch, xi, xl, yi, yl)
           end
         end
 
@@ -1895,7 +1895,7 @@ module Crysterm
         # yi.step to: yl-1 do |y|
         (yi...yl).each do |y|
           if (!lines[y]?)
-            if (y >= @screen.height || yl < ibottom)
+            if (y >= screen.height || yl < ibottom)
               break
             else
               next
@@ -1907,7 +1907,7 @@ module Crysterm
             x += 1
             cell = lines[y][x]?
             if (!cell)
-              if (x >= @screen.width || xl < iright)
+              if (x >= screen.width || xl < iright)
                 break
               else
                 next
@@ -1928,7 +1928,7 @@ module Crysterm
               cnt = content[(ci - 1)..]
               if (c = cnt.match /^\x1b\[[\d;]*m/)
                 ci += c[0].size - 1
-                attr = @screen.attr_code(c[0], attr, dattr)
+                attr = screen.attr_code(c[0], attr, dattr)
                 # D O:
                 # Ignore foreground changes for selected items.
                 # XXX But, Enable when lists exist, then restrict to List
@@ -1989,7 +1989,7 @@ module Crysterm
             end
 
             # TODO
-            # if (@screen.full_unicode && content[ci - 1])
+            # if (screen.full_unicode && content[ci - 1])
             if (content.try &.[ci - 1]?)
               # point = content.codepoint_at(ci - 1) # Unused
               # TODO
@@ -2069,7 +2069,7 @@ module Crysterm
               if (@track)
                 ch = (@style.track.char) || ' '
                 attr = sattr(@style.track || @style, @style.track.try(&.fg) || @style.fg, @style.track.try(&.bg) || @style.bg)
-                @screen.fill_region(attr, ch, x, x + 1, yi, yl)
+                screen.fill_region(attr, ch, x, x + 1, yi, yl)
               end
               ch = (@style.scrollbar.char) || ' '
               attr = sattr(@style.scrollbar || @style, @style.scrollbar.try(&.fg) || @style.fg, @style.scrollbar.try(&.bg) || @style.bg)
@@ -2377,7 +2377,7 @@ module Crysterm
 
     # Screen owning this element.
     # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
-    property screen : ::Crysterm::Screen
+    property! screen : ::Crysterm::Screen?
 
     # Widget's render (order) index that was determined/used during the last `#render` call.
     property index = -1
@@ -2616,7 +2616,7 @@ module Crysterm
       # Add element to parent
       if parent = @parent
         parent.append self
-        # elsif screen # XXX Don't do; see above for arg @screen, and see TODO file
+        # elsif screen # XXX Don't do; see above for arg screen, and see TODO file
         #  screen.try &.append self
       end
 
@@ -2680,12 +2680,12 @@ module Crysterm
 
           if (key == Tput::Key::Up || (@vi && ch == 'k'))
             scroll(-1)
-            @screen.render
+            screen.render
             next
           end
           if (key == Tput::Key::Down || (@vi && ch == 'j'))
             scroll(1)
-            @screen.render
+            screen.render
             next
           end
 
@@ -2697,7 +2697,7 @@ module Crysterm
                 next unless h.is_a? Int
                 offs = -h // 2
                 scroll offs == 0 ? -1 : offs
-                @screen.render
+                screen.render
               end
               next
             when Tput::Key::CtrlD
@@ -2705,7 +2705,7 @@ module Crysterm
                 next unless h.is_a? Int
                 offs = h // 2
                 scroll offs == 0 ? 1 : offs
-                @screen.render
+                screen.render
               end
               next
             when Tput::Key::CtrlB
@@ -2713,7 +2713,7 @@ module Crysterm
                 next unless h.is_a? Int
                 offs = -h
                 scroll offs == 0 ? -1 : offs
-                @screen.render
+                screen.render
               end
               next
             when Tput::Key::CtrlF
@@ -2721,7 +2721,7 @@ module Crysterm
                 next unless h.is_a? Int
                 offs = h
                 scroll offs == 0 ? 1 : offs
-                @screen.render
+                screen.render
               end
               next
             end
@@ -2729,11 +2729,11 @@ module Crysterm
             case ch
             when 'g'
               scroll_to 0
-              @screen.render
+              screen.render
               next
             when 'G'
               scroll_to get_scroll_height
-              @screen.render
+              screen.render
               next
             end
           end
@@ -2952,18 +2952,18 @@ module Crysterm
       # or if we **really** want shrinkable
       # scrolling elements.
       # p = @_get_coords
-      if (p && @child_base != base && @screen.clean_sides(self))
+      if (p && @child_base != base && screen.clean_sides(self))
         t = p.yi + itop
         b = p.yl - ibottom - 1
         d = @child_base - base
 
         if (d > 0 && d < visible)
           # scrolled down
-          @screen.delete_line(d, t, t, b)
+          screen.delete_line(d, t, t, b)
         elsif (d < 0 && -d < visible)
           # scrolled up
           d = -d
-          @screen.insert_line(d, t, t, b)
+          screen.insert_line(d, t, t, b)
         end
       end
 
@@ -2987,8 +2987,8 @@ module Crysterm
       clear_pos
       @hidden = true
       emit Crysterm::Event::Hide
-      # @screen.rewind_focus if focused?
-      @screen.rewind_focus if @screen.focused == self
+      # screen.rewind_focus if focused?
+      screen.rewind_focus if screen.focused == self
     end
 
     def show
@@ -3006,11 +3006,11 @@ module Crysterm
       # seen whether that's good, or it should always happen, even
       # if someone calls `#focus` multiple times in a row.
       return if focused?
-      @screen.focused = self
+      screen.focused = self
     end
 
     def focused?
-      @screen.focused == self
+      screen.focused == self
     end
 
     def visible?
@@ -3116,7 +3116,7 @@ module Crysterm
         yl = @lpos.yl - ibottom
       end
 
-      @screen.screenshot xi, xl, yi, yl
+      screen.screenshot xi, xl, yi, yl
     end
 
     def _update_cursor(arg)
@@ -3133,13 +3133,13 @@ module Crysterm
     end
 
     def insert(element, i = -1)
-      if element.screen != @screen
+      if element.screen != screen
         raise Exception.new("Cannot switch a node's screen.")
       end
 
       element.detach
 
-      element.screen = @screen
+      element.screen = screen
 
       # if i == -1
       #  @children.push element
@@ -3164,8 +3164,8 @@ module Crysterm
       }
       emt.call element
 
-      unless @screen.focused
-        @screen.focused = element
+      unless screen.focused
+        screen.focused = element
       end
     end
 
@@ -3186,16 +3186,16 @@ module Crysterm
       @children.delete_at i
 
       # TODO Enable
-      # if i = @screen.clickable.index(element)
-      #  @screen.clickable.delete_at i
+      # if i = screen.clickable.index(element)
+      #  screen.clickable.delete_at i
       # end
-      # if i = @screen.keyable.index(element)
-      #  @screen.keyable.delete_at i
+      # if i = screen.keyable.index(element)
+      #  screen.keyable.delete_at i
       # end
 
       element.emit(Crysterm::Event::Reparent, nil)
       emit(Crysterm::Event::Remove, element)
-      # s= @screen
+      # s= screen
       # raise Exception.new() unless s
       # screen_clickable= s.clickable
       # screen_keyable= s.keyable
@@ -3209,8 +3209,8 @@ module Crysterm
       }
       emt.call element
 
-      if @screen.focused == element
-        @screen.rewind_focus
+      if screen.focused == element
+        screen.rewind_focus
       end
     end
 
@@ -3266,7 +3266,7 @@ module Crysterm
     # If the widget already is `Screen`, returns `nil`.
     def parent_or_screen
       return nil if Screen === self
-      @parent || @screen
+      @parent || screen
     end
 
     def destroy

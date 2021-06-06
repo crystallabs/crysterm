@@ -32,7 +32,7 @@ module Crysterm
 
         super **input
 
-        @screen._listen_keys self
+        screen._listen_keys self
 
         @__update_cursor = ->_update_cursor
 
@@ -58,7 +58,7 @@ module Crysterm
       end
 
       def _update_cursor(get = false)
-        return unless focused? # if @screen.focused != self
+        return unless focused? # if screen.focused != self
 
         lpos = get ? @lpos : _get_coords
         # XXX is above a bug and should be vice-versa? `get ? _get_coords : @lpos`
@@ -70,7 +70,7 @@ module Crysterm
         # not to the last line. Variable name, for now, remains the same.
         # last = @_clines[-1]
         last = @_clines[@child_base + @child_offset]? || @_clines[-1]
-        display = @screen.display
+        display = screen.display
 
         # In line with the above, now that `last`s content is different, let's
         # try disabling this:
@@ -184,7 +184,7 @@ module Crysterm
         end
 
         if @value != value
-          @screen.render
+          screen.render
         end
       end
 
@@ -233,17 +233,17 @@ module Crysterm
 
       def _read_input
         if !focused?
-          @screen.save_focus
+          screen.save_focus
           focus
         end
 
-        @screen.grab_keys = true
+        screen.grab_keys = true
 
         _update_cursor
-        @screen.display.tput.show_cursor
+        screen.display.tput.show_cursor
 
         # D O:
-        # @screen.display.tput.sgr "normal"
+        # screen.display.tput.sgr "normal"
 
         # Define _done_default
 
@@ -291,16 +291,16 @@ module Crysterm
         # XXX off Crysterm::Event::Blur, @__done.wrapper
         @__done = nil
 
-        @screen.display.tput.hide_cursor
-        @screen.grab_keys = false
+        screen.display.tput.hide_cursor
+        screen.grab_keys = false
 
         unless focused?
-          @screen.restore_focus
+          screen.restore_focus
         end
 
         if @input_on_focus
           # TODO causes Error running at_exit handler: Index out of bounds
-          # @screen.rewind_focus
+          # screen.rewind_focus
         end
 
         # damn
