@@ -1,0 +1,41 @@
+require "../src/crysterm"
+
+class X
+  include Crysterm
+  include EventHandler
+
+  def initialize
+    s = Screen.new
+
+    i = Widget::Button.new \
+      width: 50,
+      height: 5,
+      top: 4,
+      left: 8,
+      content: "Press Enter or Space to exit",
+      align: ::Tput::AlignFlag::Center,
+      valign: ::Tput::AlignFlag::Center,
+      border: true,
+      style: Style.new(fg: "yellow", bg: "blue")
+
+    s.append i
+
+    s.focus i
+
+    i.on(::Crysterm::Event::Press) do
+      STDERR.puts "Pressed; exiting in 2 seconds"
+      sleep 2
+      exit
+    end
+
+    s.on(::Crysterm::Event::KeyPress) do |e|
+      if e.char == 'q' || e.key.try(&.==(::Tput::Key::CtrlQ))
+        s.destroy
+      end
+    end
+
+    s.display.exec
+  end
+end
+
+X.new

@@ -1,6 +1,6 @@
 module Crysterm
-  # Box element
   class Widget
+    # Box element
     class Box < Widget
     end
   end

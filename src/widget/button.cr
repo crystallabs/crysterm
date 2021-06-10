@@ -12,8 +12,7 @@ module Crysterm
         super **input
 
         on(Crysterm::Event::KeyPress) do |e|
-          # if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
-          if e.key == Tput::Key::Enter || e.char == ' '
+          if e.char == ' ' || e.key.try(&.==(::Tput::Key::Enter))
             e.accept!
             press
           end
