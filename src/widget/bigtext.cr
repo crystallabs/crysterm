@@ -6,9 +6,8 @@ module Crysterm
     #
     # Fonts can be converted from BDF to the required JSON format using https://github.com/chjj/ttystudio
     class BigText < Widget::Box
-      # TODO Why these two default values generate an error (not initialized) if removed?
-      property font : String = "#{__DIR__}/../fonts/ter-u14n.json"
-      property font_bold : String = "#{__DIR__}/../fonts/ter-u14b.json"
+      property font
+      property font_bold
 
       property ratio : Tput::Size = Tput::Size.new 0, 0
       property text = ""
@@ -30,8 +29,8 @@ module Crysterm
       property _shrink_height : Bool = false
 
       def initialize(
-        font = "#{__DIR__}/../fonts/ter-u14n.json",
-        font_bold = "#{__DIR__}/../fonts/ter-u14b.json",
+        @font = "#{__DIR__}/../fonts/ter-u14n.json",
+        @font_bold = "#{__DIR__}/../fonts/ter-u14b.json",
         **box
       )
         # @ratio = Size.new 0, 0
@@ -156,14 +155,13 @@ module Crysterm
               mcell = mline[mx]
               break if mcell.nil?
 
-              # TODO Disabled because currently fch doesn't exist or something? Or was renamed?
-              # if (@fch && @fch != ' ')
-              #  lines[y][x + mx].attr = dattr
-              #  lines[y][x + mx].char = mcell == 1 ? @fch : @style.char
-              # else
-              lines[y][x + mx].attr = mcell == 1 ? attr : dattr
-              lines[y][x + mx].char = mcell == 1 ? ' ' : @style.char
-              # end
+              if (@style.fchar != ' ')
+               lines[y][x + mx].attr = dattr
+               lines[y][x + mx].char = mcell == 1 ? @style.fchar : @style.char
+              else
+                lines[y][x + mx].attr = mcell == 1 ? attr : dattr
+                lines[y][x + mx].char = mcell == 1 ? ' ' : @style.char
+              end
 
               mx += 1
             end

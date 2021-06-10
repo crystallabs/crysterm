@@ -4,9 +4,6 @@ Review & fix all widgets' code
 
 Fix TextArea cursor when it reaches end of line and continues to the next.
 
-src/app/tput.cr -> review everything
-src/app.cr -> avoid use of Term::Screen, and make sure to check the size of @output, not STDOUT
-
 src/widget/overlayimage.cr -> is that OK or more work needs to be done?
 src/widget/question.cr -> needs more work (check why it breaks with padding: 1)
 

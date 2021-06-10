@@ -48,7 +48,7 @@ Transparency, color blending, shadow
 As mentioned, Crysterm is inspired by Blessed, Blessed-contrib, and Qt.
 
 Blessed is a large, self-contained framework. Apart from implementing Blessed, its authors have also implemented
-all the necessary/prerequisite components, including an event model (a copy of an early Node.js EventEmitter),
+all the necessary/prerequisite components, including an event model (a modified copy of an early Node.js EventEmitter),
 complete termcap/terminfo system (parsing, compilation, output, and input from terminal devices; in a word an
 alternative to ncurses), all types of mouse support, Unicode handling, color manipulation routines, etc.
 However, these implementations have been mixed with the rest of source code, reducing the potential for their
