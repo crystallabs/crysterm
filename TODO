@@ -2,7 +2,14 @@
 
 Review & fix all widgets' code
 
+Add focus code to default screen behavior. Test that focus/out-of-focus widgets can be
+styled differently.
+
+Implement Qt-style MenuActions.
+
 Fix TextArea cursor when it reaches end of line and continues to the next.
+
+Widget::Line - see the part defaulting widths/heights, which is currently commented
 
 src/widget/overlayimage.cr -> is that OK or more work needs to be done?
 src/widget/question.cr -> needs more work (check why it breaks with padding: 1)

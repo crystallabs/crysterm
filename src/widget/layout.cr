@@ -7,9 +7,8 @@ module Crysterm
       include EventHandler
 
       @layout : LayoutType
-      @renderer : Proc(Widget, Int32)?
 
-      def initialize(@layout = LayoutType::Inline, @renderer = nil, **element)
+      def initialize(@layout = LayoutType::Inline, **element)
         el = element
 
         if (!el["width"]? && (!el["left"]? && !el["right"]?)) ||

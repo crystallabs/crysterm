@@ -676,8 +676,8 @@ module Crysterm
       def focused=(el)
         focus_push el
       end
-      alias_previous :focus
 
+      alias_previous :focus
     end
 
     # Things related to rendering (setting up memory state for display)
