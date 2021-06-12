@@ -7,6 +7,7 @@ module Crysterm
       property orientation : Tput::Orientation = Tput::Orientation::Horizontal
 
       # TODO Add new options:
+      # replace pch with @style.pchar, or even remove pchar in favor of generic property like 'char'
       # min value and max value
       # step of increase
       # does it wrap around?

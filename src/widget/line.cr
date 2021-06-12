@@ -7,11 +7,11 @@ module Crysterm
       def initialize(orientation = nil, **box)
         orientation.try { |v| @orientation = v }
 
-        #if @orientation == Tput::Orientation::Vertical
+        # if @orientation == Tput::Orientation::Vertical
         #  @width = 1
-        #else
+        # else
         #  @height = 1
-        #end
+        # end
 
         super **box
 
