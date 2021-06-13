@@ -11,12 +11,17 @@ Fix TextArea cursor when it reaches end of line and continues to the next.
 
 Widget::Line - see the part defaulting widths/heights, which is currently commented
 
+Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel"
+
 src/widget/overlayimage.cr -> is that OK or more work needs to be done?
 src/widget/question.cr -> needs more work (check why it breaks with padding: 1)
 
 Support resizing
 
 Profile the app
+
+Regarding "label" on widgets, turn `side` into an enum, and see how side would be passed embedded
+in `Widget#initialize`'s `label` argument?
 
 Make uniform passing of args to classes, with class decls, function arguments, and arg.try...
 

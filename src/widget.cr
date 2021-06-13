@@ -233,7 +233,7 @@ module Crysterm
           # XXX
           # Fixes non-`fixed` labels to work with scrolling (they're ON the border):
           # if (@position.left < 0 || @position.right < 0 || @position.top < 0 || @position.bottom < 0)
-          if (@_is_label)
+          if label?
             b = 0
           end
 
@@ -2436,7 +2436,7 @@ module Crysterm
     # XXX FIX
     # Used only for lists
     property _is_listt = false
-    property _is_label = false
+    property? label = false
     property? interactive = false
     # XXX
 
@@ -2516,6 +2516,11 @@ module Crysterm
     property tab_size : Int32
     getter! tabc : String
 
+    property _label : Widget?
+
+    @ev_label_scroll : Crysterm::Event::Scroll::Wrapper?
+    @ev_label_resize : Crysterm::Event::Resize::Wrapper?
+
     def initialize(
       *,
       # These end up being part of Position.
@@ -2563,7 +2568,8 @@ module Crysterm
       children = [] of Widget,
       @auto_padding = true,
       @tab_size = ::Crysterm::TAB_SIZE,
-      tabc = nil
+      tabc = nil,
+      @keys = false
     )
       @tabc = tabc || (" " * @tab_size)
       resizable.try { |v| @resizable = v }
@@ -2606,7 +2612,7 @@ module Crysterm
       @border = case border
                 when true
                   Border.new BorderType::Line
-                when nil
+                when nil, false
                   # Nothing
                 when BorderType
                   Border.new border
@@ -2628,7 +2634,7 @@ module Crysterm
       end
 
       set_content(content, true)
-      set_label(label) if label
+      set_label(label, "left") if label
       set_hover(hover_text) if hover_text
 
       # on(AddHandlerEvent) { |wrapper| }
@@ -2973,10 +2979,78 @@ module Crysterm
       emit Crysterm::Event::Scroll
     end
 
-    def set_label(label)
+    def set_label(text, side = "left")
+
+      # If label exists, we update it and return
+      @_label.try do |_label|
+        _label.set_content(text)
+        if side != "right"
+          _label.rleft = 2 + (@border ? -1 : 0)
+          _label.position.right = nil
+          unless @auto_padding
+            _label.rleft = 2
+          end
+        else
+          _label.rright = 2 + (@border ? -1 : 0)
+          _label.position.left = nil
+          unless @auto_padding
+            _label.rright = 2
+          end
+        end
+        return
+      end
+
+      # Or if it doesn't exist, we create it
+      @_label = _label = Widget::Box.new(
+        parent: self,
+        content: text,
+        top: -itop,
+        parse_tags: @parse_tags,
+        resizable: true,
+        style: @style.label,
+        #border: true,
+        #height: 1
+      )
+
+      if side != "right"
+        _label.rleft = 2 - ileft
+      else
+        _label.rright = 2 - iright
+      end
+
+      _label.label = true
+
+      unless @auto_padding
+        if side != "right"
+          _label.rleft = 2
+        else
+          _label.rright = 2
+        end
+        _label.rtop = 0
+      end
+
+      @ev_label_scroll = on Crysterm::Event::Scroll, ->reposition(Crysterm::Event::Scroll)
+      @ev_label_resize = on Crysterm::Event::Resize, ->reposition(Crysterm::Event::Resize)
     end
 
     def remove_label
+      return unless @_label
+      off ::Crysterm::Event::Scroll, @ev_label_scroll
+      off ::Crysterm::Event::Resize, @ev_label_resize
+      @_label.detach
+      @ev_label_scroll = nil
+      @ev_label_resize = nil
+      @_label = nil
+    end
+
+    def reposition(event = nil)
+      @_label.try do |_label|
+        _label.rtop = @child_base - itop
+        unless @auto_padding
+          _label.rtop = @child_base
+        end
+        screen.render
+      end
     end
 
     def set_hover(hover_text)

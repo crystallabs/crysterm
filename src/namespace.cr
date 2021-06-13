@@ -79,6 +79,7 @@ module Crysterm
       setter item : Style?
       setter header : Style?
       setter cell : Style?
+      setter label : Style?
 
       setter blur : Style?
       setter focus : Style?
@@ -127,6 +128,10 @@ module Crysterm
 
       def cell
         @cell || self
+      end
+
+      def label
+        @label || self
       end
 
       def blur

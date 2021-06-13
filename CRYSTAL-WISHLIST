@@ -39,3 +39,13 @@ class X
 
 end
 ```
+
+4) Type-safe `#==` operator
+
+Due to default implementation of `#==` in `Value` and `Reference`, comparing
+anything to anything is allowed and returns false. This is very dangerous
+and leads to incorrect/invalid comparisons which always fail.
+
+https://github.com/crystal-lang/crystal/issues/10277
+
+https://github.com/crystal-ameba/ameba/issues/237

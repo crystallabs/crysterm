@@ -193,6 +193,24 @@ This would allow testing complete programs and a bunch of functionality at once,
 
 Run `crystal docs` as usual.
 
+### Notable Differences
+
+List of notable differences compared to Blessed:
+
+- `Program` has been renamed to `Display` (representing a physical display managed by Crysterm)
+- `Element` and `Node` have been renamed/consolidated into `Widget`
+- `Screen` (which does not inherit from `Widget`) is no longer top-level `parent` of any `Widget`; use `[@]screen` to get `Screen`
+- `auto_padding`, `tab_size`, and `tabc` are properties on `Widget` instead of `Screen`
+- Event names have been changed from strings to classes, e.g. event `"scroll"` is `::Crysterm::Event::Scroll`
+- `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`
+- All terminal-level stuff is in shard `Tput`, not `Crysterm`
+- `style` property has been consolidated; all style-related stuff is under widget's `@style : Style`
+
+List of current bugs/quirks in Crysterm:
+
+- Top-level widget needs to be added to `Screen` with `screen.append widget` explicitly (option `screen: screen` to `Widget.new` doesn't do everything it should at the moment)
+- `Widget::Layout` needs explicit width and height (e.g. "100%")
+
 ## Thanks
 
 * All the fine folks on Libera.Chat IRC channel #crystal-lang and on Crystal's Gitter channel https://gitter.im/crystal-lang/crystal
