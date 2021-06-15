@@ -5,6 +5,9 @@ Review & fix all widgets' code
 Add focus code to default screen behavior. Test that focus/out-of-focus widgets can be
 styled differently.
 
+Streamline which option triggers making widgets focusable. Then make this evident in examples for
+certain widgets, like Question or Prompt.
+
 Implement Qt-style MenuActions.
 
 Fix TextArea cursor when it reaches end of line and continues to the next.
