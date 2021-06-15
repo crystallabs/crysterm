@@ -10,6 +10,8 @@ certain widgets, like Question or Prompt.
 
 Implement Qt-style MenuActions.
 
+Determine why label text needs to be 1 char longer to show in full.
+
 Fix TextArea cursor when it reaches end of line and continues to the next.
 
 Widget::Line - see the part defaulting widths/heights, which is currently commented
@@ -20,6 +22,8 @@ Widget::Prompt - See why "done" callback apparently isn't triggering
 
 src/widget/overlayimage.cr -> is that OK or more work needs to be done?
 src/widget/question.cr -> needs more work (check why it breaks with padding: 1)
+
+Invert the numeric value of transparent:
 
 Support resizing
 

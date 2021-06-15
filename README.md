@@ -31,15 +31,15 @@ again.)
 
 Animated demo
 
-![Crysterm Demo Video](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/2020-01-29-1.gif)
+![Crysterm Demo Video](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/2020-01-29-1.gif)
 
 Layout engine (showing inline/masonry layout)
 
-![Crysterm Masonry Layout](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/layout.png)
+![Crysterm Masonry Layout](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/layout.png)
 
 Transparency, color blending, shadow
 
-![Crysterm Color Blending](https://raw.githubusercontent.com/docelic/crysterm/master/screenshots/transparency.png)
+![Crysterm Color Blending](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/transparency.png)
 
 ## Development
 
@@ -66,7 +66,7 @@ a C terminfo library called [unibilium](https://github.com/neovim/unibilium/), n
 The package exists for a good number of operating systems and distributions, and one only needs the binary
 library installed, not headers.
 There is also a mostly working Crystal-native terminfo library available in
-[terminfo.cr](https://github.com/docelic/terminfo.cr) but, due to other priorities, trying to use that instead
+[terminfo.cr](https://github.com/crystallabs/terminfo.cr) but, due to other priorities, trying to use that instead
 of unibilium is not planned. Both unibilium and native terminfo implementation for Crystal were initially
 implemented by Benoit de Chezelles (@bew).)
 
@@ -108,6 +108,8 @@ All mentioned classes `include` [EventHandler](https://github.com/crystallabs/ev
 behavior.
 
 ### Positioning and Layouts
+
+![Crysterm Widget](https://raw.githubusercontent.com/crystallabs/crysterm/master/misc/widget.png)
 
 Widget positions and sizes work like in Blessed. They can be specified as numbers (e.g. 10), percentages (e.g. "10%"), both (e.g. "10%+2"), or specific keywords ("center", which has an effect of `50% - self.width_or_height//2`, or "resizable" which adjusts in runtime).
 
