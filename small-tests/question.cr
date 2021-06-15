@@ -25,7 +25,7 @@ module Crysterm
 
   s.append q
   # q.focus
-  #s.render
+  # s.render
 
   loop do
     q.ask { |a, b| STDERR.puts "Answered #{a}/#{b}" }
