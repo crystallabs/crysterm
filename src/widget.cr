@@ -2980,7 +2980,6 @@ module Crysterm
     end
 
     def set_label(text, side = "left")
-
       # If label exists, we update it and return
       @_label.try do |_label|
         _label.set_content(text)
@@ -3008,9 +3007,9 @@ module Crysterm
         parse_tags: @parse_tags,
         resizable: true,
         style: @style.label,
-        #border: true,
-        #height: 1
-      )
+              # border: true,
+        # height: 1
+)
 
       if side != "right"
         _label.rleft = 2 - ileft

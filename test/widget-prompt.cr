@@ -14,8 +14,8 @@ module Crysterm
     label: " {blue-fg}Prompt{/blue-fg} ",
     parse_tags: true,
     keys: true,
-    # vi: true
-  )
+      # vi: true
+)
 
   question = Question.new(
     screen: s,
@@ -27,8 +27,8 @@ module Crysterm
     label: " {blue-fg}Question{/blue-fg} ",
     parse_tags: true,
     keys: true,
-    #vi: true
-  )
+      # vi: true
+)
 
   msg = Message.new(
     screen: s,
@@ -41,8 +41,8 @@ module Crysterm
     parse_tags: true,
     keys: true,
     hidden: true,
-    #vi: true
-  )
+      # vi: true
+)
 
   loader = Loading.new(
     screen: s,
@@ -55,8 +55,8 @@ module Crysterm
     parse_tags: true,
     keys: true,
     hidden: true,
-    #vi: true
-  )
+      # vi: true
+)
 
   s.append prompt
   s.append question
@@ -76,8 +76,8 @@ module Crysterm
     STDERR.puts :q1
     question.ask("Question?") do |err, val|
       STDERR.puts :q2
-      msg.display("Hello world!", 3.seconds) do #|err|
-        msg.display("Hello world again!", -1.seconds) do #|err|
+      msg.display("Hello world!", 3.seconds) do          # |err|
+        msg.display("Hello world again!", -1.seconds) do # |err|
           loader.load("Loading...")
           spawn do
             sleep 3.seconds
