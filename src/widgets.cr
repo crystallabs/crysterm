@@ -24,5 +24,6 @@ module Crysterm
     Button         = Widget::Button
     Prompt         = Widget::Prompt
     Box            = Widget::Box
+    Message        = Widget::Message
   end
 end

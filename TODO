@@ -13,6 +13,8 @@ Widget::Line - see the part defaulting widths/heights, which is currently commen
 
 Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel"
 
+Widget::Prompt - See why "done" callback apparently isn't triggering
+
 src/widget/overlayimage.cr -> is that OK or more work needs to be done?
 src/widget/question.cr -> needs more work (check why it breaks with padding: 1)
 
@@ -31,6 +33,9 @@ There is a concept of Unicode and "full Unicode". Full being the one with all Un
 does not support outside of its UTF-8 support. See what to do this over time - is there a chance Crystal would
 support more? Yes:
 https://github.com/crystal-lang/crystal/pull/10721#
+
+Widget option label: creates a text widget behind the scenes. Maybe this option should be renamed label_text:
+or similar, and label should allow providing a complete Widget in this place.
 
 Make sure that the background character for a cell is always configurable and never literally taken to be ' '.
 This will allow someone to completely change what the background char is. I guess this has already been done

@@ -69,6 +69,8 @@ module Crysterm
         }.enqueue
       end
 
+      alias_previous :load
+
       def stop
         hide
         @should_exit = true
