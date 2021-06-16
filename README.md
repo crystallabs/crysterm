@@ -19,6 +19,8 @@ git clone https://github.com/crystallabs/crysterm
 cd crysterm
 shards --ignore-crystal-version
 
+export TERM=xterm-256color
+
 crystal examples/hello.cr
 crystal examples/hello2.cr
 crystal examples/tech-demo.cr
