@@ -202,8 +202,8 @@ Run `crystal docs` as usual.
 List of notable differences compared to Blessed:
 
 - `Program` has been renamed to `Display` (representing a physical display managed by Crysterm)
-- `Element` and `Node` have been renamed/consolidated into `Widget`
-- `Screen` (which does not inherit from `Widget`) is no longer top-level `parent` of any `Widget`; use `[@]screen` to get `Screen`
+- `Element` and `Node` have been renamed and consolidated into `Widget`
+- `Screen` (which now does not inherit from `Widget`) is no longer top-level `parent` of any `Widget`; use `[@]screen` to get `Screen`
 - `auto_padding`, `tab_size`, and `tabc` are properties on `Widget` instead of `Screen`
 - Event names have been changed from strings to classes, e.g. event `"scroll"` is `::Crysterm::Event::Scroll`
 - `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`
