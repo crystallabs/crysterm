@@ -111,7 +111,7 @@ behavior.
 
 ### Positioning and Layouts
 
-![Crysterm Widget](https://raw.githubusercontent.com/crystallabs/crysterm/master/misc/widget.png)
+![Crysterm Widget](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/widget.png)
 
 Widget positions and sizes work like in Blessed. They can be specified as numbers (e.g. 10), percentages (e.g. "10%"), both (e.g. "10%+2"), or specific keywords ("center", which has an effect of `50% - self.width_or_height//2`, or "resizable" which adjusts in runtime).
 
