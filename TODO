@@ -23,8 +23,6 @@ Widget::Prompt - See why "done" callback apparently isn't triggering
 src/widget/overlayimage.cr -> is that OK or more work needs to be done?
 src/widget/question.cr -> needs more work (check why it breaks with padding: 1)
 
-Invert the numeric value of transparent:
-
 Support resizing
 
 Profile the app

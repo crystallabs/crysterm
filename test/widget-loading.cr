@@ -13,7 +13,7 @@ module Crysterm
     icons: ["Preparing", "Loading", "Processing", "Saving", "Analyzing"],
     content: "Please wait...",
     border: Border.new(type: BorderType::Line),
-    style: Style.new(transparent: true, fg: "white", bg: "black", border: Style.new(fg: "white", bg: "black"))
+    style: Style.new(transparency: true, fg: "white", bg: "black", border: Style.new(fg: "white", bg: "black"))
 
   loading2 = Loading.new \
     align: AlignFlag::Center,

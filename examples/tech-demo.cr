@@ -86,7 +86,7 @@ module Crysterm
     icons: ["Preparing", "Loading", "Processing", "Saving", "Analyzing"],
     content: "Please wait...",
     border: Border.new(type: BorderType::Line),
-    style: Style.new(transparent: true, fg: "white", bg: "black", border: Style.new(fg: "white", bg: "black"))
+    style: Style.new(transparency: true, fg: "white", bg: "black", border: Style.new(fg: "white", bg: "black"))
 
   question = Question.new \
     parent: layout,
@@ -98,7 +98,7 @@ module Crysterm
     border: Border.new(type: BorderType::Line),
     shadow: true,
     style: Style.new(
-      transparent: true,
+      transparency: true,
       fg: "yellow",
       bg: "magenta",
       border: Style.new(
@@ -165,7 +165,7 @@ module Crysterm
     border: BorderType::Line,
     content: "See indeed.",
     shadow: true,
-    style: Style.new("bg": "#729fcf", transparent: true)
+    style: Style.new("bg": "#729fcf", transparency: true)
   )
   s.append boxtp2
   s.append boxtp1

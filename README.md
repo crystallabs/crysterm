@@ -209,6 +209,8 @@ List of notable differences compared to Blessed:
 - `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`
 - All terminal-level stuff is in shard `Tput`, not `Crysterm`
 - `style` property has been consolidated; all style-related stuff is under widget's `@style : Style`
+- Widget property `shadow` also accepts Float64, in addition to `true` which defaults to drawing shadow with alpha=0.5
+- Style property `transparent` has been renamed to `transparency` and also accepts Float64, in addition to `true` which defaults to 0.5
 
 List of current bugs/quirks in Crysterm:
 

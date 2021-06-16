@@ -57,7 +57,7 @@ module Crysterm
       property blink : Bool = false
       property inverse : Bool = false
       property invisible : Bool = false
-      property transparent : Float64? = nil
+      property transparency : Float64? = nil
 
       # NOTE: Eventually reduce/streamline these
       property char : Char = ' '  # Generic char
@@ -157,7 +157,7 @@ module Crysterm
         blink = nil,
         inverse = nil,
         invisible = nil,
-        transparent = nil,
+        transparency = nil,
         char = nil,
         pchar = nil,
         fchar = nil,
@@ -171,7 +171,7 @@ module Crysterm
         blink.try { |v| @blink = v }
         inverse.try { |v| @inverse = v }
         invisible.try { |v| @invisible = v }
-        transparent.try { |v| @transparent = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
+        transparency.try { |v| @transparency = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
         char.try { |v| @char = v }
         pchar.try { |v| @pchar = v }
         fchar.try { |v| @fchar = v }
