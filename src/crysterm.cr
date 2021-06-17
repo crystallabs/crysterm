@@ -20,7 +20,10 @@ module Crysterm
 
   TAB_SIZE = 4
 
+  # :nodoc:
   @@resize_flag : Atomic(UInt8) = Atomic.new 0u8
+
+  # :nodoc:
   @@resize_channel : Channel(Bool) = Channel(Bool).new
 
   # Amount of time to wait before redrawing the screen, after the terminal resize event is received.

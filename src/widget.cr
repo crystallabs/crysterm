@@ -21,21 +21,24 @@ module Crysterm
       end
     end
 
+    # :nodoc:
     class Box < Widget
     end
 
+    # :nodoc:
     class ListTable < Widget
     end
 
+    # :nodoc:
     class Input < Box
     end
 
+    # :nodoc:
     class TextArea < Input
     end
-  end
 
-  class Widget
     module Pos
+      # Number of times object was rendered
       property renders = 0
 
       # Absolute left offset.
@@ -51,55 +54,77 @@ module Crysterm
       property abottom : Int32? = nil
 
       # Relative coordinates as default properties
+
+      # Returns relative left position
       def left
         @rleft
       end
 
+      # Returns relative right position
       def right
         @rright
       end
 
+      # Returns relative top position
       def top
         @rtop
       end
 
+      # Returns relative bottom position
       def bottom
         @rbottom
       end
 
+      # Sets relative left position
       def left=(arg)
         @rleft = arg
       end
 
+      # Sets relative right position
       def right=(arg)
         @rright = arg
       end
 
+      # Sets relative top position
       def top=(arg)
         @rtop = arg
       end
 
+      # Sets relative bottom position
       def bottom=(arg)
         @rbottom = arg
       end
 
+      # Absolute position on screen
       property position = Tput::Position.new
 
-      # Heh.
       property? scrollable = false
 
+      # Last rendered position
       property lpos : LPos? = nil
 
+      # Helper class implementing only minimal position-related interface.
+      # Used for holding widget's last rendered position.
       class LPos
+        # Starting cell on X axis
         property xi : Int32 = 0
+
+        # Ending cell on X axis
         property xl : Int32 = 0
+
+        # Starting cell on Y axis
         property yi : Int32 = 0
+
+        # Endint cell on Y axis
         property yl : Int32 = 0
+
         property base : Int32 = 0
         property noleft : Bool = false
         property noright : Bool = false
         property notop : Bool = false
         property nobot : Bool = false
+
+        # Number of times object was rendered
         property renders = 0
 
         property aleft : Int32? = nil
@@ -142,6 +167,7 @@ module Crysterm
     end
 
     module Position
+      # Clears area/position of widget's last render
       def clear_pos(get = false, override = false)
         return if @detached
         lpos = _get_coords(get)
@@ -766,6 +792,7 @@ module Crysterm
 
       # Rendition and rendering
 
+      # Returns minimum widget size based on bounding box
       def _get_shrink_box(xi, xl, yi, yl, get)
         if @children.empty?
           return ShrinkBox.new xi: xi, xl: xi + 1, yi: yi, yl: yi + 1
@@ -811,7 +838,7 @@ module Crysterm
           if (el.position.left.nil? && !el.position.right.nil?)
             ret.xl = xi + (ret.xl - ret.xi)
             ret.xi = xi
-            if (@auto_padding)
+            if @auto_padding
               # Maybe just do this no matter what.
               ret.xl += ileft
               ret.xi += ileft
@@ -820,7 +847,7 @@ module Crysterm
           if (el.position.top.nil? && !el.position.bottom.nil?)
             ret.yl = yi + (ret.yl - ret.yi)
             ret.yi = yi
-            if (@auto_padding)
+            if @auto_padding
               # Maybe just do this no matter what.
               ret.yl += itop
               ret.yi += itop
@@ -904,6 +931,7 @@ module Crysterm
         ShrinkBox.new xi: xi, xl: xl, yi: yi, yl: yl
       end
 
+      # Returns minimum widget size based on content
       def _get_shrink_content(xi, xl, yi, yl)
         h = @_clines.size
         w = @_clines.mwidth || 1
@@ -933,6 +961,7 @@ module Crysterm
         ShrinkBox.new xi: xi, xl: xl, yi: yi, yl: yl
       end
 
+      # Returns minimum widget size
       def _get_shrink(xi, xl, yi, yl, get)
         shrink_box = _get_shrink_box(xi, xl, yi, yl, get)
         shrink_content = _get_shrink_content(xi, xl, yi, yl)
@@ -1282,6 +1311,7 @@ module Crysterm
         attrs
       end
 
+      # Wraps content based on available widget width
       def _wrap_content(content, colwidth)
         default_state = @align
         wrap = @wrap
@@ -1453,6 +1483,7 @@ module Crysterm
         outbuf
       end
 
+      # Aligns content
       def _align(line, width, align = Tput::AlignFlag::None)
         return line if align.none?
 
@@ -2359,9 +2390,7 @@ module Crysterm
         _render with_children
       end
     end
-  end
 
-  class Widget
     include Position
     include Content
     include Rendering
@@ -2393,7 +2422,8 @@ module Crysterm
 
     property? detached : Bool = false
 
-    property name : String
+    # Arbitrary widget name
+    property name : String?
 
     # Storage for any miscellaneous data.
     property data : JSON::Any?
@@ -2562,7 +2592,7 @@ module Crysterm
       track = nil,
 
       @parent = nil,
-      name = nil,
+      @name = nil,
       @screen = determine_screen, # NOTE a todo item about this is in file TODO
       index = -1,
       children = [] of Widget,
@@ -2583,7 +2613,8 @@ module Crysterm
 
       @uid = next_uid
 
-      @name = name || "#{self.class.name}-#{@uid}"
+      # Allow name to be nil, to avoid creating strings
+      # @name = name || "#{self.class.name}-#{@uid}"
 
       # $ = _ = JSON/YAML::Any
 
@@ -2776,7 +2807,7 @@ module Crysterm
       scroll offset - (@child_base + @child_offset), always
     end
 
-    # aka set_scroll
+    # alias_previous :set_scroll
 
     def _recalculate_index
       return 0 if @detached || !@scrollable
@@ -2979,6 +3010,7 @@ module Crysterm
       emit Crysterm::Event::Scroll
     end
 
+    # Sets widget label
     def set_label(text, side = "left")
       # If label exists, we update it and return
       @_label.try do |_label|
@@ -3032,6 +3064,7 @@ module Crysterm
       @ev_label_resize = on Crysterm::Event::Resize, ->reposition(Crysterm::Event::Resize)
     end
 
+    # Removes widget label
     def remove_label
       return unless @_label
       off ::Crysterm::Event::Scroll, @ev_label_scroll
@@ -3058,6 +3091,7 @@ module Crysterm
     def remove_hover
     end
 
+    # Hides widget from screen
     def hide
       return if @hidden
       clear_pos
@@ -3067,16 +3101,19 @@ module Crysterm
       screen.rewind_focus if screen.focused == self
     end
 
+    # Shows widget on screen
     def show
       return unless @hidden
       @hidden = false
       emit Crysterm::Event::Show
     end
 
+    # Toggles widget visibility
     def toggle_visibility
       @hidden ? show : hide
     end
 
+    # Puts current widget in focus
     def focus
       # XXX Prevents getting multiple `Event::Focus`s. Remains to be
       # seen whether that's good, or it should always happen, even
@@ -3085,10 +3122,13 @@ module Crysterm
       screen.focused = self
     end
 
+    # Returns whether widget is currently in focus
     def focused?
       screen.focused == self
     end
 
+    # Returns whether widget is visible. This is different from `#hidden?`
+    # because it checks the complete chain of widget parents.
     def visible?
       el = self
       while el
@@ -3097,19 +3137,6 @@ module Crysterm
         el = el.parent
       end
       true
-    end
-
-    def _detached?
-      el = self
-      while el
-        return true unless el.screen
-
-        # XXX is that check above enough? Could be. If not, the alternative
-        # would be:
-        # return false if Screen === el
-        # return true unless el = el.parent_or_screen
-      end
-      false
     end
 
     def draggable?
@@ -3144,10 +3171,12 @@ module Crysterm
       nil
     end
 
+    # Sends widget to front
     def front!
       set_index -1
     end
 
+    # Sends widget to back
     def back!
       set_index 0
     end
@@ -3174,7 +3203,7 @@ module Crysterm
     end
 
     def free
-      # Remove all listeners
+      # TODO Remove all listeners? etc.
     end
 
     def screenshot(xi = nil, xl = nil, yi = nil, yl = nil)
@@ -3198,16 +3227,39 @@ module Crysterm
     def _update_cursor(arg)
     end
 
+    # Removes node from its parent.
+    # This is identical to calling `#remove` on the parent object.
+    def detach
+      @parent.try { |p| p.remove self }
+    end
+
+    # Returns true if widget is not associated with a `Screen`
+    def _detached?
+      el = self
+      while el
+        return true unless el.screen
+
+        # XXX is that check above enough? Could be. If not, the alternative
+        # would be:
+        # return false if Screen === el
+        # return true unless el = el.parent_or_screen
+      end
+      false
+    end
+
+    # Appends `element` to list of children
     def append(element)
       insert element
     end
 
+    # Appends `element`s to list of children in order of specification
     def append(*elements)
       elements.each do |el|
         insert el
       end
     end
 
+    # Inserts `element` to list of children at a specified position (at end by default)
     def insert(element, i = -1)
       if element.screen != screen
         raise Exception.new("Cannot switch a node's screen.")
@@ -3243,12 +3295,6 @@ module Crysterm
       unless screen.focused
         screen.focused = element
       end
-    end
-
-    # Removes node from its parent.
-    # This is identical to calling `#remove` on the parent object.
-    def detach
-      @parent.try { |p| p.remove self }
     end
 
     def remove(element)

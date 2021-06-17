@@ -1,12 +1,10 @@
 # Immediate Source Code TODOs
 
-Review & fix all widgets' code
+Review & iteratively improve all widgets' code
 
-Add focus code to default screen behavior. Test that focus/out-of-focus widgets can be
-styled differently.
+Why Widget.new(keys: true) doesn't enable keys and focus? Instead it requires calling `screen.enable_keys [widget]`
 
-Streamline which option triggers making widgets focusable. Then make this evident in examples for
-certain widgets, like Question or Prompt.
+Add focus code to default screen behavior. Test that focus/out-of-focus widgets can be styled differently.
 
 Implement Qt-style MenuActions.
 
@@ -18,21 +16,16 @@ Widget::Line - see the part defaulting widths/heights, which is currently commen
 
 Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel"
 
-Widget::Prompt - See why "done" callback apparently isn't triggering
-
 src/widget/overlayimage.cr -> is that OK or more work needs to be done?
 src/widget/question.cr -> needs more work (check why it breaks with padding: 1)
 
 Support resizing
 
-Profile the app
+Profile the app: `build --debug; perf record --call-graph dwarf ./app; hotspot perf.data`
 
-Regarding "label" on widgets, turn `side` into an enum, and see how side would be passed embedded
-in `Widget#initialize`'s `label` argument?
+Regarding "label" on widgets, turn `side` into an enum, and see how side would be passed embedded in `Widget#initialize`'s `label` argument?
 
 Make uniform passing of args to classes, with class decls, function arguments, and arg.try...
-
-Define does top/left= modify abs or rel values? (Should be rel?)
 
 There is a concept of Unicode and "full Unicode". Full being the one with all Unicode stuff that Crystal currently 
 does not support outside of its UTF-8 support. See what to do this over time - is there a chance Crystal would
@@ -66,15 +59,13 @@ the rest is removed. In all other cases (more {s or one or more }s), the whole s
 This should be fixed/standardized. Offhand, either always removing everything, or always removing anything
 that's invalid as-is. (Didn't check yet how blessed does it.)
 
-Performance improvements. In widgets and everywhere, but specifically:
+Performance improvements - can something substantial be done? In widgets and everywhere, but specifically:
 - for draw() - would it help if there was a region to draw manually managed, or current do-all code is fine?
 - for render/draw - any benefit from draw() being separately schedulable? Also, how to keep track of rendering
   and skip it if nothing has changed? And where in memory is rendering? in screen or in widget?
 - Can parse_content be called less times, and can `if @parse_tags` be checked less times?
 
 Make all widgets able to have their own cursor type when they're in focus
-
-Sort out Position and LPos.
 
 Implement generic functions for all size/position values. Can take all formats, but when invoked
 always returns the specific numeric value. (Patch for this was done ??)
