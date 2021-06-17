@@ -30,6 +30,7 @@ module Crysterm
       when .ctrl_q?
         exit
       end
+      s.render
     end
   end
 

@@ -45,6 +45,7 @@ class X
       elsif e.key == ::Tput::Key::ShiftTab
         s.focus_prev
       end
+      s.render
     end
 
     s.display.exec
