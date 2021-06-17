@@ -1279,7 +1279,7 @@ module Crysterm
       end
 
       def _parse_attr(lines)
-        dattr = sattr(@style)
+        dattr = sattr(style)
         attr = dattr
         attrs = [] of Int32
         # line
@@ -1806,7 +1806,7 @@ module Crysterm
         # c
         # visible
         # i
-        bch = @style.char
+        bch = style.char
 
         # Disabled originally:
         # Clip content if it's off the edge of the screen
@@ -1860,7 +1860,7 @@ module Crysterm
           end
         end
 
-        dattr = sattr(@style)
+        dattr = sattr(style)
         attr = dattr
 
         # If we're in a scrollable text box, check to
@@ -1881,7 +1881,7 @@ module Crysterm
         # To deal with this, we can just fill the whole thing
         # ahead of time. This could be optimized.
         if (@padding.any? || (!@valign.top?))
-          if transparency = @style.transparency
+          if transparency = style.transparency
             (Math.max(yi, 0)...yl).each do |y|
               if (!lines[y]?)
                 break
@@ -1998,7 +1998,7 @@ module Crysterm
                 if (!cell)
                   break
                 end
-                if transparency = @style.transparency
+                if transparency = style.transparency
                   lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: transparency)
                   if (content[ci]?)
                     lines[y][x].char = ch
@@ -2051,7 +2051,7 @@ module Crysterm
               next
             end
 
-            if transparency = @style.transparency
+            if transparency = style.transparency
               lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: transparency)
               if (content[ci]?)
                 lines[y][x].char = ch
@@ -2080,7 +2080,7 @@ module Crysterm
           if ((yl - yi) < i)
             x = xl - 1
             # XXX remove try's
-            if ((@style.scrollbar.ignore_border?) && @border)
+            if ((style.scrollbar.ignore_border?) && @border)
               x += 1
             end
             if (@always_scroll)
@@ -2098,12 +2098,12 @@ module Crysterm
             cell = lines[y]? && lines[y][x]?
             if (cell)
               if (@track)
-                ch = (@style.track.char) || ' '
-                attr = sattr(@style.track || @style, @style.track.try(&.fg) || @style.fg, @style.track.try(&.bg) || @style.bg)
+                ch = (style.track.char) || ' '
+                attr = sattr(style.track || style, style.track.try(&.fg) || style.fg, style.track.try(&.bg) || style.bg)
                 screen.fill_region(attr, ch, x, x + 1, yi, yl)
               end
-              ch = (@style.scrollbar.char) || ' '
-              attr = sattr(@style.scrollbar || @style, @style.scrollbar.try(&.fg) || @style.fg, @style.scrollbar.try(&.bg) || @style.bg)
+              ch = (style.scrollbar.char) || ' '
+              attr = sattr(style.scrollbar || style, style.scrollbar.try(&.fg) || style.fg, style.scrollbar.try(&.bg) || style.bg)
               if cell != {attr, ch}
                 lines[y][x].attr = attr
                 lines[y][x].char = ch
@@ -2128,8 +2128,8 @@ module Crysterm
         end
 
         # Draw the border.
-        if (border = @border)
-          battr = sattr(@style.border || @style)
+        if border = @border
+          battr = sattr style.border
           y = yi
           if (coords.notop)
             y = -1
@@ -2184,7 +2184,7 @@ module Crysterm
                 # '─'
               end
             elsif (border.type == BorderType::Bg)
-              ch = @style.border.char
+              ch = style.border.char
             end
             if (!border.top && x != xi && x != xl - 1)
               ch = ' '
@@ -2213,7 +2213,7 @@ module Crysterm
                   ch = '\u2502'
                   # '│'
                 elsif (border.type == BorderType::Bg)
-                  ch = @style.border.char
+                  ch = style.border.char
                 end
                 if (!coords.noleft)
                   if cell != {battr, ch}
@@ -2238,7 +2238,7 @@ module Crysterm
                   ch = '\u2502'
                   # '│'
                 elsif (border.type == BorderType::Bg)
-                  ch = @style.border.char
+                  ch = style.border.char
                 end
                 if (!coords.noright)
                   if cell != {battr, ch}
@@ -2312,7 +2312,7 @@ module Crysterm
                 # '─'
               end
             elsif (border.type == BorderType::Bg)
-              ch = @style.border.char
+              ch = style.border.char
             end
             if (!border.bottom && x != xi && x != xl - 1)
               ch = ' '
@@ -2457,7 +2457,7 @@ module Crysterm
     # Is element clickable?
     property? clickable = false
 
-    # Can element receive keyboard input?
+    # Can element receive keyboard input? (Managed internally; use `input` for user-side setting)
     property? keyable = false
 
     # Is element draggable?
@@ -2498,7 +2498,7 @@ module Crysterm
     end
 
     # Does it accept keyboard input?
-    @input = false
+    property? input = false
 
     # Is element's content to be parsed for tags?
     property? parse_tags = true
@@ -2540,7 +2540,7 @@ module Crysterm
     # Widget's border.
     property border : Border?
 
-    property style : Style
+    setter style : Style
 
     # Width of tabs in elements' content.
     property tab_size : Int32
@@ -2599,7 +2599,8 @@ module Crysterm
       @auto_padding = true,
       @tab_size = ::Crysterm::TAB_SIZE,
       tabc = nil,
-      @keys = false
+      @keys = false,
+      input = nil
     )
       @tabc = tabc || (" " * @tab_size)
       resizable.try { |v| @resizable = v }
@@ -2610,6 +2611,7 @@ module Crysterm
 
       scrollbar.try { |v| @scrollbar = v }
       track.try { |v| @track = v }
+      input.try { |v| @input = v }
 
       @uid = next_uid
 
@@ -2675,32 +2677,32 @@ module Crysterm
 
       if @scrollbar
         # @scrollbar.ch ||= ' '
-        # @style.scrollbar = @style.scrollbar # || @scrollbar.style
-        # if @style.scrollbar.nil?
-        #  @style.scrollbar = Style.new
-        #  @style.scrollbar.fg = @scrollbar.fg
-        #  @style.scrollbar.bg = @scrollbar.bg
-        #  @style.scrollbar.bold = @scrollbar.bold
-        #  @style.scrollbar.underline = @scrollbar.underline
-        #  @style.scrollbar.inverse = @scrollbar.inverse
-        #  @style.scrollbar.invisible = @scrollbar.invisible
+        # style.scrollbar = style.scrollbar # || @scrollbar.style
+        # if style.scrollbar.nil?
+        #  style.scrollbar = Style.new
+        #  style.scrollbar.fg = @scrollbar.fg
+        #  style.scrollbar.bg = @scrollbar.bg
+        #  style.scrollbar.bold = @scrollbar.bold
+        #  style.scrollbar.underline = @scrollbar.underline
+        #  style.scrollbar.inverse = @scrollbar.inverse
+        #  style.scrollbar.invisible = @scrollbar.invisible
         # }
-        # #@scrollbar.style = @style.scrollbar
+        # #@scrollbar.style = style.scrollbar
         # if (@track) # || @scrollbar.track)
         #  #@track = @scrollbar.track || @track
-        #  @style.track = @style.scrollbar.track || @style.track
+        #  style.track = style.scrollbar.track || style.track
         #  @track.ch ||= ' '
-        #  #@style.track = @style.track || @track.style
-        #  #if @style.track.nil?
-        #  #  @style.track = Style.new
-        #  #  @style.track.fg = @track.fg
-        #  #  @style.track.bg = @track.bg
-        #  #  @style.track.bold = @track.bold
-        #  #  @style.track.underline = @track.underline
-        #  #  @style.track.inverse = @track.inverse
-        #  #  @style.track.invisible = @track.invisible
+        #  #style.track = style.track || @track.style
+        #  #if style.track.nil?
+        #  #  style.track = Style.new
+        #  #  style.track.fg = @track.fg
+        #  #  style.track.bg = @track.bg
+        #  #  style.track.bold = @track.bold
+        #  #  style.track.underline = @track.underline
+        #  #  style.track.inverse = @track.inverse
+        #  #  style.track.invisible = @track.invisible
         #  #end
-        #  #@track.style = @style.track
+        #  #@track.style = style.track
         # end
         # Allow controlling of the scrollbar via the mouse:
         # TODO
@@ -2790,6 +2792,10 @@ module Crysterm
       end
 
       focus if focused
+    end
+
+    def style
+      focused? ? (@style.focus || @style) : @style
     end
 
     # Potentially use this where ever .scrollable? is used
@@ -3123,6 +3129,7 @@ module Crysterm
     end
 
     # Returns whether widget is currently in focus
+    @[AlwaysInline]
     def focused?
       screen.focused == self
     end

@@ -164,7 +164,7 @@ Crysterm is interoperable with those approaches.
 Every `Widget` has an attribute `style`, defining the colors and attributes to use during rendering.
 If no style is explicitly defined, the default style is instantiated. Apart from styling the widget
 itself, each `Style` may have overriding style definitions for widget's possible subelements
-(border, scrollbar, shadow, track, bar, item, header, cell) and states (focus, blur, hover, selected).
+(border, scrollbar, shadow, track, bar, item, header, cell, label) and states (focus, blur, hover, selected).
 
 If any of these subelements have more specific settings which define substantial behavior and not
 just visual aspects, they are defined as properties directly on the widget (e.g. `Widget#border`,

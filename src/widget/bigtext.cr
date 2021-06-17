@@ -44,10 +44,9 @@ module Crysterm
 
         super **box
 
-        if @style.bold
+        @active = @normal
+        if style.bold
           @active = @bold
-        else
-          @active = @normal
         end
       end
 
@@ -123,7 +122,7 @@ module Crysterm
         right = coords.xl - iright
         bottom = coords.yl - ibottom
 
-        dattr = sattr @style
+        dattr = sattr style
         bg = dattr & 0x1ff
         fg = (dattr >> 9) & 0x1ff
         flags = (dattr >> 18) & 0x1ff
@@ -155,12 +154,12 @@ module Crysterm
               mcell = mline[mx]
               break if mcell.nil?
 
-              if (@style.fchar != ' ')
+              if (style.fchar != ' ')
                 lines[y][x + mx].attr = dattr
-                lines[y][x + mx].char = mcell == 1 ? @style.fchar : @style.char
+                lines[y][x + mx].char = mcell == 1 ? style.fchar : style.char
               else
                 lines[y][x + mx].attr = mcell == 1 ? attr : dattr
-                lines[y][x + mx].char = mcell == 1 ? ' ' : @style.char
+                lines[y][x + mx].char = mcell == 1 ? ' ' : style.char
               end
 
               mx += 1

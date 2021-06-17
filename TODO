@@ -1,14 +1,6 @@
 # Immediate Source Code TODOs
 
-Review & iteratively improve all widgets' code
-
-Why Widget.new(keys: true) doesn't enable keys and focus? Instead it requires calling `screen.enable_keys [widget]`
-
-Add focus code to default screen behavior. Test that focus/out-of-focus widgets can be styled differently.
-
 Implement Qt-style MenuActions.
-
-Determine why label text needs to be 1 char longer to show in full.
 
 Fix TextArea cursor when it reaches end of line and continues to the next.
 
@@ -86,6 +78,12 @@ Stop all event handlers on Screen.destroy
 
 In the code, questions and/or things to verify at some later point are identified with "XXX".
 Things to change/improve are identified with "TODO".
+
+# Whole things missing
+
+- Scrollbar support
+- Mouse support
+- Unicode graphemes support
 
 # TODOs in Theory / for Discussion
 

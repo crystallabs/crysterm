@@ -7,7 +7,7 @@ module Crysterm
       property orientation : Tput::Orientation = Tput::Orientation::Horizontal
 
       # TODO Add new options:
-      # replace pch with @style.pchar, or even remove pchar in favor of generic property like 'char'
+      # replace pch with style.pchar, or even remove pchar in favor of generic property like 'char'
       # min value and max value
       # step of increase
       # does it wrap around?
@@ -96,10 +96,10 @@ module Crysterm
 
         # XXX These differ a little from Blessed. See why and adjust to work
         # like Blessed if it makes sense
-        s = @style.bar || @style
+        s = style.bar
         dattr = sattr s, s.bg, s.fg
 
-        screen.fill_region dattr, @style.pchar, xi, xl, yi, yl
+        screen.fill_region dattr, style.pchar, xi, xl, yi, yl
 
         # Why here the formatted content is only in @_pcontent, while in blessed
         # it appears to be in `this.content` directly?

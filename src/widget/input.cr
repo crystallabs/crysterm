@@ -4,7 +4,7 @@ module Crysterm
   class Widget
     # Abstract input element
     class Input < Box
-      @keyable = true
+      @input = true
     end
   end
 end

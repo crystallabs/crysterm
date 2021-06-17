@@ -16,12 +16,12 @@ module Crysterm
         super **box
 
         # TODO possibly replace -/| with ACS chars?
-        @style.char = (is_a? Line) ? (@orientation == :horizontal ? '-' : '|') : @style.char
+        style.char = (is_a? Line) ? (@orientation == :horizontal ? '-' : '|') : style.char
 
         @border = Border.new type: BorderType::Bg
 
         # TODO
-        # @style.border=@style
+        # style.border=style
       end
     end
   end

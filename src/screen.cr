@@ -555,6 +555,13 @@ module Crysterm
         end
 
         @keyable[i].focus
+
+        # XXX This is here so that, if focused widgets are styled differently, their appearance
+        # would update immediately. But, it slows things down if style isn't different.
+        # Add optimization here to not call render if previous or next widget don't have different
+        # style when focused. Or maybe, to only render the widgets involved instead of calling
+        # render on the whole screen.
+        render
       end
 
       # Focuses previous element in the list of focusable elements.
@@ -1726,6 +1733,13 @@ module Crysterm
         end
       }
       emt.call element
+
+      # XXX:
+      # - Do similar for mouse as well
+      # - Make sure this is undo-ed if widget is detached
+      if element.input? || element.keyable?
+        _listen_keys element
+      end
 
       unless self.focused
         self.focused = element

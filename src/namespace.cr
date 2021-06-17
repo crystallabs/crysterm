@@ -150,6 +150,7 @@ module Crysterm
         @item = nil,
         @header = nil,
         @cell = nil,
+        @label = nil,
         fg = nil,
         bg = nil,
         bold = nil,
