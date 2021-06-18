@@ -2503,7 +2503,7 @@ module Crysterm
     # Is element's content to be parsed for tags?
     property? parse_tags = true
 
-    property? keys : Bool = true
+    property? keys : Bool = false
     property? ignore_keys : Bool = false
 
     # START SCROLLABLE
@@ -3231,6 +3231,8 @@ module Crysterm
       screen.screenshot xi, xl, yi, yl
     end
 
+    # :nodoc:
+    # no-op in this place
     def _update_cursor(arg)
     end
 

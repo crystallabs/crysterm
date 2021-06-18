@@ -22,7 +22,6 @@ module Crysterm
 
       def initialize(
         input_on_focus = false,
-        keys = true,
         **input
       )
         # Will be taken care of by default above, and parent
@@ -30,7 +29,7 @@ module Crysterm
 
         @value = input["content"]? || ""
 
-        super **input
+        super **input, keys: true
 
         screen._listen_keys self
 
@@ -45,7 +44,7 @@ module Crysterm
 
         self.input_on_focus = input_on_focus
 
-        if !@input_on_focus && keys
+        if !@input_on_focus && input["keys"]?
           @ev_enter = on(Crysterm::Event::KeyPress) do |e|
             next if @_reading
             if e.key.try &.==(Tput::Key::Enter)
@@ -57,7 +56,7 @@ module Crysterm
         # XXX if mouse...
       end
 
-      def _update_cursor(get = false)
+      def _update_cursor(get = false, to_scroll_pos = false)
         return unless focused? # if screen.focused != self
 
         lpos = get ? @lpos : _get_coords
@@ -69,23 +68,30 @@ module Crysterm
         # line that has the cursor (in case of movement and/or scrolling), and
         # not to the last line. Variable name, for now, remains the same.
         # last = @_clines[-1]
-        last = @_clines[@child_base + @child_offset]? || @_clines[-1]
+        last = if to_scroll_pos
+                 @_clines[@child_base + @child_offset]? || "" # @_clines[-1]
+               else
+                 @_clines[-1]
+               end
         display = screen.display
 
-        # In line with the above, now that `last`s content is different, let's
-        # try disabling this:
+        # #In line with the above, now that `last`s content is different, let's try disabling this:
         # # Stop a situation where the textarea begins scrolling
         # # and the last cline appears to always be empty from the
         # # _type_scroll `+ '\n'` thing.
         # # Maybe not necessary anymore?
         # if (last == "" && @value[-1]? != '\n')
-        #  last = @_clines[-2]? || ""
+        # last = @_clines[-2]? || ""
         # end
 
         # Same here, do updated calculation which takes scrolling into
         # account and allows for cursor movements between lines of content.
         line = Math.min(
-          (@child_offset),
+          if to_scroll_pos
+            @child_offset
+          else
+            @_clines.size - 1 - (@child_base)
+          end,
           (lpos.yl - lpos.yi) - iheight - 1
         )
 
@@ -198,6 +204,7 @@ module Crysterm
 
       def value=(value = nil)
         if value.nil?
+          # to_scroll_pos = true
           value = @value
         end
 
@@ -207,7 +214,7 @@ module Crysterm
         @_value = value
         set_content value
         _type_scroll
-        _update_cursor
+        _update_cursor # to_scroll_pos: to_scroll_pos
       end
 
       def render

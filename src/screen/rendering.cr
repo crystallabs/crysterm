@@ -191,6 +191,7 @@ module Crysterm
         # self.draw if draw
         draw
 
+        # XXX
         # Workaround to deal with cursor pos before the screen
         # has rendered and lpos is not reliable (stale).
         # Only some element have this functions; for others it's a noop.

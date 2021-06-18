@@ -217,6 +217,7 @@ List of current bugs/quirks in Crysterm:
 
 - Top-level widget needs to be added to `Screen` with `screen.append widget` explicitly (option `screen: screen` to `Widget.new` doesn't do everything it should at the moment)
 - `Widget::Layout` needs explicit width and height (e.g. "100%")
+- `Widget::TextArea` lacks many features (deficiency inherited from Blessed)
 
 ## Thanks
 

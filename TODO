@@ -2,8 +2,6 @@
 
 Implement Qt-style MenuActions.
 
-Fix TextArea cursor when it reaches end of line and continues to the next.
-
 Widget::Line - see the part defaulting widths/heights, which is currently commented
 
 Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel"
