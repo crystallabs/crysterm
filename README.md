@@ -81,7 +81,6 @@ High-level development plan for Crysterm looks as follows:
 
 1. Improving Crysterm itself (fixing bugs, replacing strings with better data types (enums, classes, etc.), and doing new development).
 1. Porting everything of value remaining in blessed-clean (most notably: reading terminfo command responses from terminal, mouse support, artificial cursor, full unicode (graphemes), and a number of widgets)
-1. (Because Blessed is no longer in active development) Reviewing the updates Blessed has received in forked repositories neo-blessed and blessed-ng, and using them in Crysterm where applicable
 1. Porting over widgets & ideas from blessed-contrib
 1. Developing more line-oriented features. Currently Crysterm is suited for full-screen app development. It would be great if line-based features were added, and if then various small line-based utilities that exist as shards/apps for Crystal would be ported to become Crysterm's line- or screen-based widgets
 1. Adding features and principles from Qt
