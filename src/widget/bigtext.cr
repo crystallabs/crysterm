@@ -151,20 +151,22 @@ module Crysterm
             next unless mline
             mx = 0
             while mx < @ratio.width
-              mcell = mline[mx]
+              mcell = mline[mx]?
               break if mcell.nil?
 
-              if (style.fchar != ' ')
-                lines[y][x + mx].attr = dattr
-                lines[y][x + mx].char = mcell == 1 ? style.fchar : style.char
-              else
-                lines[y][x + mx].attr = mcell == 1 ? attr : dattr
-                lines[y][x + mx].char = mcell == 1 ? ' ' : style.char
+              lines[y]?.try(&.[x + mx]?).try do |cell|
+                if (style.fchar != ' ')
+                  cell.attr = dattr
+                  cell.char = mcell == 1 ? style.fchar : style.char
+                else
+                  cell.attr = mcell == 1 ? attr : dattr
+                  cell.char = mcell == 1 ? ' ' : style.char
+                end
               end
 
               mx += 1
             end
-            lines[y].dirty = true
+            lines[y]?.try &.dirty = true
 
             y += 1
           end

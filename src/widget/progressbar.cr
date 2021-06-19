@@ -104,11 +104,12 @@ module Crysterm
         # Why here the formatted content is only in @_pcontent, while in blessed
         # it appears to be in `this.content` directly?
         if (pc = @_pcontent) && !pc.empty?
-          line = screen.lines[yi]
-          pc.each_char_with_index do |c, i|
-            line[xi + i].char = c
+          screen.lines[yi]?.try do |line|
+            pc.each_char_with_index do |c, i|
+              line[xi + i]?.try &.char = c
+            end
+            line.dirty = true
           end
-          line.dirty = true
         end
 
         ret

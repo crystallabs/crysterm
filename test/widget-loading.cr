@@ -21,7 +21,7 @@ module Crysterm
     interval: 0.2.seconds,
     width: 36,
     height: 3,
-    left: 40,
+    left: -40,
     content: "In progress!...",
     border: Border.new(type: BorderType::Line)
 
