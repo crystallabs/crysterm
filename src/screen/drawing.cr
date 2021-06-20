@@ -606,7 +606,7 @@ module Crysterm
         # The scrollbar can't update properly, and there's also a
         # chance that the scrollbar may get moved around senselessly.
         # NOTE: In pratice, this doesn't seem to be the case.
-        # if (@scrollbar)
+        # if @scrollbar
         #  return pos._clean_sides = false
         # end
         # Doesn't matter if we're only a height of 1.

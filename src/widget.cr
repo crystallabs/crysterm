@@ -1342,7 +1342,7 @@ module Crysterm
 
         lines = content.split "\n"
 
-        if (@scrollbar)
+        if @scrollbar
           margin += 1
         end
         if is_a? Widget::TextArea
@@ -2067,23 +2067,22 @@ module Crysterm
           end
         end
 
+        # Draw the scrollbar.
+        # Could possibly draw this after all child elements.
         if (coords.notop || coords.nobot)
           i = -Int32::MAX
         end
-        # Draw the scrollbar.
-        # Could possibly draw this after all child elements.
-        @scrollbar.try do |_| # scrollbar|
+        @scrollbar.try do # |scrollbar|
         # D O:
         # i = @get_scroll_height()
           i = Math.max @_clines.size, _scroll_bottom
 
           if ((yl - yi) < i)
             x = xl - 1
-            # XXX remove try's
-            if ((style.scrollbar.ignore_border?) && @border)
+            if style.scrollbar.ignore_border? && @border
               x += 1
             end
-            if (@always_scroll)
+            if @always_scroll
               y = @child_base / (i - (yl - yi))
             else
               y = (@child_base + @child_offset) / (i - 1)
@@ -2095,19 +2094,18 @@ module Crysterm
             # XXX The '?' was added ad-hoc to prevent exceptions when something goes out of
             # bounds (e.g. size of widget given too small for content).
             # Is there any better way to handle?
-            cell = lines[y]? && lines[y][x]?
-            if (cell)
-              if (@track)
-                ch = (style.track.char) || ' '
-                attr = sattr(style.track || style, style.track.try(&.fg) || style.fg, style.track.try(&.bg) || style.bg)
-                screen.fill_region(attr, ch, x, x + 1, yi, yl)
+            lines[y]?.try(&.[x]?).try do |cell|
+              if @track
+                ch = @style.track.char # || ' '
+                attr = sattr style.track, style.track.fg, style.track.bg
+                screen.fill_region attr, ch, x, x + 1, yi, yl
               end
-              ch = (style.scrollbar.char) || ' '
-              attr = sattr(style.scrollbar || style, style.scrollbar.try(&.fg) || style.fg, style.scrollbar.try(&.bg) || style.bg)
+              ch = style.scrollbar.char # || ' '
+              attr = sattr style.scrollbar, style.scrollbar.fg, style.scrollbar.bg
               if cell != {attr, ch}
-                lines[y][x].attr = attr
-                lines[y][x].char = ch
-                lines[y].dirty = true
+                cell.attr = attr
+                cell.char = ch
+                lines[y]?.try &.dirty=(true)
               end
             end
           end
@@ -2675,40 +2673,12 @@ module Crysterm
       on(Crysterm::Event::Attach) { parse_content }
       # on(Crysterm::Event::Detach) { @lpos = nil }
 
-      if @scrollbar
-        # @scrollbar.ch ||= ' '
-        # style.scrollbar = style.scrollbar # || @scrollbar.style
-        # if style.scrollbar.nil?
-        #  style.scrollbar = Style.new
-        #  style.scrollbar.fg = @scrollbar.fg
-        #  style.scrollbar.bg = @scrollbar.bg
-        #  style.scrollbar.bold = @scrollbar.bold
-        #  style.scrollbar.underline = @scrollbar.underline
-        #  style.scrollbar.inverse = @scrollbar.inverse
-        #  style.scrollbar.invisible = @scrollbar.invisible
-        # }
-        # #@scrollbar.style = style.scrollbar
-        # if (@track) # || @scrollbar.track)
-        #  #@track = @scrollbar.track || @track
-        #  style.track = style.scrollbar.track || style.track
-        #  @track.ch ||= ' '
-        #  #style.track = style.track || @track.style
-        #  #if style.track.nil?
-        #  #  style.track = Style.new
-        #  #  style.track.fg = @track.fg
-        #  #  style.track.bg = @track.bg
-        #  #  style.track.bold = @track.bold
-        #  #  style.track.underline = @track.underline
-        #  #  style.track.inverse = @track.inverse
-        #  #  style.track.invisible = @track.invisible
-        #  #end
-        #  #@track.style = style.track
-        # end
+      if s = scrollbar
         # Allow controlling of the scrollbar via the mouse:
         # TODO
-        # if (@mouse)
-        #  # TODO
-        # end
+        if @mouse
+          # TODO
+        end
       end
 
       # # TODO same as above

@@ -4,8 +4,6 @@
 
 ## Fixes to Existing Code
 
-- Add or verify/activate scrollbar code
-
 - When terminal is resized, depending on exact situation text widgets may render cursor in the wrong place. See why. (Maybe just fixing and/or uncommenting the Render event handlers would do?)
 
 ## Non-critical Fixes / Small Improvements to Existing code
