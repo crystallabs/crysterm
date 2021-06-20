@@ -4,8 +4,6 @@
 
 ## Fixes to Existing Code
 
-- Widget::Line - see the part defaulting widths/heights, which is currently commented
-
 - Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel"
 
 - If at all possible, make widgets instantiable without `screen:` value

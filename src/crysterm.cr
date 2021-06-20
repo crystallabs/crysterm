@@ -18,6 +18,9 @@ require "./widgets"
 module Crysterm
   include Namespace
 
+  # NOTE Good idea to provide a default instance, or not?
+  # class_property style = Style.new
+
   TAB_SIZE = 4
 
   # :nodoc:
