@@ -2,8 +2,6 @@
 
 ## Immediate Source Code TODOs
 
-- Support resizing. (basis is in _listen_output)
-
 ## Fixes to Existing Code
 
 - Widget::Line - see the part defaulting widths/heights, which is currently commented

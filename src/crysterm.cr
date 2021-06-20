@@ -71,17 +71,16 @@ module Crysterm
       if @@resize_channel.receive
         sleep @@resize_interval
       end
-      _resize
+      ::Crysterm::Display.instances.each do |display|
+        display.tput.reset_screen_size
+        display.emit ::Crysterm::Event::Resize
+      end
       if @@resize_flag.lazy_get == 2
         break
       else
         @@resize_flag.swap 0
       end
     end
-  end
-
-  def self._resize
-    # TODO For all `Display`s, run function to recheck size.
   end
 
   spawn resize_loop

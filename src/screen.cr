@@ -271,15 +271,14 @@ module Crysterm
         f.call self
       end
 
-      # TODO Originally, these exist. See about reenabling them.
-      # display.on(Crysterm::Event::Focus) do
-      #  emit Crysterm::Event::Focus
-      # end
-      # display.on(Crysterm::Event::Blur) do
-      #  emit Crysterm::Event::Blur
-      # end
+      display.on(Crysterm::Event::Focus) do
+        emit Crysterm::Event::Focus
+      end
+      display.on(Crysterm::Event::Blur) do
+        emit Crysterm::Event::Blur
+      end
       # display.on(Crysterm::Event::Warning) do |e|
-      #  emit e
+      # emit e
       # end
 
       _listen_keys
@@ -429,6 +428,7 @@ module Crysterm
 
     # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
     def alloc(dirty = false)
+      @lines.clear
       # Initialize @lines better than this.
       rows.times do # |i|
         col = Row.new
