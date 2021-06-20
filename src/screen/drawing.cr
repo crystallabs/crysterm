@@ -150,23 +150,25 @@ module Crysterm
             # Optimize by comparing the real output
             # buffer to the pending output buffer.
             # TODO Avoid using Strings
-            if o[x] == {data, ch}
-              if (lx == -1)
-                lx = x
-                ly = y
+            o[x]?.try do |ox|
+              if ox == {data, ch}
+                if (lx == -1)
+                  lx = x
+                  ly = y
+                end
+                next
+              elsif (lx != -1)
+                if (s.parm_right_cursor?)
+                  @outbuf.write ((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
+                else
+                  @outbuf.write s.cup(y, x)
+                end
+                lx = -1
+                ly = -1
               end
-              next
-            elsif (lx != -1)
-              if (s.parm_right_cursor?)
-                @outbuf.write ((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
-              else
-                @outbuf.write s.cup(y, x)
-              end
-              lx = -1
-              ly = -1
+              ox.attr = data
+              ox.char = ch
             end
-            o[x].attr = data
-            o[x].char = ch
 
             if (data != attr)
               if (attr != @dattr)

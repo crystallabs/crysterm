@@ -4,15 +4,19 @@
 
 ## Fixes to Existing Code
 
-- Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel"
+- Add or verify/activate scrollbar code
 
-- If at all possible, make widgets instantiable without `screen:` value
+- When terminal is resized, depending on exact situation text widgets may render cursor in the wrong place. See why. (Maybe just fixing and/or uncommenting the Render event handlers would do?)
 
 ## Non-critical Fixes / Small Improvements to Existing code
 
-- Crysterm (like Blessed) is missing a full, 100% working TextArea widget. TextArea that exists is very basic. Dbkaplun wrote Slap, text editor based on blessed. Try to port its text editor widget to Crysterm.
+- In `def alloc`, there is a note how to optimize @lines on resize. Implement it.
 
-- Add or verify/activate scrollbar code
+- Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel"
+
+- If at all possible, make widgets instantiable without `screen:` value. Currently screen is needed because some things re. widgets are looked up in their `#screen`. Would be great if nothing in widget code would touch `screen` unless widget really was a child of particular screen. This would also make widgets migratable between screens, which currently (inherited from Blessed) is not possible.
+
+- Crysterm (like Blessed) is missing a full, 100% working TextArea widget. TextArea that exists is very basic. Dbkaplun wrote Slap, text editor based on blessed. Try to port its text editor widget to Crysterm.
 
 - Add mouse code (hard task)
 

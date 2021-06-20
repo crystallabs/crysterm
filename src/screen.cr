@@ -428,6 +428,8 @@ module Crysterm
 
     # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
     def alloc(dirty = false)
+      # XXX Performance improvement -- instead of doing @lines.clear and re-creating it,
+      # just add or remove missing/excess lines and/or cells.
       @lines.clear
       # Initialize @lines better than this.
       rows.times do # |i|
