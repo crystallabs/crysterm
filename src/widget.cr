@@ -891,7 +891,7 @@ module Crysterm
               # XXX Maybe just to this for all this being that this would affect
               # width shrunken normal shrunken lists as well.
               # D O:
-              # if (@_is_listt)
+              # if @_is_list
               if is_a? ListTable
                 xl -= @padding.left + @padding.right
                 xl += iright
@@ -903,11 +903,11 @@ module Crysterm
             end
           end
         end
-        if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) && (!@scrollable || @_is_listt))
+        if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) && (!@scrollable || @_is_list))
           # Note: Lists get special treatment if they are shrunken - assume they
           # want all list items showing. This is one case we can calculate the
           # height based on items/boxes.
-          if (@_is_listt)
+          if @_is_list
             myi = 0 - itop
             myl = @items.size + ibottom
           end
@@ -950,7 +950,7 @@ module Crysterm
         # end
 
         if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) &&
-           (!@scrollable || @_is_listt))
+           (!@scrollable || @_is_list))
           if (@position.top.nil? && !@position.bottom.nil?)
             yi = yl - h - iheight # (iheight == 1 ? 0 : iheight)
           else
@@ -1964,7 +1964,7 @@ module Crysterm
                 # Ignore foreground changes for selected items.
                 # XXX But, Enable when lists exist, then restrict to List
                 # if (parent = @parent) && parent.is_a? Crysterm::Widget
-                #  if (parent._is_listt &&
+                #  if (parent._is_list &&
                 #    parent.interactive? &&
                 #      parent.items[parent.selected] == self &&
                 #       parent.options.invert_selected != false)
@@ -2463,7 +2463,7 @@ module Crysterm
 
     # XXX FIX
     # Used only for lists
-    property _is_listt = false
+    property _is_list = false
     property? label = false
     property? interactive = false
     # XXX
@@ -2676,9 +2676,9 @@ module Crysterm
       if s = scrollbar
         # Allow controlling of the scrollbar via the mouse:
         # TODO
-        if @mouse
-          # TODO
-        end
+        # if @mouse
+        #  # TODO
+        # end
       end
 
       # # TODO same as above
@@ -2852,8 +2852,7 @@ module Crysterm
 
       # We could just calculate the children, but we can
       # optimize for lists by just returning the items.length.
-      # XXX _is_list!
-      if @_is_listt
+      if @_is_list
         return @items ? @items.size : 0
       end
 

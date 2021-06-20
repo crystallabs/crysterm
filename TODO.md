@@ -14,7 +14,7 @@
 
 - If at all possible, make widgets instantiable without `screen:` value. Currently screen is needed because some things re. widgets are looked up in their `#screen`. Would be great if nothing in widget code would touch `screen` unless widget really was a child of particular screen. This would also make widgets migratable between screens, which currently (inherited from Blessed) is not possible.
 
-- Crysterm (like Blessed) is missing a full, 100% working TextArea widget. TextArea that exists is very basic. Dbkaplun wrote Slap, text editor based on blessed. Try to port its text editor widget to Crysterm.
+- Crysterm (inherited from Blessed) is missing a full, 100% working TextArea widget. TextArea that exists is very basic. Dbkaplun wrote Slap, text editor based on blessed. Try to port its text editor widget to Crysterm
 
 - Add mouse code (hard task)
 
@@ -37,9 +37,9 @@ https://github.com/crystal-lang/crystal/pull/10721#
 
 - See if it would make sense to name/rename all EventHandler events in such a way that the name identifies whether the action is about to happen, or has happened. In that case, e.g. Event::Render would mean the event has been triggered before the actual action, and Event::Rendered would mean it was triggered after.
 
-- Implement artificial cursor (with cursorFlashTime option)
+- Implement artificial cursor (with cursorFlashTime option). See how it's done in Blessed.
 
-- Make all widgets able to have their own cursor type when they're in focus
+- Make all widgets able to have their own cursor type when they're in focus. Currently I think cursor is the same for all widgets on a screen; there is no automatic changing of it based on focus and widget's settings.
 
 - See that whatever widgets have done on initialize are undo-ed when they or Screen they were on are destroyed
 
