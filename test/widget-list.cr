@@ -20,7 +20,7 @@ class X
       track: true,
       scrollbar: true
 
-    i.set_items ["one", "two", "three"]
+    i.set_items ["{left}one{/}", "{center}two{/}", "{right}three{/}"]
 
     s.append i
 

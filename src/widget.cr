@@ -1213,9 +1213,9 @@ module Crysterm
               next
             end
 
-            if (param[-3..] == " bg")
+            if (param[-3..]? == " bg")
               state = bg
-            elsif (param[-3..] == " fg")
+            elsif (param[-3..]? == " fg")
               state = fg
             else
               state = flag
@@ -1360,12 +1360,14 @@ module Crysterm
 
           line = lines[no]
           align = default_state
+          align_left_too = false
 
           ftor.push [] of Int32
 
           # Handle alignment tags.
           if @parse_tags
             if (cap = line.match /^{(left|center|right)}/)
+              align_left_too = true
               line = line[cap[0].size..]
               align = default_state = case cap[1]
                                       when "center"
@@ -1409,7 +1411,7 @@ module Crysterm
                 if (!wrap)
                   rest = line[i..].scan(/\x1b\[[^m]*m/)
                   rest = rest.any? ? rest.join : ""
-                  outbuf.push _align(line[0...i] + rest, colwidth, align)
+                  outbuf.push _align(line[0...i] + rest, colwidth, align, align_left_too)
                   ftor[no].push(outbuf.size - 1)
                   rtof.push(no)
                   break :main
@@ -1436,7 +1438,7 @@ module Crysterm
             part = line[0...i]
             line = line[i..]
 
-            outbuf.push _align(part, colwidth, align)
+            outbuf.push _align(part, colwidth, align, align_left_too)
             ftor[no].push(outbuf.size - 1)
             rtof.push(no)
 
@@ -1458,7 +1460,7 @@ module Crysterm
             next
           end
 
-          outbuf.push(_align(line, colwidth, align))
+          outbuf.push(_align(line, colwidth, align, align_left_too))
           ftor[no].push(outbuf.size - 1)
           rtof.push(no)
 
@@ -1480,7 +1482,7 @@ module Crysterm
       end
 
       # Aligns content
-      def _align(line, width, align = Tput::AlignFlag::None)
+      def _align(line, width, align = Tput::AlignFlag::None, align_left_too = false)
         return line if align.none?
 
         cline = line.gsub /\x1b\[[\d;]*m/, ""
@@ -1502,9 +1504,27 @@ module Crysterm
         if (align & Tput::AlignFlag::HCenter) != Tput::AlignFlag::None
           s = " " * (s//2)
           return s + line + s
-        elsif (align & Tput::AlignFlag::Right) != Tput::AlignFlag::None
+        elsif align.right?
           s = " " * s
           return s + line
+        elsif align_left_too && align.left?
+          # Technically, left align is visually the same as no align at all.
+          # But when text is aligned to center or right, all the available empty space is padded
+          # with spaces (around the text in center align, and in front of text in right align).
+          # So, because of this padding with spaces, which affects the size of the widget, we
+          # want to pad {left} align for uniformity as well.
+          #
+          # But, because aligning left affects almost everything in undesired ways (a lot
+          # more chars are present, and cursor in text widgets is wrong), we do not want to do
+          # this when Widget's `align = AlignFlag::Left`. We only want to do it when there is
+          # "{left}" in content, and parse_tags is true.
+          #
+          # This should ensure that {left|center|right} behave 100% identical re. the effect
+          # it has on row width. To see the old behavior without this, comment this elseif,
+          # run test/widget-list.cr, and observe the look of the first element in the list
+          # vs. the other elements when they are selected.
+          s = " " * s
+          return line + s
         elsif @parse_tags && line.index /\{|\}/
           # XXX This is basically Tput::AlignFlag::Spread, but not sure
           # how to put that as a flag yet. Maybe this (or another)
