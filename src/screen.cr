@@ -563,14 +563,6 @@ module Crysterm
       columns
     end
 
-    def width_for_children
-      width
-    end
-
-    def height_for_children
-      height
-    end
-
     # Returns current screen height.
     # XXX Remove in favor of other ways to retrieve it.
     def height

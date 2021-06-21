@@ -4,9 +4,7 @@
 
 ## Fixes to Existing Code
 
-- In test/widget-list.cr, if width is set to 100%, it doesn't take into account the padding at rightmost side of widget.
-
-- Complete the List widget
+- In test/widget-list.cr, if width is set to 100%, it doesn't take into account the padding at rightmost side of widget, or something to that effect. To see this behavior, set Box's width to 100% and disable the `if @resizable || normal_resizable` block.
 
 ## Non-critical Fixes / Small Improvements to Existing code
 

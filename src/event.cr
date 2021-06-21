@@ -94,6 +94,22 @@ module Crysterm
 
     event Action, value : String
 
+    # Emitted on creation of a list item
+    event CreateItem
+
+    # Emitted on addition of a list item to list
+    event AddItem
+    event RemoveItem
+    event SetItem
+    event SetItems
+
+    event CancelItem, item : Widget::Box, index : Int32
+
+    event ActionItem, item : Widget::Box, index : Int32
+
+    # Emitted on selection of an item in list
+    event SelectItem, item : Widget::Box, index : Int32
+
     # event Key, key : ::Tput::Key
 
     # Emitted on key pressed

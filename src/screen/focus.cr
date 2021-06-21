@@ -138,7 +138,7 @@ module Crysterm
           # Note: This is different from the other "visible" values - it needs the
           # visible height of the scrolling element itself, not the element within it.
           # NOTE why a/i values can be nil?
-          visible = cur.screen.height - el.atop.not_nil! - el.itop.not_nil! - el.abottom.not_nil! - el.ibottom.not_nil!
+          visible = cur.screen.height - (el.atop || 0) - (el.itop || 0) - (el.abottom || 0) - (el.ibottom || 0)
           if cur.rtop < el.child_base
             # XXX remove 'if' when Screen is no longer parent of elements
             if el.is_a? Widget

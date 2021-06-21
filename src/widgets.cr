@@ -18,6 +18,7 @@ module Crysterm
     TextArea       = Widget::TextArea
     Line           = Widget::Line
     ListTable      = Widget::ListTable
+    List           = Widget::List
     Text           = Widget::Text
     BigText        = Widget::BigText
     RadioSet       = Widget::RadioSet

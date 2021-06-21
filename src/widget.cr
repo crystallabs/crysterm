@@ -419,7 +419,7 @@ module Crysterm
           width = (parent.width || 0) - (@position.right || 0) - left
 
           @parent.try do |pparent|
-            if (@auto_padding)
+            if @auto_padding
               if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
                 width -= pparent.ileft
               end
@@ -429,10 +429,6 @@ module Crysterm
         end
 
         width
-      end
-
-      def width
-        _get_width false
       end
 
       def _get_height(get)
@@ -631,19 +627,19 @@ module Crysterm
       end
 
       def rleft
-        aleft.not_nil! - (parent_or_screen).not_nil!.aleft.not_nil!
+        (aleft || 0) - ((parent_or_screen).not_nil!.aleft || 0)
       end
 
       def rright
-        aright.not_nil! - (parent_or_screen).not_nil!.aright.not_nil!
+        (aright || 0) - ((parent_or_screen).not_nil!.aright || 0)
       end
 
       def rtop
-        atop.not_nil! - (parent_or_screen).not_nil!.atop.not_nil!
+        (atop || 0) - ((parent_or_screen).not_nil!.atop || 0)
       end
 
       def rbottom
-        abottom.not_nil! - (parent_or_screen).not_nil!.abottom.not_nil!
+        (abottom || 0) - ((parent_or_screen).not_nil!.abottom || 0)
       end
 
       def width=(val : Int)
@@ -1762,13 +1758,25 @@ module Crysterm
     module Rendering
       include Crystallabs::Helpers::Alias_Methods
 
-      property items = [] of String
+      property items = [] of Widget::Box
 
       # Here be dragons
 
       # Renders all child elements into the output buffer.
       def _render(with_children = true)
         emit Crysterm::Event::PreRender
+
+        # XXX TODO Is this a hack? It allows elements within lists to be styled as appropriate.
+        style = @style
+        parent.try do |parent2|
+          if parent2._is_list && parent2.is_a? Widget::List
+            if parent2.items[parent2.selected]? == self
+              style = parent2.style.selected
+            else
+              style = parent2.style.item
+            end
+          end
+        end
 
         parse_content
 
@@ -1808,7 +1816,7 @@ module Crysterm
         # i
         bch = style.char
 
-        # Disabled originally:
+        # D O:
         # Clip content if it's off the edge of the screen
         # if (xi + ileft < 0 || yi + itop < 0)
         #   clines = @_clines.slice()
@@ -1883,11 +1891,11 @@ module Crysterm
         if (@padding.any? || (!@valign.top?))
           if transparency = style.transparency
             (Math.max(yi, 0)...yl).each do |y|
-              if (!lines[y]?)
+              if !lines[y]?
                 break
               end
               (Math.max(xi, 0)...xl).each do |x|
-                if (!lines[y][x]?)
+                if !lines[y][x]?
                   break
                 end
                 lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: transparency)
@@ -1937,8 +1945,8 @@ module Crysterm
           while x < xl - 1
             x += 1
             cell = lines[y][x]?
-            if (!cell)
-              if (x >= screen.width || xl < iright)
+            unless cell
+              if x >= screen.width || xl < iright
                 break
               else
                 next
@@ -1960,19 +1968,15 @@ module Crysterm
               if (c = cnt.match /^\x1b\[[\d;]*m/)
                 ci += c[0].size - 1
                 attr = screen.attr_code(c[0], attr, dattr)
-                # D O:
                 # Ignore foreground changes for selected items.
                 # XXX But, Enable when lists exist, then restrict to List
-                # if (parent = @parent) && parent.is_a? Crysterm::Widget
-                #  if (parent._is_list &&
-                #    parent.interactive? &&
-                #      parent.items[parent.selected] == self &&
-                #       parent.options.invert_selected != false)
-                #    attr = (attr & ~(0x1ff << 9)) | (dattr & (0x1ff << 9))
-                #  end
-                # end
-                ch = content[ci]? || bch
-                ci += 1
+                parent.try do |parent2|
+                  if parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.items[parent2.selected] == self # XXX && parent2.invert_selected
+                    attr = (attr & ~(0x1ff << 9)) | (dattr & (0x1ff << 9))
+                  end
+                  ch = content[ci]? || bch
+                  ci += 1
+                end
               else
                 break
               end
@@ -2000,7 +2004,7 @@ module Crysterm
                 end
                 if transparency = style.transparency
                   lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: transparency)
-                  if (content[ci]?)
+                  if content[ci - 1]?
                     lines[y][x].char = ch
                   end
                   lines[y].dirty = true
@@ -2053,7 +2057,7 @@ module Crysterm
 
             if transparency = style.transparency
               lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: transparency)
-              if (content[ci]?)
+              if content[ci - 1]?
                 lines[y][x].char = ch
               end
               lines[y].dirty = true
