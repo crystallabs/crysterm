@@ -49,3 +49,5 @@ and leads to incorrect/invalid comparisons which always fail.
 https://github.com/crystal-lang/crystal/issues/10277
 
 https://github.com/crystal-ameba/ameba/issues/237
+
+5) Exposed API allowing to kill Fiber from outside

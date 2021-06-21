@@ -4,19 +4,20 @@
 
 ## Fixes to Existing Code
 
-- When terminal is resized, depending on exact situation text widgets may render cursor in the wrong place. See why. (Maybe just fixing and/or uncommenting the Render event handlers would do?)
+- In test/widget-list.cr, if width is set to 100%, it doesn't take into account the padding at rightmost side of widget.
+
+- Complete the List widget
 
 ## Non-critical Fixes / Small Improvements to Existing code
 
-- In `def alloc`, there is a note how to optimize @lines on resize. Implement it.
-
-- Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel"
+- Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel". Does it have to do with auto_padding which is now default? If yes, just ignore this issue.
 
 - If at all possible, make widgets instantiable without `screen:` value. Currently screen is needed because some things re. widgets are looked up in their `#screen`. Would be great if nothing in widget code would touch `screen` unless widget really was a child of particular screen. This would also make widgets migratable between screens, which currently (inherited from Blessed) is not possible.
 
 - Crysterm (inherited from Blessed) is missing a full, 100% working TextArea widget. TextArea that exists is very basic. Dbkaplun wrote Slap, text editor based on blessed. Try to port its text editor widget to Crysterm
 
-- Add mouse code (hard task)
+- Add mouse support
+- Add the top of `def _render`, there is code added checking for _is_list etc., to be able to style list items correctly. But, this probably needs to go into a render() function which is subclassed in List, rather than being present in global _render
 
 - Make sure that the background character for a cell is always configurable and never literally taken to be ' '.  This will allow someone to completely change what the background char is. I guess this has already been done to a good extent, but verifying/confirming it would be good.
 
@@ -35,6 +36,8 @@ https://github.com/crystal-lang/crystal/pull/10721#
 
 ## Would be Good to Add
 
+- Review the current model how Widget's `property style : Style` works and do whatever is necessary to have the most automatic, streamlined, and working style in default scenarios, as well as design it such that complete theming can be from from YAML/JSON
+
 - See if it would make sense to name/rename all EventHandler events in such a way that the name identifies whether the action is about to happen, or has happened. In that case, e.g. Event::Render would mean the event has been triggered before the actual action, and Event::Rendered would mean it was triggered after.
 
 - Implement artificial cursor (with cursorFlashTime option). See how it's done in Blessed.
@@ -43,7 +46,7 @@ https://github.com/crystal-lang/crystal/pull/10721#
 
 - See that whatever widgets have done on initialize are undo-ed when they or Screen they were on are destroyed
 
-- Support "Alternate" style in Style. There should be code which gives the "opposite" of any color. Then in code, when we detect overlapping colors which are too similar, one can simply be switched to its opposite.
+- Support "Alternate" style in Style. There should be code which gives the "opposite" of any color. Then in code, when we detect overlapping colors which are too similar, one can simply be switched to its opposite. Minimal/beginning for this might be in existence. Search for "invert" and "attr".
 
 - Qt-style MenuActions
 
@@ -56,6 +59,8 @@ https://github.com/crystal-lang/crystal/pull/10721#
 ## Things to Investigate
 
 - Profile the app: `build --debug; perf record --call-graph dwarf ./app; hotspot perf.data`
+
+- In Blessed, there are a couple _isX variables. They can be replaced with #is_a?(Class) in Crysterm, and that has been done in some places. But, this might make users unable to set _is_x in their own widgets, if they don't want to inherit from List etc. See if _is_x are actually better than is_a?s. Or figure out how someone would get e.g. _is_list behavior from Crysterm's core without inheriting from List.
 
 - In TextArea widget, arrows can be used for scrolling and it works correctly (even though the behavior is a little bit unintuitive). All this is inherited from Blessed. The unintuitive part is that the cursor position isn't reflected when using the arrows, so it's not clear that scrolling will eventually happen. Also positioning the cursor within existing text doesn't work because cursor can't move. An attempt to make it move just as a scrolling indicator was made, and it almost worked (see `to_scroll_pos` in TextArea). But the scroll pos is then hidden/reverted by code in Widget which calls _update_cursor() on widget that is in focus. See if this can be fixed to really work.
 
