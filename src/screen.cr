@@ -428,30 +428,76 @@ module Crysterm
 
     # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
     def alloc(dirty = false)
-      # XXX Performance improvement -- instead of doing @lines.clear and re-creating it,
-      # just add or remove missing/excess lines and/or cells.
-      @lines.clear
-      # Initialize @lines better than this.
-      rows.times do # |i|
-        col = Row.new
-        columns.times do
-          col.push Cell.new
+      # Here we could just call `@lines.clear` and then re-create rows and cols from scratch.
+      # But to optimize a little bit, we try to just implement differences (i.e. enlarge or shrink).
+
+      old_rows = @lines.size
+      new_rows = rows
+
+      old_columns = @lines[0]?.try(&.size) || 0
+      new_columns = columns
+
+      do_clear = false
+
+      # If nr. of columns has changed, adjust nr. of columns in existing rows
+      if old_columns != new_columns
+        do_clear = true
+
+        Math.min(old_rows, new_rows).times do |i|
+          adjust_columns @lines[i], old_columns, new_columns, dirty
+          @lines[-1].dirty = dirty
+          @olines[-1].dirty = dirty
         end
-        @lines.push col
-        @lines[-1].dirty = dirty
       end
 
-      # Initialize @lines better than this.
-      rows.times do # |i|
-        col = Row.new
-        columns.times do
-          col.push Cell.new
+      # If nr. of rows has changed, add or remove changed rows as appropriate.
+      # Columns in the rows are created from scratch, of course.
+      if (diff = new_rows - old_rows) != 0
+        do_clear = true
+        if diff > 0
+          diff.times do
+            add_row dirty
+          end
+        elsif diff < 0
+          (diff * -1).times do
+            remove_row
+          end
         end
-        @olines.push col
-        @olines[-1].dirty = dirty
       end
 
-      display.tput.clear
+      display.tput.clear if do_clear
+    end
+
+    @[AlwaysInline]
+    private def add_row(dirty)
+      col = Row.new
+      adjust_columns col, 0, columns, dirty
+      @lines.push col
+      @lines[-1].dirty = dirty
+
+      col = Row.new
+      adjust_columns col, 0, columns, dirty
+      @olines.push col
+      @olines[-1].dirty = dirty
+    end
+
+    @[AlwaysInline]
+    private def remove_row
+      @lines.pop
+    end
+
+    @[AlwaysInline]
+    private def adjust_columns(line, old_columns, new_columns, dirty)
+      diff = new_columns - old_columns
+      if diff > 0
+        diff.times do
+          line.push Cell.new
+        end
+      elsif diff < 0
+        (diff * -1).times do
+          line.pop
+        end
+      end
     end
 
     # Reallocates screen buffers and clear the screen.
@@ -515,6 +561,14 @@ module Crysterm
     # XXX Remove in favor of other ways to retrieve it.
     def width
       columns
+    end
+
+    def width_for_children
+      width
+    end
+
+    def height_for_children
+      height
     end
 
     # Returns current screen height.

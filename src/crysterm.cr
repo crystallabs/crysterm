@@ -23,12 +23,6 @@ module Crysterm
 
   TAB_SIZE = 4
 
-  # :nodoc:
-  @@resize_flag : Atomic(UInt8) = Atomic.new 0u8
-
-  # :nodoc:
-  @@resize_channel : Channel(Bool) = Channel(Bool).new
-
   # Amount of time to wait before redrawing the screen, after the terminal resize event is received.
   #
   # The default, and also the value used in Qt, is 0.3 seconds. An alternative setting used in console
@@ -62,31 +56,26 @@ module Crysterm
     Screen.global true
   end
 
-  def self.schedule_resize
-    _old, succeeded = @@resize_flag.compare_and_set 0, 1
-    if succeeded
-      @@resize_channel.send true
+  private def self.schedule_resize
+    @@resize_fiber.try &.timeout(@@resize_interval)
+  end
+
+  def self.resize
+    ::Crysterm::Display.instances.each do |display|
+      display.tput.reset_screen_size
+      display.emit ::Crysterm::Event::Resize
     end
   end
 
+  # :nodoc:
   def self.resize_loop
     loop do
-      if @@resize_channel.receive
-        sleep @@resize_interval
-      end
-      ::Crysterm::Display.instances.each do |display|
-        display.tput.reset_screen_size
-        display.emit ::Crysterm::Event::Resize
-      end
-      if @@resize_flag.lazy_get == 2
-        break
-      else
-        @@resize_flag.swap 0
-      end
+      resize
+      sleep
     end
   end
 
-  spawn resize_loop
+  @@resize_fiber = Fiber.new "resize_loop" { resize_loop }
 
   at_exit do
     Display.instances.each &.destroy
