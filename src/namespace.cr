@@ -201,17 +201,17 @@ module Crysterm
 
     class Border
       property type = BorderType::Line
-      property left : Bool = true
-      property top : Bool = true
-      property right : Bool = true
-      property bottom : Bool = true
+      property left : Bool
+      property top : Bool
+      property right : Bool
+      property bottom : Bool
 
       def initialize(
         @type = BorderType::Line,
-        @left = true,
-        @top = true,
-        @right = true,
-        @bottom = true
+        @left = false,
+        @top = false,
+        @right = false,
+        @bottom = false
       )
       end
 

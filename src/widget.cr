@@ -2666,7 +2666,7 @@ module Crysterm
 
       @border = case border
                 when true
-                  Border.new BorderType::Line
+                  Border.new BorderType::Line, true, true, true, true
                 when nil, false
                   # Nothing
                 when BorderType
@@ -3187,8 +3187,13 @@ module Crysterm
         bg = style.bg
       end
 
-      # Support style.* being Procs
+      # This used to be a loop, but I decided
+      # to unroll it for performance's sake.
+      # TODO implement this -- i.e. support style.* being Procs ?
 
+      # D O:
+      # return (this.uid << 24)
+      #   | ((this.dockBorders ? 32 : 0) << 18)
       ((style.invisible ? 16 : 0) << 18) |
         ((style.inverse ? 8 : 0) << 18) |
         ((style.blink ? 4 : 0) << 18) |

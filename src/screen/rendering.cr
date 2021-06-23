@@ -105,7 +105,7 @@ module Crysterm
       # Dockable borders will not dock if the colors or attributes are different.
       # This option will allow docking regardless. It may produce odd looking
       # multi-colored borders.
-      @ignore_dock_contrast = false
+      @ignore_dock_contrast = true
 
       property lines = Array(Row).new
       property olines = Array(Row).new
