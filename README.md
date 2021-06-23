@@ -198,19 +198,20 @@ Run `crystal docs` as usual.
 
 ### Notable Differences
 
-List of notable differences compared to Blessed:
+List of notable differences (hopefully improvements) compared to Blessed:
 
 - `Program` has been renamed to `Display` (representing a physical display managed by Crysterm)
 - `Element` and `Node` have been renamed and consolidated into `Widget`
 - `Screen` no longer inherits from `Widget`
-- As such, `Screen` is not a top-level `parent` of any `Widget`; use `[@]screen` to get `Screen` or `parent_or_screen` for any
+- As such, `Screen` is not a top-level `parent` of any `Widget`; use `[@]screen` to get `Screen` or `parent_or_screen` for parent or screen
 - `auto_padding`, `tab_size`, and `tabc` are properties on `Widget` instead of `Screen`
 - Event names have been changed from strings to classes, e.g. event `"scroll"` is `::Crysterm::Event::Scroll`
-- `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`
+- `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`. Default is true
 - All terminal-level stuff is in shard `Tput`, not `Crysterm`
 - `style` property has been consolidated; all style-related stuff is under widget's `@style : Style`
 - Widget property `shadow` also accepts Float64, in addition to `true` which defaults to drawing shadow with alpha=0.5
 - Style property `transparent` has been renamed to `transparency` and also accepts Float64, in addition to `true` which defaults to 0.5
+- In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed, and arguably more correct
 
 List of current bugs/quirks in Crysterm:
 

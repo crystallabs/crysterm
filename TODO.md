@@ -2,6 +2,16 @@
 
 ## Immediate Source Code TODOs
 
+- Fix padding visual in examples/chat.cr
+
+- Make sure that chars typed in text input are immediately rendered (i.e. not holding 1 in buffer)
+
+- Issue with transparency
+
+- On exit, reset colors
+
+- On app exit, exit from acs mode
+
 ## Fixes to Existing Code
 
 ## Non-critical Fixes / Small Improvements to Existing code

@@ -14,6 +14,7 @@ module Crysterm
       # does it print value and/or percentage
       # can it auto-resize based on amount
       # always track of how many % a certain value is
+      # Ability to always display filled % or amount
 
       # XXX Change this to enabled? later.
       property keys : Bool = true
@@ -81,6 +82,8 @@ module Crysterm
         yi = ret.yi
         yl = ret.yl
 
+        # XXX is this insufficient check which shrinks the inner widget on all 4 sides
+        # even though border might not be installed on all 4?
         if @border
           xi += 1
           yi += 1
@@ -88,17 +91,32 @@ module Crysterm
           yl -= 1
         end
 
-        if @orientation == Tput::Orientation::Horizontal
+        if @orientation.horizontal?
           xl = xi + ((xl - xi) * (@filled / 100)).to_i
         else
           yi = yi + ((yl - yi) - (((yl - yi) * (@filled / 100)).to_i))
         end
 
-        # XXX These differ a little from Blessed. See why and adjust to work
-        # like Blessed if it makes sense
-        s = style.bar
-        dattr = sattr s, s.bg, s.fg
+        # NOTE We invert fg and bg here, so that progressbar's filled value would be
+        # rendered using foreground color. This is different than blessed, and:
+        # 1) Arguably more correct as far as logic goes
+        # 2) And also allows the widget to show filled value in a way which is visible
+        #    even if style.bar is not specifically defined
+        # Further explanation for (2):
+        #   In Blessed, style.bar does not automatically fallback to style. This then causes the
+        #     default for bar (filled value) to be black color. If the bg color of the rest is different,
+        #     filled value is visible. If it is also black (and it is by default?), then filled
+        #     value appears invisible. (And also there is no option to display the percentage as a
+        #     number inside the widget.
+        #   In Crysterm, style.bar (and all other sub-styles) do fallback to main style. This then
+        #     causes the filled value's bg and default bg to always be equal if style.bar is not
+        #     specifically defined. And thus it makes filled value show in even less cases than it
+        #     does in blessed. By reverting bg/fg like we do here, we solve this problem in a very
+        #     elegant way.
+        dattr = sattr style.bar, style.bg, style.fg
 
+        # TODO Is this approach with using drawing routines valid, or it would be
+        # better that we do this in-memory only here?
         screen.fill_region dattr, style.pchar, xi, xl, yi, yl
 
         # Why here the formatted content is only in @_pcontent, while in blessed
