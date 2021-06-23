@@ -126,8 +126,9 @@ module Crysterm
       end
 
       def remove_item(child : Widget)
-        i = get_item_index child
-        if i && (item = @items[i]?)
+        return unless i = get_item_index child
+
+        if item = @items[i]?
           child = @items.delete_at i
           @ritems.delete_at i
           remove child
@@ -135,7 +136,8 @@ module Crysterm
 
         j = i
         while j < @items.size
-          @items[j].position.top -= 1
+          pt = @items[j].position.top.as(Int) - 1
+          @items[j].position.top = pt
           j += 1
         end
 
@@ -148,12 +150,12 @@ module Crysterm
         item
       end
 
-      def get_item(child)
+      def get_item(child : Widget)
         @items[get_item_index child]?
       end
 
       def get_item_index(child : Int)
-        return child
+        child
       end
 
       def get_item_index(child : String)
