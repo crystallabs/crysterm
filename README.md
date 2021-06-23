@@ -212,6 +212,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - Widget property `shadow` also accepts Float64, in addition to `true` which defaults to drawing shadow with alpha=0.5
 - Style property `transparent` has been renamed to `transparency` and also accepts Float64, in addition to `true` which defaults to 0.5
 - In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed, and arguably more correct
+- In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
 
 List of current bugs/quirks in Crysterm:
 

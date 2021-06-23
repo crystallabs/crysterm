@@ -208,10 +208,10 @@ module Crysterm
 
       def initialize(
         @type = BorderType::Line,
-        @left = false,
-        @top = false,
-        @right = false,
-        @bottom = false
+        @left = true,
+        @top = true,
+        @right = true,
+        @bottom = true
       )
       end
 

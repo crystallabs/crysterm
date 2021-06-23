@@ -271,7 +271,7 @@ module Crysterm
               # Is partially covered above.
               notop = true
               v = ppos.yi - yi
-              if (@border)
+              if @border
                 v -= 1
               end
               if (thisparent.border)
@@ -288,10 +288,10 @@ module Crysterm
               # Is partially covered below.
               nobot = true
               v = yl - ppos.yl
-              if (@border)
+              if @border
                 v -= 1
               end
-              if (thisparent.border)
+              if thisparent.border
                 v += 1
               end
               yl -= v
@@ -314,7 +314,7 @@ module Crysterm
           if (xi < el_lpos.xi)
             xi = el_lpos.xi
             noleft = true
-            if (@border)
+            if @border
               xi -= 1
             end
             if (thisparent.border)
@@ -324,7 +324,7 @@ module Crysterm
           if (xl > el_lpos.xl)
             xl = el_lpos.xl
             noright = true
-            if (@border)
+            if @border
               xl += 1
             end
             if (thisparent.border)
@@ -1870,7 +1870,7 @@ module Crysterm
         @lpos = coords
 
         @border.try do |border|
-          if (border.type == BorderType::Line)
+          if border.type.line?
             screen._border_stops[coords.yi] = true
             screen._border_stops[coords.yl - 1] = true
             # D O:
@@ -1888,7 +1888,7 @@ module Crysterm
           end
         end
 
-        dattr = sattr(style)
+        dattr = sattr style
         attr = dattr
 
         # If we're in a scrollable text box, check to
@@ -1897,7 +1897,7 @@ module Crysterm
           attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || 0
         end
 
-        if (@border)
+        if @border
           xi += 1
           xl -= 1
           yi += 1
@@ -2135,7 +2135,7 @@ module Crysterm
           end
         end
 
-        if (@border)
+        if @border
           xi -= 1
           xl += 1
           yi -= 1
@@ -2170,7 +2170,7 @@ module Crysterm
             if (!cell)
               next
             end
-            if (border.type == BorderType::Line)
+            if border.type.line?
               if (x == xi)
                 ch = '\u250c' # '┌'
                 if (!border.left)
@@ -2205,7 +2205,7 @@ module Crysterm
                 ch = '\u2500'
                 # '─'
               end
-            elsif (border.type == BorderType::Bg)
+            elsif border.type.bg?
               ch = style.border.char
             end
             if (!border.top && x != xi && x != xl - 1)
@@ -2231,10 +2231,10 @@ module Crysterm
             cell = lines[y][xi]?
             if (cell)
               if (border.left)
-                if (border.type == BorderType::Line)
+                if border.type.line?
                   ch = '\u2502'
                   # '│'
-                elsif (border.type == BorderType::Bg)
+                elsif border.type.bg?
                   ch = style.border.char
                 end
                 if (!coords.noleft)
@@ -2256,10 +2256,10 @@ module Crysterm
             cell = lines[y][xl - 1]?
             if (cell)
               if (border.right)
-                if (border.type == BorderType::Line)
+                if border.type.line?
                   ch = '\u2502'
                   # '│'
-                elsif (border.type == BorderType::Bg)
+                elsif border.type.bg?
                   ch = style.border.char
                 end
                 if (!coords.noright)
@@ -2298,7 +2298,7 @@ module Crysterm
             if (!cell)
               next
             end
-            if (border.type == BorderType::Line)
+            if border.type.line?
               if (x == xi)
                 ch = '\u2514' # '└'
                 if (!border.left)
@@ -2333,7 +2333,7 @@ module Crysterm
                 ch = '\u2500'
                 # '─'
               end
-            elsif (border.type == BorderType::Bg)
+            elsif border.type.bg?
               ch = style.border.char
             end
             if (!border.bottom && x != xi && x != xl - 1)
@@ -2666,7 +2666,7 @@ module Crysterm
 
       @border = case border
                 when true
-                  Border.new BorderType::Line, true, true, true, true
+                  Border.new BorderType::Line
                 when nil, false
                   # Nothing
                 when BorderType

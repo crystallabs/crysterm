@@ -113,7 +113,7 @@ module Crysterm
         #     specifically defined. And thus it makes filled value show in even less cases than it
         #     does in blessed. By reverting bg/fg like we do here, we solve this problem in a very
         #     elegant way.
-        dattr = sattr style.bar, style.bg, style.fg
+        dattr = sattr style.bar, style.bar.bg, style.bar.fg
 
         # TODO Is this approach with using drawing routines valid, or it would be
         # better that we do this in-memory only here?
@@ -124,7 +124,9 @@ module Crysterm
         if (pc = @_pcontent) && !pc.empty?
           screen.lines[yi]?.try do |line|
             pc.each_char_with_index do |c, i|
-              line[xi + i]?.try &.char = c
+              line[xi + i]?.try do |cell|
+                cell.char = c
+              end
             end
             line.dirty = true
           end

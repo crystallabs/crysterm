@@ -40,6 +40,8 @@ https://github.com/crystal-lang/crystal/pull/10721#
 
 - In the code, things to change/improve are identified with "TODO".
 
+- In Blessed code (and inherited in Crysterm code), checks for borders are made in a very simple way. E.g. `if @border`, then the widget is reduced by 1 cell on every side, to account for border. It would be good to specifically check for border on each side, and also possibly to also support borders of different widths.
+
 ## Would be Good to Add
 
 - Review the current model how Widget's `property style : Style` works and do whatever is necessary to have the most automatic, streamlined, and working style in default scenarios, as well as design it such that complete theming can be from from YAML/JSON
