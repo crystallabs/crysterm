@@ -2,15 +2,13 @@
 
 ## Immediate Source Code TODOs
 
-- Fix padding visual in examples/chat.cr
+- Fix padding visual in examples/chat.cr. This is a deficiency inherited from Blessed. To see it at work, take examples/chat.cr or examples/chat.js (run under Blessed), and uncomment the padding on the `members` widget.
 
 - Make sure that chars typed in text input are immediately rendered (i.e. not holding 1 in buffer)
 
-- Issue with transparency
+- Issue with transparency, where a transparent element gets more opaque on every render
 
-- On exit, reset colors
-
-- On app exit, exit from acs mode
+- On exit, reset colors and exit from ACS
 
 ## Fixes to Existing Code
 
