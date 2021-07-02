@@ -236,12 +236,15 @@ module Crysterm
       title = nil,
       @cursor = Tput::Namespace::Cursor.new,
       optimization = OptimizationFlag::SmartCSR | OptimizationFlag::BCE,
-      alt = true
+      alt = true,
+      show_fps = true
     )
       bind
 
       ignore_locked.try { |v| @ignore_locked += v }
       optimization.try { |v| @optimization = v }
+
+      @show_fps = show_fps ? Tput::Point[-1, 0] : nil
 
       # @display = display || Display.global true
       # ensure tput.zero_based = true, use_bufer=true

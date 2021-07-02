@@ -306,8 +306,7 @@ module Crysterm
         end
 
         if @input_on_focus
-          # TODO causes Error running at_exit handler: Index out of bounds
-          # screen.rewind_focus
+          screen.rewind_focus
         end
 
         # damn

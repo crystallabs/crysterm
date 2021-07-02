@@ -4,27 +4,28 @@ class MyProg
   include Crysterm
 
   d = Display.new
-  s = Screen.new display: d
+  s = Screen.new display: d, show_fps: false
 
-  style1 = Style.new fg: "black", bg: "#729fcf", border: Style.new(fg: "black", bg: "#729fcf")
+  style1 = Style.new fg: "black", bg: "#729fcf", border: Style.new(fg: "black", bg: "#729fcf"), scrollbar: Style.new(bg: "#000000"), track: Style.new(bg: "red")
   style2 = Style.new fg: "black", bg: "magenta", border: Style.new(fg: "black", bg: "#729fcf"), transparency: true
   # style2 = Style.new fg: "white", bg: "#870087", border: Style.new(fg: "black", bg: "#870087", transparency: true), transparency: true
-  style3 = Style.new fg: "black", "bg": "#729fcf", border: Style.new(fg: "black", bg: "#729fcf"), bar: Style.new(fg: "#d75f00")
+  style3 = Style.new fg: "black", "bg": "#729fcf", border: Style.new(fg: "magenta", bg: "#729fcf"), bar: Style.new(fg: "#d75f00")
 
   chat = Widget::TextArea.new \
     top: 0,
     left: 0,
-    width: "100%",
-    height: "100%-3",
+    width: "100%-19",
+    height: "100%-2",
     content: "Chat session ...",
     parse_tags: false,
     border: true,
-    style: style1
+    style: style1,
+    scrollbar: true
 
   input = Widget::TextBox.new \
-    top: "100%-4",
+    top: "100%-3",
     left: 0,
-    width: "100%-39",
+    width: "100%-19",
     height: 3,
     border: true,
     style: style1
@@ -37,9 +38,9 @@ class MyProg
 
   members = Widget::List.new \
     top: 0,
-    left: "100%-40",
-    width: 40,
-    height: "100%-3",
+    left: "100%-20",
+    width: 20,
+    height: "100%-2",
     border: true,
     # padding: Padding.new(left: 1),
     scrollbar: true,
@@ -47,9 +48,9 @@ class MyProg
   # padding: Padding.new( left: 1 ) # Triggers a visual bug? Possibly in combination with transparency?
 
   lag = Widget::ProgressBar.new \
-    top: "100%-4",
-    left: "100%-40",
-    width: 40,
+    top: "100%-3",
+    left: "100%-20",
+    width: 20,
     height: 3,
     border: Border.new(type: BorderType::Line),
     content: "{center}Lag Indicator{/center}",
@@ -79,30 +80,22 @@ class MyProg
     end
   end
 
-  #  # Just basic (suboptimal) way to handle enter pressed in the input box.
-  #  # But well, livable for now.
-  #  input.on(Event::KeyPress) do |e|
-  #    if e.key == Tput::Key::Enter
-  #      c = input.content
-  #      c = "~" if c == ""
-  #      chat.set_content chat.content + c + "\n"
-  #      input.value = ""
-  #      s.render
-  #    end
-  #  end
-
   spawn do
     id = 1
     loop do
       r = rand
       if r < 0.5
-        members.append_item "{left}Member #{id}{/left}"
+        members.append_item "Member #{id}"
+        chat.set_content "#{chat.content}\n* Member #{id} has joined the conversation."
         id += 1
       else
-        members.items[rand id]?.try do |item|
-          members.remove_item item
+        delid = rand(id) + 1
+        members.items[delid]?.try do |item|
+          members.remove_item(item) && \
+             chat.set_content "#{chat.content}\n* #{item.content} has left."
         end
       end
+      chat.scroll_to chat.get_content.lines.size
       s.render
       sleep rand 2
       lag.filled = rand 100

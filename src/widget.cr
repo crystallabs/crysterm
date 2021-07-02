@@ -1074,7 +1074,7 @@ module Crysterm
       end
 
       def get_content
-        return "" if !@_clines || @_clines.empty? # XXX leave only .empty?
+        return "" if @_clines.empty?
         @_clines.fake.join "\n"
       end
 
@@ -1787,7 +1787,7 @@ module Crysterm
         emit Crysterm::Event::PreRender
 
         # XXX TODO Is this a hack? It allows elements within lists to be styled as appropriate.
-        style = @style
+        style = self.style
         parent.try do |parent2|
           if parent2._is_list && parent2.is_a? Widget::List
             if parent2.items[parent2.selected]? == self

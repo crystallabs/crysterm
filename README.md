@@ -214,16 +214,17 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed, and arguably more correct
 - In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
 
-List of current bugs/quirks in Crysterm:
+List of current bugs / quirks in Crysterm, in no particular order:
 
-- Top-level widget needs to be added to `Screen` with `screen.append widget` explicitly (option `screen: screen` to `Widget.new` doesn't do everything it should at the moment)
-- Items need to be added to `Widget::List` explicitly, after list creation (option `items: [...]` to `List.new isn't available at the moment)
-- `Widget::Layout` needs explicit width and height (e.g. "100%")
+- It is likely that Crysterm's API interface and general usability could be improved in many places. Fortunately those are easy improvements and/or suggestions that can be made by early users and adopters
+- Screen's top-level widgets need to be added to `Screen` with `screen.append widget` explicitly (option `screen: screen` to `Widget.new` doesn't do everything it should at the moment)
+- Items need to be added to `Widget::List` explicitly, after list creation (option `items: [...]` to `List.new` isn't available at the moment)
+- `Widget::Layout` needs explicit width and height (e.g. "100%"). It seems this isn't needed in Blessed
 - `Widget::TextArea` lacks many features (deficiency inherited from Blessed)
 - Scrollbar on a widget can be enabled with `scrollbar: true`. Styling for the scrollbar column is taken from `@style.track` and for the scrollbar character from `@style.scrollbar`. This is inherited from Blessed and unintuitive. `style.scrollbar` should be the column, and `style.track` (or other name) should be the scroll position indicator.
 - Some parts of code are marked with "D O:" or "E O:". These mean "Disabled Originally" and "Enabled Originally", indicating whether respective parts of code were disabled or enabled "originally" (in Blessed sources). Those marked with "D O:" do not need any work unless they were part of unfinished improvements in Blessed, in which case they probably should be developed/enhanced in Crysterm.
 
-If you notice any problems, please submit an issue.
+If you notice any problems or have any suggestions, please submit an issue.
 
 ## Thanks
 

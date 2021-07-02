@@ -10,9 +10,15 @@
 
 - On exit, reset colors and exit from ACS
 
+- Resizing doesn't work 100% right - some resizing artifacts remain as one is resizing around
+
 ## Fixes to Existing Code
 
 ## Non-critical Fixes / Small Improvements to Existing code
+
+- Ability for scrollbar to be on the left side of the widget
+
+- There is option ignore_dock_contrast: on Screen. This option should be changed into an enum, with values e.g.: Ignore, DontDock, and Blend. Ignore would work like current true. DontDock like false, and Blend would blend the colors.
 
 - Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel". Does it have to do with auto_padding which is now default? If yes, just ignore this issue.
 
