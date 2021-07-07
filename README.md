@@ -58,7 +58,7 @@ reuse.
 
 In Crysterm, the equivalents of those components have been created as individual shards, making them available
 to the whole Crystal ecosystem. The event model has been implemented in
-[EventHandler](https://github.com/crystallabs/event_handler), color routines in
+[event_handler](https://github.com/crystallabs/event_handler), color routines in
 [term_colors](https://github.com/crystallabs/term_colors), terminal output in
 [tput.cr](https://github.com/crystallabs/tput.cr), and terminfo library in
 [unibilium.cr](https://github.com/crystallabs/unibilium.cr).
@@ -89,7 +89,7 @@ Those are generalal guidelines. For smaller, more specific development/contribut
 
 ### Event model
 
-Event model is at the very core of Crysterm, implemented via [EventHandler](https://github.com/crystallabs/event_handler).
+Event model is at the very core of Crysterm, implemented via [event_handler](https://github.com/crystallabs/event_handler).
 
 The events used by Crysterm and its widgets are defined in `src/events.cr`.
 
@@ -105,7 +105,7 @@ Most notably this is the `Layout` widget which can auto-size and auto-position c
 There are currently no widgets that would represent GUI windows like `QWindow` or `QMainWindow` in Qt
 (having title bar, menu bar, status bar, etc.), but implementing them is planned. (`Window`s too will inherit from `Widget`.)
 
-All mentioned classes `include` [EventHandler](https://github.com/crystallabs/event_handler) for event-based
+All mentioned classes `include` [event_handler](https://github.com/crystallabs/event_handler) for event-based
 behavior.
 
 ### Positioning and Layouts
