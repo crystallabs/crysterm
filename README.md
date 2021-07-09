@@ -26,9 +26,6 @@ crystal examples/hello2.cr
 crystal examples/tech-demo.cr
 ```
 
-(If you get an Exception trying to run the "tech-demo" example, maximize your terminal window and try
-again.)
-
 ## Screenshots
 
 Animated demo
@@ -91,6 +88,8 @@ Those are generalal guidelines. For smaller, more specific development/contribut
 
 Event model is at the very core of Crysterm, implemented via [event_handler](https://github.com/crystallabs/event_handler).
 
+Please refer to [event_handler](https://github.com/crystallabs/event_handler)'s documentation for all usage instructions.
+
 The events used by Crysterm and its widgets are defined in `src/events.cr`.
 
 ### Class Hierarchy
@@ -98,6 +97,8 @@ The events used by Crysterm and its widgets are defined in `src/events.cr`.
 1. Top-level class is `Display`. It represents a physical device / terminal used for `@input` and `@output` (Blessed calls this `Program`)
 1. Each display can have one or more `Screen`s (Blessed also calls this `Screen`). Screens are always full-screen and represent the whole surface of a Display
 1. Each screen can have one or more `Widget`s, arranged appropriately to implement final apps
+
+The default `Display` and `Screen` do not need to be created explicitly if you don't need to change any of their options. They will be created automatically if missing when the first `Widget` is created.
 
 Widgets can be added and positioned on the screen directly, but some widgets are particularly suitable for containing or arranging other/child widgets.
 Most notably this is the `Layout` widget which can auto-size and auto-position contained widgets in the form of a grid or inline (masonry-like) layout (`LayoutType::{Grid,Inline}`).
