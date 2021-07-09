@@ -156,7 +156,7 @@ from a Hash with `generate_tags`, or removed from a string with `strip_tags` or 
 Any existing strings where "{}" should not be interpreted can be protected with `escape_tags`.
 
 The supported tags are: `{center}`, `{left}`, and `{right}` for alignment,
-`{normal | default}`, {bold}`, `{underline | underlined | ul}`, `{blink}`, `{inverse}`, and `{invisible}` for text attributes,
+`{normal | default}`, `{bold}`, `{underline | underlined | ul}`, `{blink}`, `{inverse}`, and `{invisible}` for text attributes,
 `{COLOR-fg}` and `{COLOR-bg}` for colors,
 and `{/}` for closing all open tags.
 
@@ -193,8 +193,8 @@ Supported COLOR names are:
 `white`,
 `yellow`.
 
-In addition to the above color names, one can also specify colors in RGB hex notaton using the 16M color palette
-and syntax `#RRGGBB`. This is the recommented way to define colors, and Crysterm will automatically reduce them down
+In addition to the above color names, one can also specify colors by color index or RGB hex notaton using the 16M color palette
+and syntax `#RRGGBB`. 16M RGB is the recommented way to define colors, and Crysterm will automatically reduce them
 to 256, 16, 8, or 2 colors if/when needed, depending on terminal capabilities.
 
 One could also define foreground and background colors and attributes by manually
