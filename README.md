@@ -148,12 +148,54 @@ When state has been set up for the first time and the program is to start runnin
 generally calls `Display#exec`. This renders the specified (or default) screen and starts running the
 program.
 
-### Text Attributes
+### Text Attributes and Colors
 
 Crysterm implements its own concept of "tags" in strings,
 such as "{lightblue-fg} text in light blue {/lightblue-fg}". Tags can be embedded in strings directly, applied
 from a Hash with `generate_tags`, or removed from a string with `strip_tags` or `clean_tags`.
 Any existing strings where "{}" should not be interpreted can be protected with `escape_tags`.
+
+The supported tags are: `{center}`, `{left}`, and `{right}` for alignment,
+`{normal | default}`, {bold}`, `{underline | underlined | ul}`, `{blink}`, `{inverse}`, and `{invisible}` for text attributes,
+`{COLOR-fg}` and `{COLOR-bg}` for colors,
+and `{/}` for closing all open tags.
+
+Supported COLOR names are:
+`default`,
+`black`,
+`blue`,
+`bright black`,
+`bright blue`,
+`bright cyan`,
+`bright gray`,
+`bright green`,
+`bright grey`,
+`bright magenta`,
+`bright red`,
+`bright white`,
+`bright yellow`,
+`cyan`,
+`gray`,
+`green`,
+`grey`,
+`light black`,
+`light blue`,
+`light cyan`,
+`light gray`,
+`light green`,
+`light grey`,
+`light magenta`,
+`light red`,
+`light white`,
+`light yellow`,
+`magenta`,
+`red`,
+`white`,
+`yellow`.
+
+In addition to the above color names, one can also specify colors in RGB hex notaton using the 16M color palette
+and syntax `#RRGGBB`. This is the recommented way to define colors, and Crysterm will automatically reduce them down
+to 256, 16, 8, or 2 colors if/when needed, depending on terminal capabilities.
 
 One could also define foreground and background colors and attributes by manually
 embedding the appropriate escape sequences into strings or using Crystal's `Colorize` module.
