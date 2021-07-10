@@ -16,6 +16,8 @@
 
 ## Non-critical Fixes / Small Improvements to Existing code
 
+- Verify color names specifically listed in tput's `src/tput/output/text.cr` and check if there are any discrepancies compared to color names or name syntax and pattern listed/supported in the `term_colors` shard. If yes, make them uniform.
+
 - Ability for scrollbar to be on the left side of the widget
 
 - There is option ignore_dock_contrast: on Screen. This option should be changed into an enum, with values e.g.: Ignore, DontDock, and Blend. Ignore would work like current true. DontDock like false, and Blend would blend the colors.

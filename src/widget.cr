@@ -1200,9 +1200,13 @@ module Crysterm
             break
           end
 
+          # Matches {normal}{/normal} and all other tags
           if (cap = text.match /^{(\/?)([\w\-,;!#]*)}/)
             text = text[cap[0].size..]
             slash = (cap[1] == "/")
+            # XXX Tags must be specified such as {light-blue-fg}, but are then
+            # parsed here with - being ' '. See why? Can we work with - and skip
+            # this replacement part?
             param = (cap[2].gsub(/-/, ' '))
 
             if (param == "open")

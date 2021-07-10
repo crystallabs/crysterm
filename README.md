@@ -164,38 +164,38 @@ Supported COLOR names are:
 `default`,
 `black`,
 `blue`,
-`bright black`,
-`bright blue`,
-`bright cyan`,
-`bright gray`,
-`bright green`,
-`bright grey`,
-`bright magenta`,
-`bright red`,
-`bright white`,
-`bright yellow`,
+`bright-black`,
+`bright-blue`,
+`bright-cyan`,
+`bright-gray`,
+`bright-green`,
+`bright-grey`,
+`bright-magenta`,
+`bright-red`,
+`bright-white`,
+`bright-yellow`,
 `cyan`,
 `gray`,
 `green`,
 `grey`,
-`light black`,
-`light blue`,
-`light cyan`,
-`light gray`,
-`light green`,
-`light grey`,
-`light magenta`,
-`light red`,
-`light white`,
-`light yellow`,
+`light-black`,
+`light-blue`,
+`light-cyan`,
+`light-gray`,
+`light-green`,
+`light-grey`,
+`light-magenta`,
+`light-red`,
+`light-white`,
+`light-yellow`,
 `magenta`,
 `red`,
 `white`,
 `yellow`.
 
-In addition to the above color names, one can also specify colors by color index or RGB hex notaton using the 16M color palette
-and syntax `#RRGGBB`. 16M RGB is the recommented way to define colors, and Crysterm will automatically reduce them
-to 256, 16, 8, or 2 colors if/when needed, depending on terminal capabilities.
+In addition to the above color names, one can also specify colors by color index (syntax: `ID-...`), or by RGB hex
+notation using the 16M color palette (syntax `#RRGGBB-...`. 16M RGB is the recommented way to define colors, and
+Crysterm will automatically reduce them to 256, 16, 8, or 2 colors if/when needed, depending on terminal capabilities.
 
 One could also define foreground and background colors and attributes by manually
 embedding the appropriate escape sequences into strings or using Crystal's `Colorize` module.

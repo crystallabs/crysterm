@@ -2,11 +2,13 @@ module Crysterm
   class Widget
     # TODO Check if this is honored
     @resizable = true
+    @parse_tags = true
 
     class Message < Box
       @ev_keypress : Crysterm::Event::KeyPress::Wrapper?
 
-      def display(text, time : Time::Span? = 3.seconds, &callback : Proc(Nil))
+      def display(text, time : Time::Span? = 10.seconds, &callback : Proc(Nil))
+        # D O:
         # Keep above:
         # parent = @parent
         # detach
@@ -60,14 +62,14 @@ module Crysterm
           end
 
           return
-        end
+        else
+          spawn do
+            sleep time
 
-        spawn do
-          sleep time
-
-          hide
-          screen.render
-          callback.try &.call
+            hide
+            screen.render
+            callback.try &.call
+          end
         end
       end
 
