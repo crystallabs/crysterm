@@ -96,10 +96,10 @@ class MyProg
         end
       end
       chat.scroll_to chat.get_content.lines.size
-      #s.render
+      # s.render
       sleep rand 2
       lag.filled = rand 100
-      #s.render
+      # s.render
     end
   end
 
