@@ -4,7 +4,7 @@ class MyProg
   include Crysterm
 
   d = Display.new
-  s = Screen.new display: d, show_fps: false
+  s = Screen.new display: d, show_fps: false, dock_contrast: DockContrast::Blend
 
   style1 = Style.new fg: "black", bg: "#729fcf", border: Style.new(fg: "black", bg: "#729fcf"), scrollbar: Style.new(bg: "#000000"), track: Style.new(bg: "red")
   style2 = Style.new fg: "black", bg: "magenta", border: Style.new(fg: "black", bg: "#729fcf"), transparency: true
@@ -42,7 +42,7 @@ class MyProg
     width: 20,
     height: "100%-2",
     border: true,
-    # padding: Padding.new(left: 1),
+    padding: 1,
     scrollbar: true,
     style: style2
   # padding: Padding.new( left: 1 ) # Triggers a visual bug? Possibly in combination with transparency?
@@ -96,10 +96,10 @@ class MyProg
         end
       end
       chat.scroll_to chat.get_content.lines.size
-      s.render
+      #s.render
       sleep rand 2
       lag.filled = rand 100
-      s.render
+      #s.render
     end
   end
 

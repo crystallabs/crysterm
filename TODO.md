@@ -2,11 +2,9 @@
 
 ## Immediate Source Code TODOs
 
-- Fix padding visual in examples/chat.cr. This is a deficiency inherited from Blessed. To see it at work, take examples/chat.cr or examples/chat.js (run under Blessed), and uncomment the padding on the `members` widget.
-
 - Make sure that chars typed in text input are immediately rendered (i.e. not holding 1 in buffer)
 
-- Issue with transparency, where a transparent element gets more opaque on every render
+- Issue with transparency, where a transparent element gets more opaque on every render. This is caused by code found at first occurrence of 'transparency' in src/widget.cr
 
 - On exit, reset colors and exit from ACS
 
@@ -19,8 +17,6 @@
 - Verify color names specifically listed in tput's `src/tput/output/text.cr` and check if there are any discrepancies compared to color names or name syntax and pattern listed/supported in the `term_colors` shard. If yes, make them uniform.
 
 - Ability for scrollbar to be on the left side of the widget
-
-- There is option ignore_dock_contrast: on Screen. This option should be changed into an enum, with values e.g.: Ignore, DontDock, and Blend. Ignore would work like current true. DontDock like false, and Blend would blend the colors.
 
 - Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel". Does it have to do with auto_padding which is now default? If yes, just ignore this issue.
 

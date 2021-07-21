@@ -256,6 +256,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - Style property `transparent` has been renamed to `transparency` and also accepts Float64, in addition to `true` which defaults to 0.5
 - In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed, and arguably more correct
 - In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
+- In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends colors.
 
 List of current bugs / quirks in Crysterm, in no particular order:
 

@@ -230,7 +230,7 @@ module Crysterm
     def initialize(
       @display = Display.global(true),
       @dock_borders = true,
-      @ignore_dock_contrast = true,
+      @dock_contrast = DockContrast::Ignore,
       ignore_locked : Array(Tput::Key)? = nil,
       @lock_keys = false,
       title = nil,

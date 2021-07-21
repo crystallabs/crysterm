@@ -85,36 +85,48 @@ module Crysterm
         ch = lines[y][x].char
 
         if (lines[y][x - 1]? && @langles[lines[y][x - 1].char]?)
-          if (!@ignore_dock_contrast)
-            if (lines[y][x - 1].attr != attr)
+          if (lines[y][x - 1].attr != attr)
+            case @dock_contrast
+            when DockContrast::DontDock
               return ch
+            when DockContrast::Blend
+              lines[y][x].attr = Colors.blend lines[y][x - 1].attr, attr
             end
           end
           angle |= 1 << 3
         end
 
         if (lines[y - 1]? && @uangles[lines[y - 1][x].char]?)
-          if (!@ignore_dock_contrast)
-            if (lines[y - 1][x].attr != attr)
+          if (lines[y - 1][x].attr != attr)
+            case @dock_contrast
+            when DockContrast::DontDock
               return ch
+            when DockContrast::Blend
+              lines[y][x].attr = Colors.blend lines[y - 1][x].attr, attr
             end
           end
           angle |= 1 << 2
         end
 
         if (lines[y][x + 1]? && @rangles[lines[y][x + 1].char]?)
-          if (!@ignore_dock_contrast)
-            if (lines[y][x + 1].attr != attr)
+          if (lines[y][x + 1].attr != attr)
+            case @dock_contrast
+            when DockContrast::DontDock
               return ch
+            when DockContrast::Blend
+              lines[y][x].attr = Colors.blend lines[y][x + 1].attr, attr
             end
           end
           angle |= 1 << 1
         end
 
         if (lines[y + 1]? && @dangles[lines[y + 1][x].char]?)
-          if (!@ignore_dock_contrast)
-            if (lines[y + 1][x].attr != attr)
+          if (lines[y + 1][x].attr != attr)
+            case @dock_contrast
+            when DockContrast::DontDock
               return ch
+            when DockContrast::Blend
+              lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
             end
           end
           angle |= 1 << 0

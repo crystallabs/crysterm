@@ -45,6 +45,13 @@ module Crysterm
       # They should be skipped, of course, if they are not rendered.
     end
 
+    # Docking behavior when borders don't have the same color
+    enum DockContrast
+      Ignore
+      DontDock
+      Blend
+    end
+
     class Style
       # Potentially make all subelements be filled in here,
       # and if they're a new Style class have it know its
