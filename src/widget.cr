@@ -471,7 +471,7 @@ module Crysterm
           height = (parent.height || 0) - (@position.bottom || 0) - top
 
           @parent.try do |pparent|
-            if (@auto_padding)
+            if @auto_padding
               if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
                 height -= pparent.itop
               end
@@ -513,7 +513,7 @@ module Crysterm
         end
 
         @parent.try do |pparent|
-          if (@auto_padding)
+          if @auto_padding
             if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
               left += pparent.ileft
             end
@@ -536,7 +536,7 @@ module Crysterm
         if @position.right.nil? && !@position.left.nil?
           right = screen.width - (_get_left(get) + _get_width(get))
           @parent.try do |pparent|
-            if (@auto_padding)
+            if @auto_padding
               right += pparent.iright
             end
           end
@@ -544,7 +544,7 @@ module Crysterm
 
         right = (parent.aright || 0) + (@position.right || 0)
         @parent.try do |pparent|
-          if (@auto_padding)
+          if @auto_padding
             right += pparent.iright
           end
         end
@@ -581,7 +581,7 @@ module Crysterm
         end
 
         @parent.try do |pparent|
-          if (@auto_padding)
+          if @auto_padding
             if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
               top += pparent.itop
             end
@@ -604,7 +604,7 @@ module Crysterm
         if @position.bottom.nil? && !@position.top.nil?
           bottom = screen.height - (_get_top(get) + _get_height(get))
           @parent.try do |pparent|
-            if (@auto_padding)
+            if @auto_padding
               bottom += pparent.ibottom
             end
           end
@@ -614,7 +614,7 @@ module Crysterm
         bottom = (parent.abottom || 0) + (@position.bottom || 0)
 
         @parent.try do |pparent|
-          if (@auto_padding)
+          if @auto_padding
             bottom += pparent.ibottom
           end
         end
@@ -2932,7 +2932,7 @@ module Crysterm
       # is actually shown. (base == 2 means content is showing from its 3rd line onwards)
       base = @child_base
 
-      if (@always_scroll || always)
+      if @always_scroll || always
         # Semi-workaround
         @child_offset = offset > 0 ? visible - 1 + offset : offset
       else
