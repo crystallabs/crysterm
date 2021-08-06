@@ -2,9 +2,9 @@
 
 ## Immediate Source Code TODOs
 
-- Make sure that chars typed in text input are immediately rendered (i.e. not holding 1 in buffer)
+- Make sure that chars typed in text input are immediately rendered (i.e. not holding 1 in buffer in non-release mode). Hopefully the only issue here is just timing, i.e. the way how render() call schedules a render.
 
-- Issue with transparency, where a transparent element gets more opaque on every render. This is caused by code found at first occurrence of 'transparency' in src/widget.cr
+- Issue with transparency, where a transparent element gets more opaque on every render. This is caused by code found at first occurrence of 'transparency' in src/widget.cr. Example can be seen if we add a transparent padding to e.g. members list widget in example/chat.cr. In Blessed, the value of lines[y][x][attr] seems to always be the same, whereas in our case it has the resulting value from previous render, and so on every render the field's color gets additionally blended until it has 100% opacity rather than staying at initial/desired value.
 
 - On exit, reset colors and exit from ACS
 
@@ -22,7 +22,7 @@
 
 - If at all possible, make widgets instantiable without `screen:` value. Currently screen is needed because some things re. widgets are looked up in their `#screen`. Would be great if nothing in widget code would touch `screen` unless widget really was a child of particular screen. This would also make widgets migratable between screens, which currently (inherited from Blessed) is not possible.
 
-- Crysterm (inherited from Blessed) is missing a full, 100% working TextArea widget. TextArea that exists is very basic. Dbkaplun wrote Slap, text editor based on blessed. Try to port its text editor widget to Crysterm
+- Crysterm is missing a full, 100% working TextArea widget (same as Blessed). TextArea that exists is very basic. Dbkaplun wrote Slap, text editor based on blessed. Try to port its text editor widget to Crysterm
 
 - Add mouse support
 - Add the top of `def _render`, there is code added checking for _is_list etc., to be able to style list items correctly. But, this probably needs to go into a render() function which is subclassed in List, rather than being present in global _render

@@ -46,11 +46,11 @@ Transparency, color blending, shadow
 
 As mentioned, Crysterm is inspired by Blessed, Blessed-contrib, and Qt.
 
-Blessed is a large, self-contained framework. Apart from implementing Blessed, its authors have also implemented
-all the necessary/prerequisite components, including an event model (a modified copy of an early Node.js EventEmitter),
-complete termcap/terminfo system (parsing, compilation, output, and input from terminal devices; in a word an
+Blessed is a large, self-contained framework. Apart from implementing Blessed's core functionality, its authors have also
+implemented all the necessary/prerequisite components, including an event model (a modified copy of an early Node.js
+EventEmitter), complete termcap/terminfo system (parsing, compilation, output, and input from terminal devices; in a word an
 alternative to ncurses), all types of mouse support, Unicode handling, color manipulation routines, etc.
-However, these implementations have been mixed with the rest of source code, reducing the potential for their
+However, these implementations have been mixed with the rest of Blessed's source code, reducing the potential for their
 reuse.
 
 In Crysterm, the equivalents of those components have been created as individual shards, making them available
@@ -254,7 +254,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - `style` property has been consolidated; all style-related stuff is under widget's `@style : Style`
 - Widget property `shadow` also accepts Float64, in addition to `true` which defaults to drawing shadow with alpha=0.5
 - Style property `transparent` has been renamed to `transparency` and also accepts Float64, in addition to `true` which defaults to 0.5
-- In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed, and arguably more correct
+- In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed and arguably more correct (Blessed uses background color)
 - In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
 - In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends colors.
 

@@ -1790,7 +1790,7 @@ module Crysterm
       def _render(with_children = true)
         emit Crysterm::Event::PreRender
 
-        # XXX TODO Is this a hack? It allows elements within lists to be styled as appropriate.
+        # XXX TODO Is this a hack in Crysterm? It allows elements within lists to be styled as appropriate.
         style = self.style
         parent.try do |parent2|
           if parent2._is_list && parent2.is_a? Widget::List
@@ -1805,7 +1805,7 @@ module Crysterm
         parse_content
 
         coords = _get_coords(true)
-        if (!coords)
+        unless coords
           @lpos = nil
           return
         end
