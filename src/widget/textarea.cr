@@ -253,7 +253,6 @@ module Crysterm
         # screen.display.tput.sgr "normal"
 
         # Define _done_default
-
         @__listener = ->_listener(Crysterm::Event::KeyPress)
 
         # @ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
@@ -262,7 +261,8 @@ module Crysterm
           @__listener.try &.call e
         }
 
-        @__done = @_done = ->_done_default(String?, String?)
+        #@__done = @_done = ->_done_default(String?, String?)
+        @__done = ->_done_default(String?, String?)
 
         on(Crysterm::Event::Blur) {
           @__done.try &.call nil, nil
