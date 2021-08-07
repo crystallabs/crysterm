@@ -1993,14 +1993,13 @@ module Crysterm
                 ci += c[0].size - 1
                 attr = screen.attr_code(c[0], attr, dattr)
                 # Ignore foreground changes for selected items.
-                # XXX But, Enable when lists exist, then restrict to List
                 parent.try do |parent2|
                   if parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.items[parent2.selected] == self # XXX && parent2.invert_selected
                     attr = (attr & ~(0x1ff << 9)) | (dattr & (0x1ff << 9))
                   end
-                  ch = content[ci]? || bch
-                  ci += 1
                 end
+                ch = content[ci]? || bch
+                ci += 1
               else
                 break
               end
