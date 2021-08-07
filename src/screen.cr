@@ -103,7 +103,9 @@ module Crysterm
         raise "Unexpected"
       end
 
-      element.detach
+      # This has a side-effect of deleting the widget's parent, so it shouldn't
+      # be done. Parent chain must remain intact when Screen is being set.
+      # element.detach
 
       element.screen = self
 

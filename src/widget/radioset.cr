@@ -2,7 +2,8 @@ module Crysterm
   class Widget
     # Radio set element
     class RadioSet < Box
-      # Possibly (originally disabled)
+      # D O:
+      # Possibly inherit parent's style.
       # @style = @parent.style
     end
   end
