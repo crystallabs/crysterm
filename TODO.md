@@ -2,6 +2,12 @@
 
 ## Immediate Source Code TODOs
 
+- When one presses Shift/ShiftTab to navigate between widgets, the cursor shows up. This happens in Blessed too. But, (1) is this desired/expected behavior?, and (2) if yes, the cursor does not show up initially when focus is set programmatically -- why?
+
+- In Checkbox and Radiobutton widgets, when these elements have a border or padding, the cursor is placed incorrectly because it is hardcoded that it goes to relative position 0,1. This is a bug present in blessed too.
+
+## Fixes to Existing Code
+
 - Make sure that chars typed in text input are immediately rendered (i.e. not holding 1 in buffer in non-release mode). Hopefully the only issue here is just timing, i.e. the way how render() call schedules a render.
 
 - Issue with transparency, where a transparent element gets more opaque on every render. This is caused by code found at first occurrence of 'transparency' in src/widget.cr. Example can be seen if we add a transparent padding to e.g. members list widget in example/chat.cr. In Blessed, the value of lines[y][x][attr] seems to always be the same, whereas in our case it has the resulting value from previous render, and so on every render the field's color gets additionally blended until it has 100% opacity rather than staying at initial/desired value.
@@ -9,8 +15,6 @@
 - On exit, reset colors and exit from ACS
 
 - Resizing doesn't work 100% right - some resizing artifacts remain as one is resizing around
-
-## Fixes to Existing Code
 
 ## Non-critical Fixes / Small Improvements to Existing code
 
