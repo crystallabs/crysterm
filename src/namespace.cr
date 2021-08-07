@@ -30,8 +30,8 @@ module Crysterm
 
     # Type of layout to use in a `Layout`.
     enum LayoutType
-      Inline = 1 # Masonry-like
-      Grid   = 2 # Table-like
+      Inline # Masonry-like
+      Grid   # Table-like
     end
 
     # Overflow behavior when rendering and drawing elements.
