@@ -49,7 +49,8 @@ module Crysterm
         # return if @should_exit
         @should_exit = false
 
-        # XXX Keep on top:
+        # D O:
+        # Keep on top:
         # @parent.try do |p|
         #   detach
         #   p.append self
@@ -57,6 +58,9 @@ module Crysterm
 
         show
         set_content @text || @orig_text
+
+        # XXX We don't want to do this? (Blessed does it)
+        # @screen.lock_keys = true
 
         @spinner = Fiber.new {
           loop do
@@ -72,6 +76,8 @@ module Crysterm
       alias_previous :load
 
       def stop
+        # XXX We don't want to do this? (Blessed does it)
+        # @screen.lock_keys = false
         hide
         @should_exit = true
         @text = nil

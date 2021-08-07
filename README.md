@@ -267,6 +267,8 @@ List of current bugs / quirks in Crysterm, in no particular order:
 - `Widget::TextArea` lacks many features (deficiency inherited from Blessed)
 - Scrollbar on a widget can be enabled with `scrollbar: true`. Styling for the scrollbar column is taken from `@style.track` and for the scrollbar character from `@style.scrollbar`. This is inherited from Blessed and unintuitive. `style.scrollbar` should be the column, and `style.track` (or other name) should be the scroll position indicator.
 - Some parts of code are marked with "D O:" or "E O:". These mean "Disabled Originally" and "Enabled Originally", indicating whether respective parts of code were disabled or enabled "originally" (in Blessed sources). Those marked with "D O:" do not need any work unless they were part of unfinished improvements in Blessed, in which case they probably should be developed/enhanced in Crysterm.
+- In some places functions like '#setX' have been renamed to '#x=' while in others they weren't.
+- There is no `Image` widget which can display an image in ANSI or an overlay. Use one or the other (`Widget::Image::Ansi` or `Widget::Image::Overlay`) explicitly.
 
 If you notice any problems or have any suggestions, please submit an issue.
 
