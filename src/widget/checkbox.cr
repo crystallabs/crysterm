@@ -19,45 +19,22 @@ module Crysterm
       property value : Bool = false
       property text : String = ""
 
-      def initialize(checked : Bool = false, value : Bool? = nil, **input)
+      # def initialize(checked : Bool = false, value : Bool? = nil, **input)
+      def initialize(@checked : Bool = false, **input)
         super **input
 
-        @checked = checked
-
-        @value = value.nil? ? checked : value
+        # @value = value.nil? ? checked : value
+        @value = @checked
 
         input["content"]?.try do |c|
           @text = c
         end
 
-        on(Crysterm::Event::KeyPress) do |e|
-          # if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
-          if e.key == Tput::Key::Enter || e.char == ' '
-            e.accept!
-            toggle
-            screen.try &.render
-          end
-        end
-
-        on(Crysterm::Event::Click) do
-          toggle
-          screen.try &.render
-        end
-
-        on(Crysterm::Event::Focus) do
-          next unless lpos = @lpos
-          screen.try do |s|
-            s.display.tput.lsave_cursor self.hash
-            s.display.tput.cursor_pos lpos.yi, lpos.xi + 1
-            s.display.tput.show_cursor
-          end
-        end
-
-        on(Crysterm::Event::Blur) do
-          screen.try do |s|
-            s.display.tput.lrestore_cursor self.hash, true
-          end
-        end
+        on Crysterm::Event::KeyPress, ->on_keypress(Crysterm::Event::KeyPress)
+        on Crysterm::Event::Focus, ->on_focus(Crysterm::Event::Focus)
+        on Crysterm::Event::Blur, ->on_blur(Crysterm::Event::Blur)
+        # XXX potentially wrap in `if mouse`?
+        on Crysterm::Event::Click, ->on_click(Crysterm::Event::Click)
       end
 
       def render
@@ -68,20 +45,49 @@ module Crysterm
 
       def check
         return if checked?
-        @checked = true
-        @value = !@value
+        @checked = @value = true
+        # @value = !@value
         emit Crysterm::Event::Check, @value
       end
 
       def uncheck
         return unless checked?
-        @checked = false
-        @value = !@value
+        @checked = @value = false
+        # @value = !@value
         emit Crysterm::Event::UnCheck, @value
       end
 
       def toggle
         checked? ? uncheck : check
+      end
+
+      def on_keypress(e)
+        # if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
+        if e.key == Tput::Key::Enter || e.char == ' '
+          e.accept!
+          toggle
+          screen.try &.render
+        end
+      end
+
+      def on_click(e)
+        toggle
+        screen.try &.render
+      end
+
+      def on_focus(e)
+        return unless lpos = @lpos
+        screen.try do |s|
+          s.display.tput.lsave_cursor self.hash
+          s.display.tput.cursor_pos lpos.yi, lpos.xi + 1
+          s.display.tput.show_cursor
+        end
+      end
+
+      def on_blur(e)
+        screen.try do |s|
+          s.display.tput.lrestore_cursor self.hash, true
+        end
       end
     end
   end
