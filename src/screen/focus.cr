@@ -18,7 +18,7 @@ module Crysterm
 
       # Focuses an element by an offset in the list of focusable elements.
       def focus_offset(offset)
-        shown = @keyable.count { |el| !el.detached? && el.visible? }
+        shown = @keyable.count { |el| el.screen && el.visible? }
 
         if (shown == 0 || offset == 0)
           return
@@ -33,7 +33,7 @@ module Crysterm
             if (i > @keyable.size - 1)
               i = 0
             end
-            if (@keyable[i].detached? || !@keyable[i].visible?)
+            if (!@keyable[i].screen || !@keyable[i].visible?)
               offset += 1
             end
           end
@@ -45,7 +45,7 @@ module Crysterm
             if (i < 0)
               i = @keyable.size - 1
             end
-            if (@keyable[i].detached? || !@keyable[i].visible?)
+            if (!@keyable[i].screen || !@keyable[i].visible?)
               offset += 1
             end
           end
@@ -106,7 +106,7 @@ module Crysterm
 
         while @history.size > 0
           el = @history.pop
-          if !el.detached? && el.visible?
+          if el.screen && el.visible?
             @history.push el
             _focus el, old
             return el
@@ -134,7 +134,7 @@ module Crysterm
 
         # If we're in a scrollable element,
         # automatically scroll to the focused element.
-        if (el && !el.detached?)
+        if el && el.screen
           # Note: This is different from the other "visible" values - it needs the
           # visible height of the scrolling element itself, not the element within it.
           # NOTE why a/i values can be nil?

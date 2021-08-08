@@ -80,12 +80,6 @@ module Crysterm
 
     property? destroyed = false
 
-    # Is this `Screen` detached?
-    #
-    # Screen is a self-sufficient element, so by default it is always considered 'attached'.
-    # This value could in the future be used to maybe hide/deactivate screens temporarily etc.
-    property? detached = false
-
     def append(element)
       insert element
     end
@@ -100,14 +94,8 @@ module Crysterm
       # XXX Never triggers. But needs to be here for type safety.
       # Hopefully can be removed when Screen is no longer parent of any Widgets.
       if element.is_a? Screen
-        raise "Unexpected"
+        raise "Unexpected to be adding a Screen to Screen; Screens expect Widgets to be added"
       end
-
-      # This has a side-effect of deleting the widget's parent, so it shouldn't
-      # be done. Parent chain must remain intact when Screen is being set.
-      # element.detach
-
-      element.screen = self
 
       # if i == -1
       #  @children.push element
@@ -117,16 +105,7 @@ module Crysterm
       @children.insert i, element
       # end
 
-      emt = uninitialized Widget -> Nil
-      emt = ->(el : Widget) {
-        n = el.detached? != @detached
-        el.detached = @detached
-        el.emit Crysterm::Event::Attach if n
-        el.children.each do |c|
-          emt.call c
-        end
-      }
-      emt.call element
+      attach element
 
       # XXX:
       # - Do similar for mouse as well
@@ -136,24 +115,39 @@ module Crysterm
       end
 
       unless self.focused
-        self.focused = element
+        element.focus
       end
     end
 
-    # Removes node from its parent.
-    # This is identical to calling `#remove` on the parent object.
-    def detach
-      @parent.try { |p| p.remove self }
+    def attach(element)
+      # Adding an element to Screen consists of setting #screen= (self) on that element
+      # and all of its children. Attach/Detach events are emitted accordingly. Attaching
+      # if already attached is a no-op.
+      emt = uninitialized Widget -> Nil
+      emt = ->(el : Widget) {
+        if scr = el.screen
+          if scr != self
+            el.screen = nil
+            el.emit Crysterm::Event::Detach, scr
+          end
+        else
+          el.screen = self
+          el.emit Crysterm::Event::Attach, self
+        end
+
+        el.children.each do |ch|
+          emt.call ch
+        end
+      }
+      emt.call element
     end
 
     def remove(element)
-      return if element.parent != self
+      return if element.screen != self
 
       return unless i = @children.index(element)
 
       element.clear_pos
-
-      element.parent = nil
       @children.delete_at i
 
       # TODO Enable
@@ -164,25 +158,31 @@ module Crysterm
       #  @display.keyable.delete_at i
       # end
 
-      element.emit(Crysterm::Event::Reparent, nil)
-      emit(Crysterm::Event::Remove, element)
       # s= @display
       # raise Exception.new() unless s
       # screen_clickable= s.clickable
       # screen_keyable= s.keyable
 
-      emt = ->(el : Widget) {
-        n = el.detached? != @detached
-        el.detached = true
-        # TODO Enable
-        # el.emit(Event::Detach) if n
-        # el.children.each do |c| c.emt end # wt
-      }
-      emt.call element
+      detach element
 
       if focused == element
         rewind_focus
       end
+    end
+
+    def detach(element)
+      emt = uninitialized Widget -> Nil
+      emt = ->(el : Widget) {
+        if scr = el.screen
+          el.screen = nil
+          el.emit Crysterm::Event::Detach, scr
+        end
+
+        el.children.each do |ch|
+          emt.call ch
+        end
+      }
+      emt.call element
     end
 
     # Prepends node to the list of children

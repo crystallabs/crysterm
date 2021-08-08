@@ -6,28 +6,28 @@ module Crysterm
   module Event
     include EventHandler
 
-    # Emitted when element is attached to a screen directly or somewhere in its ancestry
-    event Attach
+    # Emitted when widget is attached to a screen directly or somewhere in its ancestry
+    event Attach, screen : Screen?
 
-    # Emitted when element is detached from a screen directly or somewhere in its ancestry
-    event Detach
+    # Emitted when widget is detached from a screen directly or somewhere in its ancestry
+    event Detach, screen : Screen?
 
-    # Emitted when element gains a new parent
-    event Reparent, element : Widget?
+    # Emitted when widget gains a new parent
+    event Reparent, widget : Widget?
 
-    # Emitted when element is added to parent
-    event Adopt, element : Widget
+    # Emitted when widget is added to parent
+    event Adopt, widget : Widget
 
-    # Emitted when element is removed from its current parent
-    event Remove, element : Widget
+    # Emitted when widget is removed from its current parent
+    event Remove, widget : Widget
 
     # Emitted when Widget is destroyed
     event Destroy
 
-    # Emitted when element focuses. Requires terminal supporting the focus protocol.
+    # Emitted when widget focuses. Requires terminal supporting the focus protocol.
     event Focus, el : Widget? = nil
 
-    # Emitted when element goes out of focus. Requires terminal supporting the focus protocol.
+    # Emitted when widget goes out of focus. Requires terminal supporting the focus protocol.
     event Blur, el : Widget? = nil
 
     # Emitted when widget scrolls

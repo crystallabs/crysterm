@@ -169,7 +169,7 @@ module Crysterm
     module Position
       # Clears area/position of widget's last render
       def clear_pos(get = false, override = false)
-        return if @detached
+        return unless @screen
         lpos = _get_coords(get)
         return unless lpos
         screen.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
@@ -1088,9 +1088,9 @@ module Crysterm
       end
 
       def parse_content(no_tags = false)
-        return false if detached?
+        return false unless @screen # XXX why?
 
-        Log.trace { "Widget not detached; parsing content: #{@content.inspect}" }
+        Log.trace { "Parsing widget content: #{@content.inspect}" }
 
         colwidth = width - iwidth
         if (@_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content != @content)
@@ -2445,8 +2445,6 @@ module Crysterm
 
     property? destroyed = false
 
-    property? detached : Bool = false
-
     # Arbitrary widget name
     property name : String?
 
@@ -2698,7 +2696,7 @@ module Crysterm
       # on(AddHandlerEvent) { |wrapper| }
       on(Crysterm::Event::Resize) { parse_content }
       on(Crysterm::Event::Attach) { parse_content }
-      # on(Crysterm::Event::Detach) { @lpos = nil }
+      # on(Crysterm::Event::Detach) { @lpos = nil } # XXX D O or E O?
 
       if s = scrollbar
         # Allow controlling of the scrollbar via the mouse:
@@ -2813,7 +2811,7 @@ module Crysterm
     # alias_previous :set_scroll
 
     def _recalculate_index
-      return 0 if @detached || !@scrollable
+      return 0 if !@screen || !@scrollable
 
       # D O
       # XXX
@@ -2896,7 +2894,7 @@ module Crysterm
         # content is in the shrunken box, unless we do this (call get_coords
         # without the scrollable calculation):
         # See: $ test/widget-shrink-fail-2
-        if !el.detached?
+        if @screen
           lpos = el._get_coords false, true
           if lpos
             return Math.max(current, el.rtop + (lpos.yl - lpos.yi))
@@ -2920,7 +2918,7 @@ module Crysterm
     # Scrolls widget by `offset` lines down or up
     def scroll(offset, always = false)
       return unless @scrollable
-      return if @detached
+      return unless @screen
 
       # Handle scrolling.
       # visible == amount of actual content lines visible in the widget. E.g. for
@@ -3071,7 +3069,7 @@ module Crysterm
       return unless @_label
       off ::Crysterm::Event::Scroll, @ev_label_scroll
       off ::Crysterm::Event::Resize, @ev_label_resize
-      @_label.detach
+      @_label.deparent
       @ev_label_scroll = nil
       @ev_label_resize = nil
       @_label = nil
@@ -3135,7 +3133,7 @@ module Crysterm
     def visible?
       el = self
       while el
-        return false if el.detached?
+        return false unless el.screen
         return false if el.hidden?
         el = el.parent
       end
@@ -3239,22 +3237,8 @@ module Crysterm
 
     # Removes node from its parent.
     # This is identical to calling `#remove` on the parent object.
-    def detach
+    def deparent
       @parent.try { |p| p.remove self }
-    end
-
-    # Returns true if widget is not associated with a `Screen`
-    def _detached?
-      el = self
-      while el
-        return true unless el.screen
-
-        # XXX is that check above enough? Could be. If not, the alternative
-        # would be:
-        # return false if Screen === el
-        # return true unless el = el.parent_or_screen
-      end
-      false
     end
 
     # Appends `element` to list of children
@@ -3275,9 +3259,7 @@ module Crysterm
         raise Exception.new("Cannot switch a node's screen.")
       end
 
-      element.detach
-
-      element.screen = screen
+      element.deparent
 
       # if i == -1
       #  @children.push element
@@ -3288,23 +3270,11 @@ module Crysterm
       # end
 
       element.parent = self
+
+      screen.try &.attach(element)
+
       element.emit Crysterm::Event::Reparent, self
       emit Crysterm::Event::Adopt, element
-
-      emt = uninitialized Widget -> Nil
-      emt = ->(el : Widget) {
-        n = el.detached? != @detached
-        el.detached = @detached
-        el.emit Crysterm::Event::Attach if n
-        el.children.each do |c|
-          emt.call c
-        end
-      }
-      emt.call element
-
-      unless screen.focused
-        screen.focused = element
-      end
     end
 
     def remove(element)
@@ -3332,14 +3302,7 @@ module Crysterm
       # screen_clickable= s.clickable
       # screen_keyable= s.keyable
 
-      emt = ->(el : Widget) {
-        # n = el.detached? != @detached # Unused
-        el.detached = true
-        # TODO Enable
-        # el.emit(Event::Detach) if n
-        # el.children.each do |c| c.emt end # wt
-      }
-      emt.call element
+      screen.try &.detach(element)
 
       if screen.focused == element
         screen.rewind_focus
@@ -3405,7 +3368,7 @@ module Crysterm
       @children.each do |c|
         c.destroy
       end
-      detach
+      deparent
       @destroyed = true
       emit Crysterm::Event::Destroy
     end

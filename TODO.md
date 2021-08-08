@@ -2,8 +2,6 @@
 
 ## Immediate Source Code TODOs
 
-- Attach/detach/parent/reparent etc. -- unify everything
-
 - When one presses Shift/ShiftTab to navigate between widgets, the cursor shows up. This happens in Blessed too. But, (1) is this desired/expected behavior?, and (2) if yes, the cursor does not show up initially when focus is set programmatically -- why?
 
 - In Checkbox and Radiobutton widgets, when these elements have a border or padding, the cursor is placed incorrectly because it is hardcoded that it goes to relative position 0,1. This is a bug present in blessed too.
