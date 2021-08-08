@@ -37,43 +37,12 @@ module Crysterm
         # end
 
         if @keys
-          on(::Crysterm::Event::KeyPress) do |e|
-            case e.key
-            when nil
-            when ::Tput::Key::Up
-              up
-              screen.render
-            when ::Tput::Key::Down
-              down
-              screen.render
-            when ::Tput::Key::Enter
-              enter_selected
-            when ::Tput::Key::Escape
-              cancel_selected
-              # TODO other keys too
-            end
-          end
+          on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
         end
 
-        on(::Crysterm::Event::Resize) do
-          visible = height - iheight
-          if visible >= selected + 1
-            @child_base = 0
-            @child_offset = selected
-          else
-            # NOTE Is this supposed to be: child_base = visible - selected + 1
-            @child_base = selected - visible + 1
-            @child_offset = visible - 1
-          end
-        end
-        on(::Crysterm::Event::Adopt) do # |e|
-        # unless @items.includes? el
-        #  el.fixed = true
-        # end
-        end
-        on(::Crysterm::Event::Remove) do # |e|
-        # XXX remove_item e.widget
-        end
+        on ::Crysterm::Event::Resize, ->on_resize(::Crysterm::Event::Resize)
+        on ::Crysterm::Event::Adopt, ->on_adopt(::Crysterm::Event::Adopt)
+        on ::Crysterm::Event::Remove, ->on_remove(::Crysterm::Event::Remove)
       end
 
       def create_item(content, screen = ::Crysterm::Screen.global, align = ::Tput::AlignFlag::Left, top = 0, left = 0, right = (@scrollbar ? 1 : 0), parse_tags = @parse_tags, height = 1, auto_focus = false, normal_resizable = false, width = nil, transparency = @style.transparency) # XXX hover_effects, focus_effects
@@ -340,6 +309,45 @@ module Crysterm
       # TOOD
       # find
       # pick
+
+      def on_keypress(e)
+        case e.key
+        when nil
+        when ::Tput::Key::Up
+          up
+          screen.render
+        when ::Tput::Key::Down
+          down
+          screen.render
+        when ::Tput::Key::Enter
+          enter_selected
+        when ::Tput::Key::Escape
+          cancel_selected
+          # TODO other keys too
+        end
+      end
+
+      def on_resize(e)
+        visible = height - iheight
+        if visible >= selected + 1
+          @child_base = 0
+          @child_offset = selected
+        else
+          # NOTE Is this supposed to be: child_base = visible - selected + 1
+          @child_base = selected - visible + 1
+          @child_offset = visible - 1
+        end
+      end
+
+      def on_adopt(e)
+        # unless @items.includes? el
+        #  el.fixed = true
+        # end
+      end
+
+      def on_remove(e)
+        # XXX remove_item e.widget
+      end
     end
   end
 end

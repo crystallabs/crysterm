@@ -74,13 +74,9 @@ module Crysterm
         #  done.call nil, e.key == Tput::Key::Enter
         # end
 
-        ev_ok = @ok.on(::Crysterm::Event::Press) do
-          @textinput.submit
-        end
+        ev_ok = @ok.on ::Crysterm::Event::Press, ->on_press_ok(::Crysterm::Event::Press)
 
-        ev_cancel = @cancel.on(::Crysterm::Event::Press) do
-          @textinput.cancel
-        end
+        ev_cancel = @cancel.on ::Crysterm::Event::Press, ->on_press_cancel(::Crysterm::Event::Press)
 
         @textinput.read_input do |err, data|
           hide
@@ -94,6 +90,14 @@ module Crysterm
         end
 
         screen.render
+      end
+
+      def on_press_ok(e)
+        @textinput.submit
+      end
+
+      def on_press_cancel(e)
+        @textinput.cancel
       end
     end
   end

@@ -11,18 +11,8 @@ module Crysterm
       def initialize(**input)
         super **input
 
-        on(Crysterm::Event::KeyPress) do |e|
-          if e.char == ' ' || e.key.try(&.==(::Tput::Key::Enter))
-            e.accept!
-            press
-          end
-        end
-
-        on(Crysterm::Event::Click) do # |e|
-        # e.accept!
-          press
-        end
-        # end
+        on Crysterm::Event::KeyPress, ->on_keypress(Crysterm::Event::KeyPress)
+        on Crysterm::Event::Click, ->on_click(Crysterm::Event::Click)
       end
 
       def press
@@ -30,6 +20,18 @@ module Crysterm
         @value = true
         emit Crysterm::Event::Press
         @value = false
+      end
+
+      def on_keypress(e)
+        if e.char == ' ' || e.key.try(&.==(::Tput::Key::Enter))
+          e.accept!
+          press
+        end
+      end
+
+      def on_click(e)
+        # e.accept!
+        press
       end
     end
   end

@@ -22,33 +22,38 @@ module Crysterm
 
         @image = W3MImageDisplay::Image.new @file
 
-        on(::Crysterm::Event::Attach) do
-          @ev_render = screen.on(::Crysterm::Event::Render) do
-            # TODO - get coords of content only, without borders/padding
-            pos = _get_coords(true).not_nil!
-            @border.try do |b|
-              if b.left
-                pos.xi += 1
-              end
-              if b.right
-                pos.xl -= 1
-              end
-              if b.top
-                pos.yi += 1
-              end
-              if b.bottom
-                pos.yl -= 1
-              end
-            end
+        on ::Crysterm::Event::Attach, ->on_attach(::Crysterm::Event::Attach)
+        on ::Crysterm::Event::Detach, ->on_detach(::Crysterm::Event::Detach)
+      end
 
-            @image.try &.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
+      def on_attach(e)
+        @ev_render = screen.on ::Crysterm::Event::Render, ->on_render
+      end
+
+      def on_render(e)
+        # TODO - get coords of content only, without borders/padding
+        pos = _get_coords(true).not_nil!
+        @border.try do |b|
+          if b.left
+            pos.xi += 1
+          end
+          if b.right
+            pos.xl -= 1
+          end
+          if b.top
+            pos.yi += 1
+          end
+          if b.bottom
+            pos.yl -= 1
           end
         end
 
-        on(::Crysterm::Event::Detach) do
-          @ev_render.try do |ev|
-            screen.off ::Crysterm::Event::Render, ev
-          end
+        @image.try &.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
+      end
+
+      def on_detach(e)
+        @ev_render.try do |ev|
+          screen.off ::Crysterm::Event::Render, ev
         end
       end
     end

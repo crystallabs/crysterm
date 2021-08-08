@@ -35,37 +35,7 @@ module Crysterm
         @value = @filled
 
         if @keys
-          on(Crysterm::Event::KeyPress) do |e|
-            # Since the keys aren't conflicting, support both regardless
-            # of orientation.
-            # case @orientation
-            # when Tput::Orientation::Vertical
-            #  back_keys = [Tput::Key::Down]
-            #  back_chars = ['j']
-            #  forward_keys = [Tput::Key::Up]
-            #  forward_chars = ['k']
-            # else #when Tput::Orientation::Horizontal
-            #  back_keys = [Tput::Key::Left]
-            #  back_chars = ['h']
-            #  forward_keys = [Tput::Key::Right]
-            #  forward_chars = ['l']
-            # end
-
-            back_keys = [Tput::Key::Left, Tput::Key::Down]
-            back_chars = ['h', 'j']
-            forward_keys = [Tput::Key::Right, Tput::Key::Up]
-            forward_chars = ['l', 'k']
-
-            if back_keys.includes?(e.key) || back_chars.includes?(e.char)
-              progress -5
-              screen.render
-              next
-            elsif forward_keys.includes?(e.key) || forward_chars.includes?(e.char)
-              progress 5
-              screen.render
-              next
-            end
-          end
+          on Crysterm::Event::KeyPress, ->on_keypress(Crysterm::Event::KeyPress)
         end
 
         if @mouse
@@ -155,6 +125,38 @@ module Crysterm
         emit Crysterm::Event::Reset
         @filled = 0
         @value = @filled
+      end
+
+      def on_keypress(e)
+        # Since the keys aren't conflicting, support both regardless
+        # of orientation.
+        # case @orientation
+        # when Tput::Orientation::Vertical
+        #  back_keys = [Tput::Key::Down]
+        #  back_chars = ['j']
+        #  forward_keys = [Tput::Key::Up]
+        #  forward_chars = ['k']
+        # else #when Tput::Orientation::Horizontal
+        #  back_keys = [Tput::Key::Left]
+        #  back_chars = ['h']
+        #  forward_keys = [Tput::Key::Right]
+        #  forward_chars = ['l']
+        # end
+
+        back_keys = [Tput::Key::Left, Tput::Key::Down]
+        back_chars = ['h', 'j']
+        forward_keys = [Tput::Key::Right, Tput::Key::Up]
+        forward_chars = ['l', 'k']
+
+        if back_keys.includes?(e.key) || back_chars.includes?(e.char)
+          progress -5
+          screen.render
+          return
+        elsif forward_keys.includes?(e.key) || forward_chars.includes?(e.char)
+          progress 5
+          screen.render
+          return
+        end
       end
     end
   end
