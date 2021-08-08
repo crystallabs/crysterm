@@ -382,7 +382,7 @@ module Crysterm
       def _get_width(get)
         parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
-          raise "Something"
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
         end
         width = @position.width
         case width
@@ -434,7 +434,7 @@ module Crysterm
       def _get_height(get)
         parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
-          raise "Something"
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
         end
         height = @position.height
         case height
@@ -490,7 +490,7 @@ module Crysterm
       def _get_left(get)
         parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
-          raise "Something"
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
         end
 
         left = @position.left || 0
@@ -530,7 +530,7 @@ module Crysterm
       def _get_right(get)
         parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
-          raise "Something"
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
         end
 
         if @position.right.nil? && !@position.left.nil?
@@ -559,7 +559,7 @@ module Crysterm
       def _get_top(get)
         parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
-          raise "Something"
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
         end
         top = @position.top || 0
         if top.is_a? String
@@ -598,7 +598,7 @@ module Crysterm
       def _get_bottom(get)
         parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
         unless parent
-          raise "Something"
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
         end
 
         if @position.bottom.nil? && !@position.top.nil?
