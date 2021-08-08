@@ -115,7 +115,8 @@ module Crysterm
       end
 
       unless self.focused
-        element.focus
+        # element.focus
+        focus_next
       end
     end
 

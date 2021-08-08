@@ -24,7 +24,7 @@ module Crysterm
           return
         end
 
-        i = @keyable.index(focused) || return
+        i = @keyable.index(focused) || 0
 
         if (offset > 0)
           while offset > 0

@@ -12,7 +12,7 @@ At the moment Crysterm follows closely the implementation and behavior of librar
 [Blessed](https://github.com/chjj/blessed) and [Blessed-contrib](https://github.com/yaronn/blessed-contrib)
 for Node.js. However, being implemented in Crystal (an OO language), it tries to use the language's
 best practices, avoid bugs and problems found in Blessed, and also (especially in the future) incorporate
-some aspects of [Qt](https://doc.qt.io/).
+more aspects of [Qt](https://doc.qt.io/).
 
 ## Trying it out
 
@@ -265,6 +265,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed and arguably more correct (Blessed uses background color)
 - In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
 - In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends colors.
+- In Crysterm, `attaching`/`detaching` Widgets is only applicable on Screens and it means setting/removing property `#screen` on the desired widget and its children (it does not have anything to do with widget parent hierarchy). Although in most cases these functions are not called directly but are invoked automatically when calling functions to set widgets' parents.
 
 List of current bugs / quirks in Crysterm, in no particular order:
 
@@ -276,7 +277,7 @@ List of current bugs / quirks in Crysterm, in no particular order:
 - Scrollbar on a widget can be enabled with `scrollbar: true`. Styling for the scrollbar column is taken from `@style.track` and for the scrollbar character from `@style.scrollbar`. This is inherited from Blessed and unintuitive. `style.scrollbar` should be the column, and `style.track` (or other name) should be the scroll position indicator.
 - Some parts of code are marked with "D O:" or "E O:". These mean "Disabled Originally" and "Enabled Originally", indicating whether respective parts of code were disabled or enabled "originally" (in Blessed sources). Those marked with "D O:" do not need any work unless they were part of unfinished improvements in Blessed, in which case they probably should be developed/enhanced in Crysterm.
 - In some places functions like '#setX' have been renamed to '#x=' while in others they weren't.
-- There is no `Image` widget which can display an image in ANSI or an overlay. Use one or the other (`Widget::Image::Ansi` or `Widget::Image::Overlay`) explicitly.
+- There is no `Image` widget which can display an image in ANSI or an overlay. Use one or the other (`Widget::Image::Ansi` or `Widget::Image::Overlay`) explicitly. (`Image::Ansi` does not exist yet.)
 
 If you notice any problems or have any suggestions, please submit an issue.
 

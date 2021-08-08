@@ -50,6 +50,8 @@ https://github.com/crystal-lang/crystal/pull/10721#
 
 ## Would be Good to Add
 
+- Style setting for determining whether cursor is visible in a widget or not. E.g. it should be possible to have cursor optionally appear in focused checkboxes and radiobuttons.
+
 - Review the current model how Widget's `property style : Style` works and do whatever is necessary to have the most automatic, streamlined, and working style in default scenarios, as well as design it such that complete theming can be from from YAML/JSON
 
 - See if it would make sense to name/rename all EventHandler events in such a way that the name identifies whether the action is about to happen, or has happened. In that case, e.g. Event::Render would mean the event has been triggered before the actual action, and Event::Rendered would mean it was triggered after.
