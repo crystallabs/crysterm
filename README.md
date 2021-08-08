@@ -119,7 +119,7 @@ Widget positions and sizes work like in Blessed. They can be specified as number
 
 That model is simple and works quite OK, although it is not as developed as the model in Qt. For example, there is no way to shrink or grow widgets disproportionally when window is resized, and
 there is no way to define maximum or minimum size. (Well, minimum size calculation does exist for resizable widgets, but only for trying to find the minimum size based on actual
-contents, rather than programmer's wishes. (What we call "resizable" is called "shrink" in Blessed, even though it can also grow.))
+contents, rather than programmer's wishes. (What we call "resizable" is suboptimally called "shrink" in Blessed because it can also grow.))
 
 Speaking of layouts, the one layout engine currently existing, `Widget::Layout`, is equivalent to Blessed's. It can arrange widgets in a grid-like or masonry-like style.
 There are no equivalents of Qt's `QBoxLayout`.
@@ -221,7 +221,13 @@ serializable to YAML, enabling convenient theming.
 
 ### Performance
 
-By default, for development, frames-per-second value is displayed at the bottom of every Screen. When displaying FPS is enabled, Crysterm measures time needed to complete rendering and drawing cycles, and displays them as "R/D/FPS" (estimated renderings per second, drawings per second, and total/combined frames per second).
+By default, for development, frames-per-second value is displayed at the bottom of every Screen. When displaying FPS is enabled, Crysterm measures time needed to complete rendering and drawing cycles, and displays them as "R/D/FPS" (estimated renderings per second, drawings per second, and total/combined frames per second). Such as:
+
+```
+R/D/FPS: 761/191/153 (782/248/187)
+```
+
+The first 3 values display the performance of the current frame, and the values in parentheses display the averages over 30 frames.
 
 Because the rendering+drawing cycle happens up to 29 times per second, the FPS value should stay above 30 of frame skipping could occur.
 
