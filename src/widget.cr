@@ -1912,7 +1912,7 @@ module Crysterm
         # content-drawing loop will skip a few cells/lines.
         # To deal with this, we can just fill the whole thing
         # ahead of time. This could be optimized.
-        if (@padding.any? || (!@valign.top?))
+        if (@padding.any? || (!@align.top?))
           if transparency = style.transparency
             (Math.max(yi, 0)...yl).each do |y|
               if !lines[y]?
@@ -1941,13 +1941,13 @@ module Crysterm
         end
 
         # Determine where to place the text if it's vertically aligned.
-        if @valign.v_center? || @valign.bottom?
+        if @align.v_center? || @align.bottom?
           visible = yl - yi
           if (@_clines.size < visible)
-            if @valign.v_center?
+            if @align.v_center?
               visible = visible // 2
               visible -= @_clines.size // 2
-            elsif @valign.bottom?
+            elsif @align.bottom?
               visible -= @_clines.size
             end
             ci -= visible * (xl - xi)
@@ -2466,10 +2466,7 @@ module Crysterm
     private property? fixed = false
 
     # Horizontal text alignment
-    property align = Tput::AlignFlag::Left
-
-    # Vertical text alignment
-    property valign = Tput::AlignFlag::Top
+    property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
 
     # Can element's content be word-wrapped?
     property? wrap = true
@@ -2588,8 +2585,7 @@ module Crysterm
       hidden = nil,
       @fixed = false,
       @wrap = true,
-      @align = Tput::AlignFlag::Left,
-      @valign = Tput::AlignFlag::Top,
+      @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
       position : Tput::Position? = nil,
       resizable = nil,
       overflow : Overflow? = nil,

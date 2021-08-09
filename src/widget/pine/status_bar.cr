@@ -16,7 +16,7 @@ module Crysterm
           style2 = style.dup
           style2.inverse = true
 
-          @status = Widget::Box.new width: "resizable", left: "center", height: h, valign: Tput::AlignFlag::VCenter, align: Tput::AlignFlag::Center, style: style2, content: status_content
+          @status = Widget::Box.new width: "resizable", left: "center", height: h, align: Tput::AlignFlag::Center, style: style2, content: status_content
 
           append @status
         end

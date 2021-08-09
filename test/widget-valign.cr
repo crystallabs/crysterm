@@ -8,9 +8,7 @@ module Crysterm
     left: "center",
     width: "50%",
     height: 5,
-    align: Tput::AlignFlag::HCenter,
-    valign: Tput::AlignFlag::VCenter,
-    # valign: AlignFlag::Bottom,
+    align: Tput::AlignFlag::Center,
     content: "Foobar.",
     border: true,
     auto_padding: false

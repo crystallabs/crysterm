@@ -26,7 +26,6 @@ class X
       label: "Frame text ",
       content: "Press Enter or Space to exit",
       align: ::Tput::AlignFlag::Center,
-      valign: ::Tput::AlignFlag::Center,
       border: true,
       style: Style.new(fg: "yellow", bg: "blue", transparency: 0.9),
       shadow: true

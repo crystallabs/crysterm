@@ -14,7 +14,6 @@ class X
       left: 8,
       content: "Press Enter or Space to exit",
       align: ::Tput::AlignFlag::Center,
-      valign: ::Tput::AlignFlag::Center,
       border: true,
       style: Style.new(fg: "yellow", bg: "blue")
 

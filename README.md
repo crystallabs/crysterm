@@ -127,7 +127,7 @@ There are no equivalents of Qt's `QBoxLayout`.
 The positioning and layout code is very manageable; adding new Qt-like or other features is not a big task.
 (Whether various layouts would then still inherit from `Widget` or not (like they don't in Qt) is open for consideration.)
 
-Finally, worth noting, there are currently some differences in the exact types or combinations of mentioned values supported for `top`, `left`, `width`, `height`, `align`, and `valign`. It would be
+Finally, worth noting, there are currently some differences in the exact types or combinations of mentioned values supported for `top`, `left`, `width`, `height`, and `align`. It would be
 good if all these could be adjusted to accept the same flexible/unified specification, and if the list of supported specifications would even grow over time.
 (For example, one could want to pass a block or proc, in which case it'd be called to get the value.)
 
@@ -266,6 +266,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
 - In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends colors.
 - In Crysterm, `attaching`/`detaching` Widgets is only applicable on Screens and it means setting/removing property `#screen` on the desired widget and its children (it does not have anything to do with widget parent hierarchy). Although in most cases these functions are not called directly but are invoked automatically when calling functions to set widgets' parents.
+- Widget property `valign` has been removed because property `align` is an enum (`Tput::AlignFlag`) and encodes both horizontal and vertical alignment choices in the same value
 
 List of current bugs / quirks in Crysterm, in no particular order:
 
