@@ -3,7 +3,6 @@ require "./helpers"
 
 module Crysterm
   class Widget < ::Crysterm::Object
-
     # Used to represent minimal widget dimensions, after running a method
     # to determine them.
     #

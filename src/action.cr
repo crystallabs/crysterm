@@ -1,7 +1,7 @@
 module Crysterm
   class Action < Object
-    event Triggered
-    event Hovered
+    event Event::Triggered
+    event Event::Hovered
 
     property text = ""
     property enabled = true
@@ -18,8 +18,8 @@ module Crysterm
 
     def initialize(
       @parent : Crysterm::Object? = nil,
-      event : Triggered.class | Hovered.class = Triggered,
-      &block : ::Proc(::Crysterm::Action::Triggered, ::Nil)
+      event : Event::Triggered.class | Event::Hovered.class = Event::Triggered,
+      &block : ::Proc(::Crysterm::Action::Event::Triggered, ::Nil)
     )
       on event, block
     end
@@ -33,14 +33,14 @@ module Crysterm
     def initialize(
       @text,
       @parent : Crysterm::Object? = nil,
-      event : Triggered.class | Hovered.class = Triggered,
-      &block : ::Proc(::Crysterm::Action::Triggered, ::Nil)
+      event : Event::Triggered.class | Event::Hovered.class = Event::Triggered,
+      &block : ::Proc(::Crysterm::Action::Event::Triggered, ::Nil)
     )
       on event, block
     end
 
-    # def activate(event : ActionEvent = ActionEvent::Triggered)
-    def activate(event : Triggered.class | Hovered.class = Triggered)
+    # def activate(event : ActionEvent = ActionEvent::Event::Triggered)
+    def activate(event : Event::Triggered.class | Event::Hovered.class = Event::Triggered)
       emit event
     end
   end
