@@ -2,11 +2,17 @@
 
 ## Immediate Source Code TODOs
 
+- Should `padding` be part of Style? And Align setting?
+
+- Fix for TextArea's _done; make sure that both examples/hello2.cr and prompt/question example work
+
 - When one presses Shift/ShiftTab to navigate between widgets, the cursor shows up. This happens in Blessed too. But, (1) is this desired/expected behavior?, and (2) if yes, the cursor does not show up initially when focus is set programmatically -- why?
 
 - In Checkbox and Radiobutton widgets, when these elements have a border or padding, the cursor is placed incorrectly because it is hardcoded that it goes to relative position 0,1. This is a bug present in blessed too.
 
 ## Fixes to Existing Code
+
+- Maybe remove 'valign' since the vertical alignment can now be encoded in AlignFlag
 
 - Make sure that chars typed in text input are immediately rendered (i.e. not holding 1 in buffer in non-release mode). Hopefully the only issue here is just timing, i.e. the way how render() call schedules a render.
 
@@ -17,6 +23,10 @@
 - Resizing doesn't work 100% right - some resizing artifacts remain as one is resizing around
 
 ## Non-critical Fixes / Small Improvements to Existing code
+
+- If the screen is too small to display a widget in layout, don't hide it completely, make sure that at least something is drawn even if incomplete or incorrect. See e.g. misc/pine.cr for an example
+
+- When aligning widgets, see if it is possible to control what char will fill the empty space, instead of always ' '
 
 - Verify color names specifically listed in tput's `src/tput/output/text.cr` and check if there are any discrepancies compared to color names or name syntax and pattern listed/supported in the `term_colors` shard. If yes, make them uniform.
 

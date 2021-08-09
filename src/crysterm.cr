@@ -11,7 +11,7 @@ require "./helpers"
 require "./colors"
 require "./screen"
 
-require "./widget/*"
+require "./widget/**"
 require "./widgets"
 
 # Main Crysterm module and namespace.

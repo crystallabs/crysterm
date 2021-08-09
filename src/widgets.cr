@@ -26,5 +26,8 @@ module Crysterm
     Prompt         = Widget::Prompt
     Box            = Widget::Box
     Message        = Widget::Message
+
+    PineHeaderBar = Widget::Pine::HeaderBar
+    PineStatusBar = Widget::Pine::StatusBar
   end
 end

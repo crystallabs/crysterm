@@ -51,3 +51,17 @@ https://github.com/crystal-lang/crystal/issues/10277
 https://github.com/crystal-ameba/ameba/issues/237
 
 5) Exposed API allowing to kill Fiber from outside
+
+6) Ability to create proc and partial from a method with named args:
+
+```
+def f(a : Int32, b : Int32)
+end
+
+# Can't use named args:
+pf = ->f(a : Int32, b : Int32)
+
+# Nor here:
+ppf = pf.partial(b: 10)
+
+```
