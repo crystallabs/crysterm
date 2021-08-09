@@ -9,8 +9,14 @@ require "./event"
 require "./display"
 require "./helpers"
 require "./colors"
+
+require "./object"
+
+require "./action"
+
 require "./screen"
 
+require "./widget"
 require "./widget/**"
 require "./widgets"
 

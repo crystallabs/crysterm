@@ -2,8 +2,6 @@
 
 ## Immediate Source Code TODOs
 
-- Should `padding` be part of Style? And Align setting?
-
 - Fix for TextArea's _done; make sure that both examples/hello2.cr and prompt/question example work
 
 - When one presses Shift/ShiftTab to navigate between widgets, the cursor shows up. This happens in Blessed too. But, (1) is this desired/expected behavior?, and (2) if yes, the cursor does not show up initially when focus is set programmatically -- why?

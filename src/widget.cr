@@ -2,8 +2,7 @@ require "./event"
 require "./helpers"
 
 module Crysterm
-  class Widget
-    include EventHandler
+  class Widget < ::Crysterm::Object
 
     # Used to represent minimal widget dimensions, after running a method
     # to determine them.
