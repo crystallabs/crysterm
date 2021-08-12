@@ -107,6 +107,8 @@ module Crysterm
 
     event ActionItem, item : Widget::Box, index : Int32
 
+    event LogLine, text : String
+
     # Emitted on selection of an item in list
     event SelectItem, item : Widget::Box, index : Int32
 

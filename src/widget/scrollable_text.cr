@@ -1,3 +1,5 @@
+require "./scrollable_box"
+
 module Crysterm
   class Widget
     class ScrollableText < ScrollableBox

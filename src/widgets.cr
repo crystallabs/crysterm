@@ -4,6 +4,7 @@ module Crysterm
   #    include Widgets
   #    t = Text.new
   module Widgets
+    # Blessed-like
     RadioButton    = Widget::RadioButton
     OverlayImage   = Widget::OverlayImage
     Input          = Widget::Input
@@ -26,7 +27,12 @@ module Crysterm
     Prompt         = Widget::Prompt
     Box            = Widget::Box
     Message        = Widget::Message
+    LogLine        = Widget::LogLine
 
+    # Qt-like
+    Menu = Widget::Menu
+
+    # Pine-like
     PineHeaderBar = Widget::Pine::HeaderBar
     PineStatusBar = Widget::Pine::StatusBar
   end
