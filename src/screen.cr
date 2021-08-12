@@ -436,7 +436,8 @@ module Crysterm
     # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
     def alloc(dirty = false)
       # Here we could just call `@lines.clear` and then re-create rows and cols from scratch.
-      # But to optimize a little bit, we try to just implement differences (i.e. enlarge or shrink).
+      # But to optimize a little bit, we try to just implement differences (i.e. enlarge or
+      # shrink existing array).
 
       old_rows = @lines.size
       new_rows = rows
@@ -458,7 +459,7 @@ module Crysterm
       end
 
       # If nr. of rows has changed, add or remove changed rows as appropriate.
-      # Columns in the rows are created from scratch, of course.
+      # When adding/extending, columns in the rows are created from scratch, of course.
       if (diff = new_rows - old_rows) != 0
         do_clear = true
         if diff > 0

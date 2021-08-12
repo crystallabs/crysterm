@@ -80,7 +80,7 @@ module Crysterm
           last = get_last i
 
           # If there is no previously rendered element, we are on the first child.
-          if (!last)
+          if !last
             el.position.left = 0
             el.position.top = 0
           else
@@ -92,6 +92,7 @@ module Crysterm
 
             # Make sure the position matches the highest width element
             if (@layout == LayoutType::Grid)
+              # D O:
               # Compensate with width:
               # el.position.width = el.width + (highWidth - el.width)
               # Compensate with position:
@@ -99,16 +100,16 @@ module Crysterm
             end
 
             # If our child does not overlap the right side of the Layout, set it's
-            # `top`/`y` to the current `rowOffset` (the coordinate for the current
+            # `top`/`y` to the current `row_offset` (the coordinate for the current
             # row).
-            if (el.position.left.as(Int) + el.width <= width)
+            if el.position.left.as(Int) + el.width <= width
               el.position.top = row_offset
             else
               # Otherwise we need to start a new row and calculate a new
-              # `rowOffset` and `rowIndex` (the index of the child on the current
+              # `row_offset` and `row_index` (the index of the child on the current
               # row).
               row_offset += @children[row_index...i].reduce(0) { |o, el2|
-                if (!rendered?(el2))
+                if !rendered?(el2)
                   o
                 else
                   elp = el2.lpos.not_nil!

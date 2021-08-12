@@ -1,5 +1,5 @@
 module Crysterm
-  class Action < Object
+  class Action < ::Crysterm::Object
     event Event::Triggered
     event Event::Hovered
 
@@ -19,7 +19,7 @@ module Crysterm
     def initialize(
       @parent : Crysterm::Object? = nil,
       event : Event::Triggered.class | Event::Hovered.class = Event::Triggered,
-      &block : ::Proc(::Crysterm::Action::Event::Triggered, ::Nil)
+      &block : ::Proc(Event::Triggered, ::Nil)
     )
       on event, block
     end
@@ -34,14 +34,25 @@ module Crysterm
       @text,
       @parent : Crysterm::Object? = nil,
       event : Event::Triggered.class | Event::Hovered.class = Event::Triggered,
-      &block : ::Proc(::Crysterm::Action::Event::Triggered, ::Nil)
+      &block : ::Proc(Event::Triggered, ::Nil)
     )
       on event, block
     end
 
+    # Alternatively, for overloads with and without a block:
+    # def foo(&block : Proc(Nil)); foo(block); end; def foo(proc : Proc(Nil)? = nil); proc.try &.call; end; foo; foo { "hello" }
+
     # def activate(event : ActionEvent = ActionEvent::Event::Triggered)
     def activate(event : Event::Triggered.class | Event::Hovered.class = Event::Triggered)
       emit event
+    end
+
+    def trigger
+      activate Event::Triggered
+    end
+
+    def hover
+      activate Event::Hovered
     end
   end
 end

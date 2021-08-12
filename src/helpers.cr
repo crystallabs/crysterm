@@ -82,7 +82,7 @@ module Crysterm
 
     # Strips text of {...} tags and SGR sequences.
     def strip_tags(text : String)
-      text.gsub(/\{(\/?)([\w\-,;!#]*)\}/, "").gsub(/\x1b\[[\d;]*m/, "")
+      text.gsub(TAG_REGEX, "").gsub(SGR_REGEX, "")
     end
 
     # Strips text of {...} tags and SGR sequences like `strip_tags` does, but also removes leading/trailing whitespaces.

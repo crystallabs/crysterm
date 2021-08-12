@@ -153,7 +153,7 @@ program.
 ### Text Attributes and Colors
 
 Crysterm implements its own concept of "tags" in strings,
-such as "{lightblue-fg} text in light blue {/lightblue-fg}". Tags can be embedded in strings directly, applied
+such as `{light-blue-fg}Text in Light Blue{/light-blue-fg}`. Tags can be embedded in strings directly, applied
 from a Hash with `generate_tags`, or removed from a string with `strip_tags` or `clean_tags`.
 Any existing strings where "{}" should not be interpreted can be protected with `escape_tags`.
 
@@ -267,7 +267,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends colors and docks.
 - In Crysterm, `attaching`/`detaching` Widgets is only applicable on Screens and it means setting/removing property `#screen` on the desired widget and its children (it does not have anything to do with widget parent hierarchy). Although in most cases these functions are not called directly but are invoked automatically when calling functions to set widgets' parents.
 - Widget property `valign` has been removed because property `align` is an enum (`Tput::AlignFlag`) and encodes both horizontal and vertical alignment choices in the same value
-- Widget methods `#<<` and `#>>` can be used for adding/removing children elements depending on argument type. E.g., << Widget` adds a Widget as a child of parent widget, and `<< Action` adds an Action into the parent widget's list of actions.
+- Widget methods `#<<` and `#>>` can be used for adding/removing children elements depending on argument type. E.g., `<< Widget` adds a Widget as a child of parent widget, and `<< Action` adds an Action into the parent widget's list of actions.
 
 List of current bugs / quirks in Crysterm, in no particular order:
 

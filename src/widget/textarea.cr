@@ -184,7 +184,7 @@ module Crysterm
 
         if e.char && (!e.key || also_check_char)
           # XXX can we avoid to_s ?
-          unless e.char.to_s.match /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
+          unless e.char.to_s.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
             @value += e.char
           end
         end

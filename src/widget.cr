@@ -925,10 +925,16 @@ module Crysterm
         ShrinkBox.new xi: xi, xl: xl, yi: yi, yl: yl
       end
 
-      # Returns minimum widget size based on content
+      # Returns minimum widget size based on content.
+      #
+      # NOTE For this function to return intended results, the widget whose contents
+      # are being examined should not have a particular `#align=` value.
+      # If `#align=` is used, the alignment method will align it by padding with
+      # spaces, and in turn make the minimal size returned from this method be the
+      # maximum/full size of the surrounding box.
       def _get_shrink_content(xi, xl, yi, yl)
         h = @_clines.size
-        w = @_clines.mwidth || 1
+        w = @_clines.max_width || 0
 
         # The extra IFs which are commented appear unnecessary.
         # If a person sets resizable: true, this is expected to happen
@@ -1033,7 +1039,7 @@ module Crysterm
 
       class CLines < Array(String)
         property string = ""
-        property mwidth = 0
+        property max_width = 0
         property width = 0
 
         property content : String = ""
@@ -1077,12 +1083,12 @@ module Crysterm
       end
 
       def set_text(content = "", no_clear = false)
-        content = content.gsub /\x1b\[[\d;]*m/, ""
+        content = content.gsub SGR_REGEX, ""
         set_content content, no_clear, true
       end
 
       def get_text
-        get_content.gsub /\x1b\[[\d;]*m/, ""
+        get_content.gsub SGR_REGEX, ""
       end
 
       def parse_content(no_tags = false)
@@ -1297,7 +1303,7 @@ module Crysterm
           end
           (0...line.size).each do |i|
             if (line[i] == '\e')
-              if (c = line[1..].match /^\x1b\[[\d;]*m/)
+              if (c = line[1..].match SGR_REGEX)
                 attr = screen.attr_code(c[0], attr, dattr)
                 # i += c[0].size - 1 # Unused
               end
@@ -1334,7 +1340,7 @@ module Crysterm
           outbuf.ftor = [[0]]
           outbuf.fake = [] of String
           outbuf.real = outbuf
-          outbuf.mwidth = 0
+          outbuf.max_width = 0
           return outbuf
         end
 
@@ -1387,10 +1393,11 @@ module Crysterm
             end
           end
 
-          # If the string is apparently too long, wrap it.
+          # If the string could be too long, check it in more detail and wrap it if needed.
           # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
           loop_ret = loop do
             break unless line.size > colwidth
+
             # Measure the real width of the string.
             total = 0
             i = 0
@@ -1406,11 +1413,11 @@ module Crysterm
                 break
               end
               total += 1
-              if (total == colwidth)
+              if total == colwidth # If we've reached the end of available width of bounding box
+                i += 1
                 # If we're not wrapping the text, we have to finish up the rest of
                 # the control sequences before cutting off the line.
-                i += 1
-                if (!wrap)
+                unless @wrap
                   rest = line[i..].scan(/\x1b\[[^m]*m/)
                   rest = rest.any? ? rest.join : ""
                   outbuf.push _align(line[0...i] + rest, colwidth, align, align_left_too)
@@ -1444,14 +1451,14 @@ module Crysterm
             ftor[no].push(outbuf.size - 1)
             rtof.push(no)
 
-            # Make sure we didn't wrap the line to the very end, otherwise
-            # we get a pointless empty line after a newline.
-            if (line == "")
+            # Make sure we didn't wrap the line at the very end, otherwise
+            # we'd get an extra empty line after a newline.
+            if line == ""
               break :main
             end
 
             # If only an escape code got cut off, at it to `part`.
-            if (line.match /^(?:\x1b[\[\d;]*m)+$/)
+            if (line.matches? /^(?:\x1b[\[\d;]*m)+$/)
               outbuf[outbuf.size - 1] += line
               break :main
             end
@@ -1474,9 +1481,13 @@ module Crysterm
         outbuf.fake = lines
         outbuf.real = outbuf
 
-        outbuf.mwidth = outbuf.reduce(0) do |current, line|
-          line = line.gsub(/\x1b\[[\d;]*m/, "")
-          # XXX Does reduce() need explicit addition to `current`?
+        # Note that this is intended to save the length of the longest line to
+        # outbuf.max_width. In the case that the text was aligned, the alignment
+        # has padded it with spaces, effectively lengthening it. So, in that case
+        # the max_width value won't be actual max. length of longest line, but it
+        # will be the full width of the surrounding box, to which it was aligned.
+        outbuf.max_width = outbuf.reduce(0) do |current, line|
+          line = line.gsub(SGR_REGEX, "")
           line.size > current ? line.size : current
         end
 
@@ -1487,7 +1498,7 @@ module Crysterm
       def _align(line, width, align = Tput::AlignFlag::None, align_left_too = false)
         return line if align.none?
 
-        cline = line.gsub /\x1b\[[\d;]*m/, ""
+        cline = line.gsub SGR_REGEX, ""
         len = cline.size
 
         # XXX In blessed's code (and here) it was done only with this commented
@@ -2781,6 +2792,14 @@ module Crysterm
       end
 
       focus if focused
+    end
+
+    def <<(widget : Widget)
+      append widget
+    end
+
+    def >>(widget : Widget)
+      remove widget
     end
 
     def style

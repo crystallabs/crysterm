@@ -1,7 +1,7 @@
 Wishlist for Crystal features:
 
 
-1) Loops with labels, using whatever syntax would be appropriate, e.g.:
+1) Loops to support labels, using whatever syntax would be appropriate, e.g.:
 
 ```
 outer: while true
@@ -33,11 +33,13 @@ end
 class X
   @var = "test"
 
-  def initialize (@var = undefined)
-    puts @var # ==> "test"
+  def initialize(@var = undefined)
+    puts @var
   end
 
 end
+
+X.new # ==> "test"
 ```
 
 4) Type-safe `#==` operator
@@ -50,18 +52,33 @@ https://github.com/crystal-lang/crystal/issues/10277
 
 https://github.com/crystal-ameba/ameba/issues/237
 
-5) Exposed API allowing to kill Fiber from outside
+5) API to expose a method to kill Fiber from outside code
 
-6) Ability to create proc and partial from a method with named args:
+6) Ability to create a Proc and partial from a method with named args:
 
 ```
 def f(a : Int32, b : Int32)
 end
 
-# Can't use named args:
+# Can't use named args at the moment:
 pf = ->f(a : Int32, b : Int32)
 
-# Nor here:
+# Nor this:
 ppf = pf.partial(b: 10)
 
+```
+
+7) Better subclassing in Procs:
+
+```
+class A; end
+class B < A; end
+
+# This works:
+arr = [] of A
+arr << B.new
+
+# But with Procs it doesn't:
+arr2 = [] of Proc(A, Nil)
+arr2 << ->(e : B) { }
 ```
