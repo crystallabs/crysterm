@@ -195,8 +195,8 @@ Supported COLOR names are:
 `white`,
 `yellow`.
 
-In addition to the above color names, one can also specify colors by color index (syntax: `ID-...`), or by RGB hex
-notation using the 16M color palette (syntax `#RRGGBB-...`. 16M RGB is the recommented way to define colors, and
+In addition to the above color names, one can also specify colors by color index (syntax: `{ID-...}`), or by RGB hex
+notation using the 16M color palette (syntax `{#RRGGBB-...}`. 16M RGB is the recommented way to define colors, and
 Crysterm will automatically reduce them to 256, 16, 8, or 2 colors if/when needed, depending on terminal capabilities.
 
 One could also define foreground and background colors and attributes by manually
@@ -252,7 +252,7 @@ Run `crystal docs` as usual.
 List of notable differences (hopefully improvements) compared to Blessed:
 
 - `Program` has been renamed to `Display` (representing a physical display managed by Crysterm)
-- `Element` and `Node` have been renamed and consolidated into `Widget`
+- `Element` and `Node` have been consolidated into `Widget`
 - `Screen` no longer inherits from `Widget`
 - As such, `Screen` is not a top-level `parent` of any `Widget`; use `[@]screen` to get `Screen` or `parent_or_screen` for parent or screen
 - `auto_padding`, `tab_size`, and `tabc` are properties on `Widget` instead of `Screen`
@@ -264,9 +264,10 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - Style property `transparent` has been renamed to `transparency` and also accepts Float64, in addition to `true` which defaults to 0.5
 - In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed and arguably more correct (Blessed uses background color)
 - In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
-- In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends colors.
+- In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends colors and docks.
 - In Crysterm, `attaching`/`detaching` Widgets is only applicable on Screens and it means setting/removing property `#screen` on the desired widget and its children (it does not have anything to do with widget parent hierarchy). Although in most cases these functions are not called directly but are invoked automatically when calling functions to set widgets' parents.
 - Widget property `valign` has been removed because property `align` is an enum (`Tput::AlignFlag`) and encodes both horizontal and vertical alignment choices in the same value
+- Widget methods `#<<` and `#>>` can be used for adding/removing children elements depending on argument type. E.g., << Widget` adds a Widget as a child of parent widget, and `<< Action` adds an Action into the parent widget's list of actions.
 
 List of current bugs / quirks in Crysterm, in no particular order:
 
