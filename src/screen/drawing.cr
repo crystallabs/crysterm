@@ -172,10 +172,10 @@ module Crysterm
 
             if (data != attr)
               if (attr != @dattr)
-                @outbuf.print "\x1b[m"
+                @outbuf.print "\e[m"
               end
               if (data != @dattr)
-                @outbuf.print "\x1b["
+                @outbuf.print "\e["
 
                 # This will keep track whether any of the attrs were
                 # written into the buffer. If they were, then we'll seek
@@ -349,7 +349,7 @@ module Crysterm
           end
 
           if (attr != @dattr)
-            @outbuf.print "\x1b[m"
+            @outbuf.print "\e[m"
           end
 
           unless @outbuf.empty?

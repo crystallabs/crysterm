@@ -18,7 +18,7 @@ module Crysterm
     #      if tput = @tput
     #        put ::Unibilium::Entry::String::Cursor_address, row, col
     #      else
-    #        _write("\x1b[" + (row + 1).to_s + ";" + (col + 1).to_s + "H")
+    #        _write("\e[" + (row + 1).to_s + ";" + (col + 1).to_s + "H")
     #      end
     #    end
     #    #alias_previous cup, pos, cursor_address, cursor_pos
@@ -36,7 +36,7 @@ module Crysterm
     #   If no parameters are given, all resources are reset to their
     #   initial values.
     def set_resources(*arguments)
-      _write("\x1b[>" + arguments.join(';') + 'm')
+      _write("\e[>" + arguments.join(';') + 'm')
     end
 
     # CSI > Ps n
@@ -53,7 +53,7 @@ module Crysterm
     #   adding a parameter to each function key to denote the modi-
     #   fiers.
     def disable_modifiers(param = nil)
-      _write("\x1b[>" + (param || "") + 'n')
+      _write("\e[>" + (param || "") + 'n')
     end
 
     # CSI Ps " q
@@ -63,7 +63,7 @@ module Crysterm
     #     Ps = 1  -> DECSED and DECSEL cannot erase.
     #     Ps = 2  -> DECSED and DECSEL can erase.
     def set_char_protection_attr(param = nil)
-      _write("\x1b[" + (param || 0) + "\"q")
+      _write("\e[" + (param || 0) + "\"q")
     end
 
     alias_previous decsca
@@ -72,14 +72,14 @@ module Crysterm
     #   Restore DEC Private Mode Values.  The value of Ps previously
     #   saved is restored.  Ps values are the same as for DECSET.
     def restore_private_values(*arguments)
-      _write("\x1b[?" + arguments.join(';') + 'r')
+      _write("\e[?" + arguments.join(';') + 'r')
     end
 
     # CSI ? Pm s
     #   Save DEC Private Mode Values.  Ps values are the same as for
     #   DECSET.
     def save_private_values(*arguments)
-      _write("\x1b[?" + arguments.join(';') + 's')
+      _write("\e[?" + arguments.join(';') + 's')
     end
 
     # CSI Ps x  Request Terminal Parameters (DECREQTPARM).
@@ -94,7 +94,7 @@ module Crysterm
     #     Pn = 1  <- clock multiplier.
     #     Pn = 0  <- STP flags.
     def request_parameters(param = nil)
-      _write("\x1b[" + (param || 0) + "x")
+      _write("\e[" + (param || 0) + "x")
     end
 
     alias_previous decreqtparm
@@ -131,7 +131,7 @@ end
 #    def index
 #      @y+=1
 #      _ncoords
-#      has_and_put("ind") : _write("\x1bD")
+#      has_and_put("ind") : _write("\eD")
 #    end
 #    alias_previous ind
 #
@@ -139,7 +139,7 @@ end
 #    def reverse_index
 #      @y-=1
 #      _ncoords
-#      has_and_put("ri") : _write("\x1bM")
+#      has_and_put("ri") : _write("\eM")
 #    end
 #    alias_previous ri, reverse
 #
@@ -158,7 +158,7 @@ end
 #    #   If no parameters are given, all resources are reset to their
 #    #   initial values.
 #    def set_resources(*arguments)
-#      _write("\x1b[>" + arguments.join(';') + 'm')
+#      _write("\e[>" + arguments.join(';') + 'm')
 #    end
 #
 #    # CSI > Ps n
@@ -175,7 +175,7 @@ end
 #    #   adding a parameter to each function key to denote the modi-
 #    #   fiers.
 #    def disable_modifiers(param=nil)
-#      _write("\x1b[>" + param.to_s + 'n')
+#      _write("\e[>" + param.to_s + 'n')
 #    end
 #
 #    # CSI Ps " q
@@ -185,7 +185,7 @@ end
 #    #     Ps = 1  -> DECSED and DECSEL cannot erase.
 #    #     Ps = 2  -> DECSED and DECSEL can erase.
 #    def set_char_protection_attr(param=0)
-#      _write("\x1b[" + param.to_s + "\"q")
+#      _write("\e[" + param.to_s + "\"q")
 #    end
 #    alias_previous decsca
 #
@@ -193,14 +193,14 @@ end
 #    #   Restore DEC Private Mode Values.  The value of Ps previously
 #    #   saved is restored.  Ps values are the same as for DECSET.
 #    def restore_private_values(*arguments)
-#      _write("\x1b[?" + arguments.join(';') + 'r')
+#      _write("\e[?" + arguments.join(';') + 'r')
 #    end
 #
 #    # CSI ? Pm s
 #    #   Save DEC Private Mode Values.  Ps values are the same as for
 #    #   DECSET.
 #    def save_private_values(*arguments)
-#      _write("\x1b[?" + arguments.join(';') + 's')
+#      _write("\e[?" + arguments.join(';') + 's')
 #    end
 #
 #    # TODO getWindowSize manipulateWindow
@@ -217,7 +217,7 @@ end
 #    #     Pn = 1  <- clock multiplier.
 #    #     Pn = 0  <- STP flags.
 #    def request_parameters(param=0)
-#      _write("\x1b[" + param.to_s + "x")
+#      _write("\e[" + param.to_s + "x")
 #    end
 #    alias_previous decreqtparm
 

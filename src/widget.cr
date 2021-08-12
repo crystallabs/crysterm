@@ -1100,7 +1100,7 @@ module Crysterm
         if (@_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content != @content)
           content =
             @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
-              .gsub(/\x1b(?!\[[\d;]*m)/, "")
+              .gsub(/\e(?!\[[\d;]*m)/, "")
               .gsub(/\r\n|\r/, "\n")
               .gsub(/\t/, @tabc)
 
@@ -1162,7 +1162,7 @@ module Crysterm
         false
       end
 
-      # Convert `{red-fg}foo{/red-fg}` to `\x1b[31mfoo\x1b[39m`.
+      # Convert `{red-fg}foo{/red-fg}` to `\e[31mfoo\e[39m`.
       def _parse_tags(text)
         if (!@parse_tags)
           return text
@@ -1418,7 +1418,7 @@ module Crysterm
                 # If we're not wrapping the text, we have to finish up the rest of
                 # the control sequences before cutting off the line.
                 unless @wrap
-                  rest = line[i..].scan(/\x1b\[[^m]*m/)
+                  rest = line[i..].scan(/\e\[[^m]*m/)
                   rest = rest.any? ? rest.join : ""
                   outbuf.push _align(line[0...i] + rest, colwidth, align, align_left_too)
                   ftor[no].push(outbuf.size - 1)
@@ -1458,7 +1458,7 @@ module Crysterm
             end
 
             # If only an escape code got cut off, at it to `part`.
-            if (line.matches? /^(?:\x1b[\[\d;]*m)+$/)
+            if (line.matches? /^(?:\e[\[\d;]*m)+$/)
               outbuf[outbuf.size - 1] += line
               break :main
             end
@@ -1859,8 +1859,8 @@ module Crysterm
         #       csi = ''
         #       csis = ''
         #       for (j = 0; j < clines[i].size; j++)
-        #         while (clines[i][j] == '\x1b')
-        #           csi = '\x1b'
+        #         while (clines[i][j] == '\e')
+        #           csi = '\e'
         #           while (clines[i][j++] != 'm') csi += clines[i][j]
         #           csis += csi
         #         end
@@ -1998,7 +1998,7 @@ module Crysterm
             # Handle escape codes.
             while (ch == '\e')
               cnt = content[(ci - 1)..]
-              if (c = cnt.match /^\x1b\[[\d;]*m/)
+              if (c = cnt.match /^\e\[[\d;]*m/)
                 ci += c[0].size - 1
                 attr = screen.attr_code(c[0], attr, dattr)
                 # Ignore foreground changes for selected items.

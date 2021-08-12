@@ -180,7 +180,7 @@ module Crysterm
           outbuf = outbuf[0...-1]
         end
 
-        "\x1b[#{outbuf}m"
+        "\e[#{outbuf}m"
       end
     end
   end

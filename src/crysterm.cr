@@ -30,7 +30,7 @@ module Crysterm
   TAB_SIZE = 4
 
   TAG_REGEX = /\{(\/?)([\w\-,;!#]*)\}/
-  SGR_REGEX = /\x1b\[[\d;]*m/
+  SGR_REGEX = /\e\[[\d;]*m/
 
   # Amount of time to wait before redrawing the screen, after the terminal resize event is received.
   #

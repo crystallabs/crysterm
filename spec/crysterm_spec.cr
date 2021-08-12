@@ -33,7 +33,7 @@ describe Crysterm do
     # Strips text of tags and SGR sequences.
     #
     # ```
-    # .gsub(/\{(\/?)([\w\-,;!#]*)\}/, "").gsub(/\x1b\[[\d;]*m/, "")
+    # .gsub(/\{(\/?)([\w\-,;!#]*)\}/, "").gsub(/\e\[[\d;]*m/, "")
     # ```
     it "leaves plain strings as-is" do
       x.strip_tags("my").should eq "my"
