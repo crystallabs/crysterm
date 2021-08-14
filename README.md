@@ -59,7 +59,8 @@ In Crysterm, the equivalents of those components have been created as individual
 to the whole Crystal ecosystem. The event model has been implemented in
 [event_handler](https://github.com/crystallabs/event_handler), color routines in
 [term_colors](https://github.com/crystallabs/term_colors), terminal output in
-[tput.cr](https://github.com/crystallabs/tput.cr), and terminfo library in
+[tput.cr](https://github.com/crystallabs/tput.cr), GPM mouse in
+[gpm.cr](https://github.com/crystallabs/gpm.cr), and terminfo library in
 [unibilium.cr](https://github.com/crystallabs/unibilium.cr).
 
 Unibilium.cr represents Crystal's bindings for
