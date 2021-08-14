@@ -25,6 +25,9 @@ dependencies:
   event_handler:
     github: crystallabs/event_handler
     version: ~> 1.0
+  gpm:
+    github: crystallabs/gpm.cr
+    version: ~> 1.0
 
 development_dependencies:
   ameba:
