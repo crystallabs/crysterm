@@ -13,6 +13,19 @@ module Crysterm
 
       # Should all these functions go to tput?
 
+      def apply_cursor
+        c = @cursor
+        if c.artificial
+          render
+        else
+          display.try do |d|
+            d.tput.cursor_shape c.shape, c.blink
+            d.tput.cursor_color c.style.bg
+          end
+        end
+        c._set = true
+      end
+
       # Sets cursor shape
       def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
         @cursor.shape = shape
@@ -25,24 +38,24 @@ module Crysterm
       def cursor_reset
         @cursor.shape = Tput::CursorShape::Block
         @cursor.blink = false
-        @cursor.color = nil
+        @cursor.style.bg = "#ffffff"
         @cursor._set = false
         display.tput.cursor_reset
       end
 
       # Sets cursor color
       def cursor_color(color : Tput::Color? = nil)
-        @cursor.color = color.try do |c|
-          Tput::Color.new Colors.convert(c.value)
-        end
-        @cursor._set = true
+        # @cursor.style.bg = color.try do |c|
+        #  Tput::Color.new Colors.convert(c.value)
+        # end
+        # @cursor._set = true
 
         if @cursor.artificial
           return true
         end
 
-        # TODO probably this isn't fully right
-        display.tput.cursor_color(@cursor.color.to_s.downcase)
+        # display.tput.cursor_color(@cursor.color.to_s.downcase)
+        display.tput.cursor_color @cursor.style.bg
       end
 
       alias_previous reset_cursor
@@ -66,6 +79,7 @@ module Crysterm
           attr |= 8 << 18
         elsif cursor.shape.none?
           cattr = Widget.sattr cursor.style
+          # cattr = Colors.blend attr, cursor.style, (cursor.style.transparency || 0)
           if cursor.style.bold || cursor.style.underline || cursor.style.blink || cursor.style.inverse || cursor.style.invisible
             attr &= ~(0x1ff << 18)
             attr |= ((cattr >> 18) & 0x1ff) << 18
@@ -83,9 +97,10 @@ module Crysterm
           end
         end
 
-        unless cursor.color.nil?
+        # TODO is never nil
+        unless cursor.style.bg.nil?
           attr &= ~(0x1ff << 9)
-          attr |= cursor.color.value << 9
+          attr |= Colors.convert(cursor.style.bg) << 9
         end
 
         # Cell.new attr: attr, char: ch || ' '

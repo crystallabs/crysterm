@@ -412,12 +412,7 @@ module Crysterm
       return if display.tput.is_alt
 
       if !cursor._set
-        if cursor.shape
-          cursor_shape cursor.shape, cursor.blink
-        end
-        if cursor.color
-          cursor_color cursor.color
-        end
+        apply_cursor
       end
 
       # XXX Livable, but boy no.

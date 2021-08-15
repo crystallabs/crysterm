@@ -5,13 +5,10 @@ module Crysterm
   include Widgets
 
   s = Screen.new ignore_locked: [Tput::Key::CtrlQ]
-  s.display.tput.hide_cursor
-  s.cursor.color = Tput::Color::Red
-  s.display.tput.cursor_color "#ff0000"
-  s.cursor.artificial = true
   s.cursor.shape = CursorShape::None
-  s.cursor.style.fg = "#ff0000"
-  s.cursor.style.bg = "#00ff00"
+  s.cursor.artificial = true
+  s.cursor.style.bg = "#0000ff"
+  s.cursor.style.fg = "#00ff00"
   s.cursor.style.char = 'X'
   # s.cursor._hidden = true
 
