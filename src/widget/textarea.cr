@@ -247,7 +247,7 @@ module Crysterm
         screen.grab_keys = true
 
         _update_cursor
-        screen.display.tput.show_cursor
+        screen.show_cursor
 
         # D O:
         # screen.display.tput.sgr "normal"
@@ -298,7 +298,7 @@ module Crysterm
         # XXX off Crysterm::Event::Blur, @__done.wrapper
         @__done = nil
 
-        screen.display.tput.hide_cursor
+        screen.hide_cursor
         screen.grab_keys = false
 
         unless focused?

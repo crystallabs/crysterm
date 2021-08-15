@@ -35,7 +35,7 @@ class MyProg
 
   # # Just for show, display the cursor, and later move its position along with
   # # the position of the created box.
-  # s.tput.show_cursor
+  # s.show_cursor
   # s.tput.cursor_shape Tput::CursorShape::Block, blink: true
   # s.tput.cursor_color Tput::Color::Goldenrod1
 

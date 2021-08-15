@@ -153,5 +153,10 @@ module Crysterm
       # TODO
       text.gsub(::Crysterm::Unicode::AllRegex, "??") # .gsub(@unicode.chars["combining"], "").gsub(@unicode.chars["surrogate"], "?");
     end
+
+    # Reduces color if needed (minmal helper function)
+    private def _reduce_color(col)
+      Colors.reduce(col, display.tput.features.number_of_colors)
+    end
   end
 end

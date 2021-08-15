@@ -3,50 +3,31 @@ module Crysterm
     # Terminal (not mouse) cursor
     module Cursor
       include Macros
-      getter cursor = Tput::Namespace::Cursor.new
+
+      # TODO - temporary until @cursor is moved to widget
+      class Cursor < Tput::Namespace::Cursor
+        property style : Style = Style.new
+      end
+
+      getter cursor = Cursor.new
+
+      # Should all these functions go to tput?
 
       # Sets cursor shape
       def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
         @cursor.shape = shape
         @cursor.blink = blink
         @cursor._set = true
-
-        if @cursor.artificial
-          raise "Not supported yet"
-          # if !display.hide_cursor_old
-          #  hide_cursor = display.hide_cursor
-          #  display.tput.hide_cursor_old = display.hide_cursor
-          #  display.tput.hide_cursor = ->{
-          #    hide_cursor.call(application)
-          #    @cursor._hidden = true
-          #    if (@renders > 0)
-          #      render
-          #    end
-          #  }
-          # end
-          # if (!display.showCursor_old)
-          #  var showCursor = display.showCursor
-          #  display.showCursor_old = display.showCursor
-          #  display.showCursor = function()
-          #    self.cursor._hidden = false
-          #    if (display._exiting) showCursor.call(application)
-          #    if (self.renders) self.render()
-          #  }
-          # end
-          # if (!@_cursorBlink)
-          #  @_cursorBlink = setInterval(function()
-          #    if (!self.cursor.blink) return
-          #    self.cursor._state ^= 1
-          #    if (self.renders) self.render()
-          #  }, 500)
-          #  if (@_cursorBlink.unref)
-          #    @_cursorBlink.unref()
-          #  end
-          # end
-          # return true
-        end
-
         display.tput.cursor_shape @cursor.shape, @cursor.blink
+      end
+
+      # Resets cursor
+      def cursor_reset
+        @cursor.shape = Tput::CursorShape::Block
+        @cursor.blink = false
+        @cursor.color = nil
+        @cursor._set = false
+        display.tput.cursor_reset
       end
 
       # Sets cursor color
@@ -56,7 +37,7 @@ module Crysterm
         end
         @cursor._set = true
 
-        if (@cursor.artificial)
+        if @cursor.artificial
           return true
         end
 
@@ -64,66 +45,87 @@ module Crysterm
         display.tput.cursor_color(@cursor.color.to_s.downcase)
       end
 
-      # Resets cursor
-      def cursor_reset
-        @cursor = Tput::Namespace::Cursor.new
-        # TODO if artificial cursor
-
-        display.tput.cursor_reset
-      end
-
       alias_previous reset_cursor
 
       # :nodoc:
-      def _cursor_attr(cursor, dattr = nil)
+      def _artificial_cursor_attr(cursor, dattr = nil)
         attr = dattr || @dattr
         # cattr
         # ch
-        if (cursor.shape == Tput::CursorShape::Line)
+        if cursor.shape.line?
           attr &= ~(0x1ff << 9)
           attr |= 7 << 9
           ch = '\u2502'
-        elsif (cursor.shape == Tput::CursorShape::Underline)
+        elsif cursor.shape.underline?
           attr &= ~(0x1ff << 9)
           attr |= 7 << 9
           attr |= 2 << 18
-        elsif (cursor.shape == Tput::CursorShape::Block)
+        elsif cursor.shape.block?
           attr &= ~(0x1ff << 9)
           attr |= 7 << 9
           attr |= 8 << 18
-        elsif (cursor.shape)
-          # TODO
-          # cattr = Widget.sattr(cursor, cursor.shape)
-          # if (cursor.shape.bold || cursor.shape.underline ||
-          #    cursor.shape.blink || cursor.shape.inverse ||
-          #    cursor.shape.invisible)
-          #  attr &= ~(0x1ff << 18)
-          #  attr |= ((cattr >> 18) & 0x1ff) << 18
-          # end
-          # if (cursor.shape.fg)
-          #  attr &= ~(0x1ff << 9)
-          #  attr |= ((cattr >> 9) & 0x1ff) << 9
-          # end
-          # if (cursor.shape.bg)
-          #  attr &= ~(0x1ff << 0)
-          #  attr |= cattr & 0x1ff
-          # end
-          # if (cursor.shape.ch)
-          #  ch = cursor.shape.ch
-          # end
+        elsif cursor.shape.none?
+          cattr = Widget.sattr cursor.style
+          if cursor.style.bold || cursor.style.underline || cursor.style.blink || cursor.style.inverse || cursor.style.invisible
+            attr &= ~(0x1ff << 18)
+            attr |= ((cattr >> 18) & 0x1ff) << 18
+          end
+          if cursor.style.fg
+            attr &= ~(0x1ff << 9)
+            attr |= ((cattr >> 9) & 0x1ff) << 9
+          end
+          if cursor.style.bg
+            attr &= ~(0x1ff << 0)
+            attr |= cattr & 0x1ff
+          end
+          if cursor.style.char
+            ch = cursor.style.char
+          end
         end
 
-        unless (cursor.color.nil?)
+        unless cursor.color.nil?
           attr &= ~(0x1ff << 9)
           attr |= cursor.color.value << 9
         end
 
-        Cell.new attr: attr, char: ch || ' '
+        # Cell.new attr: attr, char: ch || ' '
+        {attr, ch || ' '}
       end
 
-      # Reduces color if needed (minmal helper function)
-      private def _reduce_color(col)
-        Colors.reduce(col, display.tput.features.number_of_colors)
+      def show_cursor
+        if @cursor.artificial
+          @cursor._hidden = false
+          render if @renders > 0
+        else
+          display.tput.show_cursor
+        end
+      end
+
+      def hide_cursor
+        if @cursor.artificial
+          @cursor._hidden = true
+          render if @renders > 0
+        else
+          display.tput.hide_cursor
+        end
+      end
+
+      # if (!@_cursorBlink)
+      # @_cursorBlink = setInterval(function()
+      #   if (!self.cursor.blink) return
+      #   self.cursor._state ^= 1
+      #   if (self.renders) self.render()
+      # }, 500)
+      # if (@_cursorBlink.unref)
+      #   @_cursorBlink.unref()
+      # end
+      # end
+      def cursor_reset
+        if @cursor.artificial
+          @cursor.artificial = false
+        end
+
+        display.tput.cursor_reset
       end
     end
   end

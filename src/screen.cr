@@ -17,6 +17,8 @@ module Crysterm
     include Drawing
     include Widget::Pos
 
+    include Helpers
+
     class_getter instances = [] of self
 
     @@global : Crysterm::Screen?
@@ -237,7 +239,7 @@ module Crysterm
       ignore_locked : Array(Tput::Key)? = nil,
       @lock_keys = false,
       title = nil,
-      @cursor = Tput::Namespace::Cursor.new,
+      @cursor = Cursor::Cursor.new,
       optimization = OptimizationFlag::SmartCSR | OptimizationFlag::BCE,
       alt = true,
       show_fps = true
@@ -426,7 +428,7 @@ module Crysterm
       display.tput.alternate_buffer
       display.tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
       display.tput.put(&.change_scroll_region?(0, height - 1))
-      display.tput.hide_cursor
+      hide_cursor
       display.tput.cursor_pos 0, 0
       display.tput.put(&.ena_acs?) # enable_acs
 
@@ -526,7 +528,7 @@ module Crysterm
 
       # XXX For some reason if alloc/clear() is before this
       # line, it doesn't work on linux console.
-      display.tput.show_cursor
+      show_cursor
       alloc
 
       # TODO Enable all in this function
@@ -536,7 +538,7 @@ module Crysterm
 
       display.tput.normal_buffer
       if cursor._set
-        display.tput.cursor_reset
+        cursor_reset
       end
 
       display.tput.flush

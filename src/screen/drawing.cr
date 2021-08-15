@@ -53,11 +53,7 @@ module Crysterm
             c = cursor
             # Render the artificial cursor.
             if (c.artificial && !c._hidden && (c._state != 0) && (x == display.tput.cursor.x) && (y == display.tput.cursor.y))
-              cattr = _cursor_attr(c, data)
-              if (cattr.char) # XXX Can cattr.char even not be truthy?
-                ch = cattr.char
-              end
-              data = cattr.attr
+              data, ch = _artificial_cursor_attr(c, data)
             end
 
             # Take advantage of xterm's back_color_erase feature by using a
@@ -372,7 +368,7 @@ module Crysterm
           (display.tput.ret = IO::Memory.new).try do |ret|
             display.tput.save_cursor
             if !hidden
-              display.tput.hide_cursor
+              hide_cursor
             end
 
             @pre << ret.rewind.gets_to_end
@@ -382,7 +378,7 @@ module Crysterm
           (display.tput.ret = IO::Memory.new).try do |ret|
             display.tput.restore_cursor
             if !hidden
-              display.tput.show_cursor
+              show_cursor
             end
 
             @post << ret.rewind.gets_to_end
