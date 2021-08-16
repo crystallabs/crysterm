@@ -14,7 +14,7 @@ for Node.js. However, being implemented in Crystal (an OO language), it tries to
 best practices, avoid bugs and problems found in Blessed, and also (especially in the future) incorporate
 more aspects of [Qt](https://doc.qt.io/).
 
-## Trying it out
+## Trying out the examples
 
 ```
 git clone https://github.com/crystallabs/crysterm
@@ -26,6 +26,8 @@ export TERM=xterm-256color
 crystal examples/hello.cr
 crystal examples/hello2.cr
 crystal examples/tech-demo.cr
+
+# And other examples from examples/, small-tests/, and test/.
 ```
 
 ## Using it as a module in your project
