@@ -22,7 +22,7 @@ class X
   end
 
   def set_vars
-    @x ||= true
+    @x = true
   end
 end
 ```
@@ -67,6 +67,8 @@ pf = ->f(a : Int32, b : Int32)
 ppf = pf.partial(b: 10)
 
 ```
+
+(Exists partly as https://github.com/crystal-lang/crystal/issues/11099)
 
 7) Better subclassing in Procs:
 

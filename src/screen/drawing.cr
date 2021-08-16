@@ -35,7 +35,7 @@ module Crysterm
           o = @olines[y]
           # Log.trace { line } if line.any? &.char.!=(' ')
 
-          if (!line.dirty && !(cursor.artificial && (y == display.tput.cursor.y)))
+          if (!line.dirty && !(cursor.artificial? && (y == display.tput.cursor.y)))
             next
           end
           line.dirty = false
@@ -52,7 +52,7 @@ module Crysterm
 
             c = cursor
             # Render the artificial cursor.
-            if (c.artificial && !c._hidden && (c._state != 0) && (x == display.tput.cursor.x) && (y == display.tput.cursor.y))
+            if (c.artificial? && !c._hidden && (c._state != 0) && (x == display.tput.cursor.x) && (y == display.tput.cursor.y))
               data, ch = _artificial_cursor_attr(c, data)
             end
 

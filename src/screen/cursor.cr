@@ -15,7 +15,7 @@ module Crysterm
 
       def apply_cursor
         c = @cursor
-        if c.artificial
+        if c.artificial?
           render
         else
           display.try do |d|
@@ -50,7 +50,7 @@ module Crysterm
         # end
         # @cursor._set = true
 
-        if @cursor.artificial
+        if @cursor.artificial?
           return true
         end
 
@@ -108,7 +108,7 @@ module Crysterm
       end
 
       def show_cursor
-        if @cursor.artificial
+        if @cursor.artificial?
           @cursor._hidden = false
           render if @renders > 0
         else
@@ -117,7 +117,7 @@ module Crysterm
       end
 
       def hide_cursor
-        if @cursor.artificial
+        if @cursor.artificial?
           @cursor._hidden = true
           render if @renders > 0
         else
@@ -136,7 +136,7 @@ module Crysterm
       # end
       # end
       def cursor_reset
-        if @cursor.artificial
+        if @cursor.artificial?
           @cursor.artificial = false
         end
 
