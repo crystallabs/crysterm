@@ -28,6 +28,51 @@ crystal examples/hello2.cr
 crystal examples/tech-demo.cr
 ```
 
+## Using it as a module in your project
+
+Add the dependency to `shard.yml`:
+
+```yaml
+dependencies:
+  crysterm:
+    github: crystallabs/crysterm
+    branch: master
+```
+
+Then add some code to your project, e.g.:
+
+```
+require "crysterm"
+
+alias C = Crysterm
+
+display = C::Display.new # Becomes the first/global display
+screen = C::Screen.new # Assumes argument `display: Display.global`
+
+hello = C::Widget::Box.new \
+  name: "helloworld box", # Symbolic name
+  top: "center",          # Can also be 10, "50%", or "50%+-10"
+  left: "center",         # Can also be 10, "50%", or "50%+-10"
+  width: 20,              # Can also be 10, "50%", or "50%+-10"
+  height: 5,              # Can also be 10, "50%", or "50%+-10"
+  content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
+  parse_tags: true,       # Parse {} tags within content (default already is true)
+  style: C::Style.new(fg: "yellow", bg: "blue"),
+  border: true            # 'true' for default type/look
+
+screen.append hello
+
+# When q is pressed, exit.
+screen.on(C::Event::KeyPress) do |e|
+  if e.char == 'q'
+    display.destroy
+    exit
+  end
+end
+
+display.exec
+```
+
 ## Screenshots
 
 Animated demo
