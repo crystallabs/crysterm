@@ -27,7 +27,7 @@ crystal examples/hello.cr
 crystal examples/hello2.cr
 crystal examples/tech-demo.cr
 
-# And other examples from examples/, small-tests/, and test/.
+# And other examples from directories examples/, small-tests/, and test/.
 ```
 
 ## Using it as a module in your project
@@ -85,7 +85,7 @@ Layout engine (showing inline/masonry layout)
 
 ![Crysterm Masonry Layout](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/layout.png)
 
-Transparency, color blending, shadow
+Transparency, color blending, and shadow
 
 ![Crysterm Color Blending](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/transparency.png)
 
