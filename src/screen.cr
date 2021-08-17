@@ -211,7 +211,7 @@ module Crysterm
 
     # Associated `Crysterm` instance. The default app object
     # will be created/used if it is not provided explicitly.
-    property! display : Display
+    property display : Display = Display.global(true)
 
     # Is focused element grabbing and receiving all keypresses?
     property grab_keys = false

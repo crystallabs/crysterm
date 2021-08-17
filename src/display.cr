@@ -3,12 +3,12 @@ require "mutex"
 require "event_handler"
 
 module Crysterm
-  # A display / physical display for Crysterm. Can be created on anything that is an IO.
+  # A physical display managed by Crysterm. Can be created on anything that is an IO.
   #
   # If a `Display` object is not explicitly created, its creation will be
   # implicitly performed at the time of creation of first `Screen`.
   class Display
-    include EventHandler # Event model
+    include EventHandler
 
     # List of existing instances.
     #
@@ -24,7 +24,7 @@ module Crysterm
       @@instances.size
     end
 
-    # Creates and/or returns the "global" (first) instance of `Display`.
+    # Creates and/or returns the "global" (first) created instance of `Display`.
     #
     # An alternative approach, which is currently not implemented, would be to hold the global `Display`
     # in a class variable, and return it here. In that way, the choice of the default/global `Display`
@@ -34,13 +34,16 @@ module Crysterm
     end
 
     # :nodoc: Flag indicating whether at least one `Display` has called `#bind`.
-    @@_bound = false
+    # Can potentially be removed; it appears only in this file.
+    # @@_bound = false
+    # XXX Currently disabled to remove it if it appears not needed.
 
     # Force Unicode (UTF-8) even if auto-detection did not discover terminal support for it?
     property? force_unicode = false
 
     # True if the `Display` objects are being destroyed to exit program; otherwise returns false.
     # property? exiting : Bool = false
+    # TODO possibly move this flag to `Crysterm` directly, since it is global.
 
     # True if/after `#destroy` has ran.
     property? destroyed = false
@@ -55,12 +58,11 @@ module Crysterm
     property output : IO::FileDescriptor = STDOUT.dup
 
     # Access to instance of `Tput`, used for affecting the terminal/IO.
-    getter! tput : ::Tput
-    # XXX Any way to succeed turning this into `getter` without `!`?
+    getter tput : ::Tput
+    # TODO Any way to succeed turning this into `getter` without `!`?
 
-    # :nodoc:
-    @_listened_keys : Bool = false
-    # XXX groom this
+    # :nodoc: Pointer to Fiber which is listening for keys, if any
+    @_listened_keys : Fiber?
 
     @mutex = Mutex.new
 
@@ -101,8 +103,8 @@ module Crysterm
       @mutex.synchronize do
         unless @@instances.includes? self
           @@instances << self
-          return if @@_bound
-          @@_bound = true
+          # return if @@_bound
+          # @@_bound = true
           # ... Can do anything else here, which will execute only for first
           # display created in the program
         end
@@ -112,8 +114,8 @@ module Crysterm
     end
 
     # Sets title locally and in the terminal's screen bar when possible
-    def title=(@title)
-      @tput.title = @title
+    def title=(title)
+      @tput.title = @title = title
     end
 
     # Displays the main screen, set up IO hooks, and starts the main loop.
@@ -140,12 +142,13 @@ module Crysterm
 
     # Sets up IO listeners for keyboard (and mouse, but mouse is currently unsupported).
     def listen
+      # D O:
       # Potentially reset screen title on exit:
-      # if !rxvt?
-      #  if !vte?
-      #    set_title_mode_feature 3
+      # if !tput.rxvt?
+      #  if !tput.vte?
+      #    tput.set_title_mode_feature 3
       #  end
-      #  manipulate_screen(21) { |err, data|
+      #  manipulate_window(21) { |err, data|
       #    return if err
       #    @_original_title = data.text
       #  }
@@ -155,26 +158,12 @@ module Crysterm
       # if (@tput.input._our_input == 0)
       #  @tput.input._out_input = 1
       _listen_keys
-      # _listen_mouse
+      # _listen_mouse # TODO
       # else
       #  @tput.input._our_input += 1
       # end
 
-      # on(AddHandlerEvent) do |wrapper|
-      #  if wrapper.event.is_a?(Event::KeyPress) # or Event::Mouse
-      #    # remove self...
-      #    if (@tput.input.set_raw_mode && !@tput.input.raw?)
-      #      @tput.input.set_raw_mode true
-      #      @tput.input.resume
-      #    end
-      #  end
-      # end
-      # on(AddHandlerEvent) do |wrapper|
-      #  if (wrapper.is_a? Event::Mouse)
-      #    off(AddHandlerEvent, self)
-      #    bind_mouse
-      #  end
-      # end
+      # TODO Do this, if it's possible to get resize events on individual IOs.
       # Listen for resize on output
       # if (@output._our_output==0)
       #  @output._our_output = 1
@@ -184,18 +173,20 @@ module Crysterm
       # end
     end
 
-    # :nodoc:
+    # Starts emitting `Event::KeyPress` events on key presses.
+    #
+    # NOTE Keys are listened for in a separate `Fiber`.
+    # The code tries passively to ensure at most one fiber per display is listening.
     def _listen_keys
       return if @_listened_keys
-      @_listened_keys = true
-      spawn do
+      @_listened_keys = spawn {
         tput.listen do |char, key, sequence|
           emit Crysterm::Event::KeyPress.new char, key, sequence
         end
-      end
+      }
     end
 
-    # Destroys current `Display`
+    # Destroys current `Display`.
     def destroy
       Screen.instances.each &.destroy
       @@instances.delete self
@@ -205,19 +196,3 @@ module Crysterm
     end
   end
 end
-
-# TODO
-# application:
-# cursor.flash.time, double.click.interval,
-# keyboard.input.interval, start.drag.distance,
-# start.drag.time,
-# stylesheet -> string
-# wheelscrolllines
-# close.all.screens, active.modal.screen, active.popup.screen
-# active.screen, alert(), all_widgets
-# Event::AboutToQuit
-# ability to set terminal font
-# something about effects
-# NavigationMode
-# palette?
-# set.active.screen

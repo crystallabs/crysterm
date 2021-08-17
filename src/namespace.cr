@@ -66,6 +66,8 @@ module Crysterm
       property invisible : Bool = false
       property transparency : Float64? = nil
 
+      property tab_size = TAB_SIZE
+
       # NOTE: Eventually reduce/streamline these
       property char : Char = ' '  # Generic char
       property pchar : Char = ' ' # Percent char
