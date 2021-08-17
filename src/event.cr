@@ -99,15 +99,20 @@ module Crysterm
 
     # Emitted on addition of a list item to list
     event AddItem
+    # Emitted on removal of a list item
     event RemoveItem
+    # Emitted on re-set/re-definition of list items
     event SetItem
+    # :ditto:
     event SetItems
 
     event CancelItem, item : Widget::Box, index : Int32
-
     event ActionItem, item : Widget::Box, index : Int32
 
+    # Event emitted when a new log line intended for `Widget::LogLine` is issued
     event LogLine, text : String
+    # NOTE In Blessed, this is called `log` and `Widget::Log`. It's been renamed
+    # in Crysterm not to conflict with `Log` coming from logger.
 
     # Emitted on selection of an item in list
     event SelectItem, item : Widget::Box, index : Int32
@@ -120,7 +125,7 @@ module Crysterm
 
     # event Key, key : ::Tput::Key
 
-    # Emitted on key pressed
+    # Emitted on key pressed event
     class KeyPress < EventHandler::Event
       property char : Char
       property key : ::Tput::Key?
@@ -131,10 +136,12 @@ module Crysterm
         @char = char
       end
 
+      # Accepts event and causes it to stop propagating.
       def accept!
         @accepted = true
       end
 
+      # Ignores event and causes it to continue propagating.
       def ignore!
         @accepted = false
       end
@@ -143,6 +150,10 @@ module Crysterm
 
       # This macro takes all enum members from Tput::Key
       # and creates a KeyPress::<member> event for them.
+      #
+      # This is done as a convenience, so that users would
+      # not have to listen for all keypresses and then
+      # manually check for particular keys every time.
       {% for m in ::Tput::Key.constants %}
         class {{m.id}} < self; end
         KEYS[ ::Tput::Key::{{m.id}} ] = {{m.id}}
