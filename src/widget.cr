@@ -1100,7 +1100,7 @@ module Crysterm
         if (@_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content != @content)
           content =
             @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
-              .gsub(/\e(?!\[[\d;]*m)/, "")
+              .gsub(/\e(?!\[[\d;]*m)/, "") # SGR
               .gsub(/\r\n|\r/, "\n")
               .gsub(/\t/, @tabc)
 
@@ -1418,7 +1418,7 @@ module Crysterm
                 # If we're not wrapping the text, we have to finish up the rest of
                 # the control sequences before cutting off the line.
                 unless @wrap
-                  rest = line[i..].scan(/\e\[[^m]*m/)
+                  rest = line[i..].scan(/\e\[[^m]*m/) # SGR
                   rest = rest.any? ? rest.join : ""
                   outbuf.push _align(line[0...i] + rest, colwidth, align, align_left_too)
                   ftor[no].push(outbuf.size - 1)
@@ -1457,8 +1457,8 @@ module Crysterm
               break :main
             end
 
-            # If only an escape code got cut off, at it to `part`.
-            if (line.matches? /^(?:\e[\[\d;]*m)+$/)
+            # If only an escape code got cut off, add it to `part`.
+            if (line.matches? /^(?:\e[\[\d;]*m)+$/) # SGR
               outbuf[outbuf.size - 1] += line
               break :main
             end
@@ -1998,7 +1998,7 @@ module Crysterm
             # Handle escape codes.
             while (ch == '\e')
               cnt = content[(ci - 1)..]
-              if (c = cnt.match /^\e\[[\d;]*m/)
+              if c = cnt.match SGR_REGEX_AT_BEGINNING
                 ci += c[0].size - 1
                 attr = screen.attr_code(c[0], attr, dattr)
                 # Ignore foreground changes for selected items.
