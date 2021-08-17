@@ -1,24 +1,50 @@
 module Crysterm
-  class Action < ::Crysterm::Object
-    event Event::Triggered
-    event Event::Hovered
+  # Many common commands can be invoked via different interfaces (menus, toolbar buttons, keyboard shortcuts, etc.).
+  # Because they are expected to run in the same way, regardless of the user interface used, it is useful to represent them with `Action`s.
+  #
+  # Actions can be added to menus and toolbars, and will automatically be kept in sync because they are the same object.
+  # For example, if the user presses a "Bold" toolbar button in a text editor, the "Bold" menu item will automatically be checked where ever it appears.
+  #
+  # It is recommented to create `Action`s as children of the window they are used in.
+  #
+  # Actions are added to `Widget`s using `#addAction` or `<<(Action)`. Note that an action must be added to a widget before it can be used.
+  #
+  # NOTE Actions are inspired by `QAction` (https://doc.qt.io/qt-6/qaction.html)
+  class Action
+    alias OneOfEvents = Crysterm::Event::Triggered.class | Crysterm::Event::Hovered.class
 
-    property text = ""
+    # Icon of action
+    # property icon : Icon?
+
+    # Text / label of action
+    property text : String = ""
+
+    # Action enabled?
     property enabled = true
 
+    # Keyboard shortcut
     property shortcut : Tput::Key? # Needs to be `KeySequence?` later
-    property status_tip : String?
-    property tool_tip : String?
+
+    # Tip to show in status bar, if/when applicable
+    property status_tip = ""
+
+    # Tip to show in a popup on hover over the action, if/when applicable
+    setter tool_tip : String?
+
+    # :ditto:
+    def tool_tip
+      @tool_tip || text
+    end
+
+    # Tip to show in a popup when broder help text / description is requested
     property whats_this : String?
 
-    def initialize(
-      @parent : Crysterm::Object? = nil
-    )
-    end
+    # This property holds whether the action can be seen (e.g. in menus and toolbars).
+    property visible = true
 
     def initialize(
       @parent : Crysterm::Object? = nil,
-      event : Event::Triggered.class | Event::Hovered.class = Event::Triggered,
+      event : OneOfEvents = Event::Triggered,
       &block : ::Proc(Event::Triggered, ::Nil)
     )
       on event, block
@@ -33,7 +59,7 @@ module Crysterm
     def initialize(
       @text,
       @parent : Crysterm::Object? = nil,
-      event : Event::Triggered.class | Event::Hovered.class = Event::Triggered,
+      event : OneOfEvents = Event::Triggered,
       &block : ::Proc(Event::Triggered, ::Nil)
     )
       on event, block
@@ -43,14 +69,18 @@ module Crysterm
     # def foo(&block : Proc(Nil)); foo(block); end; def foo(proc : Proc(Nil)? = nil); proc.try &.call; end; foo; foo { "hello" }
 
     # def activate(event : ActionEvent = ActionEvent::Event::Triggered)
-    def activate(event : Event::Triggered.class | Event::Hovered.class = Event::Triggered)
+
+    # Activates the action
+    def activate(event : OneOfEvents = Event::Triggered)
       emit event
     end
 
+    # Activates the action
     def trigger
       activate Event::Triggered
     end
 
+    # Activates the action
     def hover
       activate Event::Hovered
     end

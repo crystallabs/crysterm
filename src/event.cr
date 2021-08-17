@@ -112,6 +112,12 @@ module Crysterm
     # Emitted on selection of an item in list
     event SelectItem, item : Widget::Box, index : Int32
 
+    # Emitted when an Action is Triggered
+    event Triggered
+
+    # Emitted when a Widget or Action are hovered
+    event Hovered
+
     # event Key, key : ::Tput::Key
 
     # Emitted on key pressed
