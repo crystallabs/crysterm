@@ -1,8 +1,6 @@
 module Crysterm
   # Module holding the general namespace for Crysterm
   module Namespace
-    Widget = ::Crysterm::Widget
-
     # Rendering and drawing optimization flags.
     @[Flags]
     enum OptimizationFlag
@@ -52,6 +50,7 @@ module Crysterm
       Blend
     end
 
+    # Class for the complete style of a widget.
     class Style
       # Potentially make all subelements be filled in here,
       # and if they're a new Style class have it know its
@@ -190,6 +189,9 @@ module Crysterm
       end
     end
 
+    # Class for padding definition.
+    #
+    # NOTE "Padding" as in spacing around elements.
     class Padding
       property left : Int32
       property top : Int32
@@ -208,6 +210,7 @@ module Crysterm
       end
     end
 
+    # Class for border definition.
     class Border
       property type = BorderType::Line
       property left : Bool
@@ -229,12 +232,12 @@ module Crysterm
       end
     end
 
-    class FocusEffects
-      property bg
-    end
+    # class FocusEffects
+    #  property bg
+    # end
 
-    class HoverEffects
-      property bg : String = "black"
-    end
+    # class HoverEffects
+    #  property bg : String = "black"
+    # end
   end
 end

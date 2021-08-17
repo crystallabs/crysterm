@@ -1282,7 +1282,7 @@ module Crysterm
         outbuf
       end
 
-      def _parse_attr(lines)
+      def _parse_attr(lines : CLines)
         dattr = sattr(style)
         attr = dattr
         attrs = [] of Int32
