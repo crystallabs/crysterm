@@ -1028,8 +1028,8 @@ module Crysterm
 
           pos2.aleft = pos2.xi
           pos2.atop = pos2.yi
-          pos2.aright = screen.columns - pos2.xl
-          pos2.abottom = screen.rows - pos2.yl
+          pos2.aright = screen.width - pos2.xl
+          pos2.abottom = screen.height - pos2.yl
           pos2.width = pos2.xl - pos2.xi
           pos2.height = pos2.yl - pos2.yi
         end
@@ -3251,22 +3251,15 @@ module Crysterm
     # Inserts `element` to list of children at a specified position (at end by default)
     def insert(element, i = -1)
       if element.screen != screen
-        raise Exception.new("Cannot switch a node's screen.")
+        element.screen.try &.detach(element)
       end
 
       element.deparent
 
-      # if i == -1
-      #  @children.push element
-      # elsif i == 0
-      #  @children.unshift element
-      # else
-      @children.insert i, element
-      # end
+      super
+      screen.try &.attach(element)
 
       element.parent = self
-
-      screen.try &.attach(element)
 
       element.emit Crysterm::Event::Reparent, self
       emit Crysterm::Event::Adopt, element

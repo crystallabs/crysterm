@@ -127,7 +127,7 @@ files are deleted after their contents are reviewed and discarded or implemented
 High-level development plan for Crysterm looks as follows:
 
 1. Improving Crysterm itself (fixing bugs, replacing strings with better data types (enums, classes, etc.), and doing new development).
-1. Porting everything of value remaining in blessed-clean (most notably: reading terminfo command responses from terminal, mouse support, artificial cursor, full unicode (graphemes), and a number of widgets)
+1. Porting everything of value remaining in blessed-clean (most notably: reading terminfo command responses from terminal, mouse support, full unicode (graphemes), and a number of widgets)
 1. Porting over widgets & ideas from blessed-contrib
 1. Developing more line-oriented features. Currently Crysterm is suited for full-screen app development. It would be great if line-based features were added, and if then various small line-based utilities that exist as shards/apps for Crystal would be ported to become Crysterm's line- or screen-based widgets
 1. Adding features and principles from Qt
@@ -182,7 +182,7 @@ good if all these could be adjusted to accept the same flexible/unified specific
 ### Rendering and Drawing
 
 Screens contain widgets. To make screens appear on display with all the expected contents and current state,
-one calls `Screen#render`. This function calls `Widget#render` on each of immediate child elements, which
+one calls `Screen#render`. This function calls `Widget#render` on each of direct children elements, which
 results in the final/rendered state reflected in internal memory.
 
 At the end of rendering, `Screen#draw` is automatically called which makes any changes in internal state appear on the
@@ -316,6 +316,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - In Crysterm, `attaching`/`detaching` Widgets is only applicable on Screens and it means setting/removing property `#screen` on the desired widget and its children (it does not have anything to do with widget parent hierarchy). Although in most cases these functions are not called directly but are invoked automatically when calling functions to set widgets' parents.
 - Widget property `valign` has been removed because property `align` is an enum (`Tput::AlignFlag`) and encodes both horizontal and vertical alignment choices in the same value
 - Widget methods `#<<` and `#>>` can be used for adding/removing children elements depending on argument type. E.g., `<< Widget` adds a Widget as a child of parent widget, and `<< Action` adds an Action into the parent widget's list of actions.
+- It is hard to remember whether screen size is kept in property `columns` or `cols`. So in Crysterm the `Screen`s dimensions are in `width` and `height`, and this is uniform with all `Widget`s which also have their size in `width` and `height`.
 
 List of current bugs / quirks in Crysterm, in no particular order:
 

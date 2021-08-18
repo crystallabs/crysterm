@@ -42,6 +42,10 @@ module Crysterm
           insert element, i + 1
         end
       end
+
+      def insert(element, i = -1)
+        @children.insert i, element
+      end
     end
   end
 end

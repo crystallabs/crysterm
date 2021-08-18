@@ -12,6 +12,8 @@ require "./colors"
 
 require "./object"
 
+require "./mixin/*"
+
 require "./action"
 
 require "./screen"

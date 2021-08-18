@@ -2,6 +2,8 @@ require "mutex"
 
 require "event_handler"
 
+require "./mixin/instances"
+
 module Crysterm
   # A physical display managed by Crysterm. Can be created on anything that is an IO.
   #
@@ -10,28 +12,7 @@ module Crysterm
   class Display
     include EventHandler
 
-    # List of existing instances.
-    #
-    # For automatic management of this list, make sure that `#bind` is called at
-    # creation of `Display`s and that `#destroy` is called at termination.
-    #
-    # `#bind` does not have to be called explicitly because it happens during `#initialize`.
-    # `#destroy` does need to be called.
-    class_getter instances = [] of self
-
-    # Returns number of created `Display` instances
-    def self.total
-      @@instances.size
-    end
-
-    # Creates and/or returns the "global" (first) created instance of `Display`.
-    #
-    # An alternative approach, which is currently not implemented, would be to hold the global `Display`
-    # in a class variable, and return it here. In that way, the choice of the default/global `Display`
-    # at a particular time would be configurable in runtime.
-    def self.global(create = true)
-      (instances[0]? || (create ? new : nil)).not_nil!
-    end
+    include Mixin::Instances
 
     # :nodoc: Flag indicating whether at least one `Display` has called `#bind`.
     # Can potentially be removed; it appears only in this file.
@@ -44,9 +25,6 @@ module Crysterm
     # True if the `Display` objects are being destroyed to exit program; otherwise returns false.
     # property? exiting : Bool = false
     # TODO possibly move this flag to `Crysterm` directly, since it is global.
-
-    # True if/after `#destroy` has ran.
-    property? destroyed = false
 
     # Default application title, inherited by `Screen`s
     getter title : String? = nil
@@ -192,11 +170,10 @@ module Crysterm
         # s.leave # Done in screen's destroy
         s.destroy
       end
-      if @@instances.delete self
-        @input.cooked!
-        @destroyed = true
-        emit Crysterm::Event::Destroy
-      end
+
+      super
+
+      @input.cooked!
     end
   end
 end
