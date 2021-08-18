@@ -42,7 +42,7 @@ end
 X.new # ==> "test"
 ```
 
-## Type-safe `#==` operator
+## Type-safe `#==` operator:
 
 Due to default implementation of `#==` in `Value` and `Reference`, comparing
 anything to anything is allowed and returns false. This is very dangerous
@@ -52,7 +52,7 @@ https://github.com/crystal-lang/crystal/issues/10277
 
 https://github.com/crystal-ameba/ameba/issues/237
 
-## API to expose a method to kill Fiber from outside code
+## API to expose a method to kill Fiber from outside code.
 
 ## Ability to create a Proc and partial from a method with named args:
 
@@ -68,7 +68,7 @@ ppf = pf.partial(b: 10)
 
 ```
 
-(Exists partly as https://github.com/crystal-lang/crystal/issues/11099)
+Exists partly as https://github.com/crystal-lang/crystal/issues/11099
 
 ## Better subclassing in Procs:
 
