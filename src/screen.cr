@@ -2,6 +2,8 @@ require "./display"
 require "./macros"
 require "./widget"
 
+require "./mixin/children"
+
 require "./screen/*"
 
 module Crysterm
@@ -18,28 +20,47 @@ module Crysterm
     include Widget::Pos
 
     include Helpers
+    include Mixin::Children
 
+    # List of existing instances.
+    #
+    # For automatic management of this list, make sure that `#bind` is called at
+    # creation of `Screen`s and that `#destroy` is called at termination.
+    #
+    # `#bind` does not have to be called explicitly because it happens during `#initialize`.
+    # `#destroy` does need to be called.
     class_getter instances = [] of self
 
     @@global : Crysterm::Screen?
 
+    # Returns number of created `Screen` instances
     def self.total
       @@instances.size
     end
 
+    # Creates and/or returns the "global" (first) created instance of `Screen`.
+    #
+    # An alternative approach, which is currently not implemented, would be to hold the global `Screen`
+    # in a class variable, and return it here. In that way, the choice of the default/global `Screen`
+    # at a particular time would be configurable in runtime.
     def self.global(create : Bool = true)
       (instances[0]? || (create ? new : nil)).not_nil!
     end
 
-    @@_bound = false
+    # :nodoc: Flag indicating whether at least one `Screen` has called `#bind`.
+    # Can potentially be removed; it appears only in this file.
+    # @@_bound = false
+    # XXX Currently disabled to remove it if it appears not needed.
+
+    property? destroyed = false
 
     def bind
       @@global = self unless @@global
 
       @@instances << self # unless @@instances.includes? self
 
-      return if @@_bound
-      @@_bound = true
+      # return if @@_bound
+      # @@_bound = true
 
       # TODO Enable
       # ['SIGTERM', 'SIGINT', 'SIGQUIT'].each do |signal|
@@ -62,9 +83,9 @@ module Crysterm
       @render_flag.set 2
 
       if @@instances.delete self
-        if @@instances.empty?
-          @@_bound = false
-        end
+        # if @@instances.empty?
+        #  @@_bound = false
+        # end
 
         @destroyed = true
         emit Crysterm::Event::Destroy
@@ -77,20 +98,7 @@ module Crysterm
 
     # ######## COMMON WITH NODE
 
-    # Widget's children `Widget`s.
-    property children = [] of Widget
-
     property? destroyed = false
-
-    def append(element)
-      insert element
-    end
-
-    def append(*elements)
-      elements.each do |el|
-        insert el
-      end
-    end
 
     def insert(element, i = -1)
       # XXX Never triggers. But needs to be here for type safety.
@@ -186,11 +194,6 @@ module Crysterm
         end
       }
       emt.call element
-    end
-
-    # Prepends node to the list of children
-    def prepend(element)
-      insert element, 0
     end
 
     # Adds node to the list of children before the specified `other` element

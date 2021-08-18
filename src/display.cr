@@ -188,11 +188,15 @@ module Crysterm
 
     # Destroys current `Display`.
     def destroy
-      Screen.instances.each &.destroy
-      @@instances.delete self
-      @input.cooked!
-      @destroyed = true
-      emit Crysterm::Event::Destroy
+      Screen.instances.select(&.display.==(self)).each do |s|
+        # s.leave # Done in screen's destroy
+        s.destroy
+      end
+      if @@instances.delete self
+        @input.cooked!
+        @destroyed = true
+        emit Crysterm::Event::Destroy
+      end
     end
   end
 end

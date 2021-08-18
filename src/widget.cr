@@ -1,8 +1,12 @@
 require "./event"
 require "./helpers"
 
+require "./mixin/children"
+
 module Crysterm
   class Widget < ::Crysterm::Object
+    include Mixin::Children
+
     # Used to represent minimal widget dimensions, after running a method
     # to determine them.
     #
@@ -2460,8 +2464,6 @@ module Crysterm
     # Storage for any miscellaneous data.
     property data : JSON::Any?
 
-    getter children = [] of self
-
     # What action to take when widget would overflow parent's boundaries?
     property overflow = Overflow::Ignore
 
@@ -2792,14 +2794,6 @@ module Crysterm
       end
 
       focus if focused
-    end
-
-    def <<(widget : Widget)
-      append widget
-    end
-
-    def >>(widget : Widget)
-      remove widget
     end
 
     def style
@@ -3254,18 +3248,6 @@ module Crysterm
       @parent.try { |p| p.remove self }
     end
 
-    # Appends `element` to list of children
-    def append(element)
-      insert element
-    end
-
-    # Appends `element`s to list of children in order of specification
-    def append(*elements)
-      elements.each do |el|
-        insert el
-      end
-    end
-
     # Inserts `element` to list of children at a specified position (at end by default)
     def insert(element, i = -1)
       if element.screen != screen
@@ -3319,25 +3301,6 @@ module Crysterm
 
       if screen.focused == element
         screen.rewind_focus
-      end
-    end
-
-    # Prepends node to the list of children
-    def prepend(element)
-      insert element, 0
-    end
-
-    # Adds node to the list of children before the specified `other` element
-    def insert_before(element, other)
-      if i = @children.index other
-        insert element, i
-      end
-    end
-
-    # Adds node to the list of children after the specified `other` element
-    def insert_after(element, other)
-      if i = @children.index other
-        insert element, i + 1
       end
     end
 
