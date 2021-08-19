@@ -55,48 +55,6 @@ module Crysterm
       # Absolute bottom offset.
       property abottom : Int32? = nil
 
-      # Relative coordinates as default properties
-
-      # Returns relative left position
-      def left
-        @rleft
-      end
-
-      # Returns relative right position
-      def right
-        @rright
-      end
-
-      # Returns relative top position
-      def top
-        @rtop
-      end
-
-      # Returns relative bottom position
-      def bottom
-        @rbottom
-      end
-
-      # Sets relative left position
-      def left=(arg)
-        @rleft = arg
-      end
-
-      # Sets relative right position
-      def right=(arg)
-        @rright = arg
-      end
-
-      # Sets relative top position
-      def top=(arg)
-        @rtop = arg
-      end
-
-      # Sets relative bottom position
-      def bottom=(arg)
-        @rbottom = arg
-      end
-
       # Absolute position on screen
       property position = Tput::Position.new
 
