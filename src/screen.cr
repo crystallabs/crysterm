@@ -87,19 +87,21 @@ module Crysterm
     # property iwidth = 0
     # property iheight = 0
 
-    getter rleft = 0
-    getter rtop = 0
-    getter rright = 0
-    getter rbottom = 0
+    # Disabled since nothing is currently using it. But uncomment when it becomes relevant.
+    # getter rleft = 0
+    # getter rtop = 0
+    # getter rright = 0
+    # getter rbottom = 0
 
     # And these are the absolute ones. These are all 0 because `Screen`s are always the full
     # size of a `Display`. It would be interesting to see in the future if we could allow multiple
     # `Screen`s of varying sizes to be showing on a `Display` at the same time.
 
-    getter aleft = 0
-    getter atop = 0
-    getter aright = 0
-    getter abottom = 0
+    # Disabled since nothing is currently using it. But uncomment when it becomes relevant.
+    # getter aleft = 0
+    # getter atop = 0
+    # getter aright = 0
+    # getter abottom = 0
 
     # Relative positions are the default and are aliased to the left/top/right/bottom methods.
     # TODO Consider if, next to these 3 already different values (ileft, rleft, aleft), the
@@ -110,6 +112,7 @@ module Crysterm
     # `Overflow::Ignore` simply ignores the overflow and renders the parts that are in view.
     property overflow = Overflow::Ignore
 
+    # True if `#destroy` has been invoked.
     property? destroyed = false
 
     def initialize(
@@ -153,21 +156,23 @@ module Crysterm
         alloc
         render
 
-        # XXX Can we replace this with each_descendant?
-        f = uninitialized Widget | Screen -> Nil
-        f = ->(el : Widget | Screen) {
+        # For `self` (`Screen`)
+        emit Crysterm::Event::Resize
+
+        # For children (`Widget`s)
+        each_descendant do |el|
           el.emit Crysterm::Event::Resize
-          el.children.each { |c| f.call c }
-        }
-        f.call self
+        end
       end
 
       display.on(Crysterm::Event::Focus) do
         emit Crysterm::Event::Focus
       end
+
       display.on(Crysterm::Event::Blur) do
         emit Crysterm::Event::Blur
       end
+
       # display.on(Crysterm::Event::Warning) do |e|
       # emit e
       # end
@@ -398,38 +403,28 @@ module Crysterm
       # Adding an element to Screen consists of setting #screen= (self) on that element
       # and all of its children. Attach/Detach events are emitted accordingly. Attaching
       # if already attached is a no-op.
-      emt = uninitialized Widget -> Nil
-      emt = ->(el : Widget) {
+      element.self_and_each_descendant do |el|
         if scr = el.screen?
           if scr != self
             el.screen = nil
             el.emit Crysterm::Event::Detach, scr
           end
-        else
+        end
+
+        if !el.screen?
           el.screen = self
           el.emit Crysterm::Event::Attach, self
         end
-
-        el.children.each do |ch|
-          emt.call ch
-        end
-      }
-      emt.call element
+      end
     end
 
     def detach(element)
-      emt = uninitialized Widget -> Nil
-      emt = ->(el : Widget) {
+      element.self_and_each_descendant do |el|
         if scr = el.screen
           el.screen = nil
           el.emit Crysterm::Event::Detach, scr
         end
-
-        el.children.each do |ch|
-          emt.call ch
-        end
-      }
-      emt.call element
+      end
     end
 
     # Destroys self and removes it from the global list of `Screen`s.
