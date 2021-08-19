@@ -22,13 +22,6 @@ module Crysterm
     # Force Unicode (UTF-8) even if auto-detection did not discover terminal support for it?
     property? force_unicode = false
 
-    # True if the `Display` objects are being destroyed to exit program; otherwise returns false.
-    # property? exiting : Bool = false
-    # TODO possibly move this flag to `Crysterm` directly, since it is global.
-
-    # Default application title, inherited by `Screen`s
-    getter title : String? = nil
-
     # Input IO
     property input : IO::FileDescriptor = STDIN.dup
 
@@ -42,6 +35,7 @@ module Crysterm
     # :nodoc: Pointer to Fiber which is listening for keys, if any
     @_listened_keys : Fiber?
 
+    # `Display`'s general-purpose `Mutex`
     @mutex = Mutex.new
 
     def initialize(
@@ -50,7 +44,7 @@ module Crysterm
       @use_buffer = false,
       @force_unicode = false,
       terminfo : Bool | Unibilium::Terminfo = true,
-      @term = ENV["TERM"]? || "{% if flag?(:screens) %}screens-ansi{% else %}xterm{% end %}"
+      @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
       # TODO make these check @output, not STDOUT which is probably used.
       @cols = ::Term::Screen.cols || 1
@@ -91,10 +85,8 @@ module Crysterm
       listen
     end
 
-    # Sets title locally and in the terminal's screen bar when possible
-    def title=(title)
-      @tput.title = @title = title
-    end
+    # Default application title, propagated as a default to `Screen`s
+    property title : String? = nil
 
     # Displays the main screen, set up IO hooks, and starts the main loop.
     #

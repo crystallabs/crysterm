@@ -12,11 +12,6 @@ module Crysterm
         remove widget
       end
 
-      # Prepends node to the list of children
-      def prepend(element)
-        insert element, 0
-      end
-
       # Appends `element` to list of children
       def append(element)
         insert element
@@ -27,6 +22,11 @@ module Crysterm
         elements.each do |el|
           insert el
         end
+      end
+
+      # Prepends node to the list of children
+      def prepend(element)
+        insert element, 0
       end
 
       # Adds node to the list of children before the specified `other` element
@@ -45,6 +45,12 @@ module Crysterm
 
       def insert(element, i = -1)
         @children.insert i, element
+      end
+
+      def remove(element)
+        return unless i = @children.index(element)
+        element.clear_pos
+        @children.delete_at i
       end
     end
   end

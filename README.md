@@ -303,7 +303,8 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - `Element` and `Node` have been consolidated into `Widget`
 - `Screen` no longer inherits from `Widget`
 - As such, `Screen` is not a top-level `parent` of any `Widget`; use `[@]screen` to get `Screen` or `parent_or_screen` for parent or screen
-- `auto_padding`, `tab_size`, and `tabc` are properties on `Widget` instead of `Screen`
+- `auto_padding` and `tabc` are properties on `Widget` instead of `Screen`
+- `tab_size` is a property on `Style` instead of `Screen`
 - Event names have been changed from strings to classes, e.g. event `"scroll"` is `::Crysterm::Event::Scroll`
 - `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`. Default is true
 - All terminal-level stuff is in shard `Tput`, not `Crysterm`

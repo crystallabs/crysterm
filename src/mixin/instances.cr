@@ -29,6 +29,7 @@ module Crysterm
         end
       end
 
+      # Accounts for itself in `@@instances` and does other related work.
       def bind
         @@instances << self # unless @@instances.includes? self
 

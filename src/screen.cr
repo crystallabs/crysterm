@@ -61,6 +61,14 @@ module Crysterm
     # Optimization flags to use for rendering and/or drawing.
     property optimization : OptimizationFlag = OptimizationFlag::None
 
+    # Screen title
+    getter title : String? = nil
+
+    # :ditto:
+    def title=(title : String)
+      @display.try &.tput.title=( @title = title)
+    end
+
     # property border : Border?
     # TODO Right now `Screen`s can't have a border. But it would be amazing if they could.
     # The infrastructure is there because `Screen`s share many properties with `Widget`s.
@@ -137,7 +145,9 @@ module Crysterm
       # Events:
       # addhander,
 
-      self.title = title if title
+      if t = title || Display.global.title
+        self.title = t
+      end
 
       display.on(Crysterm::Event::Resize) do
         alloc
@@ -181,7 +191,7 @@ module Crysterm
       end
 
       # XXX Livable, but boy no.
-      {% if flag? :screens %}
+      {% if flag? :windows %}
         `cls`
       {% end %}
 
@@ -304,7 +314,7 @@ module Crysterm
       display.tput.flush
 
       # :-)
-      {% if flag? :screens %}
+      {% if flag? :windows %}
         `cls`
       {% end %}
     end
@@ -362,10 +372,7 @@ module Crysterm
     def remove(element)
       return if element.screen != self
 
-      return unless i = @children.index(element)
-
-      element.clear_pos
-      @children.delete_at i
+      super
 
       # TODO Enable
       # if i = @display.clickable.index(element)
@@ -527,17 +534,6 @@ module Crysterm
     end
 
     def remove_key(key, wrapper)
-    end
-
-    # XXX for now, this just forwards to parent. But in reality,
-    # it should be able to have its own title, and when it goes
-    # in/out of focus, that title should be set/restored.
-    def title
-      @display.title
-    end
-
-    def title=(arg)
-      @display.title = arg
     end
 
     def sigtstp(callback)

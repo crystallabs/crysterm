@@ -2573,8 +2573,6 @@ module Crysterm
 
     setter style : Style
 
-    # Width of tabs in elements' content.
-    property tab_size : Int32
     getter! tabc : String
 
     property _label : Widget?
@@ -2627,12 +2625,11 @@ module Crysterm
       index = -1,
       children = [] of Widget,
       @auto_padding = true,
-      @tab_size = ::Crysterm::TAB_SIZE,
       tabc = nil,
       @keys = false,
       input = nil
     )
-      @tabc = tabc || (" " * @tab_size)
+      @tabc = tabc || (" " * @style.tab_size)
       resizable.try { |v| @resizable = v }
       hidden.try { |v| @hidden = v }
       scrollable.try { |v| @scrollable = v }
@@ -3268,12 +3265,9 @@ module Crysterm
     def remove(element)
       return if element.parent != self
 
-      return unless i = @children.index(element)
+      super
 
-      element.clear_pos
-
-      element.parent = nil
-      @children.delete_at i
+      screen.try &.detach(element)
 
       # TODO Enable
       # if i = screen.clickable.index(element)
@@ -3290,7 +3284,7 @@ module Crysterm
       # screen_clickable= s.clickable
       # screen_keyable= s.keyable
 
-      screen.try &.detach(element)
+      element.parent = nil
 
       if screen.focused == element
         screen.rewind_focus

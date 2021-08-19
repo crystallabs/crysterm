@@ -101,13 +101,16 @@ module Crysterm
     end
   end
 
-  # Creates and/or returns the main/global/default `Display`.
-  def self.display
-    Display.global true
-  end
+  ## Creates and/or returns the main/global/default `Display`.
+  #def self.display
+  #  Display.global true
+  #end
 
-  # Creates and/or returns the main/global/default `Screen`.
-  def self.screen
-    Screen.global true
-  end
+  ## Creates and/or returns the main/global/default `Screen`.
+  #def self.screen
+  #  Screen.global true
+  #end
+
+  # True if the `Display` objects are being destroyed to exit program; otherwise returns false.
+  class_property? exiting : Bool = false
 end
