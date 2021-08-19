@@ -66,7 +66,7 @@ module Crysterm
 
     # :ditto:
     def title=(title : String)
-      @display.try &.tput.title=( @title = title)
+      @display.try &.tput.title=(@title = title)
     end
 
     # property border : Border?
@@ -400,7 +400,7 @@ module Crysterm
       # if already attached is a no-op.
       emt = uninitialized Widget -> Nil
       emt = ->(el : Widget) {
-        if scr = el.screen
+        if scr = el.screen?
           if scr != self
             el.screen = nil
             el.emit Crysterm::Event::Detach, scr

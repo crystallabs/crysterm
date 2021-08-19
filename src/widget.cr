@@ -2442,9 +2442,13 @@ module Crysterm
     # Widget's parent `Widget`, if any.
     property parent : Widget?
 
-    # Screen owning this element.
+    # Screen owning this element, forced to non-nil.
     # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
     property! screen : ::Crysterm::Screen?
+
+    # Screen owning this element, if any.
+    # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
+    getter? screen : ::Crysterm::Screen?
 
     # Widget's render (order) index that was determined/used during the last `#render` call.
     property index = -1
@@ -3265,9 +3269,8 @@ module Crysterm
     def remove(element)
       return if element.parent != self
 
-      super
-
-      screen.try &.detach(element)
+      return unless super
+      element.parent = nil
 
       # TODO Enable
       # if i = screen.clickable.index(element)
@@ -3284,10 +3287,12 @@ module Crysterm
       # screen_clickable= s.clickable
       # screen_keyable= s.keyable
 
-      element.parent = nil
+      screen.try do |s|
+        s.detach element
 
-      if screen.focused == element
-        screen.rewind_focus
+        if s.focused == element
+          s.rewind_focus
+        end
       end
     end
 

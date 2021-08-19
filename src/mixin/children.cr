@@ -43,10 +43,12 @@ module Crysterm
         end
       end
 
+      # Inserts `element` into list of children widgets
       def insert(element, i = -1)
         @children.insert i, element
       end
 
+      # Removes `element` from list of children widgets
       def remove(element)
         return unless i = @children.index(element)
         element.clear_pos
