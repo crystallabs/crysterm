@@ -160,9 +160,7 @@ module Crysterm
         emit Crysterm::Event::Resize
 
         # For children (`Widget`s)
-        each_descendant do |el|
-          el.emit Crysterm::Event::Resize
-        end
+        emit_descendants Crysterm::Event::Resize
       end
 
       display.on(Crysterm::Event::Focus) do
