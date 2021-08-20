@@ -23,22 +23,6 @@ module Crysterm
       end
     end
 
-    # :nodoc:
-    class Box < Widget
-    end
-
-    # :nodoc:
-    class ListTable < Widget
-    end
-
-    # :nodoc:
-    class Input < Box
-    end
-
-    # :nodoc:
-    class TextArea < Input
-    end
-
     module Pos
       # Number of times object was rendered
       property renders = 0

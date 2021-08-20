@@ -60,7 +60,7 @@ module Crysterm
       # represented by 4 bits ordered like this:
       # [langle][uangle][rangle][dangle]
       @angle_table = {
-         0 => ' ',      # ?               "0000"
+         0 => ' ',      # ?         '0000'
          1 => '\u2502', # '│' # ?   '0001'
          2 => '\u2500', # '─' # ??  '0010'
          3 => '\u250c', # '┌'       '0011'
@@ -78,7 +78,7 @@ module Crysterm
         15 => '\u253c', # '┼'       '1111'
       }
 
-      # Returns appropriate angle char for point (y,x) within lines buffer
+      # Returns appropriate angle char for point (y,x) in `lines`
       def _get_angle(lines, x, y)
         angle = 0
         attr = lines[y][x].attr
@@ -140,14 +140,19 @@ module Crysterm
         # +-------+  |
         # |          |
         # +----------+
-        # if (uangles[lines[y][x][1]])
-        #   if (lines[y + 1] && cdangles[lines[y + 1][x][1]])
-        #     if (!@options.ignoreDockContrast)
-        #       if (lines[y + 1][x][0] != attr) return ch
-        #     }
+        # if uangles[lines[y][x].char]
+        #   if lines[y + 1] && @dangles[lines[y + 1][x].char]
+        #     case @dock_contrast
+        #     when DockContrast::DontDock
+        #       if lines[y + 1][x].attr != attr
+        #         return ch
+        #       end
+        #     when DockContrast::Blend
+        #       lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
+        #     end
         #     angle |= 1 << 0
-        #   }
-        # }
+        #   end
+        # end
 
         @angle_table[angle]? || ch
       end

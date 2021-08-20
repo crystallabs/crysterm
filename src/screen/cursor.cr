@@ -13,6 +13,7 @@ module Crysterm
 
       # Should all these functions go to tput?
 
+      # Applies current cursor settings in `@cursor` to screen/display
       def apply_cursor
         c = @cursor
         if c.artificial?
@@ -107,6 +108,7 @@ module Crysterm
         {attr, ch || ' '}
       end
 
+      # Shows cursor
       def show_cursor
         if @cursor.artificial?
           @cursor._hidden = false
@@ -116,6 +118,7 @@ module Crysterm
         end
       end
 
+      # Hides cursor
       def hide_cursor
         if @cursor.artificial?
           @cursor._hidden = true
