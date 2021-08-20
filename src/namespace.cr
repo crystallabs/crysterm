@@ -239,5 +239,145 @@ module Crysterm
     # class HoverEffects
     #  property bg : String = "black"
     # end
+
+    # Used to represent minimal widget dimensions, after running method(s)
+    # to determine them.
+    #
+    # Used only internally; could be replaced by anything else that has
+    # the necessary properties.
+    class Rectangle
+      property xi : Int32
+      property xl : Int32
+      property yi : Int32
+      property yl : Int32
+      property get : Bool
+
+      def initialize(@xi, @xl, @yi, @yl, @get = false)
+      end
+    end
+
+    # Helper class implementing only minimal position-related interface.
+    # Used for holding widget's last rendered position.
+    class LPos
+      # Starting cell on X axis
+      property xi : Int32 = 0
+
+      # Ending cell on X axis
+      property xl : Int32 = 0
+
+      # Starting cell on Y axis
+      property yi : Int32 = 0
+
+      # Endint cell on Y axis
+      property yl : Int32 = 0
+
+      property base : Int32 = 0
+      property noleft : Bool = false
+      property noright : Bool = false
+      property notop : Bool = false
+      property nobot : Bool = false
+
+      # Number of times object was rendered
+      property renders = 0
+
+      property aleft : Int32? = nil
+      property atop : Int32? = nil
+      property aright : Int32? = nil
+      property abottom : Int32? = nil
+      property width : Int32? = nil
+      property height : Int32? = nil
+
+      # property ileft : Int32 = 0
+      # property itop : Int32 = 0
+      # property iright : Int32 = 0
+      # property ibottom : Int32 = 0
+
+      property _scroll_bottom : Int32 = 0
+      property _clean_sides : Bool = false
+
+      def initialize(
+        @xi = 0,
+        @xl = 0,
+        @yi = 0,
+        @yl = 0,
+        @base = 0,
+        @noleft = false,
+        @noright = false,
+        @notop = false,
+        @nobot = false,
+        @renders = 0,
+
+        # Disable all this:
+        @aleft = nil,
+        @atop = nil,
+        @aright = nil,
+        @abottom = nil,
+        @width = nil,
+        @height = nil
+      )
+      end
+
+      # Helper class implementing only minimal position-related interface.
+      # Used for holding widget's last rendered position.
+      class LPos
+        # Starting cell on X axis
+        property xi : Int32 = 0
+
+        # Ending cell on X axis
+        property xl : Int32 = 0
+
+        # Starting cell on Y axis
+        property yi : Int32 = 0
+
+        # Endint cell on Y axis
+        property yl : Int32 = 0
+
+        property base : Int32 = 0
+        property noleft : Bool = false
+        property noright : Bool = false
+        property notop : Bool = false
+        property nobot : Bool = false
+
+        # Number of times object was rendered
+        property renders = 0
+
+        property aleft : Int32? = nil
+        property atop : Int32? = nil
+        property aright : Int32? = nil
+        property abottom : Int32? = nil
+        property width : Int32? = nil
+        property height : Int32? = nil
+
+        # property ileft : Int32 = 0
+        # property itop : Int32 = 0
+        # property iright : Int32 = 0
+        # property ibottom : Int32 = 0
+
+        property _scroll_bottom : Int32 = 0
+        property _clean_sides : Bool = false
+
+        def initialize(
+          @xi = 0,
+          @xl = 0,
+          @yi = 0,
+          @yl = 0,
+          @base = 0,
+          @noleft = false,
+          @noright = false,
+          @notop = false,
+          @nobot = false,
+          @renders = 0,
+
+          # Disable all this:
+          @aleft = nil,
+          @atop = nil,
+          @aright = nil,
+          @abottom = nil,
+          @width = nil,
+          @height = nil
+        )
+        end
+      end
+    end
   end
 end

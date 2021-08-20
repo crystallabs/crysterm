@@ -20,8 +20,8 @@ module Crysterm
     include Focus
     include Rendering
     include Drawing
-    include Widget::Pos
 
+    include Mixin::Pos
     include Mixin::Children
     include Mixin::Instances
 

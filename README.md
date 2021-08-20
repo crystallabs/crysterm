@@ -318,6 +318,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - Widget property `valign` has been removed because property `align` is an enum (`Tput::AlignFlag`) and encodes both horizontal and vertical alignment choices in the same value
 - Widget methods `#<<` and `#>>` can be used for adding/removing children elements depending on argument type. E.g., `<< Widget` adds a Widget as a child of parent widget, and `<< Action` adds an Action into the parent widget's list of actions.
 - It is hard to remember whether screen size is kept in property `columns` or `cols`. So in Crysterm the `Screen`s dimensions are in `width` and `height`, and this is uniform with all `Widget`s which also have their size in `width` and `height`.
+- `shrinkBox` is `Rectangle` in Crysterm, and `_get_shrink` is `_get_minimal_rectangle`
 
 List of current bugs / quirks in Crysterm, in no particular order:
 

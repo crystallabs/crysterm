@@ -2,115 +2,425 @@ require "./event"
 require "./helpers"
 
 require "./mixin/children"
+require "./mixin/pos"
 
 module Crysterm
   class Widget < ::Crysterm::Object
     include Mixin::Children
-
-    # Used to represent minimal widget dimensions, after running a method
-    # to determine them.
-    #
-    # Used only internally; could be replaced by anything else that has
-    # the necessary properties.
-    class ShrinkBox
-      property xi : Int32
-      property xl : Int32
-      property yi : Int32
-      property yl : Int32
-      property get : Bool
-
-      def initialize(@xi, @xl, @yi, @yl, @get = false)
-      end
-    end
-
-    module Pos
-      # Number of times object was rendered
-      property renders = 0
-
-      # Absolute left offset.
-      property aleft : Int32? = nil
-
-      # Absolute top offset.
-      property atop : Int32? = nil
-
-      # Absolute right offset.
-      property aright : Int32? = nil
-
-      # Absolute bottom offset.
-      property abottom : Int32? = nil
-
-      # Absolute position on screen
-      property position = Tput::Position.new
-
-      property? scrollable = false
-
-      # Last rendered position
-      property lpos : LPos? = nil
-
-      # Helper class implementing only minimal position-related interface.
-      # Used for holding widget's last rendered position.
-      class LPos
-        # Starting cell on X axis
-        property xi : Int32 = 0
-
-        # Ending cell on X axis
-        property xl : Int32 = 0
-
-        # Starting cell on Y axis
-        property yi : Int32 = 0
-
-        # Endint cell on Y axis
-        property yl : Int32 = 0
-
-        property base : Int32 = 0
-        property noleft : Bool = false
-        property noright : Bool = false
-        property notop : Bool = false
-        property nobot : Bool = false
-
-        # Number of times object was rendered
-        property renders = 0
-
-        property aleft : Int32? = nil
-        property atop : Int32? = nil
-        property aright : Int32? = nil
-        property abottom : Int32? = nil
-        property width : Int32? = nil
-        property height : Int32? = nil
-
-        # property ileft : Int32 = 0
-        # property itop : Int32 = 0
-        # property iright : Int32 = 0
-        # property ibottom : Int32 = 0
-
-        property _scroll_bottom : Int32 = 0
-        property _clean_sides : Bool = false
-
-        def initialize(
-          @xi = 0,
-          @xl = 0,
-          @yi = 0,
-          @yl = 0,
-          @base = 0,
-          @noleft = false,
-          @noright = false,
-          @notop = false,
-          @nobot = false,
-          @renders = 0,
-
-          # Disable all this:
-          @aleft = nil,
-          @atop = nil,
-          @aright = nil,
-          @abottom = nil,
-          @width = nil,
-          @height = nil
-        )
-        end
-      end
-    end
+    include Mixin::Pos
 
     module Position
+      def aleft
+        _get_left false
+      end
+
+      def atop
+        _get_top false
+      end
+
+      def aright
+        _get_right false
+      end
+
+      def abottom
+        _get_bottom false
+      end
+
+      def rleft
+        (aleft || 0) - ((parent_or_screen).not_nil!.aleft || 0)
+      end
+
+      def rtop
+        (atop || 0) - ((parent_or_screen).not_nil!.atop || 0)
+      end
+
+      def rright
+        (aright || 0) - ((parent_or_screen).not_nil!.aright || 0)
+      end
+
+      def rbottom
+        (abottom || 0) - ((parent_or_screen).not_nil!.abottom || 0)
+      end
+
+      def ileft
+        (@border ? 1 : 0) + @padding.left
+        # return (@border && @border.left ? 1 : 0) + @padding.left
+      end
+
+      def itop
+        (@border ? 1 : 0) + @padding.top
+        # return (@border && @border.top ? 1 : 0) + @padding.top
+      end
+
+      def iright
+        (@border ? 1 : 0) + @padding.right
+        # return (@border && @border.right ? 1 : 0) + @padding.right
+      end
+
+      def ibottom
+        (@border ? 1 : 0) + @padding.bottom
+        # return (@border && @border.bottom ? 1 : 0) + @padding.bottom
+      end
+
+      def width
+        _get_width false
+      end
+
+      def height
+        _get_height false
+      end
+
+      def iwidth
+        # return (@border
+        #   ? ((@border.left ? 1 : 0) + (@border.right ? 1 : 0)) : 0)
+        #   + @padding.left + @padding.right
+        (@border ? 2 : 0) + @padding.left + @padding.right
+      end
+
+      def iheight
+        # return (@border
+        #   ? ((@border.top ? 1 : 0) + (@border.bottom ? 1 : 0)) : 0)
+        #   + @padding.top + @padding.bottom
+        (@border ? 2 : 0) + @padding.top + @padding.bottom
+      end
+
+      def _get_width(get)
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
+        unless parent
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
+        end
+        width = @position.width
+        case width
+        when String
+          if width == "half"
+            width = "50%"
+          end
+          expr = width.split /(?=\+|-)/
+          width = expr[0]
+          width = width[0...-1].to_f / 100
+          width = ((parent.width || 0) * width).to_i
+          width += expr[1].to_i if expr[1]?
+          return width
+        end
+
+        # This is for if the element is being streched or shrunken.
+        # Although the width for shrunken elements is calculated
+        # in the render function, it may be calculated based on
+        # the content width, and the content width is initially
+        # decided by the width the element, so it needs to be
+        # calculated here.
+        if width.nil?
+          left = @position.left || 0
+          if left.is_a? String
+            if (left == "center")
+              left = "50%"
+            end
+            expr = left.split(/(?=\+|-)/)
+            left = expr[0]
+            left = left[0...-1].to_f / 100
+            left = ((parent.width || 0) * left).to_i
+            left += expr[1].to_i if expr[1]?
+          end
+          width = (parent.width || 0) - (@position.right || 0) - left
+
+          @parent.try do |pparent|
+            if @auto_padding
+              if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
+                width -= pparent.ileft
+              end
+              width -= pparent.iright
+            end
+          end
+        end
+
+        width
+      end
+
+      def _get_height(get)
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
+        unless parent
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
+        end
+        height = @position.height
+        case height
+        when String
+          if height == "half"
+            height = "50%"
+          end
+          expr = height.split /(?=\+|-)/
+          height = expr[0]
+          height = height[0...-1].to_f / 100
+          height = ((parent.height || 0) * height).to_i
+          height += expr[1].to_i if expr[1]?
+          return height
+        end
+
+        # This is for if the element is being streched or shrunken.
+        # Although the height for shrunken elements is calculated
+        # in the render function, it may be calculated based on
+        # the content height, and the content height is initially
+        # decided by the height the element, so it needs to be
+        # calculated here.
+        if height.nil?
+          top = @position.top || 0
+          if top.is_a? String
+            if (top == "center")
+              top = "50%"
+            end
+            expr = top.split(/(?=\+|-)/)
+            top = expr[0]
+            top = top[0...-1].to_f / 100
+            top = ((parent.height || 0) * top).to_i
+            top += expr[1].to_i if expr[1]?
+          end
+          height = (parent.height || 0) - (@position.bottom || 0) - top
+
+          @parent.try do |pparent|
+            if @auto_padding
+              if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
+                height -= pparent.itop
+              end
+              height -= pparent.ibottom
+            end
+          end
+        end
+
+        height
+      end
+
+      def _get_left(get)
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
+        unless parent
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
+        end
+
+        left = @position.left || 0
+        if left.is_a? String
+          if left == "center"
+            left = "50%"
+          end
+          expr = left.split /(?=\+|-)/
+          left = expr[0]
+          left = left[0...-1].to_f / 100
+          left = ((parent.width || 0) * left).to_i
+          left += expr[1].to_i if expr[1]?
+          if @position.left == "center"
+            left -= (_get_width(get)) // 2
+          end
+        end
+
+        if @position.left.nil? && !@position.right.nil?
+          return screen.width - _get_width(get) - _get_right(get)
+        end
+
+        @parent.try do |pparent|
+          if @auto_padding
+            if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
+              left += pparent.ileft
+            end
+          end
+        end
+
+        (parent.aleft || 0) + left
+      end
+
+      def _get_right(get)
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
+        unless parent
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
+        end
+
+        if @position.right.nil? && !@position.left.nil?
+          right = screen.width - (_get_left(get) + _get_width(get))
+          @parent.try do |pparent|
+            if @auto_padding
+              right += pparent.iright
+            end
+          end
+        end
+
+        right = (parent.aright || 0) + (@position.right || 0)
+        @parent.try do |pparent|
+          if @auto_padding
+            right += pparent.iright
+          end
+        end
+
+        right
+      end
+
+      def _get_top(get)
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
+        unless parent
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
+        end
+        top = @position.top || 0
+        if top.is_a? String
+          if top == "center"
+            top = "50%"
+          end
+          expr = top.split /(?=\+|-)/
+          top = expr[0]
+          top = top[0...-1].to_f / 100
+          top = ((parent.height || 0) * top).to_i
+          top += expr[1].to_i if expr[1]?
+          if @position.top == "center"
+            top -= _get_height(get) // 2
+          end
+        end
+
+        if @position.top.nil? && !@position.bottom.nil?
+          return screen.height - _get_height(get) - _get_bottom(get)
+        end
+
+        @parent.try do |pparent|
+          if @auto_padding
+            if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
+              top += pparent.itop
+            end
+          end
+        end
+
+        (parent.atop || 0) + top
+      end
+
+      def _get_bottom(get)
+        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
+        unless parent
+          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
+        end
+
+        if @position.bottom.nil? && !@position.top.nil?
+          bottom = screen.height - (_get_top(get) + _get_height(get))
+          @parent.try do |pparent|
+            if @auto_padding
+              bottom += pparent.ibottom
+            end
+          end
+          return bottom
+        end
+
+        bottom = (parent.abottom || 0) + (@position.bottom || 0)
+
+        @parent.try do |pparent|
+          if @auto_padding
+            bottom += pparent.ibottom
+          end
+        end
+
+        bottom
+      end
+
+      def width=(val : Int)
+        return if @width == val
+        clear_pos
+        @position.width = val
+        emit ::Crysterm::Event::Resize
+        val
+      end
+
+      def height=(val : Int)
+        return if height == val
+        clear_pos
+        @position.height = val
+        emit ::Crysterm::Event::Resize
+        val
+      end
+
+      def aleft=(val : Int)
+        if (val.is_a? String)
+          if (val == "center")
+            val = screen.width // 2
+            val -= @width // 2
+          else
+            expr = val.split(/(?=\+|-)/)
+            val = expr[0]
+            val = val.slice[0...-1].to_f / 100
+            val = (screen.width * val).to_i
+            val += expr[1] if expr[1]?
+          end
+        end
+        val -= (parent_or_screen).not_nil!.aleft
+        if (@position.left == val)
+          return
+        end
+        clear_pos
+        @position.left = val
+        emit ::Crysterm::Event::Move
+        val
+      end
+
+      def aright=(val : Int)
+        val -= (parent_or_screen).not_nil!.aright
+        return if (@position.right == val)
+        clear_pos
+        @position.right = val
+        emit ::Crysterm::Event::Move
+        val
+      end
+
+      def atop=(val : Int)
+        if (val.is_a? String)
+          if (val == "center")
+            val = screen.height // 2
+            val -= height // 2
+          else
+            expr = val.split(/(?=\+|-)/)
+            val = expr[0].to_i
+            val = val[0...-1].to_f / 100
+            val = (screen.height * val).to_i
+            val += expr[1] if expr[1]?
+          end
+        end
+        val -= (parent_or_screen).not_nil!.atop
+        return if (@position.top == val)
+        clear_pos
+        @position.top = val
+        emit ::Crysterm::Event::Move
+        val
+      end
+
+      def abottom=(val : Int)
+        val -= (parent_or_screen).not_nil!.abottom
+        return if (@position.bottom == val)
+        clear_pos
+        @position.bottom = val
+        emit ::Crysterm::Event::Move
+        val
+      end
+
+      def rleft=(val : Int)
+        return if (@position.left == val)
+        clear_pos
+        @position.left = val
+        emit ::Crysterm::Event::Move
+        val
+      end
+
+      def rright=(val : Int)
+        return if (@position.right == val)
+        clear_pos
+        @position.right = val
+        emit ::Crysterm::Event::Move
+        val
+      end
+
+      def rtop=(val : Int)
+        return if (@position.top == val)
+        clear_pos
+        @position.top = val
+        emit ::Crysterm::Event::Move
+        val
+      end
+
+      def rbottom=(val : Int)
+        return if (@position.bottom == val)
+        clear_pos
+        @position.bottom = val
+        emit ::Crysterm::Event::Move
+        val
+      end
+
       # Clears area/position of widget's last render
       def clear_pos(get = false, override = false)
         return unless @screen
@@ -149,7 +459,7 @@ module Crysterm
         # Attempt to resize the element based on the
         # size of the content and child elements.
         if @resizable
-          coords = _get_shrink(xi, xl, yi, yl, get)
+          coords = _get_minimal_rectangle(xi, xl, yi, yl, get)
           xi = coords.xi
           xl = coords.xl
           yi = coords.yi
@@ -323,419 +633,12 @@ module Crysterm
 
       # Positioning
 
-      def _get_width(get)
-        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
-        unless parent
-          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
-        end
-        width = @position.width
-        case width
-        when String
-          if width == "half"
-            width = "50%"
-          end
-          expr = width.split /(?=\+|-)/
-          width = expr[0]
-          width = width[0...-1].to_f / 100
-          width = ((parent.width || 0) * width).to_i
-          width += expr[1].to_i if expr[1]?
-          return width
-        end
-
-        # This is for if the element is being streched or shrunken.
-        # Although the width for shrunken elements is calculated
-        # in the render function, it may be calculated based on
-        # the content width, and the content width is initially
-        # decided by the width the element, so it needs to be
-        # calculated here.
-        if width.nil?
-          left = @position.left || 0
-          if left.is_a? String
-            if (left == "center")
-              left = "50%"
-            end
-            expr = left.split(/(?=\+|-)/)
-            left = expr[0]
-            left = left[0...-1].to_f / 100
-            left = ((parent.width || 0) * left).to_i
-            left += expr[1].to_i if expr[1]?
-          end
-          width = (parent.width || 0) - (@position.right || 0) - left
-
-          @parent.try do |pparent|
-            if @auto_padding
-              if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
-                width -= pparent.ileft
-              end
-              width -= pparent.iright
-            end
-          end
-        end
-
-        width
-      end
-
-      def _get_height(get)
-        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
-        unless parent
-          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
-        end
-        height = @position.height
-        case height
-        when String
-          if height == "half"
-            height = "50%"
-          end
-          expr = height.split /(?=\+|-)/
-          height = expr[0]
-          height = height[0...-1].to_f / 100
-          height = ((parent.height || 0) * height).to_i
-          height += expr[1].to_i if expr[1]?
-          return height
-        end
-
-        # This is for if the element is being streched or shrunken.
-        # Although the height for shrunken elements is calculated
-        # in the render function, it may be calculated based on
-        # the content height, and the content height is initially
-        # decided by the height the element, so it needs to be
-        # calculated here.
-        if height.nil?
-          top = @position.top || 0
-          if top.is_a? String
-            if (top == "center")
-              top = "50%"
-            end
-            expr = top.split(/(?=\+|-)/)
-            top = expr[0]
-            top = top[0...-1].to_f / 100
-            top = ((parent.height || 0) * top).to_i
-            top += expr[1].to_i if expr[1]?
-          end
-          height = (parent.height || 0) - (@position.bottom || 0) - top
-
-          @parent.try do |pparent|
-            if @auto_padding
-              if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
-                height -= pparent.itop
-              end
-              height -= pparent.ibottom
-            end
-          end
-        end
-
-        height
-      end
-
-      def height
-        _get_height false
-      end
-
-      def _get_left(get)
-        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
-        unless parent
-          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
-        end
-
-        left = @position.left || 0
-        if left.is_a? String
-          if left == "center"
-            left = "50%"
-          end
-          expr = left.split /(?=\+|-)/
-          left = expr[0]
-          left = left[0...-1].to_f / 100
-          left = ((parent.width || 0) * left).to_i
-          left += expr[1].to_i if expr[1]?
-          if @position.left == "center"
-            left -= (_get_width(get)) // 2
-          end
-        end
-
-        if @position.left.nil? && !@position.right.nil?
-          return screen.width - _get_width(get) - _get_right(get)
-        end
-
-        @parent.try do |pparent|
-          if @auto_padding
-            if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
-              left += pparent.ileft
-            end
-          end
-        end
-
-        (parent.aleft || 0) + left
-      end
-
-      def aleft
-        _get_left false
-      end
-
-      def _get_right(get)
-        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
-        unless parent
-          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
-        end
-
-        if @position.right.nil? && !@position.left.nil?
-          right = screen.width - (_get_left(get) + _get_width(get))
-          @parent.try do |pparent|
-            if @auto_padding
-              right += pparent.iright
-            end
-          end
-        end
-
-        right = (parent.aright || 0) + (@position.right || 0)
-        @parent.try do |pparent|
-          if @auto_padding
-            right += pparent.iright
-          end
-        end
-
-        right
-      end
-
-      def aright
-        _get_right false
-      end
-
-      def _get_top(get)
-        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
-        unless parent
-          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
-        end
-        top = @position.top || 0
-        if top.is_a? String
-          if top == "center"
-            top = "50%"
-          end
-          expr = top.split /(?=\+|-)/
-          top = expr[0]
-          top = top[0...-1].to_f / 100
-          top = ((parent.height || 0) * top).to_i
-          top += expr[1].to_i if expr[1]?
-          if @position.top == "center"
-            top -= _get_height(get) // 2
-          end
-        end
-
-        if @position.top.nil? && !@position.bottom.nil?
-          return screen.height - _get_height(get) - _get_bottom(get)
-        end
-
-        @parent.try do |pparent|
-          if @auto_padding
-            if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
-              top += pparent.itop
-            end
-          end
-        end
-
-        (parent.atop || 0) + top
-      end
-
-      def atop
-        _get_top false
-      end
-
-      def _get_bottom(get)
-        parent = get ? (parent_or_screen).try(&._get_pos) : (parent_or_screen)
-        unless parent
-          raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
-        end
-
-        if @position.bottom.nil? && !@position.top.nil?
-          bottom = screen.height - (_get_top(get) + _get_height(get))
-          @parent.try do |pparent|
-            if @auto_padding
-              bottom += pparent.ibottom
-            end
-          end
-          return bottom
-        end
-
-        bottom = (parent.abottom || 0) + (@position.bottom || 0)
-
-        @parent.try do |pparent|
-          if @auto_padding
-            bottom += pparent.ibottom
-          end
-        end
-
-        bottom
-      end
-
-      def abottom
-        _get_bottom false
-      end
-
-      def rleft
-        (aleft || 0) - ((parent_or_screen).not_nil!.aleft || 0)
-      end
-
-      def rright
-        (aright || 0) - ((parent_or_screen).not_nil!.aright || 0)
-      end
-
-      def rtop
-        (atop || 0) - ((parent_or_screen).not_nil!.atop || 0)
-      end
-
-      def rbottom
-        (abottom || 0) - ((parent_or_screen).not_nil!.abottom || 0)
-      end
-
-      def width=(val : Int)
-        return if @width == val
-        clear_pos
-        @position.width = val
-        emit ::Crysterm::Event::Resize
-        val
-      end
-
-      def height=(val : Int)
-        return if height == val
-        clear_pos
-        @position.height = val
-        emit ::Crysterm::Event::Resize
-        val
-      end
-
-      def aleft=(val : Int)
-        if (val.is_a? String)
-          if (val == "center")
-            val = screen.width // 2
-            val -= @width // 2
-          else
-            expr = val.split(/(?=\+|-)/)
-            val = expr[0]
-            val = val.slice[0...-1].to_f / 100
-            val = (screen.width * val).to_i
-            val += expr[1] if expr[1]?
-          end
-        end
-        val -= (parent_or_screen).not_nil!.aleft
-        if (@position.left == val)
-          return
-        end
-        clear_pos
-        @position.left = val
-        emit ::Crysterm::Event::Move
-        val
-      end
-
-      def aright=(val : Int)
-        val -= (parent_or_screen).not_nil!.aright
-        return if (@position.right == val)
-        clear_pos
-        @position.right = val
-        emit ::Crysterm::Event::Move
-        val
-      end
-
-      def atop=(val : Int)
-        if (val.is_a? String)
-          if (val == "center")
-            val = screen.height // 2
-            val -= height // 2
-          else
-            expr = val.split(/(?=\+|-)/)
-            val = expr[0].to_i
-            val = val[0...-1].to_f / 100
-            val = (screen.height * val).to_i
-            val += expr[1] if expr[1]?
-          end
-        end
-        val -= (parent_or_screen).not_nil!.atop
-        return if (@position.top == val)
-        clear_pos
-        @position.top = val
-        emit ::Crysterm::Event::Move
-        val
-      end
-
-      def abottom=(val : Int)
-        val -= (parent_or_screen).not_nil!.abottom
-        return if (@position.bottom == val)
-        clear_pos
-        @position.bottom = val
-        emit ::Crysterm::Event::Move
-        val
-      end
-
-      def rleft=(val : Int)
-        return if (@position.left == val)
-        clear_pos
-        @position.left = val
-        emit ::Crysterm::Event::Move
-        val
-      end
-
-      def rright=(val : Int)
-        return if (@position.right == val)
-        clear_pos
-        @position.right = val
-        emit ::Crysterm::Event::Move
-        val
-      end
-
-      def rtop=(val : Int)
-        return if (@position.top == val)
-        clear_pos
-        @position.top = val
-        emit ::Crysterm::Event::Move
-        val
-      end
-
-      def rbottom=(val : Int)
-        return if (@position.bottom == val)
-        clear_pos
-        @position.bottom = val
-        emit ::Crysterm::Event::Move
-        val
-      end
-
-      def ileft
-        (@border ? 1 : 0) + @padding.left
-        # return (@border && @border.left ? 1 : 0) + @padding.left
-      end
-
-      def itop
-        (@border ? 1 : 0) + @padding.top
-        # return (@border && @border.top ? 1 : 0) + @padding.top
-      end
-
-      def iright
-        (@border ? 1 : 0) + @padding.right
-        # return (@border && @border.right ? 1 : 0) + @padding.right
-      end
-
-      def ibottom
-        (@border ? 1 : 0) + @padding.bottom
-        # return (@border && @border.bottom ? 1 : 0) + @padding.bottom
-      end
-
-      def iwidth
-        # return (@border
-        #   ? ((@border.left ? 1 : 0) + (@border.right ? 1 : 0)) : 0)
-        #   + @padding.left + @padding.right
-        (@border ? 2 : 0) + @padding.left + @padding.right
-      end
-
-      def iheight
-        # return (@border
-        #   ? ((@border.top ? 1 : 0) + (@border.bottom ? 1 : 0)) : 0)
-        #   + @padding.top + @padding.bottom
-        (@border ? 2 : 0) + @padding.top + @padding.bottom
-      end
-
       # Rendition and rendering
 
       # Returns minimum widget size based on bounding box
-      def _get_shrink_box(xi, xl, yi, yl, get)
+      def _get_minimal_children_rectangle(xi, xl, yi, yl, get)
         if @children.empty?
-          return ShrinkBox.new xi: xi, xl: xi + 1, yi: yi, yl: yi + 1
+          return Rectangle.new xi: xi, xl: xi + 1, yi: yi, yl: yi + 1
         end
 
         # i, el, ret,
@@ -868,7 +771,7 @@ module Crysterm
           end
         end
 
-        ShrinkBox.new xi: xi, xl: xl, yi: yi, yl: yl
+        Rectangle.new xi: xi, xl: xl, yi: yi, yl: yl
       end
 
       # Returns minimum widget size based on content.
@@ -878,7 +781,7 @@ module Crysterm
       # If `#align=` is used, the alignment method will align it by padding with
       # spaces, and in turn make the minimal size returned from this method be the
       # maximum/full size of the surrounding box.
-      def _get_shrink_content(xi, xl, yi, yl)
+      def _get_minimal_content_rectangle(xi, xl, yi, yl)
         h = @_clines.size
         w = @_clines.max_width || 0
 
@@ -904,31 +807,31 @@ module Crysterm
           end
         end
 
-        ShrinkBox.new xi: xi, xl: xl, yi: yi, yl: yl
+        Rectangle.new xi: xi, xl: xl, yi: yi, yl: yl
       end
 
       # Returns minimum widget size
-      def _get_shrink(xi, xl, yi, yl, get)
-        shrink_box = _get_shrink_box(xi, xl, yi, yl, get)
-        shrink_content = _get_shrink_content(xi, xl, yi, yl)
+      def _get_minimal_rectangle(xi, xl, yi, yl, get)
+        minimal_children_rectangle = _get_minimal_children_rectangle(xi, xl, yi, yl, get)
+        minimal_content_rectangle = _get_minimal_content_rectangle(xi, xl, yi, yl)
         xll = xl
         yll = yl
 
         # Figure out which one is bigger and use it.
-        if (shrink_box.xl - shrink_box.xi > shrink_content.xl - shrink_content.xi)
-          xi = shrink_box.xi
-          xl = shrink_box.xl
+        if (minimal_children_rectangle.xl - minimal_children_rectangle.xi > minimal_content_rectangle.xl - minimal_content_rectangle.xi)
+          xi = minimal_children_rectangle.xi
+          xl = minimal_children_rectangle.xl
         else
-          xi = shrink_content.xi
-          xl = shrink_content.xl
+          xi = minimal_content_rectangle.xi
+          xl = minimal_content_rectangle.xl
         end
 
-        if (shrink_box.yl - shrink_box.yi > shrink_content.yl - shrink_content.yi)
-          yi = shrink_box.yi
-          yl = shrink_box.yl
+        if (minimal_children_rectangle.yl - minimal_children_rectangle.yi > minimal_content_rectangle.yl - minimal_content_rectangle.yi)
+          yi = minimal_children_rectangle.yi
+          yl = minimal_children_rectangle.yl
         else
-          yi = shrink_content.yi
-          yl = shrink_content.yl
+          yi = minimal_content_rectangle.yi
+          yl = minimal_content_rectangle.yl
         end
 
         # Recenter shrunken elements.
@@ -944,7 +847,7 @@ module Crysterm
           yl += yll
         end
 
-        ShrinkBox.new xi: xi, xl: xl, yi: yi, yl: yl
+        Rectangle.new xi: xi, xl: xl, yi: yi, yl: yl
       end
 
       # The below methods are a bit confusing: basically
@@ -2374,7 +2277,6 @@ module Crysterm
     include Position
     include Content
     include Rendering
-    include Pos
 
     @@uid = 0
 
@@ -2452,27 +2354,6 @@ module Crysterm
     property position : Tput::Position
 
     property? vi : Bool = false
-
-    # XXX why are these here and not in @position?
-    # property top = 0
-    # property left = 0
-    # setter width = 0
-    # property height = 0
-    def top
-      _get_top false
-    end
-
-    def left
-      _get_left false
-    end
-
-    def height
-      _get_height false
-    end
-
-    def width
-      _get_width false
-    end
 
     # Does it accept keyboard input?
     property? input = false
