@@ -156,11 +156,11 @@ module Crysterm
         alloc
         render
 
+        ev_resize = Crysterm::Event::Resize.new
         # For `self` (`Screen`)
-        emit Crysterm::Event::Resize
-
+        emit ev_resize
         # For children (`Widget`s)
-        emit_descendants Crysterm::Event::Resize
+        emit_descendants ev_resize
       end
 
       display.on(Crysterm::Event::Focus) do
