@@ -4,22 +4,19 @@ require "./widget"
 
 require "./mixin/children"
 
-require "./screen/*"
+require "./screen_angles"
+require "./screen_attributes"
+require "./screen_cursor"
+require "./screen_drawing"
+require "./screen_focus"
+require "./screen_rendering"
+require "./screen_rows"
 
 module Crysterm
   # Represents a screen.
   class Screen
     include EventHandler
-
     include Helpers
-
-    include Angles
-    include Attributes
-    include Rows
-    include Cursor
-    include Focus
-    include Rendering
-    include Drawing
 
     include Mixin::Pos
     include Mixin::Children
@@ -122,7 +119,7 @@ module Crysterm
       ignore_locked : Array(Tput::Key)? = nil,
       @lock_keys = false,
       title = nil,
-      @cursor = Cursor::Cursor.new,
+      @cursor = Cursor.new,
       optimization = OptimizationFlag::SmartCSR | OptimizationFlag::BCE,
       alt = true,
       show_fps = true
