@@ -2,6 +2,8 @@ module Crysterm
   class Widget < ::Crysterm::Object
     # module Interaction
 
+    property? interactive = false
+
     # Is element clickable?
     property? clickable = false
 

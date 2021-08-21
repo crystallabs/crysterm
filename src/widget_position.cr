@@ -1,5 +1,10 @@
 module Crysterm
   class Widget < ::Crysterm::Object
+    private property? fixed = false
+
+    # Can width/height be auto-adjusted during rendering based on content and child elements?
+    property? resizable = false
+
     # module Position
     def aleft
       _get_left false
@@ -655,6 +660,17 @@ module Crysterm
 
       pos
     end
+
     # end
+
+    def reposition(event = nil)
+      @_label.try do |_label|
+        _label.rtop = @child_base - itop
+        unless @auto_padding
+          _label.rtop = @child_base
+        end
+        screen.render
+      end
+    end
   end
 end

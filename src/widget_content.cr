@@ -3,6 +3,17 @@ module Crysterm
     # module Content
     include Helpers
 
+    # Can element's content be word-wrapped?
+    property? wrap = true
+
+    # Is element's content to be parsed for tags?
+    property? parse_tags = true
+
+    getter! tabc : String
+
+    # Alignment of contained text
+    property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
+
     class CLines < Array(String)
       property string = ""
       property max_width = 0

@@ -35,27 +35,12 @@ module Crysterm
     # TODO Make it possible to draw shadow on all/any sides (unify class with Border),
     # and see if this can be configurable as part of Style.
 
-    private property? fixed = false
-
-    # Alignment of contained text
-    property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
-
-    # Can element's content be word-wrapped?
-    property? wrap = true
-
-    # Can width/height be auto-adjusted during rendering based on content and child elements?
-    property? resizable = false
-
     # XXX FIX
     # Used only for lists
     property _is_list = false
-    property? interactive = false
     # XXX
 
     property position : Tput::Position
-
-    # Is element's content to be parsed for tags?
-    property? parse_tags = true
 
     property? _no_fill = false
 
@@ -65,8 +50,6 @@ module Crysterm
     # Widget's border.
     property border : Border?
 
-    getter! tabc : String
-
     # Storage for any miscellaneous data.
     property data : JSON::Any?
 
@@ -74,7 +57,9 @@ module Crysterm
     property? destroyed = false
 
     def initialize(
+      @parent = nil,
       *,
+
       # These end up being part of Position.
       # If position is specified, these are ignored.
       left = nil,
@@ -112,7 +97,6 @@ module Crysterm
       scrollbar = nil,
       track = nil,
 
-      @parent = nil,
       @name = nil,
       @screen = determine_screen, # NOTE a todo item about this is in file TODO
       index = -1,
@@ -288,25 +272,13 @@ module Crysterm
 
     # alias_previous :set_scroll
 
-    def reposition(event = nil)
-      @_label.try do |_label|
-        _label.rtop = @child_base - itop
-        unless @auto_padding
-          _label.rtop = @child_base
-        end
-        screen.render
-      end
-    end
-
     def self.sattr(style : Style, fg = nil, bg = nil)
       if fg.nil? && bg.nil?
         fg = style.fg
         bg = style.bg
       end
 
-      # This used to be a loop, but I decided
-      # to unroll it for performance's sake.
-      # TODO implement this -- i.e. support style.* being Procs ?
+      # TODO support style.* being Procs ?
 
       # D O:
       # return (this.uid << 24)
@@ -322,10 +294,6 @@ module Crysterm
 
     def sattr(style : Style, fg = nil, bg = nil)
       self.class.sattr style, fg, bg
-    end
-
-    def free
-      # TODO Remove all listeners? etc.
     end
 
     def screenshot(xi = nil, xl = nil, yi = nil, yl = nil)
