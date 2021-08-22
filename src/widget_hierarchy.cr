@@ -70,7 +70,7 @@ module Crysterm
     end
 
     def determine_screen
-      win = if Screen.total <= 1
+      scr = if Screen.total <= 1
               # This will use the first screen or create one if none created yet.
               # (Auto-creation helps writing scripts with less code.)
               Screen.global true
@@ -83,15 +83,22 @@ module Crysterm
                 # else
                 #  raise Exception.new("No active screen found in parent chain.")
               end
-            elsif Screen.total > 0
-              Screen.instances[-1]
+              # elsif Screen.total > 0
+              #  #Screen.instances[-1]
+              #  Screen.instances[0]
+              #  # XXX For the moment we use the first screen instead of the last one,
+              #    as global, so same here - we just return the first one:
             end
 
-      unless win
+      unless scr
+        scr = Screen.global
+      end
+
+      unless scr
         raise Exception.new("No Screen found anywhere. Create one with Screen.new")
       end
 
-      win
+      scr
     end
 
     # Returns parent `Widget` (if any) or `Screen` to which the widget may be attached.

@@ -16,6 +16,7 @@ class MyProg
   # `Box` is one of the available widgets. It is a read-only space for
   # displaying text etc. In Qt terms, this is a Label.
   b = Widget::Box.new \
+    screen: s,
     name: "helloworld box", # Symbolic name
     top: "center",          # Can also be 10, "50%", or "50%-10"
     left: "center",         # Same as above
@@ -29,7 +30,6 @@ class MyProg
     # Add box to the Screen, because it is a top-level widget without a parent.
     # If there is a parent, you would call `Widget#append` on the parent object,
     # not on the screen.
-  s.append b
 
   b.focus
 

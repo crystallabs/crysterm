@@ -326,7 +326,6 @@ List of notable differences (hopefully improvements) compared to Blessed:
 List of current bugs / quirks in Crysterm, in no particular order:
 
 - It is likely that Crysterm's API interface and general usability could be improved in many places. Fortunately those are easy improvements and/or suggestions that can be made by early users and adopters
-- Screen's top-level widgets need to be added to `Screen` with `screen.append widget` explicitly (option `screen: screen` to `Widget.new` doesn't do everything it should at the moment)
 - Items need to be added to `Widget::List` explicitly, after list creation (option `items: [...]` to `List.new` isn't available at the moment)
 - `Widget::Layout` needs explicit width and height (e.g. "100%"). It seems this isn't needed in Blessed
 - `Widget::TextArea` lacks many features (deficiency inherited from Blessed)

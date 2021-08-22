@@ -52,7 +52,7 @@ module Crysterm
 
       @name = nil,
       @uid = next_uid,
-      @screen = determine_screen,
+      screen = nil,
 
       @left = nil,
       @top = nil,
@@ -134,6 +134,12 @@ module Crysterm
                   raise "Invalid shadow argument"
                 end
 
+      if screen
+        screen.append self
+      else
+        @screen ||= determine_screen
+      end
+
       # Add element to parent
       if parent = @parent
         parent.append self
@@ -177,12 +183,12 @@ module Crysterm
 
           if (key == Tput::Key::Up || (@vi && ch == 'k'))
             scroll(-1)
-            screen.render
+            self.screen.render
             next
           end
           if (key == Tput::Key::Down || (@vi && ch == 'j'))
             scroll(1)
-            screen.render
+            self.screen.render
             next
           end
 
@@ -194,7 +200,7 @@ module Crysterm
                 next unless h.is_a? Int
                 offs = -h // 2
                 scroll offs == 0 ? -1 : offs
-                screen.render
+                self.screen.render
               end
               next
             when Tput::Key::CtrlD
@@ -202,7 +208,7 @@ module Crysterm
                 next unless h.is_a? Int
                 offs = h // 2
                 scroll offs == 0 ? 1 : offs
-                screen.render
+                self.screen.render
               end
               next
             when Tput::Key::CtrlB
@@ -210,7 +216,7 @@ module Crysterm
                 next unless h.is_a? Int
                 offs = -h
                 scroll offs == 0 ? -1 : offs
-                screen.render
+                self.screen.render
               end
               next
             when Tput::Key::CtrlF
@@ -218,7 +224,7 @@ module Crysterm
                 next unless h.is_a? Int
                 offs = h
                 scroll offs == 0 ? 1 : offs
-                screen.render
+                self.screen.render
               end
               next
             end
@@ -226,11 +232,11 @@ module Crysterm
             case ch
             when 'g'
               scroll_to 0
-              screen.render
+              self.screen.render
               next
             when 'G'
               scroll_to get_scroll_height
-              screen.render
+              self.screen.render
               next
             end
           end
