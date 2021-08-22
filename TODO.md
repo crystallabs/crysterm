@@ -2,7 +2,7 @@
 
 ## Immediate Source Code TODOs
 
-- Remove widget_hierarchy, widget_visibility, widget_z_index, widget_style, rectangles?
+- Remove widget_visibility, widget_z_index
 
 - Determine what to do with label.side
 
@@ -36,7 +36,7 @@
 
 - Make Widget#content be original, user-supplied content. Name all other accessors differently (same type of solution as for left/right/etc.)
 
-- Make shadow exist only in Style? Should border, shadow, and padding exist only in Style? Also scrollbar?
+- Make shadow exist only in Style? Should border, shadow, and padding exist only in Style? Also scrollbar? And label?
 
 - If the screen is too small to display a widget in layout, don't hide it completely, make sure that at least something is drawn even if incomplete or incorrect. See e.g. misc/pine.cr for an example
 

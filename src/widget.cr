@@ -11,8 +11,6 @@ require "./widget_rendering"
 require "./widget_position"
 require "./widget_scrolling"
 require "./widget_z_index"
-require "./widget_hierarchy"
-require "./widget_style"
 require "./widget_interaction"
 require "./widget_label"
 require "./widget_visibility"
@@ -42,7 +40,16 @@ module Crysterm
     # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
     property shadow : Shadow?
 
-    property? focus_on_click = false
+    # Widget's complete style definition.
+    # class_property style : Style = Style.new
+
+    @[AlwaysInline]
+    def style
+      s = @style
+      focused? ? (s.focus || s) : s
+    end
+
+    setter style : Style
 
     # Storage for any user-controlled/miscellaneous data.
     property data : JSON::Any?
