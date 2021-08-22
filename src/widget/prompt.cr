@@ -30,7 +30,7 @@ module Crysterm
         align: Tput::AlignFlag::Center,
         # bg: "black",
         # hover_bg: "blue",
-        auto_focus: false,
+        focus_on_click: false,
               # mouse: true
 )
 
@@ -44,7 +44,7 @@ module Crysterm
         align: Tput::AlignFlag::Center,
         # bg: "black",
         # hover_bg: "blue",
-        auto_focus: false,
+        focus_on_click: false,
               # mouse: true
 )
 

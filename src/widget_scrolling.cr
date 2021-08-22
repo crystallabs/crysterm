@@ -8,6 +8,8 @@ module Crysterm
     property? scrollable = false
 
     property? scrollbar : Bool = false
+
+    # Inside scrollbar (if enabled), should widget indicate the scroll position?
     property? track : Bool = false
 
     # Offset from the top of content (in number of lines) due to scrolling.

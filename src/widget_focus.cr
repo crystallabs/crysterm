@@ -1,6 +1,6 @@
 module Crysterm
   class Widget < ::Crysterm::Object
-    property? auto_focus = false
+    property? focus_on_click = false
 
     # Puts current widget in focus
     def focus

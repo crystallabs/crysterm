@@ -17,8 +17,8 @@ module Crysterm
       # Ability to always display filled % or amount
 
       # XXX Change this to enabled? later.
-      property keys : Bool = true
-      property mouse : Bool = false
+      property? keys : Bool = true
+      property? mouse : Bool = false
 
       def initialize(
         @filled = 0,

@@ -18,7 +18,9 @@ module Crysterm
     # Does it accept keyboard input?
     property? input = false
 
+    # Should widget react to some pre-defined keys in it?
     property? keys : Bool = false
+
     property? ignore_keys : Bool = false
 
     # property? clickable = false

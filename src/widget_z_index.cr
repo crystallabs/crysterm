@@ -1,7 +1,6 @@
 module Crysterm
   class Widget < ::Crysterm::Object
-    # module ZIndex
-    # Widget's render (order) index that was determined/used during the last `#render` call.
+    # Widget's render (order) index.
     property index = -1
 
     def set_index(index)

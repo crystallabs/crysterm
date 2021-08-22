@@ -50,6 +50,9 @@ module Crysterm
       @parent = nil,
       *,
 
+      @name = nil,
+      @uid = next_uid,
+
       @left = nil,
       @top = nil,
       @right = nil,
@@ -60,7 +63,6 @@ module Crysterm
 
       @hidden = false,
       @fixed = false, # XXX document/check this
-      @wrap_content = true,
       @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
       @overflow : Overflow = Overflow::Ignore,
 
@@ -71,39 +73,32 @@ module Crysterm
       shadow = nil,
       @scrollbar = false,
       # TODO Make it configurable which side it appears on etc.
+      @track = true, # Only has effect within scrollbar
+      # XXX Should this whole section of 5 properties be in Style?
 
       content = "",
+      @parse_tags = false,
+      @wrap_content = true,
+
       label = nil,
       hover_text = nil,
       # TODO Unify naming label[_text]/hover[_text]
 
-      scrollable = nil,
+      @scrollable = false,
       # hover_bg=nil,
       @draggable = false,
       focused = false,
-      @parse_tags = false,
-      auto_focus = false,
-      track = nil,
-      @name = nil,
+      @focus_on_click = true,
+      @keys = false,
+      @input = false,
+
+      # Final, misc settings
       @screen = determine_screen, # NOTE a todo item about this is in file TODO
-      index = -1,
+      @index = -1,
       children = [] of Widget,
       @auto_padding = true,
-      tabc = nil,
-      @keys = false,
-      input = nil
+      @tabc = (" " * style.tab_size)
     )
-      track.try { |v| @track = v }
-      scrollable.try { |v| @scrollable = v }
-
-      @tabc = tabc || (" " * @style.tab_size)
-      input.try { |v| @input = v }
-
-      @uid = next_uid
-
-      # Allow name to be nil, to avoid creating strings
-      # @name = name || "#{self.class.name}-#{@uid}"
-
       # $ = _ = JSON/YAML::Any
 
       case padding

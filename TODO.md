@@ -2,6 +2,8 @@
 
 ## Immediate Source Code TODOs
 
+- Determine reason of wrong cursor position in examples/test2.cr
+
 - Fix rendering of cursor color. Appears to be ignored in some cases.
 
 - Fix artificial cursor blink
@@ -17,6 +19,8 @@
 - Allow Displays to have Screens as children elements (to allow screens being present in multiple windows). Or just dup them?
 
 ## Fixes to Existing Code
+
+- Support TrueColor - https://mudhalla.net/tintin/info/truecolor/ etc.
 
 - Make sure that chars typed in text input are immediately rendered (i.e. not holding 1 in buffer in non-release mode). Hopefully the only issue here is just timing, i.e. the way how render() call schedules a render.
 
