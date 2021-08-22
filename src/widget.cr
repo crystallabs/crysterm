@@ -5,7 +5,6 @@ require "./mixin/children"
 require "./mixin/pos"
 require "./mixin/uid"
 
-require "./widget_rectangles"
 require "./widget_content"
 require "./widget_rendering"
 require "./widget_position"
