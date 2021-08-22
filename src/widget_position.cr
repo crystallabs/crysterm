@@ -2,67 +2,102 @@ module Crysterm
   class Widget < ::Crysterm::Object
     private property? fixed = false
 
-    # module Position
+    # User-defined left
+    property left : Int32 | String | Nil
+
+    # User-defined top
+    property top : Int32 | String | Nil
+
+    # User-defined right
+    property right : Int32 | Nil
+
+    # User-defined bottom
+    property bottom : Int32 | Nil
+
+    # User-defined width
+    property width : Int32 | String | Nil
+
+    # User-defined height
+    property height : Int32 | String | Nil
+
+    # Can Crysterm resize the widget if/when needed?
+    property? resizable = false
+
+    # Returns computed absolute left position
     def aleft
       _get_left false
     end
 
+    # Returns computed absolute top position
     def atop
       _get_top false
     end
 
+    # Returns computed absolute right position
     def aright
       _get_right false
     end
 
+    # Returns computed absolute bottom position
     def abottom
       _get_bottom false
     end
 
+    # Returns computed width
+    def awidth
+      _get_width false
+    end
+
+    # Returns computed height
+    def aheight
+      _get_height false
+    end
+
+    # Returns computed relative left position
     def rleft
       (aleft || 0) - ((parent_or_screen).not_nil!.aleft || 0)
     end
 
+    # Returns computed relative top position
     def rtop
       (atop || 0) - ((parent_or_screen).not_nil!.atop || 0)
     end
 
+    # Returns computed relative right position
     def rright
       (aright || 0) - ((parent_or_screen).not_nil!.aright || 0)
     end
 
+    # Returns computed relative bottom position
     def rbottom
       (abottom || 0) - ((parent_or_screen).not_nil!.abottom || 0)
     end
 
+    # Returns computed content offset from relative left position
     def ileft
       (@border ? 1 : 0) + @padding.left
       # return (@border && @border.left ? 1 : 0) + @padding.left
     end
 
+    # Returns computed content offset from relative top position
     def itop
       (@border ? 1 : 0) + @padding.top
       # return (@border && @border.top ? 1 : 0) + @padding.top
     end
 
+    # Returns computed content offset from relative right position
     def iright
       (@border ? 1 : 0) + @padding.right
       # return (@border && @border.right ? 1 : 0) + @padding.right
     end
 
+    # Returns computed content offset from relative bottom position
     def ibottom
       (@border ? 1 : 0) + @padding.bottom
       # return (@border && @border.bottom ? 1 : 0) + @padding.bottom
     end
 
-    def awidth
-      _get_width false
-    end
-
-    def aheight
-      _get_height false
-    end
-
+    # Returns computed inner width
     def iwidth
       # return (@border
       #   ? ((@border.left ? 1 : 0) + (@border.right ? 1 : 0)) : 0)
@@ -70,6 +105,7 @@ module Crysterm
       (@border ? 2 : 0) + @padding.left + @padding.right
     end
 
+    # Returns computed inner height
     def iheight
       # return (@border
       #   ? ((@border.top ? 1 : 0) + (@border.bottom ? 1 : 0)) : 0)

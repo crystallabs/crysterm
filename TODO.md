@@ -28,7 +28,7 @@
 
 ## Non-critical Fixes / Small Improvements to Existing code
 
-- Make shadow exist only in Style?
+- Make shadow exist only in Style? Should border, shadow, and padding exist only in Style?
 
 - If the screen is too small to display a widget in layout, don't hide it completely, make sure that at least something is drawn even if incomplete or incorrect. See e.g. misc/pine.cr for an example
 

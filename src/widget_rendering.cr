@@ -8,6 +8,9 @@ module Crysterm
     # What action to take when widget rendering would overflow parent's rectangle?
     property overflow = Overflow::Ignore
 
+    # Automatically position child elements with border and padding in mind.
+    property auto_padding = true
+
     # Here be dragons
 
     # Renders all child elements into the output buffer.

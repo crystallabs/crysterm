@@ -27,13 +27,6 @@ module Crysterm
     # Arbitrary widget name
     property name : String?
 
-    # Automatically position child elements with border and padding in mind.
-    property auto_padding = true
-
-    # Draw shadow?
-    # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
-    property shadow : Shadow?
-
     # XXX FIX by removing at some point
     # Used only for lists
     property _is_list = false
@@ -44,20 +37,15 @@ module Crysterm
     # Widget's border.
     property border : Border?
 
-    # Storage for any miscellaneous data.
-    property data : JSON::Any?
+    # Draw shadow?
+    # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
+    property shadow : Shadow?
 
     # Gets set to true after `#destroy` has been invoked.
     property? destroyed = false
 
-    # WIP
-    property left : Int32 | String | Nil
-    property top : Int32 | String | Nil
-    property right : Int32 | Nil
-    property bottom : Int32 | Nil
-    property width : Int32 | String | Nil
-    property height : Int32 | String | Nil
-    property? resizable = false
+    # Storage for any user-controlled/miscellaneous data.
+    property data : JSON::Any?
 
     def initialize(
       @parent = nil,
