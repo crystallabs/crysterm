@@ -41,9 +41,6 @@ module Crysterm
     # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
     property shadow : Shadow?
 
-    # Gets set to true after `#destroy` has been invoked.
-    property? destroyed = false
-
     # Storage for any user-controlled/miscellaneous data.
     property data : JSON::Any?
 
@@ -278,7 +275,6 @@ module Crysterm
         c.destroy
       end
       remove_parent
-      @destroyed = true
       emit Crysterm::Event::Destroy
     end
   end

@@ -12,8 +12,6 @@ module Crysterm
         # `#destroy` does need to be called.
         class_getter instances = [] of self
 
-        property? destroyed = false
-
         # Returns number of created instances
         def self.total
           @@instances.size
@@ -57,7 +55,6 @@ module Crysterm
           #  @@_bound = false
           # end
 
-          @destroyed = true
           emit Crysterm::Event::Destroy
 
           # super # No longer exists since we're not subclass of Node any more

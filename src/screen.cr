@@ -109,9 +109,6 @@ module Crysterm
     # `Overflow::Ignore` simply ignores the overflow and renders the parts that are in view.
     property overflow = Overflow::Ignore
 
-    # True if `#destroy` has been invoked.
-    property? destroyed = false
-
     def initialize(
       @display = Display.global(true),
       @dock_borders = true,

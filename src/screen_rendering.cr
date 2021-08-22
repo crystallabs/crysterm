@@ -155,8 +155,6 @@ module Crysterm
     def _render # (draw = true) #@@auto_draw)
       t1 = Time.monotonic
 
-      return if destroyed?
-
       emit Crysterm::Event::PreRender
 
       @_border_stops.clear
