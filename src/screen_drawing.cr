@@ -396,7 +396,7 @@ module Crysterm
     end
 
     def blank_line(ch = ' ', dirty = false)
-      o = Row.new width, {@dattr, ch}
+      o = Row.new awidth, {@dattr, ch}
       o.dirty = dirty
       o
     end
@@ -419,7 +419,7 @@ module Crysterm
         display.tput.set_scroll_region(top, bottom)
         display.tput.cup(y, 0)
         display.tput.il(n)
-        display.tput.set_scroll_region(0, height - 1)
+        display.tput.set_scroll_region(0, aheight - 1)
 
         @_buf.print ret.rewind.gets_to_end
         display.tput.ret = nil
@@ -451,7 +451,7 @@ module Crysterm
         display.tput.set_scroll_region(top, bottom)
         display.tput.cup(top, 0)
         display.tput.dl(n)
-        display.tput.set_scroll_region(0, height - 1)
+        display.tput.set_scroll_region(0, aheight - 1)
 
         @_buf.print ret.rewind.gets_to_end
         display.tput.ret = nil
@@ -486,7 +486,7 @@ module Crysterm
         display.tput.set_scroll_region(top, bottom)
         display.tput.cup(y, 0)
         display.tput.dl(n)
-        display.tput.set_scroll_region(0, height - 1) # XXX @height should be used?
+        display.tput.set_scroll_region(0, aheight - 1)
 
         @_buf.print ret.rewind.gets_to_end
         display.tput.ret = nil
@@ -519,7 +519,7 @@ module Crysterm
         display.tput.set_scroll_region(top, bottom)
         display.tput.cup(bottom, 0)
         ret.print "\n" * n
-        display.tput.set_scroll_region(0, height - 1)
+        display.tput.set_scroll_region(0, aheight - 1)
 
         @_buf.print ret.rewind.gets_to_end
         display.tput.ret = nil
@@ -547,7 +547,7 @@ module Crysterm
 
     # Deletes line at bottom of screen.
     def delete_bottom(top, bottom)
-      clear_region(0, width, bottom, bottom)
+      clear_region(0, awidth, bottom, bottom)
     end
 
     # Deletes line at top of screen.
@@ -576,7 +576,7 @@ module Crysterm
         return pos._clean_sides
       end
 
-      if (pos.xi <= 0 && (pos.xl >= width))
+      if (pos.xi <= 0 && (pos.xl >= awidth))
         return pos._clean_sides = true
       end
 
@@ -585,10 +585,10 @@ module Crysterm
         if (pos.yi < 0)
           return pos._clean_sides = false
         end
-        if (pos.yl > height)
+        if (pos.yl > aheight)
           return pos._clean_sides = false
         end
-        if ((width - (pos.xl - pos.xi)) < 40)
+        if ((awidth - (pos.xl - pos.xi)) < 40)
           return pos._clean_sides = true
         end
         return pos._clean_sides = false
@@ -620,13 +620,13 @@ module Crysterm
       if (pos.yi < 0)
         return pos._clean_sides = false
       end
-      if (pos.yl > height)
+      if (pos.yl > aheight)
         return pos._clean_sides = false
       end
       if ((pos.xi - 1) < 0)
         return pos._clean_sides = true
       end
-      if (pos.xl > width)
+      if (pos.xl > awidth)
         return pos._clean_sides = true
       end
 
@@ -648,7 +648,7 @@ module Crysterm
         x -= 1
       end
 
-      (pos.xl...width).each do |x2|
+      (pos.xl...awidth).each do |x2|
         if (!@olines[yi]?)
           break
         end

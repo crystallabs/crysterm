@@ -44,7 +44,7 @@ module Crysterm
         # large as possible. So, we can just use the height and/or width the of
         # element.
         # if (get)
-        if (el.position.left.nil? && !el.position.right.nil?)
+        if (el.left.nil? && !el.right.nil?)
           ret.xl = xi + (ret.xl - ret.xi)
           ret.xi = xi
           if @auto_padding
@@ -53,7 +53,7 @@ module Crysterm
             ret.xi += ileft
           end
         end
-        if (el.position.top.nil? && !el.position.bottom.nil?)
+        if (el.top.nil? && !el.bottom.nil?)
           ret.yl = yi + (ret.yl - ret.yi)
           ret.yi = yi
           if @auto_padding
@@ -83,8 +83,8 @@ module Crysterm
         # @resizable = true
       end
 
-      if (@position.width.nil? && (@position.left.nil? || @position.right.nil?))
-        if (@position.left.nil? && !@position.right.nil?)
+      if (@width.nil? && (@left.nil? || @right.nil?))
+        if (@left.nil? && !@right.nil?)
           xi = xl - (mxl - mxi)
           if (!@auto_padding)
             xi -= @padding.left + @padding.right
@@ -112,7 +112,7 @@ module Crysterm
           end
         end
       end
-      if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) && (!@scrollable || @_is_list))
+      if (@height.nil? && (@top.nil? || @bottom.nil?) && (!@scrollable || @_is_list))
         # Note: Lists get special treatment if they are shrunken - assume they
         # want all list items showing. This is one case we can calculate the
         # height based on items/boxes.
@@ -120,7 +120,7 @@ module Crysterm
           myi = 0 - itop
           myl = @items.size + ibottom
         end
-        if (@position.top.nil? && !@position.bottom.nil?)
+        if (@top.nil? && !@bottom.nil?)
           yi = yl - (myl - myi)
           if (!@auto_padding)
             yi -= @padding.top + @padding.bottom
@@ -155,8 +155,8 @@ module Crysterm
       # If a person sets resizable: true, this is expected to happen
       # no matter what; not only if other coordinates are also left empty.
 
-      if (@position.width.nil? && (@position.left.nil? || @position.right.nil?))
-        if @position.left.nil? && !@position.right.nil?
+      if (@width.nil? && (@left.nil? || @right.nil?))
+        if @left.nil? && !@right.nil?
           xi = xl - w - iwidth
         else
           xl = xi + w + iwidth
@@ -164,9 +164,9 @@ module Crysterm
       end
       # end
 
-      if (@position.height.nil? && (@position.top.nil? || @position.bottom.nil?) &&
+      if (@height.nil? && (@top.nil? || @bottom.nil?) &&
          (!@scrollable || @_is_list))
-        if (@position.top.nil? && !@position.bottom.nil?)
+        if (@top.nil? && !@bottom.nil?)
           yi = yl - h - iheight # (iheight == 1 ? 0 : iheight)
         else
           yl = yi + h + iheight # (iheight == 1 ? 0 : iheight)
@@ -201,13 +201,13 @@ module Crysterm
       end
 
       # Recenter shrunken elements.
-      if (xl < xll && @position.left == "center")
+      if (xl < xll && @left == "center")
         xll = (xll - xl) // 2
         xi += xll
         xl += xll
       end
 
-      if (yl < yll && @position.top == "center")
+      if (yl < yll && @top == "center")
         yll = (yll - yl) // 2
         yi += yll
         yl += yll

@@ -33,7 +33,7 @@ module Crysterm
     # Potentially use this where ever .scrollable? is used
     def really_scrollable?
       return @scrollable if @resizable
-      get_scroll_height > height
+      get_scroll_height > aheight
     end
 
     def get_scroll
@@ -102,7 +102,7 @@ module Crysterm
       end
 
       bottom = @children.reduce(0) do |current, el|
-        # el.height alone does not calculate the shrunken height, we need to use
+        # el.aheight alone does not calculate the shrunken height, we need to use
         # get_coords. A shrunken box inside a scrollable element will not grow any
         # larger than the scrollable element's context regardless of how much
         # content is in the shrunken box, unless we do this (call get_coords
@@ -114,7 +114,7 @@ module Crysterm
             return Math.max(current, el.rtop + (lpos.yl - lpos.yi))
           end
         end
-        return Math.max(current, el.rtop + el.height)
+        return Math.max(current, el.rtop + el.aheight)
       end
 
       # XXX Use this? Makes .get_scroll_height useless
@@ -138,7 +138,7 @@ module Crysterm
       # visible == amount of actual content lines visible in the widget. E.g. for
       # a widget of height=4 and border (which renders within height), the amount
       # of visible lines == 2.
-      visible = height - iheight
+      visible = aheight - iheight
       # Current scrolling amount, i.e. the index of the first line of content which
       # is actually shown. (base == 2 means content is showing from its 3rd line onwards)
       base = @child_base
@@ -180,13 +180,13 @@ module Crysterm
 
       # D O:
       # XXX
-      # max = get_scroll_height - (height - iheight)
+      # max = get_scroll_height - (aheight - iheight)
 
-      max = @_clines.size - (height - iheight)
+      max = @_clines.size - (aheight - iheight)
       if (max < 0)
         max = 0
       end
-      emax = _scroll_bottom - (height - iheight)
+      emax = _scroll_bottom - (aheight - iheight)
       if (emax < 0)
         emax = 0
       end

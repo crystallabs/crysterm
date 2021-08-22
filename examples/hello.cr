@@ -49,8 +49,8 @@ class MyProg
   spawn do
     loop do
       sleep 2
-      b.rtop = rand(s.height - b.height - 1) + 1
-      b.rleft = rand(s.width - b.width)
+      b.rtop = rand(s.aheight - b.aheight - 1) + 1
+      b.rleft = rand(s.awidth - b.awidth)
 
       # s.tput.cursor_pos b.top, b.left + b.width//2
 

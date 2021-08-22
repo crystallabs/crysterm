@@ -67,43 +67,43 @@ module Crysterm
         # Figure out highest child element
         if @layout == LayoutType::Grid
           high_width = @children.reduce(0) { |o, el|
-            Math.max o, el.width
+            Math.max o, el.awidth
           }
         end
 
         ->(el : Widget, i : Int32) {
           # Make our children resizable. If they don't have a height, for
           # example, calculate it for them.
-          el.position.resizable = true
+          el.resizable = true
 
           # Find the previous rendered child's coordinates
           last = get_last i
 
           # If there is no previously rendered element, we are on the first child.
           if !last
-            el.position.left = 0
-            el.position.top = 0
+            el.left = 0
+            el.top = 0
           else
             # Otherwise, figure out where to place this child. We'll start by
             # setting it's `left`/`x` coordinate to right after the previous
             # rendered element. This child will end up directly to the right of it.
             llp = last.lpos.not_nil!
-            el.position.left = llp.xl - xi
+            el.left = llp.xl - xi
 
             # Make sure the position matches the highest width element
             if (@layout == LayoutType::Grid)
               # D O:
               # Compensate with width:
-              # el.position.width = el.width + (highWidth - el.width)
+              # el.width = el.awidth + (highWidth - el.awidth)
               # Compensate with position:
-              el.position.left = el.position.left.as(Int) + high_width - (llp.xl - llp.xi)
+              el.left = el.left.as(Int) + high_width - (llp.xl - llp.xi)
             end
 
             # If our child does not overlap the right side of the Layout, set it's
             # `top`/`y` to the current `row_offset` (the coordinate for the current
             # row).
-            if el.position.left.as(Int) + el.width <= width
-              el.position.top = row_offset
+            if el.left.as(Int) + el.awidth <= width
+              el.top = row_offset
             else
               # Otherwise we need to start a new row and calculate a new
               # `row_offset` and `row_index` (the index of the child on the current
@@ -118,8 +118,8 @@ module Crysterm
               }
               last_row_index = row_index
               row_index = i
-              el.position.left = 0
-              el.position.top = row_offset
+              el.left = 0
+              el.top = row_offset
             end
           end
 
@@ -134,9 +134,9 @@ module Crysterm
                 j += 1
                 next
               end
-              abs = (el.position.left.as(Int) - (l.lpos.not_nil!.xi - xi)).abs
+              abs = (el.left.as(Int) - (l.lpos.not_nil!.xi - xi)).abs
               # D O:
-              # if (abs < abovea && (l.lpos.xl - l.lpos.xi) <= el.width)
+              # if (abs < abovea && (l.lpos.xl - l.lpos.xi) <= el.awidth)
               if (abs < abovea)
                 above = l
                 abovea = abs
@@ -145,13 +145,13 @@ module Crysterm
               j += 1
             end
             if above
-              el.position.top = above.lpos.not_nil!.yl - yi
+              el.top = above.lpos.not_nil!.yl - yi
             end
           end
 
           # If our child overflows the Layout, return @overflow which contains
           # instruction what to do.
-          if (el.position.top.as(Int) + el.position.height.as(Int) > height)
+          if (el.top.as(Int) + el.height.as(Int) > height)
             return @overflow
           end
         }

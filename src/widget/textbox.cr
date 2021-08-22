@@ -44,7 +44,7 @@ module Crysterm
             set_content "*" * value.size
           else
             val = @value.gsub /\t/, @tabc
-            visible = (width - iwidth - 1)
+            visible = (awidth - iwidth - 1)
             if visible > val.size
               visible = val.size
             end

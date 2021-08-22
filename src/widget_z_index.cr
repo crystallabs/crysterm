@@ -25,11 +25,11 @@ module Crysterm
 
       # D O
       # XXX
-      # max = get_scroll_height - (height - iheight)
+      # max = get_scroll_height - (aheight - iheight)
 
-      max = @_clines.size - (height - iheight)
+      max = @_clines.size - (aheight - iheight)
       max = 0 if max < 0
-      emax = @_scroll_bottom - (height - iheight)
+      emax = @_scroll_bottom - (aheight - iheight)
       emax = 0 if emax < 0
 
       @child_base = Math.min @child_base, Math.max emax, max

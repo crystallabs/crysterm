@@ -285,8 +285,8 @@ module Crysterm
       property atop : Int32? = nil
       property aright : Int32? = nil
       property abottom : Int32? = nil
-      property width : Int32? = nil
-      property height : Int32? = nil
+      property awidth : Int32? = nil
+      property aheight : Int32? = nil
 
       # property ileft : Int32 = 0
       # property itop : Int32 = 0
@@ -313,8 +313,8 @@ module Crysterm
         @atop = nil,
         @aright = nil,
         @abottom = nil,
-        @width = nil,
-        @height = nil
+        @awidth = nil,
+        @aheight = nil
       )
       end
 
@@ -346,8 +346,8 @@ module Crysterm
         property atop : Int32? = nil
         property aright : Int32? = nil
         property abottom : Int32? = nil
-        property width : Int32? = nil
-        property height : Int32? = nil
+        property awidth : Int32? = nil
+        property aheight : Int32? = nil
 
         # property ileft : Int32 = 0
         # property itop : Int32 = 0
@@ -374,8 +374,8 @@ module Crysterm
           @atop = nil,
           @aright = nil,
           @abottom = nil,
-          @width = nil,
-          @height = nil
+          @awidth = nil,
+          @aheight = nil
         )
         end
       end

@@ -41,8 +41,6 @@ module Crysterm
     property _is_list = false
     # XXX
 
-    property position : Tput::Position
-
     property? _no_fill = false
 
     # Amount of padding on the inside of the element
@@ -57,24 +55,30 @@ module Crysterm
     # Gets set to true after `#destroy` has been invoked.
     property? destroyed = false
 
+    # WIP
+    property left : Int32 | String | Nil
+    property top : Int32 | String | Nil
+    property right : Int32 | Nil
+    property bottom : Int32 | Nil
+    property width : Int32 | String | Nil
+    property height : Int32 | String | Nil
+    property? resizable = false
+
     def initialize(
       @parent = nil,
       *,
 
-      # These end up being part of Position.
-      # If position is specified, these are ignored.
-      left = nil,
-      top = nil,
-      right = nil,
-      bottom = nil,
-      width = nil,
-      height = nil,
+      @left = nil,
+      @top = nil,
+      @right = nil,
+      @bottom = nil,
+      @width = nil,
+      @height = nil,
 
       hidden = nil,
       @fixed = false,
       @wrap = true,
       @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
-      position : Tput::Position? = nil,
       resizable = nil,
       overflow : Overflow? = nil,
       @shadow = false,
@@ -106,21 +110,9 @@ module Crysterm
       @keys = false,
       input = nil
     )
-      if position
-        @position = position
-      else
-        @position = Tput::Position.new \
-          left: left,
-          top: top,
-          right: right,
-          bottom: bottom,
-          width: width,
-          height: height
-      end
-
       hidden.try { |v| @hidden = v }
 
-      resizable.try { |v| @position.resizable = v }
+      resizable.try { |v| @resizable = v }
 
       overflow.try { |v| @overflow = v }
 

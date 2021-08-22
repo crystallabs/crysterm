@@ -182,7 +182,7 @@ module Crysterm
       # yi.step to: yl-1 do |y|
       (yi...yl).each do |y|
         if (!lines[y]?)
-          if (y >= screen.height || yl < ibottom)
+          if (y >= screen.aheight || yl < ibottom)
             break
           else
             next
@@ -194,7 +194,7 @@ module Crysterm
           x += 1
           cell = lines[y][x]?
           unless cell
-            if x >= screen.width || xl < iright
+            if x >= screen.awidth || xl < iright
               break
             else
               next

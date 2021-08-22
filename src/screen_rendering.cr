@@ -136,7 +136,7 @@ module Crysterm
         if (!lines[y]?)
           next
         end
-        width.times do |x|
+        awidth.times do |x|
           ch = lines[y][x].char
           if @angles[ch]?
             lines[y][x].char = _get_angle lines, x, y

@@ -55,11 +55,11 @@ module Crysterm
       # return (@border && @border.bottom ? 1 : 0) + @padding.bottom
     end
 
-    def width
+    def awidth
       _get_width false
     end
 
-    def height
+    def aheight
       _get_height false
     end
 
@@ -82,7 +82,7 @@ module Crysterm
       unless parent
         raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
       end
-      width = @position.width
+      width = @width
       case width
       when String
         if width == "half"
@@ -91,7 +91,7 @@ module Crysterm
         expr = width.split /(?=\+|-)/
         width = expr[0]
         width = width[0...-1].to_f / 100
-        width = ((parent.width || 0) * width).to_i
+        width = ((parent.awidth || 0) * width).to_i
         width += expr[1].to_i if expr[1]?
         return width
       end
@@ -103,7 +103,7 @@ module Crysterm
       # decided by the width the element, so it needs to be
       # calculated here.
       if width.nil?
-        left = @position.left || 0
+        left = @left || 0
         if left.is_a? String
           if (left == "center")
             left = "50%"
@@ -111,14 +111,14 @@ module Crysterm
           expr = left.split(/(?=\+|-)/)
           left = expr[0]
           left = left[0...-1].to_f / 100
-          left = ((parent.width || 0) * left).to_i
+          left = ((parent.awidth || 0) * left).to_i
           left += expr[1].to_i if expr[1]?
         end
-        width = (parent.width || 0) - (@position.right || 0) - left
+        width = (parent.awidth || 0) - (@right || 0) - left
 
         @parent.try do |pparent|
           if @auto_padding
-            if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
+            if ((!@left.nil? || @right.nil?) && @left != "center")
               width -= pparent.ileft
             end
             width -= pparent.iright
@@ -134,7 +134,7 @@ module Crysterm
       unless parent
         raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
       end
-      height = @position.height
+      height = @height
       case height
       when String
         if height == "half"
@@ -143,7 +143,7 @@ module Crysterm
         expr = height.split /(?=\+|-)/
         height = expr[0]
         height = height[0...-1].to_f / 100
-        height = ((parent.height || 0) * height).to_i
+        height = ((parent.aheight || 0) * height).to_i
         height += expr[1].to_i if expr[1]?
         return height
       end
@@ -155,7 +155,7 @@ module Crysterm
       # decided by the height the element, so it needs to be
       # calculated here.
       if height.nil?
-        top = @position.top || 0
+        top = @top || 0
         if top.is_a? String
           if (top == "center")
             top = "50%"
@@ -163,14 +163,14 @@ module Crysterm
           expr = top.split(/(?=\+|-)/)
           top = expr[0]
           top = top[0...-1].to_f / 100
-          top = ((parent.height || 0) * top).to_i
+          top = ((parent.aheight || 0) * top).to_i
           top += expr[1].to_i if expr[1]?
         end
-        height = (parent.height || 0) - (@position.bottom || 0) - top
+        height = (parent.aheight || 0) - (@bottom || 0) - top
 
         @parent.try do |pparent|
           if @auto_padding
-            if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
+            if ((!@top.nil? || @bottom.nil?) && @top != "center")
               height -= pparent.itop
             end
             height -= pparent.ibottom
@@ -187,7 +187,7 @@ module Crysterm
         raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
       end
 
-      left = @position.left || 0
+      left = @left || 0
       if left.is_a? String
         if left == "center"
           left = "50%"
@@ -195,20 +195,20 @@ module Crysterm
         expr = left.split /(?=\+|-)/
         left = expr[0]
         left = left[0...-1].to_f / 100
-        left = ((parent.width || 0) * left).to_i
+        left = ((parent.awidth || 0) * left).to_i
         left += expr[1].to_i if expr[1]?
-        if @position.left == "center"
+        if @left == "center"
           left -= (_get_width(get)) // 2
         end
       end
 
-      if @position.left.nil? && !@position.right.nil?
-        return screen.width - _get_width(get) - _get_right(get)
+      if @left.nil? && !@right.nil?
+        return screen.awidth - _get_width(get) - _get_right(get)
       end
 
       @parent.try do |pparent|
         if @auto_padding
-          if ((!@position.left.nil? || @position.right.nil?) && @position.left != "center")
+          if ((!@left.nil? || @right.nil?) && @left != "center")
             left += pparent.ileft
           end
         end
@@ -223,8 +223,8 @@ module Crysterm
         raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
       end
 
-      if @position.right.nil? && !@position.left.nil?
-        right = screen.width - (_get_left(get) + _get_width(get))
+      if @right.nil? && !@left.nil?
+        right = screen.awidth - (_get_left(get) + _get_width(get))
         @parent.try do |pparent|
           if @auto_padding
             right += pparent.iright
@@ -232,7 +232,7 @@ module Crysterm
         end
       end
 
-      right = (parent.aright || 0) + (@position.right || 0)
+      right = (parent.aright || 0) + (@right || 0)
       @parent.try do |pparent|
         if @auto_padding
           right += pparent.iright
@@ -247,7 +247,7 @@ module Crysterm
       unless parent
         raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
       end
-      top = @position.top || 0
+      top = @top || 0
       if top.is_a? String
         if top == "center"
           top = "50%"
@@ -255,20 +255,20 @@ module Crysterm
         expr = top.split /(?=\+|-)/
         top = expr[0]
         top = top[0...-1].to_f / 100
-        top = ((parent.height || 0) * top).to_i
+        top = ((parent.aheight || 0) * top).to_i
         top += expr[1].to_i if expr[1]?
-        if @position.top == "center"
+        if @top == "center"
           top -= _get_height(get) // 2
         end
       end
 
-      if @position.top.nil? && !@position.bottom.nil?
-        return screen.height - _get_height(get) - _get_bottom(get)
+      if @top.nil? && !@bottom.nil?
+        return screen.aheight - _get_height(get) - _get_bottom(get)
       end
 
       @parent.try do |pparent|
         if @auto_padding
-          if ((!@position.top.nil? || @position.bottom.nil?) && @position.top != "center")
+          if ((!@top.nil? || @bottom.nil?) && @top != "center")
             top += pparent.itop
           end
         end
@@ -283,8 +283,8 @@ module Crysterm
         raise "Widget's #parent and #screen not found. Did you create a Widget without assigning it to a parent and screen?"
       end
 
-      if @position.bottom.nil? && !@position.top.nil?
-        bottom = screen.height - (_get_top(get) + _get_height(get))
+      if @bottom.nil? && !@top.nil?
+        bottom = screen.aheight - (_get_top(get) + _get_height(get))
         @parent.try do |pparent|
           if @auto_padding
             bottom += pparent.ibottom
@@ -293,7 +293,7 @@ module Crysterm
         return bottom
       end
 
-      bottom = (parent.abottom || 0) + (@position.bottom || 0)
+      bottom = (parent.abottom || 0) + (@bottom || 0)
 
       @parent.try do |pparent|
         if @auto_padding
@@ -307,7 +307,7 @@ module Crysterm
     def width=(val : Int)
       return if @width == val
       clear_pos
-      @position.width = val
+      @width = val
       emit ::Crysterm::Event::Resize
       val
     end
@@ -315,7 +315,7 @@ module Crysterm
     def height=(val : Int)
       return if height == val
       clear_pos
-      @position.height = val
+      @height = val
       emit ::Crysterm::Event::Resize
       val
     end
@@ -323,31 +323,31 @@ module Crysterm
     def aleft=(val : Int)
       if (val.is_a? String)
         if (val == "center")
-          val = screen.width // 2
+          val = screen.awidth // 2
           val -= @width // 2
         else
           expr = val.split(/(?=\+|-)/)
           val = expr[0]
           val = val.slice[0...-1].to_f / 100
-          val = (screen.width * val).to_i
+          val = (screen.awidth * val).to_i
           val += expr[1] if expr[1]?
         end
       end
       val -= (parent_or_screen).not_nil!.aleft
-      if (@position.left == val)
+      if (@left == val)
         return
       end
       clear_pos
-      @position.left = val
+      @left = val
       emit ::Crysterm::Event::Move
       val
     end
 
     def aright=(val : Int)
       val -= (parent_or_screen).not_nil!.aright
-      return if (@position.right == val)
+      return if (@right == val)
       clear_pos
-      @position.right = val
+      @right = val
       emit ::Crysterm::Event::Move
       val
     end
@@ -355,61 +355,61 @@ module Crysterm
     def atop=(val : Int)
       if (val.is_a? String)
         if (val == "center")
-          val = screen.height // 2
+          val = screen.aheight // 2
           val -= height // 2
         else
           expr = val.split(/(?=\+|-)/)
           val = expr[0].to_i
           val = val[0...-1].to_f / 100
-          val = (screen.height * val).to_i
+          val = (screen.aheight * val).to_i
           val += expr[1] if expr[1]?
         end
       end
       val -= (parent_or_screen).not_nil!.atop
-      return if (@position.top == val)
+      return if (@top == val)
       clear_pos
-      @position.top = val
+      @top = val
       emit ::Crysterm::Event::Move
       val
     end
 
     def abottom=(val : Int)
       val -= (parent_or_screen).not_nil!.abottom
-      return if (@position.bottom == val)
+      return if (@bottom == val)
       clear_pos
-      @position.bottom = val
+      @bottom = val
       emit ::Crysterm::Event::Move
       val
     end
 
     def rleft=(val : Int)
-      return if (@position.left == val)
+      return if (@left == val)
       clear_pos
-      @position.left = val
+      @left = val
       emit ::Crysterm::Event::Move
       val
     end
 
     def rright=(val : Int)
-      return if (@position.right == val)
+      return if (@right == val)
       clear_pos
-      @position.right = val
+      @right = val
       emit ::Crysterm::Event::Move
       val
     end
 
     def rtop=(val : Int)
-      return if (@position.top == val)
+      return if (@top == val)
       clear_pos
-      @position.top = val
+      @top = val
       emit ::Crysterm::Event::Move
       val
     end
 
     def rbottom=(val : Int)
-      return if (@position.bottom == val)
+      return if (@bottom == val)
       clear_pos
-      @position.bottom = val
+      @bottom = val
       emit ::Crysterm::Event::Move
       val
     end
@@ -451,7 +451,7 @@ module Crysterm
 
       # Attempt to resize the element based on the
       # size of the content and child elements.
-      if @position.resizable?
+      if resizable?
         coords = _get_minimal_rectangle(xi, xl, yi, yl, get)
         xi = coords.xi
         xl = coords.xl
@@ -488,7 +488,7 @@ module Crysterm
 
         # The resizable option can cause a stack overflow
         # by calling _get_coords on the child again.
-        # if (!get && !thisparent.position.resizable?)
+        # if (!get && !thisparent.resizable?)
         #   ppos = thisparent._get_coords()
         # end
 
@@ -505,7 +505,7 @@ module Crysterm
 
         # XXX
         # Fixes non-`fixed` labels to work with scrolling (they're ON the border):
-        # if (@position.left < 0 || @position.right < 0 || @position.top < 0 || @position.bottom < 0)
+        # if (@left < 0 || @right < 0 || @top < 0 || @bottom < 0)
         if label?
           b = 0
         end
@@ -649,10 +649,10 @@ module Crysterm
 
         pos2.aleft = pos2.xi
         pos2.atop = pos2.yi
-        pos2.aright = screen.width - pos2.xl
-        pos2.abottom = screen.height - pos2.yl
-        pos2.width = pos2.xl - pos2.xi
-        pos2.height = pos2.yl - pos2.yi
+        pos2.aright = screen.awidth - pos2.xl
+        pos2.abottom = screen.aheight - pos2.yl
+        pos2.awidth = pos2.xl - pos2.xi
+        pos2.aheight = pos2.yl - pos2.yi
       end
 
       pos

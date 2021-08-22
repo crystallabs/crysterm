@@ -64,6 +64,7 @@ module Crysterm
   progressbar = ProgressBar.new \
     parent: layout,
     content: "{center}Progress bar{/center}",
+    parse_tags: true,
     filled: 50,
     width: 36,
     height: 3,

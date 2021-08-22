@@ -12,13 +12,13 @@ module Crysterm
         _label.set_content(text)
         if side != "right"
           _label.rleft = 2 + (@border ? -1 : 0)
-          _label.position.right = nil
+          _label.right = nil
           unless @auto_padding
             _label.rleft = 2
           end
         else
           _label.rright = 2 + (@border ? -1 : 0)
-          _label.position.left = nil
+          _label.left = nil
           unless @auto_padding
             _label.rright = 2
           end

@@ -16,9 +16,6 @@ module Crysterm
       # Absolute bottom offset.
       property abottom : Int32? = nil
 
-      # Absolute position on screen
-      property position = Tput::Position.new
-
       property? scrollable = false
 
       # Last rendered position

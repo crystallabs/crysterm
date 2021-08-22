@@ -196,7 +196,7 @@ module Crysterm
 
       def _type_scroll
         # O: XXX workaround
-        h = height - iheight
+        h = aheight - iheight
         if (@_clines.size - @child_base) > h
           scroll @_clines.size
         end

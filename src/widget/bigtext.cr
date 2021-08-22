@@ -99,17 +99,17 @@ module Crysterm
       end
 
       def render
-        if (@position.width.nil? || @_shrink_width)
+        if (@width.nil? || @_shrink_width)
           # D O:
-          # if (@width - @iwidth < @ratio.width * @text.length + 1)
-          @position.width = @ratio.width * @text.size + 1
+          # if (awidth - iwidth < @ratio.width * @text.length + 1)
+          @width = @ratio.width * @text.size + 1
           @_shrink_width = true
           # end
         end
-        if (@position.height.nil? || @_shrink_height)
+        if (@height.nil? || @_shrink_height)
           # D O:
-          # if (@height - @iheight < @ratio.height + 0)
-          @position.height = @ratio.height + 0
+          # if (aheight - iheight < @ratio.height + 0)
+          @height = @ratio.height + 0
           @_shrink_height = true
           # end
         end

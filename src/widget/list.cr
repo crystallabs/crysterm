@@ -72,9 +72,9 @@ module Crysterm
 
       def append_item(content : String)
         item = create_item content
-        item.position.top = @items.size
+        item.top = @items.size
         unless @auto_padding
-          item.position.top = itop + @items.size
+          item.top = itop + @items.size
         end
 
         @ritems.push content
@@ -105,8 +105,8 @@ module Crysterm
 
         j = i
         while j < @items.size
-          pt = @items[j].position.top.as(Int) - 1
-          @items[j].position.top = pt
+          pt = @items[j].top.as(Int) - 1
+          @items[j].top = pt
           j += 1
         end
 
@@ -222,10 +222,10 @@ module Crysterm
         item = create_item content
         j = i
         while j < @items.size
-          @items[j].position.top += 1
+          @items[j].top += 1
           j += 1
         end
-        item.position.top = i + (@auto_padding ? 0 : 1)
+        item.top = i + (@auto_padding ? 0 : 1)
         @ritems.insert i, content
         @items.insert i, item
         append item

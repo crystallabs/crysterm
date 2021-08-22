@@ -197,7 +197,7 @@ module Crysterm
 
       display.tput.alternate_buffer
       display.tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
-      display.tput.put(&.change_scroll_region?(0, height - 1))
+      display.tput.put(&.change_scroll_region?(0, aheight - 1))
       hide_cursor
       display.tput.cursor_pos 0, 0
       display.tput.put(&.ena_acs?) # enable_acs
@@ -212,10 +212,10 @@ module Crysterm
       # shrink existing array).
 
       old_height = @lines.size
-      new_height = height
+      new_height = aheight
 
       old_width = @lines[0]?.try(&.size) || 0
-      new_width = width
+      new_width = awidth
 
       do_clear = false
 
@@ -251,12 +251,12 @@ module Crysterm
     @[AlwaysInline]
     private def add_row(dirty)
       col = Row.new
-      adjust_width col, 0, width, dirty
+      adjust_width col, 0, awidth, dirty
       @lines.push col
       @lines[-1].dirty = dirty
 
       col = Row.new
-      adjust_width col, 0, width, dirty
+      adjust_width col, 0, awidth, dirty
       @olines.push col
       @olines[-1].dirty = dirty
     end
@@ -292,7 +292,7 @@ module Crysterm
 
       display.tput.put(&.keypad_local?)
 
-      if (display.tput.scroll_top != 0) || (display.tput.scroll_bottom != height - 1)
+      if (display.tput.scroll_top != 0) || (display.tput.scroll_bottom != aheight - 1)
         display.tput.set_scroll_region(0, display.tput.screen.height - 1)
       end
 
@@ -324,12 +324,12 @@ module Crysterm
     end
 
     # Returns current screen width.
-    def width
+    def awidth
       display.tput.screen.width
     end
 
     # Returns current screen height.
-    def height
+    def aheight
       display.tput.screen.height
     end
 

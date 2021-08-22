@@ -73,7 +73,7 @@ module Crysterm
 
       Log.trace { "Parsing widget content: #{@content.inspect}" }
 
-      colwidth = width - iwidth
+      colwidth = awidth - iwidth
       if (@_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content != @content)
         content =
           @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
@@ -648,7 +648,7 @@ module Crysterm
     end
 
     def insert_bottom(line)
-      h = (@child_base) + height - iheight
+      h = (@child_base) + aheight - iheight
       i = Math.min(h, @_clines.size)
       fake = @_clines.rtof[i - 1] + 1
 
@@ -661,7 +661,7 @@ module Crysterm
     end
 
     def delete_bottom(n)
-      h = (@child_base) + height - 1 - iheight
+      h = (@child_base) + aheight - 1 - iheight
       i = Math.min(h, @_clines.size - 1)
       fake = @_clines.rtof[i]
 
