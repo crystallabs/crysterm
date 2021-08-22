@@ -6,7 +6,7 @@ module Crysterm
     class Question < Box
       property text : String = ""
 
-      @hidden = true
+      @visible = false
 
       # TODO Positioning is bad for buttons.
       # Use a layout for buttons.
@@ -47,8 +47,8 @@ module Crysterm
 
         super **box
 
-        # Should not be needed when ivar exists already set
-        # @hidden = box["hidden"]?.nil? ? true : box["hidden"]? || false
+        # Should not be needed when ivar exists and is already set
+        # @visible = box["visible"]? ? true : box["hidden"]? || false
 
         append @ok
         append @cancel

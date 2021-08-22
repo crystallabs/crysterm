@@ -2,7 +2,9 @@
 
 ## Immediate Source Code TODOs
 
-- Remove widget_visibility
+- Same as Widget#hidden, rename Cursor#_hidden
+
+- Remove widget_visibility. Make visible? check recursively like it did
 
 - Determine what to do with label.side
 

@@ -40,7 +40,7 @@ module Crysterm
     label: " {blue-fg}Message{/blue-fg} ",
     parse_tags: true,
     keys: true,
-    hidden: true,
+    visible: false,
       # vi: true
 )
 
@@ -54,7 +54,7 @@ module Crysterm
     label: " {blue-fg}Loader{/blue-fg} ",
     parse_tags: true,
     keys: true,
-    hidden: true,
+    visible: false,
       # vi: true
 )
 

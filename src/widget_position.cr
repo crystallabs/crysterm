@@ -476,7 +476,7 @@ module Crysterm
     end
 
     def _get_coords(get = false, noscroll = false)
-      if (@hidden)
+      unless visible?
         return
       end
 

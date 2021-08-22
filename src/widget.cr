@@ -68,7 +68,7 @@ module Crysterm
       @height = nil,
       @resizable = false,
 
-      @hidden = false,
+      @visible = true,
       @fixed = false, # XXX document/check this
       @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
       @overflow : Overflow = Overflow::Ignore,

@@ -5,7 +5,7 @@ module Crysterm
     class Prompt < Box
       property text : String = ""
 
-      @hidden = true
+      @visible = false
 
       # TODO Positioning is bad for buttons.
       # Use a layout for buttons.

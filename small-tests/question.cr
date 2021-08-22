@@ -6,7 +6,7 @@ module Crysterm
   s = Screen.new
   q = Widget::Question.new \
     content: "{bold}HOT{/bold} or {underline}NOT{/underline}?",
-    # hidden: false,
+    # visible: true,
     parse_tags: true,
     top: "20%",
     left: "20%",
