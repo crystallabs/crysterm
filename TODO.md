@@ -2,6 +2,10 @@
 
 ## Immediate Source Code TODOs
 
+- Remove widget_hierarchy, widget_visibility, widget_z_index, widget_style, rectangles?
+
+- Determine what to do with label.side
+
 - Fix rendering of cursor color. Appears to be ignored in some cases.
 
 - Fix artificial cursor blink

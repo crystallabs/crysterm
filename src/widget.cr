@@ -15,7 +15,6 @@ require "./widget_hierarchy"
 require "./widget_style"
 require "./widget_interaction"
 require "./widget_label"
-require "./widget_focus"
 require "./widget_visibility"
 
 module Crysterm
@@ -42,6 +41,8 @@ module Crysterm
     # Draw shadow?
     # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
     property shadow : Shadow?
+
+    property? focus_on_click = false
 
     # Storage for any user-controlled/miscellaneous data.
     property data : JSON::Any?

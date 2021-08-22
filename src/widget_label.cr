@@ -5,6 +5,10 @@ module Crysterm
     property _label : Widget?
     @ev_label_resize : Crysterm::Event::Resize::Wrapper?
 
+    def label=(label)
+      label ? set_label(label) : remove_label
+    end
+
     # Sets widget label
     def set_label(text, side = "left")
       # If label exists, we update it and return
@@ -57,10 +61,6 @@ module Crysterm
 
       @ev_label_scroll = on Crysterm::Event::Scroll, ->reposition(Crysterm::Event::Scroll)
       @ev_label_resize = on Crysterm::Event::Resize, ->reposition(Crysterm::Event::Resize)
-    end
-
-    def label=(label)
-      set_label label
     end
 
     # Removes widget label
