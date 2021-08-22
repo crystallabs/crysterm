@@ -75,6 +75,8 @@ module Crysterm
       property bchar : Char = ' ' # Bg char
       # property fchar : Char = ' '
 
+      property? fill = true
+
       # For scrollbar
       property? ignore_border : Bool
 

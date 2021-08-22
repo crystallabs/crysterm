@@ -298,7 +298,7 @@ module Crysterm
             # end
           end
 
-          if @_no_fill
+          unless style.fill?
             next
           end
 

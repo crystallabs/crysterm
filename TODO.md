@@ -28,6 +28,8 @@
 
 ## Non-critical Fixes / Small Improvements to Existing code
 
+- Make shadow exist only in Style?
+
 - If the screen is too small to display a widget in layout, don't hide it completely, make sure that at least something is drawn even if incomplete or incorrect. See e.g. misc/pine.cr for an example
 
 - When aligning widgets, see if it is possible to control what char will fill the empty space, instead of always ' '

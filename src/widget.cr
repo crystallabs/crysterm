@@ -34,12 +34,9 @@ module Crysterm
     # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
     property shadow : Shadow?
 
-    # XXX FIX
+    # XXX FIX by removing at some point
     # Used only for lists
     property _is_list = false
-    # XXX
-
-    property? _no_fill = false
 
     # Amount of padding on the inside of the element
     property padding : Padding
