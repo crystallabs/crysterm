@@ -4,7 +4,7 @@ module Crysterm
     include Helpers
 
     # Can element's content be word-wrapped?
-    property? wrap = true
+    property? wrap_content = true
 
     # Is element's content to be parsed for tags?
     property? parse_tags = true
@@ -302,7 +302,7 @@ module Crysterm
     # Wraps content based on available widget width
     def _wrap_content(content, colwidth)
       default_state = @align
-      wrap = @wrap
+      wrap = @wrap_content
       margin = 0
       rtof = [] of Int32
       ftor = [] of Array(Int32)
@@ -401,7 +401,7 @@ module Crysterm
               i += 1
               # If we're not wrapping the text, we have to finish up the rest of
               # the control sequences before cutting off the line.
-              unless @wrap
+              unless @wrap_content
                 rest = line[i..].scan(/\e\[[^m]*m/) # SGR
                 rest = rest.any? ? rest.join : ""
                 outbuf.push _align(line[0...i] + rest, colwidth, align, align_left_too)

@@ -27,9 +27,11 @@ module Crysterm
     # Arbitrary widget name
     property name : String?
 
-    # XXX FIX by removing at some point
-    # Used only for lists
     property _is_list = false
+    # XXX FIX by removing at some point
+    # Used only for lists. The reason why it hasn't been replaced with is_a?(List)
+    # already is because maybe someone would want this to be true even if not
+    # in heriting from List.
 
     # Amount of padding on the inside of the element
     property padding : Padding
@@ -57,8 +59,8 @@ module Crysterm
       @resizable = false,
 
       @hidden = false,
-      @fixed = false,
-      @wrap = true,
+      @fixed = false, # XXX document/check this
+      @wrap_content = true,
       @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
       @overflow : Overflow = Overflow::Ignore,
 
