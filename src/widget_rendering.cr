@@ -617,6 +617,7 @@ module Crysterm
           end
           y += 1
         end
+        # TODO Support for drawing left and top shadow
       end
 
       if with_children

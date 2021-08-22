@@ -133,8 +133,6 @@ Most of these can be ignored, they are highly contextual.
 
 - Examine effect of `use_buffer` variable in Tput, and see whether it can be completely removed, or it can be used meaningfully in some way?
 
-- On an element, top/left/width/height can also be a string. Also allow Symbols to be used?
-
 - See if it would be of any benefit to mark certain methods with @[AlwaysInline].
 
 - In rendering, there is Overflow enum used as a return type, which defines what to do if a widget can't be rendered without overflowing. Add MoveWidget or similar as another option. It would have the effect of moving the widget so it can render. A use case for this would be e.g. auto-completion boxes or similar which pop-up. For simplicity the developer would just have them pop up at the desired location, and Crysterm would adjust for overflow automatically.

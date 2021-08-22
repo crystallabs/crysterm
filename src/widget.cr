@@ -30,11 +30,9 @@ module Crysterm
     # Automatically position child elements with border and padding in mind.
     property auto_padding = true
 
-    # Draw shadow on the element's right and bottom?
-    # If true, the amount of shadow transparency can be set in `#style.shadow_transparency`.
-    property shadow = false
-    # TODO Make it possible to draw shadow on all/any sides (unify class with Border),
-    # and see if this can be configurable as part of Style.
+    # Draw shadow?
+    # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
+    property shadow : Shadow?
 
     # XXX FIX
     # Used only for lists
@@ -81,10 +79,10 @@ module Crysterm
       @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
       resizable = nil,
       overflow : Overflow? = nil,
-      @shadow = false,
       @style = Style.new, # Previously: Style? = nil
       padding : Padding | Int32 = 0,
       border = nil,
+      shadow = nil,
       # @clickable=false,
       content = "",
       label = nil,
@@ -150,6 +148,17 @@ module Crysterm
                   border
                 else
                   raise "Invalid border argument"
+                end
+
+      @shadow = case shadow
+                when true
+                  Shadow.new
+                when nil, false
+                  # Nothing
+                when Shadow
+                  shadow
+                else
+                  raise "Invalid shadow argument"
                 end
 
       # Add element to parent

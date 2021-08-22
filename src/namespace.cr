@@ -233,6 +233,28 @@ module Crysterm
       end
     end
 
+    # Class for shadow definition.
+    class Shadow
+      #property type = BorderType::Line
+      property left : Bool
+      property top : Bool
+      property right : Bool
+      property bottom : Bool
+
+      def initialize(
+        #@type = BorderType::Line,
+        @left = false,
+        @top = false,
+        @right = true,
+        @bottom = true
+      )
+      end
+
+      def any?
+        !!(@left || @top || @right || @bottom)
+      end
+    end
+
     # class FocusEffects
     #  property bg
     # end
