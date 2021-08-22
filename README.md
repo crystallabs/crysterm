@@ -320,6 +320,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - It is hard to remember whether screen size is kept in property `columns` or `cols`. So in Crysterm the `Screen`s dimensions are in `width` and `height`, and this is uniform with all `Widget`s which also have their size in `width` and `height`.
 - `shrinkBox` is `Rectangle` in Crysterm, and `_get_shrink` is `_get_minimal_rectangle`
 - User-specified Widget options left, top, right, bottom, width, height, and resizable exist directly on `Widget` in Crysterm, rather than on `Widget.position`. Also, to get actual numbers/values out, one now needs to explicitly use e.g. `aleft` (absolute left), `rleft` (relative left) or `ileft` (inner/content left). This removes all ambiguity and lack of straightforwardness in which value is being accessed
+- Widgets can have shadow on any of the 4 sides, instead of always being drawn on the right and bottom
 
 List of current bugs / quirks in Crysterm, in no particular order:
 

@@ -580,42 +580,96 @@ module Crysterm
         end
       end
 
-      if shadow
-        # right
-        y = Math.max(yi + 1, 0)
-        while (y < yl + 1)
-          if (!lines[y]?)
-            break
-          end
-          x = xl
-          while (x < xl + 2)
-            if (!lines[y][x]?)
+      # Shadow
+      if s = shadow
+        if s.left?
+          i = s.top? ? yi - 1 : yi
+          l = s.bottom? ? yl + 1 : yl
+
+          y = Math.max(i, 0)
+          while (y < l)
+            if (!lines[y]?)
               break
             end
-            # D O:
-            # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
-            lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: style.shadow_transparency)
-            lines[y].dirty = true
-            x += 1
+            x = xi - 2
+            while (x < xi)
+              if (!lines[y][x]?)
+                break
+              end
+              # D O:
+              # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
+              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: style.shadow_transparency)
+              lines[y].dirty = true
+              x += 1
+            end
+            y += 1
           end
-          y += 1
         end
-        # bottom
-        y = yl
-        while (y < yl + 1)
-          if (!lines[y]?)
-            break
-          end
-          (Math.max(xi + 1, 0)...xl).each do |x2|
-            if (!lines[y][x2]?)
+
+        if s.top?
+          l = s.right? ? xl + 2 : (s.left? ? xl - 2 : xl)
+
+          y = yi - 1
+          while (y < yi)
+            if (!lines[y]?)
               break
             end
-            # D O:
-            # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
-            lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: style.shadow_transparency)
-            lines[y].dirty = true
+            (Math.max(xi, 0)...(l)).each do |x2|
+              if (!lines[y][x2]?)
+                break
+              end
+              # D O:
+              # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
+              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: style.shadow_transparency)
+              lines[y].dirty = true
+            end
+            y += 1
           end
-          y += 1
+        end
+
+        if s.right?
+          i = s.top? ? yi : yi + 1
+          l = s.bottom? ? yl + 1 : yl
+
+          y = Math.max(i, 0)
+          while (y < l)
+            if (!lines[y]?)
+              break
+            end
+            x = xl
+            while (x < xl + 2)
+              if (!lines[y][x]?)
+                break
+              end
+              # D O:
+              # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
+              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: style.shadow_transparency)
+              lines[y].dirty = true
+              x += 1
+            end
+            y += 1
+          end
+        end
+
+        if s.bottom?
+          i = s.right? ? xi + 1 : xi
+
+          y = yl
+          while (y < yl + 1)
+            if (!lines[y]?)
+              break
+            end
+            (Math.max(i, 0)...xl).each do |x2|
+              if (!lines[y][x2]?)
+                break
+              end
+              # D O:
+              # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
+              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: style.shadow_transparency)
+              lines[y].dirty = true
+            end
+            y += 1
+          end
         end
         # TODO Support for drawing left and top shadow
       end

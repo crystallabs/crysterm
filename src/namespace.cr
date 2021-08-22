@@ -235,19 +235,33 @@ module Crysterm
 
     # Class for shadow definition.
     class Shadow
-      #property type = BorderType::Line
-      property left : Bool
-      property top : Bool
-      property right : Bool
-      property bottom : Bool
+      # property type = BorderType::Line
+      property? left : Bool
+      property? top : Bool
+      property? right : Bool
+      property? bottom : Bool
 
       def initialize(
-        #@type = BorderType::Line,
-        @left = false,
-        @top = false,
-        @right = true,
+        # @type = BorderType::Line,
+        @left,
+        @top,
+        @right,
         @bottom = true
       )
+      end
+
+      def initialize(left_and_right, top_and_bottom)
+        @left = @right = left_and_right
+        @top = @bottom = top_and_bottom
+      end
+
+      def initialize(all)
+        @left = @top = @right = @bottom = all
+      end
+
+      def initialize
+        @left = @top = false
+        @right = @bottom = true
       end
 
       def any?

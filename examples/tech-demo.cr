@@ -155,6 +155,7 @@ module Crysterm
     left: 160,
     border: BorderType::Bg,
     content: "Hello, World! See translucency and shadow.",
+    shadow: Shadow.new(true, true, false, false),
     style: Style.new("bg": "#870087")
   )
   boxtp1 = Box.new(
