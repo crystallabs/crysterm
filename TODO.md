@@ -2,8 +2,6 @@
 
 ## Immediate Source Code TODOs
 
-- Determine reason of wrong cursor position in examples/test2.cr
-
 - Fix rendering of cursor color. Appears to be ignored in some cases.
 
 - Fix artificial cursor blink

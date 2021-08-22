@@ -52,6 +52,7 @@ module Crysterm
 
       @name = nil,
       @uid = next_uid,
+      @screen = determine_screen,
 
       @left = nil,
       @top = nil,
@@ -93,7 +94,6 @@ module Crysterm
       @input = false,
 
       # Final, misc settings
-      @screen = determine_screen, # NOTE a todo item about this is in file TODO
       @index = -1,
       children = [] of Widget,
       @auto_padding = true,

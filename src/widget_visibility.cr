@@ -16,8 +16,11 @@ module Crysterm
       clear_pos
       @hidden = true
       emit Crysterm::Event::Hide
-      # screen.rewind_focus if focused?
-      screen.rewind_focus if screen.focused == self
+
+      screen.try do |s|
+        # s.rewind_focus if focused?
+        s.rewind_focus if s.focused == self
+      end
     end
 
     # Toggles widget visibility
