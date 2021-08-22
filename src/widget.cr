@@ -30,8 +30,9 @@ module Crysterm
     # Automatically position child elements with border and padding in mind.
     property auto_padding = true
 
-    # Draw shadow on the element's right and bottom? Can be `true` for opacity 0.5, or a specific Float.
-    property shadow : Float64?
+    # Draw shadow on the element's right and bottom?
+    # If true, the amount of shadow transparency can be set in `#style.shadow_transparency`.
+    property shadow = false
     # TODO Make it possible to draw shadow on all/any sides (unify class with Border),
     # and see if this can be configurable as part of Style.
 
@@ -76,7 +77,7 @@ module Crysterm
       position : Tput::Position? = nil,
       resizable = nil,
       overflow : Overflow? = nil,
-      shadow = nil,
+      @shadow = false,
       @style = Style.new, # Previously: Style? = nil
       padding : Padding | Int32 = 0,
       border = nil,
@@ -89,8 +90,7 @@ module Crysterm
       @draggable = false,
       focused = false,
 
-      # synonyms
-      @parse_tags = true,
+      @parse_tags = false,
 
       auto_focus = false,
 
@@ -106,24 +106,6 @@ module Crysterm
       @keys = false,
       input = nil
     )
-      @tabc = tabc || (" " * @style.tab_size)
-      resizable.try { |v| @resizable = v }
-      hidden.try { |v| @hidden = v }
-      scrollable.try { |v| @scrollable = v }
-      overflow.try { |v| @overflow = v }
-      shadow.try { |v| @shadow = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
-
-      scrollbar.try { |v| @scrollbar = v }
-      track.try { |v| @track = v }
-      input.try { |v| @input = v }
-
-      @uid = next_uid
-
-      # Allow name to be nil, to avoid creating strings
-      # @name = name || "#{self.class.name}-#{@uid}"
-
-      # $ = _ = JSON/YAML::Any
-
       if position
         @position = position
       else
@@ -135,7 +117,26 @@ module Crysterm
           width: width,
           height: height
       end
-      @resizable = true if @position.resizable?
+
+      hidden.try { |v| @hidden = v }
+
+      resizable.try { |v| @position.resizable = v }
+
+      overflow.try { |v| @overflow = v }
+
+      scrollbar.try { |v| @scrollbar = v }
+      track.try { |v| @track = v }
+      scrollable.try { |v| @scrollable = v }
+
+      @tabc = tabc || (" " * @style.tab_size)
+      input.try { |v| @input = v }
+
+      @uid = next_uid
+
+      # Allow name to be nil, to avoid creating strings
+      # @name = name || "#{self.class.name}-#{@uid}"
+
+      # $ = _ = JSON/YAML::Any
 
       case padding
       when Int

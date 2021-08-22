@@ -580,7 +580,7 @@ module Crysterm
         end
       end
 
-      @shadow.try do |shadow|
+      if shadow
         # right
         y = Math.max(yi + 1, 0)
         while (y < yl + 1)
@@ -594,7 +594,7 @@ module Crysterm
             end
             # D O:
             # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
-            lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: shadow)
+            lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: style.shadow_transparency)
             lines[y].dirty = true
             x += 1
           end
@@ -612,7 +612,7 @@ module Crysterm
             end
             # D O:
             # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
-            lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: shadow)
+            lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: style.shadow_transparency)
             lines[y].dirty = true
           end
           y += 1

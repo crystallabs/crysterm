@@ -74,7 +74,7 @@ module Crysterm
         ->(el : Widget, i : Int32) {
           # Make our children resizable. If they don't have a height, for
           # example, calculate it for them.
-          el.resizable = true
+          el.position.resizable = true
 
           # Find the previous rendered child's coordinates
           last = get_last i

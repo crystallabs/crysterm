@@ -4,6 +4,7 @@ module Crysterm
     # Widget's complete style definition.
     class_property style : Style = Style.new
 
+    @[AlwaysInline]
     def style
       focused? ? (@style.focus || @style) : @style
     end

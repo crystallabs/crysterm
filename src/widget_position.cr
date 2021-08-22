@@ -2,9 +2,6 @@ module Crysterm
   class Widget < ::Crysterm::Object
     private property? fixed = false
 
-    # Can width/height be auto-adjusted during rendering based on content and child elements?
-    property? resizable = false
-
     # module Position
     def aleft
       _get_left false
@@ -454,7 +451,7 @@ module Crysterm
 
       # Attempt to resize the element based on the
       # size of the content and child elements.
-      if @resizable
+      if @position.resizable?
         coords = _get_minimal_rectangle(xi, xl, yi, yl, get)
         xi = coords.xi
         xl = coords.xl
@@ -491,7 +488,7 @@ module Crysterm
 
         # The resizable option can cause a stack overflow
         # by calling _get_coords on the child again.
-        # if (!get && !thisparent.resizable?)
+        # if (!get && !thisparent.position.resizable?)
         #   ppos = thisparent._get_coords()
         # end
 

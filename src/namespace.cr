@@ -64,6 +64,7 @@ module Crysterm
       property inverse : Bool = false
       property invisible : Bool = false
       property transparency : Float64? = nil
+      property shadow_transparency : Float64 = 0.5
 
       property tab_size = TAB_SIZE
 
@@ -81,7 +82,7 @@ module Crysterm
       # If any of them is not defined, it defaults to main/parent style.
       setter border : Style?
       setter scrollbar : Style?
-      setter shadow : Style?
+      # setter shadow : Style?
       setter track : Style?
       setter bar : Style?
       setter item : Style?
@@ -110,9 +111,9 @@ module Crysterm
         @hover || self
       end
 
-      def shadow
-        @shadow || self
-      end
+      # def shadow
+      #  @shadow || self
+      # end
 
       def track
         @track || self
@@ -151,7 +152,7 @@ module Crysterm
         @scrollbar = nil,
         @focus = nil,
         @hover = nil,
-        @shadow = nil,
+        # @shadow = nil,
         @track = nil,
         @bar = nil,
         @selected = nil,

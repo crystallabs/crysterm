@@ -256,7 +256,7 @@ Crysterm is interoperable with those approaches.
 Every `Widget` has an attribute `style`, defining the colors and attributes to use during rendering.
 If no style is explicitly defined, the default style is instantiated. Apart from styling the widget
 itself, each `Style` may have overriding style definitions for widget's possible subelements
-(border, scrollbar, shadow, track, bar, item, header, cell, label) and states (focus, blur, hover, selected).
+(border, scrollbar, track, bar, item, header, cell, label) and states (focus, blur, hover, selected).
 
 If any of these subelements have more specific settings which define substantial behavior and not
 just visual aspects, they are defined as properties directly on the widget (e.g. `Widget#border`,
@@ -309,7 +309,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`. Default is true
 - All terminal-level stuff is in shard `Tput`, not `Crysterm`
 - `style` property has been consolidated; all style-related stuff is under widget's `@style : Style`
-- Widget property `shadow` also accepts Float64, in addition to `true` which defaults to drawing shadow with alpha=0.5
+- Widget property `shadow` is a bool, and default amount of transparency is `style.shadow_transparency = 0.5`
 - Style property `transparent` has been renamed to `transparency` and also accepts Float64, in addition to `true` which defaults to 0.5
 - In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed and arguably more correct (Blessed uses background color)
 - In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
