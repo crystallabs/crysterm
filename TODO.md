@@ -2,7 +2,7 @@
 
 ## Immediate Source Code TODOs
 
-- Remove widget_visibility, widget_z_index
+- Remove widget_visibility
 
 - Determine what to do with label.side
 
