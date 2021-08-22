@@ -18,7 +18,7 @@ module Crysterm
 
     # Removes node from its parent.
     # This is identical to calling `#remove` on the parent object.
-    def deparent
+    def remove_parent
       @parent.try { |p| p.remove self }
     end
 
@@ -28,7 +28,7 @@ module Crysterm
         element.screen.try &.detach(element)
       end
 
-      element.deparent
+      element.remove_parent
 
       super
       screen.try &.attach(element)

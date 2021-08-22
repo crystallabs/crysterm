@@ -176,7 +176,7 @@ module Crysterm
       # When scrolling text, we want to be able to handle SGR codes as well as line
       # feeds. This allows us to take preformatted text output from other programs
       # and put it in a scrollable text box.
-      parse_content
+      process_content
 
       # D O:
       # XXX

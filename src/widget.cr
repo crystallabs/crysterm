@@ -57,33 +57,34 @@ module Crysterm
       @bottom = nil,
       @width = nil,
       @height = nil,
+      @resizable = false,
 
-      hidden = nil,
+      @hidden = false,
       @fixed = false,
       @wrap = true,
       @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
-      resizable = nil,
-      overflow : Overflow? = nil,
+      @overflow : Overflow = Overflow::Ignore,
+
       @style = Style.new, # Previously: Style? = nil
+
       padding : Padding | Int32 = 0,
       border = nil,
       shadow = nil,
-      # @clickable=false,
+      @scrollbar = false,
+      # TODO Make it configurable which side it appears on etc.
+
       content = "",
       label = nil,
       hover_text = nil,
+      # TODO Unify naming label[_text]/hover[_text]
+
       scrollable = nil,
       # hover_bg=nil,
       @draggable = false,
       focused = false,
-
       @parse_tags = false,
-
       auto_focus = false,
-
-      scrollbar = nil,
       track = nil,
-
       @name = nil,
       @screen = determine_screen, # NOTE a todo item about this is in file TODO
       index = -1,
@@ -93,13 +94,6 @@ module Crysterm
       @keys = false,
       input = nil
     )
-      hidden.try { |v| @hidden = v }
-
-      resizable.try { |v| @resizable = v }
-
-      overflow.try { |v| @overflow = v }
-
-      scrollbar.try { |v| @scrollbar = v }
       track.try { |v| @track = v }
       scrollable.try { |v| @scrollable = v }
 
@@ -157,13 +151,17 @@ module Crysterm
         append child
       end
 
-      set_content(content, true)
-      set_label(label, "left") if label
-      set_hover(hover_text) if hover_text
+      set_content content, true
+      label.try do |t|
+        set_label l, "left"
+      end
+      hover_text.try do |t|
+        set_hover t
+      end
 
       # on(AddHandlerEvent) { |wrapper| }
-      on(Crysterm::Event::Resize) { parse_content }
-      on(Crysterm::Event::Attach) { parse_content }
+      on(Crysterm::Event::Resize) { process_content }
+      on(Crysterm::Event::Attach) { process_content }
       # on(Crysterm::Event::Detach) { @lpos = nil } # XXX D O or E O?
 
       if s = scrollbar
@@ -257,32 +255,6 @@ module Crysterm
       focus if focused
     end
 
-    # alias_previous :set_scroll
-
-    def self.sattr(style : Style, fg = nil, bg = nil)
-      if fg.nil? && bg.nil?
-        fg = style.fg
-        bg = style.bg
-      end
-
-      # TODO support style.* being Procs ?
-
-      # D O:
-      # return (this.uid << 24)
-      #   | ((this.dockBorders ? 32 : 0) << 18)
-      ((style.invisible ? 16 : 0) << 18) |
-        ((style.inverse ? 8 : 0) << 18) |
-        ((style.blink ? 4 : 0) << 18) |
-        ((style.underline ? 2 : 0) << 18) |
-        ((style.bold ? 1 : 0) << 18) |
-        (Colors.convert(fg) << 9) |
-        Colors.convert(bg)
-    end
-
-    def sattr(style : Style, fg = nil, bg = nil)
-      self.class.sattr style, fg, bg
-    end
-
     def screenshot(xi = nil, xl = nil, yi = nil, yl = nil)
       xi = @lpos.xi + ileft + (xi || 0)
       if xl
@@ -305,7 +277,7 @@ module Crysterm
       @children.each do |c|
         c.destroy
       end
-      deparent
+      remove_parent
       @destroyed = true
       emit Crysterm::Event::Destroy
     end

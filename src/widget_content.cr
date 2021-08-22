@@ -14,6 +14,45 @@ module Crysterm
     # Alignment of contained text
     property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
 
+    # Widget's user-set content in original form. Includes any attributes and tags.
+    getter content : String = ""
+
+    # Processes and sets widget content. Does not allow extra options re.
+    # how content is to be processed; use `#set_content` if they need to
+    # be provided.
+    def content=(content)
+      set_content content
+    end
+
+    # Printable, word-wrapped content, ready for rendering into the element.
+    property _pcontent : String?
+
+    def set_content(content = "", no_clear = false, no_tags = false)
+      clear_pos unless no_clear
+
+      # XXX make it possible to have `update_context`, which only updates
+      # internal structures, not @content (for rendering purposes, where
+      # original content should not be modified).
+      @content = content
+
+      process_content(no_tags)
+      emit(Crysterm::Event::SetContent)
+    end
+
+    def get_content
+      return "" if @_clines.empty?
+      @_clines.fake.join "\n"
+    end
+
+    def set_text(content = "", no_clear = false)
+      content = content.gsub SGR_REGEX, ""
+      set_content content, no_clear, true
+    end
+
+    def get_text
+      get_content.gsub SGR_REGEX, ""
+    end
+
     class CLines < Array(String)
       property string = ""
       property max_width = 0
@@ -36,39 +75,7 @@ module Crysterm
 
     property _clines = CLines.new
 
-    # Widget's text content. Includes any attributes and tags.
-    getter content : String = ""
-
-    # Printable, word-wrapped content, ready for rendering into the element.
-    property _pcontent : String?
-
-    def set_content(content = "", no_clear = false, no_tags = false)
-      clear_pos unless no_clear
-
-      # XXX make it possible to have `update_context`, which only updates
-      # internal structures, not @content (for rendering purposes, where
-      # original content should not be modified).
-      @content = content
-
-      parse_content(no_tags)
-      emit(Crysterm::Event::SetContent)
-    end
-
-    def get_content
-      return "" if @_clines.empty?
-      @_clines.fake.join "\n"
-    end
-
-    def set_text(content = "", no_clear = false)
-      content = content.gsub SGR_REGEX, ""
-      set_content content, no_clear, true
-    end
-
-    def get_text
-      get_content.gsub SGR_REGEX, ""
-    end
-
-    def parse_content(no_tags = false)
+    def process_content(no_tags = false)
       return false unless @screen # XXX why?
 
       Log.trace { "Parsing widget content: #{@content.inspect}" }

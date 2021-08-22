@@ -59,12 +59,16 @@ module Crysterm
       @ev_label_resize = on Crysterm::Event::Resize, ->reposition(Crysterm::Event::Resize)
     end
 
+    def label=(label)
+      set_label label
+    end
+
     # Removes widget label
     def remove_label
       return unless @_label
       off ::Crysterm::Event::Scroll, @ev_label_scroll
       off ::Crysterm::Event::Resize, @ev_label_resize
-      @_label.deparent
+      @_label.remove_parent
       @ev_label_scroll = nil
       @ev_label_resize = nil
       @_label = nil

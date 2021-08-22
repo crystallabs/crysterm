@@ -21,6 +21,8 @@ module Crysterm
     property? keys : Bool = false
     property? ignore_keys : Bool = false
 
+    # property? clickable = false
+
     def set_hover(hover_text)
     end
 

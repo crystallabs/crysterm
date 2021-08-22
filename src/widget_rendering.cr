@@ -29,7 +29,7 @@ module Crysterm
         end
       end
 
-      parse_content
+      process_content
 
       coords = _get_coords(true)
       unless coords
@@ -696,6 +696,29 @@ module Crysterm
     def render(with_children = true)
       _render with_children
     end
-    # end
+
+    def self.sattr(style : Style, fg = nil, bg = nil)
+      if fg.nil? && bg.nil?
+        fg = style.fg
+        bg = style.bg
+      end
+
+      # TODO support style.* being Procs ?
+
+      # D O:
+      # return (this.uid << 24)
+      #   | ((this.dockBorders ? 32 : 0) << 18)
+      ((style.invisible ? 16 : 0) << 18) |
+        ((style.inverse ? 8 : 0) << 18) |
+        ((style.blink ? 4 : 0) << 18) |
+        ((style.underline ? 2 : 0) << 18) |
+        ((style.bold ? 1 : 0) << 18) |
+        (Colors.convert(fg) << 9) |
+        Colors.convert(bg)
+    end
+
+    def sattr(style : Style, fg = nil, bg = nil)
+      self.class.sattr style, fg, bg
+    end
   end
 end
