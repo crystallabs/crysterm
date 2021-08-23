@@ -11,7 +11,6 @@ require "./widget_position"
 require "./widget_scrolling"
 require "./widget_interaction"
 require "./widget_label"
-require "./widget_visibility"
 
 module Crysterm
   class Widget < ::Crysterm::Object
@@ -49,16 +48,19 @@ module Crysterm
 
     setter style : Style
 
+    # Is element hidden? Hidden elements are not rendered on the screen and their dimensions don't use screen space.
+    setter visible = true
+
     # Storage for any user-controlled/miscellaneous data.
     property data : JSON::Any?
 
     def initialize(
-      @parent = nil,
+      parent = nil,
       *,
 
       @name = nil,
       @uid = next_uid,
-      screen = nil,
+      @screen = nil,
 
       @left = nil,
       @top = nil,
@@ -91,7 +93,7 @@ module Crysterm
       hover_text = nil,
       # TODO Unify naming label[_text]/hover[_text]
 
-      @scrollable = false,
+      scrollable = nil,
       # hover_bg=nil,
       @draggable = false,
       focused = false,
@@ -106,6 +108,8 @@ module Crysterm
       @tabc = (" " * style.tab_size)
     )
       # $ = _ = JSON/YAML::Any
+
+      scrollable.try { |v| @scrollable = v }
 
       case padding
       when Int
@@ -140,18 +144,13 @@ module Crysterm
                   raise "Invalid shadow argument"
                 end
 
-      if screen
-        screen.append self
-      else
-        @screen ||= determine_screen
-      end
+      # This just defines which Screen it is all linked to.
+      # (Until we make `screen` fully optional)
+      @screen ||= determine_screen
 
-      # Add element to parent
-      if parent = @parent
-        parent.append self
-        # elsif screen # XXX Don't do; see above for arg screen, and see TODO file
-        #  screen.try &.append self
-      end
+      # And this takes care of parent hierarchy. Parent arg as passed
+      # to this function can be a Widget or Screen.
+      parent.try &.append self
 
       children.each do |child|
         append child
@@ -285,6 +284,44 @@ module Crysterm
       end
       remove_parent
       emit Crysterm::Event::Destroy
+    end
+
+    # Shows widget on screen
+    def show
+      return if visible?
+      @visible = false
+      emit Crysterm::Event::Show
+    end
+
+    # Hides widget from screen
+    def hide
+      return unless visible?
+      clear_last_rendered_position
+      @visible = false
+      emit Crysterm::Event::Hide
+
+      screen.try do |s|
+        # s.rewind_focus if focused?
+        s.rewind_focus if s.focused == self
+      end
+    end
+
+    # Toggles widget visibility
+    def toggle_visibility
+      @visible ? hide : show
+    end
+
+    # Returns whether widget is visible. It also checks the complete chain of widget parents.
+    def visible?
+      # TODO Revert back to chained lookup eventually
+      @visible
+      # el = self
+      # while el
+      #  return false unless el.screen
+      #  return false unless el.visible?
+      #  el = el.parent
+      # end
+      # true
     end
   end
 end

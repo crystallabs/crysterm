@@ -48,18 +48,18 @@ module Crysterm
     parent: layout,
     width: 18,
     height: 18,
-    border: BorderType::Bg,
-  )
+      # border: BorderType::Bg,
+)
   checkbox1 = Checkbox.new parent: checkboxes, content: "Checkbox 1", top: 0
   checkbox2 = Checkbox.new parent: checkboxes, content: "Checkbox 2", top: 2
   checkbox3 = Checkbox.new parent: checkboxes, content: "Checkbox 3", top: 4
   checkbox4 = Checkbox.new parent: checkboxes, content: "Checkbox 4", top: 6
 
   radioset = RadioSet.new parent: layout, width: 20, height: 18
-  radio1 = RadioButton.new parent: radioset, content: "Radio button 1", top: 1
-  radio2 = RadioButton.new parent: radioset, content: "Radio button 2", top: 3
-  radio3 = RadioButton.new parent: radioset, content: "Radio button 3", top: 5
-  radio4 = RadioButton.new parent: radioset, content: "Radio button 4", top: 7
+  radio1 = RadioButton.new parent: radioset, content: "Radio button 1", top: 0
+  radio2 = RadioButton.new parent: radioset, content: "Radio button 2", top: 2
+  radio3 = RadioButton.new parent: radioset, content: "Radio button 3", top: 4
+  radio4 = RadioButton.new parent: radioset, content: "Radio button 4", top: 6
 
   progressbar = ProgressBar.new \
     parent: layout,

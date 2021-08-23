@@ -16,7 +16,7 @@ class MyProg
   # `Box` is one of the available widgets. It is a read-only space for
   # displaying text etc. In Qt terms, this is a Label.
   b = Widget::Box.new \
-    screen: s,
+    parent: s,
     name: "helloworld box", # Symbolic name
     top: "center",          # Can also be 10, "50%", or "50%-10"
     left: "center",         # Same as above
@@ -41,7 +41,7 @@ class MyProg
 
   # When q is pressed, exit the demo.
   s.on(Event::KeyPress) do |e|
-    if e.char == 'q'
+    if e.char == 'q' || e.key == Tput::Key::CtrlQ
       exit
     end
   end

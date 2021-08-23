@@ -323,7 +323,7 @@ module Crysterm
 
       # Draw the scrollbar.
       # Could possibly draw this after all child elements.
-      if (coords.notop || coords.nobot)
+      if coords.no_top? || coords.no_bottom?
         i = -Int32::MAX
       end
       @scrollbar.try do # |scrollbar|
@@ -383,17 +383,17 @@ module Crysterm
       if border = @border
         battr = sattr style.border
         y = yi
-        if (coords.notop)
+        if coords.no_top?
           y = -1
         end
         (xi...xl).each do |x|
           if (!lines[y]?)
             break
           end
-          if (coords.noleft && x == xi)
+          if coords.no_left? && (x == xi)
             next
           end
-          if (coords.noright && x == xl - 1)
+          if coords.no_right? && (x == xl - 1)
             next
           end
           cell = lines[y][x]?
@@ -467,7 +467,7 @@ module Crysterm
               elsif border.type.bg?
                 ch = style.border.char
               end
-              if (!coords.noleft)
+              if !coords.no_left?
                 if cell != {battr, ch}
                   lines[y][xi].attr = battr
                   lines[y][xi].char = ch ? ch : ' '
@@ -492,7 +492,7 @@ module Crysterm
               elsif border.type.bg?
                 ch = style.border.char
               end
-              if (!coords.noright)
+              if !coords.no_right?
                 if cell != {battr, ch}
                   lines[y][xl - 1].attr = battr
                   lines[y][xl - 1].char = ch ? ch : ' '
@@ -511,17 +511,17 @@ module Crysterm
           y += 1
         end
         y = yl - 1
-        if (coords.nobot)
+        if coords.no_bottom?
           y = -1
         end
         (xi...xl).each do |x|
           if (!lines[y]?)
             break
           end
-          if (coords.noleft && x == xi)
+          if coords.no_left? && (x == xi)
             next
           end
-          if (coords.noright && x == xl - 1)
+          if coords.no_right? && (x == xl - 1)
             next
           end
           cell = lines[y][x]?

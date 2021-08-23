@@ -1,18 +1,10 @@
- TODOs, Most Important First
+# TODOs, Most Important First
 
 ## Immediate Source Code TODOs
-
-- Same as Widget#hidden, rename Cursor#_hidden
-
-- Remove widget_visibility. Make visible? check recursively like it did
-
-- Determine what to do with label.side
 
 - Fix rendering of cursor color. Appears to be ignored in some cases.
 
 - Fix artificial cursor blink
-
-- Make cursor be property on widget
 
 - Fix for TextArea's _done; make sure that both examples/hello2.cr and prompt/question example work
 
@@ -20,25 +12,25 @@
 
 - In Checkbox and Radiobutton widgets, when these elements have a border or padding, the cursor is placed incorrectly because it is hardcoded that it goes to relative position 0,1. This is a bug present in blessed too.
 
-- Allow Displays to have Screens as children elements (to allow screens being present in multiple windows). Or just dup them?
-
-## Fixes to Existing Code
-
-- Support TrueColor - https://mudhalla.net/tintin/info/truecolor/ etc.
-
 - Make sure that chars typed in text input are immediately rendered (i.e. not holding 1 in buffer in non-release mode). Hopefully the only issue here is just timing, i.e. the way how render() call schedules a render.
 
 - Issue with transparency, where a transparent element gets more opaque on every render. This is caused by code found at first occurrence of 'transparency' in src/widget.cr. Example can be seen if we add a transparent padding to e.g. members list widget in example/chat.cr. In Blessed, the value of lines[y][x][attr] seems to always be the same, whereas in our case it has the resulting value from previous render, and so on every render the field's color gets additionally blended until it has 100% opacity rather than staying at initial/desired value.
 
 - On exit, reset colors and exit from ACS
 
-- Resizing doesn't work 100% right - some resizing artifacts remain as one is resizing around
+- Resizing doesn't work 100% right - some resizing artifacts remain as one is resizing around. Or it seems it works?
 
-## Non-critical Fixes / Small Improvements to Existing code
+## Non-critical Fixes and Small Improvements to Existing code
+
+- Same as Widget#hidden, rename Cursor#_hidden
+
+- Determine what to do with label.side
+
+- Make cursor be property on widget
+
+- Allow Displays to have Screens as children elements (to allow screens being present in multiple windows). Or just dup them?
 
 - Make Widget#content be original, user-supplied content. Name all other accessors differently (same type of solution as for left/right/etc.)
-
-- Make shadow exist only in Style? Should border, shadow, and padding exist only in Style? Also scrollbar? And label?
 
 - If the screen is too small to display a widget in layout, don't hide it completely, make sure that at least something is drawn even if incomplete or incorrect. See e.g. misc/pine.cr for an example
 
@@ -46,27 +38,15 @@
 
 - Verify color names specifically listed in tput's `src/tput/output/text.cr` and check if there are any discrepancies compared to color names or name syntax and pattern listed/supported in the `term_colors` shard. If yes, make them uniform.
 
-- Ability for scrollbar to be on the left side of the widget
-
 - Widget::Prompt - determine the reason for 1 cell difference in positioning of "Question" and "Cancel". Does it have to do with auto_padding which is now default? If yes, just ignore this issue.
-
-- If at all possible, make widgets instantiable without `screen:` value. Currently screen is needed because some things re. widgets are looked up in their `#screen`. Would be great if nothing in widget code would touch `screen` unless widget really was a child of particular screen. This would also make widgets migratable between screens, which currently (inherited from Blessed) is not possible.
 
 - Crysterm is missing a full, 100% working TextArea widget (same as Blessed). TextArea that exists is very basic. Dbkaplun wrote Slap, text editor based on blessed. Try to port its text editor widget to Crysterm
 
-- Add mouse support
 - Add the top of `def _render`, there is code added checking for _is_list etc., to be able to style list items correctly. But, this probably needs to go into a render() function which is subclassed in List, rather than being present in global _render
 
 - Make sure that the background character for a cell is always configurable and never literally taken to be ' '.  This will allow someone to completely change what the background char is. I guess this has already been done to a good extent, but verifying/confirming it would be good.
 
 - Make uniform passing of args to classes, with class decls, function arguments, and arg.try... (E.g. disable unnamed parameters to all methods that have non-trivial args)
-
-- There is a concept of Unicode and "full Unicode". Full being the one with all Unicode stuff that Crystal currently does not support outside of its UTF-8 support. See what to do this over time - is there a chance Crystal would support more? Yes:
-https://github.com/crystal-lang/crystal/pull/10721#
-
-- Regarding "label" on widgets, option `side` can't be passed at the moment. Could turn it into a class or enum, and see how side would be passed embedded in `Widget#initialize`'s `label` argument
-
-- Widget's option `label:` creates a text widget behind the scenes. Maybe this option should be renamed label_text: or similar, and label should allow providing a complete Widget in this place.
 
 - It is not 100% defined what happens if a Widget has parse_tags true, and there is syntax error in the tags. A syntax error is something as simple or just { or }. In the case of one {, { remains in input and the rest is removed. In all other cases (more {s or one or more }s), the whole section is removed.  This should be fixed/standardized. Offhand, either always removing everything, or always removing anything that's invalid as-is. (Didn't check yet how blessed does it.)
 

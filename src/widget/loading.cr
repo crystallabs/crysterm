@@ -89,7 +89,7 @@ module Crysterm
       end
 
       def render
-        clear_pos true
+        clear_last_rendered_position true
         if compact?
           set_content "#{@icon.content} #{@text || @orig_text}", true
           super false

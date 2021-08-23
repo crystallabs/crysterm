@@ -59,8 +59,18 @@ module Crysterm
         _label.rtop = 0
       end
 
-      @ev_label_scroll = on Crysterm::Event::Scroll, ->reposition(Crysterm::Event::Scroll)
-      @ev_label_resize = on Crysterm::Event::Resize, ->reposition(Crysterm::Event::Resize)
+      @ev_label_scroll = on Crysterm::Event::Scroll, ->reposition_label(Crysterm::Event::Scroll)
+      @ev_label_resize = on Crysterm::Event::Resize, ->reposition_label(Crysterm::Event::Resize)
+    end
+
+    def reposition_label(event = nil)
+      @_label.try do |_label|
+        _label.rtop = @child_base - itop
+        unless @auto_padding
+          _label.rtop = @child_base
+        end
+        screen.render
+      end
     end
 
     # Removes widget label
@@ -73,6 +83,5 @@ module Crysterm
       @ev_label_resize = nil
       @_label = nil
     end
-    # end
   end
 end

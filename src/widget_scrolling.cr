@@ -1,9 +1,5 @@
 module Crysterm
   class Widget < ::Crysterm::Object
-    # module Scrolling
-
-    # START SCROLLABLE
-
     # Is element scrollable?
     property? scrollable = false
 
@@ -27,8 +23,6 @@ module Crysterm
     property? always_scroll : Bool = false
 
     property _scroll_bottom : Int32 = 0
-
-    # END SCROLLABLE
 
     @ev_label_scroll : Crysterm::Event::Scroll::Wrapper?
 
@@ -225,6 +219,5 @@ module Crysterm
 
       emit Crysterm::Event::Scroll
     end
-    # end
   end
 end

@@ -17,18 +17,20 @@ module Crysterm
     # Widget's user-set content in original form. Includes any attributes and tags.
     getter content : String = ""
 
+    # Printable, word-wrapped content, ready for rendering into the element.
+    property _pcontent : String?
+
+    property _clines = CLines.new
+
     # Processes and sets widget content. Does not allow extra options re.
-    # how content is to be processed; use `#set_content` if they need to
-    # be provided.
+    # how content is to be processed; use `#set_content` if you need to provide
+    # extra options.
     def content=(content)
       set_content content
     end
 
-    # Printable, word-wrapped content, ready for rendering into the element.
-    property _pcontent : String?
-
     def set_content(content = "", no_clear = false, no_tags = false)
-      clear_pos unless no_clear
+      clear_last_rendered_position unless no_clear
 
       # XXX make it possible to have `update_context`, which only updates
       # internal structures, not @content (for rendering purposes, where
@@ -72,8 +74,6 @@ module Crysterm
 
       property ci = [] of Int32
     end
-
-    property _clines = CLines.new
 
     def process_content(no_tags = false)
       return false unless @screen # XXX why?
@@ -622,7 +622,7 @@ module Crysterm
 
       diff = start - @_clines.size
 
-      # XXX clear_pos() without diff statement?
+      # XXX clear_last_rendered_position() without diff statement?
       height = 0
 
       if (diff > 0)
@@ -645,7 +645,7 @@ module Crysterm
       end
 
       if (@_clines.size < height)
-        clear_pos()
+        clear_last_rendered_position
       end
     end
 

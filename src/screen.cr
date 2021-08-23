@@ -331,7 +331,7 @@ module Crysterm
     end
 
     # TODO Instead of self, this should just return an object which reports the position.
-    def _get_pos
+    def last_rendered_position
       self
     end
 

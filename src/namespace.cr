@@ -216,6 +216,7 @@ module Crysterm
     # Class for border definition.
     class Border
       property type = BorderType::Line
+      # These don't have ? because they'll be replaced with Ints in the future
       property left : Bool
       property top : Bool
       property right : Bool
@@ -284,12 +285,12 @@ module Crysterm
     #
     # Used only internally; could be replaced by anything else that has
     # the necessary properties.
-    class Rectangle
-      property xi : Int32
-      property xl : Int32
-      property yi : Int32
-      property yl : Int32
-      property get : Bool
+    struct Rectangle
+      getter xi : Int32
+      getter xl : Int32
+      getter yi : Int32
+      getter yl : Int32
+      getter get : Bool
 
       def initialize(@xi, @xl, @yi, @yl, @get = false)
       end
@@ -298,6 +299,11 @@ module Crysterm
     # Helper class implementing only minimal position-related interface.
     # Used for holding widget's last rendered position.
     class LPos
+      # TODO Can almost be replaced with a struct. Only minimal problems appear.
+      # See tech-demo example, fix the issue and replace with struct.
+
+      None = new
+
       # Starting cell on X axis
       property xi : Int32 = 0
 
@@ -311,10 +317,13 @@ module Crysterm
       property yl : Int32 = 0
 
       property base : Int32 = 0
-      property noleft : Bool = false
-      property noright : Bool = false
-      property notop : Bool = false
-      property nobot : Bool = false
+
+      # Informs us which side is partly hidden due to being enclosed in a
+      # parent (and potentially scrollable) element.
+      property? no_left : Bool = false
+      property? no_right : Bool = false
+      property? no_top : Bool = false
+      property? no_bottom : Bool = false
 
       # Number of times object was rendered
       property renders = 0
@@ -326,10 +335,12 @@ module Crysterm
       property awidth : Int32? = nil
       property aheight : Int32? = nil
 
-      # property ileft : Int32 = 0
-      # property itop : Int32 = 0
-      # property iright : Int32 = 0
-      # property ibottom : Int32 = 0
+      # These should be allowed to be just 0 because I'd think their offsets
+      # are already included in a* properties.
+      property ileft : Int32 = 0
+      property itop : Int32 = 0
+      property iright : Int32 = 0
+      property ibottom : Int32 = 0
 
       property _scroll_bottom : Int32 = 0
       property _clean_sides : Bool = false
@@ -340,10 +351,10 @@ module Crysterm
         @yi = 0,
         @yl = 0,
         @base = 0,
-        @noleft = false,
-        @noright = false,
-        @notop = false,
-        @nobot = false,
+        @no_left = false,
+        @no_right = false,
+        @no_top = false,
+        @no_bottom = false,
         @renders = 0,
 
         # Disable all this:
@@ -352,70 +363,13 @@ module Crysterm
         @aright = nil,
         @abottom = nil,
         @awidth = nil,
-        @aheight = nil
+        @aheight = nil,
+
+        @ileft = 0,
+        @itop = 0,
+        @iright = 0,
+        @ibottom = 0
       )
-      end
-
-      # Helper class implementing only minimal position-related interface.
-      # Used for holding widget's last rendered position.
-      class LPos
-        # Starting cell on X axis
-        property xi : Int32 = 0
-
-        # Ending cell on X axis
-        property xl : Int32 = 0
-
-        # Starting cell on Y axis
-        property yi : Int32 = 0
-
-        # Endint cell on Y axis
-        property yl : Int32 = 0
-
-        property base : Int32 = 0
-        property noleft : Bool = false
-        property noright : Bool = false
-        property notop : Bool = false
-        property nobot : Bool = false
-
-        # Number of times object was rendered
-        property renders = 0
-
-        property aleft : Int32? = nil
-        property atop : Int32? = nil
-        property aright : Int32? = nil
-        property abottom : Int32? = nil
-        property awidth : Int32? = nil
-        property aheight : Int32? = nil
-
-        # property ileft : Int32 = 0
-        # property itop : Int32 = 0
-        # property iright : Int32 = 0
-        # property ibottom : Int32 = 0
-
-        property _scroll_bottom : Int32 = 0
-        property _clean_sides : Bool = false
-
-        def initialize(
-          @xi = 0,
-          @xl = 0,
-          @yi = 0,
-          @yl = 0,
-          @base = 0,
-          @noleft = false,
-          @noright = false,
-          @notop = false,
-          @nobot = false,
-          @renders = 0,
-
-          # Disable all this:
-          @aleft = nil,
-          @atop = nil,
-          @aright = nil,
-          @abottom = nil,
-          @awidth = nil,
-          @aheight = nil
-        )
-        end
       end
     end
   end

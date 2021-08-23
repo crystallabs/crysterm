@@ -51,7 +51,7 @@ module Crysterm
       # Removes `element` from list of children widgets
       def remove(element)
         return unless i = @children.index(element)
-        element.clear_pos
+        element.clear_last_rendered_position
         @children.delete_at i
       end
 
