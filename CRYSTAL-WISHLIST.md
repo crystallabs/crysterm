@@ -6,7 +6,7 @@
 ```
 outer: while true
   while true
-    break :outer
+    break label: :outer
   end
 end
 ```
@@ -25,6 +25,8 @@ class X
     @x = true
   end
 end
+
+X.new
 ```
 
 ## Introducing 'undefined' or similar to mean unspecified values. E.g.:
