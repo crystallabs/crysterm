@@ -103,6 +103,8 @@ https://github.com/crystal-ameba/ameba/issues/237
 
 ## API to expose a method to kill Fiber from outside code.
 
+I believe this exists as a feature, but is not exposed in public API.
+
 ## Ability to create a Proc and partial from a method with named args:
 
 ```cr
