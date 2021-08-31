@@ -11,10 +11,11 @@ outer: while true
 end
 ```
 
-I know that it is _possible_ to make the code work without labeled breaks
-by instead using the return value from the loops. But in some cases, the
-code is much more complex to write and follow in that way, and also in
-any case the code for "break" and "jump" must be separated into two places.
+I know that it _is_ possible to make any code work without break that supports labels.
+But in some cases, the code is much more complex to write and follow in that way.
+Also, it forces the user to separate the code for "break" and "jump" into two
+places, which is unintuitive and the two locations are not always conveniently close
+to each other.
 
 ## Indirect initialization. This to work without throwing error:
 
@@ -41,7 +42,7 @@ the same checks that apply to `initialize` also apply to those methods, and to c
 
 ## Method overloads to not get overwritten by each other so easily:
 
-This currently doesn't work:
+This currently doesn't work because the first overload gets completely overwritten:
 
 ```cr
 def bar(a = 0, b = 0, c = 0, d = 0)
