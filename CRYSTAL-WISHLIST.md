@@ -17,7 +17,7 @@ Also, it forces the user to separate the code for "break" and "jump" into two
 places, which is unintuitive and the two locations are not always conveniently close
 to each other.
 
-## Indirect initialization. This to work without throwing error:
+## Indirect initialization. This to work without throwing an error:
 
 ```cr
 class X
