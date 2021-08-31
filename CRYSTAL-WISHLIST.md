@@ -3,7 +3,7 @@
 
 ## Loops to support labels, using whatever syntax would be appropriate, e.g.:
 
-```
+```cr
 outer: while true
   while true
     break label: :outer
@@ -11,9 +11,14 @@ outer: while true
 end
 ```
 
+I know that it is _possible_ to make the code work without labeled breaks
+by instead using the return value from the loops. But in some cases, the
+code is much more complex to write and follow in that way, and also in
+any case the code for "break" and "jump" must be separated into two places.
+
 ## Indirect initialization. This to work without throwing error:
 
-```
+```cr
 class X
   @x : Bool
 
@@ -29,9 +34,45 @@ end
 X.new
 ```
 
-## Introducing 'undefined' or similar to mean unspecified values. E.g.:
+This wouldn't necessarily have to support full indirect initialization. It
+would be enough that, if some methods are always/uncoditionally called from `initialize`,
+the same checks that apply to `initialize` also apply to those methods, and to consider
+`@x` to be set.
+
+## Method overloads to not get overwritten by each other so easily:
+
+This currently doesn't work:
+
+```cr
+def bar(a = 0, b = 0, c = 0, d = 0)
+end
+
+def bar
+end
+
+bar(a: 1)
+```
+
+It results in:
 
 ```
+In :7:1
+
+ 7 | bar(a: 1)
+     ^--
+Error: no argument named 'a'
+
+Matches are:
+ - bar()
+ ```
+
+@Sija created a ticket based on my initial report:
+
+https://github.com/crystal-lang/crystal/issues/10231
+
+## Introducing 'undefined' or similar to mean unspecified values. E.g.:
+
+```cr
 class X
   @var = "test"
 
@@ -44,6 +85,8 @@ end
 X.new # ==> "test"
 ```
 
+Partly related issue exists somewhere on the forums, reported by @Blacksmoke16.
+
 ## Type-safe `#==` operator:
 
 Due to default implementation of `#==` in `Value` and `Reference`, comparing
@@ -52,13 +95,16 @@ and leads to incorrect/invalid comparisons which always fail.
 
 https://github.com/crystal-lang/crystal/issues/10277
 
+Since it is probably too late to make this change in the language, it would
+be useful if Ameba would catch those:
+
 https://github.com/crystal-ameba/ameba/issues/237
 
 ## API to expose a method to kill Fiber from outside code.
 
 ## Ability to create a Proc and partial from a method with named args:
 
-```
+```cr
 def f(a : Int32, b : Int32)
 end
 
@@ -74,7 +120,7 @@ Exists partly as https://github.com/crystal-lang/crystal/issues/11099
 
 ## Better subclassing in Procs:
 
-```
+```cr
 class A; end
 class B < A; end
 
