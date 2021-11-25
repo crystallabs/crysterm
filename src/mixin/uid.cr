@@ -2,14 +2,16 @@ module Crysterm
   module Mixin
     module Uid
       macro included
-        @@uid = 0
+        @@uid = Atomic.new 0i32
       end
 
       # Unique ID. Auto-incremented.
-      property uid : Int32
+      #
+      # NOTE This is an instance var; setting it to the value of `@@uid` happens elsewhere.
+      property uid : Atomic(Int32)
 
       def next_uid
-        @@uid += 1
+        @@uid.add 1
       end
     end
   end
