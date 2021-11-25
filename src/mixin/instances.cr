@@ -23,7 +23,7 @@ module Crysterm
         # in a class variable, and return it here. In that way, the choice of the default/global
         # object at a particular time would be configurable in runtime.
         def self.global(create : Bool = true)
-          (instances[0]? || (create ? new : nil)).not_nil!
+          (instances[-1]? || (create ? new : nil)).not_nil!
         end
       end
 
