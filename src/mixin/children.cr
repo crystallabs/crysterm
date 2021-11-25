@@ -17,7 +17,7 @@ module Crysterm
         insert element
       end
 
-      # Appends `element`s to list of children in order of specification
+      # Appends `element`s to list of children in the order given (first listed is first added)
       def append(*elements)
         elements.each do |el|
           insert el
@@ -55,27 +55,31 @@ module Crysterm
         @children.delete_at i
       end
 
-      def ancestor?(obj)
+      # Returns true if `obj` is found in the list of parents, recursively
+      def has_ancestor?(obj)
         el = self
         while el = el.parent
-          return true if el == obj
+          return true if el.same? obj
         end
         false
       end
 
-      def descendant?(obj)
+      # Returns true if `obj` is found in the list of children, recursively
+      def has_descendant?(obj)
         @children.each do |el|
-          return true if el == obj
+          return true if el.same? obj
           return true if el.descendant? obj
         end
         false
       end
 
+      # Runs a particular block for self and all descendants, recursively
       def self_and_each_descendant(&block : Proc(Widget, Nil)) : Nil
         block.call self
         each_descendant &block
       end
 
+      # Runs a particular block for all descendants, recursively
       def each_descendant(&block : Proc(Widget, Nil)) : Nil
         f = uninitialized Widget -> Nil
         f = ->(el : Widget) {
@@ -90,21 +94,31 @@ module Crysterm
         end
       end
 
-      def each_ancestor(with_self : Bool = false) : Nil
-        yield self if with_self
-
-        el = self
-        while el = el.parent
-          yield el
-        end
+      # Runs a particular block for self and all ancestors, recursively
+      def self_and_each_ancestor(&block : Proc(Widget, Nil)) : Nil
+        block.call self
+        each_ancestor &block
       end
 
+      # Runs a particular block for all ancestors, recursively
+      def each_ancestor(&block : Proc(Widget, Nil)) : Nil
+        f = uninitialized Widget -> Nil
+        f = ->(el : Widget) {
+          block.call el
+          el.parent.try { |el2| f.call el2 }
+        }
+
+        @parent.try { |el| f.call el }
+      end
+
+      # Returns a flat list of all children widgets, recursively
       def collect_descendants(el : Widget) : Array(Widget)
         children = [] of Widget
         each_descendant { |e| children << e }
         children
       end
 
+      # Returns a flat list of all parent widgets, recursively
       def collect_ancestors(el : Widget) : Array(Widget)
         parents = [] of Widget
         each_ancestor { |e| parents << e }
