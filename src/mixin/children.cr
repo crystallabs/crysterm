@@ -4,10 +4,12 @@ module Crysterm
       # Widget's children `Widget`s.
       getter children = [] of Widget
 
+      # Adds `element` to list of children. Convenience method identical to `append`
       def <<(widget : Widget)
         append widget
       end
 
+      # Removes `element` from list of children. Convenience method identical to `remove`
       def >>(widget : Widget)
         remove widget
       end
