@@ -43,7 +43,7 @@ dependencies:
 
 Then add some code to your project, e.g.:
 
-```
+```cr
 require "crysterm"
 
 alias C = Crysterm
