@@ -132,7 +132,7 @@ High-level development plan for Crysterm looks as follows:
 1. Developing more line-oriented features. Currently Crysterm is suited for full-screen app development. It would be great if line-based features were added, and if then various small line-based utilities that exist as shards/apps for Crystal would be ported to become Crysterm's line- or screen-based widgets
 1. Adding features and principles from Qt
 
-Those are generalal guidelines. For smaller, more specific development/contribution tasks, grep sources for "TODO", "NOTE", and "XXX",  see file `TODO`, and see general Crystal wishlist in file `CRYSTAL-WISHLIST`.
+Those are general guidelines. For smaller, more specific development/contribution tasks, grep sources for "TODO", "NOTE", and "XXX",  see file `TODO`, and see general Crystal wishlist in file `CRYSTAL-WISHLIST`.
 
 ### Event model
 
@@ -304,7 +304,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - `Screen` no longer inherits from `Widget`
 - As such, `Screen` is not a top-level `parent` of any `Widget`; use `[@]screen` to get `Screen` or `parent_or_screen` for parent or screen
 - `auto_padding` and `tabc` are properties on `Widget` instead of `Screen`
-- `tab_size` is a property on `Style` instead of `Screen`
+- `tab_size` is a property of `Style` instead of `Screen`
 - Event names have been changed from strings to classes, e.g. event `"scroll"` is `::Crysterm::Event::Scroll`
 - `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`. Default is true
 - All terminal-level stuff is in shard `Tput`, not `Crysterm`

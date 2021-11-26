@@ -146,14 +146,14 @@ module Crysterm
         @accepted = false
       end
 
-      KEYS = {} of ::Tput::Key => self.class
-
       # This macro takes all enum members from Tput::Key
-      # and creates a KeyPress::<member> event for them.
+      # and creates a `KeyPress::<member>` event for them,
+      # such as `Event::KeyPress::CtrlQ`.
       #
       # This is done as a convenience, so that users would
       # not have to listen for all keypresses and then
       # manually check for particular keys every time.
+      KEYS = {} of ::Tput::Key => self.class
       {% for m in ::Tput::Key.constants %}
         class {{m.id}} < self; end
         KEYS[ ::Tput::Key::{{m.id}} ] = {{m.id}}

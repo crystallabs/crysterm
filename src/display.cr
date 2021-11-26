@@ -17,7 +17,7 @@ module Crysterm
     # :nodoc: Flag indicating whether at least one `Display` has called `#bind`.
     # Can potentially be removed; it appears only in this file.
     # @@_bound = false
-    # XXX Currently disabled to remove it if it appears not needed.
+    # XXX Currently disabled to remove it over time if it appears not needed.
 
     # Force Unicode (UTF-8) even if auto-detection did not discover terminal support for it?
     property? force_unicode = false
@@ -30,7 +30,6 @@ module Crysterm
 
     # Access to instance of `Tput`, used for affecting the terminal/IO.
     getter tput : ::Tput
-    # TODO Any way to succeed turning this into `getter` without `!`?
 
     # :nodoc: Pointer to Fiber which is listening for keys, if any
     @_listened_keys : Fiber?
@@ -94,7 +93,9 @@ module Crysterm
     #
     # This function will render the specified `screen` or global `Screen`.
     #
-    # Note that if using multiple `Display`s, currently you should provide `screen` argument explicitly.
+    # Note that if using multiple `Display`s, currently you should provide
+    # `screen` argument explicitly or otherwise every `Display#exec` would
+    # run the same/default screen.
     def exec(screen : Crysterm::Screen? = nil)
       if w = screen || Crysterm::Screen.global
         w.render
@@ -148,11 +149,13 @@ module Crysterm
     # NOTE Keys are listened for in a separate `Fiber`.
     # The code tries passively to ensure at most one fiber per display is listening.
     def _listen_keys
-      return if @_listened_keys
-      @_listened_keys = spawn {
-        tput.listen do |char, key, sequence|
-          emit Crysterm::Event::KeyPress.new char, key, sequence
-        end
+      @mutex.synchronize {
+        return if @_listened_keys
+        @_listened_keys = spawn {
+          tput.listen do |char, key, sequence|
+            emit Crysterm::Event::KeyPress.new char, key, sequence
+          end
+        }
       }
     end
 
@@ -165,6 +168,8 @@ module Crysterm
 
       super
 
+      # TODO Don't do this unconditionally, but return to whatever
+      # state it was before.
       @input.cooked!
     end
   end

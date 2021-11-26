@@ -23,7 +23,9 @@ module Crysterm
     property enabled = true
 
     # Keyboard shortcut
-    property shortcut : Tput::Key? # Needs to be `KeySequence?` later
+    # TODO Needs to be `KeySequence?` later, so that it can trigger on a sequence
+    # of key presses (E.g. Ctrl+a, d)
+    property shortcut : Tput::Key?
 
     # Tip to show in status bar, if/when applicable
     property status_tip = ""
@@ -36,11 +38,11 @@ module Crysterm
       @tool_tip || text
     end
 
-    # Tip to show in a popup when broder help text / description is requested
+    # Tip to show in a popup when broader help text / description is requested
     property whats_this : String?
 
     # This property holds whether the action can be seen (e.g. in menus and toolbars).
-    property visible = true
+    property? visible = true
 
     def initialize(
       @parent : Crysterm::Object? = nil,
