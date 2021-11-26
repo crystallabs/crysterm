@@ -26,11 +26,11 @@ module Crysterm
     # User-defined bottom
     property bottom : Int32 | Nil
 
-    # User-defined width
-    property width : Int32 | String | Nil
+    # User-defined width (setter is defined below)
+    getter width : Int32 | String | Nil
 
-    # User-defined height
-    property height : Int32 | String | Nil
+    # User-defined height (setter is defined below)
+    getter height : Int32 | String | Nil
 
     # Can Crysterm resize the widget if/when needed?
     property? resizable = false

@@ -20,6 +20,8 @@
 
 - Resizing doesn't work 100% right - some resizing artifacts remain as one is resizing around. Or it seems it works?
 
+- Maybe add a GUI-dedicated thread like in Qt?
+
 ## Non-critical Fixes and Small Improvements to Existing code
 
 - Same as Widget#hidden, rename Cursor#_hidden

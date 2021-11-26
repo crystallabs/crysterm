@@ -35,6 +35,18 @@ module Crysterm
       display.tput.cursor_shape @cursor.shape, @cursor.blink
     end
 
+    # XXX where does this belong?
+    # if (!@_cursorBlink)
+    # @_cursorBlink = setInterval(function()
+    #   if (!self.cursor.blink) return
+    #   self.cursor._state ^= 1
+    #   if (self.renders) self.render()
+    # }, 500)
+    # if (@_cursorBlink.unref)
+    #   @_cursorBlink.unref()
+    # end
+    # end
+
     # Resets cursor
     def cursor_reset
       @cursor.shape = Tput::CursorShape::Block
@@ -128,16 +140,7 @@ module Crysterm
       end
     end
 
-    # if (!@_cursorBlink)
-    # @_cursorBlink = setInterval(function()
-    #   if (!self.cursor.blink) return
-    #   self.cursor._state ^= 1
-    #   if (self.renders) self.render()
-    # }, 500)
-    # if (@_cursorBlink.unref)
-    #   @_cursorBlink.unref()
-    # end
-    # end
+    # Re-enables and resets hardware cursor
     def cursor_reset
       if @cursor.artificial?
         @cursor.artificial = false

@@ -42,10 +42,10 @@ module Crysterm
     #
     # This is a convenience function that creates a `Widget` on every call.
     # Do not use as-is in production; better use `_parse_tags` on your existing widgets.
-    #def parse_tags(text)
+    # def parse_tags(text)
     #  # TODO Don't create widget every time
     #  Widget.new._parse_tags(text)
-    #end
+    # end
 
     # Generates text tags based on the given style definition.
     # ```
