@@ -60,13 +60,15 @@ hello = C::Widget::Box.new \
   content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
   parse_tags: true,       # Parse {} tags within content (default already is true)
   style: C::Style.new(fg: "yellow", bg: "blue"),
-  border: true            # 'true' for default type/look
+  border: true            # 'true' for default type/look of border
 
 screen.append hello
 
-# When q is pressed, exit.
+# When ctrl-q or q is pressed, exit.
+# (We can do this by listening for C::Event::KeyPress::CtrlQ specifically,
+# or for all C::Event::KeyPress and then checking the value of `e.char`.)
 screen.on(C::Event::KeyPress) do |e|
-  if e.char == 'q'
+  if e.char == 'q' || e.key == Tput::Key::CtrlQ
     display.destroy
     exit
   end
@@ -77,15 +79,15 @@ display.exec
 
 ## Screenshots
 
-Animated demo
+Animated demo (examples/tech-demo.cr)
 
 ![Crysterm Demo Video](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/2020-01-29-1.gif)
 
-Layout engine (showing inline/masonry layout)
+Layout engine (showing inline/masonry layout, test/widget-layout.cr)
 
 ![Crysterm Masonry Layout](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/layout.png)
 
-Transparency, color blending, and shadow
+Transparency, color blending, and shadow (part of examples/tech-demo.cr)
 
 ![Crysterm Color Blending](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/transparency.png)
 

@@ -54,6 +54,10 @@
 
 - In Blessed code (and inherited in Crysterm code), checks for borders are made in a very simple way. E.g. `if @border`, then the widget is reduced by 1 cell on every side, to account for border. It would be good to specifically check for border on each side, and also possibly to also support borders of different widths.
 
+- Currently, default events in widgets are implemented in instance vars, and then when we want to enable/disable widget events, we either add or remove those handlers/vars from the events' handlers hashes. But the code for that is tedious/almost manual. Maybe all events should be in an array or something, and then adding or removing is just handlers.clear or handlers.push *array.
+
+- Adding TrueColor support
+
 ## Would be Good to Add
 
 - Style setting for determining whether cursor is visible in a widget or not. E.g. it should be possible to have cursor optionally appear in focused checkboxes and radiobuttons.
