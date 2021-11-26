@@ -325,6 +325,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - User-specified Widget options left, top, right, bottom, width, height, and resizable exist directly on `Widget` in Crysterm, rather than on `Widget.position`. Also, to get actual numbers/values out, one now needs to explicitly use e.g. `aleft` (absolute left), `rleft` (relative left) or `ileft` (inner/content left). This removes all ambiguity and lack of straightforwardness in which value is being accessed
 - Widgets can have shadow on any of the 4 sides, instead of always being drawn on the right and bottom
 - Renamed properties in Crysterm: `widget.noFill` is `!style.fill?`, `autoFocus` is `focus_on_click?`, `wrap` is `wrap_content?`, `hidden` is `!visible?`
+- Implementation of `clean_tags` and `strip_tags` has been switched, for better/more-intuitive naming in Crystal
 
 List of current bugs / quirks in Crysterm, in no particular order:
 

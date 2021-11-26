@@ -42,10 +42,10 @@ module Crysterm
     #
     # This is a convenience function that creates a `Widget` on every call.
     # Do not use as-is in production; better use `_parse_tags` on your existing widgets.
-    def parse_tags(text)
-      # TODO Don't create widget every time
-      Widget.new._parse_tags(text)
-    end
+    #def parse_tags(text)
+    #  # TODO Don't create widget every time
+    #  Widget.new._parse_tags(text)
+    #end
 
     # Generates text tags based on the given style definition.
     # ```
@@ -81,14 +81,14 @@ module Crysterm
       v[:open] + text + v[:close]
     end
 
-    # Strips text of {...} tags and SGR sequences.
+    # Strips text of {...} tags and SGR sequences and removes leading/trailing whitespaces
     def strip_tags(text : String)
-      text.gsub(TAG_REGEX, "").gsub(SGR_REGEX, "")
+      clean_tags(text).strip
     end
 
-    # Strips text of {...} tags and SGR sequences like `strip_tags` does, but also removes leading/trailing whitespaces.
+    # Strips text of {...} tags and SGR sequences
     def clean_tags(text)
-      strip_tags(text).strip
+      text.gsub(TAG_REGEX, "").gsub(SGR_REGEX, "")
     end
 
     # Finds a file with name 'target' inside toplevel directory 'start'.

@@ -43,14 +43,14 @@ describe Crysterm do
       x.strip_tags("1{tag}text{/tag}2").should eq "1text2"
     end
 
-    it "strips a mix of {...} tags and ESC[...m (SGR) sequences" do
-      x.strip_tags("1\e[1;2m{tag}text\e[0m{/tag}2").should eq "1text2"
+    it "cleans a mix of {...} tags and ESC[...m (SGR) sequences" do
+      x.clean_tags(" 1\e[1;2m{tag}text \e[0m{/tag}2 ").should eq " 1text 2 "
     end
   end
 
-  describe "clean_tags" do
-    it "strips tags, then removes any leading/trailing whitespace" do
-      x.clean_tags("   1\e[1;2m{tag}text\e[0m{/tag}2  ").should eq "1text2"
+  describe "strip_tags" do
+    it "cleans tags and removes any leading/trailing whitespace" do
+      x.strip_tags("   1\e[1;2m{tag}text\e[0m{/tag}2  ").should eq "1text2"
     end
   end
 end
