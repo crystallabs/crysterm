@@ -18,12 +18,12 @@ module Crysterm
     @ev_label_resize : Crysterm::Event::Resize::Wrapper?
 
     # Sets or clears label text
-    def label=(text)
-      label ? set_label(text) : remove_label
+    def label=(text : String)
+      @label ? set_label(text) : remove_label
     end
 
     # Sets widget label. Can be positioned "left" (default) or "right"
-    def set_label(text, side = "left")
+    def set_label(text : String, side = "left")
       # If label widget exists, we update it and return
       @_label.try do |_label|
         _label.set_content(text)

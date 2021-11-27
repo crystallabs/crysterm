@@ -158,7 +158,7 @@ module Crysterm
 
       set_content content, true
       label.try do |t|
-        set_label l, "left"
+        set_label t, "left"
       end
       hover_text.try do |t|
         set_hover t
