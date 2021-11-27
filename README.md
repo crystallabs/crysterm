@@ -51,6 +51,9 @@ alias C = Crysterm
 display = C::Display.new # Becomes the first/global display
 screen = C::Screen.new # Assumes argument `display: Display.global`
 
+# Optionally, you can include widgets in the current namespace:
+# include Crysterm::Widgets
+
 hello = C::Widget::Box.new \
   name: "helloworld box", # Symbolic name
   top: "center",          # Can also be 10, "50%", or "50%+-10"
