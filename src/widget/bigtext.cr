@@ -93,7 +93,7 @@ module Crysterm
         lines
       end
 
-      def set_content(content)
+      def set_content(content : String)
         @content = ""
         @text = content || ""
       end
