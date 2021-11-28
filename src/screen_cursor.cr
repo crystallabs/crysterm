@@ -21,7 +21,7 @@ module Crysterm
       else
         display.try do |d|
           d.tput.cursor_shape c.shape, c.blink
-          d.tput.cursor_color c.style.bg
+          d.tput.cursor_color c.style.fg
         end
       end
       c._set = true
@@ -68,7 +68,7 @@ module Crysterm
       end
 
       # display.tput.cursor_color(@cursor.color.to_s.downcase)
-      display.tput.cursor_color @cursor.style.bg
+      display.tput.cursor_color @cursor.style.fg
     end
 
     alias_previous reset_cursor

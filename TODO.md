@@ -24,6 +24,8 @@
 
 ## Non-critical Fixes and Small Improvements to Existing code
 
+- Add support for graphemes when the patch gets merged into Crystal
+
 - Same as Widget#hidden, rename Cursor#_hidden
 
 - Determine what to do with label.side
