@@ -288,7 +288,7 @@ module Crysterm
         (0...line.size).each do |i|
           if (line[i] == '\e')
             if (c = line[1..].match SGR_REGEX)
-              attr = screen.attr_code(c[0], attr, dattr)
+              attr = screen.attr2code(c[0], attr, dattr)
               # i += c[0].size - 1 # Unused
             end
           end

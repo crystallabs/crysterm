@@ -4,7 +4,7 @@ module Crysterm
     # Conversion between SGR sequences and Crysterm's attribute format
 
     # Converts an SGR string to our own attribute format.
-    def attr_code(code, cur, dfl)
+    def attr2code(code, cur, dfl)
       flags = (cur >> 18) & 0x1ff
       fg = (cur >> 9) & 0x1ff
       bg = cur & 0x1ff
@@ -116,7 +116,9 @@ module Crysterm
     end
 
     # Converts our own attribute format to an SGR string.
-    def code_attr(code)
+    #
+    # TODO Avoid creation of Strings if possible
+    def code2attr(code)
       flags = (code >> 18) & 0x1ff
       fg = (code >> 9) & 0x1ff
       bg = code & 0x1ff

@@ -79,7 +79,7 @@ module Crysterm
               lx = -1
               ly = -1
               if (data != attr)
-                @outbuf.print code_attr(data)
+                @outbuf.print code2attr(data)
                 attr = data
               end
 
@@ -109,7 +109,7 @@ module Crysterm
             # if (!clr && neq && (xx - x) > 10)
             #   lx = -1; ly = -1
             #   if (data != attr)
-            #     @outbuf.print code_attr(data)
+            #     @outbuf.print code2attr(data)
             #     attr = data
             #   end
             #   @outbuf.print display.tput.cup(y, x)
