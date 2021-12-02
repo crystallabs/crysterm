@@ -328,7 +328,7 @@ module Crysterm
       end
 
       def on_resize(e)
-        visible = height - iheight
+        visible = aheight - iheight
         if visible >= selected + 1
           @child_base = 0
           @child_offset = selected
