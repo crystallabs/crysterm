@@ -6,7 +6,7 @@ module Crysterm
 
   hbar = Widget::Pine::HeaderBar.new title_content: "ALPINE 2.20", section_content: "MAIN MENU", subsection_content: "Folder: INDEX", info_content: "37 Messages"
 
-  cbar = Widget::Box.new left: "center", top: "100%-5", content: %q{For good information press "?"}
+  cbar = Widget::Box.new left: "center", top: "100%-5", content: %q{For exit press "?"}
 
   sbar = Widget::Pine::StatusBar.new top: "100%-4"
 

@@ -29,7 +29,7 @@ module Crysterm
 
   loop do
     q.ask { |a, b| STDERR.puts "Answered #{a}/#{b}" }
-    sleep 1
+    exit
   end
 
   s.on(Event::KeyPress) do |e|

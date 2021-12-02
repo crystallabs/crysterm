@@ -12,7 +12,7 @@ class X
       height: 5,
       top: 4,
       left: 8,
-      content: "Press Enter or Space to exit",
+      content: "Press q or Ctrl+q to exit",
       align: ::Tput::AlignFlag::Center,
       border: true,
       style: Style.new(fg: "yellow", bg: "blue")
@@ -30,6 +30,7 @@ class X
     s.on(::Crysterm::Event::KeyPress) do |e|
       if e.char == 'q' || e.key.try(&.==(::Tput::Key::CtrlQ))
         s.destroy
+        exit
       end
     end
 

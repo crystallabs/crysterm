@@ -11,6 +11,7 @@ module Crysterm
   #
   # NOTE Actions are inspired by `QAction` (https://doc.qt.io/qt-6/qaction.html)
   class Action
+    include EventHandler
     alias OneOfEvents = Crysterm::Event::Triggered.class | Crysterm::Event::Hovered.class
 
     # Icon of action
@@ -46,8 +47,8 @@ module Crysterm
 
     def initialize(
       @parent : Crysterm::Object? = nil,
-      event : OneOfEvents = Event::Triggered,
-      &block : ::Proc(Event::Triggered, ::Nil)
+      event : OneOfEvents = Crysterm::Event::Triggered,
+      &block : ::Proc(Crysterm::Event::Triggered, ::Nil)
     )
       on event, block
     end
@@ -61,7 +62,7 @@ module Crysterm
     def initialize(
       @text,
       @parent : Crysterm::Object? = nil,
-      event : OneOfEvents = Event::Triggered,
+      event : OneOfEvents = Crysterm::Event::Triggered,
       &block : ::Proc(Event::Triggered, ::Nil)
     )
       on event, block
@@ -73,18 +74,18 @@ module Crysterm
     # def activate(event : ActionEvent = ActionEvent::Event::Triggered)
 
     # Activates the action
-    def activate(event : OneOfEvents = Event::Triggered)
+    def activate(event : OneOfEvents = Crysterm::Event::Triggered)
       emit event
     end
 
     # Activates the action
     def trigger
-      activate Event::Triggered
+      activate Crysterm::Event::Triggered
     end
 
     # Activates the action
     def hover
-      activate Event::Hovered
+      activate Crysterm::Event::Hovered
     end
   end
 end

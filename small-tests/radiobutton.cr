@@ -37,6 +37,8 @@ module Crysterm
   s.on(Event::KeyPress) do |e|
     if e.char == 'q'
       exit
+    elsif e.key == ::Tput::Key::CtrlQ
+      exit
     elsif e.key == ::Tput::Key::Tab
       s.focus_next
     elsif e.key == ::Tput::Key::ShiftTab

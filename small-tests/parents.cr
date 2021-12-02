@@ -25,6 +25,9 @@ class X
     STDERR.puts i1.parent.hash,
       i2.children.size,
       i3.children.size
+
+    s.display.destroy
+    exit
   end
 end
 

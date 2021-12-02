@@ -7,6 +7,8 @@ class X
   def initialize
     s = Screen.new ignore_locked: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
+    note = Widget::TextBox.new content: "Use Tab/Shift+Tab to cycle between boxes, Ctrl+q to exit", keys: false
+
     i1 = Widget::TextBox.new \
       width: 10,
       height: 3,
@@ -34,7 +36,7 @@ class X
       border: true,
       style: Style.new(fg: "yellow", bg: "red")
 
-    s.append i1, i2, i3
+    s.append note, i1, i2, i3
 
     s.on(Crysterm::Event::KeyPress) do |e|
       if e.key == ::Tput::Key::CtrlQ
