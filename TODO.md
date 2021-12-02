@@ -24,6 +24,8 @@
 
 ## Non-critical Fixes and Small Improvements to Existing code
 
+- Determine what is the exact current situation re. whether borders/angles are drawn using ACS chars or Unicode chars?
+
 - Add support for graphemes when the patch gets merged into Crystal
 
 - Same as Widget#hidden, rename Cursor#_hidden

@@ -40,12 +40,14 @@ module Crysterm
     # Widget's complete style definition.
     # class_property style : Style = Style.new
 
+    # Manages Widget style.
     @[AlwaysInline]
     def style
       s = @style
       focused? ? (s.focus || s) : s
     end
 
+    # :ditto:
     setter style : Style
 
     # Is element hidden? Hidden elements are not rendered on the screen and their dimensions don't use screen space.
