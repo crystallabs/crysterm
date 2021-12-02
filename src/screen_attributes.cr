@@ -1,7 +1,8 @@
 module Crysterm
   class Screen
+
     # Conversion between SGR sequences and Crysterm's attribute format
-    # module Attributes
+
     # Converts an SGR string to our own attribute format.
     def attr_code(code, cur, dfl)
       flags = (cur >> 18) & 0x1ff

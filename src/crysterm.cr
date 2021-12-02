@@ -56,10 +56,9 @@ module Crysterm
   # Yet another choice could be the frame rate, i.e. 1/29 seconds.
   class_property resize_interval : Time::Span = 0.2.seconds
 
-  # :nodoc:
-  @@resize_fiber = Fiber.new "resize_loop" { resize_loop }
-
   # TODO Should all of these run a proper exit sequence, instead of just exit ad-hoc?
+  # (Currently we just call `exit` and count on `at_exit` handlers being invoked, but they
+  # are unordered)
   Signal::TERM.trap do
     exit
   end
@@ -73,15 +72,33 @@ module Crysterm
     Display.instances.each &.destroy
   end
 
+  # The rest of code here is related to handling resize events
+
+  # Listens for WINCH signal
   Signal::WINCH.trap do
     schedule_resize
   end
 
+  # Schedules `@@resize_fiber` to run at now + `@@resize_interval`. Repeated invocations
+  # before the interval has elapsed have a (desirable) effect of delaying/re-starting the
+  # timer til the fiber is to be scheduled.
   private def self.schedule_resize
     @@resize_fiber.try &.timeout(@@resize_interval)
   end
 
-  # Re-reads current size of all `Display`s and redraws all `Screen`s.
+  # :nodoc:
+  @@resize_fiber = Fiber.new "resize_loop" { resize_loop }
+
+  # :nodoc:
+  # TODO WIll this be affected when we move all GUI actions happening in a single thread?
+  def self.resize_loop
+    loop do
+      resize
+      sleep
+    end
+  end
+
+  # Re-reads current size of all `Display`s and triggers redraw of all `Screen`s.
   #
   # NOTE There is currently no detection for which `Display` the resize has
   # happened on, so a resize in any one managed display causes an update and
@@ -90,14 +107,6 @@ module Crysterm
     ::Crysterm::Display.instances.each do |display|
       display.tput.reset_screen_size
       display.emit ::Crysterm::Event::Resize
-    end
-  end
-
-  # :nodoc:
-  def self.resize_loop
-    loop do
-      resize
-      sleep
     end
   end
 
@@ -112,5 +121,5 @@ module Crysterm
   # end
 
   # True if the `Display` objects are being destroyed to exit program; otherwise returns false.
-  class_property? exiting : Bool = false
+  #class_property? exiting : Bool = false
 end

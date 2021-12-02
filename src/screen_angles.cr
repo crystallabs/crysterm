@@ -1,7 +1,7 @@
 module Crysterm
   class Screen
     # Collection of helper chars for drawing borders and their angles
-    # module Angles
+
     @angles = {
       '\u2518' => true, # '┘'
       '\u2510' => true, # '┐'

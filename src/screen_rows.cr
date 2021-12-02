@@ -1,6 +1,8 @@
 module Crysterm
   class Screen
-    # module Rows
+
+    # Screen rows and cells
+
     # Individual screen cell
     class Cell
       include Comparable(self)
