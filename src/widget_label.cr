@@ -9,17 +9,17 @@ module Crysterm
     # Is label to be displayed or not?
     property? label = false
 
-    # Widget implementing the label. If unspecified and label it set,
-    # we create a plain box. One can set this property to implement
-    # a different label widget.
+    # Widget implementing the label. If label is asked for and no specific
+    # widget is set, we create a TextBox with chosen content.. But one can
+    # set this property manually to have a custom/specific label.
     property _label : Widget?
 
     # Holder for event which will trigger on resize, to adjust the label
     @ev_label_resize : Crysterm::Event::Resize::Wrapper?
 
     # Sets or clears label text
-    def label=(text : String)
-      @label ? set_label(text) : remove_label
+    def label=(text : String?)
+      text ? set_label(text) : remove_label
     end
 
     # Sets widget label. Can be positioned "left" (default) or "right"
@@ -58,9 +58,6 @@ module Crysterm
       else
         _label.rright = 2 - iright
       end
-
-      # XXX Can this be removed or implemented in a different way?
-      _label.label = true
 
       unless @auto_padding
         if side != "right"

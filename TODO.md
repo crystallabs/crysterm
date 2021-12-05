@@ -31,6 +31,8 @@
 
 ## Non-critical Fixes and Small Improvements to Existing code
 
+- When label widget is created on a widget, value of parse_tags is inherited from parent. Not sure if that's the best approach.
+
 - Determine what is the exact current situation re. whether borders/angles are drawn using ACS chars or Unicode chars?
 
 - Add support for graphemes when the patch gets merged into Crystal
