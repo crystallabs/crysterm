@@ -102,7 +102,7 @@ module Crysterm
       shadow = nil,
       @scrollbar = false,
       # TODO Make it configurable which side it appears on etc.
-      @track = true, # Only has effect within scrollbar
+      track = nil, # Only has effect within scrollbar
       # XXX Should this whole section of 5 properties be in Style?
 
       content = "",
@@ -119,7 +119,7 @@ module Crysterm
       focused = false,
       @focus_on_click = true,
       @keys = false,
-      @input = false,
+      input = nil,
 
       # Final, misc settings
       @index = -1,
@@ -129,6 +129,8 @@ module Crysterm
       # $ = _ = JSON/YAML::Any
 
       scrollable.try { |v| @scrollable = v }
+      track.try { |v| @track = v }
+      input.try { |v| @input = v }
 
       @padding = parse_padding padding
 
