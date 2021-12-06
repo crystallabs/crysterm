@@ -1,6 +1,5 @@
 module Crysterm
   class Widget < ::Crysterm::Object
-
     # Widget-specific parts of parent/children functionality
 
     # Removes node from its parent.

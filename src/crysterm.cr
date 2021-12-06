@@ -121,5 +121,5 @@ module Crysterm
   # end
 
   # True if the `Display` objects are being destroyed to exit program; otherwise returns false.
-  #class_property? exiting : Bool = false
+  # class_property? exiting : Bool = false
 end

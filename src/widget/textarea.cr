@@ -29,7 +29,7 @@ module Crysterm
 
         @value = input["content"]? || ""
 
-        super **(input.merge({ keys: true }))
+        super **(input.merge({keys: true}))
 
         screen._listen_keys self
 

@@ -1,6 +1,5 @@
 module Crysterm
   class Screen
-
     # Conversion between SGR sequences and Crysterm's attribute format
 
     # Converts an SGR string to our own attribute format.

@@ -1,6 +1,5 @@
 module Crysterm
   class Screen
-
     # Things related to drawing (displaying rendered state to display)
 
     # class_property auto_draw = false

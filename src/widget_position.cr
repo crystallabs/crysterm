@@ -1,6 +1,5 @@
 module Crysterm
   class Widget < ::Crysterm::Object
-
     # Methods related to 3D position (X, Y, and Z which is the stacking / render order)
 
     # User-defined left
@@ -234,7 +233,7 @@ module Crysterm
           expr = left.split(/(?=\+|-)/)
           left = expr[0]
           left = left[0...-1].to_f / 100
-          left = ((parent.awidth||0) * left).to_i
+          left = ((parent.awidth || 0) * left).to_i
           left += expr[1].to_i if expr[1]?
         end
         width = (parent.awidth || 0) - (oright || 0) - left

@@ -85,15 +85,19 @@ module Crysterm
     def ileft
       @padding.left
     end
+
     def itop
       @padding.top
     end
+
     def iright
       @padding.right
     end
+
     def ibottom
       @padding.bottom
     end
+
     # property iwidth = 0
     # property iheight = 0
 
@@ -135,7 +139,6 @@ module Crysterm
       alt = true,
       show_fps = true
     )
-
       @padding = parse_padding padding
 
       bind
@@ -384,7 +387,7 @@ module Crysterm
 
       # XXX Needs some small fix before enabling. Probably just the order of
       # destroyals needs to be bottom-up instead of top-down.
-      #@children.each &.destroy
+      # @children.each &.destroy
 
       leave
 

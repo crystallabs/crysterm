@@ -25,6 +25,7 @@ module Crysterm
       def parse_padding(padding : Padding) : Padding
         padding
       end
+
       # :ditto:
       def parse_padding(padding : Int) : Padding
         Padding.new padding, padding, padding, padding

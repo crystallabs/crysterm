@@ -386,7 +386,7 @@ module Crysterm
         @iright = 0,
         @ibottom = 0,
         @iwidth = 0,
-        @iheight = 0,
+        @iheight = 0
       )
       end
     end

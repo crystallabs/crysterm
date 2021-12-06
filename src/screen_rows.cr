@@ -1,6 +1,5 @@
 module Crysterm
   class Screen
-
     # Screen rows and cells
 
     # Individual screen cell
