@@ -355,6 +355,8 @@ module Crysterm
       property itop : Int32 = 0
       property iright : Int32 = 0
       property ibottom : Int32 = 0
+      property iwidth : Int32 = 0
+      property iheight : Int32 = 0
 
       property _scroll_bottom : Int32 = 0
       property _clean_sides : Bool = false
@@ -382,7 +384,9 @@ module Crysterm
         @ileft = 0,
         @itop = 0,
         @iright = 0,
-        @ibottom = 0
+        @ibottom = 0,
+        @iwidth = 0,
+        @iheight = 0,
       )
       end
     end

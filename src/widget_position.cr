@@ -214,7 +214,7 @@ module Crysterm
         expr = width.split /(?=\+|-)/
         width = expr[0]
         width = width[0...-1].to_f / 100
-        width = ((parent.awidth || 0) * width).to_i
+        width = (((parent.awidth || 0) - (@auto_padding ? parent.iwidth : 0)) * width).to_i
         width += expr[1].to_i if expr[1]?
         return width
       end
@@ -234,7 +234,7 @@ module Crysterm
           expr = left.split(/(?=\+|-)/)
           left = expr[0]
           left = left[0...-1].to_f / 100
-          left = ((parent.awidth || 0) * left).to_i
+          left = ((parent.awidth||0) * left).to_i
           left += expr[1].to_i if expr[1]?
         end
         width = (parent.awidth || 0) - (oright || 0) - left
@@ -266,7 +266,7 @@ module Crysterm
         expr = height.split /(?=\+|-)/
         height = expr[0]
         height = height[0...-1].to_f / 100
-        height = ((parent.aheight || 0) * height).to_i
+        height = (((parent.aheight || 0) - (@auto_padding ? parent.iheight : 0)) * height).to_i
         height += expr[1].to_i if expr[1]?
         return height
       end
@@ -452,7 +452,6 @@ module Crysterm
       xl = xi + awidth(get)
       yi = atop(get)
       yl = yi + aheight(get)
-      # XXX Why not xl=right, yl=bottom?
 
       # Informs us which side is partly hidden due to being enclosed in a
       # parent (and potentially scrollable) element. Will be set/computed later.

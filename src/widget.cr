@@ -42,7 +42,7 @@ module Crysterm
     # XXX FIX by removing at some point
     # Used only for lists. The reason why it hasn't been replaced with is_a?(List)
     # already is because maybe someone would want this to be true even if not
-    # in heriting from List.
+    # inheriting from List.
 
     # Amount of padding on the inside of the element
     # XXX Turn this to nilable, like border and shadow?

@@ -82,10 +82,18 @@ module Crysterm
     # - And due to future improvement of supporting a border and possibly other features on
     # `Screen`s (like maybe shadow, or padding?) it will be very useful to have these variables.
 
-    property ileft = 0
-    property itop = 0
-    property iright = 0
-    property ibottom = 0
+    def ileft
+      @padding.left
+    end
+    def itop
+      @padding.top
+    end
+    def iright
+      @padding.right
+    end
+    def ibottom
+      @padding.bottom
+    end
     # property iwidth = 0
     # property iheight = 0
 
@@ -340,13 +348,13 @@ module Crysterm
     end
 
     # Returns current screen width.
-    def rwidth
-      awidth - @padding.left - @padding.right
+    def iwidth
+      @padding.left + @padding.right
     end
 
     # Returns current screen height.
-    def rheight
-      aheight - @padding.top - @padding.bottom
+    def iheight
+      @padding.top + @padding.bottom
     end
 
     # TODO Instead of self, this should just return an object which reports the position.

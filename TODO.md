@@ -2,8 +2,6 @@
 
 ## Immediate Source Code TODOs
 
-- Screen's padding is not fully honored
-
 - In small-tests/checkbox.cr, troubleshoot why Tab/Shift+Tab or Up/Down arrows are not cycling focus between widgets
 - And same issue in small-tests/radiobutton.cr
 
