@@ -76,7 +76,7 @@ class MyProg
     when Tput::Key::Tab
       s.focus_next
     when Tput::Key::ShiftTab
-      s.focus_prev
+      s.focus_previous
     end
   end
 

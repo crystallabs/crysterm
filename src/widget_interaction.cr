@@ -31,7 +31,7 @@ module Crysterm
       # seen whether that's good, or it should always happen, even
       # if someone calls `#focus` multiple times in a row.
       return if focused?
-      screen.focused = self
+      screen.focus self
     end
 
     # Returns whether widget is currently in focus

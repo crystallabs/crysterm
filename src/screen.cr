@@ -4,6 +4,7 @@ require "./widget"
 
 require "./mixin/children"
 
+require "./screen_children"
 require "./screen_angles"
 require "./screen_attributes"
 require "./screen_cursor"
@@ -66,6 +67,10 @@ module Crysterm
       @display.try &.tput.title=(@title = title)
     end
 
+    # For compatibility with widgets. But, as a side-effect, screens can have
+    # padding.
+    property padding : Padding
+
     # property border : Border?
     # TODO Right now `Screen`s can't have a border. But it would be amazing if they could.
     # The infrastructure is there because `Screen`s share many properties with `Widget`s.
@@ -118,9 +123,13 @@ module Crysterm
       title = nil,
       @cursor = Cursor.new,
       optimization = OptimizationFlag::SmartCSR | OptimizationFlag::BCE,
+      padding = Padding.new,
       alt = true,
       show_fps = true
     )
+
+      @padding = parse_padding padding
+
       bind
 
       ignore_locked.try { |v| @ignore_locked += v }
@@ -330,6 +339,16 @@ module Crysterm
       display.tput.screen.height
     end
 
+    # Returns current screen width.
+    def rwidth
+      awidth - @padding.left - @padding.right
+    end
+
+    # Returns current screen height.
+    def rheight
+      aheight - @padding.top - @padding.bottom
+    end
+
     # TODO Instead of self, this should just return an object which reports the position.
     def last_rendered_position
       self
@@ -349,83 +368,17 @@ module Crysterm
     #  end
     # end
 
-    def insert(element, i = -1)
-      super
-      attach element
-
-      # XXX:
-      # - Do similar for mouse as well
-      # - Make sure this is undo-ed if widget is detached
-      if element.input? || element.keyable?
-        _listen_keys element
-      end
-
-      unless self.focused
-        # element.focus
-        focus_next
-      end
-    end
-
-    def remove(element)
-      return if element.screen != self
-
-      super
-
-      # TODO Enable
-      # if i = @display.clickable.index(element)
-      #  @display.clickable.delete_at i
-      # end
-      # if i = @display.keyable.index(element)
-      #  @display.keyable.delete_at i
-      # end
-
-      # s= @display
-      # raise Exception.new() unless s
-      # screen_clickable= s.clickable
-      # screen_keyable= s.keyable
-
-      detach element
-
-      if focused == element
-        rewind_focus
-      end
-    end
-
-    def attach(element)
-      # Adding an element to Screen consists of setting #screen= (self) on that element
-      # and all of its children. Attach/Detach events are emitted accordingly. Attaching
-      # if already attached is a no-op.
-      element.self_and_each_descendant do |el|
-        if scr = el.screen?
-          if scr != self
-            el.screen = nil
-            el.emit Crysterm::Event::Detach, scr
-          end
-        end
-
-        if !el.screen?
-          el.screen = self
-          el.emit Crysterm::Event::Attach, self
-        end
-      end
-    end
-
-    def detach(element)
-      element.self_and_each_descendant do |el|
-        if scr = el.screen
-          el.screen = nil
-          el.emit Crysterm::Event::Detach, scr
-        end
-      end
-    end
-
     # Destroys self and removes it from the global list of `Screen`s.
     # Also remove all global events relevant to the object.
     # If no screens remain, the app is essentially reset to its initial state.
     def destroy
-      leave
-
       @render_flag.set 2
+
+      # XXX Needs some small fix before enabling. Probably just the order of
+      # destroyals needs to be bottom-up instead of top-down.
+      #@children.each &.destroy
+
+      leave
 
       super
     end

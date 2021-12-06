@@ -28,17 +28,11 @@ module Crysterm
       @_label.try do |_label|
         _label.set_content(text)
         if side != "right"
-          _label.rleft = 2 + (@border ? -1 : 0)
+          _label.left = 2 + (@border ? -1 : 0)
           _label.right = nil
-          unless @auto_padding
-            _label.rleft = 2
-          end
         else
-          _label.rright = 2 + (@border ? -1 : 0)
+          _label.right = 2 + (@border ? -1 : 0)
           _label.left = nil
-          unless @auto_padding
-            _label.rright = 2
-          end
         end
         return
       end
@@ -54,18 +48,9 @@ module Crysterm
       )
 
       if side != "right"
-        _label.rleft = 2 - ileft
+        _label.left = 2 - ileft
       else
-        _label.rright = 2 - iright
-      end
-
-      unless @auto_padding
-        if side != "right"
-          _label.rleft = 2
-        else
-          _label.rright = 2
-        end
-        _label.rtop = 0
+        _label.right = 2 - iright
       end
 
       @ev_label_scroll = on Crysterm::Event::Scroll, ->reposition_label(Crysterm::Event::Scroll)
@@ -75,10 +60,7 @@ module Crysterm
     # Repositions label to the right place. Usually called from resize event
     def reposition_label(event = nil)
       @_label.try do |_label|
-        _label.rtop = @child_base - itop
-        unless @auto_padding
-          _label.rtop = @child_base
-        end
+        _label.top = @child_base - itop
         screen.render
       end
     end
@@ -88,7 +70,7 @@ module Crysterm
       return unless @_label
       off ::Crysterm::Event::Scroll, @ev_label_scroll
       off ::Crysterm::Event::Resize, @ev_label_resize
-      @_label.remove_parent
+      @_label.remove_from_parent
       @ev_label_scroll = nil
       @ev_label_resize = nil
       @_label = nil

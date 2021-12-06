@@ -174,6 +174,21 @@ That model is simple and works quite OK, although it is not as developed as the 
 there is no way to define maximum or minimum size. (Well, minimum size calculation does exist for resizable widgets, but only for trying to find the minimum size based on actual
 contents, rather than programmer's wishes. (What we call "resizable" is suboptimally called "shrink" in Blessed because it can also grow.))
 
+The interface for getting or setting values has been streamlined:
+
+| Spec | Absolute | Relative | Inner/content offsets |
+| left / left= | aleft | rleft | ileft |
+| top / top= | atop | rtop | itop |
+| right / right= | aright | rright | iright |
+| bottom / bottom= | abottom | rbottom | ibottom |
+| width / width= | awidth | | iwidth |
+| height / height= | aheight | | iheight |
+
+"Spec" methods get or set the values exactly as the user specified them (e.g. "50%+2").
+Absolute methods return computed values as integers (number of cells, starting from point (0,0) on the top left).
+Relative methods return computed values as integers (number of cells, starting from point (0,0) in the parent widget).
+Inner methods return computed offsets of content inside the widget (e.g. borders and padding influence the offset).
+
 Speaking of layouts, the one layout engine currently existing, `Widget::Layout`, is equivalent to Blessed's. It can arrange widgets in a grid-like or masonry-like style.
 There are no equivalents of Qt's `QBoxLayout`.
 
@@ -308,8 +323,9 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - `Element` and `Node` have been consolidated into `Widget`
 - `Screen` no longer inherits from `Widget`
 - As such, `Screen` is not a top-level `parent` of any `Widget`; use `[@]screen` to get `Screen` or `parent_or_screen` for parent or screen
-- `auto_padding` and `tabc` are properties on `Widget` instead of `Screen`
+- `tabc` is property on `Widget` instead of `Screen`
 - `tab_size` is a property of `Style` instead of `Screen`
+- Screen `auto_padding : Bool` has been removed (behaves like it is always enabled)
 - Event names have been changed from strings to classes, e.g. event `"scroll"` is `::Crysterm::Event::Scroll`
 - `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`. Default is true
 - All terminal-level stuff is in shard `Tput`, not `Crysterm`

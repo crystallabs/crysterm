@@ -2,6 +2,20 @@ module Crysterm
   # Module holding the general namespace for Crysterm
   module Namespace
     # Rendering and drawing optimization flags.
+    #
+    # Smart CSR: Attempt to perform CSR optimization on all possible elements,
+    # and not just on full-width ones, i.e. those with uniform cells to their sides.
+    # This is known to cause flickering with elements that are not full-width, but
+    # it is more optimal for terminal rendering.
+    #
+    # Fast CSR: Enable CSR on any element within 20 columns of the screen edges on either side.
+    # It is faster than smart_csr, but may cause flickering depending on what is on
+    # each side of the element.
+    #
+    # BCE: Attempt to perform back_color_erase optimizations for terminals that support it.
+    # It will also work with terminals that don't support it, but only on lines with
+    # the default background color. As it stands with the current implementation,
+    # it's uncertain how much terminal performance this adds at the cost of code overhead.
     @[Flags]
     enum OptimizationFlag
       FastCSR

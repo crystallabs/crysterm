@@ -32,7 +32,7 @@ module Crysterm
       when .tab?
         s.focus_next
       when .shift_tab?
-        s.focus_prev
+        s.focus_previous
       when .ctrl_q?
         exit
       end

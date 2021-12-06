@@ -5,6 +5,7 @@ require "./mixin/children"
 require "./mixin/pos"
 require "./mixin/uid"
 
+require "./widget_children"
 require "./widget_content"
 require "./widget_rendering"
 require "./widget_position"
@@ -18,6 +19,22 @@ module Crysterm
     include Mixin::Pos
     include Mixin::Uid
 
+    @auto_padding = true
+
+    # Widget's parent `Widget`, if any.
+    property parent : Widget?
+    # (This must be defined here rather than in src/mixin/children.cr because classes
+    # which have children do not necessarily also have a parent, e.g. `Screen`.)
+
+    # Screen owning this element, forced to non-nil.
+    # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
+    # If you just want to test for `Screen`, use `#screen?`.
+    property! screen : ::Crysterm::Screen?
+
+    # Screen owning this element, if any.
+    # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
+    getter? screen : ::Crysterm::Screen?
+
     # Arbitrary widget name
     property name : String?
 
@@ -28,6 +45,7 @@ module Crysterm
     # in heriting from List.
 
     # Amount of padding on the inside of the element
+    # XXX Turn this to nilable, like border and shadow?
     property padding : Padding
 
     # Widget's border.
@@ -37,7 +55,7 @@ module Crysterm
     # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
     property shadow : Shadow?
 
-    # Widget's complete style definition.
+    # Widget's complete style definition, a global default.
     # class_property style : Style = Style.new
 
     # Manages Widget style.
@@ -73,7 +91,7 @@ module Crysterm
       @resizable = false,
 
       @visible = true,
-      @fixed = false, # XXX document/check this
+      @fixed = false,
       @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
       @overflow : Overflow = Overflow::Ignore,
 
@@ -106,22 +124,15 @@ module Crysterm
       # Final, misc settings
       @index = -1,
       children = [] of Widget,
-      @auto_padding = true,
       @tabc = (" " * style.tab_size)
     )
       # $ = _ = JSON/YAML::Any
 
       scrollable.try { |v| @scrollable = v }
 
-      case padding
-      when Int
-        @padding = Padding.new padding, padding, padding, padding
-      when Padding
-        @padding = padding
-      else
-        raise "Invalid padding argument"
-      end
+      @padding = parse_padding padding
 
+      # XXX Move those into mixin/parsers.cr, and put all such methods there
       @border = case border
                 when true
                   Border.new BorderType::Line
@@ -262,6 +273,7 @@ module Crysterm
       focus if focused
     end
 
+    # Takes screenshot of a widget
     def screenshot(xi = nil, xl = nil, yi = nil, yl = nil)
       xi = @lpos.xi + ileft + (xi || 0)
       if xl
@@ -284,7 +296,7 @@ module Crysterm
       @children.each do |c|
         c.destroy
       end
-      remove_parent
+      remove_from_parent
       emit Crysterm::Event::Destroy
     end
 
@@ -324,6 +336,38 @@ module Crysterm
       #  el = el.parent
       # end
       # true
+    end
+
+    def determine_screen
+      scr = if Screen.total <= 1
+              # This will use the first screen or create one if none created yet.
+              # (Auto-creation helps writing scripts with less code.)
+              Screen.global true
+            elsif s = @parent
+              while s && !(s.is_a? Screen)
+                s = s.parent_or_screen
+              end
+              if s.is_a? Screen
+                s
+                # else
+                #  raise Exception.new("No active screen found in parent chain.")
+              end
+              # elsif Screen.total > 0
+              #  #Screen.instances[-1]
+              #  Screen.instances[0]
+              #  # XXX For the moment we use the first screen instead of the last one,
+              #    as global, so same here - we just return the first one:
+            end
+
+      unless scr
+        scr = Screen.global
+      end
+
+      unless scr
+        raise Exception.new("No Screen found anywhere. Create one with Screen.new")
+      end
+
+      scr
     end
   end
 end

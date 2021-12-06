@@ -42,7 +42,7 @@ module Crysterm
     elsif e.key == ::Tput::Key::Tab
       s.focus_next
     elsif e.key == ::Tput::Key::ShiftTab
-      s.focus_prev
+      s.focus_previous
     end
   end
 

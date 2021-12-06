@@ -47,12 +47,6 @@ module Crysterm
 
       def create_item(content, screen = ::Crysterm::Screen.global, align = ::Tput::AlignFlag::Left, top = 0, left = 0, right = (@scrollbar ? 1 : 0), parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, transparency = @style.transparency) # XXX hover_effects, focus_effects
 
-        unless @auto_padding
-          top = 1
-          left = ileft
-          right = iright + (@scrollbar ? 1 : 0)
-        end
-
         if @resizable || normal_resizable
           right = nil
           width = "resizable"
@@ -73,9 +67,6 @@ module Crysterm
       def append_item(content : String)
         item = create_item content
         item.top = @items.size
-        unless @auto_padding
-          item.top = itop + @items.size
-        end
 
         @ritems.push content
         @items.push item
@@ -225,7 +216,7 @@ module Crysterm
           @items[j].top += 1
           j += 1
         end
-        item.top = i + (@auto_padding ? 0 : 1)
+        item.top = i
         @ritems.insert i, content
         @items.insert i, item
         append item

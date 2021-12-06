@@ -1,30 +1,19 @@
 module Crysterm
   class Widget < ::Crysterm::Object
-    # Widget's parent `Widget`, if any.
-    property parent : Widget?
-    # This must be defined here rather than in src/mixin/children.cr because classes
-    # which have children do not necessarily also have a parent (e.g. `Screen`).
 
-    # Screen owning this element, forced to non-nil.
-    # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
-    # If you just want to test for `Screen`, use `#screen?`.
-    property! screen : ::Crysterm::Screen?
-
-    # Screen owning this element, if any.
-    # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
-    getter? screen : ::Crysterm::Screen?
+    # Methods related to 3D position (X, Y, and Z which is the stacking / render order)
 
     # User-defined left
-    property left : Int32 | String | Nil
+    getter left : Int32 | String | Nil
 
     # User-defined top
-    property top : Int32 | String | Nil
+    getter top : Int32 | String | Nil
 
     # User-defined right
-    property right : Int32 | Nil
+    getter right : Int32 | Nil
 
     # User-defined bottom
-    property bottom : Int32 | Nil
+    getter bottom : Int32 | Nil
 
     # User-defined width (setter is defined below)
     getter width : Int32 | String | Nil
@@ -35,10 +24,60 @@ module Crysterm
     # Can Crysterm resize the widget if/when needed?
     property? resizable = false
 
-    # Widget's render (order) index.
+    # Widget's render index / order of rendering.
     property index = -1
 
+    # Whether the widget position is fixed even in presence of scroll?
+    # (Primary use in widget labels, which are always e.g. on top-left)
     private property? fixed = false
+
+    # Sets Widget's `@left`
+    def left=(val)
+      return if @left == val
+      emit ::Crysterm::Event::Move
+      clear_last_rendered_position
+      @left = val
+    end
+
+    # Sets Widget's `@right`
+    def right=(val)
+      return if @right == val
+      emit ::Crysterm::Event::Move
+      clear_last_rendered_position
+      @right = val
+    end
+
+    # Sets Widget's `@top`
+    def top=(val)
+      return if @top == val
+      emit ::Crysterm::Event::Move
+      clear_last_rendered_position
+      @top = val
+    end
+
+    # Sets Widget's `@bottom`
+    def bottom=(val)
+      return if @bottom == val
+      emit ::Crysterm::Event::Move
+      clear_last_rendered_position
+      @bottom = val
+    end
+
+    # Sets widget's total width
+    def width=(val)
+      return if @width == val
+      emit ::Crysterm::Event::Resize
+      clear_last_rendered_position
+      @width = val
+    end
+
+    # Sets widget's total height
+    def height=(val)
+      return if height == val
+      emit ::Crysterm::Event::Resize
+      clear_last_rendered_position
+      @height = val
+    end
 
     # Returns computed absolute left position
     def aleft(get = false)
@@ -236,7 +275,7 @@ module Crysterm
       # Although the height for shrunken elements is calculated
       # in the render function, it may be calculated based on
       # the content height, and the content height is initially
-      # decided by the height the element, so it needs to be
+      # decided by the height of the element, so it needs to be
       # calculated here.
       if height.nil?
         top = otop || 0
@@ -283,31 +322,31 @@ module Crysterm
       (abottom || 0) - (parent_or_screen.abottom || 0)
     end
 
-    # Returns computed content offset from relative left position
+    # Returns computed content offset from left
     def ileft
       (@border.try(&.left) ? 1 : 0) + @padding.left
       # return (@border && @border.left ? 1 : 0) + @padding.left
     end
 
-    # Returns computed content offset from relative top position
+    # Returns computed content offset from top
     def itop
       (@border.try(&.top) ? 1 : 0) + @padding.top
       # return (@border && @border.top ? 1 : 0) + @padding.top
     end
 
-    # Returns computed content offset from relative right position
+    # Returns computed content offset from right
     def iright
       (@border.try(&.right) ? 1 : 0) + @padding.right
       # return (@border && @border.right ? 1 : 0) + @padding.right
     end
 
-    # Returns computed content offset from relative bottom position
+    # Returns computed content offset from bottom
     def ibottom
       (@border.try(&.bottom) ? 1 : 0) + @padding.bottom
       # return (@border && @border.bottom ? 1 : 0) + @padding.bottom
     end
 
-    # Returns computed inner width
+    # Returns computed inner (content) width
     def iwidth
       # return (@border
       #   ? ((@border.left ? 1 : 0) + (@border.right ? 1 : 0)) : 0)
@@ -316,29 +355,13 @@ module Crysterm
       (@border ? 2 : 0) + p.left + p.right
     end
 
-    # Returns computed inner height
+    # Returns computed inner (content) height
     def iheight
       # return (@border
       #   ? ((@border.top ? 1 : 0) + (@border.bottom ? 1 : 0)) : 0)
       #   + @padding.top + @padding.bottom
       p = @padding
       (@border ? 2 : 0) + p.top + p.bottom
-    end
-
-    # Sets widget's total/absolute width
-    def width=(val)
-      return if @width == val
-      emit ::Crysterm::Event::Resize
-      clear_last_rendered_position
-      @width = val
-    end
-
-    # Sets widget's total/absolute height
-    def height=(val)
-      return if height == val
-      emit ::Crysterm::Event::Resize
-      clear_last_rendered_position
-      @height = val
     end
 
     # XXX Disabled because nothing uses these at the moment, and also they
@@ -406,34 +429,6 @@ module Crysterm
     #  emit ::Crysterm::Event::Move
     #  val
     # end
-
-    def rleft=(val)
-      return if @left == val
-      emit ::Crysterm::Event::Move
-      clear_last_rendered_position
-      @left = val
-    end
-
-    def rright=(val)
-      return if @right == val
-      emit ::Crysterm::Event::Move
-      clear_last_rendered_position
-      @right = val
-    end
-
-    def rtop=(val)
-      return if @top == val
-      emit ::Crysterm::Event::Move
-      clear_last_rendered_position
-      @top = val
-    end
-
-    def rbottom=(val)
-      return if @bottom == val
-      emit ::Crysterm::Event::Move
-      clear_last_rendered_position
-      @bottom = val
-    end
 
     # Clears area/position of widget's last render
     def clear_last_rendered_position(get = false, override = false)
@@ -608,7 +603,7 @@ module Crysterm
 
       parent = parent_or_screen
 
-      # Intentional assignment below-right:
+      # NOTE `plp=parent.lpos` assignment below-right is intentional:
       if (parent.overflow == Overflow::ShrinkWidget) && (plp = parent.lpos)
         if xi < plp.xi + parent.ileft
           xi = plp.xi + parent.ileft
@@ -688,91 +683,6 @@ module Crysterm
       # can realistically happen, use something like:
       # LPos.new
       # (And possibly make sure to carry over the i* values like above)
-    end
-
-    # Removes node from its parent.
-    # This is identical to calling `#remove` on the parent object.
-    def remove_parent
-      @parent.try { |p| p.remove self }
-    end
-
-    # Inserts `element` to list of children at a specified position (at end by default)
-    def insert(element, i = -1)
-      if element.screen != screen
-        element.screen.try &.detach(element)
-      end
-
-      element.remove_parent
-
-      super
-      screen.try &.attach(element)
-
-      element.parent = self
-
-      element.emit Crysterm::Event::Reparent, self
-      emit Crysterm::Event::Adopt, element
-    end
-
-    def remove(element)
-      return if element.parent != self
-
-      return unless super
-      element.parent = nil
-
-      # TODO Enable
-      # if i = screen.clickable.index(element)
-      #  screen.clickable.delete_at i
-      # end
-      # if i = screen.keyable.index(element)
-      #  screen.keyable.delete_at i
-      # end
-
-      element.emit(Crysterm::Event::Reparent, nil)
-      emit(Crysterm::Event::Remove, element)
-      # s= screen
-      # raise Exception.new() unless s
-      # screen_clickable= s.clickable
-      # screen_keyable= s.keyable
-
-      screen.try do |s|
-        s.detach element
-
-        if s.focused == element
-          s.rewind_focus
-        end
-      end
-    end
-
-    def determine_screen
-      scr = if Screen.total <= 1
-              # This will use the first screen or create one if none created yet.
-              # (Auto-creation helps writing scripts with less code.)
-              Screen.global true
-            elsif s = @parent
-              while s && !(s.is_a? Screen)
-                s = s.parent_or_screen
-              end
-              if s.is_a? Screen
-                s
-                # else
-                #  raise Exception.new("No active screen found in parent chain.")
-              end
-              # elsif Screen.total > 0
-              #  #Screen.instances[-1]
-              #  Screen.instances[0]
-              #  # XXX For the moment we use the first screen instead of the last one,
-              #    as global, so same here - we just return the first one:
-            end
-
-      unless scr
-        scr = Screen.global
-      end
-
-      unless scr
-        raise Exception.new("No Screen found anywhere. Create one with Screen.new")
-      end
-
-      scr
     end
 
     # Returns parent `Widget` (if any) or `Screen` to which the widget may be attached.
@@ -875,20 +785,16 @@ module Crysterm
         if el.left.nil? && !el.right.nil?
           ret.xl = xi + (ret.xl - ret.xi)
           ret.xi = xi
-          if @auto_padding
-            # Maybe just do this no matter what.
-            ret.xl += ileft
-            ret.xi += ileft
-          end
+          # Maybe just do this no matter what.
+          ret.xl += ileft
+          ret.xi += ileft
         end
         if (el.top.nil? && !el.bottom.nil?)
           ret.yl = yi + (ret.yl - ret.yi)
           ret.yi = yi
-          if @auto_padding
-            # Maybe just do this no matter what.
-            ret.yl += itop
-            ret.yi += itop
-          end
+          # Maybe just do this no matter what.
+          ret.yl += itop
+          ret.yi += itop
         end
 
         if ret.xi < mxi

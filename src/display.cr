@@ -46,8 +46,8 @@ module Crysterm
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
       # TODO make these check @output, not STDOUT which is probably used.
-      @cols = ::Term::Screen.cols || 1
-      @rows = ::Term::Screen.rows || 1
+      @width = ::Term::Screen.cols || 1
+      @height = ::Term::Screen.rows || 1
 
       @terminfo = case terminfo
                   when true

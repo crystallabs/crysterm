@@ -4,8 +4,6 @@ module Crysterm
     #
     # Broader in scope than mouse focus, since widget focus can be affected
     # by keys (Tab/Shift+Tab etc.) and operate without mouse.
-    # module Focus
-    include Crystallabs::Helpers::Alias_Methods
 
     # Send focus events after mouse is enabled?
     property send_focus = false
@@ -58,8 +56,6 @@ module Crysterm
     def focus_previous
       focus_offset -1
     end
-
-    alias_previous focus_prev
 
     # Focuses next element in the list of focusable elements.
     def focus_next
@@ -170,11 +166,8 @@ module Crysterm
     end
 
     # Makes `el` become the current/top element in the focus history list.
-    def focused=(el)
+    def focus(el)
       focus_push el
     end
-
-    alias_previous :focus
-    # end
   end
 end

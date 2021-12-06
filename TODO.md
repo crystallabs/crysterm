@@ -2,6 +2,8 @@
 
 ## Immediate Source Code TODOs
 
+- Screen's padding is not fully honored
+
 - In small-tests/checkbox.cr, troubleshoot why Tab/Shift+Tab or Up/Down arrows are not cycling focus between widgets
 - And same issue in small-tests/radiobutton.cr
 
@@ -30,6 +32,8 @@
 - Maybe add a GUI-dedicated thread like in Qt?
 
 ## Non-critical Fixes and Small Improvements to Existing code
+
+- Screen#screenshot method remains to be ported over
 
 - When label widget is created on a widget, value of parse_tags is inherited from parent. Not sure if that's the best approach.
 

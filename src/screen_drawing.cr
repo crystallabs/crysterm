@@ -1,7 +1,13 @@
 module Crysterm
   class Screen
+
     # Things related to drawing (displaying rendered state to display)
-    # module Drawing
+
+    # class_property auto_draw = false
+
+    @_buf = IO::Memory.new
+    property _ci = -1
+
     @outbuf : IO::Memory = IO::Memory.new 10_240
     @main : IO::Memory = IO::Memory.new 10_240
 
