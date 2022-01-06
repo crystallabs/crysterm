@@ -134,7 +134,7 @@ module Crysterm
       @lock_keys = false,
       title = nil,
       @cursor = Cursor.new,
-      optimization = OptimizationFlag::SmartCSR | OptimizationFlag::BCE,
+      optimization = OptimizationFlag::None,
       padding = Padding.new,
       alt = true,
       show_fps = true
