@@ -21,8 +21,6 @@ git clone https://github.com/crystallabs/crysterm
 cd crysterm
 shards --ignore-crystal-version
 
-# Crysterm renders very poorly in VTE-based terminals; use xterm as a
-# quick solution.
 export TERM=xterm-256color
 
 crystal examples/hello.cr
