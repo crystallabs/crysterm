@@ -1,3 +1,5 @@
+require "event_handler"
+
 module Crysterm
   # Many common commands can be invoked via different interfaces (menus, toolbar buttons, keyboard shortcuts, etc.).
   # Because they are expected to run in the same way, regardless of the user interface used, it is useful to represent them with `Action`s.
