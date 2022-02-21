@@ -4,7 +4,10 @@
 
 - Oversized widgets issue (small-tests/checkbox.cr)
 - Misplaced cursor issue (small-tests/radiobutton.cr)
-- In small-tests/focus.cr, troubleshoot why focus switching is not smooth (takes a couple Tabs before focus starts switching), and why the box with instructions is getting focused even though it has `keys: false`
+
+- When first/default widget is focused, the cursor does not render in it (e.g. small-tests/focus.cr)
+
+- In small-tests/focus.cr, why the box with instructions is getting focused even though it has `keys: false` and messes up focusing
 
 - In small-tests/question.cr, see if the widget can be fixed to work properly, or it's not worth it (since the original implementation of the widget in Blessed is quite weird, maybe it should be redone)
 

@@ -15,16 +15,26 @@ module Crysterm
     @keyable = [] of Widget
 
     # Focuses an element by an offset in the list of focusable elements.
+    #
+    # E.g. `focus_offset 1` moves focus to the next focusable element.
+    # `focus_offset 3` moves focus 3 focusable elements further.
+    #
+    # If the end of list of focusable elements is reached before the
+    # item to focus is found, the search continues from the beginning.
     def focus_offset(offset)
+
+      # This function is logically similar to blessed's.
+      # It could be improved/changed in a couple different ways.
+
       shown = @keyable.count { |el| el.screen && el.visible? }
 
       if (shown == 0 || offset == 0)
         return
       end
 
-      i = @keyable.index(focused) || 0
+      i = @keyable.index(focused) || -1
 
-      if (offset > 0)
+      if offset >= 0
         while offset > 0
           offset -= 1
           i += 1
@@ -49,7 +59,8 @@ module Crysterm
         end
       end
 
-      @keyable[i].focus
+      #@keyable[i].focus
+      focus @keyable[i]
     end
 
     # Focuses previous element in the list of focusable elements.

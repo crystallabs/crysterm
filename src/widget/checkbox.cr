@@ -90,5 +90,7 @@ module Crysterm
         end
       end
     end
+
+    alias CheckBox = Checkbox
   end
 end

@@ -7,9 +7,10 @@ class X
   def initialize
     s = Screen.new ignore_locked: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
-    note = Widget::TextBox.new content: "Use Tab/Shift+Tab to cycle between boxes, Ctrl+q to exit", keys: false
+    #note = Widget::TextBox.new content: "Use Tab/Shift+Tab to cycle between boxes, Ctrl+q to exit"
 
-    i1 = Widget::TextBox.new \
+    i1 = Widget::Checkbox.new \
+      name: "w1",
       width: 10,
       height: 3,
       top: 6,
@@ -18,25 +19,27 @@ class X
       border: true,
       style: Style.new(fg: "yellow", bg: "red")
 
-    i2 = Widget::TextBox.new \
+    i2 = Widget::Checkbox.new \
+      name: "w2",
       width: 10,
       height: 3,
       top: 6,
       left: 18,
-      content: "Box1",
+      content: "Box2",
       border: true,
       style: Style.new(fg: "yellow", bg: "red")
 
-    i3 = Widget::TextBox.new \
+    i3 = Widget::Checkbox.new \
+      name: "w3",
       width: 10,
       height: 3,
       top: 6,
       left: 30,
-      content: "Box1",
+      content: "Box3",
       border: true,
       style: Style.new(fg: "yellow", bg: "red")
 
-    s.append note, i1, i2, i3
+    s.append i1, i2, i3
 
     s.on(Crysterm::Event::KeyPress) do |e|
       if e.key == ::Tput::Key::CtrlQ
