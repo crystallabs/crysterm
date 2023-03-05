@@ -36,11 +36,11 @@ X.new
 ```
 
 This wouldn't necessarily have to support full indirect initialization. It
-would be enough that, if some methods are always/uncoditionally called from `initialize`,
+would be enough that, if some methods are always/unconditionally called from `initialize`,
 the same checks that apply to `initialize` also apply to those methods, and to consider
 `@x` to be set.
 
-## Method overloads to not get overwritten by each other so easily:
+## (Resolved) Method overloads to not get overwritten by each other so easily:
 
 This currently doesn't work because the first overload gets completely overwritten:
 
@@ -71,6 +71,9 @@ Matches are:
 
 https://github.com/crystal-lang/crystal/issues/10231
 
+The issue has since been resolved by HertzDevil, but is not yet the default.
+To have the fix applied, you must invoke crystal with `crystal run -Dpreview_overload_order ...`.
+
 ## Introducing 'undefined' or similar to mean unspecified values. E.g.:
 
 ```cr
@@ -88,7 +91,7 @@ X.new # ==> "test"
 
 Partly related issue exists somewhere on the forums, reported by @Blacksmoke16.
 
-## Type-safe `#==` operator:
+## (Partly resolved) Type-safe `#==` operator:
 
 Due to default implementation of `#==` in `Value` and `Reference`, comparing
 anything to anything is allowed and returns false. This is very dangerous
@@ -100,6 +103,13 @@ Since it is probably too late to make this change in the language, it would
 be useful if Ameba would catch those:
 
 https://github.com/crystal-ameba/ameba/issues/237
+
+Sija added support for this in Ameba 1.3.0.
+
+But the proper solution would be to have this supported at the language level in Crystal 3.0.
+For example, to have an operator like `#==?` that behaves like the current `#==` (i.e. returns false if
+arguments are not comparable). And then to change `#==` to a type-safe version so that it produces an
+error when there is no comparison defined between its arguments. Possibly in Crystal 3.0?
 
 ## API to expose a method to kill Fiber from outside code.
 
@@ -120,7 +130,7 @@ ppf = pf.partial(b: 10)
 
 ```
 
-Exists partly as https://github.com/crystal-lang/crystal/issues/11099
+A workaround exists in https://github.com/crystal-lang/crystal/issues/11099
 
 ## Better subclassing in Procs:
 
