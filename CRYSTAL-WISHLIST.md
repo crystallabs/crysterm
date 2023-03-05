@@ -109,7 +109,7 @@ Sija added support for this in Ameba 1.3.0.
 But the proper solution would be to have this supported at the language level in Crystal 3.0.
 For example, to have an operator like `#==?` that behaves like the current `#==` (i.e. returns false if
 arguments are not comparable). And then to change `#==` to a type-safe version so that it produces an
-error when there is no comparison defined between its arguments. Possibly in Crystal 3.0?
+error when there is no comparison defined between its arguments.
 
 ## API to expose a method to kill Fiber from outside code.
 
