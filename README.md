@@ -102,7 +102,7 @@ As mentioned, Crysterm is inspired by Blessed, Blessed-contrib, and Qt.
 
 Blessed is a large, self-contained framework. Apart from implementing Blessed's core functionality, its authors have also
 implemented all the necessary/prerequisite components, including an event model (a modified copy of an early Node.js
-EventEmitter), complete termcap/terminfo system (parsing, compilation, output, and input from terminal devices; in a word an
+EventEmitter), complete termcap/terminfo system (parsing, compilation, output, and input from terminal devices -- a complete
 alternative to ncurses), all types of mouse support, Unicode handling, color manipulation routines, etc.
 However, these implementations have been mixed with the rest of Blessed's source code, reducing the potential for their
 reuse.
@@ -177,12 +177,13 @@ contents, rather than programmer's wishes. (What we call "resizable" is suboptim
 The interface for getting or setting values has been streamlined:
 
 | Spec | Absolute | Relative | Inner/content offsets |
+|------|----------|----------|-----------------------|
 | left / left= | aleft | rleft | ileft |
 | top / top= | atop | rtop | itop |
 | right / right= | aright | rright | iright |
 | bottom / bottom= | abottom | rbottom | ibottom |
-| width / width= | awidth | | iwidth |
-| height / height= | aheight | | iheight |
+| width / width= | awidth | - | iwidth |
+| height / height= | aheight | - | iheight |
 
 "Spec" methods get or set the values exactly as the user specified them (e.g. "50%+2").
 Absolute methods return computed values as integers (number of cells, starting from point (0,0) on the top left).
