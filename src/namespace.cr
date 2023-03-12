@@ -66,6 +66,8 @@ module Crysterm
 
     # Class for the complete style of a widget.
     class Style
+      class_property default = new
+
       # Potentially make all subelements be filled in here,
       # and if they're a new Style class have it know its
       # Style parent. This way we could default values to

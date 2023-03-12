@@ -324,8 +324,8 @@ module Crysterm
         i = -Int32::MAX
       end
       @scrollbar.try do # |scrollbar|
-      # D O:
-      # i = @get_scroll_height()
+        # D O:
+        # i = @get_scroll_height()
         i = Math.max @_clines.size, _scroll_bottom
 
         if ((yl - yi) < i)

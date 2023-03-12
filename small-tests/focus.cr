@@ -7,7 +7,7 @@ class X
   def initialize
     s = Screen.new ignore_locked: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
-    #note = Widget::TextBox.new content: "Use Tab/Shift+Tab to cycle between boxes, Ctrl+q to exit"
+    # note = Widget::TextBox.new content: "Use Tab/Shift+Tab to cycle between boxes, Ctrl+q to exit"
 
     i1 = Widget::Checkbox.new \
       name: "w1",

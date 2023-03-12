@@ -48,7 +48,7 @@ module Crysterm
     parent: layout,
     width: 18,
     height: 18,
-      # border: BorderType::Bg,
+  # border: BorderType::Bg,
 )
   checkbox1 = Checkbox.new parent: checkboxes, content: "Checkbox 1", top: 0
   checkbox2 = Checkbox.new parent: checkboxes, content: "Checkbox 2", top: 2

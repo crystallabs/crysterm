@@ -160,7 +160,7 @@ module Crysterm
               next
             elsif (lx != -1)
               if (s.parm_right_cursor?)
-                @outbuf.write ((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
+                @outbuf.write((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
               else
                 @outbuf.write s.cup(y, x)
               end

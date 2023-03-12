@@ -14,7 +14,7 @@ module Crysterm
     label: " {blue-fg}Prompt{/blue-fg} ",
     parse_tags: true,
     keys: true,
-      # vi: true
+  # vi: true
 )
 
   question = Question.new(
@@ -27,7 +27,7 @@ module Crysterm
     label: " {blue-fg}Question{/blue-fg} ",
     parse_tags: true,
     keys: true,
-      # vi: true
+  # vi: true
 )
 
   msg = Message.new(
@@ -41,7 +41,7 @@ module Crysterm
     parse_tags: true,
     keys: true,
     visible: false,
-      # vi: true
+  # vi: true
 )
 
   loader = Loading.new(
@@ -55,7 +55,7 @@ module Crysterm
     parse_tags: true,
     keys: true,
     visible: false,
-      # vi: true
+  # vi: true
 )
 
   s.append prompt

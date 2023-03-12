@@ -56,10 +56,10 @@ screen = C::Screen.new # Assumes argument `display: Display.global`
 
 hello = C::Widget::Box.new \
   name: "helloworld box", # Symbolic name
-  top: "center",          # Can also be 10, "50%", or "50%+-10"
-  left: "center",         # Can also be 10, "50%", or "50%+-10"
-  width: 20,              # Can also be 10, "50%", or "50%+-10"
-  height: 5,              # Can also be 10, "50%", or "50%+-10"
+  top: "center",          # Can also be of format 10, "50%", or "50%+-10"
+  left: "center",         # Can also be of format 10, "50%", or "50%+-10"
+  width: 20,              # Can also be of format 10, "50%", or "50%+-10"
+  height: 5,              # Can also be of format 10, "50%", or "50%+-10"
   content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
   parse_tags: true,       # Parse {} tags within content (default already is true)
   style: C::Style.new(fg: "yellow", bg: "blue"),
@@ -168,15 +168,15 @@ behavior.
 
 ![Crysterm Widget](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/widget.png)
 
-Widget positions and sizes work like in Blessed. They can be specified as numbers (e.g. 10), percentages (e.g. "10%"), both (e.g. "10%+2"), or specific keywords ("center", which has an effect of `50% - self.width_or_height//2`, or "resizable" which adjusts in runtime).
+Widget positions and sizes work like in Blessed. They can be specified as numbers (e.g. 10), percentages (e.g. "10%"), both (e.g. "10%+2"), or specific keywords ("center" which has an effect of `50% - self.width_or_height//2`, or "resizable" which adjusts in runtime).
 
 That model is simple and works quite OK, although it is not as developed as the model in Qt. For example, there is no way to shrink or grow widgets disproportionally when window is resized, and
 there is no way to define maximum or minimum size. (Well, minimum size calculation does exist for resizable widgets, but only for trying to find the minimum size based on actual
 contents, rather than programmer's wishes. (What we call "resizable" is suboptimally called "shrink" in Blessed because it can also grow.))
 
-The interface for getting or setting values has been streamlined:
+The interface for getting or setting values has been streamlined (further explanations below the table):
 
-| Spec | Absolute | Relative | Inner/content offsets |
+| Spec | Absolute position | Relative position | Inner content offset |
 |------|----------|----------|-----------------------|
 | left / left= | aleft | rleft | ileft |
 | top / top= | atop | rtop | itop |
@@ -185,10 +185,10 @@ The interface for getting or setting values has been streamlined:
 | width / width= | awidth | - | iwidth |
 | height / height= | aheight | - | iheight |
 
-"Spec" methods get or set the values exactly as the user specified them (e.g. "50%+2").
+"Spec" methods get or set the values exactly as the user specified them (e.g. "50%+2" or "center").
 Absolute methods return computed values as integers (number of cells, starting from point (0,0) on the top left).
-Relative methods return computed values as integers (number of cells, starting from point (0,0) in the parent widget).
-Inner methods return computed offsets of content inside the widget (e.g. borders and padding influence the offset).
+Relative methods return computed values as integers (number of cells, starting from point (0,0) in the parent widget. If there is no parent widget, they are equal to absolute values).
+Inner methods return offsets of content inside the widget (i.e. they report the sum of thickness of all widget's inner decorations like borders, padding, etc.)
 
 Speaking of layouts, the one layout engine currently existing, `Widget::Layout`, is equivalent to Blessed's. It can arrange widgets in a grid-like or masonry-like style.
 There are no equivalents of Qt's `QBoxLayout`.
@@ -196,7 +196,7 @@ There are no equivalents of Qt's `QBoxLayout`.
 The positioning and layout code is very manageable; adding new Qt-like or other features is not a big task.
 (Whether various layouts would then still inherit from `Widget` or not (like they don't in Qt) is open for consideration.)
 
-Finally, worth noting, there are currently some differences in the exact types or combinations of mentioned values supported for `top`, `left`, `width`, `height`, and `align`. It would be
+Note: there are currently some differences in the exact types or combinations of mentioned value formats supported for `top`, `left`, `width`, `height`, and `align`. It would be
 good if all these could be adjusted to accept the same flexible/unified specification, and if the list of supported specifications would even grow over time.
 (For example, one could want to pass a block or proc, in which case it'd be called to get the value.)
 
@@ -209,7 +209,8 @@ results in the final/rendered state reflected in internal memory.
 At the end of rendering, `Screen#draw` is automatically called which makes any changes in internal state appear on the
 display. For efficiency, painter's algorithm is used, only changes ("damage") are rendered, and renderer
 can optionally make use of CSR (change-scroll-region) and/or BCE (back-color-erase) optimizations
-(see `OptimizationFlag`).
+(see `OptimizationFlag`, although some terminal emulators like `gnome-terminal` might not display them correctly
+so they are off by default).
 
 Calling `render` whereever appropriate is not a concern because there is code making sure that render
 runs at most once per unit of time (currently 1/29th of a second) and all accumulated changes are
@@ -360,6 +361,10 @@ List of current bugs / quirks in Crysterm, in no particular order:
 - There is no `Image` widget which can display an image in ANSI or an overlay. Use one or the other (`Widget::Image::Ansi` or `Widget::Image::Overlay`) explicitly. (`Image::Ansi` does not exist yet.)
 
 If you notice any problems or have any suggestions, please submit an issue.
+
+## Work in progress
+
+- There exists a default style object in `Crysterm::Style.default`. It will be the default value for all `style` arguments
 
 ## Thanks
 

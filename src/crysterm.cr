@@ -24,18 +24,16 @@ require "./widgets"
 
 # Main Crysterm module and namespace.
 #
-# If your code is in its own namespace, you could shorten `Crysterm` with an
-# alias of your choosing, such as:
+# If your code is in its own namespace, you can shorten `Crysterm` to an
+# alias of your choosing, e.g.:
 #
 # ```
 # alias C = Crysterm
 # alias GUI = Crysterm
+# ...
 # ```
 module Crysterm
   include Namespace
-
-  # NOTE Good idea to provide a default instance, or not?
-  # class_property style = Style.new
 
   # Default TAB size in number of characters. This value gets used as a default for `Style#tab_size`.
   TAB_SIZE = 4

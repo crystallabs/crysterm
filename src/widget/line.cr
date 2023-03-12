@@ -11,11 +11,11 @@ module Crysterm
         orientation.try { |v| @orientation = v }
 
         # TODO: Error: double splatting a union (NamedTuple(content: String, keys: Bool) | NamedTuple(content: String, keys: Bool, height: Int32) | NamedTuple(content: String, keys: Bool, width: Int32)) is not yet supported
-        #if @orientation.vertical?
+        # if @orientation.vertical?
         #  box = box.merge(width: 1) unless box["width"]?
-        #else
+        # else
         #  box = box.merge(height: 1) unless box["height"]?
-        #end
+        # end
 
         super **box, border: border
 

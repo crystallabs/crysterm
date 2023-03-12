@@ -2,7 +2,6 @@ module Crysterm
   module Mixin
     module Instances
       macro included
-
         # List of existing instances.
         #
         # For automatic management of this list, make sure that `#bind` is called at

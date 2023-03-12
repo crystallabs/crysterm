@@ -22,7 +22,6 @@ module Crysterm
     # If the end of list of focusable elements is reached before the
     # item to focus is found, the search continues from the beginning.
     def focus_offset(offset)
-
       # This function is logically similar to blessed's.
       # It could be improved/changed in a couple different ways.
 
@@ -59,7 +58,7 @@ module Crysterm
         end
       end
 
-      #@keyable[i].focus
+      # @keyable[i].focus
       focus @keyable[i]
     end
 
