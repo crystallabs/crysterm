@@ -146,6 +146,8 @@
 
 - In the code, questions and/or things to verify at some later point are identified with "XXX".
 
+- Potentially move content-related helpers from `src/helpers.cr` into `src/widget_content.cr`
+
 ## Theoretical Discussion / Tasks
 
 Most of these can be ignored, they are highly contextual.

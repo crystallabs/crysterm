@@ -121,31 +121,33 @@ module Crysterm
       flags = (code >> 18) & 0x1ff
       fg = (code >> 9) & 0x1ff
       bg = code & 0x1ff
-      outbuf = ""
+      outbuf = String::Builder.new
+
+      outbuf << "\e[" # Bytesize of this is 2
 
       # bold
       if ((flags & 1) != 0)
-        outbuf += "1;"
+        outbuf << "1;"
       end
 
       # underline
       if ((flags & 2) != 0)
-        outbuf += "4;"
+        outbuf << "4;"
       end
 
       # blink
       if ((flags & 4) != 0)
-        outbuf += "5;"
+        outbuf << "5;"
       end
 
       # inverse
       if ((flags & 8) != 0)
-        outbuf += "7;"
+        outbuf << "7;"
       end
 
       # invisible
       if ((flags & 16) != 0)
-        outbuf += "8;"
+        outbuf << "8;"
       end
 
       if (bg != 0x1ff)
@@ -157,9 +159,9 @@ module Crysterm
             bg -= 8
             bg += 100
           end
-          outbuf += "#{bg};"
+          outbuf << bg << ';'
         else
-          outbuf += "48;5;#{bg};"
+          outbuf << "48;5;" << bg << ';'
         end
       end
 
@@ -172,17 +174,24 @@ module Crysterm
             fg -= 8
             fg += 90
           end
-          outbuf += "#{fg};"
+          outbuf << fg << ';'
         else
-          outbuf += "38;5;#{fg};"
+          outbuf << "38;5;" << fg << ';'
         end
       end
 
-      if (outbuf[-1] == ";")
-        outbuf = outbuf[0...-1]
+      # If bytesize is 2, which is what we started with, it means nothing
+      # was written, so we should in fact return an empty string.
+      if outbuf.bytesize == 2
+        return ""
       end
 
-      "\e[#{outbuf}m"
+      # Otherwise, something was written to the string. Since we know the
+      # last char is ";", we go back one char and replace it with 'm',
+      # then return that string.
+      outbuf.back 1
+      outbuf << "m"
+      outbuf.to_s
     end
     # end
   end
