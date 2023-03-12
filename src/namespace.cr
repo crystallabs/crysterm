@@ -25,9 +25,9 @@ module Crysterm
 
     # Type of border to draw.
     enum BorderType
-      Bg
-      Fg
-      Line
+      Bg   # Bg color
+      Fg   # Fg color
+      Line # Line, drawn in ACS or Unicode chars
       # Dotted
       # Dashed
       # Solid
@@ -48,30 +48,26 @@ module Crysterm
 
     # Overflow behavior when rendering and drawing elements.
     enum Overflow
-      Ignore        # Render without changes
+      Ignore        # Render without changes (part goes out of screen and is not visible)
       ShrinkWidget  # Make the Widget smaller to fit
-      SkipWidget    # Do not render the widget
+      SkipWidget    # Do not render that widget
       StopRendering # End rendering cycle (leave current and remaining widgets unrendered)
-      MoveWidget    # Move so that it doesn't overflow if possible (e.g. auto-completion popups)
-      # XXX Check whether StopRendering / SkipWidget work OK with things like focus etc.
-      # They should be skipped, of course, if they are not rendered.
+      MoveWidget    # Move widget so that it doesn't overflow, if possible (e.g. auto-completion popups)
+      # TODO Check whether StopRendering / SkipWidget work OK with things like focus etc.
+      # They should be skipped in focus list if they are not rendered, of course.
     end
 
     # Docking behavior when borders don't have the same color
     enum DockContrast
-      Ignore
-      DontDock
-      Blend
+      Ignore   # Just render, colors on adjacent cells will be different
+      DontDock # Do not perform docking (leave default look)
+      Blend    # Blend/mix colors for as smooth a transition as possible
     end
 
     # Class for the complete style of a widget.
     class Style
-      class_property default = new
+      class_property default = new # Default style for all widgets
 
-      # Potentially make all subelements be filled in here,
-      # and if they're a new Style class have it know its
-      # Style parent. This way we could default values to
-      # the parent value.
       property fg : String = "white"
       property bg : String = "black"
       property bold : Bool = false
@@ -89,83 +85,96 @@ module Crysterm
       property pchar : Char = ' ' # Percent char
       property fchar : Char = ' ' # Foreground char
       property bchar : Char = ' ' # Bg char
-      # property fchar : Char = ' '
 
       property? fill = true
 
-      # For scrollbar
-      property? ignore_border : Bool
+      property ignore_border : Bool = false # If true, it's rendered in place of the border
 
-      # Each of these are separate subelements that can be styled.
+      # Each of the following subelements are separate and can be styled individually.
       # If any of them is not defined, it defaults to main/parent style.
-      setter border : Style?
-      setter scrollbar : Style?
-      # setter shadow : Style?
-      setter track : Style?
+      # Keep the list sorted alphabetically.
+      # Names of subelements could be improved over time to be more clear.
+
       setter bar : Style?
-      setter item : Style?
-      setter header : Style?
-      setter cell : Style?
-      setter label : Style?
-
-      setter blur : Style?
-      setter focus : Style?
-      setter hover : Style?
-      setter selected : Style?
-
-      def border
-        @border || self
-      end
-
-      def scrollbar
-        @scrollbar || self
-      end
-
-      def focus
-        @focus || self
-      end
-
-      def hover
-        @hover || self
-      end
-
-      # def shadow
-      #  @shadow || self
-      # end
-
-      def track
-        @track || self
-      end
 
       def bar
         @bar || self
       end
 
-      def selected
-        @selected || self
-      end
-
-      def item
-        @item || self
-      end
-
-      def header
-        @header || self
-      end
-
-      def cell
-        @cell || self
-      end
-
-      def label
-        @label || self
-      end
+      setter blur : Style?
 
       def blur
         @blur || self
       end
 
+      setter border : Style?
+
+      def border
+        @border || self
+      end
+
+      setter cell : Style?
+
+      def cell
+        @cell || self
+      end
+
+      setter focus : Style?
+
+      def focus
+        @focus || self
+      end
+
+      setter header : Style?
+
+      def header
+        @header || self
+      end
+
+      setter hover : Style?
+
+      def hover
+        @hover || self
+      end
+
+      setter item : Style?
+
+      def item
+        @item || self
+      end
+
+      setter label : Style?
+
+      def label
+        @label || self
+      end
+
+      setter scrollbar : Style?
+
+      def scrollbar
+        @scrollbar || self
+      end
+
+      setter selected : Style?
+
+      def selected
+        @selected || self
+      end
+
+      setter track : Style?
+
+      def track
+        @track || self
+      end
+
+      # setter shadow : Style?
+
+      # def shadow
+      #  @shadow || self
+      # end
+
       def initialize(
+        *,
         @border = nil,
         @scrollbar = nil,
         @focus = nil,
@@ -210,7 +219,7 @@ module Crysterm
 
     # Class for padding definition.
     #
-    # NOTE "Padding" as in spacing around elements.
+    # NOTE "Padding" as in spacing around elements. Same order as in HTML (ltrb)
     class Padding
       property left : Int32
       property top : Int32
@@ -232,7 +241,8 @@ module Crysterm
     # Class for border definition.
     class Border
       property type = BorderType::Line
-      # These don't have ? because they'll be replaced with Ints in the future
+      # NOTE These don't have ? because they'll be replaced with Ints in the future,
+      # specifying corresponding border thicknesses
       property left : Bool
       property top : Bool
       property right : Bool
@@ -255,6 +265,8 @@ module Crysterm
     # Class for shadow definition.
     class Shadow
       # property type = BorderType::Line
+      # NOTE These don't have ? because they'll be replaced with Ints in the future,
+      # specifying corresponding border thicknesses
       property? left : Bool
       property? top : Bool
       property? right : Bool
@@ -296,8 +308,9 @@ module Crysterm
     #  property bg : String = "black"
     # end
 
-    # Used to represent minimal widget dimensions, after running method(s)
-    # to determine them.
+    # Used to represent minimal widget position. It is returned from methods
+    # that run calculations to determine that. *i fields are start positions,
+    # *l methods are end positions.
     #
     # Used only internally; could be replaced by anything else that has
     # the necessary properties.
@@ -308,12 +321,16 @@ module Crysterm
       getter yl : Int32
       getter get : Bool
 
+      # NOTE Don't remember the exact function of `get`. IIRC it goes to
+      # recalculate from parent. Check what the function is and document
+      # it here.
       def initialize(@xi, @xl, @yi, @yl, @get = false)
       end
     end
 
     # Helper class implementing only minimal position-related interface.
     # Used for holding widget's last rendered position.
+    # XXX Could be renamed to LastRenderedPos[ition] for clarity.
     class LPos
       # TODO Can almost be replaced with a struct. Only minimal problems appear.
       # See tech-demo example, fix the issue and replace with struct.
@@ -353,6 +370,8 @@ module Crysterm
 
       # These should be allowed to be just 0 because I'd think their offsets
       # are already included in a* properties.
+      # (XXX Verify that and fix; seems like an inconsistency in logic if that
+      # sentence/description is true.
       property ileft : Int32 = 0
       property itop : Int32 = 0
       property iright : Int32 = 0

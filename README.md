@@ -362,10 +362,6 @@ List of current bugs / quirks in Crysterm, in no particular order:
 
 If you notice any problems or have any suggestions, please submit an issue.
 
-## Work in progress
-
-- There exists a default style object in `Crysterm::Style.default`. It will be the default value for all `style` arguments
-
 ## Thanks
 
 * All the fine folks on Libera.Chat IRC channel #crystal-lang and on Crystal's Gitter channel https://gitter.im/crystal-lang/crystal

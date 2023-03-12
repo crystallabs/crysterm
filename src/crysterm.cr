@@ -1,4 +1,5 @@
 require "json"
+
 require "event_handler"
 
 require "./ext"

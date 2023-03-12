@@ -2,6 +2,8 @@
 
 ## Immediate Source Code TODOs
 
+- Open src/namespace.cr. In there is code for initializing `Style`. Use that example to introduce `def x(@y = undefined)`, where `undefined` would be macro that expands to default value of that property
+
 - Oversized widgets issue (small-tests/checkbox.cr)
 - Misplaced cursor issue (small-tests/radiobutton.cr)
 
@@ -32,6 +34,8 @@
 - Maybe add a GUI-dedicated thread like in Qt?
 
 ## Non-critical Fixes and Small Improvements to Existing code
+
+- For `OptimizationFlag`s listed in src/namespace.cr, make a list of all common terminal emulators and see which one support which optimizations. Than make default optimizations turn on/off based on that (unless overriden by user).
 
 - Screen#screenshot method remains to be ported over
 
@@ -78,6 +82,8 @@
 - Adding TrueColor support
 
 ## Would be Good to Add
+
+- There now exists default style in `Crysterm::Style.default`. See how this could be used. Does it apply to all widgets or only those without a parent set? If the latter, then other widgets could inherit style from parent. Does this happen via explicit reference or lookup in code? If explicitly, then we should also remove the style when widget is removed from parent.
 
 - Style setting for determining whether cursor is visible in a widget or not. E.g. it should be possible to have cursor optionally appear in focused checkboxes and radiobuttons.
 
