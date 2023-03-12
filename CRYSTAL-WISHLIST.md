@@ -74,13 +74,13 @@ https://github.com/crystal-lang/crystal/issues/10231
 The issue has since been resolved by HertzDevil, but is not yet the default.
 To have the fix applied, you must invoke crystal with `crystal run -Dpreview_overload_order ...`.
 
-## Introducing 'undefined' or similar to mean unspecified values. E.g.:
+## (Partly resolved) Using 'default' to expand into property's default value
 
 ```cr
 class X
   @var = "test"
 
-  def initialize(@var = undefined)
+  def initialize(@var = default)
     puts @var
   end
 
@@ -89,7 +89,18 @@ end
 X.new # ==> "test"
 ```
 
-Partly related issue exists somewhere on the forums, reported by @Blacksmoke16.
+This functionality appears to exist in a limited form.
+There is not a macro or keyword named `default`, but one can repeat the variable name:
+
+```
+  def initialize(@var = @var)
+    puts @var # ==> "test"
+  end
+```
+
+However, it seems to work in `initialize` only, not in `new`.
+
+Thanks to @Blacksmoke16 for discussion / tip.
 
 ## (Partly resolved) Type-safe `#==` operator:
 

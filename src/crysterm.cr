@@ -36,9 +36,6 @@ require "./widgets"
 module Crysterm
   include Namespace
 
-  # Default TAB size in number of characters. This value gets used as a default for `Style#tab_size`.
-  TAB_SIZE = 4
-
   # Convenience regex for matching Crysterm tags and their content (i.e. '{bold}This text is bold{/bold}').
   TAG_REGEX = /\{(\/?)([\w\-,;!#]*)\}/
 
@@ -74,12 +71,14 @@ module Crysterm
   # The rest of code here is related to handling resize events
 
   # Listens for WINCH signal
+  # XXX IIRC, urwid has an additional method of tracking resizes. Check it out and add
+  # support if necessary.
   Signal::WINCH.trap do
     schedule_resize
   end
 
   # Schedules `@@resize_fiber` to run at now + `@@resize_interval`. Repeated invocations
-  # before the interval has elapsed have a (desirable) effect of delaying/re-starting the
+  # (before the interval has elapsed) have a (desirable) effect of delaying/re-starting the
   # timer til the fiber is to be scheduled.
   private def self.schedule_resize
     @@resize_fiber.try &.timeout(@@resize_interval)
@@ -89,7 +88,7 @@ module Crysterm
   @@resize_fiber = Fiber.new "resize_loop" { resize_loop }
 
   # :nodoc:
-  # TODO WIll this be affected when we move all GUI actions happening in a single thread?
+  # TODO Will this be affected when we move all GUI actions happening in a single thread?
   def self.resize_loop
     loop do
       resize
@@ -108,17 +107,4 @@ module Crysterm
       display.emit ::Crysterm::Event::Resize
     end
   end
-
-  # # Creates and/or returns the main/global/default `Display`.
-  # def self.display
-  #  Display.global true
-  # end
-
-  # # Creates and/or returns the main/global/default `Screen`.
-  # def self.screen
-  #  Screen.global true
-  # end
-
-  # True if the `Display` objects are being destroyed to exit program; otherwise returns false.
-  # class_property? exiting : Bool = false
 end

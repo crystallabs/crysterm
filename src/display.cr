@@ -14,21 +14,19 @@ module Crysterm
 
     include Mixin::Instances
 
-    # :nodoc: Flag indicating whether at least one `Display` has called `#bind`.
-    # Can potentially be removed; it appears only in this file.
-    # @@_bound = false
-    # XXX Currently disabled to remove it over time if it appears not needed.
-
     # Force Unicode (UTF-8) even if auto-detection did not discover terminal support for it?
     property? force_unicode = false
 
     # Input IO
-    property input : IO::FileDescriptor = STDIN.dup
+    property input : IO = STDIN.dup
 
     # Output IO
-    property output : IO::FileDescriptor = STDOUT.dup
+    property output : IO = STDOUT.dup
 
-    # Access to instance of `Tput`, used for affecting the terminal/IO.
+    # Error IO. (Could be used for redirecting error output to a particular widget)
+    property error : IO = STDERR.dup
+
+    # Access to instance of `Tput`, used for generating term control sequences.
     getter tput : ::Tput
 
     # :nodoc: Pointer to Fiber which is listening for keys, if any
@@ -38,14 +36,17 @@ module Crysterm
     @mutex = Mutex.new
 
     def initialize(
-      input = STDIN.dup,
-      output = STDOUT.dup,
+      @input = @input,
+      @output = @output,
+      @error = @error,
+      *,
       @use_buffer = false,
-      @force_unicode = false,
+      @force_unicode = @force_unicode,
       terminfo : Bool | Unibilium::Terminfo = true,
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
       # TODO make these check @output, not STDOUT which is probably used.
+      # TODO Also see how urwid does the size check
       @width = ::Term::Screen.cols || 1
       @height = ::Term::Screen.rows || 1
 
@@ -58,11 +59,13 @@ module Crysterm
                     terminfo.as Unibilium::Terminfo
                   end
 
+      # XXX Should `error` be used here in any way? (Probably not since we're not
+      # initializing anything on the error output?)
       @tput = ::Tput.new(
         terminfo: @terminfo,
-        input: input,
-        output: output,
-        # TODO these options
+        input: @input,
+        output: @output,
+        # TODO activate these options if needed:
         # term: @term,
         # padding: @padding,
         # extended: @extended,
@@ -74,8 +77,6 @@ module Crysterm
       @mutex.synchronize do
         unless @@instances.includes? self
           @@instances << self
-          # return if @@_bound
-          # @@_bound = true
           # ... Can do anything else here, which will execute only for first
           # display created in the program
         end
@@ -84,21 +85,29 @@ module Crysterm
       listen
     end
 
-    # Default application title, propagated as a default to `Screen`s
+    # Default application title, propagated as a default to contained `Screen`s
     property title : String? = nil
 
     # Displays the main screen, set up IO hooks, and starts the main loop.
     #
     # This is similar to how it is done in the Qt framework.
     #
-    # This function will render the specified `screen` or global `Screen`.
+    # This function will render the specified `screen`, the first `Screen` assigned to `Display`, or global `Screen` (in that order).
     #
-    # Note that if using multiple `Display`s, currently you should provide
-    # `screen` argument explicitly or otherwise every `Display#exec` would
+    # Screen's display is forcibly set to the current display.
+    #
+    # Note that if using multiple `Display`s, you should probably provide `screen` argument explicitly or have at least one `Screen` added to every `Display`.
+    # Otherwise it could happen that Displays take the same screen from each other.
     # run the same/default screen.
     def exec(screen : Crysterm::Screen? = nil)
-      if w = screen || Crysterm::Screen.global
-        w.render
+      s = @mutex.synchronize do
+        screen || Screen.instances.select(&.display.==(self)).try { |screens| screens.first } || Crysterm::Screen.global
+      end
+
+      s.display = self
+
+      if s
+        s.render
       else
         # XXX This part might be changed in the future, if we allow running line-
         # rather than screen-based apps, or if we allow something headless.
@@ -161,16 +170,22 @@ module Crysterm
 
     # Destroys current `Display`.
     def destroy
-      Screen.instances.select(&.display.==(self)).each do |s|
-        # s.leave # Done in screen's destroy
-        s.destroy
+      @mutex.synchronize do
+        Screen.instances.select(&.display.==(self)).each do |s|
+          # s.leave # Done in screen's destroy
+          s.destroy
+        end
+
+        super
+
+        # TODO Don't do this unconditionally, but return to whatever
+        # state it was before.
+        @input.try { |i|
+          if i.responds_to? :"cooked!"
+            i.cooked!
+          end
+        }
       end
-
-      super
-
-      # TODO Don't do this unconditionally, but return to whatever
-      # state it was before.
-      @input.cooked!
     end
   end
 end

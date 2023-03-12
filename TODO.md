@@ -35,6 +35,8 @@
 
 ## Non-critical Fixes and Small Improvements to Existing code
 
+- When `Display` is created, if `TERM` env var is not defined it defaults to `xterm` or `windows-ansi`. Make this more robust to also include the existing check for which terminal emulator is in use, and then use the default which matches the default term setting of that emulator.
+
 - For `OptimizationFlag`s listed in src/namespace.cr, make a list of all common terminal emulators and see which one support which optimizations. Than make default optimizations turn on/off based on that (unless overriden by user).
 
 - Screen#screenshot method remains to be ported over
@@ -82,6 +84,8 @@
 - Adding TrueColor support
 
 ## Would be Good to Add
+
+- See where constants from `src/crysterm.cr` should be moved (they'd better be suited to modules/classes where they are used instead of being directly under Crysterm)
 
 - There now exists default style in `Crysterm::Style.default`. See how this could be used. Does it apply to all widgets or only those without a parent set? If the latter, then other widgets could inherit style from parent. Does this happen via explicit reference or lookup in code? If explicitly, then we should also remove the style when widget is removed from parent.
 

@@ -78,7 +78,7 @@ module Crysterm
       property transparency : Float64? = nil
       property shadow_transparency : Float64 = 0.5
 
-      property tab_size = TAB_SIZE
+      property tab_size = 4
 
       # NOTE: Eventually reduce/streamline these
       property char : Char = ' '  # Generic char
@@ -88,7 +88,7 @@ module Crysterm
 
       property? fill = true
 
-      property ignore_border : Bool = false # If true, it's rendered in place of the border
+      property? ignore_border : Bool = false # If true, it's rendered in place of the border
 
       # Each of the following subelements are separate and can be styled individually.
       # If any of them is not defined, it defaults to main/parent style.
