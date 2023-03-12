@@ -17,6 +17,11 @@ module Crysterm
       end
     end
 
+    # :ditto:
+    def <<(element)
+      insert element
+    end
+
     def remove(element)
       return if element.screen != self
 
@@ -40,6 +45,11 @@ module Crysterm
       if focused == element
         rewind_focus
       end
+    end
+
+    # :ditto:
+    def >>(element)
+      remove element
     end
 
     def attach(element)
