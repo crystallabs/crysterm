@@ -36,15 +36,6 @@ require "./widgets"
 module Crysterm
   include Namespace
 
-  # Convenience regex for matching Crysterm tags and their content (i.e. '{bold}This text is bold{/bold}').
-  TAG_REGEX = /\{(\/?)([\w\-,;!#]*)\}/
-
-  # Convenience regex for matching SGR sequences.
-  SGR_REGEX = /\e\[[\d;]*m/
-
-  # :ditto:
-  SGR_REGEX_AT_BEGINNING = /^#{SGR_REGEX}/
-
   # Amount of time to wait before redrawing the screen, after the last successive terminal resize event is received.
   #
   # The value used in Qt is 0.3 seconds.

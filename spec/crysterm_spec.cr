@@ -15,19 +15,19 @@ describe Crysterm do
     end
   end
 
-  describe "generate_tags" do
-    it "returns named tuple when invoked without text" do
-      x.generate_tags({"fg" => "lightblack"}).should eq({
-        open:  "{light-black-fg}",
-        close: "{/light-black-fg}",
-      })
-    end
+  # describe "generate_tags" do
+  #  it "returns named tuple when invoked without text" do
+  #    x.generate_tags({"fg" => "lightblack"}).should eq({
+  #      open:  "{light-black-fg}",
+  #      close: "{/light-black-fg}",
+  #    })
+  #  end
 
-    it "returns text wrapped when invoked with text" do
-      x.generate_tags({"fg" => "lightblack"}, " text ").should eq \
-        "{light-black-fg} text {/light-black-fg}"
-    end
-  end
+  #  it "returns text wrapped when invoked with text" do
+  #    x.generate_tags({"fg" => "lightblack"}, " text ").should eq \
+  #      "{light-black-fg} text {/light-black-fg}"
+  #  end
+  # end
 
   describe "strip_tags" do
     # Strips text of tags and SGR sequences.

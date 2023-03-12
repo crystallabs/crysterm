@@ -38,57 +38,49 @@ module Crysterm
       }
     end
 
-    # Returns text with tags parsed.
-    #
-    # This is a convenience function that creates a `Widget` on every call.
-    # Do not use as-is in production; better use `_parse_tags` on your existing widgets.
-    # def parse_tags(text)
-    #  # TODO Don't create widget every time
-    #  Widget.new._parse_tags(text)
+    # # Generates text tags based on the given style definition.
+    # # Don't use unless you need to.
+    # # ```
+    # # obj.generate_tags({"fg" => "lightblack"}, "text") # => "{light-black-fg}text{/light-black-fg}"
+    # # ```
+    # def generate_tags(style : Hash(String, String | Bool) = {} of String => String | Bool)
+    #  open = ""
+    #  close = ""
+
+    #  (style).each do |key, val|
+    #    if (val.is_a? String)
+    #      val = val.sub(/^light(?!-)/, "light-")
+    #      val = val.sub(/^bright(?!-)/, "bright-")
+    #      open = "{" + val + "-" + key + "}" + open
+    #      close += "{/" + val + "-" + key + "}"
+    #    else
+    #      if val
+    #        open = "{" + key + "}" + open
+    #        close += "{/" + key + "}"
+    #      end
+    #    end
+    #  end
+
+    #  {
+    #    open:  open,
+    #    close: close,
+    #  }
     # end
 
-    # Generates text tags based on the given style definition.
-    # ```
-    # obj.generate_tags({"fg" => "lightblack"}, "text") # => "{light-black-fg}text{/light-black-fg}"
-    # ```
-    def generate_tags(style : Hash(String, String | Bool) = {} of String => String | Bool)
-      open = ""
-      close = ""
+    # # :ditto:
+    # def generate_tags(style : Hash(String, String | Bool), text : String)
+    #  v = generate_tags style
+    #  v[:open] + text + v[:close]
+    # end
 
-      (style).each do |key, val|
-        if (val.is_a? String)
-          val = val.sub(/^light(?!-)/, "light-")
-          val = val.sub(/^bright(?!-)/, "bright-")
-          open = "{" + val + "-" + key + "}" + open
-          close += "{/" + val + "-" + key + "}"
-        else
-          if val
-            open = "{" + key + "}" + open
-            close += "{/" + key + "}"
-          end
-        end
-      end
-
-      {
-        open:  open,
-        close: close,
-      }
-    end
-
-    # :ditto:
-    def generate_tags(style : Hash(String, String | Bool), text : String)
-      v = generate_tags style
-      v[:open] + text + v[:close]
-    end
-
-    # Strips text of {...} tags and SGR sequences and removes leading/trailing whitespaces
+    # Strips text of "{...}" tags and SGR sequences and removes leading/trailing whitespaces
     def strip_tags(text : String)
       clean_tags(text).strip
     end
 
     # Strips text of {...} tags and SGR sequences
     def clean_tags(text)
-      text.gsub(TAG_REGEX, "").gsub(SGR_REGEX, "")
+      text.gsub(Crysterm::Widget::TAG_REGEX, "").gsub(Crysterm::Widget::SGR_REGEX, "")
     end
 
     # Finds a file with name 'target' inside toplevel directory 'start'.
@@ -151,13 +143,8 @@ module Crysterm
     # Drops any >U+FFFF characters in the text.
     def drop_unicode(text)
       return "" if text.nil? || text.size == 0
-      # TODO
+      # TODO possibly find ready-made crystal method for this
       text.gsub(::Crysterm::Unicode::AllRegex, "??") # .gsub(@unicode.chars["combining"], "").gsub(@unicode.chars["surrogate"], "?");
-    end
-
-    # Reduces color if needed (minmal helper function)
-    private def _reduce_color(col)
-      Colors.reduce(col, display.tput.features.number_of_colors)
     end
   end
 end

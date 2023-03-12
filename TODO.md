@@ -85,7 +85,7 @@
 
 ## Would be Good to Add
 
-- See where constants from `src/crysterm.cr` should be moved (they'd better be suited to modules/classes where they are used instead of being directly under Crysterm)
+- Evaluate when events are triggered and how they are named. Events that are triggered before the code is executed should be named like e.g. 'Attach'. Events that trigger after the work has been done should be in past tense, e.g. 'Attached'.
 
 - There now exists default style in `Crysterm::Style.default`. See how this could be used. Does it apply to all widgets or only those without a parent set? If the latter, then other widgets could inherit style from parent. Does this happen via explicit reference or lookup in code? If explicitly, then we should also remove the style when widget is removed from parent.
 

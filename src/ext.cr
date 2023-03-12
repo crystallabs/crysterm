@@ -1,7 +1,7 @@
 class ::String
   # SGR Attribute of a String
   #
-  # NOTE Needed only because of `CLines < Array(String)`. If `CLines` used
+  # XXX Needed only because of `CLines < Array(String)`. If `CLines` used
   # a different type of elements in its array, this extension to built-in
   # type could be avoided.
   property attr = [] of Int32

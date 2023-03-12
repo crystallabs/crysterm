@@ -125,7 +125,10 @@ module Crysterm
 
     # event Key, key : ::Tput::Key
 
-    # Emitted on key pressed event
+    # Individual key events emitted on specific key presses. This is used when
+    # the caller does not want to listen for everything on `Event::KeyPress` (i.e.
+    # all keypresses), but when they want explicit keys like
+    # `Event::KeyPress::CtrlQ`.
     class KeyPress < EventHandler::Event
       property char : Char
       property key : ::Tput::Key?

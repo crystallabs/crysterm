@@ -3,6 +3,15 @@ module Crysterm
     # module Content
     include Helpers
 
+    # Convenience regex for matching Crysterm tags and their content (i.e. '{bold}This text is bold{/bold}').
+    TAG_REGEX = /\{(\/?)([\w\-,;!#]*)\}/
+
+    # Convenience regex for matching SGR sequences.
+    SGR_REGEX = /\e\[[\d;]*m/
+
+    # :ditto:
+    SGR_REGEX_AT_BEGINNING = /^#{SGR_REGEX}/
+
     # Can element's content be word-wrapped?
     property? wrap_content = true
 
