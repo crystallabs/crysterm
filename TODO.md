@@ -27,6 +27,8 @@
 
 - On exit, reset colors and exit from ACS
 
+- In examples/tech-demo.cr, on the translucent windows, there is part of border missing in 8-color xterm. See why
+
 - Resizing doesn't work 100% right - some resizing artifacts remain as one is resizing around. Or it seems it works?
 
 - Maybe add a GUI-dedicated thread like in Qt?
