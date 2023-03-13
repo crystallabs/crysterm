@@ -244,7 +244,7 @@ module Crysterm
           focus
         end
 
-        screen.grab_keys = true
+        screen.grabbing_keys = true
 
         _update_cursor
         screen.show_cursor
@@ -299,7 +299,7 @@ module Crysterm
         @__done = nil
 
         screen.hide_cursor
-        screen.grab_keys = false
+        screen.grabbing_keys = false
 
         unless focused?
           screen.restore_focus

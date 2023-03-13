@@ -33,7 +33,7 @@ module Crysterm
     property display : Display = Display.global(true)
 
     # Is the focused element grabbing and receiving all keypresses?
-    property grab_keys = false
+    property? grabbing_keys = false
 
     # Are keypresses (except ignored ones) prevented from being sent to any element?
     property lock_keys = false
@@ -412,28 +412,28 @@ module Crysterm
         @keyable.push el
       end
 
-      return if @_listened_keys
-      @_listened_keys = true
+      return if @_listening_keys
+      @_listening_keys = true
 
       # Note: The event emissions used to be reversed:
       # element + screen
       # They are now:
       # screen, element and el's parents until one #accept!s it.
       # After the first keypress emitted, the handler
-      # checks to make sure grab_keys, lock_keys, and focused
+      # checks to make sure grabbing_keys, lock_keys, and focused
       # weren't changed, and handles those situations appropriately.
       display.on(Crysterm::Event::KeyPress) do |e|
         if @lock_keys && !@ignore_locked.includes?(e.key)
           next
         end
 
-        grab_keys = @grab_keys
-        if !grab_keys || @ignore_locked.includes?(e.key)
+        grabbing_keys = @grabbing_keys
+        if !grabbing_keys || @ignore_locked.includes?(e.key)
           emit_key self, e
         end
 
         # If something changed from the screen key handler, stop.
-        if (@grab_keys != grab_keys) || @lock_keys || e.accepted?
+        if (@grabbing_keys != grabbing_keys) || @lock_keys || e.accepted?
           next
         end
 

@@ -148,6 +148,8 @@
 
 - Potentially move content-related helpers from `src/helpers.cr` into `src/widget_content.cr`
 
+- See how much `src/screen_children.cr` is really different from `src/mixin/children.cr`, and if possible make `Screen` use this mixin for more functionality with less code
+
 ## Theoretical Discussion / Tasks
 
 Most of these can be ignored, they are highly contextual.

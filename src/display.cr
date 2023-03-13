@@ -30,7 +30,7 @@ module Crysterm
     getter tput : ::Tput
 
     # :nodoc: Pointer to Fiber which is listening for keys, if any
-    @_listened_keys : Fiber?
+    @_listening_keys : Fiber?
 
     # `Display`'s general-purpose `Mutex`
     @mutex = Mutex.new
@@ -159,8 +159,8 @@ module Crysterm
     # The code tries passively to ensure at most one fiber per display is listening.
     def _listen_keys
       @mutex.synchronize {
-        return if @_listened_keys
-        @_listened_keys = spawn {
+        return if @_listening_keys
+        @_listening_keys = spawn {
           tput.listen do |char, key, sequence|
             emit Crysterm::Event::KeyPress.new char, key, sequence
           end

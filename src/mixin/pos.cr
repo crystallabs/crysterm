@@ -1,6 +1,10 @@
 module Crysterm
   module Mixin
     module Pos
+      # NOTE See what this is for and if it can be unified/integrated into
+      # something else (or if something else can be removed in favor of this)
+      # to removal total amount of code.
+
       # Number of times object was rendered
       property renders = 0
 
