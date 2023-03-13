@@ -92,16 +92,14 @@ module Crysterm
     #
     # This is similar to how it is done in the Qt framework.
     #
-    # This function will render the specified `screen`, the first `Screen` assigned to `Display`, or global `Screen` (in that order).
-    #
-    # Screen's display is forcibly set to the current display.
-    #
-    # Note that if using multiple `Display`s, you should probably provide `screen` argument explicitly or have at least one `Screen` added to every `Display`.
-    # Otherwise it could happen that Displays take the same screen from each other.
-    # run the same/default screen.
+    # This function will render the specified `screen` or the first `Screen` assigned to `Display`.
     def exec(screen : Crysterm::Screen? = nil)
       s = @mutex.synchronize do
-        screen || Screen.instances.select(&.display.==(self)).try { |screens| screens.first } || Crysterm::Screen.global
+        screen || Screen.instances.select(&.display.==(self)).try { |screens| screens.first }
+      end
+
+      if s.display != self
+        raise Exception.new "Screen does not belong to this Display."
       end
 
       s.display = self
