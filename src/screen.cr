@@ -46,6 +46,8 @@ module Crysterm
     # special keys), but also chars (ordinary letters) as well as sequences (arbitrary
     # sequences of chars and keys).
 
+    # XXX Rename to more intuitive name like `hovered_widget` or so. Or even remove since
+    # why just support one widget only? This looks like application-specific code.
     # Current element being hovered over on the screen. Best set only if mouse events are enabled.
     @hover : Widget? = nil
 
@@ -57,6 +59,7 @@ module Crysterm
     property? show_avg = true
 
     # Optimization flags to use for rendering and/or drawing.
+    # XXX See also a TODO item related to dynamically deciding on default flags.
     property optimization : OptimizationFlag = OptimizationFlag::None
 
     # Screen title
@@ -69,7 +72,7 @@ module Crysterm
 
     # For compatibility with widgets. But, as a side-effect, screens can have
     # padding.
-    property padding : Padding
+    property padding : Padding = Padding.new
 
     # property border : Border?
     # TODO Right now `Screen`s can't have a border. But it would be amazing if they could.
@@ -128,25 +131,20 @@ module Crysterm
 
     def initialize(
       @display = Display.global(true),
-      @dock_borders = true,
-      @dock_contrast = DockContrast::Ignore,
-      always_propagate : Array(Tput::Key)? = nil,
-      @propagating_keys = true,
+      @dock_borders = @dock_borders,
+      @dock_contrast = @dock_contrast,
+      @always_propagate = @always_propagate,
+      @propagating_keys = @propagating_keys,
       title = nil,
       @cursor = Cursor.new,
-      optimization = OptimizationFlag::None,
-      padding = Padding.new,
+      @optimization = @optimization,
+      padding = nil,
       alt = true,
-      show_fps = true
+      @show_fps = @show_fps,
     )
-      @padding = parse_padding padding
+      @padding = parse_padding padding if padding
 
       bind
-
-      always_propagate.try { |v| @always_propagate += v }
-      optimization.try { |v| @optimization = v }
-
-      @show_fps = show_fps ? Tput::Point[-1, 0] : nil
 
       # @display = display || Display.global true
       # ensure tput.zero_based = true, use_bufer=true
@@ -162,7 +160,7 @@ module Crysterm
       # Events:
       # addhander,
 
-      if t = title || Display.global.title
+      if t = title || display.try { |d| d.title } || Display.global.title
         self.title = t
       end
 

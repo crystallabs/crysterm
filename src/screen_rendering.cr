@@ -77,12 +77,12 @@ module Crysterm
     #     ┌─────────┬─────────┐
     #     │ box1    │ box2    │
     #     └─────────┴─────────┘
-    property? dock_borders : Bool
+    property? dock_borders : Bool = false
 
     # Dockable borders will not dock if the colors or attributes are different.
     # This option will allow docking regardless. It may produce odd looking
     # multi-colored borders.
-    @dock_contrast = DockContrast::Ignore
+    @dock_contrast = DockContrast::Blend
 
     property lines = Array(Row).new
     property olines = Array(Row).new
