@@ -2,6 +2,8 @@
 
 ## Immediate Source Code TODOs
 
+- In display.cr, screens can't be reparented to easily, they may have listeners attached to their [original] Displays. So there have to be attach/detach functions.
+
 - Oversized widgets issue (small-tests/checkbox.cr)
 - Misplaced cursor issue (small-tests/radiobutton.cr)
 
@@ -29,7 +31,7 @@
 
 - In examples/tech-demo.cr, on the translucent windows, there is part of border missing in 8-color xterm. See why
 
-- Resizing doesn't work 100% right - some resizing artifacts remain as one is resizing around. Or it seems it works?
+- Resizing doesn't work 100% right - some resizing artifacts remain as one is resizing around.
 
 - Maybe add a GUI-dedicated thread like in Qt?
 

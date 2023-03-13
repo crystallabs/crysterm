@@ -2,7 +2,7 @@ module Crysterm
   class Screen
     # Collection of helper chars for drawing borders and their angles
 
-    @angles = { # All angles, uniq list
+    @angles = {         # All angles, uniq list
       '\u2518' => true, # '┘'
       '\u2510' => true, # '┐'
       '\u250c' => true, # '┌'
@@ -16,7 +16,7 @@ module Crysterm
       '\u2500' => true, # '─'
     }
 
-    @langles = { # Left angles
+    @langles = {        # Left angles
       '\u250c' => true, # '┌'
       '\u2514' => true, # '└'
       '\u253c' => true, # '┼'
@@ -26,7 +26,7 @@ module Crysterm
       '\u2500' => true, # '─'
     }
 
-    @uangles = { # Upper angles
+    @uangles = {        # Upper angles
       '\u2510' => true, # '┐'
       '\u250c' => true, # '┌'
       '\u253c' => true, # '┼'
@@ -36,7 +36,7 @@ module Crysterm
       '\u2502' => true, # '│'
     }
 
-    @rangles = { # Right angles
+    @rangles = {        # Right angles
       '\u2518' => true, # '┘'
       '\u2510' => true, # '┐'
       '\u253c' => true, # '┼'
@@ -46,7 +46,7 @@ module Crysterm
       '\u2500' => true, # '─'
     }
 
-    @dangles = { # Down angles
+    @dangles = {        # Down angles
       '\u2518' => true, # '┘'
       '\u2514' => true, # '└'
       '\u253c' => true, # '┼'

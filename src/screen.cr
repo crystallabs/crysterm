@@ -165,7 +165,7 @@ module Crysterm
       end
 
       display.on(Crysterm::Event::Resize) do
-        alloc
+        realloc
         render
 
         ev_resize = Crysterm::Event::Resize.new
