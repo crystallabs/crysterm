@@ -115,15 +115,13 @@ module Crysterm
     end
 
     # Converts our own attribute format to an SGR string.
-    #
-    # TODO Avoid creation of Strings if possible
     def code2attr(code)
       flags = (code >> 18) & 0x1ff
       fg = (code >> 9) & 0x1ff
       bg = code & 0x1ff
       outbuf = String::Builder.new
 
-      outbuf << "\e[" # Bytesize of this is 2
+      outbuf << "\e[" # #bytesize == 2
 
       # bold
       if ((flags & 1) != 0)
@@ -190,7 +188,7 @@ module Crysterm
       # last char is ";", we go back one char and replace it with 'm',
       # then return that string.
       outbuf.back 1
-      outbuf << "m"
+      outbuf << 'm'
       outbuf.to_s
     end
     # end

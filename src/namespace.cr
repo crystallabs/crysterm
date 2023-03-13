@@ -175,45 +175,33 @@ module Crysterm
 
       def initialize(
         *,
-        @border = nil,
-        @scrollbar = nil,
-        @focus = nil,
-        @hover = nil,
+        @border = @border,
+        @scrollbar = @scrollbar,
+        @focus = @focus,
+        @hover = @hover,
         # @shadow = nil,
-        @track = nil,
-        @bar = nil,
-        @selected = nil,
-        @item = nil,
-        @header = nil,
-        @cell = nil,
-        @label = nil,
-        fg = nil,
-        bg = nil,
-        bold = nil,
-        underline = nil,
-        blink = nil,
-        inverse = nil,
-        invisible = nil,
+        @track = @track,
+        @bar = @bar,
+        @selected = @selected,
+        @item = @item,
+        @header = @header,
+        @cell = @cell,
+        @label = @label,
+        @fg = @fg,
+        @bg = @bg,
+        @bold = @bold,
+        @underline = @underline,
+        @blink = @blink,
+        @inverse = @inverse,
+        @invisible = @invisible,
         transparency = nil,
-        char = nil,
-        pchar = nil,
-        fchar = nil,
-        bchar = nil,
-        ignore_border = nil
+        @char = @char,
+        @pchar = @pchar,
+        @fchar = @fchar,
+        @bchar = @bchar,
+        @ignore_border = @ignore_border
       )
-        fg.try { |v| @fg = v }
-        bg.try { |v| @bg = v }
-        bold.try { |v| @bold = v }
-        underline.try { |v| @underline = v }
-        blink.try { |v| @blink = v }
-        inverse.try { |v| @inverse = v }
-        invisible.try { |v| @invisible = v }
         transparency.try { |v| @transparency = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
-        char.try { |v| @char = v }
-        pchar.try { |v| @pchar = v }
-        fchar.try { |v| @fchar = v }
-        bchar.try { |v| @bchar = v }
-        ignore_border.try { |v| @ignore_border = v }
       end
     end
 

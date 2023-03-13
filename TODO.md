@@ -2,8 +2,6 @@
 
 ## Immediate Source Code TODOs
 
-- Open src/namespace.cr. In there is code for initializing `Style`. Use that example to introduce `def x(@y = undefined)`, where `undefined` would be macro that expands to default value of that property
-
 - Oversized widgets issue (small-tests/checkbox.cr)
 - Misplaced cursor issue (small-tests/radiobutton.cr)
 
