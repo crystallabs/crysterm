@@ -31,8 +31,6 @@
 
 - In examples/tech-demo.cr, on the translucent windows, there is part of border missing in 8-color xterm. See why
 
-- Resizing doesn't work 100% right - some resizing artifacts remain as one is resizing around.
-
 - Maybe add a GUI-dedicated thread like in Qt?
 
 ## Non-critical Fixes and Small Improvements to Existing code

@@ -221,18 +221,36 @@ module Crysterm
     end
 
     # Allocates screen buffers (a new pending/staging buffer and a new output buffer).
+    #
+    # 'Dirty' typically indicates that lines have to be redrawn. In this function's current implementation,
+    # if dirty is true it will re-crete the field of screen cells, not adjust the size of existing one.
     def alloc(dirty = false)
-      # Here we could just call `@lines.clear` and then re-create rows and cols from scratch.
-      # But to optimize a little bit, we try to just implement differences (i.e. enlarge or
-      # shrink existing array).
-
+      # If dirty=true, we just call `@lines.clear` and then re-create rows and cols from scratch.
+      # In other cases, to optimize a little bit we try to just implement differences (i.e. enlarge
+      # or shrink existing array).
+      #
+      # NOTE
+      # dirty=true is mostly used during resizing to empty all cells, because `clear_last_rendered_pos`
+      # seems to not clear the correct area in case of resize (it sees the resized values by the
+      # time it runs).
+      # It is also quite possible that the above finding is an indication of an error which
+      # is causing dirty=true (and/or the logic how it is applied below) to not work correctly, so that
+      # a re-creation was necessary on resize. Remains to be checked whether any further errors related
+      # to this code and/or dirty= will come up or not.
       old_height = @lines.size
       new_height = aheight
 
       old_width = @lines[0]?.try(&.size) || 0
       new_width = awidth
 
-      do_clear = false
+      if !dirty
+        do_clear = false
+      else
+        do_clear = true
+        @lines = Array(Row).new
+        old_height = 0
+        old_width = 0
+      end
 
       # If nr. of columns has changed, adjust width in existing rows
       if old_width != new_width
