@@ -5,7 +5,7 @@ class X
   include EventHandler
 
   def initialize
-    s = Screen.new ignore_locked: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
+    s = Screen.new always_propagate: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
     # note = Widget::TextBox.new content: "Use Tab/Shift+Tab to cycle between boxes, Ctrl+q to exit"
 

@@ -5,7 +5,7 @@ class X
   include EventHandler
 
   def initialize
-    s = Screen.new ignore_locked: [::Tput::Key::CtrlQ]
+    s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
 
     # parent: l,
     i = Widget::TextArea.new \

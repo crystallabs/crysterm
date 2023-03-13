@@ -348,6 +348,11 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - Widgets can have shadow on any of the 4 sides, instead of always being drawn on the right and bottom
 - Renamed properties in Crysterm: `widget.noFill` is `!style.fill?`, `autoFocus` is `focus_on_click?`, `wrap` is `wrap_content?`, `hidden` is `!visible?`
 - Implementation of `clean_tags` and `strip_tags` has been switched, for better/more-intuitive naming in Crystal
+- The following functions were renamed to more intuitive variants:
+  - `_listened_keys` = `_listening_keys?`
+  - `grab_keys` = `grabbing_keys?`
+  - `!lock_keys` = `propagating_keys?`
+  - `ignore_locked` = `always_propagate`
 
 List of current bugs / quirks in Crysterm, in no particular order:
 

@@ -4,7 +4,7 @@ module Crysterm
   include Tput::Namespace
   include Widgets
 
-  s = Screen.new ignore_locked: [Tput::Key::CtrlQ], title: "Crysterm Tech Demo"
+  s = Screen.new always_propagate: [Tput::Key::CtrlQ], title: "Crysterm Tech Demo"
   b = layout = Layout.new(
     # parent: s,
     top: 0,

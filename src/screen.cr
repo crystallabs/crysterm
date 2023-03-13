@@ -35,13 +35,13 @@ module Crysterm
     # Is the focused element grabbing and receiving all keypresses?
     property? grabbing_keys = false
 
-    # Are keypresses (except ignored ones) prevented from being sent to any element?
-    property lock_keys = false
+    # Are keypresses being propagated further, or (except ignored ones) not propagated?
+    property? propagating_keys = true
 
     # Array of keys to ignore when keys are locked or grabbed. Useful for defining
     # keys that will always execute their action (e.g. exit a program) regardless of
-    # whether keys are locked.
-    property ignore_locked = Array(Tput::Key).new
+    # whether keys are propagating.
+    property always_propagate = Array(Tput::Key).new
     # XXX Maybe in the future this would not be just `Tput::Key`s (which indicate
     # special keys), but also chars (ordinary letters) as well as sequences (arbitrary
     # sequences of chars and keys).
@@ -130,8 +130,8 @@ module Crysterm
       @display = Display.global(true),
       @dock_borders = true,
       @dock_contrast = DockContrast::Ignore,
-      ignore_locked : Array(Tput::Key)? = nil,
-      @lock_keys = false,
+      always_propagate : Array(Tput::Key)? = nil,
+      @propagating_keys = true,
       title = nil,
       @cursor = Cursor.new,
       optimization = OptimizationFlag::None,
@@ -143,7 +143,7 @@ module Crysterm
 
       bind
 
-      ignore_locked.try { |v| @ignore_locked += v }
+      always_propagate.try { |v| @always_propagate += v }
       optimization.try { |v| @optimization = v }
 
       @show_fps = show_fps ? Tput::Point[-1, 0] : nil
@@ -420,20 +420,20 @@ module Crysterm
       # They are now:
       # screen, element and el's parents until one #accept!s it.
       # After the first keypress emitted, the handler
-      # checks to make sure grabbing_keys, lock_keys, and focused
+      # checks to make sure grabbing_keys, propagating_keys, and focused
       # weren't changed, and handles those situations appropriately.
       display.on(Crysterm::Event::KeyPress) do |e|
-        if @lock_keys && !@ignore_locked.includes?(e.key)
+        if !@propagating_keys && !@always_propagate.includes?(e.key)
           next
         end
 
         grabbing_keys = @grabbing_keys
-        if !grabbing_keys || @ignore_locked.includes?(e.key)
+        if !grabbing_keys || @always_propagate.includes?(e.key)
           emit_key self, e
         end
 
         # If something changed from the screen key handler, stop.
-        if (@grabbing_keys != grabbing_keys) || @lock_keys || e.accepted?
+        if (@grabbing_keys != grabbing_keys) || !@propagating_keys || e.accepted?
           next
         end
 
