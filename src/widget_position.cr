@@ -34,7 +34,6 @@ module Crysterm
     def left=(val)
       return if @left == val
       emit ::Crysterm::Event::Move
-      clear_last_rendered_position
       @left = val
     end
 
@@ -42,7 +41,6 @@ module Crysterm
     def right=(val)
       return if @right == val
       emit ::Crysterm::Event::Move
-      clear_last_rendered_position
       @right = val
     end
 
@@ -50,7 +48,6 @@ module Crysterm
     def top=(val)
       return if @top == val
       emit ::Crysterm::Event::Move
-      clear_last_rendered_position
       @top = val
     end
 
@@ -58,7 +55,6 @@ module Crysterm
     def bottom=(val)
       return if @bottom == val
       emit ::Crysterm::Event::Move
-      clear_last_rendered_position
       @bottom = val
     end
 
@@ -66,7 +62,6 @@ module Crysterm
     def width=(val)
       return if @width == val
       emit ::Crysterm::Event::Resize
-      clear_last_rendered_position
       @width = val
     end
 
@@ -74,7 +69,6 @@ module Crysterm
     def height=(val)
       return if height == val
       emit ::Crysterm::Event::Resize
-      clear_last_rendered_position
       @height = val
     end
 
