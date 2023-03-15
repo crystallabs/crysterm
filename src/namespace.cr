@@ -209,16 +209,16 @@ module Crysterm
     #
     # NOTE "Padding" as in spacing around elements. Same order as in HTML (ltrb)
     class Padding
-      property left : Int32
-      property top : Int32
-      property right : Int32
-      property bottom : Int32
+      property left : Int32 = 0
+      property top : Int32 = 0
+      property right : Int32 = 0
+      property bottom : Int32 = 0
 
       def initialize(all)
         @left = @top = @right = @bottom = all
       end
 
-      def initialize(@left = 0, @top = 0, @right = 0, @bottom = 0)
+      def initialize(@left = @left, @top = @top, @right = @right, @bottom = @bottom)
       end
 
       def any?
@@ -231,17 +231,17 @@ module Crysterm
       property type = BorderType::Line
       # NOTE These don't have ? because they'll be replaced with Ints in the future,
       # specifying corresponding border thicknesses
-      property left : Bool
-      property top : Bool
-      property right : Bool
-      property bottom : Bool
+      property left : Bool = true
+      property top : Bool = true
+      property right : Bool = true
+      property bottom : Bool = true
 
       def initialize(
-        @type = BorderType::Line,
-        @left = true,
-        @top = true,
-        @right = true,
-        @bottom = true
+        @type = @type,
+        @left = @left,
+        @top = @top,
+        @right = @right,
+        @bottom = @bottom
       )
       end
 

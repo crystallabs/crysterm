@@ -140,7 +140,7 @@ module Crysterm
       @optimization = @optimization,
       padding = nil,
       alt = true,
-      @show_fps = @show_fps,
+      @show_fps = @show_fps
     )
       @padding = parse_padding padding if padding
 
