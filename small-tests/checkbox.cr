@@ -23,8 +23,9 @@ module Crysterm
   c2 = Checkbox.new content: "Checkbox 2", left: 6, top: 2, style: st
   c3 = Checkbox.new content: "Checkbox 3", left: 6, top: 4, style: st
   c4 = Checkbox.new content: "Checkbox 4", left: 6, top: 6, style: st
+  label = Text.new content: "Cycle between widgets with Tab, Shift+Tab. Space to toggle, ctrl+q to quit.", top: 10
 
-  s.append c1, c2, c3, c4
+  s.append c1, c2, c3, c4, label
 
   s.on(Crysterm::Event::KeyPress) do |e|
     e.key.try do |k|

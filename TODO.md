@@ -2,7 +2,6 @@
 
 ## Immediate Source Code TODOs
 
-- Oversized widgets issue (small-tests/checkbox.cr)
 - Misplaced cursor issue (small-tests/radiobutton.cr)
 
 - When first/default widget is focused, the cursor does not render in it (e.g. small-tests/focus.cr)
