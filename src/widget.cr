@@ -88,7 +88,7 @@ module Crysterm
       @bottom = nil,
       @width = nil,
       @height = nil,
-      @resizable = false,
+      @resizable = true,
 
       @visible = true,
       @fixed = false,
