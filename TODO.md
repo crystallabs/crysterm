@@ -30,8 +30,6 @@
 
 - Maybe add a GUI-dedicated thread like in Qt?
 
-- On resize, it seems as if resize is happening multiple times? Should the code stop rendering immediately on resize, do the resizing, and then resume rendering?
-
 ## Non-critical Fixes and Small Improvements to Existing code
 
 - When `Display` is created, if `TERM` env var is not defined it defaults to `xterm` or `windows-ansi`. Make this more robust to also include the existing check for which terminal emulator is in use, and then use the default which matches the default term setting of that emulator.
