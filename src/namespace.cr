@@ -301,10 +301,10 @@ module Crysterm
     #  @left = @top = @right = @bottom = all
     # end
 
-    #def initialize
+    # def initialize
     #  @left = @top = false
     #  @right = @bottom = true
-    #end
+    # end
 
     def any?
       !!(@left || @top || @right || @bottom)
