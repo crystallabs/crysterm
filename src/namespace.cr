@@ -290,7 +290,8 @@ module Crysterm
     )
     end
 
-    # XXX same note as above under `Border`
+    # XXX same note as above under `Border`:
+
     # def initialize(left_and_right, top_and_bottom)
     #  @left = @right = left_and_right
     #  @top = @bottom = top_and_bottom
@@ -300,10 +301,10 @@ module Crysterm
     #  @left = @top = @right = @bottom = all
     # end
 
-    def initialize
-      @left = @top = false
-      @right = @bottom = true
-    end
+    #def initialize
+    #  @left = @top = false
+    #  @right = @bottom = true
+    #end
 
     def any?
       !!(@left || @top || @right || @bottom)
