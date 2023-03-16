@@ -10,10 +10,6 @@
 
 - Fix for TextArea's _done; make sure that both examples/hello2.cr and prompt/question example work
 
-- When one presses Shift/ShiftTab to navigate between widgets, the cursor shows up. This happens in Blessed too. But, (1) is this desired/expected behavior?, and (2) if yes, the cursor does not show up initially when focus is set programmatically -- why?
-
-- In Checkbox and Radiobutton widgets, when these elements have a border or padding, the cursor is placed incorrectly because it is hardcoded that it goes to relative position 0,1. This is a bug present in blessed too.
-
 - Make sure that chars typed in text input are immediately rendered (i.e. not holding 1 in buffer in non-release mode). Hopefully the only issue here is just timing, i.e. the way how render() call schedules a render.
 
 - Issue with transparency, where a transparent element gets more opaque on every render. This is caused by code found at first occurrence of 'transparency' in src/widget.cr. Example can be seen if we add a transparent padding to e.g. members list widget in example/chat.cr. In Blessed, the value of lines[y][x][attr] seems to always be the same, whereas in our case it has the resulting value from previous render, and so on every render the field's color gets additionally blended until it has 100% opacity rather than staying at initial/desired value.
@@ -70,7 +66,7 @@
 
 - In the code, things to change/improve are identified with "TODO".
 
-- In Blessed code (and inherited in Crysterm code), checks for borders are made in a very simple way. E.g. `if @border`, then the widget is reduced by 1 cell on every side, to account for border. It would be good to specifically check for border on each side, and also possibly to also support borders of different widths.
+- In Blessed code (and inherited in Crysterm code), checks for borders are made in a very simple way. E.g. `if @border`, then the widget is reduced by 1 cell on every side, to account for border. It would be good to specifically check for border on each side, and also possibly to also support borders of different widths. Also possibly make this a property of style, not widget
 
 - Currently, default events in widgets are implemented in instance vars, and then when we want to enable/disable widget events, we either add or remove those handlers/vars from the events' handlers hashes. But the code for that is tedious/almost manual. Maybe all events should be in an array or something, and then adding or removing is just handlers.clear or handlers.push *array.
 

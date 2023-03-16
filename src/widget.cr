@@ -137,11 +137,11 @@ module Crysterm
       # XXX Move those into mixin/parsers.cr, and put all such methods there
       @border = case border
                 when true
-                  Border.new BorderType::Line
+                  Border.new type: BorderType::Line
                 when nil, false
                   # Nothing
                 when BorderType
-                  Border.new border
+                  Border.new type: border
                 when Border
                   border
                 else

@@ -4,7 +4,7 @@ class MyProg
   include Crysterm
 
   d = Display.new
-  s = Screen.new display: d, show_fps: false, dock_contrast: DockContrast::Blend
+  s = Screen.new display: d, show_fps: nil, dock_contrast: DockContrast::Blend
 
   style1 = Style.new fg: "black", bg: "#729fcf", border: Style.new(fg: "black", bg: "#729fcf"), scrollbar: Style.new(bg: "#000000"), track: Style.new(bg: "red")
   style2 = Style.new fg: "black", bg: "magenta", border: Style.new(fg: "black", bg: "#729fcf"), transparency: true
