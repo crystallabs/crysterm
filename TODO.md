@@ -2,8 +2,6 @@
 
 ## Immediate Source Code TODOs
 
-- In small-tests/focus.cr, why the box with instructions is getting focused even though it has `keys: false` and messes up focusing
-
 - In small-tests/question.cr, see if the widget can be fixed to work properly, or it's not worth it (since the original implementation of the widget in Blessed is quite weird, maybe it should be redone)
 
 - Fix rendering of cursor color. Appears to be ignored in some cases.

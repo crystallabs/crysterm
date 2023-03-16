@@ -7,7 +7,7 @@ class X
   def initialize
     s = Screen.new always_propagate: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
-    # note = Widget::TextBox.new content: "Use Tab/Shift+Tab to cycle between boxes, Ctrl+q to exit"
+    note = Widget::Text.new content: "Use Tab/Shift+Tab to cycle between boxes, Ctrl+q to exit"
 
     i1 = Widget::Checkbox.new \
       name: "w1",
@@ -39,7 +39,7 @@ class X
       border: true,
       style: Style.new(fg: "yellow", bg: "red")
 
-    s.append i1, i2, i3
+    s.append i1, i2, i3, note
 
     s.on(Crysterm::Event::KeyPress) do |e|
       if e.key == ::Tput::Key::CtrlQ
