@@ -49,7 +49,6 @@ module Crysterm
 
         if @resizable || normal_resizable
           right = nil
-          width = "resizable"
         end
 
         item = Widget::Box.new(content: content, screen: screen, align: align, top: top, left: left, right: right, parse_tags: parse_tags, height: 1, focus_on_click: focus_on_click, width: width, style: style)

@@ -7,7 +7,7 @@ class MyProg
   s = Screen.new display: d, show_fps: nil, dock_contrast: DockContrast::Blend
 
   style1 = Style.new fg: "black", bg: "#729fcf", border: Style.new(fg: "black", bg: "#729fcf"), scrollbar: Style.new(bg: "#000000"), track: Style.new(bg: "red")
-  style2 = Style.new fg: "black", bg: "magenta", border: Style.new(fg: "black", bg: "#729fcf"), transparency: true
+  style2 = Style.new fg: "black", bg: "magenta", border: Style.new(fg: "black", bg: "#729fcf"), transparency: 0.5
   # style2 = Style.new fg: "white", bg: "#870087", border: Style.new(fg: "black", bg: "#870087", transparency: true), transparency: true
   style3 = Style.new fg: "black", "bg": "#729fcf", border: Style.new(fg: "magenta", bg: "#729fcf"), bar: Style.new(fg: "#d75f00")
 
