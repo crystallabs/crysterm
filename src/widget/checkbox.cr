@@ -79,7 +79,7 @@ module Crysterm
         return unless lpos = @lpos
         screen.try do |s|
           s.display.tput.lsave_cursor self.hash
-          s.display.tput.cursor_pos lpos.yi, lpos.xi + 1
+          s.display.tput.cursor_pos lpos.yi + itop, lpos.xi + 1 + ileft
           s.show_cursor
         end
       end

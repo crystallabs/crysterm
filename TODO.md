@@ -2,8 +2,6 @@
 
 ## Immediate Source Code TODOs
 
-- Misplaced cursor issue (small-tests/radiobutton.cr)
-
 - When first/default widget is focused, the cursor does not render in it (e.g. small-tests/focus.cr)
 
 - In small-tests/focus.cr, why the box with instructions is getting focused even though it has `keys: false` and messes up focusing
@@ -31,6 +29,8 @@
 - Maybe add a GUI-dedicated thread like in Qt?
 
 ## Non-critical Fixes and Small Improvements to Existing code
+
+- Artificial cursor support for src/widget/checkbox.cr
 
 - When `Display` is created, if `TERM` env var is not defined it defaults to `xterm` or `windows-ansi`. Make this more robust to also include the existing check for which terminal emulator is in use, and then use the default which matches the default term setting of that emulator.
 
