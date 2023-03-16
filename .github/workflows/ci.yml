@@ -34,7 +34,7 @@ jobs:
       image: crystallang/crystal:latest-alpine
     steps:
       - name: Install packages
-        run: apk add unibilium unibilium-dev readline readline-dev
+        run: apk add unibilium unibilium-dev readline readline-dev libncursesw ncurses-dev
       - name: Download source
         uses: actions/checkout@v2
       - name: Build binaries
