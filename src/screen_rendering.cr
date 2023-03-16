@@ -169,8 +169,11 @@ module Crysterm
       # XXX
       # Workaround to deal with cursor pos before the screen
       # has rendered and lpos is not reliable (stale).
-      # Only some element have this functions; for others it's a noop.
-      focused.try &._update_cursor(true)
+      # Only some elements have this function; for others it's a noop.
+      focused.try { |focused_widget|
+        focused_widget._update_cursor(true)
+        focused_widget.emit(Crysterm::Event::Focus)
+      }
 
       @renders += 1
 
