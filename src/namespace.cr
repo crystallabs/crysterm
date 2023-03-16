@@ -245,6 +245,15 @@ module Crysterm
       )
       end
 
+      def initialize(left_and_right, top_and_bottom)
+        @left = @right = left_and_right
+        @top = @bottom = top_and_bottom
+      end
+
+      def initialize(all = true)
+        @left = @top = @right = @bottom = all
+      end
+
       def any?
         !!(@left || @top || @right || @bottom)
       end
