@@ -129,6 +129,10 @@ easier correlation and search between code, files, and features. A copy of Bless
 [docelic/blessed-clean](https://github.com/docelic/blessed-clean). It is a temporary repository in which
 files are deleted after their contents are reviewed and discarded or implemented in Crysterm.
 
+Overall, heavily basing the design on Blessed was a blessing and a curse. While Blessed demos are impressive,
+its code has many deficiencies and partially implemented features, and certain parts are not as obvious or
+simple as they should be. This has slowed the development of Crysterm.
+
 High-level development plan for Crysterm looks as follows:
 
 1. Improving Crysterm itself (fixing bugs, replacing strings with better data types (enums, classes, etc.), and doing new development).

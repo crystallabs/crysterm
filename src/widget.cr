@@ -38,14 +38,15 @@ module Crysterm
     # Arbitrary widget name
     property name : String?
 
-    property _is_list = false
     # XXX FIX by removing at some point
     # Used only for lists. The reason why it hasn't been replaced with is_a?(List)
     # already is because maybe someone would want this to be true even if not
     # inheriting from List.
+    property _is_list = false
+
+    # XXX move the following three items to Style.
 
     # Amount of padding on the inside of the element
-    # XXX Turn this to nilable, like border and shadow?
     property padding : Padding
 
     # Widget's border.

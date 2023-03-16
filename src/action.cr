@@ -62,14 +62,14 @@ module Crysterm
     )
     end
 
-    def initialize(
-      @text,
-      @parent : Crysterm::Object? = nil
-      # event : OneOfEvents = Crysterm::Event::Triggered,
-      # &block : ::Proc(Event::Triggered, ::Nil)
-    )
-      # on event, block
-    end
+    # def initialize(
+    #  @text,
+    #  @parent : Crysterm::Object? = nil
+    #  event : OneOfEvents = Crysterm::Event::Triggered,
+    #  &block : ::Proc(Event::Triggered, ::Nil)
+    # )
+    #  on event, block
+    # end
 
     # Alternatively, for overloads with and without a block:
     # def foo(&block : Proc(Nil)); foo(block); end; def foo(proc : Proc(Nil)? = nil); proc.try &.call; end; foo; foo { "hello" }

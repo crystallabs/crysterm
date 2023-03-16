@@ -4,7 +4,7 @@ class MyProg
   include Crysterm
 
   d = Display.new
-  s = Screen.new display: d, show_fps: nil, dock_contrast: DockContrast::Blend
+  s = Screen.new display: d, show_fps: nil, dock_contrast: DockContrast::Blend, dock_borders: true
 
   style1 = Style.new fg: "black", bg: "#729fcf", border: Style.new(fg: "black", bg: "#729fcf"), scrollbar: Style.new(bg: "#000000"), track: Style.new(bg: "red")
   style2 = Style.new fg: "black", bg: "magenta", border: Style.new(fg: "black", bg: "#729fcf"), transparency: 0.5
@@ -96,10 +96,9 @@ class MyProg
         end
       end
       chat.scroll_to chat.get_content.lines.size
-      # s.render
       sleep rand 2
       lag.filled = rand 100
-      # s.render
+      s.render
     end
   end
 

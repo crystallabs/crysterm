@@ -34,8 +34,6 @@ require "./widgets"
 # ...
 # ```
 module Crysterm
-  include Namespace
-
   # Amount of time to wait before redrawing the screen, after the last successive terminal resize event is received.
   #
   # The value used in Qt is 0.3 seconds.
