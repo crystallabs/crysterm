@@ -30,16 +30,24 @@ jobs:
         run: crystal tool format --check
   release_linux:
     runs-on: ubuntu-latest
-    container:
-      image: crystallang/crystal:latest-alpine
     steps:
-      - name: Install packages
-        run: apk add unibilium unibilium-dev readline readline-dev ncurses-dev
       - name: Download source
         uses: actions/checkout@v2
+      - name: Install packages
+        run: sudo apt-get -qy install libunibilium4 libunibilium-dev libreadline-dev libpcre3-dev libevent-dev libgc-dev libyaml-dev libxml2-dev
+      - name: Install Crystal
+        uses: oprypin/install-crystal@v1
+      - name: Cache shards
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/shards
+          key: ${{ runner.os }}-shards-${{ hashFiles('shard.yml') }}
+          restore-keys: ${{ runner.os }}-shards-
+      - name: Install shards
+        run: shards update --production --release --static --no-debug --ignore-crystal-version
       - name: Build binaries
         run: |
-          shards update --production --release --static --no-debug --ignore-crystal-version
           crystal build --time --release --static --no-debug -o bin/tech-demo examples/tech-demo.cr
           crystal build --time --release --static --no-debug -o bin/hello examples/hello.cr
           crystal build --time --release --static --no-debug -o bin/hello2 examples/hello2.cr
+          crystal build --time --release --static --no-debug -o bin/chat examples/chat.cr
