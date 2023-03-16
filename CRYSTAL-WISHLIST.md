@@ -104,7 +104,7 @@ Thanks to @Blacksmoke16 for discussion / tip.
 
 A larger topic by Blacksmoke, relevant/related to this, is https://forum.crystal-lang.org/t/rfc-undefined-type/2695.
 
-## (Partly resolved) Type-safe `#==` operator:
+## Type-safe `#==` operator:
 
 Due to default implementation of `#==` in `Value` and `Reference`, comparing
 anything to anything is allowed and returns false. This is very dangerous
@@ -112,14 +112,15 @@ and leads to incorrect/invalid comparisons which always fail.
 
 https://github.com/crystal-lang/crystal/issues/10277
 
-Since it is probably too late to make this change in the language, it would
-be useful if Ameba would catch those:
+Since it is probably too late to make this change in the language, the only
+thing that was possible to do was to add support to Ameba that Sija did:
 
 https://github.com/crystal-ameba/ameba/issues/237
 
-Sija added support for this in Ameba 1.3.0.
+However, it only does literal-to-literal comparison checking and thus
+does not help the issue very much.
 
-But the proper solution would be to have this supported at the language level in Crystal 3.0.
+The proper solution would be to have this supported at the language level in Crystal 3.0.
 For example, to have an operator like `#==?` that behaves like the current `#==` (i.e. returns false if
 arguments are not comparable). And then to change `#==` to a type-safe version so that it produces an
 error when there is no comparison defined between its arguments.
