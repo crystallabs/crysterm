@@ -30,8 +30,18 @@ require "./widgets"
 #
 # ```
 # alias C = Crysterm
-# alias GUI = Crysterm
+# t = C::Text.new content: "Hello, World!"
+#
+# alias TUI = Crysterm
+# t = TUI::Text.new content: "Hello, World!"
 # ...
+# ```
+#
+# Or if you want to import all the widgets into your current namespace, do:
+#
+# ```
+# include Crysterm::Widgets
+# t = Text.new content: "Hello, World!"
 # ```
 module Crysterm
   # Amount of time to wait before redrawing the screen, after the last successive terminal resize event is received.
@@ -39,6 +49,9 @@ module Crysterm
   # The value used in Qt is 0.3 seconds.
   # The value commonly used in console apps is 0.2 seconds.
   # Yet another choice could be the frame rate, i.e. 1/29 seconds.
+  #
+  # This ensures the resizing/redrawing is done only once, once resizing is over.
+  # To have redraws happen even while resizing is going on, reduce this interval.
   class_property resize_interval : Time::Span = 0.2.seconds
 
   # TODO Should all of these run a proper exit sequence, instead of just exit ad-hoc?
@@ -61,14 +74,13 @@ module Crysterm
 
   # Listens for WINCH signal
   # XXX IIRC, urwid has an additional method of tracking resizes. Check it out and add
-  # support if necessary.
+  # additional support here if necessary.
   Signal::WINCH.trap do
     schedule_resize
   end
 
   # Schedules `@@resize_fiber` to run at now + `@@resize_interval`. Repeated invocations
-  # (before the interval has elapsed) have a (desirable) effect of delaying/re-starting the
-  # timer til the fiber is to be scheduled.
+  # (before the interval has elapsed) have the desirable effect of re-starting the timer.
   private def self.schedule_resize
     @@resize_fiber.try &.timeout(@@resize_interval)
   end

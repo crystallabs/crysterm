@@ -30,7 +30,7 @@ module Crysterm
     getter tput : ::Tput
 
     # :nodoc: Pointer to Fiber which is listening for keys, if any
-    @_listening_keys : Fiber?
+    @listening_keys : Fiber?
 
     # `Display`'s general-purpose `Mutex`
     @mutex = Mutex.new
@@ -51,11 +51,11 @@ module Crysterm
       @height = ::Term::Screen.rows || 1
 
       @terminfo = case terminfo
-                  when true
+                  in true
                     Unibilium::Terminfo.from_env
-                  when false
+                  in false, nil
                     nil
-                  when Unibilium::Terminfo
+                  in Unibilium::Terminfo
                     terminfo.as Unibilium::Terminfo
                   end
 
@@ -77,8 +77,8 @@ module Crysterm
       @mutex.synchronize do
         unless @@instances.includes? self
           @@instances << self
-          # ... Can do anything else here, which will execute only for first
-          # display created in the program
+          # NOTE Can do anything else here, which will execute for every
+          # display created
         end
       end
 
@@ -96,13 +96,12 @@ module Crysterm
     def exec(screen : Crysterm::Screen? = nil)
       s = @mutex.synchronize do
         screen || Screen.instances.select(&.display.==(self)).try { |screens| screens.first }
+
       end
 
       if s.display != self
         raise Exception.new "Screen does not belong to this Display."
       end
-
-      s.display = self
 
       if s
         s.render
@@ -135,17 +134,17 @@ module Crysterm
       # Listen for keys/mouse on input
       # if (@tput.input._our_input == 0)
       #  @tput.input._out_input = 1
-      _listen_keys
-      # _listen_mouse # TODO
+      listen_keys
+      # listen_mouse # TODO
       # else
       #  @tput.input._our_input += 1
       # end
 
-      # TODO Do this, if it's possible to get resize events on individual IOs.
+      # TODO Do this if it's possible to get resize events on individual IOs.
       # Listen for resize on output
       # if (@output._our_output==0)
       #  @output._our_output = 1
-      #  _listen_output
+      #  listen_output
       # else
       #  @output._our_output += 1
       # end
@@ -155,10 +154,10 @@ module Crysterm
     #
     # NOTE Keys are listened for in a separate `Fiber`.
     # The code tries passively to ensure at most one fiber per display is listening.
-    def _listen_keys
+    def listen_keys
       @mutex.synchronize {
-        return if @_listening_keys
-        @_listening_keys = spawn {
+        return if @listening_keys
+        @listening_keys = spawn {
           tput.listen do |char, key, sequence|
             emit Crysterm::Event::KeyPress.new char, key, sequence
           end
@@ -170,7 +169,7 @@ module Crysterm
     def destroy
       @mutex.synchronize do
         Screen.instances.select(&.display.==(self)).each do |s|
-          # s.leave # Done in screen's destroy
+          # s.leave # No need, done as part of Screen#destroy
           s.destroy
         end
 
