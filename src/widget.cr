@@ -313,13 +313,13 @@ module Crysterm
     # screenshot by 1 cell on the left, 2 cells on the right, 3 on top, and 4 on the bottom, call:
     #
     # ```
-    #   snapshot(true, -1, 2, -3, 4)
+    # snapshot(true, -1, 2, -3, 4)
     # ```
     #
     # This is hopefully better than the equivalent you would have to use with `#screenshot`:
     #
     # ```
-    #   screenshot(-ileft-1, width+iright+2, -itop-3, height+ibottom+4)
+    # screenshot(-ileft - 1, width + iright + 2, -itop - 3, height + ibottom + 4)
     # ```
     def snapshot(include_decorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0)
       lpos = @lpos
