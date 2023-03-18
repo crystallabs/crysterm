@@ -81,7 +81,7 @@ module Crysterm
 
       @name = nil,
       @uid = next_uid,
-      @screen = nil,
+      @screen = @screen,
 
       @left = nil,
       @top = nil,
@@ -89,7 +89,7 @@ module Crysterm
       @bottom = nil,
       @width = nil,
       @height = nil,
-      @resizable = true,
+      @resizable = false,
 
       @visible = true,
       @fixed = false,
@@ -278,18 +278,21 @@ module Crysterm
 
     # Takes screenshot of a widget
     def screenshot(xi = nil, xl = nil, yi = nil, yl = nil)
-      xi = @lpos.xi + ileft + (xi || 0)
+      lpos = @lpos
+      return unless lpos
+
+      xi = lpos.xi + ileft + (xi || 0)
       if xl
-        xl = @lpos.xi + ileft + (xl || 0)
+        xl = lpos.xi + ileft + (xl || 0)
       else
-        xl = @lpos.xl - iright
+        xl = lpos.xl - iright
       end
 
-      yi = @lpos.yi + itop + (yi || 0)
+      yi = lpos.yi + itop + (yi || 0)
       if yl
-        yl = @lpos.yi + itop + (yl || 0)
+        yl = lpos.yi + itop + (yl || 0)
       else
-        yl = @lpos.yl - ibottom
+        yl = lpos.yl - ibottom
       end
 
       screen.screenshot xi, xl, yi, yl

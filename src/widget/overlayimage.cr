@@ -10,7 +10,7 @@ module Crysterm
       property file : String
       @image : W3MImageDisplay::Image?
 
-      @ev_render : Crysterm::Event::Render::Wrapper?
+      @ev_render : Crysterm::Event::Rendered::Wrapper?
 
       def initialize(
         @file = "/tmp/w3mimagedisplay/examples/image.jpg",
@@ -27,7 +27,7 @@ module Crysterm
       end
 
       def on_attach(e)
-        @ev_render = screen.on ::Crysterm::Event::Render, ->on_render
+        @ev_render = screen.on ::Crysterm::Event::Rendered, ->on_render
       end
 
       def on_render(e)
@@ -53,7 +53,7 @@ module Crysterm
 
       def on_detach(e)
         @ev_render.try do |ev|
-          screen.off ::Crysterm::Event::Render, ev
+          screen.off ::Crysterm::Event::Rendered, ev
         end
       end
     end

@@ -685,7 +685,7 @@ module Crysterm
         end
       end
 
-      emit Crysterm::Event::Render # , coords
+      emit Crysterm::Event::Rendered # , coords
 
       coords
     end

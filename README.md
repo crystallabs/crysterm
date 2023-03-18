@@ -334,6 +334,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - Screen `auto_padding : Bool` has been moved to Widget, and then later even removed (behaves like it is always enabled)
 - Screen itself can have a padding, same like Widgets
 - Event names have been changed from strings to classes, e.g. event `"scroll"` is `::Crysterm::Event::Scroll`
+- To remove ambiguity, events triggering at end of action have been adjusted to past tense (e.g. "Rendered" instead of "Render" is emitted at end of rendering)
 - `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`. Default is true
 - All terminal-level stuff is in shard `Tput`, not `Crysterm`
 - `style` property has been consolidated; all style-related stuff is under widget's `@style : Style`

@@ -52,7 +52,7 @@ module Crysterm
     event PreRender
 
     # Emitter at the end or rendering/drawing.
-    event Render
+    event Rendered
 
     # event PostRender
 

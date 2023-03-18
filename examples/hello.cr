@@ -50,6 +50,7 @@ class MyProg
   spawn do
     loop do
       sleep 2
+      b.clear_last_rendered_position
       b.top = rand(s.aheight - b.aheight - 1) + 1
       b.left = rand(s.awidth - b.awidth)
 

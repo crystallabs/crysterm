@@ -29,6 +29,11 @@ module Crysterm
     # Access to instance of `Tput`, used for generating term control sequences.
     getter tput : ::Tput
 
+    # TODO make these check @output, not STDOUT which is probably used.
+    # TODO Also see how urwid does the size check
+    property width = ::Term::Screen.cols || 1
+    property height = ::Term::Screen.rows || 1
+
     # :nodoc: Pointer to Fiber which is listening for keys, if any
     @listening_keys : Fiber?
 
@@ -40,16 +45,13 @@ module Crysterm
       @output = @output,
       @error = @error,
       *,
+      @width = @width,
+      @height = @height,
       @use_buffer = false,
       @force_unicode = @force_unicode,
       terminfo : Bool | Unibilium::Terminfo = true,
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
-      # TODO make these check @output, not STDOUT which is probably used.
-      # TODO Also see how urwid does the size check
-      @width = ::Term::Screen.cols || 1
-      @height = ::Term::Screen.rows || 1
-
       @terminfo = case terminfo
                   in true
                     Unibilium::Terminfo.from_env

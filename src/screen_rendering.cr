@@ -177,7 +177,7 @@ module Crysterm
 
       @renders += 1
 
-      emit Crysterm::Event::Render
+      emit Crysterm::Event::Rendered
 
       t3 = Time.monotonic
 

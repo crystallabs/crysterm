@@ -2,7 +2,15 @@
 
 ## Immediate Source Code TODOs
 
+- See test-auto/hello/main.{cr,js}. Blessed's border draws on black background, while Crysterm's draws on bg color. Was this intentional? Identify where/way this is happening.
+
+- Both in Blessed and Crysterm, widget screenshot does not include border. See why is that.
+
 - In small-tests/question.cr, see if the widget can be fixed to work properly, or it's not worth it (since the original implementation of the widget in Blessed is quite weird, maybe it should be redone)
+
+- Why is there a newline difference in output of blessed and crysterm's Screen#screenshot?
+
+- In Blessed's version of examples/hello, it is not necessary to manually #clearPos(). Where does the difference compared to Crysterm come from?
 
 - Fix rendering of cursor color. Appears to be ignored in some cases.
 
@@ -21,6 +29,8 @@
 - Maybe add a GUI-dedicated thread like in Qt?
 
 ## Non-critical Fixes and Small Improvements to Existing code
+
+- Parse_tags - should be default true or false?
 
 - Artificial cursor support for src/widget/checkbox.cr
 
