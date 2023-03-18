@@ -177,7 +177,7 @@ filled in. If they are not filled in, Blessed first produces them and then retur
 which can be used in place of the parent. It produces "a" values based on screen width/height and
 xi...xl, yi...yl values that are/must be already present.
 
-All position-related functions have `get=false`.
+All position-related functions use `get=false`.
 
 All these getters return values restricted by desired left/top/right/bottom values and also honor
 decorations (i.e. are offset from parent by the amount of parent's "i" values).
