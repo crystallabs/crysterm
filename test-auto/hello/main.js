@@ -24,7 +24,7 @@ s.on('keypress', function() {
 s.on('render', function() {
   scr = w.screenshot();
   console.error(scr);
-  if(true) {
+  if(process.argv.includes('-exit')) {
     process.exit()
   }
 });

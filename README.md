@@ -27,7 +27,7 @@ crystal examples/hello.cr
 crystal examples/hello2.cr
 crystal examples/tech-demo.cr
 
-# And other examples from directories examples/, small-tests/, and test/.
+# And other examples from directories examples/, small-tests/, test/ and test-auto/.
 ```
 
 ## Using it as a module in your project
