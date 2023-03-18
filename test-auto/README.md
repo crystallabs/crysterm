@@ -15,15 +15,17 @@ corresponding language-specific files, you can use `git diff` to identify any di
 compared to previous runs, or `diff` to compare outputs/differences between the two
 implementations.
 
-To run all tests:
+Example:
 
 ```
-# For Crystal ones:
+# Run all Crysterm tests:
 ./run-crysterm.sh
 
-# For Blessed ones:
+# Set up Blessed and run all Blessed tests:
+cd ..
 git checkout https://github.com/chjj/blessed
 patch -p1 < blessed.patch
+cd test-auto
 ./run-blessed.sh
 
 # To compare differences to previous runs:
