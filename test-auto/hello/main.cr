@@ -18,8 +18,10 @@ w = Widget::Box.new \
 s.on(Event::KeyPress) { |e| exit }
 
 s.on(Event::Rendered) {
-  STDERR.puts w.screenshot
-  exit if ARGV.includes? "-exit"
+  if ARGV.includes? "--test-auto"
+    STDERR.puts w.snapshot
+    exit
+  end
 }
 
 s.render

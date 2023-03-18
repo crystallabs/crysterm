@@ -22,9 +22,9 @@ s.on('keypress', function() {
 });
 
 s.on('render', function() {
-  scr = w.screenshot();
-  console.error(scr);
-  if(process.argv.includes('-exit')) {
+  if(process.argv.includes('--test-auto')) {
+    scr = w.snapshot();
+    console.error(scr);
     process.exit()
   }
 });

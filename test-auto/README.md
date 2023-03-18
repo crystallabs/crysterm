@@ -18,7 +18,10 @@ checkout blessed from Git:
 ```
 cd crysterm
 git checkout https://github.com/chjj/blessed
+patch -p1 < blessed.patch
 ```
 
-Then you can use `git diff` to identify differences compared to previous runs, or you
-can run diffs between Crysterm and Blessed versions.
+Finally, after running both .cr and .js tests, which will each store their outputs in
+corresponding language-specific files, you can use `git diff` to identify any differences
+compared to previous runs, or `diff` to compare outputs/differences between the two
+implementations.

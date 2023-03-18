@@ -1,0 +1,21 @@
+diff --git a/blessed/lib/widgets/element.js b/blessed/lib/widgets/element.js
+index 29a783c..084daff 100644
+--- a/blessed/lib/widgets/element.js
++++ b/blessed/lib/widgets/element.js
+@@ -2563,6 +2563,16 @@ Element.prototype.screenshot = function(xi, xl, yi, yl) {
+   return this.screen.screenshot(xi, xl, yi, yl);
+ };
+
++Element.prototype.snapshot = function(includeDecorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0) {
++  xi = this.lpos.xi + (includeDecorations ? 0 : this.ileft) + dxi;
++  xl = this.lpos.xl - (includeDecorations ? 0 : -this.iright) + dxl;
++
++  yi = this.lpos.yi + (includeDecorations ? 0 : this.itop) + dyi;
++  yl = this.lpos.yl - (includeDecorations ? 0 : -this.ibottom) + dyl;
++
++  return this.screen.screenshot(xi, xl, yi, yl);
++};
++
+ /**
+  * Expose
+  */
