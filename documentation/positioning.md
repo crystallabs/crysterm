@@ -193,14 +193,14 @@ These return the inner thickness / reduction of space on each side of the box du
 For each side, it is calculated as a sum of border width (always 0 or 1) and
 padding (can be any number of cells).
 
-Important: these "i" methods do not return a *position* but rather *amount* of
+Important: these "i" methods do not return *position* but rather *amount* of
 decoration on respective side within the box.
 
 - iwidth
 - iheight
 
 These two likewise do not return the inner dimensions available for content but, similarly
-to the other "i" methods, they return the sums of (left and right) or (top and bottom)
+to the other "i" methods, they return the sums of left and right (or top and bottom)
 decoration.
 
 In other words, a widget with border and 2 cells of padding at top and 3 cells of
