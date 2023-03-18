@@ -1,6 +1,5 @@
-# Crysterm Docs
+# Crysterm docs
 
-Various development-oriented notes.
+Various development-oriented documentation.
 
-Explanations of how things work in Blessed, and/or how that's been applied
-in Crysterm.
+Explanations of how things work in Blessed and/or how those concepts have been applied in Crysterm.

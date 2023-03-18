@@ -1,40 +1,42 @@
 # Positioning and sizing in Blessed
 
-## Positioning basics
+## Positioning basics / intro
 
 For every widget, Blessed can get, set, and/or calculate its absolute and
-relative position, width and height, and the amount of inner widget space
+relative position, width and height, and the amount of inner space
 that is reserved for decorations (borders and padding).
 
-Left/top/right/bottom values are not offsets from (0,0) on the top left, but from their respective sides.
+Left, top, right and bottom values are not offsets from (0,0) on the top left, but rather from their respective sides.
+
 In other words, a widget having `top=10` and `bottom=20` won't start in row 10 and end in row 20, but will
-in fact cover the entire space from the 10th row at the top to the 20th row from the bottom.
+cover the entire space from the 10th row at the top to the 20th row from the bottom.
 
 If you want to control the widget's height directly, instead of specifying `top` and `bottom` you would
-specify `top` and `height`.
+specify `top` and `height`. The same goes for `left`/`right` and `width`, of course.
 
-In certain cases (listed below) position or size can be specified as 'center', 'half', or 'xx%' (for a
-percentage of parent).
+Normally, position or size is specified as integer value, or is left null for auto-calculation.
+However, in certain cases (listed below) it can be specified as a string containing values 'center',
+'half', or 'xx%' (for a percentage of parent).
 
-'center' makes the widget 50% big and equally spaced from top and bottom (i.e. centered).
-'half' just equals to half of parent's width or height (i.e. "50%").
-Using percentages has the following implications/consequences:
+1. 'center' makes the widget 50% the size of parent and equally spaced from top and bottom or left and right (i.e. centered).
+1. 'half' equals to half of parent's width or height (i.e. "50%"), without centering.
+1. Using percentages works in the following way:
 
-- If you set widget `top: 10, height: "100%"`, widget will extend outside of the screen by 10 lines, since
-'100%' was calculated based on entire parent, not the current position (top: 10) within it. The solution
-is to specify `height: "100%-10"`.
+- If you set widget `top: 10, height: "100%"`, it will extend outside of the screen by 10 lines, since
+'100%' was calculated based on entire parent, not the current position (top: 10) within it. You should
+specify `height: "100%-10"` in that case.
 
 - Similarly, if you create a widget and give it a border, then create a child widget in it with
 `height: 100%`, this will make the child widget too high by two lines (for 1 line of top and 1 line of
-bottom border in the parent widget). This is because in Blessed `width`/`height` values include all the
-decorative space in the widget (borders and padding). The solution is same as above, set `height: "100%-2"`.
+bottom border in the parent widget). This is because percentages of parent refer to the entire size and
+not the size remaining after accounting for decorations (borders and padding).
+The solution is same as above, set `height: "100%-2"`.
 
 Finally, not directly related, but important are variables called xi, xl, yi, and yl.
-They are given in reference to (0,0) on the top-left of the screen.
+They, on the other hand, do correspond to reference (0,0) on the top-left of the screen.
 
-The xi...xl specify the column range in which the widget is rendered, e.g. a widget at position `left: 10`
-and `width: 50` has `xi...xl = 10...50`.
-The yi...yl specify the same thing for row range.
+xi...xl specifies the column range in which the widget is rendered. E.g. a widget at position `left: 10`
+and `width: 50` has `xi...xl = 10...50`. yi...yl specify the same thing for row range.
 
 These 4 are enough to position every widget since all widgets are based on a rectangle.
 
