@@ -189,7 +189,7 @@ also honor decorations (i.e. are offset from parent by the amount of parent's "i
 - iright
 - ibottom
 
-These return the inner thickness / reduction of space on each side of the box.
+These return the inner thickness / reduction of space on each side of the box due to decorations.
 For each side, it is calculated as a sum of border width (always 0 or 1) and
 padding (can be any number of cells).
 
