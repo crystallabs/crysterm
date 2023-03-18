@@ -6,10 +6,16 @@ This document covers:
 2. Padding
 3. Shadow
 4. Labels
+5. Cursor
 
 ## Borders
 
-In Blessed, widget initializer has property `border` which can be just a type of border or a bigger border definition object.
+Blessed supports borders around widgets.
+
+Border and padding render inside the widget's width and height, rather than rendering outside of it. Consequently,
+the amount of space available for content may be smaller than the set width/height.
+
+Widget initializer has property `border` which can be just a type of border or a bigger border definition object.
 
 If border is enabled, it is drawn around all 4 sides of the widget and is 1 cell thick.
 
