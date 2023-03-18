@@ -33,12 +33,12 @@ not the size remaining after accounting for decorations (borders and padding).
 The solution is same as above, set `height: "100%-2"`.
 
 Finally, not directly related, but important are variables called xi, xl, yi, and yl.
-They, on the other hand, do correspond to reference (0,0) on the top-left of the screen.
+Those ones do correspond to reference (0,0) on the top-left of the screen.
 
 xi...xl specifies the column range in which the widget is rendered. E.g. a widget at position `left: 10`
 and `width: 50` has `xi...xl = 10...50`. yi...yl specify the same thing for row range.
 
-These 4 are enough to position every widget since all widgets are based on a rectangle.
+Those 4 values are enough to position every widget since all widgets are based on a rectangle.
 
 ## Relative position
 
@@ -51,7 +51,7 @@ The following getters and setters:
 
 Are convenience aliases for rleft / rtop / rright / rbottom.
 
-These are offsets "R"elative to the parent (or screen if widget is at the top level).
+These are offsets "R"elative to the parent widget (or to the screen if the widget is at top level).
 
 ### Setters
 
@@ -59,8 +59,8 @@ When rleft, rtop, rright or rbottom are set, the following takes place:
 
 If the desired value is identical to the old value, the function exits.
 
-If the desired value is not identical to the old value (stored in `self.position.*`),
-Blessed does the following (can be seen in `lib/widgets/element.js:1369`):
+If the desired value is not identical to the old value (which is stored in `self.position.*`),
+Blessed does the following:
 
 - If value is an integer passed as a string, casts it to int
 - Emits `Move` event on self
@@ -74,6 +74,8 @@ of the same name, but setting e.g. `rleft=(value)` actually saves the value to
 
 Thus, it is these fields in `self.position.*` that contains values directly as
 specified by user (e.g. 30, "center", "30%" etc.)
+
+See more in `lib/widgets/element.js:1369` if interested.
 
 ### Getters
 
