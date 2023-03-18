@@ -6,6 +6,9 @@ For every widget, Blessed can get, set, and/or calculate its absolute and
 relative position, width and height, and the amount of inner space
 that is reserved for decorations (borders and padding).
 
+For a given widget, it can also calculate what the minimum size bounding box is
+(minimum box needed to accomodate all content without scrolling).
+
 Left, top, right and bottom values are not offsets from (0,0) on the top left, but rather from their respective sides.
 
 In other words, a widget having `top=10` and `bottom=20` won't start in row 10 and end in row 20, but will
@@ -143,7 +146,6 @@ code identical to setting `rtop`.
 
 The only difference compared to "r" methods is that `aleft` and `atop` support
 the position being specified as "center" or "xx%" (i.e. as percentages).
-
 In those two cases, `width` and `height` of screen are consulted to produce
 integer values, and then those integers are set, the same as "r" methods would do it.
 
@@ -225,3 +227,11 @@ Border and padding render *inside* of widget's width/height, i.e. they reduce th
 space available for actual content.
 
 Shadow is casted outside of those dimensions and does not affect widget's inner space.
+
+## Widget creation and related options
+
+When creating widgets, one can specify left/top/right/bottom/width/height separately or provide
+them all inside `position` hash. If they're given separately, Blessed packs them into `position`.
+
+One can also specify `shrink = true` on a widget. This causes widget to render in minimal
+necessary box to accomodate its content.
