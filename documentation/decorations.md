@@ -12,10 +12,10 @@ This document covers:
 
 Blessed supports borders around widgets.
 
-Border and padding render inside the widget's width and height, rather than rendering outside of it. Consequently,
+Border and padding render inside the widget's width and height, rather rendering outside of it. Consequently,
 the amount of space available for content may be smaller than the set width/height.
 
-Widget initializer has property `border` which can be just a type of border or a bigger border definition object.
+Widget initializer has a property named `border` which can be just a type of border or a bigger border definition object.
 
 If border is enabled, it is drawn around all 4 sides of the widget and is 1 cell thick.
 
@@ -24,16 +24,14 @@ Border has a type, which can be `bg` (default) or `line`.
 If type is `bg`, border is drawn by default using black background color and ' ' (space) as filling character.
 If type is `line`, then it is drawn using line-looking characters, along with properly accounting for angles and docking to other borders on the screen.
 
-If `border` is an object, then more options can be specified:
+When `border` is an object, as mentioned more options can be specified:
 
 ```
   self.border = {
     type: 'bg',  # 'bg' | 'line' (or 'ascii' which is alias for 'line')
     bg: '...',   # Background color
     fg: '...',   # Foreground color
-    ch: ' '      # Filling character, default is space
-    bold: true/false,      # Bold the filling char
-    underline: true/false, # Underline the filling char
+    ch: ' '      # Filling character, default is space (in case of type == 'bg')
 
     # Documented in more detail below:
     left: true/false,
@@ -61,6 +59,9 @@ of style.
 This shows how the idea developed over time in Blessed (style was gradually moved from `border` and `border.style`
 into `style.border`).
 
+Attributes 'bold' and 'underline' are documented in README as possible to apply to borders, but this doesn't
+seem like it was implemented.
+
 Finally, when a widget has a scrollbar, scrollbar will normally render in the rightmost column of the
 widget. When border is enabled, scrollbar will render one position inwards. However, if scrollbar has the
 setting `ignoreBorder: true`, then scrollbar will render in the column occupied by the border, re-using
@@ -71,14 +72,14 @@ In Crysterm:
 - Everything is (or will be) in `style.border`. The property `border` will not exist on widget.
 - Default border type is `BorderType::Line`, not bg'
 
-There is an incompatibility in border color. Blessed defaults to border's background color being 'black',
-unless specifically overriden.
+There is a difference in default border color in Blessed and Crysterm.
+Blessed defaults to border's background color being 'black', unless specifically overriden.
 
 In Crysterm, everything style-related has been consolidated into `self.style`, and this is a recursive
 structure -- if `style.border` is set, it will be used for the border. If it is not set, calling
 `self.style.border` will fallback to `self.style`.
 
-That's why in Crysterm border is by default drawn using the same background color as the widget, and not
+Thus, in Crysterm border will by default be drawn using the same background color as the widget, and not
 black.
 
 Additionally, in Crysterm there is `Crysterm::Style.default`. This default instance of style can be
