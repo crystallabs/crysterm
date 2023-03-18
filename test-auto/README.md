@@ -10,18 +10,25 @@ The purpose of these tests is to:
 
 Some tests have their .js equivalents, which allows comparing the output to Blessed.
 
-Run `./run-crysterm.sh` to run all crysterm tests.
-
-Run `./run-blessed.sh` to run all crysterm tests. For this to work you will need to
-checkout blessed from Git:
-
-```
-cd crysterm
-git checkout https://github.com/chjj/blessed
-patch -p1 < blessed.patch
-```
-
-Finally, after running both .cr and .js tests, which will each store their outputs in
+After running both .cr and .js tests, which will each store their outputs in
 corresponding language-specific files, you can use `git diff` to identify any differences
 compared to previous runs, or `diff` to compare outputs/differences between the two
 implementations.
+
+To run all tests:
+
+```
+# For Crystal ones:
+./run-crysterm.sh
+
+# For Blessed ones:
+git checkout https://github.com/chjj/blessed
+patch -p1 < blessed.patch
+./run-blessed.sh
+
+# To compare differences to previous runs:
+git diff
+
+# To compare differences between two implementations, e.g.:
+diff -u hello/output/snapshot.blessed hello/output/snapshot.crysterm
+```
