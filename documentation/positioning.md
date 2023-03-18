@@ -179,8 +179,8 @@ xi...xl, yi...yl values that are/must be already present.
 
 All position-related functions use `get=false`.
 
-All these getters return values restricted by desired left/top/right/bottom values and also honor
-decorations (i.e. are offset from parent by the amount of parent's "i" values).
+All these getters return values that are restricted by desired left/top/right/bottom values and that
+also honor decorations (i.e. are offset from parent by the amount of parent's "i" values).
 
 ## Inner content offsets
 
