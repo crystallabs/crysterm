@@ -134,15 +134,9 @@ without accounting for "i" or desired left/top/right/bottom values.
 
 There is no place to store the absolute and relative position separately among widget's data (in `self.position.*`).
 
-(The only place where absolute values are recorded is in `self.lpos`, which stores various absolute coordinates/size of the last render.
-However note still the values are referring to distance from corresponding sides, not from (0,0) on the top left.)
-
-So setting "a" values works similarly to the "r" values; Blessed just subtracts
+Setting "a" values works similarly to the "r" values. Blessed just subtracts
 the parent's value from the current widget's value to convert absolute to
-relative.
-
-After that, the same code as for relative setters runs (well, it's a copy of the
-code actually, but identical).
+relative, and then proceeds as if relative value was specified.
 
 E.g. setting `atop = value` results in `value -= parent.atop`, followed by
 code identical to setting `rtop`.
