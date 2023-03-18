@@ -217,7 +217,7 @@ If it is `true`, a border of certain type is drawn around all 4 sides of the wid
 1 cell thick.
 
 Padding is not just true/false like border, but can be set for each of the 4 sides individually.
-Method `tpadding` stands for "total padding" and returns a sum of padding on all 4 sides.
+Method `tpadding` stands for "total padding" and returns the sum of padding on all 4 sides.
 
 Shadow can be set on a widget. If it is set to true, it always draws shadow on the right and
 bottom side of widget, in 1 cell of height and 2 cells of width for a proportional look.
@@ -226,7 +226,7 @@ It is 50% transparent and blends with the content underneath.
 Border and padding render *inside* of widget's width/height, i.e. they reduce the amount of
 space available for actual content.
 
-Shadow is casted outside of those dimensions and does not affect widget's inner space.
+Shadow is cast outside of those dimensions and does not affect widget's inner space.
 
 ## Widget creation and related options
 
