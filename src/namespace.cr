@@ -79,8 +79,13 @@ module Crysterm
   class Style
     class_property default = new # Default style for all widgets
 
-    property fg : String = "white"
-    property bg : String = "black"
+    # These (and possibly others) can't default to any color since that would generate
+    # color-setting sequences in the terminal. It's better to have them nilable, in which
+    # case no sequences get generated and term's default is used. That's also how Blessed
+    # does it.
+    property fg : String?
+    property bg : String?
+
     property bold : Bool = false
     property underline : Bool = false
     property blink : Bool = false

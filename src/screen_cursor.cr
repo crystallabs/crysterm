@@ -20,8 +20,9 @@ module Crysterm
         render
       else
         display.try do |d|
-          d.tput.cursor_shape c.shape, c.blink
-          d.tput.cursor_color c.style.fg
+          c.shape.try { |shape| d.tput.cursor_shape shape, c.blink }
+          # XXX Re-compare with blessed/lib//widgets/screen.js:286
+          c.style.fg.try { |color| d.tput.cursor_color color }
         end
       end
       c._set = true

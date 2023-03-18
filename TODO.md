@@ -12,9 +12,7 @@
 
 - In Blessed's version of examples/hello, it is not necessary to manually #clearPos(). Where does the difference compared to Crysterm come from?
 
-- Fix rendering of cursor color. Appears to be ignored in some cases.
-
-- Fix artificial cursor blink
+- Review hardware and artificial cursor functionality. Color, blink, etc. See src/screen_cursor.cr and enter method in Blessed.
 
 - Fix for TextArea's _done; make sure that both examples/hello2.cr and prompt/question example work
 
