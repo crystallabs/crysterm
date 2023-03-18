@@ -96,7 +96,6 @@ module Crysterm
     def exec(screen : Crysterm::Screen? = nil)
       s = @mutex.synchronize do
         screen || Screen.instances.select(&.display.==(self)).try { |screens| screens.first }
-
       end
 
       if s.display != self

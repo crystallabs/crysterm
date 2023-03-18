@@ -62,9 +62,9 @@ module Crysterm
     )
     end
 
-		# XXX Blocks for initializers are currently disabled. But when we get to enabling them,
-		# use the same approach that kdebindings' qtruby bindings for Qt4 took to make them
-		# work.
+    # XXX Blocks for initializers are currently disabled. But when we get to enabling them,
+    # use the same approach that kdebindings' qtruby bindings for Qt4 took to make them
+    # work.
     # def initialize(
     #  @text,
     #  @parent : Crysterm::Object? = nil
