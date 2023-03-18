@@ -68,7 +68,7 @@ Blessed does the following:
 - Sets `self.position.* = value` (e.g. `self.position.left = 30`)
 - Returns the (possibly casted) value that was set
 
-Note above that the values input into those fields are not kept in properties
+Note from the above that values assigned to l/t/r/b are not kept in properties
 of the same name, but setting e.g. `rleft=(value)` actually saves the value to
 `self.position.left`.
 
@@ -79,7 +79,7 @@ See more in `lib/widgets/element.js:1369` if interested.
 
 ### Getters
 
-Getting relative position does not return fixed values, but rather runs a calculation
+Getting relative position values does not return fixed values, but rather runs a calculation
 based on absolute coordinates. The code is simple:
 
 - rleft = self.aleft - parent.aleft
@@ -115,10 +115,10 @@ three things:
 
 Two notes apply when the value is null:
 
-If left or top value is 'center', then widget's size is first set to 50% of parent, then additionally centered.
+If left or top value is 'center', then widget's size will be first set to 50% of parent and then additionally widget will render centered.
 
 The largest possible space (width or height) is calculated while taking all restrictions into account. In other words, the calculated space
-is limited by the size of parent, amount of parent's "i" values (inner thickness), and the current widget's desired left/top/right/bottom values.
+is limited by the size of parent, amount of parent's "i" values (inner thickness, explained below), and the current widget's desired left/top/right/bottom values.
 
 Therefore, a value of null is very different from setting "100%". Setting 100% or any percentage translates to direct percentage of parent's size,
 without accounting for "i" or desired left/top/right/bottom values.
@@ -132,7 +132,10 @@ without accounting for "i" or desired left/top/right/bottom values.
 
 ### Setters
 
-There is no place to store the absolute and relative position separately.
+There is no place to store the absolute and relative position separately among widget's data (in `self.position.*`).
+
+(The only place where absolute values are recorded is in `self.lpos`, which stores various absolute coordinates/size of the last render.
+However note still the values are referring to distance from corresponding sides, not from (0,0) on the top left.)
 
 So setting "a" values works similarly to the "r" values; Blessed just subtracts
 the parent's value from the current widget's value to convert absolute to
