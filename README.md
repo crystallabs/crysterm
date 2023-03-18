@@ -190,9 +190,11 @@ The interface for getting or setting values has been streamlined (further explan
 | height / height= | aheight | - | iheight |
 
 "Spec" methods get or set the values exactly as the user specified them (e.g. "50%+2" or "center").
-Absolute methods return computed values as integers (number of cells, starting from point (0,0) on the top left).
-Relative methods return computed values as integers (number of cells, starting from point (0,0) in the parent widget. If there is no parent widget, they are equal to absolute values).
+Absolute methods return computed values as integers in reference to screen.
+Relative methods return computed values as integers in reference to parent widget (or screen if parent is not defined).
 Inner methods return offsets of content inside the widget (i.e. they report the sum of thickness of all widget's inner decorations like borders, padding, etc.)
+
+For definitive guide on positioning, see `documentation/positioning.md`.
 
 Speaking of layouts, the one layout engine currently existing, `Widget::Layout`, is equivalent to Blessed's. It can arrange widgets in a grid-like or masonry-like style.
 There are no equivalents of Qt's `QBoxLayout`.
