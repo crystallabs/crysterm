@@ -12,7 +12,7 @@ w = Widget::Box.new \
   resizable: true,
   content: "Hello, World!",
   parse_tags: false,
-  style: Style.new(fg: "yellow", bg: "blue", border: Style.new()),
+  style: Style.new(fg: "yellow", bg: "blue", border: Style.new),
   border: true
 
 s.on(Event::KeyPress) { |e| exit }
