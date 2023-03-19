@@ -12,13 +12,13 @@ module Crysterm
     left: "20%",
     width: 30,
     height: 8,
-    shadow: true,
     style: Style.new(
       fg: "yellow",
       bg: "magenta",
       border: Style.new(
         fg: "#ffffff"
       ),
+      shadow: true,
     )
 
   s.append q

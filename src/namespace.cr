@@ -74,8 +74,7 @@ module Crysterm
     property blink : Bool = false
     property inverse : Bool = false
     property invisible : Bool = false
-    property transparency : Float64? = nil
-    property shadow_transparency : Float64 = 0.5
+    property alpha : Float64? = nil
 
     property tab_size = 4
 
@@ -117,6 +116,12 @@ module Crysterm
     end
 
     getter padding : Padding?
+
+    def shadow=(value)
+      @shadow = Shadow.from value
+    end
+
+    getter shadow : Shadow?
 
     setter cell : Style?
 
@@ -172,20 +177,14 @@ module Crysterm
       @track || self
     end
 
-    # setter shadow : Style?
-
-    # def shadow
-    #  @shadow || self
-    # end
-
     def initialize(
       *,
       border = nil,
       padding = nil,
+      shadow = nil,
       @scrollbar = @scrollbar,
       @focus = @focus,
       @hover = @hover,
-      # @shadow = nil,
       @track = @track,
       @bar = @bar,
       @selected = @selected,
@@ -200,16 +199,17 @@ module Crysterm
       @blink = @blink,
       @inverse = @inverse,
       @invisible = @invisible,
-      transparency = nil,
+      alpha = nil,
       @char = @char,
       @pchar = @pchar,
       @fchar = @fchar,
       @bchar = @bchar,
       @ignore_border = @ignore_border
     )
-      transparency.try { |v| @transparency = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
+      alpha.try { |v| @alpha = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
       border.try { |v| self.border = Border.from(v) }
       padding.try { |v| self.padding = Padding.from(v) }
+      shadow.try { |v| self.shadow = Shadow.from(v) }
     end
   end
 
@@ -352,16 +352,13 @@ module Crysterm
 
   # Class for shadow definition.
   class Shadow
-    # property type = BorderType::Line
-    # NOTE These don't have ? because they'll be replaced with Ints in the future,
-    # specifying corresponding border thicknesses
-    property? left : Bool = false
-    property? top : Bool = false
-    property? right : Bool = false
-    property? bottom : Bool = true
+    property left : Bool = false
+    property top : Bool = false
+    property right : Bool = true
+    property bottom : Bool = true
+    property alpha : Float64 = 0.5
 
     def initialize(
-      # @type = BorderType::Line,
       @left = @left,
       @top = @top,
       @right = @right,
@@ -369,25 +366,37 @@ module Crysterm
     )
     end
 
-    # XXX same note as above under `Border`:
-
-    # def initialize(left_and_right, top_and_bottom)
-    #  @left = @right = left_and_right
-    #  @top = @bottom = top_and_bottom
-    # end
-
-    # def initialize(all)
-    #  @left = @top = @right = @bottom = all
-    # end
-
-    # def initialize
-    #  @left = @top = false
-    #  @right = @bottom = true
-    # end
-
-    def any?
-      !!(@left || @top || @right || @bottom)
+    def self.from(value)
+      case value
+      in true
+        Shadow.new true
+      in nil, false
+        nil
+      in Shadow
+        value
+      in Float
+        Shadow.new value
+      end
     end
+
+    def initialize(all : Int)
+      @left = @top = @right = @bottom = all
+    end
+
+    def initialize(@alpha : Float64)
+    end
+
+    def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
+    end
+
+    # adjust() for shadow isn't the same as for border/padding
+    # def adjust(pos, sign = 1)
+    #  pos.xi += sign * @left
+    #  pos.xl -= sign * @right
+    #  pos.yi += sign * @top
+    #  pos.yl -= sign * @bottom
+    #  pos
+    # end
   end
 
   # class FocusEffects

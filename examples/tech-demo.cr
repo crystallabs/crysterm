@@ -32,14 +32,14 @@ module Crysterm
     height: 3,
     align: AlignFlag::HCenter,
     content: "Click me, I am a button.",
-    shadow: true,
     style: Style.new(
       bg: "blue",
       fg: "yellow",
       border: Border.new(
         type: BorderType::Line,
         bg: "blue"
-      )
+      ),
+      shadow: true
     )
   )
 
@@ -66,13 +66,13 @@ module Crysterm
     filled: 50,
     width: 36,
     height: 3,
-    shadow: true,
     style: Style.new(
       fg: "yellow",
       bg: "magenta",
       border: Border.new(
         fg: "#ffffff"
       ),
+      shadow: true,
     )
 
   loading = Loading.new \
@@ -82,7 +82,7 @@ module Crysterm
     height: 18,
     icons: ["Preparing", "Loading", "Processing", "Saving", "Analyzing"],
     content: "Please wait...",
-    style: Style.new(transparency: true, fg: "white", bg: "black", border: Border.new(fg: "white", bg: "black"))
+    style: Style.new(alpha: true, fg: "white", bg: "black", border: Border.new(fg: "white", bg: "black"))
 
   question = Question.new \
     parent: layout,
@@ -91,14 +91,14 @@ module Crysterm
     parse_tags: true,
     width: 36,
     height: 9,
-    shadow: true,
     style: Style.new(
-      transparency: true,
+      alpha: true,
       fg: "yellow",
       bg: "magenta",
       border: Border.new(
         fg: "#ffffff"
       ),
+      shadow: true,
     )
   question.ask { }
 
@@ -106,13 +106,13 @@ module Crysterm
   #  parent: layout,
   #  width: 36,
   #  height: 18,
-  #  shadow: false,
   #  style: Style.new(
   #    fg: "yellow",
   #    bg: "magenta",
   #    border: Border.new(
   #      fg: "#ffffff"
   #    ),
+  #    shadow: false,
   #  )
 
   bigtext = BigText.new(
@@ -147,8 +147,7 @@ module Crysterm
     top: 18,
     left: 160,
     content: "Hello, World! See translucency and shadow.",
-    shadow: Shadow.new(true, true, false, false),
-    style: Style.new(bg: "#870087", border: BorderType::Bg)
+    style: Style.new(bg: "#870087", border: BorderType::Bg, shadow: Shadow.new(true, true, false, false))
   )
   boxtp1 = Box.new(
     # parent: s,
@@ -157,8 +156,7 @@ module Crysterm
     width: 60,
     height: 14,
     content: "See indeed.",
-    shadow: true,
-    style: Style.new(bg: "#729fcf", transparency: true, border: true)
+    style: Style.new(bg: "#729fcf", alpha: true, border: true, shadow: true)
   )
   s.append boxtp2
   s.append boxtp1

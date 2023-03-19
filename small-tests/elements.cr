@@ -25,8 +25,7 @@ class X
       label: "Frame text ",
       content: "Press q or Ctrl+q to exit",
       align: ::Tput::AlignFlag::Center,
-      style: Style.new(fg: "yellow", bg: "blue", transparency: 0.9, border: true, padding: 4),
-      shadow: true
+      style: Style.new(fg: "yellow", bg: "blue", alpha: 0.9, border: true, padding: 4, shadow: true)
 
     s.append b
     s.append i

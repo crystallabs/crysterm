@@ -13,8 +13,7 @@ module Crysterm
     top: 4,
     left: 4,
     content: "Hello, World! See translucency and shadow.",
-    shadow: true,
-    style: Style.new("bg": "#870087", border: BorderType::Bg)
+    style: Style.new("bg": "#870087", border: BorderType::Bg, shadow: true)
   )
   boxtp1 = Box.new(
     # parent: s,
@@ -23,8 +22,7 @@ module Crysterm
     width: 35,
     height: 8,
     content: "See indeed.",
-    shadow: Shadow.new(false, true, false, true),
-    style: Style.new("bg": "#729fcf", transparency: true, border: true)
+    style: Style.new("bg": "#729fcf", alpha: true, border: true, shadow: Shadow.new(false, true, false, true))
   )
   boxtp0 = Box.new(
     # parent: s,
@@ -33,8 +31,7 @@ module Crysterm
     width: 20,
     height: 8,
     content: "See indeed.",
-    shadow: Shadow.new(true, true, true, true),
-    style: Style.new("bg": "#729fcf", transparency: true, border: true)
+    style: Style.new("bg": "#729fcf", alpha: true, border: true, shadow: Shadow.new(true, true, true, true))
   )
   boxtpm1 = Box.new(
     # parent: s,
@@ -43,8 +40,7 @@ module Crysterm
     width: 20,
     height: 8,
     content: "See indeed.",
-    shadow: true,
-    style: Style.new("bg": "#729fcf", transparency: true, border: true)
+    style: Style.new("bg": "#729fcf", alpha: true, border: true, shadow: true)
   )
   s.append boxtp2
   s.append boxtp1

@@ -93,7 +93,7 @@ module Crysterm
         attr |= 8 << 18
       elsif cursor.shape.none?
         cattr = Widget.sattr cursor.style
-        # cattr = Colors.blend attr, cursor.style, (cursor.style.transparency || 0)
+        # cattr = Colors.blend attr, cursor.style, (cursor.style.alpha || 0)
         if cursor.style.bold || cursor.style.underline || cursor.style.blink || cursor.style.inverse || cursor.style.invisible
           attr &= ~(0x1ff << 18)
           attr |= ((cattr >> 18) & 0x1ff) << 18

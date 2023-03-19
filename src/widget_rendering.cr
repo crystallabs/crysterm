@@ -139,7 +139,7 @@ module Crysterm
       # To deal with this, we can just fill the whole thing
       # ahead of time. This could be optimized.
       if @style.padding || !@align.top?
-        if transparency = style.transparency
+        if alpha = style.alpha
           (Math.max(yi, 0)...yl).each do |y|
             if !lines[y]?
               break
@@ -148,7 +148,7 @@ module Crysterm
               if !lines[y][x]?
                 break
               end
-              lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: transparency)
+              lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
               # D O:
               # lines[y][x].char = bch
               lines[y].dirty = true
@@ -251,8 +251,8 @@ module Crysterm
               if (!cell)
                 break
               end
-              if transparency = style.transparency
-                lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: transparency)
+              if alpha = style.alpha
+                lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
                 if content[ci - 1]?
                   lines[y][x].char = ch
                 end
@@ -304,8 +304,8 @@ module Crysterm
             next
           end
 
-          if transparency = style.transparency
-            lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: transparency)
+          if alpha = style.alpha
+            lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
             if content[ci - 1]?
               lines[y][x].char = ch
             end
@@ -586,10 +586,10 @@ module Crysterm
       end
 
       # Shadow
-      if s = shadow
-        if s.left?
-          i = s.top? ? yi - 1 : yi
-          l = s.bottom? ? yl + 1 : yl
+      if s = @style.shadow
+        if s.left
+          i = s.top ? yi - 1 : yi
+          l = s.bottom ? yl + 1 : yl
 
           y = Math.max(i, 0)
           while (y < l)
@@ -603,7 +603,7 @@ module Crysterm
               end
               # D O:
               # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
-              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: style.shadow_transparency)
+              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
               lines[y].dirty = true
               x += 1
             end
@@ -611,8 +611,8 @@ module Crysterm
           end
         end
 
-        if s.top?
-          l = s.right? ? xl + 2 : (s.left? ? xl - 2 : xl)
+        if s.top
+          l = s.right ? xl + 2 : (s.left ? xl - 2 : xl)
 
           y = yi - 1
           while (y < yi)
@@ -625,16 +625,16 @@ module Crysterm
               end
               # D O:
               # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
-              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: style.shadow_transparency)
+              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: s.alpha)
               lines[y].dirty = true
             end
             y += 1
           end
         end
 
-        if s.right?
-          i = s.top? ? yi : yi + 1
-          l = s.bottom? ? yl + 1 : yl
+        if s.right
+          i = s.top ? yi : yi + 1
+          l = s.bottom ? yl + 1 : yl
 
           y = Math.max(i, 0)
           while (y < l)
@@ -648,7 +648,7 @@ module Crysterm
               end
               # D O:
               # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
-              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: style.shadow_transparency)
+              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
               lines[y].dirty = true
               x += 1
             end
@@ -656,8 +656,8 @@ module Crysterm
           end
         end
 
-        if s.bottom?
-          i = s.right? ? xi + 1 : xi
+        if s.bottom
+          i = s.right ? xi + 1 : xi
 
           y = yl
           while (y < yl + 1)
@@ -670,7 +670,7 @@ module Crysterm
               end
               # D O:
               # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
-              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: style.shadow_transparency)
+              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: s.alpha)
               lines[y].dirty = true
             end
             y += 1

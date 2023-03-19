@@ -15,7 +15,7 @@ class X
       top: "center",
       left: "center",
       parse_tags: true,
-      style: Style.new(bg: "blue", scrollbar: Style.new(bg: "red"), track: Style.new(char: '▒'), selected: Style.new(fg: "yellow", transparency: true), padding: 1),
+      style: Style.new(bg: "blue", scrollbar: Style.new(bg: "red"), track: Style.new(char: '▒'), selected: Style.new(fg: "yellow", alpha: true), padding: 1),
       track: true,
       scrollbar: true
 

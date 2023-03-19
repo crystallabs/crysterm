@@ -12,7 +12,6 @@ module Crysterm
     width: "80%",
     height: "resizable",
 
-    # shadow: true,
     style: Style.new(
       fg: "red",
       bg: "blue",

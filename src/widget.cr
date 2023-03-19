@@ -46,10 +46,6 @@ module Crysterm
 
     # XXX move the following three items to Style.
 
-    # Draw shadow?
-    # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
-    property shadow : Shadow?
-
     # Widget's complete style definition, a global default.
     # class_property style : Style = Style.new
 
@@ -92,7 +88,6 @@ module Crysterm
 
       @style = Style.new, # Previously: Style? = nil
 
-      shadow = nil,
       @scrollbar = false,
       # TODO Make it configurable which side it appears on etc.
       track = nil, # Only has effect within scrollbar
@@ -124,17 +119,6 @@ module Crysterm
       scrollable.try { |v| @scrollable = v }
       track.try { |v| @track = v }
       input.try { |v| @input = v }
-
-      @shadow = case shadow
-                when true
-                  Shadow.new
-                when nil, false
-                  # Nothing
-                when Shadow
-                  shadow
-                else
-                  raise "Invalid shadow argument"
-                end
 
       # This just defines which Screen it is all linked to.
       # (Until we make `screen` fully optional)
