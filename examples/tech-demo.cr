@@ -66,7 +66,6 @@ module Crysterm
     filled: 50,
     width: 36,
     height: 3,
-    # padding: 1,
     shadow: true,
     style: Style.new(
       fg: "yellow",

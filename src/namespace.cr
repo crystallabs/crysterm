@@ -107,19 +107,16 @@ module Crysterm
     end
 
     def border=(value)
-      @border = case value
-                in true
-                  Border.new
-                in nil, false
-                  nil
-                in BorderType
-                  Border.new value
-                in Border
-                  value
-                end
+      @border = Border.from value
     end
 
     getter border : Border?
+
+    def padding=(value)
+      @padding = Padding.from value
+    end
+
+    getter padding : Padding?
 
     setter cell : Style?
 
@@ -184,6 +181,7 @@ module Crysterm
     def initialize(
       *,
       border = nil,
+      padding = nil,
       @scrollbar = @scrollbar,
       @focus = @focus,
       @hover = @hover,
@@ -210,7 +208,8 @@ module Crysterm
       @ignore_border = @ignore_border
     )
       transparency.try { |v| @transparency = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
-      border.try { |v| self.border = v }
+      border.try { |v| self.border = Border.from(v) }
+      padding.try { |v| self.padding = Padding.from(v) }
     end
   end
 
@@ -252,6 +251,21 @@ module Crysterm
     property right = 1
     property bottom = 1
 
+    def self.from(value)
+      case value
+      in true
+        Border.new
+      in nil, false
+        nil
+      in BorderType
+        Border.new value
+      in Border
+        value
+      in Int
+        Border.new value, value, value, value
+      end
+    end
+
     def initialize(
       @type = @type,
       @bg = @bg,
@@ -264,10 +278,7 @@ module Crysterm
     end
 
     def initialize(all : Int)
-      @left = all
-      @top = all
-      @right = all
-      @bottom = all
+      @left = @top = @right = @bottom = all
     end
 
     def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
@@ -306,16 +317,37 @@ module Crysterm
     property right : Int32 = 0
     property bottom : Int32 = 0
 
-    def initialize(all)
+    def self.from(value)
+      case value
+      in true
+        Padding.new 1
+      in nil, false
+        nil
+      in Padding
+        value
+      in Int
+        Padding.new value, value, value, value
+      end
+    end
+
+    def initialize(all : Int)
       @left = @top = @right = @bottom = all
     end
 
-    def initialize(@left = @left, @top = @top, @right = @right, @bottom = @bottom)
+    def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
     end
 
-    def any?
-      (@left + @top + @right + @bottom) > 0
+    def adjust(pos, sign = 1)
+      pos.xi += sign * @left
+      pos.xl -= sign * @right
+      pos.yi += sign * @top
+      pos.yl -= sign * @bottom
+      pos
     end
+
+    # def any?
+    #  (@left + @top + @right + @bottom) > 0
+    # end
   end
 
   # Class for shadow definition.

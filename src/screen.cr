@@ -72,7 +72,7 @@ module Crysterm
 
     # For compatibility with widgets. But, as a side-effect, screens can have
     # padding.
-    property padding : Padding = Padding.new
+    property padding : Padding?
 
     # Inner/content positions. These are defined here instead of assumed to all be 0 due
     # to 2 reasons:
@@ -81,19 +81,19 @@ module Crysterm
     # `Screen`s (like maybe shadow, or padding?) it will be very useful to have these variables.
 
     def ileft
-      @padding.left
+      @padding.try(&.left) || 0
     end
 
     def itop
-      @padding.top
+      @padding.try(&.top) || 0
     end
 
     def iright
-      @padding.right
+      @padding.try(&.right) || 0
     end
 
     def ibottom
-      @padding.bottom
+      @padding.try(&.bottom) || 0
     end
 
     # property iwidth = 0
@@ -137,7 +137,7 @@ module Crysterm
       alt = true,
       @show_fps = @show_fps
     )
-      @padding = parse_padding padding if padding
+      padding.try { |padding| @padding = Padding.from(padding) }
 
       bind
 
@@ -363,12 +363,16 @@ module Crysterm
 
     # Returns current screen width.
     def iwidth
-      @padding.left + @padding.right
+      @padding.try do |padding|
+        padding.left + padding.right
+      end || 0
     end
 
     # Returns current screen height.
     def iheight
-      @padding.top + @padding.bottom
+      @padding.try do |padding|
+        padding.top + padding.bottom
+      end || 0
     end
 
     # TODO Instead of self, this should just return an object which reports the position.

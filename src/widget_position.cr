@@ -317,40 +317,40 @@ module Crysterm
 
     # Returns computed content offset from left
     def ileft
-      (@style.border.try(&.left) || 0) + @padding.left
+      (@style.border.try(&.left) || 0) + (@style.padding.try(&.left) || 0)
     end
 
     # Returns computed content offset from top
     def itop
-      (@style.border.try(&.top) || 0) + @padding.top
+      (@style.border.try(&.top) || 0) + (@style.padding.try(&.top) || 0)
     end
 
     # Returns computed content offset from right
     def iright
-      (@style.border.try(&.right) || 0) + @padding.right
+      (@style.border.try(&.right) || 0) + (@style.padding.try(&.right) || 0)
     end
 
     # Returns computed content offset from bottom
     def ibottom
-      (@style.border.try(&.bottom) || 0) + @padding.bottom
+      (@style.border.try(&.bottom) || 0) + (@style.padding.try(&.bottom) || 0)
     end
 
     # Returns computed inner (content) width
     def iwidth
       # return (@style.border
       #   ? ((@style.border.left ? 1 : 0) + (@style.border.right ? 1 : 0)) : 0)
-      #   + @padding.left + @padding.right
-      p = @padding
-      (@style.border.try { |border| border.left + border.right } || 0) + p.left + p.right
+      #   + @style.padding.left + @style.padding.right
+      (@style.border.try { |border| border.left + border.right } || 0) +
+        (@style.padding.try { |padding| padding.left + padding.right } || 0)
     end
 
     # Returns computed inner (content) height
     def iheight
       # return (@style.border
       #   ? ((@style.border.top ? 1 : 0) + (@style.border.bottom ? 1 : 0)) : 0)
-      #   + @padding.top + @padding.bottom
-      p = @padding
-      (@style.border.try { |border| border.top + border.bottom } || 0) + p.top + p.bottom
+      #   + @style.padding.top + @style.padding.bottom
+      (@style.border.try { |border| border.top + border.bottom } || 0) +
+        (@style.padding.try { |padding| padding.top + padding.bottom } || 0)
     end
 
     # XXX Disabled because nothing uses these at the moment, and also they
@@ -813,14 +813,14 @@ module Crysterm
         if @left.nil? && !@right.nil?
           xi = xl - (mxl - mxi)
           if !@auto_padding
-            xi -= @padding.left + @padding.right
+            xi -= @style.padding.try { |padding| padding.left + padding.right } || 0
           else
             xi -= ileft
           end
         else
           xl = mxl
           if !@auto_padding
-            xl += @padding.left + @padding.right
+            xl += @style.padding.try { |padding| padding.left + padding.right } || 0
             # XXX Temporary workaround until we decide to make auto_padding default.
             # See widget-listtable for an example of why this is necessary.
             # XXX Maybe just to this for all this being that this would affect
@@ -828,12 +828,12 @@ module Crysterm
             # D O:
             # if @_is_list
             if is_a? ListTable
-              xl -= @padding.left + @padding.right
+              xl -= @style.padding.try { |padding| padding.left + padding.right } || 0
               xl += iright
             end
           else
             # D O:
-            # xl += @padding.right
+            # xl += @style.padding.try(&.right) || 0
             xl += iright
           end
         end
@@ -849,14 +849,14 @@ module Crysterm
         if @top.nil? && !@bottom.nil?
           yi = yl - (myl - myi)
           if !@auto_padding
-            yi -= @padding.top + @padding.bottom
+            yi -= @style.padding.try { |padding| padding.top + padding.bottom } || 0
           else
             yi -= itop
           end
         else
           yl = myl
           if !@auto_padding
-            yl += @padding.top + @padding.bottom
+            yl += @style.padding.try { |padding| padding.top + padding.bottom } || 0
           else
             yl += ibottom
           end

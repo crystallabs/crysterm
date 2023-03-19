@@ -179,24 +179,12 @@ module Crysterm
         @lpos = coords
 
         @style.border.try &.adjust(coords)
-
-        if @padding.any?
-          coords.xi += @padding.left
-          coords.xl -= @padding.right
-          coords.yi += @padding.top
-          coords.yl -= @padding.bottom
-        end
+        @style.padding.try &.adjust(coords)
 
         iterator = renderer(coords)
 
         @style.border.try &.adjust(coords, -1)
-
-        if @padding.any?
-          coords.xi -= @padding.left
-          coords.xl += @padding.right
-          coords.yi -= @padding.top
-          coords.yl += @padding.bottom
-        end
+        @style.padding.try &.adjust(coords, -1)
 
         @children.each_with_index do |el, i|
           if (el.screen._ci != -1)

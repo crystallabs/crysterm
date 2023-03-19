@@ -24,16 +24,6 @@ module Crysterm
 
       # Last rendered position
       property lpos : LPos? = nil
-
-      # Processes padding value
-      def parse_padding(padding : Padding) : Padding
-        padding
-      end
-
-      # :ditto:
-      def parse_padding(padding : Int) : Padding
-        Padding.new padding, padding, padding, padding
-      end
     end
   end
 end

@@ -138,7 +138,7 @@ module Crysterm
       # content-drawing loop will skip a few cells/lines.
       # To deal with this, we can just fill the whole thing
       # ahead of time. This could be optimized.
-      if (@padding.any? || (!@align.top?))
+      if @style.padding || !@align.top?
         if transparency = style.transparency
           (Math.max(yi, 0)...yl).each do |y|
             if !lines[y]?
@@ -159,11 +159,11 @@ module Crysterm
         end
       end
 
-      if @padding.any?
-        xi += @padding.left
-        xl -= @padding.right
-        yi += @padding.top
-        yl -= @padding.bottom
+      @style.padding.try do |padding|
+        xi += padding.left
+        xl -= padding.right
+        yi += padding.top
+        yl -= padding.bottom
       end
 
       # Determine where to place the text if it's vertically aligned.
@@ -374,11 +374,11 @@ module Crysterm
         yl += border.bottom
       end
 
-      if @padding.any?
-        xi -= @padding.left
-        xl += @padding.right
-        yi -= @padding.top
-        yl += @padding.bottom
+      @style.padding.try do |padding|
+        xi -= padding.left
+        xl += padding.right
+        yi -= padding.top
+        yl += padding.bottom
       end
 
       # Draw the border.

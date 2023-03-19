@@ -12,7 +12,6 @@ module Crysterm
     left: "20%",
     width: 30,
     height: 8,
-    # padding: 1,
     shadow: true,
     style: Style.new(
       fg: "yellow",

@@ -22,11 +22,10 @@ class X
       height: 11,
       top: 4,
       left: 28,
-      padding: 4,
       label: "Frame text ",
       content: "Press q or Ctrl+q to exit",
       align: ::Tput::AlignFlag::Center,
-      style: Style.new(fg: "yellow", bg: "blue", transparency: 0.9, border: true),
+      style: Style.new(fg: "yellow", bg: "blue", transparency: 0.9, border: true, padding: 4),
       shadow: true
 
     s.append b

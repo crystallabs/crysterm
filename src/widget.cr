@@ -46,9 +46,6 @@ module Crysterm
 
     # XXX move the following three items to Style.
 
-    # Amount of padding on the inside of the element
-    property padding : Padding
-
     # Draw shadow?
     # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
     property shadow : Shadow?
@@ -95,7 +92,6 @@ module Crysterm
 
       @style = Style.new, # Previously: Style? = nil
 
-      padding : Padding | Int32 = 0,
       shadow = nil,
       @scrollbar = false,
       # TODO Make it configurable which side it appears on etc.
@@ -128,8 +124,6 @@ module Crysterm
       scrollable.try { |v| @scrollable = v }
       track.try { |v| @track = v }
       input.try { |v| @input = v }
-
-      @padding = parse_padding padding
 
       @shadow = case shadow
                 when true

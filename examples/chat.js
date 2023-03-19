@@ -39,13 +39,11 @@ var  members = blessed.list({
     width: 40,
     height: "100%-3",
     border: { "type": "line", "fg": "black", "bg": "#729fcf" },
-    //padding: 1,
     scrollbar: true,
     transparent: true,
     style: style2,
     parse_tags: true,
     items: [ 'member1', 'member2', 'member3' ],
-    //padding: { 'left': 1 } // Triggers a visual bug? Possibly in combination with transparency?
 });
 
 var lag = blessed.progressbar({

@@ -10,15 +10,15 @@ module Crysterm
       # if it makes sense, return the behavior back to be compatible with Blessed.
       border: Border.new(
         bg: "black"
-      )
+      ),
+      padding: 2
     ),
     content: "hello world\nhi",
     align: Tput::AlignFlag::Center,
     top: "center",
     left: "center",
     width: 22,
-    height: 10,
-    padding: 2
+    height: 10
   )
 
   s.append b
