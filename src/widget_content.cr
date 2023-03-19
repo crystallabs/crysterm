@@ -756,6 +756,13 @@ module Crysterm
     end
   end
 
+  # Drops any >U+FFFF characters in the text.
+  def drop_unicode(text)
+    return "" if text.nil? || text.size == 0
+    # TODO possibly find ready-made crystal method for this
+    text.gsub(::Crysterm::Unicode::AllRegex, "??") # .gsub(@unicode.chars["combining"], "").gsub(@unicode.chars["surrogate"], "?");
+  end
+
   class StringIndex
     def initialize(@object : String) : String?
     end

@@ -62,7 +62,7 @@ module Crysterm
                end
     end
 
-    property styles = Styles.new
+    property styles : Styles = Styles.default
 
     property style : Style # = Style.new # Placeholder
 

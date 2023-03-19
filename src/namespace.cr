@@ -71,6 +71,7 @@ module Crysterm
   end
 
   class Styles
+    class_property default = new # Default styles for all widgets
     property normal : Style = Style.new
     property blurred : Style { normal }
     property focused : Style { normal }
@@ -80,8 +81,6 @@ module Crysterm
 
   # Class for the complete style of a widget.
   class Style
-    # class_property default = new # Default style for all widgets
-
     # These (and possibly others) can't default to any color since that would generate
     # color-setting sequences in the terminal. It's better to have them nilable, in which
     # case no sequences get generated and term's default is used. That's also how Blessed
