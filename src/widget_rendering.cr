@@ -97,7 +97,7 @@ module Crysterm
 
       @lpos = coords
 
-      @border.try do |border|
+      @style.border.try do |border|
         if border.type.line?
           screen._border_stops[coords.yi] = true
           screen._border_stops[coords.yl - 1] = true
@@ -125,11 +125,13 @@ module Crysterm
         attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || 0
       end
 
-      if @border
-        xi += 1
-        xl -= 1
-        yi += 1
-        yl -= 1
+      # TODO See if these 4 values could be packed somehow to just replace individual
+      # settings with the usual: @style.border.try &.adjust(pos) ?
+      @style.border.try do |border|
+        xi += border.left
+        xl -= border.right
+        yi += border.top
+        yl -= border.bottom
       end
 
       # If we have padding/valign, that means the
@@ -330,8 +332,9 @@ module Crysterm
 
         if ((yl - yi) < i)
           x = xl - 1
-          if style.scrollbar.ignore_border? && @border
-            x += 1
+          sbr = @style.border.try(&.right) || 0
+          if style.scrollbar.ignore_border? && (sbr > 0)
+            x += 1 # TODO Should this be sbr ?
           end
           if @always_scroll
             y = @child_base / (i - (yl - yi))
@@ -362,11 +365,13 @@ module Crysterm
         end
       end
 
-      if @border
-        xi -= 1
-        xl += 1
-        yi -= 1
-        yl += 1
+      # TODO See if these 4 values could be packed somehow to just replace individual
+      # settings with the usual: @style.border.try &.adjust(pos, -1) ?
+      @style.border.try do |border|
+        xi -= border.left
+        xl += border.right
+        yi -= border.top
+        yl += border.bottom
       end
 
       if @padding.any?
@@ -377,8 +382,8 @@ module Crysterm
       end
 
       # Draw the border.
-      if border = @border
-        battr = sattr style.border
+      @style.border.try do |border|
+        battr = sattr border
         y = yi
         if coords.no_top?
           y = -1
@@ -400,30 +405,30 @@ module Crysterm
           if border.type.line?
             if (x == xi)
               ch = '\u250c' # '┌'
-              if (!border.left)
-                if (border.top)
+              if border.left == 0
+                if border.top > 0
                   ch = '\u2500'
                   # '─'
                 else
                   next
                 end
               else
-                if (!border.top)
+                if border.top == 0
                   ch = '\u2502'
                   # '│'
                 end
               end
             elsif (x == xl - 1)
               ch = '\u2510' # '┐'
-              if (!border.right)
-                if (border.top)
+              if border.right == 0
+                if border.top > 0
                   ch = '\u2500'
                   # '─'
                 else
                   next
                 end
               else
-                if (!border.top)
+                if border.top == 0
                   ch = '\u2502'
                   # '│'
                 end
@@ -433,9 +438,9 @@ module Crysterm
               # '─'
             end
           elsif border.type.bg?
-            ch = style.border.char
+            ch = border.char
           end
-          if (!border.top && x != xi && x != xl - 1)
+          if (border.top == 0) && x != xi && x != xl - 1
             ch = ' '
             if cell != {dattr, ch}
               lines[y][x].attr = dattr
@@ -457,12 +462,12 @@ module Crysterm
           end
           cell = lines[y][xi]?
           if (cell)
-            if (border.left)
+            if border.left > 0
               if border.type.line?
                 ch = '\u2502'
                 # '│'
               elsif border.type.bg?
-                ch = style.border.char
+                ch = border.char
               end
               if !coords.no_left?
                 if cell != {battr, ch}
@@ -482,12 +487,12 @@ module Crysterm
           end
           cell = lines[y][xl - 1]?
           if (cell)
-            if (border.right)
+            if border.right > 0
               if border.type.line?
                 ch = '\u2502'
                 # '│'
               elsif border.type.bg?
-                ch = style.border.char
+                ch = border.char
               end
               if !coords.no_right?
                 if cell != {battr, ch}
@@ -528,30 +533,30 @@ module Crysterm
           if border.type.line?
             if (x == xi)
               ch = '\u2514' # '└'
-              if (!border.left)
-                if (border.bottom)
+              if border.left == 0
+                if border.bottom > 0
                   ch = '\u2500'
                   # '─'
                 else
                   next
                 end
               else
-                if (!border.bottom)
+                if border.bottom == 0
                   ch = '\u2502'
                   # '│'
                 end
               end
             elsif (x == xl - 1)
               ch = '\u2518' # '┘'
-              if (!border.right)
-                if (border.bottom)
+              if border.right == 0
+                if border.bottom > 0
                   ch = '\u2500'
                   # '─'
                 else
                   next
                 end
               else
-                if (!border.bottom)
+                if border.bottom == 0
                   ch = '\u2502'
                   # '│'
                 end
@@ -561,9 +566,9 @@ module Crysterm
               # '─'
             end
           elsif border.type.bg?
-            ch = style.border.char
+            ch = border.char
           end
-          if (!border.bottom && x != xi && x != xl - 1)
+          if (border.bottom == 0) && x != xi && x != xl - 1
             ch = ' '
             if cell != {dattr, ch}
               lines[y][x].attr = dattr
@@ -694,7 +699,7 @@ module Crysterm
       _render with_children
     end
 
-    def self.sattr(style : Style, fg = nil, bg = nil)
+    def self.sattr(style, fg = nil, bg = nil)
       if fg.nil? && bg.nil?
         fg = style.fg
         bg = style.bg
@@ -714,7 +719,7 @@ module Crysterm
         Colors.convert(bg)
     end
 
-    def sattr(style : Style, fg = nil, bg = nil)
+    def sattr(style, fg = nil, bg = nil)
       self.class.sattr style, fg, bg
     end
   end

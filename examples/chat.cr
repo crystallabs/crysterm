@@ -6,10 +6,10 @@ class MyProg
   d = Display.new
   s = Screen.new display: d, show_fps: nil, dock_contrast: DockContrast::Blend, dock_borders: true
 
-  style1 = Style.new fg: "black", bg: "#729fcf", border: Style.new(fg: "black", bg: "#729fcf"), scrollbar: Style.new(bg: "#000000"), track: Style.new(bg: "red")
-  style2 = Style.new fg: "black", bg: "magenta", border: Style.new(fg: "black", bg: "#729fcf"), transparency: 0.5
-  # style2 = Style.new fg: "white", bg: "#870087", border: Style.new(fg: "black", bg: "#870087", transparency: true), transparency: true
-  style3 = Style.new fg: "black", "bg": "#729fcf", border: Style.new(fg: "magenta", bg: "#729fcf"), bar: Style.new(fg: "#d75f00")
+  style1 = Style.new fg: "black", bg: "#729fcf", border: Border.new(fg: "black", bg: "#729fcf"), scrollbar: Style.new(bg: "#000000"), track: Style.new(bg: "red")
+  style2 = Style.new fg: "black", bg: "magenta", border: Border.new(fg: "black", bg: "#729fcf"), transparency: 0.5
+  # style2 = Style.new fg: "white", bg: "#870087", border: Border.new(fg: "black", bg: "#870087", transparency: true), transparency: true
+  style3 = Style.new fg: "black", "bg": "#729fcf", border: Border.new(fg: "magenta", bg: "#729fcf"), bar: Style.new(fg: "#d75f00")
 
   chat = Widget::TextArea.new \
     top: 0,
@@ -18,7 +18,6 @@ class MyProg
     height: "100%-2",
     content: "Chat session ...",
     parse_tags: false,
-    border: true,
     style: style1,
     scrollbar: true
 
@@ -27,7 +26,6 @@ class MyProg
     left: 0,
     width: "100%-19",
     height: 3,
-    border: true,
     style: style1
   input.on(Crysterm::Event::Submit) do |e|
     chat.set_content "#{chat.content}\n#{e.value}"
@@ -41,9 +39,8 @@ class MyProg
     left: "100%-20",
     width: 20,
     height: "100%-2",
-    border: true,
     padding: 1,
-    scrollbar: true,
+    # scrollbar: true,
     style: style2
   # padding: Padding.new( left: 1 ) # Triggers a visual bug? Possibly in combination with transparency?
 
@@ -52,7 +49,6 @@ class MyProg
     left: "100%-20",
     width: 20,
     height: 3,
-    border: Border.new(type: BorderType::Line),
     content: "{center}Lag Indicator{/center}",
     parse_tags: true,
     filled: 10,
@@ -85,7 +81,8 @@ class MyProg
     loop do
       r = rand
       if r < 0.5
-        members.append_item "Member #{id}"
+        # TODO Causes a bug at the moment
+        # members.append_item "Member #{id}"
         chat.set_content "#{chat.content}\n* Member #{id} has joined the conversation."
         id += 1
       else

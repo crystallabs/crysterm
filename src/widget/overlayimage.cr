@@ -33,20 +33,8 @@ module Crysterm
       def on_render(e)
         # TODO - get coords of content only, without borders/padding
         pos = _get_coords(true).not_nil!
-        @border.try do |b|
-          if b.left
-            pos.xi += 1
-          end
-          if b.right
-            pos.xl -= 1
-          end
-          if b.top
-            pos.yi += 1
-          end
-          if b.bottom
-            pos.yl -= 1
-          end
-        end
+
+        @style.border.try &.adjust(pos)
 
         @image.try &.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
       end

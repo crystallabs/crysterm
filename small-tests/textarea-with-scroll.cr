@@ -14,8 +14,7 @@ class X
       top: 4,
       left: 8,
       content: "Kico\n2\n3", # "center", left: "center" #, border: true #, display: s
-      border: true,
-      style: Style.new(fg: "yellow", bg: "red"),
+      style: Style.new(fg: "yellow", bg: "red", border: true),
       input_on_focus: true
 
     s.append i

@@ -10,20 +10,17 @@ module Crysterm
   b = Widget::RadioButton.new top: 2, left: 2, width: nil, height: nil,
     parent: se,
     resizable: true, content: "RB1",
-    border: Border.new(type: BorderType::Line),
-    style: Style.new(fg: "yellow", bg: "magenta", border: Style.new(fg: "#ffffff"))
+    style: Style.new(fg: "yellow", bg: "magenta", border: Border.new(fg: "#ffffff"))
 
   b2 = Widget::RadioButton.new top: 2, left: 12, width: nil, height: nil,
     parent: se,
     resizable: true, content: "RB2",
-    border: Border.new(type: BorderType::Line),
-    style: Style.new(fg: "yellow", bg: "magenta", border: Style.new(fg: "#ffffff"))
+    style: Style.new(fg: "yellow", bg: "magenta", border: Border.new(fg: "#ffffff"))
 
   b3 = Widget::RadioButton.new top: 2, left: 22, width: nil, height: nil,
     parent: se,
     resizable: true, content: "RB3",
-    border: Border.new(type: BorderType::Line),
-    style: Style.new(fg: "yellow", bg: "magenta", border: Style.new(fg: "#ffffff"))
+    style: Style.new(fg: "yellow", bg: "magenta", border: Border.new(fg: "#ffffff"))
 
   s.append se
   s.append b

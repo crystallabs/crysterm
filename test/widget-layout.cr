@@ -12,13 +12,11 @@ module Crysterm
     left: "center",
     width: "50%",
     height: "50%",
-    border: BorderType::Line,
     layout: ARGV[0]? == "grid" ? LayoutType::Grid : LayoutType::Inline,
-    overflow: Overflow::Ignore, # Setting not existing in Blessed. Controls what to do when widget is overflowing
-    # available space. Value of 'ignore' ignores the issue and renders such widgets overflown.
+    overflow: Overflow::Ignore, # Setting not existing in Blessed. Controls what to do when widget is overflowing available space. Value of 'ignore' ignores the issue and renders such widgets overflown.
     style: Style.new(
     bg: "red",
-    border: Style.new(
+    border: Border.new(
       fg: "blue"
     )
   )
@@ -32,7 +30,7 @@ module Crysterm
     left: "center",
     width: 20,
     height: 10,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "1"
   )
 
@@ -42,7 +40,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "2"
   )
 
@@ -52,7 +50,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "3"
   )
 
@@ -62,7 +60,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "4"
   )
 
@@ -72,7 +70,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "5"
   )
 
@@ -82,7 +80,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "6"
   )
 
@@ -92,7 +90,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "7"
   )
 
@@ -102,7 +100,7 @@ module Crysterm
     left: "center",
     width: 20,
     height: 10,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "8"
   )
 
@@ -112,7 +110,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "9"
   )
 
@@ -122,7 +120,7 @@ module Crysterm
     left: "center",
     width: 20,
     height: 10,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "10"
   )
 
@@ -132,7 +130,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "11"
   )
 
@@ -142,7 +140,7 @@ module Crysterm
     left: "center",
     width: 20,
     height: 10,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "12"
   )
 
@@ -153,7 +151,7 @@ module Crysterm
         parent: layout,
         width: sizes[i] > 0.5 ? 10 : 20,
         height: sizes[i] > 0.5 ? 5 : 10,
-        border: Crysterm::BorderType::Line,
+        style: Style.new(border: BorderType::Line),
         content: (i + 1 + 12).to_s
       )
     end

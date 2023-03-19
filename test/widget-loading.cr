@@ -12,8 +12,7 @@ module Crysterm
     height: 18,
     icons: ["Preparing", "Loading", "Processing", "Saving", "Analyzing"],
     content: "Please wait...",
-    border: Border.new(type: BorderType::Line),
-    style: Style.new(transparency: true, fg: "white", bg: "black", border: Style.new(fg: "white", bg: "black"))
+    style: Style.new(transparency: true, fg: "white", bg: "black", border: Border.new(fg: "white", bg: "black"))
 
   loading2 = Loading.new \
     align: AlignFlag::Center,
@@ -23,7 +22,7 @@ module Crysterm
     height: 3,
     left: -40,
     content: "In progress!...",
-    border: Border.new(type: BorderType::Line)
+    style: Style.new(border: Border.new(type: BorderType::Line))
 
   s.append loading, loading2
 

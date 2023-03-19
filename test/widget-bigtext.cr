@@ -11,7 +11,6 @@ module Crysterm
     resizable: true,
     width: "80%",
     height: "resizable",
-    border: BorderType::Line,
 
     # shadow: true,
     style: Style.new(
@@ -20,6 +19,7 @@ module Crysterm
       bold: false,
       # fchar: ' ',
       char: '\u2592',
+      border: BorderType::Line,
     )
 
   s.append b

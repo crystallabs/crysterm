@@ -10,7 +10,7 @@ module Crysterm
     height: 5,
     align: Tput::AlignFlag::Center,
     content: "Foobar.",
-    border: true
+    style: Style.new(border: true)
   )
 
   s.append b

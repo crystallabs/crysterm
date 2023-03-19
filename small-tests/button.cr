@@ -14,8 +14,7 @@ class X
       left: 8,
       content: "Press q or Ctrl+q to exit",
       align: ::Tput::AlignFlag::Center,
-      border: true,
-      style: Style.new(fg: "yellow", bg: "blue")
+      style: Style.new(fg: "yellow", bg: "blue", border: true)
 
     s.append i
 

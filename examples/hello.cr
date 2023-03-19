@@ -24,12 +24,11 @@ class MyProg
     height: 5,              # ditto
     content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
     parse_tags: true, # Parse {} tags within content (default already is true)
-    style: Style.new(fg: "yellow", bg: "blue"),
-    border: true # Can be styled, or 'true' for default look
+    style: Style.new(fg: "yellow", bg: "blue", border: true)
 
-    # Add box to the Screen, because it is a top-level widget without a parent.
-    # If there is a parent, you would call `Widget#append` on the parent object,
-    # not on the screen.
+  # Add box to the Screen, because it is a top-level widget without a parent.
+  # If there is a parent, you would call `Widget#append` on the parent object,
+  # not on the screen.
 
   b.focus
 

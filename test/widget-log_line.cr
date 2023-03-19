@@ -6,13 +6,13 @@ module Crysterm
     left: "center",
     width: "50%",
     height: "50%",
-    border: true,
     parse_tags: true,
     keys: true,
     # vi: true,
     # mouse: true,
     scrollback: 100,
     style: Style.new(
+      border: true,
       scrollbar: Style.new(
         char: ' ',
         track: Style.new(

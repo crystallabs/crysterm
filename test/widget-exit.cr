@@ -11,7 +11,7 @@ module Crysterm
     left: "center",
     width: "70%",
     height: "resizable",
-    border: true,
+    style: Style.new(border: true),
     content: "Press Ctrl+q to quit. It should work even though display's keys are locked."
   )
 

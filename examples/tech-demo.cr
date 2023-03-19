@@ -11,7 +11,6 @@ module Crysterm
     left: 0,
     width: "100%",
     height: "100%",
-    # border: BorderType::Line,
     layout: LayoutType::Grid,
     overflow: Overflow::Ignore,
   )
@@ -23,7 +22,7 @@ module Crysterm
     parent: layout,
     width: 36,
     height: 18,
-    border: BorderType::Line,
+    style: Style.new(border: BorderType::Line),
     content: "Plain box with some content."
   )
 
@@ -31,15 +30,15 @@ module Crysterm
     parent: layout,
     width: 36,
     height: 3,
-    border: BorderType::Line,
     align: AlignFlag::HCenter,
     content: "Click me, I am a button.",
     shadow: true,
     style: Style.new(
-      "bg": "blue",
-      "fg": "yellow",
-      border: Style.new(
-        "bg": "blue"
+      bg: "blue",
+      fg: "yellow",
+      border: Border.new(
+        type: BorderType::Line,
+        bg: "blue"
       )
     )
   )
@@ -47,9 +46,8 @@ module Crysterm
   checkboxes = Box.new(
     parent: layout,
     width: 18,
-    height: 18,
-  # border: BorderType::Bg,
-)
+    height: 18
+  )
   checkbox1 = Checkbox.new parent: checkboxes, content: "Checkbox 1", top: 0
   checkbox2 = Checkbox.new parent: checkboxes, content: "Checkbox 2", top: 2
   checkbox3 = Checkbox.new parent: checkboxes, content: "Checkbox 3", top: 4
@@ -69,12 +67,11 @@ module Crysterm
     width: 36,
     height: 3,
     # padding: 1,
-    border: Border.new(type: BorderType::Line),
     shadow: true,
     style: Style.new(
       fg: "yellow",
       bg: "magenta",
-      border: Style.new(
+      border: Border.new(
         fg: "#ffffff"
       ),
     )
@@ -86,8 +83,7 @@ module Crysterm
     height: 18,
     icons: ["Preparing", "Loading", "Processing", "Saving", "Analyzing"],
     content: "Please wait...",
-    border: Border.new(type: BorderType::Line),
-    style: Style.new(transparency: true, fg: "white", bg: "black", border: Style.new(fg: "white", bg: "black"))
+    style: Style.new(transparency: true, fg: "white", bg: "black", border: Border.new(fg: "white", bg: "black"))
 
   question = Question.new \
     parent: layout,
@@ -96,13 +92,12 @@ module Crysterm
     parse_tags: true,
     width: 36,
     height: 9,
-    border: Border.new(type: BorderType::Line),
     shadow: true,
     style: Style.new(
       transparency: true,
       fg: "yellow",
       bg: "magenta",
-      border: Style.new(
+      border: Border.new(
         fg: "#ffffff"
       ),
     )
@@ -112,12 +107,11 @@ module Crysterm
   #  parent: layout,
   #  width: 36,
   #  height: 18,
-  #  border: Border.new(type: BorderType::Line),
   #  shadow: false,
   #  style: Style.new(
   #    fg: "yellow",
   #    bg: "magenta",
-  #    border: Style.new(
+  #    border: Border.new(
   #      fg: "#ffffff"
   #    ),
   #  )
@@ -126,7 +120,7 @@ module Crysterm
     parent: layout,
     width: 36,
     height: 18,
-    border: BorderType::Line,
+    style: Style.new(border: true),
     content: "Big"
   )
 
@@ -135,7 +129,7 @@ module Crysterm
     width: 36,
     input_on_focus: true,
     height: 18,
-    border: BorderType::Line,
+    style: Style.new(border: true),
     content: ""
   )
 
@@ -143,7 +137,7 @@ module Crysterm
     parent: layout,
     width: 36,
     height: 3,
-    border: BorderType::Line,
+    style: Style.new(border: true),
     content: "TextBox. One-line element."
   )
 
@@ -153,10 +147,9 @@ module Crysterm
     height: 16,
     top: 18,
     left: 160,
-    border: BorderType::Bg,
     content: "Hello, World! See translucency and shadow.",
     shadow: Shadow.new(true, true, false, false),
-    style: Style.new("bg": "#870087")
+    style: Style.new(bg: "#870087", border: BorderType::Bg)
   )
   boxtp1 = Box.new(
     # parent: s,
@@ -164,10 +157,9 @@ module Crysterm
     left: 150,
     width: 60,
     height: 14,
-    border: BorderType::Line,
     content: "See indeed.",
     shadow: true,
-    style: Style.new("bg": "#729fcf", transparency: true)
+    style: Style.new(bg: "#729fcf", transparency: true, border: true)
   )
   s.append boxtp2
   s.append boxtp1
@@ -180,7 +172,7 @@ module Crysterm
     width: 36,
     height: 3,
     content: "In progress!...",
-    border: Border.new(type: BorderType::Line)
+    style: Style.new(border: true)
 
   s.on(Event::KeyPress) do |e|
     # e.accept!

@@ -16,8 +16,7 @@ class X
       top: 6,
       left: 6,
       content: "Box1",
-      border: true,
-      style: Style.new(fg: "yellow", bg: "red")
+      style: Style.new(fg: "yellow", bg: "red", border: true)
 
     i2 = Widget::Checkbox.new \
       name: "w2",
@@ -26,8 +25,7 @@ class X
       top: 6,
       left: 18,
       content: "Box2",
-      border: true,
-      style: Style.new(fg: "yellow", bg: "red")
+      style: Style.new(fg: "yellow", bg: "red", border: true)
 
     i3 = Widget::Checkbox.new \
       name: "w3",
@@ -36,8 +34,7 @@ class X
       top: 6,
       left: 30,
       content: "Box3",
-      border: true,
-      style: Style.new(fg: "yellow", bg: "red")
+      style: Style.new(fg: "yellow", bg: "red", border: true)
 
     s.append i1, i2, i3, note
 

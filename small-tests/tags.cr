@@ -11,7 +11,7 @@ class X
     i = Widget::TextArea.new \
       width: "100%",
       height: "100%",
-      border: true,
+      style: Style.new(border: true),
       input_on_focus: true,
       content: "
 {center}center{/center}

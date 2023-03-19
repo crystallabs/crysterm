@@ -17,8 +17,7 @@ class X
       top: 4,
       left: 8,
       content: "Test", # "center", left: "center" #, border: true #, display: s
-      border: true,
-      style: Style.new(fg: "yellow", bg: "red")
+      style: Style.new(fg: "yellow", bg: "red", border: true)
 
     # parent: l,
     i2 = Widget::Box.new \
@@ -27,8 +26,7 @@ class X
       top: 2,
       left: 20,
       content: "Test", # "center", left: "center" #, border: true #, display: s
-      border: true,
-      style: Style.new(fg: "black", bg: "red")
+      style: Style.new(fg: "black", bg: "red", border: true)
 
     s.append i
     s.append i2

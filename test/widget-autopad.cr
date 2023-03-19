@@ -8,7 +8,7 @@ module Crysterm
     left: "center",
     width: 20,
     height: 10,
-    border: true,
+    style: Style.new(border: true),
   )
 
   # Must add the Widget to screen in this way for the moment
@@ -20,7 +20,7 @@ module Crysterm
     left: 0,
     width: 10,
     height: 5,
-    border: true,
+    style: Style.new(border: true),
   )
 
   s.on(Event::KeyPress) do |e|

@@ -74,15 +74,10 @@ module Crysterm
     # padding.
     property padding : Padding = Padding.new
 
-    # property border : Border?
-    # TODO Right now `Screen`s can't have a border. But it would be amazing if they could.
-    # The infrastructure is there because `Screen`s share many properties with `Widget`s.
-    # Hopefully only minimal work would be needed to support it.
-
     # Inner/content positions. These are defined here instead of assumed to all be 0 due
     # to 2 reasons:
     # - Places where method `parent_or_screen` is called expect these to exist on both types
-    # - And due to future improvement of supporting a border and possibly other features on
+    # - And due to future improvement of supporting maybe border and possibly other features on
     # `Screen`s (like maybe shadow, or padding?) it will be very useful to have these variables.
 
     def ileft

@@ -317,44 +317,40 @@ module Crysterm
 
     # Returns computed content offset from left
     def ileft
-      (@border.try(&.left) ? 1 : 0) + @padding.left
-      # return (@border && @border.left ? 1 : 0) + @padding.left
+      (@style.border.try(&.left) || 0) + @padding.left
     end
 
     # Returns computed content offset from top
     def itop
-      (@border.try(&.top) ? 1 : 0) + @padding.top
-      # return (@border && @border.top ? 1 : 0) + @padding.top
+      (@style.border.try(&.top) || 0) + @padding.top
     end
 
     # Returns computed content offset from right
     def iright
-      (@border.try(&.right) ? 1 : 0) + @padding.right
-      # return (@border && @border.right ? 1 : 0) + @padding.right
+      (@style.border.try(&.right) || 0) + @padding.right
     end
 
     # Returns computed content offset from bottom
     def ibottom
-      (@border.try(&.bottom) ? 1 : 0) + @padding.bottom
-      # return (@border && @border.bottom ? 1 : 0) + @padding.bottom
+      (@style.border.try(&.bottom) || 0) + @padding.bottom
     end
 
     # Returns computed inner (content) width
     def iwidth
-      # return (@border
-      #   ? ((@border.left ? 1 : 0) + (@border.right ? 1 : 0)) : 0)
+      # return (@style.border
+      #   ? ((@style.border.left ? 1 : 0) + (@style.border.right ? 1 : 0)) : 0)
       #   + @padding.left + @padding.right
       p = @padding
-      (@border ? 2 : 0) + p.left + p.right
+      (@style.border.try { |border| border.left + border.right } || 0) + p.left + p.right
     end
 
     # Returns computed inner (content) height
     def iheight
-      # return (@border
-      #   ? ((@border.top ? 1 : 0) + (@border.bottom ? 1 : 0)) : 0)
+      # return (@style.border
+      #   ? ((@style.border.top ? 1 : 0) + (@style.border.bottom ? 1 : 0)) : 0)
       #   + @padding.top + @padding.bottom
       p = @padding
-      (@border ? 2 : 0) + p.top + p.bottom
+      (@style.border.try { |border| border.top + border.bottom } || 0) + p.top + p.bottom
     end
 
     # XXX Disabled because nothing uses these at the moment, and also they
@@ -510,7 +506,11 @@ module Crysterm
         yi -= scrollable_parent_lpos.base
         yl -= scrollable_parent_lpos.base
 
-        b = scrollable_parent.border ? 1 : 0
+        b = scrollable_parent.style.border.try(&.top) || 0
+        # Old code for the above was:
+        # b = scrollable_parent.border ? 1 : 0
+        # I hope this was referring to the top border and that the replacement/improvement
+        # to support variable border width was correct.
 
         # D O:
         # XXX
@@ -528,11 +528,11 @@ module Crysterm
             # Is partially covered above.
             no_top = true
             v = scrollable_parent_lpos.yi - yi
-            if @border
-              v -= 1
+            @style.border.try do |border|
+              v -= border.top
             end
-            if scrollable_parent.border
-              v += 1
+            scrollable_parent.style.border.try do |border|
+              v += border.top
             end
             base += v
             yi += v
@@ -545,11 +545,11 @@ module Crysterm
             # Is partially covered below.
             no_bottom = true
             v = yl - scrollable_parent_lpos.yl
-            if @border
-              v -= 1
+            @style.border.try do |border|
+              v -= border.bottom
             end
-            if scrollable_parent.border
-              v += 1
+            scrollable_parent.style.border.try do |border|
+              v += border.bottom
             end
             yl -= v
           end
@@ -567,21 +567,21 @@ module Crysterm
         if xi < scrollable_parent_lpos.xi
           xi = scrollable_parent_lpos.xi
           no_left = true
-          if @border
-            xi -= 1
+          @style.border.try do |border|
+            xi -= border.left
           end
-          if scrollable_parent.border
-            xi += 1
+          scrollable_parent.style.border.try do |border|
+            xi += border.left
           end
         end
         if xl > scrollable_parent_lpos.xl
           xl = scrollable_parent_lpos.xl
           no_right = true
-          if @border
-            xl += 1
+          @style.border.try do |border|
+            xl += border.right
           end
-          if scrollable_parent.border
-            xl -= 1
+          scrollable_parent.style.border.try do |border|
+            xl -= border.right
           end
         end
         # D O:

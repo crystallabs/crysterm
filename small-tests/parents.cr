@@ -13,8 +13,7 @@ class X
       top: 6,
       left: 6,
       content: "Box1",
-      border: true,
-      style: Style.new(fg: "yellow", bg: "red")
+      style: Style.new(fg: "yellow", bg: "red", border: true)
 
     i2 = Widget::Layout.new width: "100%", height: "100%"
     i3 = Widget::Layout.new width: "100%", height: "100%"

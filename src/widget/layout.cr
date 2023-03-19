@@ -178,12 +178,7 @@ module Crysterm
 
         @lpos = coords
 
-        if (@border)
-          coords.xi += 1
-          coords.xl -= 1
-          coords.yi += 1
-          coords.yl -= 1
-        end
+        @style.border.try &.adjust(coords)
 
         if @padding.any?
           coords.xi += @padding.left
@@ -194,12 +189,7 @@ module Crysterm
 
         iterator = renderer(coords)
 
-        if (@border)
-          coords.xi -= 1
-          coords.xl += 1
-          coords.yi -= 1
-          coords.yl += 1
-        end
+        @style.border.try &.adjust(coords, -1)
 
         if @padding.any?
           coords.xi -= @padding.left

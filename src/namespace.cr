@@ -32,23 +32,6 @@ module Crysterm
     BCE
   end
 
-  # Type of border to draw.
-  enum BorderType
-    Bg   # Bg color
-    Fg   # Fg color
-    Line # Line, drawn in ACS or Unicode chars
-    # Dotted
-    # Dashed
-    # Solid
-    # Double
-    # DotDash
-    # DotDotDash
-    # Groove
-    # Ridge
-    # Inset
-    # Outset
-  end
-
   # Type of layout to use in an instance of `Widget::Layout`.
   # NOTE Widget::Layout could be split into 2 separate files/classes, and also
   # additional variations of layouts could be added.
@@ -123,11 +106,20 @@ module Crysterm
       @blur || self
     end
 
-    setter border : Style?
-
-    def border
-      @border || self
+    def border=(value)
+      @border = case value
+                in true
+                  Border.new
+                in nil, false
+                  nil
+                in BorderType
+                  Border.new value
+                in Border
+                  value
+                end
     end
+
+    getter border : Border?
 
     setter cell : Style?
 
@@ -191,7 +183,7 @@ module Crysterm
 
     def initialize(
       *,
-      @border = @border,
+      border = nil,
       @scrollbar = @scrollbar,
       @focus = @focus,
       @hover = @hover,
@@ -218,7 +210,91 @@ module Crysterm
       @ignore_border = @ignore_border
     )
       transparency.try { |v| @transparency = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
+      border.try { |v| self.border = v }
     end
+  end
+
+  # Type of border to draw.
+  enum BorderType
+    Bg   # Bg color
+    Line # Line, drawn in ACS or Unicode chars
+    # Dotted
+    # Dashed
+    # Solid
+    # Double
+    # DotDash
+    # DotDotDash
+    # Groove
+    # Ridge
+    # Inset
+    # Outset
+  end
+
+  # Class for border definition.
+  class Border
+    property type = BorderType::Line
+
+    property bg : String?
+    property fg : String?
+
+    property char = ' '
+    # XXX There is some duplication between @style and these 5.
+    # They must be present for sattr() to be able to work on the Border object.
+    # But on the other hand, it allows these features which do not exist in Blessed.
+    property bold : Bool = false
+    property underline : Bool = false
+    property blink : Bool = false
+    property inverse : Bool = false
+    property invisible : Bool = false
+
+    property left = 1
+    property top = 1
+    property right = 1
+    property bottom = 1
+
+    def initialize(
+      @type = @type,
+      @bg = @bg,
+      @fg = @fg,
+      @left = @left,
+      @top = @top,
+      @right = @right,
+      @bottom = @bottom
+    )
+    end
+
+    def initialize(all : Int)
+      @left = all
+      @top = all
+      @right = all
+      @bottom = all
+    end
+
+    def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
+    end
+
+    def adjust(pos, sign = 1)
+      pos.xi += sign * @left
+      pos.xl -= sign * @right
+      pos.yi += sign * @top
+      pos.yl -= sign * @bottom
+      pos
+    end
+
+    # XXX enable these two after -Dpreview_overload_order becomes the default
+    # def initialize(left_and_right, top_and_bottom)
+    #  @left = @right = left_and_right
+    #  @top = @bottom = top_and_bottom
+    # end
+
+    # def initialize(all : Bool = true)
+    #  @left = @top = @right = @bottom = all
+    # end
+
+    # Disabled since nothing uses it for now:
+    # def any?
+    #  !!(@left || @top || @right || @bottom)
+    # end
   end
 
   # Class for padding definition.
@@ -239,40 +315,6 @@ module Crysterm
 
     def any?
       (@left + @top + @right + @bottom) > 0
-    end
-  end
-
-  # Class for border definition.
-  class Border
-    property type = BorderType::Line
-    # NOTE These don't have ? because they'll be replaced with Ints in the future,
-    # specifying corresponding border thicknesses
-    property left : Bool = true
-    property top : Bool = true
-    property right : Bool = true
-    property bottom : Bool = true
-
-    def initialize(
-      @type = @type,
-      @left = @left,
-      @top = @top,
-      @right = @right,
-      @bottom = @bottom
-    )
-    end
-
-    # XXX enable these two after -Dpreview_overload_order becomes the default
-    # def initialize(left_and_right, top_and_bottom)
-    #  @left = @right = left_and_right
-    #  @top = @bottom = top_and_bottom
-    # end
-
-    # def initialize(all : Bool = true)
-    #  @left = @top = @right = @bottom = all
-    # end
-
-    def any?
-      !!(@left || @top || @right || @bottom)
     end
   end
 

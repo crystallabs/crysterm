@@ -16,10 +16,9 @@ class MyProg
     content: "Content goes here. Press ENTER to start, then type things in.\n" +
              "Press ENTER to add line to main box. Ctrl+q to quit.",
     parse_tags: true,
-    style: Style.new(fg: "yellow", bg: "blue"),
-    border: true # Can be styled, or 'true' for default look
+    style: Style.new(fg: "yellow", bg: "blue", border: true)
 
-    # User input box
+  # User input box
   input = Widget::TextBox.new \
     top: "100%-2",
     left: 0,

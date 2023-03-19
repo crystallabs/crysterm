@@ -47,19 +47,12 @@ module Crysterm
         ret = _render
         return unless ret
 
+        @style.border.try &.adjust(ret)
+
         xi = ret.xi
         xl = ret.xl
         yi = ret.yi
         yl = ret.yl
-
-        # XXX is this insufficient check which shrinks the inner widget on all 4 sides
-        # even though border might not be installed on all 4?
-        if @border
-          xi += 1
-          yi += 1
-          xl -= 1
-          yl -= 1
-        end
 
         if @orientation.horizontal?
           xl = xi + ((xl - xi) * (@filled / 100)).to_i

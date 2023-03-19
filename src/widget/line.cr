@@ -17,7 +17,8 @@ module Crysterm
         #  box = box.merge(height: 1) unless box["height"]?
         # end
 
-        super **box, border: border
+        super **box
+        @style.border = border
 
         # char.try { |v| @style.char = v }
         @style.char = case char

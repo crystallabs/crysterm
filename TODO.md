@@ -2,6 +2,8 @@
 
 ## Immediate Source Code TODOs
 
+- Do we need fgcolor/bgcolor/etc.? Can we get the same by modifying 'attr' of cell?
+
 - See test-auto/hello/main.{cr,js}. Blessed's border draws on black background, while Crysterm's draws on bg color. Was this intentional? Identify where/way this is happening.
 
 - Both in Blessed and Crysterm, widget screenshot does not include border. This is because of `Widget#screenshot` which removes it. Add a second screenshot function in both crysterm and blessed which allows choosing whether border/padding/shadow are part of screenshot.

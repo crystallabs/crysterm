@@ -49,9 +49,6 @@ module Crysterm
     # Amount of padding on the inside of the element
     property padding : Padding
 
-    # Widget's border.
-    property border : Border?
-
     # Draw shadow?
     # If yes, the amount of shadow transparency can be set in `#style.shadow_transparency`.
     property shadow : Shadow?
@@ -99,7 +96,6 @@ module Crysterm
       @style = Style.new, # Previously: Style? = nil
 
       padding : Padding | Int32 = 0,
-      border = nil,
       shadow = nil,
       @scrollbar = false,
       # TODO Make it configurable which side it appears on etc.
@@ -134,20 +130,6 @@ module Crysterm
       input.try { |v| @input = v }
 
       @padding = parse_padding padding
-
-      # XXX Move those into mixin/parsers.cr, and put all such methods there
-      @border = case border
-                when true
-                  Border.new type: BorderType::Line
-                when nil, false
-                  # Nothing
-                when BorderType
-                  Border.new type: border
-                when Border
-                  border
-                else
-                  raise "Invalid border argument"
-                end
 
       @shadow = case shadow
                 when true

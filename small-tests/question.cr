@@ -13,7 +13,6 @@ module Crysterm
     width: 30,
     height: 8,
     # padding: 1,
-    border: Border.new(type: BorderType::Line),
     shadow: true,
     style: Style.new(
       fg: "yellow",

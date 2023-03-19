@@ -4,12 +4,11 @@ module Crysterm
   s = Screen.new
 
   b = Widget::Box.new(
-    border: BorderType::Line,
     style: Style.new(
       bg: "red",
       # TODO This part is not required in Blessed. See why is it required here and,
       # if it makes sense, return the behavior back to be compatible with Blessed.
-      border: Style.new(
+      border: Border.new(
         bg: "black"
       )
     ),

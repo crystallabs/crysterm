@@ -6,7 +6,7 @@ class MyProg
   d = Display.new
   s = Screen.new display: d, padding: 4
 
-  b = Widget::Box.new width: "100%", height: "100%", border: true
+  b = Widget::Box.new width: "100%", height: "100%", style: Style.new(border: true)
   s.append b
 
   # When q is pressed, exit the demo.
