@@ -358,10 +358,10 @@ module Crysterm
 
   # Class for shadow definition.
   class Shadow
-    property left = 0
-    property top = 0
-    property right = 2
-    property bottom = 1
+    property left : Int32 = 0
+    property top : Int32 = 0
+    property right : Int32 = 2
+    property bottom : Int32 = 1
     property alpha : Float64 = 0.5
 
     def initialize(
@@ -393,14 +393,42 @@ module Crysterm
     def initialize(@alpha : Float64)
     end
 
-    def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int, @alpha = @alpha)
-    end
+    def initialize(left : Bool | Int32?, top : Bool | Int32?, right : Bool | Int32?, bottom : Bool | Int32?, @alpha = @alpha)
+      @left = case left
+              in true
+                2
+              in false, nil
+                0
+              in Int
+                left
+              end
 
-    def initialize(left : Bool, top : Bool, right : Bool, bottom : Bool, @alpha = @alpha)
-      @left = left ? 2 : 0
-      @top = top ? 1 : 0
-      @right = right ? 2 : 0
-      @bottom = bottom ? 1 : 0
+      @top = case top
+             in true
+               1
+             in false, nil
+               0
+             in Int
+               top
+             end
+
+      @right = case right
+               in true
+                 2
+               in false, nil
+                 0
+               in Int
+                 right
+               end
+
+      @bottom = case bottom
+                in true
+                  1
+                in false, nil
+                  0
+                in Int
+                  bottom
+                end
     end
 
     def left?
