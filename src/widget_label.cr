@@ -6,13 +6,14 @@ module Crysterm
     # so that the label gets rendered over the border/padding instead of
     # over the widget content.
 
-    # Is label to be displayed or not?
-    property? label = false
-
     # Widget implementing the label. If label is asked for and no specific
     # widget is set, we create a TextBox with chosen content.. But one can
     # set this property manually to have a custom/specific label.
     property _label : Widget?
+
+    def _label!
+      @_label.not_nil!
+    end
 
     # Holder for event which will trigger on resize, to adjust the label
     @ev_label_resize : Crysterm::Event::Resize::Wrapper?
@@ -43,9 +44,9 @@ module Crysterm
         parent: self,
         content: text,
         top: -itop,
-        parse_tags: @parse_tags,
+        # parse_tags: @parse_tags,
+        style: @style.label,
         resizable: true,
-        style: @style.label # border: true, # height: 1
       )
 
       if side != "right"

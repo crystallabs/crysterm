@@ -90,8 +90,9 @@ module Crysterm
 
     # Each of the following subelements are separate and can be styled individually.
     # If any of them is not defined, it defaults to main/parent style.
-    # Keep the list sorted alphabetically.
     # Names of subelements could be improved over time to be more clear.
+
+    # Keep the list sorted alphabetically.
 
     setter bar : Style?
 
@@ -110,18 +111,6 @@ module Crysterm
     end
 
     getter border : Border?
-
-    def padding=(value)
-      @padding = Padding.from value
-    end
-
-    getter padding : Padding?
-
-    def shadow=(value)
-      @shadow = Shadow.from value
-    end
-
-    getter shadow : Shadow?
 
     setter cell : Style?
 
@@ -153,11 +142,30 @@ module Crysterm
       @item || self
     end
 
-    setter label : Style?
+    # Label value is used only when internally instantiating labels on widgets,
+    # to be able to set their: `style: @self.style.label`. Since labels are
+    # widgets, everything after that is done by looking up `@_label.style....`.
+    property label : Style { Style.new }
 
-    def label
-      @label || self
+    # property label : Style? { Style.default.label.not_nil! }
+    # property label : Style { self }
+    # TODO I am still not sure which of the above options is best.
+    # When a decision is made, the same should be applied to all other fields
+    # in this class for which it applies.
+    # Namely, in the current version, if a user does not specify style, a new
+    # one is generated. This requires users to style both the main widget and
+    # the label (and all other sub-features) separately.
+    # On the other hand, if we use the other (currently commented) implementation,
+    # it conveniently defaults to self, so it achieves more results out of the
+    # box. However, in many cases, you actually don't want the same style as for
+    # self! (For example, if self has border: true, you probably don't want
+    # border: true on the label as well!
+
+    def padding=(value)
+      @padding = Padding.from value
     end
+
+    getter padding : Padding?
 
     setter scrollbar : Style?
 
@@ -170,6 +178,12 @@ module Crysterm
     def selected
       @selected || self
     end
+
+    def shadow=(value)
+      @shadow = Shadow.from value
+    end
+
+    getter shadow : Shadow?
 
     setter track : Style?
 

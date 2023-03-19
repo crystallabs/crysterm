@@ -102,3 +102,25 @@ In Blessed there is function `tpadding()` which returns whether the widget has a
 knowing whether to go into padding-related code or not). In Crysterm, this check is done with
 just `if Widget#padding`.
 
+## Shadow
+
+## Labels
+
+Labels are widgets that can be added to the first line of the widget, left or right.
+
+They are an equivalent of panel or frame labels/titles in some other GUI toolkits.
+
+An interesting aspect of labels in Crysterm is that they can be added to any widget.
+
+Also, in the majority of cases labels are specified as text, and internally Blessed creates
+a text box widget for them. But, in theory, any widget can be used (just some API changes
+are necessary at the moment to support that comfortably).
+
+If label is created via text (for which a box is internally created), that widget can
+be managed by user afterwards. It is in property `_label` (as mentioned, the API will change).
+
+Labels attach certain to certain events on the parent, so that they can recalculate
+and redraw as necessary (for example, if they are on the right of the widget, they need to
+travel as widget gets resized).
+
+This functionality exists and will remain in Crysterm, but the API will be improved.

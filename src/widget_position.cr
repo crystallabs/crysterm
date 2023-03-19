@@ -516,7 +516,7 @@ module Crysterm
         # XXX
         # Fixes non-`fixed` labels to work with scrolling (they're ON the border):
         # if @left < 0 || @right < 0 || @top < 0 || @bottom < 0
-        if label?
+        if @_label
           b = 0
         end
 
