@@ -129,7 +129,9 @@ module Crysterm
 
       # This just defines which Screen it is all linked to.
       # (Until we make `screen` fully optional)
-      @screen ||= determine_screen
+      # XXX Has the potential to cause problems. Seems the rest of the code
+      # has been updated sufficiently so that this can be removed.
+      #@screen ||= determine_screen
 
       # And this takes care of parent hierarchy. Parent arg as passed
       # to this function can be a Widget or Screen.
