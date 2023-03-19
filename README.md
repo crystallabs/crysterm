@@ -90,9 +90,9 @@ Layout engine (showing inline/masonry layout, test/widget-layout.cr)
 
 ![Crysterm Masonry Layout](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/layout.png)
 
-Transparency, color blending, and shadow (part of examples/tech-demo.cr)
+Transparency, color blending, and shadow (part of small-tests/shadow.cr)
 
-![Crysterm Color Blending](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/transparency.png)
+![Crysterm Color Blending](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/shadow.png)
 
 ## Development
 
