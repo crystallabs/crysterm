@@ -86,13 +86,13 @@ modified and will automatically apply to all widgets that do not have style spec
 
 ## Padding
 
-Blessed support padding - amount of empty space that will be reserved on the inside of the widget.
+Blessed supports padding - certain amount of empty space that will be reserved on the inside of the widget.
 
 Same as for borders, defining padding reduces the amount of space available for content.
 
 Padding can be specified for all 4 sides individually.
 
-Padding's implementation has an advantage that is supported per-side definitions from day 1, so it
+Padding's specification has an advantage that was supported per-side definitions from day 1, so it
 doesn't suffer from the same bug that borders have with value 0. (Possibly the solution for the border
 bug will be to make it work more like padding does.)
 
