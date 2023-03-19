@@ -51,3 +51,4 @@ jobs:
           crystal build --time --release --static --no-debug -o bin/hello examples/hello.cr
           crystal build --time --release --static --no-debug -o bin/hello2 examples/hello2.cr
           crystal build --time --release --static --no-debug -o bin/chat examples/chat.cr
+          crystal build --time --release --static --no-debug -o bin/shadow small-tests/shadow.cr

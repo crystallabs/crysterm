@@ -7,6 +7,7 @@ This document covers:
 3. Shadow
 4. Labels
 5. Cursor
+6. Styles
 
 ## Borders
 
@@ -103,6 +104,19 @@ knowing whether to go into padding-related code or not). In Crysterm, this check
 just `if Widget#padding`.
 
 ## Shadow
+
+Blessed supports simple widget shadow which can be enabled or disabled.
+
+If enabled, it creates an effect of a light source from top-left, dropping shadow to the
+bottom-right of the widget.
+
+The shadow is always 1 cell high, 2 cells wide (for proportional look) and 50% transparent.
+
+In Crysterm, shadow can be placed on all 4 sides individually, and the amount of
+shadow transparency/alpha can be controlled.
+
+Also, the light effect is not always top-left to bottom-right, but intuitively changes
+automatically, depending on which shadows are enabled.
 
 ## Labels
 

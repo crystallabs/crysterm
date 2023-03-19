@@ -588,8 +588,8 @@ module Crysterm
       # Shadow
       if s = @style.shadow
         if s.left
-          i = s.top ? yi - 1 : yi
-          l = s.bottom ? yl + 1 : yl
+          i = (s.top ? yi - 1 : yi) + (s.bottom && !s.top && !s.right ? 1 : 0)
+          l = s.bottom ? yl + 1 : yl - (s.top && !s.bottom ? 1 : 0)
 
           y = Math.max(i, 0)
           while (y < l)
@@ -633,7 +633,7 @@ module Crysterm
         end
 
         if s.right
-          i = s.top ? yi : yi + 1
+          i = s.top || s.left ? yi : yi + 1
           l = s.bottom ? yl + 1 : yl
 
           y = Math.max(i, 0)
@@ -657,14 +657,15 @@ module Crysterm
         end
 
         if s.bottom
-          i = s.right ? xi + 1 : xi
+          i = s.right ? xi + (s.left ? 0 : 2) : xi
+          l = xl - (s.left && !s.top && !s.right ? 2 : 0)
 
           y = yl
           while (y < yl + 1)
             if (!lines[y]?)
               break
             end
-            (Math.max(i, 0)...xl).each do |x2|
+            (Math.max(i, 0)...l).each do |x2|
               if (!lines[y][x2]?)
                 break
               end
@@ -676,7 +677,6 @@ module Crysterm
             y += 1
           end
         end
-        # TODO Support for drawing left and top shadow
       end
 
       if with_children

@@ -66,6 +66,8 @@ module Crysterm
     Hovered # Hover
     Selected
     # XXX Does state Hidden belong here?
+    # Also does 'Unmanaged' belong here, indicating that Crysterm should not be
+    # doing state transitions on it?
   end
 
   class Styles
@@ -367,14 +369,15 @@ module Crysterm
       @left = @left,
       @top = @top,
       @right = @right,
-      @bottom = @bottom
+      @bottom = @bottom,
+      @alpha = @alpha
     )
     end
 
     def self.from(value)
       case value
       in true
-        Shadow.new true
+        Shadow.new
       in nil, false
         nil
       in Shadow
@@ -384,14 +387,14 @@ module Crysterm
       end
     end
 
-    def initialize(all : Int)
-      @left = @top = @right = @bottom = all
-    end
+    # def initialize(all : Int)
+    #  @left = @top = @right = @bottom = all
+    # end
 
     def initialize(@alpha : Float64)
     end
 
-    def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
+    def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int, @alpha : Float64)
     end
 
     # adjust() for shadow isn't the same as for border/padding

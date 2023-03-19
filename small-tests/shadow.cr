@@ -6,6 +6,8 @@ module Crysterm
 
   s = Screen.new always_propagate: [Tput::Key::CtrlQ], title: "Crysterm Tech Demo"
 
+  bg = Box.new(parent: s, style: Style.new(bg: "#729fcf"))
+
   boxtp2 = Box.new(
     # parent: s,
     width: 60,
@@ -13,7 +15,7 @@ module Crysterm
     top: 4,
     left: 4,
     content: "Hello, World! See translucency and shadow.",
-    style: Style.new("bg": "#870087", border: BorderType::Bg, shadow: true)
+    style: Style.new("bg": "#870087", border: Border.new(bg: "#870087"), shadow: true)
   )
   boxtp1 = Box.new(
     # parent: s,
@@ -42,9 +44,20 @@ module Crysterm
     content: "See indeed.",
     style: Style.new("bg": "#729fcf", alpha: true, border: true, shadow: true)
   )
+  boxtpm2 = Box.new(
+    # parent: s,
+    top: 7,
+    left: 55,
+    width: 20,
+    height: 8,
+    content: "See indeed.",
+    style: Style.new("bg": "#729fcf", alpha: true, border: true, shadow: Shadow.new(true, true, false, false))
+  )
   s.append boxtp2
   s.append boxtp1
+  s.append boxtp0
   s.append boxtpm1
+  s.append boxtpm2
 
   s.on(Event::KeyPress) do |e|
     # e.accept!
