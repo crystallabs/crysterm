@@ -19,7 +19,7 @@ module Crysterm
       parent.try do |parent2|
         if parent2._is_list && parent2.is_a? Widget::List
           if parent2.items[parent2.selected]? == self
-            style = parent2.style.selected
+            style = parent2.styles.selected
           else
             style = parent2.style.item
           end

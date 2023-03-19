@@ -58,9 +58,27 @@ module Crysterm
     Blend    # Blend/mix colors for as smooth a transition as possible
   end
 
+  # States in which a widget can be
+  enum WidgetState
+    Normal
+    Blurred # Blur
+    Focused # Focus
+    Hovered # Hover
+    Selected
+    # XXX Does state Hidden belong here?
+  end
+
+  class Styles
+    property normal : Style = Style.new
+    property blurred : Style { normal }
+    property focused : Style { normal }
+    property hovered : Style { normal }
+    property selected : Style { normal }
+  end
+
   # Class for the complete style of a widget.
   class Style
-    class_property default = new # Default style for all widgets
+    # class_property default = new # Default style for all widgets
 
     # These (and possibly others) can't default to any color since that would generate
     # color-setting sequences in the terminal. It's better to have them nilable, in which
@@ -100,12 +118,6 @@ module Crysterm
       @bar || self
     end
 
-    setter blur : Style?
-
-    def blur
-      @blur || self
-    end
-
     def border=(value)
       @border = Border.from value
     end
@@ -118,22 +130,10 @@ module Crysterm
       @cell || self
     end
 
-    setter focus : Style?
-
-    def focus
-      @focus || self
-    end
-
     setter header : Style?
 
     def header
       @header || self
-    end
-
-    setter hover : Style?
-
-    def hover
-      @hover || self
     end
 
     setter item : Style?
@@ -173,12 +173,6 @@ module Crysterm
       @scrollbar || self
     end
 
-    setter selected : Style?
-
-    def selected
-      @selected || self
-    end
-
     def shadow=(value)
       @shadow = Shadow.from value
     end
@@ -197,11 +191,8 @@ module Crysterm
       padding = nil,
       shadow = nil,
       @scrollbar = @scrollbar,
-      @focus = @focus,
-      @hover = @hover,
       @track = @track,
       @bar = @bar,
-      @selected = @selected,
       @item = @item,
       @header = @header,
       @cell = @cell,

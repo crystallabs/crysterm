@@ -44,20 +44,27 @@ module Crysterm
     # inheriting from List.
     property _is_list = false
 
-    # XXX move the following three items to Style.
+    getter state = WidgetState::Normal
 
-    # Widget's complete style definition, a global default.
-    # class_property style : Style = Style.new
-
-    # Manages Widget style.
-    @[AlwaysInline]
-    def style
-      s = @style
-      focused? ? (s.focus || s) : s
+    def state=(state : WidgetState)
+      @state = state
+      @style = case state
+               in .normal?
+                 @styles.normal
+               in .focused?
+                 @styles.focused
+               in .selected?
+                 @styles.selected
+               in .hovered?
+                 @styles.hovered
+               in .blurred?
+                 @styles.blurred
+               end
     end
 
-    # :ditto:
-    setter style : Style
+    property styles = Styles.new
+
+    property style : Style # = Style.new # Placeholder
 
     # Is element hidden? Hidden elements are not rendered on the screen and their dimensions don't use screen space.
     setter visible = true
@@ -86,7 +93,7 @@ module Crysterm
       @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
       @overflow : Overflow = Overflow::Ignore,
 
-      @style = Style.new, # Previously: Style? = nil
+      @style = @styles.normal,
 
       @scrollbar = false,
       # TODO Make it configurable which side it appears on etc.
