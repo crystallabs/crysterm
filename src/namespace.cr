@@ -92,7 +92,7 @@ module Crysterm
     property underline : Bool = false
     property blink : Bool = false
     property inverse : Bool = false
-    property invisible : Bool = false
+    property visible : Bool = true
     property alpha : Float64? = nil
 
     property tab_size = 4
@@ -204,7 +204,7 @@ module Crysterm
       @underline = @underline,
       @blink = @blink,
       @inverse = @inverse,
-      @invisible = @invisible,
+      @visible = @visible,
       alpha = nil,
       @char = @char,
       @pchar = @pchar,
@@ -250,7 +250,7 @@ module Crysterm
     property underline : Bool = false
     property blink : Bool = false
     property inverse : Bool = false
-    property invisible : Bool = false
+    property visible : Bool = true
 
     property left = 1
     property top = 1
