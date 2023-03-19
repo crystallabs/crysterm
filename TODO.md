@@ -2,9 +2,7 @@
 
 ## Immediate Source Code TODOs
 
-- Do we need fgcolor/bgcolor/etc.? Can we get the same by modifying 'attr' of cell?
-
-- When Border.new(0) is used, content begins from offset 0 but does not render in the first column/row
+- When Border.new(0) is used, content does properly begin from offset 0, but does not render in that first column/row so appears missing.
 - Exception happening in examples/chat.cr
 
 - In small-tests/question.cr, see if the widget can be fixed to work properly, or it's not worth it (since the original implementation of the widget in Blessed is quite weird, maybe it should be redone)
@@ -165,3 +163,5 @@ Most of these can be ignored, they are highly contextual.
 - In rendering, there is Overflow enum used as a return type, which defines what to do if a widget can't be rendered without overflowing. Add MoveWidget or similar as another option. It would have the effect of moving the widget so it can render. A use case for this would be e.g. auto-completion boxes or similar which pop-up. For simplicity the developer would just have them pop up at the desired location, and Crysterm would adjust for overflow automatically.
 
 - When dealing with colors, do we want #aabbcc to be some class/struct, or just String is OK?
+
+- Do we need fgcolor/bgcolor/etc.? Can we get the same by modifying 'attr' of cell?

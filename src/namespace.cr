@@ -359,10 +359,10 @@ module Crysterm
 
   # Class for shadow definition.
   class Shadow
-    property left : Bool = false
-    property top : Bool = false
-    property right : Bool = true
-    property bottom : Bool = true
+    property left = 0
+    property top = 0
+    property right = 2
+    property bottom = 1
     property alpha : Float64 = 0.5
 
     def initialize(
@@ -394,17 +394,35 @@ module Crysterm
     def initialize(@alpha : Float64)
     end
 
-    def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int, @alpha : Float64)
+    def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int, @alpha = @alpha)
     end
 
-    # adjust() for shadow isn't the same as for border/padding
-    # def adjust(pos, sign = 1)
-    #  pos.xi += sign * @left
-    #  pos.xl -= sign * @right
-    #  pos.yi += sign * @top
-    #  pos.yl -= sign * @bottom
-    #  pos
-    # end
+    def initialize(left : Bool, top : Bool, right : Bool, bottom : Bool, @alpha = @alpha)
+      @left = left ? 2 : 0
+      @top = top ? 1 : 0
+      @right = right ? 2 : 0
+      @bottom = bottom ? 1 : 0
+    end
+
+    def left?
+      @left > 0
+    end
+
+    def top?
+      @top > 0
+    end
+
+    def right?
+      @right > 0
+    end
+
+    def bottom?
+      @bottom > 0
+    end
+
+    def any?
+      (@left + @top + @right + @bottom) > 0
+    end
   end
 
   # class FocusEffects

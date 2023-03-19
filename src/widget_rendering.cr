@@ -586,17 +586,17 @@ module Crysterm
       end
 
       # Shadow
-      if s = @style.shadow
-        if s.left
-          i = (s.top ? yi - 1 : yi) + (s.bottom && !s.top && !s.right ? 1 : 0)
-          l = s.bottom ? yl + 1 : yl - (s.top && !s.bottom ? 1 : 0)
+      if (s = @style.shadow) && s.any?
+        if s.left?
+          i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)   # s.bottom or 1
+          l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0) # s.top or 1
 
           y = Math.max(i, 0)
           while (y < l)
             if (!lines[y]?)
               break
             end
-            x = xi - 2
+            x = xi - s.left
             while (x < xi)
               if (!lines[y][x]?)
                 break
@@ -611,10 +611,10 @@ module Crysterm
           end
         end
 
-        if s.top
-          l = s.right ? xl + 2 : (s.left ? xl - 2 : xl)
+        if s.top?
+          l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl) # s.left or 2
 
-          y = yi - 1
+          y = yi - s.top
           while (y < yi)
             if (!lines[y]?)
               break
@@ -632,9 +632,9 @@ module Crysterm
           end
         end
 
-        if s.right
-          i = s.top || s.left ? yi : yi + 1
-          l = s.bottom ? yl + 1 : yl
+        if s.right?
+          i = (s.top? || s.left?) ? yi : yi + s.bottom # s.bottom or 1
+          l = s.bottom? ? yl + s.bottom : yl
 
           y = Math.max(i, 0)
           while (y < l)
@@ -642,7 +642,7 @@ module Crysterm
               break
             end
             x = xl
-            while (x < xl + 2)
+            while (x < xl + s.right)
               if (!lines[y][x]?)
                 break
               end
@@ -656,12 +656,12 @@ module Crysterm
           end
         end
 
-        if s.bottom
-          i = s.right ? xi + (s.left ? 0 : 2) : xi
-          l = xl - (s.left && !s.top && !s.right ? 2 : 0)
+        if s.bottom?
+          i = s.right? ? xi + (s.left? ? 0 : s.right) : xi        # s.right or 2
+          l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0) # s.left or 2
 
           y = yl
-          while (y < yl + 1)
+          while (y < yl + s.bottom)
             if (!lines[y]?)
               break
             end
