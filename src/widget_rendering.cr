@@ -148,7 +148,7 @@ module Crysterm
               if !lines[y][x]?
                 break
               end
-              lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
+              lines[y][x].attr = Colors.blend(lines[y][x].attr, attr, alpha: alpha)
               # D O:
               # lines[y][x].char = bch
               lines[y].dirty = true
@@ -252,7 +252,7 @@ module Crysterm
                 break
               end
               if alpha = style.alpha
-                lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
+                lines[y][x].attr = Colors.blend(lines[y][x].attr, attr, alpha: alpha)
                 if content[ci - 1]?
                   lines[y][x].char = ch
                 end
@@ -305,7 +305,7 @@ module Crysterm
           end
 
           if alpha = style.alpha
-            lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
+            lines[y][x].attr = Colors.blend(lines[y][x].attr, attr, alpha: alpha)
             if content[ci - 1]?
               lines[y][x].char = ch
             end

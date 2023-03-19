@@ -93,7 +93,7 @@ module Crysterm
     property blink : Bool = false
     property inverse : Bool = false
     property visible : Bool = true
-    property alpha : Float64? = nil
+    property alpha : Float64?
 
     property tab_size = 4
 
@@ -212,10 +212,23 @@ module Crysterm
       @bchar = @bchar,
       @ignore_border = @ignore_border
     )
-      alpha.try { |v| @alpha = v.is_a?(Bool) ? (v ? 0.5 : nil) : v }
+      alpha.try { |v| self.alpha = self.class.alpha_from(v) }
       border.try { |v| self.border = Border.from(v) }
       padding.try { |v| self.padding = Padding.from(v) }
       shadow.try { |v| self.shadow = Shadow.from(v) }
+    end
+
+    def self.alpha_from(value : Float64 | Bool?)
+      case value
+      in Float
+        value
+      in true
+        0.5
+      in false
+        1.0
+      in nil
+        nil
+      end
     end
   end
 
