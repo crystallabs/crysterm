@@ -83,3 +83,20 @@ where docking would be performed.)
 
 Additionally, in Crysterm there is `Crysterm::Style.default`. This default instance of style can be
 modified and will automatically apply to all widgets that do not have style specifically overriden.
+
+## Padding
+
+Blessed support padding - amount of empty space that will be reserved on the inside of the widget.
+
+Same as for borders, defining padding reduces the amount of space available for content.
+
+Padding can be specified for all 4 sides individually.
+
+Padding's implementation has an advantage that is supported per-side definitions from day 1, so it
+doesn't suffer from the same bug that borders have with value 0. (Possibly the solution for the border
+bug will be to make it work more like padding does.)
+
+In Blessed there is function `tpadding()` which returns whether the widget has any padding (for
+knowing whether to go into padding-related code or not). In Crysterm, this check is done with
+just `if Widget#padding`.
+
