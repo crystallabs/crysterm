@@ -1,11 +1,11 @@
-diff --git a/blessed/lib/widgets/element.js b/blessed/lib/widgets/element.js
+diff --git a/lib/widgets/element.js b/lib/widgets/element.js
 index 29a783c..084daff 100644
---- a/blessed/lib/widgets/element.js
-+++ b/blessed/lib/widgets/element.js
+--- a/lib/widgets/element.js
++++ b/lib/widgets/element.js
 @@ -2563,6 +2563,16 @@ Element.prototype.screenshot = function(xi, xl, yi, yl) {
    return this.screen.screenshot(xi, xl, yi, yl);
  };
-
+ 
 +Element.prototype.snapshot = function(includeDecorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0) {
 +  xi = this.lpos.xi + (includeDecorations ? 0 : this.ileft) + dxi;
 +  xl = this.lpos.xl - (includeDecorations ? 0 : -this.iright) + dxl;
@@ -19,3 +19,24 @@ index 29a783c..084daff 100644
  /**
   * Expose
   */
+diff --git a/test/widget-layout.js b/test/widget-layout.js
+index 46e447b..2e58440 100644
+--- a/test/widget-layout.js
++++ b/test/widget-layout.js
+@@ -145,13 +145,14 @@ var box12 = blessed.box({
+ });
+ 
+ if (process.argv[2] !== 'grid') {
++  sizes = [ 0.2, 1, 0.3, 0.6, 0.3, 0.9, 0.2, 0.75, 0.1, 0.99 ]
+   for (var i = 0; i < 10; i++) {
+     blessed.box({
+       parent: layout,
+       // width: i % 2 === 0 ? 10 : 20,
+       // height: i % 2 === 0 ? 5 : 10,
+-      width: Math.random() > 0.5 ? 10 : 20,
+-      height: Math.random() > 0.5 ? 5 : 10,
++      width: sizes[i] > 0.5 ? 10 : 20,
++      height: sizes[i] > 0.5 ? 5 : 10,
+       border: 'line',
+       content: (i + 1 + 12) + ''
+     });
