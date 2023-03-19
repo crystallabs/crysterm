@@ -138,3 +138,37 @@ and redraw as necessary (for example, if they are on the right of the widget, th
 travel as widget gets resized).
 
 This functionality exists and will remain in Crysterm, but the API will be improved.
+
+## Cursor
+
+## Styles
+
+Blessed's support for widget styles is a bit of a mess. Here's how it works in Crysterm.
+
+The idea is that just about everything that is style-related should live in `Widget#style`
+and be modifiable from there.
+
+Based on that, the whole style/theme for an app could be specified in one Styles
+object, which is serializable to file using whatever format (JSON, YAML, ...).
+Saving/loading or formal theme specification has not been implemented yet.
+
+Every widget has `style : Style` property. But, a widget can be in different states (e.g.
+normal, focused, selected, blurred, etc.)
+
+Therefore another property `styles : Styles` contains all those possible styles, and
+Crysterm's code automatically points `style` to the style that is currently active.
+
+Modifying `style` is possible, but since it's just a pointer into one of `styles` states,
+modifying it actually modifies the definition of that state.
+
+There is one state, `normal`, which is always defined (`normal = Style.new`). All other
+states can be nil, and if they're not defined they default to `normal`.
+
+In addition to various states, widgets also have various subelements. For example, in a
+widget, one could want to separately style it's label, border, scrollbar, etc.
+
+These sub-elements exist as properties inside the current style. For example,
+`style.border.bg` gives the background color of the border.
+
+Same as for styles, all subelements' styles are nilable, and if they're not defined
+they default to the main style.
