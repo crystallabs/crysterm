@@ -69,7 +69,7 @@ the border column for its functionality.
 
 In Crysterm:
 
-Everything is in `style.border`. The property `border` does not exist on widget.
+Everything is in `Widget#style.border`. The property `border` does not exist on widget.
 
 Default border type is `BorderType::Line`, not 'bg'.
 
@@ -87,6 +87,8 @@ modified and will automatically apply to all widgets that do not have style spec
 ## Padding
 
 Blessed supports padding - certain amount of empty space that will be reserved on the inside of the widget.
+
+Same as for borders, the property does not exist on widget, but is in `Widget#style.padding`.
 
 Same as for borders, defining padding reduces the amount of space available for content.
 
