@@ -69,18 +69,17 @@ the border column for its functionality.
 
 In Crysterm:
 
-- Everything is (or will be) in `style.border`. The property `border` will not exist on widget.
-- Default border type is `BorderType::Line`, not bg'
+Everything is in `style.border`. The property `border` does not exist on widget.
 
-There is a difference in default border color in Blessed and Crysterm.
-Blessed defaults to border's background color being 'black', unless specifically overriden.
+Default border type is `BorderType::Line`, not 'bg'.
 
-In Crysterm, everything style-related has been consolidated into `self.style`, and this is a recursive
-structure -- if `style.border` is set, it will be used for the border. If it is not set, calling
-`self.style.border` will fallback to `self.style`.
+Border can be applied to each 4 sides individually (although see TODO.md for border-related issues).
 
-Thus, in Crysterm border will by default be drawn using the same background color as the widget, and not
-black.
+Border can have thickness greater than 1. Currently this renders the same as padding does (i.e. the
+border is rendered just in the outermost cells.) In the future this could be improved, so that the
+border repeats in all cells that make up the border. (See how this would interoperate with option
+`dock_borders`, because repeating a border over more cells would probably get detected as something
+where docking would be performed.)
 
 Additionally, in Crysterm there is `Crysterm::Style.default`. This default instance of style can be
 modified and will automatically apply to all widgets that do not have style specifically overriden.
