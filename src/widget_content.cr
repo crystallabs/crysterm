@@ -1,5 +1,7 @@
 module Crysterm
   class Widget < ::Crysterm::Object
+    include Helpers
+
     # module Content
 
     # Convenience regex for matching Crysterm tags and their content (i.e. '{bold}This text is bold{/bold}').
