@@ -21,7 +21,7 @@ module Crysterm
 
       def _listener(e : Crysterm::Event::KeyPress)
         if e.key == Tput::Key::Enter
-          e.accept!
+          e.accept
           @_done.try do |done2|
             done2.call nil, @value
           end

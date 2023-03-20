@@ -14,7 +14,7 @@ module Crysterm
 
     include Mixin::Instances
 
-    # Force Unicode (UTF-8) even if auto-detection did not discover terminal support for it?
+    # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
     property? force_unicode = false
 
     # Input IO
@@ -34,8 +34,15 @@ module Crysterm
     property width = ::Term::Screen.cols || 1
     property height = ::Term::Screen.rows || 1
 
+    # Default application title, propagated as a default to contained `Screen`s
+    property title : String? = nil
+
     # :nodoc: Pointer to Fiber which is listening for keys, if any
-    @listening_keys : Fiber?
+    private class Fibers
+      property keys : Fiber?
+    end
+
+    protected property fibers = Fibers.new
 
     # `Display`'s general-purpose `Mutex`
     @mutex = Mutex.new
@@ -52,7 +59,8 @@ module Crysterm
       terminfo : Bool | Unibilium::Terminfo = true,
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
-      @terminfo = case terminfo
+
+      terminfo = case terminfo
                   in true
                     Unibilium::Terminfo.from_env
                   in false, nil
@@ -61,10 +69,10 @@ module Crysterm
                     terminfo.as Unibilium::Terminfo
                   end
 
-      # XXX Should `error` be used here in any way? (Probably not since we're not
-      # initializing anything on the error output?)
+      # XXX Should `error` fd be passed to tput as well?
+      # (Probably not since we're not initializing anything on the error output?)
       @tput = ::Tput.new(
-        terminfo: @terminfo,
+        terminfo: terminfo,
         input: @input,
         output: @output,
         # TODO activate these options if needed:
@@ -83,12 +91,7 @@ module Crysterm
           # display created
         end
       end
-
-      listen
     end
-
-    # Default application title, propagated as a default to contained `Screen`s
-    property title : String? = nil
 
     # Displays the main screen, set up IO hooks, and starts the main loop.
     #
@@ -153,12 +156,11 @@ module Crysterm
 
     # Starts emitting `Event::KeyPress` events on key presses.
     #
-    # NOTE Keys are listened for in a separate `Fiber`.
-    # The code tries passively to ensure at most one fiber per display is listening.
+    # Keys are listened for in a separate `Fiber`. There should be at most 1.
     def listen_keys
       @mutex.synchronize {
-        return if @listening_keys
-        @listening_keys = spawn {
+        return if @fibers.keys
+        @fibers.keys = spawn {
           tput.listen do |char, key, sequence|
             emit Crysterm::Event::KeyPress.new char, key, sequence
           end
@@ -177,7 +179,7 @@ module Crysterm
         super
 
         # TODO Don't do this unconditionally, but return to whatever
-        # state it was before.
+        # state it was in before.
         @input.try { |i|
           if i.responds_to? :"cooked!"
             i.cooked!

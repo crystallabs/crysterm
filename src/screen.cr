@@ -17,7 +17,6 @@ module Crysterm
   # Represents a screen.
   class Screen
     include EventHandler
-    include Helpers
 
     include Mixin::Pos
     include Mixin::Children
@@ -46,12 +45,14 @@ module Crysterm
     # special keys), but also chars (ordinary letters) as well as sequences (arbitrary
     # sequences of chars and keys).
 
-    # XXX Rename to more intuitive name like `hovered_widget` or so. Or even remove since
-    # why just support one widget only? This looks like application-specific code.
-    # Current element being hovered over on the screen. Best set only if mouse events are enabled.
-    @hover : Widget? = nil
+    # Disabled since it seems unused atm
+    ## XXX Rename to more intuitive name like `hovered_widget` or so. Or even remove since
+    ## why just support one widget only? This looks like application-specific code.
+    ## Current element being hovered over on the screen. Best set only if mouse events are enabled.
+    #@hover : Widget? = nil
 
     # Which position on the screen should be used to display FPS stats. Nil disables.
+    # XXX Currently this is enabled since Crysterm is under development.
     property show_fps : Tput::Point? = Tput::Point[-1, 0]
 
     # Include displaying averages in FPS display. If this setting is false, only current/
@@ -70,15 +71,13 @@ module Crysterm
       @display.try &.tput.title=(@title = title)
     end
 
-    # For compatibility with widgets. But, as a side-effect, screens can have
-    # padding.
+    # For compatibility with widgets. But, as a side-effect, screens can have padding!
+    # If you define widget at position (0,0), that will be counted after padding.
     property padding : Padding?
 
-    # Inner/content positions. These are defined here instead of assumed to all be 0 due
-    # to 2 reasons:
+    # Inner/content positions. These are defined here instead of assumed to all be 0 due to 2 reasons:
     # - Places where method `parent_or_screen` is called expect these to exist on both types
-    # - And due to future improvement of supporting maybe border and possibly other features on
-    # `Screen`s (like maybe shadow, or padding?) it will be very useful to have these variables.
+    # - And due to future improvement of supporting maybe border and possibly other features on Screens
 
     def ileft
       @padding.try(&.left) || 0
@@ -96,14 +95,34 @@ module Crysterm
       @padding.try(&.bottom) || 0
     end
 
-    # property iwidth = 0
-    # property iheight = 0
+    # Returns current screen width.
+    def iwidth
+      @padding.try do |padding|
+        padding.left + padding.right
+      end || 0
+    end
 
-    # Disabled since nothing is currently using it. But uncomment when it becomes relevant.
-    # getter rleft = 0
-    # getter rtop = 0
-    # getter rright = 0
-    # getter rbottom = 0
+    # Returns current screen height.
+    def iheight
+      @padding.try do |padding|
+        padding.top + padding.bottom
+      end || 0
+    end
+
+    # Returns current screen width.
+    def awidth
+      display.tput.screen.width
+    end
+
+    # Returns current screen height.
+    def aheight
+      display.tput.screen.height
+    end
+
+    # TODO Instead of self, this should just return an object which reports the position.
+    def last_rendered_position
+      self
+    end
 
     # And these are the absolute ones. These are all 0 because `Screen`s are always the full
     # size of a `Display`. It would be interesting to see in the future if we could allow multiple
@@ -114,11 +133,6 @@ module Crysterm
     # getter atop = 0
     # getter aright = 0
     # getter abottom = 0
-
-    # Relative positions are the default and are aliased to the left/top/right/bottom methods.
-    # TODO Consider if, next to these 3 already different values (ileft, rleft, aleft), the
-    # default left/top/right/bottom, which are aliases for relative coordinates, are too much
-    # and if we should just remove them in favor of explicitly using one of these 3.
 
     # Specifies what to do with "overflowing" (too large) widgets. The default setting of
     # `Overflow::Ignore` simply ignores the overflow and renders the parts that are in view.
@@ -141,7 +155,6 @@ module Crysterm
 
       bind
 
-      # @display = display || Display.global true
       # ensure tput.zero_based = true, use_bufer=true
       # set resizeTimeout
 
@@ -349,35 +362,6 @@ module Crysterm
 
     def post_enter
       # Debug helpers/setup
-    end
-
-    # Returns current screen width.
-    def awidth
-      display.tput.screen.width
-    end
-
-    # Returns current screen height.
-    def aheight
-      display.tput.screen.height
-    end
-
-    # Returns current screen width.
-    def iwidth
-      @padding.try do |padding|
-        padding.left + padding.right
-      end || 0
-    end
-
-    # Returns current screen height.
-    def iheight
-      @padding.try do |padding|
-        padding.top + padding.bottom
-      end || 0
-    end
-
-    # TODO Instead of self, this should just return an object which reports the position.
-    def last_rendered_position
-      self
     end
 
     # This is for the bottom-up approach where the keys are

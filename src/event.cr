@@ -140,12 +140,12 @@ module Crysterm
       end
 
       # Accepts event and causes it to stop propagating.
-      def accept!
+      def accept
         @accepted = true
       end
 
       # Ignores event and causes it to continue propagating.
-      def ignore!
+      def ignore
         @accepted = false
       end
 

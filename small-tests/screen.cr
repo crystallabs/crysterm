@@ -5,7 +5,7 @@ class X
   include EventHandler
 
   def initialize
-    s = Screen.new
+    s = Screen.new padding: 10
 
     # l = Widget::Layout.new width: "100%", height: "100%", border: true, style: Style.new( fg: "black", bg: "white" )
     # s.append l
@@ -14,8 +14,8 @@ class X
     i = Widget::Box.new \
       width: 10,
       height: 10,
-      top: 4,
-      left: 8,
+      top: 0,
+      left: 0,
       content: "Test", # "center", left: "center" #, border: true #, display: s
       style: Style.new(fg: "yellow", bg: "red", border: true)
 
@@ -23,7 +23,7 @@ class X
     i2 = Widget::Box.new \
       width: 10,
       height: 10,
-      top: 2,
+      top: 0,
       left: 20,
       content: "Test", # "center", left: "center" #, border: true #, display: s
       style: Style.new(fg: "black", bg: "red", border: true)

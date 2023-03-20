@@ -1,15 +1,33 @@
 # TODOs, Most Important First
 
-## Immediate Source Code TODOs
+- Review src/screen.cr from line 155 onwards
+- Review src/screen_drawing.cr
+- Review src/screen_focus.cr
+- Make screen cells grid more efficient. src/screen_rows
+- Review src/widget_children.cr
+- Review src/widget_content.cr
+- Review src/widget.cr
+- Review src/widget_interaction.cr
+- Review src/widget_position.cr
+- Review src/screen_rendering.cr as a lower priority since it's pretty good already
+- Review src/widget_scrolling.cr
+- Review src/widget_rendering.cr
+- Review src/widgets.cr
+
+- Update Screen API so that display is the last arg, like parent in widgets
+
+- Fix a bug where a widget is properly assigned to screen if it has `parent: screen` in initialize options, but not if it's added later with `screen.append(widget)` or `screen<<widget`. (Is it because it installs some event handlers while screen is nil?)
 
 - When Border.new(0) is used, content does properly begin from offset 0, but does not render in that first column/row so appears missing.
 - Exception happening in examples/chat.cr
 
 - Why is there a newline difference in output of blessed and crysterm's Screen#screenshot?
 
+- In src/namespace.cr there is: `property label : Style { Style.new }`. Redesign that. Determine what to do with label.side. Possibly redo the whole label thing.
+
 - In Blessed's version of examples/hello, it is not necessary to manually #clearPos(). Where does the difference compared to Crysterm come from?
 
-- Review hardware and artificial cursor functionality. Color, blink, etc. See src/screen_cursor.cr and enter method in Blessed.
+- Review hardware and artificial cursor functionality. src/screen_cursor. Color, blink, etc. See src/screen_cursor.cr and enter method in Blessed.
 
 - Issue with transparency, where a transparent element gets more opaque on every render. This is caused by code found at first occurrence of 'transparency' in src/widget.cr. Example can be seen if we add a transparent padding to e.g. members list widget in example/chat.cr. In Blessed, the value of lines[y][x][attr] seems to always be the same, whereas in our case it has the resulting value from previous render, and so on every render the field's color gets additionally blended until it has 100% opacity rather than staying at initial/desired value.
 
@@ -19,23 +37,43 @@
 
 - Maybe add a GUI-dedicated thread like in Qt?
 
-## Non-critical Fixes and Small Improvements to Existing code
-
 - Parse_tags - should be default true or false?
+
+- Make @dock_contrast be property on Style.
+
+- See if @dock_contrast=Ignore has any effect, i.e. does it work correctly
+
+- See if it is possible to calculate color distance and have a threshold after which borders are not docked, but below it they are?
+
+- Do code2attr / attr2code legitimately belong to Screen, or they're better suited for some other file/place?
 
 - Artificial cursor support for src/widget/checkbox.cr
 
 - When `Display` is created, if `TERM` env var is not defined it defaults to `xterm` or `windows-ansi`. Make this more robust to also include the existing check for which terminal emulator is in use, and then use the default which matches the default term setting of that emulator.
 
-- For `OptimizationFlag`s listed in src/namespace.cr, make a list of all common terminal emulators and see which ones support which optimizations. Than make default optimizations turn on/off based on that (unless overriden by user).
+- Overflow is currently property of screen and widget. See what the relation is and whether it all works correctly.
 
-- Determine what is the exact current situation re. whether borders/angles are drawn using ACS chars or Unicode chars?
+- For `OptimizationFlag`s listed in src/namespace.cr, make a list of all common terminal emulators and see which ones support which optimizations. Than make default optimizations turn on/off based on that (unless overriden by user).
+`OptimizationFlag`s are set on a `Screen`.
+
+- On entering the screen, it should inherit/set title from its Display, as a one-time action.
+
+- See if dock_borders/dock_contrast can be moved to Widget, or they really need to operate on the level of Screen to be useful? (I.e. in screen_rendering, where they are used, do we have widgets in scope or not? If yes, move to Widget, if not, leave as-is)
+
+- In src/screen_* and src/widget_*, move all property definitions into the main src/screen.cr and src/widget.cr files
+
+- In src/screen.cr, some stuff is done in initialize, while it seems like enter/leave would be the correct places.
+
+- Consider an example of e.g. Display and Screens. When a display is resized, is it normal that Screens are hooking into Display's events, or since Display already has a list of it's children, it should emit an event on *them*?
+The latter would reduce the need for having to cancel/turn off hooks when screens are detached from display. And the same goes for all other occurrences of this type of dilemma.
+In this case it would also prevent all other lookups from Screen into Display, if Display's information was always pushed to Screens via events.
+Basically this is a push or pull design question.
+
+- Determine what is the exact current situation re. whether borders/angles can be drawn using ACS chars or Unicode chars? Is both supported or currently the code only does one?
 
 - Add support for graphemes now that graphemes are supported in crystal
 
 - Same as Widget#hidden, rename Cursor#_hidden
-
-- Determine what to do with label.side
 
 - Make cursor be property on widget. Now it's on screen. Or, just allow widget-specific one to override default one.
 
@@ -115,6 +153,9 @@
 - When dealing with colors, do we want #aabbcc to be some class/struct, or just String is OK?
 
 - Do we need fgcolor/bgcolor/etc.? Can we get the same by modifying 'attr' of cell?
+
+- When a Display starts listening for keys (possibly other stuff too), there is no way to cancel it, since there is no API to kill a Fiber from the outside. So once this is started, it's active til the program exits.
+Not a huge deal since a Display unconditionally starts listening and emitting received stuff, but it's something to improve long term (there should be a way to gracefully stop listening and/or destroy/re-create the Display object).
 
 ## Widget Fixes
 

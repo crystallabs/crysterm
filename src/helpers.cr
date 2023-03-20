@@ -26,63 +26,6 @@ module Crysterm
       end
     end
 
-    # Escapes text for tag-enabled elements where one does not want the tags enclosed in {...} to be treated specially, but literally.
-    #
-    # Example to print literal "{bold}{/bold}":
-    # '''
-    # box.set_content("escaped content: " + escape("{bold}{/bold}"))
-    # '''
-    def escape(text)
-      text.gsub(/[{}]/) { |ch|
-        ch == "{" ? "{open}" : "{close}"
-      }
-    end
-
-    # # Generates text tags based on the given style definition.
-    # # Don't use unless you need to.
-    # # ```
-    # # obj.generate_tags({"fg" => "lightblack"}, "text") # => "{light-black-fg}text{/light-black-fg}"
-    # # ```
-    # def generate_tags(style : Hash(String, String | Bool) = {} of String => String | Bool)
-    #  open = ""
-    #  close = ""
-
-    #  (style).each do |key, val|
-    #    if (val.is_a? String)
-    #      val = val.sub(/^light(?!-)/, "light-")
-    #      val = val.sub(/^bright(?!-)/, "bright-")
-    #      open = "{" + val + "-" + key + "}" + open
-    #      close += "{/" + val + "-" + key + "}"
-    #    else
-    #      if val
-    #        open = "{" + key + "}" + open
-    #        close += "{/" + key + "}"
-    #      end
-    #    end
-    #  end
-
-    #  {
-    #    open:  open,
-    #    close: close,
-    #  }
-    # end
-
-    # # :ditto:
-    # def generate_tags(style : Hash(String, String | Bool), text : String)
-    #  v = generate_tags style
-    #  v[:open] + text + v[:close]
-    # end
-
-    # Strips text of "{...}" tags and SGR sequences and removes leading/trailing whitespaces
-    def strip_tags(text : String)
-      clean_tags(text).strip
-    end
-
-    # Strips text of {...} tags and SGR sequences
-    def clean_tags(text)
-      text.gsub(Crysterm::Widget::TAG_REGEX, "").gsub(Crysterm::Widget::SGR_REGEX, "")
-    end
-
     # Finds a file with name 'target' inside toplevel directory 'start'.
     # XXX Possibly replace with github: mlobl/finder
     def find_file(start, target)

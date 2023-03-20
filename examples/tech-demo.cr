@@ -6,7 +6,7 @@ module Crysterm
 
   s = Screen.new always_propagate: [Tput::Key::CtrlQ], title: "Crysterm Tech Demo"
   b = layout = Layout.new(
-    # parent: s,
+    parent: s,
     top: 0,
     left: 0,
     width: "100%",
@@ -16,7 +16,6 @@ module Crysterm
   )
 
   # b.focus
-  s.append b
 
   box = Box.new(
     parent: layout,
@@ -141,7 +140,7 @@ module Crysterm
   )
 
   boxtp2 = Box.new(
-    # parent: s,
+    parent: s,
     width: 60,
     height: 16,
     top: 18,
@@ -150,7 +149,7 @@ module Crysterm
     style: Style.new(bg: "#870087", border: BorderType::Bg, shadow: Shadow.new(true, true, false, false))
   )
   boxtp1 = Box.new(
-    # parent: s,
+    parent: s,
     top: 14,
     left: 150,
     width: 60,
@@ -158,8 +157,6 @@ module Crysterm
     content: "See indeed.",
     style: Style.new(bg: "#729fcf", alpha: true, border: true, shadow: true)
   )
-  s.append boxtp2
-  s.append boxtp1
 
   loading2 = Loading.new \
     parent: layout,

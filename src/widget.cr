@@ -33,7 +33,7 @@ module Crysterm
 
     # Screen owning this element, if any.
     # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
-    getter? screen : ::Crysterm::Screen?
+    getter? screen
 
     # Arbitrary widget name
     property name : String?

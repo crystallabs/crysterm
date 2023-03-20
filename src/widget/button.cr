@@ -24,13 +24,13 @@ module Crysterm
 
       def on_keypress(e)
         if e.char == ' ' || e.key.try(&.==(::Tput::Key::Enter))
-          e.accept!
+          e.accept
           press
         end
       end
 
       def on_click(e)
-        # e.accept!
+        # e.accept
         press
       end
     end

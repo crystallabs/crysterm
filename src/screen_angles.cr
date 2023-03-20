@@ -79,6 +79,9 @@ module Crysterm
     }
 
     # Returns appropriate angle char for point (y,x) in `lines`
+    #
+    # To operate, needs `lines` (the 2d array of cells), and (y,x) point
+    # you're asking for.
     def _get_angle(lines, x, y)
       angle = 0
       attr = lines[y][x].attr
