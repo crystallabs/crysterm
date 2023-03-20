@@ -1,6 +1,5 @@
 # TODOs, Most Important First
 
-- Review src/screen.cr from line 155 onwards
 - Review src/screen_drawing.cr
 - Review src/screen_focus.cr
 - Make screen cells grid more efficient. src/screen_rows
@@ -13,6 +12,14 @@
 - Review src/widget_scrolling.cr
 - Review src/widget_rendering.cr
 - Review src/widgets.cr
+
+- Screen#listen_keys function: it serves 2 purposes, both to set up general listening for all keys, and to announce that a certain widget is interested in receiving key events. Split this functionality into 2 distinct parts - one sets up listener, one manages @keyable array.
+
+- All fibers and/or listeners must be recorded in respective classes so that they can be managed (removed/paused/detached etc.)
+
+- After that, undo the change that makes Display push events onto Screens and properly cover it with attach/detach possibilities.
+
+- propagating_keys / always_propagate may have misleading name. Maybe better would be ignoring_keys / never_ignore.
 
 - Review cursor_shape, cursor_color
 
@@ -166,6 +173,10 @@ Not a huge deal since a Display unconditionally starts listening and emitting re
 ## Widget Fixes
 
 Listed here since generic fixes/improvements have priority over widget-specific ones:
+
+- Layout widget has a calculation error in masonry style. It's present in blessed and it got carried over here. See how this could be fixed.
+
+- Separate Layout widget's two possible layouts into separate widgets.
 
 - In small-tests/question.cr, see if the widget can be fixed to work properly, or it's not worth it (since the original implementation of the widget in Blessed is quite weird, maybe it should be redone)
 

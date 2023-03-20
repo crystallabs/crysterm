@@ -7,7 +7,7 @@ module Crysterm
     # TODO - temporary until @cursor is moved to widget. This is extended because
     # Tput class does not have a property for color.
     class Cursor < Tput::Namespace::Cursor
-      property style : Style = Style.new
+      property style : Style = Style.new(char: '▮')
     end
 
     getter cursor = Cursor.new
@@ -24,8 +24,12 @@ module Crysterm
       # else
       display.try do |d|
         c.shape.try { |shape| d.tput.cursor_shape shape, c.blink }
-        # XXX consider a simpler structure than Style for this?
-        c.style.bg.try { |color| d.tput.cursor_color color }
+        # XXX consider a simpler structure than Style for cursor color?
+        # XXX Blessed calls this:
+        # c.style.fg.try { |color| d.tput.cursor_color Colors.convert color }
+        # Why in our case that produces the following error when it's used:
+        # Error: expected argument #1 to 'Tput#cursor_color' to be String or Tput::Namespace::Color, not Int32
+        c.style.fg.try { |color| d.tput.cursor_color color }
       end
       # end
       c._set = true

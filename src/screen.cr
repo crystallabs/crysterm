@@ -78,6 +78,8 @@ module Crysterm
 
     # For compatibility with widgets. But, as a side-effect, screens can have padding!
     # If you define widget at position (0,0), that will be counted after padding.
+    # (We leave this at nil for no padding. If we used Padding.new that'd create a
+    # 1 cell padding by default.)
     property padding : Padding?
 
     def ileft
@@ -122,7 +124,8 @@ module Crysterm
       @height
     end
 
-    # TODO Instead of self, this should just return an object which reports the position.
+    # TODO Instead of self, this should just return an object which reports the position
+    # like LPos. But until screen is always from (0,0) to (height,width) that's not necessary.
     def last_rendered_position
       self
     end
@@ -190,6 +193,9 @@ module Crysterm
         # e.size = nil
         emit_descendants e
       end
+
+      # TODO These events are not for specific widgets, but when the whole program gets
+      # those events. Enable and rework them as above ecample when we get to it.
 
       # display.on(Crysterm::Event::Focus) do
       #  emit Crysterm::Event::Focus
@@ -336,6 +342,7 @@ module Crysterm
     def leave
       # TODO make it possible to work without switching the whole
       # app to alt buffer. (Same note as in `enter`).
+      # This assumes that enter activated alt mode.
       return unless display.tput.is_alt
 
       display.tput.put(&.keypad_local?)
@@ -368,22 +375,79 @@ module Crysterm
     end
 
     def post_enter
-      # Debug helpers/setup
-    end
+      # Debug helpers/setup, such as:
+      # if (this.options.debug) {
+      #  this.debugLog = new Log({
+      #    screen: this,
+      #    parent: this,
+      #    hidden: true,
+      #    draggable: true,
+      #    left: 'center',
+      #    top: 'center',
+      #    width: '30%',
+      #    height: '30%',
+      #    border: 'line',
+      #    label: ' {bold}Debug Log{/bold} ',
+      #    tags: true,
+      #    keys: true,
+      #    vi: true,
+      #    mouse: true,
+      #    scrollbar: {
+      #      ch: ' ',
+      #      track: {
+      #        bg: 'yellow'
+      #      },
+      #      style: {
+      #        inverse: true
+      #      }
+      #    }
+      #  });
 
-    # This is for the bottom-up approach where the keys are
-    # passed onto the focused widget, and from there eventually
-    # propagated to the top.
-    # def _listen_keys
-    #  display.on(Crysterm::Event::KeyPress) do |e|
-    #    el = focused || self
-    #    while !e.accepted? && el
-    #      # XXX emit only if widget enabled?
-    #      el.emit e
-    #      el = el.parent
-    #    end
-    #  end
-    # end
+      #  this.debugLog.toggle = function() {
+      #    if (self.debugLog.hidden) {
+      #      self.saveFocus();
+      #      self.debugLog.show();
+      #      self.debugLog.setFront();
+      #      self.debugLog.focus();
+      #    } else {
+      #      self.debugLog.hide();
+      #      self.restoreFocus();
+      #    }
+      #    self.render();
+      #  };
+
+      #  this.debugLog.key(['q', 'escape'], self.debugLog.toggle);
+      #  this.key('f12', self.debugLog.toggle);
+      # }
+
+      # if (this.options.warnings) {
+      #  this.on('warning', function(text) {
+      #    var warning = new Box({
+      #      screen: self,
+      #      parent: self,
+      #      left: 'center',
+      #      top: 'center',
+      #      width: 'shrink',
+      #      padding: 1,
+      #      height: 'shrink',
+      #      align: 'center',
+      #      valign: 'middle',
+      #      border: 'line',
+      #      label: ' {red-fg}{bold}WARNING{/} ',
+      #      content: '{bold}' + text + '{/bold}',
+      #      tags: true
+      #    });
+      #    self.render();
+      #    var timeout = setTimeout(function() {
+      #      warning.destroy();
+      #      self.render();
+      #    }, 1500);
+      #    if (timeout.unref) {
+      #      timeout.unref();
+      #    }
+      #  });
+      # }
+    end
 
     # Destroys self and removes it from the global list of `Screen`s.
     # Also remove all global events relevant to the object.
@@ -397,17 +461,27 @@ module Crysterm
 
       leave
 
+      # XXX Blessed does this here (undoes the setup from initialize):
+      #    process.removeListener('uncaughtException', Screen._exceptionHandler);
+      #    process.removeListener('SIGTERM', Screen._sigtermHandler);
+      #    process.removeListener('SIGINT', Screen._sigintHandler);
+      #    process.removeListener('SIGQUIT', Screen._sigquitHandler);
+      #    process.removeListener('exit', Screen._exitHandler);
+      #  this.destroyed = true;
+      #  this.emit('destroy');
+      #  this._destroy();
+
       super
     end
 
-    def enable_keys(el = nil)
-      _listen_keys(el)
-    end
-
-    def enable_input(el = nil)
-      # _listen_mouse(el)
-      _listen_keys(el)
-    end
+    # Disabled since they exist, but nothing calls them within blessed:
+    # def enable_keys(el = nil)
+    #  _listen_keys(el)
+    # end
+    # def enable_input(el = nil)
+    #  # _listen_mouse(el)
+    #  _listen_keys(el)
+    # end
 
     # And this is for the other/alternative method where the screen
     # first gets the keys, then potentially passes onto children
@@ -428,12 +502,27 @@ module Crysterm
       # After the first keypress emitted, the handler
       # checks to make sure grabbing_keys, propagating_keys, and focused
       # weren't changed, and handles those situations appropriately.
+
       display.on(Crysterm::Event::KeyPress) do |e|
+        # If we're not propagating keys and the key is not on always-propagate
+        # list, we're done.
         if !@propagating_keys && !@always_propagate.includes?(e.key)
           next
         end
 
+        # XXX the role of `grabbing_keys` is a little unclear. It makes sense that
+        # enabling it would not emit/announce keys. It could be thought of like:
+        # - propagating_keys=false -> stops key handling
+        # - grabbing_keys=true     -> does handle keys, but grabs them, doesn't pass on
+        # But this doesn't seem to be the case because, grabbing_keys can be true,
+        # but if it is, there is no code that processes it in any way internally.
+        # Maybe the code/hook is missing where all keys are passed onto the widget
+        # grabbing them?
+
         grabbing_keys = @grabbing_keys
+        # If key grabbing is not active, or key is whitelisted, announce it.
+        # NOTE See implementation of emit_key --> it emits both the generic key
+        # press event as well as a specific key event, if one exists.
         if !grabbing_keys || @always_propagate.includes?(e.key)
           emit_key self, e
         end
@@ -447,6 +536,10 @@ module Crysterm
         # we keep passing it through the parent tree until someone
         # `#accept!`s the key. If it reaches the toplevel Widget
         # and it isn't handled, we drop/ignore it.
+        #
+        # XXX But look at this. Unless the key is processed by screen, it gets
+        # passed to widget in focus and from there to its parents. How can a widget
+        # on a screen, which is not in focus,
         focused.try do |el2|
           while el2 && el2.is_a? Widget
             if el2.keyable?
@@ -483,24 +576,25 @@ module Crysterm
       end
     end
 
-    # TODO Empty for now
-    def key(key, handler)
-    end
+    # # Unused
+    # def key(key, handler)
+    # end
 
-    def once_key(key, handler)
-    end
+    # def once_key(key, handler)
+    # end
 
-    def remove_key(key, wrapper)
-    end
+    # def remove_key(key, wrapper)
+    # end
 
-    def sigtstp(callback)
-      display.sigtstp {
-        alloc
-        render
-        display.lrestore_cursor :pause, true
-        callback.call if callback
-      }
-    end
+    # Unused
+    # def sigtstp(callback)
+    #  display.sigtstp {
+    #    alloc
+    #    render
+    #    display.lrestore_cursor :pause, true
+    #    callback.call if callback
+    #  }
+    # end
 
     # Reduces color if needed (minmal helper function)
     private def _reduce_color(col)
