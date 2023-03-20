@@ -203,25 +203,24 @@ module Crysterm
       # emit e
       # end
 
+      # XXX Why this is done here instead of in enter/leave?
       _listen_keys
       # _listen_mouse # XXX
 
-      enter if alt # Only do clear-screen/full-screen if user wants alternate buffer
+      enter # if alt # Only do clear-screen/full-screen if user wants alternate buffer
       post_enter
 
       spawn render_loop
     end
 
     def enter
-      # TODO make it possible to work without switching the whole
-      # app to alt buffer.
+      # TODO make it possible to work without switching the whole app to alt buffer.
       return if display.tput.is_alt
 
-      if !cursor._set
+      if !@cursor._set
         apply_cursor
       end
 
-      # XXX Livable, but boy no.
       {% if flag? :windows %}
         `cls`
       {% end %}

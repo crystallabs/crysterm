@@ -1,7 +1,7 @@
-diff --git a/lib/widgets/element.js b/lib/widgets/element.js
+diff --git a/blessed/lib/widgets/element.js b/blessed/lib/widgets/element.js
 index 29a783c..084daff 100644
---- a/lib/widgets/element.js
-+++ b/lib/widgets/element.js
+--- a/blessed/lib/widgets/element.js
++++ b/blessed/lib/widgets/element.js
 @@ -2563,6 +2563,16 @@ Element.prototype.screenshot = function(xi, xl, yi, yl) {
    return this.screen.screenshot(xi, xl, yi, yl);
  };
@@ -19,10 +19,10 @@ index 29a783c..084daff 100644
  /**
   * Expose
   */
-diff --git a/test/widget-layout.js b/test/widget-layout.js
+diff --git a/blessed/test/widget-layout.js b/blessed/test/widget-layout.js
 index 46e447b..2e58440 100644
---- a/test/widget-layout.js
-+++ b/test/widget-layout.js
+--- a/blessed/test/widget-layout.js
++++ b/blessed/test/widget-layout.js
 @@ -145,13 +145,14 @@ var box12 = blessed.box({
  });
  

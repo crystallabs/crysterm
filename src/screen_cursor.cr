@@ -4,7 +4,8 @@ module Crysterm
     # module Cursor
     include Macros
 
-    # TODO - temporary until @cursor is moved to widget
+    # TODO - temporary until @cursor is moved to widget. This is extended because
+    # Tput class does not have a property for color.
     class Cursor < Tput::Namespace::Cursor
       property style : Style = Style.new
     end
@@ -16,15 +17,17 @@ module Crysterm
     # Applies current cursor settings in `@cursor` to screen/display
     def apply_cursor
       c = @cursor
-      if c.artificial?
-        render
-      else
-        display.try do |d|
-          c.shape.try { |shape| d.tput.cursor_shape shape, c.blink }
-          # XXX Re-compare with blessed/lib//widgets/screen.js:286
-          c.style.fg.try { |color| d.tput.cursor_color color }
-        end
+      # XXX Maybe checking for artificial makes sense here, but in blessed
+      # it's not done.
+      # if c.artificial?
+      #  render
+      # else
+      display.try do |d|
+        c.shape.try { |shape| d.tput.cursor_shape shape, c.blink }
+        # XXX consider a simpler structure than Style for this?
+        c.style.bg.try { |color| d.tput.cursor_color color }
       end
+      # end
       c._set = true
     end
 

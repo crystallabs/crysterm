@@ -28,7 +28,11 @@ module Crysterm
 
       # Accounts for itself in `@@instances` and does other related work.
       def bind
-        @@instances << self # unless @@instances.includes? self
+        if @@instances.includes? self
+          return
+        end
+
+        @@instances << self
 
         # return if @@_bound
         # @@_bound = true

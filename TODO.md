@@ -14,9 +14,15 @@
 - Review src/widget_rendering.cr
 - Review src/widgets.cr
 
+- Review cursor_shape, cursor_color
+
+- Why Tput has Cursor class, but no field for cursor color?
+
 - Update Screen API so that display is the last arg, like parent in widgets
 
 - Fix a bug where a widget is properly assigned to screen if it has `parent: screen` in initialize options, but not if it's added later with `screen.append(widget)` or `screen<<widget`. (Is it because it installs some event handlers while screen is nil?)
+
+- Check behavior of character blending. Widgets on top should have priority over widgets below. (E.g. if text renders over border, text should be visible, not border)
 
 - When Border.new(0) is used, content does properly begin from offset 0, but does not render in that first column/row so appears missing.
 - Exception happening in examples/chat.cr
