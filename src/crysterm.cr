@@ -105,7 +105,8 @@ module Crysterm
   def self.resize
     ::Crysterm::Display.instances.each do |display|
       display.tput.reset_screen_size
-      display.emit ::Crysterm::Event::Resize
+      # # NOTE Tput#screen should have been called `size` or `screen_size`
+      display.emit ::Crysterm::Event::Resize.new display.tput.screen
     end
   end
 end

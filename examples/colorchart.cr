@@ -5,10 +5,10 @@ include Crysterm
 def draw(s : Screen)
   8.times do |x|
     8.times do |y|
-      s.fill_region(Widget.sattr(Namespace::Style.new, x, y), '0', x, x + 1, (y*2), (y*2) + 1)
-      s.fill_region(Widget.sattr(Namespace::Style.new, x + 8, y), '0', x + 8, x + 8 + 1, (y*2), (y*2) + 1)
-      s.fill_region(Widget.sattr(Namespace::Style.new, x, y + 8), '0', x, x + 1, (y*2) + 1, (y*2) + 2)
-      s.fill_region(Widget.sattr(Namespace::Style.new, x + 8, y + 8), '0', x + 8, x + 8 + 1, (y*2) + 1, (y*2) + 2)
+      s.fill_region(Widget.sattr(Style.new, x, y), '0', x, x + 1, (y*2), (y*2) + 1)
+      s.fill_region(Widget.sattr(Style.new, x + 8, y), '0', x + 8, x + 8 + 1, (y*2), (y*2) + 1)
+      s.fill_region(Widget.sattr(Style.new, x, y + 8), '0', x, x + 1, (y*2) + 1, (y*2) + 2)
+      s.fill_region(Widget.sattr(Style.new, x + 8, y + 8), '0', x + 8, x + 8 + 1, (y*2) + 1, (y*2) + 2)
     end
   end
 end

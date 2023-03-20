@@ -31,6 +31,19 @@ module Crysterm
     # will be created and/or used if it is not provided explicitly.
     property display : Display = Display.global(true)
 
+    # Width and height will be (re)set by push updates from Display
+    property width = 1
+    # :ditto:
+    property height = 1
+
+    # Will be initially inherited from Display
+    getter title : String? = nil
+
+    # :ditto:
+    def title=(@title : String?)
+      @title.try { |t| @display.try &.tput.title = t }
+    end
+
     # Is the focused element grabbing and receiving all keypresses?
     property? grabbing_keys = false
 
@@ -46,10 +59,10 @@ module Crysterm
     # sequences of chars and keys).
 
     # Disabled since it seems unused atm
-    ## XXX Rename to more intuitive name like `hovered_widget` or so. Or even remove since
-    ## why just support one widget only? This looks like application-specific code.
-    ## Current element being hovered over on the screen. Best set only if mouse events are enabled.
-    #@hover : Widget? = nil
+    # # XXX Rename to more intuitive name like `hovered_widget` or so. Or even remove since
+    # # why just support one widget only? This looks like application-specific code.
+    # # Current element being hovered over on the screen. Best set only if mouse events are enabled.
+    # @hover : Widget? = nil
 
     # Which position on the screen should be used to display FPS stats. Nil disables.
     # XXX Currently this is enabled since Crysterm is under development.
@@ -63,21 +76,9 @@ module Crysterm
     # XXX See also a TODO item related to dynamically deciding on default flags.
     property optimization : OptimizationFlag = OptimizationFlag::None
 
-    # Screen title
-    getter title : String? = nil
-
-    # :ditto:
-    def title=(title : String)
-      @display.try &.tput.title=(@title = title)
-    end
-
     # For compatibility with widgets. But, as a side-effect, screens can have padding!
     # If you define widget at position (0,0), that will be counted after padding.
     property padding : Padding?
-
-    # Inner/content positions. These are defined here instead of assumed to all be 0 due to 2 reasons:
-    # - Places where method `parent_or_screen` is called expect these to exist on both types
-    # - And due to future improvement of supporting maybe border and possibly other features on Screens
 
     def ileft
       @padding.try(&.left) || 0
@@ -109,14 +110,16 @@ module Crysterm
       end || 0
     end
 
-    # Returns current screen width.
+    # Returns current screen width. This is now a local operation since we
+    # expect Display to push-update us.
     def awidth
-      display.tput.screen.width
+      @width
     end
 
-    # Returns current screen height.
+    # Returns current screen height. This is now a local operation since we
+    # expect Display to push-update us.
     def aheight
-      display.tput.screen.height
+      @height
     end
 
     # TODO Instead of self, this should just return an object which reports the position.
@@ -140,11 +143,13 @@ module Crysterm
 
     def initialize(
       @display = Display.global(true),
+      @width = @display.width,
+      @height = @display.height,
       @dock_borders = @dock_borders,
       @dock_contrast = @dock_contrast,
       @always_propagate = @always_propagate,
       @propagating_keys = @propagating_keys,
-      title = nil,
+      title = @display.title,
       @cursor = Cursor.new,
       @optimization = @optimization,
       padding = nil,
@@ -168,28 +173,31 @@ module Crysterm
       # Events:
       # addhander,
 
-      if t = title || display.try { |d| d.title } || Display.global.title
-        self.title = t
-      end
+      title.try { |t| self.title = t }
 
-      display.on(Crysterm::Event::Resize) do
+      on(Crysterm::Event::Resize) do |e|
+        e.size.try { |size|
+          @width = size.width
+          @height = size.height
+        }
+
         realloc
         render
 
-        ev_resize = Crysterm::Event::Resize.new
-        # For `self` (`Screen`)
-        emit ev_resize
-        # For children (`Widget`s)
-        emit_descendants ev_resize
+        # For children (`Widget`s). I'd say the size doesn't mean anything to
+        # the child widgets so we remove it. Or well, since it's there let's try
+        # leaving it.
+        # e.size = nil
+        emit_descendants e
       end
 
-      display.on(Crysterm::Event::Focus) do
-        emit Crysterm::Event::Focus
-      end
+      # display.on(Crysterm::Event::Focus) do
+      #  emit Crysterm::Event::Focus
+      # end
 
-      display.on(Crysterm::Event::Blur) do
-        emit Crysterm::Event::Blur
-      end
+      # display.on(Crysterm::Event::Blur) do
+      #  emit Crysterm::Event::Blur
+      # end
 
       # display.on(Crysterm::Event::Warning) do |e|
       # emit e

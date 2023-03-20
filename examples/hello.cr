@@ -6,7 +6,7 @@ class MyProg
   # `Display` is a phyiscal device (terminal hardware or emulator).
   # It can be instantiated manually as shown, or for quick coding it can be
   # skipped and it will be created automatically when needed.
-  d = Display.new
+  d = Display.new title: "Hello, World!"
 
   # `Screen` is a full-screen surface which contains visual elements (Widgets),
   # on which graphics is rendered, and which is then drawn onto the terminal.

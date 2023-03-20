@@ -51,6 +51,7 @@ module Crysterm
       @input = @input,
       @output = @output,
       @error = @error,
+      @title = @title,
       *,
       @width = @width,
       @height = @height,
@@ -59,15 +60,14 @@ module Crysterm
       terminfo : Bool | Unibilium::Terminfo = true,
       @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
     )
-
       terminfo = case terminfo
-                  in true
-                    Unibilium::Terminfo.from_env
-                  in false, nil
-                    nil
-                  in Unibilium::Terminfo
-                    terminfo.as Unibilium::Terminfo
-                  end
+                 in true
+                   Unibilium::Terminfo.from_env
+                 in false, nil
+                   nil
+                 in Unibilium::Terminfo
+                   terminfo.as Unibilium::Terminfo
+                 end
 
       # XXX Should `error` fd be passed to tput as well?
       # (Probably not since we're not initializing anything on the error output?)
@@ -90,6 +90,18 @@ module Crysterm
           # NOTE Can do anything else here, which will execute for every
           # display created
         end
+      end
+
+      # Push resize event to screens assigned to this display. We choose this approach
+      # because it results in less links between the components (as opposed to pull model).
+      on(::Crysterm::Event::Resize) do |e|
+        # XXX Display should have a list of Screens belonging to it. But until that happens
+        # we'll find them manually.
+        Screen.instances.select(&.display.==(self)).try { |screens|
+          screens.each do |scr|
+            scr.emit e
+          end
+        }
       end
     end
 

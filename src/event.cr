@@ -40,7 +40,7 @@ module Crysterm
     event Warning, message : String
 
     # Emitted when screen is resized.
-    event Resize
+    event Resize, size : Tput::Namespace::Size? = nil
 
     # Emitted when object is hidden
     event Hide
