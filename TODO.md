@@ -17,6 +17,8 @@
 
 - Is Widget the right place to have `#sattr` defined under?
 
+- Replace @input with is_a? Input etc.
+
 - In small-tests/shadow.cr -> did the 1 cell of overlapping border stop having blend applied properly?
 
 - See how src/widget_children.cr and src/mixin/children.cr could be more integrated and how Display->Screens and Screen->Widgets could re-use as much of it as possible
