@@ -103,6 +103,7 @@ module Crysterm
       on ::Crysterm::Event::Detach, ->on_detach(::Crysterm::Event::Detach)
       on ::Crysterm::Event::Destroy, ->on_destroy(::Crysterm::Event::Destroy)
 
+      # Emitting in `#exec` is too late. Could do it there, but then also Resize needs to be emitted.
       emit ::Crysterm::Event::Attach, self
     end
 
@@ -145,8 +146,6 @@ module Crysterm
     #
     # This function will render the specified `screen` or the first `Screen` assigned to `Display`.
     def exec(screen : Crysterm::Screen? = nil)
-      emit ::Crysterm::Event::Attach, self
-
       s = screen || Screen.instances.select(&.display.==(self)).try { |screens| screens.first }
 
       if s.display != self
