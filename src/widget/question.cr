@@ -6,8 +6,6 @@ module Crysterm
     class Question < Box
       property text : String = ""
 
-      @visible = false
-
       # TODO Positioning is bad for buttons.
       # Use a layout for buttons.
       # Also, make unlimited number of buttons/choices possible.
@@ -41,6 +39,8 @@ module Crysterm
 )
 
       def initialize(**box)
+        # @style.visible = false # XXX Enable correctly
+
         box["content"]?.try do |c|
           @text = c
         end

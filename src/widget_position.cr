@@ -428,7 +428,7 @@ module Crysterm
     end
 
     def _get_coords(get = false, noscroll = false)
-      unless visible?
+      unless @style.visible?
         return
       end
 

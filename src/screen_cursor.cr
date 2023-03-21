@@ -98,7 +98,7 @@ module Crysterm
       elsif cursor.shape.none?            # XXX "lib/widgets/screen.js:2074 do they check for true, not none here?
         cattr = Widget.sattr cursor.style # XXX and some difference here
         # cattr = Colors.blend attr, cursor.style, (cursor.style.alpha || 0)
-        if cursor.style.bold || cursor.style.underline || cursor.style.blink || cursor.style.inverse || !cursor.style.visible
+        if cursor.style.bold? || cursor.style.underline? || cursor.style.blink? || cursor.style.inverse? || !cursor.style.visible?
           attr &= ~(0x1ff << 18)
           attr |= ((cattr >> 18) & 0x1ff) << 18
         end

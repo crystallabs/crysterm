@@ -25,7 +25,7 @@ module Crysterm
       # This function is logically similar to blessed's.
       # It could be improved/changed in a couple different ways.
 
-      shown = @keyable.count { |el| el.screen && el.visible? }
+      shown = @keyable.count { |el| el.screen && el.style.visible? }
 
       if (shown == 0 || offset == 0)
         return
@@ -40,7 +40,7 @@ module Crysterm
           if (i > @keyable.size - 1)
             i = 0
           end
-          if (!@keyable[i].screen || !@keyable[i].visible?)
+          if (!@keyable[i].screen || !@keyable[i].style.visible?)
             offset += 1
           end
         end
@@ -52,7 +52,7 @@ module Crysterm
           if (i < 0)
             i = @keyable.size - 1
           end
-          if (!@keyable[i].screen || !@keyable[i].visible?)
+          if (!@keyable[i].screen || !@keyable[i].style.visible?)
             offset += 1
           end
         end
@@ -112,7 +112,7 @@ module Crysterm
 
       while @history.size > 0
         el = @history.pop
-        if el.screen && el.visible?
+        if el.screen && el.style.visible?
           @history.push el
           _focus el, old
           return el

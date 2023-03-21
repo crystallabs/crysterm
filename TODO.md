@@ -2,7 +2,6 @@
 
 - Review src/screen_focus.cr
 - Make screen cells grid more efficient. src/screen_rows
-- Review src/widget_children.cr
 - Review src/widget_content.cr
 - Review src/widget.cr
 - Review src/widget_interaction.cr
@@ -12,9 +11,17 @@
 - Review src/widget_rendering.cr
 - Review src/widgets.cr
 
+- Convert style.{5booleans} to ?
+
 - Rename @dattr to @default_attr?
 
 - Is Widget the right place to have `#sattr` defined under?
+
+- See how src/widget_children.cr and src/mixin/children.cr could be more integrated and how Display->Screens and Screen->Widgets could re-use as much of it as possible
+
+- In tech-demo.cr, question "HOT or NOT" had some attributes, now it's flat. See why
+
+- Actions can theoretically be rendered in various forms, as e.g. checkboxes, menu entries, etc. See how to combine this with widget functionality. How does Qt do it?
 
 - Screen#listen_keys function: it serves 2 purposes, both to set up general listening for all keys, and to announce that a certain widget is interested in receiving key events. Split this functionality into 2 distinct parts - one sets up listener, one manages @keyable array.
 

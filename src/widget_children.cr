@@ -2,6 +2,8 @@ module Crysterm
   class Widget < ::Crysterm::Object
     # Widget-specific parts of parent/children functionality
 
+    include Mixin::Children
+
     # Removes node from its parent.
     # This is identical to calling `parent.remove(self)`.
     def remove_from_parent

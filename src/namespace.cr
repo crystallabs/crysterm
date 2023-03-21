@@ -77,6 +77,8 @@ module Crysterm
     property focused : Style { normal }
     property hovered : Style { normal }
     property selected : Style { normal }
+
+    # TODO Add each/each_entry iterators
   end
 
   # Class for the complete style of a widget.
@@ -88,11 +90,11 @@ module Crysterm
     property fg : String?
     property bg : String?
 
-    property bold : Bool = false
-    property underline : Bool = false
-    property blink : Bool = false
-    property inverse : Bool = false
-    property visible : Bool = true
+    property? bold : Bool = false
+    property? underline : Bool = false
+    property? blink : Bool = false
+    property? inverse : Bool = false
+    property? visible : Bool = true
     property alpha : Float64?
 
     property tab_size = 4
@@ -259,11 +261,11 @@ module Crysterm
     # XXX There is some duplication between @style and these 5.
     # They must be present for sattr() to be able to work on the Border object.
     # But on the other hand, it allows these features which do not exist in Blessed.
-    property bold : Bool = false
-    property underline : Bool = false
-    property blink : Bool = false
-    property inverse : Bool = false
-    property visible : Bool = true
+    property? bold : Bool = false
+    property? underline : Bool = false
+    property? blink : Bool = false
+    property? inverse : Bool = false
+    property? visible : Bool = true
 
     property left = 1
     property top = 1

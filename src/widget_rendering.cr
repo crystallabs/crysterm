@@ -710,11 +710,11 @@ module Crysterm
       # D O:
       # return (this.uid << 24)
       #   | ((this.dockBorders ? 32 : 0) << 18)
-      ((style.visible ? 0 : 16) << 18) |
-        ((style.inverse ? 8 : 0) << 18) |
-        ((style.blink ? 4 : 0) << 18) |
-        ((style.underline ? 2 : 0) << 18) |
-        ((style.bold ? 1 : 0) << 18) |
+      ((style.visible? ? 0 : 16) << 18) |
+        ((style.inverse? ? 8 : 0) << 18) |
+        ((style.blink? ? 4 : 0) << 18) |
+        ((style.underline? ? 2 : 0) << 18) |
+        ((style.bold? ? 1 : 0) << 18) |
         (Colors.convert(fg) << 9) |
         Colors.convert(bg)
     end

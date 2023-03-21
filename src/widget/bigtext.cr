@@ -45,7 +45,7 @@ module Crysterm
         super **box
 
         @active = @normal
-        if style.bold
+        if style.bold?
           @active = @bold
         end
       end

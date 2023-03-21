@@ -15,7 +15,6 @@ require "./widget_label"
 
 module Crysterm
   class Widget < ::Crysterm::Object
-    include Mixin::Children
     include Mixin::Pos
     include Mixin::Uid
 
@@ -26,16 +25,15 @@ module Crysterm
     # (This must be defined here rather than in src/mixin/children.cr because classes
     # which have children do not necessarily also have a parent, e.g. `Screen`.)
 
-    # Screen owning this element, forced to non-nil.
+    # Screen owning this element, forced to non-nil at time of access.
     # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
-    # If you just want to test for `Screen`, use `#screen?`.
+    # If you just want to test for screen being set, use `#screen?`.
     property! screen : ::Crysterm::Screen?
 
-    # Screen owning this element, if any.
-    # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
+    # :ditto:
     getter? screen
 
-    # Arbitrary widget name
+    # Arbitrary widget name. This property exists for user convenience; it is not used by Crysterm.
     property name : String?
 
     # XXX FIX by removing at some point
@@ -44,8 +42,10 @@ module Crysterm
     # inheriting from List.
     property _is_list = false
 
+    # Current state of Widget
     getter state = WidgetState::Normal
 
+    # :ditto:
     def state=(state : WidgetState)
       @state = state
       @style = case state
@@ -62,12 +62,20 @@ module Crysterm
                end
     end
 
+    # List of styles corresponding to different widget states.
+    #
+    # Only one style, `normal` is initialized by default, others default to it if `nil`.
     property styles : Styles = Styles.default
 
+    # Current style being (or to be) applied during rendering.
+    # This variable is managed by Crysterm and points to currently valid/active style.
+    # Therefore it is kept in sync (modified together) with `Widget#state`.
+    # It is a reference to current style, and editing the style through this reference has not been prevented.
+    # Thus, editing `style` will edit whatever object's `style` is pointing to.
+    # But note: if widget is e.g. in state `focused` but no special style for focus was defined,
+    # widget will render use style `normal`. Editing `style` while widget is in that state
+    # will then actually edit the state for `normal`, not `focused`.
     property style : Style # = Style.new # Placeholder
-
-    # Is element hidden? Hidden elements are not rendered on the screen and their dimensions don't use screen space.
-    setter visible = true
 
     # Storage for any user-controlled/miscellaneous data.
     property data : JSON::Any?
@@ -88,7 +96,7 @@ module Crysterm
       @height = nil,
       @resizable = false,
 
-      @visible = true,
+      visible = nil,
       @fixed = false,
       @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
       @overflow : Overflow = Overflow::Ignore,
@@ -126,6 +134,7 @@ module Crysterm
       scrollable.try { |v| @scrollable = v }
       track.try { |v| @track = v }
       input.try { |v| @input = v }
+      visible.try { |v| @style.visible = v }
 
       # This just defines which Screen it is all linked to.
       # (Until we make `screen` fully optional)
@@ -311,16 +320,16 @@ module Crysterm
 
     # Shows widget on screen
     def show
-      return if visible?
-      @visible = false
+      return if @style.visible?
+      @style.visible = true
       emit Crysterm::Event::Show
     end
 
     # Hides widget from screen
     def hide
-      return unless visible?
+      return if !@style.visible?
       clear_last_rendered_position
-      @visible = false
+      @style.visible = false
       emit Crysterm::Event::Hide
 
       screen.try do |s|
@@ -331,20 +340,14 @@ module Crysterm
 
     # Toggles widget visibility
     def toggle_visibility
-      @visible ? hide : show
+      @style.visible? ? hide : show
     end
 
     # Returns whether widget is visible. It also checks the complete chain of widget parents.
     def visible?
-      # TODO Revert back to chained lookup eventually
-      @visible
-      # el = self
-      # while el
-      #  return false unless el.screen
-      #  return false unless el.visible?
-      #  el = el.parent
-      # end
-      # true
+      visible = true
+      self_and_each_ancestor { |a| visible &= a.style.visible? }
+      visible
     end
 
     def determine_screen
