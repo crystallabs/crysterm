@@ -45,7 +45,7 @@ module Crysterm
     property? visible = true
 
     def initialize(
-      @parent : Crysterm::Object? = nil
+      @parent : EventHandler? = nil
       # NOTE Passing a block directly to the initializer would be convenient, but because
       # it also requires specifying which event to trigger on (thus adding 2 new params),
       # it gets unwieldy quickly. So let's stay with basic interface.
@@ -58,7 +58,7 @@ module Crysterm
 
     def initialize(
       @text,
-      @parent : Crysterm::Object? = nil
+      @parent : EventHandler? = nil
     )
     end
 

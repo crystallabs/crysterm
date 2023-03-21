@@ -1,5 +1,5 @@
 module Crysterm
-  class Widget < ::Crysterm::Object
+  class Widget
     # module Interaction
 
     property? interactive = false

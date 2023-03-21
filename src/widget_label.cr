@@ -1,5 +1,5 @@
 module Crysterm
-  class Widget < ::Crysterm::Object
+  class Widget
     # Label, if present is kind of object title/text appearing in the first
     # line, similar to a label/title in Qt's QFrame.
     # Usually this means you will want the widget to have a padding or border,

@@ -1,5 +1,5 @@
 module Crysterm
-  class Widget < ::Crysterm::Object
+  class Widget
     # Methods related to 3D position (X, Y, and Z which is the stacking / render order)
 
     # User-defined left

@@ -1,5 +1,5 @@
 module Crysterm
-  class Widget < ::Crysterm::Object
+  class Widget
     # Is element scrollable?
     property? scrollable = false
 

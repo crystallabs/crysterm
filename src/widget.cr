@@ -14,9 +14,11 @@ require "./widget_interaction"
 require "./widget_label"
 
 module Crysterm
-  class Widget < ::Crysterm::Object
-    include Mixin::Pos
+  class Widget
+    include EventHandler
+    include Mixin::Name
     include Mixin::Uid
+    include Mixin::Pos
     include Mixin::Style
 
     @auto_padding = true
@@ -34,9 +36,6 @@ module Crysterm
     # :ditto:
     getter? screen
 
-    # Arbitrary widget name. This property exists for user convenience; it is not used by Crysterm.
-    property name : String?
-
     # XXX FIX by removing at some point
     # Used only for lists. The reason why it hasn't been replaced with is_a?(List)
     # already is because maybe someone would want this to be true even if not
@@ -51,7 +50,6 @@ module Crysterm
       *,
 
       @name = nil,
-      @uid = next_uid,
       @screen = @screen,
 
       @left = nil,

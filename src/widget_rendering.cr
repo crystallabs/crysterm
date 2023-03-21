@@ -1,5 +1,5 @@
 module Crysterm
-  class Widget < ::Crysterm::Object
+  class Widget
     # module Rendering
     include Crystallabs::Helpers::Alias_Methods
 

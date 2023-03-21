@@ -1,5 +1,5 @@
 module Crysterm
-  class Widget < ::Crysterm::Object
+  class Widget
     # Widget-specific parts of parent/children functionality
 
     include Mixin::Children

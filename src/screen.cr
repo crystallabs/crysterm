@@ -17,7 +17,7 @@ module Crysterm
   # Represents a screen.
   class Screen
     include EventHandler
-
+    include Mixin::Name
     include Mixin::Pos
     include Mixin::Children
     include Mixin::Instances

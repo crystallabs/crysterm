@@ -7,10 +7,10 @@ module Crysterm
     include EventHandler
 
     # Emitted when widget is attached to a screen directly or somewhere in its ancestry
-    event Attach, screen : Screen?
+    event Attach, object : EventHandler
 
     # Emitted when widget is detached from a screen directly or somewhere in its ancestry
-    event Detach, screen : Screen?
+    event Detach, object : EventHandler
 
     # Emitted when widget gains a new parent
     event Reparent, widget : Widget?

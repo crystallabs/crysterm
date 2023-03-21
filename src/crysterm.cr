@@ -11,8 +11,6 @@ require "./display"
 require "./helpers"
 require "./colors"
 
-require "./object"
-
 require "./mixin/*"
 
 require "./action"
@@ -44,15 +42,11 @@ require "./widgets"
 # t = Text.new content: "Hello, World!"
 # ```
 module Crysterm
-  # Amount of time to wait before redrawing the screen, after the last successive terminal resize event is received.
-  #
-  # The value used in Qt is 0.3 seconds.
-  # The value commonly used in console apps is 0.2 seconds.
-  # Yet another choice could be the frame rate, i.e. 1/29 seconds.
-  #
-  # This ensures the resizing/redrawing is done only once, once resizing is over.
-  # To have redraws happen even while resizing is going on, reduce this interval.
-  class_property resize_interval : Time::Span = 0.2.seconds
+  class GlobalEventsClass
+    include EventHandler
+  end
+
+  GlobalEvents = GlobalEventsClass.new
 
   # TODO Should all of these run a proper exit sequence, instead of just exit ad-hoc?
   # (Currently we just call `exit` and count on `at_exit` handlers being invoked, but they
@@ -66,47 +60,13 @@ module Crysterm
   Signal::KILL.trap do
     exit
   end
+  Signal::WINCH.trap do
+    # XXX IIRC, urwid has an additional method of tracking resizes. Check it out and add
+    # additional support here if necessary.
+    GlobalEvents.emit Event::Resize
+  end
+
   at_exit do
     Display.instances.each &.destroy
-  end
-
-  # The rest of code here is related to handling resize events
-
-  # Listens for WINCH signal
-  # XXX IIRC, urwid has an additional method of tracking resizes. Check it out and add
-  # additional support here if necessary.
-  Signal::WINCH.trap do
-    schedule_resize
-  end
-
-  # Schedules `@@resize_fiber` to run at now + `@@resize_interval`. Repeated invocations
-  # (before the interval has elapsed) have the desirable effect of re-starting the timer.
-  private def self.schedule_resize
-    @@resize_fiber.try &.timeout(@@resize_interval)
-  end
-
-  # :nodoc:
-  @@resize_fiber = Fiber.new "resize_loop" { resize_loop }
-
-  # :nodoc:
-  # TODO Will this be affected when we move all GUI actions happening in a single thread?
-  def self.resize_loop
-    loop do
-      resize
-      sleep
-    end
-  end
-
-  # Re-reads current size of all `Display`s and triggers redraw of all `Screen`s.
-  #
-  # NOTE There is currently no detection for which `Display` the resize has
-  # happened on, so a resize in any one managed display causes an update and
-  # redraw of all displays.
-  def self.resize
-    ::Crysterm::Display.instances.each do |display|
-      display.tput.reset_screen_size
-      # # NOTE Tput#screen should have been called `size` or `screen_size`
-      display.emit ::Crysterm::Event::Resize.new display.tput.screen
-    end
   end
 end
