@@ -357,8 +357,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - Implementation of `clean_tags` and `strip_tags` has been switched, for better/more-intuitive naming in Crystal
 - The following variables were renamed to more intuitive variants:
   - `_listened_keys` = `_listening_keys?`
-  - `grab_keys` = `grabbing_keys?`
-  - `lock_keys` = `!propagating_keys?`
+  - `lock_keys` = `!propagate_keys?`
   - `ignore_locked` = `always_propagate`
 
 List of current bugs / quirks in Crysterm, in no particular order:

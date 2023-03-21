@@ -60,7 +60,7 @@ module Crysterm
         set_content @text || @orig_text
 
         # XXX We don't want to do this? (Blessed does it)
-        # @screen.propagating_keys = false
+        # @screen.propagate_keys = false
 
         @spinner = Fiber.new {
           loop do
@@ -77,7 +77,7 @@ module Crysterm
 
       def stop
         # XXX We don't want to do this? (Blessed does it)
-        # @screen.propagating_keys = true
+        # @screen.propagate_keys = true
         hide
         @should_exit = true
         @text = nil

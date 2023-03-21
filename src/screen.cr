@@ -44,15 +44,15 @@ module Crysterm
       @title.try { |t| @display.try &.tput.title = t }
     end
 
-    # Is the focused element grabbing and receiving all keypresses?
-    property? grabbing_keys = false
+    # Is the focused element grab and receiving all keypresses?
+    property? grab_keys = false
 
     # Are keypresses being propagated further, or (except ignored ones) not propagated?
-    property? propagating_keys = true
+    property? propagate_keys = true
 
     # Array of keys to ignore when keys are locked or grabbed. Useful for defining
     # keys that will always execute their action (e.g. exit a program) regardless of
-    # whether keys are propagating.
+    # whether keys are propagate.
     property always_propagate = Array(Tput::Key).new
     # XXX Maybe in the future this would not be just `Tput::Key`s (which indicate
     # special keys), but also chars (ordinary letters) as well as sequences (arbitrary
@@ -151,7 +151,7 @@ module Crysterm
       @dock_borders = @dock_borders,
       @dock_contrast = @dock_contrast,
       @always_propagate = @always_propagate,
-      @propagating_keys = @propagating_keys,
+      @propagate_keys = @propagate_keys,
       title = @display.title,
       @cursor = Cursor.new,
       @optimization = @optimization,
@@ -500,35 +500,35 @@ module Crysterm
       # They are now:
       # screen, element and el's parents until one #accept!s it.
       # After the first keypress emitted, the handler
-      # checks to make sure grabbing_keys, propagating_keys, and focused
+      # checks to make sure grab_keys, propagate_keys, and focused
       # weren't changed, and handles those situations appropriately.
 
       display.on(Crysterm::Event::KeyPress) do |e|
-        # If we're not propagating keys and the key is not on always-propagate
+        # If we're not propagate keys and the key is not on always-propagate
         # list, we're done.
-        if !@propagating_keys && !@always_propagate.includes?(e.key)
+        if !@propagate_keys && !@always_propagate.includes?(e.key)
           next
         end
 
-        # XXX the role of `grabbing_keys` is a little unclear. It makes sense that
+        # XXX the role of `grab_keys` is a little unclear. It makes sense that
         # enabling it would not emit/announce keys. It could be thought of like:
-        # - propagating_keys=false -> stops key handling
-        # - grabbing_keys=true     -> does handle keys, but grabs them, doesn't pass on
-        # But this doesn't seem to be the case because, grabbing_keys can be true,
+        # - propagate_keys=false -> stops key handling
+        # - grab_keys=true     -> does handle keys, but grabs them, doesn't pass on
+        # But this doesn't seem to be the case because, grab_keys can be true,
         # but if it is, there is no code that processes it in any way internally.
         # Maybe the code/hook is missing where all keys are passed onto the widget
-        # grabbing them?
+        # grab them?
 
-        grabbing_keys = @grabbing_keys
-        # If key grabbing is not active, or key is whitelisted, announce it.
+        grab_keys = @grab_keys
+        # If key grab is not active, or key is whitelisted, announce it.
         # NOTE See implementation of emit_key --> it emits both the generic key
         # press event as well as a specific key event, if one exists.
-        if !grabbing_keys || @always_propagate.includes?(e.key)
+        if !grab_keys || @always_propagate.includes?(e.key)
           emit_key self, e
         end
 
         # If something changed from the screen key handler, stop.
-        if (@grabbing_keys != grabbing_keys) || !@propagating_keys || e.accepted?
+        if (@grab_keys != grab_keys) || !@propagate_keys || e.accepted?
           next
         end
 
