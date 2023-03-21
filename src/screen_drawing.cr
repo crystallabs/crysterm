@@ -2,25 +2,34 @@ module Crysterm
   class Screen
     # Things related to drawing (displaying rendered state to display)
 
+    # Any prefix we want the final buffer to have
     @_buf = IO::Memory.new
-    property _ci = -1
 
+    # Final buffer of data to print to screen. Contains content and escape sequences
+    # needed to make the screen look like desired by user.
+    @main : IO::Memory = IO::Memory.new 10_240 * 10
+
+    # Temporary buffer for content and escape sequences for each individual row.
     @outbuf : IO::Memory = IO::Memory.new 10_240
-    @main : IO::Memory = IO::Memory.new 10_240
+
+    # Even more temporary buffer, for parts of row.
+    @tmpbuf : IO::Memory = IO::Memory.new 64
+
+    # From rendering:
+    # @lines - Grid of desired cell contents in memory, the "framebuffer"
+
+    property _ci = -1
 
     @pre = IO::Memory.new 1024
     @post = IO::Memory.new 1024
 
-    # Draws the screen based on the contents of the output buffer.
+    # Draws the screen based on the contents of in-memory grid of cells (`@lines`).
     def draw(start = 0, stop = @lines.size - 1)
       # D O:
       # emit Event::PreDraw
-      # x , y , line , out , ch , data , attr , fg , bg , flags
-      # pre , post
-      # clr , neq , xx
-      # acs
+
       @main.clear
-      @outbuf.clear
+      # @outbuf.clear # Done below, for every line (`y`)
       lx = -1
       ly = -1
       acs = false
@@ -33,43 +42,58 @@ module Crysterm
 
       Log.trace { "Drawing #{start}..#{stop}" }
 
+      c = cursor
+
+      # For all rows (y = row coordinate)
       (start..stop).each do |y|
+        # Current line we're looking at, which we'll possibly modify (array of cells)
         line = @lines[y]
+
+        # Original line, as it was in the previous render
         o = @olines[y]
+
         # Log.trace { line } if line.any? &.char.!=(' ')
 
-        if (!line.dirty && !(cursor.artificial? && (y == display.tput.cursor.y)))
+        # Skip if no change in line
+        if (!line.dirty && !(c.artificial? && (y == display.tput.cursor.y)))
           next
         end
+
+        # We're processing this line, so mark it as not dirty now.
         line.dirty = false
 
-        # Assume line is dirty by continuing: (XXX need to optimize)
+        # Assume line is dirty by continuing:
+        # XXX maybe need to optimize to draw only dirty parts, not the whole line?
 
         @outbuf.clear
 
+        # Default attr code
         attr = @dattr
 
+        # For all cells in row (x = column coordinate)
         line.size.times do |x|
-          data = line[x].attr
-          ch = line[x].char
+          # Desired attr code and char
+          desired_attr = line[x].attr
+          desired_char = line[x].char
 
-          c = cursor
           # Render the artificial cursor.
           if (c.artificial? && !c._hidden && (c._state != 0) && (x == display.tput.cursor.x) && (y == display.tput.cursor.y))
-            data, ch = _artificial_cursor_attr(c, data)
+            desired_attr, tmpch = _artificial_cursor_attr(c, desired_attr)
+            desired_char = tmpch if tmpch
+            # XXX Is this needed:
           end
 
           # Take advantage of xterm's back_color_erase feature by using a
           # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
           # the bg for non BCE terminals worth the overhead?
-          if (@optimization.bce? && (ch == ' ') &&
-             (display.tput.has?(&.back_color_erase?) || (data & 0x1ff) == (@dattr & 0x1ff)) &&
-             (((data >> 18) & 8) == ((@dattr >> 18) & 8)))
+          if (@optimization.bce? && (desired_char == ' ') &&
+             (display.tput.has?(&.back_color_erase?) || ((desired_attr & 0x1ff) == (@dattr & 0x1ff))) &&
+             (((desired_attr >> 18) & 8) == ((@dattr >> 18) & 8)))
             clr = true
-            neq = false
+            neq = false # Current line 'not equal' to line as it was on previous render (i.e. it changed content)
 
             (x...line.size).each do |xx|
-              if line[xx] != {data, ' '}
+              if line[xx] != {desired_attr, ' '}
                 clr = false
                 break
               end
@@ -78,17 +102,18 @@ module Crysterm
               end
             end
 
-            if (clr && neq)
+            # Seems like this block performs clearing of a line, if it's not clear but needs to be
+            if clr && neq
               lx = -1
               ly = -1
-              if (data != attr)
-                @outbuf.print code2attr(data)
-                attr = data
+              if attr != desired_attr
+                attr = desired_attr
+                @outbuf.print code2attr attr
               end
 
-              # ### Temporarily diverts output. ####
-              # XXX See if it causes problems when multithreaded or something?
-              (display.tput.ret = IO::Memory.new).try do |ret|
+              # ### XXX Temporarily diverts output. #### Needs a better solution than this.
+              @tmpbuf.clear
+              (display.tput.ret = @tmpbuf).try do |ret|
                 display.tput.cup(y, x)
                 display.tput.el
                 @outbuf.print ret.rewind.gets_to_end
@@ -97,9 +122,10 @@ module Crysterm
               #### #### ####
 
               (x...line.size).each do |xx|
-                o[xx].attr = data
+                o[xx].attr = desired_attr
                 o[xx].char = ' '
               end
+
               break
             end
 
@@ -111,9 +137,9 @@ module Crysterm
             # #if (display.tput.strings.erase_chars)
             # if (!clr && neq && (xx - x) > 10)
             #   lx = -1; ly = -1
-            #   if (data != attr)
-            #     @outbuf.print code2attr(data)
-            #     attr = data
+            #   if (desired_attr != attr)
+            #     @outbuf.print code2attr(desired_attr)
+            #     attr = desired_attr
             #   end
             #   @outbuf.print display.tput.cup(y, x)
             #   if (display.tput.strings.erase_chars)
@@ -127,7 +153,7 @@ module Crysterm
             #   else
             #     @outbuf.print display.tput.cup(y, xx)
             #   end
-            #   fill_region(data, ' ', x, display.tput.strings.erase_chars ? xx : line.length, y, y + 1)
+            #   fill_region(desired_attr, ' ', x, display.tput.strings.erase_chars ? xx : line.length, y, y + 1)
             #   x = xx - 1
             #   next
             # end
@@ -140,7 +166,7 @@ module Crysterm
             #     end
             #   end
             #   if !neq
-            #     attr = data
+            #     attr = desired_attr
             #     break
             #   end
             # end
@@ -148,16 +174,15 @@ module Crysterm
 
           # Optimize by comparing the real output
           # buffer to the pending output buffer.
-          # TODO Avoid using Strings
           o[x]?.try do |ox|
-            if ox == {data, ch}
-              if (lx == -1)
+            if ox == {desired_attr, desired_char}
+              if lx == -1
                 lx = x
                 ly = y
               end
               next
-            elsif (lx != -1)
-              if (s.parm_right_cursor?)
+            elsif lx != -1
+              if s.parm_right_cursor?
                 @outbuf.write((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
               else
                 @outbuf.write s.cup(y, x)
@@ -165,25 +190,26 @@ module Crysterm
               lx = -1
               ly = -1
             end
-            ox.attr = data
-            ox.char = ch
+            ox.attr = desired_attr
+            ox.char = desired_char
           end
 
-          if (data != attr)
-            if (attr != @dattr)
+          if desired_attr != attr
+            if attr != @dattr
               @outbuf.print "\e[m"
             end
-            if (data != @dattr)
+            if desired_attr != @dattr
               @outbuf.print "\e["
 
-              # This will keep track whether any of the attrs were
-              # written into the buffer. If they were, then we'll seek
-              # to (current_pos)-1 to delete the last ';'
+              # This will keep track whether any of the attrs were written into the
+              # buffer. If they were (if size in the end is greater than size
+              # recorded now) then we'll seek to (current_pos)-1 to delete the last ';'
               outbuf_size = @outbuf.size
 
-              bg = data & 0x1ff
-              fg = (data >> 9) & 0x1ff
-              flags = data >> 18
+              bg = desired_attr & 0x1ff
+              fg = (desired_attr >> 9) & 0x1ff
+
+              flags = desired_attr >> 18
               # bold
               if ((flags & 1) != 0)
                 @outbuf.print "1;"
@@ -264,7 +290,7 @@ module Crysterm
           #    if (x == line.length - 1 || angles[line[x + 1].char])
           #      # If we're at the end, we don't have enough space for a
           #      # double-width. Overwrite it with a space and ignore.
-          #      ch = ' '
+          #      desired_char = ' '
           #      o[x].char = '\0'
           #    else
           #      # ALWAYS refresh double-width chars because this special cursor
@@ -298,28 +324,32 @@ module Crysterm
           # case that the contents of the IF/ELSE block change in incompatible
           # way, this should be had in mind.
           if s
-            if (s.enter_alt_charset_mode? && !display.tput.features.broken_acs? && (display.tput.features.acscr[ch]? || acs))
+            if (s.enter_alt_charset_mode? && !display.tput.features.broken_acs? && (display.tput.features.acscr[desired_char]? || acs))
               # Fun fact: even if display.tput.brokenACS wasn't checked here,
               # the linux console would still work fine because the acs
-              # table would fail the check of: display.tput.features.acscr[ch]
-              # TODO This is nasty. Char gets changed to string
-              # when sm/rm is added to the stream.
-              if (display.tput.features.acscr[ch]?)
-                if (acs)
-                  ch = display.tput.features.acscr[ch]
+              # table would fail the check of: display.tput.features.acscr[desired_char]
+              if display.tput.features.acscr[desired_char]?
+                if acs
+                  desired_char = display.tput.features.acscr[desired_char]
                 else
+                  # This method of doing it (like blessed does it) is nasty
+                  # since char gets changed to string when sm/rm escape
+                  # sequence is added to it:
                   # sm = String.new s.smacs
-                  # ch = sm + display.tput.features.acscr[ch]
-                  # Instead, just print prefix and set new char:
+                  # desired_char = sm + display.tput.features.acscr[desired_char]
+                  #
+                  # So instead of that, print smacs into outbuf (line buffer), and
+                  # just set char to the desired char, knowing that it will be
+                  # printed into outbuf at the end of the loop thanks to generic code.
                   @outbuf.write s.smacs
-                  ch = display.tput.features.acscr[ch]
-
+                  desired_char = display.tput.features.acscr[desired_char]
                   acs = true
                 end
               elsif acs
+                # Same trick as above, not this:
                 # rm = String.new s.rmacs
-                # ch = rm + ch
-                # Instead, similar as above:
+                # desired_char = rm + desired_char
+                # But this:
                 @outbuf.write s.rmacs
                 acs = false
               end
@@ -334,20 +364,20 @@ module Crysterm
             # like sun-color.
             # Note: It could be the case that the $LANG
             # is all that matters in some cases:
-            # if (!display.tput.unicode && ch > '~') {
-            if (!display.tput.features.unicode? && (display.tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (ch > '~'))
+            # if (!display.tput.unicode && desired_char > '~') {
+            if (!display.tput.features.unicode? && (display.tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (desired_char > '~'))
               # Reduction of ACS into ASCII chars.
-              ch = Tput::ACSC::Data[ch]?.try(&.[2]) || '?'
+              desired_char = Tput::ACSC::Data[desired_char]?.try(&.[2]) || '?'
             end
           end
 
           # Now print the char itself.
-          @outbuf.print ch
+          @outbuf.print desired_char
 
-          attr = data
+          attr = desired_attr
         end
 
-        if (attr != @dattr)
+        if attr != @dattr
           @outbuf.print "\e[m"
         end
 
@@ -368,7 +398,9 @@ module Crysterm
         @post.clear
         hidden = display.tput.cursor_hidden?
 
-        (display.tput.ret = IO::Memory.new).try do |ret|
+        @tmpbuf.clear
+
+        (display.tput.ret = @tmpbuf).try do |ret|
           display.tput.save_cursor
           if !hidden
             hide_cursor
@@ -378,7 +410,9 @@ module Crysterm
           display.tput.ret = nil
         end
 
-        (display.tput.ret = IO::Memory.new).try do |ret|
+        @tmpbuf.clear
+
+        (display.tput.ret = @tmpbuf).try do |ret|
           display.tput.restore_cursor
           if !hidden
             show_cursor

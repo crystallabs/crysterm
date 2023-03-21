@@ -1,6 +1,5 @@
 # TODOs, Most Important First
 
-- Review src/screen_drawing.cr
 - Review src/screen_focus.cr
 - Make screen cells grid more efficient. src/screen_rows
 - Review src/widget_children.cr
@@ -12,6 +11,10 @@
 - Review src/widget_scrolling.cr
 - Review src/widget_rendering.cr
 - Review src/widgets.cr
+
+- Rename @dattr to @default_attr?
+
+- Is Widget the right place to have `#sattr` defined under?
 
 - Screen#listen_keys function: it serves 2 purposes, both to set up general listening for all keys, and to announce that a certain widget is interested in receiving key events. Split this functionality into 2 distinct parts - one sets up listener, one manages @keyable array.
 

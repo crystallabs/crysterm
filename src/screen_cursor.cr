@@ -82,10 +82,7 @@ module Crysterm
     alias_previous reset_cursor
 
     # :nodoc:
-    def _artificial_cursor_attr(cursor, dattr = nil)
-      attr = dattr || @dattr
-      # cattr
-      # ch
+    def _artificial_cursor_attr(cursor, attr = @dattr)
       if cursor.shape.line?
         attr &= ~(0x1ff << 9)
         attr |= 7 << 9
@@ -98,8 +95,8 @@ module Crysterm
         attr &= ~(0x1ff << 9)
         attr |= 7 << 9
         attr |= 8 << 18
-      elsif cursor.shape.none?
-        cattr = Widget.sattr cursor.style
+      elsif cursor.shape.none?            # XXX "lib/widgets/screen.js:2074 do they check for true, not none here?
+        cattr = Widget.sattr cursor.style # XXX and some difference here
         # cattr = Colors.blend attr, cursor.style, (cursor.style.alpha || 0)
         if cursor.style.bold || cursor.style.underline || cursor.style.blink || cursor.style.inverse || !cursor.style.visible
           attr &= ~(0x1ff << 18)
@@ -125,7 +122,7 @@ module Crysterm
       end
 
       # Cell.new attr: attr, char: ch || ' '
-      {attr, ch || ' '}
+      {attr, ch}
     end
 
     # Shows cursor
