@@ -17,6 +17,7 @@ module Crysterm
   class Widget < ::Crysterm::Object
     include Mixin::Pos
     include Mixin::Uid
+    include Mixin::Style
 
     @auto_padding = true
 
@@ -42,41 +43,6 @@ module Crysterm
     # inheriting from List.
     property _is_list = false
 
-    # Current state of Widget
-    getter state = WidgetState::Normal
-
-    # :ditto:
-    def state=(state : WidgetState)
-      @state = state
-      @style = case state
-               in .normal?
-                 @styles.normal
-               in .focused?
-                 @styles.focused
-               in .selected?
-                 @styles.selected
-               in .hovered?
-                 @styles.hovered
-               in .blurred?
-                 @styles.blurred
-               end
-    end
-
-    # List of styles corresponding to different widget states.
-    #
-    # Only one style, `normal` is initialized by default, others default to it if `nil`.
-    property styles : Styles = Styles.default
-
-    # Current style being (or to be) applied during rendering.
-    # This variable is managed by Crysterm and points to currently valid/active style.
-    # Therefore it is kept in sync (modified together) with `Widget#state`.
-    # It is a reference to current style, and editing the style through this reference has not been prevented.
-    # Thus, editing `style` will edit whatever object's `style` is pointing to.
-    # But note: if widget is e.g. in state `focused` but no special style for focus was defined,
-    # widget will render use style `normal`. Editing `style` while widget is in that state
-    # will then actually edit the state for `normal`, not `focused`.
-    property style : Style # = Style.new # Placeholder
-
     # Storage for any user-controlled/miscellaneous data.
     property data : JSON::Any?
 
@@ -101,8 +67,6 @@ module Crysterm
       @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
       @overflow : Overflow = Overflow::Ignore,
 
-      @style = @styles.normal,
-
       @scrollbar = false,
       # TODO Make it configurable which side it appears on etc.
       track = nil, # Only has effect within scrollbar
@@ -123,18 +87,21 @@ module Crysterm
       @focus_on_click = true,
       @keys = false,
       input = nil,
+      style = nil,
 
       # Final, misc settings
       @index = -1,
       children = [] of Widget,
-      @tabc = (" " * style.tab_size)
+      tabc = nil
     )
       # $ = _ = JSON/YAML::Any
 
+      style.try { |v| @style = v }
       scrollable.try { |v| @scrollable = v }
       track.try { |v| @track = v }
       input.try { |v| @input = v }
-      visible.try { |v| @style.visible = v }
+      visible.try { |v| self.style.visible = v }
+      @tabc = tabc || (" " * self.style.tab_size)
 
       # This just defines which Screen it is all linked to.
       # (Until we make `screen` fully optional)
@@ -320,16 +287,16 @@ module Crysterm
 
     # Shows widget on screen
     def show
-      return if @style.visible?
-      @style.visible = true
+      return if self.style.visible?
+      self.style.visible = true
       emit Crysterm::Event::Show
     end
 
     # Hides widget from screen
     def hide
-      return if !@style.visible?
+      return if !self.style.visible?
       clear_last_rendered_position
-      @style.visible = false
+      self.style.visible = false
       emit Crysterm::Event::Hide
 
       screen.try do |s|
@@ -340,7 +307,7 @@ module Crysterm
 
     # Toggles widget visibility
     def toggle_visibility
-      @style.visible? ? hide : show
+      self.style.visible? ? hide : show
     end
 
     # Returns whether widget is visible. It also checks the complete chain of widget parents.

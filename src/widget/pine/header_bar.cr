@@ -20,10 +20,10 @@ module Crysterm
           @style_pl2 = Style.new inverse: true, padding: Padding.new(left: 2)
           @style_pr2 = Style.new inverse: true, padding: Padding.new(right: 2)
 
-          # @title =      title ||      Widget::Box.new height: h, style: @style, width: 16, padding: Padding.new( left: 2, right: 2), content: "TITLE"
-          # @section =    section ||    Widget::Box.new height: h, style: @style, width: "50%-16", content: "SECTION"
-          # @subsection = subsection || Widget::Box.new height: h, style: @style, width: "50%-16", content: "SUBSECTION"
-          # @info =       info ||     Widget::Box.new height: h, style: @style, width: 16, padding: Padding.new( left: 2, right: 2), content: "STATUS", align: Tput::AlignFlag::Right
+          # @title =      title ||      Widget::Box.new height: h, style: style, width: 16, padding: Padding.new( left: 2, right: 2), content: "TITLE"
+          # @section =    section ||    Widget::Box.new height: h, style: style, width: "50%-16", content: "SECTION"
+          # @subsection = subsection || Widget::Box.new height: h, style: style, width: "50%-16", content: "SUBSECTION"
+          # @info =       info ||     Widget::Box.new height: h, style: style, width: 16, padding: Padding.new( left: 2, right: 2), content: "STATUS", align: Tput::AlignFlag::Right
           @title = Widget::Box.new height: h, align: Tput::AlignFlag::VCenter, style: @style_pl2, width: 16, content: title_content
           @section = Widget::Box.new height: h, align: Tput::AlignFlag::VCenter, style: @style, width: "50%-16", content: section_content
           @subsection = Widget::Box.new height: h, align: Tput::AlignFlag::VCenter, style: @style, width: "50%-16", content: subsection_content

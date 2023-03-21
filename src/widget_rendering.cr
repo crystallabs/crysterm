@@ -97,7 +97,7 @@ module Crysterm
 
       @lpos = coords
 
-      @style.border.try do |border|
+      style.border.try do |border|
         if border.type.line?
           screen._border_stops[coords.yi] = true
           screen._border_stops[coords.yl - 1] = true
@@ -126,8 +126,8 @@ module Crysterm
       end
 
       # TODO See if these 4 values could be packed somehow to just replace individual
-      # settings with the usual: @style.border.try &.adjust(pos) ?
-      @style.border.try do |border|
+      # settings with the usual: style.border.try &.adjust(pos) ?
+      style.border.try do |border|
         xi += border.left
         xl -= border.right
         yi += border.top
@@ -138,7 +138,7 @@ module Crysterm
       # content-drawing loop will skip a few cells/lines.
       # To deal with this, we can just fill the whole thing
       # ahead of time. This could be optimized.
-      if @style.padding || !@align.top?
+      if style.padding || !@align.top?
         if alpha = style.alpha
           (Math.max(yi, 0)...yl).each do |y|
             if !lines[y]?
@@ -159,7 +159,7 @@ module Crysterm
         end
       end
 
-      @style.padding.try do |padding|
+      style.padding.try do |padding|
         xi += padding.left
         xl -= padding.right
         yi += padding.top
@@ -332,7 +332,7 @@ module Crysterm
 
         if ((yl - yi) < i)
           x = xl - 1
-          sbr = @style.border.try(&.right) || 0
+          sbr = style.border.try(&.right) || 0
           if style.scrollbar.ignore_border? && (sbr > 0)
             x += 1 # TODO Should this be sbr ?
           end
@@ -350,7 +350,7 @@ module Crysterm
           # Is there any better way to handle?
           lines[y]?.try(&.[x]?).try do |cell|
             if @track
-              ch = @style.track.char # || ' '
+              ch = style.track.char # || ' '
               attr = sattr style.track, style.track.fg, style.track.bg
               screen.fill_region attr, ch, x, x + 1, yi, yl
             end
@@ -366,15 +366,15 @@ module Crysterm
       end
 
       # TODO See if these 4 values could be packed somehow to just replace individual
-      # settings with the usual: @style.border.try &.adjust(pos, -1) ?
-      @style.border.try do |border|
+      # settings with the usual: style.border.try &.adjust(pos, -1) ?
+      style.border.try do |border|
         xi -= border.left
         xl += border.right
         yi -= border.top
         yl += border.bottom
       end
 
-      @style.padding.try do |padding|
+      style.padding.try do |padding|
         xi -= padding.left
         xl += padding.right
         yi -= padding.top
@@ -382,7 +382,7 @@ module Crysterm
       end
 
       # Draw the border.
-      @style.border.try do |border|
+      style.border.try do |border|
         battr = sattr border
         y = yi
         if coords.no_top?
@@ -586,7 +586,7 @@ module Crysterm
       end
 
       # Shadow
-      if (s = @style.shadow) && s.any?
+      if (s = style.shadow) && s.any?
         if s.left?
           i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)   # s.bottom or 1
           l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0) # s.top or 1

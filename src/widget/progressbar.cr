@@ -47,7 +47,9 @@ module Crysterm
         ret = _render
         return unless ret
 
-        @style.border.try &.adjust(ret)
+        # XXX Would this be more intuitive if it was pos.adjust_for(border)
+        # rather than border.adjust(pos)?
+        self.style.border.try &.adjust(ret)
 
         xi = ret.xi
         xl = ret.xl

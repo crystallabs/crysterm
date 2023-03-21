@@ -30,10 +30,10 @@ module Crysterm
         _label.set_content(text)
         if side != "right"
           # TODO Shouldn't -border.left be border.left, to move it further to the right ?
-          _label.left = 2 + (@style.border.try { |border| -border.left } || 0)
+          _label.left = 2 + (style.border.try { |border| -border.left } || 0)
           _label.right = nil
         else
-          _label.right = 2 + (@style.border.try { |border| -border.right } || 0)
+          _label.right = 2 + (style.border.try { |border| -border.right } || 0)
           _label.left = nil
         end
         return
@@ -45,7 +45,7 @@ module Crysterm
         content: text,
         top: -itop,
         # parse_tags: @parse_tags,
-        style: @style.label,
+        style: style.label,
         resizable: true,
       )
 

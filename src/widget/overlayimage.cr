@@ -34,7 +34,7 @@ module Crysterm
         # TODO - get coords of content only, without borders/padding
         pos = _get_coords(true).not_nil!
 
-        @style.border.try &.adjust(pos)
+        style.border.try &.adjust(pos)
 
         @image.try &.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
       end

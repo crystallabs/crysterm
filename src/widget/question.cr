@@ -39,7 +39,7 @@ module Crysterm
 )
 
       def initialize(**box)
-        # @style.visible = false # XXX Enable correctly
+        # self.style.visible = false # XXX Enable correctly
 
         box["content"]?.try do |c|
           @text = c

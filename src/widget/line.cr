@@ -18,15 +18,15 @@ module Crysterm
         # end
 
         super **box
-        @style.border = border
+        style.border = border
 
-        # char.try { |v| @style.char = v }
-        @style.char = case char
-                      when nil
-                        @orientation.vertical? ? @@vertical_char : @@horizontal_char
-                      else
-                        char
-                      end
+        # char.try { |v| style.char = v }
+        style.char = case char
+                     when nil
+                       @orientation.vertical? ? @@vertical_char : @@horizontal_char
+                     else
+                       char
+                     end
       end
     end
   end

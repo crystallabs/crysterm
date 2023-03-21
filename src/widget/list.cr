@@ -45,7 +45,7 @@ module Crysterm
         on ::Crysterm::Event::Remove, ->on_remove(::Crysterm::Event::Remove)
       end
 
-      def create_item(content, screen = ::Crysterm::Screen.global, align = ::Tput::AlignFlag::Left, top = 0, left = 0, right = (@scrollbar ? 1 : 0), parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = @style.alpha) # XXX hover_effects, focus_effects
+      def create_item(content, screen = ::Crysterm::Screen.global, align = ::Tput::AlignFlag::Left, top = 0, left = 0, right = (@scrollbar ? 1 : 0), parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
 
         if @resizable || normal_resizable
           right = nil

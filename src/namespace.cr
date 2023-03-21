@@ -146,7 +146,7 @@ module Crysterm
     end
 
     # Label value is used only when internally instantiating labels on widgets,
-    # to be able to set their: `style: @self.style.label`. Since labels are
+    # to be able to set their: `style: self.style.label`. Since labels are
     # widgets, everything after that is done by looking up `@_label.style....`.
     property label : Style { Style.new }
 
@@ -258,7 +258,7 @@ module Crysterm
     property fg : String?
 
     property char = ' '
-    # XXX There is some duplication between @style and these 5.
+    # XXX There is some duplication between style and these 5.
     # They must be present for sattr() to be able to work on the Border object.
     # But on the other hand, it allows these features which do not exist in Blessed.
     property? bold : Bool = false
