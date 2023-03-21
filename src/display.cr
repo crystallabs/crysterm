@@ -76,13 +76,13 @@ module Crysterm
         input: @input,
         output: @output,
         force_unicode: @force_unicode,
+        use_buffer: false,
       )
       # XXX Add those options too if needed:
       # term: @term,
       # padding: @padding,
       # extended: @extended,
       # termcap: @termcap,
-      # use_buffer: @use_buffer,
 
       @_resize_fiber = Fiber.new "resize_loop" { resize_loop }
 
