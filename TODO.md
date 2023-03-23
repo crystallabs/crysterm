@@ -11,6 +11,10 @@
 - Review src/widget_rendering.cr
 - Review src/widgets.cr
 
+- Fix issue with borders from elements below are rendering through widgets on the top, even if widgets have full opacity. (Possibly the issue is just in the order of arguments given to Colors.blend()). See small-tests/shadow.cr
+
+- Fix issue with foreground color not being honored. Visible in bottom-left box in small-tests/shadow.cr. Possibly the issue is just code looking for `widget.fg` rather than `widget.style.fg` and similar?
+
 - Convert style.{5booleans} to ?
 
 - Rename @dattr to @default_attr?
