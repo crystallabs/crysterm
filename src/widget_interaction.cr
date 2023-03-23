@@ -13,6 +13,8 @@ module Crysterm
     # Is element draggable?
     property? draggable = false
 
+    property? focus_on_click = true
+
     property? vi : Bool = false
 
     # Does it accept keyboard input?

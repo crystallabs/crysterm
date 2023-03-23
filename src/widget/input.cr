@@ -5,6 +5,7 @@ module Crysterm
     # Abstract input element
     class Input < Box
       @input = true
+      @resizable = true
 
       def initialize(*arg, **kwarg)
         super

@@ -4,6 +4,7 @@ require "./helpers"
 require "./mixin/children"
 require "./mixin/pos"
 require "./mixin/uid"
+require "./mixin/data"
 
 require "./widget_children"
 require "./widget_content"
@@ -20,6 +21,7 @@ module Crysterm
     include Mixin::Uid
     include Mixin::Pos
     include Mixin::Style
+    include Mixin::Data
 
     @auto_padding = true
 
@@ -42,37 +44,34 @@ module Crysterm
     # inheriting from List.
     property _is_list = false
 
-    # Storage for any user-controlled/miscellaneous data.
-    property data : JSON::Any?
-
     def initialize(
       parent = nil,
       *,
 
-      @name = nil,
+      @name = @name,
       @screen = @screen,
 
-      @left = nil,
-      @top = nil,
-      @right = nil,
-      @bottom = nil,
-      @width = nil,
-      @height = nil,
-      @resizable = false,
+      @left = @left,
+      @top = @top,
+      @right = @right,
+      @bottom = @bottom,
+      @width = @width,
+      @height = @height,
+      @resizable = @resizable,
 
       visible = nil,
-      @fixed = false,
-      @align = Tput::AlignFlag::Top | Tput::AlignFlag::Left,
-      @overflow : Overflow = Overflow::Ignore,
+      @fixed = @fixed,
+      @align = @align,
+      @overflow = @overflow,
 
-      @scrollbar = false,
+      @scrollbar = @scrollbar,
       # TODO Make it configurable which side it appears on etc.
-      track = nil, # Only has effect within scrollbar
+      @track = @track,
       # XXX Should this whole section of 5 properties be in Style?
 
       content = "",
-      @parse_tags = false,
-      @wrap_content = true,
+      @parse_tags = @parse_tags,
+      @wrap_content = @wrap_content,
 
       label = nil,
       hover_text = nil,
@@ -80,10 +79,10 @@ module Crysterm
 
       scrollable = nil,
       # hover_bg=nil,
-      @draggable = false,
+      @draggable = @draggable,
       focused = false,
-      @focus_on_click = true,
-      @keys = false,
+      @focus_on_click = @focus_on_click,
+      @keys = @keys,
       input = nil,
       style = nil,
 
@@ -96,7 +95,6 @@ module Crysterm
 
       style.try { |v| @style = v }
       scrollable.try { |v| @scrollable = v }
-      track.try { |v| @track = v }
       input.try { |v| @input = v }
       visible.try { |v| self.style.visible = v }
       @tabc = tabc || (" " * self.style.tab_size)
