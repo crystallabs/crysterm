@@ -58,7 +58,7 @@ module Crysterm
       content = StringIndex.new @_pcontent || ""
       ci = @_clines.ci[coords.base]? || 0 # XXX Is it ok that array lookup can be nil? and defaulting to 0?
       # battr
-      # dattr
+      # default_attr
       # c
       # visible
       # i
@@ -116,8 +116,8 @@ module Crysterm
         end
       end
 
-      dattr = sattr style
-      attr = dattr
+      default_attr = sattr style
+      attr = default_attr
 
       # If we're in a scrollable text box, check to
       # see which attributes this line starts with.
@@ -155,7 +155,7 @@ module Crysterm
             end
           end
         else
-          screen.fill_region(dattr, bch, xi, xl, yi, yl)
+          screen.fill_region(default_attr, bch, xi, xl, yi, yl)
         end
       end
 
@@ -217,11 +217,11 @@ module Crysterm
             cnt = content[(ci - 1)..]
             if c = cnt.match SGR_REGEX_AT_BEGINNING
               ci += c[0].size - 1
-              attr = screen.attr2code(c[0], attr, dattr)
+              attr = screen.attr2code(c[0], attr, default_attr)
               # Ignore foreground changes for selected items.
               parent.try do |parent2|
                 if parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.items[parent2.selected] == self # XXX && parent2.invert_selected
-                  attr = (attr & ~(0x1ff << 9)) | (dattr & (0x1ff << 9))
+                  attr = (attr & ~(0x1ff << 9)) | (default_attr & (0x1ff << 9))
                 end
               end
               ch = content[ci]? || bch
@@ -442,8 +442,8 @@ module Crysterm
           end
           if (border.top == 0) && x != xi && x != xl - 1
             ch = ' '
-            if cell != {dattr, ch}
-              lines[y][x].attr = dattr
+            if cell != {default_attr, ch}
+              lines[y][x].attr = default_attr
               lines[y][x].char = ch
               lines[y].dirty = true
               next
@@ -478,8 +478,8 @@ module Crysterm
               end
             else
               ch = ' '
-              if cell != {dattr, ch}
-                lines[y][xi].attr = dattr
+              if cell != {default_attr, ch}
+                lines[y][xi].attr = default_attr
                 lines[y][xi].char = ch ? ch : ' '
                 lines[y].dirty = true
               end
@@ -503,8 +503,8 @@ module Crysterm
               end
             else
               ch = ' '
-              if cell != {dattr, ch}
-                lines[y][xl - 1].attr = dattr
+              if cell != {default_attr, ch}
+                lines[y][xl - 1].attr = default_attr
                 lines[y][xl - 1].char = ch ? ch : ' '
                 lines[y].dirty = true
               end
@@ -570,8 +570,8 @@ module Crysterm
           end
           if (border.bottom == 0) && x != xi && x != xl - 1
             ch = ' '
-            if cell != {dattr, ch}
-              lines[y][x].attr = dattr
+            if cell != {default_attr, ch}
+              lines[y][x].attr = default_attr
               lines[y][x].char = ch ? ch : ' '
               lines[y].dirty = true
             end
@@ -602,7 +602,7 @@ module Crysterm
                 break
               end
               # D O:
-              # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
+              # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
               lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
               lines[y].dirty = true
               x += 1
@@ -624,7 +624,7 @@ module Crysterm
                 break
               end
               # D O:
-              # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
+              # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
               lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: s.alpha)
               lines[y].dirty = true
             end
@@ -647,7 +647,7 @@ module Crysterm
                 break
               end
               # D O:
-              # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
+              # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
               lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
               lines[y].dirty = true
               x += 1
@@ -670,7 +670,7 @@ module Crysterm
                 break
               end
               # D O:
-              # lines[y][x].attr = Colors.blend(@dattr, lines[y][x].attr)
+              # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
               lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: s.alpha)
               lines[y].dirty = true
             end

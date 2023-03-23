@@ -65,7 +65,7 @@ module Crysterm
 
     # XXX move somewhere else?
     # Default cell attribute
-    property dattr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
+    property default_attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
 
     # Automatically "dock" borders with other elements instead of overlapping,
     # depending on position.

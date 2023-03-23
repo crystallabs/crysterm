@@ -82,7 +82,7 @@ module Crysterm
     alias_previous reset_cursor
 
     # :nodoc:
-    def _artificial_cursor_attr(cursor, attr = @dattr)
+    def _artificial_cursor_attr(cursor, attr = @default_attr)
       if cursor.shape.line?
         attr &= ~(0x1ff << 9)
         attr |= 7 << 9

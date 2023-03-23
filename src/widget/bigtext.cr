@@ -122,10 +122,10 @@ module Crysterm
         right = coords.xl - iright
         bottom = coords.yl - ibottom
 
-        dattr = sattr style
-        bg = dattr & 0x1ff
-        fg = (dattr >> 9) & 0x1ff
-        flags = (dattr >> 18) & 0x1ff
+        default_attr = sattr style
+        bg = default_attr & 0x1ff
+        fg = (default_attr >> 9) & 0x1ff
+        flags = (default_attr >> 18) & 0x1ff
         attr = (flags << 18) | (bg << 9) | fg
 
         max_chars = Math.min @text.size, (right - left)//@ratio.width
@@ -156,10 +156,10 @@ module Crysterm
 
               lines[y]?.try(&.[x + mx]?).try do |cell|
                 if (style.fchar != ' ')
-                  cell.attr = dattr
+                  cell.attr = default_attr
                   cell.char = mcell == 1 ? style.fchar : style.char
                 else
-                  cell.attr = mcell == 1 ? attr : dattr
+                  cell.attr = mcell == 1 ? attr : default_attr
                   cell.char = mcell == 1 ? ' ' : style.char
                 end
               end

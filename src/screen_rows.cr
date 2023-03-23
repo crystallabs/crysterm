@@ -5,7 +5,7 @@ module Crysterm
     # Individual screen cell
     class Cell
       include Comparable(self)
-      # Same as @dattr
+      # Same as @default_attr
       property attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
       property char : Char = ' '
 

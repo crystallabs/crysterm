@@ -277,8 +277,8 @@ module Crysterm
     end
 
     def _parse_attr(lines : CLines)
-      dattr = sattr(style)
-      attr = dattr
+      default_attr = sattr(style)
+      attr = default_attr
       attrs = [] of Int32
       # line
       # i
@@ -298,7 +298,7 @@ module Crysterm
         (0...line.size).each do |i|
           if (line[i] == '\e')
             if (c = line[1..].match SGR_REGEX)
-              attr = screen.attr2code(c[0], attr, dattr)
+              attr = screen.attr2code(c[0], attr, default_attr)
               # i += c[0].size - 1 # Unused
             end
           end

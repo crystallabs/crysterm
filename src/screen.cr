@@ -622,13 +622,13 @@ module Crysterm
         yi = 0
       end
 
-      sdattr = @dattr
+      screen_default_attr = @default_attr
 
       # E O:
       # XXX this functionality is currently commented out throughout the function.
       # Possibly re-enable, or move to separate function.
       # if (term) {
-      #  this.dattr = term.defAttr;
+      #  this.default_attr = term.defAttr;
       # }
 
       main = String::Builder.new
@@ -643,7 +643,7 @@ module Crysterm
         break if !line
 
         outbuf = String::Builder.new
-        attr = @dattr
+        attr = @default_attr
 
         x = xi
         while x < xl
@@ -653,10 +653,10 @@ module Crysterm
           ch = line[x].char
 
           if data != attr
-            if attr != @dattr
+            if attr != @default_attr
               outbuf << "\e[m"
             end
-            if data != @dattr
+            if data != @default_attr
               _data = data
               # if term
               #  if (((_data >> 9) & 0x1ff) == 257); _data |= 0x1ff << 9 end
@@ -682,7 +682,7 @@ module Crysterm
           x += 1
         end
 
-        if attr != @dattr
+        if attr != @default_attr
           outbuf << "\e[m"
         end
 
@@ -700,7 +700,7 @@ module Crysterm
       main += '\n'
 
       # if term
-      #  @dattr = sdattr
+      #  @default_attr = screen_default_attr
       # end
 
       return main

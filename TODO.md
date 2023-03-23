@@ -15,10 +15,6 @@
 
 - Fix issue with foreground color not being honored. Visible in bottom-left box in small-tests/shadow.cr. Possibly the issue is just code looking for `widget.fg` rather than `widget.style.fg` and similar?
 
-- Convert style.{5booleans} to ?
-
-- Rename @dattr to @default_attr?
-
 - Is Widget the right place to have `#sattr` defined under?
 
 - Replace @input with is_a? Input etc.

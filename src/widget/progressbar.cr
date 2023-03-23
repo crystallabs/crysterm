@@ -78,11 +78,11 @@ module Crysterm
         #     specifically defined. And thus it makes filled value show in even less cases than it
         #     does in blessed. By reverting bg/fg like we do here, we solve this problem in a very
         #     elegant way.
-        dattr = sattr style.bar, style.bar.bg, style.bar.fg
+        default_attr = sattr style.bar, style.bar.bg, style.bar.fg
 
         # TODO Is this approach with using drawing routines valid, or it would be
         # better that we do this in-memory only here?
-        screen.fill_region dattr, style.pchar, xi, xl, yi, yl
+        screen.fill_region default_attr, style.pchar, xi, xl, yi, yl
 
         # Why here the formatted content is only in @_pcontent, while in blessed
         # it appears to be in `this.content` directly?

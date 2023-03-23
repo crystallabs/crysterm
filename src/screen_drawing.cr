@@ -68,7 +68,7 @@ module Crysterm
         @outbuf.clear
 
         # Default attr code
-        attr = @dattr
+        attr = @default_attr
 
         # For all cells in row (x = column coordinate)
         line.size.times do |x|
@@ -87,8 +87,8 @@ module Crysterm
           # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
           # the bg for non BCE terminals worth the overhead?
           if (@optimization.bce? && (desired_char == ' ') &&
-             (display.tput.has?(&.back_color_erase?) || ((desired_attr & 0x1ff) == (@dattr & 0x1ff))) &&
-             (((desired_attr >> 18) & 8) == ((@dattr >> 18) & 8)))
+             (display.tput.has?(&.back_color_erase?) || ((desired_attr & 0x1ff) == (@default_attr & 0x1ff))) &&
+             (((desired_attr >> 18) & 8) == ((@default_attr >> 18) & 8)))
             clr = true
             neq = false # Current line 'not equal' to line as it was on previous render (i.e. it changed content)
 
@@ -195,10 +195,10 @@ module Crysterm
           end
 
           if desired_attr != attr
-            if attr != @dattr
+            if attr != @default_attr
               @outbuf.print "\e[m"
             end
-            if desired_attr != @dattr
+            if desired_attr != @default_attr
               @outbuf.print "\e["
 
               # This will keep track whether any of the attrs were written into the
@@ -377,7 +377,7 @@ module Crysterm
           attr = desired_attr
         end
 
-        if attr != @dattr
+        if attr != @default_attr
           @outbuf.print "\e[m"
         end
 
@@ -433,7 +433,7 @@ module Crysterm
     end
 
     def blank_line(ch = ' ', dirty = false)
-      o = Row.new awidth, {@dattr, ch}
+      o = Row.new awidth, {@default_attr, ch}
       o.dirty = dirty
       o
     end
@@ -707,7 +707,7 @@ module Crysterm
 
     # Clears any chosen region on the screen.
     def clear_region(xi, xl, yi, yl, override)
-      fill_region @dattr, ' ', xi, xl, yi, yl, override
+      fill_region @default_attr, ' ', xi, xl, yi, yl, override
     end
 
     # Fills any chosen region on the screen with chosen character and attributes.
