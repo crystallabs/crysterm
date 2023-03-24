@@ -7,20 +7,25 @@ module Crysterm
 
   se = Widget::RadioSet.new
 
+  st = Styles.new(
+    normal: Style.new(fg: "yellow", bg: "magenta", border: Border.new(fg: "#ffffff")),
+    focused: Style.new(fg: "yellow", bg: "magenta", border: Border.new(fg: "#ff0000")),
+  )
+
   b = Widget::RadioButton.new top: 2, left: 2, width: nil, height: nil,
     parent: se,
     resizable: true, content: "RB1",
-    style: Style.new(fg: "yellow", bg: "magenta", border: Border.new(fg: "#ffffff"))
+    styles: st
 
   b2 = Widget::RadioButton.new top: 2, left: 12, width: nil, height: nil,
     parent: se,
     resizable: true, content: "RB2",
-    style: Style.new(fg: "yellow", bg: "magenta", border: Border.new(fg: "#ffffff"))
+    styles: st
 
   b3 = Widget::RadioButton.new top: 2, left: 22, width: nil, height: nil,
     parent: se,
     resizable: true, content: "RB3",
-    style: Style.new(fg: "yellow", bg: "magenta", border: Border.new(fg: "#ffffff"))
+    styles: st
 
   s.append se
   s.append b
@@ -41,7 +46,10 @@ module Crysterm
     elsif e.key == ::Tput::Key::ShiftTab
       s.focus_previous
     end
+    s.render
   end
+
+  s.exec
 
   sleep
 end

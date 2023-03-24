@@ -85,6 +85,7 @@ module Crysterm
       @keys = @keys,
       input = nil,
       style = nil,
+      @styles = @styles,
 
       # Final, misc settings
       @index = -1,

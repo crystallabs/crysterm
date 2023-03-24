@@ -22,7 +22,7 @@ module Crysterm
       # if c.artificial?
       #  render
       # else
-      display.try do |d|
+      self.try do |d|
         c.shape.try { |shape| d.tput.cursor_shape shape, c.blink }
         # XXX consider a simpler structure than Style for cursor color?
         # XXX Blessed calls this:
@@ -40,7 +40,7 @@ module Crysterm
       @cursor.shape = shape
       @cursor.blink = blink
       @cursor._set = true
-      display.tput.cursor_shape @cursor.shape, @cursor.blink
+      tput.cursor_shape @cursor.shape, @cursor.blink
     end
 
     # XXX where does this belong?
@@ -61,7 +61,7 @@ module Crysterm
       @cursor.blink = false
       @cursor.style.bg = "#ffffff"
       @cursor._set = false
-      display.tput.cursor_reset
+      tput.cursor_reset
     end
 
     # Sets cursor color
@@ -75,8 +75,8 @@ module Crysterm
         return true
       end
 
-      # display.tput.cursor_color(@cursor.color.to_s.downcase)
-      display.tput.cursor_color @cursor.style.fg
+      # tput.cursor_color(@cursor.color.to_s.downcase)
+      tput.cursor_color @cursor.style.fg
     end
 
     alias_previous reset_cursor
@@ -131,7 +131,7 @@ module Crysterm
         @cursor._hidden = false
         render if @renders > 0
       else
-        display.tput.show_cursor
+        tput.show_cursor
       end
     end
 
@@ -141,7 +141,7 @@ module Crysterm
         @cursor._hidden = true
         render if @renders > 0
       else
-        display.tput.hide_cursor
+        tput.hide_cursor
       end
     end
 
@@ -151,7 +151,7 @@ module Crysterm
         @cursor.artificial = false
       end
 
-      display.tput.cursor_reset
+      tput.cursor_reset
     end
     # end
   end

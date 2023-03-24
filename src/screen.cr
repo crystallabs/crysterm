@@ -1,8 +1,10 @@
-require "./display"
 require "./macros"
 require "./widget"
 
 require "./mixin/children"
+
+require "./screen_resize"
+require "./screen_interaction"
 
 require "./screen_children"
 require "./screen_angles"
@@ -12,6 +14,7 @@ require "./screen_drawing"
 require "./screen_focus"
 require "./screen_rendering"
 require "./screen_rows"
+require "./screen_screenshot"
 
 module Crysterm
   # Represents a screen.
@@ -22,26 +25,43 @@ module Crysterm
     include Mixin::Children
     include Mixin::Instances
 
+    # Input IO
+    property input : IO = STDIN.dup
+
+    # Output IO
+    property output : IO = STDOUT.dup
+
+    # Error IO. (Could be used for redirecting error output to a particular widget)
+    property error : IO = STDERR.dup
+
+    # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
+    property? force_unicode = false
+
+    # Display's title, if/when applicable
+    property title : String?
+
+    # Display width
+    # TODO make these check @output, not STDOUT which is probably used. Also see how urwid does the size check
+    property width = 1
+
+    # Display height
+    # TODO make these check @output, not STDOUT which is probably used. Also see how urwid does the size check
+    property height = 1
+
+    # Access to instance of `Tput`, used for generating term control sequences.
+    getter tput : ::Tput
+
     # :nodoc: Flag indicating whether at least one `Screen` has called `#bind`.
     # Can potentially be removed; it appears only in this file.
     # @@_bound = false
     # XXX Currently disabled to remove it if it appears not needed.
-
-    # Associated `Crysterm` instance. The default display
-    # will be created and/or used if it is not provided explicitly.
-    property display : Display = Display.global(true)
-
-    # Width and height will be (re)set by push updates from Display
-    property width = 1
-    # :ditto:
-    property height = 1
 
     # Will be initially inherited from Display
     getter title : String? = nil
 
     # :ditto:
     def title=(@title : String?)
-      @title.try { |t| @display.try &.tput.title = t }
+      @title.try { |t| self.tput.title = t }
     end
 
     # Is the focused element grab and receiving all keypresses?
@@ -145,20 +165,74 @@ module Crysterm
     property overflow = Overflow::Ignore
 
     def initialize(
-      @display = Display.global(true),
-      @width = @display.width,
-      @height = @display.height,
+      @input = @input,
+      @output = @output,
+      @error = @error,
+      @title = @title,
+      *,
+      @width = @width,
+      @height = @height,
       @dock_borders = @dock_borders,
       @dock_contrast = @dock_contrast,
       @always_propagate = @always_propagate,
       @propagate_keys = @propagate_keys,
-      title = @display.title,
       @cursor = Cursor.new,
       @optimization = @optimization,
       padding = nil,
       alt = true,
-      @show_fps = @show_fps
+      @show_fps = @show_fps,
+      @force_unicode = @force_unicode,
+      @resize_interval = @resize_interval,
+
+      terminfo : Bool | Unibilium::Terminfo = true
+
+      # Not needed for now. Also better not to couple with terminal specifics
+      # @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
+      # @use_buffer = false,
     )
+      terminfo = case terminfo
+                 in true
+                   Unibilium::Terminfo.from_env
+                 in false, nil
+                   nil
+                 in Unibilium::Terminfo
+                   terminfo.as Unibilium::Terminfo
+                 end
+
+      # XXX Should `error` fd be passed to tput as well?
+      # (Probably not since we're not initializing anything on the error output?)
+      @tput = ::Tput.new(
+        terminfo: terminfo,
+        input: @input,
+        output: @output,
+        force_unicode: @force_unicode,
+        use_buffer: false,
+      )
+      # XXX Add those options too if needed:
+      # term: @term,
+      # padding: @padding,
+      # extended: @extended,
+      # termcap: @termcap,
+
+      @_resize_fiber = Fiber.new "resize_loop" { resize_loop }
+
+      # ## ### TODO Remove this block when display/screen are merged
+      @@instances << self
+      # on(::Crysterm::Event::Resize) do |e|
+      #  # XXX Display should have a list of Screens belonging to it. But until that happens
+      #  # we'll find them manually.
+      #  Screen.instances.each { |screen|
+      #    screen.emit e
+      #  }
+      # end
+      ### ###
+
+      on ::Crysterm::Event::Attach, ->on_attach(::Crysterm::Event::Attach)
+      on ::Crysterm::Event::Detach, ->on_detach(::Crysterm::Event::Detach)
+      on ::Crysterm::Event::Destroy, ->on_destroy(::Crysterm::Event::Destroy)
+
+      # Emitting in `#exec` is too late. Could do it there, but then also Resize needs to be emitted.
+      emit ::Crysterm::Event::Attach, self
       padding.try { |padding| @padding = Padding.from(padding) }
 
       bind
@@ -166,11 +240,11 @@ module Crysterm
       # ensure tput.zero_based = true, use_bufer=true
       # set resizeTimeout
 
-      # Tput is accessed via display.tput
+      # Tput is accessed via tput
 
       # super() No longer calling super, we are not subclass of Widget any more
 
-      # _unicode is display.tput.features.unicode
+      # _unicode is tput.features.unicode
       # full_unicode? is option full_unicode? + _unicode
 
       # Events:
@@ -197,15 +271,15 @@ module Crysterm
       # TODO These events are not for specific widgets, but when the whole program gets
       # those events. Enable and rework them as above ecample when we get to it.
 
-      # display.on(Crysterm::Event::Focus) do
+      # on(Crysterm::Event::Focus) do
       #  emit Crysterm::Event::Focus
       # end
 
-      # display.on(Crysterm::Event::Blur) do
+      # on(Crysterm::Event::Blur) do
       #  emit Crysterm::Event::Blur
       # end
 
-      # display.on(Crysterm::Event::Warning) do |e|
+      # on(Crysterm::Event::Warning) do |e|
       # emit e
       # end
 
@@ -219,9 +293,71 @@ module Crysterm
       spawn render_loop
     end
 
+    def on_attach(e)
+      @width = ::Term::Screen.cols || @width
+      @height = ::Term::Screen.rows || @height
+
+      # Push resize event to screens assigned to this display. We choose this approach
+      # because it results in less links between the components (as opposed to pull model).
+      @_resize_handler = GlobalEvents.on(::Crysterm::Event::Resize) do |e|
+        schedule_resize
+      end
+    end
+
+    def on_detach(e)
+      @_resize_handler.try { |e| GlobalEvents.off ::Crysterm::Event::Resize, e }
+
+      Screen.instances.each do |s|
+        # s.leave # No need, done as part of Screen#destroy
+        s.destroy
+      end
+
+      # TODO Don't do this unconditionally, but return to whatever
+      # state it was in before.
+      @input.try { |i|
+        if i.responds_to? :"cooked!"
+          i.cooked!
+        end
+      }
+    end
+
+    # Destroys current `Display`.
+    def on_destroy(e)
+      on_detach(e)
+    end
+
+    # Displays the main screen, set up IO hooks, and starts the main loop.
+    #
+    # This is similar to how it is done in the Qt framework.
+    #
+    # This function will render the specified `screen` or the first `Screen` assigned to `Display`.
+    def exec(screen : Crysterm::Screen? = nil)
+      s = self
+
+      # if s.display != self
+      #  raise Exception.new "Screen does not belong to this Display."
+      # end
+
+      if s
+        s.render
+      else
+        # XXX This part might be changed in the future, if we allow running line-
+        # rather than screen-based apps, or if we allow something headless.
+        raise Exception.new "No Screen exists, there is nothing to render and run."
+      end
+
+      listen
+
+      # The main loop is currently just a sleep :)
+      sleep
+
+      # Shouldn't reach for now
+      emit ::Crysterm::Event::Detach, self
+    end
+
     def enter
       # TODO make it possible to work without switching the whole app to alt buffer.
-      return if display.tput.is_alt
+      return if tput.is_alt
 
       if !@cursor._set
         apply_cursor
@@ -231,12 +367,12 @@ module Crysterm
         `cls`
       {% end %}
 
-      display.tput.alternate_buffer
-      display.tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
-      display.tput.put(&.change_scroll_region?(0, aheight - 1))
+      tput.alternate_buffer
+      tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
+      tput.put(&.change_scroll_region?(0, aheight - 1))
       hide_cursor
-      display.tput.cursor_pos 0, 0
-      display.tput.put(&.ena_acs?) # enable_acs
+      tput.cursor_pos 0, 0
+      tput.put(&.ena_acs?) # enable_acs
 
       alloc
     end
@@ -299,7 +435,7 @@ module Crysterm
         end
       end
 
-      display.tput.clear if do_clear
+      tput.clear if do_clear
     end
 
     @[AlwaysInline]
@@ -343,12 +479,12 @@ module Crysterm
       # TODO make it possible to work without switching the whole
       # app to alt buffer. (Same note as in `enter`).
       # This assumes that enter activated alt mode.
-      return unless display.tput.is_alt
+      return unless tput.is_alt
 
-      display.tput.put(&.keypad_local?)
+      tput.put(&.keypad_local?)
 
-      if (display.tput.scroll_top != 0) || (display.tput.scroll_bottom != aheight - 1)
-        display.tput.set_scroll_region(0, display.tput.screen.height - 1)
+      if (tput.scroll_top != 0) || (tput.scroll_bottom != aheight - 1)
+        tput.set_scroll_region(0, tput.screen.height - 1)
       end
 
       # XXX For some reason if alloc/clear() is before this
@@ -361,12 +497,12 @@ module Crysterm
       #  display.disable_mouse
       # end
 
-      display.tput.normal_buffer
+      tput.normal_buffer
       if cursor._set
         cursor_reset
       end
 
-      display.tput.flush
+      tput.flush
 
       # :-)
       {% if flag? :windows %}
@@ -498,12 +634,12 @@ module Crysterm
       # Note: The event emissions used to be reversed:
       # element + screen
       # They are now:
-      # screen, element and el's parents until one #accept!s it.
+      # screen, element and el's parents until one #accepts it.
       # After the first keypress emitted, the handler
       # checks to make sure grab_keys, propagate_keys, and focused
       # weren't changed, and handles those situations appropriately.
 
-      display.on(Crysterm::Event::KeyPress) do |e|
+      on(Crysterm::Event::KeyPress) do |e|
         # If we're not propagate keys and the key is not on always-propagate
         # list, we're done.
         if !@propagate_keys && !@always_propagate.includes?(e.key)
@@ -524,7 +660,8 @@ module Crysterm
         # NOTE See implementation of emit_key --> it emits both the generic key
         # press event as well as a specific key event, if one exists.
         if !grab_keys || @always_propagate.includes?(e.key)
-          emit_key self, e
+          # XXX
+          # emit_key self, e
         end
 
         # If something changed from the screen key handler, stop.
@@ -534,7 +671,7 @@ module Crysterm
 
         # Here we pass the key press onto the focused widget. Then
         # we keep passing it through the parent tree until someone
-        # `#accept!`s the key. If it reaches the toplevel Widget
+        # `#accept`s the key. If it reaches the toplevel Widget
         # and it isn't handled, we drop/ignore it.
         #
         # XXX But look at this. Unless the key is processed by screen, it gets
@@ -598,7 +735,7 @@ module Crysterm
 
     # Reduces color if needed (minmal helper function)
     private def _reduce_color(col)
-      Colors.reduce(col, display.tput.features.number_of_colors)
+      Colors.reduce(col, tput.features.number_of_colors)
     end
 
     def screenshot(xi, xl, yi, yl, term = false)

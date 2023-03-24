@@ -3,7 +3,6 @@ require "../src/crysterm"
 class MyProg
   include Crysterm
 
-  d = Display.global
   s = Screen.global
 
   # `Box` is one of the available widgets. It is a read-only space for
@@ -34,7 +33,7 @@ class MyProg
   # before being passed onto the focused widget, and then up its parent
   # tree. So attaching a handler to `Display` is the correct way to handle
   # the key press as early as possible.
-  d.on(Event::KeyPress) do |e|
+  s.on(Event::KeyPress) do |e|
     if e.key == Tput::Key::CtrlQ
       exit
     end
@@ -52,5 +51,5 @@ class MyProg
     end
   end
 
-  d.exec
+  s.exec
 end

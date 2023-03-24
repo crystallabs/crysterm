@@ -70,12 +70,12 @@ module Crysterm
   s.append boxtpm2
 
   s.on(Event::KeyPress) do |e|
-    # e.accept!
+    # e.accept
     if e.key == ::Tput::Key::CtrlQ || e.char == 'q'
-      s.display.destroy
+      s.destroy
       exit
     end
   end
 
-  s.display.exec
+  s.exec
 end

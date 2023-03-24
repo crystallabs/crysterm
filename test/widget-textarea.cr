@@ -30,7 +30,7 @@ class X
 
     s.render
 
-    s.display.exec
+    s.exec
   end
 end
 

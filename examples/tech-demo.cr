@@ -169,9 +169,9 @@ module Crysterm
     style: Style.new(border: true)
 
   s.on(Event::KeyPress) do |e|
-    # e.accept!
+    # e.accept
     if e.key == ::Tput::Key::CtrlQ || e.char == 'q'
-      s.display.destroy
+      s.destroy
       exit
     end
   end
@@ -215,5 +215,5 @@ module Crysterm
 
   s.render
 
-  s.display.exec
+  s.exec
 end

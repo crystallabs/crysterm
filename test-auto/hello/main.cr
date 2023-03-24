@@ -2,8 +2,7 @@ require "../../src/crysterm"
 
 include Crysterm
 
-d = Display.new
-s = Screen.new display: d
+s = Screen.new
 
 w = Widget::Box.new \
   parent: s,

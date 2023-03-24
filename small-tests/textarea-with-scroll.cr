@@ -13,7 +13,7 @@ class X
       height: 8,
       top: 4,
       left: 8,
-      content: "Kico\n2\n3", # "center", left: "center" #, border: true #, display: s
+      content: "Kico\n2\n3", # "center", left: "center" #, border: true
       style: Style.new(fg: "yellow", bg: "red", border: true),
       input_on_focus: true
 
@@ -28,7 +28,7 @@ class X
 
     s.render
 
-    s.display.exec
+    s.exec
   end
 end
 

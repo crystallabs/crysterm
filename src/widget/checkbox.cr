@@ -78,15 +78,15 @@ module Crysterm
       def on_focus(e)
         return unless lpos = @lpos
         screen.try do |s|
-          s.display.tput.lsave_cursor self.hash
-          s.display.tput.cursor_pos lpos.yi + itop, lpos.xi + 1 + ileft
-          s.show_cursor
+          s.tput.lsave_cursor self.hash
+          s.tput.cursor_pos lpos.yi + itop, lpos.xi + 1 + ileft
+          # s.show_cursor # XXX
         end
       end
 
       def on_blur(e)
         screen.try do |s|
-          s.display.tput.lrestore_cursor self.hash, true
+          s.tput.lrestore_cursor self.hash, true
         end
       end
     end

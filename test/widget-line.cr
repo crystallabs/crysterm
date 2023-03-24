@@ -21,5 +21,5 @@ module Crysterm
     end
   end
 
-  s.display.exec
+  s.exec
 end

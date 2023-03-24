@@ -31,7 +31,7 @@ module Crysterm
   end
 
   s.on(Event::KeyPress) do |e|
-    e.accept!
+    e.accept
     STDERR.puts e.inspect
     if e.char == 'q' || e.key.try(&.==(::Tput::Key::CtrlQ))
       exit

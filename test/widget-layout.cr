@@ -160,13 +160,13 @@ module Crysterm
   s.on(Event::KeyPress) do |e|
     # STDERR.puts e.inspect
     if e.char == 'q'
-      # e.accept!
-      s.display.destroy
+      # e.accept
+      s.destroy
       exit
     end
   end
 
   s.render
 
-  s.display.exec # We use exec to run the main loop. Similar to Qt.
+  s.exec # We use exec to run the main loop. Similar to Qt.
 end

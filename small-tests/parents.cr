@@ -25,7 +25,7 @@ class X
       i2.children.size,
       i3.children.size
 
-    s.display.destroy
+    s.destroy
     exit
   end
 end

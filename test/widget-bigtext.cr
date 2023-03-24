@@ -10,7 +10,6 @@ module Crysterm
     # parse_tags: true,
     resizable: true,
     width: "80%",
-    height: "resizable",
 
     style: Style.new(
       fg: "red",
@@ -26,12 +25,12 @@ module Crysterm
   s.render
 
   s.on(Event::KeyPress) do |e|
-    e.accept!
+    e.accept
     if e.char == 'q'
       s.destroy
       exit
     end
   end
 
-  sleep
+  s.exec
 end

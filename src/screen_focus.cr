@@ -138,6 +138,10 @@ module Crysterm
       #  raise "Unexpected"
       # end
 
+      # TODO temporary
+      cur.try &.state = WidgetState::Focused
+      old.try &.state = WidgetState::Normal
+
       # If we're in a scrollable element,
       # automatically scroll to the focused element.
       if el && el.screen

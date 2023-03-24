@@ -26,7 +26,7 @@ module Crysterm
   s.on(Event::KeyPress) do |e|
     # STDERR.puts e.inspect
     if e.char == 'q'
-      # e.accept!
+      # e.accept
       s.destroy
       exit
     end
@@ -34,5 +34,5 @@ module Crysterm
 
   s.render
 
-  s.display.exec
+  s.exec
 end

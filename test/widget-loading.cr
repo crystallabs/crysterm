@@ -30,12 +30,12 @@ module Crysterm
   loading2.start
 
   s.on(Event::KeyPress) do |e|
-    e.accept!
+    e.accept
     if e.char == 'q' || e.key.try(&.==(::Tput::Key::CtrlQ))
       s.destroy
       exit
     end
   end
 
-  s.display.exec
+  s.exec
 end

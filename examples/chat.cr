@@ -3,8 +3,7 @@ require "../src/crysterm"
 class MyProg
   include Crysterm
 
-  d = Display.new
-  s = Screen.new display: d, show_fps: nil, dock_contrast: DockContrast::Blend, dock_borders: true
+  s = Screen.new show_fps: nil, dock_contrast: DockContrast::Blend, dock_borders: true
 
   style1 = Style.new fg: "black", bg: "#729fcf", border: Border.new(fg: "black", bg: "#729fcf"), scrollbar: Style.new(bg: "#000000"), track: Style.new(bg: "red")
   style2 = Style.new fg: "black", bg: "magenta", border: Border.new(fg: "black", bg: "#729fcf"), alpha: 0.5, padding: 1
@@ -63,7 +62,7 @@ class MyProg
   # before being passed onto the focused widget, and then up its parent
   # tree. So attaching a handler to `Display` is the correct way to handle
   # the key press as early as possible.
-  d.on(Event::KeyPress) do |e|
+  s.on(Event::KeyPress) do |e|
     case e.key
     when Tput::Key::CtrlQ
       exit
@@ -97,5 +96,5 @@ class MyProg
     end
   end
 
-  d.exec
+  s.exec
 end

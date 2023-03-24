@@ -16,7 +16,7 @@ class X
       height: 10,
       top: 0,
       left: 0,
-      content: "Test", # "center", left: "center" #, border: true #, display: s
+      content: "Test", # "center", left: "center" #, border: true
       style: Style.new(fg: "yellow", bg: "red", border: true)
 
     # parent: l,
@@ -25,7 +25,7 @@ class X
       height: 10,
       top: 0,
       left: 20,
-      content: "Test", # "center", left: "center" #, border: true #, display: s
+      content: "Test", # "center", left: "center" #, border: true
       style: Style.new(fg: "black", bg: "red", border: true)
 
     s.append i
@@ -40,7 +40,7 @@ class X
 
     s.render
 
-    s.display.exec
+    s.exec
   end
 end
 

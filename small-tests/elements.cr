@@ -45,7 +45,7 @@ class X
       end
     end
 
-    s.display.exec
+    s.exec
   end
 end
 

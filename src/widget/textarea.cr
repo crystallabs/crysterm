@@ -73,7 +73,7 @@ module Crysterm
                else
                  @_clines[-1]
                end
-        display = screen.display
+        display = screen
 
         # #In line with the above, now that `last`s content is different, let's try disabling this:
         # # Stop a situation where the textarea begins scrolling
@@ -250,7 +250,7 @@ module Crysterm
         screen.show_cursor
 
         # D O:
-        # screen.display.tput.sgr "normal"
+        # screen.tput.sgr "normal"
 
         # Define _done_default
         @__listener = ->_listener(Crysterm::Event::KeyPress)

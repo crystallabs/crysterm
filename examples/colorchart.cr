@@ -16,12 +16,7 @@ end
 # `Display` is a phyiscal device (terminal hardware or emulator).
 # It can be instantiated manually as shown, or for quick coding it can be
 # skipped and it will be created automatically when needed.
-d = Display.new
-
-# `Screen` is a full-screen surface which contains visual elements (Widgets),
-# on which graphics is rendered, and which is then drawn onto the terminal.
-# An app can have multiple screens, but only one can be showing at a time.
-s = Screen.new display: d
+s = Screen.new
 
 draw(s)
 
@@ -43,4 +38,4 @@ spawn do
   end
 end
 
-d.exec
+s.exec

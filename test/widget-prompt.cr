@@ -7,7 +7,7 @@ module Crysterm
   prompt = Prompt.new(
     screen: s,
     style: Style.new(border: true),
-    height: "resizable",
+    resizable: true,
     width: "half",
     top: "center",
     left: "center",
@@ -20,7 +20,7 @@ module Crysterm
   question = Question.new(
     screen: s,
     style: Style.new(border: true),
-    height: "resizable",
+    resizable: true,
     width: "half",
     top: "center",
     left: "center",
@@ -33,7 +33,7 @@ module Crysterm
   msg = Message.new(
     screen: s,
     style: Style.new(border: true),
-    height: "resizable",
+    resizable: true,
     width: "half",
     top: "center",
     left: "center",
@@ -47,7 +47,7 @@ module Crysterm
   loader = Loading.new(
     screen: s,
     style: Style.new(border: true),
-    height: "resizable",
+    resizable: true,
     width: "half",
     top: "center",
     left: "center",
@@ -66,7 +66,7 @@ module Crysterm
   s.on(Event::KeyPress) do |e|
     # STDERR.puts e.inspect
     if e.char == 'q' || e.key.try(&.==(::Tput::Key::CtrlQ))
-      e.accept!
+      e.accept
       s.destroy
       exit
     end
@@ -89,5 +89,5 @@ module Crysterm
     end
   end
 
-  s.display.exec
+  s.exec
 end

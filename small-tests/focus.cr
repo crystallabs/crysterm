@@ -9,6 +9,12 @@ class X
 
     note = Widget::Text.new content: "Use Tab/Shift+Tab to cycle between boxes, Ctrl+q to exit"
 
+    styles = Styles.new(
+      normal: Style.new(fg: "yellow", bg: "blue", border: true),
+      focused: Style.new(fg: "yellow", bg: "red", border: true),
+    )
+    styles.focused.bg = "yellow"
+
     i1 = Widget::Checkbox.new \
       name: "w1",
       width: 10,
@@ -16,7 +22,7 @@ class X
       top: 6,
       left: 6,
       content: "Box1",
-      style: Style.new(fg: "yellow", bg: "red", border: true)
+      styles: styles
 
     i2 = Widget::Checkbox.new \
       name: "w2",
@@ -25,7 +31,7 @@ class X
       top: 6,
       left: 18,
       content: "Box2",
-      style: Style.new(fg: "yellow", bg: "red", border: true)
+      styles: styles
 
     i3 = Widget::Checkbox.new \
       name: "w3",
@@ -34,7 +40,7 @@ class X
       top: 6,
       left: 30,
       content: "Box3",
-      style: Style.new(fg: "yellow", bg: "red", border: true)
+      styles: styles
 
     s.append i1, i2, i3, note
 
@@ -50,7 +56,7 @@ class X
       s.render
     end
 
-    s.display.exec
+    s.exec
   end
 end
 

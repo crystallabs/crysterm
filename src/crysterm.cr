@@ -7,7 +7,6 @@ require "./version"
 require "./macros"
 require "./namespace"
 require "./event"
-require "./display"
 require "./helpers"
 require "./colors"
 
@@ -67,6 +66,6 @@ module Crysterm
   end
 
   at_exit do
-    Display.instances.each &.destroy
+    Screen.instances.each &.destroy
   end
 end

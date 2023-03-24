@@ -1,8 +1,7 @@
 require "../src/crysterm"
 
 module Crysterm
-  d = Display.new
-  s = Screen.new display: d
+  s = Screen.new
 
   hbar = Widget::Pine::HeaderBar.new title_content: "ALPINE 2.20", section_content: "MAIN MENU", subsection_content: "Folder: INDEX", info_content: "37 Messages"
 
@@ -13,7 +12,7 @@ module Crysterm
   s.append hbar, sbar, cbar
 
   s.on(Crysterm::Event::KeyPress) do
-    s.display.destroy
+    s.destroy
     exit
   end
 
@@ -23,5 +22,5 @@ module Crysterm
 
   sbar.status.set_content "[Already at {underline}bottom{/underline} of list]"
 
-  d.exec
+  s.exec
 end

@@ -79,6 +79,9 @@ module Crysterm
     property selected : Style { normal }
 
     # TODO Add each/each_entry iterators
+
+    def initialize(@normal = @normal, @blurred = @blurred, @focused = @focused, @hovered = @hovered, @selected = @selected)
+    end
   end
 
   # Class for the complete style of a widget.

@@ -6,12 +6,7 @@ class MyProg
   # `Display` is a phyiscal device (terminal hardware or emulator).
   # It can be instantiated manually as shown, or for quick coding it can be
   # skipped and it will be created automatically when needed.
-  d = Display.new title: "Hello, World!"
-
-  # `Screen` is a full-screen surface which contains visual elements (Widgets),
-  # on which graphics is rendered, and which is then drawn onto the terminal.
-  # An app can have multiple screens, but only one can be showing at a time.
-  s = Screen.new display: d
+  s = Screen.new title: "Hello, World!"
 
   # `Box` is one of the available widgets. It is a read-only space for
   # displaying text etc. In Qt terms, this is a Label.
@@ -41,7 +36,7 @@ class MyProg
   # When q is pressed, exit the demo.
   s.on(Event::KeyPress) do |e|
     if e.char == 'q' || e.key == Tput::Key::CtrlQ
-      d.destroy
+      s.destroy
       exit
     end
   end
@@ -59,5 +54,5 @@ class MyProg
     end
   end
 
-  d.exec
+  s.exec
 end
