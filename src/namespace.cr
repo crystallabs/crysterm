@@ -100,6 +100,17 @@ module Crysterm
     property? visible : Bool = true
     property alpha : Float64?
 
+    # When alpha is not nil, Blessed/Crysterm works by merging existing and new cell's attributes (as expected),
+    # and then shows which ever char is in the cell (new char, or if empty, old char).
+    # This causes borders to show through wigets even with alpha=1.0, if the top widget's cells are empty.
+    # Therefore, we introduce `alpha?` which returns alpha value only if it's not 1.
+    # Maybe the name should be better, or this should be removed and checking for != 1.0 included explicitly where needed..
+    def alpha?
+      @alpha.try do |a|
+        return a if a != 1.0
+      end
+    end
+
     property tab_size = 4
 
     # NOTE: Eventually reduce/streamline these

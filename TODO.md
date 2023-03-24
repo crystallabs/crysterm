@@ -3,6 +3,8 @@
 - Make screen cells grid more efficient. src/screen_rows
 - Review src/widget_content.cr
 
+- Fix inverted meaning of alpha. (Currently full opacity is alpha=0 instead of 1)
+
 - Fix issue with borders from elements below are rendering through widgets on the top, even if widgets have full opacity. (Possibly the issue is just in the order of arguments given to Colors.blend()). See small-tests/shadow.cr
 
 - Fix issue with foreground color not being honored. Visible in bottom-left box in small-tests/shadow.cr. Possibly the issue is just code looking for `widget.fg` rather than `widget.style.fg` and similar?

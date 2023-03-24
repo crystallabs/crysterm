@@ -153,7 +153,7 @@ module Crysterm
       # To deal with this, we can just fill the whole thing
       # ahead of time. This could be optimized.
       if style.padding || !@align.top?
-        if alpha = style.alpha
+        if alpha = style.alpha?
           (Math.max(yi, 0)...yl).each do |y|
             if !lines[y]?
               break
@@ -247,6 +247,8 @@ module Crysterm
 
           # Handle newlines.
           if (ch == '\t')
+            # TODO this should be something like ch = bch * @tabsize, or jus @tabc,
+            # (although not as simple as that.)
             ch = bch
           end
           if (ch == '\n')
@@ -265,7 +267,7 @@ module Crysterm
               if (!cell)
                 break
               end
-              if alpha = style.alpha
+              if alpha = style.alpha?
                 lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
                 if content[ci - 1]?
                   lines[y][x].char = ch
@@ -288,7 +290,7 @@ module Crysterm
 
           # TODO
           # if (screen.full_unicode && content[ci - 1])
-          if (content.try &.[ci - 1]?)
+          if (content[ci - 1]?)
             # point = content.codepoint_at(ci - 1) # Unused
             # TODO
             # # Handle combining chars:
@@ -318,7 +320,7 @@ module Crysterm
             next
           end
 
-          if alpha = style.alpha
+          if alpha = style.alpha?
             lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
             if content[ci - 1]?
               lines[y][x].char = ch
