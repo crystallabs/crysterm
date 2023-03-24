@@ -30,18 +30,18 @@ module Crysterm
       @left = val
     end
 
-    # Sets Widget's `@right`
-    def right=(val)
-      return if @right == val
-      emit ::Crysterm::Event::Move
-      @right = val
-    end
-
     # Sets Widget's `@top`
     def top=(val)
       return if @top == val
       emit ::Crysterm::Event::Move
       @top = val
+    end
+
+    # Sets Widget's `@right`
+    def right=(val)
+      return if @right == val
+      emit ::Crysterm::Event::Move
+      @right = val
     end
 
     # Sets Widget's `@bottom`
