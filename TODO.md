@@ -15,8 +15,6 @@
 
 - Fix issue with foreground color not being honored. Visible in bottom-left box in small-tests/shadow.cr. Possibly the issue is just code looking for `widget.fg` rather than `widget.style.fg` and similar?
 
-- Is Widget the right place to have `#sattr` defined under?
-
 - Replace @input with is_a? Input etc.
 
 - In small-tests/shadow.cr -> did the 1 cell of overlapping border stop having blend applied properly?
