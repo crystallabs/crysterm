@@ -48,8 +48,7 @@ require "crysterm"
 
 alias C = Crysterm
 
-display = C::Display.new # Becomes the first/global display
-screen = C::Screen.new # Assumes argument `display: Display.global`
+screen = C::Screen.new
 
 # Optionally, you can include widgets in the current namespace:
 # include Crysterm::Widgets
@@ -72,12 +71,12 @@ screen.append hello
 # or for all C::Event::KeyPress and then checking the value of `e.char`.)
 screen.on(C::Event::KeyPress) do |e|
   if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    display.destroy
+    screen.destroy
     exit
   end
 end
 
-display.exec
+screen.exec
 ```
 
 ## Screenshots
@@ -153,11 +152,8 @@ The events used by Crysterm and its widgets are defined in `src/events.cr`.
 
 ### Class Hierarchy
 
-1. Top-level class is `Display`. It represents a physical device / terminal used for `@input` and `@output` (Blessed calls this `Program`)
-1. Each display can have one or more `Screen`s (Blessed also calls this `Screen`). Screens are always full-screen and represent the whole surface of a Display
+1. Top-level class is `Screen`. It represents terminal used for `@input` and `@output`
 1. Each screen can have one or more `Widget`s, arranged appropriately to implement final apps
-
-The default `Display` and `Screen` do not need to be created explicitly if you don't need to change any of their options. They will be created automatically if missing when the first `Widget` is created.
 
 Widgets can be added and positioned on the screen directly, but some widgets are particularly suitable for containing or arranging other/child widgets.
 Most notably this is the `Layout` widget which can auto-size and auto-position contained widgets in the form of a grid or inline (masonry-like) layout (`LayoutType::{Grid,Inline}`).
@@ -223,7 +219,7 @@ runs at most once per unit of time (currently 1/29th of a second) and all accumu
 rendered in one pass.
 
 When state has been set up for the first time and the program is to start running the display, one
-generally calls `Display#exec`. This renders the specified (or default) screen and starts running the
+generally calls `Screen#exec`. This renders the specified (or default) screen and starts running the
 program.
 
 ### Text Attributes and Colors
@@ -327,9 +323,9 @@ Run `crystal docs` as usual.
 
 List of notable differences (hopefully improvements) compared to Blessed:
 
-- `Program` has been renamed to `Display` (representing a physical display managed by Crysterm)
+- `Program` and `Display` have been removed
+- `Screen` is thus the top level component, and does not inherit from `Widget`
 - `Element` and `Node` have been consolidated into `Widget`
-- `Screen` no longer inherits from `Widget`
 - As such, `Screen` is not a top-level `parent` of any `Widget`; use `[@]screen` to get `Screen` or `parent_or_screen` for parent or screen
 - `tabc` is property on `Widget` instead of `Screen`
 - `tab_size` is a property of `Style` instead of `Screen`
