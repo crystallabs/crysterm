@@ -14,6 +14,78 @@ module Crysterm
     @clickable = [] of Widget
     @keyable = [] of Widget
 
+    # Returns the current/top element from the focus history list.
+    def focused : Widget?
+      @history[-1]?
+    end
+
+    # Makes `el` become the current/top element in the focus history list.
+    def focus(el)
+      focus_push el
+    end
+
+    # Focuses previous element in the list of focusable elements.
+    def focus_previous
+      focus_offset -1
+    end
+
+    # Focuses next element in the list of focusable elements.
+    def focus_next
+      focus_offset 1
+    end
+
+    # Saves/remembers the currently focused element.
+    def save_focus
+      @_saved_focus = focused
+    end
+
+    # Restores focus to the previously saved focused element.
+    def restore_focus
+      return unless sf = @_saved_focus
+      sf.focus
+      @_saved_focus = nil
+      focused
+    end
+
+    # "Rewinds" focus to the most recent visible and attached element.
+    #
+    # As a side-effect, prunes the focus history list.
+    def rewind_focus
+      old = @history.pop
+
+      while @history.size > 0
+        el = @history.pop
+        if el.screen && el.style.visible?
+          @history.push el
+          _focus el, old
+          return el
+        end
+      end
+
+      if old
+        old.emit Crysterm::Event::Blur
+      end
+    end
+
+    # Focuses element `el`. Equivalent to `@display.focused = el`.
+    def focus_push(el)
+      old = @history[-1]?
+      while @history.size >= 10 # XXX non-configurable at the moment
+        @history.shift
+      end
+      @history.push el
+      _focus el, old
+    end
+
+    # Removes focus from the current element and focuses the element that was previously in focus.
+    def focus_pop
+      old = @history.pop
+      if el = @history[-1]?
+        _focus el, old
+      end
+      old
+    end
+
     # Focuses an element by an offset in the list of focusable elements.
     #
     # E.g. `focus_offset 1` moves focus to the next focusable element.
@@ -60,68 +132,6 @@ module Crysterm
 
       # @keyable[i].focus
       focus @keyable[i]
-    end
-
-    # Focuses previous element in the list of focusable elements.
-    def focus_previous
-      focus_offset -1
-    end
-
-    # Focuses next element in the list of focusable elements.
-    def focus_next
-      focus_offset 1
-    end
-
-    # Focuses element `el`. Equivalent to `@display.focused = el`.
-    def focus_push(el)
-      old = @history[-1]?
-      while @history.size >= 10 # XXX non-configurable at the moment
-        @history.shift
-      end
-      @history.push el
-      _focus el, old
-    end
-
-    # Removes focus from the current element and focuses the element that was previously in focus.
-    def focus_pop
-      old = @history.pop
-      if el = @history[-1]?
-        _focus el, old
-      end
-      old
-    end
-
-    # Saves/remembers the currently focused element.
-    def save_focus
-      @_saved_focus = focused
-    end
-
-    # Restores focus to the previously saved focused element.
-    def restore_focus
-      return unless sf = @_saved_focus
-      sf.focus
-      @_saved_focus = nil
-      focused
-    end
-
-    # "Rewinds" focus to the most recent visible and attached element.
-    #
-    # As a side-effect, prunes the focus history list.
-    def rewind_focus
-      old = @history.pop
-
-      while @history.size > 0
-        el = @history.pop
-        if el.screen && el.style.visible?
-          @history.push el
-          _focus el, old
-          return el
-        end
-      end
-
-      if old
-        old.emit Crysterm::Event::Blur
-      end
     end
 
     def _focus(cur : Widget, old : Widget? = nil)
@@ -172,16 +182,6 @@ module Crysterm
       end
 
       cur.emit Crysterm::Event::Focus, old
-    end
-
-    # Returns the current/top element from the focus history list.
-    def focused
-      @history[-1]?
-    end
-
-    # Makes `el` become the current/top element in the focus history list.
-    def focus(el)
-      focus_push el
     end
   end
 end

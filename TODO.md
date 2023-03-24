@@ -1,27 +1,19 @@
 # TODOs, Most Important First
 
-- Review src/screen_focus.cr
 - Make screen cells grid more efficient. src/screen_rows
 - Review src/widget_content.cr
-- Review src/widget.cr
-- Review src/widget_interaction.cr
-- Review src/widget_position.cr
-- Review src/screen_rendering.cr as a lower priority since it's pretty good already
-- Review src/widget_scrolling.cr
-- Review src/widget_rendering.cr
-- Review src/widgets.cr
 
 - Fix issue with borders from elements below are rendering through widgets on the top, even if widgets have full opacity. (Possibly the issue is just in the order of arguments given to Colors.blend()). See small-tests/shadow.cr
 
 - Fix issue with foreground color not being honored. Visible in bottom-left box in small-tests/shadow.cr. Possibly the issue is just code looking for `widget.fg` rather than `widget.style.fg` and similar?
+
+- All width/height values should accept the same params (i.e. string specification of "x%=-y")
 
 - Replace @input with is_a? Input etc.
 
 - In small-tests/shadow.cr -> did the 1 cell of overlapping border stop having blend applied properly?
 
 - See how src/widget_children.cr and src/mixin/children.cr could be more integrated and how Display->Screens and Screen->Widgets could re-use as much of it as possible
-
-- In tech-demo.cr, question "HOT or NOT" had some attributes, now it's flat. See why
 
 - Actions can theoretically be rendered in various forms, as e.g. checkboxes, menu entries, etc. See how to combine this with widget functionality. How does Qt do it?
 

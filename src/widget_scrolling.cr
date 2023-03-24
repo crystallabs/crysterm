@@ -3,6 +3,10 @@ module Crysterm
     # Is element scrollable?
     property? scrollable = false
 
+    # Whether the widget position is fixed even in presence of scroll?
+    # (Primary use in widget labels, which are always e.g. on top-left)
+    private property? fixed = false
+
     property? scrollbar : Bool = false
 
     # Inside scrollbar (if enabled), should widget indicate the scroll position?

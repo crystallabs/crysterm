@@ -3,10 +3,24 @@ module Crysterm
     # module Rendering
     include Crystallabs::Helpers::Alias_Methods
 
-    property items = [] of Widget::Box
+    # Rendition and rendering
 
-    # What action to take when widget rendering would overflow parent's rectangle?
-    property overflow = Overflow::Ignore
+    # The below methods are a bit confusing: basically
+    # whenever Box.render is called `lpos` gets set on
+    # the element, an object containing the rendered
+    # coordinates. Since these don't update if the
+    # element is moved somehow, they're unreliable in
+    # that situation. However, if we can guarantee that
+    # lpos is good and up to date, it can be more
+    # accurate than the calculated positions below.
+    # In this case, if the element is being rendered,
+    # it's guaranteed that the parent will have been
+    # rendered first, in which case we can use the
+    # parent's lpos instead of recalculating its
+    # position (since that might be wrong because
+    # it doesn't handle content shrinkage).
+
+    property items = [] of Widget::Box
 
     # Here be dragons
 
@@ -721,6 +735,43 @@ module Crysterm
 
     def sattr(style, fg = nil, bg = nil)
       self.class.sattr style, fg, bg
+    end
+
+    def last_rendered_position
+      @lpos.try do |pos|
+        # If already cached/computed, return that:
+        return pos if pos.aleft
+
+        # Otherwise go compute:
+        pos.aleft = pos.xi
+        pos.atop = pos.yi
+        pos.aright = screen.awidth - pos.xl
+        pos.abottom = screen.aheight - pos.yl
+        pos.awidth = pos.xl - pos.xi
+        pos.aheight = pos.yl - pos.yi
+
+        # And these are important to carry over:
+        pos.ileft = ileft
+        pos.itop = itop
+        pos.iright = iright
+        pos.ibottom = ibottom
+
+        return pos
+      end
+
+      raise "Shouldn't happen"
+      # This is here just to prevent nil in return type. If this
+      # can realistically happen, use something like:
+      # LPos.new
+      # (And possibly make sure to carry over the i* values like above)
+    end
+
+    # Clears area/position of widget's last render
+    def clear_last_rendered_position(get = false, override = false)
+      return unless @screen
+      lpos = _get_coords(get)
+      return unless lpos
+      screen.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
     end
   end
 end
