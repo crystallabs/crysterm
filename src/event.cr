@@ -96,28 +96,28 @@ module Crysterm
 
     event Action, value : String
 
-    # # Emitted on creation of a list item
-    # event CreateItem
+    # Emitted on creation of a list item
+    event CreateItem
 
-    # # Emitted on addition of a list item to list
-    # event AddItem
-    # # Emitted on removal of a list item
-    # event RemoveItem
-    # # Emitted on re-set/re-definition of list items
-    # event SetItem
-    # # :ditto:
-    # event SetItems
+    # Emitted on addition of a list item to list
+    event AddItem
+    # Emitted on removal of a list item
+    event RemoveItem
+    # Emitted on re-set/re-definition of list items
+    event SetItem
+    # :ditto:
+    event SetItems
 
-    # event CancelItem, item : Widget::Box, index : Int32
-    # event ActionItem, item : Widget::Box, index : Int32
+    event CancelItem, item : Widget::Box, index : Int32
+    event ActionItem, item : Widget::Box, index : Int32
 
     # # Event emitted when a new log line intended for `Widget::LogLine` is issued
     # event LogLine, text : String
     # # NOTE In Blessed, this is called `log` and `Widget::Log`. It's been renamed
     # # in Crysterm not to conflict with `Log` coming from logger.
 
-    # # Emitted on selection of an item in list
-    # event SelectItem, item : Widget::Box, index : Int32
+    # Emitted on selection of an item in list
+    event SelectItem, item : Widget::Box, index : Int32
 
     # Emitted when an Action is Triggered
     event Triggered
