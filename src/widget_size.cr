@@ -129,24 +129,6 @@ module Crysterm
       height
     end
 
-    # Returns computed inner (content) width
-    def iwidth
-      # return (style.border
-      #   ? ((style.border.left ? 1 : 0) + (style.border.right ? 1 : 0)) : 0)
-      #   + style.padding.left + style.padding.right
-      (style.border.try { |border| border.left + border.right } || 0) +
-        (style.padding.try { |padding| padding.left + padding.right } || 0)
-    end
-
-    # Returns computed inner (content) height
-    def iheight
-      # return (style.border
-      #   ? ((style.border.top ? 1 : 0) + (style.border.bottom ? 1 : 0)) : 0)
-      #   + style.padding.top + style.padding.bottom
-      (style.border.try { |border| border.top + border.bottom } || 0) +
-        (style.padding.try { |padding| padding.top + padding.bottom } || 0)
-    end
-
     # Returns minimum widget size based on bounding box
     def _minimal_children_rectangle(xi, xl, yi, yl, get)
       if @children.empty?

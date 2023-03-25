@@ -2,6 +2,7 @@
 
 - Make screen cells grid more efficient. src/screen_rows
 - Review src/widget_content.cr
+- Review src/screen_cursor.cr
 
 - Fix inverted meaning of alpha. (Currently full opacity is alpha=0 instead of 1)
 

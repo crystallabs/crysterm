@@ -6,6 +6,8 @@ module Crysterm
   module Event
     include EventHandler
 
+    # Events currently unused have been commented. Uncomment on first use.
+
     # Emitted when widget is attached to a screen directly or somewhere in its ancestry
     event Attach, object : EventHandler
 
@@ -33,11 +35,11 @@ module Crysterm
     # Emitted when widget scrolls
     event Scroll
 
-    # Emitted on some data
-    event Data, data : String
+    # # Emitted on some data
+    # event Data, data : String
 
-    # Emitted on a warning event
-    event Warning, message : String
+    # # Emitted on a warning event
+    # event Warning, message : String
 
     # Emitted when screen is resized.
     event Resize, size : Tput::Namespace::Size? = nil
@@ -54,10 +56,10 @@ module Crysterm
     # Emitter at the end or rendering/drawing.
     event Rendered
 
-    # event PostRender
+    # # event PostRender
 
-    # Emitted at the end of drawing. Currently disabled/unused.
-    # event Draw
+    # # Emitted at the end of drawing. Currently disabled/unused.
+    # # event Draw
 
     # Emitted after Widget's content is defined
     event SetContent
@@ -83,8 +85,8 @@ module Crysterm
     # Emitted on something being completed (e.g. progressbar reaching 100%)
     event Complete
 
-    # Emitted on something being reset (e.g. progressbar reset to 0%)
-    event Reset
+    # # Emitted on something being reset (e.g. progressbar reset to 0%)
+    # event Reset
 
     # Emitted on value submitted (e.g. in text forms)
     event Submit, value : String
@@ -94,28 +96,28 @@ module Crysterm
 
     event Action, value : String
 
-    # Emitted on creation of a list item
-    event CreateItem
+    # # Emitted on creation of a list item
+    # event CreateItem
 
-    # Emitted on addition of a list item to list
-    event AddItem
-    # Emitted on removal of a list item
-    event RemoveItem
-    # Emitted on re-set/re-definition of list items
-    event SetItem
-    # :ditto:
-    event SetItems
+    # # Emitted on addition of a list item to list
+    # event AddItem
+    # # Emitted on removal of a list item
+    # event RemoveItem
+    # # Emitted on re-set/re-definition of list items
+    # event SetItem
+    # # :ditto:
+    # event SetItems
 
-    event CancelItem, item : Widget::Box, index : Int32
-    event ActionItem, item : Widget::Box, index : Int32
+    # event CancelItem, item : Widget::Box, index : Int32
+    # event ActionItem, item : Widget::Box, index : Int32
 
-    # Event emitted when a new log line intended for `Widget::LogLine` is issued
-    event LogLine, text : String
-    # NOTE In Blessed, this is called `log` and `Widget::Log`. It's been renamed
-    # in Crysterm not to conflict with `Log` coming from logger.
+    # # Event emitted when a new log line intended for `Widget::LogLine` is issued
+    # event LogLine, text : String
+    # # NOTE In Blessed, this is called `log` and `Widget::Log`. It's been renamed
+    # # in Crysterm not to conflict with `Log` coming from logger.
 
-    # Emitted on selection of an item in list
-    event SelectItem, item : Widget::Box, index : Int32
+    # # Emitted on selection of an item in list
+    # event SelectItem, item : Widget::Box, index : Int32
 
     # Emitted when an Action is Triggered
     event Triggered
@@ -123,7 +125,7 @@ module Crysterm
     # Emitted when a Widget or Action are hovered
     event Hovered
 
-    # event Key, key : ::Tput::Key
+    # # event Key, key : ::Tput::Key
 
     # Individual key events emitted on specific key presses. This is used when
     # the caller does not want to listen for everything on `Event::KeyPress` (i.e.

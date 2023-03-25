@@ -194,6 +194,11 @@ module Crysterm
         tput.restore_cursor
       end
     end
-    # end
+
+    # TODO Instead of self, this should just return an object which reports the position
+    # like LPos. But until screen is always from (0,0) to (height,width) that's not necessary.
+    def last_rendered_position
+      self
+    end
   end
 end

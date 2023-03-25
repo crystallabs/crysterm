@@ -104,7 +104,7 @@ module Crysterm
     # and then shows which ever char is in the cell (new char, or if empty, old char).
     # This causes borders to show through wigets even with alpha=1.0, if the top widget's cells are empty.
     # Therefore, we introduce `alpha?` which returns alpha value only if it's not 1.
-    # Maybe the name should be better, or this should be removed and checking for != 1.0 included explicitly where needed..
+    # Maybe the name should be better, or this should be removed and checking for != 1.0 included explicitly where needed.
     def alpha?
       @alpha.try do |a|
         return a if a != 1.0

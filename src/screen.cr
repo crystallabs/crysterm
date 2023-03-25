@@ -10,10 +10,12 @@ require "./screen_children"
 require "./screen_angles"
 require "./screen_attributes"
 require "./screen_cursor"
+require "./screen_decoration"
+require "./screen_rendering"
 require "./screen_drawing"
 require "./screen_focus"
-require "./screen_rendering"
 require "./screen_rows"
+require "./screen_interaction"
 require "./screen_screenshot"
 
 module Crysterm
@@ -64,20 +66,6 @@ module Crysterm
       @title.try { |t| self.tput.title = t }
     end
 
-    # Is the focused element grab and receiving all keypresses?
-    property? grab_keys = false
-
-    # Are keypresses being propagated further, or (except ignored ones) not propagated?
-    property? propagate_keys = true
-
-    # Array of keys to ignore when keys are locked or grabbed. Useful for defining
-    # keys that will always execute their action (e.g. exit a program) regardless of
-    # whether keys are propagate.
-    property always_propagate = Array(Tput::Key).new
-    # XXX Maybe in the future this would not be just `Tput::Key`s (which indicate
-    # special keys), but also chars (ordinary letters) as well as sequences (arbitrary
-    # sequences of chars and keys).
-
     # Disabled since it seems unused atm
     # # XXX Rename to more intuitive name like `hovered_widget` or so. Or even remove since
     # # why just support one widget only? This looks like application-specific code.
@@ -96,42 +84,6 @@ module Crysterm
     # XXX See also a TODO item related to dynamically deciding on default flags.
     property optimization : OptimizationFlag = OptimizationFlag::None
 
-    # For compatibility with widgets. But, as a side-effect, screens can have padding!
-    # If you define widget at position (0,0), that will be counted after padding.
-    # (We leave this at nil for no padding. If we used Padding.new that'd create a
-    # 1 cell padding by default.)
-    property padding : Padding?
-
-    def ileft
-      @padding.try(&.left) || 0
-    end
-
-    def itop
-      @padding.try(&.top) || 0
-    end
-
-    def iright
-      @padding.try(&.right) || 0
-    end
-
-    def ibottom
-      @padding.try(&.bottom) || 0
-    end
-
-    # Returns current screen width.
-    def iwidth
-      @padding.try do |padding|
-        padding.left + padding.right
-      end || 0
-    end
-
-    # Returns current screen height.
-    def iheight
-      @padding.try do |padding|
-        padding.top + padding.bottom
-      end || 0
-    end
-
     # Returns current screen width. This is now a local operation since we
     # expect Display to push-update us.
     def awidth
@@ -142,12 +94,6 @@ module Crysterm
     # expect Display to push-update us.
     def aheight
       @height
-    end
-
-    # TODO Instead of self, this should just return an object which reports the position
-    # like LPos. But until screen is always from (0,0) to (height,width) that's not necessary.
-    def last_rendered_position
-      self
     end
 
     # And these are the absolute ones. These are all 0 because `Screen`s are always the full
@@ -610,119 +556,6 @@ module Crysterm
       super
     end
 
-    # Disabled since they exist, but nothing calls them within blessed:
-    # def enable_keys(el = nil)
-    #  _listen_keys(el)
-    # end
-    # def enable_input(el = nil)
-    #  # _listen_mouse(el)
-    #  _listen_keys(el)
-    # end
-
-    # And this is for the other/alternative method where the screen
-    # first gets the keys, then potentially passes onto children
-    # elements.
-    def _listen_keys(el : Widget? = nil)
-      if (el && !@keyable.includes? el)
-        el.keyable = true
-        @keyable.push el
-      end
-
-      return if @_listening_keys
-      @_listening_keys = true
-
-      # Note: The event emissions used to be reversed:
-      # element + screen
-      # They are now:
-      # screen, element and el's parents until one #accepts it.
-      # After the first keypress emitted, the handler
-      # checks to make sure grab_keys, propagate_keys, and focused
-      # weren't changed, and handles those situations appropriately.
-
-      on(Crysterm::Event::KeyPress) do |e|
-        # If we're not propagate keys and the key is not on always-propagate
-        # list, we're done.
-        if !@propagate_keys && !@always_propagate.includes?(e.key)
-          next
-        end
-
-        # XXX the role of `grab_keys` is a little unclear. It makes sense that
-        # enabling it would not emit/announce keys. It could be thought of like:
-        # - propagate_keys=false -> stops key handling
-        # - grab_keys=true     -> does handle keys, but grabs them, doesn't pass on
-        # But this doesn't seem to be the case because, grab_keys can be true,
-        # but if it is, there is no code that processes it in any way internally.
-        # Maybe the code/hook is missing where all keys are passed onto the widget
-        # grab them?
-
-        grab_keys = @grab_keys
-        # If key grab is not active, or key is whitelisted, announce it.
-        # NOTE See implementation of emit_key --> it emits both the generic key
-        # press event as well as a specific key event, if one exists.
-        if !grab_keys || @always_propagate.includes?(e.key)
-          # XXX
-          # emit_key self, e
-        end
-
-        # If something changed from the screen key handler, stop.
-        if (@grab_keys != grab_keys) || !@propagate_keys || e.accepted?
-          next
-        end
-
-        # Here we pass the key press onto the focused widget. Then
-        # we keep passing it through the parent tree until someone
-        # `#accept`s the key. If it reaches the toplevel Widget
-        # and it isn't handled, we drop/ignore it.
-        #
-        # XXX But look at this. Unless the key is processed by screen, it gets
-        # passed to widget in focus and from there to its parents. How can a widget
-        # on a screen, which is not in focus,
-        focused.try do |el2|
-          while el2 && el2.is_a? Widget
-            if el2.keyable?
-              emit_key el2, e
-            end
-
-            if e.accepted?
-              break
-            end
-
-            el2 = el2.parent
-          end
-        end
-      end
-    end
-
-    # Emits a Event::KeyPress as usual and also emits an event for
-    # the individual key, if any.
-    #
-    # This allows listeners to not only listen for a generic
-    # `Event::KeyPress` and then check for `#key`, but they can
-    # directly listen for e.g. `Event::KeyPress::CtrlP`.
-    @[AlwaysInline]
-    def emit_key(el, e : Event)
-      if el.handlers(e.class).any?
-        el.emit e
-      end
-      if e.key
-        Crysterm::Event::KeyPress::KEYS[e.key]?.try do |keycls|
-          if el.handlers(keycls).any?
-            el.emit keycls.new e.char, e.key, e.sequence
-          end
-        end
-      end
-    end
-
-    # # Unused
-    # def key(key, handler)
-    # end
-
-    # def once_key(key, handler)
-    # end
-
-    # def remove_key(key, wrapper)
-    # end
-
     # Unused
     # def sigtstp(callback)
     #  display.sigtstp {
@@ -736,111 +569,6 @@ module Crysterm
     # Reduces color if needed (minmal helper function)
     private def _reduce_color(col)
       Colors.reduce(col, tput.features.number_of_colors)
-    end
-
-    def screenshot(xi, xl, yi, yl, term = false)
-      if !xi
-        xi = 0
-      end
-      if !xl
-        xl = awidth
-      end
-      if !yi
-        yi = 0
-      end
-      if !yl
-        yl = aheight
-      end
-
-      if xi < 0
-        xi = 0
-      end
-      if yi < 0
-        yi = 0
-      end
-
-      screen_default_attr = @default_attr
-
-      # E O:
-      # XXX this functionality is currently commented out throughout the function.
-      # Possibly re-enable, or move to separate function.
-      # if (term) {
-      #  this.default_attr = term.defAttr;
-      # }
-
-      main = String::Builder.new
-
-      y = yi
-      while y < yl
-        # line = term
-        #  ? term.lines[y]
-        #  : this.lines[y]
-        line = @lines[y]?
-
-        break if !line
-
-        outbuf = String::Builder.new
-        attr = @default_attr
-
-        x = xi
-        while x < xl
-          break if !line[x]?
-
-          data = line[x].attr
-          ch = line[x].char
-
-          if data != attr
-            if attr != @default_attr
-              outbuf << "\e[m"
-            end
-            if data != @default_attr
-              _data = data
-              # if term
-              #  if (((_data >> 9) & 0x1ff) == 257); _data |= 0x1ff << 9 end
-              #  if ((_data & 0x1ff) == 256); _data |= 0x1ff end
-              # end
-              outbuf << code2attr(_data)
-            end
-          end
-
-          # E O:
-          # if @full_unicode
-          #  if (unicode.charWidth(line[x][1]) === 2) {
-          #    if (x === xl - 1) {
-          #      ch = ' ';
-          #    } else {
-          #      x++;
-          #    }
-          #  }
-          # }
-
-          outbuf << ch
-          attr = data
-          x += 1
-        end
-
-        if attr != @default_attr
-          outbuf << "\e[m"
-        end
-
-        if outbuf.bytesize > 0
-          main << '\n' if y > 0
-          main << outbuf.to_s
-        end
-
-        y += 1
-      end
-
-      # XXX Fix the creation of string here
-      main = main.to_s
-      main = main.sub(/(?:\s*\e\[40m\s*\e\[m\s*)*$/, "")
-      main += '\n'
-
-      # if term
-      #  @default_attr = screen_default_attr
-      # end
-
-      return main
     end
   end
 end
