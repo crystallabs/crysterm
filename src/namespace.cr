@@ -70,6 +70,7 @@ module Crysterm
     # doing state transitions on it?
   end
 
+  # Class holding different styles, depending on widget state.
   class Styles
     class_property default = new # Default styles for all widgets
     property normal : Style = Style.new
@@ -90,38 +91,63 @@ module Crysterm
     # color-setting sequences in the terminal. It's better to have them nilable, in which
     # case no sequences get generated and term's default is used. That's also how Blessed
     # does it.
+
+    # Foreground color (color of font/character)
     property fg : String?
+
+    # Background color (color of cell)
     property bg : String?
 
+    # Bold?
     property? bold : Bool = false
+
+    # Unedline?
     property? underline : Bool = false
+
+    # Blink?
     property? blink : Bool = false
+
+    # Inverse?
     property? inverse : Bool = false
+
+    # Visible?
     property? visible : Bool = true
+
+    # Alpha (inverse of transparency). Alpha 0 == full transparency, 1 == full opacity.
     property alpha : Float64?
 
-    # When alpha is not nil, Blessed/Crysterm works by merging existing and new cell's attributes (as expected),
-    # and then shows which ever char is in the cell (new char, or if empty, old char).
-    # This causes borders to show through wigets even with alpha=1.0, if the top widget's cells are empty.
-    # Therefore, we introduce `alpha?` which returns alpha value only if it's not 1.
-    # Maybe the name should be better, or this should be removed and checking for != 1.0 included explicitly where needed.
+    # Is any transparency defined?
+    #
+    # This function is needed because it is not possible to test just for `alpha == nil`.
+    # A value of 1.0 (full opacity) also effectively means that no transparency is enabled.
     def alpha?
       @alpha.try do |a|
         return a if a != 1.0
       end
     end
 
+    # Length in number of characters to replace TABs with
     property tab_size = 4
 
-    # NOTE: Eventually reduce/streamline these
-    property char : Char = ' '  # Generic char
-    property pchar : Char = ' ' # Percent char
-    property fchar : Char = ' ' # Foreground char
-    property bchar : Char = ' ' # Background char
+    # Generic char (WIP)
+    property char : Char = ' '
 
+    # Percent char (WIP)
+    property pchar : Char = ' '
+
+    # Foreground char (WIP)
+    property fchar : Char = ' '
+
+    # Background char (WIP)
+    property bchar : Char = ' '
+
+    # XXX Test/document this.
     property? fill = true
 
-    property? ignore_border : Bool = false # If true, it's rendered in place of the border
+    # Should something render inside/over the border?
+    # Currently used for `Widget::Scrollbar` only.
+    # XXX Rename, or make more general, or otherwise unify.
+    property? ignore_border : Bool = false
 
     # Each of the following subelements are separate and can be styled individually.
     # If any of them is not defined, it defaults to main/parent style.
@@ -190,10 +216,12 @@ module Crysterm
       @scrollbar || self
     end
 
+    # Should element drop shadow?
     def shadow=(value)
       @shadow = Shadow.from value
     end
 
+    # :ditto:
     getter shadow : Shadow?
 
     setter track : Style?
@@ -387,10 +415,19 @@ module Crysterm
 
   # Class for shadow definition.
   class Shadow
+    # Width of shadow on the left side
     property left : Int32 = 0
+
+    # Height of shadow on the top side
     property top : Int32 = 0
+
+    # Width of shadow on the right side
     property right : Int32 = 2
+
+    # Height of shadow on the bottom side
     property bottom : Int32 = 1
+
+    # Shadow alpha value (0 == full transparency, 1 == full opacity)
     property alpha : Float64 = 0.5
 
     def initialize(
@@ -402,6 +439,7 @@ module Crysterm
     )
     end
 
+    # Parse shadow value
     def self.from(value)
       case value
       in true
@@ -460,22 +498,27 @@ module Crysterm
                 end
     end
 
+    # Is there any shadow on left side?
     def left?
       @left > 0
     end
 
+    # Is there any shadow on top?
     def top?
       @top > 0
     end
 
+    # Is there any shadow on right side?
     def right?
       @right > 0
     end
 
+    # Is there any shadow on bottom?
     def bottom?
       @bottom > 0
     end
 
+    # Is there any [amount of] shadow defined?
     def any?
       (@left + @top + @right + @bottom) > 0
     end

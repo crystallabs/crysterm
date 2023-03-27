@@ -23,22 +23,19 @@ require "./widgets"
 # Main Crysterm module and namespace.
 #
 # If your code is in its own namespace, you can shorten `Crysterm` to an
-# alias of your choosing, e.g.:
+# alias of your choosing, e.g. "C":
 #
 # ```
+# require "../src/crysterm"
 # alias C = Crysterm
-# t = C::Text.new content: "Hello, World!"
 #
-# alias TUI = Crysterm
-# t = TUI::Text.new content: "Hello, World!"
-# ...
-# ```
+# s = C::Screen.new
+# t = C::Widget::Text.new content: "Hello, World!", style: C::Style.new(bg: "blue", fg: "yellow", border: true), left: "center", top: "center"
 #
-# Or if you want to import all the widgets into your current namespace, do:
+# s.append t
+# s.on(C::Event::KeyPress) { exit }
 #
-# ```
-# include Crysterm::Widgets
-# t = Text.new content: "Hello, World!"
+# s.exec
 # ```
 module Crysterm
   class GlobalEventsClass

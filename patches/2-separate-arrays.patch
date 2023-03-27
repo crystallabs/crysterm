@@ -1,5 +1,5 @@
 
-WIP, but usable if this is the path to go.
+WIP, but usable if this is the way to go.
 
 This patch splits @lines into @lines_attr and @lines_char.
 

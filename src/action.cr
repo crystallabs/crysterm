@@ -17,6 +17,7 @@ module Crysterm
 
     alias OneOfEvents = Crysterm::Event::Triggered.class | Crysterm::Event::Hovered.class
 
+    # Unused for now, reenable later
     # Icon of action
     # property icon : Icon?
 
@@ -48,7 +49,7 @@ module Crysterm
       @parent : EventHandler? = nil
       # NOTE Passing a block directly to the initializer would be convenient, but because
       # it also requires specifying which event to trigger on (thus adding 2 new params),
-      # it gets unwieldy quickly. So let's stay with basic interface.
+      # it gets unwieldy quickly. So let's stay with the basic interface for now.
       # Add the action to execute after creation, simply with:  obj.on(Triggered) { block }
       # event : OneOfEvents = Crysterm::Event::Triggered,
       # &block : ::Proc(Crysterm::Event::Triggered, ::Nil)

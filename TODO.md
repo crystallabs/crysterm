@@ -1,4 +1,4 @@
-# TODOs, Most Important First
+# TODOs
 
 - Review src/widget_content.cr
 - Review src/screen_cursor.cr
