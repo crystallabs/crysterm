@@ -3,15 +3,9 @@
 - Review src/widget_content.cr
 - Review src/screen_cursor.cr
 
-- All width/height values should accept the same params (i.e. string specification of "x%=-y")
-
-- Replace @input with is_a? Input etc.
-
 - In small-tests/shadow.cr -> did the 1 cell of overlapping border stop having blend applied properly?
 
-- See how src/widget_children.cr and src/mixin/children.cr could be more integrated and how Display->Screens and Screen->Widgets could re-use as much of it as possible
-
-- Actions can theoretically be rendered in various forms, as e.g. checkboxes, menu entries, etc. See how to combine this with widget functionality. How does Qt do it?
+- See how src/widget_children.cr and src/mixin/children.cr could be more integrated and how Screen->Widgets could re-use as much of it as possible
 
 - Screen#listen_keys function: it serves 2 purposes, both to set up general listening for all keys, and to announce that a certain widget is interested in receiving key events. Split this functionality into 2 distinct parts - one sets up listener, one manages @keyable array.
 
@@ -19,17 +13,7 @@
 
 - After that, undo the change that makes Display push events onto Screens and properly cover it with attach/detach possibilities.
 
-- propagating_keys / always_propagate may have misleading name. Maybe better would be ignoring_keys / never_ignore.
-
-- Review cursor_shape, cursor_color
-
-- Why Tput has Cursor class, but no field for cursor color?
-
-- Update Screen API so that display is the last arg, like parent in widgets
-
 - Fix a bug where a widget is properly assigned to screen if it has `parent: screen` in initialize options, but not if it's added later with `screen.append(widget)` or `screen<<widget`. (Is it because it installs some event handlers while screen is nil?)
-
-- Check behavior of character blending. Widgets on top should have priority over widgets below. (E.g. if text renders over border, text should be visible, not border)
 
 - When Border.new(0) is used, content does properly begin from offset 0, but does not render in that first column/row so appears missing.
 - Exception happening in examples/chat.cr
@@ -39,8 +23,6 @@
 - In src/namespace.cr there is: `property label : Style { Style.new }`. Redesign that. Determine what to do with label.side. Possibly redo the whole label thing.
 
 - In Blessed's version of examples/hello, it is not necessary to manually #clearPos(). Where does the difference compared to Crysterm come from?
-
-- Review hardware and artificial cursor functionality. src/screen_cursor. Color, blink, etc. See src/screen_cursor.cr and enter method in Blessed.
 
 - Issue with transparency, where a transparent element gets more opaque on every render. This is caused by code found at first occurrence of 'transparency' in src/widget.cr. Example can be seen if we add a transparent padding to e.g. members list widget in example/chat.cr. In Blessed, the value of lines[y][x][attr] seems to always be the same, whereas in our case it has the resulting value from previous render, and so on every render the field's color gets additionally blended until it has 100% opacity rather than staying at initial/desired value.
 
@@ -60,8 +42,6 @@
 
 - Do code2attr / attr2code legitimately belong to Screen, or they're better suited for some other file/place?
 
-- Artificial cursor support for src/widget/checkbox.cr
-
 - When `Display` is created, if `TERM` env var is not defined it defaults to `xterm` or `windows-ansi`. Make this more robust to also include the existing check for which terminal emulator is in use, and then use the default which matches the default term setting of that emulator.
 
 - Overflow is currently property of screen and widget. See what the relation is and whether it all works correctly.
@@ -69,18 +49,9 @@
 - For `OptimizationFlag`s listed in src/namespace.cr, make a list of all common terminal emulators and see which ones support which optimizations. Than make default optimizations turn on/off based on that (unless overriden by user).
 `OptimizationFlag`s are set on a `Screen`.
 
-- On entering the screen, it should inherit/set title from its Display, as a one-time action.
-
 - See if dock_borders/dock_contrast can be moved to Widget, or they really need to operate on the level of Screen to be useful? (I.e. in screen_rendering, where they are used, do we have widgets in scope or not? If yes, move to Widget, if not, leave as-is)
 
-- In src/screen_* and src/widget_*, move all property definitions into the main src/screen.cr and src/widget.cr files
-
 - In src/screen.cr, some stuff is done in initialize, while it seems like enter/leave would be the correct places.
-
-- Consider an example of e.g. Display and Screens. When a display is resized, is it normal that Screens are hooking into Display's events, or since Display already has a list of it's children, it should emit an event on *them*?
-The latter would reduce the need for having to cancel/turn off hooks when screens are detached from display. And the same goes for all other occurrences of this type of dilemma.
-In this case it would also prevent all other lookups from Screen into Display, if Display's information was always pushed to Screens via events.
-Basically this is a push or pull design question.
 
 - Determine what is the exact current situation re. whether borders/angles can be drawn using ACS chars or Unicode chars? Is both supported or currently the code only does one?
 
@@ -90,8 +61,6 @@ Basically this is a push or pull design question.
 
 - Make cursor be property on widget. Now it's on screen. Or, just allow widget-specific one to override default one.
 
-- Allow Displays to have Screens as children elements (to allow screens being present in multiple windows). Or just dup them?
-
 - Make Widget#content be original, user-supplied content. Name all other accessors differently (same type of solution as for left/right/etc.)
 
 - If the screen is too small to display a widget in layout, don't hide it completely, make sure that at least something is drawn even if incomplete or incorrect. See e.g. misc/pine.cr for an example
@@ -99,8 +68,6 @@ Basically this is a push or pull design question.
 - When aligning widgets, see if it is possible to control what char will fill the empty space, instead of always ' '
 
 - Verify color names specifically listed in tput's `src/tput/output/text.cr` and check if there are any discrepancies compared to color names or name syntax and pattern listed/supported in the `term_colors` shard. If yes, make them uniform.
-
-- Make sure that the background character for a cell is always configurable and never literally taken to be ' '.  This will allow someone to completely change what the background char is. I guess this has already been done to a good extent, but verifying/confirming it would be good.
 
 - Make uniform passing of args to classes, with class decls, function arguments, and arg.try... (E.g. disable unnamed parameters to all methods that have non-trivial args)
 
@@ -153,8 +120,6 @@ Basically this is a push or pull design question.
 
 - When specifying top/left, it is possible to say "center". This will center the widget, and is different than saying "50%". For example, for a screen of 100 and width 50, "center" will make it begin at 25, while "50%" will make it begin at 50. Now, when using percentages, it is possible to say e.g. "50%+10" (This would result in widget starting at 60 in our example). But it appears it is not possible to use the +- specifier if "center" is used. Support specifying +- in all cases.
 
-- See how much `src/screen_children.cr` is really different from `src/mixin/children.cr`, and if possible make `Screen` use this mixin for more functionality with less code
-
 - Currently, when a Screen is listening for keyboard, it does this keypress by keypress. See how this affects pasting blocks of text into the terminal via mouse. Maybe they could be a "batch" mode where, if a paste is detected (possibly by realizing that multiple bytes became available at the same time?), all this text is processed as a plain text, at once? Maybe with a flag/toggle to do so?
 
 - Examine effect of `use_buffer` variable in Tput, and see whether it can be completely removed, or it can be used meaningfully in some way?
@@ -164,8 +129,6 @@ Basically this is a push or pull design question.
 - In rendering, there is Overflow enum used as a return type, which defines what to do if a widget can't be rendered without overflowing. Add MoveWidget or similar as another option. It would have the effect of moving the widget so it can render. A use case for this would be e.g. auto-completion boxes or similar which pop-up. For simplicity the developer would just have them pop up at the desired location, and Crysterm would adjust for overflow automatically.
 
 - When dealing with colors, do we want #aabbcc to be some class/struct, or just String is OK?
-
-- Do we need fgcolor/bgcolor/etc.? Can we get the same by modifying 'attr' of cell?
 
 - When a Display starts listening for keys (possibly other stuff too), there is no way to cancel it, since there is no API to kill a Fiber from the outside. So once this is started, it's active til the program exits.
 Not a huge deal since a Display unconditionally starts listening and emitting received stuff, but it's something to improve long term (there should be a way to gracefully stop listening and/or destroy/re-create the Display object).
@@ -197,3 +160,9 @@ Listed here since generic fixes/improvements have priority over widget-specific 
 - src/widget/overlayimage.cr -> is that OK or more work needs to be done?
 
 - src/widget/question.cr -> needs more work (check why it breaks with padding: 1)
+
+## Misc
+
+- Actions can theoretically be rendered in various forms, as e.g. checkboxes, menu entries, etc. See how to combine this with widget functionality. How does Qt do it?
+
+- Why Tput has Cursor class, but no field for cursor color?
