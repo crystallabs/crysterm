@@ -1,6 +1,5 @@
 # TODOs, Most Important First
 
-- Make screen cells grid more efficient. src/screen_rows
 - Review src/widget_content.cr
 - Review src/screen_cursor.cr
 

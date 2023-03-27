@@ -1,0 +1,308 @@
+
+Currently, to represent the whole screen, each `Screen` has an array of `Line`s,
+of which each Line is an array of `Cell`.
+
+`Cell` is currently a class with 2 properties: char and attr. (Char is the letter
+written in it, attr is cell attribute - like fg/bg color, blink, underline, etc.)
+
+When `class Cell` was just replaced with `struct Cell`, it produced ~20% improvement.
+But it did not draw anything on the screen since copies of Cells were being adjusted.
+
+When the implementation was finalized to use struct Cell and have everything working,
+the performance has dropped to even below the implementation with `class Cell`.
+
+So the switch to `struct Cell` is postponed for the moment. A different approach is
+needed to speed things up. For example - instead of screen being represented as it
+is now with:
+
+  screen = array(line)
+  line = array(cell)
+
+Maybe it needs to be represented with say:
+
+  screen_chars = array(array(char))
+  screen_attrs = array(array(int32))
+
+Or even:
+
+  screen_chars = array(char)
+  screen_attrs = array(int32)
+
+With the index being calculated from y and x coordinate.
+
+diff --git a/src/screen_angles.cr b/src/screen_angles.cr
+index 9b14418..a1f3cff 100644
+--- a/src/screen_angles.cr
++++ b/src/screen_angles.cr
+@@ -93,7 +93,7 @@ module Crysterm
+           when DockContrast::DontDock
+             return ch
+           when DockContrast::Blend
+-            lines[y][x].attr = Colors.blend lines[y][x - 1].attr, attr
++            lines[y][x] = lines[y][x].attr = Colors.blend lines[y][x - 1].attr, attr
+           end
+         end
+         angle |= 1 << 3
+@@ -105,7 +105,7 @@ module Crysterm
+           when DockContrast::DontDock
+             return ch
+           when DockContrast::Blend
+-            lines[y][x].attr = Colors.blend lines[y - 1][x].attr, attr
++            lines[y][x] = lines[y][x].attr = Colors.blend lines[y - 1][x].attr, attr
+           end
+         end
+         angle |= 1 << 2
+@@ -117,7 +117,7 @@ module Crysterm
+           when DockContrast::DontDock
+             return ch
+           when DockContrast::Blend
+-            lines[y][x].attr = Colors.blend lines[y][x + 1].attr, attr
++            lines[y][x] = lines[y][x].attr = Colors.blend lines[y][x + 1].attr, attr
+           end
+         end
+         angle |= 1 << 1
+@@ -129,7 +129,7 @@ module Crysterm
+           when DockContrast::DontDock
+             return ch
+           when DockContrast::Blend
+-            lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
++            lines[y][x] = lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
+           end
+         end
+         angle |= 1 << 0
+@@ -151,7 +151,7 @@ module Crysterm
+       #         return ch
+       #       end
+       #     when DockContrast::Blend
+-      #       lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
++      #       lines[y][x] = lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
+       #     end
+       #     angle |= 1 << 0
+       #   end
+diff --git a/src/screen_rendering.cr b/src/screen_rendering.cr
+index 48c3379..df6667b 100644
+--- a/src/screen_rendering.cr
++++ b/src/screen_rendering.cr
+@@ -116,7 +116,7 @@ module Crysterm
+         awidth.times do |x|
+           ch = lines[y][x].char
+           if @angles[ch]?
+-            lines[y][x].char = _get_angle lines, x, y
++            lines[y][x] = lines[y][x].char = _get_angle lines, x, y
+             lines[y].dirty = true
+           end
+         end
+diff --git a/src/screen_rows.cr b/src/screen_rows.cr
+index c943d0f..1a4781f 100644
+--- a/src/screen_rows.cr
++++ b/src/screen_rows.cr
+@@ -6,8 +6,16 @@ module Crysterm
+     class Cell
+       include Comparable(self)
+       # Same as @default_attr
+-      property attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
+-      property char : Char = ' '
++      getter attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
++      getter char : Char = ' '
++
++      def attr=(@attr)
++        self
++      end
++
++      def char=(@char)
++        self
++      end
+ 
+       def initialize(@attr, @char)
+       end
+@@ -47,6 +55,5 @@ module Crysterm
+         super width
+       end
+     end
+-    # end
+   end
+ end
+diff --git a/src/widget/progressbar.cr b/src/widget/progressbar.cr
+index 99c1461..cbddf84 100644
+--- a/src/widget/progressbar.cr
++++ b/src/widget/progressbar.cr
+@@ -90,7 +90,7 @@ module Crysterm
+           screen.lines[yi]?.try do |line|
+             pc.each_char_with_index do |c, i|
+               line[xi + i]?.try do |cell|
+-                cell.char = c
++                line[xi + i] = cell.char = c
+               end
+             end
+             line.dirty = true
+diff --git a/src/widget_rendering.cr b/src/widget_rendering.cr
+index 90a353b..0fa6dbb 100644
+--- a/src/widget_rendering.cr
++++ b/src/widget_rendering.cr
+@@ -162,7 +162,7 @@ module Crysterm
+               if !lines[y][x]?
+                 break
+               end
+-              lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
++              lines[y][x] = lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
+               # D O:
+               # lines[y][x].char = bch
+               lines[y].dirty = true
+@@ -268,15 +268,15 @@ module Crysterm
+                 break
+               end
+               if alpha = style.alpha?
+-                lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
++                lines[y][x] = lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
+                 if content[ci - 1]?
+-                  lines[y][x].char = ch
++                  lines[y][x] = lines[y][x].char = ch
+                 end
+                 lines[y].dirty = true
+               else
+                 if cell != {attr, ch}
+-                  lines[y][x].attr = attr
+-                  lines[y][x].char = ch
++                  lines[y][x] = lines[y][x].attr = attr
++                  lines[y][x] = lines[y][x].char = ch
+                   lines[y].dirty = true
+                 end
+               end
+@@ -321,15 +321,15 @@ module Crysterm
+           end
+ 
+           if alpha = style.alpha?
+-            lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
++            lines[y][x] = lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
+             if content[ci - 1]?
+-              lines[y][x].char = ch
++              lines[y][x] = lines[y][x].char = ch
+             end
+             lines[y].dirty = true
+           else
+             if cell != {attr, ch}
+-              lines[y][x].attr = attr
+-              lines[y][x].char = ch
++              lines[y][x] = lines[y][x].attr = attr
++              lines[y][x] = lines[y][x].char = ch
+               lines[y].dirty = true
+             end
+           end
+@@ -459,15 +459,15 @@ module Crysterm
+           if (border.top == 0) && x != xi && x != xl - 1
+             ch = ' '
+             if cell != {default_attr, ch}
+-              lines[y][x].attr = default_attr
+-              lines[y][x].char = ch
++              lines[y][x] = lines[y][x].attr = default_attr
++              lines[y][x] = lines[y][x].char = ch
+               lines[y].dirty = true
+               next
+             end
+           end
+           if cell != {battr, ch}
+-            lines[y][x].attr = battr
+-            lines[y][x].char = ch ? ch : ' ' # XXX why ch can be nil?
++            lines[y][x] = lines[y][x].attr = battr
++            lines[y][x] = lines[y][x].char = (ch || ' ') # XXX why ch can be nil?
+             lines[y].dirty = true
+           end
+         end
+@@ -487,16 +487,16 @@ module Crysterm
+               end
+               if !coords.no_left?
+                 if cell != {battr, ch}
+-                  lines[y][xi].attr = battr
+-                  lines[y][xi].char = ch ? ch : ' '
++                  lines[y][xi] = lines[y][xi].attr = battr
++                  lines[y][xi] = lines[y][xi].char = (ch || ' ')
+                   lines[y].dirty = true
+                 end
+               end
+             else
+               ch = ' '
+               if cell != {default_attr, ch}
+-                lines[y][xi].attr = default_attr
+-                lines[y][xi].char = ch ? ch : ' '
++                lines[y][xi] = lines[y][xi].attr = default_attr
++                lines[y][xi] = lines[y][xi].char = (ch || ' ')
+                 lines[y].dirty = true
+               end
+             end
+@@ -512,16 +512,16 @@ module Crysterm
+               end
+               if !coords.no_right?
+                 if cell != {battr, ch}
+-                  lines[y][xl - 1].attr = battr
+-                  lines[y][xl - 1].char = ch ? ch : ' '
++                  lines[y][xl - 1] = lines[y][xl - 1].attr = battr
++                  lines[y][xl - 1] = lines[y][xl - 1].char = (ch || ' ')
+                   lines[y].dirty = true
+                 end
+               end
+             else
+               ch = ' '
+               if cell != {default_attr, ch}
+-                lines[y][xl - 1].attr = default_attr
+-                lines[y][xl - 1].char = ch ? ch : ' '
++                lines[y][xl - 1] = lines[y][xl - 1].attr = default_attr
++                lines[y][xl - 1] = lines[y][xl - 1].char = (ch || ' ')
+                 lines[y].dirty = true
+               end
+             end
+@@ -587,15 +587,15 @@ module Crysterm
+           if (border.bottom == 0) && x != xi && x != xl - 1
+             ch = ' '
+             if cell != {default_attr, ch}
+-              lines[y][x].attr = default_attr
+-              lines[y][x].char = ch ? ch : ' '
++              lines[y][x] = lines[y][x].attr = default_attr
++              lines[y][x] = lines[y][x].char = (ch || ' ')
+               lines[y].dirty = true
+             end
+             next
+           end
+           if cell != {battr, ch}
+-            lines[y][x].attr = battr
+-            lines[y][x].char = ch ? ch : ' '
++            lines[y][x] = lines[y][x].attr = battr
++            lines[y][x] = lines[y][x].char = (ch || ' ')
+             lines[y].dirty = true
+           end
+         end
+@@ -619,7 +619,7 @@ module Crysterm
+               end
+               # D O:
+               # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
+-              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
++              lines[y][x] = lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
+               lines[y].dirty = true
+               x += 1
+             end
+@@ -641,7 +641,7 @@ module Crysterm
+               end
+               # D O:
+               # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
+-              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: s.alpha)
++              lines[y][x2] = (lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: s.alpha))
+               lines[y].dirty = true
+             end
+             y += 1
+@@ -664,7 +664,7 @@ module Crysterm
+               end
+               # D O:
+               # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
+-              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
++              lines[y][x] = lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
+               lines[y].dirty = true
+               x += 1
+             end
+@@ -687,7 +687,7 @@ module Crysterm
+               end
+               # D O:
+               # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
+-              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: s.alpha)
++              lines[y][x2] = lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: s.alpha)
+               lines[y].dirty = true
+             end
+             y += 1
