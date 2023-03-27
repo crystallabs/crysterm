@@ -3,8 +3,6 @@
 - Review src/widget_content.cr
 - Review src/screen_cursor.cr
 
-- Fix inverted meaning of alpha. (Currently full opacity is alpha=0 instead of 1)
-
 - All width/height values should accept the same params (i.e. string specification of "x%=-y")
 
 - Replace @input with is_a? Input etc.
