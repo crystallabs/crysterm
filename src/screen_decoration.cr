@@ -6,22 +6,22 @@ module Crysterm
     # 1 cell padding by default.)
     property padding : Padding?
 
-    # Amount of space taken by decorations on the left side
+    # Amount of space taken by decorations on the left side, to be subtracted from widget's total width
     def ileft
       @padding.try(&.left) || 0
     end
 
-    # Amount of space taken by decorations on top
+    # Amount of space taken by decorations on top, to be subtracted from widget's total height
     def itop
       @padding.try(&.top) || 0
     end
 
-    # Amount of space taken by decorations on the right side
+    # Amount of space taken by decorations on the right side, to be subtracted from widget's total width
     def iright
       @padding.try(&.right) || 0
     end
 
-    # Amount of space taken by decorations on bottom
+    # Amount of space taken by decorations on bottom, to be subtracted from widget's total height
     def ibottom
       @padding.try(&.bottom) || 0
     end

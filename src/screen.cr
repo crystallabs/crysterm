@@ -236,6 +236,8 @@ module Crysterm
       enter # if alt # Only do clear-screen/full-screen if user wants alternate buffer
       post_enter
 
+      # Spawning the loop does not start rendering until the first call to #render
+      # is issued. Therefore, it seems OK to call this from initialize.
       spawn render_loop
     end
 
