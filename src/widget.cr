@@ -106,6 +106,7 @@ module Crysterm
       # This just defines which Screen it is all linked to.
       # (Until we make `screen` fully optional)
       @screen ||= determine_screen
+      @screen.try &.<< self
 
       # And this takes care of parent hierarchy. Parent arg as passed
       # to this function can be a Widget or Screen.
