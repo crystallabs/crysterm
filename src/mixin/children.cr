@@ -47,6 +47,7 @@ module Crysterm
 
       # Inserts `element` into list of children widgets
       def insert(element, i = -1)
+        return if @children.includes? element
         @children.insert i, element
       end
 

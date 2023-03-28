@@ -1,7 +1,9 @@
 module Crysterm
   class Screen
     def insert(element, i = -1)
-      super
+      # Prevents adding an element twice
+      super || return
+
       attach element
 
       # XXX:
