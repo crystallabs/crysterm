@@ -30,7 +30,7 @@ require "./widgets"
 # alias C = Crysterm
 #
 # s = C::Screen.new
-# t = C::Widget::Text.new content: "Hello, World!", style: C::Style.new(bg: "blue", fg: "yellow", border: true), left: "center", top: "center"
+# t = C::Widget::Text.new content: "Hello, World!", style: C::Style.new(bg: "blue", fg: "yellow", border: true), left: "center", top: "center", parent: s
 #
 # s.append t
 # s.on(C::Event::KeyPress) { exit }
