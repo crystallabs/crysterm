@@ -89,6 +89,8 @@
 
 - Support "Alternate" style in Style. There should be code which gives the "opposite" of any color. Then in code, when we detect overlapping colors which are too similar, one can simply be switched to its opposite. Minimal/beginning for this might be in existence. Search for "invert" and "attr".
 
+- Support starting the app without switching to alt buffer and re-setting everything. This would make it more usable for line-oriented apps
+
 - All Qt features :)
 
 - More widgets - from Blessed and `slap` text editor which is based on Blessed

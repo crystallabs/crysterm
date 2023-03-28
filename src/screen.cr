@@ -33,14 +33,11 @@ module Crysterm
     # Output IO
     property output : IO = STDOUT.dup
 
-    # Error IO. (Could be used for redirecting error output to a particular widget)
+    # Error IO. (Could be used for redirecting error output to a particular widget.)
     property error : IO = STDERR.dup
 
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
     property? force_unicode = false
-
-    # Display's title, if/when applicable
-    property title : String?
 
     # Display width
     # TODO make these check @output, not STDOUT which is probably used. Also see how urwid does the size check
@@ -50,7 +47,7 @@ module Crysterm
     # TODO make these check @output, not STDOUT which is probably used. Also see how urwid does the size check
     property height = 1
 
-    # Access to instance of `Tput`, used for generating term control sequences.
+    # Instance of `Tput`, used for generating term control sequences.
     getter tput : ::Tput
 
     # :nodoc: Flag indicating whether at least one `Screen` has called `#bind`.
@@ -58,7 +55,7 @@ module Crysterm
     # @@_bound = false
     # XXX Currently disabled to remove it if it appears not needed.
 
-    # Will be initially inherited from Display
+    # Screen title, if/when applicable
     getter title : String? = nil
 
     # :ditto:
@@ -96,9 +93,7 @@ module Crysterm
       @height
     end
 
-    # And these are the absolute ones. These are all 0 because `Screen`s are always the full
-    # size of a `Display`. It would be interesting to see in the future if we could allow multiple
-    # `Screen`s of varying sizes to be showing on a `Display` at the same time.
+    # And these are the absolute ones. These are all 0 because `Screen`s are always full screen.
 
     # Disabled since nothing is currently using it. But uncomment when it becomes relevant.
     # getter aleft = 0
@@ -115,17 +110,16 @@ module Crysterm
       @output = @output,
       @error = @error,
       @title = @title,
-      *,
       @width = @width,
       @height = @height,
       @dock_borders = @dock_borders,
       @dock_contrast = @dock_contrast,
       @always_propagate = @always_propagate,
       @propagate_keys = @propagate_keys,
-      @cursor = Cursor.new,
+      @cursor = @cursor,
       @optimization = @optimization,
       padding = nil,
-      alt = true,
+      # alt = true, # Currently unused
       @show_fps = @show_fps,
       @force_unicode = @force_unicode,
       @resize_interval = @resize_interval,
@@ -160,26 +154,17 @@ module Crysterm
       # extended: @extended,
       # termcap: @termcap,
 
-      @_resize_fiber = Fiber.new "resize_loop" { resize_loop }
+      padding.try { |padding| @padding = Padding.from(padding) }
+      title.try { |t| self.title = t }
 
-      # ## ### TODO Remove this block when display/screen are merged
-      @@instances << self
-      # on(::Crysterm::Event::Resize) do |e|
-      #  # XXX Display should have a list of Screens belonging to it. But until that happens
-      #  # we'll find them manually.
-      #  Screen.instances.each { |screen|
-      #    screen.emit e
-      #  }
-      # end
-      ### ###
+      @_resize_fiber = Fiber.new "resize_loop" { resize_loop }
 
       on ::Crysterm::Event::Attach, ->on_attach(::Crysterm::Event::Attach)
       on ::Crysterm::Event::Detach, ->on_detach(::Crysterm::Event::Detach)
       on ::Crysterm::Event::Destroy, ->on_destroy(::Crysterm::Event::Destroy)
+      on ::Crysterm::Event::Resize, ->on_resize(::Crysterm::Event::Resize)
 
-      # Emitting in `#exec` is too late. Could do it there, but then also Resize needs to be emitted.
       emit ::Crysterm::Event::Attach, self
-      padding.try { |padding| @padding = Padding.from(padding) }
 
       bind
 
@@ -195,24 +180,6 @@ module Crysterm
 
       # Events:
       # addhander,
-
-      title.try { |t| self.title = t }
-
-      on(Crysterm::Event::Resize) do |e|
-        e.size.try { |size|
-          @width = size.width
-          @height = size.height
-        }
-
-        realloc
-        render
-
-        # For children (`Widget`s). I'd say the size doesn't mean anything to
-        # the child widgets so we remove it. Or well, since it's there let's try
-        # leaving it.
-        # e.size = nil
-        emit_descendants e
-      end
 
       # TODO These events are not for specific widgets, but when the whole program gets
       # those events. Enable and rework them as above ecample when we get to it.
@@ -274,6 +241,22 @@ module Crysterm
       on_detach(e)
     end
 
+    def on_resize(e)
+      e.size.try { |size|
+        @width = size.width
+        @height = size.height
+      }
+
+      realloc
+      render
+
+      # For children (`Widget`s). I'd say the size doesn't mean anything to
+      # the child widgets so we remove it. Or well, since it's there let's try
+      # leaving it.
+      # e.size = nil
+      emit_descendants e
+    end
+
     # Displays the main screen, set up IO hooks, and starts the main loop.
     #
     # This is similar to how it is done in the Qt framework.
@@ -305,7 +288,7 @@ module Crysterm
 
     def enter
       # TODO make it possible to work without switching the whole app to alt buffer.
-      return if tput.is_alt
+      # return if tput.is_alt
 
       if !@cursor._set
         apply_cursor

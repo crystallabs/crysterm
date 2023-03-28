@@ -755,6 +755,11 @@ module Crysterm
     end
   end
 
+  # A wrapper around indexable objects that returns nil on [-idx] rather than
+  # [idx] counted from the back.
+  #
+  # It is needed in drawing routines where index is often offset by a certain
+  # value and expected that all indexes < 0 will return nil.
   struct StringIndex
     def initialize(@object : String) : String?
     end
