@@ -33,7 +33,7 @@ module Crysterm
     width: 20,
     height: 8,
     content: "alpha=0.2",
-    style: Style.new(bg: "#729fcf", alpha: true, border: true, shadow: Shadow.new(6, 1, 6, 1, 0.7))
+    style: Style.new(bg: "#729fcf", alpha: true, border: true, shadow: Shadow.new(6, 1, 6, 1, 0.2))
   )
   boxtp3 = Box.new(
     # parent: s,

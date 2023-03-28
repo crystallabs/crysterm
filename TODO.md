@@ -13,8 +13,6 @@
 
 - After that, undo the change that makes Display push events onto Screens and properly cover it with attach/detach possibilities.
 
-- Fix a bug where a widget is properly assigned to screen if it has `parent: screen` in initialize options, but not if it's added later with `screen.append(widget)` or `screen<<widget`. (Is it because it installs some event handlers while screen is nil?)
-
 - When Border.new(0) is used, content does properly begin from offset 0, but does not render in that first column/row so appears missing.
 - Exception happening in examples/chat.cr
 
