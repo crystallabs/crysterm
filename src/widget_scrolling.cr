@@ -9,7 +9,7 @@ module Crysterm
 
     property? scrollbar : Bool = false
 
-    # Inside scrollbar (if enabled), should widget indicate the scroll position?
+    # Should widget indicate the scroll position?
     property? track : Bool = false
 
     # Offset from the top of content (in number of lines) due to scrolling.
@@ -36,6 +36,11 @@ module Crysterm
       get_scroll_height > aheight
     end
 
+    # Returns total amount of lines by which widget is scrolled.
+    #
+    # The value combines invisible and visible parts. E.g. if a widget is scrolled
+    # by 6 lines which are invisible (out of screen), and the cursor is at the 5th
+    # line of visible content, `get_scroll` will return 11.
     def get_scroll
       @child_base + @child_offset
     end

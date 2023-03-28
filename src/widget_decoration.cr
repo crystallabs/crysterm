@@ -24,7 +24,7 @@ module Crysterm
       (style.border.try(&.bottom) || 0) + (style.padding.try(&.bottom) || 0)
     end
 
-    # Returns computed inner (content) width
+    # Returns summed amount of content offset from left and right
     def iwidth
       # return (style.border
       #   ? ((style.border.left ? 1 : 0) + (style.border.right ? 1 : 0)) : 0)
@@ -33,7 +33,7 @@ module Crysterm
         (style.padding.try { |padding| padding.left + padding.right } || 0)
     end
 
-    # Returns computed inner (content) height
+    # Returns summed amount of content offset from top and bottom
     def iheight
       # return (style.border
       #   ? ((style.border.top ? 1 : 0) + (style.border.bottom ? 1 : 0)) : 0)

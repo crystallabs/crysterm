@@ -757,7 +757,7 @@ module Crysterm
     end
   end
 
-  class StringIndex
+  struct StringIndex
     def initialize(@object : String) : String?
     end
 
