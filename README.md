@@ -327,8 +327,7 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - `Screen` is thus the top level component, and does not inherit from `Widget`
 - `Element` and `Node` have been consolidated into `Widget`
 - As such, `Screen` is not a top-level `parent` of any `Widget`; use `[@]screen` to get `Screen` or `parent_or_screen` for parent or screen
-- `tabc` is property on `Widget` instead of `Screen`
-- `tab_size` is a property of `Style` instead of `Screen`
+- `tabc` (renamed to `tab_char`) and `tab_size` are properties of `Widget#style` instead of `Screen`
 - Screen `auto_padding : Bool` has been moved to Widget, and then later even removed (behaves like it is always enabled)
 - Screen itself can have a padding, same like Widgets
 - Event names have been changed from strings to classes, e.g. event `"scroll"` is `::Crysterm::Event::Scroll`

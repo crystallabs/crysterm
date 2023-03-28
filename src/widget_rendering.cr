@@ -247,7 +247,7 @@ module Crysterm
 
           # Handle newlines.
           if (ch == '\t')
-            # TODO this should be something like ch = bch * @tabsize, or jus @tabc,
+            # TODO this should be something like ch = bch * style.tab_size, or just style.tab_char,
             # (although not as simple as that.)
             ch = bch
           end

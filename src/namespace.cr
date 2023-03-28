@@ -129,6 +129,9 @@ module Crysterm
     # Length in number of characters to replace TABs with
     property tab_size = 4
 
+    # Character to replace TABs with, multiplied by tab_size
+    property tab_char = " "
+
     # Generic char (WIP)
     property char : Char = ' '
 

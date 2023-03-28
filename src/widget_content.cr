@@ -19,8 +19,6 @@ module Crysterm
     # Is element's content to be parsed for tags?
     property? parse_tags = true
 
-    getter! tabc : String
-
     # Alignment of contained text
     property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
 
@@ -96,7 +94,7 @@ module Crysterm
           @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
             .gsub(/\e(?!\[[\d;]*m)/, "") # SGR
             .gsub(/\r\n|\r/, "\n")
-            .gsub(/\t/, @tabc)
+            .gsub(/\t/, style.tab_char * style.tab_size)
 
         Log.trace { "Internal content is #{content.inspect}" }
 

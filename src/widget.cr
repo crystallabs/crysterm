@@ -92,8 +92,7 @@ module Crysterm
 
       # Final, misc settings
       @index = -1,
-      children = [] of Widget,
-      tabc = nil
+      children = [] of Widget
     )
       # $ = _ = JSON/YAML::Any
 
@@ -101,7 +100,6 @@ module Crysterm
       scrollable.try { |v| @scrollable = v }
       input.try { |v| @input = v }
       visible.try { |v| self.style.visible = v }
-      @tabc = tabc || (" " * self.style.tab_size)
 
       # This just defines which Screen it is all linked to.
       # (Until we make `screen` fully optional)
