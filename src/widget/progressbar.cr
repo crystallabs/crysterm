@@ -3,11 +3,9 @@ module Crysterm
     class ProgressBar < Input
       property filled : Int32 = 0
       property value : Int32 = 0
-      property pch : Char = ' '
       property orientation : Tput::Orientation = Tput::Orientation::Horizontal
 
       # TODO Add new options:
-      # replace pch with style.pchar, or even remove pchar in favor of generic property like 'char'
       # min value and max value
       # step of increase
       # does it wrap around?
@@ -22,7 +20,6 @@ module Crysterm
 
       def initialize(
         @filled = 0,
-        @pch = ' ',
         @keys = true,
         @mouse = false,
         orientation = nil,

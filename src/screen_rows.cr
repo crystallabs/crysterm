@@ -5,9 +5,10 @@ module Crysterm
     # Individual screen cell
     class Cell
       include Comparable(self)
-      # Same as @default_attr
-      property attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
-      property char : Char = ' '
+
+      property attr : Int32 = Screen::DEFAULT_ATTR
+
+      property char : Char = Screen::DEFAULT_CHAR
 
       def initialize(@attr, @char)
       end

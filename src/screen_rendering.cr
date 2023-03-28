@@ -1,5 +1,8 @@
 module Crysterm
   class Screen
+    DEFAULT_ATTR = ((0 << 18) | (0x1ff << 9)) | 0x1ff
+    DEFAULT_CHAR = ' '
+
     # Things related to rendering (setting up memory state for display)
     # module Rendering
     class BorderStop
@@ -65,7 +68,11 @@ module Crysterm
 
     # XXX move somewhere else?
     # Default cell attribute
-    property default_attr : Int32 = ((0 << 18) | (0x1ff << 9)) | 0x1ff
+    property default_attr : Int32 = DEFAULT_ATTR
+
+    # XXX move somewhere else?
+    # Default cell character
+    property default_char : Char = DEFAULT_CHAR
 
     # Automatically "dock" borders with other elements instead of overlapping,
     # depending on position.

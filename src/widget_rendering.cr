@@ -366,11 +366,11 @@ module Crysterm
           # Is there any better way to handle?
           lines[y]?.try(&.[x]?).try do |cell|
             if @track
-              ch = style.track.char # || ' '
+              ch = style.track.char
               attr = sattr style.track, style.track.fg, style.track.bg
               screen.fill_region attr, ch, x, x + 1, yi, yl
             end
-            ch = style.scrollbar.char # || ' '
+            ch = style.scrollbar.char
             attr = sattr style.scrollbar, style.scrollbar.fg, style.scrollbar.bg
             if cell != {attr, ch}
               cell.attr = attr
@@ -467,7 +467,7 @@ module Crysterm
           end
           if cell != {battr, ch}
             lines[y][x].attr = battr
-            lines[y][x].char = ch ? ch : ' ' # XXX why ch can be nil?
+            lines[y][x].char = (ch || ' ')
             lines[y].dirty = true
           end
         end
@@ -488,7 +488,7 @@ module Crysterm
               if !coords.no_left?
                 if cell != {battr, ch}
                   lines[y][xi].attr = battr
-                  lines[y][xi].char = ch ? ch : ' '
+                  lines[y][xi].char = (ch || ' ')
                   lines[y].dirty = true
                 end
               end
@@ -496,7 +496,7 @@ module Crysterm
               ch = ' '
               if cell != {default_attr, ch}
                 lines[y][xi].attr = default_attr
-                lines[y][xi].char = ch ? ch : ' '
+                lines[y][xi].char = (ch || ' ')
                 lines[y].dirty = true
               end
             end
@@ -513,7 +513,7 @@ module Crysterm
               if !coords.no_right?
                 if cell != {battr, ch}
                   lines[y][xl - 1].attr = battr
-                  lines[y][xl - 1].char = ch ? ch : ' '
+                  lines[y][xl - 1].char = (ch || ' ')
                   lines[y].dirty = true
                 end
               end
@@ -521,7 +521,7 @@ module Crysterm
               ch = ' '
               if cell != {default_attr, ch}
                 lines[y][xl - 1].attr = default_attr
-                lines[y][xl - 1].char = ch ? ch : ' '
+                lines[y][xl - 1].char = (ch || ' ')
                 lines[y].dirty = true
               end
             end
@@ -588,14 +588,14 @@ module Crysterm
             ch = ' '
             if cell != {default_attr, ch}
               lines[y][x].attr = default_attr
-              lines[y][x].char = ch ? ch : ' '
+              lines[y][x].char = (ch || ' ')
               lines[y].dirty = true
             end
             next
           end
           if cell != {battr, ch}
             lines[y][x].attr = battr
-            lines[y][x].char = ch ? ch : ' '
+            lines[y][x].char = (ch || ' ')
             lines[y].dirty = true
           end
         end
