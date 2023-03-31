@@ -2,8 +2,6 @@ module Crysterm
   class Widget
     # Widget decorations
 
-    @auto_padding = true
-
     # Returns computed content offset from left
     def ileft
       (style.border.try(&.left) || 0) + (style.padding.try(&.left) || 0)

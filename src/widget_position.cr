@@ -106,10 +106,8 @@ module Crysterm
         end
       end
 
-      if @auto_padding
-        if (!oleft.nil? || oright.nil?) && oleft != "center"
-          left += parent.ileft
-        end
+      if (!oleft.nil? || oright.nil?) && oleft != "center"
+        left += parent.ileft
       end
 
       (parent.aleft || 0) + left
@@ -141,10 +139,8 @@ module Crysterm
         end
       end
 
-      if @auto_padding
-        if (!otop.nil? || obottom.nil?) && otop != "center"
-          top += parent.itop
-        end
+      if (!otop.nil? || obottom.nil?) && otop != "center"
+        top += parent.itop
       end
 
       (parent.atop || 0) + top
@@ -154,21 +150,16 @@ module Crysterm
     def aright(get = false)
       oleft = @left
       oright = @right
-      auto_padding = @auto_padding
 
       parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
 
       if oright.nil? && !oleft.nil?
         right = screen.awidth - (aleft(get) + awidth(get))
-        if auto_padding
-          right += parent.iright
-        end
+        right += parent.iright
       end
 
       right = (parent.aright || 0) + (oright || 0)
-      if auto_padding
-        right += parent.iright
-      end
+      right += parent.iright
 
       right
     end
@@ -177,23 +168,18 @@ module Crysterm
     def abottom(get = false)
       otop = @top
       obottom = @bottom
-      auto_padding = @auto_padding
 
       parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
 
       if obottom.nil? && !otop.nil?
         bottom = screen.aheight - atop(get) - aheight(get)
-        if auto_padding
-          bottom += parent.ibottom
-        end
+        bottom += parent.ibottom
         return bottom
       end
 
       bottom = (parent.abottom || 0) + (obottom || 0)
 
-      if auto_padding
-        bottom += parent.ibottom
-      end
+      bottom += parent.ibottom
 
       bottom
     end

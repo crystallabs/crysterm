@@ -41,7 +41,7 @@ module Crysterm
         expr = width.split /(?=\+|-)/
         width = expr[0]
         width = width[0...-1].to_f / 100
-        width = (((parent.awidth || 0) - (@auto_padding ? parent.iwidth : 0)) * width).to_i
+        width = (((parent.awidth || 0) - parent.iwidth) * width).to_i
         width += expr[1].to_i if expr[1]?
         return width
       end
@@ -66,12 +66,10 @@ module Crysterm
         end
         width = (parent.awidth || 0) - (oright || 0) - left
 
-        if @auto_padding
-          if (!oleft.nil? || oright.nil?) && oleft != "center"
-            width -= parent.ileft
-          end
-          width -= parent.iright
+        if (!oleft.nil? || oright.nil?) && oleft != "center"
+          width -= parent.ileft
         end
+        width -= parent.iright
       end
 
       width
@@ -93,7 +91,7 @@ module Crysterm
         expr = height.split /(?=\+|-)/
         height = expr[0]
         height = height[0...-1].to_f / 100
-        height = (((parent.aheight || 0) - (@auto_padding ? parent.iheight : 0)) * height).to_i
+        height = (((parent.aheight || 0) - parent.iheight) * height).to_i
         height += expr[1].to_i if expr[1]?
         return height
       end
@@ -118,12 +116,10 @@ module Crysterm
         end
         height = (parent.aheight || 0) - (obottom || 0) - top
 
-        if @auto_padding
-          if (!otop.nil? || obottom.nil?) && otop != "center"
-            height -= parent.itop
-          end
-          height -= parent.ibottom
+        if (!otop.nil? || obottom.nil?) && otop != "center"
+          height -= parent.itop
         end
+        height -= parent.ibottom
       end
 
       height
@@ -210,30 +206,12 @@ module Crysterm
       if @width.nil? && (@left.nil? || @right.nil?)
         if @left.nil? && !@right.nil?
           xi = xl - (mxl - mxi)
-          if !@auto_padding
-            xi -= style.padding.try { |padding| padding.left + padding.right } || 0
-          else
-            xi -= ileft
-          end
+          xi -= style.padding.try { |padding| padding.left + padding.right } || 0
         else
           xl = mxl
-          if !@auto_padding
-            xl += style.padding.try { |padding| padding.left + padding.right } || 0
-            # XXX Temporary workaround until we decide to make auto_padding default.
-            # See widget-listtable for an example of why this is necessary.
-            # XXX Maybe just to this for all this being that this would affect
-            # width shrunken normal shrunken lists as well.
-            # D O:
-            # if @_is_list
-            if is_a? ListTable
-              xl -= style.padding.try { |padding| padding.left + padding.right } || 0
-              xl += iright
-            end
-          else
-            # D O:
-            # xl += style.padding.try(&.right) || 0
-            xl += iright
-          end
+          # D O:
+          # xl += style.padding.try(&.right) || 0
+          xl += iright
         end
       end
       if @height.nil? && (@top.nil? || @bottom.nil?) && (!@scrollable || @_is_list)
@@ -246,18 +224,10 @@ module Crysterm
         end
         if @top.nil? && !@bottom.nil?
           yi = yl - (myl - myi)
-          if !@auto_padding
-            yi -= style.padding.try { |padding| padding.top + padding.bottom } || 0
-          else
-            yi -= itop
-          end
+          yi -= itop
         else
           yl = myl
-          if !@auto_padding
-            yl += style.padding.try { |padding| padding.top + padding.bottom } || 0
-          else
-            yl += ibottom
-          end
+          yl += ibottom
         end
       end
 
