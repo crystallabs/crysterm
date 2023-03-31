@@ -37,6 +37,7 @@ module Crysterm
     end
 
     # Registers a handler for the event, named after the event itself.
+    # This is a convenience function.
     #
     # E.g.:
     # ```
@@ -46,10 +47,10 @@ module Crysterm
     # Will expand into:
     #
     # ```
-    #  on(Event::Attach, ->on_attach(Event::Attach)
+    # on(Event::Attach, ->on_attach(Event::Attach)
     # ```
-    macro handle(event)
-      on({{event}}, ->on_{{event.stringify.split("::")[-1].downcase.id}}({{event}}))
+    macro handle(event, handler = nil)
+      on({{event}}, ->on_{{ handler || (event.stringify.split("::")[-1].downcase.id) }}({{event}}))
     end
   end
 end

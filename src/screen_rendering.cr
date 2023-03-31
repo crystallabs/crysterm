@@ -1,10 +1,10 @@
 module Crysterm
   class Screen
+    # Things related to rendering (setting up memory state for display)
+
     DEFAULT_ATTR = ((0 << 18) | (0x1ff << 9)) | 0x1ff
     DEFAULT_CHAR = ' '
 
-    # Things related to rendering (setting up memory state for display)
-    # module Rendering
     class BorderStop
       property? yes = false
       property xi : Int32?

@@ -18,13 +18,13 @@ module Crysterm
     # To have redraws happen even while resizing is going on, reduce this interval.
     property resize_interval : Time::Span = 0.2.seconds
 
-    @_resize_fiber : Fiber?
+    @_resize_loop_fiber : Fiber?
     @_resize_handler : ::Crysterm::Event::Resize::Wrapper?
 
     # Schedules resize fiber to run at now + `@resize_interval`. Repeated invocations
     # (before the interval has elapsed) have a desirable effect of re-starting the timer.
     private def schedule_resize
-      @_resize_fiber.try &.timeout(@resize_interval)
+      @_resize_loop_fiber.try &.timeout(@resize_interval)
     end
 
     # Re-reads current size of all `Display`s and triggers redraw of all `Screen`s.
