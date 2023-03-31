@@ -35,5 +35,21 @@ module Crysterm
         alias_method new_method, {{@type.methods.last.name}}
       {% end %}
     end
+
+    # Registers a handler for the event, named after the event itself.
+    #
+    # E.g.:
+    # ```
+    # handle Event::Attach
+    # ```
+    #
+    # Will expand into:
+    #
+    # ```
+    #  on(Event::Attach, ->on_attach(Event::Attach)
+    # ```
+    macro handle(event)
+      on({{event}}, ->on_{{event.stringify.split("::")[-1].downcase.id}}({{event}}))
+    end
   end
 end

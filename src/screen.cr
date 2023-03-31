@@ -159,10 +159,10 @@ module Crysterm
 
       @_resize_fiber = Fiber.new "resize_loop" { resize_loop }
 
-      on ::Crysterm::Event::Attach, ->on_attach(::Crysterm::Event::Attach)
-      on ::Crysterm::Event::Detach, ->on_detach(::Crysterm::Event::Detach)
-      on ::Crysterm::Event::Destroy, ->on_destroy(::Crysterm::Event::Destroy)
-      on ::Crysterm::Event::Resize, ->on_resize(::Crysterm::Event::Resize)
+      handle ::Crysterm::Event::Attach
+      handle ::Crysterm::Event::Detach
+      handle ::Crysterm::Event::Destroy
+      handle ::Crysterm::Event::Resize
 
       emit ::Crysterm::Event::Attach, self
 
