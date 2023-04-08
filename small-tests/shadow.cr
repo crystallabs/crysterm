@@ -75,12 +75,12 @@ module Crysterm
       s.destroy
       exit
     elsif e.key == ::Tput::Key::Up
-      boxtp0.style.shadow.try { |s| s.alpha += 0.1 }
-      boxtp0.content = "alpha=#{boxtp0.style.shadow.try &.alpha}"
+      boxtp0.style.shadow.alpha += 0.1
+      boxtp0.content = "alpha=#{boxtp0.style.shadow.alpha}"
       s.render
     elsif e.key == ::Tput::Key::Down
-      boxtp0.style.shadow.try { |s| s.alpha -= 0.1 }
-      boxtp0.content = "alpha=#{boxtp0.style.shadow.try &.alpha}"
+      boxtp0.style.shadow.alpha -= 0.1
+      boxtp0.content = "alpha=#{boxtp0.style.shadow.alpha}"
       s.render
     end
   end

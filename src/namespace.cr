@@ -225,7 +225,7 @@ module Crysterm
     end
 
     # :ditto:
-    getter shadow : Shadow?
+    getter shadow = Shadow.default
 
     setter track : Style?
 
@@ -438,6 +438,8 @@ module Crysterm
 
   # Class for shadow definition.
   class Shadow
+    class_property default = new 0, 0, 0, 0
+
     # Width of shadow on the left side
     property left : Int32 = 0
 
@@ -468,7 +470,7 @@ module Crysterm
       in true
         Shadow.new
       in nil, false
-        nil
+        Shadow.default
       in Shadow
         value
       in Float

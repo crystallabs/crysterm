@@ -1,8 +1,5 @@
 # TODOs
 
-- Review src/widget_content.cr
-- Review src/screen_cursor.cr
-
 - See how src/widget_children.cr and src/mixin/children.cr could be more integrated and how Screen->Widgets could re-use as much of it as possible
 
 - Screen#listen_keys function: it serves 2 purposes, both to set up general listening for all keys, and to announce that a certain widget is interested in receiving key events. Split this functionality into 2 distinct parts - one sets up listener, one manages @keyable array.
