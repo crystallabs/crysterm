@@ -74,6 +74,14 @@ module Crysterm
     if e.key == ::Tput::Key::CtrlQ || e.char == 'q'
       s.destroy
       exit
+    elsif e.key == ::Tput::Key::Up
+      boxtp0.style.shadow.try { |s| s.alpha += 0.1 }
+      boxtp0.content = "alpha=#{boxtp0.style.shadow.try &.alpha}"
+      s.render
+    elsif e.key == ::Tput::Key::Down
+      boxtp0.style.shadow.try { |s| s.alpha -= 0.1 }
+      boxtp0.content = "alpha=#{boxtp0.style.shadow.try &.alpha}"
+      s.render
     end
   end
 

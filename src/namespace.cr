@@ -368,10 +368,30 @@ module Crysterm
     #  @left = @top = @right = @bottom = all
     # end
 
-    # Disabled since nothing uses it for now:
-    # def any?
-    #  !!(@left || @top || @right || @bottom)
-    # end
+    # Is there any border on left side?
+    def left?
+      @left > 0
+    end
+
+    # Is there any border on top?
+    def top?
+      @top > 0
+    end
+
+    # Is there any border on right side?
+    def right?
+      @right > 0
+    end
+
+    # Is there any border on bottom?
+    def bottom?
+      @bottom > 0
+    end
+
+    # Is there any [amount of] border defined?
+    def any?
+      (@left + @top + @right + @bottom) > 0
+    end
   end
 
   # Class for padding definition.

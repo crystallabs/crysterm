@@ -3,8 +3,6 @@
 - Review src/widget_content.cr
 - Review src/screen_cursor.cr
 
-- In small-tests/shadow.cr -> did the 1 cell of overlapping border stop having blend applied properly?
-
 - See how src/widget_children.cr and src/mixin/children.cr could be more integrated and how Screen->Widgets could re-use as much of it as possible
 
 - Screen#listen_keys function: it serves 2 purposes, both to set up general listening for all keys, and to announce that a certain widget is interested in receiving key events. Split this functionality into 2 distinct parts - one sets up listener, one manages @keyable array.
@@ -12,9 +10,6 @@
 - All fibers and/or listeners must be recorded in respective classes so that they can be managed (removed/paused/detached etc.)
 
 - After that, undo the change that makes Display push events onto Screens and properly cover it with attach/detach possibilities.
-
-- When Border.new(0) is used, content does properly begin from offset 0, but does not render in that first column/row so appears missing.
-- Exception happening in examples/chat.cr
 
 - Why is there a newline difference in output of blessed and crysterm's Screen#screenshot?
 
@@ -25,8 +20,6 @@
 - Issue with transparency, where a transparent element gets more opaque on every render. This is caused by code found at first occurrence of 'transparency' in src/widget.cr. Example can be seen if we add a transparent padding to e.g. members list widget in example/chat.cr. In Blessed, the value of lines[y][x][attr] seems to always be the same, whereas in our case it has the resulting value from previous render, and so on every render the field's color gets additionally blended until it has 100% opacity rather than staying at initial/desired value.
 
 - On exit, reset colors and exit from ACS
-
-- In examples/tech-demo.cr, on the translucent windows, there is part of border missing in 8-color xterm. See why
 
 - Maybe add a GUI-dedicated thread like in Qt?
 
@@ -76,8 +69,6 @@
 - In the code, questions and/or things to verify at some later point are identified with "XXX".
 
 - Currently, default events in widgets are implemented in instance vars, and then when we want to enable/disable widget events, we either add or remove those handlers/vars from the events' handlers hashes. But the code for that is tedious/almost manual. Maybe all events should be in an array or something, and then adding or removing is just handlers.clear or handlers.push *array.
-
-- Adding TrueColor support
 
 - Evaluate when events are triggered and how they are named. Events that are triggered before the code is executed should be named like e.g. 'Attach'. Events that trigger after the work has been done should be in past tense, e.g. 'Attached'.
 

@@ -268,8 +268,8 @@ module Crysterm
       # Informs us which side is partly hidden due to being enclosed in a
       # parent (and potentially scrollable) element. Will be set/computed later.
       no_left = false
-      no_right = false
       no_top = false
+      no_right = false
       no_bottom = false
 
       base = @child_base

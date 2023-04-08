@@ -1,6 +1,21 @@
 module Crysterm
   class Screen
-    # Things related to drawing (displaying rendered state to display)
+    # Things related to drawing (displaying rendered state on screen)
+    #
+    # In general terms, "rendering" refers to refreshing an (Y,X) array of cells in memory
+    # so that each has the desired cell attributes (color, bold, underline, etc.) and
+    # character printed in it (if any). (Sort of like a framebuffer for the console :)
+    #
+    # After that step, "drawing" refers to examining the differences between the current
+    # and desired state of screen, and generating a stream of plain text and embedded commands
+    # (escape sequences) that is sent to the terminal that will hopefully result in
+    # the screen showing the exact same picture as the in-memory representation.
+    #
+    # Rendering is the complicated part where everything has to be calculated and placed
+    # with the right position and content in the 2D array of cells.
+    # In comparison to rendering, drawing is simpler. It only deals with optimizing the commands
+    # sent to the terminal, so that the transition from previous rendered state to the new one
+    # is achieved in as few escape sequences as possible.
 
     # Any prefix we want the final buffer to have
     @_buf = IO::Memory.new
