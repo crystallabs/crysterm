@@ -433,9 +433,29 @@ module Crysterm
       pos
     end
 
-    # def any?
-    #  (@left + @top + @right + @bottom) > 0
-    # end
+    # Is there any padding on left side?
+    def left?
+      @left > 0
+    end
+
+    # Is there any padding on top?
+    def top?
+      @top > 0
+    end
+
+    # Is there any padding on right side?
+    def right?
+      @right > 0
+    end
+
+    # Is there any padding on bottom?
+    def bottom?
+      @bottom > 0
+    end
+
+    def any?
+      (@left + @top + @right + @bottom) > 0
+    end
   end
 
   # Class for shadow definition.

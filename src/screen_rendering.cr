@@ -5,24 +5,26 @@ module Crysterm
     DEFAULT_ATTR = ((0 << 18) | (0x1ff << 9)) | 0x1ff
     DEFAULT_CHAR = ' '
 
-    class BorderStop
-      property? yes = false
-      property xi : Int32?
-      property xl : Int32?
-    end
+    # Note: Disabled since nothing uses it.
+    #class BorderStop
+    #  property? yes = false
+    #  property xi : Int32?
+    #  property xl : Int32?
+    #end
 
-    class BorderStops < Hash(Int32, BorderStop)
-      def []=(idx : Int32, arg)
-        self[idx]? || (self[idx] = BorderStop.new)
-        case arg
-        when Bool
-          self[idx].yes = arg
-        else
-          self[idx].xi = arg.xi
-          self[idx].xl = arg.xl
-        end
-      end
-    end
+    # Note: Disabled since nothing uses it.
+    #class BorderStops < Hash(Int32, BorderStop)
+    #  def []=(idx : Int32, arg)
+    #    self[idx]? || (self[idx] = BorderStop.new)
+    #    case arg
+    #    when Bool
+    #      self[idx].yes = arg
+    #    else
+    #      self[idx].xi = arg.xi
+    #      self[idx].xl = arg.xl
+    #    end
+    #  end
+    #end
 
     @render_flag : Atomic(UInt8) = Atomic.new 0u8
     @render_channel : Channel(Bool) = Channel(Bool).new
