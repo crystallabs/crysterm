@@ -86,8 +86,6 @@
 
 - In rendering, there is Overflow enum used as a return type, which defines what to do if a widget can't be rendered without overflowing. Add MoveWidget or similar as another option. It would have the effect of moving the widget so it can render. A use case for this would be e.g. auto-completion boxes or similar which pop-up. For simplicity the developer would just have them pop up at the desired location, and Crysterm would adjust for overflow automatically.
 
-- When dealing with colors, do we want #aabbcc to be some class/struct, or just String is OK?
-
 - When a Display starts listening for keys (possibly other stuff too), there is no way to cancel it, since there is no API to kill a Fiber from the outside. So once this is started, it's active til the program exits.
 Not a huge deal since a Display unconditionally starts listening and emitting received stuff, but it's something to improve long term (there should be a way to gracefully stop listening and/or destroy/re-create the Display object).
 

@@ -211,7 +211,7 @@ module Crysterm
       @padding = Padding.from value
     end
 
-    getter padding : Padding?
+    getter padding = Padding.default
 
     setter scrollbar : Style?
 
@@ -398,6 +398,8 @@ module Crysterm
   #
   # NOTE "Padding" as in spacing around elements. Same order as in HTML (ltrb)
   class Padding
+    class_property default = new 0
+
     property left : Int32 = 0
     property top : Int32 = 0
     property right : Int32 = 0
@@ -408,7 +410,7 @@ module Crysterm
       in true
         Padding.new 1
       in nil, false
-        nil
+        Padding.default
       in Padding
         value
       in Int

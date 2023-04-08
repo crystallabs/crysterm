@@ -32,26 +32,5 @@ module Crysterm
 
       true
     end
-
-    def _recalculate_index
-      return 0 if !@screen || !@scrollable
-
-      # D O
-      # XXX
-      # max = get_scroll_height - (aheight - iheight)
-
-      max = @_clines.size - (aheight - iheight)
-      max = 0 if max < 0
-      emax = @_scroll_bottom - (aheight - iheight)
-      emax = 0 if emax < 0
-
-      @child_base = Math.min @child_base, Math.max emax, max
-
-      if @child_base < 0
-        @child_base = 0
-      elsif @child_base > @base_limit
-        @child_base = @base_limit
-      end
-    end
   end
 end

@@ -4,40 +4,38 @@ module Crysterm
     # If you define widget at position (0,0), that will be counted after padding.
     # (We leave this at nil for no padding. If we used Padding.new that'd create a
     # 1 cell padding by default.)
-    property padding : Padding?
+    property padding = Padding.default
 
     # Amount of space taken by decorations on the left side, to be subtracted from widget's total width
     def ileft
-      @padding.try(&.left) || 0
+      @padding.left
     end
 
     # Amount of space taken by decorations on top, to be subtracted from widget's total height
     def itop
-      @padding.try(&.top) || 0
+      @padding.top
     end
 
     # Amount of space taken by decorations on the right side, to be subtracted from widget's total width
     def iright
-      @padding.try(&.right) || 0
+      @padding.right
     end
 
     # Amount of space taken by decorations on bottom, to be subtracted from widget's total height
     def ibottom
-      @padding.try(&.bottom) || 0
+      @padding.bottom
     end
 
     # Returns current screen width.
     def iwidth
-      @padding.try do |padding|
-        padding.left + padding.right
-      end || 0
+      p = @padding
+      p.left + p.right
     end
 
     # Returns current screen height.
     def iheight
-      @padding.try do |padding|
-        padding.top + padding.bottom
-      end || 0
+      p = @padding
+      p.top + p.bottom
     end
   end
 end

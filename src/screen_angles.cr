@@ -99,6 +99,8 @@ module Crysterm
             return ch
           when DockContrast::Blend
             lines[y][x].attr = Colors.blend lines[y][x - 1].attr, attr
+            # when DockContrast::Ignore
+            #  Note: ::Ignore needs no custom handler/code; it works as-is.
           end
         end
         angle |= 1 << 3
@@ -111,6 +113,8 @@ module Crysterm
             return ch
           when DockContrast::Blend
             lines[y][x].attr = Colors.blend lines[y - 1][x].attr, attr
+            # when DockContrast::Ignore
+            #  Note: ::Ignore needs no custom handler/code; it works as-is.
           end
         end
         angle |= 1 << 2
@@ -123,6 +127,8 @@ module Crysterm
             return ch
           when DockContrast::Blend
             lines[y][x].attr = Colors.blend lines[y][x + 1].attr, attr
+            # when DockContrast::Ignore
+            #  Note: ::Ignore needs no custom handler/code; it works as-is.
           end
         end
         angle |= 1 << 1
@@ -135,6 +141,8 @@ module Crysterm
             return ch
           when DockContrast::Blend
             lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
+            # when DockContrast::Ignore
+            #  Note: ::Ignore needs no custom handler/code; it works as-is.
           end
         end
         angle |= 1 << 0

@@ -25,11 +25,13 @@ module Crysterm
       self.style.visible? ? hide : show
     end
 
-    # Returns whether widget is visible. It also checks the complete chain of widget parents.
+    # Returns whether widget is visible. Currently does not check if all parents are also visible.
     def visible?
-      visible = true
-      self_and_each_ancestor { |a| visible &= a.style.visible? }
-      visible
+      self.style.visible?
+      # This version also checks the complete chain of widget parents:
+      # visible = true
+      # self_and_each_ancestor { |a| visible &&= a.style.visible? }
+      # visible
     end
   end
 end
