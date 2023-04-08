@@ -2,8 +2,6 @@
 
 - All fibers and/or listeners must be recorded in respective classes so that they can be managed (removed/paused/detached etc.)
 
-- After that, undo the change that makes Display push events onto Screens and properly cover it with attach/detach possibilities.
-
 - In src/namespace.cr there is: `property label : Style { Style.new }`. Redesign that. Determine what to do with label.side. Possibly redo the whole label thing.
 
 - In Blessed's version of examples/hello, it is not necessary to manually #clearPos(). Where does the difference compared to Crysterm come from?
@@ -11,12 +9,6 @@
 - On exit, reset colors and exit from ACS
 
 - Maybe add a GUI-dedicated thread like in Qt?
-
-- Make @dock_contrast be property on Style.
-
-- See if @dock_contrast=Ignore has any effect, i.e. does it work correctly
-
-- See if it is possible to calculate color distance and have a threshold after which borders are not docked, but below it they are?
 
 - Do code2attr / attr2code legitimately belong to Screen, or they're better suited for some other file/place?
 
@@ -27,13 +19,9 @@
 - For `OptimizationFlag`s listed in src/namespace.cr, make a list of all common terminal emulators and see which ones support which optimizations. Than make default optimizations turn on/off based on that (unless overriden by user).
 `OptimizationFlag`s are set on a `Screen`.
 
-- See if dock_borders/dock_contrast can be moved to Widget, or they really need to operate on the level of Screen to be useful? (I.e. in screen_rendering, where they are used, do we have widgets in scope or not? If yes, move to Widget, if not, leave as-is)
-
 - In src/screen.cr, some stuff is done in initialize, while it seems like enter/leave would be the correct places.
 
 - Determine what is the exact current situation re. whether borders/angles can be drawn using ACS chars or Unicode chars? Is both supported or currently the code only does one?
-
-- Add support for graphemes now that graphemes are supported in crystal
 
 - Same as Widget#hidden, rename Cursor#_hidden
 
@@ -41,7 +29,7 @@
 
 - Make Widget#content be original, user-supplied content. Name all other accessors differently (same type of solution as for left/right/etc.)
 
-- If the screen is too small to display a widget in layout, don't hide it completely, make sure that at least something is drawn even if incomplete or incorrect. See e.g. misc/pine.cr for an example
+- If the screen is too small to display a widget in layout, don't hide it completely, make sure that at least something is drawn even if incomplete or incorrect. See e.g. small-tests/pine.cr for an example
 
 - When aligning widgets, see if it is possible to control what char will fill the empty space, instead of always ' '
 
@@ -49,11 +37,7 @@
 
 - Make uniform passing of args to classes, with class decls, function arguments, and arg.try... (E.g. disable unnamed parameters to all methods that have non-trivial args)
 
-- It is not 100% defined what happens if a Widget has parse_tags true, and there is syntax error in the tags. A syntax error is something as simple or just { or }. In the case of one {, { remains in input and the rest is removed. In all other cases (more {s or one or more }s), the whole section is removed.  This should be fixed/standardized. Offhand, either always removing everything, or always removing anything that's invalid as-is. (Didn't check yet how blessed does it.)
-
-- In the code, things to change/improve are identified with "TODO".
-
-- In the code, questions and/or things to verify at some later point are identified with "XXX".
+- It is not defined what happens if a Widget has parse_tags true, and there is syntax error in the tags. A syntax error is something as simple or just { or }. In the case of one {, { remains in input and the rest is removed. In all other cases (more {s or one or more }s), the whole section is removed.  This should be fixed/standardized. Offhand, either always removing everything, or always removing anything that's invalid as-is. (Didn't check yet how blessed does it.)
 
 - Currently, default events in widgets are implemented in instance vars, and then when we want to enable/disable widget events, we either add or remove those handlers/vars from the events' handlers hashes. But the code for that is tedious/almost manual. Maybe all events should be in an array or something, and then adding or removing is just handlers.clear or handlers.push *array.
 
@@ -65,11 +49,9 @@
 
 - See that whatever widgets have done on initialize are undo-ed when they or Screen they were on are destroyed
 
-- Support "Alternate" style in Style. There should be code which gives the "opposite" of any color. Then in code, when we detect overlapping colors which are too similar, one can simply be switched to its opposite. Minimal/beginning for this might be in existence. Search for "invert" and "attr".
+- Support "reverse" style in Style. There should be code which gives the "opposite" of any color. Then in code, when we detect overlapping colors which are too similar, one can simply be switched to its opposite. Minimal/beginning for this might be in existence. Search for "invert" and "attr".
 
 - Support starting the app without switching to alt buffer and re-setting everything. This would make it more usable for line-oriented apps
-
-- All Qt features :)
 
 - More widgets - from Blessed and `slap` text editor which is based on Blessed
 
@@ -80,8 +62,6 @@
 - In Crysterm, which should aim to be fully OO & clean code, strings have been replaced with enum values in many places. However, when specifying widget sizes or position, percentages are still typically given with strings, e.g. "80%", top/left support a special string value of "center", and width/height support "resizable". Strings can stay as a supported option (for convenience of loading settings from text files, etc.?), but see if those can be replaced with enums or similar, and with things like 80.percent() or something.
 
 - For good OO, and like in Qt, it would be good if all functions that deal with Points, Sizes, and Dimensions, would also accept those specific classes/structs that we'd define, rather than just numbers/Ints. This already exists to an extent, e.g. in Tput there is class Size, Point, etc. These should be used more throughout the codebase, and any other relevant new ones added.
-
-- Would anything be gained by using a Set instead of an Array as the containing element for individual Cell's which represent all chars/cells on the screen?
 
 - Performance improvements - can something substantial be done? In widgets and everywhere, but specifically:
 (1) for draw() - would it help if there was a region to draw manually managed, or current do-all code is fine?

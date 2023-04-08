@@ -162,7 +162,6 @@ module Crysterm
       end
       @_ci = -1
 
-      # if (@display.dock_borders?) # XXX why we do @display here? Can we do without?
       if @dock_borders
         _dock_borders
       end
