@@ -1,26 +1,16 @@
 # TODOs
 
-- See how src/widget_children.cr and src/mixin/children.cr could be more integrated and how Screen->Widgets could re-use as much of it as possible
-
-- Screen#listen_keys function: it serves 2 purposes, both to set up general listening for all keys, and to announce that a certain widget is interested in receiving key events. Split this functionality into 2 distinct parts - one sets up listener, one manages @keyable array.
-
 - All fibers and/or listeners must be recorded in respective classes so that they can be managed (removed/paused/detached etc.)
 
 - After that, undo the change that makes Display push events onto Screens and properly cover it with attach/detach possibilities.
-
-- Why is there a newline difference in output of blessed and crysterm's Screen#screenshot?
 
 - In src/namespace.cr there is: `property label : Style { Style.new }`. Redesign that. Determine what to do with label.side. Possibly redo the whole label thing.
 
 - In Blessed's version of examples/hello, it is not necessary to manually #clearPos(). Where does the difference compared to Crysterm come from?
 
-- Issue with transparency, where a transparent element gets more opaque on every render. This is caused by code found at first occurrence of 'transparency' in src/widget.cr. Example can be seen if we add a transparent padding to e.g. members list widget in example/chat.cr. In Blessed, the value of lines[y][x][attr] seems to always be the same, whereas in our case it has the resulting value from previous render, and so on every render the field's color gets additionally blended until it has 100% opacity rather than staying at initial/desired value.
-
 - On exit, reset colors and exit from ACS
 
 - Maybe add a GUI-dedicated thread like in Qt?
-
-- Parse_tags - should be default true or false?
 
 - Make @dock_contrast be property on Style.
 
@@ -120,6 +110,10 @@
 
 - When a Display starts listening for keys (possibly other stuff too), there is no way to cancel it, since there is no API to kill a Fiber from the outside. So once this is started, it's active til the program exits.
 Not a huge deal since a Display unconditionally starts listening and emitting received stuff, but it's something to improve long term (there should be a way to gracefully stop listening and/or destroy/re-create the Display object).
+
+- See how src/widget_children.cr and src/mixin/children.cr could be more integrated and how Screen->Widgets could re-use as much of it as possible
+
+- Why is there a newline difference in output of blessed and crysterm's Screen#screenshot?
 
 ## Widget Fixes
 

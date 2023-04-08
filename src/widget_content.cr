@@ -17,7 +17,7 @@ module Crysterm
     property? wrap_content = true
 
     # Is element's content to be parsed for tags?
-    property? parse_tags = true
+    property? parse_tags = false
 
     # Alignment of contained text
     property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
