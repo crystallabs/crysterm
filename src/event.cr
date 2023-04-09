@@ -111,10 +111,10 @@ module Crysterm
     event CancelItem, item : Widget::Box, index : Int32
     event ActionItem, item : Widget::Box, index : Int32
 
-    # # Event emitted when a new log line intended for `Widget::LogLine` is issued
-    # event LogLine, text : String
-    # # NOTE In Blessed, this is called `log` and `Widget::Log`. It's been renamed
-    # # in Crysterm not to conflict with `Log` coming from logger.
+    # Event emitted when a new log line intended for `Widget::LogLine` is issued
+    event LogLine, text : String
+    # NOTE In Blessed, this is called `log` and `Widget::Log`. It's been renamed
+    # in Crysterm not to conflict with `Log` coming from logger.
 
     # Emitted on selection of an item in list
     event SelectItem, item : Widget::Box, index : Int32

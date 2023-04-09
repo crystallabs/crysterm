@@ -11,10 +11,10 @@ class MyProg
   # When q is pressed, exit the demo.
   s.on(Event::KeyPress) do |e|
     if e.char == 'q' || e.key == Tput::Key::CtrlQ
-      d.destroy
+      s.destroy
       exit
     end
   end
 
-  d.exec
+  s.exec
 end

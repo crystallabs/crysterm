@@ -10,10 +10,9 @@ class X
     note = Widget::Text.new content: "Use Tab/Shift+Tab to cycle between boxes, Ctrl+q to exit"
 
     styles = Styles.new(
-      normal: Style.new(fg: "yellow", bg: "blue", border: true),
-      focused: Style.new(fg: "yellow", bg: "red", border: true),
+      normal: Style.new(fg: "green", bg: "blue", border: true),
+      focused: Style.new(fg: "green", bg: "red", border: true),
     )
-    styles.focused.bg = "yellow"
 
     i1 = Widget::Checkbox.new \
       name: "w1",

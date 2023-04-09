@@ -12,7 +12,7 @@ class X
       height: 5,
       top: 4,
       left: 8,
-      content: "Press q or Ctrl+q to exit",
+      content: "It's in focus, press ENTER",
       align: ::Tput::AlignFlag::Center,
       style: Style.new(fg: "yellow", bg: "blue", border: true)
 

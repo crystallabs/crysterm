@@ -82,7 +82,7 @@ module Crysterm
           spawn do
             sleep 3.seconds
             loader.stop
-            screen.destroy
+            s.destroy
           end
         end
       end
