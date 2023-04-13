@@ -92,10 +92,10 @@ module Crysterm
     # box.set_content("escaped content: " + escape("{bold}{/bold}"))
     # '''
     def escape(text)
-      text.gsub(/[{}]/) do |buffer, ch|
+      text.gsub(/[{}]/) do |ch|
         case ch
-        when '{' then buffer << "{open}"
-        when '}' then buffer << "{close}"
+        when "{" then "{open}"
+        when "}" then "{close}"
         end
       end
     end
