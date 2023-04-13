@@ -93,6 +93,8 @@ Not a huge deal since a Display unconditionally starts listening and emitting re
 
 - Why is there a newline difference in output of blessed and crysterm's Screen#screenshot?
 
+- Crystem resets terminal to cooked mode upon exit. But it should just return it to the state it was in before starting the app. Tput shard already has support for this, but it never activates. Look into the code, make tput's native functionality work, and then remove the manual resetting done in crysterm.
+
 ## Widget Fixes
 
 Listed here since generic fixes/improvements have priority over widget-specific ones:
