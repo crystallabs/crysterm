@@ -124,7 +124,7 @@ module Crysterm
         end
         awidth.times do |x|
           ch = lines[y][x].char
-          if @angles[ch]?
+          if ANGLES.includes? ch
             lines[y][x].char = _get_angle lines, x, y
             lines[y].dirty = true
           end

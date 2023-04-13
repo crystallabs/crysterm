@@ -2,86 +2,41 @@ module Crysterm
   class Screen
     # Collection of helper chars for drawing borders and their angles
 
+    # Left, top, right, and bottom angles
+    L_ANGLES = {'┌', '└', '┼', '├', '┴', '┬', '─'}
+    U_ANGLES = {'┐', '┌', '┼', '├', '┤', '┬', '│'}
+    R_ANGLES = {'┘', '┐', '┼', '┤', '┴', '┬', '─'}
+    D_ANGLES = {'┘', '└', '┼', '├', '┤', '┴', '│'}
+
     # All angles, uniq list
-    @angles = {
-      '\u2518' => true, # '┘'
-      '\u2510' => true, # '┐'
-      '\u250c' => true, # '┌'
-      '\u2514' => true, # '└'
-      '\u253c' => true, # '┼'
-      '\u251c' => true, # '├'
-      '\u2524' => true, # '┤'
-      '\u2534' => true, # '┴'
-      '\u252c' => true, # '┬'
-      '\u2502' => true, # '│'
-      '\u2500' => true, # '─'
-    }
-
-    # Left angles
-    @langles = {
-      '\u250c' => true, # '┌'
-      '\u2514' => true, # '└'
-      '\u253c' => true, # '┼'
-      '\u251c' => true, # '├'
-      '\u2534' => true, # '┴'
-      '\u252c' => true, # '┬'
-      '\u2500' => true, # '─'
-    }
-
-    # Upper/top angles
-    @uangles = {
-      '\u2510' => true, # '┐'
-      '\u250c' => true, # '┌'
-      '\u253c' => true, # '┼'
-      '\u251c' => true, # '├'
-      '\u2524' => true, # '┤'
-      '\u252c' => true, # '┬'
-      '\u2502' => true, # '│'
-    }
-
-    # Right-side angles
-    @rangles = {
-      '\u2518' => true, # '┘'
-      '\u2510' => true, # '┐'
-      '\u253c' => true, # '┼'
-      '\u2524' => true, # '┤'
-      '\u2534' => true, # '┴'
-      '\u252c' => true, # '┬'
-      '\u2500' => true, # '─'
-    }
-
-    # Down/bottom angles
-    @dangles = {
-      '\u2518' => true, # '┘'
-      '\u2514' => true, # '└'
-      '\u253c' => true, # '┼'
-      '\u251c' => true, # '├'
-      '\u2524' => true, # '┤'
-      '\u2534' => true, # '┴'
-      '\u2502' => true, # '│'
-    }
+    ANGLES = {'┘', '┐', '┌', '└', '┼', '├', '┤', '┴', '┬', '│', '─'}
 
     # Every ACS angle character can be
     # represented by 4 bits ordered like this:
     # [langle][uangle][rangle][dangle]
-    @angle_table = {
-       0 => ' ',      # ?         '0000'
-       1 => '\u2502', # '│' # ?   '0001'
-       2 => '\u2500', # '─' # ??  '0010'
-       3 => '\u250c', # '┌'       '0011'
-       4 => '\u2502', # '│' # ?   '0100'
-       5 => '\u2502', # '│'       '0101'
-       6 => '\u2514', # '└'       '0110'
-       7 => '\u251c', # '├'       '0111'
-       8 => '\u2500', # '─' # ??  '1000'
-       9 => '\u2510', # '┐'       '1001'
-      10 => '\u2500', # '─' # ??  '1010'
-      11 => '\u252c', # '┬'       '1011'
-      12 => '\u2518', # '┘'       '1100'
-      13 => '\u2524', # '┤'       '1101'
-      14 => '\u2534', # '┴'       '1110'
-      15 => '\u253c', # '┼'       '1111'
+    ANGLE_TABLE = {
+       0 => ' ', # ?   '0000'
+       1 => '│', # ?   '0001'
+       2 => '─', # ??  '0010'
+       3 => '┌', #     '0011'
+       4 => '│', # ?   '0100'
+       5 => '│', #     '0101'
+       6 => '└', #     '0110'
+       7 => '├', #     '0111'
+       8 => '─', # ??  '1000'
+       9 => '┐', #     '1001'
+      10 => '─', # ??  '1010'
+      11 => '┬', #     '1011'
+      12 => '┘', #     '1100'
+      13 => '┤', #     '1101'
+      14 => '┴', #     '1110'
+      15 => '┼', #     '1111'
     }
+
+    BITWISE_L_ANGLE = 1 << 3
+    BITWISE_U_ANGLE = 1 << 2
+    BITWISE_R_ANGLE = 1 << 1
+    BITWISE_D_ANGLE = 1 << 0
 
     # Returns appropriate angle char for point (y,x) in `lines`
     #
@@ -92,7 +47,7 @@ module Crysterm
       attr = lines[y][x].attr
       ch = lines[y][x].char
 
-      if (lines[y][x - 1]? && @langles[lines[y][x - 1].char]?)
+      if lines[y][x - 1]? && L_ANGLES.includes? lines[y][x - 1].char
         if (lines[y][x - 1].attr != attr)
           case @dock_contrast
           when DockContrast::DontDock
@@ -103,10 +58,10 @@ module Crysterm
             #  Note: ::Ignore needs no custom handler/code; it works as-is.
           end
         end
-        angle |= 1 << 3
+        angle |= BITWISE_L_ANGLE
       end
 
-      if (lines[y - 1]? && @uangles[lines[y - 1][x].char]?)
+      if lines[y - 1]? && U_ANGLES.includes? lines[y - 1][x].char
         if (lines[y - 1][x].attr != attr)
           case @dock_contrast
           when DockContrast::DontDock
@@ -117,10 +72,10 @@ module Crysterm
             #  Note: ::Ignore needs no custom handler/code; it works as-is.
           end
         end
-        angle |= 1 << 2
+        angle |= BITWISE_U_ANGLE
       end
 
-      if (lines[y][x + 1]? && @rangles[lines[y][x + 1].char]?)
+      if lines[y][x + 1]? && R_ANGLES.includes? lines[y][x + 1].char
         if (lines[y][x + 1].attr != attr)
           case @dock_contrast
           when DockContrast::DontDock
@@ -131,10 +86,10 @@ module Crysterm
             #  Note: ::Ignore needs no custom handler/code; it works as-is.
           end
         end
-        angle |= 1 << 1
+        angle |= BITWISE_R_ANGLE
       end
 
-      if (lines[y + 1]? && @dangles[lines[y + 1][x].char]?)
+      if lines[y + 1]? && D_ANGLES.includes? lines[y + 1][x].char
         if (lines[y + 1][x].attr != attr)
           case @dock_contrast
           when DockContrast::DontDock
@@ -145,7 +100,7 @@ module Crysterm
             #  Note: ::Ignore needs no custom handler/code; it works as-is.
           end
         end
-        angle |= 1 << 0
+        angle |= BITWISE_D_ANGLE
       end
 
       # Experimental: fixes this situation:
@@ -156,22 +111,21 @@ module Crysterm
       # +-------+  |
       # |          |
       # +----------+
-      # if uangles[lines[y][x].char]
-      #   if lines[y + 1] && @dangles[lines[y + 1][x].char]
-      #     case @dock_contrast
-      #     when DockContrast::DontDock
-      #       if lines[y + 1][x].attr != attr
-      #         return ch
-      #       end
-      #     when DockContrast::Blend
-      #       lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
-      #     end
-      #     angle |= 1 << 0
-      #   end
+      # if U_ANGLES.includes? lines[y][x].char
+      #  if lines[y + 1] && D_ANGLES.includes? lines[y + 1][x].char
+      #    case @dock_contrast
+      #    when DockContrast::DontDock
+      #      if lines[y + 1][x].attr != attr
+      #        return ch
+      #      end
+      #    when DockContrast::Blend
+      #      lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
+      #    end
+      #    angle |= BITWISE_D_ANGLE
+      #  end
       # end
 
-      @angle_table[angle]? || ch
+      ANGLE_TABLE[angle]? || ch
     end
-    # end
   end
 end
