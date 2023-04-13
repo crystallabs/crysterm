@@ -167,6 +167,5 @@ module Crysterm
         outbuf << 'm'
       end
     end
-
   end
 end

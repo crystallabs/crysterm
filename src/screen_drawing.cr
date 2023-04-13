@@ -620,35 +620,21 @@ module Crysterm
     def clean_sides(el)
       pos = el.lpos
 
-      if (!pos)
-        return false
-      end
+      return false unless pos
 
-      unless (pos._clean_sides.nil?)
-        return pos._clean_sides
-      end
+      return pos._clean_sides unless pos._clean_sides.nil?
 
-      if (pos.xi <= 0 && (pos.xl >= awidth))
+      if pos.xi <= 0 && pos.xl >= awidth
         return pos._clean_sides = true
       end
 
       if @optimization.fast_csr?
-        # Maybe just do this instead of parsing.
-        if (pos.yi < 0)
-          return pos._clean_sides = false
-        end
-        if (pos.yl > aheight)
-          return pos._clean_sides = false
-        end
-        if ((awidth - (pos.xl - pos.xi)) < 40)
-          return pos._clean_sides = true
-        end
+        return pos._clean_sides = false if pos.yi < 0 || pos.yl > aheight
+        return pos._clean_sides = true if (awidth - (pos.xl - pos.xi)) < 40
         return pos._clean_sides = false
       end
 
-      unless @optimization.smart_csr?
-        return false
-      end
+      return false unless @optimization.smart_csr?
 
       # D O:
       # The scrollbar can't update properly, and there's also a
@@ -664,57 +650,26 @@ module Crysterm
 
       yi = pos.yi + el.itop
       yl = pos.yl - el.ibottom
-      # first
-      # ch
-      # x
-      # y
 
-      if (pos.yi < 0)
-        return pos._clean_sides = false
-      end
-      if (pos.yl > aheight)
-        return pos._clean_sides = false
-      end
-      if ((pos.xi - 1) < 0)
-        return pos._clean_sides = true
-      end
-      if (pos.xl > awidth)
-        return pos._clean_sides = true
-      end
+      return pos._clean_sides = false if pos.yi < 0 || pos.yl > aheight
+      return pos._clean_sides = true if (pos.xi - 1) < 0 || pos.xl > awidth
 
-      x = pos.xi - 1
-      while x >= 0
-        if (!@olines[yi]?)
-          break
-        end
-        first = @olines[yi][x]
-        (yi...yl).each do |y|
-          if (!@olines[y]? || !@olines[y][x]?)
-            break
-          end
+      (pos.xi - 1).downto(0) do |x|
+        first = @olines[yi][x] if @olines[yi]?
+        yi.upto(yl - 1) do |y|
+          break unless @olines[y]? && @olines[y][x]?
           ch = @olines[y][x]
-          if ch != first
-            return pos._clean_sides = false
-          end
+          return pos._clean_sides = false if ch != first
         end
-        x -= 1
       end
 
       (pos.xl...awidth).each do |x2|
-        if (!@olines[yi]?)
-          break
-        end
-        first = @olines[yi][x2]
-        (yi...yl).each do |y|
-          if (!@olines[y] || !@olines[y][x2])
-            break
-          end
+        first = @olines[yi][x2] if @olines[yi]?
+        yi.upto(yl - 1) do |y|
+          break unless @olines[y]? && @olines[y][x2]?
           ch = @olines[y][x2]
-          if ch != first
-            return pos._clean_sides = false
-          end
+          return pos._clean_sides = false if ch != first
         end
-        x2 += 1
       end
 
       pos._clean_sides = true
@@ -729,32 +684,23 @@ module Crysterm
     def fill_region(attr, ch, xi, xl, yi, yl, override = false)
       lines = @lines
 
-      if (xi < 0)
-        xi = 0
-      end
-      if (yi < 0)
-        yi = 0
-      end
+      xi = 0 if xi < 0
+      yi = 0 if yi < 0
 
-      while yi < yl
-        break unless @lines[yi]?
+      yi.upto(yl - 1) do |y|
+        next unless lines[y]?
 
-        xx = xi
-        while xx < xl
-          cell = lines[yi][xx]?
-          break unless cell
+        xi.upto(xl - 1) do |x|
+          cell = lines[y][x]?
+          next unless cell
 
           if override || cell != {attr, ch}
-            lines[yi][xx].attr = attr
-            lines[yi][xx].char = ch
-            lines[yi].dirty = true
+            lines[y][x].attr = attr
+            lines[y][x].char = ch
+            lines[y].dirty = true
           end
-
-          xx += 1
         end
-        yi += 1
       end
     end
-    # end
   end
 end
