@@ -156,80 +156,70 @@ module Crysterm
 
     # Convert `{red-fg}foo{/red-fg}` to `\e[31mfoo\e[39m`.
     def _parse_tags(text)
-      if (!@parse_tags)
-        return text
-      end
-      unless (text =~ /{\/?[\w\-,;!#]*}/)
-        return text
-      end
+      return text unless @parse_tags
+      return text unless text =~ /{\/?[\w\-,;!#]*}/
 
       outbuf = ""
-      # state
-
       bg = [] of String
       fg = [] of String
       flag = [] of String
 
-      cap = nil
-      # slash
-      # param
-      # attr
-      esc = nil
+      esc = false
 
-      loop do
-        if (!esc && (cap = text.match /^{escape}/))
+      while !text.empty?
+        if !esc && (cap = text.match(/^{escape}/))
           text = text[cap[0].size..]
           esc = true
           next
         end
 
-        if (esc && (cap = text.match /^([\s\S]+?){\/escape}/))
+        if esc && (cap = text.match(/^([\s\S]+?){\/escape}/))
           text = text[cap[0].size..]
           outbuf += cap[1]
           esc = false
           next
         end
 
-        if (esc)
+        if esc
           # raise "Unterminated escape tag."
           outbuf += text
           break
         end
 
         # Matches {normal}{/normal} and all other tags
-        if (cap = text.match /^{(\/?)([\w\-,;!#]*)}/)
+        if cap = text.match(/^{(\/?)([\w\-,;!#]*)}/)
           text = text[cap[0].size..]
-          slash = (cap[1] == "/")
+          slash = cap[1] == "/"
           # XXX Tags must be specified such as {light-blue-fg}, but are then
           # parsed here with - being ' '. See why? Can we work with - and skip
           # this replacement part?
-          param = (cap[2].gsub(/-/, ' '))
+          param = cap[2].gsub(/-/, ' ')
 
-          if (param == "open")
+          if param == "open"
             outbuf += '{'
             next
-          elsif (param == "close")
+          elsif param == "close"
             outbuf += '}'
             next
           end
 
-          if (param[-3..]? == " bg")
-            state = bg
-          elsif (param[-3..]? == " fg")
-            state = fg
-          else
-            state = flag
-          end
+          state = if param.ends_with?(" bg")
+                    bg
+                  elsif param.ends_with?(" fg")
+                    fg
+                  else
+                    flag
+                  end
 
-          if (slash)
-            if (!param || param.blank?)
+          if slash
+            if param.nil? || param.blank?
               outbuf += screen.tput._attr("normal") || ""
               bg.clear
               fg.clear
               flag.clear
             else
               attr = screen.tput._attr(param, false)
-              if (attr.nil?)
+              if attr.nil?
                 outbuf += cap[0]
               else
                 # D O:
@@ -237,19 +227,15 @@ module Crysterm
                 #   throw new Error('Misnested tags.')
                 # }
                 state.pop
-                if (state.size > 0)
-                  outbuf += screen.tput._attr(state[-1]) || ""
-                else
-                  outbuf += attr
-                end
+                outbuf += state.size > 0 ? (screen.tput._attr(state[-1]) || "") : attr
               end
             end
           else
-            if (!param)
+            if param.nil?
               outbuf += cap[0]
             else
               attr = screen.tput._attr(param)
-              if (attr.nil?)
+              if attr.nil?
                 outbuf += cap[0]
               else
                 state.push(param)
@@ -261,7 +247,7 @@ module Crysterm
           next
         end
 
-        if (cap = text.match /^[\s\S]+?(?={\/?[\w\-,;!#]*})/)
+        if cap = text.match(/^[\s\S]+?(?={\/?[\w\-,;!#]*})/)
           text = text[cap[0].size..]
           outbuf += cap[0]
           next
