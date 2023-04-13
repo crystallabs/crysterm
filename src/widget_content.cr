@@ -278,30 +278,20 @@ module Crysterm
       default_attr = sattr(style)
       attr = default_attr
       attrs = [] of Int32
-      # line
-      # i
-      # j
-      # c
 
-      if (lines[0].attr == attr)
-        return
-      end
+      return if lines[0].attr == attr
 
-      (0...lines.size).each do |j|
-        line = lines[j]
+      lines.each_with_index do |line, j|
         attrs.push attr
-        unless attrs.size == j + 1
-          raise "indexing error"
-        end
-        (0...line.size).each do |i|
-          if (line[i] == '\e')
-            if (c = line[1..].match SGR_REGEX)
+        raise "indexing error" unless attrs.size == j + 1
+
+        line.chars.each_with_index do |char, i|
+          if char == '\e'
+            if (c = line[1..].match(SGR_REGEX))
               attr = screen.attr2code(c[0], attr, default_attr)
-              # i += c[0].size - 1 # Unused
             end
           end
         end
-        # j += 1 # Unused
       end
 
       attrs
