@@ -119,78 +119,54 @@ module Crysterm
       flags = (code >> 18) & 0x1ff
       fg = (code >> 9) & 0x1ff
       bg = code & 0x1ff
-      outbuf = String::Builder.new
 
-      outbuf << "\e[" # #bytesize == 2
+      String.build do |outbuf|
+        outbuf << "\e["
 
-      # bold
-      if ((flags & 1) != 0)
-        outbuf << "1;"
-      end
+        # bold
+        outbuf << "1;" if (flags & 1) != 0
 
-      # underline
-      if ((flags & 2) != 0)
-        outbuf << "4;"
-      end
+        # underline
+        outbuf << "4;" if (flags & 2) != 0
 
-      # blink
-      if ((flags & 4) != 0)
-        outbuf << "5;"
-      end
+        # blink
+        outbuf << "5;" if (flags & 4) != 0
 
-      # inverse
-      if ((flags & 8) != 0)
-        outbuf << "7;"
-      end
+        # inverse
+        outbuf << "7;" if (flags & 8) != 0
 
-      # invisible
-      if ((flags & 16) != 0)
-        outbuf << "8;"
-      end
+        # invisible
+        outbuf << "8;" if (flags & 16) != 0
 
-      if (bg != 0x1ff)
-        bg = _reduce_color(bg)
-        if (bg < 16)
-          if (bg < 8)
-            bg += 40
-          else # elsif (bg < 16)
-            bg -= 8
-            bg += 100
+        if (bg != 0x1ff)
+          bg = _reduce_color(bg)
+          if (bg < 16)
+            bg < 8 ? outbuf << (bg + 40) << ';' : outbuf << (bg - 8 + 100) << ';'
+          else
+            outbuf << "48;5;" << bg << ';'
           end
-          outbuf << bg << ';'
-        else
-          outbuf << "48;5;" << bg << ';'
         end
-      end
 
-      if (fg != 0x1ff)
-        fg = _reduce_color(fg)
-        if (fg < 16)
-          if (fg < 8)
-            fg += 30
-          else # elsif (fg < 16)
-            fg -= 8
-            fg += 90
+        if (fg != 0x1ff)
+          fg = _reduce_color(fg)
+          if (fg < 16)
+            fg < 8 ? outbuf << (fg + 30) << ';' : outbuf << (fg - 8 + 90) << ';'
+          else
+            outbuf << "38;5;" << fg << ';'
           end
-          outbuf << fg << ';'
-        else
-          outbuf << "38;5;" << fg << ';'
         end
-      end
 
-      # If bytesize is 2, which is what we started with, it means nothing
-      # was written, so we should in fact return an empty string.
-      if outbuf.bytesize == 2
-        return ""
-      end
+        # If bytesize is 2, which is what we started with, it means nothing
+        # was written, so we should in fact return an empty string.
+        return "" if outbuf.bytesize == 2
 
-      # Otherwise, something was written to the string. Since we know the
-      # last char is ";", we go back one char and replace it with 'm',
-      # then return that string.
-      outbuf.back 1
-      outbuf << 'm'
-      outbuf.to_s
+        # Otherwise, something was written to the string. Since we know the
+        # last char is ";", we go back one char and replace it with 'm',
+        # then return that string.
+        outbuf.back 1
+        outbuf << 'm'
+      end
     end
-    # end
+
   end
 end
