@@ -6,8 +6,6 @@
 
 - In Blessed's version of examples/hello, it is not necessary to manually #clearPos(). Where does the difference compared to Crysterm come from?
 
-- On exit, reset colors and exit from ACS
-
 - Maybe add a GUI-dedicated thread like in Qt?
 
 - Do code2attr / attr2code legitimately belong to Screen, or they're better suited for some other file/place?
