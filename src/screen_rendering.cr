@@ -99,10 +99,6 @@ module Crysterm
     def _dock_borders
       lines = @lines
       stops = @_border_stops
-      # i
-      # y
-      # x
-      # ch
 
       # D O:
       # keys, stop
@@ -116,12 +112,11 @@ module Crysterm
       #   stop = this._borderStops[y]
       #   for (x = stop.xi; x < stop.xl; x++)
 
-      stops = stops.keys.map(&.to_i).sort { |a, b| a - b }
+      stops = stops.keys.map(&.to_i).sort!
 
       stops.each do |y|
-        if (!lines[y]?)
-          next
-        end
+        next unless lines[y]?
+
         awidth.times do |x|
           ch = lines[y][x].char
           if ANGLES.includes? ch
@@ -156,32 +151,23 @@ module Crysterm
       @children.each do |el|
         el.index = @_ci
         @_ci += 1
-        # D O:
-        # el._rendering = true
         el.render
-        # D O:
-        # el._rendering = false
       end
       @_ci = -1
 
-      if @dock_borders
-        _dock_borders
-      end
+      _dock_borders if @dock_borders
 
       t2 = Time.monotonic
 
-      # draw 0, @lines.size - 1 if draw
-      # self.draw if draw
       draw
 
-      # XXX
-      # Workaround to deal with cursor pos before the screen
+      # XXX Workaround to deal with cursor pos before the screen
       # has rendered and lpos is not reliable (stale).
       # Only some elements have this function; for others it's a noop.
-      focused.try { |focused_widget|
+      focused.try do |focused_widget|
         focused_widget._update_cursor(true)
         focused_widget.emit(Crysterm::Event::Focus)
-      }
+      end
 
       @renders += 1
 
@@ -190,14 +176,13 @@ module Crysterm
       t3 = Time.monotonic
 
       if pos = @show_fps
-        # { rps, dps, fps }
-        ps = {1//(t2 - t1).total_seconds, 1//(t3 - t2).total_seconds, 1//(t3 - t1).total_seconds}
+        ps = {1 // (t2 - t1).total_seconds, 1 // (t3 - t2).total_seconds, 1 // (t3 - t1).total_seconds}
 
         tput.save_cursor
         tput.pos pos
-        tput._print { |io| io << "R/D/FPS: " << ps[0] << '/' << ps[1] << '/' << ps[2] }
+        tput._print { |io| io << "R/D/FPS: #{ps[0]}/#{ps[1]}/#{ps[2]}" }
         if @show_avg
-          tput._print { |io| io << " (" << @rps.avg(ps[0]) << '/' << @dps.avg(ps[1]) << '/' << @fps.avg(ps[2]) << ')' }
+          tput._print { |io| io << " (#{@rps.avg(ps[0])}/#{@dps.avg(ps[1])}/#{@fps.avg(ps[2])})" }
         end
         tput.restore_cursor
       end
