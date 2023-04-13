@@ -340,41 +340,45 @@ module Crysterm
       if coords.no_top? || coords.no_bottom?
         i = -Int32::MAX
       end
-      @scrollbar.try do # |scrollbar|
+
+      @scrollbar.try do
         # D O:
         # i = @get_scroll_height()
         i = Math.max @_clines.size, _scroll_bottom
 
-        if ((yl - yi) < i)
+        if (yl - yi) < i
           x = xl - 1
           sbr = style.border.try(&.right) || 0
-          if style.scrollbar.ignore_border? && (sbr > 0)
-            x += 1 # TODO Should this be sbr ?
-          end
+          x += 1 if style.scrollbar.ignore_border? && (sbr > 0) # should 1 be sbr ?
+
           if @always_scroll
             y = @child_base / (i - (yl - yi))
           else
             y = (@child_base + @child_offset) / (i - 1)
           end
+
           y = yi + ((yl - yi) * y).to_i
-          if (y >= yl)
-            y = yl - 1
-          end
+          y = yl - 1 if y >= yl
+
           # XXX The '?' was added ad-hoc to prevent exceptions when something goes out of
           # bounds (e.g. size of widget given too small for content).
           # Is there any better way to handle?
-          lines[y]?.try(&.[x]?).try do |cell|
-            if @track
-              ch = style.track.char
-              attr = sattr style.track, style.track.fg, style.track.bg
-              screen.fill_region attr, ch, x, x + 1, yi, yl
-            end
-            ch = style.scrollbar.char
-            attr = sattr style.scrollbar, style.scrollbar.fg, style.scrollbar.bg
-            if cell != {attr, ch}
-              cell.attr = attr
-              cell.char = ch
-              lines[y]?.try &.dirty=(true)
+          lines[y]?.try do |line|
+            line.[x]?.try do |cell|
+              if @track
+                ch = style.track.char
+                attr = sattr style.track, style.track.fg, style.track.bg
+                screen.fill_region attr, ch, x, x + 1, yi, yl
+              end
+
+              ch = style.scrollbar.char
+              attr = sattr style.scrollbar, style.scrollbar.fg, style.scrollbar.bg
+
+              if cell != {attr, ch}
+                cell.attr = attr
+                cell.char = ch
+                line.dirty = true
+              end
             end
           end
         end
