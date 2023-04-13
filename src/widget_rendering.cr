@@ -402,203 +402,47 @@ module Crysterm
       # Draw the border.
       style.border.try do |border|
         battr = sattr border
-        y = yi
-        if coords.no_top?
-          y = -1
-        end
-        (xi...xl).each do |x|
-          if (!lines[y]?)
-            break
-          end
-          if coords.no_left? && (x == xi)
+
+        [yi, yl - 1].each do |y|
+          next if y == -1 || !lines[y]?
+
+          if y == yi && coords.no_top?
+            next
+          elsif y == yl - 1 && coords.no_bottom?
             next
           end
-          if coords.no_right? && (x == xl - 1)
-            next
-          end
-          cell = lines[y][x]?
-          if (!cell)
-            next
-          end
-          if border.type.line?
-            if (x == xi)
-              ch = '\u250c' # '┌'
-              if border.left == 0
-                if border.top > 0
-                  ch = '\u2500'
-                  # '─'
-                else
-                  next
-                end
-              else
-                if border.top == 0
-                  ch = '\u2502'
-                  # '│'
-                end
-              end
-            elsif (x == xl - 1)
-              ch = '\u2510' # '┐'
-              if border.right == 0
-                if border.top > 0
-                  ch = '\u2500'
-                  # '─'
-                else
-                  next
-                end
-              else
-                if border.top == 0
-                  ch = '\u2502'
-                  # '│'
-                end
-              end
-            else
-              ch = '\u2500'
-              # '─'
-            end
-          elsif border.type.bg?
-            ch = border.char
-          end
-          if (border.top == 0) && x != xi && x != xl - 1
-            ch = ' '
-            if cell != {default_attr, ch}
-              lines[y][x].attr = default_attr
-              lines[y][x].char = ch
-              lines[y].dirty = true
-              next
-            end
-          end
-          if cell != {battr, ch}
-            lines[y][x].attr = battr
-            lines[y][x].char = (ch || ' ')
-            lines[y].dirty = true
-          end
-        end
-        y = yi + 1
-        while (y < yl - 1)
-          if (!lines[y]?)
-            break
-          end
-          cell = lines[y][xi]?
-          if (cell)
-            if border.left > 0
-              if border.type.line?
-                ch = '\u2502'
-                # '│'
-              elsif border.type.bg?
-                ch = border.char
-              end
-              if !coords.no_left?
-                if cell != {battr, ch}
-                  lines[y][xi].attr = battr
-                  lines[y][xi].char = (ch || ' ')
-                  lines[y].dirty = true
-                end
-              end
-            else
-              ch = ' '
-              if cell != {default_attr, ch}
-                lines[y][xi].attr = default_attr
-                lines[y][xi].char = (ch || ' ')
-                lines[y].dirty = true
-              end
-            end
-          end
-          cell = lines[y][xl - 1]?
-          if (cell)
-            if border.right > 0
-              if border.type.line?
-                ch = '\u2502'
-                # '│'
-              elsif border.type.bg?
-                ch = border.char
-              end
-              if !coords.no_right?
-                if cell != {battr, ch}
-                  lines[y][xl - 1].attr = battr
-                  lines[y][xl - 1].char = (ch || ' ')
-                  lines[y].dirty = true
-                end
-              end
-            else
-              ch = ' '
-              if cell != {default_attr, ch}
-                lines[y][xl - 1].attr = default_attr
-                lines[y][xl - 1].char = (ch || ' ')
-                lines[y].dirty = true
-              end
-            end
-          end
-          y += 1
-        end
-        y = yl - 1
-        if coords.no_bottom?
-          y = -1
-        end
-        (xi...xl).each do |x|
-          if (!lines[y]?)
-            break
-          end
-          if coords.no_left? && (x == xi)
-            next
-          end
-          if coords.no_right? && (x == xl - 1)
-            next
-          end
-          cell = lines[y][x]?
-          if (!cell)
-            next
-          end
-          if border.type.line?
-            if (x == xi)
-              ch = '\u2514' # '└'
-              if border.left == 0
-                if border.bottom > 0
-                  ch = '\u2500'
-                  # '─'
-                else
-                  next
-                end
-              else
-                if border.bottom == 0
-                  ch = '\u2502'
-                  # '│'
-                end
-              end
-            elsif (x == xl - 1)
-              ch = '\u2518' # '┘'
-              if border.right == 0
-                if border.bottom > 0
-                  ch = '\u2500'
-                  # '─'
-                else
-                  next
-                end
-              else
-                if border.bottom == 0
-                  ch = '\u2502'
-                  # '│'
-                end
-              end
-            else
-              ch = '\u2500'
-              # '─'
-            end
-          elsif border.type.bg?
-            ch = border.char
-          end
-          if (border.bottom == 0) && x != xi && x != xl - 1
-            ch = ' '
-            if cell != {default_attr, ch}
-              lines[y][x].attr = default_attr
-              lines[y][x].char = (ch || ' ')
+
+          (xi...xl).each do |x|
+            next if coords.no_left? && x == xi
+            next if coords.no_right? && x == xl - 1
+
+            cell = lines[y][x]?
+            next unless cell
+
+            ch = border_char(border, x, xi, xl, y, yi, yl, default_attr)
+
+            if cell != {battr, ch}
+              cell.attr = battr
+              cell.char = ch
               lines[y].dirty = true
             end
-            next
           end
-          if cell != {battr, ch}
-            lines[y][x].attr = battr
-            lines[y][x].char = (ch || ' ')
-            lines[y].dirty = true
+        end
+
+        (yi + 1...yl - 1).each do |y|
+          next unless lines[y]?
+
+          [xi, xl - 1].each do |x|
+            cell = lines[y][x]?
+            next unless cell
+
+            ch = border_char(border, x, xi, xl, y, yi, yl, default_attr)
+
+            if cell != {battr, ch}
+              cell.attr = battr
+              cell.char = ch
+              lines[y].dirty = true
+            end
           end
         end
       end
@@ -687,6 +531,32 @@ module Crysterm
       emit Crysterm::Event::Rendered # , coords
 
       coords
+    end
+
+    @[AlwaysInline]
+    def border_char(border, x, xi, xl, y, yi, yl, default_attr)
+      if border.type.line?
+        ch = case [x, y]
+             when [xi, yi]         then border.left > 0 && border.top > 0 ? '┌' : (border.left == 0 && border.top > 0 ? '─' : '│')
+             when [xl - 1, yi]     then border.right > 0 && border.top > 0 ? '┐' : (border.right == 0 && border.top > 0 ? '─' : '│')
+             when [xi, yl - 1]     then border.left > 0 && border.bottom > 0 ? '└' : (border.left == 0 && border.bottom > 0 ? '─' : '│')
+             when [xl - 1, yl - 1] then border.right > 0 && border.bottom > 0 ? '┘' : (border.right == 0 && border.bottom > 0 ? '─' : '│')
+               # when [xi, yi + 1...yl - 1], [xl - 1, yi + 1...yl - 1] then '│'
+               # else '─'
+             else
+               if (x == xi || x == xl - 1) && (y > yi && y < yl - 1)
+                 '│'
+               else
+                 '─'
+               end
+             end
+      elsif border.type.bg?
+        ch = border.char
+      end
+
+      ch = ' ' if (border.top == 0 && y == yi || border.bottom == 0 && y == yl - 1) && x != xi && x != xl - 1
+
+      ch || ' ' # Just a failsafe
     end
 
     def render(with_children = true)
