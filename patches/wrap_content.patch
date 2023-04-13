@@ -1,0 +1,68 @@
+
+# Optimization patch for wrap_content.
+#
+# If applied, examples/hello.cr has 1 line of difference in the text printed within
+# the box. Would be desirable to apply the patch if/when that issue is figured out.
+
+diff --git a/src/widget_content.cr b/src/widget_content.cr
+index 2062713..3518ca8 100644
+--- a/src/widget_content.cr
++++ b/src/widget_content.cr
+@@ -362,24 +336,19 @@ module Crysterm
+         end
+ 
+         # If the string could be too long, check it in more detail and wrap it if needed.
+-        # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
+-        loop_ret = loop do
+-          break unless line.size > colwidth
+-
++        while line.size > colwidth
+           # Measure the real width of the string.
+           total = 0
+           i = 0
+-          # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
+-          loop do
+-            break unless i < line.size
+-            while (line[i] == '\e')
+-              while (line[i] && line[i] != 'm')
++          while i < line.size
++            while line[i] == '\e'
++              while line[i] && (line[i] != 'm')
+                 i += 1
+               end
+             end
+-            if (line[i]?.nil?)
+-              break
+-            end
++
++            break if (line[i]?.nil?)
++
+             total += 1
+             if total == colwidth # If we've reached the end of available width of bounding box
+               i += 1
+@@ -421,22 +390,15 @@ module Crysterm
+ 
+           # Make sure we didn't wrap the line at the very end, otherwise
+           # we'd get an extra empty line after a newline.
+-          if line == ""
+-            break :main
+-          end
++          break if line.empty?
+ 
+           # If only an escape code got cut off, add it to `part`.
+-          if (line.matches? /^(?:\e[\[\d;]*m)+$/) # SGR
++          if line.matches? /^(?:\e[\[\d;]*m)+$/ # SGR
+             outbuf[outbuf.size - 1] += line
+-            break :main
++            break
+           end
+         end
+ 
+-        if loop_ret == :main
+-          no += 1
+-          next
+-        end
+-
+         outbuf.push(_align(line, colwidth, align, align_left_too))
+         ftor[no].push(outbuf.size - 1)
+         rtof.push(no)

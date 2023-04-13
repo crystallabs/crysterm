@@ -290,17 +290,7 @@ module Crysterm
       margin = 0
       rtof = [] of Int32
       ftor = [] of Array(Int32)
-      # outbuf = [] of String
       outbuf = CLines.new
-      # line
-      # align
-      # cap
-      # total
-      # i
-      # part
-      # j
-      # lines
-      # rest
 
       if !content || content.empty?
         outbuf.push(content)
@@ -314,27 +304,11 @@ module Crysterm
 
       lines = content.split "\n"
 
-      if @scrollbar
-        margin += 1
-      end
-      if is_a? Widget::TextArea
-        margin += 1
-      end
-      if (colwidth > margin)
-        colwidth -= margin
-      end
+      margin += 1 if @scrollbar
+      margin += 1 if is_a? Widget::TextArea
+      colwidth -= margin if (colwidth > margin)
 
-      # What follows is a relatively large loop with subloops, all implemented with 'loop do'.
-      # This is to simultaneously work around 2 issues in Crystal -- (1) not having loop labels,
-      # and (2) while loop mistakenly not returning break's return value. Elegance is impacted.
-
-      #      main:
-      no = 0
-      # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
-      loop do
-        break unless no < lines.size
-
-        line = lines[no]
+      lines.each_with_index do |line, no|
         align = default_state
         align_left_too = false
 
@@ -342,7 +316,7 @@ module Crysterm
 
         # Handle alignment tags.
         if @parse_tags
-          if (cap = line.match /^{(left|center|right)}/)
+          if cap = line.match /^{(left|center|right)}/
             align_left_too = true
             line = line[cap[0].size..]
             align = default_state = case cap[1]
@@ -354,7 +328,7 @@ module Crysterm
                                       Tput::AlignFlag::Right
                                     end
           end
-          if (cap = line.match /{\/(left|center|right)}$/)
+          if cap = line.match /{\/(left|center|right)}$/
             line = line[0...(line.size - cap[0].size)]
             # Reset default_state to whatever alignment the widget has by default.
             default_state = @align
