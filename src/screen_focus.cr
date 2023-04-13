@@ -53,26 +53,24 @@ module Crysterm
     def rewind_focus
       old = @history.pop
 
-      while @history.size > 0
-        el = @history.pop
-        if el.screen && el.style.visible?
-          @history.push el
-          _focus el, old
-          return el
-        end
-      end
+      el = @history.reverse.find { |el| el.screen && el.style.visible? }
+      @history.clear
+
+      return unless el
 
       if old
         old.emit Crysterm::Event::Blur
       end
+
+      @history.push el
+      _focus el, old
+      el
     end
 
     # Focuses element `el`. Equivalent to `@display.focused = el`.
     def focus_push(el)
-      old = @history[-1]?
-      while @history.size >= 10 # XXX non-configurable at the moment
-        @history.shift
-      end
+      old = @history.last?
+      @history.shift if @history.size >= 10 # XXX non-configurable at the moment
       @history.push el
       _focus el, old
     end
@@ -80,7 +78,7 @@ module Crysterm
     # Removes focus from the current element and focuses the element that was previously in focus.
     def focus_pop
       old = @history.pop
-      if el = @history[-1]?
+      if el = @history.last?
         _focus el, old
       end
       old
@@ -94,43 +92,20 @@ module Crysterm
     # If the end of list of focusable elements is reached before the
     # item to focus is found, the search continues from the beginning.
     def focus_offset(offset)
-      # This function is logically similar to blessed's.
-      # It could be improved/changed in a couple different ways.
+      return if offset.zero?
 
       shown = @keyable.count { |el| el.screen && el.style.visible? }
-
-      if (shown == 0 || offset == 0)
-        return
-      end
+      return if shown.zero?
 
       i = @keyable.index(focused) || -1
+      i += offset
 
-      if offset >= 0
-        while offset > 0
-          offset -= 1
-          i += 1
-          if (i > @keyable.size - 1)
-            i = 0
-          end
-          if (!@keyable[i].screen || !@keyable[i].style.visible?)
-            offset += 1
-          end
-        end
-      else
-        offset = -offset
-        while offset > 0
-          offset -= 1
-          i -= 1
-          if (i < 0)
-            i = @keyable.size - 1
-          end
-          if (!@keyable[i].screen || !@keyable[i].style.visible?)
-            offset += 1
-          end
-        end
+      i %= @keyable.size
+      while !@keyable[i].screen || !@keyable[i].style.visible?
+        i += offset >= 0 ? 1 : -1
+        i %= @keyable.size
       end
 
-      # @keyable[i].focus
       focus @keyable[i]
     end
 
