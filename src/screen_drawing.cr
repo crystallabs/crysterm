@@ -688,11 +688,11 @@ module Crysterm
       yi = 0 if yi < 0
 
       yi.upto(yl - 1) do |y|
-        next unless lines[y]?
+        break unless lines[y]?
 
         xi.upto(xl - 1) do |x|
           cell = lines[y][x]?
-          next unless cell
+          break unless cell
 
           if override || cell != {attr, ch}
             lines[y][x].attr = attr
