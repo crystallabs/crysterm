@@ -602,93 +602,69 @@ module Crysterm
       # Shadow
       if (s = style.shadow) && s.any?
         if s.left?
-          i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)   # s.bottom or 1
-          l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0) # s.top or 1
+          i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
+          l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
 
-          y = Math.max(i, 0)
-          while (y < l)
-            if (!lines[y]?)
-              break
-            end
+          (Math.max(i, 0)...l).each do |y|
+            break unless lines[y]?
+
             x = xi - s.left
-            while (x < xi)
-              if (!lines[y][x]?)
-                break
-              end
-              # D O:
-              # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
+            while x < xi
+              break unless lines[y][x]?
+
               lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
               lines[y].dirty = true
               x += 1
             end
-            y += 1
           end
         end
 
         if s.top?
-          l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl) # s.left or 2
+          l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
 
-          y = yi - s.top
-          while (y < yi)
-            if (!lines[y]?)
-              break
-            end
-            (Math.max(xi, 0)...(l)).each do |x2|
-              if (!lines[y][x2]?)
-                break
-              end
-              # D O:
-              # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
-              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: s.alpha)
+          (yi - s.top...yi).each do |y|
+            break unless lines[y]?
+
+            (Math.max(xi, 0)...l).each do |x|
+              break unless lines[y][x]?
+
+              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
               lines[y].dirty = true
             end
-            y += 1
           end
         end
 
         if s.right?
-          i = (s.top? || s.left?) ? yi : yi + s.bottom # s.bottom or 1
+          i = (s.top? || s.left?) ? yi : yi + s.bottom
           l = s.bottom? ? yl + s.bottom : yl
 
-          y = Math.max(i, 0)
-          while (y < l)
-            if (!lines[y]?)
-              break
-            end
+          (Math.max(i, 0)...l).each do |y|
+            break unless lines[y]?
+
             x = xl
-            while (x < xl + s.right)
-              if (!lines[y][x]?)
-                break
-              end
-              # D O:
-              # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
+            while x < xl + s.right
+              break unless lines[y][x]?
+
               lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
               lines[y].dirty = true
               x += 1
             end
-            y += 1
           end
         end
 
         if s.bottom?
-          i = s.right? ? xi + (s.left? ? 0 : s.right) : xi        # s.right or 2
-          l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0) # s.left or 2
+          i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
+          l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
 
-          y = yl
-          while (y < yl + s.bottom)
-            if (!lines[y]?)
-              break
-            end
-            (Math.max(i, 0)...l).each do |x2|
-              if (!lines[y][x2]?)
-                break
-              end
-              # D O:
-              # lines[y][x].attr = Colors.blend(@default_attr, lines[y][x].attr)
-              lines[y][x2].attr = Colors.blend(lines[y][x2].attr, alpha: s.alpha)
+          (yl...yl + s.bottom).each do |y|
+            break unless lines[y]?
+
+            (Math.max(i, 0)...l).each do |x|
+              break unless lines[y][x]?
+
+              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
               lines[y].dirty = true
             end
-            y += 1
           end
         end
       end
