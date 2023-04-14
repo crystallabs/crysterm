@@ -12,9 +12,8 @@ module Crysterm
       property ratio : Tput::Size = Tput::Size.new 0, 0
       property text = ""
 
-      # TODO This isn't very useful as-is.
-      # Support font scaling, etc.
-      # Also, character for fg/bg, etc.
+      # TODO This widget isn't very useful as-is.
+      # Add support font scaling, character for fg/bg, etc.
 
       # Normal font
       property normal : Hash(String, Array(Array(Int32))) # JSON::Any
@@ -22,8 +21,8 @@ module Crysterm
       # Bold font
       property bold : Hash(String, Array(Array(Int32))) # JSON::Any
 
-      # Currently active font (points to normal or bold)
-      property active : Hash(String, Array(Array(Int32))) # JSON::Any
+      # Currently active_font (points to normal or bold)
+      property active_font : Hash(String, Array(Array(Int32))) # JSON::Any
 
       property _shrink_width : Bool = false
       property _shrink_height : Bool = false
@@ -33,8 +32,6 @@ module Crysterm
         @font_bold = "#{__DIR__}/../fonts/ter-u14b.json",
         **box
       )
-        # @ratio = Size.new 0, 0
-
         @normal = load_font font
         @bold = load_font font_bold
 
@@ -44,10 +41,7 @@ module Crysterm
 
         super **box
 
-        @active = @normal
-        if style.bold?
-          @active = @bold
-        end
+        @active_font = style.bold? ? @bold : @normal
       end
 
       def load_font(filename)
@@ -109,7 +103,7 @@ module Crysterm
         if (@height.nil? || @_shrink_height)
           # D O:
           # if (aheight - iheight < @ratio.height + 0)
-          @height = @ratio.height + 0
+          @height = @ratio.height
           @_shrink_height = true
           # end
         end
@@ -136,10 +130,7 @@ module Crysterm
         while i < max_chars
           ch = @text[i]?.try &.to_s
           break unless ch
-          map = @active[ch]?
-          unless map
-            map = @active["?"]
-          end
+          map = @active_font[ch]? || @active_font["?"]
           y = top
           while y < Math.min(bottom, top + @ratio.height)
             # XXX Not sure if this needs to be activated/used, or can be deleted

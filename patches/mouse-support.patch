@@ -1,0 +1,335 @@
+
+
+Mouse support -- WIP
+
+Just a proof of concept; currently works standalone, it is
+not integrated into Crysterm.
+
+---------
+
+
+require "io/console"
+
+@[Flags]
+enum Modifier
+  Shift
+  Lock # Lock in X11, otherwise Alt
+  Control
+  Mod1
+  Mod2
+  Mod3
+  Mod4
+  Mod5
+end
+
+class MouseData
+  property button : Int32?
+  property x : Int32
+  property y : Int32
+  property event_type : String
+  property data : String
+  property encoding : String
+  property modifiers : Modifier = Modifier::None
+  property! delta : Tuple(Int32, Int32)?
+
+  def initialize(@button, @x, @y, @event_type, @data, @encoding, @modifiers = @modifiers, @delta = @delta)
+  end
+
+  def to_s
+    "Button: #{@button}, X: #{@x}, Y: #{@y}, Delta: #{@delta}, Modifiers: #{@modifiers}, Event type: #{@event_type}, Encoding: #{@encoding}, Data: #{@data}"
+  end
+end
+
+class Screen
+  def self.read_mouse_events
+    # \e[?1000h # Enable X10 mouse tracking mode
+    # \e[?1002h # Enable cell motion mouse tracking (button event tracking) mode
+    # \e[?1003h # Enable all motion mouse tracking (any event tracking) mode
+    # \e[?1005h # Enable UTF-8 mouse tracking mode (legacy)
+    # \e[?1006h # Enable SGR (Selective Graphic Rendition) mouse tracking mode
+    # \e[?1015h # Enable URXVT (rxvt-unicode) mouse tracking mode
+    STDOUT.print "\e[?1000h\e[?1002h\e[?1003h\e[?1006h" # \e[?1015h"
+    # STDOUT.print "\e[?1000h\e[?1002h\e[?1006h"
+    STDOUT.flush
+
+    loop do
+      data = Array(UInt8).new
+      while (byte = STDIN.raw &.read_byte) && byte
+        data << byte
+        break if byte == 'M'.ord || byte == 'm'.ord || byte == 'T'.ord
+      end
+
+      if !data.empty?
+        str_data = String.build do |io|
+          data.each { |byte| io.write_byte(byte) }
+        end
+        mouse_data = parse_mouse_data(str_data)
+        if mouse_data
+          p mouse_data
+        end
+      end
+    end
+  ensure
+    # \e[?1000l # Disable X10 mouse tracking mode
+    # \e[?1002l # Disable cell motion mouse tracking (button event tracking) mode
+    # \e[?1003l # Disable all motion mouse tracking (any event tracking) mode
+    # \e[?1005l # Disable UTF-8 mouse tracking mode (legacy)
+    # \e[?1006l # Disable SGR (Selective Graphic Rendition) mouse tracking mode
+    # \e[?1015l # Disable URXVT (rxvt-unicode) mouse tracking mode
+    STDOUT.print "\e[?1006l\e[?1002l\e[?1000l\e[?1003l" # \e[?1015l"
+    # STDOUT.print "\e[?1006l\e[?1002l\e[?1000l"
+    STDOUT.flush
+  end
+
+  def self.enable_focus_mouse_events
+    STDOUT.write("\e[?1004h")
+    STDOUT.flush
+  end
+
+  def self.parse_mouse_data(data : String) : MouseData?
+    case data[0]
+    when '\e'
+      case data[1]
+      when '['
+        case data[2]
+        when '<' # SGR, SGR-Pixels
+          parse_sgr_mouse_data(data)
+        when '>' # CSI
+          parse_csi_mouse_data(data)
+        when 'M' # X10, UTF-8, URXVT
+          parse_x10_utf8_urxvt_mouse_data(data)
+        when '?' # VT200, VT200Hilite
+          parse_vt200_vt200_hilite_mouse_data(data)
+        when '5' # PTERM
+          parse_pterm_mouse_data(data)
+        when '0' # JSBTERM
+          parse_jsbterm_mouse_data(data)
+        when 'I', 'O' # SEND FOCUS events
+          parse_focus_mouse_event(data)
+        else
+          nil
+        end
+      when 'O' # CSI
+        parse_csi_mouse_data(data)
+      else
+        nil
+      end
+    else
+      nil
+    end
+  end
+
+  def self.extract_modifiers(button_and_event)
+    modifiers = Modifier::None
+    modifiers |= Modifier::Shift if (button_and_event & 4) != 0
+    modifiers |= Modifier::Lock if (button_and_event & 8) != 0
+    modifiers |= Modifier::Control if (button_and_event & 16) != 0
+    # modifiers |= Modifier::Mod1 if (button_and_event & 32) != 0
+    # modifiers |= Modifier::Mod2 if (button_and_event & 64) != 0
+    # modifiers |= Modifier::Mod3 if (button_and_event & 128) != 0
+    # modifiers |= Modifier::Mod4 if (button_and_event & 256) != 0
+    # modifiers |= Modifier::Mod5 if (button_and_event & 512) != 0
+    modifiers
+  end
+
+  def self.parse_sgr_mouse_data(data : String)
+    parts = data[3..-2].split(";")
+    button_and_event = parts[0].to_i
+
+    # Calculate button value
+    button = case button_and_event
+             when 35..37, 67..69, 99..101, 131..133, 163..165, 195..197, 227..229
+               button_and_event - 35
+             when 3
+               3
+             when 64..66, 96..98, 128..130, 160..162, 192..194, 224..226
+               button_and_event - 64 + 4
+             else
+               button_and_event
+             end
+
+    x = parts[1].to_i
+    y = parts[2].to_i
+
+    # Determine event type
+    event_type = if button == 0 && data[-1] == 'M'
+                   "pressed"
+                 elsif (32..34).includes?(button_and_event) || (64..66).includes?(button_and_event) ||
+                       (96..98).includes?(button_and_event) || (128..130).includes?(button_and_event) ||
+                       (160..162).includes?(button_and_event) || (192..194).includes?(button_and_event) ||
+                       (224..226).includes?(button_and_event)
+                   button -= 32
+                   "dragged"
+                 elsif data[-1] == 'm'
+                   "released"
+                 else
+                   "pressed"
+                 end
+
+    modifiers = extract_modifiers(button_and_event)
+
+    MouseData.new(button, x, y, event_type, data, "SGR", modifiers)
+  end
+
+  def self.parse_x10_utf8_urxvt_mouse_data(data : String)
+    parts = data[3..-2].split(";")
+    button_and_event = parts[0].to_i
+
+    # Calculate button value
+    button = case button_and_event
+             when 32..34, 96..98, 160..162, 224..226
+               button_and_event - 32
+             when 3
+               3
+             when 64..66, 128..130, 192..194
+               button_and_event - 64 + 4
+             else
+               button_and_event
+             end
+
+    x = parts[1].to_i
+    y = parts[2].to_i
+
+    # Determine event type
+    event_type = if button == 0 && data[-1] == 'M'
+                   "moved"
+                 elsif (32..34).includes?(button_and_event) || (64..66).includes?(button_and_event) ||
+                       (96..98).includes?(button_and_event) || (128..130).includes?(button_and_event) ||
+                       (160..162).includes?(button_and_event) || (192..194).includes?(button_and_event) ||
+                       (224..226).includes?(button_and_event)
+                   "dragged"
+                 elsif data[-1] == 'm'
+                   "released"
+                 else
+                   "pressed"
+                 end
+
+    modifiers = extract_modifiers(button_and_event)
+
+    MouseData.new(button, x, y, event_type, data, "X10/UTF8/URXVT", modifiers)
+  end
+
+  def self.parse_csi_mouse_data(data : String)
+    parts = data[2..-2].split(";")
+    button_and_event = parts[0].to_i
+
+    # Calculate button value
+    button = case button_and_event
+             when 0, 35..37, 64..66
+               button_and_event
+             when 1..3
+               button_and_event - 1
+             else
+               button_and_event - 64
+             end
+
+    x = parts[1].to_i - 32
+    y = parts[2].to_i - 32
+
+    # Determine event type
+    event_type = case data[-1]
+                 when 'M'
+                   "pressed"
+                 when 'm'
+                   "released"
+                 when 't'
+                   "moved"
+                 else
+                   "unknown"
+                 end
+
+    modifiers = extract_modifiers(button_and_event)
+
+    MouseData.new(button, x, y, event_type, data, "CSI", modifiers)
+  end
+
+  def self.parse_vt200_vt200_hilite_mouse_data(data : String)
+    parts = data[3..-2].split(";")
+    button_and_event = parts[0].to_i - 32
+    button = button_and_event % 4
+    x = parts[1].to_i - 32
+    y = parts[2].to_i - 32
+
+    event_type = case button_and_event
+                 when 32..34, 64..66, 96..98, 128..130, 160..162, 192..194, 224..226
+                   "dragged"
+                 when 0, 4, 8, 12, 16, 20, 24, 28
+                   "pressed"
+                 when 1, 5, 9, 13, 17, 21, 25, 29
+                   "released"
+                 when 3
+                   "moved"
+                 else
+                   "unknown"
+                 end
+
+    encoding = data.starts_with?("\e[?1001") ? "VT200_HILITE" : "VT200"
+
+    modifiers = extract_modifiers(button_and_event)
+
+    MouseData.new(button, x, y, event_type, data, encoding, modifiers)
+  end
+
+  def self.parse_pterm_mouse_data(data : String)
+    parts = data[3..-2].split(";")
+    button_and_event = parts[0].to_i - 32
+    button = button_and_event % 4
+    x = parts[1].to_i - 32
+    y = parts[2].to_i - 32
+
+    event_type = case button_and_event
+                 when 32..34, 64..66, 96..98, 128..130, 160..162, 192..194, 224..226
+                   "dragged"
+                 when 0, 4, 8, 12, 16, 20, 24, 28
+                   "pressed"
+                 when 1, 5, 9, 13, 17, 21, 25, 29
+                   "released"
+                 when 3
+                   "moved"
+                 else
+                   "unknown"
+                 end
+
+    encoding = "PTERM"
+
+    modifiers = extract_modifiers(button_and_event)
+
+    MouseData.new(button, x, y, event_type, data, encoding, modifiers)
+  end
+
+  def self.parse_jsbterm_mouse_data(data : String)
+    parts = data[2..-2].split(";")
+    button_and_event = parts[0].to_i - 32
+    button = button_and_event % 4
+    x = parts[1].to_i - 32
+    y = parts[2].to_i - 32
+
+    event_type = case button_and_event
+                 when 32..34, 64..66, 96..98, 128..130, 160..162, 192..194, 224..226
+                   "dragged"
+                 when 0, 4, 8, 12, 16, 20, 24, 28
+                   "pressed"
+                 when 1, 5, 9, 13, 17, 21, 25, 29
+                   "released"
+                 when 3
+                   "moved"
+                 else
+                   "unknown"
+                 end
+
+    encoding = "JSBTERM"
+
+    modifiers = extract_modifiers(button_and_event)
+
+    MouseData.new(button, x, y, event_type, data, encoding, modifiers)
+  end
+
+  def self.parse_focus_mouse_event(data : String)
+    event_type = data == "\e[I" ? "focus_in" : "focus_out"
+    # Just sort out nils!
+    # MouseData.new(nil, nil, nil, event_type, data, "Focus")
+    nil
+  end
+end
+
+Screen.read_mouse_events
