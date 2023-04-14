@@ -72,7 +72,15 @@ module Crysterm
 
   # Class holding different styles, depending on widget state.
   class Styles
-    class_property default = new # Default styles for all widgets
+    DEFAULT = new # Default styles for all widgets
+
+    # Returns a copy of the default style
+    def self.default
+      d = DEFAULT.dup
+      d.normal = d.normal.dup
+      d
+    end
+
     property normal : Style = Style.new
     property blurred : Style { normal }
     property focused : Style { normal }

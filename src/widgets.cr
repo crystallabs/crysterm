@@ -18,6 +18,8 @@ module Crysterm
     TextBox        = Widget::TextBox
     TextArea       = Widget::TextArea
     Line           = Widget::Line
+    HLine          = Widget::HLine
+    VLine          = Widget::VLine
     ListTable      = Widget::ListTable
     List           = Widget::List
     Text           = Widget::Text
