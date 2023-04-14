@@ -22,7 +22,7 @@ module Crysterm
     )
 
   Screen.global.append logger
-  #logger.focus
+  # logger.focus
 
   logger.screen.on(Event::KeyPress) do |e|
     if e.char == 'q' || e.key == Tput::Key::CtrlQ
@@ -35,7 +35,7 @@ module Crysterm
     i = 0
     loop do
       sleep 0.5
-      #logger.add "Hello {#0fe1ab-fg}world{/}: {bold}#{Time.utc}{/bold}."
+      # logger.add "Hello {#0fe1ab-fg}world{/}: {bold}#{Time.utc}{/bold}."
       logger.add "Hello world: #{Time.utc}."
       if rand < 0.3
         logger.add({"foo" => {"bar" => {"baz" => i}}})
