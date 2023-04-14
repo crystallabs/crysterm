@@ -30,11 +30,11 @@ module Crysterm
           @text = c
         end
 
-        on Crysterm::Event::KeyPress, ->on_keypress(Crysterm::Event::KeyPress)
-        on Crysterm::Event::Focus, ->on_focus(Crysterm::Event::Focus)
-        on Crysterm::Event::Blur, ->on_blur(Crysterm::Event::Blur)
+        handle Crysterm::Event::KeyPress
+        handle Crysterm::Event::Focus
+        handle Crysterm::Event::Blur
         # XXX potentially wrap in `if mouse`?
-        on Crysterm::Event::Click, ->on_click(Crysterm::Event::Click)
+        handle Crysterm::Event::Click
       end
 
       def render
@@ -45,15 +45,15 @@ module Crysterm
 
       def check
         return if checked?
-        @checked = @value = true
-        # @value = !@value
+        @checked = true
+        @value = !@value
         emit Crysterm::Event::Check, @value
       end
 
       def uncheck
         return unless checked?
-        @checked = @value = false
-        # @value = !@value
+        @checked = false
+        @value = !@value
         emit Crysterm::Event::UnCheck, @value
       end
 

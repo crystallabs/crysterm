@@ -25,7 +25,7 @@ module Crysterm
 
   s.on(Event::KeyPress) do |e|
     e.accept
-    if e.char == 'q'
+    if e.char == 'q' || e.key == Tput::Key::CtrlQ
       s.destroy
       exit
     end

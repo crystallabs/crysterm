@@ -11,8 +11,8 @@ module Crysterm
       def initialize(**input)
         super **input
 
-        on Crysterm::Event::KeyPress, ->on_keypress(Crysterm::Event::KeyPress)
-        on Crysterm::Event::Click, ->on_click(Crysterm::Event::Click)
+        handle Crysterm::Event::KeyPress
+        handle Crysterm::Event::Click
       end
 
       def press
