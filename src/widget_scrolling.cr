@@ -26,8 +26,6 @@ module Crysterm
 
     property? always_scroll : Bool = false
 
-    property _scroll_bottom : Int32 = 0
-
     @ev_label_scroll : Crysterm::Event::Scroll::Wrapper?
 
     # Potentially use this where ever .scrollable? is used
@@ -51,14 +49,14 @@ module Crysterm
     end
 
     def get_scroll_height
-      Math.max @_clines.size, @_scroll_bottom
+      Math.max @_clines.size, _scroll_bottom
     end
 
     def set_scroll_perc(i)
       # D O
       # XXX
       # m = @get_scroll_height
-      m = Math.max @_clines.size, @_scroll_bottom
+      m = Math.max @_clines.size, _scroll_bottom
       scroll_to ((i / 100) * m).to_i
     end
 
@@ -97,7 +95,7 @@ module Crysterm
       # We could just calculate the children, but we can
       # optimize for lists by just returning the items.length.
       if @_is_list
-        return @items ? @items.size : 0
+        return @items.any? ? @items.size : 0
       end
 
       @lpos.try do |lpos|
@@ -113,7 +111,7 @@ module Crysterm
         # content is in the shrunken box, unless we do this (call get_coords
         # without the scrollable calculation):
         # See: $ test/widget-shrink-fail-2
-        if @screen
+        if el.screen
           lpos = el._get_coords false, true
           if lpos
             return Math.max(current, el.rtop + (lpos.yl - lpos.yi))
@@ -238,7 +236,7 @@ module Crysterm
 
       max = @_clines.size - (aheight - iheight)
       max = 0 if max < 0
-      emax = @_scroll_bottom - (aheight - iheight)
+      emax = _scroll_bottom - (aheight - iheight)
       emax = 0 if emax < 0
 
       @child_base = Math.min @child_base, Math.max emax, max
