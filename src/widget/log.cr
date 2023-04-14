@@ -2,7 +2,7 @@ require "./scrollable_text"
 
 module Crysterm
   class Widget
-    class LogLine < ScrollableText
+    class Log < ScrollableText
       property scroll_percentage = 0
 
       def initialize(@scroll_on_input = false, @scrollback = Int32::MAX, **scrollable_text)
@@ -23,7 +23,7 @@ module Crysterm
         # text = util.format.apply(util, args); # TODO
         text = args.inspect
 
-        emit Crysterm::Event::LogLine, text
+        emit Crysterm::Event::Log, text
 
         ret = push_line text
 

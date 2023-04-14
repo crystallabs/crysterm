@@ -22,6 +22,7 @@ require "./widget_label"
 module Crysterm
   class Widget
     include EventHandler
+    include Macros
     include Mixin::Name
     include Mixin::Uid
     include Mixin::Pos

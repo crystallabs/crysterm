@@ -536,11 +536,11 @@ module Crysterm
     @[AlwaysInline]
     def border_char(border, x, xi, xl, y, yi, yl, default_attr)
       if border.type.line?
-        ch = case [x, y]
-             when [xi, yi]         then border.left > 0 && border.top > 0 ? '┌' : (border.left == 0 && border.top > 0 ? '─' : '│')
-             when [xl - 1, yi]     then border.right > 0 && border.top > 0 ? '┐' : (border.right == 0 && border.top > 0 ? '─' : '│')
-             when [xi, yl - 1]     then border.left > 0 && border.bottom > 0 ? '└' : (border.left == 0 && border.bottom > 0 ? '─' : '│')
-             when [xl - 1, yl - 1] then border.right > 0 && border.bottom > 0 ? '┘' : (border.right == 0 && border.bottom > 0 ? '─' : '│')
+        ch = case {x, y}
+             when {xi, yi}         then border.left > 0 && border.top > 0 ? '┌' : (border.left == 0 && border.top > 0 ? '─' : '│')
+             when {xl - 1, yi}     then border.right > 0 && border.top > 0 ? '┐' : (border.right == 0 && border.top > 0 ? '─' : '│')
+             when {xi, yl - 1}     then border.left > 0 && border.bottom > 0 ? '└' : (border.left == 0 && border.bottom > 0 ? '─' : '│')
+             when {xl - 1, yl - 1} then border.right > 0 && border.bottom > 0 ? '┘' : (border.right == 0 && border.bottom > 0 ? '─' : '│')
                # when [xi, yi + 1...yl - 1], [xl - 1, yi + 1...yl - 1] then '│'
                # else '─'
              else

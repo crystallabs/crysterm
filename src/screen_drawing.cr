@@ -55,7 +55,7 @@ module Crysterm
         @_buf.clear
       end
 
-      Log.trace { "Drawing #{start}..#{stop}" }
+      ::Log.trace { "Drawing #{start}..#{stop}" }
 
       c = cursor
 
@@ -67,7 +67,7 @@ module Crysterm
         # Original line, as it was in the previous render
         o = @olines[y]
 
-        # Log.trace { line } if line.any? &.char.!=(' ')
+        # ::Log.trace { line } if line.any? &.char.!=(' ')
 
         # Skip if no change in line
         if (!line.dirty && !(c.artificial? && (y == tput.cursor.y)))
@@ -287,7 +287,7 @@ module Crysterm
               end
 
               @outbuf.print 'm'
-              # Log.trace { @outbuf.inspect }
+              # ::Log.trace { @outbuf.inspect }
             end
           end
 

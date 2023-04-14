@@ -29,7 +29,7 @@ module Crysterm
     Prompt         = Widget::Prompt
     Box            = Widget::Box
     Message        = Widget::Message
-    LogLine        = Widget::LogLine
+    Log            = Widget::Log
 
     # Qt-like
     Menu = Widget::Menu

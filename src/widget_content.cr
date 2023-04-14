@@ -86,7 +86,7 @@ module Crysterm
     def process_content(no_tags = false)
       return false unless @screen # XXX why?
 
-      Log.trace { "Parsing widget content: #{@content.inspect}" }
+      ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
       colwidth = awidth - iwidth
       if (@_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content != @content)
@@ -96,7 +96,7 @@ module Crysterm
             .gsub(/\r\n|\r/, "\n")
             .gsub(/\t/, style.tab_char * style.tab_size)
 
-        Log.trace { "Internal content is #{content.inspect}" }
+        ::Log.trace { "Internal content is #{content.inspect}" }
 
         if true # (screen.full_unicode)
           # double-width chars will eat the next char after render. create a
@@ -130,7 +130,7 @@ module Crysterm
         if !no_tags
           content = _parse_tags content
         end
-        Log.trace { "After _parse_tags: #{content.inspect}" }
+        ::Log.trace { "After _parse_tags: #{content.inspect}" }
 
         @_clines = _wrap_content(content, colwidth)
         @_clines.width = colwidth
