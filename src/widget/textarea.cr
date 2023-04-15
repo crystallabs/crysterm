@@ -171,7 +171,7 @@ module Crysterm
           # here.
           if k == Tput::Key::Escape
             done.try &.call nil, nil
-          elsif k == Tput::Key::Backspace
+          elsif k == Tput::Key::Backspace || k == Tput::Key::CtrlH
             if @value.size > 0
               # TODO if full unicode...
               if false
