@@ -3,7 +3,7 @@ require "./input"
 module Crysterm
   class Widget
     # Checkbox element
-    class Checkbox < Input
+    class CheckBox < Input
       include EventHandler
 
       # TODO support for changing icons
@@ -91,6 +91,6 @@ module Crysterm
       end
     end
 
-    alias CheckBox = Checkbox
+    alias Checkbox = CheckBox
   end
 end

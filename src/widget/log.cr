@@ -20,7 +20,6 @@ module Crysterm
       end
 
       def add(*args)
-        # text = util.format.apply(util, args); # TODO
         text = args.inspect
 
         emit Crysterm::Event::Log, text

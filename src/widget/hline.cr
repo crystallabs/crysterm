@@ -10,5 +10,7 @@ module Crysterm
         super @orientation, **line
       end
     end
+
+    alias Hline = HLine
   end
 end

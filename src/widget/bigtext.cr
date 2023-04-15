@@ -5,7 +5,7 @@ module Crysterm
     # Widget for displaying text in big font.
     #
     # Fonts can be converted from BDF to the required JSON format using https://github.com/chjj/ttystudio
-    class Bigtext < Widget::Box
+    class BigText < Widget::Box
       property font
       property font_bold
 
@@ -170,6 +170,6 @@ module Crysterm
       end
     end
 
-    alias BigText = Bigtext
+    alias Bigtext = BigText
   end
 end

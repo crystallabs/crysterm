@@ -1,5 +1,11 @@
 # TODOs
 
+- Fix scrolling in the log widget
+
+- Rename `resizable` back to `shrinkable` or so.
+
+- See src/widget/menu.cr. Move the <<, >> logic into a generic mixin
+
 - All fibers and/or listeners must be recorded in respective classes so that they can be managed (removed/paused/detached etc.)
 
 - In src/namespace.cr there is: `property label : Style { Style.new }`. Redesign that. Determine what to do with label.side. Possibly redo the whole label thing.

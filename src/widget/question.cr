@@ -21,8 +21,8 @@ module Crysterm
         # bg: "black",
         # hover_bg: "blue",
         focus_on_click: false,
-      # mouse: true
-)
+        # mouse: true
+      )
 
       @cancel = Button.new(
         left: 8,
@@ -35,8 +35,8 @@ module Crysterm
         # bg: "black",
         # hover_bg: "blue",
         focus_on_click: false,
-      # mouse: true
-)
+        # mouse: true
+      )
 
       def initialize(**box)
         # self.style.visible = false # XXX Enable correctly

@@ -7,43 +7,38 @@ module Crysterm
 
     # Overlay (w3m-img) image element
     class OverlayImage < Box
-      property file : String
-      @image : W3MImageDisplay::Image?
-
-      @ev_render : Crysterm::Event::Rendered::Wrapper?
+      property file : String?
+      property stretch = false
+      property center = false
+      property image : W3MImageDisplay::Image?
 
       def initialize(
-        @file = "/tmp/w3mimagedisplay/examples/image.jpg",
+        @file = nil,
         @stretch = false,
         @center = true,
         **box
       )
         super **box
 
+        @file.try { |f| load f }
+
+        handle ::Crysterm::Event::Rendered
+      end
+
+      def load(@file)
         @image = W3MImageDisplay::Image.new @file
-
-        on ::Crysterm::Event::Attach, ->on_attach(::Crysterm::Event::Attach)
-        on ::Crysterm::Event::Detach, ->on_detach(::Crysterm::Event::Detach)
       end
 
-      def on_attach(e)
-        @ev_render = screen.on ::Crysterm::Event::Rendered, ->on_render
-      end
-
-      def on_render(e)
-        # TODO - get coords of content only, without borders/padding
-        pos = _get_coords(true).not_nil!
-
-        style.border.try &.adjust(pos)
-
-        @image.try &.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
-      end
-
-      def on_detach(e)
-        @ev_render.try do |ev|
-          screen.off ::Crysterm::Event::Rendered, ev
+      def on_rendered(e)
+        @image.try do |image|
+          pos = _get_coords(true).not_nil!
+          # TODO - get coords of content only, without borders/padding
+          # style.border.try &.adjust(pos)
+          image.try &.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
         end
       end
     end
+
+    alias Overlayimage = OverlayImage
   end
 end
