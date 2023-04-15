@@ -18,7 +18,7 @@ module Crysterm
       def initialize(**checkbox)
         super **checkbox
 
-        on Crysterm::Event::Check, ->on_check(Crysterm::Event::Check)
+        handle Crysterm::Event::Check
       end
 
       def render
@@ -37,10 +37,12 @@ module Crysterm
         el = el || parent
 
         el.try &.each_descendant do |cel|
+          # TODO
           # next if !(cel.is_a? RadioButton) || cel == self
           # cel.toggle if cel.is_a?(RadioButton) && cel != self
           cel.uncheck if cel.is_a?(RadioButton) && cel != self
         end
+        # TODO
         # el.try &.children.each do |cel|
         #  # next if !(cel.is_a? RadioButton) || cel == self
         #  cel.uncheck if cel.is_a?(RadioButton) && cel != self

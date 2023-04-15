@@ -3,7 +3,7 @@ module Crysterm
     class ProgressBar < Input
       property filled : Int32 = 0
       property value : Int32 = 0
-      property orientation : Tput::Orientation = Tput::Orientation::Horizontal
+      property orientation : Tput::Orientation = :horizontal
 
       # TODO Add new options:
       # min value and max value
@@ -22,17 +22,15 @@ module Crysterm
         @filled = 0,
         @keys = true,
         @mouse = false,
-        orientation = nil,
+        @orientation = @orientation,
         **input
       )
         super **input
 
-        orientation.try { |v| @orientation = v }
-
         @value = @filled
 
         if @keys
-          on Crysterm::Event::KeyPress, ->on_keypress(Crysterm::Event::KeyPress)
+          handle Crysterm::Event::KeyPress
         end
 
         if @mouse
@@ -44,8 +42,6 @@ module Crysterm
         ret = _render
         return unless ret
 
-        # XXX Would this be more intuitive if it was pos.adjust_for(border)
-        # rather than border.adjust(pos)?
         self.style.border.try &.adjust(ret)
 
         xi = ret.xi
@@ -97,8 +93,8 @@ module Crysterm
         ret
       end
 
-      def progress(filled)
-        f = @filled + filled
+      def progress(filled_delta)
+        f = @filled + filled_delta
         f = 0 if f < 0
         f = 100 if f > 100
         @filled = f
