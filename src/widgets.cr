@@ -5,34 +5,41 @@ module Crysterm
   #    t = Text.new
   module Widgets
     # Blessed-like
-    RadioButton    = Widget::RadioButton
-    OverlayImage   = Widget::OverlayImage
-    Input          = Widget::Input
-    Checkbox       = Widget::Checkbox
-    ProgressBar    = Widget::ProgressBar
+    Box   = Widget::Box
+    Input = Widget::Input
+
+    OverlayImage = Widget::OverlayImage
+    ProgressBar  = Widget::ProgressBar
+    Loading      = Widget::Loading
+    Layout       = Widget::Layout
+    Question     = Widget::Question
+    Line         = Widget::Line
+    HLine        = Widget::HLine
+    VLine        = Widget::VLine
+    ListTable    = Widget::ListTable
+    List         = Widget::List
+
+    Label          = Widget::Label
+    Text           = Widget::Text
     ScrollableBox  = Widget::ScrollableBox
     ScrollableText = Widget::ScrollableText
-    Loading        = Widget::Loading
-    Layout         = Widget::Layout
-    Question       = Widget::Question
     TextBox        = Widget::TextBox
     TextArea       = Widget::TextArea
-    Line           = Widget::Line
-    HLine          = Widget::HLine
-    VLine          = Widget::VLine
-    ListTable      = Widget::ListTable
-    List           = Widget::List
-    Text           = Widget::Text
-    BigText        = Widget::BigText
-    RadioSet       = Widget::RadioSet
-    Button         = Widget::Button
-    Prompt         = Widget::Prompt
-    Box            = Widget::Box
-    Message        = Widget::Message
-    Log            = Widget::Log
+
+    BigText = Widget::BigText
+
+    RadioSet    = Widget::RadioSet
+    RadioButton = Widget::RadioButton
+    Checkbox    = Widget::Checkbox
+
+    Button  = Widget::Button
+    Prompt  = Widget::Prompt
+    Message = Widget::Message
+    Log     = Widget::Log
 
     # Qt-like
-    Menu = Widget::Menu
+    Action = Widget::Action
+    Menu   = Widget::Menu
 
     # Pine-like
     PineHeaderBar = Widget::Pine::HeaderBar

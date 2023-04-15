@@ -3,6 +3,9 @@ module Crysterm
     # module Rendering
     include Crystallabs::Helpers::Alias_Methods
 
+    # What action to take when widget is overflowing parent's rectangle?
+    property overflow = Overflow::Ignore
+
     # Rendition and rendering
 
     # The below methods are a bit confusing: basically
@@ -337,15 +340,18 @@ module Crysterm
 
       # Draw the scrollbar.
       # Could possibly draw this after all child elements.
+      i = 0
+      @scrollbar.try do
+        # D O:
+        # i = @get_scroll_height()
+        i = Math.max @_clines.size, _scroll_bottom
+      end
+
       if coords.no_top? || coords.no_bottom?
         i = -Int32::MAX
       end
 
       @scrollbar.try do
-        # D O:
-        # i = @get_scroll_height()
-        i = Math.max @_clines.size, _scroll_bottom
-
         if (yl - yi) < i
           x = xl - 1
           sbr = style.border.try(&.right) || 0

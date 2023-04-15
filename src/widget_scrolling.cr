@@ -133,7 +133,7 @@ module Crysterm
     end
 
     # Scrolls widget by `offset` lines down or up
-    def scroll(offset, always = false)
+    def scroll(offset = 1, always = false)
       return unless @scrollable
       return unless @screen
 
@@ -204,12 +204,12 @@ module Crysterm
 
       # Optimize scrolling with CSR + IL/DL.
       p = @lpos
-      # Only really need _getCoords() if we want
+      # Only really need _get_coords() if we want
       # to allow nestable scrolling elements...
       # or if we **really** want shrinkable
       # scrolling elements.
-      # p = @_get_coords
-      if (p && @child_base != base && screen.clean_sides(self))
+      # p = _get_coords
+      if p && (@child_base != base) && screen.clean_sides(self)
         t = p.yi + itop
         b = p.yl - ibottom - 1
         d = @child_base - base

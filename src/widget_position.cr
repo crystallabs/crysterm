@@ -3,9 +3,6 @@ module Crysterm
     # Methods related to 2D position (X and Y).
     # Position in 3D (index) is in widget_index.cr
 
-    # What action to take when widget is overflowing parent's rectangle?
-    property overflow = Overflow::Ignore
-
     #
     # Left/top/right/bottom getters and setters. These values are exactly what the user has set, rather than being computed.
     # (I.e. they are equivalent of `widget.position` in blessed.)

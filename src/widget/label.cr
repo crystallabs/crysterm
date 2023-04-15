@@ -6,5 +6,7 @@ module Crysterm
     class Label < Box
       @resizable = true
     end
+
+    alias Text = Label
   end
 end

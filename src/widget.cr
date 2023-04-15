@@ -82,11 +82,13 @@ module Crysterm
       # TODO Unify naming label[_text]/hover[_text]
 
       scrollable = nil,
+      @always_scroll = @always_scroll,
       # hover_bg=nil,
       @draggable = @draggable,
       focused = false,
       @focus_on_click = @focus_on_click,
       @keys = @keys,
+      @vi = @vi,
       input = nil,
       style = nil,
       @styles = @styles,

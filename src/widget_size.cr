@@ -41,7 +41,7 @@ module Crysterm
         expr = width.split /(?=\+|-)/
         width = expr[0]
         width = width[0...-1].to_f / 100
-        width = (((parent.awidth || 0) - parent.iwidth) * width).to_i
+        width = (((parent.awidth || 0)) * width).to_i
         width += expr[1].to_i if expr[1]?
         return width
       end
@@ -91,7 +91,7 @@ module Crysterm
         expr = height.split /(?=\+|-)/
         height = expr[0]
         height = height[0...-1].to_f / 100
-        height = (((parent.aheight || 0) - parent.iheight) * height).to_i
+        height = (((parent.aheight || 0)) * height).to_i
         height += expr[1].to_i if expr[1]?
         return height
       end
