@@ -61,8 +61,7 @@ hello = C::Widget::Box.new \
   height: 5,              # Can also be of format 10, "50%", or "50%+-10"
   content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
   parse_tags: true,       # Parse {} tags within content (default already is true)
-  style: C::Style.new(fg: "yellow", bg: "blue"),
-  border: true            # 'true' for default type/look of border
+  style: C::Style.new(fg: "yellow", bg: "blue", border: true)
 
 screen.append hello
 
