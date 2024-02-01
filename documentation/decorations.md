@@ -83,7 +83,7 @@ border repeats in all cells that make up the border. (See how this would interop
 where docking would be performed.)
 
 Additionally, in Crysterm there is `Crysterm::Style.default`. This default instance of style can be
-modified and will automatically apply to all widgets that do not have style specifically overriden.
+modified and will automatically apply to all widgets that do not have style specifically overridden.
 
 ## Padding
 

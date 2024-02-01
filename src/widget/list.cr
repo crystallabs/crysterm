@@ -296,7 +296,7 @@ module Crysterm
         emit Crysterm::Event::CancelItem, items[selected], selected
       end
 
-      # TOOD
+      # TODO
       # find
       # pick
 

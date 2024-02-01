@@ -7,7 +7,7 @@ module Crysterm
   # Actions can be added to menus and toolbars, and will automatically be kept in sync because they are the same object.
   # For example, if the user presses a "Bold" toolbar button in a text editor, the "Bold" menu item will automatically appear enabled where ever it is added.
   #
-  # It is recommented to create `Action`s as children of the window they are used in.
+  # It is recommended to create `Action`s as children of the window they are used in.
   #
   # Actions are added to `Widget`s using `#addAction` or `<<(Action)`. Note that an action must be added to a widget before it can be used.
   #

@@ -13,7 +13,7 @@ def draw(s : Screen)
   end
 end
 
-# `Display` is a phyiscal device (terminal hardware or emulator).
+# `Display` is a physical device (terminal hardware or emulator).
 # It can be instantiated manually as shown, or for quick coding it can be
 # skipped and it will be created automatically when needed.
 s = Screen.new

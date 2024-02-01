@@ -7,7 +7,7 @@ relative position, width and height, and the amount of inner space
 that is reserved for decorations (borders and padding).
 
 For a given widget, it can also calculate what the minimum size bounding box is
-(minimum box needed to accomodate all content without scrolling).
+(minimum box needed to accommodate all content without scrolling).
 
 Left, top, right and bottom values are not offsets from (0,0) on the top left, but rather from their respective sides.
 
@@ -234,4 +234,4 @@ When creating widgets, one can specify left/top/right/bottom/width/height separa
 them all inside `position` hash. If they're given separately, Blessed packs them into `position`.
 
 One can also specify `shrink = true` on a widget. This causes widget to render in minimal
-necessary box to accomodate its content.
+necessary box to accommodate its content.

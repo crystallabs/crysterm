@@ -612,7 +612,7 @@ module Crysterm
     # whether an element has uniform cells on
     # both sides. If it does, we can use CSR to
     # optimize scrolling on a scrollable element.
-    # Not exactly sure how worthwile this is.
+    # Not exactly sure how worthwhile this is.
     # This will cause a performance/cpu-usage hit,
     # but will it be less or greater than the
     # performance hit of slow-rendering scrollable
@@ -639,7 +639,7 @@ module Crysterm
       # D O:
       # The scrollbar can't update properly, and there's also a
       # chance that the scrollbar may get moved around senselessly.
-      # NOTE: In pratice, this doesn't seem to be the case.
+      # NOTE: In practice, this doesn't seem to be the case.
       # if @scrollbar
       #  return pos._clean_sides = false
       # end
