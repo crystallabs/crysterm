@@ -46,7 +46,7 @@ module Crysterm
         return width
       end
 
-      # This is for if the element is being streched or shrunken.
+      # This is for if the element is being stretched or shrunken.
       # Although the width for shrunken elements is calculated
       # in the render function, it may be calculated based on
       # the content width, and the content width is initially
@@ -96,7 +96,7 @@ module Crysterm
         return height
       end
 
-      # This is for if the element is being streched or shrunken.
+      # This is for if the element is being stretched or shrunken.
       # Although the height for shrunken elements is calculated
       # in the render function, it may be calculated based on
       # the content height, and the content height is initially
@@ -163,7 +163,7 @@ module Crysterm
 
         # Since the parent element is shrunk, and the child elements think it's
         # going to take up as much space as possible, an element anchored to the
-        # right or bottom will inadvertantly make the parent's shrunken size as
+        # right or bottom will inadvertently make the parent's shrunken size as
         # large as possible. So, we can just use the height and/or width the of
         # element.
         # D O:

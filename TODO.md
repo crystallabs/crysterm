@@ -20,7 +20,7 @@
 
 - Overflow is currently property of screen and widget. See what the relation is and whether it all works correctly.
 
-- For `OptimizationFlag`s listed in src/namespace.cr, make a list of all common terminal emulators and see which ones support which optimizations. Than make default optimizations turn on/off based on that (unless overriden by user).
+- For `OptimizationFlag`s listed in src/namespace.cr, make a list of all common terminal emulators and see which ones support which optimizations. Than make default optimizations turn on/off based on that (unless overridden by user).
 `OptimizationFlag`s are set on a `Screen`.
 
 - In src/screen.cr, some stuff is done in initialize, while it seems like enter/leave would be the correct places.

@@ -168,7 +168,7 @@ module Crysterm
 
       bind
 
-      # ensure tput.zero_based = true, use_bufer=true
+      # ensure tput.zero_based = true, use_buffer=true
       # set resizeTimeout
 
       # Tput is accessed via tput
@@ -551,7 +551,7 @@ module Crysterm
     #  }
     # end
 
-    # Reduces color if needed (minmal helper function)
+    # Reduces color if needed (minimal helper function)
     private def _reduce_color(col)
       Colors.reduce(col, tput.features.number_of_colors)
     end
