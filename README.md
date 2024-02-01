@@ -139,7 +139,7 @@ High-level development plan for Crysterm looks as follows:
 1. Developing more line-oriented features. Currently Crysterm is suited for full-screen app development. It would be great if line-based features were added, and if then various small line-based utilities that exist as shards/apps for Crystal would be ported to become Crysterm's line- or screen-based widgets
 1. Adding features and principles from Qt
 
-Those are general guidelines. For smaller, more specific development/contribution tasks, grep sources for "TODO", "NOTE", and "XXX",  see file `TODO`, and see general Crystal wishlist in file `CRYSTAL-WISHLIST`.
+Those are general guidelines. For smaller, more specific development/contribution tasks, see open issues, grep sources for "TODO", "NOTE", and "XXX",  see file `TODO`, and see general Crystal wishlist in file `CRYSTAL-WISHLIST`.
 
 ### Event model
 
