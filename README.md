@@ -223,7 +223,7 @@ program.
 
 ### Text Attributes and Colors
 
-Crysterm implements its own concept of "tags" in strings,
+Crysterm inherits from Blessed a custom implementation/concept of "tags" in strings,
 such as `{light-blue-fg}Text in Light Blue{/light-blue-fg}`. Tags can be embedded in strings directly, applied
 from a Hash with `generate_tags`, or removed from a string with `strip_tags` or `clean_tags`.
 Any existing strings where "{}" should not be interpreted can be protected with `escape_tags`.
