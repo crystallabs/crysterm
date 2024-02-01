@@ -300,7 +300,7 @@ R/D/FPS: 761/191/153 (782/248/187)
 
 The first 3 values display the performance of the current frame, and the values in parentheses display the averages over 30 frames.
 
-Because the rendering+drawing cycle happens up to 29 times per second, the FPS value should stay above 30 of frame skipping could occur.
+Because the rendering+drawing cycle happens up to `interval` times per second, the FPS value should stay above that value of it may indicate that frame skipping would occur.
 
 ### Testing
 
@@ -338,11 +338,11 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - Style property `transparent` has been renamed to `transparency` and also accepts Float64, in addition to `true` which defaults to 0.5
 - In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed and arguably more correct (Blessed uses background color)
 - In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
-- In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends colors and docks.
+- In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends (averages) colors and then performs docking.
 - In Crysterm, `attaching`/`detaching` Widgets is only applicable on Screens and it means setting/removing property `#screen` on the desired widget and its children (it does not have anything to do with widget parent hierarchy). Although in most cases these functions are not called directly but are invoked automatically when calling functions to set widgets' parents.
 - Widget property `valign` has been removed because property `align` is an enum (`Tput::AlignFlag`) and encodes both horizontal and vertical alignment choices in the same value
-- Widget property `noOverflow` is now `overflow : Overflow` with enum elements being Ignore, ShrinkWidget, SkipWidget, StopRendering, and MoveWidget
-- Widget methods `#<<` and `#>>` can be used for adding/removing children elements depending on argument type. E.g., `<< Widget` adds a Widget as a child of parent widget, and `<< Action` adds an Action into the parent widget's list of actions.
+- Widget property `noOverflow` is now `overflow : Overflow` with choices being `Ignore`, `ShrinkWidget`, `SkipWidget`, `StopRendering`, and `MoveWidget`
+- Widget methods `#<<` and `#>>` can be used for adding/removing children elements depending on argument type. E.g., `<< Widget` adds a Widget as a child of parent widget, and `<< Action` adds an Action into the widget's list of actions.
 - It is hard to remember whether screen size is kept in property `columns` or `cols`. So in Crysterm the `Screen`s dimensions are in `width` and `height`, and this is uniform with all `Widget`s which also have their size in `width` and `height`.
 - `shrinkBox` is `Rectangle` in Crysterm, and `_get_shrink` is `_get_minimal_rectangle`
 - User-specified Widget options left, top, right, bottom, width, height, and resizable exist directly on `Widget` in Crysterm, rather than on `Widget.position`. Also, to get actual numbers/values out, one now needs to explicitly use e.g. `aleft` (absolute left), `rleft` (relative left) or `ileft` (inner/content left). This removes all ambiguity and lack of straightforwardness in which value is being accessed
