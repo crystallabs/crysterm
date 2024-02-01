@@ -214,7 +214,7 @@ can optionally make use of CSR (change-scroll-region) and/or BCE (back-color-era
 so they are off by default).
 
 Calling `render` whereever appropriate is not a concern because there is code making sure that render
-runs at most once per unit of time (currently 1/29th of a second) and all accumulated changes are
+runs at most once per unit of time (currently `property interval = 1/29`th of a second) and all accumulated changes are
 rendered in one pass.
 
 When state has been set up for the first time and the program is to start running the display, one
