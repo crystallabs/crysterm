@@ -213,7 +213,7 @@ can optionally make use of CSR (change-scroll-region) and/or BCE (back-color-era
 (see `OptimizationFlag`, although some terminal emulators like `gnome-terminal` might not display them correctly
 so they are off by default).
 
-Calling `render` whereever appropriate is not a concern because there is code making sure that render
+Calling `render` where ever appropriate is not a concern because there is code making sure that render
 runs at most once per unit of time (currently `property interval = 1/29`th of a second) and all accumulated changes are
 rendered in one pass.
 
@@ -267,7 +267,7 @@ Supported COLOR names are:
 `yellow`.
 
 In addition to the above color names, one can also specify colors by color index (syntax: `{ID-...}`), or by RGB hex
-notation using the 16M color palette (syntax `{#RRGGBB-...}`. 16M RGB is the recommented way to define colors, and
+notation using the 16M color palette (syntax `{#RRGGBB-...}`. 16M RGB is the recommended way to define colors, and
 Crysterm will automatically reduce them to 256, 16, 8, or 2 colors if/when needed, depending on terminal capabilities.
 
 One could also define foreground and background colors and attributes by manually
