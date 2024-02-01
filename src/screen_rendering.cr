@@ -28,7 +28,7 @@ module Crysterm
 
     @render_flag : Atomic(UInt8) = Atomic.new 0u8
     @render_channel : Channel(Bool) = Channel(Bool).new
-    @interval : Float64 = 1/29
+    property interval : Float64 = 1/29
 
     def schedule_render
       _old, succeeded = @render_flag.compare_and_set 0, 1
