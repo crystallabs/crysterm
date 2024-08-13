@@ -6,8 +6,6 @@
 
 Crysterm is a console/terminal toolkit for Crystal.
 
-See the presentation from Crystal 1.0 Conference: https://www.youtube.com/watch?v=UQCEIBzQOec
-
 At the moment Crysterm follows closely the implementation and behavior of libraries that inspired it,
 [Blessed](https://github.com/chjj/blessed) and [Blessed-contrib](https://github.com/yaronn/blessed-contrib)
 for Node.js. However, being implemented in Crystal (an OO language), it tries to use the language's
