@@ -7,7 +7,7 @@ module Crysterm
     # Removes node from its parent.
     # This is identical to calling `parent.remove(self)`.
     def remove_from_parent
-      @parent.try { |p| p.remove self }
+      @parent.try(&.remove(self))
     end
 
     # Inserts `element` to list of children at a specified position (at end by default)

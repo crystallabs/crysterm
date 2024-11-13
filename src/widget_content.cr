@@ -89,7 +89,7 @@ module Crysterm
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
       colwidth = awidth - iwidth
-      if (@_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content != @content)
+      if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content != @content
         content =
           @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
             .gsub(/\e(?!\[[\d;]*m)/, "") # SGR
@@ -271,9 +271,9 @@ module Crysterm
         attrs.push attr
         raise "indexing error" unless attrs.size == j + 1
 
-        line.chars.each_with_index do |char, i|
+        line.chars.each_with_index do |char, _|
           if char == '\e'
-            if (c = line[1..].match(SGR_REGEX))
+            if c = line[1..].match(SGR_REGEX)
               attr = screen.attr2code(c[0], attr, default_attr)
             end
           end
@@ -306,7 +306,7 @@ module Crysterm
 
       margin += 1 if @scrollbar
       margin += 1 if is_a? Widget::TextArea
-      colwidth -= margin if (colwidth > margin)
+      colwidth -= margin if colwidth > margin
 
       lines.each_with_index do |line, no|
         align = default_state
@@ -346,12 +346,12 @@ module Crysterm
           # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
           loop do
             break unless i < line.size
-            while (line[i] == '\e')
-              while (line[i] && line[i] != 'm')
+            while line[i] == '\e'
+              while line[i] && line[i] != 'm'
                 i += 1
               end
             end
-            if (line[i]?.nil?)
+            if line[i]?.nil?
               break
             end
             total += 1
@@ -370,12 +370,12 @@ module Crysterm
               # XXX TODO
               # if (!screen.fullUnicode)
               # Try to find a char to break on.
-              if (i != line.size)
+              if i != line.size
                 j = i
                 # TODO how can the condition and subsequent IF ever match
                 # with the line[j] thing?
-                while ((j > i - 10) && (j > 0) && (j -= 1) && (line[j] != ' '))
-                  if (line[j] == ' ')
+                while (j > i - 10) && (j > 0) && (j -= 1) && (line[j] != ' ')
+                  if line[j] == ' '
                     i = j + 1
                   end
                 end
@@ -400,7 +400,7 @@ module Crysterm
           end
 
           # If only an escape code got cut off, add it to `part`.
-          if (line.matches? /^(?:\e[\[\d;]*m)+$/) # SGR
+          if line.matches? /^(?:\e[\[\d;]*m)+$/ # SGR
             outbuf[outbuf.size - 1] += line
             break :main
           end
@@ -501,17 +501,17 @@ module Crysterm
     end
 
     def insert_line(i = nil, line = "")
-      if (line.is_a? String)
+      if line.is_a? String
         line = line.split("\n")
       end
 
-      if (i.nil?)
+      if i.nil?
         i = @_clines.ftor.size
       end
 
       i = Math.max(i, 0)
 
-      while (@_clines.fake.size < i)
+      while @_clines.fake.size < i
         @_clines.fake.push("")
         @_clines.ftor.push([@_clines.push("").size - 1])
         @_clines.rtof[@_clines.fake.size - 1]
@@ -523,7 +523,7 @@ module Crysterm
       # diff
       # real
 
-      if (i >= @_clines.ftor.size)
+      if i >= @_clines.ftor.size
         real = @_clines.ftor[@_clines.ftor.size - 1]
         real = real[-1] + 1
       else
@@ -538,9 +538,9 @@ module Crysterm
 
       diff = @_clines.size - start
 
-      if (diff > 0)
+      if diff > 0
         pos = _get_coords
-        if (!pos || pos == 0)
+        if !pos || pos == 0
           return
         end
 
@@ -548,7 +548,7 @@ module Crysterm
         base = @child_base
         visible = real >= base && real - base < height
 
-        if (pos && visible && screen.clean_sides(self))
+        if pos && visible && screen.clean_sides(self)
           screen.insert_line(diff,
             pos.yi + itop + real - base,
             pos.yi,
@@ -558,7 +558,7 @@ module Crysterm
     end
 
     def delete_line(i = nil, n = 1)
-      if (i.nil?)
+      if i.nil?
         i = @_clines.ftor.size - 1
       end
 
@@ -571,7 +571,7 @@ module Crysterm
       # diff
       real = @_clines.ftor[i][0]
 
-      while (n > 0)
+      while n > 0
         n -= 1
         @_clines.fake.delete_at i
       end
@@ -583,9 +583,9 @@ module Crysterm
       # XXX clear_last_rendered_position() without diff statement?
       height = 0
 
-      if (diff > 0)
+      if diff > 0
         pos = _get_coords
-        if (!pos || pos == 0)
+        if !pos || pos == 0
           return
         end
 
@@ -594,7 +594,7 @@ module Crysterm
         base = @child_base
         visible = real >= base && real - base < height
 
-        if (pos && visible && screen.clean_sides(self))
+        if pos && visible && screen.clean_sides(self)
           screen.delete_line(diff,
             pos.yi + itop + real - base,
             pos.yi,
@@ -602,7 +602,7 @@ module Crysterm
         end
       end
 
-      if (@_clines.size < height)
+      if @_clines.size < height
         clear_last_rendered_position
       end
     end
@@ -637,7 +637,7 @@ module Crysterm
 
     def set_line(i, line)
       i = Math.max(i, 0)
-      while (@_clines.fake.size < i)
+      while @_clines.fake.size < i
         @_clines.fake.push("")
       end
       @_clines.fake[i] = line
@@ -679,7 +679,7 @@ module Crysterm
     end
 
     def push_line(line)
-      if (!@content)
+      if !@content
         return set_line(0, line)
       end
       insert_line(@_clines.fake.size, line)

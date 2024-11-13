@@ -93,14 +93,14 @@ module Crysterm
       end
 
       def render
-        if (@width.nil? || @_shrink_width)
+        if @width.nil? || @_shrink_width
           # D O:
           # if (awidth - iwidth < @ratio.width * @text.length + 1)
           @width = @ratio.width * @text.size + 1
           @_shrink_width = true
           # end
         end
-        if (@height.nil? || @_shrink_height)
+        if @height.nil? || @_shrink_height
           # D O:
           # if (aheight - iheight < @ratio.height + 0)
           @height = @ratio.height
@@ -146,7 +146,7 @@ module Crysterm
               break if mcell.nil?
 
               lines[y]?.try(&.[x + mx]?).try do |cell|
-                if (style.fchar != ' ')
+                if style.fchar != ' '
                   cell.attr = default_attr
                   cell.char = mcell == 1 ? style.fchar : style.char
                 else

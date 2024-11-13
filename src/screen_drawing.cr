@@ -70,7 +70,7 @@ module Crysterm
         # ::Log.trace { line } if line.any? &.char.!=(' ')
 
         # Skip if no change in line
-        if (!line.dirty && !(c.artificial? && (y == tput.cursor.y)))
+        if !line.dirty && !(c.artificial? && (y == tput.cursor.y))
           next
         end
 
@@ -92,7 +92,7 @@ module Crysterm
           desired_char = line[x].char
 
           # Render the artificial cursor.
-          if (c.artificial? && !c._hidden && (c._state != 0) && (x == tput.cursor.x) && (y == tput.cursor.y))
+          if c.artificial? && !c._hidden && (c._state != 0) && (x == tput.cursor.x) && (y == tput.cursor.y)
             desired_attr, tmpch = _artificial_cursor_attr(c, desired_attr)
             desired_char = tmpch if tmpch
             # XXX Is this needed:
@@ -101,9 +101,9 @@ module Crysterm
           # Take advantage of xterm's back_color_erase feature by using a
           # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
           # the bg for non BCE terminals worth the overhead?
-          if (@optimization.bce? && (desired_char == ' ') &&
+          if @optimization.bce? && (desired_char == ' ') &&
              (tput.has?(&.back_color_erase?) || ((desired_attr & 0x1ff) == (@default_attr & 0x1ff))) &&
-             (((desired_attr >> 18) & 8) == ((@default_attr >> 18) & 8)))
+             (((desired_attr >> 18) & 8) == ((@default_attr >> 18) & 8))
             clr = true
             neq = false # Current line 'not equal' to line as it was on previous render (i.e. it changed content)
 
@@ -226,34 +226,34 @@ module Crysterm
 
               flags = desired_attr >> 18
               # bold
-              if ((flags & 1) != 0)
+              if (flags & 1) != 0
                 @outbuf.print "1;"
               end
 
               # underline
-              if ((flags & 2) != 0)
+              if (flags & 2) != 0
                 @outbuf.print "4;"
               end
 
               # blink
-              if ((flags & 4) != 0)
+              if (flags & 4) != 0
                 @outbuf.print "5;"
               end
 
               # inverse
-              if ((flags & 8) != 0)
+              if (flags & 8) != 0
                 @outbuf.print "7;"
               end
 
               # invisible
-              if ((flags & 16) != 0)
+              if (flags & 16) != 0
                 @outbuf.print "8;"
               end
 
-              if (bg != 0x1ff)
+              if bg != 0x1ff
                 bg = _reduce_color(bg)
-                if (bg < 16)
-                  if (bg < 8)
+                if bg < 16
+                  if bg < 8
                     bg += 40
                   else # elsif (bg < 16)
                     bg -= 8
@@ -265,10 +265,10 @@ module Crysterm
                 end
               end
 
-              if (fg != 0x1ff)
+              if fg != 0x1ff
                 fg = _reduce_color(fg)
-                if (fg < 16)
-                  if (fg < 8)
+                if fg < 16
+                  if fg < 8
                     fg += 30
                   else # elsif (fg < 16)
                     fg -= 8
@@ -339,7 +339,7 @@ module Crysterm
           # case that the contents of the IF/ELSE block change in incompatible
           # way, this should be had in mind.
           if s
-            if (s.enter_alt_charset_mode? && !tput.features.broken_acs? && (tput.features.acscr[desired_char]? || acs))
+            if s.enter_alt_charset_mode? && !tput.features.broken_acs? && (tput.features.acscr[desired_char]? || acs)
               # Fun fact: even if tput.brokenACS wasn't checked here,
               # the linux console would still work fine because the acs
               # table would fail the check of: tput.features.acscr[desired_char]
@@ -380,7 +380,7 @@ module Crysterm
             # Note: It could be the case that the $LANG
             # is all that matters in some cases:
             # if (!tput.unicode && desired_char > '~') {
-            if (!tput.features.unicode? && (tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (desired_char > '~'))
+            if !tput.features.unicode? && (tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (desired_char > '~')
               # Reduction of ACS into ASCII chars.
               desired_char = Tput::ACSC::Data[desired_char]?.try(&.[2]) || '?'
             end
@@ -403,7 +403,7 @@ module Crysterm
         end
       end
 
-      if (acs)
+      if acs
         @main.write s.rmacs
         acs = false
       end
@@ -460,9 +460,9 @@ module Crysterm
       #  return insert_line_nc(n, y, top, bottom)
       # end
 
-      if (!tput.has?(&.change_scroll_region?) ||
+      if !tput.has?(&.change_scroll_region?) ||
          !tput.has?(&.delete_line?) ||
-         !tput.has?(&.insert_line?))
+         !tput.has?(&.insert_line?)
         STDERR.puts "Missing needed terminfo capabilities"
         return
       end
@@ -493,8 +493,8 @@ module Crysterm
     # Scroll down (up cursor-wise).
     # This will only work for top line deletion as opposed to arbitrary lines.
     def insert_line_nc(n, y, top, bottom)
-      if (!tput.has?(&.change_scroll_region?) ||
-         !tput.has?(&.delete_line?))
+      if !tput.has?(&.change_scroll_region?) ||
+         !tput.has?(&.delete_line?)
         STDERR.puts "Missing needed terminfo capabilities"
         return
       end
@@ -526,9 +526,9 @@ module Crysterm
       #   return delete_line_nc(n, y, top, bottom)
       # end
 
-      if (!tput.has?(&.change_scroll_region?) ||
+      if !tput.has?(&.change_scroll_region?) ||
          !tput.has?(&.delete_line?) ||
-         !tput.has?(&.insert_line?))
+         !tput.has?(&.insert_line?)
         STDERR.puts "Missing needed terminfo capabilities"
         return
       end
@@ -560,8 +560,8 @@ module Crysterm
     # Scroll down (up cursor-wise).
     # This will only work for top line deletion as opposed to arbitrary lines.
     def delete_line_nc(n, y, top, bottom)
-      if (!tput.has?(&.change_scroll_region?) ||
-         !tput.has?(&.delete_line?))
+      if !tput.has?(&.change_scroll_region?) ||
+         !tput.has?(&.delete_line?)
         STDERR.puts "Missing needed terminfo capabilities"
         return
       end

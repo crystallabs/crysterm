@@ -27,7 +27,7 @@ module Crysterm
           spawn do
             sleep 10.seconds
 
-            @ev_keypress = screen.on(Crysterm::Event::KeyPress) do |e|
+            @ev_keypress = screen.on(Crysterm::Event::KeyPress) do |_|
               #  ##return if e.key.try(&.name) == ::Tput::Key::Mouse # XXX
               #  #if scrollable?
               #  #  if (e.key == ::Tput::Key::Up) || # || (@vi && e.char == 'k') # XXX

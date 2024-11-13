@@ -72,9 +72,9 @@ module Crysterm
     end
   end
 
-  prompt.read_input("Question?", "") do |err, val|
+  prompt.read_input("Question?", "") do |_, _|
     STDERR.puts :q1
-    question.ask("Question?") do |err, val|
+    question.ask("Question?") do |_, _|
       STDERR.puts :q2
       msg.display("Hello world!", 3.seconds) do          # |err|
         msg.display("Hello world again!", -1.seconds) do # |err|

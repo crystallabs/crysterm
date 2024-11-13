@@ -77,7 +77,7 @@ module Crysterm
     # first gets the keys, then potentially passes onto children
     # elements.
     def _listen_keys(el : Widget? = nil)
-      if (el && !@keyable.includes? el)
+      if el && !@keyable.includes? el
         el.keyable = true
         @keyable.push el
       end
