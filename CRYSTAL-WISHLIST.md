@@ -101,7 +101,7 @@ Matches are:
 
 https://github.com/crystal-lang/crystal/issues/10231
 
-The issue has since been resolved by HertzDevil, but is not yet the default.
+The issue has since been resolved by @HertzDevil, but is not yet the default.
 To have the fix applied, you must invoke crystal with `crystal run -Dpreview_overload_order ...`.
 
 ## Type-safe `#==` operator:
@@ -125,10 +125,13 @@ For example, to have an operator like `#==?` that behaves like the current `#==`
 arguments are not comparable). And then to change `#==` to a type-safe version so that it produces an
 error when there is no comparison defined between its arguments.
 
+@straight-shoota added this item (although with a different proposed solution) to the wishlist
+for the next Crystal major version (TODO: find a reference to it).
+
 ## API to expose a method to kill Fiber from outside code.
 
-This supposedly exists in non-public API, but maybe it does not exist
-at all?
+This supposedly exists in non-public API, but I did not find it, be it public
+or not.
 
 ## Ability to create a Proc and partial from a method with named args:
 
@@ -144,7 +147,7 @@ ppf = pf.partial(b: 10)
 
 ```
 
-A workaround exists in https://github.com/crystal-lang/crystal/issues/11099
+A workaround was developed by @HertzDevil in https://github.com/crystal-lang/crystal/issues/11099
 
 ## Better subclassing in Procs:
 

@@ -52,7 +52,7 @@ module Crysterm
     def render_loop
       loop do
         if @render_channel.receive
-          sleep @interval
+          sleep @interval.seconds
         end
         _render
         if @render_flag.lazy_get == 2

@@ -34,7 +34,7 @@ module Crysterm
   spawn do
     i = 0
     loop do
-      sleep 0.5
+      sleep 0.5.seconds
       # logger.add "Hello {#0fe1ab-fg}world{/}: {bold}#{Time.utc}{/bold}."
       logger.add "Hello world: #{Time.utc}."
       if rand < 0.3

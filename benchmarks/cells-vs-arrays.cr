@@ -34,6 +34,20 @@ require "../src/crysterm"
 # changing this part requires a lot of changes. See patches/2-separate-arrays.patch
 # as a good base to finish the work.
 
+# Actually, both above and in the new tests:
+#                                              user     system      total        real
+# class Cell                               1.278690   0.000000   1.278690 (  1.284420)
+# struct Cell                              0.948687   0.000000   0.948687 (  0.952492)
+# separate arrays, combined access yx      0.475821   0.000000   0.475821 (  0.477786)
+# separate arrays, separate access yx      0.548495   0.000000   0.548495 (  0.550808)
+# separate arrays, combined access xy      1.662603   0.000000   1.662603 (  1.669242)
+# separate arrays, separate access xy      1.654704   0.000000   1.654704 (  1.661381)
+# separate 1d arrays, combined access yx   1.282447   0.000000   1.282447 (  1.287833)
+# separate 1d arrays, combined access xy   1.288152   0.000000   1.288152 (  1.293539)
+#
+# it appears the winning option is row 2, which is two separate arrays (1 for attrs,
+# 1 for chars) using combined access, e.g. attrs[width * y + x].
+
 xs = 2000
 ys = 600
 reps = 1000000

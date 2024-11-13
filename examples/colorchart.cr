@@ -33,7 +33,7 @@ end
 
 spawn do
   loop do
-    sleep 1
+    sleep 1.seconds
     s.render
   end
 end

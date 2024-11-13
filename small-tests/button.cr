@@ -22,7 +22,7 @@ class X
 
     i.on(::Crysterm::Event::Press) do
       STDERR.puts "Pressed; exiting in 2 seconds"
-      sleep 2
+      sleep 2.seconds
       exit
     end
 

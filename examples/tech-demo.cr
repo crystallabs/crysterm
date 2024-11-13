@@ -209,7 +209,7 @@ module Crysterm
       end
       i += 1
       Fiber.yield
-      sleep 0.2
+      sleep 0.2.seconds
     end
   end
 

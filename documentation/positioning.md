@@ -1,5 +1,8 @@
 # Positioning and sizing in Blessed
 
+NOTE: This document explains how positioning and sizing works in Blessed. The functionality in
+Crysterm is roughly the same or more flexible.
+
 ## Positioning basics / intro
 
 For every widget, Blessed can get, set, and/or calculate its absolute and
@@ -19,7 +22,7 @@ specify `top` and `height`. The same goes for `left`/`right` and `width`, of cou
 
 Normally, position or size is specified as integer value, or is left null for auto-calculation.
 However, in certain cases (listed below) it can be specified as a string containing values 'center',
-'half', or 'xx%' (for a percentage of parent).
+'half', or 'xx%+-amount' (for a percentage of parent, plus or minus a certain value).
 
 1. 'center' makes the widget 50% the size of parent and equally spaced from top and bottom or left and right (i.e. centered).
 1. 'half' equals to half of parent's width or height (i.e. "50%"), without centering.
@@ -35,7 +38,7 @@ bottom border in the parent widget). This is because percentages of parent refer
 not the size remaining after accounting for decorations (borders and padding).
 The solution is same as above, set `height: "100%-2"`.
 
-Finally, not directly related, but important are variables called xi, xl, yi, and yl.
+Finally, not directly related but important, are variables called xi, xl, yi, and yl.
 Those ones do correspond to reference (0,0) on the top-left of the screen.
 
 xi...xl specifies the column range in which the widget is rendered. E.g. a widget at position `left: 10`
@@ -60,7 +63,7 @@ These are offsets "R"elative to the parent widget (or to the screen if the widge
 
 When rleft, rtop, rright or rbottom are set, the following takes place:
 
-If the desired value is identical to the old value, the function exits.
+In Blessed, if the desired value is identical to the old value, the function exits.
 
 If the desired value is not identical to the old value (which is stored in `self.position.*`),
 Blessed does the following:
@@ -71,14 +74,14 @@ Blessed does the following:
 - Sets `self.position.* = value` (e.g. `self.position.left = 30`)
 - Returns the (possibly casted) value that was set
 
-Note from the above that values assigned to l/t/r/b are not kept in properties
+Take note above that values assigned to l/t/r/b are not kept in properties
 of the same name, but setting e.g. `rleft=(value)` actually saves the value to
 `self.position.left`.
 
-Thus, it is these fields in `self.position.*` that contains values directly as
-specified by user (e.g. 30, "center", "30%" etc.)
+Thus, it is these fields in `self.position.*` that contain values directly as
+specified by user (e.g. 30, "center", "30%" etc.).
 
-See more in `lib/widgets/element.js:1369` if interested.
+See more in Blessed's `lib/widgets/element.js:1369` if interested.
 
 ### Getters
 
@@ -97,7 +100,7 @@ based on absolute coordinates. The code is simple:
 
 ### Setters
 
-Setting `width` and `height` behaves the same as setting "r" fields:
+Setting `width` and `height` works the same like setting "r" fields described above:
 
 - If value is an integer passed as a string, casts to int
 - Emits `Resize` event on self
@@ -123,7 +126,7 @@ If left or top value is 'center', then widget's size will be first set to 50% of
 The largest possible space (width or height) is calculated while taking all restrictions into account. In other words, the calculated space
 is limited by the size of parent, amount of parent's "i" values (inner thickness, explained below), and the current widget's desired left/top/right/bottom values.
 
-Therefore, a value of null is very different from setting "100%". Setting 100% or any percentage translates to direct percentage of parent's size,
+Therefore, a value of null is very different from setting "100%". Setting 100% or any other percentage translates to direct percentage of parent's size,
 without accounting for "i" or desired left/top/right/bottom values.
 
 ## Absolute position
@@ -135,7 +138,7 @@ without accounting for "i" or desired left/top/right/bottom values.
 
 ### Setters
 
-There is no place to store the absolute and relative position separately among widget's data (in `self.position.*`).
+There is no place in widgets' properties to store the absolute and relative position separately (in `self.position.*`).
 
 Setting "a" values works similarly to the "r" values. Blessed just subtracts
 the parent's value from the current widget's value to convert absolute to
@@ -161,21 +164,21 @@ of the render. These coordinates are in essence the same as position and size in
 should match 1:1. The only exception/problem is if a widget is moved somehow and lpos values are not
 updated.
 
-But, as Blessed's author says: "However, if we can guarantee that lpos is good and up to date, it can
-be more accurate than the calculated position.
+But, as Blessed's author says:
 
+"However, if we can guarantee that lpos is good and up to date, it can be more accurate than the
+calculated position.
 If the element is being rendered, it's guaranteed that the parent will have been rendered first, in
 which case we can use the parent's lpos instead of recalculating its position (since that might be
-wrong because it doesn't handle content shrinkage)".
+wrong because it doesn't handle content shrinkage)."
 
-Thus, all getter functions have an optional parameter `get`, which defaults to false. When it is
-false, we simply use parent widget to access its width/height, "a" values and "i" values.
-
-When value of `get` is true, then Blessed does not use parent directly, but looks up its
+Thus, all getter functions have an optional parameter `get`, which defaults to false:
+- When it is false, we simply use parent widget to access its width/height, "a" values and "i" values.
+- When value of `get` is true, then Blessed does not use parent directly, but looks up its
 lpos. It returns parent's lpos as-is if its `aleft` (and implicitly all other 'a' values) are
 filled in. If they are not filled in, Blessed first produces them and then returns the lpos object
-which can be used in place of the parent. It produces "a" values based on screen width/height and
-xi...xl, yi...yl values that are/must be already present.
+which can be used in place of parent's calculated values. It produces "a" values based on screen
+width/height and xi...xl, yi...yl values that are/must be already present.
 
 All position-related functions use `get=false`.
 
@@ -235,3 +238,9 @@ them all inside `position` hash. If they're given separately, Blessed packs them
 
 One can also specify `shrink = true` on a widget. This causes widget to render in minimal
 necessary box to accommodate its content.
+
+## Changes in Crysterm
+
+In Crysterm borders can be more than 1 cell big and can be set for each side separately.
+
+Similarly, shadow size and sides can be chosen and set individually for each side.

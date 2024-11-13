@@ -18,7 +18,7 @@ module Crysterm
 
   s.render
 
-  sleep 2
+  sleep 2.seconds
 
   sbar.status.set_content "[Already at {underline}bottom{/underline} of list]"
 

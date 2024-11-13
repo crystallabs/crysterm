@@ -32,7 +32,7 @@ module Crysterm
 
   s.render
 
-  sleep 2
+  sleep 2.seconds
 
   b.delete_top
 
