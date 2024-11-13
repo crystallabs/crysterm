@@ -74,7 +74,7 @@ module Crysterm
           c = e.char
           k = e.key
 
-          if (k != Tput::Key::Enter && k != Tput::Key::Escape && c != 'q' && c != 'y' && c != 'n')
+          if k != Tput::Key::Enter && k != Tput::Key::Escape && c != 'q' && c != 'y' && c != 'n'
             next
           end
 

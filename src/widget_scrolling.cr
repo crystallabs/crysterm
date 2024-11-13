@@ -77,7 +77,7 @@ module Crysterm
       i = get_scroll_height
       # p
 
-      if (height < i)
+      if height < i
         if @always_scroll
           p = @child_base / (i - height)
         else
@@ -153,26 +153,26 @@ module Crysterm
         @child_offset += offset
       end
 
-      if (@child_offset > visible - 1)
+      if @child_offset > visible - 1
         d = @child_offset - (visible - 1)
         @child_offset -= d
         @child_base += d
-      elsif (@child_offset < 0)
+      elsif @child_offset < 0
         d = @child_offset
         @child_offset += -d
         @child_base += d
       end
 
-      if (@child_base < 0)
+      if @child_base < 0
         @child_base = 0
-      elsif (@child_base > @base_limit)
+      elsif @child_base > @base_limit
         @child_base = @base_limit
       end
 
       # Find max "bottom" value for
       # content and descendant elements.
       # Scroll the content if necessary.
-      if (@child_base == base)
+      if @child_base == base
         return emit Crysterm::Event::Scroll
       end
 
@@ -186,19 +186,19 @@ module Crysterm
       # max = get_scroll_height - (aheight - iheight)
 
       max = @_clines.size - (aheight - iheight)
-      if (max < 0)
+      if max < 0
         max = 0
       end
       emax = _scroll_bottom - (aheight - iheight)
-      if (emax < 0)
+      if emax < 0
         emax = 0
       end
 
       @child_base = Math.min @child_base, Math.max(emax, max)
 
-      if (@child_base < 0)
+      if @child_base < 0
         @child_base = 0
-      elsif (@child_base > @base_limit)
+      elsif @child_base > @base_limit
         @child_base = @base_limit
       end
 
@@ -214,10 +214,10 @@ module Crysterm
         b = p.yl - ibottom - 1
         d = @child_base - base
 
-        if (d > 0 && d < visible)
+        if d > 0 && d < visible
           # scrolled down
           screen.delete_line(d, t, t, b)
-        elsif (d < 0 && -d < visible)
+        elsif d < 0 && -d < visible
           # scrolled up
           d = -d
           screen.insert_line(d, t, t, b)

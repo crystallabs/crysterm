@@ -13,7 +13,7 @@ w = Widget::Box.new \
   parse_tags: false,
   style: Style.new(fg: "yellow", bg: "blue", border: true)
 
-s.on(Event::KeyPress) { |e| exit }
+s.on(Event::KeyPress) { |_| exit }
 
 s.on(Event::Rendered) {
   if ARGV.includes? "--test-auto"

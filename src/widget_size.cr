@@ -175,7 +175,7 @@ module Crysterm
           ret.xl += ileft
           ret.xi += ileft
         end
-        if (el.top.nil? && !el.bottom.nil?)
+        if el.top.nil? && !el.bottom.nil?
           ret.yl = yi + (ret.yl - ret.yi)
           ret.yi = yi
           # Maybe just do this no matter what.
@@ -258,9 +258,9 @@ module Crysterm
       end
       # end
 
-      if (@height.nil? && (@top.nil? || @bottom.nil?) &&
-         (!@scrollable || @_is_list))
-        if (@top.nil? && !@bottom.nil?)
+      if @height.nil? && (@top.nil? || @bottom.nil?) &&
+         (!@scrollable || @_is_list)
+        if @top.nil? && !@bottom.nil?
           yi = yl - h - iheight # (iheight == 1 ? 0 : iheight)
         else
           yl = yi + h + iheight # (iheight == 1 ? 0 : iheight)
@@ -278,7 +278,7 @@ module Crysterm
       yll = yl
 
       # Figure out which one is bigger and use it.
-      if (minimal_children_rectangle.xl - minimal_children_rectangle.xi > minimal_content_rectangle.xl - minimal_content_rectangle.xi)
+      if minimal_children_rectangle.xl - minimal_children_rectangle.xi > minimal_content_rectangle.xl - minimal_content_rectangle.xi
         xi = minimal_children_rectangle.xi
         xl = minimal_children_rectangle.xl
       else
@@ -286,7 +286,7 @@ module Crysterm
         xl = minimal_content_rectangle.xl
       end
 
-      if (minimal_children_rectangle.yl - minimal_children_rectangle.yi > minimal_content_rectangle.yl - minimal_content_rectangle.yi)
+      if minimal_children_rectangle.yl - minimal_children_rectangle.yi > minimal_content_rectangle.yl - minimal_content_rectangle.yi
         yi = minimal_children_rectangle.yi
         yl = minimal_children_rectangle.yl
       else
@@ -295,13 +295,13 @@ module Crysterm
       end
 
       # Recenter shrunken elements.
-      if (xl < xll && @left == "center")
+      if xl < xll && @left == "center"
         xll = (xll - xl) // 2
         xi += xll
         xl += xll
       end
 
-      if (yl < yll && @top == "center")
+      if yl < yll && @top == "center"
         yll = (yll - yl) // 2
         yi += yll
         yl += yll

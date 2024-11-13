@@ -91,7 +91,7 @@ module Crysterm
             el.left = llp.xl - xi
 
             # Make sure the position matches the highest width element
-            if (@layout == LayoutType::Grid)
+            if @layout == LayoutType::Grid
               # D O:
               # Compensate with width:
               # el.width = el.awidth + (highWidth - el.awidth)
@@ -124,20 +124,20 @@ module Crysterm
           end
 
           # Make sure the elements on lower rows gravitate up as much as possible
-          if (@layout == LayoutType::Inline)
+          if @layout == LayoutType::Inline
             above = nil
             abovea = Int32::MAX
             j = last_row_index
             while j < row_index
               l = @children[j]
-              if (!rendered?(l))
+              if !rendered?(l)
                 j += 1
                 next
               end
               abs = (el.left.as(Int) - (l.lpos.not_nil!.xi - xi)).abs
               # D O:
               # if (abs < abovea && (l.lpos.xl - l.lpos.xi) <= el.awidth)
-              if (abs < abovea)
+              if abs < abovea
                 above = l
                 abovea = abs
               end
@@ -151,7 +151,7 @@ module Crysterm
 
           # If our child overflows the Layout, return @overflow which contains
           # instruction what to do.
-          if (el.top.as(Int) + el.height.as(Int) > height)
+          if el.top.as(Int) + el.height.as(Int) > height
             return @overflow
           end
         }
@@ -161,17 +161,17 @@ module Crysterm
         _emit Crysterm::Event::PreRender
 
         coords = _render_coords
-        if (!coords)
+        if !coords
           @lpos = nil
           return
         end
 
-        if (coords.xl - coords.xi <= 0)
+        if coords.xl - coords.xi <= 0
           coords.xl = Math.max(coords.xl, coords.xi)
           return
         end
 
-        if (coords.yl - coords.yi <= 0)
+        if coords.yl - coords.yi <= 0
           coords.yl = Math.max(coords.yl, coords.yi)
           return
         end
@@ -187,7 +187,7 @@ module Crysterm
         style.padding.try &.adjust(coords, -1)
 
         @children.each_with_index do |el, i|
-          if (el.screen._ci != -1)
+          if el.screen._ci != -1
             el.index = el.screen._ci
             el.screen._ci += 1
           end

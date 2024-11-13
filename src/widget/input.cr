@@ -15,12 +15,12 @@ module Crysterm
             key = e.key
             ch = e.char
 
-            if (key == Tput::Key::Up || (@vi && ch == 'k'))
+            if key == Tput::Key::Up || (@vi && ch == 'k')
               scroll(-1)
               self.screen.render
               next
             end
-            if (key == Tput::Key::Down || (@vi && ch == 'j'))
+            if key == Tput::Key::Down || (@vi && ch == 'j')
               scroll(1)
               self.screen.render
               next

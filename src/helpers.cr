@@ -108,7 +108,7 @@ module Crysterm
     # Strips text of {...} tags and SGR sequences
     def clean_tags(text)
       combined_regex = /(?:#{Crysterm::Widget::TAG_REGEX.source})|(?:#{Crysterm::Widget::SGR_REGEX.source})/
-      text.gsub(combined_regex) do |buffer, _|
+      text.gsub(combined_regex) do |_, _|
         # No replacement needed, just removing matches
       end
     end

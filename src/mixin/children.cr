@@ -130,12 +130,12 @@ module Crysterm
 
       # Emits `ev` on all children nodes, recursively.
       def emit_descendants(ev : EventHandler::Event | EventHandler::Event.class) : Nil
-        each_descendant { |el| el.emit ev }
+        each_descendant(&.emit(ev))
       end
 
       # Emits `ev` on all parent nodes.
       def emit_ancestors(ev : EventHandler::Event | EventHandler::Event.class) : Nil
-        each_ancestor { |el| el.emit ev }
+        each_ancestor(&.emit(ev))
       end
     end
   end

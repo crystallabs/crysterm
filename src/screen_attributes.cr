@@ -11,7 +11,7 @@ module Crysterm
       # i
 
       code = code[2...-1].split(';')
-      if (!code[0]? || code[0].empty?)
+      if !code[0]? || code[0].empty?
         code[0] = "0"
       end
 
@@ -64,46 +64,46 @@ module Crysterm
           bg = dfl & 0x1ff
           break
         else # color
-          if (c == 48 && code[i + 1].to_i == 5)
+          if c == 48 && code[i + 1].to_i == 5
             i += 2
             bg = code[i].to_i
             break
-          elsif (c == 48 && code[i + 1].to_i == 2)
+          elsif c == 48 && code[i + 1].to_i == 2
             i += 2
             bg = Colors.match(code[i].to_i, code[i + 1].to_i, code[i + 2].to_i)
-            if (bg == -1)
+            if bg == -1
               bg = dfl & 0x1ff
             end
             i += 2
             break
-          elsif (c == 38 && code[i + 1].to_i == 5)
+          elsif c == 38 && code[i + 1].to_i == 5
             i += 2
             fg = code[i].to_i
             break
-          elsif (c == 38 && code[i + 1].to_i == 2)
+          elsif c == 38 && code[i + 1].to_i == 2
             i += 2
             fg = Colors.match(code[i].to_i, code[i + 1].to_i, code[i + 2].to_i)
-            if (fg == -1)
+            if fg == -1
               fg = (dfl >> 9) & 0x1ff
             end
             i += 2 # XXX Why ameba says this is no-op?
             break
           end
-          if (c >= 40 && c <= 47)
+          if c >= 40 && c <= 47
             bg = c - 40
-          elsif (c >= 100 && c <= 107)
+          elsif c >= 100 && c <= 107
             bg = c - 100
             bg += 8
-          elsif (c == 49)
+          elsif c == 49
             bg = dfl & 0x1ff
-          elsif (c >= 30 && c <= 37)
+          elsif c >= 30 && c <= 37
             fg = c - 30
-          elsif (c >= 90 && c <= 97)
+          elsif c >= 90 && c <= 97
             fg = c - 90
             fg += 8
-          elsif (c == 39)
+          elsif c == 39
             fg = (dfl >> 9) & 0x1ff
-          elsif (c == 100)
+          elsif c == 100
             fg = (dfl >> 9) & 0x1ff
             bg = dfl & 0x1ff
           end
@@ -138,18 +138,18 @@ module Crysterm
         # invisible
         outbuf << "8;" if (flags & 16) != 0
 
-        if (bg != 0x1ff)
+        if bg != 0x1ff
           bg = _reduce_color(bg)
-          if (bg < 16)
+          if bg < 16
             bg < 8 ? outbuf << (bg + 40) << ';' : outbuf << (bg - 8 + 100) << ';'
           else
             outbuf << "48;5;" << bg << ';'
           end
         end
 
-        if (fg != 0x1ff)
+        if fg != 0x1ff
           fg = _reduce_color(fg)
-          if (fg < 16)
+          if fg < 16
             fg < 8 ? outbuf << (fg + 30) << ';' : outbuf << (fg - 8 + 90) << ';'
           else
             outbuf << "38;5;" << fg << ';'

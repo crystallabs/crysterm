@@ -112,16 +112,16 @@ module Crysterm
         # That check is redundant because the below logic also does
         # the same (no-op if cursor is already at coords.)
 
-        if (cy == display.tput.cursor.y)
-          if (cx > display.tput.cursor.x)
+        if cy == display.tput.cursor.y
+          if cx > display.tput.cursor.x
             display.tput.cuf(cx - display.tput.cursor.x)
-          elsif (cx < display.tput.cursor.x)
+          elsif cx < display.tput.cursor.x
             display.tput.cub(display.tput.cursor.x - cx)
           end
-        elsif (cx == display.tput.cursor.x)
-          if (cy > display.tput.cursor.y)
+        elsif cx == display.tput.cursor.x
+          if cy > display.tput.cursor.y
             display.tput.cud(cy - display.tput.cursor.y)
-          elsif (cy < display.tput.cursor.y)
+          elsif cy < display.tput.cursor.y
             display.tput.cuu(display.tput.cursor.y - cy)
           end
         else

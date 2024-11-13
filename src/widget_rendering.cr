@@ -51,12 +51,12 @@ module Crysterm
         return
       end
 
-      if (coords.xl - coords.xi <= 0)
+      if coords.xl - coords.xi <= 0
         coords.xl = Math.max(coords.xl, coords.xi)
         return
       end
 
-      if (coords.yl - coords.yi <= 0)
+      if coords.yl - coords.yi <= 0
         coords.yl = Math.max(coords.yl, coords.yi)
         return
       end
@@ -107,7 +107,7 @@ module Crysterm
       #   content = clines.join('\n')
       # end
 
-      if (coords.base >= @_clines.ci.size)
+      if coords.base >= @_clines.ci.size
         # Can be @_pcontent, but this is the same here, plus not_nil!
         ci = content.size
       end
@@ -138,7 +138,7 @@ module Crysterm
 
       # If we're in a scrollable text box, check to
       # see which attributes this line starts with.
-      if (ci > 0)
+      if ci > 0
         attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || 0
       end
 
@@ -185,7 +185,7 @@ module Crysterm
       # Determine where to place the text if it's vertically aligned.
       if @align.v_center? || @align.bottom?
         visible = yl - yi
-        if (@_clines.size < visible)
+        if @_clines.size < visible
           if @align.v_center?
             visible = visible // 2
             visible -= @_clines.size // 2
@@ -199,8 +199,8 @@ module Crysterm
       # Draw the content and background.
       # yi.step to: yl-1 do |y|
       (yi...yl).each do |y|
-        if (!lines[y]?)
-          if (y >= screen.aheight || yl < ibottom)
+        if !lines[y]?
+          if y >= screen.aheight || yl < ibottom
             break
           else
             next
@@ -229,7 +229,7 @@ module Crysterm
           # end
 
           # Handle escape codes.
-          while (ch == '\e')
+          while ch == '\e'
             cnt = content[(ci - 1)..]
             if c = cnt.match SGR_REGEX_AT_BEGINNING
               ci += c[0].size - 1
@@ -248,25 +248,25 @@ module Crysterm
           end
 
           # Handle newlines.
-          if (ch == '\t')
+          if ch == '\t'
             # TODO this should be something like ch = bch * style.tab_size, or just style.tab_char,
             # (although not as simple as that.)
             ch = bch
           end
-          if (ch == '\n')
+          if ch == '\n'
             # If we're on the first cell and we find a newline and the last cell
             # of the last line was not a newline, let's just treat this like the
             # newline was already "counted".
-            if ((x == xi) && (y != yi) && (content[ci - 2]? != '\n'))
+            if (x == xi) && (y != yi) && (content[ci - 2]? != '\n')
               x -= 1
               next
             end
             # We could use fill_region here, name the
             # outer loop, and continue to it instead.
             ch = bch
-            while (x < xl)
+            while x < xl
               cell = lines[y][x]?
-              if (!cell)
+              if !cell
                 break
               end
               if alpha = style.alpha?
@@ -292,7 +292,7 @@ module Crysterm
 
           # TODO
           # if (screen.full_unicode && content[ci - 1])
-          if (content[ci - 1]?)
+          if content[ci - 1]?
             # point = content.codepoint_at(ci - 1) # Unused
             # TODO
             # # Handle combining chars:
