@@ -73,15 +73,22 @@ module Crysterm
     #  _listen_keys(el)
     # end
 
-    # And this is for the other/alternative method where the screen
-    # first gets the keys, then potentially passes onto children
-    # elements.
-    def _listen_keys(el : Widget? = nil)
-      if el && !@keyable.includes? el
-        el.keyable = true
-        @keyable.push el
-      end
+    # Registers `el` as a widget that wants to receive keyboard input. Once
+    # registered, the general key listener (`#_listen_keys`) dispatches key
+    # presses to it, and it participates in keyboard focus navigation.
+    #
+    # Widgets do not need to call this themselves: `Widget#initialize`
+    # registers them automatically when they ask for keys (`#keys?`/`#input?`).
+    def register_keyable(el : Widget)
+      return if @keyable.includes? el
+      el.keyable = true
+      @keyable.push el
+    end
 
+    # Sets up the general, screen-level key listener. It receives every
+    # `Event::KeyPress` and dispatches it to the focused widget and up its
+    # parent tree (until one `#accept`s it). Installed once per screen.
+    def _listen_keys
       return if @_listening_keys
       @_listening_keys = true
 
@@ -133,7 +140,9 @@ module Crysterm
         # on a screen, which is not in focus,
         focused.try do |el2|
           while el2 && el2.is_a? Widget
-            if el2.keyable?
+            # A disabled widget does not react to keys, but keys still
+            # propagate up to its (possibly enabled) ancestors.
+            if el2.keyable? && !el2.disabled?
               emit_key el2, e
             end
 

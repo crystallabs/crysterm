@@ -114,24 +114,7 @@ module Crysterm
 
       @lpos = coords
 
-      style.border.try do |border|
-        if border.type.line?
-          screen._border_stops[coords.yi] = true
-          screen._border_stops[coords.yl - 1] = true
-          # D O:
-          # if (!screen._border_stops[coords.yi])
-          #   screen._border_stops[coords.yi] = { xi: coords.xi, xl: coords.xl }
-          # else
-          #   if (screen._border_stops[coords.yi].xi > coords.xi)
-          #     screen._border_stops[coords.yi].xi = coords.xi
-          #   end
-          #   if (screen._border_stops[coords.yi].xl < coords.xl)
-          #     screen._border_stops[coords.yi].xl = coords.xl
-          #   end
-          # end
-          # screen._border_stops[coords.yl - 1] = screen._border_stops[coords.yi]
-        end
-      end
+      register_dock_stops coords
 
       default_attr = sattr style
       attr = default_attr
@@ -552,6 +535,25 @@ module Crysterm
       coords
     end
 
+    # Registers, on the screen, the rows on which this widget emits horizontal
+    # line-drawing characters, so the screen's docking pass (`Screen#_dock`)
+    # can join them with crossing characters from neighboring widgets. See
+    # `Crysterm::Docking`.
+    #
+    # Only rows bearing *horizontal* segments need to be registered: a vertical
+    # segment is docked whenever a horizontal stop from some other widget
+    # crosses it. The base implementation registers the top and bottom rows of
+    # an actual line-type border. Widgets that draw lines by other means (e.g.
+    # `Widget::Line`) override this to register their own rows.
+    def register_dock_stops(coords)
+      style.border.try do |border|
+        if border.any? && border.type.line?
+          screen._dock_stops[coords.yi] = true
+          screen._dock_stops[coords.yl - 1] = true
+        end
+      end
+    end
+
     @[AlwaysInline]
     def border_char(border, x, xi, xl, y, yi, yl, default_attr)
       if border.type.line?
@@ -639,7 +641,7 @@ module Crysterm
 
     # Clears area/position of widget's last render
     def clear_last_rendered_position(get = false, override = false)
-      return unless @screen
+      return unless screen?
       lpos = _get_coords(get)
       return unless lpos
       screen.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)

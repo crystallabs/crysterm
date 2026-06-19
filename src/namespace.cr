@@ -65,6 +65,7 @@ module Crysterm
     Focused # Focus
     Hovered # Hover
     Selected
+    Disabled # Does not react to keyboard input
     # XXX Does state Hidden belong here?
     # Also does 'Unmanaged' belong here, indicating that Crysterm should not be
     # doing state transitions on it?
@@ -86,10 +87,11 @@ module Crysterm
     property focused : Style { normal }
     property hovered : Style { normal }
     property selected : Style { normal }
+    property disabled : Style { normal }
 
     # TODO Add each/each_entry iterators
 
-    def initialize(@normal = @normal, @blurred = @blurred, @focused = @focused, @hovered = @hovered, @selected = @selected)
+    def initialize(@normal = @normal, @blurred = @blurred, @focused = @focused, @hovered = @hovered, @selected = @selected, @disabled = @disabled)
     end
   end
 

@@ -63,7 +63,11 @@ module Crysterm
       end
     end
 
-    property _border_stops = {} of Int32 => Bool
+    # Rows on which line-drawing characters were emitted this frame and which
+    # therefore need to be re-evaluated by the docking pass. Populated during
+    # rendering by `Widget#register_dock_stops` (for both borders and `Line`
+    # widgets) and consumed by `#_dock`. See `Crysterm::Docking`.
+    property _dock_stops = {} of Int32 => Bool
 
     # Rendering optimizations.
     property optimization : OptimizationFlag = OptimizationFlag::None
@@ -96,35 +100,12 @@ module Crysterm
     property lines = Array(Row).new
     property olines = Array(Row).new
 
-    def _dock_borders
-      lines = @lines
-      stops = @_border_stops
-
-      # D O:
-      # keys, stop
-      # keys = Object.keys(this._borderStops)
-      #   .map(function(k) { return +k; })
-      #   .sort(function(a, b) { return a - b; })
-      #
-      # for (i = 0; i < keys.length; i++)
-      #   y = keys[i]
-      #   if (!lines[y]) continue
-      #   stop = this._borderStops[y]
-      #   for (x = stop.xi; x < stop.xl; x++)
-
-      stops = stops.keys.map(&.to_i).sort!
-
-      stops.each do |y|
-        next unless lines[y]?
-
-        awidth.times do |x|
-          ch = lines[y][x].char
-          if ANGLES.includes? ch
-            lines[y][x].char = _get_angle lines, x, y
-            lines[y].dirty = true
-          end
-        end
-      end
+    # Docks (joins) all line-drawing characters that cross or meet on the rows
+    # collected in `@_dock_stops` this frame. Delegates the actual work to the
+    # reusable `Crysterm::Docking` component, which is shared between border
+    # docking and `Line` widget docking.
+    def _dock
+      Docking.dock @lines, @_dock_stops, awidth, @dock_contrast
     end
 
     # Delayed render (user render)
@@ -138,7 +119,7 @@ module Crysterm
 
       emit Crysterm::Event::PreRender
 
-      @_border_stops.clear
+      @_dock_stops.clear
 
       # Reset the in-memory cell buffer to the default attr/char before
       # compositing this frame. Widgets are re-rendered from scratch on every
@@ -166,7 +147,7 @@ module Crysterm
       end
       @_ci = -1
 
-      _dock_borders if @dock_borders
+      _dock if @dock_borders
 
       t2 = Time.instant
 

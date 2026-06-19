@@ -135,7 +135,7 @@ module Crysterm
     # Scrolls widget by `offset` lines down or up
     def scroll(offset = 1, always = false)
       return unless @scrollable
-      return unless @screen
+      return unless screen?
 
       # Handle scrolling.
       # visible == amount of actual content lines visible in the widget. E.g. for
@@ -228,7 +228,7 @@ module Crysterm
     end
 
     def _recalculate_index
-      return 0 if !@screen || !@scrollable
+      return 0 if !screen? || !@scrollable
 
       # D O
       # XXX

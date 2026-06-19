@@ -34,13 +34,44 @@ module Crysterm
     # (This must be defined here rather than in src/mixin/children.cr because classes
     # which have children do not necessarily also have a parent, e.g. `Screen`.)
 
-    # Screen owning this element, forced to non-nil at time of access.
-    # Each element must belong to a Screen if it is to be rendered/displayed anywhere.
-    # If you just want to test for screen being set, use `#screen?`.
-    property! screen : ::Crysterm::Screen?
+    # Owning `Screen`.
+    #
+    # Only a *top-level* widget (one with no `#parent`) stores this reference
+    # directly; a nested widget leaves it `nil` and derives its screen from its
+    # parent (see `#screen?`). This way the screen is always consistent with the
+    # widget tree and never has to be propagated to, or kept in sync across,
+    # descendants.
+    #
+    # Do not read `@screen` directly; use `#screen` or `#screen?`.
+    @screen : ::Crysterm::Screen?
 
-    # :ditto:
-    getter? screen
+    # Returns the `Screen` owning this widget, or `nil` if this widget's subtree
+    # is not attached to any screen.
+    #
+    # The value is derived by walking up the parent chain; only the top-level
+    # widget of the subtree holds the reference. Use this when screen may
+    # legitimately be absent; use `#screen` when it must be present.
+    def screen? : ::Crysterm::Screen?
+      if parent = @parent
+        parent.screen?
+      else
+        @screen
+      end
+    end
+
+    # Returns the `Screen` owning this widget, raising if it is not attached to
+    # one. See `#screen?` for a non-raising variant.
+    def screen : ::Crysterm::Screen
+      screen?.not_nil!
+    end
+
+    # Sets the owning `Screen`.
+    #
+    # Only meaningful on a top-level widget; on a nested widget `#screen` is
+    # derived from `#parent`, so this value is ignored. Normally set only by
+    # `Screen`/`Widget` (re)parenting code, not by user code.
+    def screen=(@screen : ::Crysterm::Screen?)
+    end
 
     # XXX FIX by removing at some point
     # Used only for lists. The reason why it hasn't been replaced with is_a?(List)
@@ -104,13 +135,21 @@ module Crysterm
       input.try { |v| @input = v }
       visible.try { |v| self.style.visible = v }
 
-      # This just defines which Screen it is all linked to.
-      # (Until we make `screen` fully optional)
-      @screen ||= determine_screen
-
-      # And this takes care of parent hierarchy. Parent arg as passed
-      # to this function can be a Widget or Screen.
+      # Set up the parent hierarchy first. The `parent` arg may be a `Widget`
+      # or a `Screen`; appending establishes `#parent` (for a Widget) or
+      # attaches to the `Screen`, after which `#screen` derives automatically.
       parent.try &.append self
+
+      # If the widget is still stand-alone (created without a parent/screen),
+      # fall back to the global screen so it is immediately usable. Once it is
+      # later added to a parent or screen, `#screen` derives from there instead.
+      @screen ||= determine_screen unless screen?
+
+      # If this widget wants keyboard input, register it with its screen so it
+      # receives key events. Widgets no longer have to do this themselves.
+      if @keys || @input
+        screen?.try &.register_keyable self
+      end
 
       children.each do |child|
         append child
@@ -161,36 +200,14 @@ module Crysterm
       emit Crysterm::Event::Destroy
     end
 
-    def determine_screen
-      scr = if Screen.total <= 1
-              # This will use the first screen or create one if none created yet.
-              # (Auto-creation helps writing scripts with less code.)
-              Screen.global true
-            elsif s = @parent
-              while s && !(s.is_a? Screen)
-                s = s.parent_or_screen
-              end
-              if s.is_a? Screen
-                s
-                # else
-                #  raise Exception.new("No active screen found in parent chain.")
-              end
-              # elsif Screen.total > 0
-              #  #Screen.instances[-1]
-              #  Screen.instances[0]
-              #  # XXX For the moment we use the first screen instead of the last one,
-              #    as global, so same here - we just return the first one:
-            end
-
-      unless scr
-        scr = Screen.global
-      end
-
-      unless scr
-        raise Exception.new("No Screen found anywhere. Create one with Screen.new")
-      end
-
-      scr
+    # Returns the `Screen` to which a stand-alone (parent-less) widget should
+    # attach: the global screen, creating one on demand if none exists yet.
+    # (Auto-creation lets short scripts skip explicit `Screen` setup.)
+    #
+    # Widgets that have a parent do not need this: their `#screen` is derived
+    # from the parent chain (see `#screen?`).
+    def determine_screen : ::Crysterm::Screen
+      Screen.global
     end
 
     # Returns parent `Widget` (if any) or `Screen` to which the widget may be attached.

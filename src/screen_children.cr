@@ -4,13 +4,19 @@ module Crysterm
       # Prevents adding an element twice
       super || return
 
-      attach element
+      # A top-level widget (added straight to a Screen) is the single element
+      # that actually stores its screen; its descendants derive it from the
+      # tree. `previous` lets `attach` emit a `Detach` if it is being moved here
+      # from another screen.
+      previous = element.screen?
+      element.screen = self
+      attach element, previous
 
       # XXX:
       # - Do similar for mouse as well
       # - Make sure this is undo-ed if widget is detached
       if element.input? || element.keyable?
-        _listen_keys element
+        register_keyable element
       end
 
       unless self.focused
@@ -25,7 +31,7 @@ module Crysterm
     end
 
     def remove(element)
-      return if element.screen != self
+      return if element.screen? != self
 
       super
 
@@ -42,7 +48,11 @@ module Crysterm
       # screen_clickable= s.clickable
       # screen_keyable= s.keyable
 
-      detach element
+      # Clear the stored reference on this (top-level) element, then notify the
+      # subtree that it has left this screen.
+      previous = element.screen?
+      element.screen = nil
+      detach element, previous
 
       if focused == element
         rewind_focus
@@ -54,31 +64,34 @@ module Crysterm
       remove element
     end
 
-    def attach(element)
-      # Adding an element to Screen consists of setting #screen= (self) on that element
-      # and all of its children. Attach/Detach events are emitted accordingly. Attaching
-      # if already attached is a no-op.
-      element.self_and_each_descendant do |el|
-        if scr = el.screen?
-          if scr != self
-            el.screen = nil
-            el.emit Crysterm::Event::Detach, scr
-          end
-        end
+    # Notifies `element`'s subtree that it now belongs to this screen, emitting
+    # `Event::Attach` on every node (and `Event::Detach` from `previous` first,
+    # if it was on a different screen).
+    #
+    # This only emits events; it does not store the screen on any node. The
+    # caller links the tree (`#parent`/`#screen=`) beforehand, after which the
+    # whole subtree derives its screen via `Widget#screen?`. Because the subtree
+    # shares a single owning screen, the attach is uniform: either the whole
+    # subtree moved here, or (when `previous == self`) nothing changed.
+    def attach(element, previous : ::Crysterm::Screen? = nil)
+      return if previous == self
 
-        if !el.screen?
-          el.screen = self
-          el.emit Crysterm::Event::Attach, self
-        end
+      element.self_and_each_descendant do |el|
+        el.emit Crysterm::Event::Detach, previous if previous
+        el.emit Crysterm::Event::Attach, self
       end
     end
 
-    def detach(element)
+    # Notifies `element`'s subtree that it no longer belongs to `previous`
+    # (defaulting to this screen), emitting `Event::Detach` on every node.
+    #
+    # Like `#attach`, this only emits events; the caller unlinks the tree
+    # (`#parent`/`#screen=`) beforehand.
+    def detach(element, previous : ::Crysterm::Screen? = nil)
+      previous ||= self
+
       element.self_and_each_descendant do |el|
-        if scr = el.screen
-          el.screen = nil
-          el.emit Crysterm::Event::Detach, scr
-        end
+        el.emit Crysterm::Event::Detach, previous
       end
     end
   end

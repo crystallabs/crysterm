@@ -9,6 +9,7 @@ require "./namespace"
 require "./event"
 require "./helpers"
 require "./colors"
+require "./docking"
 
 require "./mixin/*"
 

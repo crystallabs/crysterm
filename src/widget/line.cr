@@ -16,6 +16,22 @@ module Crysterm
         style.char = char
       end
 
+      # In addition to any border (handled by `super`), a *horizontal* line
+      # emits a horizontal run of line-drawing characters across its row(s), so
+      # those rows must participate in docking. A *vertical* line emits only
+      # `│` down a single column; it needs no stop of its own, as it is docked
+      # whenever a horizontal line/border registers the crossing row.
+      # See `Crysterm::Docking`.
+      def register_dock_stops(coords)
+        super
+
+        if @orientation.horizontal?
+          (coords.yi..coords.yl - 1).each do |y|
+            screen._dock_stops[y] = true
+          end
+        end
+      end
+
       def line_size=(size)
         case @orientation
         when Tput::Orientation::Horizontal

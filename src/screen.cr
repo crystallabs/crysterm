@@ -7,7 +7,6 @@ require "./screen_resize"
 require "./screen_interaction"
 
 require "./screen_children"
-require "./screen_angles"
 require "./screen_attributes"
 require "./screen_cursor"
 require "./screen_decoration"

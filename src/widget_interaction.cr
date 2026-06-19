@@ -20,6 +20,12 @@ module Crysterm
     # Does it accept keyboard input?
     property? input = false
 
+    # Is the widget disabled? While disabled it does not react to keyboard
+    # input (see `Screen#_listen_keys`). Toggle via `state = WidgetState::Disabled`.
+    def disabled?
+      state.disabled?
+    end
+
     # Should widget react to some pre-defined keys in it?
     property? keys : Bool = false
 

@@ -85,7 +85,9 @@ module Crysterm
     end
 
     def process_content(no_tags = false)
-      return false unless @screen # XXX why?
+      # Content layout (wrapping/alignment) needs the owning screen's
+      # dimensions, so there is nothing to do until the widget is attached.
+      return false unless screen?
 
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 

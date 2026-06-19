@@ -28,6 +28,8 @@ module Crysterm
           @styles.hovered
         in .blurred?
           @styles.blurred
+        in .disabled?
+          @styles.disabled
         end
       end
 

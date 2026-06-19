@@ -32,7 +32,8 @@ module Crysterm
 
         super **(input.merge({keys: true}))
 
-        screen._listen_keys self
+        # No need to register for keys here: `Widget#initialize` already does
+        # that for any widget that asks for keys (`keys`/`input`).
 
         @__update_cursor = ->_update_cursor
 
