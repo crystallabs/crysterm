@@ -526,7 +526,9 @@ module Crysterm
     # Also remove all global events relevant to the object.
     # If no screens remain, the app is essentially reset to its initial state.
     def destroy
-      @render_flag.set 2
+      # Signal the render fiber to exit, then wake it so it notices.
+      @render_stop = true
+      schedule_render
 
       # XXX Needs some small fix before enabling. Probably just the order of
       # destroyals needs to be bottom-up instead of top-down.

@@ -14,20 +14,23 @@ dependencies:
     branch: master
   crystallabs-helpers:
     github: crystallabs/crystallabs-helpers.cr
+    # Kept as a version requirement (resolves to 1.0.1, == current master):
+    # `tput` (master) also requires this via `~> 1.0`, and shards refuses to
+    # mix a `branch:` and a `version:` requirement for the same shard.
     version: ~> 1.0
   term_colors:
     github: crystallabs/term_colors
-    version: ~> 1.0
+    branch: master
   w3m_image_display:
     github: SamualLB/w3mimagedisplay
   #i18n:
   #  github: BrucePerens/i18n
   event_handler:
     github: crystallabs/event_handler
-    version: ~> 1.0
+    branch: master
   gpm:
     github: crystallabs/gpm.cr
-    version: ~> 1.0
+    branch: master
 
 development_dependencies:
   ameba:
