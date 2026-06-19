@@ -37,11 +37,23 @@ module Crysterm
       end
     end
 
-    class Average < Deque(Int32)
+    # Fixed-size ring buffer that yields the running average of the last
+    # `capacity` values pushed into it.
+    #
+    # This used to subclass `Deque(Int32)`. Subclassing a stdlib generic is
+    # deprecated, and—more importantly—it promotes every `Deque(Int32)` in the
+    # whole program (including in unrelated shards) to the virtual type
+    # `Deque(Int32)+`, which produces confusing compile errors far away from
+    # here (same class of problem as issue #30). It now *wraps* a deque instead.
+    class Average
+      def initialize(@capacity : Int32)
+        @deque = Deque(Int32).new @capacity
+      end
+
       def avg(value)
-        shift if size == @capacity
-        push value
-        sum // size
+        @deque.shift if @deque.size == @capacity
+        @deque.push value
+        @deque.sum // @deque.size
       end
     end
 

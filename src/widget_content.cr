@@ -293,8 +293,6 @@ module Crysterm
       attr = default_attr
       attrs = [] of Int32
 
-      return if lines[0].attr == attr
-
       lines.each_with_index do |line, j|
         attrs.push attr
         raise "indexing error" unless attrs.size == j + 1

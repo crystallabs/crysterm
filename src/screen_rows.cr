@@ -36,17 +36,33 @@ module Crysterm
       end
     end
 
-    # Individual screen row
-    class Row < Array(Cell)
+    # Individual screen row: a list of `Cell`s plus a `dirty` flag.
+    #
+    # This used to subclass `Array(Cell)`. Subclassing a stdlib generic is
+    # deprecated, and—more importantly—it promotes every `Array(Cell)` in the
+    # whole program (including in unrelated shards) to the virtual type
+    # `Array(Cell)+`, which produces confusing compile errors far away from here
+    # (same class of problem as issue #30). It now *wraps* an array and forwards
+    # the array API (`push`, `pop`, `[]`, `[]=`, `size`, `each`, ...) to it via
+    # `forward_missing_to`, so no `Array(Cell)` is ever subclassed.
+    class Row
       property dirty = false
 
+      # Backing store of cells.
+      getter cells : Array(Cell)
+
       def initialize
-        super
+        @cells = Array(Cell).new
       end
 
-      def initialize(width, cell : Cell | Tuple(Int32, Char) = {@attr, @char})
-        super width
+      # `width` is used only as the initial capacity (matching the old
+      # `super width`); `cell` is accepted for call compatibility but, as
+      # before, the cells are populated separately (see `Screen#adjust_width`).
+      def initialize(width : Int, cell : Cell | Tuple(Int32, Char)? = nil)
+        @cells = Array(Cell).new(width)
       end
+
+      forward_missing_to @cells
     end
     # end
   end
