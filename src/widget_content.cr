@@ -737,15 +737,33 @@ module Crysterm
   # It is needed in drawing routines where index is often offset by a certain
   # value and expected that all indexes < 0 will return nil.
   struct StringIndex
-    def initialize(@object : String) : String?
+    def initialize(@object : String)
+      # `String#[](Int)` walks the string from the start to find the n-th
+      # codepoint, so it is O(n) for any string that is not single-byte
+      # (ASCII). The rendering loop indexes `content[ci]` once per cell, which
+      # turns drawing a line of Unicode content into an O(n²) operation. To
+      # avoid that we materialize the chars once (O(n)) so per-cell indexing is
+      # O(1). For ASCII strings `String#[]` is already O(1), so we skip the
+      # extra allocation and index the string directly.
+      @chars = @object.ascii_only? ? nil : @object.chars
     end
 
     def [](i : Int)
-      i < 0 ? nil : @object[i]
+      return nil if i < 0
+      if chars = @chars
+        chars[i]
+      else
+        @object[i]
+      end
     end
 
     def []?(i : Int)
-      i < 0 ? nil : @object[i]?
+      return nil if i < 0
+      if chars = @chars
+        chars[i]?
+      else
+        @object[i]?
+      end
     end
 
     def [](range : Range)

@@ -131,7 +131,7 @@ module Crysterm
               (tput.ret = @tmpbuf).try do |ret|
                 tput.cup(y, x)
                 tput.el
-                @outbuf.print ret.rewind.gets_to_end
+                @outbuf.write ret.to_slice
                 tput.ret = nil
               end
               #### #### ####
@@ -187,9 +187,20 @@ module Crysterm
             # end
           end
 
-          # Optimize by comparing the real output
-          # buffer to the pending output buffer.
-          o[x]?.try do |ox|
+          # Optimize by comparing the desired cell against what was last sent to
+          # the terminal (`@olines`). A cell that is unchanged is skipped
+          # entirely (nothing is emitted for it); `lx`/`ly` remember the start of
+          # the skipped run so that when the next changed cell appears, a single
+          # cursor move (cuf or cup) repositions over the run instead of redrawing
+          # it.
+          #
+          # NOTE: the unchanged case must `next` the per-cell loop so the
+          # emission code below is skipped. This therefore uses an explicit `if`
+          # binding rather than `o[x]?.try do |ox| ... end`: inside a block,
+          # `next` would only exit the block, after which the cell would still be
+          # printed below — defeating the skip and desyncing the `cuf` run math
+          # from the real cursor position.
+          if ox = o[x]?
             if ox == {desired_attr, desired_char}
               if lx == -1
                 lx = x
@@ -473,7 +484,7 @@ module Crysterm
         tput.il(n)
         tput.set_scroll_region(0, aheight - 1)
 
-        @_buf.print ret.rewind.gets_to_end
+        @_buf.write ret.to_slice
         tput.ret = nil
       end
 
@@ -505,7 +516,7 @@ module Crysterm
         tput.dl(n)
         tput.set_scroll_region(0, aheight - 1)
 
-        @_buf.print ret.rewind.gets_to_end
+        @_buf.write ret.to_slice
         tput.ret = nil
       end
 
@@ -540,7 +551,7 @@ module Crysterm
         tput.dl(n)
         tput.set_scroll_region(0, aheight - 1)
 
-        @_buf.print ret.rewind.gets_to_end
+        @_buf.write ret.to_slice
         tput.ret = nil
       end
 
@@ -573,7 +584,7 @@ module Crysterm
         ret.print "\n" * n
         tput.set_scroll_region(0, aheight - 1)
 
-        @_buf.print ret.rewind.gets_to_end
+        @_buf.write ret.to_slice
         tput.ret = nil
       end
 

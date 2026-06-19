@@ -393,7 +393,7 @@ module Crysterm
       diff = new_width - old_width
       if diff > 0
         diff.times do
-          line.push Cell.new
+          line.push
         end
       elsif diff < 0
         (diff * -1).times do
