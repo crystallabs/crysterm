@@ -24,7 +24,7 @@ module Crysterm
       def initialize(@row : Row, @index : Int32)
       end
 
-      def attr : Int32
+      def attr : Int64
         @row.attrs.unsafe_fetch(@index)
       end
 
@@ -32,7 +32,7 @@ module Crysterm
         @row.chars.unsafe_fetch(@index)
       end
 
-      def attr=(value : Int32) : Int32
+      def attr=(value : Int64) : Int64
         @row.attrs.unsafe_put(@index, value)
         value
       end
@@ -69,7 +69,7 @@ module Crysterm
       #
       # The `legacy_cell_eq` compile flag restores that constant-false behavior
       # for A/B testing/benchmarking against the old full-repaint path.
-      def ==(other : Tuple(Int32, Char))
+      def ==(other : Tuple(Int64, Char))
         {% if flag?(:legacy_cell_eq) %}
           false
         {% else %}
@@ -85,7 +85,7 @@ module Crysterm
         end
       end
 
-      def <=>(other : Tuple(Int32, Char))
+      def <=>(other : Tuple(Int64, Char))
         if (d = attr <=> other[0]) == 0
           char <=> other[1]
         else
@@ -96,7 +96,7 @@ module Crysterm
 
     # A single screen row.
     #
-    # Storage is two parallel arrays (`attrs` of `Int32`, `chars` of `Char`)
+    # Storage is two parallel arrays (`attrs` of `Int64`, `chars` of `Char`)
     # rather than an array of cell objects, which gives a contiguous,
     # cache-friendly layout for the per-cell scans in rendering and drawing.
     # `Indexable(Cell)` provides `[]`, `[]?`, `each`, etc.; indexing returns a
@@ -113,11 +113,11 @@ module Crysterm
 
       property dirty = false
 
-      getter attrs : Array(Int32)
+      getter attrs : Array(Int64)
       getter chars : Array(Char)
 
       def initialize
-        @attrs = Array(Int32).new
+        @attrs = Array(Int64).new
         @chars = Array(Char).new
       end
 
@@ -126,7 +126,7 @@ module Crysterm
       # behavior, where `Row.new(width, cell)` delegated to
       # `Array(Cell).new(capacity)` and the cell argument was ignored.
       def initialize(initial_capacity : Int, cell = nil)
-        @attrs = Array(Int32).new initial_capacity
+        @attrs = Array(Int64).new initial_capacity
         @chars = Array(Char).new initial_capacity
       end
 
@@ -145,7 +145,7 @@ module Crysterm
       end
 
       # Appends a cell with the given attr/char.
-      def push(attr : Int32, char : Char) : Nil
+      def push(attr : Int64, char : Char) : Nil
         @attrs.push attr
         @chars.push char
       end

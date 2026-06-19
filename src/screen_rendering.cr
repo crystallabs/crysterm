@@ -2,7 +2,8 @@ module Crysterm
   class Screen
     # Things related to rendering (setting up memory state for display)
 
-    DEFAULT_ATTR = ((0 << 18) | (0x1ff << 9)) | 0x1ff
+    # No flags, default fg, default bg. An `Int64` (see `Crysterm::Attr`).
+    DEFAULT_ATTR = Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)
     DEFAULT_CHAR = ' '
 
     # Note: Disabled since nothing uses it.
@@ -86,7 +87,7 @@ module Crysterm
 
     # XXX move somewhere else?
     # Default cell attribute
-    property default_attr : Int32 = DEFAULT_ATTR
+    property default_attr : Int64 = DEFAULT_ATTR
 
     # XXX move somewhere else?
     # Default cell character

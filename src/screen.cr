@@ -557,9 +557,5 @@ module Crysterm
     #  }
     # end
 
-    # Reduces color if needed (minimal helper function)
-    private def _reduce_color(col)
-      Colors.reduce(col, tput.features.number_of_colors)
-    end
   end
 end

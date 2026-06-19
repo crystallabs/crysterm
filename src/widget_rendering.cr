@@ -122,7 +122,7 @@ module Crysterm
       # If we're in a scrollable text box, check to
       # see which attributes this line starts with.
       if ci > 0
-        attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || 0
+        attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || 0_i64
       end
 
       # TODO See if these 4 values could be packed somehow to just replace individual
@@ -220,10 +220,11 @@ module Crysterm
             if c = cnt.match SGR_REGEX_AT_BEGINNING
               ci += c[0].size - 1
               attr = screen.attr2code(c[0], attr, default_attr)
-              # Ignore foreground changes for selected items.
+              # Ignore foreground changes for selected items (keep the default
+              # foreground while letting the rest of the attr change).
               parent.try do |parent2|
                 if parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.items[parent2.selected] == self # XXX && parent2.invert_selected
-                  attr = (attr & ~(0x1ff << 9)) | (default_attr & (0x1ff << 9))
+                  attr = Attr.pack(Attr.flags(attr), Attr.fg(default_attr), Attr.bg(attr))
                 end
               end
               ch = content[ci]? || bch
@@ -599,7 +600,7 @@ module Crysterm
       _render with_children
     end
 
-    def self.sattr(style, fg = nil, bg = nil)
+    def self.sattr(style, fg = nil, bg = nil) : Int64
       if fg.nil? && bg.nil?
         fg = style.fg
         bg = style.bg
@@ -607,16 +608,16 @@ module Crysterm
 
       # TODO support style.* being Procs ?
 
-      # D O:
-      # return (this.uid << 24)
-      #   | ((this.dockBorders ? 32 : 0) << 18)
-      ((style.visible? ? 0 : 16) << 18) |
-        ((style.inverse? ? 8 : 0) << 18) |
-        ((style.blink? ? 4 : 0) << 18) |
-        ((style.underline? ? 2 : 0) << 18) |
-        ((style.bold? ? 1 : 0) << 18) |
-        (Colors.convert(fg) << 9) |
-        Colors.convert(bg)
+      flags =
+        (style.visible? ? 0 : Attr::INVISIBLE) |
+          (style.inverse? ? Attr::INVERSE : 0) |
+          (style.blink? ? Attr::BLINK : 0) |
+          (style.underline? ? Attr::UNDERLINE : 0) |
+          (style.bold? ? Attr::BOLD : 0)
+
+      # `Colors.convert` yields a native color (`-1` default, or `0xRRGGBB`);
+      # `Attr.pack_color` maps that into a packed color field.
+      Attr.pack(flags, Attr.pack_color(Colors.convert(fg)), Attr.pack_color(Colors.convert(bg)))
     end
 
     def sattr(style, fg = nil, bg = nil)

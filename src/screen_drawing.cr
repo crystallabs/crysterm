@@ -102,8 +102,8 @@ module Crysterm
           # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
           # the bg for non BCE terminals worth the overhead?
           if @optimization.bce? && (desired_char == ' ') &&
-             (tput.has?(&.back_color_erase?) || ((desired_attr & 0x1ff) == (@default_attr & 0x1ff))) &&
-             (((desired_attr >> 18) & 8) == ((@default_attr >> 18) & 8))
+             (tput.has?(&.back_color_erase?) || (Attr.bg(desired_attr) == Attr.bg(@default_attr))) &&
+             ((Attr.flags(desired_attr) & Attr::INVERSE) == (Attr.flags(@default_attr) & Attr::INVERSE))
             clr = true
             neq = false # Current line 'not equal' to line as it was on previous render (i.e. it changed content)
 
@@ -232,64 +232,21 @@ module Crysterm
               # recorded now) then we'll seek to (current_pos)-1 to delete the last ';'
               outbuf_size = @outbuf.size
 
-              bg = desired_attr & 0x1ff
-              fg = (desired_attr >> 9) & 0x1ff
+              flags = Attr.flags(desired_attr)
+              @outbuf.print "1;" if (flags & Attr::BOLD) != 0
+              @outbuf.print "4;" if (flags & Attr::UNDERLINE) != 0
+              @outbuf.print "5;" if (flags & Attr::BLINK) != 0
+              @outbuf.print "7;" if (flags & Attr::INVERSE) != 0
+              @outbuf.print "8;" if (flags & Attr::INVISIBLE) != 0
 
-              flags = desired_attr >> 18
-              # bold
-              if (flags & 1) != 0
-                @outbuf.print "1;"
-              end
-
-              # underline
-              if (flags & 2) != 0
-                @outbuf.print "4;"
-              end
-
-              # blink
-              if (flags & 4) != 0
-                @outbuf.print "5;"
-              end
-
-              # inverse
-              if (flags & 8) != 0
-                @outbuf.print "7;"
-              end
-
-              # invisible
-              if (flags & 16) != 0
-                @outbuf.print "8;"
-              end
-
-              if bg != 0x1ff
-                bg = _reduce_color(bg)
-                if bg < 16
-                  if bg < 8
-                    bg += 40
-                  else # elsif (bg < 16)
-                    bg -= 8
-                    bg += 100
-                  end
-                  @outbuf << bg << ';'
-                else
-                  @outbuf << "48;5;" << bg << ';'
-                end
-              end
-
-              if fg != 0x1ff
-                fg = _reduce_color(fg)
-                if fg < 16
-                  if fg < 8
-                    fg += 30
-                  else # elsif (fg < 16)
-                    fg -= 8
-                    fg += 90
-                  end
-                  @outbuf << fg << ';'
-                else
-                  @outbuf << "38;5;" << fg << ';'
-                end
-              end
+              # Emit each color at the richest depth the terminal supports
+              # (truecolor `38;2;r;g;b` / 256 / 16 / 8). Default colors (-1)
+              # emit nothing, so the terminal's own default applies.
+              n = colors
+              bg = Attr.unpack_color(Attr.bg(desired_attr))
+              fg = Attr.unpack_color(Attr.fg(desired_attr))
+              @outbuf << Colors.sgr_color(bg, false, n) << ';' if bg != -1
+              @outbuf << Colors.sgr_color(fg, true, n) << ';' if fg != -1
 
               if @outbuf.size != outbuf_size
                 # Something was written to the buffer during the code above,

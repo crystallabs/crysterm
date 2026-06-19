@@ -117,10 +117,8 @@ module Crysterm
         bottom = coords.yl - ibottom
 
         default_attr = sattr style
-        bg = default_attr & 0x1ff
-        fg = (default_attr >> 9) & 0x1ff
-        flags = (default_attr >> 18) & 0x1ff
-        attr = (flags << 18) | (bg << 9) | fg
+        # Swap fg/bg so the "lit" glyph pixels invert the base colors.
+        attr = Attr.pack(Attr.flags(default_attr), Attr.bg(default_attr), Attr.fg(default_attr))
 
         max_chars = Math.min @text.size, (right - left)//@ratio.width
 

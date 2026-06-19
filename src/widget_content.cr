@@ -90,7 +90,7 @@ module Crysterm
       property rtof = [] of Int32
       property ci = [] of Int32
 
-      property attr : Array(Int32)? = [] of Int32
+      property attr : Array(Int64)? = [] of Int64
 
       # Backing store of wrapped lines. The array API (`push`, `[]`, `size`,
       # `each`, `join`, `reduce`, ...) is forwarded to it below.
@@ -291,7 +291,7 @@ module Crysterm
     def _parse_attr(lines : CLines)
       default_attr = sattr(style)
       attr = default_attr
-      attrs = [] of Int32
+      attrs = [] of Int64
 
       lines.each_with_index do |line, j|
         attrs.push attr
