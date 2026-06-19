@@ -95,8 +95,8 @@ module Crysterm
       def render
         if @width.nil? || @_shrink_width
           # D O:
-          # if (awidth - iwidth < @ratio.width * @text.length + 1)
-          @width = @ratio.width * @text.size + 1
+          # if (awidth - iwidth < @ratio.width * @text.length)
+          @width = @ratio.width * @text.size
           @_shrink_width = true
           # end
         end
