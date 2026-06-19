@@ -30,7 +30,7 @@ module Crysterm
       def initialize(
         @font = "#{__DIR__}/../fonts/ter-u14n.json",
         @font_bold = "#{__DIR__}/../fonts/ter-u14b.json",
-        **box
+        **box,
       )
         @normal = load_font font
         @bold = load_font font_bold

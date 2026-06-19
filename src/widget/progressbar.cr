@@ -23,7 +23,7 @@ module Crysterm
         @keys = true,
         @mouse = false,
         @orientation = @orientation,
-        **input
+        **input,
       )
         super **input
 

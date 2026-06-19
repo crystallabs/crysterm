@@ -26,7 +26,7 @@ module Crysterm
 
       def initialize(
         input_on_focus = false,
-        **input
+        **input,
       )
         # Will be taken care of by default above, and parent
         # scrollable.try { |v| @scrollable = v }

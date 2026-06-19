@@ -11,7 +11,7 @@ module Crysterm
         parse_tags = false,
         input_on_focus = true,
         scrollable = false,
-        **textarea
+        **textarea,
       )
         super **textarea, parse_tags: parse_tags, input_on_focus: input_on_focus, scrollable: scrollable
 

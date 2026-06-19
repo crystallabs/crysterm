@@ -123,7 +123,7 @@ module Crysterm
       @force_unicode = @force_unicode,
       @resize_interval = @resize_interval,
 
-      terminfo : Bool | Unibilium::Terminfo = true
+      terminfo : Bool | Unibilium::Terminfo = true,
 
       # Not needed for now. Also better not to couple with terminal specifics
       # @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"

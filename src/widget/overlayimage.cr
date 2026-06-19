@@ -16,7 +16,7 @@ module Crysterm
         @file = nil,
         @stretch = false,
         @center = true,
-        **box
+        **box,
       )
         super **box
 
