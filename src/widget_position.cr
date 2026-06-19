@@ -364,7 +364,16 @@ module Crysterm
             base += v
             yi += v
           end
-        elsif yl > scrollable_parent_lpos.yl - b
+        end
+
+        # NOTE: This is a separate `if` (not `elsif` paired with the top check
+        # above): a widget can overflow BOTH the top and the bottom of its
+        # scrollable parent's visible region at the same time, namely whenever
+        # the widget is at least as tall as that region. With an `elsif`, once
+        # the top got clipped the bottom clip was skipped, so the widget would
+        # render past the parent's bottom edge (overflow leak). The horizontal
+        # clipping below already uses two independent `if`s for the same reason.
+        if yl > scrollable_parent_lpos.yl - b
           if yi > scrollable_parent_lpos.yl - 1 - b
             # Is below.
             return
