@@ -38,6 +38,16 @@ module Crysterm
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
     property? force_unicode = false
 
+    # Enable grapheme / full-Unicode-aware rendering: text is measured and laid
+    # out by terminal **column width** (`Crysterm::Unicode`) rather than one
+    # column per codepoint, and grapheme clusters are kept intact. When false
+    # (the default) the legacy 1-codepoint-per-cell behavior is used.
+    #
+    # Phase 0: the flag is wired and `Unicode.display_width` is available, but
+    # the renderer does not consume it yet. The effective behavior should AND
+    # this with terminal capability (`tput.features.unicode?`) at the call sites.
+    property? full_unicode = false
+
     # Display width
     # TODO make these check @output, not STDOUT which is probably used. Also see how urwid does the size check
     property width = 1
@@ -121,6 +131,7 @@ module Crysterm
       # alt = true, # Currently unused
       @show_fps = @show_fps,
       @force_unicode = @force_unicode,
+      @full_unicode = @full_unicode,
       @resize_interval = @resize_interval,
 
       terminfo : Bool | Unibilium::Terminfo = true,
