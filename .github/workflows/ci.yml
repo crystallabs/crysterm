@@ -15,7 +15,7 @@ jobs:
       - name: Install Crystal
         uses: oprypin/install-crystal@v1
       - name: Cache shards
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.cache/shards
           key: ${{ runner.os }}-shards-${{ hashFiles('shard.yml') }}
@@ -38,7 +38,7 @@ jobs:
       - name: Install Crystal
         uses: oprypin/install-crystal@v1
       - name: Cache shards
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.cache/shards
           key: ${{ runner.os }}-shards-${{ hashFiles('shard.yml') }}
