@@ -48,12 +48,19 @@ module Crysterm
             set_content "*" * value.size
           else
             val = @value.gsub /\t/, style.tab_char * style.tab_size
-            # Clamp to [0, val.size]: a very narrow box makes `awidth - iwidth -
-            # 1` negative, and `val[-visible..]` would then raise IndexError (or
-            # drop leading chars). Slicing from `val.size - visible` shows the
-            # last `visible` chars, and yields "" when visible == 0.
-            visible = (awidth - iwidth - 1).clamp(0, val.size)
-            set_content val[(val.size - visible)..]
+            # Show the tail of the value that fits the input's visible width
+            # (`awidth - iwidth - 1`; the -1 leaves room for the cursor).
+            cols = awidth - iwidth - 1
+            if full_unicode?
+              set_content tail_within(val, cols)
+            else
+              # Legacy: one column per codepoint. Clamp to [0, val.size] — a very
+              # narrow box makes `cols` negative and `val[-visible..]` would raise
+              # IndexError (or drop leading chars); slicing from `val.size -
+              # visible` shows the last `visible` chars (and "" when 0).
+              visible = cols.clamp(0, val.size)
+              set_content val[(val.size - visible)..]
+            end
           end
 
           _update_cursor
