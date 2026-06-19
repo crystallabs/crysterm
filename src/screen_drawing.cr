@@ -399,7 +399,7 @@ module Crysterm
         unless @outbuf.empty?
           # STDERR.puts @outbuf.size
           @main.write s.cup(y, 0) # .to_slice)
-          @main.print @outbuf.rewind.gets_to_end
+          @main.write @outbuf.to_slice
         end
       end
 
@@ -421,7 +421,7 @@ module Crysterm
             hide_cursor
           end
 
-          @pre << ret.rewind.gets_to_end
+          @pre.write ret.to_slice
           tput.ret = nil
         end
 
@@ -433,14 +433,14 @@ module Crysterm
             show_cursor
           end
 
-          @post << ret.rewind.gets_to_end
+          @post.write ret.to_slice
           tput.ret = nil
         end
 
         # D O:
         # display.flush()
         # display._owrite(@pre + @main + @post)
-        tput._print { |io| io << @pre << @main.rewind.gets_to_end << @post }
+        tput._print { |io| io.write @pre.to_slice; io.write @main.to_slice; io.write @post.to_slice }
       end
 
       # D O:
@@ -688,16 +688,17 @@ module Crysterm
       yi = 0 if yi < 0
 
       yi.upto(yl - 1) do |y|
-        break unless lines[y]?
+        line = lines[y]?
+        break unless line
 
         xi.upto(xl - 1) do |x|
-          cell = lines[y][x]?
+          cell = line[x]?
           break unless cell
 
           if override || cell != {attr, ch}
-            lines[y][x].attr = attr
-            lines[y][x].char = ch
-            lines[y].dirty = true
+            cell.attr = attr
+            cell.char = ch
+            line.dirty = true
           end
         end
       end

@@ -141,17 +141,19 @@ module Crysterm
       if style.padding.any? || !@align.top?
         if alpha = style.alpha?
           (Math.max(yi, 0)...yl).each do |y|
-            if !lines[y]?
+            line = lines[y]?
+            unless line
               break
             end
             (Math.max(xi, 0)...xl).each do |x|
-              if !lines[y][x]?
+              cell = line[x]?
+              unless cell
                 break
               end
-              lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
+              cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
               # D O:
-              # lines[y][x].char = bch
-              lines[y].dirty = true
+              # cell.char = bch
+              line.dirty = true
             end
           end
         else
@@ -182,7 +184,8 @@ module Crysterm
       # Draw the content and background.
       # yi.step to: yl-1 do |y|
       (yi...yl).each do |y|
-        if !lines[y]?
+        line = lines[y]?
+        unless line
           if y >= screen.aheight || yl < ibottom
             break
           else
@@ -193,7 +196,7 @@ module Crysterm
         x = xi - 1
         while x < xl - 1
           x += 1
-          cell = lines[y][x]?
+          cell = line[x]?
           unless cell
             if x >= screen.awidth || xl < iright
               break
@@ -248,21 +251,21 @@ module Crysterm
             # outer loop, and continue to it instead.
             ch = bch
             while x < xl
-              cell = lines[y][x]?
+              cell = line[x]?
               if !cell
                 break
               end
               if alpha = style.alpha?
-                lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
+                cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
                 if content[ci - 1]?
-                  lines[y][x].char = ch
+                  cell.char = ch
                 end
-                lines[y].dirty = true
+                line.dirty = true
               else
                 if cell != {attr, ch}
-                  lines[y][x].attr = attr
-                  lines[y][x].char = ch
-                  lines[y].dirty = true
+                  cell.attr = attr
+                  cell.char = ch
+                  line.dirty = true
                 end
               end
               x += 1
@@ -306,16 +309,16 @@ module Crysterm
           end
 
           if alpha = style.alpha?
-            lines[y][x].attr = Colors.blend(attr, lines[y][x].attr, alpha: alpha)
+            cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
             if content[ci - 1]?
-              lines[y][x].char = ch
+              cell.char = ch
             end
-            lines[y].dirty = true
+            line.dirty = true
           else
             if cell != {attr, ch}
-              lines[y][x].attr = attr
-              lines[y][x].char = ch
-              lines[y].dirty = true
+              cell.attr = attr
+              cell.char = ch
+              line.dirty = true
             end
           end
         end
@@ -396,7 +399,8 @@ module Crysterm
         battr = sattr border
 
         [yi, yl - 1].each do |y|
-          next if y == -1 || !lines[y]?
+          line = lines[y]?
+          next if y == -1 || !line
 
           # A 0-height top/bottom border was not expanded into its own row
           # (yi/yl-1 still sit on the content), so treat it exactly like
@@ -412,7 +416,7 @@ module Crysterm
             next if coords.no_left? && x == xi
             next if coords.no_right? && x == xl - 1
 
-            cell = lines[y][x]?
+            cell = line[x]?
             next unless cell
 
             ch = border_char(border, x, xi, xl, y, yi, yl, default_attr)
@@ -420,13 +424,14 @@ module Crysterm
             if cell != {battr, ch}
               cell.attr = battr
               cell.char = ch
-              lines[y].dirty = true
+              line.dirty = true
             end
           end
         end
 
         (yi + 1...yl - 1).each do |y|
-          next unless lines[y]?
+          line = lines[y]?
+          next unless line
 
           [xi, xl - 1].each do |x|
             # A 0-width left/right border was not expanded into its own column
@@ -435,7 +440,7 @@ module Crysterm
             next if border.left == 0 && x == xi
             next if border.right == 0 && x == xl - 1
 
-            cell = lines[y][x]?
+            cell = line[x]?
             next unless cell
 
             ch = border_char(border, x, xi, xl, y, yi, yl, default_attr)
@@ -443,7 +448,7 @@ module Crysterm
             if cell != {battr, ch}
               cell.attr = battr
               cell.char = ch
-              lines[y].dirty = true
+              line.dirty = true
             end
           end
         end
@@ -456,14 +461,16 @@ module Crysterm
           l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
 
           (Math.max(i, 0)...l).each do |y|
-            break unless lines[y]?
+            line = lines[y]?
+            break unless line
 
             x = xi - s.left
             while x < xi
-              break unless lines[y][x]?
+              cell = line[x]?
+              break unless cell
 
-              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
-              lines[y].dirty = true
+              cell.attr = Colors.blend(cell.attr, alpha: s.alpha)
+              line.dirty = true
               x += 1
             end
           end
@@ -473,13 +480,15 @@ module Crysterm
           l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
 
           (yi - s.top...yi).each do |y|
-            break unless lines[y]?
+            line = lines[y]?
+            break unless line
 
             (Math.max(xi, 0)...l).each do |x|
-              break unless lines[y][x]?
+              cell = line[x]?
+              break unless cell
 
-              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
-              lines[y].dirty = true
+              cell.attr = Colors.blend(cell.attr, alpha: s.alpha)
+              line.dirty = true
             end
           end
         end
@@ -489,14 +498,16 @@ module Crysterm
           l = s.bottom? ? yl + s.bottom : yl
 
           (Math.max(i, 0)...l).each do |y|
-            break unless lines[y]?
+            line = lines[y]?
+            break unless line
 
             x = xl
             while x < xl + s.right
-              break unless lines[y][x]?
+              cell = line[x]?
+              break unless cell
 
-              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
-              lines[y].dirty = true
+              cell.attr = Colors.blend(cell.attr, alpha: s.alpha)
+              line.dirty = true
               x += 1
             end
           end
@@ -507,13 +518,15 @@ module Crysterm
           l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
 
           (yl...yl + s.bottom).each do |y|
-            break unless lines[y]?
+            line = lines[y]?
+            break unless line
 
             (Math.max(i, 0)...l).each do |x|
-              break unless lines[y][x]?
+              cell = line[x]?
+              break unless cell
 
-              lines[y][x].attr = Colors.blend(lines[y][x].attr, alpha: s.alpha)
-              lines[y].dirty = true
+              cell.attr = Colors.blend(cell.attr, alpha: s.alpha)
+              line.dirty = true
             end
           end
         end
