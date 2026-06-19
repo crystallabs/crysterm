@@ -39,16 +39,23 @@ class MyProg
     end
   end
 
-  # Just basic (suboptimal) way to handle enter pressed in the input box.
-  # But well, livable for nos.
-  input.on(Event::KeyPress) do |e|
-    if e.key == Tput::Key::Enter
-      c = input.content
-      c = "~" if c == ""
-      b.set_content b.content + c + "\n"
-      input.value = ""
-      s.render
-    end
+  # Handle the line being entered. The `TextBox` reads input while focused and,
+  # on Enter, emits `Event::Submit` with the typed text and then gives up focus
+  # (it is an input-on-focus widget). We append the line to the main box and
+  # re-focus the input so the user can keep typing line after line; without the
+  # re-focus the input would go dead after the first line.
+  #
+  # Note: use `Event::Submit` rather than a raw `Event::KeyPress` for Enter. The
+  # widget's own Enter handling (which tears down and hands back focus) runs
+  # *after* our key handler would, so re-focusing from a key handler is too
+  # early to take effect. `Event::Submit` is emitted once that teardown is done.
+  input.on(Event::Submit) do |e|
+    c = e.value
+    c = "~" if c == ""
+    b.set_content b.content + c + "\n"
+    input.value = ""
+    input.focus
+    s.render
   end
 
   s.exec
