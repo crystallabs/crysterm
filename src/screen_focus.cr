@@ -51,7 +51,9 @@ module Crysterm
     #
     # As a side-effect, prunes the focus history list.
     def rewind_focus
-      old = @history.pop
+      # `pop?` (not `pop`) so a re-entrant or otherwise empty-history call
+      # degrades to a no-op instead of raising IndexError.
+      old = @history.pop?
 
       el = @history.reverse.find { |el| el.screen && el.style.visible? }
       @history.clear

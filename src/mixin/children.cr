@@ -54,7 +54,9 @@ module Crysterm
       # Removes `element` from list of children widgets
       def remove(element)
         return unless i = @children.index(element)
-        element.clear_last_rendered_position
+        # No need to erase the removed element's old footprint: `Screen#_render`
+        # clears the whole cell buffer before each frame, so once `element` is
+        # gone from `@children` it simply stops being repainted.
         @children.delete_at i
       end
 
@@ -71,7 +73,7 @@ module Crysterm
       def has_descendant?(obj)
         @children.each do |el|
           return true if el.same? obj
-          return true if el.descendant? obj
+          return true if el.has_descendant? obj
         end
         false
       end

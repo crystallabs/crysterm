@@ -85,7 +85,8 @@ module Crysterm
       end
 
       def remove_item(child : Widget)
-        return unless i = get_item_index child
+        i = get_item_index child
+        return unless i >= 0
 
         if item = @items[i]?
           child = @items.delete_at i
@@ -110,7 +111,9 @@ module Crysterm
       end
 
       def get_item(child : Widget)
-        @items[get_item_index child]?
+        i = get_item_index child
+        return nil unless i >= 0
+        @items[i]?
       end
 
       def get_item_index(child : Int)
@@ -124,12 +127,15 @@ module Crysterm
           if child == clean_tags item
             return i
           end
-          return -1
         end
+        -1
       end
 
-      def get_item_index(child : Widget::Box)
-        @items.index child
+      # Accepts any `Widget` (not only `Widget::Box`) so that callers holding
+      # a `child : Widget` resolve here. Returns -1 when not found, matching
+      # the `Int`/`String` overloads and the `>= 0` checks in callers.
+      def get_item_index(child : Widget)
+        (@items.index child) || -1
       end
 
       def selekt(index : Int)
@@ -212,7 +218,7 @@ module Crysterm
         item = create_item content
         j = i
         while j < @items.size
-          @items[j].top += 1
+          @items[j].top = @items[j].top.as(Int) + 1
           j += 1
         end
         item.top = i
@@ -232,7 +238,7 @@ module Crysterm
         return unless i >= 0
 
         @items[i]?.try &.set_content(content)
-        @ritems[i]?.try &= (content)
+        @ritems[i] = content if i < @ritems.size
       end
 
       def set_item(child, widget : Widget)

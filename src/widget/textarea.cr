@@ -19,6 +19,7 @@ module Crysterm
       @ev_read_input_on_focus : Crysterm::Event::Focus::Wrapper?
       @ev_enter : Crysterm::Event::KeyPress::Wrapper?
       @ev_reading : Crysterm::Event::KeyPress::Wrapper?
+      @ev_done_blur : Crysterm::Event::Blur::Wrapper?
 
       def initialize(
         input_on_focus = false,
@@ -208,9 +209,11 @@ module Crysterm
           value = @value
         end
 
+        # Always record the authoritative value before the display dedup guard,
+        # so an external set (e.g. clearing) is never lost when `@_value` is stale.
+        @value = value
         return if @_value == value
 
-        @value = value
         @_value = value
         set_content value
         _type_scroll
@@ -261,10 +264,13 @@ module Crysterm
           @__listener.try &.call e
         }
 
-        # @__done = @_done = ->_done_default(String?, String?)
-        @__done = ->_done_default(String?, String?)
+        @__done = @_done = ->_done_default(String?, String?)
 
-        on(Crysterm::Event::Blur) {
+        # Store the wrapper so `__done_default` can remove it. Otherwise a new
+        # Blur handler is added on every focus and they accumulate; worse,
+        # `rewind_focus` emits Blur during teardown, so a stale handler would
+        # re-enter `__done_default` and double-pop the focus history.
+        @ev_done_blur = on(Crysterm::Event::Blur) {
           @__done.try &.call nil, nil
         }
       end
@@ -289,13 +295,15 @@ module Crysterm
         # return if self(block).done?
 
         @ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
+        @ev_reading = nil
         @_reading = false
 
         @_callback = nil
         @_done = nil
         # XXX off Crysterm::Event::KeyPress, @__listener.wrapper
         @__listener = nil
-        # XXX off Crysterm::Event::Blur, @__done.wrapper
+        @ev_done_blur.try { |w| off Crysterm::Event::Blur, w }
+        @ev_done_blur = nil
         @__done = nil
 
         screen.hide_cursor
@@ -314,7 +322,11 @@ module Crysterm
 
         if err
           raise err # XXX just temporary
-        elsif value
+        elsif data
+          # `data` is the value passed to the done-callback: the text on
+          # submit (Enter), and nil on cancel (Escape) or blur. The `value`
+          # property is always a non-nil String, so it can't be used to tell
+          # the two apart.
           emit Crysterm::Event::Submit, value
         else
           emit Crysterm::Event::Cancel, value

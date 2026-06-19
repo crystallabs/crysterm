@@ -38,7 +38,6 @@ module Crysterm
       end
 
       def render
-        clear_last_rendered_position true
         set_content ("[" + (checked? ? 'x' : ' ') + "] " + @text), true
         super false
       end

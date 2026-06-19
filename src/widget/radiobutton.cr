@@ -22,7 +22,6 @@ module Crysterm
       end
 
       def render
-        clear_last_rendered_position true
         set_content ("(" + (@value ? '*' : ' ') + ") " + @text), true
         super false
       end

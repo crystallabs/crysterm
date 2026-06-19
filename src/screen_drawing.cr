@@ -676,7 +676,7 @@ module Crysterm
     end
 
     # Clears any chosen region on the screen.
-    def clear_region(xi, xl, yi, yl, override)
+    def clear_region(xi, xl, yi, yl, override = false)
       fill_region @default_attr, ' ', xi, xl, yi, yl, override
     end
 

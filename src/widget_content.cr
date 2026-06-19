@@ -38,7 +38,10 @@ module Crysterm
     end
 
     def set_content(content = "", no_clear = false, no_tags = false)
-      clear_last_rendered_position unless no_clear
+      # Previously this erased the widget's last-rendered footprint (unless
+      # `no_clear`) so that shrinking content wouldn't leave stale cells behind.
+      # That is now handled centrally: `Screen#_render` clears the whole cell
+      # buffer before each frame. `no_clear` is kept for call compatibility.
 
       # XXX make it possible to have `update_context`, which only updates
       # internal structures, not @content (for rendering purposes, where
@@ -79,8 +82,6 @@ module Crysterm
       property ci = [] of Int32
 
       property attr : Array(Int32)? = [] of Int32
-
-      property ci = [] of Int32
     end
 
     def process_content(no_tags = false)
@@ -602,9 +603,9 @@ module Crysterm
         end
       end
 
-      if @_clines.size < height
-        clear_last_rendered_position
-      end
+      # When content shrank this used to erase the leftover footprint via
+      # `clear_last_rendered_position`; the whole-buffer clear in `Screen#_render`
+      # now takes care of that, so the explicit clear is no longer needed.
     end
 
     def insert_top(line)

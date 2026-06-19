@@ -55,15 +55,6 @@ module Crysterm
     # end
     # end
 
-    # Resets cursor
-    def cursor_reset
-      @cursor.shape = Tput::CursorShape::Block
-      @cursor.blink = false
-      @cursor.style.bg = "#ffffff"
-      @cursor._set = false
-      tput.cursor_reset
-    end
-
     # Sets cursor color
     def cursor_color(color : Tput::Color? = nil)
       # @cursor.style.bg = color.try do |c|
@@ -150,6 +141,11 @@ module Crysterm
       if @cursor.artificial?
         @cursor.artificial = false
       end
+
+      @cursor.shape = Tput::CursorShape::Block
+      @cursor.blink = false
+      @cursor.style.bg = "#ffffff"
+      @cursor._set = false
 
       tput.cursor_reset
     end

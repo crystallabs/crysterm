@@ -32,10 +32,14 @@ module Crysterm
 
       def value=(value = nil)
         value ||= @value
+        value = value.gsub /\n/, ""
+        # Always record the authoritative value, even when the display does not
+        # need refreshing. `_listener` mutates `@value` directly, so the `@_value`
+        # (last-displayed) guard alone can wrongly no-op an external set such as
+        # `input.value = ""`, leaving stale text that accumulates across submits.
+        @value = value
 
         if @_value != value
-          value = value.gsub /\n/, ""
-          @value = value
           @_value = value
 
           if @secret

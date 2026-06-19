@@ -15,100 +15,74 @@ module Crysterm
         code[0] = "0"
       end
 
-      (0..code.size).each do |i|
+      # NOTE: an SGR sequence can carry several codes (e.g. `\e[1;31m` =
+      # bold + red), so every code must be applied in turn. We use an explicit
+      # index because the truecolor/256-color forms consume several codes at
+      # once and need to advance `i` past their parameters.
+      i = 0
+      while i < code.size
         c = !code[i].empty? ? code[i].to_i : 0
         case c
         when 0 # normal
           bg = dfl & 0x1ff
           fg = (dfl >> 9) & 0x1ff
           flags = (dfl >> 18) & 0x1ff
-          break
         when 1 # bold
           flags |= 1
-          break
         when 22
           flags = (dfl >> 18) & 0x1ff
-          break
         when 4 # underline
           flags |= 2
-          break
         when 24
           flags = (dfl >> 18) & 0x1ff
-          break
         when 5 # blink
           flags |= 4
-          break
         when 25
           flags = (dfl >> 18) & 0x1ff
-          break
         when 7 # inverse
           flags |= 8
-          break
         when 27
           flags = (dfl >> 18) & 0x1ff
-          break
         when 8 # invisible
           flags |= 16
-          break
         when 28
           flags = (dfl >> 18) & 0x1ff
-          break
         when 39 # default fg
           fg = (dfl >> 9) & 0x1ff
-          break
         when 49 # default bg
           bg = dfl & 0x1ff
-          break
-        when 100 # default fg/bg
-          fg = (dfl >> 9) & 0x1ff
-          bg = dfl & 0x1ff
-          break
-        else # color
-          if c == 48 && code[i + 1].to_i == 5
+        when 38, 48 # extended fg (38) / bg (48): 256-color or truecolor
+          mode = code[i + 1]?.try &.to_i
+          if mode == 5 # `<38|48>;5;n` (256-color)
+            color = code[i + 2]?.try(&.to_i) || 0
+            c == 38 ? (fg = color) : (bg = color)
             i += 2
-            bg = code[i].to_i
-            break
-          elsif c == 48 && code[i + 1].to_i == 2
-            i += 2
-            bg = Colors.match(code[i].to_i, code[i + 1].to_i, code[i + 2].to_i)
-            if bg == -1
-              bg = dfl & 0x1ff
+          elsif mode == 2 # `<38|48>;2;r;g;b` (truecolor)
+            color = Colors.match(
+              code[i + 2]?.try(&.to_i) || 0,
+              code[i + 3]?.try(&.to_i) || 0,
+              code[i + 4]?.try(&.to_i) || 0)
+            if c == 38
+              fg = color == -1 ? (dfl >> 9) & 0x1ff : color
+            else
+              bg = color == -1 ? dfl & 0x1ff : color
             end
-            i += 2
-            break
-          elsif c == 38 && code[i + 1].to_i == 5
-            i += 2
-            fg = code[i].to_i
-            break
-          elsif c == 38 && code[i + 1].to_i == 2
-            i += 2
-            fg = Colors.match(code[i].to_i, code[i + 1].to_i, code[i + 2].to_i)
-            if fg == -1
-              fg = (dfl >> 9) & 0x1ff
-            end
-            i += 2 # XXX Why ameba says this is no-op?
-            break
+            i += 4
           end
+        else # 8/16-color fg/bg, including bright variants
           if c >= 40 && c <= 47
             bg = c - 40
-          elsif c >= 100 && c <= 107
+          elsif c >= 100 && c <= 107 # bright bg (100 = bright black bg, not "default")
             bg = c - 100
             bg += 8
-          elsif c == 49
-            bg = dfl & 0x1ff
           elsif c >= 30 && c <= 37
             fg = c - 30
-          elsif c >= 90 && c <= 97
+          elsif c >= 90 && c <= 97 # bright fg
             fg = c - 90
             fg += 8
-          elsif c == 39
-            fg = (dfl >> 9) & 0x1ff
-          elsif c == 100
-            fg = (dfl >> 9) & 0x1ff
-            bg = dfl & 0x1ff
           end
-          break
         end
+        i += 1
       end
 
       (flags << 18) | (fg << 9) | bg

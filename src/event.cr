@@ -101,6 +101,8 @@ module Crysterm
 
     # Emitted on addition of a list item to list
     event AddItem
+    # Emitted on insertion of a list item at a given position
+    event InsertItem
     # Emitted on removal of a list item
     event RemoveItem
     # Emitted on re-set/re-definition of list items

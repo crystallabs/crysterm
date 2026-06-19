@@ -140,13 +140,24 @@ module Crysterm
 
       @_border_stops.clear
 
-      # TODO: Possibly get rid of .dirty altogether.
-      # TODO: Could possibly drop .dirty and just clear the `lines` buffer every
-      # time before a screen.render. This way clearRegion doesn't have to be
-      # called in arbitrary places for the sake of clearing a spot where an
-      # element used to be (e.g. when an element moves or is hidden). There could
-      # be some overhead though.
-      # screen.clearRegion(0, this.cols, 0, this.rows);
+      # Reset the in-memory cell buffer to the default attr/char before
+      # compositing this frame. Widgets are re-rendered from scratch on every
+      # render (see the loop below), so the buffer must start from a clean base.
+      #
+      # This is required for correct alpha/transparency blending: alpha widgets
+      # blend their color into whatever is already in `@lines` (see
+      # `Colors.blend` calls in widget_rendering). Without this reset, each frame
+      # would blend on top of the previous frame's already-blended value, so a
+      # semi-transparent field would creep toward full saturation on every
+      # refresh instead of staying constant.
+      #
+      # This also removes the need to `clear_region` in arbitrary places just to
+      # erase a spot where an element used to be (e.g. when it moves or hides).
+      # It is cheap on the wire: `clear_region`/`fill_region` only mark a line
+      # dirty when a cell actually changes, and `draw` still diffs every cell
+      # against `@olines`, so unchanged cells produce no terminal output.
+      clear_region 0, awidth, 0, aheight
+
       @_ci = 0
       @children.each do |el|
         el.index = @_ci

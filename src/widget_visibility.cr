@@ -10,7 +10,9 @@ module Crysterm
     # Hides widget from screen
     def hide
       return if !self.style.visible?
-      clear_last_rendered_position
+      # No need to erase the old footprint here: `Screen#_render` clears the
+      # whole cell buffer before each frame, so a now-hidden widget simply
+      # stops repainting and its old cells are gone on the next render.
       self.style.visible = false
       emit Crysterm::Event::Hide
 

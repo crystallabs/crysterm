@@ -72,7 +72,7 @@ module Crysterm
       return unless @_label
       off ::Crysterm::Event::Scroll, @ev_label_scroll
       off ::Crysterm::Event::Resize, @ev_label_resize
-      @_label.remove_from_parent
+      @_label.try &.remove_from_parent
       @ev_label_scroll = nil
       @ev_label_resize = nil
       @_label = nil

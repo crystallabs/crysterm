@@ -47,7 +47,7 @@ module Crysterm
       attr = lines[y][x].attr
       ch = lines[y][x].char
 
-      if lines[y][x - 1]? && L_ANGLES.includes? lines[y][x - 1].char
+      if x > 0 && lines[y][x - 1]? && L_ANGLES.includes? lines[y][x - 1].char
         if lines[y][x - 1].attr != attr
           case @dock_contrast
           when DockContrast::DontDock
@@ -61,7 +61,7 @@ module Crysterm
         angle |= BITWISE_L_ANGLE
       end
 
-      if lines[y - 1]? && U_ANGLES.includes? lines[y - 1][x].char
+      if y > 0 && lines[y - 1]? && U_ANGLES.includes? lines[y - 1][x].char
         if lines[y - 1][x].attr != attr
           case @dock_contrast
           when DockContrast::DontDock

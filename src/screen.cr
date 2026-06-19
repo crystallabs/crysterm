@@ -346,8 +346,9 @@ module Crysterm
 
         Math.min(old_height, new_height).times do |i|
           adjust_width @lines[i], old_width, new_width, dirty
-          @lines[-1].dirty = dirty
-          @olines[-1].dirty = dirty
+          adjust_width @olines[i], old_width, new_width, dirty
+          @lines[i].dirty = dirty
+          @olines[i].dirty = dirty
         end
       end
 
@@ -385,6 +386,7 @@ module Crysterm
     @[AlwaysInline]
     private def remove_row
       @lines.pop
+      @olines.pop
     end
 
     @[AlwaysInline]

@@ -153,6 +153,7 @@ module Crysterm
       if oright.nil? && !oleft.nil?
         right = screen.awidth - (aleft(get) + awidth(get))
         right += parent.iright
+        return right
       end
 
       right = (parent.aright || 0) + (oright || 0)
@@ -311,7 +312,13 @@ module Crysterm
       if scrollable_parent && !noscroll
         # This is an intentional assignment:
         unless scrollable_parent_lpos = scrollable_parent.lpos
-          raise "Unexpected that scrollable_parent.lpos == nil"
+          # The scrollable ancestor has not been laid out yet (its `lpos` is
+          # only computed during rendering). This happens when coordinates are
+          # requested before the first render, e.g. editing list/box content
+          # via `set_content`/`set_item`/`insert_item` up front. We simply have
+          # no coordinates to report yet, so return nil (the same signal used
+          # above for invisible widgets) and let callers degrade gracefully.
+          return
         end
 
         # D O:
