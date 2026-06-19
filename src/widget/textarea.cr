@@ -9,7 +9,10 @@ module Crysterm
 
       property __update_cursor : Proc(Nil)?
 
-      property value : String = ""
+      # `getter` (not `property`): a generated `value=(String)` setter would be
+      # more specific than the custom `value=` below and win overload
+      # resolution for String args, bypassing set_content/_update_cursor.
+      getter value : String = ""
       @_value = ""
 
       property _done : Proc(String?, String?, Nil)?

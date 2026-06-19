@@ -106,10 +106,13 @@ module Crysterm
         end
       end
 
-      # TODO is never nil
+      # Apply the cursor's background colour into the BACKGROUND slot (bits
+      # 0-8). This previously cleared and wrote into the FOREGROUND slot
+      # (`0x1ff << 9`), so a cursor `bg` clobbered the foreground colour set
+      # just above instead of changing the background.
       unless cursor.style.bg.nil?
-        attr &= ~(0x1ff << 9)
-        attr |= Colors.convert(cursor.style.bg) << 9
+        attr &= ~(0x1ff << 0)
+        attr |= Colors.convert(cursor.style.bg) & 0x1ff
       end
 
       # Cell.new attr: attr, char: ch || ' '

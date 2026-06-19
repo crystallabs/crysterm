@@ -54,8 +54,12 @@ module Crysterm
     def remove_hover
     end
 
+    # These read/write `@draggable` (the ivar declared by `property? draggable`
+    # and set by the constructor). They previously used a separate `@_draggable`
+    # ivar that the constructor never touched, so `Widget.new(draggable: true)`
+    # left `draggable?` reporting false.
     def draggable?
-      @_draggable
+      @draggable
     end
 
     def draggable=(draggable : Bool)
@@ -63,11 +67,11 @@ module Crysterm
     end
 
     def enable_drag(x)
-      @_draggable = true
+      @draggable = true
     end
 
     def disable_drag
-      @_draggable = false
+      @draggable = false
     end
 
     # :nodoc:

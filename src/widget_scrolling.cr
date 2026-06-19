@@ -68,7 +68,8 @@ module Crysterm
     end
 
     def get_scroll_perc(s)
-      pos = @lpos || @_get_coords
+      # `_get_coords` (method call), not `@_get_coords` (a nonexistent ivar).
+      pos = @lpos || _get_coords
       if !pos
         return s ? -1 : 0
       end

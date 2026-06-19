@@ -185,7 +185,10 @@ module Crysterm
       end
 
       def pop_item
-        remove_item @items.size - 1
+        return if @items.empty?
+        # `remove_item` only accepts a `Widget`; pass the last item itself
+        # rather than an `Int` index (which matches no overload).
+        remove_item @items[-1]
       end
 
       def unshift_item(content)
@@ -194,7 +197,8 @@ module Crysterm
       end
 
       def shift_item
-        remove_item 0
+        return if @items.empty?
+        remove_item @items[0]
       end
 
       def move(offset)
@@ -249,7 +253,6 @@ module Crysterm
         original = @items.dup
         selekted = selected
         sel = @ritems[selekted]?
-        i = 0
 
         selekt 0
 
@@ -261,8 +264,16 @@ module Crysterm
           end
         end
 
-        original.each do |item|
-          remove item
+        # Remove only the *leftover* original items (those past the end of the
+        # new list). The first `items.size` originals were reused above via
+        # `set_content`, so removing them too (as the old `original.each` did)
+        # detached the very widgets we just repopulated. Also use `remove_item`,
+        # not `remove`: `remove` only unlinks the widget from the children tree
+        # and leaves `@items`/`@ritems` holding stale entries, desyncing them.
+        if original.size > items.size
+          original[items.size..].each do |itm|
+            remove_item itm
+          end
         end
 
         @ritems = items
@@ -273,7 +284,9 @@ module Crysterm
           if sel
             selekt sel
           elsif @items.size == original.size
-            selekt selected
+            # Use the saved selection (`selekted`); `selected` was just reset to
+            # 0 by `selekt 0` above.
+            selekt selekted
           else
             selekt Math.min selekted, @items.size - 1
           end

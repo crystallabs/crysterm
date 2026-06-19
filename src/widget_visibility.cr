@@ -16,7 +16,7 @@ module Crysterm
       self.style.visible = false
       emit Crysterm::Event::Hide
 
-      screen.try do |s|
+      screen?.try do |s|
         # s.rewind_focus if focused?
         s.rewind_focus if s.focused == self
       end

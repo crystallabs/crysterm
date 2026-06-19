@@ -686,7 +686,12 @@ module Crysterm
 
     def set_line(i, line)
       i = Math.max(i, 0)
-      while @_clines.fake.size < i
+      # Pad up to AND including index `i` (`<=`, not `<`). Blessed relies on JS
+      # auto-extending arrays so `fake[i] = line` can create the slot; in Crystal
+      # `fake[i] = line` raises when `i == fake.size` (e.g. `set_line(0, …)` on an
+      # empty `fake`, as `push_line` does for empty content), so the slot must
+      # exist first.
+      while @_clines.fake.size <= i
         @_clines.fake.push("")
       end
       @_clines.fake[i] = line

@@ -138,8 +138,11 @@ module Crysterm
             #  y += 1
             #  next
             # end
+            # `map[y - top]` is a non-nil Array(Int32) (glyphs are padded to
+            # @ratio.height rows), so no nil guard is needed here. A `next unless
+            # mline` used to sit here, which — in this `while` loop — would have
+            # skipped the `y += 1` below and spun forever if it ever fired.
             mline = map[y - top]
-            next unless mline
             mx = 0
             while mx < @ratio.width
               mcell = mline[mx]?

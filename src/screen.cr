@@ -334,7 +334,12 @@ module Crysterm
         do_clear = false
       else
         do_clear = true
+        # Reset BOTH buffers. Resetting only `@lines` left `@olines` at its old
+        # size while `add_row` below pushes to both, so after every resize
+        # `@olines` grew unbounded (leak) and its rows no longer lined up with
+        # `@lines`, corrupting the frame diff in `draw`.
         @lines = Array(Row).new
+        @olines = Array(Row).new
         old_height = 0
         old_width = 0
       end

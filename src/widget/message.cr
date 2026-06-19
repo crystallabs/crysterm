@@ -24,9 +24,10 @@ module Crysterm
         screen.render
 
         if !time || time.to_f <= 0
-          spawn do
-            sleep 10.seconds
-
+          # No timeout: dismiss on the next keypress. Install the handler
+          # immediately. (It used to `sleep 10.seconds` first, which made the
+          # message un-dismissable for 10s and then linger until a key.)
+          begin
             @ev_keypress = screen.on(Crysterm::Event::KeyPress) do |_|
               #  ##return if e.key.try(&.name) == ::Tput::Key::Mouse # XXX
               #  #if scrollable?
@@ -88,8 +89,9 @@ module Crysterm
         callback.try &.call
       end
 
-      def error(text, time, callback)
-        display "{red-fg}Error: #{text}{/red-fg}", time, callback
+      def error(text, time : Time::Span? = 10.seconds, &callback : Proc(Nil))
+        # `display` takes its callback as a block, not a positional arg.
+        display("{red-fg}Error: #{text}{/red-fg}", time, &callback)
       end
     end
   end

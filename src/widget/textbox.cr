@@ -48,11 +48,12 @@ module Crysterm
             set_content "*" * value.size
           else
             val = @value.gsub /\t/, style.tab_char * style.tab_size
-            visible = (awidth - iwidth - 1)
-            if visible > val.size
-              visible = val.size
-            end
-            set_content val[-visible..]
+            # Clamp to [0, val.size]: a very narrow box makes `awidth - iwidth -
+            # 1` negative, and `val[-visible..]` would then raise IndexError (or
+            # drop leading chars). Slicing from `val.size - visible` shows the
+            # last `visible` chars, and yields "" when visible == 0.
+            visible = (awidth - iwidth - 1).clamp(0, val.size)
+            set_content val[(val.size - visible)..]
           end
 
           _update_cursor

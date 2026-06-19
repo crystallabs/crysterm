@@ -7,10 +7,13 @@ module Crysterm
         a_name = a.not_nil!.name.not_nil!.downcase
         b_name = b.not_nil!.name.not_nil!.downcase
 
-        a_first_char = (a_name[0] == '.') ? a_name[1] : a_name[0]
-        b_first_char = (b_name[0] == '.') ? b_name[1] : b_name[0]
+        # Compare the FULL names (with a single leading '.' stripped), not just
+        # the first character — comparing only `name[0]` left same-initial names
+        # (e.g. "banana"/"berry") unordered.
+        a_name = a_name[1..] if a_name[0]? == '.'
+        b_name = b_name[1..] if b_name[0]? == '.'
 
-        a_first_char <=> b_first_char
+        a_name <=> b_name
       end
     end
 

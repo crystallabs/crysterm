@@ -3,7 +3,17 @@ require "./scrollable_text"
 module Crysterm
   class Widget
     class Log < ScrollableText
-      property scroll_percentage = 0
+      # `scroll_percentage` must reflect/drive the real scroll position. It used
+      # to be a plain `property` (inert Int), so `self.scroll_percentage = 100`
+      # just stored 100 and never scrolled, and the `== 100` check below read a
+      # stale constant. Delegate to the actual scroll-percentage methods.
+      def scroll_percentage
+        get_scroll_perc false
+      end
+
+      def scroll_percentage=(i)
+        set_scroll_perc i
+      end
 
       def initialize(@scroll_on_input = false, @scrollback = Int32::MAX, **scrollable_text)
         super **scrollable_text
@@ -15,7 +25,7 @@ module Crysterm
         if !@_user_scrolled || @scroll_on_input
           self.scroll_percentage = 100
           @_user_scrolled = false
-          screen.try &.render
+          screen?.try &.render
         end
       end
 
@@ -33,7 +43,10 @@ module Crysterm
         ret
       end
 
-      def scroll(offset, always)
+      # Defaults mirror the base `scroll(offset = 1, always = false)` so a
+      # one-arg `scroll 0` (from `scroll_to`/`set_scroll_perc`) dispatches here
+      # instead of silently falling through to the base method.
+      def scroll(offset = 1, always = false)
         if offset == 0
           return super offset, always
         end
