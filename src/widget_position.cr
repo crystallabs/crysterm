@@ -284,10 +284,17 @@ module Crysterm
         yl = coords.yl
       end
 
-      # Find a scrollable ancestor if we have one.
+      # Find the nearest ancestor that clips its children, if any. Two kinds of
+      # ancestor clip: a scrollable element (clips to its scroll viewport) or an
+      # element with `overflow: Hidden` (clips to its rectangle even though it
+      # does not scroll). Both are handled by the same block below; a Hidden,
+      # non-scrollable parent simply has `child_base == 0`, so the scroll-offset
+      # math degenerates to a plain clip.
       while el = el.parent
-        if el.scrollable?
-          if fixed
+        if el.scrollable? || el.overflow.hidden?
+          # `fixed` widgets (e.g. labels sitting on a border) are exempt from
+          # *scroll* clipping, but not from `overflow: Hidden` clipping.
+          if fixed && el.scrollable?
             fixed = false
             next
           end
@@ -305,7 +312,9 @@ module Crysterm
       # See: $ c test/widget-shrink-fail.cr
       # scrollable_parent = @parent
 
-      # First/closest scrollable parent
+      # First/closest clipping parent (scrollable, or `overflow: Hidden`).
+      # Named `scrollable_parent` for historical reasons; for a Hidden parent
+      # the scroll-specific terms (`.base`) are simply zero.
       scrollable_parent = el
 
       # Using scrollable_parent && el here to restrict both to non-nil

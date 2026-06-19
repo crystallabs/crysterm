@@ -43,6 +43,7 @@ module Crysterm
   # Overflow behavior when rendering and drawing elements.
   enum Overflow
     Ignore        # Render without changes (part goes out of screen and is not visible)
+    Hidden        # Clip children to this widget's rectangle (like CSS `overflow: hidden`), even when the widget is not scrollable
     ShrinkWidget  # Make the Widget smaller to fit
     SkipWidget    # Do not render that widget
     StopRendering # End rendering cycle (leave current and remaining widgets unrendered)
