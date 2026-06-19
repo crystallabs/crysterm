@@ -134,7 +134,7 @@ module Crysterm
 
     # Real render
     def _render # (draw = true) #@@auto_draw)
-      t1 = Time.monotonic
+      t1 = Time.instant
 
       emit Crysterm::Event::PreRender
 
@@ -168,7 +168,7 @@ module Crysterm
 
       _dock_borders if @dock_borders
 
-      t2 = Time.monotonic
+      t2 = Time.instant
 
       draw
 
@@ -184,7 +184,7 @@ module Crysterm
 
       emit Crysterm::Event::Rendered
 
-      t3 = Time.monotonic
+      t3 = Time.instant
 
       if pos = @show_fps
         ps = {1 // (t2 - t1).total_seconds, 1 // (t3 - t2).total_seconds, 1 // (t3 - t1).total_seconds}
