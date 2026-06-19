@@ -111,7 +111,7 @@ module Crysterm
         # content is in the shrunken box, unless we do this (call get_coords
         # without the scrollable calculation):
         # See: $ test/widget-shrink-fail-2
-        el_bottom = if el.screen && (lpos = el._get_coords false, true)
+        el_bottom = if el.screen? && (lpos = el._get_coords false, true)
                       el.rtop + (lpos.yl - lpos.yi)
                     else
                       el.rtop + el.aheight

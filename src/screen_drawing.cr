@@ -459,7 +459,13 @@ module Crysterm
     end
 
     def blank_line(ch = ' ', dirty = false)
-      o = Row.new awidth, {@default_attr, ch}
+      # `Row.new awidth` only reserves capacity (size 0); the row must actually
+      # be populated with `awidth` cells, otherwise the blank lines inserted by
+      # `insert_line`/`delete_line` are zero-width and render as nothing (and
+      # later writes to `lines[y][x]` fall out of range). Mirrors how the main
+      # screen buffer fills rows via `adjust_width`.
+      o = Row.new awidth
+      awidth.times { o.push @default_attr, ch }
       o.dirty = dirty
       o
     end

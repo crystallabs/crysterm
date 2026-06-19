@@ -297,9 +297,14 @@ module Crysterm
         attrs.push attr
         raise "indexing error" unless attrs.size == j + 1
 
-        line.chars.each_with_index do |char, _|
+        line.chars.each_with_index do |char, i|
           if char == '\e'
-            if c = line[1..].match(SGR_REGEX)
+            # Match the SGR sequence starting at THIS escape (`line[i..]`), not
+            # at a fixed offset of 1. With `line[1..]` the search skipped past
+            # the escape at index 0, so a leading SGR code was dropped entirely
+            # and the carried-over attribute (used when scrolling colored text)
+            # was wrong.
+            if c = line[i..].match(SGR_REGEX_AT_BEGINNING)
               attr = screen.attr2code(c[0], attr, default_attr)
             end
           end
@@ -477,7 +482,11 @@ module Crysterm
       # up to May is unexplained, since no obvious changes were done in this
       # code. Or, cn this be a bug we unintentionally fixed?
       # s = @resizable ? 0 : width - len
-      s = (@resizable && !width) ? 0 : width - len
+      # NOTE: `width` is an Int, so the old `!width` was always false (only
+      # `nil`/`false` are falsy in Crystal), making the resizable branch dead.
+      # The intent is to skip alignment padding for a resizable widget that has
+      # no usable width yet, i.e. `width == 0`.
+      s = (@resizable && width == 0) ? 0 : width - len
 
       return line if len == 0
       return line if s < 0
@@ -540,7 +549,9 @@ module Crysterm
       while @_clines.fake.size < i
         @_clines.fake.push("")
         @_clines.ftor.push([@_clines.push("").size - 1])
-        @_clines.rtof[@_clines.fake.size - 1]
+        # Discarded read kept only for parity with the port; use the safe `[]?`
+        # so it cannot raise `IndexError` when `rtof` is shorter than `fake`.
+        @_clines.rtof[@_clines.fake.size - 1]?
       end
 
       # NOTE: Could possibly compare the first and last ftor line numbers to see
@@ -633,28 +644,40 @@ module Crysterm
       # now takes care of that, so the explicit clear is no longer needed.
     end
 
+    # Maps a real (wrapped) line index to its fake (logical) line index via
+    # `@_clines.rtof`, guarding against out-of-range access. `rtof` has one
+    # entry per wrapped line, so indices such as `@child_base` are normally in
+    # range, but for empty/short content (e.g. before content is wrapped) a raw
+    # `rtof[i]` would raise `IndexError`. Returns 0 when `rtof` is empty and
+    # clamps otherwise.
+    private def rtof_index(i)
+      rtof = @_clines.rtof
+      return 0 if rtof.empty?
+      rtof[i.clamp(0, rtof.size - 1)]
+    end
+
     def insert_top(line)
-      fake = @_clines.rtof[@child_base]
+      fake = rtof_index(@child_base)
       insert_line(fake, line)
     end
 
     def insert_bottom(line)
       h = (@child_base) + aheight - iheight
       i = Math.min(h, @_clines.size)
-      fake = @_clines.rtof[i - 1] + 1
+      fake = rtof_index(i - 1) + 1
 
       insert_line(fake, line)
     end
 
     def delete_top(n = 1)
-      fake = @_clines.rtof[@child_base]
+      fake = rtof_index(@child_base)
       delete_line(fake, n)
     end
 
     def delete_bottom(n)
       h = (@child_base) + aheight - 1 - iheight
       i = Math.min(h, @_clines.size - 1)
-      fake = @_clines.rtof[i]
+      fake = rtof_index(i)
 
       n = 1 if !n || n == 0
 
@@ -671,7 +694,7 @@ module Crysterm
     end
 
     def set_baseline(i, line)
-      fake = @_clines.rtof[@child_base]
+      fake = rtof_index(@child_base)
       set_line(fake + i, line)
     end
 
@@ -682,7 +705,7 @@ module Crysterm
     end
 
     def get_baseline(i)
-      fake = @_clines.rtof[@child_base]
+      fake = rtof_index(@child_base)
       get_line(fake + i)
     end
 
@@ -692,7 +715,7 @@ module Crysterm
     end
 
     def clear_base_line(i)
-      fake = @_clines.rtof[@child_base]
+      fake = rtof_index(@child_base)
       clear_line(fake + i)
     end
 
@@ -705,7 +728,9 @@ module Crysterm
     end
 
     def push_line(line)
-      if !@content
+      # `@content` is a non-nilable String, so the old `!@content` was always
+      # false (an empty String is truthy in Crystal) and this never set line 0.
+      if @content.empty?
         return set_line(0, line)
       end
       insert_line(@_clines.fake.size, line)
