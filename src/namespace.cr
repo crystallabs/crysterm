@@ -176,7 +176,10 @@ module Crysterm
       @border = Border.from value
     end
 
-    getter border : Border?
+    # Border is always a non-nil object. "No border" is represented by a
+    # `Border` whose sides are all 0 (see `Border#any?`), which renders nothing
+    # and expands the widget by nothing — exactly like the old `nil` did.
+    getter border : Border { Border.new 0 }
 
     setter cell : Style?
 
@@ -330,7 +333,7 @@ module Crysterm
       in true
         Border.new
       in nil, false
-        nil
+        Border.new 0
       in BorderType
         Border.new value
       in Border

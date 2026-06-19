@@ -407,14 +407,21 @@ module Crysterm
 
       # Draw the border.
       style.border.try do |border|
+        # A border with all sides 0 is "no border": nothing to draw.
+        next unless border.any?
+
         battr = sattr border
 
         [yi, yl - 1].each do |y|
           next if y == -1 || !lines[y]?
 
-          if y == yi && coords.no_top?
+          # A 0-height top/bottom border was not expanded into its own row
+          # (yi/yl-1 still sit on the content), so treat it exactly like
+          # `no_top?`/`no_bottom?` and skip the whole row. Drawing here would
+          # otherwise overwrite the content on that line.
+          if y == yi && (coords.no_top? || border.top == 0)
             next
-          elsif y == yl - 1 && coords.no_bottom?
+          elsif y == yl - 1 && (coords.no_bottom? || border.bottom == 0)
             next
           end
 
@@ -439,6 +446,12 @@ module Crysterm
           next unless lines[y]?
 
           [xi, xl - 1].each do |x|
+            # A 0-width left/right border was not expanded into its own column
+            # (xi/xl-1 still sit on the content), so skip it like a
+            # `no_left?`/`no_right?` clip instead of overwriting text.
+            next if border.left == 0 && x == xi
+            next if border.right == 0 && x == xl - 1
+
             cell = lines[y][x]?
             next unless cell
 
@@ -560,7 +573,9 @@ module Crysterm
         ch = border.char
       end
 
-      ch = ' ' if (border.top == 0 && y == yi || border.bottom == 0 && y == yl - 1) && x != xi && x != xl - 1
+      # Note: cells on a 0-width/height side are no longer reached here — the
+      # drawing loops in `_render` skip them outright (like `no_top?`/`no_left?`),
+      # so there is nothing to blank out.
 
       ch || ' ' # Just a failsafe
     end
