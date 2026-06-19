@@ -66,14 +66,23 @@ module Crysterm
       get_content.gsub SGR_REGEX, ""
     end
 
-    class CLines < Array(String)
+    # Word-wrapped, ready-to-render content lines plus the bookkeeping needed
+    # to map between the original ("fake") and wrapped ("real") line numbers.
+    #
+    # This used to subclass `Array(String)`. Subclassing a stdlib generic is
+    # deprecated, and—more importantly—it promotes every `Array(String)` in the
+    # whole program (including in unrelated shards) to the virtual type
+    # `Array(String)+`, which produces confusing compile errors far away from
+    # here (see issue #30). It now *wraps* an array and forwards the array API
+    # to it via `forward_missing_to`, so no `Array(String)` is ever subclassed.
+    class CLines
       property string = ""
       property max_width = 0
       property width = 0
 
       property content : String = ""
 
-      property real = [] of String
+      property real : CLines? = nil
 
       property fake = [] of String
 
@@ -82,6 +91,22 @@ module Crysterm
       property ci = [] of Int32
 
       property attr : Array(Int32)? = [] of Int32
+
+      # Backing store of wrapped lines. The array API (`push`, `[]`, `size`,
+      # `each`, `join`, `reduce`, ...) is forwarded to it below.
+      getter lines : Array(String)
+
+      def initialize(@lines = [] of String)
+      end
+
+      # Match the old `Array#dup` behavior: a fresh, independent `Array(String)`
+      # copy (without the extra bookkeeping). Defined explicitly because
+      # `dup` already exists on `Object` and so is not forwarded.
+      def dup
+        @lines.dup
+      end
+
+      forward_missing_to @lines
     end
 
     def process_content(no_tags = false)
