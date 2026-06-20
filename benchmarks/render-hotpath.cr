@@ -19,8 +19,8 @@ require "../src/crysterm"
 
 include Crysterm
 
-WIDTH = 200
-attr  = Crysterm::Screen::DEFAULT_ATTR
+WIDTH  = 200
+attr = Crysterm::Screen::DEFAULT_ATTR
 ROUNDS = 5000
 
 # A typical text row: mostly single-codepoint ASCII cells.
@@ -143,9 +143,9 @@ puts "  cell comparisons: OLD #{old_bce.call}  vs  NEW #{new_bce.call}  (per lin
 #        ^-matches; NEW matches the SGR regex anchored in place. Same matches,
 #        no tail-substring allocation.
 section "#7/#8  SGR scan over a styled line  (render loop + _parse_attr)"
-sgr_at  = Crysterm::Widget::SGR_REGEX_AT_BEGINNING
-sgr     = Crysterm::Widget::SGR_REGEX
-styled  = (0...20).map { |i| "\e[3#{i % 8}mword#{i}" }.join(" ") + "\e[0m"
+sgr_at = Crysterm::Widget::SGR_REGEX_AT_BEGINNING
+sgr = Crysterm::Widget::SGR_REGEX
+styled = (0...20).map { |i| "\e[3#{i % 8}mword#{i}" }.join(" ") + "\e[0m"
 Benchmark.ips do |x|
   x.report("OLD  slice tail + ^-anchored match") do
     styled.each_char_with_index { |ch, i| styled[i..].match(sgr_at) if ch == '\e' }

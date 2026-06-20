@@ -20,7 +20,7 @@ describe "SGR in-place anchored scanning" do
     "\e[38;2;255;136;0mtruecolor\e[0m",
     "héllo\e[1mX\e[0m中\e[32mZ", # multibyte text interleaved with codes
     "trailing\e[0m",
-    "\e[m", # empty params
+    "\e[m",               # empty params
     "\e[notSGR mletters", # a bare ESC that is not a valid SGR sequence
   ]
 

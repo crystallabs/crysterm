@@ -10,8 +10,8 @@ module Crysterm
     #
     # ```
     # bar = Widget::ListBar.new keys: true, mouse: true, auto_command_keys: true
-    # bar.add "open", ->{ open_file }
-    # bar.add "quit", ->{ exit }, keys: ["q"]
+    # bar.add "open", -> { open_file }
+    # bar.add "quit", -> { exit }, keys: ["q"]
     # ```
     class ListBar < Box
       # A single command/tab shown in a `ListBar`.
