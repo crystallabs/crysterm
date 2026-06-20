@@ -1,12 +1,15 @@
 module Crysterm
   class Widget
-    @resizable = true
-    @parse_tags = true
-
     class Message < Box
+      # These were previously set in the `class Widget` body (outside `Message`),
+      # which polluted every widget's defaults and left `Message` itself
+      # unscoped. They belong to `Message`.
+      @resizable = true
+      @parse_tags = true
+
       @ev_keypress : Crysterm::Event::KeyPress::Wrapper?
 
-      def display(text, time : Time::Span? = 10.seconds, &callback : Proc(Nil))
+      def display(text, time : Time::Span? = 3.seconds, &callback : Proc(Nil))
         # D O:
         # Keep above:
         # parent = @parent
@@ -89,7 +92,7 @@ module Crysterm
         callback.try &.call
       end
 
-      def error(text, time : Time::Span? = 10.seconds, &callback : Proc(Nil))
+      def error(text, time : Time::Span? = 3.seconds, &callback : Proc(Nil))
         # `display` takes its callback as a block, not a positional arg.
         display("{red-fg}Error: #{text}{/red-fg}", time, &callback)
       end

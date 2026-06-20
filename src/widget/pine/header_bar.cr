@@ -17,8 +17,9 @@ module Crysterm
 
           @style = Style.new inverse: true
 
+          # Padding.new is (left, top, right, bottom): pl2 = left:2, pr2 = right:2.
           @style_pl2 = Style.new inverse: true, padding: Padding.new(2, 0, 0, 0)
-          @style_pr2 = Style.new inverse: true, padding: Padding.new(2, 0, 0, 0)
+          @style_pr2 = Style.new inverse: true, padding: Padding.new(0, 0, 2, 0)
 
           # @title =      title ||      Widget::Box.new height: h, style: style, width: 16, padding: Padding.new( left: 2, right: 2), content: "TITLE"
           # @section =    section ||    Widget::Box.new height: h, style: style, width: "50%-16", content: "SECTION"
