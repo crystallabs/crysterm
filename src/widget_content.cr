@@ -36,6 +36,13 @@ module Crysterm
     # of the full content on every render.
     @_content_version = 0
 
+    # The `sattr(style)` value that the currently-cached `@_clines.attr` was
+    # computed against. `_parse_attr` only depends on the content (unchanged on
+    # the cached path) and this base attribute, so it can be skipped whenever the
+    # style's packed attr is unchanged frame-to-frame (the common case). `nil`
+    # forces the first computation.
+    @_parse_attr_default : Int64? = nil
+
     # Processes and sets widget content. Does not allow extra options re.
     # how content is to be processed; use `#set_content` if you need to provide
     # extra options.
@@ -178,6 +185,7 @@ module Crysterm
         @_clines.content = @content
         @_clines.content_version = @_content_version
         @_clines.attr = _parse_attr @_clines
+        @_parse_attr_default = sattr(style)
         @_clines.ci = [] of Int32
         @_clines.reduce(0) do |total, line|
           @_clines.ci.push(total)
@@ -190,8 +198,15 @@ module Crysterm
         return true
       end
 
-      # Need to calculate this every time because the default fg/bg may change.
-      @_clines.attr = _parse_attr(@_clines) || @_clines.attr
+      # The carried-over per-line attrs depend only on the (unchanged) content
+      # and the style's base attribute, so recompute them only when that base
+      # attr actually changed (default fg/bg/flags). On the common frame where
+      # nothing changed this skips the O(content) `_parse_attr` scan entirely.
+      da = sattr(style)
+      if da != @_parse_attr_default
+        @_parse_attr_default = da
+        @_clines.attr = _parse_attr(@_clines)
+      end
 
       false
     end
@@ -307,18 +322,17 @@ module Crysterm
       attr = default_attr
       attrs = [] of Int64
 
-      lines.each_with_index do |line, j|
+      lines.each do |line|
         attrs.push attr
-        raise "indexing error" unless attrs.size == j + 1
 
-        line.chars.each_with_index do |char, i|
+        # `each_char_with_index` walks the codepoints without materializing a
+        # `line.chars` array, and the SGR match is anchored in place at `i`
+        # instead of slicing `line[i..]` — so a colored line is scanned with no
+        # per-line/per-escape `String` allocation. (Matching at THIS escape, not
+        # a fixed offset of 1, preserves the leading-SGR fix.)
+        line.each_char_with_index do |char, i|
           if char == '\e'
-            # Match the SGR sequence starting at THIS escape (`line[i..]`), not
-            # at a fixed offset of 1. With `line[1..]` the search skipped past
-            # the escape at index 0, so a leading SGR code was dropped entirely
-            # and the carried-over attribute (used when scrolling colored text)
-            # was wrong.
-            if c = line[i..].match(SGR_REGEX_AT_BEGINNING)
+            if c = SGR_REGEX.match(line, i, options: Regex::MatchOptions::ANCHORED)
               attr = screen.attr2code(c[0], attr, default_attr)
             end
           end

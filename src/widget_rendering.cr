@@ -68,7 +68,8 @@ module Crysterm
       # attr
       # ch
       # Log.trace { lines.inspect }
-      content = StringIndex.new @_pcontent || ""
+      pcontent = @_pcontent || ""
+      content = StringIndex.new pcontent
       ci = @_clines.ci[coords.base]? || 0 # XXX Is it ok that array lookup can be nil? and defaulting to 0?
       # battr
       # default_attr
@@ -212,8 +213,12 @@ module Crysterm
 
           # Handle escape codes.
           while ch == '\e'
-            cnt = content[(ci - 1)..]
-            if c = cnt.match SGR_REGEX_AT_BEGINNING
+            # Match the SGR sequence in place at `ci - 1` (the escape we just
+            # consumed) instead of slicing `content[(ci - 1)..]`, which would
+            # allocate a fresh `String` of the entire remaining content on every
+            # escape character. ANCHORED forces the match to start exactly at
+            # that position (replacing the old `^`-anchored regex on the slice).
+            if c = SGR_REGEX.match(pcontent, ci - 1, options: Regex::MatchOptions::ANCHORED)
               ci += c[0].size - 1
               attr = screen.attr2code(c[0], attr, default_attr)
               # Ignore foreground changes for selected items (keep the default
