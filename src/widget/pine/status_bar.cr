@@ -9,7 +9,7 @@ module Crysterm
           status_content = "",
           status : Widget? = nil,
           style = Style.new,
-          **layout
+          **layout,
         )
           super **layout, style: style, width: w, height: h
 

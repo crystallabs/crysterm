@@ -126,7 +126,7 @@ module Crysterm
 
       # Final, misc settings
       @index = -1,
-      children = [] of Widget
+      children = [] of Widget,
     )
       # $ = _ = JSON/YAML::Any
 

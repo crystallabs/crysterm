@@ -122,7 +122,7 @@ module Crysterm
       # If we're in a scrollable text box, check to
       # see which attributes this line starts with.
       if ci > 0
-        attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || 0
+        attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || 0_i64
       end
 
       # TODO See if these 4 values could be packed somehow to just replace individual
@@ -220,10 +220,11 @@ module Crysterm
             if c = cnt.match SGR_REGEX_AT_BEGINNING
               ci += c[0].size - 1
               attr = screen.attr2code(c[0], attr, default_attr)
-              # Ignore foreground changes for selected items.
+              # Ignore foreground changes for selected items (keep the default
+              # foreground while letting the rest of the attr change).
               parent.try do |parent2|
                 if parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.items[parent2.selected] == self # XXX && parent2.invert_selected
-                  attr = (attr & ~(0x1ff << 9)) | (default_attr & (0x1ff << 9))
+                  attr = Attr.pack(Attr.flags(attr), Attr.fg(default_attr), Attr.bg(attr))
                 end
               end
               ch = content[ci]? || bch
@@ -276,32 +277,28 @@ module Crysterm
             next
           end
 
-          # TODO
-          # if (screen.full_unicode && content[ci - 1])
-          if content[ci - 1]?
-            # point = content.codepoint_at(ci - 1) # Unused
-            # TODO
-            # # Handle combining chars:
-            # # Make sure they get in the same cell and are counted as 0.
-            # if (unicode.combining[point])
-            #  if (point > 0x00ffff)
-            #    ch = content[ci - 1] + content[ci]
-            #    ci++
-            #  end
-            #  if (x - 1 >= xi)
-            #    lines[y][x - 1][1] += ch
-            #  elsif (y - 1 >= yi)
-            #    lines[y - 1][xl - 1][1] += ch
-            #  end
-            #  x-=1
-            #  next
-            # end
-            # Handle surrogate pairs:
-            # Make sure we put surrogate pair chars in one cell.
-            # if (point > 0x00ffff)
-            #  ch = content[ci - 1] + content[ci]
-            #  ci++
-            # end
+          # Whether this cell maps to a real content codepoint (vs. the fill
+          # char `bch` past the end of content).
+          has_content = !content[ci - 1]?.nil?
+
+          # Grapheme assembly (full_unicode): merge following combining marks /
+          # joiners into one cluster, and lay wide (2-column) clusters across two
+          # cells. Legacy keeps one codepoint per cell.
+          grapheme = ch.to_s
+          cell_width = 1
+          if full_unicode? && has_content
+            grapheme, ci = extend_grapheme(content, ci, ch)
+            cell_width = ::Crysterm::Unicode.width grapheme
+            if cell_width == 0
+              # Zero-width cluster (e.g. a leading combining mark): merge into the
+              # previous cell rather than consuming one.
+              if x > xi && (prev = line[x - 1]?)
+                prev.grapheme = prev.grapheme + grapheme
+                line.dirty = true
+              end
+              x -= 1
+              next
+            end
           end
 
           unless style.fill?
@@ -310,16 +307,31 @@ module Crysterm
 
           if alpha = style.alpha?
             cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
-            if content[ci - 1]?
-              cell.char = ch
+            if has_content
+              full_unicode? ? (cell.grapheme = grapheme) : (cell.char = ch)
             end
             line.dirty = true
+          elsif full_unicode?
+            if cell.attr != attr || cell.grapheme != grapheme
+              cell.attr = attr
+              cell.grapheme = grapheme
+              line.dirty = true
+            end
           else
             if cell != {attr, ch}
               cell.attr = attr
               cell.char = ch
               line.dirty = true
             end
+          end
+
+          # Wide grapheme: claim the following cell as its continuation so the
+          # cell grid stays 1 cell == 1 terminal column.
+          if full_unicode? && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
+            nxt.attr = attr
+            nxt.continuation!
+            line.dirty = true
+            x += 1
           end
         end
       end
@@ -599,7 +611,7 @@ module Crysterm
       _render with_children
     end
 
-    def self.sattr(style, fg = nil, bg = nil)
+    def self.sattr(style, fg = nil, bg = nil) : Int64
       if fg.nil? && bg.nil?
         fg = style.fg
         bg = style.bg
@@ -607,16 +619,16 @@ module Crysterm
 
       # TODO support style.* being Procs ?
 
-      # D O:
-      # return (this.uid << 24)
-      #   | ((this.dockBorders ? 32 : 0) << 18)
-      ((style.visible? ? 0 : 16) << 18) |
-        ((style.inverse? ? 8 : 0) << 18) |
-        ((style.blink? ? 4 : 0) << 18) |
-        ((style.underline? ? 2 : 0) << 18) |
-        ((style.bold? ? 1 : 0) << 18) |
-        (Colors.convert(fg) << 9) |
-        Colors.convert(bg)
+      flags =
+        (style.visible? ? 0 : Attr::INVISIBLE) |
+          (style.inverse? ? Attr::INVERSE : 0) |
+          (style.blink? ? Attr::BLINK : 0) |
+          (style.underline? ? Attr::UNDERLINE : 0) |
+          (style.bold? ? Attr::BOLD : 0)
+
+      # `Colors.convert` yields a native color (`-1` default, or `0xRRGGBB`);
+      # `Attr.pack_color` maps that into a packed color field.
+      Attr.pack(flags, Attr.pack_color(Colors.convert(fg)), Attr.pack_color(Colors.convert(bg)))
     end
 
     def sattr(style, fg = nil, bg = nil)

@@ -73,46 +73,37 @@ module Crysterm
     alias_previous reset_cursor
 
     # :nodoc:
-    def _artificial_cursor_attr(cursor, attr = @default_attr)
+    def _artificial_cursor_attr(cursor, attr : Int64 = @default_attr)
+      ch = nil
+      # A white-ish foreground keeps the synthetic cursor glyph visible
+      # (palette index 7, mapped to its native RGB).
+      white = Attr.pack_color(Colors.palette_to_rgb(7))
+
       if cursor.shape.line?
-        attr &= ~(0x1ff << 9)
-        attr |= 7 << 9
+        attr = Attr.pack(Attr.flags(attr), white, Attr.bg(attr))
         ch = '\u2502'
       elsif cursor.shape.underline?
-        attr &= ~(0x1ff << 9)
-        attr |= 7 << 9
-        attr |= 2 << 18
+        attr = Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, white, Attr.bg(attr))
       elsif cursor.shape.block?
-        attr &= ~(0x1ff << 9)
-        attr |= 7 << 9
-        attr |= 8 << 18
+        attr = Attr.pack(Attr.flags(attr) | Attr::INVERSE, white, Attr.bg(attr))
       elsif cursor.shape.none?            # XXX "lib/widgets/screen.js:2074 do they check for true, not none here?
         cattr = Widget.sattr cursor.style # XXX and some difference here
         # cattr = Colors.blend attr, cursor.style, (cursor.style.alpha || 0)
+        flags = Attr.flags(attr)
         if cursor.style.bold? || cursor.style.underline? || cursor.style.blink? || cursor.style.inverse? || !cursor.style.visible?
-          attr &= ~(0x1ff << 18)
-          attr |= ((cattr >> 18) & 0x1ff) << 18
+          flags = Attr.flags(cattr)
         end
-        if cursor.style.fg
-          attr &= ~(0x1ff << 9)
-          attr |= ((cattr >> 9) & 0x1ff) << 9
-        end
-        if cursor.style.bg
-          attr &= ~(0x1ff << 0)
-          attr |= cattr & 0x1ff
-        end
+        fg = cursor.style.fg ? Attr.fg(cattr) : Attr.fg(attr)
+        bg = cursor.style.bg ? Attr.bg(cattr) : Attr.bg(attr)
+        attr = Attr.pack(flags, fg, bg)
         if cursor.style.char
           ch = cursor.style.char
         end
       end
 
-      # Apply the cursor's background colour into the BACKGROUND slot (bits
-      # 0-8). This previously cleared and wrote into the FOREGROUND slot
-      # (`0x1ff << 9`), so a cursor `bg` clobbered the foreground colour set
-      # just above instead of changing the background.
+      # Apply the cursor's background colour into the BACKGROUND field.
       unless cursor.style.bg.nil?
-        attr &= ~(0x1ff << 0)
-        attr |= Colors.convert(cursor.style.bg) & 0x1ff
+        attr = Attr.pack(Attr.flags(attr), Attr.fg(attr), Attr.pack_color(Colors.convert(cursor.style.bg)))
       end
 
       # Cell.new attr: attr, char: ch || ' '

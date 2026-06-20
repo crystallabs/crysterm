@@ -2,7 +2,8 @@ module Crysterm
   class Screen
     # Things related to rendering (setting up memory state for display)
 
-    DEFAULT_ATTR = ((0 << 18) | (0x1ff << 9)) | 0x1ff
+    # No flags, default fg, default bg. An `Int64` (see `Crysterm::Attr`).
+    DEFAULT_ATTR = Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)
     DEFAULT_CHAR = ' '
 
     # Note: Disabled since nothing uses it.
@@ -26,14 +27,74 @@ module Crysterm
     #  end
     # end
 
-    @render_flag : Atomic(UInt8) = Atomic.new 0u8
-    @render_channel : Channel(Bool) = Channel(Bool).new
+    # ---- Single-threaded rendering model -----------------------------------
+    #
+    # Crysterm renders on ONE fiber, Qt-style. The render fiber (`render_loop`)
+    # is the sole owner of the cell buffer (`@lines`) and the only place widgets
+    # are painted to it. Because the default Crystal runtime is single-threaded
+    # and fibers are cooperative, the render fiber and the input/handler fibers
+    # never run in parallel — they interleave only at yield points — so NO locks
+    # are needed on widget state.
+    #
+    # Coordination is a single capacity-1 channel used as a coalescing
+    # "doorbell": `schedule_render` rings it (non-blocking; extra rings while one
+    # is already pending are dropped, which batches bursts into one frame), and
+    # `render_loop` consumes the ring *before* rendering, so a change made during
+    # a render re-rings the doorbell and is picked up by the next frame (no lost
+    # updates). The channel is the only cross-fiber primitive and channels are
+    # safe even under multi-threading, so `schedule_render`/`post` may be called
+    # from any fiber — but everything they hand off still runs on the one render
+    # fiber. If you ever offload heavy work to another fiber/thread, mutate
+    # widgets via `post` so it happens on the render fiber, not concurrently.
+
+    # Coalescing render doorbell (capacity 1: at most one render pending).
+    @render_wakeup = Channel(Nil).new 1
+
+    # Set by `#destroy` to make `render_loop` exit on its next wake-up.
+    @render_stop = false
+
+    # Closures queued by other fibers to run *on the render fiber*, applied just
+    # before the next render. This is the marshaling boundary (Qt's queued
+    # connection / `postEvent`).
+    @ui_queue = Channel(Proc(Nil)).new 1024
+
+    # Minimum delay between frames (also the FPS cap, ~29 fps). Kept in seconds.
     property interval : Float64 = 1/29
 
-    def schedule_render
-      _old, succeeded = @render_flag.compare_and_set 0, 1
-      if succeeded
-        @render_channel.send true
+    # Monotonic time of the last completed render; nil until the first render so
+    # that the very first request paints immediately.
+    @last_render_at : Time::Instant? = nil
+
+    # Requests a render. Non-blocking and coalescing; safe to call from any
+    # fiber. Multiple calls before the frame is produced collapse into one.
+    def schedule_render : Nil
+      select
+      when @render_wakeup.send nil
+        # Doorbell rung; a render is now pending.
+      else
+        # A render is already pending — coalesce (nothing to do).
+      end
+    end
+
+    # Queues `block` to run on the render fiber just before the next render, then
+    # schedules that render. Use this to apply results computed off the render
+    # fiber (a background fiber, or a thread under `-Dpreview_mt`) to widgets,
+    # keeping ALL widget mutation on the single render fiber — no locks needed.
+    def post(&block : Proc(Nil)) : Nil
+      @ui_queue.send block
+      schedule_render
+    end
+
+    # Runs every currently-queued `post` closure on the render fiber. Drains
+    # without blocking (stops as soon as the queue is empty).
+    private def drain_ui_queue
+      loop do
+        select
+        when job = @ui_queue.receive
+          job.call
+        else
+          break
+        end
       end
     end
 
@@ -69,15 +130,26 @@ module Crysterm
 
     def render_loop
       loop do
-        if @render_channel.receive
-          sleep @interval.seconds
+        # Park until a render is requested. Consuming the doorbell *here*, before
+        # rendering, is what closes the lost-update window: any `schedule_render`
+        # that fires while `_render` runs re-rings it and triggers another frame.
+        @render_wakeup.receive
+        break if @render_stop # woken by `#destroy` to exit cleanly
+
+        # Apply any posted UI jobs first, on this (the render) fiber.
+        drain_ui_queue
+
+        # Trailing throttle: the first request after an idle period renders
+        # immediately; back-to-back requests are spaced out to honor `interval`
+        # (the FPS cap), without adding latency to an isolated update.
+        @last_render_at.try do |last|
+          elapsed = Time.instant - last
+          frame = interval.seconds
+          sleep(frame - elapsed) if elapsed < frame
         end
+
         _render
-        if @render_flag.lazy_get == 2
-          break
-        else
-          @render_flag.swap 0
-        end
+        @last_render_at = Time.instant
       end
     end
 
@@ -92,7 +164,7 @@ module Crysterm
 
     # XXX move somewhere else?
     # Default cell attribute
-    property default_attr : Int32 = DEFAULT_ATTR
+    property default_attr : Int64 = DEFAULT_ATTR
 
     # XXX move somewhere else?
     # Default cell character

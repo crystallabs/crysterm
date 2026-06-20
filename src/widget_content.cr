@@ -103,7 +103,7 @@ module Crysterm
       property rtof = [] of Int32
       property ci = [] of Int32
 
-      property attr : Array(Int32)? = [] of Int32
+      property attr : Array(Int64)? = [] of Int64
 
       # Backing store of wrapped lines. The array API (`push`, `[]`, `size`,
       # `each`, `join`, `reduce`, ...) is forwarded to it below.
@@ -305,7 +305,7 @@ module Crysterm
     def _parse_attr(lines : CLines)
       default_attr = sattr(style)
       attr = default_attr
-      attrs = [] of Int32
+      attrs = [] of Int64
 
       lines.each_with_index do |line, j|
         attrs.push attr
@@ -383,52 +383,34 @@ module Crysterm
         # If the string could be too long, check it in more detail and wrap it if needed.
         # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
         loop_ret = loop do
-          break unless line.size > colwidth
+          break unless str_width(line) > colwidth
 
-          # Measure the real width of the string.
-          total = 0
-          i = 0
-          # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
-          loop do
-            break unless i < line.size
-            while line[i] == '\e'
-              while line[i] && line[i] != 'm'
-                i += 1
+          # Character index at which to cut so the kept prefix fits `colwidth`
+          # columns. SGR sequences consume no width; under `full_unicode?` widths
+          # are grapheme / East-Asian and clusters are never split.
+          i = wrap_cut_index(line, colwidth)
+
+          # If we're not wrapping the text, keep the columns that fit plus any
+          # remaining control sequences, and cut the rest off.
+          unless @wrap_content
+            rest = line[i..].scan(/\e\[[^m]*m/) # SGR
+            rest = rest.any? ? rest.join : ""
+            outbuf.push _align(line[0...i] + rest, colwidth, align, align_left_too)
+            ftor[no].push(outbuf.size - 1)
+            rtof.push(no)
+            break :main
+          end
+
+          # Try to break on a space within the last few columns (word wrap).
+          if i != line.size
+            j = i
+            # TODO how can the condition and subsequent IF ever match
+            # with the line[j] thing?
+            while (j > i - 10) && (j > 0) && (j -= 1) && (line[j] != ' ')
+              if line[j] == ' '
+                i = j + 1
               end
             end
-            if line[i]?.nil?
-              break
-            end
-            total += 1
-            if total == colwidth # If we've reached the end of available width of bounding box
-              i += 1
-              # If we're not wrapping the text, we have to finish up the rest of
-              # the control sequences before cutting off the line.
-              unless @wrap_content
-                rest = line[i..].scan(/\e\[[^m]*m/) # SGR
-                rest = rest.any? ? rest.join : ""
-                outbuf.push _align(line[0...i] + rest, colwidth, align, align_left_too)
-                ftor[no].push(outbuf.size - 1)
-                rtof.push(no)
-                break :main
-              end
-              # XXX TODO
-              # if (!screen.fullUnicode)
-              # Try to find a char to break on.
-              if i != line.size
-                j = i
-                # TODO how can the condition and subsequent IF ever match
-                # with the line[j] thing?
-                while (j > i - 10) && (j > 0) && (j -= 1) && (line[j] != ' ')
-                  if line[j] == ' '
-                    i = j + 1
-                  end
-                end
-              end
-              # end
-              break
-            end
-            i += 1
           end
 
           part = line[0...i]
@@ -474,8 +456,7 @@ module Crysterm
       # the max_width value won't be actual max. length of longest line, but it
       # will be the full width of the surrounding box, to which it was aligned.
       outbuf.max_width = outbuf.reduce(0) do |current, line|
-        line = line.gsub(SGR_REGEX, "")
-        line.size > current ? line.size : current
+        Math.max str_width(line), current
       end
 
       outbuf
@@ -486,7 +467,7 @@ module Crysterm
       return line if align.none?
 
       cline = line.gsub SGR_REGEX, ""
-      len = cline.size
+      len = str_width line
 
       # XXX In blessed's code (and here) it was done only with this commented
       # line below. But after/around the May 28 2021 changes, this stopped
@@ -538,7 +519,7 @@ module Crysterm
 
         cparts = cline.split /\{|\}/
         if cparts[0]? && cparts[2]? # Don't trip on just single { or }
-          s = Math.max(width - cparts[0].size - cparts[2].size, 0)
+          s = Math.max(width - str_width(cparts[0]) - str_width(cparts[2]), 0)
           s = " " * s
           return "#{parts[0]}#{s}#{parts[2]}"
         else
@@ -767,11 +748,141 @@ module Crysterm
       @_clines.dup
     end
 
+    # Whether grapheme / column-width-aware layout is in effect for this widget;
+    # delegates to the owning screen's effective gate (`Screen#full_unicode?` =
+    # option AND terminal capability). False when unattached.
+    def full_unicode?
+      screen?.try(&.full_unicode?) || false
+    end
+
+    # Width, in terminal COLUMNS, of `text`'s visible content. SGR sequences are
+    # stripped (they occupy no columns); whitespace is preserved. With
+    # `#full_unicode?` this is grapheme / East-Asian width (`Unicode`), otherwise
+    # the codepoint count (legacy behavior).
+    #
+    # This is the single width hook layout should use; previously most call sites
+    # inlined `.size`, which miscounts wide / combining characters.
     def str_width(text)
-      text = @parse_tags ? strip_tags(text) : text
-      # return screen.full_unicode ? unicode.str_width(text) : helpers.drop_unicode(text).size
-      # text = text
-      text.size # or bytesize?
+      text = text.gsub SGR_REGEX, ""
+      full_unicode? ? Unicode.display_width(text) : text.size
+    end
+
+    # Longest *suffix* of `text` whose display width fits within `cols` columns,
+    # measured by grapheme cluster (wide characters count as 2; clusters are
+    # never split). Used by single-line inputs to show the tail of an over-long
+    # value under `#full_unicode?`.
+    def tail_within(text : String, cols : Int) : String
+      return "" if cols <= 0
+      return text if str_width(text) <= cols
+
+      kept = [] of String
+      width = 0
+      text.each_grapheme.to_a.reverse_each do |g|
+        gw = Unicode.width g
+        break if width + gw > cols
+        width += gw
+        kept << g.to_s
+      end
+      kept.reverse!
+      kept.join
+    end
+
+    # Returns `text` with its last **grapheme cluster** removed (e.g. a base +
+    # combining mark, or a wide emoji, comes off as one unit). Used for
+    # grapheme-aware backspace in text inputs. Empty in, empty out.
+    def chop_grapheme(text : String) : String
+      return text if text.empty?
+      text.each_grapheme.to_a[0...-1].join(&.to_s)
+    end
+
+    # Assembles the grapheme cluster that begins with `base` (the codepoint at
+    # `content[ci - 1]`) by consuming any following *extending* codepoints from
+    # `content` starting at `ci`: combining marks, ZWJ (and the codepoint it
+    # joins), variation selectors, emoji skin-tone modifiers, and — for a flag —
+    # a second regional indicator. Returns `{cluster, new_ci}`.
+    #
+    # This is a pragmatic subset of UAX-#29 that covers the cases that actually
+    # occur in terminal text; `content` is anything indexable by codepoint
+    # (`#[]?` returning `Char?`).
+    def extend_grapheme(content, ci : Int32, base : Char) : Tuple(String, Int32)
+      g = String::Builder.new
+      g << base
+
+      # A flag is a pair of regional indicators.
+      if 0x1F1E6 <= base.ord <= 0x1F1FF
+        if (c = content[ci]?) && (0x1F1E6 <= c.ord <= 0x1F1FF)
+          g << c
+          ci += 1
+        end
+        return {g.to_s, ci}
+      end
+
+      while c = content[ci]?
+        cp = c.ord
+        if c.mark? || cp == 0x200D || (0xFE00 <= cp <= 0xFE0F) || (0x1F3FB <= cp <= 0x1F3FF)
+          g << c
+          ci += 1
+          # A ZWJ also pulls in the codepoint it joins (e.g. the next emoji).
+          if cp == 0x200D && (c2 = content[ci]?)
+            g << c2
+            ci += 1
+          end
+        else
+          break
+        end
+      end
+
+      {g.to_s, ci}
+    end
+
+    # Character index in `line` (which may contain inline SGR) at which to cut so
+    # the kept prefix fits within `colwidth` columns. SGR sequences (`\e[…m`)
+    # consume no columns. Under `#full_unicode?` widths are grapheme /
+    # East-Asian and grapheme clusters are never split; otherwise it is one
+    # column per codepoint (legacy). Returns `line.size` when the whole line
+    # fits, and always makes progress — a single grapheme wider than `colwidth`
+    # is kept whole (overflowing) rather than looping forever.
+    def wrap_cut_index(line : String, colwidth : Int) : Int32
+      full = full_unicode?
+      total = 0
+      i = 0
+      n = line.size
+      while i < n
+        if line[i] == '\e'
+          i += 1
+          while i < n && line[i] != 'm'
+            i += 1
+          end
+          i += 1 if i < n # consume the terminating 'm'
+          next
+        end
+
+        # Contiguous run of visible text up to the next SGR (or end of line).
+        run_end = i
+        while run_end < n && line[run_end] != '\e'
+          run_end += 1
+        end
+
+        if full
+          pos = i
+          line[i...run_end].each_grapheme do |g|
+            gs = g.to_s
+            w = Unicode.width gs
+            # Cut before this cluster once we already have content placed.
+            return pos if total + w > colwidth && total > 0
+            total += w
+            pos += gs.size
+          end
+          i = run_end
+        else
+          (i...run_end).each do |k|
+            total += 1
+            return k + 1 if total == colwidth
+          end
+          i = run_end
+        end
+      end
+      i
     end
   end
 

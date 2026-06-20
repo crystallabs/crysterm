@@ -11,7 +11,7 @@ module Crysterm
           height h = 1, width w = "100%",
           title_content = "TITLE", section_content = "SECTION", subsection_content = "SUBSECTION", info_content = "STATUS",
           title : Widget? = nil, section : Widget? = nil, subsection : Widget? = nil, info : Widget? = nil,
-          **layout
+          **layout,
         )
           super **layout, width: w, height: h
 

@@ -24,7 +24,7 @@ module Crysterm
         @interval = 0.2.seconds,
         @icons = ["|", "/", "-", "\\"],
         @step = 1,
-        **box
+        **box,
       )
         box["content"]?.try do |c|
           @orig_text = c

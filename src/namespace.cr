@@ -271,7 +271,7 @@ module Crysterm
       @pchar = @pchar,
       @fchar = @fchar,
       @bchar = @bchar,
-      @ignore_border = @ignore_border
+      @ignore_border = @ignore_border,
     )
       alpha.try { |v| self.alpha = self.class.alpha_from(v) }
       border.try { |v| self.border = Border.from(v) }
@@ -353,7 +353,7 @@ module Crysterm
       @left = @left,
       @top = @top,
       @right = @right,
-      @bottom = @bottom
+      @bottom = @bottom,
     )
     end
 
@@ -496,7 +496,7 @@ module Crysterm
       @top = @top,
       @right = @right,
       @bottom = @bottom,
-      @alpha = @alpha
+      @alpha = @alpha,
     )
     end
 
@@ -693,7 +693,7 @@ module Crysterm
       @iright = @iright,
       @ibottom = @ibottom,
       @iwidth = @iwidth,
-      @iheight = @iheight
+      @iheight = @iheight,
     )
     end
   end

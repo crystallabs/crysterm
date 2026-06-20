@@ -50,18 +50,20 @@ module Crysterm
       acs = false
       s = tput.shim.not_nil!
 
-      # Terminal capabilities are constant for the duration of a frame, so hoist
-      # them out of the per-cell loop instead of re-querying `tput`/`s` for every
-      # one of the (width * height) cells. `acscr` is also bound here so the hot
-      # ACS lookup indexes a local hash rather than re-walking `tput.features`.
+      # Terminal capabilities, the chosen color depth and the full-unicode mode
+      # are all constant for the duration of a frame, so query them once here
+      # instead of for every one of the (width * height) cells in the loop below.
+      # `acscr` is bound so the hot ACS lookup indexes a local hash directly.
       bce_opt = @optimization.bce?
       has_bce = tput.has? &.back_color_erase?
       parm_right_cursor = s.parm_right_cursor?
       alt_charset = s.enter_alt_charset_mode?
       broken_acs = tput.features.broken_acs?
       acscr = tput.features.acscr
-      unicode = tput.features.unicode?
+      term_unicode = tput.features.unicode?
       u8 = tput.terminfo.try &.extensions.get_num?("U8")
+      ncolors = colors
+      fu = full_unicode?
 
       if @_buf.size > 0
         @main.print @_buf
@@ -80,20 +82,9 @@ module Crysterm
         # Original line, as it was in the previous render
         o = @olines[y]
 
-        # Bind the rows' backing parallel arrays once per line. The inner loops
-        # below are the hottest code in the library; going through the `Cell`
-        # handle (`line[x].attr`) on every access pays a bounds-check plus a
-        # `Cell` struct construction per read, twice per cell. Indexing the
-        # `attrs`/`chars` arrays directly (with `unsafe_fetch`/`unsafe_put`,
-        # since the indices are already range-guarded by `line_size`) is the
-        # access pattern the repo's own `benchmarks/cells-vs-arrays.cr` measured
-        # as the fastest. The `Cell` API is kept for all the colder call sites.
-        lattrs = line.attrs
-        lchars = line.chars
-        oattrs = o.attrs
-        ochars = o.chars
+        # Cache the row width once; it's read by the per-cell loop bound and by
+        # the two BCE look-ahead/clear scans below.
         line_size = line.size
-        o_size = o.size
 
         # ::Log.trace { line } if line.any? &.char.!=(' ')
 
@@ -113,11 +104,20 @@ module Crysterm
         # Default attr code
         attr = @default_attr
 
+        # When a wide grapheme is emitted it also covers the following
+        # (continuation) cell, so that cell is skipped on the next iteration.
+        skip_next = false
+
         # For all cells in row (x = column coordinate)
         line_size.times do |x|
+          if skip_next
+            skip_next = false
+            next
+          end
+
           # Desired attr code and char
-          desired_attr = lattrs.unsafe_fetch(x)
-          desired_char = lchars.unsafe_fetch(x)
+          desired_attr = line[x].attr
+          desired_char = line[x].char
 
           # Render the artificial cursor.
           if c.artificial? && !c._hidden && (c._state != 0) && (x == tput.cursor.x) && (y == tput.cursor.y)
@@ -130,17 +130,17 @@ module Crysterm
           # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
           # the bg for non BCE terminals worth the overhead?
           if bce_opt && (desired_char == ' ') &&
-             (has_bce || ((desired_attr & 0x1ff) == (@default_attr & 0x1ff))) &&
-             (((desired_attr >> 18) & 8) == ((@default_attr >> 18) & 8))
+             (has_bce || (Attr.bg(desired_attr) == Attr.bg(@default_attr))) &&
+             ((Attr.flags(desired_attr) & Attr::INVERSE) == (Attr.flags(@default_attr) & Attr::INVERSE))
             clr = true
             neq = false # Current line 'not equal' to line as it was on previous render (i.e. it changed content)
 
             (x...line_size).each do |xx|
-              if lattrs.unsafe_fetch(xx) != desired_attr || lchars.unsafe_fetch(xx) != ' '
+              if line[xx] != {desired_attr, ' '}
                 clr = false
                 break
               end
-              if lattrs.unsafe_fetch(xx) != oattrs.unsafe_fetch(xx) || lchars.unsafe_fetch(xx) != ochars.unsafe_fetch(xx)
+              if line[xx] != o[xx]
                 neq = true
               end
             end
@@ -151,10 +151,7 @@ module Crysterm
               ly = -1
               if attr != desired_attr
                 attr = desired_attr
-                # Write the SGR sequence straight into `@outbuf` instead of
-                # `code2attr`, which builds and returns an intermediate `String`
-                # only to be immediately printed and discarded.
-                code2attr attr, @outbuf
+                @outbuf.print code2attr attr
               end
 
               # ### XXX Temporarily diverts output. #### Needs a better solution than this.
@@ -168,8 +165,8 @@ module Crysterm
               #### #### ####
 
               (x...line_size).each do |xx|
-                oattrs.unsafe_put(xx, desired_attr)
-                ochars.unsafe_put(xx, ' ')
+                o[xx].attr = desired_attr
+                o[xx].char = ' '
               end
 
               break
@@ -231,9 +228,8 @@ module Crysterm
           # `next` would only exit the block, after which the cell would still be
           # printed below — defeating the skip and desyncing the `cuf` run math
           # from the real cursor position.
-          # `x < o_size` preserves the bounds guard the previous `o[x]?` gave.
-          if x < o_size
-            if oattrs.unsafe_fetch(x) == desired_attr && ochars.unsafe_fetch(x) == desired_char
+          if ox = o[x]?
+            if ox == {desired_attr, desired_char}
               if lx == -1
                 lx = x
                 ly = y
@@ -248,8 +244,12 @@ module Crysterm
               lx = -1
               ly = -1
             end
-            oattrs.unsafe_put(x, desired_attr)
-            ochars.unsafe_put(x, desired_char)
+            ox.attr = desired_attr
+            if fu && (g = line[x].grapheme_overlay)
+              ox.grapheme = g
+            else
+              ox.char = desired_char
+            end
           end
 
           if desired_attr != attr
@@ -264,64 +264,21 @@ module Crysterm
               # recorded now) then we'll seek to (current_pos)-1 to delete the last ';'
               outbuf_size = @outbuf.size
 
-              bg = desired_attr & 0x1ff
-              fg = (desired_attr >> 9) & 0x1ff
+              flags = Attr.flags(desired_attr)
+              @outbuf.print "1;" if (flags & Attr::BOLD) != 0
+              @outbuf.print "4;" if (flags & Attr::UNDERLINE) != 0
+              @outbuf.print "5;" if (flags & Attr::BLINK) != 0
+              @outbuf.print "7;" if (flags & Attr::INVERSE) != 0
+              @outbuf.print "8;" if (flags & Attr::INVISIBLE) != 0
 
-              flags = desired_attr >> 18
-              # bold
-              if (flags & 1) != 0
-                @outbuf.print "1;"
-              end
-
-              # underline
-              if (flags & 2) != 0
-                @outbuf.print "4;"
-              end
-
-              # blink
-              if (flags & 4) != 0
-                @outbuf.print "5;"
-              end
-
-              # inverse
-              if (flags & 8) != 0
-                @outbuf.print "7;"
-              end
-
-              # invisible
-              if (flags & 16) != 0
-                @outbuf.print "8;"
-              end
-
-              if bg != 0x1ff
-                bg = _reduce_color(bg)
-                if bg < 16
-                  if bg < 8
-                    bg += 40
-                  else # elsif (bg < 16)
-                    bg -= 8
-                    bg += 100
-                  end
-                  @outbuf << bg << ';'
-                else
-                  @outbuf << "48;5;" << bg << ';'
-                end
-              end
-
-              if fg != 0x1ff
-                fg = _reduce_color(fg)
-                if fg < 16
-                  if fg < 8
-                    fg += 30
-                  else # elsif (fg < 16)
-                    fg -= 8
-                    fg += 90
-                  end
-                  @outbuf << fg << ';'
-                else
-                  @outbuf << "38;5;" << fg << ';'
-                end
-              end
+              # Emit each color at the richest depth the terminal supports
+              # (truecolor `38;2;r;g;b` / 256 / 16 / 8). Default colors (-1)
+              # emit nothing, so the terminal's own default applies.
+              n = ncolors
+              bg = Attr.unpack_color(Attr.bg(desired_attr))
+              fg = Attr.unpack_color(Attr.fg(desired_attr))
+              @outbuf << Colors.sgr_color(bg, false, n) << ';' if bg != -1
+              @outbuf << Colors.sgr_color(fg, true, n) << ';' if fg != -1
 
               if @outbuf.size != outbuf_size
                 # Something was written to the buffer during the code above,
@@ -423,14 +380,34 @@ module Crysterm
             # Note: It could be the case that the $LANG
             # is all that matters in some cases:
             # if (!tput.unicode && desired_char > '~') {
-            if !unicode && (u8 != 1) && (desired_char > '~')
+            if !term_unicode && (u8 != 1) && (desired_char > '~')
               # Reduction of ACS into ASCII chars.
               desired_char = Tput::ACSC::Data[desired_char]?.try(&.[2]) || '?'
             end
           end
 
-          # Now print the char itself.
-          @outbuf.print desired_char
+          # Now print the cell's content. Under full_unicode: a continuation
+          # cell (the trailing half of a wide grapheme) emits nothing — the wide
+          # glyph already advanced the cursor; a cluster cell emits its whole
+          # grapheme; and a wide cell claims its continuation cell, which the
+          # next iteration skips (keeping cell index == terminal column).
+          if fu
+            current = line[x]
+            unless current.continuation?
+              if g = current.grapheme_overlay
+                @outbuf.print g
+              else
+                @outbuf.print desired_char
+              end
+              if current.width == 2 && (oc = o[x + 1]?)
+                oc.attr = desired_attr
+                oc.continuation!
+                skip_next = true
+              end
+            end
+          else
+            @outbuf.print desired_char
+          end
 
           attr = desired_attr
         end

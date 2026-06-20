@@ -38,6 +38,23 @@ module Crysterm
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
     property? force_unicode = false
 
+    # User option: enable grapheme / full-Unicode-aware rendering — text is
+    # measured and laid out by terminal **column width** (`Crysterm::Unicode`)
+    # rather than one column per codepoint, grapheme clusters are kept intact,
+    # and wide characters occupy two cells. Set via `full_unicode=`.
+    @full_unicode = false
+
+    # :ditto:
+    def full_unicode=(@full_unicode : Bool)
+    end
+
+    # Whether grapheme / column-width-aware rendering is *in effect*: the
+    # `full_unicode` option is on AND the terminal can render Unicode. This is
+    # the single gate consulted by the content engine, renderer, and drawer.
+    def full_unicode? : Bool
+      @full_unicode && tput.features.unicode?
+    end
+
     # Display width
     # TODO make these check @output, not STDOUT which is probably used. Also see how urwid does the size check
     property width = 1
@@ -121,9 +138,10 @@ module Crysterm
       # alt = true, # Currently unused
       @show_fps = @show_fps,
       @force_unicode = @force_unicode,
+      @full_unicode = @full_unicode,
       @resize_interval = @resize_interval,
 
-      terminfo : Bool | Unibilium::Terminfo = true
+      terminfo : Bool | Unibilium = true,
 
       # Not needed for now. Also better not to couple with terminal specifics
       # @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
@@ -131,11 +149,11 @@ module Crysterm
     )
       terminfo = case terminfo
                  in true
-                   Unibilium::Terminfo.from_env
+                   Unibilium.from_env
                  in false, nil
                    nil
-                 in Unibilium::Terminfo
-                   terminfo.as Unibilium::Terminfo
+                 in Unibilium
+                   terminfo.as Unibilium
                  end
 
       # XXX Should `error` fd be passed to tput as well?
@@ -526,7 +544,9 @@ module Crysterm
     # Also remove all global events relevant to the object.
     # If no screens remain, the app is essentially reset to its initial state.
     def destroy
-      @render_flag.set 2
+      # Signal the render fiber to exit, then wake it so it notices.
+      @render_stop = true
+      schedule_render
 
       # XXX Needs some small fix before enabling. Probably just the order of
       # destroyals needs to be bottom-up instead of top-down.
@@ -557,9 +577,5 @@ module Crysterm
     #  }
     # end
 
-    # Reduces color if needed (minimal helper function)
-    private def _reduce_color(col)
-      Colors.reduce(col, tput.features.number_of_colors)
-    end
   end
 end
