@@ -14,35 +14,32 @@ module Crysterm
     # here `Image` is a factory: `Image.new` returns the concrete widget for the
     # requested `type` and forwards all other options to it.
     #
-    # Crysterm currently implements only the `:overlay` backend, so that is the
-    # default (Blessed defaults to `:ansi`). Requesting `:ansi` raises until an
-    # `ANSIImage` widget is ported.
+    # Both backends are now implemented. As in Blessed, the default is `:ansi`
+    # (the dependency-free, fully portable backend that draws into the cell
+    # grid). Pass `type: Overlay` for the w3m true-color overlay instead.
     #
     # ```
     # img = Widget::Image.new file: "picture.png", parent: screen
+    # # => Widget::ANSIImage
+    #
+    # img = Widget::Image.new file: "picture.png", type: Widget::Image::Type::Overlay, parent: screen
     # # => Widget::OverlayImage
     # ```
     module Image
       # Backend used to render the image.
       enum Type
-        Ansi    # ANSI-cell approximation (not yet implemented in Crysterm)
-        Overlay # w3m true-color overlay
+        Ansi    # ANSI-cell approximation, drawn into the cell grid (`ANSIImage`)
+        Overlay # w3m true-color overlay (`OverlayImage`)
       end
 
       # Builds the concrete image widget for *type*, forwarding all remaining
-      # options to its constructor. Returns a `Widget::OverlayImage`.
-      #
-      # Raises `ArgumentError` for `Type::Ansi`, which has no implementation yet.
-      def self.new(*, type : Type = Type::Overlay, **opts)
+      # options to its constructor.
+      def self.new(*, type : Type = Type::Ansi, **opts) : ANSIImage | OverlayImage
         case type
         in Type::Overlay
           OverlayImage.new **opts
         in Type::Ansi
-          raise ArgumentError.new(
-            "Image type `ansi` is not implemented yet in Crysterm; " \
-            "pass `type: Widget::Image::Type::Overlay` (the default) " \
-            "or use `Widget::OverlayImage` directly."
-          )
+          ANSIImage.new **opts
         end
       end
     end
