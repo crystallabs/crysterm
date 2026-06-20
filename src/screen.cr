@@ -167,7 +167,15 @@ module Crysterm
     )
       terminfo = case terminfo
                  in true
-                   Unibilium.from_env
+                   begin
+                     Unibilium.from_env
+                   rescue Unibilium::Error
+                     # No usable terminfo for the environment's $TERM (e.g. TERM
+                     # unset, as on CI runners). Fall back to a widely-available
+                     # `xterm` entry so a Screen can still be constructed
+                     # headlessly instead of crashing.
+                     Unibilium.from_terminal "xterm"
+                   end
                  in false, nil
                    nil
                  in Unibilium
