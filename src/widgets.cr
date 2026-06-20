@@ -43,6 +43,8 @@ module Crysterm
     Message = Widget::Message
     Log     = Widget::Log
 
+    Terminal = Widget::Terminal
+
     # Qt-like
     Action = Widget::Action
     Menu   = Widget::Menu
