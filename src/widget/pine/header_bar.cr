@@ -29,6 +29,7 @@ module Crysterm
           super **layout, width: w, height: h
 
           @style = Style.new inverse: true
+          # Padding.new is (left, top, right, bottom): pl2 = left:2, pr2 = right:2.
           style_pl2 = Style.new inverse: true, padding: Padding.new(2, 0, 0, 0)
           style_pr2 = Style.new inverse: true, padding: Padding.new(0, 0, 2, 0)
 

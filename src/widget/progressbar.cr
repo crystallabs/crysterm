@@ -34,7 +34,25 @@ module Crysterm
         end
 
         if @mouse
-          # XXX ...
+          # Click (or drag) to set the progress from the pointer position along
+          # the bar, mirroring Blessed. Uses `Event::Mouse` (not the bare
+          # `Event::Click`) because it carries the cursor coordinates.
+          on(Crysterm::Event::Mouse) do |e|
+            next unless e.action.down?
+
+            if @orientation.horizontal?
+              pos = e.x - aleft - ileft
+              span = awidth - iwidth
+            else
+              pos = e.y - atop - itop
+              span = aheight - iheight
+            end
+            next if span <= 0
+
+            self.progress = (pos * 100 // span).clamp(0, 100)
+            e.accept
+            screen.render
+          end
         end
       end
 

@@ -60,7 +60,7 @@ module Crysterm
         append @cancel
       end
 
-      def read_input(text = nil, value = "", &callback : Proc(String, String, Nil))
+      def read_input(text = nil, value = "", &callback : Proc(String?, String?, Nil))
         set_content text || @text
         show
 
