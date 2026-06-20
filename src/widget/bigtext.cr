@@ -89,6 +89,7 @@ module Crysterm
 
       def set_content(content : String)
         @content = ""
+        @_content_version += 1
         @text = content || ""
       end
 

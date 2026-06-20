@@ -11,6 +11,12 @@ module Crysterm
       property ritems = [] of String
       property selected = 0
 
+      # Lazily-built map of `clean_tags(item) => first index`, used by the
+      # `get_item_index(String)` fallback so it doesn't re-run `clean_tags`
+      # (a full gsub per item) on every lookup. Invalidated to `nil` whenever
+      # `@ritems` is mutated; see `invalidate_item_index`.
+      @clean_tags_index : Hash(String, Int32)? = nil
+
       @_is_list = true
       @interactive = true
 
@@ -68,6 +74,7 @@ module Crysterm
         item.top = @items.size
 
         @ritems.push content
+        invalidate_item_index
         @items.push item
         append item
 
@@ -91,6 +98,7 @@ module Crysterm
         if item = @items[i]?
           child = @items.delete_at i
           @ritems.delete_at i
+          invalidate_item_index
           remove child
         end
 
@@ -121,14 +129,30 @@ module Crysterm
       end
 
       def get_item_index(child : String)
+        # Exact (raw, tags-included) match takes priority, matching the
+        # previous behavior.
         i = @ritems.index child
         return i if i
-        @ritems.each_with_index do |item, i|
-          if child == clean_tags item
-            return i
+
+        # Fallback: match against the tag-stripped form of each item. The
+        # cleaned->index map is built once and reused until `@ritems` changes,
+        # instead of re-cleaning every item on each call. First index wins, as
+        # the previous linear scan did.
+        index = @clean_tags_index ||= begin
+          h = {} of String => Int32
+          @ritems.each_with_index do |item, idx|
+            cleaned = clean_tags item
+            h[cleaned] = idx unless h.has_key? cleaned
           end
+          h
         end
-        -1
+        index[child]? || -1
+      end
+
+      # Drops the cached `clean_tags` index. Called from every method that
+      # mutates `@ritems` so the lazily-rebuilt map can never go stale.
+      private def invalidate_item_index
+        @clean_tags_index = nil
       end
 
       # Accepts any `Widget` (not only `Widget::Box`) so that callers holding
@@ -227,6 +251,7 @@ module Crysterm
         end
         item.top = i
         @ritems.insert i, content
+        invalidate_item_index
         @items.insert i, item
         append item
         if i == selected
@@ -242,7 +267,10 @@ module Crysterm
         return unless i >= 0
 
         @items[i]?.try &.set_content(content)
-        @ritems[i] = content if i < @ritems.size
+        if i < @ritems.size
+          @ritems[i] = content
+          invalidate_item_index
+        end
       end
 
       def set_item(child, widget : Widget)
@@ -277,6 +305,7 @@ module Crysterm
         end
 
         @ritems = items
+        invalidate_item_index
 
         # Try to find our old item if it still exists
         if sel

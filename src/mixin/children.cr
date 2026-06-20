@@ -86,16 +86,18 @@ module Crysterm
 
       # Runs a particular block for all descendants, recursively
       def each_descendant(&block : Proc(Widget, Nil)) : Nil
-        f = uninitialized Widget -> Nil
-        f = ->(el : Widget) {
-          block.call el
-          el.children.each do |c|
-            f.call c
-          end
-        }
-
+        # Recurse by passing the already-captured `block` down, instead of
+        # building an extra self-referential closure (`f`) — that closure was
+        # allocated afresh on every call to this frequently-used traversal.
         @children.each do |el|
-          f.call el
+          _each_descendant el, block
+        end
+      end
+
+      private def _each_descendant(el : Widget, block : Proc(Widget, Nil)) : Nil
+        block.call el
+        el.children.each do |c|
+          _each_descendant c, block
         end
       end
 
@@ -107,13 +109,12 @@ module Crysterm
 
       # Runs a particular block for all ancestors, recursively
       def each_ancestor(&block : Proc(Widget, Nil)) : Nil
-        f = uninitialized Widget -> Nil
-        f = ->(el : Widget) {
-          block.call el
-          el.parent.try { |el2| f.call el2 }
-        }
+        @parent.try { |el| _each_ancestor el, block }
+      end
 
-        @parent.try { |el| f.call el }
+      private def _each_ancestor(el : Widget, block : Proc(Widget, Nil)) : Nil
+        block.call el
+        el.parent.try { |el2| _each_ancestor el2, block }
       end
 
       # Returns a flat list of all children widgets, recursively

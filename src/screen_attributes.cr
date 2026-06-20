@@ -141,5 +141,54 @@ module Crysterm
         outbuf << 'm'
       end
     end
+
+    # Appends the SGR sequence for `code` straight into `outbuf`, with no
+    # intermediate `String` allocation.
+    #
+    # This is the hot-path twin of `code2attr(code)` above: the draw loop needs
+    # the escape sequence written into its line buffer, and going through the
+    # `String`-returning version allocates (and immediately discards) a `String`
+    # every time the attribute changes. Mirrors the inline encoding already used
+    # in `screen_drawing`'s main per-cell loop.
+    def code2attr(code, outbuf : IO::Memory) : Nil
+      flags = (code >> 18) & 0x1ff
+      fg = (code >> 9) & 0x1ff
+      bg = code & 0x1ff
+
+      # Emit nothing when there are no flags and both colors are default
+      # (0x1ff) — same as the `String` version returning "".
+      return if flags == 0 && fg == 0x1ff && bg == 0x1ff
+
+      outbuf << "\e["
+
+      outbuf << "1;" if (flags & 1) != 0
+      outbuf << "4;" if (flags & 2) != 0
+      outbuf << "5;" if (flags & 4) != 0
+      outbuf << "7;" if (flags & 8) != 0
+      outbuf << "8;" if (flags & 16) != 0
+
+      if bg != 0x1ff
+        bg = _reduce_color(bg)
+        if bg < 16
+          bg < 8 ? outbuf << (bg + 40) << ';' : outbuf << (bg - 8 + 100) << ';'
+        else
+          outbuf << "48;5;" << bg << ';'
+        end
+      end
+
+      if fg != 0x1ff
+        fg = _reduce_color(fg)
+        if fg < 16
+          fg < 8 ? outbuf << (fg + 30) << ';' : outbuf << (fg - 8 + 90) << ';'
+        else
+          outbuf << "38;5;" << fg << ';'
+        end
+      end
+
+      # At least one component above wrote a trailing ';'. Replace it with 'm'
+      # by seeking back one byte and overwriting (same trick as the main loop).
+      outbuf.seek -1, IO::Seek::Current
+      outbuf << 'm'
+    end
   end
 end

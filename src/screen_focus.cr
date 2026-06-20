@@ -55,7 +55,16 @@ module Crysterm
       # degrades to a no-op instead of raising IndexError.
       old = @history.pop?
 
-      el = @history.reverse.find { |el| el.screen && el.style.visible? }
+      # `reverse_each` walks the history back-to-front in place; the old
+      # `@history.reverse.find` allocated a whole reversed copy of the array
+      # just to scan it once.
+      el = nil
+      @history.reverse_each do |e|
+        if e.screen && e.style.visible?
+          el = e
+          break
+        end
+      end
       @history.clear
 
       return unless el
@@ -96,8 +105,10 @@ module Crysterm
     def focus_offset(offset)
       return if offset.zero?
 
-      shown = @keyable.count { |el| el.screen && el.style.visible? }
-      return if shown.zero?
+      # We only need to know whether *any* keyable element is visible, so
+      # `any?` (which short-circuits on the first match) is enough; the old
+      # `count { ... }.zero?` always scanned the entire list.
+      return unless @keyable.any? { |el| el.screen && el.style.visible? }
 
       i = @keyable.index(focused) || -1
       i += offset

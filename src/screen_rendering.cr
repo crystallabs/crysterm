@@ -48,12 +48,18 @@ module Crysterm
     class Average
       def initialize(@capacity : Int32)
         @deque = Deque(Int32).new @capacity
+        # Running sum of the deque's contents, kept in sync on every push/shift
+        # so `avg` is O(1) instead of re-summing the whole deque each call.
+        @sum = 0
       end
 
       def avg(value)
-        @deque.shift if @deque.size == @capacity
+        if @deque.size == @capacity
+          @sum -= @deque.shift
+        end
         @deque.push value
-        @deque.sum // @deque.size
+        @sum += value
+        @sum // @deque.size
       end
     end
 

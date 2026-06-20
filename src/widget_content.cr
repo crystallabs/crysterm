@@ -30,6 +30,12 @@ module Crysterm
 
     property _clines = CLines.new
 
+    # Bumped every time `@content` changes (see `set_content`). `process_content`
+    # compares this integer against the version baked into `@_clines` to decide
+    # whether a reparse is needed, instead of doing an O(n) `String` comparison
+    # of the full content on every render.
+    @_content_version = 0
+
     # Processes and sets widget content. Does not allow extra options re.
     # how content is to be processed; use `#set_content` if you need to provide
     # extra options.
@@ -47,6 +53,7 @@ module Crysterm
       # internal structures, not @content (for rendering purposes, where
       # original content should not be modified).
       @content = content
+      @_content_version += 1
 
       process_content(no_tags)
       emit(Crysterm::Event::SetContent)
@@ -81,6 +88,12 @@ module Crysterm
       property width = 0
 
       property content : String = ""
+
+      # Version of the owning widget's `@content` that produced these wrapped
+      # lines. Defaults to -1 so a freshly-built `CLines` never matches a real
+      # (>= 0) widget content version, forcing the first parse. See
+      # `Widget#process_content`.
+      property content_version : Int32 = -1
 
       property real : CLines? = nil
 
@@ -117,7 +130,7 @@ module Crysterm
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
       colwidth = awidth - iwidth
-      if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content != @content
+      if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version
         content =
           @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
             .gsub(/\e(?!\[[\d;]*m)/, "") # SGR
@@ -163,6 +176,7 @@ module Crysterm
         @_clines = _wrap_content(content, colwidth)
         @_clines.width = colwidth
         @_clines.content = @content
+        @_clines.content_version = @_content_version
         @_clines.attr = _parse_attr @_clines
         @_clines.ci = [] of Int32
         @_clines.reduce(0) do |total, line|

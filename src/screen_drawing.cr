@@ -50,6 +50,19 @@ module Crysterm
       acs = false
       s = tput.shim.not_nil!
 
+      # Terminal capabilities are constant for the duration of a frame, so hoist
+      # them out of the per-cell loop instead of re-querying `tput`/`s` for every
+      # one of the (width * height) cells. `acscr` is also bound here so the hot
+      # ACS lookup indexes a local hash rather than re-walking `tput.features`.
+      bce_opt = @optimization.bce?
+      has_bce = tput.has? &.back_color_erase?
+      parm_right_cursor = s.parm_right_cursor?
+      alt_charset = s.enter_alt_charset_mode?
+      broken_acs = tput.features.broken_acs?
+      acscr = tput.features.acscr
+      unicode = tput.features.unicode?
+      u8 = tput.terminfo.try &.extensions.get_num?("U8")
+
       if @_buf.size > 0
         @main.print @_buf
         @_buf.clear
@@ -66,6 +79,21 @@ module Crysterm
 
         # Original line, as it was in the previous render
         o = @olines[y]
+
+        # Bind the rows' backing parallel arrays once per line. The inner loops
+        # below are the hottest code in the library; going through the `Cell`
+        # handle (`line[x].attr`) on every access pays a bounds-check plus a
+        # `Cell` struct construction per read, twice per cell. Indexing the
+        # `attrs`/`chars` arrays directly (with `unsafe_fetch`/`unsafe_put`,
+        # since the indices are already range-guarded by `line_size`) is the
+        # access pattern the repo's own `benchmarks/cells-vs-arrays.cr` measured
+        # as the fastest. The `Cell` API is kept for all the colder call sites.
+        lattrs = line.attrs
+        lchars = line.chars
+        oattrs = o.attrs
+        ochars = o.chars
+        line_size = line.size
+        o_size = o.size
 
         # ::Log.trace { line } if line.any? &.char.!=(' ')
 
@@ -86,10 +114,10 @@ module Crysterm
         attr = @default_attr
 
         # For all cells in row (x = column coordinate)
-        line.size.times do |x|
+        line_size.times do |x|
           # Desired attr code and char
-          desired_attr = line[x].attr
-          desired_char = line[x].char
+          desired_attr = lattrs.unsafe_fetch(x)
+          desired_char = lchars.unsafe_fetch(x)
 
           # Render the artificial cursor.
           if c.artificial? && !c._hidden && (c._state != 0) && (x == tput.cursor.x) && (y == tput.cursor.y)
@@ -101,18 +129,18 @@ module Crysterm
           # Take advantage of xterm's back_color_erase feature by using a
           # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
           # the bg for non BCE terminals worth the overhead?
-          if @optimization.bce? && (desired_char == ' ') &&
-             (tput.has?(&.back_color_erase?) || ((desired_attr & 0x1ff) == (@default_attr & 0x1ff))) &&
+          if bce_opt && (desired_char == ' ') &&
+             (has_bce || ((desired_attr & 0x1ff) == (@default_attr & 0x1ff))) &&
              (((desired_attr >> 18) & 8) == ((@default_attr >> 18) & 8))
             clr = true
             neq = false # Current line 'not equal' to line as it was on previous render (i.e. it changed content)
 
-            (x...line.size).each do |xx|
-              if line[xx] != {desired_attr, ' '}
+            (x...line_size).each do |xx|
+              if lattrs.unsafe_fetch(xx) != desired_attr || lchars.unsafe_fetch(xx) != ' '
                 clr = false
                 break
               end
-              if line[xx] != o[xx]
+              if lattrs.unsafe_fetch(xx) != oattrs.unsafe_fetch(xx) || lchars.unsafe_fetch(xx) != ochars.unsafe_fetch(xx)
                 neq = true
               end
             end
@@ -123,7 +151,10 @@ module Crysterm
               ly = -1
               if attr != desired_attr
                 attr = desired_attr
-                @outbuf.print code2attr attr
+                # Write the SGR sequence straight into `@outbuf` instead of
+                # `code2attr`, which builds and returns an intermediate `String`
+                # only to be immediately printed and discarded.
+                code2attr attr, @outbuf
               end
 
               # ### XXX Temporarily diverts output. #### Needs a better solution than this.
@@ -136,9 +167,9 @@ module Crysterm
               end
               #### #### ####
 
-              (x...line.size).each do |xx|
-                o[xx].attr = desired_attr
-                o[xx].char = ' '
+              (x...line_size).each do |xx|
+                oattrs.unsafe_put(xx, desired_attr)
+                ochars.unsafe_put(xx, ' ')
               end
 
               break
@@ -200,15 +231,16 @@ module Crysterm
           # `next` would only exit the block, after which the cell would still be
           # printed below — defeating the skip and desyncing the `cuf` run math
           # from the real cursor position.
-          if ox = o[x]?
-            if ox == {desired_attr, desired_char}
+          # `x < o_size` preserves the bounds guard the previous `o[x]?` gave.
+          if x < o_size
+            if oattrs.unsafe_fetch(x) == desired_attr && ochars.unsafe_fetch(x) == desired_char
               if lx == -1
                 lx = x
                 ly = y
               end
               next
             elsif lx != -1
-              if s.parm_right_cursor?
+              if parm_right_cursor
                 @outbuf.write((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
               else
                 @outbuf.write s.cup(y, x)
@@ -216,8 +248,8 @@ module Crysterm
               lx = -1
               ly = -1
             end
-            ox.attr = desired_attr
-            ox.char = desired_char
+            oattrs.unsafe_put(x, desired_attr)
+            ochars.unsafe_put(x, desired_char)
           end
 
           if desired_attr != attr
@@ -350,13 +382,13 @@ module Crysterm
           # case that the contents of the IF/ELSE block change in incompatible
           # way, this should be had in mind.
           if s
-            if s.enter_alt_charset_mode? && !tput.features.broken_acs? && (tput.features.acscr[desired_char]? || acs)
+            if alt_charset && !broken_acs && (acscr[desired_char]? || acs)
               # Fun fact: even if tput.brokenACS wasn't checked here,
               # the linux console would still work fine because the acs
               # table would fail the check of: tput.features.acscr[desired_char]
-              if tput.features.acscr[desired_char]?
+              if acscr[desired_char]?
                 if acs
-                  desired_char = tput.features.acscr[desired_char]
+                  desired_char = acscr[desired_char]
                 else
                   # This method of doing it (like blessed does it) is nasty
                   # since char gets changed to string when sm/rm escape
@@ -368,7 +400,7 @@ module Crysterm
                   # just set char to the desired char, knowing that it will be
                   # printed into outbuf at the end of the loop thanks to generic code.
                   @outbuf.write s.smacs
-                  desired_char = tput.features.acscr[desired_char]
+                  desired_char = acscr[desired_char]
                   acs = true
                 end
               elsif acs
@@ -391,7 +423,7 @@ module Crysterm
             # Note: It could be the case that the $LANG
             # is all that matters in some cases:
             # if (!tput.unicode && desired_char > '~') {
-            if !tput.features.unicode? && (tput.terminfo.try(&.extensions.get_num?("U8")) != 1) && (desired_char > '~')
+            if !unicode && (u8 != 1) && (desired_char > '~')
               # Reduction of ACS into ASCII chars.
               desired_char = Tput::ACSC::Data[desired_char]?.try(&.[2]) || '?'
             end

@@ -108,10 +108,19 @@ module Crysterm
       clean_tags(text).strip
     end
 
+    # Combined {...}-tag + SGR-sequence regex, built once.
+    #
+    # This used to be assembled inline inside `clean_tags` from
+    # `#{...source}` interpolation. Unlike a plain regex *literal* (which Crystal
+    # compiles once and caches), an interpolated regex is recompiled on every
+    # evaluation, so the old code paid a full regex compile on every
+    # `clean_tags` call — and `clean_tags` is called per-item in e.g.
+    # `List#get_item_index`. Hoisting it to a constant compiles it a single time.
+    CLEAN_TAGS_REGEX = /(?:#{Crysterm::Widget::TAG_REGEX.source})|(?:#{Crysterm::Widget::SGR_REGEX.source})/
+
     # Strips text of {...} tags and SGR sequences
     def clean_tags(text)
-      combined_regex = /(?:#{Crysterm::Widget::TAG_REGEX.source})|(?:#{Crysterm::Widget::SGR_REGEX.source})/
-      text.gsub(combined_regex) do |_, _|
+      text.gsub(CLEAN_TAGS_REGEX) do |_, _|
         # No replacement needed, just removing matches
       end
     end
