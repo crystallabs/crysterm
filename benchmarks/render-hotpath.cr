@@ -157,6 +157,27 @@ end
 puts "  alloc: OLD #{alloc_mb(ROUNDS) { styled.each_char_with_index { |ch, i| styled[i..].match(sgr_at) if ch == '\e' } }.round(2)} MB" \
      "  vs  NEW #{alloc_mb(ROUNDS) { styled.each_char_with_index { |ch, i| sgr.match(styled, i, options: Regex::MatchOptions::ANCHORED) if ch == '\e' } }.round(2)} MB  (#{ROUNDS} scans)"
 
+# ---------------------------------------------------------------------------
+# #10  StringIndex reuse — `_render` builds a codepoint index over @_pcontent
+#      once per widget every frame. OLD rebuilt it each frame; for non-ASCII
+#      content that re-materializes a `chars` array (per-frame garbage) and even
+#      for ASCII re-runs the O(n) `ascii_only?` scan. NEW reuses a cached index
+#      while the underlying @_pcontent String is unchanged (the common case:
+#      content only changes on edit, not every frame).
+section "#10  StringIndex reuse  (per widget, every frame)"
+ascii_line = (0...WIDTH).map { |i| ('a' + (i % 26)) }.join
+unicode_line = (0...WIDTH).map { |i| (i % 3 == 0) ? 'é' : ('a' + (i % 26)) }.join
+cached_ascii = Crysterm::StringIndex.new ascii_line
+cached_unicode = Crysterm::StringIndex.new unicode_line
+Benchmark.ips do |x|
+  x.report("OLD  rebuild each frame (unicode)") { Crysterm::StringIndex.new unicode_line }
+  x.report("NEW  reuse cached      (unicode)") { cached_unicode.built_from?(unicode_line) ? cached_unicode : Crysterm::StringIndex.new(unicode_line) }
+end
+puts "  alloc unicode: OLD #{alloc_mb(ROUNDS) { Crysterm::StringIndex.new unicode_line }.round(2)} MB" \
+     "  vs  NEW #{alloc_mb(ROUNDS) { cached_unicode.built_from?(unicode_line) ? cached_unicode : Crysterm::StringIndex.new(unicode_line) }.round(2)} MB  (#{ROUNDS} frames)"
+puts "  alloc ascii:   OLD #{alloc_mb(ROUNDS) { Crysterm::StringIndex.new ascii_line }.round(2)} MB" \
+     "  vs  NEW #{alloc_mb(ROUNDS) { cached_ascii.built_from?(ascii_line) ? cached_ascii : Crysterm::StringIndex.new(ascii_line) }.round(2)} MB  (#{ROUNDS} frames)  [ASCII already 0-alloc; NEW also skips the per-frame ascii_only? rescan]"
+
 puts
 puts "Note: #8 also SKIPS _parse_attr entirely on frames where the style's base"
 puts "attr is unchanged — that is a per-frame O(content) scan avoided outright,"

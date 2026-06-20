@@ -69,7 +69,15 @@ module Crysterm
       # ch
       # Log.trace { lines.inspect }
       pcontent = @_pcontent || ""
-      content = StringIndex.new pcontent
+      # Reuse the cached codepoint index unless `@_pcontent` was reparsed into a
+      # fresh `String` (identity check). Rebuilding it every frame would re-scan
+      # the content and, for non-ASCII text, re-materialize a `chars` array —
+      # per-frame heap garbage that causes GC-induced frame jitter.
+      content = @_content_index
+      unless content && content.built_from?(pcontent)
+        content = StringIndex.new pcontent
+        @_content_index = content
+      end
       ci = @_clines.ci[coords.base]? || 0 # XXX Is it ok that array lookup can be nil? and defaulting to 0?
       # battr
       # default_attr

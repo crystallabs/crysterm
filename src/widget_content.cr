@@ -28,6 +28,13 @@ module Crysterm
     # Printable, word-wrapped content, ready for rendering into the element.
     property _pcontent : String?
 
+    # Cached codepoint index over `@_pcontent`, reused across frames. `_render`
+    # indexes content per cell, so for non-ASCII content the index materializes a
+    # `chars` array; rebuilding it every frame is pure per-frame garbage. It is
+    # rebuilt only when `@_pcontent` becomes a different `String` (i.e. on a
+    # content reparse — see `StringIndex#built_from?`).
+    @_content_index : StringIndex? = nil
+
     property _clines = CLines.new
 
     # Bumped every time `@content` changes (see `set_content`). `process_content`
@@ -926,6 +933,8 @@ module Crysterm
   # It is needed in drawing routines where index is often offset by a certain
   # value and expected that all indexes < 0 will return nil.
   struct StringIndex
+    getter object : String
+
     def initialize(@object : String)
       # `String#[](Int)` walks the string from the start to find the n-th
       # codepoint, so it is O(n) for any string that is not single-byte
@@ -935,6 +944,15 @@ module Crysterm
       # O(1). For ASCII strings `String#[]` is already O(1), so we skip the
       # extra allocation and index the string directly.
       @chars = @object.ascii_only? ? nil : @object.chars
+    end
+
+    # Whether this index was built from `s` (the *same* `String` object). The
+    # render loop builds one `StringIndex` per widget per frame from
+    # `@_pcontent`, which only changes when content is reparsed; this lets the
+    # caller reuse a cached index across frames instead of rebuilding the
+    # `chars` array (and re-running the `ascii_only?` scan) every frame.
+    def built_from?(s : String) : Bool
+      @object.same? s
     end
 
     def [](i : Int)
