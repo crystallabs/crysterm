@@ -27,14 +27,25 @@ module Crysterm
     include Mixin::Children
     include Mixin::Instances
 
-    # Input IO
-    property input : IO = STDIN.dup
+    # Input IO.
+    #
+    # NOTE: do not use `STDIN.dup` (or `.dup` on any std stream) here. `IO`'s
+    # `dup` is `Object#dup` — a *shallow copy* that aliases the **same** file
+    # descriptor with `close_on_finalize` still true. Crystal may evaluate this
+    # default expression more than once (param default + ivar default), and the
+    # discarded alias, once garbage-collected, runs `finalize` and closes the
+    # shared fd out from under the live screen — manifesting as spurious
+    # "File not open for reading/writing" (EBADF) errors as soon as a second
+    # screen (or any extra allocation) triggers a collection. Referencing the
+    # std stream directly shares the single, never-collected global instead.
+    property input : IO = STDIN
 
-    # Output IO
-    property output : IO = STDOUT.dup
+    # Output IO. See the note on `#input` re: not using `.dup`.
+    property output : IO = STDOUT
 
-    # Error IO. (Could be used for redirecting error output to a particular widget.)
-    property error : IO = STDERR.dup
+    # Error IO. (Could be used for redirecting error output to a particular
+    # widget.) See the note on `#input` re: not using `.dup`.
+    property error : IO = STDERR
 
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
     property? force_unicode = false
@@ -163,6 +174,16 @@ module Crysterm
                    terminfo.as Unibilium
                  end
 
+      # Control sequences are written to `@output` and must reach the terminal
+      # promptly, without sitting in a write buffer. `STDOUT` connected to a
+      # terminal is already `sync`, but a caller-supplied output (e.g. a second
+      # terminal opened via `File.open`) is fully buffered by default, which
+      # would leave the screen blank. Force sync so rendering works regardless
+      # of how the output was obtained.
+      if (output = @output).responds_to?(:sync=)
+        output.sync = true
+      end
+
       # XXX Should `error` fd be passed to tput as well?
       # (Probably not since we're not initializing anything on the error output?)
       @tput = ::Tput.new(
@@ -233,8 +254,11 @@ module Crysterm
     end
 
     def on_attach(e)
-      @width = ::Term::Screen.cols || @width
-      @height = ::Term::Screen.rows || @height
+      # Take the size from *this* screen's own `tput`, which sized itself from
+      # its own output fd. Using the global `::Term::Screen` here would probe
+      # STDIN/STDOUT and give every screen the launching terminal's size.
+      @width = self.tput.screen.width
+      @height = self.tput.screen.height
 
       # Push resize event to screens assigned to this display. We choose this approach
       # because it results in less links between the components (as opposed to pull model).
