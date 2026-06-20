@@ -217,17 +217,26 @@ module Crysterm
         (base + offset + col).clamp(0, @value.size)
       end
 
-      # Move the cursor one visual (wrapped) row up (`dir == -1`) or down
-      # (`dir == 1`), preserving the goal column. No-op at the top/bottom edge.
-      private def move_cursor_vertically(dir)
+      # Move the cursor by `rows` visual (wrapped) rows — negative is up, positive
+      # is down — preserving the goal column. Used by Up/Down (`±1`) and Page
+      # Up/Down (`±page`). The target row is clamped to the content, so a Page Up
+      # near the top lands on the first row rather than doing nothing; a move that
+      # would not change the row is a no-op.
+      private def move_cursor_vertically(rows)
         rl, col = cursor_rowcol
         goal = (@goal_col ||= col)
 
-        target = rl + dir
-        return if target < 0 || target >= @_clines.size
+        target = (rl + rows).clamp(0, Math.max(0, @_clines.size - 1))
+        return if target == rl
 
         width = (@_clines[target]? || "").size
         @cursor_pos = pos_from_rowcol(target, goal.clamp(0, width))
+      end
+
+      # Number of visual rows to move per Page Up/Down: one viewport's worth, less
+      # one row of overlap for reading continuity (at least 1).
+      private def page_rows
+        Math.max(1, (aheight - iheight) - 1)
       end
 
       # Reconcile the scroll bookkeeping with the cursor's real (wrapped) row so
@@ -298,8 +307,9 @@ module Crysterm
           # (so a base+combining mark or a wide emoji moves as one unit) under
           # `full_unicode?`, a single codepoint otherwise. Home/End jump to the
           # start/end of the current (logical) line. Up/Down move one visual
-          # (wrapped) row, remembering the goal column (`@goal_col`) so that a
-          # detour across shorter lines and back keeps the original column.
+          # (wrapped) row and Page Up/Down move a viewport's worth, both
+          # remembering the goal column (`@goal_col`) so that a detour across
+          # shorter lines and back keeps the original column.
           moved = true
           if k == Tput::Key::Left
             @goal_col = nil
@@ -311,6 +321,10 @@ module Crysterm
             move_cursor_vertically -1
           elsif k == Tput::Key::Down
             move_cursor_vertically 1
+          elsif k == Tput::Key::PageUp
+            move_cursor_vertically -page_rows
+          elsif k == Tput::Key::PageDown
+            move_cursor_vertically page_rows
           elsif k == Tput::Key::Home
             @goal_col = nil
             @cursor_pos = line_start_pos
