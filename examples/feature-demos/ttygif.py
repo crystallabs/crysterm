@@ -229,6 +229,12 @@ def char_width(ch):
     o = ord(ch)
     if o == 0:
         return 0
+    # Box/block elements, braille, and the legacy-computing sextants/octants are
+    # all single-width cells (terminals treat them as width 1). Pin them so the
+    # incomplete Unicode tables in older Pythons don't mis-flag them as wide.
+    if (0x2500 <= o <= 0x259F or 0x2800 <= o <= 0x28FF
+            or 0x1FB00 <= o <= 0x1FBFF or 0x1CC00 <= o <= 0x1CEBF):
+        return 1
     if unicodedata.category(ch) in ("Mn", "Me", "Cf"):
         return 0
     if unicodedata.east_asian_width(ch) in ("W", "F"):
@@ -237,7 +243,7 @@ def char_width(ch):
 
 
 class Cell:
-    __slots__ = ("ch", "fg", "bg", "bold", "underline", "inverse")
+    __slots__ = ("ch", "fg", "bg", "bold", "underline", "inverse", "italic")
 
     def __init__(self):
         self.ch = " "
@@ -246,6 +252,7 @@ class Cell:
         self.bold = False
         self.underline = False
         self.inverse = False
+        self.italic = False
 
     def copy(self):
         c = Cell()
@@ -255,6 +262,7 @@ class Cell:
         c.bold = self.bold
         c.underline = self.underline
         c.inverse = self.inverse
+        c.italic = self.italic
         return c
 
 
@@ -275,6 +283,7 @@ class Terminal:
         self.bold = False
         self.underline = False
         self.inverse = False
+        self.italic = False
         self.cursor_visible = True
         self.g0_graphics = False
         self.saved = None
@@ -288,6 +297,7 @@ class Terminal:
         c.bold = self.bold
         c.underline = self.underline
         c.inverse = self.inverse
+        c.italic = self.italic
         return c
 
     def _clamp(self):
@@ -337,10 +347,15 @@ class Terminal:
                 self.bold = False
                 self.underline = False
                 self.inverse = False
+                self.italic = False
             elif p == 1:
                 self.bold = True
             elif p == 22:
                 self.bold = False
+            elif p == 3:
+                self.italic = True
+            elif p == 23:
+                self.italic = False
             elif p == 4:
                 self.underline = True
             elif p == 24:
@@ -528,12 +543,12 @@ class Terminal:
             return -1
         if c == "7":
             self.saved = (self.cx, self.cy, self.fg, self.bg, self.bold,
-                          self.underline, self.inverse)
+                          self.underline, self.inverse, self.italic)
             return i + 1
         if c == "8":
             if self.saved:
                 (self.cx, self.cy, self.fg, self.bg, self.bold,
-                 self.underline, self.inverse) = self.saved
+                 self.underline, self.inverse, self.italic) = self.saved
             return i + 1
         if c == "M":  # reverse index
             self.cy -= 1
@@ -592,14 +607,14 @@ class Terminal:
 
 
 def load_fonts(size):
-    candidates_regular = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-        "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
-    ]
-    candidates_bold = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
-        "/usr/share/fonts/truetype/noto/NotoSansMono-Bold.ttf",
-    ]
+    sets = {
+        "r": ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+              "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf"],
+        "b": ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+              "/usr/share/fonts/truetype/noto/NotoSansMono-Bold.ttf"],
+        "i": ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Oblique.ttf"],
+        "bi": ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono-BoldOblique.ttf"],
+    }
 
     def first(paths):
         for p in paths:
@@ -607,9 +622,22 @@ def load_fonts(size):
                 return p
         return None
 
-    reg = first(candidates_regular)
-    bold = first(candidates_bold) or reg
-    return (ImageFont.truetype(reg, size), ImageFont.truetype(bold, size))
+    reg = first(sets["r"])
+    fonts = {"r": ImageFont.truetype(reg, size)}
+    for key in ("b", "i", "bi"):
+        path = first(sets[key]) or reg
+        fonts[key] = ImageFont.truetype(path, size)
+    return fonts
+
+
+def pick_font(fonts, bold, italic):
+    if bold and italic:
+        return fonts["bi"]
+    if bold:
+        return fonts["b"]
+    if italic:
+        return fonts["i"]
+    return fonts["r"]
 
 
 def cell_metrics(font):
@@ -620,7 +648,68 @@ def cell_metrics(font):
     return int(round(w)), ascent + descent, ascent
 
 
-def render_grid(term, font_reg, font_bold, cw, ch_h, ascent, scale=1):
+# --------------------------------------------------------------------------- #
+# Sub-cell glyphs (half/quadrant/sextant/octant/braille) drawn geometrically,  #
+# so they render pixel-accurately regardless of font coverage. Mirrors the     #
+# bit/codepoint layout emitted by Crysterm's Widget::GlyphImage.               #
+# --------------------------------------------------------------------------- #
+
+_BLOCK_MAP = {
+    0x2580: (1, 2, [(0, 0)]), 0x2584: (1, 2, [(0, 1)]),         # upper / lower half
+    0x258C: (2, 1, [(0, 0)]), 0x2590: (2, 1, [(1, 0)]),         # left / right half
+    0x2588: (1, 1, [(0, 0)]),                                   # full block
+    0x2596: (2, 2, [(0, 1)]), 0x2597: (2, 2, [(1, 1)]),
+    0x2598: (2, 2, [(0, 0)]), 0x259D: (2, 2, [(1, 0)]),
+    0x259A: (2, 2, [(0, 0), (1, 1)]), 0x259E: (2, 2, [(1, 0), (0, 1)]),
+    0x2599: (2, 2, [(0, 0), (0, 1), (1, 1)]),
+    0x259B: (2, 2, [(0, 0), (1, 0), (0, 1)]),
+    0x259C: (2, 2, [(0, 0), (1, 0), (1, 1)]),
+    0x259F: (2, 2, [(1, 0), (0, 1), (1, 1)]),
+}
+
+_BRAILLE_BIT_POS = {
+    0x01: (0, 0), 0x02: (0, 1), 0x04: (0, 2), 0x40: (0, 3),
+    0x08: (1, 0), 0x10: (1, 1), 0x20: (1, 2), 0x80: (1, 3),
+}
+
+
+def _cells_from_mask(mask, sx, sy):
+    return [(dx, dy) for dy in range(sy) for dx in range(sx)
+            if mask & (1 << (dy * sx + dx))]
+
+
+def _build_skip_map(base, n, skip):
+    m2cp = {}
+    idx = 0
+    for m in range(n):
+        if m in skip:
+            continue
+        m2cp[base + idx] = m
+        idx += 1
+    return m2cp
+
+
+_SEXTANT_CP2MASK = _build_skip_map(0x1FB00, 64, {0, 21, 42, 63})
+_OCTANT_CP2MASK = _build_skip_map(0x1CD00, 256, {0, 255, 15, 240, 85, 170})
+
+
+def geometric(cp):
+    if 0x2800 <= cp <= 0x28FF:
+        return ("braille", cp - 0x2800)
+    b = _BLOCK_MAP.get(cp)
+    if b:
+        return ("blocks", b[0], b[1], b[2])
+    if 0x1FB00 <= cp <= 0x1FB3B:
+        m = _SEXTANT_CP2MASK.get(cp)
+        if m is not None:
+            return ("blocks", 2, 3, _cells_from_mask(m, 2, 3))
+    m = _OCTANT_CP2MASK.get(cp)
+    if m is not None:
+        return ("blocks", 2, 4, _cells_from_mask(m, 2, 4))
+    return None
+
+
+def render_grid(term, fonts, cw, ch_h, ascent, scale=1):
     W = term.cols * cw
     H = term.rows * ch_h
     img = Image.new("RGB", (W, H), DEFAULT_BG)
@@ -641,12 +730,40 @@ def render_grid(term, font_reg, font_bold, cw, ch_h, ascent, scale=1):
             w = char_width(cell.ch[0]) if cell.ch else 1
             w = max(1, w)
             px = x * cw
+
+            # Sub-cell glyph families: draw geometrically (font-independent).
+            geo = geometric(ord(cell.ch[0])) if cell.ch else None
+            if geo:
+                draw.rectangle([px, py, px + cw - 1, py + ch_h - 1], fill=bg)
+                if geo[0] == "braille":
+                    mask = geo[1]
+                    for bit, (dx, dy) in _BRAILLE_BIT_POS.items():
+                        if mask & bit:
+                            x0 = px + dx * cw / 2.0
+                            y0 = py + dy * ch_h / 4.0
+                            ddx = cw / 2.0
+                            ddy = ch_h / 4.0
+                            ix = ddx * 0.16
+                            iy = ddy * 0.16
+                            draw.ellipse([x0 + ix, y0 + iy, x0 + ddx - ix - 1, y0 + ddy - iy - 1],
+                                         fill=fg)
+                else:
+                    _, cols, rows, cells = geo
+                    for (dx, dy) in cells:
+                        x0 = px + round(dx * cw / cols)
+                        x1 = px + round((dx + 1) * cw / cols)
+                        y0 = py + round(dy * ch_h / rows)
+                        y1 = py + round((dy + 1) * ch_h / rows)
+                        draw.rectangle([x0, y0, x1 - 1, y1 - 1], fill=fg)
+                x += w
+                continue
+
             # background
             if bg != DEFAULT_BG:
                 draw.rectangle([px, py, px + w * cw - 1, py + ch_h - 1], fill=bg)
             # glyph
             if cell.ch.strip(" ") and cell.ch != " ":
-                f = font_bold if cell.bold else font_reg
+                f = pick_font(fonts, cell.bold, cell.italic)
                 draw.text((px, py), cell.ch, font=f, fill=fg)
                 if cell.underline:
                     uy = py + ascent + 1
@@ -690,8 +807,19 @@ def main():
     # Replay & sample frames at fps
     term = Terminal(args.cols, args.rows)
     decoder = __import__("codecs").getincrementaldecoder("utf-8")("replace")
-    font_reg, font_bold = load_fonts(args.font_size)
-    cw, ch_h, ascent = cell_metrics(font_reg)
+    fonts = load_fonts(args.font_size)
+    cw, ch_h, ascent = cell_metrics(fonts["r"])
+
+    # Still mode: if the output is a .png, replay everything and save the final
+    # frame as a single image (for static demos that would otherwise flicker as
+    # a 2-frame GIF).
+    if args.out.lower().endswith(".png"):
+        for _, data in events:
+            term.feed(data, decoder)
+        img = render_grid(term, fonts, cw, ch_h, ascent, args.scale)
+        img.save(args.out)
+        sys.stderr.write("  done (still): %s\n" % args.out)
+        return
 
     frame_dt = 1.0 / args.fps
     frames = []
@@ -707,7 +835,7 @@ def main():
         while ev_idx < len(events) and events[ev_idx][0] <= t:
             term.feed(events[ev_idx][1], decoder)
             ev_idx += 1
-        frames.append(render_grid(term, font_reg, font_bold, cw, ch_h, ascent, args.scale))
+        frames.append(render_grid(term, fonts, cw, ch_h, ascent, args.scale))
         durations.append(int(frame_dt * 1000))
         t += frame_dt
 
@@ -715,7 +843,7 @@ def main():
     while ev_idx < len(events):
         term.feed(events[ev_idx][1], decoder)
         ev_idx += 1
-    frames.append(render_grid(term, font_reg, font_bold, cw, ch_h, ascent, args.scale))
+    frames.append(render_grid(term, fonts, cw, ch_h, ascent, args.scale))
     durations.append(int(args.settle * 1000))
 
     sys.stderr.write("  rendering %d frames -> %s\n" % (len(frames), args.out))

@@ -42,11 +42,17 @@ declare -A DUR_OVERRIDE=()
 declare -A COLS_OVERRIDE=()
 declare -A ROWS_OVERRIDE=()
 
+# Static demos: saved as a single still .png instead of an animated .gif.
+STILL=(png_image)
+
+# GlyphImage render variants — one still PNG per mode, all of the same image.
+GLYPH_MODES=(block ascii half quadrant sextant octant braille)
+
 # All demos, in display order. Pass names as args to build a subset.
 ALL=(concurrent_rendering truecolor unicode mouse widgets layout image \
      styling terminfo events diff_rendering \
      matrix dashboard clock \
-     png_image ascii_image cracktro)
+     png_image cracktro glyph_modes overlay)
 
 DEMOS=("$@")
 if [ "${#DEMOS[@]}" -eq 0 ]; then
@@ -57,6 +63,69 @@ echo "Window: ${COLS}x${ROWS}  duration=${DURATION}s  fps=${FPS}  font=${FONT_SI
 echo
 
 for demo in "${DEMOS[@]}"; do
+  # Special case: GlyphImage render variants -> one still PNG per mode.
+  if [ "$demo" = "glyph_modes" ]; then
+    echo ">> glyph_modes (one still PNG per drawing mode)"
+    echo "   building ..."
+    crystal build "$HERE/glyph_mode.cr" -o "$BUILD/glyph_mode" 2>&1 | sed 's/^/   /' || {
+      echo "   build FAILED, skipping"; continue; }
+    for m in "${GLYPH_MODES[@]}"; do
+      GLYPH_MODE="$m" python3 "$RECORDER" \
+        --out "$OUT/matterhorn-$m.png" \
+        --cols "$COLS" --rows "$ROWS" --duration 2 \
+        --font-size "$FONT_SIZE" --scale "$SCALE" \
+        -- "$BUILD/glyph_mode"
+    done
+    echo
+    continue
+  fi
+
+  # Special case: OverlayImage (w3mimgdisplay) — real X11 pixel overlay, so it
+  # can't go through the pseudo-terminal recorder. We run it in a real xterm on
+  # $DISPLAY and screenshot that window with ffmpeg. The demo self-terminates
+  # (OVERLAY_SECONDS), and we only ever kill the one PID we started — never a
+  # broad pkill, which would take down other terminals on the display.
+  if [ "$demo" = "overlay" ]; then
+    echo ">> overlay (OverlayImage / w3mimgdisplay true-color, needs X + xterm)"
+    if [ -z "${DISPLAY:-}" ] || ! command -v xterm >/dev/null \
+       || ! command -v xwininfo >/dev/null || ! command -v ffmpeg >/dev/null \
+       || [ ! -x /usr/lib/w3m/w3mimgdisplay ]; then
+      echo "   skipped: needs DISPLAY, xterm, xwininfo, ffmpeg and w3mimgdisplay"; echo; continue
+    fi
+    crystal build "$HERE/overlay_image.cr" -o "$BUILD/overlay_image" 2>&1 | sed 's/^/   /' || {
+      echo "   build FAILED, skipping"; continue; }
+    PATH="$PATH:/usr/lib/w3m" OVERLAY_SECONDS=12 \
+      xterm -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" -geometry "${COLS}x${ROWS}+40+40" \
+      -e "$BUILD/overlay_image" &
+    xpid=$!
+    sleep 4.5
+    info=$(xwininfo -name OverlayImage 2>/dev/null || true)
+    gx=$(awk '/Absolute upper-left X/{print $4}' <<<"$info")
+    gy=$(awk '/Absolute upper-left Y/{print $4}' <<<"$info")
+    gw=$(awk '/Width:/{print $2}' <<<"$info")
+    gh=$(awk '/Height:/{print $2}' <<<"$info")
+    if [ -n "$gw" ]; then
+      ffmpeg -hide_banner -loglevel error -f x11grab -video_size "${gw}x${gh}" \
+        -i "${DISPLAY}+${gx},${gy}" -frames:v 1 -y /tmp/_overlay_grab.png
+      python3 - "$OUT/png_image.png" /tmp/_overlay_grab.png "$OUT/matterhorn-overlay.png" <<'PY'
+import sys
+from PIL import Image
+ref, src, dst = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    w, h = Image.open(ref).size            # match the other outputs' size
+except Exception:
+    w, h = 880, 330
+Image.open(src).convert("RGB").resize((w, h), Image.LANCZOS).save(dst)
+print("   wrote", dst, (w, h))
+PY
+    else
+      echo "   could not locate the window (w3m overlay may be unsupported here)"
+    fi
+    kill "$xpid" 2>/dev/null || true   # only this PID; demo self-exits anyway
+    echo
+    continue
+  fi
+
   src="$HERE/$demo.cr"
   if [ ! -f "$src" ]; then
     echo "!! no such demo: $demo  (skipping)"
@@ -70,8 +139,14 @@ for demo in "${DEMOS[@]}"; do
   dur="${DUR_OVERRIDE[$demo]:-$DURATION}"
   cols="${COLS_OVERRIDE[$demo]:-$COLS}"
   rows="${ROWS_OVERRIDE[$demo]:-$ROWS}"
+
+  # Static demos are saved as a single still PNG (a .png output switches the
+  # recorder into still mode) so they don't flicker as a short looping GIF.
+  ext="gif"
+  case " ${STILL[*]} " in *" $demo "*) ext="png" ;; esac
+
   python3 "$RECORDER" \
-    --out "$OUT/$demo.gif" \
+    --out "$OUT/$demo.$ext" \
     --cols "$cols" --rows "$rows" \
     --duration "$dur" --fps "$FPS" \
     --font-size "$FONT_SIZE" --scale "$SCALE" \
@@ -79,5 +154,5 @@ for demo in "${DEMOS[@]}"; do
   echo
 done
 
-echo "Done. GIFs in: $OUT"
-ls -la "$OUT"/*.gif 2>/dev/null | sed 's/^/  /' || true
+echo "Done. Output in: $OUT"
+ls -la "$OUT"/*.gif "$OUT"/*.png 2>/dev/null | sed 's/^/  /' || true

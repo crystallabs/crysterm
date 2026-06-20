@@ -11,6 +11,12 @@ include Crysterm
 s = Screen.new title: "Styling"
 s.show_fps = nil
 
+# A neutral backdrop behind everything, so the drop shadows (which darken
+# whatever is *behind* a widget) are actually visible instead of black-on-black.
+Widget::Box.new \
+  parent: s, top: 0, left: 0, width: "100%", height: "100%",
+  style: Style.new(bg: "#3a4250")
+
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Borders, shadows and text attributes{/center}", parse_tags: true,
@@ -22,16 +28,18 @@ Widget::Box.new \
   content: "{center}Line border\n+ drop shadow{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#2050a0", border: Border.new(type: :line), shadow: true)
 
-# Solid (bg) border
+# Solid (bg) border, with a shadow on all four sides. Left/right are 2 cells and
+# top/bottom 1, so it looks even (terminal cells are about twice as tall as wide).
 Widget::Box.new \
   parent: s, top: 2, left: 28, width: 22, height: 5,
-  content: "{center}Solid bg border{/center}", parse_tags: true,
-  style: Style.new(fg: "black", bg: "#d0a020", border: Border.new(type: :bg, bg: "#a07010"))
+  content: "{center}Solid bg border\n+ even shadow{/center}", parse_tags: true,
+  style: Style.new(fg: "black", bg: "#d0a020", border: Border.new(type: :bg, bg: "#a07010"),
+    shadow: Shadow.new(2, 1, 2, 1))
 
 # Text attributes via inline tags
 Widget::Box.new \
   parent: s, top: 2, left: 54, width: 24, height: 5,
-  content: "{bold}bold{/bold}  {underline}underline{/underline}\n" \
+  content: "{bold}bold{/bold} {underline}underline{/underline} {italic}italic{/italic}\n" \
            "{inverse}inverse{/inverse}\n" \
            "{red-fg}red{/} {green-fg}green{/} {blue-fg}blue{/}",
   parse_tags: true,
