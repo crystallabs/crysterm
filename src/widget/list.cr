@@ -213,7 +213,16 @@ module Crysterm
         @selected = index
         @value = clean_tags @ritems[@selected]
 
-        return unless @parent
+        # Gate the scroll + `SelectItem` emit on having been laid out, not on
+        # having a `#parent`. A top-level widget appended straight to a `Screen`
+        # has no `#parent` (a `Screen` is not a `Widget`; `Screen#insert` sets
+        # `screen=`, not `parent=`), so the old `unless @parent` guard silently
+        # skipped `scroll_to`/`SelectItem` for every screen-level list — the
+        # list would never scroll to keep the selection visible, nor notify
+        # listeners. `@lpos` is nil only until the first render (when scrolling
+        # can't be computed anyway), and set thereafter for parented and
+        # top-level widgets alike.
+        return unless @lpos
 
         scroll_to @selected
 

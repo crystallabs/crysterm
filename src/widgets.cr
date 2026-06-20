@@ -17,6 +17,7 @@ module Crysterm
     HLine        = Widget::HLine
     VLine        = Widget::VLine
     ListTable    = Widget::ListTable
+    ListBar      = Widget::ListBar
     List         = Widget::List
     Table        = Widget::Table
     Form         = Widget::Form

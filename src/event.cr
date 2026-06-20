@@ -137,6 +137,11 @@ module Crysterm
     # Emitted on selection of an item in list
     event SelectItem, item : Widget::Box, index : Int32
 
+    # Emitted by `Widget::ListBar` when a tab/command is selected via
+    # `#select_tab` (e.g. through `auto_command_keys`). `item` is the command's
+    # element box (`nil` if the index is out of range), `index` its position.
+    event SelectTab, item : Widget::Box?, index : Int32
+
     # Emitted when an Action is Triggered
     event Triggered
 

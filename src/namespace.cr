@@ -202,6 +202,14 @@ module Crysterm
       @item || self
     end
 
+    # Style used for the numeric/letter prefix shown before each
+    # `Widget::ListBar` command (e.g. the `1` in `1:open`). Defaults to `self`.
+    setter prefix : Style?
+
+    def prefix
+      @prefix || self
+    end
+
     # Label value is used only when internally instantiating labels on widgets,
     # to be able to set their: `style: self.style.label`. Since labels are
     # widgets, everything after that is done by looking up `@_label.style....`.
@@ -256,6 +264,7 @@ module Crysterm
       @track = @track,
       @bar = @bar,
       @item = @item,
+      @prefix = @prefix,
       @header = @header,
       @cell = @cell,
       @label = @label,
