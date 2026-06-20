@@ -10,6 +10,7 @@ require "./event"
 require "./helpers"
 require "./colors"
 require "./docking"
+require "pnggif"
 
 require "./mixin/*"
 

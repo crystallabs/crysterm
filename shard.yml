@@ -28,6 +28,9 @@ dependencies:
   gpm:
     github: crystallabs/gpm.cr
     branch: master
+  pnggif:
+    github: crystallabs/pnggif
+    branch: master
 
 development_dependencies:
   ameba:
