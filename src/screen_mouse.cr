@@ -27,6 +27,12 @@ module Crysterm
     # position), used to detect hover in/out transitions.
     @_hover : Widget?
 
+    # The widget currently under the pointer (topmost), or `nil` if none. Useful
+    # e.g. to confirm, after a delay, that the pointer is still over a widget.
+    def hovered : Widget?
+      @_hover
+    end
+
     # Turns on xterm mouse reporting for this screen's terminal.
     def enable_mouse
       tput.enable_mouse
@@ -163,20 +169,27 @@ module Crysterm
     # Returns the topmost visible, clickable widget whose absolute rectangle
     # contains the 0-based point (*x*, *y*), or `nil` if none.
     #
-    # `@clickable` is kept in registration order; later-registered widgets are
-    # treated as being on top, so we scan it in reverse.
+    # Hit-testing follows the actual render/z order rather than registration
+    # order: the widget tree is walked in the same depth-first order in which it
+    # is painted (`@children` array order; see `Screen#_render`), and the last
+    # match wins — i.e. the widget drawn last (on top). This is what makes
+    # `Widget#front!` / `Widget#back!` affect which widget the mouse "sees":
+    # reordering a widget within its parent's `children` both raises it visually
+    # and makes it the hit target, with no separate bookkeeping to keep in sync.
     def widget_at(x, y) : Widget?
-      @clickable.reverse_each do |el|
-        next unless el.screen && el.visible?
+      found = nil
+      each_descendant do |el|
+        next unless el.clickable?
+        next unless el.visible?
 
         left = el.aleft
         top = el.atop
         next unless x >= left && x < left + el.awidth
         next unless y >= top && y < top + el.aheight
 
-        return el
+        found = el
       end
-      nil
+      found
     end
 
     # Registers *el* as a widget that wants to receive mouse input. Mirrors

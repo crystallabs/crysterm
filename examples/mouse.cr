@@ -10,10 +10,16 @@ require "../src/crysterm"
 # The bottom-left box is a *click* target: clicking it emits `Event::Click` and
 # flips its colour.
 #
-# The bottom-right box is a *hover* target: it reacts to the pointer entering
+# The middle-right box is a *hover* target: it reacts to the pointer entering
 # (`Event::MouseOver`), moving within it (`Event::MouseMove`) and leaving
 # (`Event::MouseOut`). Hover events go only to the topmost widget under the
 # pointer.
+#
+# The two partially overlapping boxes at the bottom demonstrate z-ordering:
+# whichever one the pointer hovers over is brought to the front (`Widget#front!`)
+# after a short delay — provided the pointer is still over it. Because mouse
+# hit-testing follows the render/z order, raising a box also makes it the hit
+# target in the overlap region.
 #
 # Press q (or Ctrl-Q) to quit.
 class MouseDemo
@@ -27,7 +33,7 @@ class MouseDemo
     top: 0,
     left: 0,
     width: "100%",
-    height: "60%",
+    height: "45%",
     content: "Move / click / scroll the mouse. Press q to quit.",
     scrollable: true,
     style: Style.new(fg: "white", bg: "black", border: true)
@@ -35,7 +41,7 @@ class MouseDemo
   click_box = Widget::Box.new \
     parent: s,
     name: "click",
-    top: "60%",
+    top: "47%",
     left: 4,
     width: 30,
     height: 6,
@@ -46,7 +52,7 @@ class MouseDemo
   hover_box = Widget::Box.new \
     parent: s,
     name: "hover",
-    top: "60%",
+    top: "47%",
     right: 4,
     width: 30,
     height: 6,
@@ -102,6 +108,52 @@ class MouseDemo
     hover_box.content = "{center}Hover me!{/center}"
     add_log.call "hover OUT (hover box) @ #{e.x},#{e.y}"
     s.render
+  end
+
+  # --- Two partially overlapping boxes: hover raises to front after a delay. ---
+  RAISE_DELAY = 0.5.seconds
+
+  raise_a = Widget::Box.new \
+    parent: s,
+    name: "raise_a",
+    top: "70%",
+    left: "28%",
+    width: 32,
+    height: 7,
+    content: "{center}Box A\n\nhover to raise me{/center}",
+    parse_tags: true,
+    style: Style.new(fg: "black", bg: "cyan", border: true)
+
+  # Added after A, so B starts on top (later in the children array = drawn last).
+  raise_b = Widget::Box.new \
+    parent: s,
+    name: "raise_b",
+    top: "70%+3",
+    left: "28%+16",
+    width: 32,
+    height: 7,
+    content: "{center}Box B\n\nhover to raise me{/center}",
+    parse_tags: true,
+    style: Style.new(fg: "black", bg: "yellow", border: true)
+
+  {raise_a, raise_b}.each do |bx|
+    bx.clickable = true
+    s.register_clickable bx
+
+    name = bx.name
+
+    # On hover-in, wait a moment; if the pointer is still over this box (it is
+    # the topmost hovered widget), bring it to the front.
+    bx.on(Event::MouseOver) do
+      spawn do
+        sleep RAISE_DELAY
+        if s.hovered == bx
+          bx.front!
+          add_log.call "raised #{name} to front"
+          s.render
+        end
+      end
+    end
   end
 
   s.on(Event::KeyPress) do |e|
