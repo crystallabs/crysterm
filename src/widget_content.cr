@@ -734,11 +734,11 @@ module Crysterm
       @_clines.dup
     end
 
-    # Whether grapheme / column-width-aware layout is in effect for this widget:
-    # the screen's `full_unicode` option is on AND the terminal can render
-    # Unicode. When false, layout falls back to one column per codepoint.
+    # Whether grapheme / column-width-aware layout is in effect for this widget;
+    # delegates to the owning screen's effective gate (`Screen#full_unicode?` =
+    # option AND terminal capability). False when unattached.
     def full_unicode?
-      (s = screen?) ? (s.full_unicode? && s.tput.features.unicode?) : false
+      screen?.try(&.full_unicode?) || false
     end
 
     # Width, in terminal COLUMNS, of `text`'s visible content. SGR sequences are
@@ -771,6 +771,46 @@ module Crysterm
       end
       kept.reverse!
       kept.join
+    end
+
+    # Assembles the grapheme cluster that begins with `base` (the codepoint at
+    # `content[ci - 1]`) by consuming any following *extending* codepoints from
+    # `content` starting at `ci`: combining marks, ZWJ (and the codepoint it
+    # joins), variation selectors, emoji skin-tone modifiers, and — for a flag —
+    # a second regional indicator. Returns `{cluster, new_ci}`.
+    #
+    # This is a pragmatic subset of UAX-#29 that covers the cases that actually
+    # occur in terminal text; `content` is anything indexable by codepoint
+    # (`#[]?` returning `Char?`).
+    def extend_grapheme(content, ci : Int32, base : Char) : Tuple(String, Int32)
+      g = String::Builder.new
+      g << base
+
+      # A flag is a pair of regional indicators.
+      if 0x1F1E6 <= base.ord <= 0x1F1FF
+        if (c = content[ci]?) && (0x1F1E6 <= c.ord <= 0x1F1FF)
+          g << c
+          ci += 1
+        end
+        return {g.to_s, ci}
+      end
+
+      while c = content[ci]?
+        cp = c.ord
+        if c.mark? || cp == 0x200D || (0xFE00 <= cp <= 0xFE0F) || (0x1F3FB <= cp <= 0x1F3FF)
+          g << c
+          ci += 1
+          # A ZWJ also pulls in the codepoint it joins (e.g. the next emoji).
+          if cp == 0x200D && (c2 = content[ci]?)
+            g << c2
+            ci += 1
+          end
+        else
+          break
+        end
+      end
+
+      {g.to_s, ci}
     end
 
     # Character index in `line` (which may contain inline SGR) at which to cut so

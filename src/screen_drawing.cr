@@ -85,8 +85,17 @@ module Crysterm
         # Default attr code
         attr = @default_attr
 
+        # When a wide grapheme is emitted it also covers the following
+        # (continuation) cell, so that cell is skipped on the next iteration.
+        skip_next = false
+
         # For all cells in row (x = column coordinate)
         line.size.times do |x|
+          if skip_next
+            skip_next = false
+            next
+          end
+
           # Desired attr code and char
           desired_attr = line[x].attr
           desired_char = line[x].char
@@ -217,7 +226,11 @@ module Crysterm
               ly = -1
             end
             ox.attr = desired_attr
-            ox.char = desired_char
+            if full_unicode? && (g = line[x].grapheme_overlay)
+              ox.grapheme = g
+            else
+              ox.char = desired_char
+            end
           end
 
           if desired_attr != attr
@@ -354,8 +367,28 @@ module Crysterm
             end
           end
 
-          # Now print the char itself.
-          @outbuf.print desired_char
+          # Now print the cell's content. Under full_unicode: a continuation
+          # cell (the trailing half of a wide grapheme) emits nothing — the wide
+          # glyph already advanced the cursor; a cluster cell emits its whole
+          # grapheme; and a wide cell claims its continuation cell, which the
+          # next iteration skips (keeping cell index == terminal column).
+          if full_unicode?
+            current = line[x]
+            unless current.continuation?
+              if g = current.grapheme_overlay
+                @outbuf.print g
+              else
+                @outbuf.print desired_char
+              end
+              if current.width == 2 && (oc = o[x + 1]?)
+                oc.attr = desired_attr
+                oc.continuation!
+                skip_next = true
+              end
+            end
+          else
+            @outbuf.print desired_char
+          end
 
           attr = desired_attr
         end
