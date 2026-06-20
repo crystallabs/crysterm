@@ -4,13 +4,25 @@
 
 # Crysterm
 
-Crysterm is a console/terminal toolkit for Crystal.
+Crysterm is a console/terminal toolkit for Crystal, inspired heavily by 
+[Blessed](https://github.com/chjj/blessed), [Blessed-contrib](https://github.com/yaronn/blessed-contrib), and
+[Qt](https://doc.qt.io/).
 
-At the moment Crysterm follows closely the implementation and behavior of libraries that inspired it,
-[Blessed](https://github.com/chjj/blessed) and [Blessed-contrib](https://github.com/yaronn/blessed-contrib)
-for Node.js. However, being implemented in Crystal (an OO language), it tries to use the language's
-best practices, avoid bugs and problems found in Blessed, and also (especially in the future) incorporate
-more aspects of [Qt](https://doc.qt.io/).
+Of supporting shards, the event model is in 
+[event_handler](https://github.com/crystallabs/event_handler), color routines in
+[term_colors](https://github.com/crystallabs/term_colors), terminal handling in
+[tput.cr](https://github.com/crystallabs/tput.cr), GPM mouse in
+[gpm.cr](https://github.com/crystallabs/gpm.cr), a terminfo library in
+[unibilium.cr](https://github.com/crystallabs/unibilium.cr), and an animated PNG/GIF parser
+in [pnggif](https://github.com/crystallabs/pnggif).
+
+[tput.cr](https://github.com/crystallabs/tput.cr) implements all the terminal routines (Crysterm
+does not use ncurses). Tput uses the [unibilium](https://github.com/neovim/unibilium/) terminfo
+library, but it also has a standard, hardcoded mode which can be used when one does not wish
+to use unibilium or terminfo. (A lot of modern software just hardcodes the sequences.)
+
+The other important module at the core is [event_handler](https://github.com/crystallabs/event_handler).
+through which all app events are routed.
 
 ## Trying out the examples
 
@@ -22,57 +34,9 @@ shards
 crystal examples/hello.cr
 crystal examples/hello2.cr
 crystal examples/tech-demo.cr
-
-# And other examples from directories examples/, small-tests/, test/ and test-auto/.
 ```
 
-## Using it as a module in your project
-
-Add the dependency to `shard.yml`:
-
-```yaml
-dependencies:
-  crysterm:
-    github: crystallabs/crysterm
-    branch: master
-```
-
-Then add some code to your project, e.g.:
-
-```cr
-require "crysterm"
-
-alias C = Crysterm
-
-screen = C::Screen.new
-
-# Optionally, you can include widgets in the current namespace:
-# include Crysterm::Widgets
-
-hello = C::Widget::Box.new \
-  name: "helloworld box", # Symbolic name
-  top: "center",          # Can also be of format 10, "50%", or "50%+-10"
-  left: "center",         # Can also be of format 10, "50%", or "50%+-10"
-  width: 20,              # Can also be of format 10, "50%", or "50%+-10"
-  height: 5,              # Can also be of format 10, "50%", or "50%+-10"
-  content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
-  parse_tags: true,       # Parse {} tags within content (default already is true)
-  style: C::Style.new(fg: "yellow", bg: "blue", border: true)
-
-screen.append hello
-
-# When ctrl-q or q is pressed, exit.
-# (We can do this by listening for C::Event::KeyPress::CtrlQ specifically,
-# or for all C::Event::KeyPress and then checking the value of `e.char`.)
-screen.on(C::Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    screen.destroy
-    exit
-  end
-end
-
-screen.exec
-```
+(And other examples from directories `examples/`, `small-tests/`, `test/` and `test-auto/`.)
 
 ## Screenshots
 
@@ -88,50 +52,11 @@ Transparency, color blending, and shadow (part of small-tests/shadow.cr)
 
 ![Crysterm Color Blending](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/shadow.png)
 
-## Development
-
-### Introduction
-
-Crysterm is inspired by Blessed, Blessed-contrib, and Qt.
-
-Blessed is a large, self-contained framework. Its author
-implemented many prerequisites, including an event model (a modified copy of an early Node.js
-EventEmitter), complete termcap/terminfo system (an
-alternative to ncurses), mouse support, Unicode handling, color manipulation routines, etc.,
-all bundled with blessed.
-
-In Crysterm, the equivalents have been created as individual shards for the ecosystem's
-benefit. The event model is in 
-[event_handler](https://github.com/crystallabs/event_handler), color routines in
-[term_colors](https://github.com/crystallabs/term_colors), terminal handling in
-[tput.cr](https://github.com/crystallabs/tput.cr), GPM mouse in
-[gpm.cr](https://github.com/crystallabs/gpm.cr), a terminfo library in
-[unibilium.cr](https://github.com/crystallabs/unibilium.cr), and an animated PNG/GIF parser
-in [pnggif](https://github.com/crystallabs/pnggif).
-
-
-### Terminal Handling
-
-Complete terminal handling is implemented in [tput.cr](https://github.com/crystallabs/tput.cr).
-
-Tput uses unibilium.cr, bindings for terminfo library called [unibilium](https://github.com/neovim/unibilium/), now maintained by Neovim.
-Unibilium is packaged for a good number of operating systems and only requires the library, not headers.
-However, tput also has a standard, hardcoded mode which can be used when one does not wish to use unibilium or terminfo.
-(A lot of modern software just hardcodes the sequences.)
-
-### Event model
-
-Event model is at the core of Crysterm, implemented via [event_handler](https://github.com/crystallabs/event_handler).
-
-Please refer to [event_handler](https://github.com/crystallabs/event_handler)'s documentation for all usage instructions.
-
-The events used by Crysterm and its widgets are defined in `src/event.cr`.
-
-### Testing
+## Testing
 
 Run `crystal spec` as usual.
 
-### Documentation
+## Documentation
 
 Run `crystal docs` as usual.
 
