@@ -141,7 +141,7 @@ module Crysterm
       @full_unicode = @full_unicode,
       @resize_interval = @resize_interval,
 
-      terminfo : Bool | Unibilium::Terminfo = true,
+      terminfo : Bool | Unibilium = true,
 
       # Not needed for now. Also better not to couple with terminal specifics
       # @term = ENV["TERM"]? || "{% if flag?(:windows) %}windows-ansi{% else %}xterm{% end %}"
@@ -149,11 +149,11 @@ module Crysterm
     )
       terminfo = case terminfo
                  in true
-                   Unibilium::Terminfo.from_env
+                   Unibilium.from_env
                  in false, nil
                    nil
-                 in Unibilium::Terminfo
-                   terminfo.as Unibilium::Terminfo
+                 in Unibilium
+                   terminfo.as Unibilium
                  end
 
       # XXX Should `error` fd be passed to tput as well?

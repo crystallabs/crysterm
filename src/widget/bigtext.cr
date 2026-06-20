@@ -120,14 +120,14 @@ module Crysterm
         # Swap fg/bg so the "lit" glyph pixels invert the base colors.
         attr = Attr.pack(Attr.flags(default_attr), Attr.bg(default_attr), Attr.fg(default_attr))
 
-        max_chars = Math.min @text.size, (right - left)//@ratio.width
-
-        i = 0
+        # One glyph per grapheme cluster (so a base + combining mark is a single
+        # glyph slot, not two), keyed into the font by the cluster string.
+        graphemes = @text.each_grapheme.to_a
+        max_chars = Math.min graphemes.size, (right - left)//@ratio.width
 
         x = @align.right? ? (right - max_chars*@ratio.width) : left
-        while i < max_chars
-          ch = @text[i]?.try &.to_s
-          break unless ch
+        max_chars.times do |i|
+          ch = graphemes[i].to_s
           map = @active_font[ch]? || @active_font["?"]
           y = top
           while y < Math.min(bottom, top + @ratio.height)
@@ -164,7 +164,6 @@ module Crysterm
           end
 
           x += @ratio.width
-          i += 1
         end
 
         coords

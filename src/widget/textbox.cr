@@ -45,7 +45,9 @@ module Crysterm
           if @secret
             set_content ""
           elsif @censor
-            set_content "*" * value.size
+            # One mask char per user-perceived character (grapheme) under
+            # full_unicode; per codepoint otherwise.
+            set_content "*" * (full_unicode? ? value.graphemes.size : value.size)
           else
             val = @value.gsub /\t/, style.tab_char * style.tab_size
             # Show the tail of the value that fits the input's visible width
