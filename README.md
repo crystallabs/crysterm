@@ -145,7 +145,7 @@ Event model is at the very core of Crysterm, implemented via [event_handler](htt
 
 Please refer to [event_handler](https://github.com/crystallabs/event_handler)'s documentation for all usage instructions.
 
-The events used by Crysterm and its widgets are defined in `src/events.cr`.
+The events used by Crysterm and its widgets are defined in `src/event.cr`.
 
 ### Class Hierarchy
 
@@ -222,13 +222,15 @@ program.
 ### Text Attributes and Colors
 
 Crysterm inherits from Blessed a custom implementation/concept of "tags" in strings,
-such as `{light-blue-fg}Text in Light Blue{/light-blue-fg}`. Tags can be embedded in strings directly, applied
-from a Hash with `generate_tags`, or removed from a string with `strip_tags` or `clean_tags`.
-Any existing strings where "{}" should not be interpreted can be protected with `escape_tags`.
+such as `{light-blue-fg}Text in Light Blue{/light-blue-fg}`. Tags can be embedded in strings directly,
+or removed from a string with `strip_tags` or `clean_tags`.
+Any existing strings where "{}" should not be interpreted can be protected with `escape`, which replaces
+literal `{` and `}` with the `{open}` and `{close}` tags.
 
 The supported tags are: `{center}`, `{left}`, and `{right}` for alignment,
 `{normal | default}`, `{bold}`, `{underline | underlined | ul}`, `{blink}`, `{inverse}`, and `{invisible}` for text attributes,
 `{COLOR-fg}` and `{COLOR-bg}` for colors,
+`{open}` and `{close}` for literal `{` and `}` characters,
 and `{/}` for closing all open tags.
 
 Supported COLOR names are:
@@ -277,7 +279,7 @@ Crysterm is interoperable with those approaches.
 Every `Widget` has an attribute `style`, defining the colors and attributes to use during rendering.
 If no style is explicitly defined, the default style is instantiated. Apart from styling the widget
 itself, each `Style` may have overriding style definitions for widget's possible subelements
-(border, scrollbar, track, bar, item, header, cell, label) and states (focus, blur, hover, selected).
+(border, scrollbar, track, bar, item, header, cell, label) and states (blurred, focused, hovered, selected, disabled).
 
 If any of these subelements have more specific settings which define substantial behavior and not
 just visual aspects, they are defined as properties directly on the widget (e.g. `Widget#border`,
@@ -332,8 +334,8 @@ List of notable differences (hopefully improvements) compared to Blessed:
 - `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`. Default is true
 - All terminal-level stuff is in shard `Tput`, not `Crysterm`
 - `style` property has been consolidated; all style-related stuff is under widget's `@style : Style`
-- Widget property `shadow` is a bool, and default amount of transparency is `style.shadow_transparency = 0.5`
-- Style property `transparent` has been renamed to `transparency` and also accepts Float64, in addition to `true` which defaults to 0.5
+- Shadow lives in `style.shadow` (a `Shadow` object), not as a bool widget property. It can be set per-side, each side with its own depth, and its transparency is controlled by the shadow's `alpha` (default 0.5). Assigning `true`/`false` or a Float64 is also accepted and converted via `Shadow.from`
+- Style property `transparent` has been replaced by `style.alpha : Float64?`. Alpha is the inverse of transparency (0 == fully transparent, 1 == fully opaque). Assigning `true` is accepted and defaults to alpha 0.5
 - In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed and arguably more correct (Blessed uses background color)
 - In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
 - In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends (averages) colors and then performs docking.
@@ -361,7 +363,7 @@ List of current bugs / quirks in Crysterm, in no particular order:
 - Scrollbar on a widget can be enabled with `scrollbar: true`. Styling for the scrollbar column is taken from `@style.track` and for the scrollbar character from `@style.scrollbar`. This is inherited from Blessed and unintuitive. `style.scrollbar` should be the column, and `style.track` (or other name) should be the scroll position indicator.
 - Some parts of code are marked with "D O:" or "E O:". These mean "Disabled Originally" and "Enabled Originally", indicating whether respective parts of code were disabled or enabled "originally" (in Blessed sources). Those marked with "D O:" do not need any work unless they were part of unfinished improvements in Blessed, in which case they probably should be developed/enhanced in Crysterm.
 - In some places functions like '#setX' have been renamed to '#x=' while in others they weren't.
-- There is no `Image` widget which can display an image in ANSI or an overlay. Use one or the other (`Widget::Image::Ansi` or `Widget::Image::Overlay`) explicitly. (`Image::Ansi` does not exist yet.)
+- There is no single `Image` widget which can display an image in ANSI or as an overlay. Use the overlay widget (`Widget::OverlayImage`) explicitly. An ANSI image widget does not exist yet.
 
 If you notice any problems or have any suggestions, please submit an issue.
 

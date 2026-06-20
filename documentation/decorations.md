@@ -100,8 +100,8 @@ doesn't suffer from the same bug that borders have with value 0. (Possibly the s
 bug will be to make it work more like padding does.)
 
 In Blessed there is function `tpadding()` which returns whether the widget has any padding (for
-knowing whether to go into padding-related code or not). In Crysterm, this check is done with
-just `if Widget#padding`.
+knowing whether to go into padding-related code or not). In Crysterm, padding is a `Padding` object
+in `Widget#style.padding`, and this check is done with `if style.padding.any?`.
 
 ## Shadow
 
