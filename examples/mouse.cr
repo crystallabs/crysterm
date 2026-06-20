@@ -60,13 +60,9 @@ class MouseDemo
     parse_tags: true,
     style: Style.new(fg: "black", bg: "blue", border: true)
 
-  # Opt both widgets into mouse input. `Screen#insert` only auto-registers a
-  # widget that is already `clickable?` at insert time; we set it afterwards, so
-  # register explicitly.
-  {click_box, hover_box}.each do |w|
-    w.clickable = true
-    s.register_clickable w
-  end
+  # No explicit opt-in needed: a widget that has a `Click`/`Mouse` (incl. hover)
+  # handler attached, or is `scrollable`/interactive, is mouse-responsive by
+  # default (see `Widget#wants_mouse?`). The handlers below are enough.
 
   lines = [] of String
   add_log = ->(text : String) {
@@ -137,9 +133,6 @@ class MouseDemo
     style: Style.new(fg: "black", bg: "yellow", border: true)
 
   {raise_a, raise_b}.each do |bx|
-    bx.clickable = true
-    s.register_clickable bx
-
     name = bx.name
 
     # On hover-in, wait a moment; if the pointer is still over this box (it is

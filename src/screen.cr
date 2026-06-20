@@ -139,6 +139,7 @@ module Crysterm
       @dock_contrast = @dock_contrast,
       @always_propagate = @always_propagate,
       @propagate_keys = @propagate_keys,
+      @tab_navigation = @tab_navigation,
       @cursor = @cursor,
       @optimization = @optimization,
       padding = nil,

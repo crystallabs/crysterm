@@ -7,6 +7,27 @@ module Crysterm
     # Is element clickable?
     property? clickable = false
 
+    # Whether this widget should receive mouse events by default.
+    #
+    # Out of the box (mirroring GUI toolkits), a widget is mouse-responsive if it
+    # is interactive (`input?`/`keyable?`), `scrollable?` (so the wheel can scroll
+    # it), `draggable?`, was explicitly marked `clickable?`, or already has a
+    # `Click`/`Mouse` listener attached. This is what `Screen#widget_at` uses for
+    # hit-testing, so e.g. a plain `Box` that the user later attaches an
+    # `Event::Click` handler to automatically starts receiving clicks, with no
+    # need to also set `clickable: true`.
+    def wants_mouse?
+      clickable? || input? || keyable? || scrollable? || draggable? ||
+        handlers(Crysterm::Event::Click).any? ||
+        handlers(Crysterm::Event::Mouse).any? ||
+        # Hover events each have their own handler list (they subclass `Mouse`
+        # but are emitted/registered separately), so check them explicitly —
+        # otherwise a widget with only hover handlers would never be hit-tested.
+        handlers(Crysterm::Event::MouseOver).any? ||
+        handlers(Crysterm::Event::MouseMove).any? ||
+        handlers(Crysterm::Event::MouseOut).any?
+    end
+
     # Can element receive keyboard input? (Managed internally; use `input` for user-side setting)
     property? keyable = false
 

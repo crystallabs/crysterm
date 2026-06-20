@@ -167,8 +167,8 @@ puts "not measured above (it is a cache hit, i.e. zero work)."
 #     frame for colored content. OLD did `code[2...-1].split(';')` (substring +
 #     Array(String) of per-parameter strings); NEW parses the bytes in place.
 section "#9  attr2code  (per SGR sequence, every frame)"
-dfl    = Crysterm::Screen::DEFAULT_ATTR
-codes  = ["\e[0m", "\e[1m", "\e[31m", "\e[1;31m", "\e[38;5;208m", "\e[38;2;255;136;0m", "\e[39;49m"]
+dfl = Crysterm::Screen::DEFAULT_ATTR
+codes = ["\e[0m", "\e[1m", "\e[31m", "\e[1;31m", "\e[38;5;208m", "\e[38;2;255;136;0m", "\e[39;49m"]
 Benchmark.ips do |x|
   # OLD allocation source: the split that NEW removes (rest of attr2code is
   # int/Attr math that allocates nothing in either version).

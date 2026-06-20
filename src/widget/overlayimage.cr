@@ -40,6 +40,11 @@ module Crysterm
         # only because w3m's async draw sometimes landed after the flush, and it
         # vanished on the very next render. This mirrors Blessed's
         # `onScreenEvent('render')`.
+        #
+        # `PreRender` runs *before* the cells are composited/flushed; we use it
+        # to deal with the overlay left at our previous position when we move
+        # (see `#invalidate_old_position`).
+        screen.on(::Crysterm::Event::PreRender) { invalidate_old_position }
         screen.on(::Crysterm::Event::Rendered) { redraw_image }
       end
 
@@ -48,8 +53,28 @@ module Crysterm
         @image = W3MImageDisplay::Image.new file
       end
 
-      def on_rendered(e)
-        redraw_image
+      # Before this frame's cells are composited: if the widget has moved since
+      # the last paint, force crysterm to re-emit the cells of the *previous*
+      # box region so the terminal redraws text over the overlay we left there.
+      #
+      # The w3m image is an overlay painted on top of the terminal, not part of
+      # crysterm's cell buffer, and crysterm's diff renderer skips cells whose
+      # text is unchanged — e.g. the green padding shared by the old and new box
+      # positions. Without this, the old overlay lingers there as a ghost.
+      #
+      # We deliberately do NOT w3m-clear the old region: a w3m clear paints
+      # black, and crysterm would then refuse to repaint those unchanged cells,
+      # leaving black smears (the border/padding artifacts). Re-emitting the
+      # cells instead lets the terminal's own text rendering cover the stale
+      # overlay — the green padding stays green, the border is redrawn.
+      private def invalidate_old_position
+        return unless @image
+        last = @last_drawn || return
+        pos = _get_coords(false) || return
+        rect = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
+        return if last == rect
+
+        screen.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
       end
 
       # (Re)paints the loaded image over the terminal at this widget's current
@@ -59,19 +84,8 @@ module Crysterm
           pos = _get_coords(true) || return
           # TODO - get coords of content only, without borders/padding
           # style.border.try &.adjust(pos)
-          rect = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
-
-          # If the widget has moved or resized since the last paint, clear the
-          # overlay at its previous position first; the external w3m image is
-          # not part of crysterm's cell buffer, so without this it would leave a
-          # ghost behind at the old spot. `Image#clear` erases its
-          # previously-drawn pixel region.
-          if (last = @last_drawn) && last != rect
-            image.clear
-          end
-
-          image.draw(*rect, @stretch, @center).sync.sync_communication
-          @last_drawn = rect
+          image.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
+          @last_drawn = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
         end
       end
     end

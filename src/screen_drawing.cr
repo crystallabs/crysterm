@@ -727,6 +727,36 @@ module Crysterm
       fill_region @default_attr, ' ', xi, xl, yi, yl, override
     end
 
+    # Forces the cells in the given region to be re-emitted to the terminal on
+    # the next `#draw`, even if their content is unchanged from the previous
+    # frame.
+    #
+    # `#draw` diffs `@lines` (this frame) against `@olines` (what is on the
+    # terminal) and skips cells that did not change. That is normally what we
+    # want, but a widget drawing *outside* the cell model — e.g. a
+    # `Widget::OverlayImage`, whose w3m image is an overlay painted on top of the
+    # terminal — needs the cells underneath a stale overlay to be physically
+    # re-emitted so the terminal redraws text over it. Poisoning `@olines` here
+    # makes the diff treat those cells as changed.
+    def invalidate_region(xi, xl, yi, yl)
+      xi = 0 if xi < 0
+      yi = 0 if yi < 0
+
+      yi.upto(yl - 1) do |y|
+        oline = @olines[y]?
+        break unless oline
+
+        xi.upto(xl - 1) do |x|
+          ocell = oline[x]?
+          break unless ocell
+          # A sentinel the real cell content can never equal, so `draw` re-emits.
+          ocell.char = '\u{0}'
+        end
+
+        @lines[y]?.try { |line| line.dirty = true }
+      end
+    end
+
     # Fills any chosen region on the screen with chosen character and attributes.
     def fill_region(attr, ch, xi, xl, yi, yl, override = false)
       lines = @lines

@@ -18,7 +18,7 @@ describe "Screen.attr2code" do
     (Attr.flags(bolded) & Attr::BOLD).should_not eq 0
 
     Crysterm::Screen.attr2code("\e[0m", bolded, dfl).should eq dfl
-    Crysterm::Screen.attr2code("\e[m", bolded, dfl).should eq dfl   # empty => 0 => reset
+    Crysterm::Screen.attr2code("\e[m", bolded, dfl).should eq dfl # empty => 0 => reset
   end
 
   it "sets and clears individual style flags" do
@@ -87,7 +87,7 @@ describe "Screen.attr2code" do
   end
 
   it "carries over the current attr when codes don't touch a field" do
-    base = apply.call("\e[31m")        # red fg
+    base = apply.call("\e[31m")                        # red fg
     a = Crysterm::Screen.attr2code("\e[1m", base, dfl) # add bold, keep red fg
     (Attr.flags(a) & Attr::BOLD).should_not eq 0
     Attr.unpack_color(Attr.fg(a)).should eq Colors.palette_to_rgb(1)
