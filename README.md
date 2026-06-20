@@ -20,10 +20,8 @@ in [pnggif](https://github.com/crystallabs/pnggif).
 does not use ncurses. For terminfo bindings it uses [unibilium](https://github.com/neovim/unibilium/),
 but it also supports a built-in, standard mode which does not use terminfo at all.
 (A lot of modern software just hardcodes the sequences.)
-
 The other important module at Crysterm's core is [event_handler](https://github.com/crystallabs/event_handler).
 through which all app events and input are routed.
-
 More in-depth doc is [USAGE.md](https://github.com/crystallabs/crysterm/blob/master/USAGE.md).
 
 ## Trying out the examples
