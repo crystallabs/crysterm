@@ -12,7 +12,7 @@ require "../src/crysterm"
 include Crysterm
 
 WIDTH = 200
-attr  = Crysterm::Screen::DEFAULT_ATTR
+attr = Crysterm::Screen::DEFAULT_ATTR
 
 # A typical text row: mostly single-codepoint ASCII cells.
 row = Crysterm::Screen::Row.new
