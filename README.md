@@ -17,9 +17,7 @@ more aspects of [Qt](https://doc.qt.io/).
 ```
 git clone https://github.com/crystallabs/crysterm
 cd crysterm
-shards --ignore-crystal-version
-
-export TERM=xterm-256color
+shards
 
 crystal examples/hello.cr
 crystal examples/hello2.cr
@@ -94,282 +92,52 @@ Transparency, color blending, and shadow (part of small-tests/shadow.cr)
 
 ### Introduction
 
-As mentioned, Crysterm is inspired by Blessed, Blessed-contrib, and Qt.
+Crysterm is inspired by Blessed, Blessed-contrib, and Qt.
 
-Blessed is a large, self-contained framework. Apart from implementing Blessed's core functionality, its authors have also
-implemented all the necessary/prerequisite components, including an event model (a modified copy of an early Node.js
-EventEmitter), complete termcap/terminfo system (parsing, compilation, output, and input from terminal devices -- a complete
-alternative to ncurses), all types of mouse support, Unicode handling, color manipulation routines, etc.
-However, these implementations have been mixed with the rest of Blessed's source code, reducing the potential for their
-reuse.
+Blessed is a large, self-contained framework. Its author
+implemented many prerequisites, including an event model (a modified copy of an early Node.js
+EventEmitter), complete termcap/terminfo system (an
+alternative to ncurses), mouse support, Unicode handling, color manipulation routines, etc.,
+all bundled with blessed.
 
-In Crysterm, the equivalents of those components have been created as individual shards, making them available
-to the whole Crystal ecosystem. The event model has been implemented in
+In Crysterm, the equivalents have been created as individual shards for the ecosystem's
+benefit. The event model is in 
 [event_handler](https://github.com/crystallabs/event_handler), color routines in
-[term_colors](https://github.com/crystallabs/term_colors), terminal output in
+[term_colors](https://github.com/crystallabs/term_colors), terminal handling in
 [tput.cr](https://github.com/crystallabs/tput.cr), GPM mouse in
-[gpm.cr](https://github.com/crystallabs/gpm.cr), and terminfo library in
-[unibilium.cr](https://github.com/crystallabs/unibilium.cr).
+[gpm.cr](https://github.com/crystallabs/gpm.cr), a terminfo library in
+[unibilium.cr](https://github.com/crystallabs/unibilium.cr), and an animated PNG/GIF parser
+in [pnggif](https://github.com/crystallabs/pnggif).
 
-Unibilium.cr represents Crystal's bindings for
-a C terminfo library called [unibilium](https://github.com/neovim/unibilium/), now maintained by Neovim.
-The package exists for a good number of operating systems and distributions, and one only needs the binary
-library installed, not headers.
-There is also a mostly working Crystal-native terminfo library available in
-[terminfo.cr](https://github.com/crystallabs/terminfo.cr) but, due to other priorities, trying to use that instead
-of unibilium is not planned. Both unibilium and native terminfo implementation for Crystal were initially
-implemented by Benoit de Chezelles (@bew).)
 
-Crysterm closely follows Blessed, and copies of Blessed's comments have been included in Crysterm's sources for
-easier correlation and search between code, files, and features. A copy of Blessed's repository also exists in
-[docelic/blessed-clean](https://github.com/docelic/blessed-clean). It is a temporary repository in which
-files are deleted after their contents are reviewed and discarded or implemented in Crysterm.
+### Terminal Handling
 
-Overall, heavily basing the design on Blessed was a blessing and a curse. While Blessed demos are impressive,
-its code has many deficiencies and partially implemented features, and certain parts are not as obvious or
-simple as they should be. This has slowed the development of Crysterm.
+Complete terminal handling is implemented in [tput.cr](https://github.com/crystallabs/tput.cr).
 
-High-level development plan for Crysterm looks as follows:
-
-1. Improving Crysterm itself (fixing bugs, replacing strings with better data types (enums, classes, etc.), and doing new development).
-1. Porting everything of value remaining in blessed-clean (most notably: reading terminfo command responses from terminal, mouse support, full unicode (graphemes), and a number of widgets)
-1. Porting over widgets & ideas from blessed-contrib
-1. Developing more line-oriented features. Currently Crysterm is suited for full-screen app development. It would be great if line-based features were added, and if then various small line-based utilities that exist as shards/apps for Crystal would be ported to become Crysterm's line- or screen-based widgets
-1. Adding features and principles from Qt
-
-Those are general guidelines. For smaller, more specific development/contribution tasks, see open issues, grep sources for "TODO", "NOTE", and "XXX",  see file `TODO`, and see general Crystal wishlist in file `CRYSTAL-WISHLIST`.
+Tput uses unibilium.cr, bindings for terminfo library called [unibilium](https://github.com/neovim/unibilium/), now maintained by Neovim.
+Unibilium is packaged for a good number of operating systems and only requires the library, not headers.
+However, tput also has a standard, hardcoded mode which can be used when one does not wish to use unibilium or terminfo.
+(A lot of modern software just hardcodes the sequences.)
 
 ### Event model
 
-Event model is at the very core of Crysterm, implemented via [event_handler](https://github.com/crystallabs/event_handler).
+Event model is at the core of Crysterm, implemented via [event_handler](https://github.com/crystallabs/event_handler).
 
 Please refer to [event_handler](https://github.com/crystallabs/event_handler)'s documentation for all usage instructions.
 
 The events used by Crysterm and its widgets are defined in `src/event.cr`.
 
-### Class Hierarchy
-
-1. Top-level class is `Screen`. It represents terminal used for `@input` and `@output`
-1. Each screen can have one or more `Widget`s, arranged appropriately to implement final apps
-
-Widgets can be added and positioned on the screen directly, but some widgets are particularly suitable for containing or arranging other/child widgets.
-Most notably this is the `Layout` widget which can auto-size and auto-position contained widgets in the form of a grid or inline (masonry-like) layout (`LayoutType::{Grid,Inline}`).
-
-There are currently no widgets that would represent GUI windows like `QWindow` or `QMainWindow` in Qt
-(having title bar, menu bar, status bar, etc.), but implementing them is planned. (`Window`s too will inherit from `Widget`.)
-
-All mentioned classes `include` [event_handler](https://github.com/crystallabs/event_handler) for event-based
-behavior.
-
-### Positioning and Layouts
-
-![Crysterm Widget](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/widget.png)
-
-Widget positions and sizes work like in Blessed. They can be specified as numbers (e.g. 10), percentages (e.g. "10%"), both (e.g. "10%+2"), or specific keywords ("center" which has an effect of `50% - self.width_or_height//2`, or "resizable" which adjusts in runtime).
-
-That model is simple and works quite OK, although it is not as developed as the model in Qt. For example, there is no way to shrink or grow widgets disproportionally when window is resized, and
-there is no way to define maximum or minimum size. (Well, minimum size calculation does exist for resizable widgets, but only for trying to find the minimum size based on actual
-contents, rather than programmer's wishes. (What we call "resizable" is suboptimally called "shrink" in Blessed because it can also grow.))
-
-The interface for getting or setting values has been streamlined (further explanations below the table):
-
-| Spec | Absolute position | Relative position | Inner content offset |
-|------|----------|----------|-----------------------|
-| left / left= | aleft | rleft | ileft |
-| top / top= | atop | rtop | itop |
-| right / right= | aright | rright | iright |
-| bottom / bottom= | abottom | rbottom | ibottom |
-| width / width= | awidth | - | iwidth |
-| height / height= | aheight | - | iheight |
-
-"Spec" methods get or set the values exactly as the user specified them (e.g. "50%+2" or "center").
-Absolute methods return computed values as integers in reference to screen.
-Relative methods return computed values as integers in reference to parent widget (or screen if parent is not defined).
-Inner methods return offsets of content inside the widget (i.e. they report the sum of thickness of all widget's inner decorations like borders, padding, etc.)
-
-For definitive guide on positioning, see `documentation/positioning.md`.
-
-Speaking of layouts, the one layout engine currently existing, `Widget::Layout`, is equivalent to Blessed's. It can arrange widgets in a grid-like or masonry-like style.
-There are no equivalents of Qt's `QBoxLayout`.
-
-The positioning and layout code is very manageable; adding new Qt-like or other features is not a big task.
-(Whether various layouts would then still inherit from `Widget` or not (like they don't in Qt) is open for consideration.)
-
-Note: there are currently some differences in the exact types or combinations of mentioned value formats supported for `top`, `left`, `width`, `height`, and `align`. It would be
-good if all these could be adjusted to accept the same flexible/unified specification, and if the list of supported specifications would even grow over time.
-(For example, one could want to pass a block or proc, in which case it'd be called to get the value.)
-
-### Rendering and Drawing
-
-Screens contain widgets. To make screens appear on display with all the expected contents and current state,
-one calls `Screen#render`. This function calls `Widget#render` on each of direct children elements, which
-results in the final/rendered state reflected in internal memory.
-
-At the end of rendering, `Screen#draw` is automatically called which makes any changes in internal state appear on the
-display. For efficiency, painter's algorithm is used, only changes ("damage") are rendered, and renderer
-can optionally make use of CSR (change-scroll-region) and/or BCE (back-color-erase) optimizations
-(see `OptimizationFlag`, although some terminal emulators like `gnome-terminal` might not display them correctly
-so they are off by default).
-
-Calling `render` where ever appropriate is not a concern because there is code making sure that render
-runs at most once per unit of time (currently `property interval = 1/29`th of a second) and all accumulated changes are
-rendered in one pass.
-
-When state has been set up for the first time and the program is to start running the display, one
-generally calls `Screen#exec`. This renders the specified (or default) screen and starts running the
-program.
-
-### Text Attributes and Colors
-
-Crysterm inherits from Blessed a custom implementation/concept of "tags" in strings,
-such as `{light-blue-fg}Text in Light Blue{/light-blue-fg}`. Tags can be embedded in strings directly,
-or removed from a string with `strip_tags` or `clean_tags`.
-Any existing strings where "{}" should not be interpreted can be protected with `escape`, which replaces
-literal `{` and `}` with the `{open}` and `{close}` tags.
-
-The supported tags are: `{center}`, `{left}`, and `{right}` for alignment,
-`{normal | default}`, `{bold}`, `{underline | underlined | ul}`, `{blink}`, `{inverse}`, and `{invisible}` for text attributes,
-`{COLOR-fg}` and `{COLOR-bg}` for colors,
-`{open}` and `{close}` for literal `{` and `}` characters,
-and `{/}` for closing all open tags.
-
-Supported COLOR names are:
-`default`,
-`black`,
-`blue`,
-`bright-black`,
-`bright-blue`,
-`bright-cyan`,
-`bright-gray`,
-`bright-green`,
-`bright-grey`,
-`bright-magenta`,
-`bright-red`,
-`bright-white`,
-`bright-yellow`,
-`cyan`,
-`gray`,
-`green`,
-`grey`,
-`light-black`,
-`light-blue`,
-`light-cyan`,
-`light-gray`,
-`light-green`,
-`light-grey`,
-`light-magenta`,
-`light-red`,
-`light-white`,
-`light-yellow`,
-`magenta`,
-`red`,
-`white`,
-`yellow`.
-
-In addition to the above color names, one can also specify colors by color index (syntax: `{ID-...}`), or by RGB hex
-notation using the 16M color palette (syntax `{#RRGGBB-...}`. 16M RGB is the recommended way to define colors, and
-Crysterm will automatically reduce them to 256, 16, 8, or 2 colors if/when needed, depending on terminal capabilities.
-
-One could also define foreground and background colors and attributes by manually
-embedding the appropriate escape sequences into strings or using Crystal's `Colorize` module.
-Crysterm is interoperable with those approaches.
-
-### Styling
-
-Every `Widget` has an attribute `style`, defining the colors and attributes to use during rendering.
-If no style is explicitly defined, the default style is instantiated. Apart from styling the widget
-itself, each `Style` may have overriding style definitions for widget's possible subelements
-(border, scrollbar, track, bar, item, header, cell, label) and states (blurred, focused, hovered, selected, disabled).
-
-If any of these subelements have more specific settings which define substantial behavior and not
-just visual aspects, they are defined as properties directly on the widget (e.g. `Widget#border`,
-`Widget#scrollbar`, etc.). These properties also serve as toggles that turn on or off respective
-elements.
-
-The final goal (still to be implemented) is to be able to define one or a couple `Style` instances
-which would apply to, and style, all widgets. Additionally, these definitions would be
-serializable to YAML, enabling convenient theming.
-
-### Performance
-
-By default, for development, frames-per-second value is displayed at the bottom of every Screen. When displaying FPS is enabled, Crysterm measures time needed to complete rendering and drawing cycles, and displays them as "R/D/FPS" (estimated renderings per second, drawings per second, and total/combined frames per second). Such as:
-
-```
-R/D/FPS: 761/191/153 (782/248/187)
-```
-
-The first 3 values display the performance of the current frame, and the values in parentheses display the averages over 30 frames.
-
-Because the rendering+drawing cycle happens up to `interval` times per second, the FPS value should stay above that value of it may indicate that frame skipping would occur.
-
 ### Testing
 
 Run `crystal spec` as usual.
-
-More specs need to be added.
-
-One option for testing, currently not used, would be to support a way where all output (terminal
-sequences etc.) is written to an IO which is a file. Then simply the contents of that file are
-compared with a known-good snapshot.
-
-This would allow testing complete programs and a bunch of functionality at once, efficiently.
 
 ### Documentation
 
 Run `crystal docs` as usual.
 
-### Notable Differences
-
-List of notable differences (hopefully improvements) compared to Blessed:
-
-- `Program` and `Display` have been removed
-- `Screen` is thus the top level component, and does not inherit from `Widget`
-- `Element` and `Node` have been consolidated into `Widget`
-- As such, `Screen` is not a top-level `parent` of any `Widget`; use `[@]screen` to get `Screen` or `parent_or_screen` for parent or screen
-- `tabc` (renamed to `tab_char`) and `tab_size` are properties of `Widget#style` instead of `Screen`
-- Screen `auto_padding : Bool` has been moved to Widget, and then later even removed (behaves like it is always enabled)
-- Screen itself can have a padding, same like Widgets
-- Event names have been changed from strings to classes, e.g. event `"scroll"` is `::Crysterm::Event::Scroll`
-- To remove ambiguity, events triggering at end of action have been adjusted to past tense (e.g. "Rendered" instead of "Render" is emitted at end of rendering)
-- `tags` alias for `parse_tags` option has been removed; use `parse_tags: true/false`. Default is true
-- All terminal-level stuff is in shard `Tput`, not `Crysterm`
-- `style` property has been consolidated; all style-related stuff is under widget's `@style : Style`
-- Shadow lives in `style.shadow` (a `Shadow` object), not as a bool widget property. It can be set per-side, each side with its own depth, and its transparency is controlled by the shadow's `alpha` (default 0.5). Assigning `true`/`false` or a Float64 is also accepted and converted via `Shadow.from`
-- Style property `transparent` has been replaced by `style.alpha : Float64?`. Alpha is the inverse of transparency (0 == fully transparent, 1 == fully opaque). Assigning `true` is accepted and defaults to alpha 0.5
-- In `Widget::ProgressBar`, the display of value is done using foreground color. This is different than Blessed and arguably more correct (Blessed uses background color)
-- In Crysterm, default border type is "line" (`BorderType::Line`). In Blessed it is "bg"
-- In Blessed, there is variable `ignore_dock_contrast`, which if set to true will cause borders to always be docked, or if set to false it will not dock borders of different colors. In Crysterm, this variable is defined as `@dock_contrast: DockContrast`, and `DockContrast` is an enum that can be `Ignore`, `DontDock`, or `Blend`. The first two behave like Blessed's true and false respectively, and `Blend` is a new option that blends (averages) colors and then performs docking.
-- In Crysterm, `attaching`/`detaching` Widgets is only applicable on Screens and it means setting/removing property `#screen` on the desired widget and its children (it does not have anything to do with widget parent hierarchy). Although in most cases these functions are not called directly but are invoked automatically when calling functions to set widgets' parents.
-- Widget property `valign` has been removed because property `align` is an enum (`Tput::AlignFlag`) and encodes both horizontal and vertical alignment choices in the same value
-- Widget property `noOverflow` is now `overflow : Overflow` with choices being `Ignore`, `ShrinkWidget`, `SkipWidget`, `StopRendering`, and `MoveWidget`
-- Widget methods `#<<` and `#>>` can be used for adding/removing children elements depending on argument type. E.g., `<< Widget` adds a Widget as a child of parent widget, and `<< Action` adds an Action into the widget's list of actions.
-- It is hard to remember whether screen size is kept in property `columns` or `cols`. So in Crysterm the `Screen`s dimensions are in `width` and `height`, and this is uniform with all `Widget`s which also have their size in `width` and `height`.
-- `shrinkBox` is `Rectangle` in Crysterm, and `_get_shrink` is `_get_minimal_rectangle`
-- User-specified Widget options left, top, right, bottom, width, height, and resizable exist directly on `Widget` in Crysterm, rather than on `Widget.position`. Also, to get actual numbers/values out, one now needs to explicitly use e.g. `aleft` (absolute left), `rleft` (relative left) or `ileft` (inner/content left). This removes all ambiguity and lack of straightforwardness in which value is being accessed
-- Widgets can have shadow on any of the 4 sides, instead of always being drawn on the right and bottom
-- Renamed properties in Crysterm: `widget.noFill` is `!style.fill?`, `autoFocus` is `focus_on_click?`, `wrap` is `wrap_content?`, `hidden` is `!visible?`
-- Implementation of `clean_tags` and `strip_tags` has been switched, for better/more-intuitive naming in Crystal
-- The following variables were renamed to more intuitive variants:
-  - `_listened_keys` = `_listening_keys?`
-  - `lock_keys` = `!propagate_keys?`
-  - `ignore_locked` = `always_propagate`
-
-List of current bugs / quirks in Crysterm, in no particular order:
-
-- It is likely that Crysterm's API interface and general usability could be improved in many places. Fortunately those are easy improvements and/or suggestions that can be made by early users and adopters
-- Items need to be added to `Widget::List` explicitly, after list creation (option `items: [...]` to `List.new` isn't available at the moment)
-- `Widget::Layout` needs explicit width and height (e.g. "100%"). It seems this isn't needed in Blessed
-- `Widget::TextArea` lacks many features (deficiency inherited from Blessed)
-- Scrollbar on a widget can be enabled with `scrollbar: true`. Styling for the scrollbar column is taken from `@style.track` and for the scrollbar character from `@style.scrollbar`. This is inherited from Blessed and unintuitive. `style.scrollbar` should be the column, and `style.track` (or other name) should be the scroll position indicator.
-- Some parts of code are marked with "D O:" or "E O:". These mean "Disabled Originally" and "Enabled Originally", indicating whether respective parts of code were disabled or enabled "originally" (in Blessed sources). Those marked with "D O:" do not need any work unless they were part of unfinished improvements in Blessed, in which case they probably should be developed/enhanced in Crysterm.
-- In some places functions like '#setX' have been renamed to '#x=' while in others they weren't.
-- There is no single `Image` widget which can display an image in ANSI or as an overlay. Use the overlay widget (`Widget::OverlayImage`) explicitly. An ANSI image widget does not exist yet.
-
-If you notice any problems or have any suggestions, please submit an issue.
-
 ## Thanks
 
-* All the fine folks on Libera.Chat IRC channel #crystal-lang and on Crystal's Gitter channel https://gitter.im/crystal-lang/crystal
+* All the fine folks in the [Crystal community](https://crystal-lang.org/community/).
 
 ## Other projects
 
