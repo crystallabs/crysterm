@@ -41,12 +41,15 @@ module Crysterm
 
         super **box
 
+        @active_font = style.bold? ? @bold : @normal
+
         # The text is rendered as big glyphs from `@text`; clear the plain
         # `content` that `super` set from the same string, otherwise the base
         # renderer draws it as normal-size text showing through the glyph gaps.
+        # (Done *after* `@active_font` is assigned: `set_content` is a method
+        # call on `self`, and calling it earlier would leave `@active_font`
+        # uninitialized, which Crystal rejects as a nilable-ivar access.)
         set_content "", true
-
-        @active_font = style.bold? ? @bold : @normal
       end
 
       def load_font(filename)
