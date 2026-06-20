@@ -55,7 +55,10 @@ module Crysterm
 
         ret = super offset, always
 
-        if scroll_percentage == 100
+        # `scroll_percentage` is a float; use `>= 100` rather than `== 100` so a
+        # bottom position that computes to e.g. 99.999 still re-enables
+        # auto-scroll instead of getting stuck with `@_user_scrolled` true.
+        if scroll_percentage >= 100
           @_user_scrolled = false
         end
 

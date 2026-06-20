@@ -82,6 +82,19 @@ module Crysterm
         set_data(rows || data)
       end
 
+      # Body rows draw with `style.cell` (selected rows with `styles.selected`),
+      # mirroring Blessed's `style.item = style.cell` mapping — whereas a plain
+      # `List` uses `style.item`. `Style#cell` falls back to the list's own
+      # style when no `cell:` style is given, so the default look is unchanged.
+      def item_render_style(selected : Bool) : Style
+        base = selected ? styles.selected : style.cell
+        return base unless base.border.any?
+
+        borderless = base.dup
+        borderless.border = false
+        borderless
+      end
+
       # :ditto:
       def set_rows(rows)
         set_data rows

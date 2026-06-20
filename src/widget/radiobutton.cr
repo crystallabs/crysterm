@@ -21,8 +21,17 @@ module Crysterm
         handle Crysterm::Event::Check
       end
 
+      # A radio button only ever *checks* itself when toggled; the containing
+      # group unchecks the others (see `#on_check`). Without this override it
+      # would inherit `Checkbox#toggle` (`checked? ? uncheck : check`), so
+      # pressing Space/Enter on the selected radio would uncheck it and leave
+      # the group with nothing selected.
+      def toggle
+        check
+      end
+
       def render
-        set_content ("(" + (@value ? '*' : ' ') + ") " + @text), true
+        set_content ("(" + (checked? ? '*' : ' ') + ") " + @text), true
         super false
       end
 

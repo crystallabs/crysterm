@@ -9,6 +9,7 @@ module Crysterm
     Input = Widget::Input
 
     Image        = Widget::Image
+    ANSIImage    = Widget::ANSIImage
     OverlayImage = Widget::OverlayImage
     ProgressBar  = Widget::ProgressBar
     Loading      = Widget::Loading
@@ -47,7 +48,15 @@ module Crysterm
     Menu   = Widget::Menu
 
     # Pine-like
-    PineHeaderBar = Widget::Pine::HeaderBar
-    PineStatusBar = Widget::Pine::StatusBar
+    PineHeaderBar    = Widget::Pine::HeaderBar
+    PineStatusBar    = Widget::Pine::StatusBar
+    PineKeyMenu      = Widget::Pine::KeyMenu
+    PineMainMenu     = Widget::Pine::MainMenu
+    PineMessageIndex = Widget::Pine::MessageIndex
+    PineMessageView  = Widget::Pine::MessageView
+    PineCompose      = Widget::Pine::Compose
+    PineSetup        = Widget::Pine::Setup
+    PineFolderList   = Widget::Pine::FolderList
+    PineAddressBook  = Widget::Pine::AddressBook
   end
 end

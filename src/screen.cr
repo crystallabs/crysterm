@@ -167,12 +167,30 @@ module Crysterm
     )
       terminfo = case terminfo
                  in true
-                   Unibilium.from_env
+                   begin
+                     Unibilium.from_env
+                   rescue Unibilium::Error
+                     # No usable terminfo for the environment's $TERM (e.g. TERM
+                     # unset, as on CI runners). Fall back to a widely-available
+                     # `xterm` entry so a Screen can still be constructed
+                     # headlessly instead of crashing.
+                     Unibilium.from_terminal "xterm"
+                   end
                  in false, nil
                    nil
                  in Unibilium
                    terminfo.as Unibilium
                  end
+
+      # Control sequences are written to `@output` and must reach the terminal
+      # promptly, without sitting in a write buffer. `STDOUT` connected to a
+      # terminal is already `sync`, but a caller-supplied output (e.g. a second
+      # terminal opened via `File.open`) is fully buffered by default, which
+      # would leave the screen blank. Force sync so rendering works regardless
+      # of how the output was obtained.
+      if (output = @output).responds_to?(:sync=)
+        output.sync = true
+      end
 
       # XXX Should `error` fd be passed to tput as well?
       # (Probably not since we're not initializing anything on the error output?)
@@ -245,8 +263,11 @@ module Crysterm
     end
 
     def on_attach(e)
-      @width = ::Term::Screen.cols || @width
-      @height = ::Term::Screen.rows || @height
+      # Take the size from *this* screen's own `tput`, which sized itself from
+      # its own output fd. Using the global `::Term::Screen` here would probe
+      # STDIN/STDOUT and give every screen the launching terminal's size.
+      @width = self.tput.screen.width
+      @height = self.tput.screen.height
 
       # Push resize event to screens assigned to this display. We choose this approach
       # because it results in less links between the components (as opposed to pull model).

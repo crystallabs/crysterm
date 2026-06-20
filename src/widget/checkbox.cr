@@ -45,14 +45,14 @@ module Crysterm
       def check
         return if checked?
         @checked = true
-        @value = !@value
+        @value = true
         emit Crysterm::Event::Check, @value
       end
 
       def uncheck
         return unless checked?
         @checked = false
-        @value = !@value
+        @value = false
         emit Crysterm::Event::UnCheck, @value
       end
 

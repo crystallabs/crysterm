@@ -145,6 +145,14 @@ module Crysterm
         # XXX But look at this. Unless the key is processed by screen, it gets
         # passed to widget in focus and from there to its parents. How can a widget
         # on a screen, which is not in focus,
+        # When a widget has grabbed keys (e.g. a `TextArea`/`TextBox` reading
+        # input), the key goes to the focused widget only — it must NOT also
+        # propagate up to ancestors, or e.g. typing `j`/`k` into a text field
+        # inside a `vi:`-enabled `Form` would both insert the character and
+        # trigger the form's navigation. `always_propagate` keys (Tab, etc.) are
+        # the deliberate exception: they still bubble so the form can navigate.
+        grabbed = @grab_keys && !@always_propagate.includes?(e.key)
+
         focused.try do |el2|
           while el2 && el2.is_a? Widget
             # A disabled widget does not react to keys, but keys still
@@ -156,6 +164,9 @@ module Crysterm
             if e.accepted?
               break
             end
+
+            # Stop at the focused widget while keys are grabbed (see above).
+            break if grabbed
 
             el2 = el2.parent
           end

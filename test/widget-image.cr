@@ -40,7 +40,10 @@ class X
       File.exists?(up) ? up : here
     end
 
-    # The factory returns a `Widget::OverlayImage` for `type: Overlay`.
+    # The factory returns a `Widget::OverlayImage` for `type: Overlay`. Its
+    # static return type is the `ANSIImage | OverlayImage` union (normalized to
+    # `Box+`), so narrow it to the overlay backend to use overlay-specific API
+    # like `#load`.
     img = Widget::Image.new(
       type: Widget::Image::Type::Overlay,
       parent: s,
@@ -51,7 +54,7 @@ class X
       stretch: true,
       draggable: true,
       style: Style.new(bg: "green", border: true),
-    )
+    ).as(Widget::OverlayImage)
 
     if w3m_available?
       img.load file

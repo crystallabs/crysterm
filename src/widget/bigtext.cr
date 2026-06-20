@@ -42,6 +42,14 @@ module Crysterm
         super **box
 
         @active_font = style.bold? ? @bold : @normal
+
+        # The text is rendered as big glyphs from `@text`; clear the plain
+        # `content` that `super` set from the same string, otherwise the base
+        # renderer draws it as normal-size text showing through the glyph gaps.
+        # (Done *after* `@active_font` is assigned: `set_content` is a method
+        # call on `self`, and calling it earlier would leave `@active_font`
+        # uninitialized, which Crystal rejects as a nilable-ivar access.)
+        set_content "", true
       end
 
       def load_font(filename)
@@ -110,6 +118,11 @@ module Crysterm
         end
         coords = _render
         return unless coords
+
+        # A degenerate font ratio (a malformed/missing custom font leaves
+        # `@ratio` at its 0×0 default) would divide-by-zero below; there is
+        # nothing to draw, so bail out with the computed coords.
+        return coords if @ratio.width <= 0 || @ratio.height <= 0
 
         lines = screen.lines
         left = coords.xi + ileft

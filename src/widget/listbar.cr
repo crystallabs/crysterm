@@ -342,12 +342,14 @@ module Crysterm
 
       # Selects (and triggers the callback of) the tab at `index`.
       def select_tab(index : Int)
+        # An out-of-range index is a no-op (previously it still emitted a
+        # `SelectTab` carrying a nil item).
         if cmd = @commands[index]?
           cmd.callback.try &.call
           selekt index
           screen.render
+          emit ::Crysterm::Event::SelectTab, @items[index]?, index
         end
-        emit ::Crysterm::Event::SelectTab, @items[index]?, index
       end
 
       def on_keypress(e)

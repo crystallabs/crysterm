@@ -25,27 +25,20 @@ module Crysterm
       @_is_list = true
       @interactive = true
 
-      # @mouse = false # XXX
+      # React to mouse: click an item to select it (click the selected one to
+      # activate it), and scroll the selection with the wheel. Items are wired
+      # for this in `#create_item` when enabled.
+      property? mouse = true
 
-      # XXX Setting items directly doesn't work so far. Add them later.
-      # def initialize(items = nil, input = true, **box)
-      def initialize(input = true, **box)
+      def initialize(input = true, mouse = true, items : Enumerable(String)? = nil, **box)
+        @mouse = mouse
         super **box, input: input, keys: true
 
         @value = ""
 
-        # items.try do |items2|
-        #  @ritems = items2
-        #  items2.each do |item3|
-        #    append_item item3
-        #  end
-        # end
+        items.try &.each { |item| append_item item }
 
         selekt 0
-
-        # TODO
-        # if @mouse
-        # end
 
         if @keys
           on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
@@ -87,9 +80,35 @@ module Crysterm
         item = Widget::Box.new(content: content, screen: screen, align: align, top: top, left: left, right: right, parse_tags: parse_tags, height: 1, focus_on_click: focus_on_click, width: width, style: style)
         # XXX above: alpha
 
-        # TODO Mouse
-        # if @mouse
-        # end
+        if mouse?
+          # Click selects the item; clicking the already-selected one activates
+          # it (emits the action), mirroring Blessed.
+          item.on(::Crysterm::Event::Click) do
+            if i = @items.index item
+              focus
+              if i == @selected
+                enter_selected i
+              else
+                selekt i
+              end
+              screen.render
+            end
+          end
+
+          # Wheel moves the selection (and `#accept`s the event so the screen's
+          # default "scroll the view" behavior doesn't also fire).
+          item.on(::Crysterm::Event::Mouse) do |e|
+            if e.action.wheel_up?
+              move -2
+              e.accept
+              screen.render
+            elsif e.action.wheel_down?
+              move 2
+              e.accept
+              screen.render
+            end
+          end
+        end
 
         emit Crysterm::Event::CreateItem
 
@@ -236,7 +255,7 @@ module Crysterm
       end
 
       def clear_items
-        # XXX set_items [] of
+        set_items [] of String
       end
 
       def push_item(content)
@@ -380,25 +399,113 @@ module Crysterm
         emit Crysterm::Event::CancelItem, items[selected], selected
       end
 
+      # Enables the incremental-search prompt (`/` forward, `?` backward) in the
+      # key handler.
+      property? search = true
+
+      # Lazily-created one-line input shown at the bottom of the screen during a
+      # search (see `#start_search`).
+      @search_box : Widget::TextBox? = nil
+
+      # Index of the first item whose tag-stripped, case-insensitive text
+      # contains *query*, scanning from the current selection and wrapping.
+      # Returns the current selection when nothing matches. *back* searches
+      # upward.
+      def fuzzy_find(query : String, back = false) : Int32
+        return selected if @items.empty?
+        q = query.downcase
+        n = @items.size
+        step = back ? -1 : 1
+        i = selected
+        n.times do
+          i = (i + step) % n
+          i += n if i < 0
+          return i if clean_tags(@ritems[i]).downcase.includes? q
+        end
+        selected
+      end
+
+      private def ensure_search_box : Widget::TextBox
+        @search_box ||= begin
+          box = Widget::TextBox.new(
+            screen: screen,
+            bottom: 0, left: 0, right: 0, height: 1,
+            style: Style.new(bg: "blue", fg: "white"),
+          )
+          screen.append box
+          box.hide
+          box
+        end
+      end
+
+      # Opens the incremental-search prompt. Typing a query and pressing Enter
+      # jumps to the next matching item; Escape cancels. *back* searches upward.
+      def start_search(back = false)
+        return unless search?
+        return if @items.empty?
+
+        sb = ensure_search_box
+        sb.set_label(back ? "?" : "/")
+        sb.value = ""
+        sb.show
+        screen.render
+
+        sb.read_input do |_err, data|
+          sb.hide
+          focus
+          if data && !data.empty?
+            selekt fuzzy_find(data, back)
+          end
+          screen.render
+        end
+      end
+
       # TODO
-      # find
       # pick
 
       def on_keypress(e)
-        case e.key
-        when nil
-        when ::Tput::Key::Up
+        visible = aheight - iheight
+        half = Math.max visible // 2, 1
+
+        case
+        when e.key == ::Tput::Key::Up, (@vi && e.char == 'k')
           up
-          screen.render
-        when ::Tput::Key::Down
+        when e.key == ::Tput::Key::Down, (@vi && e.char == 'j')
           down
-          screen.render
-        when ::Tput::Key::Enter
+        when e.key == ::Tput::Key::Home, (@vi && e.char == 'g')
+          selekt 0
+        when e.key == ::Tput::Key::End, (@vi && e.char == 'G')
+          selekt @items.size - 1
+        when e.key == ::Tput::Key::CtrlU
+          move -half
+        when e.key == ::Tput::Key::CtrlD
+          move half
+        when e.key == ::Tput::Key::PageUp, e.key == ::Tput::Key::CtrlB
+          move -visible
+        when e.key == ::Tput::Key::PageDown, e.key == ::Tput::Key::CtrlF
+          move visible
+        when @vi && e.char == 'H'
+          selekt @child_base
+        when @vi && e.char == 'M'
+          selekt @child_base + visible // 2
+        when @vi && e.char == 'L'
+          selekt @child_base + visible - 1
+        when search? && e.char == '/'
+          start_search false
+        when search? && e.char == '?'
+          start_search true
+        when e.key == ::Tput::Key::Enter
           enter_selected
-        when ::Tput::Key::Escape
+        when e.key == ::Tput::Key::Escape
           cancel_selected
-          # TODO other keys too
+        else
+          return
         end
+
+        # A key we handled: consume it (so it doesn't also drive an ancestor,
+        # e.g. a `Form`'s own vi `j`/`k`) and repaint.
+        e.accept
+        screen.render
       end
 
       def on_resize(e)

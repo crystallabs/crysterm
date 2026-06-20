@@ -65,12 +65,27 @@ module Crysterm
         set_content text || @text
         show
 
-        done = uninitialized String?, Bool -> Nil
+        # Declare the listener handles up front so `done` can close over them;
+        # they are assigned below, before any of these events can fire.
+        ev_keys = nil
+        ev_ok = nil
+        ev_cancel = nil
+
+        # `done` must be defined *before* the handlers that call it are
+        # registered. Previously it was `uninitialized` and only assigned after
+        # registration, so a key/press arriving in between would have invoked an
+        # uninitialized Proc (crash).
+        done = ->(err : String?, data : Bool) do
+          hide
+          screen.restore_focus
+          ev_keys.try { |h| screen.off Crysterm::Event::KeyPress, h }
+          ev_ok.try { |h| @ok.off Crysterm::Event::Press, h }
+          ev_cancel.try { |h| @cancel.off Crysterm::Event::Press, h }
+          block.call err, data
+          screen.render
+        end
 
         ev_keys = screen.on(Crysterm::Event::KeyPress) do |e|
-          # if (e.key == 'mouse')
-          #  return
-          # end
           c = e.char
           k = e.key
 
@@ -91,16 +106,6 @@ module Crysterm
 
         screen.save_focus
         focus
-
-        done = ->(err : String?, data : Bool) do
-          hide
-          screen.restore_focus
-          screen.off Crysterm::Event::KeyPress, ev_keys
-          @ok.off Crysterm::Event::Press, ev_ok
-          @cancel.off Crysterm::Event::Press, ev_cancel
-          block.call err, data
-          screen.render
-        end
 
         screen.render
       end

@@ -45,6 +45,12 @@ module Crysterm
         append @icon
       end
 
+      # Blessed-compatible alias for `#start` (Blessed's Loading uses
+      # `load`/`stop`; Crysterm names them `start`/`stop`).
+      def load(text = nil)
+        start text
+      end
+
       def start(@text = nil)
         # return if @should_exit
         @should_exit = false
