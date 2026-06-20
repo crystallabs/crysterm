@@ -63,9 +63,9 @@ class CursorDemo
     when e.char == 'q', e.key == Tput::Key::CtrlQ
       s.destroy
       exit
-    when e.char == 'l' then s.cursor.shape = CursorShape::Line; s.render
-    when e.char == 'u' then s.cursor.shape = CursorShape::Underline; s.render
-    when e.char == 'b' then s.cursor.shape = CursorShape::Block; s.render
+    when e.char == 'l'             then s.cursor.shape = CursorShape::Line; s.render
+    when e.char == 'u'             then s.cursor.shape = CursorShape::Underline; s.render
+    when e.char == 'b'             then s.cursor.shape = CursorShape::Block; s.render
     when e.key == Tput::Key::Up    then move.call(0, -1)
     when e.key == Tput::Key::Down  then move.call(0, 1)
     when e.key == Tput::Key::Left  then move.call(-1, 0)
