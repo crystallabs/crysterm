@@ -16,12 +16,12 @@ Of supporting shards, the event model is in
 [unibilium.cr](https://github.com/crystallabs/unibilium.cr), and an animated PNG/GIF parser
 in [pnggif](https://github.com/crystallabs/pnggif).
 
-[tput.cr](https://github.com/crystallabs/tput.cr) implements all the terminal routines (Crysterm
-does not use ncurses). Tput uses the [unibilium](https://github.com/neovim/unibilium/) terminfo
-library, but it also has a standard, hardcoded mode which can be used when one does not wish
-to use unibilium or terminfo. (A lot of modern software just hardcodes the sequences.)
+[tput.cr](https://github.com/crystallabs/tput.cr) implements all the terminal routines, and
+does not use ncurses. For terminfo bindings it uses [unibilium](https://github.com/neovim/unibilium/),
+but it also supports a built-in, standard mode which does not use terminfo at all.
+(A lot of modern software just hardcodes the sequences.)
 
-The other important module at the core is [event_handler](https://github.com/crystallabs/event_handler).
+The other important module at Crysterm's core is [event_handler](https://github.com/crystallabs/event_handler).
 through which all app events are routed.
 
 ## Trying out the examples
