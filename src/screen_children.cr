@@ -13,10 +13,13 @@ module Crysterm
       attach element, previous
 
       # XXX:
-      # - Do similar for mouse as well
       # - Make sure this is undo-ed if widget is detached
       if element.input? || element.keyable?
         register_keyable element
+      end
+
+      if element.clickable?
+        register_clickable element
       end
 
       unless self.focused

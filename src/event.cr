@@ -166,5 +166,89 @@ module Crysterm
         KEYS[ ::Tput::Key::{{m.id}} ] = {{m.id}}
       {% end %}
     end
+
+    # Emitted on any mouse activity (button press/release, motion, wheel).
+    #
+    # This is the single, normalized mouse event for Crysterm. It is emitted
+    # both for mouse reports parsed from the terminal (xterm SGR/X10, via
+    # `Tput`) and for events coming from the Linux console `gpm` daemon — both
+    # sources are converted to a common `::Tput::Mouse::Event` and dispatched
+    # through `Screen#dispatch_mouse`, so listeners need not care about origin.
+    #
+    # It is emitted on the `Screen` and, when the pointer is over a registered
+    # clickable `Widget`, on that widget as well (see `Screen#widget_at`).
+    class Mouse < EventHandler::Event
+      # The underlying normalized mouse event.
+      property mouse : ::Tput::Mouse::Event
+
+      property? accepted : Bool = false
+
+      def initialize(@mouse)
+      end
+
+      # The kind of action (Down/Up/Move/WheelUp/WheelDown).
+      def action : ::Tput::Mouse::Action
+        @mouse.action
+      end
+
+      # Which button the event pertains to.
+      def button : ::Tput::Mouse::Button
+        @mouse.button
+      end
+
+      # 0-based column.
+      def x : Int32
+        @mouse.x
+      end
+
+      # 0-based row.
+      def y : Int32
+        @mouse.y
+      end
+
+      def shift? : Bool
+        @mouse.shift?
+      end
+
+      def meta? : Bool
+        @mouse.meta?
+      end
+
+      def ctrl? : Bool
+        @mouse.ctrl?
+      end
+
+      # Accepts event and causes it to stop propagating.
+      def accept
+        @accepted = true
+      end
+
+      # Ignores event and causes it to continue propagating.
+      def ignore
+        @accepted = false
+      end
+    end
+
+    # Hover events. These carry the same payload as `Mouse` (they subclass it)
+    # but signal pointer *hovering* transitions rather than raw activity.
+    #
+    # They are emitted on a `Widget` only — and only on the **topmost** widget
+    # under the pointer, mirroring how a click is dispatched (see
+    # `Screen#dispatch_mouse`). A widget that is occluded by another does not
+    # receive hover events; if it needs to react while in the background, it can
+    # listen for the screen-level `Mouse` event (emitted for every mouse event)
+    # and do its own hit-testing.
+    #
+    # Listeners subscribe to the specific transition they care about, e.g.
+    # `widget.on(Event::MouseOver) { ... }`.
+
+    # Emitted once when the pointer enters a widget (hover in).
+    class MouseOver < Mouse; end
+
+    # Emitted on pointer motion while staying over the same widget (hovering).
+    class MouseMove < Mouse; end
+
+    # Emitted once when the pointer leaves a widget (hover out).
+    class MouseOut < Mouse; end
   end
 end

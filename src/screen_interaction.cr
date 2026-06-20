@@ -37,7 +37,7 @@ module Crysterm
       # if (@tput.input._our_input == 0)
       #  @tput.input._out_input = 1
       listen_keys
-      # listen_mouse # TODO
+      listen_mouse
       # else
       #  @tput.input._our_input += 1
       # end
@@ -58,8 +58,15 @@ module Crysterm
     def listen_keys
       return if @_keys_fiber
       @_keys_fiber = spawn {
-        tput.listen do |char, key, sequence|
-          emit Crysterm::Event::KeyPress.new char, key, sequence
+        tput.listen do |char, key, sequence, mouse|
+          # The same input fiber feeds both keyboard and (terminal) mouse: a
+          # parsed mouse report is dispatched through the unified mouse path;
+          # everything else is announced as a key press.
+          if mouse
+            dispatch_mouse mouse
+          else
+            emit Crysterm::Event::KeyPress.new char, key, sequence
+          end
         end
       }
     end
