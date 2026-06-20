@@ -14,10 +14,6 @@ This is a more in-depth developer guide. It is organized as follows:
 10. [Performance and FPS](#10-performance-and-fps)
 11. [Differences from Blessed](#11-differences-from-blessed)
 
-Crysterm shares a lot of concepts with [Blessed](https://github.com/chjj/blessed).
-Comparison and differences between the two are listed in the final section,
-[Differences from Blessed](#11-differences-from-blessed).
-
 ---
 
 ## 1. Introduction
@@ -34,10 +30,21 @@ attributes. The screen renders the whole tree into an off-screen cell buffer
 and then emits only the minimal set of terminal escape sequences needed to make
 the changes, using the differential ("damage") renderer.
 
-All of the principal classes include the
-[event_handler](https://github.com/crystallabs/event_handler) shard, so they
-emit and listen for typed events (key presses, mouse actions, resize, focus,
-render lifecycle, and so on).
+It is supported by shards implementing the event model in 
+[event_handler](https://github.com/crystallabs/event_handler), color routines in
+[term_colors](https://github.com/crystallabs/term_colors), terminal handling in
+[tput.cr](https://github.com/crystallabs/tput.cr), GPM mouse in
+[gpm.cr](https://github.com/crystallabs/gpm.cr), a terminfo library in
+[unibilium.cr](https://github.com/crystallabs/unibilium.cr), and an animated PNG/GIF parser
+in [pnggif](https://github.com/crystallabs/pnggif).
+
+[tput.cr](https://github.com/crystallabs/tput.cr) implements all the terminal routines, and
+does not use ncurses. For terminfo bindings it uses [unibilium](https://github.com/neovim/unibilium/),
+but it also supports a built-in, standard mode which does not use terminfo at all.
+(A lot of modern software just hardcodes the sequences.)
+
+The other important module at Crysterm's core is [event_handler](https://github.com/crystallabs/event_handler).
+through which all app events and input are routed (key presses, mouse actions, resize, focus, render lifecycle, and so on).
 
 ---
 
