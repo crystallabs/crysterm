@@ -94,6 +94,26 @@ module Crysterm
         @row.grapheme_at?(@index)
       end
 
+      # Whether this cell's grapheme equals `value`, WITHOUT materializing the
+      # cell's own grapheme as a `String` first. Mirrors `grapheme == value`
+      # exactly (see `#grapheme`), but on the common single-codepoint cell it
+      # only does a `Char` compare — no allocation — which matters because this
+      # drives the per-cell diff guard in `widget_rendering`.
+      def grapheme_eq?(value : String) : Bool
+        if g = @row.grapheme_at?(@index)
+          g == value
+        else
+          c = @row.chars.unsafe_fetch(@index)
+          if c == CONTINUATION
+            value.empty?
+          elsif value.size == 1
+            value[0] == c
+          else
+            false
+          end
+        end
+      end
+
       # Whether this is the trailing cell of a wide grapheme (draw emits nothing).
       def continuation? : Bool
         @row.chars.unsafe_fetch(@index) == CONTINUATION
@@ -107,8 +127,19 @@ module Crysterm
 
       # Display width of this cell in terminal columns (0 for a continuation
       # cell, 1 or 2 otherwise).
+      #
+      # The common single-codepoint cell takes the `Char` overload of
+      # `Unicode.width`, which avoids the `String` allocation that `grapheme`
+      # (`c.to_s`) would incur — this is called once per cell in the draw loop.
+      # Only a real multi-codepoint cluster (overlay present) needs the
+      # `String` path, where VS16 / regional-indicator promotion can apply.
       def width : Int32
-        ::Crysterm::Unicode.width grapheme
+        if g = @row.grapheme_at?(@index)
+          ::Crysterm::Unicode.width g
+        else
+          c = @row.chars.unsafe_fetch(@index)
+          c == CONTINUATION ? 0 : ::Crysterm::Unicode.width(c)
+        end
       end
 
       # Cell-vs-cell equality compares *values* (attr + grapheme), not handle

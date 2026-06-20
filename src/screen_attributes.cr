@@ -115,8 +115,14 @@ module Crysterm
 
         # Default colors (-1) emit nothing (the terminal's own default applies);
         # concrete colors are encoded at the richest depth the terminal allows.
-        outbuf << Colors.sgr_color(bg, false, n) << ';' if bg != -1
-        outbuf << Colors.sgr_color(fg, true, n) << ';' if fg != -1
+        if bg != -1
+          Colors.sgr_color_to(outbuf, bg, false, n)
+          outbuf << ';'
+        end
+        if fg != -1
+          Colors.sgr_color_to(outbuf, fg, true, n)
+          outbuf << ';'
+        end
 
         # If bytesize is 2, which is what we started with, it means nothing
         # was written, so we should in fact return an empty string.

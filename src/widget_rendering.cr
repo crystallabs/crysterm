@@ -280,20 +280,30 @@ module Crysterm
           # Grapheme assembly (full_unicode): merge following combining marks /
           # joiners into one cluster, and lay wide (2-column) clusters across two
           # cells. Legacy keeps one codepoint per cell.
-          grapheme = ch.to_s
+          #
+          # `grapheme` is only consumed on the full_unicode path below; the
+          # legacy path writes `ch` directly. So it stays `""` (no allocation)
+          # unless full_unicode is on — this avoids a per-cell `ch.to_s` on the
+          # default render path.
+          grapheme = ""
           cell_width = 1
-          if full_unicode? && has_content
-            grapheme, ci = extend_grapheme(content, ci, ch)
-            cell_width = ::Crysterm::Unicode.width grapheme
-            if cell_width == 0
-              # Zero-width cluster (e.g. a leading combining mark): merge into the
-              # previous cell rather than consuming one.
-              if x > xi && (prev = line[x - 1]?)
-                prev.grapheme = prev.grapheme + grapheme
-                line.dirty = true
+          if full_unicode?
+            if has_content
+              grapheme, ci = extend_grapheme(content, ci, ch)
+              cell_width = ::Crysterm::Unicode.width grapheme
+              if cell_width == 0
+                # Zero-width cluster (e.g. a leading combining mark): merge into
+                # the previous cell rather than consuming one.
+                if x > xi && (prev = line[x - 1]?)
+                  prev.grapheme = prev.grapheme + grapheme
+                  line.dirty = true
+                end
+                x -= 1
+                next
               end
-              x -= 1
-              next
+            else
+              # Fill char past the end of content: one codepoint, no clustering.
+              grapheme = ch.to_s
             end
           end
 
@@ -308,7 +318,7 @@ module Crysterm
             end
             line.dirty = true
           elsif full_unicode?
-            if cell.attr != attr || cell.grapheme != grapheme
+            if cell.attr != attr || !cell.grapheme_eq?(grapheme)
               cell.attr = attr
               cell.grapheme = grapheme
               line.dirty = true

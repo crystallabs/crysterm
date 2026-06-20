@@ -48,6 +48,41 @@ module Crysterm
         Attr.pack_color(mix(a, b, alpha))
       end
     end
+
+    # Allocation-free counterpart of `TermColors#sgr_color`: writes the SGR
+    # parameter fragment for one color straight into `io` instead of building
+    # and returning a fresh `String`. The draw loop emits a color on every
+    # attribute change, so the per-call `String` (and its `#{...}`
+    # interpolations) is pure garbage; integers `to_s` directly into the IO with
+    # no intermediate allocation.
+    #
+    # Mirrors `sgr_color` exactly: `color` is a native color (`-1` default, or
+    # `0xRRGGBB`); `fg` selects foreground vs background; the encoding is the
+    # richest the terminal's `colors` count allows (TrueColor / 256 / 16 / 8).
+    def self.sgr_color_to(io : IO, color : Int, fg : Bool, colors : Int) : Nil
+      if color == -1
+        io << (fg ? "39" : "49")
+        return
+      end
+
+      r = (color >> 16) & 0xff
+      g = (color >> 8) & 0xff
+      b = color & 0xff
+
+      if colors >= 0x1000000
+        io << (fg ? 38 : 48) << ";2;" << r << ';' << g << ';' << b
+        return
+      end
+
+      idx = reduce(match(r, g, b), colors)
+      if idx < 8
+        io << (fg ? 30 + idx : 40 + idx)
+      elsif idx < 16
+        io << (fg ? 90 + (idx - 8) : 100 + (idx - 8))
+      else
+        io << (fg ? 38 : 48) << ";5;" << idx
+      end
+    end
   end
 
   # Packing/unpacking of a cell's *attribute* word.
