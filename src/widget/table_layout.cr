@@ -29,7 +29,7 @@ module Crysterm
       # width and defeat shrink-to-content sizing; for `ListTable`, it keeps the
       # cell alignment independent of the list-item alignment. The cells are
       # already aligned here in `#pad_cell`.
-      property cell_align : Tput::AlignFlag = Tput::AlignFlag::Center
+      Crystallabs::Helpers::Enums.enum_property cell_align : Tput::AlignFlag = Tput::AlignFlag::Center
 
       # Computes per-column widths from the current `@rows`. When a fixed numeric
       # `width` is set and large enough, the slack is distributed evenly across

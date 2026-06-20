@@ -1,4 +1,11 @@
 module Crysterm
+  # Short, project-wide alias for the "shorthand side" of an enum-valued
+  # argument: a single member shorthand (`Symbol` or `String`), or a collection
+  # of shorthands for `@[Flags]` enums. Used in initializer signatures as e.g.
+  # `Tput::AlignFlag | Shorthands`, with the intended enum listed first.
+  # See `Crystallabs::Helpers::Enums`.
+  alias Shorthands = ::Crystallabs::Helpers::Enums::Shorthands
+
   # This file contains definitions of various Crysterm classes that are important, but not
   # big or complex enough to warrant being in individual/dedicated files.
   #

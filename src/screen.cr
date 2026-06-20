@@ -112,7 +112,7 @@ module Crysterm
 
     # Optimization flags to use for rendering and/or drawing.
     # XXX See also a TODO item related to dynamically deciding on default flags.
-    property optimization : OptimizationFlag = OptimizationFlag::None
+    Crystallabs::Helpers::Enums.enum_property optimization : OptimizationFlag = OptimizationFlag::None
 
     # Returns current screen width. This is now a local operation since we
     # expect Display to push-update us.
@@ -151,7 +151,7 @@ module Crysterm
       @propagate_keys = @propagate_keys,
       @tab_navigation = @tab_navigation,
       @cursor = @cursor,
-      @optimization = @optimization,
+      optimization : OptimizationFlag | Shorthands = @optimization,
       padding = nil,
       # alt = true, # Currently unused
       @show_fps = @show_fps,
@@ -189,6 +189,7 @@ module Crysterm
       # extended: @extended,
       # termcap: @termcap,
 
+      self.optimization = optimization
       padding.try { |padding| @padding = Padding.from(padding) }
       title.try { |t| self.title = t }
 

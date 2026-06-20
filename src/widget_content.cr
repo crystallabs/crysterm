@@ -20,7 +20,7 @@ module Crysterm
     property? parse_tags = false
 
     # Alignment of contained text
-    property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
+    Crystallabs::Helpers::Enums.enum_property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
 
     # Widget's user-set content in original form. Includes any attributes and tags.
     getter content : String = ""

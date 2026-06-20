@@ -42,11 +42,11 @@ module Crysterm
         no_cell_borders = nil,
         fill_cell_borders = nil,
         *,
-        align : Tput::AlignFlag = Tput::AlignFlag::Center,
+        align : Tput::AlignFlag | Shorthands = Tput::AlignFlag::Center,
         **box,
       )
         @rows = normalize_rows(rows || data)
-        @cell_align = align
+        self.cell_align = align
         pad.try { |v| @pad = v }
         no_cell_borders.try { |v| @no_cell_borders = v }
         fill_cell_borders.try { |v| @fill_cell_borders = v }

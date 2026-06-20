@@ -96,7 +96,7 @@ module Crysterm
 
       visible = nil,
       @fixed = @fixed,
-      @align = @align,
+      align : Tput::AlignFlag | Shorthands = @align,
       @overflow = @overflow,
 
       @scrollbar = @scrollbar,
@@ -130,6 +130,7 @@ module Crysterm
     )
       # $ = _ = JSON/YAML::Any
 
+      self.align = align
       style.try { |v| @style = v }
       scrollable.try { |v| @scrollable = v }
       input.try { |v| @input = v }
