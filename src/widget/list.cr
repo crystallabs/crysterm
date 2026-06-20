@@ -399,8 +399,68 @@ module Crysterm
         emit Crysterm::Event::CancelItem, items[selected], selected
       end
 
+      # Enables the incremental-search prompt (`/` forward, `?` backward) in the
+      # key handler.
+      property? search = true
+
+      # Lazily-created one-line input shown at the bottom of the screen during a
+      # search (see `#start_search`).
+      @search_box : Widget::TextBox? = nil
+
+      # Index of the first item whose tag-stripped, case-insensitive text
+      # contains *query*, scanning from the current selection and wrapping.
+      # Returns the current selection when nothing matches. *back* searches
+      # upward.
+      def fuzzy_find(query : String, back = false) : Int32
+        return selected if @items.empty?
+        q = query.downcase
+        n = @items.size
+        step = back ? -1 : 1
+        i = selected
+        n.times do
+          i = (i + step) % n
+          i += n if i < 0
+          return i if clean_tags(@ritems[i]).downcase.includes? q
+        end
+        selected
+      end
+
+      private def ensure_search_box : Widget::TextBox
+        @search_box ||= begin
+          box = Widget::TextBox.new(
+            screen: screen,
+            bottom: 0, left: 0, right: 0, height: 1,
+            style: Style.new(bg: "blue", fg: "white"),
+          )
+          screen.append box
+          box.hide
+          box
+        end
+      end
+
+      # Opens the incremental-search prompt. Typing a query and pressing Enter
+      # jumps to the next matching item; Escape cancels. *back* searches upward.
+      def start_search(back = false)
+        return unless search?
+        return if @items.empty?
+
+        sb = ensure_search_box
+        sb.set_label(back ? "?" : "/")
+        sb.value = ""
+        sb.show
+        screen.render
+
+        sb.read_input do |_err, data|
+          sb.hide
+          focus
+          if data && !data.empty?
+            selekt fuzzy_find(data, back)
+          end
+          screen.render
+        end
+      end
+
       # TODO
-      # find
       # pick
 
       def on_keypress(e)
@@ -430,6 +490,10 @@ module Crysterm
           selekt @child_base + visible // 2
         when @vi && e.char == 'L'
           selekt @child_base + visible - 1
+        when search? && e.char == '/'
+          start_search false
+        when search? && e.char == '?'
+          start_search true
         when e.key == ::Tput::Key::Enter
           enter_selected
         when e.key == ::Tput::Key::Escape
