@@ -8,6 +8,7 @@ module Crysterm
     Box   = Widget::Box
     Input = Widget::Input
 
+    Image        = Widget::Image
     OverlayImage = Widget::OverlayImage
     ProgressBar  = Widget::ProgressBar
     Loading      = Widget::Loading
