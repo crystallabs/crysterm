@@ -67,6 +67,25 @@ describe Crysterm::Screen::Cell do
     (a == b).should be_false # cluster vs single, same base
   end
 
+  it "grapheme_eq? matches `grapheme ==` without allocating" do
+    # Single-codepoint cell.
+    c = row1[0]
+    c.char = 'x'
+    c.grapheme_eq?("x").should be_true
+    c.grapheme_eq?("y").should be_false
+    c.grapheme_eq?("e\u{0301}").should be_false # vs a cluster
+
+    # Multi-codepoint cluster cell (overlay).
+    c.grapheme = "e\u{0301}"
+    c.grapheme_eq?("e\u{0301}").should be_true
+    c.grapheme_eq?("e").should be_false # base only
+
+    # Continuation cell behaves like the empty grapheme.
+    c.continuation!
+    c.grapheme_eq?("").should be_true
+    c.grapheme_eq?("x").should be_false
+  end
+
   it "a cluster cell is never equal to a single-char tuple" do
     c = row1[0]
     c.grapheme = "e\u{0301}"

@@ -45,6 +45,24 @@ describe Crysterm::Colors do
     end
   end
 
+  describe ".sgr_color_to" do
+    # The allocation-free IO variant must produce byte-for-byte what the
+    # String-returning `sgr_color` does, across every encoding depth.
+    it "matches sgr_color for every color/depth/ground combination" do
+      colors = [0x1000000, 256, 16, 8]
+      values = [0xff8800, 0x102030, 0xcd0000, 0x000000, 0xffffff, -1]
+      colors.each do |n|
+        values.each do |v|
+          {true, false}.each do |fg|
+            io = IO::Memory.new
+            Colors.sgr_color_to(io, v, fg, n)
+            io.to_s.should eq Colors.sgr_color(v, fg, n)
+          end
+        end
+      end
+    end
+  end
+
   describe ".mix" do
     it "mixes two RGB colors in RGB space" do
       Colors.mix(0x000000, 0xffffff, 0.5).should eq 0x7f7f7f

@@ -22,6 +22,12 @@ module Crysterm
       # `full_unicode?`, and a single codepoint otherwise.
       property cursor_pos = 0
 
+      # Desired column for vertical (Up/Down) movement, as a codepoint offset
+      # into the target real line. Set on the first Up/Down so that walking
+      # across short lines and back preserves the original column, and cleared
+      # by any other cursor movement or edit. `nil` means "no memory yet".
+      @goal_col : Int32? = nil
+
       property _done : Proc(String?, String?, Nil)?
       property __done : Proc(String?, String?, Nil)?
       property __listener : Proc(Crysterm::Event::KeyPress, Nil)?
@@ -83,9 +89,10 @@ module Crysterm
         # and the column within it.
         rl, col = cursor_rowcol
 
-        # Keep that line within the visible viewport. Vertical scroll-follow for
-        # content taller than the box is handled by `_type_scroll` on edits; for
-        # pure movement the row is clamped to the visible range.
+        # Place the cursor on its row within the viewport. The view is kept
+        # scrolled so the row is visible — `ensure_cursor_visible` follows the
+        # cursor on both movement and edits — so `rl - @child_base` is normally
+        # already in range; the clamp is just a guard.
         max_line = (lpos.yl - lpos.yi) - iheight - 1
         line = (rl - @child_base).clamp(0, Math.max(0, max_line))
 
@@ -186,6 +193,87 @@ module Crysterm
         {last_r, (@_clines[last_r]? || "").size}
       end
 
+      # Inverse of `cursor_rowcol`: maps a real (wrapped) line and a codepoint
+      # column within it back to an index into `@value`. Used by Up/Down to land
+      # the cursor on the visual row above/below at the desired column.
+      private def pos_from_rowcol(rl : Int32, col : Int32) : Int32
+        rl = rl.clamp(0, Math.max(0, @_clines.size - 1))
+        fake_line = @_clines.rtof[rl]? || 0
+
+        # Offset of this real line's start within its fake (logical) line: the
+        # total codepoints of the preceding wrapped pieces of the same fake line.
+        offset = 0
+        (@_clines.ftor[fake_line]? || [rl]).each do |r|
+          break if r >= rl
+          offset += (@_clines[r]? || "").size
+        end
+
+        # Start of the fake (logical) line within `@value`; logical lines are
+        # joined by '\n', so each preceding one contributes its size plus one.
+        base = 0
+        fake = @_clines.fake
+        fake_line.times { |k| base += (fake[k]? || "").size + 1 }
+
+        (base + offset + col).clamp(0, @value.size)
+      end
+
+      # Move the cursor by `rows` visual (wrapped) rows — negative is up, positive
+      # is down — preserving the goal column. Used by Up/Down (`±1`) and Page
+      # Up/Down (`±page`). The target row is clamped to the content, so a Page Up
+      # near the top lands on the first row rather than doing nothing; a move that
+      # would not change the row is a no-op.
+      private def move_cursor_vertically(rows)
+        rl, col = cursor_rowcol
+        goal = (@goal_col ||= col)
+
+        target = (rl + rows).clamp(0, Math.max(0, @_clines.size - 1))
+        return if target == rl
+
+        width = (@_clines[target]? || "").size
+        @cursor_pos = pos_from_rowcol(target, goal.clamp(0, width))
+      end
+
+      # Number of visual rows to move per Page Up/Down: one viewport's worth, less
+      # one row of overlap for reading continuity (at least 1).
+      private def page_rows
+        Math.max(1, (aheight - iheight) - 1)
+      end
+
+      # Reconcile the scroll bookkeeping with the cursor's real (wrapped) row so
+      # the cursor stays on screen and `child_base`/`child_offset` — which drive
+      # the content offset and the scrollbar — agree with `@cursor_pos`. Scrolls
+      # the viewport when the cursor crosses the top/bottom edge. Returns whether
+      # the scroll position changed (so the caller can re-render); does not
+      # render itself, since the edit path calls this from within a render.
+      #
+      # Without this, vertical movement only moved `@cursor_pos`: once the cursor
+      # passed the top/bottom visible row the view never followed, leaving the
+      # cursor pinned to the edge while editing a line that was scrolled off (so
+      # typed text landed off-screen or painted at a stale position).
+      private def ensure_cursor_visible : Bool
+        return false unless @scrollable
+        visible = aheight - iheight
+        return false if visible <= 0
+
+        rl, _ = cursor_rowcol
+        base = @child_base
+        offset = @child_offset
+
+        if rl < @child_base
+          @child_base = rl
+        elsif rl > @child_base + visible - 1
+          @child_base = rl - (visible - 1)
+        end
+        @child_base = @child_base.clamp(0, Math.max(0, @_clines.size - visible))
+        @child_offset = (rl - @child_base).clamp(0, visible - 1)
+
+        if @child_base != base || @child_offset != offset
+          emit Crysterm::Event::Scroll
+          return true
+        end
+        false
+      end
+
       def input_on_focus=(yes)
         @input_on_focus = yes
 
@@ -218,19 +306,40 @@ module Crysterm
           # Cursor movement. Left/Right step over a whole grapheme cluster
           # (so a base+combining mark or a wide emoji moves as one unit) under
           # `full_unicode?`, a single codepoint otherwise. Home/End jump to the
-          # start/end of the current (logical) line. Up/Down are not handled
-          # yet (they need column memory across wrapped lines).
+          # start/end of the current (logical) line. Up/Down move one visual
+          # (wrapped) row and Page Up/Down move a viewport's worth, both
+          # remembering the goal column (`@goal_col`) so that a detour across
+          # shorter lines and back keeps the original column.
+          moved = true
           if k == Tput::Key::Left
+            @goal_col = nil
             @cursor_pos -= cursor_prev_width
-            _update_cursor
           elsif k == Tput::Key::Right
+            @goal_col = nil
             @cursor_pos += cursor_next_width
-            _update_cursor
+          elsif k == Tput::Key::Up
+            move_cursor_vertically -1
+          elsif k == Tput::Key::Down
+            move_cursor_vertically 1
+          elsif k == Tput::Key::PageUp
+            move_cursor_vertically -page_rows
+          elsif k == Tput::Key::PageDown
+            move_cursor_vertically page_rows
           elsif k == Tput::Key::Home
+            @goal_col = nil
             @cursor_pos = line_start_pos
-            _update_cursor
           elsif k == Tput::Key::End
+            @goal_col = nil
             @cursor_pos = line_end_pos
+          else
+            moved = false
+          end
+
+          if moved
+            # Scroll the viewport to follow the cursor (no-op when it is already
+            # visible); re-render if it moved, then place the terminal cursor at
+            # its new position.
+            screen.render if ensure_cursor_visible
             _update_cursor
           end
 
@@ -247,6 +356,7 @@ module Crysterm
             # Delete the grapheme cluster (base + combining marks, wide emoji, …)
             # immediately before the cursor, then move the cursor back over it.
             if @cursor_pos > 0
+              @goal_col = nil
               w = cursor_prev_width
               @value = @value[0...(@cursor_pos - w)] + @value[@cursor_pos..]
               @cursor_pos -= w
@@ -254,6 +364,7 @@ module Crysterm
           elsif k == Tput::Key::Delete
             # Delete the grapheme cluster at the cursor; the cursor stays put.
             if @cursor_pos < @value.size
+              @goal_col = nil
               w = cursor_next_width
               @value = @value[0...@cursor_pos] + @value[(@cursor_pos + w)..]
             end
@@ -265,6 +376,7 @@ module Crysterm
           unless e.char.to_s.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
             # Insert the typed character at the cursor (not just at the end),
             # then advance the cursor past it.
+            @goal_col = nil
             ch = e.char.to_s
             @value = @value[0...@cursor_pos] + ch + @value[@cursor_pos..]
             @cursor_pos += ch.size
@@ -277,11 +389,13 @@ module Crysterm
       end
 
       def _type_scroll
-        # O: XXX workaround
-        h = aheight - iheight
-        if (@_clines.size - @child_base) > h
-          scroll @_clines.size
-        end
+        # Follow the cursor after an edit (or an external `value=`), rather than
+        # always jumping to the bottom: when typing in the middle of a document
+        # taller than the box, snapping to the end would push the just-typed
+        # character off-screen. Appending at the end still scrolls down, because
+        # the cursor is then on the last line. No render here — `value=` calls
+        # this from within the widget's own render.
+        ensure_cursor_visible
       end
 
       def value=(value = nil)

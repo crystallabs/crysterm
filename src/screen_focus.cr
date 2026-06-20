@@ -8,6 +8,15 @@ module Crysterm
     # Send focus events after mouse is enabled?
     property send_focus = false
 
+    # Whether `Tab`/`Shift+Tab` move keyboard focus between focusable widgets by
+    # default (the GUI-toolkit convention). Enabled out of the box; set to false
+    # to take full control of `Tab` handling yourself.
+    #
+    # This default only kicks in for keys that the focused widget (and its parent
+    # chain, e.g. an enclosing `Widget::Form`) did not already handle, so it
+    # composes with widgets that do their own `Tab` navigation.
+    property? tab_navigation = true
+
     property _saved_focus : Widget?
 
     @history = [] of Widget

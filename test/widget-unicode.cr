@@ -42,6 +42,17 @@ module Crysterm
     style: Style.new(border: true, fg: "#a0ffa0"),
   )
 
+  # Smileys and other usual emoji — each is a wide (two-column) grapheme, so the
+  # rows stay column-aligned under full_unicode.
+  Widget::Box.new(
+    parent: s, top: 18, left: "center", width: 40, height: 5,
+    content: "😀 😃 😄 😁 😆 😅 😂 🤣 😉 😊\n" \
+             "😍 😘 😎 🤔 😴 😭 😡 🥳 😱 🤯\n" \
+             "👍 👎 👏 🙏 🎉 🚀 ❤️ 🔥 ✨ ⭐",
+    align: Tput::AlignFlag::Center,
+    style: Style.new(border: true, fg: "#ffd0e0"),
+  )
+
   # Headless: render once and exit (so `-- --test-auto` does not block).
   if ARGV.includes? "--test-auto"
     s._render

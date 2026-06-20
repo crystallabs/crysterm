@@ -160,6 +160,23 @@ module Crysterm
             el2 = el2.parent
           end
         end
+
+        # Default focus navigation. If no widget consumed the key, `Tab`/
+        # `Shift+Tab` move focus to the next/previous focusable widget — the
+        # standard behavior users expect from GUI toolkits. Opt out per-screen
+        # via `tab_navigation = false`.
+        if @tab_navigation && !e.accepted?
+          case e.key
+          when Tput::Key::Tab
+            e.accept
+            focus_next
+            render
+          when Tput::Key::ShiftTab
+            e.accept
+            focus_previous
+            render
+          end
+        end
       end
     end
 

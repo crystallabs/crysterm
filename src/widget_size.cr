@@ -38,12 +38,7 @@ module Crysterm
         if width == "half"
           width = "50%"
         end
-        expr = width.split /(?=\+|-)/
-        width = expr[0]
-        width = width[0...-1].to_f / 100
-        width = (((parent.awidth || 0)) * width).to_i
-        width += expr[1].to_i if expr[1]?
-        return width
+        return Widget.dimension(width, parent.awidth || 0)
       end
 
       # This is for if the element is being stretched or shrunken.
@@ -58,11 +53,7 @@ module Crysterm
           if left == "center"
             left = "50%"
           end
-          expr = left.split(/(?=\+|-)/)
-          left = expr[0]
-          left = left[0...-1].to_f / 100
-          left = ((parent.awidth || 0) * left).to_i
-          left += expr[1].to_i if expr[1]?
+          left = Widget.dimension(left, parent.awidth || 0)
         end
         width = (parent.awidth || 0) - (oright || 0) - left
 
@@ -88,12 +79,7 @@ module Crysterm
         if height == "half"
           height = "50%"
         end
-        expr = height.split /(?=\+|-)/
-        height = expr[0]
-        height = height[0...-1].to_f / 100
-        height = (((parent.aheight || 0)) * height).to_i
-        height += expr[1].to_i if expr[1]?
-        return height
+        return Widget.dimension(height, parent.aheight || 0)
       end
 
       # This is for if the element is being stretched or shrunken.
@@ -108,11 +94,7 @@ module Crysterm
           if top == "center"
             top = "50%"
           end
-          expr = top.split(/(?=\+|-)/)
-          top = expr[0]
-          top = top[0...-1].to_f / 100
-          top = ((parent.aheight || 0) * top).to_i
-          top += expr[1].to_i if expr[1]?
+          top = Widget.dimension(top, parent.aheight || 0)
         end
         height = (parent.aheight || 0) - (obottom || 0) - top
 

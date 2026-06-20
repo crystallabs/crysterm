@@ -8,6 +8,7 @@ module Crysterm
     Box   = Widget::Box
     Input = Widget::Input
 
+    Image        = Widget::Image
     OverlayImage = Widget::OverlayImage
     ProgressBar  = Widget::ProgressBar
     Loading      = Widget::Loading
@@ -17,7 +18,11 @@ module Crysterm
     HLine        = Widget::HLine
     VLine        = Widget::VLine
     ListTable    = Widget::ListTable
+    ListBar      = Widget::ListBar
     List         = Widget::List
+    Table        = Widget::Table
+    Form         = Widget::Form
+    FileManager  = Widget::FileManager
 
     Label          = Widget::Label
     Text           = Widget::Text

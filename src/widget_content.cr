@@ -36,6 +36,13 @@ module Crysterm
     # of the full content on every render.
     @_content_version = 0
 
+    # The `sattr(style)` value that the currently-cached `@_clines.attr` was
+    # computed against. `_parse_attr` only depends on the content (unchanged on
+    # the cached path) and this base attribute, so it can be skipped whenever the
+    # style's packed attr is unchanged frame-to-frame (the common case). `nil`
+    # forces the first computation.
+    @_parse_attr_default : Int64? = nil
+
     # Processes and sets widget content. Does not allow extra options re.
     # how content is to be processed; use `#set_content` if you need to provide
     # extra options.
@@ -131,11 +138,20 @@ module Crysterm
 
       colwidth = awidth - iwidth
       if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version
-        content =
-          @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
-            .gsub(/\e(?!\[[\d;]*m)/, "") # SGR
-            .gsub(/\r\n|\r/, "\n")
-            .gsub(/\t/, style.tab_char * style.tab_size)
+        # Single pass over the content instead of four chained `gsub`s (each of
+        # which scanned the whole string and built an intermediate copy). The
+        # four rules act on disjoint characters — control chars, a stray ESC
+        # (not starting an SGR sequence), CR/CRLF, and TAB — so collapsing them
+        # into one alternation with a dispatching block is equivalent. `tab` is
+        # hoisted so the replacement string is built once, not per match.
+        tab = style.tab_char * style.tab_size
+        content = @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]|\e(?!\[[\d;]*m)|\r\n|\r|\t/) do |m|
+          case m
+          when "\r\n", "\r" then "\n"
+          when "\t"         then tab
+          else                   "" # control char or stray ESC
+          end
+        end
 
         ::Log.trace { "Internal content is #{content.inspect}" }
 
@@ -178,6 +194,7 @@ module Crysterm
         @_clines.content = @content
         @_clines.content_version = @_content_version
         @_clines.attr = _parse_attr @_clines
+        @_parse_attr_default = sattr(style)
         @_clines.ci = [] of Int32
         @_clines.reduce(0) do |total, line|
           @_clines.ci.push(total)
@@ -190,8 +207,15 @@ module Crysterm
         return true
       end
 
-      # Need to calculate this every time because the default fg/bg may change.
-      @_clines.attr = _parse_attr(@_clines) || @_clines.attr
+      # The carried-over per-line attrs depend only on the (unchanged) content
+      # and the style's base attribute, so recompute them only when that base
+      # attr actually changed (default fg/bg/flags). On the common frame where
+      # nothing changed this skips the O(content) `_parse_attr` scan entirely.
+      da = sattr(style)
+      if da != @_parse_attr_default
+        @_parse_attr_default = da
+        @_clines.attr = _parse_attr(@_clines)
+      end
 
       false
     end
@@ -201,7 +225,12 @@ module Crysterm
       return text unless @parse_tags
       return text unless text =~ /{\/?[\w\-,;!#]*}/
 
-      outbuf = ""
+      # Accumulate into a `String::Builder` rather than `outbuf += ...`: repeated
+      # `String` concatenation rebuilds the whole (growing) result on every tag,
+      # which is O(n^2) for heavily-tagged content. (The remaining
+      # `text = text[cap[0].size..]` reslicing is a separate, smaller O(n^2);
+      # left as-is since this path is cold — content-change only.)
+      outbuf = String::Builder.new
       bg = [] of String
       fg = [] of String
       flag = [] of String
@@ -217,14 +246,14 @@ module Crysterm
 
         if esc && (cap = text.match(/^([\s\S]+?){\/escape}/))
           text = text[cap[0].size..]
-          outbuf += cap[1]
+          outbuf << cap[1]
           esc = false
           next
         end
 
         if esc
           # raise "Unterminated escape tag."
-          outbuf += text
+          outbuf << text
           break
         end
 
@@ -238,10 +267,10 @@ module Crysterm
           param = cap[2].gsub(/-/, ' ')
 
           if param == "open"
-            outbuf += '{'
+            outbuf << '{'
             next
           elsif param == "close"
-            outbuf += '}'
+            outbuf << '}'
             next
           end
 
@@ -255,33 +284,33 @@ module Crysterm
 
           if slash
             if param.nil? || param.blank?
-              outbuf += screen.tput._attr("normal") || ""
+              outbuf << (screen.tput._attr("normal") || "")
               bg.clear
               fg.clear
               flag.clear
             else
               attr = screen.tput._attr(param, false)
               if attr.nil?
-                outbuf += cap[0]
+                outbuf << cap[0]
               else
                 # D O:
                 # if (param !== state[state.size - 1])
                 #   throw new Error('Misnested tags.')
                 # }
                 state.pop
-                outbuf += state.size > 0 ? (screen.tput._attr(state[-1]) || "") : attr
+                outbuf << (state.size > 0 ? (screen.tput._attr(state[-1]) || "") : attr)
               end
             end
           else
             if param.nil?
-              outbuf += cap[0]
+              outbuf << cap[0]
             else
               attr = screen.tput._attr(param)
               if attr.nil?
-                outbuf += cap[0]
+                outbuf << cap[0]
               else
                 state.push(param)
-                outbuf += attr
+                outbuf << attr
               end
             end
           end
@@ -291,15 +320,15 @@ module Crysterm
 
         if cap = text.match(/^[\s\S]+?(?={\/?[\w\-,;!#]*})/)
           text = text[cap[0].size..]
-          outbuf += cap[0]
+          outbuf << cap[0]
           next
         end
 
-        outbuf += text
+        outbuf << text
         break
       end
 
-      outbuf
+      outbuf.to_s
     end
 
     def _parse_attr(lines : CLines)
@@ -307,18 +336,17 @@ module Crysterm
       attr = default_attr
       attrs = [] of Int64
 
-      lines.each_with_index do |line, j|
+      lines.each do |line|
         attrs.push attr
-        raise "indexing error" unless attrs.size == j + 1
 
-        line.chars.each_with_index do |char, i|
+        # `each_char_with_index` walks the codepoints without materializing a
+        # `line.chars` array, and the SGR match is anchored in place at `i`
+        # instead of slicing `line[i..]` — so a colored line is scanned with no
+        # per-line/per-escape `String` allocation. (Matching at THIS escape, not
+        # a fixed offset of 1, preserves the leading-SGR fix.)
+        line.each_char_with_index do |char, i|
           if char == '\e'
-            # Match the SGR sequence starting at THIS escape (`line[i..]`), not
-            # at a fixed offset of 1. With `line[1..]` the search skipped past
-            # the escape at index 0, so a leading SGR code was dropped entirely
-            # and the carried-over attribute (used when scrolling colored text)
-            # was wrong.
-            if c = line[i..].match(SGR_REGEX_AT_BEGINNING)
+            if c = SGR_REGEX.match(line, i, options: Regex::MatchOptions::ANCHORED)
               attr = screen.attr2code(c[0], attr, default_attr)
             end
           end
@@ -467,7 +495,10 @@ module Crysterm
       return line if align.none?
 
       cline = line.gsub SGR_REGEX, ""
-      len = str_width line
+      # `cline` is already SGR-stripped, so measure it directly. `str_width line`
+      # would strip the SGR sequences a second time; `str_width cline` skips the
+      # regex (no ESC present) and yields the identical width.
+      len = str_width cline
 
       # XXX In blessed's code (and here) it was done only with this commented
       # line below. But after/around the May 28 2021 changes, this stopped
@@ -763,7 +794,10 @@ module Crysterm
     # This is the single width hook layout should use; previously most call sites
     # inlined `.size`, which miscounts wide / combining characters.
     def str_width(text)
-      text = text.gsub SGR_REGEX, ""
+      # Most strings have no SGR sequences; skip the regex (and the new String
+      # it builds) unless an ESC is actually present. The `includes?` scan is a
+      # cheap allocation-free byte check.
+      text = text.gsub SGR_REGEX, "" if text.includes? '\e'
       full_unicode? ? Unicode.display_width(text) : text.size
     end
 

@@ -108,6 +108,12 @@ module Crysterm
         # (continuation) cell, so that cell is skipped on the next iteration.
         skip_next = false
 
+        # Highest column for which the BCE look-ahead is known to be pointless
+        # (a previous scan proved the tail from here is not a clearable run of
+        # spaces). Lets us skip re-scanning every space in a leading run, which
+        # otherwise makes a "spaces then content" line O(width^2). Reset per row.
+        bce_skip_until = -1
+
         # For all cells in row (x = column coordinate)
         line_size.times do |x|
           if skip_next
@@ -129,21 +135,30 @@ module Crysterm
           # Take advantage of xterm's back_color_erase feature by using a
           # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
           # the bg for non BCE terminals worth the overhead?
-          if bce_opt && (desired_char == ' ') &&
+          if bce_opt && (desired_char == ' ') && (x > bce_skip_until) &&
              (has_bce || (Attr.bg(desired_attr) == Attr.bg(@default_attr))) &&
              ((Attr.flags(desired_attr) & Attr::INVERSE) == (Attr.flags(@default_attr) & Attr::INVERSE))
             clr = true
             neq = false # Current line 'not equal' to line as it was on previous render (i.e. it changed content)
+            breaker = line_size
 
             (x...line_size).each do |xx|
               if line[xx] != {desired_attr, ' '}
                 clr = false
+                breaker = xx
                 break
               end
               if line[xx] != o[xx]
                 neq = true
               end
             end
+
+            # If the tail wasn't clearable, the offending cell at `breaker` stays
+            # in range for every column in (x, breaker), and the run (x, breaker)
+            # shares `desired_attr`, so those scans would reach the same verdict.
+            # Skip them. `breaker` itself may begin a new run (different attr), so
+            # it is left scannable.
+            bce_skip_until = breaker - 1 unless clr
 
             # Seems like this block performs clearing of a line, if it's not clear but needs to be
             if clr && neq
@@ -277,8 +292,14 @@ module Crysterm
               n = ncolors
               bg = Attr.unpack_color(Attr.bg(desired_attr))
               fg = Attr.unpack_color(Attr.fg(desired_attr))
-              @outbuf << Colors.sgr_color(bg, false, n) << ';' if bg != -1
-              @outbuf << Colors.sgr_color(fg, true, n) << ';' if fg != -1
+              if bg != -1
+                Colors.sgr_color_to(@outbuf, bg, false, n)
+                @outbuf << ';'
+              end
+              if fg != -1
+                Colors.sgr_color_to(@outbuf, fg, true, n)
+                @outbuf << ';'
+              end
 
               if @outbuf.size != outbuf_size
                 # Something was written to the buffer during the code above,
@@ -704,6 +725,36 @@ module Crysterm
     # Clears any chosen region on the screen.
     def clear_region(xi, xl, yi, yl, override = false)
       fill_region @default_attr, ' ', xi, xl, yi, yl, override
+    end
+
+    # Forces the cells in the given region to be re-emitted to the terminal on
+    # the next `#draw`, even if their content is unchanged from the previous
+    # frame.
+    #
+    # `#draw` diffs `@lines` (this frame) against `@olines` (what is on the
+    # terminal) and skips cells that did not change. That is normally what we
+    # want, but a widget drawing *outside* the cell model — e.g. a
+    # `Widget::OverlayImage`, whose w3m image is an overlay painted on top of the
+    # terminal — needs the cells underneath a stale overlay to be physically
+    # re-emitted so the terminal redraws text over it. Poisoning `@olines` here
+    # makes the diff treat those cells as changed.
+    def invalidate_region(xi, xl, yi, yl)
+      xi = 0 if xi < 0
+      yi = 0 if yi < 0
+
+      yi.upto(yl - 1) do |y|
+        oline = @olines[y]?
+        break unless oline
+
+        xi.upto(xl - 1) do |x|
+          ocell = oline[x]?
+          break unless ocell
+          # A sentinel the real cell content can never equal, so `draw` re-emits.
+          ocell.char = '\u{0}'
+        end
+
+        @lines[y]?.try { |line| line.dirty = true }
+      end
     end
 
     # Fills any chosen region on the screen with chosen character and attributes.

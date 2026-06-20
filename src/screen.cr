@@ -29,22 +29,21 @@ module Crysterm
 
     # Input IO.
     #
-    # NOTE: do not use `STDIN.dup` (or `.dup` on any std stream) here. `IO`'s
-    # `dup` is `Object#dup` — a *shallow copy* that aliases the **same** file
-    # descriptor with `close_on_finalize` still true. Crystal may evaluate this
-    # default expression more than once (param default + ivar default), and the
-    # discarded alias, once garbage-collected, runs `finalize` and closes the
-    # shared fd out from under the live screen — manifesting as spurious
-    # "File not open for reading/writing" (EBADF) errors as soon as a second
-    # screen (or any extra allocation) triggers a collection. Referencing the
-    # std stream directly shares the single, never-collected global instead.
+    # NOTE: not `STDIN.dup` — because of the `initialize(@input = @input)`
+    # default, the initializer here is evaluated on *every* `Screen.new`, even
+    # when an `input:` is passed explicitly. `Object#dup` shallow-copies the IO
+    # and aliases the same fd with `close_on_finalize=true`, so each discarded
+    # alias closes the shared STDIN fd when it is garbage-collected. With more
+    # than one `Screen` per process that corrupts the standard streams (hangs or
+    # "File not open" errors). Use the std stream directly (a single, never-
+    # collected global); this matches the same fix in `Tput#initialize`.
     property input : IO = STDIN
 
-    # Output IO. See the note on `#input` re: not using `.dup`.
+    # Output IO. See the note on `input` re: not using `STDOUT.dup`.
     property output : IO = STDOUT
 
     # Error IO. (Could be used for redirecting error output to a particular
-    # widget.) See the note on `#input` re: not using `.dup`.
+    # widget.) See the note on `input` re: not using `STDERR.dup`.
     property error : IO = STDERR
 
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
@@ -150,6 +149,7 @@ module Crysterm
       @dock_contrast = @dock_contrast,
       @always_propagate = @always_propagate,
       @propagate_keys = @propagate_keys,
+      @tab_navigation = @tab_navigation,
       @cursor = @cursor,
       @optimization = @optimization,
       padding = nil,
@@ -202,7 +202,7 @@ module Crysterm
       padding.try { |padding| @padding = Padding.from(padding) }
       title.try { |t| self.title = t }
 
-      @_resize_loop_fiber = Fiber.new "resize_loop" { resize_loop }
+      @_resize_loop_fiber = spawn(name: "resize_loop") { resize_loop }
 
       handle ::Crysterm::Event::Attach
       handle ::Crysterm::Event::Detach
@@ -277,8 +277,14 @@ module Crysterm
 
       # TODO Don't do this unconditionally, but return to whatever
       # state it was in before.
+      #
+      # Only attempt the terminal-mode restore on an actual tty: `cooked!` issues
+      # `tcgetattr`/`tcsetattr`, which raise "Inappropriate ioctl for device" when
+      # `@input` is a pipe, file, `/dev/null`, or an `IO::Memory` (the latter
+      # doesn't respond to `cooked!` at all). This keeps teardown clean for
+      # headless/redirected runs and specs.
       @input.try { |i|
-        if i.responds_to? :"cooked!"
+        if i.responds_to?(:"cooked!") && i.responds_to?(:"tty?") && i.tty?
           i.cooked!
         end
       }

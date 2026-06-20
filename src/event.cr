@@ -85,14 +85,30 @@ module Crysterm
     # Emitted on something being completed (e.g. progressbar reaching 100%)
     event Complete
 
-    # # Emitted on something being reset (e.g. progressbar reset to 0%)
-    # event Reset
+    # Emitted on something being reset (e.g. a `Widget::Form` being reset to
+    # its initial state, or a progressbar reset to 0%).
+    event Reset
 
     # Emitted on value submitted (e.g. in text forms)
     event Submit, value : String
 
+    # Emitted when a `Widget::Form` is submitted. Carries the collected
+    # name => value pairs of all input children (see `Widget::Form#submit`).
+    event SubmitData, data : Hash(String, String)
+
     # Emitted on value canceled (e.g. in text forms)
     event Cancel, value : String
+
+    # Emitted by `Widget::FileManager` when the current directory changes.
+    # `path` is the directory just entered; `cwd` is the directory left behind.
+    event ChangeDir, path : String, cwd : String
+
+    # Emitted by `Widget::FileManager` when a (non-directory) file is selected.
+    event OpenFile, path : String
+
+    # Emitted by `Widget::FileManager` after its listing is (re)loaded, and by
+    # any widget that reloads its contents from an external source.
+    event Refresh
 
     event Action, value : String
 
@@ -120,6 +136,11 @@ module Crysterm
 
     # Emitted on selection of an item in list
     event SelectItem, item : Widget::Box, index : Int32
+
+    # Emitted by `Widget::ListBar` when a tab/command is selected via
+    # `#select_tab` (e.g. through `auto_command_keys`). `item` is the command's
+    # element box (`nil` if the index is out of range), `index` its position.
+    event SelectTab, item : Widget::Box?, index : Int32
 
     # Emitted when an Action is Triggered
     event Triggered

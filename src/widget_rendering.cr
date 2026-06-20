@@ -35,11 +35,7 @@ module Crysterm
       style = self.style
       parent.try do |parent2|
         if parent2._is_list && parent2.is_a? Widget::List
-          if parent2.items[parent2.selected]? == self
-            style = parent2.styles.selected
-          else
-            style = parent2.style.item
-          end
+          style = parent2.item_render_style(parent2.items[parent2.selected]? == self)
         end
       end
 
@@ -72,7 +68,8 @@ module Crysterm
       # attr
       # ch
       # Log.trace { lines.inspect }
-      content = StringIndex.new @_pcontent || ""
+      pcontent = @_pcontent || ""
+      content = StringIndex.new pcontent
       ci = @_clines.ci[coords.base]? || 0 # XXX Is it ok that array lookup can be nil? and defaulting to 0?
       # battr
       # default_attr
@@ -216,8 +213,12 @@ module Crysterm
 
           # Handle escape codes.
           while ch == '\e'
-            cnt = content[(ci - 1)..]
-            if c = cnt.match SGR_REGEX_AT_BEGINNING
+            # Match the SGR sequence in place at `ci - 1` (the escape we just
+            # consumed) instead of slicing `content[(ci - 1)..]`, which would
+            # allocate a fresh `String` of the entire remaining content on every
+            # escape character. ANCHORED forces the match to start exactly at
+            # that position (replacing the old `^`-anchored regex on the slice).
+            if c = SGR_REGEX.match(pcontent, ci - 1, options: Regex::MatchOptions::ANCHORED)
               ci += c[0].size - 1
               attr = screen.attr2code(c[0], attr, default_attr)
               # Ignore foreground changes for selected items (keep the default
@@ -284,20 +285,30 @@ module Crysterm
           # Grapheme assembly (full_unicode): merge following combining marks /
           # joiners into one cluster, and lay wide (2-column) clusters across two
           # cells. Legacy keeps one codepoint per cell.
-          grapheme = ch.to_s
+          #
+          # `grapheme` is only consumed on the full_unicode path below; the
+          # legacy path writes `ch` directly. So it stays `""` (no allocation)
+          # unless full_unicode is on — this avoids a per-cell `ch.to_s` on the
+          # default render path.
+          grapheme = ""
           cell_width = 1
-          if full_unicode? && has_content
-            grapheme, ci = extend_grapheme(content, ci, ch)
-            cell_width = ::Crysterm::Unicode.width grapheme
-            if cell_width == 0
-              # Zero-width cluster (e.g. a leading combining mark): merge into the
-              # previous cell rather than consuming one.
-              if x > xi && (prev = line[x - 1]?)
-                prev.grapheme = prev.grapheme + grapheme
-                line.dirty = true
+          if full_unicode?
+            if has_content
+              grapheme, ci = extend_grapheme(content, ci, ch)
+              cell_width = ::Crysterm::Unicode.width grapheme
+              if cell_width == 0
+                # Zero-width cluster (e.g. a leading combining mark): merge into
+                # the previous cell rather than consuming one.
+                if x > xi && (prev = line[x - 1]?)
+                  prev.grapheme = prev.grapheme + grapheme
+                  line.dirty = true
+                end
+                x -= 1
+                next
               end
-              x -= 1
-              next
+            else
+              # Fill char past the end of content: one codepoint, no clustering.
+              grapheme = ch.to_s
             end
           end
 
@@ -312,7 +323,7 @@ module Crysterm
             end
             line.dirty = true
           elsif full_unicode?
-            if cell.attr != attr || cell.grapheme != grapheme
+            if cell.attr != attr || !cell.grapheme_eq?(grapheme)
               cell.attr = attr
               cell.grapheme = grapheme
               line.dirty = true
@@ -355,13 +366,19 @@ module Crysterm
           sbr = style.border.try(&.right) || 0
           x += 1 if style.scrollbar.ignore_border? && (sbr > 0) # should 1 be sbr ?
 
+          # Guard the denominators: when there is effectively nothing to scroll
+          # (`denom <= 0`, e.g. content exactly one line tall) the division would
+          # yield `Infinity`/`NaN` and the subsequent `.to_i` would raise
+          # `OverflowError`. In that case the thumb simply sits at the top.
           if @always_scroll
-            y = @child_base / (i - (yl - yi))
+            denom = i - (yl - yi)
+            frac = denom <= 0 ? 0.0 : @child_base / denom
           else
-            y = (@child_base + @child_offset) / (i - 1)
+            denom = i - 1
+            frac = denom <= 0 ? 0.0 : (@child_base + @child_offset) / denom
           end
 
-          y = yi + ((yl - yi) * y).to_i
+          y = yi + ((yl - yi) * frac).to_i
           y = yl - 1 if y >= yl
 
           # XXX The '?' was added ad-hoc to prevent exceptions when something goes out of

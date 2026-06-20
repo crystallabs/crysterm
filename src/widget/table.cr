@@ -1,0 +1,246 @@
+require "./box"
+require "./table_layout"
+
+module Crysterm
+  class Widget
+    # Static table element.
+    #
+    # Renders a grid of cells (`rows`) with aligned columns and, optionally,
+    # line-drawing borders between cells. Unlike `Widget::ListTable`, a `Table`
+    # is not interactive — it is purely for display.
+    #
+    # ```
+    # Widget::Table.new(
+    #   parent: screen,
+    #   rows: [
+    #     ["Name", "Email"],
+    #     ["Alice", "alice@example.com"],
+    #     ["Bob", "bob@example.com"],
+    #   ],
+    #   style: Crysterm::Style.new(border: true)
+    # )
+    # ```
+    class Table < Box
+      include TableLayout
+
+      # The table data, as rows of string cells.
+      property rows : Array(Array(String))
+
+      # A table is sized to its content by default.
+      @resizable = true
+
+      # The content is pre-formatted into fixed-width columns; it must never be
+      # line-wrapped (wrapping a row would push every following row down and
+      # desync the cell borders, which is especially visible with wide/CJK
+      # cells).
+      @wrap_content = false
+
+      def initialize(
+        rows = nil,
+        data = nil,
+        pad = nil,
+        no_cell_borders = nil,
+        fill_cell_borders = nil,
+        *,
+        align : Tput::AlignFlag = Tput::AlignFlag::Center,
+        **box,
+      )
+        @rows = normalize_rows(rows || data)
+        @cell_align = align
+        pad.try { |v| @pad = v }
+        no_cell_borders.try { |v| @no_cell_borders = v }
+        fill_cell_borders.try { |v| @fill_cell_borders = v }
+
+        super **box
+
+        set_data @rows
+
+        on(Crysterm::Event::Attach) { set_data @rows }
+        on(Crysterm::Event::Resize) do
+          set_data @rows
+          screen?.try &.render
+        end
+      end
+
+      # :ditto:
+      def set_rows(rows)
+        set_data rows
+      end
+
+      # Replaces the table data and rebuilds the rendered content.
+      def set_data(rows)
+        @rows = normalize_rows rows
+        calculate_maxes
+        return if @maxes.empty?
+
+        # Pin the width to the exact table width so the box edge lines up with
+        # the column positions `#draw_borders` uses. Relying on shrink-to-content
+        # alone is not enough: blank separator lines and trailing-space trimming
+        # make the measured content width disagree with `@maxes`, which would
+        # leave the right border and last column ragged between text and
+        # separator rows. Height is still shrunk to the content (`@resizable`).
+        # Assigned directly to avoid the `Resize`-before-store recursion that
+        # `width=` would trigger via our own `Resize` handler.
+        @width = row_width + iwidth
+
+        text = String.build do |str|
+          @rows.each_with_index do |row, ri|
+            is_footer = ri == @rows.size - 1
+            str << render_row(row)
+            str << "\n\n" unless is_footer
+          end
+        end
+
+        set_content text
+      end
+
+      def render(with_children = true)
+        coords = super
+        return coords unless coords
+
+        calculate_maxes
+        return coords if @maxes.empty?
+
+        draw_borders coords
+        coords
+      end
+
+      # Recolors header/cell text and draws the internal cell borders. Ported
+      # from Blessed's `Table.prototype.render`, adapted to Crysterm's cell grid.
+      private def draw_borders(coords)
+        lines = screen.lines
+        xi = coords.xi
+        yi = coords.yi
+
+        dattr = sattr style
+        hattr = sattr style.header
+        cattr = sattr style.cell
+        battr = sattr style.border
+
+        width = coords.xl - coords.xi - iright
+        height = coords.yl - coords.yi - ibottom
+
+        # Apply header/cell attributes to text cells that still hold the default
+        # attribute (so explicit tags inside cells are preserved).
+        y = itop
+        while y < height
+          if line = lines[yi + y]?
+            x = ileft
+            while x < width
+              if cell = line[xi + x]?
+                if cell.attr == dattr
+                  cell.attr = (y == itop ? hattr : cattr)
+                  line.dirty = true
+                end
+              else
+                break
+              end
+              x += 1
+            end
+          else
+            break
+          end
+          y += 1
+        end
+
+        border = style.border
+        return if !border.any? || no_cell_borders?
+
+        rows_n = @rows.size
+        last = @maxes.size - 1
+
+        # Draw border junctions row by row (each table row spans two grid rows).
+        ry = 0
+        (rows_n + 1).times do
+          line = lines[yi + ry]?
+          break unless line
+
+          rx = 0
+          @maxes.each_with_index do |max, mi|
+            rx += max
+
+            if mi == 0
+              if cell = line[xi + 0]?
+                cell.attr = battr
+                if ry != 0 && (ry // 2) != rows_n
+                  cell.char = border.left > 0 ? '├' : '─'
+                end
+                line.dirty = true
+              end
+            elsif mi == last
+              if line[xi + rx + 1]?
+                rx += 1
+                if cell = line[xi + rx]?
+                  cell.attr = battr
+                  if ry != 0 && (ry // 2) != rows_n
+                    cell.char = border.right > 0 ? '┤' : '─'
+                  end
+                  line.dirty = true
+                end
+              end
+              next
+            end
+
+            # Center junction (also drawn for the first column).
+            next unless line[xi + rx + 1]?
+            rx += 1
+            if cell = line[xi + rx]?
+              if ry == 0
+                cell.attr = battr
+                cell.char = border.top > 0 ? '┬' : '│'
+              elsif (ry // 2) == rows_n
+                cell.attr = battr
+                cell.char = border.bottom > 0 ? '┴' : '│'
+              else
+                cell.attr = junction_attr(battr, ry <= 2 ? hattr : cattr)
+                cell.char = '┼'
+              end
+              line.dirty = true
+            end
+          end
+
+          ry += 2
+        end
+
+        # Draw internal horizontal/vertical border runs.
+        ry = 1
+        while ry < rows_n * 2
+          line = lines[yi + ry]?
+          break unless line
+
+          if ry.odd?
+            # Vertical separators between columns.
+            rx = 0
+            (0...last).each do |mi|
+              rx += @maxes[mi]
+              next unless line[xi + rx + 1]?
+              rx += 1
+              if cell = line[xi + rx]?
+                cell.attr = junction_attr(battr, cell.attr)
+                cell.char = '│'
+                line.dirty = true
+              end
+            end
+          else
+            # Horizontal rules across cell widths.
+            rx = 1
+            @maxes.each do |max|
+              max.times do
+                break unless line[xi + rx + 1]?
+                if cell = line[xi + rx]?
+                  cell.attr = junction_attr(battr, cell.attr)
+                  cell.char = '─'
+                  line.dirty = true
+                end
+                rx += 1
+              end
+              rx += 1
+            end
+          end
+
+          ry += 1
+        end
+      end
+    end
+  end
+end

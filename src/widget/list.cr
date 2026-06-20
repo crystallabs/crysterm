@@ -11,6 +11,11 @@ module Crysterm
       property ritems = [] of String
       property selected = 0
 
+      # Tag-stripped text of the currently selected item (`""` when the list is
+      # empty). Kept in sync by `#selekt`; useful e.g. for `Widget::Form`
+      # value collection.
+      getter value : String = ""
+
       # Lazily-built map of `clean_tags(item) => first index`, used by the
       # `get_item_index(String)` fallback so it doesn't re-run `clean_tags`
       # (a full gsub per item) on every lookup. Invalidated to `nil` whenever
@@ -49,6 +54,28 @@ module Crysterm
         on ::Crysterm::Event::Resize, ->on_resize(::Crysterm::Event::Resize)
         on ::Crysterm::Event::Adopt, ->on_adopt(::Crysterm::Event::Adopt)
         on ::Crysterm::Event::Remove, ->on_remove(::Crysterm::Event::Remove)
+      end
+
+      # Returns the `Style` an item box should render with, given whether it is
+      # the selected item.
+      #
+      # The list draws its *own* border (and background) around the whole
+      # widget, so an individual item must never carry a border of its own.
+      # The non-selected branch of `Style#item` falls back to the list's own
+      # style (`@item || self`), which — when the list has a border — would make
+      # every non-selected item draw a nested border, showing up as stray
+      # line-drawing characters. We therefore strip the border from the item
+      # style here. The selected branch (`styles.selected`) is already a
+      # separate, border-less style, but is run through the same guard for
+      # symmetry (and in case a user gives the selected style a border). See
+      # `Widget#_render`, which calls this.
+      def item_render_style(selected : Bool) : Style
+        base = selected ? styles.selected : style.item
+        return base unless base.border.any?
+
+        borderless = base.dup
+        borderless.border = false
+        borderless
       end
 
       def create_item(content, screen = ::Crysterm::Screen.global, align = ::Tput::AlignFlag::Left, top = 0, left = 0, right = (@scrollbar ? 1 : 0), parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
@@ -186,7 +213,16 @@ module Crysterm
         @selected = index
         @value = clean_tags @ritems[@selected]
 
-        return unless @parent
+        # Gate the scroll + `SelectItem` emit on having been laid out, not on
+        # having a `#parent`. A top-level widget appended straight to a `Screen`
+        # has no `#parent` (a `Screen` is not a `Widget`; `Screen#insert` sets
+        # `screen=`, not `parent=`), so the old `unless @parent` guard silently
+        # skipped `scroll_to`/`SelectItem` for every screen-level list — the
+        # list would never scroll to keep the selection visible, nor notify
+        # listeners. `@lpos` is nil only until the first render (when scrolling
+        # can't be computed anyway), and set thereafter for parented and
+        # top-level widgets alike.
+        return unless @lpos
 
         scroll_to @selected
 

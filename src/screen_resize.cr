@@ -21,10 +21,20 @@ module Crysterm
     @_resize_loop_fiber : Fiber?
     @_resize_handler : ::Crysterm::Event::Resize::Wrapper?
 
-    # Schedules resize fiber to run at now + `@resize_interval`. Repeated invocations
-    # (before the interval has elapsed) have a desirable effect of re-starting the timer.
+    # Notifies `resize_loop` that the terminal size changed. A capacity of 1
+    # is enough: while a redraw is in progress any number of incoming events
+    # collapse into a single pending notification.
+    @_resize_channel = Channel(Nil).new(1)
+
+    # Signals the resize loop that a terminal resize was observed. Repeated
+    # invocations (before the `resize_interval` has elapsed) coalesce, so a
+    # burst of resize events results in a single redraw once things settle.
     private def schedule_resize
-      @_resize_loop_fiber.try &.timeout(@resize_interval, Channel::TimeoutAction.new(@resize_interval))
+      # Non-blocking send: if a notification is already pending, drop this one.
+      select
+      when @_resize_channel.send(nil)
+      else
+      end
     end
 
     # Re-reads current size of all `Display`s and triggers redraw of all `Screen`s.
@@ -40,10 +50,27 @@ module Crysterm
 
     # :nodoc:
     # TODO Will this be affected when we move all GUI actions happening in a single thread?
+    #
+    # Waits for resize notifications from `schedule_resize` and, once the
+    # terminal has been quiet for `resize_interval`, re-reads the size and
+    # triggers a redraw. Debouncing this way ensures the (potentially
+    # expensive) redraw runs once per burst of resize events instead of once
+    # per event.
     def resize_loop
       loop do
+        # Block until at least one resize is requested.
+        @_resize_channel.receive
+        # Keep draining further resize events, restarting the timer each time,
+        # until the terminal has been quiet for `resize_interval`.
+        loop do
+          select
+          when @_resize_channel.receive
+            # Another resize arrived; keep waiting for things to settle.
+          when timeout(@resize_interval)
+            break
+          end
+        end
         resize
-        sleep
       end
     end
   end

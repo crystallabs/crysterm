@@ -100,8 +100,8 @@ doesn't suffer from the same bug that borders have with value 0. (Possibly the s
 bug will be to make it work more like padding does.)
 
 In Blessed there is function `tpadding()` which returns whether the widget has any padding (for
-knowing whether to go into padding-related code or not). In Crysterm, this check is done with
-just `if Widget#padding`.
+knowing whether to go into padding-related code or not). In Crysterm, padding is a `Padding` object
+in `Widget#style.padding`, and this check is done with `if style.padding.any?`.
 
 ## Shadow
 
@@ -140,6 +140,40 @@ travel as widget gets resized).
 This functionality exists and will remain in Crysterm, but the API will be improved.
 
 ## Cursor
+
+The cursor belongs to the `Screen` and is available as `Screen#cursor`. It is a small object
+(`Screen::Cursor`, extending `Tput::Namespace::Cursor`) holding the cursor's shape, blink state,
+and a `style` (a `Style`, used for the cursor's color and glyph; its default `char` is `▮`).
+
+Crysterm supports two kinds of cursor:
+
+- **Hardware cursor** — the terminal's own cursor. Showing, hiding, shaping, and coloring it is
+  delegated to the terminal via `Tput`.
+- **Artificial cursor** — a cursor that Crysterm draws itself, by painting a synthetic glyph into
+  the rendered buffer at the cursor's position. This is useful when the real cursor cannot be styled
+  the way one wants. It is active when `cursor.artificial?` is true.
+
+The cursor's shape is a `Tput::CursorShape` and can be `Block` (alias `Box`), `Underline` (aliases
+`Underscore`, `HLine`, `HBar`), or `Line` (aliases `VLine`, `VBar`).
+
+The main operations, all on `Screen`, are:
+
+- `cursor_shape(shape = Tput::CursorShape::Block, blink = false)` — set the shape and whether it blinks.
+- `cursor_color(color = nil)` — set the cursor's color.
+- `show_cursor` / `hide_cursor` — show or hide the cursor. For a hardware cursor these call into
+  `Tput`; for an artificial cursor they toggle its hidden flag and re-render.
+- `apply_cursor` — push the current `cursor` settings (shape, blink, color) to the display; called
+  automatically during rendering.
+- `cursor_reset` — disable the artificial cursor (if any) and reset the hardware cursor back to a
+  steady, non-blinking block.
+
+When the artificial cursor is active, its appearance is computed in `_artificial_cursor_attr` and
+drawn during `Screen#draw` at the terminal's current cursor position: a `Line` shape renders as a
+`│` glyph, `Underline` adds the underline attribute, `Block` inverts the cell, and `None` falls back
+to the cursor's own `style` (including a custom `char` and colors).
+
+Note: the cursor currently lives on the `Screen`; moving it onto `Widget` is planned (see the `TODO`
+in `src/screen_cursor.cr`), and artificial-cursor blinking is not fully wired up yet.
 
 ## Styles
 
