@@ -12,15 +12,20 @@ include Crysterm
 # matching blessed (`attr |= 7 << 9`).
 WHITE_FG = Attr.pack_color(Colors.palette_to_rgb(7))
 
+# A `Screen` backed by in-memory IOs, so constructing one neither writes the
+# `enter` escape sequences to the real test terminal nor reads from it. We never
+# call `exec`, so no terminal I/O loop is started.
+def mem_screen
+  Crysterm::Screen.new(
+    input: IO::Memory.new,
+    output: IO::Memory.new,
+    error: IO::Memory.new)
+end
+
 # Computes {attr, ch} for the given shape against a zeroed base attribute, so
 # the assertions below only see bits that the cursor logic itself sets.
-#
-# A fresh `Screen` is built inside each example on purpose: constructing one at
-# file-load (top) level interferes with the spec runner's at_exit teardown (the
-# same reason `width_layout_spec.cr` avoids real screens). We never call `exec`,
-# so no terminal I/O loop is started.
 def cursor_attr(shape, &)
-  screen = Crysterm::Screen.new
+  screen = mem_screen
   cursor = screen.cursor
   cursor.shape = shape
   yield cursor
@@ -83,7 +88,7 @@ describe "Screen#_artificial_cursor_attr" do
 
   describe "#cursor_color" do
     it "stores the color as the cursor's style.fg" do
-      screen = Crysterm::Screen.new
+      screen = mem_screen
       screen.cursor.artificial = true # avoid hardware terminal I/O
       screen.cursor_color "red"
       screen.cursor.style.fg.should eq "red"
@@ -93,12 +98,11 @@ describe "Screen#_artificial_cursor_attr" do
   # `Screen#apply_cursor` is the single decision point: it routes a cursor
   # request to either the hardware cursor or the artificial (Crysterm-drawn) one,
   # based on the terminal's probed/static capabilities
-  # (`Tput::Features#cursor_style?`). One screen is reused across the cases (and
-  # `cursor.artificial` reset between them) to keep the number of constructed
-  # `Screen`s — and the at_exit teardown they entail — to a minimum.
+  # (`Tput::Features#cursor_style?`). One screen is reused across the cases, with
+  # `cursor.artificial` reset between them.
   describe "#apply_cursor hardware vs artificial decision" do
     it "chooses hardware or artificial based on shape and terminal support" do
-      screen = Crysterm::Screen.new
+      screen = mem_screen
 
       reset = ->(supported : Bool, shape : Tput::Namespace::CursorShape, blink : Bool) do
         screen.tput.features.cursor_style = supported

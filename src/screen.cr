@@ -27,14 +27,24 @@ module Crysterm
     include Mixin::Children
     include Mixin::Instances
 
-    # Input IO
-    property input : IO = STDIN.dup
+    # Input IO.
+    #
+    # NOTE: not `STDIN.dup` — because of the `initialize(@input = @input)`
+    # default, the initializer here is evaluated on *every* `Screen.new`, even
+    # when an `input:` is passed explicitly. `Object#dup` shallow-copies the IO
+    # and aliases the same fd with `close_on_finalize=true`, so each discarded
+    # alias closes the shared STDIN fd when it is garbage-collected. With more
+    # than one `Screen` per process that corrupts the standard streams (hangs or
+    # "File not open" errors). Use the std stream directly (a single, never-
+    # collected global); this matches the same fix in `Tput#initialize`.
+    property input : IO = STDIN
 
-    # Output IO
-    property output : IO = STDOUT.dup
+    # Output IO. See the note on `input` re: not using `STDOUT.dup`.
+    property output : IO = STDOUT
 
-    # Error IO. (Could be used for redirecting error output to a particular widget.)
-    property error : IO = STDERR.dup
+    # Error IO. (Could be used for redirecting error output to a particular
+    # widget.) See the note on `input` re: not using `STDERR.dup`.
+    property error : IO = STDERR
 
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
     property? force_unicode = false
@@ -254,8 +264,14 @@ module Crysterm
 
       # TODO Don't do this unconditionally, but return to whatever
       # state it was in before.
+      #
+      # Only attempt the terminal-mode restore on an actual tty: `cooked!` issues
+      # `tcgetattr`/`tcsetattr`, which raise "Inappropriate ioctl for device" when
+      # `@input` is a pipe, file, `/dev/null`, or an `IO::Memory` (the latter
+      # doesn't respond to `cooked!` at all). This keeps teardown clean for
+      # headless/redirected runs and specs.
       @input.try { |i|
-        if i.responds_to? :"cooked!"
+        if i.responds_to?(:"cooked!") && i.responds_to?(:"tty?") && i.tty?
           i.cooked!
         end
       }
