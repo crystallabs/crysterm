@@ -426,16 +426,21 @@ module Crysterm
         super # OR _render
       end
 
+      # Finishes the current read, submitting the entered text. Previously this
+      # routed an Enter keypress through `@__listener`, but the TextArea listener
+      # treats Enter as inserting a literal newline — so `submit` *inserted a
+      # newline* instead of completing. Call the done-callback directly with the
+      # value so the `Submit` (and `read_input`) path fires.
       def submit
-        # @__listener.try &.call Crysterm::Event::KeyPress.new '\n', Tput::Key::Enter
         return unless @__listener
-        @__listener.try &.call Crysterm::Event::KeyPress.new '\n', Tput::Key::Enter
+        @_done.try &.call nil, value
       end
 
+      # Finishes the current read, cancelling (no value). Calls the
+      # done-callback directly rather than routing Escape through `@__listener`.
       def cancel
-        # @__listener.try &.call Crysterm::Event::KeyPress.new '\e', Tput::Key::Escape
         return unless @__listener
-        @__listener.try &.call Crysterm::Event::KeyPress.new '\e', Tput::Key::Escape
+        @_done.try &.call nil, nil
       end
 
       def clear_value
@@ -476,7 +481,7 @@ module Crysterm
         }
       end
 
-      def read_input(&callback : Proc(String, String, Nil))
+      def read_input(&callback : Proc(String?, String?, Nil))
         return if @_reading
         @_reading = true
         @_callback = callback
@@ -494,6 +499,12 @@ module Crysterm
         return unless @_reading
 
         # return if self(block).done?
+
+        # Capture the `read_input(&callback)` block before it is cleared below,
+        # so it can actually be invoked (see end of method). Previously it was
+        # cleared without ever being called, so the block form silently did
+        # nothing — which broke `Widget::Prompt`, whose hide/teardown lives in it.
+        callback = @_callback
 
         @ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
         @ev_reading = nil
@@ -534,6 +545,10 @@ module Crysterm
         end
 
         emit Crysterm::Event::Action, value
+
+        # Invoke the block passed to `read_input(&callback)` with `(err, data)`
+        # (data is the entered value on submit, nil on cancel/blur).
+        callback.try &.call(err, data)
 
         nil
       end
