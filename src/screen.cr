@@ -181,7 +181,7 @@ module Crysterm
       padding.try { |padding| @padding = Padding.from(padding) }
       title.try { |t| self.title = t }
 
-      @_resize_loop_fiber = Fiber.new "resize_loop" { resize_loop }
+      @_resize_loop_fiber = spawn(name: "resize_loop") { resize_loop }
 
       handle ::Crysterm::Event::Attach
       handle ::Crysterm::Event::Detach
