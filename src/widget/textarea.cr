@@ -15,6 +15,13 @@ module Crysterm
       getter value : String = ""
       @_value = ""
 
+      # Insertion-point position, as a codepoint index into `@value`
+      # (`0..value.size`). Editing (insert/backspace/delete) and Left/Right
+      # movement happen here; setting `value=` externally moves it to the end.
+      # Movement and deletion step over whole grapheme clusters under
+      # `full_unicode?`, and a single codepoint otherwise.
+      property cursor_pos = 0
+
       property _done : Proc(String?, String?, Nil)?
       property __done : Proc(String?, String?, Nil)?
       property __listener : Proc(Crysterm::Event::KeyPress, Nil)?
@@ -32,6 +39,7 @@ module Crysterm
         # scrollable.try { |v| @scrollable = v }
 
         @value = input["content"]? || ""
+        @cursor_pos = @value.size
 
         super **(input.merge({keys: true}))
 
@@ -68,45 +76,24 @@ module Crysterm
         # XXX is above a bug and should be vice-versa? `get ? _get_coords : @lpos`
         return unless lpos
 
-        # Previously, cursor was always positioned on last line. That's why the
-        # variable is called `last`. But now we try to position it really on the
-        # line that has the cursor (in case of movement and/or scrolling), and
-        # not to the last line. Variable name, for now, remains the same.
-        # last = @_clines[-1]
-        last = if to_scroll_pos
-                 @_clines[@child_base + @child_offset]? || "" # @_clines[-1]
-               else
-                 @_clines[-1]
-               end
         display = screen
 
-        # #In line with the above, now that `last`s content is different, let's try disabling this:
-        # # Stop a situation where the textarea begins scrolling
-        # # and the last cline appears to always be empty from the
-        # # _type_scroll `+ '\n'` thing.
-        # # Maybe not necessary anymore?
-        # if (last == "" && @value[-1]? != '\n')
-        # last = @_clines[-2]? || ""
-        # end
+        # Map the insertion point (`@cursor_pos`, an index into `@value`) onto
+        # the wrapped/displayed content: the real (post-wrap) line it lands on
+        # and the column within it.
+        rl, col = cursor_rowcol
 
-        # Same here, do updated calculation which takes scrolling into
-        # account and allows for cursor movements between lines of content.
-        line = Math.min(
-          if to_scroll_pos
-            @child_offset
-          else
-            @_clines.size - 1 - (@child_base)
-          end,
-          (lpos.yl - lpos.yi) - iheight - 1
-        )
-
-        # When calling clear_value on a full textarea with a border, the first
-        # argument in the above Math.min call ends up being -2. Make sure we stay
-        # positive.
-        line = Math.max(0, line)
+        # Keep that line within the visible viewport. Vertical scroll-follow for
+        # content taller than the box is handled by `_type_scroll` on edits; for
+        # pure movement the row is clamped to the visible range.
+        max_line = (lpos.yl - lpos.yi) - iheight - 1
+        line = (rl - @child_base).clamp(0, Math.max(0, max_line))
 
         cy = lpos.yi + itop + line
-        cx = lpos.xi + ileft + str_width(last)
+
+        rline = @_clines[rl]? || ""
+        prefix = rline[0...col.clamp(0, rline.size)]
+        cx = lpos.xi + ileft + str_width(prefix)
 
         # XXX Not sure, but this may still sometimes
         # cause problems when leaving editor.
@@ -132,6 +119,71 @@ module Crysterm
         else
           display.tput.cup(cy, cx)
         end
+      end
+
+      # Number of codepoints in the grapheme cluster immediately *before* the
+      # cursor (how far Left / Backspace move). One codepoint when full-unicode
+      # is off. `0` at the start of the value.
+      private def cursor_prev_width
+        return 0 if @cursor_pos <= 0
+        return 1 unless full_unicode?
+        head = @value[0...@cursor_pos]
+        head.size - chop_grapheme(head).size
+      end
+
+      # Number of codepoints in the grapheme cluster immediately *at* the cursor
+      # (how far Right / Delete move). One codepoint when full-unicode is off.
+      # `0` at the end of the value.
+      private def cursor_next_width
+        return 0 if @cursor_pos >= @value.size
+        return 1 unless full_unicode?
+        @value[@cursor_pos..].each_grapheme.first.to_s.size
+      end
+
+      # Start of the logical line the cursor is on (just after the previous
+      # newline, or 0).
+      private def line_start_pos
+        nl = @value.rindex('\n', @cursor_pos - 1) if @cursor_pos > 0
+        nl ? nl + 1 : 0
+      end
+
+      # End of the logical line the cursor is on (just before the next newline,
+      # or the end of the value).
+      private def line_end_pos
+        @value.index('\n', @cursor_pos) || @value.size
+      end
+
+      # Maps `@cursor_pos` (an index into `@value`) to `{real_line, column}` in
+      # the wrapped/displayed content (`@_clines`), using the fake→real line map
+      # (`ftor`). For the default (unaligned) text area this is exact; with
+      # center/right alignment, where real lines carry padding, it is
+      # best-effort. Column is a codepoint offset within the real line.
+      private def cursor_rowcol : Tuple(Int32, Int32)
+        c = @cursor_pos.clamp(0, @value.size)
+        head = @value[0...c]
+        fake_line = head.count('\n')
+        nl = head.rindex('\n')
+        col = nl ? c - (nl + 1) : c
+
+        reals = @_clines.ftor[fake_line]?
+        if reals.nil? || reals.empty?
+          rl = Math.max(0, @_clines.size - 1)
+          return {rl, (@_clines[rl]? || "").size}
+        end
+
+        rcol = col
+        reals.each_with_index do |r, idx|
+          w = (@_clines[r]? || "").size
+          last = idx == reals.size - 1
+          # `rcol < w` keeps a mid-line position on this real line; a boundary
+          # position (`rcol == w`) moves to the start of the next wrapped piece,
+          # except on the final piece, where it is the line end.
+          return {r, rcol} if rcol < w || (last && rcol <= w)
+          rcol -= w
+        end
+
+        last_r = reals[-1]
+        {last_r, (@_clines[last_r]? || "").size}
       end
 
       def input_on_focus=(yes)
@@ -163,8 +215,23 @@ module Crysterm
             also_check_char = true
           end
 
-          # TODO handle directions
-          if [Tput::Key::Left, Tput::Key::Up, Tput::Key::Right, Tput::Key::Down].includes? k
+          # Cursor movement. Left/Right step over a whole grapheme cluster
+          # (so a base+combining mark or a wide emoji moves as one unit) under
+          # `full_unicode?`, a single codepoint otherwise. Home/End jump to the
+          # start/end of the current (logical) line. Up/Down are not handled
+          # yet (they need column memory across wrapped lines).
+          if k == Tput::Key::Left
+            @cursor_pos -= cursor_prev_width
+            _update_cursor
+          elsif k == Tput::Key::Right
+            @cursor_pos += cursor_next_width
+            _update_cursor
+          elsif k == Tput::Key::Home
+            @cursor_pos = line_start_pos
+            _update_cursor
+          elsif k == Tput::Key::End
+            @cursor_pos = line_end_pos
+            _update_cursor
           end
 
           # XXX
@@ -177,10 +244,18 @@ module Crysterm
           if k == Tput::Key::Escape
             done.try &.call nil, nil
           elsif k == Tput::Key::Backspace || k == Tput::Key::CtrlH
-            if @value.size > 0
-              # Delete a whole grapheme cluster (base + combining marks, wide
-              # emoji, …) under full_unicode; otherwise a single codepoint.
-              @value = full_unicode? ? chop_grapheme(@value) : @value[...-1]
+            # Delete the grapheme cluster (base + combining marks, wide emoji, …)
+            # immediately before the cursor, then move the cursor back over it.
+            if @cursor_pos > 0
+              w = cursor_prev_width
+              @value = @value[0...(@cursor_pos - w)] + @value[@cursor_pos..]
+              @cursor_pos -= w
+            end
+          elsif k == Tput::Key::Delete
+            # Delete the grapheme cluster at the cursor; the cursor stays put.
+            if @cursor_pos < @value.size
+              w = cursor_next_width
+              @value = @value[0...@cursor_pos] + @value[(@cursor_pos + w)..]
             end
           end
         end
@@ -188,7 +263,11 @@ module Crysterm
         if e.char && (!e.key || also_check_char)
           # XXX can we avoid to_s ?
           unless e.char.to_s.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
-            @value += e.char
+            # Insert the typed character at the cursor (not just at the end),
+            # then advance the cursor past it.
+            ch = e.char.to_s
+            @value = @value[0...@cursor_pos] + ch + @value[@cursor_pos..]
+            @cursor_pos += ch.size
           end
         end
 
@@ -206,20 +285,26 @@ module Crysterm
       end
 
       def value=(value = nil)
+        # A non-nil argument is an external set: record it and move the cursor
+        # to the end. `nil` means "redisplay the current value" (e.g. from
+        # `render`): keep the cursor where it is, only clamping it in case the
+        # content changed underneath us (typing/deletion updates `@cursor_pos`
+        # itself in `_listener`).
+        external = !value.nil?
         if value.nil?
-          # to_scroll_pos = true
           value = @value
         end
 
         # Always record the authoritative value before the display dedup guard,
         # so an external set (e.g. clearing) is never lost when `@_value` is stale.
         @value = value
+        @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
         return if @_value == value
 
         @_value = value
         set_content value
         _type_scroll
-        _update_cursor # to_scroll_pos: to_scroll_pos
+        _update_cursor
       end
 
       def render

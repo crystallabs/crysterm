@@ -31,6 +31,9 @@ module Crysterm
       end
 
       def value=(value = nil)
+        # A non-nil argument is an external set (cursor to the end); `nil` is a
+        # redisplay that preserves the cursor (see `TextArea#value=`).
+        external = !value.nil?
         value ||= @value
         value = value.gsub /\n/, ""
         # Always record the authoritative value, even when the display does not
@@ -38,6 +41,7 @@ module Crysterm
         # (last-displayed) guard alone can wrongly no-op an external set such as
         # `input.value = ""`, leaving stale text that accumulates across submits.
         @value = value
+        @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
 
         if @_value != value
           @_value = value
