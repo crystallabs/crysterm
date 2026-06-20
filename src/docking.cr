@@ -72,7 +72,10 @@ module Crysterm
     # `dock_contrast` controls how cells with differing colors/attributes are
     # treated (see `DockContrast`).
     def dock(lines, stops, width, dock_contrast : DockContrast)
-      stops.keys.map(&.to_i).sort!.each do |y|
+      # `stops` is a `Hash(Int32, Bool)`, so `keys` is already `Array(Int32)`:
+      # the previous `.map(&.to_i)` allocated a second identical array each
+      # frame. `keys` returns a fresh array, so sort it in place.
+      stops.keys.sort!.each do |y|
         next unless lines[y]?
 
         width.times do |x|

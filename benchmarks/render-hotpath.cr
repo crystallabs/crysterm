@@ -161,4 +161,50 @@ puts
 puts "Note: #8 also SKIPS _parse_attr entirely on frames where the style's base"
 puts "attr is unchanged — that is a per-frame O(content) scan avoided outright,"
 puts "not measured above (it is a cache hit, i.e. zero work)."
+
+# ---------------------------------------------------------------------------
+# #9  attr2code — converts an SGR sequence to a packed attr, per SGR every
+#     frame for colored content. OLD did `code[2...-1].split(';')` (substring +
+#     Array(String) of per-parameter strings); NEW parses the bytes in place.
+section "#9  attr2code  (per SGR sequence, every frame)"
+dfl    = Crysterm::Screen::DEFAULT_ATTR
+codes  = ["\e[0m", "\e[1m", "\e[31m", "\e[1;31m", "\e[38;5;208m", "\e[38;2;255;136;0m", "\e[39;49m"]
+Benchmark.ips do |x|
+  # OLD allocation source: the split that NEW removes (rest of attr2code is
+  # int/Attr math that allocates nothing in either version).
+  x.report("OLD  code[2...-1].split(';')") { codes.each { |c| c[2...-1].split(';') } }
+  x.report("NEW  Screen.attr2code (full)") { codes.each { |c| Crysterm::Screen.attr2code(c, dfl, dfl) } }
+end
+puts "  alloc: OLD #{alloc_mb(ROUNDS) { codes.each { |c| c[2...-1].split(';') } }.round(2)} MB" \
+     "  vs  NEW #{alloc_mb(ROUNDS) { codes.each { |c| Crysterm::Screen.attr2code(c, dfl, dfl) } }.round(2)} MB" \
+     "  (#{ROUNDS} x #{codes.size} codes)  [NEW does the FULL conversion]"
+
+# ---------------------------------------------------------------------------
+# #2(layout)  percentage position/size resolution — per aleft/atop/awidth/
+#     aheight call (several per widget per frame) for string-positioned widgets.
+section "#layout  percentage position parsing  (per position call)"
+exprs = ["50%", "50%", "50%+5", "100%-1", "33%"]
+Benchmark.ips do |x|
+  x.report("OLD  split(/(?=\\+|-)/) formula") do
+    exprs.each do |e|
+      p = e.split(/(?=\+|-)/); b = p[0][0...-1].to_f / 100; v = (80 * b).to_i; v += p[1].to_i if p[1]?; v
+    end
+  end
+  x.report("NEW  Widget.dimension") { exprs.each { |e| Widget.dimension(e, 80) } }
+end
+puts "  alloc: OLD #{alloc_mb(ROUNDS) { exprs.each { |e| p = e.split(/(?=\+|-)/); b = p[0][0...-1].to_f / 100; v = (80 * b).to_i; v += p[1].to_i if p[1]?; v } }.round(2)} MB" \
+     "  vs  NEW #{alloc_mb(ROUNDS) { exprs.each { |e| Widget.dimension(e, 80) } }.round(2)} MB  (#{ROUNDS} x #{exprs.size} exprs)"
+
+# ---------------------------------------------------------------------------
+# #docking  per-frame dock-stop iteration (only when dock_borders is on).
+section "#docking  stop-row iteration  (per frame with dock_borders)"
+stops = {} of Int32 => Bool
+(0...30).each { |i| stops[i * 2] = true }
+Benchmark.ips do |x|
+  x.report("OLD  keys.map(&.to_i).sort!") { stops.keys.map(&.to_i).sort! }
+  x.report("NEW  keys.sort!") { stops.keys.sort! }
+end
+puts "  alloc: OLD #{alloc_mb(ROUNDS) { stops.keys.map(&.to_i).sort! }.round(2)} MB" \
+     "  vs  NEW #{alloc_mb(ROUNDS) { stops.keys.sort! }.round(2)} MB  (#{ROUNDS} frames)"
+
 puts

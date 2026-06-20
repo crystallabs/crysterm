@@ -138,11 +138,20 @@ module Crysterm
 
       colwidth = awidth - iwidth
       if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version
-        content =
-          @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]/, "")
-            .gsub(/\e(?!\[[\d;]*m)/, "") # SGR
-            .gsub(/\r\n|\r/, "\n")
-            .gsub(/\t/, style.tab_char * style.tab_size)
+        # Single pass over the content instead of four chained `gsub`s (each of
+        # which scanned the whole string and built an intermediate copy). The
+        # four rules act on disjoint characters — control chars, a stray ESC
+        # (not starting an SGR sequence), CR/CRLF, and TAB — so collapsing them
+        # into one alternation with a dispatching block is equivalent. `tab` is
+        # hoisted so the replacement string is built once, not per match.
+        tab = style.tab_char * style.tab_size
+        content = @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]|\e(?!\[[\d;]*m)|\r\n|\r|\t/) do |m|
+          case m
+          when "\r\n", "\r" then "\n"
+          when "\t"         then tab
+          else                   "" # control char or stray ESC
+          end
+        end
 
         ::Log.trace { "Internal content is #{content.inspect}" }
 
@@ -216,7 +225,12 @@ module Crysterm
       return text unless @parse_tags
       return text unless text =~ /{\/?[\w\-,;!#]*}/
 
-      outbuf = ""
+      # Accumulate into a `String::Builder` rather than `outbuf += ...`: repeated
+      # `String` concatenation rebuilds the whole (growing) result on every tag,
+      # which is O(n^2) for heavily-tagged content. (The remaining
+      # `text = text[cap[0].size..]` reslicing is a separate, smaller O(n^2);
+      # left as-is since this path is cold — content-change only.)
+      outbuf = String::Builder.new
       bg = [] of String
       fg = [] of String
       flag = [] of String
@@ -232,14 +246,14 @@ module Crysterm
 
         if esc && (cap = text.match(/^([\s\S]+?){\/escape}/))
           text = text[cap[0].size..]
-          outbuf += cap[1]
+          outbuf << cap[1]
           esc = false
           next
         end
 
         if esc
           # raise "Unterminated escape tag."
-          outbuf += text
+          outbuf << text
           break
         end
 
@@ -253,10 +267,10 @@ module Crysterm
           param = cap[2].gsub(/-/, ' ')
 
           if param == "open"
-            outbuf += '{'
+            outbuf << '{'
             next
           elsif param == "close"
-            outbuf += '}'
+            outbuf << '}'
             next
           end
 
@@ -270,33 +284,33 @@ module Crysterm
 
           if slash
             if param.nil? || param.blank?
-              outbuf += screen.tput._attr("normal") || ""
+              outbuf << (screen.tput._attr("normal") || "")
               bg.clear
               fg.clear
               flag.clear
             else
               attr = screen.tput._attr(param, false)
               if attr.nil?
-                outbuf += cap[0]
+                outbuf << cap[0]
               else
                 # D O:
                 # if (param !== state[state.size - 1])
                 #   throw new Error('Misnested tags.')
                 # }
                 state.pop
-                outbuf += state.size > 0 ? (screen.tput._attr(state[-1]) || "") : attr
+                outbuf << (state.size > 0 ? (screen.tput._attr(state[-1]) || "") : attr)
               end
             end
           else
             if param.nil?
-              outbuf += cap[0]
+              outbuf << cap[0]
             else
               attr = screen.tput._attr(param)
               if attr.nil?
-                outbuf += cap[0]
+                outbuf << cap[0]
               else
                 state.push(param)
-                outbuf += attr
+                outbuf << attr
               end
             end
           end
@@ -306,15 +320,15 @@ module Crysterm
 
         if cap = text.match(/^[\s\S]+?(?={\/?[\w\-,;!#]*})/)
           text = text[cap[0].size..]
-          outbuf += cap[0]
+          outbuf << cap[0]
           next
         end
 
-        outbuf += text
+        outbuf << text
         break
       end
 
-      outbuf
+      outbuf.to_s
     end
 
     def _parse_attr(lines : CLines)
@@ -481,7 +495,10 @@ module Crysterm
       return line if align.none?
 
       cline = line.gsub SGR_REGEX, ""
-      len = str_width line
+      # `cline` is already SGR-stripped, so measure it directly. `str_width line`
+      # would strip the SGR sequences a second time; `str_width cline` skips the
+      # regex (no ESC present) and yields the identical width.
+      len = str_width cline
 
       # XXX In blessed's code (and here) it was done only with this commented
       # line below. But after/around the May 28 2021 changes, this stopped
@@ -777,7 +794,10 @@ module Crysterm
     # This is the single width hook layout should use; previously most call sites
     # inlined `.size`, which miscounts wide / combining characters.
     def str_width(text)
-      text = text.gsub SGR_REGEX, ""
+      # Most strings have no SGR sequences; skip the regex (and the new String
+      # it builds) unless an ESC is actually present. The `includes?` scan is a
+      # cheap allocation-free byte check.
+      text = text.gsub SGR_REGEX, "" if text.includes? '\e'
       full_unicode? ? Unicode.display_width(text) : text.size
     end
 

@@ -3,6 +3,51 @@ module Crysterm
     # Methods related to 2D position (X and Y).
     # Position in 3D (index) is in widget_index.cr
 
+    # Resolves a percentage position/size expression against the parent
+    # dimension `dim`. Accepts `"50%"`, `"50%+5"`, `"50%-3"` (callers pre-map
+    # `"center"`/`"half"` to `"50%"`); returns `(dim * pct).to_i + offset`.
+    #
+    # This replaces six identical inline blocks in `widget_position`/
+    # `widget_size` that each did `expr.split(/(?=\+|-)/)` — a regex match plus
+    # an `Array(String)` of parameter strings — on EVERY `aleft`/`atop`/
+    # `awidth`/`aheight` call (i.e. several times per widget per frame). Here the
+    # `+`/`-` offset separator is found with a byte scan, the offset is parsed
+    # without allocating, and only the percentage number is materialized (to
+    # keep `to_f`'s decimal support, e.g. `"33.5%"`). Pure (depends only on its
+    # args), so it is unit-tested directly.
+    def self.dimension(expr : String, dim : Int32) : Int32
+      bytes = expr.to_slice
+
+      # Find the offset separator (`+`/`-`). It never sits at index 0 for valid
+      # input, and the byte before it is the trailing `%` of the percentage.
+      sep = -1
+      i = 1
+      while i < bytes.size
+        b = bytes.unsafe_fetch(i)
+        if b == '+'.ord || b == '-'.ord
+          sep = i
+          break
+        end
+        i += 1
+      end
+
+      pct_end = sep == -1 ? bytes.size - 1 : sep - 1 # index of the '%'
+      pct = expr.byte_slice(0, pct_end).to_f / 100
+
+      off = 0
+      if sep != -1
+        neg = bytes.unsafe_fetch(sep) == '-'.ord
+        j = sep + 1
+        while j < bytes.size
+          off = off * 10 + (bytes.unsafe_fetch(j).to_i - '0'.ord)
+          j += 1
+        end
+        off = -off if neg
+      end
+
+      (dim * pct).to_i + off
+    end
+
     #
     # Left/top/right/bottom getters and setters. These values are exactly what the user has set, rather than being computed.
     # (I.e. they are equivalent of `widget.position` in blessed.)
@@ -93,11 +138,7 @@ module Crysterm
         if left == "center"
           left = "50%"
         end
-        expr = left.split /(?=\+|-)/
-        left = expr[0]
-        left = left[0...-1].to_f / 100
-        left = ((parent.awidth || 0) * left).to_i
-        left += expr[1].to_i if expr[1]?
+        left = Widget.dimension(left, parent.awidth || 0)
         if oleft == "center"
           left -= (awidth(get)) // 2
         end
@@ -126,11 +167,7 @@ module Crysterm
         if top == "center"
           top = "50%"
         end
-        expr = top.split /(?=\+|-)/
-        top = expr[0]
-        top = top[0...-1].to_f / 100
-        top = ((parent.aheight || 0) * top).to_i
-        top += expr[1].to_i if expr[1]?
+        top = Widget.dimension(top, parent.aheight || 0)
         if otop == "center"
           top -= aheight(get) // 2
         end
@@ -342,7 +379,14 @@ module Crysterm
         yi -= scrollable_parent_lpos.base
         yl -= scrollable_parent_lpos.base
 
-        b = scrollable_parent.style.border.try(&.top) || 0
+        # `style.border` is always non-nil now (a zero border means "no border";
+        # see Style#border), so the `.try` blocks below always executed anyway.
+        # Fetch both borders once and use them directly — no per-adjustment
+        # closure, and no repeated `style`/`border` getter calls.
+        my_border = style.border
+        sp_border = scrollable_parent.style.border
+
+        b = sp_border.top
         # Old code for the above was:
         # b = scrollable_parent.border ? 1 : 0
         # I hope this was referring to the top border and that the replacement/improvement
@@ -364,12 +408,8 @@ module Crysterm
             # Is partially covered above.
             no_top = true
             v = scrollable_parent_lpos.yi - yi
-            style.border.try do |border|
-              v -= border.top
-            end
-            scrollable_parent.style.border.try do |border|
-              v += border.top
-            end
+            v -= my_border.top
+            v += sp_border.top
             base += v
             yi += v
           end
@@ -390,12 +430,8 @@ module Crysterm
             # Is partially covered below.
             no_bottom = true
             v = yl - scrollable_parent_lpos.yl
-            style.border.try do |border|
-              v -= border.bottom
-            end
-            scrollable_parent.style.border.try do |border|
-              v += border.bottom
-            end
+            v -= my_border.bottom
+            v += sp_border.bottom
             yl -= v
           end
         end
@@ -412,22 +448,14 @@ module Crysterm
         if xi < scrollable_parent_lpos.xi
           xi = scrollable_parent_lpos.xi
           no_left = true
-          style.border.try do |border|
-            xi -= border.left
-          end
-          scrollable_parent.style.border.try do |border|
-            xi += border.left
-          end
+          xi -= my_border.left
+          xi += sp_border.left
         end
         if xl > scrollable_parent_lpos.xl
           xl = scrollable_parent_lpos.xl
           no_right = true
-          style.border.try do |border|
-            xl += border.right
-          end
-          scrollable_parent.style.border.try do |border|
-            xl -= border.right
-          end
+          xl += my_border.right
+          xl -= sp_border.right
         end
         # D O:
         # if xi > xl

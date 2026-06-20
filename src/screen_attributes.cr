@@ -20,23 +20,34 @@ module Crysterm
     end
 
     # Converts an SGR string to our own attribute format (an `Int64`).
+    #
+    # Delegates to the pure class method: the conversion depends only on its
+    # arguments (no screen/tput state), which also makes it unit-testable
+    # without constructing a `Screen`.
     def attr2code(code, cur : Int64, dfl : Int64) : Int64
+      self.class.attr2code code, cur, dfl
+    end
+
+    # :ditto:
+    def self.attr2code(code, cur : Int64, dfl : Int64) : Int64
       flags = Attr.flags(cur)
       fg = Attr.fg(cur) # packed color field (RGB or COLOR_DEFAULT)
       bg = Attr.bg(cur)
 
-      parts = code[2...-1].split(';')
-      if !parts[0]? || parts[0].empty?
-        parts[0] = "0"
-      end
+      # Parse the SGR parameters in place (the digits between "\e[" and the
+      # trailing "m") rather than `code[2...-1].split(';')`, which allocated a
+      # substring plus an `Array(String)` of per-parameter strings on every
+      # color change — and `attr2code` runs per SGR sequence on every frame for
+      # colored content. SGR is ASCII, so we scan the byte view directly. An
+      # empty parameter (e.g. `\e[m`, or `\e[;1m`) counts as 0, matching
+      # `split`'s semantics; the truecolor/256-color forms read and consume
+      # their extra parameters via `term`.
+      bytes = code.to_slice
+      finish = bytes.size - 1 # index of the trailing 'm'
+      pos = 2                 # first parameter byte (after "\e[")
 
-      # NOTE: an SGR sequence can carry several codes (e.g. `\e[1;31m` =
-      # bold + red), so every code must be applied in turn. We use an explicit
-      # index because the truecolor/256-color forms consume several codes at
-      # once and need to advance `i` past their parameters.
-      i = 0
-      while i < parts.size
-        c = !parts[i].empty? ? parts[i].to_i : 0
+      loop do
+        c, term = sgr_param_at(bytes, pos, finish)
         case c
         when 0 # normal
           bg = Attr.bg(dfl)
@@ -44,41 +55,38 @@ module Crysterm
           flags = Attr.flags(dfl)
         when 1 # bold
           flags |= Attr::BOLD
-        when 22
-          flags = Attr.flags(dfl)
         when 4 # underline
           flags |= Attr::UNDERLINE
-        when 24
-          flags = Attr.flags(dfl)
         when 5 # blink
           flags |= Attr::BLINK
-        when 25
-          flags = Attr.flags(dfl)
         when 7 # inverse
           flags |= Attr::INVERSE
-        when 27
-          flags = Attr.flags(dfl)
         when 8 # invisible
           flags |= Attr::INVISIBLE
-        when 28
+        when 22, 24, 25, 27, 28 # reset the respective style attribute(s)
           flags = Attr.flags(dfl)
         when 39 # default fg
           fg = Attr.fg(dfl)
         when 49 # default bg
           bg = Attr.bg(dfl)
         when 38, 48 # extended fg (38) / bg (48): 256-color or truecolor
-          mode = parts[i + 1]?.try &.to_i
-          if mode == 5 # `<38|48>;5;n` (256-color): store as native RGB
-            rgb = Colors.palette_to_rgb(parts[i + 2]?.try(&.to_i) || 0)
-            c == 38 ? (fg = Attr.pack_color(rgb)) : (bg = Attr.pack_color(rgb))
-            i += 2
-          elsif mode == 2 # `<38|48>;2;r;g;b` (truecolor): store RGB directly
-            r = parts[i + 2]?.try(&.to_i) || 0
-            g = parts[i + 3]?.try(&.to_i) || 0
-            b = parts[i + 4]?.try(&.to_i) || 0
-            rgb = (r << 16) | (g << 8) | b
-            c == 38 ? (fg = Attr.pack_color(rgb)) : (bg = Attr.pack_color(rgb))
-            i += 4
+          if term < finish
+            mode, mterm = sgr_param_at(bytes, term + 1, finish)
+            if mode == 5 && mterm < finish # `<38|48>;5;n` (256-color)
+              n, nterm = sgr_param_at(bytes, mterm + 1, finish)
+              rgb = Colors.palette_to_rgb(n)
+              c == 38 ? (fg = Attr.pack_color(rgb)) : (bg = Attr.pack_color(rgb))
+              term = nterm
+            elsif mode == 2 && mterm < finish # `<38|48>;2;r;g;b` (truecolor)
+              r, rterm = sgr_param_at(bytes, mterm + 1, finish)
+              g, gterm = rterm < finish ? sgr_param_at(bytes, rterm + 1, finish) : {0, rterm}
+              b, bterm = gterm < finish ? sgr_param_at(bytes, gterm + 1, finish) : {0, gterm}
+              rgb = (r << 16) | (g << 8) | b
+              c == 38 ? (fg = Attr.pack_color(rgb)) : (bg = Attr.pack_color(rgb))
+              term = bterm
+            else
+              term = mterm
+            end
           end
         else # 8/16-color fg/bg, including bright variants — store as native RGB
           if c >= 40 && c <= 47
@@ -91,10 +99,28 @@ module Crysterm
             fg = Attr.pack_color(Colors.palette_to_rgb(c - 90 + 8))
           end
         end
-        i += 1
+
+        break if term >= finish
+        pos = term + 1
       end
 
       Attr.pack(flags, fg, bg)
+    end
+
+    # Parses one ';'-separated decimal SGR parameter from `bytes` starting at
+    # `pos`, stopping at the next ';' or at `finish` (the index of the trailing
+    # 'm'). Returns `{value, terminator}` where `terminator` is the index of the
+    # ';' or `finish`. An empty parameter yields 0. Allocation-free helper for
+    # `attr2code`; assumes ASCII digits (guaranteed by `SGR_REGEX`).
+    private def self.sgr_param_at(bytes : Bytes, pos : Int32, finish : Int32) : {Int32, Int32}
+      value = 0
+      while pos < finish
+        b = bytes.unsafe_fetch(pos)
+        break if b == ';'.ord
+        value = value * 10 + (b.to_i - '0'.ord)
+        pos += 1
+      end
+      {value, pos}
     end
 
     # Converts our own attribute format to an SGR string.
