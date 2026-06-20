@@ -14,33 +14,75 @@ module Crysterm
 
     # Should all these functions go to tput?
 
-    # Applies current cursor settings in `@cursor` to screen/display
+    # Whether the terminal can style its *hardware* cursor (shape/blink, via
+    # DECSCUSR or iTerm2's OSC 50). Backed by `Tput::Features#cursor_style?`,
+    # which is detected statically and can be confirmed at runtime by
+    # `Tput#probe!`. When this is false, `apply_cursor` falls back to drawing an
+    # artificial cursor for any non-default shape.
+    def hardware_cursor_styling?
+      !!tput.features?.try(&.cursor_style?)
+    end
+
+    # Whether the terminal can recolor its *hardware* cursor (OSC 12). Backed by
+    # `Tput::Features#cursor_color?`.
+    def hardware_cursor_color?
+      !!tput.features?.try(&.cursor_color?)
+    end
+
+    # Applies the current cursor settings in `@cursor` to the screen.
+    #
+    # This is the single place where the hardware-vs-artificial decision is
+    # made, so that both paths honor exactly the same `@cursor` state:
+    #
+    # * A custom (`None`) shape has no hardware equivalent, and any non-default
+    #   shape/blink on a terminal that can't style its hardware cursor, is drawn
+    #   by Crysterm itself (the artificial cursor).
+    # * Otherwise the request is pushed to the terminal's hardware cursor.
     def apply_cursor
       c = @cursor
-      # XXX Maybe checking for artificial makes sense here, but in blessed
-      # it's not done.
-      # if c.artificial?
-      #  render
-      # else
-      self.try do |d|
-        c.shape.try { |shape| d.tput.cursor_shape shape, c.blink }
+
+      # Decide whether the hardware cursor can satisfy the request; if not, draw
+      # it ourselves so the requested shape/blink/color is still honored.
+      unless c.artificial?
+        if c.shape.none?
+          c.artificial = true
+        elsif wants_cursor_styling?(c) && !hardware_cursor_styling?
+          c.artificial = true
+        end
+      end
+
+      if c.artificial?
+        # The artificial cursor is painted into the buffer by `Screen#draw`; a
+        # re-render reflects the new settings.
+        render if @renders > 0
+      else
+        c.shape.try { |shape| tput.cursor_shape shape, c.blink }
         # XXX consider a simpler structure than Style for cursor color?
         # XXX Blessed calls this:
-        # c.style.fg.try { |color| d.tput.cursor_color Colors.convert color }
+        # c.style.fg.try { |color| tput.cursor_color Colors.convert color }
         # Why in our case that produces the following error when it's used:
         # Error: expected argument #1 to 'Tput#cursor_color' to be String or Tput::Namespace::Color, not Int32
-        c.style.fg.try { |color| d.tput.cursor_color color }
+        c.style.fg.try { |color| tput.cursor_color color }
       end
-      # end
+
       c._set = true
     end
 
-    # Sets cursor shape
+    # Whether the cursor asks for more than the terminal's default (steady
+    # block) hardware cursor — i.e. a different shape or blinking.
+    private def wants_cursor_styling?(c)
+      (c.shape != Tput::CursorShape::Block) || c.blink
+    end
+
+    # Sets cursor shape (and blink). Works identically for the hardware and the
+    # artificial cursor: it records the request and routes it through
+    # `apply_cursor`, which renders it or emits the hardware escape as
+    # appropriate.
     def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
       @cursor.shape = shape
       @cursor.blink = blink
-      @cursor._set = true
-      tput.cursor_shape @cursor.shape, @cursor.blink
+      @cursor._set = false
+      apply_cursor
     end
 
     # XXX where does this belong?
@@ -66,7 +108,10 @@ module Crysterm
       @cursor.style.fg = color
       @cursor._set = true
 
-      return true if @cursor.artificial?
+      if @cursor.artificial?
+        render if @renders > 0
+        return true
+      end
 
       @cursor.style.fg.try { |c| tput.cursor_color c }
     end
@@ -140,11 +185,12 @@ module Crysterm
       end
     end
 
-    # Re-enables and resets hardware cursor
+    # Re-enables and resets the hardware cursor. If an artificial cursor was in
+    # use, it is turned off and erased (via a re-render) so control returns to
+    # the terminal's own cursor.
     def cursor_reset
-      if @cursor.artificial?
-        @cursor.artificial = false
-      end
+      was_artificial = @cursor.artificial?
+      @cursor.artificial = false
 
       @cursor.shape = Tput::CursorShape::Block
       @cursor.blink = false
@@ -152,6 +198,9 @@ module Crysterm
       @cursor._set = false
 
       tput.cursor_reset
+
+      # Repaint so the previously-drawn artificial cursor cell is cleared.
+      render if was_artificial && @renders > 0
     end
     # end
   end

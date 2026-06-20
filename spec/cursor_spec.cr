@@ -90,6 +90,40 @@ describe "Screen#_artificial_cursor_attr" do
     end
   end
 
+  # `Screen#apply_cursor` is the single decision point: it routes a cursor
+  # request to either the hardware cursor or the artificial (Crysterm-drawn) one,
+  # based on the terminal's probed/static capabilities
+  # (`Tput::Features#cursor_style?`). One screen is reused across the cases (and
+  # `cursor.artificial` reset between them) to keep the number of constructed
+  # `Screen`s — and the at_exit teardown they entail — to a minimum.
+  describe "#apply_cursor hardware vs artificial decision" do
+    it "chooses hardware or artificial based on shape and terminal support" do
+      screen = Crysterm::Screen.new
+
+      reset = ->(supported : Bool, shape : Tput::Namespace::CursorShape, blink : Bool) do
+        screen.tput.features.cursor_style = supported
+        screen.cursor.artificial = false
+        screen.cursor.shape = shape
+        screen.cursor.blink = blink
+        screen.apply_cursor
+        screen.cursor.artificial?
+      end
+
+      # The custom (None) shape has no hardware equivalent: always artificial,
+      # even when the terminal can style its hardware cursor.
+      reset.call(true, Tput::Namespace::CursorShape::None, false).should be_true
+
+      # A styled shape stays on the hardware cursor when supported...
+      reset.call(true, Tput::Namespace::CursorShape::Line, false).should be_false
+      # ...and falls back to the artificial cursor when not.
+      reset.call(false, Tput::Namespace::CursorShape::Line, false).should be_true
+
+      # The default steady block needs no styling, so it stays on the hardware
+      # cursor regardless of support.
+      reset.call(false, Tput::Namespace::CursorShape::Block, false).should be_false
+    end
+  end
+
   # `None` is the custom cursor (blessed's "object shape"): the cursor is drawn
   # from its own `style` rather than as a predefined shape. This used to be
   # unreachable: `CursorShape` was a `@[Flags]` enum with `Block = 0`, so the
