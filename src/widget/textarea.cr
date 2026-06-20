@@ -178,11 +178,9 @@ module Crysterm
             done.try &.call nil, nil
           elsif k == Tput::Key::Backspace || k == Tput::Key::CtrlH
             if @value.size > 0
-              # TODO if full unicode...
-              if false
-              else
-                @value = @value[...-1]
-              end
+              # Delete a whole grapheme cluster (base + combining marks, wide
+              # emoji, …) under full_unicode; otherwise a single codepoint.
+              @value = full_unicode? ? chop_grapheme(@value) : @value[...-1]
             end
           end
         end

@@ -773,6 +773,14 @@ module Crysterm
       kept.join
     end
 
+    # Returns `text` with its last **grapheme cluster** removed (e.g. a base +
+    # combining mark, or a wide emoji, comes off as one unit). Used for
+    # grapheme-aware backspace in text inputs. Empty in, empty out.
+    def chop_grapheme(text : String) : String
+      return text if text.empty?
+      text.each_grapheme.to_a[0...-1].join(&.to_s)
+    end
+
     # Assembles the grapheme cluster that begins with `base` (the codepoint at
     # `content[ci - 1]`) by consuming any following *extending* codepoints from
     # `content` starting at `ci`: combining marks, ZWJ (and the codepoint it
