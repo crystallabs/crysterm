@@ -136,7 +136,7 @@ module Crysterm
 
     # Specifies what to do with "overflowing" (too large) widgets. The default setting of
     # `Overflow::Ignore` simply ignores the overflow and renders the parts that are in view.
-    property overflow = Overflow::Ignore
+    Crystallabs::Helpers::Enums.enum_property overflow : Overflow = Overflow::Ignore
 
     def initialize(
       @input = @input,

@@ -146,8 +146,8 @@ module Crysterm
       # end
 
       # TODO temporary
-      cur.try &.state = WidgetState::Focused
-      old.try &.state = WidgetState::Normal
+      cur.try &.state = :focused
+      old.try &.state = :normal
 
       # If we're in a scrollable element,
       # automatically scroll to the focused element.

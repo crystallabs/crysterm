@@ -97,7 +97,7 @@ module Crysterm
       visible = nil,
       @fixed = @fixed,
       align : Tput::AlignFlag | Shorthands = @align,
-      @overflow = @overflow,
+      overflow : Overflow | Shorthands = @overflow,
 
       @scrollbar = @scrollbar,
       # TODO Make it configurable which side it appears on etc.
@@ -131,6 +131,7 @@ module Crysterm
       # $ = _ = JSON/YAML::Any
 
       self.align = align
+      self.overflow = overflow
       style.try { |v| @style = v }
       scrollable.try { |v| @scrollable = v }
       input.try { |v| @input = v }

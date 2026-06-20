@@ -192,7 +192,7 @@ module Crysterm
       was_artificial = @cursor.artificial?
       @cursor.artificial = false
 
-      @cursor.shape = Tput::CursorShape::Block
+      @cursor.shape = :block
       @cursor.blink = false
       @cursor.style.bg = "#ffffff"
       @cursor._set = false

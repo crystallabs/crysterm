@@ -30,7 +30,7 @@ class CursorDemo
   # Enable the artificial (Crysterm-drawn) cursor, line-shaped and blinking,
   # just like blessed's demo.
   s.cursor.artificial = true
-  s.cursor.shape = CursorShape::Line
+  s.cursor.shape = :line
   s.cursor.blink = true
   s.show_cursor
 
@@ -63,12 +63,12 @@ class CursorDemo
     when e.char == 'q', e.key == Tput::Key::CtrlQ
       s.destroy
       exit
-    when e.char == 'l' then s.cursor.shape = CursorShape::Line; s.render
-    when e.char == 'u' then s.cursor.shape = CursorShape::Underline; s.render
-    when e.char == 'b' then s.cursor.shape = CursorShape::Block; s.render
+    when e.char == 'l' then s.cursor.shape = :line; s.render
+    when e.char == 'u' then s.cursor.shape = :underline; s.render
+    when e.char == 'b' then s.cursor.shape = :block; s.render
     when e.char == 'c'
       # Custom cursor: a magenta '▮' on a yellow cell.
-      s.cursor.shape = CursorShape::None
+      s.cursor.shape = :none
       s.cursor.style.char = '▮'
       s.cursor.style.fg = "magenta"
       s.cursor.style.bg = "yellow"

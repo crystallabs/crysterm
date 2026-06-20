@@ -4,7 +4,7 @@ module Crysterm
     include Crystallabs::Helpers::Alias_Methods
 
     # What action to take when widget is overflowing parent's rectangle?
-    property overflow = Overflow::Ignore
+    Crystallabs::Helpers::Enums.enum_property overflow : Overflow = Overflow::Ignore
 
     # Rendition and rendering
 

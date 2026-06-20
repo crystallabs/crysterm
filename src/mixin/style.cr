@@ -3,7 +3,7 @@ module Crysterm
     module Style
       # Current state of Widget
 
-      property state = WidgetState::Normal
+      Crystallabs::Helpers::Enums.enum_property state : WidgetState = WidgetState::Normal
 
       # List of styles corresponding to different widget states.
       #

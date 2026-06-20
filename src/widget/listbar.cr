@@ -161,7 +161,7 @@ module Crysterm
           height: 1,
           width: cmd.width,
           content: title,
-          align: ::Tput::AlignFlag::Center,
+          align: :center,
           focus_on_click: false,
           parse_tags: true,
         )
@@ -250,7 +250,7 @@ module Crysterm
         # Keep every item box's state in sync with the new selection so the
         # selected one renders with `styles.selected`.
         @items.each_with_index do |item, i|
-          item.state = (i == offset) ? WidgetState::Selected : WidgetState::Normal
+          item.state = (i == offset) ? :selected : :normal
         end
 
         # Mirror Blessed's `lpos = this._getCoords(); if (!lpos) return;`: the

@@ -11,8 +11,8 @@ module Crysterm
     left: 0,
     width: "100%",
     height: "100%",
-    layout: LayoutType::Grid,
-    overflow: Overflow::Ignore,
+    layout: :grid,
+    overflow: :ignore,
   )
 
   # b.focus
@@ -29,13 +29,13 @@ module Crysterm
     parent: layout,
     width: 36,
     height: 3,
-    align: AlignFlag::HCenter,
+    align: :hcenter,
     content: "Click me, I am a button.",
     style: Style.new(
       bg: "blue",
       fg: "yellow",
       border: Border.new(
-        type: BorderType::Line,
+        type: :line,
         bg: "blue"
       ),
       shadow: true
@@ -76,7 +76,7 @@ module Crysterm
 
   loading = Loading.new \
     parent: layout,
-    align: AlignFlag::HCenter,
+    align: :hcenter,
     width: 36,
     height: 18,
     icons: ["Preparing", "Loading", "Processing", "Saving", "Analyzing"],
@@ -160,7 +160,7 @@ module Crysterm
 
   loading2 = Loading.new \
     parent: layout,
-    align: AlignFlag::Right,
+    align: :right,
     compact: true,
     interval: 0.2.seconds,
     width: 36,

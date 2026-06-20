@@ -35,7 +35,7 @@ module Crysterm
         @pos = 0 # @step > 0 ? (@step - 1) : @step
 
         @icon = Text.new \
-          align: Tput::AlignFlag::Center,
+          align: :center,
           top: 2,
           left: 1,
           right: 1,

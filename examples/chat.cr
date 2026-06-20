@@ -3,7 +3,7 @@ require "../src/crysterm"
 class MyProg
   include Crysterm
 
-  s = Screen.new show_fps: nil, dock_contrast: DockContrast::Blend, dock_borders: true
+  s = Screen.new show_fps: nil, dock_contrast: :blend, dock_borders: true
 
   style1 = Style.new fg: "black", bg: "#729fcf", border: Border.new(fg: "black", bg: "#729fcf"), scrollbar: Style.new(bg: "#000000"), track: Style.new(bg: "red")
   style2 = Style.new fg: "black", bg: "magenta", border: Border.new(fg: "black", bg: "#729fcf"), alpha: 0.5, padding: 1
