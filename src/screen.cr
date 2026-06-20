@@ -5,6 +5,7 @@ require "./mixin/children"
 
 require "./screen_resize"
 require "./screen_interaction"
+require "./screen_mouse"
 
 require "./screen_children"
 require "./screen_attributes"
@@ -447,10 +448,9 @@ module Crysterm
       show_cursor
       alloc
 
-      # TODO Enable all in this function
-      # if (this._listened_mouse)
-      #  display.disable_mouse
-      # end
+      if @_listened_mouse
+        disable_mouse
+      end
 
       tput.normal_buffer
       if cursor._set

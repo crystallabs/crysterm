@@ -15,7 +15,10 @@ module Crysterm
     end
 
     def set_index(index : Int)
-      return unless parent = @parent
+      # A top-level widget is held in `Screen#children` but has no `@parent`
+      # (a `Screen` is not a `Widget`), so fall back to the screen — otherwise
+      # `front!`/`back!` would silently do nothing for screen-level widgets.
+      return unless parent = (@parent || screen?)
 
       if index < 0
         index = parent.children.size + index
