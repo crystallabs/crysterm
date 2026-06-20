@@ -55,19 +55,20 @@ module Crysterm
     # end
     # end
 
-    # Sets cursor color
-    def cursor_color(color : Tput::Color? = nil)
-      # @cursor.style.bg = color.try do |c|
-      #  Tput::Color.new Colors.convert(c.value)
-      # end
-      # @cursor._set = true
+    # Sets cursor color.
+    #
+    # The cursor's color is stored as `@cursor.style.fg` (the same field the
+    # artificial renderer and `apply_cursor` read), so a single concept drives
+    # both the artificial and hardware cursors -- the equivalent of blessed's
+    # `cursor.color`. For an artificial cursor this just records the color and
+    # the next `render` applies it; otherwise it is pushed to the terminal.
+    def cursor_color(color : String? = nil)
+      @cursor.style.fg = color
+      @cursor._set = true
 
-      if @cursor.artificial?
-        return true
-      end
+      return true if @cursor.artificial?
 
-      # tput.cursor_color(@cursor.color.to_s.downcase)
-      tput.cursor_color @cursor.style.fg
+      @cursor.style.fg.try { |c| tput.cursor_color c }
     end
 
     alias_previous reset_cursor
@@ -86,8 +87,11 @@ module Crysterm
         attr = Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, white, Attr.bg(attr))
       elsif cursor.shape.block?
         attr = Attr.pack(Attr.flags(attr) | Attr::INVERSE, white, Attr.bg(attr))
-      elsif cursor.shape.none?            # XXX "lib/widgets/screen.js:2074 do they check for true, not none here?
-        cattr = Widget.sattr cursor.style # XXX and some difference here
+      elsif cursor.shape.none?
+        # `None` is the custom cursor: draw it from the cursor's own `style`
+        # (glyph and colors), the equivalent of blessed's object-shaped cursor
+        # (`lib/widgets/screen.js`, the `typeof cursor.shape === 'object'` branch).
+        cattr = Widget.sattr cursor.style
         # cattr = Colors.blend attr, cursor.style, (cursor.style.alpha || 0)
         flags = Attr.flags(attr)
         if cursor.style.bold? || cursor.style.underline? || cursor.style.blink? || cursor.style.inverse? || !cursor.style.visible?
@@ -101,9 +105,15 @@ module Crysterm
         end
       end
 
-      # Apply the cursor's background colour into the BACKGROUND field.
-      unless cursor.style.bg.nil?
-        attr = Attr.pack(Attr.flags(attr), Attr.fg(attr), Attr.pack_color(Colors.convert(cursor.style.bg)))
+      # The white forced above is only a default for the predefined shapes; an
+      # explicit `style.fg` recolors the cursor glyph (the equivalent of
+      # blessed's `cursor.color`, applied to the FOREGROUND for every shape).
+      # `style.bg` additionally tints the BACKGROUND (a Crysterm extension).
+      if f = cursor.style.fg
+        attr = Attr.pack(Attr.flags(attr), Attr.pack_color(Colors.convert(f)), Attr.bg(attr))
+      end
+      if b = cursor.style.bg
+        attr = Attr.pack(Attr.flags(attr), Attr.fg(attr), Attr.pack_color(Colors.convert(b)))
       end
 
       # Cell.new attr: attr, char: ch || ' '

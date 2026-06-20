@@ -8,18 +8,18 @@ require "../src/crysterm"
 # `cursor: { artificial: true, shape: 'line', blink: true }`).
 #
 # An artificial cursor is painted into the rendered buffer at the terminal
-# cursor position by `Screen#draw`. Three predefined shapes are supported:
+# cursor position by `Screen#draw`. The supported shapes are:
 #
 #   l -> line       (renders as a │ glyph)
 #   u -> underline  (underlined cell)
 #   b -> block      (inverted cell)
+#   c -> custom     (CursorShape::None: the cursor's own glyph + colors)
 #
-# Move the cursor with the arrow keys; press l/u/b to switch shape; q to quit.
+# `None` is the equivalent of blessed's fully custom ("object") cursor: instead
+# of a predefined shape, the cursor is drawn from its `style` (here a magenta
+# `▮` on yellow). See `spec/cursor_spec.cr` and `documentation/decorations.md`.
 #
-# NOTE: blessed also supports a fully custom cursor (a glyph + colors of your
-# choosing). In Crysterm that path is currently unreachable because
-# `CursorShape::Block` and the auto-generated `CursorShape::None` share the
-# value 0 — see `spec/cursor_spec.cr` and `documentation/decorations.md`.
+# Move the cursor with the arrow keys; press l/u/b/c to switch shape; q to quit.
 
 class CursorDemo
   include Crysterm
@@ -66,6 +66,13 @@ class CursorDemo
     when e.char == 'l' then s.cursor.shape = CursorShape::Line; s.render
     when e.char == 'u' then s.cursor.shape = CursorShape::Underline; s.render
     when e.char == 'b' then s.cursor.shape = CursorShape::Block; s.render
+    when e.char == 'c'
+      # Custom cursor: a magenta '▮' on a yellow cell.
+      s.cursor.shape = CursorShape::None
+      s.cursor.style.char = '▮'
+      s.cursor.style.fg = "magenta"
+      s.cursor.style.bg = "yellow"
+      s.render
     when e.key == Tput::Key::Up    then move.call(0, -1)
     when e.key == Tput::Key::Down  then move.call(0, 1)
     when e.key == Tput::Key::Left  then move.call(-1, 0)

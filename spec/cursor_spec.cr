@@ -61,7 +61,18 @@ describe "Screen#_artificial_cursor_attr" do
     end
   end
 
-  describe "background override" do
+  describe "color overrides" do
+    # blessed's `cursor.color` recolors the glyph (the foreground) for every
+    # shape; the forced white is only a default. Here a line cursor is recolored.
+    it "applies cursor.style.fg into the foreground field, overriding the default white" do
+      attr, ch = cursor_attr(Tput::Namespace::CursorShape::Line) do |c|
+        c.style.fg = "#ff0000"
+      end
+      ch.should eq '│'
+      Attr.fg(attr).should eq Attr.pack_color(Colors.convert("#ff0000"))
+      Attr.fg(attr).should_not eq WHITE_FG
+    end
+
     it "applies cursor.style.bg into the background field for any shape" do
       attr, _ = cursor_attr(Tput::Namespace::CursorShape::Block) do |c|
         c.style.bg = "#0000ff"
@@ -70,30 +81,27 @@ describe "Screen#_artificial_cursor_attr" do
     end
   end
 
-  # --- Known bug -----------------------------------------------------------
-  #
-  # `CursorShape` is a `@[Flags]` enum whose `Block` member is `0`. Crystal's
-  # auto-generated `None` member is therefore also `0`, so `Block == None`, and
-  # the predicate `shape.block?` (`value & 0 == 0`) is *always* true. In
-  # `_artificial_cursor_attr` the `elsif cursor.shape.block?` branch consequently
-  # swallows every non-line/non-underline shape, leaving the `cursor.shape.none?`
-  # branch (which mirrors blessed's custom "object shape" cursor) unreachable.
-  #
-  # The example `small-tests/checkbox.cr` sets `CursorShape::None` with a custom
-  # `style.char`/`style.fg`/`style.bg` expecting a custom glyph, but only the
-  # background override currently takes effect.
-  describe "None / custom shape (flags-enum collision)" do
-    it "regression guard: None currently renders identically to Block" do
-      block = cursor_attr Tput::Namespace::CursorShape::Block
-      none = cursor_attr Tput::Namespace::CursorShape::None
-      none.should eq block
+  describe "#cursor_color" do
+    it "stores the color as the cursor's style.fg" do
+      screen = Crysterm::Screen.new
+      screen.cursor.artificial = true # avoid hardware terminal I/O
+      screen.cursor_color "red"
+      screen.cursor.style.fg.should eq "red"
+    end
+  end
+
+  # `None` is the custom cursor (blessed's "object shape"): the cursor is drawn
+  # from its own `style` rather than as a predefined shape. This used to be
+  # unreachable: `CursorShape` was a `@[Flags]` enum with `Block = 0`, so the
+  # auto-generated `None` was also `0` (`Block == None`) and `shape.block?` was
+  # always true, swallowing the custom branch. `None` and `Block` now have
+  # distinct values, so the branch is reachable.
+  describe "None / custom shape" do
+    it "is distinct from Block" do
+      Tput::Namespace::CursorShape::None.should_not eq Tput::Namespace::CursorShape::Block
     end
 
-    # Desired behavior, matching blessed's custom cursor: a None/custom shape
-    # should honor the cursor's own style (glyph and colors) instead of being
-    # treated as an inverse block. Pending until the `Block == None` collision
-    # is resolved (the `block?` catch-all must not shadow the custom path).
-    pending "honors style.char and style.fg for a custom cursor" do
+    it "honors style.char and style.fg for a custom cursor" do
       attr, ch = cursor_attr(Tput::Namespace::CursorShape::None) do |c|
         c.style.char = 'X'
         c.style.fg = "#00ff00"
