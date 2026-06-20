@@ -18,6 +18,9 @@ module Crysterm
     VLine        = Widget::VLine
     ListTable    = Widget::ListTable
     List         = Widget::List
+    Table        = Widget::Table
+    Form         = Widget::Form
+    FileManager  = Widget::FileManager
 
     Label          = Widget::Label
     Text           = Widget::Text

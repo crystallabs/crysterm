@@ -35,11 +35,7 @@ module Crysterm
       style = self.style
       parent.try do |parent2|
         if parent2._is_list && parent2.is_a? Widget::List
-          if parent2.items[parent2.selected]? == self
-            style = parent2.styles.selected
-          else
-            style = parent2.style.item
-          end
+          style = parent2.item_render_style(parent2.items[parent2.selected]? == self)
         end
       end
 
@@ -355,13 +351,19 @@ module Crysterm
           sbr = style.border.try(&.right) || 0
           x += 1 if style.scrollbar.ignore_border? && (sbr > 0) # should 1 be sbr ?
 
+          # Guard the denominators: when there is effectively nothing to scroll
+          # (`denom <= 0`, e.g. content exactly one line tall) the division would
+          # yield `Infinity`/`NaN` and the subsequent `.to_i` would raise
+          # `OverflowError`. In that case the thumb simply sits at the top.
           if @always_scroll
-            y = @child_base / (i - (yl - yi))
+            denom = i - (yl - yi)
+            frac = denom <= 0 ? 0.0 : @child_base / denom
           else
-            y = (@child_base + @child_offset) / (i - 1)
+            denom = i - 1
+            frac = denom <= 0 ? 0.0 : (@child_base + @child_offset) / denom
           end
 
-          y = yi + ((yl - yi) * y).to_i
+          y = yi + ((yl - yi) * frac).to_i
           y = yl - 1 if y >= yl
 
           # XXX The '?' was added ad-hoc to prevent exceptions when something goes out of
