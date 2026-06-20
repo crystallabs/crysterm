@@ -8,7 +8,7 @@ Crysterm is a console/terminal toolkit for Crystal, inspired heavily by
 [Blessed](https://github.com/chjj/blessed), [Blessed-contrib](https://github.com/yaronn/blessed-contrib), and
 [Qt](https://doc.qt.io/).
 
-Of supporting shards, the event model is in 
+It is supported by the event model in 
 [event_handler](https://github.com/crystallabs/event_handler), color routines in
 [term_colors](https://github.com/crystallabs/term_colors), terminal handling in
 [tput.cr](https://github.com/crystallabs/tput.cr), GPM mouse in
@@ -22,7 +22,7 @@ but it also supports a built-in, standard mode which does not use terminfo at al
 (A lot of modern software just hardcodes the sequences.)
 
 The other important module at Crysterm's core is [event_handler](https://github.com/crystallabs/event_handler).
-through which all app events are routed.
+through which all app events and input are routed.
 
 ## Trying out the examples
 
