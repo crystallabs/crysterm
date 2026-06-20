@@ -88,7 +88,13 @@ module Crysterm
 
     # Which position on the screen should be used to display FPS stats. Nil disables.
     # XXX Currently this is enabled since Crysterm is under development.
-    property show_fps : Tput::Point? = Tput::Point[-1, 0]
+    #
+    # `Tput::Point` is `[x, y]`, and `tput.pos` consumes it as
+    # `cursor_position(point.y, point.x)` (row = y, column = x); negative
+    # coordinates wrap from the bottom/right edge. So the beginning of the last
+    # row is x=0 (first column), y=-1 (last row). This was previously `[-1, 0]`,
+    # which is x=-1/y=0 — i.e. the *end of the first row*.
+    property show_fps : Tput::Point? = Tput::Point[0, -1]
 
     # Include displaying averages in FPS display. If this setting is false, only current/
     # individual frame rates are shown, without values for averages over 30 frames.
