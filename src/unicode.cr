@@ -80,10 +80,10 @@ module Crysterm
     end
 
     private def zero_width?(cp : Int32) : Bool
-      cp == 0x200B || # zero width space
-        cp == 0x200C ||           # zero width non-joiner
-        cp == 0x200D ||           # zero width joiner
-        cp == 0xFEFF ||           # zero width no-break space / BOM
+      cp == 0x200B ||               # zero width space
+        cp == 0x200C ||             # zero width non-joiner
+        cp == 0x200D ||             # zero width joiner
+        cp == 0xFEFF ||             # zero width no-break space / BOM
         (0x1160 <= cp <= 0x11FF) || # Hangul Jungseong/Jongseong (conjoining)
         (0xFE00 <= cp <= 0xFE0F) || # variation selectors
         (0xE0100 <= cp <= 0xE01EF)  # variation selectors supplement

@@ -12,14 +12,14 @@ describe Crysterm::Unicode do
 
     it "is 2 for East-Asian-Wide and Fullwidth characters" do
       Crysterm::Unicode.width("中").should eq 2
-      Crysterm::Unicode.width("ｶ").should eq 1  # halfwidth katakana stays narrow
+      Crysterm::Unicode.width("ｶ").should eq 1 # halfwidth katakana stays narrow
       Crysterm::Unicode.width("Ａ").should eq 2 # fullwidth A
       Crysterm::Unicode.width("한").should eq 2 # Hangul syllable
     end
 
     it "is 1 for a base + combining mark (a single cluster)" do
       Crysterm::Unicode.width("é").should eq 1 # 'e' + combining acute
-      Crysterm::Unicode.width("é").should eq 1        # precomposed
+      Crysterm::Unicode.width("é").should eq 1  # precomposed
     end
 
     it "is 0 for a lone combining mark" do
@@ -48,10 +48,10 @@ describe Crysterm::Unicode do
     it "sums grapheme-cluster widths" do
       Crysterm::Unicode.display_width("").should eq 0
       Crysterm::Unicode.display_width("hello").should eq 5
-      Crysterm::Unicode.display_width("a中b").should eq 4    # 1 + 2 + 1
+      Crysterm::Unicode.display_width("a中b").should eq 4 # 1 + 2 + 1
       Crysterm::Unicode.display_width("café").should eq 4
-      Crysterm::Unicode.display_width("é").should eq 1 # one cluster
-      Crysterm::Unicode.display_width("ab👍cd").should eq 6  # 1+1+2+1+1
+      Crysterm::Unicode.display_width("é").should eq 1    # one cluster
+      Crysterm::Unicode.display_width("ab👍cd").should eq 6 # 1+1+2+1+1
     end
 
     it "counts a ZWJ family as a single width-2 cluster, not per codepoint" do
