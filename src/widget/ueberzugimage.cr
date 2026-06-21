@@ -1,0 +1,175 @@
+require "json"
+require "./box"
+
+module Crysterm
+  class Widget
+    # Renders a true-color image via **Überzug / Überzug++** (`ueberzug`), the
+    # modern successor to `w3mimgdisplay`. Like `OverlayImage` this is an
+    # *out-of-band* overlay: an external helper draws the actual image pixels in
+    # its own X11 child window placed over the terminal — the pixels are owned
+    # by neither Crysterm's cell grid nor the terminal emulator.
+    #
+    # It differs from `OverlayImage` in two ways: the helper speaks a JSON
+    # protocol on stdin (`{"action":"add",…}` / `{"action":"remove",…}`) and
+    # positions/sizes placements in *terminal cells* (not pixels); and its
+    # override-redirect window stays on top, so — unlike w3m — it does not get
+    # covered by subsequently drawn text and need re-painting every frame. We
+    # therefore just (re)send `add` when the cell rectangle changes and `remove`
+    # on hide/detach/destroy.
+    #
+    # Requires the `ueberzug` or `ueberzugpp` binary on PATH and a real X
+    # display; with neither present the widget is inert (it draws nothing).
+    #
+    # ```
+    # img = Widget::UeberzugImage.new file: "pic.png", width: 40, height: 12, parent: screen
+    # ```
+    class UeberzugImage < Box
+      # Überzug scaler: `fit_contain`, `contain`, `forced_cover`, `cover`,
+      # `crop`, `distort`. `forced_cover` fills the box exactly.
+      property scaler : String
+
+      property file : String?
+
+      # One shared helper process drives every placement (keyed by identifier).
+      @@proc : Process? = nil
+      @@counter = 0
+
+      @id : String
+      @last : Tuple(Int32, Int32, Int32, Int32)? = nil
+      @path : String? = nil
+      @listener_screen : ::Crysterm::Screen?
+      @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
+
+      def initialize(@file = nil, @scaler : String = "forced_cover",
+                     stretch = false, center = false, **box)
+        super **box
+        @@counter += 1
+        @id = "crysterm_#{@@counter}"
+
+        @file.try { |f| load f }
+
+        s = screen
+        @listener_screen = s
+        @ev_rendered = s.on(::Crysterm::Event::Rendered) { redraw_image }
+
+        on(::Crysterm::Event::Hide) { remove }
+        on(::Crysterm::Event::Detach) { remove }
+        on(::Crysterm::Event::Show) { @last = nil; screen?.try &.render }
+        on(::Crysterm::Event::Destroy) { teardown }
+      end
+
+      def load(file : String)
+        @file = file
+        @path = local_path file
+        @last = nil
+      end
+
+      def set_image(file : String)
+        load file
+        screen?.try &.render
+      end
+
+      def clear_image
+        remove
+        @file = nil
+        @path = nil
+      end
+
+      # Locates the helper binary once, or `nil` if neither variant is installed.
+      def self.binary : String?
+        return @@binary if @@checked
+        @@checked = true
+        {"ueberzug", "ueberzugpp", "ueberzug++"}.each do |name|
+          if path = Process.find_executable(name)
+            return @@binary = path
+          end
+        end
+        @@binary = nil
+      end
+
+      @@checked = false
+      @@binary : String? = nil
+
+      # Lazily starts the shared helper process (`<binary> layer --parser json`).
+      protected def self.proc : Process?
+        if p = @@proc
+          return p unless p.terminated?
+        end
+        bin = binary || return nil
+        @@proc = Process.new(bin, ["layer", "--parser", "json", "--silent"],
+          input: Process::Redirect::Pipe,
+          output: Process::Redirect::Close,
+          error: Process::Redirect::Close)
+      rescue
+        nil
+      end
+
+      # (Re)places the image when its cell rectangle changes.
+      private def redraw_image
+        return unless visible?
+        screen? || return
+        path = @path || return
+        pos = _get_coords(true) || return
+        rect = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
+        return if rect[2] <= 0 || rect[3] <= 0
+        return if rect == @last
+
+        send({
+          action:     "add",
+          identifier: @id,
+          x:          rect[0],
+          y:          rect[1],
+          width:      rect[2],
+          height:     rect[3],
+          scaler:     @scaler,
+          path:       path,
+        })
+        @last = rect
+      end
+
+      private def remove
+        return if @last.nil?
+        send({action: "remove", identifier: @id})
+        @last = nil
+      end
+
+      private def send(command)
+        p = UeberzugImage.proc || return
+        if stdin = p.input?
+          stdin.puts command.to_json
+          stdin.flush
+        end
+      rescue
+        # Helper went away; drop the cached process so the next call respawns.
+        @@proc = nil
+      end
+
+      # Resolves *file* to an absolute local path the helper can open, fetching a
+      # URL to a temp file if necessary.
+      private def local_path(file : String) : String?
+        if file =~ /^https?:/
+          bytes = Widget::ANSIImage.fetch file
+          tmp = File.tempfile("crysterm_uz", File.extname(file))
+          File.write(tmp.path, bytes)
+          tmp.path
+        else
+          File.expand_path file
+        end
+      rescue
+        nil
+      end
+
+      private def teardown
+        remove
+        s = @listener_screen
+        if s
+          @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }
+        end
+        @ev_rendered = nil
+        @listener_screen = nil
+      end
+    end
+
+    alias Ueberzugimage = UeberzugImage
+  end
+end

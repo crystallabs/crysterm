@@ -43,6 +43,22 @@ print("   wrote", dst, (w, h))
 PY
 }
 
+# Like normalize(), but first strips Konsole's chrome: the ~37px top toolbar,
+# the right scrollbar, then any pure-black border around the image.
+normalize_konsole() {
+  python3 - "$1" "$2" "$OUT_W" "$OUT_H" <<'PY'
+import sys
+from PIL import Image, ImageChops
+src, dst, W, H = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+im = Image.open(src).convert("RGB"); w, h = im.size
+im = im.crop((2, 38, w - 12, h))                 # drop toolbar + scrollbar
+bbox = ImageChops.difference(im, Image.new("RGB", im.size, (0, 0, 0))).getbbox()
+if bbox: im = im.crop(bbox)                       # trim black border
+im.resize((W, H), Image.LANCZOS).save(dst)
+print("   wrote", dst, (W, H))
+PY
+}
+
 # grab_window <wm-name> <out.png>
 grab_window() {
   local name="$1" dst="$2"
@@ -119,6 +135,56 @@ else
 fi
 echo
 
+# ---- iterm2 --------------------------------------------------------------
+# iTerm2 inline-images protocol — captured in Konsole (xterm doesn't speak it).
+echo ">> iterm (ItermImage, iTerm2 OSC 1337 inline images)"
+if command -v konsole >/dev/null; then
+  if build iterm_image; then
+    DEMO_SECONDS=11 konsole -p tabtitle=ItermImage --hide-menubar --hide-tabbar \
+      --geometry 900x380+50+50 -e "$BUILD/iterm_image" &
+    pid=$!; sleep 5
+    if grab_window 'ItermImage — Konsole' /tmp/_iterm_grab.png; then
+      normalize_konsole /tmp/_iterm_grab.png "$OUT/matterhorn-iterm.png"
+    fi
+    kill "$pid" 2>/dev/null || true
+  fi
+else
+  echo "   skipped: 'konsole' (or another iTerm2-capable terminal) not found"
+fi
+echo
+
+# ---- ueberzug ------------------------------------------------------------
+# Überzug / Überzug++ overlay — needs the helper binary; otherwise skipped.
+echo ">> ueberzug (UeberzugImage, überzug X11 overlay)"
+if command -v ueberzug >/dev/null || command -v ueberzugpp >/dev/null; then
+  if build ueberzug_image; then
+    DEMO_SECONDS=11 \
+      xterm -title UeberzugImage -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
+        -geometry "${COLS}x${ROWS}+50+50" -e "$BUILD/ueberzug_image" &
+    pid=$!; sleep 5
+    if grab_window UeberzugImage /tmp/_ueberzug_grab.png; then
+      normalize /tmp/_ueberzug_grab.png "$OUT/matterhorn-ueberzug.png"
+    fi
+    kill "$pid" 2>/dev/null || true
+  fi
+else
+  echo "   skipped: 'ueberzug'/'ueberzugpp' binary not found"
+fi
+echo
+
+# ---- ansi palette stills (256 / 16 color) --------------------------------
+# Cell-based, so the normal ttygif.py recorder renders them (no real terminal).
+echo ">> ansi palette (ANSIImage 256/16-color quantization)"
+if build ansi256_image; then
+  for m in c256 c16; do
+    ANSI_COLORS="$m" python3 "$HERE/ttygif.py" \
+      --out "$OUT/matterhorn-ansi-$m.png" --cols "$COLS" --rows "$ROWS" \
+      --duration 4 --fps 8 --font-size "$FONT_SIZE" --scale 1 \
+      -- "$BUILD/ansi256_image" 2>&1 | sed 's/^/   /'
+  done
+fi
+echo
+
 # ---- tektronix -----------------------------------------------------------
 echo ">> tek (TekImage, Tektronix 4014 — separate window)"
 if build tek_image; then
@@ -136,4 +202,6 @@ echo
 
 echo "done:"
 ls -la "$OUT"/matterhorn-sixel.png "$OUT"/matterhorn-regis.png \
-       "$OUT"/matterhorn-kitty.png "$OUT"/matterhorn-tek.png 2>/dev/null | sed 's/^/  /'
+       "$OUT"/matterhorn-kitty.png "$OUT"/matterhorn-iterm.png \
+       "$OUT"/matterhorn-ueberzug.png "$OUT"/matterhorn-ansi-c256.png \
+       "$OUT"/matterhorn-ansi-c16.png "$OUT"/matterhorn-tek.png 2>/dev/null | sed 's/^/  /'

@@ -33,10 +33,11 @@ module Crysterm
       property cell_pixel_width : Int32
       property cell_pixel_height : Int32
 
-      # Cached encoded payload and the (pw, ph, ox, oy) it was built for, so we
-      # don't re-encode on every frame (the lifecycle repaints every render).
+      # Cached encoded payload and the (pw, ph, ox, oy, cols, rows) it was built
+      # for, so we don't re-encode on every frame (the lifecycle repaints every
+      # render).
       @payload : String?
-      @payload_key : Tuple(Int32, Int32, Int32, Int32)?
+      @payload_key : Tuple(Int32, Int32, Int32, Int32, Int32, Int32)?
 
       # Cell rectangle (`{xi, yi, w, h}`) the graphic was last painted at, used
       # to detect movement/resize so the old position can be cleared.
@@ -127,20 +128,40 @@ module Crysterm
         nil
       end
 
-      # Returns the encoded payload for *pw* × *ph* at pixel origin *ox*/*oy*,
-      # decoding+encoding once and caching until any of those change (or the
-      # image is replaced).
-      private def payload_for(pw : Int32, ph : Int32, ox : Int32, oy : Int32) : String?
-        key = {pw, ph, ox, oy}
-        if @payload_key == key
-          return @payload
+      # Returns the original (undecoded) image bytes, fetching a URL if needed.
+      # Used by backends that transmit the encoded file as-is (e.g. iTerm2).
+      protected def raw_bytes : Bytes?
+        file = @file || return nil
+        if file =~ /^https?:/
+          Widget::ANSIImage.fetch file
+        else
+          File.read(file).to_slice
         end
+      rescue
+        nil
+      end
+
+      # Builds the full escape payload for the given geometry. The default path
+      # decodes the image to a pixel bitmap and hands it to `#encode`. Backends
+      # that transmit the original file bytes (iTerm2) override this and use
+      # `#raw_bytes` + the cell box (*cols*/*rows*) instead of decoding.
+      protected def build_payload(pw : Int32, ph : Int32, ox : Int32, oy : Int32,
+                                  cols : Int32, rows : Int32) : String?
         bmp = decode_bitmap(pw, ph) || return nil
         # The decoder may not hit the exact requested size; trust the bitmap.
         real_h = bmp.size
         real_w = bmp[0]?.try(&.size) || 0
         return nil if real_w == 0 || real_h == 0
-        p = encode(bmp, real_w, real_h, ox, oy)
+        encode(bmp, real_w, real_h, ox, oy)
+      end
+
+      # Returns the payload for the given geometry, building it once and caching
+      # until any of the geometry or the image changes.
+      private def payload_for(pw : Int32, ph : Int32, ox : Int32, oy : Int32,
+                              cols : Int32, rows : Int32) : String?
+        key = {pw, ph, ox, oy, cols, rows}
+        return @payload if @payload_key == key
+        p = build_payload(pw, ph, ox, oy, cols, rows) || return nil
         @payload = p
         @payload_key = key
         p
@@ -161,7 +182,7 @@ module Crysterm
 
         pw, ph = target_pixels(cols, rows)
         ox, oy = origin_pixels(pos)
-        payload = payload_for(pw, ph, ox, oy) || return
+        payload = payload_for(pw, ph, ox, oy, cols, rows) || return
 
         io = String::Builder.new
         io << "\e7"                                               # DECSC: save cursor

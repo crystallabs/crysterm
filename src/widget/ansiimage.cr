@@ -1,3 +1,4 @@
+require "term_colors"
 require "./box"
 
 module Crysterm
@@ -22,8 +23,23 @@ module Crysterm
     # Animated images (APNG, animated GIF) play automatically unless `animate:
     # false` is passed; `#play`, `#pause` and `#stop` control playback.
     class ANSIImage < Box
+      # Color depth the image is rendered in. Crysterm is natively TrueColor and
+      # only reduces colors at output time when the terminal can't do 24-bit; the
+      # non-`TrueColor` modes here additionally *quantize the pixels themselves*
+      # to the xterm-256 or 16-color palette, so the classic low-color look is
+      # produced (and preserved) regardless of the terminal's own capability —
+      # the portability story Blessed's `ansiimage` had via palette-matching.
+      enum ColorMode
+        TrueColor # 24-bit RGB used directly (default)
+        C256      # quantized to the xterm 256-color palette
+        C16       # quantized to the 16-color ANSI palette
+      end
+
       # Path (or URL, fetched via `curl`/`wget`) of the loaded image.
       property file : String?
+
+      # Color depth used to render pixels (see `ColorMode`).
+      property colors : ColorMode
 
       # Scale factor used when neither `width` nor `height` is set on the widget.
       property scale : Float64
@@ -61,6 +77,7 @@ module Crysterm
         @ascii : Bool = false,
         @speed : Float64 = 1.0,
         @cell_aspect : Float64 = 2.0,
+        @colors : ColorMode = ColorMode::TrueColor,
         # Accepted but ignored: these are `OverlayImage`-specific options. They
         # exist here only so the `Widget::Image` factory — which forwards the
         # same option bag to whichever backend `type` selects — can be called
@@ -252,10 +269,11 @@ module Crysterm
       # Writes one image pixel into a screen *cell*, blending against the cell's
       # current contents when the pixel is translucent.
       private def paint_cell(cell, px : PNGGIF::Pixel, a : Float64)
-        rgb = (px.r << 16) | (px.g << 8) | px.b
+        rgb = quantize((px.r << 16) | (px.g << 8) | px.b)
 
         if ascii?
           ch, fg = ascii_glyph px, a
+          fg = quantize fg
           attr = Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(rgb))
         else
           ch = ' '
@@ -283,6 +301,40 @@ module Crysterm
         fg = ((px.r * a * 0.5).to_i << 16) | ((px.g * a * 0.5).to_i << 8) | (px.b * a * 0.5).to_i
         {ch, fg}
       end
+
+      # Quantizes *rgb* to the nearest color of the active palette (`C256`/`C16`),
+      # or returns it unchanged in `TrueColor` mode. Results are memoized since an
+      # image has far fewer distinct pixel colors than cells.
+      private def quantize(rgb : Int32) : Int32
+        return rgb if @colors.true_color?
+        cache = (@quant_cache ||= {} of Int32 => Int32)
+        if q = cache[rgb]?
+          return q
+        end
+        r = (rgb >> 16) & 0xff
+        g = (rgb >> 8) & 0xff
+        b = rgb & 0xff
+        n = @colors.c16? ? 16 : 256
+        best = 0
+        bestd = Int32::MAX
+        i = 0
+        while i < n
+          pr, pg, pb = TermColors::HI2RGB[i]
+          dr = r - pr; dg = g - pg; db = b - pb
+          d = dr*dr + dg*dg + db*db
+          if d < bestd
+            bestd = d
+            best = i
+          end
+          i += 1
+        end
+        pr, pg, pb = TermColors::HI2RGB[best]
+        q = (pr << 16) | (pg << 8) | pb
+        cache[rgb] = q
+        q
+      end
+
+      @quant_cache : Hash(Int32, Int32)?
     end
 
     alias Ansiimage = ANSIImage

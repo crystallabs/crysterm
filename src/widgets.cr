@@ -12,9 +12,11 @@ module Crysterm
     ANSIImage    = Widget::ANSIImage
     GlyphImage   = Widget::GlyphImage
     OverlayImage = Widget::OverlayImage
+    UeberzugImage = Widget::UeberzugImage
     SixelImage   = Widget::SixelImage
     RegisImage   = Widget::RegisImage
     KittyImage   = Widget::KittyImage
+    ItermImage   = Widget::ItermImage
     TekImage     = Widget::TekImage
     ProgressBar  = Widget::ProgressBar
     Loading      = Widget::Loading

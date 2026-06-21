@@ -15,9 +15,11 @@ module Crysterm
     #   diffs: `Ansi` (`ANSIImage`) and `Glyph` (`GlyphImage`, sub-cell glyphs).
     # * **screen-owns-pixels (in the VT window)** — the terminal (or an external
     #   helper) owns the pixels; the widget tracks its cell rectangle and
-    #   force-erases on move/hide: `Overlay` (`OverlayImage`, w3mimgdisplay),
-    #   `Sixel` (`SixelImage`), `Regis` (`RegisImage`), and `Kitty`
-    #   (`KittyImage`, the Kitty graphics protocol).
+    #   force-erases on move/hide: `Overlay` (`OverlayImage`, w3mimgdisplay) and
+    #   `Ueberzug` (`UeberzugImage`, the überzug overlay), plus the in-band
+    #   `Sixel` (`SixelImage`), `Regis` (`RegisImage`), `Kitty` (`KittyImage`,
+    #   the Kitty graphics protocol) and `Iterm` (`ItermImage`, the iTerm2
+    #   inline-images protocol).
     # * **separate window** — the terminal renders into another window entirely:
     #   `Tek` (`TekImage`, Tektronix 4014).
     #
@@ -33,28 +35,33 @@ module Crysterm
     module Image
       # Backend used to render the image. See the families described above.
       enum Type
-        Ansi    # cell-grid, one cell per pixel (`ANSIImage`)
-        Glyph   # cell-grid, sub-cell Unicode glyphs (`GlyphImage`)
-        Overlay # screen-owns-pixels, external w3mimgdisplay overlay (`OverlayImage`)
-        Sixel   # screen-owns-pixels, in-band sixel graphics (`SixelImage`)
-        Regis   # screen-owns-pixels, in-band ReGIS vector graphics (`RegisImage`)
-        Kitty   # screen-owns-pixels, in-band Kitty graphics protocol (`KittyImage`)
-        Tek     # separate window, Tektronix 4014 vectors (`TekImage`)
+        Ansi     # cell-grid, one cell per pixel (`ANSIImage`)
+        Glyph    # cell-grid, sub-cell Unicode glyphs (`GlyphImage`)
+        Overlay  # screen-owns-pixels, external w3mimgdisplay overlay (`OverlayImage`)
+        Ueberzug # screen-owns-pixels, external überzug overlay (`UeberzugImage`)
+        Sixel    # screen-owns-pixels, in-band sixel graphics (`SixelImage`)
+        Regis    # screen-owns-pixels, in-band ReGIS vector graphics (`RegisImage`)
+        Kitty    # screen-owns-pixels, in-band Kitty graphics protocol (`KittyImage`)
+        Iterm    # screen-owns-pixels, in-band iTerm2 inline images (`ItermImage`)
+        Tek      # separate window, Tektronix 4014 vectors (`TekImage`)
       end
 
-      alias Any = ANSIImage | GlyphImage | OverlayImage | SixelImage | RegisImage | KittyImage | TekImage
+      alias Any = ANSIImage | GlyphImage | OverlayImage | UeberzugImage |
+                  SixelImage | RegisImage | KittyImage | ItermImage | TekImage
 
       # Builds the concrete image widget for *type*, forwarding all remaining
       # options to its constructor.
       def self.new(*, type : Type = Type::Ansi, **opts) : Any
         case type
-        in Type::Ansi    then ANSIImage.new **opts
-        in Type::Glyph   then GlyphImage.new **opts
-        in Type::Overlay then OverlayImage.new **opts
-        in Type::Sixel   then SixelImage.new **opts
-        in Type::Regis   then RegisImage.new **opts
-        in Type::Kitty   then KittyImage.new **opts
-        in Type::Tek     then TekImage.new **opts
+        in Type::Ansi     then ANSIImage.new **opts
+        in Type::Glyph    then GlyphImage.new **opts
+        in Type::Overlay  then OverlayImage.new **opts
+        in Type::Ueberzug then UeberzugImage.new **opts
+        in Type::Sixel    then SixelImage.new **opts
+        in Type::Regis    then RegisImage.new **opts
+        in Type::Kitty    then KittyImage.new **opts
+        in Type::Iterm    then ItermImage.new **opts
+        in Type::Tek      then TekImage.new **opts
         end
       end
     end

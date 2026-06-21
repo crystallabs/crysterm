@@ -69,27 +69,47 @@ compared. Like `ANSIImage`, every mode also supports animated GIF/APNG.
 | Octant `𜵑` (U+1CD00) | 2×4 | 2/cell | `matterhorn-octant.png` |
 | Braille `⠿` | 2×4 | 1/cell (8 dots) | `matterhorn-braille.png` |
 
+### Color depth (`Widget::ANSIImage`)
+
+`ANSIImage` is natively TrueColor, but its `colors:` option quantizes the pixels
+to a lower-color palette — the classic low-color look, and the way to render
+correctly on terminals without 24-bit color. `ansi256_image.cr` renders the
+Matterhorn in each, chosen via `ANSI_COLORS`:
+
+| Mode | `ANSI_COLORS` | Output |
+|------|---------------|--------|
+| TrueColor (24-bit) | `truecolor` | (see `png_image.png`) |
+| 256-color (xterm palette) | `c256` | `matterhorn-ansi-c256.png` |
+| 16-color (ANSI palette) | `c16` | `matterhorn-ansi-c16.png` |
+
+These are cell-based, so the normal `ttygif.py` recorder captures them — no
+special terminal needed.
+
 ### Pixel & vector graphics (terminal-owned pixels)
 
 Beyond the cell-grid renderers above, the **same Matterhorn photo** is rendered
-four more ways where the *terminal* (or an external helper) owns the pixels
+several more ways where the *terminal* (or an external helper) owns the pixels
 rather than Crysterm's cell buffer:
 
 | Widget (demo) | How | Output |
 |--------|-----|--------|
 | `OverlayImage` (`overlay_image.cr`) | shells out to `w3mimgdisplay`, painting the **actual image pixels** over the terminal window (no cells involved) | `matterhorn-overlay.png` |
+| `UeberzugImage` (`ueberzug_image.cr`) | drives **Überzug / Überzug++** (JSON on stdin), the modern w3m successor, painting pixels in an X11 child window over the terminal | `matterhorn-ueberzug.png` |
 | `SixelImage` (`sixel_image.cr`) | decodes + quantizes to a 252-color palette (Bayer-dithered) and emits an in-band **DCS sixel** raster sequence the terminal draws at the cursor | `matterhorn-sixel.png` |
 | `RegisImage` (`regis_image.cr`) | quantizes to ReGIS's built-in named colors and emits an in-band **ReGIS** vector stream (run-length horizontal vectors per scan line) | `matterhorn-regis.png` |
 | `KittyImage` (`kitty_image.cr`) | transmits raw 32-bit RGBA (base64, chunked) in an in-band **Kitty graphics protocol** APC escape; full true-color, terminal-scaled to the cell box | `matterhorn-kitty.png` |
+| `ItermImage` (`iterm_image.cr`) | base64s the **original file** in an in-band **iTerm2 `OSC 1337`** inline-image escape; full true-color, no decode/palette on our side | `matterhorn-iterm.png` |
 | `TekImage` (`tek_image.cr`) | dithers to 1 bit and emits **Tektronix 4014** vectors; `ESC[?38h` switches xterm into Tek mode, drawn in a **separate** window | `matterhorn-tek.png` |
 
-These five are full pixel/vector graphics, but none works over a plain
+These are full pixel/vector graphics, but none works over a plain
 pipe/pseudo-terminal (the `ttygif.py` recorder's VT emulator can't render them),
-and each needs a capable terminal on a real display:
+and each needs a capable terminal (or helper) on a real display:
 
 * **sixel** — `xterm -ti vt340`, `foot`, `wezterm`, `mlterm`, …
 * **ReGIS** — `xterm` built with `--enable-regis-graphics` (or a real VT340)
-* **Kitty** — `kitty`, `wezterm`, `konsole`, `ghostty`, … (the `make-graphics-shots.sh` capture runs this one in `kitty` itself, not xterm)
+* **Kitty** — `kitty`, `wezterm`, `konsole`, `ghostty`, … (captured in `kitty` itself)
+* **iTerm2** — `iTerm2`, `wezterm`, `konsole`, `mintty`, VS Code's terminal, … (captured in `konsole`)
+* **Überzug** — the `ueberzug` or `ueberzugpp` binary on `PATH` (skipped if absent)
 * **Tektronix** — `xterm` built with `--enable-tek4014` (opens its own window)
 
 So the normal recorder can't capture them. `make-graphics-shots.sh` (and the
