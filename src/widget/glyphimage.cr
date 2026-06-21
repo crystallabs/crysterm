@@ -58,7 +58,11 @@ module Crysterm
       ASCII_EDGE = 28
 
       def initialize(@file = nil, @mode : Mode = Mode::Half, @animate : Bool = true,
-                     @speed : Float64 = 1.0, **box)
+                     @speed : Float64 = 1.0,
+                     # Accepted-and-ignored so the `Widget::Image` factory can
+                     # forward one common option bag (incl. overlay-only options)
+                     # to any backend without a compile error.
+                     stretch = false, center = false, **box)
         super(**box)
         @file.try { |f| set_image f }
         on(::Crysterm::Event::Destroy) { stop }

@@ -69,17 +69,37 @@ compared. Like `ANSIImage`, every mode also supports animated GIF/APNG.
 | Octant `𜵑` (U+1CD00) | 2×4 | 2/cell | `matterhorn-octant.png` |
 | Braille `⠿` | 2×4 | 1/cell (8 dots) | `matterhorn-braille.png` |
 
-For comparison there is also a **true-pixel** rendering of the same photo:
+### Pixel & vector graphics (terminal-owned pixels)
 
-| Widget | How | Output |
+Beyond the cell-grid renderers above, the **same Matterhorn photo** is rendered
+four more ways where the *terminal* (or an external helper) owns the pixels
+rather than Crysterm's cell buffer:
+
+| Widget (demo) | How | Output |
 |--------|-----|--------|
 | `OverlayImage` (`overlay_image.cr`) | shells out to `w3mimgdisplay`, painting the **actual image pixels** over the terminal window (no cells involved) | `matterhorn-overlay.png` |
+| `SixelImage` (`sixel_image.cr`) | decodes + quantizes to a 252-color palette (Bayer-dithered) and emits an in-band **DCS sixel** raster sequence the terminal draws at the cursor | `matterhorn-sixel.png` |
+| `RegisImage` (`regis_image.cr`) | quantizes to ReGIS's built-in named colors and emits an in-band **ReGIS** vector stream (run-length horizontal vectors per scan line) | `matterhorn-regis.png` |
+| `KittyImage` (`kitty_image.cr`) | transmits raw 32-bit RGBA (base64, chunked) in an in-band **Kitty graphics protocol** APC escape; full true-color, terminal-scaled to the cell box | `matterhorn-kitty.png` |
+| `TekImage` (`tek_image.cr`) | dithers to 1 bit and emits **Tektronix 4014** vectors; `ESC[?38h` switches xterm into Tek mode, drawn in a **separate** window | `matterhorn-tek.png` |
 
-`OverlayImage` is full photographic quality, but it needs a w3m-image-capable
-terminal on a real display — it does **not** work over a plain pipe/pseudo-
-terminal. So the build script can't use the normal recorder for it: it runs the
-demo in a real `xterm` on `$DISPLAY` and screenshots that window with `ffmpeg`
-(skipped automatically if `DISPLAY`/`xterm`/`w3mimgdisplay` aren't available).
+These five are full pixel/vector graphics, but none works over a plain
+pipe/pseudo-terminal (the `ttygif.py` recorder's VT emulator can't render them),
+and each needs a capable terminal on a real display:
+
+* **sixel** — `xterm -ti vt340`, `foot`, `wezterm`, `mlterm`, …
+* **ReGIS** — `xterm` built with `--enable-regis-graphics` (or a real VT340)
+* **Kitty** — `kitty`, `wezterm`, `konsole`, `ghostty`, … (the `make-graphics-shots.sh` capture runs this one in `kitty` itself, not xterm)
+* **Tektronix** — `xterm` built with `--enable-tek4014` (opens its own window)
+
+So the normal recorder can't capture them. `make-graphics-shots.sh` (and the
+`OverlayImage` path in `make-gifs.sh`) instead run each demo in a real `xterm`
+on `$DISPLAY` and screenshot the window with `ffmpeg` — skipped automatically if
+`DISPLAY`/`xterm`/`xwininfo`/`ffmpeg` aren't available. Run it with:
+
+```
+./make-graphics-shots.sh        # writes matterhorn-{sixel,regis,tek}.png
+```
 
 The image demos read their pictures from `screenshots/*.png` (downloaded from
 Wikimedia Commons and cropped to the window's aspect by the maintainer); swap in
