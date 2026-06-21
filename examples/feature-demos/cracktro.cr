@@ -23,19 +23,6 @@ s.show_fps = nil
 w = s.awidth
 h = s.aheight
 
-def hsv(hh : Int32) : String
-  x = (255 * (1 - ((hh / 60.0) % 2 - 1).abs)).to_i.clamp(0, 255)
-  r, g, b = case (hh // 60) % 6
-            when 0 then {255, x, 0}
-            when 1 then {x, 255, 0}
-            when 2 then {0, 255, x}
-            when 3 then {0, x, 255}
-            when 4 then {x, 0, 255}
-            else        {255, 0, x}
-            end
-  "#%02x%02x%02x" % {r, g, b}
-end
-
 MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
        "BLESSED-CONTRIB * QT * NCURSES (R.I.P.) * EVERY CRYSTAL CODER * " +
        "THE WHOLE DEMOSCENE ...   REAL ONES NEVER REMOVE THE INTRO !   ......   ")
@@ -69,7 +56,7 @@ sine = Widget::Box.new \
 # ride over the scene without changing the background it passes across.
 bg_under = ->(row : Int32, fr : Int32) {
   if ci = copper_idx[row]?
-    hsv((ci * 26 + fr * 9) % 360)
+    Colors.hsv((ci * 26 + fr * 9) % 360)
   else
     "#000000"
   end
@@ -138,7 +125,7 @@ spawn do
   loop do
     # copper bars scroll
     copper.each_with_index do |box, idx|
-      box.style.bg = hsv(((idx * 26) + frame * 9) % 360)
+      box.style.bg = Colors.hsv(((idx * 26) + frame * 9) % 360)
     end
 
     # row 2: right-to-left line scroller
@@ -148,7 +135,7 @@ spawn do
         if ch == ' '
           io << ' '
         else
-          io << "{#{hsv((x * 7 + frame * 8) % 360)}-fg}" << ch << "{/}"
+          io << "{#{Colors.hsv((x * 7 + frame * 8) % 360)}-fg}" << ch << "{/}"
         end
       end
     end
@@ -161,7 +148,7 @@ spawn do
       ch = MSG[(frame + x) % MSG.size]
       next if ch == ' '
       r = (amp * (1.0 + Math.sin(x * 0.32 + frame * 0.22))).round.to_i.clamp(0, band_h - 1)
-      col = hsv((x * 7 + frame * 6) % 360)
+      col = Colors.hsv((x * 7 + frame * 6) % 360)
       grid[r][x] = "{#{col}-fg}#{ch}{/}"
     end
     sine.content = (0...band_h).map { |r|
@@ -183,12 +170,12 @@ spawn do
         col = (cx + (destx - cx) * p).round.to_i
         row = (cy + (desty - cy) * p).round.to_i
         box.content = GROW[(p * GROW.size).to_i.clamp(0, GROW.size - 1)]
-        box.style.fg = hsv((i * 9 + frame * 9) % 360)
+        box.style.fg = Colors.hsv((i * 9 + frame * 9) % 360)
       else
         col = destx
         row = desty
         box.content = fch.to_s
-        box.style.fg = hsv((i * 9 + frame * 6) % 360)
+        box.style.fg = Colors.hsv((i * 9 + frame * 6) % 360)
       end
       box.clear_last_rendered_position
       box.left = col

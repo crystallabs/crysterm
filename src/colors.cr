@@ -57,6 +57,33 @@ module Crysterm
       end
     end
 
+    # Converts an HSV color to a `#rrggbb` hex string (Crysterm's native color
+    # form, directly usable as a `Style` color or inside a `{#rrggbb-fg}` tag).
+    #
+    # *h* is a hue in degrees (wrapped into `0..360`); *s* and *v* are the
+    # saturation and value in `0.0..1.0`. The defaults (`s = v = 1.0`) give a
+    # fully-saturated, full-brightness rainbow — the common case for color
+    # cycling — and reproduce the hand-rolled `hsv` helpers the demos used.
+    def self.hsv(h : Int | Float, s : Float64 = 1.0, v : Float64 = 1.0) : String
+      hh = h.to_f % 360.0
+      hh += 360.0 if hh < 0
+      c = v * s
+      x = c * (1 - (((hh / 60.0) % 2) - 1).abs)
+      m = v - c
+      rf, gf, bf = case (hh.to_i // 60) % 6
+                   when 0 then {c, x, 0.0}
+                   when 1 then {x, c, 0.0}
+                   when 2 then {0.0, c, x}
+                   when 3 then {0.0, x, c}
+                   when 4 then {x, 0.0, c}
+                   else        {c, 0.0, x}
+                   end
+      r = ((rf + m) * 255).to_i.clamp(0, 255)
+      g = ((gf + m) * 255).to_i.clamp(0, 255)
+      b = ((bf + m) * 255).to_i.clamp(0, 255)
+      "#%02x%02x%02x" % {r, g, b}
+    end
+
     # Allocation-free counterpart of `TermColors#sgr_color`: writes the SGR
     # parameter fragment for one color straight into `io` instead of building
     # and returning a fresh `String`. The draw loop emits a color on every

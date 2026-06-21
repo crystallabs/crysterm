@@ -33,6 +33,9 @@ module Crysterm
 
     BigText = Widget::BigText
 
+    # Effects
+    EffectMatrix = Widget::Effect::Matrix
+
     RadioSet    = Widget::RadioSet
     RadioButton = Widget::RadioButton
     Checkbox    = Widget::Checkbox

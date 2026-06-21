@@ -59,19 +59,6 @@ n.times do |i|
     style: Style.new(bg: "#000000"))
 end
 
-hsv = ->(h : Int32) {
-  x = (255 * (1 - ((h / 60.0) % 2 - 1).abs)).to_i.clamp(0, 255)
-  r, g, b = case (h // 60) % 6
-            when 0 then {255, x, 0}
-            when 1 then {x, 255, 0}
-            when 2 then {0, 255, x}
-            when 3 then {0, x, 255}
-            when 4 then {x, 0, 255}
-            else        {255, 0, x}
-            end
-  "#%02x%02x%02x" % {r, g, b}
-}
-
 s.on(Event::KeyPress) do |e|
   if e.char == 'q' || e.key == Tput::Key::CtrlQ
     s.destroy
@@ -83,7 +70,7 @@ phase = 0
 spawn do
   loop do
     swatches.each_with_index do |sw, i|
-      sw.style.bg = hsv.call((i * 5 + phase) % 360)
+      sw.style.bg = Colors.hsv((i * 5 + phase) % 360)
     end
     phase = (phase + 12) % 360
     s.render

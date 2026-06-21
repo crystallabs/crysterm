@@ -116,6 +116,26 @@ module Crysterm
     # Background color (color of cell)
     property bg : String?
 
+    # Accept a native 24-bit color directly (e.g. `fg: 0x40e0c0`). Crysterm's
+    # native color form is a `0xRRGGBB` integer; here it's normalized to the
+    # `#rrggbb` string the rest of the pipeline already stores and understands,
+    # so direct ints and `"#rrggbb"`/named strings are interchangeable.
+    def fg=(color : Int)
+      @fg = Style.color_to_s color
+    end
+
+    # :ditto:
+    def bg=(color : Int)
+      @bg = Style.color_to_s color
+    end
+
+    # Formats a native color int as a `#rrggbb` string. `-1` (the terminal
+    # default) maps to `nil` — i.e. "no color set" — so no SGR sequence is
+    # emitted, matching how an unset color behaves.
+    def self.color_to_s(color : Int) : String?
+      color == -1 ? nil : ("#%06x" % (color.to_i & 0xFFFFFF))
+    end
+
     # Bold?
     property? bold : Bool = false
 
@@ -275,8 +295,8 @@ module Crysterm
       @header = @header,
       @cell = @cell,
       @label = @label,
-      @fg = @fg,
-      @bg = @bg,
+      fg = nil,
+      bg = nil,
       @bold = @bold,
       @underline = @underline,
       @blink = @blink,
@@ -289,6 +309,11 @@ module Crysterm
       @bchar = @bchar,
       @ignore_border = @ignore_border,
     )
+      # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized
+      # to its `#rrggbb` string (the param is unrestricted, so each call type —
+      # String, Int, or Nil — resolves to the matching `fg=`/`bg=` overload).
+      self.fg = fg
+      self.bg = bg
       alpha.try { |v| self.alpha = self.class.alpha_from(v) }
       border.try { |v| self.border = Border.from(v) }
       padding.try { |v| self.padding = Padding.from(v) }
