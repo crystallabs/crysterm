@@ -76,8 +76,8 @@ bg_under = ->(row : Int32, fr : Int32) {
 # non-space cell a letter shot from the centre.
 PATTERN   = "CRYSTERM "
 GROW      = [".", "·", ":", "*", "o", "O", "0", "@"]
-TITLE_ROW = 0
-INTERVAL  = 1  # frames between successive letter launches (rapid: fills the row)
+TITLE_ROW =  0
+INTERVAL  =  1 # frames between successive letter launches (rapid: fills the row)
 TRAVEL    = 12 # frames a letter spends in flight
 HOLD      = 28 # frames the finished row is held before re-firing
 

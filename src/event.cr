@@ -26,6 +26,10 @@ module Crysterm
     # Emitted when Widget is destroyed
     event Destroy
 
+    # Emitted when a child process backing a widget (e.g. `Widget::Terminal`'s
+    # shell) exits. `code` is the process exit status, or `nil` if unknown.
+    event Exit, code : Int32? = nil
+
     # Emitted when widget focuses. Requires terminal supporting the focus protocol.
     event Focus, el : Widget? = nil
 

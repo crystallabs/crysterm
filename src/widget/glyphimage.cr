@@ -18,7 +18,7 @@ module Crysterm
     #
     # ```
     # img = Widget::GlyphImage.new file: "pic.png", mode: :braille, width: 40, height: 12, parent: screen
-    # img.mode = Widget::GlyphImage::Mode::Octant   # re-renders in another family
+    # img.mode = Widget::GlyphImage::Mode::Octant # re-renders in another family
     # ```
     class GlyphImage < Box
       enum Mode
@@ -33,10 +33,10 @@ module Crysterm
         # Sub-cell grid (columns, rows) packed into one character for this mode.
         def subgrid : Tuple(Int32, Int32)
           case self
-          in Block, Ascii then {1, 1}
-          in Half         then {1, 2}
-          in Quadrant     then {2, 2}
-          in Sextant      then {2, 3}
+          in Block, Ascii    then {1, 1}
+          in Half            then {1, 2}
+          in Quadrant        then {2, 2}
+          in Sextant         then {2, 3}
           in Octant, Braille then {2, 4}
           end
         end
@@ -377,7 +377,7 @@ module Crysterm
         (0..63).each do |m|
           arr[m] =
             case m
-            when 0  then ' '
+            when  0 then ' '
             when 21 then '▌' # left column
             when 42 then '▐' # right column
             when 63 then '█'

@@ -6,31 +6,27 @@ module Crysterm
   # `pty` shard (the way `tput`, `term_colors`, etc. already are). It is kept
   # here for now so the `Widget::Terminal` port is usable out of the box.
   #
-  # It uses `forkpty(3)` to allocate a master/slave pseudo-terminal pair and
-  # fork a child that is given the slave as its **controlling terminal** (via the
-  # `login_tty(3)` that `forkpty` performs: `setsid(2)` + `TIOCSCTTY` + wiring the
-  # slave to stdin/stdout/stderr). That is what makes job control work inside the
-  # child (Ctrl-C/Ctrl-Z, foreground process groups) — a plain
-  # `Process`-with-pipes spawn cannot do it, which is why an interactive `bash`
-  # there printed "cannot set terminal process group / no job control".
+  # It allocates a master/slave pseudo-terminal pair with `openpty(3)` and spawns
+  # the child with Crystal's `Process`, wiring the slave to the child's
+  # stdin/stdout/stderr. The master side is exposed as an ordinary
+  # `IO::FileDescriptor`: read it for the child's output, write to it to deliver
+  # input. `#resize` issues the `TIOCSWINSZ` ioctl so the child learns about
+  # geometry changes.
   #
-  # The master side is exposed as an ordinary `IO::FileDescriptor`: read it for
-  # the child's output, write to it to deliver input. `#resize` issues the
-  # `TIOCSWINSZ` ioctl so the child learns about geometry changes.
+  # SAFETY: spawning goes through `Process.new`, which performs a fork+exec the
+  # Crystal runtime is designed for, and reaps the child itself. We never call a
+  # raw `fork`/`forkpty` (unsafe inside a GC'd, fibered runtime) and never signal
+  # a raw PID — `#kill` only ever signals *this* `Process`, so it cannot affect
+  # any other process on the machine.
   #
-  # Why `forkpty` and not Crystal's `Process`: `Process` offers no pre-exec hook,
-  # so the controlling-tty setup (which must run in the child between fork and
-  # exec) is impossible through it. We therefore fork ourselves. The child path
-  # is careful to call **only** libc functions and never to allocate or touch the
-  # Crystal runtime/GC before `exec` (the standard fork-then-exec discipline);
-  # all the `argv`/`envp` C arrays are built in the parent beforehand.
+  # CONTROLLING TERMINAL: to get a controlling terminal (and therefore job
+  # control, and no "cannot set terminal process group" warning) without a
+  # pre-exec hook, the command is run through the `setsid(1)` helper — see
+  # `#spawn_child`. That keeps everything on the safe `Process` path.
   class Pty
-    # `forkpty` lives in libutil; libc (always linked) provides the rest, which
-    # Crystal already binds on `LibC` (`execvp`, `execvpe`, `_exit`, `chdir`,
-    # `kill`, `waitpid`, `ioctl`) — we reuse those rather than redeclaring them
-    # (redeclaring a libc fun with a differing signature is a compile error).
+    # `openpty` lives in libutil; `ioctl` is already bound by Crystal's `LibC`.
     @[Link("util")]
-    lib LibPty
+    lib LibUtil
       # `struct winsize` from <termios.h>.
       struct Winsize
         ws_row : LibC::UShort
@@ -39,110 +35,83 @@ module Crysterm
         ws_ypixel : LibC::UShort
       end
 
-      # `pid_t forkpty(int *amaster, char *name,
-      #                const struct termios *termp, const struct winsize *winp);`
-      fun forkpty(amaster : LibC::Int*, name : LibC::Char*,
-                  termp : Void*, winp : Winsize*) : LibC::PidT
+      # `int openpty(int *amaster, int *aslave, char *name,
+      #              const struct termios *termp, const struct winsize *winp);`
+      fun openpty(amaster : LibC::Int*, aslave : LibC::Int*, name : LibC::Char*,
+                  termp : Void*, winp : Winsize*) : LibC::Int
     end
 
     # `TIOCSWINSZ` request number (Linux, arch-independent for mainstream archs).
     TIOCSWINSZ = 0x5414_u64
 
     # The master side of the PTY. Read it for child output; write to it to send
-    # input to the child. Integrates with Crystal's event loop, so reads from a
-    # fiber cooperatively yield rather than blocking the whole program.
+    # input to the child. Crystal classifies a PTY master (a character device) as
+    # non-blocking, so reads from a fiber yield through the event loop rather than
+    # parking the whole (single) thread — which would otherwise starve the
+    # screen's keyboard-input fiber.
     getter master : IO::FileDescriptor
 
-    # PID of the spawned child.
-    getter pid : LibC::PidT
-
-    # Child exit status (`WEXITSTATUS`), available once the child has been
-    # reaped (see `#reap`); `nil` until then.
-    getter exit_code : Int32? = nil
+    # The spawned child process. Signalling/reaping always go through this object,
+    # so they target exactly this PID and nothing else.
+    getter process : Process
 
     getter? closed = false
-
-    # Retained so the GC does not free the backing buffers whose raw pointers we
-    # handed to `execvp`/`execvpe`.
-    @command : String
-    @args : Array(String)
-    @env_strings : Array(String)? = nil
+    @exit_code : Int32? = nil
     @reaped = false
 
     # Spawns `command` (with `args`) attached to a fresh PTY sized `cols`x`rows`.
-    # `env`, when given, fully replaces the child environment with the current
-    # one merged with the overrides (a `nil` value removes a variable).
-    def initialize(@command : String, @args : Array(String) = [] of String,
+    def initialize(command : String, args : Array(String) = [] of String,
                    cols : Int32 = 80, rows : Int32 = 24,
                    env : Process::Env = nil, chdir : String? = nil)
-      # Build the C arrays in the PARENT — the child must not allocate.
-      argv = build_argv
-      envp = env ? build_envp(env) : Pointer(LibC::Char*).null
-      chdir_ptr = chdir ? chdir.to_unsafe : Pointer(LibC::Char).null
+      master_fd = uninitialized LibC::Int
+      slave_fd = uninitialized LibC::Int
 
-      ws = LibPty::Winsize.new
+      ws = LibUtil::Winsize.new
       ws.ws_row = rows.to_u16
       ws.ws_col = cols.to_u16
 
-      master_fd = uninitialized LibC::Int
-      pid = LibPty.forkpty(pointerof(master_fd), Pointer(LibC::Char).null,
-        Pointer(Void).null, pointerof(ws))
-
-      if pid < 0
-        raise RuntimeError.from_errno("forkpty")
-      elsif pid == 0
-        # ── CHILD ──────────────────────────────────────────────────────────
-        # The controlling terminal is already set up by forkpty/login_tty. Only
-        # async-signal-safe libc calls from here on; never return.
-        LibC.chdir(chdir_ptr) unless chdir_ptr.null?
-        if envp.null?
-          LibC.execvp(@command.to_unsafe, argv)
-        else
-          LibC.execvpe(@command.to_unsafe, argv, envp)
-        end
-        LibC._exit(127) # only reached if exec failed
+      if LibUtil.openpty(pointerof(master_fd), pointerof(slave_fd),
+           Pointer(LibC::Char).null, Pointer(Void).null, pointerof(ws)) != 0
+        raise RuntimeError.from_errno("openpty")
       end
 
-      # ── PARENT ────────────────────────────────────────────────────────────
-      # NOTE: the reader fiber must never park the whole thread on a blocking
-      # `read` — Crystal fibers are cooperatively scheduled on one thread, so a
-      # blocking master read would starve the screen's keyboard-input fiber and
-      # the terminal would render the child's output but accept no typing.
-      # Crystal classifies a PTY master (a character device) as non-blocking by
-      # default, so `read` yields through the event loop and the scheduler keeps
-      # running — exactly what we need. (Were that ever not the case, force it
-      # with `IO::FileDescriptor.set_blocking(master_fd, false)` before wrapping.)
-      @pid = pid
-      @master = IO::FileDescriptor.new(master_fd)
+      @master = IO::FileDescriptor.new master_fd
+      slave = IO::FileDescriptor.new slave_fd
+
+      @process = spawn_child command, args, slave, env, chdir
+
+      # The child holds its own dup'd copies of the slave fds; the parent must
+      # close the slave so the master reports EOF once the child exits.
+      slave.close
     end
 
-    # NUL-terminated `argv` = [command, *args, NULL].
-    private def build_argv : Pointer(LibC::Char*)
-      ptr = Pointer(LibC::Char*).malloc(@args.size + 2)
-      ptr[0] = @command.to_unsafe
-      @args.each_with_index { |a, i| ptr[i + 1] = a.to_unsafe }
-      ptr[@args.size + 1] = Pointer(LibC::Char).null
-      ptr
-    end
-
-    # NUL-terminated `envp` from the current environment plus overrides.
-    private def build_envp(env : Process::Env) : Pointer(LibC::Char*)
-      merged = {} of String => String
-      ENV.each { |k, v| merged[k] = v }
-      env.each { |k, v| v.nil? ? merged.delete(k) : (merged[k] = v) }
-
-      strings = merged.map { |k, v| "#{k}=#{v}" }
-      @env_strings = strings # keep alive for the lifetime of the spawn
-      ptr = Pointer(LibC::Char*).malloc(strings.size + 1)
-      strings.each_with_index { |s, i| ptr[i] = s.to_unsafe }
-      ptr[strings.size] = Pointer(LibC::Char).null
-      ptr
+    # Spawns the child on the safe `Process` path. When the `setsid(1)` helper is
+    # available it runs the command through `setsid -c`, which makes the child a
+    # session leader with the slave PTY as its **controlling terminal** — so job
+    # control works and an interactive shell no longer prints "cannot set
+    # terminal process group / no job control".
+    #
+    # We deliberately do NOT pass `-w` (wait): `-w` would keep `setsid` blocked
+    # on the child, so our own `#reap` (`Process#wait`) could hang forever if the
+    # child ignored the hang-up. Without `-w`, `setsid` exec's the command
+    # in place — so `@process` is the shell itself: directly signalable, reapable,
+    # and with the slave as its controlling terminal. Closing the master then
+    # delivers `SIGHUP` to it cleanly. (No bare `fork`/`forkpty` anywhere; if
+    # `setsid` is missing we fall back to a plain spawn, which works minus job
+    # control.)
+    private def spawn_child(command, args, slave, env, chdir) : Process
+      base = {input: slave, output: slave, error: slave, env: env, chdir: chdir}
+      if Process.find_executable("setsid")
+        Process.new("setsid", ["-c", command] + args, **base)
+      else
+        Process.new(command, args, **base)
+      end
     end
 
     # Tells the kernel (and thus the child) about a new terminal geometry.
     def resize(cols : Int32, rows : Int32) : Nil
       return if @closed
-      ws = LibPty::Winsize.new
+      ws = LibUtil::Winsize.new
       ws.ws_row = rows.to_u16
       ws.ws_col = cols.to_u16
       # `ioctl` is already declared (variadically) by Crystal's `LibC`.
@@ -157,27 +126,28 @@ module Crysterm
       @master.flush
     end
 
-    # Reaps the child once it has exited and records `#exit_code`. Intended to be
-    # called after the master reports EOF (the child is gone, so `waitpid`
-    # returns promptly). Returns the exit code, or `nil` if not yet exited.
+    # The child's exit status. Intended to be called once the master has reported
+    # EOF (the child has closed the PTY, so it is exiting): `Process#wait` then
+    # returns promptly with the status, cooperatively yielding the fiber rather
+    # than busy-waiting. Returns `nil` if the status carries no exit code (e.g.
+    # the child was terminated by a signal). The result is cached.
     def reap : Int32?
       return @exit_code if @reaped
-      status = 0
-      r = LibC.waitpid(@pid, pointerof(status), 0)
-      if r == @pid
-        @reaped = true
-        @exit_code = (status & 0xff00) >> 8 # WEXITSTATUS
-      end
-      @exit_code
+      @reaped = true
+      @exit_code = (@process.wait.exit_code rescue nil)
     end
 
-    # Terminates the child (SIGHUP) and releases the master fd. Idempotent.
+    # Hangs up the child (SIGHUP to *this* process only) and releases the master
+    # fd. Idempotent. Signals nothing if the child has already exited.
     def kill : Nil
       return if @closed
       @closed = true
-      LibC.kill(@pid, Signal::HUP.value) unless @reaped
+      begin
+        @process.signal Signal::HUP unless @process.terminated?
+      rescue
+        # Child already gone / not signalable — nothing to do.
+      end
       @master.close rescue nil
-      reap rescue nil
     end
   end
 end
