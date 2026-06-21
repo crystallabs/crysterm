@@ -90,15 +90,15 @@ module Crysterm
         Type.parse?(backend) || Type::Ansi
       end
 
-      # Best-effort terminal-capability detection for `image.backend = auto`.
-      # Prefers the Kitty graphics protocol when running under Kitty, then Sixel
-      # if the terminal advertised it (DA1 attribute 4, surfaced by tput's probe
-      # as a detection), otherwise the universally-safe cell-grid `Ansi` backend.
+      # Best-effort terminal-capability detection for `image.backend = auto`,
+      # from environment hints alone (this factory has no terminal handle):
+      # Kitty when running under Kitty, iTerm2 under iTerm, otherwise the
+      # universally-safe cell-grid `Ansi` backend. Detection that needs a live
+      # terminal round-trip (e.g. Sixel via a DA1 reply) is intentionally not
+      # done here — set `image.backend` explicitly for those.
       def self.detect_backend : Type
         return Type::Kitty if ENV["KITTY_WINDOW_ID"]? || !!ENV["TERM"]?.try(&.includes?("kitty"))
-        if d = Crysterm::Config.detection?("tput.features.da_params")
-          return Type::Sixel if d.value.split(/[;,]/).map(&.strip).includes?("4")
-        end
+        return Type::Iterm if ENV["TERM_PROGRAM"]? == "iTerm.app"
         Type::Ansi
       end
 

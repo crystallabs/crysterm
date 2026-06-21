@@ -47,9 +47,8 @@ describe "Crysterm config integration" do
     ENV["KITTY_WINDOW_ID"] = "1"
     Crysterm::Widget::Image.default_type.should eq Crysterm::Widget::Image::Type::Kitty
 
-    # ...and falls back to Ansi with no kitty signal and no sixel detection.
+    # ...and falls back to Ansi with no kitty/iTerm signal in the environment.
     ENV.delete "KITTY_WINDOW_ID"
-    Superconf.clear_detections
     Crysterm::Widget::Image.detect_backend.should eq Crysterm::Widget::Image::Type::Ansi
   ensure
     saved ? (ENV["KITTY_WINDOW_ID"] = saved) : ENV.delete("KITTY_WINDOW_ID")

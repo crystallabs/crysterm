@@ -18,6 +18,12 @@ module Crysterm
     # need to also set `clickable: true`.
     def wants_mouse?
       clickable? || input? || keyable? || scrollable? || draggable? ||
+        # A widget that listens for drops is a drop target and must be
+        # hit-testable so an in-flight drag can target it.
+        handlers(Crysterm::Event::DragEnter).any? ||
+        handlers(Crysterm::Event::DragOver).any? ||
+        handlers(Crysterm::Event::DragLeave).any? ||
+        handlers(Crysterm::Event::Drop).any? ||
         handlers(Crysterm::Event::Click).any? ||
         handlers(Crysterm::Event::Mouse).any? ||
         # Hover events each have their own handler list (they subclass `Mouse`
@@ -84,14 +90,67 @@ module Crysterm
     end
 
     def draggable=(draggable : Bool)
-      draggable ? enable_drag(draggable) : disable_drag
+      draggable ? enable_drag : disable_drag
     end
 
-    def enable_drag(x)
+    # Grab offset captured at `DragStart`, so a reposition keeps the grabbed
+    # point under the pointer rather than snapping the corner to it.
+    @_drag_dx = 0
+    @_drag_dy = 0
+
+    # Whether the default reposition handlers have been installed (so toggling
+    # `draggable` repeatedly doesn't stack duplicate handlers).
+    @_drag_reposition_installed = false
+
+    # Marks the widget as a drag source. By default also installs the
+    # **reposition** behavior: while dragged (by mouse or keyboard) the widget
+    # follows the anchor by editing its own `left`/`top` (the "self-move" flavor,
+    # matching Blessed's `enableDrag`).
+    #
+    # Pass `reposition: false` for a **data-transfer** source that should stay
+    # put and instead hand a payload to a drop target — fill `data` in your own
+    # `Event::DragStart` handler and react in `Event::DragEnd`/`Event::Drop`.
+    def enable_drag(reposition = true) : Bool
       @draggable = true
+
+      if reposition && !@_drag_reposition_installed
+        @_drag_reposition_installed = true
+
+        on(Crysterm::Event::DragStart) do |e|
+          @_drag_dx = e.x - aleft
+          @_drag_dy = e.y - atop
+        end
+
+        on(Crysterm::Event::Drag) do |e|
+          self.left = (e.x - @_drag_dx).clamp(0, drag_max_left)
+          self.top = (e.y - @_drag_dy).clamp(0, drag_max_top)
+        end
+      end
+
+      @draggable
     end
 
-    def disable_drag
+    # Largest `left`/`top` that keeps the widget within its parent (or the
+    # screen, when parented directly to it).
+    private def drag_max_left : Int32
+      bound = parent.try(&.awidth) || screen.awidth
+      {bound - awidth, 0}.max
+    end
+
+    private def drag_max_top : Int32
+      bound = parent.try(&.aheight) || screen.aheight
+      {bound - aheight, 0}.max
+    end
+
+    # Whether this widget self-moves while dragged (the default reposition
+    # behavior is installed). A transfer-only source (`enable_drag reposition:
+    # false`) returns false, which the engine uses to decide whether to float a
+    # drag "ghost".
+    def drag_repositions? : Bool
+      @_drag_reposition_installed
+    end
+
+    def disable_drag : Bool
       @draggable = false
     end
 

@@ -290,5 +290,80 @@ module Crysterm
 
     # Emitted once when the pointer leaves a widget (hover out).
     class MouseOut < Mouse; end
+
+    # Drag-and-drop events.
+    #
+    # A single, input-agnostic gesture (see `Crysterm::DragSession`). Source
+    # events (`DragStart`/`Drag`/`DragEnd`) fire on the dragged widget; target
+    # events (`DragEnter`/`DragOver`/`DragLeave`/`Drop`) fire on the widget
+    # currently under the pointer (mouse sensor) or focused (keyboard sensor).
+    # Both mouse and keyboard drive the same events, so a widget written once is
+    # draggable/droppable by either input.
+    #
+    # Every event carries the live `session`, whose `data` holds the MIME-typed
+    # payload and the negotiated `DragAction`. A drop target opts in by
+    # `accept`ing a `DragEnter`/`DragOver`; only an accepted target receives a
+    # `Drop`.
+    abstract class DragEvent < EventHandler::Event
+      getter session : ::Crysterm::DragSession
+      property? accepted : Bool = false
+
+      def initialize(@session)
+      end
+
+      # The drag's typed payload + negotiated action.
+      def data : ::Crysterm::DragData
+        @session.data
+      end
+
+      # The widget being dragged.
+      def source : ::Crysterm::Widget
+        @session.source
+      end
+
+      # Current anchor column (absolute cell coordinate).
+      def x : Int32
+        @session.x
+      end
+
+      # Current anchor row (absolute cell coordinate).
+      def y : Int32
+        @session.y
+      end
+
+      # For a drop target: accept this drag, optionally pinning the action
+      # (e.g. `e.accept Crysterm::DragAction::Copy`).
+      def accept(action : ::Crysterm::DragAction? = nil)
+        @accepted = true
+        @session.data.accept action
+      end
+    end
+
+    # Fired on the source when a drag begins. A transfer source should populate
+    # `data` (payload + supported actions) here; a reposition source needs no
+    # payload and just records its grab offset.
+    class DragStart < DragEvent; end
+
+    # Fired on the source on each motion (mouse) or arrow-key nudge (keyboard).
+    class Drag < DragEvent; end
+
+    # Fired on a widget when the drag enters it (it becomes the candidate target).
+    class DragEnter < DragEvent; end
+
+    # Fired on the current target on each motion while the drag stays over it.
+    class DragOver < DragEvent; end
+
+    # Fired on a widget when the drag leaves it.
+    class DragLeave < DragEvent; end
+
+    # Fired on the target on release — only if it accepted the drag.
+    class Drop < DragEvent; end
+
+    # Fired on the source after the gesture ends (drop or cancel). `dropped?`
+    # reports whether a target accepted; combined with `data.action` it tells a
+    # Move source to remove the original vs a Copy source to keep it.
+    class DragEnd < DragEvent
+      property? dropped : Bool = false
+    end
   end
 end

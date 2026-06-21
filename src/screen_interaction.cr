@@ -133,6 +133,11 @@ module Crysterm
       # weren't changed, and handles those situations appropriately.
 
       on(Crysterm::Event::KeyPress) do |e|
+        # Keyboard drag-and-drop sensor: Space lifts a focused draggable widget,
+        # then Tab/arrows/Space/Escape drive the in-flight drag. Handled before
+        # anything else so a drag fully owns the keyboard while it is in flight.
+        next if _drag_key_handled e
+
         # If we're not propagate keys and the key is not on always-propagate
         # list, we're done.
         if !@propagate_keys && !@always_propagate.includes?(e.key)

@@ -6,6 +6,7 @@ require "./mixin/children"
 require "./screen_resize"
 require "./screen_interaction"
 require "./screen_mouse"
+require "./screen_drag"
 
 require "./screen_children"
 require "./screen_attributes"
