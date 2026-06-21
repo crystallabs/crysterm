@@ -168,15 +168,23 @@ module Crysterm
                 line.dirty = true
               end
             elsif mi == last
-              if line[xi + rx + 1]?
+              # The last cell is followed by a trailing spare column (see
+              # `TableLayout#render_row`), and the box's right border sits one
+              # column further still. On an internal separator row, continue the
+              # rule across the spare column and place the ┤ junction on the
+              # border itself — drawing it on the spare column (as a naive
+              # `xi + rx` would) leaves a stray char one short of the border.
+              internal = ry != 0 && (ry // 2) != rows_n
+              if cell = line[xi + rx + 1]?
                 rx += 1
-                if cell = line[xi + rx]?
-                  cell.attr = battr
-                  if ry != 0 && (ry // 2) != rows_n
-                    cell.char = border.right > 0 ? '┤' : '─'
-                  end
-                  line.dirty = true
-                end
+                cell.attr = battr
+                cell.char = '─' if internal
+                line.dirty = true
+              end
+              if internal && (cell = line[xi + rx + 1]?)
+                cell.attr = battr
+                cell.char = border.right > 0 ? '┤' : '─'
+                line.dirty = true
               end
               next
             end

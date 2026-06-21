@@ -29,8 +29,13 @@ module Crysterm
         end
       end
 
+      # Append a line to the log. Multiple arguments are stringified and joined
+      # with a space (like `puts`), so `add "mouse", x` logs `mouse 5` — not the
+      # `["mouse", 5]` that the old `args.inspect` produced. The new line scrolls
+      # into view at the bottom (unless the user has scrolled up to read back),
+      # and the oldest lines are dropped once `scrollback` is exceeded.
       def add(*args)
-        text = args.inspect
+        text = args.map(&.to_s).join(" ")
 
         emit Crysterm::Event::Log, text
 

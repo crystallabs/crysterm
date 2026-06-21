@@ -16,11 +16,11 @@ include Crysterm
 s = Screen.new title: "Mouse"
 s.show_fps = nil
 
-log = Widget::Box.new \
+log = Widget::Log.new \
   parent: s,
   top: 0, left: 0, width: "100%", height: 9,
-  content: "Unified mouse events (xterm + gpm) -> one Event::Mouse:",
-  scrollable: true,
+  label: " Unified mouse events (xterm + gpm) → one Event::Mouse ",
+  parse_tags: true, scrollback: 100,
   style: Style.new(fg: "white", bg: "black", border: true)
 
 target = Widget::Box.new \
@@ -35,17 +35,10 @@ marker = Widget::Box.new \
   parent: s, top: 10, left: 40, width: 3, height: 1,
   content: "<>", style: Style.new(fg: "black", bg: "yellow")
 
-lines = [] of String
-add = ->(text : String) {
-  lines << text
-  lines.shift if lines.size > (log.aheight - 2)
-  log.content = "Unified mouse events (xterm + gpm) -> one Event::Mouse:\n" + lines.join("\n")
-}
-
 green = true
 s.on(Event::Mouse) do |e|
   tag = e.mouse.source == :gpm ? "{cyan-fg}[gpm]  {/}" : "{green-fg}[xterm]{/}"
-  add.call "#{tag} #{e.action.to_s.ljust(9)} #{e.button.to_s.ljust(6)} @ #{e.x},#{e.y}"
+  log.add "#{tag} #{e.action.to_s.ljust(9)} #{e.button.to_s.ljust(6)} @ #{e.x},#{e.y}"
 end
 
 target.on(Event::Click) do

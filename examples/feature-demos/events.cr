@@ -17,9 +17,9 @@ Widget::Box.new \
   content: "{center}Typed events with multiple subscribers{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#302840")
 
-log = Widget::Box.new \
+log = Widget::Log.new \
   parent: s, top: 1, left: 0, width: 54, height: 14,
-  content: "event log:", scrollable: true,
+  label: " event log ", scrollback: 100,
   style: Style.new(fg: "white", bg: "black", border: true)
 
 counter = Widget::Box.new \
@@ -30,17 +30,10 @@ counter = Widget::Box.new \
 checkbox = Widget::Checkbox.new \
   parent: s, top: 8, left: 57, content: "subscribed flag"
 
-lines = [] of String
-add = ->(text : String) {
-  lines << text
-  lines.shift if lines.size > (log.aheight - 2)
-  log.content = "event log:\n" + lines.join("\n")
-}
-
 # Two independent subscribers to the SAME event type.
 key_count = 0
 s.on(Event::KeyPress) do |e|
-  add.call "  Event::KeyPress  char=#{e.char.inspect}"
+  log.add "Event::KeyPress  char=#{e.char.inspect}"
 end
 s.on(Event::KeyPress) do |e|
   key_count += 1
@@ -48,8 +41,8 @@ s.on(Event::KeyPress) do |e|
 end
 
 # Subscribers to checkbox state events.
-checkbox.on(Event::Check) { add.call "  Event::Check     (checkbox on)" }
-checkbox.on(Event::UnCheck) { add.call "  Event::UnCheck   (checkbox off)" }
+checkbox.on(Event::Check) { log.add "Event::Check     (checkbox on)" }
+checkbox.on(Event::UnCheck) { log.add "Event::UnCheck   (checkbox off)" }
 
 # Driver: emit a stream of events through the system.
 demo_keys = "crysterm".chars

@@ -33,6 +33,8 @@ labels.each_with_index do |(name, color), i|
 end
 
 # --- Right: process table --------------------------------------------------
+# A `Table` double-spaces its rows (a rule between each), so N rows need
+# 2N+1 grid rows; header + 3 rows fills this height-9 box exactly.
 table = Widget::Table.new \
   parent: s, top: 1, left: 41, width: 38, height: 9,
   rows: [
@@ -40,15 +42,16 @@ table = Widget::Table.new \
     ["1042", "crysterm", "12.4", "48M"],
     ["337", "render-fiber", "6.1", "12M"],
     ["891", "event-loop", "2.3", "8M"],
-    ["12", "gpm", "0.1", "1M"],
-    ["7", "input", "0.4", "2M"],
   ],
   style: Style.new(fg: "white", bg: "#0c1014", border: true)
 
 # --- Bottom: scrolling activity log ----------------------------------------
-log = Widget::Box.new \
+# `Widget::Log` is a scrollable text box you append lines to: `add` scrolls the
+# newest into view and drops the oldest past `scrollback`. The title lives in the
+# border label, not the scroll region.
+log = Widget::Log.new \
   parent: s, top: 10, left: 0, width: 79, height: 5,
-  content: " Activity", scrollable: true,
+  label: " Activity ", scrollback: 100,
   style: Style.new(fg: "#a0e0a0", bg: "black", border: true)
 
 events = [
@@ -61,7 +64,6 @@ events = [
   "mouse: gpm click @ 8,11",
   "progressbar 'CPU' updated -> 63%",
 ]
-loglines = [] of String
 
 i = 0
 s.every(0.18.seconds) do
@@ -70,11 +72,7 @@ s.every(0.18.seconds) do
     delta = rand(-6..7)
     pb.filled = (pb.filled + delta).clamp(2, 100)
   end
-  if i % 2 == 0
-    loglines << "  #{events.sample}"
-    loglines.shift if loglines.size > (log.aheight - 2)
-    log.content = " Activity\n" + loglines.join("\n")
-  end
+  log.add events.sample if i % 2 == 0
   i += 1
 end
 

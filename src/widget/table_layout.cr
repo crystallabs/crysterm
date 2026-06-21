@@ -50,10 +50,19 @@ module Crysterm
         end
         return if maxes.empty?
 
-        total = maxes.sum + maxes.size + 1
+        # Minimum width of a rendered row: column contents, one separator
+        # between each pair, plus the trailing spare column. This must match
+        # `#row_width` exactly (`maxes.sum + maxes.size`).
+        min_row = maxes.sum + maxes.size
 
-        if (fixed = numeric_width) && fixed >= total
-          missing = fixed - total
+        # Columns fill the box *interior* (inside the border/padding), so any
+        # slack is distributed against `@width - iwidth`, not the full outer
+        # `@width`. Targeting the full width left `row_width` one short of the
+        # interior, so `Table#set_data`'s `@width = row_width + iwidth` grew the
+        # table by `iwidth - 1` columns on every call — a feedback loop that made
+        # a fixed-width table creep wider than requested.
+        if (inner = numeric_inner_width) && inner >= min_row
+          missing = inner - min_row
           per = missing // maxes.size
           rem = missing % maxes.size
           maxes = maxes.map_with_index do |max, i|
@@ -66,8 +75,10 @@ module Crysterm
         @maxes = maxes
       end
 
-      private def numeric_width : Int32?
-        (w = @width).is_a?(Int32) ? w : nil
+      # The interior content width when a fixed numeric `width` is set, i.e. the
+      # box width minus the border/padding insets the columns render inside of.
+      private def numeric_inner_width : Int32?
+        (w = @width).is_a?(Int32) ? w - iwidth : nil
       end
 
       # Visible display width of a cell in terminal columns, with `{...}` tags
