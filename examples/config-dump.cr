@@ -30,18 +30,12 @@ module Superconf
     description: "Example app-defined option: data refresh interval"
 end
 
-# Constructing a Tput publishes the terminal's detected facts (emulator,
-# features) into the shared registry as read-only `tput.*` detections, so the
-# unified dump can show them in a "DETECTED (read-only)" section alongside the
-# configurable options. `probe: false` keeps this side-effect-free off a TTY;
-# on a real terminal, drop it to also capture live-probed colors/attributes.
-begin
-  ::Tput.new probe: false
-rescue
-end
-
 # Opt in to env + CLI overrides. `--dump-config[=FORMAT]` is handled here and
 # exits; otherwise we fall through and print the pretty table ourselves.
+#
+# This dumps *configuration* only. Terminal *detections* (probed emulator and
+# feature facts) are tput's concern, not configuration — see tput's own
+# `examples/dump.cr` or `screen.tput.dump` for those.
 Crysterm.configure!
 
 puts "Crysterm configuration (source shows where each value came from):"
