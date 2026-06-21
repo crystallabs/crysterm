@@ -27,11 +27,15 @@ MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
        "BLESSED-CONTRIB * QT * NCURSES (R.I.P.) * EVERY CRYSTAL CODER * " +
        "THE WHOLE DEMOSCENE ...   REAL ONES NEVER REMOVE THE INTRO !   ......   ")
 
-# Copper bars on rows 1 and 3 (rows 0 and 2 carry the title and the line scroller).
+# Copper bars on rows 1 and 3 (rows 0 and 2 carry the title and the line
+# scroller), as reusable `Widget::Effect::CopperBar`s. Each is staggered around
+# the color wheel by `hue_offset` and advanced explicitly from the master loop
+# below (via `step`) so the whole scene stays on one clock — `bg_under` recomputes
+# the very same hue independently, so flying letters ride over the bars seamlessly.
 COPPER_ROWS = [1, 3]
-copper = COPPER_ROWS.map do |row|
-  Widget::Box.new parent: s, top: row, left: 0, width: "100%", height: 1,
-    style: Style.new(bg: "#000000")
+copper = COPPER_ROWS.map_with_index do |row, idx|
+  Widget::Effect::CopperBar.new parent: s, top: row, left: 0, width: "100%", height: 1,
+    hue_offset: idx * 26, hue_speed: 9
 end
 copper_idx = {1 => 0, 3 => 1}
 
@@ -118,10 +122,8 @@ end
 amp = (band_h - 1) / 2.0
 frame = 0
 s.every(0.07.seconds) do
-  # copper bars scroll
-  copper.each_with_index do |box, idx|
-    box.style.bg = Colors.hsv(((idx * 26) + frame * 9) % 360)
-  end
+  # copper bars hue-cycle (advance one frame; each CopperBar paints its own bg)
+  copper.each &.step
 
   # row 2: right-to-left rainbow scroller (advance one column per master frame)
   hscroll.step
