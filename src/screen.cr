@@ -149,6 +149,7 @@ module Crysterm
       @dock_contrast = @dock_contrast,
       @always_propagate = @always_propagate,
       @propagate_keys = @propagate_keys,
+      @default_quit_keys = @default_quit_keys,
       @tab_navigation = @tab_navigation,
       @cursor = @cursor,
       optimization : OptimizationFlag | Shorthands = @optimization,
@@ -253,6 +254,8 @@ module Crysterm
       # XXX Why this is done here instead of in enter/leave?
       _listen_keys
       # _listen_mouse # XXX
+
+      install_default_quit_keys if default_quit_keys?
 
       enter # if alt # Only do clear-screen/full-screen if user wants alternate buffer
       post_enter

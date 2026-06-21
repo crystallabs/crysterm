@@ -8,6 +8,24 @@ module Crysterm
     # Are keypresses being propagated further, or (except ignored ones) not propagated?
     property? propagate_keys : Bool = Config.screen_propagate_keys
 
+    # Should the constructor install a default quit handler? When on, pressing
+    # `q` (or Ctrl-Q) destroys the screen and exits the program — the behavior
+    # every demo used to wire up by hand. Apps that bind those keys themselves
+    # can turn it off globally via the `screen.default_quit_keys` config option
+    # or per-screen via `default_quit_keys: false`.
+    property? default_quit_keys : Bool = Config.screen_default_quit_keys
+
+    # Installs the default quit handler (see `default_quit_keys?`). Called from
+    # the constructor; idempotent enough for normal use (one screen, one call).
+    protected def install_default_quit_keys
+      on(Crysterm::Event::KeyPress) do |e|
+        if e.char == 'q' || e.key == Tput::Key::CtrlQ
+          destroy
+          exit
+        end
+      end
+    end
+
     # Array of keys to ignore when keys are locked or grabbed. Useful for defining
     # keys that will always execute their action (e.g. exit a program) regardless of
     # whether keys are propagate.

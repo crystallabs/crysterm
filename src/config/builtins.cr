@@ -23,6 +23,8 @@ module Superconf
     description: "Tab / Shift+Tab move keyboard focus between focusable widgets"
   option "screen.propagate_keys", true,
     description: "Propagate unhandled keypresses up the widget tree"
+  option "screen.default_quit_keys", true,
+    description: "Install a default quit handler (q / Ctrl-Q destroy the screen and exit) in the Screen constructor"
   option "screen.send_focus", false,
     description: "Emit focus events once the mouse is enabled"
   option "screen.grab_keys", false,

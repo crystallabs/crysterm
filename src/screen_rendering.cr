@@ -218,6 +218,34 @@ module Crysterm
       schedule_render
     end
 
+    # Drive an animation from its own fiber: repeatedly invoke *block*, `render`,
+    # then sleep *interval*, until the program exits. Returns the spawned
+    # `Fiber`.
+    #
+    # Collapses the animation-loop boilerplate the demos repeat everywhere —
+    #
+    # ```
+    # spawn do
+    #   loop do
+    #     # ...mutate widgets...
+    #     screen.render
+    #     sleep 0.1.seconds
+    #   end
+    # end
+    # ```
+    #
+    # into `screen.every(0.1.seconds) { # ...mutate widgets... }`. Because the
+    # render happens after each block call, the body only needs to update state.
+    def every(interval : Time::Span, &block : ->) : Fiber
+      spawn do
+        loop do
+          block.call
+          render
+          sleep interval
+        end
+      end
+    end
+
     # Real render
     def _render # (draw = true) #@@auto_draw)
       t1 = Time.instant
