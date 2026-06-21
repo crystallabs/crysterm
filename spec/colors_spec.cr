@@ -112,4 +112,48 @@ describe Crysterm::Attr do
     Attr.unpack_color(Attr.bg(a)).should eq 0xffffff
     Attr.default?(Attr.fg(a)).should be_false
   end
+
+  describe ".hsv_i" do
+    it "yields the packed 0xRRGGBB int for the primary hues" do
+      Colors.hsv_i(0).should eq 0xff0000
+      Colors.hsv_i(120).should eq 0x00ff00
+      Colors.hsv_i(240).should eq 0x0000ff
+    end
+
+    it "honours saturation and value" do
+      Colors.hsv_i(0, 0.0, 1.0).should eq 0xffffff # no saturation -> white
+      Colors.hsv_i(0, 1.0, 0.0).should eq 0x000000 # no value -> black
+    end
+
+    # Behavior-lock: `hsv` is now just `hsv_i` formatted; it must reproduce the
+    # OLD hand-rolled `"#%02x%02x%02x"` output across the wheel (and out of range).
+    it "stays byte-for-byte compatible with the previous hsv string formatting" do
+      old = ->(h : Float64, s : Float64, v : Float64) {
+        hh = h % 360.0
+        hh += 360.0 if hh < 0
+        c = v * s
+        x = c * (1 - (((hh / 60.0) % 2) - 1).abs)
+        m = v - c
+        rf, gf, bf = case (hh.to_i // 60) % 6
+                     when 0 then {c, x, 0.0}
+                     when 1 then {x, c, 0.0}
+                     when 2 then {0.0, c, x}
+                     when 3 then {0.0, x, c}
+                     when 4 then {x, 0.0, c}
+                     else        {c, 0.0, x}
+                     end
+        r = ((rf + m) * 255).to_i.clamp(0, 255)
+        g = ((gf + m) * 255).to_i.clamp(0, 255)
+        b = ((bf + m) * 255).to_i.clamp(0, 255)
+        "#%02x%02x%02x" % {r, g, b}
+      }
+      [-30, 0, 1, 47, 120, 200, 359, 360, 400, 720].each do |h|
+        {1.0, 0.5}.each do |s|
+          {1.0, 0.3}.each do |v|
+            Colors.hsv(h, s, v).should eq old.call(h.to_f, s, v)
+          end
+        end
+      end
+    end
+  end
 end

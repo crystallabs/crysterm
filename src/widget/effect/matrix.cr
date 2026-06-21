@@ -1,4 +1,5 @@
 require "../box"
+require "./direct"
 
 module Crysterm
   class Widget
@@ -8,36 +9,35 @@ module Crysterm
     module Effect
       # "Matrix" digital-rain effect, as a self-contained, self-animating widget.
       #
-      # Extracted from the `matrix.cr` feature demo: it recomposes its whole area
-      # every frame into a single tag-parsed string, where each glyph carries its
-      # own `{#rrggbb-fg}` TrueColor tag so the trails fade smoothly from a bright
-      # head down to deep green. It fills its own box (not necessarily the whole
-      # screen), reads its size lazily each frame, and so tracks terminal resize
-      # and `%`-relative sizing automatically.
+      # Each column is a falling "drop": a bright head glyph trailing a tail that
+      # fades from near-white down to deep green. It fills its own box (not
+      # necessarily the whole screen), reads its size lazily each frame, and so
+      # tracks terminal resize and `%`-relative sizing automatically.
       #
-      # Animation is driven by the widget itself: call `#start` to spawn the
-      # render fiber and `#stop` to halt it (mirroring `Widget::Loading`).
+      # It paints its interior straight into the screen's cell buffer as packed
+      # `Int64` attrs (each fg a direct `0xRRGGBB` value) — see `Effect::Direct` —
+      # so there is no tagged-content round-trip and no per-frame tag re-parse.
+      # Animation is driven by the widget itself: call `#start` to spawn the render
+      # fiber and `#stop` to halt it (mirroring `Widget::Loading`). `#step` (state
+      # only) is public so the effect can instead be advanced from an external
+      # clock.
       #
       # ```
       # rain = Widget::Effect::Matrix.new parent: screen, width: "100%", height: "100%"
       # rain.start
       # ```
       class Matrix < Box
+        include Effect::Direct
+
         # Characters rained down the screen; one is sampled per lit cell per frame.
         property pool : Array(Char)
 
-        # Delay between frames.
-        property interval : Time::Span
-
-        # Color of the leading ("head") glyph of every drop.
+        # Color of the leading ("head") glyph of every drop (a `#rrggbb` string; it
+        # is resolved to a packed `0xRRGGBB` via the cached `Colors.convert_cached`,
+        # so there is no per-cell string allocation).
         property head_color : String
 
-        # Frame loop; non-nil while running.
-        @fiber : Fiber?
-        protected property? running = false
-
-        # Per-column state, (re)built lazily whenever the column count changes.
-        @cols = 0
+        # Per-column state, (re)built whenever the column count changes.
         @heads = [] of Float64
         @speeds = [] of Float64
         @lengths = [] of Int32
@@ -48,49 +48,21 @@ module Crysterm
           @head_color = "#ccffcc",
           **box,
         )
-          # The fading trail is emitted as `{#rrggbb-fg}` tags, so tag parsing
-          # must be on regardless of what the caller passed.
           super **box
-          self.parse_tags = true
         end
 
         # (Re)initialize per-column state for *w* columns and *h* rows. Heads start
         # at random negative offsets so the rain doesn't all begin at the top.
-        private def reset_columns(w, h)
-          @cols = w
+        def resize(w, h)
           @heads = Array.new(w) { -rand(0..h).to_f }
           @speeds = Array.new(w) { 0.25 + rand * 0.7 }
           @lengths = Array.new(w) { 6 + rand(10) }
         end
 
-        # Builds one frame of rain sized to the current box and advances the drops.
-        def step
-          w = awidth
-          h = aheight
-          return if w <= 0 || h <= 0
-          reset_columns w, h if w != @cols
-
-          self.content = String.build do |io|
-            h.times do |y|
-              w.times do |x|
-                dist = @heads[x] - y
-                if dist >= 0 && dist < @lengths[x]
-                  ch = @pool.sample
-                  if dist < 1
-                    io << '{' << @head_color << "-fg}" << ch << "{/}"
-                  else
-                    frac = 1.0 - dist / @lengths[x]
-                    g = (60 + 180 * frac).to_i.clamp(0, 255)
-                    io << ("{#00%02x22-fg}" % g) << ch << "{/}"
-                  end
-                else
-                  io << ' '
-                end
-              end
-              io << '\n' unless y == h - 1
-            end
-          end
-
+        # Advance every drop; recycle a drop to a fresh negative offset, speed, and
+        # length once its tail has fully fallen past the bottom.
+        def advance(w, h)
+          return if @heads.size != w
           w.times do |x|
             @heads[x] += @speeds[x]
             if @heads[x] - @lengths[x] > h
@@ -101,29 +73,24 @@ module Crysterm
           end
         end
 
-        # Start the animation: spawns a fiber that recomposes a frame, renders, and
-        # sleeps `interval`, until `#stop`. Calling `#start` while already running
-        # is a no-op.
-        def start
-          return if running?
-          self.running = true
-          @fiber = Fiber.new do
-            loop do
-              break unless running?
-              step
-              screen.render
-              sleep @interval
+        # Glyph + packed `0xRRGGBB` colour for interior cell `{x, y}` (blank, with
+        # the default fg, for cells outside any drop's trail).
+        def cell(x, y, w, h) : {Char, Int32}
+          dist = @heads[x] - y
+          if dist >= 0 && dist < @lengths[x]
+            ch = @pool.sample
+            if dist < 1
+              {ch, Colors.convert_cached(head_color)}
+            else
+              # Fade the trail from bright to deep green: r=0x00, b=0x22, with the
+              # green channel ramping down with distance from the head.
+              frac = 1.0 - dist / @lengths[x]
+              g = (60 + 180 * frac).to_i.clamp(0, 255)
+              {ch, (g << 8) | 0x22}
             end
-          end.enqueue
-        end
-
-        # Stop the animation. The fiber exits on its next iteration.
-        def stop
-          self.running = false
-        end
-
-        def toggle
-          running? ? stop : start
+          else
+            {' ', -1}
+          end
         end
       end
     end

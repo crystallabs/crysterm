@@ -81,14 +81,16 @@ module Crysterm
       end
     end
 
-    # Converts an HSV color to a `#rrggbb` hex string (Crysterm's native color
-    # form, directly usable as a `Style` color or inside a `{#rrggbb-fg}` tag).
+    # Converts an HSV color to a packed `0xRRGGBB` integer — Crysterm's native
+    # color value, usable directly as a packed `Attr` color field with no
+    # intermediate `String`. This is the allocation-free path for per-cell color
+    # in the render hot path (an effect that recolors every cell every frame must
+    # not allocate a `"#rrggbb"` `String` per cell).
     #
     # *h* is a hue in degrees (wrapped into `0..360`); *s* and *v* are the
-    # saturation and value in `0.0..1.0`. The defaults (`s = v = 1.0`) give a
-    # fully-saturated, full-brightness rainbow — the common case for color
-    # cycling — and reproduce the hand-rolled `hsv` helpers the demos used.
-    def self.hsv(h : Int | Float, s : Float64 = 1.0, v : Float64 = 1.0) : String
+    # saturation and value in `0.0..1.0`. `hsv` formats the same value as a
+    # `#rrggbb` string for tag/`Style` use.
+    def self.hsv_i(h : Int | Float, s : Float64 = 1.0, v : Float64 = 1.0) : Int32
       hh = h.to_f % 360.0
       hh += 360.0 if hh < 0
       c = v * s
@@ -105,7 +107,19 @@ module Crysterm
       r = ((rf + m) * 255).to_i.clamp(0, 255)
       g = ((gf + m) * 255).to_i.clamp(0, 255)
       b = ((bf + m) * 255).to_i.clamp(0, 255)
-      "#%02x%02x%02x" % {r, g, b}
+      (r << 16) | (g << 8) | b
+    end
+
+    # Converts an HSV color to a `#rrggbb` hex string (Crysterm's native color
+    # form, directly usable as a `Style` color or inside a `{#rrggbb-fg}` tag).
+    # For the allocation-free packed-integer form, see `hsv_i`.
+    #
+    # *h* is a hue in degrees (wrapped into `0..360`); *s* and *v* are the
+    # saturation and value in `0.0..1.0`. The defaults (`s = v = 1.0`) give a
+    # fully-saturated, full-brightness rainbow — the common case for color
+    # cycling — and reproduce the hand-rolled `hsv` helpers the demos used.
+    def self.hsv(h : Int | Float, s : Float64 = 1.0, v : Float64 = 1.0) : String
+      "#%06x" % hsv_i(h, s, v)
     end
 
     # Allocation-free counterpart of `TermColors#sgr_color`: writes the SGR

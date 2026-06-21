@@ -1,0 +1,126 @@
+require "../box"
+require "./direct"
+
+module Crysterm
+  class Widget
+    module Effect
+      # "Fire" effect — the rising, flickering flame wall of demoscene fame, as a
+      # self-contained, self-animating widget.
+      #
+      # The bottom row is reseeded with random "embers" every frame; every cell
+      # above cools to a blend of the (hotter) cells just below it, so the field
+      # settles into a flickering flame that fades as it climbs (a stronger `decay`
+      # lets it reach higher before going dark). The one persistent `@heat` buffer
+      # is the only state; it is rebuilt whenever the box size changes, so the
+      # effect tracks terminal resize and `%`-relative sizing automatically. Each
+      # cell's heat is mapped through a black → red → orange → yellow → white ramp;
+      # cold cells fall below `ignition` and render as blank space, leaving the
+      # flame's silhouette.
+      #
+      # It paints its interior straight into the screen's cell buffer as packed
+      # `Int64` attrs (each fg a direct `0xRRGGBB` value) — see `Effect::Direct` —
+      # so there is no tagged-content round-trip and no per-frame tag re-parse.
+      # It drives its own animation: call `#start` to spawn the render fiber and
+      # `#stop` to halt it. `#step` (state only) is public so the effect can
+      # instead be advanced from an external clock.
+      #
+      # ```
+      # fire = Widget::Effect::Fire.new parent: screen, width: "100%", height: "100%"
+      # fire.start
+      # ```
+      class Fire < Box
+        include Effect::Direct
+
+        # Glyph ramp indexed by cell heat, coldest first. The first entry is used
+        # for cells below `ignition` (so a leading space leaves cold cells blank);
+        # the rest shade the flame from faint to solid.
+        property ramp : Array(Char)
+
+        # Fraction of heat that survives each upward step (`0.0..1.0`); the flame
+        # decays by this factor per row, so higher = taller flames, lower = a
+        # short fire that goes dark quickly.
+        property decay : Float64
+
+        # Lowest random ember heat seeded into the bottom row each frame; the source
+        # flickers between `ignition` and `1.0`.
+        property ignition : Float64
+
+        # Optional colour override: `(heat) -> 0xRRGGBB`, where *heat* is
+        # `0.0..1.0`. `nil` uses the built-in black → red → yellow → white ramp.
+        property color : Proc(Float64, Int32)?
+
+        # Per-area heat field, (re)built whenever the area's size changes. Flat
+        # row-major buffer of `@cols * @rows` values in `0.0..1.0`.
+        @heat = [] of Float64
+
+        def initialize(
+          @ramp = [' ', '.', ':', '*', 'o', 'O', '#', '@'],
+          @interval = 0.07.seconds,
+          @decay = 0.9,
+          @ignition = 0.7,
+          @color = nil,
+          **box,
+        )
+          super **box
+        end
+
+        # (Re)allocate the heat field for a *w*×*h* interior.
+        def resize(w, h)
+          @heat = Array.new(w * h, 0.0)
+        end
+
+        # Reseed the bottom row and cool each cell toward the (hotter) cells just
+        # below it, working upward so the flame settles into a flickering, cooling
+        # gradient.
+        def advance(w, h)
+          return if w <= 0 || h <= 0 || @heat.size != w * h
+
+          base = (h - 1) * w
+          w.times { |x| @heat[base + x] = @ignition + rand * (1.0 - @ignition) }
+
+          (h - 2).downto(0) do |y|
+            row = y * w
+            below = (y + 1) * w
+            w.times do |x|
+              sum = @heat[below + x]
+              cnt = 1
+              if x > 0
+                sum += @heat[below + x - 1]
+                cnt += 1
+              end
+              if x < w - 1
+                sum += @heat[below + x + 1]
+                cnt += 1
+              end
+              @heat[row + x] = (sum / cnt) * @decay
+            end
+          end
+        end
+
+        # Glyph + packed `0xRRGGBB` colour for interior cell `{x, y}` (blank, with
+        # the default fg, for cold cells).
+        def cell(x, y, w, h) : {Char, Int32}
+          heat = @heat[y * w + x]? || 0.0
+          if heat < @ignition * 0.15
+            {@ramp[0], -1}
+          else
+            idx = (heat * (@ramp.size - 1)).to_i.clamp(1, @ramp.size - 1)
+            {@ramp[idx], colorize(heat)}
+          end
+        end
+
+        # Packed `0xRRGGBB` for a cell of the given *heat* (`0.0..1.0`): black at 0,
+        # ramping up through red and yellow to white at 1.
+        private def colorize(heat) : Int32
+          if c = @color
+            return c.call(heat)
+          end
+          r = ((heat * 3.0).clamp(0.0, 1.0) * 255).to_i
+          g = ((heat * 3.0 - 1.0).clamp(0.0, 1.0) * 255).to_i
+          b = ((heat * 3.0 - 2.0).clamp(0.0, 1.0) * 255).to_i
+          (r << 16) | (g << 8) | b
+        end
+      end
+    end
+  end
+end
