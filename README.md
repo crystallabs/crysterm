@@ -2,11 +2,67 @@
 [![Version](https://img.shields.io/github/tag/crystallabs/crysterm.svg?maxAge=360)](https://github.com/crystallabs/crysterm/releases/latest)
 [![License](https://img.shields.io/github/license/crystallabs/crysterm.svg)](https://github.com/crystallabs/crysterm/blob/master/LICENSE)
 
-# Crysterm
-
 Crysterm is a console/terminal toolkit for Crystal, inspired heavily by 
 [Blessed](https://github.com/chjj/blessed), [Blessed-contrib](https://github.com/yaronn/blessed-contrib), and
 [Qt](https://doc.qt.io/).
+
+Advanced features:
+
+![](screenshots/features/truecolor.gif)
+
+![](screenshots/features/styling.gif)
+
+![](screenshots/features/matrix.gif)
+
+![](screenshots/features/concurrent_rendering.gif)
+
+![](screenshots/features/image.gif)
+
+![](screenshots/features/netscape.gif)
+
+![](screenshots/features/unicode.gif)
+
+![](screenshots/features/widgets.gif)
+
+Image-rendering backends:
+
+![](screenshots/features/matterhorn-overlay.png)
+
+Sixel:
+
+![](screenshots/features/matterhorn-sixel.png)
+
+![](screenshots/features/matterhorn-kitty.png)
+
+iTerm2:
+
+![](screenshots/features/matterhorn-iterm.png)
+
+![](screenshots/features/matterhorn-octant.png)
+
+![](screenshots/features/matterhorn-sextant.png)
+
+![](screenshots/features/matterhorn-quadrant.png)
+
+![](screenshots/features/matterhorn-half.png)
+
+![](screenshots/features/matterhorn-ascii.png)
+
+![](screenshots/features/matterhorn-block.png)
+
+![](screenshots/features/matterhorn-ansi-c256.png)
+
+![](screenshots/features/matterhorn-ansi-c16.png)
+
+![](screenshots/features/matterhorn-braille.png)
+
+![](screenshots/features/matterhorn-regis.png)
+
+Tektronix 4014:
+
+![](screenshots/features/matterhorn-tek.png)
+
+## Tech intro
 
 It is supported by the event model in 
 [event_handler](https://github.com/crystallabs/event_handler), color routines in
@@ -22,9 +78,10 @@ but it also supports a built-in, standard mode which does not use terminfo at al
 (A lot of modern software just hardcodes the sequences.)
 The other important module at Crysterm's core is [event_handler](https://github.com/crystallabs/event_handler).
 through which all app events and input are routed.
-More in-depth doc is [USAGE.md](https://github.com/crystallabs/crysterm/blob/master/USAGE.md).
 
-## Trying out the examples
+In-depth introductory doc is in [USAGE.md](https://github.com/crystallabs/crysterm/blob/master/USAGE.md).
+
+## Examples
 
 ```
 git clone https://github.com/crystallabs/crysterm
@@ -37,20 +94,6 @@ crystal examples/tech-demo.cr
 ```
 
 (And other examples from directories `examples/`, `small-tests/`, `test/` and `test-auto/`.)
-
-## Screenshots
-
-Animated demo (examples/tech-demo.cr)
-
-![Crysterm Demo Video](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/2020-01-29-1.gif)
-
-Layout engine (showing inline/masonry layout, test/widget-layout.cr)
-
-![Crysterm Masonry Layout](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/layout.png)
-
-Transparency, color blending, and shadow (part of small-tests/shadow.cr)
-
-![Crysterm Color Blending](https://raw.githubusercontent.com/crystallabs/crysterm/master/screenshots/shadow.png)
 
 ## Testing
 
@@ -66,7 +109,7 @@ Run `crystal docs` as usual.
 
 ## Other projects
 
-List of interesting or similar projects in no particular order:
+List of other at least somewhat-related projects in no particular order:
 
 Terminal-related:
 
