@@ -1,10 +1,13 @@
 # IMPRESSIVE DEMO: a "cracktro" — the animated intro old-school crackers bolted
 # onto pirated games. Standard 80x15 window.
 #
-# Top 4 rows:
-#   row 0 : the whole row is filled by letters shot out of the CRT centre dot,
-#           repeating "CRYSTERM " across the full width; each letter fakes
-#           growing (. · : * o O 0 @) and adopts the background it flies over.
+# Letters are shot out of the CRT centre dot and land in a clockwise spiral that
+# fills the WHOLE screen: the top row first, then down the right border, the
+# bottom row right→left, up the left border, then inward (2nd row, ...) until
+# every cell is filled — at which point it resets and starts over clean. Each
+# letter fakes growing (. · : * o O 0 @) and adopts the background it flies over.
+#
+# Underneath, the scene plays on until the spiral covers it:
 #   row 1 : copper / raster bar
 #   row 2 : a plain right-to-left text scroller (same message as the sine one)
 #   row 3 : copper / raster bar
@@ -76,18 +79,44 @@ bg_under = ->(row : Int32, fr : Int32) {
 # non-space cell a letter shot from the centre.
 PATTERN   = "CRYSTERM "
 GROW      = [".", "·", ":", "*", "o", "O", "0", "@"]
-TITLE_ROW =  0
-INTERVAL  =  1 # frames between successive letter launches (rapid: fills the row)
+INTERVAL  =  1 # frames between successive letter launches (rapid: fills the screen)
 TRAVEL    = 12 # frames a letter spends in flight
 HOLD      = 28 # frames the finished row is held before re-firing
 
 cx = w // 2
 cy = h // 2
 
-slots = [] of Tuple(Int32, Char)
-(0...w).each do |x|
-  c = PATTERN[x % PATTERN.size]
-  slots << {x, c} unless c == ' '
+# Clockwise spiral over every cell, starting at the top-left corner: the top row
+# left→right, then down the right border, the bottom row right→left, up the left
+# border, and then inward (2nd row from the top, ...) until the whole screen is
+# filled. Each successive cell is the destination of one shot-out letter.
+def spiral_order(w, h)
+  cells = [] of Tuple(Int32, Int32)
+  top = 0
+  bottom = h - 1
+  left = 0
+  right = w - 1
+  while top <= bottom && left <= right
+    (left..right).each { |x| cells << {x, top} }        # top row, L→R
+    top += 1
+    (top..bottom).each { |y| cells << {right, y} }      # right border, T→B
+    right -= 1
+    if top <= bottom
+      right.downto(left) { |x| cells << {x, bottom} }   # bottom row, R→L
+      bottom -= 1
+    end
+    if left <= right
+      bottom.downto(top) { |y| cells << {left, y} }     # left border, B→T
+      left += 1
+    end
+  end
+  cells
+end
+
+# Every cell receives a (non-space) letter so the screen fills in solid.
+LETTERS_SEQ = PATTERN.chars.reject { |c| c == ' ' }
+slots = spiral_order(w, h).map_with_index do |(x, y), i|
+  {x, y, LETTERS_SEQ[i % LETTERS_SEQ.size]}
 end
 cycle = slots.size * INTERVAL + TRAVEL + HOLD
 
@@ -139,10 +168,10 @@ spawn do
       String.build { |io| (0...w).each { |x| io << (grid[r][x] || " ") } }
     }.join('\n')
 
-    # title letters shooting from the centre dot to fill the top row
+    # letters shot from the centre dot, spiralling clockwise to fill the screen
     f = frame % cycle
     letters.each_with_index do |box, i|
-      destc, fch = slots[i]
+      destx, desty, fch = slots[i]
       lf = i * INTERVAL
       col = cx
       row = cy
@@ -151,13 +180,13 @@ spawn do
         box.style.fg = (frame // 3).even? ? "#ff8080" : "#80c0ff"
       elsif f < lf + TRAVEL
         p = (f - lf) / TRAVEL.to_f
-        col = (cx + (destc - cx) * p).round.to_i
-        row = (cy + (TITLE_ROW - cy) * p).round.to_i
+        col = (cx + (destx - cx) * p).round.to_i
+        row = (cy + (desty - cy) * p).round.to_i
         box.content = GROW[(p * GROW.size).to_i.clamp(0, GROW.size - 1)]
         box.style.fg = hsv((i * 9 + frame * 9) % 360)
       else
-        col = destc
-        row = TITLE_ROW
+        col = destx
+        row = desty
         box.content = fch.to_s
         box.style.fg = hsv((i * 9 + frame * 6) % 360)
       end
