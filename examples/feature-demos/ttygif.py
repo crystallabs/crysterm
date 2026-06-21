@@ -37,6 +37,19 @@ from PIL import Image, ImageDraw, ImageFont
 
 import re
 
+# Out-of-band per-frame capture marker. A program being recorded emits this APC
+# string (ESC _ TTYGIF<index>,<delay_ms> ESC \) just before drawing each
+# animation frame — real terminals ignore APC strings and our VT emulator skips
+# them, so nothing is ever drawn. With --mark the recorder reads these to grab
+# exactly one animation loop (between two index-0 markers), emitting one output
+# frame per source frame sampled at the true frame boundaries and timed by the
+# source delay. This skips a slow warm-up (markers only start once the program is
+# animating), tiles seamlessly, and keeps playback smooth despite capture jitter.
+MARK_RE = re.compile(rb"\x1b_TTYGIF(\d+),(\d+)\x1b\\")
+# Longest partial marker we might need to carry between reads (sentinel + a
+# generous index width), so one split across os.read() boundaries isn't missed.
+MARK_TAIL = len(b"\x1b_TTYGIF") + 16
+
 # Terminal capability queries a TUI may send and *block* waiting on. We answer
 # them like a real xterm would, so the program proceeds to actually draw.
 _RE_OSC_COLOR = re.compile(rb"\x1b\]1([012]);\?(?:\x07|\x1b\\)")
@@ -111,7 +124,7 @@ def _answer_queries(buf, cap_term):
     return out
 
 
-def capture(argv, cols, rows, duration, env_extra=None):
+def capture(argv, cols, rows, duration, env_extra=None, mark=False, cycles=2):
     pid, fd = pty.fork()
     if pid == 0:  # child
         env = dict(os.environ)
@@ -133,12 +146,16 @@ def capture(argv, cols, rows, duration, env_extra=None):
 
     cap_term = Terminal(cols, rows)  # cursor tracking for CPR replies
     events = []
+    mark_events = []          # (timestamp, frame_index) for each marker seen
+    pending = b""             # unscanned bytes (carries a split marker)
+    zeros = 0                 # how many index-0 markers (loop starts) seen
     start = time.time()
     deadline = start + duration
     while True:
-        timeout = deadline - time.time()
-        if timeout <= 0:
+        now = time.time()
+        if now >= deadline:
             break
+        timeout = deadline - now
         try:
             r, _, _ = select.select([fd], [], [], timeout)
         except select.error as e:
@@ -152,7 +169,25 @@ def capture(argv, cols, rows, duration, env_extra=None):
                 break
             if not data:
                 break
-            events.append((time.time() - start, data))
+            ts = time.time() - start
+            events.append((ts, data))
+            # Scan for per-frame markers. Stop once we've seen the loop start
+            # (index 0) `cycles` times — that gives us a full steady loop.
+            if mark:
+                pending += data
+                last = 0
+                for m in MARK_RE.finditer(pending):
+                    idx = int(m.group(1))
+                    delay = int(m.group(2))
+                    mark_events.append((ts, idx, delay))
+                    if idx == 0:
+                        zeros += 1
+                    last = m.end()
+                # Drop scanned bytes but keep a trailing partial marker.
+                keep = max(last, len(pending) - MARK_TAIL)
+                pending = pending[keep:]
+                if zeros >= cycles:
+                    break
             for rep in _answer_queries(data, cap_term):
                 try:
                     os.write(fd, rep)
@@ -177,7 +212,7 @@ def capture(argv, cols, rows, duration, env_extra=None):
         os.close(fd)
     except OSError:
         pass
-    return events
+    return events, mark_events
 
 
 # --------------------------------------------------------------------------- #
@@ -790,6 +825,11 @@ def main():
     ap.add_argument("--scale", type=int, default=1)
     ap.add_argument("--settle", type=float, default=0.4,
                     help="extra seconds to hold the final frame")
+    ap.add_argument("--mark", action="store_true",
+                    help="capture one seamless animation loop using the program's "
+                         "per-frame markers (see MARK_RE): one output frame per "
+                         "source frame, between two loop starts. Skips warm-up and "
+                         "ignores --fps/--settle for the loop.")
     ap.add_argument("cmd", nargs=argparse.REMAINDER)
     args = ap.parse_args()
 
@@ -800,7 +840,8 @@ def main():
         ap.error("no command given (use -- before the command)")
 
     sys.stderr.write("  capturing (%dx%d, %.1fs) ...\n" % (args.cols, args.rows, args.duration))
-    events = capture(cmd, args.cols, args.rows, args.duration)
+    events, mark_events = capture(cmd, args.cols, args.rows, args.duration,
+                                  mark=args.mark)
     if not events:
         sys.stderr.write("  WARNING: no output captured\n")
 
@@ -821,30 +862,62 @@ def main():
         sys.stderr.write("  done (still): %s\n" % args.out)
         return
 
-    frame_dt = 1.0 / args.fps
     frames = []
     durations = []
     ev_idx = 0
-    t = 0.0
-    end = args.duration
-    last_event_t = events[-1][0] if events else 0.0
-    end = min(end, last_event_t + 0.001) if events else end
 
-    while t <= end + 1e-6:
-        # feed all events up to time t
-        while ev_idx < len(events) and events[ev_idx][0] <= t:
+    # Loop mode: when the program emitted per-frame markers, capture exactly one
+    # loop — the frames between the last two index-0 markers — rendering one
+    # output frame per source frame at its true boundary. Deterministic and
+    # seamless (first and last frames are genuinely adjacent), so it tiles
+    # forever. Falls back to fixed-duration sampling if markers weren't seen.
+    loop_segment = None
+    if args.mark:
+        starts = [i for i, (_, idx, _) in enumerate(mark_events) if idx == 0]
+        if len(starts) >= 2:
+            a, b = starts[-2], starts[-1]
+            loop_segment = (mark_events[a:b], mark_events[b][0])  # frames, end ts
+        else:
+            sys.stderr.write("  WARNING: fewer than 2 loop-start markers seen "
+                             "(%d); falling back to fixed-duration capture\n"
+                             % len(starts))
+
+    if loop_segment:
+        seg, end_ts = loop_segment
+        sys.stderr.write("  one loop = %d frames, %dms\n"
+                         % (len(seg), sum(d for _, _, d in seg)))
+        for j, (ts, _idx, delay) in enumerate(seg):
+            ts_next = seg[j + 1][0] if j + 1 < len(seg) else end_ts
+            # Feed everything up to the next frame's marker, so frame j is fully
+            # drawn before we snapshot it; time it by the source delay (smooth,
+            # jitter-free) rather than the measured wall-clock gap.
+            while ev_idx < len(events) and events[ev_idx][0] < ts_next:
+                term.feed(events[ev_idx][1], decoder)
+                ev_idx += 1
+            frames.append(render_grid(term, fonts, cw, ch_h, ascent, args.scale))
+            durations.append(max(1, delay))
+    else:
+        frame_dt = 1.0 / args.fps
+        t = 0.0
+        end = args.duration
+        last_event_t = events[-1][0] if events else 0.0
+        end = min(end, last_event_t + 0.001) if events else end
+
+        while t <= end + 1e-6:
+            # feed all events up to time t
+            while ev_idx < len(events) and events[ev_idx][0] <= t:
+                term.feed(events[ev_idx][1], decoder)
+                ev_idx += 1
+            frames.append(render_grid(term, fonts, cw, ch_h, ascent, args.scale))
+            durations.append(int(frame_dt * 1000))
+            t += frame_dt
+
+        # feed any remainder and add a settle frame
+        while ev_idx < len(events):
             term.feed(events[ev_idx][1], decoder)
             ev_idx += 1
         frames.append(render_grid(term, fonts, cw, ch_h, ascent, args.scale))
-        durations.append(int(frame_dt * 1000))
-        t += frame_dt
-
-    # feed any remainder and add a settle frame
-    while ev_idx < len(events):
-        term.feed(events[ev_idx][1], decoder)
-        ev_idx += 1
-    frames.append(render_grid(term, fonts, cw, ch_h, ascent, args.scale))
-    durations.append(int(args.settle * 1000))
+        durations.append(int(args.settle * 1000))
 
     sys.stderr.write("  rendering %d frames -> %s\n" % (len(frames), args.out))
     # quantize for compact GIF

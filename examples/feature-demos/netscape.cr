@@ -35,6 +35,16 @@ end
 
 backend = ENV["BACKEND"]? || "glyph"
 
+# The source animation's per-frame delays (ms). When recording, one fiber drives
+# both throbbers and the resize box off this single frame clock (see below) so
+# the whole scene has an exact period of `frame_delays.size` frames and the GIF
+# captured marker-to-marker tiles seamlessly — it looks like it runs forever.
+frame_delays = begin
+  fr = PNGGIF::PNG.new(img_path).frames
+  fr && !fr.empty? ? fr.map(&.delay) : [100]
+end
+frame_count = frame_delays.size
+
 s = Screen.new title: "Netscape"
 s.show_fps = nil
 
@@ -47,7 +57,7 @@ ih = s.aheight - 1
 half = s.awidth // 2
 
 # Left: the animation at a fixed size.
-make_image backend,
+left = make_image backend,
   parent: s, top: 1, left: 0, width: half, height: ih,
   fit: Widget::Image::Fit::Contain, file: img_path,
   style: Style.new(border: true)
@@ -66,16 +76,55 @@ s.on(Event::KeyPress) do |e|
 end
 
 rmaxw = s.awidth - half
+
+# Wobble the right box's size from the animation frame index, so one full
+# grow/shrink lines up with one throbber loop.
+resize_right = ->(idx : Int32) do
+  f = idx.to_f / frame_count        # 0 → 1 over a loop
+  f = f < 0.5 ? f * 2 : 2.0 - f * 2 # triangle: 0 → 1 → 0
+  right.width = (12 + (rmaxw - 12) * f).to_i
+  right.height = (5 + (ih - 5) * f).to_i
+end
+
+# A single clock for the whole scene. Each Image widget normally animates in its
+# own fiber, but those run at slightly different per-frame cost (the resizing box
+# re-samples every frame) so they drift apart and the scene never has an exact
+# period. Instead, once both have composited their frames, we pause them and
+# advance every animated element — both throbbers and the resize — from this one
+# frame index. The scene then repeats exactly every `frame_count` frames.
+#
+# When recording (TTYGIF_MARK, set by make-gifs.sh), each frame is tagged with a
+# capture marker (see the loop body) so the recorder can grab exactly one loop
+# and the resulting GIF tiles seamlessly.
 spawn do
-  t = 0.0
+  ready = ->(w : Widget) { w.responds_to?(:frames_ready?) ? w.frames_ready? : true }
+  show = ->(w : Widget, i : Int32) { w.anim_index = i if w.responds_to?(:anim_index=) }
+
+  until ready.call(left) && ready.call(right)
+    sleep 0.02.seconds
+  end
+  left.pause if left.responds_to?(:pause)
+  right.pause if right.responds_to?(:pause)
+
+  mark = ENV["TTYGIF_MARK"]?
+  idx = 0
   loop do
-    phase = t % 2.0
-    f = phase < 1.0 ? phase : 2.0 - phase
-    right.width = (12 + (rmaxw - 12) * f).to_i
-    right.height = (5 + (ih - 5) * f).to_i
+    # Tag every frame with an out-of-band marker (an APC string terminals ignore)
+    # carrying its index and source delay, emitted just before the frame is
+    # drawn. The recorder uses these to grab exactly one loop, one output frame
+    # per source frame at its true boundary (so it tiles seamlessly) and timed by
+    # the source delay (so playback is smooth, free of capture jitter).
+    if mark
+      s.output.print "\e_TTYGIF#{idx},#{frame_delays[idx]}\e\\"
+      s.output.flush
+    end
+    show.call left, idx
+    show.call right, idx
+    resize_right.call idx
     s.render
-    t += 0.12
-    sleep 0.1.seconds
+    sleep frame_delays[idx].milliseconds
+    idx += 1
+    idx = 0 if idx >= frame_count
   end
 end
 

@@ -269,6 +269,19 @@ module Crysterm
         play if src.frames && animate?
       end
 
+      # Index of the frame currently shown. The internal animation loop advances
+      # it, but it can also be set directly (after `#pause`) to drive playback
+      # from an external clock — e.g. to keep several images in lockstep.
+      property anim_index : Int32
+
+      # Whether the composited source frames have been built yet (the heavy
+      # decode/composite happens in a background fiber on first `#play`). Once
+      # true, the animation loop is actually advancing frames — useful to a
+      # recorder that wants to start capturing only after playback is underway.
+      def frames_ready? : Bool
+        !@src_frames.nil?
+      end
+
       # Starts animation playback. Source frames are composited once (capped, in a
       # background fiber so a big GIF doesn't block first paint); the loop then
       # advances the frame index and re-renders, so `#redraw_image` emits the

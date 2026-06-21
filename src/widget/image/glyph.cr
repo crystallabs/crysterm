@@ -131,6 +131,19 @@ module Crysterm
         Widget::Image::Ansi.fetch url
       end
 
+      # Index of the frame currently shown. The internal animation loop advances
+      # it, but it can also be set directly (after `#pause`) to drive playback
+      # from an external clock — e.g. to keep several images in lockstep.
+      property anim_index : Int32
+
+      # Whether the composited source frames have been built yet (the heavy
+      # decode/composite happens in a background fiber on first `#play`). Once
+      # true, the animation loop is actually advancing frames — useful to a
+      # recorder that wants to start capturing only after playback is underway.
+      def frames_ready? : Bool
+        !@src_frames.nil?
+      end
+
       # Composites the source frames once (capped resolution) — in a background
       # fiber the first time, so a large GIF doesn't block construction/first
       # paint — then samples each shown frame to the current box lazily in
