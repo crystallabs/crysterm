@@ -1,15 +1,16 @@
+require "../image"
 require "json"
-require "./box"
+require "../box"
 
 module Crysterm
   class Widget
     # Renders a true-color image via **Überzug / Überzug++** (`ueberzug`), the
-    # modern successor to `w3mimgdisplay`. Like `OverlayImage` this is an
+    # modern successor to `w3mimgdisplay`. Like `Image::Overlay` this is an
     # *out-of-band* overlay: an external helper draws the actual image pixels in
     # its own X11 child window placed over the terminal — the pixels are owned
     # by neither Crysterm's cell grid nor the terminal emulator.
     #
-    # It differs from `OverlayImage` in two ways: the helper speaks a JSON
+    # It differs from `Image::Overlay` in two ways: the helper speaks a JSON
     # protocol on stdin (`{"action":"add",…}` / `{"action":"remove",…}`) and
     # positions/sizes placements in *terminal cells* (not pixels); and its
     # override-redirect window stays on top, so — unlike w3m — it does not get
@@ -21,9 +22,9 @@ module Crysterm
     # display; with neither present the widget is inert (it draws nothing).
     #
     # ```
-    # img = Widget::UeberzugImage.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Image::Ueberzug.new file: "pic.png", width: 40, height: 12, parent: screen
     # ```
-    class UeberzugImage < Box
+    class Image::Ueberzug < Box
       # Überzug scaler: `fit_contain`, `contain`, `forced_cover`, `cover`,
       # `crop`, `distort`. `forced_cover` fills the box exactly.
       property scaler : String
@@ -134,7 +135,7 @@ module Crysterm
       end
 
       private def send(command)
-        p = UeberzugImage.proc || return
+        p = Ueberzug.proc || return
         if stdin = p.input?
           stdin.puts command.to_json
           stdin.flush
@@ -148,7 +149,7 @@ module Crysterm
       # URL to a temp file if necessary.
       private def local_path(file : String) : String?
         if file =~ /^https?:/
-          bytes = Widget::ANSIImage.fetch file
+          bytes = Widget::Image::Ansi.fetch file
           tmp = File.tempfile("crysterm_uz", File.extname(file))
           File.write(tmp.path, bytes)
           tmp.path
@@ -169,7 +170,5 @@ module Crysterm
         @listener_screen = nil
       end
     end
-
-    alias Ueberzugimage = UeberzugImage
   end
 end

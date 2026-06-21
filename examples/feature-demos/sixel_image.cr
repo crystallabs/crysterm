@@ -1,6 +1,6 @@
 # IMPRESSIVE DEMO: a true-color image as in-band SIXEL graphics.
 #
-# `Widget::SixelImage` decodes the PNG with the pure-Crystal PNGGIF reader,
+# `Widget::Image::Sixel` decodes the PNG with the pure-Crystal PNGGIF reader,
 # quantizes it to a 252-color palette (Bayer-dithered), and emits a DCS sixel
 # sequence that a sixel-capable terminal (xterm -ti vt340, foot, wezterm, …)
 # renders as real raster pixels — right inside the VT window, on top of the
@@ -13,12 +13,12 @@ require "../../src/crysterm"
 
 include Crysterm
 
-s = Screen.new title: "SixelImage"
+s = Screen.new title: "Sixel"
 s.show_fps = nil
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
-  content: "{center}SixelImage  ·  in-band DCS sixel raster graphics  ·  the Matterhorn{/center}",
+  content: "{center}Image::Sixel  ·  in-band DCS sixel raster graphics  ·  the Matterhorn{/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
 
 iw = s.awidth
@@ -30,7 +30,7 @@ fit = case ENV["FIT"]?
       else                Widget::Image::Fit::Stretch
       end
 
-Widget::SixelImage.new \
+Widget::Image::Sixel.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
   fit: fit,
   cell_pixel_width: (ENV["CELL_PW"]? || "11").to_i,

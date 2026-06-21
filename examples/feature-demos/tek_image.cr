@@ -1,6 +1,6 @@
 # IMPRESSIVE DEMO: an image on a Tektronix 4014 storage-tube display.
 #
-# `Widget::TekImage` emits `ESC[?38h`, switching an xterm built with
+# `Widget::Image::Tek` emits `ESC[?38h`, switching an xterm built with
 # --enable-tek4014 into Tektronix mode — which opens a SEPARATE window and
 # draws on a simulated green storage tube. The Matterhorn is dithered to 1 bit
 # and drawn as horizontal vector runs: a faithfully retro monochrome rendering.
@@ -12,15 +12,15 @@ require "../../src/crysterm"
 
 include Crysterm
 
-s = Screen.new title: "TekImage"
+s = Screen.new title: "Tek"
 s.show_fps = nil
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",
-  content: "{center}TekImage · Tektronix 4014 vectors · see the separate \"tektronix\" window{/center}",
+  content: "{center}Image::Tek · Tektronix 4014 vectors · see the separate \"tektronix\" window{/center}",
   parse_tags: true, style: Style.new(fg: "#33ff66", bg: "black")
 
-Widget::TekImage.new \
+Widget::Image::Tek.new \
   parent: s,
   dither: (ENV["TEK_DITHER"]? != "0"),
   invert: (ENV["TEK_INVERT"]? == "1"),

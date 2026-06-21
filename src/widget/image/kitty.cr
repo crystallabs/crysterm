@@ -1,5 +1,5 @@
 require "base64"
-require "./graphicsimage"
+require "./graphics"
 
 module Crysterm
   class Widget
@@ -7,7 +7,7 @@ module Crysterm
     # escape (`ESC _G <control> ; <base64 payload> ESC \`) that a Kitty-protocol
     # terminal (kitty, WezTerm, Konsole, Ghostty, …) draws as true RGBA pixels.
     # Like sixel the pixels are owned by the terminal, so this inherits
-    # `GraphicsImage`'s screen-owns-pixels redraw lifecycle.
+    # `Image::Graphics`'s screen-owns-pixels redraw lifecycle.
     #
     # Two things differ from sixel/ReGIS:
     #
@@ -22,9 +22,9 @@ module Crysterm
     # (`c=`/`r=`), so it fills cleanly regardless of font metrics.
     #
     # ```
-    # img = Widget::KittyImage.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Image::Kitty.new file: "pic.png", width: 40, height: 12, parent: screen
     # ```
-    class KittyImage < GraphicsImage
+    class Image::Kitty < Image::Graphics
       @@next_id = 0_u32
 
       # Stable Kitty image id, so re-transmits replace this widget's image
@@ -96,6 +96,13 @@ module Crysterm
         io.to_s
       end
 
+      # A Kitty image is a separate layer the terminal's cells never overdraw, so
+      # it only needs (re)emitting when it actually changes (new frame / move /
+      # resize), not on every screen render like sixel.
+      protected def repaint_every_frame? : Bool
+        false
+      end
+
       # Erase by telling Kitty to delete this image (and its placements);
       # re-emitting cells wouldn't cover a Kitty image.
       protected def graphic_cleared(s : ::Crysterm::Screen)
@@ -107,7 +114,5 @@ module Crysterm
         s.tput.flush
       end
     end
-
-    alias Kittyimage = KittyImage
   end
 end

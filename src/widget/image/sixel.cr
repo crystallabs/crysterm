@@ -1,21 +1,21 @@
-require "./graphicsimage"
+require "./graphics"
 
 module Crysterm
   class Widget
     # Renders an image as **sixel** graphics: an in-band DCS escape sequence that
     # a sixel-capable terminal (xterm -ti vt340, foot, wezterm, mlterm, …) draws
-    # as true raster pixels at the cursor position. Unlike `ANSIImage`/`GlyphImage`
+    # as true raster pixels at the cursor position. Unlike `Image::Ansi`/`Image::Glyph`
     # the pixels are owned by the terminal, not Crysterm's cell grid — so this
-    # inherits `GraphicsImage`'s screen-owns-pixels erase/redraw lifecycle.
+    # inherits `Image::Graphics`'s screen-owns-pixels erase/redraw lifecycle.
     #
     # The image is quantized to a fixed 6×7×6 (=252) level RGB palette, with
     # 4×4 ordered (Bayer) dithering on by default to smooth gradients, then
     # emitted as run-length-encoded sixel bands.
     #
     # ```
-    # img = Widget::SixelImage.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Image::Sixel.new file: "pic.png", width: 40, height: 12, parent: screen
     # ```
-    class SixelImage < GraphicsImage
+    class Image::Sixel < Image::Graphics
       # Palette levels per channel (product must stay ≤ 256 color registers).
       LR = 6
       LG = 7
@@ -152,7 +152,5 @@ module Crysterm
         [15, 7, 13, 5],
       ]
     end
-
-    alias Siximage = SixelImage
   end
 end

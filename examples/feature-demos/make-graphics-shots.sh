@@ -4,7 +4,7 @@
 #
 # These can't go through the ttygif.py pseudo-terminal recorder: its built-in VT
 # emulator doesn't implement sixel/ReGIS/Tek (just as it can't show the w3m
-# overlay). So — exactly like the OverlayImage path in make-gifs.sh — we run
+# overlay). So — exactly like the Image::Overlay path in make-gifs.sh — we run
 # each demo in a REAL xterm on $DISPLAY and screenshot the window with ffmpeg.
 #
 # Requirements:
@@ -80,16 +80,16 @@ build() {
 }
 
 # ---- sixel ---------------------------------------------------------------
-echo ">> sixel (SixelImage, in-band DCS raster)"
+echo ">> sixel (Image::Sixel, in-band DCS raster)"
 if build sixel_image; then
   # maxGraphicSize must exceed the sixel's pixel size or xterm silently drops it.
   CELL_PW=14 CELL_PH=29 DEMO_SECONDS=10 \
-    xterm -title SixelImage -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
+    xterm -title Sixel -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
       -geometry "${COLS}x${ROWS}+50+50" -ti vt340 \
       -xrm 'XTerm*numColorRegisters: 256' -xrm 'XTerm*maxGraphicSize: 4000x4000' \
       -e "$BUILD/sixel_image" &
   pid=$!; sleep 4
-  if grab_window SixelImage /tmp/_sixel_grab.png; then
+  if grab_window Sixel /tmp/_sixel_grab.png; then
     normalize /tmp/_sixel_grab.png "$OUT/matterhorn-sixel.png"
   fi
   kill "$pid" 2>/dev/null || true
@@ -97,17 +97,17 @@ fi
 echo
 
 # ---- regis ---------------------------------------------------------------
-echo ">> regis (RegisImage, in-band ReGIS vectors)"
+echo ">> regis (Image::Regis, in-band ReGIS vectors)"
 if build regis_image; then
   # regisScreenSize sets ReGIS' logical screen; the demo maps the image into the
   # same extent (REGIS_W/REGIS_H) so it fills the window.
   REGIS_W=1100 REGIS_H=400 DEMO_SECONDS=12 \
-    xterm -title RegisImage -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
+    xterm -title Regis -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
       -geometry "${COLS}x${ROWS}+50+50" -ti vt340 \
       -xrm 'XTerm*numColorRegisters: 256' -xrm 'XTerm*regisScreenSize: 1100x400' \
       -e "$BUILD/regis_image" &
   pid=$!; sleep 5
-  if grab_window RegisImage /tmp/_regis_grab.png; then
+  if grab_window Regis /tmp/_regis_grab.png; then
     normalize /tmp/_regis_grab.png "$OUT/matterhorn-regis.png"
   fi
   kill "$pid" 2>/dev/null || true
@@ -117,15 +117,15 @@ echo
 # ---- kitty ---------------------------------------------------------------
 # Kitty graphics protocol — xterm doesn't speak it, so this one runs in the
 # `kitty` terminal itself (if installed) rather than xterm.
-echo ">> kitty (KittyImage, Kitty graphics protocol)"
+echo ">> kitty (Image::Kitty, Kitty graphics protocol)"
 if command -v kitty >/dev/null; then
   if build kitty_image; then
     DEMO_SECONDS=10 CELL_PW=11 CELL_PH=22 \
-      kitty --title KittyImage -o font_size="$FONT_SIZE" -o remember_window_size=no \
+      kitty --title Kitty -o font_size="$FONT_SIZE" -o remember_window_size=no \
         -o initial_window_width=1100 -o initial_window_height=440 \
         -o background=black -o cursor_blink_interval=0 "$BUILD/kitty_image" &
     pid=$!; sleep 4
-    if grab_window KittyImage /tmp/_kitty_grab.png; then
+    if grab_window Kitty /tmp/_kitty_grab.png; then
       normalize /tmp/_kitty_grab.png "$OUT/matterhorn-kitty.png"
     fi
     kill "$pid" 2>/dev/null || true
@@ -137,13 +137,13 @@ echo
 
 # ---- iterm2 --------------------------------------------------------------
 # iTerm2 inline-images protocol — captured in Konsole (xterm doesn't speak it).
-echo ">> iterm (ItermImage, iTerm2 OSC 1337 inline images)"
+echo ">> iterm (Image::Iterm, iTerm2 OSC 1337 inline images)"
 if command -v konsole >/dev/null; then
   if build iterm_image; then
-    DEMO_SECONDS=11 konsole -p tabtitle=ItermImage --hide-menubar --hide-tabbar \
+    DEMO_SECONDS=11 konsole -p tabtitle=Iterm --hide-menubar --hide-tabbar \
       --geometry 900x380+50+50 -e "$BUILD/iterm_image" &
     pid=$!; sleep 5
-    if grab_window 'ItermImage — Konsole' /tmp/_iterm_grab.png; then
+    if grab_window 'Iterm — Konsole' /tmp/_iterm_grab.png; then
       normalize_konsole /tmp/_iterm_grab.png "$OUT/matterhorn-iterm.png"
     fi
     kill "$pid" 2>/dev/null || true
@@ -155,14 +155,14 @@ echo
 
 # ---- ueberzug ------------------------------------------------------------
 # Überzug / Überzug++ overlay — needs the helper binary; otherwise skipped.
-echo ">> ueberzug (UeberzugImage, überzug X11 overlay)"
+echo ">> ueberzug (Image::Ueberzug, überzug X11 overlay)"
 if command -v ueberzug >/dev/null || command -v ueberzugpp >/dev/null; then
   if build ueberzug_image; then
     DEMO_SECONDS=11 \
-      xterm -title UeberzugImage -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
+      xterm -title Ueberzug -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
         -geometry "${COLS}x${ROWS}+50+50" -e "$BUILD/ueberzug_image" &
     pid=$!; sleep 5
-    if grab_window UeberzugImage /tmp/_ueberzug_grab.png; then
+    if grab_window Ueberzug /tmp/_ueberzug_grab.png; then
       normalize /tmp/_ueberzug_grab.png "$OUT/matterhorn-ueberzug.png"
     fi
     kill "$pid" 2>/dev/null || true
@@ -174,7 +174,7 @@ echo
 
 # ---- ansi palette stills (256 / 16 color) --------------------------------
 # Cell-based, so the normal ttygif.py recorder renders them (no real terminal).
-echo ">> ansi palette (ANSIImage 256/16-color quantization)"
+echo ">> ansi palette (Image::Ansi 256/16-color quantization)"
 if build ansi256_image; then
   for m in c256 c16; do
     ANSI_COLORS="$m" python3 "$HERE/ttygif.py" \
@@ -186,10 +186,10 @@ fi
 echo
 
 # ---- tektronix -----------------------------------------------------------
-echo ">> tek (TekImage, Tektronix 4014 — separate window)"
+echo ">> tek (Image::Tek, Tektronix 4014 — separate window)"
 if build tek_image; then
   TEK_FIT=1000 DEMO_SECONDS=12 \
-    xterm -title TekImage -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
+    xterm -title Tek -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
       -geometry "${COLS}x${ROWS}+50+50" -e "$BUILD/tek_image" &
   pid=$!; sleep 5
   # The drawing lands in xterm's SEPARATE Tek window, not the VT window.

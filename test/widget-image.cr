@@ -3,7 +3,7 @@ require "../src/crysterm"
 # Port of Blessed's test/widget-image.js
 #
 # Demonstrates `Widget::Image`, the image factory. With `type: Overlay` it
-# builds a `Widget::OverlayImage`, which draws a true-color image over the
+# builds a `Widget::Image::Overlay`, which draws a true-color image over the
 # terminal using the external `w3mimgdisplay` helper.
 #
 # `w3mimgdisplay` ships with w3m-img (package `w3m-img`/`w3m`). If it is not
@@ -40,8 +40,8 @@ class X
       File.exists?(up) ? up : here
     end
 
-    # The factory returns a `Widget::OverlayImage` for `type: Overlay`. Its
-    # static return type is the `ANSIImage | OverlayImage` union (normalized to
+    # The factory returns a `Widget::Image::Overlay` for `type: Overlay`. Its
+    # static return type is the `Image::Ansi | Image::Overlay` union (normalized to
     # `Box+`), so narrow it to the overlay backend to use overlay-specific API
     # like `#load`.
     img = Widget::Image.new(
@@ -54,7 +54,7 @@ class X
       stretch: true,
       draggable: true,
       style: Style.new(bg: "green", border: true),
-    ).as(Widget::OverlayImage)
+    ).as(Widget::Image::Overlay)
 
     if w3m_available?
       img.load file
@@ -81,7 +81,7 @@ class X
       end
 
       # Arrow keys move the image around (clamped to the screen). Each move
-      # triggers a render: `OverlayImage` redraws the overlay on top at the new
+      # triggers a render: `Image::Overlay` redraws the overlay on top at the new
       # spot and clears its previous position, so the image follows the box
       # without ghosting and without being clobbered by the redrawn cells.
       case e.key

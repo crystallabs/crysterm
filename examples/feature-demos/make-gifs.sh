@@ -36,7 +36,8 @@ FONT_SIZE="${FONT_SIZE:-18}"
 SCALE="${SCALE:-1}"
 
 # Per-demo capture duration overrides (some look better a touch longer/shorter).
-declare -A DUR_OVERRIDE=()
+# netscape decodes a big 34-frame GIF twice, so give it a moment to get going.
+declare -A DUR_OVERRIDE=([netscape]=12)
 
 # Per-demo window-size overrides (none — every GIF is the same COLS x ROWS).
 declare -A COLS_OVERRIDE=()
@@ -45,14 +46,14 @@ declare -A ROWS_OVERRIDE=()
 # Static demos: saved as a single still .png instead of an animated .gif.
 STILL=(png_image)
 
-# GlyphImage render variants — one still PNG per mode, all of the same image.
+# Image::Glyph render variants — one still PNG per mode, all of the same image.
 GLYPH_MODES=(block ascii half quadrant sextant octant braille)
 
 # All demos, in display order. Pass names as args to build a subset.
 ALL=(concurrent_rendering truecolor unicode mouse widgets layout image \
      styling terminfo events diff_rendering \
      matrix dashboard clock \
-     png_image cracktro glyph_modes overlay)
+     png_image netscape cracktro glyph_modes overlay)
 
 DEMOS=("$@")
 if [ "${#DEMOS[@]}" -eq 0 ]; then
@@ -63,7 +64,7 @@ echo "Window: ${COLS}x${ROWS}  duration=${DURATION}s  fps=${FPS}  font=${FONT_SI
 echo
 
 for demo in "${DEMOS[@]}"; do
-  # Special case: GlyphImage render variants -> one still PNG per mode.
+  # Special case: Image::Glyph render variants -> one still PNG per mode.
   if [ "$demo" = "glyph_modes" ]; then
     echo ">> glyph_modes (one still PNG per drawing mode)"
     echo "   building ..."
@@ -80,13 +81,13 @@ for demo in "${DEMOS[@]}"; do
     continue
   fi
 
-  # Special case: OverlayImage (w3mimgdisplay) — real X11 pixel overlay, so it
+  # Special case: Image::Overlay (w3mimgdisplay) — real X11 pixel overlay, so it
   # can't go through the pseudo-terminal recorder. We run it in a real xterm on
   # $DISPLAY and screenshot that window with ffmpeg. The demo self-terminates
   # (OVERLAY_SECONDS), and we only ever kill the one PID we started — never a
   # broad pkill, which would take down other terminals on the display.
   if [ "$demo" = "overlay" ]; then
-    echo ">> overlay (OverlayImage / w3mimgdisplay true-color, needs X + xterm)"
+    echo ">> overlay (Image::Overlay / w3mimgdisplay true-color, needs X + xterm)"
     if [ -z "${DISPLAY:-}" ] || ! command -v xterm >/dev/null \
        || ! command -v xwininfo >/dev/null || ! command -v ffmpeg >/dev/null \
        || [ ! -x /usr/lib/w3m/w3mimgdisplay ]; then
@@ -99,7 +100,7 @@ for demo in "${DEMOS[@]}"; do
       -e "$BUILD/overlay_image" &
     xpid=$!
     sleep 4.5
-    info=$(xwininfo -name OverlayImage 2>/dev/null || true)
+    info=$(xwininfo -name Overlay 2>/dev/null || true)
     gx=$(awk '/Absolute upper-left X/{print $4}' <<<"$info")
     gy=$(awk '/Absolute upper-left Y/{print $4}' <<<"$info")
     gw=$(awk '/Width:/{print $2}' <<<"$info")

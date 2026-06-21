@@ -20,6 +20,9 @@ require "./action"
 require "./cursor"
 
 require "./screen"
+require "./terminal/launchers"
+require "./terminal/handshake"
+require "./screen_connection"
 
 require "./widget"
 require "./widget/**"
@@ -71,3 +74,9 @@ module Crysterm
     Screen.instances.each &.destroy
   end
 end
+
+# If this process was launched as an in-window helper by `Screen.open` (env var
+# set on the spawned emulator), run the helper loop and exit here — before any
+# user code runs. A plain no-op in every normal run. Placed at the very bottom so
+# the whole library is loaded by the time it executes.
+Crysterm::Terminal.run_helper_if_requested

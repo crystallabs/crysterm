@@ -1,13 +1,14 @@
+require "../image"
 require "term_colors"
-require "./box"
+require "../box"
 
 module Crysterm
   class Widget
     # Renders a PNG / APNG / GIF image as colored terminal cells, ported from
     # Blessed's `ansiimage` element.
     #
-    # Unlike `Widget::OverlayImage` (which paints a true-color image *over* the
-    # terminal via the external `w3mimgdisplay` helper), `ANSIImage` decodes the
+    # Unlike `Widget::Image::Overlay` (which paints a true-color image *over* the
+    # terminal via the external `w3mimgdisplay` helper), `Image::Ansi` decodes the
     # image itself — using the pure-Crystal `PNGGIF::PNG` reader — and draws it
     # into the normal cell grid. Each pixel of the downscaled image becomes one
     # cell whose background is that pixel's color, so the result is portable to
@@ -17,12 +18,12 @@ module Crysterm
     # there is no 256-color palette-matching step as in Blessed.
     #
     # ```
-    # img = Widget::ANSIImage.new file: "picture.png", width: 30, parent: screen
+    # img = Widget::Image::Ansi.new file: "picture.png", width: 30, parent: screen
     # ```
     #
     # Animated images (APNG, animated GIF) play automatically unless `animate:
     # false` is passed; `#play`, `#pause` and `#stop` control playback.
-    class ANSIImage < Box
+    class Image::Ansi < Box
       # Color depth the image is rendered in. Crysterm is natively TrueColor and
       # only reduces colors at output time when the terminal can't do 24-bit; the
       # non-`TrueColor` modes here additionally *quantize the pixels themselves*
@@ -69,14 +70,20 @@ module Crysterm
       # The cellmap currently being displayed (one `PNGGIF::Pixel` per terminal cell).
       property cellmap : PNGGIF::Bitmap?
 
-      # Pre-composited animation frames (`{cellmap, delay_ms}`), if animated.
-      @anim_frames : Array(Tuple(PNGGIF::Bitmap, Int32))? = nil
+      # Full-resolution composited animation frames (`{bitmap, delay_ms}`),
+      # decoded once — the resolution-independent source for playback.
+      @src_frames : Array(Tuple(PNGGIF::Bitmap, Int32))? = nil
+      # Per-frame cellmaps already sampled for the *current* box size, filled
+      # lazily as each frame is shown. Cleared when the box size changes, so a
+      # resize only re-samples the frames actually displayed (not all of them).
+      @frame_cache = {} of Int32 => PNGGIF::Bitmap
       @playing = false
       @anim_index = 0
 
       # Whether the loaded image is animated (its frames drive `@cellmap`).
       @animated = false
-      # Cell box the still cellmap was last sampled for, so resize re-samples.
+      # Cell box the cellmap / frame cache was last sampled for, so resize
+      # re-samples (and invalidates the per-frame cache).
       @rendered_size : Tuple(Int32, Int32)?
 
       def initialize(
@@ -88,10 +95,10 @@ module Crysterm
         @cell_aspect : Float64 = 2.0,
         @colors : ColorMode = ColorMode::TrueColor,
         @fit : Image::Fit = Image::Fit::Stretch,
-        # Accepted but ignored: these are `OverlayImage`-specific options. They
+        # Accepted but ignored: these are `Image::Overlay`-specific options. They
         # exist here only so the `Widget::Image` factory — which forwards the
         # same option bag to whichever backend `type` selects — can be called
-        # with overlay options without a compile error. ANSIImage scales via
+        # with overlay options without a compile error. Image::Ansi scales via
         # `scale`/`width`/`height` and has no separate stretch/center modes.
         stretch = false,
         center = false,
@@ -114,7 +121,7 @@ module Crysterm
       end
 
       # Loads *file*, an alias for `#set_image`. Provides API parity with
-      # `Widget::OverlayImage#load`, so code (and the `Widget::Image` factory's
+      # `Widget::Image::Overlay#load`, so code (and the `Widget::Image` factory's
       # union return type) can call `load` on either image backend.
       def load(file : String)
         set_image file
@@ -125,51 +132,39 @@ module Crysterm
       # as content instead of raising.
       def set_image(file : String)
         @file = file
-
-        data : String | Bytes = file
-        if file =~ /^https?:/
-          data = self.class.fetch(file)
-        end
-
         cw = @width.as?(Int32)
         ch = @height.as?(Int32)
 
-        begin
-          set_content ""
-          # Decode once at native resolution as the resolution-independent
-          # source; sized renders are derived from `png.bmp` on demand, so a
-          # resize re-samples (see `#render`) instead of re-decoding.
-          png = PNGGIF::PNG.new(data, ascii: @ascii, speed: @speed)
-          @img = png
-          @cellmap = nil
-          @anim_frames = nil
-          @rendered_size = nil
-          @animated = !png.frames.nil? && animate?
-
-          if @animated
-            # Animated: frames are sized once here (animation keeps this size);
-            # auto-size the box from the first frame if no size was given.
-            frames = @anim_frames = png.animation_cellmaps(cw, ch, @scale)
-            if f0 = frames.try(&.first?)
-              self.width = (f0[0][0]?.try(&.size) || 0) if cw.nil?
-              self.height = f0[0].size if ch.nil?
-            end
-            play
-          else
-            # Still: size the widget to a native-scaled render when no explicit
-            # size was given; `#render` (re)samples to whatever box results.
-            if cw.nil? || ch.nil?
-              native = png.create_cellmap(png.bmp, scale: @scale, cell_aspect: @cell_aspect)
-              self.width = (native[0]?.try(&.size) || 0) if cw.nil?
-              self.height = native.size if ch.nil?
-            end
-          end
-        rescue ex
-          set_content "Image Error: #{ex.message}"
+        set_content ""
+        # Decode once at native resolution via the shared `Image.decode` cache
+        # (the resolution-independent source); sized renders are derived from
+        # `png.bmp` on demand, so a resize re-samples instead of re-decoding.
+        png = Image.decode file
+        unless png
+          set_content "Image Error: could not load #{file}"
           @img = nil
           @cellmap = nil
           @animated = false
+          return
         end
+
+        @img = png
+        @cellmap = nil
+        @src_frames = nil
+        @frame_cache.clear
+        @anim_index = 0
+        @rendered_size = nil
+        @animated = !png.frames.nil? && animate?
+
+        # Size the widget to a native-scaled render when no explicit size was
+        # given; `#render` (re)samples (still or per-frame) to the actual box.
+        if cw.nil? || ch.nil?
+          native = png.create_cellmap(png.bmp, scale: @scale, cell_aspect: @cell_aspect)
+          self.width = (native[0]?.try(&.size) || 0) if cw.nil?
+          self.height = native.size if ch.nil?
+        end
+
+        play if @animated
       end
 
       # Clears the loaded image, leaving the widget empty.
@@ -178,26 +173,36 @@ module Crysterm
         set_content ""
         @img = nil
         @cellmap = nil
-        @anim_frames = nil
+        @src_frames = nil
+        @frame_cache.clear
         @animated = false
         @rendered_size = nil
       end
 
-      # Starts (or resumes) animation playback for an animated image.
+      # Starts (or resumes) animation playback. The source frames are composited
+      # once (capped resolution) — in a background fiber the first time, so a
+      # large GIF doesn't block construction/first paint — then each shown frame
+      # is sampled to the current box lazily in `#render`.
       def play
         png = @img
         return unless png
         return if @playing
-
-        frames = @anim_frames ||= begin
-          cw = @width.as?(Int32)
-          ch = @height.as?(Int32)
-          png.animation_cellmaps(cw, ch, @scale)
-        end
-        return unless frames && !frames.empty?
-
         @playing = true
-        spawn animate_loop(frames)
+
+        if @src_frames
+          spawn animate_loop
+        else
+          spawn do
+            Fiber.yield # let the current layout paint before the heavy build
+            sw, sh = Image::Fitting.source_size png
+            frames = @src_frames = png.animation_cellmaps(sw, sh, 1.0)
+            if frames && !frames.empty? && @playing
+              animate_loop
+            else
+              @playing = false
+            end
+          end
+        end
       end
 
       # Pauses animation playback on the current frame.
@@ -209,24 +214,23 @@ module Crysterm
       def stop
         @playing = false
         @anim_index = 0
-        if frames = @anim_frames
-          @cellmap = frames[0]?.try(&.[0])
-        end
       end
 
-      # Background fiber that advances animation frames. Honours `speed` and the
-      # image's loop count (`num_plays`; 0 = loop forever).
-      private def animate_loop(frames : Array(Tuple(PNGGIF::Bitmap, Int32)))
+      # Background fiber that advances the frame index over time and triggers a
+      # render (which samples the current frame to the current box). Honours
+      # `speed` and the image's loop count (`num_plays`; 0 = loop forever).
+      private def animate_loop
+        src = @src_frames
+        return unless src
         png = @img
         num_plays = png ? png.num_plays : 0
         plays = 0
         while @playing
-          cm, delay = frames[@anim_index]
-          @cellmap = cm
           screen.render
 
+          delay = src[@anim_index]?.try(&.[1]) || 100
           @anim_index += 1
-          if @anim_index >= frames.size
+          if @anim_index >= src.size
             @anim_index = 0
             plays += 1
             break if num_plays > 0 && plays >= num_plays
@@ -263,14 +267,30 @@ module Crysterm
         yi = coords.yi + itop
         yl = coords.yl - ibottom
 
-        # Resize support: for a still image, (re)sample the source to the current
-        # content box whenever it changes. Animated images keep their frames.
-        if !@animated && (img = @img)
+        # Resize support: (re)sample the source to the current content box when
+        # it changes. For animation, only the *currently shown* frame is sampled
+        # (and cached per size), so resizing doesn't regenerate every frame.
+        if (img = @img)
           cols = xl - xi
           rows = yl - yi
-          if cols > 0 && rows > 0 && @rendered_size != {cols, rows}
-            @cellmap = ImageFitting.compose(img, cols, rows, @fit, @cell_aspect)
-            @rendered_size = {cols, rows}
+          if cols > 0 && rows > 0
+            if @rendered_size != {cols, rows}
+              @rendered_size = {cols, rows}
+              @frame_cache.clear
+              @cellmap = nil unless @animated
+            end
+            if @animated
+              if (src = @src_frames) && (sf = src[@anim_index]?)
+                frame = @frame_cache[@anim_index]?
+                if frame.nil?
+                  frame = Image::Fitting.compose(img, sf[0], cols, rows, @fit, @cell_aspect)
+                  @frame_cache[@anim_index] = frame if frame
+                end
+                @cellmap = frame if frame
+              end
+            elsif @cellmap.nil?
+              @cellmap = Image::Fitting.compose(img, cols, rows, @fit, @cell_aspect)
+            end
           end
         end
 
@@ -372,7 +392,5 @@ module Crysterm
 
       @quant_cache : Hash(Int32, Int32)?
     end
-
-    alias Ansiimage = ANSIImage
   end
 end

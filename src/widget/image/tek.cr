@@ -1,4 +1,5 @@
-require "./box"
+require "../image"
+require "../box"
 
 module Crysterm
   class Widget
@@ -15,10 +16,10 @@ module Crysterm
     # vectors per "ink" span — a faithfully retro green-on-black rendering.
     #
     # ```
-    # tek = Widget::TekImage.new file: "pic.png", parent: screen
+    # tek = Widget::Image::Tek.new file: "pic.png", parent: screen
     # # the Tek window appears on the next screen render
     # ```
-    class TekImage < Box
+    class Image::Tek < Box
       # Tektronix 4014 addressable space (10-bit X, ~0..779 visible Y).
       TEK_W = 1024
       TEK_H =  780
@@ -124,7 +125,7 @@ module Crysterm
 
       private def build_sequence(file : String) : String?
         data : String | Bytes = file
-        data = Widget::ANSIImage.fetch(file) if file =~ /^https?:/
+        data = Widget::Image::Ansi.fetch(file) if file =~ /^https?:/
 
         # Decode once to learn the aspect ratio, then again at the fitted size.
         probe = PNGGIF::PNG.new(data)
@@ -231,7 +232,5 @@ module Crysterm
         [15, 7, 13, 5],
       ]
     end
-
-    alias Tekimage = TekImage
   end
 end

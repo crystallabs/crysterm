@@ -1,5 +1,5 @@
 require "base64"
-require "./graphicsimage"
+require "./graphics"
 
 module Crysterm
   class Widget
@@ -7,7 +7,7 @@ module Crysterm
     # File=…`): the original, *undecoded* image file is base64-encoded and sent
     # in-band, and a supporting terminal (iTerm2, WezTerm, Konsole, mintty,
     # VS Code's terminal, …) decodes and draws it at the cursor. Like sixel the
-    # pixels are owned by the terminal, so this inherits `GraphicsImage`'s
+    # pixels are owned by the terminal, so this inherits `Image::Graphics`'s
     # screen-owns-pixels redraw/erase lifecycle (the image occupies cells, so
     # re-emitting them clears it — no special delete needed, unlike Kitty).
     #
@@ -17,9 +17,9 @@ module Crysterm
     # (`width=`/`height=`, `preserveAspectRatio=0`).
     #
     # ```
-    # img = Widget::ItermImage.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Image::Iterm.new file: "pic.png", width: 40, height: 12, parent: screen
     # ```
-    class ItermImage < GraphicsImage
+    class Image::Iterm < Image::Graphics
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
         # Unused (we size in cells), but feeds the payload cache key.
         {cols, rows}
@@ -43,12 +43,16 @@ module Crysterm
         end
       end
 
+      # iTerm2 animates an inline GIF itself, so we transmit the whole file and
+      # let the terminal play it — no per-frame loop on our side.
+      protected def needs_frame_loop? : Bool
+        false
+      end
+
       # Never called — `#build_payload` is overridden to skip decoding.
       def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32) : String
-        raise "ItermImage transmits the raw file via #build_payload; #encode is unused"
+        raise "Image::Iterm transmits the raw file via #build_payload; #encode is unused"
       end
     end
-
-    alias Itermimage = ItermImage
   end
 end

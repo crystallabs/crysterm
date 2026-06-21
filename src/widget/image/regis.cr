@@ -1,4 +1,4 @@
-require "./graphicsimage"
+require "./graphics"
 
 module Crysterm
   class Widget
@@ -6,7 +6,7 @@ module Crysterm
     # commands that a ReGIS-capable terminal (xterm built with
     # `--enable-regis-graphics`, or a real VT240/VT330/VT340) draws into the VT
     # window. Like sixel the pixels are owned by the terminal, so this inherits
-    # `GraphicsImage`'s screen-owns-pixels erase/redraw lifecycle.
+    # `Image::Graphics`'s screen-owns-pixels erase/redraw lifecycle.
     #
     # ReGIS is a *vector* format with no native raster blit, so a photo is drawn
     # the only faithful way: quantized to ReGIS's small set of built-in named
@@ -16,9 +16,9 @@ module Crysterm
     # (not the text cursor), so the widget's pixel origin is honored.
     #
     # ```
-    # img = Widget::RegisImage.new file: "pic.png", width: 48, height: 14, parent: screen
+    # img = Widget::Image::Regis.new file: "pic.png", width: 48, height: 14, parent: screen
     # ```
-    class RegisImage < GraphicsImage
+    class Image::Regis < Image::Graphics
       # ReGIS built-in named colors and their approximate RGB, used for
       # nearest-color quantization. Letter order defines the palette index.
       LETTERS = "DRGBCMYW"
@@ -54,6 +54,14 @@ module Crysterm
         super *args, **opts
       end
 
+      # ReGIS draws an animated image's frames one vector at a time — thousands
+      # of vectors per frame — which the terminal renders far too slowly for
+      # smooth playback, so we don't drive a frame loop: an animated source just
+      # shows its first frame.
+      protected def needs_frame_loop? : Bool
+        false
+      end
+
       # Map the cell box into ReGIS' logical screen (a fraction of the whole
       # terminal). One bitmap pixel per logical unit keeps spans aligned.
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
@@ -64,12 +72,12 @@ module Crysterm
         {pw < 1 ? 1 : pw, ph < 1 ? 1 : ph}
       end
 
-      # Logical origin of the box within the ReGIS screen.
-      protected def origin_pixels(pos) : Tuple(Int32, Int32)
+      # Logical origin of the content box within the ReGIS screen.
+      protected def origin_pixels(xi : Int32, yi : Int32) : Tuple(Int32, Int32)
         sc = screen.awidth
         sr = screen.aheight
-        ox = sc > 0 ? (pos.xi * @regis_width / sc).to_i : pos.xi
-        oy = sr > 0 ? (pos.yi * @regis_height / sr).to_i : pos.yi
+        ox = sc > 0 ? (xi * @regis_width / sc).to_i : xi
+        oy = sr > 0 ? (yi * @regis_height / sr).to_i : yi
         {ox, oy}
       end
 
@@ -165,7 +173,5 @@ module Crysterm
         [15, 7, 13, 5],
       ]
     end
-
-    alias Regisimage = RegisImage
   end
 end

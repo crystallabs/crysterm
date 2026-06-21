@@ -1,6 +1,6 @@
 # IMPRESSIVE DEMO: a full-color PNG rendered as TrueColor cells.
 #
-# `Widget::ANSIImage` decodes the PNG with the pure-Crystal PNGGIF reader and
+# `Widget::Image::Ansi` decodes the PNG with the pure-Crystal PNGGIF reader and
 # paints each downscaled pixel as one 24-bit terminal cell — no external
 # helpers. Here: Yellowstone's Grand Prismatic Spring, cropped to fill the
 # standard 80x15 window.
@@ -12,12 +12,12 @@ include Crysterm
 s = Screen.new title: "PNG image"
 s.show_fps = nil
 
-# ANSIImage only honors *concrete integer* width/height as cell targets, so we
+# Image::Ansi only honors *concrete integer* width/height as cell targets, so we
 # compute them from the actual screen size and fill the area below the title.
 iw = s.awidth
 ih = s.aheight - 1
 
-Widget::ANSIImage.new \
+Widget::Image::Ansi.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
   animate: false,
   file: "#{__DIR__}/../../screenshots/prismatic.png"

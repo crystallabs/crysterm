@@ -12,25 +12,25 @@ module Crysterm
     # which is what determines the rendering/erase machinery each one needs:
     #
     # * **cell-grid** — the image becomes character cells Crysterm owns and
-    #   diffs: `Ansi` (`ANSIImage`) and `Glyph` (`GlyphImage`, sub-cell glyphs).
+    #   diffs: `Ansi` (`Image::Ansi`) and `Glyph` (`Image::Glyph`, sub-cell glyphs).
     # * **screen-owns-pixels (in the VT window)** — the terminal (or an external
     #   helper) owns the pixels; the widget tracks its cell rectangle and
-    #   force-erases on move/hide: `Overlay` (`OverlayImage`, w3mimgdisplay) and
-    #   `Ueberzug` (`UeberzugImage`, the überzug overlay), plus the in-band
-    #   `Sixel` (`SixelImage`), `Regis` (`RegisImage`), `Kitty` (`KittyImage`,
-    #   the Kitty graphics protocol) and `Iterm` (`ItermImage`, the iTerm2
+    #   force-erases on move/hide: `Overlay` (`Image::Overlay`, w3mimgdisplay) and
+    #   `Ueberzug` (`Image::Ueberzug`, the überzug overlay), plus the in-band
+    #   `Sixel` (`Image::Sixel`), `Regis` (`Image::Regis`), `Kitty` (`Image::Kitty`,
+    #   the Kitty graphics protocol) and `Iterm` (`Image::Iterm`, the iTerm2
     #   inline-images protocol).
     # * **separate window** — the terminal renders into another window entirely:
-    #   `Tek` (`TekImage`, Tektronix 4014).
+    #   `Tek` (`Image::Tek`, Tektronix 4014).
     #
     # ```
-    # img = Widget::Image.new file: "picture.png", parent: screen # => ANSIImage
+    # img = Widget::Image.new file: "picture.png", parent: screen # => Image::Ansi
     # img = Widget::Image.new file: "picture.png", type: Widget::Image::Type::Sixel, parent: screen
     # ```
     #
     # The factory forwards a single common option bag (`file`, position, size) to
-    # whichever backend is selected; backend-specific options (e.g. GlyphImage's
-    # `mode`, SixelImage's `dither`) are best passed by constructing the concrete
+    # whichever backend is selected; backend-specific options (e.g. Image::Glyph's
+    # `mode`, Image::Sixel's `dither`) are best passed by constructing the concrete
     # widget directly.
     module Image
       # How an image is fit into a box whose aspect ratio differs from the
@@ -65,19 +65,19 @@ module Crysterm
 
       # Backend used to render the image. See the families described above.
       enum Type
-        Ansi     # cell-grid, one cell per pixel (`ANSIImage`)
-        Glyph    # cell-grid, sub-cell Unicode glyphs (`GlyphImage`)
-        Overlay  # screen-owns-pixels, external w3mimgdisplay overlay (`OverlayImage`)
-        Ueberzug # screen-owns-pixels, external überzug overlay (`UeberzugImage`)
-        Sixel    # screen-owns-pixels, in-band sixel graphics (`SixelImage`)
-        Regis    # screen-owns-pixels, in-band ReGIS vector graphics (`RegisImage`)
-        Kitty    # screen-owns-pixels, in-band Kitty graphics protocol (`KittyImage`)
-        Iterm    # screen-owns-pixels, in-band iTerm2 inline images (`ItermImage`)
-        Tek      # separate window, Tektronix 4014 vectors (`TekImage`)
+        Ansi     # cell-grid, one cell per pixel (`Image::Ansi`)
+        Glyph    # cell-grid, sub-cell Unicode glyphs (`Image::Glyph`)
+        Overlay  # screen-owns-pixels, external w3mimgdisplay overlay (`Image::Overlay`)
+        Ueberzug # screen-owns-pixels, external überzug overlay (`Image::Ueberzug`)
+        Sixel    # screen-owns-pixels, in-band sixel graphics (`Image::Sixel`)
+        Regis    # screen-owns-pixels, in-band ReGIS vector graphics (`Image::Regis`)
+        Kitty    # screen-owns-pixels, in-band Kitty graphics protocol (`Image::Kitty`)
+        Iterm    # screen-owns-pixels, in-band iTerm2 inline images (`Image::Iterm`)
+        Tek      # separate window, Tektronix 4014 vectors (`Image::Tek`)
       end
 
-      alias Any = ANSIImage | GlyphImage | OverlayImage | UeberzugImage |
-                  SixelImage | RegisImage | KittyImage | ItermImage | TekImage
+      alias Any = Ansi | Glyph | Overlay | Ueberzug |
+                  Sixel | Regis | Kitty | Iterm | Tek
 
       # The default backend when `type:` is not given, resolved from the config
       # registry (key `image.backend`, env `CRYSTERM_IMAGE_BACKEND`, CLI
@@ -107,16 +107,49 @@ module Crysterm
       # `default_type` (the `image.backend` config option).
       def self.new(*, type : Type = default_type, **opts) : Any
         case type
-        in Type::Ansi     then ANSIImage.new **opts
-        in Type::Glyph    then GlyphImage.new **opts
-        in Type::Overlay  then OverlayImage.new **opts
-        in Type::Ueberzug then UeberzugImage.new **opts
-        in Type::Sixel    then SixelImage.new **opts
-        in Type::Regis    then RegisImage.new **opts
-        in Type::Kitty    then KittyImage.new **opts
-        in Type::Iterm    then ItermImage.new **opts
-        in Type::Tek      then TekImage.new **opts
+        in Type::Ansi     then Ansi.new **opts
+        in Type::Glyph    then Glyph.new **opts
+        in Type::Overlay  then Overlay.new **opts
+        in Type::Ueberzug then Ueberzug.new **opts
+        in Type::Sixel    then Sixel.new **opts
+        in Type::Regis    then Regis.new **opts
+        in Type::Kitty    then Kitty.new **opts
+        in Type::Iterm    then Iterm.new **opts
+        in Type::Tek      then Tek.new **opts
         end
+      end
+
+      # Process-wide decode cache: the same file shown by several widgets (or
+      # reloaded) is parsed only once. The decoded `PNGGIF::PNG` holds the
+      # full-resolution bitmap + raw frames; every widget derives its sized
+      # render from it without mutating it, so the instance is shared read-only.
+      @@decode_cache = {} of String => PNGGIF::PNG
+
+      # Decodes *file* (a local path or `http(s)` URL) once, caching the result
+      # keyed on path + size + mtime (so an on-disk change invalidates it).
+      # Returns `nil` on failure.
+      def self.decode(file : String) : PNGGIF::PNG?
+        key = file
+        unless file =~ /^https?:/
+          if info = File.info?(file)
+            key = "#{file}\u{0}#{info.size}\u{0}#{info.modification_time.to_unix}"
+          end
+        end
+        if png = @@decode_cache[key]?
+          return png
+        end
+        data : String | Bytes = file
+        data = Ansi.fetch(file) if file =~ /^https?:/
+        png = PNGGIF::PNG.new(data)
+        @@decode_cache[key] = png
+        png
+      rescue
+        nil
+      end
+
+      # Empties the decode cache (e.g. to reclaim memory).
+      def self.clear_decode_cache
+        @@decode_cache.clear
       end
     end
   end

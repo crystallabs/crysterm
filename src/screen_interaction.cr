@@ -58,15 +58,22 @@ module Crysterm
     def listen_keys
       return if @_keys_fiber
       @_keys_fiber = spawn {
-        tput.listen do |char, key, sequence, mouse|
-          # The same input fiber feeds both keyboard and (terminal) mouse: a
-          # parsed mouse report is dispatched through the unified mouse path;
-          # everything else is announced as a key press.
-          if mouse
-            dispatch_mouse mouse
-          else
-            emit Crysterm::Event::KeyPress.new char, key, sequence
+        # `tput.listen` blocks reading `@input` and returns when it hits EOF — so
+        # `#disconnect` stops this fiber simply by closing the input. The rescue
+        # swallows the IO error (and the raw-mode-restore error on the now-dead
+        # fd) that closing mid-read produces, letting the fiber end quietly.
+        begin
+          tput.listen do |char, key, sequence, mouse|
+            # The same input fiber feeds both keyboard and (terminal) mouse: a
+            # parsed mouse report is dispatched through the unified mouse path;
+            # everything else is announced as a key press.
+            if mouse
+              dispatch_mouse mouse
+            else
+              emit Crysterm::Event::KeyPress.new char, key, sequence
+            end
           end
+        rescue
         end
       }
     end

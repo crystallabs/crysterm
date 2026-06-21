@@ -30,6 +30,17 @@ module Crysterm
     # shell) exits. `code` is the process exit status, or `nil` if unknown.
     event Exit, code : Int32? = nil
 
+    # Emitted when a `Screen` is bound to a freshly spawned terminal emulator
+    # window (see `Screen.open`). `screen` is the screen now driving the window.
+    event WindowOpened, screen : Crysterm::Screen
+
+    # Emitted when the terminal emulator window backing a `Screen` goes away —
+    # typically because the user closed it. The `Screen` itself is NOT destroyed
+    # by default (it is only disconnected, keeping its widget tree intact), so a
+    # handler may re-attach it to a new window via `Screen.open(into: screen)` or
+    # tear it down with `screen.destroy`. `screen` is the affected screen.
+    event WindowClosed, screen : Crysterm::Screen
+
     # Emitted when widget focuses. Requires terminal supporting the focus protocol.
     event Focus, el : Widget? = nil
 

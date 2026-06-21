@@ -1,3 +1,4 @@
+require "../image"
 require "w3m_image_display"
 
 module Crysterm
@@ -6,7 +7,7 @@ module Crysterm
     # https://github.com/hut/ranger/blob/master/ranger/ext/img_display.py
 
     # Overlay (w3m-img) image element
-    class OverlayImage < Box
+    class Image::Overlay < Box
       property file : String?
       property stretch = false
       property center = false
@@ -135,7 +136,5 @@ module Crysterm
         @listener_screen = nil
       end
     end
-
-    alias Overlayimage = OverlayImage
   end
 end

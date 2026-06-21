@@ -139,6 +139,11 @@ module Crysterm
         # Apply any posted UI jobs first, on this (the render) fiber.
         drain_ui_queue
 
+        # While disconnected (between a window closing and a reattach), keep the
+        # fiber alive but do not paint — `_render` would write to a closed/absent
+        # output. The reattach (`#connect`) renders explicitly once bound again.
+        next unless @connected
+
         # Trailing throttle: the first request after an idle period renders
         # immediately; back-to-back requests are spaced out to honor `interval`
         # (the FPS cap), without adding latency to an isolated update.
@@ -148,8 +153,18 @@ module Crysterm
           sleep(frame - elapsed) if elapsed < frame
         end
 
-        _render
-        @last_render_at = Time.instant
+        begin
+          _render
+          @last_render_at = Time.instant
+        rescue ex : IO::Error
+          # The output vanished mid-paint — almost always because the window was
+          # closed (or `#disconnect` ran) in the gap after the `@connected` check
+          # above. If we are no longer connected this is expected: swallow it and
+          # keep the loop alive so a later `#connect`/reattach can paint again. If
+          # we are still connected it is a genuine output failure on a live
+          # terminal, so let it propagate rather than hide it.
+          raise ex if @connected
+        end
       end
     end
 

@@ -101,7 +101,7 @@ module Crysterm
     )
   question.ask { }
 
-  # overlayimage = OverlayImage.new \
+  # overlayimage = Image::Overlay.new \
   #  parent: layout,
   #  width: 36,
   #  height: 18,

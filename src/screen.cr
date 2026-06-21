@@ -279,24 +279,12 @@ module Crysterm
     def on_detach(e)
       @_resize_handler.try { |e| GlobalEvents.off ::Crysterm::Event::Resize, e }
 
-      Screen.instances.each do |s|
-        # s.leave # No need, done as part of Screen#destroy
-        s.destroy
-      end
-
-      # TODO Don't do this unconditionally, but return to whatever
-      # state it was in before.
-      #
-      # Only attempt the terminal-mode restore on an actual tty: `cooked!` issues
-      # `tcgetattr`/`tcsetattr`, which raise "Inappropriate ioctl for device" when
-      # `@input` is a pipe, file, `/dev/null`, or an `IO::Memory` (the latter
-      # doesn't respond to `cooked!` at all). This keeps teardown clean for
-      # headless/redirected runs and specs.
-      @input.try { |i|
-        if i.responds_to?(:"cooked!") && i.responds_to?(:"tty?") && i.tty?
-          i.cooked!
-        end
-      }
+      # NOTE Per-screen teardown only. We deliberately do NOT cascade-destroy the
+      # other `Screen.instances` here: with multiple emulator windows each screen
+      # has an independent lifecycle, so closing/destroying one must not take the
+      # others down. Whole-app shutdown is handled by `at_exit` (in `crysterm.cr`)
+      # and by `Screen.exec_all`'s shared quit. Terminal-mode restore (`leave`,
+      # `cooked!`) now happens in `#disconnect`, which `#destroy` calls.
     end
 
     # Destroys current `Display`.
@@ -589,6 +577,9 @@ module Crysterm
     # Also remove all global events relevant to the object.
     # If no screens remain, the app is essentially reset to its initial state.
     def destroy
+      return if @destroyed
+      @destroyed = true
+
       # Signal the render fiber to exit, then wake it so it notices.
       @render_stop = true
       schedule_render
@@ -597,7 +588,11 @@ module Crysterm
       # destroyals needs to be bottom-up instead of top-down.
       # @children.each &.destroy
 
-      leave
+      # Tear down the terminal connection (restores the terminal, stops the input
+      # fiber, closes owned IO and any spawned window). For the launching screen
+      # this is the old `leave` plus line-discipline restore; for screens bound to
+      # spawned windows it also closes the window.
+      disconnect
 
       # XXX Blessed does this here (undoes the setup from initialize):
       #    process.removeListener('uncaughtException', Screen._exceptionHandler);

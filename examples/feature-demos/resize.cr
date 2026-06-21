@@ -2,7 +2,7 @@
 # backend RE-SAMPLES the source to fit it — the whole point of the resize
 # refactor: keep a resolution-independent source and derive the sized render for
 # whatever box is current (here with `fit: Contain`, so aspect is preserved and
-# the remainder is letterboxed). Uses `GlyphImage` so the normal `ttygif.py`
+# the remainder is letterboxed). Uses `Image::Glyph` so the normal `ttygif.py`
 # recorder can capture it as a GIF.
 
 require "../../src/crysterm"
@@ -17,9 +17,9 @@ Widget::Box.new \
   content: "{center}Live resize — the source re-samples to the box (fit: Contain){/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
 
-img = Widget::GlyphImage.new \
+img = Widget::Image::Glyph.new \
   parent: s, top: 2, left: 2, width: 20, height: 6,
-  mode: Widget::GlyphImage::Mode::Octant,
+  mode: Widget::Image::Glyph::Mode::Octant,
   fit: Widget::Image::Fit::Contain, animate: false,
   file: "#{__DIR__}/../../screenshots/matterhorn.png",
   style: Style.new(border: true)

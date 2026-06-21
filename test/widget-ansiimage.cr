@@ -2,10 +2,10 @@ require "../src/crysterm"
 
 # Port of Blessed's test/widget-ansiimage.js
 #
-# Demonstrates `Widget::ANSIImage`, which decodes a PNG/APNG/GIF itself (using
+# Demonstrates `Widget::Image::Ansi`, which decodes a PNG/APNG/GIF itself (using
 # the pure-Crystal `Crysterm::PNG` reader) and draws it into the normal cell
 # grid — one terminal cell per downscaled pixel, colored via TrueColor. Unlike
-# `Widget::OverlayImage` it needs no external `w3mimgdisplay` helper, so it works
+# `Widget::Image::Overlay` it needs no external `w3mimgdisplay` helper, so it works
 # on any TrueColor terminal.
 #
 # Pass an image path as the first argument, or it defaults to a bundled
@@ -28,9 +28,9 @@ module Crysterm
     left: 0,
     height: 1,
     width: "100%",
-    content: "Widget::ANSIImage — press q to quit"
+    content: "Widget::Image::Ansi — press q to quit"
 
-  img = Widget::ANSIImage.new(
+  img = Widget::Image::Ansi.new(
     file: file,
     parent: s,
     top: 2,

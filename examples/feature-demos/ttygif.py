@@ -651,7 +651,7 @@ def cell_metrics(font):
 # --------------------------------------------------------------------------- #
 # Sub-cell glyphs (half/quadrant/sextant/octant/braille) drawn geometrically,  #
 # so they render pixel-accurately regardless of font coverage. Mirrors the     #
-# bit/codepoint layout emitted by Crysterm's Widget::GlyphImage.               #
+# bit/codepoint layout emitted by Crysterm's Widget::Image::Glyph.               #
 # --------------------------------------------------------------------------- #
 
 _BLOCK_MAP = {
