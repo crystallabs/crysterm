@@ -139,9 +139,64 @@ module Crysterm
     def dispatch_mouse(ev : ::Tput::Mouse::Event)
       emit ::Crysterm::Event::Mouse.new ev
 
+      # An in-flight (mouse-driven) drag captures all motion/release: it owns the
+      # pointer until released, regardless of what is underneath. A continuous
+      # drag ends on button-up; a discrete (two-click) drag ends on the next
+      # button-down, retargeting to whatever is under that final click (so it
+      # works even on terminals that report no motion at all).
+      if drag = @_drag
+        if drag.sensor.mouse?
+          if ev.action.move?
+            drag_motion drag, ev.x, ev.y, ev.shift?, ev.ctrl?
+          elsif drag.discrete? ? ev.action.down? : ev.action.up?
+            if drag.discrete?
+              retarget drag, widget_at(ev.x, ev.y, skip: drag.source)
+              over drag
+            end
+            drag_release drag
+          end
+        end
+        return
+      end
+
       w = widget_at ev.x, ev.y
 
       update_hover w, ev
+
+      # Press over a draggable widget. In two-click mode the press lifts it
+      # immediately (the fallback for terminals with no motion reporting);
+      # otherwise we merely *arm* and wait for motion, so a plain click still
+      # works.
+      if ev.action.down? && w && w.draggable?
+        if drag_two_click?
+          start_drag w, ev.x, ev.y, ::Crysterm::DragSensor::Mouse,
+            action: drag_action_for(ev.shift?, ev.ctrl?, ::Crysterm::DragAction::Move),
+            discrete: true
+          return
+        end
+        @_arm = w
+        @_arm_x = ev.x
+        @_arm_y = ev.y
+      end
+
+      if armed = @_arm
+        if ev.action.move? && (ev.x != @_arm_x || ev.y != @_arm_y)
+          # Start the drag from the press point (so the grab offset is correct),
+          # then immediately apply this first motion.
+          ax, ay = @_arm_x, @_arm_y
+          @_arm = nil
+          sess = start_drag armed, ax, ay, ::Crysterm::DragSensor::Mouse,
+            action: drag_action_for(ev.shift?, ev.ctrl?, ::Crysterm::DragAction::Move)
+          drag_motion sess, ev.x, ev.y, ev.shift?, ev.ctrl?
+          return
+        elsif ev.action.up?
+          # No motion: it was a click after all. Draggable widgets emit their
+          # click on release (mouse-up semantics) since the press was ambiguous.
+          @_arm = nil
+          armed.emit ::Crysterm::Event::Click.new if w == armed
+          return
+        end
+      end
 
       return unless w
 
@@ -156,7 +211,9 @@ module Crysterm
           w.focus
           render
         end
-        w.emit ::Crysterm::Event::Click.new
+        # A draggable widget defers its click to release (handled above), so it
+        # is not also emitted here on press.
+        w.emit ::Crysterm::Event::Click.new unless w.draggable?
       elsif ev.action.wheel_up?
         scroll_under w, -1
       elsif ev.action.wheel_down?
@@ -210,9 +267,12 @@ module Crysterm
     # `Widget#front!` / `Widget#back!` affect which widget the mouse "sees":
     # reordering a widget within its parent's `children` both raises it visually
     # and makes it the hit target, with no separate bookkeeping to keep in sync.
-    def widget_at(x, y) : Widget?
+    def widget_at(x, y, skip : Widget? = nil) : Widget?
       found = nil
       each_descendant do |el|
+        next if skip && el == skip
+        # The transient drag ghost is decorative and must never be a drop target.
+        next if (g = @_drag_ghost) && el == g
         next unless el.wants_mouse?
         next unless el.visible?
 

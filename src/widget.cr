@@ -154,6 +154,10 @@ module Crysterm
         screen?.try &.register_keyable self
       end
 
+      # If constructed `draggable: true`, install the default reposition
+      # behavior now (the splat above only set the `@draggable` flag).
+      enable_drag if @draggable
+
       children.each do |child|
         append child
       end
