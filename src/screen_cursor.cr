@@ -65,11 +65,9 @@ module Crysterm
       else
         c.shape.try { |shape| tput.cursor_shape shape, c.blink }
         # XXX consider a simpler structure than Style for cursor color?
-        # XXX Blessed calls this:
-        # c.style.fg.try { |color| tput.cursor_color Colors.convert color }
-        # Why in our case that produces the following error when it's used:
-        # Error: expected argument #1 to 'Tput#cursor_color' to be String or Tput::Namespace::Color, not Int32
-        c.style.fg.try { |color| tput.cursor_color color }
+        # The native color is an int; `Tput#cursor_color` wants a `String`, so
+        # format it back to `#rrggbb` (skipping `-1`, the terminal default).
+        c.style.fg.try { |color| tput.cursor_color "#%06x" % color if color >= 0 }
       end
 
       c._set = true
@@ -115,7 +113,7 @@ module Crysterm
     # both the artificial and hardware cursors -- the equivalent of blessed's
     # `cursor.color`. For an artificial cursor this just records the color and
     # the next `render` applies it; otherwise it is pushed to the terminal.
-    def cursor_color(color : String? = nil, c : Cursor = @cursor)
+    def cursor_color(color : Int | String | Nil = nil, c : Cursor = @cursor)
       c.style.fg = color
       c._set = true
 
@@ -125,7 +123,7 @@ module Crysterm
         return true
       end
 
-      ac.style.fg.try { |x| tput.cursor_color x }
+      ac.style.fg.try { |x| tput.cursor_color "#%06x" % x if x >= 0 }
     end
 
     alias_previous reset_cursor
@@ -167,10 +165,10 @@ module Crysterm
       # blessed's `cursor.color`, applied to the FOREGROUND for every shape).
       # `style.bg` additionally tints the BACKGROUND (a Crysterm extension).
       if f = cursor.style.fg
-        attr = Attr.pack(Attr.flags(attr), Attr.pack_color(Colors.convert(f)), Attr.bg(attr))
+        attr = Attr.pack(Attr.flags(attr), Attr.pack_color(f), Attr.bg(attr))
       end
       if b = cursor.style.bg
-        attr = Attr.pack(Attr.flags(attr), Attr.fg(attr), Attr.pack_color(Colors.convert(b)))
+        attr = Attr.pack(Attr.flags(attr), Attr.fg(attr), Attr.pack_color(b))
       end
 
       # Cell.new attr: attr, char: ch || ' '
@@ -207,7 +205,7 @@ module Crysterm
 
       c.shape = :block
       c.blink = false
-      c.style.bg = "#ffffff"
+      c.style.bg = 0xffffff
       c._set = false
 
       tput.cursor_reset

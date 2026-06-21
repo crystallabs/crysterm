@@ -110,30 +110,47 @@ module Crysterm
     # case no sequences get generated and term's default is used. That's also how Blessed
     # does it.
 
-    # Foreground color (color of font/character)
-    property fg : String?
+    # Foreground color (color of font/character).
+    #
+    # Crysterm's native color form is a `0xRRGGBB` integer (`-1` = terminal
+    # default, `nil` = "no color set", so no SGR sequence is emitted). The
+    # numeric form is canonical and is stored as-is; for backwards compatibility
+    # the setter still accepts `"#rrggbb"`/named-color strings, parsing them to
+    # the native int via `Colors.convert`.
+    getter fg : Int32?
 
-    # Background color (color of cell)
-    property bg : String?
+    # Background color (color of cell). See `#fg` for the accepted forms.
+    getter bg : Int32?
 
-    # Accept a native 24-bit color directly (e.g. `fg: 0x40e0c0`). Crysterm's
-    # native color form is a `0xRRGGBB` integer; here it's normalized to the
-    # `#rrggbb` string the rest of the pipeline already stores and understands,
-    # so direct ints and `"#rrggbb"`/named strings are interchangeable.
+    # Native numeric color (e.g. `fg: 0x40e0c0`); stored directly.
     def fg=(color : Int)
-      @fg = Style.color_to_s color
+      @fg = color.to_i32
     end
 
     # :ditto:
     def bg=(color : Int)
-      @bg = Style.color_to_s color
+      @bg = color.to_i32
     end
 
-    # Formats a native color int as a `#rrggbb` string. `-1` (the terminal
-    # default) maps to `nil` — i.e. "no color set" — so no SGR sequence is
-    # emitted, matching how an unset color behaves.
-    def self.color_to_s(color : Int) : String?
-      color == -1 ? nil : ("#%06x" % (color.to_i & 0xFFFFFF))
+    # Backwards compatibility: a `"#rrggbb"` or named ("blue") color string is
+    # parsed to the native int.
+    def fg=(color : String)
+      @fg = Colors.convert(color).to_i32
+    end
+
+    # :ditto:
+    def bg=(color : String)
+      @bg = Colors.convert(color).to_i32
+    end
+
+    # Clearing a color leaves it unset (no SGR sequence emitted).
+    def fg=(color : Nil)
+      @fg = nil
+    end
+
+    # :ditto:
+    def bg=(color : Nil)
+      @bg = nil
     end
 
     # Bold?
@@ -354,8 +371,35 @@ module Crysterm
   class Border
     property type = BorderType::Line
 
-    property bg : String?
-    property fg : String?
+    # Border colors. Native form is a `0xRRGGBB` int (`-1` = terminal default,
+    # `nil` = unset); `"#rrggbb"`/named strings are accepted for backwards
+    # compatibility and parsed via `Colors.convert`. See `Style#fg`.
+    getter bg : Int32?
+    getter fg : Int32?
+
+    def fg=(color : Int)
+      @fg = color.to_i32
+    end
+
+    def bg=(color : Int)
+      @bg = color.to_i32
+    end
+
+    def fg=(color : String)
+      @fg = Colors.convert(color).to_i32
+    end
+
+    def bg=(color : String)
+      @bg = Colors.convert(color).to_i32
+    end
+
+    def fg=(color : Nil)
+      @fg = nil
+    end
+
+    def bg=(color : Nil)
+      @bg = nil
+    end
 
     property char = ' '
     # XXX There is some duplication between style and these 5.
@@ -389,13 +433,17 @@ module Crysterm
 
     def initialize(
       @type = @type,
-      @bg = @bg,
-      @fg = @fg,
+      bg = nil,
+      fg = nil,
       @left = @left,
       @top = @top,
       @right = @right,
       @bottom = @bottom,
     )
+      # Route through the setters so a native int or a `"#rrggbb"`/named string
+      # both resolve to the native int form.
+      self.bg = bg unless bg.nil?
+      self.fg = fg unless fg.nil?
     end
 
     def initialize(all : Int)

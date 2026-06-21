@@ -32,10 +32,18 @@ module Crysterm
         # Characters rained down the screen; one is sampled per lit cell per frame.
         property pool : Array(Char)
 
-        # Color of the leading ("head") glyph of every drop (a `#rrggbb` string; it
-        # is resolved to a packed `0xRRGGBB` via the cached `Colors.convert_cached`,
-        # so there is no per-cell string allocation).
-        property head_color : String
+        # Color of the leading ("head") glyph of every drop (a native `0xRRGGBB`
+        # int, painted straight into the cell). For backwards compatibility the
+        # setter also accepts a `"#rrggbb"`/named string.
+        getter head_color : Int32 = 0xccffcc
+
+        def head_color=(color : Int)
+          @head_color = color.to_i32
+        end
+
+        def head_color=(color : String)
+          @head_color = Colors.convert(color).to_i32
+        end
 
         # Per-column state, (re)built whenever the column count changes.
         @heads = [] of Float64
@@ -45,9 +53,10 @@ module Crysterm
         def initialize(
           @pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*+=?<>/\\|".chars,
           @interval = 0.07.seconds,
-          @head_color = "#ccffcc",
+          head_color = 0xccffcc,
           **box,
         )
+          self.head_color = head_color
           super **box
         end
 
@@ -80,7 +89,7 @@ module Crysterm
           if dist >= 0 && dist < @lengths[x]
             ch = @pool.sample
             if dist < 1
-              {ch, Colors.convert_cached(head_color)}
+              {ch, head_color}
             else
               # Fade the trail from bright to deep green: r=0x00, b=0x22, with the
               # green channel ramping down with distance from the head.

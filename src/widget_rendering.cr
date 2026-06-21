@@ -651,11 +651,11 @@ module Crysterm
           (style.underline? ? Attr::UNDERLINE : 0) |
           (style.bold? ? Attr::BOLD : 0)
 
-      # `Colors.convert_cached` yields a native color (`-1` default, or
-      # `0xRRGGBB`); `Attr.pack_color` maps that into a packed color field.
-      # `sattr` runs per widget per frame, so the cached, allocation-free
-      # `convert` matters here (see `Colors.convert_cached`).
-      Attr.pack(flags, Attr.pack_color(Colors.convert_cached(fg)), Attr.pack_color(Colors.convert_cached(bg)))
+      # `fg`/`bg` are already native colors (a `0xRRGGBB` int, `-1` for the
+      # terminal default, or `nil` for "unset" — which also maps to the default).
+      # `Attr.pack_color` maps that into a packed color field. Because colors are
+      # stored natively there is no per-frame string parse here anymore.
+      Attr.pack(flags, Attr.pack_color(fg || -1), Attr.pack_color(bg || -1))
     end
 
     def sattr(style, fg = nil, bg = nil)

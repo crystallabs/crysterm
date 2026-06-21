@@ -17,18 +17,19 @@ module Crysterm
     # Cache for `convert(String)` results, keyed by the color spec.
     @@convert_cache = Hash(String, Int32).new
 
-    # Allocation-free cached form of `convert` for the render hot path.
+    # Allocation-free cached form of `convert` for color *strings*.
     #
-    # `sattr` parses a `Style`'s fg/bg color *strings* into native colors on
-    # every widget on every frame, and `TermColors#convert(String)` allocates —
-    # a `gsub` to strip separators plus a substring in `hex_to_rgb`. The set of
-    # distinct color strings an application actually uses is small and bounded
-    # (named colors, a handful of hex values, at most one hue cycle for animated
-    # gradients), so memoizing turns that per-frame garbage into an
-    # allocation-free hash lookup. See `benchmarks/render-hotpath.cr`.
+    # Colors are now stored natively (as `0xRRGGBB` ints), so the render hot
+    # path (`sattr`) no longer parses strings per frame. This memoizer remains
+    # for the cases that still resolve a *string* color repeatedly — e.g. an
+    # effect whose configurable color is supplied as a string — since
+    # `TermColors#convert(String)` allocates (a `gsub` to strip separators plus a
+    # substring in `hex_to_rgb`). The set of distinct color strings an
+    # application uses is small and bounded, so memoizing turns that garbage into
+    # an allocation-free hash lookup.
     #
-    # The non-`String` overload covers `nil`/other specs (e.g. a missing
-    # `Style#fg`); those resolve cheaply through `convert` and are not cached.
+    # The non-`String` overload covers `nil`/other specs; those resolve cheaply
+    # through `convert` and are not cached.
     def self.convert_cached(color : String) : Int32
       @@convert_cache.fetch(color) { @@convert_cache[color] = convert(color).to_i32 }
     end

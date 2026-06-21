@@ -129,8 +129,9 @@ module Crysterm
         private def key_tags
           if @key_style.inverse?
             {open: "{inverse}", close: "{/inverse}"}
-          elsif fg = @key_style.fg
-            {open: "{#{fg}-fg}", close: "{/#{fg}-fg}"}
+          elsif (fg = @key_style.fg) && fg >= 0
+            hex = "#%06x" % (fg & 0xffffff)
+            {open: "{#{hex}-fg}", close: "{/#{hex}-fg}"}
           else
             {open: "{bold}", close: "{/bold}"}
           end

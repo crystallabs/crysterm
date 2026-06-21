@@ -217,9 +217,10 @@ module Crysterm
       # Generates the `{open}`/`{close}` tags used to colorize the command
       # prefix, based on `style.prefix.fg` (defaulting to light black).
       private def prefix_tags
-        fg = style.prefix.fg || "lightblack"
-        fg = fg.sub(/^light(?!-)/, "light-").sub(/^bright(?!-)/, "bright-")
-        {open: "{#{fg}-fg}", close: "{/#{fg}-fg}"}
+        c = style.prefix.fg
+        c = 0x7f7f7f if c.nil? || c < 0 # light black (default)
+        hex = "#%06x" % (c & 0xffffff)
+        {open: "{#{hex}-fg}", close: "{/#{hex}-fg}"}
       end
 
       def render(with_children = true)

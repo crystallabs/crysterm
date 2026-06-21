@@ -59,9 +59,9 @@ module Crysterm
           super **box
         end
 
-        # The bar's background color for the current frame.
-        def color : String
-          Colors.hsv((@hue_offset + @frame * @hue_speed) % 360, @saturation, @brightness)
+        # The bar's background color (native `0xRRGGBB`) for the current frame.
+        def color : Int32
+          Colors.hsv_i((@hue_offset + @frame * @hue_speed) % 360, @saturation, @brightness)
         end
 
         # Paint this frame's color onto `style.bg` and advance one frame.

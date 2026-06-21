@@ -64,13 +64,19 @@ module Crysterm
         # `false`, the effect stops after one fill and runs `#on_complete`.
         property? loop : Bool
 
-        # Colors the pre-launch "charge-up" spark cycles through at the emitter.
-        property spark_colors : Array(String)
+        # Colors the pre-launch "charge-up" spark cycles through at the emitter
+        # (native `0xRRGGBB` ints).
+        property spark_colors : Array(Int32) = [0xff8080, 0x80c0ff]
 
-        # Optional color override: `(slot_index, frame, phase) -> "#rrggbb"`, where
+        # Backwards compatibility: accept `"#rrggbb"`/named color strings.
+        def spark_colors=(colors : Array(String))
+          @spark_colors = colors.map { |c| Colors.convert(c).to_i32 }
+        end
+
+        # Optional color override: `(slot_index, frame, phase) -> 0xRRGGBB`, where
         # *phase* is `:pending`, `:flight`, or `:landed`. `nil` uses the built-in
         # rainbow.
-        property color : Proc(Int32, Int32, Symbol, String)?
+        property color : Proc(Int32, Int32, Symbol, Int32)?
 
         # Run once, after a non-looping spray has filled the area.
         property on_complete : Proc(Nil)?
@@ -95,11 +101,12 @@ module Crysterm
           @travel = 12,
           @hold = 28,
           @loop = true,
-          @spark_colors = ["#ff8080", "#80c0ff"],
+          spark_colors = [0xff8080, 0x80c0ff],
           @color = nil,
           @on_complete = nil,
           **box,
         )
+          self.spark_colors = spark_colors
           # Per-glyph `{#rrggbb-fg}` tags require tag parsing regardless of caller.
           super **box
           self.parse_tags = true
@@ -198,7 +205,7 @@ module Crysterm
             end
             next unless 0 <= gx < w && 0 <= gy < h
             col = colorize i, phase
-            grid[gy][gx] = "{#{col}-fg}#{glyph}{/}"
+            grid[gy][gx] = "{##{"%06x" % (col & 0xffffff)}-fg}#{glyph}{/}"
           end
 
           self.content = (0...h).map { |y|
@@ -209,15 +216,15 @@ module Crysterm
           !loop? && @frame > fill_frame
         end
 
-        # Color for slot *i* in *phase* at the current frame.
-        private def colorize(i, phase) : String
+        # Color (native `0xRRGGBB`) for slot *i* in *phase* at the current frame.
+        private def colorize(i, phase) : Int32
           if c = @color
             return c.call(i, @frame, phase)
           end
           case phase
           when :pending then @spark_colors[(@frame // 3) % @spark_colors.size]
-          when :flight  then Colors.hsv((i * 9 + @frame * 9) % 360)
-          else               Colors.hsv((i * 9 + @frame * 6) % 360)
+          when :flight  then Colors.hsv_i((i * 9 + @frame * 9) % 360)
+          else               Colors.hsv_i((i * 9 + @frame * 6) % 360)
           end
         end
 

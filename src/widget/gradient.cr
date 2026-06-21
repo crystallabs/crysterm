@@ -83,7 +83,7 @@ module Crysterm
       def color_at(t : Float64) : Int32
         p = t * @cycles + @phase
         if @stops.empty?
-          Colors.convert Colors.hsv(p * 360.0)
+          Colors.hsv_i(p * 360.0)
         elsif @stops.size == 1
           @stops[0]
         else
