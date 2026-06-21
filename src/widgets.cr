@@ -39,6 +39,7 @@ module Crysterm
 
     # Effects
     EffectMatrix = Widget::Effect::Matrix
+    EffectSpray  = Widget::Effect::Spray
 
     RadioSet    = Widget::RadioSet
     RadioButton = Widget::RadioButton
