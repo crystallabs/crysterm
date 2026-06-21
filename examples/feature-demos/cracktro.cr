@@ -52,12 +52,13 @@ greet = Widget::Box.new \
   parent: s, top: 4, left: 0, width: "100%", height: 1, align: :hcenter,
   content: "* CRACKED BY THE CRYSTERM CREW *", style: Style.new(fg: "yellow", bg: "black")
 
-# Sine-wave rainbow scroller in the lower portion.
+# Sine-wave rainbow scroller in the lower portion, as a reusable
+# `Widget::Effect::SineScroller`. Advanced from the master loop via `step` so it
+# shares the one frame clock (keeping the recorded GIF seamless).
 sine_top = 5
-band_h = h - sine_top
-sine = Widget::Box.new \
-  parent: s, top: sine_top, left: 0, width: "100%", height: band_h,
-  content: "", parse_tags: true, style: Style.new(bg: "black")
+sine = Widget::Effect::SineScroller.new \
+  parent: s, top: sine_top, left: 0, width: "100%", height: h - sine_top,
+  text: MSG, style: Style.new(bg: "black")
 
 # Background already present at a given row, so a flying letter can adopt it and
 # ride over the scene without changing the background it passes across.
@@ -119,7 +120,6 @@ letters = slots.map do |_|
     content: "·", style: Style.new(fg: "#ffffff", bg: "#000000")
 end
 
-amp = (band_h - 1) / 2.0
 frame = 0
 s.every(0.07.seconds) do
   # copper bars hue-cycle (advance one frame; each CopperBar paints its own bg)
@@ -130,18 +130,8 @@ s.every(0.07.seconds) do
 
   greet.style.fg = (frame // 4).even? ? "#ffffff" : "#ff3030"
 
-  # sine-wave rainbow scroller
-  grid = Array.new(band_h) { Array(String?).new(w, nil) }
-  (0...w).each do |x|
-    ch = MSG[(frame + x) % MSG.size]
-    next if ch == ' '
-    r = (amp * (1.0 + Math.sin(x * 0.32 + frame * 0.22))).round.to_i.clamp(0, band_h - 1)
-    col = Colors.hsv((x * 7 + frame * 6) % 360)
-    grid[r][x] = "{#{col}-fg}#{ch}{/}"
-  end
-  sine.content = (0...band_h).map { |r|
-    String.build { |io| (0...w).each { |x| io << (grid[r][x] || " ") } }
-  }.join('\n')
+  # sine-wave rainbow scroller (advance one column per master frame)
+  sine.step
 
   # letters shot from the centre dot, spiralling clockwise to fill the screen
   f = frame % cycle
