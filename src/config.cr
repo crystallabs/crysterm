@@ -9,7 +9,7 @@ module Crysterm
   # `Crysterm::Config` is a transparent alias, so the familiar API keeps working:
   #
   # ```
-  # Crysterm::Config.screen_resize_interval        # typed accessor
+  # Crysterm::Config.screen_resize_interval # typed accessor
   # Crysterm::Config.get("tput.read_timeout", Time::Span)
   # Crysterm::Config.dump STDOUT, Crysterm::Config::Format::Pretty
   # ```

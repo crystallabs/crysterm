@@ -36,8 +36,16 @@ FONT_SIZE="${FONT_SIZE:-18}"
 SCALE="${SCALE:-1}"
 
 # Per-demo capture duration overrides (some look better a touch longer/shorter).
-# netscape decodes a big 34-frame GIF twice, so give it a moment to get going.
-declare -A DUR_OVERRIDE=([netscape]=12)
+# netscape composites a big 34-frame GIF twice before it starts animating; this
+# is the upper bound we let it run while waiting for its capture markers (it
+# stops early once it has two — the actual GIF is just one loop, see LOOP_DEMOS).
+declare -A DUR_OVERRIDE=([netscape]=30)
+
+# Demos captured as a single seamless loop: the demo emits a capture marker once
+# per animation loop (TTYGIF_MARK), and the recorder films exactly the span
+# between two consecutive markers — one true loop — so the GIF tiles with no
+# visible seam and looks like it runs forever.
+LOOP_DEMOS=(netscape)
 
 # Per-demo window-size overrides (none — every GIF is the same COLS x ROWS).
 declare -A COLS_OVERRIDE=()
@@ -146,12 +154,26 @@ PY
   ext="gif"
   case " ${STILL[*]} " in *" $demo "*) ext="png" ;; esac
 
-  python3 "$RECORDER" \
-    --out "$OUT/$demo.$ext" \
-    --cols "$cols" --rows "$rows" \
-    --duration "$dur" --fps "$FPS" \
-    --font-size "$FONT_SIZE" --scale "$SCALE" \
-    -- "$BUILD/$demo"
+  # Loop demos are captured marker-to-marker (one seamless animation loop);
+  # everything else uses a fixed duration.
+  is_loop=0
+  case " ${LOOP_DEMOS[*]} " in *" $demo "*) is_loop=1 ;; esac
+  if [ "$is_loop" = 1 ]; then
+    TTYGIF_MARK=1 python3 "$RECORDER" \
+      --out "$OUT/$demo.$ext" \
+      --cols "$cols" --rows "$rows" \
+      --duration "$dur" --fps "$FPS" \
+      --font-size "$FONT_SIZE" --scale "$SCALE" \
+      --mark \
+      -- "$BUILD/$demo"
+  else
+    python3 "$RECORDER" \
+      --out "$OUT/$demo.$ext" \
+      --cols "$cols" --rows "$rows" \
+      --duration "$dur" --fps "$FPS" \
+      --font-size "$FONT_SIZE" --scale "$SCALE" \
+      -- "$BUILD/$demo"
+  fi
   echo
 done
 
