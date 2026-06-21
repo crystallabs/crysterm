@@ -4,13 +4,21 @@ module Crysterm
     # module Cursor
     include Macros
 
-    # TODO - temporary until @cursor is moved to widget. This is extended because
-    # Tput class does not have a property for color.
-    class Cursor < Tput::Namespace::Cursor
-      property style : Style = Style.new(char: '▮')
-    end
-
+    # The screen's default cursor. It is used whenever the focused widget does
+    # not define its own (see `#active_cursor`). The `Cursor` type now lives at
+    # the namespace level (`Crysterm::Cursor`) so that a `Widget` can own one too.
     getter cursor = Cursor.new
+
+    # The cursor currently in effect: the focused widget's own cursor if it has
+    # one, otherwise the screen's default `#cursor`.
+    #
+    # This is the single place that implements "per-widget cursor, falling back
+    # to the screen default". Everything that *draws* the cursor (`Screen#draw`)
+    # or *applies* it to the terminal goes through here, so a focused widget's
+    # override transparently wins while everything else keeps using the default.
+    def active_cursor : Cursor
+      focused.try(&.cursor) || @cursor
+    end
 
     # Should all these functions go to tput?
 
@@ -29,18 +37,17 @@ module Crysterm
       !!tput.features?.try(&.cursor_color?)
     end
 
-    # Applies the current cursor settings in `@cursor` to the screen.
+    # Applies cursor `c`'s settings to the screen. Defaults to the
+    # `#active_cursor`, i.e. the focused widget's cursor or the screen default.
     #
     # This is the single place where the hardware-vs-artificial decision is
-    # made, so that both paths honor exactly the same `@cursor` state:
+    # made, so that both paths honor exactly the same cursor state:
     #
     # * A custom (`None`) shape has no hardware equivalent, and any non-default
     #   shape/blink on a terminal that can't style its hardware cursor, is drawn
     #   by Crysterm itself (the artificial cursor).
     # * Otherwise the request is pushed to the terminal's hardware cursor.
-    def apply_cursor
-      c = @cursor
-
+    def apply_cursor(c : Cursor = active_cursor)
       # Decide whether the hardware cursor can satisfy the request; if not, draw
       # it ourselves so the requested shape/blink/color is still honored.
       unless c.artificial?
@@ -74,15 +81,18 @@ module Crysterm
       (c.shape != Tput::CursorShape::Block) || c.blink
     end
 
-    # Sets cursor shape (and blink). Works identically for the hardware and the
-    # artificial cursor: it records the request and routes it through
-    # `apply_cursor`, which renders it or emits the hardware escape as
-    # appropriate.
-    def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
-      @cursor.shape = shape
-      @cursor.blink = blink
-      @cursor._set = false
-      apply_cursor
+    # Sets cursor shape (and blink) on cursor `c` (the screen default by
+    # default; a `Widget` passes its own). Works identically for the hardware
+    # and the artificial cursor: it records the request and then re-applies the
+    # `#active_cursor`, which renders it or emits the hardware escape as
+    # appropriate. (When `c` is the focused widget's cursor it *is* the active
+    # one, so the change shows immediately; otherwise it is recorded and applied
+    # once that cursor becomes active, i.e. on focus.)
+    def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false, c : Cursor = @cursor)
+      c.shape = shape
+      c.blink = blink
+      c._set = false
+      apply_cursor active_cursor
     end
 
     # XXX where does this belong?
@@ -97,23 +107,25 @@ module Crysterm
     # end
     # end
 
-    # Sets cursor color.
+    # Sets cursor color on cursor `c` (the screen default by default; a `Widget`
+    # passes its own).
     #
-    # The cursor's color is stored as `@cursor.style.fg` (the same field the
+    # The cursor's color is stored as `c.style.fg` (the same field the
     # artificial renderer and `apply_cursor` read), so a single concept drives
     # both the artificial and hardware cursors -- the equivalent of blessed's
     # `cursor.color`. For an artificial cursor this just records the color and
     # the next `render` applies it; otherwise it is pushed to the terminal.
-    def cursor_color(color : String? = nil)
-      @cursor.style.fg = color
-      @cursor._set = true
+    def cursor_color(color : String? = nil, c : Cursor = @cursor)
+      c.style.fg = color
+      c._set = true
 
-      if @cursor.artificial?
+      ac = active_cursor
+      if ac.artificial?
         render if @renders > 0
         return true
       end
 
-      @cursor.style.fg.try { |c| tput.cursor_color c }
+      ac.style.fg.try { |x| tput.cursor_color x }
     end
 
     alias_previous reset_cursor
@@ -165,20 +177,20 @@ module Crysterm
       {attr, ch}
     end
 
-    # Shows cursor
-    def show_cursor
-      if @cursor.artificial?
-        @cursor._hidden = false
+    # Shows cursor `c` (the active cursor by default).
+    def show_cursor(c : Cursor = active_cursor)
+      if c.artificial?
+        c._hidden = false
         render if @renders > 0
       else
         tput.show_cursor
       end
     end
 
-    # Hides cursor
-    def hide_cursor
-      if @cursor.artificial?
-        @cursor._hidden = true
+    # Hides cursor `c` (the active cursor by default).
+    def hide_cursor(c : Cursor = active_cursor)
+      if c.artificial?
+        c._hidden = true
         render if @renders > 0
       else
         tput.hide_cursor
@@ -187,15 +199,16 @@ module Crysterm
 
     # Re-enables and resets the hardware cursor. If an artificial cursor was in
     # use, it is turned off and erased (via a re-render) so control returns to
-    # the terminal's own cursor.
-    def cursor_reset
-      was_artificial = @cursor.artificial?
-      @cursor.artificial = false
+    # the terminal's own cursor. Resets cursor `c` (the screen default by
+    # default; a `Widget` resets its own override via `Widget#reset_cursor`).
+    def cursor_reset(c : Cursor = @cursor)
+      was_artificial = c.artificial?
+      c.artificial = false
 
-      @cursor.shape = :block
-      @cursor.blink = false
-      @cursor.style.bg = "#ffffff"
-      @cursor._set = false
+      c.shape = :block
+      c.blink = false
+      c.style.bg = "#ffffff"
+      c._set = false
 
       tput.cursor_reset
 

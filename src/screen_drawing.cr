@@ -72,7 +72,9 @@ module Crysterm
 
       ::Log.trace { "Drawing #{start}..#{stop}" }
 
-      c = cursor
+      # The cursor that is actually drawn: the focused widget's own cursor if it
+      # has one, else the screen default (see `Screen#active_cursor`).
+      c = active_cursor
 
       # For all rows (y = row coordinate)
       (start..stop).each do |y|

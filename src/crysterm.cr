@@ -16,6 +16,8 @@ require "./mixin/*"
 
 require "./action"
 
+require "./cursor"
+
 require "./screen"
 
 require "./widget"

@@ -18,6 +18,7 @@ require "./widget_rendering"
 require "./widget_interaction"
 require "./widget_screenshot"
 require "./widget_label"
+require "./widget_cursor"
 
 module Crysterm
   class Widget

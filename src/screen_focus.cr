@@ -178,6 +178,18 @@ module Crysterm
         old.emit Crysterm::Event::Blur, cur
       end
 
+      # Per-widget cursor: if the newly-focused or the blurred widget carries its
+      # own cursor, re-apply the now-active cursor so the override (or the screen
+      # default it falls back to) takes effect. Skipped entirely when neither
+      # widget uses the feature, so apps that don't override the cursor see no
+      # change in behavior.
+      if cur.cursor || old.try(&.cursor)
+        apply_cursor
+        # If the blurred widget was drawing an artificial cursor, repaint so its
+        # cell is erased now that a different cursor is active.
+        render if old.try(&.cursor).try(&.artificial?) && @renders > 0
+      end
+
       cur.emit Crysterm::Event::Focus, old
     end
   end
