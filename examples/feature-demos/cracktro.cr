@@ -35,10 +35,13 @@ copper = COPPER_ROWS.map do |row|
 end
 copper_idx = {1 => 0, 3 => 1}
 
-# Row 2: plain right-to-left scroller of the same message.
-hscroll = Widget::Box.new \
+# Row 2: right-to-left rainbow scroller of the same message, as a reusable
+# `Widget::Marquee`. Its frame is advanced explicitly from the master loop below
+# (via `step`, rather than `start` and its own fiber) so it stays locked to the
+# same clock as the rest of the scene and the recorded GIF still tiles seamlessly.
+hscroll = Widget::Marquee.new \
   parent: s, top: 2, left: 0, width: "100%", height: 1,
-  content: "", parse_tags: true, style: Style.new(bg: "black")
+  text: MSG, rainbow: true, style: Style.new(bg: "black")
 
 # Flashing greet.
 greet = Widget::Box.new \
@@ -120,17 +123,8 @@ s.every(0.07.seconds) do
     box.style.bg = Colors.hsv(((idx * 26) + frame * 9) % 360)
   end
 
-  # row 2: right-to-left line scroller
-  hscroll.content = String.build do |io|
-    (0...w).each do |x|
-      ch = MSG[(frame + x) % MSG.size]
-      if ch == ' '
-        io << ' '
-      else
-        io << "{#{Colors.hsv((x * 7 + frame * 8) % 360)}-fg}" << ch << "{/}"
-      end
-    end
-  end
+  # row 2: right-to-left rainbow scroller (advance one column per master frame)
+  hscroll.step
 
   greet.style.fg = (frame // 4).even? ? "#ffffff" : "#ff3030"
 
