@@ -18,17 +18,9 @@ s.show_fps = nil
 w = s.awidth
 h = s.aheight
 
-# Background: a smooth rainbow sweep made of one solid 24-bit strip per column.
-w.times do |x|
-  f = x / (w - 1)
-  r = (Math.sin(f * Math::PI) * 255).to_i.clamp(0, 255)
-  g = (Math.sin((f + 0.33) * Math::PI) * 255).to_i.clamp(0, 255)
-  b = (Math.sin((f + 0.66) * Math::PI) * 255).to_i.clamp(0, 255)
-  Widget::Box.new \
-    parent: s,
-    top: 0, left: x, width: 1, height: h,
-    style: Style.new(bg: "#%02x%02x%02x" % {r, g, b})
-end
+# Background: a smooth 24-bit rainbow sweep — a single static `Gradient` that
+# paints one color per column (no `animate:`, so it just renders once).
+Widget::Gradient.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
 
 box1 = Widget::Box.new \
   parent: s,
@@ -46,24 +38,13 @@ box2 = Widget::Box.new \
   parse_tags: true,
   style: Style.new(bg: "#208020", alpha: true, border: true, shadow: true)
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 t = 0.0
-spawn do
-  loop do
-    box1.clear_last_rendered_position
-    box2.clear_last_rendered_position
-    box1.left = (2 + (Math.sin(t) * 0.5 + 0.5) * (w - 32)).to_i
-    box2.left = (2 + (Math.sin(t + Math::PI) * 0.5 + 0.5) * (w - 32)).to_i
-    t += 0.12
-    s.render
-    sleep 0.06.seconds
-  end
+s.every(0.06.seconds) do
+  box1.clear_last_rendered_position
+  box2.clear_last_rendered_position
+  box1.left = (2 + (Math.sin(t) * 0.5 + 0.5) * (w - 32)).to_i
+  box2.left = (2 + (Math.sin(t + Math::PI) * 0.5 + 0.5) * (w - 32)).to_i
+  t += 0.12
 end
 
 s.exec

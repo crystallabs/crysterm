@@ -53,45 +53,34 @@ target.on(Event::Click) do
   target.style.bg = green ? "green" : "red"
 end
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 # Drive synthetic events, alternating the two sources.
-spawn do
-  t = 0.0
-  loop do
-    src = (t.to_i % 2 == 0) ? :xterm : :gpm
-    x = (4 + (Math.sin(t) * 0.5 + 0.5) * (s.awidth - 8)).to_i
-    y = (10 + (Math.sin(t * 0.7) * 0.5 + 0.5) * 3).to_i
+t = 0.0
+s.every(0.12.seconds) do
+  src = (t.to_i % 2 == 0) ? :xterm : :gpm
+  x = (4 + (Math.sin(t) * 0.5 + 0.5) * (s.awidth - 8)).to_i
+  y = (10 + (Math.sin(t * 0.7) * 0.5 + 0.5) * 3).to_i
 
-    marker.clear_last_rendered_position
-    marker.left = x
-    marker.top = y
+  marker.clear_last_rendered_position
+  marker.left = x
+  marker.top = y
 
-    move = ::Tput::Mouse::Event.new(
-      action: ::Tput::Mouse::Action::Move, button: ::Tput::Mouse::Button::None,
-      x: x, y: y, source: src)
-    s.dispatch_mouse move
+  move = ::Tput::Mouse::Event.new(
+    action: ::Tput::Mouse::Action::Move, button: ::Tput::Mouse::Button::None,
+    x: x, y: y, source: src)
+  s.dispatch_mouse move
 
-    # Occasionally click the target.
-    if (t * 10).to_i % 13 == 0
-      cx, cy = 6, 11
-      s.dispatch_mouse ::Tput::Mouse::Event.new(
-        action: ::Tput::Mouse::Action::Down, button: ::Tput::Mouse::Button::Left,
-        x: cx, y: cy, source: src)
-      s.dispatch_mouse ::Tput::Mouse::Event.new(
-        action: ::Tput::Mouse::Action::Up, button: ::Tput::Mouse::Button::Left,
-        x: cx, y: cy, source: src)
-    end
-
-    t += 0.25
-    s.render
-    sleep 0.12.seconds
+  # Occasionally click the target.
+  if (t * 10).to_i % 13 == 0
+    cx, cy = 6, 11
+    s.dispatch_mouse ::Tput::Mouse::Event.new(
+      action: ::Tput::Mouse::Action::Down, button: ::Tput::Mouse::Button::Left,
+      x: cx, y: cy, source: src)
+    s.dispatch_mouse ::Tput::Mouse::Event.new(
+      action: ::Tput::Mouse::Action::Up, button: ::Tput::Mouse::Button::Left,
+      x: cx, y: cy, source: src)
   end
+
+  t += 0.25
 end
 
 s.exec

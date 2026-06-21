@@ -21,13 +21,6 @@ rain = Widget::Effect::Matrix.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",
   style: Style.new(bg: "black")
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 rain.start
 
 s.exec

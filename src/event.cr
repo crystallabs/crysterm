@@ -59,6 +59,10 @@ module Crysterm
     # Emitted when screen is resized.
     event Resize, size : Tput::Namespace::Size? = nil
 
+    # Emitted by a `Crysterm::Timer` on every tick. Widgets (and anything else)
+    # subscribe to a shared timer to animate in lockstep off one clock.
+    event Tick
+
     # Emitted when object is hidden
     event Hide
 

@@ -37,12 +37,5 @@ Widget::Box.new \
   content: "{center}Image::Ansi  ·  #{desc}{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#202830")
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 s.render
 s.exec

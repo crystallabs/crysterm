@@ -43,21 +43,10 @@ ticker = Widget::Box.new \
 
 spinner = ["|", "/", "-", "\\"]
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 n = 0
-spawn do
-  loop do
-    ticker.content = "\n{center}frame{/center}\n{center}#{n}{/center}\n\n{center}#{spinner[n % 4]}{/center}"
-    n += 1
-    s.render
-    sleep 0.05.seconds
-  end
+s.every(0.05.seconds) do
+  ticker.content = "\n{center}frame{/center}\n{center}#{n}{/center}\n\n{center}#{spinner[n % 4]}{/center}"
+  n += 1
 end
 
 s.exec

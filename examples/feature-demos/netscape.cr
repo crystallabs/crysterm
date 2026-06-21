@@ -58,25 +58,14 @@ right = make_image backend,
   fit: Widget::Image::Fit::Contain, file: img_path,
   style: Style.new(border: true)
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 rmaxw = s.awidth - half
-spawn do
-  t = 0.0
-  loop do
-    phase = t % 2.0
-    f = phase < 1.0 ? phase : 2.0 - phase
-    right.width = (12 + (rmaxw - 12) * f).to_i
-    right.height = (5 + (ih - 5) * f).to_i
-    s.render
-    t += 0.12
-    sleep 0.1.seconds
-  end
+t = 0.0
+s.every(0.1.seconds) do
+  phase = t % 2.0
+  f = phase < 1.0 ? phase : 2.0 - phase
+  right.width = (12 + (rmaxw - 12) * f).to_i
+  right.height = (5 + (ih - 5) * f).to_i
+  t += 0.12
 end
 
 s.render

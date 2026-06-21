@@ -48,28 +48,17 @@ bigtext = Widget::BigText.new \
   parent: s, top: 6, left: 56, width: 22, height: 8,
   content: "OK", style: Style.new(fg: "magenta", border: true)
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 typed = "release-1.0.tar.gz"
-spawn do
-  i = 0
-  loop do
-    progress.filled += 4
-    progress.filled = 0 if progress.filled > 100
-    cb1.toggle if i % 7 == 0
-    cb2.toggle if i % 11 == 0
-    cb3.toggle if i % 5 == 0
-    list.down if i % 4 == 0
-    input.value = typed[0, (i % (typed.size + 1))]
-    i += 1
-    s.render
-    sleep 0.12.seconds
-  end
+i = 0
+s.every(0.12.seconds) do
+  progress.filled += 4
+  progress.filled = 0 if progress.filled > 100
+  cb1.toggle if i % 7 == 0
+  cb2.toggle if i % 11 == 0
+  cb3.toggle if i % 5 == 0
+  list.down if i % 4 == 0
+  input.value = typed[0, (i % (typed.size + 1))]
+  i += 1
 end
 
 s.exec

@@ -10,6 +10,7 @@ require "./unicode"
 require "./event"
 require "./helpers"
 require "./colors"
+require "./timer"
 require "./docking"
 require "pnggif"
 

@@ -32,19 +32,7 @@ Widget::Image::Ansi.new \
   parent: s, top: 3, left: 42, width: 34, height: 11,
   file: "#{__DIR__}/assets/spin.gif"
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 # Keep the screen refreshing so the animated GIF advances on the recording.
-spawn do
-  loop do
-    s.render
-    sleep 0.08.seconds
-  end
-end
+s.every(0.08.seconds) { }
 
 s.exec

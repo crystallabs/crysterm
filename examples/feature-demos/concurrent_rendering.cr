@@ -29,14 +29,10 @@ colors = ["#e05050", "#50e050", "#5080e0", "#e0c050", "#c050e0"]
     top: 4 + i, left: 2, width: 46, height: 1,
     filled: 0,
     style: Style.new(fg: colors[i], bg: "#303030")
-  spawn do
-    step = i + 1
-    loop do
-      pb.filled += step
-      pb.filled = 0 if pb.filled > 100
-      s.render
-      sleep (0.05 + i * 0.02).seconds
-    end
+  step = i + 1
+  s.every((0.05 + i * 0.02).seconds) do
+    pb.filled += step
+    pb.filled = 0 if pb.filled > 100
   end
 end
 
@@ -55,22 +51,11 @@ marker = Widget::Box.new \
   parent: s, top: 11, left: 2, width: 6, height: 1,
   content: "{center}o{/center}", parse_tags: true,
   style: Style.new(fg: "black", bg: "yellow")
-spawn do
-  pos = 0.0
-  loop do
-    marker.clear_last_rendered_position
-    marker.left = (2 + (Math.sin(pos) * 0.5 + 0.5) * (s.awidth - 8)).to_i
-    pos += 0.15
-    s.render
-    sleep 0.04.seconds
-  end
-end
-
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
+pos = 0.0
+s.every(0.04.seconds) do
+  marker.clear_last_rendered_position
+  marker.left = (2 + (Math.sin(pos) * 0.5 + 0.5) * (s.awidth - 8)).to_i
+  pos += 0.15
 end
 
 s.exec

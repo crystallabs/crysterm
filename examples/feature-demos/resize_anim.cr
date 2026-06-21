@@ -25,26 +25,15 @@ img = Widget::Image::Ansi.new \
   file: img_path,
   style: Style.new(border: true)
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 maxw = s.awidth - 4
 maxh = s.aheight - 4
-spawn do
-  t = 0.0
-  loop do
-    phase = t % 2.0
-    f = phase < 1.0 ? phase : 2.0 - phase
-    img.width = (12 + (maxw - 12) * f).to_i
-    img.height = (4 + (maxh - 4) * f).to_i
-    s.render
-    t += 0.06
-    sleep 0.06.seconds
-  end
+t = 0.0
+s.every(0.06.seconds) do
+  phase = t % 2.0
+  f = phase < 1.0 ? phase : 2.0 - phase
+  img.width = (12 + (maxw - 12) * f).to_i
+  img.height = (4 + (maxh - 4) * f).to_i
+  t += 0.06
 end
 
 s.render

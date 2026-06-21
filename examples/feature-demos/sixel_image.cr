@@ -37,13 +37,6 @@ Widget::Image::Sixel.new \
   cell_pixel_height: (ENV["CELL_PH"]? || "22").to_i,
   file: "#{__DIR__}/../../screenshots/matterhorn.png"
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 # Self-terminate for the screenshot tooling (so nothing external must be killed).
 if secs = ENV["DEMO_SECONDS"]?
   spawn do

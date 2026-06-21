@@ -51,24 +51,13 @@ end
 checkbox.on(Event::Check) { add.call "  Event::Check     (checkbox on)" }
 checkbox.on(Event::UnCheck) { add.call "  Event::UnCheck   (checkbox off)" }
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'Q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 # Driver: emit a stream of events through the system.
 demo_keys = "crysterm".chars
-spawn do
-  i = 0
-  loop do
-    s.emit Event::KeyPress.new demo_keys[i % demo_keys.size]
-    checkbox.toggle if i % 4 == 0
-    i += 1
-    s.render
-    sleep 0.3.seconds
-  end
+i = 0
+s.every(0.3.seconds) do
+  s.emit Event::KeyPress.new demo_keys[i % demo_keys.size]
+  checkbox.toggle if i % 4 == 0
+  i += 1
 end
 
 s.exec

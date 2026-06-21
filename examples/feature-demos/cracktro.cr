@@ -112,81 +112,70 @@ letters = slots.map do |_|
     content: "·", style: Style.new(fg: "#ffffff", bg: "#000000")
 end
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 amp = (band_h - 1) / 2.0
 frame = 0
-spawn do
-  loop do
-    # copper bars scroll
-    copper.each_with_index do |box, idx|
-      box.style.bg = Colors.hsv(((idx * 26) + frame * 9) % 360)
-    end
+s.every(0.07.seconds) do
+  # copper bars scroll
+  copper.each_with_index do |box, idx|
+    box.style.bg = Colors.hsv(((idx * 26) + frame * 9) % 360)
+  end
 
-    # row 2: right-to-left line scroller
-    hscroll.content = String.build do |io|
-      (0...w).each do |x|
-        ch = MSG[(frame + x) % MSG.size]
-        if ch == ' '
-          io << ' '
-        else
-          io << "{#{Colors.hsv((x * 7 + frame * 8) % 360)}-fg}" << ch << "{/}"
-        end
-      end
-    end
-
-    greet.style.fg = (frame // 4).even? ? "#ffffff" : "#ff3030"
-
-    # sine-wave rainbow scroller
-    grid = Array.new(band_h) { Array(String?).new(w, nil) }
+  # row 2: right-to-left line scroller
+  hscroll.content = String.build do |io|
     (0...w).each do |x|
       ch = MSG[(frame + x) % MSG.size]
-      next if ch == ' '
-      r = (amp * (1.0 + Math.sin(x * 0.32 + frame * 0.22))).round.to_i.clamp(0, band_h - 1)
-      col = Colors.hsv((x * 7 + frame * 6) % 360)
-      grid[r][x] = "{#{col}-fg}#{ch}{/}"
-    end
-    sine.content = (0...band_h).map { |r|
-      String.build { |io| (0...w).each { |x| io << (grid[r][x] || " ") } }
-    }.join('\n')
-
-    # letters shot from the centre dot, spiralling clockwise to fill the screen
-    f = frame % cycle
-    letters.each_with_index do |box, i|
-      destx, desty, fch = slots[i]
-      lf = i * INTERVAL
-      col = cx
-      row = cy
-      if f < lf
-        box.content = "·"
-        box.style.fg = (frame // 3).even? ? "#ff8080" : "#80c0ff"
-      elsif f < lf + TRAVEL
-        p = (f - lf) / TRAVEL.to_f
-        col = (cx + (destx - cx) * p).round.to_i
-        row = (cy + (desty - cy) * p).round.to_i
-        box.content = GROW[(p * GROW.size).to_i.clamp(0, GROW.size - 1)]
-        box.style.fg = Colors.hsv((i * 9 + frame * 9) % 360)
+      if ch == ' '
+        io << ' '
       else
-        col = destx
-        row = desty
-        box.content = fch.to_s
-        box.style.fg = Colors.hsv((i * 9 + frame * 6) % 360)
+        io << "{#{Colors.hsv((x * 7 + frame * 8) % 360)}-fg}" << ch << "{/}"
       end
-      box.clear_last_rendered_position
-      box.left = col
-      box.top = row
-      box.style.bg = bg_under.call(row, frame)
     end
-
-    frame += 1
-    s.render
-    sleep 0.07.seconds
   end
+
+  greet.style.fg = (frame // 4).even? ? "#ffffff" : "#ff3030"
+
+  # sine-wave rainbow scroller
+  grid = Array.new(band_h) { Array(String?).new(w, nil) }
+  (0...w).each do |x|
+    ch = MSG[(frame + x) % MSG.size]
+    next if ch == ' '
+    r = (amp * (1.0 + Math.sin(x * 0.32 + frame * 0.22))).round.to_i.clamp(0, band_h - 1)
+    col = Colors.hsv((x * 7 + frame * 6) % 360)
+    grid[r][x] = "{#{col}-fg}#{ch}{/}"
+  end
+  sine.content = (0...band_h).map { |r|
+    String.build { |io| (0...w).each { |x| io << (grid[r][x] || " ") } }
+  }.join('\n')
+
+  # letters shot from the centre dot, spiralling clockwise to fill the screen
+  f = frame % cycle
+  letters.each_with_index do |box, i|
+    destx, desty, fch = slots[i]
+    lf = i * INTERVAL
+    col = cx
+    row = cy
+    if f < lf
+      box.content = "·"
+      box.style.fg = (frame // 3).even? ? "#ff8080" : "#80c0ff"
+    elsif f < lf + TRAVEL
+      p = (f - lf) / TRAVEL.to_f
+      col = (cx + (destx - cx) * p).round.to_i
+      row = (cy + (desty - cy) * p).round.to_i
+      box.content = GROW[(p * GROW.size).to_i.clamp(0, GROW.size - 1)]
+      box.style.fg = Colors.hsv((i * 9 + frame * 9) % 360)
+    else
+      col = destx
+      row = desty
+      box.content = fch.to_s
+      box.style.fg = Colors.hsv((i * 9 + frame * 6) % 360)
+    end
+    box.clear_last_rendered_position
+    box.left = col
+    box.top = row
+    box.style.bg = bg_under.call(row, frame)
+  end
+
+  frame += 1
 end
 
 s.exec

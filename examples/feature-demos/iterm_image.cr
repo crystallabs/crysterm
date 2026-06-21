@@ -26,13 +26,6 @@ Widget::Image::Iterm.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
   file: "#{__DIR__}/../../screenshots/matterhorn.png"
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 if secs = ENV["DEMO_SECONDS"]?
   spawn do
     sleep secs.to_f.seconds

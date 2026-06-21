@@ -44,23 +44,12 @@ end
 
 all = grid_boxes + inline_boxes
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
-spawn do
-  i = 0
-  loop do
-    all.each { |b| b.style.bg = base }
-    grid_boxes[i % grid_boxes.size].style.bg = "#a05020"
-    inline_boxes[i % inline_boxes.size].style.bg = "#a05020"
-    i += 1
-    s.render
-    sleep 0.4.seconds
-  end
+i = 0
+s.every(0.4.seconds) do
+  all.each { |b| b.style.bg = base }
+  grid_boxes[i % grid_boxes.size].style.bg = "#a05020"
+  inline_boxes[i % inline_boxes.size].style.bg = "#a05020"
+  i += 1
 end
 
 s.exec

@@ -43,21 +43,10 @@ dot = Widget::Box.new \
   parent: s, top: 2, left: 70, width: 3, height: 1,
   content: "*", style: Style.new(fg: "yellow")
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
-spawn do
-  on = true
-  loop do
-    dot.content = on ? "*" : " "
-    on = !on
-    s.render
-    sleep 0.4.seconds
-  end
+on = true
+s.every(0.4.seconds) do
+  dot.content = on ? "*" : " "
+  on = !on
 end
 
 s.exec

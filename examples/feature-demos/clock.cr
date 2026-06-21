@@ -27,24 +27,13 @@ datebox = Widget::Box.new \
   parent: s, top: 13, left: 0, width: "100%", height: 1, align: :hcenter,
   content: "", style: Style.new(fg: "#a0b0c0", bg: "black")
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 months = %w[Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec]
 days = %w[Sun Mon Tue Wed Thu Fri Sat]
-spawn do
-  loop do
-    t = Time.local
-    clock.set_content t.to_s("%H:%M")
-    secbar.filled = ((t.second / 59.0) * 100).to_i
-    datebox.content = "#{days[t.day_of_week.value % 7]}  #{t.day} #{months[t.month - 1]} #{t.year}   :%02d" % t.second
-    s.render
-    sleep 0.2.seconds
-  end
+s.every(0.2.seconds) do
+  t = Time.local
+  clock.set_content t.to_s("%H:%M")
+  secbar.filled = ((t.second / 59.0) * 100).to_i
+  datebox.content = "#{days[t.day_of_week.value % 7]}  #{t.day} #{months[t.month - 1]} #{t.year}   :%02d" % t.second
 end
 
 s.exec

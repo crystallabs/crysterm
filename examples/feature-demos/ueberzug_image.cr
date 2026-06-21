@@ -32,13 +32,6 @@ Widget::Image::Ueberzug.new \
   scaler: "forced_cover",
   file: "#{__DIR__}/../../screenshots/matterhorn.png"
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 if secs = ENV["DEMO_SECONDS"]?
   spawn do
     sleep secs.to_f.seconds

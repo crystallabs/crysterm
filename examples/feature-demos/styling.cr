@@ -45,37 +45,17 @@ Widget::Box.new \
   parse_tags: true,
   style: Style.new(fg: "white", bg: "#101010", border: true)
 
-# A row of animated color swatches (each a small Box with a 24-bit bg).
+# A strip of animated 24-bit color: one `Widget::Gradient` in rainbow mode,
+# hue-cycling over time. The animation is driven by a shared `Timer` (here it
+# clocks a single gradient, but the same timer object can sync several widgets).
 frame = Widget::Box.new \
   parent: s, top: 8, left: 2, width: 76, height: 5,
   content: "Animated 24-bit swatches:", parse_tags: true,
   style: Style.new(fg: "white", bg: "#101010", border: true)
 
-n = 70
-swatches = [] of Widget::Box
-n.times do |i|
-  swatches << Widget::Box.new(
-    parent: frame, top: 1, left: 1 + i, width: 1, height: 2,
-    style: Style.new(bg: "#000000"))
-end
-
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
-phase = 0
-spawn do
-  loop do
-    swatches.each_with_index do |sw, i|
-      sw.style.bg = Colors.hsv((i * 5 + phase) % 360)
-    end
-    phase = (phase + 12) % 360
-    s.render
-    sleep 0.1.seconds
-  end
-end
+clock = Timer.new 0.1.seconds
+Widget::Gradient.new \
+  parent: frame, top: 1, left: 1, width: 74, height: 2,
+  animate: clock, speed: 0.033
 
 s.exec

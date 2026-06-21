@@ -40,31 +40,20 @@ bars = Widget::Box.new \
 
 blocks = " ▁▂▃▄▅▆▇█".chars
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 phase = 0.0
-spawn do
-  loop do
-    lines = [] of String
-    4.times do |row|
-      line = String.build do |io|
-        30.times do |i|
-          v = (Math.sin(phase + i * 0.4 + row) * 0.5 + 0.5) * (blocks.size - 1)
-          io << blocks[v.to_i]
-        end
+s.every(0.08.seconds) do
+  lines = [] of String
+  4.times do |row|
+    line = String.build do |io|
+      30.times do |i|
+        v = (Math.sin(phase + i * 0.4 + row) * 0.5 + 0.5) * (blocks.size - 1)
+        io << blocks[v.to_i]
       end
-      lines << line
     end
-    bars.content = "Block elements:\n" + lines.join("\n")
-    phase += 0.3
-    s.render
-    sleep 0.08.seconds
+    lines << line
   end
+  bars.content = "Block elements:\n" + lines.join("\n")
+  phase += 0.3
 end
 
 s.exec

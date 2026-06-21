@@ -24,28 +24,17 @@ img = Widget::Image::Glyph.new \
   file: "#{__DIR__}/../../screenshots/matterhorn.png",
   style: Style.new(border: true)
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 # Oscillate the box size; each render re-samples the image to the new box.
 maxw = s.awidth - 4
 maxh = s.aheight - 4
-spawn do
-  t = 0.0
-  loop do
-    # Smooth triangle wave 0..1.
-    phase = (t % 2.0)
-    f = phase < 1.0 ? phase : 2.0 - phase
-    img.width = (12 + (maxw - 12) * f).to_i
-    img.height = (4 + (maxh - 4) * f).to_i
-    s.render
-    t += 0.08
-    sleep 0.05.seconds
-  end
+t = 0.0
+s.every(0.05.seconds) do
+  # Smooth triangle wave 0..1.
+  phase = (t % 2.0)
+  f = phase < 1.0 ? phase : 2.0 - phase
+  img.width = (12 + (maxw - 12) * f).to_i
+  img.height = (4 + (maxh - 4) * f).to_i
+  t += 0.08
 end
 
 s.render

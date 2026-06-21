@@ -10,6 +10,7 @@ module Crysterm
 
     # The concrete backends live under `Image` (e.g. `Image::Ansi`, `Image::Kitty`).
     Image       = Widget::Image
+    Gradient    = Widget::Gradient
     ProgressBar = Widget::ProgressBar
     Loading     = Widget::Loading
     Layout      = Widget::Layout

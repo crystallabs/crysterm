@@ -27,12 +27,5 @@ Widget::Box.new \
   content: "{center}TrueColor PNG -> terminal cells  ·  Grand Prismatic Spring{/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#101820")
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 s.render
 s.exec

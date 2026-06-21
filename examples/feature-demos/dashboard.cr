@@ -63,30 +63,19 @@ events = [
 ]
 loglines = [] of String
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
+i = 0
+s.every(0.18.seconds) do
+  # gauges random-walk toward a moving target
+  gauges.each do |(_, pb, _)|
+    delta = rand(-6..7)
+    pb.filled = (pb.filled + delta).clamp(2, 100)
   end
-end
-
-spawn do
-  i = 0
-  loop do
-    # gauges random-walk toward a moving target
-    gauges.each do |(_, pb, _)|
-      delta = rand(-6..7)
-      pb.filled = (pb.filled + delta).clamp(2, 100)
-    end
-    if i % 2 == 0
-      loglines << "  #{events.sample}"
-      loglines.shift if loglines.size > (log.aheight - 2)
-      log.content = " Activity\n" + loglines.join("\n")
-    end
-    i += 1
-    s.render
-    sleep 0.18.seconds
+  if i % 2 == 0
+    loglines << "  #{events.sample}"
+    loglines.shift if loglines.size > (log.aheight - 2)
+    log.content = " Activity\n" + loglines.join("\n")
   end
+  i += 1
 end
 
 s.exec

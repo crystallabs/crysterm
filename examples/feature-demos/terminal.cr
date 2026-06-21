@@ -8,7 +8,9 @@ require "../../src/crysterm"
 # quit the demo (the shell itself owns every other key).
 include Crysterm
 
-screen = Screen.new
+# Opt out of the default `q`/C-q quit handler: the embedded shell must receive
+# `q` (and every other key) as input. We install our own C-q-only quit below.
+screen = Screen.new default_quit_keys: false
 
 # A backdrop filling the whole screen, so the area *around* the nested terminal
 # is clearly the host application and not more terminal.

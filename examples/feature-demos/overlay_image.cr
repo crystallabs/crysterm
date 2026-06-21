@@ -26,13 +26,6 @@ Widget::Image::Overlay.new \
   stretch: true,
   file: "#{__DIR__}/../../screenshots/matterhorn.png"
 
-s.on(Event::KeyPress) do |e|
-  if e.char == 'q' || e.key == Tput::Key::CtrlQ
-    s.destroy
-    exit
-  end
-end
-
 # Optional self-terminate (used by the screenshot tooling so nothing external
 # has to be killed): OVERLAY_SECONDS=8 makes the demo exit on its own.
 if secs = ENV["OVERLAY_SECONDS"]?
