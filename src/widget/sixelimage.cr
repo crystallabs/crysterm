@@ -39,14 +39,11 @@ module Crysterm
         idx = quantize bmp, pw, ph
 
         io = String::Builder.new
-        io << "\eP0;1;0q"          # DCS sixel; P2=1 → leave 0-bits transparent
-        io << "\"1;1;" << pw << ';' << ph  # raster attrs: 1:1 aspect, pw×ph
+        io << "\eP0;1;0q"                 # DCS sixel; P2=1 → leave 0-bits transparent
+        io << "\"1;1;" << pw << ';' << ph # raster attrs: 1:1 aspect, pw×ph
 
         PALETTE.each_with_index do |rgb, i|
-          io << '#' << i << ";2;" \
-             << (((rgb >> 16) & 0xff) * 100 // 255) << ';' \
-             << (((rgb >> 8) & 0xff) * 100 // 255) << ';' \
-             << ((rgb & 0xff) * 100 // 255)
+          io << '#' << i << ";2;" << (((rgb >> 16) & 0xff) * 100 // 255) << ';' << (((rgb >> 8) & 0xff) * 100 // 255) << ';' << ((rgb & 0xff) * 100 // 255)
         end
 
         bands = (ph + 5) // 6
@@ -59,6 +56,7 @@ module Crysterm
               y = y0 + dy
               break if y >= ph
               ci = idx[y][x]
+              next if ci < 0 # transparent (e.g. Contain letterbox margin)
               arr = cols[ci] ||= Array(UInt8).new(pw, 0u8)
               arr[x] = (arr[x] | (1u8 << dy))
             end
@@ -107,6 +105,10 @@ module Crysterm
           pw.times do |x|
             px = rin[x]?
             next unless px
+            if px.a == 0
+              row[x] = -1 # transparent
+              next
+            end
             t = dither? ? (BAYER[y & 3][x & 3] + 0.5) / 16.0 - 0.5 : 0.0
             rl = qlevel px.r, LR, t
             gl = qlevel px.g, LG, t

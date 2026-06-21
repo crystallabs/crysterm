@@ -24,8 +24,15 @@ Widget::Box.new \
 iw = s.awidth
 ih = s.aheight - 1
 
+fit = case ENV["FIT"]?
+      when "contain" then Widget::Image::Fit::Contain
+      when "cover"   then Widget::Image::Fit::Cover
+      else                Widget::Image::Fit::Stretch
+      end
+
 Widget::SixelImage.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
+  fit: fit,
   cell_pixel_width: (ENV["CELL_PW"]? || "11").to_i,
   cell_pixel_height: (ENV["CELL_PH"]? || "22").to_i,
   file: "#{__DIR__}/../../screenshots/matterhorn.png"

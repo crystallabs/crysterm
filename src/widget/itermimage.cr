@@ -32,10 +32,14 @@ module Crysterm
                                   cols : Int32, rows : Int32) : String?
         bytes = raw_bytes || return nil
         b64 = Base64.strict_encode bytes
+        # iTerm2 letterboxes within the width×height cell box when
+        # preserveAspectRatio=1; Stretch wants it off. (Cover/crop isn't
+        # expressible in the protocol, so it falls back to preserving aspect.)
+        par = @fit.stretch? ? 0 : 1
         String.build do |io|
           io << "\e]1337;File=inline=1;size=" << bytes.size \
-             << ";width=" << cols << ";height=" << rows \
-             << ";preserveAspectRatio=0:" << b64 << '\a'
+            << ";width=" << cols << ";height=" << rows \
+            << ";preserveAspectRatio=" << par << ':' << b64 << '\a'
         end
       end
 

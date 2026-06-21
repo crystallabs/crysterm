@@ -90,6 +90,11 @@ module Crysterm
               rl += 1
             end
 
+            if ci < 0 # transparent (e.g. Contain letterbox margin): draw nothing
+              x += rl
+              next
+            end
+
             if ci != last
               io << "W(I(" << LETTERS[ci] << "))"
               last = ci
@@ -114,6 +119,10 @@ module Crysterm
           pw.times do |x|
             px = rin[x]?
             next unless px
+            if px.a == 0
+              row[x] = -1 # transparent
+              next
+            end
             r = px.r; g = px.g; b = px.b
             if dither?
               t = ((BAYER[y & 3][x & 3] + 0.5) / 16.0 - 0.5) * 110.0

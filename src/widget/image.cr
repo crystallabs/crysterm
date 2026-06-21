@@ -33,6 +33,36 @@ module Crysterm
     # `mode`, SixelImage's `dither`) are best passed by constructing the concrete
     # widget directly.
     module Image
+      # How an image is fit into a box whose aspect ratio differs from the
+      # image's — shared by every backend so the behaviour is consistent.
+      enum Fit
+        Stretch # fill the box exactly, distorting aspect ratio (default)
+        Contain # scale to fit inside the box, letterboxing the remainder
+        Cover   # scale to fill the box, cropping the overflow
+
+        # Lays an image of *sw*×*sh* into a *bw*×*bh* box, returning the drawn
+        # size and top-left offset `{dw, dh, ox, oy}` (offsets are negative for
+        # `Cover`, where the image is larger than the box and gets cropped).
+        def layout(bw : Int32, bh : Int32, sw : Int32, sh : Int32) : Tuple(Int32, Int32, Int32, Int32)
+          return {bw, bh, 0, 0} if stretch? || sw <= 0 || sh <= 0 || bw <= 0 || bh <= 0
+          ar = sw.to_f / sh.to_f
+          box_ar = bw.to_f / bh.to_f
+          # Pin height (derive width) when the box is "wider" than the image for
+          # Contain, or "taller" for Cover; pin width otherwise.
+          pin_height = contain? ? (box_ar > ar) : (box_ar < ar)
+          if pin_height
+            dh = bh
+            dw = (bh * ar).round.to_i
+          else
+            dw = bw
+            dh = (dw / ar).round.to_i
+          end
+          dw = 1 if dw < 1
+          dh = 1 if dh < 1
+          {dw, dh, (bw - dw) // 2, (bh - dh) // 2}
+        end
+      end
+
       # Backend used to render the image. See the families described above.
       enum Type
         Ansi     # cell-grid, one cell per pixel (`ANSIImage`)

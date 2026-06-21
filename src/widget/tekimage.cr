@@ -28,17 +28,50 @@ module Crysterm
       property file : String?
 
       # Luminance threshold (0..255) used when `dither?` is off.
-      property level : Float64
+      getter level : Float64
 
       # Ordered-dither to 1 bit (smoother, more photographic) vs. hard threshold
       # (cleaner spans, faster to draw).
-      property? dither : Bool
+      getter? dither : Bool
 
       # Invert ink/paper (draw the dark areas instead of the bright ones).
-      property? invert : Bool
+      getter? invert : Bool
 
       # Longest image edge, in Tek units, the rendering is scaled to fit.
-      property fit : Int32
+      getter fit : Int32
+
+      # The Tek display is a separate window that xterm auto-rescales from the
+      # 4014 logical coordinate space, so a window/box resize needs no redraw.
+      # Changing the *drawing* parameters does, though — these setters re-fire it.
+      def level=(v : Float64)
+        return if v == @level
+        @level = v
+        redraw!
+      end
+
+      def dither=(v : Bool)
+        return if v == @dither
+        @dither = v
+        redraw!
+      end
+
+      def invert=(v : Bool)
+        return if v == @invert
+        @invert = v
+        redraw!
+      end
+
+      def fit=(v : Int32)
+        return if v == @fit
+        @fit = v
+        redraw!
+      end
+
+      # Forces the image to be re-emitted to the Tek window on the next render.
+      private def redraw!
+        @drawn = false
+        screen?.try &.render
+      end
 
       @drawn = false
       @listener_screen : ::Crysterm::Screen?

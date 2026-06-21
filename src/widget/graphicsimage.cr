@@ -33,11 +33,21 @@ module Crysterm
       property cell_pixel_width : Int32
       property cell_pixel_height : Int32
 
+      # How the image is fit into the (possibly varying-size) box. Changing it
+      # invalidates the cached render.
+      property fit : Image::Fit
+
+      # The image decoded once at native resolution (resolution-independent
+      # *source*); the sized render is derived from it for the current box and
+      # cached, so resizing re-samples without re-parsing the file.
+      @source : PNGGIF::PNG?
+      @raw : Bytes?
+
       # Cached encoded payload and the (pw, ph, ox, oy, cols, rows) it was built
       # for, so we don't re-encode on every frame (the lifecycle repaints every
       # render).
       @payload : String?
-      @payload_key : Tuple(Int32, Int32, Int32, Int32, Int32, Int32)?
+      @payload_key : Tuple(Int32, Int32, Int32, Int32, Int32, Int32, Int32)?
 
       # Cell rectangle (`{xi, yi, w, h}`) the graphic was last painted at, used
       # to detect movement/resize so the old position can be cleared.
@@ -53,6 +63,7 @@ module Crysterm
         @file = nil,
         @cell_pixel_width = 10,
         @cell_pixel_height = 20,
+        @fit : Image::Fit = Image::Fit::Stretch,
         # Accepted-and-ignored OverlayImage-specific options, so the
         # `Widget::Image` factory can forward one option bag to any backend.
         stretch = false,
@@ -93,10 +104,12 @@ module Crysterm
       # addresses absolute window pixels and needs them.
       abstract def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32) : String
 
-      # Loads *file*, invalidating any cached payload. Decoding itself is lazy
-      # (done at draw time once the box size is known).
+      # Loads *file*, dropping the cached source and render so the next draw
+      # re-decodes. Sizing itself is lazy (done at draw time for the current box).
       def load(file : String)
         @file = file
+        @source = nil
+        @raw = nil
         @payload = nil
         @payload_key = nil
         screen?.try &.render
@@ -111,44 +124,60 @@ module Crysterm
       def clear_image
         clear_graphic
         @file = nil
+        @source = nil
+        @raw = nil
         @payload = nil
         @payload_key = nil
       end
 
-      # Decodes the image to a *pw* × *ph* pixel bitmap via the pure-Crystal
-      # PNGGIF reader (the same path `GlyphImage` uses, with square sampling).
-      protected def decode_bitmap(pw : Int32, ph : Int32) : PNGGIF::Bitmap?
+      # Decodes the image *once* at native resolution and caches it. The sized
+      # render is then derived from this source for whatever box is current, so a
+      # resize re-samples instead of re-parsing the file.
+      protected def source : PNGGIF::PNG?
+        if s = @source
+          return s
+        end
         file = @file || return nil
         data : String | Bytes = file
         data = Widget::ANSIImage.fetch(file) if file =~ /^https?:/
-        png = PNGGIF::PNG.new(data, cell_width: pw, cell_height: ph, cell_aspect: 1.0)
-        cm = png.cellmap
-        cm.empty? ? nil : cm
+        @source = PNGGIF::PNG.new(data)
       rescue
         nil
       end
 
-      # Returns the original (undecoded) image bytes, fetching a URL if needed.
-      # Used by backends that transmit the encoded file as-is (e.g. iTerm2).
+      # Returns the original (undecoded) image bytes, cached. Used by backends
+      # that transmit the encoded file as-is (e.g. iTerm2).
       protected def raw_bytes : Bytes?
-        file = @file || return nil
-        if file =~ /^https?:/
-          Widget::ANSIImage.fetch file
-        else
-          File.read(file).to_slice
+        if b = @raw
+          return b
         end
+        file = @file || return nil
+        @raw =
+          if file =~ /^https?:/
+            Widget::ANSIImage.fetch file
+          else
+            File.read(file).to_slice
+          end
       rescue
         nil
       end
 
-      # Builds the full escape payload for the given geometry. The default path
-      # decodes the image to a pixel bitmap and hands it to `#encode`. Backends
-      # that transmit the original file bytes (iTerm2) override this and use
-      # `#raw_bytes` + the cell box (*cols*/*rows*) instead of decoding.
-      protected def build_payload(pw : Int32, ph : Int32, ox : Int32, oy : Int32,
+      # Resamples the source into a *bw*×*bh* pixel bitmap fit per `#fit` (pixels
+      # are square, so no aspect correction). This is what makes the backends
+      # resize-aware: it re-derives from the cached source for the current box on
+      # every size change. See `ImageFitting`.
+      protected def fit_bitmap(bw : Int32, bh : Int32) : PNGGIF::Bitmap?
+        src = source || return nil
+        ImageFitting.compose src, bw, bh, @fit, 1.0
+      end
+
+      # Builds the full escape payload for a *bw*×*bh* box. The default path
+      # resamples the source (fit into the box) and hands the bitmap to
+      # `#encode`. Backends that transmit the original file bytes (iTerm2)
+      # override this and use `#raw_bytes` + the cell box instead.
+      protected def build_payload(bw : Int32, bh : Int32, ox : Int32, oy : Int32,
                                   cols : Int32, rows : Int32) : String?
-        bmp = decode_bitmap(pw, ph) || return nil
-        # The decoder may not hit the exact requested size; trust the bitmap.
+        bmp = fit_bitmap(bw, bh) || return nil
         real_h = bmp.size
         real_w = bmp[0]?.try(&.size) || 0
         return nil if real_w == 0 || real_h == 0
@@ -156,12 +185,12 @@ module Crysterm
       end
 
       # Returns the payload for the given geometry, building it once and caching
-      # until any of the geometry or the image changes.
-      private def payload_for(pw : Int32, ph : Int32, ox : Int32, oy : Int32,
+      # until any of the geometry, the fit, or the image changes.
+      private def payload_for(bw : Int32, bh : Int32, ox : Int32, oy : Int32,
                               cols : Int32, rows : Int32) : String?
-        key = {pw, ph, ox, oy, cols, rows}
+        key = {bw, bh, ox, oy, cols, rows, @fit.value}
         return @payload if @payload_key == key
-        p = build_payload(pw, ph, ox, oy, cols, rows) || return nil
+        p = build_payload(bw, bh, ox, oy, cols, rows) || return nil
         @payload = p
         @payload_key = key
         p

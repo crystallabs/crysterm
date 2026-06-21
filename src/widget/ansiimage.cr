@@ -62,6 +62,10 @@ module Crysterm
       # The decoded image, or `nil` if loading failed.
       getter img : PNGGIF::PNG?
 
+      # How a still image is fit into a box whose size may vary (see `Image::Fit`).
+      # Animated images currently render at their load-time size.
+      property fit : Image::Fit
+
       # The cellmap currently being displayed (one `PNGGIF::Pixel` per terminal cell).
       property cellmap : PNGGIF::Bitmap?
 
@@ -69,6 +73,11 @@ module Crysterm
       @anim_frames : Array(Tuple(PNGGIF::Bitmap, Int32))? = nil
       @playing = false
       @anim_index = 0
+
+      # Whether the loaded image is animated (its frames drive `@cellmap`).
+      @animated = false
+      # Cell box the still cellmap was last sampled for, so resize re-samples.
+      @rendered_size : Tuple(Int32, Int32)?
 
       def initialize(
         @file = nil,
@@ -78,6 +87,7 @@ module Crysterm
         @speed : Float64 = 1.0,
         @cell_aspect : Float64 = 2.0,
         @colors : ColorMode = ColorMode::TrueColor,
+        @fit : Image::Fit = Image::Fit::Stretch,
         # Accepted but ignored: these are `OverlayImage`-specific options. They
         # exist here only so the `Widget::Image` factory — which forwards the
         # same option bag to whichever backend `type` selects — can be called
@@ -121,31 +131,44 @@ module Crysterm
           data = self.class.fetch(file)
         end
 
-        # Use the widget's configured pixel size as the cellmap target, if given
-        # as concrete integers (percentage/auto sizes fall back to `scale`).
         cw = @width.as?(Int32)
         ch = @height.as?(Int32)
 
         begin
           set_content ""
-          png = PNGGIF::PNG.new(data, scale: @scale, cell_width: cw, cell_height: ch, ascii: @ascii, speed: @speed, cell_aspect: @cell_aspect)
+          # Decode once at native resolution as the resolution-independent
+          # source; sized renders are derived from `png.bmp` on demand, so a
+          # resize re-samples (see `#render`) instead of re-decoding.
+          png = PNGGIF::PNG.new(data, ascii: @ascii, speed: @speed)
           @img = png
+          @cellmap = nil
+          @anim_frames = nil
+          @rendered_size = nil
+          @animated = !png.frames.nil? && animate?
 
-          # When the widget size wasn't fixed, adopt the image's cell size so the
-          # box shrinks to fit (mirrors Blessed setting width/height from the
-          # cellmap dimensions).
-          self.width = png.cellmap[0]?.try(&.size) || 0 if cw.nil?
-          self.height = png.cellmap.size if ch.nil?
-
-          if png.frames && animate?
+          if @animated
+            # Animated: frames are sized once here (animation keeps this size);
+            # auto-size the box from the first frame if no size was given.
+            frames = @anim_frames = png.animation_cellmaps(cw, ch, @scale)
+            if f0 = frames.try(&.first?)
+              self.width = (f0[0][0]?.try(&.size) || 0) if cw.nil?
+              self.height = f0[0].size if ch.nil?
+            end
             play
           else
-            @cellmap = png.cellmap
+            # Still: size the widget to a native-scaled render when no explicit
+            # size was given; `#render` (re)samples to whatever box results.
+            if cw.nil? || ch.nil?
+              native = png.create_cellmap(png.bmp, scale: @scale, cell_aspect: @cell_aspect)
+              self.width = (native[0]?.try(&.size) || 0) if cw.nil?
+              self.height = native.size if ch.nil?
+            end
           end
         rescue ex
           set_content "Image Error: #{ex.message}"
           @img = nil
           @cellmap = nil
+          @animated = false
         end
       end
 
@@ -156,6 +179,8 @@ module Crysterm
         @img = nil
         @cellmap = nil
         @anim_frames = nil
+        @animated = false
+        @rendered_size = nil
       end
 
       # Starts (or resumes) animation playback for an animated image.
@@ -232,14 +257,25 @@ module Crysterm
         coords = _render
         return unless coords
 
-        cm = @cellmap
-        return coords unless cm
-
         lines = screen.lines
         xi = coords.xi + ileft
         xl = coords.xl - iright
         yi = coords.yi + itop
         yl = coords.yl - ibottom
+
+        # Resize support: for a still image, (re)sample the source to the current
+        # content box whenever it changes. Animated images keep their frames.
+        if !@animated && (img = @img)
+          cols = xl - xi
+          rows = yl - yi
+          if cols > 0 && rows > 0 && @rendered_size != {cols, rows}
+            @cellmap = ImageFitting.compose(img, cols, rows, @fit, @cell_aspect)
+            @rendered_size = {cols, rows}
+          end
+        end
+
+        cm = @cellmap
+        return coords unless cm
 
         (yi...yl).each do |y|
           yy = y - yi

@@ -85,6 +85,31 @@ Matterhorn in each, chosen via `ANSI_COLORS`:
 These are cell-based, so the normal `ttygif.py` recorder captures them — no
 special terminal needed.
 
+### Resizing & fit (all backends)
+
+Every image backend renders into a box whose size may **vary at runtime**. The
+shared design: each widget keeps the decoded image as a resolution-independent
+*source* and derives the sized render lazily for the current box, re-sampling
+(not re-decoding) when the box changes — driven at render time off the resolved
+coordinates, so it tracks terminal resize, `%` reflow, layout and scroll alike.
+
+A shared `Widget::Image::Fit` policy controls aspect handling for every backend:
+
+| `fit:` | Behaviour |
+|--------|-----------|
+| `Stretch` (default) | fill the box exactly, distorting aspect |
+| `Contain` | scale to fit inside the box, transparent letterbox margin |
+| `Cover` | scale to fill the box, cropping the overflow |
+
+`resize.cr` animates a box's size every frame and the image re-samples to fit
+(`fit: Contain`); it's cell-based so the recorder captures it: `resize.gif`. The
+graphics demos accept `FIT=contain|cover|stretch` too (e.g. `FIT=contain
+./make-graphics-shots.sh`). Per-backend specifics: cell-grid and in-band raster
+backends re-sample from the cached source; `OverlayImage`/`UeberzugImage`
+re-place the overlay at the new cell rect; `TekImage`'s separate window
+auto-rescales from the 4014 logical space, so it only redraws on a parameter
+change. (Animated GIFs in the cell-grid backends keep their load-time size.)
+
 ### Pixel & vector graphics (terminal-owned pixels)
 
 Beyond the cell-grid renderers above, the **same Matterhorn photo** is rendered

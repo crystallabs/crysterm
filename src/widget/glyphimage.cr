@@ -49,16 +49,24 @@ module Crysterm
       getter img : PNGGIF::PNG?
       property sub : PNGGIF::Bitmap?
 
+      # How a still image is fit into a box whose size may vary (`Image::Fit`).
+      property fit : Image::Fit
+
       @frames : Array(Tuple(PNGGIF::Bitmap, Int32))? = nil
       @playing = false
       @anim_index = 0
+
+      # Whether the loaded image is animated (its frames drive `@sub`).
+      @animated = false
+      # Cell box the still sub-bitmap was last sampled for, so resize re-samples.
+      @rendered_size : Tuple(Int32, Int32)?
 
       # Minimum local luminance gradient (sum of |dx|+|dy|) for a cell to be
       # treated as an edge in `Ascii` mode and get a glyph.
       ASCII_EDGE = 28
 
       def initialize(@file = nil, @mode : Mode = Mode::Half, @animate : Bool = true,
-                     @speed : Float64 = 1.0,
+                     @speed : Float64 = 1.0, @fit : Image::Fit = Image::Fit::Stretch,
                      # Accepted-and-ignored so the `Widget::Image` factory can
                      # forward one common option bag (incl. overlay-only options)
                      # to any backend without a compile error.
@@ -68,11 +76,17 @@ module Crysterm
         on(::Crysterm::Event::Destroy) { stop }
       end
 
-      # Switches glyph family and re-decodes at the new sub-cell resolution.
+      # Switches glyph family; the next render re-samples at the new sub-cell
+      # resolution (rebuilding animation frames if the image is animated).
       def mode=(m : Mode)
         return if m == @mode
         @mode = m
-        @file.try { |f| set_image f }
+        @rendered_size = nil
+        if @animated
+          @file.try { |f| set_image f }
+        else
+          screen?.try &.render
+        end
       end
 
       def load(file : String)
@@ -85,31 +99,33 @@ module Crysterm
         @file = file
         stop
         @frames = nil
-
-        sx, sy = @mode.subgrid
-        cw = @width.as?(Int32).try &.*(sx)
-        ch = @height.as?(Int32).try &.*(sy)
+        @sub = nil
+        @rendered_size = nil
 
         data : String | Bytes = file
         data = self.class.fetch(file) if file =~ /^https?:/
 
         begin
           set_content ""
-          # cell_aspect 1.0: we want uniform square sampling; the 2:1 cell shape
-          # is already accounted for by the sub-grid's column:row ratio.
-          png = PNGGIF::PNG.new(data, cell_width: cw, cell_height: ch, cell_aspect: 1.0)
+          # Decode once at native resolution; sized sub-bitmaps are derived from
+          # `png.bmp` on demand so a resize re-samples (see `#render`).
+          png = PNGGIF::PNG.new(data)
           @img = png
+          @animated = !png.frames.nil? && animate?
 
-          if png.frames && animate?
+          if @animated
+            # Animated frames are sized once here (cell box × sub-grid).
+            sx, sy = @mode.subgrid
+            cw = @width.as?(Int32).try &.*(sx)
+            ch = @height.as?(Int32).try &.*(sy)
             @frames = png.animation_cellmaps(cw, ch, 1.0)
             play
-          else
-            @sub = png.cellmap
           end
         rescue ex
           set_content "Image Error: #{ex.message}"
           @img = nil
           @sub = nil
+          @animated = false
         end
       end
 
@@ -165,8 +181,6 @@ module Crysterm
       def render
         coords = _render
         return unless coords
-        sub = @sub
-        return coords unless sub
 
         lines = screen.lines
         xi = coords.xi + ileft
@@ -175,6 +189,21 @@ module Crysterm
         yl = coords.yl - ibottom
 
         sx, sy = @mode.subgrid
+
+        # Resize support: for a still image, (re)sample the source to the current
+        # content box (× sub-grid) whenever it changes. Animated images keep the
+        # frames their loop set on `@sub`.
+        if !@animated && (img = @img)
+          cols = xl - xi
+          rows = yl - yi
+          if cols > 0 && rows > 0 && @rendered_size != {cols, rows}
+            @sub = ImageFitting.compose(img, cols * sx, rows * sy, @fit, 1.0)
+            @rendered_size = {cols, rows}
+          end
+        end
+
+        sub = @sub
+        return coords unless sub
 
         # Braille is one colour per cell, so it needs a single global on/off
         # threshold (a per-cell threshold would just produce ~50% noise).
