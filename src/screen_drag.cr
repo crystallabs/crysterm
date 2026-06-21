@@ -182,7 +182,7 @@ module Crysterm
         left: sess.x + 1,
         top: sess.y,
         content: label,
-        style: Style.new(fg: "black", bg: "white"))
+        style: Style.new(fg: 0x000000, bg: 0xe5e5e5))
       @_drag_ghost = g
     end
 

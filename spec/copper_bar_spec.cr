@@ -21,11 +21,11 @@ describe Crysterm::Widget::Effect::CopperBar do
       width: 10, height: 1, hue_offset: 0, hue_speed: 9
 
     bar.step
-    bar.style.bg.should eq Crysterm::Colors.hsv(0) # frame 0
+    bar.style.bg.should eq Crysterm::Colors.hsv_i(0) # frame 0
     bar.step
-    bar.style.bg.should eq Crysterm::Colors.hsv(9) # frame 1
+    bar.style.bg.should eq Crysterm::Colors.hsv_i(9) # frame 1
     bar.step
-    bar.style.bg.should eq Crysterm::Colors.hsv(18) # frame 2
+    bar.style.bg.should eq Crysterm::Colors.hsv_i(18) # frame 2
   end
 
   it "staggers bars by hue_offset" do
@@ -37,8 +37,8 @@ describe Crysterm::Widget::Effect::CopperBar do
 
     a.step
     b.step
-    a.style.bg.should eq Crysterm::Colors.hsv(0)
-    b.style.bg.should eq Crysterm::Colors.hsv(26)
+    a.style.bg.should eq Crysterm::Colors.hsv_i(0)
+    b.style.bg.should eq Crysterm::Colors.hsv_i(26)
   end
 
   it "wraps the hue around the color wheel" do
@@ -47,7 +47,7 @@ describe Crysterm::Widget::Effect::CopperBar do
       hue_offset: 350, hue_speed: 20
     bar.step # 350
     bar.step # 370 -> 10
-    bar.style.bg.should eq Crysterm::Colors.hsv(10)
+    bar.style.bg.should eq Crysterm::Colors.hsv_i(10)
   end
 
   it "honors saturation and brightness" do
@@ -55,6 +55,6 @@ describe Crysterm::Widget::Effect::CopperBar do
     bar = Crysterm::Widget::Effect::CopperBar.new parent: s, width: 10, height: 1,
       hue_offset: 120, hue_speed: 0, saturation: 0.5, brightness: 0.25
     bar.step
-    bar.style.bg.should eq Crysterm::Colors.hsv(120, 0.5, 0.25)
+    bar.style.bg.should eq Crysterm::Colors.hsv_i(120, 0.5, 0.25)
   end
 end
