@@ -34,6 +34,9 @@ module Crysterm
 
     BigText = Widget::BigText
 
+    # Graphs
+    GraphBlockBar = Widget::Graph::BlockBar
+
     # Effects
     EffectMatrix = Widget::Effect::Matrix
 

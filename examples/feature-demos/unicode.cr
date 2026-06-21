@@ -31,28 +31,17 @@ Widget::Box.new \
   parse_tags: true,
   style: Style.new(fg: "yellow", bg: "#101010", border: true)
 
-# Animated block-element bar graph (uses ▁▂▃▄▅▆▇█).
-bars = Widget::Box.new \
+# Animated block-element bar graph: a `Widget::Graph::BlockBar` draws each value
+# as a vertical bar using the eighth-block glyphs (▁▂▃▄▅▆▇█) for sub-cell height.
+bars = Widget::Graph::BlockBar.new \
   parent: s,
   top: 4, left: 40, width: 36, height: 8,
-  content: "",
+  label: " Block elements ", min: 0.0, max: 1.0,
   style: Style.new(fg: "cyan", bg: "#101010", border: true)
-
-blocks = " ▁▂▃▄▅▆▇█".chars
 
 phase = 0.0
 s.every(0.08.seconds) do
-  lines = [] of String
-  4.times do |row|
-    line = String.build do |io|
-      30.times do |i|
-        v = (Math.sin(phase + i * 0.4 + row) * 0.5 + 0.5) * (blocks.size - 1)
-        io << blocks[v.to_i]
-      end
-    end
-    lines << line
-  end
-  bars.content = "Block elements:\n" + lines.join("\n")
+  bars.values = Array.new(32) { |i| Math.sin(phase + i * 0.4) * 0.5 + 0.5 }
   phase += 0.3
 end
 
