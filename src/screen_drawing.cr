@@ -168,7 +168,10 @@ module Crysterm
               ly = -1
               if attr != desired_attr
                 attr = desired_attr
-                @outbuf.print code2attr attr
+                # Allocation-free SGR emission straight into the line buffer;
+                # `code2attr` would allocate a fresh String for every cleared
+                # line, every frame (see Screen.code2attr_to).
+                Screen.code2attr_to(@outbuf, attr, ncolors)
               end
 
               # ### XXX Temporarily diverts output. #### Needs a better solution than this.

@@ -125,41 +125,55 @@ module Crysterm
 
     # Converts our own attribute format to an SGR string.
     def code2attr(code : Int64) : String
+      String.build { |outbuf| Screen.code2attr_to(outbuf, code, colors) }
+    end
+
+    # Allocation-free counterpart of `code2attr`: writes the SGR sequence for
+    # `code` straight into `io` instead of building and returning a fresh
+    # `String`. `n` is the terminal's color count (`#colors`). Emits nothing
+    # when `code` carries no flags and only default colors.
+    #
+    # Used on the draw hot path (the BCE line-clear in `screen_drawing`), where
+    # `code2attr` would otherwise allocate a `String` for every cleared line on
+    # every frame — per-frame garbage that the rest of the draw loop already
+    # avoids by emitting SGR inline. See `benchmarks/render-hotpath.cr`.
+    #
+    # `io` must support seeking backwards (an `IO::Memory`, as the draw buffers
+    # are); the mechanism mirrors the inline SGR emission in `screen_drawing`.
+    def self.code2attr_to(io : IO::Memory, code : Int64, n : Int) : Nil
       flags = Attr.flags(code)
       fg = Attr.unpack_color(Attr.fg(code)) # -1 (default) or 0xRRGGBB
       bg = Attr.unpack_color(Attr.bg(code))
-      n = colors
 
-      String.build do |outbuf|
-        outbuf << "\e["
+      # Decide up front whether the sequence is non-empty (matching `code2attr`'s
+      # "" return for the default attr). This avoids writing "\e[" only to have
+      # to truncate it back out of the IO when nothing follows.
+      style_flags = flags & (Attr::BOLD | Attr::UNDERLINE | Attr::BLINK | Attr::INVERSE | Attr::INVISIBLE)
+      return if style_flags == 0 && fg == -1 && bg == -1
 
-        outbuf << "1;" if (flags & Attr::BOLD) != 0
-        outbuf << "4;" if (flags & Attr::UNDERLINE) != 0
-        outbuf << "5;" if (flags & Attr::BLINK) != 0
-        outbuf << "7;" if (flags & Attr::INVERSE) != 0
-        outbuf << "8;" if (flags & Attr::INVISIBLE) != 0
+      io << "\e["
 
-        # Default colors (-1) emit nothing (the terminal's own default applies);
-        # concrete colors are encoded at the richest depth the terminal allows.
-        if bg != -1
-          Colors.sgr_color_to(outbuf, bg, false, n)
-          outbuf << ';'
-        end
-        if fg != -1
-          Colors.sgr_color_to(outbuf, fg, true, n)
-          outbuf << ';'
-        end
+      io << "1;" if (flags & Attr::BOLD) != 0
+      io << "4;" if (flags & Attr::UNDERLINE) != 0
+      io << "5;" if (flags & Attr::BLINK) != 0
+      io << "7;" if (flags & Attr::INVERSE) != 0
+      io << "8;" if (flags & Attr::INVISIBLE) != 0
 
-        # If bytesize is 2, which is what we started with, it means nothing
-        # was written, so we should in fact return an empty string.
-        return "" if outbuf.bytesize == 2
-
-        # Otherwise, something was written to the string. Since we know the
-        # last char is ";", we go back one char and replace it with 'm',
-        # then return that string.
-        outbuf.back 1
-        outbuf << 'm'
+      # Default colors (-1) emit nothing (the terminal's own default applies);
+      # concrete colors are encoded at the richest depth the terminal allows.
+      if bg != -1
+        Colors.sgr_color_to(io, bg, false, n)
+        io << ';'
       end
+      if fg != -1
+        Colors.sgr_color_to(io, fg, true, n)
+        io << ';'
+      end
+
+      # Something was written and the last char is ';'. Back up over it and
+      # replace it with the terminating 'm'.
+      io.seek -1, IO::Seek::Current
+      io << 'm'
     end
   end
 end

@@ -228,4 +228,43 @@ end
 puts "  alloc: OLD #{alloc_mb(ROUNDS) { stops.keys.map(&.to_i).sort! }.round(2)} MB" \
      "  vs  NEW #{alloc_mb(ROUNDS) { stops.keys.sort! }.round(2)} MB  (#{ROUNDS} frames)"
 
+# ---------------------------------------------------------------------------
+# #11  code2attr — SGR emission on the draw BCE line-clear (per cleared line,
+#      every frame). OLD built and returned a fresh `String` (`code2attr`); NEW
+#      writes the same sequence straight into the line buffer
+#      (`Screen.code2attr_to`), so a frame that clears N lines no longer
+#      produces N throwaway strings.
+section "#11  code2attr  (BCE line-clear, per cleared line)"
+attr_code = Crysterm::Attr.pack(Crysterm::Attr::BOLD, Crysterm::Attr.pack_color(0xff8800), Crysterm::Attr.pack_color(0x102030))
+cio = IO::Memory.new 64
+old_code2attr = -> do
+  String.build do |o|
+    o << "\e["
+    o << "1;38;2;255;136;0;48;2;16;32;48"
+    o.back 1
+    o << 'm'
+  end
+end
+Benchmark.ips do |x|
+  x.report("OLD  String.build code2attr") { old_code2attr.call }
+  x.report("NEW  code2attr_to(io, ...)") { cio.clear; Crysterm::Screen.code2attr_to(cio, attr_code, 0x1000000) }
+end
+puts "  alloc: OLD #{alloc_mb(ROUNDS) { old_code2attr.call }.round(2)} MB" \
+     "  vs  NEW #{alloc_mb(ROUNDS) { cio.clear; Crysterm::Screen.code2attr_to(cio, attr_code, 0x1000000) }.round(2)} MB  (#{ROUNDS} cleared lines)"
+
+# ---------------------------------------------------------------------------
+# #convert  Colors.convert(String) — color-string parsing in `sattr`, run per
+#      widget every frame (default attr, border, padding fill, ...). OLD reparsed
+#      the string each call (`gsub` to strip separators + a substring in
+#      `hex_to_rgb`); NEW memoizes the parse (the app's set of color strings is
+#      small and bounded), so steady-state frames are allocation-free.
+section "#convert  Colors.convert(String)  (per sattr, per widget, every frame)"
+Colors.convert_cached("red"); Colors.convert_cached("#ff8800") # warm the cache
+Benchmark.ips do |x|
+  x.report("OLD  Colors.convert(str)") { Colors.convert("red"); Colors.convert("#ff8800") }
+  x.report("NEW  Colors.convert_cached") { Colors.convert_cached("red"); Colors.convert_cached("#ff8800") }
+end
+puts "  alloc: OLD #{alloc_mb(ROUNDS) { Colors.convert("red"); Colors.convert("#ff8800") }.round(2)} MB" \
+     "  vs  NEW #{alloc_mb(ROUNDS) { Colors.convert_cached("red"); Colors.convert_cached("#ff8800") }.round(2)} MB  (#{ROUNDS} x 2 colors)"
+
 puts

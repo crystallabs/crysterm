@@ -14,6 +14,30 @@ module Crysterm
   module Colors
     extend ::TermColors
 
+    # Cache for `convert(String)` results, keyed by the color spec.
+    @@convert_cache = Hash(String, Int32).new
+
+    # Allocation-free cached form of `convert` for the render hot path.
+    #
+    # `sattr` parses a `Style`'s fg/bg color *strings* into native colors on
+    # every widget on every frame, and `TermColors#convert(String)` allocates —
+    # a `gsub` to strip separators plus a substring in `hex_to_rgb`. The set of
+    # distinct color strings an application actually uses is small and bounded
+    # (named colors, a handful of hex values, at most one hue cycle for animated
+    # gradients), so memoizing turns that per-frame garbage into an
+    # allocation-free hash lookup. See `benchmarks/render-hotpath.cr`.
+    #
+    # The non-`String` overload covers `nil`/other specs (e.g. a missing
+    # `Style#fg`); those resolve cheaply through `convert` and are not cached.
+    def self.convert_cached(color : String) : Int32
+      @@convert_cache.fetch(color) { @@convert_cache[color] = convert(color).to_i32 }
+    end
+
+    # :ditto:
+    def self.convert_cached(color) : Int32
+      convert(color).to_i32
+    end
+
     # Neutral RGB values substituted for a "default" color when it has to be
     # mixed with a concrete one (the real terminal default is unknown to us).
     # The typed `Config` accessors read a cached handle, so this stays
