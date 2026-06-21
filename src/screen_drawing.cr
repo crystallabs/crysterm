@@ -679,7 +679,7 @@ module Crysterm
 
       if @optimization.fast_csr?
         return pos._clean_sides = false if pos.yi < 0 || pos.yl > aheight
-        return pos._clean_sides = true if (awidth - (pos.xl - pos.xi)) < 40
+        return pos._clean_sides = true if (awidth - (pos.xl - pos.xi)) < Config.render_csr_threshold
         return pos._clean_sides = false
       end
 

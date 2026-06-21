@@ -16,8 +16,16 @@ module Crysterm
 
     # Neutral RGB values substituted for a "default" color when it has to be
     # mixed with a concrete one (the real terminal default is unknown to us).
-    DEFAULT_FG_RGB = 0xc0c0c0
-    DEFAULT_BG_RGB = 0x000000
+    # The typed `Config` accessors read a cached handle, so this stays
+    # runtime-tunable yet costs no hash lookup per blend — and blending is on
+    # the per-cell compositing path.
+    def self.default_fg_rgb : Int32
+      Crysterm::Config.colors_default_fg
+    end
+
+    def self.default_bg_rgb : Int32
+      Crysterm::Config.colors_default_bg
+    end
 
     # Blends the fg and bg of `attr` with those of `attr2` (alpha compositing,
     # `alpha` = opacity of `attr`'s own colors over `attr2`). With no `attr2` it
@@ -43,8 +51,8 @@ module Crysterm
         Attr.pack_color(mix(0x000000, field.to_i32, alpha))
       else
         return Attr::COLOR_DEFAULT if Attr.default?(field) && Attr.default?(other)
-        a = Attr.default?(field) ? (fg ? DEFAULT_FG_RGB : DEFAULT_BG_RGB) : field.to_i32
-        b = Attr.default?(other) ? (fg ? DEFAULT_FG_RGB : DEFAULT_BG_RGB) : other.to_i32
+        a = Attr.default?(field) ? (fg ? default_fg_rgb : default_bg_rgb) : field.to_i32
+        b = Attr.default?(other) ? (fg ? default_fg_rgb : default_bg_rgb) : other.to_i32
         Attr.pack_color(mix(a, b, alpha))
       end
     end

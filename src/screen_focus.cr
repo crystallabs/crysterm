@@ -6,7 +6,7 @@ module Crysterm
     # by keys (Tab/Shift+Tab etc.) and operate without mouse.
 
     # Send focus events after mouse is enabled?
-    property send_focus = false
+    property send_focus : Bool = Config.screen_send_focus
 
     # Whether `Tab`/`Shift+Tab` move keyboard focus between focusable widgets by
     # default (the GUI-toolkit convention). Enabled out of the box; set to false
@@ -15,7 +15,7 @@ module Crysterm
     # This default only kicks in for keys that the focused widget (and its parent
     # chain, e.g. an enclosing `Widget::Form`) did not already handle, so it
     # composes with widgets that do their own `Tab` navigation.
-    property? tab_navigation = true
+    property? tab_navigation : Bool = Config.screen_tab_navigation
 
     property _saved_focus : Widget?
 
@@ -90,7 +90,7 @@ module Crysterm
     # Focuses element `el`. Equivalent to `@display.focused = el`.
     def focus_push(el)
       old = @history.last?
-      @history.shift if @history.size >= 10 # XXX non-configurable at the moment
+      @history.shift if @history.size >= Config.focus_history_size
       @history.push el
       _focus el, old
     end

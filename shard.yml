@@ -31,6 +31,9 @@ dependencies:
   pnggif:
     github: crystallabs/pnggif
     branch: master
+  superconf:
+    github: crystallabs/superconf.cr
+    branch: master
 
 development_dependencies:
   ameba:

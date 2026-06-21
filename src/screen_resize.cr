@@ -16,7 +16,7 @@ module Crysterm
     #
     # This ensures the resizing/redrawing is done only once, once resizing is over.
     # To have redraws happen even while resizing is going on, reduce this interval.
-    property resize_interval : Time::Span = 0.2.seconds
+    property resize_interval : Time::Span = Config.screen_resize_interval
 
     @_resize_loop_fiber : Fiber?
     @_resize_handler : ::Crysterm::Event::Resize::Wrapper?

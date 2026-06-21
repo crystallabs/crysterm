@@ -184,7 +184,7 @@ module Crysterm
       end
 
       private def home_dir : String
-        ENV["HOME"]? || "/"
+        Crysterm::Config.filemanager_home
       end
     end
   end

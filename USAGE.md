@@ -810,7 +810,127 @@ jitter in a TUI. See `benchmarks/render-hotpath.cr`.
 
 ---
 
-## 11. Differences from Blessed
+## 11. Configuration
+
+Crysterm has a single, global configuration registry, `Crysterm::Config`, that
+holds every tunable the framework exposes — and any your app adds. Each option
+has four synchronized surfaces and remembers where its current value came from.
+
+By default nothing is read from the outside: every option keeps its registered
+default, so programs behave exactly as if the registry weren't there. You opt in
+to external sources explicitly.
+
+### Surfaces
+
+For an option with key `screen.resize_interval`:
+
+| Surface | Form |
+|---|---|
+| Config key | `screen.resize_interval` (YAML: `screen: { resize_interval: 0.5 }`) |
+| Environment variable | `CRYSTERM_SCREEN_RESIZE_INTERVAL` |
+| Command-line option | `--screen-resize-interval=0.5` |
+| Runtime | `Crysterm::Config.screen_resize_interval` (typed accessor) |
+
+Reading and writing at runtime use the typed accessor — the option key with
+dots turned into underscores — so there's no string key or type argument, and
+it's a cached read (no registry lookup):
+
+```crystal
+Crysterm::Config.screen_resize_interval        # => Time::Span
+Crysterm::Config.screen_resize_interval = 0.5.seconds
+```
+
+(`Crysterm::Config.get("screen.resize_interval", Time::Span)` and `.set` also
+exist for fully dynamic, string-keyed access — that's what the loaders use.)
+
+### Opting in
+
+```crystal
+require "crysterm"
+
+# Loads (lowest→highest precedence): config file, env vars, command-line flags.
+Crysterm.configure!                       # auto-loads ~/.config/crysterm/config.yml if present, then env + CLI
+Crysterm.configure! "/etc/myapp.yml"      # explicit file + env + CLI
+Crysterm.configure! file: ""              # skip file loading; env + CLI only
+```
+
+With no `file:` argument, `configure!` looks for `$XDG_CONFIG_HOME/crysterm/config.yml`
+(falling back to `~/.config/crysterm/config.yml`) and loads it when it exists —
+see `Crysterm::Config.default_config_path`.
+
+Precedence, low to high: **default < config file < env var < command-line <
+runtime assignment**. A lower-precedence source never overrides a value already
+set by a higher one.
+
+`--config FILE` (load an extra file) and `--dump-config [FORMAT]` (dump and
+exit) are handled automatically once you call `configure!` / `Config.load_args`.
+
+### Adding your own options
+
+Reopen `Superconf` and use `option` (anywhere after `require "crysterm"`).
+`Crysterm::Config` is an alias of the shared `Superconf` registry, so you declare
+options on `Superconf` (you can't reopen an alias) but read them through either
+name. The value type is inferred from the default; built-in parsing covers
+`Bool`, `Int32`, `Int64`, `Float64`, `String`, `Char`, `Time::Span`, and any
+`Enum` (including `@[Flags]`). For other types pass a `parse:` proc.
+
+```crystal
+module Superconf
+  option "myapp.refresh", 1.second, description: "Data refresh interval"
+end
+
+# CRYSTERM_MYAPP_REFRESH / --myapp-refresh / myapp.refresh all work, the option
+# appears in every dump (next to crysterm's and tput's options), and you get a
+# typed accessor for free:
+interval = Crysterm::Config.myapp_refresh   # => Time::Span
+```
+
+`Crysterm::Config.register` (without the accessors) remains available for
+options whose keys are only known at runtime.
+
+#### Validating values
+
+Pass a `validate:` predicate to reject absurd values. It runs against every
+value that takes effect — from env, CLI, a config file, or a runtime assignment
+— and against the default at declaration time. A failing value is rejected with
+a `Crysterm::Config::Error` and never reaches the rest of the app:
+
+```crystal
+module Superconf
+  option "myapp.workers", 4,
+    description: "Worker count",
+    validate: ->(n : Int32) { n > 0 }
+end
+
+# CRYSTERM_MYAPP_WORKERS=0 myapp   →  Config::Error: invalid value 0 for option myapp.workers
+```
+
+Rescue `Crysterm::Config::Error` to handle all config problems (unknown key,
+unparseable value, or failed validation) in one place.
+
+### Dumping
+
+`Crysterm::Config.dump(io, format)` (or `--dump-config [FORMAT]`) emits:
+
+* `yaml` (default) and `json` — valid, **re-loadable** config files;
+* `env` — a sourceable shell script of `export CRYSTERM_…='value'` lines
+  (`eval "$(myapp --dump-config=env)"` re-applies them via `load_env`);
+* `pretty` — an aligned table that also shows each value's **source**;
+* `report` — rich JSON with full metadata (value, source, default, env, CLI,
+  description) for every option, analogous to `tput`'s `--json` detections.
+
+```
+$ CRYSTERM_SCREEN_RESIZE_INTERVAL=0.5 myapp --render-optimization=smart_csr,bce --dump-config=pretty
+OPTION                  VALUE           SOURCE
+----------------------  --------------  ------
+render.optimization     SmartCSR | BCE  command line (--render-optimization)
+screen.resize_interval  0.5             env CRYSTERM_SCREEN_RESIZE_INTERVAL="0.5"
+...
+```
+
+See `examples/config-dump.cr` for a runnable example.
+
+## 12. Differences from Blessed
 
 **Positioning and sizing**
 

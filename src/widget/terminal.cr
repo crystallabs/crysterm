@@ -72,10 +72,10 @@ module Crysterm
         handler : Proc(String, Nil)? = nil,
         **box,
       )
-        @shell = shell || ENV["SHELL"]? || "sh"
+        @shell = shell || Crysterm::Config.input_shell
         @args = args
         @cursor_shape = cursor_shape
-        @term_name = term_name || ENV["TERM"]? || "xterm"
+        @term_name = term_name || Crysterm::Config.terminal_term
         @env = env
         @handler = handler
 

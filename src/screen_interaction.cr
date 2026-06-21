@@ -3,10 +3,10 @@ module Crysterm
     # File related to interaction on the display
 
     # Is the focused element grab and receiving all keypresses?
-    property? grab_keys = false
+    property? grab_keys : Bool = Config.screen_grab_keys
 
     # Are keypresses being propagated further, or (except ignored ones) not propagated?
-    property? propagate_keys = true
+    property? propagate_keys : Bool = Config.screen_propagate_keys
 
     # Array of keys to ignore when keys are locked or grabbed. Useful for defining
     # keys that will always execute their action (e.g. exit a program) regardless of

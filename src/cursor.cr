@@ -14,6 +14,6 @@ module Crysterm
   # namespace level so both `Screen` and `Widget` can own one (see the TODO that
   # previously lived in `screen_cursor.cr`).
   class Cursor < Tput::Namespace::Cursor
-    property style : Style = Style.new(char: '▮')
+    property style : Style = Style.new(char: Config.cursor_glyph)
   end
 end

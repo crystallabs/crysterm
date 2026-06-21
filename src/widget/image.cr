@@ -79,9 +79,33 @@ module Crysterm
       alias Any = ANSIImage | GlyphImage | OverlayImage | UeberzugImage |
                   SixelImage | RegisImage | KittyImage | ItermImage | TekImage
 
+      # The default backend when `type:` is not given, resolved from the config
+      # registry (key `image.backend`, env `CRYSTERM_IMAGE_BACKEND`, CLI
+      # `--image-backend`). A concrete value (e.g. `kitty`) is used as-is; the
+      # special value `auto` runs `detect_backend`. An unrecognized value falls
+      # back to `Ansi`.
+      def self.default_type : Type
+        backend = Crysterm::Config.image_backend
+        return detect_backend if backend == "auto"
+        Type.parse?(backend) || Type::Ansi
+      end
+
+      # Best-effort terminal-capability detection for `image.backend = auto`.
+      # Prefers the Kitty graphics protocol when running under Kitty, then Sixel
+      # if the terminal advertised it (DA1 attribute 4, surfaced by tput's probe
+      # as a detection), otherwise the universally-safe cell-grid `Ansi` backend.
+      def self.detect_backend : Type
+        return Type::Kitty if ENV["KITTY_WINDOW_ID"]? || !!ENV["TERM"]?.try(&.includes?("kitty"))
+        if d = Crysterm::Config.detection?("tput.features.da_params")
+          return Type::Sixel if d.value.split(/[;,]/).map(&.strip).includes?("4")
+        end
+        Type::Ansi
+      end
+
       # Builds the concrete image widget for *type*, forwarding all remaining
-      # options to its constructor.
-      def self.new(*, type : Type = Type::Ansi, **opts) : Any
+      # options to its constructor. When *type* is omitted it defaults to
+      # `default_type` (the `image.backend` config option).
+      def self.new(*, type : Type = default_type, **opts) : Any
         case type
         in Type::Ansi     then ANSIImage.new **opts
         in Type::Glyph    then GlyphImage.new **opts

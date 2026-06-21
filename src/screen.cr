@@ -47,13 +47,13 @@ module Crysterm
     property error : IO = STDERR
 
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
-    property? force_unicode = false
+    property? force_unicode : Bool = Config.screen_force_unicode
 
     # User option: enable grapheme / full-Unicode-aware rendering — text is
     # measured and laid out by terminal **column width** (`Crysterm::Unicode`)
     # rather than one column per codepoint, grapheme clusters are kept intact,
     # and wide characters occupy two cells. Set via `full_unicode=`.
-    @full_unicode = false
+    @full_unicode : Bool = Config.screen_full_unicode
 
     # :ditto:
     def full_unicode=(@full_unicode : Bool)
@@ -108,11 +108,11 @@ module Crysterm
 
     # Include displaying averages in FPS display. If this setting is false, only current/
     # individual frame rates are shown, without values for averages over 30 frames.
-    property? show_avg = true
+    property? show_avg : Bool = Config.screen_show_avg
 
     # Optimization flags to use for rendering and/or drawing.
     # XXX See also a TODO item related to dynamically deciding on default flags.
-    Crystallabs::Helpers::Enums.enum_property optimization : OptimizationFlag = OptimizationFlag::None
+    Crystallabs::Helpers::Enums.enum_property optimization : OptimizationFlag = Config.render_optimization
 
     # Returns current screen width. This is now a local operation since we
     # expect Display to push-update us.
@@ -136,7 +136,7 @@ module Crysterm
 
     # Specifies what to do with "overflowing" (too large) widgets. The default setting of
     # `Overflow::Ignore` simply ignores the overflow and renders the parts that are in view.
-    Crystallabs::Helpers::Enums.enum_property overflow : Overflow = Overflow::Ignore
+    Crystallabs::Helpers::Enums.enum_property overflow : Overflow = Config.screen_overflow
 
     def initialize(
       @input = @input,
@@ -174,7 +174,7 @@ module Crysterm
                      # unset, as on CI runners). Fall back to a widely-available
                      # `xterm` entry so a Screen can still be constructed
                      # headlessly instead of crashing.
-                     Unibilium.from_terminal "xterm"
+                     Unibilium.from_terminal Config.terminal_fallback_term
                    end
                  in false, nil
                    nil

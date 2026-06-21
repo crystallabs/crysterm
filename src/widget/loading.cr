@@ -21,7 +21,7 @@ module Crysterm
 
       def initialize(
         @compact = false,
-        @interval = 0.2.seconds,
+        @interval = Crysterm::Config.loading_interval,
         @icons = ["|", "/", "-", "\\"],
         @step = 1,
         **box,

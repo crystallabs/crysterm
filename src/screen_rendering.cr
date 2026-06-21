@@ -59,7 +59,7 @@ module Crysterm
     @ui_queue = Channel(Proc(Nil)).new 1024
 
     # Minimum delay between frames (also the FPS cap, ~29 fps). Kept in seconds.
-    property interval : Float64 = 1/29
+    property interval : Float64 = Config.render_frame_interval
 
     # Monotonic time of the last completed render; nil until the first render so
     # that the very first request paints immediately.
@@ -124,9 +124,9 @@ module Crysterm
       end
     end
 
-    @rps = Average.new 30
-    @dps = Average.new 30
-    @fps = Average.new 30
+    @rps = Average.new Config.render_fps_window
+    @dps = Average.new Config.render_fps_window
+    @fps = Average.new Config.render_fps_window
 
     def render_loop
       loop do
@@ -180,12 +180,12 @@ module Crysterm
     #     ┌─────────┬─────────┐
     #     │ box1    │ box2    │
     #     └─────────┴─────────┘
-    property? dock_borders : Bool = false
+    property? dock_borders : Bool = Config.screen_dock_borders
 
     # Dockable borders will not dock if the colors or attributes are different.
     # This option will allow docking regardless. It may produce odd looking
     # multi-colored borders.
-    @dock_contrast = DockContrast::Blend
+    @dock_contrast : DockContrast = Config.render_dock_contrast
 
     property lines = Array(Row).new
     property olines = Array(Row).new
