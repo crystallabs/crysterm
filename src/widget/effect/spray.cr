@@ -109,8 +109,8 @@ module Crysterm
         private def fill_cells(w, h) : Array(Tuple(Int32, Int32))
           case f = @fill
           when FillProc then f.call(w, h)
-          when :rows     then (0...h).flat_map { |y| (0...w).map { |x| {x, y} } }
-          when :columns  then (0...w).flat_map { |x| (0...h).map { |y| {x, y} } }
+          when :rows    then (0...h).flat_map { |y| (0...w).map { |x| {x, y} } }
+          when :columns then (0...w).flat_map { |x| (0...h).map { |y| {x, y} } }
           when :diagonal
             cells = (0...h).flat_map { |y| (0...w).map { |x| {x, y} } }
             cells.sort_by! { |(x, y)| {x + y, x} }

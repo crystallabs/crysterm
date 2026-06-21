@@ -21,11 +21,11 @@ describe Crysterm::Widget::Effect::CopperBar do
       width: 10, height: 1, hue_offset: 0, hue_speed: 9
 
     bar.step
-    bar.style.bg.should eq Crysterm::Colors.hsv(0)   # frame 0
+    bar.style.bg.should eq Crysterm::Colors.hsv(0) # frame 0
     bar.step
-    bar.style.bg.should eq Crysterm::Colors.hsv(9)   # frame 1
+    bar.style.bg.should eq Crysterm::Colors.hsv(9) # frame 1
     bar.step
-    bar.style.bg.should eq Crysterm::Colors.hsv(18)  # frame 2
+    bar.style.bg.should eq Crysterm::Colors.hsv(18) # frame 2
   end
 
   it "staggers bars by hue_offset" do
