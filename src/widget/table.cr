@@ -159,6 +159,9 @@ module Crysterm
           @maxes.each_with_index do |max, mi|
             rx += max
 
+            # The first column draws the left edge on the box border. This is
+            # independent of the last-column handling below so a single-column
+            # table (where the first column is also the last) gets both.
             if mi == 0
               if cell = line[xi + 0]?
                 cell.attr = battr
@@ -167,7 +170,9 @@ module Crysterm
                 end
                 line.dirty = true
               end
-            elsif mi == last
+            end
+
+            if mi == last
               # The last cell is followed by a trailing spare column (see
               # `TableLayout#render_row`), and the box's right border sits one
               # column further still. On an internal separator row, continue the
@@ -189,7 +194,9 @@ module Crysterm
               next
             end
 
-            # Center junction (also drawn for the first column).
+            # Center junction between this column and the next (also drawn for
+            # the first column; never reached for the last column, which
+            # returned above).
             next unless line[xi + rx + 1]?
             rx += 1
             if cell = line[xi + rx]?
