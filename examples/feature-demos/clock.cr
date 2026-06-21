@@ -17,11 +17,11 @@ Widget::Box.new \
 
 clock = Widget::BigText.new \
   parent: s, top: 2, left: "center", height: 8,
-  content: "00:00", style: Style.new(fg: "#40e0c0")
+  content: "00:00", style: Style.new(fg: 0x40e0c0)
 
 secbar = Widget::ProgressBar.new \
   parent: s, top: 11, left: 18, width: 44, height: 1,
-  filled: 0, style: Style.new(fg: "#40e0c0", bg: "#283038")
+  filled: 0, style: Style.new(fg: 0x40e0c0, bg: 0x283038)
 
 datebox = Widget::Box.new \
   parent: s, top: 13, left: 0, width: "100%", height: 1, align: :hcenter,

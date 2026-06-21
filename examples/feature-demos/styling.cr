@@ -15,7 +15,7 @@ s.show_fps = nil
 # whatever is *behind* a widget) are actually visible instead of black-on-black.
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",
-  style: Style.new(bg: "#3a4250")
+  style: Style.new(bg: 0x3a4250)
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,

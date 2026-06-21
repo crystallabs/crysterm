@@ -28,7 +28,7 @@ box1 = Widget::Box.new \
   content: "{center}24-bit TrueColor{/center}\n\n" \
            "{center}Translucent box with a\nshadow, blended in RGB.{/center}",
   parse_tags: true,
-  style: Style.new(bg: "#103080", alpha: true, border: true, shadow: true)
+  style: Style.new(bg: 0x103080, alpha: true, border: true, shadow: true)
 
 box2 = Widget::Box.new \
   parent: s,
@@ -36,7 +36,7 @@ box2 = Widget::Box.new \
   content: "{center}Alpha compositing{/center}\n\n" \
            "{center}Slides over the one\non the left.{/center}",
   parse_tags: true,
-  style: Style.new(bg: "#208020", alpha: true, border: true, shadow: true)
+  style: Style.new(bg: 0x208020, alpha: true, border: true, shadow: true)
 
 t = 0.0
 s.every(0.06.seconds) do

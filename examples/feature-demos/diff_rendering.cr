@@ -33,7 +33,7 @@ Widget::Box.new \
            "Static content ............................................\n" \
            "Static content ............................................\n" \
            "Static content ............................................",
-  style: Style.new(fg: "#80c0a0", bg: "#0c1014", border: true)
+  style: Style.new(fg: 0x80c0a0, bg: 0x0c1014, border: true)
 
 # The only thing that actually changes each frame.
 ticker = Widget::Box.new \

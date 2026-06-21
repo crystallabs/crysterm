@@ -69,7 +69,7 @@ module Crysterm
       fg: "yellow",
       bg: "magenta",
       border: Border.new(
-        fg: "#ffffff"
+        fg: 0xffffff
       ),
       shadow: true,
     )
@@ -95,7 +95,7 @@ module Crysterm
       fg: "yellow",
       bg: "magenta",
       border: Border.new(
-        fg: "#ffffff"
+        fg: 0xffffff
       ),
       shadow: true,
     )
@@ -109,7 +109,7 @@ module Crysterm
   #    fg: "yellow",
   #    bg: "magenta",
   #    border: Border.new(
-  #      fg: "#ffffff"
+  #      fg: 0xffffff
   #    ),
   #    shadow: false,
   #  )
@@ -146,7 +146,7 @@ module Crysterm
     top: 18,
     left: 160,
     content: "Hello, World! See translucency and shadow.",
-    style: Style.new(bg: "#870087", border: BorderType::Bg, shadow: Shadow.new(true, true, false, false))
+    style: Style.new(bg: 0x870087, border: BorderType::Bg, shadow: Shadow.new(true, true, false, false))
   )
   boxtp1 = Box.new(
     parent: s,
@@ -155,7 +155,7 @@ module Crysterm
     width: 60,
     height: 14,
     content: "See indeed.",
-    style: Style.new(bg: "#729fcf", alpha: true, border: true, shadow: true)
+    style: Style.new(bg: 0x729fcf, alpha: true, border: true, shadow: true)
   )
 
   loading2 = Loading.new \

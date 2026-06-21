@@ -22,13 +22,13 @@ Widget::Box.new \
   style: Style.new(fg: "white", bg: "#202840", border: true)
 
 # Five progress bars, each advancing at its own pace from its own fiber.
-colors = ["#e05050", "#50e050", "#5080e0", "#e0c050", "#c050e0"]
+colors = [0xe05050, 0x50e050, 0x5080e0, 0xe0c050, 0xc050e0]
 5.times do |i|
   pb = Widget::ProgressBar.new \
     parent: s,
     top: 4 + i, left: 2, width: 46, height: 1,
     filled: 0,
-    style: Style.new(fg: colors[i], bg: "#303030")
+    style: Style.new(fg: colors[i], bg: 0x303030)
   step = i + 1
   s.every((0.05 + i * 0.02).seconds) do
     pb.filled += step

@@ -28,7 +28,7 @@ inline = Widget::Layout.new \
 grid_boxes = [] of Widget::Box
 inline_boxes = [] of Widget::Box
 
-base = "#204060"
+base = 0x204060
 6.times do |i|
   grid_boxes << Widget::Box.new(
     parent: grid, width: 12, height: 4, align: :hcenter,
@@ -47,8 +47,8 @@ all = grid_boxes + inline_boxes
 i = 0
 s.every(0.4.seconds) do
   all.each { |b| b.style.bg = base }
-  grid_boxes[i % grid_boxes.size].style.bg = "#a05020"
-  inline_boxes[i % inline_boxes.size].style.bg = "#a05020"
+  grid_boxes[i % grid_boxes.size].style.bg = 0xa05020
+  inline_boxes[i % inline_boxes.size].style.bg = 0xa05020
   i += 1
 end
 

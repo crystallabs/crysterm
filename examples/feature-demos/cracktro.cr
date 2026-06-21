@@ -66,7 +66,7 @@ bg_under = ->(row : Int32, fr : Int32) {
   if ci = copper_idx[row]?
     Colors.hsv((ci * 26 + fr * 9) % 360)
   else
-    "#000000"
+    0x000000
   end
 }
 
@@ -117,7 +117,7 @@ cycle = slots.size * INTERVAL + TRAVEL + HOLD
 
 letters = slots.map do |_|
   Widget::Box.new parent: s, top: cy, left: cx, width: 1, height: 1,
-    content: "·", style: Style.new(fg: "#ffffff", bg: "#000000")
+    content: "·", style: Style.new(fg: 0xffffff, bg: 0x000000)
 end
 
 frame = 0
@@ -128,7 +128,7 @@ s.every(0.07.seconds) do
   # row 2: right-to-left rainbow scroller (advance one column per master frame)
   hscroll.step
 
-  greet.style.fg = (frame // 4).even? ? "#ffffff" : "#ff3030"
+  greet.style.fg = (frame // 4).even? ? 0xffffff : 0xff3030
 
   # sine-wave rainbow scroller (advance one column per master frame)
   sine.step
@@ -142,7 +142,7 @@ s.every(0.07.seconds) do
     row = cy
     if f < lf
       box.content = "·"
-      box.style.fg = (frame // 3).even? ? "#ff8080" : "#80c0ff"
+      box.style.fg = (frame // 3).even? ? 0xff8080 : 0x80c0ff
     elsif f < lf + TRAVEL
       p = (f - lf) / TRAVEL.to_f
       col = (cx + (destx - cx) * p).round.to_i

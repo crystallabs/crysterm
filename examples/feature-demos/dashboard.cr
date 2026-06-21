@@ -22,13 +22,13 @@ Widget::Box.new \
   content: " Resources", style: Style.new(fg: "cyan", bg: "#0c1014", border: true)
 
 gauges = [] of {String, Widget::ProgressBar, Int32}
-labels = [{"CPU", "#50e0a0"}, {"MEM", "#e0c050"}, {"NET", "#5090e0"}, {"DISK", "#e07050"}]
+labels = [{"CPU", 0x50e0a0}, {"MEM", 0xe0c050}, {"NET", 0x5090e0}, {"DISK", 0xe07050}]
 labels.each_with_index do |(name, color), i|
   Widget::Box.new parent: s, top: 3 + i, left: 2, width: 6, height: 1, content: name,
     style: Style.new(fg: "white", bg: "#0c1014")
   pb = Widget::ProgressBar.new \
     parent: s, top: 3 + i, left: 9, width: 29, height: 1,
-    filled: rand(20..80), style: Style.new(fg: color, bg: "#283038")
+    filled: rand(20..80), style: Style.new(fg: color, bg: 0x283038)
   gauges << {name, pb, rand(40..70)}
 end
 
