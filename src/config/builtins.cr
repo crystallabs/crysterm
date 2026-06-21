@@ -11,6 +11,7 @@
 # module Superconf
 #   option "myapp.theme", "dark", description: "UI theme"
 # end
+#
 # Crysterm::Config.myapp_theme # => "dark"
 # ```
 module Superconf

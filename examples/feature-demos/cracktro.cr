@@ -77,11 +77,11 @@ bg_under = ->(row : Int32, fr : Int32) {
 
 # The top row is the title: "CRYSTERM " repeated across the whole width, every
 # non-space cell a letter shot from the centre.
-PATTERN   = "CRYSTERM "
-GROW      = [".", "·", ":", "*", "o", "O", "0", "@"]
-INTERVAL  =  1 # frames between successive letter launches (rapid: fills the screen)
-TRAVEL    = 12 # frames a letter spends in flight
-HOLD      = 28 # frames the finished row is held before re-firing
+PATTERN  = "CRYSTERM "
+GROW     = [".", "·", ":", "*", "o", "O", "0", "@"]
+INTERVAL =  1 # frames between successive letter launches (rapid: fills the screen)
+TRAVEL   = 12 # frames a letter spends in flight
+HOLD     = 28 # frames the finished row is held before re-firing
 
 cx = w // 2
 cy = h // 2
@@ -97,16 +97,16 @@ def spiral_order(w, h)
   left = 0
   right = w - 1
   while top <= bottom && left <= right
-    (left..right).each { |x| cells << {x, top} }        # top row, L→R
+    (left..right).each { |x| cells << {x, top} } # top row, L→R
     top += 1
-    (top..bottom).each { |y| cells << {right, y} }      # right border, T→B
+    (top..bottom).each { |y| cells << {right, y} } # right border, T→B
     right -= 1
     if top <= bottom
-      right.downto(left) { |x| cells << {x, bottom} }   # bottom row, R→L
+      right.downto(left) { |x| cells << {x, bottom} } # bottom row, R→L
       bottom -= 1
     end
     if left <= right
-      bottom.downto(top) { |y| cells << {left, y} }     # left border, B→T
+      bottom.downto(top) { |y| cells << {left, y} } # left border, B→T
       left += 1
     end
   end
