@@ -354,11 +354,11 @@ module Crysterm
       {% end %}
 
       tput.alternate_buffer
-      tput.put(&.keypad_xmit?) # enter_keyboard_transmit_mode
-      tput.put(&.change_scroll_region?(0, aheight - 1))
+      tput.enable_keypad
+      tput.set_scroll_region(0, aheight - 1)
       hide_cursor
       tput.cursor_pos 0, 0
-      tput.put(&.ena_acs?) # enable_acs
+      tput.enable_acs
 
       alloc
     end
@@ -474,7 +474,7 @@ module Crysterm
       # This assumes that enter activated alt mode.
       return unless tput.is_alt
 
-      tput.put(&.keypad_local?)
+      tput.disable_keypad
 
       if (tput.scroll_top != 0) || (tput.scroll_bottom != aheight - 1)
         tput.set_scroll_region(0, tput.screen.height - 1)
