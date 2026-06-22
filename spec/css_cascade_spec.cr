@@ -713,6 +713,51 @@ describe "CSS cascade" do
     box.styles.normal.bg.should eq rgb("blue") # $= (ends-with, quoted — exercises the string fix)
   end
 
+  it "keeps styling independent across multiple screens" do
+    s1 = headless_screen
+    s2 = headless_screen
+    b1 = Widget::Box.new parent: s1
+    b2 = Widget::Box.new parent: s2
+
+    s1.stylesheet = "Box { color: red; }"
+    s2.stylesheet = "Box { color: blue; }"
+    s1.apply_stylesheet
+    s2.apply_stylesheet
+
+    b1.styles.normal.fg.should eq rgb("red")
+    b2.styles.normal.fg.should eq rgb("blue")
+
+    # a change + recascade on s1 must not touch s2's widget
+    b2.styles.normal.fg = rgb("green") # sentinel
+    b1.add_css_class "x"
+    s1.apply_stylesheet
+    b2.styles.normal.fg.should eq rgb("green")
+  end
+
+  it "handles CSS operations on a detached widget without crashing" do
+    screen = headless_screen
+    parent = Widget::Box.new parent: screen
+    child = Widget::Box.new parent: parent
+
+    screen.stylesheet = "Box { color: red; }"
+    screen.apply_stylesheet
+    child.styles.normal.fg.should eq rgb("red")
+
+    parent.remove child
+    child.screen?.should be_nil
+
+    # CSS-relevant mutations are no-ops (not crashes) while detached
+    child.add_css_class "x"
+    child.css_id = "y"
+    child.state = WidgetState::Focused
+
+    # re-attaching brings it back under the cascade
+    screen.stylesheet = "Box { color: blue; }"
+    parent.append child
+    screen.apply_stylesheet
+    child.styles.normal.fg.should eq rgb("blue")
+  end
+
   it "leaves widgets untouched when no stylesheet is set" do
     screen = headless_screen
     box = Widget::Box.new

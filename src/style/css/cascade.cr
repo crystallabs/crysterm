@@ -254,13 +254,15 @@ module Crysterm
         style.shadow = inline.shadow if inline.shadow.any?    # ameba:disable Performance/AnyInsteadOfEmpty
       end
 
-      # The widgets eligible to be reset/recomputed: *scope* when scoped,
-      # otherwise every (main) widget in the document index.
+      # The widgets eligible to be reset/recomputed: every (main) widget in the
+      # document index, intersected with *scope* when scoped. Intersecting with
+      # the index guarantees the cascade only ever touches *this* screen's
+      # widgets — a `scope` could otherwise include a widget that has since moved
+      # to another screen (a stale dirty-subtree root).
       private def self.recompute_candidates(index, scope : Set(Widget)?) : Enumerable(Widget)
-        return scope if scope
         widgets = Set(Widget).new
         index.each_value { |(widget, slot)| widgets << widget if slot.nil? }
-        widgets
+        scope ? (widgets & scope) : widgets
       end
 
       # Walks the widget tree, mapping each `data-uid` key (and each sub-element
