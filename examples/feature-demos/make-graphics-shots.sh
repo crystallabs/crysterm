@@ -219,7 +219,9 @@ echo
 # ---- tektronix -----------------------------------------------------------
 echo ">> tek (Image::Tek, Tektronix 4014 — separate window)"
 if build tek_image; then
-  TEK_FIT=1000 DEMO_SECONDS=12 \
+  # fit defaults to Contain (fills the Tek screen, aspect preserved); the
+  # normalize_trim below crops the letterbox. No numeric TEK_FIT any more.
+  DEMO_SECONDS=12 \
     xterm -title Tek -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
       -geometry "${COLS}x${ROWS}+50+50" -e "$BUILD/tek_image" &
   pid=$!; sleep 5

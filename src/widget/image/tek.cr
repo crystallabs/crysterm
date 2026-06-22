@@ -1,5 +1,4 @@
-require "../image"
-require "../box"
+require "./base"
 
 module Crysterm
   class Widget
@@ -13,20 +12,23 @@ module Crysterm
     # lifecycles. It's a deliberate takeover of the display.
     #
     # A photo is therefore dithered to 1 bit and drawn as one run of horizontal
-    # vectors per "ink" span — a faithfully retro green-on-black rendering.
+    # vectors per "ink" span — a faithfully retro green-on-black rendering. It
+    # fits into the Tek screen per the shared `fit` contract (`Image::Fit`),
+    # defaulting to `Contain`.
     #
     # An **animated** source (GIF/APNG) plays in the Tek window: each frame is a
     # full PAGE-clear + redraw (the storage tube can't update in place), so it
-    # flickers and is heavier than the raster backends — but it works. Animation
-    # defaults to ordered (Bayer) dithering because it is *frame-independent*: the
-    # same pixels dither identically every frame, so the picture is temporally
-    # stable. Error diffusion (the default for a still) would "boil"/shimmer.
+    # flickers and is heavier than the raster backends — but it works. Because the
+    # Tek window is *not* driven by the screen render loop, this overrides
+    # `Image::Base`'s render-driven animation with its own window loop. Animation
+    # defaults to ordered (Bayer) dithering, which is frame-independent (stable);
+    # error diffusion (the default for a still) would shimmer.
     #
     # ```
     # tek = Widget::Image::Tek.new file: "pic.png", parent: screen
     # # the Tek window appears on the next screen render
     # ```
-    class Image::Tek < Box
+    class Image::Tek < Image::Base
       # 1-bit dithering method.
       enum Dither
         None      # hard threshold at `level` — cleanest spans, fewest vectors
@@ -42,8 +44,6 @@ module Crysterm
       US    = '\u{1f}' # return to Tek alpha mode
       ETX   = '\u{03}' # with a leading ESC: leave Tek mode, back to VT100/ANSI
 
-      property file : String?
-
       # Luminance threshold (0..255) used by `None`/`Diffusion`.
       getter level : Float64
 
@@ -52,15 +52,6 @@ module Crysterm
 
       # Invert ink/paper (draw the dark areas instead of the bright ones).
       getter? invert : Bool
-
-      # Longest image edge, in Tek units, the rendering is scaled to fit.
-      getter fit : Int32
-
-      # Play an animated (GIF/APNG) source in the Tek window.
-      property? animate : Bool
-
-      # Playback speed multiplier for animations (1.0 = native speed).
-      property speed : Float64
 
       # The Tek display is a separate window that xterm auto-rescales from the
       # 4014 logical coordinate space, so a window/box resize needs no redraw.
@@ -83,7 +74,7 @@ module Crysterm
         redraw!
       end
 
-      def fit=(v : Int32)
+      def fit=(v : Image::Fit)
         return if v == @fit
         @fit = v
         redraw!
@@ -97,9 +88,9 @@ module Crysterm
       end
 
       @drawn = false
-      @playing = false
+      # This backend's own decoded frames ({bitmap, delay_ms}); the Tek window is
+      # not render-driven, so we don't use Base's `@src_frames`.
       @frames : Array(Tuple(PNGGIF::Bitmap, Int32))?
-      @anim_index = 0
       @listener_screen : ::Crysterm::Screen?
       @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
@@ -108,13 +99,9 @@ module Crysterm
         @level : Float64 = 128.0,
         dither : Dither | Bool = Dither::Auto,
         @invert : Bool = false,
-        @fit : Int32 = 680,
+        @fit : Image::Fit = Image::Fit::Contain,
         @animate : Bool = true,
         @speed : Float64 = 1.0,
-        # Accepted-and-ignored so the `Widget::Image` factory can forward one
-        # common option bag (incl. overlay-only options) to any backend.
-        stretch = false,
-        center = false,
         **box,
       )
         # Accept a legacy Bool: true ⇒ diffusion (the old "dithered" look), false ⇒ none.
@@ -139,12 +126,22 @@ module Crysterm
         request_render
       end
 
-      def set_image(file : String)
-        load file
+      def clear_image
+        super # stop + clear file/source
+        @drawn = false
+        @frames = nil
       end
 
-      # Index of the frame currently shown (animation).
-      getter anim_index : Int32
+      # Tek tracks its own decoded frames rather than Base's render-driven set.
+      def frames_ready? : Bool
+        !@frames.nil?
+      end
+
+      # (Re)start drawing/animating in the Tek window.
+      def play
+        return if @playing
+        redraw!
+      end
 
       # Switches to the Tek window and draws the image (or starts its animation).
       # Safe to call directly; otherwise it fires once on the first screen render.
@@ -164,21 +161,21 @@ module Crysterm
         iw = probe.width
         ih = probe.height
         return if iw <= 0 || ih <= 0
-        pw, ph = fit_dims iw, ih
+        dw, dh, ox, oy = fit_layout iw, ih
 
-        frames = @animate ? PNGGIF::PNG.new(data).animation_cellmaps(pw, ph, 1.0) : nil
+        frames = @animate ? PNGGIF::PNG.new(data).animation_cellmaps(dw, dh, 1.0) : nil
         if frames && frames.size > 1
           @frames = frames
           @playing = true
-          spawn animate_loop(s)
+          spawn animate_loop(s, ox, oy)
         else
-          png = PNGGIF::PNG.new(data, cell_width: pw, cell_height: ph, cell_aspect: 1.0)
+          png = PNGGIF::PNG.new(data, cell_width: dw, cell_height: dh, cell_aspect: 1.0)
           bmp = png.cellmap
           return if bmp.empty?
           # Enter Tek, draw the one frame, then hand the display back to VT100 so
           # the next normal render doesn't leak into the Tek window (the "H2J"
           # left over from `ESC[H ESC[2J`). The storage tube keeps the picture.
-          s.tput._oprint String.build { |io| io << "\e[?38h" << build_frame(bmp) << '\e' << ETX }
+          s.tput._oprint String.build { |io| io << "\e[?38h" << build_frame(bmp, ox, oy) << '\e' << ETX }
           s.tput.flush
         end
       end
@@ -186,7 +183,7 @@ module Crysterm
       # Plays the decoded frames in the Tek window: enter Tek once, then PAGE-clear
       # + redraw each frame on its own fiber (sleeping per-frame delay), and leave
       # Tek mode when stopped. Loops forever until `#stop`/destroy.
-      private def animate_loop(s : ::Crysterm::Screen)
+      private def animate_loop(s : ::Crysterm::Screen, ox : Int32, oy : Int32)
         frames = @frames || return
         s.tput._oprint "\e[?38h" # enter Tek mode for the whole run
         s.tput.flush
@@ -194,7 +191,7 @@ module Crysterm
         while @playing
           bmp, delay = frames[idx]
           @anim_index = idx
-          s.tput._oprint build_frame(bmp)
+          s.tput._oprint build_frame(bmp, ox, oy)
           s.tput.flush
           idx = (idx + 1) % frames.size
           ms = (delay / @speed).to_i
@@ -205,51 +202,31 @@ module Crysterm
         s.tput.flush rescue nil
       end
 
-      def stop
-        @playing = false
-      end
-
-      # Longest-edge fit into the addressable Tek space, aspect preserved.
-      private def fit_dims(iw : Int32, ih : Int32) : Tuple(Int32, Int32)
-        if iw >= ih
-          pw = @fit
-          ph = (@fit * ih / iw).to_i
-        else
-          ph = @fit
-          pw = (@fit * iw / ih).to_i
-        end
-        pw = 1 if pw < 1
-        ph = 1 if ph < 1
-        # If a fitted edge overruns the Tek space, scale *both* down by the same
-        # factor (an independent per-axis clamp would squash the aspect ratio).
-        if pw > TEK_W
-          ph = (ph * TEK_W / pw).to_i
-          pw = TEK_W
-        end
-        if ph > TEK_H
-          pw = (pw * TEK_H / ph).to_i
-          ph = TEK_H
-        end
-        {pw < 1 ? 1 : pw, ph < 1 ? 1 : ph}
+      # Fits an *iw*×*ih* image into the Tek screen per `fit`, returning the drawn
+      # pixel size and top-left offset `{dw, dh, ox, oy}` (the shared
+      # `Image::Fit#layout`); `Cover` may yield negative offsets (the overflow is
+      # clipped when emitting vectors).
+      private def fit_layout(iw : Int32, ih : Int32) : Tuple(Int32, Int32, Int32, Int32)
+        dw, dh, ox, oy = @fit.layout(TEK_W, TEK_H, iw, ih)
+        dw = 1 if dw < 1
+        dh = 1 if dh < 1
+        {dw, dh, ox, oy}
       end
 
       # PAGE-clear + the image as horizontal vector runs (no mode enter/exit, so it
-      # can be reused per animation frame). Centered in the Tek screen.
-      private def build_frame(bmp : PNGGIF::Bitmap) : String
+      # can be reused per animation frame), drawn at offset *ox*/*oy* with bounds
+      # clipping (so a `Cover` overflow doesn't wrap the 10-bit coordinates).
+      private def build_frame(bmp : PNGGIF::Bitmap, ox : Int32, oy : Int32) : String
         ph = bmp.size
         pw = bmp[0]?.try(&.size) || 0
         return "\e\u{0c}" if pw == 0 || ph == 0
         bits = to_bits bmp, pw, ph
 
-        ox = (TEK_W - pw) // 2
-        ox = 0 if ox < 0
-        oy = (TEK_H - ph) // 2
-        oy = 0 if oy < 0
-
         String.build do |io|
           io << "\e\u{0c}" # PAGE: clear the storage tube
           ph.times do |y|
             ty = oy + (ph - 1 - y) # flip: Tek origin is bottom-left
+            next if ty < 0 || ty >= TEK_H
             x = 0
             while x < pw
               unless bits[y][x]
@@ -260,8 +237,13 @@ module Crysterm
               while x + rl < pw && bits[y][x + rl]
                 rl += 1
               end
-              io << GS << tek_coord(ox + x, ty) << tek_coord(ox + x + rl - 1, ty)
+              x0 = ox + x
+              x1 = ox + x + rl - 1
               x += rl
+              x0 = 0 if x0 < 0
+              x1 = TEK_W - 1 if x1 > TEK_W - 1
+              next if x1 < x0 || x0 > TEK_W - 1
+              io << GS << tek_coord(x0, ty) << tek_coord(x1, ty)
             end
           end
           io << US

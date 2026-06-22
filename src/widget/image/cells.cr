@@ -1,0 +1,118 @@
+require "./base"
+
+module Crysterm
+  class Widget
+    # Abstract base for the **cell-grid** image backends — those that turn the
+    # image into character cells Crysterm owns and diffs (`Image::Ansi`, one cell
+    # per pixel; `Image::Glyph`, sub-cell Unicode glyphs).
+    #
+    # It hoists everything those two share: decoding (via `Image::Base#source`),
+    # the load/animation wiring, and the resize-aware `#render` skeleton — sample
+    # the source (or the current animation frame) to the content box, cache it per
+    # size, and iterate the cells. Subclasses provide only the sampling resolution
+    # (`#compose`) and the per-cell painting (`#draw_sample`).
+    abstract class Image::Cells < Image::Base
+      # Whether the loaded image is animated (its frames drive the sampled bitmap).
+      @animated = false
+      # Per-frame sampled bitmaps for the *current* box size, filled lazily and
+      # cleared on resize (so a resize only re-samples the frames actually shown).
+      @frame_cache = {} of Int32 => PNGGIF::Bitmap
+      # Cell box the sample / frame cache was last built for, so resize re-samples.
+      @rendered_size : Tuple(Int32, Int32)?
+
+      # (Re)decodes *file* and starts playback when it's animated. On failure,
+      # shows an error string as content instead of raising.
+      def load(file : String)
+        stop
+        @file = file
+        @source = nil
+        @src_frames = nil
+        @frame_cache.clear
+        @anim_index = 0
+        @rendered_size = nil
+        set_sample nil
+
+        set_content ""
+        png = source
+        unless png
+          set_content "Image Error: could not load #{file}"
+          @animated = false
+          return
+        end
+
+        @animated = !png.frames.nil? && animate?
+        on_loaded png
+        play if @animated
+      end
+
+      def clear_image
+        super
+        @animated = false
+        @frame_cache.clear
+        @rendered_size = nil
+        set_content ""
+        set_sample nil
+      end
+
+      # Hook: called after a successful decode (e.g. `Image::Ansi` sizes the widget
+      # to the image when no explicit size was given). Default does nothing.
+      protected def on_loaded(png : PNGGIF::PNG)
+      end
+
+      # Samples *img* into a bitmap for a *cols*×*rows* content box. *frame* is the
+      # source frame to sample for animation, or `nil` for a still. Subclasses pick
+      # the resolution (e.g. ×sub-grid) and cell aspect; see `Image::Fitting`.
+      protected abstract def compose(img : PNGGIF::PNG, cols : Int32, rows : Int32,
+                                     frame : PNGGIF::Bitmap?) : PNGGIF::Bitmap?
+
+      # The currently-sampled bitmap (the subclass's `@cellmap`/`@sub`).
+      protected abstract def sample : PNGGIF::Bitmap?
+      protected abstract def set_sample(bmp : PNGGIF::Bitmap?)
+
+      # Paints the sampled *bmp* into the content cells `xi...xl`×`yi...yl`.
+      protected abstract def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
+
+      def render
+        coords = _render
+        return unless coords
+
+        xi = coords.xi + ileft
+        xl = coords.xl - iright
+        yi = coords.yi + itop
+        yl = coords.yl - ibottom
+
+        # Resize support: (re)sample to the current content box when it changes.
+        # For animation, only the *currently shown* frame is sampled (and cached
+        # per size), so resizing doesn't regenerate every frame.
+        if (img = source)
+          cols = xl - xi
+          rows = yl - yi
+          if cols > 0 && rows > 0
+            if @rendered_size != {cols, rows}
+              @rendered_size = {cols, rows}
+              @frame_cache.clear
+              set_sample nil unless @animated
+            end
+            if @animated
+              if (src = @src_frames) && (sf = src[@anim_index]?)
+                frame = @frame_cache[@anim_index]?
+                if frame.nil?
+                  frame = compose(img, cols, rows, sf[0])
+                  @frame_cache[@anim_index] = frame if frame
+                end
+                set_sample frame if frame
+              end
+            elsif sample.nil?
+              set_sample compose(img, cols, rows, nil)
+            end
+          end
+        end
+
+        bmp = sample
+        return coords unless bmp
+        draw_sample bmp, xi, xl, yi, yl
+        coords
+      end
+    end
+  end
+end

@@ -31,9 +31,15 @@ dither = case ENV["TEK_DITHER"]?
          else                  Widget::Image::Tek::Dither::Auto # -> Ordered for animation
          end
 
+fit = case ENV["TEK_FIT"]?
+      when "stretch" then Widget::Image::Fit::Stretch
+      when "cover"   then Widget::Image::Fit::Cover
+      else                Widget::Image::Fit::Contain
+      end
+
 Widget::Image::Tek.new \
   parent: s,
-  fit: (ENV["TEK_FIT"]? || "700").to_i,
+  fit: fit,
   speed: (ENV["TEK_SPEED"]? || "1.0").to_f,
   dither: dither,
   file: "#{__DIR__}/../../screenshots/netscape.gif"

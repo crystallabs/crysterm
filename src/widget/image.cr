@@ -86,6 +86,8 @@ module Crysterm
         Tek      # separate window, Tektronix 4014 vectors (`Image::Tek`)
       end
 
+      # Back-compat alias for the concrete-backend union. New code should prefer
+      # the common abstract base `Image::Base`, which the factory returns.
       alias Any = Ansi | Glyph | Overlay | Ueberzug |
                   Sixel | Regis | Kitty | Iterm | Tek
 
@@ -115,7 +117,7 @@ module Crysterm
       # Builds the concrete image widget for *type*, forwarding all remaining
       # options to its constructor. When *type* is omitted it defaults to
       # `default_type` (the `image.backend` config option).
-      def self.new(*, type : Type = default_type, **opts) : Any
+      def self.new(*, type : Type = default_type, **opts) : Image::Base
         case type
         in Type::Ansi     then Ansi.new **opts
         in Type::Glyph    then Glyph.new **opts

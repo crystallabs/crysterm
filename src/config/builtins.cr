@@ -75,6 +75,8 @@ module Superconf
   # -- Images ----------------------------------------------------------------
   option "image.backend", "ansi",
     description: "Default Widget::Image backend (auto|ansi|glyph|overlay|sixel|regis|kitty|tek); 'auto' detects from the terminal"
+  option "image.unsupported", "ignore",
+    description: "What a Widget::Image backend does when asked for a feature it can't do (error|ignore)"
 
   # -- Widget defaults -------------------------------------------------------
   option "message.display_time", 3.seconds,

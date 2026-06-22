@@ -1,6 +1,5 @@
-require "../image"
+require "./external"
 require "json"
-require "../box"
 
 module Crysterm
   class Widget
@@ -24,12 +23,10 @@ module Crysterm
     # ```
     # img = Widget::Image::Ueberzug.new file: "pic.png", width: 40, height: 12, parent: screen
     # ```
-    class Image::Ueberzug < Box
+    class Image::Ueberzug < Image::External
       # Überzug scaler: `fit_contain`, `contain`, `forced_cover`, `cover`,
       # `crop`, `distort`. `forced_cover` fills the box exactly.
       property scaler : String
-
-      property file : String?
 
       # One shared helper process drives every placement (keyed by identifier).
       @@proc : Process? = nil
@@ -41,8 +38,7 @@ module Crysterm
       @listener_screen : ::Crysterm::Screen?
       @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
-      def initialize(@file = nil, @scaler : String = "forced_cover",
-                     stretch = false, center = false, **box)
+      def initialize(@file = nil, @scaler : String = "forced_cover", **box)
         super **box
         @@counter += 1
         @id = "crysterm_#{@@counter}"

@@ -36,10 +36,13 @@ module Crysterm
     # to decode/draw at, given the widget's cell box) and `#encode` (turn a
     # decoded `PNGGIF::Bitmap` into the terminal-specific escape payload). This
     # base handles decoding, caching, cursor positioning and the lifecycle.
-    abstract class Image::Graphics < Box
-      # Path (or URL) of the loaded image.
-      property file : String?
-
+    # Abstract base for the **in-band terminal-graphics** backends — those that
+    # emit an escape sequence the terminal itself renders as pixels (`Image::Sixel`,
+    # `Image::Regis`, `Image::Kitty`, `Image::Iterm`). The image source and the
+    # render-driven animation framework come from `Image::Base`; this layer adds
+    # the pixel-resolution/encoding machinery and the "screen owns the pixels"
+    # erase-on-move lifecycle the cell grid doesn't manage.
+    abstract class Image::Graphics < Image::Base
       # Assumed terminal cell size in pixels, used to translate the widget's
       # cell box into a pixel resolution for the graphic. Defaults approximate a
       # typical monospace xterm; override to match your font, or rely on the
@@ -47,27 +50,11 @@ module Crysterm
       property cell_pixel_width : Int32
       property cell_pixel_height : Int32
 
-      # How the image is fit into the (possibly varying-size) box. Changing it
-      # invalidates the cached render.
-      property fit : Image::Fit
-
-      # Play animated images (APNG / GIF) automatically.
-      property? animate : Bool
-
-      # Playback speed multiplier for animations (1.0 = native speed).
-      property speed : Float64
-
-      # The image decoded once at native resolution (resolution-independent
-      # *source*); the sized render is derived from it for the current box and
-      # cached, so resizing re-samples without re-parsing the file.
-      @source : PNGGIF::PNG?
+      # Original (undecoded) bytes cache, for backends that transmit the file
+      # as-is (iTerm2). The decoded `@source`/frames live in `Image::Base`.
       @raw : Bytes?
 
-      # Composited animation source frames (`{bitmap, delay_ms}`), built once
-      # (capped, in a background fiber); each shown frame is sampled to the box.
-      @src_frames : Array(Tuple(PNGGIF::Bitmap, Int32))?
-      @anim_index = 0
-      @playing = false
+      # Set once the first paint has checked whether the source is animated.
       @anim_checked = false
 
       # Per-frame payload cache for the *current* geometry, keyed on the
@@ -101,10 +88,6 @@ module Crysterm
         @fit : Image::Fit = Image::Fit::Stretch,
         @animate : Bool = true,
         @speed : Float64 = 1.0,
-        # Accepted-and-ignored Image::Overlay-specific options, so the
-        # `Widget::Image` factory can forward one option bag to any backend.
-        stretch = false,
-        center = false,
         **box,
       )
         super **box
@@ -189,38 +172,17 @@ module Crysterm
         request_render
       end
 
-      # Alias for `#load`, matching the other image backends' API.
-      def set_image(file : String)
-        load file
-      end
-
       # Clears the loaded image, erasing its graphic from the screen.
       def clear_image
-        stop
         clear_graphic
-        @file = nil
-        @source = nil
+        super # stop + drop file/source/frames
         @raw = nil
-        @src_frames = nil
-        @anim_index = 0
         @anim_checked = false
         @frame_payloads.clear
         @payload_geom = nil
         @payload = nil
         @payload_key = nil
         @emitted_key = nil
-      end
-
-      # The image decoded *once* at native resolution (via the shared, process-
-      # wide `Image.decode` cache, so the same file shown by several widgets is
-      # parsed only once). The sized render is then derived from this source for
-      # whatever box is current, so a resize re-samples instead of re-parsing.
-      protected def source : PNGGIF::PNG?
-        if s = @source
-          return s
-        end
-        file = @file || return nil
-        @source = Image.decode file
       end
 
       # Returns the original (undecoded) image bytes, cached. Used by backends
@@ -260,84 +222,14 @@ module Crysterm
         true
       end
 
-      # On the first paint, detect an animated source and start playback.
+      # On the first paint, detect an animated source and start playback. (The
+      # `#play`/`#animate_loop` framework itself lives in `Image::Base`.)
       private def ensure_animation
         return if @anim_checked
         @anim_checked = true
         return unless needs_frame_loop?
         src = source || return
         play if src.frames && animate?
-      end
-
-      # Index of the frame currently shown. The internal animation loop advances
-      # it, but it can also be set directly (after `#pause`) to drive playback
-      # from an external clock — e.g. to keep several images in lockstep.
-      property anim_index : Int32
-
-      # Whether the composited source frames have been built yet (the heavy
-      # decode/composite happens in a background fiber on first `#play`). Once
-      # true, the animation loop is actually advancing frames — useful to a
-      # recorder that wants to start capturing only after playback is underway.
-      def frames_ready? : Bool
-        !@src_frames.nil?
-      end
-
-      # Starts animation playback. Source frames are composited once (capped, in a
-      # background fiber so a big GIF doesn't block first paint); the loop then
-      # advances the frame index and re-renders, so `#redraw_image` emits the
-      # current frame (sampled to the current box) — which is what makes animated
-      # graphics also resize.
-      def play
-        return if @playing
-        src = source || return
-        @playing = true
-        if @src_frames
-          spawn animate_loop
-        else
-          spawn do
-            Fiber.yield # let the current frame paint before the heavy build
-            sw, sh = Image::Fitting.source_size src
-            frames = @src_frames = src.animation_cellmaps(sw, sh, 1.0)
-            if frames && !frames.empty? && @playing
-              animate_loop
-            else
-              @playing = false
-            end
-          end
-        end
-      end
-
-      def pause
-        @playing = false
-      end
-
-      def stop
-        @playing = false
-        @anim_index = 0
-      end
-
-      private def animate_loop
-        frames = @src_frames
-        return unless frames
-        src = source
-        num_plays = src ? src.num_plays : 0
-        plays = 0
-        while @playing
-          request_render # fires Rendered -> redraw_image emits this frame
-
-          delay = frames[@anim_index]?.try(&.[1]) || 100
-          @anim_index += 1
-          if @anim_index >= frames.size
-            @anim_index = 0
-            plays += 1
-            break if num_plays > 0 && plays >= num_plays
-          end
-
-          ms = (delay / @speed).to_i
-          ms = 1 if ms < 1
-          sleep ms.milliseconds
-        end
-        @playing = false
       end
 
       # Builds the full escape payload for a *bw*×*bh* box. The default path

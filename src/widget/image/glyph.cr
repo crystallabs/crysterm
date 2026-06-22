@@ -1,5 +1,4 @@
-require "../image"
-require "../box"
+require "./cells"
 
 module Crysterm
   class Widget
@@ -21,7 +20,7 @@ module Crysterm
     # img = Widget::Image::Glyph.new file: "pic.png", mode: :braille, width: 40, height: 12, parent: screen
     # img.mode = Widget::Image::Glyph::Mode::Octant # re-renders in another family
     # ```
-    class Image::Glyph < Box
+    class Image::Glyph < Image::Cells
       enum Mode
         Block
         Ascii
@@ -43,42 +42,25 @@ module Crysterm
         end
       end
 
-      property file : String?
       getter mode : Mode
-      property? animate : Bool
-      property speed : Float64
-      getter img : PNGGIF::PNG?
+
+      # The sub-cell bitmap currently being displayed.
       property sub : PNGGIF::Bitmap?
-
-      # How a still image is fit into a box whose size may vary (`Image::Fit`).
-      property fit : Image::Fit
-
-      # Full-res composited animation frames (`{bitmap, delay_ms}`), decoded once.
-      @src_frames : Array(Tuple(PNGGIF::Bitmap, Int32))? = nil
-      # Per-frame sub-bitmaps sampled for the current box, filled lazily and
-      # cleared on resize (so a resize only re-samples the frames shown).
-      @frame_cache = {} of Int32 => PNGGIF::Bitmap
-      @playing = false
-      @anim_index = 0
-
-      # Whether the loaded image is animated (its frames drive `@sub`).
-      @animated = false
-      # Cell box the sub-bitmap / frame cache was last sampled for, so resize re-samples.
-      @rendered_size : Tuple(Int32, Int32)?
 
       # Minimum local luminance gradient (sum of |dx|+|dy|) for a cell to be
       # treated as an edge in `Ascii` mode and get a glyph.
       ASCII_EDGE = 28
 
       def initialize(@file = nil, @mode : Mode = Mode::Half, @animate : Bool = true,
-                     @speed : Float64 = 1.0, @fit : Image::Fit = Image::Fit::Stretch,
-                     # Accepted-and-ignored so the `Widget::Image` factory can
-                     # forward one common option bag (incl. overlay-only options)
-                     # to any backend without a compile error.
-                     stretch = false, center = false, **box)
+                     @speed : Float64 = 1.0, @fit : Image::Fit = Image::Fit::Stretch, **box)
         super(**box)
         @file.try { |f| set_image f }
         on(::Crysterm::Event::Destroy) { stop }
+      end
+
+      # The decoded image (alias for the shared `#source`), or `nil` if none.
+      def img : PNGGIF::PNG?
+        source
       end
 
       # Switches glyph family; the next render re-samples at the new sub-cell
@@ -94,162 +76,35 @@ module Crysterm
         end
       end
 
-      def load(file : String)
-        set_image file
-      end
-
-      # (Re)decodes *file* at the resolution required by the current `mode`
-      # (cells × sub-grid), and starts playback if the image is animated.
-      def set_image(file : String)
-        @file = file
-        stop
-        @src_frames = nil
-        @frame_cache.clear
-        @sub = nil
-        @anim_index = 0
-        @rendered_size = nil
-
-        set_content ""
-        # Decode once at native resolution via the shared `Image.decode` cache;
-        # sized sub-bitmaps are derived from `png.bmp` (or composited frames) on
-        # demand so a resize re-samples.
-        png = Image.decode file
-        unless png
-          set_content "Image Error: could not load #{file}"
-          @img = nil
-          @sub = nil
-          @animated = false
-          return
-        end
-
-        @img = png
-        @animated = !png.frames.nil? && animate?
-        play if @animated
-      end
-
       def self.fetch(url : String) : Bytes
         Widget::Image::Ansi.fetch url
       end
 
-      # Index of the frame currently shown. The internal animation loop advances
-      # it, but it can also be set directly (after `#pause`) to drive playback
-      # from an external clock — e.g. to keep several images in lockstep.
-      property anim_index : Int32
-
-      # Whether the composited source frames have been built yet (the heavy
-      # decode/composite happens in a background fiber on first `#play`). Once
-      # true, the animation loop is actually advancing frames — useful to a
-      # recorder that wants to start capturing only after playback is underway.
-      def frames_ready? : Bool
-        !@src_frames.nil?
-      end
-
-      # Composites the source frames once (capped resolution) — in a background
-      # fiber the first time, so a large GIF doesn't block construction/first
-      # paint — then samples each shown frame to the current box lazily in
-      # `#render`.
-      def play
-        return if @playing
-        png = @img
-        return unless png
-        @playing = true
-
-        if @src_frames
-          spawn animate_loop
-        else
-          spawn do
-            Fiber.yield # let the current layout paint before the heavy build
-            sw, sh = Image::Fitting.source_size png
-            frames = @src_frames = png.animation_cellmaps(sw, sh, 1.0)
-            if frames && !frames.empty? && @playing
-              animate_loop
-            else
-              @playing = false
-            end
-          end
-        end
-      end
-
-      def pause
-        @playing = false
-      end
-
-      def stop
-        @playing = false
-        @anim_index = 0
-      end
-
-      private def animate_loop
-        src = @src_frames
-        return unless src
-        png = @img
-        num_plays = png ? png.num_plays : 0
-        plays = 0
-        while @playing
-          request_render
-
-          delay = src[@anim_index]?.try(&.[1]) || 100
-          @anim_index += 1
-          if @anim_index >= src.size
-            @anim_index = 0
-            plays += 1
-            break if num_plays > 0 && plays >= num_plays
-          end
-
-          ms = (delay / @speed).to_i
-          ms = 1 if ms < 1
-          sleep ms.milliseconds
-        end
-        @playing = false
-      end
-
-      # ---------------------------------------------------------------- render
-
-      def render
-        coords = _render
-        return unless coords
-
-        lines = screen.lines
-        xi = coords.xi + ileft
-        xl = coords.xl - iright
-        yi = coords.yi + itop
-        yl = coords.yl - ibottom
-
+      # Sample at the current mode's sub-cell resolution (cells × sub-grid).
+      protected def compose(img : PNGGIF::PNG, cols : Int32, rows : Int32, frame : PNGGIF::Bitmap?) : PNGGIF::Bitmap?
         sx, sy = @mode.subgrid
-
-        # Resize support: (re)sample to the current content box (× sub-grid) when
-        # it changes. For animation, only the *currently shown* frame is sampled
-        # (cached per size), so resizing doesn't regenerate every frame.
-        if (img = @img)
-          cols = xl - xi
-          rows = yl - yi
-          if cols > 0 && rows > 0
-            if @rendered_size != {cols, rows}
-              @rendered_size = {cols, rows}
-              @frame_cache.clear
-              @sub = nil unless @animated
-            end
-            if @animated
-              if (src = @src_frames) && (sf = src[@anim_index]?)
-                frame = @frame_cache[@anim_index]?
-                if frame.nil?
-                  frame = Image::Fitting.compose(img, sf[0], cols * sx, rows * sy, @fit, 1.0)
-                  @frame_cache[@anim_index] = frame if frame
-                end
-                @sub = frame if frame
-              end
-            elsif @sub.nil?
-              @sub = Image::Fitting.compose(img, cols * sx, rows * sy, @fit, 1.0)
-            end
-          end
+        if frame
+          Image::Fitting.compose(img, frame, cols * sx, rows * sy, @fit, 1.0)
+        else
+          Image::Fitting.compose(img, cols * sx, rows * sy, @fit, 1.0)
         end
+      end
 
-        sub = @sub
-        return coords unless sub
+      protected def sample : PNGGIF::Bitmap?
+        @sub
+      end
+
+      protected def set_sample(bmp : PNGGIF::Bitmap?)
+        @sub = bmp
+      end
+
+      protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
+        lines = screen.lines
+        sx, sy = @mode.subgrid
 
         # Braille is one colour per cell, so it needs a single global on/off
         # threshold (a per-cell threshold would just produce ~50% noise).
-        thr = @mode.braille? ? global_threshold(sub) : 0.0
+        thr = @mode.braille? ? global_threshold(bmp) : 0.0
 
         (yi...yl).each do |y|
           cy = y - yi
@@ -259,12 +114,10 @@ module Crysterm
             cx = x - xi
             cell = row[x]?
             next unless cell
-            paint cell, sub, cx, cy, sx, sy, thr
+            paint cell, bmp, cx, cy, sx, sy, thr
           end
           row.dirty = true
         end
-
-        coords
       end
 
       private def paint(cell, sub, cx, cy, sx, sy, thr)

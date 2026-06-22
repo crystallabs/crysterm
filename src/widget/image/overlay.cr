@@ -1,4 +1,4 @@
-require "../image"
+require "./external"
 require "w3m_image_display"
 
 module Crysterm
@@ -7,8 +7,7 @@ module Crysterm
     # https://github.com/hut/ranger/blob/master/ranger/ext/img_display.py
 
     # Overlay (w3m-img) image element
-    class Image::Overlay < Box
-      property file : String?
+    class Image::Overlay < Image::External
       property stretch = false
       property center = false
       property image : W3MImageDisplay::Image?
