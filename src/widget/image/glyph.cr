@@ -44,9 +44,6 @@ module Crysterm
 
       getter mode : Mode
 
-      # The sub-cell bitmap currently being displayed.
-      property sub : PNGGIF::Bitmap?
-
       # Minimum local luminance gradient (sum of |dx|+|dy|) for a cell to be
       # treated as an edge in `Ascii` mode and get a glyph.
       ASCII_EDGE = 28
@@ -88,14 +85,6 @@ module Crysterm
         else
           Image::Fitting.compose(img, cols * sx, rows * sy, @fit, 1.0)
         end
-      end
-
-      protected def sample : PNGGIF::Bitmap?
-        @sub
-      end
-
-      protected def set_sample(bmp : PNGGIF::Bitmap?)
-        @sub = bmp
       end
 
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)

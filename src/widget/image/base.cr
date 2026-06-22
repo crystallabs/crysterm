@@ -62,7 +62,7 @@ module Crysterm
       end
 
       # Clears the loaded image and stops any animation. Subclasses override to
-      # also drop their own caches (calling `super` first).
+      # also drop their own caches, calling `super` to run this base cleanup.
       def clear_image
         stop
         @file = nil

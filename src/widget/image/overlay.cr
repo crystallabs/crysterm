@@ -76,7 +76,7 @@ module Crysterm
       def clear_image
         clear_overlay
         @image = nil
-        @file = nil
+        super # stop + clear file/source/frames
       end
 
       # Before this frame's cells are composited: if the widget has moved since

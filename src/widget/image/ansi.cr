@@ -51,9 +51,6 @@ module Crysterm
       # effect on the next `#set_image`.
       property cell_aspect : Float64
 
-      # The cellmap currently being displayed (one `PNGGIF::Pixel` per terminal cell).
-      property cellmap : PNGGIF::Bitmap?
-
       def initialize(
         @file = nil,
         @scale : Float64 = 1.0,
@@ -100,14 +97,6 @@ module Crysterm
         else
           Image::Fitting.compose(img, cols, rows, @fit, @cell_aspect)
         end
-      end
-
-      protected def sample : PNGGIF::Bitmap?
-        @cellmap
-      end
-
-      protected def set_sample(bmp : PNGGIF::Bitmap?)
-        @cellmap = bmp
       end
 
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)

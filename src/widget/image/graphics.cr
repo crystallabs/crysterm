@@ -1,5 +1,4 @@
-require "../image"
-require "../box"
+require "./base"
 
 # `struct winsize` for reading the terminal's pixel dimensions via `TIOCGWINSZ`
 # (the `ws_xpixel`/`ws_ypixel` that come back alongside rows/cols), so a graphics

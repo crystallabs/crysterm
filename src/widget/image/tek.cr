@@ -88,9 +88,6 @@ module Crysterm
       end
 
       @drawn = false
-      # This backend's own decoded frames ({bitmap, delay_ms}); the Tek window is
-      # not render-driven, so we don't use Base's `@src_frames`.
-      @frames : Array(Tuple(PNGGIF::Bitmap, Int32))?
       @listener_screen : ::Crysterm::Screen?
       @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
@@ -121,20 +118,14 @@ module Crysterm
         @playing = false
         @file = file
         @drawn = false
-        @frames = nil
+        @src_frames = nil
         @anim_index = 0
         request_render
       end
 
       def clear_image
-        super # stop + clear file/source
+        super # stop + clear file/source/frames
         @drawn = false
-        @frames = nil
-      end
-
-      # Tek tracks its own decoded frames rather than Base's render-driven set.
-      def frames_ready? : Bool
-        !@frames.nil?
       end
 
       # (Re)start drawing/animating in the Tek window.
@@ -161,11 +152,12 @@ module Crysterm
         iw = probe.width
         ih = probe.height
         return if iw <= 0 || ih <= 0
-        dw, dh, ox, oy = fit_layout iw, ih
+        # `Image::Fit#layout` already clamps the drawn size to >= 1, so no extra clamp.
+        dw, dh, ox, oy = @fit.layout(TEK_W, TEK_H, iw, ih)
 
-        frames = @animate ? PNGGIF::PNG.new(data).animation_cellmaps(dw, dh, 1.0) : nil
+        frames = @animate ? probe.animation_cellmaps(dw, dh, 1.0) : nil
         if frames && frames.size > 1
-          @frames = frames
+          @src_frames = frames
           @playing = true
           spawn animate_loop(s, ox, oy)
         else
@@ -184,7 +176,7 @@ module Crysterm
       # + redraw each frame on its own fiber (sleeping per-frame delay), and leave
       # Tek mode when stopped. Loops forever until `#stop`/destroy.
       private def animate_loop(s : ::Crysterm::Screen, ox : Int32, oy : Int32)
-        frames = @frames || return
+        frames = @src_frames || return
         s.tput._oprint "\e[?38h" # enter Tek mode for the whole run
         s.tput.flush
         idx = 0
@@ -200,17 +192,6 @@ module Crysterm
         end
         s.tput._oprint "\e\u{03}" rescue nil # ESC ETX: back to VT100
         s.tput.flush rescue nil
-      end
-
-      # Fits an *iw*×*ih* image into the Tek screen per `fit`, returning the drawn
-      # pixel size and top-left offset `{dw, dh, ox, oy}` (the shared
-      # `Image::Fit#layout`); `Cover` may yield negative offsets (the overflow is
-      # clipped when emitting vectors).
-      private def fit_layout(iw : Int32, ih : Int32) : Tuple(Int32, Int32, Int32, Int32)
-        dw, dh, ox, oy = @fit.layout(TEK_W, TEK_H, iw, ih)
-        dw = 1 if dw < 1
-        dh = 1 if dh < 1
-        {dw, dh, ox, oy}
       end
 
       # PAGE-clear + the image as horizontal vector runs (no mode enter/exit, so it
@@ -264,7 +245,7 @@ module Crysterm
       # animation is loaded, error diffusion (nicer) for a still.
       private def effective_dither : Dither
         return @dither unless @dither.auto?
-        @frames ? Dither::Ordered : Dither::Diffusion
+        @src_frames ? Dither::Ordered : Dither::Diffusion
       end
 
       private def to_bits(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32) : Array(Array(Bool))
@@ -299,10 +280,8 @@ module Crysterm
                 lum[y + 1][x] += err * 5.0 / 16.0
                 lum[y + 1][x + 1] += err * 1.0 / 16.0 if x + 1 < pw
               end
-            in Dither::None
+            in Dither::None, Dither::Auto # Auto is resolved away by effective_dither
               on = lum[y][x] >= @level
-            in Dither::Auto
-              on = lum[y][x] >= @level # unreachable (resolved by effective_dither)
             end
             on = !on if invert?
             row[x] = on

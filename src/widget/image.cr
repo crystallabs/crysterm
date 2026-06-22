@@ -8,20 +8,23 @@ module Crysterm
     # factory: `Image.new` returns the concrete widget for the requested `type`
     # and forwards all other options to it.
     #
-    # The backends are organized by how the image's pixels reach the screen —
-    # which is what determines the rendering/erase machinery each one needs:
+    # Every backend is a `Image::Base` (the shared contract: image source,
+    # `fit`, animation, and the `image.unsupported` policy), so `Image.new`
+    # returns `Image::Base`. They are grouped by how the image's pixels reach the
+    # screen — which determines the rendering/erase machinery, and the abstract
+    # family base each one inherits:
     #
-    # * **cell-grid** — the image becomes character cells Crysterm owns and
-    #   diffs: `Ansi` (`Image::Ansi`) and `Glyph` (`Image::Glyph`, sub-cell glyphs).
-    # * **screen-owns-pixels (in the VT window)** — the terminal (or an external
-    #   helper) owns the pixels; the widget tracks its cell rectangle and
-    #   force-erases on move/hide: `Overlay` (`Image::Overlay`, w3mimgdisplay) and
-    #   `Ueberzug` (`Image::Ueberzug`, the überzug overlay), plus the in-band
-    #   `Sixel` (`Image::Sixel`), `Regis` (`Image::Regis`), `Kitty` (`Image::Kitty`,
-    #   the Kitty graphics protocol) and `Iterm` (`Image::Iterm`, the iTerm2
-    #   inline-images protocol).
+    # * **cell-grid** (`Image::Cells`) — the image becomes character cells
+    #   Crysterm owns and diffs: `Ansi` (`Image::Ansi`) and `Glyph`
+    #   (`Image::Glyph`, sub-cell glyphs).
+    # * **external overlay** (`Image::External`) — a helper process paints the
+    #   pixels in its own window: `Overlay` (`Image::Overlay`, w3mimgdisplay) and
+    #   `Ueberzug` (`Image::Ueberzug`).
+    # * **in-band terminal graphics** (`Image::Graphics`) — the terminal renders
+    #   an escape sequence as pixels: `Sixel` (`Image::Sixel`), `Regis`
+    #   (`Image::Regis`), `Kitty` (`Image::Kitty`) and `Iterm` (`Image::Iterm`).
     # * **separate window** — the terminal renders into another window entirely:
-    #   `Tek` (`Image::Tek`, Tektronix 4014).
+    #   `Tek` (`Image::Tek`, Tektronix 4014), directly on `Image::Base`.
     #
     # ```
     # img = Widget::Image.new file: "picture.png", parent: screen # => Image::Ansi
@@ -85,11 +88,6 @@ module Crysterm
         Iterm    # screen-owns-pixels, in-band iTerm2 inline images (`Image::Iterm`)
         Tek      # separate window, Tektronix 4014 vectors (`Image::Tek`)
       end
-
-      # Back-compat alias for the concrete-backend union. New code should prefer
-      # the common abstract base `Image::Base`, which the factory returns.
-      alias Any = Ansi | Glyph | Overlay | Ueberzug |
-                  Sixel | Regis | Kitty | Iterm | Tek
 
       # The default backend when `type:` is not given, resolved from the config
       # registry (key `image.backend`, env `CRYSTERM_IMAGE_BACKEND`, CLI

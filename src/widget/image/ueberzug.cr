@@ -68,8 +68,8 @@ module Crysterm
 
       def clear_image
         remove
-        @file = nil
         @path = nil
+        super # stop + clear file/source/frames
       end
 
       # Locates the helper binary once, or `nil` if neither variant is installed.
