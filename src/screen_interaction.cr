@@ -55,6 +55,19 @@ module Crysterm
       # if (@tput.input._our_input == 0)
       #  @tput.input._out_input = 1
       listen_keys
+
+      # Order matters: `listen_keys` only *spawns* the input fiber, and that fiber
+      # puts the terminal into raw (echo-off) mode as its very first action
+      # (`Tput::Input#with_raw_input`, before its first blocking read). Until then
+      # the tty is still in cooked mode and echoes everything it receives. If we
+      # enabled mouse reporting now, any pointer movement during startup would make
+      # the terminal emit report sequences that get echoed straight onto the screen
+      # (the garbage seen in the cracktro demo). Yield once so the freshly-spawned
+      # fiber runs up to that first read — establishing raw mode — and only then
+      # turn mouse reporting on. (Tput remains the sole owner of raw mode, so
+      # teardown/restore is unaffected.)
+      Fiber.yield
+
       listen_mouse
       # else
       #  @tput.input._our_input += 1
