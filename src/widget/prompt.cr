@@ -5,6 +5,12 @@ module Crysterm
     class Prompt < Box
       property text : String = ""
 
+      # Optional validator (Qt's `QLineEdit` validator / `QInputDialog`
+      # acceptance). Given the entered text, it returns whether the value is
+      # acceptable; on a `false` the dialog stays open for the user to correct
+      # the input instead of submitting. `nil` accepts anything.
+      property validator : Proc(String, Bool)? = nil
+
       # TODO Positioning is bad for buttons.
       # Use a layout for buttons.
       # Also, make unlimited number of buttons/choices possible.
@@ -46,7 +52,7 @@ module Crysterm
         # mouse: true
       )
 
-      def initialize(**box)
+      def initialize(secret = nil, censor = nil, placeholder = nil, validator = nil, **box)
         # style.visible = false # XXX Enable correctly
 
         box["content"]?.try do |c|
@@ -54,6 +60,13 @@ module Crysterm
         end
 
         super **box
+
+        # Echo mode (Qt `QLineEdit::EchoMode`): hide the typed text entirely
+        # (`secret`) or mask it with `*` (`censor`), and an optional placeholder.
+        secret.try { |v| @textinput.secret = v }
+        censor.try { |v| @textinput.censor = v }
+        placeholder.try { |v| @textinput.placeholder = v }
+        @validator = validator
 
         append @textinput
         append @ok
@@ -78,16 +91,30 @@ module Crysterm
 
         ev_cancel = @cancel.on ::Crysterm::Event::Press, ->on_press_cancel(::Crysterm::Event::Press)
 
-        @textinput.read_input do |err, data|
-          hide
-          screen.restore_focus
-          @ok.off ::Crysterm::Event::Press, ev_ok
-          @cancel.off ::Crysterm::Event::Press, ev_cancel
+        # Self-referential reader so a rejected (invalid) submit can re-arm the
+        # input without closing the dialog.
+        reader = uninitialized -> Nil
+        reader = -> do
+          @textinput.read_input do |err, data|
+            # A non-nil `data` is a submit (Enter); validate it. On rejection,
+            # keep the dialog open and read again. Cancel (`data == nil`) and
+            # accepted values fall through to teardown.
+            if !data.nil? && (v = @validator) && !v.call(data)
+              reader.call
+              next
+            end
 
-          callback.try do |c|
-            c.call err, data
+            hide
+            screen.restore_focus
+            @ok.off ::Crysterm::Event::Press, ev_ok
+            @cancel.off ::Crysterm::Event::Press, ev_cancel
+
+            callback.try do |c|
+              c.call err, data
+            end
           end
         end
+        reader.call
 
         request_render
       end

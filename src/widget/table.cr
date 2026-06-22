@@ -26,6 +26,11 @@ module Crysterm
       # The table data, as rows of string cells.
       property rows : Array(Array(String))
 
+      # Whether every other body row is painted with `style.alternate` instead of
+      # `style.cell`, like Qt's `QTableWidget#alternatingRowColors`. Has no
+      # visible effect until `style.alternate` is given a distinct background.
+      property? alternate_rows : Bool = false
+
       # A table is sized to its content by default.
       @resizable = true
 
@@ -41,11 +46,13 @@ module Crysterm
         pad = nil,
         no_cell_borders = nil,
         fill_cell_borders = nil,
+        alternate_rows = false,
         *,
         align : Tput::AlignFlag | Shorthands = Tput::AlignFlag::Center,
         **box,
       )
         @rows = normalize_rows(rows || data)
+        @alternate_rows = alternate_rows
         self.cell_align = align
         pad.try { |v| @pad = v }
         no_cell_borders.try { |v| @no_cell_borders = v }
@@ -116,6 +123,7 @@ module Crysterm
         dattr = sattr style
         hattr = sattr style.header
         cattr = sattr style.cell
+        aattr = sattr style.alternate
         battr = sattr style.border
 
         width = coords.xl - coords.xi - iright
@@ -126,11 +134,24 @@ module Crysterm
         y = itop
         while y < height
           if line = lines[yi + y]?
+            # Each table row occupies two grid rows (text + separator), so the
+            # row index is `(y - itop) // 2`; index 0 is the header. Body rows
+            # 2, 4, … (the 2nd, 4th, … data rows) take the alternate attribute.
+            offset = y - itop
+            row_index = offset // 2
+            attr =
+              if offset.even? && row_index == 0
+                hattr
+              elsif offset.even? && alternate_rows? && row_index.even?
+                aattr
+              else
+                cattr
+              end
             x = ileft
             while x < width
               if cell = line[xi + x]?
                 if cell.attr == dattr
-                  cell.attr = (y == itop ? hattr : cattr)
+                  cell.attr = attr
                   line.dirty = true
                 end
               else

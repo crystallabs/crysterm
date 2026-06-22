@@ -27,6 +27,20 @@ module Crysterm
       # The table data (including the header row at index 0).
       property rows : Array(Array(String)) = [] of Array(String)
 
+      # Whether every other body row is painted with `style.alternate`, like
+      # Qt's `QAbstractItemView#alternatingRowColors`. No visible effect until
+      # `style.alternate` is given a distinct background.
+      property? alternate_rows : Bool = false
+
+      # Whether clicking a header cell sorts the body by that column (toggling
+      # ascending/descending), like Qt's `QTableView#sortingEnabled`.
+      property? sortable : Bool = false
+
+      # Column the body is currently sorted by, and the direction, set by
+      # `#sort_by_column` (and by clicking a header cell). `nil` means unsorted.
+      getter sort_column : Int32? = nil
+      getter? sort_descending : Bool = false
+
       # The pinned header row.
       getter! header : Box
 
@@ -36,12 +50,16 @@ module Crysterm
         pad = nil,
         no_cell_borders = nil,
         fill_cell_borders = nil,
+        alternate_rows = false,
+        sortable = false,
         *,
         align : Tput::AlignFlag | Shorthands = Tput::AlignFlag::Center,
         keys = nil, # Absorbed: `List` always enables key handling.
         **box,
       )
         self.cell_align = align
+        @alternate_rows = alternate_rows
+        @sortable = sortable
         pad.try { |v| @pad = v }
         no_cell_borders.try { |v| @no_cell_borders = v }
         fill_cell_borders.try { |v| @fill_cell_borders = v }
@@ -71,6 +89,19 @@ module Crysterm
           header.top = @child_base
         end
 
+        # Click a header cell to sort by that column (toggling direction). Uses
+        # `Event::Mouse` (not bare `Click`) because it carries coordinates.
+        if sortable?
+          header.on(Crysterm::Event::Mouse) do |e|
+            next unless e.action.down?
+            if col = column_at(e.x - header.aleft)
+              desc = @sort_column == col ? !@sort_descending : false
+              sort_by_column col, desc
+              request_render
+            end
+          end
+        end
+
         on(Crysterm::Event::Attach) { set_data @rows }
         on(Crysterm::Event::Resize) do
           sel = selected
@@ -80,6 +111,66 @@ module Crysterm
         end
 
         set_data(rows || data)
+      end
+
+      # Body rows draw with `style.cell`; selected rows with `styles.selected`;
+      # and — when `#alternate_rows?` — every other body row with
+      # `style.alternate`.
+      def render_style_for(item : Widget) : Style
+        return item_render_style(true) if item_selected?(item)
+
+        if alternate_rows? && (i = @items.index item) && i > 0 && i.even?
+          base = style.alternate
+          return base unless base.border.any?
+          borderless = base.dup
+          borderless.border = false
+          return borderless
+        end
+
+        item_render_style false
+      end
+
+      # Sorts the body rows (the header at index 0 stays pinned) by *col*. Cells
+      # that both parse as numbers compare numerically; otherwise they compare as
+      # tag-stripped text. Re-applies the current sort whenever data is set.
+      def sort_by_column(col : Int32, descending = false)
+        @sort_column = col
+        @sort_descending = descending
+        return if @rows.size <= 2
+
+        head = @rows.first
+        body = @rows[1..].sort do |a, b|
+          cmp = compare_cells(a[col]? || "", b[col]? || "")
+          descending ? -cmp : cmp
+        end
+
+        rebuilt = [head]
+        rebuilt.concat body
+        set_data rebuilt
+      end
+
+      private def compare_cells(a : String, b : String) : Int32
+        ca = clean_tags a
+        cb = clean_tags b
+        an = ca.to_f?
+        bn = cb.to_f?
+        if an && bn
+          (an <=> bn) || 0
+        else
+          ca <=> cb
+        end
+      end
+
+      # Maps a header-local x offset onto a column index using the cached column
+      # widths (`@maxes`). Returns `nil` for a negative offset.
+      private def column_at(x : Int32) : Int32?
+        return nil if x < 0
+        acc = 0
+        @maxes.each_with_index do |m, i|
+          acc += m + 1 # +1 for the inter-column separator
+          return i if x < acc
+        end
+        @maxes.empty? ? nil : @maxes.size - 1
       end
 
       # Body rows draw with `style.cell` (selected rows with `styles.selected`),

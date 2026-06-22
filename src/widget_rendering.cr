@@ -48,7 +48,7 @@ module Crysterm
       style = self.style
       parent.try do |parent2|
         if parent2._is_list && parent2.is_a? Widget::List
-          style = parent2.item_render_style(parent2.items[parent2.selected]? == self)
+          style = parent2.render_style_for(self)
         end
       end
 
@@ -254,7 +254,7 @@ module Crysterm
               # Ignore foreground changes for selected items (keep the default
               # foreground while letting the rest of the attr change).
               parent.try do |parent2|
-                if parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.items[parent2.selected] == self # XXX && parent2.invert_selected
+                if parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.item_selected?(self) # XXX && parent2.invert_selected
                   attr = Attr.pack(Attr.flags(attr), Attr.fg(default_attr), Attr.bg(attr))
                 end
               end

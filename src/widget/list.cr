@@ -11,6 +11,18 @@ module Crysterm
       property ritems = [] of String
       property selected = 0
 
+      # Whether more than one item can be selected at once, like Qt's
+      # `QAbstractItemView::MultiSelection`. When on, Space toggles the current
+      # item's membership in `#selected_indices` (the cursor still moves with the
+      # arrow keys). When off, the list behaves as a single-selection list and
+      # only the cursor item is highlighted.
+      property? multi_select : Bool = false
+
+      # Indices of the items that are part of the multi-selection (only
+      # meaningful when `#multi_select?`). Maintained across insert/remove so the
+      # marked items track their rows.
+      getter selected_indices = Set(Int32).new
+
       # Tag-stripped text of the currently selected item (`""` when the list is
       # empty). Kept in sync by `#selekt`; useful e.g. for `Widget::Form`
       # value collection.
@@ -30,8 +42,9 @@ module Crysterm
       # for this in `#create_item` when enabled.
       property? mouse = true
 
-      def initialize(input = true, mouse = true, items : Enumerable(String)? = nil, **box)
+      def initialize(input = true, mouse = true, multi_select = false, items : Enumerable(String)? = nil, **box)
         @mouse = mouse
+        @multi_select = multi_select
         super **box, input: input, keys: true
 
         @value = ""
@@ -69,6 +82,55 @@ module Crysterm
         borderless = base.dup
         borderless.border = false
         borderless
+      end
+
+      # Resolves the `Style` an item box should render with. This is the single
+      # entry point called from `Widget#_render`; subclasses (e.g.
+      # `Widget::ListTable`, for alternating rows) override it. By default it
+      # just maps "is this item visually selected?" onto `#item_render_style`.
+      def render_style_for(item : Widget) : Style
+        item_render_style item_selected?(item)
+      end
+
+      # Whether *item* should render in the selected style: it is the cursor
+      # item, or (in `#multi_select?` mode) it is part of `#selected_indices`.
+      def item_selected?(item : Widget) : Bool
+        i = @items.index item
+        return false unless i
+        return true if i == @selected
+        multi_select? && @selected_indices.includes?(i)
+      end
+
+      # Tag-stripped text of every multi-selected item, in row order. In
+      # single-selection mode this is just `[value]` (or `[]` when empty).
+      def selected_values : Array(String)
+        return [@value] unless multi_select?
+        @selected_indices.to_a.sort.compact_map { |i| @ritems[i]?.try { |r| clean_tags r } }
+      end
+
+      # Adds *index* to the multi-selection (no-op unless `#multi_select?`).
+      def select_item(index : Int)
+        return unless multi_select?
+        return unless 0 <= index < @items.size
+        if @selected_indices.add?(index)
+          emit ::Crysterm::Event::SelectItem, @items[index], index
+        end
+      end
+
+      # Removes *index* from the multi-selection.
+      def deselect_item(index : Int)
+        @selected_indices.delete index
+      end
+
+      # Flips *index*'s membership in the multi-selection.
+      def toggle_selection(index : Int)
+        return unless multi_select?
+        @selected_indices.includes?(index) ? deselect_item(index) : select_item(index)
+      end
+
+      # Clears the whole multi-selection.
+      def clear_selection
+        @selected_indices.clear
       end
 
       def create_item(content, screen = ::Crysterm::Screen.global, align : ::Tput::AlignFlag | Shorthands = ::Tput::AlignFlag::Left, top = 0, left = 0, right = (@scrollbar ? 1 : 0), parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
@@ -149,6 +211,15 @@ module Crysterm
         end
 
         (i...@items.size).each { |j| @items[j].top = @items[j].top.as(Int) - 1 }
+
+        # Keep the multi-selection aligned with the shifted rows: drop the removed
+        # index and slide everything past it down by one.
+        if @selected_indices.includes?(i) || @selected_indices.any? { |s| s > i }
+          @selected_indices = @selected_indices.compact_map do |s|
+            next nil if s == i
+            s > i ? s - 1 : s
+          end.to_set
+        end
 
         if i == selected
           selekt i - 1
@@ -291,6 +362,10 @@ module Crysterm
         end
         item = create_item content
         (i...@items.size).each { |j| @items[j].top = @items[j].top.as(Int) + 1 }
+        # Slide multi-selected indices at/after the insertion point up by one.
+        if @selected_indices.any? { |s| s >= i }
+          @selected_indices = @selected_indices.map { |s| s >= i ? s + 1 : s }.to_set
+        end
         item.top = i
         @ritems.insert i, content
         invalidate_item_index
@@ -320,6 +395,9 @@ module Crysterm
       end
 
       def set_items(items)
+        # The row set is being replaced wholesale; stale indices can't be
+        # meaningfully carried over, so drop the multi-selection.
+        @selected_indices.clear
         original = @items.dup
         selekted = selected
         sel = @ritems[selekted]?
@@ -481,6 +559,8 @@ module Crysterm
           start_search false
         when search? && e.char == '?'
           start_search true
+        when multi_select? && e.char == ' '
+          toggle_selection selected
         when e.key == ::Tput::Key::Enter
           enter_selected
         when e.key == ::Tput::Key::Escape

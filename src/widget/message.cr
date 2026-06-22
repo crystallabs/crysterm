@@ -96,6 +96,51 @@ module Crysterm
         # `display` takes its callback as a block, not a positional arg.
         display("{red-fg}Error: #{text}{/red-fg}", time, &callback)
       end
+
+      # Severity of a message, mirroring the icons of Qt's `QMessageBox`
+      # (`Information`, `Warning`, `Critical`, `Question`). Each maps to a colored
+      # leading glyph drawn before the text by `#display_with`.
+      enum Severity
+        None
+        Information
+        Warning
+        Critical
+        Question
+
+        # Tagged (color + glyph) prefix shown ahead of the message text.
+        def prefix : String
+          case self
+          in None        then ""
+          in Information then "{blue-fg}ℹ{/blue-fg}  "
+          in Warning     then "{yellow-fg}⚠{/yellow-fg}  "
+          in Critical    then "{red-fg}✖{/red-fg}  "
+          in Question    then "{cyan-fg}?{/cyan-fg}  "
+          end
+        end
+      end
+
+      # Shows *text* prefixed with *severity*'s icon (see `Severity`). This is the
+      # general form behind the `#information`/`#warning`/`#critical`/`#question`
+      # convenience helpers.
+      def display_with(severity : Severity, text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
+        display("#{severity.prefix}#{text}", time, &callback)
+      end
+
+      def information(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
+        display_with(Severity::Information, text, time, &callback)
+      end
+
+      def warning(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
+        display_with(Severity::Warning, text, time, &callback)
+      end
+
+      def critical(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
+        display_with(Severity::Critical, text, time, &callback)
+      end
+
+      def question(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
+        display_with(Severity::Question, text, time, &callback)
+      end
     end
   end
 end

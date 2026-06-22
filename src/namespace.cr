@@ -265,6 +265,16 @@ module Crysterm
 
     # Keep the list sorted alphabetically.
 
+    # Style used for alternating (even) rows when a `Widget::Table` or
+    # `Widget::ListTable` has `alternate_rows` enabled — the equivalent of Qt's
+    # `QAbstractItemView#alternatingRowColors`. Defaults to `cell` (and thus to
+    # the main style), so it has no visible effect until styled.
+    setter alternate : Style?
+
+    def alternate
+      @alternate || cell
+    end
+
     setter bar : Style?
 
     def bar
@@ -358,6 +368,7 @@ module Crysterm
       shadow = nil,
       @scrollbar = @scrollbar,
       @track = @track,
+      @alternate = @alternate,
       @bar = @bar,
       @item = @item,
       @prefix = @prefix,

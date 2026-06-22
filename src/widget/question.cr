@@ -38,7 +38,7 @@ module Crysterm
         # mouse: true
       )
 
-      def initialize(**box)
+      def initialize(ok_text = nil, cancel_text = nil, **box)
         # self.style.visible = false # XXX Enable correctly
 
         box["content"]?.try do |c|
@@ -46,6 +46,10 @@ module Crysterm
         end
 
         super **box
+
+        # Custom button labels (Qt lets you relabel the standard buttons).
+        ok_text.try { |t| @ok.set_content t }
+        cancel_text.try { |t| @cancel.set_content t }
 
         # Should not be needed when ivar exists and is already set
         # @visible = box["visible"]? ? true : box["hidden"]? || false
@@ -107,6 +111,75 @@ module Crysterm
         screen.save_focus
         focus
 
+        request_render
+      end
+
+      # Asks the user to pick one of an arbitrary list of *choices*, addressing
+      # the long-standing TODO above (Qt-style "multiple standard buttons"). The
+      # block receives the chosen 0-based index, or `-1` if dismissed with
+      # Escape. Buttons are laid out in a row; Left/Right move focus, Enter/Space
+      # or a click activates the focused one.
+      def ask_choices(text = nil, choices : Array(String) = ["Okay", "Cancel"], default = 0, &block : Int32 -> Nil)
+        set_content text || @text
+        show
+
+        # The fixed OK/Cancel pair is not used in this mode.
+        @ok.hide
+        @cancel.hide
+
+        buttons = [] of Button
+        left = 1
+        choices.each do |label|
+          b = Button.new(
+            parent: self,
+            left: left,
+            top: 4,
+            height: 1,
+            width: label.size + 2,
+            resizable: true,
+            content: label,
+            align: :center,
+            focus_on_click: true,
+          )
+          left += label.size + 3
+          buttons << b
+        end
+
+        cur = default.clamp(0, Math.max(0, buttons.size - 1))
+        ev_keys = nil
+
+        finish = ->(idx : Int32) do
+          ev_keys.try { |h| screen.off Crysterm::Event::KeyPress, h }
+          buttons.each &.destroy
+          @ok.show
+          @cancel.show
+          hide
+          screen.restore_focus
+          block.call idx
+          request_render
+        end
+
+        buttons.each_with_index do |b, i|
+          b.on(Crysterm::Event::Press) { finish.call i }
+        end
+
+        ev_keys = screen.on(Crysterm::Event::KeyPress) do |e|
+          case e.key
+          when Tput::Key::Left
+            cur = (cur - 1) % buttons.size
+            buttons[cur].focus
+            request_render
+          when Tput::Key::Right
+            cur = (cur + 1) % buttons.size
+            buttons[cur].focus
+            request_render
+          when Tput::Key::Escape
+            finish.call -1
+          end
+        end
+
+        screen.save_focus
+        buttons[cur]?.try &.focus
         request_render
       end
     end

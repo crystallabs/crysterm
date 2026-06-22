@@ -49,6 +49,9 @@ module Crysterm
     Message = Widget::Message
     Log     = Widget::Log
 
+    Slider  = Widget::Slider
+    SpinBox = Widget::SpinBox
+
     Terminal = Widget::Terminal
 
     # Qt-like

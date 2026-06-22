@@ -155,3 +155,123 @@ describe Crysterm::Widget::TextBox do
     tb.value.should eq ""
   end
 end
+
+describe Crysterm::Widget::List do
+  it "toggles multiple selections and reports their values" do
+    s = qt_mem_screen
+    list = Crysterm::Widget::List.new parent: s, multi_select: true,
+      items: ["a", "b", "c", "d"]
+    list.toggle_selection 1
+    list.toggle_selection 3
+    list.selected_indices.to_a.sort.should eq [1, 3]
+    list.selected_values.should eq ["b", "d"]
+    list.toggle_selection 1
+    list.selected_indices.to_a.sort.should eq [3]
+  end
+
+  it "marks the cursor item and the multi-selected items as selected" do
+    s = qt_mem_screen
+    list = Crysterm::Widget::List.new parent: s, multi_select: true,
+      items: ["a", "b", "c"]
+    list.selekt 0
+    list.select_item 2
+    list.item_selected?(list.items[0]).should be_true # cursor
+    list.item_selected?(list.items[1]).should be_false
+    list.item_selected?(list.items[2]).should be_true # multi-selected
+  end
+
+  it "keeps selected indices aligned when an earlier row is removed" do
+    s = qt_mem_screen
+    list = Crysterm::Widget::List.new parent: s, multi_select: true,
+      items: ["a", "b", "c", "d"]
+    list.select_item 2 # "c"
+    list.select_item 3 # "d"
+    list.remove_item list.items[0] # remove "a"; c,d shift to 1,2
+    list.selected_indices.to_a.sort.should eq [1, 2]
+    list.selected_values.should eq ["c", "d"]
+  end
+
+  it "does not multi-select when the option is off" do
+    s = qt_mem_screen
+    list = Crysterm::Widget::List.new parent: s, items: ["a", "b"]
+    list.toggle_selection 1
+    list.selected_indices.empty?.should be_true
+  end
+end
+
+describe Crysterm::Widget::ListTable do
+  it "sorts body rows by a column numerically, keeping the header pinned" do
+    s = qt_mem_screen
+    lt = Crysterm::Widget::ListTable.new parent: s, sortable: true, rows: [
+      ["Name", "Score"],
+      ["Alice", "10"],
+      ["Bob", "2"],
+      ["Carol", "30"],
+    ]
+    lt.sort_by_column 1
+    lt.rows.first.should eq ["Name", "Score"]
+    lt.rows[1..].map(&.last).should eq ["2", "10", "30"]
+    lt.sort_by_column 1, descending: true
+    lt.rows[1..].map(&.last).should eq ["30", "10", "2"]
+  end
+
+  it "sorts textual columns lexicographically" do
+    s = qt_mem_screen
+    lt = Crysterm::Widget::ListTable.new parent: s, rows: [
+      ["Name"],
+      ["Carol"],
+      ["Alice"],
+      ["Bob"],
+    ]
+    lt.sort_by_column 0
+    lt.rows[1..].map(&.first).should eq ["Alice", "Bob", "Carol"]
+  end
+end
+
+describe Crysterm::Widget::Slider do
+  it "clamps and steps the value, emitting ValueChange" do
+    s = qt_mem_screen
+    sl = Crysterm::Widget::Slider.new parent: s, minimum: 0, maximum: 10,
+      value: 5, width: 20, height: 1
+    changes = [] of Int32
+    sl.on(Crysterm::Event::ValueChange) { |e| changes << e.value }
+    sl.increment
+    sl.value.should eq 6
+    sl.decrement 100
+    sl.value.should eq 0
+    sl.value = 999
+    sl.value.should eq 10
+    changes.should eq [6, 0, 10]
+  end
+end
+
+describe Crysterm::Widget::SpinBox do
+  it "renders prefix/suffix and steps within range" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 5,
+      value: 4, prefix: "$", suffix: "%"
+    sb.text.should eq "$4%"
+    sb.increment
+    sb.value.should eq 5
+    sb.increment # clamps at maximum
+    sb.value.should eq 5
+  end
+
+  it "wraps around the bounds when wrap is enabled" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 3,
+      value: 3, wrap: true
+    sb.increment
+    sb.value.should eq 0
+    sb.decrement
+    sb.value.should eq 3
+  end
+end
+
+describe Crysterm::Widget::Message::Severity do
+  it "provides a colored icon prefix per severity" do
+    Crysterm::Widget::Message::Severity::None.prefix.should eq ""
+    Crysterm::Widget::Message::Severity::Warning.prefix.includes?("⚠").should be_true
+    Crysterm::Widget::Message::Severity::Critical.prefix.includes?("red-fg").should be_true
+  end
+end
