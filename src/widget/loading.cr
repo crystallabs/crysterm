@@ -9,6 +9,24 @@ module Crysterm
       # below to add the show/content/hide lifecycle around the shared loop.
       include Effect::Animated
 
+      # Built-in spinner animations, selectable by name via the `spinner:`
+      # option (or `#spinner=`). The frames of each are cycled by `#step`.
+      SPINNERS = {
+        "line"    => ["|", "/", "-", "\\"],
+        "dots"    => [".  ", ".. ", "...", " ..", "  .", "   "],
+        "braille" => ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
+        "bar"     => ["[=   ]", "[==  ]", "[ == ]", "[  ==]", "[   =]", "[    ]"],
+        "circle"  => ["◐", "◓", "◑", "◒"],
+        "arrow"   => ["←", "↖", "↑", "↗", "→", "↘", "↓", "↙"],
+        "bounce"  => ["⠁", "⠂", "⠄", "⠂"],
+        "toggle"  => ["▮", "▯"],
+      }
+
+      # Frames of a named built-in spinner, or `nil` if the name is unknown.
+      def self.spinner_frames(name : String | Symbol) : Array(String)?
+        SPINNERS[name.to_s]?
+      end
+
       property? compact = false
 
       @orig_text = ""
@@ -24,12 +42,16 @@ module Crysterm
         @compact = false,
         @interval = Crysterm::Config.loading_interval,
         @icons = ["|", "/", "-", "\\"],
+        spinner : String | Symbol | Nil = nil,
         @step = 1,
         **box,
       )
         box["content"]?.try do |c|
           @orig_text = c
         end
+
+        # A named built-in spinner overrides the default frames.
+        spinner.try { |name| SPINNERS[name.to_s]?.try { |f| @icons = f } }
 
         super **box
 
@@ -44,6 +66,16 @@ module Crysterm
           content: @icons[0]
 
         append @icon
+      end
+
+      # Switches to a named built-in spinner (see `SPINNERS`) at runtime,
+      # restarting its frame cycle. Unknown names are ignored.
+      def spinner=(name : String | Symbol)
+        SPINNERS[name.to_s]?.try do |frames|
+          @icons = frames
+          @pos = 0
+          @icon.set_content frames[0]
+        end
       end
 
       # Blessed-compatible alias for `#start` (Blessed's Loading uses

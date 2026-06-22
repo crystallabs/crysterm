@@ -49,8 +49,9 @@ module Crysterm
     Message = Widget::Message
     Log     = Widget::Log
 
-    Slider  = Widget::Slider
-    SpinBox = Widget::SpinBox
+    Slider    = Widget::Slider
+    SpinBox   = Widget::SpinBox
+    TabWidget = Widget::TabWidget
 
     Terminal = Widget::Terminal
 

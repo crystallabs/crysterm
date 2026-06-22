@@ -27,6 +27,27 @@ module Crysterm
     # Action enabled?
     property enabled = true
 
+    # Whether the action has an on/off checked state (Qt's `QAction#checkable`),
+    # e.g. a toggleable "Word Wrap" menu entry. A `Widget::Menu` draws a
+    # `[x]`/`[ ]` marker for checkable actions and flips `#checked?` when they are
+    # activated.
+    property? checkable = false
+
+    # Current checked state; only meaningful when `#checkable?`.
+    property? checked = false
+
+    # Whether this is a non-selectable separator rather than a real action
+    # (Qt's `QAction#isSeparator`). Created via `Action.separator`.
+    property? separator = false
+
+    # Returns a separator action — a divider that menus/toolbars render as a rule
+    # and skip during navigation.
+    def self.separator : Action
+      a = Action.new ""
+      a.separator = true
+      a
+    end
+
     # Keyboard shortcut
     # TODO Needs to become proper `KeySequence?` later, so that it can trigger on a sequence
     # of key presses (E.g. Ctrl+a, d)

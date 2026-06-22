@@ -3,6 +3,41 @@ require "./scrollable_text"
 module Crysterm
   class Widget
     class Log < ScrollableText
+      # Severity of a log line, à la a typical logger / Qt logging categories.
+      # Ordered from least to most severe so `#min_level` can filter.
+      enum Level
+        Debug
+        Info
+        Warn
+        Error
+
+        # Color (named) used to tag the `[LEVEL]` marker when the widget parses
+        # tags.
+        def color : String
+          case self
+          in Debug then "blue"
+          in Info  then "green"
+          in Warn  then "yellow"
+          in Error then "red"
+          end
+        end
+
+        # Marker shown before the message, e.g. `[WARN]`.
+        def label : String
+          "[#{to_s.upcase}]"
+        end
+      end
+
+      # Lines below this severity are dropped by the level helpers
+      # (`#debug`/`#info`/`#warn`/`#error`). Defaults to `Debug` (no filtering).
+      property min_level : Level = Level::Debug
+
+      # Whether the level helpers prefix each line with a timestamp.
+      property? timestamps : Bool = false
+
+      # `Time#to_s` format used when `#timestamps?`.
+      property timestamp_format : String = "%H:%M:%S"
+
       # `scroll_percentage` must reflect/drive the real scroll position. It used
       # to be a plain `property` (inert Int), so `self.scroll_percentage = 100`
       # just stored 100 and never scrolled, and the `== 100` check below read a
@@ -15,10 +50,71 @@ module Crysterm
         set_scroll_perc i
       end
 
-      def initialize(@scroll_on_input = false, @scrollback = Int32::MAX, **scrollable_text)
+      def initialize(
+        @scroll_on_input = false,
+        @scrollback = Int32::MAX,
+        max_lines = nil,
+        timestamps = false,
+        min_level = Level::Debug,
+        **scrollable_text,
+      )
         super **scrollable_text
 
+        @timestamps = timestamps
+        @min_level = min_level
+        # `max_lines` is the friendlier alias for `scrollback`.
+        max_lines.try { |v| @scrollback = v }
+
         on Crysterm::Event::SetContent, ->set_content(Crysterm::Event::SetContent)
+      end
+
+      # Maximum number of retained lines, an alias for `#scrollback` (Qt's
+      # `QPlainTextEdit#maximumBlockCount`).
+      def max_lines : Int32
+        @scrollback
+      end
+
+      # :ditto:
+      def max_lines=(value : Int32)
+        @scrollback = value
+      end
+
+      # Appends a line at *level*, honoring `#min_level`, an optional timestamp,
+      # and a colored `[LEVEL]` marker (colored only when the widget parses
+      # tags). The `#debug`/`#info`/`#warn`/`#error` helpers wrap this.
+      def log(level : Level, *args)
+        return if level < @min_level
+
+        msg = args.map(&.to_s).join(" ")
+        line = String.build do |s|
+          if timestamps?
+            s << Time.local.to_s(@timestamp_format) << ' '
+          end
+          if parse_tags?
+            s << '{' << level.color << "-fg}" << level.label << "{/" << level.color << "-fg} "
+          else
+            s << level.label << ' '
+          end
+          s << msg
+        end
+
+        add line
+      end
+
+      def debug(*args)
+        log Level::Debug, *args
+      end
+
+      def info(*args)
+        log Level::Info, *args
+      end
+
+      def warn(*args)
+        log Level::Warn, *args
+      end
+
+      def error(*args)
+        log Level::Error, *args
       end
 
       def set_content(e)

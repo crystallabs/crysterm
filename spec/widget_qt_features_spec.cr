@@ -11,7 +11,9 @@ private def qt_mem_screen
   Crysterm::Screen.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
-    error: IO::Memory.new)
+    error: IO::Memory.new,
+    width: 80,
+    height: 24)
 end
 
 private def keypress(ch : Char, key : Tput::Key? = nil)
@@ -184,8 +186,8 @@ describe Crysterm::Widget::List do
     s = qt_mem_screen
     list = Crysterm::Widget::List.new parent: s, multi_select: true,
       items: ["a", "b", "c", "d"]
-    list.select_item 2 # "c"
-    list.select_item 3 # "d"
+    list.select_item 2             # "c"
+    list.select_item 3             # "d"
     list.remove_item list.items[0] # remove "a"; c,d shift to 1,2
     list.selected_indices.to_a.sort.should eq [1, 2]
     list.selected_values.should eq ["c", "d"]
@@ -273,5 +275,113 @@ describe Crysterm::Widget::Message::Severity do
     Crysterm::Widget::Message::Severity::None.prefix.should eq ""
     Crysterm::Widget::Message::Severity::Warning.prefix.includes?("⚠").should be_true
     Crysterm::Widget::Message::Severity::Critical.prefix.includes?("red-fg").should be_true
+  end
+end
+
+describe Crysterm::Widget::Loading do
+  it "selects a built-in spinner by name" do
+    Crysterm::Widget::Loading.spinner_frames("braille").not_nil!.size.should be > 1
+    Crysterm::Widget::Loading.spinner_frames("nope").should be_nil
+
+    s = qt_mem_screen
+    l = Crysterm::Widget::Loading.new parent: s, spinner: "dots"
+    l.icons.should eq Crysterm::Widget::Loading::SPINNERS["dots"]
+    l.spinner = "line"
+    l.icons.should eq Crysterm::Widget::Loading::SPINNERS["line"]
+  end
+end
+
+describe Crysterm::Widget::Log do
+  it "filters by min_level and tags each line with its level" do
+    s = qt_mem_screen
+    log = Crysterm::Widget::Log.new parent: s, parse_tags: true, min_level: Crysterm::Widget::Log::Level::Warn
+    log.debug "ignored"
+    log.warn "shown"
+    log.error "boom"
+    text = log.content
+    text.includes?("ignored").should be_false
+    text.includes?("[WARN]").should be_true
+    text.includes?("[ERROR]").should be_true
+  end
+
+  it "aliases max_lines to scrollback" do
+    s = qt_mem_screen
+    log = Crysterm::Widget::Log.new parent: s, max_lines: 5
+    log.max_lines.should eq 5
+    log.max_lines = 9
+    log.max_lines.should eq 9
+  end
+end
+
+describe Crysterm::Widget::Menu do
+  it "skips separators during navigation" do
+    s = qt_mem_screen
+    m = Crysterm::Widget::Menu.new parent: s
+    m << Crysterm::Action.new "One"
+    m.add_separator
+    m << Crysterm::Action.new "Two"
+    m.ritems.size.should eq 3
+    m.selekt 0
+    m.down # would land on the separator at 1; should skip to 2
+    m.selected.should eq 2
+  end
+
+  it "toggles checkable actions when activated" do
+    s = qt_mem_screen
+    m = Crysterm::Widget::Menu.new parent: s
+    wrap = Crysterm::Action.new "Word Wrap"
+    wrap.checkable = true
+    triggered = 0
+    wrap.on(Crysterm::Event::Triggered) { triggered += 1 }
+    m << wrap
+    m.selekt 0
+    m.activate_selected
+    wrap.checked?.should be_true
+    triggered.should eq 1
+    m.activate_selected
+    wrap.checked?.should be_false
+  end
+end
+
+describe Crysterm::Widget::ListBar do
+  it "creates separators and skips them when moving" do
+    s = qt_mem_screen
+    bar = Crysterm::Widget::ListBar.new parent: s, keys: true,
+      top: 0, left: 0, width: 40, height: 1
+    bar.add "a"
+    bar.add_separator
+    bar.add "b"
+    bar.commands[1].separator?.should be_true
+
+    # Moving right from item 0 must land on item 2, stepping over the
+    # separator at index 1. `selekt` flips each item's state regardless of
+    # layout, so the selected glyph follows even on a headless screen.
+    bar.move 1
+    bar.items[2].state.selected?.should be_true
+    bar.items[1].state.selected?.should be_false
+  end
+end
+
+describe Crysterm::Widget::TabWidget do
+  it "stacks pages and switches the visible one" do
+    s = qt_mem_screen
+    tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
+    p1 = Crysterm::Widget::Box.new content: "one"
+    p2 = Crysterm::Widget::Box.new content: "two"
+    tabs.add_tab "A", p1
+    tabs.add_tab "B", p2
+
+    tabs.current_index.should eq 0
+    p1.visible?.should be_true
+    p2.visible?.should be_false
+
+    tabs.next_tab
+    tabs.current_index.should eq 1
+    p1.visible?.should be_false
+    p2.visible?.should be_true
+
+    tabs.previous_tab
+    tabs.current_index.should eq 0
+    p1.visible?.should be_true
   end
 end

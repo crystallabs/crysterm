@@ -36,6 +36,10 @@ module Crysterm
         # Computed display width of this command's box.
         property width : Int32 = 0
 
+        # Whether this is a non-selectable visual separator rather than a real
+        # command (Qt's `QToolBar#addSeparator`).
+        property? separator = false
+
         def initialize(@text, @callback = nil, *, @prefix = nil, @keys = nil)
         end
       end
@@ -131,6 +135,13 @@ module Crysterm
         add Command.new text, callback, keys: keys
       end
 
+      # Appends a non-selectable separator (Qt's `QToolBar#addSeparator`).
+      def add_separator(char : String = "│")
+        cmd = Command.new char
+        cmd.separator = true
+        add cmd
+      end
+
       # Appends a `Command`.
       def add(cmd : Command)
         prev = @items.last?
@@ -141,18 +152,24 @@ module Crysterm
                   prev ? (prev.aleft || 0) + (prev.awidth || 0) : 0
                 end
 
-        cmd.prefix ||= (@items.size + 1).to_s
+        if cmd.separator?
+          # Separators carry no prefix/hotkey and are sized to their glyph.
+          title = cmd.text
+          cmd.width = cmd.text.size + 2
+        else
+          cmd.prefix ||= (@items.size + 1).to_s
 
-        # A per-command hotkey doubles as the displayed prefix, matching Blessed.
-        cmd.keys.try do |keys|
-          cmd.prefix = keys[0] if keys[0]?
+          # A per-command hotkey doubles as the displayed prefix, matching Blessed.
+          cmd.keys.try do |keys|
+            cmd.prefix = keys[0] if keys[0]?
+          end
+
+          prefix = cmd.prefix
+          tags = prefix_tags
+          title = (prefix ? "#{tags[:open]}#{prefix}#{tags[:close]}:" : "") + cmd.text
+          len = ((prefix ? "#{prefix}:" : "") + cmd.text).size
+          cmd.width = len + 2
         end
-
-        prefix = cmd.prefix
-        tags = prefix_tags
-        title = (prefix ? "#{tags[:open]}#{prefix}#{tags[:close]}:" : "") + cmd.text
-        len = ((prefix ? "#{prefix}:" : "") + cmd.text).size
-        cmd.width = len + 2
 
         item = Widget::Box.new(
           screen: screen,
@@ -188,13 +205,13 @@ module Crysterm
           end
         end
 
-        if @mouse
+        if @mouse && !cmd.separator?
           item.on(::Crysterm::Event::Click) do
             trigger cmd
           end
         end
 
-        selekt 0 if @items.size == 1
+        selekt 0 if @items.size == 1 && !cmd.separator?
 
         emit ::Crysterm::Event::AddItem
 
@@ -326,9 +343,24 @@ module Crysterm
         item
       end
 
-      # Moves the selection by `offset` (negative = left).
+      # Moves the selection by `offset` (negative = left), stepping over any
+      # separator commands so the highlight never lands on one.
       def move(offset)
-        selekt selected + offset
+        n = @commands.size
+        return if n == 0
+
+        dir = offset >= 0 ? 1 : -1
+        idx = selected
+        offset.abs.times do
+          ni = idx + dir
+          while ni >= 0 && ni < n && (@commands[ni]?.try &.separator?)
+            ni += dir
+          end
+          break if ni < 0 || ni >= n
+          idx = ni
+        end
+
+        selekt idx
       end
 
       # Moves the selection `offset` items to the left.
