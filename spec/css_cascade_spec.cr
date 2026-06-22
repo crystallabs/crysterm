@@ -484,6 +484,108 @@ describe "CSS cascade" do
     button.styles.normal.fg.should eq rgb("white")
   end
 
+  it "lets inline @style force a boolean off over a stylesheet" do
+    screen = headless_screen
+    button = Widget::Button.new style: Style.new(bold: false)
+    screen.append button
+
+    screen.stylesheet = "Button { font-weight: bold; }"
+    screen.apply_stylesheet
+
+    # inline explicitly set bold:false, which now outranks the author rule
+    button.styles.normal.bold?.should be_false
+  end
+
+  it "inherits font-weight, font-style and visibility down the tree" do
+    screen = headless_screen
+    form = Widget::Form.new
+    inner = Widget::Box.new # no rule of its own
+    form.append inner
+    screen.append form
+
+    screen.stylesheet = "Form { color: yellow; font-weight: bold; font-style: italic; }"
+    screen.apply_stylesheet
+
+    inner.styles.normal.fg.should eq rgb("yellow") # color inherits
+    inner.styles.normal.bold?.should be_true       # font-weight inherits
+    inner.styles.normal.italic?.should be_true     # font-style inherits
+  end
+
+  it "does not inherit a property the child explicitly sets" do
+    screen = headless_screen
+    form = Widget::Form.new
+    inner = Widget::Box.new
+    form.append inner
+    screen.append form
+
+    screen.stylesheet = <<-CSS
+      Form { font-weight: bold; }
+      Box { font-weight: normal; }
+    CSS
+    screen.apply_stylesheet
+
+    inner.styles.normal.bold?.should be_false # own normal wins over inherited bold
+  end
+
+  it "wires bar/cell sub-element slots for more widgets" do
+    screen = headless_screen
+    pb = Widget::ProgressBar.new
+    table = Widget::Table.new
+    screen.append pb
+    screen.append table
+
+    screen.stylesheet = <<-CSS
+      ProgressBar Bar { color: red; }
+      Table Cell { background-color: blue; }
+    CSS
+    screen.apply_stylesheet
+
+    pb.styles.normal.bar.fg.should eq rgb("red")
+    table.styles.normal.cell.bg.should eq rgb("blue")
+  end
+
+  it "loads and reloads a stylesheet from a file" do
+    path = File.tempname("crysterm-css", ".css")
+    File.write(path, "Box { color: red; }")
+    begin
+      screen = headless_screen
+      box = Widget::Box.new
+      screen.append box
+
+      screen.load_stylesheet path
+      screen.apply_stylesheet
+      box.styles.normal.fg.should eq rgb("red")
+
+      File.write(path, "Box { color: blue; }")
+      screen.reload_stylesheet
+      screen.apply_stylesheet
+      box.styles.normal.fg.should eq rgb("blue")
+    ensure
+      File.delete? path
+    end
+  end
+
+  it "skips re-applying when the document is unchanged" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+    screen.stylesheet = "Box { color: red; }"
+    screen.apply_stylesheet
+
+    # mutate the computed style directly, then re-apply with nothing changed:
+    # the document is byte-identical, so the cascade is skipped and our mutation
+    # survives (proving no recompute happened)
+    box.styles.normal.fg = Crysterm::Colors.convert("green").to_i32
+    screen.apply_stylesheet
+    box.styles.normal.fg.should eq rgb("green")
+
+    # a real change (new class) invalidates the document cache and recomputes
+    screen.stylesheet = ".hot { color: red; }"
+    box.add_css_class "hot"
+    screen.apply_stylesheet
+    box.styles.normal.fg.should eq rgb("red")
+  end
+
   it "leaves widgets untouched when no stylesheet is set" do
     screen = headless_screen
     box = Widget::Box.new

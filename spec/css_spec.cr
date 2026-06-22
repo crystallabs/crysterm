@@ -33,7 +33,7 @@ describe "CSS (#to_html)" do
     html.should contain %(data-uid="#{w.uid}")
     html.should contain %(id="main")
     html.should contain %(class="Box Widget state-normal")
-    html.should start_with "<box"
+    html.should start_with "<w-box"
   end
 
   it "omits id when css_id is unset" do

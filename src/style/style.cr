@@ -44,6 +44,39 @@ module Crysterm
     # Alpha (inverse of transparency). Alpha 0 == full transparency, 1 == full opacity.
     property alpha : Float64?
 
+    # Tracks which text-attribute booleans were *explicitly* set (vs left at
+    # their default), so the CSS cascade can tell "set to false" from "unset" —
+    # needed for inline-style folding and inheritance. Colors and `alpha` carry
+    # their own unset signal (`nil`), so they are not tracked here.
+    protected property specified = Set(Symbol).new
+
+    # Whether *property* was explicitly set on this style.
+    def specified?(property : Symbol) : Bool
+      case property
+      when :fg    then !@fg.nil?
+      when :bg    then !@bg.nil?
+      when :alpha then !@alpha.nil?
+      else             @specified.includes?(property)
+      end
+    end
+
+    # Re-wrap the `property?`-generated boolean setters so each explicit
+    # assignment is recorded (`bold = false` becomes distinguishable from the
+    # default `false`).
+    {% for attr in %w(bold italic underline blink inverse visible) %}
+      def {{attr.id}}=(value : Bool) : Bool
+        @specified << :{{attr.id}}
+        @{{attr.id}} = value
+      end
+    {% end %}
+
+    # Shallow `dup` would share the `specified` set; give the copy its own.
+    def dup
+      copy = super
+      copy.specified = @specified.dup
+      copy
+    end
+
     # Is any transparency defined?
     #
     # This function is needed because it is not possible to test just for `alpha == nil`.
@@ -198,12 +231,12 @@ module Crysterm
       @label = @label,
       fg = nil,
       bg = nil,
-      @bold = @bold,
-      @italic = @italic,
-      @underline = @underline,
-      @blink = @blink,
-      @inverse = @inverse,
-      @visible = @visible,
+      bold = nil,
+      italic = nil,
+      underline = nil,
+      blink = nil,
+      inverse = nil,
+      visible = nil,
       alpha = nil,
       @char = @char,
       @pchar = @pchar,
@@ -216,6 +249,15 @@ module Crysterm
       # String, Int, or Nil — resolves to the matching `fg=`/`bg=` overload).
       self.fg = fg
       self.bg = bg
+      # Route booleans through their setters too, but only when given, so a
+      # constructed value is recorded as `specified` while an omitted one keeps
+      # the property default (and stays "unset").
+      bold.try { |v| self.bold = v }
+      italic.try { |v| self.italic = v }
+      underline.try { |v| self.underline = v }
+      blink.try { |v| self.blink = v }
+      inverse.try { |v| self.inverse = v }
+      visible.try { |v| self.visible = v }
       alpha.try { |v| self.alpha = self.class.alpha_from(v) }
       border.try { |v| self.border = Border.from(v) }
       padding.try { |v| self.padding = Padding.from(v) }

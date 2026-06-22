@@ -231,6 +231,11 @@ module Crysterm
         result
       end
 
+      # Parses a stylesheet from a `.css` file.
+      def self.from_file(path : String | Path) : Stylesheet
+        parse File.read(path)
+      end
+
       # Strips `/* ... */` comments (including multi-line).
       private def self.decommented(css : String) : String
         css.gsub(/\/\*.*?\*\//m, " ")

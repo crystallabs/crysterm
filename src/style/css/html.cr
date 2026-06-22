@@ -48,7 +48,11 @@ module Crysterm
       # parser rewrites type selectors to class selectors), so the tag name is
       # cosmetic. Use the lowercased leaf type for a valid, readable tag.
       classes = css_all_classes
-      tag = classes.first.downcase
+      # Tag is internal (matching is by class). Prefix with `w-` so it is always
+      # a hyphenated *custom element*: this avoids HTML5's special parsing for
+      # real element names like `table`/`input`/`select`, which would otherwise
+      # foster-parent or drop the children we emit.
+      tag = "w-" + classes.first.downcase
       io << '<' << tag
       io << " data-uid=\"" << uid << '"'
       if id = css_id
@@ -72,8 +76,8 @@ module Crysterm
       # capitalized slot name (e.g. `Scrollbar`), so `Scrollbar { ... }` (or
       # `Box Scrollbar { ... }`) styles it.
       css_sub_elements.each do |slot|
-        io << '<' << slot << " data-uid=\"" << uid << "::" << slot << '"'
-        io << " class=\"" << slot.capitalize << "\"></" << slot << '>'
+        io << "<w-" << slot << " data-uid=\"" << uid << "::" << slot << '"'
+        io << " class=\"" << slot.capitalize << "\"></w-" << slot << '>'
       end
       io << "</" << tag << '>'
     end

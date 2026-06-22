@@ -39,20 +39,26 @@ module Crysterm
       alias Entry = Tuple(Int32, Tuple(Int32, Int32, Int32), Int32, Hash(String, String))
 
       # Resolves the author *stylesheet* (plus the default stylesheet beneath it)
-      # against the tree rooted at *screen*.
-      def self.apply(stylesheet : Stylesheet, screen : Screen) : Nil
-        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], screen)
+      # against the tree rooted at *screen*. *document* is the prebuilt CSS
+      # document (`screen.to_html`); pass it to avoid rebuilding when the caller
+      # already has it.
+      def self.apply(stylesheet : Stylesheet, screen : Screen, document : String? = nil) : Nil
+        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], screen, document)
       end
 
       # Resolves a list of `{stylesheet, base_tier}` sources, lowest tier first,
       # against *screen*. Higher tiers win regardless of specificity.
       #
       # ameba:disable Metrics/CyclomaticComplexity
-      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), screen : Screen) : Nil
+      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), screen : Screen, document : String? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
-        doc = HTML5.parse(screen.to_html)
+        doc = HTML5.parse(document || screen.to_html)
         index = index_tree(screen)
+
+        # Match each distinct structural selector at most once per cascade (the
+        # same selector can recur across tiers, states and `@media` blocks).
+        selector_cache = Hash(String, Array(HTML5::Node)).new
 
         # Terminal metrics for `@media` evaluation.
         media_width = screen.width
@@ -83,10 +89,13 @@ module Crysterm
             if mq = rule.media
               next unless mq.matches?(media_width, media_height, media_colors)
             end
-            nodes = begin
-              doc.css(rule.selector)
-            rescue
-              next # ignore selectors the engine can't parse
+            nodes = selector_cache.fetch(rule.selector) do
+              matched = begin
+                doc.css(rule.selector)
+              rescue
+                [] of HTML5::Node # ignore selectors the engine can't parse
+              end
+              selector_cache[rule.selector] = matched
             end
             entries = rule_entries(rule, tier)
             next if entries.empty?
@@ -151,7 +160,7 @@ module Crysterm
           set_sub_style state_style, slot, sub
         end
 
-        inherit_color screen
+        inherit screen
       end
 
       EMPTY_ENTRIES = [] of Entry
@@ -208,19 +217,20 @@ module Crysterm
         end
       end
 
-      # Folds an inline `@style`'s explicitly-set properties onto *style*.
-      # Nilable colors and the geometry sub-objects carry their own "set"
-      # signal; the text-attribute booleans can only be detected when *true*, so
-      # inline can switch an attribute on but not force it off over a stylesheet.
+      # Folds an inline `@style`'s explicitly-set properties onto *style*. Each
+      # property is copied only if the inline style `specified?` it — so inline
+      # can switch a text attribute either on *or* off over a stylesheet.
+      #
+      # ameba:disable Metrics/CyclomaticComplexity
       private def self.fold_inline(style : Style, inline : Style) : Nil
-        inline.fg.try { |color| style.fg = color }
-        inline.bg.try { |color| style.bg = color }
-        style.bold = true if inline.bold?
-        style.italic = true if inline.italic?
-        style.underline = true if inline.underline?
-        style.blink = true if inline.blink?
-        style.inverse = true if inline.inverse?
-        inline.alpha.try { |alpha| style.alpha = alpha }
+        style.fg = inline.fg if inline.specified?(:fg)
+        style.bg = inline.bg if inline.specified?(:bg)
+        style.bold = inline.bold? if inline.specified?(:bold)
+        style.italic = inline.italic? if inline.specified?(:italic)
+        style.underline = inline.underline? if inline.specified?(:underline)
+        style.blink = inline.blink? if inline.specified?(:blink)
+        style.inverse = inline.inverse? if inline.specified?(:inverse)
+        style.alpha = inline.alpha if inline.specified?(:alpha)
         style.border = inline.border if inline.border.any?    # ameba:disable Performance/AnyInsteadOfEmpty
         style.padding = inline.padding if inline.padding.any? # ameba:disable Performance/AnyInsteadOfEmpty
         style.shadow = inline.shadow if inline.shadow.any?    # ameba:disable Performance/AnyInsteadOfEmpty
@@ -242,18 +252,24 @@ module Crysterm
         widget.children.each { |child| index_widget child, index }
       end
 
-      # Inherits `color` (fg) down the tree where a widget's normal style leaves
-      # it unset — the one classically inheritable property. Runs pre-order so a
-      # parent's resolved color is available to its children.
-      private def self.inherit_color(screen : Screen) : Nil
-        screen.children.each { |child| inherit_color_into child, nil }
+      # Inherits the classically-inherited properties — `color` (fg),
+      # `font-weight` (bold), `font-style` (italic) and `visibility` (visible) —
+      # down the tree wherever a widget's normal style leaves them unset. Runs
+      # pre-order so a parent's resolved value is available to its children, and
+      # so an inherited value re-propagates to grandchildren.
+      private def self.inherit(screen : Screen) : Nil
+        screen.children.each { |child| inherit_into child, nil }
       end
 
-      private def self.inherit_color_into(widget : Widget, parent_fg : Int32?) : Nil
+      private def self.inherit_into(widget : Widget, parent : Style?) : Nil
         normal = widget.styles.normal
-        normal.fg = parent_fg if normal.fg.nil? && parent_fg
-        effective = normal.fg || parent_fg
-        widget.children.each { |child| inherit_color_into child, effective }
+        if parent
+          normal.fg = parent.fg if !normal.specified?(:fg) && parent.specified?(:fg)
+          normal.bold = parent.bold? if !normal.specified?(:bold) && parent.specified?(:bold)
+          normal.italic = parent.italic? if !normal.specified?(:italic) && parent.specified?(:italic)
+          normal.visible = parent.visible? if !normal.specified?(:visible) && parent.specified?(:visible)
+        end
+        widget.children.each { |child| inherit_into child, normal }
       end
 
       # --- per-state style accessors -----------------------------------------
