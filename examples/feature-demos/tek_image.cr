@@ -24,7 +24,7 @@ Widget::Image::Tek.new \
   parent: s,
   dither: (ENV["TEK_DITHER"]? != "0"),
   invert: (ENV["TEK_INVERT"]? == "1"),
-  fit: (ENV["TEK_FIT"]? || "680").to_i,
+  fit: (ENV["TEK_FIT"]? || "1000").to_i, # fill most of the 1024x780 Tek space
   file: "#{__DIR__}/../../screenshots/matterhorn.png"
 
 if secs = ENV["DEMO_SECONDS"]?

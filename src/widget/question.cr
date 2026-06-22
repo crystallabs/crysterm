@@ -82,7 +82,7 @@ module Crysterm
           ev_ok.try { |h| @ok.off Crysterm::Event::Press, h }
           ev_cancel.try { |h| @cancel.off Crysterm::Event::Press, h }
           block.call err, data
-          screen.render
+          request_render
         end
 
         ev_keys = screen.on(Crysterm::Event::KeyPress) do |e|
@@ -107,7 +107,7 @@ module Crysterm
         screen.save_focus
         focus
 
-        screen.render
+        request_render
       end
     end
   end

@@ -27,7 +27,10 @@ module Crysterm
     # Temporary buffer for content and escape sequences for each individual row.
     @outbuf : IO::Memory = IO::Memory.new 10_240
 
-    # Even more temporary buffer, for parts of row.
+    # Even more temporary buffer, for parts of a row and for the short
+    # escape-sequence bursts of line insert/delete ops. Always cleared by
+    # `divert` before use, so it can be shared across these non-overlapping uses
+    # instead of allocating a throwaway `IO::Memory` each time.
     @tmpbuf : IO::Memory = IO::Memory.new 64
 
     # From rendering:
@@ -50,6 +53,9 @@ module Crysterm
     # skipped on exception); `dest` is written only on success, matching the
     # original (which wrote before the reset inside the block).
     private def divert(buf : IO::Memory, dest : IO, & : IO::Memory ->) : Nil
+      # Clear here so the buffer can be safely reused across calls (callers used
+      # to either pass a throwaway `IO::Memory.new` or clear it themselves).
+      buf.clear
       tput.ret = buf
       begin
         yield buf
@@ -195,7 +201,6 @@ module Crysterm
                 Screen.code2attr_to(@outbuf, attr, ncolors)
               end
 
-              @tmpbuf.clear
               divert(@tmpbuf, @outbuf) do
                 tput.cup(y, x)
                 tput.el
@@ -296,36 +301,14 @@ module Crysterm
             if desired_attr != @default_attr
               @outbuf.print "\e["
 
-              # This will keep track whether any of the attrs were written into the
-              # buffer. If they were (if size in the end is greater than size
-              # recorded now) then we'll seek to (current_pos)-1 to delete the last ';'
-              outbuf_size = @outbuf.size
-
-              flags = Attr.flags(desired_attr)
-              @outbuf.print "1;" if (flags & Attr::BOLD) != 0
-              @outbuf.print "4;" if (flags & Attr::UNDERLINE) != 0
-              @outbuf.print "5;" if (flags & Attr::BLINK) != 0
-              @outbuf.print "7;" if (flags & Attr::INVERSE) != 0
-              @outbuf.print "8;" if (flags & Attr::INVISIBLE) != 0
-
-              # Emit each color at the richest depth the terminal supports
-              # (truecolor `38;2;r;g;b` / 256 / 16 / 8). Default colors (-1)
-              # emit nothing, so the terminal's own default applies.
-              n = ncolors
-              bg = Attr.unpack_color(Attr.bg(desired_attr))
-              fg = Attr.unpack_color(Attr.fg(desired_attr))
-              if bg != -1
-                Colors.sgr_color_to(@outbuf, bg, false, n)
-                @outbuf << ';'
-              end
-              if fg != -1
-                Colors.sgr_color_to(@outbuf, fg, true, n)
-                @outbuf << ';'
-              end
-
-              if @outbuf.size != outbuf_size
-                # Something was written to the buffer during the code above,
-                # and it surely contains a ';' at the end. Conveniently remove it.
+              # Emit the SGR flags/colors via the shared helper (also used by
+              # `Screen.code2attr_to`). If anything was written it ends in a ';',
+              # which we back over and replace with the terminating 'm'. Note we
+              # always emit "\e[" + "m" here (yielding a bare reset "\e[m" when
+              # nothing was written) because reaching this branch means
+              # `desired_attr != @default_attr`, which differs from
+              # `code2attr_to`'s "emit nothing for the default attr" contract.
+              if Screen.sgr_params_to(@outbuf, desired_attr, ncolors)
                 @outbuf.seek -1, IO::Seek::Current
               end
 
@@ -476,13 +459,11 @@ module Crysterm
         @post.clear
         hidden = tput.cursor_hidden?
 
-        @tmpbuf.clear
         divert(@tmpbuf, @pre) do
           tput.save_cursor
           hide_cursor unless hidden
         end
 
-        @tmpbuf.clear
         divert(@tmpbuf, @post) do
           tput.restore_cursor
           show_cursor unless hidden
@@ -524,7 +505,7 @@ module Crysterm
         return
       end
 
-      divert(IO::Memory.new, @_buf) do
+      divert(@tmpbuf, @_buf) do
         tput.set_scroll_region(top, bottom)
         tput.cup(y, 0)
         tput.il(n)
@@ -553,7 +534,7 @@ module Crysterm
         return
       end
 
-      divert(IO::Memory.new, @_buf) do
+      divert(@tmpbuf, @_buf) do
         tput.set_scroll_region(top, bottom)
         tput.cup(top, 0)
         tput.dl(n)
@@ -585,7 +566,7 @@ module Crysterm
       end
 
       # XXX temporarily diverts output
-      divert(IO::Memory.new, @_buf) do
+      divert(@tmpbuf, @_buf) do
         tput.set_scroll_region(top, bottom)
         tput.cup(y, 0)
         tput.dl(n)
@@ -615,7 +596,7 @@ module Crysterm
       end
 
       # XXX temporarily diverts output
-      divert(IO::Memory.new, @_buf) do |ret|
+      divert(@tmpbuf, @_buf) do |ret|
         tput.set_scroll_region(top, bottom)
         tput.cup(bottom, 0)
         ret.print "\n" * n
@@ -755,26 +736,38 @@ module Crysterm
       end
     end
 
-    # Fills any chosen region on the screen with chosen character and attributes.
-    def fill_region(attr, ch, xi, xl, yi, yl, override = false)
-      lines = @lines
-
-      xi = 0 if xi < 0
-      yi = 0 if yi < 0
+    # Walks every existing cell of the rectangular region `[xi, xl) × [yi, yl)`
+    # in `@lines`, yielding each cell together with its line. A row's scan stops
+    # at the first missing cell and the whole walk stops at the first missing
+    # row, mirroring the `break` behavior of the original per-region loops. With
+    # `clamp` (the default) a negative `xi`/`yi` origin is pulled back to 0; the
+    # shadow/blend callers pass their bounds verbatim with `clamp: false`.
+    private def each_region_cell(xi, xl, yi, yl, clamp = true, &)
+      if clamp
+        xi = 0 if xi < 0
+        yi = 0 if yi < 0
+      end
 
       yi.upto(yl - 1) do |y|
-        line = lines[y]?
+        line = @lines[y]?
         break unless line
 
         xi.upto(xl - 1) do |x|
           cell = line[x]?
           break unless cell
 
-          if override || cell != {attr, ch}
-            cell.attr = attr
-            cell.char = ch
-            line.dirty = true
-          end
+          yield cell, line
+        end
+      end
+    end
+
+    # Fills any chosen region on the screen with chosen character and attributes.
+    def fill_region(attr, ch, xi, xl, yi, yl, override = false)
+      each_region_cell(xi, xl, yi, yl) do |cell, line|
+        if override || cell != {attr, ch}
+          cell.attr = attr
+          cell.char = ch
+          line.dirty = true
         end
       end
     end
@@ -787,19 +780,9 @@ module Crysterm
     # bounds, and the `lines[y]?`/`line[x]?` lookups skip anything off the grid —
     # so the four call sites keep their precise original behavior.
     def blend_region(alpha, xi, xl, yi, yl)
-      lines = @lines
-
-      yi.upto(yl - 1) do |y|
-        line = lines[y]?
-        break unless line
-
-        xi.upto(xl - 1) do |x|
-          cell = line[x]?
-          break unless cell
-
-          cell.attr = Colors.blend(cell.attr, alpha: alpha)
-          line.dirty = true
-        end
+      each_region_cell(xi, xl, yi, yl, clamp: false) do |cell, line|
+        cell.attr = Colors.blend(cell.attr, alpha: alpha)
+        line.dirty = true
       end
     end
   end

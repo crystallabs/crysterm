@@ -11,9 +11,30 @@ module Crysterm
       # Computed per-column widths, filled in by `#calculate_maxes`.
       @maxes = [] of Int32
 
+      # Whether `@maxes` needs recomputing. `#calculate_maxes` is called on every
+      # `render` but only depends on `@rows`, `@width` and `@pad`; those change
+      # exclusively through `#set_data` (invoked on data change, attach and
+      # resize) and `#pad=`, both of which set this. Caching skips the per-frame
+      # re-scan of every cell (each `clean_tags`/`str_width`) when nothing
+      # relevant changed.
+      @maxes_dirty : Bool = true
+
       # Extra padding added to each column when the table is sized to its
       # content (i.e. when no fixed `width` is set).
-      property pad : Int32 = 2
+      getter pad : Int32 = 2
+
+      # Setting `pad` invalidates the cached column widths.
+      def pad=(value : Int32)
+        @pad = value
+        @maxes_dirty = true
+      end
+
+      # Marks the cached column widths (`@maxes`) stale so the next
+      # `#calculate_maxes` recomputes them. Called by the table widgets from
+      # `#set_data`.
+      def invalidate_maxes
+        @maxes_dirty = true
+      end
 
       # When true, no internal cell borders are drawn (only the outer border,
       # if any).
@@ -35,8 +56,11 @@ module Crysterm
       # `width` is set and large enough, the slack is distributed evenly across
       # columns; otherwise each column is sized to its widest cell plus `@pad`.
       def calculate_maxes
+        return @maxes unless @maxes_dirty
+        @maxes_dirty = false
+
         @maxes = [] of Int32
-        return if @rows.empty?
+        return @maxes if @rows.empty?
 
         maxes = [] of Int32
         @rows.each do |row|
@@ -120,29 +144,42 @@ module Crysterm
         clen = cell_width cell
         align = cell_align
 
-        while clen < width
-          if align.h_center?
-            cell = " #{cell} "
-            clen += 2
-          elsif align.right?
-            cell = " #{cell}"
-            clen += 1
-          else
-            cell = "#{cell} "
-            clen += 1
-          end
-        end
+        if clen < width
+          # Distribute the padding per alignment. For centered text an odd
+          # remainder goes to the right side, matching the original loop (which
+          # added a leading + trailing space per round, overshot by one on odd
+          # widths, then trimmed one leading space back off).
+          pad = width - clen
+          left, right =
+            if align.h_center?
+              l = pad // 2
+              {l, pad - l}
+            elsif align.right?
+              {pad, 0}
+            else
+              {0, pad}
+            end
 
-        while clen > width && !cell.empty?
+          String.build do |s|
+            left.times { s << ' ' }
+            s << cell
+            right.times { s << ' ' }
+          end
+        elsif clen > width
+          # Trim whole characters until the column count fits (or the cell
+          # empties first), from the front for centered/right-aligned text and
+          # from the end otherwise. `clen` counts display columns while the trim
+          # removes characters one-for-one, so the count is capped at the
+          # character length — exactly as the original per-character loop did.
+          remove = Math.min(clen - width, cell.size)
           if align.h_center? || align.right?
-            cell = cell[1..]
+            cell[remove..]
           else
-            cell = cell[0...-1]
+            cell[0, cell.size - remove]
           end
-          clen -= 1
+        else
+          cell
         end
-
-        cell
       end
 
       # Normalizes arbitrary row data into rows of string cells.

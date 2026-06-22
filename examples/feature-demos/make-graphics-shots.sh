@@ -43,19 +43,40 @@ print("   wrote", dst, (w, h))
 PY
 }
 
-# Like normalize(), but first strips Konsole's chrome: the ~37px top toolbar,
-# the right scrollbar, then any pure-black border around the image.
-normalize_konsole() {
+# Like normalize(), but first trims any pure-black border. Used for the Tek
+# window: a source whose aspect differs from the ~4:3 Tek screen is letterboxed
+# with black, so trimming it keeps the image filling the final frame regardless
+# of the source's proportions.
+normalize_trim() {
   python3 - "$1" "$2" "$OUT_W" "$OUT_H" <<'PY'
 import sys
 from PIL import Image, ImageChops
 src, dst, W, H = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
-im = Image.open(src).convert("RGB"); w, h = im.size
-im = im.crop((2, 38, w - 12, h))                 # drop toolbar + scrollbar
+im = Image.open(src).convert("RGB")
 bbox = ImageChops.difference(im, Image.new("RGB", im.size, (0, 0, 0))).getbbox()
-if bbox: im = im.crop(bbox)                       # trim black border
+if bbox: im = im.crop(bbox)
 im.resize((W, H), Image.LANCZOS).save(dst)
 print("   wrote", dst, (W, H))
+PY
+}
+
+# Like normalize(), but first strips Konsole's chrome: the light top toolbar and
+# the right scrollbar. Their exact pixel size depends on the Konsole/Qt theme, so
+# we DETECT them (the chrome is light grey; the terminal content — dark title bar
+# + image — is not) rather than hardcoding a fragile offset.
+normalize_konsole() {
+  python3 - "$1" "$2" "$OUT_W" "$OUT_H" <<'PY'
+import sys
+from PIL import Image
+src, dst, W, H = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+im = Image.open(src).convert("RGB"); w, h = im.size; px = im.load()
+def light(p): r, g, b = p; return r > 180 and g > 180 and b > 180
+def row_light(y): xs = range(0, w, 4); return sum(light(px[x, y]) for x in xs) / len(xs)
+def col_light(x, top): ys = range(top, h, 4); return sum(light(px[x, y]) for y in ys) / len(ys)
+top = next((y for y in range(h) if row_light(y) < 0.5), 0)        # toolbar bottom
+right = next((x + 1 for x in range(w - 1, -1, -1) if col_light(x, top) < 0.5), w)  # scrollbar left
+im.crop((0, top, right, h)).resize((W, H), Image.LANCZOS).save(dst)
+print("   wrote", dst, (W, H), "(konsole chrome: top=%d right=%d)" % (top, right))
 PY
 }
 
@@ -83,7 +104,9 @@ build() {
 echo ">> sixel (Image::Sixel, in-band DCS raster)"
 if build sixel_image; then
   # maxGraphicSize must exceed the sixel's pixel size or xterm silently drops it.
-  CELL_PW=14 CELL_PH=29 DEMO_SECONDS=10 \
+  # No CELL_PW/PH: the demo auto-detects the real cell size (TIOCGWINSZ) so the
+  # raster matches the window exactly instead of leaving a black margin.
+  DEMO_SECONDS=10 \
     xterm -title Sixel -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
       -geometry "${COLS}x${ROWS}+50+50" -ti vt340 \
       -xrm 'XTerm*numColorRegisters: 256' -xrm 'XTerm*maxGraphicSize: 4000x4000' \
@@ -99,12 +122,20 @@ echo
 # ---- regis ---------------------------------------------------------------
 echo ">> regis (Image::Regis, in-band ReGIS vectors)"
 if build regis_image; then
-  # regisScreenSize sets ReGIS' logical screen; the demo maps the image into the
-  # same extent (REGIS_W/REGIS_H) so it fills the window.
-  REGIS_W=1100 REGIS_H=400 DEMO_SECONDS=12 \
+  # xterm maps its ReGIS logical screen (regisScreenSize, in pixels) onto the
+  # window ~1:1, so it must equal the window's real pixel size or the image is
+  # left in a corner with a black margin. We don't know that until the window
+  # exists, so: launch once to read it (xwininfo), then relaunch with a matching
+  # regisScreenSize AND the same REGIS_W/H so the demo's logical space lines up.
+  probe=$(xterm -title RegisProbe -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
+            -geometry "${COLS}x${ROWS}+50+50" -ti vt340 -e sleep 6 & \
+          pp=$!; sleep 2; xwininfo -name RegisProbe 2>/dev/null; kill "$pp" 2>/dev/null)
+  gw=$(awk '/Width:/{print $2}' <<<"$probe"); gh=$(awk '/Height:/{print $2}' <<<"$probe")
+  gw=${gw:-1204}; gh=${gh:-454}
+  REGIS_W="$gw" REGIS_H="$gh" DEMO_SECONDS=12 \
     xterm -title Regis -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
       -geometry "${COLS}x${ROWS}+50+50" -ti vt340 \
-      -xrm 'XTerm*numColorRegisters: 256' -xrm 'XTerm*regisScreenSize: 1100x400' \
+      -xrm 'XTerm*numColorRegisters: 256' -xrm "XTerm*regisScreenSize: ${gw}x${gh}" \
       -e "$BUILD/regis_image" &
   pid=$!; sleep 5
   if grab_window Regis /tmp/_regis_grab.png; then
@@ -120,7 +151,7 @@ echo
 echo ">> kitty (Image::Kitty, Kitty graphics protocol)"
 if command -v kitty >/dev/null; then
   if build kitty_image; then
-    DEMO_SECONDS=10 CELL_PW=11 CELL_PH=22 \
+    DEMO_SECONDS=10 \
       kitty --title Kitty -o font_size="$FONT_SIZE" -o remember_window_size=no \
         -o initial_window_width=1100 -o initial_window_height=440 \
         -o background=black -o cursor_blink_interval=0 "$BUILD/kitty_image" &
@@ -194,7 +225,7 @@ if build tek_image; then
   pid=$!; sleep 5
   # The drawing lands in xterm's SEPARATE Tek window, not the VT window.
   if grab_window 'tektronix(Tek)' /tmp/_tek_grab.png; then
-    normalize /tmp/_tek_grab.png "$OUT/matterhorn-tek.png"
+    normalize_trim /tmp/_tek_grab.png "$OUT/matterhorn-tek.png"
   fi
   kill "$pid" 2>/dev/null || true
 fi

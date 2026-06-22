@@ -90,7 +90,7 @@ module Crysterm
         if @animated
           @file.try { |f| set_image f }
         else
-          screen?.try &.render
+          request_render
         end
       end
 
@@ -186,7 +186,7 @@ module Crysterm
         num_plays = png ? png.num_plays : 0
         plays = 0
         while @playing
-          screen.render
+          request_render
 
           delay = src[@anim_index]?.try(&.[1]) || 100
           @anim_index += 1

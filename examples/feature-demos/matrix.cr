@@ -1,4 +1,4 @@
-# IMPRESSIVE DEMO: "Matrix" digital rain.
+# IMPRESSIVE DEMO: "Matrix" digital flow.
 #
 # Shows off fast full-screen redraws and 24-bit color all at once: every frame
 # each cell is painted straight into the screen's buffer as a packed attr with a
@@ -14,13 +14,19 @@ require "../../src/crysterm"
 
 include Crysterm
 
-s = Screen.new title: "Matrix rain"
+s = Screen.new title: "Matrix flow"
 s.show_fps = nil
 
-rain = Widget::Effect::Matrix.new \
+flow = Widget::Effect::Matrix.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",
   style: Style.new(bg: "black")
 
-rain.start
+# Caption strip, created after the flow so it renders on top of row 0 each frame.
+Widget::Box.new \
+  parent: s, top: 0, left: 0, width: "100%", height: 1,
+  content: "{center}Full-screen 24-bit redraws — \"Matrix\" digital flow{/center}", parse_tags: true,
+  style: Style.new(fg: "white", bg: "#0a1a0a")
+
+flow.start
 
 s.exec

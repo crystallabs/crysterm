@@ -16,9 +16,14 @@ include Crysterm
 s = Screen.new title: "Mouse"
 s.show_fps = nil
 
+Widget::Box.new \
+  parent: s, top: 0, left: 0, width: "100%", height: 1,
+  content: "{center}Unified mouse handling (xterm SGR/X10 + gpm){/center}", parse_tags: true,
+  style: Style.new(fg: "white", bg: "#102828")
+
 log = Widget::Log.new \
   parent: s,
-  top: 0, left: 0, width: "100%", height: 9,
+  top: 1, left: 0, width: "100%", height: 9,
   label: " Unified mouse events (xterm + gpm) → one Event::Mouse ",
   parse_tags: true, scrollback: 100,
   style: Style.new(fg: "white", bg: "black", border: true)

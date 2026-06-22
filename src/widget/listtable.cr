@@ -76,7 +76,7 @@ module Crysterm
           sel = selected
           set_data @rows
           selekt sel
-          screen?.try &.render
+          request_render
         end
 
         set_data(rows || data)
@@ -105,6 +105,7 @@ module Crysterm
         sel = @ritems[selected]?
 
         @rows = normalize_rows rows
+        invalidate_maxes
         calculate_maxes
         return if @maxes.empty?
 

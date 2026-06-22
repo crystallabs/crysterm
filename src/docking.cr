@@ -97,60 +97,18 @@ module Crysterm
       attr = lines[y][x].attr
       ch = lines[y][x].char
 
-      if x > 0 && lines[y][x - 1]? && L_ANGLES.includes? lines[y][x - 1].char
-        if lines[y][x - 1].attr != attr
-          case dock_contrast
-          when DockContrast::DontDock
-            return ch
-          when DockContrast::Blend
-            lines[y][x].attr = Colors.blend lines[y][x - 1].attr, attr
-            # when DockContrast::Ignore
-            #  Note: ::Ignore needs no custom handler/code; it works as-is.
-          end
-        end
-        angle |= BITWISE_L_ANGLE
-      end
-
-      if y > 0 && lines[y - 1]? && U_ANGLES.includes? lines[y - 1][x].char
-        if lines[y - 1][x].attr != attr
-          case dock_contrast
-          when DockContrast::DontDock
-            return ch
-          when DockContrast::Blend
-            lines[y][x].attr = Colors.blend lines[y - 1][x].attr, attr
-            # when DockContrast::Ignore
-            #  Note: ::Ignore needs no custom handler/code; it works as-is.
-          end
-        end
-        angle |= BITWISE_U_ANGLE
-      end
-
-      if lines[y][x + 1]? && R_ANGLES.includes? lines[y][x + 1].char
-        if lines[y][x + 1].attr != attr
-          case dock_contrast
-          when DockContrast::DontDock
-            return ch
-          when DockContrast::Blend
-            lines[y][x].attr = Colors.blend lines[y][x + 1].attr, attr
-            # when DockContrast::Ignore
-            #  Note: ::Ignore needs no custom handler/code; it works as-is.
-          end
-        end
-        angle |= BITWISE_R_ANGLE
-      end
-
-      if lines[y + 1]? && D_ANGLES.includes? lines[y + 1][x].char
-        if lines[y + 1][x].attr != attr
-          case dock_contrast
-          when DockContrast::DontDock
-            return ch
-          when DockContrast::Blend
-            lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
-            # when DockContrast::Ignore
-            #  Note: ::Ignore needs no custom handler/code; it works as-is.
-          end
-        end
-        angle |= BITWISE_D_ANGLE
+      # Evaluate each of the four neighbors (left, up, right, down). The deltas
+      # double as the per-direction angle sets and bits. `each` over a tuple is
+      # unrolled at compile time, so this is as cheap as the four inline blocks
+      # it replaces. A `nil` result means `DontDock` hit a contrasting neighbor,
+      # in which case we keep the original character.
+      { {-1, 0, L_ANGLES, BITWISE_L_ANGLE},
+        {0, -1, U_ANGLES, BITWISE_U_ANGLE},
+        {1, 0, R_ANGLES, BITWISE_R_ANGLE},
+        {0, 1, D_ANGLES, BITWISE_D_ANGLE} }.each do |(dx, dy, angles, bit)|
+        result = neighbor_angle lines, x, y, dx, dy, angles, bit, attr, dock_contrast
+        return ch if result.nil?
+        angle |= result
       end
 
       # Experimental: fixes this situation:
@@ -176,6 +134,34 @@ module Crysterm
       # end
 
       ANGLE_TABLE[angle]? || ch
+    end
+
+    # Evaluates a single neighbor of the cell at (`x`, `y`), offset by
+    # (`dx`, `dy`). Returns `bit` if that neighbor holds a line-drawing
+    # character from `angles` (so the angle should include this direction), `0`
+    # if it does not participate, or `nil` to signal the caller to abort docking
+    # (`DontDock` with a contrasting neighbor). For `Blend`, the cell's
+    # attribute is blended with the neighbor's as a side effect.
+    #
+    # The explicit `>= 0` guards matter: Crystal's `[]?` treats negative indices
+    # as counting from the end, so without them a left/up lookup at the grid
+    # edge would wrap around to the far side instead of being absent.
+    private def neighbor_angle(lines, x, y, dx, dy, angles, bit, attr, dock_contrast)
+      nx, ny = x + dx, y + dy
+      return 0 unless nx >= 0 && ny >= 0 && lines[ny]? && lines[ny][nx]? && angles.includes? lines[ny][nx].char
+
+      if lines[ny][nx].attr != attr
+        case dock_contrast
+        when DockContrast::DontDock
+          return nil
+        when DockContrast::Blend
+          lines[y][x].attr = Colors.blend lines[ny][nx].attr, attr
+          # when DockContrast::Ignore
+          #  Note: ::Ignore needs no custom handler/code; it works as-is.
+        end
+      end
+
+      bit
     end
   end
 end

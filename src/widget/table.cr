@@ -58,7 +58,7 @@ module Crysterm
         on(Crysterm::Event::Attach) { set_data @rows }
         on(Crysterm::Event::Resize) do
           set_data @rows
-          screen?.try &.render
+          request_render
         end
       end
 
@@ -70,6 +70,7 @@ module Crysterm
       # Replaces the table data and rebuilds the rendered content.
       def set_data(rows)
         @rows = normalize_rows rows
+        invalidate_maxes
         calculate_maxes
         return if @maxes.empty?
 

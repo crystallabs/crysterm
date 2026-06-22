@@ -25,6 +25,7 @@ module Crysterm
       TEK_H =  780
       GS    = '\u{1d}' # enter Tek graph (vector) mode
       US    = '\u{1f}' # return to Tek alpha mode
+      ETX   = '\u{03}' # with a leading ESC: leave Tek mode, back to VT100/ANSI
 
       property file : String?
 
@@ -71,7 +72,7 @@ module Crysterm
       # Forces the image to be re-emitted to the Tek window on the next render.
       private def redraw!
         @drawn = false
-        screen?.try &.render
+        request_render
       end
 
       @drawn = false
@@ -104,7 +105,7 @@ module Crysterm
       def load(file : String)
         @file = file
         @drawn = false
-        screen?.try &.render
+        request_render
       end
 
       def set_image(file : String)
@@ -142,8 +143,19 @@ module Crysterm
         end
         pw = 1 if pw < 1
         ph = 1 if ph < 1
-        pw = TEK_W if pw > TEK_W
-        ph = TEK_H if ph > TEK_H
+        # If the fitted size overruns the addressable Tek space, scale *both*
+        # axes down by the same factor so the aspect ratio is preserved (an
+        # independent per-axis clamp would squash the image).
+        if pw > TEK_W
+          ph = (ph * TEK_W / pw).to_i
+          pw = TEK_W
+        end
+        if ph > TEK_H
+          pw = (pw * TEK_H / ph).to_i
+          ph = TEK_H
+        end
+        pw = 1 if pw < 1
+        ph = 1 if ph < 1
 
         png = PNGGIF::PNG.new(data, cell_width: pw, cell_height: ph, cell_aspect: 1.0)
         bmp = png.cellmap
@@ -182,6 +194,12 @@ module Crysterm
         end
 
         io << US
+        # Leave Tek mode and hand the display back to VT100/ANSI. The storage
+        # tube keeps the drawn image in its own window, but without this the
+        # next normal screen render (cursor-home/erase/etc.) is emitted *while
+        # still in Tek mode* and leaks into the Tek window as stray glyphs
+        # (e.g. the "H2J" left over from `ESC[H ESC[2J`).
+        io << '\e' << ETX
         io.to_s
       end
 
@@ -196,20 +214,33 @@ module Crysterm
       end
 
       private def to_bits(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32) : Array(Array(Bool))
+        # Per-pixel luminance buffer (mutable: error diffusion writes into it).
+        lum = Array(Array(Float64)).new(ph) do |y|
+          rin = bmp[y]
+          Array(Float64).new(pw) do |x|
+            px = rin[x]?
+            px ? 0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b : 0.0
+          end
+        end
+
         out = Array(Array(Bool)).new(ph)
         ph.times do |y|
-          rin = bmp[y]
           row = Array(Bool).new(pw, false)
           pw.times do |x|
-            px = rin[x]?
-            next unless px
-            l = 0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b
-            on =
-              if dither?
-                l > (Image::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 * 255.0
-              else
-                l > @level
+            on = lum[y][x] >= @level
+            if dither?
+              # Floyd–Steinberg error diffusion: push the rounding error onto the
+              # not-yet-visited neighbours. On smooth regions (e.g. sky) this gives
+              # an irregular, photographic stipple instead of the fixed cross-hatch
+              # an ordered (Bayer) matrix tiles across the image.
+              err = lum[y][x] - (on ? 255.0 : 0.0)
+              lum[y][x + 1] += err * 7.0 / 16.0 if x + 1 < pw
+              if y + 1 < ph
+                lum[y + 1][x - 1] += err * 3.0 / 16.0 if x > 0
+                lum[y + 1][x] += err * 5.0 / 16.0
+                lum[y + 1][x + 1] += err * 1.0 / 16.0 if x + 1 < pw
               end
+            end
             on = !on if invert?
             row[x] = on
           end

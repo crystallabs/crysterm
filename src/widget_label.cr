@@ -62,8 +62,13 @@ module Crysterm
     # Repositions label to the right place. Usually called from resize event
     def reposition_label(event = nil)
       @_label.try do |_label|
-        _label.top = @child_base - itop
-        screen.render
+        new_top = @child_base - itop
+        # Only re-render when the label actually moves: this fires on every
+        # Scroll and Resize, and resize jitter would otherwise trigger a stream
+        # of no-op renders.
+        next if _label.top == new_top
+        _label.top = new_top
+        request_render
       end
     end
 

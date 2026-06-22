@@ -97,7 +97,7 @@ module Crysterm
       # (no PTY) to drive the display from an arbitrary source.
       def write(data : Bytes | String) : Nil
         @emulator.try &.feed(data.is_a?(String) ? data.to_slice : data)
-        screen?.try &.render
+        request_render
       end
 
       # Inner content width/height in cells (box minus border+padding).
@@ -115,7 +115,7 @@ module Crysterm
 
         @dattr = sattr style
         em = TerminalEmulator.new cols, rows, @dattr
-        em.on_refresh = -> { screen?.try(&.render); nil }
+        em.on_refresh = -> { request_render; nil }
         em.on_title = ->(t : String) { @title = t; emit ::Crysterm::Event::SetContent; nil }
         @emulator = em
 
@@ -164,8 +164,8 @@ module Crysterm
         if em = @emulator
           page = Math.max(1, term_rows - 1)
           case data
-          when "\e[5;2~" then scroll(-page); e.accept; screen?.try(&.render); return
-          when "\e[6;2~" then scroll(page); e.accept; screen?.try(&.render); return
+          when "\e[5;2~" then scroll(-page); e.accept; request_render; return
+          when "\e[6;2~" then scroll(page); e.accept; request_render; return
           end
           # Any real keystroke snaps the view back to the live bottom (xterm UX).
           em.reset_scroll if em.ydisp != em.ybase
@@ -180,7 +180,7 @@ module Crysterm
         end
 
         e.accept
-        screen?.try &.render
+        request_render
       end
 
       # Sends a focus/blur report (`ESC[I` / `ESC[O`) to the child when it has
@@ -212,7 +212,7 @@ module Crysterm
         report = encode_mouse em, e, col, row
         forward_to_child report
         e.accept
-        screen?.try &.render
+        request_render
       end
 
       # Encodes a normalized `Event::Mouse` back into an xterm mouse report, in

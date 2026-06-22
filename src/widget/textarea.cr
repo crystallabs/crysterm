@@ -339,7 +339,7 @@ module Crysterm
             # Scroll the viewport to follow the cursor (no-op when it is already
             # visible); re-render if it moved, then place the terminal cursor at
             # its new position.
-            screen.render if ensure_cursor_visible
+            request_render if ensure_cursor_visible
             _update_cursor
           end
 
@@ -384,7 +384,7 @@ module Crysterm
         end
 
         if @value != value
-          screen.render
+          request_render
         end
       end
 

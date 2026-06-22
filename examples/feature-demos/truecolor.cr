@@ -18,9 +18,19 @@ s.show_fps = nil
 w = s.awidth
 h = s.aheight
 
-# Background: a smooth 24-bit rainbow sweep — a single static `Gradient` that
-# paints one color per column (no `animate:`, so it just renders once).
-Widget::Gradient.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
+# Background: a smooth 24-bit color sweep — a single static `Gradient` that
+# paints one color per column (no `animate:`, so it just renders once). The
+# explicit `colors:` stops give a soft, photographic cyan→green→amber→red sweep
+# (interpolated in RGB), rather than the harsh full-saturation HSV rainbow the
+# default produces — the point here is a *smooth* 24-bit gradient.
+Widget::Gradient.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
+  colors: [0x00dbdf, 0x61fc9f, 0xb4f647, 0xebcb00, 0xff8100, 0xeb2300, 0xb40000, 0x610000, 0x000000]
+
+# Caption strip (drawn on top of the gradient): the standard one-line header.
+Widget::Box.new \
+  parent: s, top: 0, left: 0, width: "100%", height: 1,
+  content: "{center}24-bit TrueColor & alpha compositing{/center}", parse_tags: true,
+  style: Style.new(fg: "white", bg: "#202830")
 
 box1 = Widget::Box.new \
   parent: s,

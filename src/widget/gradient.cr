@@ -74,7 +74,7 @@ module Crysterm
                  end
         @timer.try &.on(Crysterm::Event::Tick) do
           @phase += @speed
-          screen?.try &.render
+          request_render
         end
       end
 

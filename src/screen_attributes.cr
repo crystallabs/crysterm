@@ -183,6 +183,26 @@ module Crysterm
       return if style_flags == 0 && fg == -1 && bg == -1
 
       io << "\e["
+      sgr_params_to(io, code, n)
+      # Something was written (the guard above guarantees it) and the last char
+      # is ';'. Back up over it and replace it with the terminating 'm'.
+      io.seek -1, IO::Seek::Current
+      io << 'm'
+    end
+
+    # Writes the SGR style-flag and color parameters of `code` (the part between
+    # the leading `"\e["` and the terminating `"m"`) into `io`, each parameter
+    # followed by `';'`. Returns whether anything was written (i.e. whether
+    # `code` carries any flags or non-default color). `n` is the terminal's
+    # color count (`#colors`).
+    #
+    # Shared by `code2attr_to` and the inline SGR emission on the draw hot path
+    # (`screen_drawing`); those two differ only in their framing (when to emit
+    # `"\e["`, whether to early-return, how to terminate), so only this identical
+    # middle portion is factored out here.
+    def self.sgr_params_to(io : IO::Memory, code : Int64, n : Int) : Bool
+      start = io.size
+      flags = Attr.flags(code)
 
       io << "1;" if (flags & Attr::BOLD) != 0
       io << "4;" if (flags & Attr::UNDERLINE) != 0
@@ -192,6 +212,8 @@ module Crysterm
 
       # Default colors (-1) emit nothing (the terminal's own default applies);
       # concrete colors are encoded at the richest depth the terminal allows.
+      bg = Attr.unpack_color(Attr.bg(code))
+      fg = Attr.unpack_color(Attr.fg(code))
       if bg != -1
         Colors.sgr_color_to(io, bg, false, n)
         io << ';'
@@ -201,10 +223,7 @@ module Crysterm
         io << ';'
       end
 
-      # Something was written and the last char is ';'. Back up over it and
-      # replace it with the terminating 'm'.
-      io.seek -1, IO::Seek::Current
-      io << 'm'
+      io.size != start
     end
   end
 end

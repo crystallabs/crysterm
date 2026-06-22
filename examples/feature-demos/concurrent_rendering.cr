@@ -15,18 +15,17 @@ s.show_fps = nil
 
 Widget::Box.new \
   parent: s,
-  top: 0, left: 0, width: "100%", height: 3,
-  content: "{center}Lock-free fiber rendering{/center}\n" \
-           "{center}Each widget animates from its own fiber; renders coalesce into frames.{/center}",
+  top: 0, left: 0, width: "100%", height: 1,
+  content: "{center}Lock-free fiber rendering — each widget animates from its own fiber{/center}",
   parse_tags: true,
-  style: Style.new(fg: "white", bg: "#202840", border: true)
+  style: Style.new(fg: "white", bg: "#202840")
 
 # Five progress bars, each advancing at its own pace from its own fiber.
 colors = [0xe05050, 0x50e050, 0x5080e0, 0xe0c050, 0xc050e0]
 5.times do |i|
   pb = Widget::ProgressBar.new \
     parent: s,
-    top: 4 + i, left: 2, width: 46, height: 1,
+    top: 2 + i, left: 2, width: 46, height: 1,
     filled: 0,
     style: Style.new(fg: colors[i], bg: 0x303030)
   step = i + 1
@@ -38,17 +37,17 @@ end
 
 # Two spinners, independent fibers.
 spin1 = Widget::Loading.new \
-  parent: s, top: 4, left: 52, width: 24, height: 3,
+  parent: s, top: 2, left: 52, width: 24, height: 3,
   content: "Worker A", style: Style.new(fg: "cyan", border: true)
 spin2 = Widget::Loading.new \
-  parent: s, top: 8, left: 52, width: 24, height: 3,
+  parent: s, top: 6, left: 52, width: 24, height: 3,
   content: "Worker B", style: Style.new(fg: "magenta", border: true)
 spin1.start
 spin2.start
 
 # A marker bouncing horizontally, its own fiber.
 marker = Widget::Box.new \
-  parent: s, top: 11, left: 2, width: 6, height: 1,
+  parent: s, top: 9, left: 2, width: 6, height: 1,
   content: "{center}o{/center}", parse_tags: true,
   style: Style.new(fg: "black", bg: "yellow")
 pos = 0.0

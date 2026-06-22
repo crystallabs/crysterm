@@ -25,7 +25,7 @@ module Crysterm
         if !@_user_scrolled || @scroll_on_input
           self.scroll_percentage = 100
           @_user_scrolled = false
-          screen?.try &.render
+          request_render
         end
       end
 

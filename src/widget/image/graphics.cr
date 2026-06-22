@@ -130,7 +130,7 @@ module Crysterm
 
         on(::Crysterm::Event::Hide) { clear_graphic }
         on(::Crysterm::Event::Detach) { |e| clear_graphic e.object.as?(::Crysterm::Screen) }
-        on(::Crysterm::Event::Show) { screen?.try &.render }
+        on(::Crysterm::Event::Show) { request_render }
         on(::Crysterm::Event::Destroy) { teardown }
       end
 
@@ -186,7 +186,7 @@ module Crysterm
         @payload = nil
         @payload_key = nil
         @emitted_key = nil
-        screen?.try &.render
+        request_render
       end
 
       # Alias for `#load`, matching the other image backends' API.
@@ -323,7 +323,7 @@ module Crysterm
         num_plays = src ? src.num_plays : 0
         plays = 0
         while @playing
-          screen?.try &.render # fires Rendered -> redraw_image emits this frame
+          request_render # fires Rendered -> redraw_image emits this frame
 
           delay = frames[@anim_index]?.try(&.[1]) || 100
           @anim_index += 1

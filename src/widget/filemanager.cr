@@ -94,7 +94,7 @@ module Crysterm
 
         set_items (dirs + files).map(&.[:text])
         selekt 0
-        screen?.try &.render
+        request_render
 
         emit Crysterm::Event::Refresh
 
@@ -121,7 +121,7 @@ module Crysterm
           @ev_cancel = nil
           hide if was_hidden
           screen.restore_focus unless was_focused
-          screen.render
+          request_render
         }
 
         @ev_file = on(Crysterm::Event::OpenFile) do |e|
@@ -140,7 +140,7 @@ module Crysterm
           screen.save_focus
           focus
         end
-        screen.render
+        request_render
       end
 
       # Activating an entry (Enter) navigates into directories and emits

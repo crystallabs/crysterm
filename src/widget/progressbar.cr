@@ -51,7 +51,7 @@ module Crysterm
 
             self.progress = (pos * 100 // span).clamp(0, 100)
             e.accept
-            screen.render
+            request_render
           end
         end
       end
@@ -146,11 +146,11 @@ module Crysterm
 
         if back_keys.includes?(e.key) || back_chars.includes?(e.char)
           progress -5
-          screen.render
+          request_render
           return
         elsif forward_keys.includes?(e.key) || forward_chars.includes?(e.char)
           progress 5
-          screen.render
+          request_render
           return
         end
       end

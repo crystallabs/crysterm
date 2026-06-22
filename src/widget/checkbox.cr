@@ -38,8 +38,17 @@ module Crysterm
       end
 
       def render
-        set_content ("[" + (checked? ? 'x' : ' ') + "] " + @text), true
+        set_content selectable_content('[', ']', 'x'), true
         super false
+      end
+
+      # Builds the `<open><mark-or-space><close> text` line for a selectable
+      # control, where `mark` is the glyph shown when checked. Shared with
+      # `RadioButton`, which renders with `(`/`)`/`*` instead.
+      private def selectable_content(open : Char, close : Char, mark : Char) : String
+        String.build do |s|
+          s << open << (checked? ? mark : ' ') << close << ' ' << @text
+        end
       end
 
       def check
@@ -64,13 +73,13 @@ module Crysterm
         if e.activates?
           e.accept
           toggle
-          screen?.try &.render
+          request_render
         end
       end
 
       def on_click(e)
         toggle
-        screen?.try &.render
+        request_render
       end
 
       def on_focus(e)

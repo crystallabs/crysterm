@@ -89,7 +89,7 @@ module Crysterm
           end
         end
 
-        screen.render
+        request_render
       end
 
       def on_press_ok(e)

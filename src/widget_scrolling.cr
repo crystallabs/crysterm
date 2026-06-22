@@ -53,10 +53,7 @@ module Crysterm
     end
 
     def set_scroll_perc(i)
-      # D O
-      # XXX
-      # m = @get_scroll_height
-      m = Math.max @_clines.size, _scroll_bottom
+      m = get_scroll_height
       scroll_to ((i / 100) * m).to_i
     end
 
@@ -177,22 +174,7 @@ module Crysterm
       # and put it in a scrollable text box.
       process_content
 
-      # D O:
-      # XXX
-      # max = get_scroll_height - (aheight - iheight)
-
-      max = @_clines.size - (aheight - iheight)
-      if max < 0
-        max = 0
-      end
-      emax = _scroll_bottom - (aheight - iheight)
-      if emax < 0
-        emax = 0
-      end
-
-      @child_base = Math.min @child_base, Math.max(emax, max)
-
-      clamp_child_base
+      clamp_child_base_to_content
 
       # Optimize scrolling with CSR + IL/DL.
       p = @lpos
@@ -230,21 +212,28 @@ module Crysterm
       end
     end
 
+    # Pulls `@child_base` down to the largest valid scroll offset for the current
+    # content — the greater of the wrapped-content height (`@_clines.size`) and
+    # the descendant extent (`_scroll_bottom`), each measured against the visible
+    # inner height — then re-clamps into `[0, @base_limit]`. Shared by `#scroll`
+    # and `#_recalculate_index`, which had identical copies of this.
+    private def clamp_child_base_to_content
+      visible = aheight - iheight
+
+      max = @_clines.size - visible
+      max = 0 if max < 0
+      emax = _scroll_bottom - visible
+      emax = 0 if emax < 0
+
+      @child_base = Math.min @child_base, Math.max(emax, max)
+
+      clamp_child_base
+    end
+
     def _recalculate_index
       return 0 if !screen? || !@scrollable
 
-      # D O
-      # XXX
-      # max = get_scroll_height - (aheight - iheight)
-
-      max = @_clines.size - (aheight - iheight)
-      max = 0 if max < 0
-      emax = _scroll_bottom - (aheight - iheight)
-      emax = 0 if emax < 0
-
-      @child_base = Math.min @child_base, Math.max emax, max
-
-      clamp_child_base
+      clamp_child_base_to_content
     end
   end
 end

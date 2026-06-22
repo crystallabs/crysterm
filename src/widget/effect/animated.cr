@@ -51,7 +51,7 @@ module Crysterm
             loop do
               break unless running?
               step
-              screen.render
+              request_render
               if done?
                 self.running = false
                 on_done

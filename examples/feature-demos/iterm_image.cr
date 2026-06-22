@@ -19,8 +19,11 @@ Widget::Box.new \
   content: "{center}Image::Iterm  ·  iTerm2 inline-images protocol (OSC 1337)  ·  the Matterhorn{/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
 
+# Leave the title row at the top AND one row free at the bottom: the terminal
+# advances the cursor below an inline image, so one reaching the last screen row
+# would scroll the title off the top. One spare row keeps the cursor on-screen.
 iw = s.awidth
-ih = s.aheight - 1
+ih = s.aheight - 2
 
 Widget::Image::Iterm.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,

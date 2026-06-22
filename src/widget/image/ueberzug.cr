@@ -55,7 +55,7 @@ module Crysterm
 
         on(::Crysterm::Event::Hide) { remove }
         on(::Crysterm::Event::Detach) { remove }
-        on(::Crysterm::Event::Show) { @last = nil; screen?.try &.render }
+        on(::Crysterm::Event::Show) { @last = nil; request_render }
         on(::Crysterm::Event::Destroy) { teardown }
       end
 
@@ -67,7 +67,7 @@ module Crysterm
 
       def set_image(file : String)
         load file
-        screen?.try &.render
+        request_render
       end
 
       def clear_image

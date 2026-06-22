@@ -58,22 +58,22 @@ module Crysterm
           case e.key
           when ::Tput::Key::Up
             scroll -1
-            screen.render
+            request_render
           when ::Tput::Key::Down
             scroll 1
-            screen.render
+            request_render
           when ::Tput::Key::PageUp
             scroll -(aheight // 2)
-            screen.render
+            request_render
           when ::Tput::Key::PageDown
             scroll aheight // 2
-            screen.render
+            request_render
           when ::Tput::Key::Home
             scroll_to 0
-            screen.render
+            request_render
           when ::Tput::Key::End
             scroll_to get_scroll_height
-            screen.render
+            request_render
           end
         end
       end

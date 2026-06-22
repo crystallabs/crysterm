@@ -74,6 +74,14 @@ module Crysterm
     def screen=(@screen : ::Crysterm::Screen?)
     end
 
+    # Requests a re-render of the owning `Screen`, if this widget is attached to
+    # one. This is the safe form of `screen.render` for use after a state change
+    # (it is a no-op when the widget is detached) and centralizes the
+    # render-triggering logic shared across widgets.
+    def request_render : Nil
+      screen?.try &.render
+    end
+
     # XXX FIX by removing at some point
     # Used only for lists. The reason why it hasn't been replaced with is_a?(List)
     # already is because maybe someone would want this to be true even if not

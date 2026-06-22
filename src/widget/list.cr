@@ -91,7 +91,7 @@ module Crysterm
               else
                 selekt i
               end
-              screen.render
+              request_render
             end
           end
 
@@ -101,11 +101,11 @@ module Crysterm
             if e.action.wheel_up?
               move -2
               e.accept
-              screen.render
+              request_render
             elsif e.action.wheel_down?
               move 2
               e.accept
-              screen.render
+              request_render
             end
           end
         end
@@ -435,7 +435,7 @@ module Crysterm
         sb.set_label(back ? "?" : "/")
         sb.value = ""
         sb.show
-        screen.render
+        request_render
 
         sb.read_input do |_err, data|
           sb.hide
@@ -443,7 +443,7 @@ module Crysterm
           if data && !data.empty?
             selekt fuzzy_find(data, back)
           end
-          screen.render
+          request_render
         end
       end
 
@@ -492,7 +492,7 @@ module Crysterm
         # A key we handled: consume it (so it doesn't also drive an ancestor,
         # e.g. a `Form`'s own vi `j`/`k`) and repaint.
         e.accept
-        screen.render
+        request_render
       end
 
       def on_resize(e)

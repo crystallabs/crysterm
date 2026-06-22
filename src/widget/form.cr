@@ -88,7 +88,7 @@ module Crysterm
         return unless @auto_next_wired.add? el.object_id
         el.on(Crysterm::Event::Submit) do
           focus_next
-          screen?.try &.render
+          request_render
         end
       end
 
@@ -243,14 +243,14 @@ module Crysterm
         if key == Tput::Key::Tab || (@vi && ch == 'j')
           e.accept
           focus_next
-          screen?.try &.render
+          request_render
           return
         end
 
         if key == Tput::Key::ShiftTab || (@vi && ch == 'k')
           e.accept
           focus_previous
-          screen?.try &.render
+          request_render
           return
         end
       end

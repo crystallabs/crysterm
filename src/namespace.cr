@@ -103,24 +103,15 @@ module Crysterm
     end
   end
 
-  # Class for the complete style of a widget.
-  class Style
-    # These (and possibly others) can't default to any color since that would generate
-    # color-setting sequences in the terminal. It's better to have them nilable, in which
-    # case no sequences get generated and term's default is used. That's also how Blessed
-    # does it.
-
-    # Foreground color (color of font/character).
-    #
-    # Crysterm's native color form is a `0xRRGGBB` integer (`-1` = terminal
-    # default, `nil` = "no color set", so no SGR sequence is emitted). The
-    # numeric form is canonical and is stored as-is; for backwards compatibility
-    # the setter still accepts `"#rrggbb"`/named-color strings, parsing them to
-    # the native int via `Colors.convert`.
-    getter fg : Int32?
-
-    # Background color (color of cell). See `#fg` for the accepted forms.
-    getter bg : Int32?
+  # Mixin providing the color setter overloads shared by `Style` and `Border`.
+  #
+  # Both classes store colors as native `0xRRGGBB` ints (`-1` = terminal
+  # default, `nil` = unset) but, for backwards compatibility, also accept
+  # `"#rrggbb"`/named-color strings, which are parsed via `Colors.convert`.
+  # The including class is expected to declare `@fg`/`@bg` (as `Int32?`).
+  module Colorizable
+    @fg : Int32?
+    @bg : Int32?
 
     # Native numeric color (e.g. `fg: 0x40e0c0`); stored directly.
     def fg=(color : Int)
@@ -152,6 +143,72 @@ module Crysterm
     def bg=(color : Nil)
       @bg = nil
     end
+  end
+
+  # Mixin providing the per-side (left/top/right/bottom) helpers shared by
+  # `Border`, `Padding` and `Shadow`. Each including class declares its own
+  # `left`/`top`/`right`/`bottom` properties (the defaults differ); this module
+  # supplies the logic that operates on them.
+  module SidedGeometry
+    # Is there anything on the left side?
+    def left?
+      @left > 0
+    end
+
+    # Is there anything on the top side?
+    def top?
+      @top > 0
+    end
+
+    # Is there anything on the right side?
+    def right?
+      @right > 0
+    end
+
+    # Is there anything on the bottom side?
+    def bottom?
+      @bottom > 0
+    end
+
+    # Is there any [amount] defined on any side?
+    def any?
+      (@left + @top + @right + @bottom) > 0
+    end
+
+    # Grows (`sign = 1`) or shrinks (`sign = -1`) the given position rectangle
+    # by the per-side amounts.
+    def adjust(pos, sign = 1)
+      pos.xi += sign * @left
+      pos.xl -= sign * @right
+      pos.yi += sign * @top
+      pos.yl -= sign * @bottom
+      pos
+    end
+  end
+
+  # Class for the complete style of a widget.
+  class Style
+    include Colorizable
+
+    # These (and possibly others) can't default to any color since that would generate
+    # color-setting sequences in the terminal. It's better to have them nilable, in which
+    # case no sequences get generated and term's default is used. That's also how Blessed
+    # does it.
+
+    # Foreground color (color of font/character).
+    #
+    # Crysterm's native color form is a `0xRRGGBB` integer (`-1` = terminal
+    # default, `nil` = "no color set", so no SGR sequence is emitted). The
+    # numeric form is canonical and is stored as-is; for backwards compatibility
+    # the setter still accepts `"#rrggbb"`/named-color strings, parsing them to
+    # the native int via `Colors.convert`.
+    getter fg : Int32?
+
+    # Background color (color of cell). See `#fg` for the accepted forms.
+    getter bg : Int32?
+
+    # Color setters (`fg=`/`bg=`, accepting Int/String/Nil) come from
+    # `Colorizable`.
 
     # Bold?
     property? bold : Bool = false
@@ -369,37 +426,17 @@ module Crysterm
 
   # Class for border definition.
   class Border
+    include Colorizable
+    include SidedGeometry
+
     property type = BorderType::Line
 
     # Border colors. Native form is a `0xRRGGBB` int (`-1` = terminal default,
     # `nil` = unset); `"#rrggbb"`/named strings are accepted for backwards
-    # compatibility and parsed via `Colors.convert`. See `Style#fg`.
+    # compatibility and parsed via `Colors.convert`. See `Style#fg`. The setters
+    # come from `Colorizable`.
     getter bg : Int32?
     getter fg : Int32?
-
-    def fg=(color : Int)
-      @fg = color.to_i32
-    end
-
-    def bg=(color : Int)
-      @bg = color.to_i32
-    end
-
-    def fg=(color : String)
-      @fg = Colors.convert(color).to_i32
-    end
-
-    def bg=(color : String)
-      @bg = Colors.convert(color).to_i32
-    end
-
-    def fg=(color : Nil)
-      @fg = nil
-    end
-
-    def bg=(color : Nil)
-      @bg = nil
-    end
 
     property char = ' '
     # XXX There is some duplication between style and these 5.
@@ -453,14 +490,6 @@ module Crysterm
     def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
     end
 
-    def adjust(pos, sign = 1)
-      pos.xi += sign * @left
-      pos.xl -= sign * @right
-      pos.yi += sign * @top
-      pos.yl -= sign * @bottom
-      pos
-    end
-
     # XXX enable these two after -Dpreview_overload_order becomes the default
     # def initialize(left_and_right, top_and_bottom)
     #  @left = @right = left_and_right
@@ -471,36 +500,16 @@ module Crysterm
     #  @left = @top = @right = @bottom = all
     # end
 
-    # Is there any border on left side?
-    def left?
-      @left > 0
-    end
-
-    # Is there any border on top?
-    def top?
-      @top > 0
-    end
-
-    # Is there any border on right side?
-    def right?
-      @right > 0
-    end
-
-    # Is there any border on bottom?
-    def bottom?
-      @bottom > 0
-    end
-
-    # Is there any [amount of] border defined?
-    def any?
-      (@left + @top + @right + @bottom) > 0
-    end
+    # Per-side predicates (`left?`/`top?`/`right?`/`bottom?`), `any?` and
+    # `adjust` come from `SidedGeometry`.
   end
 
   # Class for padding definition.
   #
   # NOTE "Padding" as in spacing around elements. Same order as in HTML (ltrb)
   class Padding
+    include SidedGeometry
+
     class_property default = new 0
 
     property left : Int32 = 0
@@ -528,41 +537,13 @@ module Crysterm
     def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
     end
 
-    def adjust(pos, sign = 1)
-      pos.xi += sign * @left
-      pos.xl -= sign * @right
-      pos.yi += sign * @top
-      pos.yl -= sign * @bottom
-      pos
-    end
-
-    # Is there any padding on left side?
-    def left?
-      @left > 0
-    end
-
-    # Is there any padding on top?
-    def top?
-      @top > 0
-    end
-
-    # Is there any padding on right side?
-    def right?
-      @right > 0
-    end
-
-    # Is there any padding on bottom?
-    def bottom?
-      @bottom > 0
-    end
-
-    def any?
-      (@left + @top + @right + @bottom) > 0
-    end
+    # Per-side predicates, `any?` and `adjust` come from `SidedGeometry`.
   end
 
   # Class for shadow definition.
   class Shadow
+    include SidedGeometry
+
     class_property default = new 0, 0, 0, 0
 
     # Width of shadow on the left side
@@ -628,30 +609,7 @@ module Crysterm
       @bottom = dim bottom, 1
     end
 
-    # Is there any shadow on left side?
-    def left?
-      @left > 0
-    end
-
-    # Is there any shadow on top?
-    def top?
-      @top > 0
-    end
-
-    # Is there any shadow on right side?
-    def right?
-      @right > 0
-    end
-
-    # Is there any shadow on bottom?
-    def bottom?
-      @bottom > 0
-    end
-
-    # Is there any [amount of] shadow defined?
-    def any?
-      (@left + @top + @right + @bottom) > 0
-    end
+    # Per-side predicates and `any?` come from `SidedGeometry`.
   end
 
   # class FocusEffects

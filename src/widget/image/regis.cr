@@ -47,11 +47,21 @@ module Crysterm
       property regis_height : Int32 = 480
 
       def initialize(*args, dither : Bool = false,
-                     regis_width : Int32 = 800, regis_height : Int32 = 480, **opts)
+                     regis_width : Int32 = 0, regis_height : Int32 = 0, **opts)
         @dither = dither
         @regis_width = regis_width
         @regis_height = regis_height
         super *args, **opts
+        # 0 ⇒ auto: derive the logical screen from the terminal's real pixel size
+        # (the base already detected the per-cell pixels via TIOCGWINSZ). Pair it
+        # with xterm's `regisScreenSize: auto` so the logical space matches the
+        # window and the image fills it instead of leaving a black margin.
+        if @regis_width <= 0
+          @regis_width = cell_pixel_width * (screen?.try(&.awidth) || 80)
+        end
+        if @regis_height <= 0
+          @regis_height = cell_pixel_height * (screen?.try(&.aheight) || 24)
+        end
       end
 
       # ReGIS draws an animated image's frames one vector at a time — thousands

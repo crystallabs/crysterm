@@ -86,7 +86,7 @@ module Crysterm
         super
         hide
         @text = nil
-        screen.render
+        request_render
       end
 
       def render

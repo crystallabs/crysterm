@@ -24,7 +24,7 @@ module Crysterm
 
         show
         set_content text
-        screen.render
+        request_render
 
         if !time || time.to_f <= 0
           # No timeout: dismiss on the next keypress. Install the handler
@@ -70,7 +70,7 @@ module Crysterm
             sleep time
 
             hide
-            screen.render
+            request_render
             callback.try &.call
           end
         end
@@ -88,7 +88,7 @@ module Crysterm
           end
         end
         hide
-        screen.render
+        request_render
         callback.try &.call
       end
 

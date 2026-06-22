@@ -104,10 +104,10 @@ module Crysterm
           case e.key
           when ::Tput::Key::Up
             move_to_option(-1)
-            screen.render
+            request_render
           when ::Tput::Key::Down
             move_to_option(1)
-            screen.render
+            request_render
           else
             super
           end

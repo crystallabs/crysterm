@@ -17,12 +17,12 @@ module Crysterm
 
             if key == Tput::Key::Up || (@vi && ch == 'k')
               scroll(-1)
-              self.screen.render
+              request_render
               next
             end
             if key == Tput::Key::Down || (@vi && ch == 'j')
               scroll(1)
-              self.screen.render
+              request_render
               next
             end
 
@@ -34,7 +34,7 @@ module Crysterm
                   next unless h.is_a? Int
                   offs = -h // 2
                   scroll offs == 0 ? -1 : offs
-                  self.screen.render
+                  request_render
                 end
                 next
               when Tput::Key::CtrlD
@@ -42,7 +42,7 @@ module Crysterm
                   next unless h.is_a? Int
                   offs = h // 2
                   scroll offs == 0 ? 1 : offs
-                  self.screen.render
+                  request_render
                 end
                 next
               when Tput::Key::CtrlB
@@ -50,7 +50,7 @@ module Crysterm
                   next unless h.is_a? Int
                   offs = -h
                   scroll offs == 0 ? -1 : offs
-                  self.screen.render
+                  request_render
                 end
                 next
               when Tput::Key::CtrlF
@@ -58,7 +58,7 @@ module Crysterm
                   next unless h.is_a? Int
                   offs = h
                   scroll offs == 0 ? 1 : offs
-                  self.screen.render
+                  request_render
                 end
                 next
               end
@@ -66,11 +66,11 @@ module Crysterm
               case ch
               when 'g'
                 scroll_to 0
-                self.screen.render
+                request_render
                 next
               when 'G'
                 scroll_to get_scroll_height
-                self.screen.render
+                request_render
                 next
               end
             end

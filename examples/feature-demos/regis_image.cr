@@ -28,8 +28,8 @@ ih = s.aheight - 1
 Widget::Image::Regis.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
   dither: (ENV["REGIS_DITHER"]? == "1"),
-  regis_width: (ENV["REGIS_W"]? || "1100").to_i,
-  regis_height: (ENV["REGIS_H"]? || "400").to_i,
+  regis_width: (ENV["REGIS_W"]? || "0").to_i,  # 0 = auto (match the window via TIOCGWINSZ)
+  regis_height: (ENV["REGIS_H"]? || "0").to_i,
   file: "#{__DIR__}/../../screenshots/matterhorn.png"
 
 if secs = ENV["DEMO_SECONDS"]?

@@ -46,7 +46,7 @@ module Crysterm
         # A key we handled: consume it (so it doesn't also drive an ancestor)
         # and repaint.
         e.accept
-        screen.render
+        request_render
       end
     end
   end

@@ -31,7 +31,7 @@ module Crysterm
       end
 
       def render
-        set_content ("(" + (checked? ? '*' : ' ') + ") " + @text), true
+        set_content selectable_content('(', ')', '*'), true
         super false
       end
 

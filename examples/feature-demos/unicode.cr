@@ -13,15 +13,13 @@ s.show_fps = nil
 
 Widget::Box.new \
   parent: s,
-  top: 0, left: 0, width: "100%", height: 3,
-  content: "{center}Unicode & grapheme-aware rendering{/center}\n" \
-           "{center}Box-drawing, block elements, scripts and combining marks.{/center}",
-  parse_tags: true,
-  style: Style.new(fg: "white", bg: "#283018", border: true)
+  top: 0, left: 0, width: "100%", height: 1,
+  content: "{center}Unicode & grapheme-aware rendering{/center}", parse_tags: true,
+  style: Style.new(fg: "white", bg: "#283018")
 
 Widget::Box.new \
   parent: s,
-  top: 4, left: 2, width: 36, height: 8,
+  top: 2, left: 2, width: 36, height: 8,
   content: "Scripts:\n" \
            "  Ελληνικά  Кириллица  Ãçčénts\n" \
            "Symbols:\n" \
@@ -35,7 +33,7 @@ Widget::Box.new \
 # as a vertical bar using the eighth-block glyphs (▁▂▃▄▅▆▇█) for sub-cell height.
 bars = Widget::Graph::BlockBar.new \
   parent: s,
-  top: 4, left: 40, width: 36, height: 8,
+  top: 2, left: 40, width: 36, height: 8,
   label: " Block elements ", min: 0.0, max: 1.0,
   style: Style.new(fg: "cyan", bg: "#101010", border: true)
 

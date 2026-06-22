@@ -21,8 +21,11 @@ Widget::Box.new \
   content: "{center}Image::Sixel  ·  in-band DCS sixel raster graphics  ·  the Matterhorn{/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
 
+# Leave the title row at the top AND one row free at the bottom: sixel scrolling
+# advances the cursor below the image, so a sixel reaching the last screen row
+# would scroll the title off the top. One spare row keeps the cursor on-screen.
 iw = s.awidth
-ih = s.aheight - 1
+ih = s.aheight - 2
 
 fit = case ENV["FIT"]?
       when "contain" then Widget::Image::Fit::Contain
@@ -33,8 +36,8 @@ fit = case ENV["FIT"]?
 Widget::Image::Sixel.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
   fit: fit,
-  cell_pixel_width: (ENV["CELL_PW"]? || "11").to_i,
-  cell_pixel_height: (ENV["CELL_PH"]? || "22").to_i,
+  cell_pixel_width: (ENV["CELL_PW"]? || "0").to_i,  # 0 = auto-detect (TIOCGWINSZ)
+  cell_pixel_height: (ENV["CELL_PH"]? || "0").to_i, # so the raster matches real cells
   file: "#{__DIR__}/../../screenshots/matterhorn.png"
 
 # Self-terminate for the screenshot tooling (so nothing external must be killed).

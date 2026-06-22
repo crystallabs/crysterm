@@ -211,7 +211,7 @@ module Crysterm
         emit ::Crysterm::Event::SelectItem, el, idx
         cmd.callback.try &.call
         selekt el
-        screen.render
+        request_render
       end
 
       # Generates the `{open}`/`{close}` tags used to colorize the command
@@ -348,7 +348,7 @@ module Crysterm
         if cmd = @commands[index]?
           cmd.callback.try &.call
           selekt index
-          screen.render
+          request_render
           emit ::Crysterm::Event::SelectTab, @items[index]?, index
         end
       end
@@ -358,12 +358,12 @@ module Crysterm
         when e.key == ::Tput::Key::Left, (@vi && e.char == 'h'),
              (e.key == ::Tput::Key::ShiftTab)
           move_left
-          screen.render
+          request_render
           e.accept if e.key == ::Tput::Key::ShiftTab
         when e.key == ::Tput::Key::Right, (@vi && e.char == 'l'),
              (e.key == ::Tput::Key::Tab)
           move_right
-          screen.render
+          request_render
           e.accept if e.key == ::Tput::Key::Tab
         when e.key == ::Tput::Key::Enter, (@vi && e.char == 'k')
           idx = selected
@@ -372,7 +372,7 @@ module Crysterm
             emit ::Crysterm::Event::SelectItem, item, idx
             @commands[idx]?.try &.callback.try &.call
           end
-          screen.render
+          request_render
         when e.key == ::Tput::Key::Escape, (@vi && e.char == 'q')
           if item = @items[selected]?
             emit ::Crysterm::Event::ActionItem, item, selected

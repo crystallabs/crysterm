@@ -35,9 +35,7 @@ module Crysterm
       end
 
       files.each do |file|
-        full = String.build do |str|
-          str << start << File::SEPARATOR << file
-        end
+        full = File.join start, file
 
         return full if file == target
 
@@ -59,17 +57,13 @@ module Crysterm
     private def find(prefix, word)
       w0 = word[0].to_s
 
-      file = String.build do |str|
-        str << prefix << File::SEPARATOR << w0
-      end
+      file = File.join prefix, w0
 
       return file if File.exists?(file)
 
       ch = w0.char_at(0).to_s.rjust(2, '0')
 
-      file = String.build do |str|
-        str << prefix << File::SEPARATOR << ch
-      end
+      file = File.join prefix, ch
 
       return file if File.exists?(file)
 

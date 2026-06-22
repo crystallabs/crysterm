@@ -58,7 +58,7 @@ module Crysterm
         # keep firing or leak `self`.
         on(::Crysterm::Event::Hide) { clear_overlay }
         on(::Crysterm::Event::Detach) { |e| clear_overlay e.object.as?(::Crysterm::Screen) }
-        on(::Crysterm::Event::Show) { screen?.try &.render }
+        on(::Crysterm::Event::Show) { request_render }
         on(::Crysterm::Event::Destroy) { teardown }
       end
 
@@ -70,7 +70,7 @@ module Crysterm
       # Displays *file*, replacing any image currently shown, and re-renders.
       def set_image(file : String)
         load file
-        screen?.try &.render
+        request_render
       end
 
       # Removes the currently displayed image, clearing its overlay from screen.

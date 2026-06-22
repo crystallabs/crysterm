@@ -84,9 +84,12 @@ module Crysterm
           if first
             # a=T transmit+display, f=32 RGBA, s/v pixel size, c/r cell box,
             # i/p stable ids (replace, don't accumulate), q=2 suppress replies.
+            # C=1 keeps the text cursor put: otherwise the terminal advances it
+            # past the image and a full-height image scrolls the screen (carrying
+            # off whatever cells — e.g. a title row — sat above it).
             io << "a=T,f=32,s=" << pw << ",v=" << ph \
               << ",i=" << @img_id << ",p=1,c=" << cols << ",r=" << rows \
-              << ",q=2,m=" << more
+              << ",C=1,q=2,m=" << more
             first = false
           else
             io << "m=" << more

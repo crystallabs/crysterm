@@ -13,7 +13,11 @@ module Crysterm
       #  this.default_attr = term.defAttr;
       # }
 
-      main = String::Builder.new
+      # Both buffers are `IO::Memory` (not `String::Builder`) so `outbuf` can be
+      # reused across rows via `#clear` instead of allocating a fresh builder
+      # per row.
+      main = IO::Memory.new
+      outbuf = IO::Memory.new
 
       yi.upto(yl - 1) do |y|
         # line = term
@@ -23,7 +27,7 @@ module Crysterm
 
         break if !line
 
-        outbuf = String::Builder.new
+        outbuf.clear
         attr = @default_attr
 
         xi.upto(xl - 1) do |x|
@@ -59,9 +63,9 @@ module Crysterm
           outbuf << "\e[m"
         end
 
-        if outbuf.bytesize > 0
+        if outbuf.size > 0
           main << '\n' if y > yi
-          main << outbuf.to_s
+          main.write outbuf.to_slice
         end
       end
 

@@ -21,7 +21,7 @@ Widget::Box.new \
   content: "{center}static PNG{/center}", parse_tags: true,
   style: Style.new(fg: "cyan")
 Widget::Image::Ansi.new \
-  parent: s, top: 3, left: 2, width: 34, height: 11,
+  parent: s, top: 3, left: 2, width: 34, height: 12,
   file: "#{__DIR__}/assets/sample.png"
 
 Widget::Box.new \
@@ -29,7 +29,7 @@ Widget::Box.new \
   content: "{center}animated GIF{/center}", parse_tags: true,
   style: Style.new(fg: "magenta")
 Widget::Image::Ansi.new \
-  parent: s, top: 3, left: 42, width: 34, height: 11,
+  parent: s, top: 3, left: 42, width: 34, height: 12,
   file: "#{__DIR__}/assets/spin.gif"
 
 # Keep the screen refreshing so the animated GIF advances on the recording.

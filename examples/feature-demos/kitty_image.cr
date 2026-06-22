@@ -25,8 +25,8 @@ ih = s.aheight - 1
 
 Widget::Image::Kitty.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
-  cell_pixel_width: (ENV["CELL_PW"]? || "11").to_i,
-  cell_pixel_height: (ENV["CELL_PH"]? || "22").to_i,
+  cell_pixel_width: (ENV["CELL_PW"]? || "0").to_i,  # 0 = auto-detect (TIOCGWINSZ)
+  cell_pixel_height: (ENV["CELL_PH"]? || "0").to_i, # so the image matches real cells
   file: "#{__DIR__}/../../screenshots/matterhorn.png"
 
 if secs = ENV["DEMO_SECONDS"]?

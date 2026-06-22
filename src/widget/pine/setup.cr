@@ -66,7 +66,7 @@ module Crysterm
           o.enabled = !o.enabled?
           set_item selected, format_option(o)
           o.callback.try &.call(o.enabled?)
-          screen.render
+          request_render
         end
 
         # Formats one option into a `[X]`/`[ ]`-prefixed row.

@@ -54,8 +54,11 @@ frame = Widget::Box.new \
   style: Style.new(fg: "white", bg: "#101010", border: true)
 
 clock = Timer.new 0.1.seconds
+# `left`/`width` are relative to the frame's *interior* (the border inset is
+# applied automatically), which is 74 cells wide. left:1 + width:72 leaves a
+# symmetric one-cell margin inside the border instead of spilling over it.
 Widget::Gradient.new \
-  parent: frame, top: 1, left: 1, width: 74, height: 2,
+  parent: frame, top: 1, left: 1, width: 72, height: 2,
   animate: clock, speed: 0.033
 
 s.exec
