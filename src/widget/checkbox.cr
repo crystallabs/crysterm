@@ -83,6 +83,7 @@ module Crysterm
         @checked = true
         @partial = false
         @value = true
+        invalidate_css # `checked`/`indeterminate` attribute selectors may now match
         emit Crysterm::Event::Check, @value
       end
 
@@ -91,6 +92,7 @@ module Crysterm
         @checked = false
         @partial = false
         @value = false
+        invalidate_css
         emit Crysterm::Event::UnCheck, @value
       end
 
@@ -102,6 +104,7 @@ module Crysterm
         @checked = false
         @partial = true
         @value = false
+        invalidate_css
         emit Crysterm::Event::PartialCheck, @value
       end
 

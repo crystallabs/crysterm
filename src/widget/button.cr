@@ -46,6 +46,7 @@ module Crysterm
       def toggle
         return unless checkable?
         @checked = !@checked
+        invalidate_css # `checked` attribute selector may now match/unmatch
         if @checked
           emit Crysterm::Event::Check, @checked
         else

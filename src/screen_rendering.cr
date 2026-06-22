@@ -250,6 +250,10 @@ module Crysterm
     def _render # (draw = true) #@@auto_draw)
       t1 = Time.instant
 
+      # Resolve CSS styling (no-op unless a stylesheet is set and dirty) before
+      # widgets read their styles for this frame.
+      apply_stylesheet_if_dirty
+
       emit Crysterm::Event::PreRender
 
       @_dock_stops.clear

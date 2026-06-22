@@ -1,0 +1,113 @@
+module Crysterm
+  # The CSS styling subsystem.
+  #
+  # Styling is resolved by rendering the live widget tree into a tiny HTML
+  # document (`#to_html`), handing that document to the `html5` shard's
+  # Selectors-Level-3 engine for matching, and folding the matched rules'
+  # declarations into the `Style`/`Styles` the renderer already consumes. The
+  # document is cheap to (re)generate, so it is rebuilt on demand rather than
+  # kept in sync incrementally.
+  #
+  # This file defines only the document builder; selector matching, the
+  # stylesheet model, and the cascade live alongside it.
+  module CSS
+    # Escapes a value for safe inclusion inside a double-quoted HTML attribute.
+    def self.escape_attr(value : String) : String
+      value.gsub('&', "&amp;").gsub('"', "&quot;").gsub('<', "&lt;")
+    end
+  end
+
+  class Widget
+    # Marks the owning screen's styling dirty so the cascade re-runs on the next
+    # render. Called whenever something selector-relevant changes — the tree
+    # shape (via `Mixin::Children`), a widget's classes/id (`Mixin::Css`), or an
+    # intrinsic attribute (e.g. a checkbox's `checked`). A no-op while the widget
+    # is detached; it will be styled when its subtree next attaches and renders.
+    protected def invalidate_css : Nil
+      screen?.try &.restyle
+    end
+
+    # Serializes this widget and its subtree into the CSS document.
+    #
+    # Each widget becomes one element whose tag is its leaf type class (e.g.
+    # `w-button`), carrying:
+    #
+    # * `data-uid` — the stable writeback key mapping the node back to this
+    #   widget (see `Mixin::Css`);
+    # * `id` — the optional user-facing `#css_id`, when set;
+    # * `class` — the full type chain plus user classes (`#css_all_classes`);
+    # * any intrinsic attributes from `#css_attributes`, enabling attribute
+    #   selectors such as `.w-checkbox[checked]`.
+    #
+    # Child widgets are emitted recursively, reproducing the tree structure the
+    # descendant/child combinators rely on. No text content is emitted: CSS
+    # Level 3 has no text-matching selectors, so it is unneeded (and avoids
+    # escaping user content).
+    def to_html(io : IO) : Nil
+      # The class list starts with the type chain, so its first entry is the
+      # leaf type class — reuse it as the tag rather than recomputing.
+      classes = css_all_classes
+      tag = classes.first
+      io << '<' << tag
+      io << " data-uid=\"" << uid << '"'
+      if id = css_id
+        io << " id=\"" << CSS.escape_attr(id) << '"'
+      end
+      io << " class=\"" << CSS.escape_attr(classes.join(' ')) << '"'
+      css_attributes.each do |key, value|
+        io << ' ' << key
+        value.try { |v| io << "=\"" << CSS.escape_attr(v) << '"' }
+      end
+      io << '>'
+      # Sub-element pseudo-nodes (scrollbar, track, ...) carry a `uid::slot`
+      # writeback key so the cascade can route their computed style into the
+      # matching sub-`Style`. Emitted inside the element so descendant/child
+      # combinators (e.g. `.w-list > .w-scrollbar`) work.
+      css_sub_elements.each do |slot|
+        io << "<w-" << slot << " data-uid=\"" << uid << "::" << slot << '"'
+        io << " class=\"w-" << slot << "\"></w-" << slot << '>'
+      end
+      children.each &.to_html(io)
+      io << "</" << tag << '>'
+    end
+
+    # :ditto:
+    def to_html : String
+      String.build { |io| to_html io }
+    end
+
+    # Intrinsic widget properties exposed as HTML attributes so they can be
+    # targeted by attribute selectors (e.g. `[checked]`, `[disabled]`). A `nil`
+    # value emits a bare boolean attribute; a string emits `key="value"`.
+    #
+    # The base widget exposes none; subclasses override to surface their own
+    # state (e.g. `Button` exposes `checked`).
+    def css_attributes : Hash(String, String?)
+      {} of String => String?
+    end
+
+    # The named sub-`Style` slots this widget exposes as pseudo-element nodes in
+    # the CSS document (matched by `.w-<slot>` selectors and written back into
+    # the corresponding `Style` sub-style). The base widget exposes its
+    # scrollbar/track only while scrolling is enabled; other widgets override to
+    # add their own (e.g. a table's `cell`/`header`).
+    def css_sub_elements : Array(String)
+      scrollbar? ? ["scrollbar", "track"] : [] of String
+    end
+  end
+
+  class Screen
+    # Serializes the whole screen as the root of the CSS document: a `w-screen`
+    # element wrapping every top-level widget's subtree.
+    def to_html(io : IO) : Nil
+      io << "<w-screen>"
+      children.each &.to_html(io)
+      io << "</w-screen>"
+    end
+
+    # :ditto:
+    def to_html : String
+      String.build { |io| to_html io }
+    end
+  end
+end

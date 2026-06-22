@@ -34,6 +34,8 @@ dependencies:
   superconf:
     github: crystallabs/superconf.cr
     branch: master
+  html5:
+    github: naqvis/crystal-html5
 
 development_dependencies:
   ameba:

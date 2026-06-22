@@ -39,6 +39,8 @@ require "./widget/**"
 require "./layout/**"
 require "./widgets"
 
+require "./style/css/**"
+
 # Main Crysterm module and namespace.
 #
 # If your code is in its own namespace, you can shorten `Crysterm` to an

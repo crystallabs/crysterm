@@ -5,6 +5,7 @@ require "./mixin/children"
 require "./mixin/pos"
 require "./mixin/uid"
 require "./mixin/data"
+require "./mixin/css"
 
 require "./widget_children"
 require "./widget_index"
@@ -42,6 +43,7 @@ module Crysterm
     include Mixin::Pos
     include Mixin::Style
     include Mixin::Data
+    include Mixin::Css
 
     # Widget's parent `Widget`, if any.
     property parent : Widget?
