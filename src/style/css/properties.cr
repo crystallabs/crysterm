@@ -28,6 +28,8 @@ module Crysterm
           style.blink = words.includes?("blink")
         when "visibility"
           style.visible = (value != "hidden")
+        when "display"
+          style.visible = (value != "none")
         when "opacity"
           value.to_f?.try { |num| style.alpha = num }
         when "tab-size"

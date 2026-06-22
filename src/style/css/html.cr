@@ -60,16 +60,18 @@ module Crysterm
         value.try { |v| io << "=\"" << CSS.escape_attr(v) << '"' }
       end
       io << '>'
-      # Sub-element pseudo-nodes (scrollbar, track, ...) carry a `uid::slot`
-      # writeback key so the cascade can route their computed style into the
-      # matching sub-`Style`. Each is classed with the capitalized slot name
-      # (e.g. `Scrollbar`), so `Scrollbar { ... }` (or `Box Scrollbar { ... }`)
-      # styles it. Emitted inside the element so combinators work.
+      # Child widgets first, so they occupy clean `:nth-child` positions
+      # (1..N) — important for list items / table rows styled positionally.
+      children.each &.to_html(io)
+      # Sub-element pseudo-nodes (scrollbar, track, ...) come after the children.
+      # Each carries a `uid::slot` writeback key so the cascade can route its
+      # computed style into the matching sub-`Style`, and is classed with the
+      # capitalized slot name (e.g. `Scrollbar`), so `Scrollbar { ... }` (or
+      # `Box Scrollbar { ... }`) styles it.
       css_sub_elements.each do |slot|
         io << '<' << slot << " data-uid=\"" << uid << "::" << slot << '"'
         io << " class=\"" << slot.capitalize << "\"></" << slot << '>'
       end
-      children.each &.to_html(io)
       io << "</" << tag << '>'
     end
 

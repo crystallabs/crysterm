@@ -269,6 +269,159 @@ describe "CSS cascade" do
     a.styles.normal.fg.should be_nil # the Box is the sibling, not the subject
   end
 
+  it "lets !important override a more specific normal rule" do
+    screen = headless_screen
+    button = Widget::Button.new
+    button.css_id = "x"
+    screen.append button
+
+    screen.stylesheet = <<-CSS
+      #x { color: blue; }
+      Button { color: red !important; }
+    CSS
+    screen.apply_stylesheet
+
+    button.styles.normal.fg.should eq rgb("red") # !important beats #id specificity
+  end
+
+  it "resolves custom properties and var() with fallbacks" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    screen.stylesheet = <<-CSS
+      :root { --brand: cyan; }
+      Box { color: var(--brand); background-color: var(--missing, magenta); }
+    CSS
+    screen.apply_stylesheet
+
+    box.styles.normal.fg.should eq rgb("cyan")
+    box.styles.normal.bg.should eq rgb("magenta") # fallback for undefined var
+  end
+
+  it "applies the default stylesheet beneath author rules" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    begin
+      Crysterm::CSS.default_stylesheet = "Box { color: green; background-color: gray; }"
+      screen.stylesheet = "Box { color: red; }" # overrides color only
+      screen.apply_stylesheet
+
+      box.styles.normal.fg.should eq rgb("red")  # author tier beats default tier
+      box.styles.normal.bg.should eq rgb("gray") # default supplies what author omits
+    ensure
+      Crysterm::CSS.default_stylesheet = "" # reset global UA sheet
+    end
+  end
+
+  it "folds inline @style above author rules but below !important" do
+    screen = headless_screen
+    button = Widget::Button.new style: Style.new(fg: "lime")
+    screen.append button
+
+    screen.stylesheet = "Button { color: red; background-color: blue; }"
+    screen.apply_stylesheet
+
+    # inline color beats the author rule; the author bg still applies since
+    # inline didn't set one (per-property fold)
+    button.styles.normal.fg.should eq rgb("lime")
+    button.styles.normal.bg.should eq rgb("blue")
+    # the getter returns the computed style (not the raw inline object)
+    button.style.fg.should eq rgb("lime")
+  end
+
+  it "lets !important beat inline @style" do
+    screen = headless_screen
+    button = Widget::Button.new style: Style.new(fg: "lime")
+    screen.append button
+
+    screen.stylesheet = "Button { color: red !important; }"
+    screen.apply_stylesheet
+
+    button.styles.normal.fg.should eq rgb("red") # !important outranks inline
+  end
+
+  it "applies geometry and layout via CSS (onto the widget, not the style)" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    screen.stylesheet = "Box { width: 40; height: 10; left: center; top: 5; text-align: center; }"
+    screen.apply_stylesheet
+
+    box.width.should eq 40 # bare int -> cells
+    box.height.should eq 10
+    box.left.should eq "center" # keyword -> passthrough string
+    box.top.should eq 5
+    box.align.should eq Tput::AlignFlag::HCenter
+  end
+
+  it "hides a widget with display: none" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    screen.stylesheet = "Box { display: none; }"
+    screen.apply_stylesheet
+
+    box.styles.normal.visible?.should be_false
+  end
+
+  it "styles list items individually, including :nth-child" do
+    screen = headless_screen
+    list = Widget::List.new
+    screen.append list
+    list.set_items(["a", "b", "c", "d"])
+
+    screen.stylesheet = <<-CSS
+      List Box { color: white; }
+      List Box:nth-child(even) { background-color: blue; }
+    CSS
+    screen.apply_stylesheet
+
+    list.items.each { |item| item.styles.normal.fg.should eq rgb("white") }
+    # items are children at positions 1..4, so :nth-child(even) hits #2 and #4
+    list.items[0].styles.normal.bg.should be_nil
+    list.items[1].styles.normal.bg.should eq rgb("blue")
+    list.items[2].styles.normal.bg.should be_nil
+    list.items[3].styles.normal.bg.should eq rgb("blue")
+  end
+
+  it "applies @media rules conditionally on terminal size" do
+    screen = headless_screen
+    screen.width = 100
+    screen.height = 30
+    box = Widget::Box.new
+    screen.append box
+
+    screen.stylesheet = <<-CSS
+      Box { color: white; }
+      @media (min-width: 80) { Box { color: green; } }
+      @media (min-width: 200) { Box { color: red; } }
+    CSS
+    screen.apply_stylesheet
+
+    # width 100 satisfies min-width:80 (green) but not min-width:200 (red)
+    box.styles.normal.fg.should eq rgb("green")
+  end
+
+  it "skips @media rules that do not match" do
+    screen = headless_screen
+    screen.width = 40
+    box = Widget::Box.new
+    screen.append box
+
+    screen.stylesheet = <<-CSS
+      Box { color: white; }
+      @media (min-width: 80) { Box { color: green; } }
+    CSS
+    screen.apply_stylesheet
+
+    box.styles.normal.fg.should eq rgb("white") # 40 < 80, media rule skipped
+  end
+
   it "leaves widgets untouched when no stylesheet is set" do
     screen = headless_screen
     box = Widget::Box.new

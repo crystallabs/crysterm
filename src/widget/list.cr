@@ -97,6 +97,14 @@ module Crysterm
       # without being confused with the cursor (Qt shows the current item and the
       # selected set distinctly).
       def render_style_for(item : Widget) : Style
+        # If CSS styled this item (e.g. `List Box`, `Item:nth-child(even)`), use
+        # the item's own cascade-computed style, reflecting selection through its
+        # widget state so `:selected` rules apply.
+        if item.css_styled?
+          item.state = item_selected?(item) ? WidgetState::Selected : WidgetState::Normal
+          return item.style
+        end
+
         # Fast path (the overwhelmingly common case): no multi-selection, so the
         # only "selected" item is the cursor — an O(1) array compare, no scan.
         unless multi_select?

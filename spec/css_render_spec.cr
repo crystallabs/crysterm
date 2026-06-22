@@ -1,0 +1,53 @@
+require "./spec_helper"
+
+include Crysterm
+
+# End-to-end proof that CSS doesn't just populate `Style` objects but actually
+# changes what gets drawn: it sets a stylesheet, runs a real synchronous render
+# (`Screen#_render`, which applies the cascade then fills the cell buffer), and
+# inspects the resulting packed attributes in `Screen#lines`.
+
+private def render_screen
+  Crysterm::Screen.new(
+    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+    width: 80, height: 24)
+end
+
+private def cell_fg(screen, y, x)
+  Crysterm::Attr.unpack_color(Crysterm::Attr.fg(screen.lines[y][x].attr))
+end
+
+private def cell_bg(screen, y, x)
+  Crysterm::Attr.unpack_color(Crysterm::Attr.bg(screen.lines[y][x].attr))
+end
+
+describe "CSS end-to-end rendering" do
+  it "paints CSS colors into the rendered cell buffer" do
+    screen = render_screen
+    Widget::Box.new parent: screen, top: 1, left: 1, width: 10, height: 5
+
+    screen.stylesheet = "Box { background-color: #0000ff; color: #ff0000; }"
+    screen._render # applies the cascade (dirty) and fills @lines
+
+    # a cell well inside the box carries the CSS colors
+    cell_bg(screen, 2, 3).should eq 0x0000ff
+    cell_fg(screen, 2, 3).should eq 0xff0000
+  end
+
+  it "reflects a restyle in the next render" do
+    screen = render_screen
+    box = Widget::Box.new parent: screen, top: 1, left: 1, width: 10, height: 5
+
+    screen.stylesheet = <<-CSS
+      Box { background-color: #0000ff; }
+      .hot { background-color: #00ff00; }
+    CSS
+    screen._render
+    cell_bg(screen, 2, 3).should eq 0x0000ff
+
+    # add a class -> auto-invalidates -> next render repaints with the new rule
+    box.add_css_class "hot"
+    screen._render
+    cell_bg(screen, 2, 3).should eq 0x00ff00
+  end
+end

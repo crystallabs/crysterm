@@ -13,9 +13,25 @@ module Crysterm
       # User may set specific style for this widget
       setter style : ::Crysterm::Style?
 
+      # The raw inline style (the `@style` override), before any CSS folding.
+      # The CSS cascade reads this to fold inline declarations into the computed
+      # per-state `@styles` at its own tier.
+      def css_inline_style : ::Crysterm::Style?
+        @style
+      end
+
+      # Set by the CSS cascade once it has computed this widget's `@styles`
+      # (folding in any inline `@style`). When set, `#style` returns the computed
+      # per-state style rather than short-circuiting to the raw inline `@style`,
+      # so author `!important` rules can outrank inline.
+      property? css_styled : Bool = false
+
       # If specific style is not set, it will depend on current state
       def style : ::Crysterm::Style
-        @style.try { |style| return style }
+        # When CSS has computed this widget's styles, the inline `@style` has
+        # already been folded into them at the right cascade tier, so return the
+        # per-state style. Otherwise inline `@style` (if any) wins wholesale.
+        @style.try { |style| return style } unless @css_styled
 
         case @state
         in .normal?

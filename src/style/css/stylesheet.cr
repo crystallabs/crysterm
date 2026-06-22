@@ -1,5 +1,43 @@
 module Crysterm
   module CSS
+    # A parsed `@media` condition: a conjunction of feature tests evaluated
+    # against the terminal's size (and color depth). Only the responsive
+    # width/height features plus `min-colors`/`max-colors` are supported.
+    struct MediaQuery
+      getter conditions : Array(Tuple(String, Int32))
+
+      def initialize(@conditions)
+      end
+
+      # Matches `(feature: value)` pairs, e.g. `(min-width: 80)`.
+      FEATURE_RE = /\(\s*([a-z-]+)\s*:\s*(\d+)\s*\)/
+
+      # Parses a condition string such as `(min-width: 80) and (max-width: 120)`.
+      def self.parse(condition : String) : MediaQuery
+        conditions = [] of Tuple(String, Int32)
+        condition.scan(FEATURE_RE) do |match|
+          conditions << {match[1], match[2].to_i}
+        end
+        new conditions
+      end
+
+      # Whether this query matches a terminal of *width*×*height* cells with
+      # *colors* available.
+      def matches?(width : Int32, height : Int32, colors : Int32) : Bool
+        conditions.all? do |(feature, value)|
+          case feature
+          when "min-width"  then width >= value
+          when "max-width"  then width <= value
+          when "min-height" then height >= value
+          when "max-height" then height <= value
+          when "min-colors" then colors >= value
+          when "max-colors" then colors <= value
+          else                   true
+          end
+        end
+      end
+    end
+
     # A single parsed CSS rule: one selector paired with its declaration block.
     #
     # A comma-separated selector list in the source becomes one `Rule` per
@@ -9,8 +47,13 @@ module Crysterm
       # source selector with any state pseudo-class (`:focus`, ...) removed.
       getter selector : String
 
-      # Property => value, with property names lower-cased.
+      # Normal (non-`!important`) declarations: property => value, property
+      # names lower-cased.
       getter declarations : Hash(String, String)
+
+      # Declarations flagged `!important`; these outrank everything else in the
+      # cascade (see `Cascade`).
+      getter important : Hash(String, String)
 
       # The widget state this rule applies to, peeled from a trailing
       # pseudo-class. `nil` means the rule has no state pseudo-class and so
@@ -25,7 +68,10 @@ module Crysterm
       # Source order; breaks specificity ties (later wins).
       getter order : Int32
 
-      def initialize(@selector, @declarations, @state, @specificity, @order)
+      # The `@media` condition guarding this rule, or `nil` if unconditional.
+      getter media : MediaQuery?
+
+      def initialize(@selector, @declarations, @important, @state, @specificity, @order, @media = nil)
       end
     end
 
@@ -33,7 +79,12 @@ module Crysterm
     class Stylesheet
       getter rules : Array(Rule)
 
-      def initialize(@rules = [] of Rule)
+      # Custom properties (`--name: value`) collected globally, last definition
+      # winning. Resolved into `var(--name[, fallback])` references at cascade
+      # time. (A pragmatic, document-global model — not per-element cascaded.)
+      getter variables : Hash(String, String)
+
+      def initialize(@rules = [] of Rule, @variables = {} of String => String)
       end
 
       # Maps a state pseudo-class to a `WidgetState`. `:active` and `:selected`
@@ -51,19 +102,35 @@ module Crysterm
 
       # Parses a CSS string into a `Stylesheet`.
       #
-      # Supports comments, comma-separated selector lists, and `prop: value;`
-      # declaration blocks. State pseudo-classes are peeled onto the rule (see
+      # Supports comments, comma-separated selector lists, `prop: value;`
+      # declaration blocks, `!important`, custom properties/`var()`, and
+      # `@media` blocks. State pseudo-classes are peeled onto the rule (see
       # `Rule#state`); the structural remainder is what the selector engine
-      # matches. There is intentionally no `@media`/nesting support yet.
+      # matches.
       def self.parse(css : String) : Stylesheet
         rules = [] of Rule
-        order = 0
+        variables = {} of String => String
 
-        decommented(css).split('}').each do |chunk|
+        decommented = decommented(css)
+        top_level, media_blocks = extract_media(decommented)
+
+        order = parse_block(top_level, nil, rules, variables, 0)
+        media_blocks.each do |(condition, inner)|
+          order = parse_block(inner, MediaQuery.parse(condition), rules, variables, order)
+        end
+
+        new rules, variables
+      end
+
+      # Parses one block of rules (a top-level body or an `@media` block's
+      # contents), tagging each rule with *media*. Appends to *rules*, collects
+      # custom properties into *variables*, and returns the next source order.
+      private def self.parse_block(css : String, media : MediaQuery?, rules : Array(Rule), variables : Hash(String, String), order : Int32) : Int32
+        css.split('}').each do |chunk|
           next unless chunk.includes?('{')
           prelude, _, body = chunk.partition('{')
-          declarations = parse_declarations(body)
-          next if declarations.empty?
+          declarations, important = parse_declarations(body, variables)
+          next if declarations.empty? && important.empty?
 
           prelude.split(',').each do |raw|
             selector = raw.strip
@@ -73,12 +140,71 @@ module Crysterm
             # for matching against the class-based document.
             spec = Specificity.calculate(selector)
             state, structural = peel_state(selector)
-            rules << Rule.new(Selectors.expand_types(structural), declarations, state, spec, order)
+            rules << Rule.new(Selectors.expand_types(structural), declarations, important, state, spec, order, media)
             order += 1
           end
         end
+        order
+      end
 
-        new rules
+      # Splits `@media <condition> { ... }` blocks out of *css*, returning the
+      # remaining top-level CSS and a list of `{condition, inner_css}`. Brace
+      # nesting is honored so the `@media` body is captured whole.
+      private def self.extract_media(css : String) : Tuple(String, Array(Tuple(String, String)))
+        blocks = [] of Tuple(String, String)
+        remaining = String::Builder.new
+        i = 0
+        n = css.size
+        while i < n
+          if css[i] == '@' && css[i, 6]? == "@media"
+            brace = css.index('{', i)
+            break unless brace
+            condition = css[i + 6...brace].strip
+            depth = 0
+            j = brace
+            while j < n
+              depth += 1 if css[j] == '{'
+              if css[j] == '}'
+                depth -= 1
+                break if depth == 0
+              end
+              j += 1
+            end
+            blocks << {condition, css[brace + 1...j]}
+            i = j + 1
+          else
+            remaining << css[i]
+            i += 1
+          end
+        end
+        {remaining.to_s, blocks}
+      end
+
+      # Matches a `var(--name)` or `var(--name, fallback)` reference.
+      VAR_RE = /var\(\s*(--[A-Za-z0-9_-]+)\s*(?:,([^)]*))?\)/
+
+      # Resolves `var(...)` references in *value* against *variables*, falling
+      # back to the in-call fallback (or empty) for undefined names. Iterates a
+      # few times so a variable whose value itself uses `var()` resolves too.
+      def self.resolve_var(value : String, variables : Hash(String, String)) : String
+        return value unless value.includes?("var(")
+        result = value
+        4.times do
+          replaced = result.gsub(VAR_RE) do |_match|
+            md = $~
+            name = md[1]
+            if defined = variables[name]?
+              defined
+            elsif fallback = md[2]?
+              fallback.strip
+            else
+              ""
+            end
+          end
+          break if replaced == result
+          result = replaced
+        end
+        result
       end
 
       # Strips `/* ... */` comments (including multi-line).
@@ -86,17 +212,34 @@ module Crysterm
         css.gsub(/\/\*.*?\*\//m, " ")
       end
 
-      # Parses a declaration block body (`prop: val; prop2: val2`) into a hash.
-      private def self.parse_declarations(body : String) : Hash(String, String)
-        decls = {} of String => String
+      # Parses a declaration block body into `{normal, important}` hashes.
+      # Custom properties (`--name`) are siphoned into *variables* (their names
+      # are case-sensitive and so kept as-is); other property names are
+      # lower-cased. A trailing `!important` routes a declaration to the
+      # important hash.
+      private def self.parse_declarations(body : String, variables : Hash(String, String)) : Tuple(Hash(String, String), Hash(String, String))
+        normal = {} of String => String
+        important = {} of String => String
         body.split(';').each do |part|
           next unless part.includes?(':')
           name, _, value = part.partition(':')
-          name = name.strip.downcase
+          name = name.strip
           value = value.strip
-          decls[name] = value unless name.empty? || value.empty?
+          next if name.empty? || value.empty?
+
+          if name.starts_with?("--")
+            variables[name] = value # custom property (case-sensitive name)
+            next
+          end
+
+          name = name.downcase
+          if value.downcase.ends_with?("!important")
+            important[name] = value[0...value.size - "!important".size].rstrip
+          else
+            normal[name] = value
+          end
         end
-        decls
+        {normal, important}
       end
 
       # State pseudo-class tokens, longest first, so a longer token is matched

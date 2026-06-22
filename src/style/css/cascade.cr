@@ -11,29 +11,62 @@ module Crysterm
     # 2. Index every node's `data-uid` back to its `Widget` (and sub-style slot).
     # 3. Match every rule with the `html5` selector engine exactly once (the
     #    document is state-independent), accumulating the matched declarations
-    #    keyed by widget/slot/state and tagged with specificity and source order.
+    #    keyed by widget/slot/state and tagged with tier, specificity and order.
+    #    `@media` rules whose condition doesn't match the terminal are skipped.
     #    A base rule is folded into `normal` plus only those states that have a
     #    state-specific rule; the rest lazily fall back to `normal`.
-    # 4. Fold each accumulation (sorted by specificity then order) onto a copy of
-    #    the widget's existing style for that state — so CSS overrides only the
-    #    properties it specifies and leaves widget defaults intact.
+    # 4. Fold each accumulation (sorted by `{tier, specificity, order}`) onto a
+    #    copy of the widget's existing style — default(0) < author(1) < inline
+    #    `@style`(2) < `!important`(3) — so CSS overrides only what it specifies
+    #    and leaves widget defaults intact. Geometry declarations write the
+    #    widget itself (not the `Style`).
     # 5. Inherit the (inheritable) `color` down the tree where unset.
     #
-    # Application is non-destructive and opt-in: only widget/state pairs that a
-    # rule actually matched are touched, and the inline `@style` override still
-    # wins at render time.
+    # Application is non-destructive and opt-in: only widget/state pairs a rule
+    # actually matched are touched, and each is marked `css_styled` so `#style`
+    # returns the computed (inline-folded) result.
     module Cascade
-      # An accumulated match: specificity, source order, and the declarations to
-      # apply. Sorted by `{specificity, order}` so later/again-more-specific
-      # rules win.
-      alias Entry = Tuple(Tuple(Int32, Int32, Int32), Int32, Hash(String, String))
+      # Cascade origin/priority tiers, lowest to highest. A declaration in a
+      # higher tier always wins over a lower one regardless of specificity.
+      TIER_DEFAULT   = 0 # default/UA stylesheet
+      TIER_AUTHOR    = 1 # normal author rules
+      TIER_INLINE    = 2 # inline `@style`
+      TIER_IMPORTANT = 3 # `!important` declarations
 
-      # Resolves *stylesheet* against the tree rooted at *screen*.
+      # An accumulated match: `{tier, specificity, order, declarations}`. Sorted
+      # by `{tier, specificity, order}` so the winning declaration is applied
+      # last.
+      alias Entry = Tuple(Int32, Tuple(Int32, Int32, Int32), Int32, Hash(String, String))
+
+      # Resolves the author *stylesheet* (plus the default stylesheet beneath it)
+      # against the tree rooted at *screen*.
       def self.apply(stylesheet : Stylesheet, screen : Screen) : Nil
-        return if stylesheet.rules.empty?
+        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], screen)
+      end
+
+      # Resolves a list of `{stylesheet, base_tier}` sources, lowest tier first,
+      # against *screen*. Higher tiers win regardless of specificity.
+      #
+      # ameba:disable Metrics/CyclomaticComplexity
+      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), screen : Screen) : Nil
+        return if sheets.all?(&.[0].rules.empty?)
 
         doc = HTML5.parse(screen.to_html)
         index = index_tree(screen)
+
+        # Terminal metrics for `@media` evaluation.
+        media_width = screen.width
+        media_height = screen.height
+        media_colors = begin
+          screen.colors.to_i32
+        rescue
+          0x1000000
+        end
+
+        # Variables merge across sheets in order, so a later (higher-priority)
+        # sheet's custom properties win.
+        variables = {} of String => String
+        sheets.each { |entry| variables.merge!(entry[0].variables) }
 
         # Match each rule against the document exactly once: the document is the
         # same in every state (state is carried on the rules, not the nodes), so
@@ -44,22 +77,28 @@ module Crysterm
         acc = Hash(Tuple(String, WidgetState), Array(Entry)).new # {key, state} -> state entries
         stated_keys = Hash(String, Set(WidgetState)).new         # key -> states with own rules
 
-        stylesheet.rules.each do |rule|
-          next if rule.selector.empty?
-          nodes = begin
-            doc.css(rule.selector)
-          rescue
-            next # ignore selectors the engine can't parse
-          end
-          entry = {rule.specificity, rule.order, rule.declarations}
-          nodes.each do |node|
-            key = node["data-uid"]?.try(&.val)
-            next unless key
-            if state = rule.state
-              (acc[{key, state}] ||= [] of Entry) << entry
-              (stated_keys[key] ||= Set(WidgetState).new) << state
-            else
-              (base[key] ||= [] of Entry) << entry
+        sheets.each do |(sheet, tier)|
+          sheet.rules.each do |rule|
+            next if rule.selector.empty?
+            if mq = rule.media
+              next unless mq.matches?(media_width, media_height, media_colors)
+            end
+            nodes = begin
+              doc.css(rule.selector)
+            rescue
+              next # ignore selectors the engine can't parse
+            end
+            entries = rule_entries(rule, tier)
+            next if entries.empty?
+            nodes.each do |node|
+              key = node["data-uid"]?.try(&.val)
+              next unless key
+              if state = rule.state
+                (acc[{key, state}] ||= [] of Entry).concat entries
+                (stated_keys[key] ||= Set(WidgetState).new) << state
+              else
+                (base[key] ||= [] of Entry).concat entries
+              end
             end
           end
         end
@@ -85,35 +124,106 @@ module Crysterm
           end
         end
 
-        # Apply main-element styles first (in place, onto the owned copy from the
-        # materialize step above), then sub-element styles (which build on the
-        # now-current per-state style).
-        acc.each do |(key, state), entries|
-          next if key.includes?("::")
-          next unless target = index[key]?
-          apply_entries get_state_style(target[0], state), entries
+        # Apply each touched widget's main style: author/default declarations,
+        # then the inline `@style` (tier 2), then `!important` (tier 3). Every
+        # touched widget is processed (even one matched only via a sub-element)
+        # so its inline style still folds into the main style, and is marked
+        # `css_styled` so `#style` returns the computed result.
+        touched.each do |(uid, state)|
+          next unless target = index[uid]?
+          widget = target[0]
+          entries = acc[{uid, state}]? || EMPTY_ENTRIES
+          apply_entries_with_inline get_state_style(widget, state), entries, variables, widget.css_inline_style
+          # Geometry/layout is a single per-widget concern, not per-state, so
+          # apply it once from the (now sorted) normal-state entries.
+          apply_geometry widget, entries, variables if state.normal?
+          widget.css_styled = true
         end
 
+        # Sub-element styles build on the now-current per-state style.
         acc.each do |(key, state), entries|
           next unless key.includes?("::")
           next unless target = index[key]?
           widget, slot = target
           state_style = get_state_style(widget, state)
           sub = get_sub_style(state_style, slot).dup
-          apply_entries sub, entries
+          apply_entries sub, entries, variables
           set_sub_style state_style, slot, sub
         end
 
         inherit_color screen
       end
 
-      # Folds *entries* onto *style* in place, in cascade order (specificity then
-      # source order, so the last/most-specific declaration wins).
-      private def self.apply_entries(style : Style, entries : Array(Entry)) : Nil
-        entries.sort_by! { |entry| {entry[0], entry[1]} }
-        entries.each do |entry|
-          entry[2].each { |property, value| Properties.apply(style, property, value) }
+      EMPTY_ENTRIES = [] of Entry
+
+      # The cascade entries a rule contributes: its normal declarations at
+      # *base_tier*, and its `!important` declarations at `TIER_IMPORTANT`.
+      private def self.rule_entries(rule : Rule, base_tier : Int32) : Array(Entry)
+        entries = [] of Entry
+        entries << {base_tier, rule.specificity, rule.order, rule.declarations} unless rule.declarations.empty?
+        entries << {TIER_IMPORTANT, rule.specificity, rule.order, rule.important} unless rule.important.empty?
+        entries
+      end
+
+      # Folds *entries* onto *style* in place, in cascade order
+      # (`{tier, specificity, order}`, so the winning declaration applies last).
+      # `var(...)` references in values are resolved against *variables*.
+      private def self.apply_entries(style : Style, entries : Array(Entry), variables : Hash(String, String)) : Nil
+        entries.sort_by! { |entry| {entry[0], entry[1], entry[2]} }
+        entries.each { |entry| apply_decls style, entry[3], variables }
+      end
+
+      # Like `apply_entries`, but interleaves the inline `@style` at
+      # `TIER_INLINE`: entries below that tier (default + author) apply first,
+      # then the inline style, then entries at/above it (`!important`). So inline
+      # outranks normal author rules but `!important` outranks inline.
+      private def self.apply_entries_with_inline(style : Style, entries : Array(Entry), variables : Hash(String, String), inline : Style?) : Nil
+        entries.sort_by! { |entry| {entry[0], entry[1], entry[2]} }
+        i = 0
+        while i < entries.size && entries[i][0] < TIER_INLINE
+          apply_decls style, entries[i][3], variables
+          i += 1
         end
+        fold_inline style, inline if inline
+        while i < entries.size
+          apply_decls style, entries[i][3], variables
+          i += 1
+        end
+      end
+
+      private def self.apply_decls(style : Style, declarations : Hash(String, String), variables : Hash(String, String)) : Nil
+        declarations.each do |property, value|
+          Properties.apply(style, property, Stylesheet.resolve_var(value, variables))
+        end
+      end
+
+      # Applies geometry/layout declarations (width/height/position/text-align)
+      # onto the widget itself, from *entries* in cascade order (last wins). The
+      # entries are already sorted by the caller.
+      private def self.apply_geometry(widget : Widget, entries : Array(Entry), variables : Hash(String, String)) : Nil
+        entries.each do |entry|
+          entry[3].each do |property, value|
+            Geometry.apply(widget, property, Stylesheet.resolve_var(value, variables)) if Geometry.handles?(property)
+          end
+        end
+      end
+
+      # Folds an inline `@style`'s explicitly-set properties onto *style*.
+      # Nilable colors and the geometry sub-objects carry their own "set"
+      # signal; the text-attribute booleans can only be detected when *true*, so
+      # inline can switch an attribute on but not force it off over a stylesheet.
+      private def self.fold_inline(style : Style, inline : Style) : Nil
+        inline.fg.try { |color| style.fg = color }
+        inline.bg.try { |color| style.bg = color }
+        style.bold = true if inline.bold?
+        style.italic = true if inline.italic?
+        style.underline = true if inline.underline?
+        style.blink = true if inline.blink?
+        style.inverse = true if inline.inverse?
+        inline.alpha.try { |alpha| style.alpha = alpha }
+        style.border = inline.border if inline.border.any?    # ameba:disable Performance/AnyInsteadOfEmpty
+        style.padding = inline.padding if inline.padding.any? # ameba:disable Performance/AnyInsteadOfEmpty
+        style.shadow = inline.shadow if inline.shadow.any?    # ameba:disable Performance/AnyInsteadOfEmpty
       end
 
       # Walks the widget tree, mapping each `data-uid` key (and each sub-element
