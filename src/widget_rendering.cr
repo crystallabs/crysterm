@@ -74,7 +74,16 @@ module Crysterm
         return
       end
 
-      lines = screen.lines
+      # `screen` is `screen?.not_nil!`, which walks the parent chain on every
+      # call; bind it once. `full_unicode?` (which also walks the parent chain
+      # via `screen?`) and `style.alpha?`/`style.padding` are all constant for
+      # the whole render, so hoist them here instead of re-evaluating them in
+      # the per-cell loops below. Mirrors how `Screen#draw` binds `fu` once.
+      scr = screen
+      lines = scr.lines
+      fu = scr.full_unicode?
+      style_alpha = style.alpha?
+      padding = style.padding
       xi = coords.xi
       xl = coords.xl
       yi = coords.yi
@@ -160,8 +169,8 @@ module Crysterm
       # content-drawing loop will skip a few cells/lines.
       # To deal with this, we can just fill the whole thing
       # ahead of time. This could be optimized.
-      if style.padding.any? || !@align.top?
-        if alpha = style.alpha?
+      if padding.any? || !@align.top?
+        if alpha = style_alpha
           (Math.max(yi, 0)...yl).each do |y|
             line = lines[y]?
             unless line
@@ -179,11 +188,11 @@ module Crysterm
             end
           end
         else
-          screen.fill_region(default_attr, bch, xi, xl, yi, yl)
+          scr.fill_region(default_attr, bch, xi, xl, yi, yl)
         end
       end
 
-      p = style.padding
+      p = padding
       xi += p.left
       xl -= p.right
       yi += p.top
@@ -208,7 +217,7 @@ module Crysterm
       (yi...yl).each do |y|
         line = lines[y]?
         unless line
-          if y >= screen.aheight || yl < ibottom
+          if y >= scr.aheight || yl < ibottom
             break
           else
             next
@@ -220,7 +229,7 @@ module Crysterm
           x += 1
           cell = line[x]?
           unless cell
-            if x >= screen.awidth || xl < iright
+            if x >= scr.awidth || xl < iright
               break
             else
               next
@@ -249,7 +258,7 @@ module Crysterm
               # straight out of `content` between the `\e` and the 'm' — no
               # substring. Then advance just past the 'm' (matching the old
               # `ci += c[0].size - 1`, where the match length is `m - (ci-1) + 1`).
-              attr = screen.attr2code(content, ci - 1, m, attr, default_attr)
+              attr = scr.attr2code(content, ci - 1, m, attr, default_attr)
               ci = m + 1
               # Ignore foreground changes for selected items (keep the default
               # foreground while letting the rest of the attr change).
@@ -287,7 +296,7 @@ module Crysterm
               if !cell
                 break
               end
-              if alpha = style.alpha?
+              if alpha = style_alpha
                 cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
                 if content[ci - 1]?
                   cell.char = ch
@@ -322,7 +331,7 @@ module Crysterm
           # default render path.
           grapheme = ""
           cell_width = 1
-          if full_unicode?
+          if fu
             if has_content
               grapheme, ci = extend_grapheme(content, ci, ch)
               cell_width = ::Crysterm::Unicode.width grapheme
@@ -346,13 +355,13 @@ module Crysterm
             next
           end
 
-          if alpha = style.alpha?
+          if alpha = style_alpha
             cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
             if has_content
-              full_unicode? ? (cell.grapheme = grapheme) : (cell.char = ch)
+              fu ? (cell.grapheme = grapheme) : (cell.char = ch)
             end
             line.dirty = true
-          elsif full_unicode?
+          elsif fu
             if cell.attr != attr || !cell.grapheme_eq?(grapheme)
               cell.attr = attr
               cell.grapheme = grapheme
@@ -368,7 +377,7 @@ module Crysterm
 
           # Wide grapheme: claim the following cell as its continuation so the
           # cell grid stays 1 cell == 1 terminal column.
-          if full_unicode? && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
+          if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
             nxt.attr = attr
             nxt.continuation!
             line.dirty = true
@@ -419,7 +428,7 @@ module Crysterm
               if @track
                 ch = style.track.char
                 attr = sattr style.track, style.track.fg, style.track.bg
-                screen.fill_region attr, ch, x, x + 1, yi, yl
+                scr.fill_region attr, ch, x, x + 1, yi, yl
               end
 
               ch = style.scrollbar.char
@@ -444,7 +453,7 @@ module Crysterm
         yl += border.bottom
       end
 
-      p = style.padding
+      p = padding
       xi -= p.left
       xl += p.right
       yi -= p.top
@@ -522,24 +531,24 @@ module Crysterm
         if s.left?
           i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
           l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
-          screen.blend_region s.alpha, xi - s.left, xi, Math.max(i, 0), l
+          scr.blend_region s.alpha, xi - s.left, xi, Math.max(i, 0), l
         end
 
         if s.top?
           l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
-          screen.blend_region s.alpha, Math.max(xi, 0), l, yi - s.top, yi
+          scr.blend_region s.alpha, Math.max(xi, 0), l, yi - s.top, yi
         end
 
         if s.right?
           i = (s.top? || s.left?) ? yi : yi + s.bottom
           l = s.bottom? ? yl + s.bottom : yl
-          screen.blend_region s.alpha, xl, xl + s.right, Math.max(i, 0), l
+          scr.blend_region s.alpha, xl, xl + s.right, Math.max(i, 0), l
         end
 
         if s.bottom?
           i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
           l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
-          screen.blend_region s.alpha, Math.max(i, 0), l, yl, yl + s.bottom
+          scr.blend_region s.alpha, Math.max(i, 0), l, yl, yl + s.bottom
         end
       end
 
