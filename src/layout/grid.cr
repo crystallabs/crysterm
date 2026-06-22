@@ -15,7 +15,7 @@ module Crysterm
     #   layout: Layout::Grid.new(columns: 3, gap: 1)
     # Widget::Box.new parent: g,
     #   layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, col_span: 2)
-    # Widget::Box.new parent: g   # auto-flows into the next free cell
+    # Widget::Box.new parent: g # auto-flows into the next free cell
     # ```
     class Grid < Layout
       class Hint < Layout::Hint

@@ -155,9 +155,9 @@ describe Crysterm::Layout::Form do
 
     coords = render_children s, f
     coords.should eq [
-      {0, 8, 0, 1}, {9, 30, 0, 1},  # row 0: label (w8), field (fills, after gap 1)
-      {0, 8, 1, 2}, {9, 30, 1, 2},  # row 1
-      {0, 30, 2, 3},                # trailing child spans full width
+      {0, 8, 0, 1}, {9, 30, 0, 1}, # row 0: label (w8), field (fills, after gap 1)
+      {0, 8, 1, 2}, {9, 30, 1, 2}, # row 1
+      {0, 30, 2, 3},               # trailing child spans full width
     ]
   end
 end

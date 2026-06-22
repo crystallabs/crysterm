@@ -13,10 +13,10 @@ module Crysterm
     # b = Widget::Box.new parent: screen, width: "100%", height: "100%",
     #   layout: Layout::Border.new
     # Widget::Box.new parent: b, height: 1,
-    #   layout_hint: Layout::Border::Hint.new(:top)     # header
+    #   layout_hint: Layout::Border::Hint.new(:top) # header
     # Widget::Box.new parent: b, width: 20,
-    #   layout_hint: Layout::Border::Hint.new(:left)    # sidebar
-    # Widget::Box.new parent: b                         # center (no hint)
+    #   layout_hint: Layout::Border::Hint.new(:left) # sidebar
+    # Widget::Box.new parent: b                      # center (no hint)
     # ```
     #
     # An edge child must carry a size in the direction it consumes (a `Top`
