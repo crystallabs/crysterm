@@ -4,13 +4,21 @@ require "event_handler"
 
 require "./version"
 require "./macros"
-require "./namespace"
 require "./config"
 require "./unicode"
 require "./event"
 require "./drag"
 require "./helpers"
 require "./colors"
+require "./style/colorizable"
+require "./style/sided_geometry"
+require "./style/border"
+require "./style/padding"
+require "./style/shadow"
+require "./style/style"
+require "./style/styles"
+require "./rendering"
+require "./geometry"
 require "./timer"
 require "./docking"
 require "pnggif"
@@ -49,6 +57,13 @@ require "./widgets"
 # s.exec
 # ```
 module Crysterm
+  # Short, project-wide alias for the "shorthand side" of an enum-valued
+  # argument: a single member shorthand (`Symbol` or `String`), or a collection
+  # of shorthands for `@[Flags]` enums. Used in initializer signatures as e.g.
+  # `Tput::AlignFlag | Shorthands`, with the intended enum listed first.
+  # See `Crystallabs::Helpers::Enums`.
+  alias Shorthands = ::Crystallabs::Helpers::Enums::Shorthands
+
   class GlobalEventsClass
     include EventHandler
   end

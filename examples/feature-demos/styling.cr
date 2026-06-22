@@ -33,8 +33,7 @@ Widget::Box.new \
 Widget::Box.new \
   parent: s, top: 2, left: 28, width: 22, height: 5,
   content: "{center}Solid bg border\n+ even shadow{/center}", parse_tags: true,
-  style: Style.new(fg: "black", bg: "#d0a020", border: Border.new(type: :bg, bg: "#a07010"),
-    shadow: Shadow.new(2, 1, 2, 1))
+  style: Style.new(fg: "black", bg: "#d0a020", border: Border.new(type: :bg, bg: "#a07010"))
 
 # Text attributes via inline tags
 Widget::Box.new \

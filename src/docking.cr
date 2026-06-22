@@ -1,4 +1,11 @@
 module Crysterm
+  # Docking behavior when borders don't have the same color
+  enum DockContrast
+    Ignore   # Just render, colors on adjacent cells will be different
+    DontDock # Do not perform docking (leave default look)
+    Blend    # Blend/mix colors for as smooth a transition as possible
+  end
+
   # Reusable "docking" component.
   #
   # Docking takes the points where line-drawing characters cross or meet

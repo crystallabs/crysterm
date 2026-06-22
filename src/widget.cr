@@ -21,6 +21,19 @@ require "./widget_label"
 require "./widget_cursor"
 
 module Crysterm
+  # States in which a widget can be
+  enum WidgetState
+    Normal
+    Blurred # Blur
+    Focused # Focus
+    Hovered # Hover
+    Selected
+    Disabled # Does not react to keyboard input
+    # XXX Does state Hidden belong here?
+    # Also does 'Unmanaged' belong here, indicating that Crysterm should not be
+    # doing state transitions on it?
+  end
+
   class Widget
     include EventHandler
     include Macros
