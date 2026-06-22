@@ -1,4 +1,5 @@
 require "./input"
+require "../mixin/ranged_value"
 
 module Crysterm
   class Widget
@@ -9,15 +10,14 @@ module Crysterm
     # by `#step`, Page Up/Down by `#page_step`, Home/End jump to the bounds). It
     # emits `Event::ValueChange` whenever the value changes.
     class Slider < Input
+      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
+      # `#increment`/`#decrement`, `Event::ValueChange`).
+      include Mixin::RangedValue
+
       # A slider draws a fixed-size track; it should not shrink to its (empty)
       # content the way an `Input` does by default.
       @resizable = false
 
-      property minimum : Int32 = 0
-      property maximum : Int32 = 100
-
-      # Amount the arrow keys move the value by (Qt `singleStep`).
-      property step : Int32 = 1
       # Amount Page Up/Down move the value by (Qt `pageStep`).
       property page_step : Int32 = 10
 
@@ -29,8 +29,6 @@ module Crysterm
       # Glyph used for the draggable handle and the track.
       property handle_char : Char = '█'
       property track_char : Char = '─'
-
-      @value : Int32 = 0
 
       def initialize(
         value : Int32? = nil,
@@ -50,9 +48,25 @@ module Crysterm
 
         handle Crysterm::Event::KeyPress
 
-        # Click (or drag) along the track to jump the handle to the pointer.
+        # Click *or drag* along the track to move the handle to the pointer. A
+        # press sets the value; while the button stays held, motion events (which
+        # still report the held button) keep updating it, so the handle follows
+        # the drag. A free move (no button) is ignored.
         on(Crysterm::Event::Mouse) do |e|
-          next unless e.action.down?
+          # Wheel nudges the value by one step (up = increase).
+          if e.action.wheel_up?
+            increment
+            e.accept
+            request_render
+            next
+          elsif e.action.wheel_down?
+            decrement
+            e.accept
+            request_render
+            next
+          end
+
+          next unless e.action.down? || (e.action.move? && !e.button.none?)
           if @orientation.horizontal?
             pos = e.x - aleft - ileft
             span_px = awidth - iwidth - 1
@@ -66,31 +80,6 @@ module Crysterm
           e.accept
           request_render
         end
-      end
-
-      private def value_span : Int32
-        Math.max(0, @maximum - @minimum)
-      end
-
-      def value : Int32
-        @value
-      end
-
-      def value=(v : Int32) : Int32
-        v = v.clamp(@minimum, @maximum)
-        return v if v == @value
-        @value = v
-        emit Crysterm::Event::ValueChange, @value
-        request_render
-        @value
-      end
-
-      def increment(by : Int32 = @step)
-        self.value = @value + by
-      end
-
-      def decrement(by : Int32 = @step)
-        self.value = @value - by
       end
 
       # Handle offset (in cells) from the low end of a track `avail` cells long.

@@ -262,3 +262,100 @@ describe "Prompt validation" do
     result.should eq "good"
   end
 end
+
+describe "Dial rendering" do
+  it "draws a compass pointer reflecting the value" do
+    s = render_screen
+    d = Crysterm::Widget::Dial.new parent: s, top: 0, left: 0, width: 7, height: 5,
+      minimum: 0, maximum: 8, value: 0
+    s._render
+    # value 0 -> north pointer somewhere in the dial.
+    s.lines.any? { |line| line.any? { |c| c.char == '↑' } }.should be_true
+
+    d.value = 2 # quarter turn -> east
+    s._render
+    s.lines.any? { |line| line.any? { |c| c.char == '→' } }.should be_true
+  end
+end
+
+describe "Menu submenus" do
+  it "marks, opens on Right, and routes a leaf activation back to the parent" do
+    s = render_screen
+    m = Crysterm::Widget::Menu.new parent: s, top: 0, left: 0, width: 20, height: 8
+    file = Crysterm::Action.new "File"
+    new_a = Crysterm::Action.new "New"
+    file.submenu = [new_a, Crysterm::Action.new("Open")]
+    triggered = false
+    new_a.on(Crysterm::Event::Triggered) { triggered = true }
+    m << file
+    s._render
+
+    m.ritems[0].includes?("▶").should be_true
+
+    m.selekt 0
+    m.on_keypress(Crysterm::Event::KeyPress.new('\0', Tput::Key::Right))
+    s._render
+
+    child = s.focused
+    child.should_not eq m
+    child.is_a?(Crysterm::Widget::Menu).should be_true
+
+    # Activating a leaf in the submenu fires it and closes the chain (focus
+    # returns to the parent menu).
+    child.as(Crysterm::Widget::Menu).activate_selected
+    triggered.should be_true
+    s.focused.should eq m
+  end
+end
+
+describe "wheel implicitly focuses" do
+  it "focuses the widget under the wheel (like a click)" do
+    s = render_screen
+    btn = Crysterm::Widget::Button.new parent: s, top: 0, left: 0, width: 6, height: 1, content: "B"
+    dial = Crysterm::Widget::Dial.new parent: s, top: 2, left: 0, width: 7, height: 3,
+      minimum: 0, maximum: 100, value: 50
+    list = Crysterm::Widget::List.new parent: s, top: 6, left: 0, width: 16, height: 5,
+      items: ["a", "b", "c"]
+    btn.focus
+    s._render
+
+    s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelUp, dial.aleft + 3, dial.atop + 1, ::Tput::Mouse::Button::None)
+    dial.focused?.should be_true
+
+    # Wheeling an item focuses its scrollable list ancestor, not the item.
+    btn.focus
+    s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelDown, list.aleft + 2, list.atop + 1, ::Tput::Mouse::Button::None)
+    list.focused?.should be_true
+  end
+end
+
+describe "CheckBox marker-only click" do
+  it "toggles only when the [ ] marker is clicked, not the text" do
+    s = render_screen
+    cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1,
+      content: "Enable feature"
+    s._render
+    cb.checked?.should be_false
+    # Click on the text label -> no toggle.
+    press s, cb.aleft + 10, cb.atop
+    release s, cb.aleft + 10, cb.atop
+    cb.checked?.should be_false
+    # Click on the marker -> toggles.
+    press s, cb.aleft + 1, cb.atop
+    release s, cb.aleft + 1, cb.atop
+    cb.checked?.should be_true
+  end
+end
+
+describe "Slider mouse wheel" do
+  it "nudges the value by a step" do
+    s = render_screen
+    sl = Crysterm::Widget::Slider.new parent: s, top: 0, left: 0, width: 16, height: 1,
+      minimum: 0, maximum: 100, value: 50
+    s._render
+    s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelUp, sl.aleft + 5, sl.atop, ::Tput::Mouse::Button::None)
+    sl.value.should eq 51
+    s.dispatch_mouse mouse(::Tput::Mouse::Action::WheelDown, sl.aleft + 5, sl.atop, ::Tput::Mouse::Button::None)
+    sl.value.should eq 50
+  end
+end

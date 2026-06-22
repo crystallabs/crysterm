@@ -200,6 +200,17 @@ module Crysterm
 
       return unless w
 
+      # A wheel acting on a widget implicitly focuses it, matching GUI toolkits.
+      # Done before the widget is offered the event below, so it applies even when
+      # the widget consumes the wheel itself (e.g. a `Dial`/`SpinBox`/`Slider`) and
+      # to the focusable scrollable ancestor of an item (e.g. a `List`).
+      if ev.action.wheel_up? || ev.action.wheel_down?
+        if target = focusable_at w
+          target.focus
+          render
+        end
+      end
+
       me = ::Crysterm::Event::Mouse.new ev
       w.emit me
       return if me.accepted?
@@ -219,6 +230,17 @@ module Crysterm
       elsif ev.action.wheel_down?
         scroll_under w, 1
       end
+    end
+
+    # The nearest widget at or above *w* that can take focus by pointer (it is
+    # `keyable?` and has not opted out via `focus_on_click?`), or `nil` if none.
+    # Used to resolve which widget a click/wheel implicitly focuses.
+    private def focusable_at(w : Widget) : Widget?
+      el : Widget? = w
+      while el && !(el.focus_on_click? && el.keyable?)
+        el = el.parent
+      end
+      el
     end
 
     # Scrolls the first scrollable widget at or above *w* by *offset* lines and
@@ -274,7 +296,12 @@ module Crysterm
         # The transient drag ghost is decorative and must never be a drop target.
         next if (g = @_drag_ghost) && el == g
         next unless el.wants_mouse?
-        next unless el.visible?
+        # `#visible?` only reflects the widget's own flag, not its ancestors' — so
+        # a "shown" widget inside a hidden container (e.g. a page of a tab that is
+        # not the current one) would otherwise still be hit-tested and could
+        # intercept clicks meant for the visible content at the same coordinates.
+        # Require the whole chain to be visible.
+        next unless displayed_in_tree? el
 
         left = el.aleft
         top = el.atop
@@ -284,6 +311,15 @@ module Crysterm
         found = el
       end
       found
+    end
+
+    # Whether *el* and every ancestor up the parent chain are visible — i.e. the
+    # widget is actually on screen, not merely flagged visible while sitting in a
+    # hidden container.
+    private def displayed_in_tree?(el : Widget) : Bool
+      shown = true
+      el.self_and_each_ancestor { |a| shown = false unless a.style.visible? }
+      shown
     end
 
     # Registers *el* as a widget that wants to receive mouse input. Mirrors

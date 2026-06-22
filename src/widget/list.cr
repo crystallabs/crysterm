@@ -11,6 +11,10 @@ module Crysterm
       property ritems = [] of String
       property selected = 0
 
+      # When true, a single mouse click on an item activates it (rather than the
+      # default two-click select-then-activate). Set by `Widget::Menu`.
+      property? activate_on_click : Bool = false
+
       # Whether more than one item can be selected at once, like Qt's
       # `QAbstractItemView::MultiSelection`. When on, Space toggles the current
       # item's membership in `#selected_indices` (the cursor still moves with the
@@ -165,12 +169,13 @@ module Crysterm
         # XXX above: alpha
 
         if mouse?
-          # Click selects the item; clicking the already-selected one activates
-          # it (emits the action), mirroring Blessed.
+          # By default a click selects the item and clicking the already-selected
+          # one activates it (Blessed-style two-click). With `#activate_on_click?`
+          # (used by menus) a single click both selects and activates.
           item.on(::Crysterm::Event::Click) do
             if i = @items.index item
               focus
-              if i == @selected
+              if activate_on_click? || i == @selected
                 enter_selected i
               else
                 selekt i

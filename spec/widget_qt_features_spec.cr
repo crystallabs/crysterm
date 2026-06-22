@@ -547,3 +547,105 @@ describe "ListBar hotkey cleanup" do
     fired.should eq 0
   end
 end
+
+describe Crysterm::Widget::StackedWidget do
+  it "shows exactly one page at a time" do
+    s = qt_mem_screen
+    st = Crysterm::Widget::StackedWidget.new parent: s, width: 30, height: 10
+    p1 = Crysterm::Widget::Box.new content: "1"
+    p2 = Crysterm::Widget::Box.new content: "2"
+    st.add_page p1
+    st.add_page p2
+    st.count.should eq 2
+    st.current_index.should eq 0
+    p1.visible?.should be_true
+    p2.visible?.should be_false
+    st.current = 1
+    st.current_index.should eq 1
+    p2.visible?.should be_true
+    p1.visible?.should be_false
+    st.next_page
+    st.current_index.should eq 0
+  end
+end
+
+describe Crysterm::Widget::Dial do
+  it "clamps and steps the value, emitting ValueChange" do
+    s = qt_mem_screen
+    d = Crysterm::Widget::Dial.new parent: s, minimum: 0, maximum: 10, value: 5, width: 6, height: 4
+    changes = [] of Int32
+    d.on(Crysterm::Event::ValueChange) { |e| changes << e.value }
+    d.increment
+    d.value.should eq 6
+    d.value = 999
+    d.value.should eq 10
+    changes.should eq [6, 10]
+  end
+
+  it "wraps around the bounds when enabled" do
+    s = qt_mem_screen
+    d = Crysterm::Widget::Dial.new parent: s, minimum: 0, maximum: 3, value: 3, wrap: true, width: 6, height: 4
+    d.increment
+    d.value.should eq 0
+  end
+end
+
+describe "ComboBox editable" do
+  it "filters options by typed text and commits the highlighted match" do
+    s = qt_mem_screen
+    cb = Crysterm::Widget::ComboBox.new parent: s, editable: true,
+      options: ["Apple", "Banana", "Cherry", "Avocado"]
+    cb.on_keypress keypress('a')
+    cb.on_keypress keypress('v')
+    cb.open?.should be_true
+    cb.on_keypress(Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter))
+    cb.value.should eq "Avocado"
+    cb.open?.should be_false
+  end
+
+  it "commits free text when nothing matches" do
+    s = qt_mem_screen
+    cb = Crysterm::Widget::ComboBox.new parent: s, editable: true, options: ["X", "Y"]
+    "zzz".each_char { |c| cb.on_keypress keypress(c) }
+    cb.on_keypress(Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter))
+    cb.value.should eq "zzz"
+  end
+end
+
+describe "Splitter multi-pane" do
+  it "lays out three panes with two dividers" do
+    s = qt_mem_screen
+    sp = Crysterm::Widget::Splitter.new parent: s, width: 31, height: 10
+    a = Crysterm::Widget::Box.new
+    b = Crysterm::Widget::Box.new
+    c = Crysterm::Widget::Box.new
+    sp.add_pane a
+    sp.add_pane b
+    sp.add_pane c
+
+    sp.panes.size.should eq 3
+    sp.dividers.size.should eq 2
+    sp.divider_position(0).should be < sp.divider_position(1)
+    a.width.should eq 9
+    b.width.should eq 9
+    sp.dividers[0].left.should eq 9
+    sp.dividers[1].left.should eq 19
+
+    sp.set_divider_position 0, 5
+    sp.divider_position(0).should eq 5
+    a.width.should eq 5
+  end
+end
+
+describe "ComboBox mouse wheel" do
+  it "cycles the value when wheeled while closed" do
+    s = qt_mem_screen
+    cb = Crysterm::Widget::ComboBox.new parent: s, top: 0, left: 0, width: 16, height: 1,
+      options: ["Red", "Green", "Blue"]
+    cb.value.should eq "Red"
+    s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::WheelDown, ::Tput::Mouse::Button::None, cb.aleft + 2, cb.atop, source: :test))
+    cb.value.should eq "Green"
+    s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::WheelUp, ::Tput::Mouse::Button::None, cb.aleft + 2, cb.atop, source: :test))
+    cb.value.should eq "Red"
+  end
+end

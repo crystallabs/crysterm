@@ -42,8 +42,19 @@ module Crysterm
         handle Crysterm::Event::KeyPress
         handle Crysterm::Event::Focus
         handle Crysterm::Event::Blur
-        # XXX potentially wrap in `if mouse`?
-        handle Crysterm::Event::Click
+
+        # Toggle only when the `[ ]`/`( )` marker itself is clicked, not the text
+        # label. Uses `Mouse` (not `Click`) because only it carries coordinates;
+        # the marker is the three glyphs at the start of the content.
+        on(Crysterm::Event::Mouse) do |e|
+          next unless e.action.down?
+          marker_start = aleft + ileft
+          if e.x >= marker_start && e.x < marker_start + 3
+            toggle
+            request_render
+            e.accept
+          end
+        end
       end
 
       def render
@@ -117,11 +128,6 @@ module Crysterm
           toggle
           request_render
         end
-      end
-
-      def on_click(e)
-        toggle
-        request_render
       end
 
       def on_focus(e)

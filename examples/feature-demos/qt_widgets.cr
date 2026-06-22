@@ -1,15 +1,19 @@
 # FEATURE: Qt-inspired widgets.
 #
-# Showcases six widgets modeled after Qt: a `TabWidget` holding the form, a
-# `GroupBox` whose checkable title enables/disables its contents, and the
-# `ComboBox`, `Slider` and `SpinBox` controls inside it — plus a `Splitter`
-# with a draggable divider on the right. The status bar updates live from the
-# widgets' `Action`/`ValueChange` events.
+# Showcases the Qt-modeled widgets working together:
+#   * TabWidget        — pages "Controls" / "Menu" / "Stack"
+#   * GroupBox         — checkable title disables/enables its contents
+#   * ComboBox         — editable: type to filter the options
+#   * Slider / SpinBox / Dial — value controls that emit events
+#   * Menu             — with nested submenus (File ▶ Recent ▶ …)
+#   * StackedWidget    — auto-cycling pages (no tab bar)
+#   * Splitter         — three panes with draggable dividers
 #
-# Try it: Tab cycles focus; arrows adjust the focused Slider/SpinBox; Enter (or
-# a click) opens the ComboBox; drag the splitter's divider (or focus it and use
-# the arrows); click the GroupBox title to disable/enable the form. Press q to
-# quit.
+# The status bar updates live from the widgets' Action/ValueChange events.
+#
+# Try it: Tab cycles focus; arrows adjust the focused Slider/SpinBox/Dial; type
+# in the ComboBox to filter; in the Menu, Right opens a submenu and Left closes
+# it; drag a splitter divider (or focus it and use the arrows). Press q to quit.
 
 require "../../src/crysterm"
 
@@ -20,83 +24,123 @@ s.show_fps = nil
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
-  content: "{center}Qt-inspired widgets — Tab: focus · arrows: adjust · Enter: combo · q: quit{/center}",
+  content: "{center}Qt-inspired widgets — click a control to focus it · arrows adjust · type filters the combo · q quits{/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#303050")
 
 status = Widget::Box.new \
   parent: s, bottom: 0, left: 0, width: "100%", height: 1,
   style: Style.new(fg: "black", bg: "cyan")
 
-# --- Tabbed form (left) ------------------------------------------------------
+# --- Tabbed area (left) ------------------------------------------------------
 
 tabs = Widget::TabWidget.new \
-  parent: s, top: 2, left: 1, width: 38, height: 18,
+  parent: s, top: 2, left: 1, width: 40, height: 20,
   style: Style.new(border: true)
 
-form = Widget::Box.new
-info = Widget::Box.new parse_tags: true
-tabs.add_tab "Form", form
-tabs.add_tab "Info", info
+controls = Widget::Box.new
+menupage = Widget::Box.new
+stackpage = Widget::Box.new
+tabs.add_tab "Controls", controls
+tabs.add_tab "Menu", menupage
+tabs.add_tab "Stack", stackpage
 
-# A checkable GroupBox; unchecking its title disables the controls inside it.
+# Controls tab: a checkable GroupBox holding the value widgets.
 gb = Widget::GroupBox.new \
-  parent: form, top: 1, left: 1, width: 34, height: 9,
+  parent: controls, top: 1, left: 1, width: 36, height: 12,
   title: "Profile", checkable: true, checked: true,
   style: Style.new(fg: "white", border: true)
 
-Widget::Box.new parent: gb, top: 1, left: 1, width: 8, height: 1, content: "Color:"
-combo = Widget::ComboBox.new \
-  parent: gb, top: 1, left: 9, width: 20, height: 1,
-  options: ["Red", "Green", "Blue", "Cyan", "Magenta"],
-  style: Style.new(fg: "white", bg: "#303030")
-
-Widget::Box.new parent: gb, top: 3, left: 1, width: 8, height: 1, content: "Volume:"
+Widget::Box.new parent: gb, top: 1, left: 1, width: 8, height: 1, content: "Volume:"
 slider = Widget::Slider.new \
-  parent: gb, top: 3, left: 9, width: 20, height: 1,
+  parent: gb, top: 1, left: 9, width: 16, height: 1,
   minimum: 0, maximum: 100, value: 40, show_value: true,
   style: Style.new(fg: "green")
 
-Widget::Box.new parent: gb, top: 5, left: 1, width: 8, height: 1, content: "Count:"
+Widget::Box.new parent: gb, top: 3, left: 1, width: 8, height: 1, content: "Count:"
 spin = Widget::SpinBox.new \
-  parent: gb, top: 5, left: 9, width: 12, height: 1,
+  parent: gb, top: 3, left: 9, width: 12, height: 1,
   minimum: 0, maximum: 10, value: 3, suffix: " items",
   style: Style.new(fg: "yellow")
 
-info.set_content \
-  "{bold}TabWidget{/bold} holds these two pages.\n\n" \
-  "{bold}GroupBox{/bold} groups the controls — click\n" \
-  "its title to disable/enable them.\n\n" \
-  "{bold}ComboBox{/bold}, {bold}Slider{/bold} and {bold}SpinBox{/bold}\n" \
-  "emit events shown in the status bar."
+Widget::Box.new parent: gb, top: 5, left: 1, width: 8, height: 1, content: "Angle:"
+dial = Widget::Dial.new \
+  parent: gb, top: 5, left: 9, width: 7, height: 3,
+  minimum: 0, maximum: 360, value: 90,
+  style: Style.new(fg: "magenta")
 
-# --- Splitter (right) --------------------------------------------------------
+# Color combo placed last so its drop-down opens *below* the other controls
+# (into free space) instead of covering them.
+Widget::Box.new parent: gb, top: 9, left: 1, width: 8, height: 1, content: "Color:"
+combo = Widget::ComboBox.new \
+  parent: gb, top: 9, left: 9, width: 16, height: 1, editable: true,
+  options: ["Red", "Green", "Blue", "Cyan", "Magenta", "Maroon"],
+  style: Style.new(fg: "white", bg: "#303030")
+
+# Menu tab: a menu with nested submenus.
+menu = Widget::Menu.new parent: menupage, top: 1, left: 1, width: 22, height: 10,
+  style: Style.new(fg: "white", border: true)
+
+mk = ->(text : String, msg : String) do
+  a = Action.new text
+  a.on(Event::Triggered) { status.set_content " menu: #{msg}"; s.render }
+  a
+end
+
+recent = Action.new "Recent"
+recent.submenu = [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md")]
+file = Action.new "File"
+file.submenu = [mk.call("New", "new file"), mk.call("Open", "open file"), recent]
+
+wrap = Action.new "Word Wrap"
+wrap.checkable = true
+
+menu << file
+menu.add_separator
+menu << wrap
+menu << mk.call("About", "about")
+
+Widget::Box.new parent: menupage, bottom: 1, left: 1, width: 34, height: 2,
+  content: "Right opens a submenu, Left closes it.", style: Style.new(fg: "#aaaaaa")
+
+# Stack tab: a tab-less StackedWidget that auto-cycles its pages.
+stack = Widget::StackedWidget.new parent: stackpage, top: 1, left: 1, width: 34, height: 12
+{"#2a2a4a" => "Page One", "#2a4a2a" => "Page Two", "#4a2a2a" => "Page Three"}.each do |bg, label|
+  stack.add_page Widget::Box.new(
+    content: "{center}#{label}\n\n(click to flip){/center}", parse_tags: true,
+    style: Style.new(fg: "white", bg: bg))
+end
+
+# --- Three-pane Splitter (right) ---------------------------------------------
 
 split = Widget::Splitter.new \
-  parent: s, top: 2, left: 40, width: 38, height: 18,
-  position: 18, style: Style.new(border: true)
-
-left_pane = Widget::Box.new \
-  content: "{center}Left pane{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#202038")
-right_pane = Widget::Box.new \
-  content: "{center}Right pane{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#382020")
-split.split left_pane, right_pane
+  parent: s, top: 2, left: 42, width: 36, height: 20,
+  style: Style.new(border: true)
+["#202038", "#203828", "#382020"].each_with_index do |bg, i|
+  split.add_pane Widget::Box.new(
+    content: "{center}Pane #{i + 1}{/center}", parse_tags: true,
+    style: Style.new(fg: "white", bg: bg))
+end
 
 # --- Live status from widget events ------------------------------------------
 
 update = -> do
   status.set_content \
-    " color=#{combo.value}   volume=#{slider.value}   count=#{spin.value}   split=#{split.position}"
+    " color=#{combo.value}   volume=#{slider.value}   count=#{spin.value}   angle=#{dial.value}"
   s.render
 end
 
 combo.on(Event::Action) { update.call }
 slider.on(Event::ValueChange) { update.call }
 spin.on(Event::ValueChange) { update.call }
+dial.on(Event::ValueChange) { update.call }
 update.call
 
-# Start with the tab bar focused so Tab/arrows act immediately.
+# Click the stacked pages to flip through them (demonstrates StackedWidget
+# without a background render loop).
+stack.pages.each do |page|
+  page.on(Event::Click) { stack.next_page }
+end
+
 tabs.bar.focus
 
 s.exec

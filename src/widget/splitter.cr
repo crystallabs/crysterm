@@ -2,50 +2,41 @@ require "./box"
 
 module Crysterm
   class Widget
-    # Two-pane container with a draggable divider, modeled after Qt's
+    # Multi-pane container with draggable dividers, modeled after Qt's
     # `QSplitter`.
     #
-    # Holds two child widgets side by side (`:horizontal`) or stacked
-    # (`:vertical`), separated by a one-cell divider. Dragging the divider with
-    # the mouse — or moving it with the arrow keys when it is focused — resizes
-    # the panes; `#position` (the divider offset, in cells) can also be set
-    # programmatically.
+    # Holds any number of child panes laid out side by side (`:horizontal`) or
+    # stacked (`:vertical`), separated by one-cell dividers. Dragging a divider
+    # with the mouse — or moving it with the arrow keys when focused — resizes the
+    # two panes around it; divider offsets can also be set programmatically.
     #
     # ```
-    # sp = Widget::Splitter.new parent: screen, width: 60, height: 20, position: 20
-    # sp.split Widget::Box.new(content: "left"), Widget::Box.new(content: "right")
+    # sp = Widget::Splitter.new parent: screen, width: 60, height: 20
+    # sp.add_pane Widget::Box.new(content: "a")
+    # sp.add_pane Widget::Box.new(content: "b")
+    # sp.add_pane Widget::Box.new(content: "c")
     # ```
+    #
+    # The original two-pane API (`#split`, `#pane1`/`#pane2`, `#divider`,
+    # `#position`) is retained as a convenience over the general one.
     class Splitter < Box
       property orientation : Tput::Orientation = :horizontal
 
-      getter pane1 : Widget?
-      getter pane2 : Widget?
+      # The panes, in order.
+      getter panes = [] of Widget
+      # The dividers (one fewer than `#panes`).
+      getter dividers = [] of Box
 
-      # The divider widget between the two panes.
-      getter! divider : Box
-
-      @position : Int32 = 0
+      # Divider offsets along the split axis, in content cells (sorted
+      # ascending); `#positions[i]` separates pane `i` from pane `i+1`.
+      @positions = [] of Int32
+      @init_position : Int32?
 
       def initialize(@orientation = @orientation, position = nil, **box)
-        @position = position || 0
+        @init_position = position
 
         super **box
 
-        @divider = Box.new(
-          parent: self,
-          draggable: true,
-          keys: true,
-          top: 0,
-          left: 0,
-          width: 1,
-          height: 1,
-          style: Style.new(bg: "white"),
-        )
-
-        wire_divider
-
-        # Lay out once the real size is known (a headless/just-constructed
-        # splitter may not have a usable size yet).
         on(Crysterm::Event::Attach) { relayout }
         on(Crysterm::Event::Resize) { relayout; request_render }
       end
@@ -54,111 +45,220 @@ module Crysterm
         @orientation.horizontal?
       end
 
-      # Assigns the two panes and lays them out.
+      # Two-pane convenience: assigns both panes (and the single divider) at once.
       def split(first : Widget, second : Widget) : self
-        @pane1 = first
-        @pane2 = second
-        append first
-        append second
-        divider.front!
-        @position = default_position if @position < 1
-        layout
+        add_pane first
+        add_pane second
+        if p = @init_position
+          set_divider_position 0, p if p > 0
+        end
         self
       end
 
-      def position : Int32
-        @position
-      end
-
-      # Sets the divider offset (clamped to keep both panes at least one cell)
-      # and re-lays out.
-      def position=(value : Int32) : Int32
-        @position = value.clamp(1, max_position)
-        layout
-        request_render
-        @position
-      end
-
-      # Total span (width or height) along the split axis, falling back to the
-      # configured size when the widget has not been laid out yet.
-      private def total_span : Int32
-        span = horizontal? ? awidth : aheight
-        if span <= 0
-          fallback = horizontal? ? @width : @height
-          span = fallback.as?(Int32) || 0
+      # Appends a pane to the right/bottom, inserting a draggable divider before
+      # it (except for the first pane). Existing dividers are re-evened.
+      def add_pane(widget : Widget) : self
+        unless @panes.empty?
+          idx = @dividers.size
+          div = Box.new(
+            parent: self,
+            draggable: true,
+            keys: true,
+            top: 0, left: 0, width: 1, height: 1,
+            style: Style.new(bg: "white"),
+          )
+          wire_divider div, idx
+          @dividers << div
+          @positions << 0
         end
-        span
+
+        @panes << widget
+        append widget
+        @dividers.each &.front!
+
+        even_positions
+        relayout
+        self
       end
 
-      private def max_position : Int32
-        Math.max(1, total_span - 2)
+      # --- Two-pane compatibility accessors ------------------------------------
+
+      def pane1 : Widget?
+        @panes[0]?
       end
 
-      private def default_position : Int32
-        Math.max(1, total_span // 2)
+      def pane2 : Widget?
+        @panes[1]?
+      end
+
+      # The first divider (raises if there isn't one yet).
+      def divider : Box
+        @dividers.first
+      end
+
+      # Offset of the first divider.
+      def position : Int32
+        @positions[0]? || 0
+      end
+
+      # Sets the first divider's offset.
+      def position=(value : Int32) : Int32
+        set_divider_position 0, value
+        value
+      end
+
+      # --- General divider control ---------------------------------------------
+
+      def divider_position(i : Int) : Int32
+        @positions[i]? || 0
+      end
+
+      # Sets divider *i*'s offset (clamped so neither neighbor pane collapses
+      # below one cell) and re-lays out.
+      def set_divider_position(i : Int, pos : Int) : Nil
+        return unless 0 <= i < @positions.size
+        @positions[i] = clamp_position(i, pos.to_i)
+        relayout
+        request_render
+      end
+
+      # Re-derives the first divider's position from where it currently sits
+      # (compatibility shim used by older callers).
+      def sync_from_divider : Nil
+        div = @dividers[0]?
+        return unless div
+        if horizontal?
+          set_divider_position 0, (div.left.as?(Int32) || @positions[0]? || 0)
+        else
+          set_divider_position 0, (div.top.as?(Int32) || @positions[0]? || 0)
+        end
+      end
+
+      # --- Internals -----------------------------------------------------------
+
+      private def wire_divider(div : Box, i : Int)
+        # Drive the split from the *pointer's* position relative to the splitter's
+        # content origin. The built-in `draggable` reposition also fires and moves
+        # the divider's `left`/`top`, but those are parent-relative while the
+        # pointer is absolute — only correct when the splitter sits at the screen
+        # origin. Using the event coordinates works wherever the splitter is, and
+        # `set_divider_position` → `relayout` snaps the divider back onto its track.
+        div.on(Crysterm::Event::Drag) do |e|
+          if horizontal?
+            set_divider_position i, e.x - aleft - ileft
+          else
+            set_divider_position i, e.y - atop - itop
+          end
+        end
+
+        div.on(Crysterm::Event::KeyPress) do |e|
+          dec = horizontal? ? Tput::Key::Left : Tput::Key::Up
+          inc = horizontal? ? Tput::Key::Right : Tput::Key::Down
+          if e.key == dec
+            set_divider_position i, divider_position(i) - 1
+            e.accept
+          elsif e.key == inc
+            set_divider_position i, divider_position(i) + 1
+            e.accept
+          end
+        end
+      end
+
+      # Span (in content cells) along the split axis, falling back to the
+      # configured size minus insets when not laid out yet.
+      private def total_span : Int32
+        span = horizontal? ? (awidth - iwidth) : (aheight - iheight)
+        if span <= 0
+          configured = (horizontal? ? @width : @height).as?(Int32) || 0
+          span = configured - (horizontal? ? iwidth : iheight)
+        end
+        Math.max(0, span)
+      end
+
+      # Clamps divider *i*'s position so each side keeps at least one cell, given
+      # its neighbors.
+      private def clamp_position(i : Int, pos : Int32) : Int32
+        total = total_span
+        return pos if total <= 0
+        min = i == 0 ? 1 : @positions[i - 1] + 2
+        max = i == @positions.size - 1 ? total - 2 : @positions[i + 1] - 2
+        max = min if max < min
+        pos.clamp(min, max)
+      end
+
+      # Distributes the dividers evenly across the available span.
+      private def even_positions
+        n = @panes.size
+        return if n < 2
+        total = total_span
+        return if total <= 0
+        w = Math.max(1, (total - (n - 1)) // n)
+        @positions = (0...n - 1).map { |i| (i + 1) * w + i }
+        @positions.each_index { |i| @positions[i] = clamp_position(i, @positions[i]) }
       end
 
       private def relayout
-        @position = default_position if @position < 1
-        layout
-      end
+        return if @panes.empty?
+        total = total_span
+        return if total <= 0
+        n = @panes.size
 
-      private def layout
-        a = @pane1
-        b = @pane2
-        return unless a && b
+        even_positions if @positions.size != n - 1
+        @positions.each_index { |i| @positions[i] = clamp_position(i, @positions[i]) }
 
-        pos = @position.clamp(1, max_position)
-        @position = pos
+        @panes.each_with_index do |pane, i|
+          start = i == 0 ? 0 : @positions[i - 1] + 1
+          stop = i == n - 1 ? total : @positions[i]
+          place_pane pane, start, Math.max(1, stop - start), last: i == n - 1
+        end
 
-        if horizontal?
-          a.top = 0; a.left = 0; a.bottom = 0; a.width = pos
-          divider.top = 0; divider.left = pos; divider.bottom = 0; divider.width = 1; divider.height = nil
-          b.top = 0; b.left = pos + 1; b.bottom = 0; b.right = 0; b.width = nil
-        else
-          a.left = 0; a.top = 0; a.right = 0; a.height = pos
-          divider.left = 0; divider.top = pos; divider.right = 0; divider.height = 1; divider.width = nil
-          b.left = 0; b.top = pos + 1; b.right = 0; b.bottom = 0; b.height = nil
+        @dividers.each_with_index do |div, i|
+          place_divider div, @positions[i]
         end
       end
 
-      # Re-derives the split `#position` from where the divider currently sits.
-      # Called after the `draggable` machinery has moved the divider to follow the
-      # pointer; also pins the divider's cross-axis so it can't drift off track.
-      def sync_from_divider : Nil
+      # Lays out a pane between two boundaries. The final pane fills to the far
+      # edge (so it always meets the container border) rather than carrying an
+      # explicit size.
+      private def place_pane(pane : Widget, start : Int32, size : Int32, last : Bool)
         if horizontal?
-          divider.top = 0
-          self.position = (divider.left.as?(Int32) || @position)
-        else
-          divider.left = 0
-          self.position = (divider.top.as?(Int32) || @position)
-        end
-      end
-
-      private def wire_divider
-        # The default `draggable` behavior already moved the divider's left/top to
-        # follow the pointer; translate that into a new split position.
-        divider.on(Crysterm::Event::Drag) { sync_from_divider }
-
-        # Arrow keys resize when the divider is focused.
-        divider.on(Crysterm::Event::KeyPress) do |e|
-          if horizontal?
-            if e.key == Tput::Key::Left
-              self.position = @position - 1
-              e.accept
-            elsif e.key == Tput::Key::Right
-              self.position = @position + 1
-              e.accept
-            end
+          pane.top = 0
+          pane.bottom = 0
+          pane.left = start
+          if last
+            pane.right = 0
+            pane.width = nil
           else
-            if e.key == Tput::Key::Up
-              self.position = @position - 1
-              e.accept
-            elsif e.key == Tput::Key::Down
-              self.position = @position + 1
-              e.accept
-            end
+            pane.right = nil
+            pane.width = size
           end
+        else
+          pane.left = 0
+          pane.right = 0
+          pane.top = start
+          if last
+            pane.bottom = 0
+            pane.height = nil
+          else
+            pane.bottom = nil
+            pane.height = size
+          end
+        end
+      end
+
+      private def place_divider(div : Box, pos : Int32)
+        if horizontal?
+          div.top = 0
+          div.bottom = 0
+          div.left = pos
+          div.width = 1
+          div.height = nil
+        else
+          div.left = 0
+          div.right = 0
+          div.top = pos
+          div.height = 1
+          div.width = nil
         end
       end
     end

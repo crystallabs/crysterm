@@ -40,6 +40,20 @@ module Crysterm
     # (Qt's `QAction#isSeparator`). Created via `Action.separator`.
     property? separator = false
 
+    # Optional child actions forming a submenu (Qt's `QAction#menu`). When set, a
+    # `Widget::Menu` shows this action with a `▶` marker and opens a nested menu
+    # of these actions instead of activating it.
+    property submenu : Array(Action)?
+
+    # Whether this action opens a (non-empty) submenu.
+    def submenu? : Bool
+      if s = @submenu
+        !s.empty?
+      else
+        false
+      end
+    end
+
     # Returns a separator action — a divider that menus/toolbars render as a rule
     # and skip during navigation.
     def self.separator : Action

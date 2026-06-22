@@ -40,12 +40,27 @@ module Crysterm
 
         update_label
 
-        handle Crysterm::Event::Click if checkable?
+        if checkable?
+          # Toggle only when the *title* row is clicked (Qt toggles via the group's
+          # checkbox, not the whole area). Toggling on any click in the group made
+          # stray clicks near the controls disable everything. Uses `Mouse` (not
+          # `Click`) because only it carries coordinates.
+          on(Crysterm::Event::Mouse) do |e|
+            next unless e.action.down?
+            # Any click on the title (top-border) row toggles, like clicking a
+            # group-box's title checkbox. Restricting it to the whole row keeps it
+            # easy to hit while still not toggling on clicks down in the content.
+            if e.y == atop && e.x >= aleft && e.x < aleft + awidth
+              toggle
+              e.accept
+            end
+          end
 
-        # A child added to an unchecked group must come up disabled. Children are
-        # appended by the caller *after* construction, so reflect the state onto
-        # each one as it is adopted (not just on toggle).
-        on(Crysterm::Event::Adopt) { apply_enabled } if checkable?
+          # A child added to an unchecked group must come up disabled. Children are
+          # appended by the caller *after* construction, so reflect the state onto
+          # each one as it is adopted (not just on toggle).
+          on(Crysterm::Event::Adopt) { apply_enabled }
+        end
       end
 
       private def label_text : String
@@ -73,10 +88,6 @@ module Crysterm
 
       def toggle
         self.checked = !checked?
-      end
-
-      def on_click(e)
-        toggle if checkable?
       end
 
       # Reflects the checked state onto the children's `state`, so an unchecked
