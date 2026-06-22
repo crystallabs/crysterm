@@ -115,6 +115,19 @@ module Crysterm
         # the two BCE look-ahead/clear scans below.
         line_size = line.size
 
+        # Hoist the rows' backing arrays so the per-cell diff reads the
+        # contiguous `Int64`/`Char` buffers directly via `unsafe_fetch`, instead
+        # of re-running `Indexable#[]` (a bounds check plus a fresh `Cell` handle)
+        # for every `line[x].attr` / `line[x].char`. The new-side reads are bounded
+        # by `line_size == l_attrs.size`, and the old-side reads sit behind the `o[x]?`
+        # guard below, so every `unsafe_fetch` is provably in range. The cells are
+        # mutated in place (`unsafe_put`), so these array references stay valid for
+        # the whole row.
+        l_attrs = line.attrs
+        l_chars = line.chars
+        o_attrs = o.attrs
+        o_chars = o.chars
+
         # ::Log.trace { line } if line.any? &.char.!=(' ')
 
         # Skip if no change in line
@@ -150,9 +163,10 @@ module Crysterm
             next
           end
 
-          # Desired attr code and char
-          desired_attr = line[x].attr
-          desired_char = line[x].char
+          # Desired attr code and char, read straight from the row's backing
+          # arrays (see the hoist above).
+          desired_attr = l_attrs.unsafe_fetch(x)
+          desired_char = l_chars.unsafe_fetch(x)
 
           # Render the artificial cursor.
           if c.artificial? && !c._hidden && (c._state != 0) && (x == tput.cursor.x) && (y == tput.cursor.y)
@@ -271,7 +285,20 @@ module Crysterm
           # printed below — defeating the skip and desyncing the `cuf` run math
           # from the real cursor position.
           if ox = o[x]?
-            if ox == {desired_attr, desired_char}
+            # Inlined, allocation-free form of `ox == {desired_attr,
+            # desired_char}` (see `Cell#==(Tuple)`): read the old cell's attr/char
+            # straight from the backing arrays, and only consult the grapheme
+            # overlay under `full_unicode`. In legacy mode a row never carries an
+            # overlay, so `grapheme_overlay.nil?` is invariably true and skipping
+            # the `@graphemes` lookup is pure win on this per-cell hot path. The
+            # `legacy_cell_eq` flag still forces a miss for A/B benchmarking.
+            # Declared here (not inside the macro `if`) so it stays visible below.
+            unchanged = false
+            {% unless flag?(:legacy_cell_eq) %}
+              unchanged = o_attrs.unsafe_fetch(x) == desired_attr && o_chars.unsafe_fetch(x) == desired_char
+              unchanged &&= ox.grapheme_overlay.nil? if fu
+            {% end %}
+            if unchanged
               if lx == -1
                 lx = x
                 ly = y
