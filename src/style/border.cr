@@ -29,7 +29,40 @@ module Crysterm
     getter bg : Int32?
     getter fg : Int32?
 
+    # Character used to draw a `BorderType::Bg` border. Acts as the fallback for
+    # the three position-specific chars below.
     property char = ' '
+
+    # Position-specific characters for `BorderType::Bg` borders. When unset
+    # (`nil`) each falls back to `char` (see `#horizontal_char`, `#vertical_char`,
+    # `#corner_char`).
+    #
+    # Splitting the char three ways exists because terminal cells typically have
+    # a ~1x2 (width:height) aspect ratio, so a single char drawn along a
+    # horizontal run reads as "doubly wide" compared to the same char stacked
+    # vertically. Setting `char_horizontal`/`char_vertical`/`char_corner`
+    # independently lets the border look uniform: e.g. `─` horizontally, `│`
+    # vertically, and `┼`/`+` where they join.
+    property char_horizontal : Char? = nil
+    property char_vertical : Char? = nil
+    property char_corner : Char? = nil
+
+    # Char to draw on the top/bottom (horizontal) sides. Falls back to `char`.
+    def horizontal_char : Char
+      @char_horizontal || @char
+    end
+
+    # Char to draw on the left/right (vertical) sides. Falls back to `char`.
+    def vertical_char : Char
+      @char_vertical || @char
+    end
+
+    # Char to draw where horizontal and vertical sides join (the corners /
+    # "diagonal" cells). Falls back to `char`.
+    def corner_char : Char
+      @char_corner || @char
+    end
+
     # XXX There is some duplication between style and these 5.
     # They must be present for sattr() to be able to work on the Border object.
     # But on the other hand, it allows these features which do not exist in Blessed.

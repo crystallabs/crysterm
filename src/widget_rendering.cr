@@ -591,7 +591,21 @@ module Crysterm
                end
              end
       elsif border.type.bg?
-        ch = border.char
+        # Pick the char by position so a `Bg` border can use distinct glyphs for
+        # its horizontal sides, vertical sides, and the corners where they join
+        # (see `Border#horizontal_char`/`#vertical_char`/`#corner_char`).
+        on_top = y == yi && border.top > 0
+        on_bottom = y == yl - 1 && border.bottom > 0
+        on_left = x == xi && border.left > 0
+        on_right = x == xl - 1 && border.right > 0
+        ch = if (on_top || on_bottom) && (on_left || on_right)
+               # Cell where a horizontal and a vertical side actually meet.
+               border.corner_char
+             elsif on_top || on_bottom
+               border.horizontal_char
+             else
+               border.vertical_char
+             end
       end
 
       # Note: cells on a 0-width/height side are no longer reached here — the
