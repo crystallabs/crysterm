@@ -150,9 +150,15 @@ module Crysterm
 
         finish = ->(idx : Int32) do
           ev_keys.try { |h| screen.off Crysterm::Event::KeyPress, h }
-          buttons.each &.destroy
+          # Move focus onto a surviving widget *before* destroying the choice
+          # buttons: removing the currently-focused widget would otherwise trigger
+          # a focus rewind mid-teardown (the button is already detached, so its
+          # `screen` is gone). `restore_focus` alone isn't enough — there may be
+          # no saved focus — so anchor on the (now-shown) OK button.
           @ok.show
           @cancel.show
+          @ok.focus
+          buttons.each &.destroy
           hide
           screen.restore_focus
           block.call idx

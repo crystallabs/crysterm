@@ -17,11 +17,17 @@ module Crysterm
       # XXX Same fixes here and in Question element.
       # Actually OK/Cancel buttons need to be imported from Question.
 
-      @textinput = TextBox.new(
+      # The text entry field (Qt's `QInputDialog` line edit). Exposed so callers
+      # can configure echo mode / placeholder directly, and for testing.
+      getter textinput = TextBox.new(
         top: 3,
         height: 1,
         left: 2,
         right: 2,
+        # The prompt drives reading explicitly via `#read_input`; leaving
+        # `input_on_focus` on would auto-start a read (with no callback) the
+        # moment the field is focused, swallowing the real read's callback.
+        input_on_focus: false,
       )
 
       @ok = Button.new(

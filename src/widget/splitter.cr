@@ -122,19 +122,23 @@ module Crysterm
         end
       end
 
+      # Re-derives the split `#position` from where the divider currently sits.
+      # Called after the `draggable` machinery has moved the divider to follow the
+      # pointer; also pins the divider's cross-axis so it can't drift off track.
+      def sync_from_divider : Nil
+        if horizontal?
+          divider.top = 0
+          self.position = (divider.left.as?(Int32) || @position)
+        else
+          divider.left = 0
+          self.position = (divider.top.as?(Int32) || @position)
+        end
+      end
+
       private def wire_divider
         # The default `draggable` behavior already moved the divider's left/top to
-        # follow the pointer; translate that into a new split position (and pin
-        # the cross-axis so the divider can't drift off its track).
-        divider.on(Crysterm::Event::Drag) do
-          if horizontal?
-            divider.top = 0
-            self.position = (divider.left.as?(Int32) || @position)
-          else
-            divider.left = 0
-            self.position = (divider.top.as?(Int32) || @position)
-          end
-        end
+        # follow the pointer; translate that into a new split position.
+        divider.on(Crysterm::Event::Drag) { sync_from_divider }
 
         # Arrow keys resize when the divider is focused.
         divider.on(Crysterm::Event::KeyPress) do |e|

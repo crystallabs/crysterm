@@ -86,10 +86,26 @@ module Crysterm
 
       # Resolves the `Style` an item box should render with. This is the single
       # entry point called from `Widget#_render`; subclasses (e.g.
-      # `Widget::ListTable`, for alternating rows) override it. By default it
-      # just maps "is this item visually selected?" onto `#item_render_style`.
+      # `Widget::ListTable`, for alternating rows) override it.
+      #
+      # The cursor item gets the full `selected` highlight. In `#multi_select?`
+      # mode the *other* checked items are underlined so they read as selected
+      # without being confused with the cursor (Qt shows the current item and the
+      # selected set distinctly).
       def render_style_for(item : Widget) : Style
-        item_render_style item_selected?(item)
+        i = @items.index item
+
+        if i == @selected
+          return item_render_style(true)
+        end
+
+        if multi_select? && i && @selected_indices.includes?(i)
+          marked = item_render_style(false).dup
+          marked.underline = true
+          return marked
+        end
+
+        item_render_style false
       end
 
       # Whether *item* should render in the selected style: it is the cursor

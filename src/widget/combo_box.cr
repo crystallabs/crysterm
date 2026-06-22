@@ -26,6 +26,21 @@ module Crysterm
         def cancel_selected
           combo.try &.dismiss
         end
+
+        # A *single* click on any row commits it (a plain `List` would only
+        # select on the first click and commit on the second). We add our own
+        # click handler on top of the one `List#create_item` installs.
+        def create_item(*args, **opts)
+          item = super
+          if mouse?
+            item.on(::Crysterm::Event::Click) do
+              if i = @items.index item
+                combo.try &.commit i
+              end
+            end
+          end
+          item
+        end
       end
 
       # `getter` (not `property`): the custom `options=` below clamps the
@@ -41,6 +56,9 @@ module Crysterm
 
       @open = false
       @popup : Popup?
+      # Screen-level handler (active only while open) that closes the popup when
+      # the user clicks outside it.
+      @ev_outside : Crysterm::Event::Mouse::Wrapper?
 
       def initialize(options : Enumerable(String) = [] of String, selected = 0, **input)
         @options = options.to_a
@@ -84,6 +102,15 @@ module Crysterm
         pop.show
         pop.front!
         pop.focus
+
+        # Dismiss when the user clicks anywhere outside the popup (and outside the
+        # combo itself, whose own click toggles).
+        @ev_outside = screen.on(Crysterm::Event::Mouse) do |e|
+          if e.action.down? && (p = @popup)
+            dismiss unless point_in?(p, e.x, e.y) || point_in?(self, e.x, e.y)
+          end
+        end
+
         request_render
       end
 
@@ -91,9 +118,21 @@ module Crysterm
       def close
         return unless @open
         @open = false
+        @ev_outside.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
+        @ev_outside = nil
         @popup.try &.hide
         focus
         request_render
+      end
+
+      # Whether the absolute point (*x*, *y*) lies within *widget*'s last
+      # rendered box. False if the widget has not been laid out yet.
+      private def point_in?(widget : Widget, x : Int32, y : Int32) : Bool
+        l = widget.aleft
+        t = widget.atop
+        l <= x < l + widget.awidth && t <= y < t + widget.aheight
+      rescue
+        false
       end
 
       def toggle
