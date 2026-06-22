@@ -19,7 +19,7 @@ describe "CSS cascade" do
     button = Widget::Button.new
     screen.append button
 
-    screen.stylesheet = ".w-button { color: red; background-color: blue; font-weight: bold; }"
+    screen.stylesheet = "Button { color: red; background-color: blue; font-weight: bold; }"
     screen.apply_stylesheet
 
     button.styles.normal.fg.should eq rgb("red")
@@ -33,8 +33,8 @@ describe "CSS cascade" do
     screen.append button
 
     screen.stylesheet = <<-CSS
-      .w-button { color: red; font-weight: bold; }
-      .w-button:focus { color: green; }
+      Button { color: red; font-weight: bold; }
+      Button:focus { color: green; }
     CSS
     screen.apply_stylesheet
 
@@ -53,7 +53,7 @@ describe "CSS cascade" do
     screen.append button
     screen.append check
 
-    screen.stylesheet = ".w-input { color: magenta; }"
+    screen.stylesheet = "Input { color: magenta; }"
     screen.apply_stylesheet
 
     button.styles.normal.fg.should eq rgb("magenta")
@@ -67,7 +67,7 @@ describe "CSS cascade" do
     screen.append button
 
     screen.stylesheet = <<-CSS
-      .w-button { color: red; }
+      Button { color: red; }
       #ok { color: blue; }
     CSS
     screen.apply_stylesheet
@@ -82,7 +82,7 @@ describe "CSS cascade" do
     form.append inner
     screen.append form
 
-    screen.stylesheet = ".w-form { color: yellow; }"
+    screen.stylesheet = "Form { color: yellow; }"
     screen.apply_stylesheet
 
     form.styles.normal.fg.should eq rgb("yellow")
@@ -97,8 +97,8 @@ describe "CSS cascade" do
     screen.append form
 
     screen.stylesheet = <<-CSS
-      .w-form { color: yellow; }
-      .w-box { color: red; }
+      Form { color: yellow; }
+      Box { color: red; }
     CSS
     screen.apply_stylesheet
 
@@ -112,8 +112,8 @@ describe "CSS cascade" do
     screen.append box
 
     screen.stylesheet = <<-CSS
-      .w-box { color: white; }
-      .w-scrollbar { color: cyan; }
+      Box { color: white; }
+      Scrollbar { color: cyan; }
     CSS
     screen.apply_stylesheet
 
@@ -126,7 +126,7 @@ describe "CSS cascade" do
     box = Widget::Box.new
     screen.append box
 
-    screen.stylesheet = ".w-box { padding: 1 2 3 4; border: solid red; }"
+    screen.stylesheet = "Box { padding: 1 2 3 4; border: solid red; }"
     screen.apply_stylesheet
 
     pad = box.styles.normal.padding
@@ -148,7 +148,7 @@ describe "CSS cascade" do
     screen.append stateful
 
     screen.stylesheet = <<-CSS
-      .w-button { color: red; }
+      Button { color: red; }
       #b:focus { color: green; }
     CSS
     screen.apply_stylesheet
@@ -166,10 +166,10 @@ describe "CSS cascade" do
     button = Widget::Button.new
     screen.append button
 
-    screen.stylesheet = ".w-button:blurred { color: red; }"
+    screen.stylesheet = "Button:blurred { color: red; }"
     screen.apply_stylesheet
 
-    # The selector must peel to `.w-button` (not be corrupted to `.w-buttonred`
+    # The selector must peel to `Button` (not be corrupted to `Buttonred`
     # by stripping the shorter `:blur`), so the rule matches in the blurred state.
     button.styles.blurred.fg.should eq rgb("red")
   end
@@ -179,7 +179,7 @@ describe "CSS cascade" do
     box = Widget::Box.new
     screen.append box
 
-    screen.stylesheet = ".w-box { opacity: 0.5; tab-size: 8; box-shadow: 0.3; }"
+    screen.stylesheet = "Box { opacity: 0.5; tab-size: 8; box-shadow: 0.3; }"
     screen.apply_stylesheet
 
     style = box.styles.normal
@@ -194,7 +194,7 @@ describe "CSS cascade" do
     box = Widget::Box.new
     screen.append box
 
-    screen.stylesheet = ".w-box { box-shadow: none; }"
+    screen.stylesheet = "Box { box-shadow: none; }"
     screen.apply_stylesheet
 
     box.styles.normal.shadow.right.should eq 0 # no shadow on any side
@@ -207,7 +207,7 @@ describe "CSS cascade" do
     screen.append on
     screen.append off
 
-    screen.stylesheet = ".w-checkbox[checked] { color: red; }"
+    screen.stylesheet = "CheckBox[checked] { color: red; }"
     screen.apply_stylesheet
 
     on.styles.normal.fg.should eq rgb("red")
@@ -218,7 +218,7 @@ describe "CSS cascade" do
     screen = headless_screen
     cb = Widget::CheckBox.new
     screen.append cb
-    screen.stylesheet = ".w-checkbox[checked] { color: red; }"
+    screen.stylesheet = "CheckBox[checked] { color: red; }"
     screen.apply_stylesheet
     screen.css_dirty?.should be_false
 
@@ -251,6 +251,22 @@ describe "CSS cascade" do
     screen.css_dirty?.should be_false
     Widget::Box.new parent: screen # appending a widget re-dirties
     screen.css_dirty?.should be_true
+  end
+
+  it "supports sibling combinators and type-name selectors" do
+    screen = headless_screen
+    a = Widget::Box.new
+    b = Widget::Button.new
+    screen.append a
+    screen.append b
+
+    # `Box + Button` (type names + adjacent-sibling combinator) is rewritten to
+    # `.Box + .Button` and matched against the document.
+    screen.stylesheet = "Box + Button { color: red; }"
+    screen.apply_stylesheet
+
+    b.styles.normal.fg.should eq rgb("red")
+    a.styles.normal.fg.should be_nil # the Box is the sibling, not the subject
   end
 
   it "leaves widgets untouched when no stylesheet is set" do

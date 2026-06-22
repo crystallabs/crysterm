@@ -5,12 +5,14 @@ module Crysterm
     #
     # A widget exposes three kinds of selector-matchable identity:
     #
-    # * **Type classes** (`#css_type_classes`) — derived automatically from the
-    #   widget's class hierarchy. A `Widget::Button` yields
-    #   `["w-button", "w-input", "w-box", "w-widget"]`, so a rule like
-    #   `.w-input { ... }` matches `Button` and every other `Input` subclass.
-    #   These are computed at compile time (see the `inherited` hook) and never
-    #   change at runtime.
+    # * **Type names** (`#css_type_classes`) — the widget's class-hierarchy
+    #   names, derived automatically. A `Widget::Button` yields
+    #   `["Button", "Input", "Box", "Widget"]`. These are emitted as element
+    #   classes, and the stylesheet parser rewrites a bare type selector like
+    #   `Input` into the class selector `.Input` — so `Input { ... }` matches
+    #   `Button` and every other `Input` subclass (Qt-style base matching),
+    #   while the exact widget name is what the user writes. Computed at compile
+    #   time (see the `inherited` hook); never changes at runtime.
     # * **User classes** (`#css_classes`) — an arbitrary, mutable set the user
     #   assigns, matched by `.name` selectors just like HTML classes.
     # * **CSS id** (`#css_id`) — an optional, user-facing, *semantic* id matched
@@ -26,7 +28,7 @@ module Crysterm
         # leaf is lowercased into a `w-`-prefixed token.
         macro inherited
           def css_type_classes : Array(String)
-            \{{ ([@type] + @type.ancestors).select(&.<=(::Crysterm::Widget)).map { |t| "w-" + t.name.split("::").last.downcase }.uniq }}
+            \{{ ([@type] + @type.ancestors).select(&.<=(::Crysterm::Widget)).map { |t| t.name.split("::").last }.uniq }}
           end
         end
       end
@@ -70,7 +72,7 @@ module Crysterm
       # Base implementation for `Widget` itself. Subclasses override this via the
       # `inherited` hook above with their own full type chain.
       def css_type_classes : Array(String)
-        ["w-widget"]
+        ["Widget"]
       end
 
       # The complete class list emitted for this widget in the CSS document:

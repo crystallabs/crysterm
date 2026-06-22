@@ -68,9 +68,12 @@ module Crysterm
           prelude.split(',').each do |raw|
             selector = raw.strip
             next if selector.empty?
-            spec = specificity(selector)
+            # Specificity is computed from the *original* selector (so a type
+            # selector counts as a type), then types are rewritten to classes
+            # for matching against the class-based document.
+            spec = Specificity.calculate(selector)
             state, structural = peel_state(selector)
-            rules << Rule.new(structural, declarations, state, spec, order)
+            rules << Rule.new(Selectors.expand_types(structural), declarations, state, spec, order)
             order += 1
           end
         end
@@ -113,15 +116,6 @@ module Crysterm
           end
         end
         {nil, selector}
-      end
-
-      # Computes specificity from the raw selector by counting id (`#`),
-      # class/attribute/pseudo (`.`, `[`, `:`) tokens. Type selectors are
-      # expressed as classes here, so the type count stays 0.
-      private def self.specificity(selector : String) : Tuple(Int32, Int32, Int32)
-        ids = selector.count('#')
-        classes = selector.count('.') + selector.count('[') + selector.count(':')
-        {ids, classes, 0}
       end
     end
   end

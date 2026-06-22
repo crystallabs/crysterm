@@ -13,17 +13,17 @@ private def uid_of(node)
 end
 
 describe "CSS (#to_html)" do
-  it "derives the type-chain classes from the widget hierarchy" do
+  it "derives the type-chain names from the widget hierarchy" do
     # Button < Input < Box < Widget
-    Widget::Button.new.css_type_classes.should eq ["w-button", "w-input", "w-box", "w-widget"]
-    Widget::Box.new.css_type_classes.should eq ["w-box", "w-widget"]
-    Widget.new.css_type_classes.should eq ["w-widget"]
+    Widget::Button.new.css_type_classes.should eq ["Button", "Input", "Box", "Widget"]
+    Widget::Box.new.css_type_classes.should eq ["Box", "Widget"]
+    Widget.new.css_type_classes.should eq ["Widget"]
   end
 
   it "appends user classes after the type chain" do
     w = Widget::Box.new
     w.css_classes << "danger"
-    w.css_all_classes.should eq ["w-box", "w-widget", "danger"]
+    w.css_all_classes.should eq ["Box", "Widget", "danger"]
   end
 
   it "emits uid as data-uid and the optional css_id as id" do
@@ -32,7 +32,8 @@ describe "CSS (#to_html)" do
     html = w.to_html
     html.should contain %(data-uid="#{w.uid}")
     html.should contain %(id="main")
-    html.should start_with "<w-box"
+    html.should contain %(class="Box Widget")
+    html.should start_with "<box"
   end
 
   it "omits id when css_id is unset" do
@@ -48,15 +49,15 @@ describe "CSS (#to_html)" do
 
     doc = HTML5.parse(form.to_html)
 
-    # type-chain selector matches every Input subclass
-    inputs = doc.css(".w-input").to_a
+    # type name (emitted as a class) matches every Input subclass
+    inputs = doc.css(".Input").to_a
     inputs.map { |node| uid_of node }.to_set.should eq [button.uid.to_s, check.uid.to_s].to_set
 
     # exact leaf type
-    doc.css(".w-button").map { |node| uid_of node }.to_a.should eq [button.uid.to_s]
+    doc.css(".Button").map { |node| uid_of node }.to_a.should eq [button.uid.to_s]
 
     # descendant combinator + writeback key resolves to the right widget
-    matched = doc.css(".w-form .w-checkbox").to_a
+    matched = doc.css(".Form .CheckBox").to_a
     matched.size.should eq 1
     uid_of(matched.first).should eq check.uid.to_s
   end

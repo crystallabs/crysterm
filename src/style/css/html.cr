@@ -44,10 +44,11 @@ module Crysterm
     # Level 3 has no text-matching selectors, so it is unneeded (and avoids
     # escaping user content).
     def to_html(io : IO) : Nil
-      # The class list starts with the type chain, so its first entry is the
-      # leaf type class — reuse it as the tag rather than recomputing.
+      # Matching is by class (the type chain is emitted as classes, and the
+      # parser rewrites type selectors to class selectors), so the tag name is
+      # cosmetic. Use the lowercased leaf type for a valid, readable tag.
       classes = css_all_classes
-      tag = classes.first
+      tag = classes.first.downcase
       io << '<' << tag
       io << " data-uid=\"" << uid << '"'
       if id = css_id
@@ -61,11 +62,12 @@ module Crysterm
       io << '>'
       # Sub-element pseudo-nodes (scrollbar, track, ...) carry a `uid::slot`
       # writeback key so the cascade can route their computed style into the
-      # matching sub-`Style`. Emitted inside the element so descendant/child
-      # combinators (e.g. `.w-list > .w-scrollbar`) work.
+      # matching sub-`Style`. Each is classed with the capitalized slot name
+      # (e.g. `Scrollbar`), so `Scrollbar { ... }` (or `Box Scrollbar { ... }`)
+      # styles it. Emitted inside the element so combinators work.
       css_sub_elements.each do |slot|
-        io << "<w-" << slot << " data-uid=\"" << uid << "::" << slot << '"'
-        io << " class=\"w-" << slot << "\"></w-" << slot << '>'
+        io << '<' << slot << " data-uid=\"" << uid << "::" << slot << '"'
+        io << " class=\"" << slot.capitalize << "\"></" << slot << '>'
       end
       children.each &.to_html(io)
       io << "</" << tag << '>'

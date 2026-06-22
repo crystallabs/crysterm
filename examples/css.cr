@@ -4,8 +4,8 @@ require "../src/crysterm"
 #
 # The same look as `hello.cr`, but the colors/border come from a stylesheet
 # matched against the widget tree. Note:
-#   * `.w-box` matches every Box (the type-chain class);
-#   * `.w-button` + `:focus` restyle the button when focused (press Tab);
+#   * `Box` matches every Box and its subclasses (widget name as selector);
+#   * `Button` + `:focus` restyle the button when focused (press Tab);
 #   * `#hello` targets a specific widget by its `css_id`.
 class MyProg
   include Crysterm
@@ -13,7 +13,7 @@ class MyProg
   s = Screen.new title: "CSS demo"
 
   s.stylesheet = <<-CSS
-    .w-box {
+    Box {
       color: white;
       background-color: #222244;
     }
@@ -22,12 +22,12 @@ class MyProg
       background-color: blue;
       border: solid cyan;
     }
-    .w-button {
+    Button {
       color: black;
       background-color: gray;
       border: solid white;
     }
-    .w-button:focus {
+    Button:focus {
       background-color: green;
       font-weight: bold;
     }
