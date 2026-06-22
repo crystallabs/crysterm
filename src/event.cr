@@ -161,6 +161,13 @@ module Crysterm
     # NOTE In Blessed, this is called `log` and `Widget::Log`. It's been renamed
     # in Crysterm not to conflict with `Log` coming from logger.
 
+    # Emitted by `Widget::Tree` when a node is expanded or collapsed. `index` is
+    # the node's visible row at the time of the change. Mirror Qt's
+    # `QTreeView#expanded`/`#collapsed` signals.
+    event Expand, index : Int32
+    # :ditto:
+    event Collapse, index : Int32
+
     # Emitted on selection of an item in list
     event SelectItem, item : Widget::Box, index : Int32
 

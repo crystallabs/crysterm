@@ -20,6 +20,7 @@ module Crysterm
     ListTable   = Widget::ListTable
     ListBar     = Widget::ListBar
     List        = Widget::List
+    Tree        = Widget::Tree
     Table       = Widget::Table
     Form        = Widget::Form
     FileManager = Widget::FileManager

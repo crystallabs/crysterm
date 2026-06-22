@@ -637,6 +637,81 @@ describe "Splitter multi-pane" do
   end
 end
 
+describe Crysterm::Widget::Tree do
+  it "flattens only expanded nodes into rows, indented by depth" do
+    s = qt_mem_screen
+    tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
+    src = tree.add "src"
+    src.add "widget"
+    src.add "layout"
+    tree.add "README.md"
+
+    # Collapsed by default: only the two top-level nodes show.
+    tree.nodes.map(&.text).should eq ["src", "README.md"]
+    tree.ritems.first.should eq "\u{25b8} src" # ▸ collapsed marker
+
+    tree.expand src
+    tree.nodes.map(&.text).should eq ["src", "widget", "layout", "README.md"]
+    tree.ritems.first.should eq "\u{25be} src" # ▾ expanded marker
+    # depth-1 (2-space) indent + leaf marker (space) + separator space:
+    tree.ritems[1].should eq "    widget"
+
+    tree.collapse src
+    tree.nodes.map(&.text).should eq ["src", "README.md"]
+  end
+
+  it "emits Expand/Collapse and keeps the cursor on the same node" do
+    s = qt_mem_screen
+    tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
+    a = tree.add "a"
+    a.add "a1"
+    b = tree.add "b"
+
+    expanded = [] of Int32
+    collapsed = [] of Int32
+    tree.on(Crysterm::Event::Expand) { |e| expanded << e.index }
+    tree.on(Crysterm::Event::Collapse) { |e| collapsed << e.index }
+
+    tree.selekt 1 # cursor on "b"
+    tree.expand a # inserts "a1" above "b"; cursor should follow "b"
+    tree.selected_node.should be(b)
+    expanded.should eq [0]
+
+    tree.collapse a
+    collapsed.should eq [0]
+  end
+
+  it "navigates with Right/Left/Space" do
+    s = qt_mem_screen
+    tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
+    root = tree.add "root"
+    child = root.add "child"
+
+    tree.selekt 0
+    tree.on_keypress keypress('\0', Tput::Key::Right) # expand
+    root.expanded?.should be_true
+    tree.on_keypress keypress('\0', Tput::Key::Right) # descend into child
+    tree.selected_node.should be(child)
+    tree.on_keypress keypress('\0', Tput::Key::Left) # leaf -> jump to parent
+    tree.selected_node.should be(root)
+    tree.on_keypress keypress(' ') # space toggles -> collapse
+    root.expanded?.should be_false
+  end
+
+  it "expand_all / collapse_all walk the whole hierarchy" do
+    s = qt_mem_screen
+    tree = Crysterm::Widget::Tree.new parent: s, width: 30, height: 12
+    a = tree.add "a"
+    b = a.add "b"
+    b.add "c"
+
+    tree.expand_all
+    tree.nodes.map(&.text).should eq ["a", "b", "c"]
+    tree.collapse_all
+    tree.nodes.map(&.text).should eq ["a"]
+  end
+end
+
 describe "ComboBox mouse wheel" do
   it "cycles the value when wheeled while closed" do
     s = qt_mem_screen

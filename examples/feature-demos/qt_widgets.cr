@@ -1,8 +1,9 @@
 # FEATURE: Qt-inspired widgets.
 #
 # Showcases the Qt-modeled widgets working together:
-#   * TabWidget        — pages "Controls" / "Menu" / "Stack"
+#   * TabWidget        — pages "Controls" / "Menu" / "Tree" / "Stack"
 #   * GroupBox         — checkable title disables/enables its contents
+#   * Tree             — collapsible node hierarchy (Right/Left expand/collapse)
 #   * ComboBox         — editable: type to filter the options
 #   * Slider / SpinBox / Dial — value controls that emit events
 #   * Menu             — with nested submenus (File ▶ Recent ▶ …)
@@ -39,9 +40,11 @@ tabs = Widget::TabWidget.new \
 
 controls = Widget::Box.new
 menupage = Widget::Box.new
+treepage = Widget::Box.new
 stackpage = Widget::Box.new
 tabs.add_tab "Controls", controls
 tabs.add_tab "Menu", menupage
+tabs.add_tab "Tree", treepage
 tabs.add_tab "Stack", stackpage
 
 # Controls tab: a checkable GroupBox holding the value widgets.
@@ -101,6 +104,26 @@ menu << mk.call("About", "about")
 
 Widget::Box.new parent: menupage, bottom: 1, left: 1, width: 34, height: 2,
   content: "Right opens a submenu, Left closes it.", style: Style.new(fg: "#aaaaaa")
+
+# Tree tab: a collapsible node hierarchy.
+tree = Widget::Tree.new parent: treepage, top: 1, left: 1, width: 34, height: 11,
+  style: Style.new(fg: "white", border: true)
+src = tree.add "src"
+wdir = src.add "widget"
+wdir.add "tree.cr"
+wdir.add "slider.cr"
+src.add "layout"
+docs = tree.add "docs"
+docs.add "README.md"
+tree.add "shard.yml"
+tree.expand src # show "src" expanded to start
+
+tree.on(Event::SelectItem) { status.set_content " tree: #{tree.selected_node.try(&.text)}"; s.render }
+tree.on(Event::Expand) { status.set_content " tree: expanded #{tree.selected_node.try(&.text)}"; s.render }
+tree.on(Event::Collapse) { status.set_content " tree: collapsed #{tree.selected_node.try(&.text)}"; s.render }
+
+Widget::Box.new parent: treepage, bottom: 1, left: 1, width: 34, height: 2,
+  content: "Right/Left or Space expand/collapse nodes.", style: Style.new(fg: "#aaaaaa")
 
 # Stack tab: a tab-less StackedWidget that auto-cycles its pages.
 stack = Widget::StackedWidget.new parent: stackpage, top: 1, left: 1, width: 34, height: 12
