@@ -14,10 +14,10 @@ describe "Screen#fill_region / #blend_region" do
     s = headless_screen
     s.fill_region 7_i64, 'X', 1, 4, 0, 1, override: true
 
-    s.lines[0][0].char.should eq ' '  # left of region, untouched
+    s.lines[0][0].char.should eq ' ' # left of region, untouched
     s.lines[0][1].char.should eq 'X'
     s.lines[0][3].char.should eq 'X'
-    s.lines[0][4].char.should eq ' '  # xl is exclusive
+    s.lines[0][4].char.should eq ' ' # xl is exclusive
     s.lines[0][1].attr.should eq 7_i64
     s.lines[0].dirty.should be_true
   end

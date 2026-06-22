@@ -103,9 +103,9 @@ module Crysterm
       # it replaces. A `nil` result means `DontDock` hit a contrasting neighbor,
       # in which case we keep the original character.
       { {-1, 0, L_ANGLES, BITWISE_L_ANGLE},
-        {0, -1, U_ANGLES, BITWISE_U_ANGLE},
-        {1, 0, R_ANGLES, BITWISE_R_ANGLE},
-        {0, 1, D_ANGLES, BITWISE_D_ANGLE} }.each do |(dx, dy, angles, bit)|
+       {0, -1, U_ANGLES, BITWISE_U_ANGLE},
+       {1, 0, R_ANGLES, BITWISE_R_ANGLE},
+       {0, 1, D_ANGLES, BITWISE_D_ANGLE} }.each do |(dx, dy, angles, bit)|
         result = neighbor_angle lines, x, y, dx, dy, angles, bit, attr, dock_contrast
         return ch if result.nil?
         angle |= result
