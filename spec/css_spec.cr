@@ -32,7 +32,7 @@ describe "CSS (#to_html)" do
     html = w.to_html
     html.should contain %(data-uid="#{w.uid}")
     html.should contain %(id="main")
-    html.should contain %(class="Box Widget")
+    html.should contain %(class="Box Widget state-normal")
     html.should start_with "<box"
   end
 

@@ -36,6 +36,15 @@ module Crysterm
       @css_dirty = true
     end
 
+    # Whether the active styling depends on widget state via ancestor-state
+    # selectors (e.g. `Form:focus Button`). When true, state transitions
+    # invalidate styling so such rules re-evaluate; otherwise state changes need
+    # no recascade (the per-state styles are precomputed).
+    def css_dynamic_state? : Bool
+      return true if @css_stylesheet.try(&.dynamic_state?)
+      CSS.default_stylesheet.dynamic_state?
+    end
+
     # Runs the cascade immediately against the current tree, regardless of the
     # dirty flag.
     def apply_stylesheet : Nil

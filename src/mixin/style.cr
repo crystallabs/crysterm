@@ -5,6 +5,22 @@ module Crysterm
 
       Crystallabs::Helpers::Enums.enum_property state : WidgetState = WidgetState::Normal
 
+      # Re-wrap the generated `state=` setters so that, when an active stylesheet
+      # has ancestor-state rules (`Form:focus Button`), a state transition
+      # invalidates styling and the cascade re-runs on the next render. Guarded
+      # on an actual change to avoid needless restyles (e.g. lists re-asserting an
+      # item's state every frame).
+      def state=(value : WidgetState) : WidgetState
+        return value if @state == value
+        @state = value
+        screen?.try { |scr| scr.restyle if scr.css_dynamic_state? }
+        value
+      end
+
+      def state=(value : ::Crystallabs::Helpers::Enums::Shorthands)
+        self.state = ::Crystallabs::Helpers::Enums.from(WidgetState, value)
+      end
+
       # List of styles corresponding to different widget states.
       #
       # Only one style, `normal` is initialized by default, others default to it if `nil`.

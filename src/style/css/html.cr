@@ -54,7 +54,10 @@ module Crysterm
       if id = css_id
         io << " id=\"" << CSS.escape_attr(id) << '"'
       end
-      io << " class=\"" << CSS.escape_attr(classes.join(' ')) << '"'
+      # The current widget state is stamped as a `state-*` class so ancestor
+      # state selectors (e.g. `Form:focus Button`, lowered to `.state-focused`)
+      # match against the live tree.
+      io << " class=\"" << CSS.escape_attr(classes.join(' ')) << " state-" << state.to_s.downcase << '"'
       css_attributes.each do |key, value|
         io << ' ' << key
         value.try { |v| io << "=\"" << CSS.escape_attr(v) << '"' }

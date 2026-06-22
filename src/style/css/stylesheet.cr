@@ -84,7 +84,24 @@ module Crysterm
       # time. (A pragmatic, document-global model — not per-element cascaded.)
       getter variables : Hash(String, String)
 
-      def initialize(@rules = [] of Rule, @variables = {} of String => String)
+      # Non-fatal diagnostics gathered while parsing — malformed declarations and
+      # unknown property names. Parsing never raises; inspect this to surface
+      # problems (e.g. `screen.css_stylesheet.try &.warnings`).
+      getter warnings : Array(String)
+
+      # Whether any rule depends on a widget's *state* via an ancestor-state
+      # pseudo-class (e.g. `Form:focus Button`), lowered to a `.state-*` class.
+      # Such rules must be re-evaluated when states change, so the cascade is
+      # invalidated on state transitions only when this is set.
+      @dynamic_state : Bool = false
+
+      def initialize(@rules = [] of Rule, @variables = {} of String => String, @warnings = [] of String)
+        @dynamic_state = @rules.any?(&.selector.includes?(".state-"))
+      end
+
+      # :ditto:
+      def dynamic_state? : Bool
+        @dynamic_state
       end
 
       # Maps a state pseudo-class to a `WidgetState`. `:active` and `:selected`
@@ -110,37 +127,44 @@ module Crysterm
       def self.parse(css : String) : Stylesheet
         rules = [] of Rule
         variables = {} of String => String
+        warnings = [] of String
 
         decommented = decommented(css)
         top_level, media_blocks = extract_media(decommented)
 
-        order = parse_block(top_level, nil, rules, variables, 0)
+        order = parse_block(top_level, nil, rules, variables, warnings, 0)
         media_blocks.each do |(condition, inner)|
-          order = parse_block(inner, MediaQuery.parse(condition), rules, variables, order)
+          order = parse_block(inner, MediaQuery.parse(condition), rules, variables, warnings, order)
         end
 
-        new rules, variables
+        new rules, variables, warnings
       end
 
       # Parses one block of rules (a top-level body or an `@media` block's
       # contents), tagging each rule with *media*. Appends to *rules*, collects
-      # custom properties into *variables*, and returns the next source order.
-      private def self.parse_block(css : String, media : MediaQuery?, rules : Array(Rule), variables : Hash(String, String), order : Int32) : Int32
+      # custom properties into *variables* and diagnostics into *warnings*, and
+      # returns the next source order.
+      private def self.parse_block(css : String, media : MediaQuery?, rules : Array(Rule), variables : Hash(String, String), warnings : Array(String), order : Int32) : Int32
         css.split('}').each do |chunk|
           next unless chunk.includes?('{')
           prelude, _, body = chunk.partition('{')
-          declarations, important = parse_declarations(body, variables)
+          declarations, important = parse_declarations(body, variables, warnings)
           next if declarations.empty? && important.empty?
 
           prelude.split(',').each do |raw|
             selector = raw.strip
             next if selector.empty?
             # Specificity is computed from the *original* selector (so a type
-            # selector counts as a type), then types are rewritten to classes
-            # for matching against the class-based document.
+            # selector counts as a type). The selector is then split into its
+            # subject (rightmost compound) and the ancestor prefix: a state
+            # pseudo on the subject becomes the rule's own state, while state
+            # pseudos on ancestors are lowered to `.state-*` classes matched
+            # against the live document. Finally types are rewritten to classes.
             spec = Specificity.calculate(selector)
-            state, structural = peel_state(selector)
-            rules << Rule.new(Selectors.expand_types(structural), declarations, important, state, spec, order, media)
+            prefix, subject = split_subject(selector)
+            state, subject = peel_state(subject)
+            structural = Selectors.expand_types(rewrite_ancestor_states(prefix) + subject)
+            rules << Rule.new(structural, declarations, important, state, spec, order, media)
             order += 1
           end
         end
@@ -217,15 +241,24 @@ module Crysterm
       # are case-sensitive and so kept as-is); other property names are
       # lower-cased. A trailing `!important` routes a declaration to the
       # important hash.
-      private def self.parse_declarations(body : String, variables : Hash(String, String)) : Tuple(Hash(String, String), Hash(String, String))
+      private def self.parse_declarations(body : String, variables : Hash(String, String), warnings : Array(String)) : Tuple(Hash(String, String), Hash(String, String))
         normal = {} of String => String
         important = {} of String => String
         body.split(';').each do |part|
-          next unless part.includes?(':')
+          stripped = part.strip
+          next if stripped.empty?
+          unless part.includes?(':')
+            warnings << "malformed declaration (missing ':'): #{stripped.inspect}"
+            next
+          end
+
           name, _, value = part.partition(':')
           name = name.strip
           value = value.strip
-          next if name.empty? || value.empty?
+          if name.empty? || value.empty?
+            warnings << "malformed declaration: #{stripped.inspect}"
+            next
+          end
 
           if name.starts_with?("--")
             variables[name] = value # custom property (case-sensitive name)
@@ -233,6 +266,7 @@ module Crysterm
           end
 
           name = name.downcase
+          warnings << "unknown property: #{name.inspect}" unless Properties.known?(name)
           if value.downcase.ends_with?("!important")
             important[name] = value[0...value.size - "!important".size].rstrip
           else
@@ -259,6 +293,38 @@ module Crysterm
           end
         end
         {nil, selector}
+      end
+
+      # Splits a selector into `{prefix, subject}`, where *subject* is the
+      # rightmost compound (after the last top-level combinator) and *prefix* is
+      # everything up to and including that combinator (so `prefix + subject`
+      # reconstructs the selector). Combinators inside `[...]`/`(...)` are
+      # ignored.
+      private def self.split_subject(selector : String) : Tuple(String, String)
+        depth = 0
+        cut = -1
+        selector.each_char_with_index do |char, idx|
+          case char
+          when '[', '(' then depth += 1
+          when ']', ')' then depth -= 1
+          when ' ', '>', '+', '~'
+            cut = idx + 1 if depth == 0
+          end
+        end
+        return {"", selector} if cut < 0
+        {selector[0...cut], selector[cut..].strip}
+      end
+
+      # Rewrites state pseudo-classes appearing on *ancestor* compounds into
+      # `.state-*` classes (e.g. `Form:focus ` -> `Form.state-focused `), so they
+      # match against the live document's stamped state classes. Longest token
+      # first to avoid the `:blurred`/`:blur` substring trap.
+      private def self.rewrite_ancestor_states(prefix : String) : String
+        result = prefix
+        STATE_PSEUDOS_BY_LENGTH.each do |(token, state)|
+          result = result.gsub(token, ".state-#{state.to_s.downcase}") if result.includes?(token)
+        end
+        result
       end
     end
   end

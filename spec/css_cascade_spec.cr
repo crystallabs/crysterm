@@ -422,6 +422,68 @@ describe "CSS cascade" do
     box.styles.normal.fg.should eq rgb("white") # 40 < 80, media rule skipped
   end
 
+  it "supports per-side border longhands" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    screen.stylesheet = "Box { border-top-width: 3; border-left: 2 solid; border-color: red; }"
+    screen.apply_stylesheet
+
+    border = box.styles.normal.border
+    border.top.should eq 3
+    border.left.should eq 2
+    border.type.should eq BorderType::Line
+    border.fg.should eq rgb("red")
+  end
+
+  it "resolves rgb(), hsl() and color keywords" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    screen.stylesheet = "Box { color: rgb(255, 0, 128); background-color: hsl(120, 100%, 50%); border-color: transparent; }"
+    screen.apply_stylesheet
+
+    style = box.styles.normal
+    style.fg.should eq 0xff0080
+    style.bg.should eq 0x00ff00  # pure green
+    style.border.fg.should eq -1 # transparent -> terminal default
+  end
+
+  it "collects diagnostics for malformed CSS and unknown properties" do
+    sheet = Crysterm::CSS::Stylesheet.parse("Box { colour: red; width 10; }")
+    sheet.warnings.any? { |w| w.includes?("unknown property") && w.includes?("colour") }.should be_true
+    sheet.warnings.any?(&.includes?("malformed")).should be_true
+  end
+
+  it "supports ancestor-state pseudo-classes (Form:focus Button)" do
+    screen = headless_screen
+    form = Widget::Form.new
+    button = Widget::Button.new
+    form.append button
+    screen.append form
+
+    screen.stylesheet = <<-CSS
+      Button { color: white; }
+      Form:focus Button { color: green; }
+    CSS
+    screen.apply_stylesheet
+    button.styles.normal.fg.should eq rgb("white") # form not focused
+
+    # focusing the form invalidates styling (dynamic state) and the recascade
+    # makes the ancestor-state rule match
+    form.state = WidgetState::Focused
+    screen.css_dirty?.should be_true
+    screen.apply_stylesheet
+    button.styles.normal.fg.should eq rgb("green")
+
+    # blurring reverts it
+    form.state = WidgetState::Normal
+    screen.apply_stylesheet
+    button.styles.normal.fg.should eq rgb("white")
+  end
+
   it "leaves widgets untouched when no stylesheet is set" do
     screen = headless_screen
     box = Widget::Box.new
