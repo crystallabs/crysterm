@@ -213,6 +213,9 @@ module Crysterm
     # Bold?
     property? bold : Bool = false
 
+    # Italic?
+    property? italic : Bool = false
+
     # Unedline?
     property? underline : Bool = false
 
@@ -372,6 +375,7 @@ module Crysterm
       fg = nil,
       bg = nil,
       @bold = @bold,
+      @italic = @italic,
       @underline = @underline,
       @blink = @blink,
       @inverse = @inverse,
@@ -443,6 +447,7 @@ module Crysterm
     # They must be present for sattr() to be able to work on the Border object.
     # But on the other hand, it allows these features which do not exist in Blessed.
     property? bold : Bool = false
+    property? italic : Bool = false
     property? underline : Bool = false
     property? blink : Bool = false
     property? inverse : Bool = false

@@ -76,6 +76,8 @@ module Crysterm
           flags = Attr.flags(dfl)
         when 1 # bold
           flags |= Attr::BOLD
+        when 3 # italic
+          flags |= Attr::ITALIC
         when 4 # underline
           flags |= Attr::UNDERLINE
         when 5 # blink
@@ -84,7 +86,7 @@ module Crysterm
           flags |= Attr::INVERSE
         when 8 # invisible
           flags |= Attr::INVISIBLE
-        when 22, 24, 25, 27, 28 # reset the respective style attribute(s)
+        when 22, 23, 24, 25, 27, 28 # reset the respective style attribute(s)
           flags = Attr.flags(dfl)
         when 39 # default fg
           fg = Attr.fg(dfl)
@@ -179,7 +181,7 @@ module Crysterm
       # Decide up front whether the sequence is non-empty (matching `code2attr`'s
       # "" return for the default attr). This avoids writing "\e[" only to have
       # to truncate it back out of the IO when nothing follows.
-      style_flags = flags & (Attr::BOLD | Attr::UNDERLINE | Attr::BLINK | Attr::INVERSE | Attr::INVISIBLE)
+      style_flags = flags & (Attr::BOLD | Attr::ITALIC | Attr::UNDERLINE | Attr::BLINK | Attr::INVERSE | Attr::INVISIBLE)
       return if style_flags == 0 && fg == -1 && bg == -1
 
       io << "\e["
@@ -205,6 +207,7 @@ module Crysterm
       flags = Attr.flags(code)
 
       io << "1;" if (flags & Attr::BOLD) != 0
+      io << "3;" if (flags & Attr::ITALIC) != 0
       io << "4;" if (flags & Attr::UNDERLINE) != 0
       io << "5;" if (flags & Attr::BLINK) != 0
       io << "7;" if (flags & Attr::INVERSE) != 0

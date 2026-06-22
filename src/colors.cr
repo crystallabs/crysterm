@@ -207,6 +207,7 @@ module Crysterm
     BLINK     =  4
     INVERSE   =  8
     INVISIBLE = 16
+    ITALIC    = 32
 
     # Maps a *logical* color (`-1` default, or `0xRRGGBB`) to its packed color
     # field value (`COLOR_DEFAULT`, or the RGB value).
