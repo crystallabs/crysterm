@@ -8,19 +8,52 @@ module Crysterm
     # snaps every child to a uniform column width) and in whether lower-row
     # children gravitate upward (masonry only).
     #
-    # The row cursor (`@row_offset`/`@row_index`/`@last_row_index`) is per-render
-    # transient state, reset by `#before_children`. A layout instance therefore
-    # belongs to a single container.
+    # `Flow` owns the arrange loop — render-index bookkeeping, overflow handling
+    # and per-child rendering — and defers the actual per-child positioning to
+    # `#place_one`. Children are rendered as they are placed, so a content-sized
+    # child's real extent (read back via `#get_last`) is known when positioning
+    # the next one. The row cursor (`@row_offset`/`@row_index`/`@last_row_index`)
+    # is per-render transient state, so a layout instance belongs to a single
+    # container.
     abstract class Flow < Layout
       @row_offset = 0
       @row_index = 0
       @last_row_index = 0
 
-      def before_children(container : Widget, interior : LPos) : Nil
+      def arrange(container : Widget, interior : LPos) : Nil
         @row_offset = 0
         @row_index = 0
         @last_row_index = 0
+        before_flow container
+
+        container.children.each_with_index do |el, i|
+          # Every child consumes a render index, even one we skip below, to
+          # match the original loop's z-order bookkeeping.
+          bump_index el
+
+          case place_one container, el, i, interior
+          when Overflow::SkipWidget
+            skip el
+            next
+          when Overflow::StopRendering
+            skip el
+            break
+          when Overflow::MoveWidget
+            raise Exception.new "Layout overflow MoveWidget is not implemented yet"
+          end
+
+          el.render
+        end
       end
+
+      # Hook run once before the loop (e.g. `Grid` precomputes its uniform
+      # column width here). Default: no-op.
+      protected def before_flow(container : Widget) : Nil
+      end
+
+      # Positions the `i`-th child within `interior` (setting `left`/`top`) and
+      # returns an `Overflow` action if it does not fit, or nil to render it.
+      protected abstract def place_one(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?
 
       # Places `el` in the current row, wrapping to a new row when it would
       # overflow `interior`'s width. When `high_width > 0` (grid mode) each child

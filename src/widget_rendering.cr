@@ -11,6 +11,11 @@ module Crysterm
     # each at its own manually-set position. See `Crysterm::Layout`.
     property layout : Crysterm::Layout? = nil
 
+    # Optional per-child hint read by this widget's *parent's* layout engine
+    # (a Border region, a Grid cell+span, a flex grow factor). The concrete type
+    # is defined by the engine; see `Crysterm::Layout::Hint`.
+    property layout_hint : Crysterm::Layout::Hint? = nil
+
     # Rendition and rendering
 
     # The below methods are a bit confusing: basically

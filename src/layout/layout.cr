@@ -7,65 +7,81 @@ module Crysterm
   # border, the padding and the z-order slot; the layout only decides where the
   # children go *inside* that rectangle.
   #
-  # During the container's render, once the container has drawn itself and its
-  # `#lpos` is known, `Widget#_render` hands the children to the installed
-  # layout via `#render_children`. The default implementation walks the
-  # children, asks `#place` to position each one (honoring its returned
-  # `Overflow` action), and renders it — exactly mirroring the per-child index
-  # bookkeeping and overflow handling that `Widget#_render` performs for the
-  # no-layout (manual positioning) case.
+  # ### The contract
   #
-  # Concrete child-arranging engines:
-  # * `Layout::Masonry` — masonry/inline flow (blessed's `inline`).
-  # * `Layout::Grid`    — uniform grid (blessed's `grid`).
-  # * `Layout::HBox` / `Layout::VBox` — Qt-style single-axis boxes.
+  # Once the container has drawn itself and its `#lpos` is known, `Widget#_render`
+  # calls `#render_children`, which computes the interior rectangle and hands it
+  # to the single abstract method every engine implements:
   #
-  # Table widgets (`Widget::Table`, `Widget::ListTable`) instead use the
+  # ```
+  # abstract def arrange(container, interior)
+  # ```
+  #
+  # `#arrange` owns the whole pass: it sets each child's geometry
+  # (`left`/`top`/`width`/`height`) and renders it via `#render_child`, or omits
+  # it / `#skip`s it. Owning the loop (rather than a per-child callback into a
+  # fixed rectangle) is what lets the full range of layouts be expressed
+  # uniformly:
+  #
+  # * **flow** (`Masonry`, `Grid`) render each child *before* placing the next,
+  #   so a content-sized child's real extent is known when laying out its
+  #   neighbour;
+  # * **box** (`HBox`, `VBox`) measure once, then place;
+  # * **space-consuming** layouts (a future Border/Dock) shrink a working rect as
+  #   they place each edge;
+  # * **stacking** layouts (a future Stack/Card) give every child the same rect
+  #   and `#skip` all but the active one.
+  #
+  # Engines that need extra per-child data (a Border region, a Grid cell+span, a
+  # flex grow factor) define a `Layout::Hint` subclass and read it from
+  # `Widget#layout_hint`.
+  #
+  # Table widgets (`Widget::Table`, `Widget::ListTable`) instead mix in the
   # separate *content* layout `TableLayout`: they lay out cell text inside their
-  # own content rather than arranging child widgets, so they mix in behavior
-  # rather than installing a child-arranging engine here.
+  # own content rather than arranging child widgets, so they are not engines.
   abstract class Layout
-    # Arranges and renders `container`'s children. Computes the interior
-    # rectangle once, runs the optional `#before_children` pre-pass, then for
-    # each child performs the same render-index bookkeeping as the plain loop in
-    # `Widget#_render`, asks `#place` to position it, and renders it (unless the
-    # returned `Overflow` says to skip/stop).
+    # Per-child placement hint. Engines requiring data beyond a child's own
+    # `left`/`top`/`width`/`height` define a concrete subclass (e.g. a Border
+    # region, a Grid `{row, col, row_span, col_span}`, a flex `grow` factor) and
+    # read it off `Widget#layout_hint`. Kept as an open extension point so new
+    # engines can carry their own hint type without touching this hierarchy.
+    abstract class Hint
+    end
+
+    # Entry point invoked by `Widget#_render`. Computes the container's interior
+    # content rectangle and, if non-empty, delegates to `#arrange`.
     def render_children(container : Widget) : Nil
       interior = interior_coords container
       return unless interior
+      arrange container, interior
+    end
 
-      before_children container, interior
+    # Arranges (and renders) the container's children within `interior` (the
+    # absolute interior rectangle from `#interior_coords`). Implementations set
+    # each child's geometry and render it via `#render_child`, or `#skip` it.
+    abstract def arrange(container : Widget, interior : LPos) : Nil
 
-      container.children.each_with_index do |el, i|
-        if el.screen._ci != -1
-          el.index = el.screen._ci
-          el.screen._ci += 1
-        end
+    # Renders one child, performing the same render-index bookkeeping the
+    # default (no-layout) loop in `Widget#_render` does.
+    protected def render_child(el : Widget) : Nil
+      bump_index el
+      el.render
+    end
 
-        case place container, el, i, interior
-        when Overflow::SkipWidget
-          el.lpos = nil
-          next
-        when Overflow::StopRendering
-          el.lpos = nil
-          break
-        when Overflow::MoveWidget
-          raise Exception.new "Layout overflow MoveWidget is not implemented yet"
-        end
-
-        el.render
+    # Assigns the child its z-order/render index for this frame. Split out from
+    # `#render_child` so flow engines can keep the index bookkeeping identical
+    # to the old loop (every child consumes an index, even one later `#skip`ped)
+    # while still controlling whether the child renders.
+    protected def bump_index(el : Widget) : Nil
+      if el.screen._ci != -1
+        el.index = el.screen._ci
+        el.screen._ci += 1
       end
     end
 
-    # Positions `el` (the `i`-th child) within `interior` by setting its
-    # `left`/`top` (and, for sizing layouts, `width`/`height`). Returns an
-    # `Overflow` action when the child does not fit, or `nil` to render it.
-    # `interior` is the absolute interior rectangle from `#interior_coords`.
-    abstract def place(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?
-
-    # Optional per-render pre-pass, run after the interior is known but before
-    # any child is placed (e.g. to measure flexible tracks). Default: no-op.
-    def before_children(container : Widget, interior : LPos) : Nil
+    # Marks `el` as not rendered this frame (clears its last position).
+    protected def skip(el : Widget) : Nil
+      el.lpos = nil
     end
 
     # The container's interior content rectangle (inside border + padding), in

@@ -38,9 +38,19 @@ module Crysterm
       def initialize(@orientation : Orientation = Orientation::Horizontal, @gap : Int32 = 0)
       end
 
-      def before_children(container : Widget, interior : LPos) : Nil
+      def arrange(container : Widget, interior : LPos) : Nil
+        measure container, interior
+        container.children.each do |el|
+          place el, interior
+          render_child el
+        end
+      end
+
+      # Measures the available main-axis space and computes the per-child flex
+      # share. Forgets managed children that have since left the tree so the
+      # measurement reflects the current set.
+      private def measure(container : Widget, interior : LPos) : Nil
         children = container.children
-        # Forget managed children that have since left the tree.
         @flex.select! { |el| children.includes? el }
         @filled.select! { |el| children.includes? el }
 
@@ -63,7 +73,8 @@ module Crysterm
         @cursor = 0
       end
 
-      def place(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?
+      # Positions one child along the main axis, advancing the cursor.
+      private def place(el : Widget, interior : LPos) : Nil
         # Cross axis: stretch to fill when the child has no explicit cross size.
         if cross_flex? el
           set_cross_size el, cross_extent(interior)
@@ -83,8 +94,6 @@ module Crysterm
         set_main_pos el, @cursor
         set_cross_pos el, 0
         @cursor += size + @gap
-
-        nil
       end
 
       # Whether the child's main-axis size is decided by this layout (it had no

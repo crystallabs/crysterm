@@ -8,7 +8,7 @@ module Crysterm
     # above — producing a packed, masonry-like arrangement of variably-sized
     # boxes.
     class Masonry < Flow
-      def place(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?
+      protected def place_one(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?
         flow_place container, el, i, interior, 0
         gravitate_up container, el, interior
         overflow_action container, el, interior
