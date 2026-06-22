@@ -56,10 +56,16 @@ module Crysterm
     Menu   = Widget::Menu
 
     # Layout engines (not widgets; install on a container via `widget.layout = ...`)
-    GridLayout    = Crysterm::Layout::Grid
-    MasonryLayout = Crysterm::Layout::Masonry
-    HBoxLayout    = Crysterm::Layout::HBox
-    VBoxLayout    = Crysterm::Layout::VBox
+    ManualLayout      = Crysterm::Layout::Manual
+    GridLayout        = Crysterm::Layout::Grid
+    UniformGridLayout = Crysterm::Layout::UniformGrid
+    MasonryLayout     = Crysterm::Layout::Masonry
+    WrapLayout        = Crysterm::Layout::Wrap
+    HBoxLayout        = Crysterm::Layout::HBox
+    VBoxLayout        = Crysterm::Layout::VBox
+    BorderLayout      = Crysterm::Layout::Border
+    StackLayout       = Crysterm::Layout::Stack
+    FormLayout        = Crysterm::Layout::Form
 
     # Pine-like
     PineHeaderBar    = Widget::Pine::HeaderBar

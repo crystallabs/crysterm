@@ -11,7 +11,7 @@ module Crysterm
     left: 0,
     width: "100%",
     height: "100%",
-    layout: Crysterm::Layout::Grid.new,
+    layout: Crysterm::Layout::UniformGrid.new,
     overflow: :ignore,
   )
 

@@ -54,7 +54,7 @@ Image-rendering backends:
 
 ![](screenshots/features/matterhorn-regis.png)
 
-Tektronix 4014:
+Image::Tek (Tektronix 4014):
 
 ![](screenshots/features/matterhorn-tek.png)
 

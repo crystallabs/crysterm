@@ -12,7 +12,7 @@ module Crysterm
     left: "center",
     width: "100%-2",
     height: "100%-2",
-    layout: ARGV[0]? == "grid" ? Crysterm::Layout::Grid.new : Crysterm::Layout::Masonry.new,
+    layout: ARGV[0]? == "grid" ? Crysterm::Layout::UniformGrid.new : Crysterm::Layout::Masonry.new,
     overflow: Overflow::Ignore, # Setting not existing in Blessed. Controls what to do when widget is overflowing available space. Value of 'ignore' ignores the issue and renders such widgets overflown.
     style: Style.new(
     bg: "red",

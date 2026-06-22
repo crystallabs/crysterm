@@ -1,10 +1,10 @@
 # FEATURE: layout engines (grid + inline/masonry).
 #
 # Any container widget arranges its children automatically once a layout engine
-# is installed via `widget.layout = ...`. Crysterm ships `Layout::Grid`
-# (table-like rows and columns) and `Layout::Masonry` (masonry-like flow), plus
-# `Layout::HBox`/`Layout::VBox`. Two are shown side by side; a highlight walks
-# the children so you can see the arrangement each engine produces.
+# is installed via `widget.layout = ...`. Crysterm ships `Layout::UniformGrid`
+# (tiled, uniform-width cells) and `Layout::Masonry` (masonry-like flow), plus
+# `Layout::Grid`/`Layout::HBox`/`Layout::VBox` and more. Two are shown side by
+# side; a highlight walks the children so you can see each arrangement.
 
 require "../../src/crysterm"
 
@@ -20,7 +20,7 @@ Widget::Box.new \
 
 grid = Widget::Box.new \
   parent: s, top: 1, left: 0, width: 39, height: 14,
-  layout: Layout::Grid.new, overflow: :ignore
+  layout: Layout::UniformGrid.new, overflow: :ignore
 
 inline = Widget::Box.new \
   parent: s, top: 1, left: 40, width: 39, height: 14,
