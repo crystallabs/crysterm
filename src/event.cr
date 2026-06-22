@@ -106,6 +106,15 @@ module Crysterm
     # Mirrors Qt's `valueChanged(int)` signal.
     event ValueChange, value : Int32
 
+    # Emitted when a floating-point numeric widget's value changes (e.g.
+    # `Widget::DoubleSpinBox`). Mirrors Qt's `valueChanged(double)` signal.
+    event DoubleValueChange, value : Float64
+
+    # Emitted when a date/time widget's value changes (e.g. `Widget::Calendar`,
+    # `Widget::DateEdit`, `Widget::TimeEdit`). Mirrors Qt's
+    # `dateChanged`/`timeChanged` signals.
+    event DateChange, date : Time
+
     # Emitted when Widget's position is changed
     event Move
 
@@ -181,6 +190,14 @@ module Crysterm
 
     # Emitted when a Widget or Action are hovered
     event Hovered
+
+    # Emitted when a closable panel (e.g. `Widget::DockWidget`) is closed via its
+    # own UI (the title-bar `✕`). Mirrors Qt's close-event/`visibilityChanged`.
+    event Close
+
+    # Emitted when a `Widget::DockWidget` is floated or re-docked. `value` is
+    # whether it is now floating (Qt's `QDockWidget#topLevelChanged`).
+    event Float, value : Bool
 
     # # event Key, key : ::Tput::Key
 

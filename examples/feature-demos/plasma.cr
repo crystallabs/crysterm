@@ -17,7 +17,6 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "Plasma"
-s.show_fps = nil
 
 plasma = Widget::Effect::Plasma.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",

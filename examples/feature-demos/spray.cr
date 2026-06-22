@@ -14,7 +14,6 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "CRYSTERM spray"
-s.show_fps = nil
 
 # Default `pattern` is the DOS dithered block `▒`, so the spiral paints a solid
 # shaded fill. Pass e.g. `pattern: "CRYSTERM "` to spell out text instead.

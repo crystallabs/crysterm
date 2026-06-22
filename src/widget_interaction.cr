@@ -75,10 +75,77 @@ module Crysterm
       screen.focused == self
     end
 
-    def set_hover(hover_text)
+    # Hover help text shown in a floating `Widget::ToolTip` while the pointer is
+    # over this widget (Qt's `QWidget#toolTip`). `nil` (the default) means none.
+    getter tool_tip : String?
+
+    # The shared per-widget tooltip overlay, created lazily on first hover.
+    @_tooltip : Widget::ToolTip?
+    # Whether the hover handlers have been installed (so re-setting the text
+    # doesn't stack duplicate handlers).
+    @_tooltip_wired = false
+
+    # Sets the hover help text. Setting a non-nil value makes the widget
+    # mouse-hover-tracked (it begins receiving `Event::MouseOver`/`MouseOut`) and
+    # shows/hides the tooltip automatically. Set `nil` to disable.
+    def tool_tip=(text : String?)
+      @tool_tip = text
+      wire_tooltip if text && !@_tooltip_wired
+      text
     end
 
+    # Qt's `QWidget#setToolTip`. Kept (and de-stubbed) under the original Blessed
+    # name; both route to `#tool_tip=`.
+    def set_hover(hover_text : String?)
+      self.tool_tip = hover_text
+    end
+
+    # Whether the absolute point (*x*, *y*) lies within this widget's last-laid-out
+    # rectangle. Returns false before the widget has been laid out (its
+    # coordinates raise). The shared hit-test used by pop-ups for outside-click
+    # dismissal and grab containment.
+    def contains_point?(x : Int32, y : Int32) : Bool
+      l = aleft
+      t = atop
+      l <= x < l + awidth && t <= y < t + aheight
+    rescue
+      false
+    end
+
+    # Whether the absolute point (*x*, *y*) belongs to this widget's *grab
+    # region* — used by `Screen`'s input-grab to decide which points still
+    # interact while this widget is grabbing (see `Screen#grab`). The default is
+    # the widget's own rectangle; pop-ups that own extra area (a drop-down list, a
+    # submenu chain) override this.
+    def grab_contains?(x : Int32, y : Int32) : Bool
+      contains_point? x, y
+    end
+
+    # Hides the tooltip (if shown). Qt's `QToolTip::hideText`.
     def remove_hover
+      @_tooltip.try &.hide
+      screen?.try &.schedule_render
+    end
+
+    private def wire_tooltip : Nil
+      @_tooltip_wired = true
+      on(Crysterm::Event::MouseOver) { |e| show_tooltip e.x, e.y }
+      on(Crysterm::Event::MouseOut) { remove_hover }
+      # A hidden widget must not leave its tooltip lingering on screen.
+      on(Crysterm::Event::Hide) { remove_hover }
+    end
+
+    private def show_tooltip(x : Int32, y : Int32) : Nil
+      text = @tool_tip
+      return unless text && !text.empty?
+      return unless s = screen?
+      tip = (@_tooltip ||= begin
+        t = Widget::ToolTip.new screen: s
+        s.append t
+        t
+      end)
+      # Offset by one cell so the label doesn't sit under the cursor itself.
+      tip.show_at x + 1, y + 1, text
     end
 
     # These read/write `@draggable` (the ivar declared by `property? draggable`

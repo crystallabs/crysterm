@@ -13,7 +13,6 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "TrueColor"
-s.show_fps = nil
 
 w = s.awidth
 h = s.aheight

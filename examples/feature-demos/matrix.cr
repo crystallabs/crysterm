@@ -15,7 +15,6 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "Matrix flow"
-s.show_fps = nil
 
 flow = Widget::Effect::Matrix.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",

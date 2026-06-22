@@ -97,19 +97,11 @@ module Crysterm
     # # Current element being hovered over on the screen. Best set only if mouse events are enabled.
     # @hover : Widget? = nil
 
-    # Which position on the screen should be used to display FPS stats. Nil disables.
-    # XXX Currently this is enabled since Crysterm is under development.
-    #
-    # `Tput::Point` is `[x, y]`, and `tput.pos` consumes it as
-    # `cursor_position(point.y, point.x)` (row = y, column = x); negative
-    # coordinates wrap from the bottom/right edge. So the beginning of the last
-    # row is x=0 (first column), y=-1 (last row). This was previously `[-1, 0]`,
-    # which is x=-1/y=0 — i.e. the *end of the first row*.
-    property show_fps : Tput::Point? = Tput::Point[0, -1]
-
-    # Include displaying averages in FPS display. If this setting is false, only current/
-    # individual frame rates are shown, without values for averages over 30 frames.
-    property? show_avg : Bool = Config.screen_show_avg
+    # Rendering performance figures (R/D/FPS and terminal byte throughput) are no
+    # longer drawn by the screen itself. Add a `Widget::Fps` to a screen to
+    # display them; it reads the per-frame measurements exposed by
+    # `screen_rendering.cr` (`#render_rate`, `#draw_rate`, `#frame_rate`,
+    # `#throughput`, `#bytes_written`).
 
     # Optimization flags to use for rendering and/or drawing.
     # XXX See also a TODO item related to dynamically deciding on default flags.
@@ -156,7 +148,6 @@ module Crysterm
       optimization : OptimizationFlag | Shorthands = @optimization,
       padding = nil,
       # alt = true, # Currently unused
-      @show_fps = @show_fps,
       @force_unicode = @force_unicode,
       @full_unicode = @full_unicode,
       @resize_interval = @resize_interval,

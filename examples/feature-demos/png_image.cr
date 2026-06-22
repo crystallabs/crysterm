@@ -10,7 +10,6 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "PNG image"
-s.show_fps = nil
 
 # Image::Ansi only honors *concrete integer* width/height as cell targets, so we
 # compute them from the actual screen size and fill the area below the title.

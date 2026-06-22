@@ -15,6 +15,11 @@ module Crysterm
       # default two-click select-then-activate). Set by `Widget::Menu`.
       property? activate_on_click : Bool = false
 
+      # When true, moving the pointer over a row selects it (no click required),
+      # the way desktop menus track the mouse. Off for plain lists; set by
+      # `Widget::Menu`. The per-row hook is `#hover_item`.
+      property? hover_select : Bool = false
+
       # Whether more than one item can be selected at once, like Qt's
       # `QAbstractItemView::MultiSelection`. When on, Space toggles the current
       # item's membership in `#selected_indices` (the cursor still moves with the
@@ -173,7 +178,24 @@ module Crysterm
           right = nil
         end
 
-        item = Widget::Box.new(content: content, screen: screen, align: align, top: top, left: left, right: right, parse_tags: parse_tags, height: 1, focus_on_click: focus_on_click, width: width, style: style)
+        # Items must not carry the list's border in their *layout* either: the
+        # list draws the border around the whole widget, and `#item_render_style`
+        # already strips it for drawing — but a border left on the item's own
+        # style still reserves `iwidth` (one cell each side), shrinking the
+        # content area (e.g. a tight popup menu showing "Abo" instead of "About").
+        # Give items a borderless base style so their geometry matches.
+        item_style = style
+        if item_style.border.any?
+          item_style = item_style.dup
+          item_style.border = false
+          # An item's own style must not carry the list's *hidden* state: the
+          # parent's visibility gates the subtree, and a dup made while the list
+          # is hidden (e.g. menu rows added after `hide`) would otherwise snapshot
+          # `visible: false` and never reappear when the list is shown.
+          item_style.visible = true
+        end
+
+        item = Widget::Box.new(content: content, screen: screen, align: align, top: top, left: left, right: right, parse_tags: parse_tags, height: 1, focus_on_click: focus_on_click, width: width, style: item_style)
         # XXX above: alpha
 
         if mouse?
@@ -203,6 +225,17 @@ module Crysterm
               move 2
               e.accept
               request_render
+            end
+          end
+
+          # With `#hover_select?` (menus), merely moving the pointer onto a row
+          # highlights it — no click needed — via the overridable `#hover_item`.
+          if hover_select?
+            item.on(::Crysterm::Event::MouseOver) do
+              if i = @items.index item
+                hover_item i
+                request_render
+              end
             end
           end
         end
@@ -349,6 +382,13 @@ module Crysterm
         if i = @items.index(widget)
           selekt i
         end
+      end
+
+      # Hook invoked when the pointer moves onto row *i* and `#hover_select?` is
+      # on. The default just moves the selection there; `Widget::Menu` overrides
+      # it to also open/close submenus.
+      def hover_item(i : Int)
+        selekt i
       end
 
       def clear_items

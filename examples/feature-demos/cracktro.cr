@@ -18,7 +18,6 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "CRYSTERM cracktro"
-s.show_fps = nil
 
 w = s.awidth
 h = s.aheight

@@ -31,8 +31,6 @@ module Superconf
     description: "Route all keypresses to a single grabbing widget"
   option "screen.dock_borders", false,
     description: "Join adjacent widget borders instead of overlapping them"
-  option "screen.show_avg", true,
-    description: "Include 30-frame averages in the FPS overlay"
   option "screen.force_unicode", false,
     description: "Assume UTF-8 even if terminal auto-detection didn't find it"
   option "screen.full_unicode", false,
@@ -45,7 +43,7 @@ module Superconf
     description: "Minimum delay between frames in seconds (the FPS cap)",
     validate: ->(s : Float64) { s > 0 }
   option "render.fps_window", 30,
-    description: "Number of frames averaged for the FPS overlay",
+    description: "Number of frames averaged by a Widget::Fps overlay's rolling averages",
     validate: ->(n : Int32) { n > 0 }
   option "render.optimization", Crysterm::OptimizationFlag::None,
     description: "Render/draw optimization flags (fast_csr|smart_csr|bce, comma-separated)"

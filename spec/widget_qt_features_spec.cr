@@ -724,3 +724,611 @@ describe "ComboBox mouse wheel" do
     cb.value.should eq "Red"
   end
 end
+
+describe "SpinBox direct entry" do
+  it "types a value and commits it on Enter" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 5
+    sb.on_keypress keypress('4')
+    sb.on_keypress keypress('2')
+    sb.editing?.should be_true
+    sb.text.should eq "42"
+    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    sb.editing?.should be_false
+    sb.value.should eq 42
+  end
+
+  it "clamps a typed value above maximum and discards on Escape" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 50, value: 5
+    "999".each_char { |c| sb.on_keypress keypress(c) }
+    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    sb.value.should eq 50
+
+    "12".each_char { |c| sb.on_keypress keypress(c) }
+    sb.on_keypress keypress('\u{1b}', Tput::Key::Escape)
+    sb.editing?.should be_false
+    sb.value.should eq 50 # unchanged
+  end
+
+  it "edits the buffer with Backspace" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 0
+    "45".each_char { |c| sb.on_keypress keypress(c) }
+    sb.on_keypress keypress('\u{8}', Tput::Key::Backspace)
+    sb.text.should eq "4"
+    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    sb.value.should eq 4
+  end
+end
+
+describe Crysterm::Widget::DoubleSpinBox do
+  it "formats to decimals and steps by a float step" do
+    s = qt_mem_screen
+    d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0,
+      value: 1.5, step: 0.5, decimals: 2
+    d.formatted_value.should eq "1.50"
+    changes = [] of Float64
+    d.on(Crysterm::Event::DoubleValueChange) { |e| changes << e.value }
+    d.increment
+    d.value.should eq 2.0
+    d.value = 99.0 # clamps to 10.0
+    d.value.should eq 10.0
+    changes.should eq [2.0, 10.0]
+  end
+
+  it "accepts typed decimals" do
+    s = qt_mem_screen
+    d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0, value: 0.0
+    "2.5".each_char { |c| d.on_keypress keypress(c) }
+    d.on_keypress keypress('\r', Tput::Key::Enter)
+    d.value.should eq 2.5
+  end
+end
+
+describe "Slider tick marks" do
+  it "carries tick configuration without affecting stepping" do
+    s = qt_mem_screen
+    sl = Crysterm::Widget::Slider.new parent: s, minimum: 0, maximum: 10, value: 5,
+      width: 20, height: 3, tick_position: Crysterm::Widget::Slider::TickPosition::Below,
+      tick_interval: 2
+    sl.tick_position.below?.should be_true
+    sl.tick_interval.should eq 2
+    sl.increment
+    sl.value.should eq 6
+  end
+end
+
+describe "TabWidget closable / movable / position" do
+  it "removes a tab and re-points the current index" do
+    s = qt_mem_screen
+    tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
+    tabs.add_tab "A", Crysterm::Widget::Box.new(content: "a")
+    tabs.add_tab "B", Crysterm::Widget::Box.new(content: "b")
+    tabs.add_tab "C", Crysterm::Widget::Box.new(content: "c")
+    tabs.show_tab 2
+    tabs.current_index.should eq 2
+
+    tabs.remove_tab 1
+    tabs.pages.size.should eq 2
+    tabs.tab_titles.should eq ["A", "C"]
+    tabs.current_index.should eq 1 # clamped onto remaining "C"
+  end
+
+  it "reorders tabs with move_tab, keeping the same page current" do
+    s = qt_mem_screen
+    tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
+    tabs.add_tab "A", Crysterm::Widget::Box.new(content: "a")
+    tabs.add_tab "B", Crysterm::Widget::Box.new(content: "b")
+    tabs.add_tab "C", Crysterm::Widget::Box.new(content: "c")
+    tabs.show_tab 0 # "A" current
+
+    tabs.move_tab 0, 2
+    tabs.tab_titles.should eq ["B", "C", "A"]
+    tabs.current_page.try(&.content).should eq "a"
+  end
+
+  it "lays the page below the bar when tab_position is bottom" do
+    s = qt_mem_screen
+    tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10,
+      tab_position: Crysterm::Widget::TabWidget::Position::Bottom
+    page = Crysterm::Widget::Box.new content: "x"
+    tabs.add_tab "A", page
+    page.top.should eq 0
+    page.bottom.should eq 1 # tab_height reserved at the bottom
+  end
+end
+
+describe Crysterm::Widget::ScrollBar do
+  it "clamps and steps as a standalone control, emitting ValueChange" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 10, value: 0,
+      width: 1, height: 5
+    changes = [] of Int32
+    sb.on(Crysterm::Event::ValueChange) { |e| changes << e.value }
+    sb.increment
+    sb.value.should eq 1
+    sb.on_keypress keypress(' ', Tput::Key::End)
+    sb.value.should eq 10
+    sb.on_keypress keypress(' ', Tput::Key::Home)
+    sb.value.should eq 0
+    changes.should eq [1, 10, 0]
+  end
+
+  it "reflects and drives a bound scrollable widget" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..20).map { |i| "line#{i}" }.join("\n")
+    s.render # establish geometry + wrapped content lines
+
+    sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 21, width: 1, height: 5
+    sb.attach box
+    sb.maximum.should be > 0
+
+    sb.value = 2
+    box.get_scroll.should eq 2 # the bar drove the box
+
+    box.scroll 3
+    sb.value.should eq box.get_scroll # the box drove the bar back
+  end
+end
+
+describe Crysterm::Widget::ToolBox do
+  it "shows exactly one expanded section at a time" do
+    s = qt_mem_screen
+    tb = Crysterm::Widget::ToolBox.new parent: s, width: 30, height: 16
+    p1 = Crysterm::Widget::Box.new content: "1"
+    p2 = Crysterm::Widget::Box.new content: "2"
+    tb.add_item "A", p1
+    tb.add_item "B", p2
+
+    tb.sections.size.should eq 2
+    tb.current_index.should eq 0
+    p1.visible?.should be_true
+    p2.visible?.should be_false
+
+    tb.current = 1
+    tb.current_index.should eq 1
+    p2.visible?.should be_true
+    p1.visible?.should be_false
+  end
+end
+
+describe Crysterm::Widget::Wizard do
+  it "navigates pages and finishes / cancels" do
+    s = qt_mem_screen
+    wiz = Crysterm::Widget::Wizard.new parent: s, width: 50, height: 16
+    wiz.add_page Crysterm::Widget::Box.new(content: "1"), title: "One"
+    wiz.add_page Crysterm::Widget::Box.new(content: "2"), title: "Two"
+    wiz.add_page Crysterm::Widget::Box.new(content: "3"), title: "Three"
+
+    completed = false
+    cancelled = false
+    wiz.on(Crysterm::Event::Complete) { completed = true }
+    wiz.on(Crysterm::Event::Cancel) { cancelled = true }
+
+    wiz.current_index.should eq 0
+    wiz.advance
+    wiz.current_index.should eq 1
+    wiz.advance
+    wiz.current_index.should eq 2
+    wiz.advance # Finish on the last page
+    completed.should be_true
+    wiz.current_index.should eq 2 # finishing does not advance past the end
+
+    wiz.back
+    wiz.current_index.should eq 1
+    wiz.cancel
+    cancelled.should be_true
+  end
+end
+
+describe Crysterm::Widget::Calendar do
+  it "moves the selection by day/week/month and emits DateChange" do
+    s = qt_mem_screen
+    cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 15)
+    changes = [] of Time
+    cal.on(Crysterm::Event::DateChange) { |e| changes << e.date }
+
+    cal.on_keypress keypress(' ', Tput::Key::Right) # +1 day -> 16
+    cal.date.day.should eq 16
+    cal.on_keypress keypress(' ', Tput::Key::Down) # +7 days -> 23
+    cal.date.day.should eq 23
+    cal.on_keypress keypress(' ', Tput::Key::PageDown) # +1 month -> Feb
+    cal.date.month.should eq 2
+    changes.size.should eq 3
+  end
+
+  it "clamps the day when stepping into a shorter month" do
+    s = qt_mem_screen
+    cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 31)
+    cal.on_keypress keypress(' ', Tput::Key::PageDown) # Jan 31 -> Feb (29 in 2024)
+    cal.date.month.should eq 2
+    cal.date.day.should eq 29
+  end
+end
+
+describe Crysterm::Widget::DateEdit do
+  it "steps the focused section (day/month/year)" do
+    s = qt_mem_screen
+    de = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(2024, 1, 15),
+      calendar_popup: false
+    de.on_keypress keypress(' ', Tput::Key::Up) # day section by default -> 16
+    de.date.day.should eq 16
+    de.on_keypress keypress(' ', Tput::Key::Left) # -> month section
+    de.on_keypress keypress(' ', Tput::Key::Up)   # +1 month -> Feb
+    de.date.month.should eq 2
+    de.on_keypress keypress(' ', Tput::Key::Left) # -> year section
+    de.on_keypress keypress(' ', Tput::Key::Up)   # +1 year -> 2025
+    de.date.year.should eq 2025
+  end
+end
+
+describe Crysterm::Widget::TimeEdit do
+  it "steps each section within its own range, wrapping" do
+    s = qt_mem_screen
+    te = Crysterm::Widget::TimeEdit.new parent: s, time: Time.local(2024, 1, 15, 10, 30, 45)
+    changes = [] of Time
+    te.on(Crysterm::Event::DateChange) { |e| changes << e.date }
+
+    te.on_keypress keypress(' ', Tput::Key::Up) # hour -> 11
+    te.time.hour.should eq 11
+    te.on_keypress keypress(' ', Tput::Key::Right) # -> minute section
+    te.on_keypress keypress(' ', Tput::Key::Up)    # minute -> 31
+    te.time.minute.should eq 31
+    changes.size.should eq 2
+  end
+
+  it "wraps the hour at 23 without carrying" do
+    s = qt_mem_screen
+    te = Crysterm::Widget::TimeEdit.new parent: s, time: Time.local(2024, 1, 15, 23, 0, 0)
+    te.on_keypress keypress(' ', Tput::Key::Up) # 23 -> 0, day unchanged
+    te.time.hour.should eq 0
+    te.time.day.should eq 15
+  end
+end
+
+describe "Menu Qt conveniences" do
+  it "adds actions by text and connects a block" do
+    s = qt_mem_screen
+    m = Crysterm::Widget::Menu.new parent: s
+    m.add "One"
+    fired = 0
+    m.add("Two") { fired += 1 }
+    m.actions.size.should eq 2
+    m.selekt 1
+    m.activate_selected
+    fired.should eq 1
+  end
+
+  it "adds a submenu via add_menu" do
+    s = qt_mem_screen
+    m = Crysterm::Widget::Menu.new parent: s
+    act = m.add_menu "File", [Crysterm::Action.new("a"), Crysterm::Action.new("b")]
+    act.submenu?.should be_true
+    act.submenu.not_nil!.size.should eq 2
+  end
+
+  it "shows and dismisses as a context-menu popup" do
+    s = qt_mem_screen
+    m = Crysterm::Widget::Menu.new parent: s, style: Style.new(border: true)
+    m.add "Copy"
+    m.add "Paste"
+    m.popup 5, 5
+    m.left.should eq 5
+    m.top.should eq 5
+    m.visible?.should be_true
+    m.hide_popup
+    m.visible?.should be_false
+  end
+end
+
+describe Crysterm::Widget::DateTimeEdit do
+  it "steps each of the six sections, wrapping within range" do
+    s = qt_mem_screen
+    dt = Crysterm::Widget::DateTimeEdit.new parent: s, date_time: Time.local(2024, 1, 31, 23, 59, 59)
+    changes = [] of Time
+    dt.on(Crysterm::Event::DateChange) { |e| changes << e.date }
+
+    dt.on_keypress keypress('\0', Tput::Key::Up) # year (default section) -> 2025
+    dt.date_time.year.should eq 2025
+
+    dt.on_keypress keypress('\0', Tput::Key::Right) # -> month
+    dt.on_keypress keypress('\0', Tput::Key::Right) # -> day
+    dt.on_keypress keypress('\0', Tput::Key::Up)    # day 31 wraps within month -> 1
+    dt.date_time.day.should eq 1
+
+    changes.size.should eq 2
+  end
+end
+
+describe Crysterm::Widget::StatusBar do
+  it "holds a temporary message and permanent sections" do
+    s = qt_mem_screen
+    bar = Crysterm::Widget::StatusBar.new parent: s, bottom: 0, left: 0, width: "100%", height: 1
+    bar.show_message "Hello"
+    bar.message.should eq "Hello"
+    bar.add_permanent "UTF-8"
+    bar.add_permanent "Ln 1"
+    bar.permanent.should eq ["UTF-8", "Ln 1"]
+    bar.clear_message
+    bar.message.should eq ""
+  end
+end
+
+describe Crysterm::Widget::DockWidget do
+  it "sets a content widget and emits Close on close_dock" do
+    s = qt_mem_screen
+    dock = Crysterm::Widget::DockWidget.new parent: s, title: "Files",
+      area: Crysterm::Widget::DockWidget::Area::Left
+    inner = Crysterm::Widget::Box.new content: "x"
+    dock.widget = inner
+    dock.widget.should be(inner)
+
+    closed = false
+    dock.on(Crysterm::Event::Close) { closed = true }
+    dock.close_dock
+    closed.should be_true
+    dock.visible?.should be_false
+  end
+
+  it "toggles floating and emits Float, restoring the prior area" do
+    s = qt_mem_screen
+    dock = Crysterm::Widget::DockWidget.new parent: s, title: "F",
+      area: Crysterm::Widget::DockWidget::Area::Right
+    states = [] of Bool
+    dock.on(Crysterm::Event::Float) { |e| states << e.value }
+    dock.toggle_floating
+    dock.floating?.should be_true
+    dock.toggle_floating
+    dock.floating?.should be_false
+    dock.area.right?.should be_true
+    states.should eq [true, false]
+  end
+end
+
+describe Crysterm::Widget::MainWindow do
+  it "arranges the bars, a left dock, and the central widget" do
+    s = qt_mem_screen
+    win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
+    menu = Crysterm::Widget::Box.new content: "menu"
+    status = Crysterm::Widget::Box.new content: "status"
+    central = Crysterm::Widget::Box.new content: "central"
+    win.menu_bar = menu
+    win.status_bar = status
+    win.central_widget = central
+    win.add_dock Crysterm::Widget::DockWidget.new(title: "L",
+      area: Crysterm::Widget::DockWidget::Area::Left, dock_size: 20)
+    s._render
+
+    menu.atop.should eq win.atop                     # full-width strip at the top
+    status.atop.should eq win.atop + win.aheight - 1 # full-width strip at the bottom
+    central.aleft.should eq win.aleft + 20           # right of the 20-wide left dock
+    central.atop.should eq win.atop + 1              # below the menu bar
+  end
+end
+
+describe Crysterm::Widget::ToolTip do
+  it "registers hover help and becomes hit-testable" do
+    s = qt_mem_screen
+    b = Crysterm::Widget::Box.new parent: s, top: 2, left: 2, width: 10, height: 3
+    b.wants_mouse?.should be_false
+    b.tool_tip = "Help!"
+    b.tool_tip.should eq "Help!"
+    b.wants_mouse?.should be_true
+  end
+
+  it "sizes and positions itself via show_at" do
+    s = qt_mem_screen
+    tip = Crysterm::Widget::ToolTip.new parent: s
+    tip.show_at 3, 4, "Hello"
+    tip.visible?.should be_true
+    tip.left.should eq 3
+    tip.top.should eq 4
+    tip.width.should eq 7 # "Hello" (5) + 2 padding
+  end
+end
+
+describe Crysterm::Widget::MenuBar do
+  it "shows plain titles, opens/switches menus, and tracks the highlight" do
+    s = qt_mem_screen
+    win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 60, height: 16
+    bar = Crysterm::Widget::MenuBar.new
+    win.menu_bar = bar
+    fm = bar.add_menu "File"
+    fm.add("New") { }
+    bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
+    s._render
+
+    bar.ritems.should eq ["File", "Edit"] # no "1:" prefix
+    sel = -> { bar.items.map(&.state.selected?) }
+    sel.call.should eq [false, false] # nothing marked at startup
+
+    bar.open 0
+    bar.open_index.should eq 0
+    bar.menus[0].visible?.should be_true
+    sel.call.should eq [true, false]
+
+    bar.open 1 # switching closes the previous
+    bar.open_index.should eq 1
+    bar.menus[0].visible?.should be_false
+    bar.menus[1].visible?.should be_true
+    sel.call.should eq [false, true]
+
+    bar.close
+    bar.open_index.should be_nil
+    sel.call.should eq [false, false]
+  end
+
+  it "activates an action from an open menu" do
+    s = qt_mem_screen
+    bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
+    fired = 0
+    fm = bar.add_menu "File"
+    fm.add("Quit") { fired += 1 }
+    bar.open 0
+    fm.selekt 0
+    fm.activate_selected
+    fired.should eq 1
+  end
+
+  it "switches menus via a top-level menu's Left/Right navigation" do
+    s = qt_mem_screen
+    bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
+    bar.add_menu "File", [Crysterm::Action.new("New")]
+    bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
+    bar.add_menu "Help", [Crysterm::Action.new("About")]
+    bar.open 0
+    bar.menus[0].on_keypress keypress('\0', Tput::Key::Right) # File -> Edit
+    bar.open_index.should eq 1
+    bar.menus[1].on_keypress keypress('\0', Tput::Key::Left) # Edit -> File
+    bar.open_index.should eq 0
+  end
+end
+
+describe Crysterm::Widget::LCDNumber do
+  it "renders a value as three seven-segment rows, right-aligned" do
+    s = qt_mem_screen
+    lcd = Crysterm::Widget::LCDNumber.new parent: s, top: 0, left: 0, width: 24, height: 3, digit_count: 3
+    lcd.display 42
+    lcd.text.should eq "42"
+    lcd.content.split('\n').size.should eq 3
+  end
+
+  it "formats integers per mode" do
+    s = qt_mem_screen
+    lcd = Crysterm::Widget::LCDNumber.new parent: s, mode: Crysterm::Widget::LCDNumber::Mode::Hex
+    lcd.display 255
+    lcd.text.should eq "FF"
+    lcd.mode = Crysterm::Widget::LCDNumber::Mode::Bin
+    lcd.display 5
+    lcd.text.should eq "101"
+  end
+end
+
+describe Crysterm::Widget::SizeGrip do
+  it "resizes its target when dragged" do
+    s = qt_mem_screen
+    win = Crysterm::Widget::Box.new parent: s, top: 5, left: 0, width: 20, height: 6,
+      style: Style.new(border: true)
+    grip = Crysterm::Widget::SizeGrip.new parent: win, bottom: 0, right: 0, width: 1, height: 1,
+      min_width: 3, min_height: 3
+    s._render
+    s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, grip.aleft, grip.atop, source: :test))
+    s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::Left, 30, 12, source: :test))
+    win.width.should eq 31 # 30 - left(0) + 1
+    win.height.should eq 8 # 12 - top(5) + 1
+  end
+end
+
+describe Crysterm::Widget::ToolBar do
+  it "shows plain labels, triggers buttons, and lights checked toggles" do
+    s = qt_mem_screen
+    tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: 40, height: 1
+    fired = 0
+    tb.add_button("New") { fired += 1 }
+    bold = Crysterm::Action.new "Bold"
+    bold.checkable = true
+    item = tb.add_action bold
+    tb.add_separator
+    s._render
+
+    tb.ritems[0].should eq "New" # no "1:" prefix
+    tb.commands[0].callback.try &.call
+    fired.should eq 1
+
+    tb.commands[1].callback.try &.call # toggle Bold on
+    bold.checked?.should be_true
+    item.state.selected?.should be_true
+    tb.commands[1].callback.try &.call # toggle off
+    bold.checked?.should be_false
+    item.state.selected?.should be_false
+  end
+end
+
+describe Crysterm::Widget::SplashScreen do
+  it "centers, shows a message, and finishes" do
+    s = qt_mem_screen
+    sp = Crysterm::Widget::SplashScreen.new parent: s, width: 30, height: 8,
+      content: Crysterm::Widget::Box.new(content: "Loading")
+    sp.content_widget.should_not be_nil
+    sp.show_message "Init"
+    s._render
+    sp.aleft.should eq (s.awidth - 30) // 2
+    sp.atop.should eq (s.aheight - 8) // 2
+
+    done = false
+    sp.on(Crysterm::Event::Complete) { done = true }
+    sp.finish
+    done.should be_true
+    s.children.includes?(sp).should be_false
+  end
+
+  it "respects an explicit position" do
+    s = qt_mem_screen
+    sp = Crysterm::Widget::SplashScreen.new parent: s, top: 1, left: 2, width: 20, height: 6
+    s._render
+    sp.aleft.should eq 2
+    sp.atop.should eq 1
+  end
+end
+
+describe "MenuBar rendering (regression)" do
+  it "appends its pop-up menus to the screen and keeps their rows visible" do
+    s = qt_mem_screen
+    bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
+    fm = bar.add_menu "File"
+    # Rows added *after* the menu is hidden (the menu bar hides each menu on
+    # creation) must still be visible once shown — they must not snapshot the
+    # menu's hidden state via a shared/dup'd style.
+    fm.add("New") { }
+    fm.add("Open") { }
+
+    s.children.includes?(fm).should be_true # in the render tree, not just screened
+    bar.open 0
+    fm.visible?.should be_true
+    fm.items.size.should eq 2
+    fm.items.all?(&.visible?).should be_true
+  end
+end
+
+describe "Input grab (modal pop-ups)" do
+  it "stops hover reaching other widgets while a menu is open, but keeps the bar live" do
+    s = qt_mem_screen
+    win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
+    menubar = Crysterm::Widget::MenuBar.new
+    win.menu_bar = menubar
+    fm = menubar.add_menu "File"
+    fm.add("New") { }
+    menubar.add_menu "Edit", [Crysterm::Action.new("Cut")]
+    box = Crysterm::Widget::Box.new content: "x"
+    win.central_widget = box
+    over = 0
+    box.on(Crysterm::Event::MouseOver) { over += 1 }
+    s._render
+
+    move = ->(x : Int32, y : Int32) do
+      s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, x, y, source: :test))
+    end
+    bar_x = ->(i : Int32) { menubar.items[i].aleft + 1 }
+
+    # Far from the (top-left) menu, well inside the central box.
+    move.call 60, 12
+    over.should eq 1 # hover reaches the box normally
+
+    menubar.open 0
+    s.grabbing?.should be_true
+    move.call bar_x.call(0), 0 # park hover on the bar
+    move.call 60, 12           # hover the box again, now while the menu is open
+    over.should eq 1           # …no new MouseOver: suppressed by the grab
+
+    move.call bar_x.call(1), 0 # the bar stays live: hovering Edit switches menus
+    menubar.open_index.should eq 1
+
+    menubar.close
+    s.grabbing?.should be_false
+    move.call bar_x.call(0), 0
+    move.call 60, 12
+    over.should eq 2 # hover reaches the box again once the grab is released
+  end
+end

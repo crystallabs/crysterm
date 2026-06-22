@@ -14,6 +14,18 @@ module Crysterm
       # `#increment`/`#decrement`, `Event::ValueChange`).
       include Mixin::RangedValue
 
+      # Where tick marks are drawn relative to the groove (Qt's
+      # `QSlider::TickPosition`). `Above`/`Below` are the cross-axis edges of the
+      # widget (top/bottom for a horizontal slider, left/right for a vertical
+      # one). Ticks need a free edge row/column, so give the slider `height >= 2`
+      # (horizontal) / `width >= 2` (vertical) for them to show clearly.
+      enum TickPosition
+        None
+        Above
+        Below
+        Both
+      end
+
       # A slider draws a fixed-size track; it should not shrink to its (empty)
       # content the way an `Input` does by default.
       @resizable = false
@@ -30,6 +42,16 @@ module Crysterm
       property handle_char : Char = '█'
       property track_char : Char = '─'
 
+      # Tick-mark placement and spacing (Qt's `setTickPosition`/`setTickInterval`).
+      property tick_position : TickPosition = :none
+
+      # Value-space distance between ticks. `0` means "auto": use `#page_step`
+      # (falling back to `#step`).
+      property tick_interval : Int32 = 0
+
+      # Glyph used for a tick mark.
+      property tick_char : Char = '·'
+
       def initialize(
         value : Int32? = nil,
         @minimum = 0,
@@ -40,6 +62,9 @@ module Crysterm
         @show_value = false,
         @handle_char = '█',
         @track_char = '─',
+        @tick_position = TickPosition::None,
+        @tick_interval = 0,
+        @tick_char = '·',
         **input,
       )
         super **input
@@ -88,6 +113,68 @@ module Crysterm
         ((@value - @minimum) * avail / value_span.to_f).round.to_i.clamp(0, avail)
       end
 
+      # Effective value-space spacing between ticks.
+      private def effective_tick_interval : Int32
+        return @tick_interval if @tick_interval > 0
+        @page_step > 0 ? @page_step : Math.max(@step, 1)
+      end
+
+      # Draws tick marks along the requested edges of the groove. Skips the
+      # handle cell so the handle stays visible even on a one-row/column slider.
+      private def draw_ticks(xi, xl, yi, yl)
+        return if value_span == 0
+        interval = effective_tick_interval
+        attr = sattr style
+
+        if @orientation.horizontal?
+          avail = xl - xi - 1
+          return if avail <= 0
+          rows = [] of Int32
+          rows << yi if @tick_position.above? || @tick_position.both?
+          rows << (yl - 1) if @tick_position.below? || @tick_position.both?
+          hx = xi + handle_offset(avail)
+          tv = @minimum
+          while tv <= @maximum
+            tx = xi + ((tv - @minimum) * avail / value_span.to_f).round.to_i
+            unless tx == hx
+              rows.each do |ty|
+                screen.lines[ty]?.try do |line|
+                  line[tx]?.try do |cell|
+                    cell.char = @tick_char
+                    cell.attr = attr
+                  end
+                  line.dirty = true
+                end
+              end
+            end
+            tv += interval
+          end
+        else
+          avail = yl - yi - 1
+          return if avail <= 0
+          cols = [] of Int32
+          cols << xi if @tick_position.above? || @tick_position.both?
+          cols << (xl - 1) if @tick_position.below? || @tick_position.both?
+          hy = (yl - 1) - handle_offset(avail)
+          tv = @minimum
+          while tv <= @maximum
+            ty = (yl - 1) - ((tv - @minimum) * avail / value_span.to_f).round.to_i
+            unless ty == hy
+              screen.lines[ty]?.try do |line|
+                cols.each do |tx|
+                  line[tx]?.try do |cell|
+                    cell.char = @tick_char
+                    cell.attr = attr
+                  end
+                end
+                line.dirty = true
+              end
+            end
+            tv += interval
+          end
+        end
+      end
+
       def render
         with_inner_coords do |xi, xl, yi, yl|
           track_attr = sattr style
@@ -117,6 +204,8 @@ module Crysterm
               line.dirty = true
             end
           end
+
+          draw_ticks(xi, xl, yi, yl) unless @tick_position.none?
 
           if show_value?
             txt = @value.to_s

@@ -70,6 +70,10 @@ module Crysterm
       # Select commands with the number keys `1`..`9`/`0`?
       property? auto_command_keys = false
 
+      # Prefix each command with an auto-generated `N:` label (the Blessed
+      # default). Turn off for a plain bar of labels, e.g. a `Widget::MenuBar`.
+      property? auto_prefix = true
+
       def initialize(
         commands = nil,
         *,
@@ -159,7 +163,7 @@ module Crysterm
           title = cmd.text
           cmd.width = cmd.text.size + 2
         else
-          cmd.prefix ||= (@items.size + 1).to_s
+          cmd.prefix ||= (@items.size + 1).to_s if auto_prefix?
 
           # A per-command hotkey doubles as the displayed prefix, matching Blessed.
           cmd.keys.try do |keys|

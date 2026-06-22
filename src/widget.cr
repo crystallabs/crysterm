@@ -228,6 +228,13 @@ module Crysterm
       @children.each do |c|
         c.destroy
       end
+      # A hover tooltip is a screen overlay (not a child), so drop it explicitly
+      # rather than leaking it past this widget's lifetime.
+      if tip = @_tooltip
+        tip.screen?.try &.remove tip
+        tip.destroy
+        @_tooltip = nil
+      end
       remove_from_parent
       emit Crysterm::Event::Destroy
     end

@@ -1,5 +1,6 @@
 require "./input"
 require "./list"
+require "../mixin/popup"
 
 module Crysterm
   class Widget
@@ -19,6 +20,11 @@ module Crysterm
     # The collection is called `#options` (not `items`, which `Widget` already
     # uses for child widgets).
     class ComboBox < Input
+      # Pop-up lifecycle (open flag, modal grab, outside-click dismissal, grab
+      # region, teardown). Provides `#open?`/`#show_popup`/`#teardown_popup`/
+      # `#grab_contains?`; we supply `#popup_widget` and `#close`.
+      include Mixin::Popup
+
       # A combo is a fixed-size control: it must honor its given `width` rather
       # than shrinking to the (short) `"value ▾"` content the way an `Input`
       # would — otherwise its clickable area collapses to a few cells.
@@ -61,9 +67,7 @@ module Crysterm
       # mode; all of them otherwise).
       @filtered : Array(String) = [] of String
 
-      @open = false
       @popup : Popup?
-      @ev_outside : Crysterm::Event::Mouse::Wrapper?
 
       def initialize(options : Enumerable(String) = [] of String, selected = 0, editable = false, **input)
         @options = options.to_a
@@ -104,8 +108,9 @@ module Crysterm
         update_content
       end
 
-      def open? : Bool
-        @open
+      # The drop-down list (for `Mixin::Popup`).
+      def popup_widget : ::Crysterm::Widget?
+        @popup
       end
 
       private def printable?(ch : Char) : Bool
@@ -148,37 +153,21 @@ module Crysterm
 
       # Drops the popup open. In editable mode the combo keeps focus (so typing
       # keeps filtering); otherwise focus moves into the popup for navigation.
+      # (Grab, outside-click dismissal, and the open flag come from `Mixin::Popup`.)
       def open
         return if @open
         return if !editable? && @options.empty?
-        @open = true
         pop = ensure_popup
         refilter
         pop.set_items @filtered
         pop.selekt 0
         position_popup pop
-        pop.show
-        pop.front!
-        pop.focus unless editable?
-
-        # Guard against double-registration (which would leak handlers if `open`
-        # were ever re-entered).
-        @ev_outside ||= screen.on(Crysterm::Event::Mouse) do |e|
-          if e.action.down? && (p = @popup)
-            dismiss unless point_in?(p, e.x, e.y) || point_in?(self, e.x, e.y)
-          end
-        end
-
-        request_render
+        show_popup pop, focus_popup: !editable?
       end
 
       # Closes the popup (without changing the value) and refocuses the combo.
       def close
-        return unless @open
-        @open = false
-        @ev_outside.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
-        @ev_outside = nil
-        @popup.try &.hide
+        return unless teardown_popup
         # End the editing session: drop the filter buffer so the box shows the
         # committed value again.
         if editable?
@@ -186,7 +175,6 @@ module Crysterm
           update_content
         end
         focus
-        request_render
       end
 
       def toggle
@@ -336,27 +324,11 @@ module Crysterm
       end
 
       # The popup is a *screen* child (so it can overlay outside the combo's own
-      # box), so it isn't torn down with the combo automatically — remove it, and
-      # any active outside-click handler, here.
+      # box), so it isn't torn down with the combo automatically.
       def destroy
-        @ev_outside.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
-        @ev_outside = nil
-        if pop = @popup
-          screen?.try &.remove pop
-          pop.destroy
-        end
+        teardown_popup_on_destroy
         @popup = nil
         super
-      end
-
-      # Whether the absolute point (*x*, *y*) lies within *widget*'s last
-      # rendered box. False if the widget has not been laid out yet.
-      private def point_in?(widget : Widget, x : Int32, y : Int32) : Bool
-        l = widget.aleft
-        t = widget.atop
-        l <= x < l + widget.awidth && t <= y < t + widget.aheight
-      rescue
-        false
       end
     end
   end
