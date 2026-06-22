@@ -987,3 +987,201 @@ describe Crysterm::Widget::TimeEdit do
     te.time.day.should eq 15
   end
 end
+
+describe "Menu Qt conveniences" do
+  it "adds actions by text and connects a block" do
+    s = qt_mem_screen
+    m = Crysterm::Widget::Menu.new parent: s
+    m.add "One"
+    fired = 0
+    m.add("Two") { fired += 1 }
+    m.actions.size.should eq 2
+    m.selekt 1
+    m.activate_selected
+    fired.should eq 1
+  end
+
+  it "adds a submenu via add_menu" do
+    s = qt_mem_screen
+    m = Crysterm::Widget::Menu.new parent: s
+    act = m.add_menu "File", [Crysterm::Action.new("a"), Crysterm::Action.new("b")]
+    act.submenu?.should be_true
+    act.submenu.not_nil!.size.should eq 2
+  end
+
+  it "shows and dismisses as a context-menu popup" do
+    s = qt_mem_screen
+    m = Crysterm::Widget::Menu.new parent: s, style: Style.new(border: true)
+    m.add "Copy"
+    m.add "Paste"
+    m.popup 5, 5
+    m.left.should eq 5
+    m.top.should eq 5
+    m.visible?.should be_true
+    m.hide_popup
+    m.visible?.should be_false
+  end
+end
+
+describe Crysterm::Widget::DateTimeEdit do
+  it "steps each of the six sections, wrapping within range" do
+    s = qt_mem_screen
+    dt = Crysterm::Widget::DateTimeEdit.new parent: s, date_time: Time.local(2024, 1, 31, 23, 59, 59)
+    changes = [] of Time
+    dt.on(Crysterm::Event::DateChange) { |e| changes << e.date }
+
+    dt.on_keypress keypress('\0', Tput::Key::Up) # year (default section) -> 2025
+    dt.date_time.year.should eq 2025
+
+    dt.on_keypress keypress('\0', Tput::Key::Right) # -> month
+    dt.on_keypress keypress('\0', Tput::Key::Right) # -> day
+    dt.on_keypress keypress('\0', Tput::Key::Up)    # day 31 wraps within month -> 1
+    dt.date_time.day.should eq 1
+
+    changes.size.should eq 2
+  end
+end
+
+describe Crysterm::Widget::StatusBar do
+  it "holds a temporary message and permanent sections" do
+    s = qt_mem_screen
+    bar = Crysterm::Widget::StatusBar.new parent: s, bottom: 0, left: 0, width: "100%", height: 1
+    bar.show_message "Hello"
+    bar.message.should eq "Hello"
+    bar.add_permanent "UTF-8"
+    bar.add_permanent "Ln 1"
+    bar.permanent.should eq ["UTF-8", "Ln 1"]
+    bar.clear_message
+    bar.message.should eq ""
+  end
+end
+
+describe Crysterm::Widget::DockWidget do
+  it "sets a content widget and emits Close on close_dock" do
+    s = qt_mem_screen
+    dock = Crysterm::Widget::DockWidget.new parent: s, title: "Files",
+      area: Crysterm::Widget::DockWidget::Area::Left
+    inner = Crysterm::Widget::Box.new content: "x"
+    dock.widget = inner
+    dock.widget.should be(inner)
+
+    closed = false
+    dock.on(Crysterm::Event::Close) { closed = true }
+    dock.close_dock
+    closed.should be_true
+    dock.visible?.should be_false
+  end
+
+  it "toggles floating and emits Float, restoring the prior area" do
+    s = qt_mem_screen
+    dock = Crysterm::Widget::DockWidget.new parent: s, title: "F",
+      area: Crysterm::Widget::DockWidget::Area::Right
+    states = [] of Bool
+    dock.on(Crysterm::Event::Float) { |e| states << e.value }
+    dock.toggle_floating
+    dock.floating?.should be_true
+    dock.toggle_floating
+    dock.floating?.should be_false
+    dock.area.right?.should be_true
+    states.should eq [true, false]
+  end
+end
+
+describe Crysterm::Widget::MainWindow do
+  it "arranges the bars, a left dock, and the central widget" do
+    s = qt_mem_screen
+    win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
+    menu = Crysterm::Widget::Box.new content: "menu"
+    status = Crysterm::Widget::Box.new content: "status"
+    central = Crysterm::Widget::Box.new content: "central"
+    win.menu_bar = menu
+    win.status_bar = status
+    win.central_widget = central
+    win.add_dock Crysterm::Widget::DockWidget.new(title: "L",
+      area: Crysterm::Widget::DockWidget::Area::Left, dock_size: 20)
+    s._render
+
+    menu.atop.should eq win.atop                     # full-width strip at the top
+    status.atop.should eq win.atop + win.aheight - 1 # full-width strip at the bottom
+    central.aleft.should eq win.aleft + 20           # right of the 20-wide left dock
+    central.atop.should eq win.atop + 1              # below the menu bar
+  end
+end
+
+describe Crysterm::Widget::ToolTip do
+  it "registers hover help and becomes hit-testable" do
+    s = qt_mem_screen
+    b = Crysterm::Widget::Box.new parent: s, top: 2, left: 2, width: 10, height: 3
+    b.wants_mouse?.should be_false
+    b.tool_tip = "Help!"
+    b.tool_tip.should eq "Help!"
+    b.wants_mouse?.should be_true
+  end
+
+  it "sizes and positions itself via show_at" do
+    s = qt_mem_screen
+    tip = Crysterm::Widget::ToolTip.new parent: s
+    tip.show_at 3, 4, "Hello"
+    tip.visible?.should be_true
+    tip.left.should eq 3
+    tip.top.should eq 4
+    tip.width.should eq 7 # "Hello" (5) + 2 padding
+  end
+end
+
+describe Crysterm::Widget::MenuBar do
+  it "shows plain titles, opens/switches menus, and tracks the highlight" do
+    s = qt_mem_screen
+    win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 60, height: 16
+    bar = Crysterm::Widget::MenuBar.new
+    win.menu_bar = bar
+    fm = bar.add_menu "File"
+    fm.add("New") { }
+    bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
+    s._render
+
+    bar.ritems.should eq ["File", "Edit"] # no "1:" prefix
+    sel = -> { bar.items.map(&.state.selected?) }
+    sel.call.should eq [false, false] # nothing marked at startup
+
+    bar.open 0
+    bar.open_index.should eq 0
+    bar.menus[0].visible?.should be_true
+    sel.call.should eq [true, false]
+
+    bar.open 1 # switching closes the previous
+    bar.open_index.should eq 1
+    bar.menus[0].visible?.should be_false
+    bar.menus[1].visible?.should be_true
+    sel.call.should eq [false, true]
+
+    bar.close
+    bar.open_index.should be_nil
+    sel.call.should eq [false, false]
+  end
+
+  it "activates an action from an open menu" do
+    s = qt_mem_screen
+    bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
+    fired = 0
+    fm = bar.add_menu "File"
+    fm.add("Quit") { fired += 1 }
+    bar.open 0
+    fm.selekt 0
+    fm.activate_selected
+    fired.should eq 1
+  end
+
+  it "switches menus via a top-level menu's Left/Right navigation" do
+    s = qt_mem_screen
+    bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
+    bar.add_menu "File", [Crysterm::Action.new("New")]
+    bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
+    bar.add_menu "Help", [Crysterm::Action.new("About")]
+    bar.open 0
+    bar.menus[0].on_keypress keypress('\0', Tput::Key::Right) # File -> Edit
+    bar.open_index.should eq 1
+    bar.menus[1].on_keypress keypress('\0', Tput::Key::Left) # Edit -> File
+    bar.open_index.should eq 0
+  end
+end

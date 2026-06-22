@@ -191,6 +191,14 @@ module Crysterm
     # Emitted when a Widget or Action are hovered
     event Hovered
 
+    # Emitted when a closable panel (e.g. `Widget::DockWidget`) is closed via its
+    # own UI (the title-bar `✕`). Mirrors Qt's close-event/`visibilityChanged`.
+    event Close
+
+    # Emitted when a `Widget::DockWidget` is floated or re-docked. `value` is
+    # whether it is now floating (Qt's `QDockWidget#topLevelChanged`).
+    event Float, value : Bool
+
     # # event Key, key : ::Tput::Key
 
     # Individual key events emitted on specific key presses. This is used when

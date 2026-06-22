@@ -72,7 +72,8 @@ module Crysterm
     property status_tip : String?
 
     # Tip to show in a popup on hover over the action, if/when applicable
-    setter tool_tip : String?
+    # (Qt's `QAction#toolTip`).
+    property tool_tip : String?
 
     # Tip to show in a popup when broader help text / description is requested
     property whats_this : String?

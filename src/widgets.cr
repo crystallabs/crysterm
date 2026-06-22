@@ -63,9 +63,15 @@ module Crysterm
     ScrollBar     = Widget::ScrollBar
     Dial          = Widget::Dial
 
-    Calendar = Widget::Calendar
-    DateEdit = Widget::DateEdit
-    TimeEdit = Widget::TimeEdit
+    Calendar     = Widget::Calendar
+    DateEdit     = Widget::DateEdit
+    TimeEdit     = Widget::TimeEdit
+    DateTimeEdit = Widget::DateTimeEdit
+
+    ToolTip    = Widget::ToolTip
+    StatusBar  = Widget::StatusBar
+    MainWindow = Widget::MainWindow
+    DockWidget = Widget::DockWidget
 
     Terminal = Widget::Terminal
 
@@ -73,8 +79,9 @@ module Crysterm
     Fps = Widget::Fps
 
     # Qt-like
-    Action = Widget::Action
-    Menu   = Widget::Menu
+    Action  = Widget::Action
+    Menu    = Widget::Menu
+    MenuBar = Widget::MenuBar
 
     # Layout engines (not widgets; install on a container via `widget.layout = ...`)
     ManualLayout      = Crysterm::Layout::Manual

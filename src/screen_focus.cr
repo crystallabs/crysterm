@@ -69,7 +69,11 @@ module Crysterm
       # just to scan it once.
       el = nil
       @history.reverse_each do |e|
-        if e.screen && e.style.visible?
+        # `screen?` (not `screen`): a widget that was destroyed/detached while in
+        # the history has no screen, and the raising `#screen` would crash here
+        # (e.g. closing a menu whose submenu — the focused widget — was just torn
+        # down). Skip such stale entries instead.
+        if e.screen? && e.style.visible?
           el = e
           break
         end

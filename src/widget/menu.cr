@@ -29,6 +29,12 @@ module Crysterm
       # submenu is opened; used to route Left/Escape back to the parent.
       property parent_menu : Menu?
 
+      # Optional hook for a top-level menu (no `#parent_menu`) to hand horizontal
+      # navigation to its owner: called with `-1` on Left and `+1` on Right when
+      # there's no submenu to move into. A `Widget::MenuBar` sets this to switch
+      # between its menus with the arrow keys.
+      property on_navigate : Proc(Int32, Nil)?
+
       # The currently-open child submenu, if any, and the action that opened it.
       @submenu_open : Menu?
       @submenu_action : Action?
@@ -38,15 +44,28 @@ module Crysterm
       # switching tabs.
       @ev_outside : Crysterm::Event::Mouse::Wrapper?
 
+      # Screen-level click watcher installed while shown as a `#popup` context
+      # menu, to dismiss the whole popup when the user clicks outside it.
+      @ev_popup : Crysterm::Event::Mouse::Wrapper?
+
       def initialize(title = "", keys = nil, **widget)
         # `keys` is absorbed: `List` always enables key handling.
         @title = title
 
         super **widget
 
+        # Own our style: menus are independent (and frequently created from one
+        # shared style, e.g. a menu bar's File/Edit/Help). Since per-widget
+        # visibility is stored in `Style`, a *shared* style would couple their
+        # show/hide — opening one would reveal them all. Dup so each menu (hence
+        # each `#popup`) toggles only itself.
+        @style = @style.try(&.dup)
+
         # Menus activate on a single click (open submenu / fire action), like a
-        # real menu — not the list's two-click select-then-activate.
+        # real menu — not the list's two-click select-then-activate. They also
+        # track the mouse: hovering a row selects it (see `#hover_item`).
         @activate_on_click = true
+        @hover_select = true
 
         set_label @title unless @title.empty?
         sync_items
@@ -56,6 +75,10 @@ module Crysterm
         on(::Crysterm::Event::ActionItem) { |e| activate_index e.index }
       end
 
+      # Whether this menu is being shown as a floating context menu (see
+      # `#popup`), so it dismisses itself on outside click / after a leaf fires.
+      @popup_mode = false
+
       # Adds *action* to the menu (no-op if already present).
       def <<(action : Action)
         unless @actions.includes? action
@@ -63,6 +86,30 @@ module Crysterm
           sync_items
         end
         self
+      end
+
+      # Creates an `Action` labeled *text*, appends it, and returns it (Qt's
+      # `QMenu#addAction(text)`).
+      def add(text : String) : Action
+        action = Action.new text
+        self << action
+        action
+      end
+
+      # :ditto: — also connecting *block* to the action's `Event::Triggered`.
+      def add(text : String, &block : ->) : Action
+        action = add text
+        action.on(::Crysterm::Event::Triggered) { block.call }
+        action
+      end
+
+      # Creates a submenu action labeled *text* holding *actions*, appends it, and
+      # returns it (Qt's `QMenu#addMenu`).
+      def add_menu(text : String, actions : Array(Action)) : Action
+        action = Action.new text
+        action.submenu = actions
+        self << action
+        action
       end
 
       # Appends a non-selectable separator rule (Qt's `QMenu#addSeparator`).
@@ -80,6 +127,68 @@ module Crysterm
         self
       end
 
+      # Shows this menu as a floating context menu at absolute (*x*, *y*), sized
+      # to its content, focused, and dismissed on an outside click, after a leaf
+      # action fires, or on Escape (Qt's `QMenu#popup`/`#exec`). The menu must be
+      # on a screen (created with `screen:` / `parent:`).
+      #
+      # ```
+      # menu = Widget::Menu.new screen: screen, style: Style.new(border: true)
+      # menu.add("Copy") { copy }
+      # menu.add("Paste") { paste }
+      # menu.popup e.x, e.y # e.g. from a right-click handler
+      # ```
+      def popup(x : Int32, y : Int32) : self
+        @popup_mode = true
+        fit_to_content
+        sw = screen.awidth
+        sh = screen.aheight
+        # Keep the menu on-screen.
+        self.left = x.clamp(0, Math.max(0, sw - (awidth_hint)))
+        self.top = y.clamp(0, Math.max(0, sh - (height.as?(Int) || 1)))
+        show
+        front!
+        focus
+
+        @ev_popup ||= screen.on(Crysterm::Event::Mouse) do |e|
+          hide_popup if e.action.down? && !in_chain?(e.x, e.y)
+        end
+
+        request_render
+        self
+      end
+
+      # :ditto: (Qt names the blocking form `exec`; here it is non-blocking, like
+      # `#popup`, and you react via the actions' `Event::Triggered`).
+      def exec(x : Int32, y : Int32) : self
+        popup x, y
+      end
+
+      # Hides a menu shown via `#popup`, tearing down its submenu chain and the
+      # outside-click watcher. No-op unless in popup mode.
+      def hide_popup : Nil
+        return unless @popup_mode
+        @popup_mode = false
+        close_submenu
+        hide
+        @ev_popup.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
+        @ev_popup = nil
+        request_render
+      end
+
+      # Configured width used for on-screen clamping in `#popup` (the value just
+      # assigned by `#fit_to_content`).
+      private def awidth_hint : Int32
+        (width.as?(Int) || 1)
+      end
+
+      # Sizes the menu to its rendered rows plus border.
+      private def fit_to_content : Nil
+        w = ritems.max_of?(&.size) || (visible_actions.max_of? { |a| a.text.size } || 8)
+        self.width = w + 2
+        self.height = visible_actions.size + 2
+      end
+
       # The currently highlighted action, or `nil` when the menu is empty.
       def selected_action : Action?
         visible_actions[selected]?
@@ -88,6 +197,21 @@ module Crysterm
       # Activates the highlighted action (as if Enter were pressed on it).
       def activate_selected
         activate_index selected
+      end
+
+      # Pointer moved onto row *i* (`List#hover_item` override, active because
+      # menus set `#hover_select?`). Moves the highlight there — which closes any
+      # submenu anchored elsewhere — and, if the row opens a submenu, opens it.
+      # Separators are skipped; disabled rows highlight but don't open.
+      def hover_item(i : Int)
+        act = visible_actions[i]?
+        return unless act
+        return if act.separator?
+
+        selekt i
+        if act.enabled && act.submenu?
+          open_submenu act unless @submenu_open && @submenu_action == act
+        end
       end
 
       private def visible_actions : Array(Action)
@@ -197,8 +321,13 @@ module Crysterm
         action.activate
 
         # After a leaf action runs from within a submenu, close the whole submenu
-        # chain (back to the persistent top-level menu).
-        close_chain if parent_menu
+        # chain (back to the persistent top-level menu); a leaf fired directly on
+        # a top-level popup dismisses the popup.
+        if parent_menu
+          close_chain
+        else
+          hide_popup
+        end
       end
 
       def on_keypress(e)
@@ -211,10 +340,30 @@ module Crysterm
             open_submenu act
             e.accept
             return
+          elsif (nav = @on_navigate) && parent_menu.nil?
+            # A top-level menu with no submenu to enter hands Right to its owner
+            # (e.g. a `MenuBar` moves to the next top-level menu).
+            nav.call 1
+            e.accept
+            return
           end
-        elsif e.key == ::Tput::Key::Left || e.key == ::Tput::Key::Escape
+        elsif e.key == ::Tput::Key::Left
           if pm = parent_menu
             pm.close_submenu
+            e.accept
+            return
+          elsif (nav = @on_navigate) && @submenu_open.nil?
+            nav.call -1
+            e.accept
+            return
+          end
+        elsif e.key == ::Tput::Key::Escape
+          if pm = parent_menu
+            pm.close_submenu
+            e.accept
+            return
+          elsif @popup_mode
+            hide_popup
             e.accept
             return
           end
@@ -260,8 +409,10 @@ module Crysterm
         @submenu_action = action
 
         # The top-level menu watches for a click anywhere outside the open chain
-        # (a different tab, another widget, …) and dismisses the submenus.
-        if parent_menu.nil? && @ev_outside.nil?
+        # (a different tab, another widget, …) and dismisses the submenus. In
+        # popup mode the `#popup` watcher already covers outside clicks (and
+        # dismisses the whole popup), so don't install a second one.
+        if parent_menu.nil? && @ev_outside.nil? && !@popup_mode
           @ev_outside = screen.on(Crysterm::Event::Mouse) do |e|
             close_submenu if e.action.down? && !in_chain?(e.x, e.y)
           end
@@ -316,9 +467,11 @@ module Crysterm
           root = pm
         end
         root.close_submenu
+        root.hide_popup # no-op unless the root is a popup
       end
 
       def destroy
+        hide_popup
         close_submenu
         super
       end
