@@ -206,7 +206,7 @@ module Crysterm
             l = 0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b
             on =
               if dither?
-                l > (BAYER[y & 3][x & 3] + 0.5) / 16.0 * 255.0
+                l > (Image::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 * 255.0
               else
                 l > @level
               end
@@ -224,13 +224,6 @@ module Crysterm
         @ev_rendered = nil
         @listener_screen = nil
       end
-
-      BAYER = [
-        [0, 8, 2, 10],
-        [12, 4, 14, 6],
-        [3, 11, 1, 9],
-        [15, 7, 13, 5],
-      ]
     end
   end
 end

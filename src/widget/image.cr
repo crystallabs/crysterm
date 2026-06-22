@@ -33,6 +33,16 @@ module Crysterm
     # `mode`, Image::Sixel's `dither`) are best passed by constructing the concrete
     # widget directly.
     module Image
+      # 4×4 Bayer ordered-dither matrix (values 0..15), shared by the dithering
+      # backends (`Image::Sixel`, `Image::Regis`, `Image::Tek`) which each used
+      # to carry their own identical copy.
+      BAYER_MATRIX = [
+        [0, 8, 2, 10],
+        [12, 4, 14, 6],
+        [3, 11, 1, 9],
+        [15, 7, 13, 5],
+      ]
+
       # How an image is fit into a box whose aspect ratio differs from the
       # image's — shared by every backend so the behaviour is consistent.
       enum Fit

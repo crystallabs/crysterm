@@ -38,6 +38,27 @@ module Crysterm
     @pre = IO::Memory.new 1024
     @post = IO::Memory.new 1024
 
+    # Temporarily routes Tput's escape-sequence output into `buf` for the
+    # duration of the block (Tput appends to `tput.ret` whenever it is set),
+    # then copies what was produced into `dest` and clears `tput.ret`. The block
+    # is yielded `buf` so it can also write to it directly (e.g. raw newlines).
+    #
+    # Centralizes the `(tput.ret = buf).try do |ret| … dest.write ret.to_slice;
+    # tput.ret = nil end` idiom repeated across `draw`/`insert_line`/`delete_line`
+    # &c. The reset now lives in an `ensure`, so a raising block can no longer
+    # leave output permanently diverted (the old inline `tput.ret = nil` was
+    # skipped on exception); `dest` is written only on success, matching the
+    # original (which wrote before the reset inside the block).
+    private def divert(buf : IO::Memory, dest : IO, & : IO::Memory ->) : Nil
+      tput.ret = buf
+      begin
+        yield buf
+        dest.write buf.to_slice
+      ensure
+        tput.ret = nil
+      end
+    end
+
     # Draws the screen based on the contents of in-memory grid of cells (`@lines`).
     def draw(start = 0, stop = @lines.size - 1)
       # D O:
@@ -174,15 +195,11 @@ module Crysterm
                 Screen.code2attr_to(@outbuf, attr, ncolors)
               end
 
-              # ### XXX Temporarily diverts output. #### Needs a better solution than this.
               @tmpbuf.clear
-              (tput.ret = @tmpbuf).try do |ret|
+              divert(@tmpbuf, @outbuf) do
                 tput.cup(y, x)
                 tput.el
-                @outbuf.write ret.to_slice
-                tput.ret = nil
               end
-              #### #### ####
 
               (x...line_size).each do |xx|
                 o[xx].attr = desired_attr
@@ -460,27 +477,15 @@ module Crysterm
         hidden = tput.cursor_hidden?
 
         @tmpbuf.clear
-
-        (tput.ret = @tmpbuf).try do |ret|
+        divert(@tmpbuf, @pre) do
           tput.save_cursor
-          if !hidden
-            hide_cursor
-          end
-
-          @pre.write ret.to_slice
-          tput.ret = nil
+          hide_cursor unless hidden
         end
 
         @tmpbuf.clear
-
-        (tput.ret = @tmpbuf).try do |ret|
+        divert(@tmpbuf, @post) do
           tput.restore_cursor
-          if !hidden
-            show_cursor
-          end
-
-          @post.write ret.to_slice
-          tput.ret = nil
+          show_cursor unless hidden
         end
 
         # D O:
@@ -519,14 +524,11 @@ module Crysterm
         return
       end
 
-      (tput.ret = IO::Memory.new).try do |ret|
+      divert(IO::Memory.new, @_buf) do
         tput.set_scroll_region(top, bottom)
         tput.cup(y, 0)
         tput.il(n)
         tput.set_scroll_region(0, aheight - 1)
-
-        @_buf.write ret.to_slice
-        tput.ret = nil
       end
 
       j = bottom + 1
@@ -551,14 +553,11 @@ module Crysterm
         return
       end
 
-      (tput.ret = IO::Memory.new).try do |ret|
+      divert(IO::Memory.new, @_buf) do
         tput.set_scroll_region(top, bottom)
         tput.cup(top, 0)
         tput.dl(n)
         tput.set_scroll_region(0, aheight - 1)
-
-        @_buf.write ret.to_slice
-        tput.ret = nil
       end
 
       j = bottom + 1
@@ -586,14 +585,11 @@ module Crysterm
       end
 
       # XXX temporarily diverts output
-      (tput.ret = IO::Memory.new).try do |ret|
+      divert(IO::Memory.new, @_buf) do
         tput.set_scroll_region(top, bottom)
         tput.cup(y, 0)
         tput.dl(n)
         tput.set_scroll_region(0, aheight - 1)
-
-        @_buf.write ret.to_slice
-        tput.ret = nil
       end
 
       # j = bottom + 1 # Unused
@@ -619,14 +615,11 @@ module Crysterm
       end
 
       # XXX temporarily diverts output
-      (tput.ret = IO::Memory.new).try do |ret|
+      divert(IO::Memory.new, @_buf) do |ret|
         tput.set_scroll_region(top, bottom)
         tput.cup(bottom, 0)
         ret.print "\n" * n
         tput.set_scroll_region(0, aheight - 1)
-
-        @_buf.write ret.to_slice
-        tput.ret = nil
       end
 
       j = bottom + 1
@@ -782,6 +775,30 @@ module Crysterm
             cell.char = ch
             line.dirty = true
           end
+        end
+      end
+    end
+
+    # Alpha-blends every cell in a region toward black (shadow compositing): the
+    # counterpart of `fill_region` for the `Widget` shadow passes, which all
+    # share this exact `Colors.blend(cell.attr, alpha:)` loop and differ only in
+    # bounds. Unlike `fill_region` this does NOT clamp `xi`/`yi` to 0 — the
+    # shadow callers already pass the exact (sometimes intentionally unclamped)
+    # bounds, and the `lines[y]?`/`line[x]?` lookups skip anything off the grid —
+    # so the four call sites keep their precise original behavior.
+    def blend_region(alpha, xi, xl, yi, yl)
+      lines = @lines
+
+      yi.upto(yl - 1) do |y|
+        line = lines[y]?
+        break unless line
+
+        xi.upto(xl - 1) do |x|
+          cell = line[x]?
+          break unless cell
+
+          cell.attr = Colors.blend(cell.attr, alpha: alpha)
+          line.dirty = true
         end
       end
     end

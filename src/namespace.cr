@@ -610,42 +610,22 @@ module Crysterm
     def initialize(@alpha : Float64)
     end
 
+    # Resolves a per-side shadow spec to a width/height: `true` means the
+    # side's default extent (*on*), `false`/`nil` means none, and an explicit
+    # `Int` is used verbatim.
+    private def dim(value : Bool | Int32?, on : Int32) : Int32
+      case value
+      in true       then on
+      in false, nil then 0
+      in Int        then value
+      end
+    end
+
     def initialize(left : Bool | Int32?, top : Bool | Int32?, right : Bool | Int32?, bottom : Bool | Int32?, @alpha = @alpha)
-      @left = case left
-              in true
-                2
-              in false, nil
-                0
-              in Int
-                left
-              end
-
-      @top = case top
-             in true
-               1
-             in false, nil
-               0
-             in Int
-               top
-             end
-
-      @right = case right
-               in true
-                 2
-               in false, nil
-                 0
-               in Int
-                 right
-               end
-
-      @bottom = case bottom
-                in true
-                  1
-                in false, nil
-                  0
-                in Int
-                  bottom
-                end
+      @left = dim left, 2
+      @top = dim top, 1
+      @right = dim right, 2
+      @bottom = dim bottom, 1
     end
 
     # Is there any shadow on left side?
@@ -784,6 +764,46 @@ module Crysterm
       @iwidth = @iwidth,
       @iheight = @iheight,
     )
+    end
+
+    # Re-initializes this instance in place to the same state a freshly
+    # constructed `LPos.new(xi:, xl:, ...)` would have. Used by
+    # `Widget#_get_coords` on the render hot path to reuse the widget's existing
+    # `@lpos` instead of allocating a new `LPos` every widget, every frame (the
+    # allocation this whole class's `# TODO ... struct` note is about).
+    #
+    # Besides the geometry fields passed in, this MUST reset the lazily-computed
+    # cache fields (`aleft`/`atop`/.../`_clean_sides`) back to their constructor
+    # defaults: they are filled on demand by `last_rendered_position`/`clean_sides`
+    # and keyed to the *previous* frame's geometry, so a reused instance that kept
+    # them would hand back stale absolute positions after a widget moves.
+    def reset(
+      @xi,
+      @xl,
+      @yi,
+      @yl,
+      @base,
+      @no_left,
+      @no_right,
+      @no_top,
+      @no_bottom,
+      @renders,
+    ) : self
+      @aleft = nil
+      @atop = nil
+      @aright = nil
+      @abottom = nil
+      @awidth = nil
+      @aheight = nil
+      @ileft = 0
+      @itop = 0
+      @iright = 0
+      @ibottom = 0
+      @iwidth = 0
+      @iheight = 0
+      @_scroll_bottom = 0
+      @_clean_sides = false
+      self
     end
   end
 end

@@ -109,7 +109,7 @@ module Crysterm
               row[x] = -1 # transparent
               next
             end
-            t = dither? ? (BAYER[y & 3][x & 3] + 0.5) / 16.0 - 0.5 : 0.0
+            t = dither? ? (Image::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 - 0.5 : 0.0
             rl = qlevel px.r, LR, t
             gl = qlevel px.g, LG, t
             bl = qlevel px.b, LB, t
@@ -143,14 +143,6 @@ module Crysterm
         end
         arr
       end
-
-      # 4×4 Bayer ordered-dither matrix (values 0..15).
-      BAYER = [
-        [0, 8, 2, 10],
-        [12, 4, 14, 6],
-        [3, 11, 1, 9],
-        [15, 7, 13, 5],
-      ]
     end
   end
 end

@@ -193,6 +193,13 @@ module Crysterm
         @accepted = false
       end
 
+      # Whether this keypress is the conventional "activate" gesture — Enter or
+      # Space — used by buttons, checkboxes and similar to fire their action.
+      # (Space arrives as a printable `char` with a nil `key`; Enter as a `key`.)
+      def activates? : Bool
+        @char == ' ' || @key == ::Tput::Key::Enter
+      end
+
       # This macro takes all enum members from Tput::Key
       # and creates a `KeyPress::<member>` event for them,
       # such as `Event::KeyPress::CtrlQ`.

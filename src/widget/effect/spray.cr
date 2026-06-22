@@ -1,4 +1,5 @@
 require "../box"
+require "./animated"
 
 module Crysterm
   class Widget
@@ -26,6 +27,8 @@ module Crysterm
       #   pattern: "CRYSTERM ", fill: :radial
       # ```
       class Spray < Box
+        include Animated
+
         # A fill strategy: given the area's width and height, returns the order in
         # which cells `{x, y}` are visited (one landed glyph per cell).
         alias FillProc = (Int32, Int32) -> Array(Tuple(Int32, Int32))
@@ -47,9 +50,6 @@ module Crysterm
 
         # Emitter point `{x, y}` the glyphs are launched from. `nil` = box centre.
         property origin : Tuple(Int32, Int32)?
-
-        # Delay between rendered frames (animation speed).
-        property interval : Time::Span
 
         # Frames between successive glyph launches (smaller = denser, faster fill).
         property spacing : Int32
@@ -81,15 +81,15 @@ module Crysterm
         # Run once, after a non-looping spray has filled the area.
         property on_complete : Proc(Nil)?
 
-        # Frame loop; non-nil while running.
-        @fiber : Fiber?
-        protected property? running = false
-
         # Per-area state, (re)built lazily whenever the area's size changes.
         @cols = 0
         @rows = 0
         @slots = [] of Tuple(Int32, Int32, Char)
         @frame = 0
+
+        # Set by `#step`: `true` once a non-looping spray has filled the area.
+        # Read by the shared animation loop via `#done?`.
+        @done = false
 
         def initialize(
           @pattern = "▒",
@@ -181,9 +181,9 @@ module Crysterm
         def step : Bool
           w = awidth
           h = aheight
-          return false if w <= 0 || h <= 0
+          return @done = false if w <= 0 || h <= 0
           reset_slots w, h if w != @cols || h != @rows
-          return false if @slots.empty?
+          return @done = false if @slots.empty?
 
           ox, oy = emitter(w, h)
           cycle = fill_frame + @hold
@@ -213,7 +213,7 @@ module Crysterm
           }.join('\n')
 
           @frame += 1
-          !loop? && @frame > fill_frame
+          @done = !loop? && @frame > fill_frame
         end
 
         # Color (native `0xRRGGBB`) for slot *i* in *phase* at the current frame.
@@ -228,40 +228,20 @@ module Crysterm
           end
         end
 
-        # Start the animation: spawns a fiber that composes a frame, renders, and
-        # sleeps `interval`, until `#stop` (or, for a non-looping spray, until the
-        # area is full — then it stops and runs `#on_complete`). A no-op if already
-        # running.
-        def start
-          return if running?
-          self.running = true
-          @fiber = Fiber.new do
-            loop do
-              break unless running?
-              done = step
-              screen.render
-              if done
-                self.running = false
-                @on_complete.try &.call
-                break
-              end
-              sleep @interval
-            end
-          end.enqueue
+        # A non-looping spray finishes once it has filled the area (see `#step`),
+        # at which point the shared animation loop stops and runs `#on_complete`.
+        protected def done? : Bool
+          @done
         end
 
-        # Stop the animation. The fiber exits on its next iteration.
-        def stop
-          self.running = false
-        end
-
-        def toggle
-          running? ? stop : start
+        protected def on_done
+          @on_complete.try &.call
         end
 
         # Restart the spray from an empty area on the next frame.
         def restart
           @frame = 0
+          @done = false
         end
       end
     end

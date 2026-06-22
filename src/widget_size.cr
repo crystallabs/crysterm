@@ -165,18 +165,10 @@ module Crysterm
           ret.yi += itop
         end
 
-        if ret.xi < mxi
-          mxi = ret.xi
-        end
-        if ret.xl > mxl
-          mxl = ret.xl
-        end
-        if ret.yi < myi
-          myi = ret.yi
-        end
-        if ret.yl > myl
-          myl = ret.yl
-        end
+        mxi = Math.min(mxi, ret.xi)
+        mxl = Math.max(mxl, ret.xl)
+        myi = Math.min(myi, ret.yi)
+        myl = Math.max(myl, ret.yl)
       end
 
       if get

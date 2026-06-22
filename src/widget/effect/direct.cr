@@ -1,4 +1,5 @@
 require "../box"
+require "./animated"
 require "../../colors"
 
 module Crysterm
@@ -31,12 +32,7 @@ module Crysterm
       # `#step` (state only) is public so several effects can share one external
       # clock — the shared `screen.render` then paints them all.
       module Direct
-        # Delay between frames.
-        property interval : Time::Span = 0.07.seconds
-
-        # Frame loop; non-nil while running.
-        @fiber : Fiber?
-        protected property? running = false
+        include Animated
 
         # Interior size seen at the last paint, so `#step` can advance the
         # simulation at the right size without needing the screen.
@@ -107,30 +103,6 @@ module Crysterm
               end
             end
           end
-        end
-
-        # Start the animation: spawns a fiber that advances state, renders, and
-        # sleeps `interval`, until `#stop`. A no-op if already running.
-        def start
-          return if running?
-          self.running = true
-          @fiber = Fiber.new do
-            loop do
-              break unless running?
-              step
-              screen.render
-              sleep @interval
-            end
-          end.enqueue
-        end
-
-        # Stop the animation. The fiber exits on its next iteration.
-        def stop
-          self.running = false
-        end
-
-        def toggle
-          running? ? stop : start
         end
       end
     end

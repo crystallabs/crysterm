@@ -97,31 +97,26 @@ module Crysterm
       end
 
       def render
-        ret = _render
-        return unless ret
+        # Interior inset (border kept intact) via `with_inner_coords`, mirroring
+        # `Widget::ProgressBar`. `next` bails out early (empty interior) while
+        # still returning the coords.
+        with_inner_coords do |xi, xl, yi, yl|
+          next if xl <= xi || yl <= yi
 
-        # Shrink to the interior so a border (if any) is left intact, mirroring
-        # `Widget::ProgressBar`.
-        style.border.try &.adjust(ret)
-
-        xi, xl, yi, yl = ret.xi, ret.xl, ret.yi, ret.yl
-        return ret if xl <= xi || yl <= yi
-
-        if @direction.horizontal?
-          span = (xl - xi).to_f
-          (xi...xl).each do |x|
-            attr = sattr style, style.fg, color_at((x - xi) / span)
-            screen.fill_region attr, ' ', x, x + 1, yi, yl
-          end
-        else
-          span = (yl - yi).to_f
-          (yi...yl).each do |y|
-            attr = sattr style, style.fg, color_at((y - yi) / span)
-            screen.fill_region attr, ' ', xi, xl, y, y + 1
+          if @direction.horizontal?
+            span = (xl - xi).to_f
+            (xi...xl).each do |x|
+              attr = sattr style, style.fg, color_at((x - xi) / span)
+              screen.fill_region attr, ' ', x, x + 1, yi, yl
+            end
+          else
+            span = (yl - yi).to_f
+            (yi...yl).each do |y|
+              attr = sattr style, style.fg, color_at((y - yi) / span)
+              screen.fill_region attr, ' ', xi, xl, y, y + 1
+            end
           end
         end
-
-        ret
       end
     end
   end

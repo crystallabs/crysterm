@@ -76,8 +76,9 @@ module Crysterm
         Attr.pack_color(mix(0x000000, field.to_i32, alpha))
       else
         return Attr::COLOR_DEFAULT if Attr.default?(field) && Attr.default?(other)
-        a = Attr.default?(field) ? (fg ? default_fg_rgb : default_bg_rgb) : field.to_i32
-        b = Attr.default?(other) ? (fg ? default_fg_rgb : default_bg_rgb) : other.to_i32
+        dfl = fg ? default_fg_rgb : default_bg_rgb
+        a = Attr.default?(field) ? dfl : field.to_i32
+        b = Attr.default?(other) ? dfl : other.to_i32
         Attr.pack_color(mix(a, b, alpha))
       end
     end

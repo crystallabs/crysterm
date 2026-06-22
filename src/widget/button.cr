@@ -23,7 +23,7 @@ module Crysterm
       end
 
       def on_keypress(e)
-        if e.char == ' ' || e.key.try(&.==(::Tput::Key::Enter))
+        if e.activates?
           e.accept
           press
         end

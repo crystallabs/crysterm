@@ -150,8 +150,7 @@ module Crysterm
             drag_motion drag, ev.x, ev.y, ev.shift?, ev.ctrl?
           elsif drag.discrete? ? ev.action.down? : ev.action.up?
             if drag.discrete?
-              retarget drag, widget_at(ev.x, ev.y, skip: drag.source)
-              over drag
+              retarget_over drag, widget_at(ev.x, ev.y, skip: drag.source)
             end
             drag_release drag
           end

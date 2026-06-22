@@ -187,7 +187,7 @@ module Crysterm
         apply_cursor
         # If the blurred widget was drawing an artificial cursor, repaint so its
         # cell is erased now that a different cursor is active.
-        render if old.try(&.cursor).try(&.artificial?) && @renders > 0
+        render_if_active if old.try(&.cursor).try(&.artificial?)
       end
 
       cur.emit Crysterm::Event::Focus, old

@@ -285,7 +285,7 @@ module Crysterm
     #  val
     # end
 
-    def _get_coords(get = false, noscroll = false)
+    def _get_coords(get = false, noscroll = false, into : LPos? = nil)
       unless style.visible?
         return
       end
@@ -490,17 +490,35 @@ module Crysterm
       # end
       # p xi, xl, yi, xl
 
-      v = LPos.new \
-        xi: xi,
-        xl: xl,
-        yi: yi,
-        yl: yl,
-        base: base,
-        no_left: no_left,
-        no_right: no_right,
-        no_top: no_top,
-        no_bottom: no_bottom,
-        renders: screen.renders
+      # Reuse the widget's existing `LPos` when the caller offers one (the render
+      # hot path passes `@lpos`), turning a per-widget, per-frame heap allocation
+      # into an in-place field update. All early `return`s above happen before
+      # this point, so `into` is never mutated on a path that yields no coords.
+      if v = into
+        v.reset \
+          xi: xi,
+          xl: xl,
+          yi: yi,
+          yl: yl,
+          base: base,
+          no_left: no_left,
+          no_right: no_right,
+          no_top: no_top,
+          no_bottom: no_bottom,
+          renders: screen.renders
+      else
+        v = LPos.new \
+          xi: xi,
+          xl: xl,
+          yi: yi,
+          yl: yl,
+          base: base,
+          no_left: no_left,
+          no_right: no_right,
+          no_top: no_top,
+          no_bottom: no_bottom,
+          renders: screen.renders
+      end
       v
     end
   end

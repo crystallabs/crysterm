@@ -428,8 +428,7 @@ module Crysterm
           # If we're not wrapping the text, keep the columns that fit plus any
           # remaining control sequences, and cut the rest off.
           unless @wrap_content
-            rest = line[i..].scan(/\e\[[^m]*m/) # SGR
-            rest = rest.any? ? rest.join : ""
+            rest = line[i..].scan(/\e\[[^m]*m/).join # remaining SGR sequences
             outbuf.push _align(line[0...i] + rest, colwidth, align, align_left_too)
             ftor[no].push(outbuf.size - 1)
             rtof.push(no)
@@ -568,6 +567,15 @@ module Crysterm
       line
     end
 
+    # Rebuilds the widget's content from the in-place-mutated `@_clines.fake`
+    # lines (re-joining them and reparsing). The `no_clear` flag is set so the
+    # existing `@_clines` machinery is refreshed rather than wiped. Used by the
+    # line-level editors (`insert_line`/`delete_line`/`set_line`) after they
+    # splice `fake`.
+    private def rebuild_content_from_fake
+      set_content(@_clines.fake.join("\n"), true)
+    end
+
     def insert_line(i = nil, line = "")
       if line.is_a? String
         line = line.split("\n")
@@ -604,7 +612,7 @@ module Crysterm
         @_clines.fake.insert(i + j, line[j])
       end
 
-      set_content(@_clines.fake.join("\n"), true)
+      rebuild_content_from_fake
 
       diff = @_clines.size - start
 
@@ -632,8 +640,7 @@ module Crysterm
         i = @_clines.ftor.size - 1
       end
 
-      i = Math.max(i, 0)
-      i = Math.min(i, @_clines.ftor.size - 1)
+      i = i.clamp(0, @_clines.ftor.size - 1)
 
       # NOTE: Could possibly compare the first and last ftor line numbers to see
       # if they're the same, or if they fit in the visible region entirely.
@@ -641,12 +648,9 @@ module Crysterm
       # diff
       real = @_clines.ftor[i][0]
 
-      while n > 0
-        n -= 1
-        @_clines.fake.delete_at i
-      end
+      n.times { @_clines.fake.delete_at i }
 
-      set_content(@_clines.fake.join("\n"), true)
+      rebuild_content_from_fake
 
       diff = start - @_clines.size
 
@@ -728,7 +732,7 @@ module Crysterm
         @_clines.fake.push("")
       end
       @_clines.fake[i] = line
-      set_content(@_clines.fake.join("\n"), true)
+      rebuild_content_from_fake
     end
 
     def set_baseline(i, line)
@@ -737,8 +741,7 @@ module Crysterm
     end
 
     def get_line(i)
-      i = Math.max(i, 0)
-      i = Math.min(i, @_clines.fake.size - 1)
+      i = i.clamp(0, @_clines.fake.size - 1)
       @_clines.fake[i]
     end
 
@@ -833,7 +836,7 @@ module Crysterm
     # grapheme-aware backspace in text inputs. Empty in, empty out.
     def chop_grapheme(text : String) : String
       return text if text.empty?
-      text.each_grapheme.to_a[0...-1].join(&.to_s)
+      text.each_grapheme.to_a[0...-1].join
     end
 
     # Assembles the grapheme cluster that begins with `base` (the codepoint at

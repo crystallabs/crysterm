@@ -1,4 +1,5 @@
 require "../box"
+require "./animated"
 require "../../colors"
 
 module Crysterm
@@ -24,8 +25,7 @@ module Crysterm
       # bar.start
       # ```
       class CopperBar < Box
-        # Delay between frames.
-        property interval : Time::Span
+        include Animated
 
         # Hue (degrees) of this bar at frame 0 — stagger several bars to spread
         # them around the color wheel.
@@ -39,10 +39,6 @@ module Crysterm
 
         # HSV value / brightness of the bar color (`0.0..1.0`).
         property brightness : Float64
-
-        # Frame loop; non-nil while running.
-        @fiber : Fiber?
-        protected property? running = false
 
         # Monotonically advancing frame counter. Int64 so it never wraps in any
         # realistic runtime; the hue is taken modulo 360.
@@ -68,31 +64,6 @@ module Crysterm
         def step
           self.style.bg = color
           @frame += 1
-        end
-
-        # Start the animation: spawns a fiber that repaints, renders, and sleeps
-        # `interval`, until `#stop`. Calling `#start` while already running is a
-        # no-op.
-        def start
-          return if running?
-          self.running = true
-          @fiber = Fiber.new do
-            loop do
-              break unless running?
-              step
-              screen.render
-              sleep @interval
-            end
-          end.enqueue
-        end
-
-        # Stop the animation. The fiber exits on its next iteration.
-        def stop
-          self.running = false
-        end
-
-        def toggle
-          running? ? stop : start
         end
       end
     end

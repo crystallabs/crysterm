@@ -61,8 +61,7 @@ module Crysterm
       end
 
       def on_keypress(e)
-        # if e.key == Tput::Key::Enter || e.key == Tput::Key::Space
-        if e.key == Tput::Key::Enter || e.char == ' '
+        if e.activates?
           e.accept
           toggle
           screen?.try &.render

@@ -163,11 +163,7 @@ module Crysterm
         @child_base += d
       end
 
-      if @child_base < 0
-        @child_base = 0
-      elsif @child_base > @base_limit
-        @child_base = @base_limit
-      end
+      clamp_child_base
 
       # Find max "bottom" value for
       # content and descendant elements.
@@ -196,11 +192,7 @@ module Crysterm
 
       @child_base = Math.min @child_base, Math.max(emax, max)
 
-      if @child_base < 0
-        @child_base = 0
-      elsif @child_base > @base_limit
-        @child_base = @base_limit
-      end
+      clamp_child_base
 
       # Optimize scrolling with CSR + IL/DL.
       p = @lpos
@@ -227,6 +219,17 @@ module Crysterm
       emit Crysterm::Event::Scroll
     end
 
+    # Clamps `@child_base` into the valid `[0, @base_limit]` range. Kept as an
+    # explicit branch (rather than `.clamp`) so it never raises even if
+    # `@base_limit` is set below 0, exactly matching the original inline form.
+    private def clamp_child_base
+      if @child_base < 0
+        @child_base = 0
+      elsif @child_base > @base_limit
+        @child_base = @base_limit
+      end
+    end
+
     def _recalculate_index
       return 0 if !screen? || !@scrollable
 
@@ -241,11 +244,7 @@ module Crysterm
 
       @child_base = Math.min @child_base, Math.max emax, max
 
-      if @child_base < 0
-        @child_base = 0
-      elsif @child_base > @base_limit
-        @child_base = @base_limit
-      end
+      clamp_child_base
     end
   end
 end

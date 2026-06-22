@@ -41,7 +41,11 @@ module Crysterm
 
       process_content
 
-      coords = _get_coords(true)
+      # Pass the existing `@lpos` so `_get_coords` updates it in place instead of
+      # allocating a fresh `LPos` for this widget on every frame (per-frame heap
+      # garbage → GC jitter). On the first render (or after a frame that produced
+      # no coords) `@lpos` is nil and `_get_coords` allocates as before.
+      coords = _get_coords(true, into: @lpos)
       unless coords
         @lpos = nil
         return
@@ -221,14 +225,19 @@ module Crysterm
 
           # Handle escape codes.
           while ch == '\e'
-            # Match the SGR sequence in place at `ci - 1` (the escape we just
-            # consumed) instead of slicing `content[(ci - 1)..]`, which would
-            # allocate a fresh `String` of the entire remaining content on every
-            # escape character. ANCHORED forces the match to start exactly at
-            # that position (replacing the old `^`-anchored regex on the slice).
-            if c = SGR_REGEX.match(pcontent, ci - 1, options: Regex::MatchOptions::ANCHORED)
-              ci += c[0].size - 1
-              attr = screen.attr2code(c[0], attr, default_attr)
+            # Recognize the SGR sequence (`\e[[\d;]*m`, i.e. `SGR_REGEX`) in place
+            # by scanning codepoints directly, instead of `SGR_REGEX.match`, which
+            # allocated a `Regex::MatchData` plus a matched-substring `String`
+            # (`c[0]`) on EVERY escape of every cell with colored content. `ci - 1`
+            # is the `\e` we just consumed; `ci` should be the `[`, then a run of
+            # digits/`;`, then the terminating `m`. SGR is pure ASCII.
+            if content[ci]? == '[' && (m = sgr_terminator(content, ci + 1))
+              # `m` is the codepoint index of the trailing 'm'. Parse the params
+              # straight out of `content` between the `\e` and the 'm' — no
+              # substring. Then advance just past the 'm' (matching the old
+              # `ci += c[0].size - 1`, where the match length is `m - (ci-1) + 1`).
+              attr = screen.attr2code(content, ci - 1, m, attr, default_attr)
+              ci = m + 1
               # Ignore foreground changes for selected items (keep the default
               # foreground while letting the rest of the attr change).
               parent.try do |parent2|
@@ -491,81 +500,33 @@ module Crysterm
         end
       end
 
-      # Shadow
+      # Shadow. Each side blends a band of cells toward black; the four blocks
+      # share one loop (`Screen#blend_region`) and differ only in their bounds.
+      # The exact (sometimes unclamped) bounds — including the `Math.max(.,0)`
+      # clamps that only some sides applied — are reproduced here so behavior is
+      # unchanged.
       if (s = style.shadow) && s.any?
         if s.left?
           i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
           l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
-
-          (Math.max(i, 0)...l).each do |y|
-            line = lines[y]?
-            break unless line
-
-            x = xi - s.left
-            while x < xi
-              cell = line[x]?
-              break unless cell
-
-              cell.attr = Colors.blend(cell.attr, alpha: s.alpha)
-              line.dirty = true
-              x += 1
-            end
-          end
+          screen.blend_region s.alpha, xi - s.left, xi, Math.max(i, 0), l
         end
 
         if s.top?
           l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
-
-          (yi - s.top...yi).each do |y|
-            line = lines[y]?
-            break unless line
-
-            (Math.max(xi, 0)...l).each do |x|
-              cell = line[x]?
-              break unless cell
-
-              cell.attr = Colors.blend(cell.attr, alpha: s.alpha)
-              line.dirty = true
-            end
-          end
+          screen.blend_region s.alpha, Math.max(xi, 0), l, yi - s.top, yi
         end
 
         if s.right?
           i = (s.top? || s.left?) ? yi : yi + s.bottom
           l = s.bottom? ? yl + s.bottom : yl
-
-          (Math.max(i, 0)...l).each do |y|
-            line = lines[y]?
-            break unless line
-
-            x = xl
-            while x < xl + s.right
-              cell = line[x]?
-              break unless cell
-
-              cell.attr = Colors.blend(cell.attr, alpha: s.alpha)
-              line.dirty = true
-              x += 1
-            end
-          end
+          screen.blend_region s.alpha, xl, xl + s.right, Math.max(i, 0), l
         end
 
         if s.bottom?
           i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
           l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
-
-          (yl...yl + s.bottom).each do |y|
-            line = lines[y]?
-            break unless line
-
-            (Math.max(i, 0)...l).each do |x|
-              cell = line[x]?
-              break unless cell
-
-              cell.attr = Colors.blend(cell.attr, alpha: s.alpha)
-              line.dirty = true
-            end
-          end
+          screen.blend_region s.alpha, Math.max(i, 0), l, yl, yl + s.bottom
         end
       end
 
@@ -632,8 +593,41 @@ module Crysterm
       ch || ' ' # Just a failsafe
     end
 
+    # Returns the codepoint index of the `m` terminating an SGR sequence whose
+    # parameter run starts at `i` (the first codepoint after `\e[`), or `nil` if
+    # the run is not `[\d;]* m` — i.e. exactly when `SGR_REGEX` would fail to
+    # match. Lets `_render` recognize SGR sequences without allocating a
+    # `Regex::MatchData`/substring per escape.
+    private def sgr_terminator(content : StringIndex, i : Int32) : Int32?
+      while ch = content[i]?
+        if ch == 'm'
+          return i
+        elsif ch == ';' || (ch >= '0' && ch <= '9')
+          i += 1
+        else
+          return nil
+        end
+      end
+      nil
+    end
+
     def render(with_children = true)
       _render with_children
+    end
+
+    # Runs the base `_render`, insets the resulting coordinates by this widget's
+    # border, and yields the interior rectangle `(xi, xl, yi, yl)` for a widget
+    # that paints its own interior on top of the standard render (e.g.
+    # `ProgressBar`, `Gradient`). Returns the render's `LPos` (or `nil` when
+    # nothing was rendered) so callers can simply `with_inner_coords { ... }` as
+    # the body of their `#render`. Use `next` inside the block to bail out early
+    # while still returning the coords.
+    def with_inner_coords(& : (Int32, Int32, Int32, Int32) -> _) : LPos?
+      ret = _render
+      return unless ret
+      style.border.try &.adjust(ret)
+      yield ret.xi, ret.xl, ret.yi, ret.yl
+      ret
     end
 
     def self.sattr(style, fg = nil, bg = nil) : Int64

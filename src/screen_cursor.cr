@@ -16,6 +16,16 @@ module Crysterm
     # to the screen default". Everything that *draws* the cursor (`Screen#draw`)
     # or *applies* it to the terminal goes through here, so a focused widget's
     # override transparently wins while everything else keeps using the default.
+    # Re-render, but only once the screen has painted at least one frame
+    # (`@renders > 0`). The artificial cursor is composited into the cell buffer
+    # by `#draw`, so cursor-state changes must repaint to take effect — but only
+    # after the first real render, never before (which would paint prematurely).
+    # Centralizes the `render if @renders > 0` guard repeated across the cursor
+    # and focus code.
+    def render_if_active : Nil
+      render if @renders > 0
+    end
+
     def active_cursor : Cursor
       focused.try(&.cursor) || @cursor
     end
@@ -61,7 +71,7 @@ module Crysterm
       if c.artificial?
         # The artificial cursor is painted into the buffer by `Screen#draw`; a
         # re-render reflects the new settings.
-        render if @renders > 0
+        render_if_active
       else
         c.shape.try { |shape| tput.cursor_shape shape, c.blink }
         # XXX consider a simpler structure than Style for cursor color?
@@ -119,7 +129,7 @@ module Crysterm
 
       ac = active_cursor
       if ac.artificial?
-        render if @renders > 0
+        render_if_active
         return true
       end
 
@@ -164,12 +174,9 @@ module Crysterm
       # explicit `style.fg` recolors the cursor glyph (the equivalent of
       # blessed's `cursor.color`, applied to the FOREGROUND for every shape).
       # `style.bg` additionally tints the BACKGROUND (a Crysterm extension).
-      if f = cursor.style.fg
-        attr = Attr.pack(Attr.flags(attr), Attr.pack_color(f), Attr.bg(attr))
-      end
-      if b = cursor.style.bg
-        attr = Attr.pack(Attr.flags(attr), Attr.fg(attr), Attr.pack_color(b))
-      end
+      fg = (f = cursor.style.fg) ? Attr.pack_color(f) : Attr.fg(attr)
+      bg = (b = cursor.style.bg) ? Attr.pack_color(b) : Attr.bg(attr)
+      attr = Attr.pack(Attr.flags(attr), fg, bg)
 
       # Cell.new attr: attr, char: ch || ' '
       {attr, ch}
@@ -179,7 +186,7 @@ module Crysterm
     def show_cursor(c : Cursor = active_cursor)
       if c.artificial?
         c._hidden = false
-        render if @renders > 0
+        render_if_active
       else
         tput.show_cursor
       end
@@ -189,7 +196,7 @@ module Crysterm
     def hide_cursor(c : Cursor = active_cursor)
       if c.artificial?
         c._hidden = true
-        render if @renders > 0
+        render_if_active
       else
         tput.hide_cursor
       end
@@ -211,7 +218,7 @@ module Crysterm
       tput.cursor_reset
 
       # Repaint so the previously-drawn artificial cursor cell is cleared.
-      render if was_artificial && @renders > 0
+      render_if_active if was_artificial
     end
     # end
   end

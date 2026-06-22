@@ -1,5 +1,6 @@
 require "../box"
 require "../marquee"
+require "./animated"
 require "../../colors"
 
 module Crysterm
@@ -31,11 +32,10 @@ module Crysterm
       # NOTE: tag parsing is forced on (the rainbow path emits `{#rrggbb-fg}`
       # tags), so a literal `{` in `text` would be interpreted as a tag.
       class SineScroller < Box
+        include Animated
+
         # The message scrolled across the widget. Reassigning it is safe at any time.
         property text : String
-
-        # Delay between frames.
-        property interval : Time::Span
 
         # Direction the text travels (shared with `Marquee`).
         property direction : Marquee::Direction
@@ -55,10 +55,6 @@ module Crysterm
 
         # Hue degrees added per frame (the temporal cycling speed) when `rainbow?`.
         property hue_speed : Int32
-
-        # Frame loop; non-nil while running.
-        @fiber : Fiber?
-        protected property? running = false
 
         # Monotonically advancing frame counter. Int64 so it never wraps in any
         # realistic runtime; indexing uses a (sign-safe) modulo of `text.size`.
@@ -114,31 +110,6 @@ module Crysterm
           }.join('\n')
 
           @frame += 1
-        end
-
-        # Start the animation: spawns a fiber that recomposes a frame, renders, and
-        # sleeps `interval`, until `#stop`. Calling `#start` while already running
-        # is a no-op.
-        def start
-          return if running?
-          self.running = true
-          @fiber = Fiber.new do
-            loop do
-              break unless running?
-              step
-              screen.render
-              sleep @interval
-            end
-          end.enqueue
-        end
-
-        # Stop the animation. The fiber exits on its next iteration.
-        def stop
-          self.running = false
-        end
-
-        def toggle
-          running? ? stop : start
         end
       end
     end

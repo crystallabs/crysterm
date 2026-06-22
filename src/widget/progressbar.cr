@@ -57,58 +57,48 @@ module Crysterm
       end
 
       def render
-        ret = _render
-        return unless ret
+        with_inner_coords do |xi, xl, yi, yl|
+          if @orientation.horizontal?
+            xl = xi + ((xl - xi) * (@filled / 100)).to_i
+          else
+            yi = yi + ((yl - yi) - (((yl - yi) * (@filled / 100)).to_i))
+          end
 
-        self.style.border.try &.adjust(ret)
+          # NOTE We invert fg and bg here, so that progressbar's filled value would be
+          # rendered using foreground color. This is different than blessed, and:
+          # 1) Arguably more correct as far as logic goes
+          # 2) And also allows the widget to show filled value in a way which is visible
+          #    even if style.bar is not specifically defined
+          # Further explanation for (2):
+          #   In Blessed, style.bar does not automatically fallback to style. This then causes the
+          #     default for bar (filled value) to be black color. If the bg color of the rest is different,
+          #     filled value is visible. If it is also black (and it is by default?), then filled
+          #     value appears invisible. (And also there is no option to display the percentage as a
+          #     number inside the widget.
+          #   In Crysterm, style.bar (and all other sub-styles) do fallback to main style. This then
+          #     causes the filled value's bg and default bg to always be equal if style.bar is not
+          #     specifically defined. And thus it makes filled value show in even less cases than it
+          #     does in blessed. By reverting bg/fg like we do here, we solve this problem in a very
+          #     elegant way.
+          default_attr = sattr style.bar, style.bar.bg, style.bar.fg
 
-        xi = ret.xi
-        xl = ret.xl
-        yi = ret.yi
-        yl = ret.yl
+          # TODO Is this approach with using drawing routines valid, or it would be
+          # better that we do this in-memory only here?
+          screen.fill_region default_attr, style.pchar, xi, xl, yi, yl
 
-        if @orientation.horizontal?
-          xl = xi + ((xl - xi) * (@filled / 100)).to_i
-        else
-          yi = yi + ((yl - yi) - (((yl - yi) * (@filled / 100)).to_i))
-        end
-
-        # NOTE We invert fg and bg here, so that progressbar's filled value would be
-        # rendered using foreground color. This is different than blessed, and:
-        # 1) Arguably more correct as far as logic goes
-        # 2) And also allows the widget to show filled value in a way which is visible
-        #    even if style.bar is not specifically defined
-        # Further explanation for (2):
-        #   In Blessed, style.bar does not automatically fallback to style. This then causes the
-        #     default for bar (filled value) to be black color. If the bg color of the rest is different,
-        #     filled value is visible. If it is also black (and it is by default?), then filled
-        #     value appears invisible. (And also there is no option to display the percentage as a
-        #     number inside the widget.
-        #   In Crysterm, style.bar (and all other sub-styles) do fallback to main style. This then
-        #     causes the filled value's bg and default bg to always be equal if style.bar is not
-        #     specifically defined. And thus it makes filled value show in even less cases than it
-        #     does in blessed. By reverting bg/fg like we do here, we solve this problem in a very
-        #     elegant way.
-        default_attr = sattr style.bar, style.bar.bg, style.bar.fg
-
-        # TODO Is this approach with using drawing routines valid, or it would be
-        # better that we do this in-memory only here?
-        screen.fill_region default_attr, style.pchar, xi, xl, yi, yl
-
-        # Why here the formatted content is only in @_pcontent, while in blessed
-        # it appears to be in `this.content` directly?
-        if (pc = @_pcontent) && !pc.empty?
-          screen.lines[yi]?.try do |line|
-            pc.each_char_with_index do |c, i|
-              line[xi + i]?.try do |cell|
-                cell.char = c
+          # Why here the formatted content is only in @_pcontent, while in blessed
+          # it appears to be in `this.content` directly?
+          if (pc = @_pcontent) && !pc.empty?
+            screen.lines[yi]?.try do |line|
+              pc.each_char_with_index do |c, i|
+                line[xi + i]?.try do |cell|
+                  cell.char = c
+                end
               end
+              line.dirty = true
             end
-            line.dirty = true
           end
         end
-
-        ret
       end
 
       def progress(filled_delta)

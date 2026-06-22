@@ -133,7 +133,7 @@ module Crysterm
             end
             r = px.r; g = px.g; b = px.b
             if dither?
-              t = ((BAYER[y & 3][x & 3] + 0.5) / 16.0 - 0.5) * 110.0
+              t = ((Image::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 - 0.5) * 110.0
               r = clamp8 (r + t).to_i
               g = clamp8 (g + t).to_i
               b = clamp8 (b + t).to_i
@@ -165,13 +165,6 @@ module Crysterm
       private def clamp8(v : Int32) : Int32
         v < 0 ? 0 : (v > 255 ? 255 : v)
       end
-
-      BAYER = [
-        [0, 8, 2, 10],
-        [12, 4, 14, 6],
-        [3, 11, 1, 9],
-        [15, 7, 13, 5],
-      ]
     end
   end
 end

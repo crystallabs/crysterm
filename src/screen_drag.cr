@@ -67,12 +67,10 @@ module Crysterm
 
       # Establish the initial drop target.
       if sensor.mouse?
-        retarget sess, widget_at(x, y, skip: source)
-        over sess
+        retarget_over sess, widget_at(x, y, skip: source)
       else
         # Keyboard: the target follows focus; it starts on the source itself.
-        retarget sess, focused
-        over sess
+        retarget_over sess, focused
       end
       render
       sess
@@ -87,8 +85,7 @@ module Crysterm
       sess.y = y
       sess.source.emit ::Crysterm::Event::Drag.new sess
       move_ghost sess
-      retarget sess, widget_at(x, y, skip: sess.source)
-      over sess
+      retarget_over sess, widget_at(x, y, skip: sess.source)
       render
     end
 
@@ -120,6 +117,15 @@ module Crysterm
         sess.data.reject
         t.emit ::Crysterm::Event::DragOver.new sess
       end
+    end
+
+    # Re-evaluate the drop target: point the session at *t* and immediately
+    # re-ask it to accept. `retarget` and `over` are always invoked as this pair
+    # (every place that changes the target must re-ask the new one), so they are
+    # kept together here.
+    private def retarget_over(sess : DragSession, t : Widget?) : Nil
+      retarget sess, t
+      over sess
     end
 
     # Commits the drag at the current target. An accepting target receives a
@@ -252,8 +258,7 @@ module Crysterm
         # `char == ' '` with `key == nil` (unlike Enter/Tab/arrows, which are
         # control sequences with a `key`). Match it by char.
         if e.char == ' ' || e.key == ::Tput::Key::Enter
-          retarget sess, focused
-          over sess
+          retarget_over sess, focused
           drag_release sess
           e.accept
           return true
@@ -265,15 +270,13 @@ module Crysterm
           return true
         when ::Tput::Key::Tab
           focus_next
-          retarget sess, focused
-          over sess
+          retarget_over sess, focused
           render
           e.accept
           return true
         when ::Tput::Key::ShiftTab
           focus_previous
-          retarget sess, focused
-          over sess
+          retarget_over sess, focused
           render
           e.accept
           return true

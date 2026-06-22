@@ -148,12 +148,7 @@ module Crysterm
           remove child
         end
 
-        j = i
-        while j < @items.size
-          pt = @items[j].top.as(Int) - 1
-          @items[j].top = pt
-          j += 1
-        end
+        (i...@items.size).each { |j| @items[j].top = @items[j].top.as(Int) - 1 }
 
         if i == selected
           selekt i - 1
@@ -220,11 +215,7 @@ module Crysterm
 
         # XXX change this to more thread & bug safe code.
 
-        if index < 0
-          index = 0
-        elsif index >= @items.size
-          index = @items.size - 1
-        end
+        index = index.clamp(0, @items.size - 1)
 
         return if @selected == index && @_list_initialized
         @_list_initialized = true
@@ -299,11 +290,7 @@ module Crysterm
           return append_item content
         end
         item = create_item content
-        j = i
-        while j < @items.size
-          @items[j].top = @items[j].top.as(Int) + 1
-          j += 1
-        end
+        (i...@items.size).each { |j| @items[j].top = @items[j].top.as(Int) + 1 }
         item.top = i
         @ritems.insert i, content
         invalidate_item_index
