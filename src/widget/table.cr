@@ -129,6 +129,16 @@ module Crysterm
         width = coords.xl - coords.xi - iright
         height = coords.yl - coords.yi - ibottom
 
+        # Maps each relative text-column x to its table column index (packed by
+        # `@maxes`), so CSS per-cell styles (`#css_cell_style`) can override the
+        # row default per column.
+        col_for_x = {} of Int32 => Int32
+        cx = ileft
+        @maxes.each_with_index do |max, ci|
+          (cx...cx + max).each { |xx| col_for_x[xx] = ci }
+          cx += max
+        end
+
         # Apply header/cell attributes to text cells that still hold the default
         # attribute (so explicit tags inside cells are preserved).
         y = itop
@@ -139,7 +149,7 @@ module Crysterm
             # 2, 4, … (the 2nd, 4th, … data rows) take the alternate attribute.
             offset = y - itop
             row_index = offset // 2
-            attr =
+            default_attr =
               if offset.even? && row_index == 0
                 hattr
               elsif offset.even? && alternate_rows? && row_index.even?
@@ -151,7 +161,10 @@ module Crysterm
             while x < width
               if cell = line[xi + x]?
                 if cell.attr == dattr
-                  cell.attr = attr
+                  # A CSS rule may have computed a style for this specific cell.
+                  col = col_for_x[x]?
+                  cell_style = col ? css_cell_style(row_index, col) : nil
+                  cell.attr = cell_style ? sattr(cell_style) : default_attr
                   line.dirty = true
                 end
               else

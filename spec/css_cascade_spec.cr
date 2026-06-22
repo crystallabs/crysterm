@@ -802,6 +802,41 @@ describe "CSS cascade" do
     cb.styles.normal.bg.should eq rgb("blue")  # .big still matches
   end
 
+  it "supports :has() with a child combinator" do
+    screen = headless_screen
+    f1 = Widget::Form.new # direct CheckBox child
+    f2 = Widget::Form.new # CheckBox nested one level deeper
+    f1.append Widget::CheckBox.new
+    nested = Widget::Box.new
+    nested.append Widget::CheckBox.new
+    f2.append nested
+    screen.append f1
+    screen.append f2
+
+    screen.stylesheet = "Form:has(> CheckBox) { color: red; }"
+    screen.apply_stylesheet
+
+    f1.styles.normal.fg.should eq rgb("red") # direct child checkbox
+    f2.styles.normal.fg.should be_nil        # checkbox is a grandchild, not a direct child
+  end
+
+  it "computes per-cell styles for a table (Cell / Header / :nth-child)" do
+    screen = headless_screen
+    table = Widget::Table.new parent: screen, rows: [["A", "B"], ["1", "2"], ["3", "4"]]
+
+    screen.stylesheet = <<-CSS
+      Table Cell { color: white; }
+      Header { background-color: blue; }
+      Table Cell:nth-child(2) { color: red; }
+    CSS
+    screen.apply_stylesheet
+
+    table.css_cell_style(1, 0).not_nil!.fg.should eq rgb("white") # all cells white
+    table.css_cell_style(0, 0).not_nil!.bg.should eq rgb("blue")  # header row
+    table.css_cell_style(1, 1).not_nil!.fg.should eq rgb("red")   # 2nd column
+    table.css_cell_style(1, 0).not_nil!.fg.should eq rgb("white") # 1st column unaffected
+  end
+
   it "leaves widgets untouched when no stylesheet is set" do
     screen = headless_screen
     box = Widget::Box.new

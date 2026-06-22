@@ -85,7 +85,37 @@ module Crysterm
         io << "<w-" << slot << " data-uid=\"" << uid << "::" << slot << '"'
         io << " class=\"" << slot.capitalize << "\"></w-" << slot << '>'
       end
+      # Extra widget-specific nodes (e.g. a table's per-cell grid).
+      css_render_extra io
       io << "</" << tag << '>'
+    end
+
+    # Extra DOM nodes a widget contributes beyond its sub-elements — e.g. a
+    # `Table`'s `Row`/`Cell` grid. Emitted as raw markup; default: nothing.
+    def css_render_extra(io : IO) : Nil
+    end
+
+    # Extra writeback slots (paired with `#css_render_extra`), so the cascade can
+    # route each extra node's computed style back. A `Table` returns its cell
+    # slots (`"cell:0:1"`, ...). Default: none.
+    def css_extra_slots : Array(String)
+      [] of String
+    end
+
+    # The pristine base style for an extra *slot* (what the cascade applies rules
+    # onto) and the writeback for the computed result. Default: the widget's
+    # style / no-op. `Table` overrides these to map cell slots to its per-cell map.
+    def css_extra_base_style(slot : String) : Style
+      style
+    end
+
+    # :ditto:
+    def css_set_extra_style(slot : String, computed : Style) : Nil
+    end
+
+    # Clears any extra computed state (e.g. a `Table`'s per-cell styles) when the
+    # cascade resets the widget, so it can't go stale. Default: nothing.
+    def css_reset_extra : Nil
     end
 
     # :ditto:

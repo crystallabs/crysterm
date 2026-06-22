@@ -141,6 +141,7 @@ module Crysterm
         recompute_candidates(index, scope).each do |widget|
           widget.styles = widget.css_base_styles.deep_dup
           widget.css_styled = false
+          widget.css_reset_extra
         end
 
         # Give every touched (widget, state) its own `Style` up front (a fresh
@@ -171,16 +172,25 @@ module Crysterm
           widget.css_styled = true
         end
 
-        # Sub-element styles build on the now-current per-state style.
+        # Sub-element styles build on the now-current per-state style. Extra
+        # slots (those with a `:` — e.g. a table cell `cell:0:1`) are routed to
+        # the widget's own per-slot storage instead of a `Style` sub-style.
         acc.each do |(key, state), entries|
           next unless key.includes?("::")
           next unless target = index[key]?
           widget, slot = target
+          next unless slot
           next unless scope.nil? || scope.includes?(widget)
-          state_style = get_state_style(widget, state)
-          sub = get_sub_style(state_style, slot).dup
-          apply_entries sub, entries, variables
-          set_sub_style state_style, slot, sub
+          if slot.includes?(':')
+            base = widget.css_extra_base_style(slot).dup
+            apply_entries base, entries, variables
+            widget.css_set_extra_style(slot, base)
+          else
+            state_style = get_state_style(widget, state)
+            sub = get_sub_style(state_style, slot).dup
+            apply_entries sub, entries, variables
+            set_sub_style state_style, slot, sub
+          end
         end
 
         inherit screen
@@ -289,6 +299,9 @@ module Crysterm
       private def self.index_widget(widget : Widget, index) : Nil
         index[widget.uid.to_s] = {widget, nil}
         widget.css_sub_elements.each do |slot|
+          index["#{widget.uid}::#{slot}"] = {widget, slot}
+        end
+        widget.css_extra_slots.each do |slot|
           index["#{widget.uid}::#{slot}"] = {widget, slot}
         end
         widget.children.each { |child| index_widget child, index }

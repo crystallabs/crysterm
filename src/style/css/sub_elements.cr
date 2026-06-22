@@ -27,11 +27,8 @@ module Crysterm
       end
     end
 
-    class Table
-      def css_sub_elements : Array(String)
-        super + ["header", "cell", "alternate"]
-      end
-    end
+    # NOTE: `Table` exposes its cells as individual per-cell nodes instead of the
+    # representative header/cell/alternate slots — see `table_cells.cr`.
 
     class ProgressBar
       def css_sub_elements : Array(String)
