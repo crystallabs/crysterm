@@ -24,6 +24,13 @@ module Crysterm
       restyle
     end
 
+    # A top-level structural change forces a document re-parse and full
+    # recompute.
+    protected def invalidate_css_tree : Nil
+      @css_structural = true
+      restyle
+    end
+
     # Path the active stylesheet was loaded from, for `#reload_stylesheet` /
     # `#watch_stylesheet`. Set by `#load_stylesheet`.
     getter css_stylesheet_path : String?
@@ -34,13 +41,22 @@ module Crysterm
     # itself changes (the document doesn't encode the rules).
     @css_last_document : String?
 
-    # Cached *parsed* document and the string it was parsed from. Reused across
-    # cascades when the tree is structurally unchanged (e.g. a stylesheet change
-    # or hot-reload, where the rules change but the widget tree doesn't), so the
-    # `html5` parse is skipped. Not reset on stylesheet changes (the parse
-    # depends only on the tree), only when the document string actually differs.
+    # Cached *parsed* document and the string it was parsed from, plus a
+    # `data-uid -> node` index into it. The parse is reused across cascades: on
+    # an attribute-only change the changed nodes are *patched* in place (see
+    # `@css_patch_widgets`) rather than re-parsing; a structural change
+    # (`@css_structural`) forces a fresh parse + index.
     @css_parsed_doc : HTML5::Node?
     @css_parsed_doc_string : String?
+    @css_node_index : Hash(String, HTML5::Node)?
+
+    # Whether the widget tree *structure* changed (insert/remove) since the last
+    # parse — if so the cached parse can't be patched and must be rebuilt.
+    @css_structural = false
+
+    # Widgets whose node attributes (class/id/state/intrinsic attrs) changed
+    # since the last parse, to be patched into the cached document.
+    @css_patch_widgets = Set(Widget).new
 
     # Assigns a stylesheet from CSS source text.
     def stylesheet=(css : String) : String
@@ -92,17 +108,34 @@ module Crysterm
       @css_full = true
     end
 
-    # Marks only the subtree affected by a change to *widget* dirty (its parent's
-    # subtree, so siblings — reachable via sibling combinators — are covered).
-    # A change to a top-level widget can't be scoped (its siblings are other
-    # roots), so it falls back to a full recompute.
+    # Marks only the subtree affected by an *attribute* change to *widget* dirty
+    # (its parent's subtree, so siblings — reachable via sibling combinators —
+    # are covered), and records the widget's node for patching. A change to a
+    # top-level widget can't be scoped (its siblings are other roots), so it
+    # falls back to a full recompute.
     def restyle_subtree(widget : Widget) : Nil
       @css_dirty = true
+      css_node_changed widget
       if parent = widget.parent
         @css_dirty_roots << parent
       else
         @css_full = true
       end
+    end
+
+    # Marks a *structural* change to *widget*'s subtree: the cached parse can no
+    # longer be patched (a node was added/removed), so it must be rebuilt.
+    def restyle_structural(widget : Widget) : Nil
+      @css_structural = true
+      restyle_subtree widget
+    end
+
+    # Records that *widget*'s node attributes changed, so the cached parsed
+    # document is patched (not re-parsed) for it. Tracked even for changes that
+    # don't themselves invalidate styling (e.g. a non-dynamic state change), so
+    # the cached document never drifts out of sync with the tree.
+    def css_node_changed(widget : Widget) : Nil
+      @css_patch_widgets << widget
     end
 
     # Whether the active styling depends on widget state via ancestor-state
@@ -135,23 +168,64 @@ module Crysterm
       clear_css_dirty
     end
 
-    # Returns the parsed document for *document*, reusing the cached parse when
-    # the tree is structurally unchanged (the string matches) so a stylesheet
-    # change or hot-reload doesn't re-parse an unchanged tree.
+    # Returns the parsed document for *document*. A structural change (or no
+    # cache) forces a fresh parse + node index. Otherwise the cached parse is
+    # reused: identical when the string matches (stylesheet-only change), or
+    # patched in place — node by node — for the widgets whose attributes changed,
+    # avoiding a re-parse on attribute-only changes (incremental matching).
     private def css_parsed_document(document : String) : HTML5::Node
-      if document == @css_parsed_doc_string && (cached = @css_parsed_doc)
-        return cached
+      cached = @css_parsed_doc
+      if @css_structural || cached.nil?
+        parsed = HTML5.parse(document)
+        @css_parsed_doc = parsed
+        @css_parsed_doc_string = document
+        @css_node_index = css_build_node_index(parsed)
+        return parsed
       end
-      parsed = HTML5.parse(document)
-      @css_parsed_doc = parsed
-      @css_parsed_doc_string = document
-      parsed
+      unless document == @css_parsed_doc_string
+        css_patch_nodes
+        @css_parsed_doc_string = document
+      end
+      cached
+    end
+
+    # Patches the cached document's changed nodes in place: each tracked widget's
+    # node has its attributes replaced with the widget's current ones.
+    private def css_patch_nodes : Nil
+      index = @css_node_index
+      return unless index
+      @css_patch_widgets.each do |widget|
+        node = index[widget.uid.to_s]?
+        next unless node
+        node.attr.clear
+        node.attr.concat widget.css_node_attributes
+      end
+    end
+
+    # Builds a `data-uid -> node` index over a parsed document.
+    private def css_build_node_index(doc : HTML5::Node) : Hash(String, HTML5::Node)
+      index = {} of String => HTML5::Node
+      css_each_node(doc) do |node|
+        node["data-uid"]?.try { |attr| index[attr.val] = node }
+      end
+      index
+    end
+
+    private def css_each_node(node : HTML5::Node, &block : HTML5::Node ->) : Nil
+      block.call node
+      child = node.first_child
+      while child
+        css_each_node child, &block
+        child = child.next_sibling
+      end
     end
 
     private def clear_css_dirty : Nil
       @css_dirty = false
       @css_full = false
+      @css_structural = false
       @css_dirty_roots.clear
+      @css_patch_widgets.clear
     end
 
     # Expands the dirty subtree roots into the full set of widgets to recompute.

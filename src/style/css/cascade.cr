@@ -100,6 +100,11 @@ module Crysterm
               end
               selector_cache[rule.selector] = matched
             end
+            # `:has(...)` — keep only nodes with a descendant matching the inner
+            # selector (the engine has no native `:has`).
+            if has = rule.has
+              nodes = nodes.select { |node| has_descendant?(node, has) }
+            end
             entries = rule_entries(rule, tier)
             next if entries.empty?
             nodes.each do |node|
@@ -182,6 +187,14 @@ module Crysterm
       end
 
       EMPTY_ENTRIES = [] of Entry
+
+      # Whether *node* has a descendant (or, with `:scope`, relative element)
+      # matching the `:has(...)` inner selector.
+      private def self.has_descendant?(node : HTML5::Node, inner : String) : Bool
+        !node.css(inner).empty?
+      rescue
+        false
+      end
 
       # The cascade entries a rule contributes: its normal declarations at
       # *base_tier*, and its `!important` declarations at `TIER_IMPORTANT`.

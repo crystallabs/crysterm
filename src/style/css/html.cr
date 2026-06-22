@@ -27,6 +27,12 @@ module Crysterm
       screen?.try &.restyle_subtree(self)
     end
 
+    # Structural-change variant (children added/removed): forces a document
+    # re-parse in addition to recomputing the affected subtree.
+    protected def invalidate_css_tree : Nil
+      screen?.try &.restyle_structural(self)
+    end
+
     # Serializes this widget and its subtree into the CSS document.
     #
     # Each widget becomes one element whose tag is its leaf type class (e.g.
@@ -85,6 +91,22 @@ module Crysterm
     # :ditto:
     def to_html : String
       String.build { |io| to_html io }
+    end
+
+    # This widget's current attributes as parsed-node `HTML5::Attribute`s
+    # (unescaped values, as the parser stores them) — the same set `#to_html`
+    # serializes. Used to *patch* a cached parsed node in place instead of
+    # re-parsing the whole document on an attribute-only change.
+    def css_node_attributes : Array(HTML5::Attribute)
+      attrs = [HTML5::Attribute.new("", "data-uid", uid.to_s)]
+      if id = css_id
+        attrs << HTML5::Attribute.new("", "id", id)
+      end
+      attrs << HTML5::Attribute.new("", "class", "#{css_all_classes.join(' ')} state-#{state.to_s.downcase}")
+      css_attributes.each do |key, value|
+        attrs << HTML5::Attribute.new("", key, value || "")
+      end
+      attrs
     end
 
     # Intrinsic widget properties exposed as HTML attributes so they can be

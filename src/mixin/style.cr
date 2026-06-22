@@ -13,7 +13,13 @@ module Crysterm
       def state=(value : WidgetState) : WidgetState
         return value if @state == value
         @state = value
-        screen?.try { |scr| scr.restyle_subtree(self) if scr.css_dynamic_state? }
+        screen?.try do |scr|
+          if scr.css_dynamic_state?
+            scr.restyle_subtree self # ancestor-state rules exist: recascade
+          else
+            scr.css_node_changed self # otherwise just keep the cached document in sync
+          end
+        end
         value
       end
 

@@ -49,7 +49,7 @@ module Crysterm
       def insert(element, i = -1)
         return if @children.includes? element
         @children.insert i, element
-        invalidate_css
+        invalidate_css_tree
         element
       end
 
@@ -60,14 +60,15 @@ module Crysterm
         # clears the whole cell buffer before each frame, so once `element` is
         # gone from `@children` it simply stops being repainted.
         @children.delete_at i
-        invalidate_css
+        invalidate_css_tree
         element
       end
 
-      # Hook invoked after the children list changes. The CSS subsystem overrides
-      # this (on `Widget`/`Screen`) to mark styling dirty, since a structural
-      # change can alter which selectors match. No-op by default.
-      protected def invalidate_css : Nil
+      # Hook invoked after the children list changes (a *structural* change). The
+      # CSS subsystem overrides this (on `Widget`/`Screen`) to mark styling dirty
+      # and force a document re-parse, since structure can alter which selectors
+      # match. No-op by default.
+      protected def invalidate_css_tree : Nil
       end
 
       # Returns true if `obj` is found in the list of parents, recursively

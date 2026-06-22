@@ -758,6 +758,50 @@ describe "CSS cascade" do
     child.styles.normal.fg.should eq rgb("blue")
   end
 
+  it "supports :has() (evaluated in the cascade, not html5)" do
+    screen = headless_screen
+    f1 = Widget::Form.new
+    f2 = Widget::Form.new
+    f1.append Widget::CheckBox.new # f1 has a checkbox descendant
+    f2.append Widget::Box.new      # f2 doesn't
+    screen.append f1
+    screen.append f2
+
+    screen.stylesheet = "Form:has(CheckBox) { color: red; }"
+    screen.apply_stylesheet
+
+    f1.styles.normal.fg.should eq rgb("red")
+    f2.styles.normal.fg.should be_nil # :has must be subtree-scoped, not whole-document
+  end
+
+  it "stays consistent across attribute toggles (node patching, no re-parse)" do
+    screen = headless_screen
+    cb = Widget::CheckBox.new
+    screen.append cb
+
+    screen.stylesheet = <<-CSS
+      CheckBox { color: white; }
+      CheckBox[checked] { color: red; }
+      .big { background-color: blue; }
+    CSS
+    screen.apply_stylesheet
+    cb.styles.normal.fg.should eq rgb("white")
+
+    cb.check # [checked] attribute now present (patched into the cached doc)
+    screen.apply_stylesheet
+    cb.styles.normal.fg.should eq rgb("red")
+
+    cb.add_css_class "big" # class change (patched)
+    screen.apply_stylesheet
+    cb.styles.normal.fg.should eq rgb("red")
+    cb.styles.normal.bg.should eq rgb("blue")
+
+    cb.uncheck # [checked] removed again (patched)
+    screen.apply_stylesheet
+    cb.styles.normal.fg.should eq rgb("white") # [checked] no longer matches
+    cb.styles.normal.bg.should eq rgb("blue")  # .big still matches
+  end
+
   it "leaves widgets untouched when no stylesheet is set" do
     screen = headless_screen
     box = Widget::Box.new

@@ -71,7 +71,12 @@ module Crysterm
       # The `@media` condition guarding this rule, or `nil` if unconditional.
       getter media : MediaQuery?
 
-      def initialize(@selector, @declarations, @important, @state, @specificity, @order, @media = nil)
+      # A `:has(...)` relational condition on the subject (already type-expanded),
+      # or `nil`. Matched nodes are kept only if `node.css(has)` is non-empty.
+      # (`:has` is implemented here because the `html5` selector engine lacks it.)
+      getter has : String?
+
+      def initialize(@selector, @declarations, @important, @state, @specificity, @order, @media = nil, @has = nil)
       end
     end
 
@@ -163,8 +168,9 @@ module Crysterm
             spec = Specificity.calculate(selector)
             prefix, subject = split_subject(selector)
             state, subject = peel_state(subject)
+            has, subject = peel_has(subject)
             structural = Selectors.expand_types(rewrite_ancestor_states(prefix) + subject)
-            rules << Rule.new(structural, declarations, important, state, spec, order, media)
+            rules << Rule.new(structural, declarations, important, state, spec, order, media, has)
             order += 1
           end
         end
@@ -318,6 +324,40 @@ module Crysterm
         end
         return {"", selector} if cut < 0
         {selector[0...cut], selector[cut..].strip}
+      end
+
+      # Splits a `:has(...)` relational pseudo-class off the (subject) selector,
+      # returning `{inner_selector, remaining}`. The inner selector is
+      # type-expanded for matching against a node's subtree; a leading
+      # combinator (`> .x`) is anchored with `:scope`. Only the first `:has` is
+      # handled. The `html5` engine has no `:has`, so the cascade evaluates it.
+      private def self.peel_has(selector : String) : Tuple(String?, String)
+        idx = selector.index(":has(")
+        return {nil, selector} unless idx
+        open = idx + 4 # index of '('
+        close = matching_paren(selector, open)
+        return {nil, selector} unless close
+
+        inner = selector[(open + 1)...close].strip
+        inner = ":scope #{inner}" if inner.starts_with?('>') || inner.starts_with?('+') || inner.starts_with?('~')
+        remaining = (selector[0...idx] + selector[(close + 1)..]).strip
+        remaining = "*" if remaining.empty?
+        {Selectors.expand_types(inner), remaining}
+      end
+
+      # Index of the `)` matching the `(` at *open*, honoring nesting; `nil` if
+      # unbalanced.
+      private def self.matching_paren(selector : String, open : Int32) : Int32?
+        depth = 0
+        (open...selector.size).each do |i|
+          case selector[i]
+          when '(' then depth += 1
+          when ')'
+            depth -= 1
+            return i if depth == 0
+          end
+        end
+        nil
       end
 
       # Rewrites state pseudo-classes appearing on *ancestor* compounds into
