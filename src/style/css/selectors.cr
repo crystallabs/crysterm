@@ -80,6 +80,7 @@ module Crysterm
 
       private def self.copy_string(chars : Array(Char), i : Int32, io) : Int32
         quote = chars[i]
+        io << quote # the opening quote (copy_balanced delegates the whole string here)
         i += 1
         n = chars.size
         while i < n

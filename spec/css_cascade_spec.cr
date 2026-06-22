@@ -627,6 +627,92 @@ describe "CSS cascade" do
     c.styles.normal.fg.should eq green        # c is out-of-scope -> NOT recomputed
   end
 
+  it "does not leave a removed rule's value stale on re-cascade" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+    screen.stylesheet = ".hot { color: red; }"
+    box.add_css_class "hot"
+    screen.apply_stylesheet
+    box.styles.normal.fg.should eq rgb("red")
+
+    box.remove_css_class "hot"
+    screen.apply_stylesheet
+    box.styles.normal.fg.should be_nil # rebuilt from pristine; red is gone
+  end
+
+  it "updates an inherited value when the ancestor's value changes" do
+    screen = headless_screen
+    form = Widget::Form.new
+    inner = Widget::Box.new
+    form.append inner
+    screen.append form
+
+    screen.stylesheet = <<-CSS
+      Form { color: red; }
+      .blue { color: blue; }
+    CSS
+    screen.apply_stylesheet
+    inner.styles.normal.fg.should eq rgb("red") # inherited from form
+
+    form.add_css_class "blue"
+    screen.apply_stylesheet
+    inner.styles.normal.fg.should eq rgb("blue") # re-inherits the new value, not stale red
+  end
+
+  it "supports per-side border colors" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    screen.stylesheet = "Box { border: solid; border-top-color: red; border-bottom-color: blue; }"
+    screen.apply_stylesheet
+
+    border = box.styles.normal.border
+    border.top_fg.should eq rgb("red")
+    border.bottom_fg.should eq rgb("blue")
+    border.left_fg.should eq border.fg # falls back to whole-border color
+  end
+
+  it "supports structural pseudo-classes" do
+    screen = headless_screen
+    form = Widget::Form.new
+    a = Widget::Box.new
+    b = Widget::Box.new
+    c = Widget::Box.new
+    form.append a
+    form.append b
+    form.append c
+    screen.append form
+
+    screen.stylesheet = <<-CSS
+      Form Box:first-child { color: red; }
+      Form Box:nth-child(2) { color: green; }
+      Form Box:last-child { color: blue; }
+    CSS
+    screen.apply_stylesheet
+
+    a.styles.normal.fg.should eq rgb("red")
+    b.styles.normal.fg.should eq rgb("green")
+    c.styles.normal.fg.should eq rgb("blue")
+  end
+
+  it "supports attribute operators including quoted values" do
+    screen = headless_screen
+    box = Widget::Box.new
+    box.add_css_class "danger"
+    screen.append box
+
+    screen.stylesheet = <<-CSS
+      [class*="dang"] { color: red; }
+      [class$="state-normal"] { background-color: blue; }
+    CSS
+    screen.apply_stylesheet
+
+    box.styles.normal.fg.should eq rgb("red")  # *= (contains)
+    box.styles.normal.bg.should eq rgb("blue") # $= (ends-with, quoted — exercises the string fix)
+  end
+
   it "leaves widgets untouched when no stylesheet is set" do
     screen = headless_screen
     box = Widget::Box.new

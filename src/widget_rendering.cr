@@ -464,7 +464,12 @@ module Crysterm
         # A border with all sides 0 is "no border": nothing to draw.
         next unless border.any?
 
-        battr = sattr border
+        # Per-side attributes, so `border-top-color`/`border-left-color`/... can
+        # differ. Each falls back to the whole-border color when unset.
+        top_attr = sattr border, border.top_fg, border.bg
+        bottom_attr = sattr border, border.bottom_fg, border.bg
+        left_attr = sattr border, border.left_fg, border.bg
+        right_attr = sattr border, border.right_fg, border.bg
 
         [yi, yl - 1].each do |y|
           line = lines[y]?
@@ -479,6 +484,10 @@ module Crysterm
           elsif y == yl - 1 && (coords.no_bottom? || border.bottom == 0)
             next
           end
+
+          # The corners live on the top/bottom rows, so they take that side's
+          # color.
+          battr = y == yi ? top_attr : bottom_attr
 
           (xi...xl).each do |x|
             next if coords.no_left? && x == xi
@@ -512,6 +521,8 @@ module Crysterm
             next unless cell
 
             ch = border_char(border, x, xi, xl, y, yi, yl, default_attr)
+
+            battr = x == xi ? left_attr : right_attr
 
             if cell != {battr, ch}
               cell.attr = battr

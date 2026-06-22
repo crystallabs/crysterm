@@ -42,21 +42,21 @@ module Crysterm
       # against the tree rooted at *screen*. *document* is the prebuilt CSS
       # document (`screen.to_html`); pass it to avoid rebuilding when the caller
       # already has it.
-      def self.apply(stylesheet : Stylesheet, screen : Screen, document : String? = nil, scope : Set(Widget)? = nil) : Nil
-        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], screen, document, scope)
+      def self.apply(stylesheet : Stylesheet, screen : Screen, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
+        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], screen, doc, scope)
       end
 
       # Resolves a list of `{stylesheet, base_tier}` sources, lowest tier first,
-      # against *screen*. Higher tiers win regardless of specificity. When
+      # against *screen*, matching against the pre-parsed *doc* (the screen owns
+      # parsing and caches it). Higher tiers win regardless of specificity. When
       # *scope* is given, only widgets in that set have their styles recomputed
       # (incremental update); selector matching is still over the whole document
       # so ancestor/sibling context is correct.
       #
       # ameba:disable Metrics/CyclomaticComplexity
-      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), screen : Screen, document : String? = nil, scope : Set(Widget)? = nil) : Nil
+      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), screen : Screen, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
-        doc = HTML5.parse(document || screen.to_html)
         index = index_tree(screen)
 
         # Match each distinct structural selector at most once per cascade (the
@@ -124,16 +124,27 @@ module Crysterm
           states.each { |state| (acc[{key, state}] ||= [] of Entry).concat entries }
         end
 
-        # Give every touched (widget, state) its own `Style` up front. A state
-        # whose style otherwise lazily falls back to `normal` would, if mutated
-        # in place by a sub-element rule, leak into `normal`; an owned copy
-        # prevents that.
         touched = Set(Tuple(String, WidgetState)).new
         acc.each_key { |(key, state)| touched << {key.partition("::")[0], state} }
+
+        # Reset every recomputed widget to its pristine pre-CSS styles before
+        # (re)applying rules. This is what makes the cascade non-stale: a widget
+        # that stopped matching a rule, or whose *inherited* value changed,
+        # starts clean rather than building on its previous computed styles.
+        # (Inherited-into widgets aren't `css_styled`, so every candidate is
+        # reset, not just matched ones.)
+        recompute_candidates(index, scope).each do |widget|
+          widget.styles = widget.css_base_styles.deep_dup
+          widget.css_styled = false
+        end
+
+        # Give every touched (widget, state) its own `Style` up front (a fresh
+        # pristine dup). A state that otherwise lazily falls back to `normal`
+        # would, if mutated in place by a sub-element rule, leak into `normal`.
         touched.each do |(uid, state)|
           if target = index[uid]?
             next unless scope.nil? || scope.includes?(target[0])
-            set_state_style target[0], state, get_state_style(target[0], state).dup
+            set_state_style target[0], state, base_state_style(target[0], state)
           end
         end
 
@@ -243,6 +254,15 @@ module Crysterm
         style.shadow = inline.shadow if inline.shadow.any?    # ameba:disable Performance/AnyInsteadOfEmpty
       end
 
+      # The widgets eligible to be reset/recomputed: *scope* when scoped,
+      # otherwise every (main) widget in the document index.
+      private def self.recompute_candidates(index, scope : Set(Widget)?) : Enumerable(Widget)
+        return scope if scope
+        widgets = Set(Widget).new
+        index.each_value { |(widget, slot)| widgets << widget if slot.nil? }
+        widgets
+      end
+
       # Walks the widget tree, mapping each `data-uid` key (and each sub-element
       # `uid::slot` key) back to its `{widget, slot}`.
       private def self.index_tree(screen : Screen) : Hash(String, Tuple(Widget, String?))
@@ -280,6 +300,21 @@ module Crysterm
       end
 
       # --- per-state style accessors -----------------------------------------
+
+      # A fresh dup of the widget's pristine (pre-CSS) style for *state* — the
+      # clean base the cascade applies declarations onto.
+      private def self.base_state_style(widget : Widget, state : WidgetState) : Style
+        base = widget.css_base_styles
+        style = case state
+                in .normal?   then base.normal
+                in .blurred?  then base.blurred
+                in .focused?  then base.focused
+                in .hovered?  then base.hovered
+                in .selected? then base.selected
+                in .disabled? then base.disabled
+                end
+        style.dup
+      end
 
       private def self.get_state_style(widget : Widget, state : WidgetState) : Style
         case state

@@ -79,9 +79,16 @@ module Crysterm
         when "border-width"
           w = cells(value)
           border.left = border.top = border.right = border.bottom = w
-        when "border-color",
-             "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"
+        when "border-color"
           border.fg = ColorValue.resolve(value, border.fg)
+        when "border-top-color"
+          border.fg_top = border_side_color(value, border)
+        when "border-right-color"
+          border.fg_right = border_side_color(value, border)
+        when "border-bottom-color"
+          border.fg_bottom = border_side_color(value, border)
+        when "border-left-color"
+          border.fg_left = border_side_color(value, border)
         when "border-style"
           apply_border_style border, value, {:left, :top, :right, :bottom}
         when "border-top"          then apply_border_side border, :top, value
@@ -98,6 +105,16 @@ module Crysterm
         when "border-left-style"   then apply_border_style border, value, {:left}
         else
           # Unknown border-* property: ignore.
+        end
+      end
+
+      # Resolves a per-side border color value to a native `0xRRGGBB` int
+      # (`border-*-color` stores ints, not the string form `border-color` keeps).
+      private def self.border_side_color(value : String, border : Border) : Int32?
+        case resolved = ColorValue.resolve(value, border.fg)
+        when Int32  then resolved
+        when String then Colors.convert(resolved).to_i32
+        else             nil
         end
       end
 

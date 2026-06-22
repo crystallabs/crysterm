@@ -34,6 +34,17 @@ describe "CSS end-to-end rendering" do
     cell_fg(screen, 2, 3).should eq 0xff0000
   end
 
+  it "paints per-side border colors into the right edges" do
+    screen = render_screen
+    Widget::Box.new parent: screen, top: 0, left: 0, width: 10, height: 5
+
+    screen.stylesheet = "Box { border: solid; border-top-color: #ff0000; border-bottom-color: #0000ff; }"
+    screen._render
+
+    cell_fg(screen, 0, 4).should eq 0xff0000 # top edge -> red
+    cell_fg(screen, 4, 4).should eq 0x0000ff # bottom edge -> blue
+  end
+
   it "reflects a restyle in the next render" do
     screen = render_screen
     box = Widget::Box.new parent: screen, top: 1, left: 1, width: 10, height: 5

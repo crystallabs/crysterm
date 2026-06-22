@@ -34,6 +34,14 @@ module Crysterm
     # itself changes (the document doesn't encode the rules).
     @css_last_document : String?
 
+    # Cached *parsed* document and the string it was parsed from. Reused across
+    # cascades when the tree is structurally unchanged (e.g. a stylesheet change
+    # or hot-reload, where the rules change but the widget tree doesn't), so the
+    # `html5` parse is skipped. Not reset on stylesheet changes (the parse
+    # depends only on the tree), only when the document string actually differs.
+    @css_parsed_doc : HTML5::Node?
+    @css_parsed_doc_string : String?
+
     # Assigns a stylesheet from CSS source text.
     def stylesheet=(css : String) : String
       @css_stylesheet = CSS::Stylesheet.parse(css)
@@ -62,26 +70,18 @@ module Crysterm
       @css_stylesheet_path.try { |path| load_stylesheet path }
     end
 
-    # Watches the stylesheet file for changes (polling *interval*), reloading and
-    # re-rendering on each modification — a simple hot-reload for theme authoring.
-    # Returns the spawned `Fiber`. Read/parse errors during editing are ignored.
-    def watch_stylesheet(path : String? = @css_stylesheet_path, interval : Time::Span = 1.second) : Fiber
+    # Opt-in stylesheet hot-reload: watches the stylesheet file (event-based, via
+    # inotify — Linux only; no polling) and reloads + re-renders on each change.
+    # Nothing watches by default; you must call this. Returns the spawned
+    # `Fiber`. Read/parse errors during editing are ignored.
+    def watch_stylesheet(path : String? = @css_stylesheet_path) : Fiber
       watched = path || raise "no stylesheet path to watch (call load_stylesheet first)"
-      last = File.info?(watched).try &.modification_time
-      spawn do
-        loop do
-          sleep interval
-          info = File.info?(watched)
-          next unless info
-          if last.nil? || info.modification_time != last
-            last = info.modification_time
-            begin
-              load_stylesheet watched
-              render
-            rescue
-              # mid-edit read/parse error; try again next tick
-            end
-          end
+      CSS::FileWatcher.watch(watched) do
+        begin
+          load_stylesheet watched
+          render
+        rescue
+          # mid-edit read/parse error; the next change event will retry
         end
       end
     end
@@ -131,8 +131,21 @@ module Crysterm
       end
       @css_last_document = document
       scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
-      CSS::Cascade.apply sheet, self, document, scope
+      CSS::Cascade.apply sheet, self, css_parsed_document(document), scope
       clear_css_dirty
+    end
+
+    # Returns the parsed document for *document*, reusing the cached parse when
+    # the tree is structurally unchanged (the string matches) so a stylesheet
+    # change or hot-reload doesn't re-parse an unchanged tree.
+    private def css_parsed_document(document : String) : HTML5::Node
+      if document == @css_parsed_doc_string && (cached = @css_parsed_doc)
+        return cached
+      end
+      parsed = HTML5.parse(document)
+      @css_parsed_doc = parsed
+      @css_parsed_doc_string = document
+      parsed
     end
 
     private def clear_css_dirty : Nil

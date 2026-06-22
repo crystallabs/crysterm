@@ -70,10 +70,18 @@ module Crysterm
       end
     {% end %}
 
-    # Shallow `dup` would share the `specified` set; give the copy its own.
+    # A plain shallow `dup` would share the `specified` set and the
+    # *mutable* sub-objects (`border`/`padding`/`shadow` are mutated in place by
+    # e.g. `border-left`/`padding-top`). Give the copy independent ones so a
+    # dup — in particular a cascade base snapshot — can't be corrupted by later
+    # in-place edits. (Sub-*styles* like `scrollbar` are replaced, not mutated,
+    # so they stay shared here.)
     def dup
       copy = super
       copy.specified = @specified.dup
+      @border.try { |border| copy.border = border.dup }
+      copy.padding = @padding.dup
+      copy.shadow = @shadow.dup
       copy
     end
 

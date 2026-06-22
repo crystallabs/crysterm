@@ -26,6 +26,25 @@ module Crysterm
       # Only one style, `normal` is initialized by default, others default to it if `nil`.
       property styles : ::Crysterm::Styles = ::Crysterm::Styles.default
 
+      # Pristine, pre-CSS snapshot of `#styles`, captured lazily the first time
+      # the cascade asks for it. Each cascade rebuilds the computed styles from a
+      # fresh dup of this snapshot, so removed rules and changed inherited values
+      # don't linger (the cascade is otherwise non-destructive — it builds on the
+      # *current* styles).
+      @css_base_styles : ::Crysterm::Styles?
+
+      # :ditto:
+      def css_base_styles : ::Crysterm::Styles
+        @css_base_styles ||= styles.deep_dup
+      end
+
+      # Drops the pristine snapshot so it is recaptured from the current `#styles`
+      # on the next cascade. Call after deliberately changing a widget's
+      # programmatic default styles.
+      def reset_css_base_styles : Nil
+        @css_base_styles = nil
+      end
+
       # User may set specific style for this widget
       setter style : ::Crysterm::Style?
 

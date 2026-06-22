@@ -29,6 +29,34 @@ module Crysterm
     getter bg : Int32?
     getter fg : Int32?
 
+    # Optional per-side foreground colors (`0xRRGGBB` int or `nil`). When unset,
+    # the side falls back to the whole-border `#fg` (see `#top_fg` etc.). These
+    # let `border-top-color`/`border-left-color`/... differ per edge.
+    property fg_top : Int32?
+    property fg_right : Int32?
+    property fg_bottom : Int32?
+    property fg_left : Int32?
+
+    # The effective foreground color for each side (per-side override or `#fg`).
+    def top_fg : Int32?
+      @fg_top || @fg
+    end
+
+    # :ditto:
+    def right_fg : Int32?
+      @fg_right || @fg
+    end
+
+    # :ditto:
+    def bottom_fg : Int32?
+      @fg_bottom || @fg
+    end
+
+    # :ditto:
+    def left_fg : Int32?
+      @fg_left || @fg
+    end
+
     # Character used to draw a `BorderType::Bg` border. Acts as the fallback for
     # the three position-specific chars below.
     property char = ' '
