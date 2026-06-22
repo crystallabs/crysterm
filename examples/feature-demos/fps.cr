@@ -4,7 +4,8 @@
 #   R    frames/sec the render (compositing) phase could sustain
 #   D    frames/sec the draw (terminal output) phase could sustain
 #   FPS  frames/sec the whole frame could sustain
-#   TX   bytes/sec written to the terminal (with rolling average)
+#   TX   in-frame bytes/sec — the rate while a frame paints (rolling avg)
+#   ~TX  wall-clock bytes/sec — sustained traffic between frames (rolling avg)
 #   Σ    cumulative bytes ever written to the terminal
 #
 # What it prints is driven by a printf-style `format` plus an `args` list naming

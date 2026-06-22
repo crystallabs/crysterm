@@ -20,7 +20,7 @@ describe Crysterm::Widget::Fps do
     # The first frame has no prior measurements, so every rate reads 0 and the
     # cumulative total is still 0 (this frame's draw bytes are counted *after*
     # the widget paints). Fields are padded to fixed widths.
-    expected = Crysterm::Widget::Fps::DEFAULT_FORMAT % [0, 0, 0, 0, 0, 0, "0B", "0B", "0B"]
+    expected = Crysterm::Widget::Fps::DEFAULT_FORMAT % [0, 0, 0, 0, 0, 0, "0B", "0B", "0B", "0B", "0B"]
     fps.content.should eq expected
   end
 
@@ -28,8 +28,8 @@ describe Crysterm::Widget::Fps do
     # The whole point of the fixed-width fields: small and large readings render
     # to the same length, so the auto-sized box never shrinks/grows a column.
     fmt = Crysterm::Widget::Fps::DEFAULT_FORMAT
-    small = fmt % [0, 0, 0, 0, 0, 0, "0B", "0B", "0B"]
-    large = fmt % [99999, 99999, 99999, 12345, 6789, 100, "1023.9MiB", "512.0KiB", "8.0GiB"]
+    small = fmt % [0, 0, 0, 0, 0, 0, "0B", "0B", "0B", "0B", "0B"]
+    large = fmt % [99999, 99999, 99999, 12345, 6789, 100, "1023.9MiB", "512.0KiB", "1023.9MiB", "512.0KiB", "8.0GiB"]
     large.size.should eq small.size
   end
 
@@ -91,5 +91,18 @@ describe "Screen performance measurements" do
     s.frame_rate.should be >= 0
     s.throughput.should be >= 0
     s.bytes_written.should be > 0
+  end
+
+  it "reports wall-clock throughput only once there is a prior frame" do
+    s = fps_screen
+    Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1, content: "hello"
+
+    # First frame: no previous start to measure the real interval against.
+    s._render
+    s.throughput_actual.should eq 0
+
+    # Second frame: now measured over wall-clock time between the two frames.
+    s._render
+    s.throughput_actual.should be >= 0
   end
 end

@@ -23,14 +23,14 @@ require "../src/crysterm"
 
 include Crysterm
 
-WIDTH  = 200
+WIDTH  =  200
 ROUNDS = 5000
 attr = Crysterm::Screen::DEFAULT_ATTR
 
 # Build two equal rows: the common hot case where every cell is unchanged, so
 # the diff guard fires on every cell (the path we sped up).
 line = Crysterm::Screen::Row.new
-o    = Crysterm::Screen::Row.new
+o = Crysterm::Screen::Row.new
 WIDTH.times do |i|
   ch = 'a' + (i % 26)
   line.push attr, ch
@@ -73,8 +73,8 @@ def new_diff(line, o)
 end
 
 # Sanity: both produce identical verdicts.
-raise "mismatch (equal)"     unless old_diff(line, o)      == new_diff(line, o)
-raise "mismatch (half)"      unless old_diff(line, o_half) == new_diff(line, o_half)
+raise "mismatch (equal)" unless old_diff(line, o) == new_diff(line, o)
+raise "mismatch (half)" unless old_diff(line, o_half) == new_diff(line, o_half)
 
 puts "=" * 72
 puts "Cell diff compare: OLD vs NEW  [#{WIDTH}-cell row]"
@@ -84,7 +84,7 @@ puts "=" * 72
 puts "\n#1  all cells unchanged  (the hot common case)"
 Benchmark.ips do |x|
   x.report("OLD  line[x] + ox == {..}") { old_diff(line, o) }
-  x.report("NEW  hoisted + inlined")    { new_diff(line, o) }
+  x.report("NEW  hoisted + inlined") { new_diff(line, o) }
 end
 puts "  alloc: OLD #{alloc_mb(ROUNDS) { old_diff(line, o) }.round(2)} MB" \
      "  vs  NEW #{alloc_mb(ROUNDS) { new_diff(line, o) }.round(2)} MB  (#{ROUNDS} rows)"
@@ -92,7 +92,7 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { old_diff(line, o) }.round(2)} MB" \
 puts "\n#2  half the cells changed"
 Benchmark.ips do |x|
   x.report("OLD  line[x] + ox == {..}") { old_diff(line, o_half) }
-  x.report("NEW  hoisted + inlined")    { new_diff(line, o_half) }
+  x.report("NEW  hoisted + inlined") { new_diff(line, o_half) }
 end
 puts "  alloc: OLD #{alloc_mb(ROUNDS) { old_diff(line, o_half) }.round(2)} MB" \
      "  vs  NEW #{alloc_mb(ROUNDS) { new_diff(line, o_half) }.round(2)} MB  (#{ROUNDS} rows)"

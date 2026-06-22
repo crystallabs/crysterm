@@ -153,6 +153,19 @@ module Crysterm
     # not a wall-clock average; `Widget::Fps` smooths it via its rolling average.
     getter throughput : Int32 = 0
 
+    # Bytes/sec actually sent to the terminal, measured over wall-clock time:
+    # `last_draw_bytes / (this_frame_start - previous_frame_start)`. Unlike
+    # `throughput` this divides by the real interval *between* frames (which
+    # includes the idle gap while the render loop parks waiting for the next
+    # render request), so it reflects sustained traffic and integrates over time
+    # to `bytes_written`. Zero on the very first frame, when there is no previous
+    # frame to measure against.
+    getter throughput_actual : Int32 = 0
+
+    # Start instant (`t1`) of the previous `_render`, used to compute the
+    # wall-clock interval for `throughput_actual`. Nil before the first frame.
+    @last_frame_start : Time::Instant? = nil
+
     # `numerator / seconds` as an `Int32`, guarding the sub-microsecond case
     # where `seconds` rounds to zero (a `1 // 0.0`-style overflow) and clamping
     # absurdly large results to `Int32::MAX`.
@@ -346,6 +359,14 @@ module Crysterm
       @draw_rate = per_second 1, (t3 - t2).total_seconds
       @frame_rate = per_second 1, (t3 - t1).total_seconds
       @throughput = per_second @last_draw_bytes, (t3 - t1).total_seconds
+
+      # Sustained, wall-clock throughput: this frame's bytes over the real
+      # interval since the previous frame started (idle gap included). Skipped on
+      # the first frame, where there is no previous start to measure from.
+      if prev = @last_frame_start
+        @throughput_actual = per_second @last_draw_bytes, (t1 - prev).total_seconds
+      end
+      @last_frame_start = t1
     end
 
     # TODO Instead of self, this should just return an object which reports the position
