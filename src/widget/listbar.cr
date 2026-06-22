@@ -40,6 +40,11 @@ module Crysterm
         # command (Qt's `QToolBar#addSeparator`).
         property? separator = false
 
+        # Screen-level handler installed for this command's global hotkeys
+        # (`#keys`). Retained so it can be removed when the command — or the whole
+        # bar — is torn down, instead of leaking onto the screen forever.
+        property key_handler : ::Crysterm::Event::KeyPress::Wrapper?
+
         def initialize(@text, @callback = nil, *, @prefix = nil, @keys = nil)
         end
       end
@@ -80,15 +85,11 @@ module Crysterm
           on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
         end
 
-        if @auto_command_keys
-          screen.on(::Crysterm::Event::KeyPress) do |e|
-            if ('0'..'9').includes? e.char
-              i = e.char.to_i - 1
-              i = 9 if i < 0
-              select_tab i
-            end
-          end
-        end
+        # `auto_command_keys` (number-key selection) is handled inside the
+        # widget-local `#on_keypress` rather than via a global `screen.on`: number
+        # keys must not be hijacked while the bar is unfocused (they would collide
+        # with any numeric input elsewhere), and a widget-local handler is torn
+        # down with the widget instead of leaking/accumulating on the screen.
 
         on(::Crysterm::Event::Focus) { selekt selected }
       end
@@ -102,6 +103,7 @@ module Crysterm
       # plain strings, or `name => callback` pairs.
       def set_items(commands : Array(Command))
         @items.each &.remove_from_parent
+        @commands.each { |cmd| detach_command cmd }
         @items.clear
         @ritems.clear
         @commands.clear
@@ -194,10 +196,12 @@ module Crysterm
         @commands.push cmd
         append item
 
-        # Per-command global hotkeys fire regardless of focus.
+        # Per-command hotkeys are intentional global accelerators (they fire
+        # regardless of focus, like a toolbar shortcut). The handler wrapper is
+        # stored on the command so it can be removed again (see `#detach_command`).
         cmd.keys.try do |keys|
           if cmd.callback
-            screen.on(::Crysterm::Event::KeyPress) do |e|
+            cmd.key_handler = screen.on(::Crysterm::Event::KeyPress) do |e|
               if keys.includes? e.char.to_s
                 trigger cmd
               end
@@ -334,13 +338,27 @@ module Crysterm
 
         item = @items.delete_at i
         @ritems.delete_at i
-        @commands.delete_at i
+        detach_command @commands.delete_at i
         remove item
 
         selekt i - 1 if i == selected
 
         emit ::Crysterm::Event::RemoveItem
         item
+      end
+
+      # Removes a command's global-hotkey handler from the screen (if any), so it
+      # stops firing once the command is gone.
+      private def detach_command(cmd : Command)
+        cmd.key_handler.try { |w| screen?.try &.off ::Crysterm::Event::KeyPress, w }
+        cmd.key_handler = nil
+      end
+
+      # Tears down every command's global-hotkey handler before the bar is
+      # destroyed, so none linger on the screen.
+      def destroy
+        @commands.each { |cmd| detach_command cmd }
+        super
       end
 
       # Moves the selection by `offset` (negative = left), stepping over any
@@ -386,6 +404,17 @@ module Crysterm
       end
 
       def on_keypress(e)
+        # Number-key selection (`auto_command_keys`): only while focused, so it
+        # can't collide with numeric input elsewhere. '1'..'9' pick tabs 0..8 and
+        # '0' picks the 10th (index 9), matching the original behavior.
+        if auto_command_keys? && (c = e.char) && ('0'..'9').includes?(c)
+          i = c.to_i - 1
+          i = 9 if i < 0
+          select_tab i
+          e.accept
+          return
+        end
+
         case
         when e.key == ::Tput::Key::Left, (@vi && e.char == 'h'),
              (e.key == ::Tput::Key::ShiftTab)

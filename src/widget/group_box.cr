@@ -41,6 +41,11 @@ module Crysterm
         update_label
 
         handle Crysterm::Event::Click if checkable?
+
+        # A child added to an unchecked group must come up disabled. Children are
+        # appended by the caller *after* construction, so reflect the state onto
+        # each one as it is adopted (not just on toggle).
+        on(Crysterm::Event::Adopt) { apply_enabled } if checkable?
       end
 
       private def label_text : String

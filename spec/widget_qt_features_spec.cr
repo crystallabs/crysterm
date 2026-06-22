@@ -480,3 +480,70 @@ describe Crysterm::Widget::Splitter do
     b.top.should eq 9
   end
 end
+
+describe "GroupBox child enabling" do
+  it "disables a child added after construction when unchecked" do
+    s = qt_mem_screen
+    gb = Crysterm::Widget::GroupBox.new parent: s, title: "G", checkable: true,
+      checked: false, width: 20, height: 6
+    child = Crysterm::Widget::CheckBox.new parent: gb, top: 0, content: "x"
+    # Adopted into an unchecked group -> comes up disabled.
+    child.state.disabled?.should be_true
+    gb.toggle
+    child.state.normal?.should be_true
+  end
+end
+
+describe "ComboBox cleanup" do
+  it "removes its popup from the screen when destroyed" do
+    s = qt_mem_screen
+    cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b"]
+    cb.open
+    pop = cb.@popup.not_nil!
+    s.children.includes?(pop).should be_true
+    cb.destroy
+    s.children.includes?(pop).should be_false
+  end
+end
+
+describe "ListBar auto_command_keys" do
+  it "selects a tab by number through the focused bar's key handler" do
+    s = qt_mem_screen
+    fired = [] of Int32
+    bar = Crysterm::Widget::ListBar.new parent: s, keys: true, auto_command_keys: true
+    bar.add("one") { fired << 0 }
+    bar.add("two") { fired << 1 }
+    bar.add("three") { fired << 2 }
+    bar.on_keypress(keypress('2'))
+    fired.should eq [1]
+    bar.on_keypress(keypress('3'))
+    fired.should eq [1, 2]
+  end
+end
+
+describe "ListBar hotkey cleanup" do
+  it "stops a removed command's global hotkey from firing" do
+    s = qt_mem_screen
+    fired = 0
+    bar = Crysterm::Widget::ListBar.new parent: s, keys: true
+    bar.add("keep") { }
+    item = bar.add("quit", keys: ["q"]) { fired += 1 }
+
+    s.emit Crysterm::Event::KeyPress, 'q'
+    fired.should eq 1
+
+    bar.remove_item item
+    s.emit Crysterm::Event::KeyPress, 'q'
+    fired.should eq 1 # handler was detached, so no further firing
+  end
+
+  it "detaches all hotkeys when the bar is destroyed" do
+    s = qt_mem_screen
+    fired = 0
+    bar = Crysterm::Widget::ListBar.new parent: s, keys: true
+    bar.add("quit", keys: ["q"]) { fired += 1 }
+    bar.destroy
+    s.emit Crysterm::Event::KeyPress, 'q'
+    fired.should eq 0
+  end
+end

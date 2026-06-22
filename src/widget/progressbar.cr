@@ -119,6 +119,7 @@ module Crysterm
         @value = v
         emit Crysterm::Event::ValueChange, @value
         emit Crysterm::Event::Complete if @value == @maximum && span > 0
+        request_render
         @value
       end
 

@@ -93,13 +93,16 @@ module Crysterm
       # without being confused with the cursor (Qt shows the current item and the
       # selected set distinctly).
       def render_style_for(item : Widget) : Style
-        i = @items.index item
-
-        if i == @selected
-          return item_render_style(true)
+        # Fast path (the overwhelmingly common case): no multi-selection, so the
+        # only "selected" item is the cursor — an O(1) array compare, no scan.
+        unless multi_select?
+          return item_render_style(@items[@selected]? == item)
         end
 
-        if multi_select? && i && @selected_indices.includes?(i)
+        i = @items.index item
+        return item_render_style(true) if i == @selected
+
+        if i && @selected_indices.includes?(i)
           marked = item_render_style(false).dup
           marked.underline = true
           return marked
@@ -111,10 +114,13 @@ module Crysterm
       # Whether *item* should render in the selected style: it is the cursor
       # item, or (in `#multi_select?` mode) it is part of `#selected_indices`.
       def item_selected?(item : Widget) : Bool
+        # Fast path: single-selection lists only need an O(1) compare against the
+        # cursor item (this runs once per item per frame from `Widget#_render`).
+        return @items[@selected]? == item unless multi_select?
+
         i = @items.index item
         return false unless i
-        return true if i == @selected
-        multi_select? && @selected_indices.includes?(i)
+        i == @selected || @selected_indices.includes?(i)
       end
 
       # Tag-stripped text of every multi-selected item, in row order. In

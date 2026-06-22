@@ -152,6 +152,7 @@ module Crysterm
           sel = selected
           sync_items
           selekt sel
+          request_render
         end
 
         action.activate

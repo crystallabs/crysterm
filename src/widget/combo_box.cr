@@ -214,6 +214,22 @@ module Crysterm
       def on_click(e)
         toggle
       end
+
+      # The popup is a *screen* child (so it can overlay outside the combo's own
+      # box), so it isn't torn down with the combo automatically — remove it, and
+      # any active outside-click handler, here.
+      def destroy
+        @ev_outside.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
+        @ev_outside = nil
+        if pop = @popup
+          # The popup is a top-level screen child (no widget parent), so
+          # `remove_from_parent` can't detach it — remove it from the screen.
+          screen?.try &.remove pop
+          pop.destroy
+        end
+        @popup = nil
+        super
+      end
     end
   end
 end
