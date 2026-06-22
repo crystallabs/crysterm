@@ -110,11 +110,14 @@ module Crysterm
       def initialize(@capacity : Int32)
         @deque = Deque(Int32).new @capacity
         # Running sum of the deque's contents, kept in sync on every push/shift
-        # so `avg` is O(1) instead of re-summing the whole deque each call.
-        @sum = 0
+        # so `avg` is O(1) instead of re-summing the whole deque each call. Kept
+        # as `Int64` because the pushed values can be as large as `Int32::MAX`
+        # (see `Screen#per_second`), and `capacity` of them would overflow an
+        # `Int32` sum.
+        @sum = 0_i64
       end
 
-      def avg(value)
+      def avg(value : Int32) : Int64
         if @deque.size == @capacity
           @sum -= @deque.shift
         end
@@ -124,9 +127,40 @@ module Crysterm
       end
     end
 
-    @rps = Average.new Config.render_fps_window
-    @dps = Average.new Config.render_fps_window
-    @fps = Average.new Config.render_fps_window
+    # ---- Per-frame performance measurements --------------------------------
+    #
+    # Updated at the end of every `_render`; read by an optional `Widget::Fps`
+    # overlay (or any other observer). They describe the frame that was *just*
+    # produced. A `Widget::Fps` renders as a child — before these are refreshed —
+    # so it always shows the previous frame's numbers, which is exactly what a
+    # frame-rate counter wants.
+
+    # Frames/sec the render (compositing widgets into the cell buffer) phase
+    # could sustain: `1 / render_time`. The "R" in the classic `R/D/FPS`.
+    getter render_rate : Int32 = 0
+
+    # Frames/sec the draw (diffing the buffer and writing escapes) phase could
+    # sustain: `1 / draw_time`. The "D".
+    getter draw_rate : Int32 = 0
+
+    # Frames/sec the whole frame could sustain: `1 / (render_time + draw_time)`.
+    # The "FPS".
+    getter frame_rate : Int32 = 0
+
+    # Bytes/sec the draw phase wrote to the terminal this frame:
+    # `last_draw_bytes / frame_time`. Like the rates above this is an
+    # instantaneous, per-frame figure (what continuous rendering would sustain),
+    # not a wall-clock average; `Widget::Fps` smooths it via its rolling average.
+    getter throughput : Int32 = 0
+
+    # `numerator / seconds` as an `Int32`, guarding the sub-microsecond case
+    # where `seconds` rounds to zero (a `1 // 0.0`-style overflow) and clamping
+    # absurdly large results to `Int32::MAX`.
+    private def per_second(numerator, seconds : Float64) : Int32
+      return 0 if seconds <= 0
+      rate = numerator / seconds
+      rate >= Int32::MAX ? Int32::MAX : rate.to_i
+    end
 
     def render_loop
       loop do
@@ -300,17 +334,14 @@ module Crysterm
 
       t3 = Time.instant
 
-      if pos = @show_fps
-        ps = {1 // (t2 - t1).total_seconds, 1 // (t3 - t2).total_seconds, 1 // (t3 - t1).total_seconds}
-
-        tput.save_cursor
-        tput.pos pos
-        tput._print { |io| io << "R/D/FPS: #{ps[0]}/#{ps[1]}/#{ps[2]}" }
-        if @show_avg
-          tput._print { |io| io << " (#{@rps.avg(ps[0])}/#{@dps.avg(ps[1])}/#{@fps.avg(ps[2])})" }
-        end
-        tput.restore_cursor
-      end
+      # Record this frame's performance figures so an optional `Widget::Fps`
+      # overlay can display them (see the getters above). Always computed — they
+      # are a handful of cheap arithmetic ops — and nothing is drawn unless a
+      # widget actually reads them.
+      @render_rate = per_second 1, (t2 - t1).total_seconds
+      @draw_rate = per_second 1, (t3 - t2).total_seconds
+      @frame_rate = per_second 1, (t3 - t1).total_seconds
+      @throughput = per_second @last_draw_bytes, (t3 - t1).total_seconds
     end
 
     # TODO Instead of self, this should just return an object which reports the position

@@ -106,6 +106,15 @@ module Crysterm
     # Mirrors Qt's `valueChanged(int)` signal.
     event ValueChange, value : Int32
 
+    # Emitted when a floating-point numeric widget's value changes (e.g.
+    # `Widget::DoubleSpinBox`). Mirrors Qt's `valueChanged(double)` signal.
+    event DoubleValueChange, value : Float64
+
+    # Emitted when a date/time widget's value changes (e.g. `Widget::Calendar`,
+    # `Widget::DateEdit`, `Widget::TimeEdit`). Mirrors Qt's
+    # `dateChanged`/`timeChanged` signals.
+    event DateChange, date : Time
+
     # Emitted when Widget's position is changed
     event Move
 

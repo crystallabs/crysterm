@@ -41,6 +41,17 @@ module Crysterm
     @pre = IO::Memory.new 1024
     @post = IO::Memory.new 1024
 
+    # Number of bytes the previous `draw` actually wrote to the terminal (the
+    # `@pre`+`@main`+`@post` payload). Read by `_render` to compute the
+    # throughput figures a `Widget::Fps` overlay can display. Zero on a frame
+    # where nothing changed and no output was produced.
+    getter last_draw_bytes : Int32 = 0
+
+    # Running total of all bytes ever written to the terminal by `draw`. Unlike
+    # `last_draw_bytes` (a per-frame delta for rate) this only grows, so a
+    # `Widget::Fps` overlay can show cumulative traffic.
+    getter bytes_written : UInt64 = 0_u64
+
     # Temporarily routes Tput's escape-sequence output into `buf` for the
     # duration of the block (Tput appends to `tput.ret` whenever it is set),
     # then copies what was produced into `dest` and clears `tput.ret`. The block
@@ -71,6 +82,8 @@ module Crysterm
       # emit Event::PreDraw
 
       @main.clear
+      # No output produced yet this frame; updated below if a payload is written.
+      @last_draw_bytes = 0
       # @outbuf.clear # Done below, for every line (`y`)
       lx = -1
       ly = -1
@@ -473,6 +486,12 @@ module Crysterm
         # display.flush()
         # display._owrite(@pre + @main + @post)
         tput._print { |io| io.write @pre.to_slice; io.write @main.to_slice; io.write @post.to_slice }
+
+        # Account for the bytes just emitted. `@_buf`'s buffered insert/delete-line
+        # output is already folded into `@main` above, so the three buffers cover
+        # everything `draw` sends this frame.
+        @last_draw_bytes = @pre.size + @main.size + @post.size
+        @bytes_written += @last_draw_bytes
       end
 
       # D O:

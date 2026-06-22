@@ -724,3 +724,266 @@ describe "ComboBox mouse wheel" do
     cb.value.should eq "Red"
   end
 end
+
+describe "SpinBox direct entry" do
+  it "types a value and commits it on Enter" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 5
+    sb.on_keypress keypress('4')
+    sb.on_keypress keypress('2')
+    sb.editing?.should be_true
+    sb.text.should eq "42"
+    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    sb.editing?.should be_false
+    sb.value.should eq 42
+  end
+
+  it "clamps a typed value above maximum and discards on Escape" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 50, value: 5
+    "999".each_char { |c| sb.on_keypress keypress(c) }
+    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    sb.value.should eq 50
+
+    "12".each_char { |c| sb.on_keypress keypress(c) }
+    sb.on_keypress keypress('\u{1b}', Tput::Key::Escape)
+    sb.editing?.should be_false
+    sb.value.should eq 50 # unchanged
+  end
+
+  it "edits the buffer with Backspace" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 0
+    "45".each_char { |c| sb.on_keypress keypress(c) }
+    sb.on_keypress keypress('\u{8}', Tput::Key::Backspace)
+    sb.text.should eq "4"
+    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    sb.value.should eq 4
+  end
+end
+
+describe Crysterm::Widget::DoubleSpinBox do
+  it "formats to decimals and steps by a float step" do
+    s = qt_mem_screen
+    d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0,
+      value: 1.5, step: 0.5, decimals: 2
+    d.formatted_value.should eq "1.50"
+    changes = [] of Float64
+    d.on(Crysterm::Event::DoubleValueChange) { |e| changes << e.value }
+    d.increment
+    d.value.should eq 2.0
+    d.value = 99.0 # clamps to 10.0
+    d.value.should eq 10.0
+    changes.should eq [2.0, 10.0]
+  end
+
+  it "accepts typed decimals" do
+    s = qt_mem_screen
+    d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0, value: 0.0
+    "2.5".each_char { |c| d.on_keypress keypress(c) }
+    d.on_keypress keypress('\r', Tput::Key::Enter)
+    d.value.should eq 2.5
+  end
+end
+
+describe "Slider tick marks" do
+  it "carries tick configuration without affecting stepping" do
+    s = qt_mem_screen
+    sl = Crysterm::Widget::Slider.new parent: s, minimum: 0, maximum: 10, value: 5,
+      width: 20, height: 3, tick_position: Crysterm::Widget::Slider::TickPosition::Below,
+      tick_interval: 2
+    sl.tick_position.below?.should be_true
+    sl.tick_interval.should eq 2
+    sl.increment
+    sl.value.should eq 6
+  end
+end
+
+describe "TabWidget closable / movable / position" do
+  it "removes a tab and re-points the current index" do
+    s = qt_mem_screen
+    tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
+    tabs.add_tab "A", Crysterm::Widget::Box.new(content: "a")
+    tabs.add_tab "B", Crysterm::Widget::Box.new(content: "b")
+    tabs.add_tab "C", Crysterm::Widget::Box.new(content: "c")
+    tabs.show_tab 2
+    tabs.current_index.should eq 2
+
+    tabs.remove_tab 1
+    tabs.pages.size.should eq 2
+    tabs.tab_titles.should eq ["A", "C"]
+    tabs.current_index.should eq 1 # clamped onto remaining "C"
+  end
+
+  it "reorders tabs with move_tab, keeping the same page current" do
+    s = qt_mem_screen
+    tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10
+    tabs.add_tab "A", Crysterm::Widget::Box.new(content: "a")
+    tabs.add_tab "B", Crysterm::Widget::Box.new(content: "b")
+    tabs.add_tab "C", Crysterm::Widget::Box.new(content: "c")
+    tabs.show_tab 0 # "A" current
+
+    tabs.move_tab 0, 2
+    tabs.tab_titles.should eq ["B", "C", "A"]
+    tabs.current_page.try(&.content).should eq "a"
+  end
+
+  it "lays the page below the bar when tab_position is bottom" do
+    s = qt_mem_screen
+    tabs = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 10,
+      tab_position: Crysterm::Widget::TabWidget::Position::Bottom
+    page = Crysterm::Widget::Box.new content: "x"
+    tabs.add_tab "A", page
+    page.top.should eq 0
+    page.bottom.should eq 1 # tab_height reserved at the bottom
+  end
+end
+
+describe Crysterm::Widget::ScrollBar do
+  it "clamps and steps as a standalone control, emitting ValueChange" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 10, value: 0,
+      width: 1, height: 5
+    changes = [] of Int32
+    sb.on(Crysterm::Event::ValueChange) { |e| changes << e.value }
+    sb.increment
+    sb.value.should eq 1
+    sb.on_keypress keypress(' ', Tput::Key::End)
+    sb.value.should eq 10
+    sb.on_keypress keypress(' ', Tput::Key::Home)
+    sb.value.should eq 0
+    changes.should eq [1, 10, 0]
+  end
+
+  it "reflects and drives a bound scrollable widget" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..20).map { |i| "line#{i}" }.join("\n")
+    s.render # establish geometry + wrapped content lines
+
+    sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 21, width: 1, height: 5
+    sb.attach box
+    sb.maximum.should be > 0
+
+    sb.value = 2
+    box.get_scroll.should eq 2 # the bar drove the box
+
+    box.scroll 3
+    sb.value.should eq box.get_scroll # the box drove the bar back
+  end
+end
+
+describe Crysterm::Widget::ToolBox do
+  it "shows exactly one expanded section at a time" do
+    s = qt_mem_screen
+    tb = Crysterm::Widget::ToolBox.new parent: s, width: 30, height: 16
+    p1 = Crysterm::Widget::Box.new content: "1"
+    p2 = Crysterm::Widget::Box.new content: "2"
+    tb.add_item "A", p1
+    tb.add_item "B", p2
+
+    tb.sections.size.should eq 2
+    tb.current_index.should eq 0
+    p1.visible?.should be_true
+    p2.visible?.should be_false
+
+    tb.current = 1
+    tb.current_index.should eq 1
+    p2.visible?.should be_true
+    p1.visible?.should be_false
+  end
+end
+
+describe Crysterm::Widget::Wizard do
+  it "navigates pages and finishes / cancels" do
+    s = qt_mem_screen
+    wiz = Crysterm::Widget::Wizard.new parent: s, width: 50, height: 16
+    wiz.add_page Crysterm::Widget::Box.new(content: "1"), title: "One"
+    wiz.add_page Crysterm::Widget::Box.new(content: "2"), title: "Two"
+    wiz.add_page Crysterm::Widget::Box.new(content: "3"), title: "Three"
+
+    completed = false
+    cancelled = false
+    wiz.on(Crysterm::Event::Complete) { completed = true }
+    wiz.on(Crysterm::Event::Cancel) { cancelled = true }
+
+    wiz.current_index.should eq 0
+    wiz.advance
+    wiz.current_index.should eq 1
+    wiz.advance
+    wiz.current_index.should eq 2
+    wiz.advance # Finish on the last page
+    completed.should be_true
+    wiz.current_index.should eq 2 # finishing does not advance past the end
+
+    wiz.back
+    wiz.current_index.should eq 1
+    wiz.cancel
+    cancelled.should be_true
+  end
+end
+
+describe Crysterm::Widget::Calendar do
+  it "moves the selection by day/week/month and emits DateChange" do
+    s = qt_mem_screen
+    cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 15)
+    changes = [] of Time
+    cal.on(Crysterm::Event::DateChange) { |e| changes << e.date }
+
+    cal.on_keypress keypress(' ', Tput::Key::Right) # +1 day -> 16
+    cal.date.day.should eq 16
+    cal.on_keypress keypress(' ', Tput::Key::Down) # +7 days -> 23
+    cal.date.day.should eq 23
+    cal.on_keypress keypress(' ', Tput::Key::PageDown) # +1 month -> Feb
+    cal.date.month.should eq 2
+    changes.size.should eq 3
+  end
+
+  it "clamps the day when stepping into a shorter month" do
+    s = qt_mem_screen
+    cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 31)
+    cal.on_keypress keypress(' ', Tput::Key::PageDown) # Jan 31 -> Feb (29 in 2024)
+    cal.date.month.should eq 2
+    cal.date.day.should eq 29
+  end
+end
+
+describe Crysterm::Widget::DateEdit do
+  it "steps the focused section (day/month/year)" do
+    s = qt_mem_screen
+    de = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(2024, 1, 15),
+      calendar_popup: false
+    de.on_keypress keypress(' ', Tput::Key::Up) # day section by default -> 16
+    de.date.day.should eq 16
+    de.on_keypress keypress(' ', Tput::Key::Left) # -> month section
+    de.on_keypress keypress(' ', Tput::Key::Up)   # +1 month -> Feb
+    de.date.month.should eq 2
+    de.on_keypress keypress(' ', Tput::Key::Left) # -> year section
+    de.on_keypress keypress(' ', Tput::Key::Up)   # +1 year -> 2025
+    de.date.year.should eq 2025
+  end
+end
+
+describe Crysterm::Widget::TimeEdit do
+  it "steps each section within its own range, wrapping" do
+    s = qt_mem_screen
+    te = Crysterm::Widget::TimeEdit.new parent: s, time: Time.local(2024, 1, 15, 10, 30, 45)
+    changes = [] of Time
+    te.on(Crysterm::Event::DateChange) { |e| changes << e.date }
+
+    te.on_keypress keypress(' ', Tput::Key::Up) # hour -> 11
+    te.time.hour.should eq 11
+    te.on_keypress keypress(' ', Tput::Key::Right) # -> minute section
+    te.on_keypress keypress(' ', Tput::Key::Up)    # minute -> 31
+    te.time.minute.should eq 31
+    changes.size.should eq 2
+  end
+
+  it "wraps the hour at 23 without carrying" do
+    s = qt_mem_screen
+    te = Crysterm::Widget::TimeEdit.new parent: s, time: Time.local(2024, 1, 15, 23, 0, 0)
+    te.on_keypress keypress(' ', Tput::Key::Up) # 23 -> 0, day unchanged
+    te.time.hour.should eq 0
+    te.time.day.should eq 15
+  end
+end

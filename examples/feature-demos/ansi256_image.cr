@@ -22,7 +22,6 @@ key = ENV["ANSI_COLORS"]? || "c256"
 mode, desc = MODES[key]? || MODES["c256"]
 
 s = Screen.new title: "Image::Ansi: #{key}"
-s.show_fps = nil
 
 iw = s.awidth
 ih = s.aheight - 1

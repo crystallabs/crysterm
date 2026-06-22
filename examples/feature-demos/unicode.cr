@@ -9,7 +9,6 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "Unicode", force_unicode: true, full_unicode: true
-s.show_fps = nil
 
 Widget::Box.new \
   parent: s,

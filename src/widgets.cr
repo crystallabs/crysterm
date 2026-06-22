@@ -52,14 +52,25 @@ module Crysterm
 
     Slider        = Widget::Slider
     SpinBox       = Widget::SpinBox
+    DoubleSpinBox = Widget::DoubleSpinBox
     TabWidget     = Widget::TabWidget
     ComboBox      = Widget::ComboBox
     GroupBox      = Widget::GroupBox
     Splitter      = Widget::Splitter
     StackedWidget = Widget::StackedWidget
+    ToolBox       = Widget::ToolBox
+    Wizard        = Widget::Wizard
+    ScrollBar     = Widget::ScrollBar
     Dial          = Widget::Dial
 
+    Calendar = Widget::Calendar
+    DateEdit = Widget::DateEdit
+    TimeEdit = Widget::TimeEdit
+
     Terminal = Widget::Terminal
+
+    # Debug overlay showing render/draw/FPS rates and terminal byte throughput.
+    Fps = Widget::Fps
 
     # Qt-like
     Action = Widget::Action

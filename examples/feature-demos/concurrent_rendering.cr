@@ -11,7 +11,6 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "Concurrent rendering"
-s.show_fps = nil
 
 Widget::Box.new \
   parent: s,

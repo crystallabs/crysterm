@@ -1,0 +1,95 @@
+require "./spec_helper"
+
+include Crysterm
+
+private def fps_screen
+  Crysterm::Screen.new(
+    input: IO::Memory.new,
+    output: IO::Memory.new,
+    error: IO::Memory.new,
+    width: 80,
+    height: 24)
+end
+
+describe Crysterm::Widget::Fps do
+  it "renders the default R/D/FPS line, throughput and total" do
+    s = fps_screen
+    fps = Crysterm::Widget::Fps.new parent: s
+    s._render
+
+    # The first frame has no prior measurements, so every rate reads 0 and the
+    # cumulative total is still 0 (this frame's draw bytes are counted *after*
+    # the widget paints). Fields are padded to fixed widths.
+    expected = Crysterm::Widget::Fps::DEFAULT_FORMAT % [0, 0, 0, 0, 0, 0, "0B", "0B", "0B"]
+    fps.content.should eq expected
+  end
+
+  it "keeps a constant line length as the numbers change width (no jitter)" do
+    # The whole point of the fixed-width fields: small and large readings render
+    # to the same length, so the auto-sized box never shrinks/grows a column.
+    fmt = Crysterm::Widget::Fps::DEFAULT_FORMAT
+    small = fmt % [0, 0, 0, 0, 0, 0, "0B", "0B", "0B"]
+    large = fmt % [99999, 99999, 99999, 12345, 6789, 100, "1023.9MiB", "512.0KiB", "8.0GiB"]
+    large.size.should eq small.size
+  end
+
+  it "defaults to the bottom-left corner" do
+    s = fps_screen
+    fps = Crysterm::Widget::Fps.new parent: s
+    fps.left.should eq 0
+    fps.bottom.should eq 0
+  end
+
+  it "honors an explicit position instead of the default corner" do
+    s = fps_screen
+    fps = Crysterm::Widget::Fps.new parent: s, top: 2, left: 5
+    fps.top.should eq 2
+    fps.left.should eq 5
+    fps.bottom.should be_nil
+  end
+
+  it "lets the user pick the format and which metrics to print" do
+    s = fps_screen
+    fps = Crysterm::Widget::Fps.new parent: s, format: "%s fps", args: [:fps]
+    s._render
+    fps.content.should eq "0 fps"
+  end
+
+  it "surfaces a bad format/args combination instead of crashing the render" do
+    s = fps_screen
+    # %d on a String arg raises inside String#%; the widget must catch it.
+    fps = Crysterm::Widget::Fps.new parent: s, format: "%d", args: [:total_h]
+    s._render
+    fps.content.should start_with "FPS format error"
+  end
+
+  it "accumulates the cumulative byte total across frames" do
+    s = fps_screen
+    fps = Crysterm::Widget::Fps.new parent: s, format: "%s", args: [:total]
+
+    # Frame 1 draws the overlay text, so the running total grows above 0.
+    s._render
+    first_total = s.bytes_written
+    first_total.should be > 0
+
+    # Frame 2: the widget now reports the bytes emitted *before* this frame's
+    # draw — i.e. frame 1's total — while the running total only keeps climbing.
+    s._render
+    fps.content.to_i.should eq first_total
+    s.bytes_written.should be >= first_total
+  end
+end
+
+describe "Screen performance measurements" do
+  it "exposes per-frame rates and a growing byte total" do
+    s = fps_screen
+    # Something must actually be on screen for `draw` to emit output.
+    Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1, content: "hello"
+    s._render
+    s.render_rate.should be >= 0
+    s.draw_rate.should be >= 0
+    s.frame_rate.should be >= 0
+    s.throughput.should be >= 0
+    s.bytes_written.should be > 0
+  end
+end

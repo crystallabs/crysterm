@@ -32,6 +32,14 @@ module Crysterm
       @positions = [] of Int32
       @init_position : Int32?
 
+      # Whether the user has set a divider explicitly (drag, keys, or an explicit
+      # `position`). Until then the splitter re-evens its panes to its *current*
+      # span on every layout — so a splitter sized by a layout engine (which may
+      # render at one width, then settle at another) always ends up fitted to its
+      # final size instead of sticking with an early, wrong distribution. Once the
+      # user adjusts a divider, the splitter stops auto-evening and only clamps.
+      @user_positioned = false
+
       def initialize(@orientation = @orientation, position = nil, **box)
         @init_position = position
 
@@ -39,6 +47,17 @@ module Crysterm
 
         on(Crysterm::Event::Attach) { relayout }
         on(Crysterm::Event::Resize) { relayout; request_render }
+      end
+
+      # Relayout on every paint. Pane sizes depend on the splitter's resolved
+      # span, which is only known once coordinates are computed — and a layout
+      # engine may render the splitter at one width before settling on another.
+      # Doing the layout here (in addition to the `Resize`/`Attach` hooks, which
+      # keep the headless/no-render paths working) guarantees the panes are always
+      # fitted to the span actually being painted.
+      def render(with_children = true)
+        relayout
+        super
       end
 
       def horizontal? : Bool
@@ -117,6 +136,7 @@ module Crysterm
       # below one cell) and re-lays out.
       def set_divider_position(i : Int, pos : Int) : Nil
         return unless 0 <= i < @positions.size
+        @user_positioned = true
         @positions[i] = clamp_position(i, pos.to_i)
         relayout
         request_render
@@ -203,8 +223,14 @@ module Crysterm
         return if total <= 0
         n = @panes.size
 
-        even_positions if @positions.size != n - 1
-        @positions.each_index { |i| @positions[i] = clamp_position(i, @positions[i]) }
+        # Until the user pins a divider, keep the panes evenly fitted to the
+        # current span (so a layout-driven resize always re-fits); afterwards just
+        # clamp the user's positions into the available space.
+        if @user_positioned && @positions.size == n - 1
+          @positions.each_index { |i| @positions[i] = clamp_position(i, @positions[i]) }
+        else
+          even_positions
+        end
 
         @panes.each_with_index do |pane, i|
           start = i == 0 ? 0 : @positions[i - 1] + 1

@@ -9,7 +9,6 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "Styling"
-s.show_fps = nil
 
 # A neutral backdrop behind everything, so the drop shadows (which darken
 # whatever is *behind* a widget) are actually visible instead of black-on-black.

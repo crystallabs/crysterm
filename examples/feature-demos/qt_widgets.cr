@@ -1,27 +1,31 @@
 # FEATURE: Qt-inspired widgets.
 #
 # Showcases the Qt-modeled widgets working together:
-#   * TabWidget        — pages "Controls" / "Menu" / "Tree" / "Stack"
+#   * TabWidget        — closable pages "Controls" / "Menu" / "Tree" / "Dates" / "Stack"
 #   * GroupBox         — checkable title disables/enables its contents
 #   * Tree             — collapsible node hierarchy (Right/Left expand/collapse)
 #   * ComboBox         — editable: type to filter the options
-#   * Slider / SpinBox / Dial — value controls that emit events
+#   * Slider (w/ ticks) / SpinBox / Dial — value controls that emit events
+#   * DateEdit / TimeEdit / DoubleSpinBox — date/time and float entry
 #   * Menu             — with nested submenus (File ▶ Recent ▶ …)
 #   * StackedWidget    — auto-cycling pages (no tab bar)
 #   * Splitter         — three panes with draggable dividers
 #
-# The status bar updates live from the widgets' Action/ValueChange events.
+# Layout: an HBox (Layout::HBox) fills the area between the header and status
+# bar, splitting it between the tabbed area and the splitter and stretching both
+# to full height — so the demo re-flows to the terminal size instead of relying
+# on fixed coordinates. The status bar updates live from widget events.
 #
-# Try it: Tab cycles focus; arrows adjust the focused Slider/SpinBox/Dial; type
-# in the ComboBox to filter; in the Menu, Right opens a submenu and Left closes
-# it; drag a splitter divider (or focus it and use the arrows). Press q to quit.
+# Try it: resize the terminal and watch the two regions re-flow; Tab cycles
+# focus; arrows adjust the focused Slider/SpinBox/Dial; type in the ComboBox to
+# filter; in the Menu, Right opens a submenu and Left closes it; drag a splitter
+# divider (or focus it and use the arrows). Press q to quit.
 
 require "../../src/crysterm"
 
 include Crysterm
 
 s = Screen.new title: "Qt-like Widgets"
-s.show_fps = nil
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
@@ -32,31 +36,45 @@ status = Widget::Box.new \
   parent: s, bottom: 0, left: 0, width: "100%", height: 1,
   style: Style.new(fg: "black", bg: "cyan")
 
+# Everything between the header and the status bar lives in a single responsive
+# row: an HBox layout splits the width between the tabbed area and the splitter,
+# and stretches both to the full available height. Resize the terminal and the
+# two regions re-flow to fit — no fixed coordinates to overflow a small screen.
+body = Widget::Box.new \
+  parent: s, top: 1, left: 0, right: 0, bottom: 1,
+  layout: Layout::HBox.new(gap: 1)
+
 # --- Tabbed area (left) ------------------------------------------------------
 
+# No explicit position/size: the HBox sizes and places it (it grows to share the
+# row, and stretches to full height).
 tabs = Widget::TabWidget.new \
-  parent: s, top: 2, left: 1, width: 40, height: 20,
+  parent: body,
+  tabs_closable: true, # each tab shows ✕; Delete (on the bar) closes the current one
   style: Style.new(border: true)
 
 controls = Widget::Box.new
 menupage = Widget::Box.new
 treepage = Widget::Box.new
+datespage = Widget::Box.new
 stackpage = Widget::Box.new
 tabs.add_tab "Controls", controls
 tabs.add_tab "Menu", menupage
 tabs.add_tab "Tree", treepage
+tabs.add_tab "Dates", datespage
 tabs.add_tab "Stack", stackpage
 
 # Controls tab: a checkable GroupBox holding the value widgets.
 gb = Widget::GroupBox.new \
-  parent: controls, top: 1, left: 1, width: 36, height: 12,
+  parent: controls, top: 1, left: 1, right: 1, bottom: 1,
   title: "Profile", checkable: true, checked: true,
   style: Style.new(fg: "white", border: true)
 
 Widget::Box.new parent: gb, top: 1, left: 1, width: 8, height: 1, content: "Volume:"
 slider = Widget::Slider.new \
-  parent: gb, top: 1, left: 9, width: 16, height: 1,
+  parent: gb, top: 1, left: 9, width: 16, height: 2,
   minimum: 0, maximum: 100, value: 40, show_value: true,
+  tick_position: Widget::Slider::TickPosition::Below, tick_interval: 20,
   style: Style.new(fg: "green")
 
 Widget::Box.new parent: gb, top: 3, left: 1, width: 8, height: 1, content: "Count:"
@@ -106,7 +124,7 @@ Widget::Box.new parent: menupage, bottom: 1, left: 1, width: 34, height: 2,
   content: "Right opens a submenu, Left closes it.", style: Style.new(fg: "#aaaaaa")
 
 # Tree tab: a collapsible node hierarchy.
-tree = Widget::Tree.new parent: treepage, top: 1, left: 1, width: 34, height: 11,
+tree = Widget::Tree.new parent: treepage, top: 1, left: 1, right: 1, bottom: 3,
   style: Style.new(fg: "white", border: true)
 src = tree.add "src"
 wdir = src.add "widget"
@@ -125,8 +143,33 @@ tree.on(Event::Collapse) { status.set_content " tree: collapsed #{tree.selected_
 Widget::Box.new parent: treepage, bottom: 1, left: 1, width: 34, height: 2,
   content: "Right/Left or Space expand/collapse nodes.", style: Style.new(fg: "#aaaaaa")
 
+# Dates tab: a DateEdit (with calendar popup), a TimeEdit, and a DoubleSpinBox.
+Widget::Box.new parent: datespage, top: 1, left: 1, width: 8, height: 1, content: "Date:"
+dateedit = Widget::DateEdit.new \
+  parent: datespage, top: 1, left: 9, width: 12, height: 1,
+  style: Style.new(fg: "white", bg: "#303030")
+
+Widget::Box.new parent: datespage, top: 3, left: 1, width: 8, height: 1, content: "Time:"
+timeedit = Widget::TimeEdit.new \
+  parent: datespage, top: 3, left: 9, width: 10, height: 1,
+  style: Style.new(fg: "white", bg: "#303030")
+
+Widget::Box.new parent: datespage, top: 5, left: 1, width: 8, height: 1, content: "Ratio:"
+dspin = Widget::DoubleSpinBox.new \
+  parent: datespage, top: 5, left: 9, width: 10, height: 1,
+  minimum: 0.0, maximum: 1.0, step: 0.05, value: 0.25,
+  style: Style.new(fg: "yellow")
+
+dateedit.on(Event::DateChange) { |e| status.set_content " date: #{e.date.to_s("%Y-%m-%d")}"; s.render }
+timeedit.on(Event::DateChange) { |e| status.set_content " time: #{e.date.to_s("%H:%M:%S")}"; s.render }
+dspin.on(Event::DoubleValueChange) { |e| status.set_content " ratio: #{e.value}"; s.render }
+
+Widget::Box.new parent: datespage, bottom: 1, left: 1, width: 36, height: 2,
+  content: "Click the date for a calendar; click a time section to select it. Arrows/wheel step.",
+  style: Style.new(fg: "#aaaaaa")
+
 # Stack tab: a tab-less StackedWidget that auto-cycles its pages.
-stack = Widget::StackedWidget.new parent: stackpage, top: 1, left: 1, width: 34, height: 12
+stack = Widget::StackedWidget.new parent: stackpage, top: 1, left: 1, right: 1, bottom: 1
 {"#2a2a4a" => "Page One", "#2a4a2a" => "Page Two", "#4a2a2a" => "Page Three"}.each do |bg, label|
   stack.add_page Widget::Box.new(
     content: "{center}#{label}\n\n(click to flip){/center}", parse_tags: true,
@@ -135,8 +178,9 @@ end
 
 # --- Three-pane Splitter (right) ---------------------------------------------
 
+# Also sized by the HBox; the splitter re-evens its panes once it has a width.
 split = Widget::Splitter.new \
-  parent: s, top: 2, left: 42, width: 36, height: 20,
+  parent: body,
   style: Style.new(border: true)
 ["#202038", "#203828", "#382020"].each_with_index do |bg, i|
   split.add_pane Widget::Box.new(

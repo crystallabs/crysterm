@@ -12,7 +12,6 @@ include Crysterm
 img_path = ENV["IMAGE"]? || "#{__DIR__}/assets/spin.gif"
 
 s = Screen.new title: "Resize (animated)"
-s.show_fps = nil
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,

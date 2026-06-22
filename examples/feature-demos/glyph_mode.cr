@@ -25,7 +25,6 @@ key = ENV["GLYPH_MODE"]? || "octant"
 mode, desc = MODES[key]? || MODES["block"]
 
 s = Screen.new title: "Image::Glyph: #{key}"
-s.show_fps = nil
 
 iw = s.awidth
 ih = s.aheight - 1

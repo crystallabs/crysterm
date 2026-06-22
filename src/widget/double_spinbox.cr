@@ -1,44 +1,47 @@
 require "./input"
-require "../mixin/ranged_value"
 
 module Crysterm
   class Widget
-    # Spin box element, modeled after Qt's `QSpinBox`.
+    # Floating-point spin box, modeled after Qt's `QDoubleSpinBox`.
     #
-    # Shows a single integer `#value` (optionally framed by a `#prefix`/`#suffix`,
-    # e.g. `"$"` / `" %"`) that the user steps with the Up/Down keys (or the mouse
-    # wheel) by `#step`, within `[#minimum, #maximum]`. With `#wrap?` the value
-    # rolls over at the bounds. Emits `Event::ValueChange` on every change.
+    # Like `Widget::SpinBox` but the `#value`, `#minimum`, `#maximum` and `#step`
+    # are `Float64`, and the displayed number is rounded to `#decimals` places.
+    # The value steps with Up/Down (or the wheel) and can be typed directly
+    # (digits, one `.`, and a leading `-` when negatives are in range); Enter
+    # commits, Escape/blur discards. Emits `Event::DoubleValueChange` on change.
     #
-    # The number can also be typed directly (Qt's `QAbstractSpinBox` is editable
-    # by default): typing a digit (or a leading `-`) starts an edit buffer,
-    # Backspace edits it, Enter commits the parsed value (clamped into range),
-    # and Escape — or losing focus — discards the edit and restores the value.
-    class SpinBox < Input
-      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
-      # `#increment`/`#decrement`, `Event::ValueChange`).
-      include Mixin::RangedValue
-
-      # A spin box honors its given `width` rather than shrinking to its content.
+    # It is a separate widget (not built on `Mixin::RangedValue`, which is
+    # integer-only) so the integer controls keep their simpler `Int32` path.
+    class DoubleSpinBox < Input
+      # Honor the given `width` rather than shrinking to the content.
       @resizable = false
 
-      # Text shown before/after the number (Qt `QSpinBox#prefix`/`#suffix`).
+      property minimum : Float64 = 0.0
+      property maximum : Float64 = 100.0
+      property step : Float64 = 1.0
+
+      # Number of fractional digits shown (Qt's `QDoubleSpinBox#decimals`).
+      property decimals : Int32 = 2
+
+      # Text shown before/after the number.
       property prefix : String = ""
       property suffix : String = ""
 
-      # Whether the value can be typed directly (Qt's `QAbstractSpinBox#readOnly`
-      # inverted). When false the box only responds to stepping.
+      # Whether stepping past a bound wraps to the other end.
+      property? wrap : Bool = false
+
+      # Whether the value can be typed directly.
       property? editable : Bool = true
 
-      # The in-progress edit buffer (`nil` when not editing). While editing, the
-      # box shows this text instead of the committed value.
+      @value : Float64 = 0.0
       @editing : String? = nil
 
       def initialize(
-        value : Int32? = nil,
-        @minimum = 0,
-        @maximum = 100,
-        @step = 1,
+        value : Float64? = nil,
+        @minimum = 0.0,
+        @maximum = 100.0,
+        @step = 1.0,
+        @decimals = 2,
         @prefix = "",
         @suffix = "",
         @editable = true,
@@ -52,11 +55,8 @@ module Crysterm
 
         handle Crysterm::Event::KeyPress
 
-        # Losing focus mid-edit discards the buffer (Qt restores the last valid
-        # value rather than committing a half-typed one).
         on(Crysterm::Event::Blur) { cancel_edit if editing? }
 
-        # Mouse wheel nudges the value.
         on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_up?
             increment
@@ -72,14 +72,50 @@ module Crysterm
         update_content
       end
 
+      # Current value, within `[#minimum, #maximum]`.
+      def value : Float64
+        @value
+      end
+
+      # Sets the value — wrapping when `#wrap?`, otherwise clamping into range.
+      # Emits `Event::DoubleValueChange` only on an actual change.
+      def value=(v : Float64) : Float64
+        if wrap? && @maximum > @minimum
+          if v > @maximum
+            v = @minimum
+          elsif v < @minimum
+            v = @maximum
+          end
+        end
+        v = v.clamp(@minimum, @maximum)
+        return v if v == @value
+        @value = v
+        update_content
+        emit Crysterm::Event::DoubleValueChange, @value
+        request_render
+        @value
+      end
+
+      def increment(by : Float64 = @step)
+        self.value = @value + by
+      end
+
+      def decrement(by : Float64 = @step)
+        self.value = @value - by
+      end
+
+      # The value formatted to `#decimals` places.
+      def formatted_value : String
+        "%.#{@decimals}f" % @value
+      end
+
       # The text shown in the box: the edit buffer (while editing) or the
-      # committed value, framed by `prefix`/`suffix`.
+      # formatted value, framed by `prefix`/`suffix`.
       def text : String
-        body = @editing || @value.to_s
+        body = @editing || formatted_value
         "#{@prefix}#{body}#{@suffix}"
       end
 
-      # Whether a value is currently being typed.
       def editing? : Bool
         !@editing.nil?
       end
@@ -88,24 +124,18 @@ module Crysterm
         set_content text
       end
 
-      # Refresh the displayed number whenever the value changes (mixin hook).
-      protected def on_value_changed
-        update_content
-      end
-
       # Parses and commits the edit buffer (clamped into range), then ends the
       # editing session. An empty/invalid buffer just restores the prior value.
       def commit_edit
         buf = @editing
         return unless buf
         @editing = nil
-        if v = buf.to_i?
-          self.value = v # clamps and emits ValueChange if it actually changed
+        if v = buf.to_f?
+          self.value = v
         end
-        update_content # revert the display even when the value did not change
+        update_content
       end
 
-      # Abandons the edit buffer and restores the committed value.
       def cancel_edit
         return unless @editing
         @editing = nil
@@ -116,9 +146,11 @@ module Crysterm
         k = e.key
         ch = e.char
 
-        # Direct numeric entry: digits (and a leading `-` when negatives are in
-        # range) build the edit buffer.
-        if editable? && ch && (('0'..'9').includes?(ch) || (ch == '-' && @minimum < 0 && @editing.nil?))
+        # Direct entry: digits, a single decimal point, and a leading `-`.
+        if editable? && ch &&
+           (('0'..'9').includes?(ch) ||
+           (ch == '.' && !@editing.to_s.includes?('.')) ||
+           (ch == '-' && @minimum < 0 && @editing.nil?))
           @editing = (@editing || "") + ch
           update_content
           e.accept

@@ -46,7 +46,6 @@ end
 frame_count = frame_delays.size
 
 s = Screen.new title: "Netscape"
-s.show_fps = nil
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,

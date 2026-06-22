@@ -10,7 +10,6 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "Terminfo"
-s.show_fps = nil
 
 f = s.tput.features
 backend = s.tput.terminfo ? "unibilium terminfo database" : "built-in sequences"
