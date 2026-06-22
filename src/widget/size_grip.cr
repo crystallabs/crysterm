@@ -1,0 +1,55 @@
+require "./box"
+
+module Crysterm
+  class Widget
+    # A draggable corner resize handle, modeled after Qt's `QSizeGrip`.
+    #
+    # Placed in a corner of a resizable frame (typically bottom-right), dragging
+    # it resizes its `#target` (defaulting to the parent widget) by setting the
+    # target's `width`/`height` from the pointer, clamped to `#min_width`/
+    # `#min_height`. Pairs with floating `DockWidget`s, MDI-style sub-windows, or
+    # any sized `Box`.
+    #
+    # ```
+    # win = Widget::Box.new parent: screen, top: 2, left: 2, width: 30, height: 10, style: Style.new(border: true)
+    # Widget::SizeGrip.new parent: win, bottom: 0, right: 0, width: 1, height: 1
+    # ```
+    class SizeGrip < Box
+      # Widget resized by dragging. Defaults to the grip's parent.
+      property target : Widget?
+
+      # Smallest size the target may be dragged to.
+      property min_width : Int32 = 3
+      property min_height : Int32 = 3
+
+      # Glyph drawn for the handle.
+      property glyph : Char = '◢'
+
+      def initialize(target : Widget? = nil, glyph : Char = '◢', min_width = 3, min_height = 3, **box)
+        @target = target
+        @glyph = glyph
+        @min_width = min_width
+        @min_height = min_height
+
+        super **box
+
+        set_content @glyph.to_s
+
+        # A drag source that stays put (no self-reposition); its motion resizes
+        # the target instead.
+        enable_drag reposition: false
+        on(::Crysterm::Event::Drag) do |e|
+          if t = (@target || parent)
+            begin
+              t.width = Math.max(@min_width, e.x - t.aleft + 1)
+              t.height = Math.max(@min_height, e.y - t.atop + 1)
+              t.request_render
+            rescue
+              # Target not laid out yet — ignore this drag tick.
+            end
+          end
+        end
+      end
+    end
+  end
+end

@@ -50,10 +50,16 @@ module Crysterm
       # Adds a top-level menu titled *title* (optionally pre-filled with
       # *actions*) and returns the `Menu` so more can be added to it.
       def add_menu(title : String, actions : Array(Action) = [] of Action) : Menu
-        menu = Menu.new(screen: screen, style: @menu_style || Style.new(border: true))
+        # `parent: screen` appends the pop-up to the screen so it actually renders
+        # (a bare `screen:` would set the screen but leave it out of the render
+        # tree — visible-flagged but never drawn).
+        menu = Menu.new(parent: screen, style: @menu_style || Style.new(border: true))
         actions.each { |a| menu << a }
         menu.hide
         menu.on_navigate = ->(dir : Int32) { switch_relative dir }
+        # The bar's own strip counts as "inside" the open menu's modal grab, so
+        # hovering another title still switches menus while one is open.
+        menu.grab_region = ->(x : Int32, y : Int32) { grab_contains? x, y }
         menu.on(::Crysterm::Event::Hide) { on_menu_hidden menu }
 
         index = @menus.size

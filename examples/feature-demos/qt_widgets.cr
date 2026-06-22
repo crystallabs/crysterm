@@ -1,13 +1,16 @@
 # FEATURE: Qt-inspired widgets.
 #
 # Showcases the Qt-modeled widgets working together inside a `MainWindow`:
-#   * MainWindow       — menu bar (top) + status bar (bottom) + dock + central
-#   * Menu             — as a menu bar of pop-up menus (File / Edit / Help) and,
-#                        in the Menu tab, nested submenus + checkable items
-#   * DockWidget       — a closable/floatable "Panes" dock holding a Splitter
+#   * MainWindow       — menu bar + tool bar (top) + status bar (bottom) + dock
+#   * MenuBar / Menu   — pop-up menus (File / Edit / Help); nested submenus too
+#   * ToolBar          — action buttons under the menu bar (New / Open / Bold)
+#   * DockWidget       — a closable/floatable "Panes" dock (resize via its ◢ grip)
+#   * SizeGrip         — drag the dock's corner grip to resize it while floating
 #   * StatusBar        — live message (left) + permanent sections (right)
+#   * SplashScreen     — animated startup banner (auto-dismisses)
 #   * TabWidget        — closable pages, the window's central widget
 #   * GroupBox         — checkable title disables/enables its contents
+#   * LCDNumber        — seven-segment readout mirroring the volume slider
 #   * Tree             — collapsible node hierarchy (Right/Left expand/collapse)
 #   * ComboBox         — editable: type to filter the options
 #   * Slider (w/ ticks) / SpinBox / Dial — value controls that emit events
@@ -17,11 +20,11 @@
 #
 # Everything is laid out by `MainWindow` and re-flows to the terminal size.
 #
-# Try it: click File/Edit/Help for pop-up menus (with one open, hover another to
-# switch); hover a control for a tooltip;
-# float or close the right "Panes" dock from its title bar; Tab cycles focus;
-# arrows adjust the focused control; type in the ComboBox to filter; drag a
-# splitter divider. Press q to quit.
+# Try it: wait for the splash to clear; click File/Edit/Help for pop-up menus
+# (with one open, hover another to switch); use the tool-bar buttons; hover a
+# control for a tooltip; float the right "Panes" dock from its title bar and drag
+# its ◢ corner to resize; Tab cycles focus; arrows adjust the focused control;
+# type in the ComboBox to filter; drag a splitter divider. Press q to quit.
 
 require "../../src/crysterm"
 
@@ -69,6 +72,19 @@ ed_wrap.checkable = true
 editmenu << ed_wrap
 
 menubar.add_menu("Help").add("About") { status.show_message " Crysterm — Qt-inspired widgets"; s.render }
+
+# --- Tool bar (action buttons) -----------------------------------------------
+
+toolbar = Widget::ToolBar.new style: Style.new(fg: "white", bg: "#252540")
+win.tool_bar = toolbar
+toolbar.add_button("New") { status.show_message " new file"; s.render }
+toolbar.add_button("Open") { status.show_message " open file"; s.render }
+toolbar.add_separator
+tb_bold = Action.new "Bold"
+tb_bold.checkable = true
+tb_bold.tool_tip = "Toggle bold"
+tb_bold.on(Event::Triggered) { status.show_message " bold = #{tb_bold.checked?}"; s.render }
+toolbar.add_action tb_bold
 
 # --- Central tabbed area -----------------------------------------------------
 
@@ -121,6 +137,13 @@ combo = Widget::ComboBox.new \
   options: ["Red", "Green", "Blue", "Cyan", "Magenta", "Maroon"],
   style: Style.new(fg: "white", bg: "#303030")
 combo.tool_tip = "Pick or type a color"
+
+# A seven-segment LCD mirroring the volume slider, updated on its events.
+Widget::Box.new parent: gb, top: 11, left: 1, width: 8, height: 1, content: "Vol:"
+lcd = Widget::LCDNumber.new \
+  parent: gb, top: 11, left: 9, width: 16, height: 3, digit_count: 3,
+  style: Style.new(fg: "green")
+lcd.display slider.value
 
 # Menu tab: an embedded menu with nested submenus + a checkable item.
 menu = Widget::Menu.new parent: menupage, top: 1, left: 1, width: 22, height: 10,
@@ -214,6 +237,10 @@ dock = Widget::DockWidget.new title: "Panes", area: Widget::DockWidget::Area::Ri
 dock.widget = split
 win.add_dock dock
 
+# A corner grip resizes the dock while it's floating (when docked, MainWindow
+# re-imposes the dock's size each frame).
+Widget::SizeGrip.new parent: dock, bottom: 0, right: 0, width: 1, height: 1, min_width: 12, min_height: 4
+
 # --- Live status from widget events ------------------------------------------
 
 update = -> do
@@ -223,7 +250,7 @@ update = -> do
 end
 
 combo.on(Event::Action) { update.call }
-slider.on(Event::ValueChange) { update.call }
+slider.on(Event::ValueChange) { lcd.display slider.value; update.call }
 spin.on(Event::ValueChange) { update.call }
 dial.on(Event::ValueChange) { update.call }
 update.call
@@ -233,5 +260,19 @@ stack.pages.each do |page|
 end
 
 tabs.bar.focus
+
+# --- Splash screen (animated, auto-dismisses) --------------------------------
+
+# A centered overlay holding a scrolling rainbow banner (a `Marquee` drives its
+# own animation fiber via `#start`); it clears itself after a couple of seconds,
+# revealing the UI behind it.
+splash_banner = Widget::Marquee.new text: "  ✦  Crysterm — Qt-inspired terminal widgets  ✦  ", rainbow: true
+splash = Widget::SplashScreen.new \
+  parent: s, width: 46, height: 7,
+  content: splash_banner, style: Style.new(border: true, fg: "white", bg: "#101028")
+splash.show_message "Loading…"
+splash_banner.start
+splash.on(Event::Complete) { splash_banner.stop }
+splash.finish_after 2.seconds
 
 s.exec

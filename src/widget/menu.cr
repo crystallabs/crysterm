@@ -35,6 +35,23 @@ module Crysterm
       # between its menus with the arrow keys.
       property on_navigate : Proc(Int32, Nil)?
 
+      # Extra region counted as "inside" for the modal input-grab (see
+      # `Widget#grab_contains?`), on top of this menu's own submenu chain. A
+      # `Widget::MenuBar` sets it to its own strip so hovering the bar's titles
+      # still switches menus while one is open.
+      property grab_region : Proc(Int32, Int32, Bool)?
+
+      # While open, the grab region is the whole submenu chain plus any extra
+      # `#grab_region` (e.g. the owning menu bar).
+      def grab_contains?(x : Int32, y : Int32) : Bool
+        return true if in_chain? x, y
+        if gr = @grab_region
+          gr.call x, y
+        else
+          false
+        end
+      end
+
       # The currently-open child submenu, if any, and the action that opened it.
       @submenu_open : Menu?
       @submenu_action : Action?
@@ -149,6 +166,7 @@ module Crysterm
         show
         front!
         focus
+        screen.grab self # modal: suppress hover/clicks outside the menu chain
 
         @ev_popup ||= screen.on(Crysterm::Event::Mouse) do |e|
           hide_popup if e.action.down? && !in_chain?(e.x, e.y)
@@ -171,6 +189,7 @@ module Crysterm
         @popup_mode = false
         close_submenu
         hide
+        screen?.try &.ungrab self
         @ev_popup.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
         @ev_popup = nil
         request_render
@@ -444,18 +463,10 @@ module Crysterm
       # Whether the point (*x*, *y*) falls on this menu or anywhere in its open
       # submenu chain.
       def in_chain?(x : Int32, y : Int32) : Bool
-        return true if point_in?(self, x, y)
+        return true if contains_point?(x, y)
         if child = @submenu_open
           return child.in_chain?(x, y)
         end
-        false
-      end
-
-      private def point_in?(w : Widget, x : Int32, y : Int32) : Bool
-        l = w.aleft
-        t = w.atop
-        l <= x < l + w.awidth && t <= y < t + w.aheight
-      rescue
         false
       end
 

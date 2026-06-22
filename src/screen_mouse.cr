@@ -19,6 +19,37 @@ module Crysterm
     # Whether mouse listening has been set up for this screen.
     getter? _listened_mouse = false
 
+    # Stack of widgets that have an *input grab* — an open pop-up (menu, combo
+    # drop-down, …) that should behave modally: while any grab is active, only
+    # points inside a grab's own region (see `Widget#grab_contains?`) deliver
+    # hover/click to a widget. Other widgets get no `MouseOver`/`Click` (so e.g. a
+    # tooltip never appears under an open menu); the grab's own outside-click
+    # dismissal still runs via the screen-level `Event::Mouse`. A stack so nested
+    # pop-ups (a combo inside a dialog, a submenu chain) compose.
+    @grabs = [] of Widget
+
+    # Registers *w* as an active input grab (no-op if already grabbing).
+    def grab(w : Widget) : Nil
+      @grabs << w unless @grabs.includes? w
+    end
+
+    # Removes *w*'s input grab.
+    def ungrab(w : Widget) : Nil
+      @grabs.delete w
+    end
+
+    # Whether any input grab is active.
+    def grabbing? : Bool
+      !@grabs.empty?
+    end
+
+    # Whether the point (*x*, *y*) lies inside some active grab's region (so the
+    # pointer should interact normally there). True when nothing is grabbing.
+    private def within_grab?(x : Int32, y : Int32) : Bool
+      return true if @grabs.empty?
+      @grabs.any? &.grab_contains?(x, y)
+    end
+
     # Connection to the `gpm` daemon, if one was established.
     @_gpm : GPM? = nil
     @_gpm_fiber : Fiber?
@@ -160,6 +191,12 @@ module Crysterm
       end
 
       w = widget_at ev.x, ev.y
+
+      # Modal grab: while a pop-up is open, the pointer only interacts with its
+      # region. Elsewhere, drop the target so no hover/click reaches other
+      # widgets (the pop-up's outside-click dismissal already ran via the
+      # screen-level `Event::Mouse` emitted above).
+      w = nil unless within_grab? ev.x, ev.y
 
       update_hover w, ev
 

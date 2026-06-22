@@ -1,6 +1,7 @@
 require "./input"
 require "./calendar"
 require "../mixin/sectioned_field"
+require "../mixin/popup"
 
 module Crysterm
   class Widget
@@ -19,6 +20,9 @@ module Crysterm
     # lives in `Mixin::SectionedField`.
     class DateEdit < Input
       include Mixin::SectionedField
+      # Calendar-popup lifecycle (open flag, modal grab, outside-click dismissal,
+      # grab region, teardown). We supply `#popup_widget` and `#close`.
+      include Mixin::Popup
 
       @resizable = false
 
@@ -29,8 +33,6 @@ module Crysterm
       property? calendar_popup : Bool = true
 
       @popup : Calendar?
-      @open = false
-      @ev_outside : ::Crysterm::Event::Mouse::Wrapper?
 
       def initialize(date : Time? = nil, calendar_popup = true, **input)
         @date = (date || (Time.local rescue Time.utc(2000, 1, 1))).at_beginning_of_day
@@ -120,32 +122,24 @@ module Crysterm
         self.date = Time.local(y, m, d)
       end
 
+      # The calendar drop-down (for `Mixin::Popup`).
+      def popup_widget : ::Crysterm::Widget?
+        @popup
+      end
+
+      # Drops the calendar. (Grab, outside-click dismissal, and the open flag come
+      # from `Mixin::Popup`.)
       def open : Nil
         return if @open || !calendar_popup?
-        @open = true
         pop = ensure_popup
         pop.date = @date
         position_popup pop
-        pop.show
-        pop.front!
-        pop.focus
-
-        @ev_outside ||= screen.on(Crysterm::Event::Mouse) do |e|
-          if e.action.down? && (p = @popup)
-            close unless point_in?(p, e.x, e.y) || point_in?(self, e.x, e.y)
-          end
-        end
-        request_render
+        show_popup pop
       end
 
       def close : Nil
-        return unless @open
-        @open = false
-        @ev_outside.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
-        @ev_outside = nil
-        @popup.try &.hide
+        return unless teardown_popup
         focus
-        request_render
       end
 
       private def ensure_popup : Calendar
@@ -197,22 +191,9 @@ module Crysterm
       end
 
       def destroy
-        @ev_outside.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
-        @ev_outside = nil
-        if pop = @popup
-          screen?.try &.remove pop
-          pop.destroy
-        end
+        teardown_popup_on_destroy
         @popup = nil
         super
-      end
-
-      private def point_in?(widget : Widget, x : Int32, y : Int32) : Bool
-        l = widget.aleft
-        t = widget.atop
-        l <= x < l + widget.awidth && t <= y < t + widget.aheight
-      rescue
-        false
       end
     end
   end

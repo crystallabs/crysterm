@@ -1185,3 +1185,150 @@ describe Crysterm::Widget::MenuBar do
     bar.open_index.should eq 0
   end
 end
+
+describe Crysterm::Widget::LCDNumber do
+  it "renders a value as three seven-segment rows, right-aligned" do
+    s = qt_mem_screen
+    lcd = Crysterm::Widget::LCDNumber.new parent: s, top: 0, left: 0, width: 24, height: 3, digit_count: 3
+    lcd.display 42
+    lcd.text.should eq "42"
+    lcd.content.split('\n').size.should eq 3
+  end
+
+  it "formats integers per mode" do
+    s = qt_mem_screen
+    lcd = Crysterm::Widget::LCDNumber.new parent: s, mode: Crysterm::Widget::LCDNumber::Mode::Hex
+    lcd.display 255
+    lcd.text.should eq "FF"
+    lcd.mode = Crysterm::Widget::LCDNumber::Mode::Bin
+    lcd.display 5
+    lcd.text.should eq "101"
+  end
+end
+
+describe Crysterm::Widget::SizeGrip do
+  it "resizes its target when dragged" do
+    s = qt_mem_screen
+    win = Crysterm::Widget::Box.new parent: s, top: 5, left: 0, width: 20, height: 6,
+      style: Style.new(border: true)
+    grip = Crysterm::Widget::SizeGrip.new parent: win, bottom: 0, right: 0, width: 1, height: 1,
+      min_width: 3, min_height: 3
+    s._render
+    s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, grip.aleft, grip.atop, source: :test))
+    s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::Left, 30, 12, source: :test))
+    win.width.should eq 31 # 30 - left(0) + 1
+    win.height.should eq 8 # 12 - top(5) + 1
+  end
+end
+
+describe Crysterm::Widget::ToolBar do
+  it "shows plain labels, triggers buttons, and lights checked toggles" do
+    s = qt_mem_screen
+    tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: 40, height: 1
+    fired = 0
+    tb.add_button("New") { fired += 1 }
+    bold = Crysterm::Action.new "Bold"
+    bold.checkable = true
+    item = tb.add_action bold
+    tb.add_separator
+    s._render
+
+    tb.ritems[0].should eq "New" # no "1:" prefix
+    tb.commands[0].callback.try &.call
+    fired.should eq 1
+
+    tb.commands[1].callback.try &.call # toggle Bold on
+    bold.checked?.should be_true
+    item.state.selected?.should be_true
+    tb.commands[1].callback.try &.call # toggle off
+    bold.checked?.should be_false
+    item.state.selected?.should be_false
+  end
+end
+
+describe Crysterm::Widget::SplashScreen do
+  it "centers, shows a message, and finishes" do
+    s = qt_mem_screen
+    sp = Crysterm::Widget::SplashScreen.new parent: s, width: 30, height: 8,
+      content: Crysterm::Widget::Box.new(content: "Loading")
+    sp.content_widget.should_not be_nil
+    sp.show_message "Init"
+    s._render
+    sp.aleft.should eq (s.awidth - 30) // 2
+    sp.atop.should eq (s.aheight - 8) // 2
+
+    done = false
+    sp.on(Crysterm::Event::Complete) { done = true }
+    sp.finish
+    done.should be_true
+    s.children.includes?(sp).should be_false
+  end
+
+  it "respects an explicit position" do
+    s = qt_mem_screen
+    sp = Crysterm::Widget::SplashScreen.new parent: s, top: 1, left: 2, width: 20, height: 6
+    s._render
+    sp.aleft.should eq 2
+    sp.atop.should eq 1
+  end
+end
+
+describe "MenuBar rendering (regression)" do
+  it "appends its pop-up menus to the screen and keeps their rows visible" do
+    s = qt_mem_screen
+    bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
+    fm = bar.add_menu "File"
+    # Rows added *after* the menu is hidden (the menu bar hides each menu on
+    # creation) must still be visible once shown — they must not snapshot the
+    # menu's hidden state via a shared/dup'd style.
+    fm.add("New") { }
+    fm.add("Open") { }
+
+    s.children.includes?(fm).should be_true # in the render tree, not just screened
+    bar.open 0
+    fm.visible?.should be_true
+    fm.items.size.should eq 2
+    fm.items.all?(&.visible?).should be_true
+  end
+end
+
+describe "Input grab (modal pop-ups)" do
+  it "stops hover reaching other widgets while a menu is open, but keeps the bar live" do
+    s = qt_mem_screen
+    win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
+    menubar = Crysterm::Widget::MenuBar.new
+    win.menu_bar = menubar
+    fm = menubar.add_menu "File"
+    fm.add("New") { }
+    menubar.add_menu "Edit", [Crysterm::Action.new("Cut")]
+    box = Crysterm::Widget::Box.new content: "x"
+    win.central_widget = box
+    over = 0
+    box.on(Crysterm::Event::MouseOver) { over += 1 }
+    s._render
+
+    move = ->(x : Int32, y : Int32) do
+      s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, x, y, source: :test))
+    end
+    bar_x = ->(i : Int32) { menubar.items[i].aleft + 1 }
+
+    # Far from the (top-left) menu, well inside the central box.
+    move.call 60, 12
+    over.should eq 1 # hover reaches the box normally
+
+    menubar.open 0
+    s.grabbing?.should be_true
+    move.call bar_x.call(0), 0 # park hover on the bar
+    move.call 60, 12           # hover the box again, now while the menu is open
+    over.should eq 1           # …no new MouseOver: suppressed by the grab
+
+    move.call bar_x.call(1), 0 # the bar stays live: hovering Edit switches menus
+    menubar.open_index.should eq 1
+
+    menubar.close
+    s.grabbing?.should be_false
+    move.call bar_x.call(0), 0
+    move.call 60, 12
+    over.should eq 2 # hover reaches the box again once the grab is released
+  end
+end

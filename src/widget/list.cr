@@ -180,6 +180,11 @@ module Crysterm
         if item_style.border.any?
           item_style = item_style.dup
           item_style.border = false
+          # An item's own style must not carry the list's *hidden* state: the
+          # parent's visibility gates the subtree, and a dup made while the list
+          # is hidden (e.g. menu rows added after `hide`) would otherwise snapshot
+          # `visible: false` and never reappear when the list is shown.
+          item_style.visible = true
         end
 
         item = Widget::Box.new(content: content, screen: screen, align: align, top: top, left: left, right: right, parse_tags: parse_tags, height: 1, focus_on_click: focus_on_click, width: width, style: item_style)

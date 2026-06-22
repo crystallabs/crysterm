@@ -100,6 +100,27 @@ module Crysterm
       self.tool_tip = hover_text
     end
 
+    # Whether the absolute point (*x*, *y*) lies within this widget's last-laid-out
+    # rectangle. Returns false before the widget has been laid out (its
+    # coordinates raise). The shared hit-test used by pop-ups for outside-click
+    # dismissal and grab containment.
+    def contains_point?(x : Int32, y : Int32) : Bool
+      l = aleft
+      t = atop
+      l <= x < l + awidth && t <= y < t + aheight
+    rescue
+      false
+    end
+
+    # Whether the absolute point (*x*, *y*) belongs to this widget's *grab
+    # region* — used by `Screen`'s input-grab to decide which points still
+    # interact while this widget is grabbing (see `Screen#grab`). The default is
+    # the widget's own rectangle; pop-ups that own extra area (a drop-down list, a
+    # submenu chain) override this.
+    def grab_contains?(x : Int32, y : Int32) : Bool
+      contains_point? x, y
+    end
+
     # Hides the tooltip (if shown). Qt's `QToolTip::hideText`.
     def remove_hover
       @_tooltip.try &.hide

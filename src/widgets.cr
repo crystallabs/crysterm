@@ -68,10 +68,14 @@ module Crysterm
     TimeEdit     = Widget::TimeEdit
     DateTimeEdit = Widget::DateTimeEdit
 
-    ToolTip    = Widget::ToolTip
-    StatusBar  = Widget::StatusBar
-    MainWindow = Widget::MainWindow
-    DockWidget = Widget::DockWidget
+    ToolTip      = Widget::ToolTip
+    StatusBar    = Widget::StatusBar
+    MainWindow   = Widget::MainWindow
+    DockWidget   = Widget::DockWidget
+    ToolBar      = Widget::ToolBar
+    SizeGrip     = Widget::SizeGrip
+    LCDNumber    = Widget::LCDNumber
+    SplashScreen = Widget::SplashScreen
 
     Terminal = Widget::Terminal
 
