@@ -385,3 +385,98 @@ describe Crysterm::Widget::TabWidget do
     p1.visible?.should be_true
   end
 end
+
+describe Crysterm::Widget::ComboBox do
+  it "exposes the selected value and cycles in place" do
+    s = qt_mem_screen
+    cb = Crysterm::Widget::ComboBox.new parent: s, options: ["red", "green", "blue"], selected: 0
+    cb.value.should eq "red"
+    actions = [] of String
+    cb.on(Crysterm::Event::Action) { |e| actions << e.value }
+    cb.cycle 1
+    cb.value.should eq "green"
+    cb.cycle -1
+    cb.value.should eq "red"
+    cb.cycle -1 # wraps to last
+    cb.value.should eq "blue"
+    actions.should eq ["green", "red", "blue"]
+  end
+
+  it "commits a chosen index and emits Action" do
+    s = qt_mem_screen
+    cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b", "c"]
+    chosen = nil.as(String?)
+    cb.on(Crysterm::Event::Action) { |e| chosen = e.value }
+    cb.commit 2
+    cb.value.should eq "c"
+    cb.selected.should eq 2
+    chosen.should eq "c"
+    cb.open?.should be_false
+  end
+
+  it "keeps the selection in range when options are replaced" do
+    s = qt_mem_screen
+    cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b", "c"], selected: 2
+    cb.options = ["x"]
+    cb.selected.should eq 0
+    cb.value.should eq "x"
+  end
+end
+
+describe Crysterm::Widget::GroupBox do
+  it "carries a title and toggles its checked state" do
+    s = qt_mem_screen
+    gb = Crysterm::Widget::GroupBox.new parent: s, title: "Options", checkable: true, width: 30, height: 8
+    child = Crysterm::Widget::CheckBox.new parent: gb, top: 0, content: "Wrap"
+
+    gb.title.should eq "Options"
+    gb.checked?.should be_true
+    child.state.normal?.should be_true
+
+    gb.toggle
+    gb.checked?.should be_false
+    child.state.disabled?.should be_true
+
+    gb.toggle
+    gb.checked?.should be_true
+    child.state.normal?.should be_true
+  end
+end
+
+describe Crysterm::Widget::Splitter do
+  it "lays out two panes around the divider (horizontal)" do
+    s = qt_mem_screen
+    sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10, position: 10
+    a = Crysterm::Widget::Box.new
+    b = Crysterm::Widget::Box.new
+    sp.split a, b
+
+    sp.pane1.should be(a)
+    sp.pane2.should be(b)
+    a.width.should eq 10
+    sp.divider.left.should eq 10
+    b.left.should eq 11
+  end
+
+  it "clamps the divider position into range" do
+    s = qt_mem_screen
+    sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10, position: 10
+    sp.split Crysterm::Widget::Box.new, Crysterm::Widget::Box.new
+    sp.position = 9999
+    sp.position.should eq 38 # width - 2
+    sp.position = -5
+    sp.position.should eq 1
+  end
+
+  it "splits vertically by height" do
+    s = qt_mem_screen
+    sp = Crysterm::Widget::Splitter.new parent: s, orientation: Tput::Orientation::Vertical,
+      width: 40, height: 20, position: 8
+    a = Crysterm::Widget::Box.new
+    b = Crysterm::Widget::Box.new
+    sp.split a, b
+    a.height.should eq 8
+    sp.divider.top.should eq 8
+    b.top.should eq 9
+  end
+end

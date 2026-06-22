@@ -52,6 +52,9 @@ module Crysterm
     Slider    = Widget::Slider
     SpinBox   = Widget::SpinBox
     TabWidget = Widget::TabWidget
+    ComboBox  = Widget::ComboBox
+    GroupBox  = Widget::GroupBox
+    Splitter  = Widget::Splitter
 
     Terminal = Widget::Terminal
 
