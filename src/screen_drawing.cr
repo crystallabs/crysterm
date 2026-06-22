@@ -186,14 +186,25 @@ module Crysterm
             breaker = line_size
 
             (x...line_size).each do |xx|
-              if line[xx] != {desired_attr, ' '}
+              lc_attr = l_attrs.unsafe_fetch(xx)
+              lc_char = l_chars.unsafe_fetch(xx)
+
+              # `line[xx] != {desired_attr, ' '}`: is this a clearable space? Read
+              # from the hoisted arrays; under full_unicode a cell holding a
+              # multi-codepoint cluster is never a bare space even if its base
+              # codepoint is one, so the overlay must be nil.
+              clearable = lc_attr == desired_attr && lc_char == ' '
+              clearable &&= line.grapheme_at?(xx).nil? if fu
+              unless clearable
                 clr = false
                 breaker = xx
                 break
               end
-              if line[xx] != o[xx]
-                neq = true
-              end
+
+              # `line[xx] != o[xx]`: does this cell differ from what's on screen?
+              changed = lc_attr != o_attrs.unsafe_fetch(xx) || lc_char != o_chars.unsafe_fetch(xx)
+              changed ||= line.grapheme_at?(xx) != o.grapheme_at?(xx) if fu
+              neq = true if changed
             end
 
             # If the tail wasn't clearable, the offending cell at `breaker` stays
@@ -285,18 +296,27 @@ module Crysterm
           # printed below — defeating the skip and desyncing the `cuf` run math
           # from the real cursor position.
           if ox = o[x]?
-            # Inlined, allocation-free form of `ox == {desired_attr,
-            # desired_char}` (see `Cell#==(Tuple)`): read the old cell's attr/char
-            # straight from the backing arrays, and only consult the grapheme
-            # overlay under `full_unicode`. In legacy mode a row never carries an
-            # overlay, so `grapheme_overlay.nil?` is invariably true and skipping
-            # the `@graphemes` lookup is pure win on this per-cell hot path. The
-            # `legacy_cell_eq` flag still forces a miss for A/B benchmarking.
-            # Declared here (not inside the macro `if`) so it stays visible below.
+            # Inlined, allocation-free cell diff, reading attr/char straight from
+            # the backing arrays. In legacy mode a row never carries a grapheme
+            # overlay, so the compare is just `attr == && char ==` and skipping the
+            # `@graphemes` lookup is pure win on this per-cell hot path.
+            #
+            # Under `full_unicode` a cell's value also includes its grapheme
+            # cluster, so we compare the new cell's overlay against the old one
+            # (`ox == line[x]` semantics) — `desired_char` is only the cluster's
+            # BASE codepoint, so without this a cell going from 'e' to a combining
+            # 'e'+◌́ (same base, same attr) would be wrongly skipped and the mark
+            # never emitted; conversely an unchanged cluster cell would be
+            # needlessly re-emitted every frame. `grapheme_at?` is the same lookup
+            # `Cell#grapheme_overlay` does, without constructing a `Cell`.
+            #
+            # The `legacy_cell_eq` flag still forces a miss for A/B benchmarking.
+            # `unchanged` is declared here (not inside the macro `if`) so it stays
+            # visible below.
             unchanged = false
             {% unless flag?(:legacy_cell_eq) %}
               unchanged = o_attrs.unsafe_fetch(x) == desired_attr && o_chars.unsafe_fetch(x) == desired_char
-              unchanged &&= ox.grapheme_overlay.nil? if fu
+              unchanged &&= o.grapheme_at?(x) == line.grapheme_at?(x) if fu
             {% end %}
             if unchanged
               if lx == -1
