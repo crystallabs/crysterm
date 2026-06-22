@@ -1,11 +1,16 @@
 module Crysterm
-  class Widget
-    # Per-cell CSS for `Table`: each cell is emitted as a `Cell` node inside a
-    # `Row` node (header cells are also `Header`), so selectors can target cells
-    # individually — `Table Cell`, `Cell:nth-child(2)` (a column), `Header`,
-    # `Row:nth-child(even)`. The cascade computes a `Style` per cell and stores
-    # it here; `Table`'s renderer looks it up with `#css_cell_style`.
-    class Table
+  module CSS
+    # Per-cell CSS support shared by `Table` and `ListTable`: each cell is
+    # emitted as a `Cell` node inside a `Row` node (header cells are also
+    # `Header`), so selectors can target cells individually — `Table Cell`,
+    # `Cell:nth-child(2)` (a column), `Header`, `Row:nth-child(even)`. The
+    # cascade computes a `Style` per cell and stores it here; each widget's
+    # renderer looks it up with `#css_cell_style`.
+    #
+    # Including this overrides the `Widget` extra-node hooks. The widget must
+    # provide `#rows`, `#style`, `#alternate_rows?` and `#uid` (both table
+    # widgets do).
+    module TableCells
       @css_cells : Hash(Tuple(Int32, Int32), Style)?
 
       private def css_cells : Hash(Tuple(Int32, Int32), Style)
@@ -19,11 +24,11 @@ module Crysterm
       end
 
       def css_render_extra(io : IO) : Nil
-        rows.each_with_index do |row, r|
-          io << "<w-row data-uid=\"" << uid << "::row:" << r << "\" class=\"Row\">"
-          row.each_index do |c|
-            io << "<w-cell data-uid=\"" << uid << "::cell:" << r << ':' << c << '"'
-            io << " class=\"" << (r == 0 ? "Cell Header" : "Cell") << "\"></w-cell>"
+        rows.each_with_index do |row, ridx|
+          io << "<w-row data-uid=\"" << uid << "::row:" << ridx << "\" class=\"Row\">"
+          row.each_index do |cidx|
+            io << "<w-cell data-uid=\"" << uid << "::cell:" << ridx << ':' << cidx << '"'
+            io << " class=\"" << (ridx == 0 ? "Cell Header" : "Cell") << "\"></w-cell>"
           end
           io << "</w-row>"
         end
@@ -31,14 +36,14 @@ module Crysterm
 
       def css_extra_slots : Array(String)
         slots = [] of String
-        rows.each_with_index do |row, r|
-          row.each_index { |c| slots << "cell:#{r}:#{c}" }
+        rows.each_with_index do |row, ridx|
+          row.each_index { |cidx| slots << "cell:#{ridx}:#{cidx}" }
         end
         slots
       end
 
-      # The default a cell's rules apply onto: the table's header style for row
-      # 0, alternate style for alternating body rows, otherwise the cell style.
+      # The default a cell's rules apply onto: the header style for row 0, the
+      # alternate style for alternating body rows, otherwise the cell style.
       def css_extra_base_style(slot : String) : Style
         row, _ = parse_css_cell(slot)
         if row == 0
@@ -63,6 +68,16 @@ module Crysterm
         parts = slot.split(':') # "cell:<row>:<col>"
         {parts[1].to_i, parts[2].to_i}
       end
+    end
+  end
+
+  class Widget
+    class Table
+      include CSS::TableCells
+    end
+
+    class ListTable
+      include CSS::TableCells
     end
   end
 end

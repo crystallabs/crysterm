@@ -36,7 +36,10 @@ module Crysterm
       # An accumulated match: `{tier, specificity, order, declarations}`. Sorted
       # by `{tier, specificity, order}` so the winning declaration is applied
       # last.
-      alias Entry = Tuple(Int32, Tuple(Int32, Int32, Int32), Int32, Hash(String, String))
+      # `{tier, layer_rank, specificity, order, declarations}`, sorted by the
+      # first four (origin/importance, then `@layer`, then specificity, then
+      # source order) so the winning declaration applies last.
+      alias Entry = Tuple(Int32, Int32, Tuple(Int32, Int32, Int32), Int32, Hash(String, String))
 
       # Resolves the author *stylesheet* (plus the default stylesheet beneath it)
       # against the tree rooted at *screen*. *document* is the prebuilt CSS
@@ -210,17 +213,21 @@ module Crysterm
       # *base_tier*, and its `!important` declarations at `TIER_IMPORTANT`.
       private def self.rule_entries(rule : Rule, base_tier : Int32) : Array(Entry)
         entries = [] of Entry
-        entries << {base_tier, rule.specificity, rule.order, rule.declarations} unless rule.declarations.empty?
-        entries << {TIER_IMPORTANT, rule.specificity, rule.order, rule.important} unless rule.important.empty?
+        entries << {base_tier, rule.layer_rank, rule.specificity, rule.order, rule.declarations} unless rule.declarations.empty?
+        entries << {TIER_IMPORTANT, rule.layer_rank, rule.specificity, rule.order, rule.important} unless rule.important.empty?
         entries
       end
 
-      # Folds *entries* onto *style* in place, in cascade order
-      # (`{tier, specificity, order}`, so the winning declaration applies last).
-      # `var(...)` references in values are resolved against *variables*.
+      # Sort key: `{tier, layer_rank, specificity, order}`.
+      private def self.entry_key(entry : Entry)
+        {entry[0], entry[1], entry[2], entry[3]}
+      end
+
+      # Folds *entries* onto *style* in place, in cascade order (so the winning
+      # declaration applies last). `var(...)` is resolved against *variables*.
       private def self.apply_entries(style : Style, entries : Array(Entry), variables : Hash(String, String)) : Nil
-        entries.sort_by! { |entry| {entry[0], entry[1], entry[2]} }
-        entries.each { |entry| apply_decls style, entry[3], variables }
+        entries.sort_by! { |entry| entry_key entry }
+        entries.each { |entry| apply_decls style, entry[4], variables }
       end
 
       # Like `apply_entries`, but interleaves the inline `@style` at
@@ -228,15 +235,15 @@ module Crysterm
       # then the inline style, then entries at/above it (`!important`). So inline
       # outranks normal author rules but `!important` outranks inline.
       private def self.apply_entries_with_inline(style : Style, entries : Array(Entry), variables : Hash(String, String), inline : Style?) : Nil
-        entries.sort_by! { |entry| {entry[0], entry[1], entry[2]} }
+        entries.sort_by! { |entry| entry_key entry }
         i = 0
         while i < entries.size && entries[i][0] < TIER_INLINE
-          apply_decls style, entries[i][3], variables
+          apply_decls style, entries[i][4], variables
           i += 1
         end
         fold_inline style, inline if inline
         while i < entries.size
-          apply_decls style, entries[i][3], variables
+          apply_decls style, entries[i][4], variables
           i += 1
         end
       end
@@ -252,7 +259,7 @@ module Crysterm
       # entries are already sorted by the caller.
       private def self.apply_geometry(widget : Widget, entries : Array(Entry), variables : Hash(String, String)) : Nil
         entries.each do |entry|
-          entry[3].each do |property, value|
+          entry[4].each do |property, value|
             Geometry.apply(widget, property, Stylesheet.resolve_var(value, variables)) if Geometry.handles?(property)
           end
         end

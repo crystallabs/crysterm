@@ -21,14 +21,9 @@ module Crysterm
       end
     end
 
-    class ListTable
-      def css_sub_elements : Array(String)
-        super + ["header", "cell", "alternate"]
-      end
-    end
-
-    # NOTE: `Table` exposes its cells as individual per-cell nodes instead of the
-    # representative header/cell/alternate slots — see `table_cells.cr`.
+    # NOTE: `Table` and `ListTable` expose their cells as individual per-cell
+    # nodes (`Cell`/`Header`/`Row`) instead of representative header/cell/
+    # alternate slots — see `table_cells.cr`.
 
     class ProgressBar
       def css_sub_elements : Array(String)

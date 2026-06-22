@@ -18,8 +18,18 @@ module Crysterm
         case property
         when "color"
           style.fg = ColorValue.resolve(value, style.fg)
-        when "background-color", "background"
+        when "background-color"
           style.bg = ColorValue.resolve(value, style.fg)
+        when "background"
+          # `background` shorthand: pull the color out (image/position/repeat
+          # parts are meaningless in a terminal and ignored).
+          parse_background_color(value, style.fg).try { |color| style.bg = color }
+        when "font"
+          # `font` shorthand: only the weight/style words mean anything here;
+          # presence sets the attribute, absence resets it (shorthand semantics).
+          words = value.split
+          style.bold = words.includes?("bold")
+          style.italic = words.includes?("italic")
         when "font-weight"
           style.bold = bool_keyword(value, on: "bold", off: "normal", current: style.bold?)
         when "font-style"
@@ -60,11 +70,26 @@ module Crysterm
       end
 
       KNOWN = Set{
-        "color", "background-color", "background", "font-weight", "font-style",
-        "text-decoration", "visibility", "display", "opacity", "tab-size",
-        "box-shadow", "padding", "padding-left", "padding-top", "padding-right",
-        "padding-bottom",
+        "color", "background-color", "background", "font", "font-weight",
+        "font-style", "text-decoration", "visibility", "display", "opacity",
+        "tab-size", "box-shadow", "padding", "padding-left", "padding-top",
+        "padding-right", "padding-bottom",
       }
+
+      # Extracts a color from a `background` shorthand: the first token that
+      # resolves to a real color (functions/keywords, or a named/hex color whose
+      # `Colors.convert` isn't the `-1` "unknown" sentinel).
+      private def self.parse_background_color(value : String, current_fg : Int32?) : Int32?
+        value.split.each do |token|
+          case resolved = ColorValue.resolve(token, current_fg)
+          when Int32 then return resolved
+          when String
+            color = Colors.convert(token).to_i32
+            return color unless color == -1
+          end
+        end
+        nil
+      end
 
       # Applies any `border*` property. Border color is a single whole-border
       # value in crysterm's model, so per-side `*-color` longhands all set it;

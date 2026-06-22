@@ -78,7 +78,7 @@ module Crysterm
     # remembering the path for `#reload_stylesheet`/`#watch_stylesheet`.
     def load_stylesheet(path : String) : Nil
       @css_stylesheet_path = path
-      self.stylesheet = File.read(path)
+      self.stylesheet = CSS::Stylesheet.from_file(path) # parses with base path for @import
     end
 
     # Re-reads the file last given to `#load_stylesheet` and re-applies it.

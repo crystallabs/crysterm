@@ -527,21 +527,21 @@ describe "CSS cascade" do
     inner.styles.normal.bold?.should be_false # own normal wins over inherited bold
   end
 
-  it "wires bar/cell sub-element slots for more widgets" do
+  it "wires the bar sub-element slot for bar widgets" do
     screen = headless_screen
     pb = Widget::ProgressBar.new
-    table = Widget::Table.new
+    slider = Widget::Slider.new
     screen.append pb
-    screen.append table
+    screen.append slider
 
     screen.stylesheet = <<-CSS
       ProgressBar Bar { color: red; }
-      Table Cell { background-color: blue; }
+      Slider Bar { color: green; }
     CSS
     screen.apply_stylesheet
 
     pb.styles.normal.bar.fg.should eq rgb("red")
-    table.styles.normal.cell.bg.should eq rgb("blue")
+    slider.styles.normal.bar.fg.should eq rgb("green")
   end
 
   it "loads and reloads a stylesheet from a file" do
@@ -835,6 +835,141 @@ describe "CSS cascade" do
     table.css_cell_style(0, 0).not_nil!.bg.should eq rgb("blue")  # header row
     table.css_cell_style(1, 1).not_nil!.fg.should eq rgb("red")   # 2nd column
     table.css_cell_style(1, 0).not_nil!.fg.should eq rgb("white") # 1st column unaffected
+  end
+
+  it "supports :has() with sibling combinators (via :scope)" do
+    screen = headless_screen
+    form = Widget::Form.new
+    a = Widget::Box.new
+    b = Widget::CheckBox.new
+    c = Widget::Box.new
+    form.append a
+    form.append b
+    form.append c
+    screen.append form
+
+    screen.stylesheet = <<-CSS
+      Box:has(+ CheckBox) { color: red; }
+      Box:has(~ CheckBox) { background-color: blue; }
+    CSS
+    screen.apply_stylesheet
+
+    a.styles.normal.fg.should eq rgb("red")  # immediately followed by a checkbox
+    a.styles.normal.bg.should eq rgb("blue") # has a following-sibling checkbox
+    c.styles.normal.fg.should be_nil         # no following checkbox
+    c.styles.normal.bg.should be_nil
+  end
+
+  it "addresses ListTable rows individually" do
+    screen = headless_screen
+    lt = Widget::ListTable.new parent: screen, rows: [["H1", "H2"], ["a", "b"], ["c", "d"]]
+
+    screen.stylesheet = <<-CSS
+      ListTable Box { color: white; }
+      ListTable Box:nth-child(2) { color: red; }
+    CSS
+    screen.apply_stylesheet
+
+    lt.items[0].styles.normal.fg.should eq rgb("white")
+    lt.items[1].styles.normal.fg.should eq rgb("red") # 2nd row
+    lt.items[2].styles.normal.fg.should eq rgb("white")
+  end
+
+  it "supports font and background shorthands" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    screen.stylesheet = "Box { font: bold italic; background: blue url(x.png) no-repeat; }"
+    screen.apply_stylesheet
+
+    style = box.styles.normal
+    style.bold?.should be_true
+    style.italic?.should be_true
+    style.bg.should eq rgb("blue") # color pulled out of the background shorthand
+  end
+
+  it "supports native nesting (descendant and &)" do
+    screen = headless_screen
+    form = Widget::Form.new
+    button = Widget::Button.new
+    form.append button
+    screen.append form
+
+    screen.stylesheet = <<-CSS
+      Form {
+        color: white;
+        Button { color: red; }
+        &.active { background-color: blue; }
+      }
+    CSS
+    form.add_css_class "active"
+    screen.apply_stylesheet
+
+    form.styles.normal.fg.should eq rgb("white") # Form's own declaration
+    form.styles.normal.bg.should eq rgb("blue")  # &.active -> Form.active
+    button.styles.normal.fg.should eq rgb("red") # nested "Form Button"
+  end
+
+  it "orders rules by @layer (later layers win, unlayered wins over all)" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    screen.stylesheet = <<-CSS
+      @layer base, theme;
+      @layer theme { Box { color: green; } }
+      @layer base  { Box { color: red; } }
+    CSS
+    screen.apply_stylesheet
+    # theme is declared after base, so theme wins even though its rule appears first
+    box.styles.normal.fg.should eq rgb("green")
+
+    screen.stylesheet = <<-CSS
+      @layer theme { Box { color: green; } }
+      Box { color: orange; }
+    CSS
+    screen.apply_stylesheet
+    box.styles.normal.fg.should eq rgb("orange") # unlayered beats any layer
+  end
+
+  it "supports @import" do
+    dir = File.tempname("crysterm-import")
+    Dir.mkdir dir
+    File.write File.join(dir, "base.css"), "Box { color: red; background-color: gray; }"
+    main = File.join(dir, "main.css")
+    File.write main, %(@import "base.css";\nBox { color: blue; })
+    begin
+      screen = headless_screen
+      box = Widget::Box.new
+      screen.append box
+
+      screen.load_stylesheet main
+      screen.apply_stylesheet
+
+      box.styles.normal.fg.should eq rgb("blue") # importing file overrides import
+      box.styles.normal.bg.should eq rgb("gray") # imported value where not overridden
+    ensure
+      File.delete? File.join(dir, "base.css")
+      File.delete? main
+      Dir.delete(dir) rescue nil
+    end
+  end
+
+  it "computes per-cell styles for a ListTable" do
+    screen = headless_screen
+    lt = Widget::ListTable.new parent: screen, rows: [["H1", "H2"], ["a", "b"], ["c", "d"]]
+
+    screen.stylesheet = <<-CSS
+      ListTable Cell { color: white; }
+      Header { background-color: blue; }
+      ListTable Cell:nth-child(2) { color: red; }
+    CSS
+    screen.apply_stylesheet
+
+    lt.css_cell_style(1, 0).not_nil!.fg.should eq rgb("white")
+    lt.css_cell_style(0, 0).not_nil!.bg.should eq rgb("blue") # header row
+    lt.css_cell_style(1, 1).not_nil!.fg.should eq rgb("red")  # 2nd column
   end
 
   it "leaves widgets untouched when no stylesheet is set" do

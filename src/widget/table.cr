@@ -134,8 +134,8 @@ module Crysterm
         # row default per column.
         col_for_x = {} of Int32 => Int32
         cx = ileft
-        @maxes.each_with_index do |max, ci|
-          (cx...cx + max).each { |xx| col_for_x[xx] = ci }
+        @maxes.each_with_index do |max, col_i|
+          (cx...cx + max).each { |xpos| col_for_x[xpos] = col_i }
           cx += max
         end
 

@@ -45,6 +45,54 @@ describe "CSS end-to-end rendering" do
     cell_fg(screen, 4, 4).should eq 0x0000ff # bottom edge -> blue
   end
 
+  it "paints per-cell table colors into the right columns" do
+    screen = render_screen
+    Widget::Table.new parent: screen, top: 0, left: 0, width: 24, rows: [["aa", "bb"], ["11", "22"]]
+
+    screen.stylesheet = "Cell:nth-child(1) { color: #ff0000; } Cell:nth-child(2) { color: #0000ff; }"
+    screen._render
+
+    reds = [] of Int32
+    blues = [] of Int32
+    (0...24).each do |y|
+      next unless screen.lines[y]?
+      (0...24).each do |x|
+        case cell_fg(screen, y, x)
+        when 0xff0000 then reds << x
+        when 0x0000ff then blues << x
+        end
+      end
+    end
+
+    reds.should_not be_empty
+    blues.should_not be_empty
+    reds.max.not_nil!.should be < blues.min.not_nil! # red column left of blue column
+  end
+
+  it "paints per-cell ListTable colors into the right columns" do
+    screen = render_screen
+    Widget::ListTable.new parent: screen, top: 0, left: 0, width: 24, rows: [["aa", "bb"], ["11", "22"]]
+
+    screen.stylesheet = "Cell:nth-child(1) { color: #ff0000; } Cell:nth-child(2) { color: #0000ff; }"
+    screen._render
+
+    reds = [] of Int32
+    blues = [] of Int32
+    (0...24).each do |y|
+      next unless screen.lines[y]?
+      (0...24).each do |x|
+        case cell_fg(screen, y, x)
+        when 0xff0000 then reds << x
+        when 0x0000ff then blues << x
+        end
+      end
+    end
+
+    reds.should_not be_empty
+    blues.should_not be_empty
+    reds.max.not_nil!.should be < blues.min.not_nil! # red column left of blue column
+  end
+
   it "reflects a restyle in the next render" do
     screen = render_screen
     box = Widget::Box.new parent: screen, top: 1, left: 1, width: 10, height: 5

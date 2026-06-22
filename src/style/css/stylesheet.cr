@@ -76,9 +76,17 @@ module Crysterm
       # (`:has` is implemented here because the `html5` selector engine lacks it.)
       getter has : String?
 
-      def initialize(@selector, @declarations, @important, @state, @specificity, @order, @media = nil, @has = nil)
+      # The `@layer` rank this rule belongs to (lower = declared earlier = lower
+      # priority). Unlayered rules use `UNLAYERED`, which outranks every layer.
+      getter layer_rank : Int32
+
+      def initialize(@selector, @declarations, @important, @state, @specificity, @order, @media = nil, @has = nil, @layer_rank = UNLAYERED)
       end
     end
+
+    # Layer rank for rules outside any `@layer`. Larger than any real layer rank
+    # so unlayered declarations win over layered ones (per the CSS cascade).
+    UNLAYERED = 1_000_000
 
     # An ordered collection of `Rule`s parsed from CSS text.
     class Stylesheet
@@ -122,92 +130,204 @@ module Crysterm
         ":normal"   => WidgetState::Normal,
       }
 
-      # Parses a CSS string into a `Stylesheet`.
+      # Mutable state threaded through the recursive parse.
+      private class ParseCtx
+        getter rules = [] of Rule
+        getter variables = {} of String => String
+        getter warnings = [] of String
+        getter layers = {} of String => Int32
+        property order = 0
+        getter base_path : String?
+
+        def initialize(@base_path = nil)
+        end
+
+        # Rank for a named `@layer`, assigned on first appearance (so layers
+        # order by declaration order; later layers outrank earlier ones).
+        def layer_rank(name : String) : Int32
+          layers.fetch(name) { layers[name] = layers.size }
+        end
+      end
+
+      # Parses a CSS string into a `Stylesheet`. *base_path* (a file or its dir)
+      # resolves `@import`.
       #
-      # Supports comments, comma-separated selector lists, `prop: value;`
-      # declaration blocks, `!important`, custom properties/`var()`, and
-      # `@media` blocks. State pseudo-classes are peeled onto the rule (see
-      # `Rule#state`); the structural remainder is what the selector engine
-      # matches.
-      def self.parse(css : String) : Stylesheet
-        rules = [] of Rule
-        variables = {} of String => String
-        warnings = [] of String
-
-        decommented = decommented(css)
-        top_level, media_blocks = extract_media(decommented)
-
-        order = parse_block(top_level, nil, rules, variables, warnings, 0)
-        media_blocks.each do |(condition, inner)|
-          order = parse_block(inner, MediaQuery.parse(condition), rules, variables, warnings, order)
-        end
-
-        new rules, variables, warnings
+      # Supports comments, comma-separated selector lists, `prop: value;` blocks,
+      # `!important`, custom properties/`var()`, `@media`, `@layer`, `@import`,
+      # and native nesting (`A { B { ... } }`, `&`).
+      def self.parse(css : String, base_path : String? = nil) : Stylesheet
+        ctx = ParseCtx.new(base_path)
+        parse_scope(decommented(css), [] of String, nil, UNLAYERED, ctx)
+        new ctx.rules, ctx.variables, ctx.warnings
       end
 
-      # Parses one block of rules (a top-level body or an `@media` block's
-      # contents), tagging each rule with *media*. Appends to *rules*, collects
-      # custom properties into *variables* and diagnostics into *warnings*, and
-      # returns the next source order.
-      private def self.parse_block(css : String, media : MediaQuery?, rules : Array(Rule), variables : Hash(String, String), warnings : Array(String), order : Int32) : Int32
-        css.split('}').each do |chunk|
-          next unless chunk.includes?('{')
-          prelude, _, body = chunk.partition('{')
-          declarations, important = parse_declarations(body, variables, warnings)
-          next if declarations.empty? && important.empty?
-
-          prelude.split(',').each do |raw|
-            selector = raw.strip
-            next if selector.empty?
-            # Specificity is computed from the *original* selector (so a type
-            # selector counts as a type). The selector is then split into its
-            # subject (rightmost compound) and the ancestor prefix: a state
-            # pseudo on the subject becomes the rule's own state, while state
-            # pseudos on ancestors are lowered to `.state-*` classes matched
-            # against the live document. Finally types are rewritten to classes.
-            spec = Specificity.calculate(selector)
-            prefix, subject = split_subject(selector)
-            state, subject = peel_state(subject)
-            has, subject = peel_has(subject)
-            structural = Selectors.expand_types(rewrite_ancestor_states(prefix) + subject)
-            rules << Rule.new(structural, declarations, important, state, spec, order, media, has)
-            order += 1
-          end
-        end
-        order
-      end
-
-      # Splits `@media <condition> { ... }` blocks out of *css*, returning the
-      # remaining top-level CSS and a list of `{condition, inner_css}`. Brace
-      # nesting is honored so the `@media` body is captured whole.
-      private def self.extract_media(css : String) : Tuple(String, Array(Tuple(String, String)))
-        blocks = [] of Tuple(String, String)
-        remaining = String::Builder.new
-        i = 0
+      # Parses a sequence of constructs within one scope. *parents* are the
+      # enclosing (already-combined) selectors for native nesting — empty at top
+      # level; when non-empty, the scope's direct declarations are emitted as a
+      # rule for them.
+      #
+      # ameba:disable Metrics/CyclomaticComplexity
+      private def self.parse_scope(css : String, parents : Array(String), media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
+        declarations = {} of String => String
+        important = {} of String => String
+        pos = 0
         n = css.size
-        while i < n
-          if css[i] == '@' && css[i, 6]? == "@media"
-            brace = css.index('{', i)
-            break unless brace
-            condition = css[i + 6...brace].strip
-            depth = 0
-            j = brace
-            while j < n
-              depth += 1 if css[j] == '{'
-              if css[j] == '}'
-                depth -= 1
-                break if depth == 0
-              end
-              j += 1
+        while pos < n
+          pos = skip_ws(css, pos)
+          break if pos >= n
+          start = pos
+          # Read the prelude up to the next top-level `{`/`;`/`}` (skipping
+          # parenthesised and quoted spans so values like `url(a;b)` are safe).
+          while pos < n
+            ch = css[pos]
+            break if ch == '{' || ch == ';' || ch == '}'
+            if ch == '('
+              pos = skip_balanced(css, pos, '(', ')')
+            elsif ch == '"' || ch == '\''
+              pos = skip_string(css, pos)
+            else
+              pos += 1
             end
-            blocks << {condition, css[brace + 1...j]}
-            i = j + 1
-          else
-            remaining << css[i]
-            i += 1
+          end
+          break if pos >= n
+          prelude = css[start...pos].strip
+          case css[pos]
+          when ';'
+            pos += 1
+            handle_statement(prelude, parents, declarations, important, layer_rank, ctx)
+          when '{'
+            close = matching_brace(css, pos)
+            body = close ? css[(pos + 1)...close] : css[(pos + 1)..]
+            pos = close ? close + 1 : n
+            handle_block(prelude, body, parents, media, layer_rank, ctx)
+          when '}'
+            pos += 1 # stray close brace
           end
         end
-        {remaining.to_s, blocks}
+        emit_rules(parents, declarations, important, media, layer_rank, ctx) unless parents.empty?
+      end
+
+      # A `;`-terminated construct: an at-statement (`@import`, `@layer a, b;`)
+      # or, inside a rule body, a declaration.
+      private def self.handle_statement(prelude : String, parents : Array(String), declarations, important, layer_rank : Int32, ctx : ParseCtx) : Nil
+        return if prelude.empty?
+        if prelude.starts_with?("@import")
+          handle_import prelude, layer_rank, ctx
+        elsif prelude.starts_with?("@layer")
+          prelude[6..].split(',').each { |name| ctx.layer_rank(name.strip) unless name.strip.empty? }
+        elsif parents.empty?
+          ctx.warnings << "stray content at top level: #{prelude.inspect}"
+        else
+          parse_declaration prelude, declarations, important, ctx
+        end
+      end
+
+      # A `{ ... }` block: `@media`, `@layer <name>`, or a style rule (which may
+      # itself nest further rules).
+      private def self.handle_block(prelude : String, body : String, parents : Array(String), media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
+        if prelude.starts_with?("@media")
+          parse_scope body, parents, MediaQuery.parse(prelude[6..].strip), layer_rank, ctx
+        elsif prelude.starts_with?("@layer")
+          name = prelude[6..].strip
+          parse_scope body, parents, media, (name.empty? ? layer_rank : ctx.layer_rank(name)), ctx
+        else
+          parse_scope body, combine_selectors(parents, prelude), media, layer_rank, ctx
+        end
+      end
+
+      # Combines *parents* with the comma-separated *child* selector list per CSS
+      # nesting: `&` is replaced by the parent, otherwise the child becomes a
+      # descendant of it.
+      private def self.combine_selectors(parents : Array(String), child : String) : Array(String)
+        children = child.split(',').map(&.strip).reject(&.empty?)
+        return children if parents.empty?
+        combined = [] of String
+        parents.each do |parent|
+          children.each do |part|
+            combined << (part.includes?('&') ? part.gsub('&', parent) : "#{parent} #{part}")
+          end
+        end
+        combined
+      end
+
+      # Emits one `Rule` per selector with the scope's collected declarations.
+      private def self.emit_rules(selectors : Array(String), declarations, important, media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
+        return if declarations.empty? && important.empty?
+        selectors.each do |selector|
+          next if selector.empty?
+          # Specificity is from the *original* selector; then the subject's state
+          # pseudo / `:has` are peeled, ancestor state pseudos lowered, and types
+          # rewritten to classes — exactly as before, now per combined selector.
+          spec = Specificity.calculate(selector)
+          prefix, subject = split_subject(selector)
+          state, subject = peel_state(subject)
+          has, subject = peel_has(subject)
+          structural = Selectors.expand_types(rewrite_ancestor_states(prefix) + subject)
+          ctx.rules << Rule.new(structural, declarations, important, state, spec, ctx.order, media, has, layer_rank)
+          ctx.order += 1
+        end
+      end
+
+      # Loads `@import "file";` (or `@import url(file);`) relative to the base
+      # path and parses it inline, so its rules precede — and are overridden by —
+      # the importing file's.
+      private def self.handle_import(prelude : String, layer_rank : Int32, ctx : ParseCtx) : Nil
+        path = prelude[/@import\s+(?:url\()?["']?([^"')]+)["']?\)?/, 1]?
+        return unless path
+        base = ctx.base_path
+        resolved = base ? File.expand_path(path, File.directory?(base) ? base : File.dirname(base)) : path
+        content = begin
+          File.read(resolved)
+        rescue
+          ctx.warnings << "@import: cannot read #{resolved.inspect}"
+          return
+        end
+        parse_scope decommented(content), [] of String, nil, layer_rank, ctx
+      end
+
+      private def self.skip_ws(css : String, pos : Int32) : Int32
+        while pos < css.size && css[pos].whitespace?
+          pos += 1
+        end
+        pos
+      end
+
+      private def self.skip_string(css : String, i : Int32) : Int32
+        quote = css[i]
+        i += 1
+        while i < css.size
+          ch = css[i]
+          return i + 1 if ch == quote
+          i += 1 if ch == '\\'
+          i += 1
+        end
+        i
+      end
+
+      # Advances past a region opened at *i* (an *open* char) to just after its
+      # matching *close*, honoring nesting and quotes.
+      private def self.skip_balanced(css : String, i : Int32, open : Char, close : Char) : Int32
+        depth = 0
+        while i < css.size
+          ch = css[i]
+          if ch == '"' || ch == '\''
+            i = skip_string(css, i)
+            next
+          elsif ch == open
+            depth += 1
+          elsif ch == close
+            depth -= 1
+            return i + 1 if depth == 0
+          end
+          i += 1
+        end
+        i
+      end
+
+      # Index of the `}` matching the `{` at *open*, or `nil` if unbalanced.
+      private def self.matching_brace(css : String, open : Int32) : Int32?
+        index = skip_balanced(css, open, '{', '}')
+        index > open && css[index - 1]? == '}' ? index - 1 : nil
       end
 
       # Matches a `var(--name)` or `var(--name, fallback)` reference.
@@ -237,9 +357,10 @@ module Crysterm
         result
       end
 
-      # Parses a stylesheet from a `.css` file.
+      # Parses a stylesheet from a `.css` file (its path is used to resolve
+      # `@import`).
       def self.from_file(path : String | Path) : Stylesheet
-        parse File.read(path)
+        parse File.read(path), base_path: path.to_s
       end
 
       # Strips `/* ... */` comments (including multi-line).
@@ -247,44 +368,33 @@ module Crysterm
         css.gsub(/\/\*.*?\*\//m, " ")
       end
 
-      # Parses a declaration block body into `{normal, important}` hashes.
-      # Custom properties (`--name`) are siphoned into *variables* (their names
-      # are case-sensitive and so kept as-is); other property names are
-      # lower-cased. A trailing `!important` routes a declaration to the
-      # important hash.
-      private def self.parse_declarations(body : String, variables : Hash(String, String), warnings : Array(String)) : Tuple(Hash(String, String), Hash(String, String))
-        normal = {} of String => String
-        important = {} of String => String
-        body.split(';').each do |part|
-          stripped = part.strip
-          next if stripped.empty?
-          unless part.includes?(':')
-            warnings << "malformed declaration (missing ':'): #{stripped.inspect}"
-            next
-          end
-
-          name, _, value = part.partition(':')
-          name = name.strip
-          value = value.strip
-          if name.empty? || value.empty?
-            warnings << "malformed declaration: #{stripped.inspect}"
-            next
-          end
-
-          if name.starts_with?("--")
-            variables[name] = value # custom property (case-sensitive name)
-            next
-          end
-
-          name = name.downcase
-          warnings << "unknown property: #{name.inspect}" unless Properties.known?(name)
-          if value.downcase.ends_with?("!important")
-            important[name] = value[0...value.size - "!important".size].rstrip
-          else
-            normal[name] = value
-          end
+      # Parses a single `prop: value` declaration into *declarations*/*important*
+      # (or *variables* for a `--custom` property). Custom-property names are
+      # case-sensitive; other names are lower-cased. A trailing `!important`
+      # routes the declaration to the important hash.
+      private def self.parse_declaration(text : String, declarations : Hash(String, String), important : Hash(String, String), ctx : ParseCtx) : Nil
+        unless text.includes?(':')
+          ctx.warnings << "malformed declaration (missing ':'): #{text.inspect}"
+          return
         end
-        {normal, important}
+        name, _, value = text.partition(':')
+        name = name.strip
+        value = value.strip
+        if name.empty? || value.empty?
+          ctx.warnings << "malformed declaration: #{text.inspect}"
+          return
+        end
+        if name.starts_with?("--")
+          ctx.variables[name] = value # custom property (case-sensitive name)
+          return
+        end
+        name = name.downcase
+        ctx.warnings << "unknown property: #{name.inspect}" unless Properties.known?(name)
+        if value.downcase.ends_with?("!important")
+          important[name] = value[0...value.size - "!important".size].rstrip
+        else
+          declarations[name] = value
+        end
       end
 
       # State pseudo-class tokens, longest first, so a longer token is matched

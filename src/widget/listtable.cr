@@ -117,6 +117,14 @@ module Crysterm
       # and — when `#alternate_rows?` — every other body row with
       # `style.alternate`.
       def render_style_for(item : Widget) : Style
+        # A CSS rule may target this row individually (`ListTable Box`,
+        # `Box:nth-child(even)`); use its computed style, reflecting selection
+        # through the widget state so `:selected` rules apply.
+        if item.css_styled?
+          item.state = item_selected?(item) ? WidgetState::Selected : WidgetState::Normal
+          return item.style
+        end
+
         return item_render_style(true) if item_selected?(item)
 
         if alternate_rows? && (i = @items.index item) && i > 0 && i.even?
@@ -252,7 +260,47 @@ module Crysterm
         return coords if @maxes.empty?
 
         draw_borders coords
+        recolor_css_cells coords
         coords
+      end
+
+      # Overlays CSS per-cell styles (`Table Cell`, `Cell:nth-child(...)`) on top
+      # of the per-row colors, recoloring only the cells a rule targeted. Each
+      # row occupies one line (`item.top == index`); columns map from `@maxes`.
+      private def recolor_css_cells(coords)
+        cells = @css_cells
+        return if cells.nil? || cells.empty?
+
+        lines = screen.lines
+        xi = coords.xi
+        yi = coords.yi
+        width = coords.xl - coords.xi - iright
+        height = coords.yl - coords.yi - ibottom
+
+        col_for_x = {} of Int32 => Int32
+        cx = ileft
+        @maxes.each_with_index do |max, col_i|
+          (cx...cx + max).each { |xpos| col_for_x[xpos] = col_i }
+          cx += max
+        end
+
+        y = itop
+        while y < height
+          row = y - itop
+          if line = lines[yi + y]?
+            x = ileft
+            while x < width
+              col = col_for_x[x]?
+              cell_style = col ? css_cell_style(row, col) : nil
+              if cell_style && (cell = line[xi + x]?)
+                cell.attr = sattr cell_style
+                line.dirty = true
+              end
+              x += 1
+            end
+          end
+          y += 1
+        end
       end
 
       # Draws the vertical cell separators (and their top/bottom junctions).
