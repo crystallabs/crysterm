@@ -13,7 +13,7 @@ module Crysterm
       def state=(value : WidgetState) : WidgetState
         return value if @state == value
         @state = value
-        screen?.try { |scr| scr.restyle if scr.css_dynamic_state? }
+        screen?.try { |scr| scr.restyle_subtree(self) if scr.css_dynamic_state? }
         value
       end
 

@@ -42,15 +42,18 @@ module Crysterm
       # against the tree rooted at *screen*. *document* is the prebuilt CSS
       # document (`screen.to_html`); pass it to avoid rebuilding when the caller
       # already has it.
-      def self.apply(stylesheet : Stylesheet, screen : Screen, document : String? = nil) : Nil
-        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], screen, document)
+      def self.apply(stylesheet : Stylesheet, screen : Screen, document : String? = nil, scope : Set(Widget)? = nil) : Nil
+        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], screen, document, scope)
       end
 
       # Resolves a list of `{stylesheet, base_tier}` sources, lowest tier first,
-      # against *screen*. Higher tiers win regardless of specificity.
+      # against *screen*. Higher tiers win regardless of specificity. When
+      # *scope* is given, only widgets in that set have their styles recomputed
+      # (incremental update); selector matching is still over the whole document
+      # so ancestor/sibling context is correct.
       #
       # ameba:disable Metrics/CyclomaticComplexity
-      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), screen : Screen, document : String? = nil) : Nil
+      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), screen : Screen, document : String? = nil, scope : Set(Widget)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
         doc = HTML5.parse(document || screen.to_html)
@@ -129,6 +132,7 @@ module Crysterm
         acc.each_key { |(key, state)| touched << {key.partition("::")[0], state} }
         touched.each do |(uid, state)|
           if target = index[uid]?
+            next unless scope.nil? || scope.includes?(target[0])
             set_state_style target[0], state, get_state_style(target[0], state).dup
           end
         end
@@ -137,10 +141,12 @@ module Crysterm
         # then the inline `@style` (tier 2), then `!important` (tier 3). Every
         # touched widget is processed (even one matched only via a sub-element)
         # so its inline style still folds into the main style, and is marked
-        # `css_styled` so `#style` returns the computed result.
+        # `css_styled` so `#style` returns the computed result. Out-of-scope
+        # widgets keep their already-computed styles (incremental update).
         touched.each do |(uid, state)|
           next unless target = index[uid]?
           widget = target[0]
+          next unless scope.nil? || scope.includes?(widget)
           entries = acc[{uid, state}]? || EMPTY_ENTRIES
           apply_entries_with_inline get_state_style(widget, state), entries, variables, widget.css_inline_style
           # Geometry/layout is a single per-widget concern, not per-state, so
@@ -154,6 +160,7 @@ module Crysterm
           next unless key.includes?("::")
           next unless target = index[key]?
           widget, slot = target
+          next unless scope.nil? || scope.includes?(widget)
           state_style = get_state_style(widget, state)
           sub = get_sub_style(state_style, slot).dup
           apply_entries sub, entries, variables
@@ -308,6 +315,7 @@ module Crysterm
         when "bar"       then style.bar
         when "prefix"    then style.prefix
         when "alternate" then style.alternate
+        when "label"     then style.label
         else                  style
         end
       end
@@ -322,6 +330,7 @@ module Crysterm
         when "bar"       then style.bar = sub
         when "prefix"    then style.prefix = sub
         when "alternate" then style.alternate = sub
+        when "label"     then style.label = sub
         end
       end
     end

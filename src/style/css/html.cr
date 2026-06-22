@@ -24,7 +24,7 @@ module Crysterm
     # intrinsic attribute (e.g. a checkbox's `checked`). A no-op while the widget
     # is detached; it will be styled when its subtree next attaches and renders.
     protected def invalidate_css : Nil
-      screen?.try &.restyle
+      screen?.try &.restyle_subtree(self)
     end
 
     # Serializes this widget and its subtree into the CSS document.
@@ -98,12 +98,16 @@ module Crysterm
     end
 
     # The named sub-`Style` slots this widget exposes as pseudo-element nodes in
-    # the CSS document (matched by `.w-<slot>` selectors and written back into
+    # the CSS document (matched by their capitalized name and written back into
     # the corresponding `Style` sub-style). The base widget exposes its
-    # scrollbar/track only while scrolling is enabled; other widgets override to
-    # add their own (e.g. a table's `cell`/`header`).
+    # scrollbar/track (while scrolling is enabled) and `label` (when it has a
+    # label); other widgets override to add their own (e.g. a table's
+    # `cell`/`header`).
     def css_sub_elements : Array(String)
-      scrollbar? ? ["scrollbar", "track"] : [] of String
+      slots = [] of String
+      slots << "scrollbar" << "track" if scrollbar?
+      slots << "label" if @_label
+      slots
     end
   end
 

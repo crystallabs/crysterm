@@ -586,6 +586,47 @@ describe "CSS cascade" do
     box.styles.normal.fg.should eq rgb("red")
   end
 
+  it "wires the label sub-element slot" do
+    screen = headless_screen
+    box = Widget::Box.new label: "hi"
+    screen.append box
+
+    screen.stylesheet = "Box Label { color: red; }"
+    screen.apply_stylesheet
+
+    box.styles.normal.label.fg.should eq rgb("red")
+  end
+
+  it "recomputes only the affected subtree (incremental invalidation)" do
+    screen = headless_screen
+    form1 = Widget::Form.new
+    form2 = Widget::Form.new
+    a = Widget::Box.new
+    b = Widget::Box.new
+    c = Widget::Box.new
+    form1.append a
+    form1.append b
+    form2.append c
+    screen.append form1
+    screen.append form2
+
+    screen.stylesheet = "Box { color: white; } .hot { color: red; }"
+    screen.apply_stylesheet
+    [a, b, c].each { |w| w.styles.normal.fg.should eq rgb("white") }
+
+    # sentinels: if a widget is recomputed, the author rule overwrites these
+    green = rgb("green")
+    b.styles.normal.fg = green
+    c.styles.normal.fg = green
+
+    a.add_css_class "hot" # scope = subtree(a.parent = form1) = {form1, a, b}
+    screen.apply_stylesheet
+
+    a.styles.normal.fg.should eq rgb("red")   # a recomputed (.hot now matches)
+    b.styles.normal.fg.should eq rgb("white") # b is in-scope (sibling) -> recomputed
+    c.styles.normal.fg.should eq green        # c is out-of-scope -> NOT recomputed
+  end
+
   it "leaves widgets untouched when no stylesheet is set" do
     screen = headless_screen
     box = Widget::Box.new

@@ -9,8 +9,17 @@ module Crysterm
     # Whether styling needs recomputing on the next render.
     getter? css_dirty = false
 
-    # The screen is the styling root, so a structural change on it invalidates
-    # its own styling directly (overrides the `Mixin::Children` no-op hook).
+    # Whether the next recompute must cover the whole tree (vs. only the dirty
+    # subtrees in `@css_dirty_roots`). Set by stylesheet changes and by
+    # top-level changes that can't be scoped.
+    @css_full = false
+
+    # Subtree roots to recompute on the next (scoped) cascade. Each entry's whole
+    # subtree is recomputed; everything else keeps its already-computed styles.
+    @css_dirty_roots = Set(Widget).new
+
+    # The screen is the styling root, so a structural change on it can't be
+    # scoped to a subtree — recompute everything.
     protected def invalidate_css : Nil
       restyle
     end
@@ -28,7 +37,7 @@ module Crysterm
     # Assigns a stylesheet from CSS source text.
     def stylesheet=(css : String) : String
       @css_stylesheet = CSS::Stylesheet.parse(css)
-      @css_dirty = true
+      restyle # a new stylesheet means everything may change
       @css_last_document = nil
       css
     end
@@ -36,7 +45,7 @@ module Crysterm
     # Assigns an already-parsed stylesheet (or clears it with `nil`).
     def stylesheet=(sheet : CSS::Stylesheet?) : CSS::Stylesheet?
       @css_stylesheet = sheet
-      @css_dirty = true
+      restyle
       @css_last_document = nil
       sheet
     end
@@ -77,11 +86,23 @@ module Crysterm
       end
     end
 
-    # Marks styling dirty so the cascade re-runs on the next render. Call after
-    # changing the widget tree or a widget's `css_classes`/`css_id`, since the
-    # cascade is not (yet) auto-invalidated on those changes.
+    # Marks the whole tree dirty so the cascade re-runs on the next render.
     def restyle : Nil
       @css_dirty = true
+      @css_full = true
+    end
+
+    # Marks only the subtree affected by a change to *widget* dirty (its parent's
+    # subtree, so siblings — reachable via sibling combinators — are covered).
+    # A change to a top-level widget can't be scoped (its siblings are other
+    # roots), so it falls back to a full recompute.
+    def restyle_subtree(widget : Widget) : Nil
+      @css_dirty = true
+      if parent = widget.parent
+        @css_dirty_roots << parent
+      else
+        @css_full = true
+      end
     end
 
     # Whether the active styling depends on widget state via ancestor-state
@@ -93,17 +114,43 @@ module Crysterm
       CSS.default_stylesheet.dynamic_state?
     end
 
-    # Runs the cascade immediately against the current tree, regardless of the
-    # dirty flag. Skips the work when the CSS document is byte-identical to the
-    # last run (nothing selector-relevant changed since).
+    # Runs the cascade immediately against the current tree. Skips entirely when
+    # the CSS document is byte-identical to the last run, and otherwise
+    # recomputes only the dirty subtrees (or the whole tree when a full
+    # recompute was requested).
     def apply_stylesheet : Nil
-      @css_dirty = false
       sheet = @css_stylesheet
-      return unless sheet
+      unless sheet
+        clear_css_dirty
+        return
+      end
       document = to_html
-      return if document == @css_last_document
+      if document == @css_last_document
+        clear_css_dirty
+        return
+      end
       @css_last_document = document
-      CSS::Cascade.apply sheet, self, document
+      scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
+      CSS::Cascade.apply sheet, self, document, scope
+      clear_css_dirty
+    end
+
+    private def clear_css_dirty : Nil
+      @css_dirty = false
+      @css_full = false
+      @css_dirty_roots.clear
+    end
+
+    # Expands the dirty subtree roots into the full set of widgets to recompute.
+    private def css_scope_widgets : Set(Widget)
+      widgets = Set(Widget).new
+      @css_dirty_roots.each { |root| collect_css_subtree root, widgets }
+      widgets
+    end
+
+    private def collect_css_subtree(widget : Widget, into : Set(Widget)) : Nil
+      into << widget
+      widget.children.each { |child| collect_css_subtree child, into }
     end
 
     # Runs the cascade if styling is dirty. Invoked from the render path.
