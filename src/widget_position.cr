@@ -121,6 +121,24 @@ module Crysterm
     # Computed absolute position on screen
     #
 
+    # Resolves a `String` position/size expression to an absolute cell count
+    # against `parent_dim`, first mapping the *aliased* word ("center" for
+    # positions, "half" for sizes) to "50%". Shared by `aleft`/`atop`/`awidth`/
+    # `aheight`; `aliased` is passed (rather than mapping both words) so an
+    # unusual input like `width: "center"` keeps its original meaning.
+    private def resolve_dimension(expr : String, parent_dim : Int32, aliased : String) : Int32
+      expr = "50%" if expr == aliased
+      Widget.dimension(expr, parent_dim)
+    end
+
+    # Whether the parent's near-side inner offset (`ileft`/`itop`) applies to a
+    # widget whose primary edge is `o` and opposite edge is `o_opp`. Identical
+    # guard in `aleft`/`atop`/`awidth`/`aheight`; the actual `+=`/`-=` of the
+    # offset stays at each call site since it differs by axis/direction.
+    private def applies_near_offset?(o, o_opp) : Bool
+      (!o.nil? || o_opp.nil?) && o != "center"
+    end
+
     # Returns computed absolute left position
     def aleft(get = false)
       # Original left
@@ -135,16 +153,13 @@ module Crysterm
 
       left = oleft || 0
       if left.is_a? String
-        if left == "center"
-          left = "50%"
-        end
-        left = Widget.dimension(left, parent.awidth || 0)
+        left = resolve_dimension(left, parent.awidth || 0, "center")
         if oleft == "center"
           left -= (awidth(get)) // 2
         end
       end
 
-      if (!oleft.nil? || oright.nil?) && oleft != "center"
+      if applies_near_offset?(oleft, oright)
         left += parent.ileft
       end
 
@@ -164,16 +179,13 @@ module Crysterm
 
       top = otop || 0
       if top.is_a? String
-        if top == "center"
-          top = "50%"
-        end
-        top = Widget.dimension(top, parent.aheight || 0)
+        top = resolve_dimension(top, parent.aheight || 0, "center")
         if otop == "center"
           top -= aheight(get) // 2
         end
       end
 
-      if (!otop.nil? || obottom.nil?) && otop != "center"
+      if applies_near_offset?(otop, obottom)
         top += parent.itop
       end
 

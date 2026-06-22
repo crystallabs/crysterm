@@ -1,14 +1,15 @@
+require "./effect/animated"
+
 module Crysterm
   class Widget
     # Box element
     class Loading < Box
-      @spinner : Fiber?
-
-      @interval : Time::Span
+      # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).
+      # `#step` advances the spinner one frame; `#start`/`#stop` are overridden
+      # below to add the show/content/hide lifecycle around the shared loop.
+      include Effect::Animated
 
       property? compact = false
-
-      protected property should_exit = true
 
       @orig_text = ""
       @text : String?
@@ -51,10 +52,8 @@ module Crysterm
         start text
       end
 
+      # Shows the widget and starts the spinner loop (`Effect::Animated#start`).
       def start(@text = nil)
-        # return if @should_exit
-        @should_exit = false
-
         # D O:
         # Keep on top:
         # @parent.try do |p|
@@ -68,30 +67,26 @@ module Crysterm
         # XXX We don't want to do this? (Blessed does it)
         # @screen.propagate_keys = false
 
-        @spinner = Fiber.new {
-          loop do
-            break if @should_exit
-            @icon.set_content icons[@pos]
-            @pos = (@pos + @step) % icons.size
-            screen.render
-            sleep @interval
-          end
-        }.enqueue
+        super()
       end
 
       alias_previous :load
 
+      # Advances the spinner one frame (state + paint only); the shared
+      # `Effect::Animated` loop handles `screen.render` and the inter-frame sleep.
+      def step
+        @icon.set_content icons[@pos]
+        @pos = (@pos + @step) % icons.size
+      end
+
+      # Stops the spinner loop and hides the widget.
       def stop
         # XXX We don't want to do this? (Blessed does it)
         # @screen.propagate_keys = true
+        super
         hide
-        @should_exit = true
         @text = nil
         screen.render
-      end
-
-      def toggle
-        @should_exit ? start : stop
       end
 
       def render

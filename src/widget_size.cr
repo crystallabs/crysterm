@@ -35,10 +35,7 @@ module Crysterm
 
       case width
       when String
-        if width == "half"
-          width = "50%"
-        end
-        return Widget.dimension(width, parent.awidth || 0)
+        return resolve_dimension(width, parent.awidth || 0, "half")
       end
 
       # This is for if the element is being stretched or shrunken.
@@ -50,14 +47,11 @@ module Crysterm
       if width.nil?
         left = oleft || 0
         if left.is_a? String
-          if left == "center"
-            left = "50%"
-          end
-          left = Widget.dimension(left, parent.awidth || 0)
+          left = resolve_dimension(left, parent.awidth || 0, "center")
         end
         width = (parent.awidth || 0) - (oright || 0) - left
 
-        if (!oleft.nil? || oright.nil?) && oleft != "center"
+        if applies_near_offset?(oleft, oright)
           width -= parent.ileft
         end
         width -= parent.iright
@@ -76,10 +70,7 @@ module Crysterm
 
       case height
       when String
-        if height == "half"
-          height = "50%"
-        end
-        return Widget.dimension(height, parent.aheight || 0)
+        return resolve_dimension(height, parent.aheight || 0, "half")
       end
 
       # This is for if the element is being stretched or shrunken.
@@ -91,14 +82,11 @@ module Crysterm
       if height.nil?
         top = otop || 0
         if top.is_a? String
-          if top == "center"
-            top = "50%"
-          end
-          top = Widget.dimension(top, parent.aheight || 0)
+          top = resolve_dimension(top, parent.aheight || 0, "center")
         end
         height = (parent.aheight || 0) - (obottom || 0) - top
 
-        if (!otop.nil? || obottom.nil?) && otop != "center"
+        if applies_near_offset?(otop, obottom)
           height -= parent.itop
         end
         height -= parent.ibottom
