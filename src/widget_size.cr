@@ -45,11 +45,19 @@ module Crysterm
       # decided by the width the element, so it needs to be
       # calculated here.
       if width.nil?
+        # `parent.awidth` climbs the whole ancestor chain (or, under `get`, reads
+        # the parent's stored `LPos`). This branch needs it for both the string
+        # `resolve_dimension` base and the width subtraction; calling it twice
+        # made a chain of nil-width + string-left widgets recompute the ancestors
+        # O(2^depth) times (a centered, auto-width box is a completely ordinary
+        # config). Computing it once collapses that to O(depth). It stays *inside*
+        # this branch so an integer-width widget still never walks the chain.
+        pw = parent.awidth || 0
         left = oleft || 0
         if left.is_a? String
-          left = resolve_dimension(left, parent.awidth || 0, "center")
+          left = resolve_dimension(left, pw, "center")
         end
-        width = (parent.awidth || 0) - (oright || 0) - left
+        width = pw - (oright || 0) - left
 
         if applies_near_offset?(oleft, oright)
           width -= parent.ileft
@@ -80,11 +88,15 @@ module Crysterm
       # decided by the height of the element, so it needs to be
       # calculated here.
       if height.nil?
+        # See `awidth`: one `parent.aheight` shared between the string base and
+        # the height subtraction, kept inside this branch so a fixed-height
+        # widget still never recurses. O(2^depth) → O(depth).
+        ph = parent.aheight || 0
         top = otop || 0
         if top.is_a? String
-          top = resolve_dimension(top, parent.aheight || 0, "center")
+          top = resolve_dimension(top, ph, "center")
         end
-        height = (parent.aheight || 0) - (obottom || 0) - top
+        height = ph - (obottom || 0) - top
 
         if applies_near_offset?(otop, obottom)
           height -= parent.itop
