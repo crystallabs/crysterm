@@ -3,11 +3,17 @@ module Crysterm
     class TextBox < TextArea
       property secret : Bool = false
       property censor : Bool = false
+
+      # Greyed-out prompt shown while the box is empty, like Qt's
+      # `QLineEdit#placeholderText`. It is purely visual: `#value` stays empty.
+      property placeholder : String = ""
+
       getter value : String = ""
 
       def initialize(
         secret = nil,
         censor = nil,
+        placeholder = nil,
         parse_tags = false,
         input_on_focus = true,
         scrollable = false,
@@ -17,6 +23,7 @@ module Crysterm
 
         secret.try { |v| @secret = v }
         censor.try { |v| @censor = v }
+        placeholder.try { |v| @placeholder = v }
       end
 
       def _listener(e : Crysterm::Event::KeyPress)
@@ -43,32 +50,39 @@ module Crysterm
         @value = value
         @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
 
-        if @_value != value
-          @_value = value
-
-          if @secret
-            set_content ""
+        # Compute the string actually shown. `@_value` caches the *displayed*
+        # text (not the raw value) so the dedup guard also fires the first time
+        # an empty box needs to paint its placeholder.
+        disp =
+          if @value.empty? && !@placeholder.empty?
+            # Show the placeholder while empty; the real value stays "".
+            @placeholder
+          elsif @secret
+            ""
           elsif @censor
             # One mask char per user-perceived character (grapheme) under
             # full_unicode; per codepoint otherwise.
-            set_content "*" * (full_unicode? ? value.graphemes.size : value.size)
+            "*" * (full_unicode? ? value.graphemes.size : value.size)
           else
             val = @value.gsub /\t/, style.tab_char * style.tab_size
             # Show the tail of the value that fits the input's visible width
             # (`awidth - iwidth - 1`; the -1 leaves room for the cursor).
             cols = awidth - iwidth - 1
             if full_unicode?
-              set_content tail_within(val, cols)
+              tail_within(val, cols)
             else
               # Legacy: one column per codepoint. Clamp to [0, val.size] — a very
               # narrow box makes `cols` negative and `val[-visible..]` would raise
               # IndexError (or drop leading chars); slicing from `val.size -
               # visible` shows the last `visible` chars (and "" when 0).
               visible = cols.clamp(0, val.size)
-              set_content val[(val.size - visible)..]
+              val[(val.size - visible)..]
             end
           end
 
+        if @_value != disp
+          @_value = disp
+          set_content disp
           _update_cursor
         end
       end

@@ -98,6 +98,14 @@ module Crysterm
     # Emitted on checkbox unchecked
     event UnCheck, value : Bool
 
+    # Emitted when a tri-state checkbox enters its partially-checked
+    # (indeterminate) state. Mirrors Qt's `Qt::PartiallyChecked`.
+    event PartialCheck, value : Bool
+
+    # Emitted when a numeric widget's value changes (e.g. `Widget::ProgressBar`).
+    # Mirrors Qt's `valueChanged(int)` signal.
+    event ValueChange, value : Int32
+
     # Emitted when Widget's position is changed
     event Move
 

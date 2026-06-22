@@ -22,6 +22,16 @@ module Crysterm
       # `full_unicode?`, and a single codepoint otherwise.
       property cursor_pos = 0
 
+      # Maximum number of characters the user may type, or `nil` for unlimited
+      # (Qt's `QLineEdit#maxLength`). Enforced only for interactive input;
+      # assigning `value=` programmatically is not truncated.
+      property max_length : Int32? = nil
+
+      # When true, interactive editing is disabled but the cursor can still move
+      # and the content can be scrolled/inspected (Qt's read-only mode). The
+      # value can still be changed programmatically via `value=`.
+      property? read_only : Bool = false
+
       # Desired column for vertical (Up/Down) movement, as a codepoint offset
       # into the target real line. Set on the first Up/Down so that walking
       # across short lines and back preserves the original column, and cleared
@@ -39,8 +49,12 @@ module Crysterm
 
       def initialize(
         input_on_focus = false,
+        max_length = nil,
+        read_only = false,
         **input,
       )
+        @max_length = max_length
+        @read_only = read_only
         # Will be taken care of by default above, and parent
         # scrollable.try { |v| @scrollable = v }
 
@@ -352,7 +366,7 @@ module Crysterm
           # here.
           if k == Tput::Key::Escape
             done.try &.call nil, nil
-          elsif k == Tput::Key::Backspace || k == Tput::Key::CtrlH
+          elsif !read_only? && (k == Tput::Key::Backspace || k == Tput::Key::CtrlH)
             # Delete the grapheme cluster (base + combining marks, wide emoji, …)
             # immediately before the cursor, then move the cursor back over it.
             if @cursor_pos > 0
@@ -361,7 +375,7 @@ module Crysterm
               @value = @value[0...(@cursor_pos - w)] + @value[@cursor_pos..]
               @cursor_pos -= w
             end
-          elsif k == Tput::Key::Delete
+          elsif !read_only? && k == Tput::Key::Delete
             # Delete the grapheme cluster at the cursor; the cursor stays put.
             if @cursor_pos < @value.size
               @goal_col = nil
@@ -371,9 +385,12 @@ module Crysterm
           end
         end
 
-        if e.char && (!e.key || also_check_char)
+        if !read_only? && e.char && (!e.key || also_check_char)
           # XXX can we avoid to_s ?
-          unless e.char.to_s.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
+          # Enforce the character limit (Qt `maxLength`); a newline produced by
+          # Enter (`also_check_char`) counts toward it too.
+          at_limit = (ml = @max_length) ? @value.size >= ml : false
+          unless at_limit || e.char.to_s.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
             # Insert the typed character at the cursor (not just at the end),
             # then advance the cursor past it.
             @goal_col = nil

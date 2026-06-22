@@ -1,25 +1,48 @@
 module Crysterm
   class Widget
+    # Progress bar element, modeled after Qt's `QProgressBar`.
+    #
+    # The authoritative state is `#value`, an integer within the inclusive range
+    # `[#minimum, #maximum]`. The visually filled portion (`#filled`, a 0..100
+    # percentage) is derived from where `value` sits in that range, so callers may
+    # drive the bar either in domain units (`bar.value = 42`, range 0..200) or in
+    # plain percentages (`bar.filled = 50`) — both stay consistent.
     class ProgressBar < Input
-      property filled : Int32 = 0
-      property value : Int32 = 0
+      # Lower/upper bounds of the value range (inclusive), like Qt's
+      # `minimum`/`maximum`. With the defaults (0..100) a value equals its
+      # percentage. Setting `maximum == minimum` yields a "busy"/empty bar.
+      property minimum : Int32 = 0
+      property maximum : Int32 = 100
+
+      # Amount a single key press (or default `#progress`) moves the value by,
+      # in domain units. Mirrors Qt's `QAbstractSlider#singleStep`.
+      property step : Int32 = 5
+
       property orientation : Tput::Orientation = :horizontal
 
-      # TODO Add new options:
-      # min value and max value
-      # step of increase
-      # does it wrap around?
-      # does it print value and/or percentage
-      # can it auto-resize based on amount
-      # always track of how many % a certain value is
-      # Ability to always display filled % or amount
+      # Whether to draw the textual indicator (see `#text_format`) over the bar,
+      # like Qt's `QProgressBar#textVisible`.
+      property? show_text : Bool = false
+
+      # Template for the text drawn when `#show_text?`. Recognized placeholders,
+      # matching Qt's `QProgressBar#format`: `%p` percentage, `%v` current value,
+      # `%m` maximum, `%M` minimum.
+      property text_format : String = "%p%"
 
       # XXX Change this to enabled? later.
       property? keys : Bool = true
       property? mouse : Bool = false
 
+      @value : Int32 = 0
+
       def initialize(
-        @filled = 0,
+        filled : Int32? = nil,
+        value : Int32? = nil,
+        @minimum = 0,
+        @maximum = 100,
+        @step = 5,
+        @show_text = false,
+        @text_format = "%p%",
         @keys = true,
         @mouse = false,
         @orientation = @orientation,
@@ -27,7 +50,15 @@ module Crysterm
       )
         super **input
 
-        @value = @filled
+        # `value` (domain units) takes precedence; otherwise honor `filled`
+        # (percentage). Default to the minimum (empty bar).
+        if value
+          self.value = value
+        elsif filled
+          self.filled = filled
+        else
+          @value = @minimum
+        end
 
         if @keys
           handle Crysterm::Event::KeyPress
@@ -49,19 +80,64 @@ module Crysterm
             end
             next if span <= 0
 
-            self.progress = (pos * 100 // span).clamp(0, 100)
+            self.filled = (pos * 100 // span).clamp(0, 100)
             e.accept
             request_render
           end
         end
       end
 
+      # Size of the value range (`maximum - minimum`), never negative.
+      private def span : Int32
+        Math.max(0, @maximum - @minimum)
+      end
+
+      # Current fill as a 0..100 percentage, derived from `#value`'s position in
+      # the range. An empty range (`maximum == minimum`) reads as 0.
+      def filled : Int32
+        s = span
+        return 0 if s == 0
+        ((@value - @minimum) * 100.0 / s).round.to_i.clamp(0, 100)
+      end
+
+      # Sets the fill from a 0..100 percentage by mapping it back onto the range.
+      def filled=(percent : Int32) : Int32
+        self.value = @minimum + (percent.clamp(0, 100) * span / 100.0).round.to_i
+        percent
+      end
+
+      # Current value, clamped to `[minimum, maximum]` (Qt `QProgressBar#value`).
+      def value : Int32
+        @value
+      end
+
+      # Sets the value, clamping it into range. Emits `Event::ValueChange` when it
+      # actually changes, and `Event::Complete` upon reaching `#maximum`.
+      def value=(v : Int32) : Int32
+        v = v.clamp(@minimum, @maximum)
+        return v if v == @value
+        @value = v
+        emit Crysterm::Event::ValueChange, @value
+        emit Crysterm::Event::Complete if @value == @maximum && span > 0
+        @value
+      end
+
+      # Builds the textual indicator from `#text_format`.
+      private def formatted_text : String
+        text_format
+          .gsub("%p", filled.to_s)
+          .gsub("%v", @value.to_s)
+          .gsub("%m", @maximum.to_s)
+          .gsub("%M", @minimum.to_s)
+      end
+
       def render
         with_inner_coords do |xi, xl, yi, yl|
+          pct = filled
           if @orientation.horizontal?
-            xl = xi + ((xl - xi) * (@filled / 100)).to_i
+            xl = xi + ((xl - xi) * (pct / 100)).to_i
           else
-            yi = yi + ((yl - yi) - (((yl - yi) * (@filled / 100)).to_i))
+            yi = yi + ((yl - yi) - (((yl - yi) * (pct / 100)).to_i))
           end
 
           # NOTE We invert fg and bg here, so that progressbar's filled value would be
@@ -69,26 +145,17 @@ module Crysterm
           # 1) Arguably more correct as far as logic goes
           # 2) And also allows the widget to show filled value in a way which is visible
           #    even if style.bar is not specifically defined
-          # Further explanation for (2):
-          #   In Blessed, style.bar does not automatically fallback to style. This then causes the
-          #     default for bar (filled value) to be black color. If the bg color of the rest is different,
-          #     filled value is visible. If it is also black (and it is by default?), then filled
-          #     value appears invisible. (And also there is no option to display the percentage as a
-          #     number inside the widget.
-          #   In Crysterm, style.bar (and all other sub-styles) do fallback to main style. This then
-          #     causes the filled value's bg and default bg to always be equal if style.bar is not
-          #     specifically defined. And thus it makes filled value show in even less cases than it
-          #     does in blessed. By reverting bg/fg like we do here, we solve this problem in a very
-          #     elegant way.
           default_attr = sattr style.bar, style.bar.bg, style.bar.fg
 
           # TODO Is this approach with using drawing routines valid, or it would be
           # better that we do this in-memory only here?
           screen.fill_region default_attr, style.pchar, xi, xl, yi, yl
 
-          # Why here the formatted content is only in @_pcontent, while in blessed
-          # it appears to be in `this.content` directly?
-          if (pc = @_pcontent) && !pc.empty?
+          # Determine the text to overlay: the Qt-style indicator when enabled,
+          # otherwise any pre-parsed content (`@_pcontent`).
+          if show_text?
+            draw_overlay_text formatted_text
+          elsif (pc = @_pcontent) && !pc.empty?
             screen.lines[yi]?.try do |line|
               pc.each_char_with_index do |c, i|
                 line[xi + i]?.try do |cell|
@@ -101,55 +168,55 @@ module Crysterm
         end
       end
 
-      def progress(filled_delta)
-        f = @filled + filled_delta
-        f = 0 if f < 0
-        f = 100 if f > 100
-        @filled = f
-        if f == 100
-          emit Crysterm::Event::Complete
+      # Draws `text` centered over the whole inner region (used for `show_text?`),
+      # so the indicator stays readable regardless of how much of the bar is
+      # filled.
+      private def draw_overlay_text(text : String) : Nil
+        return if text.empty?
+        with_inner_coords do |xi, xl, yi, yl|
+          inner_w = xl - xi
+          inner_h = yl - yi
+          return if inner_w <= 0 || inner_h <= 0
+          cy = yi + (inner_h - 1) // 2
+          cx = xi + Math.max(0, (inner_w - text.size) // 2)
+          screen.lines[cy]?.try do |line|
+            text.each_char_with_index do |c, i|
+              break if cx + i >= xl
+              line[cx + i]?.try do |cell|
+                cell.char = c
+              end
+            end
+            line.dirty = true
+          end
         end
-        @value = @filled
       end
 
-      def progress=(filled)
-        @filled = 0
-        progress filled
+      # Advances the value by `delta` domain units (negative to go back),
+      # clamping into range.
+      def progress(delta : Int32)
+        self.value = @value + delta
       end
 
       def reset
         emit Crysterm::Event::Reset
-        @filled = 0
-        @value = @filled
+        @value = @minimum
+        emit Crysterm::Event::ValueChange, @value
       end
 
       def on_keypress(e)
         # Since the keys aren't conflicting, support both regardless
         # of orientation.
-        # case @orientation
-        # when Tput::Orientation::Vertical
-        #  back_keys = [Tput::Key::Down]
-        #  back_chars = ['j']
-        #  forward_keys = [Tput::Key::Up]
-        #  forward_chars = ['k']
-        # else #when Tput::Orientation::Horizontal
-        #  back_keys = [Tput::Key::Left]
-        #  back_chars = ['h']
-        #  forward_keys = [Tput::Key::Right]
-        #  forward_chars = ['l']
-        # end
-
         back_keys = [Tput::Key::Left, Tput::Key::Down]
         back_chars = ['h', 'j']
         forward_keys = [Tput::Key::Right, Tput::Key::Up]
         forward_chars = ['l', 'k']
 
         if back_keys.includes?(e.key) || back_chars.includes?(e.char)
-          progress -5
+          progress -@step
           request_render
           return
         elsif forward_keys.includes?(e.key) || forward_chars.includes?(e.char)
-          progress 5
+          progress @step
           request_render
           return
         end
