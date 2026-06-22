@@ -1,9 +1,10 @@
 # FEATURE: layout engines (grid + inline/masonry).
 #
-# A `Layout` widget arranges its children automatically. Crysterm ships two
-# strategies: `:grid` (table-like rows and columns) and `:inline` (masonry-like
-# flow). Both are shown side by side; a highlight walks the children so you can
-# see the arrangement each engine produces.
+# Any container widget arranges its children automatically once a layout engine
+# is installed via `widget.layout = ...`. Crysterm ships `Layout::Grid`
+# (table-like rows and columns) and `Layout::Masonry` (masonry-like flow), plus
+# `Layout::HBox`/`Layout::VBox`. Two are shown side by side; a highlight walks
+# the children so you can see the arrangement each engine produces.
 
 require "../../src/crysterm"
 
@@ -17,13 +18,13 @@ Widget::Box.new \
   content: "{center}Layout engines:  :grid (left)   vs   :inline / masonry (right){/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#304030")
 
-grid = Widget::Layout.new \
+grid = Widget::Box.new \
   parent: s, top: 1, left: 0, width: 39, height: 14,
-  layout: :grid, overflow: :ignore
+  layout: Layout::Grid.new, overflow: :ignore
 
-inline = Widget::Layout.new \
+inline = Widget::Box.new \
   parent: s, top: 1, left: 40, width: 39, height: 14,
-  layout: :inline, overflow: :ignore
+  layout: Layout::Masonry.new, overflow: :ignore
 
 grid_boxes = [] of Widget::Box
 inline_boxes = [] of Widget::Box

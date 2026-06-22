@@ -28,6 +28,7 @@ require "./screen_connection"
 
 require "./widget"
 require "./widget/**"
+require "./layout/**"
 require "./widgets"
 
 # Main Crysterm module and namespace.

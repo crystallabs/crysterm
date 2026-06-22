@@ -39,14 +39,6 @@ module Crysterm
     BCE
   end
 
-  # Type of layout to use in an instance of `Widget::Layout`.
-  # NOTE Widget::Layout could be split into 2 separate files/classes, and also
-  # additional variations of layouts could be added.
-  enum LayoutType
-    Inline # Masonry-like
-    Grid   # Table-like
-  end
-
   # Overflow behavior when rendering and drawing elements.
   enum Overflow
     Ignore        # Render without changes (part goes out of screen and is not visible)

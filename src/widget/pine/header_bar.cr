@@ -15,7 +15,7 @@ module Crysterm
       #
       # Each zone is a `Widget::Box`; update them at runtime via
       # `header.section.content = "..."`, etc.
-      class HeaderBar < Widget::Layout
+      class HeaderBar < Widget::Box
         getter title : Widget::Box
         getter section : Widget::Box
         getter info : Widget::Box
@@ -24,9 +24,15 @@ module Crysterm
           height h = 1, width w = "100%",
           title_content = "", section_content = "", info_content = "",
           title_width = 16, info_width = 28,
-          **layout,
+          **opts,
         )
-          super **layout, width: w, height: h
+          super **opts, width: w, height: h
+
+          # The three zones flow left-to-right; masonry reproduces the inline
+          # arrangement this widget relied on when it was a `Widget::Layout`.
+          # Set the ivar directly (not `self.layout=`) so it precedes no method
+          # call before the `@title`/`@section`/`@info` ivars are initialized.
+          @layout = Crysterm::Layout::Masonry.new
 
           @style = Style.new inverse: true
           # Padding.new is (left, top, right, bottom): pl2 = left:2, pr2 = right:2.

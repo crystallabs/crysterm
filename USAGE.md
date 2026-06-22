@@ -143,8 +143,8 @@ To tear a screen down, call `Screen#destroy`.
   (`List`, `Table`, `Form`, `TextArea`, `Log`, `ProgressBar`, `Image`, …)
   derive from it. Widgets can contain child widgets, forming a tree rooted at
   the screen.
-- **`Widget::Layout`** is a container that automatically arranges its children
-  (see [§4.11](#411-layouts)).
+- **Layout engines** (`Crysterm::Layout`) automatically arrange a container's
+  children once installed via `widget.layout = ...` (see [§4.11](#411-layouts)).
 
 ### 3.2 The event model
 
@@ -402,18 +402,32 @@ This is why the position getters take a `get` flag:
 
 ### 4.11 Layouts
 
-`Widget::Layout` is one container that arranges its children automatically. Its
-`LayoutType` can be:
+A layout engine is a strategy object (under the `Crysterm::Layout` namespace,
+in `src/layout/`) installed on any container widget — it is **not** itself a
+widget (cf. Qt's `QLayout`). The container owns its rectangle, border and
+padding; the layout only positions the children inside it:
 
-- `Grid` — table-like arrangement.
-- `Inline` — masonry-like inline flow.
+```crystal
+box = Widget::Box.new parent: screen, width: 40, height: 10,
+  layout: Layout::HBox.new(gap: 1)
+Widget::Box.new parent: box, width: 8   # fixed
+Widget::Box.new parent: box             # flexes to fill the rest
+```
 
-This is the layout engine that exists today; richer layout managers (e.g. box
-layouts as in some GUI toolkits) are possible future additions. The positioning
-and layout code is intentionally compact, so adding new arrangement strategies
-is not a large undertaking.
+The engines that ship today:
 
-Qt-like layouts are planned to be added.
+- `Layout::Grid` — uniform, table-like rows and columns.
+- `Layout::Masonry` — masonry-like inline flow of variably-sized children.
+- `Layout::HBox` / `Layout::VBox` — Qt-style single-axis boxes; children with no
+  explicit main-axis size share the leftover space equally, and are stretched to
+  fill the cross axis.
+
+The table widgets (`Widget::Table`, `Widget::ListTable`) instead mix in the
+`TableLayout` *content* layout, which lays out cell text within the widget's own
+content rather than arranging child widgets.
+
+Adding a new arrangement strategy is small: subclass `Crysterm::Layout` (or
+`Layout::Flow` for a row-wrapping engine) and implement `#place`.
 
 ---
 

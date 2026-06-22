@@ -13,7 +13,6 @@ module Crysterm
     Gradient    = Widget::Gradient
     ProgressBar = Widget::ProgressBar
     Loading     = Widget::Loading
-    Layout      = Widget::Layout
     Question    = Widget::Question
     Line        = Widget::Line
     HLine       = Widget::HLine
@@ -55,6 +54,12 @@ module Crysterm
     # Qt-like
     Action = Widget::Action
     Menu   = Widget::Menu
+
+    # Layout engines (not widgets; install on a container via `widget.layout = ...`)
+    GridLayout    = Crysterm::Layout::Grid
+    MasonryLayout = Crysterm::Layout::Masonry
+    HBoxLayout    = Crysterm::Layout::HBox
+    VBoxLayout    = Crysterm::Layout::VBox
 
     # Pine-like
     PineHeaderBar    = Widget::Pine::HeaderBar

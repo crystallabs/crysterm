@@ -6,6 +6,11 @@ module Crysterm
     # What action to take when widget is overflowing parent's rectangle?
     Crystallabs::Helpers::Enums.enum_property overflow : Overflow = Overflow::Ignore
 
+    # Optional layout engine that arranges this widget's children. When set, the
+    # children loop in `#_render` hands the children to it instead of rendering
+    # each at its own manually-set position. See `Crysterm::Layout`.
+    property layout : Crysterm::Layout? = nil
+
     # Rendition and rendering
 
     # The below methods are a bit confusing: basically
@@ -531,13 +536,18 @@ module Crysterm
       end
 
       if with_children
-        @children.each do |el|
-          if el.screen._ci != -1
-            el.index = el.screen._ci
-            el.screen._ci += 1
-          end
+        if l = @layout
+          # An installed layout engine positions and renders the children.
+          l.render_children self
+        else
+          @children.each do |el|
+            if el.screen._ci != -1
+              el.index = el.screen._ci
+              el.screen._ci += 1
+            end
 
-          el.render
+            el.render
+          end
         end
       end
 

@@ -7,12 +7,12 @@ require "../src/crysterm"
 module Crysterm
   s = Screen.new optimization: OptimizationFlag::SmartCSR, dock_borders: false
 
-  l = layout = Widget::Layout.new(
+  l = layout = Widget::Box.new(
     top: "center",
     left: "center",
-    width: "50%",
-    height: "50%",
-    layout: ARGV[0]? == "grid" ? LayoutType::Grid : LayoutType::Inline,
+    width: "100%-2",
+    height: "100%-2",
+    layout: ARGV[0]? == "grid" ? Crysterm::Layout::Grid.new : Crysterm::Layout::Masonry.new,
     overflow: Overflow::Ignore, # Setting not existing in Blessed. Controls what to do when widget is overflowing available space. Value of 'ignore' ignores the issue and renders such widgets overflown.
     style: Style.new(
     bg: "red",

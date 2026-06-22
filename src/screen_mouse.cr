@@ -88,27 +88,23 @@ module Crysterm
     # `::Tput::Mouse::Event`. GPM coordinates are 1-based; we shift them to the
     # 0-based convention used throughout mouse handling.
     private def gpm_to_event(e : GPM::Event) : ::Tput::Mouse::Event
-      shift = e.modifiers.shift?
-      ctrl = e.modifiers.control?
-      meta = e.modifiers.meta?
-
-      button = if e.buttons.left?
+      button = if e.left?
                  ::Tput::Mouse::Button::Left
-               elsif e.buttons.middle?
+               elsif e.middle?
                  ::Tput::Mouse::Button::Middle
-               elsif e.buttons.right?
+               elsif e.right?
                  ::Tput::Mouse::Button::Right
                else
                  ::Tput::Mouse::Button::None
                end
 
-      action = if e.buttons.up?
+      action = if e.wheel_up?
                  ::Tput::Mouse::Action::WheelUp
-               elsif e.buttons.down?
+               elsif e.wheel_down?
                  ::Tput::Mouse::Action::WheelDown
-               elsif e.types.up?
+               elsif e.released?
                  ::Tput::Mouse::Action::Up
-               elsif e.types.down?
+               elsif e.pressed?
                  ::Tput::Mouse::Action::Down
                else
                  # MOVE or DRAG (or anything else) is reported as movement.
@@ -118,7 +114,7 @@ module Crysterm
       ::Tput::Mouse::Event.new(
         action, button,
         (e.x - 1).to_i, (e.y - 1).to_i,
-        shift, meta, ctrl, :gpm
+        e.shift?, e.meta?, e.ctrl?, :gpm
       )
     end
 
@@ -138,6 +134,11 @@ module Crysterm
     # `Event::Mouse` in its own handler.
     def dispatch_mouse(ev : ::Tput::Mouse::Event)
       emit ::Crysterm::Event::Mouse.new ev
+
+      # Focus in/out reports (mode 1004) come through the same channel but carry
+      # no pointer position; surface them on the screen, then stop before the
+      # widget hit-testing / drag machinery below.
+      return if ev.focus_event?
 
       # An in-flight (mouse-driven) drag captures all motion/release: it owns the
       # pointer until released, regardless of what is underneath. A continuous

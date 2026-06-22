@@ -7,7 +7,7 @@ class X
   def initialize
     s = Screen.new padding: 10
 
-    # l = Widget::Layout.new width: "100%", height: "100%", border: true, style: Style.new( fg: "black", bg: "white" )
+    # l = Widget::Box.new width: "100%", height: "100%", border: true, style: Style.new( fg: "black", bg: "white" )
     # s.append l
 
     # parent: l,

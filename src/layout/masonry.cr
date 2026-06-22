@@ -1,0 +1,47 @@
+require "./flow"
+
+module Crysterm
+  class Layout
+    # Masonry / inline flow (blessed's `inline` layout). Children flow
+    # left-to-right at their natural widths, wrap to a new row on overflow, and
+    # then gravitate upward to sit directly beneath the nearest child on the row
+    # above — producing a packed, masonry-like arrangement of variably-sized
+    # boxes.
+    class Masonry < Flow
+      def place(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?
+        flow_place container, el, i, interior, 0
+        gravitate_up container, el, interior
+        overflow_action container, el, interior
+      end
+
+      # Pulls `el` up to rest just below the child on the previous row whose
+      # left edge is nearest its own, so rows pack together instead of leaving
+      # ragged vertical gaps.
+      private def gravitate_up(container : Widget, el : Widget, interior : LPos) : Nil
+        xi = interior.xi
+        yi = interior.yi
+
+        above = nil
+        abovea = Int32::MAX
+        j = @last_row_index
+        while j < @row_index
+          l = container.children[j]
+          unless rendered? l
+            j += 1
+            next
+          end
+          abs = (el.left.as(Int) - (l.lpos.not_nil!.xi - xi)).abs
+          if abs < abovea
+            above = l
+            abovea = abs
+          end
+          j += 1
+        end
+
+        if above
+          el.top = above.lpos.not_nil!.yl - yi
+        end
+      end
+    end
+  end
+end

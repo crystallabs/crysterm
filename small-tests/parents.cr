@@ -15,8 +15,8 @@ class X
       content: "Box1",
       style: Style.new(fg: "yellow", bg: "red", border: true)
 
-    i2 = Widget::Layout.new width: "100%", height: "100%"
-    i3 = Widget::Layout.new width: "100%", height: "100%"
+    i2 = Widget::Box.new width: "100%", height: "100%"
+    i3 = Widget::Box.new width: "100%", height: "100%"
 
     i2.append i1
     i3.append i1

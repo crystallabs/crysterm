@@ -5,13 +5,13 @@ module Crysterm
   include Widgets
 
   s = Screen.new always_propagate: [Tput::Key::CtrlQ], title: "Crysterm Tech Demo"
-  b = layout = Layout.new(
+  b = layout = Box.new(
     parent: s,
     top: 0,
     left: 0,
     width: "100%",
     height: "100%",
-    layout: :grid,
+    layout: Crysterm::Layout::Grid.new,
     overflow: :ignore,
   )
 

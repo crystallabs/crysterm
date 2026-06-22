@@ -107,6 +107,7 @@ module Crysterm
       @fixed = @fixed,
       align : Tput::AlignFlag | Shorthands = @align,
       overflow : Overflow | Shorthands = @overflow,
+      @layout = @layout,
 
       @scrollbar = @scrollbar,
       # TODO Make it configurable which side it appears on etc.
