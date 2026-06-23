@@ -501,13 +501,18 @@ module Crysterm
           # the 'ch' is always written. This logic is taken for speed. In the
           # case that the contents of the IF/ELSE block change in incompatible
           # way, this should be had in mind.
-          if alt_charset && !broken_acs && (acscr[desired_char]? || acs)
+          # `acscr` is keyed only by non-ASCII glyphs in the `!broken_acs` case
+          # used here (its lowest key is U+00A3), so probe the hash only for
+          # non-ASCII cells — ASCII text and spaces, the vast majority, skip it
+          # entirely. The single result is reused below instead of re-looked-up.
+          acs_char = (alt_charset && !broken_acs && desired_char > '~') ? acscr[desired_char]? : nil
+          if alt_charset && !broken_acs && (acs_char || acs)
             # Fun fact: even if tput.brokenACS wasn't checked here,
             # the linux console would still work fine because the acs
             # table would fail the check of: tput.features.acscr[desired_char]
-            if acscr[desired_char]?
+            if ac = acs_char
               if acs
-                desired_char = acscr[desired_char]
+                desired_char = ac
               else
                 # This method of doing it (like blessed does it) is nasty
                 # since char gets changed to string when sm/rm escape
@@ -519,7 +524,7 @@ module Crysterm
                 # just set char to the desired char, knowing that it will be
                 # printed into outbuf at the end of the loop thanks to generic code.
                 @outbuf.write smacs
-                desired_char = acscr[desired_char]
+                desired_char = ac
                 acs = true
               end
             elsif acs
