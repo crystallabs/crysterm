@@ -117,7 +117,11 @@ module Crysterm
       property rtof = [] of Int32
       property ci = [] of Int32
 
-      property attr : Array(Int64)? = [] of Int64
+      # Defaults to `nil` (not an empty array): `process_content` always replaces
+      # this with `_parse_attr`'s result on a reparse before the lines are used,
+      # so pre-allocating an array here is pure per-reparse waste. All readers go
+      # through `attr.try(...)`, so `nil` is handled.
+      property attr : Array(Int64)? = nil
 
       # Backing store of wrapped lines. The array API (`push`, `[]`, `size`,
       # `each`, `join`, `reduce`, ...) is forwarded to it below.
@@ -156,8 +160,14 @@ module Crysterm
         # four rules act on disjoint characters — control chars, a stray ESC
         # (not starting an SGR sequence), CR/CRLF, and TAB — so collapsing them
         # into one alternation with a dispatching block is equivalent. `tab` is
-        # hoisted so the replacement string is built once, not per match.
-        tab = style.tab_char * style.tab_size
+        # hoisted so the replacement string is built once, not per match — and
+        # only when the content actually contains a tab, since `style.tab_char *
+        # style.tab_size` allocates a `String` and the `"\t"` branch is otherwise
+        # never reached (the `""` fallback is a constant, no allocation). On the
+        # common tab-free reparse the whole `gsub` also returns `@content`
+        # unchanged (Crystal's `gsub` returns the receiver when nothing matches),
+        # so this branch is then allocation-free.
+        tab = @content.includes?('\t') ? style.tab_char * style.tab_size : ""
         content = @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]|\e(?!\[[\d;]*m)|\r\n|\r|\t/) do |m|
           case m
           when "\r\n", "\r" then "\n"
@@ -208,9 +218,13 @@ module Crysterm
         @_clines.content_version = @_content_version
         @_clines.attr = _parse_attr @_clines
         @_parse_attr_default = sattr(style)
-        @_clines.ci = [] of Int32
+        # Reuse the `CLines`' own (empty) `ci` array — `_wrap_content` never
+        # touches it — by clearing and refilling, instead of allocating a fresh
+        # replacement every reparse.
+        ci = @_clines.ci
+        ci.clear
         @_clines.reduce(0) do |total, line|
-          @_clines.ci.push(total)
+          ci.push(total)
           total + line.size + 1
         end
 
@@ -382,9 +396,14 @@ module Crysterm
       default_state = @align
       wrap = @wrap_content
       margin = 0
-      rtof = [] of Int32
-      ftor = [] of Array(Int32)
       outbuf = CLines.new
+      # Fill the `CLines`' own `rtof`/`ftor` arrays directly (via these aliases)
+      # instead of building throwaway locals that get assigned over the defaults
+      # at the end — the freshly-built `CLines` already carries empty ones. Saves
+      # two array allocations per reparse. (The empty-content branch below returns
+      # before these are used and sets its own literals.)
+      rtof = outbuf.rtof
+      ftor = outbuf.ftor
 
       if !content || content.empty?
         outbuf.push(content)
@@ -493,8 +512,8 @@ module Crysterm
         no += 1
       end
 
-      outbuf.rtof = rtof
-      outbuf.ftor = ftor
+      # `rtof`/`ftor` already alias `outbuf`'s own arrays (filled in place above),
+      # so no reassignment is needed here.
       outbuf.fake = lines
       outbuf.real = outbuf
 
