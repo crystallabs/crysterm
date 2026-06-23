@@ -18,7 +18,7 @@ Widget::Box.new \
 list = Widget::List.new \
   parent: s, top: 1, left: 0, width: 22, height: 14,
   items: ["Box", "Button", "Checkbox", "RadioButton", "List", "Table",
-          "ProgressBar", "TextArea", "Loading", "BigText", "Image", "Menu"],
+          "ProgressBar", "TextArea", "Loading", "BigText", "Media", "Menu"],
   style: Style.new(fg: "white", bg: "black", border: true)
 
 progress = Widget::ProgressBar.new \

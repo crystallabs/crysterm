@@ -7,7 +7,7 @@ module Crysterm
     # escape (`ESC _G <control> ; <base64 payload> ESC \`) that a Kitty-protocol
     # terminal (kitty, WezTerm, Konsole, Ghostty, …) draws as true RGBA pixels.
     # Like sixel the pixels are owned by the terminal, so this inherits
-    # `Image::Graphics`'s screen-owns-pixels redraw lifecycle.
+    # `Media::Graphics`'s screen-owns-pixels redraw lifecycle.
     #
     # Two things differ from sixel/ReGIS:
     #
@@ -22,9 +22,9 @@ module Crysterm
     # (`c=`/`r=`), so it fills cleanly regardless of font metrics.
     #
     # ```
-    # img = Widget::Image::Kitty.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Media::Kitty.new file: "pic.png", width: 40, height: 12, parent: screen
     # ```
-    class Image::Kitty < Image::Graphics
+    class Media::Kitty < Media::Graphics
       @@next_id = 0_u32
 
       # Stable Kitty image id, so re-transmits replace this widget's image
@@ -41,12 +41,32 @@ module Crysterm
       end
 
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
-        {cols * cell_pixel_width, rows * cell_pixel_height}
+        pw = cols * cell_pixel_width
+        ph = rows * cell_pixel_height
+        # The terminal scales our image to the cell box (c=/r=), so transmitting
+        # more pixels than the source actually has is pure waste — and for an
+        # animation/video it would re-upload a full-window frame every tick
+        # (megabytes), which both tanks the frame rate and, on kitty, flashes
+        # blank during the multi-chunk replace. Cap the transmitted resolution to
+        # the source's, scaling uniformly so the box aspect (and thus the c=/r=
+        # upscale) stays distortion-free.
+        if res = source_resolution
+          sw, sh = res
+          long_box = {pw, ph}.max
+          long_src = {sw, sh}.max
+          if long_src > 0 && long_box > long_src
+            scale = long_src / long_box.to_f
+            pw = (pw * scale).round.to_i
+            ph = (ph * scale).round.to_i
+          end
+        end
+        {pw < 1 ? 1 : pw, ph < 1 ? 1 : ph}
       end
 
       # Kitty places at the text cursor (positioned by the base class), so the
       # *ox*/*oy* pixel origin is unused.
-      def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32) : String
+      def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
+                 cols : Int32, rows : Int32) : String
         # Pack raw RGBA, top-to-bottom.
         rgba = Bytes.new(pw * ph * 4)
         i = 0
@@ -64,10 +84,8 @@ module Crysterm
 
         b64 = Base64.strict_encode rgba
 
-        # Display scaled into the widget's cell box (recovered from the pixel
-        # size and cell metrics), so the image fills it exactly.
-        cols = cell_pixel_width > 0 ? pw // cell_pixel_width : pw
-        rows = cell_pixel_height > 0 ? ph // cell_pixel_height : ph
+        # Display scaled into the widget's cell box (c=/r=), so the transmitted
+        # s=×v= pixels fill the box exactly regardless of how small they are.
         cols = 1 if cols < 1
         rows = 1 if rows < 1
 

@@ -4,12 +4,12 @@ require "json"
 module Crysterm
   class Widget
     # Renders a true-color image via **Überzug / Überzug++** (`ueberzug`), the
-    # modern successor to `w3mimgdisplay`. Like `Image::Overlay` this is an
+    # modern successor to `w3mimgdisplay`. Like `Media::Overlay` this is an
     # *out-of-band* overlay: an external helper draws the actual image pixels in
     # its own X11 child window placed over the terminal — the pixels are owned
     # by neither Crysterm's cell grid nor the terminal emulator.
     #
-    # It differs from `Image::Overlay` in two ways: the helper speaks a JSON
+    # It differs from `Media::Overlay` in two ways: the helper speaks a JSON
     # protocol on stdin (`{"action":"add",…}` / `{"action":"remove",…}`) and
     # positions/sizes placements in *terminal cells* (not pixels); and its
     # override-redirect window stays on top, so — unlike w3m — it does not get
@@ -21,9 +21,9 @@ module Crysterm
     # display; with neither present the widget is inert (it draws nothing).
     #
     # ```
-    # img = Widget::Image::Ueberzug.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Media::Ueberzug.new file: "pic.png", width: 40, height: 12, parent: screen
     # ```
-    class Image::Ueberzug < Image::External
+    class Media::Ueberzug < Media::External
       # Überzug scaler: `fit_contain`, `contain`, `forced_cover`, `cover`,
       # `crop`, `distort`. `forced_cover` fills the box exactly.
       property scaler : String
@@ -38,7 +38,13 @@ module Crysterm
       @listener_screen : ::Crysterm::Screen?
       @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
-      def initialize(@file = nil, @scaler : String = "forced_cover", **box)
+      # The shared `Media::Base` contract knobs (`fit`/`animate`/`speed`) are
+      # accepted so the `Media` factory can forward them uniformly, but advisory
+      # here: überzug does its own scaling (`scaler`) and can't animate.
+      def initialize(@file = nil, @scaler : String = "forced_cover",
+                     @fit : Media::Fit = Media::Fit::Stretch,
+                     @animate : Bool = false,
+                     @speed : Float64 = 1.0, **box)
         super **box
         @@counter += 1
         @id = "crysterm_#{@@counter}"
@@ -145,7 +151,7 @@ module Crysterm
       # URL to a temp file if necessary.
       private def local_path(file : String) : String?
         if file =~ /^https?:/
-          bytes = Widget::Image::Ansi.fetch file
+          bytes = Widget::Media::Ansi.fetch file
           tmp = File.tempfile("crysterm_uz", File.extname(file))
           File.write(tmp.path, bytes)
           tmp.path

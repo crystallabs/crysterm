@@ -18,9 +18,9 @@ Widget::Box.new \
   content: "{center}Animated image re-sampling into a resizing box (fit: Contain){/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
 
-img = Widget::Image::Ansi.new \
+img = Widget::Media::Ansi.new \
   parent: s, top: 2, left: 2, width: 16, height: 8,
-  fit: Widget::Image::Fit::Contain,
+  fit: Widget::Media::Fit::Contain,
   file: img_path,
   style: Style.new(border: true)
 

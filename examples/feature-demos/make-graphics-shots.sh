@@ -4,7 +4,7 @@
 #
 # These can't go through the ttygif.py pseudo-terminal recorder: its built-in VT
 # emulator doesn't implement sixel/ReGIS/Tek (just as it can't show the w3m
-# overlay). So — exactly like the Image::Overlay path in make-gifs.sh — we run
+# overlay). So — exactly like the Media::Overlay path in make-gifs.sh — we run
 # each demo in a REAL xterm on $DISPLAY and screenshot the window with ffmpeg.
 #
 # Requirements:
@@ -101,7 +101,7 @@ build() {
 }
 
 # ---- sixel ---------------------------------------------------------------
-echo ">> sixel (Image::Sixel, in-band DCS raster)"
+echo ">> sixel (Media::Sixel, in-band DCS raster)"
 if build sixel_image; then
   # maxGraphicSize must exceed the sixel's pixel size or xterm silently drops it.
   # No CELL_PW/PH: the demo auto-detects the real cell size (TIOCGWINSZ) so the
@@ -120,7 +120,7 @@ fi
 echo
 
 # ---- regis ---------------------------------------------------------------
-echo ">> regis (Image::Regis, in-band ReGIS vectors)"
+echo ">> regis (Media::Regis, in-band ReGIS vectors)"
 if build regis_image; then
   # xterm maps its ReGIS logical screen (regisScreenSize, in pixels) onto the
   # window ~1:1, so it must equal the window's real pixel size or the image is
@@ -148,7 +148,7 @@ echo
 # ---- kitty ---------------------------------------------------------------
 # Kitty graphics protocol — xterm doesn't speak it, so this one runs in the
 # `kitty` terminal itself (if installed) rather than xterm.
-echo ">> kitty (Image::Kitty, Kitty graphics protocol)"
+echo ">> kitty (Media::Kitty, Kitty graphics protocol)"
 if command -v kitty >/dev/null; then
   if build kitty_image; then
     DEMO_SECONDS=10 \
@@ -168,7 +168,7 @@ echo
 
 # ---- iterm2 --------------------------------------------------------------
 # iTerm2 inline-images protocol — captured in Konsole (xterm doesn't speak it).
-echo ">> iterm (Image::Iterm, iTerm2 OSC 1337 inline images)"
+echo ">> iterm (Media::Iterm, iTerm2 OSC 1337 inline images)"
 if command -v konsole >/dev/null; then
   if build iterm_image; then
     DEMO_SECONDS=11 konsole -p tabtitle=Iterm --hide-menubar --hide-tabbar \
@@ -186,7 +186,7 @@ echo
 
 # ---- ueberzug ------------------------------------------------------------
 # Überzug / Überzug++ overlay — needs the helper binary; otherwise skipped.
-echo ">> ueberzug (Image::Ueberzug, überzug X11 overlay)"
+echo ">> ueberzug (Media::Ueberzug, überzug X11 overlay)"
 if command -v ueberzug >/dev/null || command -v ueberzugpp >/dev/null; then
   if build ueberzug_image; then
     DEMO_SECONDS=11 \
@@ -205,7 +205,7 @@ echo
 
 # ---- ansi palette stills (256 / 16 color) --------------------------------
 # Cell-based, so the normal ttygif.py recorder renders them (no real terminal).
-echo ">> ansi palette (Image::Ansi 256/16-color quantization)"
+echo ">> ansi palette (Media::Ansi 256/16-color quantization)"
 if build ansi256_image; then
   for m in c256 c16; do
     ANSI_COLORS="$m" python3 "$HERE/ttygif.py" \
@@ -217,7 +217,7 @@ fi
 echo
 
 # ---- tektronix -----------------------------------------------------------
-echo ">> tek (Image::Tek, Tektronix 4014 — separate window)"
+echo ">> tek (Media::Tek, Tektronix 4014 — separate window)"
 if build tek_image; then
   # fit defaults to Contain (fills the Tek screen, aspect preserved); the
   # normalize_trim below crops the letterbox. No numeric TEK_FIT any more.

@@ -25,11 +25,11 @@ name = File.basename(img_path)
 # Pick the rendering backend; all of these animate and resize.
 def make_image(backend, **opts)
   case backend
-  when "kitty" then Widget::Image::Kitty.new(**opts)
-  when "sixel" then Widget::Image::Sixel.new(**opts)
-  when "iterm" then Widget::Image::Iterm.new(**opts)
-  when "ansi"  then Widget::Image::Ansi.new(**opts)
-  else              Widget::Image::Glyph.new(**opts, mode: Widget::Image::Glyph::Mode::Octant)
+  when "kitty" then Widget::Media::Kitty.new(**opts)
+  when "sixel" then Widget::Media::Sixel.new(**opts)
+  when "iterm" then Widget::Media::Iterm.new(**opts)
+  when "ansi"  then Widget::Media::Ansi.new(**opts)
+  else              Widget::Media::Glyph.new(**opts, mode: Widget::Media::Glyph::Mode::Octant)
   end
 end
 
@@ -58,13 +58,13 @@ half = s.awidth // 2
 # Left: the animation at a fixed size.
 left = make_image backend,
   parent: s, top: 1, left: 0, width: half, height: ih,
-  fit: Widget::Image::Fit::Contain, file: img_path,
+  fit: Widget::Media::Fit::Contain, file: img_path,
   style: Style.new(border: true)
 
 # Right: the same animation in a box we resize on every frame.
 right = make_image backend,
   parent: s, top: 1, left: half, width: s.awidth - half, height: ih,
-  fit: Widget::Image::Fit::Contain, file: img_path,
+  fit: Widget::Media::Fit::Contain, file: img_path,
   style: Style.new(border: true)
 
 rmaxw = s.awidth - half
@@ -78,7 +78,7 @@ resize_right = ->(idx : Int32) do
   right.height = (5 + (ih - 5) * f).to_i
 end
 
-# A single clock for the whole scene. Each Image widget normally animates in its
+# A single clock for the whole scene. Each Media widget normally animates in its
 # own fiber, but those run at slightly different per-frame cost (the resizing box
 # re-samples every frame) so they drift apart and the scene never has an exact
 # period. Instead, once both have composited their frames, we pause them and

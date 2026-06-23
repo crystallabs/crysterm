@@ -4,18 +4,18 @@ module Crysterm
   class Widget
     # Renders an image as **sixel** graphics: an in-band DCS escape sequence that
     # a sixel-capable terminal (xterm -ti vt340, foot, wezterm, mlterm, …) draws
-    # as true raster pixels at the cursor position. Unlike `Image::Ansi`/`Image::Glyph`
+    # as true raster pixels at the cursor position. Unlike `Media::Ansi`/`Media::Glyph`
     # the pixels are owned by the terminal, not Crysterm's cell grid — so this
-    # inherits `Image::Graphics`'s screen-owns-pixels erase/redraw lifecycle.
+    # inherits `Media::Graphics`'s screen-owns-pixels erase/redraw lifecycle.
     #
     # The image is quantized to a fixed 6×7×6 (=252) level RGB palette, with
     # 4×4 ordered (Bayer) dithering on by default to smooth gradients, then
     # emitted as run-length-encoded sixel bands.
     #
     # ```
-    # img = Widget::Image::Sixel.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Media::Sixel.new file: "pic.png", width: 40, height: 12, parent: screen
     # ```
-    class Image::Sixel < Image::Graphics
+    class Media::Sixel < Media::Graphics
       # Palette levels per channel (product must stay ≤ 256 color registers).
       LR = 6
       LG = 7
@@ -33,9 +33,10 @@ module Crysterm
         {cols * cell_pixel_width, rows * cell_pixel_height}
       end
 
-      # Sixel draws at the text cursor (positioned by the base class), so the
-      # *ox*/*oy* pixel origin is unused here.
-      def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32) : String
+      # Sixel draws at the text cursor (positioned by the base class) at exact
+      # pixel resolution, so *ox*/*oy* and the *cols*/*rows* cell box are unused.
+      def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
+                 cols : Int32, rows : Int32) : String
         idx = quantize bmp, pw, ph
 
         io = String::Builder.new
@@ -109,7 +110,7 @@ module Crysterm
               row[x] = -1 # transparent
               next
             end
-            t = dither? ? (Image::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 - 0.5 : 0.0
+            t = dither? ? (Media::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 - 0.5 : 0.0
             rl = qlevel px.r, LR, t
             gl = qlevel px.g, LG, t
             bl = qlevel px.b, LB, t

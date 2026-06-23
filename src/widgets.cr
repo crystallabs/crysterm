@@ -8,8 +8,9 @@ module Crysterm
     Box   = Widget::Box
     Input = Widget::Input
 
-    # The concrete backends live under `Image` (e.g. `Image::Ansi`, `Image::Kitty`).
-    Image       = Widget::Image
+    # The concrete backends live under `Media` (e.g. `Media::Ansi`, `Media::Kitty`).
+    Media       = Widget::Media
+    Video       = Widget::Video
     Gradient    = Widget::Gradient
     ProgressBar = Widget::ProgressBar
     Loading     = Widget::Loading

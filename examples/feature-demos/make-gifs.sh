@@ -54,7 +54,7 @@ declare -A ROWS_OVERRIDE=()
 # Static demos: saved as a single still .png instead of an animated .gif.
 STILL=(png_image)
 
-# Image::Glyph render variants — one still PNG per mode, all of the same image.
+# Media::Glyph render variants — one still PNG per mode, all of the same image.
 GLYPH_MODES=(block ascii half quadrant sextant octant braille)
 
 # All demos, in display order. Pass names as args to build a subset.
@@ -72,7 +72,7 @@ echo "Window: ${COLS}x${ROWS}  duration=${DURATION}s  fps=${FPS}  font=${FONT_SI
 echo
 
 for demo in "${DEMOS[@]}"; do
-  # Special case: Image::Glyph render variants -> one still PNG per mode.
+  # Special case: Media::Glyph render variants -> one still PNG per mode.
   if [ "$demo" = "glyph_modes" ]; then
     echo ">> glyph_modes (one still PNG per drawing mode)"
     echo "   building ..."
@@ -89,13 +89,13 @@ for demo in "${DEMOS[@]}"; do
     continue
   fi
 
-  # Special case: Image::Overlay (w3mimgdisplay) — real X11 pixel overlay, so it
+  # Special case: Media::Overlay (w3mimgdisplay) — real X11 pixel overlay, so it
   # can't go through the pseudo-terminal recorder. We run it in a real xterm on
   # $DISPLAY and screenshot that window with ffmpeg. The demo self-terminates
   # (OVERLAY_SECONDS), and we only ever kill the one PID we started — never a
   # broad pkill, which would take down other terminals on the display.
   if [ "$demo" = "overlay" ]; then
-    echo ">> overlay (Image::Overlay / w3mimgdisplay true-color, needs X + xterm)"
+    echo ">> overlay (Media::Overlay / w3mimgdisplay true-color, needs X + xterm)"
     if [ -z "${DISPLAY:-}" ] || ! command -v xterm >/dev/null \
        || ! command -v xwininfo >/dev/null || ! command -v ffmpeg >/dev/null \
        || [ ! -x /usr/lib/w3m/w3mimgdisplay ]; then

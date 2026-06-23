@@ -13,22 +13,22 @@ module Crysterm
     #
     # A photo is therefore dithered to 1 bit and drawn as one run of horizontal
     # vectors per "ink" span — a faithfully retro green-on-black rendering. It
-    # fits into the Tek screen per the shared `fit` contract (`Image::Fit`),
+    # fits into the Tek screen per the shared `fit` contract (`Media::Fit`),
     # defaulting to `Contain`.
     #
     # An **animated** source (GIF/APNG) plays in the Tek window: each frame is a
     # full PAGE-clear + redraw (the storage tube can't update in place), so it
     # flickers and is heavier than the raster backends — but it works. Because the
     # Tek window is *not* driven by the screen render loop, this overrides
-    # `Image::Base`'s render-driven animation with its own window loop. Animation
+    # `Media::Base`'s render-driven animation with its own window loop. Animation
     # defaults to ordered (Bayer) dithering, which is frame-independent (stable);
     # error diffusion (the default for a still) would shimmer.
     #
     # ```
-    # tek = Widget::Image::Tek.new file: "pic.png", parent: screen
+    # tek = Widget::Media::Tek.new file: "pic.png", parent: screen
     # # the Tek window appears on the next screen render
     # ```
-    class Image::Tek < Image::Base
+    class Media::Tek < Media::Base
       # 1-bit dithering method.
       enum Dither
         None      # hard threshold at `level` — cleanest spans, fewest vectors
@@ -74,7 +74,7 @@ module Crysterm
         redraw!
       end
 
-      def fit=(v : Image::Fit)
+      def fit=(v : Media::Fit)
         return if v == @fit
         @fit = v
         redraw!
@@ -96,7 +96,7 @@ module Crysterm
         @level : Float64 = 128.0,
         dither : Dither | Bool = Dither::Auto,
         @invert : Bool = false,
-        @fit : Image::Fit = Image::Fit::Contain,
+        @fit : Media::Fit = Media::Fit::Contain,
         @animate : Bool = true,
         @speed : Float64 = 1.0,
         **box,
@@ -146,13 +146,13 @@ module Crysterm
 
       private def start_drawing(s : ::Crysterm::Screen, file : String)
         data : String | Bytes = file
-        data = Widget::Image::Ansi.fetch(file) if file =~ /^https?:/
+        data = Widget::Media::Ansi.fetch(file) if file =~ /^https?:/
 
         probe = PNGGIF::PNG.new(data)
         iw = probe.width
         ih = probe.height
         return if iw <= 0 || ih <= 0
-        # `Image::Fit#layout` already clamps the drawn size to >= 1, so no extra clamp.
+        # `Media::Fit#layout` already clamps the drawn size to >= 1, so no extra clamp.
         dw, dh, ox, oy = @fit.layout(TEK_W, TEK_H, iw, ih)
 
         frames = @animate ? probe.animation_cellmaps(dw, dh, 1.0) : nil
@@ -268,7 +268,7 @@ module Crysterm
             in Dither::Ordered
               # Threshold against the tiled 4×4 Bayer matrix. Deterministic per
               # pixel ⇒ identical every frame, so animation doesn't shimmer.
-              on = lum[y][x] > (Image::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 * 255.0
+              on = lum[y][x] > (Media::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 * 255.0
             in Dither::Diffusion
               # Floyd–Steinberg: push the rounding error onto the not-yet-visited
               # neighbours — irregular, photographic stipple on smooth areas.

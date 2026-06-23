@@ -7,7 +7,7 @@ module Crysterm
     # https://github.com/hut/ranger/blob/master/ranger/ext/img_display.py
 
     # Overlay (w3m-img) image element
-    class Image::Overlay < Image::External
+    class Media::Overlay < Media::External
       property stretch = false
       property center = false
       property image : W3MImageDisplay::Image?
@@ -27,6 +27,13 @@ module Crysterm
         @file = nil,
         @stretch = false,
         @center = true,
+        # The shared `Media::Base` contract knobs are accepted (so the `Media`
+        # factory can forward them uniformly) but advisory here: an external
+        # helper does its own scaling (`stretch`/`center`) and can't animate.
+        # See `Media::External`.
+        @fit : Media::Fit = Media::Fit::Stretch,
+        @animate : Bool = false,
+        @speed : Float64 = 1.0,
         **box,
       )
         super **box

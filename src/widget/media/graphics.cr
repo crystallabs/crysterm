@@ -19,29 +19,29 @@ module Crysterm
     # an escape sequence the terminal itself renders into the VT window (sixel,
     # ReGIS), as opposed to:
     #
-    # * `Image::Ansi`/`Image::Glyph`, which turn the image into character cells that
+    # * `Media::Ansi`/`Media::Glyph`, which turn the image into character cells that
     #   Crysterm owns and diffs, or
-    # * `Image::Overlay`, whose pixels are painted by an *external* helper.
+    # * `Media::Overlay`, whose pixels are painted by an *external* helper.
     #
-    # Like `Image::Overlay`, the pixels here are owned by the terminal, not by
+    # Like `Media::Overlay`, the pixels here are owned by the terminal, not by
     # Crysterm's cell buffer, so this class reuses the very same erase/redraw
     # lifecycle: the graphic is (re)painted *after* the screen flushes each
     # frame's cells (`Event::Rendered`), and the cells under the previous
     # position are force-re-emitted when the widget moves or hides
     # (`#invalidate_region`) so the terminal's own text rendering covers the
-    # stale graphic. See `Image::Overlay` for the rationale behind this dance.
+    # stale graphic. See `Media::Overlay` for the rationale behind this dance.
     #
     # Subclasses provide just two things: `#target_pixels` (the pixel resolution
     # to decode/draw at, given the widget's cell box) and `#encode` (turn a
     # decoded `PNGGIF::Bitmap` into the terminal-specific escape payload). This
     # base handles decoding, caching, cursor positioning and the lifecycle.
     # Abstract base for the **in-band terminal-graphics** backends — those that
-    # emit an escape sequence the terminal itself renders as pixels (`Image::Sixel`,
-    # `Image::Regis`, `Image::Kitty`, `Image::Iterm`). The image source and the
-    # render-driven animation framework come from `Image::Base`; this layer adds
+    # emit an escape sequence the terminal itself renders as pixels (`Media::Sixel`,
+    # `Media::Regis`, `Media::Kitty`, `Media::Iterm`). The image source and the
+    # render-driven animation framework come from `Media::Base`; this layer adds
     # the pixel-resolution/encoding machinery and the "screen owns the pixels"
     # erase-on-move lifecycle the cell grid doesn't manage.
-    abstract class Image::Graphics < Image::Base
+    abstract class Media::Graphics < Media::Base
       # Assumed terminal cell size in pixels, used to translate the widget's
       # cell box into a pixel resolution for the graphic. Defaults approximate a
       # typical monospace xterm; override to match your font, or rely on the
@@ -50,7 +50,7 @@ module Crysterm
       property cell_pixel_height : Int32
 
       # Original (undecoded) bytes cache, for backends that transmit the file
-      # as-is (iTerm2). The decoded `@source`/frames live in `Image::Base`.
+      # as-is (iTerm2). The decoded `@source`/frames live in `Media::Base`.
       @raw : Bytes?
 
       # Set once the first paint has checked whether the source is animated.
@@ -84,7 +84,7 @@ module Crysterm
         # 0 = auto-detect from the terminal (falls back to a typical xterm cell).
         @cell_pixel_width = 0,
         @cell_pixel_height = 0,
-        @fit : Image::Fit = Image::Fit::Stretch,
+        @fit : Media::Fit = Media::Fit::Stretch,
         @animate : Bool = true,
         @speed : Float64 = 1.0,
         **box,
@@ -94,7 +94,7 @@ module Crysterm
         # Resolve the cell pixel size: ask the terminal (TIOCGWINSZ) when the
         # caller didn't pin it, falling back to a typical monospace cell.
         if @cell_pixel_width <= 0 || @cell_pixel_height <= 0
-          if cp = Image::Graphics.terminal_cell_pixels(screen?)
+          if cp = Media::Graphics.terminal_cell_pixels(screen?)
             @cell_pixel_width = cp[0] if @cell_pixel_width <= 0
             @cell_pixel_height = cp[1] if @cell_pixel_height <= 0
           end
@@ -102,7 +102,7 @@ module Crysterm
         @cell_pixel_width = 10 if @cell_pixel_width <= 0
         @cell_pixel_height = 20 if @cell_pixel_height <= 0
 
-        # Mirror Image::Overlay: repaint after the *screen* finishes each render
+        # Mirror Media::Overlay: repaint after the *screen* finishes each render
         # (the cells are flushed by then, so the graphic lands on top), and use
         # PreRender to deal with the graphic left at our previous position.
         s = screen
@@ -150,8 +150,30 @@ module Crysterm
       # Turns a decoded *bmp* (`pw` × `ph` pixels) into the terminal escape
       # sequence that draws it. *ox*/*oy* are the widget's pixel origin in the
       # terminal window — sixel ignores them (it draws at the cursor), but ReGIS
-      # addresses absolute window pixels and needs them.
-      abstract def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32) : String
+      # addresses absolute window pixels and needs them. *cols*/*rows* are the
+      # target cell box; a backend that lets the terminal scale the image (Kitty's
+      # `c=`/`r=`) uses them so the transmitted pixel size can be smaller than the
+      # box. Pixel-exact backends (sixel/ReGIS) ignore them.
+      abstract def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
+                          cols : Int32, rows : Int32) : String
+
+      # Native pixel resolution of the current source — the animation frame being
+      # shown (`@src_frames`) or, for a still, the decoded canvas. Used by a
+      # scaling backend to avoid transmitting more pixels than the source has
+      # (which for video would re-upload a full-window frame every tick).
+      protected def source_resolution : Tuple(Int32, Int32)?
+        if (frames = @src_frames) && (f = frames[@anim_index]?)
+          bmp = f[0]
+          h = bmp.size
+          w = h > 0 ? bmp[0].size : 0
+          return {w, h} if w > 0 && h > 0
+        elsif (png = source)
+          cw = png.canvas_width
+          ch = png.canvas_height
+          return {cw, ch} if cw > 0 && ch > 0
+        end
+        nil
+      end
 
       # Loads *file*, dropping the cached source and render so the next draw
       # re-decodes. Sizing itself is lazy (done at draw time for the current box).
@@ -193,7 +215,7 @@ module Crysterm
         file = @file || return nil
         @raw =
           if file =~ /^https?:/
-            Widget::Image::Ansi.fetch file
+            Widget::Media::Ansi.fetch file
           else
             File.read(file).to_slice
           end
@@ -204,13 +226,13 @@ module Crysterm
       # Resamples the source into a *bw*×*bh* pixel bitmap fit per `#fit` (pixels
       # are square, so no aspect correction). This is what makes the backends
       # resize-aware: it re-derives from the cached source for the current box on
-      # every size change. See `Image::Fitting`.
+      # every size change. See `Media::Fitting`.
       protected def fit_bitmap(bw : Int32, bh : Int32) : PNGGIF::Bitmap?
         src = source || return nil
         if (frames = @src_frames) && (f = frames[@anim_index]?)
-          Image::Fitting.compose src, f[0], bw, bh, @fit, 1.0
+          Media::Fitting.compose src, f[0], bw, bh, @fit, 1.0
         else
-          Image::Fitting.compose src, bw, bh, @fit, 1.0
+          Media::Fitting.compose src, bw, bh, @fit, 1.0
         end
       end
 
@@ -222,7 +244,7 @@ module Crysterm
       end
 
       # On the first paint, detect an animated source and start playback. (The
-      # `#play`/`#animate_loop` framework itself lives in `Image::Base`.)
+      # `#play`/`#animate_loop` framework itself lives in `Media::Base`.)
       private def ensure_animation
         return if @anim_checked
         @anim_checked = true
@@ -241,7 +263,7 @@ module Crysterm
         real_h = bmp.size
         real_w = bmp[0]?.try(&.size) || 0
         return nil if real_w == 0 || real_h == 0
-        encode(bmp, real_w, real_h, ox, oy)
+        encode(bmp, real_w, real_h, ox, oy, cols, rows)
       end
 
       # Returns the payload for the given geometry + current frame, building it at
@@ -320,7 +342,7 @@ module Crysterm
       # Before this frame's cells are composited: if we've moved since the last
       # paint, force Crysterm to re-emit the cells of the *previous* region so
       # the terminal's text rendering covers the graphic we left there. (Same
-      # rationale as `Image::Overlay#invalidate_old_position`.)
+      # rationale as `Media::Overlay#invalidate_old_position`.)
       private def invalidate_old_position
         return unless @file && visible?
         last = @last_drawn || return

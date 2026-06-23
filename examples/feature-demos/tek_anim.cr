@@ -20,23 +20,23 @@ s = Screen.new title: "Tek anim"
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",
-  content: "{center}Image::Tek · animated GIF on a Tektronix 4014 · see the separate \"tektronix\" window{/center}",
+  content: "{center}Media::Tek · animated GIF on a Tektronix 4014 · see the separate \"tektronix\" window{/center}",
   parse_tags: true, style: Style.new(fg: "#33ff66", bg: "black")
 
 dither = case ENV["TEK_DITHER"]?
-         when "ordered"   then Widget::Image::Tek::Dither::Ordered
-         when "diffusion" then Widget::Image::Tek::Dither::Diffusion
-         when "none"      then Widget::Image::Tek::Dither::None
-         else                  Widget::Image::Tek::Dither::Auto # -> Ordered for animation
+         when "ordered"   then Widget::Media::Tek::Dither::Ordered
+         when "diffusion" then Widget::Media::Tek::Dither::Diffusion
+         when "none"      then Widget::Media::Tek::Dither::None
+         else                  Widget::Media::Tek::Dither::Auto # -> Ordered for animation
          end
 
 fit = case ENV["TEK_FIT"]?
-      when "stretch" then Widget::Image::Fit::Stretch
-      when "cover"   then Widget::Image::Fit::Cover
-      else                Widget::Image::Fit::Contain
+      when "stretch" then Widget::Media::Fit::Stretch
+      when "cover"   then Widget::Media::Fit::Cover
+      else                Widget::Media::Fit::Contain
       end
 
-Widget::Image::Tek.new \
+Widget::Media::Tek.new \
   parent: s,
   fit: fit,
   speed: (ENV["TEK_SPEED"]? || "1.0").to_f,

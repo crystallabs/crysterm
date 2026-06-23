@@ -4,12 +4,12 @@ module Crysterm
   class Widget
     # Renders an image into terminal cells at *sub-cell* resolution, using the
     # several Unicode glyph families that pack more than one sub-pixel into a
-    # single character. This is parallel to `Image::Ansi` (and, like it, decodes
+    # single character. This is parallel to `Media::Ansi` (and, like it, decodes
     # with the pure-Crystal PNGGIF reader and supports animated GIF/APNG); it
     # differs in that one cell can carry several sub-pixels:
     #
-    #   Block     1x1   one cell per pixel (bg color)          (≈ Image::Ansi)
-    #   Ascii     1x1   luminance glyph + fg                   (≈ Image::Ansi ascii)
+    #   Block     1x1   one cell per pixel (bg color)          (≈ Media::Ansi)
+    #   Ascii     1x1   luminance glyph + fg                   (≈ Media::Ansi ascii)
     #   Half      1x2   `▀` with fg = top pixel, bg = bottom   (full color, 2x res)
     #   Quadrant  2x2   `▘▌▚▙█…` block elements (2 colors)     (4x res)
     #   Sextant   2x3   `🬀…` U+1FB00 sextants (2 colors)        (6x res)
@@ -17,10 +17,10 @@ module Crysterm
     #   Braille   2x4   `⠿` 8 dots, single fg color            (8x res, monochrome/cell)
     #
     # ```
-    # img = Widget::Image::Glyph.new file: "pic.png", mode: :braille, width: 40, height: 12, parent: screen
-    # img.mode = Widget::Image::Glyph::Mode::Octant # re-renders in another family
+    # img = Widget::Media::Glyph.new file: "pic.png", mode: :braille, width: 40, height: 12, parent: screen
+    # img.mode = Widget::Media::Glyph::Mode::Octant # re-renders in another family
     # ```
-    class Image::Glyph < Image::Cells
+    class Media::Glyph < Media::Cells
       enum Mode
         Block
         Ascii
@@ -49,7 +49,7 @@ module Crysterm
       ASCII_EDGE = 28
 
       def initialize(@file = nil, @mode : Mode = Mode::Half, @animate : Bool = true,
-                     @speed : Float64 = 1.0, @fit : Image::Fit = Image::Fit::Stretch, **box)
+                     @speed : Float64 = 1.0, @fit : Media::Fit = Media::Fit::Stretch, **box)
         super(**box)
         @file.try { |f| set_image f }
         on(::Crysterm::Event::Destroy) { stop }
@@ -74,16 +74,16 @@ module Crysterm
       end
 
       def self.fetch(url : String) : Bytes
-        Widget::Image::Ansi.fetch url
+        Widget::Media::Ansi.fetch url
       end
 
       # Sample at the current mode's sub-cell resolution (cells × sub-grid).
       protected def compose(img : PNGGIF::PNG, cols : Int32, rows : Int32, frame : PNGGIF::Bitmap?) : PNGGIF::Bitmap?
         sx, sy = @mode.subgrid
         if frame
-          Image::Fitting.compose(img, frame, cols * sx, rows * sy, @fit, 1.0)
+          Media::Fitting.compose(img, frame, cols * sx, rows * sy, @fit, 1.0)
         else
-          Image::Fitting.compose(img, cols * sx, rows * sy, @fit, 1.0)
+          Media::Fitting.compose(img, cols * sx, rows * sy, @fit, 1.0)
         end
       end
 

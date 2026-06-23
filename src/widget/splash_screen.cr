@@ -6,7 +6,7 @@ module Crysterm
     #
     # Shows a centered (by default) frame while an app initializes, optionally
     # holding an animated `#content` widget (e.g. an `Effect`, `Gradient`,
-    # `Marquee`, `Image`, or `Loading` spinner — they animate themselves off the
+    # `Marquee`, `Media`, or `Loading` spinner — they animate themselves off the
     # usual `Timer`/`animate:` machinery) and a bottom status line updated with
     # `#show_message`. Dismiss it with `#finish` (or `#finish_after`), revealing
     # the UI behind it; `#finish` emits `Event::Complete`.

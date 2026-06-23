@@ -1,24 +1,24 @@
-require "../image"
+require "../media"
 require "../box"
 
 module Crysterm
   class Widget
     # Raised by an image backend asked for a feature it can't provide, when the
-    # `image.unsupported` config option is `"error"` (see `Image::Base#unsupported`).
-    class Image::UnsupportedError < Exception
+    # `image.unsupported` config option is `"error"` (see `Media::Base#unsupported`).
+    class Media::UnsupportedError < Exception
     end
 
-    # Common abstract base for every `Widget::Image` backend. It formalizes the
+    # Common abstract base for every `Widget::Media` backend. It formalizes the
     # backend *contract* (image source, fit, animation) so all backends behave
-    # the same way and the factory (`Widget::Image.new`) can return one type
-    # (`Image::Base`) instead of a union.
+    # the same way and the factory (`Widget::Media.new`) can return one type
+    # (`Media::Base`) instead of a union.
     #
     # Families specialize it further:
     #
-    # * `Image::Cells` — the image becomes character cells Crysterm owns (`Ansi`, `Glyph`).
-    # * `Image::External` — an external helper paints the pixels (`Overlay`, `Ueberzug`).
-    # * `Image::Graphics` — the terminal renders in-band escapes (`Sixel`, `Regis`, `Kitty`, `Iterm`).
-    # * `Image::Tek` — a separate Tektronix window.
+    # * `Media::Cells` — the image becomes character cells Crysterm owns (`Ansi`, `Glyph`).
+    # * `Media::External` — an external helper paints the pixels (`Overlay`, `Ueberzug`).
+    # * `Media::Graphics` — the terminal renders in-band escapes (`Sixel`, `Regis`, `Kitty`, `Iterm`).
+    # * `Media::Tek` — a separate Tektronix window.
     #
     # Animation is **render-driven** here: `#play` composites the source frames
     # once (in a fiber) and a loop advances `#anim_index` + calls `request_render`
@@ -26,12 +26,12 @@ module Crysterm
     # `#render`. Backends whose terminal animates for them (iTerm2) or which can't
     # animate at all (the external/static ones) opt out — the latter route
     # `#play`/`#pause`/`#stop` through `#unsupported`.
-    abstract class Image::Base < Box
+    abstract class Media::Base < Box
       # Path (or `http(s)` URL) of the loaded image.
       property file : String? = nil
 
-      # How a still image is fit into a box whose aspect differs (see `Image::Fit`).
-      property fit : Image::Fit = Image::Fit::Stretch
+      # How a still image is fit into a box whose aspect differs (see `Media::Fit`).
+      property fit : Media::Fit = Media::Fit::Stretch
 
       # Playback speed multiplier for animations (1.0 = native speed).
       property speed : Float64 = 1.0
@@ -40,7 +40,7 @@ module Crysterm
       property? animate : Bool = true
 
       # The image decoded once at native resolution (the resolution-independent
-      # source), via the process-wide `Image.decode` cache.
+      # source), via the process-wide `Media.decode` cache.
       @source : PNGGIF::PNG? = nil
 
       # Composited animation source frames (`{bitmap, delay_ms}`), built once.
@@ -77,7 +77,7 @@ module Crysterm
           return s
         end
         file = @file || return nil
-        @source = Image.decode file
+        @source = Media.decode file
       end
 
       # Whether the composited source frames have been built yet (the heavy
@@ -101,7 +101,7 @@ module Crysterm
         else
           spawn do
             Fiber.yield # let the current layout paint before the heavy build
-            sw, sh = Image::Fitting.source_size png
+            sw, sh = Media::Fitting.source_size png
             frames = @src_frames = png.animation_cellmaps(sw, sh, 1.0)
             if frames && !frames.empty? && @playing
               animate_loop
@@ -154,8 +154,8 @@ module Crysterm
       # `image.unsupported` config option: `"error"` raises `UnsupportedError`,
       # anything else ignores it (the backend does what it can).
       protected def unsupported(feature : String) : Nil
-        if Crysterm::Config.image_unsupported == "error"
-          raise Image::UnsupportedError.new("#{self.class.name}: #{feature} is not supported by this image backend")
+        if Crysterm::Config.media_unsupported == "error"
+          raise Media::UnsupportedError.new("#{self.class.name}: #{feature} is not supported by this image backend")
         end
       end
     end

@@ -1,4 +1,4 @@
-require "../image"
+require "../media"
 
 module Crysterm
   class Widget
@@ -8,13 +8,13 @@ module Crysterm
     # `bmp` is the full-res bitmap) and derive a box-sized render from it on
     # demand, so a resize re-samples rather than re-decoding the file.
     #
-    # `compose` resamples the source into a `bw`×`bh` bitmap, fit per `Image::Fit`,
+    # `compose` resamples the source into a `bw`×`bh` bitmap, fit per `Media::Fit`,
     # leaving any letterbox margin fully transparent (`a == 0`) so the backends
     # can skip/keep it. *aspect_mul* corrects for non-square output cells: pixel
-    # backends pass `1.0`; `Image::Ansi` passes its `cell_aspect` (a cell is ~2×
-    # taller than wide); `Image::Glyph` passes `1.0` because its sub-grid already
+    # backends pass `1.0`; `Media::Ansi` passes its `cell_aspect` (a cell is ~2×
+    # taller than wide); `Media::Glyph` passes `1.0` because its sub-grid already
     # makes sub-pixels square.
-    module Image::Fitting
+    module Media::Fitting
       TRANSPARENT = PNGGIF::Pixel.new(0, 0, 0, 0)
 
       # Cap (long edge, px) for the composited *animation* source frames. A
@@ -36,7 +36,7 @@ module Crysterm
 
       # Convenience: fit a PNG's own (still) bitmap.
       def self.compose(src : PNGGIF::PNG, bw : Int32, bh : Int32,
-                       fit : Image::Fit, aspect_mul : Float64 = 1.0) : PNGGIF::Bitmap?
+                       fit : Media::Fit, aspect_mul : Float64 = 1.0) : PNGGIF::Bitmap?
         compose src, src.bmp, bw, bh, fit, aspect_mul
       end
 
@@ -44,7 +44,7 @@ module Crysterm
       # frame) into a *bw*×*bh* box, resampling via *png*'s nearest-neighbour
       # `create_cellmap`. Letterbox margins are left fully transparent.
       def self.compose(png : PNGGIF::PNG, src_bmp : PNGGIF::Bitmap, bw : Int32, bh : Int32,
-                       fit : Image::Fit, aspect_mul : Float64 = 1.0) : PNGGIF::Bitmap?
+                       fit : Media::Fit, aspect_mul : Float64 = 1.0) : PNGGIF::Bitmap?
         return nil if bw <= 0 || bh <= 0
         sh = src_bmp.size
         sw = sh > 0 ? src_bmp[0].size : 0

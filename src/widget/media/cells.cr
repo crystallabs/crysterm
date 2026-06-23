@@ -3,15 +3,15 @@ require "./base"
 module Crysterm
   class Widget
     # Abstract base for the **cell-grid** image backends — those that turn the
-    # image into character cells Crysterm owns and diffs (`Image::Ansi`, one cell
-    # per pixel; `Image::Glyph`, sub-cell Unicode glyphs).
+    # image into character cells Crysterm owns and diffs (`Media::Ansi`, one cell
+    # per pixel; `Media::Glyph`, sub-cell Unicode glyphs).
     #
-    # It hoists everything those two share: decoding (via `Image::Base#source`),
+    # It hoists everything those two share: decoding (via `Media::Base#source`),
     # the load/animation wiring, and the resize-aware `#render` skeleton — sample
     # the source (or the current animation frame) to the content box, cache it per
     # size, and iterate the cells. Subclasses provide only the sampling resolution
     # (`#compose`) and the per-cell painting (`#draw_sample`).
-    abstract class Image::Cells < Image::Base
+    abstract class Media::Cells < Media::Base
       # Whether the loaded image is animated (its frames drive the sampled bitmap).
       @animated = false
       # Per-frame sampled bitmaps for the *current* box size, filled lazily and
@@ -37,7 +37,7 @@ module Crysterm
         set_content ""
         png = source
         unless png
-          set_content "Image Error: could not load #{file}"
+          set_content "Media Error: could not load #{file}"
           @animated = false
           return
         end
@@ -56,14 +56,14 @@ module Crysterm
         @sample = nil
       end
 
-      # Hook: called after a successful decode (e.g. `Image::Ansi` sizes the widget
+      # Hook: called after a successful decode (e.g. `Media::Ansi` sizes the widget
       # to the image when no explicit size was given). Default does nothing.
       protected def on_loaded(png : PNGGIF::PNG)
       end
 
       # Samples *img* into a bitmap for a *cols*×*rows* content box. *frame* is the
       # source frame to sample for animation, or `nil` for a still. Subclasses pick
-      # the resolution (e.g. ×sub-grid) and cell aspect; see `Image::Fitting`.
+      # the resolution (e.g. ×sub-grid) and cell aspect; see `Media::Fitting`.
       protected abstract def compose(img : PNGGIF::PNG, cols : Int32, rows : Int32,
                                      frame : PNGGIF::Bitmap?) : PNGGIF::Bitmap?
 

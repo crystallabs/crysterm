@@ -779,7 +779,7 @@ module Crysterm
     # `#draw` diffs `@lines` (this frame) against `@olines` (what is on the
     # terminal) and skips cells that did not change. That is normally what we
     # want, but a widget drawing *outside* the cell model — e.g. a
-    # `Widget::Image::Overlay`, whose w3m image is an overlay painted on top of the
+    # `Widget::Media::Overlay`, whose w3m image is an overlay painted on top of the
     # terminal — needs the cells underneath a stale overlay to be physically
     # re-emitted so the terminal redraws text over it. Poisoning `@olines` here
     # makes the diff treat those cells as changed.

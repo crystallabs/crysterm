@@ -73,10 +73,21 @@ module Superconf
     validate: ->(c : Int32) { 0 <= c <= 0xFFFFFF }
 
   # -- Images ----------------------------------------------------------------
-  option "image.backend", "ansi",
-    description: "Default Widget::Image backend (auto|ansi|glyph|overlay|sixel|regis|kitty|tek); 'auto' detects from the terminal"
-  option "image.unsupported", "ignore",
-    description: "What a Widget::Image backend does when asked for a feature it can't do (error|ignore)"
+  option "media.backend", "auto",
+    description: "Default Widget::Media backend (auto|ansi|glyph|overlay|sixel|regis|kitty|tek); 'auto' picks the best one the terminal supports"
+  option "media.unsupported", "ignore",
+    description: "What a Widget::Media backend does when asked for a feature it can't do (error|ignore)"
+  option "media.exclude", "",
+    description: "Backends excluded from automatic selection (comma/space separated: kitty,iterm,sixel,glyph,ansi,…); the 'best' is then chosen from the rest"
+  option "video.fps", 15.0,
+    description: "Maximum frame rate Widget::Video samples a video at",
+    validate: ->(f : Float64) { f > 0 }
+  option "video.max_size", 240,
+    description: "Long-edge pixel size Widget::Video decodes video frames at (terminal boxes are small; smaller = faster, less memory)",
+    validate: ->(n : Int32) { n > 0 }
+  option "video.max_frames", 600,
+    description: "Safety cap on frames Widget::Video decodes eagerly into memory (Tier-1 decoder); longer videos are truncated to this many frames",
+    validate: ->(n : Int32) { n > 0 }
 
   # -- Widget defaults -------------------------------------------------------
   option "message.display_time", 3.seconds,

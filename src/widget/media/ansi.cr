@@ -6,8 +6,8 @@ module Crysterm
     # Renders a PNG / APNG / GIF image as colored terminal cells, ported from
     # Blessed's `ansiimage` element.
     #
-    # Unlike `Widget::Image::Overlay` (which paints a true-color image *over* the
-    # terminal via the external `w3mimgdisplay` helper), `Image::Ansi` decodes the
+    # Unlike `Widget::Media::Overlay` (which paints a true-color image *over* the
+    # terminal via the external `w3mimgdisplay` helper), `Media::Ansi` decodes the
     # image itself — using the pure-Crystal `PNGGIF::PNG` reader — and draws it
     # into the normal cell grid. Each pixel of the downscaled image becomes one
     # cell whose background is that pixel's color, so the result is portable to
@@ -17,13 +17,13 @@ module Crysterm
     # there is no 256-color palette-matching step as in Blessed.
     #
     # ```
-    # img = Widget::Image::Ansi.new file: "picture.png", width: 30, parent: screen
+    # img = Widget::Media::Ansi.new file: "picture.png", width: 30, parent: screen
     # ```
     #
     # Animated images (APNG, animated GIF) play automatically unless `animate:
     # false` is passed; `#play`, `#pause` and `#stop` control playback (the
-    # animation framework is shared, in `Image::Base`).
-    class Image::Ansi < Image::Cells
+    # animation framework is shared, in `Media::Base`).
+    class Media::Ansi < Media::Cells
       # Color depth the image is rendered in. Crysterm is natively TrueColor and
       # only reduces colors at output time when the terminal can't do 24-bit; the
       # non-`TrueColor` modes here additionally *quantize the pixels themselves*
@@ -59,7 +59,7 @@ module Crysterm
         @speed : Float64 = 1.0,
         @cell_aspect : Float64 = 2.0,
         @colors : ColorMode = ColorMode::TrueColor,
-        @fit : Image::Fit = Image::Fit::Stretch,
+        @fit : Media::Fit = Media::Fit::Stretch,
         **box,
       )
         # Blessed sets `options.shrink = true`; the Crysterm equivalent is
@@ -93,9 +93,9 @@ module Crysterm
       # correction so the image isn't vertically squashed on tall cells.
       protected def compose(img : PNGGIF::PNG, cols : Int32, rows : Int32, frame : PNGGIF::Bitmap?) : PNGGIF::Bitmap?
         if frame
-          Image::Fitting.compose(img, frame, cols, rows, @fit, @cell_aspect)
+          Media::Fitting.compose(img, frame, cols, rows, @fit, @cell_aspect)
         else
-          Image::Fitting.compose(img, cols, rows, @fit, @cell_aspect)
+          Media::Fitting.compose(img, cols, rows, @fit, @cell_aspect)
         end
       end
 

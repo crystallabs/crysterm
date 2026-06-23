@@ -6,7 +6,7 @@ module Crysterm
     # commands that a ReGIS-capable terminal (xterm built with
     # `--enable-regis-graphics`, or a real VT240/VT330/VT340) draws into the VT
     # window. Like sixel the pixels are owned by the terminal, so this inherits
-    # `Image::Graphics`'s screen-owns-pixels erase/redraw lifecycle.
+    # `Media::Graphics`'s screen-owns-pixels erase/redraw lifecycle.
     #
     # ReGIS is a *vector* format with no native raster blit, so a photo is drawn
     # the only faithful way: quantized to ReGIS's small set of built-in named
@@ -16,9 +16,9 @@ module Crysterm
     # (not the text cursor), so the widget's pixel origin is honored.
     #
     # ```
-    # img = Widget::Image::Regis.new file: "pic.png", width: 48, height: 14, parent: screen
+    # img = Widget::Media::Regis.new file: "pic.png", width: 48, height: 14, parent: screen
     # ```
-    class Image::Regis < Image::Graphics
+    class Media::Regis < Media::Graphics
       # ReGIS built-in named colors and their approximate RGB, used for
       # nearest-color quantization. Letter order defines the palette index.
       LETTERS = "DRGBCMYW"
@@ -91,7 +91,8 @@ module Crysterm
         {ox, oy}
       end
 
-      def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32) : String
+      def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
+                 cols : Int32, rows : Int32) : String
         idx = quantize bmp, pw, ph
 
         io = String::Builder.new
@@ -143,7 +144,7 @@ module Crysterm
             end
             r = px.r; g = px.g; b = px.b
             if dither?
-              t = ((Image::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 - 0.5) * 110.0
+              t = ((Media::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 - 0.5) * 110.0
               r = clamp8 (r + t).to_i
               g = clamp8 (g + t).to_i
               b = clamp8 (b + t).to_i

@@ -38,21 +38,33 @@ describe "Crysterm config integration" do
 
   it "resolves image.backend, including 'auto' detection" do
     # Explicit backend is used as-is.
-    Crysterm::Config.set "image.backend", "kitty"
-    Crysterm::Widget::Image.default_type.should eq Crysterm::Widget::Image::Type::Kitty
+    Crysterm::Config.set "media.backend", "kitty"
+    Crysterm::Widget::Media.default_type.should eq Crysterm::Widget::Media::Type::Kitty
 
-    # 'auto' picks Kitty under Kitty...
-    Crysterm::Config.set "image.backend", "auto"
-    saved = ENV["KITTY_WINDOW_ID"]?
-    ENV["KITTY_WINDOW_ID"] = "1"
-    Crysterm::Widget::Image.default_type.should eq Crysterm::Widget::Image::Type::Kitty
+    # 'auto' resolves the best backend against the terminal (a constructed Tput,
+    # so the test is independent of the host terminal and any global screen).
+    Crysterm::Config.set "media.backend", "auto"
+    ti = (Unibilium.from_env rescue Unibilium.from_terminal("xterm"))
+    tput = Tput.new(terminfo: ti, input: STDIN, output: STDOUT)
 
-    # ...and falls back to Ansi with no kitty/iTerm signal in the environment.
-    ENV.delete "KITTY_WINDOW_ID"
-    Crysterm::Widget::Image.detect_backend.should eq Crysterm::Widget::Image::Type::Ansi
+    # Picks Kitty when the terminal speaks the kitty graphics protocol...
+    tput.emulator.kitty = true
+    Crysterm::Widget::Media.resolve(Crysterm::Widget::Media::Content::Image, tput)
+      .should eq Crysterm::Widget::Media::Type::Kitty
+
+    # ...the user 'umask' (image.exclude) removes it, so the next-best wins...
+    Crysterm::Config.set "media.exclude", "kitty,sixel"
+    Crysterm::Widget::Media.resolve(Crysterm::Widget::Media::Content::Image, tput)
+      .should_not eq Crysterm::Widget::Media::Type::Kitty
+    Crysterm::Config.set "media.exclude", ""
+
+    # ...and with no graphics protocol it falls back to a cell backend.
+    tput.emulator.kitty = false
+    fallback = Crysterm::Widget::Media.resolve(Crysterm::Widget::Media::Content::Image, tput)
+    [Crysterm::Widget::Media::Type::Glyph, Crysterm::Widget::Media::Type::Ansi].should contain fallback
   ensure
-    saved ? (ENV["KITTY_WINDOW_ID"] = saved) : ENV.delete("KITTY_WINDOW_ID")
-    Crysterm::Config.set "image.backend", "ansi" # restore (Runtime)
+    Crysterm::Config.set "media.exclude", ""
+    Crysterm::Config.set "media.backend", "auto" # restore (Runtime default)
   end
 
   it "validates and tracks source through the alias" do
