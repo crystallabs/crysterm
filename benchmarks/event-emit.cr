@@ -12,7 +12,7 @@ require "../src/crysterm"
 
 include Crysterm
 
-WIDGETS = 200
+WIDGETS =  200
 FRAMES  = 2000
 
 screen = Screen.new(

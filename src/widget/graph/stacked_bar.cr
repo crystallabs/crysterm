@@ -185,10 +185,10 @@ module Crysterm
           end
 
           plot_rows.times do |r|
-            below = plot_rows - 1 - r       # whole cells beneath this one
+            below = plot_rows - 1 - r # whole cells beneath this one
             glyph = Scale.vglyph(total, below)
-            next if glyph == ' '            # cell above the fill
-            edge = below * 8                # this cell's bottom edge, in eighths
+            next if glyph == ' ' # cell above the fill
+            edge = below * 8     # this cell's bottom edge, in eighths
             color = nil.as(String?)
             bottom = 0
             bar.size.times do |level|
