@@ -88,6 +88,8 @@ module Superconf
   option "video.max_frames", 600,
     description: "Safety cap on frames Widget::Video decodes eagerly into memory (Tier-1 decoder); longer videos are truncated to this many frames",
     validate: ->(n : Int32) { n > 0 }
+  option "media.double_buffer", true,
+    description: "Present each animation frame atomically on in-band graphics backends (sixel/regis/kitty/iterm) via synchronized output; Kitty additionally swaps alternating image ids — eliminates tearing and the mid-update blank/flash"
 
   # -- Widget defaults -------------------------------------------------------
   option "message.display_time", 3.seconds,
