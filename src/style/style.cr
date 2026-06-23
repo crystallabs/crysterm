@@ -74,6 +74,24 @@ module Crysterm
     # plane's opacity. `nil` = the base layer (the ordinary painter's path).
     property z_index : Int32?
 
+    # CSS `transition`: animatable property name -> `{duration, easing}`. When an
+    # animated property's value changes (e.g. on a `:hover`/`:focus` state change)
+    # the new value is tweened in over its duration rather than snapping. Set by
+    # the CSS layer; consumed generically by `Widget#apply_style_transitions`.
+    property transitions : Hash(String, Tuple(Time::Span, Animation::Easing))?
+
+    # A CSS `animation` binding: which `@keyframes` to play and how. `nil` = none.
+    record AnimationSpec,
+      name : String,
+      duration : Time::Span,
+      easing : Animation::Easing = Animation::Easing::Linear,
+      iterations : Int32? = nil, # nil = infinite
+      alternate : Bool = false   # ping-pong direction each cycle
+
+    # CSS `animation`: a named `@keyframes` sequence to loop. Set by the CSS layer;
+    # driven generically by `Widget#ensure_css_animation`.
+    property animation : AnimationSpec?
+
     # Tracks which text-attribute booleans were *explicitly* set (vs left at
     # their default), so the CSS cascade can tell "set to false" from "unset" —
     # needed for inline-style folding and inheritance. Colors and `alpha` carry
@@ -83,12 +101,14 @@ module Crysterm
     # Whether *property* was explicitly set on this style.
     def specified?(property : Symbol) : Bool
       case property
-      when :fg      then !@fg.nil?
-      when :bg      then !@bg.nil?
-      when :alpha   then !@alpha.nil?
-      when :tint    then !@tint.nil?
-      when :z_index then !@z_index.nil?
-      else               @specified.includes?(property)
+      when :fg         then !@fg.nil?
+      when :bg         then !@bg.nil?
+      when :alpha      then !@alpha.nil?
+      when :tint       then !@tint.nil?
+      when :z_index    then !@z_index.nil?
+      when :transition then !@transitions.nil?
+      when :animation  then !@animation.nil?
+      else                  @specified.includes?(property)
       end
     end
 

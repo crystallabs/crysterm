@@ -57,6 +57,10 @@ module Crysterm
           parse_tint(style, value)
         when "z-index"
           style.z_index = (value.strip == "auto" ? nil : value.to_i?)
+        when "transition"
+          style.transitions = parse_transition(value)
+        when "animation"
+          style.animation = parse_animation(value)
         when "padding"
           style.padding = parse_padding(value)
         when "padding-left"
@@ -81,8 +85,8 @@ module Crysterm
       KNOWN = Set{
         "color", "background-color", "background", "font", "font-weight",
         "font-style", "text-decoration", "visibility", "display", "opacity",
-        "tab-size", "box-shadow", "tint", "z-index", "padding", "padding-left", "padding-top",
-        "padding-right", "padding-bottom",
+        "tab-size", "box-shadow", "tint", "z-index", "transition", "animation",
+        "padding", "padding-left", "padding-top", "padding-right", "padding-bottom",
       }
 
       # Extracts a color from a `background` shorthand: the first token that
@@ -126,6 +130,74 @@ module Crysterm
         color.try do |c|
           style.tint = c
           alpha.try { |a| style.tint_alpha = a }
+        end
+      end
+
+      # Parses a `transition`: comma-separated `<property> <duration> [easing]`
+      # entries, e.g. `opacity 0.3s ease-in-out, background-color 200ms`. Yields a
+      # map of property name -> `{duration, easing}`; `none` clears it. Unknown
+      # easings fall back to a gentle in/out sine.
+      private def self.parse_transition(value : String) : Hash(String, Tuple(Time::Span, Animation::Easing))?
+        return nil if value.strip == "none" || value.strip.empty?
+        out = {} of String => Tuple(Time::Span, Animation::Easing)
+        value.split(',').each do |entry|
+          toks = entry.split
+          next if toks.empty?
+          dur = (toks[1]?.try { |t| parse_time(t) }) || 0.3.seconds
+          easing = toks[2]?.try { |e| css_easing(e) } || Animation::Easing::InOutSine
+          out[toks[0]] = {dur, easing}
+        end
+        out.empty? ? nil : out
+      end
+
+      # Parses `animation: <name> <duration> [easing] [<count>|infinite] [alternate]`,
+      # e.g. `pulse 2s ease-in-out infinite alternate`. Order after name/duration
+      # is flexible. `none`/empty clears it.
+      private def self.parse_animation(value : String) : Style::AnimationSpec?
+        toks = value.split
+        return nil if toks.empty? || toks[0] == "none"
+        name = toks[0]
+        dur = 1.seconds
+        easing = Animation::Easing::Linear
+        iterations : Int32? = 1
+        alternate = false
+        toks[1..].each do |t|
+          # A unit-suffixed token is the duration; a bare integer is the
+          # iteration count (so `... 0.15s ... 1` doesn't read "1" as seconds).
+          if (t.ends_with?("ms") || t.ends_with?("s")) && (span = parse_time(t))
+            dur = span
+          elsif t == "infinite"
+            iterations = nil
+          elsif t == "alternate"
+            alternate = true
+          elsif (n = t.to_i?)
+            iterations = n
+          else
+            easing = css_easing(t)
+          end
+        end
+        Style::AnimationSpec.new(name, dur, easing, iterations, alternate)
+      end
+
+      # `0.3s` / `200ms` / bare seconds -> `Time::Span`.
+      private def self.parse_time(s : String) : Time::Span?
+        if s.ends_with? "ms"
+          s[0...-2].to_f?.try &.milliseconds
+        elsif s.ends_with? "s"
+          s[0...-1].to_f?.try &.seconds
+        else
+          s.to_f?.try &.seconds
+        end
+      end
+
+      # Maps a CSS timing-function keyword to an `Animation::Easing`.
+      private def self.css_easing(name : String) : Animation::Easing
+        case name
+        when "linear"              then Animation::Easing::Linear
+        when "ease-in"             then Animation::Easing::InQuad
+        when "ease-out"            then Animation::Easing::OutQuad
+        when "ease", "ease-in-out" then Animation::Easing::InOutSine
+        else                            Animation::Easing::InOutSine
         end
       end
 

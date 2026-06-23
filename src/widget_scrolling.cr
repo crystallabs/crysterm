@@ -4,10 +4,33 @@ module Crysterm
     property? scrollable = false
 
     # Whether the widget position is fixed even in presence of scroll?
-    # (Primary use in widget labels, which are always e.g. on top-left)
-    private property? fixed = false
+    # (Primary use in widget labels, which are always e.g. on top-left, and the
+    # scrollbar widget, which must not scroll away with the content it tracks.)
+    property? fixed = false
 
     property? scrollbar : Bool = false
+
+    # The `Widget::ScrollBar` child rendering this widget's scrollbar, created
+    # lazily by `#ensure_scrollbar_widget` when `#scrollbar?` is enabled.
+    @scrollbar_widget : ScrollBar?
+
+    # When `#scrollbar?` is enabled, lazily create a real `Widget::ScrollBar`
+    # child — `fixed` (exempt from this widget's scroll), pinned to the right
+    # interior edge, and `#attach`ed so it reflects/drives the scroll position.
+    # It then renders and handles interaction like any widget (and is styleable
+    # via CSS, e.g. `ScrollBar { color: … }` / `.scrollbar { … }`). Idempotent.
+    protected def ensure_scrollbar_widget : Nil
+      sb = @scrollbar_widget
+      if sb.nil?
+        sb = ScrollBar.new parent: self, orientation: :vertical,
+          top: 0, right: 0, width: 1, height: "100%"
+        sb.fixed = true
+        sb.add_css_class "scrollbar"
+        sb.attach self
+        @scrollbar_widget = sb
+      end
+      sb.sync_from_target
+    end
 
     # Should widget indicate the scroll position?
     property? track : Bool = false

@@ -102,13 +102,18 @@ module Crysterm
       # problems (e.g. `screen.css_stylesheet.try &.warnings`).
       getter warnings : Array(String)
 
+      # Parsed `@keyframes`: animation name -> ordered stops `[{offset 0..1,
+      # declarations}]`. Consumed by `Widget`'s CSS-animation driver.
+      getter keyframes : Hash(String, Array(Tuple(Float64, Hash(String, String))))
+
       # Whether any rule depends on a widget's *state* via an ancestor-state
       # pseudo-class (e.g. `Form:focus Button`), lowered to a `.state-*` class.
       # Such rules must be re-evaluated when states change, so the cascade is
       # invalidated on state transitions only when this is set.
       @dynamic_state : Bool = false
 
-      def initialize(@rules = [] of Rule, @variables = {} of String => String, @warnings = [] of String)
+      def initialize(@rules = [] of Rule, @variables = {} of String => String, @warnings = [] of String,
+                     @keyframes = {} of String => Array(Tuple(Float64, Hash(String, String))))
         @dynamic_state = @rules.any?(&.selector.includes?(".state-"))
       end
 
@@ -149,6 +154,7 @@ module Crysterm
         getter variables = {} of String => String
         getter warnings = [] of String
         getter layers = {} of String => Int32
+        getter keyframes = {} of String => Array(Tuple(Float64, Hash(String, String)))
         property order = 0
         getter base_path : String?
 
@@ -171,7 +177,7 @@ module Crysterm
       def self.parse(css : String, base_path : String? = nil) : Stylesheet
         ctx = ParseCtx.new(base_path)
         parse_scope(decommented(css), [] of String, nil, UNLAYERED, ctx)
-        new ctx.rules, ctx.variables, ctx.warnings
+        new ctx.rules, ctx.variables, ctx.warnings, ctx.keyframes
       end
 
       # Parses a sequence of constructs within one scope. *parents* are the
@@ -247,13 +253,58 @@ module Crysterm
       # A `{ ... }` block: `@media`, `@layer <name>`, or a style rule (which may
       # itself nest further rules).
       private def self.handle_block(prelude : String, body : String, parents : Array(String), media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
-        if prelude.starts_with?("@media")
+        if prelude.starts_with?("@keyframes")
+          parse_keyframes prelude[10..].strip, body, ctx
+        elsif prelude.starts_with?("@media")
           parse_scope body, parents, MediaQuery.parse(prelude[6..].strip), layer_rank, ctx
         elsif prelude.starts_with?("@layer")
           name = prelude[6..].strip
           parse_scope body, parents, media, (name.empty? ? layer_rank : ctx.layer_rank(name)), ctx
         else
           parse_scope body, combine_selectors(parents, prelude), media, layer_rank, ctx
+        end
+      end
+
+      # Parses an `@keyframes name { 0% { … } 50%,75% { … } to { … } }` block into
+      # ordered stops (`from`=0%, `to`=100%), registered under *name*. Each stop's
+      # declarations are kept raw and resolved by the animation driver.
+      private def self.parse_keyframes(name : String, body : String, ctx : ParseCtx) : Nil
+        return if name.empty?
+        stops = [] of Tuple(Float64, Hash(String, String))
+        pos = 0
+        n = body.size
+        while pos < n
+          pos = skip_ws(body, pos)
+          break if pos >= n
+          start = pos
+          while pos < n && body[pos] != '{'
+            pos += 1
+          end
+          break if pos >= n
+          selector = body[start...pos].strip
+          close = matching_brace(body, pos)
+          decl_text = close ? body[(pos + 1)...close] : body[(pos + 1)..]
+          pos = close ? close + 1 : n
+          decls = {} of String => String
+          ignore = {} of String => String
+          decl_text.split(';').each do |d|
+            d = d.strip
+            parse_declaration(d, decls, ignore, ctx) unless d.empty?
+          end
+          selector.split(',').each do |off|
+            keyframe_offset(off.strip).try { |o| stops << {o, decls} }
+          end
+        end
+        ctx.keyframes[name] = stops.sort_by!(&.[0]) unless stops.empty?
+      end
+
+      # `from`=0, `to`=1, `NN%`=NN/100.
+      private def self.keyframe_offset(s : String) : Float64?
+        case s
+        when "from" then 0.0
+        when "to"   then 1.0
+        else
+          s.ends_with?('%') ? s[0...-1].to_f?.try(&./(100.0)) : nil
         end
       end
 

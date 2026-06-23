@@ -193,6 +193,12 @@ module Crysterm
       CSS.default_stylesheet.dynamic_state?
     end
 
+    # Looks up parsed `@keyframes` *name* — the author stylesheet first, then the
+    # default (theme) stylesheet. Used by the widget CSS-animation driver.
+    def css_keyframes(name : String) : Array(Tuple(Float64, Hash(String, String)))?
+      @css_stylesheet.try(&.keyframes[name]?) || CSS.default_stylesheet.keyframes[name]?
+    end
+
     # Runs the cascade immediately against the current tree. Skips entirely when
     # the CSS document is byte-identical to the last run, and otherwise
     # recomputes only the dirty subtrees (or the whole tree when a full

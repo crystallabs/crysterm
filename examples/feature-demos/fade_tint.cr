@@ -11,11 +11,11 @@
 #   • tint — hue cycle: a color overlay whose hue sweeps the rainbow (style.tint)
 #   • tint — pulse:     a fixed-color overlay whose strength pulses (Widget#tint_to)
 #
-# Below them, a static row shows the four per-cell `Attr::Alpha` compositing
-# modes (Opaque / Blend / Transparent / HighContrast) via `Colors.composite`,
-# and a `z-index` overlay demonstrates the plane compositor — the panels animate
-# *through* a translucent layer that paints opaquely (only a compositor can do
-# this; the flat painter's algorithm cannot).
+# Below them: a static row of the four per-cell `Attr::Alpha` compositing modes
+# (Opaque / Blend / Transparent / HighContrast) via `Colors.composite`; a
+# `z-index` overlay demonstrating the plane compositor (panels animate *through*
+# a translucent layer that paints opaquely); and a row showing declarative CSS
+# `transition` (auto-toggled :hover) and `@keyframes` animation.
 #
 # Set DEMO_SECONDS=N to auto-exit (for recording); otherwise press q / Ctrl-C.
 
@@ -101,14 +101,35 @@ end
 # paints opaquely, the live panels animate *through* it. The flat painter's
 # algorithm can't do this for an opaque widget; only a real compositor can.
 # Driven entirely from CSS — `z-index` is what makes a widget a layer.
-s.stylesheet = ".xray { background-color: #eaf2ff; color: #0c1830; border: solid; z-index: 50; opacity: 0.30; }"
+s.stylesheet = <<-CSS
+  .xray { background-color: #eaf2ff; color: #0c1830; border: solid; z-index: 50; opacity: 0.30; }
+  /* 7a. CSS transition — auto-toggled :hover state animates the color. */
+  .hov { background-color: #203050; color: white; border: solid; transition: background-color 0.5s ease-in-out; }
+  .hov:hover { background-color: #d04060; }
+  /* 7b. CSS @keyframes animation — declarative, looping. */
+  @keyframes breathe { from { opacity: 0.35; } to { opacity: 1.0; } }
+  .kf { background-color: #2a4030; color: white; border: solid; animation: breathe 1.4s ease-in-out infinite alternate; }
+  CSS
 Widget::Box.new(
   parent: s, top: 4, left: 21, width: 40, height: 5,
   content: "{center}\n\nz-index overlay — panels animate through this translucent plane{/center}",
   parse_tags: true).add_css_class "xray"
 
+# 7. Declarative CSS animation. Left box: a `transition` triggered by toggling
+# its :hover state on a timer (watch the color ease). Right box: a looping
+# `@keyframes` opacity animation (no triggering needed).
+hov = Widget::Box.new parent: s, top: 15, left: 2, width: 36, height: 3,
+  content: "{center}\ncss transition (auto :hover){/center}", parse_tags: true
+hov.add_css_class "hov"
+s.every(1.0.seconds) do
+  hov.state = hov.state.hovered? ? Crysterm::WidgetState::Normal : Crysterm::WidgetState::Hovered
+end
+
+Widget::Box.new(parent: s, top: 15, left: 40, width: 38, height: 3,
+  content: "{center}\ncss @keyframes (looping)){/center}", parse_tags: true).add_css_class "kf"
+
 Widget::Box.new \
-  parent: s, top: 15, left: 0, width: "100%", height: 1,
+  parent: s, top: 19, left: 0, width: "100%", height: 1,
   content: "{center}press q or Ctrl-C to quit{/center}",
   parse_tags: true, style: Style.new(fg: "#a0b0c0", bg: "#101820")
 

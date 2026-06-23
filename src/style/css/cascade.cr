@@ -292,6 +292,8 @@ module Crysterm
           style.tint_alpha = inline.tint_alpha
         end
         style.z_index = inline.z_index if inline.specified?(:z_index)
+        style.transitions = inline.transitions if inline.specified?(:transition)
+        style.animation = inline.animation if inline.specified?(:animation)
         # `specified?` (not `any?`) so an inline style can switch border/padding/
         # shadow *off* over a stylesheet, not only on.
         style.border = inline.border if inline.specified?(:border)

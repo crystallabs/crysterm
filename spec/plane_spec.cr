@@ -89,4 +89,16 @@ describe "CSS z-index auto-promotes a widget to a translucent layer" do
     s._render
     bg_at(s, 3, 10).should eq 0x7f007f # red @ 50% over blue
   end
+
+  it "promotes a NESTED z-indexed widget to a plane, composited over its parent" do
+    s = sized_screen 30, 6
+    parent = Widget::Box.new parent: s, top: 0, left: 0, width: 30, height: 6
+    parent.add_css_class "p"
+    child = Widget::Box.new parent: parent, top: 0, left: 0, width: 30, height: 6
+    child.add_css_class "c"
+    s.stylesheet = ".p { background-color: #0000ff; } " \
+                   ".c { background-color: #ff0000; z-index: 10; opacity: 0.5; }"
+    s._render
+    bg_at(s, 3, 10).should eq 0x7f007f # nested child blends over the parent's blue
+  end
 end

@@ -65,7 +65,15 @@ module Crysterm
     # default (no-layout) loop in `Widget#_render` does.
     protected def render_child(el : Widget) : Nil
       bump_index el
-      el.render
+      scr = el.screen
+      # A z-indexed child is deferred to its own plane (composited after the base
+      # tree). While already compositing a layer, nested layers flatten into the
+      # enclosing plane, so render inline there.
+      if el.style.z_index && !scr.compositing_layers?
+        scr.defer_layer el
+      else
+        el.render
+      end
     end
 
     # Assigns the child its z-order/render index for this frame. Split out from

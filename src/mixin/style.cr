@@ -12,6 +12,9 @@ module Crysterm
       # item's state every frame).
       def state=(value : WidgetState) : WidgetState
         return value if @state == value
+        # Snapshot the animatable values of the *old* state's style so any CSS
+        # `transition` can tween from them to the new state's values.
+        prev = transition_from
         @state = value
         screen?.try do |scr|
           if scr.css_dynamic_state?
@@ -20,6 +23,7 @@ module Crysterm
             scr.css_node_changed self # otherwise just keep the cached document in sync
           end
         end
+        prev.try { |p| apply_style_transitions p }
         value
       end
 

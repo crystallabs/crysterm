@@ -182,11 +182,15 @@ module Crysterm
 
       /* Framed containers */
       GroupBox { border: solid; border-color: var(--muted); }
-      Menu { border: solid; border-color: var(--muted); background-color: var(--surface-light); }
-      .popup { border: solid; border-color: var(--muted); background-color: var(--surface-light); }
+      /* Overlays sit on their own compositing planes (z-index) so they layer
+         correctly over content, with a slight translucency for a modern look —
+         all via the general compositor, no overlay-specific code. */
+      Menu { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; opacity: 0.96; }
+      .popup { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; opacity: 0.96; }
 
-      /* Scrollbars and progress indicators */
-      Scrollbar { color: var(--muted); }
+      /* Scrollbars and progress indicators. The scrollbar is a real widget
+         (.scrollbar) on a thin translucent plane so content shows faintly through. */
+      .scrollbar { color: var(--muted); z-index: 5; opacity: 0.82; }
       Track { color: var(--surface-dark); }
       ProgressBar Bar, Slider Bar, Dial Bar { color: var(--accent); }
 
@@ -199,7 +203,7 @@ module Crysterm
       ListBar Prefix { color: var(--info); }
 
       /* Tooltips */
-      ToolTip { background-color: var(--warning); color: var(--warning-fg); }
+      ToolTip { background-color: var(--warning); color: var(--warning-fg); z-index: 10; opacity: 0.96; }
 
       /* Migrated chrome looks (see widgets that drop their hardcoded styles) */
       .titlebar, .titlebutton { background-color: var(--accent); color: var(--accent-fg); }

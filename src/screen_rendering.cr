@@ -253,9 +253,25 @@ module Crysterm
     property olines = Array(Row).new
 
     # Compositing planes, keyed by z-index — one per distinct `z_index` among the
-    # screen's children (see `Plane`). Empty unless something declares a layer, so
+    # layered widgets (see `Plane`). Empty unless something declares a layer, so
     # a plain UI allocates none and the render path below is unchanged.
     @planes = {} of Int32 => Plane
+
+    # Widgets deferred to a plane this frame (those with a `style.z_index`, at any
+    # nesting depth). Collected during the base render — see `#defer_layer` — and
+    # drained by `#composite_planes`. Cleared at the start of every frame.
+    @layer_widgets = [] of Widget
+
+    # True only while `#composite_planes` is rendering a layer into its plane, so
+    # a z-indexed widget *inside* a layer renders inline there instead of being
+    # deferred again (nested layers flatten into their enclosing plane for now).
+    getter? compositing_layers = false
+
+    # Defers *el* (a z-indexed widget) to its plane instead of painting it inline.
+    # Called from the base render wherever a child would be rendered.
+    def defer_layer(el : Widget) : Nil
+      @layer_widgets << el
+    end
 
     # Returns the plane for layer *z*, creating it (and sizing it to the screen)
     # on first use; resizes an existing one if the screen has changed size.
@@ -278,30 +294,36 @@ module Crysterm
       end
     end
 
-    # Renders every layered child (one that declares `style.z_index`) into its
-    # plane, then composites the planes over the base buffer bottom-to-top. A
-    # no-op — and zero allocation — when nothing declares a z-index.
+    # Renders every layered widget collected this frame (any widget, at any
+    # nesting depth, that declares `style.z_index`) into its plane, then
+    # composites the planes over the base buffer bottom-to-top. A no-op — and
+    # zero allocation — when nothing declared a z-index.
     private def composite_planes
-      layered = @children.select { |el| el.style.z_index }
-      return if layered.empty?
+      return if @layer_widgets.empty?
 
-      by_z = layered.group_by { |el| el.style.z_index.not_nil! }
-      by_z.keys.sort.each do |z|
-        members = by_z[z]
-        pl = plane(z)
-        pl.clear
-        # The layer's translucency is applied once, here, as the plane's opacity
-        # (from the root's `alpha`); the widget paints opaquely into the plane
-        # (its render-time self-blend is suppressed while `#compositing`).
-        pl.opacity = members.first.style.alpha? || 1.0
-        with_render_target(pl.cells) do
-          members.each do |el|
-            el.compositing = true
-            el.render
-            el.compositing = false
+      @compositing_layers = true
+      begin
+        by_z = @layer_widgets.group_by { |el| el.style.z_index.not_nil! }
+        by_z.keys.sort.each do |z|
+          members = by_z[z]
+          pl = plane(z)
+          pl.clear
+          # The layer's translucency is applied once, here, as the plane's
+          # opacity (from the root's `alpha`); the widget paints opaquely into
+          # the plane (its render-time self-blend is suppressed while
+          # `#compositing`).
+          pl.opacity = members.first.style.alpha? || 1.0
+          with_render_target(pl.cells) do
+            members.each do |el|
+              el.compositing = true
+              el.render
+              el.compositing = false
+            end
           end
+          pl.composite_onto @lines
         end
-        pl.composite_onto @lines
+      ensure
+        @compositing_layers = false
       end
     end
 
@@ -377,13 +399,19 @@ module Crysterm
       # against `@olines`, so unchanged cells produce no terminal output.
       clear_region 0, awidth, 0, aheight
 
+      @layer_widgets.clear
       @_ci = 0
       @children.each do |el|
         el.index = @_ci
         @_ci += 1
         # Base layer: paint straight into `@lines` as before. A child that
-        # declares a `z_index` is deferred to its own plane (composited below).
-        el.render if el.style.z_index.nil?
+        # declares a `z_index` is deferred to its own plane (composited below);
+        # nested layered widgets are collected the same way from `render_child`.
+        if el.style.z_index
+          defer_layer el
+        else
+          el.render
+        end
       end
       @_ci = -1
 

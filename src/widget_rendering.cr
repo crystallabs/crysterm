@@ -90,6 +90,10 @@ module Crysterm
       # the whole render, so hoist them here instead of re-evaluating them in
       # the per-cell loops below. Mirrors how `Screen#draw` binds `fu` once.
       scr = screen
+      # Start/keep/stop any CSS `@keyframes` animation bound to this widget
+      # (cheap no-op unless an `animation` is declared).
+      ensure_css_animation
+
       lines = scr.lines
       fu = scr.full_unicode?
       # A layer root's alpha is applied as its plane's opacity at composite time,
@@ -413,63 +417,11 @@ module Crysterm
         end
       end
 
-      # Draw the scrollbar.
-      # Could possibly draw this after all child elements.
-      i = 0
-      @scrollbar.try do
-        # D O:
-        # i = @get_scroll_height()
-        i = Math.max @_clines.size, _scroll_bottom
-      end
-
-      if coords.no_top? || coords.no_bottom?
-        i = -Int32::MAX
-      end
-
-      @scrollbar.try do
-        if (yl - yi) < i
-          x = xl - 1
-          sbr = style.border.try(&.right) || 0
-          x += 1 if style.scrollbar.ignore_border? && (sbr > 0) # should 1 be sbr ?
-
-          # Guard the denominators: when there is effectively nothing to scroll
-          # (`denom <= 0`, e.g. content exactly one line tall) the division would
-          # yield `Infinity`/`NaN` and the subsequent `.to_i` would raise
-          # `OverflowError`. In that case the thumb simply sits at the top.
-          if @always_scroll
-            denom = i - (yl - yi)
-            frac = denom <= 0 ? 0.0 : @child_base / denom
-          else
-            denom = i - 1
-            frac = denom <= 0 ? 0.0 : (@child_base + @child_offset) / denom
-          end
-
-          y = yi + ((yl - yi) * frac).to_i
-          y = yl - 1 if y >= yl
-
-          # XXX The '?' was added ad-hoc to prevent exceptions when something goes out of
-          # bounds (e.g. size of widget given too small for content).
-          # Is there any better way to handle?
-          lines[y]?.try do |line|
-            line.[x]?.try do |cell|
-              if @track
-                ch = style.track.char
-                attr = sattr style.track, style.track.fg, style.track.bg
-                scr.fill_region attr, ch, x, x + 1, yi, yl
-              end
-
-              ch = style.scrollbar.char
-              attr = sattr style.scrollbar, style.scrollbar.fg, style.scrollbar.bg
-
-              if cell != {attr, ch}
-                cell.attr = attr
-                cell.char = ch
-                line.dirty = true
-              end
-            end
-          end
-        end
-      end
+      # Scrollbar: a real `Widget::ScrollBar` child — created lazily, fixed at the
+      # right edge, and bound to this widget — renders and drives it (so it is a
+      # styleable, interactive, compositable widget rather than an inline glyph).
+      # See `#ensure_scrollbar_widget`. It renders below via `render_children`.
+      ensure_scrollbar_widget if scrollbar?
 
       # TODO See if these 4 values could be packed somehow to just replace individual
       # settings with the usual: style.border.try &.adjust(pos, -1) ?
