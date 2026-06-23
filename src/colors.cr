@@ -105,6 +105,44 @@ module Crysterm
       end
     end
 
+    # Folds *top* over *under* per *top*'s per-channel `Attr::Alpha` modes — the
+    # per-cell operation a plane compositor (Step 6) runs bottom-to-top. The
+    # result is a flattened, `Opaque` attr carrying *top*'s flags. Each channel:
+    #
+    # * `Opaque`       → *top*'s color (the default; identical to a plain overwrite)
+    # * `Transparent`  → *under*'s color (*top* contributes nothing)
+    # * `Blend`        → 50/50 blend of *top* and *under*
+    # * `HighContrast` → near-black/near-white chosen to read against *under*
+    #
+    # `default` colors are resolved to the configured terminal default for the
+    # blend/contrast math, and left `default` only when that is itself unknown.
+    def self.composite(top : Int64, under : Int64) : Int64
+      fg = composite_field(Attr.fg_alpha(top), Attr.fg(top), Attr.fg(under), true)
+      bg = composite_field(Attr.bg_alpha(top), Attr.bg(top), Attr.bg(under), false)
+      Attr.pack(Attr.flags(top), fg, bg)
+    end
+
+    # Composites one packed color field of *top* over *under*'s, per *mode*.
+    # Returns a packed color field (the result is always `Opaque`).
+    def self.composite_field(mode : Attr::Alpha, top : Int64, under : Int64, fg : Bool) : Int64
+      case mode
+      in Attr::Alpha::Opaque
+        top
+      in Attr::Alpha::Transparent
+        under
+      in Attr::Alpha::Blend
+        return Attr::COLOR_DEFAULT if Attr.default?(top) && Attr.default?(under)
+        dfl = fg ? default_fg_rgb : default_bg_rgb
+        a = Attr.default?(top) ? dfl : top.to_i32
+        b = Attr.default?(under) ? dfl : under.to_i32
+        return Attr.pack_color(a == -1 ? b : a) if a == -1 || b == -1
+        Attr.pack_color(mix(a, b, 0.5))
+      in Attr::Alpha::HighContrast
+        base = Attr.default?(under) ? (fg ? default_fg_rgb : default_bg_rgb) : under.to_i32
+        base == -1 ? top : Attr.pack_color(readable_on(base, 0x101010, 0xf5f5f5))
+      end
+    end
+
     # NOTE: `hsv_i` (HSV -> packed `0xRRGGBB`) and `hsv` (HSV -> `#rrggbb`
     # string) now live in the `TermColors` shard (pure color-space math) and are
     # reached through `extend ::TermColors` above, so `Colors.hsv_i`/`Colors.hsv`
@@ -157,14 +195,23 @@ module Crysterm
   # `attr` is an **`Int64`** laid out as:
   #
   # ```text
-  #   bits  0..24  : bg   (25 bits: 24-bit RGB, or COLOR_DEFAULT)
-  #   bits 25..49  : fg   (25 bits)
-  #   bits 50..    : flags
+  #   bits  0..24  : bg        (25 bits: 24-bit RGB, or COLOR_DEFAULT)
+  #   bits 25..49  : fg        (25 bits)
+  #   bits 50..55  : flags     (6 style bits: bold/underline/blink/inverse/invisible/italic)
+  #   bits 56..57  : fg alpha  (2-bit `Alpha` mode for the foreground channel)
+  #   bits 58..59  : bg alpha  (2-bit `Alpha` mode for the background channel)
+  #   bits 60..63  : reserved
   # ```
   #
   # A *color field* holds either an RGB value (`0..0xFFFFFF`) or the sentinel
   # `COLOR_DEFAULT` meaning "use the terminal's default fg/bg". This is the
   # in-`attr` counterpart of the logical `-1` used by `Colors.convert`.
+  #
+  # Each channel also carries an `Alpha` *mode* (à la notcurses) saying how it
+  # combines with the cell beneath it when planes are composited (`Opaque`,
+  # `Blend`, `Transparent`, `HighContrast`; see `Colors.composite`). `Opaque` is
+  # value `0`, so a zero-initialized attr is `Opaque`/`Opaque` — the old
+  # always-replace behavior — and existing cells are unaffected.
   #
   # This module is the single source of truth for the bit layout; nothing else
   # should hard-code shifts or masks.
@@ -194,6 +241,30 @@ module Crysterm
     INVERSE   =  8
     INVISIBLE = 16
     ITALIC    = 32
+
+    # Width of the style-flags field (bits 50..55). The alpha-mode fields sit
+    # directly above it, so `flags` must be masked to this width (a bare shift
+    # would pull the alpha bits in). All six current flags fit here; a seventh
+    # would need to reclaim a bit, since bit 56 onward is alpha.
+    FLAGS_BITS = 6_i64
+    FLAGS_MASK = (1_i64 << FLAGS_BITS) - 1 # 0x3F
+
+    # Per-channel alpha *mode*: how a cell's channel combines with the channel
+    # beneath it when planes are composited (`Colors.composite`). `Opaque` is
+    # value `0`, so a freshly-`pack`ed attr (alpha bits clear) replaces as before.
+    enum Alpha
+      Opaque       # fully replace the channel beneath
+      Blend        # blend 50/50 with the channel beneath
+      Transparent  # contribute nothing; the channel beneath shows through
+      HighContrast # recolor for maximum contrast against the channel beneath
+    end
+
+    # Width and offsets of the two 2-bit alpha-mode fields (fg then bg, just
+    # above the flags).
+    ALPHA_BITS     = 2_i64
+    ALPHA_MASK     = (1_i64 << ALPHA_BITS) - 1    # 0x3
+    FG_ALPHA_SHIFT = FLAGS_SHIFT + FLAGS_BITS     # 56
+    BG_ALPHA_SHIFT = FG_ALPHA_SHIFT + ALPHA_BITS  # 58
 
     # Maps a *logical* color (`-1` default, or `0xRRGGBB`) to its packed color
     # field value (`COLOR_DEFAULT`, or the RGB value).
@@ -227,16 +298,49 @@ module Crysterm
       (attr >> FG_SHIFT) & COLOR_MASK
     end
 
-    # Extracts the flags field.
+    # Extracts the flags field (masked to its 6 bits, so the alpha modes packed
+    # just above it never leak into a flag test or SGR emission).
     @[AlwaysInline]
     def self.flags(attr : Int64) : Int64
-      attr >> FLAGS_SHIFT
+      (attr >> FLAGS_SHIFT) & FLAGS_MASK
     end
 
-    # Packs flags + already-packed color fields into an `attr` word.
+    # Packs flags + already-packed color fields into an `attr` word. Alpha modes
+    # default to `Opaque` (zero); set them afterward with `#with_fg_alpha` etc.
+    # `flags` is masked so a stray high bit can't bleed into the alpha fields.
     @[AlwaysInline]
     def self.pack(flags, fg, bg) : Int64
-      (flags.to_i64 << FLAGS_SHIFT) | ((fg.to_i64 & COLOR_MASK) << FG_SHIFT) | (bg.to_i64 & COLOR_MASK)
+      ((flags.to_i64 & FLAGS_MASK) << FLAGS_SHIFT) | ((fg.to_i64 & COLOR_MASK) << FG_SHIFT) | (bg.to_i64 & COLOR_MASK)
+    end
+
+    # The foreground channel's alpha mode.
+    @[AlwaysInline]
+    def self.fg_alpha(attr : Int64) : Alpha
+      Alpha.new(((attr >> FG_ALPHA_SHIFT) & ALPHA_MASK).to_i32)
+    end
+
+    # The background channel's alpha mode.
+    @[AlwaysInline]
+    def self.bg_alpha(attr : Int64) : Alpha
+      Alpha.new(((attr >> BG_ALPHA_SHIFT) & ALPHA_MASK).to_i32)
+    end
+
+    # Returns *attr* with the foreground alpha mode set to *mode*.
+    @[AlwaysInline]
+    def self.with_fg_alpha(attr : Int64, mode : Alpha) : Int64
+      (attr & ~(ALPHA_MASK << FG_ALPHA_SHIFT)) | (mode.value.to_i64 << FG_ALPHA_SHIFT)
+    end
+
+    # Returns *attr* with the background alpha mode set to *mode*.
+    @[AlwaysInline]
+    def self.with_bg_alpha(attr : Int64, mode : Alpha) : Int64
+      (attr & ~(ALPHA_MASK << BG_ALPHA_SHIFT)) | (mode.value.to_i64 << BG_ALPHA_SHIFT)
+    end
+
+    # Returns *attr* with both channels' alpha modes set.
+    @[AlwaysInline]
+    def self.with_alpha(attr : Int64, fg : Alpha, bg : Alpha) : Int64
+      with_bg_alpha(with_fg_alpha(attr, fg), bg)
     end
   end
 end

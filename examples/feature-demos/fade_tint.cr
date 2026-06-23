@@ -11,6 +11,9 @@
 #   • tint — hue cycle: a color overlay whose hue sweeps the rainbow (style.tint)
 #   • tint — pulse:     a fixed-color overlay whose strength pulses (Widget#tint_to)
 #
+# Below them, a static row shows the four per-cell `Attr::Alpha` compositing
+# modes (Opaque / Blend / Transparent / HighContrast) via `Colors.composite`.
+#
 # Set DEMO_SECONDS=N to auto-exit (for recording); otherwise press q / Ctrl-C.
 
 require "../../src/crysterm"
@@ -37,7 +40,7 @@ def tint_cycle(box, color)
   box.tint_to(color, 0.85, 0.9.seconds) { box.tint_to(color, 0.0, 0.9.seconds) { tint_cycle box, color } }
 end
 
-s = Screen.new title: "Fades & Tints"
+s = Screen.new title: "Fades, Tints & Alpha"
 
 # Colorful, slowly hue-cycling backdrop so the fades/tints are visible.
 Widget::Gradient.new \
@@ -67,8 +70,31 @@ end
 # 4. Fixed-color tint whose strength pulses 0 → 85% → 0.
 tint_cycle panel(s, 62, "tint\npulse", "#402030"), 0x33ccff
 
+# 5. Per-cell ALPHA MODES — the four `Attr::Alpha` modes folded over one common
+# background via `Colors.composite` (the per-cell primitive the plane compositor
+# will use). Shown as static swatches: Opaque = the source color, Blend = 50/50,
+# Transparent = the background shows through, HighContrast = auto black/white.
 Widget::Box.new \
-  parent: s, top: 11, left: 0, width: "100%", height: 1,
+  parent: s, top: 10, left: 0, width: "100%", height: 1,
+  content: "{center}per-cell alpha modes — Colors.composite(source, background){/center}",
+  parse_tags: true, style: Style.new(fg: "white", bg: "#101820")
+
+source = 0xffcc00 # amber source color
+under = Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(0x2a3050))
+[{"opaque", Attr::Alpha::Opaque},
+ {"blend", Attr::Alpha::Blend},
+ {"transparent", Attr::Alpha::Transparent},
+ {"high-contrast", Attr::Alpha::HighContrast}].each_with_index do |(name, mode), i|
+  top = Attr.with_bg_alpha(Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(source)), mode)
+  swatch = Attr.unpack_color(Attr.bg(Colors.composite(top, under)))
+  Widget::Box.new \
+    parent: s, top: 11, left: 2 + i * 19, width: 18, height: 3,
+    content: "{center}\n#{name}{/center}", parse_tags: true,
+    style: Style.new(fg: Colors.readable_on(swatch, 0x000000, 0xffffff), bg: swatch, border: true)
+end
+
+Widget::Box.new \
+  parent: s, top: 15, left: 0, width: "100%", height: 1,
   content: "{center}press q or Ctrl-C to quit{/center}",
   parse_tags: true, style: Style.new(fg: "#a0b0c0", bg: "#101820")
 
