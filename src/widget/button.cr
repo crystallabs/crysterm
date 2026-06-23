@@ -55,6 +55,29 @@ module Crysterm
         request_render
       end
 
+      # Sets the checked state (only when `#checkable?`), emitting `Event::Check`
+      # if it changed. Mirrors `CheckBox#check` so a checkable button can be
+      # driven through the same interface (e.g. by `ButtonGroup`).
+      def check
+        return unless checkable?
+        return if checked?
+        @checked = true
+        invalidate_css
+        emit Crysterm::Event::Check, @checked
+        request_render
+      end
+
+      # Clears the checked state (only when `#checkable?`), emitting
+      # `Event::UnCheck` if it changed. Counterpart to `#check`.
+      def uncheck
+        return unless checkable?
+        return unless checked?
+        @checked = false
+        invalidate_css
+        emit Crysterm::Event::UnCheck, @checked
+        request_render
+      end
+
       def on_keypress(e)
         if e.activates?
           e.accept

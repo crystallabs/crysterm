@@ -45,10 +45,20 @@ module Crysterm
     RadioButton = Widget::RadioButton
     Checkbox    = Widget::Checkbox
 
-    Button  = Widget::Button
-    Prompt  = Widget::Prompt
-    Message = Widget::Message
-    Log     = Widget::Log
+    Button     = Widget::Button
+    ToolButton = Widget::ToolButton
+    Prompt     = Widget::Prompt
+    Message    = Widget::Message
+    Log        = Widget::Log
+
+    # Non-visual button manager (logical grouping / exclusivity).
+    ButtonGroup = Crysterm::ButtonGroup
+
+    DialogButtonBox = Widget::DialogButtonBox
+    ColorDialog     = Widget::ColorDialog
+
+    # Non-visual autocompletion helper attached to a text input.
+    Completer = Crysterm::Completer
 
     Slider        = Widget::Slider
     SpinBox       = Widget::SpinBox

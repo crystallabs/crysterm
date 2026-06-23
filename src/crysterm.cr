@@ -36,6 +36,8 @@ require "./screen_connection"
 
 require "./widget"
 require "./widget/**"
+require "./button_group"
+require "./completer"
 require "./layout/**"
 require "./widgets"
 

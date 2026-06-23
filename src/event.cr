@@ -199,6 +199,21 @@ module Crysterm
     # whether it is now floating (Qt's `QDockWidget#topLevelChanged`).
     event Float, value : Bool
 
+    # Emitted by a dialog (e.g. `Widget::DialogButtonBox`, `Widget::ColorDialog`)
+    # when the user activates an accepting control (Ok/Yes/Save/…). Mirrors Qt's
+    # `QDialogButtonBox#accepted`/`QDialog#accepted`.
+    event Accepted
+
+    # Emitted by a dialog when the user activates a rejecting control
+    # (Cancel/No/Close/…) or dismisses it. Mirrors Qt's
+    # `QDialogButtonBox#rejected`/`QDialog#rejected`.
+    event Rejected
+
+    # Emitted by a `ButtonGroup` when one of its member buttons is activated.
+    # `button` is the button that was clicked/toggled (Qt's
+    # `QButtonGroup#buttonClicked`).
+    event ButtonClick, button : Widget
+
     # # event Key, key : ::Tput::Key
 
     # Individual key events emitted on specific key presses. This is used when

@@ -17,6 +17,11 @@
 #   * DateEdit / TimeEdit / DateTimeEdit / DoubleSpinBox — date/time + float entry
 #   * ToolTip          — hover the Profile controls to see hover help
 #   * StackedWidget    — auto-cycling pages (no tab bar)
+#   * ButtonGroup      — exclusive toggle buttons (only one stays on)
+#   * ToolButton       — a default Action plus a Down-key popup menu
+#   * Completer        — type-ahead autocomplete attached to a TextBox
+#   * ColorDialog      — modal palette picker that recolors a swatch
+#   * DialogButtonBox  — standard Ok/Apply/Cancel buttons with accept/reject roles
 #
 # Everything is laid out by `MainWindow` and re-flows to the terminal size.
 #
@@ -24,7 +29,9 @@
 # (with one open, hover another to switch); use the tool-bar buttons; hover a
 # control for a tooltip; float the right "Panes" dock from its title bar and drag
 # its ◢ corner to resize; Tab cycles focus; arrows adjust the focused control;
-# type in the ComboBox to filter; drag a splitter divider. Press q to quit.
+# type in the ComboBox to filter; drag a splitter divider. On the "Extras" tab,
+# toggle the Mode buttons, type into "Lang" to autocomplete, press "Pick" for the
+# color dialog, and click the Ok/Apply/Cancel box. Press q to quit.
 
 require "../../src/crysterm"
 
@@ -96,11 +103,13 @@ menupage = Widget::Box.new
 treepage = Widget::Box.new
 datespage = Widget::Box.new
 stackpage = Widget::Box.new
+extraspage = Widget::Box.new
 tabs.add_tab "Controls", controls
 tabs.add_tab "Menu", menupage
 tabs.add_tab "Tree", treepage
 tabs.add_tab "Dates", datespage
 tabs.add_tab "Stack", stackpage
+tabs.add_tab "Extras", extraspage
 
 # Controls tab: a checkable GroupBox holding the value widgets (with tooltips).
 gb = Widget::GroupBox.new \
@@ -222,6 +231,93 @@ stack = Widget::StackedWidget.new parent: stackpage, top: 1, left: 1, right: 1, 
   stack.add_page Widget::Box.new(
     content: "{center}#{label}\n\n(click to flip){/center}", parse_tags: true,
     style: Style.new(fg: "white", bg: bg))
+end
+
+# Extras tab: the newest Qt-modeled widgets — ButtonGroup (exclusive toggle
+# buttons), ToolButton (default action + popup menu), Completer (autocomplete on
+# a TextBox), ColorDialog (modal picker), and DialogButtonBox (standard buttons).
+
+# Exclusive ButtonGroup: three checkable buttons of which only one stays "on".
+Widget::Box.new parent: extraspage, top: 1, left: 1, width: 9, height: 1, content: "Mode:"
+bgroup = ButtonGroup.new
+%w[Low Mid High].each_with_index do |label, i|
+  b = Widget::Button.new \
+    parent: extraspage, top: 1, left: 10 + i * 8, width: 6, height: 1,
+    content: label, align: :center, checkable: true, focus_on_click: true,
+    style: Style.new(fg: "white", bg: "#303050")
+  bgroup.add b, i
+end
+bgroup.on(Event::ButtonClick) do
+  # Highlight the checked button (a plain Button shows no check glyph on its own).
+  bgroup.buttons.each do |b|
+    b.style.bg = b.as(Widget::Button).checked? ? "#3060a0" : "#303050"
+  end
+  status.show_message " mode = #{bgroup.checked_id}"
+  s.render
+end
+
+# ToolButton with a default Action (Enter/Space applies it) and a popup Menu
+# (press Down to open it), like a Qt tool button with a drop-down.
+tb_menu = Widget::Menu.new parent: s, width: 16, height: 4, style: Style.new(fg: "white", border: true)
+tb_menu.add("Rename") { status.show_message " tool: rename"; s.render }
+tb_menu.add("Delete") { status.show_message " tool: delete"; s.render }
+tb_menu.hide # stays hidden until opened from the ToolButton (via Down)
+
+tool_action = Action.new "Apply"
+tool_action.on(Event::Triggered) { status.show_message " tool: apply"; s.render }
+
+Widget::Box.new parent: extraspage, top: 3, left: 1, width: 9, height: 1, content: "Tool:"
+toolbtn = Widget::ToolButton.new \
+  parent: extraspage, top: 3, left: 10, width: 12, height: 1,
+  action: tool_action, menu: tb_menu, align: :center,
+  style: Style.new(fg: "white", bg: "#252540")
+toolbtn.tool_tip = "Enter/Space applies; Down opens the menu"
+
+# Completer: type into the TextBox to autocomplete from a fixed word list.
+Widget::Box.new parent: extraspage, top: 5, left: 1, width: 9, height: 1, content: "Lang:"
+langbox = Widget::TextBox.new \
+  parent: extraspage, top: 5, left: 10, width: 18, height: 1,
+  style: Style.new(fg: "white", bg: "#303030")
+langbox.tool_tip = "Type to autocomplete (Down opens the list, Tab/Enter accepts)"
+completer = Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java JavaScript Kotlin Lua]
+completer.attach langbox
+
+# ColorDialog: a modal palette picker launched from a button; the chosen color
+# recolors the swatch next to it.
+swatch = Widget::Box.new parent: extraspage, top: 7, left: 18, width: 6, height: 1,
+  style: Style.new(bg: "red")
+colordlg = Widget::ColorDialog.new \
+  parent: s, top: "center", left: "center", width: 50, height: 18,
+  style: Style.new(fg: "white", border: true)
+colordlg.hide
+Widget::Box.new parent: extraspage, top: 7, left: 1, width: 9, height: 1, content: "Color:"
+pickbtn = Widget::Button.new \
+  parent: extraspage, top: 7, left: 10, width: 6, height: 1,
+  content: "Pick", align: :center, focus_on_click: true,
+  style: Style.new(fg: "white", bg: "#303050")
+pickbtn.on(Event::Press) do
+  colordlg.pick do |color|
+    if color
+      swatch.style.bg = color
+      status.show_message " color = #{color}"
+    else
+      status.show_message " color: cancelled"
+    end
+    s.render
+  end
+  s.render
+end
+
+# DialogButtonBox: standard buttons with the right roles wired to accept/reject.
+dbb = Widget::DialogButtonBox.new \
+  parent: extraspage, bottom: 1, left: 1, height: 1,
+  buttons: Widget::DialogButtonBox::StandardButton::Ok |
+           Widget::DialogButtonBox::StandardButton::Apply |
+           Widget::DialogButtonBox::StandardButton::Cancel
+dbb.on(Event::Accepted) { status.show_message " dialog: accepted"; s.render }
+dbb.on(Event::Rejected) { status.show_message " dialog: rejected"; s.render }
+dbb.button(Widget::DialogButtonBox::StandardButton::Apply).try &.on(Event::Press) do
+  status.show_message " dialog: apply"; s.render
 end
 
 # --- Right dock: a Splitter inside a DockWidget ------------------------------
