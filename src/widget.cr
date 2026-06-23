@@ -50,6 +50,7 @@ module Crysterm
 
     # Widget's parent `Widget`, if any.
     getter parent : Widget?
+
     # (This must be defined here rather than in src/mixin/children.cr because classes
     # which have children do not necessarily also have a parent, e.g. `Screen`.)
 

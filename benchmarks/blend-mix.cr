@@ -73,7 +73,7 @@ puts
 # loop-carried dependency), so the optimizer cannot dead-code-eliminate or
 # vectorize the (pure) blend away — both loops do the same honest per-cell work.
 
-CELLS = 200 * 50 # a 200x50 terminal
+CELLS  = 200 * 50 # a 200x50 terminal
 COLORS = Array(Int32).new(CELLS) { |i| ((i.to_u64 &* 2654435761_u64) & 0xFFFFFF_u64).to_i32 }
 # Each pass stores every blended cell here; the store-to-memory is a side effect
 # the optimizer must keep, so it cannot fold either loop to a closed form. SINK
