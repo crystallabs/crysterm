@@ -130,6 +130,21 @@ module Crysterm
       def initialize(@lines = [] of String)
       end
 
+      # Clears the arrays a reparse refills in place (`#lines`, `rtof`, `ftor`,
+      # `ci`) so this same `CLines` can be reused by the next `_wrap_content`
+      # instead of allocating a fresh object + arrays every reparse. `clear`
+      # keeps each array's backing buffer, so steady-state reparsing of
+      # same-shaped content reallocates nothing here. `fake`/`attr`/`real` and
+      # the scalar fields are overwritten wholesale by the reparse, so they are
+      # not touched. (`ftor`'s per-line sub-arrays are dropped and rebuilt; only
+      # the outer array's buffer is retained.)
+      def reset : Nil
+        @lines.clear
+        @rtof.clear
+        @ftor.clear
+        @ci.clear
+      end
+
       # Match the old `Array#dup` behavior: a fresh, independent `Array(String)`
       # copy (without the extra bookkeeping). Defined explicitly because
       # `dup` already exists on `Object` and so is not forwarded.
@@ -212,7 +227,10 @@ module Crysterm
         end
         ::Log.trace { "After _parse_tags: #{content.inspect}" }
 
-        @_clines = _wrap_content(content, colwidth)
+        # Reuse the existing `@_clines` object (refill in place) instead of
+        # allocating a new one each reparse — `@_clines` is non-nilable (defaults
+        # to an empty `CLines`), so it is always a valid reuse target.
+        @_clines = _wrap_content(content, colwidth, into: @_clines)
         @_clines.width = colwidth
         @_clines.content = @content
         @_clines.content_version = @_content_version
@@ -369,7 +387,12 @@ module Crysterm
     def _parse_attr(lines : CLines)
       default_attr = sattr(style)
       attr = default_attr
-      attrs = [] of Int64
+      # Reuse the `CLines`' own `attr` array (clear + refill) so a reparse does
+      # not allocate a fresh `Array(Int64)` each time; allocated once on first
+      # use. The caller assigns the result back to `lines.attr`, which is this
+      # same array, so that assignment is a no-op.
+      attrs = (lines.attr ||= [] of Int64)
+      attrs.clear
 
       lines.each do |line|
         attrs.push attr
@@ -391,17 +414,23 @@ module Crysterm
       attrs
     end
 
-    # Wraps content based on available widget width
-    def _wrap_content(content, colwidth)
+    # Wraps content based on available widget width.
+    #
+    # `into`, when given, is an existing `CLines` to refill in place rather than
+    # allocating a fresh one — `process_content` passes the widget's own
+    # `@_clines`, so steady-state reparsing reuses the same object and its array
+    # buffers (see `CLines#reset`). When nil a new `CLines` is built.
+    def _wrap_content(content, colwidth, into : CLines? = nil)
       default_state = @align
       wrap = @wrap_content
       margin = 0
-      outbuf = CLines.new
-      # Fill the `CLines`' own `rtof`/`ftor` arrays directly (via these aliases)
-      # instead of building throwaway locals that get assigned over the defaults
-      # at the end — the freshly-built `CLines` already carries empty ones. Saves
-      # two array allocations per reparse. (The empty-content branch below returns
-      # before these are used and sets its own literals.)
+      outbuf = into || CLines.new
+      # Clear the in-place arrays so a reused `CLines` starts empty (a no-op on a
+      # freshly built one). After this, fill the `CLines`' own `rtof`/`ftor`
+      # arrays directly via these aliases — no throwaway locals reassigned at the
+      # end. (The empty-content branch below returns before these are used and
+      # sets its own literals.)
+      outbuf.reset
       rtof = outbuf.rtof
       ftor = outbuf.ftor
 
