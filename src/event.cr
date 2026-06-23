@@ -115,6 +115,11 @@ module Crysterm
     # `dateChanged`/`timeChanged` signals.
     event DateChange, date : Time
 
+    # Emitted when a `Widget::Calendar`'s displayed month/year page changes
+    # (without necessarily changing the selected date). Mirrors Qt's
+    # `QCalendarWidget#currentPageChanged(year, month)` signal.
+    event CurrentPageChange, year : Int32, month : Int32
+
     # Emitted when Widget's position is changed
     event Move
 

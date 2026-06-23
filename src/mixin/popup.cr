@@ -41,9 +41,10 @@ module Crysterm
         pop.front!
         pop.focus if focus_popup
         screen.grab self
-        @ev_outside ||= screen.on(::Crysterm::Event::Mouse) do |e|
-          close if e.action.down? && !grab_contains?(e.x, e.y)
-        end
+        # Shared "click-away to dismiss" (the same `Screen#on_press_outside` used
+        # by the pop-up menus and the `Completer` drop-down): a press outside this
+        # widget *and* its pop-up closes it.
+        @ev_outside ||= screen.on_press_outside(->(x : Int32, y : Int32) { grab_contains?(x, y) }) { close }
         request_render
       end
 

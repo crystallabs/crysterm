@@ -145,7 +145,7 @@ module Crysterm
       private def ensure_popup : Calendar
         @popup ||= begin
           cal = Calendar.new(
-            screen: screen, top: 0, left: 0, width: 22, height: 9,
+            screen: screen, top: 0, left: 0, width: 22, height: 10,
             date: @date,
           )
           cal.add_css_class "popup" # themed via `.popup { border: solid; ... }`

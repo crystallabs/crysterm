@@ -66,7 +66,7 @@ module Crysterm
 
         index = @menus.size
         @menus << menu
-        add(title) { open index } # ListBar command: click / Enter opens it
+        add(title) { toggle index } # ListBar command: click / Enter toggles it
 
         # Hover a different title (while a menu is open) to switch to it.
         if item = items[index]?
@@ -86,6 +86,16 @@ module Crysterm
         @open_index = i.to_i
         menu.popup title_x(i), menu_y
         highlight i
+      end
+
+      # Toggles menu *i*: opens it, or closes it (deselecting the title) if it is
+      # already the open one — matching the click behavior of desktop menu bars.
+      def toggle(i : Int) : Nil
+        if @open_index == i.to_i
+          close
+        else
+          open i
+        end
       end
 
       # Closes the open menu, if any.
@@ -131,6 +141,17 @@ module Crysterm
         atop + aheight
       rescue
         1
+      end
+
+      # The title highlight tracks the *open* menu, never ListBar's own raw
+      # selection. `ListBar#trigger` re-`selekt`s the clicked item *after* our
+      # toggle callback has run, so a click that closed the open menu would
+      # otherwise leave its title lit — re-impose the open-menu highlight here.
+      # (With no menu open this clears the highlight, matching the bar's "nothing
+      # lit while closed" rule, including bare Left/Right navigation.)
+      def selekt(offset : Int)
+        super
+        sync_highlight
       end
 
       # Highlights only *active*'s title (none when `nil`).

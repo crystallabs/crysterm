@@ -67,6 +67,7 @@ module Crysterm
 
         build_buttons
         wire_drag
+        refresh_buttons # show the glyph matching the initial docked/floating state
       end
 
       def floating? : Bool
@@ -102,12 +103,29 @@ module Crysterm
       # Toggles between `Floating` and the last docked area, emitting
       # `Event::Float` with the new state. A `MainWindow` re-lays-out on the next
       # frame; a floating dock keeps its current position.
-      def toggle_floating : Nil
+      #
+      # Docking remembers the floating rectangle; *restore*-ing (the default, used
+      # by the ⇕ button) puts the dock back at exactly that position and size on
+      # the next float, rather than leaving it at the docked size. The drag-undock
+      # path passes `restore: false` so the dock detaches *in place* under the
+      # pointer instead of jumping back to its old floating spot.
+      #
+      # Either way, un-docking pins an explicit `left`/`top`/`width`/`height`
+      # (clearing `right`/`bottom`) so the now-floating dock has one unambiguous
+      # geometry — otherwise the leftover docked constraints (`right` + `width`,
+      # `top` + `bottom`) and the drag handler's `left`/`top` writes would fight.
+      def toggle_floating(restore : Bool = true) : Nil
         return unless floatable?
         if floating?
+          save_float_geom # remember where/what size we were, to restore later
           @area = @prev_area || Area::Left
         else
           @prev_area = @area
+          if restore && (g = @float_geom)
+            apply_rect g
+          else
+            freeze_rect
+          end
           @area = Area::Floating
         end
         refresh_buttons
@@ -116,6 +134,40 @@ module Crysterm
       end
 
       @prev_area : Area?
+
+      # The floating rectangle (`{left, top, width, height}`, parent-relative)
+      # captured the last time the dock was floating, restored on the next float.
+      @float_geom : Tuple(Int32, Int32, Int32, Int32)?
+
+      # Records the current floating rectangle for later restoration.
+      private def save_float_geom : Nil
+        px = parent.try(&.aleft) || 0
+        py = parent.try(&.atop) || 0
+        @float_geom = {aleft - px, atop - py, awidth, aheight}
+      rescue
+        # Not laid out yet; nothing to remember.
+      end
+
+      # Pins the dock's current absolute rectangle as its explicit floating
+      # geometry. No-op before the dock has been laid out (its coordinates raise).
+      private def freeze_rect : Nil
+        px = parent.try(&.aleft) || 0
+        py = parent.try(&.atop) || 0
+        apply_rect({aleft - px, atop - py, awidth, aheight})
+      rescue
+        # Not laid out yet; keep whatever explicit geometry was given.
+      end
+
+      # Applies an explicit floating rectangle, clearing the docked `right`/
+      # `bottom` constraints so `left`/`top`/`width`/`height` solely position it.
+      private def apply_rect(g : Tuple(Int32, Int32, Int32, Int32)) : Nil
+        self.right = nil
+        self.bottom = nil
+        self.width = g[2]
+        self.height = g[3]
+        self.left = g[0]
+        self.top = g[1]
+      end
 
       private def build_buttons
         if closable?
@@ -140,12 +192,18 @@ module Crysterm
         @float_button.try &.set_content(floating? ? "▣" : "⇕")
       end
 
-      # Dragging the title bar moves a *floating* dock (it stays put while docked).
+      # Dragging the title bar moves a floating dock; grabbing the title bar of a
+      # *docked* dock undocks it in place first (Qt's drag-to-float), so the same
+      # gesture both detaches and moves it — giving every dock a drag handle.
       private def wire_drag
         titlebar.enable_drag reposition: false
         titlebar.on(::Crysterm::Event::DragStart) do |e|
           @drag_dx = e.x - aleft
           @drag_dy = e.y - atop
+          # Undock on grab, *in place* (`restore: false`): the dock detaches at
+          # its current spot so `aleft`/`atop` — hence the offsets just captured —
+          # stay valid and the drag continues smoothly from the grab point.
+          toggle_floating(restore: false) unless floating?
         end
         titlebar.on(::Crysterm::Event::Drag) do |e|
           next unless floating?

@@ -93,18 +93,24 @@ module Crysterm
           end
         end
 
-        # Click a tab's `✕` marker to close it. The bar centers the item text, so
-        # the `✕` sits one cell in from the right edge — accept either of the two
-        # right-most cells of the box.
-        bar.on(::Crysterm::Event::Mouse) do |e|
+        # Closing via the `✕` marker is wired per tab-item in `#wire_close`: each
+        # item box is itself the topmost widget under the pointer, so the click's
+        # `Event::Mouse` is delivered to the *item*, not to the bar (mouse events
+        # don't bubble) — a bar-level handler would never see clicks on a tab.
+      end
+
+      # Wires *item* (a tab's bar box) so a click on its right-most two cells —
+      # where `display_title` puts the `✕` (one cell in from the edge, since the
+      # bar centers the text) — closes the corresponding tab instead of selecting
+      # it. Accepting the `Event::Mouse` suppresses the follow-up `Event::Click`
+      # that would otherwise switch to the tab.
+      private def wire_close(item : Widget) : Nil
+        item.on(::Crysterm::Event::Mouse) do |e|
           next unless tabs_closable? && e.action.down?
-          bar.items.each_with_index do |item, i|
-            next unless item.visible?
-            if e.y == item.atop && e.x >= item.aleft + item.awidth - 2 && e.x < item.aleft + item.awidth
-              close_tab i
-              e.accept
-              break
-            end
+          next unless i = bar.items.index(item)
+          if e.x >= item.aleft + item.awidth - 2 && e.x < item.aleft + item.awidth
+            close_tab i
+            e.accept
           end
         rescue
           # Item not laid out yet — ignore.
@@ -133,6 +139,7 @@ module Crysterm
         @switching = true
         bar.add(display_title title) { show_tab index }
         @switching = false
+        bar.items.last?.try { |it| wire_close it }
 
         if current_index < 0
           show_tab 0
@@ -231,6 +238,8 @@ module Crysterm
           bar.commands[i].callback = -> { show_tab i }
         end
         @switching = false
+        # `set_items` recreated the item boxes, so re-wire their `✕` close cells.
+        bar.items.each { |it| wire_close it }
 
         # Restore the previously-current page as current.
         @current_index = -1
