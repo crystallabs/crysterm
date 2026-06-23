@@ -129,7 +129,7 @@ module Crysterm
         )
         b.on(Crysterm::Event::Press) do
           case role
-          when .accept?                  then emit Crysterm::Event::Accepted
+          when .accept?                then emit Crysterm::Event::Accepted
           when .reject?, .destructive? then emit Crysterm::Event::Rejected
           else
             # Apply/Reset/Help carry no box-level meaning; the caller listens on

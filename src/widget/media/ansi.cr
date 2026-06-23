@@ -54,7 +54,7 @@ module Crysterm
       def initialize(
         @file = nil,
         @scale : Float64 = 1.0,
-        @animate : Bool = true,
+        animate : Bool | Timer = true,
         @ascii : Bool = false,
         @speed : Float64 = 1.0,
         @cell_aspect : Float64 = 2.0,
@@ -66,6 +66,7 @@ module Crysterm
         # `resizable`, so the widget sizes itself to the image when no explicit
         # width/height is given.
         super(**box.merge(resizable: true))
+        setup_animate animate # before set_image, so a shared clock is known when play subscribes
 
         @file.try { |f| set_image f }
 

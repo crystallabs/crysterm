@@ -98,9 +98,15 @@ spawn do
   left.pause if left.responds_to?(:pause)
   right.pause if right.responds_to?(:pause)
 
+  # One shared `Animation` clock drives the whole scene. A single frame index
+  # `idx` is written into BOTH throbbers and the resize each tick, so they stay
+  # in exact lockstep (a per-widget clock would drift, since the resizing box
+  # re-samples every frame at a different cost). The clock honors each frame's
+  # own GIF delay via `clock.interval=`, so playback keeps its native timing and
+  # the scene repeats precisely every `frame_count` frames.
   mark = ENV["TTYGIF_MARK"]?
   idx = 0
-  loop do
+  Crysterm::Animation.new(frame_delays[0].milliseconds) do |clock|
     # Tag every frame with an out-of-band marker (an APC string terminals ignore)
     # carrying its index and source delay, emitted just before the frame is
     # drawn. The recorder uses these to grab exactly one loop, one output frame
@@ -114,10 +120,10 @@ spawn do
     show.call right, idx
     resize_right.call idx
     s.render
-    sleep frame_delays[idx].milliseconds
+    clock.interval = frame_delays[idx].milliseconds # sleep the shown frame's delay
     idx += 1
     idx = 0 if idx >= frame_count
-  end
+  end.start
 end
 
 s.render

@@ -151,10 +151,10 @@ module Crysterm
       return if @model.empty?
       if @open
         case e.key
-        when Tput::Key::Down  then @popup.try &.down; consume e
-        when Tput::Key::Up    then @popup.try &.up; consume e
-        when Tput::Key::Enter then accept_current; consume e
-        when Tput::Key::Tab   then accept_current; consume e
+        when Tput::Key::Down   then @popup.try &.down; consume e
+        when Tput::Key::Up     then @popup.try &.up; consume e
+        when Tput::Key::Enter  then accept_current; consume e
+        when Tput::Key::Tab    then accept_current; consume e
         when Tput::Key::Escape then close; consume e
         end
       elsif e.key == Tput::Key::Down

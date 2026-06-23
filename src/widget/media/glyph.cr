@@ -48,9 +48,10 @@ module Crysterm
       # treated as an edge in `Ascii` mode and get a glyph.
       ASCII_EDGE = 28
 
-      def initialize(@file = nil, @mode : Mode = Mode::Half, @animate : Bool = true,
+      def initialize(@file = nil, @mode : Mode = Mode::Half, animate : Bool | Timer = true,
                      @speed : Float64 = 1.0, @fit : Media::Fit = Media::Fit::Stretch, **box)
         super(**box)
+        setup_animate animate # before set_image, so a shared clock is known when play subscribes
         @file.try { |f| set_image f }
         on(::Crysterm::Event::Destroy) { stop }
       end

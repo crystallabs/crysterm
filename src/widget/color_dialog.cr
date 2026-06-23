@@ -33,8 +33,8 @@ module Crysterm
       FIELD_W = 24
       FIELD_H = 10
       HUE_X   = FIELD_X + FIELD_W + 1 # 25
-      HUE_Y   =  0
-      HUE_W   =  2
+      HUE_Y   = 0
+      HUE_W   = 2
       HUE_H   = FIELD_H
       INFO_X  = HUE_X + HUE_W + 1 # 28
       PAL_Y   = FIELD_H + 1       # 11
@@ -188,10 +188,10 @@ module Crysterm
 
       private def on_key(e : Crysterm::Event::KeyPress) : Nil
         case e.key
-        when Tput::Key::Left  then set_hsv @hue, @saturation - 0.05, @value_v; e.accept
-        when Tput::Key::Right then set_hsv @hue, @saturation + 0.05, @value_v; e.accept
-        when Tput::Key::Up    then set_hsv @hue, @saturation, @value_v + 0.05; e.accept
-        when Tput::Key::Down  then set_hsv @hue, @saturation, @value_v - 0.05; e.accept
+        when Tput::Key::Left   then set_hsv @hue, @saturation - 0.05, @value_v; e.accept
+        when Tput::Key::Right  then set_hsv @hue, @saturation + 0.05, @value_v; e.accept
+        when Tput::Key::Up     then set_hsv @hue, @saturation, @value_v + 0.05; e.accept
+        when Tput::Key::Down   then set_hsv @hue, @saturation, @value_v - 0.05; e.accept
         when Tput::Key::Enter  then accept; e.accept
         when Tput::Key::Escape then cancel; e.accept
         else
@@ -319,7 +319,7 @@ module Crysterm
           when .< 300.0 then {x, 0.0, c}
           else               {c, 0.0, x}
           end
-        { ((r1 + m) * 255).round.to_i, ((g1 + m) * 255).round.to_i, ((b1 + m) * 255).round.to_i }
+        {((r1 + m) * 255).round.to_i, ((g1 + m) * 255).round.to_i, ((b1 + m) * 255).round.to_i}
       end
 
       # RGB (each 0..255) → HSV (h 0..360, s/v 0..1).

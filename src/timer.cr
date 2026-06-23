@@ -23,10 +23,8 @@ module Crysterm
     # Delay between ticks.
     property interval : Time::Span
 
-    # Whether the tick fiber is currently running.
-    getter? running = false
-
-    @fiber : Fiber?
+    # The underlying frame clock (phase-locking, lifecycle); created on `#start`.
+    @animation : Animation?
 
     # Creates a timer ticking every *interval*. Starts immediately unless
     # *autostart* is false (in which case call `#start` when ready).
@@ -34,34 +32,22 @@ module Crysterm
       start if autostart
     end
 
-    # Start ticking. No-op if already running.
+    # Whether the tick fiber is currently running.
+    def running? : Bool
+      @animation.try(&.running?) || false
+    end
+
+    # Start ticking. No-op if already running. The phase-locked loop (which keeps
+    # multiple timers sharing a nominal clock in sync) lives in `Animation`.
     def start : Nil
       return if running?
-      @running = true
-      @fiber = Fiber.new do
-        # Phase-lock to a moving deadline instead of `sleep @interval` after the
-        # work: the latter makes the real period `interval + tick_work`, which
-        # drifts slow and desyncs multiple timers sharing the same nominal clock.
-        next_at = Time.instant
-        loop do
-          break unless running?
-          emit Crysterm::Event::Tick
-          next_at += @interval
-          delay = next_at - Time.instant
-          if delay > Time::Span.zero
-            sleep delay
-          else
-            # Behind schedule (a slow tick or the process was paused): resync the
-            # phase to now rather than firing a burst of catch-up ticks.
-            next_at = Time.instant
-          end
-        end
-      end.enqueue
+      @animation = Animation.new(@interval) { emit Crysterm::Event::Tick }
+      @animation.try &.start
     end
 
     # Stop ticking. The fiber exits on its next iteration.
     def stop : Nil
-      @running = false
+      @animation.try &.stop
     end
 
     def toggle : Nil

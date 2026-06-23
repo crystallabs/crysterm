@@ -21,9 +21,13 @@ module Crysterm
         # Delay between frames.
         property interval : Time::Span = 0.07.seconds
 
-        # Frame loop; non-nil while running.
-        @fiber : Fiber?
-        protected property? running = false
+        # The frame clock; non-nil while running. The loop lives in `Animation`.
+        @animation : Animation?
+
+        # Whether the effect is currently animating.
+        def running? : Bool
+          @animation.try(&.running?) || false
+        end
 
         # Advance the simulation and repaint one frame (state + paint only — no
         # render, no sleep). Defined by the including effect.
@@ -41,30 +45,27 @@ module Crysterm
         protected def on_done
         end
 
-        # Start the animation: spawns a fiber that steps, renders, and sleeps
+        # Start the animation: an `Animation` that steps, renders, and sleeps
         # `interval`, until `#stop` (or, for a finite effect, until `#done?`).
         # A no-op if already running.
         def start
           return if running?
-          self.running = true
-          @fiber = Fiber.new do
-            loop do
-              break unless running?
-              step
-              request_render
-              if done?
-                self.running = false
-                on_done
-                break
-              end
-              sleep @interval
+          @animation = Animation.new(@interval) do
+            step
+            request_render
+            if done?
+              # End on this frame (so the final state is shown), then notify —
+              # `on_done` fires only on a *natural* finish, not an external `#stop`.
+              @animation.try &.stop
+              on_done
             end
-          end.enqueue
+          end
+          @animation.try &.start
         end
 
         # Stop the animation. The fiber exits on its next iteration.
         def stop
-          self.running = false
+          @animation.try &.stop
         end
 
         def toggle

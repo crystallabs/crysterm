@@ -85,11 +85,12 @@ module Crysterm
         @cell_pixel_width = 0,
         @cell_pixel_height = 0,
         @fit : Media::Fit = Media::Fit::Stretch,
-        @animate : Bool = true,
+        animate : Bool | Timer = true,
         @speed : Float64 = 1.0,
         **box,
       )
         super **box
+        setup_animate animate
 
         # Resolve the cell pixel size: ask the terminal (TIOCGWINSZ) when the
         # caller didn't pin it, falling back to a typical monospace cell.

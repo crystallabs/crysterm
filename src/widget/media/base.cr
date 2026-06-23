@@ -45,7 +45,39 @@ module Crysterm
 
       # Composited animation source frames (`{bitmap, delay_ms}`), built once.
       @src_frames : Array(Tuple(PNGGIF::Bitmap, Int32))? = nil
+
+      # Whether playback is wanted. Stays the single source of truth: every place
+      # that sets it false ends the loop, since the frame clock checks it each tick.
       @playing = false
+
+      # The private frame clock advancing `#anim_index` over time, used for solo
+      # playback (`animate: true`); nil when not playing or when driven by a
+      # shared clock instead.
+      @animation : Animation? = nil
+
+      # A shared frame clock (a `Timer`) when the widget was created with
+      # `animate: someTimer`. While set, playback advances one frame per tick of
+      # that clock — in lockstep with every other media widget on the same clock —
+      # rather than running its own `@animation`. The clock is owned by the caller,
+      # so the widget only subscribes/unsubscribes, never starts or stops it.
+      @clock : Timer? = nil
+
+      # This widget's subscription to `@clock`, kept so it can unsubscribe on
+      # pause/stop/destroy (and not leave the shared clock poking a dead widget).
+      @clock_sub : ::Crysterm::Event::Tick::Wrapper? = nil
+
+      # Resolves the `animate:` constructor argument. `true`/`false` toggle whether
+      # an animated source plays; a `Timer` enables playback *and* drives it from
+      # that shared clock, so several widgets given the same clock stay in sync.
+      protected def setup_animate(animate : Bool | Timer) : Nil
+        case animate
+        in Timer
+          @animate = true
+          @clock = animate
+        in Bool
+          @animate = animate
+        end
+      end
 
       # Index of the frame currently shown. The animation loop advances it, but it
       # can also be set directly (after `#pause`) to drive playback from an
@@ -97,14 +129,14 @@ module Crysterm
         @playing = true
 
         if @src_frames
-          spawn animate_loop
+          start_playback
         else
           spawn do
             Fiber.yield # let the current layout paint before the heavy build
             sw, sh = Media::Fitting.source_size png
             frames = @src_frames = png.animation_cellmaps(sw, sh, 1.0)
             if frames && !frames.empty? && @playing
-              animate_loop
+              start_playback
             else
               @playing = false
             end
@@ -112,42 +144,97 @@ module Crysterm
         end
       end
 
+      # Begins advancing frames once `@src_frames` exists: drive from the shared
+      # clock if one was given (`animate: timer`), else run a private per-frame
+      # `Animation`.
+      private def start_playback
+        if @clock
+          subscribe_clock
+        else
+          animate_loop
+        end
+      end
+
+      # Subscribe to the shared clock; each tick advances this widget's frame.
+      # Idempotent — drops any prior subscription first.
+      private def subscribe_clock : Nil
+        c = @clock || return
+        unsubscribe_clock
+        @clock_sub = c.on(::Crysterm::Event::Tick) { advance_shared }
+      end
+
+      # Drop this widget's subscription to the shared clock (without stopping the
+      # clock itself — other widgets may share it).
+      private def unsubscribe_clock : Nil
+        if (c = @clock) && (w = @clock_sub)
+          c.off ::Crysterm::Event::Tick, w
+        end
+        @clock_sub = nil
+      end
+
+      # One frame per shared-clock tick (wrapping). The shared clock's own cadence
+      # sets the rate, so per-frame GIF delays are not honored in this mode — the
+      # tradeoff for keeping several widgets in exact lockstep off one clock.
+      private def advance_shared : Nil
+        return unless @playing
+        src = @src_frames
+        return if src.nil? || src.empty?
+        @anim_index = (@anim_index + 1) % src.size
+        request_render
+      end
+
       # Pauses animation playback on the current frame.
       def pause
         @playing = false
+        @animation.try &.stop
+        unsubscribe_clock
       end
 
       # Stops animation playback and resets to the first frame.
       def stop
         @playing = false
+        @animation.try &.stop
+        unsubscribe_clock
         @anim_index = 0
       end
 
-      # Background fiber: advance the frame index over time and trigger a render
-      # (which samples the current frame to the current box). Honours `speed` and
-      # the image's loop count (`num_plays`; 0 = loop forever).
+      # Frame clock: advance the frame index over time and trigger a render (which
+      # samples the current frame to the current box). Honours `speed` and the
+      # image's loop count (`num_plays`; 0 = loop forever). Each tick shows the
+      # current frame, then sets the next sleep to that frame's own delay (so GIFs
+      # keep their variable per-frame timing).
       private def animate_loop
         src = @src_frames
         return unless src
         png = source
         num_plays = png ? png.num_plays : 0
         plays = 0
-        while @playing
-          request_render
 
-          delay = src[@anim_index]?.try(&.[1]) || 100
-          @anim_index += 1
-          if @anim_index >= src.size
-            @anim_index = 0
-            plays += 1
-            break if num_plays > 0 && plays >= num_plays
+        # Fresh run: drop any previous clock so a rapid stop→play can't leave two
+        # fibers advancing the same index.
+        @animation.try &.stop
+        @animation = Animation.new((src[@anim_index]?.try(&.[1]) || 100).milliseconds) do |clock|
+          if @playing
+            request_render
+
+            delay = src[@anim_index]?.try(&.[1]) || 100
+            @anim_index += 1
+            if @anim_index >= src.size
+              @anim_index = 0
+              plays += 1
+              @playing = false if num_plays > 0 && plays >= num_plays
+            end
+
+            ms = (delay / @speed).to_i
+            ms = 1 if ms < 1
+            clock.interval = ms.milliseconds # honor this frame's own delay
           end
-
-          ms = (delay / @speed).to_i
-          ms = 1 if ms < 1
-          sleep ms.milliseconds
+          # End the clock once playback is no longer wanted, so any `@playing =
+          # false` (pause/stop/num_plays) stops the loop on the next tick — exactly
+          # as the old `while @playing` did.
+          clock.stop unless @playing
         end
-        @playing = false
+        @animation.try &.start
       end
 
       # Called by a backend when asked to do something it can't. Consults the

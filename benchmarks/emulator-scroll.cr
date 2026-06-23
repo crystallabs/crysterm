@@ -14,8 +14,8 @@ require "../src/crysterm"
 
 include Crysterm
 
-COLS  =  80
-ROWS  =  24
+COLS  =      80
+ROWS  =      24
 LINES = 200_000
 
 # A realistic-ish line: some text, then a newline. ASCII so 1 byte/char.

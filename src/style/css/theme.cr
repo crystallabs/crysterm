@@ -1,5 +1,3 @@
-require "./color_math"
-
 module Crysterm
   module CSS
     # A color theme expressed in the Motif/CDE spirit: the author picks a small
@@ -85,7 +83,7 @@ module Crysterm
       # native background shows through.
       def self.from_terminal(bg : Int32?, fg : Int32?, palette : Array(Int32?)) : Theme
         # Decide polarity from the detected background (default: dark).
-        is_dark = bg ? ColorMath.luminance(bg) < 0.5 : true
+        is_dark = bg ? Colors.luminance(bg) < 0.5 : true
         base = is_dark ? dark : light
 
         ansi = ->(i : Int32) { palette[i]? }
@@ -112,10 +110,10 @@ module Crysterm
         base = @primaries[role]
         {
           base:   base,
-          light:  ColorMath.lighten(base, 0.10),
-          dark:   ColorMath.darken(base, 0.10),
-          select: dark? ? ColorMath.lighten(base, 0.06) : ColorMath.darken(base, 0.06),
-          fg:     ColorMath.readable_on(base, 0x101010, 0xf5f5f5),
+          light:  Colors.lighten(base, 0.10),
+          dark:   Colors.darken(base, 0.10),
+          select: dark? ? Colors.lighten(base, 0.06) : Colors.darken(base, 0.06),
+          fg:     Colors.readable_on(base, 0x101010, 0xf5f5f5),
         }
       end
 
@@ -149,11 +147,11 @@ module Crysterm
         io << "Screen {\n"
         ROLES.each do |role|
           s = shades(role)
-          io << "  --" << role << ": " << ColorMath.hex(s[:base]) << ";\n"
-          io << "  --" << role << "-light: " << ColorMath.hex(s[:light]) << ";\n"
-          io << "  --" << role << "-dark: " << ColorMath.hex(s[:dark]) << ";\n"
-          io << "  --" << role << "-select: " << ColorMath.hex(s[:select]) << ";\n"
-          io << "  --" << role << "-fg: " << ColorMath.hex(s[:fg]) << ";\n"
+          io << "  --" << role << ": " << Colors.hex(s[:base]) << ";\n"
+          io << "  --" << role << "-light: " << Colors.hex(s[:light]) << ";\n"
+          io << "  --" << role << "-dark: " << Colors.hex(s[:dark]) << ";\n"
+          io << "  --" << role << "-select: " << Colors.hex(s[:select]) << ";\n"
+          io << "  --" << role << "-fg: " << Colors.hex(s[:fg]) << ";\n"
         end
         io << "}\n"
       end
