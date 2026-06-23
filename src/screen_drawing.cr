@@ -41,6 +41,57 @@ module Crysterm
     @pre = IO::Memory.new 1024
     @post = IO::Memory.new 1024
 
+    # Terminal control values used by the per-frame `#draw`. They derive only
+    # from the connected terminal (terminfo + detected features) and so are
+    # constant for the screen's lifetime — derived **once** here rather than
+    # re-queried every frame (the previous code did so per frame), let alone per
+    # cell. The sequence fields (`smacs`/`rmacs`/`el`) are the terminal's static,
+    # parameter-free capabilities, captured (and `dup`'d off terminfo's own
+    # memory) so they can be written straight into the frame buffer. The
+    # *parameterized* hot-path sequences (`cup`/`cuf`/SGR) are not here — they are
+    # emitted as direct ANSI at their call sites, since materializing them through
+    # terminfo `run` allocates a `Bytes` per call. Derived once per `@tput` via
+    # `#compute_draw_caps` (in `Screen#initialize` and on reconnect).
+    record DrawCaps,
+      has_bce : Bool,
+      parm_right_cursor : Bool,
+      alt_charset : Bool,
+      broken_acs : Bool,
+      term_unicode : Bool,
+      u8 : Int32?,
+      ncolors : Int32,
+      acscr : Hash(Char, Char),
+      smacs : Bytes,
+      rmacs : Bytes,
+      el : Bytes
+
+    # The per-terminal draw capabilities (`DrawCaps`). Assigned `= compute_draw_caps`
+    # wherever `@tput` is created — in `Screen#initialize` and on reconnect — so
+    # it is always present and never derived per frame. (The reconnect reuses the
+    # same terminfo, so the values are in fact identical across it, but it is
+    # re-derived there anyway so it stays correct even if that ever changes.)
+    @draw_caps : DrawCaps
+
+    # Derives the draw capabilities from the current terminal. The shim is always
+    # present (terminfo always resolves, with a fallback term), so `not_nil!`
+    # cannot fail.
+    private def compute_draw_caps : DrawCaps
+      s = tput.shim.not_nil!
+      DrawCaps.new(
+        has_bce: !!(tput.has? &.back_color_erase?),
+        parm_right_cursor: !s.parm_right_cursor?.nil?,
+        alt_charset: !s.enter_alt_charset_mode?.nil?,
+        broken_acs: tput.features.broken_acs?,
+        term_unicode: tput.features.unicode?,
+        u8: tput.terminfo.try(&.extensions.get_num?("U8")),
+        ncolors: colors,
+        acscr: tput.features.acscr,
+        smacs: (s.smacs? || Bytes.empty).dup,
+        rmacs: (s.rmacs? || Bytes.empty).dup,
+        el: (s.el? || Bytes.empty).dup,
+      )
+    end
+
     # Number of bytes the previous `draw` actually wrote to the terminal (the
     # `@pre`+`@main`+`@post` payload). Read by `_render` to compute the
     # throughput figures a `Widget::Fps` overlay can display. Zero on a frame
@@ -98,21 +149,28 @@ module Crysterm
       lx = -1
       ly = -1
       acs = false
-      s = tput.shim.not_nil!
 
-      # Terminal capabilities, the chosen color depth and the full-unicode mode
-      # are all constant for the duration of a frame, so query them once here
-      # instead of for every one of the (width * height) cells in the loop below.
-      # `acscr` is bound so the hot ACS lookup indexes a local hash directly.
+      # Terminal-constant capabilities are derived once per `@tput` (`@draw_caps`,
+      # via `#compute_draw_caps`) instead of being re-queried every frame (let
+      # alone every cell). This includes the static, parameter-free sequence bytes
+      # (`smacs`/`rmacs`/`el`), bound to locals here and written straight into the
+      # frame buffer below. The parameterized hot-path moves (`cup`/`cuf`/SGR) are
+      # emitted as direct ANSI at their call sites (see the notes there). Only
+      # `bce_opt` and `fu` — which can change at runtime — stay per-frame.
+      caps = @draw_caps
+      has_bce = caps.has_bce
+      parm_right_cursor = caps.parm_right_cursor
+      alt_charset = caps.alt_charset
+      broken_acs = caps.broken_acs
+      acscr = caps.acscr
+      term_unicode = caps.term_unicode
+      u8 = caps.u8
+      ncolors = caps.ncolors
+      smacs = caps.smacs
+      rmacs = caps.rmacs
+      el = caps.el
+
       bce_opt = @optimization.bce?
-      has_bce = tput.has? &.back_color_erase?
-      parm_right_cursor = s.parm_right_cursor?
-      alt_charset = s.enter_alt_charset_mode?
-      broken_acs = tput.features.broken_acs?
-      acscr = tput.features.acscr
-      term_unicode = tput.features.unicode?
-      u8 = tput.terminfo.try &.extensions.get_num?("U8")
-      ncolors = colors
       fu = full_unicode?
 
       if @_buf.size > 0
@@ -249,10 +307,10 @@ module Crysterm
                 Screen.code2attr_to(@outbuf, attr, ncolors)
               end
 
-              divert(@tmpbuf, @outbuf) do
-                tput.cup(y, x)
-                tput.el
-              end
+              # Clear to end of line at (x, y): a direct-ANSI cursor move (see the
+              # reposition note below) followed by the hoisted static `el`.
+              @outbuf << "\e[" << (y + 1) << ';' << (x + 1) << 'H'
+              @outbuf.write el
 
               (x...line_size).each do |xx|
                 o[xx].attr = desired_attr
@@ -348,10 +406,19 @@ module Crysterm
               end
               next
             elsif lx != -1
-              if parm_right_cursor
-                @outbuf.write((y == ly) ? s.cuf(x - lx) : s.cup(y, x))
+              # Cursor reposition over the skipped (unchanged) run, emitted as
+              # direct ANSI straight into the buffer rather than via terminfo.
+              # These carry (x,y)/distance parameters and fire per run-break every
+              # frame, so going through terminfo `run` would allocate a fresh
+              # `Bytes` each call. `cuf` (`\e[<n>C`) and `cup` (`\e[<row>;<col>H`,
+              # 1-based) are universal on every terminal Crysterm targets (it
+              # already assumes ANSI SGR), so the hardcoded forms match terminfo's
+              # output. Writing an `Int` to the IO emits its digits with no
+              # `String` allocation.
+              if parm_right_cursor && y == ly
+                @outbuf << "\e[" << (x - lx) << 'C'
               else
-                @outbuf.write s.cup(y, x)
+                @outbuf << "\e[" << (y + 1) << ';' << (x + 1) << 'H'
               end
               lx = -1
               ly = -1
@@ -434,49 +501,44 @@ module Crysterm
           # the 'ch' is always written. This logic is taken for speed. In the
           # case that the contents of the IF/ELSE block change in incompatible
           # way, this should be had in mind.
-          if s
-            if alt_charset && !broken_acs && (acscr[desired_char]? || acs)
-              # Fun fact: even if tput.brokenACS wasn't checked here,
-              # the linux console would still work fine because the acs
-              # table would fail the check of: tput.features.acscr[desired_char]
-              if acscr[desired_char]?
-                if acs
-                  desired_char = acscr[desired_char]
-                else
-                  # This method of doing it (like blessed does it) is nasty
-                  # since char gets changed to string when sm/rm escape
-                  # sequence is added to it:
-                  # sm = String.new s.smacs
-                  # desired_char = sm + tput.features.acscr[desired_char]
-                  #
-                  # So instead of that, print smacs into outbuf (line buffer), and
-                  # just set char to the desired char, knowing that it will be
-                  # printed into outbuf at the end of the loop thanks to generic code.
-                  @outbuf.write s.smacs
-                  desired_char = acscr[desired_char]
-                  acs = true
-                end
-              elsif acs
-                # Same trick as above, not this:
-                # rm = String.new s.rmacs
-                # desired_char = rm + desired_char
-                # But this:
-                @outbuf.write s.rmacs
-                acs = false
+          if alt_charset && !broken_acs && (acscr[desired_char]? || acs)
+            # Fun fact: even if tput.brokenACS wasn't checked here,
+            # the linux console would still work fine because the acs
+            # table would fail the check of: tput.features.acscr[desired_char]
+            if acscr[desired_char]?
+              if acs
+                desired_char = acscr[desired_char]
+              else
+                # This method of doing it (like blessed does it) is nasty
+                # since char gets changed to string when sm/rm escape
+                # sequence is added to it:
+                # sm = String.new smacs
+                # desired_char = sm + tput.features.acscr[desired_char]
+                #
+                # So instead of that, print smacs into outbuf (line buffer), and
+                # just set char to the desired char, knowing that it will be
+                # printed into outbuf at the end of the loop thanks to generic code.
+                @outbuf.write smacs
+                desired_char = acscr[desired_char]
+                acs = true
               end
+            elsif acs
+              # Same trick as above, not this:
+              # rm = String.new rmacs
+              # desired_char = rm + desired_char
+              # But this:
+              @outbuf.write rmacs
+              acs = false
             end
-          else
-            # U8 is not consistently correct. Some terminfo's
-            # terminals that do not declare it may actually
-            # support utf8 (e.g. urxvt), but if the terminal
-            # does not declare support for ACS (and U8), chances
-            # are it does not support UTF8. This is probably
-            # the "safest" way to do @ Should fix things
-            # like sun-color.
-            # Note: It could be the case that the $LANG
-            # is all that matters in some cases:
-            # if (!tput.unicode && desired_char > '~') {
-            if !term_unicode && (u8 != 1) && (desired_char > '~')
+          elsif desired_char > '~'
+            # The terminal couldn't render this non-ASCII glyph via ACS (no ACS,
+            # or it's broken, or the glyph has no ACS mapping). U8 is not
+            # consistently correct: some terminals that don't declare it actually
+            # support utf8 (e.g. urxvt), but if a terminal declares neither ACS nor
+            # U8, chances are it doesn't support UTF8 either, so reducing to ASCII
+            # is the "safest" choice (fixes things like sun-color). It could also
+            # be that $LANG is all that matters in some cases.
+            if !term_unicode && (u8 != 1)
               # Reduction of ACS into ASCII chars.
               desired_char = Tput::ACSC::Data[desired_char]?.try(&.[2]) || '?'
             end
@@ -514,13 +576,15 @@ module Crysterm
 
         unless @outbuf.empty?
           # STDERR.puts @outbuf.size
-          @main.write s.cup(y, 0) # .to_slice)
+          # Line-start cursor position, direct ANSI (see the reposition note
+          # above): `cup(y, 0)` == `\e[<row>;1H` (1-based).
+          @main << "\e[" << (y + 1) << ";1H"
           @main.write @outbuf.to_slice
         end
       end
 
       if acs
-        @main.write s.rmacs
+        @main.write rmacs
         acs = false
       end
 

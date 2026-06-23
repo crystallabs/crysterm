@@ -194,6 +194,9 @@ module Crysterm
         force_unicode: @force_unicode,
         use_buffer: false,
       )
+      # Derive the terminal's static draw capabilities once, here. They are
+      # re-derived wherever `@tput` is rebuilt (see `#connect`).
+      @draw_caps = compute_draw_caps
       # XXX Add those options too if needed:
       # term: @term,
       # padding: @padding,

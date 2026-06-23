@@ -121,6 +121,10 @@ module Crysterm
         use_buffer: false,
         probe: false,
       )
+      # Re-derive the static draw capabilities for the new `@tput` (it reuses the
+      # same terminfo, so in practice they are identical, but this stays correct
+      # even if a future reattach targets a differently-capable terminal).
+      @draw_caps = compute_draw_caps
       # `reset_screen_size` ioctls the fd, which raises on a non-tty (pipe/file/
       # memory) — tolerate that for headless/redirected use.
       begin
