@@ -74,32 +74,78 @@ module Crysterm
       sheet
     end
 
+    # Whether `#load_stylesheet` automatically starts hot-reloading the loaded
+    # file (see `#watch_stylesheet`). On by default; set to `false` *before*
+    # loading to opt out.
+    property? auto_reload_stylesheet = true
+
+    # The active stylesheet file watcher, if hot-reload is running, and the path
+    # it watches. Held so the watcher isn't collected and can be stopped/replaced.
+    @css_watcher : FSWatch::Session?
+    @css_watched_path : String?
+
+    # Raw text of the stylesheet last read from a file. Used to skip redundant
+    # reparse/recascade/re-render when a change event fires but the file content
+    # is unchanged — editors and some `fswatch` backends emit several events per
+    # save.
+    @css_loaded_source : String?
+
     # Loads (and applies on next render) a stylesheet from a `.css` file,
-    # remembering the path for `#reload_stylesheet`/`#watch_stylesheet`.
+    # remembering the path for `#reload_stylesheet`/`#watch_stylesheet`. Unless
+    # `#auto_reload_stylesheet?` is disabled, hot-reload is started for the file.
     def load_stylesheet(path : String) : Nil
       @css_stylesheet_path = path
-      self.stylesheet = CSS::Stylesheet.from_file(path) # parses with base path for @import
+      apply_stylesheet_source File.read(path), path
+      watch_stylesheet path if auto_reload_stylesheet?
     end
 
-    # Re-reads the file last given to `#load_stylesheet` and re-applies it.
+    # Re-reads the file last given to `#load_stylesheet` and re-applies it
+    # (leaving any active watcher in place).
     def reload_stylesheet : Nil
-      @css_stylesheet_path.try { |path| load_stylesheet path }
+      @css_stylesheet_path.try { |path| apply_stylesheet_source File.read(path), path }
     end
 
-    # Opt-in stylesheet hot-reload: watches the stylesheet file (event-based, via
-    # inotify — Linux only; no polling) and reloads + re-renders on each change.
-    # Nothing watches by default; you must call this. Returns the spawned
-    # `Fiber`. Read/parse errors during editing are ignored.
-    def watch_stylesheet(path : String? = @css_stylesheet_path) : Fiber
+    # Parses *source* (read from *path*, whose directory resolves `@import`) and
+    # makes it the active stylesheet, remembering the raw text so an unchanged
+    # reload can be skipped.
+    private def apply_stylesheet_source(source : String, path : String) : Nil
+      @css_loaded_source = source
+      self.stylesheet = CSS::Stylesheet.parse(source, base_path: path)
+    end
+
+    # Stylesheet hot-reload: watches the stylesheet file and reloads + re-renders
+    # on each change. Cross-platform via the `fswatch` shard (FSEvents on macOS,
+    # inotify on Linux, kqueue on the BSDs). Started automatically by
+    # `#load_stylesheet` unless `#auto_reload_stylesheet?` is disabled; call it
+    # directly to watch an explicit path. Idempotent: re-watching the current
+    # file is a no-op, and watching a different file replaces the previous
+    # watcher. Returns the `FSWatch::Session`. Read/parse errors during editing
+    # are ignored (the next change event retries).
+    def watch_stylesheet(path : String? = @css_stylesheet_path) : FSWatch::Session
       watched = path || raise "no stylesheet path to watch (call load_stylesheet first)"
-      CSS::FileWatcher.watch(watched) do
+      if (existing = @css_watcher) && @css_watched_path == watched
+        return existing
+      end
+      unwatch_stylesheet
+      @css_watched_path = watched
+      @css_watcher = CSS::FileWatcher.watch(watched) do
         begin
-          load_stylesheet watched
-          render
+          source = File.read(watched)
+          if source != @css_loaded_source # skip duplicate events for the same content
+            apply_stylesheet_source source, watched
+            render
+          end
         rescue
           # mid-edit read/parse error; the next change event will retry
         end
       end
+    end
+
+    # Stops stylesheet hot-reload, if running.
+    def unwatch_stylesheet : Nil
+      @css_watcher.try &.stop_monitor
+      @css_watcher = nil
+      @css_watched_path = nil
     end
 
     # Marks the whole tree dirty so the cascade re-runs on the next render.

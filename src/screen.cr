@@ -586,6 +586,9 @@ module Crysterm
       @render_stop = true
       schedule_render
 
+      # Stop the stylesheet hot-reload monitor thread, if one is running.
+      unwatch_stylesheet
+
       # XXX Needs some small fix before enabling. Probably just the order of
       # destroyals needs to be bottom-up instead of top-down.
       # @children.each &.destroy

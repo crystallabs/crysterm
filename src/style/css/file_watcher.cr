@@ -1,60 +1,42 @@
+require "fswatch"
+
 module Crysterm
   module CSS
-    # Minimal event-based (inotify) watcher for a single file — Linux only.
+    # Cross-platform single-file watcher backed by the `fswatch` shard
+    # (libfswatch: FSEvents on macOS, inotify on Linux, kqueue on the BSDs, with
+    # a portable stat-poll fallback on platforms without a native backend).
     #
-    # Used for opt-in stylesheet hot-reload (`Screen#watch_stylesheet`); there is
-    # no polling and nothing runs unless explicitly started. The file's
-    # *directory* is watched (filtered to the basename) so editor save patterns
-    # that replace the file (write-temp-then-rename) are caught, not just
-    # in-place writes.
+    # Used for stylesheet hot-reload (`Screen#watch_stylesheet`), but the API is
+    # deliberately generic (path + callback) so the same mechanism can later be
+    # surfaced through `event_handler` as user-facing file-change events.
+    #
+    # The file's *directory* is watched (non-recursively) and events are filtered
+    # to the target basename, so editor save patterns that replace the file
+    # (write-temp-then-rename) are caught, not just in-place writes — and so the
+    # comparison is unaffected by backends (e.g. FSEvents) that report
+    # symlink-resolved paths.
     module FileWatcher
-      @[Link("c")]
-      lib LibInotify
-        fun inotify_init1(flags : LibC::Int) : LibC::Int
-        fun inotify_add_watch(fd : LibC::Int, pathname : LibC::Char*, mask : LibC::UInt) : LibC::Int
-      end
-
-      IN_NONBLOCK    = 0x800_u32 # O_NONBLOCK
-      IN_CLOSE_WRITE =   0x8_u32
-      IN_MOVED_TO    =  0x80_u32
-
       # Watches *path* for modifications, invoking *callback* on each change.
-      # Returns the spawned `Fiber`. Raises if inotify can't be set up.
-      def self.watch(path : String, &callback : ->) : Fiber
-        dir = File.dirname(path)
+      #
+      # Returns the running `FSWatch::Session`. The monitor runs on its own
+      # thread; libfswatch coalesces bursts within *latency* seconds and the
+      # shard marshals each batch back to a regular Crystal fiber, so *callback*
+      # runs cooperatively on the main thread (safe to render from). Keep the
+      # returned session referenced — a collected session stops monitoring — and
+      # call `#stop_monitor` on it to end watching.
+      def self.watch(path : String, latency : Float64 = 0.1, &callback : ->) : FSWatch::Session
         base = File.basename(path)
+        dir = File.dirname(File.expand_path(path))
 
-        fd = LibInotify.inotify_init1(IN_NONBLOCK.to_i)
-        raise "inotify_init1 failed" if fd < 0
-        wd = LibInotify.inotify_add_watch(fd, dir, IN_CLOSE_WRITE | IN_MOVED_TO)
-        raise "inotify_add_watch failed for #{dir.inspect}" if wd < 0
-
-        io = IO::FileDescriptor.new(fd)
-        spawn do
-          buffer = Bytes.new(4096)
-          loop do
-            read = io.read(buffer) # suspends the fiber until events arrive
-            break if read <= 0
-            each_event(buffer[0, read]) { |name| callback.call if name == base }
-          end
-        rescue
-          # fd closed / error: stop watching silently
+        session = FSWatch::Session.new
+        session.latency = latency
+        session.recursive = false
+        session.on_change do |event|
+          callback.call if File.basename(event.path) == base
         end
-      end
-
-      # Iterates the `struct inotify_event` records packed into *bytes*
-      # (`{ int wd; uint32 mask, cookie, len; char name[len]; }`), yielding each
-      # event's filename.
-      private def self.each_event(bytes : Bytes, &)
-        offset = 0
-        while offset + 16 <= bytes.size
-          len = IO::ByteFormat::LittleEndian.decode(UInt32, bytes[offset + 12, 4]).to_i
-          name_start = offset + 16
-          break if name_start + len > bytes.size
-          name = len > 0 ? String.new(bytes[name_start, len].to_unsafe) : ""
-          yield name
-          offset = name_start + len
-        end
+        session.add_path dir
+        session.start_monitor
+        session
       end
     end
   end

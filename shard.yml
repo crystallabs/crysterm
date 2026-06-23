@@ -36,6 +36,8 @@ dependencies:
     branch: master
   html5:
     github: naqvis/crystal-html5
+  fswatch:
+    github: bcardiff/crystal-fswatch
 
 development_dependencies:
   ameba:
