@@ -59,6 +59,19 @@ module Crysterm
     # Emitted when screen is resized.
     event Resize, size : Tput::Namespace::Size? = nil
 
+    # Emitted when the user pastes text and bracketed paste (DEC 2004) is
+    # enabled (`Screen#enable_bracketed_paste`). `content` is the pasted text
+    # verbatim — never interpreted as key presses, so embedded control sequences
+    # are inert. Lets apps treat paste differently from typing (e.g. insert
+    # literally, skip auto-indent, guard against paste injection). Also emitted
+    # for a programmatic clipboard read (`Screen#request_clipboard`, OSC 52).
+    event Paste, content : String
+
+    # Emitted when the terminal reports a light/dark color-scheme change, once
+    # `Screen#enable_color_scheme_notifications` (DEC 2031) is active. Lets an app
+    # adapt its palette to the terminal theme at runtime.
+    event ColorScheme, scheme : ::Tput::ColorScheme
+
     # Emitted by a `Crysterm::Timer` on every tick. Widgets (and anything else)
     # subscribe to a shared timer to animate in lockstep off one clock.
     event Tick
@@ -219,20 +232,30 @@ module Crysterm
     # `QButtonGroup#buttonClicked`).
     event ButtonClick, button : Widget
 
-    # # event Key, key : ::Tput::Key
-
-    # Individual key events emitted on specific key presses. This is used when
-    # the caller does not want to listen for everything on `Event::KeyPress` (i.e.
-    # all keypresses), but when they want explicit keys like
-    # `Event::KeyPress::CtrlQ`.
-    class KeyPress < EventHandler::Event
+    # Base class for keyboard events. Carries the key identity (`char` / `key` /
+    # `sequence`) and, when the terminal speaks an enhanced keyboard protocol
+    # (kitty / modifyOtherKeys) enabled via `Screen#enable_keyboard_protocol`,
+    # the rich `key_event` plus flat accessors for its details (`#alt?`,
+    # `#modifier_key`, …) — all `nil`/`false` for legacy (un-enhanced) input,
+    # none of which the flat `#key`/`#char` can express.
+    #
+    # The concrete events are `KeyPress` (a press or auto-repeat) and
+    # `KeyRelease` (a release). Subscribe to:
+    #
+    #   * `Event::KeyPress`         — presses/repeats only (the common case)
+    #   * `Event::KeyRelease`       — releases only
+    #   * `Event::Key`              — both (every key transition)
+    #   * `Event::KeyPress::CtrlQ`  — one specific key press
+    abstract class Key < EventHandler::Event
       property char : Char
       property key : ::Tput::Key?
       property sequence : Array(Char)
       property? accepted : Bool = false
 
-      def initialize(char, @key = nil, @sequence = [char])
-        @char = char
+      # The rich keyboard event when an enhanced protocol is active, else `nil`.
+      getter key_event : ::Tput::KeyEvent?
+
+      def initialize(@char, @key = nil, @sequence = [@char], @key_event = nil)
       end
 
       # Accepts event and causes it to stop propagating.
@@ -245,6 +268,40 @@ module Crysterm
         @accepted = false
       end
 
+      # The active modifiers, or `nil` for legacy input.
+      def modifiers : ::Tput::Modifiers?
+        @key_event.try &.mods
+      end
+
+      # The Unicode codepoint, when the terminal reported one (kitty `u`-form);
+      # `nil` otherwise.
+      def codepoint : Int32?
+        @key_event.try &.codepoint
+      end
+
+      # The standalone modifier key this event represents (`:left_alt`,
+      # `:right_ctrl`, …), or `nil` if it is not a lone modifier. A `KeyRelease`
+      # whose `#modifier_key` is set is the "modifier tapped" gesture.
+      def modifier_key : Symbol?
+        @key_event.try &.modifier_key
+      end
+
+      # Whether this is an auto-repeat rather than an initial transition.
+      def repeat? : Bool
+        !!@key_event.try(&.repeat?)
+      end
+
+      {% for m in %w[shift alt ctrl super hyper meta] %}
+        # Whether the {{m.id}} modifier was held.
+        def {{m.id}}? : Bool
+          !!@key_event.try(&.{{m.id}}?)
+        end
+      {% end %}
+    end
+
+    # A key press (or auto-repeat). `Event::KeyPress` is *always* a press —
+    # releases are delivered as `KeyRelease` — so press handlers need no guard.
+    class KeyPress < Key
       # Whether this keypress is the conventional "activate" gesture — Enter or
       # Space — used by buttons, checkboxes and similar to fire their action.
       # (Space arrives as a printable `char` with a nil `key`; Enter as a `key`.)
@@ -264,6 +321,12 @@ module Crysterm
         class {{m.id}} < self; end
         KEYS[ ::Tput::Key::{{m.id}} ] = {{m.id}}
       {% end %}
+    end
+
+    # A key release. Only emitted when an enhanced keyboard protocol with event
+    # reporting is active (`Screen#enable_keyboard_protocol(events: true)`);
+    # otherwise the terminal never reports releases and this never fires.
+    class KeyRelease < Key
     end
 
     # Emitted on any mouse activity (button press/release, motion, wheel).

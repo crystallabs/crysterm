@@ -135,7 +135,8 @@ module Crysterm
 
       # Re-establish the global-resize subscription if it was dropped.
       @_resize_handler ||= GlobalEvents.on(::Crysterm::Event::Resize) do |_|
-        schedule_resize
+        # In-band resize (DEC 2048), when active, supersedes the SIGWINCH path.
+        schedule_resize unless _listened_in_band_resize?
       end
 
       enter   # alternate buffer + modes + (re)alloc to new size
@@ -187,6 +188,34 @@ module Crysterm
         rescue
         end
         @_listened_mouse = false
+      end
+
+      if @_listened_keyboard
+        begin
+          disable_keyboard_protocol
+        rescue
+        end
+      end
+
+      if @_listened_paste
+        begin
+          disable_bracketed_paste
+        rescue
+        end
+      end
+
+      if @_listened_in_band_resize
+        begin
+          disable_in_band_resize
+        rescue
+        end
+      end
+
+      if @_listened_color_scheme
+        begin
+          disable_color_scheme_notifications
+        rescue
+        end
       end
 
       # Restore line discipline on a real, still-open tty.

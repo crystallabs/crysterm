@@ -69,6 +69,36 @@ module Crysterm
       Fiber.yield
 
       listen_mouse
+
+      # Enable, by default, the input enhancements that are safe and universally
+      # expected — done here (after raw mode is established, like mouse, so the
+      # enable sequences aren't echoed):
+      #
+      #   * keyboard-protocol *escape-code disambiguation* — a pure-correctness
+      #     win (Esc is instant, Tab/Ctrl+I et al. become distinguishable via
+      #     `key_event`) that projects back onto the legacy `key`/`char`, so it
+      #     does not change the event stream; no-op on unsupported terminals.
+      #   * bracketed paste — so a paste arrives as `Event::Paste` rather than
+      #     being interpreted as keystrokes; harmless on unsupported terminals.
+      #
+      # Modifier/release reporting (`enable_keyboard_protocol(events: true)`)
+      # stays opt-in, since it changes the event stream.
+      #
+      # Only negotiate these with a real terminal: writing the enable sequences
+      # to a pipe/file (a non-tty output) would just corrupt the output stream.
+      out = tput.output
+      if out.responds_to?(:tty?) && out.tty?
+        enable_keyboard_protocol
+        enable_bracketed_paste
+
+        # In-band resize (DEC 2048): enable it when the terminal advertises
+        # support (probed via DECRQM). When active, the SIGWINCH-driven path
+        # stands down (see the resize subscription) and resize reports arrive
+        # through the input stream instead — but both funnel into the same
+        # `Event::Resize`, so apps see resizing identically regardless of
+        # mechanism.
+        enable_in_band_resize if tput.features.in_band_resize?
+      end
       # else
       #  @tput.input._our_input += 1
       # end
@@ -94,19 +124,127 @@ module Crysterm
         # swallows the IO error (and the raw-mode-restore error on the now-dead
         # fd) that closing mid-read produces, letting the fiber end quietly.
         begin
-          tput.listen do |char, key, sequence, mouse|
-            # The same input fiber feeds both keyboard and (terminal) mouse: a
-            # parsed mouse report is dispatched through the unified mouse path;
-            # everything else is announced as a key press.
-            if mouse
-              dispatch_mouse mouse
-            else
-              emit Crysterm::Event::KeyPress.new char, key, sequence
-            end
-          end
+          tput.listen { |e| dispatch_input e }
         rescue
         end
       }
+    end
+
+    # Whether an enhanced keyboard protocol was enabled for this screen (so
+    # `#restore_terminal` knows to turn it back off).
+    getter? _listened_keyboard = false
+
+    # Turns on the best enhanced keyboard protocol (kitty / modifyOtherKeys) the
+    # terminal supports — honoring the `keyboard.exclude` / `keyboard.protocol`
+    # config — so `Event::KeyPress#key_event` is populated. With *events* `true`,
+    # also requests key releases and lone-modifier presses (e.g. a "tap Alt"
+    # gesture); with `false`, only escape-code disambiguation, which never
+    # changes how ordinary typing is delivered. A no-op fallback to the legacy
+    # baseline on terminals that support neither protocol.
+    def enable_keyboard_protocol(events : Bool = false) : ::Tput::KeyboardProtocol
+      @_listened_keyboard = true
+      tput.enable_keyboard_protocol events
+    end
+
+    # Turns the enhanced keyboard protocol back off, restoring the terminal's
+    # default keyboard reporting.
+    def disable_keyboard_protocol : Nil
+      tput.disable_keyboard_protocol
+      @_listened_keyboard = false
+    end
+
+    # Whether bracketed paste was enabled for this screen.
+    getter? _listened_paste = false
+
+    # Enables bracketed paste (DEC 2004): pasted text arrives as
+    # `Event::Paste` instead of as individual key presses.
+    def enable_bracketed_paste : Nil
+      @_listened_paste = true
+      tput.enable_bracketed_paste
+    end
+
+    # Disables bracketed paste.
+    def disable_bracketed_paste : Nil
+      tput.disable_bracketed_paste
+      @_listened_paste = false
+    end
+
+    # Whether in-band resize notifications were enabled for this screen.
+    getter? _listened_in_band_resize = false
+
+    # Enables in-band resize notifications (DEC 2048): the terminal reports size
+    # changes through the input stream, feeding the same debounced redraw path
+    # as `SIGWINCH` (useful where SIGWINCH is unavailable, e.g. over some PTYs).
+    def enable_in_band_resize : Nil
+      @_listened_in_band_resize = true
+      tput.enable_in_band_resize
+    end
+
+    # Disables in-band resize notifications.
+    def disable_in_band_resize : Nil
+      tput.disable_in_band_resize
+      @_listened_in_band_resize = false
+    end
+
+    # Whether color-scheme notifications were enabled for this screen.
+    getter? _listened_color_scheme = false
+
+    # Enables light/dark color-scheme change notifications (DEC 2031): theme
+    # changes arrive as `Event::ColorScheme`. No-op on unsupported terminals.
+    def enable_color_scheme_notifications : Nil
+      @_listened_color_scheme = true
+      tput.enable_color_scheme_notifications
+    end
+
+    # Disables color-scheme change notifications.
+    def disable_color_scheme_notifications : Nil
+      tput.disable_color_scheme_notifications
+      @_listened_color_scheme = false
+    end
+
+    # OSC 52: copies *text* to the terminal clipboard *selection* (`"c"`
+    # clipboard, `"p"` primary). Works over SSH/tmux; ignored where unsupported.
+    def copy(text : String, selection : String = "c") : Nil
+      tput.set_clipboard text, selection
+    end
+
+    # OSC 52: asks the terminal for the clipboard *selection*. The contents
+    # arrive asynchronously as an `Event::Paste` (so it works during the input
+    # loop). Many terminals disable clipboard *reads* for security, in which case
+    # no event arrives.
+    def request_clipboard(selection : String = "c") : Nil
+      tput.request_clipboard selection
+    end
+
+    # Routes one unit of terminal input (`Tput::InputEvent`) to the right
+    # Crysterm event. Mouse reports go through the unified mouse path; a paste
+    # becomes an `Event::Paste`; an in-band resize feeds the same debounced path
+    # as SIGWINCH; everything else is a key transition — a release (only seen
+    # when event reporting is enabled) becomes `Event::KeyRelease` so that
+    # `Event::KeyPress` always means a press, with the base `Event::Key` also
+    # emitted for listeners that want every transition.
+    #
+    # :nodoc:
+    def dispatch_input(e : Tput::InputEvent) : Nil
+      if m = e.mouse
+        dispatch_mouse m
+      elsif pasted = e.paste
+        emit Crysterm::Event::Paste.new pasted
+      elsif scheme = e.color_scheme
+        emit Crysterm::Event::ColorScheme.new scheme
+      elsif e.resize?
+        schedule_resize
+      else
+        ev = if e.release?
+               Crysterm::Event::KeyRelease.new e.char, e.key, e.sequence, e.key_event
+             else
+               Crysterm::Event::KeyPress.new e.char, e.key, e.sequence, e.key_event
+             end
+        emit ev
+        if handlers(Crysterm::Event::Key).any?
+          emit Crysterm::Event::Key, ev
+        end
+      end
     end
 
     # Disabled since they exist, but nothing calls them within blessed:

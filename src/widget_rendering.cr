@@ -238,11 +238,6 @@ module Crysterm
         parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.item_selected?(self) # XXX && parent2.invert_selected
       end || false
 
-      # The fill char as a one-codepoint `String`, materialized once per render
-      # (only on the full_unicode path that consumes it) instead of `ch.to_s` per
-      # fill cell. `ch` always equals `bch` on the no-content branch that uses it.
-      bch_str = fu ? bch.to_s : ""
-
       # Draw the content and background.
       # yi.step to: yl-1 do |y|
       (yi...yl).each do |y|
@@ -351,20 +346,37 @@ module Crysterm
           # char `bch` past the end of content).
           has_content = !content[ci - 1]?.nil?
 
-          # Grapheme assembly (full_unicode): merge following combining marks /
-          # joiners into one cluster, and lay wide (2-column) clusters across two
-          # cells. Legacy keeps one codepoint per cell.
+          # Grapheme handling (full_unicode): lay multi-codepoint clusters (emoji
+          # ZWJ sequences, flags, base+combining marks) into one cell + a wide
+          # continuation cell. Legacy keeps one codepoint per cell.
           #
-          # `grapheme` is only consumed on the full_unicode path below; the
-          # legacy path writes `ch` directly. So it stays `""` (no allocation)
-          # unless full_unicode is on — this avoids a per-cell `ch.to_s` on the
-          # default render path.
+          # Fast path: `needs_cluster?` cheaply rules out the lone codepoint that
+          # the overwhelming majority of cells are, so the common case takes the
+          # `Char` width overload and the `cell.char = ch` write below — NO
+          # `String` allocation, the same cost as legacy rendering. The
+          # (allocating) `extend_grapheme` runs only when a cell genuinely is a
+          # cluster, gated by `is_cluster`.
           grapheme = ""
           cell_width = 1
-          if fu
-            if has_content
+          is_cluster = false
+          if fu && has_content
+            if needs_cluster? ch, content[ci]?
+              # Costly path — this cell really is a multi-codepoint cluster.
+              #
+              # The `String` here is essentially unavoidable: a cluster has no
+              # single-`Char` representation, and it must be materialized to store
+              # in the row's `@graphemes` overlay AND to emit as one unit at draw
+              # time. It cannot be rewritten away without changing the overlay's
+              # storage type. It is, however, *rare* (only true clusters reach
+              # here — plain text never does), so the per-frame allocation count
+              # is bounded by the handful of cluster cells on screen, not the cell
+              # count. (A further micro-optimization — comparing an unchanged
+              # cluster against the content codepoints to skip even this
+              # allocation on steady-state frames — was judged not worth the
+              # complexity given how few cells are clusters.)
               grapheme, ci = extend_grapheme(content, ci, ch)
               cell_width = ::Crysterm::Unicode.width grapheme
+              is_cluster = true
               if cell_width == 0
                 # Zero-width cluster (e.g. a leading combining mark): merge into
                 # the previous cell rather than consuming one.
@@ -376,9 +388,8 @@ module Crysterm
                 next
               end
             else
-              # Fill char past the end of content: one codepoint, no clustering.
-              # `ch` equals `bch` here, so reuse the per-render `bch_str`.
-              grapheme = bch_str
+              # Lone codepoint: width straight from the `Char`, stored as a char.
+              cell_width = ::Crysterm::Unicode.width ch
             end
           end
 
@@ -389,10 +400,10 @@ module Crysterm
           if alpha = style_alpha
             cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
             if has_content
-              fu ? (cell.grapheme = grapheme) : (cell.char = ch)
+              is_cluster ? (cell.grapheme = grapheme) : (cell.char = ch)
             end
             line.dirty = true
-          elsif fu
+          elsif is_cluster
             if cell.attr != attr || !cell.grapheme_eq?(grapheme)
               cell.attr = attr
               cell.grapheme = grapheme
@@ -406,8 +417,9 @@ module Crysterm
             end
           end
 
-          # Wide grapheme: claim the following cell as its continuation so the
-          # cell grid stays 1 cell == 1 terminal column.
+          # Wide cell (a 2-column cluster, or a wide lone codepoint like CJK):
+          # claim the following cell as its continuation so the cell grid stays
+          # 1 cell == 1 terminal column.
           if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
             nxt.attr = attr
             nxt.continuation!

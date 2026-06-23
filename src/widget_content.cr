@@ -845,6 +845,24 @@ module Crysterm
       text.each_grapheme.to_a[0...-1].join
     end
 
+    # Whether *base* begins a multi-codepoint grapheme cluster, given its
+    # successor *nxt* — i.e. whether `#extend_grapheme` would assemble anything
+    # beyond `base` alone. This is the cheap pre-check that lets the renderer skip
+    # the (String-allocating) cluster assembly for the lone codepoint that the
+    # overwhelming majority of cells are. It exactly mirrors `#extend_grapheme`'s
+    # own start conditions, so `needs_cluster? == false` ⟺ the cluster is just
+    # `base`.
+    def needs_cluster?(base : Char, nxt : Char?) : Bool
+      return true if base.mark? # a leading combining mark (zero-width; merges back)
+      bp = base.ord
+      return true if 0x1F1E6 <= bp <= 0x1F1FF # regional indicator (flag pair)
+      return false unless nxt
+      np = nxt.ord
+      # A following combining mark, ZWJ, variation selector, or skin-tone modifier
+      # extends the cluster.
+      nxt.mark? || np == 0x200D || (0xFE00 <= np <= 0xFE0F) || (0x1F3FB <= np <= 0x1F3FF)
+    end
+
     # Assembles the grapheme cluster that begins with `base` (the codepoint at
     # `content[ci - 1]`) by consuming any following *extending* codepoints from
     # `content` starting at `ci`: combining marks, ZWJ (and the codepoint it

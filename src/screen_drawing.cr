@@ -76,6 +76,16 @@ module Crysterm
       end
     end
 
+    # Whether to bracket each painted frame in a DEC 2026 *synchronized update*
+    # (`\e[?2026h` … `\e[?2026l`) so the terminal presents the whole frame at
+    # once, eliminating flicker/tearing on a multi-write redraw. The markers are
+    # emitted only when a frame actually produces output, in the same single
+    # write as the frame, so they cost ~14 bytes per changed frame and nothing
+    # otherwise. Harmless on terminals that don't support it (they ignore the
+    # markers and auto-release after a short timeout). Default on; set false to
+    # opt out.
+    property? synchronized_output : Bool = true
+
     # Draws the screen based on the contents of in-memory grid of cells (`@lines`).
     def draw(start = 0, stop = @lines.size - 1)
       # D O:
@@ -532,7 +542,18 @@ module Crysterm
         # D O:
         # display.flush()
         # display._owrite(@pre + @main + @post)
-        tput._print { |io| io.write @pre.to_slice; io.write @main.to_slice; io.write @post.to_slice }
+        #
+        # Bracket the frame in a DEC 2026 synchronized update (when enabled) so
+        # the terminal presents it atomically. Inlined into this single `_print`
+        # — rather than separate begin/end calls — so the markers and the frame
+        # land in one buffered write, with no markers emitted on empty frames.
+        tput._print do |io|
+          io << "\e[?2026h" if synchronized_output?
+          io.write @pre.to_slice
+          io.write @main.to_slice
+          io.write @post.to_slice
+          io << "\e[?2026l" if synchronized_output?
+        end
 
         # Account for the bytes just emitted. `@_buf`'s buffered insert/delete-line
         # output is already folded into `@main` above, so the three buffers cover
