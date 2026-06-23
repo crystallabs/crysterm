@@ -49,6 +49,13 @@ module Crysterm
       property cell_pixel_width : Int32
       property cell_pixel_height : Int32
 
+      # Present each frame's emit atomically by wrapping it in a synchronized
+      # output (DEC private mode 2026) update, so the terminal never shows a
+      # partial/torn frame or a mid-update blank. `Media::Kitty` additionally
+      # double-buffers via alternating image ids. Terminals that don't understand
+      # 2026 ignore the wrapper, so this is always safe to leave on.
+      property? double_buffer : Bool = true
+
       # Original (undecoded) bytes cache, for backends that transmit the file
       # as-is (iTerm2). The decoded `@source`/frames live in `Media::Base`.
       @raw : Bytes?
@@ -87,6 +94,7 @@ module Crysterm
         @fit : Media::Fit = Media::Fit::Stretch,
         animate : Bool | Timer = true,
         @speed : Float64 = 1.0,
+        @double_buffer : Bool = Crysterm::Config.media_double_buffer,
         **box,
       )
         super **box
@@ -288,6 +296,15 @@ module Crysterm
         p
       end
 
+      # Streaming reuses frame index 0 with new content each tick. Drop its cached
+      # payload so it re-encodes, and clear `@emitted_key` so the change-skip in
+      # `#redraw_image` (used by Kitty, `repaint_every_frame? == false`) doesn't
+      # treat the new frame as the already-emitted one and freeze on frame 0.
+      protected def invalidate_frame(idx : Int32)
+        @frame_payloads.delete idx
+        @emitted_key = nil
+      end
+
       # (Re)paints the graphic at the widget's current position. Runs after every
       # screen render so it stays on top of the freshly-drawn cells; skips while
       # hidden or detached. Wraps the emit in DECSC/DECRC so the terminal cursor
@@ -321,10 +338,12 @@ module Crysterm
         end
 
         io = String::Builder.new
+        io << "\e[?2026h" if double_buffer?               # BSU: begin synchronized update
         io << "\e7"                                       # DECSC: save cursor
         io << "\e[" << (yi + 1) << ';' << (xi + 1) << 'H' # CUP to content top-left (1-based)
         io << payload
-        io << "\e8" # DECRC: restore cursor
+        io << "\e8"                                       # DECRC: restore cursor
+        io << "\e[?2026l" if double_buffer?               # ESU: end synchronized update — present atomically
         s.tput._oprint io.to_s
         s.tput.flush
 

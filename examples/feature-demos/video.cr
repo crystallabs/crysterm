@@ -10,7 +10,9 @@
 #
 # Pass a file as ARGV[0]; otherwise a short test clip is synthesized with ffmpeg
 # into a temp file. Force a backend with `MEDIA_BACKEND=glyph` (or sixel/kitty/
-# ansi), or exclude some with `MEDIA_EXCLUDE=kitty,sixel`.
+# ansi), or exclude some with `MEDIA_EXCLUDE=kitty,sixel`. Pick the decode
+# strategy with `MEDIA_VIDEO_DECODE=eager|stream|auto` (auto: streams long
+# videos at constant memory, loads short clips eagerly for free looping).
 #
 # Requires ffmpeg + ffprobe on PATH.
 
@@ -38,6 +40,7 @@ end
 # Let the env pick/exclude backends so one demo exercises every render path.
 Crysterm::Config.media_backend = ENV["MEDIA_BACKEND"]? || "auto"
 Crysterm::Config.media_exclude = ENV["MEDIA_EXCLUDE"]? || ""
+Crysterm::Config.media_video_decode = ENV["MEDIA_VIDEO_DECODE"]? || "auto"
 
 s = Screen.new title: "Video"
 

@@ -56,6 +56,12 @@ module Crysterm
         @sample = nil
       end
 
+      # Streaming reuses frame index 0 with new content each tick; drop its cached
+      # sample so `#render` re-samples the fresh bitmap instead of the stale one.
+      protected def invalidate_frame(idx : Int32)
+        @frame_cache.delete idx
+      end
+
       # Hook: called after a successful decode (e.g. `Media::Ansi` sizes the widget
       # to the image when no explicit size was given). Default does nothing.
       protected def on_loaded(png : PNGGIF::PNG)

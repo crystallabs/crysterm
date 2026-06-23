@@ -187,20 +187,29 @@ module Crysterm
       # resolved for the current terminal and *file*'s content kind via
       # `default_type` (a video file picks a video-capable backend); pass *type*
       # explicitly to force a specific backend.
-      def self.new(*, type : Type? = nil, file : String? = nil, **opts) : Media::Base
+      #
+      # *double_buffer* is applied only to the in-band graphics backends it
+      # applies to (`Media::Graphics`: sixel/regis/kitty/iterm); on cell/external
+      # backends it is silently ignored, so it can be passed uniformly here.
+      def self.new(*, type : Type? = nil, file : String? = nil, double_buffer : Bool? = nil, **opts) : Media::Base
         type ||= default_type(file)
         opts = opts.merge(file: file)
-        case type
-        in Type::Ansi     then Ansi.new **opts
-        in Type::Glyph    then Glyph.new **opts
-        in Type::Overlay  then Overlay.new **opts
-        in Type::Ueberzug then Ueberzug.new **opts
-        in Type::Sixel    then Sixel.new **opts
-        in Type::Regis    then Regis.new **opts
-        in Type::Kitty    then Kitty.new **opts
-        in Type::Iterm    then Iterm.new **opts
-        in Type::Tek      then Tek.new **opts
+        widget =
+          case type
+          in Type::Ansi     then Ansi.new **opts
+          in Type::Glyph    then Glyph.new **opts
+          in Type::Overlay  then Overlay.new **opts
+          in Type::Ueberzug then Ueberzug.new **opts
+          in Type::Sixel    then Sixel.new **opts
+          in Type::Regis    then Regis.new **opts
+          in Type::Kitty    then Kitty.new **opts
+          in Type::Iterm    then Iterm.new **opts
+          in Type::Tek      then Tek.new **opts
+          end
+        if (db = double_buffer) && widget.is_a?(Graphics)
+          widget.double_buffer = db
         end
+        widget
       end
 
       # Process-wide decode cache: the same file shown by several widgets (or

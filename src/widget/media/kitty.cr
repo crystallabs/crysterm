@@ -27,17 +27,28 @@ module Crysterm
     class Media::Kitty < Media::Graphics
       @@next_id = 0_u32
 
-      # Stable Kitty image id, so re-transmits replace this widget's image
-      # instead of piling up new ones.
-      @img_id : UInt32
+      # Two Kitty image ids for double-buffering. With `double_buffer` on, an
+      # animation alternates ids per frame (even→`@id_a`, odd→`@id_b`): each
+      # frame transmits+places its id and *then* deletes the other, so the new
+      # frame is fully present before the previous is removed — no in-place
+      # replace and thus no mid-update blank. With `double_buffer` off, only
+      # `@id_a` is used and re-transmits replace it in place (the old behavior).
+      @id_a : UInt32
+      @id_b : UInt32
 
       def initialize(*args, **opts)
-        @@next_id += 1
-        @img_id = @@next_id
+        @@next_id += 1; @id_a = @@next_id
+        @@next_id += 1; @id_b = @@next_id
         super *args, **opts
         # A Kitty image isn't erased by re-emitting cells, so delete it on
         # destroy too (Hide/Detach already go through `#graphic_cleared`).
         on(::Crysterm::Event::Destroy) { screen?.try { |s| delete_image s } }
+      end
+
+      # The image id this frame transmits to: the front buffer when not
+      # double-buffering, else the buffer chosen by the frame's parity.
+      private def frame_id : UInt32
+        double_buffer? && !@anim_index.even? ? @id_b : @id_a
       end
 
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
@@ -89,6 +100,7 @@ module Crysterm
         cols = 1 if cols < 1
         rows = 1 if rows < 1
 
+        id = frame_id
         io = String::Builder.new
         chunk = 4096
         offset = 0
@@ -106,13 +118,21 @@ module Crysterm
             # past the image and a full-height image scrolls the screen (carrying
             # off whatever cells — e.g. a title row — sat above it).
             io << "a=T,f=32,s=" << pw << ",v=" << ph \
-              << ",i=" << @img_id << ",p=1,c=" << cols << ",r=" << rows \
+              << ",i=" << id << ",p=1,c=" << cols << ",r=" << rows \
               << ",C=1,q=2,m=" << more
             first = false
           else
             io << "m=" << more
           end
           io << ';' << slice << "\e\\"
+        end
+        # Double-buffer: now that the new frame is placed, delete the *other*
+        # buffer (the previous frame). Wrapped by the base in synchronized output,
+        # so the place+delete present as one atomic swap. (Deleting an id that was
+        # never created is a harmless no-op under q=2.)
+        if double_buffer?
+          other = id == @id_a ? @id_b : @id_a
+          io << "\e_Ga=d,d=i,i=" << other << ",q=2\e\\"
         end
         io.to_s
       end
@@ -131,7 +151,7 @@ module Crysterm
       end
 
       private def delete_image(s : ::Crysterm::Screen)
-        s.tput._oprint "\e_Ga=d,d=i,i=#{@img_id},q=2\e\\"
+        s.tput._oprint "\e_Ga=d,d=i,i=#{@id_a},q=2\e\\\e_Ga=d,d=i,i=#{@id_b},q=2\e\\"
         s.tput.flush
       end
     end

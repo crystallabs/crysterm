@@ -238,19 +238,24 @@ end
 # a TextBox), ColorDialog (modal picker), and DialogButtonBox (standard buttons).
 
 # Exclusive ButtonGroup: three checkable buttons of which only one stays "on".
+mode_labels = %w[Low Mid High]
 Widget::Box.new parent: extraspage, top: 1, left: 1, width: 9, height: 1, content: "Mode:"
 bgroup = ButtonGroup.new
-%w[Low Mid High].each_with_index do |label, i|
+mode_labels.each_with_index do |label, i|
   b = Widget::Button.new \
-    parent: extraspage, top: 1, left: 10 + i * 8, width: 6, height: 1,
+    parent: extraspage, top: 1, left: 10 + i * 8, width: 7, height: 1,
     content: label, align: :center, checkable: true, focus_on_click: true,
     style: Style.new(fg: "white", bg: "#303050")
   bgroup.add b, i
 end
 bgroup.on(Event::ButtonClick) do
-  # Highlight the checked button (a plain Button shows no check glyph on its own).
-  bgroup.buttons.each do |b|
-    b.style.bg = b.as(Widget::Button).checked? ? "#3060a0" : "#303050"
+  # Mark the checked button by bracketing its label. A plain Button has no
+  # built-in checked glyph, and a direct `style.bg=` would be undone by the CSS
+  # cascade on the next render (the theme rebuilds each widget's style) — but
+  # content is outside the style cascade, so it sticks.
+  bgroup.buttons.each_with_index do |b, i|
+    btn = b.as(Widget::Button)
+    btn.set_content(btn.checked? ? "[#{mode_labels[i]}]" : mode_labels[i])
   end
   status.show_message " mode = #{bgroup.checked_id}"
   s.render
@@ -287,7 +292,7 @@ completer.attach langbox
 swatch = Widget::Box.new parent: extraspage, top: 7, left: 18, width: 6, height: 1,
   style: Style.new(bg: "red")
 colordlg = Widget::ColorDialog.new \
-  parent: s, top: "center", left: "center", width: 50, height: 18,
+  parent: s, top: "center", left: "center", width: 56, height: 20,
   style: Style.new(fg: "white", border: true)
 colordlg.hide
 Widget::Box.new parent: extraspage, top: 7, left: 1, width: 9, height: 1, content: "Color:"
