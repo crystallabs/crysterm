@@ -45,6 +45,17 @@ require "./widgets"
 
 require "./style/css/**"
 
+# Remote control: the HTML layout DOM (serialize/load, declarative actions) and
+# the HTTP/JSON-RPC bridge. Everything beyond the cascade's basic `#to_html`
+# document lives in `src/remote/` and is compiled in only with `-Dremote`, so a
+# default build pays none of its compile cost (notably the per-widget
+# auto-serialization macro sweep) and pulls in no HTTP server. Even when
+# compiled in, the network server stays closed until enabled at runtime
+# (see `Crysterm::Remote`).
+{% if flag?(:remote) %}
+  require "./remote/*"
+{% end %}
+
 # Main Crysterm module and namespace.
 #
 # If your code is in its own namespace, you can shorten `Crysterm` to an

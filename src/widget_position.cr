@@ -127,8 +127,20 @@ module Crysterm
     # `aheight`; `aliased` is passed (rather than mapping both words) so an
     # unusual input like `width: "center"` keeps its original meaning.
     private def resolve_dimension(expr : String, parent_dim : Int32, aliased : String) : Int32
-      expr = "50%" if expr == aliased
+      if expr == aliased
+        expr = "50%"
+      elsif expr.starts_with?(aliased) && (c = expr[aliased.size]?) && (c == '+' || c == '-')
+        # `center+5`/`half-3`: map the alias prefix to `50%`, keeping the offset.
+        expr = "50%" + expr[aliased.size..]
+      end
       Widget.dimension(expr, parent_dim)
+    end
+
+    # Whether a position value asks to be centered — `"center"` or, now, an
+    # offset form like `"center+5"` / `"center-3"`. Centered widgets pull back by
+    # half their size and skip the near-side inner offset.
+    private def center_expr?(o) : Bool
+      o.is_a?(String) && (o == "center" || o.starts_with?("center+") || o.starts_with?("center-"))
     end
 
     # Whether the parent's near-side inner offset (`ileft`/`itop`) applies to a
@@ -136,7 +148,7 @@ module Crysterm
     # guard in `aleft`/`atop`/`awidth`/`aheight`; the actual `+=`/`-=` of the
     # offset stays at each call site since it differs by axis/direction.
     private def applies_near_offset?(o, o_opp) : Bool
-      (!o.nil? || o_opp.nil?) && o != "center"
+      (!o.nil? || o_opp.nil?) && !center_expr?(o)
     end
 
     # Returns computed absolute left position.
@@ -159,7 +171,7 @@ module Crysterm
       left = oleft || 0
       if left.is_a? String
         left = resolve_dimension(left, parent.awidth || 0, "center")
-        if oleft == "center"
+        if center_expr?(oleft)
           left -= (width || awidth(get)) // 2
         end
       end
@@ -188,7 +200,7 @@ module Crysterm
       top = otop || 0
       if top.is_a? String
         top = resolve_dimension(top, parent.aheight || 0, "center")
-        if otop == "center"
+        if center_expr?(otop)
           top -= (height || aheight(get)) // 2
         end
       end

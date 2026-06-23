@@ -8,6 +8,10 @@ crystal: 1.0.0
 
 license: AGPLv3
 
+# Note: the `crysterm` CLI (src/remote/bin/crysterm.cr) is intentionally NOT a
+# build target — it only works with the remote subsystem. Build it explicitly:
+#   crystal build src/remote/bin/crysterm.cr -Dremote -o bin/crysterm
+
 dependencies:
   tput:
     github: crystallabs/tput
