@@ -86,15 +86,21 @@ module Crysterm
         else
           # The next child doesn't fit on this row: advance the row offset by
           # the tallest rendered child on the row we are leaving, and start a
-          # new row.
-          @row_offset += container.children[@row_index...i].reduce(0) do |o, el2|
-            if !rendered? el2
-              o
-            else
+          # new row. Scan the row's index range directly instead of
+          # `children[@row_index...i]`, which allocated a slice copy on every
+          # wrap.
+          tallest = 0
+          j = @row_index
+          while j < i
+            el2 = container.children[j]
+            if rendered? el2
               elp = el2.lpos.not_nil!
-              Math.max o, elp.yl - elp.yi
+              eh = elp.yl - elp.yi
+              tallest = eh if eh > tallest
             end
+            j += 1
           end
+          @row_offset += tallest
           @last_row_index = @row_index
           @row_index = i
           el.left = 0

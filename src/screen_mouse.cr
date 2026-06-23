@@ -180,7 +180,11 @@ module Crysterm
     # A widget that wants to override a default can simply `accept` the
     # `Event::Mouse` in its own handler.
     def dispatch_mouse(ev : ::Tput::Mouse::Event)
-      emit ::Crysterm::Event::Mouse.new ev
+      # Splat form (`emit type, *args`) so the `Mouse` event object is built only
+      # when a screen-level listener exists — mouse reports (especially motion)
+      # are high-frequency, and most carry no screen-level subscriber. The
+      # explicit-object form `emit Mouse.new(ev)` would allocate unconditionally.
+      emit ::Crysterm::Event::Mouse, ev
 
       # Focus in/out reports (mode 1004) come through the same channel but carry
       # no pointer position; surface them on the screen, then stop before the
@@ -246,7 +250,7 @@ module Crysterm
           # No motion: it was a click after all. Draggable widgets emit their
           # click on release (mouse-up semantics) since the press was ambiguous.
           @_arm = nil
-          armed.emit ::Crysterm::Event::Click.new if w == armed
+          armed.emit ::Crysterm::Event::Click if w == armed
           return
         end
       end
@@ -264,9 +268,12 @@ module Crysterm
         end
       end
 
-      me = ::Crysterm::Event::Mouse.new ev
-      w.emit me
-      return if me.accepted?
+      # Splat form: builds (and returns) the `Mouse` event only if `w` has a
+      # listener; `nil` otherwise. A widget with no `Mouse` handler cannot have
+      # accepted it, so `me.try(&.accepted?)` correctly falls through to the
+      # default focus/click handling below.
+      me = w.emit ::Crysterm::Event::Mouse, ev
+      return if me.try(&.accepted?)
 
       if ev.action.down?
         # Click-to-focus, the GUI-toolkit default. Only focusable widgets are
@@ -277,7 +284,7 @@ module Crysterm
         end
         # A draggable widget defers its click to release (handled above), so it
         # is not also emitted here on press.
-        w.emit ::Crysterm::Event::Click.new unless w.draggable?
+        w.emit ::Crysterm::Event::Click unless w.draggable?
       elsif ev.action.wheel_up?
         scroll_under w, -1
       elsif ev.action.wheel_down?
@@ -319,16 +326,19 @@ module Crysterm
     #   * Leaving the prior one   -> `Event::MouseOut`  on it.
     #   * Moving while staying on  -> `Event::MouseMove` (hovering) on it.
     private def update_hover(w : Widget?, ev : ::Tput::Mouse::Event)
+      # Splat form so the hover event objects are built only when the widget
+      # actually subscribes to that hover transition. These fire on pointer
+      # movement, so the common (no hover handler) case is now allocation-free.
       if w != @_hover
         if old = @_hover
-          old.emit ::Crysterm::Event::MouseOut.new ev
+          old.emit ::Crysterm::Event::MouseOut, ev
         end
         @_hover = w
         if w
-          w.emit ::Crysterm::Event::MouseOver.new ev
+          w.emit ::Crysterm::Event::MouseOver, ev
         end
       elsif w && ev.action.move?
-        w.emit ::Crysterm::Event::MouseMove.new ev
+        w.emit ::Crysterm::Event::MouseMove, ev
       end
     end
 

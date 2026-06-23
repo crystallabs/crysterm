@@ -41,26 +41,27 @@ module Crysterm
         cols = Math.max(@columns, 1)
 
         occupied = Set({Int32, Int32}).new
-        # {widget, row, col, row_span, col_span}
+        # {widget, row, col, row_span, col_span}. The tuples live inline in the
+        # array's buffer (value types, no per-element heap box), so the only
+        # per-frame collections here are `placements` and `occupied`; the former
+        # `auto` array is gone — auto children are handled by a second filtered
+        # pass over `container.children` instead of being collected first.
         placements = [] of Tuple(Widget, Int32, Int32, Int32, Int32)
-        auto = [] of Widget
 
         # Explicitly-placed children first, so auto-flow can skip their cells.
         container.children.each do |el|
-          if hint = el.layout_hint.as?(Hint)
-            rs = Math.max(hint.row_span, 1)
-            cs = Math.max(hint.col_span, 1)
-            placements << {el, hint.row, hint.col, rs, cs}
-            occupy occupied, hint.row, hint.col, rs, cs
-          else
-            auto << el
-          end
+          next unless hint = el.layout_hint.as?(Hint)
+          rs = Math.max(hint.row_span, 1)
+          cs = Math.max(hint.col_span, 1)
+          placements << {el, hint.row, hint.col, rs, cs}
+          occupy occupied, hint.row, hint.col, rs, cs
         end
 
-        # Auto-flow the rest into free cells, row-major.
+        # Auto-flow the rest (children with no Hint) into free cells, row-major.
         r = 0
         c = 0
-        auto.each do |el|
+        container.children.each do |el|
+          next if el.layout_hint.is_a?(Hint)
           while occupied.includes?({r, c})
             c += 1
             if c >= cols
@@ -77,7 +78,10 @@ module Crysterm
           end
         end
 
-        nrows = @rows || (placements.map { |p| p[1] + p[3] }.max? || 0)
+        # Tallest occupied row index, without the intermediate array a
+        # `placements.map { … }.max?` would allocate. `reduce(0)` also yields the
+        # old `|| 0` for an empty grid.
+        nrows = @rows || placements.reduce(0) { |m, p| Math.max(m, p[1] + p[3]) }
         nrows = 1 if nrows < 1
 
         cell_w = (w - (cols - 1) * @gap) // cols

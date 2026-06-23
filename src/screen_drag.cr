@@ -55,7 +55,7 @@ module Crysterm
       sess.offset_y = y - source.atop
       @_drag = sess
 
-      source.emit ::Crysterm::Event::DragStart.new sess
+      source.emit ::Crysterm::Event::DragStart, sess
 
       # A transfer source (one that does not self-move) gets a floating ghost so
       # the user can see what they are carrying.
@@ -83,7 +83,7 @@ module Crysterm
       sess.data.action = drag_action_for shift, ctrl, sess.data.supported.first? || DragAction::Move
       sess.x = x
       sess.y = y
-      sess.source.emit ::Crysterm::Event::Drag.new sess
+      sess.source.emit ::Crysterm::Event::Drag, sess
       move_ghost sess
       retarget_over sess, widget_at(x, y, skip: sess.source)
       render
@@ -94,7 +94,7 @@ module Crysterm
     def drag_nudge(sess : DragSession, dx : Int32, dy : Int32) : Nil
       sess.x += dx
       sess.y += dy
-      sess.source.emit ::Crysterm::Event::Drag.new sess
+      sess.source.emit ::Crysterm::Event::Drag, sess
       render
     end
 
@@ -102,10 +102,10 @@ module Crysterm
     private def retarget(sess : DragSession, t : Widget?) : Nil
       old = sess.target
       return if t == old
-      old.try &.emit ::Crysterm::Event::DragLeave.new sess
+      old.try &.emit ::Crysterm::Event::DragLeave, sess
       sess.target = t
       if t
-        t.emit ::Crysterm::Event::DragEnter.new sess
+        t.emit ::Crysterm::Event::DragEnter, sess
         announce "Over #{describe t}"
       end
     end
@@ -115,7 +115,7 @@ module Crysterm
     private def over(sess : DragSession) : Nil
       if t = sess.target
         sess.data.reject
-        t.emit ::Crysterm::Event::DragOver.new sess
+        t.emit ::Crysterm::Event::DragOver, sess
       end
     end
 
@@ -136,7 +136,7 @@ module Crysterm
       remove_ghost
       dropped = false
       if (t = sess.target) && sess.data.accepted?
-        t.emit ::Crysterm::Event::Drop.new sess
+        t.emit ::Crysterm::Event::Drop, sess
         dropped = true
         announce "Dropped on #{describe t}"
       else
@@ -152,7 +152,7 @@ module Crysterm
     def drag_cancel(sess : DragSession) : Nil
       @_drag = nil
       remove_ghost
-      sess.target.try &.emit ::Crysterm::Event::DragLeave.new sess
+      sess.target.try &.emit ::Crysterm::Event::DragLeave, sess
       ev = ::Crysterm::Event::DragEnd.new sess
       ev.dropped = false
       sess.source.emit ev
@@ -230,15 +230,15 @@ module Crysterm
       data["text/plain"] = uris.join '\n'
       sess = DragSession.new src, data, t.aleft, t.atop, DragSensor::Mouse
       sess.target = t
-      t.emit ::Crysterm::Event::DragEnter.new sess
+      t.emit ::Crysterm::Event::DragEnter, sess
       data.reject
-      t.emit ::Crysterm::Event::DragOver.new sess
+      t.emit ::Crysterm::Event::DragOver, sess
       dropped = false
       if data.accepted?
-        t.emit ::Crysterm::Event::Drop.new sess
+        t.emit ::Crysterm::Event::Drop, sess
         dropped = true
       else
-        t.emit ::Crysterm::Event::DragLeave.new sess
+        t.emit ::Crysterm::Event::DragLeave, sess
       end
       render
       dropped

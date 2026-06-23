@@ -45,47 +45,44 @@ module Crysterm
         x1 = interior.xl - interior.xi
         y1 = interior.yl - interior.yi
 
-        tops = [] of Widget
-        bottoms = [] of Widget
-        lefts = [] of Widget
-        rights = [] of Widget
-        centers = [] of Widget
-
+        # Five region passes directly over the live child array. The earlier
+        # version bucketed children into five `Array(Widget)` allocated every
+        # frame; iterating `container.children` once per region and filtering by
+        # `region_of` (an O(1) hint read) carves the working rect in the identical
+        # order with zero per-frame allocation. Children retain their relative
+        # order within a region (container order), exactly as the buckets did.
         container.children.each do |el|
-          case region_of el
-          when .top?    then tops << el
-          when .bottom? then bottoms << el
-          when .left?   then lefts << el
-          when .right?  then rights << el
-          else               centers << el
-          end
-        end
-
-        tops.each do |el|
+          next unless region_of(el).top?
           ch = el.aheight
           el.left = x0; el.top = y0; el.width = x1 - x0; el.height = ch
           render_child el
           y0 += ch
         end
-        bottoms.each do |el|
+        container.children.each do |el|
+          next unless region_of(el).bottom?
           ch = el.aheight
           el.left = x0; el.top = y1 - ch; el.width = x1 - x0; el.height = ch
           render_child el
           y1 -= ch
         end
-        lefts.each do |el|
+        container.children.each do |el|
+          next unless region_of(el).left?
           cw = el.awidth
           el.left = x0; el.top = y0; el.width = cw; el.height = y1 - y0
           render_child el
           x0 += cw
         end
-        rights.each do |el|
+        container.children.each do |el|
+          next unless region_of(el).right?
           cw = el.awidth
           el.left = x1 - cw; el.top = y0; el.width = cw; el.height = y1 - y0
           render_child el
           x1 -= cw
         end
-        centers.each do |el|
+        container.children.each do |el|
+          # Center is the default region: everything not top/bottom/left/right.
+          r = region_of el
+          next if r.top? || r.bottom? || r.left? || r.right?
           el.left = x0; el.top = y0; el.width = x1 - x0; el.height = y1 - y0
           render_child el
         end
