@@ -43,6 +43,22 @@ module Crysterm
       !@grabs.empty?
     end
 
+    # Shared "click-away to dismiss" wiring for anything that opens an overlay —
+    # pop-up menus, a `Completer` drop-down, combo lists, … Installs a
+    # screen-level watcher that calls *dismiss* on a mouse press whose position
+    # *inside* reports as outside it (returns `false`); returns the handler so the
+    # owner can remove it (via `#off`) when the overlay goes away. Centralizing it
+    # keeps the dismissal behavior identical across every such widget.
+    #
+    # ```
+    # @ev_outside = screen.on_press_outside(->(x : Int32, y : Int32) { contains? x, y }) { close }
+    # ```
+    def on_press_outside(inside : Proc(Int32, Int32, Bool), &dismiss : -> Nil) : Crysterm::Event::Mouse::Wrapper
+      on(Crysterm::Event::Mouse) do |e|
+        dismiss.call if e.action.down? && !inside.call(e.x, e.y)
+      end
+    end
+
     # Whether the point (*x*, *y*) lies inside some active grab's region (so the
     # pointer should interact normally there). True when nothing is grabbing.
     private def within_grab?(x : Int32, y : Int32) : Bool

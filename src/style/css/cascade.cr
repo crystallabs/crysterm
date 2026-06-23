@@ -152,6 +152,19 @@ module Crysterm
           widget.styles = widget.css_base_styles.deep_dup
           widget.css_styled = false
           widget.css_reset_extra
+
+          # Visibility is a per-*widget* concern, not a per-state one: `#hide`/
+          # `#show` record it on the inline `@style`. The per-state inline fold
+          # below only runs for states a rule actually *touches*, so a widget
+          # hidden before its first cascade (or one themed only for, say,
+          # `:selected`) would have the flag folded into that state while its
+          # active `normal` state — the canonical fallback for every unset
+          # state — reverted to the pristine `visible = true`, making the
+          # widget reappear (and silently intercept clicks). Stamp the explicit
+          # inline visibility onto `normal` here so it survives every restyle.
+          if (inl = widget.css_inline_style) && inl.specified?(:visible)
+            widget.styles.normal.visible = inl.visible?
+          end
         end
 
         # Give every touched (widget, state) its own `Style` up front (a fresh

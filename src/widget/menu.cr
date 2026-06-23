@@ -1,3 +1,4 @@
+require "./list"
 require "../action"
 
 module Crysterm
@@ -55,6 +56,16 @@ module Crysterm
       # The currently-open child submenu, if any, and the action that opened it.
       @submenu_open : Menu?
       @submenu_action : Action?
+
+      # The item box that opened the current submenu. A click on it toggles the
+      # submenu (via `#activate_index`), so the outside-click watcher leaves it
+      # alone rather than fighting that toggle.
+      @submenu_anchor : Widget?
+
+      # Whether the highlighted row is drawn highlighted. Cleared when the menu is
+      # dismissed by a click outside it, so no row is left looking "selected";
+      # any later selection (`#selekt`) turns it back on.
+      @show_highlight = true
 
       # Screen-level click watcher installed (on the top-level menu only) while a
       # submenu is open, to dismiss the chain when the user clicks away — e.g.
@@ -168,9 +179,13 @@ module Crysterm
         focus
         screen.grab self # modal: suppress hover/clicks outside the menu chain
 
-        @ev_popup ||= screen.on(Crysterm::Event::Mouse) do |e|
-          hide_popup if e.action.down? && !in_chain?(e.x, e.y)
-        end
+        # Dismiss on a press outside the *grab region* (not merely outside the
+        # submenu chain): for a `MenuBar` the region also covers the bar's title
+        # strip, so clicking the open menu's own title is "inside" and does not
+        # auto-close here. That lets the title's toggle handler close it cleanly —
+        # otherwise this watcher would hide the popup and the toggle would
+        # immediately reopen it, so a second click never appeared to close.
+        @ev_popup ||= screen.on_press_outside(->(x : Int32, y : Int32) { grab_contains?(x, y) }) { hide_popup }
 
         request_render
         self
@@ -216,6 +231,13 @@ module Crysterm
       # Activates the highlighted action (as if Enter were pressed on it).
       def activate_selected
         activate_index selected
+      end
+
+      # While the menu is "inactive" (dismissed by an outside click) no row is
+      # highlighted; otherwise rendering defers to `List`.
+      def render_style_for(item : Widget) : Style
+        return item_render_style(false) unless @show_highlight
+        super
       end
 
       # Pointer moved onto row *i* (`List#hover_item` override, active because
@@ -282,6 +304,9 @@ module Crysterm
       # direction is inferred from whether the requested index is above or below
       # the current selection.
       def selekt(index : Int)
+        # Any explicit selection re-activates the highlight (a prior outside-click
+        # dismissal may have hidden it).
+        @show_highlight = true
         acts = visible_actions
         unless acts.empty?
           dir = index >= selected ? 1 : -1
@@ -402,7 +427,13 @@ module Crysterm
 
         close_submenu # replace any already-open child
 
-        child = Menu.new(screen: screen) # border comes from the theme (`Menu { ... }`)
+        # Inherit this menu's own (inline) style so the child is bordered/colored
+        # identically *from its first frame*. Relying on the theme alone left a
+        # freshly-created child briefly unstyled until the next cascade — which,
+        # while the chain was being rapidly reopened, could flash a borderless
+        # copy alongside the styled one. Falls back to the theme (`Menu { ... }`)
+        # when this menu has no inline style.
+        child = Menu.new(screen: screen, style: css_inline_style.try(&.dup))
         subs.each { |a| child << a }
         child.parent_menu = self
 
@@ -423,14 +454,25 @@ module Crysterm
         child.focus
         @submenu_open = child
         @submenu_action = action
+        @submenu_anchor = @items[selected]?
 
         # The top-level menu watches for a click anywhere outside the open chain
         # (a different tab, another widget, …) and dismisses the submenus. In
         # popup mode the `#popup` watcher already covers outside clicks (and
         # dismisses the whole popup), so don't install a second one.
         if parent_menu.nil? && @ev_outside.nil? && !@popup_mode
-          @ev_outside = screen.on(Crysterm::Event::Mouse) do |e|
-            close_submenu if e.action.down? && !in_chain?(e.x, e.y)
+          # "Inside" = the open child chain, or the anchor row (which
+          # `#activate_index` toggles itself). A press anywhere else — another
+          # row, the menu's own empty area, or right off the menu — dismisses the
+          # submenu and drops the highlight, so no row is left looking selected.
+          inside = ->(x : Int32, y : Int32) do
+            (@submenu_open.try(&.in_chain?(x, y)) || false) ||
+            (@submenu_anchor.try(&.contains_point?(x, y)) || false)
+          end
+          @ev_outside = screen.on_press_outside(inside) do
+            close_submenu
+            @show_highlight = false
+            request_render
           end
         end
 
@@ -444,6 +486,7 @@ module Crysterm
           child.close_submenu
           @submenu_open = nil
           @submenu_action = nil
+          @submenu_anchor = nil
           focus
           screen?.try &.remove child
           child.destroy

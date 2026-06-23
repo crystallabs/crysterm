@@ -26,12 +26,14 @@
 # Everything is laid out by `MainWindow` and re-flows to the terminal size.
 #
 # Try it: wait for the splash to clear; click File/Edit/Help for pop-up menus
-# (with one open, hover another to switch); use the tool-bar buttons; hover a
-# control for a tooltip; float the right "Panes" dock from its title bar and drag
-# its ◢ corner to resize; Tab cycles focus; arrows adjust the focused control;
-# type in the ComboBox to filter; drag a splitter divider. On the "Extras" tab,
-# toggle the Mode buttons, type into "Lang" to autocomplete, press "Pick" for the
-# color dialog, and click the Ok/Apply/Cancel box. Press q to quit.
+# (clicking the open menu's title again closes it; with one open, hover another
+# to switch); use the tool-bar buttons; hover a control for a tooltip; drag the
+# floating "Panes" dock by its title bar to move it and its ◢ corner to resize
+# (its ⇕ button re-docks it right); Tab cycles focus; arrows adjust the focused
+# control; type in the ComboBox to filter; drag a splitter divider; click a tab's
+# ✕ to close it. On the "Extras" tab, toggle the Mode buttons, type into "Lang"
+# to autocomplete, press "Pick" for the color dialog, and click the
+# Ok/Apply/Cancel box. Press q to quit.
 
 require "../../src/crysterm"
 
@@ -221,8 +223,18 @@ timeedit.on(Event::DateChange) { |e| status.show_message " time: #{e.date.to_s("
 dtedit.on(Event::DateChange) { |e| status.show_message " stamp: #{e.date.to_s("%Y-%m-%d %H:%M:%S")}"; s.render }
 dspin.on(Event::DoubleValueChange) { |e| status.show_message " ratio: #{e.value}"; s.render }
 
-Widget::Box.new parent: datespage, bottom: 1, left: 1, width: 38, height: 2,
-  content: "Click the date for a calendar; wheel a section to step it.",
+# A standalone Calendar (QCalendarWidget): the navigation bar pages months
+# (‹/›), pops up a month menu (click the name) and a year menu (click the year),
+# with ISO week numbers down the left. Arrow keys move the selection.
+cal = Widget::Calendar.new \
+  parent: datespage, top: 1, left: 30, width: 25, height: 10,
+  style: Style.new(border: true, fg: "white")
+cal.vertical_header_format = Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
+cal.on(Event::DateChange) { |e| status.show_message " calendar: #{e.date.to_s("%Y-%m-%d")}"; s.render }
+cal.on(Event::CurrentPageChange) { |e| status.show_message " page: #{e.year}-#{e.month.to_s.rjust(2, '0')}"; s.render }
+
+Widget::Box.new parent: datespage, bottom: 1, left: 1, width: 54, height: 2,
+  content: "Click the date field for a calendar; click the calendar's month/year to pick. Wheel a section to step it.",
   style: Style.new(fg: "#aaaaaa")
 
 # Stack tab: a tab-less StackedWidget that auto-cycles its pages.
@@ -325,7 +337,7 @@ dbb.button(Widget::DialogButtonBox::StandardButton::Apply).try &.on(Event::Press
   status.show_message " dialog: apply"; s.render
 end
 
-# --- Right dock: a Splitter inside a DockWidget ------------------------------
+# --- Floating dock: a Splitter inside a DockWidget ---------------------------
 
 split = Widget::Splitter.new style: Style.new(border: true)
 ["#202038", "#203828", "#382020"].each_with_index do |bg, i|
@@ -334,9 +346,16 @@ split = Widget::Splitter.new style: Style.new(border: true)
     style: Style.new(fg: "white", bg: bg))
 end
 
+# The dock's home is the right edge (width `dock_size`), but we immediately float
+# it as a compact, freely-draggable panel so its title bar is a ready drag handle
+# and it can move on both axes. Grab the "Panes" title bar to move it, drag its ◢
+# corner grip to resize; its ⇕ title button docks it back to the right, and
+# dragging a docked dock's title bar floats it again in place.
 dock = Widget::DockWidget.new title: "Panes", area: Widget::DockWidget::Area::Right, dock_size: 30
 dock.widget = split
 win.add_dock dock
+dock.toggle_floating
+dock.top = 4; dock.left = 40; dock.width = 34; dock.height = 15
 
 # A corner grip resizes the dock while it's floating (when docked, MainWindow
 # re-imposes the dock's size each frame).

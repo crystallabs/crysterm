@@ -46,8 +46,18 @@ module Crysterm
     # to the owning completer.
     class Popup < Widget::List
       @activate_on_click = true
+      # Moving the pointer onto a row highlights it (the box keeps focus, so the
+      # list gets these as hover, not key, events).
+      @hover_select = true
 
       property completer : Completer?
+
+      # Whether a row is actively highlighted. The popup opens with *no* cursor —
+      # `List#selected` is 0, but showing it as selected would be a lie (the user
+      # hasn't chosen anything) and would make the first Down land on the *second*
+      # row. The cursor only appears once the user navigates (`#cursor_down`/
+      # `#cursor_up`) or hovers a row.
+      getter? cursor_shown : Bool = false
 
       def enter_selected
         completer.try &.commit_index(selected)
@@ -55,6 +65,47 @@ module Crysterm
 
       def cancel_selected
         completer.try &.close
+      end
+
+      # Clears the cursor (back to the "nothing highlighted" state) and parks the
+      # internal selection at the top. Called whenever the match set is (re)shown.
+      def reset_cursor : Nil
+        @cursor_shown = false
+        selekt 0
+      end
+
+      # Down: reveal the cursor on the first row on the first press, then step
+      # down. Up: reveal it on the last row first, then step up.
+      def cursor_down : Nil
+        @cursor_shown ? down : reveal(0)
+      end
+
+      def cursor_up : Nil
+        @cursor_shown ? up : reveal(@items.size - 1)
+      end
+
+      private def reveal(index : Int) : Nil
+        @cursor_shown = true
+        selekt index
+      end
+
+      # Pointer onto a row counts as choosing it, so show the cursor there.
+      def hover_item(i : Int)
+        @cursor_shown = true
+        super
+      end
+
+      # Reverse-video the highlighted row, but only once a cursor actually exists.
+      # `List` defers the selected look to `styles.selected` / a `:selected` CSS
+      # rule, neither of which covers the drop-down in the default theme, so the
+      # cursor row would otherwise be indistinguishable.
+      def render_style_for(item : Widget) : Style
+        st = super
+        if cursor_shown? && @items[@selected]? == item
+          st = st.dup
+          st.inverse = true
+        end
+        st
       end
     end
 
@@ -68,6 +119,10 @@ module Crysterm
     @filter : Crysterm::Event::KeyPress::Wrapper?
     @ev_focus : Crysterm::Event::Focus::Wrapper?
     @ev_blur : Crysterm::Event::Blur::Wrapper?
+    @ev_click : Crysterm::Event::Mouse::Wrapper?
+    # Screen-level "click-away to dismiss" watcher, live only while the drop-down
+    # is open (the same `Screen#on_press_outside` the pop-up menus use).
+    @ev_outside : Crysterm::Event::Mouse::Wrapper?
     # Set when the intercept handler has consumed a key, so the (later) filter
     # handler skips that same keypress.
     @suppress_filter = false
@@ -89,15 +144,21 @@ module Crysterm
         handle_intercept e
       end
 
-      if widget.focused?
-        install_filter widget
-      else
-        @ev_focus = widget.on(Crysterm::Event::Focus) do |_|
-          install_filter widget
-          # One-shot: the box's input handler is now in place.
-          @ev_focus.try { |w| widget.off Crysterm::Event::Focus, w }
-          @ev_focus = nil
-        end
+      # (Re)install the filter at the tail on *every* focus, not just the first.
+      # The box re-registers its own input handler each time it (re)enters read
+      # mode (`#read_input`), appending it after our filter — so a once-installed
+      # filter would, from the second focus on, run *before* the box updates
+      # `#value` and keep seeing the pre-keystroke text (typing wouldn't open the
+      # popup). Re-appending on each focus keeps the filter last.
+      @ev_focus = widget.on(Crysterm::Event::Focus) { install_filter widget }
+      install_filter widget if widget.focused?
+
+      # A press on the box while it is *already* focused toggles the popup. The
+      # `Event::Mouse` is emitted before click-to-focus is applied, so on the
+      # press that first focuses the box `focused?` is still false here — that
+      # press only focuses, it doesn't toggle.
+      @ev_click = widget.on(Crysterm::Event::Mouse) do |e|
+        toggle if e.action.down? && widget.focused?
       end
 
       # Don't leave an orphaned popup behind when focus leaves the box.
@@ -111,10 +172,14 @@ module Crysterm
         @filter.try { |h| w.off Crysterm::Event::KeyPress, h }
         @ev_focus.try { |h| w.off Crysterm::Event::Focus, h }
         @ev_blur.try { |h| w.off Crysterm::Event::Blur, h }
+        @ev_click.try { |h| w.off Crysterm::Event::Mouse, h }
+        @ev_outside.try { |h| w.screen?.try &.off Crysterm::Event::Mouse, h }
       end
       @intercept = @filter = nil
       @ev_focus = nil
       @ev_blur = nil
+      @ev_click = nil
+      @ev_outside = nil
       if pop = @popup
         pop.screen?.try &.remove pop
         pop.destroy
@@ -129,10 +194,11 @@ module Crysterm
       @open
     end
 
-    # The per-keystroke filter handler. Registered at the tail so the box has
-    # already updated its `#value` by the time it runs.
+    # The per-keystroke filter handler. Re-registered at the tail (removing any
+    # prior one) so it always runs *after* the box's input handler and therefore
+    # sees the post-keystroke `#value`.
     private def install_filter(widget : Widget::TextBox) : Nil
-      return if @filter
+      @filter.try { |h| widget.off Crysterm::Event::KeyPress, h }
       @filter = widget.on(Crysterm::Event::KeyPress, at: ::EventHandler.at_end) do |_|
         if @suppress_filter
           @suppress_filter = false
@@ -151,19 +217,31 @@ module Crysterm
       return if @model.empty?
       if @open
         case e.key
-        when Tput::Key::Down   then @popup.try &.down; consume e
-        when Tput::Key::Up     then @popup.try &.up; consume e
+        when Tput::Key::Down   then move_popup &.cursor_down; consume e
+        when Tput::Key::Up     then move_popup &.cursor_up; consume e
         when Tput::Key::Enter  then accept_current; consume e
         when Tput::Key::Tab    then accept_current; consume e
         when Tput::Key::Escape then close; consume e
         end
       elsif e.key == Tput::Key::Down
+        # Down opens the popup. `refilter` drops the whole model for an empty box
+        # (combo-box style), so the user can browse all candidates without typing.
         refilter
         unless @matches.empty?
           open
           consume e
         end
       end
+    end
+
+    # Moves the popup's highlight (Up/Down) and re-renders so the change is
+    # actually visible — `List#selekt` updates the cursor but doesn't itself
+    # repaint. (The caller still `consume`s the key so the box doesn't also act
+    # on it.)
+    private def move_popup(&block : Popup ->) : Nil
+      return unless pop = @popup
+      block.call pop
+      pop.request_render
     end
 
     # Stops the keypress: accepts it (so it doesn't bubble to ancestors) and
@@ -187,9 +265,12 @@ module Crysterm
       end
     end
 
-    # Recomputes `@matches` from the box's current value.
+    # Recomputes `@matches` from the box's current value. An empty box yields the
+    # whole model (combo-box style) rather than nothing, so clearing the text
+    # reopens the full list instead of dismissing the popup.
     private def refilter : Nil
-      @matches = completions(@widget.try(&.value) || "")
+      val = @widget.try(&.value) || ""
+      @matches = val.empty? ? @model.dup : completions(val)
     end
 
     private def open : Nil
@@ -197,11 +278,16 @@ module Crysterm
       return if @matches.empty?
       pop = ensure_popup widget
       pop.set_items @matches
-      pop.selekt 0
+      pop.reset_cursor # open with no row pre-highlighted
       position pop, widget
       pop.show
       pop.front!
       @open = true
+      # Dismiss on a press outside both the drop-down and its box (a press on the
+      # box itself is "inside" — its own handler toggles the list).
+      @ev_outside ||= widget.screen.on_press_outside(->(x : Int32, y : Int32) {
+        (@popup.try(&.contains_point?(x, y)) || false) || (@widget.try(&.contains_point?(x, y)) || false)
+      }) { close }
       widget.request_render
     end
 
@@ -209,9 +295,21 @@ module Crysterm
       return unless widget = @widget
       if pop = @popup
         pop.set_items @matches
-        pop.selekt 0
+        pop.reset_cursor # a changed match set starts again with no highlight
         position pop, widget
         widget.request_render
+      end
+    end
+
+    # Toggles the popup: opens it on the current matches (the whole model for an
+    # empty box), or closes it if already open. Used by the click-to-toggle on an
+    # already-focused box.
+    private def toggle : Nil
+      if @open
+        close
+      else
+        refilter
+        open unless @matches.empty?
       end
     end
 
@@ -221,6 +319,8 @@ module Crysterm
       return unless @open
       @open = false
       @popup.try &.hide
+      @ev_outside.try { |h| @widget.try &.screen?.try &.off Crysterm::Event::Mouse, h }
+      @ev_outside = nil
       @widget.try &.request_render
     end
 
