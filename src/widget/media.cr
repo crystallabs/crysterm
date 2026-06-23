@@ -46,6 +46,92 @@ module Crysterm
         [15, 7, 13, 5],
       ]
 
+      # How an image's colors are dithered when they have to be reduced to a
+      # smaller palette than the source (the fixed sixel grid, ReGIS' 8 colors,
+      # the xterm-256/16 cube, or Tek's 1 bit). Shared by every backend that
+      # quantizes, so the option means the same thing everywhere.
+      #
+      # Dithering trades spatial resolution for perceived color depth: instead of
+      # snapping each pixel to its nearest palette entry (which bands smooth
+      # gradients), it scatters the two nearest entries so the eye averages them
+      # back to the in-between color.
+      enum Dither
+        None      # snap to the nearest palette entry — cleanest, but bands gradients
+        Ordered   # 4×4 Bayer ordered dither — deterministic per pixel, so frame-stable
+        Diffusion # Floyd–Steinberg error diffusion — best for a still; shimmers if animated
+        Auto      # Diffusion for a still image, Ordered for an animation (default)
+
+        # Collapses `Auto` to a concrete method: error diffusion gives the nicest
+        # still, but its irregular stipple changes from frame to frame and would
+        # shimmer in an animation, so an animated source falls back to the
+        # frame-stable ordered dither. Any non-`Auto` value is returned as-is.
+        def resolve(animated : Bool) : Dither
+          return self unless auto?
+          animated ? Ordered : Diffusion
+        end
+      end
+
+      # Quantizes an RGBA *bmp* (*pw*×*ph*) to one backend value per pixel,
+      # applying the requested *dither*. This is the shared color-reduction loop
+      # for every palette backend (`Media::Sixel`, `Media::Regis`, `Media::Ansi`);
+      # `Media::Tek` does its own 1-bit variant.
+      #
+      # The block is invoked once per opaque pixel with the channels to quantize
+      # and an ordered-dither threshold *t* (the Bayer offset in `[-0.5, 0.5)` for
+      # `Ordered`, else `0.0`); it must return `{value, qr, qg, qb}` — the value
+      # to store (a palette index, or a packed `0xRRGGBB`) plus the RGB that value
+      # actually resolves to, so `Diffusion` can spread the residual (target −
+      # chosen) onto the not-yet-visited neighbours. Fully transparent pixels
+      # (`a == 0`, or missing) are assigned *transparent* and never reach the
+      # block. *animated* collapses `Dither::Auto` (see `Dither#resolve`).
+      def self.dither_rgb(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32,
+                          dither : Dither, animated : Bool, transparent : V,
+                          & : Int32, Int32, Int32, Float64 -> Tuple(V, Int32, Int32, Int32)) : Array(Array(V)) forall V
+        mode = dither.resolve(animated)
+        diffuse = mode.diffusion?
+        # Per-channel Floyd–Steinberg error carried to the current and next scan
+        # line (kept as a two-row sliding window rather than a full-image buffer).
+        cur_r = Array(Float64).new(pw, 0.0); cur_g = Array(Float64).new(pw, 0.0); cur_b = Array(Float64).new(pw, 0.0)
+        nxt_r = Array(Float64).new(pw, 0.0); nxt_g = Array(Float64).new(pw, 0.0); nxt_b = Array(Float64).new(pw, 0.0)
+
+        out = Array(Array(V)).new(ph)
+        ph.times do |y|
+          rin = bmp[y]
+          row = Array(V).new(pw, transparent)
+          pw.times do |x|
+            px = rin[x]?
+            if px.nil? || px.a == 0
+              row[x] = transparent
+              next
+            end
+            if diffuse
+              wr = px.r + cur_r[x]; wg = px.g + cur_g[x]; wb = px.b + cur_b[x]
+              value, qr, qg, qb = yield wr.round.to_i, wg.round.to_i, wb.round.to_i, 0.0
+              row[x] = value
+              er = wr - qr; eg = wg - qg; eb = wb - qb
+              if x + 1 < pw
+                cur_r[x + 1] += er * 7.0 / 16.0; cur_g[x + 1] += eg * 7.0 / 16.0; cur_b[x + 1] += eb * 7.0 / 16.0
+                nxt_r[x + 1] += er * 1.0 / 16.0; nxt_g[x + 1] += eg * 1.0 / 16.0; nxt_b[x + 1] += eb * 1.0 / 16.0
+              end
+              nxt_r[x] += er * 5.0 / 16.0; nxt_g[x] += eg * 5.0 / 16.0; nxt_b[x] += eb * 5.0 / 16.0
+              if x > 0
+                nxt_r[x - 1] += er * 3.0 / 16.0; nxt_g[x - 1] += eg * 3.0 / 16.0; nxt_b[x - 1] += eb * 3.0 / 16.0
+              end
+            else
+              t = mode.ordered? ? (BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 - 0.5 : 0.0
+              value, _qr, _qg, _qb = yield px.r, px.g, px.b, t
+              row[x] = value
+            end
+          end
+          out << row
+          # The next line's accumulated error becomes the current line's; reuse
+          # the drained buffers as the new (zeroed) next line.
+          cur_r, nxt_r = nxt_r, cur_r; cur_g, nxt_g = nxt_g, cur_g; cur_b, nxt_b = nxt_b, cur_b
+          nxt_r.fill(0.0); nxt_g.fill(0.0); nxt_b.fill(0.0)
+        end
+        out
+      end
+
       # How an image is fit into a box whose aspect ratio differs from the
       # image's — shared by every backend so the behaviour is consistent.
       enum Fit

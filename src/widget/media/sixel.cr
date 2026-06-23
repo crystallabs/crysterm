@@ -8,9 +8,9 @@ module Crysterm
     # the pixels are owned by the terminal, not Crysterm's cell grid — so this
     # inherits `Media::Graphics`'s screen-owns-pixels erase/redraw lifecycle.
     #
-    # The image is quantized to a fixed 6×7×6 (=252) level RGB palette, with
-    # 4×4 ordered (Bayer) dithering on by default to smooth gradients, then
-    # emitted as run-length-encoded sixel bands.
+    # The image is quantized to a fixed 6×7×6 (=252) level RGB palette and
+    # dithered to smooth gradients (see `dither`; `Dither::Auto` by default),
+    # then emitted as run-length-encoded sixel bands.
     #
     # ```
     # img = Widget::Media::Sixel.new file: "pic.png", width: 40, height: 12, parent: screen
@@ -21,11 +21,15 @@ module Crysterm
       LG = 7
       LB = 6
 
-      # Apply ordered dithering when quantizing to the palette.
-      property? dither : Bool = true
+      # How the image's colors are dithered down to the fixed palette. Defaults
+      # to `Dither::Auto`: Floyd–Steinberg error diffusion for a still (best
+      # quality), ordered (Bayer) dither for an animation (frame-stable, so the
+      # gradient noise doesn't shimmer between frames).
+      property dither : Media::Dither = Media::Dither::Auto
 
-      def initialize(*args, dither : Bool = true, **opts)
-        @dither = dither
+      def initialize(*args, dither : Media::Dither | Bool = Media::Dither::Auto, **opts)
+        # Accept a legacy Bool: true ⇒ auto, false ⇒ none.
+        @dither = dither.is_a?(Bool) ? (dither ? Media::Dither::Auto : Media::Dither::None) : dither
         super *args, **opts
       end
 
@@ -97,32 +101,21 @@ module Crysterm
         end
       end
 
-      # Maps each pixel to a palette index, optionally Bayer-dithered.
+      # Maps each pixel to a palette index via the shared dithering loop (`None`/
+      # `Ordered`/`Diffusion`), with `-1` for fully transparent pixels.
       private def quantize(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32) : Array(Array(Int32))
-        out = Array(Array(Int32)).new(ph)
-        ph.times do |y|
-          rin = bmp[y]
-          row = Array(Int32).new(pw, 0)
-          pw.times do |x|
-            px = rin[x]?
-            next unless px
-            if px.a == 0
-              row[x] = -1 # transparent
-              next
-            end
-            t = dither? ? (Media::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 - 0.5 : 0.0
-            rl = qlevel px.r, LR, t
-            gl = qlevel px.g, LG, t
-            bl = qlevel px.b, LB, t
-            row[x] = (rl * LG + gl) * LB + bl
-          end
-          out << row
+        Media.dither_rgb(bmp, pw, ph, @dither, frames_ready?, -1) do |r, g, b, t|
+          rl = qlevel r, LR, t
+          gl = qlevel g, LG, t
+          bl = qlevel b, LB, t
+          idx = (rl * LG + gl) * LB + bl
+          rgb = PALETTE[idx]
+          {idx, (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff}
         end
-        out
       end
 
       # Quantizes one channel value (0..255) to a level (0..l-1), nudged by the
-      # dither threshold *t* in [-0.5, 0.5).
+      # ordered-dither threshold *t* in [-0.5, 0.5) (0.0 for none/diffusion).
       private def qlevel(v : Int32, l : Int32, t : Float64) : Int32
         step = 255.0 / (l - 1)
         q = ((v + t * step) / step).round.to_i

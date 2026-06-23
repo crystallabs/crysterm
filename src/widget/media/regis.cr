@@ -33,10 +33,12 @@ module Crysterm
         0xFFFFFF, # W white
       ]
 
-      # Apply 4×4 ordered (Bayer) dithering. Off by default: ReGIS has only 8
-      # colors and no raster blit, so dithering both looks noisy and explodes
-      # the vector count (it breaks up the run-length horizontal spans).
-      property? dither : Bool = false
+      # How colors are dithered down to ReGIS' 8-color palette. `Dither::None` by
+      # default (unlike the raster backends): ReGIS has only 8 colors and no
+      # raster blit, so any dithering both looks noisy and explodes the vector
+      # count — per-pixel color changes break up the run-length horizontal spans.
+      # `Ordered`/`Diffusion`/`Auto` are accepted for parity but rarely worth it.
+      property dither : Media::Dither = Media::Dither::None
 
       # ReGIS addresses a *fixed logical screen* (not raw window pixels): xterm
       # maps `[0,0]..[regis_width-1, regis_height-1]` onto the whole text area.
@@ -46,9 +48,10 @@ module Crysterm
       property regis_width : Int32 = 800
       property regis_height : Int32 = 480
 
-      def initialize(*args, dither : Bool = false,
+      def initialize(*args, dither : Media::Dither | Bool = Media::Dither::None,
                      regis_width : Int32 = 0, regis_height : Int32 = 0, **opts)
-        @dither = dither
+        # Accept a legacy Bool: true ⇒ ordered (its prior meaning), false ⇒ none.
+        @dither = dither.is_a?(Bool) ? (dither ? Media::Dither::Ordered : Media::Dither::None) : dither
         @regis_width = regis_width
         @regis_height = regis_height
         super *args, **opts
@@ -130,30 +133,20 @@ module Crysterm
         io.to_s
       end
 
+      # ReGIS never drives a frame loop (`needs_frame_loop?` is false), so the
+      # dither is always resolved as for a still image.
       private def quantize(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32) : Array(Array(Int32))
-        out = Array(Array(Int32)).new(ph)
-        ph.times do |y|
-          rin = bmp[y]
-          row = Array(Int32).new(pw, 0)
-          pw.times do |x|
-            px = rin[x]?
-            next unless px
-            if px.a == 0
-              row[x] = -1 # transparent
-              next
-            end
-            r = px.r; g = px.g; b = px.b
-            if dither?
-              t = ((Media::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 - 0.5) * 110.0
-              r = clamp8 (r + t).to_i
-              g = clamp8 (g + t).to_i
-              b = clamp8 (b + t).to_i
-            end
-            row[x] = nearest r, g, b
+        Media.dither_rgb(bmp, pw, ph, @dither, false, -1) do |r, g, b, t|
+          if t != 0.0
+            n = t * 110.0
+            r = clamp8 (r + n).round.to_i
+            g = clamp8 (g + n).round.to_i
+            b = clamp8 (b + n).round.to_i
           end
-          out << row
+          ci = nearest r, g, b
+          rgb = PALETTE[ci]
+          {ci, (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff}
         end
-        out
       end
 
       # Index of the nearest palette color to (r,g,b) by squared distance.

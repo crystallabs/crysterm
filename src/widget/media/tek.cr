@@ -29,14 +29,6 @@ module Crysterm
     # # the Tek window appears on the next screen render
     # ```
     class Media::Tek < Media::Base
-      # 1-bit dithering method.
-      enum Dither
-        None      # hard threshold at `level` — cleanest spans, fewest vectors
-        Ordered   # 4×4 Bayer ordered dither — frame-independent (stable in animation)
-        Diffusion # Floyd–Steinberg error diffusion — best for a still; shimmers if animated
-        Auto      # Diffusion for a still image, Ordered for an animated one
-      end
-
       # Tektronix 4014 addressable space (10-bit X, ~0..779 visible Y).
       TEK_W = 1024
       TEK_H =  780
@@ -47,8 +39,8 @@ module Crysterm
       # Luminance threshold (0..255) used by `None`/`Diffusion`.
       getter level : Float64
 
-      # Which 1-bit dithering method to use (see `Dither`).
-      getter dither : Dither
+      # Which 1-bit dithering method to use (see `Media::Dither`).
+      getter dither : Media::Dither
 
       # Invert ink/paper (draw the dark areas instead of the bright ones).
       getter? invert : Bool
@@ -62,7 +54,7 @@ module Crysterm
         redraw!
       end
 
-      def dither=(v : Dither)
+      def dither=(v : Media::Dither)
         return if v == @dither
         @dither = v
         redraw!
@@ -94,15 +86,16 @@ module Crysterm
       def initialize(
         @file = nil,
         @level : Float64 = 128.0,
-        dither : Dither | Bool = Dither::Auto,
+        dither : Media::Dither | Bool = Media::Dither::Auto,
         @invert : Bool = false,
         @fit : Media::Fit = Media::Fit::Contain,
         @animate : Bool = true,
         @speed : Float64 = 1.0,
         **box,
       )
-        # Accept a legacy Bool: true ⇒ diffusion (the old "dithered" look), false ⇒ none.
-        @dither = dither.is_a?(Bool) ? (dither ? Dither::Diffusion : Dither::None) : dither
+        # Accept a legacy Bool: true ⇒ auto (the old "dithered" look, now
+        # still-vs-animation aware), false ⇒ none.
+        @dither = dither.is_a?(Bool) ? (dither ? Media::Dither::Auto : Media::Dither::None) : dither
 
         super **box
 
@@ -243,9 +236,8 @@ module Crysterm
 
       # Resolves `Auto` to a concrete method: ordered (frame-stable) while an
       # animation is loaded, error diffusion (nicer) for a still.
-      private def effective_dither : Dither
-        return @dither unless @dither.auto?
-        @src_frames ? Dither::Ordered : Dither::Diffusion
+      private def effective_dither : Media::Dither
+        @dither.resolve(!@src_frames.nil?)
       end
 
       private def to_bits(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32) : Array(Array(Bool))
@@ -265,11 +257,11 @@ module Crysterm
           row = Array(Bool).new(pw, false)
           pw.times do |x|
             case mode
-            in Dither::Ordered
+            in Media::Dither::Ordered
               # Threshold against the tiled 4×4 Bayer matrix. Deterministic per
               # pixel ⇒ identical every frame, so animation doesn't shimmer.
               on = lum[y][x] > (Media::BAYER_MATRIX[y & 3][x & 3] + 0.5) / 16.0 * 255.0
-            in Dither::Diffusion
+            in Media::Dither::Diffusion
               # Floyd–Steinberg: push the rounding error onto the not-yet-visited
               # neighbours — irregular, photographic stipple on smooth areas.
               on = lum[y][x] >= @level
@@ -280,7 +272,7 @@ module Crysterm
                 lum[y + 1][x] += err * 5.0 / 16.0
                 lum[y + 1][x + 1] += err * 1.0 / 16.0 if x + 1 < pw
               end
-            in Dither::None, Dither::Auto # Auto is resolved away by effective_dither
+            in Media::Dither::None, Media::Dither::Auto # Auto is resolved away by effective_dither
               on = lum[y][x] >= @level
             end
             on = !on if invert?

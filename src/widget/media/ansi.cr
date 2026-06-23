@@ -39,6 +39,11 @@ module Crysterm
       # Color depth used to render pixels (see `ColorMode`).
       property colors : ColorMode
 
+      # How pixel colors are dithered when reduced to the `C256`/`C16` palette.
+      # Ignored in `ColorMode::TrueColor` (no reduction happens). `Dither::Auto`
+      # by default: Floyd–Steinberg for a still, ordered (Bayer) for an animation.
+      property dither : Media::Dither = Media::Dither::Auto
+
       # Scale factor used when neither `width` nor `height` is set on the widget.
       property scale : Float64
 
@@ -59,6 +64,7 @@ module Crysterm
         @speed : Float64 = 1.0,
         @cell_aspect : Float64 = 2.0,
         @colors : ColorMode = ColorMode::TrueColor,
+        @dither : Media::Dither = Media::Dither::Auto,
         @fit : Media::Fit = Media::Fit::Stretch,
         **box,
       )
@@ -102,9 +108,13 @@ module Crysterm
 
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
         lines = screen.lines
+        # In a reduced-color mode, dither the whole sample to the palette up front
+        # (error diffusion needs the neighbours, so it can't be done per cell).
+        plane = @colors.true_color? ? nil : dither_plane(bmp)
         (yi...yl).each do |y|
           cmrow = bmp[y - yi]?
           next unless cmrow
+          prow = plane.try &.[y - yi]?
           row = lines[y]?
           next unless row
           (xi...xl).each do |x|
@@ -114,17 +124,17 @@ module Crysterm
             next unless cell
             a = px.a / 255.0
             next if a == 0.0 # fully transparent: leave the cell as-is
-            paint_cell cell, px, a
+            rgb = prow ? prow[x - xi] : ((px.r << 16) | (px.g << 8) | px.b)
+            paint_cell cell, px, a, rgb
           end
           row.dirty = true
         end
       end
 
-      # Writes one image pixel into a screen *cell*, blending against the cell's
-      # current contents when the pixel is translucent.
-      private def paint_cell(cell, px : PNGGIF::Pixel, a : Float64)
-        rgb = quantize((px.r << 16) | (px.g << 8) | px.b)
-
+      # Writes one image pixel into a screen *cell* (its background *rgb* already
+      # palette-reduced for the active mode), blending against the cell's current
+      # contents when the pixel is translucent.
+      private def paint_cell(cell, px : PNGGIF::Pixel, a : Float64, rgb : Int32)
         if ascii?
           ch, fg = ascii_glyph px, a
           fg = quantize fg
@@ -156,18 +166,46 @@ module Crysterm
         {ch, fg}
       end
 
-      # Quantizes *rgb* to the nearest color of the active palette (`C256`/`C16`),
-      # or returns it unchanged in `TrueColor` mode. Results are memoized since an
-      # image has far fewer distinct pixel colors than cells.
+      # Builds a palette-quantized, dithered color plane for the whole sample —
+      # one packed RGB per pixel (`-1` for fully transparent). Used only in the
+      # reduced-color modes; `paint_cell` reads it instead of quantizing per cell.
+      private def dither_plane(bmp : PNGGIF::Bitmap) : Array(Array(Int32))
+        ph = bmp.size
+        pw = bmp[0]?.try(&.size) || 0
+        Media.dither_rgb(bmp, pw, ph, @dither, @animated, -1) do |r, g, b, t|
+          rgb = quantize_dither r, g, b, t
+          {rgb, (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff}
+        end
+      end
+
+      # The Bayer threshold (±0.5) is scaled to this many color steps before the
+      # nearest-palette search — enough to break up banding without obvious
+      # cross-hatching on the irregular xterm palette.
+      ORDERED_AMP = 48.0
+
+      # Nearest-palette quantization of *r*,*g*,*b*, nudged by the ordered-dither
+      # threshold *t* (0.0 for none/diffusion, where the channels are used as-is).
+      private def quantize_dither(r : Int32, g : Int32, b : Int32, t : Float64) : Int32
+        if t != 0.0
+          n = (t * ORDERED_AMP).round.to_i
+          r = clamp8(r + n); g = clamp8(g + n); b = clamp8(b + n)
+        end
+        nearest_palette_rgb r, g, b
+      end
+
+      # Quantizes a packed *rgb* to the active palette (`C256`/`C16`), or returns
+      # it unchanged in `TrueColor`. Memoized; used for the `ascii` foreground (the
+      # cell background is dithered through `dither_plane`).
       private def quantize(rgb : Int32) : Int32
         return rgb if @colors.true_color?
         cache = (@quant_cache ||= {} of Int32 => Int32)
-        if q = cache[rgb]?
-          return q
-        end
-        r = (rgb >> 16) & 0xff
-        g = (rgb >> 8) & 0xff
-        b = rgb & 0xff
+        cache[rgb]? || (cache[rgb] = nearest_palette_rgb((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff))
+      end
+
+      @quant_cache : Hash(Int32, Int32)?
+
+      # Packed RGB of the nearest xterm-256 (or 16) palette color to *r*,*g*,*b*.
+      private def nearest_palette_rgb(r : Int32, g : Int32, b : Int32) : Int32
         n = @colors.c16? ? 16 : 256
         best = 0
         bestd = Int32::MAX
@@ -183,12 +221,12 @@ module Crysterm
           i += 1
         end
         pr, pg, pb = TermColors::HI2RGB[best]
-        q = (pr << 16) | (pg << 8) | pb
-        cache[rgb] = q
-        q
+        (pr << 16) | (pg << 8) | pb
       end
 
-      @quant_cache : Hash(Int32, Int32)?
+      private def clamp8(v : Int32) : Int32
+        v < 0 ? 0 : (v > 255 ? 255 : v)
+      end
 
       # Fetches *url* using `curl` (then `wget`), returning the raw bytes.
       def self.fetch(url : String) : Bytes

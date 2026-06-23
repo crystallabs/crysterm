@@ -24,10 +24,10 @@ Widget::Box.new \
   parse_tags: true, style: Style.new(fg: "#33ff66", bg: "black")
 
 dither = case ENV["TEK_DITHER"]?
-         when "ordered"   then Widget::Media::Tek::Dither::Ordered
-         when "diffusion" then Widget::Media::Tek::Dither::Diffusion
-         when "none"      then Widget::Media::Tek::Dither::None
-         else                  Widget::Media::Tek::Dither::Auto # -> Ordered for animation
+         when "ordered"   then Widget::Media::Dither::Ordered
+         when "diffusion" then Widget::Media::Dither::Diffusion
+         when "none"      then Widget::Media::Dither::None
+         else                  Widget::Media::Dither::Auto # -> Ordered for animation
          end
 
 fit = case ENV["TEK_FIT"]?
