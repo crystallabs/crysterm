@@ -114,37 +114,55 @@ module Crysterm
         case @mode
         in Mode::Block
           px = pix(sub, cx, cy) || return
-          cell.char = ' '
-          cell.attr = Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(rgb_of px))
+          apply cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(rgb_of px)), px.a / 255.0
         in Mode::Ascii
           # Edge-aware ASCII: every cell keeps the pixel's full color, but an
           # ASCII glyph is overlaid ONLY where there is a real edge (high local
           # contrast). The glyph traces the edge direction (- | / \), so it adds
           # detail where it helps instead of dumping a character into every cell.
           px = pix(sub, cx, cy) || return
+          a = px.a / 255.0
           bg = rgb_of px
           l = lum px
           gx = neighbor_lum(sub, cx + 1, cy, l) - neighbor_lum(sub, cx - 1, cy, l)
           gy = neighbor_lum(sub, cx, cy + 1, l) - neighbor_lum(sub, cx, cy - 1, l)
           if gx.abs + gy.abs < ASCII_EDGE
-            cell.char = ' '
-            cell.attr = Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(bg))
+            apply cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(bg)), a
           else
             fg = l < 128 ? 0xf0f0f0 : 0x101010
-            cell.char = edge_char(gx, gy)
-            cell.attr = Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg))
+            apply cell, edge_char(gx, gy), Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg)), a
           end
         in Mode::Half
-          top = pix(sub, cx * 1 + 0, cy * 2 + 0)
-          bot = pix(sub, cx * 1 + 0, cy * 2 + 1)
+          top = pix(sub, cx, cy * 2 + 0)
+          bot = pix(sub, cx, cy * 2 + 1)
           return unless top
+          # The cell's two sub-pixels become fg (top) and bg (bottom); its overall
+          # opacity is their mean alpha (a missing bottom reuses the top's).
+          at = top.a / 255.0
+          ab = bot ? bot.a / 255.0 : at
           bcol = bot || top
-          cell.char = '▀'
-          cell.attr = Attr.pack(0, Attr.pack_color(rgb_of top), Attr.pack_color(rgb_of bcol))
+          apply cell, '▀', Attr.pack(0, Attr.pack_color(rgb_of top), Attr.pack_color(rgb_of bcol)), (at + ab) / 2.0
         in Mode::Quadrant, Mode::Sextant, Mode::Octant
           paint_two_color cell, sub, cx, cy, sx, sy
         in Mode::Braille
           paint_braille cell, sub, cx, cy, thr
+        end
+      end
+
+      # Writes *char*/*attr* into *cell*, compositing over the cell's current
+      # contents when the source is translucent — the sub-cell counterpart of
+      # `Image::Ansi#paint_cell`. *a* is the cell's aggregate alpha: `<= 0` leaves
+      # the cell untouched (fully transparent, e.g. a letterbox margin), `1`
+      # overwrites it opaquely, in between blends both colors over what's there
+      # (and keeps the underlying glyph when this cell would only draw a space).
+      private def apply(cell, char : Char, attr : Int64, a : Float64)
+        return if a <= 0.0
+        if a < 1.0
+          cell.attr = Colors.blend(attr, cell.attr, a)
+          cell.char = char unless char == ' '
+        else
+          cell.attr = attr
+          cell.char = char
         end
       end
 
@@ -154,16 +172,19 @@ module Crysterm
       private def paint_two_color(cell, sub, cx, cy, sx, sy)
         mean = 0.0
         count = 0
+        asum = 0.0
         sy.times do |dy|
           sx.times do |dx|
             if p = pix(sub, cx * sx + dx, cy * sy + dy)
               mean += lum p
+              asum += p.a
               count += 1
             end
           end
         end
         return if count == 0
         mean /= count
+        a = (asum / 255.0) / count # cell opacity = mean alpha of its sub-pixels
 
         mask = 0
         fr = fg_ = fb = 0; fn = 0
@@ -185,30 +206,32 @@ module Crysterm
         fg = fn > 0 ? ((fr // fn) << 16) | ((fg_ // fn) << 8) | (fb // fn) : 0
         bg = bn > 0 ? ((br // bn) << 16) | ((bg_ // bn) << 8) | (bb // bn) : fg
 
-        cell.char = glyph_for mask, sx, sy
-        cell.attr = Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg))
+        apply cell, glyph_for(mask, sx, sy), Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg)), a
       end
 
       private def paint_braille(cell, sub, cx, cy, thr)
         mask = 0
         r = g = b = 0; n = 0
+        asum = 0.0; total = 0
         4.times do |dy|
           2.times do |dx|
             p = pix(sub, cx * 2 + dx, cy * 4 + dy)
             next unless p
+            total += 1
+            asum += p.a
             if lum(p) >= thr
               mask |= BRAILLE_BITS[dx][dy]
               r += p.r; g += p.g; b += p.b; n += 1
             end
           end
         end
+        return if total == 0 # no in-bounds sub-pixels (letterbox): leave the cell
+        a = (asum / 255.0) / total
         if n == 0
-          cell.char = ' '
-          cell.attr = Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)
+          apply cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT), a
         else
           fg = ((r // n) << 16) | ((g // n) << 8) | (b // n)
-          cell.char = (0x2800 + mask).chr
-          cell.attr = Attr.pack(0, Attr.pack_color(fg), Attr::COLOR_DEFAULT)
+          apply cell, (0x2800 + mask).chr, Attr.pack(0, Attr.pack_color(fg), Attr::COLOR_DEFAULT), a
         end
       end
 
