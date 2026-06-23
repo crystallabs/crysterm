@@ -72,6 +72,20 @@ module Crysterm
       end
     end
 
+    # Re-glues the label to the top inset for the current frame. `set_label`
+    # positions the label (`top: -itop`) at *construction* time, but a border
+    # supplied by the CSS cascade only lands at render time — so a widget whose
+    # border comes from a stylesheet (e.g. `GroupBox`) would otherwise leave its
+    # label one row inside the box instead of on the border. Called from
+    # `_render` once styles are resolved; cheap (a nil check) for label-less
+    # widgets, and a no-op when the position is already correct.
+    protected def sync_label_position : Nil
+      @_label.try do |_label|
+        top = @child_base - itop
+        _label.top = top unless _label.top == top
+      end
+    end
+
     # Removes widget label
     def remove_label
       return unless @_label

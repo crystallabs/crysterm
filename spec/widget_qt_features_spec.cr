@@ -8,12 +8,18 @@ include Crysterm
 # `read_only` / placeholder.
 
 private def qt_mem_screen
+  # `default_quit_keys: false`: the default handler calls `exit` on a `q`/Ctrl-Q
+  # keypress (the interactive "press q to quit" behavior). These specs synthesize
+  # key events — e.g. the ListBar tests `emit KeyPress, 'q'` to exercise a `q`
+  # *hotkey* — so leaving it on would terminate the whole spec process mid-run
+  # (no summary, exit 0). Headless test screens want no interactive quit.
   Crysterm::Screen.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,
     width: 80,
-    height: 24)
+    height: 24,
+    default_quit_keys: false)
 end
 
 private def keypress(ch : Char, key : Tput::Key? = nil)

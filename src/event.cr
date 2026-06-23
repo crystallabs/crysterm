@@ -255,7 +255,11 @@ module Crysterm
       # The rich keyboard event when an enhanced protocol is active, else `nil`.
       getter key_event : ::Tput::KeyEvent?
 
-      def initialize(@char, @key = nil, @sequence = [@char], @key_event = nil)
+      def initialize(@char, @key = nil, sequence : Array(Char)? = nil, @key_event = nil)
+        # Assign in the body (rather than as a `@sequence = [@char]` default arg):
+        # referencing `@char` from a default argument trips Crystal's
+        # "used before initialized" analysis when called without `sequence`.
+        @sequence = sequence || [@char]
       end
 
       # Accepts event and causes it to stop propagating.

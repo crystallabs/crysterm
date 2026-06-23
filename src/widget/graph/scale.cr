@@ -1,0 +1,79 @@
+module Crysterm
+  class Widget
+    # Namespace for data-graphing widgets.
+    module Graph
+      # Shared helpers for the block-glyph graph widgets (`Bar`, `StackedBar`,
+      # and the top-level `Widget::Gauge`). They render numeric values with
+      # Unicode "eighth block" glyphs, which give 8× sub-cell resolution along
+      # one axis — so a bar/gauge looks smooth even at small sizes.
+      module Scale
+        # Vertical eighth blocks: empty (0) .. full (8), filling *upward*.
+        VERTICAL = " ▁▂▃▄▅▆▇█".chars
+
+        # Horizontal eighth blocks: empty (0) .. full (8), filling *rightward*.
+        HORIZONTAL = " ▏▎▍▌▋▊▉█".chars
+
+        # Full cell — used where sub-cell resolution isn't needed (e.g. the
+        # interior of a stacked segment).
+        FULL = '█'
+
+        # Number of filled eighth-cells (`0 .. cells*8`) representing `value` on
+        # a `[min, max]` scale that spans `cells` whole character cells.
+        def self.eighths(value : Float64, min : Float64, max : Float64, cells : Int32) : Int32
+          range = max - min
+          range = 1.0 if range <= 0.0
+          norm = ((value - min) / range).clamp(0.0, 1.0)
+          (norm * cells * 8).round.to_i
+        end
+
+        # Glyph for one *vertical* cell, given the column's total filled eighths
+        # and how many whole cells sit below this one.
+        def self.vglyph(filled_eighths : Int32, below_cells : Int32) : Char
+          VERTICAL[(filled_eighths - below_cells * 8).clamp(0, 8)]
+        end
+
+        # Glyph for one *horizontal* cell, given the row's total filled eighths
+        # and how many whole cells sit to the left of this one.
+        def self.hglyph(filled_eighths : Int32, left_cells : Int32) : Char
+          HORIZONTAL[(filled_eighths - left_cells * 8).clamp(0, 8)]
+        end
+
+        # Serializes a single row of `cells` into tagged content, wrapping each
+        # run of same-colored cells in `{color-fg}…{/}`. A `nil` color emits the
+        # characters as-is (default style). Coalescing runs keeps the produced
+        # markup compact. Requires the target widget's `parse_tags?` to be on.
+        def self.tagged_row(io : IO, cells : Array(Char), colors : Array(String?)) : Nil
+          i = 0
+          n = cells.size
+          while i < n
+            color = colors[i]
+            j = i
+            while j < n && colors[j] == color
+              j += 1
+            end
+            io << "{#{color}-fg}" if color
+            (i...j).each { |k| io << cells[k] }
+            io << "{/}" if color
+            i = j
+          end
+        end
+
+        # Centers `text` within a field of `width` cells (truncating if longer),
+        # padding with spaces. Used to place value/category labels under bars.
+        def self.center(text : String, width : Int32) : String
+          return "" if width <= 0
+          return text[0, width] if text.size >= width
+          pad = width - text.size
+          left = pad // 2
+          (" " * left) + text + (" " * (pad - left))
+        end
+
+        # Formats a numeric value compactly: integers lose their `.0`, others
+        # are rounded to one decimal.
+        def self.fmt(v : Float64) : String
+          v == v.round ? v.to_i.to_s : v.round(1).to_s
+        end
+      end
+    end
+  end
+end

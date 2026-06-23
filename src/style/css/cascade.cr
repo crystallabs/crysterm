@@ -312,6 +312,10 @@ module Crysterm
         style.border = inline.border if inline.specified?(:border)
         style.padding = inline.padding if inline.specified?(:padding)
         style.shadow = inline.shadow if inline.specified?(:shadow)
+        # Nested sub-styles (header/cell/alternate/bar/…) the inline set wholesale;
+        # without this they'd be dropped by the reset-and-recompute, since no
+        # `Widget::slot` sub-element rule restores an inline-only sub-style.
+        style.fold_inline_sub_styles inline
       end
 
       # The widgets eligible to be reset/recomputed: every (main) widget in the

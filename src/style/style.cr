@@ -296,6 +296,25 @@ module Crysterm
       @track || self
     end
 
+    # Folds *inline*'s explicitly-set nested sub-styles (`header`/`cell`/
+    # `alternate`/`bar`/…) onto this style. Used by the CSS cascade so an inline
+    # `@style` that carries a sub-style — e.g. `Style.new(alternate: ...)` on a
+    # `Widget::Table` — survives recomputation even when no `Widget::slot`
+    # sub-element rule matched. Reads the raw nilable ivars (an instance may
+    # touch another instance's privates), so only sub-styles the caller actually
+    # set are carried (the getters above fall back to `self`/`cell`, which would
+    # otherwise always look "set").
+    def fold_inline_sub_styles(inline : Style) : Nil
+      @alternate = inline.@alternate if inline.@alternate
+      @bar = inline.@bar if inline.@bar
+      @cell = inline.@cell if inline.@cell
+      @header = inline.@header if inline.@header
+      @item = inline.@item if inline.@item
+      @prefix = inline.@prefix if inline.@prefix
+      @scrollbar = inline.@scrollbar if inline.@scrollbar
+      @track = inline.@track if inline.@track
+    end
+
     def initialize(
       *,
       border = nil,

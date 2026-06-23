@@ -6,6 +6,23 @@ private def headless_screen
   Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
+# Runs *block* with the global default (user-agent) stylesheet emptied, then
+# restores it. The first `Screen` auto-installs the config-driven default theme
+# (dark) into that global; its `Button:focus`/`Box:selected`/base-color rules
+# would otherwise materialize extra state styles / base colors and break specs
+# that assert author-CSS *cascade mechanics* in isolation. Must run after the
+# screen exists (the auto-install would override an earlier reset), and restores
+# so the theme-dependent rendering specs in other files still get their theme.
+private def without_default_theme(&)
+  saved = Crysterm::CSS.default_stylesheet
+  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
+  begin
+    yield
+  ensure
+    Crysterm::CSS.default_stylesheet = saved
+  end
+end
+
 private def rgb(name)
   Crysterm::Colors.convert(name).to_i32
 end
@@ -147,18 +164,22 @@ describe "CSS cascade" do
     screen.append base_only
     screen.append stateful
 
-    screen.stylesheet = <<-CSS
-      Button { color: red; }
-      #b:focus { color: green; }
-    CSS
-    screen.apply_stylesheet
+    # Isolate from the default theme, whose `Button:focus`/`:disabled` and
+    # `Box:selected` rules would themselves materialize state styles.
+    without_default_theme do
+      screen.stylesheet = <<-CSS
+        Button { color: red; }
+        #b:focus { color: green; }
+      CSS
+      screen.apply_stylesheet
 
-    # base-only widget: no distinct focused style was built; it lazily resolves
-    # to normal
-    base_only.styles.focused.should be base_only.styles.normal
-    # stateful widget: a distinct focused style exists
-    stateful.styles.focused.should_not be stateful.styles.normal
-    stateful.styles.focused.fg.should eq rgb("green")
+      # base-only widget: no distinct focused style was built; it lazily resolves
+      # to normal
+      base_only.styles.focused.should be base_only.styles.normal
+      # stateful widget: a distinct focused style exists
+      stateful.styles.focused.should_not be stateful.styles.normal
+      stateful.styles.focused.fg.should eq rgb("green")
+    end
   end
 
   it "distinguishes :blurred from the :blur substring when peeling state" do
@@ -207,11 +228,15 @@ describe "CSS cascade" do
     screen.append on
     screen.append off
 
-    screen.stylesheet = "CheckBox[checked] { color: red; }"
-    screen.apply_stylesheet
+    # Isolate from the default theme, which would set a base text color on the
+    # unchecked box (making its `fg` non-nil).
+    without_default_theme do
+      screen.stylesheet = "CheckBox[checked] { color: red; }"
+      screen.apply_stylesheet
 
-    on.styles.normal.fg.should eq rgb("red")
-    off.styles.normal.fg.should be_nil # unchecked box not matched
+      on.styles.normal.fg.should eq rgb("red")
+      off.styles.normal.fg.should be_nil # unchecked box not matched
+    end
   end
 
   it "auto-invalidates styling when intrinsic state changes" do
@@ -304,6 +329,7 @@ describe "CSS cascade" do
     box = Widget::Box.new
     screen.append box
 
+    saved = Crysterm::CSS.default_stylesheet
     begin
       Crysterm::CSS.default_stylesheet = "Box { color: green; background-color: gray; }"
       screen.stylesheet = "Box { color: red; }" # overrides color only
@@ -312,7 +338,10 @@ describe "CSS cascade" do
       box.styles.normal.fg.should eq rgb("red")  # author tier beats default tier
       box.styles.normal.bg.should eq rgb("gray") # default supplies what author omits
     ensure
-      Crysterm::CSS.default_stylesheet = "" # reset global UA sheet
+      # Restore the global UA sheet (the auto-installed theme), not blank it — a
+      # later `= ""` would strip the theme that other files' rendering specs rely
+      # on (suite order runs them after this file).
+      Crysterm::CSS.default_stylesheet = saved
     end
   end
 

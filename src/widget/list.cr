@@ -106,6 +106,21 @@ module Crysterm
         # the item's own cascade-computed style, reflecting selection through its
         # widget state so `:selected` rules apply.
         if item.css_styled?
+          # In multi-select the cursor item gets the full `:selected` highlight,
+          # while the *other* checked items stay in the normal state but are
+          # underlined — so they read as selected without being confused with the
+          # cursor (same distinction as the non-CSS path below).
+          if multi_select?
+            i = @items.index item
+            item.state = (i == @selected) ? WidgetState::Selected : WidgetState::Normal
+            style = item.style
+            if i && i != @selected && @selected_indices.includes?(i)
+              style = style.dup
+              style.underline = true
+            end
+            return style
+          end
+
           item.state = item_selected?(item) ? WidgetState::Selected : WidgetState::Normal
           return item.style
         end

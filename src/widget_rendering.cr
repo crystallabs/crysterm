@@ -57,6 +57,10 @@ module Crysterm
         end
       end
 
+      # Keep any border label glued to the (possibly CSS-resolved) top inset.
+      # Must run before the label child renders, hence here at the frame's start.
+      sync_label_position
+
       # The parent has already rendered this frame (children render after their
       # parent), so `awidth(true)` is an O(1) read of the parent's cached `lpos`.
       # Hand it to `process_content` so its per-frame width resolution doesn't

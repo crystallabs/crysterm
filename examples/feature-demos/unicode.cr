@@ -28,9 +28,9 @@ Widget::Box.new \
   parse_tags: true,
   style: Style.new(fg: "yellow", bg: "#101010", border: true)
 
-# Animated block-element bar graph: a `Widget::Graph::BlockBar` draws each value
+# Animated block-element bar graph: a `Widget::Graph::Bar` draws each value
 # as a vertical bar using the eighth-block glyphs (▁▂▃▄▅▆▇█) for sub-cell height.
-bars = Widget::Graph::BlockBar.new \
+bars = Widget::Graph::Bar.new \
   parent: s,
   top: 2, left: 40, width: 36, height: 8,
   label: " Block elements ", min: 0.0, max: 1.0,
