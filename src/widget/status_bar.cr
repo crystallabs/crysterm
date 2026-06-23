@@ -29,7 +29,7 @@ module Crysterm
 
       def initialize(**box)
         super **box
-        @style = Style.new(fg: "black", bg: "white") if @style.nil?
+        # Colors come from the CSS theme (`StatusBar { ... }`).
       end
 
       # Shows *text* as the temporary message. With *timeout*, the message clears

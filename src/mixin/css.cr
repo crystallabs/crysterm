@@ -27,8 +27,14 @@ module Crysterm
         # mixin/`EventHandler` ancestors don't leak in, and each class name's
         # leaf is lowercased into a `w-`-prefixed token.
         macro inherited
+          # The type chain, computed once at compile time and returned as a
+          # shared constant. `#to_html` reads it for every widget on every
+          # (dirty) document rebuild, so a fresh array per call would be needless
+          # allocation churn. Treat it as read-only (don't mutate the result).
+          CSS_TYPE_CLASSES = \{{ ([@type] + @type.ancestors).select(&.<=(::Crysterm::Widget)).map { |t| t.name.split("::").last }.uniq }}
+
           def css_type_classes : Array(String)
-            \{{ ([@type] + @type.ancestors).select(&.<=(::Crysterm::Widget)).map { |t| t.name.split("::").last }.uniq }}
+            CSS_TYPE_CLASSES
           end
         end
       end
@@ -70,14 +76,20 @@ module Crysterm
       end
 
       # Base implementation for `Widget` itself. Subclasses override this via the
-      # `inherited` hook above with their own full type chain.
+      # `inherited` hook above with their own full type chain. Shared constant —
+      # treat as read-only.
+      WIDGET_TYPE_CLASSES = ["Widget"]
+
       def css_type_classes : Array(String)
-        ["Widget"]
+        WIDGET_TYPE_CLASSES
       end
 
       # The complete class list emitted for this widget in the CSS document:
-      # the automatic type chain followed by any user-assigned classes.
+      # the automatic type chain followed by any user-assigned classes. With no
+      # user classes (the common case) the shared type-chain constant is returned
+      # directly — no allocation. Callers must not mutate the result.
       def css_all_classes : Array(String)
+        return css_type_classes if css_classes.empty?
         css_type_classes + css_classes.to_a
       end
     end

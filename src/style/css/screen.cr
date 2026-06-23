@@ -152,8 +152,12 @@ module Crysterm
     # recomputes only the dirty subtrees (or the whole tree when a full
     # recompute was requested).
     def apply_stylesheet : Nil
-      sheet = @css_stylesheet
-      unless sheet
+      author = @css_stylesheet
+      default = CSS.default_stylesheet
+      # CSS is active whenever *either* an author stylesheet or the default
+      # (theme) stylesheet has rules. With neither, nothing is styled and
+      # widgets keep their programmatic look.
+      if (author.nil? || author.rules.empty?) && default.rules.empty?
         clear_css_dirty
         return
       end
@@ -164,8 +168,31 @@ module Crysterm
       end
       @css_last_document = document
       scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
-      CSS::Cascade.apply sheet, self, css_parsed_document(document), scope
+      doc = css_parsed_document(document)
+      # `Cascade.apply` folds the default stylesheet in beneath the author one;
+      # with no author sheet we run the default (theme) by itself.
+      if author
+        CSS::Cascade.apply author, self, doc, scope
+      else
+        CSS::Cascade.apply_sheets [{default, CSS::Cascade::TIER_DEFAULT}], self, doc, scope
+      end
       clear_css_dirty
+    end
+
+    # Builds the "no theme" `CSS::Theme` for *this* screen from its terminal's
+    # probed colors (default background/foreground and 16-color palette). Any
+    # value the terminal didn't report is filled in from the built-in dark
+    # theme, and an undetected surface/text is left as the terminal default so
+    # the native background shows through.
+    def terminal_theme : CSS::Theme
+      f = tput.features
+      palette = f.palette.map { |c| css_rgb_to_i(c) }
+      CSS::Theme.from_terminal css_rgb_to_i(f.default_background), css_rgb_to_i(f.default_foreground), palette
+    end
+
+    # Converts a `tput` `RGB` record (or `nil`) to a native `0xRRGGBB` int.
+    private def css_rgb_to_i(rgb) : Int32?
+      rgb.try { |c| (c.r.to_i32 << 16) | (c.g.to_i32 << 8) | c.b.to_i32 }
     end
 
     # Returns the parsed document for *document*. A structural change (or no

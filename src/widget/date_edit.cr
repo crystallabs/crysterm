@@ -146,8 +146,9 @@ module Crysterm
         @popup ||= begin
           cal = Calendar.new(
             screen: screen, top: 0, left: 0, width: 22, height: 9,
-            date: @date, style: Style.new(border: true),
+            date: @date,
           )
+          cal.add_css_class "popup" # themed via `.popup { border: solid; ... }`
           cal.on(Crysterm::Event::Action) do
             self.date = cal.date
             close

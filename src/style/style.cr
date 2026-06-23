@@ -78,10 +78,19 @@ module Crysterm
     # so they stay shared here.)
     def dup
       copy = super
+      # Give the copy its *own* `specified` set first (so the in-place sub-object
+      # copies below can't mutate ours through the shared reference `super` left).
       copy.specified = @specified.dup
       @border.try { |border| copy.border = border.dup }
       copy.padding = @padding.dup
       copy.shadow = @shadow.dup
+      # Those `border=`/`padding=`/`shadow=` setters also stamp
+      # `:border`/`:padding`/`:shadow` into the copy's set; drop any we didn't
+      # actually specify (cheap deletes — no second `Set` allocation), so the dup
+      # reports exactly what *we* explicitly set, no more.
+      copy.specified.delete(:border) unless @specified.includes?(:border)
+      copy.specified.delete(:padding) unless @specified.includes?(:padding)
+      copy.specified.delete(:shadow) unless @specified.includes?(:shadow)
       copy
     end
 
@@ -144,6 +153,7 @@ module Crysterm
     end
 
     def border=(value)
+      @specified << :border
       @border = Border.from value
     end
 
@@ -198,6 +208,7 @@ module Crysterm
     # border: true on the label as well!
 
     def padding=(value)
+      @specified << :padding
       @padding = Padding.from value
     end
 
@@ -211,6 +222,7 @@ module Crysterm
 
     # Should element drop shadow?
     def shadow=(value)
+      @specified << :shadow
       @shadow = Shadow.from value
     end
 

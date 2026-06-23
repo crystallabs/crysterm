@@ -96,11 +96,18 @@ module Crysterm
               next unless mq.matches?(media_width, media_height, media_colors)
             end
             nodes = selector_cache.fetch(rule.selector) do
-              matched = begin
-                doc.css(rule.selector)
-              rescue
-                [] of HTML5::Node # ignore selectors the engine can't parse
-              end
+              # Reuse the sheet's compiled selector (cross-cascade) and run it
+              # against this cascade's document; a selector the engine can't
+              # parse compiles to `nil` and matches nothing.
+              matched = if compiled = sheet.compiled_selector(rule.selector)
+                          begin
+                            compiled.select(doc)
+                          rescue
+                            [] of HTML5::Node
+                          end
+                        else
+                          [] of HTML5::Node
+                        end
               selector_cache[rule.selector] = matched
             end
             # `:has(...)` — keep only nodes with a descendant matching the inner
@@ -278,10 +285,13 @@ module Crysterm
         style.underline = inline.underline? if inline.specified?(:underline)
         style.blink = inline.blink? if inline.specified?(:blink)
         style.inverse = inline.inverse? if inline.specified?(:inverse)
+        style.visible = inline.visible? if inline.specified?(:visible)
         style.alpha = inline.alpha if inline.specified?(:alpha)
-        style.border = inline.border if inline.border.any?    # ameba:disable Performance/AnyInsteadOfEmpty
-        style.padding = inline.padding if inline.padding.any? # ameba:disable Performance/AnyInsteadOfEmpty
-        style.shadow = inline.shadow if inline.shadow.any?    # ameba:disable Performance/AnyInsteadOfEmpty
+        # `specified?` (not `any?`) so an inline style can switch border/padding/
+        # shadow *off* over a stylesheet, not only on.
+        style.border = inline.border if inline.specified?(:border)
+        style.padding = inline.padding if inline.specified?(:padding)
+        style.shadow = inline.shadow if inline.specified?(:shadow)
       end
 
       # The widgets eligible to be reset/recomputed: every (main) widget in the

@@ -84,8 +84,8 @@ module Crysterm
             draggable: true,
             keys: true,
             top: 0, left: 0, width: 1, height: 1,
-            style: Style.new(bg: "white"),
           )
+          div.add_css_class "divider" # themed via `.divider { ... }`
           wire_divider div, idx
           @dividers << div
           @positions << 0

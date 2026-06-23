@@ -402,10 +402,7 @@ module Crysterm
 
         close_submenu # replace any already-open child
 
-        child = Menu.new(
-          screen: screen,
-          style: Style.new(border: true),
-        )
+        child = Menu.new(screen: screen) # border comes from the theme (`Menu { ... }`)
         subs.each { |a| child << a }
         child.parent_menu = self
 

@@ -19,8 +19,8 @@ module Crysterm
         # A tooltip is a passive overlay: it must never grab the mouse or focus.
         @clickable = false
         @focus_on_click = false
-        # Classic pale tooltip colors, unless the caller supplied a style.
-        @style = Style.new(fg: "black", bg: "yellow") if @style.nil?
+        # Classic pale tooltip colors now come from the CSS theme
+        # (`ToolTip { ... }`), overridable by author CSS or an inline style.
         hide
       end
 

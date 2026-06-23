@@ -31,13 +31,8 @@ module Crysterm
 
         super **box
 
-        # Default to a titled border unless the caller supplied their own style.
-        if @style.nil?
-          st = style.dup
-          st.border = true
-          @style = st
-        end
-
+        # A titled border is the default look; it now comes from the CSS theme
+        # (`GroupBox { border: solid }`) so it stays overridable by author CSS.
         update_label
 
         if checkable?

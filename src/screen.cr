@@ -252,6 +252,13 @@ module Crysterm
       enter # if alt # Only do clear-screen/full-screen if user wants alternate buffer
       post_enter
 
+      # Resolve and install the configured CSS theme (the default styling path).
+      # Done after `enter`/`post_enter` so the terminal probe (background and
+      # palette) the `"terminal"` theme reads has had a chance to complete.
+      # `restyle` marks the tree dirty so the first render applies the theme.
+      CSS.ensure_theme self
+      restyle
+
       # Spawning the loop does not start rendering until the first call to #render
       # is issued. Therefore, it seems OK to call this from initialize.
       spawn render_loop

@@ -53,7 +53,9 @@ module Crysterm
         # `parent: screen` appends the pop-up to the screen so it actually renders
         # (a bare `screen:` would set the screen but leave it out of the render
         # tree — visible-flagged but never drawn).
-        menu = Menu.new(parent: screen, style: @menu_style || Style.new(border: true))
+        # Border/look come from the theme (`Menu { ... }`) unless the bar was
+        # given an explicit `@menu_style`.
+        menu = Menu.new(parent: screen, style: @menu_style)
         actions.each { |a| menu << a }
         menu.hide
         menu.on_navigate = ->(dir : Int32) { switch_relative dir }

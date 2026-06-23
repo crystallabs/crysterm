@@ -570,8 +570,8 @@ module Crysterm
           box = Widget::TextBox.new(
             screen: screen,
             bottom: 0, left: 0, right: 0, height: 1,
-            style: Style.new(bg: "blue", fg: "white"),
           )
+          box.add_css_class "search" # themed via `.search { ... }`
           screen.append box
           box.hide
           box

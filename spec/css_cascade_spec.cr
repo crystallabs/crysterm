@@ -972,6 +972,43 @@ describe "CSS cascade" do
     lt.css_cell_style(1, 1).not_nil!.fg.should eq rgb("red")  # 2nd column
   end
 
+  it "preserves a widget hidden before the first cascade" do
+    # Regression: a widget `hide`-d at construction (visibility on the inline
+    # style) must stay hidden once CSS takes over. Before the fix the cascade
+    # rebuilt the computed style from a snapshot taken with `visible: true` and
+    # `fold_inline` didn't carry `visible`, so the widget reappeared.
+    screen = headless_screen
+    box = Widget::Box.new parent: screen, style: Style.new(border: true)
+    box.hide
+    box.visible?.should be_false
+
+    screen.stylesheet = "Box { color: white; }"
+    screen.apply_stylesheet
+
+    box.css_styled?.should be_true
+    box.visible?.should be_false
+  end
+
+  it "keeps an imperative show/hide across a recascade" do
+    # Once `css_styled`, show/hide persist onto the inline style so a later
+    # cascade (which resets to the base snapshot + folds inline) doesn't revert.
+    screen = headless_screen
+    box = Widget::Box.new parent: screen, style: Style.new(border: true)
+    box.hide
+
+    screen.stylesheet = "Box { color: white; }"
+    screen.apply_stylesheet
+    box.visible?.should be_false
+
+    box.show
+    box.visible?.should be_true
+
+    # Force a fresh full cascade; the shown state must survive it.
+    screen.restyle
+    screen.apply_stylesheet
+    box.visible?.should be_true
+  end
+
   it "leaves widgets untouched when no stylesheet is set" do
     screen = headless_screen
     box = Widget::Box.new

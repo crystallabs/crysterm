@@ -58,11 +58,12 @@ module Crysterm
 
         super **box
 
-        @titlebar = Box.new(
+        tb = Box.new(
           parent: self, top: 0, left: 0, right: 0, height: 1,
           content: @title, parse_tags: true,
-          style: Style.new(fg: "white", bg: "blue"),
         )
+        tb.add_css_class "titlebar" # themed via `.titlebar { ... }`
+        @titlebar = tb
 
         build_buttons
         wire_drag
@@ -121,16 +122,16 @@ module Crysterm
           @close_button = btn = Box.new(
             parent: titlebar, top: 0, right: 0, width: 1, height: 1,
             content: "✕", focus_on_click: false,
-            style: Style.new(fg: "white", bg: "blue"),
           )
+          btn.add_css_class "titlebutton" # themed via `.titlebutton { ... }`
           btn.on(::Crysterm::Event::Click) { close_dock }
         end
         if floatable?
           @float_button = btn = Box.new(
             parent: titlebar, top: 0, right: (closable? ? 2 : 0), width: 1, height: 1,
             content: "⇕", focus_on_click: false,
-            style: Style.new(fg: "white", bg: "blue"),
           )
+          btn.add_css_class "titlebutton" # themed via `.titlebutton { ... }`
           btn.on(::Crysterm::Event::Click) { toggle_floating }
         end
       end

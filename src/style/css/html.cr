@@ -12,7 +12,11 @@ module Crysterm
   # stylesheet model, and the cascade live alongside it.
   module CSS
     # Escapes a value for safe inclusion inside a double-quoted HTML attribute.
+    # Fast path: most attribute values (type-name classes, numeric uids/attrs)
+    # contain none of the three special chars, so skip the three allocating
+    # `gsub`es and return the string unchanged.
     def self.escape_attr(value : String) : String
+      return value unless value.includes?('&') || value.includes?('"') || value.includes?('<')
       value.gsub('&', "&amp;").gsub('"', "&quot;").gsub('<', "&lt;")
     end
   end

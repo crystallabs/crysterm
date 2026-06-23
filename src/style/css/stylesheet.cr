@@ -117,6 +117,19 @@ module Crysterm
         @dynamic_state
       end
 
+      # Compiled selectors, memoized by their structural string. A selector is
+      # reused on every cascade, so compiling it once here — rather than letting
+      # `Node#css` re-lex and re-compile it on each match — avoids repeated
+      # parser work. A `nil` entry marks a selector the engine can't parse, so it
+      # isn't retried.
+      @compiled_selectors = {} of String => ::CSS::Selector?
+
+      def compiled_selector(selector : String) : ::CSS::Selector?
+        @compiled_selectors.fetch(selector) do
+          @compiled_selectors[selector] = (::CSS.compile(selector) rescue nil)
+        end
+      end
+
       # Maps a state pseudo-class to a `WidgetState`. `:active` and `:selected`
       # are treated as synonyms, as are `:blur`/`:blurred`.
       STATE_PSEUDOS = {
@@ -177,19 +190,28 @@ module Crysterm
           break if pos >= n
           start = pos
           # Read the prelude up to the next top-level `{`/`;`/`}` (skipping
-          # parenthesised and quoted spans so values like `url(a;b)` are safe).
+          # parenthesised, bracketed and quoted spans so values like `url(a;b)`
+          # and attribute selectors like `[href="a{b}"]` / `[x=a;b]` are safe).
           while pos < n
             ch = css[pos]
             break if ch == '{' || ch == ';' || ch == '}'
             if ch == '('
               pos = skip_balanced(css, pos, '(', ')')
+            elsif ch == '['
+              pos = skip_balanced(css, pos, '[', ']')
             elsif ch == '"' || ch == '\''
               pos = skip_string(css, pos)
             else
               pos += 1
             end
           end
-          break if pos >= n
+          # End of input with no terminator: the final construct in a block may
+          # legitimately omit its trailing `;` (e.g. `{ color: red }`), so flush
+          # it as a statement rather than dropping it.
+          if pos >= n
+            handle_statement(css[start...pos].strip, parents, declarations, important, layer_rank, ctx)
+            break
+          end
           prelude = css[start...pos].strip
           case css[pos]
           when ';'
@@ -262,7 +284,11 @@ module Crysterm
           prefix, subject = split_subject(selector)
           state, subject = peel_state(subject)
           has, subject = peel_has(subject)
-          structural = Selectors.expand_types(rewrite_ancestor_states(prefix) + subject)
+          # Lower any *remaining* state pseudos — ancestor ones in the prefix and
+          # any nested in the subject (e.g. `:not(:focus)`) — to `.state-*`
+          # classes that match the document's stamped state. The subject's own
+          # top-level state was already peeled above and carried on the rule.
+          structural = Selectors.expand_types(lower_state_pseudos(prefix + subject))
           ctx.rules << Rule.new(structural, declarations, important, state, spec, ctx.order, media, has, layer_rank)
           ctx.order += 1
         end
@@ -402,18 +428,64 @@ module Crysterm
       # before `:blur`).
       STATE_PSEUDOS_BY_LENGTH = STATE_PSEUDOS.to_a.sort_by! { |(token, _)| -token.size }
 
+      # Precompiled matchers for `lower_state_pseudos`, one per state pseudo
+      # (longest token first). Each pairs a boundary-anchored regex — the leading
+      # `:` bounds the start, the negative lookahead forbids a trailing
+      # identifier char so `:focus` can't match inside `:focus-within` — with the
+      # `.state-*` class it lowers to. Built once: compiling a regex (and the
+      # replacement string) per selector at parse time would be wasteful.
+      STATE_PSEUDO_MATCHERS = STATE_PSEUDOS_BY_LENGTH.map do |(token, state)|
+        {Regex.new(Regex.escape(token) + "(?![A-Za-z0-9_-])"), ".state-#{state.to_s.downcase}"}
+      end
+
       # Splits a state pseudo-class off a selector, returning `{state,
-      # structural_selector}`. Only the first recognized pseudo-class is peeled
-      # (Phase 1 supports a single, subject-anchored state pseudo per selector).
+      # structural_selector}`. Only a *top-level* pseudo (outside any `[...]`
+      # attribute value or `(...)` functional-pseudo argument) that stands as a
+      # complete token — not a prefix of a longer pseudo such as
+      # `:focus-within` — is treated as the subject's state; nested ones are
+      # left in place for `lower_state_pseudos` to handle. Only the first
+      # recognized pseudo-class is peeled (Phase 1 supports a single,
+      # subject-anchored state pseudo per selector).
       private def self.peel_state(selector : String) : Tuple(WidgetState?, String)
+        return {nil, selector} unless selector.includes?(':') # fast path: no pseudo at all
         STATE_PSEUDOS_BY_LENGTH.each do |(token, state)|
-          if selector.includes?(token)
-            structural = selector.gsub(token, "").strip
+          if idx = top_level_pseudo_index(selector, token)
+            structural = (selector[0...idx] + selector[(idx + token.size)..]).strip
             structural = "*" if structural.empty?
             return {state, structural}
           end
         end
         {nil, selector}
+      end
+
+      # Index of the first occurrence of *token* in *selector* that is at the top
+      # level (depth 0 w.r.t. `[]`/`()`) and bounded as a complete pseudo-class
+      # (the following char, if any, is not an identifier char — so `:focus`
+      # never matches inside `:focus-within`), or `nil`.
+      private def self.top_level_pseudo_index(selector : String, token : String) : Int32?
+        depth = 0
+        last = selector.size - token.size
+        i = 0
+        while i <= last
+          case selector[i]
+          when '[', '(' then depth += 1
+          when ']', ')' then depth -= 1
+          else
+            if depth == 0 && selector[i, token.size] == token && !ident_char?(selector[i + token.size]?)
+              return i
+            end
+          end
+          i += 1
+        end
+        nil
+      end
+
+      # Whether *char* can appear inside a CSS identifier (so a state token
+      # followed by one is really part of a longer pseudo-class). `nil` (end of
+      # string) is a boundary, not an identifier char.
+      private def self.ident_char?(char : Char?) : Bool
+        return false unless char
+        char.alphanumeric? || char == '-' || char == '_'
       end
 
       # Splits a selector into `{prefix, subject}`, where *subject* is the
@@ -470,15 +542,17 @@ module Crysterm
         nil
       end
 
-      # Rewrites state pseudo-classes appearing on *ancestor* compounds into
+      # Lowers state pseudo-classes still present in *selector* (ancestor ones in
+      # the prefix, and any nested in the subject like `:not(:focus)`) into
       # `.state-*` classes (e.g. `Form:focus ` -> `Form.state-focused `), so they
-      # match against the live document's stamped state classes. Longest token
-      # first to avoid the `:blurred`/`:blur` substring trap.
-      private def self.rewrite_ancestor_states(prefix : String) : String
-        result = prefix
-        STATE_PSEUDOS_BY_LENGTH.each do |(token, state)|
-          result = result.gsub(token, ".state-#{state.to_s.downcase}") if result.includes?(token)
-        end
+      # match against the live document's stamped state classes. Each token is
+      # matched only as a complete pseudo-class (identifier boundary after it),
+      # so `:focus` is not torn out of `:focus-within` nor `:blur` out of
+      # `:blurred`.
+      private def self.lower_state_pseudos(selector : String) : String
+        return selector unless selector.includes?(':') # fast path: no pseudo at all
+        result = selector
+        STATE_PSEUDO_MATCHERS.each { |(re, repl)| result = result.gsub(re, repl) }
         result
       end
     end

@@ -228,8 +228,8 @@ module Crysterm
             screen: screen,
             top: 0, left: 0,
             width: 12, height: 3,
-            style: Style.new(border: true),
           )
+          pop.add_css_class "popup" # themed via `.popup { border: solid; ... }`
           pop.combo = self
           screen.append pop
           pop.hide

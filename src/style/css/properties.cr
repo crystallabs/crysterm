@@ -3,10 +3,11 @@ module Crysterm
     # Translates CSS declarations (real CSS property names) onto a `Style`.
     #
     # Property names that have a clean CSS analog use that analog (`color`,
-    # `background-color`, `font-weight`, ...). Crysterm attributes with no
-    # standard CSS equivalent (e.g. `inverse`, the fill chars) are intentionally
-    # *not* exposed here for now; they remain settable through the programmatic
-    # `Style` API until an honest CSS spelling is chosen.
+    # `background-color`, `font-weight`, ...). Where there is no standard CSS
+    # property, a pragmatic spelling is chosen — e.g. reverse-video maps to
+    # `text-decoration: reverse`. A few crysterm-only attributes (the fill chars)
+    # are still unexposed and remain settable through the programmatic `Style`
+    # API until an honest CSS spelling is chosen.
     module Properties
       # Applies a single `property: value` declaration onto *style*. Unknown
       # properties are ignored, matching CSS's forgiving behavior.
@@ -38,6 +39,10 @@ module Crysterm
           words = value.split
           style.underline = words.includes?("underline")
           style.blink = words.includes?("blink")
+          # `reverse` (alias `inverse`) maps to the terminal's reverse-video
+          # attribute — the classic TUI selection/highlight look, which has no
+          # standard CSS spelling. Shorthand semantics: absent -> off.
+          style.inverse = words.includes?("reverse") || words.includes?("inverse")
         when "visibility"
           style.visible = (value != "hidden")
         when "display"
@@ -203,10 +208,13 @@ module Crysterm
         end
       end
 
-      # Parses a length given in terminal cells, tolerating a unit suffix like
-      # `px` (e.g. `"2"` or `"2px"` -> `2`).
+      # Parses a length given in terminal cells, tolerating an alphabetic unit
+      # suffix like `px`/`em` (`"2"` or `"2px"` -> `2`, `"-1"` -> `-1`). Inputs
+      # that aren't a plain cell count — percentages (`50%`), ranges (`5-10`),
+      # decimals, junk — have no meaning in the cell model and yield `0` rather
+      # than a silently-wrong number (e.g. the old code turned `50%` into `50`).
       private def self.cells(value : String) : Int32
-        value.gsub(/[^0-9-]/, "").to_i? || 0
+        value.strip =~ /\A(-?\d+)[a-z]*\z/i ? $1.to_i : 0
       end
 
       # Parses a `box-shadow`. `none` disables the shadow; otherwise a default

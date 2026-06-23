@@ -107,7 +107,7 @@ module Crysterm
         n = chars.size
         while i < n
           return i + 1 if chars[i] == quote
-          i += 2 if chars[i] == '\\' # skip escaped char
+          i += 1 if chars[i] == '\\' # skip the escaped char with the loop's own += 1
           i += 1
         end
         i
