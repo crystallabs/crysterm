@@ -949,19 +949,28 @@ module Crysterm
         chars = line.chars
         n = attrs.size
         xend = xl < n ? xl : n
+        # Whether this row carries ANY grapheme overlay, hoisted once per row.
+        # This is the per-frame full-screen clear path, and the overwhelming
+        # majority of rows have no overlay — so skipping the per-cell
+        # `grapheme_at?`/`delete_grapheme` calls (each a method call whose
+        # overhead dominated the render profile) on those rows is a real win,
+        # not just the nil-check the per-cell probe already was.
+        has_g = line.has_graphemes?
 
         x = xi
         while x < xend
           # Equivalent to `cell != {attr, ch}` (see `Cell#==(Tuple)`): a cell
           # carrying a grapheme overlay is never equal to a single-char tuple, so
-          # it must be rewritten. The `||` short-circuits exactly as `==` does —
-          # the `grapheme_at?` probe runs only when attr and char already match,
-          # and is a cheap nil check for the overlay-free rows that dominate.
-          if override || attrs.unsafe_fetch(x) != attr || chars.unsafe_fetch(x) != ch || !line.grapheme_at?(x).nil?
+          # it must be rewritten. The `||` short-circuits exactly as `==` does;
+          # the `grapheme_at?` probe is reached only when attr/char already match
+          # AND the row has some overlay (`has_g`), so overlay-free rows never
+          # call it.
+          if override || attrs.unsafe_fetch(x) != attr || chars.unsafe_fetch(x) != ch || (has_g && !line.grapheme_at?(x).nil?)
             attrs.unsafe_put(x, attr)
             chars.unsafe_put(x, ch)
-            # Mirrors `Cell#char=`, which drops any cluster overlay on the cell.
-            line.delete_grapheme(x)
+            # Mirrors `Cell#char=`, which drops any cluster overlay on the cell —
+            # only needed when the row actually carries one.
+            line.delete_grapheme(x) if has_g
             line.dirty = true
           end
           x += 1

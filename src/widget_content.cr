@@ -1022,16 +1022,33 @@ module Crysterm
   # value and expected that all indexes < 0 will return nil.
   struct StringIndex
     getter object : String
+    # Non-ASCII path: codepoints materialized once. nil for ASCII content.
+    @chars : Array(Char)?
+    # ASCII fast path: a zero-copy byte view of `@object`. For an ASCII string a
+    # byte *is* its codepoint, so indexing the bytes directly avoids
+    # `String#[]?(Int)` — which recomputes `size` and decodes a char on every
+    # call. Per cell that call dominated the render CPU profile; a byte view is
+    # allocation-free (a slice over the string's buffer) and indexes in one
+    # bounds-checked fetch. nil for non-ASCII content (which uses `@chars`).
+    @bytes : Bytes?
+    # Codepoint count, cached so `#size` and the per-cell bounds check below are
+    # field reads, not `String#size` calls.
+    @size : Int32
 
     def initialize(@object : String)
-      # `String#[](Int)` walks the string from the start to find the n-th
-      # codepoint, so it is O(n) for any string that is not single-byte
-      # (ASCII). The rendering loop indexes `content[ci]` once per cell, which
-      # turns drawing a line of Unicode content into an O(n²) operation. To
-      # avoid that we materialize the chars once (O(n)) so per-cell indexing is
-      # O(1). For ASCII strings `String#[]` is already O(1), so we skip the
-      # extra allocation and index the string directly.
-      @chars = @object.ascii_only? ? nil : @object.chars
+      if @object.ascii_only?
+        @chars = nil
+        @bytes = @object.to_slice
+        @size = @object.bytesize # == codepoint count for ASCII
+      else
+        # Materialize the chars once (O(n)) so per-cell indexing is O(1) instead
+        # of `String#[](Int)`'s O(n) codepoint walk (which made drawing a line of
+        # Unicode content O(n²)).
+        chars = @object.chars
+        @chars = chars
+        @bytes = nil
+        @size = chars.size
+      end
     end
 
     # Whether this index was built from `s` (the *same* `String` object). The
@@ -1043,21 +1060,26 @@ module Crysterm
       @object.same? s
     end
 
-    def [](i : Int)
-      return nil if i < 0
-      if chars = @chars
-        chars[i]
+    # Per-cell hot path: a negative or out-of-range index yields nil; otherwise
+    # an ASCII byte fetch (the common case) or an `unsafe_fetch` into the cached
+    # `chars` array — neither calls `String#[]?`/`String#size`.
+    @[AlwaysInline]
+    def []?(i : Int) : Char?
+      return nil if i < 0 || i >= @size
+      if bytes = @bytes
+        bytes.unsafe_fetch(i).unsafe_chr
       else
-        @object[i]
+        @chars.not_nil!.unsafe_fetch(i)
       end
     end
 
-    def []?(i : Int)
+    def [](i : Int) : Char?
       return nil if i < 0
-      if chars = @chars
-        chars[i]?
+      raise IndexError.new if i >= @size
+      if bytes = @bytes
+        bytes.unsafe_fetch(i).unsafe_chr
       else
-        @object[i]?
+        @chars.not_nil!.unsafe_fetch(i)
       end
     end
 
@@ -1065,13 +1087,8 @@ module Crysterm
       @object[range]
     end
 
-    # def []?(range : Range)
-    # @object[range]
-    # end
-
     def size
-      @object.size
+      @size
     end
-    # end
   end
 end
