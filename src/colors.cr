@@ -66,6 +66,28 @@ module Crysterm
       Attr.pack(Attr.flags(attr), fg, bg)
     end
 
+    # Tints the fg and bg of `attr` toward `color` by `alpha` (`0.0` = unchanged,
+    # `1.0` = fully `color`) — the animatable color-overlay (`style.tint`)
+    # counterpart of the shadow blend. Where the shadow always darkens toward
+    # black and leaves "default" colors untouched, a tint resolves a default
+    # field to the configured terminal default (`default_fg_rgb`/`default_bg_rgb`)
+    # so the overlay is visible there too — unless that default is itself unknown
+    # (`-1`), in which case the field is left as-is.
+    def self.tint(attr : Int64, color : Int32, alpha : Float | Int = 0.5) : Int64
+      fg = tint_field(Attr.fg(attr), color, alpha, true)
+      bg = tint_field(Attr.bg(attr), color, alpha, false)
+      Attr.pack(Attr.flags(attr), fg, bg)
+    end
+
+    # Tints a single packed color field toward `color`. Returns a packed field.
+    def self.tint_field(field : Int64, color : Int32, alpha, fg : Bool) : Int64
+      base = Attr.default?(field) ? (fg ? default_fg_rgb : default_bg_rgb) : field.to_i32
+      return field if base == -1 # unknown terminal default: nothing to tint toward
+      # `mix(color, base, alpha)` lands on `color` at alpha 1, `base` at alpha 0
+      # (same convention the shadow uses with black; see `#blend_field`).
+      Attr.pack_color(mix(color, base, alpha))
+    end
+
     # Blends a single packed color field. Returns a packed color field.
     def self.blend_field(field : Int64, other : Int64?, alpha, fg : Bool) : Int64
       if other.nil?

@@ -53,6 +53,8 @@ module Crysterm
           style.tab_size = cells(value)
         when "box-shadow"
           style.shadow = parse_box_shadow(value)
+        when "tint"
+          parse_tint(style, value)
         when "padding"
           style.padding = parse_padding(value)
         when "padding-left"
@@ -77,7 +79,7 @@ module Crysterm
       KNOWN = Set{
         "color", "background-color", "background", "font", "font-weight",
         "font-style", "text-decoration", "visibility", "display", "opacity",
-        "tab-size", "box-shadow", "padding", "padding-left", "padding-top",
+        "tab-size", "box-shadow", "tint", "padding", "padding-left", "padding-top",
         "padding-right", "padding-bottom",
       }
 
@@ -94,6 +96,35 @@ module Crysterm
           end
         end
         nil
+      end
+
+      # Parses a `tint`: a color the widget is overlaid toward, plus an optional
+      # strength (`0..1`). `tint: #ff0000 0.3` ⇒ 30% red overlay; `tint: none`
+      # clears it. The color may be any form `color`/`background-color` accept; a
+      # bare `0..1` number anywhere in the value is taken as the strength.
+      private def self.parse_tint(style : Style, value : String) : Nil
+        if value.strip == "none"
+          style.tint = nil
+          return
+        end
+        color : Int32? = nil
+        alpha : Float64? = nil
+        value.split.each do |token|
+          if !token.starts_with?('#') && (f = token.to_f?) && 0.0 <= f <= 1.0
+            alpha = f
+          else
+            case resolved = ColorValue.resolve(token, style.fg)
+            when Int32 then color = resolved unless resolved == -1
+            when String
+              c = Colors.convert(token).to_i32
+              color = c unless c == -1
+            end
+          end
+        end
+        color.try do |c|
+          style.tint = c
+          alpha.try { |a| style.tint_alpha = a }
+        end
       end
 
       # Applies any `border*` property. Border color is a single whole-border

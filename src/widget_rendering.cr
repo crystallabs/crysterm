@@ -588,6 +588,14 @@ module Crysterm
         end
       end
 
+      # Tint: a colored overlay across this widget's whole box, toward
+      # `style.tint` by its strength. Applied before children (like `style.alpha`)
+      # so each widget tints only its own cells; animatable via `Widget#tint_to`.
+      if t = style.tint?
+        color, ta = t
+        scr.tint_region ta, color, xi, xl, yi, yl
+      end
+
       if with_children
         # The installed layout engine positions and renders the children; with
         # none, the shared `Layout::Manual` renders each at its own coordinates.

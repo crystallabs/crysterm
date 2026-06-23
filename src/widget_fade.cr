@@ -123,12 +123,60 @@ module Crysterm
       @fade = nil
     end
 
+    # The running tint animation, if any. Separate from `@fade` so a widget can
+    # fade and tint at the same time.
+    @tint_anim : Animation?
+
+    # Animates a color overlay: tints the widget toward *color*, ramping the
+    # overlay strength to *target* (`0.0`..`1.0`) over *duration*. From an
+    # existing tint it eases from the current strength; from none it ramps in
+    # from 0. Cancels any tint already running. *on_done* fires on natural
+    # completion (not on an interrupting `#stop_tint`). Returns the `Animation`.
+    def tint_to(color, target : Float64 = 0.5, duration : Time::Span = FADE_DURATION,
+                easing : Animation::Easing | Symbol = :in_out_sine,
+                fps : Int32 = FADE_FPS, &on_done : ->) : Animation
+      @tint_anim.try &.stop
+      from = style.tint?.try(&.[1]) || 0.0 # current strength, or 0 if no tint yet
+      interval = (1.0 / fps).seconds
+      anim = Animation.new(interval, duration: duration, easing: easing) do |clock|
+        set_tint color, from + (target - from) * clock.value
+        request_render
+      end
+      anim.on_stop { on_done.call if anim.completed? }
+      @tint_anim = anim
+      anim.start
+    end
+
+    # :ditto: (no completion callback).
+    def tint_to(color, target : Float64 = 0.5, duration : Time::Span = FADE_DURATION,
+                easing : Animation::Easing | Symbol = :in_out_sine,
+                fps : Int32 = FADE_FPS) : Animation
+      tint_to(color, target, duration, easing, fps) { }
+    end
+
+    # Stops any running tint animation, leaving `style.tint`/`tint_alpha` as-is.
+    def stop_tint : Nil
+      @tint_anim.try &.stop
+      @tint_anim = nil
+    end
+
     # Sets `style.alpha`, and — when CSS has taken over styling — also persists it
     # onto the inline `@style`, so the next cascade doesn't discard it. Mirrors
     # `#set_visible` (see `widget_visibility`).
     private def set_alpha(value : Float64?) : Nil
       self.style.alpha = value
       (@style ||= ::Crysterm::Style.new).alpha = value if css_styled?
+    end
+
+    # Sets `style.tint`/`tint_alpha` (CSS-safely, like `#set_alpha`).
+    private def set_tint(color, alpha : Float64) : Nil
+      self.style.tint = color
+      self.style.tint_alpha = alpha
+      if css_styled?
+        inline = (@style ||= ::Crysterm::Style.new)
+        inline.tint = color
+        inline.tint_alpha = alpha
+      end
     end
   end
 end

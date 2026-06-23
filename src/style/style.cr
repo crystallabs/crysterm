@@ -44,6 +44,30 @@ module Crysterm
     # Alpha (inverse of transparency). Alpha 0 == full transparency, 1 == full opacity.
     property alpha : Float64?
 
+    # Tint: a color the whole widget region is blended *toward* (a color overlay),
+    # by `tint_alpha`. `nil` = no tint. Native `0xRRGGBB`; the setter also accepts
+    # `"#rrggbb"`/named-color strings (like `fg`/`bg`). Animate `tint_alpha` (or
+    # swap the color) for a tinting fade — see `Widget#tint_to`.
+    getter tint : Int32?
+
+    # Strength of the `tint` overlay: `0.0` = none, `1.0` = fully the tint color.
+    property tint_alpha : Float64 = 0.5
+
+    # Native numeric tint color (e.g. `tint: 0xff0000`); stored directly.
+    def tint=(color : Int)
+      @tint = color.to_i32
+    end
+
+    # Backwards-compat: a `"#rrggbb"`/named color string, parsed to the native int.
+    def tint=(color : String)
+      @tint = Colors.convert(color).to_i32
+    end
+
+    # Clearing the tint leaves it unset (no overlay applied).
+    def tint=(color : Nil)
+      @tint = nil
+    end
+
     # Tracks which text-attribute booleans were *explicitly* set (vs left at
     # their default), so the CSS cascade can tell "set to false" from "unset" —
     # needed for inline-style folding and inheritance. Colors and `alpha` carry
@@ -56,6 +80,7 @@ module Crysterm
       when :fg    then !@fg.nil?
       when :bg    then !@bg.nil?
       when :alpha then !@alpha.nil?
+      when :tint  then !@tint.nil?
       else             @specified.includes?(property)
       end
     end
@@ -101,6 +126,15 @@ module Crysterm
     def alpha?
       @alpha.try do |a|
         return a if a != 1.0
+      end
+    end
+
+    # The active tint as `{color, alpha}`, or `nil` when no tint color is set or
+    # the overlay is fully transparent (`tint_alpha == 0`, i.e. a no-op). Mirrors
+    # `#alpha?`: a one-call "is there anything to apply" check for the renderer.
+    def tint?
+      @tint.try do |c|
+        return {c, @tint_alpha} if @tint_alpha != 0.0
       end
     end
 

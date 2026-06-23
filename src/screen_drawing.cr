@@ -851,5 +851,15 @@ module Crysterm
         line.dirty = true
       end
     end
+
+    # Tints every cell in the region toward `color` by `alpha` (`0` = unchanged,
+    # `1` = fully `color`) — the color overlay behind `style.tint`. Like
+    # `#blend_region` but toward an arbitrary color instead of black.
+    def tint_region(alpha, color, xi, xl, yi, yl)
+      each_region_cell(xi, xl, yi, yl) do |cell, line|
+        cell.attr = Colors.tint(cell.attr, color, alpha)
+        line.dirty = true
+      end
+    end
   end
 end
