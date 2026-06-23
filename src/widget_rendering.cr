@@ -61,14 +61,18 @@ module Crysterm
       # parent), so `awidth(true)` is an O(1) read of the parent's cached `lpos`.
       # Hand it to `process_content` so its per-frame width resolution doesn't
       # walk the ancestor chain with `awidth(false)` (O(depth)) just to compute
-      # the content column width.
-      process_content awidth_hint: awidth(true)
+      # the content column width. `_get_coords` needs the very same value (its
+      # first step is `awidth(get)`), and nothing between here and there changes
+      # this widget's width, so resolve it once and pass it to both instead of
+      # computing it twice per widget per frame.
+      aw = awidth(true)
+      process_content awidth_hint: aw
 
       # Pass the existing `@lpos` so `_get_coords` updates it in place instead of
       # allocating a fresh `LPos` for this widget on every frame (per-frame heap
       # garbage → GC jitter). On the first render (or after a frame that produced
       # no coords) `@lpos` is nil and `_get_coords` allocates as before.
-      coords = _get_coords(true, into: @lpos)
+      coords = _get_coords(true, into: @lpos, width_hint: aw)
       unless coords
         @lpos = nil
         return

@@ -49,9 +49,19 @@ module Crysterm
     include Mixin::Css
 
     # Widget's parent `Widget`, if any.
-    property parent : Widget?
+    getter parent : Widget?
     # (This must be defined here rather than in src/mixin/children.cr because classes
     # which have children do not necessarily also have a parent, e.g. `Screen`.)
+
+    # Reparenting changes the screen this subtree derives (`#screen?`), so the
+    # memoized screen pointer on this node *and every descendant* becomes stale.
+    # All reparenting goes through this setter (there are no direct `@parent`
+    # writes), so invalidating here is sufficient. The walk is O(subtree) but
+    # reparenting is rare, unlike the per-frame `#screen?` reads it speeds up.
+    def parent=(parent : Widget?)
+      @parent = parent
+      invalidate_screen_cache
+    end
 
     # Owning `Screen`.
     #
@@ -64,18 +74,46 @@ module Crysterm
     # Do not read `@screen` directly; use `#screen` or `#screen?`.
     @screen : ::Crysterm::Screen?
 
+    # Memoized result of the `#screen?` parent-chain walk. Cleared across the
+    # whole subtree on reparenting (see `#parent=`/`#screen=`/`#invalidate_screen_cache`).
+    # Only ever holds a *non-nil* screen — a detached widget leaves this nil and
+    # keeps resolving live, so it can never cache a stale screen while detached.
+    @screen_cache : ::Crysterm::Screen?
+
     # Returns the `Screen` owning this widget, or `nil` if this widget's subtree
     # is not attached to any screen.
     #
     # The value is derived by walking up the parent chain; only the top-level
     # widget of the subtree holds the reference. Use this when screen may
     # legitimately be absent; use `#screen` when it must be present.
+    #
+    # The walk is memoized in `@screen_cache`: `#screen?` is read several times
+    # per widget per frame (the coordinate resolvers, `last_rendered_position`,
+    # `request_render`, …), and without the cache each read walks parent→…→root
+    # (O(depth) × widget count, every frame). The owning screen only changes on
+    # reparenting, which clears the cache for the affected subtree.
     def screen? : ::Crysterm::Screen?
-      if parent = @parent
-        parent.screen?
-      else
-        @screen
+      if cached = @screen_cache
+        return cached
       end
+      @screen_cache = if parent = @parent
+                        parent.screen?
+                      else
+                        @screen
+                      end
+    end
+
+    # Clears the memoized `#screen?` value on this node and all descendants.
+    # Called wherever the tree is relinked, since a node's screen is derived
+    # through its ancestors and a move invalidates the whole subtree at once.
+    protected def invalidate_screen_cache : Nil
+      self_and_each_descendant &.reset_screen_cache
+    end
+
+    # Drops this single node's memoized screen pointer. Separate from
+    # `#invalidate_screen_cache` so the subtree walk can call it per node.
+    protected def reset_screen_cache : Nil
+      @screen_cache = nil
     end
 
     # Returns the `Screen` owning this widget, raising if it is not attached to
@@ -90,6 +128,9 @@ module Crysterm
     # derived from `#parent`, so this value is ignored. Normally set only by
     # `Screen`/`Widget` (re)parenting code, not by user code.
     def screen=(@screen : ::Crysterm::Screen?)
+      # The stored reference is what the subtree derives from, so changing it
+      # invalidates the memoized `#screen?` on this node and its descendants.
+      invalidate_screen_cache
     end
 
     # Requests a re-render of the owning `Screen`, if this widget is attached to

@@ -62,14 +62,37 @@ module Crysterm
     # (transparent-sentinel) cells are skipped, so the base shows through.
     def composite_onto(base : Array(Screen::Row)) : Nil
       op = @opacity
+      # The plane's opacity is constant for the whole composite, so decide once
+      # — not per cell — whether a painted cell is taken straight from the fold
+      # or blended toward the base. Replaces a per-cell `op >= 1.0` float compare
+      # with a per-cell read of this local bool.
+      opaque = op >= 1.0
       rows = {@cells.size, base.size}.min
       y = 0
       while y < rows
         pr = @cells.unsafe_fetch(y)
+        # A plane row that no widget painted into this frame is entirely the
+        # transparent sentinel — `#clear` marked it `dirty = false`, and the
+        # render path sets `dirty = true` on any row it writes — so it composites
+        # to nothing and the whole row scan can be skipped. The base buffer is
+        # rebuilt every frame (`Screen#_render` clears it), so there is never a
+        # stale overlay left behind on a now-transparent row. For a small overlay
+        # on a large terminal this collapses the full O(width×height) scan to just
+        # the rows the layer actually touched.
+        unless pr.dirty
+          y += 1
+          next
+        end
         br = base.unsafe_fetch(y)
         pa = pr.attrs; pc = pr.chars
         ba = br.attrs; bc = br.chars
         cols = {pa.size, ba.size}.min
+        # Whether this plane row carries any grapheme-cluster overlay. When it
+        # does not (the overwhelmingly common all-single-codepoint row), the
+        # per-cell `grapheme_at?` hash probe below is pointless and skipped — the
+        # base cell's own overlay (if a base-layer paint left one) is still
+        # cleared so an opaque plane cell never inherits a stale cluster.
+        pr_has_g = pr.has_graphemes?
         changed = false
         x = 0
         while x < cols
@@ -78,11 +101,11 @@ module Crysterm
           unless patt == CLEAR_ATTR && ch == ' ' # skip unpainted (transparent) cells
             under = ba.unsafe_fetch(x)
             folded = Colors.composite(patt, under)
-            result = op >= 1.0 ? folded : Colors.blend(folded, under, op)
+            result = opaque ? folded : Colors.blend(folded, under, op)
             if under != result || bc.unsafe_fetch(x) != ch
               ba[x] = result
               bc[x] = ch
-              if g = pr.grapheme_at?(x)
+              if pr_has_g && (g = pr.grapheme_at?(x))
                 br.set_grapheme x, g
               else
                 br.delete_grapheme x

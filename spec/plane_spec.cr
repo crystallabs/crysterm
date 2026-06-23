@@ -24,11 +24,17 @@ end
 
 private def paint(plane, x0, x1, attr)
   (0...plane.height).each do |y|
+    row = plane.cells[y]
     (x0...x1).each do |x|
-      c = plane.cells[y][x]
+      c = row[x]
       c.attr = attr
       c.char = ' '
     end
+    # A real widget paint goes through the render path, which marks every row it
+    # writes `dirty` (see `Widget#_render`); `composite_onto` relies on that flag
+    # to skip rows the layer never touched. Mark it here too so this direct-paint
+    # stand-in matches how planes are actually populated in production.
+    row.dirty = true
   end
 end
 

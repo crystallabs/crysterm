@@ -83,14 +83,26 @@ module Crysterm
       # the previous `.map(&.to_i)` allocated a second identical array each
       # frame. `keys` returns a fresh array, so sort it in place.
       stops.keys.sort!.each do |y|
-        next unless lines[y]?
+        row = lines[y]?
+        next unless row
 
-        width.times do |x|
-          ch = lines[y][x].char
-          if ANGLES.includes? ch
-            lines[y][x].char = angle_at lines, x, y, dock_contrast
-            lines[y].dirty = true
+        # Hoist the row and operate on its backing `chars` array directly,
+        # instead of re-indexing `lines[y]` and constructing a fresh `Cell`
+        # handle for every column (the row is fixed for the whole scan). Bound
+        # the scan by the row's actual width so the access can be unchecked;
+        # `width` is the screen width and rows are sized to it, so in practice
+        # this still scans every column.
+        chars = row.chars
+        n = width < chars.size ? width : chars.size
+        x = 0
+        while x < n
+          if ANGLES.includes? chars.unsafe_fetch(x)
+            chars.unsafe_put(x, angle_at(lines, row, x, y, dock_contrast))
+            # Mirror `Cell#char=`, which drops any cluster overlay on the cell.
+            row.delete_grapheme x
+            row.dirty = true
           end
+          x += 1
         end
       end
     end
@@ -99,10 +111,21 @@ module Crysterm
     # in `lines`, based on which of its four neighbors also hold line-drawing
     # characters. `dock_contrast` decides what happens when a neighbor's
     # attribute differs from this cell's.
+    # Public entry point (original signature): resolves the cell's row and
+    # delegates to the row-hoisted overload below. `#dock` calls that overload
+    # directly with the row it already has.
     def angle_at(lines, x, y, dock_contrast : DockContrast)
+      angle_at lines, lines[y], x, y, dock_contrast
+    end
+
+    # :ditto: — *row* is the already-resolved `lines[y]`.
+    def angle_at(lines, row, x, y, dock_contrast : DockContrast)
       angle = 0
-      attr = lines[y][x].attr
-      ch = lines[y][x].char
+      # The center cell's row is already resolved by the caller; read its attr
+      # and char from the backing arrays once instead of re-indexing `lines[y]`
+      # and building two `Cell` handles.
+      attr = row.attrs.unsafe_fetch(x)
+      ch = row.chars.unsafe_fetch(x)
 
       # Evaluate each of the four neighbors (left, up, right, down). The deltas
       # double as the per-direction angle sets and bits. `each` over a tuple is
@@ -113,7 +136,7 @@ module Crysterm
        {0, -1, U_ANGLES, BITWISE_U_ANGLE},
        {1, 0, R_ANGLES, BITWISE_R_ANGLE},
        {0, 1, D_ANGLES, BITWISE_D_ANGLE} }.each do |(dx, dy, angles, bit)|
-        result = neighbor_angle lines, x, y, dx, dy, angles, bit, attr, dock_contrast
+        result = neighbor_angle lines, row, x, y, dx, dy, angles, bit, attr, dock_contrast
         return ch if result.nil?
         angle |= result
       end
@@ -153,16 +176,27 @@ module Crysterm
     # The explicit `>= 0` guards matter: Crystal's `[]?` treats negative indices
     # as counting from the end, so without them a left/up lookup at the grid
     # edge would wrap around to the far side instead of being absent.
-    private def neighbor_angle(lines, x, y, dx, dy, angles, bit, attr, dock_contrast)
+    private def neighbor_angle(lines, row, x, y, dx, dy, angles, bit, attr, dock_contrast)
       nx, ny = x + dx, y + dy
-      return 0 unless nx >= 0 && ny >= 0 && lines[ny]? && lines[ny][nx]? && angles.includes? lines[ny][nx].char
+      # `nx >= 0 && ny >= 0` first (Crystal's `[]?` treats negatives as
+      # from-the-end, so a left/up edge lookup must be rejected explicitly).
+      # Then resolve the neighbor row once and read its char/attr straight from
+      # the backing arrays, rather than indexing `lines[ny][nx]` four times.
+      return 0 unless nx >= 0 && ny >= 0
+      nrow = lines[ny]?
+      return 0 unless nrow && nx < nrow.size
 
-      if lines[ny][nx].attr != attr
+      return 0 unless angles.includes? nrow.chars.unsafe_fetch(nx)
+
+      nattr = nrow.attrs.unsafe_fetch(nx)
+      if nattr != attr
         case dock_contrast
         when DockContrast::DontDock
           return nil
         when DockContrast::Blend
-          lines[y][x].attr = Colors.blend lines[ny][nx].attr, attr
+          # Blend the center cell toward the neighbor's attr (writes the center
+          # row's backing array directly — same cell `lines[y][x]` as before).
+          row.attrs.unsafe_put(x, Colors.blend(nattr, attr))
           # when DockContrast::Ignore
           #  Note: ::Ignore needs no custom handler/code; it works as-is.
         end

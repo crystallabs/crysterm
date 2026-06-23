@@ -252,6 +252,18 @@ module Crysterm
         Cell.new self, index.to_i32
       end
 
+      # Whether this row carries any multi-codepoint grapheme-cluster overlay.
+      # Lets a per-cell consumer (e.g. `Plane#composite_onto`) skip the
+      # `grapheme_at?` hash probe entirely on the common all-single-codepoint
+      # row, where every probe would return nil anyway.
+      def has_graphemes? : Bool
+        if g = @graphemes
+          !g.empty?
+        else
+          false
+        end
+      end
+
       # The overlay grapheme cluster stored at `index`, or nil.
       def grapheme_at?(index : Int) : String?
         @graphemes.try &.[index.to_i32]?

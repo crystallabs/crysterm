@@ -317,7 +317,13 @@ module Crysterm
     #  val
     # end
 
-    def _get_coords(get = false, noscroll = false, into : LPos? = nil)
+    # `width_hint`, when given, is this widget's already-resolved `awidth(get)`.
+    # `#_render` computes it (to feed `process_content`) immediately before
+    # calling here, and the first thing this method does is resolve `awidth`
+    # again — the identical call, since nothing in between changes the widget's
+    # width — so the hint lets us skip that second resolution. Only the render
+    # path passes it; other callers (`get == false`) resolve on demand as before.
+    def _get_coords(get = false, noscroll = false, into : LPos? = nil, width_hint : Int32? = nil)
       unless style.visible?
         return
       end
@@ -331,7 +337,7 @@ module Crysterm
       # computation (`aleft`/`atop`) and the far edge (`xl`/`yl`). Without this,
       # a right-anchored or `"center"`-positioned widget walked `awidth` twice
       # (and likewise `aheight`) every frame.
-      w = awidth(get)
+      w = width_hint || awidth(get)
       h = aheight(get)
       xi = aleft(get, w)
       xl = xi + w

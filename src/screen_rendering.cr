@@ -267,6 +267,16 @@ module Crysterm
     # deferred again (nested layers flatten into their enclosing plane for now).
     getter? compositing_layers = false
 
+    # Reused across frames by `#composite_planes` to bucket this frame's layer
+    # widgets by z-index. Clearing the existing member arrays each frame (rather
+    # than `Array#group_by`, which allocates a fresh `Hash` plus one `Array` per
+    # z-level every frame) keeps a steady-state layered UI allocation-free here.
+    @plane_buckets = {} of Int32 => Array(Widget)
+
+    # Reused list of the (non-empty) z-indices present this frame, sorted in
+    # place — replaces the throwaway arrays from `by_z.keys.sort`.
+    @sorted_zs = [] of Int32
+
     # Defers *el* (a z-indexed widget) to its plane instead of painting it inline.
     # Called from the base render wherever a child would be rendered.
     def defer_layer(el : Widget) : Nil
@@ -303,9 +313,25 @@ module Crysterm
 
       @compositing_layers = true
       begin
-        by_z = @layer_widgets.group_by { |el| el.style.z_index.not_nil! }
-        by_z.keys.sort.each do |z|
-          members = by_z[z]
+        # Bucket this frame's layer widgets by z-index into the reused arrays,
+        # then composite the planes bottom-to-top (ascending z). Equivalent to
+        # the former `group_by` + `keys.sort`, but without their per-frame
+        # allocations. Empty buckets (a z that had widgets on a previous frame
+        # but none now) are skipped, matching `group_by`'s never-empty groups.
+        @plane_buckets.each_value &.clear
+        @layer_widgets.each do |el|
+          z = el.style.z_index.not_nil!
+          (@plane_buckets[z] ||= [] of Widget) << el
+        end
+
+        @sorted_zs.clear
+        @plane_buckets.each do |z, members|
+          @sorted_zs << z unless members.empty?
+        end
+        @sorted_zs.sort!
+
+        @sorted_zs.each do |z|
+          members = @plane_buckets[z]
           pl = plane(z)
           pl.clear
           # The layer's translucency is applied once, here, as the plane's
