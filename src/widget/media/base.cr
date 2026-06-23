@@ -43,9 +43,21 @@ module Crysterm
       # source), via the process-wide `Media.decode` cache.
       @source : PNGGIF::PNG? = nil
 
-      # Composited animation source frames (`{bitmap, delay_ms}`), built once.
+      # Composited animation source frames (`{bitmap, delay_ms}`). For an eager
+      # image/video this is the full frame list, built once; for a *streaming*
+      # video it is a single reused slot holding the current frame (see
+      # `#stream_loop`).
       @src_frames : Array(Tuple(PNGGIF::Bitmap, Int32))? = nil
       @playing = false
+
+      # Live streaming video decoder (Tier 2), when the source is a video resolved
+      # to `VideoSource::Mode::Stream`; `nil` for eager image/video sources.
+      @stream : Media::VideoSource::Stream? = nil
+
+      # Set once a source has failed to load, so `#source` returns `nil` without
+      # re-attempting (re-opening ffmpeg) on every render. Reset when a new file
+      # is loaded.
+      @load_failed = false
 
       # Index of the frame currently shown. The animation loop advances it, but it
       # can also be set directly (after `#pause`) to drive playback from an
@@ -64,20 +76,38 @@ module Crysterm
       # Clears the loaded image and stops any animation. Subclasses override to
       # also drop their own caches, calling `super` to run this base cleanup.
       def clear_image
-        stop
+        stop # closes the stream if one is open
         @file = nil
         @source = nil
         @src_frames = nil
         @anim_index = 0
+        @load_failed = false
       end
 
-      # The decoded source image (cached), or `nil` if none/failed to load.
+      # The decoded source image (cached), or `nil` if none/failed to load. For a
+      # streaming video this opens the live decoder and returns its 1-frame
+      # resampling vehicle (`@stream` then drives playback); otherwise it decodes
+      # eagerly via the process-wide `Media.decode` cache. A failed open is not
+      # retried (see `@load_failed`).
       protected def source : PNGGIF::PNG?
         if s = @source
           return s
         end
+        return nil if @load_failed
         file = @file || return nil
-        @source = Media.decode file
+        if Media::VideoSource.video?(file) && Media::VideoSource.mode(file).stream?
+          if st = Media::VideoSource::Stream.open(file)
+            @stream = st
+            @source = st.vehicle
+          else
+            @load_failed = true
+            nil
+          end
+        else
+          src = Media.decode file
+          @load_failed = true if src.nil?
+          @source = src
+        end
       end
 
       # Whether the composited source frames have been built yet (the heavy
@@ -92,11 +122,15 @@ module Crysterm
       # first paint); the loop then advances the frame index and re-renders.
       def play
         return if @playing
-        png = source
+        png = source # (re)opens the streaming decoder when applicable
         return unless png
         @playing = true
 
-        if @src_frames
+        if @stream
+          # Streaming video: the loop pulls frames into a single reused slot.
+          @src_frames = nil
+          spawn stream_loop
+        elsif @src_frames
           spawn animate_loop
         else
           spawn do
@@ -112,15 +146,23 @@ module Crysterm
         end
       end
 
-      # Pauses animation playback on the current frame.
+      # Pauses animation playback on the current frame. A streaming decoder is
+      # left open (ffmpeg blocks on the full pipe) so `#play` resumes promptly.
       def pause
         @playing = false
       end
 
-      # Stops animation playback and resets to the first frame.
+      # Stops animation playback and resets to the first frame. A streaming
+      # decoder is closed and dropped (reaping ffmpeg); the next `#play`
+      # re-opens it from the beginning via `#source`.
       def stop
         @playing = false
         @anim_index = 0
+        if st = @stream
+          @stream = nil
+          @source = nil # force `#source` to re-open the stream on next play
+          st.close
+        end
       end
 
       # Background fiber: advance the frame index over time and trigger a render
@@ -148,6 +190,55 @@ module Crysterm
           sleep ms.milliseconds
         end
         @playing = false
+      end
+
+      # Background fiber for a *streaming* video: pull the next frame from the
+      # live ffmpeg decoder into a single reused `@src_frames` slot, drop the
+      # backend's cache for it (`#invalidate_frame`), and re-render — at constant
+      # memory regardless of length. At end-of-stream the decoder restarts (the
+      # video loops). Honours `speed`; stops when `@playing` clears (a `#stop`
+      # closes the pipe, unblocking a pending read).
+      private def stream_loop
+        stream = @stream || return
+        # Deadline-based pacing: each frame's decode + render takes real time, so
+        # a plain `sleep(delay)` would make the period `decode + delay` and the
+        # video drift slower than its true fps. Instead advance a target deadline
+        # by the frame period and sleep only the remainder, absorbing decode time
+        # into the period. If decode falls behind the period, reset the deadline
+        # (drop the deficit) rather than burst-rendering to catch up.
+        next_at = Time.instant
+        while @playing
+          bmp = stream.next_frame
+          if bmp.nil?
+            break unless @playing
+            stream.restart || break # loop the video; bail if it won't reopen
+            bmp = stream.next_frame || break
+          end
+          delay = stream.delay
+          slot = (@src_frames ||= [{bmp, delay}])
+          slot[0] = {bmp, delay}
+          @anim_index = 0
+          invalidate_frame 0 # the slot's content changed; drop any cached render
+          request_render
+
+          ms = delay / @speed
+          ms = 1.0 if ms < 1
+          next_at += ms.milliseconds
+          now = Time.instant
+          if next_at > now
+            sleep(next_at - now)
+          else
+            next_at = now # fell behind: don't accumulate a catch-up burst
+          end
+        end
+        @playing = false
+      end
+
+      # Hook: a backend caches per-frame renders keyed by frame index; streaming
+      # reuses index 0 with changing content, so the loop calls this to drop the
+      # stale cache entry for *idx* before re-rendering. No-op by default; the
+      # cell and graphics families override it.
+      protected def invalidate_frame(idx : Int32)
       end
 
       # Called by a backend when asked to do something it can't. Consults the

@@ -295,6 +295,15 @@ module Crysterm
         p
       end
 
+      # Streaming reuses frame index 0 with new content each tick. Drop its cached
+      # payload so it re-encodes, and clear `@emitted_key` so the change-skip in
+      # `#redraw_image` (used by Kitty, `repaint_every_frame? == false`) doesn't
+      # treat the new frame as the already-emitted one and freeze on frame 0.
+      protected def invalidate_frame(idx : Int32)
+        @frame_payloads.delete idx
+        @emitted_key = nil
+      end
+
       # (Re)paints the graphic at the widget's current position. Runs after every
       # screen render so it stays on top of the freshly-drawn cells; skips while
       # hidden or detached. Wraps the emit in DECSC/DECRC so the terminal cursor
