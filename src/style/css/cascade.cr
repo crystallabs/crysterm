@@ -325,10 +325,18 @@ module Crysterm
       end
 
       # Inherits the classically-inherited properties — `color` (fg),
-      # `font-weight` (bold), `font-style` (italic) and `visibility` (visible) —
-      # down the tree wherever a widget's normal style leaves them unset. Runs
-      # pre-order so a parent's resolved value is available to its children, and
-      # so an inherited value re-propagates to grandchildren.
+      # `font-weight` (bold) and `font-style` (italic) — down the tree wherever a
+      # widget's normal style leaves them unset. Runs pre-order so a parent's
+      # resolved value is available to its children, and so an inherited value
+      # re-propagates to grandchildren.
+      #
+      # Visibility is deliberately *not* inherited: a hidden parent already keeps
+      # its children off-screen (its own `_render` returns before drawing them),
+      # so propagating `visible: false` onto each child is redundant — and, worse,
+      # it goes stale. When the parent is re-shown (e.g. a `TabWidget` page),
+      # nothing re-cascades the child, so a child left holding an inherited
+      # `false` would never render again. Each widget therefore owns its
+      # visibility outright.
       private def self.inherit(screen : Screen) : Nil
         screen.children.each { |child| inherit_into child, nil }
       end
@@ -339,7 +347,6 @@ module Crysterm
           normal.fg = parent.fg if !normal.specified?(:fg) && parent.specified?(:fg)
           normal.bold = parent.bold? if !normal.specified?(:bold) && parent.specified?(:bold)
           normal.italic = parent.italic? if !normal.specified?(:italic) && parent.specified?(:italic)
-          normal.visible = parent.visible? if !normal.specified?(:visible) && parent.specified?(:visible)
         end
         widget.children.each { |child| inherit_into child, normal }
       end
