@@ -240,25 +240,33 @@ module Crysterm
 
       # Accumulate into a `String::Builder` rather than `outbuf += ...`: repeated
       # `String` concatenation rebuilds the whole (growing) result on every tag,
-      # which is O(n^2) for heavily-tagged content. (The remaining
-      # `text = text[cap[0].size..]` reslicing is a separate, smaller O(n^2);
-      # left as-is since this path is cold — content-change only.)
+      # which is O(n^2) for heavily-tagged content. The cursor is an integer
+      # offset (`pos`) advanced through `text` with ANCHORED matches at that
+      # offset, instead of re-slicing `text = text[cap[0].size..]` each step —
+      # the old reslicing allocated a fresh tail `String` per tag/segment, a
+      # second O(n^2). (Anchored matching at an offset is the same technique
+      # `_parse_attr` already uses to scan SGR sequences without slicing.) This
+      # path is cold — content-change only — but the quadratic blowup made
+      # heavily-tagged content disproportionately expensive to (re)parse.
       outbuf = String::Builder.new
       bg = [] of String
       fg = [] of String
       flag = [] of String
 
       esc = false
+      pos = 0
+      size = text.size
+      anchored = Regex::MatchOptions::ANCHORED
 
-      while !text.empty?
-        if !esc && (cap = text.match(/^{escape}/))
-          text = text[cap[0].size..]
+      while pos < size
+        if !esc && (cap = /{escape}/.match(text, pos, options: anchored))
+          pos += cap[0].size
           esc = true
           next
         end
 
-        if esc && (cap = text.match(/^([\s\S]+?){\/escape}/))
-          text = text[cap[0].size..]
+        if esc && (cap = /([\s\S]+?){\/escape}/.match(text, pos, options: anchored))
+          pos += cap[0].size
           outbuf << cap[1]
           esc = false
           next
@@ -266,13 +274,13 @@ module Crysterm
 
         if esc
           # raise "Unterminated escape tag."
-          outbuf << text
+          outbuf << text[pos..]
           break
         end
 
         # Matches {normal}{/normal} and all other tags
-        if cap = text.match(/^{(\/?)([\w\-,;!#]*)}/)
-          text = text[cap[0].size..]
+        if cap = /{(\/?)([\w\-,;!#]*)}/.match(text, pos, options: anchored)
+          pos += cap[0].size
           slash = cap[1] == "/"
           # XXX Tags must be specified such as {light-blue-fg}, but are then
           # parsed here with - being ' '. See why? Can we work with - and skip
@@ -331,13 +339,13 @@ module Crysterm
           next
         end
 
-        if cap = text.match(/^[\s\S]+?(?={\/?[\w\-,;!#]*})/)
-          text = text[cap[0].size..]
+        if cap = /[\s\S]+?(?={\/?[\w\-,;!#]*})/.match(text, pos, options: anchored)
+          pos += cap[0].size
           outbuf << cap[0]
           next
         end
 
-        outbuf << text
+        outbuf << text[pos..]
         break
       end
 
@@ -506,10 +514,15 @@ module Crysterm
     def _align(line, width, align = Tput::AlignFlag::None, align_left_too = false)
       return line if align.none?
 
-      cline = line.gsub SGR_REGEX, ""
-      # `cline` is already SGR-stripped, so measure it directly. `str_width line`
-      # would strip the SGR sequences a second time; `str_width cline` skips the
-      # regex (no ESC present) and yields the identical width.
+      # Only run the SGR-stripping `gsub` (which allocates a fresh `String`) when
+      # the line actually contains an escape; the vast majority of aligned lines
+      # carry no color, so a cheap `includes?` byte scan lets them reuse `line`
+      # with no allocation. When there is no ESC, `cline == line` and everything
+      # below (width, splits) behaves identically.
+      cline = line.includes?('\e') ? line.gsub(SGR_REGEX, "") : line
+      # `cline` is already SGR-stripped (or had none), so measure it directly.
+      # `str_width line` would strip the SGR sequences a second time; `str_width
+      # cline` skips the regex (no ESC present) and yields the identical width.
       len = str_width cline
 
       # XXX In blessed's code (and here) it was done only with this commented
@@ -553,7 +566,7 @@ module Crysterm
         # vs. the other elements when they are selected.
         s = " " * s
         return line + s
-      elsif @parse_tags && line.index /\{|\}/
+      elsif @parse_tags && (line.includes?('{') || line.includes?('}'))
         # XXX This is basically Tput::AlignFlag::Spread, but not sure
         # how to put that as a flag yet. Maybe this (or another)
         # widget flag could mean to spread words to fill up the whole
