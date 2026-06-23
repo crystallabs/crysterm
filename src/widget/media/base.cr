@@ -159,9 +159,16 @@ module Crysterm
         @playing = true
 
         if @stream
-          # Streaming video: the loop pulls frames into a single reused slot.
+          # Streaming video: pull frames into a single reused slot. When grouped
+          # on a shared clock (`animate: timer`) the clock pulls one frame per
+          # tick (in lockstep with the other widgets on it); otherwise a private
+          # fiber pulls at the video's own frame rate.
           @src_frames = nil
-          spawn stream_loop
+          if @clock
+            subscribe_clock
+          else
+            spawn stream_loop
+          end
         elsif @src_frames
           start_playback
         else
@@ -189,12 +196,24 @@ module Crysterm
         end
       end
 
-      # Subscribe to the shared clock; each tick advances this widget's frame.
+      # Subscribe to the shared clock; each tick advances this widget by one frame.
       # Idempotent — drops any prior subscription first.
       private def subscribe_clock : Nil
         c = @clock || return
         unsubscribe_clock
-        @clock_sub = c.on(::Crysterm::Event::Tick) { advance_shared }
+        @clock_sub = c.on(::Crysterm::Event::Tick) { tick_frame }
+      end
+
+      # One shared-clock tick of playback: for a streaming source pull and present
+      # the next live frame, otherwise step the prebuilt frame index. Either way
+      # all widgets on the same clock advance together, one frame per tick.
+      private def tick_frame : Nil
+        return unless @playing
+        if st = @stream
+          advance_stream st
+        else
+          advance_shared
+        end
       end
 
       # Drop this widget's subscription to the shared clock (without stopping the
@@ -295,20 +314,9 @@ module Crysterm
         # (drop the deficit) rather than burst-rendering to catch up.
         next_at = Time.instant
         while @playing
-          bmp = stream.next_frame
-          if bmp.nil?
-            break unless @playing
-            stream.restart || break # loop the video; bail if it won't reopen
-            bmp = stream.next_frame || break
-          end
-          delay = stream.delay
-          slot = (@src_frames ||= [{bmp, delay}])
-          slot[0] = {bmp, delay}
-          @anim_index = 0
-          invalidate_frame 0 # the slot's content changed; drop any cached render
-          request_render
+          break unless advance_stream stream
 
-          ms = delay / @speed
+          ms = stream.delay / @speed
           ms = 1.0 if ms < 1
           next_at += ms.milliseconds
           now = Time.instant
@@ -319,6 +327,29 @@ module Crysterm
           end
         end
         @playing = false
+      end
+
+      # Pulls the next live frame from *stream* into the single reused `@src_frames`
+      # slot, drops the backend's cached render for it (`#invalidate_frame`), and
+      # re-renders. At end-of-stream the decoder restarts (the video loops).
+      # Returns false when the stream ended and could not be reopened (or playback
+      # was stopped), so the caller halts. Shared by the self-paced `#stream_loop`
+      # and the shared-clock `#tick_frame`, so grouped streams advance one frame
+      # per clock tick.
+      private def advance_stream(stream) : Bool
+        bmp = stream.next_frame
+        if bmp.nil?
+          return false unless @playing
+          stream.restart || return false # loop the video; bail if it won't reopen
+          bmp = stream.next_frame || return false
+        end
+        delay = stream.delay
+        slot = (@src_frames ||= [{bmp, delay}])
+        slot[0] = {bmp, delay}
+        @anim_index = 0
+        invalidate_frame 0 # the slot's content changed; drop any cached render
+        request_render
+        true
       end
 
       # Hook: a backend caches per-frame renders keyed by frame index; streaming

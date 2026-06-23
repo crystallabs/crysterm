@@ -41,7 +41,7 @@ describe "TabWidget switching (regression check)" do
     tw.show_tab 1
     s._render
     t1 = screen_text s
-    (t1.includes?("BBBcc")).should be_true  # <-- switched-to page must render
+    (t1.includes?("BBBcc")).should be_true # <-- switched-to page must render
     (t1.includes?("AAAcc")).should be_false
   end
 end

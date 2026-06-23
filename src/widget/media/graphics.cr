@@ -342,8 +342,8 @@ module Crysterm
         io << "\e7"                                       # DECSC: save cursor
         io << "\e[" << (yi + 1) << ';' << (xi + 1) << 'H' # CUP to content top-left (1-based)
         io << payload
-        io << "\e8"                                       # DECRC: restore cursor
-        io << "\e[?2026l" if double_buffer?               # ESU: end synchronized update — present atomically
+        io << "\e8"                         # DECRC: restore cursor
+        io << "\e[?2026l" if double_buffer? # ESU: end synchronized update — present atomically
         s.tput._oprint io.to_s
         s.tput.flush
 

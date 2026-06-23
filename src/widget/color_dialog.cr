@@ -41,8 +41,8 @@ module Crysterm
       FIELD_W  = 24
       FIELD_H  = 10
       HUE_X    = FIELD_X + FIELD_W + 1 # 25
-      HUE_Y    =  0
-      HUE_W    =  2
+      HUE_Y    = 0
+      HUE_W    = 2
       HUE_H    = FIELD_H
       INFO_X   = HUE_X + HUE_W + 2 # 29
       SPIN_X   = INFO_X + 2        # value column for the labeled spin boxes
@@ -50,7 +50,7 @@ module Crysterm
       PAL_Y    = FIELD_H + 1 # 11
       CUST_Y   = PAL_Y + 2   # 13
       BTN_Y    = CUST_Y + 2  # 15
-      CUSTOM_N =  8          # number of custom-color slots
+      CUSTOM_N = 8           # number of custom-color slots
 
       # The "Basic colors" palette (named colors that always resolve as specs).
       DEFAULT_COLORS = %w[
@@ -251,13 +251,27 @@ module Crysterm
         if pv = @preview
           pv.style.bg = hex
         end
-        if sp = @rspin; sp.value = r; end
-        if sp = @gspin; sp.value = g; end
-        if sp = @bspin; sp.value = b; end
-        if sp = @hspin; sp.value = @hue.round.to_i; end
-        if sp = @sspin; sp.value = (@saturation * 100).round.to_i; end
-        if sp = @vspin; sp.value = (@value_v * 100).round.to_i; end
-        if hb = @hexbox; hb.value = hex; end
+        if sp = @rspin
+          sp.value = r
+        end
+        if sp = @gspin
+          sp.value = g
+        end
+        if sp = @bspin
+          sp.value = b
+        end
+        if sp = @hspin
+          sp.value = @hue.round.to_i
+        end
+        if sp = @sspin
+          sp.value = (@saturation * 100).round.to_i
+        end
+        if sp = @vspin
+          sp.value = (@value_v * 100).round.to_i
+        end
+        if hb = @hexbox
+          hb.value = hex
+        end
         @syncing = false
         request_render
       end
@@ -415,7 +429,7 @@ module Crysterm
           when .< 300.0 then {x, 0.0, c}
           else               {c, 0.0, x}
           end
-        { ((r1 + m) * 255).round.to_i, ((g1 + m) * 255).round.to_i, ((b1 + m) * 255).round.to_i }
+        {((r1 + m) * 255).round.to_i, ((g1 + m) * 255).round.to_i, ((b1 + m) * 255).round.to_i}
       end
 
       # RGB (each 0..255) → HSV (h 0..360, s/v 0..1).
