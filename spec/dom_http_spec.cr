@@ -2,158 +2,156 @@ require "./spec_helper"
 require "http/client"
 
 {% if flag?(:remote) %}
+  include Crysterm
 
-include Crysterm
+  # End-to-end proof of the HTTP/JSON-RPC bridge, headless: drive a real (memory
+  # backed) screen over HTTP — commands in via POST /rpc, events out via the SSE
+  # stream — exactly as the bash handler does, but in-process so it can assert.
 
-# End-to-end proof of the HTTP/JSON-RPC bridge, headless: drive a real (memory
-# backed) screen over HTTP — commands in via POST /rpc, events out via the SSE
-# stream — exactly as the bash handler does, but in-process so it can assert.
+  private def headless_screen
+    Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  end
 
-private def headless_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
-end
+  describe "HTTPBridge" do
+    it "applies rpc commands and streams named-action events" do
+      s = headless_screen
+      s.load_layout %(<w-screen>) +
+                    %(<w-box id="status" content="hi"></w-box>) +
+                    %(<w-button id="ok" onclick="save"></w-button>) +
+                    %(</w-screen>)
 
-describe "HTTPBridge" do
-  it "applies rpc commands and streams named-action events" do
-    s = headless_screen
-    s.load_layout %(<w-screen>) +
-      %(<w-box id="status" content="hi"></w-box>) +
-      %(<w-button id="ok" onclick="save"></w-button>) +
-      %(</w-screen>)
+      Crysterm::HTTPBridge.new(s, port: 7099).start
+      sleep 100.milliseconds # let the server bind
+      base = "http://127.0.0.1:7099"
 
-    Crysterm::HTTPBridge.new(s, port: 7099).start
-    sleep 100.milliseconds # let the server bind
-    base = "http://127.0.0.1:7099"
+      # --- command + getter round-trip over POST /rpc ---
+      HTTP::Client.post("#{base}/rpc",
+        body: %({"jsonrpc":"2.0","method":"setContent","params":{"selector":"#status","value":"changed"}}))
 
-    # --- command + getter round-trip over POST /rpc ---
-    HTTP::Client.post("#{base}/rpc",
-      body: %({"jsonrpc":"2.0","method":"setContent","params":{"selector":"#status","value":"changed"}}))
+      got = HTTP::Client.post("#{base}/rpc",
+        body: %({"jsonrpc":"2.0","id":1,"method":"getContent","params":{"selector":"#status"}}))
+      result = JSON.parse(got.body)
+      result["id"].as_i.should eq 1
+      result["result"].as_s.should eq "changed"
 
-    got = HTTP::Client.post("#{base}/rpc",
-      body: %({"jsonrpc":"2.0","id":1,"method":"getContent","params":{"selector":"#status"}}))
-    result = JSON.parse(got.body)
-    result["id"].as_i.should eq 1
-    result["result"].as_s.should eq "changed"
-
-    # --- event stream over GET /events ---
-    events = Channel(String).new
-    spawn do
-      HTTP::Client.get("#{base}/events") do |response|
-        while line = response.body_io.gets
-          if line.starts_with?("data: ")
-            events.send line["data: ".size..]
-            break
+      # --- event stream over GET /events ---
+      events = Channel(String).new
+      spawn do
+        HTTP::Client.get("#{base}/events") do |response|
+          while line = response.body_io.gets
+            if line.starts_with?("data: ")
+              events.send line["data: ".size..]
+              break
+            end
           end
         end
       end
+      sleep 100.milliseconds # ensure the SSE subscription is registered
+
+      # Activating the button (here: emit its Press directly) must surface as a
+      # JSON-RPC `event` notification carrying the declared action + target.
+      s.find_by_id("ok").not_nil!.emit Crysterm::Event::Press
+
+      select
+      when msg = events.receive
+        params = JSON.parse(msg)
+        params["method"].as_s.should eq "event"
+        params["params"]["type"].as_s.should eq "press"
+        params["params"]["action"].as_s.should eq "save"
+        params["params"]["target"].as_s.should eq "#ok"
+      when timeout(2.seconds)
+        fail "no SSE event received"
+      end
     end
-    sleep 100.milliseconds # ensure the SSE subscription is registered
 
-    # Activating the button (here: emit its Press directly) must surface as a
-    # JSON-RPC `event` notification carrying the declared action + target.
-    s.find_by_id("ok").not_nil!.emit Crysterm::Event::Press
+    it "applies a command to every match of a general selector" do
+      s = headless_screen
+      s.load_layout %(<w-screen>) +
+                    %(<w-button id="a" class="primary"></w-button>) +
+                    %(<w-button id="b" class="primary"></w-button>) +
+                    %(</w-screen>)
+      Crysterm::HTTPBridge.new(s, port: 7100).start
+      sleep 100.milliseconds
 
-    select
-    when msg = events.receive
-      params = JSON.parse(msg)
-      params["method"].as_s.should eq "event"
-      params["params"]["type"].as_s.should eq "press"
-      params["params"]["action"].as_s.should eq "save"
-      params["params"]["target"].as_s.should eq "#ok"
-    when timeout(2.seconds)
-      fail "no SSE event received"
+      HTTP::Client.post("http://127.0.0.1:7100/rpc",
+        body: %({"jsonrpc":"2.0","method":"addClass","params":{"selector":".primary","class":"hot"}}))
+
+      got = HTTP::Client.post("http://127.0.0.1:7100/rpc",
+        body: %({"jsonrpc":"2.0","id":1,"method":"query","params":{"selector":".hot"}}))
+      JSON.parse(got.body)["result"].as_a.map(&.as_s).sort.should eq ["#a", "#b"]
     end
-  end
 
-  it "applies a command to every match of a general selector" do
-    s = headless_screen
-    s.load_layout %(<w-screen>) +
-      %(<w-button id="a" class="primary"></w-button>) +
-      %(<w-button id="b" class="primary"></w-button>) +
-      %(</w-screen>)
-    Crysterm::HTTPBridge.new(s, port: 7100).start
-    sleep 100.milliseconds
+    it "enforces a bearer token when configured" do
+      s = headless_screen
+      s.load_layout %(<w-screen><w-box id="x"></w-box></w-screen>)
+      Crysterm::HTTPBridge.new(s, port: 7101, token: "s3cret").start
+      sleep 100.milliseconds
+      base = "http://127.0.0.1:7101/rpc"
+      body = %({"jsonrpc":"2.0","method":"render"})
 
-    HTTP::Client.post("http://127.0.0.1:7100/rpc",
-      body: %({"jsonrpc":"2.0","method":"addClass","params":{"selector":".primary","class":"hot"}}))
+      HTTP::Client.post(base, body: body).status_code.should eq 401
+      ok = HTTP::Client.post(base, headers: HTTP::Headers{"X-Crysterm-Token" => "s3cret"}, body: body)
+      ok.status_code.should eq 200
+    end
 
-    got = HTTP::Client.post("http://127.0.0.1:7100/rpc",
-      body: %({"jsonrpc":"2.0","id":1,"method":"query","params":{"selector":".hot"}}))
-    JSON.parse(got.body)["result"].as_a.map(&.as_s).sort.should eq ["#a", "#b"]
-  end
+    it "hot-reloads the whole layout" do
+      s = headless_screen
+      s.load_layout %(<w-screen><w-box id="status" content="v1"></w-box></w-screen>)
+      bridge = Crysterm::HTTPBridge.new(s, port: 7102)
+      bridge.start
 
-  it "enforces a bearer token when configured" do
-    s = headless_screen
-    s.load_layout %(<w-screen><w-box id="x"></w-box></w-screen>)
-    Crysterm::HTTPBridge.new(s, port: 7101, token: "s3cret").start
-    sleep 100.milliseconds
-    base = "http://127.0.0.1:7101/rpc"
-    body = %({"jsonrpc":"2.0","method":"render"})
+      s.find_by_id("status").not_nil!.content.should eq "v1"
+      bridge.reload_layout %(<w-screen><w-box id="status" content="v2"></w-box></w-screen>)
+      s.find_by_id("status").not_nil!.content.should eq "v2"
+    end
 
-    HTTP::Client.post(base, body: body).status_code.should eq 401
-    ok = HTTP::Client.post(base, headers: HTTP::Headers{"X-Crysterm-Token" => "s3cret"}, body: body)
-    ok.status_code.should eq 200
-  end
+    it "returns a structured match count from mutating commands" do
+      s = headless_screen
+      s.load_layout %(<w-screen><w-box class="x"></w-box><w-box class="x"></w-box></w-screen>)
+      Crysterm::HTTPBridge.new(s, port: 7103).start
+      sleep 100.milliseconds
+      base = "http://127.0.0.1:7103/rpc"
 
-  it "hot-reloads the whole layout" do
-    s = headless_screen
-    s.load_layout %(<w-screen><w-box id="status" content="v1"></w-box></w-screen>)
-    bridge = Crysterm::HTTPBridge.new(s, port: 7102)
-    bridge.start
+      hit = HTTP::Client.post(base, body: %({"jsonrpc":"2.0","id":1,"method":"addClass","params":{"selector":".x","class":"y"}}))
+      JSON.parse(hit.body)["result"].as_i.should eq 2
 
-    s.find_by_id("status").not_nil!.content.should eq "v1"
-    bridge.reload_layout %(<w-screen><w-box id="status" content="v2"></w-box></w-screen>)
-    s.find_by_id("status").not_nil!.content.should eq "v2"
-  end
+      miss = HTTP::Client.post(base, body: %({"jsonrpc":"2.0","id":2,"method":"addClass","params":{"selector":"#nope","class":"y"}}))
+      JSON.parse(miss.body)["result"].as_i.should eq 0
+    end
 
-  it "returns a structured match count from mutating commands" do
-    s = headless_screen
-    s.load_layout %(<w-screen><w-box class="x"></w-box><w-box class="x"></w-box></w-screen>)
-    Crysterm::HTTPBridge.new(s, port: 7103).start
-    sleep 100.milliseconds
-    base = "http://127.0.0.1:7103/rpc"
+    it "lets a handler subscribe to events at runtime (no on* attribute)" do
+      s = headless_screen
+      s.load_layout %(<w-screen><w-button id="ok"></w-button></w-screen>)
+      Crysterm::HTTPBridge.new(s, port: 7104).start
+      sleep 100.milliseconds
+      base = "http://127.0.0.1:7104"
 
-    hit = HTTP::Client.post(base, body: %({"jsonrpc":"2.0","id":1,"method":"addClass","params":{"selector":".x","class":"y"}}))
-    JSON.parse(hit.body)["result"].as_i.should eq 2
+      sub = HTTP::Client.post("#{base}/rpc",
+        body: %({"jsonrpc":"2.0","id":1,"method":"subscribe","params":{"selector":"#ok","event":"press"}}))
+      JSON.parse(sub.body)["result"].as_i.should eq 1
 
-    miss = HTTP::Client.post(base, body: %({"jsonrpc":"2.0","id":2,"method":"addClass","params":{"selector":"#nope","class":"y"}}))
-    JSON.parse(miss.body)["result"].as_i.should eq 0
-  end
-
-  it "lets a handler subscribe to events at runtime (no on* attribute)" do
-    s = headless_screen
-    s.load_layout %(<w-screen><w-button id="ok"></w-button></w-screen>)
-    Crysterm::HTTPBridge.new(s, port: 7104).start
-    sleep 100.milliseconds
-    base = "http://127.0.0.1:7104"
-
-    sub = HTTP::Client.post("#{base}/rpc",
-      body: %({"jsonrpc":"2.0","id":1,"method":"subscribe","params":{"selector":"#ok","event":"press"}}))
-    JSON.parse(sub.body)["result"].as_i.should eq 1
-
-    events = Channel(String).new
-    spawn do
-      HTTP::Client.get("#{base}/events") do |response|
-        while line = response.body_io.gets
-          if line.starts_with?("data: ")
-            events.send line["data: ".size..]
-            break
+      events = Channel(String).new
+      spawn do
+        HTTP::Client.get("#{base}/events") do |response|
+          while line = response.body_io.gets
+            if line.starts_with?("data: ")
+              events.send line["data: ".size..]
+              break
+            end
           end
         end
       end
-    end
-    sleep 100.milliseconds
-    s.find_by_id("ok").not_nil!.emit Crysterm::Event::Press
+      sleep 100.milliseconds
+      s.find_by_id("ok").not_nil!.emit Crysterm::Event::Press
 
-    select
-    when msg = events.receive
-      params = JSON.parse(msg)["params"]
-      params["type"].as_s.should eq "press"
-      params["target"].as_s.should eq "#ok"
-    when timeout(2.seconds)
-      fail "no SSE event for runtime subscription"
+      select
+      when msg = events.receive
+        params = JSON.parse(msg)["params"]
+        params["type"].as_s.should eq "press"
+        params["target"].as_s.should eq "#ok"
+      when timeout(2.seconds)
+        fail "no SSE event for runtime subscription"
+      end
     end
   end
-end
-
 {% end %}

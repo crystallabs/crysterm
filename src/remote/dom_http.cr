@@ -36,7 +36,7 @@ module Crysterm
       # re-applied across hot-reloads; `@event_wired` dedups per widget+event.
       @subscriptions = [] of Tuple(String, String)
       @event_wired = Set(String).new
-      @on_quit = ->{ quit; nil }
+      @on_quit = -> { quit; nil }
     end
 
     # Starts the HTTP server in a background fiber and wires the current tree's

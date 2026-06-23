@@ -24,8 +24,6 @@ dependencies:
     branch: master
   w3m_image_display:
     github: SamualLB/w3mimagedisplay
-  #i18n:
-  #  github: BrucePerens/i18n
   event_handler:
     github: crystallabs/event_handler
     branch: master
@@ -40,8 +38,6 @@ dependencies:
     branch: master
   html5:
     github: naqvis/crystal-html5
-  fswatch:
-    github: bcardiff/crystal-fswatch
 
 development_dependencies:
   ameba:

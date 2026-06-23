@@ -61,21 +61,21 @@ module Crysterm
     # their own keys (see `dom_widgets.cr`) and delegate the rest via `super`.
     def dom_apply(key : String, value : String?) : Bool
       case key
-      when "left"         then self.left = dom_coerce_dimension(value)
-      when "top"          then self.top = dom_coerce_dimension(value)
-      when "width"        then self.width = dom_coerce_dimension(value)
-      when "height"       then self.height = dom_coerce_dimension(value)
-      when "right"        then value.try(&.to_i?).try { |i| self.right = i }
-      when "bottom"       then value.try(&.to_i?).try { |i| self.bottom = i }
-      when "name"         then self.name = value
-      when "parse-tags"   then self.parse_tags = (value == "true")
-      when "wrap-content" then self.wrap_content = (value != "false")
-      when "content"      then set_content(value || "")
-      when "id"           then self.css_id = value
-      when "class"        then value.try &.split.each { |c| add_css_class c unless c.empty? }
+      when "left"              then self.left = dom_coerce_dimension(value)
+      when "top"               then self.top = dom_coerce_dimension(value)
+      when "width"             then self.width = dom_coerce_dimension(value)
+      when "height"            then self.height = dom_coerce_dimension(value)
+      when "right"             then value.try(&.to_i?).try { |i| self.right = i }
+      when "bottom"            then value.try(&.to_i?).try { |i| self.bottom = i }
+      when "name"              then self.name = value
+      when "parse-tags"        then self.parse_tags = (value == "true")
+      when "wrap-content"      then self.wrap_content = (value != "false")
+      when "content"           then set_content(value || "")
+      when "id"                then self.css_id = value
+      when "class"             then value.try &.split.each { |c| add_css_class c unless c.empty? }
       when .starts_with?("on") then dom_events[key.lchop("on")] = value || "" if key.size > 2
-      # `data-uid`/`state-*` and friends belong to the CSS document, not here;
-      # silently ignore anything unrecognized so an enriched file still loads.
+        # `data-uid`/`state-*` and friends belong to the CSS document, not here;
+        # silently ignore anything unrecognized so an enriched file still loads.
       else
         return false
       end

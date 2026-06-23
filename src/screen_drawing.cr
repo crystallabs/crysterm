@@ -557,12 +557,21 @@ module Crysterm
           if fu
             current = line[x]
             unless current.continuation?
-              if g = current.grapheme_overlay
+              # Fetch the grapheme overlay once and reuse it for both the emit
+              # and the width below, instead of letting `current.width` repeat
+              # the `@graphemes` lookup `grapheme_overlay` already did.
+              g = current.grapheme_overlay
+              if g
                 @outbuf.print g
               else
                 @outbuf.print desired_char
               end
-              if current.width == 2 && (oc = o[x + 1]?)
+              # Equivalent to `current.width` here: the continuation case is
+              # excluded by the `unless` above, so width comes from the overlay
+              # cluster if present, else from the cell's own codepoint (NOT
+              # `desired_char`, which may have been ACS-reduced for output).
+              w = g ? ::Crysterm::Unicode.width(g) : ::Crysterm::Unicode.width(current.char)
+              if w == 2 && (oc = o[x + 1]?)
                 oc.attr = desired_attr
                 oc.continuation!
                 skip_next = true
@@ -918,12 +927,44 @@ module Crysterm
     end
 
     # Fills any chosen region on the screen with chosen character and attributes.
+    #
+    # This is the per-frame full-screen clear path (`clear_region` in `_render`
+    # runs it over the whole grid every frame), so unlike the shared
+    # `each_region_cell` it hoists the row's backing arrays (`attrs`/`chars`) and
+    # width once and indexes them with `unsafe_fetch`/`unsafe_put` — the same
+    # array-hoist `draw` uses — instead of constructing a `Cell` handle and going
+    # through a bounds-checked `line[x]?` per cell. `xi`/`yi` are clamped to >= 0
+    # (matching `each_region_cell`'s clamp), and cells are contiguous, so a cell
+    # is "missing" only when `x` runs past the row end (`xend`); every
+    # `unsafe_*` is thus provably in range.
     def fill_region(attr, ch, xi, xl, yi, yl, override = false)
-      each_region_cell(xi, xl, yi, yl) do |cell, line|
-        if override || cell != {attr, ch}
-          cell.attr = attr
-          cell.char = ch
-          line.dirty = true
+      xi = 0 if xi < 0
+      yi = 0 if yi < 0
+
+      yi.upto(yl - 1) do |y|
+        line = @lines[y]?
+        break unless line
+
+        attrs = line.attrs
+        chars = line.chars
+        n = attrs.size
+        xend = xl < n ? xl : n
+
+        x = xi
+        while x < xend
+          # Equivalent to `cell != {attr, ch}` (see `Cell#==(Tuple)`): a cell
+          # carrying a grapheme overlay is never equal to a single-char tuple, so
+          # it must be rewritten. The `||` short-circuits exactly as `==` does —
+          # the `grapheme_at?` probe runs only when attr and char already match,
+          # and is a cheap nil check for the overlay-free rows that dominate.
+          if override || attrs.unsafe_fetch(x) != attr || chars.unsafe_fetch(x) != ch || !line.grapheme_at?(x).nil?
+            attrs.unsafe_put(x, attr)
+            chars.unsafe_put(x, ch)
+            # Mirrors `Cell#char=`, which drops any cluster overlay on the cell.
+            line.delete_grapheme(x)
+            line.dirty = true
+          end
+          x += 1
         end
       end
     end
