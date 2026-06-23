@@ -252,6 +252,59 @@ module Crysterm
     property lines = Array(Row).new
     property olines = Array(Row).new
 
+    # Compositing planes, keyed by z-index — one per distinct `z_index` among the
+    # screen's children (see `Plane`). Empty unless something declares a layer, so
+    # a plain UI allocates none and the render path below is unchanged.
+    @planes = {} of Int32 => Plane
+
+    # Returns the plane for layer *z*, creating it (and sizing it to the screen)
+    # on first use; resizes an existing one if the screen has changed size.
+    def plane(z : Int32) : Plane
+      pl = @planes[z] ||= Plane.new(z, awidth, aheight)
+      pl.resize awidth, aheight
+      pl
+    end
+
+    # Runs *block* with the cell buffer temporarily redirected to *buf*, so a
+    # widget's ordinary `screen.lines[...]` writes land in a plane instead of the
+    # base. Restores the base buffer afterward (the plane is then composited).
+    private def with_render_target(buf : Array(Row), &)
+      saved = @lines
+      @lines = buf
+      begin
+        yield
+      ensure
+        @lines = saved
+      end
+    end
+
+    # Renders every layered child (one that declares `style.z_index`) into its
+    # plane, then composites the planes over the base buffer bottom-to-top. A
+    # no-op — and zero allocation — when nothing declares a z-index.
+    private def composite_planes
+      layered = @children.select { |el| el.style.z_index }
+      return if layered.empty?
+
+      by_z = layered.group_by { |el| el.style.z_index.not_nil! }
+      by_z.keys.sort.each do |z|
+        members = by_z[z]
+        pl = plane(z)
+        pl.clear
+        # The layer's translucency is applied once, here, as the plane's opacity
+        # (from the root's `alpha`); the widget paints opaquely into the plane
+        # (its render-time self-blend is suppressed while `#compositing`).
+        pl.opacity = members.first.style.alpha? || 1.0
+        with_render_target(pl.cells) do
+          members.each do |el|
+            el.compositing = true
+            el.render
+            el.compositing = false
+          end
+        end
+        pl.composite_onto @lines
+      end
+    end
+
     # Docks (joins) all line-drawing characters that cross or meet on the rows
     # collected in `@_dock_stops` this frame. Delegates the actual work to the
     # reusable `Crysterm::Docking` component, which is shared between border
@@ -328,9 +381,13 @@ module Crysterm
       @children.each do |el|
         el.index = @_ci
         @_ci += 1
-        el.render
+        # Base layer: paint straight into `@lines` as before. A child that
+        # declares a `z_index` is deferred to its own plane (composited below).
+        el.render if el.style.z_index.nil?
       end
       @_ci = -1
+
+      composite_planes
 
       _dock if @dock_borders
 

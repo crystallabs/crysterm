@@ -68,6 +68,12 @@ module Crysterm
       @tint = nil
     end
 
+    # Compositing layer (CSS `z-index`). When set, the widget (and its subtree)
+    # is promoted to its own `Plane` at this z, composited over the base so it can
+    # show content from *other* widgets through it; its `alpha` becomes the
+    # plane's opacity. `nil` = the base layer (the ordinary painter's path).
+    property z_index : Int32?
+
     # Tracks which text-attribute booleans were *explicitly* set (vs left at
     # their default), so the CSS cascade can tell "set to false" from "unset" —
     # needed for inline-style folding and inheritance. Colors and `alpha` carry
@@ -77,11 +83,12 @@ module Crysterm
     # Whether *property* was explicitly set on this style.
     def specified?(property : Symbol) : Bool
       case property
-      when :fg    then !@fg.nil?
-      when :bg    then !@bg.nil?
-      when :alpha then !@alpha.nil?
-      when :tint  then !@tint.nil?
-      else             @specified.includes?(property)
+      when :fg      then !@fg.nil?
+      when :bg      then !@bg.nil?
+      when :alpha   then !@alpha.nil?
+      when :tint    then !@tint.nil?
+      when :z_index then !@z_index.nil?
+      else               @specified.includes?(property)
       end
     end
 

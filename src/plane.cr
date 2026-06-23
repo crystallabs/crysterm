@@ -1,0 +1,100 @@
+module Crysterm
+  # An independent, screen-sized cell buffer with a z-order — the unit a widget
+  # (and its subtree) renders into once it is promoted to a *layer* (via CSS
+  # `z-index`, or `style.z_index`). After the base buffer is painted by the
+  # normal painter's algorithm, each plane is composited over it bottom-to-top,
+  # honoring the per-cell `Attr::Alpha` modes (Step 4) and the plane's own
+  # `opacity`. That composite pass is what lets an *opaque* overlay show other
+  # widgets' content through it — something the single-buffer painter can't do.
+  #
+  # Planes are opt-in: a UI that declares no z-index allocates none and the
+  # render path is unchanged.
+  class Plane
+    # A cleared cell carries both channels' alpha as `Transparent` and a space,
+    # so an untouched cell contributes nothing (the base shows through). A
+    # widget's normal render overwrites the cells it actually paints (`Opaque`).
+    CLEAR_ATTR = Attr.with_alpha(Screen::DEFAULT_ATTR, Attr::Alpha::Transparent, Attr::Alpha::Transparent)
+
+    getter z : Int32
+
+    # How strongly the whole plane contributes over the base (`0.0`..`1.0`); set
+    # from the layer root's `opacity`. At `1.0` the per-cell modes alone decide.
+    property opacity : Float64 = 1.0
+
+    # The plane's own cell buffer (kept the same size as the screen).
+    getter cells : Array(Screen::Row)
+
+    def initialize(@z : Int32, width : Int32, height : Int32)
+      @cells = Array(Screen::Row).new
+      resize width, height
+    end
+
+    def width : Int32
+      @cells[0]?.try(&.size) || 0
+    end
+
+    def height : Int32
+      @cells.size
+    end
+
+    # (Re)builds the buffer to *width*×*height* when the screen size changes.
+    def resize(width : Int32, height : Int32) : Nil
+      return if width == self.width && height == self.height
+      @cells = Array(Screen::Row).new(height) do
+        row = Screen::Row.new width
+        width.times { row.push CLEAR_ATTR, ' ' }
+        row
+      end
+    end
+
+    # Resets every cell to the transparent sentinel — called once per frame,
+    # before the layer's widgets render into this plane.
+    def clear : Nil
+      @cells.each do |row|
+        row.clear_to CLEAR_ATTR, ' '
+        row.dirty = false
+      end
+    end
+
+    # Folds this plane over *base* in place. Each painted cell is composited per
+    # its `Attr::Alpha` modes (`Colors.composite`), then — when `opacity < 1` —
+    # scaled toward the base so the whole layer reads as translucent. Untouched
+    # (transparent-sentinel) cells are skipped, so the base shows through.
+    def composite_onto(base : Array(Screen::Row)) : Nil
+      op = @opacity
+      rows = {@cells.size, base.size}.min
+      y = 0
+      while y < rows
+        pr = @cells.unsafe_fetch(y)
+        br = base.unsafe_fetch(y)
+        pa = pr.attrs; pc = pr.chars
+        ba = br.attrs; bc = br.chars
+        cols = {pa.size, ba.size}.min
+        changed = false
+        x = 0
+        while x < cols
+          patt = pa.unsafe_fetch(x)
+          ch = pc.unsafe_fetch(x)
+          unless patt == CLEAR_ATTR && ch == ' ' # skip unpainted (transparent) cells
+            under = ba.unsafe_fetch(x)
+            folded = Colors.composite(patt, under)
+            result = op >= 1.0 ? folded : Colors.blend(folded, under, op)
+            if under != result || bc.unsafe_fetch(x) != ch
+              ba[x] = result
+              bc[x] = ch
+              if g = pr.grapheme_at?(x)
+                br.set_grapheme x, g
+              else
+                br.delete_grapheme x
+              end
+              changed = true
+            end
+          end
+          x += 1
+        end
+        br.dirty = true if changed
+        y += 1
+      end
+    end
+  end
+end

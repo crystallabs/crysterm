@@ -12,7 +12,10 @@
 #   • tint — pulse:     a fixed-color overlay whose strength pulses (Widget#tint_to)
 #
 # Below them, a static row shows the four per-cell `Attr::Alpha` compositing
-# modes (Opaque / Blend / Transparent / HighContrast) via `Colors.composite`.
+# modes (Opaque / Blend / Transparent / HighContrast) via `Colors.composite`,
+# and a `z-index` overlay demonstrates the plane compositor — the panels animate
+# *through* a translucent layer that paints opaquely (only a compositor can do
+# this; the flat painter's algorithm cannot).
 #
 # Set DEMO_SECONDS=N to auto-exit (for recording); otherwise press q / Ctrl-C.
 
@@ -92,6 +95,17 @@ under = Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(0x2a3050))
     content: "{center}\n#{name}{/center}", parse_tags: true,
     style: Style.new(fg: Colors.readable_on(swatch, 0x000000, 0xffffff), bg: swatch, border: true)
 end
+
+# 6. The PLANE COMPOSITOR (Step 6): a `z-index` promotes this overlay to its own
+# plane and `opacity` composites the whole plane over the base — so although it
+# paints opaquely, the live panels animate *through* it. The flat painter's
+# algorithm can't do this for an opaque widget; only a real compositor can.
+# Driven entirely from CSS — `z-index` is what makes a widget a layer.
+s.stylesheet = ".xray { background-color: #eaf2ff; color: #0c1830; border: solid; z-index: 50; opacity: 0.30; }"
+Widget::Box.new(
+  parent: s, top: 4, left: 21, width: 40, height: 5,
+  content: "{center}\n\nz-index overlay — panels animate through this translucent plane{/center}",
+  parse_tags: true).add_css_class "xray"
 
 Widget::Box.new \
   parent: s, top: 15, left: 0, width: "100%", height: 1,

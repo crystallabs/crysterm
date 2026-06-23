@@ -38,6 +38,11 @@ module Crysterm
 
     property items = [] of Widget::Box
 
+    # True only while this widget is being rendered as a layer root into its own
+    # `Plane` (see `Screen#composite_planes`). Its overall translucency then comes
+    # from the plane's opacity, so its render-time alpha self-blend is suppressed.
+    property compositing = false
+
     # Here be dragons
 
     # Renders all child elements into the output buffer.
@@ -87,7 +92,9 @@ module Crysterm
       scr = screen
       lines = scr.lines
       fu = scr.full_unicode?
-      style_alpha = style.alpha?
+      # A layer root's alpha is applied as its plane's opacity at composite time,
+      # so suppress the render-time self-blend while it paints into the plane.
+      style_alpha = @compositing ? nil : style.alpha?
       padding = style.padding
       xi = coords.xi
       xl = coords.xl

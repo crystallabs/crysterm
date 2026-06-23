@@ -31,6 +31,7 @@ require "./action"
 require "./cursor"
 
 require "./screen"
+require "./plane"
 require "./terminal/launchers"
 require "./terminal/handshake"
 require "./screen_connection"

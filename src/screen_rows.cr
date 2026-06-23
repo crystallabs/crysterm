@@ -268,6 +268,14 @@ module Crysterm
         @graphemes.try &.delete(index.to_i32)
       end
 
+      # Resets every cell to *attr*/*char* (and drops any grapheme overlay).
+      # Used to clear a `Plane`'s buffer to its transparent sentinel each frame.
+      def clear_to(attr : Int64, char : Char) : Nil
+        @attrs.fill attr
+        @chars.fill char
+        @graphemes.try &.clear
+      end
+
       # Appends a default (empty) cell.
       def push : Nil
         @attrs.push DEFAULT_ATTR

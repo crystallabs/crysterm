@@ -55,6 +55,8 @@ module Crysterm
           style.shadow = parse_box_shadow(value)
         when "tint"
           parse_tint(style, value)
+        when "z-index"
+          style.z_index = (value.strip == "auto" ? nil : value.to_i?)
         when "padding"
           style.padding = parse_padding(value)
         when "padding-left"
@@ -79,7 +81,7 @@ module Crysterm
       KNOWN = Set{
         "color", "background-color", "background", "font", "font-weight",
         "font-style", "text-decoration", "visibility", "display", "opacity",
-        "tab-size", "box-shadow", "tint", "padding", "padding-left", "padding-top",
+        "tab-size", "box-shadow", "tint", "z-index", "padding", "padding-left", "padding-top",
         "padding-right", "padding-bottom",
       }
 
