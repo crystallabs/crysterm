@@ -61,6 +61,13 @@ module Crysterm
       @extra_gap = 0
       @flex = Set(Widget).new
       @filled = Set(Widget).new
+      # Per-arrange cache of fixed children's resolved main-axis size, so the
+      # `a_main_size` (an `awidth`/`aheight` ancestor-chain walk) computed in
+      # `measure` is reused by `place` instead of walked a second time. Repopulated
+      # every `measure`; a child's main size is stable between the two passes (the
+      # only mutation in between is its cross-axis size, which the main axis does
+      # not depend on).
+      @measured = {} of Widget => Int32
 
       def initialize(
         @orientation : Orientation = Orientation::Horizontal,
@@ -91,11 +98,14 @@ module Crysterm
 
         fixed = 0
         grow = 0
+        @measured.clear
         children.each do |el|
           if main_flex? el
             grow += grow_of el
           else
-            fixed += a_main_size el
+            ms = a_main_size el
+            @measured[el] = ms
+            fixed += ms
           end
         end
 
@@ -146,7 +156,8 @@ module Crysterm
             @flex << el
             s
           else
-            a_main_size el
+            # Reuse the size measured for this fixed child in `measure`.
+            @measured[el]? || a_main_size el
           end
 
         set_main_pos el, @cursor

@@ -136,14 +136,20 @@ module Crysterm
       forward_missing_to @lines
     end
 
-    def process_content(no_tags = false)
+    # `awidth_hint`, when given, is this widget's already-resolved absolute width
+    # for the current frame — the render path knows it cheaply (the parent has
+    # rendered, so `awidth(true)` is an O(1) `lpos` read) and passes it in so the
+    # default `awidth` (`get: false`) ancestor-chain walk — which runs here every
+    # frame, before the parse cache is even consulted — is skipped. Off-render
+    # callers (resize/attach/scroll) omit it and resolve the width as before.
+    def process_content(no_tags = false, awidth_hint : Int32? = nil)
       # Content layout (wrapping/alignment) needs the owning screen's
       # dimensions, so there is nothing to do until the widget is attached.
       return false unless screen?
 
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
-      colwidth = awidth - iwidth
+      colwidth = (awidth_hint || awidth) - iwidth
       if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version
         # Single pass over the content instead of four chained `gsub`s (each of
         # which scanned the whole string and built an intermediate copy). The

@@ -39,10 +39,22 @@ module Crysterm
       return if running?
       @running = true
       @fiber = Fiber.new do
+        # Phase-lock to a moving deadline instead of `sleep @interval` after the
+        # work: the latter makes the real period `interval + tick_work`, which
+        # drifts slow and desyncs multiple timers sharing the same nominal clock.
+        next_at = Time.instant
         loop do
           break unless running?
           emit Crysterm::Event::Tick
-          sleep @interval
+          next_at += @interval
+          delay = next_at - Time.instant
+          if delay > Time::Span.zero
+            sleep delay
+          else
+            # Behind schedule (a slow tick or the process was paused): resync the
+            # phase to now rather than firing a burst of catch-up ticks.
+            next_at = Time.instant
+          end
         end
       end.enqueue
     end

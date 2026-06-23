@@ -139,14 +139,19 @@ module Crysterm
       (!o.nil? || o_opp.nil?) && o != "center"
     end
 
-    # Returns computed absolute left position
-    def aleft(get = false)
+    # Returns computed absolute left position.
+    #
+    # `width`, when given, is this widget's already-resolved `awidth(get)` — the
+    # right-anchored and `"center"` branches need it, and `_get_coords` has
+    # computed it once anyway, so passing it in avoids a second `awidth` walk per
+    # frame for those widgets. When nil it is resolved on demand as before.
+    def aleft(get = false, width = nil)
       # Original left
       oleft = @left
       oright = @right
 
       if oleft.nil? && !oright.nil?
-        return screen.awidth - awidth(get) - aright(get)
+        return screen.awidth - (width || awidth(get)) - aright(get)
       end
 
       parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
@@ -155,7 +160,7 @@ module Crysterm
       if left.is_a? String
         left = resolve_dimension(left, parent.awidth || 0, "center")
         if oleft == "center"
-          left -= (awidth(get)) // 2
+          left -= (width || awidth(get)) // 2
         end
       end
 
@@ -166,13 +171,16 @@ module Crysterm
       (parent.aleft || 0) + left
     end
 
-    # Returns computed absolute top position
-    def atop(get = false)
+    # Returns computed absolute top position. `height`, when given, is this
+    # widget's already-resolved `aheight(get)` — see `#aleft` for why this is
+    # passed in (avoids a redundant `aheight` walk for bottom-anchored /
+    # `"center"` widgets).
+    def atop(get = false, height = nil)
       otop = @top
       obottom = @bottom
 
       if otop.nil? && !obottom.nil?
-        return screen.aheight - aheight(get) - abottom(get)
+        return screen.aheight - (height || aheight(get)) - abottom(get)
       end
 
       parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
@@ -181,7 +189,7 @@ module Crysterm
       if top.is_a? String
         top = resolve_dimension(top, parent.aheight || 0, "center")
         if otop == "center"
-          top -= aheight(get) // 2
+          top -= (height || aheight(get)) // 2
         end
       end
 
@@ -307,10 +315,16 @@ module Crysterm
       #   get = true
       # end
 
-      xi = aleft(get)
-      xl = xi + awidth(get)
-      yi = atop(get)
-      yl = yi + aheight(get)
+      # Resolve each dimension once and reuse it for both the anchored-origin
+      # computation (`aleft`/`atop`) and the far edge (`xl`/`yl`). Without this,
+      # a right-anchored or `"center"`-positioned widget walked `awidth` twice
+      # (and likewise `aheight`) every frame.
+      w = awidth(get)
+      h = aheight(get)
+      xi = aleft(get, w)
+      xl = xi + w
+      yi = atop(get, h)
+      yl = yi + h
 
       # Informs us which side is partly hidden due to being enclosed in a
       # parent (and potentially scrollable) element. Will be set/computed later.

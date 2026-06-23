@@ -41,6 +41,16 @@ module Crysterm
       attr2code_impl bytes, 2, bytes.size - 1, cur, dfl
     end
 
+    # Converts a *bare* SGR parameter list — just the `;`-separated numbers, with
+    # no `\e[` framing and no trailing `m` (e.g. the `@csi_buf` a
+    # `TerminalEmulator` accumulates) — into our `Int64` attribute. Equivalent to
+    # `attr2code("\e[" + params + "m", cur, dfl)` but without building that
+    # bridging `String` on every SGR sequence the child terminal emits.
+    def self.attr2code_params(params : String, cur : Int64, dfl : Int64) : Int64
+      bytes = params.to_slice
+      attr2code_impl bytes, 0, bytes.size, cur, dfl
+    end
+
     # Parses an SGR sequence straight out of a `StringIndex` between the
     # codepoint index of its `\e` (*esc*) and that of its trailing `m`
     # (*finish*), with NO intermediate substring. This is the render hot path's

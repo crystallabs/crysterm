@@ -285,10 +285,20 @@ module Crysterm
     # render happens after each block call, the body only needs to update state.
     def every(interval : Time::Span, &block : ->) : Fiber
       spawn do
+        # Phase-lock to a moving deadline so the animation period stays
+        # `interval` regardless of how long `block`+`render` take, instead of
+        # `interval + work` (which drifts slower than the requested rate).
+        next_at = Time.instant
         loop do
           block.call
           render
-          sleep interval
+          next_at += interval
+          delay = next_at - Time.instant
+          if delay > Time::Span.zero
+            sleep delay
+          else
+            next_at = Time.instant
+          end
         end
       end
     end

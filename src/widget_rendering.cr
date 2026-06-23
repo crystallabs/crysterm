@@ -52,7 +52,12 @@ module Crysterm
         end
       end
 
-      process_content
+      # The parent has already rendered this frame (children render after their
+      # parent), so `awidth(true)` is an O(1) read of the parent's cached `lpos`.
+      # Hand it to `process_content` so its per-frame width resolution doesn't
+      # walk the ancestor chain with `awidth(false)` (O(depth)) just to compute
+      # the content column width.
+      process_content awidth_hint: awidth(true)
 
       # Pass the existing `@lpos` so `_get_coords` updates it in place instead of
       # allocating a fresh `LPos` for this widget on every frame (per-frame heap
@@ -212,6 +217,21 @@ module Crysterm
         end
       end
 
+      # Whether this widget is the selected item of a parent list, in which case
+      # its content keeps the default foreground (only bg/flags follow inline SGR
+      # changes). This is invariant for the whole render, so resolve it once here
+      # instead of re-walking the parent chain — and, for a multi-select list,
+      # re-running the O(n) `item_selected?` scan — on every SGR escape of every
+      # cell with colored content.
+      keep_selected_fg = parent.try do |parent2|
+        parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.item_selected?(self) # XXX && parent2.invert_selected
+      end || false
+
+      # The fill char as a one-codepoint `String`, materialized once per render
+      # (only on the full_unicode path that consumes it) instead of `ch.to_s` per
+      # fill cell. `ch` always equals `bch` on the no-content branch that uses it.
+      bch_str = fu ? bch.to_s : ""
+
       # Draw the content and background.
       # yi.step to: yl-1 do |y|
       (yi...yl).each do |y|
@@ -261,11 +281,10 @@ module Crysterm
               attr = scr.attr2code(content, ci - 1, m, attr, default_attr)
               ci = m + 1
               # Ignore foreground changes for selected items (keep the default
-              # foreground while letting the rest of the attr change).
-              parent.try do |parent2|
-                if parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.item_selected?(self) # XXX && parent2.invert_selected
-                  attr = Attr.pack(Attr.flags(attr), Attr.fg(default_attr), Attr.bg(attr))
-                end
+              # foreground while letting the rest of the attr change). The
+              # selection test is hoisted to `keep_selected_fg` above.
+              if keep_selected_fg
+                attr = Attr.pack(Attr.flags(attr), Attr.fg(default_attr), Attr.bg(attr))
               end
               ch = content[ci]? || bch
               ci += 1
@@ -347,7 +366,8 @@ module Crysterm
               end
             else
               # Fill char past the end of content: one codepoint, no clustering.
-              grapheme = ch.to_s
+              # `ch` equals `bch` here, so reuse the per-render `bch_str`.
+              grapheme = bch_str
             end
           end
 
@@ -471,7 +491,9 @@ module Crysterm
         left_attr = sattr border, border.left_fg, border.bg
         right_attr = sattr border, border.right_fg, border.bg
 
-        [yi, yl - 1].each do |y|
+        # `{yi, yl - 1}` is a stack-allocated tuple, not a heap `Array`, so the
+        # top/bottom row pair is iterated without per-frame allocation.
+        {yi, yl - 1}.each do |y|
           line = lines[y]?
           next if y == -1 || !line
 
@@ -510,7 +532,10 @@ module Crysterm
           line = lines[y]?
           next unless line
 
-          [xi, xl - 1].each do |x|
+          # `{xi, xl - 1}` is a stack-allocated tuple, replacing the heap
+          # `Array(Int32)` literal that was otherwise allocated on every interior
+          # border row, every frame, for every bordered widget.
+          {xi, xl - 1}.each do |x|
             # A 0-width left/right border was not expanded into its own column
             # (xi/xl-1 still sit on the content), so skip it like a
             # `no_left?`/`no_right?` clip instead of overwriting text.

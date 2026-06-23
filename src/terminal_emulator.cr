@@ -23,11 +23,14 @@ module Crysterm
   # same well-tested converter the rest of Crysterm uses, so 16/256/truecolour
   # all behave identically to native content.
   class TerminalEmulator
-    # One grid cell. A *class* (not a struct) so that in-place edits via
-    # `line[x].attr = …` write through — an `Array(struct)` would only mutate a
-    # copy. Allocation volume is modest (one per occupied cell) and can be
-    # optimised into parallel arrays later if it ever matters.
-    class Cell
+    # One grid cell. A `struct` so an `Array(Cell)` stores its cells inline in one
+    # contiguous buffer instead of as `@cols` separate heap objects per line —
+    # which dominated allocation on the hot scroll path (every scrolled line
+    # allocated a fresh `blank_line`). Because a struct read from `arr[x]` is a
+    # *copy*, cells are never mutated through the index (`arr[x].attr = …` would
+    # update the copy and be lost); writers replace the whole cell instead
+    # (`arr[x] = Cell.new(…)`). All such writers live in this file.
+    struct Cell
       property attr : Int64
       property char : Char
 
@@ -333,13 +336,73 @@ module Crysterm
 
     # ───────────────────────── CSI dispatch ─────────────────────────
 
-    private def params : Array(Int32)
-      @csi_buf.split(';').map { |s| s.empty? ? 0 : (s.to_i? || 0) }
+    # The n-th `;`-separated parameter in `@csi_buf` (0-based), parsed in place,
+    # or nil when there is no n-th field. An empty or non-numeric field reads as
+    # 0, matching the old `split(';').map { |s| s.to_i? || 0 }`. No allocation —
+    # this replaces the per-CSI `Array(String)` + `Array(Int32)` that `split`/
+    # `map` produced on every cursor move / SGR change a full-screen child emits.
+    private def csi_param_raw(n : Int32) : Int32?
+      buf = @csi_buf
+      ptr = buf.to_unsafe
+      size = buf.bytesize
+      field = 0
+      val = 0
+      bad = false # field holds a non-digit ⇒ `to_i?` would have failed ⇒ 0
+      idx = 0
+      while idx < size
+        b = ptr[idx].to_i
+        if b == ';'.ord
+          return (bad ? 0 : val) if field == n
+          field += 1
+          val = 0
+          bad = false
+        elsif '0'.ord <= b <= '9'.ord
+          val = val * 10 + (b - '0'.ord)
+        else
+          bad = true
+        end
+        idx += 1
+      end
+      return (bad ? 0 : val) if field == n
+      nil
     end
 
-    private def param(list : Array(Int32), n : Int32, default : Int32) : Int32
-      v = list[n]?
+    # The n-th parameter, falling back to `default` when it is absent or zero
+    # (the VT "missing/zero ⇒ default" rule). Mirrors the old `param`.
+    private def param(n : Int32, default : Int32) : Int32
+      v = csi_param_raw n
       (v.nil? || v == 0) ? default : v
+    end
+
+    # The n-th parameter as a raw code (absent ⇒ 0), for the handlers that want
+    # the literal value rather than the missing-⇒-default rule (`J`/`K`/`n`/`c`).
+    private def param0(n : Int32) : Int32
+      csi_param_raw(n) || 0
+    end
+
+    # Yields every `;`-separated parameter in turn (used by `set_mode`). Like the
+    # old `split(';')`, always yields at least one value (0 for an empty buffer).
+    private def each_csi_param(& : Int32 ->) : Nil
+      buf = @csi_buf
+      ptr = buf.to_unsafe
+      size = buf.bytesize
+      val = 0
+      bad = false
+      idx = 0
+      while idx < size
+        b = ptr[idx].to_i
+        if b == ';'.ord
+          yield(bad ? 0 : val)
+          val = 0
+          bad = false
+        elsif '0'.ord <= b <= '9'.ord
+          val = val * 10 + (b - '0'.ord)
+        else
+          bad = true
+        end
+        idx += 1
+      end
+      yield(bad ? 0 : val)
     end
 
     # Moves the cursor to a 0-based row, honouring origin mode: when set, the row
@@ -353,53 +416,52 @@ module Crysterm
     end
 
     private def dispatch_csi(c : Char) : Nil
-      p = params
       case c
-      when 'A'      then @y = Math.max(0, @y - param(p, 0, 1)); @wrap_pending = false
-      when 'B'      then @y = Math.min(@rows - 1, @y + param(p, 0, 1)); @wrap_pending = false
-      when 'C'      then @x = Math.min(@cols - 1, @x + param(p, 0, 1)); @wrap_pending = false
-      when 'D'      then @x = Math.max(0, @x - param(p, 0, 1)); @wrap_pending = false
-      when 'E'      then @x = 0; @y = Math.min(@rows - 1, @y + param(p, 0, 1))
-      when 'F'      then @x = 0; @y = Math.max(0, @y - param(p, 0, 1))
-      when 'G', '`' then @x = clamp(param(p, 0, 1) - 1, 0, @cols - 1); @wrap_pending = false
-      when 'd'      then set_row(param(p, 0, 1) - 1)
+      when 'A'      then @y = Math.max(0, @y - param(0, 1)); @wrap_pending = false
+      when 'B'      then @y = Math.min(@rows - 1, @y + param(0, 1)); @wrap_pending = false
+      when 'C'      then @x = Math.min(@cols - 1, @x + param(0, 1)); @wrap_pending = false
+      when 'D'      then @x = Math.max(0, @x - param(0, 1)); @wrap_pending = false
+      when 'E'      then @x = 0; @y = Math.min(@rows - 1, @y + param(0, 1))
+      when 'F'      then @x = 0; @y = Math.max(0, @y - param(0, 1))
+      when 'G', '`' then @x = clamp(param(0, 1) - 1, 0, @cols - 1); @wrap_pending = false
+      when 'd'      then set_row(param(0, 1) - 1)
       when 'H', 'f'
-        set_row(param(p, 0, 1) - 1)
-        @x = clamp(param(p, 1, 1) - 1, 0, @cols - 1)
+        set_row(param(0, 1) - 1)
+        @x = clamp(param(1, 1) - 1, 0, @cols - 1)
         @wrap_pending = false
-      when 'J' then erase_display(p[0]? || 0)
-      when 'K' then erase_line(p[0]? || 0)
-      when 'L' then insert_lines(param(p, 0, 1))
-      when 'M' then delete_lines(param(p, 0, 1))
-      when 'P' then delete_chars(param(p, 0, 1))
-      when '@' then insert_chars(param(p, 0, 1))
-      when 'X' then erase_chars(param(p, 0, 1))
-      when 'S' then param(p, 0, 1).times { scroll_up }
-      when 'T' then param(p, 0, 1).times { scroll_down }
+      when 'J' then erase_display(param0(0))
+      when 'K' then erase_line(param0(0))
+      when 'L' then insert_lines(param(0, 1))
+      when 'M' then delete_lines(param(0, 1))
+      when 'P' then delete_chars(param(0, 1))
+      when '@' then insert_chars(param(0, 1))
+      when 'X' then erase_chars(param(0, 1))
+      when 'S' then param(0, 1).times { scroll_up }
+      when 'T' then param(0, 1).times { scroll_down }
       when 'm' then apply_sgr
       when 'r'
-        top = param(p, 0, 1) - 1
-        bot = param(p, 1, @rows) - 1
+        top = param(0, 1) - 1
+        bot = param(1, @rows) - 1
         if top < bot && bot <= @rows - 1
           @scroll_top = Math.max(0, top)
           @scroll_bottom = Math.min(@rows - 1, bot)
           @x = 0
           @y = @origin_mode ? @scroll_top : 0 # DECSTBM homes the cursor
         end
-      when 'h' then set_mode true, p
-      when 'l' then set_mode false, p
+      when 'h' then set_mode true
+      when 'l' then set_mode false
       when 's' then save_cursor unless @csi_private
       when 'u' then restore_cursor unless @csi_private
-      when 'n' then device_status(p[0]? || 0)
-      when 'c' then respond("\e[?6c") if (p[0]? || 0) == 0 # VT102 Device Attributes
+      when 'n' then device_status(param0(0))
+      when 'c' then respond("\e[?6c") if param0(0) == 0 # VT102 Device Attributes
       else
         # Unimplemented final byte — ignored.
       end
     end
 
-    private def set_mode(on : Bool, p : Array(Int32)) : Nil
+    private def set_mode(on : Bool) : Nil
       return unless @csi_private
-      p.each do |mode|
+      each_csi_param do |mode|
         case mode
         when 25       then @cursor_hidden = !on # DECTCEM
         when 47, 1047 then on ? enter_alt(false) : leave_alt(false)
@@ -488,8 +550,10 @@ module Crysterm
     end
 
     private def apply_sgr : Nil
-      seq = "\e[" + @csi_buf + "m"
-      @cur_attr = Crysterm::Screen.attr2code(seq, @cur_attr, @default_attr)
+      # Parse the bare parameter list (`@csi_buf`) directly, instead of rebuilding
+      # a framed `"\e[" + @csi_buf + "m"` string only to have `attr2code`
+      # re-scan it — one fewer `String` allocation per SGR sequence.
+      @cur_attr = Crysterm::Screen.attr2code_params(@csi_buf, @cur_attr, @default_attr)
     end
 
     # ───────────────────────── editing primitives ─────────────────────────
@@ -512,18 +576,15 @@ module Crysterm
       # A wide glyph that would overrun the last column wraps to the next line,
       # leaving the final column blank (matching xterm).
       if w == 2 && @x == @cols - 1
-        cur_line[@x].attr = @cur_attr
-        cur_line[@x].char = ' '
+        cur_line[@x] = Cell.new(@cur_attr, ' ')
         @x = 0
         line_feed
       end
 
       line = cur_line
-      line[@x].attr = @cur_attr
-      line[@x].char = c
+      line[@x] = Cell.new(@cur_attr, c)
       if w == 2 && @x + 1 < @cols
-        line[@x + 1].attr = @cur_attr
-        line[@x + 1].char = CONTINUATION
+        line[@x + 1] = Cell.new(@cur_attr, CONTINUATION)
       end
 
       if @x + w >= @cols
@@ -621,10 +682,9 @@ module Crysterm
     private def erase_in_line(from : Int32, to : Int32) : Nil
       line = cur_line
       ea = erase_attr
+      blank = Cell.new(ea, ' ')
       (from..to).each do |xx|
-        next unless cell = line[xx]?
-        cell.attr = ea
-        cell.char = ' '
+        line[xx] = blank if xx < line.size
       end
     end
 

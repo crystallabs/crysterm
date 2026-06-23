@@ -54,8 +54,9 @@ module Crysterm
 
       w = codepoint_width first
       # An emoji-presentation selector (VS16) promotes a narrow base to a wide
-      # glyph.
-      if w < 2 && grapheme.includes? '\u{FE0F}'
+      # glyph. VS16 can only occur in a multi-codepoint cluster, so the common
+      # single-codepoint grapheme skips the full-string `includes?` byte scan.
+      if w < 2 && grapheme.size > 1 && grapheme.includes? '\u{FE0F}'
         w = 2
       end
       w
@@ -71,6 +72,10 @@ module Crysterm
     # zero-width), 2 (East-Asian-Wide / emoji), or 1 (everything else).
     def codepoint_width(char : Char) : Int32
       cp = char.ord
+      # Fast path for printable ASCII (the bulk of typical TUI content): always
+      # 1 column, never control/combining/zero-width/wide — so skip the
+      # `mark?` category lookup and the `wide?` binary search below.
+      return 1 if 0x20 <= cp <= 0x7E
       return 0 if cp == 0
       return 0 if char.control?
       return 0 if char.mark? # combining marks (see NOTE above re: Mc)
