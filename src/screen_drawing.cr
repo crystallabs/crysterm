@@ -209,6 +209,17 @@ module Crysterm
         o_attrs = o.attrs
         o_chars = o.chars
 
+        # Whether either side of this row carries a grapheme overlay, hoisted
+        # once. Under `full_unicode` the per-cell diff/BCE scans below otherwise
+        # probe `grapheme_at?` (a hash lookup) on every cell; when neither the new
+        # nor the old row has any overlay (the overwhelming majority, even in
+        # full-unicode mode) those probes all compare nil==nil and can be skipped
+        # wholesale. `false` when full_unicode is off, collapsing the guards to a
+        # constant.
+        l_has_g = fu && line.has_graphemes?
+        o_has_g = fu && o.has_graphemes?
+        any_g = l_has_g || o_has_g
+
         # ::Log.trace { line } if line.any? &.char.!=(' ')
 
         # Skip if no change in line
@@ -275,7 +286,9 @@ module Crysterm
               # multi-codepoint cluster is never a bare space even if its base
               # codepoint is one, so the overlay must be nil.
               clearable = lc_attr == desired_attr && lc_char == ' '
-              clearable &&= line.grapheme_at?(xx).nil? if fu
+              # Only probe the overlay when this row actually has one; with none,
+              # `grapheme_at?` is nil and `clearable &&= true` is a no-op.
+              clearable &&= line.grapheme_at?(xx).nil? if l_has_g
               unless clearable
                 clr = false
                 breaker = xx
@@ -284,7 +297,9 @@ module Crysterm
 
               # `line[xx] != o[xx]`: does this cell differ from what's on screen?
               changed = lc_attr != o_attrs.unsafe_fetch(xx) || lc_char != o_chars.unsafe_fetch(xx)
-              changed ||= line.grapheme_at?(xx) != o.grapheme_at?(xx) if fu
+              # With no overlay on either side both probes are nil, so the
+              # comparison is nil != nil (false) — skip it.
+              changed ||= line.grapheme_at?(xx) != o.grapheme_at?(xx) if any_g
               neq = true if changed
             end
 
@@ -397,7 +412,9 @@ module Crysterm
             unchanged = false
             {% unless flag?(:legacy_cell_eq) %}
               unchanged = o_attrs.unsafe_fetch(x) == desired_attr && o_chars.unsafe_fetch(x) == desired_char
-              unchanged &&= o.grapheme_at?(x) == line.grapheme_at?(x) if fu
+              # Skip the overlay compare when neither row has one (nil == nil is
+              # true, leaving `unchanged` as-is).
+              unchanged &&= o.grapheme_at?(x) == line.grapheme_at?(x) if any_g
             {% end %}
             if unchanged
               if lx == -1

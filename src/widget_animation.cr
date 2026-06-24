@@ -96,11 +96,17 @@ module Crysterm
       p = p.clamp(0.0, 1.0)
       a = stops.first
       b = stops.last
-      stops.each_cons(2) do |pair|
-        if p >= pair[0].offset && p <= pair[1].offset
-          a, b = pair[0], pair[1]
+      # Find the bracketing pair with a plain index loop instead of
+      # `each_cons(2)`, which allocates a backing array plus a fresh 2-element
+      # slice per call — and this runs once per tick (≈30fps) for every running
+      # CSS `@keyframes` animation, so that was per-tick GC garbage.
+      i = 0
+      while i < stops.size - 1
+        if p >= stops[i].offset && p <= stops[i + 1].offset
+          a, b = stops[i], stops[i + 1]
           break
         end
+        i += 1
       end
       span = b.offset - a.offset
       t = span > 0 ? (p - a.offset) / span : 0.0

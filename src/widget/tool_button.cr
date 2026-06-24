@@ -83,6 +83,10 @@ module Crysterm
 
       # Sets (or clears) the default action, mirroring its text onto the button.
       def action=(a : Action?) : Action?
+        # Idempotent: re-assigning the same action re-stamps identical content
+        # and requests a needless repaint, so skip it (the guard only matters
+        # because a render follows).
+        return a if a == @action
         @action = a
         if a && !a.text.empty?
           set_content with_indicator(a.text)
@@ -98,6 +102,8 @@ module Crysterm
 
       # Attaches (or clears) the popup menu, refreshing the `▾` indicator.
       def menu=(m : Menu?) : Menu?
+        # Idempotent: same menu → same indicator → no repaint needed.
+        return m if m == @menu
         @menu = m
         # Re-stamp the current label so the indicator is added/removed.
         set_content with_indicator(base_label)
