@@ -40,8 +40,14 @@ module Crysterm
     GraphStackedBar = Widget::Graph::StackedBar
     GraphCanvas     = Widget::Graph::Canvas
     GraphLineChart  = Widget::Graph::LineChart
+    GraphMap        = Widget::Graph::Map
+    GraphDonut      = Widget::Graph::Donut
     Painter         = Widget::Graph::Painter
     Gauge           = Widget::Gauge
+    GaugeList       = Widget::GaugeList
+
+    # A one-row `Graph::Bar` is a sparkline.
+    SparkLine = Widget::Graph::Bar
 
     # Effects
     EffectMatrix = Widget::Effect::Matrix
@@ -70,6 +76,8 @@ module Crysterm
     SpinBox       = Widget::SpinBox
     DoubleSpinBox = Widget::DoubleSpinBox
     TabWidget     = Widget::TabWidget
+    # A `TabWidget` with `auto_advance:` set is a carousel.
+    Carousel = Widget::TabWidget
     ComboBox      = Widget::ComboBox
     GroupBox      = Widget::GroupBox
     Splitter      = Widget::Splitter

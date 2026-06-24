@@ -58,7 +58,7 @@ module Crysterm
     # connection / `postEvent`).
     @ui_queue = Channel(Proc(Nil)).new 1024
 
-    # Minimum delay between frames (also the FPS cap, ~29 fps). Kept in seconds.
+    # Minimum delay between frames (also the FPS cap, ~60 fps). Kept in seconds.
     property interval : Float64 = Config.render_frame_interval
 
     # Monotonic time of the last completed render; nil until the first render so

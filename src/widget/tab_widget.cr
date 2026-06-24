@@ -52,10 +52,19 @@ module Crysterm
       # Whether the current tab can be reordered with `<`/`>`.
       property? movable : Bool = false
 
+      # When set, the widget behaves as a *carousel* (à la blessed-contrib's
+      # `carousel`): it auto-advances to the next tab every interval, wrapping at
+      # the end. `nil` disables it. Set via the constructor or `#auto_advance=`.
+      getter auto_advance : Time::Span?
+
+      # The running auto-advance timer, if any.
+      @carousel_timer : Animation?
+
       # Guards against the bar↔page selection feedback loop (see `#show_tab`).
       @switching = false
 
-      def initialize(tab_height = 1, tab_position : Position = :top, tabs_closable = false, movable = false, **box)
+      def initialize(tab_height = 1, tab_position : Position = :top, tabs_closable = false, movable = false,
+                     @auto_advance : Time::Span? = nil, **box)
         @tab_height = tab_height
         @tab_position = tab_position
         @tabs_closable = tabs_closable
@@ -97,6 +106,37 @@ module Crysterm
         # item box is itself the topmost widget under the pointer, so the click's
         # `Event::Mouse` is delivered to the *item*, not to the bar (mouse events
         # don't bubble) — a bar-level handler would never see clicks on a tab.
+
+        # Carousel auto-advance: start once attached to a screen (the timer needs
+        # one), and stop on destroy so it doesn't poke a dead widget.
+        on(::Crysterm::Event::Attach) { start_carousel }
+        on(::Crysterm::Event::Destroy) { stop_carousel }
+        start_carousel # in case we are already on a screen (parent: screen)
+      end
+
+      # Sets the carousel interval, (re)starting or stopping the timer. `nil`
+      # turns auto-advance off.
+      def auto_advance=(span : Time::Span?) : Time::Span?
+        @auto_advance = span
+        stop_carousel
+        start_carousel
+        span
+      end
+
+      # Starts the auto-advance timer if an interval is set and a screen is
+      # available. Idempotent (drops any prior timer first).
+      private def start_carousel : Nil
+        stop_carousel
+        span = @auto_advance
+        return unless span
+        scr = screen?
+        return unless scr
+        @carousel_timer = scr.every(span) { next_tab }
+      end
+
+      private def stop_carousel : Nil
+        @carousel_timer.try &.stop
+        @carousel_timer = nil
       end
 
       # Wires *item* (a tab's bar box) so a click on its right-most two cells —

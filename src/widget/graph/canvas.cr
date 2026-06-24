@@ -77,7 +77,13 @@ module Crysterm
           # the device exactly fills the interior.
           @device = Media.new(type: resolved, parent: self,
             top: 0, left: 0, right: 0, bottom: 0)
-          @device.as?(Media::Glyph).try { |g| g.mode = @glyph_mode }
+          @device.as?(Media::Glyph).try do |g|
+            g.mode = @glyph_mode
+            # Canvas content is vector art on a transparent background: key dots
+            # on opacity, not luminance, so dark strokes still render and each
+            # cell takes its drawn color (no luminance-threshold flicker).
+            g.alpha_key = true
+          end
 
           # Paint into the device's bitmap just before our children (the device)
           # render this frame. `PreRender` fires at the top of our own `_render`,

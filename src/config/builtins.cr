@@ -39,7 +39,7 @@ module Superconf
     description: "Policy for widgets larger than their container (ignore|hidden|shrink_widget|skip_widget|stop_rendering|move_widget)"
 
   # -- Rendering -------------------------------------------------------------
-  option "render.frame_interval", 1/29,
+  option "render.frame_interval", 1/60,
     description: "Minimum delay between frames in seconds (the FPS cap)",
     validate: ->(s : Float64) { s > 0 }
   option "render.fps_window", 30,

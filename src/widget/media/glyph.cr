@@ -44,6 +44,14 @@ module Crysterm
 
       getter mode : Mode
 
+      # Whether to key dots on *opacity* rather than luminance. For a photo, a
+      # `Braille` dot is on where the image is bright (luminance threshold). For
+      # *vector* content drawn on a transparent canvas (`Graph::Canvas`), that's
+      # wrong: a dark-but-drawn stroke (e.g. a donut's track) should still be a
+      # dot. With this on, a dot is on iff its pixel is opaque, and takes that
+      # pixel's own color — so each cell shows the color actually drawn there.
+      property? alpha_key : Bool = false
+
       # Minimum local luminance gradient (sum of |dx|+|dy|) for a cell to be
       # treated as an edge in `Ascii` mode and get a glyph.
       ASCII_EDGE = 28
@@ -108,8 +116,9 @@ module Crysterm
         sx, sy = @mode.subgrid
 
         # Braille is one colour per cell, so it needs a single global on/off
-        # threshold (a per-cell threshold would just produce ~50% noise).
-        thr = @mode.braille? ? global_threshold(bmp) : 0.0
+        # threshold (a per-cell threshold would just produce ~50% noise). Skipped
+        # under `#alpha_key?`, where opacity (not luminance) drives the dots.
+        thr = (@mode.braille? && !alpha_key?) ? global_threshold(bmp) : 0.0
 
         (yi...yl).each do |y|
           cy = y - yi
@@ -227,24 +236,36 @@ module Crysterm
       private def paint_braille(cell, sub, cx, cy, thr)
         mask = 0
         r = g = b = 0; n = 0
-        asum = 0.0; total = 0
+        on_asum = 0.0  # alpha of the *lit* dots only
+        off_asum = 0.0 # alpha of the unlit in-bounds dots
+        total = 0
         4.times do |dy|
           2.times do |dx|
             p = pix(sub, cx * 2 + dx, cy * 4 + dy)
             next unless p
             total += 1
-            asum += p.a
-            if lum(p) >= thr
+            on = alpha_key? ? p.a >= 128 : lum(p) >= thr
+            if on
               mask |= BRAILLE_BITS[dx][dy]
               r += p.r; g += p.g; b += p.b; n += 1
+              on_asum += p.a
+            else
+              off_asum += p.a
             end
           end
         end
         return if total == 0 # no in-bounds sub-pixels (letterbox): leave the cell
-        a = (asum / 255.0) / total
         if n == 0
-          apply cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT), a
+          # No lit dots: a blank cell whose opacity is the unlit pixels' mean
+          # alpha (so a transparent region leaves the cell untouched).
+          apply cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT), (off_asum / 255.0) / total
         else
+          # Opacity is the mean alpha of the *lit* dots, not of the whole cell:
+          # the unlit dots are conveyed by the glyph (their bit is off), so they
+          # must not dilute the lit dots' color toward the cell's existing
+          # foreground. Diluting them was what gave a partially-filled edge cell
+          # a muddy, non-matching tint.
+          a = (on_asum / 255.0) / n
           fg = ((r // n) << 16) | ((g // n) << 8) | (b // n)
           apply cell, (0x2800 + mask).chr, Attr.pack(0, Attr.pack_color(fg), Attr::COLOR_DEFAULT), a
         end

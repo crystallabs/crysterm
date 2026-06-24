@@ -134,6 +134,34 @@ module Crysterm
           ellipse dcx, dcy, drx.round.to_i, dry.round.to_i
         end
 
+        # Fills an annular sector (ring arc) in **device pixels**, centered at
+        # device (cx, cy), between `r_inner`..`r_outer` device-pixel radii, over
+        # `start_deg`..`start_deg + sweep_deg`. `0°` is up (12 o'clock), angles
+        # increase clockwise. The vertical radius is scaled by `#pixel_aspect` so
+        # the ring is physically round on non-square backends. Used by
+        # `Graph::Donut`; works in device space (not logical) so the geometry is
+        # independent of any window/viewport.
+        def fill_ring(cx : Int32, cy : Int32, r_inner : Number, r_outer : Number,
+                      start_deg : Number = 0.0, sweep_deg : Number = 360.0,
+                      step_deg : Number = 0.7) : Nil
+          ri = r_inner.to_f
+          ro = r_outer.to_f
+          return if ro <= 0
+          a = start_deg.to_f
+          stop = start_deg.to_f + sweep_deg.to_f
+          while a < stop
+            rad = (a - 90.0) * Math::PI / 180.0
+            ca = Math.cos rad
+            sa = Math.sin rad * @pixel_aspect
+            r = ri
+            while r <= ro
+              plot (cx + r * ca).round.to_i, (cy + r * sa).round.to_i
+              r += 0.5
+            end
+            a += step_deg.to_f
+          end
+        end
+
         # --- transform ---------------------------------------------------------
 
         private def dx(lx : Number) : Int32
