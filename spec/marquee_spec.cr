@@ -3,8 +3,10 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget::Marquee` scroll logic, driven headlessly over in-memory IOs so no real
-# terminal is touched. `#step` is pure (it only recomposes `content`; it does not
-# render or sleep), so it can be exercised directly without the animation fiber.
+# terminal is touched. The glyphs are painted straight into the screen cell
+# buffer in `#render` (`#step` only advances the frame clock), so these specs run
+# a real synchronous `Screen#_render` and inspect the resulting cells. `#render`
+# reads `@frame`, so frame 0 is the state *before* the first `#step`.
 
 private def marquee_screen
   Crysterm::Screen.new(
@@ -13,14 +15,27 @@ private def marquee_screen
     error: IO::Memory.new)
 end
 
+private def cell_char(screen, y, x)
+  screen.lines[y][x].char
+end
+
+private def cell_fg(screen, y, x)
+  Crysterm::Attr.unpack_color(Crysterm::Attr.fg(screen.lines[y][x].attr))
+end
+
+# The top content row, rendered, as a String.
+private def row0(screen, w)
+  String.build { |io| (0...w).each { |x| io << cell_char(screen, 0, x) } }
+end
+
 describe Crysterm::Widget::Marquee do
   it "renders an awidth-wide window onto the looping message" do
     s = marquee_screen
     m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 10, height: 1, text: "ABCDE"
     w = m.awidth
 
-    m.step
-    m.content.should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[x % 5] } }
+    s._render # frame 0
+    row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[x % 5] } }
   end
 
   it "scrolls right-to-left: one column per step" do
@@ -28,9 +43,9 @@ describe Crysterm::Widget::Marquee do
     m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 10, height: 1, text: "ABCDE"
     w = m.awidth
 
-    m.step # frame 0
-    m.step # frame 1 — window has shifted left by one column
-    m.content.should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[(1 + x) % 5] } }
+    m.step    # frame 1 — window has shifted left by one column
+    s._render
+    row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[(1 + x) % 5] } }
   end
 
   it "scrolls left-to-right in :right direction" do
@@ -39,8 +54,8 @@ describe Crysterm::Widget::Marquee do
       text: "ABCDE", direction: :right
     w = m.awidth
 
-    m.step # frame 0 — column x shows text[-x], using sign-safe modulo
-    m.content.should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[((0 - x) % 5)] } }
+    s._render # frame 0 — column x shows text[-x], using sign-safe modulo
+    row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[((0 - x) % 5)] } }
   end
 
   it "loops seamlessly through trailing-space gaps" do
@@ -48,10 +63,12 @@ describe Crysterm::Widget::Marquee do
     m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 4, height: 1, text: "AB  "
     w = m.awidth
 
+    s._render # frame 0
+    first = row0(s, w)
     # Over text.size steps the window returns to its starting frame.
-    first = (m.step; m.content)
     m.text.size.times { m.step }
-    m.content.should eq first
+    s._render
+    row0(s, w).should eq first
     w.should be > 0
   end
 
@@ -59,18 +76,21 @@ describe Crysterm::Widget::Marquee do
     s = marquee_screen
     m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 6, height: 1,
       text: "AB", rainbow: true
-    m.step
-    # Rainbow output carries per-glyph `{#rrggbb-fg}` tags and closing `{/}`.
-    m.content.should contain "-fg}"
-    m.content.should contain "{/}"
+    s._render # frame 0: columns show A B A B A B, all tinted
+    cell_char(s, 0, 0).should eq 'A'
+    cell_char(s, 0, 1).should eq 'B'
+    cell_fg(s, 0, 0).should_not eq(-1)
+    cell_fg(s, 0, 1).should_not eq(-1)
   end
 
   it "leaves spaces untinted under rainbow" do
     s = marquee_screen
     m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 4, height: 1,
       text: "    ", rainbow: true
-    m.step
-    # All spaces → no color tags emitted at all.
-    m.content.should_not contain "-fg}"
+    s._render
+    (0...4).each do |x|
+      cell_char(s, 0, x).should eq ' '
+      cell_fg(s, 0, x).should eq(-1) # spaces → nothing tinted
+    end
   end
 end

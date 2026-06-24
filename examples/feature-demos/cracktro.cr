@@ -154,7 +154,6 @@ s.every(0.07.seconds) do
       box.content = fch.to_s
       box.style.fg = Colors.hsv((i * 9 + frame * 6) % 360)
     end
-    box.clear_last_rendered_position
     box.left = col
     box.top = row
     box.style.bg = bg_under.call(row, frame)

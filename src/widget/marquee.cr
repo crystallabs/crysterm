@@ -25,8 +25,11 @@ module Crysterm
     # With `rainbow: true` each glyph carries its own hue, cycling across the
     # columns and over time — the classic demoscene color scroller.
     #
-    # NOTE: tag parsing is forced on (the rainbow path emits `{#rrggbb-fg}`
-    # tags), so a literal `{` in `text` would be interpreted as a tag.
+    # The glyphs are painted straight into the screen cells in `#render`, each
+    # cell's color set as a native `0xRRGGBB` attribute via `sattr`, rather than
+    # by building a `{#rrggbb-fg}`-tagged content string that the content pipeline
+    # re-tokenizes (`_parse_tags`) every frame. (Mirrors `Effect::SineScroller`
+    # and `Widget::Gradient`.)
     class Marquee < Box
       # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).
       # `#step` below supplies the per-frame work.
@@ -71,35 +74,46 @@ module Crysterm
         **box,
       )
         super **box
-        # The rainbow path emits `{#rrggbb-fg}` tags, so tag parsing must be on
-        # regardless of what the caller passed.
-        self.parse_tags = true
       end
 
-      # Builds one frame: the `awidth`-wide window onto the looping message, then
-      # advances by one column.
+      # Advance one column. Painting happens in `#render` (state-only, like
+      # `Effect::CopperBar#step`), which reads `@frame`.
       def step
-        w = awidth
-        n = text.size
-        return if w <= 0 || n == 0
+        @frame += 1
+      end
 
-        f = @frame
-        self.content = String.build do |io|
+      # Paints the `awidth`-wide window onto the looping message into the top
+      # content row, writing each glyph's cell directly with its native color.
+      # `_render` (via `with_inner_coords`) establishes this frame's coordinates;
+      # the box background is filled first, then the glyphs are laid over it.
+      def render
+        with_inner_coords do |xi, xl, yi, yl|
+          w = xl - xi
+          h = yl - yi
+          next if w <= 0 || h <= 0
+
+          # Background fill: the box's own colors (the field the glyphs ride over,
+          # and the inter-glyph gaps/spaces).
+          screen.fill_region(sattr(style), ' ', xi, xl, yi, yl)
+
+          n = text.size
+          next if n == 0
+
+          f = @frame
+          bg = style.bg
+          fg_default = style.fg
+
           (0...w).each do |x|
             # For `:left`, column x shows text[f + x] so that as f grows the row
             # shifts left; `:right` is the mirror. Crystal's `%` follows the
-            # divisor's sign, so the result is always a valid (non-negative) index.
+            # divisor's sign, so the index is always valid.
             idx = (direction.left? ? f + x : f - x) % n
             ch = text[idx]
-            if rainbow? && ch != ' '
-              io << '{' << Colors.hsv((x * @hue_spread + f * @hue_speed) % 360) << "-fg}" << ch << "{/}"
-            else
-              io << ch
-            end
+            next if ch == ' '
+            fg = rainbow? ? Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360) : fg_default
+            screen.fill_region(sattr(style, fg, bg), ch, xi + x, xi + x + 1, yi, yi + 1)
           end
         end
-
-        @frame += 1
       end
     end
   end
