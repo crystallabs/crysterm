@@ -111,11 +111,27 @@ module Crysterm
         # `Event::Mouse` is delivered to the *item*, not to the bar (mouse events
         # don't bubble) — a bar-level handler would never see clicks on a tab.
 
+        # Push any `TabWidget::tab` styling onto the tabs each frame (see
+        # `#sync_tab_style`). PreRender fires after the cascade and before the bar
+        # (a child) draws, so it lands even though `ListBar` snapshots each tab's
+        # style when the tab is first added.
+        on(::Crysterm::Event::PreRender) { sync_tab_style }
+
         # Carousel auto-advance: start once attached to a screen (the timer needs
         # one), and stop on destroy so it doesn't poke a dead widget.
         on(::Crysterm::Event::Attach) { start_carousel }
         on(::Crysterm::Event::Destroy) { stop_carousel }
         start_carousel # in case we are already on a screen (parent: screen)
+      end
+
+      # Applies a `TabWidget::tab` sub-style (Qt's `QTabBar::tab`) onto every tab
+      # in the bar. Guarded by `same?`: when no `::tab` rule matched, `style.tab`
+      # falls back to the widget's own style and this is a no-op, so the tabs keep
+      # `ListBar`'s default item styling and the default look is unchanged.
+      private def sync_tab_style : Nil
+        tab = style.tab
+        return if tab.same?(style)
+        bar.items.each { |it| it.styles.normal = tab }
       end
 
       # Sets the carousel interval, (re)starting or stopping the timer. `nil`

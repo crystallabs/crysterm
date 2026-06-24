@@ -159,6 +159,24 @@ describe "CSS end-to-end rendering" do
     magentas.should be > 0
   end
 
+  it "paints TabWidget::tab color onto the tab strip" do
+    screen = render_screen
+    tabs = Widget::TabWidget.new width: 40, height: 10
+    tabs.add_tab "One", Widget::Box.new
+    tabs.add_tab "Two", Widget::Box.new
+    screen.append tabs
+    screen.stylesheet = "TabWidget::tab { color: #ff00ff; }"
+    screen._render
+
+    # the tab labels in the strip are drawn from the pushed tab sub-style
+    magentas = 0
+    (0...screen.height).each do |y|
+      next unless screen.lines[y]?
+      (0...screen.width).each { |x| magentas += 1 if cell_fg(screen, y, x) == 0xff00ff }
+    end
+    magentas.should be > 0
+  end
+
   it "reflects a restyle in the next render" do
     screen = render_screen
     box = Widget::Box.new parent: screen, top: 1, left: 1, width: 10, height: 5

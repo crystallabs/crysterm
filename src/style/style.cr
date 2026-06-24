@@ -306,6 +306,15 @@ module Crysterm
       @separator || self
     end
 
+    # Style used for a `Widget::TabWidget` tab (Qt's `QTabBar::tab`). Defaults to
+    # `self`; `TabWidget` only pushes it onto its tabs when a `TabWidget::tab` rule
+    # actually set it (i.e. `tab.same?(self)` is false).
+    setter tab : Style?
+
+    def tab
+      @tab || self
+    end
+
     # Label value is used only when internally instantiating labels on widgets,
     # to be able to set their: `style: self.style.label`. Since labels are
     # widgets, everything after that is done by looking up `@_label.style....`.
@@ -380,6 +389,7 @@ module Crysterm
       @item = inline.@item if inline.@item
       @prefix = inline.@prefix if inline.@prefix
       @separator = inline.@separator if inline.@separator
+      @tab = inline.@tab if inline.@tab
       @scrollbar = inline.@scrollbar if inline.@scrollbar
       @track = inline.@track if inline.@track
     end
@@ -397,6 +407,7 @@ module Crysterm
       @item = @item,
       @prefix = @prefix,
       @separator = @separator,
+      @tab = @tab,
       @header = @header,
       @cell = @cell,
       @label = @label,

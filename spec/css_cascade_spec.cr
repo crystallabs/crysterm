@@ -697,6 +697,32 @@ describe "CSS cascade" do
     menu.style.separator.fg.should eq rgb("red")
   end
 
+  it "routes TabWidget::tab onto the bar's tabs (PreRender bridge)" do
+    screen = headless_screen
+    tabs = Widget::TabWidget.new width: 40, height: 10
+    tabs.add_tab "One", Widget::Box.new
+    tabs.add_tab "Two", Widget::Box.new
+    screen.append tabs
+    screen.stylesheet = "TabWidget::tab { color: red; }"
+    screen.apply_stylesheet
+    tabs.style.tab.fg.should eq rgb("red") # cascade computed the slot
+    screen._render                         # PreRender pushes it onto each tab
+    tabs.bar.items.each { |it| it.styles.normal.fg.should eq rgb("red") }
+  end
+
+  it "leaves tabs at their default style when no TabWidget::tab rule matches" do
+    screen = headless_screen
+    tabs = Widget::TabWidget.new width: 40, height: 10
+    tabs.add_tab "One", Widget::Box.new
+    screen.append tabs
+    screen.stylesheet = "Box { color: green; }" # unrelated rule
+    screen.apply_stylesheet
+    screen._render
+    # `style.tab` fell back to `self`, so the bridge is a no-op and the tabs keep
+    # ListBar's own item styling (the default look is unchanged).
+    tabs.style.tab.same?(tabs.style).should be_true
+  end
+
   it "loads and reloads a stylesheet from a file" do
     path = File.tempname("crysterm-css", ".css")
     File.write(path, "Box { color: red; }")

@@ -27,6 +27,12 @@ module Crysterm
       end
     end
 
+    class TabWidget
+      def css_sub_elements : Array(String)
+        super + ["tab"]
+      end
+    end
+
     # NOTE: `Table` and `ListTable` expose their cells as individual per-cell
     # nodes (`Cell`/`Header`/`Row`) instead of representative header/cell/
     # alternate slots — see `table_cells.cr`.
