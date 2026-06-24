@@ -9,7 +9,7 @@ module Crysterm
     # plain percentages (`bar.filled = 50`) — both stay consistent.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ProgressBar screenshot](../../examples/widget/progressbar/progressbar-capture.png)
+    # ![ProgressBar screenshot](../../examples/widget/progressbar/progressbar-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class ProgressBar < Input
       # Lower/upper bounds of the value range (inclusive), like Qt's

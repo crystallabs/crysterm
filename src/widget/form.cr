@@ -30,7 +30,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Form screenshot](../../examples/widget/form/form-capture.png)
+    # ![Form screenshot](../../examples/widget/form/form-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Form < Box
       # When enabled, pressing `Enter` in a `TextBox` child moves focus to the

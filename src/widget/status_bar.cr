@@ -17,7 +17,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![StatusBar screenshot](../../examples/widget/status_bar/status_bar-capture.png)
+    # ![StatusBar screenshot](../../examples/widget/status_bar/status_bar-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class StatusBar < Box
       # The current temporary (left-aligned) message.

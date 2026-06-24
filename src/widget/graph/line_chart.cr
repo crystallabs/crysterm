@@ -34,7 +34,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![LineChart screenshot](../../../examples/widget/graph/line_chart/line_chart-capture.png)
+      # ![LineChart screenshot](../../../examples/widget/graph/line_chart/line_chart-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class LineChart < Box
         # A `QValueAxis`-like value axis. `#minimum`/`#maximum` of `nil` auto-range

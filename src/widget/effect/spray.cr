@@ -28,7 +28,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Spray screenshot](../../../examples/widget/effect/spray/spray-capture.png)
+      # ![Spray screenshot](../../../examples/widget/effect/spray/spray-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Spray < Box
         include Animated

@@ -19,7 +19,7 @@ module Crysterm
     # only its hour/minute/second are shown and edited.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![TimeEdit screenshot](../../examples/widget/time_edit/time_edit-capture.png)
+    # ![TimeEdit screenshot](../../examples/widget/time_edit/time_edit-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class TimeEdit < Input
       include Mixin::SectionedField

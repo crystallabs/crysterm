@@ -36,6 +36,10 @@ module Crysterm
       # full-screen scroller emits one color run per column, so the tag reparse
       # was this widget's dominant per-frame cost; the direct path skips it
       # entirely. (This mirrors how `Widget::Gradient` paints its cells.)
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![SineScroller screenshot](../../../examples/widget/effect/sine_scroller/sine_scroller-capture5s.apng)
+      # <!-- /widget-examples:capture -->
       class SineScroller < Box
         include Animated
 

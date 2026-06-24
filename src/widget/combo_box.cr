@@ -21,7 +21,7 @@ module Crysterm
     # uses for child widgets).
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ComboBox screenshot](../../examples/widget/combo_box/combo_box-capture.png)
+    # ![ComboBox screenshot](../../examples/widget/combo_box/combo_box-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class ComboBox < Input
       # Pop-up lifecycle (open flag, modal grab, outside-click dismissal, grab

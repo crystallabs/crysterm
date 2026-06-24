@@ -17,7 +17,7 @@ module Crysterm
       # emits `Event::ActionItem`, so callers can hook in instead).
       #
       # <!-- widget-examples:capture v1 -->
-      # ![MainMenu screenshot](../../../examples/widget/pine/main_menu/main_menu-capture.png)
+      # ![MainMenu screenshot](../../../examples/widget/pine/main_menu/main_menu-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class MainMenu < Widget::List
         # A single selectable menu command.

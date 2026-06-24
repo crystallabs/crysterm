@@ -15,7 +15,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ListBar screenshot](../../examples/widget/listbar/listbar-capture.png)
+    # ![ListBar screenshot](../../examples/widget/listbar/listbar-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class ListBar < Box
       # A single command/tab shown in a `ListBar`.

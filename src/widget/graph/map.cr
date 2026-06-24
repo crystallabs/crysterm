@@ -32,7 +32,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Map screenshot](../../../examples/widget/graph/map/map-capture.png)
+      # ![Map screenshot](../../../examples/widget/graph/map/map-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Map < Box
         # A coordinate-placed marker (Qt's `MapQuickItem`).

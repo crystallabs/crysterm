@@ -12,7 +12,7 @@ module Crysterm
     # Emits `Event::ValueChange` on every change.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Dial screenshot](../../examples/widget/dial/dial-capture.png)
+    # ![Dial screenshot](../../examples/widget/dial/dial-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Dial < Input
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,

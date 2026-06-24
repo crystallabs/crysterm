@@ -5,7 +5,7 @@ module Crysterm
     # Abstract input element
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Input screenshot](../../examples/widget/input/input-capture.png)
+    # ![Input screenshot](../../examples/widget/input/input-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Input < Box
       @input = true

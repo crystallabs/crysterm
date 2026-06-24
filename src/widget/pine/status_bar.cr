@@ -8,7 +8,7 @@ module Crysterm
       # Update the text at runtime via `status_bar.status.content = "..."`.
       #
       # <!-- widget-examples:capture v1 -->
-      # ![StatusBar screenshot](../../../examples/widget/pine/status_bar/status_bar-capture.png)
+      # ![StatusBar screenshot](../../../examples/widget/pine/status_bar/status_bar-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class StatusBar < Widget::Box
         getter status : Widget::Box

@@ -28,7 +28,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Matrix screenshot](../../../examples/widget/effect/matrix/matrix-capture.png)
+      # ![Matrix screenshot](../../../examples/widget/effect/matrix/matrix-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Matrix < Box
         include Effect::Direct
@@ -64,10 +64,14 @@ module Crysterm
           super **box
         end
 
-        # (Re)initialize per-column state for *w* columns and *h* rows. Heads start
-        # at random negative offsets so the rain doesn't all begin at the top.
+        # (Re)initialize per-column state for *w* columns and *h* rows. Heads are
+        # scattered over `[-h, h)` rather than only above the top: roughly half
+        # begin already on-screen (at random heights) so the very first frame is
+        # already full of rain, while the rest fall in from above — so a fresh
+        # widget (or a single screenshot of it) looks established immediately,
+        # with no empty warm-up.
         def resize(w, h)
-          @heads = Array.new(w) { -rand(0..h).to_f }
+          @heads = Array.new(w) { (rand(2 * h) - h).to_f }
           @speeds = Array.new(w) { 0.25 + rand * 0.7 }
           @lengths = Array.new(w) { 6 + rand(10) }
         end

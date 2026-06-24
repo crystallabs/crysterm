@@ -25,7 +25,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ScrollBar screenshot](../../examples/widget/scrollbar/scrollbar-capture.png)
+    # ![ScrollBar screenshot](../../examples/widget/scrollbar/scrollbar-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class ScrollBar < Input
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`,

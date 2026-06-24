@@ -29,7 +29,7 @@ module Crysterm
     # `Button`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ToolButton screenshot](../../examples/widget/tool_button/tool_button-capture.png)
+    # ![ToolButton screenshot](../../examples/widget/tool_button/tool_button-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class ToolButton < Button
       # How a `#menu` is summoned (see the class docs).

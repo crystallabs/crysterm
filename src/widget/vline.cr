@@ -5,7 +5,7 @@ module Crysterm
     # Vertical line
     #
     # <!-- widget-examples:capture v1 -->
-    # ![VLine screenshot](../../examples/widget/vline/vline-capture.png)
+    # ![VLine screenshot](../../examples/widget/vline/vline-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class VLine < Line
       @orientation = :vertical
@@ -16,7 +16,7 @@ module Crysterm
     end
 
     # <!-- widget-examples:capture v1 -->
-    # ![VLine screenshot](../../examples/widget/vline/vline-capture.png)
+    # ![VLine screenshot](../../examples/widget/vline/vline-capture5s.apng)
     # <!-- /widget-examples:capture -->
     alias Vline = VLine
   end

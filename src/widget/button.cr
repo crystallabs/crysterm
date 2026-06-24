@@ -11,7 +11,7 @@ module Crysterm
     # `QPushButton` or a `QToolButton`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Button screenshot](../../examples/widget/button/button-capture.png)
+    # ![Button screenshot](../../examples/widget/button/button-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Button < Input
       include EventHandler

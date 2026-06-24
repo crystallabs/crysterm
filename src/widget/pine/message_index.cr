@@ -14,7 +14,7 @@ module Crysterm
       # activates the message (runs its `callback` and emits `Event::ActionItem`).
       #
       # <!-- widget-examples:capture v1 -->
-      # ![MessageIndex screenshot](../../../examples/widget/pine/message_index/message_index-capture.png)
+      # ![MessageIndex screenshot](../../../examples/widget/pine/message_index/message_index-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class MessageIndex < Widget::List
         # A single message row.

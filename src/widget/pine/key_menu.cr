@@ -25,7 +25,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![KeyMenu screenshot](../../../examples/widget/pine/key_menu/key_menu-capture.png)
+      # ![KeyMenu screenshot](../../../examples/widget/pine/key_menu/key_menu-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class KeyMenu < Widget::Box
         # A single command hint in the menu.

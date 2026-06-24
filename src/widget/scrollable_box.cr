@@ -9,7 +9,7 @@ module Crysterm
     # base `Widget` (`widget_scrolling.cr`); this only wires the keys.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ScrollableBox screenshot](../../examples/widget/scrollable_box/scrollable_box-capture.png)
+    # ![ScrollableBox screenshot](../../examples/widget/scrollable_box/scrollable_box-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class ScrollableBox < Box
       @scrollable = true

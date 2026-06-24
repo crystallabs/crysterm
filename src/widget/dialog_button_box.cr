@@ -26,7 +26,7 @@ module Crysterm
     # gives access to a specific one for custom handling.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![DialogButtonBox screenshot](../../examples/widget/dialog_button_box/dialog_button_box-capture.png)
+    # ![DialogButtonBox screenshot](../../examples/widget/dialog_button_box/dialog_button_box-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class DialogButtonBox < Box
       # The set of standard buttons (a flags enum, combine with `|`). The label

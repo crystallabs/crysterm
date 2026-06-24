@@ -28,7 +28,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![StackedBar screenshot](../../../examples/widget/graph/stacked_bar/stacked_bar-capture.png)
+      # ![StackedBar screenshot](../../../examples/widget/graph/stacked_bar/stacked_bar-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class StackedBar < Box
         # Default segment palette, cycled by stack level.
@@ -79,6 +79,7 @@ module Crysterm
         # Accepts any array-of-numeric-arrays, coercing to `Float64`.
         def values=(vals : Array)
           @values = vals.map { |bar| bar.map(&.to_f) }
+          mark_dirty # repaint on data change (Qt's property-change-triggers-update)
         end
 
         def render

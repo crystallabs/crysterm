@@ -24,7 +24,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![MenuBar screenshot](../../examples/widget/menu_bar/menu_bar-capture.png)
+    # ![MenuBar screenshot](../../examples/widget/menu_bar/menu_bar-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class MenuBar < ListBar
       # The pop-up menus, parallel to the bar's commands/items.

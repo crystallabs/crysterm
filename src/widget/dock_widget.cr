@@ -18,7 +18,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![DockWidget screenshot](../../examples/widget/dock_widget/dock_widget-capture.png)
+    # ![DockWidget screenshot](../../examples/widget/dock_widget/dock_widget-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class DockWidget < Box
       # Where the dock sits in a `MainWindow` (or `Floating`, positioned freely).

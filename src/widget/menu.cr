@@ -21,7 +21,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Menu screenshot](../../examples/widget/menu/menu-capture.png)
+    # ![Menu screenshot](../../examples/widget/menu/menu-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Menu < List
       # Optional title, shown as the widget's label.

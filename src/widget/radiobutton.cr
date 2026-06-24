@@ -5,7 +5,7 @@ module Crysterm
     # Radio button element
     #
     # <!-- widget-examples:capture v1 -->
-    # ![RadioButton screenshot](../../examples/widget/radiobutton/radiobutton-capture.png)
+    # ![RadioButton screenshot](../../examples/widget/radiobutton/radiobutton-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class RadioButton < Checkbox
       include EventHandler

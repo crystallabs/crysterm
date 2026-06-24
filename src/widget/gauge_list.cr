@@ -18,7 +18,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![GaugeList screenshot](../../examples/widget/gauge_list/gauge_list-capture.png)
+    # ![GaugeList screenshot](../../examples/widget/gauge_list/gauge_list-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class GaugeList < Box
       # One gauge row.

@@ -22,7 +22,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Table screenshot](../../examples/widget/table/table-capture.png)
+    # ![Table screenshot](../../examples/widget/table/table-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Table < Box
       include TableLayout
@@ -107,10 +107,34 @@ module Crysterm
       end
 
       def render(with_children = true)
+        # Re-pin the size now that the CSS cascade has run (it runs at the top of
+        # the screen's `_render`, before any widget renders). `set_data` pins the
+        # width at construction/Attach time, but a border arriving via CSS isn't
+        # folded into `style` yet then, so `iwidth` would omit the two border
+        # columns and leave the box two columns too narrow — the internal
+        # separators (drawn against the post-cascade `coords`) would then
+        # overshoot the right edge.
+        #
+        # The height is pinned to the content too: a `Table` is a static,
+        # content-sized element (unlike the scrollable `ListTable`), and its
+        # cell-border junctions are placed relative to the *content* rows. If the
+        # box were taller than the content (e.g. an explicit `height:` larger
+        # than the rows need), the box's bottom edge would sit a row below the
+        # last junction, leaving a malformed half-drawn separator in the gap. The
+        # content is `render_row` lines joined by a blank separator line, so it
+        # spans `2*rows - 1` grid rows, plus the top/bottom insets.
+        #
+        # Both are assigned directly (not via `width=`/`height=`) to avoid the
+        # `Resize`-before-store recursion our own `Resize` handler would trigger.
+        calculate_maxes
+        unless @maxes.empty?
+          @width = row_width + iwidth
+          @height = Math.max(0, 2 * @rows.size - 1) + iheight
+        end
+
         coords = super
         return coords unless coords
 
-        calculate_maxes
         return coords if @maxes.empty?
 
         draw_borders coords

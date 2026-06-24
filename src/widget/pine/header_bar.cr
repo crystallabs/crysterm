@@ -17,7 +17,7 @@ module Crysterm
       # `header.section.content = "..."`, etc.
       #
       # <!-- widget-examples:capture v1 -->
-      # ![HeaderBar screenshot](../../../examples/widget/pine/header_bar/header_bar-capture.png)
+      # ![HeaderBar screenshot](../../../examples/widget/pine/header_bar/header_bar-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class HeaderBar < Widget::Box
         getter title : Widget::Box

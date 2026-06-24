@@ -14,7 +14,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![StackedWidget screenshot](../../examples/widget/stacked_widget/stacked_widget-capture.png)
+    # ![StackedWidget screenshot](../../examples/widget/stacked_widget/stacked_widget-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class StackedWidget < Box
       # The pages, in insertion order.
