@@ -38,6 +38,9 @@ module Crysterm
     # Graphs
     GraphBar        = Widget::Graph::Bar
     GraphStackedBar = Widget::Graph::StackedBar
+    GraphCanvas     = Widget::Graph::Canvas
+    GraphLineChart  = Widget::Graph::LineChart
+    Painter         = Widget::Graph::Painter
     Gauge           = Widget::Gauge
 
     # Effects

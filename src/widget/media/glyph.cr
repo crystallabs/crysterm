@@ -61,6 +61,21 @@ module Crysterm
         source
       end
 
+      # Native resolution is the cell box times this mode's sub-cell grid (e.g.
+      # 2×4 for braille/octant), so a `Graph::Canvas` bitmap maps one pixel per
+      # sub-cell dot — crisp, no resampling.
+      def native_resolution(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
+        sx, sy = @mode.subgrid
+        {cols * sx, rows * sy}
+      end
+
+      # A sub-cell pixel is `(cell_w/sx) × (cell_h/sy)`; with a ~1:2 cell this is
+      # square for braille/octant (2×4) and half (1×2), wide for block/quadrant.
+      def native_pixel_aspect : Float64
+        sx, sy = @mode.subgrid
+        sy / (2.0 * sx)
+      end
+
       # Switches glyph family; the next render re-samples at the new sub-cell
       # resolution (rebuilding animation frames if the image is animated).
       def mode=(m : Mode)

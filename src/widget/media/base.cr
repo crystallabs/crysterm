@@ -105,6 +105,45 @@ module Crysterm
         load file
       end
 
+      # Sets the backend's source directly from an in-memory RGBA bitmap, instead
+      # of decoding a file. Wraps it as a single-frame `PNGGIF::PNG` so the whole
+      # existing sample/compose/render pipeline (every backend family) renders it
+      # unchanged. This is the entry point `Graph::Canvas` uses to display a
+      # freshly painted frame; it clears any per-size sample cache so a live,
+      # same-size update re-renders. The bitmap must be non-empty.
+      def bitmap=(bmp : PNGGIF::Bitmap) : PNGGIF::Bitmap
+        h = bmp.size
+        w = h > 0 ? bmp[0].size : 0
+        raise ArgumentError.new("Media#bitmap=: empty bitmap") if w <= 0 || h <= 0
+        @file = nil
+        @load_failed = false
+        @src_frames = nil
+        @source = PNGGIF::PNG.from_frames([{bmp, 0}], w, h)
+        reset_sample_cache
+        bmp
+      end
+
+      # The backend's native pixel resolution for a *cols*×*rows* content box —
+      # the size `Graph::Canvas` should allocate its bitmap at so this backend
+      # renders it crisply (no resampling). Default is one pixel per cell; the
+      # sub-cell (`Glyph`) and true-pixel (`Graphics`) families override it.
+      def native_resolution(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
+        {cols, rows}
+      end
+
+      # Physical width:height of one of this backend's device pixels (1.0 = square),
+      # for `Graph::Painter#pixel_aspect` so circles stay round. Default assumes a
+      # ~1:2 cell (one pixel per cell). Overridden by `Glyph` (sub-cell) and
+      # `Graphics` (true square pixels).
+      def native_pixel_aspect : Float64
+        0.5
+      end
+
+      # Hook: drop any cached per-size sample so the next render re-derives it from
+      # the (newly set) source. No-op here; `Media::Cells` overrides it.
+      protected def reset_sample_cache : Nil
+      end
+
       # Clears the loaded image and stops any animation. Subclasses override to
       # also drop their own caches, calling `super` to run this base cleanup.
       def clear_image

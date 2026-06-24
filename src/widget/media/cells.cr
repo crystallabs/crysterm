@@ -62,6 +62,16 @@ module Crysterm
         @frame_cache.delete idx
       end
 
+      # A directly-injected bitmap (`Media::Base#bitmap=`) changes content without
+      # changing box size, so clear the per-size sample so the next render
+      # re-samples it (live `Graph::Canvas` updates).
+      protected def reset_sample_cache : Nil
+        @animated = false
+        @frame_cache.clear
+        @rendered_size = nil
+        @sample = nil
+      end
+
       # Hook: called after a successful decode (e.g. `Media::Ansi` sizes the widget
       # to the image when no explicit size was given). Default does nothing.
       protected def on_loaded(png : PNGGIF::PNG)

@@ -184,6 +184,7 @@ module Crysterm
         Image         # a single still image (Qt Quick: Image)
         AnimatedImage # an animated image — GIF / APNG (Qt Quick: AnimatedImage)
         Video         # a video file, decoded via `Media::VideoSource` (Qt Quick: Video)
+        Painter       # vector/line-art rasterized fresh each frame (`Graph::Canvas`)
       end
 
       # The default backend when `type:` is not given, resolved from the config
@@ -251,6 +252,11 @@ module Crysterm
         in Content::Video
           # iTerm2 / external overlays can't stream raw frames; excluded.
           [Type::Kitty, Type::Sixel, Type::Glyph, Type::Ansi]
+        in Content::Painter
+          # Vector strokes: Sixel's crisp pixel control beats iTerm's per-frame
+          # re-blit for thin lines, so it ranks above iTerm here. `Glyph` (braille
+          # by default, set on `Graph::Canvas`) is the universal sub-cell fallback.
+          [Type::Kitty, Type::Sixel, Type::Iterm, Type::Glyph, Type::Ansi]
         end
       end
 

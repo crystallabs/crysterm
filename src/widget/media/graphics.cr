@@ -49,6 +49,17 @@ module Crysterm
       property cell_pixel_width : Int32
       property cell_pixel_height : Int32
 
+      # Native resolution is the cell box times the (probed) cell pixel size, so a
+      # `Graph::Canvas` bitmap is drawn at the terminal's true pixel resolution.
+      def native_resolution(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
+        {cols * @cell_pixel_width, rows * @cell_pixel_height}
+      end
+
+      # True terminal pixels are square.
+      def native_pixel_aspect : Float64
+        1.0
+      end
+
       # Present each frame's emit atomically by wrapping it in a synchronized
       # output (DEC private mode 2026) update, so the terminal never shows a
       # partial/torn frame or a mid-update blank. `Media::Kitty` additionally

@@ -35,7 +35,13 @@ module Crysterm
 
       case width
       when String
-        return resolve_dimension(width, parent.awidth || 0, "half")
+        # A percentage is of the parent's *content* area (inside its border/
+        # padding), like CSS `width: 100%` — so `width: "100%"` fills the
+        # interior of a bordered parent rather than overrunning it. For a parent
+        # with no insets (e.g. a screen child) this is unchanged. The matching
+        # `aleft` adds the parent's near inset, so a `left: 0` child sits just
+        # inside the border and a `"100%"` child reaches exactly the far inset.
+        return resolve_dimension(width, (parent.awidth || 0) - parent.ileft - parent.iright, "half")
       end
 
       # This is for if the element is being stretched or shrunken.
@@ -78,7 +84,9 @@ module Crysterm
 
       case height
       when String
-        return resolve_dimension(height, parent.aheight || 0, "half")
+        # Percentage of the parent's *content* height (inside border/padding);
+        # see `awidth` for the rationale (CSS-like, fills the interior).
+        return resolve_dimension(height, (parent.aheight || 0) - parent.itop - parent.ibottom, "half")
       end
 
       # This is for if the element is being stretched or shrunken.
