@@ -10,32 +10,34 @@
 #          src/widget/button.cr    -> examples/widget/button/
 #          src/widget/graph/bar.cr -> examples/widget/graph/bar/
 #          src/layout/hbox.cr      -> examples/layout/hbox/
-#   2. Writes one (or, rarely, several) *minimal* example(s) into that directory,
-#      each named after the item (`button.cr`, or `button2.cr`, ...). Existing
-#      files are left untouched unless `--force` is given.
-#   3. Renders the example headlessly and saves a still beside it as
-#      `<name>-capture.png`. With `--anim`, *every* example is instead recorded
-#      as `<name>-capture<secs>s.apng`: ones with a demo `script` are driven
+#   2. For an item that has *no* example yet, scaffolds one starter file into
+#      that directory (`button.cr`) from a generic template. THIS IS THE ONLY
+#      FILE THE TOOL EVER WRITES. From then on the example files in `examples/`
+#      are the source of truth — hand-edited in place (add CSS, a demo `script`,
+#      extra `button2.cr`, …); the tool never rewrites them.
+#   3. Renders each example headlessly and saves a still beside it as
+#      `<stem>-capture.png`. With `--anim`, *every* example is instead recorded
+#      as `<stem>-capture<secs>s.apng`: ones with a demo `script:` are driven
 #      (synthetic key/mouse events), the rest are a static hold. Both go through
-#      the shared harness in `examples/widget/example.cr` (CRYSTERM_SHOT /
+#      the shared harness in `examples/<kind>/example.cr` (CRYSTERM_SHOT /
 #      CRYSTERM_ANIM).
 #   4. `--build`/`--release` compile every example (a build-health check).
-#   5. `--doc-comments` embeds each item's screenshot in its API docs by
-#      maintaining a fenced block in the class doc comment; `--docs` runs
-#      `crystal docs` and copies `examples/` into the docs tree.
+#   5. `--doc-comments` embeds each item's capture in its API docs by maintaining
+#      a fenced block in the class doc comment; `--docs` runs `crystal docs` and
+#      copies `examples/` into the docs tree.
 #
-# Groomed over time by adding/refining recipes (WIDGET_RECIPES / LAYOUT_RECIPES);
-# a recipe's optional `script` is the per-item demo (a thin wrapper over input
-# emits) replayed for the animation.
+# The example programs live (and are maintained) in `examples/`; the tool only
+# scaffolds the ones that are missing and (re)produces their captures/docs.
 #
 # Usage:
 #   crystal run tools/manage-examples.cr -- [options] [name ...]
 #
 # Options:
-#   -f, --force         Overwrite/recreate existing example files.
+#   -f, --force         Re-do outputs that already exist (stills/anims/binaries,
+#                       and the docs build). Never overwrites an example .cr.
 #       --only NAME     Restrict to NAME (repeatable; bare args work too).
-#       --no-shot       Generate files but skip screenshots.
-#       --shots-only    Only (re)capture; don't (re)generate files.
+#       --no-shot       Scaffold missing files but skip screenshots.
+#       --shots-only    Only (re)capture; don't author any files.
 #       --anim          Record an APNG for every example (scripted ones play their demo).
 #       --duration N    Animation length in seconds (default 5).
 #       --build         Compile every example next to its source, x/<prog>.cr ->
@@ -73,7 +75,7 @@ module WidgetExamples
 
   # A category of documented thing the tool mirrors and exemplifies the same way.
   # `widget`s render standalone; `layout`s are installed on a container and
-  # arrange its children (so their examples differ — see the recipes).
+  # arrange its children (so their scaffold templates differ).
   record Kind,
     name : String,    # "widget" / "layout"
     src : String,     # src dir, e.g. <root>/src/widget
@@ -120,26 +122,25 @@ module WidgetExamples
     ([".."] * (f.size - i) + t[i..]).join('/')
   end
 
-  # ---- recipes --------------------------------------------------------------
+  # ---- scaffold templates ---------------------------------------------------
+  #
+  # The tool no longer carries a per-widget recipe registry — every example is
+  # hand-maintained under `examples/`. What remains is a single *generic* starter
+  # template per kind, used only to scaffold a brand-new item's first example
+  # file (which is then edited in place).
 
-  # A single example to emit for a widget: an optional CSS stylesheet, the body
-  # that constructs the widget(s) inside the `WidgetExample.run` block, and an
-  # optional `script` — a sequence of `Driver` calls (`d.key :down`, `d.type
-  # "hi"`, ...) that drives the widget for the animated (APNG) capture. Widgets
-  # with no script still get an APNG — a static hold. `%{fqn}` / `%{klass}` /
-  # `%{name}` are interpolated in all three.
-  record Recipe, css : String?, body : String, script : String? = nil
+  # The CSS + construction body of a scaffolded starter. `%{fqn}` / `%{klass}` /
+  # `%{name}` are interpolated into both.
+  record Recipe, css : String?, body : String
 
-  # The fallback used when a widget has no entry in RECIPES: a plain Box-style
-  # construction. It compiles for the many widgets that inherit Box's `content:`
-  # constructor.
+  # The starter for a widget with no example yet: a plain Box-style construction.
+  # It compiles for the many widgets that inherit Box's `content:` constructor.
   #
   # It fills (almost) the whole screen on purpose. Many widgets lay out their own
   # fixed-position children (ColorDialog, Wizard, ...); a small box would let
   # those children spill past its border and paint garbage onto the screen. A
-  # full-screen box keeps them in bounds, so the generic shot is never broken —
-  # just plain. Widgets that deserve a tailored size/content get a real recipe in
-  # WIDGET_RECIPES (and are reported until they do).
+  # full-screen box keeps them in bounds, so the scaffolded shot is never broken
+  # — just plain, until a human gives it a tailored size/content in place.
   def self.generic_widget_recipe(w : Item) : Recipe
     Recipe.new(
       css: "#{w.klass} { border: solid; }",
@@ -151,1065 +152,13 @@ module WidgetExamples
     )
   end
 
-  # Per-widget recipes. Keyed by simple class name. A widget maps to an array so
-  # it can have alternative examples (foo.cr, foo2.cr, ...). Most widgets need
-  # only one. Add entries here as widgets are groomed.
-  WIDGET_RECIPES = {
-    "Box" => [Recipe.new(
-      css: "Box { border: solid; background-color: #1a1a2e; color: #e0e0e0; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 34, height: 7,
-          content: "{center}A Box widget{/center}", parse_tags: true
-      CR
-    )],
-    "Label" => [Recipe.new(
-      css: "Label { color: #9ece6a; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", content: "A Label widget"
-      CR
-    )],
-    "Button" => [Recipe.new(
-      css: "Button { border: solid; background-color: #394b70; color: #c0caf5; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 22, height: 3,
-          content: "{center}Click me{/center}", parse_tags: true
-      CR
-    )],
-    "ProgressBar" => [Recipe.new(
-      css: "ProgressBar { border: solid; color: #7aa2f7; }",
-      body: <<-CR,
-        bar = %{fqn}.new parent: screen, top: "center", left: "center", width: 40, height: 3
-        bar.value = 65
-      CR
-      script: <<-CR
-        d.hold 0.5
-        # Ramp the value up and back to its initial 65 (read-only widget, no keys —
-        # reach it via the screen and set #value, guarded by the concrete type).
-        [65, 75, 85, 95, 85, 75, 65].each do |v|
-          d.act(dwell: 0.4) { |s| s.children.each { |c| c.value = v if c.is_a?(%{fqn}) } }
-        end
-      CR
-    )],
-    "HLine" => [Recipe.new(
-      css: "HLine { color: #7aa2f7; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: 4, width: 40
-      CR
-    )],
-    "VLine" => [Recipe.new(
-      css: "VLine { color: #7aa2f7; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, left: "center", top: 2, height: 16
-      CR
-    )],
-    "BigText" => [Recipe.new(
-      css: "BigText { color: #f7768e; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", content: "Hi!"
-      CR
-    )],
-    "List" => [Recipe.new(
-      css: "List { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        list = %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 28, height: 9,
-          items: %w[Alpha Beta Gamma Delta Epsilon]
-        list.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :down, times: 4, dwell: 0.4
-        d.key :up, times: 2, dwell: 0.4
-        d.key :end, dwell: 0.6
-        d.key :home, dwell: 0.6
-      CR
-    )],
-    "Log" => [Recipe.new(
-      css: "Log { border: solid; color: #9ece6a; }",
-      body: <<-CR
-        log = %{fqn}.new parent: screen, top: "center", left: "center", width: 46, height: 9
-        ["system started", "loading config", "ready", "request handled"].each { |l| log.add l }
-      CR
-    )],
-    "Gauge" => [Recipe.new(
-      css: "Gauge { border: solid; color: #7aa2f7; }",
-      body: <<-CR,
-        g = %{fqn}.new parent: screen, top: "center", left: "center", width: 40, height: 3
-        g.value = 65
-      CR
-      script: <<-CR
-        d.hold 0.5
-        # Ramp the value up and back to its initial 65 (read-only widget, no keys —
-        # reach it via the screen and set #value, guarded by the concrete type).
-        [65, 75, 85, 95, 85, 75, 65].each do |v|
-          d.act(dwell: 0.4) { |s| s.children.each { |c| c.value = v if c.is_a?(%{fqn}) } }
-        end
-      CR
-    )],
-    "GaugeList" => [Recipe.new(
-      css: "GaugeList { border: solid; }",
-      body: <<-CR,
-        gl = %{fqn}.new parent: screen, top: "center", left: "center", width: 46, height: 9
-        gl.add_gauge "CPU", 72
-        gl.add_gauge "Memory", 48
-        gl.add_gauge "Disk", 91
-      CR
-      script: <<-CR
-        d.hold 0.5
-        # Ramp the gauges and return to the initial set (reach the widget via the screen).
-        [[72.0, 48.0, 91.0], [88.0, 64.0, 76.0], [96.0, 80.0, 62.0], [88.0, 64.0, 76.0], [72.0, 48.0, 91.0]].each do |vals|
-          d.act(dwell: 0.45) { |s| s.children.each { |c| vals.each_with_index { |v, i| c[i] = v if i < c.gauges.size } if c.is_a?(%{fqn}) } }
-        end
-      CR
-    )],
-    "Checkbox" => [Recipe.new(
-      css: "Checkbox { color: #c0caf5; }",
-      body: <<-CR,
-        cb = %{fqn}.new parent: screen, top: "center", left: "center", checked: true, content: "Enable feature"
-        cb.focus
-      CR
-      script: <<-CR
-        d.hold 0.6
-        4.times { d.key :space, dwell: 0.8 }
-      CR
-    )],
-    "RadioButton" => [Recipe.new(
-      css: "RadioButton { color: #c0caf5; }",
-      body: <<-CR,
-        rb = %{fqn}.new parent: screen, top: "50%-1", left: "center", content: "Enable option"
-        rb.focus
-      CR
-      script: <<-CR
-        d.hold 0.6
-        d.key :space, dwell: 0.9
-        d.key :space, dwell: 0.9
-      CR
-    )],
-    "Slider" => [Recipe.new(
-      css: "Slider { color: #bb9af7; }",
-      body: <<-CR,
-        slider = %{fqn}.new parent: screen, top: "center", left: "center", width: 40, height: 1, value: 40
-        slider.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :right, times: 5, dwell: 0.3
-        d.key :left, times: 5, dwell: 0.3
-      CR
-    )],
-    "SpinBox" => [Recipe.new(
-      css: "SpinBox { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        sb = %{fqn}.new parent: screen, top: "center", left: "center", width: 14, height: 3, value: 42
-        sb.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :up, times: 4, dwell: 0.35
-        d.key :down, times: 4, dwell: 0.35
-      CR
-    )],
-    "LCDNumber" => [Recipe.new(
-      css: "LCDNumber { color: #f7768e; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", value: 1234
-      CR
-    )],
-    "Calendar" => [Recipe.new(
-      css: "Calendar { border: solid; }",
-      body: <<-CR,
-        cal = %{fqn}.new parent: screen, top: "center", left: "center", date: Time.utc(2026, 6, 24)
-        cal.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :right, times: 3, dwell: 0.35
-        d.key :down, times: 2, dwell: 0.4
-        d.key :up, times: 2, dwell: 0.4
-        d.key :left, times: 3, dwell: 0.35
-      CR
-    )],
-    "Marquee" => [Recipe.new(
-      css: "Marquee { color: #e0af68; }",
-      body: <<-CR
-        m = %{fqn}.new parent: screen, top: "center", left: "center", width: 40, height: 1, text: "Scrolling marquee text — Crysterm * "
-        Crysterm::WidgetExample.animate_with(m.interval) { m.step }
-      CR
-    )],
-    "ColorDialog" => [Recipe.new(
-      css: "ColorDialog { border: solid; }",
-      body: <<-CR
-        # ColorDialog lays out its own gradient field, hue bar and RGB/HSV spin
-        # boxes; it wants roughly 56x20 (see the class docs) — too small a box and
-        # its children spill past the border.
-        %{fqn}.new parent: screen, top: "center", left: "center", width: 56, height: 20
-      CR
-    )],
-    "SplashScreen" => [Recipe.new(
-      css: "SplashScreen { border: solid; background-color: #11121a; color: #c0caf5; }",
-      body: <<-CR
-        # `content` is the central widget shown on the splash (not a string).
-        splash = %{fqn}.new parent: screen, width: 50, height: 15, message_height: 1,
-          content: Crysterm::Widget::Box.new(
-            top: "center", left: "center", width: 44, height: 8, parse_tags: true,
-            content: "{center}{bold}C R Y S T E R M{/bold}\\n\\nTerminal UI toolkit for Crystal\\n\\nv1.0.0  •  90+ widgets  •  layouts  •  effects{/center}")
-        splash.show_message "Loading modules…"
-      CR
-    )],
-    "Pine::MessageView" => [Recipe.new(
-      css: "MessageView { border: solid; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          from: "alice@example.com", to: "bob@example.com",
-          date: "2026-06-24", subject: "Hello from Crysterm",
-          body: "This is the message body.\\nA Pine-style message view."
-      CR
-    )],
-    "Loading" => [Recipe.new(
-      css: "Loading { color: #7dcfff; }",
-      body: <<-CR
-        # compact: spinner is inline with the text ("⠋ Loading…") on one row.
-        l = %{fqn}.new parent: screen, top: "center", left: "center", width: 30, height: 1,
-          compact: true, content: "Loading…"
-        Crysterm::WidgetExample.animate_with(l.interval) { l.step }
-      CR
-    )],
-    # Self-animating effects: register the per-tick advance with the harness
-    # (`animate_with`) instead of calling `start`, so the harness stays the single
-    # frame source and the recorded APNG plays back at the effect's real speed
-    # (a widget that rendered on its own fiber would inflate the frame count and
-    # play slow). The harness drives it live/headless/pre-rolled per mode.
-    "Effect::Matrix" => [Recipe.new(
-      css: nil,
-      body: <<-CR
-        rain = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
-        Crysterm::WidgetExample.animate_with(rain.interval) { rain.step }
-      CR
-    )],
-    "Effect::Spray" => [Recipe.new(
-      css: nil,
-      body: <<-CR
-        fx = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
-        Crysterm::WidgetExample.animate_with(fx.interval) { fx.step }
-      CR
-    )],
-    "Effect::Fire" => [Recipe.new(
-      css: nil,
-      body: <<-CR
-        fx = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
-        Crysterm::WidgetExample.animate_with(fx.interval) { fx.step }
-      CR
-    )],
-    "Effect::Plasma" => [Recipe.new(
-      css: nil,
-      body: <<-CR
-        fx = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
-        Crysterm::WidgetExample.animate_with(fx.interval) { fx.step }
-      CR
-    )],
-    # One CopperBar is a single flat row; the classic Amiga effect is a stack of
-    # glossy "tubes". Build each tube from thin rows whose brightness ramps from
-    # dark edges to a bright centre — a smooth TrueColor vertical gradient — and
-    # stack several at different hues, all cycling together.
-    "Effect::CopperBar" => [Recipe.new(
-      css: nil,
-      body: <<-CR
-        hues = [0, 70, 150, 230]
-        bar_h = 4
-        bars = [] of %{fqn}
-        hues.each_with_index do |hue, b|
-          bar_h.times do |r|
-            edge = (r * 2 - (bar_h - 1)).abs / (bar_h - 1).to_f # 0 centre .. 1 edge
-            bars << %{fqn}.new \\
-              parent: screen, left: 0, width: "100%", height: 1,
-              top: 2 + b * (bar_h + 1) + r, hue_offset: hue, brightness: 1.0 - 0.75 * edge
-          end
-        end
-        Crysterm::WidgetExample.animate_with(bars.first.interval) { bars.each(&.step) }
-      CR
-    )],
-    "Effect::SineScroller" => [Recipe.new(
-      css: nil,
-      body: <<-CR
-        fx = %{fqn}.new parent: screen, top: "center", left: 0, width: "100%", height: 11,
-          text: "CRYSTERM * SINE SCROLLER * "
-        Crysterm::WidgetExample.animate_with(fx.interval) { fx.step }
-      CR
-    )],
-    # LineChart (and Canvas/sparklines) plot in Braille on a sub-cell canvas.
-    "Graph::LineChart" => [Recipe.new(
-      css: "LineChart { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        chart = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%", title: "Signals"
-        chart.add_line "sin", (0..160).map { |i| {i / 20.0, Math.sin(i / 20.0)} }
-        chart.add_line "cos", (0..160).map { |i| {i / 20.0, Math.cos(i / 20.0) * 0.6} }
-      CR
-    )],
-    "TextBox" => [Recipe.new(
-      css: "TextBox { border: solid; color: #c0caf5; background-color: #1f2335; }",
-      body: <<-CR,
-        tb = %{fqn}.new parent: screen, top: "center", left: "center", width: 42, height: 3
-        tb.value = "Editable text — type here"
-        tb.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.type " more", dwell: 0.16
-        d.key :backspace, times: 5, dwell: 0.16
-      CR
-    )],
-    "TextArea" => [Recipe.new(
-      css: "TextArea { border: solid; color: #c0caf5; background-color: #1f2335; }",
-      body: <<-CR,
-        ta = %{fqn}.new parent: screen, top: "center", left: "center", width: 46, height: 9
-        ta.value = "A multi-line text area.\\nLine two.\\nLine three.\\n\\nEdit freely."
-        ta.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.type " edited", dwell: 0.14
-        d.key :backspace, times: 7, dwell: 0.14
-      CR
-    )],
-    "Tree" => [Recipe.new(
-      css: "Tree { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        tree = %{fqn}.new parent: screen, top: "center", left: "center", width: 34, height: 12, label: " Project "
-        src = tree.add "src"
-        src.add "crysterm.cr"
-        src.add "widget.cr"
-        docs = tree.add "docs"
-        docs.add "README.md"
-        docs.add "USAGE.md"
-        tree.add "shard.yml"
-        tree.expand_all
-        tree.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :down, times: 4, dwell: 0.35
-        d.key :up, times: 4, dwell: 0.35
-      CR
-    )],
-    "Table" => [Recipe.new(
-      css: "Table { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 48, height: 10,
-          rows: [["Name", "Role", "Commits"], ["Ada", "Engineer", "128"], ["Linus", "Maintainer", "942"], ["Grace", "Architect", "377"]]
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :down, times: 3, dwell: 0.4
-        d.key :up, times: 3, dwell: 0.4
-      CR
-    )],
-    "ListTable" => [Recipe.new(
-      css: "ListTable { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        lt = %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 48, height: 10,
-          rows: [["File", "Size", "Modified"], ["crysterm.cr", "2.1K", "Jun 24"], ["widget.cr", "8.4K", "Jun 23"], ["shard.yml", "1.0K", "Jun 24"]]
-        lt.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :down, times: 3, dwell: 0.4
-        d.key :up, times: 3, dwell: 0.4
-      CR
-    )],
-    "ListBar" => [Recipe.new(
-      css: "ListBar { color: #c0caf5; }",
-      body: <<-CR,
-        lb = %{fqn}.new parent: screen, top: "center", left: 0, width: "100%", height: 1, keys: true, mouse: true
-        lb.set_items(["File", "Edit", "View", "Tools", "Help"])
-        lb.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :right, times: 4, dwell: 0.35
-        d.key :left, times: 4, dwell: 0.35
-      CR
-    )],
-    "ComboBox" => [Recipe.new(
-      css: "ComboBox { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 24, height: 3,
-          options: %w[Red Green Blue Yellow], selected: 2
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :enter, dwell: 0.5
-        d.key :down, dwell: 0.4
-        d.key :up, dwell: 0.4
-        d.key :escape, dwell: 0.5
-      CR
-    )],
-    "RadioSet" => [Recipe.new(
-      css: "RadioSet { border: solid; } RadioButton { color: #c0caf5; }",
-      body: <<-CR,
-        rs = %{fqn}.new parent: screen, top: "center", left: "center", width: 28, height: 7, label: " Size "
-        btns = %w[Small Medium Large].map_with_index do |t, i|
-          Crysterm::Widget::RadioButton.new parent: rs, top: i, left: 1, content: t, checked: i == 1
-        end
-        btns.first.focus
-      CR
-      # Walk the group selecting each option in turn — the set keeps the choice
-      # exclusive — then step back to the initial "Medium" so the loop is seamless.
-      script: <<-CR
-        d.hold 0.4
-        d.key :space, dwell: 0.5            # check Small (focused)
-        d.key :tab; d.key :space, dwell: 0.5 # → Medium
-        d.key :tab; d.key :space, dwell: 0.5 # → Large
-        d.key :backtab; d.key :space, dwell: 0.6 # back to Medium (initial)
-      CR
-    )],
-    "GroupBox" => [Recipe.new(
-      css: "GroupBox { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        gb = %{fqn}.new parent: screen, top: "center", left: "center", width: 40, height: 8, title: " Connection "
-        Crysterm::Widget::Box.new parent: gb, top: 1, left: 2, content: "Host: localhost"
-        Crysterm::Widget::Box.new parent: gb, top: 2, left: 2, content: "Port: 5432"
-        Crysterm::Widget::Box.new parent: gb, top: 3, left: 2, content: "SSL:  enabled"
-      CR
-    )],
-    "ScrollableBox" => [Recipe.new(
-      css: "ScrollableBox { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        sb = %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 40, height: 9, scrollbar: true, keys: true,
-          content: (1..30).map { |i| "Scrollable line \#{i}" }.join("\\n")
-        sb.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :down, times: 8, dwell: 0.22
-        d.key :up, times: 8, dwell: 0.22
-      CR
-    )],
-    "ScrollableText" => [Recipe.new(
-      css: "ScrollableText { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        st = %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 44, height: 9, scrollbar: true, keys: true,
-          content: (1..40).map { |i| "Scrollable text line \#{i}" }.join("\\n")
-        st.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :down, times: 8, dwell: 0.22
-        d.key :up, times: 8, dwell: 0.22
-      CR
-    )],
-    "Markdown" => [Recipe.new(
-      css: "Markdown { border: solid; }",
-      body: <<-CR
-        md = %{fqn}.new parent: screen, top: "center", left: "center", width: 52, height: 14
-        md.set_markdown "# Crysterm\\n\\nA **terminal UI** toolkit in *Crystal*.\\n\\n- Widgets\\n- Layouts\\n- Animations\\n\\n`crystal run examples/hello.cr`"
-      CR
-    )],
-    "Gradient" => [Recipe.new(
-      css: nil,
-      body: <<-CR
-        grad = %{fqn}.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          colors: ["#ff0000", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff"], direction: :horizontal
-        Crysterm::WidgetExample.animate_with(0.08.seconds) { grad.phase += 0.06 }
-      CR
-    )],
-    "Dial" => [Recipe.new(
-      css: "Dial { border: solid; color: #7aa2f7; }",
-      body: <<-CR,
-        dial = %{fqn}.new parent: screen, top: "center", left: "center", width: 21, height: 11, value: 65
-        dial.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :up, times: 4, dwell: 0.35
-        d.key :down, times: 4, dwell: 0.35
-      CR
-    )],
-    "DoubleSpinBox" => [Recipe.new(
-      css: "DoubleSpinBox { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        %{fqn}.new parent: screen, top: "center", left: "center", width: 18, height: 3, value: 3.14, suffix: " kg"
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :up, times: 4, dwell: 0.35
-        d.key :down, times: 4, dwell: 0.35
-      CR
-    )],
-    "TabWidget" => [Recipe.new(
-      css: "TabWidget { color: #c0caf5; }",
-      body: <<-CR,
-        tw = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
-        tw.add_tab "Overview", Crysterm::Widget::Box.new(content: "{center}Overview page{/center}", parse_tags: true)
-        tw.add_tab "Details", Crysterm::Widget::Box.new(content: "{center}Details page{/center}", parse_tags: true)
-        tw.add_tab "Settings", Crysterm::Widget::Box.new(content: "{center}Settings page{/center}", parse_tags: true)
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.click 16, 0, dwell: 0.7
-        d.click 28, 0, dwell: 0.7
-        d.click 5, 0, dwell: 0.7
-      CR
-    )],
-    "MenuBar" => [Recipe.new(
-      css: "MenuBar { color: #c0caf5; } Menu { color: #c0caf5; }",
-      body: <<-CR,
-        mb = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%"
-        file = mb.add_menu "File"
-        %w[New Open Save Quit].each { |t| file.add t }
-        %w[Edit View Tools Help].each { |t| mb.add_menu t }
-      CR
-      script: <<-CR
-        d.hold 0.6
-        # Open the File menu, then close it again.
-        d.act(dwell: 1.2) { |s| s.children.each { |c| c.toggle(0) if c.is_a?(%{fqn}) } }
-        d.act(dwell: 0.8) { |s| s.children.each { |c| c.toggle(0) if c.is_a?(%{fqn}) } }
-      CR
-    )],
-    "Menu" => [Recipe.new(
-      css: "Menu { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        menu = %{fqn}.new parent: screen, top: "center", left: "center"
-        %w[New Open Save Quit].each { |t| menu.add t }
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :down, times: 3, dwell: 0.4
-        d.key :up, times: 3, dwell: 0.4
-      CR
-    )],
-    "Form" => [Recipe.new(
-      css: "Form { border: solid; color: #c0caf5; } TextBox { background-color: #1f2335; }",
-      body: <<-CR,
-        form = %{fqn}.new parent: screen, top: "center", left: "center", width: 42, height: 10, label: " Sign in "
-        Crysterm::Widget::Box.new parent: form, top: 1, left: 2, content: "User:"
-        u = Crysterm::Widget::TextBox.new parent: form, top: 1, left: 9, width: 26, height: 1
-        u.value = "ada"
-        Crysterm::Widget::Box.new parent: form, top: 3, left: 2, content: "Pass:"
-        p = Crysterm::Widget::TextBox.new parent: form, top: 3, left: 9, width: 26, height: 1, secret: true
-        p.value = "secret"
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :tab, times: 2, dwell: 0.5
-        d.key :backtab, times: 2, dwell: 0.5
-      CR
-    )],
-    "Graph::Bar" => [Recipe.new(
-      css: "Bar { border: solid; color: #7aa2f7; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 44, height: 12,
-          values: [3.0, 7.0, 4.0, 9.0, 6.0, 8.0, 2.0, 5.0], labels: %w[Mon Tue Wed Thu Fri Sat Sun Avg],
-          bar_width: 3, bar_spacing: 2, show_values: true
-      CR
-    )],
-    "Graph::StackedBar" => [Recipe.new(
-      css: "StackedBar { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 46, height: 12,
-          values: [[3.0, 2.0, 1.0], [2.0, 4.0, 2.0], [1.0, 3.0, 4.0], [4.0, 1.0, 2.0]],
-          labels: %w[Q1 Q2 Q3 Q4], bar_width: 4, bar_spacing: 3
-      CR
-      script: <<-CR
-        d.hold 0.5
-        # Distinct proportions per frame (uniform scaling would leave the
-        # auto-scaled chart unchanged); returns to the initial set.
-        [
-          [[3.0, 2.0, 1.0], [2.0, 4.0, 2.0], [1.0, 3.0, 4.0], [4.0, 1.0, 2.0]],
-          [[5.0, 1.0, 2.0], [1.0, 2.0, 5.0], [3.0, 3.0, 2.0], [2.0, 5.0, 1.0]],
-          [[1.0, 4.0, 4.0], [5.0, 1.0, 1.0], [2.0, 2.0, 5.0], [4.0, 4.0, 1.0]],
-          [[3.0, 2.0, 1.0], [2.0, 4.0, 2.0], [1.0, 3.0, 4.0], [4.0, 1.0, 2.0]],
-        ].each do |vals|
-          d.act(dwell: 0.6) { |s| s.children.each { |c| c.values = vals if c.is_a?(%{fqn}) } }
-        end
-      CR
-    )],
-    "Graph::Donut" => [Recipe.new(
-      css: nil,
-      body: <<-CR,
-        # No show_track: the braille backend is one colour per cell, so a track
-        # ring's dim "off" dots can't be distinguished and just clutter the arc.
-        %{fqn}.new parent: screen, top: "center", left: "center", width: 24, height: 12, value: 65
-      CR
-      script: <<-CR
-        d.hold 0.5
-        # Ramp the value up and back to its initial 65 (read-only widget, no keys —
-        # reach it via the screen and set #value, guarded by the concrete type).
-        [65, 75, 85, 95, 85, 75, 65].each do |v|
-          d.act(dwell: 0.4) { |s| s.children.each { |c| c.value = v if c.is_a?(%{fqn}) } }
-        end
-      CR
-    )],
-    "Graph::Map" => [Recipe.new(
-      css: "Map { border: solid; }",
-      body: <<-CR
-        map = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
-        map.add_marker 40.7, -74.0, '*', 0xE05050, "NYC"
-        map.add_marker 51.5, -0.12, '*', 0x40E0D0, "London"
-        map.add_marker 35.7, 139.7, '*', 0xE0A040, "Tokyo"
-        map.add_marker(-33.9, 151.2, '*', 0x60C040, "Sydney")
-      CR
-    )],
-    "DateEdit" => [Recipe.new(
-      css: "DateEdit { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        de = %{fqn}.new parent: screen, top: "center", left: "center", width: 16, height: 3, date: Time.utc(2026, 6, 24)
-        de.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :enter, dwell: 0.6
-        d.key :right, times: 3, dwell: 0.35
-        d.key :down, dwell: 0.4
-        d.key :escape, dwell: 0.6
-      CR
-    )],
-    "TimeEdit" => [Recipe.new(
-      css: "TimeEdit { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        te = %{fqn}.new parent: screen, top: "center", left: "center", width: 14, height: 3, time: Time.utc(2026, 6, 24, 13, 37, 5)
-        te.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :up, times: 3, dwell: 0.4
-        d.key :down, times: 3, dwell: 0.4
-      CR
-    )],
-    "DateTimeEdit" => [Recipe.new(
-      css: "DateTimeEdit { border: solid; color: #c0caf5; }",
-      body: <<-CR,
-        dte = %{fqn}.new parent: screen, top: "center", left: "center", width: 26, height: 3, date_time: Time.utc(2026, 6, 24, 13, 37, 5)
-        dte.focus
-      CR
-      script: <<-CR
-        d.hold 0.5
-        d.key :up, times: 3, dwell: 0.4
-        d.key :down, times: 3, dwell: 0.4
-      CR
-    )],
-    "Line" => [Recipe.new(
-      css: "Line { color: #7aa2f7; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: 4, width: 40, orientation: :horizontal
-      CR
-    )],
-    # Like Qt's QSplitter, the panes aren't individually bordered — the draggable
-    # divider (the `.divider` handle) is the separator between them.
-    "Splitter" => [Recipe.new(
-      css: "Splitter { border: solid; } .divider { background-color: #7aa2f7; } Box { color: #c0caf5; }",
-      body: <<-CR
-        sp = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%", orientation: :horizontal
-        sp.add_pane Crysterm::Widget::Box.new(content: "{center}Left pane{/center}", parse_tags: true)
-        sp.add_pane Crysterm::Widget::Box.new(content: "{center}Right pane{/center}", parse_tags: true)
-      CR
-    )],
-    "StackedWidget" => [Recipe.new(
-      css: "Box { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        sw = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
-        sw.add_page Crysterm::Widget::Box.new(content: "{center}Page 1 of 3\\n\\n(StackedWidget shows one page){/center}", parse_tags: true)
-        sw.add_page Crysterm::Widget::Box.new(content: "{center}Page 2{/center}", parse_tags: true)
-        sw.show_page 0
-      CR
-    )],
-    "StatusBar" => [Recipe.new(
-      css: "StatusBar { color: #c0caf5; background-color: #283457; }",
-      body: <<-CR
-        sb = %{fqn}.new parent: screen, bottom: 0, left: 0, width: "100%", height: 1
-        sb.show_message "Ready"
-        sb.add_permanent "Ln 12, Col 4"
-        sb.add_permanent "UTF-8"
-      CR
-    )],
-    "ToolBar" => [Recipe.new(
-      css: "ToolBar { color: #c0caf5; }",
-      body: <<-CR
-        tb = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%"
-        %w[New Open Save Cut Copy Paste].each { |t| tb.add_button(t) { } }
-      CR
-    )],
-    "ToolBox" => [Recipe.new(
-      css: "ToolBox { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        tbx = %{fqn}.new parent: screen, top: "center", left: "center", width: 36, height: 14
-        tbx.add_item "General", Crysterm::Widget::Box.new(content: "Theme, language, startup")
-        tbx.add_item "Editor", Crysterm::Widget::Box.new(content: "Tabs, wrap, font size")
-        tbx.add_item "Advanced", Crysterm::Widget::Box.new(content: "Proxies, caches, flags")
-      CR
-    )],
-    "Tooltip" => [Recipe.new(
-      css: "Box { border: solid; color: #c0caf5; } Tooltip { border: solid; color: #1a1a2e; background-color: #e0af68; }",
-      body: <<-CR
-        Crysterm::Widget::Box.new parent: screen, top: 3, left: 4, width: 24, height: 3,
-          content: "{center}Hover target{/center}", parse_tags: true
-        # The tooltip pops up just below the hovered target.
-        tt = %{fqn}.new parent: screen
-        tt.show_at 6, 6, "A helpful tooltip"
-      CR
-    )],
-    "SizeGrip" => [Recipe.new(
-      css: "Box { border: solid; color: #c0caf5; } SizeGrip { color: #7aa2f7; }",
-      body: <<-CR
-        Crysterm::Widget::Box.new parent: screen, top: 2, left: 2, width: 40, height: 14,
-          content: " A resizable panel — the grip sits in its corner."
-        %{fqn}.new parent: screen, top: 15, left: 41
-      CR
-    )],
-    "ScrollBar" => [Recipe.new(
-      css: "Box { border: solid; color: #c0caf5; } ScrollBar { color: #7aa2f7; }",
-      body: <<-CR
-        Crysterm::Widget::Box.new parent: screen, top: 2, left: 2, width: 42, height: 16,
-          content: (1..30).map { |i| " Content line \#{i}" }.join("\\n")
-        # A vertical scrollbar is one column wide; the thumb sits at `value`.
-        %{fqn}.new parent: screen, top: 2, left: 45, width: 1, height: 16, orientation: :vertical, value: 35
-      CR
-    )],
-    "DialogButtonBox" => [Recipe.new(
-      css: "Box { border: solid; color: #c0caf5; } Button { color: #c0caf5; }",
-      body: <<-CR
-        Crysterm::Widget::Box.new parent: screen, top: "center", left: "center", width: 46, height: 8,
-          content: "{center}\\nSave changes before closing?{/center}", parse_tags: true
-        %{fqn}.new \\
-          parent: screen, top: "50%+2", left: "center", width: 40, height: 1,
-          buttons: %{fqn}::StandardButton::Ok | %{fqn}::StandardButton::Cancel
-      CR
-    )],
-    "Wizard" => [Recipe.new(
-      css: "Wizard { color: #c0caf5; }",
-      body: <<-CR
-        wiz = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
-        wiz.add_page Crysterm::Widget::Box.new(content: "{center}Welcome to the setup wizard.{/center}", parse_tags: true), "Welcome"
-        wiz.add_page Crysterm::Widget::Box.new(content: "{center}Choose your options.{/center}", parse_tags: true), "Options"
-        wiz.add_page Crysterm::Widget::Box.new(content: "{center}All done!{/center}", parse_tags: true), "Finish"
-      CR
-    )],
-    "Fps" => [Recipe.new(
-      css: "Fps { border: solid; color: #9ece6a; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", width: 30, height: 5
-      CR
-    )],
-    "Prompt" => [Recipe.new(
-      css: "Prompt { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 46, height: 7,
-          content: "What is your name?"
-      CR
-    )],
-    "Question" => [Recipe.new(
-      css: "Question { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 46, height: 7,
-          content: "Delete this file? This cannot be undone."
-      CR
-    )],
-    "Input" => [Recipe.new(
-      css: "Input { border: solid; color: #c0caf5; background-color: #1f2335; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 38, height: 3,
-          content: "An Input — the base of the text widgets"
-      CR
-    )],
-    "ToolButton" => [Recipe.new(
-      css: "ToolButton { border: solid; background-color: #394b70; color: #c0caf5; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", width: 14, height: 3, content: " Format ▾"
-      CR
-    )],
-    "FileManager" => [Recipe.new(
-      css: "FileManager { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        fm = %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 46, height: 16,
-          cwd: "src/widget", label: " src/widget "
-        fm.focus
-      CR
-    )],
-    "DockWidget" => [Recipe.new(
-      css: "DockWidget { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        dock = %{fqn}.new \\
-          parent: screen, top: 0, left: 0, width: 26, height: "100%",
-          title: " Explorer ", area: :left
-        Crysterm::Widget::Box.new parent: dock, top: 0, left: 1, content: "src/"
-        Crysterm::Widget::Box.new parent: dock, top: 1, left: 2, content: "crysterm.cr"
-        Crysterm::Widget::Box.new parent: dock, top: 2, left: 2, content: "widget.cr"
-      CR
-    )],
-    "MainWindow" => [Recipe.new(
-      css: "Box { color: #c0caf5; } MenuBar { background-color: #283457; } StatusBar { background-color: #283457; }",
-      body: <<-CR
-        mw = %{fqn}.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
-        mw.menu_bar = (mb = Crysterm::Widget::MenuBar.new)
-        %w[File Edit View Help].each { |t| mb.add_menu t }
-        dock = Crysterm::Widget::DockWidget.new title: " Project ", area: :left, dock_size: 22
-        Crysterm::Widget::Box.new parent: dock, top: 0, left: 1, content: "src/\\n  crysterm.cr\\n  widget.cr\\ndocs/\\n  README.md"
-        mw.add_dock dock
-        mw.central_widget = Crysterm::Widget::Box.new(
-          content: "{center}Editor — central widget{/center}", parse_tags: true,
-          style: Crysterm::Style.new(border: true))
-        mw.status_bar = (sb = Crysterm::Widget::StatusBar.new)
-        sb.show_message "Ready"
-        sb.add_permanent "Ln 1, Col 1"
-      CR
-    )],
-    "Message" => [Recipe.new(
-      css: "Message { border: solid; color: #c0caf5; background-color: #283457; }",
-      body: <<-CR
-        msg = %{fqn}.new parent: screen, top: "center", left: "center", width: 40, height: 7
-        msg.display("File saved successfully.", 999.seconds) { }
-      CR
-    )],
-    "Pine::HeaderBar" => [Recipe.new(
-      css: "Pine::HeaderBar { color: #1a1a2e; background-color: #7aa2f7; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: 0, left: 0,
-          title_content: "PINE 4.0", section_content: "MESSAGE INDEX",
-          info_content: "Folder: INBOX  12 Messages"
-      CR
-    )],
-    "Pine::KeyMenu" => [Recipe.new(
-      css: "Pine::KeyMenu { color: #c0caf5; }",
-      body: <<-CR
-        km = %{fqn}.new parent: screen, bottom: 0, left: 0, width: "100%", height: 2
-        km.set_entries([
-          %{fqn}::Entry.new("?", "Help"), %{fqn}::Entry.new("C", "Compose"),
-          %{fqn}::Entry.new("D", "Delete"), %{fqn}::Entry.new("R", "Reply"),
-          %{fqn}::Entry.new("Q", "Quit"),
-        ])
-      CR
-    )],
-    "Pine::FolderList" => [Recipe.new(
-      css: "Pine::FolderList { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        fl = %{fqn}.new parent: screen, top: "center", left: "center", width: 34, height: 12, label: " Folders "
-        fl.set_folders([
-          %{fqn}::Folder.new("INBOX", 12), %{fqn}::Folder.new("Sent", 48),
-          %{fqn}::Folder.new("Drafts", 2), %{fqn}::Folder.new("Trash", 7),
-        ])
-        fl.focus
-      CR
-    )],
-    "Pine::AddressBook" => [Recipe.new(
-      css: "Pine::AddressBook { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        ab = %{fqn}.new parent: screen, top: "center", left: "center", width: 50, height: 12, label: " Address Book "
-        ab.set_contacts([
-          %{fqn}::Contact.new("ada", "Ada Lovelace", "ada@example.com"),
-          %{fqn}::Contact.new("linus", "Linus Torvalds", "linus@example.org"),
-          %{fqn}::Contact.new("grace", "Grace Hopper", "grace@example.net"),
-        ])
-        ab.focus
-      CR
-    )],
-    "Pine::MainMenu" => [Recipe.new(
-      css: "Pine::MainMenu { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        mm = %{fqn}.new parent: screen, top: "center", left: "center", width: 52, height: 12, label: " Main Menu "
-        mm.set_options([
-          %{fqn}::Option.new("C", "Compose", "Compose and send a message"),
-          %{fqn}::Option.new("I", "Message Index", "View messages in the current folder"),
-          %{fqn}::Option.new("L", "Folder List", "Select a folder to view"),
-          %{fqn}::Option.new("A", "Address Book", "Update your address book"),
-        ])
-        mm.focus
-      CR
-    )],
-    "Pine::MessageIndex" => [Recipe.new(
-      css: "Pine::MessageIndex { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        mi = %{fqn}.new parent: screen, top: "center", left: "center", width: 56, height: 12, label: " INBOX "
-        mi.set_messages([
-          %{fqn}::Message.new("Ada Lovelace", "Re: Analytical Engine", date: "Jun 24", unread: true),
-          %{fqn}::Message.new("Grace Hopper", "Compiler patches", date: "Jun 23"),
-          %{fqn}::Message.new("Linus T.", "Merge window", date: "Jun 22"),
-        ])
-        mi.focus
-      CR
-    )],
-    "Pine::Setup" => [Recipe.new(
-      css: "Pine::Setup { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        st = %{fqn}.new parent: screen, top: "center", left: "center", width: 50, height: 12, label: " Setup "
-        st.set_options([
-          %{fqn}::Option.new("Printer", "Configure printer support", enabled: true),
-          %{fqn}::Option.new("Newmail", "Notify on new mail", enabled: true),
-          %{fqn}::Option.new("Threading", "Group messages by thread", enabled: false),
-        ])
-        st.focus
-      CR
-    )],
-  } of String => Array(Recipe)
-
-  # Per-layout recipes (keyed by simple class name). Each builds a full-screen
-  # container with the layout installed and enough labeled children to actually
-  # show how that layout arranges them. `%{fqn}` is the layout class.
-  BORDERED       = "Box { border: solid; color: #c0caf5; }"
-  LAYOUT_RECIPES = {
-    "HBox" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new(gap: 1), overflow: :ignore
-        # Children given no width share the row equally (align: stretch fills height).
-        %w[Left Middle Middle Right].each do |label|
-          Crysterm::Widget::Box.new parent: container, content: "{center}\#{label}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "VBox" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new(gap: 1), overflow: :ignore
-        %w[Top Middle Middle Bottom].each do |label|
-          Crysterm::Widget::Box.new parent: container, content: "{center}\#{label}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "Grid" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        # A 3-column grid; the six children auto-flow row-major into the cells.
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new(columns: 3, gap: 1), overflow: :ignore
-        6.times do |i|
-          Crysterm::Widget::Box.new parent: container,
-            content: "{center}r\#{i // 3} · c\#{i % 3}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "UniformGrid" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new, overflow: :ignore
-        8.times do |i|
-          Crysterm::Widget::Box.new parent: container, width: 16, height: 5,
-            content: "{center}cell \#{i + 1}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "Masonry" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new, overflow: :ignore
-        # Varying heights flow into the shortest column — the masonry effect.
-        [4, 6, 3, 5, 7, 4, 5, 3].each_with_index do |h, i|
-          Crysterm::Widget::Box.new parent: container, width: 16, height: h,
-            content: "{center}#\#{i + 1}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "Wrap" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new, overflow: :ignore
-        %w[alpha beta gamma delta epsilon zeta eta theta iota].each do |label|
-          Crysterm::Widget::Box.new parent: container, width: 13, height: 3,
-            content: "{center}\#{label}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "Stack" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        # All three children occupy the full area; only `current` is shown.
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new(current: 1), overflow: :ignore
-        3.times do |i|
-          Crysterm::Widget::Box.new parent: container,
-            content: "{center}page \#{i + 1} of 3\\n\\n(Stack shows current = 1){/center}", parse_tags: true
-        end
-      CR
-    )],
-    "Manual" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        # Manual placement: children position themselves by top/left/right/bottom.
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new, overflow: :ignore
-        Crysterm::Widget::Box.new parent: container, top: 1, left: 2, width: 24, height: 4,
-          content: "{center}(left: 2, top: 1){/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container, top: 7, left: 28, width: 26, height: 5,
-          content: "{center}(left: 28, top: 7){/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container, bottom: 1, right: 2, width: 22, height: 4,
-          content: "{center}bottom-right{/center}", parse_tags: true
-      CR
-    )],
-    "Border" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        # Five children, each docked to an edge (or the center) by a Border::Hint.
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new, overflow: :ignore
-        Crysterm::Widget::Box.new parent: container, height: 3,
-          layout_hint: Crysterm::Layout::Border::Hint.new(:top),
-          content: "{center}Top{/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container, height: 3,
-          layout_hint: Crysterm::Layout::Border::Hint.new(:bottom),
-          content: "{center}Bottom{/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container, width: 16,
-          layout_hint: Crysterm::Layout::Border::Hint.new(:left),
-          content: "{center}Left{/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container, width: 16,
-          layout_hint: Crysterm::Layout::Border::Hint.new(:right),
-          content: "{center}Right{/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container,
-          layout_hint: Crysterm::Layout::Border::Hint.new(:center),
-          content: "{center}Center{/center}", parse_tags: true
-      CR
-    )],
-    "Form" => [Recipe.new(
-      # 1-row fields: no border (it would eat the single content row).
-      css: "Box { color: #c0caf5; }",
-      body: <<-CR
-        # Label/field pairs, one per row; a trailing unpaired child spans full width.
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 2, left: 2, width: 50, height: 12,
-          layout: %{fqn}.new(label_width: 10, row_gap: 1), overflow: :ignore
-        { {"Name:", "Ada Lovelace"}, {"Email:", "ada@example.com"}, {"Role:", "Engineer"} }.each do |label, value|
-          Crysterm::Widget::Box.new parent: container, height: 1, content: label
-          Crysterm::Widget::Box.new parent: container, height: 1, content: value
-        end
-        Crysterm::Widget::Box.new parent: container, height: 1,
-          content: "{center}[ Submit ]{/center}", parse_tags: true
-      CR
-    )],
-  } of String => Array(Recipe)
 
   # Layouts aren't standalone widgets: each is installed on a container via
-  # `layout:` and arranges the container's children. So a layout example builds a
-  # full-screen container with the layout, then drops a handful of labeled,
-  # bordered child boxes into it — enough to actually *show* the arrangement.
-  # Layouts that need per-child placement hints (Grid columns, Border regions,
-  # Form rows) get tailored recipes below; the rest flow fine generically.
+  # `layout:` and arranges the container's children. So a scaffolded layout
+  # example builds a full-screen container with the layout, then drops a handful
+  # of labeled, bordered child boxes into it — enough to actually *show* the
+  # arrangement. A human then tailors per-child placement hints (Grid columns,
+  # Border regions, Form rows) in the scaffolded file as needed.
   def self.generic_layout_recipe(w : Item) : Recipe
     Recipe.new(
       css: "Box { border: solid; color: #c0caf5; }",
@@ -1226,38 +175,31 @@ module WidgetExamples
     )
   end
 
-  # The generic example for an item, dispatched by kind.
+  # The generic example for an item, dispatched by kind. This is the *only*
+  # template the tool still carries: it scaffolds a starter `<name>.cr` for a
+  # widget/layout that has no example yet. Once written, the file in `examples/`
+  # is the source of truth — edit it in place; the tool never rewrites it.
   def self.generic_recipe(w : Item) : Recipe
     w.kind.name == "layout" ? generic_layout_recipe(w) : generic_widget_recipe(w)
   end
 
-  # The recipe map for an item's kind.
-  def self.recipe_map(w : Item) : Hash(String, Array(Recipe))
-    w.kind.name == "layout" ? LAYOUT_RECIPES : WIDGET_RECIPES
+  # The example *program* files for an item — the `<name>.cr`, `<name>2.cr`, …
+  # under its `examples/` directory, in order. These are the hand-maintained
+  # source of truth that the capture/build/doc steps run; an empty result means
+  # the item has no example yet (and `#process` scaffolds one). The shared
+  # `example.cr` harness lives a level up, so it never appears here, but it's
+  # excluded defensively.
+  def self.program_files(w : Item) : Array(String)
+    dir = example_dir(w)
+    return [] of String unless Dir.exists?(dir)
+    Dir.glob(File.join(dir, "#{w.basename}*.cr"))
+      .reject { |p| File.basename(p) == "example.cr" }
+      .sort_by { |p| File.basename(p).size } # "foo.cr" before "foo2.cr" before "foo10.cr"
   end
 
-  # An item's name relative to its kind's namespace, e.g. "Box", "Graph::Bar",
-  # "Pine::StatusBar" — the recipe key. Using the namespaced form disambiguates
-  # same-simple-name classes (Widget::StatusBar vs Widget::Pine::StatusBar).
-  def self.relname(w : Item) : String
-    prefix = "#{w.kind.base_ns}::"
-    w.fqn.starts_with?(prefix) ? w.fqn[prefix.size..] : w.fqn
-  end
-
-  # Case-insensitive recipe lookup keyed by `relname` (a file may declare
-  # `CheckBox` while the key is `Checkbox` — Crysterm aliases some by case).
-  def self.lookup_recipes(w : Item) : Array(Recipe)?
-    rel = relname(w)
-    recipe_map(w).each { |k, v| return v if k.compare(rel, case_insensitive: true) == 0 }
-    nil
-  end
-
-  def self.recipe?(w : Item) : Bool
-    !lookup_recipes(w).nil?
-  end
-
-  def self.recipes_for(w : Item) : Array(Recipe)
-    lookup_recipes(w) || [generic_recipe(w)]
+  # Whether an item already has at least one hand-written example file.
+  def self.example?(w : Item) : Bool
+    !program_files(w).empty?
   end
 
   # ---- discovery ------------------------------------------------------------
@@ -1321,62 +263,56 @@ module WidgetExamples
     items
   end
 
-  # ---- file generation ------------------------------------------------------
+  # ---- output paths ---------------------------------------------------------
+  #
+  # Every capture/build output is named after its example *program* file's stem:
+  # `foo.cr` -> `foo-capture.png` / `foo-capture5s.apng` / `foo` (binary), and
+  # `foo2.cr` -> `foo2-capture.png`, … So the program file alone determines all
+  # of its outputs — no separate index bookkeeping.
 
-  # The numeric suffix for the *index*'th example/screenshot: "" for the first,
-  # "2", "3", ... after that.
-  def self.suffix(index : Int32) : String
-    index == 0 ? "" : (index + 1).to_s
+  # The program file's stem, e.g. `".../foo2.cr"` -> `"foo2"`.
+  def self.prog_stem(prog : String) : String
+    File.basename(prog, ".cr")
   end
 
-  # The example file paths for a widget, in order (foo.cr, foo2.cr, ...).
-  def self.example_paths(w : Item, count : Int32) : Array(String)
-    dir = example_dir(w)
-    (0...count).map { |i| File.join(dir, "#{w.basename}#{suffix(i)}.cr") }
+  # Where *prog*'s still screenshot goes: `<stem>-capture.png`.
+  def self.shot_for(prog : String) : String
+    File.join(File.dirname(prog), "#{prog_stem(prog)}-capture.png")
   end
 
-  # Where the *index*'th example's still screenshot goes: `<prog>-capture.png`,
-  # `<prog>-capture2.png`, ... in the item's directory (`<prog>` is the widget
-  # name; the number tracks the program index, empty for the first).
-  def self.screenshot_path(w : Item, index : Int32) : String
-    File.join(example_dir(w), "#{w.basename}-capture#{suffix(index)}.png")
+  # Where *prog*'s animation goes: `<stem>-capture<secs>s.apng`
+  # (e.g. `list-capture5s.apng`; `<secs>` is the recording duration).
+  def self.anim_for(prog : String, duration : Int32) : String
+    File.join(File.dirname(prog), "#{prog_stem(prog)}-capture#{duration}s.apng")
   end
 
-  # Where the *index*'th example's animation goes: `<prog>-capture<secs>s.apng`,
-  # e.g. `list-capture5s.apng` (`<secs>` is the recording duration).
-  def self.anim_path(w : Item, index : Int32, duration : Int32) : String
-    File.join(example_dir(w), "#{w.basename}#{suffix(index)}-capture#{duration}s.apng")
+  # Where *prog*'s compiled binary goes (`--build`): `<stem>` next to the source.
+  def self.bin_for(prog : String) : String
+    File.join(File.dirname(prog), prog_stem(prog))
   end
 
-  # Render one example file's full source from a recipe.
-  def self.render_example(w : Item, recipe : Recipe, index : Int32, total : Int32) : String
+  # ---- scaffolding ----------------------------------------------------------
+
+  # Render a starter example file for an item that has none yet, from the
+  # generic template. This is the *only* file the tool ever writes; thereafter
+  # the example is hand-maintained in place.
+  def self.render_stub(w : Item) : String
+    recipe = generic_recipe(w)
     req = helper_require(w)
-    title = w.klass
     interp = ->(s : String) {
       s.gsub("%{fqn}", w.fqn).gsub("%{klass}", w.klass).gsub("%{name}", w.basename)
     }
     body = reindent(interp.call(recipe.body).rstrip, "  ")
     css = recipe.css.try { |c| interp.call(c) }
-    script = recipe.script.try { |s| reindent(interp.call(s).rstrip, "    ") }
 
     String.build do |io|
-      label = total > 1 ? " (example #{index + 1} of #{total})" : ""
-      io << "# Example: " << w.fqn << label << "\n"
+      io << "# Example: " << w.fqn << "\n"
       io << "#\n"
       io << "# Minimal, self-contained example of a single " << w.klass << ".\n"
-      io << "# Run it:     crystal run " << relative_to_root(example_paths(w, total)[index]) << "\n"
-      io << "# Maintained by tools/manage-examples.cr\n"
+      io << "# Run it:     crystal run " << relative_to_root(File.join(example_dir(w), "#{w.basename}.cr")) << "\n"
+      io << "# Scaffolded by tools/manage-examples.cr — now edit it here, in place.\n"
       io << "require \"" << req << "\"\n\n"
-      if script
-        # Animated demo: the `script` drives the widget (a thin wrapper over the
-        # same event emits real input uses) when recording the APNG.
-        io << "Crysterm::WidgetExample.run(" << title.inspect << ",\n"
-        io << "  script: ->(d : Crysterm::WidgetExample::Driver) {\n"
-        io << script << "\n"
-        io << "  }) do |screen|\n"
-      else
-        io << "Crysterm::WidgetExample.run " << title.inspect << " do |screen|\n"
-      end
+      io << "Crysterm::WidgetExample.run " << w.klass.inspect << " do |screen|\n"
       css.try { |c| io << "  screen.stylesheet = " << c.inspect << "\n" }
       io << body << "\n"
       io << "end\n"
@@ -1425,15 +361,17 @@ module WidgetExamples
   DOC_CLOSE_RE = /<!--\s*\/\s*widget-examples:capture\b[^>]*-->/
 
   # The image each example contributes to the docs, as a bare filename. Prefers
-  # the animation (`<prog>-capture<secs>s.apng`, which browsers play inline) and
-  # falls back to the still (`<prog>-capture.png`) when there is no APNG.
+  # the animation (`<stem>-capture<secs>s.apng`, which browsers play inline) and
+  # falls back to the still (`<stem>-capture.png`) when there is no APNG. One
+  # entry per example program file that has a capture.
   def self.capture_filenames(w : Item) : Array(String)
-    recipes_for(w).size.times.compact_map do |i|
-      apng = Dir.glob(File.join(example_dir(w), "#{w.basename}#{suffix(i)}-capture*s.apng")).sort.first?
+    program_files(w).compact_map do |prog|
+      stem = prog_stem(prog)
+      apng = Dir.glob(File.join(example_dir(w), "#{stem}-capture*s.apng")).sort.first?
       next File.basename(apng) if apng
-      png = screenshot_path(w, i)
+      png = shot_for(prog)
       File.exists?(png) ? File.basename(png) : nil
-    end.to_a
+    end
   end
 
   # How many `../` it takes to get from *w*'s generated page directory back to
@@ -1690,26 +628,30 @@ module WidgetExamples
 
     Usage: crystal run tools/manage-examples.cr -- [options] [name ...]
 
-      -f, --force       overwrite existing example files
+      -f, --force       re-do existing outputs (stills/anims/binaries/docs);
+                        never overwrites an example .cr
           --only NAME   restrict to NAME (repeatable; bare args work too)
-          --no-shot     generate files but skip screenshots
-          --shots-only  only (re)take screenshots; don't touch files
+          --no-shot     scaffold missing files but skip screenshots
+          --shots-only  only (re)take screenshots; don't author any files
           --anim                                example that has a demo script, instead of a still
           --duration N  animation length in seconds (default 5)
           --build       compile each example next to its source (x/<prog>.cr -> x/<prog>)
           --release     like --build, but a crystal --release (optimized) build
       -j, --jobs N      screenshot/anim concurrency (default #{default_jobs}; each is a compile)
-          --doc-comments insert/refresh each example's screenshot in its source
+          --doc-comments insert/refresh each example's capture in its source
                         class doc comment (so `crystal docs` shows it)
           --docs        run `crystal docs`, then copy examples/ into docs/
           --copy        just copy examples/ into docs/ (skip `crystal docs`)
           --list        show the plan and exit
       -h, --help        this help
 
-    With NO flags: generate missing example files + stills, then build docs
+    Example files in examples/ are the source of truth — edit them in place; the
+    tool only scaffolds the MISSING ones (from a generic template) and never
+    rewrites an existing .cr.
+    With NO flags: scaffold missing examples + stills, then build docs
     (`crystal docs` + copy examples into docs/).
     -f/--force on its OWN (no mode flag) re-does the whole chain end to end:
-    (re)generate -> stills -> anims -> doc-comments -> docs. Pair --force with a
+    scaffold -> stills -> anims -> doc-comments -> docs. Pair --force with a
     mode flag to force just that step (e.g. `--force --anim`).
     --anim, --doc-comments and --docs run only their own step.
     [name ...], --jobs and --duration may accompany any of the above.
@@ -1751,11 +693,6 @@ module WidgetExamples
     return false if force || !File.exists?(dest)
     puts "skip   #{relative_to_root(dest)} (exists; --force to overwrite)"
     true
-  end
-
-  # `--build` compiles each example next to its source: `x/<prog>.cr` -> `x/<prog>`.
-  def self.build_path(w : Item, index : Int32) : String
-    File.join(example_dir(w), "#{w.basename}#{suffix(index)}")
   end
 
   # Compile *example_cr* to *bin* (optionally `--release`). Returns {ok, msg}.
@@ -1815,9 +752,10 @@ module WidgetExamples
     if opts.list
       puts "#{widgets.size} widget(s):"
       widgets.each do |w|
-        recipe_kind = recipe?(w) ? "recipe" : "generic"
+        n = program_files(w).size
+        status = n == 0 ? "missing" : (n == 1 ? "example" : "#{n} examples")
         puts "  %-22s %-32s [%s] -> %s" % [
-          w.basename, w.fqn, recipe_kind, relative_to_root(example_dir(w)),
+          w.basename, w.fqn, status, relative_to_root(example_dir(w)),
         ]
       end
       return
@@ -1838,16 +776,16 @@ module WidgetExamples
     end
 
     # `--force` with no mode flag re-runs the entire pipeline end to end:
-    # (re)generate every example file, shoot the stills, record the APNGs,
-    # refresh the in-source doc-comment captures, then build and populate the
-    # docs tree. A mode flag (or `--no-shot`/`--shots-only`) instead scopes the
-    # run to just that step, as before.
+    # scaffold any still-missing example, (re)shoot the stills, (re)record the
+    # APNGs, refresh the in-source doc-comment captures, then build and populate
+    # the docs tree. Existing example .cr files are never rewritten. A mode flag
+    # (or `--no-shot`/`--shots-only`) instead scopes the run to just that step.
     if opts.full_chain?
-      puts "── full chain: generate → stills → anims → doc-comments → docs ──"
-      process(widgets, opts) # (re)generate example files + still PNGs
+      puts "── full chain: scaffold → stills → anims → doc-comments → docs ──"
+      process(widgets, opts) # scaffold missing examples + still PNGs
       anim_opts = opts.dup
       anim_opts.anim = true
-      anim_opts.shots_only = true # files already (re)written by the stills pass
+      anim_opts.shots_only = true # don't re-scaffold; stills pass already did
       process(widgets, anim_opts) # record the APNGs
       maintain_doc_comments(widgets)
       build_docs
@@ -1867,40 +805,41 @@ module WidgetExamples
   # The generation + capture/build phase, shared by a normal single-mode run and
   # by each step of the `--force` full chain.
   def self.process(widgets : Array(Item), opts : Options)
-    generated = 0
+    scaffolded = 0
     skipped = 0
-    generics = [] of String
+    stubs = [] of String
     no_script = [] of String
-    # Examples to capture, collected during the (sequential) generation phase and
-    # run in parallel afterwards. Each is {item, example.cr, output, env}.
+    # Examples to capture, collected during the (sequential) scan phase and run
+    # in parallel afterwards. Each is {item, example.cr, output, env}.
     captures = [] of {Item, String, String, Process::Env}
     # Examples to compile, when --build/--release. Each is {item, example.cr, bin}.
     builds = [] of {Item, String, String}
 
     widgets.each do |w|
-      generics << w.basename unless recipe?(w)
-      recipes = recipes_for(w)
-      paths = example_paths(w, recipes.size)
-      FileUtils.mkdir_p(example_dir(w))
+      progs = program_files(w)
 
-      paths.each_with_index do |path, idx|
-        unless opts.shots_only
-          if File.exists?(path) && !opts.force
-            skipped += 1
-            puts "skip   #{relative_to_root(path)} (exists; --force to overwrite)"
-          else
-            File.write(path, render_example(w, recipes[idx], idx, recipes.size))
-            generated += 1
-            puts "write  #{relative_to_root(path)}"
-          end
-        end
+      # The example files in `examples/` are the source of truth — never
+      # rewritten. A widget with *no* example yet gets one starter scaffolded
+      # from the generic template, after which it is hand-maintained in place.
+      # A `--shots-only`/`--build` pass mustn't author sources, so it skips an
+      # un-exemplified widget rather than scaffolding it.
+      if progs.empty?
+        next if opts.shots_only
+        FileUtils.mkdir_p(example_dir(w))
+        path = File.join(example_dir(w), "#{w.basename}.cr")
+        File.write(path, render_stub(w))
+        scaffolded += 1
+        stubs << w.basename
+        puts "scaffold #{relative_to_root(path)} (now edit it in place)"
+        progs = [path]
+      end
 
+      progs.each do |path|
         next if opts.no_shot && !opts.build
-        next unless File.exists?(path) # nothing to do (shots-only, missing file)
 
-        # Existing outputs are preserved unless --force (same rule as the .cr).
+        # Existing outputs are preserved unless --force.
         if opts.build
-          bin = build_path(w, idx)
+          bin = bin_for(path)
           if skip_output?(bin, opts.force)
             skipped += 1
           else
@@ -1909,15 +848,15 @@ module WidgetExamples
         elsif opts.anim
           # Every example gets an APNG. Scripted ones play their demo; the rest
           # are recorded as a static hold (still capturing any self-animation).
-          no_script << w.basename unless recipes[idx].script
-          dest = anim_path(w, idx, opts.duration)
+          no_script << prog_stem(path) unless File.read(path).includes?("script:")
+          dest = anim_for(path, opts.duration)
           if skip_output?(dest, opts.force)
             skipped += 1
           else
             captures << {w, path, dest, {"CRYSTERM_ANIM" => dest, "CRYSTERM_ANIM_SECS" => opts.duration.to_s}}
           end
         else
-          dest = screenshot_path(w, idx)
+          dest = shot_for(path)
           if skip_output?(dest, opts.force)
             skipped += 1
           else
@@ -1951,7 +890,7 @@ module WidgetExamples
         end
       end
       puts
-      puts "Summary: #{generated} written, #{skipped} skipped, #{build_ok} built, #{build_fail} failed."
+      puts "Summary: #{scaffolded} scaffolded, #{skipped} skipped, #{build_ok} built, #{build_fail} failed."
       puts "Build failures: #{bfailures.uniq.join(", ")}" unless bfailures.empty?
       return
     end
@@ -1981,16 +920,16 @@ module WidgetExamples
 
     puts
     captured = opts.anim ? "anims" : "shots"
-    puts "Summary: #{generated} written, #{skipped} skipped, " \
+    puts "Summary: #{scaffolded} scaffolded, #{skipped} skipped, " \
          "#{ok_n} #{captured} ok, #{fail_n} #{captured} failed."
     unless failures.empty?
-      puts "Build/capture failures (need a working recipe): #{failures.uniq.join(", ")}"
+      puts "Build/capture failures (the example needs fixing): #{failures.uniq.join(", ")}"
     end
     if opts.anim && !no_script.empty?
-      puts "Recorded as a static hold (no demo script — add `script:` to its recipe to drive it): #{no_script.uniq.join(", ")}"
+      puts "Recorded as a static hold (no demo script — add a `script:` to the example to drive it): #{no_script.uniq.join(", ")}"
     end
-    unless generics.empty?
-      puts "Using the generic template (groom into real recipes): #{generics.uniq.join(", ")}"
+    unless stubs.empty?
+      puts "Scaffolded from the generic template (flesh out in place): #{stubs.uniq.join(", ")}"
     end
   end
 end
