@@ -38,6 +38,8 @@ dependencies:
     branch: master
   html5:
     github: naqvis/crystal-html5
+  markd:
+    github: icyleaf/markd
 
 development_dependencies:
   ameba:

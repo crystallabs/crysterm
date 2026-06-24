@@ -62,6 +62,7 @@ module Crysterm
     Prompt     = Widget::Prompt
     Message    = Widget::Message
     Log        = Widget::Log
+    Markdown   = Widget::Markdown
 
     # Non-visual button manager (logical grouping / exclusivity).
     ButtonGroup = Crysterm::ButtonGroup

@@ -150,6 +150,11 @@ module Crysterm
     # name => value pairs of all input children (see `Widget::Form#submit`).
     event SubmitData, data : Hash(String, String)
 
+    # Emitted when a document link/anchor is activated — the analog of Qt's
+    # `QTextBrowser::anchorClicked`. Carries the link's URL. Used by
+    # `Widget::Markdown#activate_link`.
+    event AnchorClick, url : String
+
     # Emitted on value canceled (e.g. in text forms)
     event Cancel, value : String
 
