@@ -377,9 +377,10 @@ module Crysterm
         style.transitions = inline.transitions if inline.specified?(:transition)
         style.animation = inline.animation if inline.specified?(:animation)
         # `specified?` (not `any?`) so an inline style can switch border/padding/
-        # shadow *off* over a stylesheet, not only on.
+        # margin/shadow *off* over a stylesheet, not only on.
         style.border = inline.border if inline.specified?(:border)
         style.padding = inline.padding if inline.specified?(:padding)
+        style.margin = inline.margin if inline.specified?(:margin)
         style.shadow = inline.shadow if inline.specified?(:shadow)
         # Nested sub-styles (header/cell/alternate/bar/…) the inline set wholesale;
         # without this they'd be dropped by the reset-and-recompute, since no

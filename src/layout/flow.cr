@@ -76,7 +76,13 @@ module Crysterm
         end
 
         llp = last.lpos.not_nil!
-        el.left = llp.xl - xi
+        # Chain off `last`'s *outer* right edge: `llp.xl` is its drawn
+        # (margin-inset) edge, so add back its right margin. `el` then
+        # self-offsets by its own left margin during render (`_get_coords`),
+        # giving adjacent flow children `last.margin.right + el.margin.left` of
+        # separation (additive; no CSS margin-collapsing). Margins default to 0,
+        # so this is a no-op for unmargined children.
+        el.left = (llp.xl + last.mright) - xi
 
         # Snap to the uniform column width in grid mode.
         if high_width > 0
@@ -97,7 +103,10 @@ module Crysterm
             el2 = container.children[j]
             if rendered? el2
               elp = el2.lpos.not_nil!
-              eh = elp.yl - elp.yi
+              # Outer height: the drawn rect lost its vertical margin to the
+              # inset, so add it back, leaving the next row separated by this
+              # child's bottom margin plus the next child's top margin.
+              eh = (elp.yl - elp.yi) + el2.mheight
               tallest = eh if eh > tallest
             end
             j += 1

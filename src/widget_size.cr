@@ -191,11 +191,13 @@ module Crysterm
         if @left.nil? && !@right.nil?
           xi = xl - (mxl - mxi)
           xi -= style.padding.try { |padding| padding.left + padding.right } || 0
+          xi -= mwidth # reserve room for the margin _get_coords insets back out
         else
           xl = mxl
           # D O:
           # xl += style.padding.try(&.right) || 0
           xl += iright
+          xl += mwidth # reserve room for the margin _get_coords insets back out
         end
       end
       if @height.nil? && (@top.nil? || @bottom.nil?) && (!@scrollable || @_is_list)
@@ -209,9 +211,11 @@ module Crysterm
         if @top.nil? && !@bottom.nil?
           yi = yl - (myl - myi)
           yi -= itop
+          yi -= mheight # reserve room for the margin _get_coords insets back out
         else
           yl = myl
           yl += ibottom
+          yl += mheight # reserve room for the margin _get_coords insets back out
         end
       end
 
@@ -233,11 +237,14 @@ module Crysterm
       # If a person sets resizable: true, this is expected to happen
       # no matter what; not only if other coordinates are also left empty.
 
+      # `mwidth`/`mheight` reserve room for the element's own margin, which
+      # `_get_coords` insets back out of the resolved rectangle. Without this a
+      # shrunk-to-content widget would have its content clipped by the margin.
       if @width.nil? && (@left.nil? || @right.nil?)
         if @left.nil? && !@right.nil?
-          xi = xl - w - iwidth
+          xi = xl - w - iwidth - mwidth
         else
-          xl = xi + w + iwidth
+          xl = xi + w + iwidth + mwidth
         end
       end
       # end
@@ -245,9 +252,9 @@ module Crysterm
       if @height.nil? && (@top.nil? || @bottom.nil?) &&
          (!@scrollable || @_is_list)
         if @top.nil? && !@bottom.nil?
-          yi = yl - h - iheight # (iheight == 1 ? 0 : iheight)
+          yi = yl - h - iheight - mheight # (iheight == 1 ? 0 : iheight)
         else
-          yl = yi + h + iheight # (iheight == 1 ? 0 : iheight)
+          yl = yi + h + iheight + mheight # (iheight == 1 ? 0 : iheight)
         end
       end
 

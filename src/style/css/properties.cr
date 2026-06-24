@@ -82,6 +82,16 @@ module Crysterm
           style.padding.right = cells(value)
         when "padding-bottom"
           style.padding.bottom = cells(value)
+        when "margin"
+          style.margin = parse_margin(value)
+        when "margin-left"
+          style.margin.left = cells(value)
+        when "margin-top"
+          style.margin.top = cells(value)
+        when "margin-right"
+          style.margin.right = cells(value)
+        when "margin-bottom"
+          style.margin.bottom = cells(value)
         else
           # Unknown / not-yet-supported property: ignore.
         end
@@ -98,6 +108,7 @@ module Crysterm
         "font-style", "text-decoration", "visibility", "display", "opacity",
         "tab-size", "box-shadow", "tint", "z-index", "transition", "animation",
         "padding", "padding-left", "padding-top", "padding-right", "padding-bottom",
+        "margin", "margin-left", "margin-top", "margin-right", "margin-bottom",
         "alternate-background-color", "selection-color", "selection-background-color",
       }
 
@@ -354,6 +365,19 @@ module Crysterm
         when 3 then Padding.new(v[1], v[0], v[1], v[2]) # from T,H,B
         when 4 then Padding.new(v[3], v[0], v[1], v[2]) # from T,R,B,L
         else        Padding.default
+        end
+      end
+
+      # Parses the CSS `margin` shorthand (1-4 cell values, CSS TRBL order)
+      # into a `Margin`. Same grammar as `padding`.
+      private def self.parse_margin(value : String) : Margin
+        v = value.split.map { |part| cells(part) }
+        case v.size
+        when 1 then Margin.new(v[0], v[0], v[0], v[0])
+        when 2 then Margin.new(v[1], v[0], v[1], v[0]) # L,T,R,B from V,H
+        when 3 then Margin.new(v[1], v[0], v[1], v[2]) # from T,H,B
+        when 4 then Margin.new(v[3], v[0], v[1], v[2]) # from T,R,B,L
+        else        Margin.default
         end
       end
 

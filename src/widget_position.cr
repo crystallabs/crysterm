@@ -369,6 +369,20 @@ module Crysterm
         yl = coords.yl
       end
 
+      # Apply the element's own margin: an *outer* inset that shifts the box in by
+      # the near-side margins and shrinks it by the far-side ones. This is the
+      # mirror of the border/padding content insets (`ileft` & co.), but at the
+      # outer edge and belonging to the element itself rather than its parent, so
+      # it is applied here to the already-resolved rectangle rather than via the
+      # `i*` offsets. `_minimal_rectangle` reserves room for it (see
+      # `Widget#mwidth`/`mheight`), so a shrunk widget keeps its content intact.
+      if (margin = style.margin).any?
+        xi += margin.left
+        xl -= margin.right
+        yi += margin.top
+        yl -= margin.bottom
+      end
+
       # Find the nearest ancestor that clips its children, if any. Two kinds of
       # ancestor clip: a scrollable element (clips to its scroll viewport) or an
       # element with `overflow: Hidden` (clips to its rectangle even though it

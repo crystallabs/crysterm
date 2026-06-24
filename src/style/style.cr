@@ -138,13 +138,15 @@ module Crysterm
       copy.specified = @specified.dup
       @border.try { |border| copy.border = border.dup }
       copy.padding = @padding.dup
+      copy.margin = @margin.dup
       copy.shadow = @shadow.dup
-      # Those `border=`/`padding=`/`shadow=` setters also stamp
-      # `:border`/`:padding`/`:shadow` into the copy's set; drop any we didn't
-      # actually specify (cheap deletes — no second `Set` allocation), so the dup
-      # reports exactly what *we* explicitly set, no more.
+      # Those `border=`/`padding=`/`margin=`/`shadow=` setters also stamp
+      # `:border`/`:padding`/`:margin`/`:shadow` into the copy's set; drop any we
+      # didn't actually specify (cheap deletes — no second `Set` allocation), so
+      # the dup reports exactly what *we* explicitly set, no more.
       copy.specified.delete(:border) unless @specified.includes?(:border)
       copy.specified.delete(:padding) unless @specified.includes?(:padding)
+      copy.specified.delete(:margin) unless @specified.includes?(:margin)
       copy.specified.delete(:shadow) unless @specified.includes?(:shadow)
       copy
     end
@@ -298,6 +300,17 @@ module Crysterm
 
     getter padding = Padding.default
 
+    # Element's outer spacing. Unlike `padding`/`border` (inner insets), a margin
+    # offsets and shrinks the element itself within its allotted slot; see
+    # `Margin` and `Widget#_get_coords`.
+    def margin=(value)
+      @specified << :margin
+      @margin = Margin.from value
+    end
+
+    # :ditto:
+    getter margin = Margin.default
+
     setter scrollbar : Style?
 
     def scrollbar
@@ -342,6 +355,7 @@ module Crysterm
       *,
       border = nil,
       padding = nil,
+      margin = nil,
       shadow = nil,
       @scrollbar = @scrollbar,
       @track = @track,
@@ -386,6 +400,7 @@ module Crysterm
       alpha.try { |v| self.alpha = self.class.alpha_from(v) }
       border.try { |v| self.border = Border.from(v) }
       padding.try { |v| self.padding = Padding.from(v) }
+      margin.try { |v| self.margin = Margin.from(v) }
       shadow.try { |v| self.shadow = Shadow.from(v) }
     end
 
