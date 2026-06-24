@@ -1,3 +1,5 @@
+require "./widget/list"
+
 module Crysterm
   # Autocompletion helper for a text input, modeled after Qt's `QCompleter`.
   #
