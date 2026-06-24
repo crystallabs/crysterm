@@ -448,6 +448,23 @@ module Crysterm
       outbuf.to_s
     end
 
+    # Base (per-line-start) attribute that results from scanning `line`'s inline
+    # SGR sequences starting from `attr`. Mirrors the per-line state update in
+    # `_parse_attr` and is used by `append_content` to carry the SGR state across
+    # the append boundary (a `{red-fg}` left open on an earlier line colors the
+    # appended lines too, exactly as a full reparse would).
+    private def _attr_after(line : String, attr : Int64) : Int64
+      default_attr = sattr(style)
+      line.each_char_with_index do |char, i|
+        if char == '\e'
+          if c = SGR_REGEX.match(line, i, options: Regex::MatchOptions::ANCHORED)
+            attr = screen.attr2code(c[0], attr, default_attr)
+          end
+        end
+      end
+      attr
+    end
+
     def _parse_attr(lines : CLines)
       default_attr = sattr(style)
       attr = default_attr
@@ -727,6 +744,141 @@ module Crysterm
       set_content(@_clines.fake.join("\n"), true)
     end
 
+    # Scratch `CLines` reused across `append_content` calls so wrapping just the
+    # appended line never allocates a fresh bookkeeping object.
+    @_append_scratch : CLines? = nil
+
+    # Append `text` (one or more `\n`-separated logical lines) to the end of the
+    # content WITHOUT reparsing everything already there. The existing wrapped
+    # lines, their tag parse, and their per-line attributes are all left
+    # untouched; only the newly appended text is cleaned, tag-parsed, wrapped and
+    # attr-scanned, then spliced onto the tail of `@_clines`. This turns the
+    # O(total) work that `set_content` does per append into O(appended).
+    #
+    # Returns `true` if the fast path handled it, `false` if it bailed (caller
+    # should fall back to `set_content`/`push_line`). It bails when the content
+    # is empty (let the normal path seed line 0), the parse cache is stale, or the
+    # width changed (the existing wrapped lines would need re-wrapping).
+    #
+    # Why it is byte-identical to a full reparse:
+    # * Per-fake-line wrapping is independent in `_wrap_content` (each `\n`-split
+    #   segment wraps on its own), so appending never re-wraps earlier lines.
+    # * Tags: `@_clines.fake` stores already-*parsed* (SGR) content for earlier
+    #   lines, so a full reparse's `_parse_tags` sees no tag tokens before the new
+    #   segment — the fg/bg/flag stacks always start empty at the boundary. Parsing
+    #   the new segment standalone is therefore exactly what a full reparse does.
+    # * Attributes DO carry: an SGR left open on an earlier line (e.g. an unclosed
+    #   `{red-fg}`) colors the appended lines too. `_attr_after` recreates that
+    #   carry so the spliced per-line attrs match a full reparse.
+    def append_content(text : String) : Bool
+      return false unless screen?
+      # Cache must be current: if a reparse is pending, splicing onto stale
+      # `@_clines` would corrupt it. Let the normal path run first.
+      return false unless @_clines.content_version == @_content_version
+      return false if @content.empty?
+      colwidth = @_clines.width
+      return false if colwidth <= 0
+      # Bail if the widget's width changed since the cache was built — the slow
+      # path reparses everything at the new width (the `width != colwidth` check
+      # in `process_content`); the fast path can only splice when the existing
+      # wrapped lines are still valid for the current width.
+      return false if (awidth - iwidth) != colwidth
+      # The splice extends the existing `@_pcontent`; if it is empty (content that
+      # cleaned away to nothing) the existing single empty line has nothing to
+      # join against — leave that degenerate case to the full path.
+      pcontent = @_pcontent || ""
+      return false if pcontent.empty?
+
+      # Clean control chars on JUST the appended text (same single-pass rule as
+      # `process_content`), then tag-parse only the new segment.
+      tab = text.includes?('\t') ? style.tab_char * style.tab_size : ""
+      seg = text.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]|\e(?!\[[\d;]*m)|\r\n|\r|\t/) do |m|
+        case m
+        when "\r\n", "\r" then "\n"
+        when "\t"         then tab
+        else                   ""
+        end
+      end
+      # Appending nothing (empty text, or text that cleaned away) would drive
+      # `_wrap_content` down its empty-content branch, which desyncs `fake` from
+      # `lines`. Such an append is a no-op for content but `push_line` still wants
+      # the blank line; let the full path produce it.
+      return false if seg.empty?
+
+      seg_has_tags = @parse_tags && seg.matches?(TAG_REGEX)
+      if seg_has_tags
+        # Standalone tag parse of the new segment. Correct because earlier `fake`
+        # lines are already SGR (tagless), so a full reparse's tag stacks are
+        # likewise empty at this boundary (see the method doc).
+        seg = _parse_tags seg
+      end
+
+      # Wrap only the appended segment into a scratch CLines.
+      scratch = (@_append_scratch ||= CLines.new)
+      _wrap_content(seg, colwidth, into: scratch)
+
+      cl = @_clines
+      base_real = cl.lines.size
+      base_fake = cl.fake.size
+
+      # Splice the scratch's real lines, fake lines and mappings onto the tail,
+      # offsetting the indices by where the existing content ends.
+      scratch.lines.each { |ln| cl.lines << ln }
+      scratch.fake.each { |fk| cl.fake << fk }
+      scratch.ftor.each do |row|
+        cl.ftor << row.map { |r| r + base_real }
+      end
+      scratch.rtof.each { |f| cl.rtof << (f + base_fake) }
+
+      # Extend `ci` (char offset of each real line within `@_pcontent`). The first
+      # new line starts right after the existing pcontent's joining "\n" (pcontent
+      # is guaranteed non-empty by the bail above).
+      running = pcontent.size + 1
+      scratch.lines.each do |ln|
+        cl.ci << running
+        running += ln.size + 1
+      end
+
+      # Per-line starting attrs for the new lines, carrying the SGR state across
+      # the boundary: the first new line starts from the attr the existing
+      # content ended on (its last line's start attr advanced through that line's
+      # SGRs), and each subsequent new line continues from the previous. This
+      # matches `_parse_attr`'s line-to-line carry exactly.
+      if attrs = cl.attr
+        carry = if base_real > 0 && base_real <= attrs.size
+                  _attr_after(cl.lines[base_real - 1], attrs[base_real - 1])
+                else
+                  sattr(style)
+                end
+        scratch.lines.each do |ln|
+          attrs << carry
+          carry = _attr_after(ln, carry)
+        end
+      end
+
+      cl.max_width = Math.max(cl.max_width, scratch.max_width)
+
+      # Extend the canonical strings. These two concats are the only O(total)
+      # work left (string is immutable); everything heavy above is O(appended).
+      # `@_pcontent` becomes a fresh String, so the render's `built_from?` identity
+      # check rebuilds `@_content_index` on its own — no need to null it here (the
+      # full path relies on the same mechanism).
+      @_pcontent = pcontent + "\n" + scratch.lines.join("\n")
+      @content = @content + "\n" + text
+      @_content_has_tags ||= seg_has_tags
+      @_content_version += 1
+      cl.content = @content
+      cl.content_version = @_content_version
+
+      # Mirror the full path: mark the widget for repaint and emit the same event
+      # contract — `ParsedContent` (scrollable widgets' `_recalculate_index`) and
+      # `SetContent` (e.g. `Log` auto-scroll).
+      mark_dirty
+      emit Crysterm::Event::ParsedContent
+      emit Crysterm::Event::SetContent
+      true
+    end
+
     def insert_line(i = nil, line = "")
       if line.is_a? String
         line = line.split("\n")
@@ -925,6 +1077,17 @@ module Crysterm
       if @content.empty?
         return set_line(0, line)
       end
+      # Appending at the end is the common case (logs, transcripts, streaming
+      # output). `append_content` splices just the new line onto `@_clines`
+      # instead of re-joining and reparsing all existing content — O(appended)
+      # rather than O(total). It bails (returns false) when it cannot guarantee
+      # an identical result (stale cache or width change), in which case fall
+      # through to the general insert.
+      #
+      # NOTE: there is deliberately no `Widget#<<` text alias — `<<` already means
+      # "append a child widget" (`Mixin::Children#<<`), so appending text goes
+      # through `push_line` / `append_content` to avoid overloading it.
+      return if append_content(line)
       insert_line(@_clines.fake.size, line)
     end
 

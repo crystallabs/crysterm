@@ -27,7 +27,11 @@ class MyProg
     height: 3,
     style: style1
   input.on(Crysterm::Event::Submit) do |e|
-    chat.set_content "#{chat.content}\n#{e.value}"
+    # Appending a chat line: `push_line` splices just the new line onto the
+    # parsed content (O(new line)), instead of `set_content "#{chat.content}\n…"`
+    # which re-joined and reparsed the whole transcript on every message (O(n) per
+    # line, O(n²) over a session).
+    chat.push_line e.value
     input.value = ""
     s.render
     input.focus
@@ -80,13 +84,13 @@ class MyProg
       if r < 0.5
         # TODO Causes a bug at the moment
         # members.append_item "Member #{id}"
-        chat.set_content "#{chat.content}\n* Member #{id} has joined the conversation."
+        chat.push_line "* Member #{id} has joined the conversation."
         id += 1
       else
         delid = rand(id) + 1
         members.items[delid]?.try do |item|
           members.remove_item(item) && \
-             chat.set_content "#{chat.content}\n* #{item.content} has left."
+             chat.push_line "* #{item.content} has left."
         end
       end
       chat.scroll_to chat.get_content.lines.size
