@@ -346,6 +346,7 @@ module Crysterm
           top: 0, left: 0,
           width: 16, height: 3,
           style: Style.new(border: true),
+          overflow: Crysterm::Overflow::MoveWidget,
         )
         pop.completer = self
         # The wheel moves the highlight while the list is open (the box keeps

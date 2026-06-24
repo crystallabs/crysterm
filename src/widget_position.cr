@@ -532,6 +532,36 @@ module Crysterm
         end
       end
 
+      # `MoveWidget`: translate the whole rectangle so it fits within the
+      # screen's visible area, preserving its size (the use case is pop-ups —
+      # e.g. an auto-completion list placed below its box that would run off the
+      # bottom; it slides up just enough to stay on screen). Unlike
+      # `ShrinkWidget` (parent-policy, clamps the edges), this is child-policy:
+      # the widget declares `overflow = MoveWidget` for itself. Far edges are
+      # pulled in first, then the near edges are clamped, so a widget larger than
+      # the screen still starts at the top/left with the overflow on the far side
+      # ("if possible").
+      if self.overflow.move_widget?
+        scr = screen
+        s_left = scr.ileft
+        s_top = scr.itop
+        s_right = scr.awidth - scr.iright
+        s_bottom = scr.aheight - scr.ibottom
+
+        if xl > s_right
+          d = xl - s_right; xi -= d; xl -= d
+        end
+        if xi < s_left
+          d = s_left - xi; xi += d; xl += d
+        end
+        if yl > s_bottom
+          d = yl - s_bottom; yi -= d; yl -= d
+        end
+        if yi < s_top
+          d = s_top - yi; yi += d; yl += d
+        end
+      end
+
       # D O:
       # if parent.lpos
       #   parent.lpos._scroll_bottom = Math.max(parent.lpos._scroll_bottom, yl)

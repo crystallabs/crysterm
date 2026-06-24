@@ -39,7 +39,9 @@ module Crysterm
             skip el
             break
           when Overflow::MoveWidget
-            raise Exception.new "Layout overflow MoveWidget is not implemented yet"
+            # No-op at the layout level: a `MoveWidget` child repositions itself
+            # to stay on screen during its own render (`Widget#_get_coords`), so
+            # fall through and render it where it lands.
           end
 
           el.render

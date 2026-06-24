@@ -215,7 +215,7 @@ module Crysterm
       visible = nil,
       @fixed = @fixed,
       align : Tput::AlignFlag | Shorthands = @align,
-      overflow : Overflow | Shorthands = @overflow,
+      overflow : Overflow | Shorthands | Nil = @overflow,
       @layout = @layout,
       @layout_hint = @layout_hint,
 

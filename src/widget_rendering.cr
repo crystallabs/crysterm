@@ -3,8 +3,33 @@ module Crysterm
     # module Rendering
     include Crystallabs::Helpers::Alias_Methods
 
-    # What action to take when widget is overflowing parent's rectangle?
-    Crystallabs::Helpers::Enums.enum_property overflow : Overflow = Overflow::Ignore
+    # Per-widget override of the overflow action; `nil` means "inherit". Read
+    # through `#overflow`, which falls back to the screen's default when unset,
+    # so each widget is independently controllable while a plain widget still
+    # follows the screen-wide policy (`Config.screen_overflow`). Set via
+    # `#overflow=` (accepts an `Overflow`, a shorthand, or `nil` to re-inherit).
+    @overflow : Overflow? = nil
+
+    # What action to take when this widget overflows its parent's rectangle.
+    # Returns the per-widget override if one is set, otherwise the screen's
+    # `#overflow` default (or `Overflow::Ignore` for a screen-less widget).
+    def overflow : Overflow
+      @overflow || screen?.try(&.overflow) || Overflow::Ignore
+    end
+
+    # The raw per-widget override (`nil` = inheriting the screen default).
+    # Distinct from `#overflow`, which resolves the inherited value.
+    def own_overflow : Overflow?
+      @overflow
+    end
+
+    def overflow=(value : Overflow?)
+      @overflow = value
+    end
+
+    def overflow=(value : ::Crystallabs::Helpers::Enums::Shorthands)
+      @overflow = ::Crystallabs::Helpers::Enums.from(Overflow, value)
+    end
 
     # The layout engine that arranges this widget's children, or nil for manual
     # placement — children positioning themselves from their own coordinates
@@ -45,17 +70,23 @@ module Crysterm
 
     # Here be dragons
 
+    # Resolves the `Style` a *child* should render with. The base just returns
+    # the child's own style; container widgets that style their children (e.g.
+    # `Widget::List` highlighting the selected row) override this. Called from
+    # `#_render` on the child's parent, so a child renders with whatever style
+    # its parent dictates — no `is_a?`/flag check at the call site.
+    def render_style_for(item : Widget) : Style
+      item.style
+    end
+
     # Renders all child elements into the output buffer.
     def _render(with_children = true)
       emit Crysterm::Event::PreRender
 
-      # XXX TODO Is this a hack in Crysterm? It allows elements within lists to be styled as appropriate.
-      style = self.style
-      parent.try do |parent2|
-        if parent2._is_list && parent2.is_a? Widget::List
-          style = parent2.render_style_for(self)
-        end
-      end
+      # Let the parent dictate this widget's render style (a list highlights its
+      # selected row, etc.); for an ordinary parent `render_style_for` just hands
+      # back our own style.
+      style = parent.try(&.render_style_for(self)) || self.style
 
       # Keep any border label glued to the (possibly CSS-resolved) top inset.
       # Must run before the label child renders, hence here at the frame's start.

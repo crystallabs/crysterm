@@ -389,7 +389,10 @@ module Crysterm
     # Convert `{red-fg}foo{/red-fg}` to `\e[31mfoo\e[39m`.
     def _parse_tags(text)
       return text unless @parse_tags
-      return text unless text =~ TAG_REGEX
+      # Enter the parser whenever a brace is present (not only on a *valid* tag):
+      # under the drop-malformed policy a stray `{`/`}` must be stripped too, and
+      # brace-free text is returned untouched by this fast byte scan.
+      return text unless text.includes?('{') || text.includes?('}')
 
       # Accumulate into a `String::Builder` rather than `outbuf += ...`: repeated
       # `String` concatenation rebuilds the whole (growing) result on every tag,
@@ -431,7 +434,12 @@ module Crysterm
           break
         end
 
-        # Matches {normal}{/normal} and all other tags
+        # A recognized `{tag}` / `{/tag}`. `{open}`/`{close}` emit literal
+        # braces; a known attribute name emits its SGR (tracking nesting so a
+        # close restores the previous state); an UNRECOGNIZED tag is malformed
+        # and dropped (drop-malformed policy, todoc Q6). `Tput#_attr` returns ""
+        # for an unknown name and a non-empty SGR for every known one (in the
+        # opening sense), so `empty?` is the recognition test.
         if cap = TAG_REGEX.match(text, pos, options: anchored)
           pos += cap[0].size
           slash = cap[1] == "/"
@@ -457,49 +465,43 @@ module Crysterm
                   end
 
           if slash
-            if param.nil? || param.blank?
-              outbuf << (screen.tput._attr("normal") || "")
+            if param.blank?
+              # `{/}` resets everything.
+              outbuf << screen.tput._attr("normal")
               bg.clear
               fg.clear
               flag.clear
-            else
-              attr = screen.tput._attr(param, false)
-              if attr.nil?
-                outbuf << cap[0]
-              else
-                # D O:
-                # if (param !== state[state.size - 1])
-                #   throw new Error('Misnested tags.')
-                # }
-                state.pop
-                outbuf << (state.size > 0 ? (screen.tput._attr(state[-1]) || "") : attr)
-              end
+            elsif !screen.tput._attr(param).empty? # recognized -> restore prior
+              # D O:
+              # if (param !== state[state.size - 1])
+              #   throw new Error('Misnested tags.')
+              # }
+              state.pop
+              outbuf << (state.size > 0 ? screen.tput._attr(state[-1]) : screen.tput._attr(param, false))
             end
+            # else: unrecognized closing tag -> dropped
           else
-            if param.nil?
-              outbuf << cap[0]
-            else
-              attr = screen.tput._attr(param)
-              if attr.nil?
-                outbuf << cap[0]
-              else
-                state.push(param)
-                outbuf << attr
-              end
+            attr = screen.tput._attr(param)
+            unless attr.empty? # recognized opening tag
+              state.push(param)
+              outbuf << attr
             end
+            # else: unrecognized opening tag -> dropped
           end
 
           next
         end
 
-        if cap = /[\s\S]+?(?={\/?[\w\-,;!#]*})/.match(text, pos, options: anchored)
+        # A run of plain (brace-free) text passes through verbatim.
+        if cap = /[^{}]+/.match(text, pos, options: anchored)
           pos += cap[0].size
           outbuf << cap[0]
           next
         end
 
-        outbuf << text[pos..]
-        break
+        # A lone `{`/`}` that did not begin a recognized tag is malformed and
+        # dropped (use `{open}`/`{close}`/`{escape}` to emit real braces).
+        pos += 1
       end
 
       outbuf.to_s
@@ -741,11 +743,16 @@ module Crysterm
       return line if len == 0
       return line if s < 0
 
+      # The empty space produced by alignment is filled with the widget's
+      # `Style#fill_char` (default `' '`), so a non-space fill (e.g. a dotted
+      # leader) lines up with how the render loop fills trailing cells.
+      fc = style.fill_char.to_s
+
       if (align & Tput::AlignFlag::HCenter) != Tput::AlignFlag::None
-        s = " " * (s//2)
+        s = fc * (s//2)
         return s + line + s
       elsif align.right?
-        s = " " * s
+        s = fc * s
         return s + line
       elsif align_left_too && align.left?
         # Technically, left align is visually the same as no align at all.
@@ -763,7 +770,7 @@ module Crysterm
         # it has on row width. To see the old behavior without this, comment this elseif,
         # run test/widget-list.cr, and observe the look of the first element in the list
         # vs. the other elements when they are selected.
-        s = " " * s
+        s = fc * s
         return line + s
       elsif @parse_tags && (line.includes?('{') || line.includes?('}'))
         # XXX This is basically Tput::AlignFlag::Spread, but not sure
@@ -775,7 +782,7 @@ module Crysterm
         cparts = cline.split /\{|\}/
         if cparts[0]? && cparts[2]? # Don't trip on just single { or }
           s = Math.max(width - str_width(cparts[0]) - str_width(cparts[2]), 0)
-          s = " " * s
+          s = fc * s
           return "#{parts[0]}#{s}#{parts[2]}"
         else
           # Nothing; will default to returning `line` below.
