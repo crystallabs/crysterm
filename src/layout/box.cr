@@ -51,7 +51,7 @@ module Crysterm
       end
 
       getter orientation : Orientation
-      property gap : Int32
+      # `#gap` (inter-child spacing) is inherited from `Layout`.
       property justify : Justify
       property align : Align
 

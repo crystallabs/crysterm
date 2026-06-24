@@ -34,7 +34,8 @@ module Crysterm
 
       property columns : Int32
       property rows : Int32?
-      property gap : Int32
+
+      # `#gap` (inter-cell spacing) is inherited from `Layout`.
 
       def initialize(@columns : Int32 = 2, @rows : Int32? = nil, @gap : Int32 = 0)
       end

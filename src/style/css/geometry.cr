@@ -5,7 +5,7 @@ module Crysterm
     # `Style`. Geometry is a single per-widget concern, so the cascade applies
     # these only from the `normal` state's winning declarations.
     module Geometry
-      PROPERTIES = Set{"width", "height", "top", "left", "right", "bottom", "text-align"}
+      PROPERTIES = Set{"width", "height", "top", "left", "right", "bottom", "text-align", "spacing"}
 
       # Whether *property* is a geometry property handled here.
       def self.handles?(property : String) : Bool
@@ -30,6 +30,11 @@ module Crysterm
           when "center" then widget.align = Tput::AlignFlag::HCenter
           when "right"  then widget.align = Tput::AlignFlag::Right
           end
+        when "spacing"
+          # Inter-child spacing of the widget's layout (Qt's layout `spacing`).
+          # `gap` lives on the `Layout` base; engines that don't honor it (the
+          # flow layouts) simply ignore the value. No-op without a layout.
+          value.to_i?.try { |cells| widget.layout.try { |l| l.gap = cells } }
         end
       end
 

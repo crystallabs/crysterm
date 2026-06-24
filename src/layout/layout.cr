@@ -48,6 +48,13 @@ module Crysterm
     abstract class Hint
     end
 
+    # Spacing between adjacent children, in cells (Qt's layout `spacing`, CSS
+    # `spacing`). Lives on the base so it can be set uniformly — e.g. from CSS via
+    # `Geometry.apply` — regardless of engine. The box/grid/form engines honor it;
+    # the flow engines (`Masonry`/`Wrap`/`UniformGrid`) currently ignore it and
+    # pack children at their natural spacing.
+    property gap : Int32 = 0
+
     # Entry point invoked by `Widget#_render`. Computes the container's interior
     # content rectangle and, if non-empty, delegates to `#arrange`.
     def render_children(container : Widget) : Nil

@@ -373,6 +373,7 @@ module Crysterm
           style.tint = inline.tint
           style.tint_alpha = inline.tint_alpha
         end
+        style.gridline_color = inline.gridline_color if inline.specified?(:gridline_color)
         style.z_index = inline.z_index if inline.specified?(:z_index)
         style.transitions = inline.transitions if inline.specified?(:transition)
         style.animation = inline.animation if inline.specified?(:animation)

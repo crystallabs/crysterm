@@ -26,6 +26,9 @@ module Crysterm
           # `alternate_rows` on (Qt's `alternate-background-color`). Lives in the
           # `alternate_row` sub-style.
           style.alternate_background = ColorValue.resolve(value, style.fg)
+        when "gridline-color"
+          # Color of a table's internal gridlines (Qt's `gridline-color`).
+          style.gridline_color = ColorValue.resolve(value, style.fg)
         when "selection-color", "selection-background-color"
           # Selected-item colors. These target a *different* `Style` (the
           # `:selected` state), so they can't be applied to *this* style here —
@@ -109,7 +112,8 @@ module Crysterm
         "tab-size", "box-shadow", "tint", "z-index", "transition", "animation",
         "padding", "padding-left", "padding-top", "padding-right", "padding-bottom",
         "margin", "margin-left", "margin-top", "margin-right", "margin-bottom",
-        "alternate-background-color", "selection-color", "selection-background-color",
+        "alternate-background-color", "gridline-color",
+        "selection-color", "selection-background-color",
       }
 
       # Extracts a color from a `background` shorthand: the first token that

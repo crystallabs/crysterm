@@ -128,7 +128,15 @@ module Crysterm
         hattr = sattr style.header
         cattr = sattr style.cell
         aattr = sattr style.alternate_row
-        battr = sattr style.border
+        # Gridlines normally take the box border's attributes; `gridline-color`,
+        # when set, overrides just their foreground while keeping the border's
+        # background and text attributes.
+        battr =
+          if gc = style.gridline_color
+            sattr style.border, fg: gc, bg: style.border.bg
+          else
+            sattr style.border
+          end
 
         width = coords.xl - coords.xi - iright
         height = coords.yl - coords.yi - ibottom

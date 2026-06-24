@@ -104,14 +104,15 @@ module Crysterm
     # Whether *property* was explicitly set on this style.
     def specified?(property : Symbol) : Bool
       case property
-      when :fg         then !@fg.nil?
-      when :bg         then !@bg.nil?
-      when :alpha      then !@alpha.nil?
-      when :tint       then !@tint.nil?
-      when :z_index    then !@z_index.nil?
-      when :transition then !@transitions.nil?
-      when :animation  then !@animation.nil?
-      else                  @specified.includes?(property)
+      when :fg             then !@fg.nil?
+      when :bg             then !@bg.nil?
+      when :alpha          then !@alpha.nil?
+      when :tint           then !@tint.nil?
+      when :gridline_color then !@gridline_color.nil?
+      when :z_index        then !@z_index.nil?
+      when :transition     then !@transitions.nil?
+      when :animation      then !@animation.nil?
+      else                      @specified.includes?(property)
       end
     end
 
@@ -230,6 +231,29 @@ module Crysterm
       alt = (@alternate_row || Style.new).dup
       alt.bg = color
       @alternate_row = alt
+    end
+
+    # Color of a table's internal gridlines (Qt's `gridline-color`). `nil` (the
+    # default) means the gridlines follow the box `border` color, as before. When
+    # set, it overrides just the gridline foreground; the rest of the border
+    # attributes are kept (see `Widget::Table#draw_borders`). Stored as a native
+    # `0xRRGGBB` int; the setter also accepts `"#rrggbb"`/named-color strings,
+    # mirroring `tint`/`fg`/`bg`.
+    getter gridline_color : Int32?
+
+    # :ditto:
+    def gridline_color=(color : Int)
+      @gridline_color = color.to_i32
+    end
+
+    # :ditto:
+    def gridline_color=(color : String)
+      @gridline_color = Colors.convert(color).to_i32
+    end
+
+    # :ditto:
+    def gridline_color=(color : Nil)
+      @gridline_color = nil
     end
 
     def border=(value)

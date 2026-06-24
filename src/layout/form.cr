@@ -16,8 +16,7 @@ module Crysterm
     class Form < Layout
       # Width of the (left) label column.
       property label_width : Int32
-      # Horizontal gap between label and field.
-      property gap : Int32
+      # Horizontal gap between label and field (`#gap` is inherited from `Layout`).
       # Vertical gap between rows.
       property row_gap : Int32
 
