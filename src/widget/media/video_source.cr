@@ -46,10 +46,10 @@ module Crysterm
       # frame count exceeds `video.max_frames` (an unknown length stays eager —
       # the cap then protects memory by truncation).
       def mode(file : String) : Mode
-        case Crysterm::Config.media_video_decode.downcase
-        when "eager"  then Mode::Eager
-        when "stream" then Mode::Stream
-        else
+        case Crysterm::Config.media_video_decode
+        in .eager?  then Mode::Eager
+        in .stream? then Mode::Stream
+        in .auto?
           est = estimate_frames file
           (est && est > Crysterm::Config.video_max_frames) ? Mode::Stream : Mode::Eager
         end

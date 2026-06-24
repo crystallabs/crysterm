@@ -417,10 +417,10 @@ module Crysterm
       end
 
       # Called by a backend when asked to do something it can't. Consults the
-      # `image.unsupported` config option: `"error"` raises `UnsupportedError`,
+      # `image.unsupported` config option: `Error` raises `UnsupportedError`,
       # anything else ignores it (the backend does what it can).
       protected def unsupported(feature : String) : Nil
-        if Crysterm::Config.media_unsupported == "error"
+        if Crysterm::Config.media_unsupported.error?
           raise Media::UnsupportedError.new("#{self.class.name}: #{feature} is not supported by this image backend")
         end
       end

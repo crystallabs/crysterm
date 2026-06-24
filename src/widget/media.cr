@@ -147,6 +147,39 @@ module Crysterm
         Tek      # separate window, Tektronix 4014 vectors (`Media::Tek`)
       end
 
+      # Selectable values of the `media.backend` config option: the special
+      # `Auto` (pick the best `Type` the terminal supports) plus one member per
+      # `Type`, named identically so a non-`Auto` choice maps to its `Type` via
+      # `Type.parse?(choice.to_s)`. A real enum (rather than a free string) so
+      # the option is an explicit, validated, dump-round-trippable choice.
+      enum Backend
+        Auto # Pick the best backend the terminal supports (see `resolve`)
+        Ansi
+        Glyph
+        Overlay
+        Ueberzug
+        Sixel
+        Regis
+        Kitty
+        Iterm
+        Tek
+      end
+
+      # Selectable values of the `media.unsupported` config option: what a
+      # backend does when asked for a feature it can't provide (see `#unsupported`).
+      enum Unsupported
+        Ignore # Do what the backend can; skip the unsupported part
+        Error  # Raise `Media::UnsupportedError`
+      end
+
+      # Selectable values of the `media.video_decode` config option (see
+      # `VideoSource.mode`). `Auto` decides per-file from the estimated length.
+      enum VideoDecode
+        Auto   # Stream when the estimated frame count exceeds `video.max_frames`, else eager
+        Eager  # Decode all frames into memory (best for short loops)
+        Stream # Decode on demand at constant memory (best for long videos)
+      end
+
       # The kind of media to display, named after Qt Quick's media elements
       # (`Image`, `AnimatedImage`, `Video`). Used by `resolve` to pick the best
       # default backend, since the ranking differs by kind (e.g. iTerm2 animates
@@ -168,7 +201,8 @@ module Crysterm
       # unrecognized value falls back to `Ansi`.
       def self.default_type(file : String? = nil) : Type
         backend = Crysterm::Config.media_backend
-        return Type.parse?(backend) || Type::Ansi unless backend == "auto"
+        # A non-`auto` choice shares its name with the matching `Type`.
+        return Type.parse?(backend.to_s) || Type::Ansi unless backend.auto?
         content = (file && VideoSource.video?(file)) ? Content::Video : Content::Image
         resolve content
       end

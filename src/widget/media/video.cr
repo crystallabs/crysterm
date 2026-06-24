@@ -36,7 +36,7 @@ module Crysterm
       # `auto`/unset/unrecognized (so the terminal-based resolver decides).
       private def self.pinned_type : Media::Type?
         backend = Crysterm::Config.media_backend
-        backend == "auto" ? nil : Media::Type.parse?(backend)
+        backend.auto? ? nil : Media::Type.parse?(backend.to_s)
       end
     end
   end

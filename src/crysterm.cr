@@ -84,6 +84,29 @@ module Crysterm
   # See `Crystallabs::Helpers::Enums`.
   alias Shorthands = ::Crystallabs::Helpers::Enums::Shorthands
 
+  # Whether this process is attached to an interactive terminal — i.e. its
+  # standard output is a TTY. False when output is redirected to a file or a
+  # pipe, or there is no controlling terminal (as on CI). A `Screen` built
+  # without explicit IO uses this to decide whether to run `headless?`.
+  def self.interactive? : Bool
+    STDOUT.tty?
+  rescue
+    false
+  end
+
+  # Whether a `Screen` constructed without explicit IO should default to a
+  # headless (in-memory) connection rather than the real `STDIN`/`STDOUT`/
+  # `STDERR`. Resolves the `screen.headless` config option: `Auto` (the default)
+  # follows the inverse of `interactive?` — non-interactive runs go headless —
+  # while `Yes`/`No` force the choice regardless of the terminal.
+  def self.headless? : Bool
+    case Config.screen_headless
+    in Headless::Yes  then true
+    in Headless::No   then false
+    in Headless::Auto then !interactive?
+    end
+  end
+
   class GlobalEventsClass
     include EventHandler
   end

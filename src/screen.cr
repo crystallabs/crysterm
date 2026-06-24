@@ -21,6 +21,14 @@ require "./screen_interaction"
 require "./screen_capture"
 
 module Crysterm
+  # How a `Screen` built without explicit IO chooses between a real terminal and
+  # a headless (in-memory) connection. See `Crysterm.headless?`.
+  enum Headless
+    Auto # Decide automatically: headless iff the app is non-interactive (output is not a TTY)
+    Yes  # Always headless, even on a real terminal
+    No   # Always use the real terminal, even when non-interactive
+  end
+
   # Represents a screen.
   class Screen
     include EventHandler
@@ -39,14 +47,19 @@ module Crysterm
     # than one `Screen` per process that corrupts the standard streams (hangs or
     # "File not open" errors). Use the std stream directly (a single, never-
     # collected global); this matches the same fix in `Tput#initialize`.
-    property input : IO = STDIN
+    # When the app runs non-interactively (see `Crysterm.headless?`), an
+    # `IO::Memory` is substituted so a `Screen` built without explicit IO drives
+    # a headless connection instead of the real STDIN/STDOUT/STDERR. A caller-
+    # supplied `input:`/`output:`/`error:` always wins. Each default is its own
+    # buffer so headless input reads never consume rendered output.
+    property input : IO = Crysterm.headless? ? IO::Memory.new : STDIN
 
     # Output IO. See the note on `input` re: not using `STDOUT.dup`.
-    property output : IO = STDOUT
+    property output : IO = Crysterm.headless? ? IO::Memory.new : STDOUT
 
     # Error IO. (Could be used for redirecting error output to a particular
     # widget.) See the note on `input` re: not using `STDERR.dup`.
-    property error : IO = STDERR
+    property error : IO = Crysterm.headless? ? IO::Memory.new : STDERR
 
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
     property? force_unicode : Bool = Config.screen_force_unicode

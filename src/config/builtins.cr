@@ -31,6 +31,8 @@ module Superconf
     description: "Route all keypresses to a single grabbing widget"
   option "screen.dock_borders", false,
     description: "Join adjacent widget borders instead of overlapping them"
+  option "screen.headless", Crysterm::Headless::Auto,
+    description: "Default a Screen built without explicit IO to a headless (in-memory) connection instead of the real terminal (auto|yes|no): 'auto' decides from whether the app runs interactively (output is a TTY), 'yes' forces headless, 'no' forces a real terminal"
   option "screen.force_unicode", false,
     description: "Assume UTF-8 even if terminal auto-detection didn't find it"
   option "screen.full_unicode", false,
@@ -63,7 +65,7 @@ module Superconf
     validate: ->(n : Int32) { n >= 1 }
 
   # -- Colors ----------------------------------------------------------------
-  option "colors.theme", "terminal",
+  option "colors.theme", Crysterm::CSS::Theme::Choice::Terminal,
     description: "Default CSS theme installed on each Screen (dark|light|terminal|none). 'terminal' derives a palette from the terminal's own probed colors; 'none' disables the built-in theme (CSS then comes only from an author stylesheet)"
   option "colors.default_fg", 0xc0c0c0,
     description: "Neutral RGB substituted for a 'default' foreground when it must be blended",
@@ -73,9 +75,9 @@ module Superconf
     validate: ->(c : Int32) { 0 <= c <= 0xFFFFFF }
 
   # -- Images ----------------------------------------------------------------
-  option "media.backend", "auto",
-    description: "Default Widget::Media backend (auto|ansi|glyph|overlay|sixel|regis|kitty|tek); 'auto' picks the best one the terminal supports"
-  option "media.unsupported", "ignore",
+  option "media.backend", Crysterm::Widget::Media::Backend::Auto,
+    description: "Default Widget::Media backend (auto|ansi|glyph|overlay|ueberzug|sixel|regis|kitty|iterm|tek); 'auto' picks the best one the terminal supports"
+  option "media.unsupported", Crysterm::Widget::Media::Unsupported::Ignore,
     description: "What a Widget::Media backend does when asked for a feature it can't do (error|ignore)"
   option "media.exclude", "",
     description: "Backends excluded from automatic selection (comma/space separated: kitty,iterm,sixel,glyph,ansi,…); the 'best' is then chosen from the rest"
@@ -88,7 +90,7 @@ module Superconf
   option "video.max_frames", 600,
     description: "Safety cap on frames Widget::Video decodes eagerly into memory (Tier-1 decoder); longer videos are truncated to this many frames",
     validate: ->(n : Int32) { n > 0 }
-  option "media.video_decode", "auto",
+  option "media.video_decode", Crysterm::Widget::Media::VideoDecode::Auto,
     description: "Video decode strategy (auto|eager|stream): 'eager' loads all frames into memory (best for short loops), 'stream' decodes on demand at constant memory (best for long videos), 'auto' streams when the estimated frame count exceeds video.max_frames"
   option "media.double_buffer", true,
     description: "Present each animation frame atomically on in-band graphics backends (sixel/regis/kitty/iterm) via synchronized output; Kitty additionally swaps alternating image ids — eliminates tearing and the mid-update blank/flash"

@@ -38,9 +38,9 @@ if path.nil?
 end
 
 # Let the env pick/exclude backends so one demo exercises every render path.
-Crysterm::Config.media_backend = ENV["MEDIA_BACKEND"]? || "auto"
+Crysterm::Config.media_backend = Widget::Media::Backend.parse?(ENV["MEDIA_BACKEND"]? || "auto") || Widget::Media::Backend::Auto
 Crysterm::Config.media_exclude = ENV["MEDIA_EXCLUDE"]? || ""
-Crysterm::Config.media_video_decode = ENV["MEDIA_VIDEO_DECODE"]? || "auto"
+Crysterm::Config.media_video_decode = Widget::Media::VideoDecode.parse?(ENV["MEDIA_VIDEO_DECODE"]? || "auto") || Widget::Media::VideoDecode::Auto
 
 s = Screen.new title: "Video"
 

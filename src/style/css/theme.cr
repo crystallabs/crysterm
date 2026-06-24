@@ -23,6 +23,16 @@ module Crysterm
     #   *derives a matching theme*, so the app blends into the user's terminal
     #   colors instead of imposing its own.
     struct Theme
+      # The selectable values of the `colors.theme` config option (see
+      # `resolve_config_theme`). An explicit, validated enum so the choice is
+      # round-trippable through a config dump rather than a free-form string.
+      enum Choice
+        Terminal # Derive the palette from the terminal's own probed colors
+        Dark     # Built-in dark theme
+        Light    # Built-in light theme
+        None     # No built-in theme (CSS comes only from an author stylesheet)
+      end
+
       # The eight semantic roles. Each is one primary color from which five
       # shades are derived; their names become the CSS custom-property prefixes
       # (`--surface`, `--surface-light`, ... `--accent-fg`, ...).
@@ -257,11 +267,11 @@ module Crysterm
 
     # Maps the `colors.theme` config value to a `Theme` (`nil` for "no theme").
     def self.resolve_config_theme(screen) : Theme?
-      case Crysterm::Config.colors_theme.to_s.downcase
-      when "none", "off", "" then nil
-      when "dark"            then Theme.dark
-      when "light"           then Theme.light
-      else                        screen.terminal_theme # "terminal" / "auto" / unknown
+      case Crysterm::Config.colors_theme
+      in .none?     then nil
+      in .dark?     then Theme.dark
+      in .light?    then Theme.light
+      in .terminal? then screen.terminal_theme # derived from the terminal's probed colors
       end
     end
   end

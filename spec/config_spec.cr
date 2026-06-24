@@ -37,13 +37,14 @@ describe "Crysterm config integration" do
   end
 
   it "resolves image.backend, including 'auto' detection" do
-    # Explicit backend is used as-is.
-    Crysterm::Config.set "media.backend", "kitty"
+    # Explicit backend is used as-is. Set it from a string (as a config file /
+    # dump would), proving the enum option reloads from its rendered form.
+    Crysterm::Config["media.backend"].set_from_string "kitty", Superconf::Source::Runtime, "spec"
     Crysterm::Widget::Media.default_type.should eq Crysterm::Widget::Media::Type::Kitty
 
     # 'auto' resolves the best backend against the terminal (a constructed Tput,
     # so the test is independent of the host terminal and any global screen).
-    Crysterm::Config.set "media.backend", "auto"
+    Crysterm::Config.set "media.backend", Crysterm::Widget::Media::Backend::Auto
     ti = (Unibilium.from_env rescue Unibilium.from_terminal("xterm"))
     tput = Tput.new(terminfo: ti, input: STDIN, output: STDOUT)
 
@@ -64,7 +65,7 @@ describe "Crysterm config integration" do
     [Crysterm::Widget::Media::Type::Glyph, Crysterm::Widget::Media::Type::Ansi].should contain fallback
   ensure
     Crysterm::Config.set "media.exclude", ""
-    Crysterm::Config.set "media.backend", "auto" # restore (Runtime default)
+    Crysterm::Config.set "media.backend", Crysterm::Widget::Media::Backend::Auto # restore (Runtime default)
   end
 
   it "validates and tracks source through the alias" do
