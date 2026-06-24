@@ -108,6 +108,71 @@ module Crysterm
     # `@damage_layer_roots` without allocating.
     @damage_cur_layers = [] of Widget
 
+    # --- Cost-based fallback (keeps the selective path "never worse than full") -
+    #
+    # The selective path is only a win when the changed/overlapping region is a
+    # small fraction of the screen; once it approaches the whole screen it does
+    # the full-recomposite work *plus* bookkeeping. These let the engine decide,
+    # in a common currency (cells), whether to even attempt it — no tuned ratios.
+
+    # Σ of every top-level child subtree's area (cells), refreshed on each full
+    # frame alongside `damage_bounds`. With the screen area it is the full path's
+    # cost, against which a selective attempt is measured.
+    @damage_all_area = 0_i64
+
+    # Membership set of current top-level children, rebuilt on each full frame.
+    # Replaces the O(N) `@children.includes?` scan in the dirty-root validation
+    # with an O(1) lookup (the child list only changes on a structural change,
+    # which forces a full frame anyway).
+    @damage_children_set = Set(Widget).new
+
+    # Stamp for O(1) "is this widget in the current cluster?" membership during
+    # the overlap grow, via `Widget#damage_seen` (no per-frame allocation, no
+    # reset: a widget is a member iff its stamp equals this one). Bumped per grow.
+    @damage_stamp = 0
+
+    # --- Overlap-grow via cell grid + union-find (replaces the O(N^3) fixpoint) -
+    #
+    # The connected cluster of overlapping top-level subtrees is found by
+    # rasterizing each base child's rectangle into a screen-sized cell grid and
+    # union-ing children that land on the same cell — transitive overlap falls
+    # out of the union-find, in ~O(Σ areas) instead of a fixpoint scan. The grid
+    # is stamp-addressed (a cell belongs to this grow iff its stamp matches), so
+    # there is no per-grow O(W*H) reset; it is only (re)sized on a resize.
+    @damage_grid_stamp = [] of Int32
+    @damage_grid_owner = [] of Int32
+    @damage_grid_w = 0
+    # Union-find parent array, indexed by base-child position (`Widget#damage_idx`).
+    @damage_uf = [] of Int32
+    # Reused list of this frame's base (non-z) top-level children, in z order.
+    @damage_base = [] of Widget
+    # Each dirty root's OLD footprint (parallel to the dirty snapshot), captured
+    # before re-render so the cluster can pull in whatever it vacated.
+    @damage_dirty_old = [] of Tuple(Int32, Int32, Int32, Int32)?
+    # Per-base-index marker: a union-find root carries the seed stamp iff its
+    # component contains a changed subtree. Reused; sized to the base-child count.
+    @damage_seedmark = [] of Int32
+
+    # Self-measured payoff: exponential moving averages (µs) of the full-composite
+    # and selective-composite cost, and a sticky "selective isn't paying here"
+    # flag. The cell-cost model above can't see per-cell blend cost or detection
+    # overhead; this backstop measures the real wall time and disables the
+    # selective attempt when it stops winning, re-probing periodically and
+    # re-arming on any full frame forced by a structural/stylesheet change.
+    @damage_full_ema = -1.0
+    @damage_sel_ema = -1.0
+    @damage_prefer_full = false
+    @damage_reprobe = 0
+
+    # Half-open rectangle area in cells (0 for nil/empty).
+    private def damage_rect_area(r : Tuple(Int32, Int32, Int32, Int32)?) : Int64
+      return 0_i64 unless r
+      w = r[1] - r[0]
+      h = r[3] - r[2]
+      return 0_i64 if w <= 0 || h <= 0
+      w.to_i64 * h
+    end
+
     # Registers *w* (via its top-level ancestor) as needing a repaint next frame.
     def damage_mark_dirty(w : Widget) : Nil
       root = w
@@ -135,6 +200,75 @@ module Crysterm
     # recomposite (Phase 3); planes are tracked via `@layer_widgets`.
     def note_effect : Nil
       @frame_used_effects = true
+    end
+
+    # How often (in frames) to re-probe the selective path while it is latched
+    # off. Not a performance knob — it only sets how quickly the engine re-adapts
+    # after a scene shifts in a way that doesn't already force a full frame
+    # (structural/stylesheet/resize changes re-arm it immediately). Generous so a
+    # persistently-degenerate scene pays the probe cost only rarely.
+    DAMAGE_REPROBE_FRAMES = 120
+
+    # Compositing entry point under damage tracking: decides whether to even
+    # *attempt* the selective path this frame, runs it (or the full path), and
+    # feeds the self-measured backstop. The structural guards (cost parity, grid
+    # cluster) keep any single selective attempt from costing more than ~a full
+    # frame; this controller removes even that attempt cost once measurement shows
+    # selective isn't paying for the current scene — so a degenerate scene (every
+    # widget moving, one giant overlap cluster) settles to plain full-recomposite
+    # cost, while a scene the selective path helps keeps using it. No tuned ratio:
+    # it compares measured wall times and reacts to actual bail/continue outcomes.
+    private def damage_composite : Nil
+      # A frame that MUST be full (first frame, structural/stylesheet/resize) is
+      # uninformative about whether selective pays — run it, and re-arm so the
+      # next frame re-evaluates from scratch (the scene just changed).
+      if @damage_force_full
+        t = Time.instant
+        damage_full_composite
+        @damage_full_ema = damage_ema @damage_full_ema, (Time.instant - t).total_microseconds
+        @damage_prefer_full = false
+        @damage_reprobe = 0
+        return
+      end
+
+      # While latched off, skip the attempt entirely (this is the win for a
+      # persistently-degenerate scene) until a periodic re-probe is due.
+      attempt = !@damage_prefer_full
+      unless attempt
+        @damage_reprobe -= 1
+        attempt = @damage_reprobe <= 0
+      end
+
+      unless attempt
+        t = Time.instant
+        damage_full_composite
+        @damage_full_ema = damage_ema @damage_full_ema, (Time.instant - t).total_microseconds
+        return
+      end
+
+      t0 = Time.instant
+      if damage_try_composite
+        sel = (Time.instant - t0).total_microseconds
+        @damage_sel_ema = damage_ema @damage_sel_ema, sel
+        # Keep using selective unless it has measured slower than the full path.
+        @damage_prefer_full = @damage_full_ema >= 0 && @damage_sel_ema > @damage_full_ema
+        @damage_reprobe = DAMAGE_REPROBE_FRAMES if @damage_prefer_full
+      else
+        # The attempt proved selective can't win this frame (cost parity / cluster
+        # grew to the whole screen) and fell back. Measure the full path that now
+        # runs and latch selective off, re-probing later.
+        tf = Time.instant
+        damage_full_composite
+        @damage_full_ema = damage_ema @damage_full_ema, (Time.instant - tf).total_microseconds
+        @damage_prefer_full = true
+        @damage_reprobe = DAMAGE_REPROBE_FRAMES
+      end
+    end
+
+    # Exponential moving average (first sample seeds it). 0.2 weight = a handful
+    # of frames of memory, enough to smooth jitter without lagging scene changes.
+    private def damage_ema(cur : Float64, sample : Float64) : Float64
+      cur < 0 ? sample : cur * 0.8 + sample * 0.2
     end
 
     # Full re-composite: the original render body. Clears the whole buffer and
@@ -172,8 +306,18 @@ module Crysterm
       if @optimization.damage_tracking?
         # Refresh per-subtree bounds and decide whether the next frame may
         # fast-path. `@frame_used_effects` was set by any alpha/shadow/tint
-        # (and `@layer_widgets` is non-empty iff a z-index was used).
-        @children.each { |el| el.damage_bounds = damage_subtree_bounds el }
+        # (and `@layer_widgets` is non-empty iff a z-index was used). Also
+        # refresh the cost-model caches: the total subtree area (the selective
+        # path is measured against this + the screen area) and the membership
+        # set for O(1) dirty-root validation.
+        @damage_all_area = 0_i64
+        @damage_children_set.clear
+        @children.each do |el|
+          b = damage_subtree_bounds el
+          el.damage_bounds = b
+          @damage_all_area += damage_rect_area(b)
+          @damage_children_set << el
+        end
         no_planes = @layer_widgets.empty?
         @damage_safe = !@frame_used_effects && no_planes && !@dock_borders
 
@@ -233,7 +377,7 @@ module Crysterm
       # acceptable on the Phase 4 plane path; on the plain path it forces a full
       # frame (which sets the plane up).
       dirty.each do |r|
-        return false unless r.parent.nil? && @children.includes?(r)
+        return false unless r.parent.nil? && @damage_children_set.includes?(r)
         return false if r.style.z_index && !@damage_plane_safe
       end
 
@@ -252,14 +396,33 @@ module Crysterm
         return damage_plane_composite dirty
       end
 
+      # Up-front cost parity (tuning-free, O(dirty), from cached bounds). The
+      # selective path must at minimum clear each changed subtree's *old*
+      # footprint AND repaint its *new* one — at least `2 * Σ changed-area`
+      # cells — before any overlap pulls in more. The full path costs one
+      # whole-screen clear plus repainting every subtree: `W*H + Σ all-area`.
+      # So if twice the changed area already meets the full-path cost, the
+      # selective path provably cannot win however the cluster resolves; fall
+      # back now, before doing any render work. This is what catches the
+      # "(almost) everything changed" degeneracy — e.g. a scene that models
+      # every cell as its own widget and moves them all each frame — where the
+      # cluster would otherwise grow to the whole screen at super-linear cost.
+      full_cost = awidth.to_i64 * aheight + @damage_all_area
+      dirty_area = 0_i64
+      dirty.each { |r| dirty_area += damage_rect_area(r.damage_bounds) }
+      return false if 2_i64 * dirty_area >= full_cost
+
       @layer_widgets.clear
 
       # Clear each changed subtree's old footprint, re-render it, and collect the
       # union (old ∪ new) rectangle that was damaged.
       damaged = @damage_rects
       damaged.clear
+      olds = @damage_dirty_old
+      olds.clear
       dirty.each do |root|
         old = root.damage_bounds
+        olds << old
         if old
           clear_region old[0], old[1], old[2], old[3]
         end
@@ -313,40 +476,143 @@ module Crysterm
     # `false` return means an alpha/shadow/tint/z-index surfaced during the
     # repaint — the cluster can't be composited this way, fall back to full.
     private def damage_phase2(dirty : Array(Widget), damaged : Array(Tuple(Int32, Int32, Int32, Int32))) : Bool
-      involved = @damage_involved
-      involved.clear
       frontier = @damage_frontier
       frontier.clear
 
-      # Seed the component with the changed roots and their damaged rectangles.
-      dirty.each { |r| involved << r }
-      damaged.each { |d| frontier << d }
-
-      # Grow to a fixpoint: any not-yet-included top-level child whose bounds
-      # overlap a rectangle already in the component joins it and contributes its
-      # own bounds, so transitively-overlapping widgets are pulled in too. (The
-      # damaged rects use old∪new, so a widget sitting where a changed one *was* —
-      # not where it is now — is still pulled in and its vacated cells repainted.)
-      damage_grow_component involved, frontier
-
-      # Clear each member's contributed rectangle *separately* (NOT their
-      # bounding-box union) so the cluster's exact footprint is cleared and gaps
-      # between disjoint sub-clusters are left alone — clearing the bounding box
-      # could erase a non-member widget sitting in such a gap. Overlapping
-      # rectangles are simply cleared twice (idempotent). By the connected-
-      # component property no member rectangle overlaps a non-member, so this
-      # touches only cells the repaint below rebuilds.
-      frontier.each { |r| clear_region r[0], r[1], r[2], r[3] }
-
-      # Repaint every member in `@children` (z) order, so overlapping cells are
-      # composited bottom-to-top exactly as the full painter's algorithm would.
+      # Build the base-child list (z order) and index each one for the union-find.
+      base = @damage_base
+      base.clear
       @children.each do |el|
-        next unless involved.includes? el
+        next if el.style.z_index
+        el.damage_idx = base.size
+        base << el
+      end
+      m = base.size
+
+      # (Re)size the cell grid on a dimension change; otherwise reuse it. The grid
+      # is stamp-addressed so it needs no per-frame clear.
+      w = awidth
+      h = aheight
+      ncells = w * h
+      if @damage_grid_w != w || @damage_grid_stamp.size != ncells
+        @damage_grid_stamp = Array(Int32).new(ncells, 0)
+        @damage_grid_owner = Array(Int32).new(ncells, 0)
+        @damage_grid_w = w
+      end
+      @damage_stamp += 1
+      stamp = @damage_stamp
+
+      uf = @damage_uf
+      uf.clear
+      m.times { |i| uf << i }
+
+      # Rasterize every base child's current footprint into the grid; two children
+      # that land on the same cell overlap (half-open rect intersection ⟺ shared
+      # integer cell), so union them — transitive overlap falls out of the
+      # union-find. ~O(Σ areas), versus the old fixpoint's O(N^3).
+      base.each do |el|
+        damage_rasterize(el.damage_bounds, w, h, stamp) do |cell|
+          if @damage_grid_stamp.unsafe_fetch(cell) == stamp
+            damage_uf_union uf, el.damage_idx, @damage_grid_owner.unsafe_fetch(cell)
+          else
+            @damage_grid_stamp.unsafe_put(cell, stamp)
+            @damage_grid_owner.unsafe_put(cell, el.damage_idx)
+          end
+        end
+      end
+
+      # Connect each changed root to whatever now sits where it *was* (its old
+      # footprint), so a widget the move uncovered is pulled in and its vacated
+      # cells repainted — the role the old∪new damaged rects played before.
+      olds = @damage_dirty_old
+      dirty.each_with_index do |root, k|
+        o = olds[k]?
+        next unless o
+        damage_rasterize(o, w, h, stamp) do |cell|
+          if @damage_grid_stamp.unsafe_fetch(cell) == stamp
+            damage_uf_union uf, root.damage_idx, @damage_grid_owner.unsafe_fetch(cell)
+          else
+            @damage_grid_stamp.unsafe_put(cell, stamp)
+            @damage_grid_owner.unsafe_put(cell, root.damage_idx)
+          end
+        end
+      end
+
+      # Mark every component that contains a changed root as the cluster, then
+      # collect its members in z order (O(1) membership via `damage_seen`) and
+      # measure the work it implies.
+      seed = @damage_seedmark
+      seed.clear
+      m.times { seed << 0 }
+      dirty.each { |root| seed[damage_uf_find(uf, root.damage_idx)] = stamp }
+
+      cluster_area = 0_i64
+      base.each do |el|
+        if seed.unsafe_fetch(damage_uf_find(uf, el.damage_idx)) == stamp
+          el.damage_seen = stamp
+          if b = el.damage_bounds
+            frontier << b
+            cluster_area += damage_rect_area(b)
+          end
+        end
+      end
+      olds.each { |o| frontier << o if o }
+
+      # Post-grow cost parity: clearing and repainting the cluster costs at least
+      # ~2 * its area; if that already meets the full path's cost, fall back —
+      # this catches an overlap cluster that grew to (nearly) the whole screen
+      # (e.g. thousands of stacked single-cell widgets) without a tuned ratio.
+      return false if 2_i64 * cluster_area >= awidth.to_i64 * aheight + @damage_all_area
+
+      # Clear each member's footprint and the changed roots' vacated cells, then
+      # repaint every member in `@children` (z) order — the painter's algorithm
+      # over exactly the cluster's cells.
+      frontier.each { |r| clear_region r[0], r[1], r[2], r[3] }
+      @children.each do |el|
+        next if el.style.z_index
+        next unless el.damage_seen == stamp
         el.render
         el.damage_bounds = damage_subtree_bounds el
       end
 
       !(@frame_used_effects || !@layer_widgets.empty?)
+    end
+
+    # Iterates the integer cell indices (`y * w + x`) a half-open rectangle covers
+    # within the `w`x`h` screen, clamped to bounds (a shadow band can reach past
+    # the edge). `_stamp` is unused here but keeps call sites uniform.
+    private def damage_rasterize(r : Tuple(Int32, Int32, Int32, Int32)?, w : Int32, h : Int32, _stamp : Int32, &)
+      return unless r
+      xi = r[0] < 0 ? 0 : r[0]
+      yi = r[2] < 0 ? 0 : r[2]
+      xl = r[1] > w ? w : r[1]
+      yl = r[3] > h ? h : r[3]
+      y = yi
+      while y < yl
+        rowbase = y * w
+        x = xi
+        while x < xl
+          yield rowbase + x
+          x += 1
+        end
+        y += 1
+      end
+    end
+
+    # Union-find with path halving over the base-index parent array `uf`.
+    private def damage_uf_find(uf : Array(Int32), i : Int32) : Int32
+      while (p = uf.unsafe_fetch(i)) != i
+        gp = uf.unsafe_fetch(p)
+        uf.unsafe_put(i, gp)
+        i = gp
+      end
+      i
+    end
+
+    private def damage_uf_union(uf : Array(Int32), a : Int32, b : Int32) : Nil
+      ra = damage_uf_find uf, a
+      rb = damage_uf_find uf, b
+      uf.unsafe_put(ra, rb) if ra != rb
     end
 
     # Grows *involved* to the connected component of top-level **base** children

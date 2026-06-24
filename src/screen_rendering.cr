@@ -435,7 +435,9 @@ module Crysterm
       # cells produce no terminal output. The damage path replaces this
       # whole-buffer clear with region-aware clears of just the changed subtrees,
       # but only when it can prove output-equivalence (see `screen_damage.cr`).
-      unless @optimization.damage_tracking? && damage_try_composite
+      if @optimization.damage_tracking?
+        damage_composite
+      else
         damage_full_composite
       end
 

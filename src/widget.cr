@@ -150,6 +150,15 @@ module Crysterm
     # rendered to nothing.
     property damage_bounds : Tuple(Int32, Int32, Int32, Int32)? = nil
 
+    # Stamp used by `Screen`'s damage overlap-grow for O(1) cluster membership:
+    # this widget is in the cluster being assembled iff `@damage_seen` equals the
+    # screen's current grow stamp. Transient scratch, meaningful only mid-grow.
+    property damage_seen : Int32 = 0
+
+    # Index of this widget within the screen's base-child list for the current
+    # damage frame, used to address the overlap union-find. Transient scratch.
+    property damage_idx : Int32 = -1
+
     # Marks this widget as needing a repaint and registers it (mapped to its
     # top-level ancestor) with the owning screen's damage set. Cheap and safe to
     # call from any state-changing setter; a no-op for the buffer when damage
