@@ -161,3 +161,46 @@ end
       s.damage_fast_frames, FRAMES + 50, s.damage_full_frames
   end
 end
+
+# Pass E: PHASE 3 (alpha) — disjoint clusters, each an opaque base panel with a
+# translucent panel layered over it. One cluster's base changes per frame; the
+# translucent panel over it re-blends. With damage tracking off, every panel
+# (and every alpha blend) is recomputed each frame; with it on, only the changed
+# cluster's pair is recomposited (the alpha re-blends over the freshly rebuilt
+# base). Demonstrates that per-cell blend effects no longer force the full path.
+private def build_alpha_scene(damage)
+  s = Crysterm::Screen.new(
+    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+    width: 120, height: 40,
+    optimization: damage ? Crysterm::OptimizationFlag::DamageTracking : Crysterm::OptimizationFlag::None)
+  bases = [] of Widget::Box
+  6.times do |i|
+    base = i * 20
+    b = Widget::Box.new(parent: s, top: 0, left: base, width: 16, height: 12,
+      style: Style.new(bg: 0x202020), content: "B#{i}")
+    Widget::Box.new(parent: s, top: 3, left: base + 3, width: 10, height: 6,
+      style: Style.new(bg: 0x00aa55, alpha: 0.5), content: "a#{i}")
+    bases << b
+  end
+  {s, bases}
+end
+
+[{"OFF (full recomposite)", false}, {"ON  (damage tracking)", true}].each do |label, dmg|
+  s, bases = build_alpha_scene dmg
+  50.times { s._render }
+  GC.collect
+  before4 = GC.stats.total_bytes
+  wall_e = Time.measure do
+    FRAMES.times do |f|
+      bases[f % bases.size].content = "B#{f % bases.size}.#{f}"
+      s._render
+    end
+  end
+  alloc_e = GC.stats.total_bytes - before4
+  STDERR.printf "ALPHA   %-22s render/frame: %5.1f µs   alloc/frame: %5d bytes\n",
+    label, wall_e.total_microseconds / FRAMES, alloc_e // FRAMES
+  if dmg
+    STDERR.printf "        fast frames: %d / %d  (full: %d)\n",
+      s.damage_fast_frames, FRAMES + 50, s.damage_full_frames
+  end
+end

@@ -70,6 +70,16 @@ private def build_overlap(screen)
   {a, b}
 end
 
+# Builds an opaque base box with a translucent box layered over it; returns
+# {base, alpha}.
+private def build_alpha(screen)
+  base = Widget::Box.new(parent: screen, top: 0, left: 0, width: 30, height: 12,
+    style: Style.new(bg: 0x202020), content: "base")
+  a = Widget::Box.new(parent: screen, top: 2, left: 2, width: 10, height: 5,
+    style: Style.new(bg: 0x00ff00, alpha: 0.5), content: "x")
+  {base, a}
+end
+
 describe "damage tracking" do
   it "is output-equivalent when one of N opaque panels updates per frame" do
     plain = new_screen false
@@ -272,25 +282,144 @@ describe "damage tracking" do
     assert_same_lines dmg, plain, "(two clusters)"
   end
 
-  it "falls back and stays equivalent when alpha is active" do
+  # --- Phase 3: alpha / shadow / tint -------------------------------------
+
+  it "re-blends a translucent widget over its base when the widget changes" do
     plain = new_screen false
     dmg = new_screen true
-
-    Widget::Box.new(parent: plain, top: 0, left: 0, width: 30, height: 12,
-      content: "base")
-    pa = Widget::Box.new(parent: plain, top: 2, left: 2, width: 10, height: 5,
-      style: Style.new(bg: 0x00ff00, alpha: 0.5), content: "x")
-    Widget::Box.new(parent: dmg, top: 0, left: 0, width: 30, height: 12,
-      content: "base")
-    da = Widget::Box.new(parent: dmg, top: 2, left: 2, width: 10, height: 5,
-      style: Style.new(bg: 0x00ff00, alpha: 0.5), content: "x")
+    _pbase, pa = build_alpha plain
+    _dbase, da = build_alpha dmg
     plain._render; dmg._render
     assert_same_lines dmg, plain, "(alpha initial)"
 
+    before = dmg.damage_fast_frames
     pa.content = "y"
     da.content = "y"
     plain._render; dmg._render
-    assert_same_lines dmg, plain, "(alpha update)"
+    assert_same_lines dmg, plain, "(alpha widget update)"
+    dmg.damage_fast_frames.should be > before # handled selectively (Phase 3), not full
+  end
+
+  it "re-blends a translucent widget when the base UNDER it changes" do
+    plain = new_screen false
+    dmg = new_screen true
+    pbase, _pa = build_alpha plain
+    dbase, _da = build_alpha dmg
+    plain._render; dmg._render
+
+    # Change only the base; the alpha widget must re-blend over the new base.
+    before = dmg.damage_fast_frames
+    pbase.content = "BASE!"
+    dbase.content = "BASE!"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(base under alpha update)"
+    dmg.damage_fast_frames.should be > before
+  end
+
+  it "clears the old shadow band when a shadowed widget moves" do
+    plain = new_screen false
+    dmg = new_screen true
+    mk = ->(s : Crysterm::Screen) {
+      Widget::Box.new(parent: s, top: 2, left: 2, width: 12, height: 6,
+        style: Style.new(border: true, shadow: true), content: "S")
+    }
+    pb = mk.call plain
+    db = mk.call dmg
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(shadow initial)"
+
+    pb.left = 20; pb.top = 10
+    db.left = 20; db.top = 10
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(shadow moved — old band cleared)"
+  end
+
+  it "re-blends a shadow over a widget under it when that widget changes" do
+    plain = new_screen false
+    dmg = new_screen true
+    build = ->(s : Crysterm::Screen) {
+      # `under` sits where `caster`'s shadow falls (to its lower-right).
+      under = Widget::Box.new(parent: s, top: 6, left: 12, width: 12, height: 6,
+        style: Style.new(border: true), content: "U")
+      Widget::Box.new(parent: s, top: 2, left: 2, width: 12, height: 6,
+        style: Style.new(border: true, shadow: true), content: "C")
+      under
+    }
+    pu = build.call plain
+    du = build.call dmg
+    plain._render; dmg._render
+
+    pu.content = "U2"
+    du.content = "U2"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(under-shadow update)"
+  end
+
+  it "is equivalent when a tinted widget updates" do
+    plain = new_screen false
+    dmg = new_screen true
+    mk = ->(s : Crysterm::Screen) {
+      box = Widget::Box.new(parent: s, top: 1, left: 1, width: 16, height: 6,
+        content: "t")
+      box.style.tint = 0xff0000
+      box.style.tint_alpha = 0.4
+      box
+    }
+    pb = mk.call plain
+    db = mk.call dmg
+    plain._render; dmg._render
+
+    before = dmg.damage_fast_frames
+    pb.content = "tinted!"
+    db.content = "tinted!"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(tint update)"
+    dmg.damage_fast_frames.should be > before
+  end
+
+  it "composites two overlapping widgets that BOTH change in one frame in z-order" do
+    plain = new_screen false
+    dmg = new_screen true
+    pa, pb = build_overlap plain
+    da, db = build_overlap dmg
+    plain._render; dmg._render
+
+    # Mutate the UPPER (b) first, then the LOWER (a): the dirty set's insertion
+    # order is then the reverse of @children z-order, which must not affect the
+    # composited result (regression test for dirty/dirty z-ordering).
+    pb.content = "B2"; pa.content = "A2"
+    db.content = "B2"; da.content = "A2"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(both overlapping changed)"
+  end
+
+  it "does not disturb a widget sitting in the gap between two clusters" do
+    plain = new_screen false
+    dmg = new_screen true
+    build = ->(s : Crysterm::Screen) {
+      # Two overlap pairs at the far left and far right, plus a lone box in the
+      # middle that lies inside the bounding box of the two pairs but overlaps
+      # neither — it must survive a selective frame untouched.
+      l1 = Widget::Box.new(parent: s, top: 0, left: 0, width: 10, height: 6,
+        style: Style.new(border: true), content: "L1")
+      Widget::Box.new(parent: s, top: 3, left: 4, width: 10, height: 6,
+        style: Style.new(border: true), content: "L2")
+      Widget::Box.new(parent: s, top: 16, left: 26, width: 8, height: 5,
+        style: Style.new(border: true), content: "MID")
+      r1 = Widget::Box.new(parent: s, top: 0, left: 48, width: 10, height: 6,
+        style: Style.new(border: true), content: "R1")
+      Widget::Box.new(parent: s, top: 3, left: 52, width: 10, height: 6,
+        style: Style.new(border: true), content: "R2")
+      {l1, r1}
+    }
+    pl1, pr1 = build.call plain
+    dl1, dr1 = build.call dmg
+    plain._render; dmg._render
+
+    pl1.content = "L1x"; pr1.content = "R1x"
+    dl1.content = "L1x"; dr1.content = "R1x"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(gap widget preserved)"
   end
 
   it "is output-equivalent across child add and remove" do

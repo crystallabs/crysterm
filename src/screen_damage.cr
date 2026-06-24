@@ -12,20 +12,30 @@ module Crysterm
     # leaving every other cell from the previous frame in place.
     #
     # The fast path is *output-equivalent* to the full re-composite: it engages
-    # only for the tractable subset (Phase 1 of the design) and otherwise falls
-    # back to the full path, so `@lines` (and therefore the bytes `draw` emits)
-    # are identical with the flag on or off. The preconditions it requires:
+    # only when it can prove equivalence and otherwise falls back to the full
+    # path, so `@lines` (and the bytes `draw` emits) are identical with the flag
+    # on or off. The implemented phases:
     #
-    # - No frame-level effects active: no alpha/shadow/tint/z-index (planes) and
-    #   no border docking. These either reach beyond a widget's `@lpos`
-    #   rectangle (shadow), depend on cross-widget state (docking, planes), or
-    #   re-blend over the base (alpha) — all of which interact with leaving stale
-    #   cells in place. They are detected and trigger the full-path fallback.
-    # - No structural change (child add/remove), resize, or stylesheet change
-    #   this frame — each can move unrelated widgets.
-    # - The changed subtrees' damage rectangles (old ∪ new) must not overlap any
-    #   unchanged subtree's rectangle (no overlap / z-order handling yet — that
-    #   is Phase 2).
+    # - **Phase 1** — opaque, non-overlapping: clear each changed subtree's old
+    #   footprint, re-render just it, carry over everything else.
+    # - **Phase 2** — overlap & z-order: when a changed subtree's damage touches
+    #   another subtree, recomposite the whole connected overlap cluster in
+    #   z-order over its cleared region (`#damage_phase2`).
+    # - **Phase 3** — alpha / shadow / tint: because the cluster recomposite is a
+    #   region-local "mini full clear" (clear the region, repaint every widget
+    #   touching it bottom-to-top), per-cell blend effects fall out for free —
+    #   a translucent/tinted widget always re-blends over a freshly rebuilt base,
+    #   so there is no saturation creep. The one extra requirement is that a
+    #   widget's damage rectangle includes its **shadow** band, which reaches past
+    #   `@lpos` (see `#damage_widget_rect`); the overlap machinery then pulls in
+    #   whatever the shadow falls on and re-blends it.
+    #
+    # Still always full-path: **z-index planes** (composited through a separate
+    # screen-sized buffer — declared out of scope, a legitimate end state),
+    # **border docking** (joins glyphs across adjacent widgets), and anything that
+    # writes outside the cell model (`#invalidate_region`, for w3m image
+    # overlays). Plus the usual frame-global bailouts: first frame, resize,
+    # structural change (child add/remove), and stylesheet change.
     #
     # Whenever any precondition fails the frame is rendered the full way, which
     # also refreshes all the caches below, so the next frame can fast-path again.
@@ -39,16 +49,17 @@ module Crysterm
     # path cannot prove itself safe.
     @damage_force_full = true
 
-    # Set during a render whenever an effect (alpha/shadow/tint/z-index) was
-    # applied this frame. Reset at the start of every `_render`. After a full
-    # frame it decides `@damage_safe`; during a fast-path attempt it aborts to
-    # the full path.
+    # Set during a render when something the selective path *cannot* reproduce
+    # happened — currently only `#invalidate_region` (a w3m image overlay writing
+    # outside the cell model). Reset at the start of every `_render`. After a full
+    # frame it feeds `@damage_safe`; during a fast-path attempt it forces a
+    # fallback. (Plane usage is tracked separately via `@layer_widgets`.)
     @frame_used_effects = false
 
-    # Whether the most recently completed *full* frame used no effects (and no
-    # docking). Only when this holds can unchanged subtrees be safely carried
-    # over — it guarantees the cells left in place were composited without any
-    # effect that a selective repaint would have to reproduce.
+    # Whether the most recently completed *full* frame can be safely carried over
+    # cell-by-cell: no planes, no docking, and nothing that wrote outside the
+    # cell model. Per-cell blend effects (alpha/shadow/tint) do NOT disqualify a
+    # frame — the cluster recomposite reproduces them (Phase 3).
     @damage_safe = false
 
     # Screen dimensions at the last full frame; a change means a resize, which
@@ -93,9 +104,11 @@ module Crysterm
       damage_force_full
     end
 
-    # Records that an effect (alpha/shadow/tint/z-index) was applied this frame.
-    # Called from the effect code paths (`blend_region`, `tint_region`,
-    # `defer_layer`, and the alpha branch of `Widget#_render`).
+    # Records that something the selective path can't reproduce happened this
+    # frame, forcing a full-path fallback. Currently only `#invalidate_region`
+    # (w3m image overlays writing outside the cell model). Per-cell blend effects
+    # (alpha/shadow/tint) do NOT call this — they are handled by the cluster
+    # recomposite (Phase 3); planes are tracked via `@layer_widgets`.
     def note_effect : Nil
       @frame_used_effects = true
     end
@@ -204,31 +217,29 @@ module Crysterm
         end
       end
 
-      # A z-indexed descendant (deferred to a plane) or any alpha/shadow/tint
-      # during the re-render means this frame has effects after all — abort to
-      # the full path, which composites them correctly.
+      # A z-indexed descendant got deferred to a plane (`@layer_widgets`), or
+      # something wrote outside the cell model (`#invalidate_region`, via
+      # `@frame_used_effects`). Either is out of scope for the selective path —
+      # fall back to the full path, which composites them correctly. (Per-cell
+      # blend effects — alpha/shadow/tint — do NOT trip this; the cluster
+      # recomposite reproduces them. See Phase 3 in the file header.)
       if @frame_used_effects || !@layer_widgets.empty?
         return false
       end
 
-      # Does any damaged rectangle touch an *unchanged* top-level subtree? If
-      # not, the changed subtrees are self-contained and Phase 1 is done.
-      overlap = @children.any? do |el|
-        next false if dirty.includes? el
-        cb = el.damage_bounds
-        next false unless cb
-        damaged.any? { |d| damage_rects_overlap?(d, cb) }
-      end
-
-      unless overlap
+      # Does any changed subtree overlap another top-level subtree — changed or
+      # unchanged? If not, the changed subtrees are self-contained and the
+      # per-root renders above are final (Phase 1).
+      unless damage_needs_cluster? dirty, damaged
         @damage_fast_frames += 1
         return true
       end
 
-      # Phase 2: a changed subtree overlaps an unchanged one, so the painter's
-      # algorithm has to recomposite the overlapping widgets together, in
-      # z-order. Hand off to the cluster recomposite; a false result means an
-      # effect surfaced and the caller must fall back to the full path.
+      # Phase 2/3: a changed subtree overlaps another, so the painter's algorithm
+      # has to recomposite the overlapping widgets together, in z-order (and any
+      # blend effects among them re-blend over a freshly rebuilt base). Hand off
+      # to the cluster recomposite; a false result means a plane / out-of-model
+      # write surfaced and the caller must fall back to the full path.
       return false unless damage_phase2 dirty, damaged
 
       @damage_fast_frames += 1
@@ -277,13 +288,14 @@ module Crysterm
         end
       end
 
-      # Clear the cluster region (the union of every member's contributed
-      # rectangle) so it can be rebuilt from scratch.
-      region : Tuple(Int32, Int32, Int32, Int32)? = nil
-      frontier.each { |r| region = damage_union region, r }
-      if region
-        clear_region region[0], region[1], region[2], region[3]
-      end
+      # Clear each member's contributed rectangle *separately* (NOT their
+      # bounding-box union) so the cluster's exact footprint is cleared and gaps
+      # between disjoint sub-clusters are left alone — clearing the bounding box
+      # could erase a non-member widget sitting in such a gap. Overlapping
+      # rectangles are simply cleared twice (idempotent). By the connected-
+      # component property no member rectangle overlaps a non-member, so this
+      # touches only cells the repaint below rebuilds.
+      frontier.each { |r| clear_region r[0], r[1], r[2], r[3] }
 
       # Repaint every member in `@children` (z) order, so overlapping cells are
       # composited bottom-to-top exactly as the full painter's algorithm would.
@@ -312,13 +324,52 @@ module Crysterm
       acc
     end
 
-    # This widget's own `@lpos` rectangle, or `nil` if it didn't render to a
-    # non-empty one.
+    # This widget's own painted rectangle: its `@lpos`, expanded by its `shadow`
+    # band (Phase 3) when it has one. A shadow blends a strip of cells *outside*
+    # `@lpos` (`xi - left` … `xl + right`, `yi - top` … `yl + bottom`), so it must
+    # be part of the damage rect — both to clear the old shadow and to pull the
+    # widgets it falls on into the recomposite cluster. `nil` if the widget didn't
+    # render to a non-empty rectangle.
     private def damage_widget_rect(w : Widget) : Tuple(Int32, Int32, Int32, Int32)?
       lp = w.lpos
       return nil unless lp
       return nil if lp.xl <= lp.xi || lp.yl <= lp.yi
-      {lp.xi, lp.xl, lp.yi, lp.yl}
+      xi = lp.xi
+      xl = lp.xl
+      yi = lp.yi
+      yl = lp.yl
+      if (s = w.style.shadow) && s.any?
+        xi -= s.left
+        xl += s.right
+        yi -= s.top
+        yl += s.bottom
+      end
+      {xi, xl, yi, yl}
+    end
+
+    # Does any changed subtree's damage rectangle overlap another top-level
+    # subtree — unchanged (`damage_bounds`) or another changed one (`damaged`)?
+    # When false, the changed subtrees are mutually disjoint and isolated, so the
+    # per-root renders are final and no cluster recomposite is needed.
+    private def damage_needs_cluster?(dirty : Array(Widget), damaged : Array(Tuple(Int32, Int32, Int32, Int32))) : Bool
+      # Changed vs unchanged.
+      @children.each do |el|
+        next if dirty.includes? el
+        cb = el.damage_bounds
+        next unless cb
+        return true if damaged.any? { |d| damage_rects_overlap?(d, cb) }
+      end
+      # Changed vs changed.
+      i = 0
+      while i < damaged.size
+        j = i + 1
+        while j < damaged.size
+          return true if damage_rects_overlap?(damaged.unsafe_fetch(i), damaged.unsafe_fetch(j))
+          j += 1
+        end
+        i += 1
+      end
+      false
     end
 
     # Half-open rectangle overlap test (`{xi, xl, yi, yl}`).

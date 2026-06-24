@@ -280,9 +280,6 @@ module Crysterm
     # Defers *el* (a z-indexed widget) to its plane instead of painting it inline.
     # Called from the base render wherever a child would be rendered.
     def defer_layer(el : Widget) : Nil
-      # A z-indexed widget composites through a plane (an effect), so a frame
-      # with any layer cannot take the selective damage fast path.
-      note_effect
       @layer_widgets << el
     end
 

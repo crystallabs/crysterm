@@ -900,6 +900,11 @@ module Crysterm
     # re-emitted so the terminal redraws text over it. Poisoning `@olines` here
     # makes the diff treat those cells as changed.
     def invalidate_region(xi, xl, yi, yl)
+      # Damage tracking: this pokes `@olines` outside the cell model (a w3m image
+      # overlay), which the selective path can't reason about — force the full
+      # path for any frame that does it.
+      note_effect
+
       xi = 0 if xi < 0
       yi = 0 if yi < 0
 
@@ -1003,9 +1008,6 @@ module Crysterm
     # bounds, and the `lines[y]?`/`line[x]?` lookups skip anything off the grid —
     # so the four call sites keep their precise original behavior.
     def blend_region(alpha, xi, xl, yi, yl)
-      # Damage tracking: a shadow reaches beyond the widget's `@lpos`, so a
-      # frame using one cannot take the selective fast path.
-      note_effect
       each_region_cell(xi, xl, yi, yl, clamp: false) do |cell, line|
         cell.attr = Colors.blend(cell.attr, alpha: alpha)
         line.dirty = true
@@ -1016,9 +1018,6 @@ module Crysterm
     # `1` = fully `color`) — the color overlay behind `style.tint`. Like
     # `#blend_region` but toward an arbitrary color instead of black.
     def tint_region(alpha, color, xi, xl, yi, yl)
-      # Damage tracking: a tint blends over the base, so a frame using one
-      # cannot carry over unchanged cells; force the full path.
-      note_effect
       each_region_cell(xi, xl, yi, yl) do |cell, line|
         cell.attr = Colors.tint(cell.attr, color, alpha)
         line.dirty = true
