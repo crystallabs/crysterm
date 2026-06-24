@@ -187,7 +187,7 @@ module Crysterm
   # Packing/unpacking of a cell's *attribute* word.
   #
   # An attribute (`attr`) bundles a foreground color, a background color, and a
-  # set of style flags (bold/underline/blink/inverse/invisible) into a single
+  # set of style flags (bold/underline/blink/reverse/invisible) into a single
   # integer that every cell in the screen buffer stores.
   #
   # Because each color is now a full 24-bit RGB value (plus a "default" marker),
@@ -197,7 +197,7 @@ module Crysterm
   # ```text
   #   bits  0..24  : bg        (25 bits: 24-bit RGB, or COLOR_DEFAULT)
   #   bits 25..49  : fg        (25 bits)
-  #   bits 50..55  : flags     (6 style bits: bold/underline/blink/inverse/invisible/italic)
+  #   bits 50..55  : flags     (6 style bits: bold/underline/blink/reverse/invisible/italic)
   #   bits 56..57  : fg alpha  (2-bit `Alpha` mode for the foreground channel)
   #   bits 58..59  : bg alpha  (2-bit `Alpha` mode for the background channel)
   #   bits 60..63  : reserved
@@ -238,7 +238,7 @@ module Crysterm
     BOLD      =  1
     UNDERLINE =  2
     BLINK     =  4
-    INVERSE   =  8
+    REVERSE   =  8
     INVISIBLE = 16
     ITALIC    = 32
     STRIKE    = 64 # strikethrough (SGR 9)

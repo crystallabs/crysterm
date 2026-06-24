@@ -103,7 +103,7 @@ module Crysterm
         st = super
         if cursor_shown? && @items[@selected]? == item
           st = st.dup
-          st.inverse = true
+          st.reverse = true
         end
         st
       end

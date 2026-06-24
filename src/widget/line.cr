@@ -13,7 +13,7 @@ module Crysterm
 
         char ||= (@orientation == Tput::Orientation::Vertical ? '│' : '─')
 
-        style.char = char
+        style.fill_char = char
       end
 
       # In addition to any border (handled by `super`), a *horizontal* line

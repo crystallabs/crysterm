@@ -94,7 +94,7 @@ module Crysterm
 
       private def update_content : Nil
         parts = [@date.year.to_s.rjust(4, '0'), @date.month.to_s.rjust(2, '0'), @date.day.to_s.rjust(2, '0')]
-        parts[@section] = "{inverse}#{parts[@section]}{/inverse}"
+        parts[@section] = "{reverse}#{parts[@section]}{/reverse}"
         set_content parts.join('-')
       end
 

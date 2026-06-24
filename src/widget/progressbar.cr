@@ -150,7 +150,7 @@ module Crysterm
 
           # TODO Is this approach with using drawing routines valid, or it would be
           # better that we do this in-memory only here?
-          screen.fill_region default_attr, style.pchar, xi, xl, yi, yl
+          screen.fill_region default_attr, style.percent_char, xi, xl, yi, yl
 
           # Determine the text to overlay: the Qt-style indicator when enabled,
           # otherwise any pre-parsed content (materialized via `#pcontent`).

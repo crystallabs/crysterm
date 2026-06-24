@@ -42,7 +42,7 @@ module Crysterm
           # `reverse` (alias `inverse`) maps to the terminal's reverse-video
           # attribute — the classic TUI selection/highlight look, which has no
           # standard CSS spelling. Shorthand semantics: absent -> off.
-          style.inverse = words.includes?("reverse") || words.includes?("inverse")
+          style.reverse = words.includes?("reverse") || words.includes?("inverse")
         when "visibility"
           style.visible = (value != "hidden")
         when "display"

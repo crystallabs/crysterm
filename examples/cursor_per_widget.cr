@@ -66,7 +66,7 @@ class PerWidgetCursorDemo
   c2 = box2.cursor!
   c2.artificial = true
   c2.shape = :none
-  c2.style.char = '▮'
+  c2.style.fill_char = '▮'
   c2.style.fg = "magenta"
   c2.style.bg = "yellow"
   c2._hidden = false

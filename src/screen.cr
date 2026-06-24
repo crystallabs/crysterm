@@ -531,7 +531,7 @@ module Crysterm
       #        bg: 'yellow'
       #      },
       #      style: {
-      #        inverse: true
+      #        reverse: true
       #      }
       #    }
       #  });

@@ -83,7 +83,7 @@ module Crysterm
           t.minute.to_s.rjust(2, '0'),
           t.second.to_s.rjust(2, '0'),
         ]
-        parts[@section] = "{inverse}#{parts[@section]}{/inverse}" if @section < section_count
+        parts[@section] = "{reverse}#{parts[@section]}{/reverse}" if @section < section_count
 
         date = "#{parts[0]}-#{parts[1]}-#{parts[2]}"
         time = show_seconds? ? "#{parts[3]}:#{parts[4]}:#{parts[5]}" : "#{parts[3]}:#{parts[4]}"

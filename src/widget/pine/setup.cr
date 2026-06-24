@@ -10,7 +10,7 @@ module Crysterm
       # ```
       #
       # Navigate with the arrow keys; toggle the selected feature with Enter or
-      # the space bar. The selected row is drawn inverse.
+      # the space bar. The selected row is drawn reverse.
       class Setup < Widget::List
         # A single configurable feature.
         class Option
@@ -39,7 +39,7 @@ module Crysterm
         )
           super **list
 
-          styles.selected = Style.new inverse: true
+          styles.selected = Style.new reverse: true
 
           set_options options
 

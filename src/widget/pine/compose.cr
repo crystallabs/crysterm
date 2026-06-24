@@ -67,7 +67,7 @@ module Crysterm
             width: "100%",
             height: 1,
             content: "----- Message Text -----",
-            style: Style.new(inverse: true),
+            style: Style.new(reverse: true),
           )
           append separator
 

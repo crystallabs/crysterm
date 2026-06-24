@@ -74,7 +74,7 @@ describe "Table alternating rows rendering" do
   it "paints every other body row with the alternate background" do
     s = render_screen
     Crysterm::Widget::Table.new parent: s, top: 0, left: 0, alternate_rows: true,
-      style: Crysterm::Style.new(alternate: Crysterm::Style.new(bg: "blue")),
+      style: Crysterm::Style.new(alternate_row: Crysterm::Style.new(bg: "blue")),
       rows: [["H"], ["a"], ["b"], ["c"]]
     s._render
 
@@ -87,7 +87,7 @@ describe "Table alternating rows rendering" do
   it "uses no alternate background when the option is off" do
     s = render_screen
     Crysterm::Widget::Table.new parent: s, top: 0, left: 0, alternate_rows: false,
-      style: Crysterm::Style.new(alternate: Crysterm::Style.new(bg: "blue")),
+      style: Crysterm::Style.new(alternate_row: Crysterm::Style.new(bg: "blue")),
       rows: [["H"], ["a"], ["b"], ["c"]]
     s._render
 

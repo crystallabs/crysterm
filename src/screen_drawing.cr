@@ -272,7 +272,7 @@ module Crysterm
           # the bg for non BCE terminals worth the overhead?
           if bce_opt && (desired_char == ' ') && (x > bce_skip_until) &&
              (has_bce || (Attr.bg(desired_attr) == Attr.bg(@default_attr))) &&
-             ((Attr.flags(desired_attr) & Attr::INVERSE) == (Attr.flags(@default_attr) & Attr::INVERSE))
+             ((Attr.flags(desired_attr) & Attr::REVERSE) == (Attr.flags(@default_attr) & Attr::REVERSE))
             clr = true
             neq = false # Current line 'not equal' to line as it was on previous render (i.e. it changed content)
             breaker = line_size

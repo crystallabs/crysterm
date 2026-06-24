@@ -382,7 +382,7 @@ module Crysterm
         when :underline
           {Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, Attr.fg(attr), Attr.bg(attr)), ch}
         else # :block — invert the cell
-          {Attr.pack(Attr.flags(attr) | Attr::INVERSE, Attr.fg(attr), Attr.bg(attr)), ch}
+          {Attr.pack(Attr.flags(attr) | Attr::REVERSE, Attr.fg(attr), Attr.bg(attr)), ch}
         end
       end
 

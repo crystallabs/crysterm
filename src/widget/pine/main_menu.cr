@@ -12,7 +12,7 @@ module Crysterm
       #          I     MESSAGE INDEX      -  View messages in current folder
       # ```
       #
-      # The currently-selected row is drawn inverse. Navigate with the arrow keys
+      # The currently-selected row is drawn reverse. Navigate with the arrow keys
       # and activate with Enter; activation runs the option's `callback` (and also
       # emits `Event::ActionItem`, so callers can hook in instead).
       class MainMenu < Widget::List
@@ -48,8 +48,8 @@ module Crysterm
         )
           super **list
 
-          # Pine highlights the whole selected row in inverse video.
-          styles.selected = Style.new inverse: true
+          # Pine highlights the whole selected row in reverse video.
+          styles.selected = Style.new reverse: true
 
           set_options options
 

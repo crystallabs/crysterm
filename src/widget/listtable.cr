@@ -27,9 +27,9 @@ module Crysterm
       # The table data (including the header row at index 0).
       property rows : Array(Array(String)) = [] of Array(String)
 
-      # Whether every other body row is painted with `style.alternate`, like
+      # Whether every other body row is painted with `style.alternate_row`, like
       # Qt's `QAbstractItemView#alternatingRowColors`. No visible effect until
-      # `style.alternate` is given a distinct background.
+      # `style.alternate_row` is given a distinct background.
       property? alternate_rows : Bool = false
 
       # Whether clicking a header cell sorts the body by that column (toggling
@@ -115,7 +115,7 @@ module Crysterm
 
       # Body rows draw with `style.cell`; selected rows with `styles.selected`;
       # and — when `#alternate_rows?` — every other body row with
-      # `style.alternate`.
+      # `style.alternate_row`.
       def render_style_for(item : Widget) : Style
         # A CSS rule may target this row individually (`ListTable Box`,
         # `Box:nth-child(even)`); use its computed style, reflecting selection
@@ -128,7 +128,7 @@ module Crysterm
         return item_render_style(true) if item_selected?(item)
 
         if alternate_rows? && (i = @items.index item) && i > 0 && i.even?
-          base = style.alternate
+          base = style.alternate_row
           return base unless base.border.any?
           borderless = base.dup
           borderless.border = false

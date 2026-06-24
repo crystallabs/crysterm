@@ -10,7 +10,7 @@ module Crysterm
       #   N   2  Jun 20  John Smith           (5,678) Re: Project update
       # ```
       #
-      # The selected row is drawn inverse. Navigate with the arrow keys; Enter
+      # The selected row is drawn reverse. Navigate with the arrow keys; Enter
       # activates the message (runs its `callback` and emits `Event::ActionItem`).
       class MessageIndex < Widget::List
         # A single message row.
@@ -49,7 +49,7 @@ module Crysterm
         )
           super **list
 
-          styles.selected = Style.new inverse: true
+          styles.selected = Style.new reverse: true
 
           set_messages messages
 

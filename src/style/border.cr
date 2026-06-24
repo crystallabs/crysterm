@@ -59,7 +59,7 @@ module Crysterm
 
     # Character used to draw a `BorderType::Bg` border. Acts as the fallback for
     # the three position-specific chars below.
-    property char = ' '
+    property fill_char = ' '
 
     # Position-specific characters for `BorderType::Bg` borders. When unset
     # (`nil`) each falls back to `char` (see `#horizontal_char`, `#vertical_char`,
@@ -77,18 +77,18 @@ module Crysterm
 
     # Char to draw on the top/bottom (horizontal) sides. Falls back to `char`.
     def horizontal_char : Char
-      @char_horizontal || @char
+      @char_horizontal || @fill_char
     end
 
     # Char to draw on the left/right (vertical) sides. Falls back to `char`.
     def vertical_char : Char
-      @char_vertical || @char
+      @char_vertical || @fill_char
     end
 
     # Char to draw where horizontal and vertical sides join (the corners /
     # "diagonal" cells). Falls back to `char`.
     def corner_char : Char
-      @char_corner || @char
+      @char_corner || @fill_char
     end
 
     # XXX There is some duplication between style and these 5.
@@ -98,7 +98,7 @@ module Crysterm
     property? italic : Bool = false
     property? underline : Bool = false
     property? blink : Bool = false
-    property? inverse : Bool = false
+    property? reverse : Bool = false
     property? strike : Bool = false
     property? visible : Bool = true
 

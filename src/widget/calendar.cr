@@ -349,7 +349,7 @@ module Crysterm
       end
 
       # Builds the tagged month page: navigation bar, weekday header, then the
-      # day grid (selected day inverse, today underlined). Also refreshes the
+      # day grid (selected day reverse, today underlined). Also refreshes the
       # cached hit-test regions used by the mouse handler.
       private def build_content : String
         nav = navigation_bar_visible?
@@ -394,7 +394,7 @@ module Crysterm
       private def render_day(d : Int32) : String
         cell = d.to_s.rjust 2
         if selection_mode.single_selection? && @date.year == @shown_year && @date.month == @shown_month && @date.day == d
-          "{inverse}#{cell}{/inverse}"
+          "{reverse}#{cell}{/reverse}"
         elsif highlight_today? && today_is?(d)
           "{underline}#{cell}{/underline}"
         else

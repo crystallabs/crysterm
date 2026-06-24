@@ -49,7 +49,7 @@ module Crysterm
         if row == 0
           style.header
         elsif alternate_rows? && row.even?
-          style.alternate
+          style.alternate_row
         else
           style.cell
         end

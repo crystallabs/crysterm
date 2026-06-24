@@ -71,7 +71,7 @@ module Crysterm
       private def update_content : Nil
         parts = [@time.hour.to_s.rjust(2, '0'), @time.minute.to_s.rjust(2, '0')]
         parts << @time.second.to_s.rjust(2, '0') if show_seconds?
-        parts[@section] = "{inverse}#{parts[@section]}{/inverse}" if @section < parts.size
+        parts[@section] = "{reverse}#{parts[@section]}{/reverse}" if @section < parts.size
         set_content parts.join(':')
       end
 

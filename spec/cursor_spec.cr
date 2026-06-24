@@ -44,7 +44,7 @@ describe "Screen#_artificial_cursor_attr" do
       Attr.fg(attr).should eq WHITE_FG
       # No flags are added for the line cursor.
       (Attr.flags(attr) & Attr::UNDERLINE).should eq 0
-      (Attr.flags(attr) & Attr::INVERSE).should eq 0
+      (Attr.flags(attr) & Attr::REVERSE).should eq 0
     end
   end
 
@@ -58,11 +58,11 @@ describe "Screen#_artificial_cursor_attr" do
   end
 
   describe "block shape" do
-    it "sets the inverse flag, white foreground, and no glyph override" do
+    it "sets the reverse flag, white foreground, and no glyph override" do
       attr, ch = cursor_attr Tput::Namespace::CursorShape::Block
       ch.should be_nil
       Attr.fg(attr).should eq WHITE_FG
-      (Attr.flags(attr) & Attr::INVERSE).should_not eq 0
+      (Attr.flags(attr) & Attr::REVERSE).should_not eq 0
     end
   end
 
@@ -143,9 +143,9 @@ describe "Screen#_artificial_cursor_attr" do
       Tput::Namespace::CursorShape::None.should_not eq Tput::Namespace::CursorShape::Block
     end
 
-    it "honors style.char and style.fg for a custom cursor" do
+    it "honors style.fill_char and style.fg for a custom cursor" do
       attr, ch = cursor_attr(Tput::Namespace::CursorShape::None) do |c|
-        c.style.char = 'X'
+        c.style.fill_char = 'X'
         c.style.fg = "#00ff00"
       end
       ch.should eq 'X'

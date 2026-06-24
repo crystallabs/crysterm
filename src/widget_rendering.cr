@@ -137,7 +137,7 @@ module Crysterm
       # c
       # visible
       # i
-      bch = style.char
+      bch = style.fill_char
 
       # D O:
       # Clip content if it's off the edge of the screen
@@ -697,7 +697,7 @@ module Crysterm
 
       flags =
         (style.visible? ? 0 : Attr::INVISIBLE) |
-          (style.inverse? ? Attr::INVERSE : 0) |
+          (style.reverse? ? Attr::REVERSE : 0) |
           (style.blink? ? Attr::BLINK : 0) |
           (style.underline? ? Attr::UNDERLINE : 0) |
           (style.italic? ? Attr::ITALIC : 0) |

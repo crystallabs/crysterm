@@ -26,7 +26,7 @@ describe "Screen.attr2code" do
       "\e[1m" => Attr::BOLD,
       "\e[4m" => Attr::UNDERLINE,
       "\e[5m" => Attr::BLINK,
-      "\e[7m" => Attr::INVERSE,
+      "\e[7m" => Attr::REVERSE,
       "\e[8m" => Attr::INVISIBLE,
       "\e[9m" => Attr::STRIKE,
     }.each do |code, bit|

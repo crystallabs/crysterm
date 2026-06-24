@@ -161,12 +161,12 @@ module Crysterm
               break if mcell.nil?
 
               lines[y]?.try(&.[x + mx]?).try do |cell|
-                if style.fchar != ' '
+                if style.foreground_char != ' '
                   cell.attr = default_attr
-                  cell.char = mcell == 1 ? style.fchar : style.char
+                  cell.char = mcell == 1 ? style.foreground_char : style.fill_char
                 else
                   cell.attr = mcell == 1 ? attr : default_attr
-                  cell.char = mcell == 1 ? ' ' : style.char
+                  cell.char = mcell == 1 ? ' ' : style.fill_char
                 end
               end
 

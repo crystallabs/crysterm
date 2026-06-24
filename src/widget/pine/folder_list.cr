@@ -37,7 +37,7 @@ module Crysterm
         )
           super **list
 
-          styles.selected = Style.new inverse: true
+          styles.selected = Style.new reverse: true
 
           set_folders folders
 

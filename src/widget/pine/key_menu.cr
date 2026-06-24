@@ -59,7 +59,7 @@ module Crysterm
           *,
           @columns = 6,
           @rows = 2,
-          @key_style = Style.new(inverse: true),
+          @key_style = Style.new(reverse: true),
           height h = nil, width w = "100%",
           **layout,
         )
@@ -119,7 +119,7 @@ module Crysterm
         end
 
         # Builds the tagged content for a single entry: a highlighted key
-        # followed by its label, e.g. `{inverse} ? {/inverse} Help`.
+        # followed by its label, e.g. `{reverse} ? {/reverse} Help`.
         private def format_entry(entry : Entry) : String
           tags = key_tags
           "#{tags[:open]} #{entry.key} #{tags[:close]} #{entry.label}"
@@ -127,8 +127,8 @@ module Crysterm
 
         # Translates `key_style` into open/close tags used around the key.
         private def key_tags
-          if @key_style.inverse?
-            {open: "{inverse}", close: "{/inverse}"}
+          if @key_style.reverse?
+            {open: "{reverse}", close: "{/reverse}"}
           elsif (fg = @key_style.fg) && fg >= 0
             hex = "#%06x" % (fg & 0xffffff)
             {open: "{#{hex}-fg}", close: "{/#{hex}-fg}"}

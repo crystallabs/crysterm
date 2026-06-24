@@ -26,9 +26,9 @@ module Crysterm
       # The table data, as rows of string cells.
       property rows : Array(Array(String))
 
-      # Whether every other body row is painted with `style.alternate` instead of
+      # Whether every other body row is painted with `style.alternate_row` instead of
       # `style.cell`, like Qt's `QTableWidget#alternatingRowColors`. Has no
-      # visible effect until `style.alternate` is given a distinct background.
+      # visible effect until `style.alternate_row` is given a distinct background.
       property? alternate_rows : Bool = false
 
       # A table is sized to its content by default.
@@ -123,7 +123,7 @@ module Crysterm
         dattr = sattr style
         hattr = sattr style.header
         cattr = sattr style.cell
-        aattr = sattr style.alternate
+        aattr = sattr style.alternate_row
         battr = sattr style.border
 
         width = coords.xl - coords.xi - iright

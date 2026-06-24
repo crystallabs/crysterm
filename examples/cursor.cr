@@ -69,7 +69,7 @@ class CursorDemo
     when e.char == 'c'
       # Custom cursor: a magenta '▮' on a yellow cell.
       s.cursor.shape = :none
-      s.cursor.style.char = '▮'
+      s.cursor.style.fill_char = '▮'
       s.cursor.style.fg = "magenta"
       s.cursor.style.bg = "yellow"
       s.render

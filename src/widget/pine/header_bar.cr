@@ -1,7 +1,7 @@
 module Crysterm
   class Widget
     module Pine
-      # The inverse-video title bar shown at the top of every Pine/Alpine
+      # The reverse-video title bar shown at the top of every Pine/Alpine
       # screen. It is divided into three zones:
       #
       # ```
@@ -34,10 +34,10 @@ module Crysterm
           # call before the `@title`/`@section`/`@info` ivars are initialized.
           @layout = Crysterm::Layout::Masonry.new
 
-          @style = Style.new inverse: true
+          @style = Style.new reverse: true
           # Padding.new is (left, top, right, bottom): pl2 = left:2, pr2 = right:2.
-          style_pl2 = Style.new inverse: true, padding: Padding.new(2, 0, 0, 0)
-          style_pr2 = Style.new inverse: true, padding: Padding.new(0, 0, 2, 0)
+          style_pl2 = Style.new reverse: true, padding: Padding.new(2, 0, 0, 0)
+          style_pr2 = Style.new reverse: true, padding: Padding.new(0, 0, 2, 0)
 
           section_width = "100%-#{title_width + info_width}"
 

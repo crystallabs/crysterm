@@ -151,7 +151,7 @@ module Crysterm
       elsif cursor.shape.underline?
         attr = Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, white, Attr.bg(attr))
       elsif cursor.shape.block?
-        attr = Attr.pack(Attr.flags(attr) | Attr::INVERSE, white, Attr.bg(attr))
+        attr = Attr.pack(Attr.flags(attr) | Attr::REVERSE, white, Attr.bg(attr))
       elsif cursor.shape.none?
         # `None` is the custom cursor: draw it from the cursor's own `style`
         # (glyph and colors), the equivalent of blessed's object-shaped cursor
@@ -159,14 +159,14 @@ module Crysterm
         cattr = Widget.sattr cursor.style
         # cattr = Colors.blend attr, cursor.style, (cursor.style.alpha || 0)
         flags = Attr.flags(attr)
-        if cursor.style.bold? || cursor.style.underline? || cursor.style.blink? || cursor.style.inverse? || !cursor.style.visible?
+        if cursor.style.bold? || cursor.style.underline? || cursor.style.blink? || cursor.style.reverse? || !cursor.style.visible?
           flags = Attr.flags(cattr)
         end
         fg = cursor.style.fg ? Attr.fg(cattr) : Attr.fg(attr)
         bg = cursor.style.bg ? Attr.bg(cattr) : Attr.bg(attr)
         attr = Attr.pack(flags, fg, bg)
-        if cursor.style.char
-          ch = cursor.style.char
+        if cursor.style.fill_char
+          ch = cursor.style.fill_char
         end
       end
 

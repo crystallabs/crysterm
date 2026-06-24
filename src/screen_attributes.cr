@@ -92,8 +92,8 @@ module Crysterm
           flags |= Attr::UNDERLINE
         when 5 # blink
           flags |= Attr::BLINK
-        when 7 # inverse
-          flags |= Attr::INVERSE
+        when 7 # reverse
+          flags |= Attr::REVERSE
         when 8 # invisible
           flags |= Attr::INVISIBLE
         when 9 # strikethrough
@@ -193,7 +193,7 @@ module Crysterm
       # Decide up front whether the sequence is non-empty (matching `code2attr`'s
       # "" return for the default attr). This avoids writing "\e[" only to have
       # to truncate it back out of the IO when nothing follows.
-      style_flags = flags & (Attr::BOLD | Attr::ITALIC | Attr::UNDERLINE | Attr::BLINK | Attr::INVERSE | Attr::INVISIBLE | Attr::STRIKE)
+      style_flags = flags & (Attr::BOLD | Attr::ITALIC | Attr::UNDERLINE | Attr::BLINK | Attr::REVERSE | Attr::INVISIBLE | Attr::STRIKE)
       return if style_flags == 0 && fg == -1 && bg == -1
 
       io << "\e["
@@ -222,7 +222,7 @@ module Crysterm
       io << "3;" if (flags & Attr::ITALIC) != 0
       io << "4;" if (flags & Attr::UNDERLINE) != 0
       io << "5;" if (flags & Attr::BLINK) != 0
-      io << "7;" if (flags & Attr::INVERSE) != 0
+      io << "7;" if (flags & Attr::REVERSE) != 0
       io << "8;" if (flags & Attr::INVISIBLE) != 0
       io << "9;" if (flags & Attr::STRIKE) != 0
 

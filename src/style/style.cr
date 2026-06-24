@@ -35,8 +35,8 @@ module Crysterm
     # Blink?
     property? blink : Bool = false
 
-    # Inverse?
-    property? inverse : Bool = false
+    # Reverse video?
+    property? reverse : Bool = false
 
     # Strikethrough?
     property? strike : Bool = false
@@ -118,7 +118,7 @@ module Crysterm
     # Re-wrap the `property?`-generated boolean setters so each explicit
     # assignment is recorded (`bold = false` becomes distinguishable from the
     # default `false`).
-    {% for attr in %w(bold italic underline blink inverse strike visible) %}
+    {% for attr in %w(bold italic underline blink reverse strike visible) %}
       def {{attr.id}}=(value : Bool) : Bool
         @specified << :{{attr.id}}
         @{{attr.id}} = value
@@ -174,17 +174,17 @@ module Crysterm
     # Character to replace TABs with, multiplied by tab_size
     property tab_char = " "
 
-    # Generic char (WIP)
-    property char : Char = ' '
+    # Generic fill char (WIP)
+    property fill_char : Char = ' '
 
     # Percent char (WIP)
-    property pchar : Char = ' '
+    property percent_char : Char = ' '
 
     # Foreground char (WIP)
-    property fchar : Char = ' '
+    property foreground_char : Char = ' '
 
     # Background char (WIP)
-    property bchar : Char = ' '
+    property background_char : Char = ' '
 
     # XXX Test/document this.
     property? fill = true
@@ -192,7 +192,7 @@ module Crysterm
     # Should something render inside/over the border?
     # Currently used for `Widget::Scrollbar` only.
     # XXX Rename, or make more general, or otherwise unify.
-    property? ignore_border : Bool = false
+    property? draw_over_border : Bool = false
 
     # Each of the following subelements are separate and can be styled individually.
     # If any of them is not defined, it defaults to main/parent style.
@@ -204,10 +204,10 @@ module Crysterm
     # `Widget::ListTable` has `alternate_rows` enabled — the equivalent of Qt's
     # `QAbstractItemView#alternatingRowColors`. Defaults to `cell` (and thus to
     # the main style), so it has no visible effect until styled.
-    setter alternate : Style?
+    setter alternate_row : Style?
 
-    def alternate
-      @alternate || cell
+    def alternate_row
+      @alternate_row || cell
     end
 
     setter bar : Style?
@@ -301,14 +301,14 @@ module Crysterm
 
     # Folds *inline*'s explicitly-set nested sub-styles (`header`/`cell`/
     # `alternate`/`bar`/…) onto this style. Used by the CSS cascade so an inline
-    # `@style` that carries a sub-style — e.g. `Style.new(alternate: ...)` on a
+    # `@style` that carries a sub-style — e.g. `Style.new(alternate_row: ...)` on a
     # `Widget::Table` — survives recomputation even when no `Widget::slot`
     # sub-element rule matched. Reads the raw nilable ivars (an instance may
     # touch another instance's privates), so only sub-styles the caller actually
     # set are carried (the getters above fall back to `self`/`cell`, which would
     # otherwise always look "set").
     def fold_inline_sub_styles(inline : Style) : Nil
-      @alternate = inline.@alternate if inline.@alternate
+      @alternate_row = inline.@alternate_row if inline.@alternate_row
       @bar = inline.@bar if inline.@bar
       @cell = inline.@cell if inline.@cell
       @header = inline.@header if inline.@header
@@ -325,7 +325,7 @@ module Crysterm
       shadow = nil,
       @scrollbar = @scrollbar,
       @track = @track,
-      @alternate = @alternate,
+      @alternate_row = @alternate_row,
       @bar = @bar,
       @item = @item,
       @prefix = @prefix,
@@ -338,15 +338,15 @@ module Crysterm
       italic = nil,
       underline = nil,
       blink = nil,
-      inverse = nil,
+      reverse = nil,
       strike = nil,
       visible = nil,
       alpha = nil,
-      @char = @char,
-      @pchar = @pchar,
-      @fchar = @fchar,
-      @bchar = @bchar,
-      @ignore_border = @ignore_border,
+      @fill_char = @fill_char,
+      @percent_char = @percent_char,
+      @foreground_char = @foreground_char,
+      @background_char = @background_char,
+      @draw_over_border = @draw_over_border,
     )
       # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized
       # to its `#rrggbb` string (the param is unrestricted, so each call type —
@@ -360,7 +360,7 @@ module Crysterm
       italic.try { |v| self.italic = v }
       underline.try { |v| self.underline = v }
       blink.try { |v| self.blink = v }
-      inverse.try { |v| self.inverse = v }
+      reverse.try { |v| self.reverse = v }
       strike.try { |v| self.strike = v }
       visible.try { |v| self.visible = v }
       alpha.try { |v| self.alpha = self.class.alpha_from(v) }

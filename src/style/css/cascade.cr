@@ -297,7 +297,7 @@ module Crysterm
         style.italic = inline.italic? if inline.specified?(:italic)
         style.underline = inline.underline? if inline.specified?(:underline)
         style.blink = inline.blink? if inline.specified?(:blink)
-        style.inverse = inline.inverse? if inline.specified?(:inverse)
+        style.reverse = inline.reverse? if inline.specified?(:reverse)
         style.strike = inline.strike? if inline.specified?(:strike)
         style.visible = inline.visible? if inline.specified?(:visible)
         style.alpha = inline.alpha if inline.specified?(:alpha)
@@ -426,7 +426,7 @@ module Crysterm
         when "item"      then style.item
         when "bar"       then style.bar
         when "prefix"    then style.prefix
-        when "alternate" then style.alternate
+        when "alternate" then style.alternate_row
         when "label"     then style.label
         else                  style
         end
@@ -441,7 +441,7 @@ module Crysterm
         when "item"      then style.item = sub
         when "bar"       then style.bar = sub
         when "prefix"    then style.prefix = sub
-        when "alternate" then style.alternate = sub
+        when "alternate" then style.alternate_row = sub
         when "label"     then style.label = sub
         end
       end

@@ -1,7 +1,7 @@
 # FEATURE: decorators & styling — borders, shadows, and text attributes.
 #
 # Styles carry fg/bg colors, border type (line or solid bg), drop shadows
-# (alpha-blended), and text attributes (bold, underline, inverse), all set per
+# (alpha-blended), and text attributes (bold, underline, reverse), all set per
 # widget via `Style.new(...)` or inline `{tags}` in content.
 
 require "../../src/crysterm"
@@ -38,7 +38,7 @@ Widget::Box.new \
 Widget::Box.new \
   parent: s, top: 2, left: 54, width: 24, height: 5,
   content: "{bold}bold{/bold} {underline}underline{/underline} {italic}italic{/italic}\n" \
-           "{inverse}inverse{/inverse} {strike}strike{/strike}\n" \
+           "{reverse}reverse{/reverse} {strike}strike{/strike}\n" \
            "{red-fg}red{/} {green-fg}green{/} {blue-fg}blue{/}",
   parse_tags: true,
   style: Style.new(fg: "white", bg: "#101010", border: true)
