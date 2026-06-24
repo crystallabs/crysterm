@@ -159,6 +159,12 @@ module Crysterm
       property rtof = [] of Int32
       property ci = [] of Int32
 
+      # Pool of recycled `ftor` sub-arrays. `#reset` drains the old per-line
+      # `ftor` rows into here (cleared) and `#take_ftor_row` hands them back out,
+      # so a steady-state reparse of same-shaped content reuses the very same
+      # `Array(Int32)` objects instead of allocating one per line every frame.
+      @ftor_pool = [] of Array(Int32)
+
       # Defaults to `nil` (not an empty array): `process_content` always replaces
       # this with `_parse_attr`'s result on a reparse before the lines are used,
       # so pre-allocating an array here is pure per-reparse waste. All readers go
@@ -183,8 +189,20 @@ module Crysterm
       def reset : Nil
         @lines.clear
         @rtof.clear
+        # Recycle the per-line `ftor` sub-arrays into the pool (cleared) instead
+        # of dropping them, so the next wrap reuses them via `#take_ftor_row`.
+        @ftor.each do |row|
+          row.clear
+          @ftor_pool << row
+        end
         @ftor.clear
         @ci.clear
+      end
+
+      # A cleared per-line `ftor` sub-array: a recycled one from the pool (see
+      # `#reset`) when available, otherwise a fresh allocation.
+      def take_ftor_row : Array(Int32)
+        @ftor_pool.pop? || [] of Int32
       end
 
       # Match the old `Array#dup` behavior: a fresh, independent `Array(String)`
@@ -489,7 +507,18 @@ module Crysterm
         return outbuf
       end
 
-      lines = content.split "\n"
+      # Reuse the `fake` array for the common single-line content (a label, list
+      # item, panel title, …): refill it in place instead of letting
+      # `String#split` allocate a fresh `Array(String)` every reparse. Multi-line
+      # content still splits — its sub-strings have to be allocated anyway — and
+      # the final `outbuf.fake = lines` below records whichever array we used.
+      if content.includes?('\n')
+        lines = content.split('\n')
+      else
+        lines = outbuf.fake
+        lines.clear
+        lines << content
+      end
 
       margin += 1 if @scrollbar
       margin += 1 if is_a? Widget::TextArea
@@ -499,7 +528,7 @@ module Crysterm
         align = default_state
         align_left_too = false
 
-        ftor.push [] of Int32
+        ftor.push outbuf.take_ftor_row
 
         # Handle alignment tags.
         if @parse_tags
@@ -606,6 +635,15 @@ module Crysterm
     # Aligns content
     def _align(line, width, align = Tput::AlignFlag::None, align_left_too = false)
       return line if align.none?
+
+      # Plain left alignment pads nothing — only HCenter/Right (or a forced
+      # `{left}` via `align_left_too`) add spaces — so it returns `line` unchanged
+      # anyway. Bail before measuring width: a widget's default `@align` carries
+      # `Left` (plus a vertical flag), so this is the overwhelmingly common case
+      # and skips a `str_width` (and the ESC scan) on every aligned line.
+      if !align_left_too && (align & (Tput::AlignFlag::HCenter | Tput::AlignFlag::Right)).none?
+        return line
+      end
 
       # Only run the SGR-stripping `gsub` (which allocates a fresh `String`) when
       # the line actually contains an escape; the vast majority of aligned lines
