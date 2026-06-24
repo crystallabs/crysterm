@@ -3,6 +3,10 @@ require "./box"
 module Crysterm
   class Widget
     # Question element
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Question screenshot](../../examples/widget/question/question-capture.png)
+    # <!-- /widget-examples:capture -->
     class Question < Box
       property text : String = ""
 

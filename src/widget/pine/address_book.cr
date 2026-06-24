@@ -11,6 +11,10 @@ module Crysterm
       #
       # Navigate with the arrow keys; Enter selects the contact (runs its
       # `callback` — e.g. to start composing a message to them).
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![AddressBook screenshot](../../../examples/widget/pine/address_book/address_book-capture.png)
+      # <!-- /widget-examples:capture -->
       class AddressBook < Widget::List
         # A single address-book entry.
         class Contact

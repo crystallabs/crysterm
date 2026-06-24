@@ -1,5 +1,8 @@
 module Crysterm
   class Widget
+    # <!-- widget-examples:capture v1 -->
+    # ![Message screenshot](../../examples/widget/message/message-capture.png)
+    # <!-- /widget-examples:capture -->
     class Message < Box
       # These were previously set in the `class Widget` body (outside `Message`),
       # which polluted every widget's defaults and left `Message` itself

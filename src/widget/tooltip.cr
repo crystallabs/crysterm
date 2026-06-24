@@ -12,6 +12,10 @@ module Crysterm
     # ```
     # button.tool_tip = "Save the document"
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ToolTip screenshot](../../examples/widget/tooltip/tooltip-capture.png)
+    # <!-- /widget-examples:capture -->
     class ToolTip < Box
       def initialize(**box)
         super **box

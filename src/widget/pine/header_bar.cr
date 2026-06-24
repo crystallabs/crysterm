@@ -15,6 +15,10 @@ module Crysterm
       #
       # Each zone is a `Widget::Box`; update them at runtime via
       # `header.section.content = "..."`, etc.
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![HeaderBar screenshot](../../../examples/widget/pine/header_bar/header_bar-capture.png)
+      # <!-- /widget-examples:capture -->
       class HeaderBar < Widget::Box
         getter title : Widget::Box
         getter section : Widget::Box

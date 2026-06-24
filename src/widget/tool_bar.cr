@@ -20,6 +20,10 @@ module Crysterm
     # bold = Action.new "Bold"; bold.checkable = true
     # tb.add_action bold
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ToolBar screenshot](../../examples/widget/tool_bar/tool_bar-capture.png)
+    # <!-- /widget-examples:capture -->
     class ToolBar < ListBar
       # The action backing each button box (absent for plain buttons/separators).
       @item_actions = {} of Widget::Box => Action

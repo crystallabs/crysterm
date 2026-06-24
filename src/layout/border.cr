@@ -22,6 +22,10 @@ module Crysterm
     # An edge child must carry a size in the direction it consumes (a `Top`
     # child needs a `height`, a `Left` child needs a `width`); the span
     # direction is set by the layout. A child with no hint defaults to `Center`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Border screenshot](../../examples/layout/border/border-capture.png)
+    # <!-- /widget-examples:capture -->
     class Border < Layout
       enum Region
         Top

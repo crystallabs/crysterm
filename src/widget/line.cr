@@ -1,6 +1,10 @@
 module Crysterm
   class Widget
     # Simple Line widget. Draws a horizontal or vertical
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Line screenshot](../../examples/widget/line/line-capture.png)
+    # <!-- /widget-examples:capture -->
     class Line < Box
       @resizable = true
 

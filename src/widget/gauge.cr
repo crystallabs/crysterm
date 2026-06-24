@@ -25,6 +25,10 @@ module Crysterm
     #   Widget::Gauge::Segment.new(25, "red", "crit"),
     # ]
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Gauge screenshot](../../examples/widget/gauge/gauge-capture.png)
+    # <!-- /widget-examples:capture -->
     class Gauge < Box
       # One colored slice of a stacked gauge.
       struct Segment

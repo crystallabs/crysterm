@@ -9,6 +9,10 @@ module Crysterm
     # toggle button — each activation flips `#checked?` and emits `Event::Check`
     # or `Event::UnCheck` (in addition to `Event::Press`), like a checkable
     # `QPushButton` or a `QToolButton`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Button screenshot](../../examples/widget/button/button-capture.png)
+    # <!-- /widget-examples:capture -->
     class Button < Input
       include EventHandler
 

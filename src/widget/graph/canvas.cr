@@ -37,6 +37,10 @@ module Crysterm
       # end
       # cv.refresh
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![Canvas screenshot](../../../examples/widget/graph/canvas/canvas-capture.png)
+      # <!-- /widget-examples:capture -->
       class Canvas < Box
         # The concrete Media backend that presents the painted bitmap. Built in
         # `#initialize` (after `super`, once the screen is reachable for backend

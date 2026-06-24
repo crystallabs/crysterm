@@ -7,6 +7,10 @@ module Crysterm
     # space by their `grow` factor, and (with the default `align: Stretch`)
     # those without an explicit `height` fill the interior height. See
     # `Layout::Box`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![HBox screenshot](../../examples/layout/hbox/hbox-capture.png)
+    # <!-- /widget-examples:capture -->
     class HBox < Box
       def initialize(gap : Int32 = 0, justify : Justify = Justify::Start, align : Align = Align::Stretch)
         super Orientation::Horizontal, gap, justify, align

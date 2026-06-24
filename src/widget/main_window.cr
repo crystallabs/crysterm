@@ -18,6 +18,10 @@ module Crysterm
     # win.central_widget = Widget::TextArea.new
     # win.add_dock Widget::DockWidget.new(title: "Files", area: :left)
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![MainWindow screenshot](../../examples/widget/main_window/main_window-capture.png)
+    # <!-- /widget-examples:capture -->
     class MainWindow < Box
       getter menu_bar : Widget?
       getter tool_bar : Widget?

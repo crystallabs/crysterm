@@ -12,6 +12,10 @@ module Crysterm
     # stack.add_page Widget::Box.new(content: "page 2")
     # stack.current = 1
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![StackedWidget screenshot](../../examples/widget/stacked_widget/stacked_widget-capture.png)
+    # <!-- /widget-examples:capture -->
     class StackedWidget < Box
       # The pages, in insertion order.
       getter pages = [] of Widget

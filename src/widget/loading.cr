@@ -3,6 +3,10 @@ require "./effect/animated"
 module Crysterm
   class Widget
     # Box element
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Loading screenshot](../../examples/widget/loading/loading-capture.png)
+    # <!-- /widget-examples:capture -->
     class Loading < Box
       # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).
       # `#step` advances the spinner one frame; `#start`/`#stop` are overridden

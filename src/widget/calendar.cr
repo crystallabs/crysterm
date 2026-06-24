@@ -46,6 +46,10 @@ module Crysterm
     #   style: Style.new(border: true)
     # cal.on(Event::DateChange) { |e| status.content = e.date.to_s("%Y-%m-%d") }
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Calendar screenshot](../../examples/widget/calendar/calendar-capture.png)
+    # <!-- /widget-examples:capture -->
     class Calendar < Box
       # Day-of-week selection behavior (Qt's `QCalendarWidget::SelectionMode`).
       enum SelectionMode

@@ -12,6 +12,10 @@ module Crysterm
       #
       # Navigate with the arrow keys; Enter opens the folder (runs its
       # `callback`).
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![FolderList screenshot](../../../examples/widget/pine/folder_list/folder_list-capture.png)
+      # <!-- /widget-examples:capture -->
       class FolderList < Widget::List
         # A single mail folder.
         class Folder

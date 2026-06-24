@@ -29,6 +29,10 @@ module Crysterm
     # child process ends. Not yet implemented: double-width/height *lines* and
     # bracketed-paste wrapping (the mode is tracked but Crysterm has no paste
     # event to wrap yet).
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Terminal screenshot](../../examples/widget/terminal/terminal-capture.png)
+    # <!-- /widget-examples:capture -->
     class Terminal < Widget
       # A terminal manages its own scrollback; it is not a scrollable Box.
       @scrollable = false

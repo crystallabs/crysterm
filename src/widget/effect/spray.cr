@@ -26,6 +26,10 @@ module Crysterm
       # spray = Widget::Effect::Spray.new parent: screen, width: "100%", height: "100%",
       #   pattern: "CRYSTERM ", fill: :radial
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![Spray screenshot](../../../examples/widget/effect/spray/spray-capture.png)
+      # <!-- /widget-examples:capture -->
       class Spray < Box
         include Animated
 

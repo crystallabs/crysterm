@@ -19,6 +19,10 @@ module Crysterm
     #
     # The original two-pane API (`#split`, `#pane1`/`#pane2`, `#divider`,
     # `#position`) is retained as a convenience over the general one.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Splitter screenshot](../../examples/widget/splitter/splitter-capture.png)
+    # <!-- /widget-examples:capture -->
     class Splitter < Box
       property orientation : Tput::Orientation = :horizontal
 

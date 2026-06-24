@@ -18,6 +18,10 @@ module Crysterm
     # wiz.add_page Widget::Form.new, title: "Details"
     # wiz.on(Event::Complete) { finish! }
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Wizard screenshot](../../examples/widget/wizard/wizard-capture.png)
+    # <!-- /widget-examples:capture -->
     class Wizard < Box
       # The page stack. (Built in `initialize` after `super`, hence `getter!`.)
       getter! stack : StackedWidget

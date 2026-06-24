@@ -32,6 +32,10 @@ module Crysterm
       # chart.axis_y.maximum = 1.0
       # chart.refresh
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![LineChart screenshot](../../../examples/widget/graph/line_chart/line_chart-capture.png)
+      # <!-- /widget-examples:capture -->
       class LineChart < Box
         # A `QValueAxis`-like value axis. `#minimum`/`#maximum` of `nil` auto-range
         # from the plotted data.

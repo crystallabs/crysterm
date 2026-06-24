@@ -27,6 +27,10 @@ module Crysterm
     # clock = Crysterm::Timer.new 0.1.seconds
     # Widget::Gradient.new parent: s, width: 76, height: 2, animate: clock, speed: 0.03
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Gradient screenshot](../../examples/widget/gradient/gradient-capture.png)
+    # <!-- /widget-examples:capture -->
     class Gradient < Box
       enum Direction
         Horizontal # color varies across columns (left → right)

@@ -17,6 +17,10 @@ module Crysterm
     # splash.show_message "Loading…"
     # splash.finish_after 2.seconds
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![SplashScreen screenshot](../../examples/widget/splash_screen/splash_screen-capture.png)
+    # <!-- /widget-examples:capture -->
     class SplashScreen < Box
       # A splash is a fixed-size overlay: honor the given `width`/`height` rather
       # than shrinking to content (which would also break the centering math).

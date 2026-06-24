@@ -18,6 +18,10 @@ module Crysterm
       # Move between fields with Tab / Shift-Tab (the `Screen`'s built-in focus
       # navigation). Each header field is a `Widget::TextBox`; the body is a
       # `Widget::TextArea`. Values are exposed via `#values` for the demo.
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![Compose screenshot](../../../examples/widget/pine/compose/compose-capture.png)
+      # <!-- /widget-examples:capture -->
       class Compose < Widget::Box
         # Header field names shown to the left of each input.
         FIELD_NAMES = ["To", "Cc", "Bcc", "Attchmnt", "Subject"]

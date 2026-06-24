@@ -2,6 +2,9 @@ require "./scrollable_text"
 
 module Crysterm
   class Widget
+    # <!-- widget-examples:capture v1 -->
+    # ![Log screenshot](../../examples/widget/log/log-capture.png)
+    # <!-- /widget-examples:capture -->
     class Log < ScrollableText
       # Severity of a log line, à la a typical logger / Qt logging categories.
       # Ordered from least to most severe so `#min_level` can filter.

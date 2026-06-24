@@ -12,6 +12,10 @@ module Crysterm
       #
       # The selected row is drawn reverse. Navigate with the arrow keys; Enter
       # activates the message (runs its `callback` and emits `Event::ActionItem`).
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![MessageIndex screenshot](../../../examples/widget/pine/message_index/message_index-capture.png)
+      # <!-- /widget-examples:capture -->
       class MessageIndex < Widget::List
         # A single message row.
         class Message

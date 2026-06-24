@@ -13,6 +13,10 @@ module Crysterm
     # bar.add "open", -> { open_file }
     # bar.add "quit", -> { exit }, keys: ["q"]
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ListBar screenshot](../../examples/widget/listbar/listbar-capture.png)
+    # <!-- /widget-examples:capture -->
     class ListBar < Box
       # A single command/tab shown in a `ListBar`.
       class Command

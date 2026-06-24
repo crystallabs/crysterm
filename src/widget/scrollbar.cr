@@ -23,6 +23,10 @@ module Crysterm
     # sb = Widget::ScrollBar.new parent: screen, top: 0, left: 40, width: 1, height: 10
     # sb.attach box
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ScrollBar screenshot](../../examples/widget/scrollbar/scrollbar-capture.png)
+    # <!-- /widget-examples:capture -->
     class ScrollBar < Input
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`,
       # `#increment`/`#decrement`, `Event::ValueChange`).

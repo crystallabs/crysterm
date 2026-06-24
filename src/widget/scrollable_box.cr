@@ -7,6 +7,10 @@ module Crysterm
     # `Ctrl-B`/`Ctrl-F`/`PageUp`/`PageDown` by a full page, and `g`/`Home`,
     # `G`/`End` jump to the top/bottom. The scroll machinery itself lives in the
     # base `Widget` (`widget_scrolling.cr`); this only wires the keys.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ScrollableBox screenshot](../../examples/widget/scrollable_box/scrollable_box-capture.png)
+    # <!-- /widget-examples:capture -->
     class ScrollableBox < Box
       @scrollable = true
 

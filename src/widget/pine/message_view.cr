@@ -14,6 +14,10 @@ module Crysterm
       #   date: "Sat, 20 Jun 2026 10:30:00 +0000",
       #   body: "Hi there,\n\nThanks for the update..."
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![MessageView screenshot](../../../examples/widget/pine/message_view/message_view-capture.png)
+      # <!-- /widget-examples:capture -->
       class MessageView < Widget::ScrollableText
         def initialize(
           *,

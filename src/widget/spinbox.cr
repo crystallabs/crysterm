@@ -14,6 +14,10 @@ module Crysterm
     # by default): typing a digit (or a leading `-`) starts an edit buffer,
     # Backspace edits it, Enter commits the parsed value (clamped into range),
     # and Escape — or losing focus — discards the edit and restores the value.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![SpinBox screenshot](../../examples/widget/spinbox/spinbox-capture.png)
+    # <!-- /widget-examples:capture -->
     class SpinBox < Input
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
       # `#increment`/`#decrement`, `Event::ValueChange`).

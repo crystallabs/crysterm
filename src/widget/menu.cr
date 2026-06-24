@@ -19,6 +19,10 @@ module Crysterm
     # menu << quit
     # menu.focus
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Menu screenshot](../../examples/widget/menu/menu-capture.png)
+    # <!-- /widget-examples:capture -->
     class Menu < List
       # Optional title, shown as the widget's label.
       property title : String = ""

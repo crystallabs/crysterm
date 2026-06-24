@@ -26,6 +26,10 @@ module Crysterm
       # rain = Widget::Effect::Matrix.new parent: screen, width: "100%", height: "100%"
       # rain.start
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![Matrix screenshot](../../../examples/widget/effect/matrix/matrix-capture.png)
+      # <!-- /widget-examples:capture -->
       class Matrix < Box
         include Effect::Direct
 

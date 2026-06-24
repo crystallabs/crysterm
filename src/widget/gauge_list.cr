@@ -16,6 +16,10 @@ module Crysterm
     # gl.add_gauge "net", 22
     # gl["mem"] = 91 # update by label
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![GaugeList screenshot](../../examples/widget/gauge_list/gauge_list-capture.png)
+    # <!-- /widget-examples:capture -->
     class GaugeList < Box
       # One gauge row.
       class Item

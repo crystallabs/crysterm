@@ -18,6 +18,10 @@ module Crysterm
     #
     # The shared section machinery (selection, navigation, wheel/press handling)
     # lives in `Mixin::SectionedField`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![DateEdit screenshot](../../examples/widget/date_edit/date_edit-capture.png)
+    # <!-- /widget-examples:capture -->
     class DateEdit < Input
       include Mixin::SectionedField
       # Calendar-popup lifecycle (open flag, modal grab, outside-click dismissal,

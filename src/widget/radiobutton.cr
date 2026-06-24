@@ -3,6 +3,10 @@ require "./radioset"
 module Crysterm
   class Widget
     # Radio button element
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![RadioButton screenshot](../../examples/widget/radiobutton/radiobutton-capture.png)
+    # <!-- /widget-examples:capture -->
     class RadioButton < Checkbox
       include EventHandler
 

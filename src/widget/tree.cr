@@ -24,6 +24,10 @@ module Crysterm
     # tree.add "README.md"
     # tree.expand_all
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Tree screenshot](../../examples/widget/tree/tree-capture.png)
+    # <!-- /widget-examples:capture -->
     class Tree < List
       # A single node in a `Tree`. Holds its `#text`, optional user `#data`, and
       # its `#children`; whether it is currently `#expanded?`; and back-references

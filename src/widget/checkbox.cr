@@ -8,6 +8,10 @@ module Crysterm
     # mode (`#tristate?`), in which an extra *partially checked* (indeterminate)
     # state sits between the two — the equivalent of `Qt::PartiallyChecked`,
     # typically used for a "select all" box whose children are mixed.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![CheckBox screenshot](../../examples/widget/checkbox/checkbox-capture.png)
+    # <!-- /widget-examples:capture -->
     class CheckBox < Input
       include EventHandler
 
@@ -149,6 +153,9 @@ module Crysterm
       end
     end
 
+    # <!-- widget-examples:capture v1 -->
+    # ![CheckBox screenshot](../../examples/widget/checkbox/checkbox-capture.png)
+    # <!-- /widget-examples:capture -->
     alias Checkbox = CheckBox
   end
 end

@@ -30,6 +30,10 @@ module Crysterm
       # m.add_marker latitude: 35.68, longitude: 139.69, label: "Tokyo", color: 0x40E0D0
       # m.refresh
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![Map screenshot](../../../examples/widget/graph/map/map-capture.png)
+      # <!-- /widget-examples:capture -->
       class Map < Box
         # A coordinate-placed marker (Qt's `MapQuickItem`).
         struct Marker

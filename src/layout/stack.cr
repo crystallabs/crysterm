@@ -11,6 +11,10 @@ module Crysterm
     # fills the interior (Crysterm's default sizing), one with an explicit size
     # is shown at that size in the top-left. Set a different page with
     # `#current = i`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Stack screenshot](../../examples/layout/stack/stack-capture.png)
+    # <!-- /widget-examples:capture -->
     class Stack < Layout
       # Index of the child to show. Clamped to the available children at render.
       property current : Int32

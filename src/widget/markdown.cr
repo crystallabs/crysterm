@@ -26,6 +26,10 @@ module Crysterm
     # md.markdown = "# Title\n\nSome **bold** and `code`.\n\n- one\n- two\n"
     # md.on(Event::AnchorClick) { |e| open_browser e.url }
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Markdown screenshot](../../examples/widget/markdown/markdown-capture.png)
+    # <!-- /widget-examples:capture -->
     class Markdown < ScrollableText
       # A link found in the document (Qt's anchor). `text` is the visible label,
       # `url` the destination.

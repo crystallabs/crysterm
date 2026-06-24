@@ -10,6 +10,10 @@ module Crysterm
     # itself when `#show_value?`). Arrow keys / the mouse wheel rotate it by
     # `#step`, Page Up/Down by `#page_step`, and `#wrap?` rolls over at the ends.
     # Emits `Event::ValueChange` on every change.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Dial screenshot](../../examples/widget/dial/dial-capture.png)
+    # <!-- /widget-examples:capture -->
     class Dial < Input
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
       # `#increment`/`#decrement`, `Event::ValueChange`).

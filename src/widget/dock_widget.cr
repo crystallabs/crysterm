@@ -16,6 +16,10 @@ module Crysterm
     # dock.widget = Widget::Tree.new
     # main_window.add_dock dock
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![DockWidget screenshot](../../examples/widget/dock_widget/dock_widget-capture.png)
+    # <!-- /widget-examples:capture -->
     class DockWidget < Box
       # Where the dock sits in a `MainWindow` (or `Floating`, positioned freely).
       enum Area

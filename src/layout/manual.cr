@@ -14,6 +14,10 @@ module Crysterm
     # layout (`#layout` is nil) falls back to the shared, stateless `DEFAULT`
     # instance here, so the render path stays uniform without pretending an
     # engine is installed.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Manual screenshot](../../examples/layout/manual/manual-capture.png)
+    # <!-- /widget-examples:capture -->
     class Manual < Layout
       DEFAULT = new
 

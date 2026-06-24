@@ -1,5 +1,8 @@
 module Crysterm
   class Widget
+    # <!-- widget-examples:capture v1 -->
+    # ![List screenshot](../../examples/widget/list/list-capture.png)
+    # <!-- /widget-examples:capture -->
     class List < Widget
       property ignore_keys = true
       property scrollable = true

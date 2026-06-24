@@ -15,6 +15,10 @@ module Crysterm
     # bar.add_permanent "Ln 1, Col 1"
     # bar.show_message "Saved", 2.seconds
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![StatusBar screenshot](../../examples/widget/status_bar/status_bar-capture.png)
+    # <!-- /widget-examples:capture -->
     class StatusBar < Box
       # The current temporary (left-aligned) message.
       getter message : String = ""

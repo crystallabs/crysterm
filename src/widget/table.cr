@@ -20,6 +20,10 @@ module Crysterm
     #   style: Crysterm::Style.new(border: true)
     # )
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Table screenshot](../../examples/widget/table/table-capture.png)
+    # <!-- /widget-examples:capture -->
     class Table < Box
       include TableLayout
 

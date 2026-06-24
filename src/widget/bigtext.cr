@@ -7,6 +7,10 @@ module Crysterm
     # a grid of cells. Glyph data comes from `Crysterm::Font` (the bundled Terminus
     # faces by default); pass `font:` / `font_bold:` to use other ttystudio JSON
     # fonts (https://github.com/chjj/ttystudio).
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![BigText screenshot](../../examples/widget/bigtext/bigtext-capture.png)
+    # <!-- /widget-examples:capture -->
     class BigText < Widget::Box
       # Optional font-file overrides; `nil` uses the bundled Terminus normal/bold.
       property font : String?
@@ -128,6 +132,9 @@ module Crysterm
       end
     end
 
+    # <!-- widget-examples:capture v1 -->
+    # ![BigText screenshot](../../examples/widget/bigtext/bigtext-capture.png)
+    # <!-- /widget-examples:capture -->
     alias Bigtext = BigText
   end
 end

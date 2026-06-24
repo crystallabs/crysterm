@@ -22,6 +22,10 @@ module Crysterm
     # file.add("Open") { open_doc }
     # bar.add_menu "Edit", [cut_action, copy_action]
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![MenuBar screenshot](../../examples/widget/menu_bar/menu_bar-capture.png)
+    # <!-- /widget-examples:capture -->
     class MenuBar < ListBar
       # The pop-up menus, parallel to the bar's commands/items.
       getter menus = [] of Menu

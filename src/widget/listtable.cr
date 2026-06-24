@@ -21,6 +21,10 @@ module Crysterm
     #   ]
     # )
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ListTable screenshot](../../examples/widget/listtable/listtable-capture.png)
+    # <!-- /widget-examples:capture -->
     class ListTable < List
       include TableLayout
 

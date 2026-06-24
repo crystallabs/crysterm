@@ -12,6 +12,10 @@ module Crysterm
     #
     # It is a separate widget (not built on `Mixin::RangedValue`, which is
     # integer-only) so the integer controls keep their simpler `Int32` path.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![DoubleSpinBox screenshot](../../examples/widget/double_spinbox/double_spinbox-capture.png)
+    # <!-- /widget-examples:capture -->
     class DoubleSpinBox < Input
       # Honor the given `width` rather than shrinking to the content.
       @resizable = false

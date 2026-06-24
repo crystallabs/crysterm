@@ -7,6 +7,10 @@ module Crysterm
     # percentage) is derived from where `value` sits in that range, so callers may
     # drive the bar either in domain units (`bar.value = 42`, range 0..200) or in
     # plain percentages (`bar.filled = 50`) — both stay consistent.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ProgressBar screenshot](../../examples/widget/progressbar/progressbar-capture.png)
+    # <!-- /widget-examples:capture -->
     class ProgressBar < Input
       # Lower/upper bounds of the value range (inclusive), like Qt's
       # `minimum`/`maximum`. With the defaults (0..100) a value equals its

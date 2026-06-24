@@ -17,6 +17,10 @@ module Crysterm
     #   layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, col_span: 2)
     # Widget::Box.new parent: g # auto-flows into the next free cell
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Grid screenshot](../../examples/layout/grid/grid-capture.png)
+    # <!-- /widget-examples:capture -->
     class Grid < Layout
       class Hint < Layout::Hint
         getter row : Int32

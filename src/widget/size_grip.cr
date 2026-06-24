@@ -14,6 +14,10 @@ module Crysterm
     # win = Widget::Box.new parent: screen, top: 2, left: 2, width: 30, height: 10, style: Style.new(border: true)
     # Widget::SizeGrip.new parent: win, bottom: 0, right: 0, width: 1, height: 1
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![SizeGrip screenshot](../../examples/widget/size_grip/size_grip-capture.png)
+    # <!-- /widget-examples:capture -->
     class SizeGrip < Box
       # Widget resized by dragging. Defaults to the grip's parent.
       property target : Widget?

@@ -9,6 +9,10 @@ module Crysterm
     #
     # Row height is each child's explicit height, or 1 (forms are line-oriented),
     # so labels and single-line inputs line up.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Form screenshot](../../examples/layout/form/form-capture.png)
+    # <!-- /widget-examples:capture -->
     class Form < Layout
       # Width of the (left) label column.
       property label_width : Int32

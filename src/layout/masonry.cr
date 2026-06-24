@@ -7,6 +7,10 @@ module Crysterm
     # then gravitate upward to sit directly beneath the nearest child on the row
     # above — producing a packed, masonry-like arrangement of variably-sized
     # boxes.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Masonry screenshot](../../examples/layout/masonry/masonry-capture.png)
+    # <!-- /widget-examples:capture -->
     class Masonry < Flow
       protected def place_one(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?
         flow_place container, el, i, interior, 0

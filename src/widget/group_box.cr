@@ -13,6 +13,10 @@ module Crysterm
     # gb = Widget::GroupBox.new parent: screen, title: "Options", width: 30, height: 8
     # Widget::CheckBox.new parent: gb, top: 0, content: "Wrap"
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![GroupBox screenshot](../../examples/widget/group_box/group_box-capture.png)
+    # <!-- /widget-examples:capture -->
     class GroupBox < Box
       property title : String = ""
 

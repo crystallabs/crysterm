@@ -18,6 +18,10 @@ module Crysterm
       # d = Widget::Graph::Donut.new parent: s, width: 18, height: 9,
       #   value: 72, fill_color: 0x40E0D0, label: "CPU"
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![Donut screenshot](../../../examples/widget/graph/donut/donut-capture.png)
+      # <!-- /widget-examples:capture -->
       class Donut < Box
         property minimum : Float64
         property maximum : Float64

@@ -23,6 +23,10 @@ module Crysterm
       #   Widget::Pine::KeyMenu::Entry.new("C", "Compose"),
       # ]
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![KeyMenu screenshot](../../../examples/widget/pine/key_menu/key_menu-capture.png)
+      # <!-- /widget-examples:capture -->
       class KeyMenu < Widget::Box
         # A single command hint in the menu.
         class Entry

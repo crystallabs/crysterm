@@ -26,6 +26,10 @@ module Crysterm
       #   labels: %w[web db cache]
       # sb.values = [[60, 30, 10], [20, 50, 30], [80, 15, 5]]
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![StackedBar screenshot](../../../examples/widget/graph/stacked_bar/stacked_bar-capture.png)
+      # <!-- /widget-examples:capture -->
       class StackedBar < Box
         # Default segment palette, cycled by stack level.
         DEFAULT_COLORS = %w[green magenta cyan red blue yellow]

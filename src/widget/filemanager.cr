@@ -15,6 +15,10 @@ module Crysterm
     # fm.on(Crysterm::Event::OpenFile) { |e| puts e.path }
     # fm.focus
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![FileManager screenshot](../../examples/widget/filemanager/filemanager-capture.png)
+    # <!-- /widget-examples:capture -->
     class FileManager < List
       # Current working directory.
       getter cwd : String

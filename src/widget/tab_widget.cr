@@ -20,6 +20,10 @@ module Crysterm
     # tabs.add_tab "Edit", Widget::Box.new(content: "...")
     # tabs.bar.focus # so the arrow keys switch tabs
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![TabWidget screenshot](../../examples/widget/tab_widget/tab_widget-capture.png)
+    # <!-- /widget-examples:capture -->
     class TabWidget < Box
       # Where the tab bar sits relative to the pages (Qt's `QTabWidget::North` /
       # `South`).

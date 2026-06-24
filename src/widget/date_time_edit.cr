@@ -15,6 +15,10 @@ module Crysterm
     # Like Qt's default `QDateTimeEdit` (`calendarPopup == false`), it is edited
     # in place with no drop-down. The shared section machinery lives in
     # `Mixin::SectionedField`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![DateTimeEdit screenshot](../../examples/widget/date_time_edit/date_time_edit-capture.png)
+    # <!-- /widget-examples:capture -->
     class DateTimeEdit < Input
       include Mixin::SectionedField
 

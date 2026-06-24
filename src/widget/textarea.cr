@@ -1,6 +1,10 @@
 module Crysterm
   class Widget
     # Text area element
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![TextArea screenshot](../../examples/widget/textarea/textarea-capture.png)
+    # <!-- /widget-examples:capture -->
     class TextArea < Input
       @_reading = false
 

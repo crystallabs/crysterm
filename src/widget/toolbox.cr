@@ -16,6 +16,10 @@ module Crysterm
     # tb.add_item "General", Widget::Box.new(content: "...")
     # tb.add_item "Advanced", Widget::Form.new
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ToolBox screenshot](../../examples/widget/toolbox/toolbox-capture.png)
+    # <!-- /widget-examples:capture -->
     class ToolBox < Box
       # One section of a `ToolBox`.
       class Item

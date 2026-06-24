@@ -17,6 +17,10 @@ module Crysterm
     #
     # The value is held as a `Time` so it composes with `DateEdit`/`Calendar`;
     # only its hour/minute/second are shown and edited.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![TimeEdit screenshot](../../examples/widget/time_edit/time_edit-capture.png)
+    # <!-- /widget-examples:capture -->
     class TimeEdit < Input
       include Mixin::SectionedField
 

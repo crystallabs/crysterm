@@ -27,6 +27,10 @@ module Crysterm
     # `#auto_raise?` mirrors Qt's flat-until-hovered appearance; it is stored and
     # exposed (e.g. for CSS/styling) — the default drawing is inherited from
     # `Button`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ToolButton screenshot](../../examples/widget/tool_button/tool_button-capture.png)
+    # <!-- /widget-examples:capture -->
     class ToolButton < Button
       # How a `#menu` is summoned (see the class docs).
       enum PopupMode

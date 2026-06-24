@@ -15,6 +15,10 @@ module Crysterm
       # The currently-selected row is drawn reverse. Navigate with the arrow keys
       # and activate with Enter; activation runs the option's `callback` (and also
       # emits `Event::ActionItem`, so callers can hook in instead).
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![MainMenu screenshot](../../../examples/widget/pine/main_menu/main_menu-capture.png)
+      # <!-- /widget-examples:capture -->
       class MainMenu < Widget::List
         # A single selectable menu command.
         class Option

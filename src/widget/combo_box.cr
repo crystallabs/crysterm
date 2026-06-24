@@ -19,6 +19,10 @@ module Crysterm
     #
     # The collection is called `#options` (not `items`, which `Widget` already
     # uses for child widgets).
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ComboBox screenshot](../../examples/widget/combo_box/combo_box-capture.png)
+    # <!-- /widget-examples:capture -->
     class ComboBox < Input
       # Pop-up lifecycle (open flag, modal grab, outside-click dismissal, grab
       # region, teardown). Provides `#open?`/`#show_popup`/`#teardown_popup`/

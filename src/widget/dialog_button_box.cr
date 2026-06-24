@@ -24,6 +24,10 @@ module Crysterm
     # the box; rejecting ones (Cancel/No/Close/Discard) emit `Event::Rejected`.
     # Every button additionally emits its own `Event::Press`, and `#button`
     # gives access to a specific one for custom handling.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![DialogButtonBox screenshot](../../examples/widget/dialog_button_box/dialog_button_box-capture.png)
+    # <!-- /widget-examples:capture -->
     class DialogButtonBox < Box
       # The set of standard buttons (a flags enum, combine with `|`). The label
       # and `Role` of each are fixed by `descriptor_for`.

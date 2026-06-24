@@ -3,6 +3,10 @@ require "./box"
 module Crysterm
   class Widget
     # Abstract input element
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Input screenshot](../../examples/widget/input/input-capture.png)
+    # <!-- /widget-examples:capture -->
     class Input < Box
       @input = true
       @resizable = true

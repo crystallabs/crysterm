@@ -9,6 +9,10 @@ module Crysterm
     # dragging/clicking a handle along a track, or with the keyboard (arrows step
     # by `#step`, Page Up/Down by `#page_step`, Home/End jump to the bounds). It
     # emits `Event::ValueChange` whenever the value changes.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Slider screenshot](../../examples/widget/slider/slider-capture.png)
+    # <!-- /widget-examples:capture -->
     class Slider < Input
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
       # `#increment`/`#decrement`, `Event::ValueChange`).

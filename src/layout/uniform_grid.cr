@@ -7,6 +7,10 @@ module Crysterm
     # child is snapped to a column of the widest child's width, so the result is
     # a regular tiled grid rather than a packed masonry. For an explicit
     # row/column grid with spans, see `Layout::Grid`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![UniformGrid screenshot](../../examples/layout/uniform_grid/uniform_grid-capture.png)
+    # <!-- /widget-examples:capture -->
     class UniformGrid < Flow
       @high_width = 0
 

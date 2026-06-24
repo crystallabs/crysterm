@@ -28,6 +28,10 @@ module Crysterm
       #   labels: %w[cpu mem net io], colors: %w[green cyan yellow red]
       # bar.values = [42, 88, 13, 64]
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![Bar screenshot](../../../examples/widget/graph/bar/bar-capture.png)
+      # <!-- /widget-examples:capture -->
       class Bar < Box
         # The data series. Each element is one bar.
         property values : Array(Float64)

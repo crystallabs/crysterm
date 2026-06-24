@@ -37,6 +37,10 @@ module Crysterm
     # The figures describe the *previous* frame (the overlay paints as a child,
     # before the frame it appears in has finished) — exactly what a frame-rate
     # counter wants.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Fps screenshot](../../examples/widget/fps/fps-capture.png)
+    # <!-- /widget-examples:capture -->
     class Fps < Box
       # Auto-size to its single line of text, like `Label`.
       @resizable = true

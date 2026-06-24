@@ -7,6 +7,10 @@ module Crysterm
     # like `Masonry` but *without* the upward gravitation, so every child on a
     # row shares that row's top edge. Good for tag clouds, button bars and
     # toolbars that should reflow.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Wrap screenshot](../../examples/layout/wrap/wrap-capture.png)
+    # <!-- /widget-examples:capture -->
     class Wrap < Flow
       protected def place_one(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?
         flow_place container, el, i, interior, 0

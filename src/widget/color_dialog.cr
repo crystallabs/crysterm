@@ -41,6 +41,10 @@ module Crysterm
     #   width: 56, height: 20, style: Style.new(border: true)
     # dialog.pick { |hex| theme.accent = hex if hex }
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![ColorDialog screenshot](../../examples/widget/color_dialog/color_dialog-capture.png)
+    # <!-- /widget-examples:capture -->
     class ColorDialog < Box
       # Inner-area layout (cells, relative to the content origin).
       FIELD_X =  0

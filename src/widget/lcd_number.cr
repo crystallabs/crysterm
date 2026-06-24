@@ -14,6 +14,10 @@ module Crysterm
     # lcd = Widget::LCDNumber.new parent: screen, width: 24, height: 3, digit_count: 5, style: Style.new(fg: "red")
     # lcd.display 1234
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![LCDNumber screenshot](../../examples/widget/lcd_number/lcd_number-capture.png)
+    # <!-- /widget-examples:capture -->
     class LCDNumber < Box
       enum Mode
         Dec
