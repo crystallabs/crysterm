@@ -399,7 +399,7 @@ module Crysterm
 
       def scroll(offset : Int32) : Nil
         @emulator.try &.scroll(offset)
-        emit ::Crysterm::Event::Scroll
+        emit ::Crysterm::Event::Scroll, offset
       end
 
       def reset_scroll : Nil

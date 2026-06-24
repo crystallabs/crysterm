@@ -9,12 +9,16 @@ module Crysterm
       @_reading = false
 
       @scrollable = true
-      # NOTE: intentionally NOT defaulting `scrollbar_policy` to `AsNeeded` yet.
-      # Here `@child_offset` is the *cursor* row offset, so a dragged bar driving
-      # `scroll_to` would fight the cursor model. Unifying that (folding
-      # `ensure_cursor_visible` onto the shared scroll machinery) is its own pass
-      # (see SCROLLBAR-EXTRACTION-PLAN.md, workstream C / decision #4). Callers
-      # can still opt in explicitly with `scrollbar: true`.
+      # Single scroll source of truth: `@child_base` (the top visible wrapped
+      # row). The interesting position here is the *text caret* (`@cursor_pos`),
+      # tracked separately, so — unlike `List`, where `@child_offset` is the
+      # selected row — this widget keeps `@child_offset` at 0 (`#scroll` is a pure
+      # viewport scroll, `#ensure_cursor_visible` only moves `@child_base`). That
+      # makes `get_scroll == child_base`, so the attached `ScrollBar` reflects and
+      # drives the viewport top, matching Qt's text-edit behavior (dragging the
+      # bar moves the view, not the caret). With one coherent model it can safely
+      # default to `AsNeeded`.
+      @scrollbar_policy = ScrollBarPolicy::AsNeeded
       @input_on_focus = false
 
       property __update_cursor : Proc(Nil)?
@@ -263,39 +267,45 @@ module Crysterm
         Math.max(1, (aheight - iheight) - 1)
       end
 
-      # Reconcile the scroll bookkeeping with the cursor's real (wrapped) row so
-      # the cursor stays on screen and `child_base`/`child_offset` — which drive
-      # the content offset and the scrollbar — agree with `@cursor_pos`. Scrolls
-      # the viewport when the cursor crosses the top/bottom edge. Returns whether
-      # the scroll position changed (so the caller can re-render); does not
-      # render itself, since the edit path calls this from within a render.
+      # Scroll the *viewport* (only `@child_base`) so the caret's real (wrapped)
+      # row stays on screen, crossing the top/bottom edge as the caret moves.
+      # `@child_offset` is left at 0 — the caret is `@cursor_pos`, not a scroll
+      # offset — so there is a single scroll model shared with the attached
+      # `ScrollBar`. Delegates to the shared `#ensure_visible` (the same primitive
+      # `List`/`Tree` use); returns whether the view moved so the caller can
+      # re-render. Does not render itself: the edit path calls this from within a
+      # render.
       #
       # Without this, vertical movement only moved `@cursor_pos`: once the cursor
       # passed the top/bottom visible row the view never followed, leaving the
       # cursor pinned to the edge while editing a line that was scrolled off (so
       # typed text landed off-screen or painted at a stale position).
       private def ensure_cursor_visible : Bool
-        return false unless @scrollable
-        visible = aheight - iheight
-        return false if visible <= 0
-
         rl, _ = cursor_rowcol
+        ensure_visible rl
+      end
+
+      # Pure viewport scroll: shift `@child_base` by *offset* wrapped rows,
+      # keeping `@child_offset` at 0 so `get_scroll == child_base` and the bound
+      # `ScrollBar` reflects/drives the view top. Overrides the base `#scroll`
+      # (whose `@child_offset` book-keeping models a moving cursor/selection,
+      # which here is the separately-tracked `@cursor_pos`). Used by the wheel
+      # and by a dragged scroll bar (via `#scroll_to`); the caret is untouched, so
+      # it may scroll out of view, as in Qt's text edit.
+      def scroll(offset = 1, always = false)
+        return unless @scrollable && screen?
+        visible = aheight - iheight
+        return if visible <= 0
+
+        mark_dirty
         base = @child_base
-        offset = @child_offset
+        @child_offset = 0
+        @child_base = (base + offset).clamp(0, Math.max(0, get_scroll_height - visible))
+        return emit Crysterm::Event::Scroll, 0 if @child_base == base
 
-        if rl < @child_base
-          @child_base = rl
-        elsif rl > @child_base + visible - 1
-          @child_base = rl - (visible - 1)
-        end
-        @child_base = @child_base.clamp(0, Math.max(0, @_clines.size - visible))
-        @child_offset = (rl - @child_base).clamp(0, visible - 1)
-
-        if @child_base != base || @child_offset != offset
-          emit Crysterm::Event::Scroll
-          return true
-        end
-        false
+        process_content
+        clamp_child_base_to_content
+        emit Crysterm::Event::Scroll, @child_base - base
       end
 
       def input_on_focus=(yes)

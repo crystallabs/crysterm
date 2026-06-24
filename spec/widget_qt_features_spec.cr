@@ -153,6 +153,53 @@ describe Crysterm::Widget::TextArea do
     ta._listener keypress('\u{8}', Tput::Key::Backspace)
     ta.value.should eq "hi"
   end
+
+  # Workstream C-tail: one scroll model (`@child_base`), caret tracked via
+  # `@cursor_pos`, `@child_offset` ≡ 0, so the attached bar drives the viewport.
+  it "defaults to AsNeeded and shows a working bar on overflow" do
+    s = qt_mem_screen
+    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..30).map { |i| "line#{i}" }.join("\n")
+    ta.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
+    s._render
+    ta.show_scrollbar?.should be_true
+    sb = ta.scrollbar_widget.should_not be_nil
+    sb.maximum.should be > 0
+    # `get_scroll == child_base` (the caret is tracked separately, not as offset).
+    ta.child_offset.should eq 0
+    sb.value.should eq ta.child_base
+  end
+
+  it "drags the bar to scroll the viewport, leaving the caret put" do
+    s = qt_mem_screen
+    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..30).map { |i| "line#{i}" }.join("\n")
+    ta.cursor_pos = 0 # caret at the top
+    s._render
+    sb = ta.scrollbar_widget.not_nil!
+
+    sb.value = 3 # a small drag the old model lost into @child_offset
+    ta.child_base.should eq 3 # the view actually moved...
+    ta.child_offset.should eq 0
+    ta.cursor_pos.should eq 0  # ...and the caret stayed (scrolled off the top)
+    sb.sync_from_target
+    sb.value.should eq 3 # no jump-back (single model, no feedback)
+  end
+
+  it "follows the caret with the viewport, and the bar follows the view" do
+    s = qt_mem_screen
+    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..30).map { |i| "line#{i}" }.join("\n")
+    ta.cursor_pos = 0
+    s._render
+    sb = ta.scrollbar_widget.not_nil!
+
+    # Walk the caret down past the bottom visible row; the view follows.
+    8.times { ta._listener keypress(' ', Tput::Key::Down) }
+    ta.child_offset.should eq 0
+    ta.child_base.should be > 0
+    sb.value.should eq ta.child_base
+  end
 end
 
 describe Crysterm::Widget::TextBox do
@@ -986,6 +1033,34 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
     sb = list.scrollbar_widget.not_nil!
     sb.maximum.should be > 0    # range derived from item count
     sb.page_step.should be <= 5 # thumb page = visible rows
+  end
+end
+
+describe "Event::Scroll payload (delta / orientation)" do
+  it "reports the signed delta and axis on each scroll" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..30).map { |i| "line#{i}" }.join("\n")
+    s._render
+
+    events = [] of {Int32, Tput::Orientation}
+    box.on(Crysterm::Event::Scroll) { |e| events << {e.delta, e.orientation} }
+
+    box.scroll 4                              # down
+    box.scroll -2                             # up
+    box.reset_scroll                          # back to top (was at base 2)
+
+    events.should eq [
+      {4, Tput::Orientation::Vertical},
+      {-2, Tput::Orientation::Vertical},
+      {-2, Tput::Orientation::Vertical},
+    ]
+  end
+
+  it "defaults to a zero vertical delta for a bare emit" do
+    e = Crysterm::Event::Scroll.new
+    e.delta.should eq 0
+    e.orientation.should eq Tput::Orientation::Vertical
   end
 end
 

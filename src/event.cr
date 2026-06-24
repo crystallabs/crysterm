@@ -47,8 +47,14 @@ module Crysterm
     # Emitted when widget goes out of focus. Requires terminal supporting the focus protocol.
     event Blur, el : Widget? = nil
 
-    # Emitted when widget scrolls
-    event Scroll
+    # Emitted when a widget's scroll position changes. `delta` is the signed
+    # change in position, in lines (positive = toward the content end / down or
+    # right, negative = toward the start; `0` when the position was re-asserted
+    # without moving), and `orientation` is the axis that moved (`:vertical` for
+    # now — horizontal lands with the scroll-area work). Both default, so the
+    # bare `emit Event::Scroll` keeps working for callers that don't compute a
+    # delta; direction-aware listeners can read them without diffing state.
+    event Scroll, delta : Int32 = 0, orientation : Tput::Orientation = :vertical
 
     # # Emitted on some data
     # event Data, data : String

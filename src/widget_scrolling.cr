@@ -145,7 +145,7 @@ module Crysterm
 
       return false if @child_base == base
       mark_dirty
-      emit Crysterm::Event::Scroll
+      emit Crysterm::Event::Scroll, @child_base - base
       true
     end
 
@@ -209,10 +209,11 @@ module Crysterm
 
     def reset_scroll
       return unless @scrollable
+      prev = @child_base + @child_offset
       @child_offset = 0
       @child_base = 0
       mark_dirty
-      emit Crysterm::Event::Scroll
+      emit Crysterm::Event::Scroll, -prev
     end
 
     def get_scroll_perc(s)
@@ -296,6 +297,9 @@ module Crysterm
       # Current scrolling amount, i.e. the index of the first line of content which
       # is actually shown. (base == 2 means content is showing from its 3rd line onwards)
       base = @child_base
+      # Combined position before the move, so `Event::Scroll` can report the
+      # signed delta (`get_scroll` shifts by both base and offset changes).
+      before = @child_base + @child_offset
 
       if @always_scroll || always
         # Semi-workaround
@@ -320,7 +324,7 @@ module Crysterm
       # content and descendant elements.
       # Scroll the content if necessary.
       if @child_base == base
-        return emit Crysterm::Event::Scroll
+        return emit Crysterm::Event::Scroll, (@child_base + @child_offset) - before
       end
 
       # When scrolling text, we want to be able to handle SGR codes as well as line
@@ -352,7 +356,7 @@ module Crysterm
         end
       end
 
-      emit Crysterm::Event::Scroll
+      emit Crysterm::Event::Scroll, (@child_base + @child_offset) - before
     end
 
     # Clamps `@child_base` into the valid `[0, @base_limit]` range. Kept as an
