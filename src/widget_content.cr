@@ -63,6 +63,17 @@ module Crysterm
     end
 
     def set_content(content = "", no_clear = false, no_tags = false)
+      # Idempotent: setting the content to its current value changes nothing, so
+      # the widget does no work and propagates no repaint — no version bump, no
+      # (expensive) reparse, no `request_render`, no `SetContent`. This is the
+      # widget itself deciding it didn't change, rather than a central flag
+      # detecting it after the fact. The first parse still happens regardless:
+      # `process_content` reparses on the CLines/version mismatch (CLines starts
+      # at version -1), independent of whether this setter ran. (A bare
+      # `no_tags` toggle with identical content is not re-applied; that combo
+      # does not occur in practice.)
+      return if content == @content
+
       # Previously this erased the widget's last-rendered footprint (unless
       # `no_clear`) so that shrinking content wouldn't leave stale cells behind.
       # That is now handled centrally: `Screen#_render` clears the whole cell
