@@ -401,6 +401,7 @@ module Crysterm
         end
 
         if @value != value
+          emit Crysterm::Event::TextChange, @value
           request_render
         end
       end

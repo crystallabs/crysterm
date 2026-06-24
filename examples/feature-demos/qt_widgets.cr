@@ -7,7 +7,7 @@
 #   * DockWidget       — a closable/floatable "Panes" dock (resize via its ◢ grip)
 #   * SizeGrip         — drag the dock's corner grip to resize it while floating
 #   * StatusBar        — live message (left) + permanent sections (right)
-#   * SplashScreen     — animated startup banner (auto-dismisses)
+#   * SplashScreen     — animated startup banner (auto-dismisses; click/key to skip)
 #   * TabWidget        — closable pages, the window's central widget
 #   * GroupBox         — checkable title disables/enables its contents
 #   * LCDNumber        — seven-segment readout mirroring the volume slider
@@ -312,7 +312,7 @@ pickbtn = Widget::Button.new \
   parent: extraspage, top: 7, left: 10, width: 6, height: 1,
   content: "Pick", align: :center, focus_on_click: true,
   style: Style.new(fg: "white", bg: "#303050")
-pickbtn.on(Event::Press) do
+open_picker = -> do
   colordlg.pick do |color|
     if color
       swatch.style.bg = color
@@ -324,6 +324,9 @@ pickbtn.on(Event::Press) do
   end
   s.render
 end
+# Both the "Pick" button and a click on the color swatch itself open the picker.
+pickbtn.on(Event::Press) { open_picker.call }
+swatch.on(Event::Click) { open_picker.call }
 
 # DialogButtonBox: standard buttons with the right roles wired to accept/reject.
 dbb = Widget::DialogButtonBox.new \

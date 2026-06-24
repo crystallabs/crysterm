@@ -22,13 +22,27 @@ module Crysterm
       # than shrinking to content (which would also break the centering math).
       @resizable = false
 
+      # Whether any input event dismisses the splash: a mouse click or wheel
+      # *over it*, or any key press. Qt's `QSplashScreen` closes itself on a
+      # mouse press (`mousePressEvent` → `hide`), so this defaults to `true`;
+      # set it to `false` for a splash that only goes away via `#finish` /
+      # `#finish_after` (e.g. a fixed-duration startup screen).
+      property? dismiss_on_event : Bool = true
+
       # The (often animated) content widget. Named `content_widget` because
       # `@content` is the base `Widget`'s textual content.
       getter content_widget : Widget?
       getter! message_box : Box
 
-      def initialize(content : Widget? = nil, message_height = 1, **box)
+      # The screen-level key listener (key presses are not positional, so we
+      # watch the whole screen rather than just the splash).
+      @ev_keys : Crysterm::Event::KeyPress::Wrapper?
+      @finished = false
+
+      def initialize(content : Widget? = nil, message_height = 1, dismiss_on_event : Bool? = nil, **box)
         super **box
+
+        dismiss_on_event.try { |v| @dismiss_on_event = v }
 
         # Center on the parent/screen unless the caller positioned it explicitly.
         self.top = "center" if top.nil?
@@ -41,6 +55,19 @@ module Crysterm
 
         content.try { |c| self.content_widget = c }
         front!
+
+        # A click/wheel over the splash, or any key press, dismisses it when
+        # `dismiss_on_event?`. The flag is re-checked at event time, so it can be
+        # toggled after construction.
+        on(Crysterm::Event::Mouse) do |e|
+          if dismiss_on_event? && (e.action.down? || e.action.wheel_up? || e.action.wheel_down?)
+            e.accept
+            finish
+          end
+        end
+        @ev_keys = screen?.try &.on(Crysterm::Event::KeyPress) do
+          finish if dismiss_on_event?
+        end
       end
 
       # Sets (replacing any previous) the splash's content widget, filling the
@@ -64,10 +91,24 @@ module Crysterm
       end
 
       # Dismisses the splash: emits `Event::Complete`, detaches and destroys it.
+      # Idempotent — safe to call more than once (e.g. a click and `finish_after`
+      # racing).
       def finish : Nil
+        return if @finished
+        @finished = true
+        # Capture the screen before detaching — `screen?` goes nil once removed.
+        scr = screen?
+        @ev_keys.try { |w| scr.try &.off Crysterm::Event::KeyPress, w }
+        @ev_keys = nil
         emit ::Crysterm::Event::Complete
-        screen?.try &.remove self
+        scr.try &.remove self
         destroy
+        # Repaint so the splash actually clears. `request_render` is useless here
+        # (we're no longer on the screen) and the animation that had been driving
+        # frames just stopped via `Event::Complete`, so without this the stale
+        # splash frame would linger until the next unrelated event. Removing a
+        # top-level child forces a full composite, so this one render is enough.
+        scr.try &.render
       end
 
       # Dismisses the splash after *span* (on the render fiber, so it's safe to

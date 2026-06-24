@@ -115,6 +115,11 @@ module Crysterm
     # (indeterminate) state. Mirrors Qt's `Qt::PartiallyChecked`.
     event PartialCheck, value : Bool
 
+    # Emitted while the text of an editable text widget (e.g. `Widget::TextBox`)
+    # changes interactively — on every keystroke, not just on submit. Mirrors
+    # Qt's `QLineEdit#textChanged(QString)` signal.
+    event TextChange, value : String
+
     # Emitted when a numeric widget's value changes (e.g. `Widget::ProgressBar`).
     # Mirrors Qt's `valueChanged(int)` signal.
     event ValueChange, value : Int32
