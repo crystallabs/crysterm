@@ -112,6 +112,7 @@ module Crysterm
       @_content_version += 1
 
       process_content(no_tags)
+      mark_dirty
       emit(Crysterm::Event::SetContent)
     end
 

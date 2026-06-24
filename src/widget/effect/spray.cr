@@ -179,6 +179,7 @@ module Crysterm
         # Builds one frame of spray sized to the current box and advances time.
         # Returns `true` once a non-looping spray has finished filling.
         def step : Bool
+          mark_dirty # animation state changes each frame; repaint under damage tracking
           w = awidth
           h = aheight
           return @done = false if w <= 0 || h <= 0

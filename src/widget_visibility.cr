@@ -4,6 +4,7 @@ module Crysterm
     def show
       return if self.style.visible?
       set_visible true
+      mark_dirty
       emit Crysterm::Event::Show
     end
 
@@ -14,6 +15,7 @@ module Crysterm
       # whole cell buffer before each frame, so a now-hidden widget simply
       # stops repainting and its old cells are gone on the next render.
       set_visible false
+      mark_dirty
       emit Crysterm::Event::Hide
 
       screen?.try do |s|

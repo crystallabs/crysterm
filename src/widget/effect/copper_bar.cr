@@ -64,6 +64,7 @@ module Crysterm
         def step
           self.style.bg = color
           @frame += 1
+          mark_dirty # animation state/style changed; repaint under damage tracking
         end
       end
     end

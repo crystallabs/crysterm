@@ -107,6 +107,9 @@ module Crysterm
       # A layer root's alpha is applied as its plane's opacity at composite time,
       # so suppress the render-time self-blend while it paints into the plane.
       style_alpha = @compositing ? nil : style.alpha?
+      # Damage tracking: an alpha widget blends over the base, so a frame using
+      # one cannot carry over unchanged cells; force the full re-composite path.
+      scr.note_effect if style_alpha
       padding = style.padding
       xi = coords.xi
       xl = coords.xl

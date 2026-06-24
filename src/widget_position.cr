@@ -70,6 +70,7 @@ module Crysterm
       return if @left == val
       emit ::Crysterm::Event::Move
       @left = val
+      mark_dirty
     end
 
     # Sets Widget's `@top`
@@ -77,6 +78,7 @@ module Crysterm
       return if @top == val
       emit ::Crysterm::Event::Move
       @top = val
+      mark_dirty
     end
 
     # Sets Widget's `@right`
@@ -84,6 +86,7 @@ module Crysterm
       return if @right == val
       emit ::Crysterm::Event::Move
       @right = val
+      mark_dirty
     end
 
     # Sets Widget's `@bottom`
@@ -91,6 +94,7 @@ module Crysterm
       return if @bottom == val
       emit ::Crysterm::Event::Move
       @bottom = val
+      mark_dirty
     end
 
     #

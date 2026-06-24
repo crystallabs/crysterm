@@ -280,6 +280,9 @@ module Crysterm
     # Defers *el* (a z-indexed widget) to its plane instead of painting it inline.
     # Called from the base render wherever a child would be rendered.
     def defer_layer(el : Widget) : Nil
+      # A z-indexed widget composites through a plane (an effect), so a frame
+      # with any layer cannot take the selective damage fast path.
+      note_effect
       @layer_widgets << el
     end
 
@@ -399,6 +402,14 @@ module Crysterm
     def _render # (draw = true) #@@auto_draw)
       t1 = Time.instant
 
+      # Damage tracking (opt-in) needs to know if styling changed broadly this
+      # frame; a stylesheet/cascade change can restyle unrelated widgets, so
+      # force a full re-composite. Must be captured BEFORE
+      # `apply_stylesheet_if_dirty`, which clears the dirty flag.
+      if @optimization.damage_tracking? && css_dirty?
+        damage_force_full
+      end
+
       # Resolve CSS styling (no-op unless a stylesheet is set and dirty) before
       # widgets read their styles for this frame.
       apply_stylesheet_if_dirty
@@ -407,43 +418,29 @@ module Crysterm
 
       @_dock_stops.clear
 
-      # Reset the in-memory cell buffer to the default attr/char before
-      # compositing this frame. Widgets are re-rendered from scratch on every
-      # render (see the loop below), so the buffer must start from a clean base.
+      # Reset the effect detector for this frame (see `note_effect`).
+      @frame_used_effects = false
+
+      # Compositing: either the selective damage path (when enabled and all its
+      # preconditions hold) or the full re-composite below. The full path clears
+      # the whole in-memory cell buffer and re-renders every widget from scratch.
       #
-      # This is required for correct alpha/transparency blending: alpha widgets
-      # blend their color into whatever is already in `@lines` (see
-      # `Colors.blend` calls in widget_rendering). Without this reset, each frame
-      # would blend on top of the previous frame's already-blended value, so a
+      # The full clear is required for correct alpha/transparency blending: alpha
+      # widgets blend their color into whatever is already in `@lines` (see
+      # `Colors.blend` calls in widget_rendering). Without it, each frame would
+      # blend on top of the previous frame's already-blended value, so a
       # semi-transparent field would creep toward full saturation on every
-      # refresh instead of staying constant.
-      #
-      # This also removes the need to `clear_region` in arbitrary places just to
-      # erase a spot where an element used to be (e.g. when it moves or hides).
-      # It is cheap on the wire: `clear_region`/`fill_region` only mark a line
-      # dirty when a cell actually changes, and `draw` still diffs every cell
-      # against `@olines`, so unchanged cells produce no terminal output.
-      clear_region 0, awidth, 0, aheight
-
-      @layer_widgets.clear
-      @_ci = 0
-      @children.each do |el|
-        el.index = @_ci
-        @_ci += 1
-        # Base layer: paint straight into `@lines` as before. A child that
-        # declares a `z_index` is deferred to its own plane (composited below);
-        # nested layered widgets are collected the same way from `render_child`.
-        if el.style.z_index
-          defer_layer el
-        else
-          el.render
-        end
+      # refresh instead of staying constant. It also removes the need to
+      # `clear_region` in arbitrary places just to erase a spot where an element
+      # used to be (e.g. when it moves or hides). It is cheap on the wire:
+      # `clear_region`/`fill_region` only mark a line dirty when a cell actually
+      # changes, and `draw` still diffs every cell against `@olines`, so unchanged
+      # cells produce no terminal output. The damage path replaces this
+      # whole-buffer clear with region-aware clears of just the changed subtrees,
+      # but only when it can prove output-equivalence (see `screen_damage.cr`).
+      unless @optimization.damage_tracking? && damage_try_composite
+        damage_full_composite
       end
-      @_ci = -1
-
-      composite_planes
-
-      _dock if @dock_borders
 
       t2 = Time.instant
 

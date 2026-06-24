@@ -16,6 +16,7 @@ module Crysterm
       return if @width == val
       emit ::Crysterm::Event::Resize
       @width = val
+      mark_dirty
     end
 
     # Sets widget's total height
@@ -23,6 +24,7 @@ module Crysterm
       return if height == val
       emit ::Crysterm::Event::Resize
       @height = val
+      mark_dirty
     end
 
     # Returns computed width

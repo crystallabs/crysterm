@@ -134,12 +134,51 @@ module Crysterm
       invalidate_screen_cache
     end
 
+    # Damage tracking (see `OptimizationFlag::DamageTracking`).
+    #
+    # Set whenever this widget's appearance may have changed since it was last
+    # painted; read by `Screen`'s damage-tracking render path to decide which
+    # top-level subtrees to repaint. Starts `true` so a never-yet-painted widget
+    # is always rendered the first time. Cleared by the render path once painted.
+    property render_dirty : Bool = true
+
+    # Bounding rectangle (`{xi, xl, yi, yl}`, half-open) of this widget's whole
+    # subtree as of its last paint — the union of its own and all descendants'
+    # `@lpos`. Only maintained for top-level widgets, and only while damage
+    # tracking is on; used to clear a changed subtree's old footprint and to test
+    # whether a changed subtree overlaps an unchanged one. `nil` when the subtree
+    # rendered to nothing.
+    property damage_bounds : Tuple(Int32, Int32, Int32, Int32)? = nil
+
+    # Marks this widget as needing a repaint and registers it (mapped to its
+    # top-level ancestor) with the owning screen's damage set. Cheap and safe to
+    # call from any state-changing setter; a no-op for the buffer when damage
+    # tracking is off (the screen simply ignores the registration on a full
+    # frame). Call this after an in-place change the tracked setters don't see
+    # (e.g. mutating a `Style` directly).
+    def mark_dirty : Nil
+      @render_dirty = true
+      screen?.try &.damage_mark_dirty(self)
+    end
+
     # Requests a re-render of the owning `Screen`, if this widget is attached to
     # one. This is the safe form of `screen.render` for use after a state change
     # (it is a no-op when the widget is detached) and centralizes the
-    # render-triggering logic shared across widgets.
+    # render-triggering logic shared across widgets. Also flags this widget for
+    # damage tracking, since a render was requested specifically on its behalf.
     def request_render : Nil
-      screen?.try &.render
+      screen?.try do |s|
+        s.damage_mark_dirty self
+        s.render
+      end
+    end
+
+    # Structural-change hook (a child was added/removed under this widget). The
+    # changed tree can shift unrelated widgets and leave vacated cells the
+    # per-subtree damage rects don't cover, so it forces the next frame to be a
+    # full re-composite. Mirrors the `invalidate_css_tree` structural hook.
+    protected def _damage_invalidate_structure : Nil
+      screen?.try &.damage_force_full
     end
 
     # XXX FIX by removing at some point

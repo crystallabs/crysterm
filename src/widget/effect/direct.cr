@@ -43,6 +43,7 @@ module Crysterm
         # be driven from an external clock instead of its own fiber.
         def step
           advance @cols, @rows
+          mark_dirty # animation state changed; repaint under damage tracking
         end
 
         # Position via the normal `Box` render (borders, background, docking, and

@@ -59,6 +59,7 @@ module Crysterm
         return unless @children_set.add? element
         @children.insert i, element
         invalidate_css_tree
+        _damage_invalidate_structure
         element
       end
 
@@ -71,6 +72,7 @@ module Crysterm
         # gone from `@children` it simply stops being repainted.
         @children.delete_at i
         invalidate_css_tree
+        _damage_invalidate_structure
         element
       end
 
@@ -79,6 +81,13 @@ module Crysterm
       # and force a document re-parse, since structure can alter which selectors
       # match. No-op by default.
       protected def invalidate_css_tree : Nil
+      end
+
+      # Structural-change hook for damage tracking (a child was added/removed).
+      # Overridden on `Widget` (forwards to its screen) and `Screen` (forces a
+      # full re-composite next frame). No-op by default so the call site compiles
+      # on any includer. See `OptimizationFlag::DamageTracking`.
+      protected def _damage_invalidate_structure : Nil
       end
 
       # Returns true if `obj` is found in the list of parents, recursively

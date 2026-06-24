@@ -1,0 +1,222 @@
+require "./spec_helper"
+
+include Crysterm
+
+# Differential test for per-widget damage tracking
+# (`OptimizationFlag::DamageTracking`, see `src/screen_damage.cr`).
+#
+# The strongest correctness guarantee the design asks for: damage tracking must
+# be *output-equivalent* to the full re-composite. So every scenario here builds
+# the same scene twice — once on a plain screen and once on a damage-tracking
+# screen — applies the same mutation sequence to both, renders both each step,
+# and asserts their cell buffers (`@lines`: attr + char + grapheme overlay) are
+# identical cell for cell. Whatever the fast path does, it may never diverge.
+#
+# A few scenarios additionally assert that the fast path *engaged* (via
+# `Screen#damage_fast_frames`), so the suite can't pass trivially by always
+# falling back to the full path.
+
+private def new_screen(damage : Bool)
+  Crysterm::Screen.new(
+    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+    width: 60, height: 24,
+    optimization: damage ? Crysterm::OptimizationFlag::DamageTracking : Crysterm::OptimizationFlag::None)
+end
+
+# Asserts the two screens' cell buffers are identical.
+private def assert_same_lines(a : Crysterm::Screen, b : Crysterm::Screen, ctx = "")
+  a.lines.size.should eq b.lines.size
+  a.lines.each_index do |y|
+    la = a.lines[y]
+    lb = b.lines[y]
+    la.size.should eq lb.size
+    la.size.times do |x|
+      ca = la[x]
+      cb = lb[x]
+      if ca.attr != cb.attr || ca.char != cb.char || la.grapheme_at?(x) != lb.grapheme_at?(x)
+        fail "cell mismatch at (#{y},#{x}) #{ctx}: " \
+             "full=(attr=#{cb.attr},char=#{cb.char.inspect},g=#{lb.grapheme_at?(x).inspect}) " \
+             "damage=(attr=#{ca.attr},char=#{ca.char.inspect},g=#{la.grapheme_at?(x).inspect})"
+      end
+    end
+  end
+end
+
+# Builds a grid of `count` non-overlapping bordered panels (with a nested
+# content row each) on `screen` and returns them.
+private def build_panels(screen, count = 4)
+  panels = [] of Widget::Box
+  count.times do |p|
+    panel = Widget::Box.new(
+      parent: screen,
+      top: (p // 2) * 10, left: (p % 2) * 28,
+      width: 26, height: 8,
+      style: Style.new(border: true),
+      content: "Panel #{p}")
+    Widget::Box.new(parent: panel, top: 1, left: 1, width: 22, height: 1,
+      content: "row #{p}")
+    panels << panel
+  end
+  panels
+end
+
+describe "damage tracking" do
+  it "is output-equivalent when one of N opaque panels updates per frame" do
+    plain = new_screen false
+    dmg = new_screen true
+    pp = build_panels plain
+    dp = build_panels dmg
+
+    plain._render
+    dmg._render
+    assert_same_lines dmg, plain, "(initial)"
+
+    5.times do |f|
+      i = f % pp.size
+      pp[i].content = "Panel #{i} @ #{f}"
+      dp[i].content = "Panel #{i} @ #{f}"
+      plain._render
+      dmg._render
+      assert_same_lines dmg, plain, "(frame #{f})"
+    end
+
+    # The whole point: these frames went through the selective path, not the
+    # full re-composite fallback.
+    dmg.damage_fast_frames.should be > 0
+  end
+
+  it "is output-equivalent when a nested child updates" do
+    plain = new_screen false
+    dmg = new_screen true
+    pp = build_panels plain
+    dp = build_panels dmg
+    plain._render; dmg._render
+
+    # Mutate the nested row of panel 1, not the panel itself.
+    pp[1].children.first.content = "changed row"
+    dp[1].children.first.content = "changed row"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(nested child)"
+    dmg.damage_fast_frames.should be > 0
+  end
+
+  it "clears vacated cells when a widget moves (geometry change)" do
+    plain = new_screen false
+    dmg = new_screen true
+    pp = build_panels plain
+    dp = build_panels dmg
+    plain._render; dmg._render
+
+    pp[0].left = 4
+    pp[0].top = 2
+    dp[0].left = 4
+    dp[0].top = 2
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(moved)"
+  end
+
+  it "clears vacated cells when a widget is hidden" do
+    plain = new_screen false
+    dmg = new_screen true
+    pp = build_panels plain
+    dp = build_panels dmg
+    plain._render; dmg._render
+
+    pp[3].hide
+    dp[3].hide
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(hidden)"
+  end
+
+  it "is output-equivalent when a widget shrinks (stale-cell hazard)" do
+    plain = new_screen false
+    dmg = new_screen true
+    pp = build_panels plain
+    dp = build_panels dmg
+    plain._render; dmg._render
+
+    pp[0].width = 14
+    pp[0].height = 4
+    dp[0].width = 14
+    dp[0].height = 4
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(shrunk)"
+  end
+
+  it "falls back and stays equivalent for overlapping widgets" do
+    plain = new_screen false
+    dmg = new_screen true
+
+    # Two deliberately overlapping boxes.
+    pa = Widget::Box.new(parent: plain, top: 0, left: 0, width: 20, height: 10,
+      style: Style.new(border: true), content: "A")
+    pb = Widget::Box.new(parent: plain, top: 5, left: 5, width: 20, height: 10,
+      style: Style.new(border: true), content: "B")
+    da = Widget::Box.new(parent: dmg, top: 0, left: 0, width: 20, height: 10,
+      style: Style.new(border: true), content: "A")
+    db = Widget::Box.new(parent: dmg, top: 5, left: 5, width: 20, height: 10,
+      style: Style.new(border: true), content: "B")
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(overlap initial)"
+
+    pa.content = "A2"
+    da.content = "A2"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(overlap update)"
+  end
+
+  it "falls back and stays equivalent when alpha is active" do
+    plain = new_screen false
+    dmg = new_screen true
+
+    Widget::Box.new(parent: plain, top: 0, left: 0, width: 30, height: 12,
+      content: "base")
+    pa = Widget::Box.new(parent: plain, top: 2, left: 2, width: 10, height: 5,
+      style: Style.new(bg: 0x00ff00, alpha: 0.5), content: "x")
+    Widget::Box.new(parent: dmg, top: 0, left: 0, width: 30, height: 12,
+      content: "base")
+    da = Widget::Box.new(parent: dmg, top: 2, left: 2, width: 10, height: 5,
+      style: Style.new(bg: 0x00ff00, alpha: 0.5), content: "x")
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(alpha initial)"
+
+    pa.content = "y"
+    da.content = "y"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(alpha update)"
+  end
+
+  it "is output-equivalent across child add and remove" do
+    plain = new_screen false
+    dmg = new_screen true
+    pp = build_panels plain
+    dp = build_panels dmg
+    plain._render; dmg._render
+
+    # Add a child.
+    Widget::Box.new(parent: pp[2], top: 3, left: 1, width: 10, height: 1, content: "new")
+    Widget::Box.new(parent: dp[2], top: 3, left: 1, width: 10, height: 1, content: "new")
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(after add)"
+
+    # Remove a child.
+    pp[2].remove pp[2].children.last
+    dp[2].remove dp[2].children.last
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(after remove)"
+  end
+
+  it "is output-equivalent when nothing changes between frames" do
+    plain = new_screen false
+    dmg = new_screen true
+    build_panels plain
+    build_panels dmg
+    plain._render; dmg._render
+
+    3.times do
+      plain._render
+      dmg._render
+    end
+    assert_same_lines dmg, plain, "(idle)"
+  end
+end

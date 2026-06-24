@@ -80,6 +80,7 @@ module Crysterm
       # `Effect::CopperBar#step`), which reads `@frame`.
       def step
         @frame += 1
+        mark_dirty # animation state changed; repaint under damage tracking
       end
 
       # Paints the `awidth`-wide window onto the looping message into the top

@@ -71,3 +71,50 @@ STDERR.printf "LIVE    alloc/frame: %5d bytes   wall/frame: %5.1f µs   (render 
   live_alloc // FRAMES, wall_b.total_microseconds / FRAMES, rsum // FRAMES, dsum // FRAMES
 STDERR.printf "delta (4 content updates + list sel): %d bytes/frame (~%d per content update)\n",
   (live_alloc - static_alloc) // FRAMES, (live_alloc - static_alloc) // FRAMES // 4
+
+# Pass C: DAMAGE TRACKING — the headline metric for damage tracking. The SAME
+# scene as above, but only ONE widget changes per frame and the screen runs with
+# `OptimizationFlag::DamageTracking`. With damage tracking off this re-composites
+# all ~41 widgets every frame (O(N)); with it on, only the single changed
+# subtree is repainted (O(changed)). Compares both so the speedup is visible.
+private def build_scene(damage)
+  s = Crysterm::Screen.new(
+    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+    width: 120, height: 40,
+    optimization: damage ? Crysterm::OptimizationFlag::DamageTracking : Crysterm::OptimizationFlag::None)
+  ps = [] of Widget::Box
+  4.times do |p|
+    panel = Widget::Box.new(
+      parent: s, top: (p // 2) * 20, left: (p % 2) * 60,
+      width: 58, height: 18, style: Style.new(border: true), content: "Panel #{p}")
+    ps << panel
+    6.times do |i|
+      Widget::Box.new(parent: panel, top: i + 1, left: 2, width: 50, height: 1,
+        content: "row #{i}: value #{i * p}")
+    end
+  end
+  {s, ps}
+end
+
+[{"OFF (full recomposite)", false}, {"ON  (damage tracking)", true}].each do |label, dmg|
+  s, ps = build_scene dmg
+  50.times { s._render } # warm caches + first full frame
+  GC.collect
+  before2 = GC.stats.total_bytes
+  rsum2 = 0_i64
+  wall_c = Time.measure do
+    FRAMES.times do |f|
+      # Exactly ONE widget changes per frame.
+      ps[f % 4].content = "Panel #{f % 4} @ #{f}"
+      s._render
+      rsum2 += s.render_rate
+    end
+  end
+  alloc_c = GC.stats.total_bytes - before2
+  STDERR.printf "1-OF-N  %-22s render/frame: %5.1f µs   alloc/frame: %5d bytes   (render %d fps-eq)\n",
+    label, wall_c.total_microseconds / FRAMES, alloc_c // FRAMES, rsum2 // FRAMES
+  if dmg
+    STDERR.printf "        fast frames: %d / %d  (full: %d)\n",
+      s.damage_fast_frames, FRAMES + 50, s.damage_full_frames
+  end
+end

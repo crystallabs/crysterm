@@ -84,6 +84,7 @@ module Crysterm
         # calls `step` then triggers a single `screen.render`.
         def step
           @frame += 1
+          mark_dirty # animation state changed; repaint under damage tracking
         end
 
         # Paints the looping message across the full height on a sine wave,

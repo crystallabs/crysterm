@@ -84,6 +84,7 @@ module Crysterm
       return unless @scrollable
       @child_offset = 0
       @child_base = 0
+      mark_dirty
       emit Crysterm::Event::Scroll
     end
 
@@ -156,6 +157,9 @@ module Crysterm
     def scroll(offset = 1, always = false)
       return unless @scrollable
       return unless screen?
+
+      # A scroll shifts the whole viewport, so the subtree must be repainted.
+      mark_dirty
 
       # Handle scrolling.
       # visible == amount of actual content lines visible in the widget. E.g. for
