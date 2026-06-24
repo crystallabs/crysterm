@@ -29,8 +29,13 @@ module Crysterm
       # scroller.start
       # ```
       #
-      # NOTE: tag parsing is forced on (the rainbow path emits `{#rrggbb-fg}`
-      # tags), so a literal `{` in `text` would be interpreted as a tag.
+      # The glyphs are painted straight into the screen cells in `#render` —
+      # each cell's color is set as a native `0xRRGGBB` attribute via `sattr` —
+      # rather than by building a `{#rrggbb-fg}`-tagged content string and letting
+      # the content pipeline re-tokenize it (`_parse_tags`) every frame. A
+      # full-screen scroller emits one color run per column, so the tag reparse
+      # was this widget's dominant per-frame cost; the direct path skips it
+      # entirely. (This mirrors how `Widget::Gradient` paints its cells.)
       class SineScroller < Box
         include Animated
 
@@ -72,44 +77,50 @@ module Crysterm
           **box,
         )
           super **box
-          # The rainbow path emits `{#rrggbb-fg}` tags, so tag parsing must be on
-          # regardless of what the caller passed.
-          self.parse_tags = true
         end
 
-        # Builds one frame: the looping message laid across the full height on a
-        # sine wave, then advances by one column.
+        # Advance one column. Painting happens in `#render` (state-only, like
+        # `CopperBar#step`), which reads `@frame` — so an external master clock
+        # calls `step` then triggers a single `screen.render`.
         def step
-          w = awidth
-          h = aheight
-          n = text.size
-          return if w <= 0 || h <= 0 || n == 0
-
-          f = @frame
-          amp = (h - 1) / 2.0
-          grid = Array.new(h) { Array(String?).new(w, nil) }
-
-          (0...w).each do |x|
-            # Horizontal scroll, identical to `Marquee`: `:left` shifts the row
-            # left as f grows, `:right` mirrors it. Crystal's `%` follows the
-            # divisor's sign, so the index is always valid.
-            idx = (direction.left? ? f + x : f - x) % n
-            ch = text[idx]
-            next if ch == ' '
-            r = (amp * (1.0 + Math.sin(x * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, h - 1)
-            grid[r][x] =
-              if rainbow?
-                "{#{Colors.hsv((x * @hue_spread + f * @hue_speed) % 360)}-fg}#{ch}{/}"
-              else
-                ch.to_s
-              end
-          end
-
-          self.content = (0...h).map { |row|
-            String.build { |io| (0...w).each { |x| io << (grid[row][x] || " ") } }
-          }.join('\n')
-
           @frame += 1
+        end
+
+        # Paints the looping message across the full height on a sine wave,
+        # writing each glyph's cell directly with its native color. `_render`
+        # (via `with_inner_coords`) establishes this frame's coordinates; the box
+        # background is filled first (mirroring the spaces the old content string
+        # carried), then the glyphs are laid over it.
+        def render
+          with_inner_coords do |xi, xl, yi, yl|
+            w = xl - xi
+            h = yl - yi
+            next if w <= 0 || h <= 0
+
+            # Background fill: the box's own colors, every cell (the field the
+            # glyphs ride over).
+            screen.fill_region(sattr(style), ' ', xi, xl, yi, yl)
+
+            n = text.size
+            next if n == 0
+
+            f = @frame
+            amp = (h - 1) / 2.0
+            bg = style.bg
+            fg_default = style.fg
+
+            (0...w).each do |x|
+              # Horizontal scroll, identical to `Marquee`: `:left` shifts the row
+              # left as f grows, `:right` mirrors it. Crystal's `%` follows the
+              # divisor's sign, so the index is always valid.
+              idx = (direction.left? ? f + x : f - x) % n
+              ch = text[idx]
+              next if ch == ' '
+              r = (amp * (1.0 + Math.sin(x * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, h - 1)
+              fg = rainbow? ? Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360) : fg_default
+              screen.fill_region(sattr(style, fg, bg), ch, xi + x, xi + x + 1, yi + r, yi + r + 1)
+            end
+          end
         end
       end
     end

@@ -30,7 +30,7 @@ module Crysterm
       # cv = Widget::Graph::Canvas.new parent: s, width: 40, height: 12,
       #   style: Style.new(border: true)
       # cv.on_paint do |p|
-      #   p.set_window 0, -1, 6.28, 2          # logical: x in 0..2π, y in -1..1
+      #   p.set_window 0, -1, 6.28, 2 # logical: x in 0..2π, y in -1..1
       #   p.pen = 0x40E0D0
       #   pts = (0..120).map { |i| {i * 6.28 / 120, Math.sin(i * 6.28 / 120)} }
       #   p.draw_polyline pts
