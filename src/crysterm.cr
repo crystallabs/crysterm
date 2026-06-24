@@ -90,6 +90,24 @@ module Crysterm
   # TODO Should all of these run a proper exit sequence, instead of just exit ad-hoc?
   # (Currently we just call `exit` and count on `at_exit` handlers being invoked, but they
   # are unordered)
+
+  # SIGINT (Ctrl+C) MUST be trapped: Crystal's default action terminates the
+  # process WITHOUT running `at_exit`, so the terminal-restore chain (`at_exit`
+  # -> `Screen#destroy` -> `#disconnect` -> `#restore_terminal`, which leaves the
+  # alternate buffer, shows the cursor, and disables raw mode + mouse reporting)
+  # would never run. Routing it through `exit` (like TERM/QUIT) makes that cleanup
+  # fire. This matters most during the startup window: between `Screen.new`
+  # (which enters the alternate buffer) and the input fiber establishing raw mode
+  # (in `#listen`), the tty is still in cooked mode, so a Ctrl+C is delivered as a
+  # real SIGINT rather than a keystroke. A slow-to-build app (e.g. the cracktro
+  # demo, which constructs ~a screenful of widgets before `exec`) widens that
+  # window; without this trap, interrupting there leaves the terminal in the
+  # alternate buffer with raw mode / mouse reporting partially on (garbage on
+  # mouse movement, no echo). Once raw mode is active, ISIG is off and Ctrl+C
+  # arrives as a keystroke handled by the quit keys, so this trap is dormant then.
+  Signal::INT.trap do
+    exit
+  end
   Signal::TERM.trap do
     exit
   end
