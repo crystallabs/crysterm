@@ -153,7 +153,8 @@ module Crysterm
     # Stamp used by `Screen`'s damage overlap-grow for O(1) cluster membership:
     # this widget is in the cluster being assembled iff `@damage_seen` equals the
     # screen's current grow stamp. Transient scratch, meaningful only mid-grow.
-    property damage_seen : Int32 = 0
+    # `Int64` so it never wraps over the lifetime of a process.
+    property damage_seen : Int64 = 0
 
     # Index of this widget within the screen's base-child list for the current
     # damage frame, used to address the overlap union-find. Transient scratch.

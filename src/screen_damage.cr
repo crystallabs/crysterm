@@ -78,10 +78,8 @@ module Crysterm
     @damage_snapshot = [] of Widget
     @damage_rects = [] of Tuple(Int32, Int32, Int32, Int32)
 
-    # Reused Phase 2 (overlap) scratch buffers: the connected component of
-    # overlapping top-level children to recomposite, and the rectangles defining
-    # its current extent.
-    @damage_involved = [] of Widget
+    # Reused scratch buffer: the rectangles (member footprints + glue) defining
+    # the cluster's extent, which the selective recomposite clears.
     @damage_frontier = [] of Tuple(Int32, Int32, Int32, Int32)
 
     # --- Phase 4 — z-index planes -------------------------------------------
@@ -129,7 +127,8 @@ module Crysterm
     # Stamp for O(1) "is this widget in the current cluster?" membership during
     # the overlap grow, via `Widget#damage_seen` (no per-frame allocation, no
     # reset: a widget is a member iff its stamp equals this one). Bumped per grow.
-    @damage_stamp = 0
+    # `Int64` so it never wraps for the life of the process.
+    @damage_stamp = 0_i64
 
     # --- Overlap-grow via cell grid + union-find (replaces the O(N^3) fixpoint) -
     #
@@ -138,9 +137,10 @@ module Crysterm
     # union-ing children that land on the same cell — transitive overlap falls
     # out of the union-find, in ~O(Σ areas) instead of a fixpoint scan. The grid
     # is stamp-addressed (a cell belongs to this grow iff its stamp matches), so
-    # there is no per-grow O(W*H) reset; it is only (re)sized on a resize.
-    @damage_grid_stamp = [] of Int32
-    @damage_grid_owner = [] of Int32
+    # there is no per-grow O(W*H) reset; it is only (re)sized on a resize. Each
+    # cell packs `(stamp << 32) | owner-base-index` into one `Int64` so the hot
+    # rasterize loop touches a single array (one cache line) per cell.
+    @damage_grid = [] of Int64
     @damage_grid_w = 0
     # Union-find parent array, indexed by base-child position (`Widget#damage_idx`).
     @damage_uf = [] of Int32
@@ -151,7 +151,11 @@ module Crysterm
     @damage_dirty_old = [] of Tuple(Int32, Int32, Int32, Int32)?
     # Per-base-index marker: a union-find root carries the seed stamp iff its
     # component contains a changed subtree. Reused; sized to the base-child count.
-    @damage_seedmark = [] of Int32
+    @damage_seedmark = [] of Int64
+    # Reused list of "glue" rectangles handed to the cluster builder: cells that
+    # must be cleared and that pull whatever base child sits under them into the
+    # cluster (a changed root's vacated footprint; for Phase 4, the plane region).
+    @damage_glue = [] of Tuple(Int32, Int32, Int32, Int32)
 
     # Self-measured payoff: exponential moving averages (µs) of the full-composite
     # and selective-composite cost, and a sticky "selective isn't paying here"
@@ -479,84 +483,14 @@ module Crysterm
       frontier = @damage_frontier
       frontier.clear
 
-      # Build the base-child list (z order) and index each one for the union-find.
-      base = @damage_base
-      base.clear
-      @children.each do |el|
-        next if el.style.z_index
-        el.damage_idx = base.size
-        base << el
-      end
-      m = base.size
+      # Glue = each changed root's *old* footprint, so a widget the move uncovered
+      # is pulled into the cluster and its vacated cells repainted (the role the
+      # old∪new damaged rects played before the union-find rewrite).
+      glue = @damage_glue
+      glue.clear
+      @damage_dirty_old.each { |o| glue << o if o }
 
-      # (Re)size the cell grid on a dimension change; otherwise reuse it. The grid
-      # is stamp-addressed so it needs no per-frame clear.
-      w = awidth
-      h = aheight
-      ncells = w * h
-      if @damage_grid_w != w || @damage_grid_stamp.size != ncells
-        @damage_grid_stamp = Array(Int32).new(ncells, 0)
-        @damage_grid_owner = Array(Int32).new(ncells, 0)
-        @damage_grid_w = w
-      end
-      @damage_stamp += 1
-      stamp = @damage_stamp
-
-      uf = @damage_uf
-      uf.clear
-      m.times { |i| uf << i }
-
-      # Rasterize every base child's current footprint into the grid; two children
-      # that land on the same cell overlap (half-open rect intersection ⟺ shared
-      # integer cell), so union them — transitive overlap falls out of the
-      # union-find. ~O(Σ areas), versus the old fixpoint's O(N^3).
-      base.each do |el|
-        damage_rasterize(el.damage_bounds, w, h, stamp) do |cell|
-          if @damage_grid_stamp.unsafe_fetch(cell) == stamp
-            damage_uf_union uf, el.damage_idx, @damage_grid_owner.unsafe_fetch(cell)
-          else
-            @damage_grid_stamp.unsafe_put(cell, stamp)
-            @damage_grid_owner.unsafe_put(cell, el.damage_idx)
-          end
-        end
-      end
-
-      # Connect each changed root to whatever now sits where it *was* (its old
-      # footprint), so a widget the move uncovered is pulled in and its vacated
-      # cells repainted — the role the old∪new damaged rects played before.
-      olds = @damage_dirty_old
-      dirty.each_with_index do |root, k|
-        o = olds[k]?
-        next unless o
-        damage_rasterize(o, w, h, stamp) do |cell|
-          if @damage_grid_stamp.unsafe_fetch(cell) == stamp
-            damage_uf_union uf, root.damage_idx, @damage_grid_owner.unsafe_fetch(cell)
-          else
-            @damage_grid_stamp.unsafe_put(cell, stamp)
-            @damage_grid_owner.unsafe_put(cell, root.damage_idx)
-          end
-        end
-      end
-
-      # Mark every component that contains a changed root as the cluster, then
-      # collect its members in z order (O(1) membership via `damage_seen`) and
-      # measure the work it implies.
-      seed = @damage_seedmark
-      seed.clear
-      m.times { seed << 0 }
-      dirty.each { |root| seed[damage_uf_find(uf, root.damage_idx)] = stamp }
-
-      cluster_area = 0_i64
-      base.each do |el|
-        if seed.unsafe_fetch(damage_uf_find(uf, el.damage_idx)) == stamp
-          el.damage_seen = stamp
-          if b = el.damage_bounds
-            frontier << b
-            cluster_area += damage_rect_area(b)
-          end
-        end
-      end
-      olds.each { |o| frontier << o if o }
+      cluster_area = damage_build_cluster dirty, glue, frontier
 
       # Post-grow cost parity: clearing and repainting the cluster costs at least
       # ~2 * its area; if that already meets the full path's cost, fall back —
@@ -568,6 +502,7 @@ module Crysterm
       # repaint every member in `@children` (z) order — the painter's algorithm
       # over exactly the cluster's cells.
       frontier.each { |r| clear_region r[0], r[1], r[2], r[3] }
+      stamp = @damage_stamp
       @children.each do |el|
         next if el.style.z_index
         next unless el.damage_seen == stamp
@@ -578,10 +513,116 @@ module Crysterm
       !(@frame_used_effects || !@layer_widgets.empty?)
     end
 
+    # Builds the connected cluster of base (non-z) top-level children to
+    # recomposite, shared by Phase 2 and the Phase 4 plane base rebuild. Every base
+    # child's footprint is rasterized into the stamp-addressed cell grid and
+    # overlapping children are union-found (half-open rect intersection ⟺ a shared
+    # integer cell), so transitive overlap falls out in ~O(Σ areas) instead of the
+    # old O(N^3) fixpoint. A component joins the cluster if it contains a `seeds`
+    # root (a changed subtree) OR any base child sitting under a `glue` rectangle
+    # (a vacated footprint, or the plane's covered region). Marks each member with
+    # `damage_seen == @damage_stamp`, appends every member's footprint and all the
+    # glue rects to `frontier` (the cells the caller clears), and returns the
+    # cluster's total area (for the cost-parity decision).
+    private def damage_build_cluster(
+      seeds : Array(Widget),
+      glue : Array(Tuple(Int32, Int32, Int32, Int32)),
+      frontier : Array(Tuple(Int32, Int32, Int32, Int32)),
+    ) : Int64
+      base = @damage_base
+      base.clear
+      @children.each do |el|
+        next if el.style.z_index
+        el.damage_idx = base.size
+        base << el
+      end
+      m = base.size
+
+      # The full Int64 membership stamp (never wraps) drives `damage_seen`/`seed`.
+      # The grid packs its cell-stamp into a 31-bit field (so `<< 32` stays a
+      # positive Int64), taken from the low bits of the stamp; that field wraps
+      # every 2^31 grows, at which point the grid is cleared once so the monotonic
+      # `v >= s64` test still distinguishes this grow's cells from stale ones.
+      @damage_stamp += 1
+      stamp = @damage_stamp
+      g = stamp & 0x7FFFFFFF
+      grid_wrapped = false
+      if g == 0
+        @damage_stamp += 1
+        stamp = @damage_stamp
+        g = 1_i64
+        grid_wrapped = true
+      end
+      s64 = g << 32
+
+      # (Re)size the cell grid on a dimension change, or clear it on a stamp wrap;
+      # otherwise it is stamp-addressed and needs no per-frame clear.
+      w = awidth
+      h = aheight
+      ncells = w * h
+      if @damage_grid_w != w || @damage_grid.size != ncells
+        @damage_grid = Array(Int64).new(ncells, 0_i64)
+        @damage_grid_w = w
+      elsif grid_wrapped
+        @damage_grid.fill(0_i64)
+      end
+      grid = @damage_grid
+
+      uf = @damage_uf
+      uf.clear
+      m.times { |i| uf << i }
+
+      # Rasterize every base child; union children that share a cell. A cell holds
+      # `(stamp << 32) | owner`; a high-half mismatch means it's from an older grow
+      # (no clear needed) and this child claims it.
+      base.each do |el|
+        idx = el.damage_idx
+        damage_rasterize(el.damage_bounds, w, h) do |cell|
+          v = grid.unsafe_fetch(cell)
+          if v >= s64
+            damage_uf_union uf, idx, (v & 0xFFFFFFFF).to_i32
+          else
+            grid.unsafe_put(cell, s64 | idx)
+          end
+        end
+      end
+
+      # Seed the components of the changed roots… (the seed marker is also stamped,
+      # so the array only needs growing — never clearing — across frames.)
+      seed = @damage_seedmark
+      (seed.size...m).each { seed << 0_i64 }
+      seeds.each do |r|
+        next if r.style.z_index
+        seed.unsafe_put(damage_uf_find(uf, r.damage_idx), stamp)
+      end
+
+      # …and of whatever base child sits under each glue rectangle.
+      glue.each do |g|
+        damage_rasterize(g, w, h) do |cell|
+          v = grid.unsafe_fetch(cell)
+          seed.unsafe_put(damage_uf_find(uf, (v & 0xFFFFFFFF).to_i32), stamp) if v >= s64
+        end
+      end
+
+      # Collect the cluster's members in z order, mark them, and total their area.
+      cluster_area = 0_i64
+      base.each do |el|
+        if seed.unsafe_fetch(damage_uf_find(uf, el.damage_idx)) == stamp
+          el.damage_seen = stamp
+          if b = el.damage_bounds
+            frontier << b
+            cluster_area += damage_rect_area(b)
+          end
+        end
+      end
+      glue.each { |g| frontier << g }
+      cluster_area
+    end
+
     # Iterates the integer cell indices (`y * w + x`) a half-open rectangle covers
     # within the `w`x`h` screen, clamped to bounds (a shadow band can reach past
-    # the edge). `_stamp` is unused here but keeps call sites uniform.
-    private def damage_rasterize(r : Tuple(Int32, Int32, Int32, Int32)?, w : Int32, h : Int32, _stamp : Int32, &)
+    # the edge).
+    private def damage_rasterize(r : Tuple(Int32, Int32, Int32, Int32)?, w : Int32, h : Int32, &)
       return unless r
       xi = r[0] < 0 ? 0 : r[0]
       yi = r[2] < 0 ? 0 : r[2]
@@ -613,32 +654,6 @@ module Crysterm
       ra = damage_uf_find uf, a
       rb = damage_uf_find uf, b
       uf.unsafe_put(ra, rb) if ra != rb
-    end
-
-    # Grows *involved* to the connected component of top-level **base** children
-    # (by transitive bounding-box overlap) reachable from the rectangles already
-    # in *frontier*, appending each newly included child's bounds to *frontier*
-    # as it joins. Iterates to a fixpoint. Shared by the Phase 2 overlap cluster
-    # and the Phase 4 plane rebuild. Layer (z-indexed) children are skipped: they
-    # paint into a plane, not the base buffer, so they never belong to a base
-    # cluster (on the no-plane Phase 2 path there are none, so the guard is a
-    # no-op there).
-    private def damage_grow_component(involved : Array(Widget), frontier : Array(Tuple(Int32, Int32, Int32, Int32))) : Nil
-      changed = true
-      while changed
-        changed = false
-        @children.each do |el|
-          next if el.style.z_index
-          next if involved.includes? el
-          cb = el.damage_bounds
-          next unless cb
-          if frontier.any? { |r| damage_rects_overlap?(r, cb) }
-            involved << el
-            frontier << cb
-            changed = true
-          end
-        end
-      end
     end
 
     # Phase 4 — single z-index plane. Reached only when the last full frame was a
@@ -715,52 +730,52 @@ module Crysterm
       plane_new = nil
       cur.each { |el| plane_new = damage_union(plane_new, el.damage_bounds) }
 
-      # Re-render the base-layer (non-z) dirty roots into the base buffer to learn
-      # their new footprints (clearing each one's old footprint first), collecting
-      # the old∪new damaged rectangles. These are repainted again as part of the
-      # cluster below — the first render is only to compute bounds (same as the
-      # plain Phase 2 path).
-      damaged = @damage_rects
-      damaged.clear
+      # Re-render the base-layer (non-z) dirty roots to learn their new footprints
+      # (clearing each one's old footprint first), capturing the old footprints as
+      # cluster glue — a moved base widget's vacated cells must be rebuilt. The
+      # roots are repainted again as part of the cluster below.
+      olds = @damage_dirty_old
+      olds.clear
       dirty.each do |root|
         next if root.style.z_index
         old = root.damage_bounds
+        olds << old
         clear_region old[0], old[1], old[2], old[3] if old
         root.render
-        nb = damage_subtree_bounds root
-        root.damage_bounds = nb
-        if rect = damage_union(old, nb)
-          damaged << rect
-        end
+        root.damage_bounds = damage_subtree_bounds root
       end
       # A base dirty root deferred a nested layer, or wrote outside the cell model.
       return false if @frame_used_effects
       return false unless @layer_widgets.empty?
 
-      # Build the region to rebuild pre-plane. The plane's covered region
-      # (old∪new) always participates: its base must be rebuilt and the plane
-      # re-folded over it, and a vacated part (where the plane moved away from)
-      # must revert to bare base. Base sub-clusters connected to that region — or
-      # to a base change — are pulled in transitively, exactly as Phase 2 does.
-      involved = @damage_involved
-      involved.clear
+      # Build the pre-plane rebuild cluster (same grid/union-find as Phase 2). The
+      # glue rects pull in whatever base sits under a changed root's vacated
+      # footprint OR under the plane's covered region (old∪new): that base must be
+      # rebuilt and the plane re-folded over it, and a vacated part (where the
+      # plane moved away) must revert to bare base.
       frontier = @damage_frontier
       frontier.clear
-      damaged.each { |d| frontier << d }
-      dirty.each { |r| involved << r unless r.style.z_index }
-      frontier << plane_old if plane_old
-      frontier << plane_new if plane_new && plane_new != plane_old
+      glue = @damage_glue
+      glue.clear
+      olds.each { |o| glue << o if o }
+      glue << plane_old if plane_old
+      glue << plane_new if plane_new && plane_new != plane_old
 
-      # Grow the connected component over the base children (the shared helper
-      # skips layer roots — they never paint into the base buffer).
-      damage_grow_component involved, frontier
+      cluster_area = damage_build_cluster dirty, glue, frontier
 
-      # Clear every contributed rectangle, then repaint the involved base widgets
-      # in `@children` (z) order — a region-local pre-plane base rebuild.
+      # Cost parity: if rebuilding the cluster and re-folding the plane already
+      # costs ~a full frame, fall back — keeps the plane path "never worse than
+      # full" even for a plane over a very large, fully-changing base.
+      plane_area = plane_new ? damage_rect_area(plane_new) : 0_i64
+      return false if 2_i64 * cluster_area + plane_area >= awidth.to_i64 * aheight + @damage_all_area
+
+      # Clear the cluster's cells (member footprints + glue) and repaint members in
+      # `@children` (z) order — a region-local pre-plane base rebuild.
       frontier.each { |r| clear_region r[0], r[1], r[2], r[3] }
+      stamp = @damage_stamp
       @children.each do |el|
         next if el.style.z_index
-        next unless involved.includes? el
+        next unless el.damage_seen == stamp
         el.render
         el.damage_bounds = damage_subtree_bounds el
       end
