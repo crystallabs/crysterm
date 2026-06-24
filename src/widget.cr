@@ -1,5 +1,5 @@
 require "./event"
-require "./helpers"
+require "./misc/util/helpers"
 
 require "./mixin/children"
 require "./mixin/pos"

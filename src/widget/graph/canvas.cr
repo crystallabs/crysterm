@@ -1,6 +1,6 @@
 require "../box"
 require "../media"
-require "./painter"
+require "../../misc/raster/painter"
 
 module Crysterm
   class Widget

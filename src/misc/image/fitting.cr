@@ -1,4 +1,5 @@
-require "../media"
+require "pnggif"
+require "./fit"
 
 module Crysterm
   class Widget

@@ -1,5 +1,5 @@
 require "./box"
-require "./graph/scale"
+require "../misc/glyph/scale"
 
 module Crysterm
   class Widget

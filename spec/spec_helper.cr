@@ -1,6 +1,6 @@
 require "spec"
 require "../src/crysterm"
-require "../src/helpers"
+require "../src/misc/util/helpers"
 
 # When built with -Dremote, let the bridge specs actually open their ports.
 {% if flag?(:remote) %}

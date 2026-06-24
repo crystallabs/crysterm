@@ -1,5 +1,5 @@
-require "../pty"
-require "../terminal_emulator"
+require "../misc/terminal_backend/pty"
+require "../misc/terminal_backend/terminal_emulator"
 
 module Crysterm
   class Widget
