@@ -359,3 +359,68 @@ describe "Slider mouse wheel" do
     sl.value.should eq 50
   end
 end
+
+# Reads a vertical scroll bar's column (column 0) as a String.
+private def col_chars(s, x, y0, y1)
+  (y0...y1).map { |y| s.lines[y][x].char }.join
+end
+
+describe "ScrollBar rendering" do
+  it "omits stepper buttons by default, splitting the trough around the thumb" do
+    s = render_screen
+    Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
+      minimum: 0, maximum: 10, value: 0
+    s._render
+    # thumb at the top (value 0), `::add-page` trough below it.
+    col_chars(s, 0, 0, 7).should eq "█░░░░░░"
+  end
+
+  it "draws stepper buttons at the trough ends when enabled" do
+    s = render_screen
+    Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
+      minimum: 0, maximum: 10, value: 0, stepper_buttons: true
+    s._render
+    # ▲ sub-line, █ thumb, ░ add-page trough, ▼ add-line.
+    col_chars(s, 0, 0, 7).should eq "▲█░░░░▼"
+  end
+
+  it "draws left/right arrows for a horizontal bar with steppers" do
+    s = render_screen
+    Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 7, height: 1,
+      orientation: Tput::Orientation::Horizontal,
+      minimum: 0, maximum: 10, value: 0, stepper_buttons: true
+    s._render
+    row_chars(s, 0, 0, 7).should eq "◀█░░░░▶"
+  end
+
+  it "steps the value when a stepper button is clicked" do
+    s = render_screen
+    sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
+      minimum: 0, maximum: 10, value: 5, step: 1, stepper_buttons: true
+    s._render
+    press(s, 0, 6) # the bottom (add-line) button -> increment
+    sb.value.should eq 6
+    press(s, 0, 0) # the top (sub-line) button -> decrement
+    sb.value.should eq 5
+  end
+
+  it "paints the sub-control CSS slots into the rendered cells" do
+    s = render_screen
+    # A focusable sibling holds focus, so the bar renders in its normal state
+    # (chrome is typically unfocused) — the state the unprefixed rules target.
+    Crysterm::Widget::TextBox.new parent: s, top: 10, left: 0, width: 10, height: 1
+    sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
+      minimum: 0, maximum: 10, value: 0, stepper_buttons: true
+    s.stylesheet = "ScrollBar::add-page { background-color: #00ff00; } " \
+                   "ScrollBar::up-arrow { color: #0000ff; }"
+    s._render
+    # The slots route into the bar's sub-styles...
+    sb.style.add_page.bg.should eq Crysterm::Colors.convert("#00ff00")
+    sb.style.up_arrow.fg.should eq Crysterm::Colors.convert("#0000ff")
+    # ...and actually paint: blue up-arrow at the top, green add-page trough below.
+    s.lines[0][0].char.should eq '▲'
+    Crysterm::Attr.unpack_color(Crysterm::Attr.fg(s.lines[0][0].attr)).should eq 0x0000ff
+    s.lines[3][0].char.should eq '░'
+    Crysterm::Attr.unpack_color(Crysterm::Attr.bg(s.lines[3][0].attr)).should eq 0x00ff00
+  end
+end

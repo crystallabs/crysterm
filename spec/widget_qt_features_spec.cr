@@ -984,8 +984,8 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
     s._render
     list.show_scrollbar?.should be_true
     sb = list.scrollbar_widget.not_nil!
-    sb.maximum.should be > 0      # range derived from item count
-    sb.page_step.should be <= 5   # thumb page = visible rows
+    sb.maximum.should be > 0    # range derived from item count
+    sb.page_step.should be <= 5 # thumb page = visible rows
   end
 end
 
@@ -997,7 +997,7 @@ describe "QAbstractScrollArea facade" do
     box.scrollbar_widget.should be_nil
     bar = box.vertical_scrollbar
     bar.should be_a Crysterm::Widget::ScrollBar
-    box.scrollbar_widget.should be bar # cached, same instance
+    box.scrollbar_widget.should be bar     # cached, same instance
     box.horizontal_scrollbar.should be_nil # until workstream D
   end
 
@@ -1019,7 +1019,7 @@ describe "QAbstractScrollArea facade" do
     box.child_base.should be > 0
     (box.child_base <= 15).should be_true
     (15 <= box.child_base + (box.aheight - box.iheight) - 1).should be_true # now within view
-    box.ensure_visible(15).should be_false # already visible → no move
+    box.ensure_visible(15).should be_false                                  # already visible → no move
   end
 
   it "scroll_contents_by maps dy onto scroll and drives the bound bar" do

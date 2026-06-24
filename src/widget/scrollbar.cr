@@ -85,6 +85,21 @@ module Crysterm
       property thumb_char : Char = '█'
       property trough_char : Char = '░'
 
+      # Qt's `QScrollBar` stepper buttons (`::sub-line`/`::add-line`). Off by
+      # default — terminal scroll bars rarely show them. When on, one cell at
+      # each end of the trough becomes a clickable step button drawing an arrow
+      # glyph (see `#up_arrow_char` …), styleable via the `::up-arrow`/
+      # `::down-arrow`/`::left-arrow`/`::right-arrow` and `::sub-line`/`::add-line`
+      # CSS slots; the trough shrinks by the two reserved cells.
+      property? stepper_buttons : Bool = false
+
+      # Arrow glyphs drawn in the stepper buttons. Up/down are used when
+      # `#orientation` is vertical, left/right when horizontal.
+      property up_arrow_char : Char = '▲'
+      property down_arrow_char : Char = '▼'
+      property left_arrow_char : Char = '◀'
+      property right_arrow_char : Char = '▶'
+
       # The scrollable widget this bar is bound to (see `#attach`), if any.
       getter target : Widget?
 
@@ -102,6 +117,7 @@ module Crysterm
         @orientation = @orientation,
         @thumb_char = '█',
         @trough_char = '░',
+        @stepper_buttons = false,
         **input,
       )
         super **input
@@ -136,14 +152,25 @@ module Crysterm
 
           next unless e.action.down? || (e.action.move? && !e.button.none?)
           if @orientation.horizontal?
-            pos = e.x - aleft - ileft
-            span = awidth - iwidth - 1
+            raw = e.x - aleft - ileft
+            inner = awidth - iwidth
           else
-            pos = e.y - atop - itop
-            span = aheight - iheight - 1
+            raw = e.y - atop - itop
+            inner = aheight - iheight
           end
+          steppers = stepper_buttons? && inner >= 3
+          # A click on a stepper-button cell steps by `#step` instead of seeking.
+          if steppers && e.action.down? && (raw <= 0 || raw >= inner - 1)
+            raw <= 0 ? decrement : increment
+            e.accept
+            request_render
+            next
+          end
+          # Seek within the trough, which starts one cell in when steppers show.
+          pos = raw - (steppers ? 1 : 0)
+          span = (steppers ? inner - 2 : inner) - 1
           next if span <= 0
-          self.slider_position = @minimum + (pos * value_span / span.to_f).round.to_i
+          self.slider_position = @minimum + (pos.clamp(0, span) * value_span / span.to_f).round.to_i
           e.accept
           request_render
         end
@@ -212,42 +239,101 @@ module Crysterm
         ((slider_position - @minimum) * room / value_span.to_f).round.to_i.clamp(0, Math.max(0, room))
       end
 
-      def render
-        with_inner_coords do |xi, xl, yi, yl|
-          trough_attr = sattr style
-          screen.fill_region trough_attr, @trough_char, xi, xl, yi, yl
+      # Resolves a sub-style slot to *fallback* when it was not explicitly
+      # styled. The `Style` slot getters return the bar's own `base` style in
+      # that case, so object identity tells "unset" apart — letting e.g.
+      # `::sub-page` inherit `::groove` (`track`), and the arrows inherit their
+      # `::sub-line`/`::add-line` button.
+      private def resolve_slot(slot : Style, fallback : Style, base : Style) : Style
+        slot.same?(base) ? fallback : slot
+      end
 
-          thumb_attr = sattr style.indicator
+      # Packed attr + glyph for a stepper button. The arrow slot falls back to
+      # its button slot, which falls back to the bar's base style.
+      private def stepper_cell(decrement : Bool, base : Style) : {Int64, Char}
+        if decrement
+          button = resolve_slot(base.sub_line, base, base)
           if @orientation.horizontal?
-            avail = xl - xi
-            sz = thumb_size avail
-            off = thumb_offset avail
-            (yi...yl).each do |y|
-              screen.lines[y]?.try do |line|
-                (0...sz).each do |k|
-                  line[xi + off + k]?.try do |cell|
-                    cell.char = @thumb_char
-                    cell.attr = thumb_attr
-                  end
-                end
-                line.dirty = true
-              end
-            end
+            {sattr(resolve_slot(base.left_arrow, button, base)), @left_arrow_char}
           else
-            avail = yl - yi
-            sz = thumb_size avail
-            off = thumb_offset avail
-            (0...sz).each do |k|
-              screen.lines[yi + off + k]?.try do |line|
-                (xi...xl).each do |x|
-                  line[x]?.try do |cell|
-                    cell.char = @thumb_char
-                    cell.attr = thumb_attr
-                  end
-                end
-                line.dirty = true
+            {sattr(resolve_slot(base.up_arrow, button, base)), @up_arrow_char}
+          end
+        else
+          button = resolve_slot(base.add_line, base, base)
+          if @orientation.horizontal?
+            {sattr(resolve_slot(base.right_arrow, button, base)), @right_arrow_char}
+          else
+            {sattr(resolve_slot(base.down_arrow, button, base)), @down_arrow_char}
+          end
+        end
+      end
+
+      def render
+        base = style
+        with_inner_coords do |xi, xl, yi, yl|
+          horizontal = @orientation.horizontal?
+          main_lo, main_hi = horizontal ? {xi, xl} : {yi, yl}
+          avail_full = main_hi - main_lo
+          next if avail_full <= 0
+
+          # Reserve a cell at each end for stepper buttons when there's room.
+          steppers = stepper_buttons? && avail_full >= 3
+          trough_lo = steppers ? main_lo + 1 : main_lo
+          trough_hi = steppers ? main_hi - 1 : main_hi
+          avail = trough_hi - trough_lo
+
+          off = thumb_offset avail
+          sz = thumb_size avail
+          thumb_lo = trough_lo + off
+          thumb_hi = thumb_lo + sz
+
+          # `::sub-page`/`::add-page` are the trough above/below the handle; both
+          # fall back to `::groove` (`track`) when unset.
+          sub_page_attr = sattr resolve_slot(base.sub_page, base.track, base)
+          add_page_attr = sattr resolve_slot(base.add_page, base.track, base)
+          thumb_attr = sattr base.indicator
+
+          (main_lo...main_hi).each do |m|
+            attr, ch =
+              if steppers && m == main_lo
+                stepper_cell true, base
+              elsif steppers && m == main_hi - 1
+                stepper_cell false, base
+              elsif m < thumb_lo
+                {sub_page_attr, @trough_char}
+              elsif m >= thumb_hi
+                {add_page_attr, @trough_char}
+              else
+                {thumb_attr, @thumb_char}
+              end
+            paint_cross horizontal, m, xi, xl, yi, yl, attr, ch
+          end
+        end
+      end
+
+      # Fills the cross-axis extent at main-axis position *m* with *attr*/*ch*:
+      # for a vertical bar *m* is a row (fill columns `xi...xl`); for a
+      # horizontal bar *m* is a column (fill rows `yi...yl`).
+      private def paint_cross(horizontal, m, xi, xl, yi, yl, attr, ch) : Nil
+        if horizontal
+          (yi...yl).each do |y|
+            screen.lines[y]?.try do |line|
+              line[m]?.try do |cell|
+                cell.char = ch
+                cell.attr = attr
+              end
+              line.dirty = true
+            end
+          end
+        else
+          screen.lines[m]?.try do |line|
+            (xi...xl).each do |x|
+              line[x]?.try do |cell|
+                cell.char = ch
+                cell.attr = attr
               end
             end
+            line.dirty = true
           end
         end
       end

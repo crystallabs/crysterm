@@ -66,5 +66,19 @@ module Crysterm
         super + ["indicator"]
       end
     end
+
+    # A standalone `ScrollBar` is not itself `scrollable?`, so the base slots
+    # don't surface; expose its own chrome instead: `track` (the trough,
+    # Qt's `::groove`), `indicator` (the handle, Qt's `::handle`), and the
+    # `QScrollBar` sub-controls — `sub-line`/`add-line` (stepper buttons),
+    # `up-arrow`/`down-arrow`/`left-arrow`/`right-arrow` (arrow glyphs), and
+    # `sub-page`/`add-page` (trough regions before/after the handle).
+    class ScrollBar
+      def css_sub_elements : Array(String)
+        super + ["track", "indicator",
+                 "sub-line", "add-line", "sub-page", "add-page",
+                 "up-arrow", "down-arrow", "left-arrow", "right-arrow"]
+      end
+    end
   end
 end

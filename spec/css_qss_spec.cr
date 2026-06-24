@@ -56,6 +56,15 @@ describe Crysterm::CSS::Qss do
         .should eq "Slider Indicator:active { }"
     end
 
+    it "passes QScrollBar sub-controls through for native :: lowering" do
+      # `::add-page`/`::up-arrow`/… have no `SUB_ELEMENTS` alias, so qss leaves
+      # the `::` for the native parser, which lowers it onto `ScrollBar`'s slot.
+      Crysterm::CSS::Qss.to_css("QScrollBar::add-page { color: red; }")
+        .should eq "ScrollBar::add-page { color: red; }"
+      Crysterm::CSS::Qss.to_css("QScrollBar::up-arrow:hover { }")
+        .should eq "ScrollBar::up-arrow:hover { }"
+    end
+
     # KNOWN GAP: Qt's `::indicator:checked` means "indicator *while the parent is
     # checked*", but we don't hoist a parent-state onto the type. `::indicator`
     # and `:checked` are now both lowered by the *native* parser (to the

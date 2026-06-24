@@ -407,6 +407,60 @@ module Crysterm
       @track || self
     end
 
+    # `Widget::ScrollBar` sub-control slots, mirroring Qt's `QScrollBar`
+    # sub-controls (`::sub-line`/`::add-line` stepper buttons, `::up-arrow`/
+    # `::down-arrow`/`::left-arrow`/`::right-arrow` arrow glyphs, and
+    # `::sub-page`/`::add-page`, the trough regions before/after the handle).
+    # Each defaults to `self`; the bar resolves an unset arrow/page slot back to
+    # its button/track slot at render time (see `ScrollBar#render`).
+    setter sub_line : Style?
+
+    def sub_line
+      @sub_line || self
+    end
+
+    setter add_line : Style?
+
+    def add_line
+      @add_line || self
+    end
+
+    setter sub_page : Style?
+
+    def sub_page
+      @sub_page || self
+    end
+
+    setter add_page : Style?
+
+    def add_page
+      @add_page || self
+    end
+
+    setter up_arrow : Style?
+
+    def up_arrow
+      @up_arrow || self
+    end
+
+    setter down_arrow : Style?
+
+    def down_arrow
+      @down_arrow || self
+    end
+
+    setter left_arrow : Style?
+
+    def left_arrow
+      @left_arrow || self
+    end
+
+    setter right_arrow : Style?
+
+    def right_arrow
+      @right_arrow || self
+    end
+
     # Folds *inline*'s explicitly-set nested sub-styles (`header`/`cell`/
     # `alternate`/`bar`/…) onto this style. Used by the CSS cascade so an inline
     # `@style` that carries a sub-style — e.g. `Style.new(alternate_row: ...)` on a
@@ -430,6 +484,14 @@ module Crysterm
       @float_button = inline.@float_button if inline.@float_button
       @scrollbar = inline.@scrollbar if inline.@scrollbar
       @track = inline.@track if inline.@track
+      @sub_line = inline.@sub_line if inline.@sub_line
+      @add_line = inline.@add_line if inline.@add_line
+      @sub_page = inline.@sub_page if inline.@sub_page
+      @add_page = inline.@add_page if inline.@add_page
+      @up_arrow = inline.@up_arrow if inline.@up_arrow
+      @down_arrow = inline.@down_arrow if inline.@down_arrow
+      @left_arrow = inline.@left_arrow if inline.@left_arrow
+      @right_arrow = inline.@right_arrow if inline.@right_arrow
     end
 
     def initialize(
@@ -440,6 +502,14 @@ module Crysterm
       shadow = nil,
       @scrollbar = @scrollbar,
       @track = @track,
+      @sub_line = @sub_line,
+      @add_line = @add_line,
+      @sub_page = @sub_page,
+      @add_page = @add_page,
+      @up_arrow = @up_arrow,
+      @down_arrow = @down_arrow,
+      @left_arrow = @left_arrow,
+      @right_arrow = @right_arrow,
       @alternate_row = @alternate_row,
       @indicator = @indicator,
       @item = @item,

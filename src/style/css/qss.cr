@@ -106,8 +106,10 @@ module Crysterm
       # for every stylesheet, so qss inherits them for free. Only the non-identity
       # Qt aliases need a rewrite here, *before* the native pass, so e.g. `::chunk`
       # becomes `Indicator` rather than the non-existent `Chunk` node. Unmapped
-      # `::name` (`::tab`, `::down-arrow`, …) pass through to the native lowering
-      # and simply match nothing.
+      # `::name` pass through to the native lowering: those a widget exposes as a
+      # slot (e.g. `Widget::ScrollBar`'s `::add-page`/`::sub-line`/`::up-arrow`,
+      # see `sub_elements.cr`) match its capitalized node; the rest (`::tab`, …)
+      # match nothing.
       #
       # `::section` is intentionally absent: `QHeaderView` already renames to the
       # `Header` node (see `RENAMES`), so `::section` would double it to

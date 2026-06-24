@@ -489,15 +489,23 @@ module Crysterm
 
       private def self.get_sub_style(style : Style, slot : String?) : Style
         case slot
-        when "scrollbar" then style.scrollbar
-        when "track"     then style.track
-        when "cell"      then style.cell
-        when "header"    then style.header
-        when "item"      then style.item
-        when "indicator" then style.indicator
-        when "prefix"    then style.prefix
-        when "separator" then style.separator
-        when "tab"       then style.tab
+        when "scrollbar"    then style.scrollbar
+        when "track"        then style.track
+        when "sub-line"     then style.sub_line
+        when "add-line"     then style.add_line
+        when "sub-page"     then style.sub_page
+        when "add-page"     then style.add_page
+        when "up-arrow"     then style.up_arrow
+        when "down-arrow"   then style.down_arrow
+        when "left-arrow"   then style.left_arrow
+        when "right-arrow"  then style.right_arrow
+        when "cell"         then style.cell
+        when "header"       then style.header
+        when "item"         then style.item
+        when "indicator"    then style.indicator
+        when "prefix"       then style.prefix
+        when "separator"    then style.separator
+        when "tab"          then style.tab
         when "title"        then style.title
         when "pane"         then style.pane
         when "close-button" then style.close_button
@@ -509,15 +517,23 @@ module Crysterm
 
       private def self.set_sub_style(style : Style, slot : String?, sub : Style) : Nil
         case slot
-        when "scrollbar" then style.scrollbar = sub
-        when "track"     then style.track = sub
-        when "cell"      then style.cell = sub
-        when "header"    then style.header = sub
-        when "item"      then style.item = sub
-        when "indicator" then style.indicator = sub
-        when "prefix"    then style.prefix = sub
-        when "separator" then style.separator = sub
-        when "tab"       then style.tab = sub
+        when "scrollbar"    then style.scrollbar = sub
+        when "track"        then style.track = sub
+        when "sub-line"     then style.sub_line = sub
+        when "add-line"     then style.add_line = sub
+        when "sub-page"     then style.sub_page = sub
+        when "add-page"     then style.add_page = sub
+        when "up-arrow"     then style.up_arrow = sub
+        when "down-arrow"   then style.down_arrow = sub
+        when "left-arrow"   then style.left_arrow = sub
+        when "right-arrow"  then style.right_arrow = sub
+        when "cell"         then style.cell = sub
+        when "header"       then style.header = sub
+        when "item"         then style.item = sub
+        when "indicator"    then style.indicator = sub
+        when "prefix"       then style.prefix = sub
+        when "separator"    then style.separator = sub
+        when "tab"          then style.tab = sub
         when "title"        then style.title = sub
         when "pane"         then style.pane = sub
         when "close-button" then style.close_button = sub
