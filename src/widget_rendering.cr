@@ -743,7 +743,16 @@ module Crysterm
     # Clears area/position of widget's last render
     def clear_last_rendered_position(get = false, override = false)
       return unless screen?
-      lpos = _get_coords(get)
+      # Clear the rectangle this widget was *last painted* into, which is exactly
+      # the cached `@lpos` from its previous `_render` — so reuse it instead of
+      # recomputing the geometry from scratch (`awidth`/`aleft`/`atop` plus the
+      # ancestor-clip walk) every call. This is the right region even after the
+      # caller has changed `left`/`top` to move the widget, since `@lpos` still
+      # holds where it actually was. Falls back to `_get_coords` only when the
+      # widget has never rendered (`@lpos` nil) — then there is no stale paint to
+      # erase, but the old computed-position behavior is preserved. (Same
+      # `@lpos || _get_coords` idiom as `widget_scrolling.cr`.)
+      lpos = @lpos || _get_coords(get)
       return unless lpos
       screen.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
     end

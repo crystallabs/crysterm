@@ -119,6 +119,15 @@ letters = slots.map do |_|
     content: "·", style: Style.new(fg: 0xffffff, bg: 0x000000)
 end
 
+# Live performance overlay. Added last so it paints on top of the scene; it
+# updates itself from the screen's render stats each frame (no `step` needed).
+# Anchored top-left here (its default is bottom-left, where the sine scroller is).
+Widget::Fps.new \
+  parent: s, top: 0, left: 0,
+  format: " FPS %s (avg %s)  render %s  draw %s ",
+  args: %i[fps fps_avg render draw],
+  style: Style.new(fg: "white", bg: "black")
+
 frame = 0
 s.every(0.07.seconds) do
   # copper bars hue-cycle (advance one frame; each CopperBar paints its own bg)
