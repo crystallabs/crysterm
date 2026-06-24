@@ -12,15 +12,26 @@ module Crysterm
         PROPERTIES.includes? property
       end
 
+      # The unit→cell divisor table. Now lives in `CSS::Length` (shared with
+      # `Properties`); kept here as a backwards-compatible alias so existing
+      # `Geometry.unit_divisors[...]` call sites/tuning keep working.
+      def self.unit_divisors : Hash(String, Float64?)
+        Length.divisors
+      end
+
+      def self.unit_divisors=(table : Hash(String, Float64?))
+        Length.divisors = table
+      end
+
       # Applies a geometry declaration onto *widget*.
       #
       # ameba:disable Metrics/CyclomaticComplexity
       def self.apply(widget : Widget, property : String, value : String) : Nil
         case property
-        when "width"  then widget.width = dimension(value)
-        when "height" then widget.height = dimension(value)
-        when "top"    then widget.top = dimension(value)
-        when "left"   then widget.left = dimension(value)
+        when "width"  then dimension(value).try { |d| widget.width = d }
+        when "height" then dimension(value).try { |d| widget.height = d }
+        when "top"    then dimension(value).try { |d| widget.top = d }
+        when "left"   then dimension(value).try { |d| widget.left = d }
           # `right`/`bottom` are offsets in cells only (no `center`/`%` form).
         when "right"  then value.to_i?.try { |cells| widget.right = cells }
         when "bottom" then value.to_i?.try { |cells| widget.bottom = cells }
@@ -38,11 +49,18 @@ module Crysterm
         end
       end
 
-      # Parses a geometry value: a bare integer becomes an `Int32` (cells);
-      # everything else (`50%`, `center`, `50%-10`, ...) passes through as a
-      # `String`, which crysterm's positioning already understands.
-      private def self.dimension(value : String) : Int32 | String
-        value.to_i? || value
+      # Parses a geometry value: a bare integer becomes an `Int32` (cells); a
+      # value carrying a CSS unit (`200px`, `0.5em`, ...) is converted to cells
+      # through `unit_divisors` (an unmapped/`nil`-mapped unit returns `nil` so
+      # the caller ignores it); everything else (`50%`, `center`, `50%-10`, ...)
+      # passes through as a `String`, which crysterm's positioning already
+      # understands.
+      private def self.dimension(value : String) : Int32 | String | Nil
+        if value.matches?(Length::PATTERN) || value.to_i?
+          Length.to_cells(value) # bare cells or a unit'd length (nil ⇒ ignore)
+        else
+          value                  # `50%`, `center`, `50%-10`, ... pass through
+        end
       end
     end
   end

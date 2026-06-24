@@ -437,7 +437,12 @@ module Crysterm
       # Parses a stylesheet from a `.css` file (its path is used to resolve
       # `@import`).
       def self.from_file(path : String | Path) : Stylesheet
-        parse File.read(path), base_path: path.to_s
+        source = File.read(path)
+        # `.qss` (Qt Style Sheet) files are translated to Crysterm CSS first
+        # (strip the `Q` selector prefix and rename Qt classes to ours); see
+        # `CSS::Qss`. Unmapped selectors fall through to the tolerant parser.
+        source = Qss.to_css(source) if path.to_s.downcase.ends_with?(".qss")
+        parse source, base_path: path.to_s
       end
 
       # Strips `/* ... */` comments (including multi-line).

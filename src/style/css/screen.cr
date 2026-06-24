@@ -97,6 +97,26 @@ module Crysterm
       watch_stylesheet path if auto_reload_stylesheet?
     end
 
+    # Applies the startup stylesheet configured via `Config.colors_stylesheet`
+    # (a `.css` file path or inline CSS text), unless this screen already has an
+    # author stylesheet set in code — explicit assignment always wins. Called
+    # once from the constructor, after the theme is installed, so the configured
+    # author CSS layers over the theme. An empty config value is a no-op.
+    #
+    # The value is treated as inline CSS when it contains a `{` (a rule body);
+    # otherwise it's a file path (`~` expanded, `@import` resolved relative to
+    # it).
+    protected def apply_config_stylesheet : Nil
+      return unless @css_stylesheet.nil?
+      source = Crysterm::Config.colors_stylesheet
+      return if source.empty?
+      if source.includes?('{')
+        self.stylesheet = source
+      else
+        load_stylesheet Path[source].expand(home: true).to_s
+      end
+    end
+
     # Re-reads the file last given to `#load_stylesheet` and re-applies it
     # (leaving any active watcher in place).
     def reload_stylesheet : Nil
@@ -108,7 +128,13 @@ module Crysterm
     # reload can be skipped.
     private def apply_stylesheet_source(source : String, path : String) : Nil
       @css_loaded_source = source
-      self.stylesheet = CSS::Stylesheet.parse(source, base_path: path)
+      # A `.qss` (Qt Style Sheet) file is translated to Crysterm CSS first — the
+      # `Q` selector prefix is stripped and Qt class names are mapped to ours
+      # (see `CSS::Qss`). The raw text is what's cached above for the
+      # unchanged-reload check; only the copy fed to the parser is rewritten.
+      # Anything still unrecognised is skipped by the parser, never fatal.
+      css = path.downcase.ends_with?(".qss") ? CSS::Qss.to_css(source) : source
+      self.stylesheet = CSS::Stylesheet.parse(css, base_path: path)
     end
 
     # Stylesheet hot-reload. Temporarily DISABLED: the `fswatch` shard was

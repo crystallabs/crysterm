@@ -31,3 +31,16 @@ module Crysterm
 end
 
 require "./config/builtins"
+
+# Apply external configuration once, at load time, so every app honors the
+# config file, `CRYSTERM_*` env vars, and CLI flags (e.g. `--colors-stylesheet`)
+# out of the box — with no per-app `configure!` call. This must run here, before
+# any `Screen` is constructed: many options are read as `Screen` property
+# defaults, which Crystal evaluates at the very start of `initialize`, so a later
+# (e.g. in-constructor) call would be too late for them.
+#
+# Opt out by setting `CRYSTERM_NO_AUTO_CONFIGURE` (e.g. to do your own CLI
+# parsing, or to load a specific file via an explicit `Crysterm.configure!`).
+# Apps may still call `Crysterm.configure!` again themselves (e.g. with a config
+# file path); it re-applies the sources in precedence order.
+Crysterm.configure! unless ENV["CRYSTERM_NO_AUTO_CONFIGURE"]?

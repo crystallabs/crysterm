@@ -67,6 +67,8 @@ module Superconf
   # -- Colors ----------------------------------------------------------------
   option "colors.theme", Crysterm::CSS::Theme::Choice::Terminal,
     description: "Default CSS theme installed on each Screen (dark|light|terminal|none). 'terminal' derives a palette from the terminal's own probed colors; 'none' disables the built-in theme (CSS then comes only from an author stylesheet)"
+  option "colors.stylesheet", "",
+    description: "Author CSS applied to each Screen at startup (over the theme), unless the app already set one in code. Either a path to a .css file (read from disk; ~ is expanded and @import resolves relative to it) or inline CSS text (any value containing '{'). Empty = none"
   option "colors.default_fg", 0xc0c0c0,
     description: "Neutral RGB substituted for a 'default' foreground when it must be blended",
     validate: ->(c : Int32) { 0 <= c <= 0xFFFFFF }

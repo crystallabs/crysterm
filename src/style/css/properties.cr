@@ -340,13 +340,13 @@ module Crysterm
         end
       end
 
-      # Parses a length given in terminal cells, tolerating an alphabetic unit
-      # suffix like `px`/`em` (`"2"` or `"2px"` -> `2`, `"-1"` -> `-1`). Inputs
-      # that aren't a plain cell count — percentages (`50%`), ranges (`5-10`),
-      # decimals, junk — have no meaning in the cell model and yield `0` rather
-      # than a silently-wrong number (e.g. the old code turned `50%` into `50`).
+      # Parses a length to terminal cells, honoring CSS units through the shared
+      # `Length` divisor table (`"2"` -> 2, `"200px"` -> 20 with the default `px`
+      # divisor, `"1em"` -> 1). Inputs that aren't a cell count — percentages
+      # (`50%`), ranges (`5-10`), an unmapped unit (`3cm`), junk — have no meaning
+      # in the cell model and yield `0` rather than a silently-wrong number.
       private def self.cells(value : String) : Int32
-        value.strip =~ /\A(-?\d+)[a-z]*\z/i ? $1.to_i : 0
+        Length.to_cells(value) || 0
       end
 
       # Parses a `box-shadow`. `none` disables the shadow; otherwise a default

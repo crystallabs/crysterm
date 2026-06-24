@@ -274,6 +274,9 @@ module Crysterm
       # palette) the `"terminal"` theme reads has had a chance to complete.
       # `restyle` marks the tree dirty so the first render applies the theme.
       CSS.ensure_theme self
+      # Apply the configured startup stylesheet (Config.colors_stylesheet), if
+      # any, over the theme — unless the app already set one in code.
+      apply_config_stylesheet
       restyle
 
       # Spawning the loop does not start rendering until the first call to #render

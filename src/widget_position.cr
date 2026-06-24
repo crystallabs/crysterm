@@ -32,7 +32,11 @@ module Crysterm
       end
 
       pct_end = sep == -1 ? bytes.size - 1 : sep - 1 # index of the '%'
-      pct = expr.byte_slice(0, pct_end).to_f / 100
+      # `to_f?` (not `to_f`) so a value that isn't a clean percentage — e.g. a
+      # CSS length with a unit that slipped through (`0.5em` -> `0.5e`) — yields
+      # 0 rather than raising `Invalid Float64`. Geometry already drops unit'd
+      # values upstream; this is the last-line guard so layout never aborts.
+      pct = (expr.byte_slice(0, pct_end).to_f? || 0.0) / 100
 
       off = 0
       if sep != -1
