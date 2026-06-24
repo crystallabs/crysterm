@@ -100,6 +100,12 @@ module Crysterm
         @link_text = ""
         # Blockquote nesting depth.
         @quote = 0
+        # Leading characters still to strip from upcoming text (a task-list item's
+        # `[ ] ` / `[x] ` marker, which markd tokenizes as plain text).
+        @strip_task = 0
+        # While rendering a GFM table (which markd parses as a plain paragraph),
+        # the paragraph's text/inline children are suppressed.
+        @in_table = false
         # Whether any non-empty output has been emitted (so the first block gets
         # no leading blank line).
         @emitted = false
@@ -138,10 +144,21 @@ module Crysterm
         end
 
         def paragraph(node : Markd::Node, entering : Bool)
-          # Separate top-level paragraphs with a blank line; inside a list item a
-          # paragraph stays tight (no blank), just a trailing break.
           if entering
+            # GFM tables aren't parsed by markd — they arrive as a paragraph of
+            # `| … |` rows. Detect and render those as a box-drawing table,
+            # suppressing the paragraph's own (text) children.
+            txt = node_text node
+            if table? txt
+              @in_table = true
+              render_table txt
+              return
+            end
+            # Separate top-level paragraphs with a blank line; inside a list item
+            # a paragraph stays tight (no blank), just a trailing break.
             blank_line if @lists.empty? && @quote == 0
+          elsif @in_table
+            @in_table = false
           else
             newline unless @quote > 0
           end
@@ -194,38 +211,52 @@ module Crysterm
           return if @lists.empty?
           depth = @lists.size - 1
           literal "  " * depth
-          cur = @lists[-1]
-          if cur[:ordered]
-            literal "{#86B5FF-fg}#{cur[:counter]}.{/#86B5FF-fg} "
-            @lists[-1] = {ordered: true, counter: cur[:counter] + 1}
+          # Task-list item (`- [ ] …` / `- [x] …`): markd renders the marker as
+          # plain text, so swap it for a checkbox glyph and strip the `[ ] `.
+          case task_marker node
+          when :done
+            literal "{#{hex @md.quote_color}-fg}☑{/#{hex @md.quote_color}-fg} "
+            @strip_task = 4
+          when :todo
+            literal "{#808a96-fg}☐{/#808a96-fg} "
+            @strip_task = 4
           else
-            literal "{#86B5FF-fg}•{/#86B5FF-fg} "
+            cur = @lists[-1]
+            if cur[:ordered]
+              literal "{#86B5FF-fg}#{cur[:counter]}.{/#86B5FF-fg} "
+              @lists[-1] = {ordered: true, counter: cur[:counter] + 1}
+            else
+              literal "{#86B5FF-fg}•{/#86B5FF-fg} "
+            end
           end
         end
 
         # --- inline elements ---------------------------------------------------
 
         def text(node : Markd::Node, entering : Bool)
-          return unless entering
+          return if !entering || @in_table
           text_out node.text
         end
 
         def strong(node : Markd::Node, entering : Bool)
+          return if @in_table
           literal(entering ? "{bold}" : "{/bold}")
         end
 
         def emphasis(node : Markd::Node, entering : Bool)
+          return if @in_table
           literal(entering ? "{italic}" : "{/italic}")
         end
 
         def code(node : Markd::Node, entering : Bool)
-          return unless entering
+          return if !entering || @in_table
           literal "{#{hex @md.code_bg}-bg}{#{hex @md.code_color}-fg}"
           text_out node.text
           literal "{/#{hex @md.code_color}-fg}{/#{hex @md.code_bg}-bg}"
         end
 
         def link(node : Markd::Node, entering : Bool)
+          return if @in_table
           if entering
             @link_url = node.data["destination"]?.try &.as(String)
             @link_text = ""
@@ -247,7 +278,7 @@ module Crysterm
 
         def soft_break(node : Markd::Node, entering : Bool)
           # A soft wrap becomes a space — the widget re-wraps to its width.
-          literal " " if entering
+          literal " " if entering && !@in_table
         end
 
         def line_break(node : Markd::Node, entering : Bool)
@@ -266,11 +297,48 @@ module Crysterm
 
         # --- helpers -----------------------------------------------------------
 
-        # Emits literal text, escaping crysterm's `{`/`}` so they aren't read as
-        # tags, and capturing it as link label while inside a link.
+        # Emits literal text: drops any pending task-marker prefix, escapes
+        # crysterm's `{`/`}` so they aren't read as tags, converts `~~…~~` to a
+        # `{strike}` span (markd leaves `~` literal), and captures the link label
+        # while inside a link.
         private def text_out(str : String) : Nil
+          if @strip_task > 0
+            drop = Math.min(@strip_task, str.size)
+            @strip_task -= drop
+            str = str[drop..]
+          end
           @link_text += str unless @link_url.nil?
-          literal str.gsub('{', "{open}").gsub('}', "{close}")
+          # Escape braces first, then wrap `~~…~~` in real `{strike}` tags (added
+          # after escaping, so the tags aren't escaped; `Attr::STRIKE` renders it).
+          escaped = str.gsub('{', "{open}").gsub('}', "{close}")
+          escaped = escaped.gsub(/~~(.+?)~~/) { "{strike}#{$1}{/strike}" }
+          literal escaped
+        end
+
+        # `:done` / `:todo` if *item* begins with a `[x]`/`[ ]` task marker.
+        private def task_marker(item : Markd::Node) : Symbol?
+          s = node_text item
+          if md = s.match(/\A\[([ xX])\]\s/)
+            md[1].downcase == "x" ? :done : :todo
+          end
+        end
+
+        # Concatenated descendant text of *node* (soft/line breaks → newlines),
+        # used for task detection and table parsing.
+        private def node_text(node : Markd::Node) : String
+          String.build { |io| collect_text node, io }
+        end
+
+        private def collect_text(node : Markd::Node, io : IO) : Nil
+          child = node.first_child?
+          while child
+            case child.type
+            when .text?, .code?             then io << child.text
+            when .soft_break?, .line_break? then io << '\n'
+            else                                 collect_text child, io
+            end
+            child = child.next?
+          end
         end
 
         # Ensures a blank line precedes the next block, except before the very
@@ -283,6 +351,90 @@ module Crysterm
 
         private def hex(color : Int32) : String
           "##{color.to_s(16).rjust(6, '0')}"
+        end
+
+        # --- GFM tables (rendered as box-drawing text) -------------------------
+
+        # Whether *text* is a GFM table: a header row, then a delimiter row of
+        # `-`/`:`/`|`/spaces containing at least one `-`.
+        private def table?(text : String) : Bool
+          lines = text.lines
+          return false if lines.size < 2
+          lines[0].includes?('|') &&
+            lines[1].matches?(/\A\s*\|?[\s:|-]*-[\s:|-]*\|?\s*\z/) &&
+            lines[1].includes?('-')
+        end
+
+        # Renders a GFM table to a bordered, column-aligned box-drawing table.
+        private def render_table(text : String) : Nil
+          rows = text.lines.map(&.strip).reject(&.empty?)
+          return if rows.size < 2
+          header = split_row rows[0]
+          aligns = split_row(rows[1]).map { |c| column_align c }
+          body = rows[2..]?.try(&.map { |r| split_row r }) || [] of Array(String)
+          cols = header.size
+          return if cols == 0
+
+          widths = Array.new(cols, 0)
+          ([header] + body).each do |row|
+            row.each_with_index { |cell, i| widths[i] = Math.max(widths[i], cell.size) if i < cols }
+          end
+
+          blank_line
+          table_border widths, '┌', '┬', '┐'
+          table_data_row header, widths, aligns, bold: true
+          table_border widths, '├', '┼', '┤'
+          body.each { |row| table_data_row row, widths, aligns, bold: false }
+          table_border widths, '└', '┴', '┘'
+        end
+
+        # Splits a `| a | b |` row into trimmed cells (outer pipes optional).
+        private def split_row(row : String) : Array(String)
+          row.strip.sub(/\A\|/, "").sub(/\|\z/, "").split('|').map(&.strip)
+        end
+
+        private def column_align(spec : String) : Symbol
+          left = spec.starts_with? ':'
+          right = spec.ends_with? ':'
+          return :center if left && right
+          return :right if right
+          :left
+        end
+
+        private def table_border(widths : Array(Int32), l : Char, mid : Char, r : Char) : Nil
+          literal "{#404a57-fg}"
+          literal l.to_s
+          widths.each_with_index do |w, i|
+            literal "─" * (w + 2)
+            literal(i == widths.size - 1 ? r.to_s : mid.to_s)
+          end
+          literal "{/#404a57-fg}"
+          newline
+        end
+
+        private def table_data_row(cells : Array(String), widths : Array(Int32),
+                                   aligns : Array(Symbol), bold : Bool) : Nil
+          literal "{#404a57-fg}│{/#404a57-fg}"
+          widths.each_with_index do |w, i|
+            cell = cells[i]? || ""
+            align = aligns[i]? || :left
+            literal " "
+            literal "{bold}" if bold
+            text_out pad_cell(cell, w, align)
+            literal "{/bold}" if bold
+            literal " {#404a57-fg}│{/#404a57-fg}"
+          end
+          newline
+        end
+
+        private def pad_cell(cell : String, width : Int32, align : Symbol) : String
+          pad = width - cell.size
+          return cell if pad <= 0
+          case align
+          when :right  then (" " * pad) + cell
+          when :center then (" " * (pad // 2)) + cell + (" " * (pad - pad // 2))
+          else              cell + (" " * pad)
+          end
         end
       end
     end

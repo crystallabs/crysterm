@@ -17,13 +17,24 @@ A read-only viewer modeled after Qt's **QTextBrowser**.
 
 ## Features
 
-- *Headings*, **bold**, *italic*, ~~strike~~
+- *Headings*, **bold**, *italic*, ~~strikethrough~~
 - `inline code` and fenced blocks
 - ordered and nested lists:
   1. one
   2. two
+- task lists:
+  - [x] parser (markd)
+  - [x] tables
+  - [ ] terminal hyperlinks
 - blockquotes and rules
 - [links](https://crystal-lang.org) (collected, click wiring TBD)
+
+## Table
+
+| Widget | Backend | Done |
+|:-------|:-------:|-----:|
+| Canvas | multi   | yes  |
+| Map    | multi   | yes  |
 
 > "Simplicity is the ultimate sophistication."
 

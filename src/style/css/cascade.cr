@@ -298,6 +298,7 @@ module Crysterm
         style.underline = inline.underline? if inline.specified?(:underline)
         style.blink = inline.blink? if inline.specified?(:blink)
         style.inverse = inline.inverse? if inline.specified?(:inverse)
+        style.strike = inline.strike? if inline.specified?(:strike)
         style.visible = inline.visible? if inline.specified?(:visible)
         style.alpha = inline.alpha if inline.specified?(:alpha)
         if inline.specified?(:tint)

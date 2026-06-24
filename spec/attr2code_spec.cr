@@ -28,6 +28,7 @@ describe "Screen.attr2code" do
       "\e[5m" => Attr::BLINK,
       "\e[7m" => Attr::INVERSE,
       "\e[8m" => Attr::INVISIBLE,
+      "\e[9m" => Attr::STRIKE,
     }.each do |code, bit|
       a = apply.call(code)
       (Attr.flags(a) & bit).should_not eq 0

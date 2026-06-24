@@ -241,12 +241,13 @@ module Crysterm
     INVERSE   =  8
     INVISIBLE = 16
     ITALIC    = 32
+    STRIKE    = 64 # strikethrough (SGR 9)
 
-    # Width of the style-flags field (bits 50..55). The alpha-mode fields sit
-    # directly above it, so `flags` must be masked to this width (a bare shift
-    # would pull the alpha bits in). All six current flags fit here; a seventh
-    # would need to reclaim a bit, since bit 56 onward is alpha.
-    FLAGS_BITS = 6_i64
+    # Width of the style-flags field (bits 50..56). The alpha-mode fields are
+    # placed directly above it (`FG_ALPHA_SHIFT = FLAGS_SHIFT + FLAGS_BITS`), so
+    # widening this automatically shifts them up — the 7 flags now occupy bits
+    # 50..56, fg/bg alpha 57..60, leaving 61..63 free.
+    FLAGS_BITS = 7_i64
     FLAGS_MASK = (1_i64 << FLAGS_BITS) - 1 # 0x3F
 
     # Per-channel alpha *mode*: how a cell's channel combines with the channel

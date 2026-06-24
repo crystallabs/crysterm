@@ -23,6 +23,7 @@ describe "Screen.code2attr_to" do
       o << "5;" if (flags & Attr::BLINK) != 0
       o << "7;" if (flags & Attr::INVERSE) != 0
       o << "8;" if (flags & Attr::INVISIBLE) != 0
+      o << "9;" if (flags & Attr::STRIKE) != 0
       if bg != -1
         o << Colors.sgr_color(bg, false, n)
         o << ';'
@@ -46,7 +47,8 @@ describe "Screen.code2attr_to" do
   codes = {
     "default"        => dfl,
     "bold"           => Attr.pack(Attr::BOLD, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT),
-    "all flags"      => Attr.pack(Attr::BOLD | Attr::UNDERLINE | Attr::BLINK | Attr::INVERSE | Attr::INVISIBLE, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT),
+    "strike"         => Attr.pack(Attr::STRIKE, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT),
+    "all flags"      => Attr.pack(Attr::BOLD | Attr::UNDERLINE | Attr::BLINK | Attr::INVERSE | Attr::INVISIBLE | Attr::STRIKE, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT),
     "fg only"        => Attr.pack(0, Attr.pack_color(0xff8800), Attr::COLOR_DEFAULT),
     "bg only"        => Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(0x102030)),
     "fg + bg"        => Attr.pack(0, Attr.pack_color(0xff8800), Attr.pack_color(0x102030)),

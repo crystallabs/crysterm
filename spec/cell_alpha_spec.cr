@@ -32,7 +32,10 @@ describe Crysterm::Attr do
   end
 
   it "masks stray high bits out of flags (so alpha can't leak in)" do
-    Attr.flags(Attr.pack(0x40, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)).should eq 0 # bit 6 dropped
+    # The flags field is 7 bits (bits 50..56); bit 6 (0x40) is STRIKE, so it is
+    # kept, while bit 7 (0x80) is beyond the field and dropped.
+    Attr.flags(Attr.pack(Attr::STRIKE, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)).should eq Attr::STRIKE
+    Attr.flags(Attr.pack(0x80, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)).should eq 0 # bit 7 dropped
   end
 end
 

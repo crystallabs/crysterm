@@ -38,6 +38,9 @@ module Crysterm
     # Inverse?
     property? inverse : Bool = false
 
+    # Strikethrough?
+    property? strike : Bool = false
+
     # Visible?
     property? visible : Bool = true
 
@@ -115,7 +118,7 @@ module Crysterm
     # Re-wrap the `property?`-generated boolean setters so each explicit
     # assignment is recorded (`bold = false` becomes distinguishable from the
     # default `false`).
-    {% for attr in %w(bold italic underline blink inverse visible) %}
+    {% for attr in %w(bold italic underline blink inverse strike visible) %}
       def {{attr.id}}=(value : Bool) : Bool
         @specified << :{{attr.id}}
         @{{attr.id}} = value
@@ -336,6 +339,7 @@ module Crysterm
       underline = nil,
       blink = nil,
       inverse = nil,
+      strike = nil,
       visible = nil,
       alpha = nil,
       @char = @char,
@@ -357,6 +361,7 @@ module Crysterm
       underline.try { |v| self.underline = v }
       blink.try { |v| self.blink = v }
       inverse.try { |v| self.inverse = v }
+      strike.try { |v| self.strike = v }
       visible.try { |v| self.visible = v }
       alpha.try { |v| self.alpha = self.class.alpha_from(v) }
       border.try { |v| self.border = Border.from(v) }

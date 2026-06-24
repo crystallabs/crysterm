@@ -38,7 +38,7 @@ Widget::Box.new \
 Widget::Box.new \
   parent: s, top: 2, left: 54, width: 24, height: 5,
   content: "{bold}bold{/bold} {underline}underline{/underline} {italic}italic{/italic}\n" \
-           "{inverse}inverse{/inverse}\n" \
+           "{inverse}inverse{/inverse} {strike}strike{/strike}\n" \
            "{red-fg}red{/} {green-fg}green{/} {blue-fg}blue{/}",
   parse_tags: true,
   style: Style.new(fg: "white", bg: "#101010", border: true)

@@ -701,6 +701,7 @@ module Crysterm
           (style.blink? ? Attr::BLINK : 0) |
           (style.underline? ? Attr::UNDERLINE : 0) |
           (style.italic? ? Attr::ITALIC : 0) |
+          (style.strike? ? Attr::STRIKE : 0) |
           (style.bold? ? Attr::BOLD : 0)
 
       # `fg`/`bg` are already native colors (a `0xRRGGBB` int, `-1` for the

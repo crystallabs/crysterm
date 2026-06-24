@@ -69,3 +69,65 @@ describe Crysterm::Widget::Markdown do
     end
   end
 end
+
+private def md_render(doc, w = 46, h = 18)
+  s = Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: w, height: h)
+  saved = Crysterm::CSS.default_stylesheet
+  Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
+  Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: w, height: h, markdown: doc
+  s._render
+  text = (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
+  Crysterm::CSS.default_stylesheet = saved
+  text
+end
+
+describe "Markdown GFM extensions" do
+  it "renders strikethrough with the STRIKE attribute" do
+    s = md_screen 30, 4
+    saved = Crysterm::CSS.default_stylesheet
+    Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
+    begin
+      Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: 30, height: 4,
+        markdown: "Some ~~struck~~ text.\n"
+      s._render
+      txt = text_of s
+      txt.includes?("~~").should be_false # markers consumed
+      txt.includes?("struck").should be_true
+      # The struck letters carry Attr::STRIKE; the surrounding words do not.
+      struck = nil
+      plain = nil
+      (0...s.aheight).each do |y|
+        (0...s.awidth).each do |x|
+          c = s.lines[y][x]
+          struck = (Crysterm::Attr.flags(c.attr) & Crysterm::Attr::STRIKE) != 0 if c.char == 'r'
+          plain = (Crysterm::Attr.flags(c.attr) & Crysterm::Attr::STRIKE) != 0 if c.char == 'S'
+        end
+      end
+      struck.should be_true # 'r' of "struck"
+      plain.should be_false # 'S' of "Some"
+    ensure
+      Crysterm::CSS.default_stylesheet = saved
+    end
+  end
+
+  it "renders task lists as checkboxes" do
+    t = md_render "- [ ] todo\n- [x] done\n- normal\n"
+    t.includes?("☐ todo").should be_true
+    t.includes?("☑ done").should be_true
+    t.includes?("• normal").should be_true
+    t.includes?("[ ]").should be_false
+    t.includes?("[x]").should be_false
+  end
+
+  it "renders GFM tables as box-drawing tables with alignment" do
+    t = md_render "| Name | Score |\n|:-----|------:|\n| Alice | 42 |\n| Bob | 7 |\n"
+    t.includes?("┌").should be_true
+    t.includes?("├").should be_true
+    t.includes?("└").should be_true
+    t.includes?("Name").should be_true
+    t.includes?("Alice").should be_true
+    # Right-aligned Score column: the number hugs the right cell edge.
+    t.includes?("42 │").should be_true
+    t.includes?("| Name").should be_false # raw pipes consumed
+  end
+end

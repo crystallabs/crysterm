@@ -99,6 +99,7 @@ module Crysterm
     property? underline : Bool = false
     property? blink : Bool = false
     property? inverse : Bool = false
+    property? strike : Bool = false
     property? visible : Bool = true
 
     property left = 1
