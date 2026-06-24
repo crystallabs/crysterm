@@ -48,6 +48,14 @@ module Crysterm
     # (see the unchanged-content short-circuit in `#set_content`).
     @_content_no_tags = false
 
+    # Whether the current `@content` contains any Crysterm tags (`{...}` /
+    # `{/...}`), decided once in `#set_content` by matching against the tag
+    # syntax. When false, `process_content` skips the `_parse_tags` call (and the
+    # whole-string regex scan inside it) entirely — most content is plain text,
+    # so this avoids re-scanning it for tags on every reparse. Defaults to false:
+    # empty default content has no tags.
+    @_content_has_tags = false
+
     # The `sattr(style)` value that the currently-cached `@_clines.attr` was
     # computed against. `_parse_attr` only depends on the content (unchanged on
     # the cached path) and this base attribute, so it can be skipped whenever the
@@ -96,6 +104,11 @@ module Crysterm
       # original content should not be modified).
       @content = content
       @_content_no_tags = no_tags
+      # Decide here, once per content change, whether the content even contains
+      # any tags, using the same syntax `_parse_tags` recognizes. If it does not,
+      # `process_content` won't bother calling `_parse_tags` at all — see the
+      # guarded call below.
+      @_content_has_tags = content.matches? TAG_REGEX
       @_content_version += 1
 
       process_content(no_tags)
@@ -251,7 +264,10 @@ module Crysterm
           # content = helpers.dropUnicode(content)
         end
 
-        if !no_tags
+        # Only parse tags when this call hasn't disabled them *and* the content
+        # actually contains tags (decided in `#set_content`). For plain-text
+        # content this skips `_parse_tags` and its whole-string regex scan.
+        if !no_tags && @_content_has_tags
           content = _parse_tags content
         end
         ::Log.trace { "After _parse_tags: #{content.inspect}" }
@@ -297,7 +313,7 @@ module Crysterm
     # Convert `{red-fg}foo{/red-fg}` to `\e[31mfoo\e[39m`.
     def _parse_tags(text)
       return text unless @parse_tags
-      return text unless text =~ /{\/?[\w\-,;!#]*}/
+      return text unless text =~ TAG_REGEX
 
       # Accumulate into a `String::Builder` rather than `outbuf += ...`: repeated
       # `String` concatenation rebuilds the whole (growing) result on every tag,
@@ -340,7 +356,7 @@ module Crysterm
         end
 
         # Matches {normal}{/normal} and all other tags
-        if cap = /{(\/?)([\w\-,;!#]*)}/.match(text, pos, options: anchored)
+        if cap = TAG_REGEX.match(text, pos, options: anchored)
           pos += cap[0].size
           slash = cap[1] == "/"
           # XXX Tags must be specified such as {light-blue-fg}, but are then
