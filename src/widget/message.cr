@@ -1,7 +1,7 @@
 module Crysterm
   class Widget
     # <!-- widget-examples:capture v1 -->
-    # ![Message screenshot](../../examples/widget/message/message-capture.png)
+    # ![Message screenshot](../../examples/widget/message/message-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Message < Box
       # These were previously set in the `class Widget` body (outside `Message`),

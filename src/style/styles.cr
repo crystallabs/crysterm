@@ -11,11 +11,34 @@ module Crysterm
     end
 
     property normal : Style = Style.new
-    property blurred : Style { normal }
-    property focused : Style { normal }
-    property hovered : Style { normal }
-    property selected : Style { normal }
-    property disabled : Style { normal }
+
+    # The non-`normal` states lazily fall back to `normal` when not explicitly
+    # set — but the fallback is *non-materializing*: reading e.g. `#focused`
+    # returns `normal` without storing it, so an unset state stays unset
+    # (`@focused == nil`).
+    #
+    # This matters because the CSS cascade snapshots a widget's pristine styles
+    # with `#deep_dup` (reading the ivars directly) and folds stateless rules
+    # into `normal` plus only the states that are explicitly present. A getter
+    # that materialized `@focused = normal` on a mere read would turn that into a
+    # *distinct* `normal` copy in the snapshot, which the base fold then skips —
+    # so a widget rendered in that state (e.g. a focused `List`) would lose every
+    # stateless rule, such as its CSS border. The `own_*?` predicates rely on the
+    # same: an unread state must stay `nil`.
+    @blurred : Style?
+    @focused : Style?
+    @hovered : Style?
+    @selected : Style?
+    @disabled : Style?
+
+    {% for state in %w[blurred focused hovered selected disabled] %}
+      def {{state.id}} : Style
+        @{{state.id}} || normal
+      end
+
+      def {{state.id}}=(@{{state.id}} : Style)
+      end
+    {% end %}
 
     # Whether a *distinct* selected style has been materialized, as opposed to
     # lazily falling back to `normal`. Lets a list widget tell an explicit

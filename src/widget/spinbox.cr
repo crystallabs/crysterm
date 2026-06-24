@@ -16,7 +16,7 @@ module Crysterm
     # and Escape — or losing focus — discards the edit and restores the value.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![SpinBox screenshot](../../examples/widget/spinbox/spinbox-capture.png)
+    # ![SpinBox screenshot](../../examples/widget/spinbox/spinbox-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class SpinBox < Input
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,

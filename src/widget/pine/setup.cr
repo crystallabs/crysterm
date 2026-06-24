@@ -13,7 +13,7 @@ module Crysterm
       # the space bar. The selected row is drawn reverse.
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Setup screenshot](../../../examples/widget/pine/setup/setup-capture.png)
+      # ![Setup screenshot](../../../examples/widget/pine/setup/setup-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Setup < Widget::List
         # A single configurable feature.

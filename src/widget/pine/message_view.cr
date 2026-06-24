@@ -16,7 +16,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![MessageView screenshot](../../../examples/widget/pine/message_view/message_view-capture.png)
+      # ![MessageView screenshot](../../../examples/widget/pine/message_view/message_view-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class MessageView < Widget::ScrollableText
         def initialize(

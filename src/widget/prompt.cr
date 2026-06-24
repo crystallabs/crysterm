@@ -3,7 +3,7 @@ require "./box"
 module Crysterm
   class Widget
     # <!-- widget-examples:capture v1 -->
-    # ![Prompt screenshot](../../examples/widget/prompt/prompt-capture.png)
+    # ![Prompt screenshot](../../examples/widget/prompt/prompt-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Prompt < Box
       property text : String = ""

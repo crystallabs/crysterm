@@ -1,7 +1,7 @@
 module Crysterm
   class Widget
     # <!-- widget-examples:capture v1 -->
-    # ![TextBox screenshot](../../examples/widget/textbox/textbox-capture.png)
+    # ![TextBox screenshot](../../examples/widget/textbox/textbox-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class TextBox < TextArea
       property secret : Bool = false

@@ -28,6 +28,10 @@ module Crysterm
       # fire = Widget::Effect::Fire.new parent: screen, width: "100%", height: "100%"
       # fire.start
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![Fire screenshot](../../../examples/widget/effect/fire/fire-capture5s.apng)
+      # <!-- /widget-examples:capture -->
       class Fire < Box
         include Effect::Direct
 

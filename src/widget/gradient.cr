@@ -29,7 +29,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Gradient screenshot](../../examples/widget/gradient/gradient-capture.png)
+    # ![Gradient screenshot](../../examples/widget/gradient/gradient-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Gradient < Box
       enum Direction
@@ -38,19 +38,38 @@ module Crysterm
       end
 
       # Gradient stops as native colors. Empty ⇒ HSV rainbow sweep.
-      property stops : Array(Int32)
+      getter stops : Array(Int32)
 
       # Axis the color varies along.
-      property direction : Direction
+      getter direction : Direction
 
       # Offset along the gradient (wraps); animating it scrolls/cycles the colors.
-      property phase : Float64
+      getter phase : Float64
 
       # Number of full gradient repetitions across the axis.
-      property cycles : Float64
+      getter cycles : Float64
 
       # Phase advance applied on each animation tick.
       property speed : Float64
+
+      # Setters that change the rendered appearance schedule a repaint (Qt's
+      # property-changes-trigger-update principle), so e.g. `gradient.phase = …`
+      # from an external clock actually scrolls the colors.
+      def stops=(@stops : Array(Int32))
+        mark_dirty
+      end
+
+      def direction=(@direction : Direction)
+        mark_dirty
+      end
+
+      def phase=(@phase : Float64)
+        mark_dirty
+      end
+
+      def cycles=(@cycles : Float64)
+        mark_dirty
+      end
 
       # The timer driving the animation (own or shared), if any.
       getter timer : Timer?

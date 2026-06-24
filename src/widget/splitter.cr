@@ -21,7 +21,7 @@ module Crysterm
     # `#position`) is retained as a convenience over the general one.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Splitter screenshot](../../examples/widget/splitter/splitter-capture.png)
+    # ![Splitter screenshot](../../examples/widget/splitter/splitter-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Splitter < Box
       property orientation : Tput::Orientation = :horizontal

@@ -1,60 +1,63 @@
 #!/usr/bin/env crystal
 #
-# widget-examples.cr — maintenance tool that standardizes how every Crysterm
-# widget is exemplified and screenshotted.
+# manage-examples.cr — maintenance tool that standardizes how every Crysterm
+# widget AND layout is exemplified, screenshotted and animated.
 #
-# For each widget under `src/widget/`, it:
+# For each widget under `src/widget/` and each layout under `src/layout/`, it:
 #
-#   1. Mirrors the source hierarchy into `examples/widget/` and gives the widget
+#   1. Mirrors the source hierarchy into `examples/<kind>/` and gives the item
 #      its own directory, e.g.
-#          src/widget/button.cr      -> examples/widget/button/
-#          src/widget/graph/bar.cr   -> examples/widget/graph/bar/
-#   2. Writes one (or, rarely, several) *minimal* example(s) into that directory,
-#      each named after the widget — `button.cr`, or `button2.cr`, `button3.cr`
-#      when a widget genuinely needs alternative examples. Existing files are
-#      left untouched unless `--force` is given.
-#   3. Renders the example headlessly and saves a screenshot beside it as
-#      `<widget>-capture.png` (or `-capture2.png`, ... for further examples), via
-#      `Screen#capture`, driven through the shared harness in
-#      `examples/widget/example.cr` with `CRYSTERM_SHOT`.
-#   4. On `--doc-comments`, embeds each widget's screenshot in its API docs by
-#      maintaining a fenced block in the class's source doc comment; on `--docs`,
-#      runs `crystal docs` and copies `examples/widget/` into the docs tree so
-#      those references resolve.
+#          src/widget/button.cr    -> examples/widget/button/
+#          src/widget/graph/bar.cr -> examples/widget/graph/bar/
+#          src/layout/hbox.cr      -> examples/layout/hbox/
+#   2. For an item that has *no* example yet, scaffolds one starter file into
+#      that directory (`button.cr`) from a generic template. THIS IS THE ONLY
+#      FILE THE TOOL EVER WRITES. From then on the example files in `examples/`
+#      are the source of truth — hand-edited in place (add CSS, a demo `script`,
+#      extra `button2.cr`, …); the tool never rewrites them.
+#   3. Renders each example headlessly and saves a still beside it as
+#      `<stem>-capture.png`. With `--anim`, *every* example is instead recorded
+#      as `<stem>-capture<secs>s.apng`: ones with a demo `script:` are driven
+#      (synthetic key/mouse events), the rest are a static hold. Both go through
+#      the shared harness in `examples/<kind>/example.cr` (CRYSTERM_SHOT /
+#      CRYSTERM_ANIM).
+#   4. `--build`/`--release` compile every example (a build-health check).
+#   5. `--doc-comments` embeds each item's capture in its API docs by maintaining
+#      a fenced block in the class doc comment; `--docs` runs `crystal docs` and
+#      copies `examples/` into the docs tree.
 #
-# This is meant to be groomed and extended over time: add or refine per-widget
-# recipes in `RECIPES` below; later additions might emit usage animations (APNG —
-# `Screen#capture` already does it via `duration:`), or run verification passes
-# (does every widget still have an example? does each example still build?).
+# The example programs live (and are maintained) in `examples/`; the tool only
+# scaffolds the ones that are missing and (re)produces their captures/docs.
 #
 # Usage:
-#   crystal run tools/widget-examples.cr -- [options] [widget ...]
+#   crystal run tools/manage-examples.cr -- [options] [name ...]
 #
 # Options:
-#   -f, --force         Overwrite/recreate existing example files (default: skip
-#                       existing ones; only fill in what is missing).
-#       --only NAME     Restrict to widget(s) whose name matches NAME (repeatable;
-#                       bare arguments are treated the same way). Matches the
-#                       widget's file basename or class name, case-insensitively.
-#       --no-shot       Generate/refresh example files but skip the screenshots.
-#       --shots-only    Don't (re)generate files; only (re)take screenshots of
-#                       the examples that already exist.
-#   -j, --jobs N        Screenshot concurrency (default: ~cores-1, capped at 4).
-#                       Each shot is a full compile, so this is the main speedup.
-#       --doc-comments  Insert/refresh the screenshot block in each widget's
-#                       source class doc comment (idempotent; migrates old blocks).
-#       --docs          Run `crystal docs`, then copy examples/widget into docs/.
-#       --list          List the discovered widgets and what would happen, then
-#                       exit (no files written, no screenshots taken).
+#   -f, --force         Re-do outputs that already exist (stills/anims/binaries,
+#                       and the docs build). Never overwrites an example .cr.
+#       --only NAME     Restrict to NAME (repeatable; bare args work too).
+#       --no-shot       Scaffold missing files but skip screenshots.
+#       --shots-only    Only (re)capture; don't author any files.
+#       --anim          Record an APNG for every example (scripted ones play their demo).
+#       --duration N    Animation length in seconds (default 5).
+#       --build         Compile every example next to its source, x/<prog>.cr ->
+#                       x/<prog> (build-health check).
+#       --release       Like --build, but a crystal --release (optimized) build.
+#   -j, --jobs N        Screenshot/anim/build concurrency (default ~cores-1).
+#       --doc-comments  Insert/refresh the screenshot block in each source class
+#                       doc comment (idempotent; migrates old blocks).
+#       --docs          Run `crystal docs`, then copy examples/ into docs/.
+#       --copy          Just copy examples/ into docs/ (skip `crystal docs`).
+#       --list          List the discovered items and exit.
 #   -h, --help          This help.
 #
 # Examples:
-#   crystal run tools/widget-examples.cr --                 # fill in everything missing + shoot
-#   crystal run tools/widget-examples.cr -- --list          # see the plan
-#   crystal run tools/widget-examples.cr -- box button      # just these two
-#   crystal run tools/widget-examples.cr -- --force calendar # rebuild calendar's example
-#   crystal run tools/widget-examples.cr -- --doc-comments  # maintain doc-comment screenshots
-#   crystal run tools/widget-examples.cr -- --docs          # build API docs with screenshots
+#   crystal run tools/manage-examples.cr --                 # fill in missing + shoot
+#   crystal run tools/manage-examples.cr -- --list          # see the plan
+#   crystal run tools/manage-examples.cr -- box hbox        # just these two
+#   crystal run tools/manage-examples.cr -- --anim list     # record list's APNG
+#   crystal run tools/manage-examples.cr -- --build         # compile every example
+#   crystal run tools/manage-examples.cr -- --docs          # API docs with screenshots
 
 require "file_utils"
 
@@ -72,7 +75,7 @@ module WidgetExamples
 
   # A category of documented thing the tool mirrors and exemplifies the same way.
   # `widget`s render standalone; `layout`s are installed on a container and
-  # arrange its children (so their examples differ — see the recipes).
+  # arrange its children (so their scaffold templates differ).
   record Kind,
     name : String,    # "widget" / "layout"
     src : String,     # src dir, e.g. <root>/src/widget
@@ -119,23 +122,25 @@ module WidgetExamples
     ([".."] * (f.size - i) + t[i..]).join('/')
   end
 
-  # ---- recipes --------------------------------------------------------------
+  # ---- scaffold templates ---------------------------------------------------
+  #
+  # The tool no longer carries a per-widget recipe registry — every example is
+  # hand-maintained under `examples/`. What remains is a single *generic* starter
+  # template per kind, used only to scaffold a brand-new item's first example
+  # file (which is then edited in place).
 
-  # A single example to emit for a widget: an optional CSS stylesheet and the
-  # body that constructs the widget(s) inside the `WidgetExample.run` block.
-  # `%{fqn}` / `%{klass}` / `%{name}` are interpolated.
+  # The CSS + construction body of a scaffolded starter. `%{fqn}` / `%{klass}` /
+  # `%{name}` are interpolated into both.
   record Recipe, css : String?, body : String
 
-  # The fallback used when a widget has no entry in RECIPES: a plain Box-style
-  # construction. It compiles for the many widgets that inherit Box's `content:`
-  # constructor.
+  # The starter for a widget with no example yet: a plain Box-style construction.
+  # It compiles for the many widgets that inherit Box's `content:` constructor.
   #
   # It fills (almost) the whole screen on purpose. Many widgets lay out their own
   # fixed-position children (ColorDialog, Wizard, ...); a small box would let
   # those children spill past its border and paint garbage onto the screen. A
-  # full-screen box keeps them in bounds, so the generic shot is never broken —
-  # just plain. Widgets that deserve a tailored size/content get a real recipe in
-  # WIDGET_RECIPES (and are reported until they do).
+  # full-screen box keeps them in bounds, so the scaffolded shot is never broken
+  # — just plain, until a human gives it a tailored size/content in place.
   def self.generic_widget_recipe(w : Item) : Recipe
     Recipe.new(
       css: "#{w.klass} { border: solid; }",
@@ -147,323 +152,13 @@ module WidgetExamples
     )
   end
 
-  # Per-widget recipes. Keyed by simple class name. A widget maps to an array so
-  # it can have alternative examples (foo.cr, foo2.cr, ...). Most widgets need
-  # only one. Add entries here as widgets are groomed.
-  WIDGET_RECIPES = {
-    "Box" => [Recipe.new(
-      css: "Box { border: solid; background-color: #1a1a2e; color: #e0e0e0; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 34, height: 7,
-          content: "{center}A Box widget{/center}", parse_tags: true
-      CR
-    )],
-    "Label" => [Recipe.new(
-      css: "Label { color: #9ece6a; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", content: "A Label widget"
-      CR
-    )],
-    "Button" => [Recipe.new(
-      css: "Button { border: solid; background-color: #394b70; color: #c0caf5; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 22, height: 3,
-          content: "{center}Click me{/center}", parse_tags: true
-      CR
-    )],
-    "ProgressBar" => [Recipe.new(
-      css: "ProgressBar { border: solid; color: #7aa2f7; }",
-      body: <<-CR
-        bar = %{fqn}.new parent: screen, top: "center", left: "center", width: 40, height: 3
-        bar.value = 65
-      CR
-    )],
-    "HLine" => [Recipe.new(
-      css: "HLine { color: #7aa2f7; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: 4, width: 40
-      CR
-    )],
-    "VLine" => [Recipe.new(
-      css: "VLine { color: #7aa2f7; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, left: "center", top: 2, height: 16
-      CR
-    )],
-    "BigText" => [Recipe.new(
-      css: "BigText { color: #f7768e; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", content: "Hi!"
-      CR
-    )],
-    "List" => [Recipe.new(
-      css: "List { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: "center", left: "center", width: 28, height: 9,
-          items: %w[Alpha Beta Gamma Delta Epsilon]
-      CR
-    )],
-    "Log" => [Recipe.new(
-      css: "Log { border: solid; color: #9ece6a; }",
-      body: <<-CR
-        log = %{fqn}.new parent: screen, top: "center", left: "center", width: 46, height: 9
-        ["system started", "loading config", "ready", "request handled"].each { |l| log.add l }
-      CR
-    )],
-    "Gauge" => [Recipe.new(
-      css: "Gauge { border: solid; color: #7aa2f7; }",
-      body: <<-CR
-        g = %{fqn}.new parent: screen, top: "center", left: "center", width: 40, height: 3
-        g.value = 65
-      CR
-    )],
-    "GaugeList" => [Recipe.new(
-      css: "GaugeList { border: solid; }",
-      body: <<-CR
-        gl = %{fqn}.new parent: screen, top: "center", left: "center", width: 46, height: 9
-        gl.add_gauge "CPU", 72
-        gl.add_gauge "Memory", 48
-        gl.add_gauge "Disk", 91
-      CR
-    )],
-    "Checkbox" => [Recipe.new(
-      css: "Checkbox { color: #c0caf5; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", checked: true, content: "Enable feature"
-      CR
-    )],
-    "RadioButton" => [Recipe.new(
-      css: "RadioButton { color: #c0caf5; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "50%-1", left: "center", content: "Selected option"
-      CR
-    )],
-    "Slider" => [Recipe.new(
-      css: "Slider { color: #bb9af7; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", width: 40, height: 1, value: 40
-      CR
-    )],
-    "SpinBox" => [Recipe.new(
-      css: "SpinBox { border: solid; color: #c0caf5; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", width: 14, height: 3, value: 42
-      CR
-    )],
-    "LCDNumber" => [Recipe.new(
-      css: "LCDNumber { color: #f7768e; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", value: 1234
-      CR
-    )],
-    "Calendar" => [Recipe.new(
-      css: "Calendar { border: solid; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", date: Time.utc(2026, 6, 24)
-      CR
-    )],
-    "Marquee" => [Recipe.new(
-      css: "Marquee { color: #e0af68; }",
-      body: <<-CR
-        %{fqn}.new parent: screen, top: "center", left: "center", width: 40, height: 1, text: "Scrolling marquee text — Crysterm"
-      CR
-    )],
-    "ColorDialog" => [Recipe.new(
-      css: "ColorDialog { border: solid; }",
-      body: <<-CR
-        # ColorDialog lays out its own gradient field, hue bar and RGB/HSV spin
-        # boxes; it wants roughly 56x20 (see the class docs) — too small a box and
-        # its children spill past the border.
-        %{fqn}.new parent: screen, top: "center", left: "center", width: 56, height: 20
-      CR
-    )],
-    "SplashScreen" => [Recipe.new(
-      css: "SplashScreen { border: solid; }",
-      body: <<-CR
-        # `content` is the central widget shown on the splash (not a string).
-        %{fqn}.new \\
-          parent: screen, width: 44, height: 12,
-          content: Crysterm::Widget::Box.new(
-            top: "center", left: "center", width: 28, height: 3,
-            content: "{center}Crysterm{/center}", parse_tags: true)
-      CR
-    )],
-    "MessageView" => [Recipe.new(
-      css: "MessageView { border: solid; }",
-      body: <<-CR
-        %{fqn}.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          from: "alice@example.com", to: "bob@example.com",
-          date: "2026-06-24", subject: "Hello from Crysterm",
-          body: "This is the message body.\\nA Pine-style message view."
-      CR
-    )],
-    "Loading" => [Recipe.new(
-      css: "Loading { color: #7dcfff; }",
-      body: <<-CR
-        l = %{fqn}.new parent: screen, top: "center", left: "center", width: 30, height: 1
-        l.load "Loading…"
-      CR
-    )],
-  } of String => Array(Recipe)
-
-  # Per-layout recipes (keyed by simple class name). Each builds a full-screen
-  # container with the layout installed and enough labeled children to actually
-  # show how that layout arranges them. `%{fqn}` is the layout class.
-  BORDERED       = "Box { border: solid; color: #c0caf5; }"
-  LAYOUT_RECIPES = {
-    "HBox" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new(gap: 1), overflow: :ignore
-        # Children given no width share the row equally (align: stretch fills height).
-        %w[Left Middle Middle Right].each do |label|
-          Crysterm::Widget::Box.new parent: container, content: "{center}\#{label}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "VBox" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new(gap: 1), overflow: :ignore
-        %w[Top Middle Middle Bottom].each do |label|
-          Crysterm::Widget::Box.new parent: container, content: "{center}\#{label}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "Grid" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        # A 3-column grid; the six children auto-flow row-major into the cells.
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new(columns: 3, gap: 1), overflow: :ignore
-        6.times do |i|
-          Crysterm::Widget::Box.new parent: container,
-            content: "{center}r\#{i // 3} · c\#{i % 3}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "UniformGrid" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new, overflow: :ignore
-        8.times do |i|
-          Crysterm::Widget::Box.new parent: container, width: 16, height: 5,
-            content: "{center}cell \#{i + 1}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "Masonry" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new, overflow: :ignore
-        # Varying heights flow into the shortest column — the masonry effect.
-        [4, 6, 3, 5, 7, 4, 5, 3].each_with_index do |h, i|
-          Crysterm::Widget::Box.new parent: container, width: 16, height: h,
-            content: "{center}#\#{i + 1}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "Wrap" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new, overflow: :ignore
-        %w[alpha beta gamma delta epsilon zeta eta theta iota].each do |label|
-          Crysterm::Widget::Box.new parent: container, width: 13, height: 3,
-            content: "{center}\#{label}{/center}", parse_tags: true
-        end
-      CR
-    )],
-    "Stack" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        # All three children occupy the full area; only `current` is shown.
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new(current: 1), overflow: :ignore
-        3.times do |i|
-          Crysterm::Widget::Box.new parent: container,
-            content: "{center}page \#{i + 1} of 3\\n\\n(Stack shows current = 1){/center}", parse_tags: true
-        end
-      CR
-    )],
-    "Manual" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        # Manual placement: children position themselves by top/left/right/bottom.
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new, overflow: :ignore
-        Crysterm::Widget::Box.new parent: container, top: 1, left: 2, width: 24, height: 4,
-          content: "{center}(left: 2, top: 1){/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container, top: 7, left: 28, width: 26, height: 5,
-          content: "{center}(left: 28, top: 7){/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container, bottom: 1, right: 2, width: 22, height: 4,
-          content: "{center}bottom-right{/center}", parse_tags: true
-      CR
-    )],
-    "Border" => [Recipe.new(
-      css: BORDERED,
-      body: <<-CR
-        # Five children, each docked to an edge (or the center) by a Border::Hint.
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 0, left: 0, width: "100%", height: "100%",
-          layout: %{fqn}.new, overflow: :ignore
-        Crysterm::Widget::Box.new parent: container, height: 3,
-          layout_hint: Crysterm::Layout::Border::Hint.new(:top),
-          content: "{center}Top{/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container, height: 3,
-          layout_hint: Crysterm::Layout::Border::Hint.new(:bottom),
-          content: "{center}Bottom{/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container, width: 16,
-          layout_hint: Crysterm::Layout::Border::Hint.new(:left),
-          content: "{center}Left{/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container, width: 16,
-          layout_hint: Crysterm::Layout::Border::Hint.new(:right),
-          content: "{center}Right{/center}", parse_tags: true
-        Crysterm::Widget::Box.new parent: container,
-          layout_hint: Crysterm::Layout::Border::Hint.new(:center),
-          content: "{center}Center{/center}", parse_tags: true
-      CR
-    )],
-    "Form" => [Recipe.new(
-      # 1-row fields: no border (it would eat the single content row).
-      css: "Box { color: #c0caf5; }",
-      body: <<-CR
-        # Label/field pairs, one per row; a trailing unpaired child spans full width.
-        container = Crysterm::Widget::Box.new \\
-          parent: screen, top: 2, left: 2, width: 50, height: 12,
-          layout: %{fqn}.new(label_width: 10, row_gap: 1), overflow: :ignore
-        { {"Name:", "Ada Lovelace"}, {"Email:", "ada@example.com"}, {"Role:", "Engineer"} }.each do |label, value|
-          Crysterm::Widget::Box.new parent: container, height: 1, content: label
-          Crysterm::Widget::Box.new parent: container, height: 1, content: value
-        end
-        Crysterm::Widget::Box.new parent: container, height: 1,
-          content: "{center}[ Submit ]{/center}", parse_tags: true
-      CR
-    )],
-  } of String => Array(Recipe)
 
   # Layouts aren't standalone widgets: each is installed on a container via
-  # `layout:` and arranges the container's children. So a layout example builds a
-  # full-screen container with the layout, then drops a handful of labeled,
-  # bordered child boxes into it — enough to actually *show* the arrangement.
-  # Layouts that need per-child placement hints (Grid columns, Border regions,
-  # Form rows) get tailored recipes below; the rest flow fine generically.
+  # `layout:` and arranges the container's children. So a scaffolded layout
+  # example builds a full-screen container with the layout, then drops a handful
+  # of labeled, bordered child boxes into it — enough to actually *show* the
+  # arrangement. A human then tailors per-child placement hints (Grid columns,
+  # Border regions, Form rows) in the scaffolded file as needed.
   def self.generic_layout_recipe(w : Item) : Recipe
     Recipe.new(
       css: "Box { border: solid; color: #c0caf5; }",
@@ -480,29 +175,31 @@ module WidgetExamples
     )
   end
 
-  # The generic example for an item, dispatched by kind.
+  # The generic example for an item, dispatched by kind. This is the *only*
+  # template the tool still carries: it scaffolds a starter `<name>.cr` for a
+  # widget/layout that has no example yet. Once written, the file in `examples/`
+  # is the source of truth — edit it in place; the tool never rewrites it.
   def self.generic_recipe(w : Item) : Recipe
     w.kind.name == "layout" ? generic_layout_recipe(w) : generic_widget_recipe(w)
   end
 
-  # The recipe map for an item's kind.
-  def self.recipe_map(w : Item) : Hash(String, Array(Recipe))
-    w.kind.name == "layout" ? LAYOUT_RECIPES : WIDGET_RECIPES
+  # The example *program* files for an item — the `<name>.cr`, `<name>2.cr`, …
+  # under its `examples/` directory, in order. These are the hand-maintained
+  # source of truth that the capture/build/doc steps run; an empty result means
+  # the item has no example yet (and `#process` scaffolds one). The shared
+  # `example.cr` harness lives a level up, so it never appears here, but it's
+  # excluded defensively.
+  def self.program_files(w : Item) : Array(String)
+    dir = example_dir(w)
+    return [] of String unless Dir.exists?(dir)
+    Dir.glob(File.join(dir, "#{w.basename}*.cr"))
+      .reject { |p| File.basename(p) == "example.cr" }
+      .sort_by { |p| File.basename(p).size } # "foo.cr" before "foo2.cr" before "foo10.cr"
   end
 
-  # Case-insensitive recipe lookup: a file may declare `CheckBox` while the
-  # registry/recipe key is `Checkbox` (Crysterm aliases some constants by case).
-  def self.lookup_recipes(w : Item) : Array(Recipe)?
-    recipe_map(w).each { |k, v| return v if k.compare(w.klass, case_insensitive: true) == 0 }
-    nil
-  end
-
-  def self.recipe?(w : Item) : Bool
-    !lookup_recipes(w).nil?
-  end
-
-  def self.recipes_for(w : Item) : Array(Recipe)
-    lookup_recipes(w) || [generic_recipe(w)]
+  # Whether an item already has at least one hand-written example file.
+  def self.example?(w : Item) : Bool
+    !program_files(w).empty?
   end
 
   # ---- discovery ------------------------------------------------------------
@@ -566,31 +263,42 @@ module WidgetExamples
     items
   end
 
-  # ---- file generation ------------------------------------------------------
+  # ---- output paths ---------------------------------------------------------
+  #
+  # Every capture/build output is named after its example *program* file's stem:
+  # `foo.cr` -> `foo-capture.png` / `foo-capture5s.apng` / `foo` (binary), and
+  # `foo2.cr` -> `foo2-capture.png`, … So the program file alone determines all
+  # of its outputs — no separate index bookkeeping.
 
-  # The numeric suffix for the *index*'th example/screenshot: "" for the first,
-  # "2", "3", ... after that.
-  def self.suffix(index : Int32) : String
-    index == 0 ? "" : (index + 1).to_s
+  # The program file's stem, e.g. `".../foo2.cr"` -> `"foo2"`.
+  def self.prog_stem(prog : String) : String
+    File.basename(prog, ".cr")
   end
 
-  # The example file paths for a widget, in order (foo.cr, foo2.cr, ...).
-  def self.example_paths(w : Item, count : Int32) : Array(String)
-    dir = example_dir(w)
-    (0...count).map { |i| File.join(dir, "#{w.basename}#{suffix(i)}.cr") }
+  # Where *prog*'s still screenshot goes: `<stem>-capture.png`.
+  def self.shot_for(prog : String) : String
+    File.join(File.dirname(prog), "#{prog_stem(prog)}-capture.png")
   end
 
-  # Where the *index*'th example's screenshot goes: `<prog>-capture.png`,
-  # `<prog>-capture2.png`, ... in the widget's directory (`<prog>` is the widget
-  # name; the number tracks the program index, empty for the first).
-  def self.screenshot_path(w : Item, index : Int32) : String
-    File.join(example_dir(w), "#{w.basename}-capture#{suffix(index)}.png")
+  # Where *prog*'s animation goes: `<stem>-capture<secs>s.apng`
+  # (e.g. `list-capture5s.apng`; `<secs>` is the recording duration).
+  def self.anim_for(prog : String, duration : Int32) : String
+    File.join(File.dirname(prog), "#{prog_stem(prog)}-capture#{duration}s.apng")
   end
 
-  # Render one example file's full source from a recipe.
-  def self.render_example(w : Item, recipe : Recipe, index : Int32, total : Int32) : String
+  # Where *prog*'s compiled binary goes (`--build`): `<stem>` next to the source.
+  def self.bin_for(prog : String) : String
+    File.join(File.dirname(prog), prog_stem(prog))
+  end
+
+  # ---- scaffolding ----------------------------------------------------------
+
+  # Render a starter example file for an item that has none yet, from the
+  # generic template. This is the *only* file the tool ever writes; thereafter
+  # the example is hand-maintained in place.
+  def self.render_stub(w : Item) : String
+    recipe = generic_recipe(w)
     req = helper_require(w)
-    title = w.klass
     interp = ->(s : String) {
       s.gsub("%{fqn}", w.fqn).gsub("%{klass}", w.klass).gsub("%{name}", w.basename)
     }
@@ -598,14 +306,13 @@ module WidgetExamples
     css = recipe.css.try { |c| interp.call(c) }
 
     String.build do |io|
-      label = total > 1 ? " (example #{index + 1} of #{total})" : ""
-      io << "# Example: " << w.fqn << label << "\n"
+      io << "# Example: " << w.fqn << "\n"
       io << "#\n"
-      io << "# Minimal, self-contained example of a single " << w.klass << " widget.\n"
-      io << "# Run it:        crystal run " << relative_to_root(example_paths(w, total)[index]) << "\n"
-      io << "# Screenshot it: regenerated by tools/widget-examples.cr\n"
+      io << "# Minimal, self-contained example of a single " << w.klass << ".\n"
+      io << "# Run it:     crystal run " << relative_to_root(File.join(example_dir(w), "#{w.basename}.cr")) << "\n"
+      io << "# Scaffolded by tools/manage-examples.cr — now edit it here, in place.\n"
       io << "require \"" << req << "\"\n\n"
-      io << "Crysterm::WidgetExample.run " << title.inspect << " do |screen|\n"
+      io << "Crysterm::WidgetExample.run " << w.klass.inspect << " do |screen|\n"
       css.try { |c| io << "  screen.stylesheet = " << c.inspect << "\n" }
       io << body << "\n"
       io << "end\n"
@@ -653,12 +360,18 @@ module WidgetExamples
   DOC_OPEN_RE  = /<!--\s*widget-examples:capture\b[^>]*-->/
   DOC_CLOSE_RE = /<!--\s*\/\s*widget-examples:capture\b[^>]*-->/
 
-  # Existing screenshots for a widget, as bare filenames.
+  # The image each example contributes to the docs, as a bare filename. Prefers
+  # the animation (`<stem>-capture<secs>s.apng`, which browsers play inline) and
+  # falls back to the still (`<stem>-capture.png`) when there is no APNG. One
+  # entry per example program file that has a capture.
   def self.capture_filenames(w : Item) : Array(String)
-    recipes_for(w).size.times.compact_map do |i|
-      png = screenshot_path(w, i)
+    program_files(w).compact_map do |prog|
+      stem = prog_stem(prog)
+      apng = Dir.glob(File.join(example_dir(w), "#{stem}-capture*s.apng")).sort.first?
+      next File.basename(apng) if apng
+      png = shot_for(prog)
       File.exists?(png) ? File.basename(png) : nil
-    end.to_a
+    end
   end
 
   # How many `../` it takes to get from *w*'s generated page directory back to
@@ -793,8 +506,7 @@ module WidgetExamples
   # screenshots; add more here if other docs reference in-repo assets.
   DOCS_ASSETS = ["examples/widget", "examples/layout"]
 
-  # Run `crystal docs`, then mirror DOCS_ASSETS into the generated tree
-  # (`examples/widget/` -> `docs/examples/widget/`).
+  # Run `crystal docs`, then mirror DOCS_ASSETS into the generated tree.
   def self.build_docs : Nil
     puts "running `crystal docs` ..."
     status = Process.run("crystal", ["docs"], output: STDOUT, error: STDERR, chdir: ROOT)
@@ -802,6 +514,13 @@ module WidgetExamples
       STDERR.puts "crystal docs failed (exit #{status.exit_code})"
       exit 1
     end
+    copy_docs_assets
+  end
+
+  # Mirror DOCS_ASSETS into the (already-built) docs tree
+  # (`examples/widget/` -> `docs/examples/widget/`), without re-running
+  # `crystal docs`. Use after re-recording captures to refresh just the assets.
+  def self.copy_docs_assets : Nil
     DOCS_ASSETS.each do |rel|
       src = File.join(ROOT, rel)
       next unless Dir.exists?(src)
@@ -822,6 +541,11 @@ module WidgetExamples
     property list = false
     property doc_comments = false
     property docs = false
+    property copy = false
+    property anim = false
+    property duration = 5
+    property build = false
+    property release = false
     property jobs = WidgetExamples.default_jobs
     property filters = [] of String
 
@@ -831,6 +555,29 @@ module WidgetExamples
         fl = f.downcase
         w.basename.downcase == fl || w.klass.downcase == fl || w.rel.downcase == fl
       end
+    end
+
+    # True when no step/mode flag is given (only the non-mode `--jobs`,
+    # `--duration` and name filters may be present). `--force` then re-does the
+    # whole chain (`#full_chain?`); without it, the bare run just fills in what's
+    # missing and refreshes the docs (`#default_run?`).
+    private def bare? : Bool
+      !no_shot && !shots_only && !anim && !build && !doc_comments && !docs && !copy && !list
+    end
+
+    # `--force` on its own (no step/mode flag) means "re-do the whole chain":
+    # generate, shoot stills, record APNGs, refresh doc-comments, build docs.
+    # `--jobs`, `--duration` and name filters aren't mode flags, so they may
+    # accompany it.
+    def full_chain? : Bool
+      force && bare?
+    end
+
+    # A bare run (no flags at all): generate only the *missing* example files and
+    # stills, then run the docs output (`crystal docs` + asset copy). The
+    # incremental cousin of `#full_chain?`.
+    def default_run? : Bool
+      !force && bare?
     end
   end
 
@@ -846,6 +593,14 @@ module WidgetExamples
       when "--list"         then o.list = true
       when "--doc-comments" then o.doc_comments = true
       when "--docs"         then o.docs = true
+      when "--copy"         then o.copy = true
+      when "--anim"         then o.anim = true
+      when "--build"        then o.build = true
+      when "--release"      then o.release = true; o.build = true
+      when "--duration"
+        i += 1
+        o.duration = (i < argv.size ? argv[i].to_i? : nil) || o.duration
+        o.duration = 1 if o.duration < 1
       when "-j", "--jobs"
         i += 1
         o.jobs = (i < argv.size ? argv[i].to_i? : nil) || o.jobs
@@ -869,31 +624,45 @@ module WidgetExamples
   end
 
   HELP = <<-TXT
-    widget-examples.cr v#{VERSION} — generate + screenshot per-widget examples.
+    manage-examples.cr v#{VERSION} — generate, screenshot & animate per-widget/layout examples.
 
-    Usage: crystal run tools/widget-examples.cr -- [options] [widget ...]
+    Usage: crystal run tools/manage-examples.cr -- [options] [name ...]
 
-      -f, --force       overwrite existing example files
+      -f, --force       re-do existing outputs (stills/anims/binaries/docs);
+                        never overwrites an example .cr
           --only NAME   restrict to NAME (repeatable; bare args work too)
-          --no-shot     generate files but skip screenshots
-          --shots-only  only (re)take screenshots; don't touch files
-      -j, --jobs N      screenshot concurrency (default #{default_jobs}; each shot is a compile)
-          --doc-comments insert/refresh each widget's screenshot in its source
+          --no-shot     scaffold missing files but skip screenshots
+          --shots-only  only (re)take screenshots; don't author any files
+          --anim                                example that has a demo script, instead of a still
+          --duration N  animation length in seconds (default 5)
+          --build       compile each example next to its source (x/<prog>.cr -> x/<prog>)
+          --release     like --build, but a crystal --release (optimized) build
+      -j, --jobs N      screenshot/anim concurrency (default #{default_jobs}; each is a compile)
+          --doc-comments insert/refresh each example's capture in its source
                         class doc comment (so `crystal docs` shows it)
-          --docs        run `crystal docs`, then copy examples/widget into docs/
+          --docs        run `crystal docs`, then copy examples/ into docs/
+          --copy        just copy examples/ into docs/ (skip `crystal docs`)
           --list        show the plan and exit
       -h, --help        this help
 
-    With no mode flag the default is: generate missing example files + screenshot.
-    --doc-comments and --docs run only their own step (respecting [widget ...]).
+    Example files in examples/ are the source of truth — edit them in place; the
+    tool only scaffolds the MISSING ones (from a generic template) and never
+    rewrites an existing .cr.
+    With NO flags: scaffold missing examples + stills, then build docs
+    (`crystal docs` + copy examples into docs/).
+    -f/--force on its OWN (no mode flag) re-does the whole chain end to end:
+    scaffold -> stills -> anims -> doc-comments -> docs. Pair --force with a
+    mode flag to force just that step (e.g. `--force --anim`).
+    --anim, --doc-comments and --docs run only their own step.
+    [name ...], --jobs and --duration may accompany any of the above.
     TXT
 
   # ---- screenshot -----------------------------------------------------------
 
   # Default screenshot concurrency. Each shot is a full `crystal` compile (RAM
-  # heavy), so stay well under the core count; override with `--jobs`.
+  # heavy), so stay under the core count; override with `--jobs`.
   def self.default_jobs : Int32
-    Math.max(1, Math.min(4, System.cpu_count.to_i - 1))
+    Math.max(1, Math.min(8, System.cpu_count.to_i - 1))
   end
 
   # Run *work* over *items* with at most *jobs* fibers in flight. Each fiber's
@@ -918,17 +687,52 @@ module WidgetExamples
     n.times { done.receive }
   end
 
-  # Run an example headlessly and capture it to *png*. Returns {ok, message}.
-  def self.screenshot(example_cr : String, png : String) : {Bool, String}
+  # Whether an output (still / anim / binary) already exists and so must be left
+  # alone (no --force). Prints a skip line when it does.
+  def self.skip_output?(dest : String, force : Bool) : Bool
+    return false if force || !File.exists?(dest)
+    puts "skip   #{relative_to_root(dest)} (exists; --force to overwrite)"
+    true
+  end
+
+  # Compile *example_cr* to *bin* (optionally `--release`). Returns {ok, msg}.
+  def self.build_example(example_cr : String, bin : String, release : Bool) : {Bool, String}
+    args = ["build", "--no-color", example_cr, "-o", bin]
+    args << "--release" if release
     io = IO::Memory.new
-    status = Process.run(
-      "crystal", ["run", "--no-color", example_cr],
-      env: {"CRYSTERM_SHOT" => png},
-      output: io, error: io, chdir: ROOT)
-    if status.success? && File.exists?(png)
-      {true, "#{relative_to_root(png)} (#{File.size(png)} bytes)"}
+    status = Process.run("crystal", args, output: io, error: io, chdir: ROOT)
+    if status.success? && File.exists?(bin)
+      {true, "#{relative_to_root(bin)} (#{File.size(bin)} bytes)"}
     else
       tail = io.to_s.lines.last(6).join("\n")
+      {false, tail.empty? ? "exit #{status.exit_code}" : tail}
+    end
+  end
+
+  # Run an example headlessly with *env* set, producing *out*. Returns {ok, msg}.
+  # Used for both stills (CRYSTERM_SHOT) and animations (CRYSTERM_ANIM).
+  #
+  # We `crystal build` to a *unique* temp binary and then exec it, rather than
+  # `crystal run` — because two examples that share a basename (e.g. the
+  # `status_bar.cr` of both `Widget::StatusBar` and `Pine::StatusBar`) would race
+  # on `crystal run`'s basename-derived temp executable under `--jobs`. The
+  # compile cache stays shared/warm; only the output binary is per-job.
+  def self.capture_run(example_cr : String, dest : String, env : Process::Env) : {Bool, String}
+    bin = File.tempname("crysterm-ex", "")
+    io = IO::Memory.new
+    build = Process.run("crystal", ["build", "--no-color", example_cr, "-o", bin],
+      output: io, error: io, chdir: ROOT)
+    unless build.success? && File.exists?(bin)
+      return {false, io.to_s.lines.last(6).join("\n").presence || "build failed (exit #{build.exit_code})"}
+    end
+    run_io = IO::Memory.new
+    status = Process.run(bin, env: env, output: run_io, error: run_io)
+    File.delete(bin) rescue nil
+    File.delete("#{bin}.dwarf") rescue nil
+    if status.success? && File.exists?(dest)
+      {true, "#{relative_to_root(dest)} (#{File.size(dest)} bytes)"}
+    else
+      tail = run_io.to_s.lines.last(6).join("\n")
       {false, tail.empty? ? "exit #{status.exit_code}" : tail}
     end
   end
@@ -948,9 +752,10 @@ module WidgetExamples
     if opts.list
       puts "#{widgets.size} widget(s):"
       widgets.each do |w|
-        recipe_kind = recipe?(w) ? "recipe" : "generic"
+        n = program_files(w).size
+        status = n == 0 ? "missing" : (n == 1 ? "example" : "#{n} examples")
         puts "  %-22s %-32s [%s] -> %s" % [
-          w.basename, w.fqn, recipe_kind, relative_to_root(example_dir(w)),
+          w.basename, w.fqn, status, relative_to_root(example_dir(w)),
         ]
       end
       return
@@ -961,54 +766,148 @@ module WidgetExamples
       maintain_doc_comments(widgets)
       return
     end
+    if opts.copy
+      copy_docs_assets
+      return
+    end
     if opts.docs
       build_docs
       return
     end
 
-    generated = 0
+    # `--force` with no mode flag re-runs the entire pipeline end to end:
+    # scaffold any still-missing example, (re)shoot the stills, (re)record the
+    # APNGs, refresh the in-source doc-comment captures, then build and populate
+    # the docs tree. Existing example .cr files are never rewritten. A mode flag
+    # (or `--no-shot`/`--shots-only`) instead scopes the run to just that step.
+    if opts.full_chain?
+      puts "── full chain: scaffold → stills → anims → doc-comments → docs ──"
+      process(widgets, opts) # scaffold missing examples + still PNGs
+      anim_opts = opts.dup
+      anim_opts.anim = true
+      anim_opts.shots_only = true # don't re-scaffold; stills pass already did
+      process(widgets, anim_opts) # record the APNGs
+      maintain_doc_comments(widgets)
+      build_docs
+      return
+    end
+
+    # A bare run (no flags): fill in only what's missing, then refresh the docs.
+    if opts.default_run?
+      process(widgets, opts) # generate missing example files + stills
+      build_docs             # `crystal docs` + copy examples into the docs tree
+      return
+    end
+
+    process(widgets, opts)
+  end
+
+  # The generation + capture/build phase, shared by a normal single-mode run and
+  # by each step of the `--force` full chain.
+  def self.process(widgets : Array(Item), opts : Options)
+    scaffolded = 0
     skipped = 0
-    generics = [] of String
-    # Examples to screenshot, collected in the (sequential) generation phase and
-    # shot in parallel afterwards. Each is {widget, example.cr, target png}.
-    to_shoot = [] of {Item, String, String}
+    stubs = [] of String
+    no_script = [] of String
+    # Examples to capture, collected during the (sequential) scan phase and run
+    # in parallel afterwards. Each is {item, example.cr, output, env}.
+    captures = [] of {Item, String, String, Process::Env}
+    # Examples to compile, when --build/--release. Each is {item, example.cr, bin}.
+    builds = [] of {Item, String, String}
 
     widgets.each do |w|
-      generics << w.basename unless recipe?(w)
-      recipes = recipes_for(w)
-      paths = example_paths(w, recipes.size)
-      FileUtils.mkdir_p(example_dir(w))
+      progs = program_files(w)
 
-      paths.each_with_index do |path, idx|
-        unless opts.shots_only
-          if File.exists?(path) && !opts.force
+      # The example files in `examples/` are the source of truth — never
+      # rewritten. A widget with *no* example yet gets one starter scaffolded
+      # from the generic template, after which it is hand-maintained in place.
+      # A `--shots-only`/`--build` pass mustn't author sources, so it skips an
+      # un-exemplified widget rather than scaffolding it.
+      if progs.empty?
+        next if opts.shots_only
+        FileUtils.mkdir_p(example_dir(w))
+        path = File.join(example_dir(w), "#{w.basename}.cr")
+        File.write(path, render_stub(w))
+        scaffolded += 1
+        stubs << w.basename
+        puts "scaffold #{relative_to_root(path)} (now edit it in place)"
+        progs = [path]
+      end
+
+      progs.each do |path|
+        next if opts.no_shot && !opts.build
+
+        # Existing outputs are preserved unless --force.
+        if opts.build
+          bin = bin_for(path)
+          if skip_output?(bin, opts.force)
             skipped += 1
-            puts "skip   #{relative_to_root(path)} (exists; --force to overwrite)"
           else
-            File.write(path, render_example(w, recipes[idx], idx, recipes.size))
-            generated += 1
-            puts "write  #{relative_to_root(path)}"
+            builds << {w, path, bin}
+          end
+        elsif opts.anim
+          # Every example gets an APNG. Scripted ones play their demo; the rest
+          # are recorded as a static hold (still capturing any self-animation).
+          no_script << prog_stem(path) unless File.read(path).includes?("script:")
+          dest = anim_for(path, opts.duration)
+          if skip_output?(dest, opts.force)
+            skipped += 1
+          else
+            captures << {w, path, dest, {"CRYSTERM_ANIM" => dest, "CRYSTERM_ANIM_SECS" => opts.duration.to_s}}
+          end
+        else
+          dest = shot_for(path)
+          if skip_output?(dest, opts.force)
+            skipped += 1
+          else
+            captures << {w, path, dest, {"CRYSTERM_SHOT" => dest}}
           end
         end
-
-        next if opts.no_shot
-        next unless File.exists?(path) # nothing to shoot (shots-only, missing file)
-        to_shoot << {w, path, screenshot_path(w, idx)}
       end
     end
 
-    shot_ok = 0
-    shot_fail = 0
+    # `--build` compiles instead of capturing.
+    if opts.build
+      build_ok = 0
+      build_fail = 0
+      bfailures = [] of String
+      unless builds.empty?
+        mode = opts.release ? "release" : "debug"
+        puts "building #{builds.size} example(s) [#{mode}] with #{Math.min(opts.jobs, builds.size)} job(s)..."
+        parallel_each(builds, opts.jobs) do |(w, path, bin)|
+          ok, msg = build_example(path, bin, opts.release)
+          if ok
+            build_ok += 1
+            puts "build  #{msg}"
+          else
+            build_fail += 1
+            bfailures << w.basename
+            puts(String.build do |io|
+              io << "FAIL   " << relative_to_root(path)
+              msg.each_line { |l| io << "\n         " << l }
+            end)
+          end
+        end
+      end
+      puts
+      puts "Summary: #{scaffolded} scaffolded, #{skipped} skipped, #{build_ok} built, #{build_fail} failed."
+      puts "Build failures: #{bfailures.uniq.join(", ")}" unless bfailures.empty?
+      return
+    end
+
+    ok_n = 0
+    fail_n = 0
     failures = [] of String
-    unless to_shoot.empty?
-      puts "shooting #{to_shoot.size} example(s) with #{Math.min(opts.jobs, to_shoot.size)} job(s)..."
-      parallel_each(to_shoot, opts.jobs) do |(w, path, png)|
-        ok, msg = screenshot(path, png)
+    verb = opts.anim ? "anim " : "shot "
+    unless captures.empty?
+      puts "#{opts.anim ? "recording" : "shooting"} #{captures.size} example(s) with #{Math.min(opts.jobs, captures.size)} job(s)..."
+      parallel_each(captures, opts.jobs) do |(w, path, dest, env)|
+        ok, msg = capture_run(path, dest, env)
         if ok
-          shot_ok += 1
-          puts "shot   #{msg}"
+          ok_n += 1
+          puts "#{verb}  #{msg}"
         else
-          shot_fail += 1
+          fail_n += 1
           failures << w.basename
           # One `puts` so a failure's lines can't interleave with another job's.
           puts(String.build do |io|
@@ -1020,13 +919,17 @@ module WidgetExamples
     end
 
     puts
-    puts "Summary: #{generated} written, #{skipped} skipped, " \
-         "#{shot_ok} shots ok, #{shot_fail} shots failed."
+    captured = opts.anim ? "anims" : "shots"
+    puts "Summary: #{scaffolded} scaffolded, #{skipped} skipped, " \
+         "#{ok_n} #{captured} ok, #{fail_n} #{captured} failed."
     unless failures.empty?
-      puts "Build/shot failures (need a working recipe): #{failures.uniq.join(", ")}"
+      puts "Build/capture failures (the example needs fixing): #{failures.uniq.join(", ")}"
     end
-    unless generics.empty?
-      puts "Using the generic template (groom into real recipes): #{generics.uniq.join(", ")}"
+    if opts.anim && !no_script.empty?
+      puts "Recorded as a static hold (no demo script — add a `script:` to the example to drive it): #{no_script.uniq.join(", ")}"
+    end
+    unless stubs.empty?
+      puts "Scaffolded from the generic template (flesh out in place): #{stubs.uniq.join(", ")}"
     end
   end
 end

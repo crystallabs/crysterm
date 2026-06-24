@@ -18,7 +18,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ToolBox screenshot](../../examples/widget/toolbox/toolbox-capture.png)
+    # ![ToolBox screenshot](../../examples/widget/toolbox/toolbox-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class ToolBox < Box
       # One section of a `ToolBox`.

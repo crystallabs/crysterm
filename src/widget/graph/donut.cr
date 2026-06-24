@@ -20,7 +20,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Donut screenshot](../../../examples/widget/graph/donut/donut-capture.png)
+      # ![Donut screenshot](../../../examples/widget/graph/donut/donut-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Donut < Box
         property minimum : Float64

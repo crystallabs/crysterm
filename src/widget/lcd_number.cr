@@ -16,7 +16,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![LCDNumber screenshot](../../examples/widget/lcd_number/lcd_number-capture.png)
+    # ![LCDNumber screenshot](../../examples/widget/lcd_number/lcd_number-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class LCDNumber < Box
       enum Mode

@@ -27,7 +27,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Gauge screenshot](../../examples/widget/gauge/gauge-capture.png)
+    # ![Gauge screenshot](../../examples/widget/gauge/gauge-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Gauge < Box
       # One colored slice of a stacked gauge.

@@ -10,7 +10,7 @@ module Crysterm
     # typically used for a "select all" box whose children are mixed.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![CheckBox screenshot](../../examples/widget/checkbox/checkbox-capture.png)
+    # ![CheckBox screenshot](../../examples/widget/checkbox/checkbox-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class CheckBox < Input
       include EventHandler
@@ -154,7 +154,7 @@ module Crysterm
     end
 
     # <!-- widget-examples:capture v1 -->
-    # ![CheckBox screenshot](../../examples/widget/checkbox/checkbox-capture.png)
+    # ![CheckBox screenshot](../../examples/widget/checkbox/checkbox-capture5s.apng)
     # <!-- /widget-examples:capture -->
     alias Checkbox = CheckBox
   end

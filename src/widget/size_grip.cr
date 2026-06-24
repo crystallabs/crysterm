@@ -16,7 +16,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![SizeGrip screenshot](../../examples/widget/size_grip/size_grip-capture.png)
+    # ![SizeGrip screenshot](../../examples/widget/size_grip/size_grip-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class SizeGrip < Box
       # Widget resized by dragging. Defaults to the grip's parent.

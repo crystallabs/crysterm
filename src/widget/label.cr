@@ -5,7 +5,7 @@ module Crysterm
     # Basic read-only label
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Label screenshot](../../examples/widget/label/label-capture.png)
+    # ![Label screenshot](../../examples/widget/label/label-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Label < Box
       @resizable = true

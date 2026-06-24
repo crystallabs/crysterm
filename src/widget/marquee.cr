@@ -30,6 +30,10 @@ module Crysterm
     # by building a `{#rrggbb-fg}`-tagged content string that the content pipeline
     # re-tokenizes (`_parse_tags`) every frame. (Mirrors `Effect::SineScroller`
     # and `Widget::Gradient`.)
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Marquee screenshot](../../examples/widget/marquee/marquee-capture5s.apng)
+    # <!-- /widget-examples:capture -->
     class Marquee < Box
       # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).
       # `#step` below supplies the per-frame work.

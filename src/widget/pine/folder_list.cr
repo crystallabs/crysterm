@@ -14,7 +14,7 @@ module Crysterm
       # `callback`).
       #
       # <!-- widget-examples:capture v1 -->
-      # ![FolderList screenshot](../../../examples/widget/pine/folder_list/folder_list-capture.png)
+      # ![FolderList screenshot](../../../examples/widget/pine/folder_list/folder_list-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class FolderList < Widget::List
         # A single mail folder.

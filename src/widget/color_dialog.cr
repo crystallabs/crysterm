@@ -43,7 +43,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ColorDialog screenshot](../../examples/widget/color_dialog/color_dialog-capture.png)
+    # ![ColorDialog screenshot](../../examples/widget/color_dialog/color_dialog-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class ColorDialog < Box
       # Inner-area layout (cells, relative to the content origin).

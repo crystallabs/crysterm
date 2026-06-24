@@ -22,7 +22,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![TabWidget screenshot](../../examples/widget/tab_widget/tab_widget-capture.png)
+    # ![TabWidget screenshot](../../examples/widget/tab_widget/tab_widget-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class TabWidget < Box
       # Where the tab bar sits relative to the pages (Qt's `QTabWidget::North` /

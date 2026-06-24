@@ -15,7 +15,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![GroupBox screenshot](../../examples/widget/group_box/group_box-capture.png)
+    # ![GroupBox screenshot](../../examples/widget/group_box/group_box-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class GroupBox < Box
       property title : String = ""

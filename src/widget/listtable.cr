@@ -23,7 +23,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ListTable screenshot](../../examples/widget/listtable/listtable-capture.png)
+    # ![ListTable screenshot](../../examples/widget/listtable/listtable-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class ListTable < List
       include TableLayout
@@ -272,10 +272,20 @@ module Crysterm
       end
 
       def render(with_children = true)
+        # Re-pin the width now that the CSS cascade has run (it runs at the top
+        # of the screen's `_render`, before any widget renders). `set_data` pins
+        # the width at construction/Attach time, but a border arriving via CSS
+        # isn't folded into `style` yet then, so `iwidth` would omit the border
+        # columns and leave the box too narrow — the header and separators would
+        # then disagree with the box edge. Recomputing here converges them on the
+        # first rendered frame. Assigned directly (not via `width=`) to avoid the
+        # `Resize`-before-store recursion our own `Resize` handler would trigger.
+        calculate_maxes
+        @width = row_width + iwidth unless @maxes.empty?
+
         coords = super
         return coords unless coords
 
-        calculate_maxes
         return coords if @maxes.empty?
 
         draw_borders coords

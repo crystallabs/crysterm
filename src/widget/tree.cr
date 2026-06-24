@@ -26,7 +26,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Tree screenshot](../../examples/widget/tree/tree-capture.png)
+    # ![Tree screenshot](../../examples/widget/tree/tree-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Tree < List
       # A single node in a `Tree`. Holds its `#text`, optional user `#data`, and

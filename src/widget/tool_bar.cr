@@ -22,7 +22,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ToolBar screenshot](../../examples/widget/tool_bar/tool_bar-capture.png)
+    # ![ToolBar screenshot](../../examples/widget/tool_bar/tool_bar-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class ToolBar < ListBar
       # The action backing each button box (absent for plain buttons/separators).

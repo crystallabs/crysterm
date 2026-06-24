@@ -5,7 +5,7 @@ module Crysterm
     # Horizontal line
     #
     # <!-- widget-examples:capture v1 -->
-    # ![HLine screenshot](../../examples/widget/hline/hline-capture.png)
+    # ![HLine screenshot](../../examples/widget/hline/hline-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class HLine < Line
       @orientation = :horizontal
@@ -16,7 +16,7 @@ module Crysterm
     end
 
     # <!-- widget-examples:capture v1 -->
-    # ![HLine screenshot](../../examples/widget/hline/hline-capture.png)
+    # ![HLine screenshot](../../examples/widget/hline/hline-capture5s.apng)
     # <!-- /widget-examples:capture -->
     alias Hline = HLine
   end

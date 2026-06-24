@@ -5,7 +5,7 @@ module Crysterm
     # Question element
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Question screenshot](../../examples/widget/question/question-capture.png)
+    # ![Question screenshot](../../examples/widget/question/question-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Question < Box
       property text : String = ""

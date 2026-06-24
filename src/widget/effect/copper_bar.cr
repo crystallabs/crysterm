@@ -24,6 +24,10 @@ module Crysterm
       #   width: "100%", height: 1
       # bar.start
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![CopperBar screenshot](../../../examples/widget/effect/copper_bar/copper_bar-capture5s.apng)
+      # <!-- /widget-examples:capture -->
       class CopperBar < Box
         include Animated
 

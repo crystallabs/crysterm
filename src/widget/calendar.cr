@@ -48,7 +48,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Calendar screenshot](../../examples/widget/calendar/calendar-capture.png)
+    # ![Calendar screenshot](../../examples/widget/calendar/calendar-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Calendar < Box
       # Day-of-week selection behavior (Qt's `QCalendarWidget::SelectionMode`).

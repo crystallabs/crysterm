@@ -11,7 +11,7 @@ module Crysterm
     # emits `Event::ValueChange` whenever the value changes.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Slider screenshot](../../examples/widget/slider/slider-capture.png)
+    # ![Slider screenshot](../../examples/widget/slider/slider-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Slider < Input
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,

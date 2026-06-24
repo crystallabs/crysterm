@@ -17,7 +17,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![FileManager screenshot](../../examples/widget/filemanager/filemanager-capture.png)
+    # ![FileManager screenshot](../../examples/widget/filemanager/filemanager-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class FileManager < List
       # Current working directory.

@@ -30,6 +30,7 @@ module Crysterm
     Text           = Widget::Text
     ScrollableBox  = Widget::ScrollableBox
     ScrollableText = Widget::ScrollableText
+    Marquee        = Widget::Marquee
     TextBox        = Widget::TextBox
     TextArea       = Widget::TextArea
 
@@ -50,8 +51,12 @@ module Crysterm
     SparkLine = Widget::Graph::Bar
 
     # Effects
-    EffectMatrix = Widget::Effect::Matrix
-    EffectSpray  = Widget::Effect::Spray
+    EffectMatrix       = Widget::Effect::Matrix
+    EffectSpray        = Widget::Effect::Spray
+    EffectFire         = Widget::Effect::Fire
+    EffectPlasma       = Widget::Effect::Plasma
+    EffectSineScroller = Widget::Effect::SineScroller
+    EffectCopperBar    = Widget::Effect::CopperBar
 
     RadioSet    = Widget::RadioSet
     RadioButton = Widget::RadioButton

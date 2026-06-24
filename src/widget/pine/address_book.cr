@@ -13,7 +13,7 @@ module Crysterm
       # `callback` — e.g. to start composing a message to them).
       #
       # <!-- widget-examples:capture v1 -->
-      # ![AddressBook screenshot](../../../examples/widget/pine/address_book/address_book-capture.png)
+      # ![AddressBook screenshot](../../../examples/widget/pine/address_book/address_book-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class AddressBook < Widget::List
         # A single address-book entry.

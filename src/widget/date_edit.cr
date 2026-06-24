@@ -20,7 +20,7 @@ module Crysterm
     # lives in `Mixin::SectionedField`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![DateEdit screenshot](../../examples/widget/date_edit/date_edit-capture.png)
+    # ![DateEdit screenshot](../../examples/widget/date_edit/date_edit-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class DateEdit < Input
       include Mixin::SectionedField

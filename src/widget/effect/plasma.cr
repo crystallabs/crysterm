@@ -27,6 +27,10 @@ module Crysterm
       # plasma = Widget::Effect::Plasma.new parent: screen, width: "100%", height: "100%"
       # plasma.start
       # ```
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![Plasma screenshot](../../../examples/widget/effect/plasma/plasma-capture5s.apng)
+      # <!-- /widget-examples:capture -->
       class Plasma < Box
         include Effect::Direct
 
