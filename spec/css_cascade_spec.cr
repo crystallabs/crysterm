@@ -597,6 +597,38 @@ describe "CSS cascade" do
     end
   end
 
+  it "styles checkable widgets by native :checked/:indeterminate (plain author CSS, no .qss)" do
+    # Standard Selectors-L4 pseudos must work in an ordinary stylesheet, not only
+    # when translated from Qt — `Stylesheet` lowers them to the backing attributes.
+    screen = headless_screen
+    on = Widget::CheckBox.new checked: true
+    off = Widget::CheckBox.new checked: false
+    tri = Widget::CheckBox.new tristate: true
+    tri.partial
+    screen.append on
+    screen.append off
+    screen.append tri
+    screen.stylesheet = "CheckBox:checked { color: red; }\n" \
+                        "CheckBox:indeterminate { color: blue; }\n"
+    screen.apply_stylesheet
+    on.style.fg.should eq rgb("red")
+    tri.style.fg.should eq rgb("blue")
+    off.style.fg.should_not eq rgb("red") # unaffected
+  end
+
+  it "styles widgets by native :enabled (lowers to :not(:disabled)) in plain author CSS" do
+    screen = headless_screen
+    on = Widget::Button.new
+    off = Widget::Button.new
+    off.state = Crysterm::WidgetState::Disabled
+    screen.append on
+    screen.append off
+    screen.stylesheet = "Button:enabled { color: green; }"
+    screen.apply_stylesheet
+    on.style.fg.should eq rgb("green")
+    off.style.fg.should_not eq rgb("green")
+  end
+
   it "styles widgets by Qt :horizontal/:vertical/:editable state via .qss" do
     path = File.tempname("crysterm-qss", ".qss")
     File.write(path, "QSlider:horizontal { color: red; }\n" \
@@ -636,6 +668,33 @@ describe "CSS cascade" do
     ensure
       File.delete(path)
     end
+  end
+
+  it "routes a native ::slot pseudo-element to its sub-style (plain author CSS, no .qss)" do
+    # The idiomatic `Type::slot` spelling must resolve in an ordinary stylesheet,
+    # not only when translated from Qt — `Stylesheet` lowers `::indicator` to the
+    # `Indicator` descendant slot node.
+    screen = headless_screen
+    pb = Widget::ProgressBar.new
+    slider = Widget::Slider.new
+    screen.append pb
+    screen.append slider
+    screen.stylesheet = "ProgressBar::indicator { color: red; }\nSlider::indicator { color: green; }\n"
+    screen.apply_stylesheet
+    pb.styles.normal.indicator.fg.should eq rgb("red")
+    slider.styles.normal.indicator.fg.should eq rgb("green")
+  end
+
+  it "routes Menu::separator to the menu's separator sub-style" do
+    screen = headless_screen
+    menu = Widget::Menu.new
+    menu.add "Open"
+    menu.add_separator
+    menu.add "Quit"
+    screen.append menu
+    screen.stylesheet = "Menu::separator { color: red; }"
+    screen.apply_stylesheet
+    menu.style.separator.fg.should eq rgb("red")
   end
 
   it "loads and reloads a stylesheet from a file" do

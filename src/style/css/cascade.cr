@@ -496,6 +496,7 @@ module Crysterm
         when "item"      then style.item
         when "indicator" then style.indicator
         when "prefix"    then style.prefix
+        when "separator" then style.separator
         when "label"     then style.label
         else                  style
         end
@@ -510,6 +511,7 @@ module Crysterm
         when "item"      then style.item = sub
         when "indicator" then style.indicator = sub
         when "prefix"    then style.prefix = sub
+        when "separator" then style.separator = sub
         when "label"     then style.label = sub
         end
       end

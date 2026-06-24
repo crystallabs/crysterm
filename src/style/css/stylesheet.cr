@@ -148,6 +148,31 @@ module Crysterm
         ":normal"   => WidgetState::Normal,
       }
 
+      # Standard-CSS state pseudo-classes (Selectors L4) that Crysterm backs with
+      # boolean *attributes* rather than `.state-*` classes — `:checked` and
+      # `:indeterminate` map to the `[checked]`/`[indeterminate]` attributes
+      # emitted by `widget_attributes.cr`, and `:enabled` to `:not(:disabled)`
+      # (its inner `:disabled` is then lowered to `.state-disabled`, which is
+      # legal inside `:not()`). Unlike `STATE_PSEUDOS` these are rewritten
+      # textually into the selector for *every* stylesheet (author `.css`, inline,
+      # theme, `.qss`), so the idiomatic spelling works natively — not only when
+      # translated from Qt by `CSS::Qss`.
+      ATTR_PSEUDOS = {
+        "checked"       => "[checked]",
+        "indeterminate" => "[indeterminate]",
+        "enabled"       => ":not(:disabled)",
+      }
+
+      # Matches exactly the `ATTR_PSEUDOS` tokens as whole pseudo-classes (the
+      # trailing lookahead keeps `:enabled` from biting into a longer identifier).
+      ATTR_PSEUDO = /:(checked|indeterminate|enabled)(?![A-Za-z0-9_-])/
+
+      # Matches a `::slot` pseudo-element token (`ProgressBar::indicator`). Lowered
+      # to the *capitalized descendant node* Crysterm emits for that slot — the
+      # idiomatic CSS spelling of the internal representation; see
+      # `lower_sub_elements`.
+      SUB_ELEMENT_PSEUDO = /::([a-z][a-z-]*)/
+
       # Mutable state threaded through the recursive parse.
       private class ParseCtx
         getter rules = [] of Rule
@@ -328,9 +353,17 @@ module Crysterm
         return if declarations.empty? && important.empty?
         selectors.each do |selector|
           next if selector.empty?
-          # Specificity is from the *original* selector; then the subject's state
-          # pseudo / `:has` are peeled, ancestor state pseudos lowered, and types
-          # rewritten to classes — exactly as before, now per combined selector.
+          # First lower the idiomatic Qt-ish spellings to Crysterm's internal
+          # forms: `::slot` pseudo-elements to capitalized descendant nodes, and
+          # the standard attribute-backed pseudos (`:checked` -> `[checked]`,
+          # `:enabled` -> `:not(:disabled)`). Everything below — specificity,
+          # peeling, the `.state-*` lowering of the resulting `:not(:disabled)`,
+          # `expand_types` — then operates on the form actually matched.
+          selector = lower_sub_elements(selector)
+          selector = lower_attr_pseudos(selector)
+          # Specificity is from the (attr-lowered) selector; then the subject's
+          # state pseudo / `:has` are peeled, ancestor state pseudos lowered, and
+          # types rewritten to classes — exactly as before, now per combined selector.
           spec = Specificity.calculate(selector)
           prefix, subject = split_subject(selector)
           state, subject = peel_state(subject)
@@ -610,6 +643,32 @@ module Crysterm
         result = selector
         STATE_PSEUDO_MATCHERS.each { |(re, repl)| result = result.gsub(re, repl) }
         result
+      end
+
+      # Rewrites the standard-CSS `:checked`/`:indeterminate`/`:enabled`
+      # pseudo-classes into the attribute/`:not()` forms Crysterm matches against
+      # (see `ATTR_PSEUDOS`). Applied to the whole selector up front in
+      # `emit_rules`, before specificity/state peeling, so the rewrite is uniform
+      # across the prefix and subject (and any `:not()`-nested occurrence) and
+      # specificity is computed on the form actually matched — an attribute and a
+      # pseudo-class weigh the same, so the count is unchanged either way.
+      private def self.lower_attr_pseudos(selector : String) : String
+        return selector unless selector.includes?(':') # fast path: no pseudo at all
+        selector.gsub(ATTR_PSEUDO) { ATTR_PSEUDOS[$1] }
+      end
+
+      # Rewrites `Type::slot` pseudo-elements into the capitalized descendant node
+      # Crysterm matches a slot by (`ProgressBar::indicator` -> `ProgressBar
+      # Indicator`, which `expand_types` then turns into the `.Indicator` class on
+      # the slot node — see `html.cr`/`sub_elements.cr`). The descendant-capitalized
+      # form is an internal representation; this lets the conventional `::slot`
+      # spelling work in *every* stylesheet, not only via `CSS::Qss`. A `::name`
+      # with no backing slot becomes a class that matches nothing — tolerant, as
+      # before. Run before `expand_types` (which otherwise keeps `::name` verbatim
+      # as an inert pseudo-element).
+      private def self.lower_sub_elements(selector : String) : String
+        return selector unless selector.includes?("::")
+        selector.gsub(SUB_ELEMENT_PSEUDO) { " #{$1.capitalize}" }
       end
     end
   end

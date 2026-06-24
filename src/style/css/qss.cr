@@ -98,54 +98,52 @@ module Crysterm
       # Matches a Qt `palette(role)` color function.
       PALETTE = /palette\(\s*([a-z-]+)\s*\)/i
 
-      # Qt sub-control pseudo-elements (`::name`) → Crysterm sub-element slot.
-      # Crysterm matches a slot by its *capitalized* name as a descendant node
-      # (e.g. `ProgressBar Indicator`, see `html.cr`/`sub_elements.cr`), not by
-      # `::`-syntax, so each mapping rewrites `::name` to ` Name`. Only Qt parts
-      # backed by a slot a widget actually renders are mapped — `::chunk` and
-      # `::handle` reuse the `Indicator` slot, `::groove` the base `Track`.
-      # Unmapped `::name` (`::tab`, `::down-arrow`, …) are left verbatim and
-      # simply match nothing.
+      # *Qt-vocabulary* sub-control pseudo-elements (`::name`) whose Crysterm slot
+      # is spelled differently → the slot's capitalized descendant node (e.g.
+      # `::chunk` reuses the `Indicator` slot). The *identity* pseudos
+      # (`::indicator`, `::item`) are NOT here — `Stylesheet` lowers any `::slot`
+      # to its capitalized descendant node natively (see its `lower_sub_elements`)
+      # for every stylesheet, so qss inherits them for free. Only the non-identity
+      # Qt aliases need a rewrite here, *before* the native pass, so e.g. `::chunk`
+      # becomes `Indicator` rather than the non-existent `Chunk` node. Unmapped
+      # `::name` (`::tab`, `::down-arrow`, …) pass through to the native lowering
+      # and simply match nothing.
       #
       # `::section` is intentionally absent: `QHeaderView` already renames to the
       # `Header` node (see `RENAMES`), so `::section` would double it to
       # `Header Header`; the header is reached via the type rename directly.
       SUB_ELEMENTS = {
-        "indicator" => "Indicator", # CheckBox/RadioButton/ProgressBar/Slider/Dial
-        "item"      => "Item",      # List
-        "chunk"     => "Indicator", # QProgressBar::chunk → the filled indicator
-        "handle"    => "Indicator", # QSlider::handle    → the slider indicator
-        "groove"    => "Track",     # QSlider/QScrollBar::groove → the track
+        "chunk"  => "Indicator", # QProgressBar::chunk → the filled indicator
+        "handle" => "Indicator", # QSlider::handle    → the slider indicator
+        "groove" => "Track",     # QSlider/QScrollBar::groove → the track
       }
 
       # Matches a Qt `::pseudo-element` token.
       SUB_ELEMENT = /::([a-z][a-z-]*)/
 
-      # Qt state pseudo-classes that Crysterm can express, mapped to its own
-      # syntax. Checkable state becomes complementary boolean *attributes*
-      # (Button/CheckBox `css_attributes`) because an attribute selector inside
-      # `:not()` doesn't compile; `:enabled` becomes `:not(:disabled)` (the parser
-      # lowers `:disabled` to a `.state-disabled` class, which *is* legal inside
-      # `:not()`); `:pressed` approximates to `:active` (Crysterm's pressed-ish
-      # `Selected` state). States Crysterm already handles (`:hover`, `:focus`,
-      # `:disabled`, `:selected`) are deliberately absent — left untouched.
+      # *Genuinely Qt-specific* state pseudo-classes, mapped to Crysterm syntax.
+      # Standard-CSS states (`:checked`/`:indeterminate`/`:enabled`) are NOT here —
+      # they're lowered natively by `Stylesheet` (see its `ATTR_PSEUDOS`) for every
+      # stylesheet, so qss inherits them for free. What remains is Qt vocabulary:
+      # `:on`/`:off` (Qt's checkable spelling) and `:unchecked` become the
+      # complementary boolean attributes; `:pressed` approximates to `:active`;
+      # the non-standard `:horizontal`/`:vertical`/`:editable` map to the
+      # orientation/editable attributes. States Crysterm already handles
+      # (`:hover`, `:focus`, `:disabled`, `:selected`) are deliberately absent.
       STATE_PSEUDOS = {
-        "checked"       => "[checked]",
-        "on"            => "[checked]",
-        "unchecked"     => "[unchecked]",
-        "off"           => "[unchecked]",
-        "indeterminate" => "[indeterminate]",
-        "enabled"       => ":not(:disabled)",
-        "pressed"       => ":active",
-        "horizontal"    => "[horizontal]", # ScrollBar/Slider/ProgressBar/Splitter orientation
-        "vertical"      => "[vertical]",
-        "editable"      => "[editable]", # ComboBox
+        "on"         => "[checked]",
+        "unchecked"  => "[unchecked]",
+        "off"        => "[unchecked]",
+        "pressed"    => ":active",
+        "horizontal" => "[horizontal]", # ScrollBar/Slider/ProgressBar/Splitter orientation
+        "vertical"   => "[vertical]",
+        "editable"   => "[editable]", # ComboBox
       }
 
       # Matches exactly the Qt state pseudo-classes in `STATE_PSEUDOS` as whole
       # tokens (the trailing lookahead stops `:on` matching inside `:only-one`,
       # etc.). Other `:pseudo` tokens are left for the parser to handle or ignore.
-      STATE_PSEUDO = /:(checked|unchecked|indeterminate|enabled|pressed|on|off|horizontal|vertical|editable)(?![\w-])/
+      STATE_PSEUDO = /:(unchecked|pressed|on|off|horizontal|vertical|editable)(?![\w-])/
 
       # Rewrites *source* (the contents of a `.qss` file) into Crysterm CSS:
       # `Q`-prefixed type selectors are renamed, Qt `::sub-control` pseudo-elements

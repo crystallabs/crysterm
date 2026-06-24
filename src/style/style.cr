@@ -298,6 +298,14 @@ module Crysterm
       @prefix || self
     end
 
+    # Style used for a `Widget::Menu` separator rule (Qt's `QMenu::separator`).
+    # Defaults to `self`.
+    setter separator : Style?
+
+    def separator
+      @separator || self
+    end
+
     # Label value is used only when internally instantiating labels on widgets,
     # to be able to set their: `style: self.style.label`. Since labels are
     # widgets, everything after that is done by looking up `@_label.style....`.
@@ -371,6 +379,7 @@ module Crysterm
       @indicator = inline.@indicator if inline.@indicator
       @item = inline.@item if inline.@item
       @prefix = inline.@prefix if inline.@prefix
+      @separator = inline.@separator if inline.@separator
       @scrollbar = inline.@scrollbar if inline.@scrollbar
       @track = inline.@track if inline.@track
     end
@@ -387,6 +396,7 @@ module Crysterm
       @indicator = @indicator,
       @item = @item,
       @prefix = @prefix,
+      @separator = @separator,
       @header = @header,
       @cell = @cell,
       @label = @label,

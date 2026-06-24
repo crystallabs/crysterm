@@ -202,7 +202,7 @@ module Crysterm
          (.scrollbar) on a thin translucent plane so content shows faintly through. */
       .scrollbar { color: var(--muted); z-index: 5; opacity: 0.82; }
       Track { color: var(--surface-dark); }
-      ProgressBar Indicator, Slider Indicator, Dial Indicator { color: var(--accent); }
+      ProgressBar::indicator, Slider::indicator, Dial::indicator { color: var(--accent); }
 
       /* Tables */
       Header { background-color: var(--muted-dark); color: var(--text); font-weight: bold; }
@@ -210,7 +210,7 @@ module Crysterm
       /* Bars and chrome */
       MenuBar, ToolBar { background-color: var(--muted-dark); color: var(--text); }
       StatusBar { background-color: var(--muted-dark); color: var(--text); }
-      ListBar Prefix { color: var(--info); }
+      ListBar::prefix { color: var(--info); }
 
       /* Tooltips */
       ToolTip { background-color: var(--warning); color: var(--warning-fg); z-index: 10; opacity: 0.96; }

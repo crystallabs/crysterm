@@ -138,6 +138,27 @@ describe "CSS end-to-end rendering" do
     magentas.should be > 0
   end
 
+  it "paints Menu::separator color onto the separator rule row" do
+    screen = render_screen
+    menu = Widget::Menu.new width: 20
+    menu.add "Open"
+    menu.add_separator
+    menu.add "Quit"
+    screen.append menu
+    # `opacity: 1.0` cancels the theme's translucent Menu plane so the separator
+    # fg lands as the exact color rather than an alpha-blended approximation.
+    screen.stylesheet = "Menu { opacity: 1.0; } Menu::separator { color: #ff00ff; }"
+    screen._render
+
+    # the separator rule (a run of '─') is drawn from the separator sub-style
+    magentas = 0
+    (0...screen.height).each do |y|
+      next unless screen.lines[y]?
+      (0...screen.width).each { |x| magentas += 1 if cell_fg(screen, y, x) == 0xff00ff }
+    end
+    magentas.should be > 0
+  end
+
   it "reflects a restyle in the next render" do
     screen = render_screen
     box = Widget::Box.new parent: screen, top: 1, left: 1, width: 10, height: 5

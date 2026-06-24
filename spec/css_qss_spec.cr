@@ -57,13 +57,16 @@ describe Crysterm::CSS::Qss do
     end
 
     # KNOWN GAP: Qt's `::indicator:checked` means "indicator *while the parent is
-    # checked*", but we don't hoist a parent-state onto the type — the state pass
-    # lands `[checked]` on the sub-element node, which matches nothing. The plain
-    # `QCheckBox:checked` (state on the widget) and `QCheckBox::indicator`
-    # (sub-element, no state) forms both work. Tracked in the plan.
+    # checked*", but we don't hoist a parent-state onto the type. `::indicator`
+    # and `:checked` are now both lowered by the *native* parser (to the
+    # `Indicator` descendant node and `[checked]`), so `Qss.to_css` leaves them
+    # verbatim here — and the resulting `CheckBox Indicator[checked]` matches
+    # nothing. The plain `QCheckBox:checked` (state on the widget) and
+    # `QCheckBox::indicator` (sub-element, no state) forms both work. Tracked in
+    # the plan.
     it "composes sub-element + state literally (parent-state-on-subcontrol is a gap)" do
       Crysterm::CSS::Qss.to_css("QCheckBox::indicator:checked { }")
-        .should eq "CheckBox Indicator[checked] { }"
+        .should eq "CheckBox::indicator:checked { }"
     end
 
     it "leaves an unmapped Qt pseudo-element verbatim (matches nothing)" do
@@ -74,16 +77,22 @@ describe Crysterm::CSS::Qss do
   end
 
   describe "state pseudo-classes" do
-    it "maps checkable Qt states to complementary boolean attributes" do
-      Crysterm::CSS::Qss.to_css("QCheckBox:checked { }").should eq "CheckBox[checked] { }"
+    it "maps the Qt-specific checkable spellings to complementary boolean attributes" do
+      # `:on`/`:off` and `:unchecked` are Qt vocabulary, rewritten here.
       Crysterm::CSS::Qss.to_css("QCheckBox:unchecked { }").should eq "CheckBox[unchecked] { }"
-      Crysterm::CSS::Qss.to_css("QCheckBox:indeterminate { }").should eq "CheckBox[indeterminate] { }"
       Crysterm::CSS::Qss.to_css("QPushButton:on { }").should eq "Button[checked] { }"
       Crysterm::CSS::Qss.to_css("QPushButton:off { }").should eq "Button[unchecked] { }"
     end
 
-    it "maps :enabled and :pressed to expressible Crysterm forms" do
-      Crysterm::CSS::Qss.to_css("QPushButton:enabled { }").should eq "Button:not(:disabled) { }"
+    it "leaves standard-CSS :checked/:indeterminate/:enabled for the native parser" do
+      # These are Selectors-L4 standard and lowered natively by `Stylesheet`
+      # (`ATTR_PSEUDOS`) for every stylesheet, so `Qss.to_css` passes them through.
+      Crysterm::CSS::Qss.to_css("QCheckBox:checked { }").should eq "CheckBox:checked { }"
+      Crysterm::CSS::Qss.to_css("QCheckBox:indeterminate { }").should eq "CheckBox:indeterminate { }"
+      Crysterm::CSS::Qss.to_css("QPushButton:enabled { }").should eq "Button:enabled { }"
+    end
+
+    it "maps the Qt-specific :pressed to an expressible Crysterm form" do
       Crysterm::CSS::Qss.to_css("QPushButton:pressed { }").should eq "Button:active { }"
     end
 

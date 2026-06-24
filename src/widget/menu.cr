@@ -240,8 +240,21 @@ module Crysterm
       # While the menu is "inactive" (dismissed by an outside click) no row is
       # highlighted; otherwise rendering defers to `List`.
       def render_style_for(item : Widget) : Style
-        return item_render_style(false) unless @show_highlight
-        super
+        # A separator rule draws from its own `Menu::separator` sub-style (Qt's
+        # `QMenu::separator`), regardless of highlight state — separators are
+        # never selectable, so they never take the highlight. Drop any inherited
+        # border (the menu itself is bordered) so the rule renders as a flat line,
+        # mirroring `item_render_style`.
+        if (i = @items.index item) && (act = visible_actions[i]?) && act.separator?
+          sep = style.separator
+          return sep unless sep.border.any?
+          borderless = sep.dup
+          borderless.border = false
+          borderless
+        else
+          return item_render_style(false) unless @show_highlight
+          super
+        end
       end
 
       # Pointer moved onto row *i* (`List#hover_item` override, active because
