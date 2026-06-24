@@ -989,6 +989,61 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
   end
 end
 
+describe "QAbstractScrollArea facade" do
+  it "vertical_scrollbar returns (and lazily creates) the bound bar" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..20).map { |i| "line#{i}" }.join("\n")
+    box.scrollbar_widget.should be_nil
+    bar = box.vertical_scrollbar
+    bar.should be_a Crysterm::Widget::ScrollBar
+    box.scrollbar_widget.should be bar # cached, same instance
+    box.horizontal_scrollbar.should be_nil # until workstream D
+  end
+
+  it "vertical_scrollbar_policy aliases scrollbar_policy" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, width: 10, height: 5
+    box.vertical_scrollbar_policy.should eq box.scrollbar_policy
+    box.vertical_scrollbar_policy = Crysterm::Widget::ScrollBarPolicy::AlwaysOn
+    box.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AlwaysOn
+  end
+
+  it "ensure_visible scrolls an off-screen line into view, and no-ops when visible" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..20).map { |i| "line#{i}" }.join("\n")
+    s._render
+    box.child_base.should eq 0
+    box.ensure_visible(15).should be_true # line 15 below the viewport
+    box.child_base.should be > 0
+    (box.child_base <= 15).should be_true
+    (15 <= box.child_base + (box.aheight - box.iheight) - 1).should be_true # now within view
+    box.ensure_visible(15).should be_false # already visible → no move
+  end
+
+  it "scroll_contents_by maps dy onto scroll and drives the bound bar" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..20).map { |i| "line#{i}" }.join("\n")
+    s._render
+    bar = box.vertical_scrollbar
+    box.scroll_contents_by(0, 4)
+    box.get_scroll.should be > 0
+    bar.value.should eq box.get_scroll # Event::Scroll synced the bar
+  end
+
+  it "ensure_widget_visible scrolls a descendant into view" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..30).map { |i| "line#{i}" }.join("\n")
+    child = Crysterm::Widget::Box.new parent: box, top: 20, left: 0, width: 5, height: 1, content: "x"
+    s._render
+    box.ensure_widget_visible(child).should be_true
+    (box.child_base <= child.rtop).should be_true
+  end
+end
+
 describe Crysterm::Widget::ToolBox do
   it "shows exactly one expanded section at a time" do
     s = qt_mem_screen

@@ -36,6 +36,21 @@ module Crysterm
       v
     end
 
+    # Qt `QAbstractScrollArea#verticalScrollBarPolicy`: an alias of
+    # `#scrollbar_policy` (the only axis wired today).
+    def vertical_scrollbar_policy : ScrollBarPolicy
+      scrollbar_policy
+    end
+
+    # :ditto:
+    def vertical_scrollbar_policy=(p : ScrollBarPolicy) : ScrollBarPolicy
+      self.scrollbar_policy = p
+    end
+
+    # Qt `QAbstractScrollArea#horizontalScrollBarPolicy`. Stored now for API
+    # shape, but not yet consulted — horizontal scrolling lands with workstream D.
+    property horizontal_scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
+
     # Whether the scroll bar chrome should be shown right now, given the policy
     # and current content: never when non-scrollable or `AlwaysOff`, always
     # under `AlwaysOn`, and only on overflow under `AsNeeded`.
@@ -52,6 +67,10 @@ module Crysterm
     # lazily by `#ensure_scrollbar_widget` (`nil` until first shown). Precursor
     # to Qt's `verticalScrollBar()` accessor.
     getter scrollbar_widget : ScrollBar?
+
+    # The horizontal `Widget::ScrollBar` child, once horizontal scrolling
+    # (workstream D) exists. Always `nil` for now.
+    getter horizontal_scrollbar_widget : ScrollBar?
 
     # Called each render to reconcile the scroll bar chrome with the policy:
     # create+show+sync the bar when `#show_scrollbar?`, hide (never destroy) it
@@ -82,6 +101,63 @@ module Crysterm
       sb.sync_from_target
       sb
     end
+
+    # --- Qt `QAbstractScrollArea` facade ------------------------------------
+    # Thin, Qt-shaped accessors over the baked-in scroll machinery. The widget
+    # itself is the scroll area; its content area is the implicit `viewport()`.
+
+    # Qt's `verticalScrollBar()`: the bound vertical `ScrollBar`, created on
+    # first access (like Qt, the object exists even when the policy hides it).
+    def vertical_scrollbar : ScrollBar
+      ensure_scrollbar_widget
+    end
+
+    # Qt's `horizontalScrollBar()`. `nil` until horizontal scrolling lands
+    # (workstream D); present now for API shape.
+    def horizontal_scrollbar : ScrollBar?
+      @horizontal_scrollbar_widget
+    end
+
+    # Qt's `scrollContentsBy(dx, dy)`: scroll the viewport by *dy* lines
+    # (vertical). *dx* is accepted for API shape and applied once horizontal
+    # scrolling lands (workstream D).
+    def scroll_contents_by(dx : Int32, dy : Int32) : Nil
+      scroll dy unless dy == 0
+    end
+
+    # Qt's `ensureVisible(y, margin)`: scroll the minimum amount so content line
+    # *y* sits within the viewport (optionally keeping *margin* lines of context
+    # on the leading/trailing edge). No-op when already visible. Generalizes the
+    # `scroll_to @selected` pattern used by `List`/`Tree`. Returns whether the
+    # viewport moved.
+    def ensure_visible(y : Int32, margin : Int32 = 0) : Bool
+      return false unless scrollable?
+      visible = aheight - iheight
+      return false if visible <= 0
+
+      base = @child_base
+      if y < @child_base + margin
+        @child_base = y - margin
+      elsif y > @child_base + visible - 1 - margin
+        @child_base = y - (visible - 1) + margin
+      end
+      @child_base = @child_base.clamp(0, Math.max(0, get_scroll_height - visible))
+
+      return false if @child_base == base
+      mark_dirty
+      emit Crysterm::Event::Scroll
+      true
+    end
+
+    # Qt's `ensureWidgetVisible(child, margin)`: scroll so descendant *child* is
+    # within the viewport. Reveals the bottom edge first, then the top, so the
+    # top wins when the child is taller than the viewport.
+    def ensure_widget_visible(child : Widget, margin : Int32 = 0) : Bool
+      moved = ensure_visible(child.rtop + child.aheight - 1, margin)
+      ensure_visible(child.rtop, margin) || moved
+    end
+
+    # ------------------------------------------------------------------------
 
     # Should widget indicate the scroll position?
     property? track : Bool = false
