@@ -88,6 +88,10 @@ module Crysterm
         base = Hash(String, Array(Entry)).new                    # key -> base entries
         acc = Hash(Tuple(String, WidgetState), Array(Entry)).new # {key, state} -> state entries
         stated_keys = Hash(String, Set(WidgetState)).new         # key -> states with own rules
+        # `selection-color`/`selection-background-color` declarations, rewritten to
+        # `color`/`background-color` and destined for the `:selected` state (Qt's
+        # selection colors are a state-independent appearance, like geometry).
+        sel_acc = Hash(String, Array(Entry)).new # key -> selected-state entries
 
         sheets.each do |(sheet, tier)|
           sheet.rules.each do |rule|
@@ -116,15 +120,25 @@ module Crysterm
               nodes = nodes.select { |node| has_descendant?(node, has) }
             end
             entries = rule_entries(rule, tier)
-            next if entries.empty?
+            sel_entries = selection_entries(rule, tier)
+            next if entries.empty? && sel_entries.empty?
             nodes.each do |node|
               key = node["data-uid"]?.try(&.val)
               next unless key
-              if state = rule.state
-                (acc[{key, state}] ||= [] of Entry).concat entries
-                (stated_keys[key] ||= Set(WidgetState).new) << state
-              else
-                (base[key] ||= [] of Entry).concat entries
+              unless entries.empty?
+                if state = rule.state
+                  (acc[{key, state}] ||= [] of Entry).concat entries
+                  (stated_keys[key] ||= Set(WidgetState).new) << state
+                else
+                  (base[key] ||= [] of Entry).concat entries
+                end
+              end
+              # `selection-*` always feeds the selected state, regardless of the
+              # rule's own state pseudo. Mark the state stated so the base rule
+              # folds into it too (selected = base + selection overrides).
+              unless sel_entries.empty?
+                (sel_acc[key] ||= [] of Entry).concat sel_entries
+                (stated_keys[key] ||= Set(WidgetState).new) << WidgetState::Selected
               end
             end
           end
@@ -137,6 +151,14 @@ module Crysterm
           states = stated_keys[key]?.try(&.dup) || Set(WidgetState).new
           states << WidgetState::Normal
           states.each { |state| (acc[{key, state}] ||= [] of Entry).concat entries }
+        end
+
+        # Fold the rewritten `selection-*` entries onto the selected state, after
+        # the base fold so they sort *after* (and thus override) the folded base
+        # `color`/`background-color` on an equal-specificity tie — see
+        # `SELECTION_ORDER_BIAS`.
+        sel_acc.each do |key, entries|
+          (acc[{key, WidgetState::Selected}] ||= [] of Entry).concat entries
         end
 
         touched = Set(Tuple(String, WidgetState)).new
@@ -227,6 +249,52 @@ module Crysterm
         !node.css(inner).empty?
       rescue
         false
+      end
+
+      # `selection-*` property -> the standard property it maps to on the
+      # selected state.
+      SELECTION_PROPS = {
+        "selection-color"            => "color",
+        "selection-background-color" => "background-color",
+      }
+
+      # Added to a selection entry's source order so it sorts after — and thus
+      # wins an equal-specificity tie against — the base `color`/`background-color`
+      # folded onto the selected state (including from the *same* rule). Larger
+      # than any real stylesheet's rule count, so it never reorders entries of
+      # *different* specificity, only breaks ties in selection's favor. (A
+      # higher-specificity explicit `:selected` rule still wins, as it should.)
+      SELECTION_ORDER_BIAS = 1_000_000
+
+      # The selected-state entries a rule contributes via its `selection-*`
+      # declarations (rewritten to `color`/`background-color`), or an empty array
+      # when it has none.
+      private def self.selection_entries(rule : Rule, base_tier : Int32) : Array(Entry)
+        # Cheap membership test first: the overwhelming majority of rules have no
+        # `selection-*`, so skip straight out without allocating a remap hash.
+        has_normal = has_selection?(rule.declarations)
+        has_important = has_selection?(rule.important)
+        return EMPTY_ENTRIES unless has_normal || has_important
+        order = rule.order + SELECTION_ORDER_BIAS
+        entries = [] of Entry
+        entries << {base_tier, rule.layer_rank, rule.specificity, order, remap_selection(rule.declarations)} if has_normal
+        entries << {TIER_IMPORTANT, rule.layer_rank, rule.specificity, order, remap_selection(rule.important)} if has_important
+        entries
+      end
+
+      # Whether *decls* carries any `selection-*` property.
+      private def self.has_selection?(decls : Hash(String, String)) : Bool
+        SELECTION_PROPS.each_key { |k| return true if decls.has_key?(k) }
+        false
+      end
+
+      # Picks out the `selection-*` declarations from *decls*, keyed by the
+      # standard property they map to. Only called once a selection property is
+      # known to be present (see `#has_selection?`), so it never returns empty.
+      private def self.remap_selection(decls : Hash(String, String)) : Hash(String, String)
+        out = {} of String => String
+        SELECTION_PROPS.each { |from, to| decls[from]?.try { |v| out[to] = v } }
+        out
       end
 
       # The cascade entries a rule contributes: its normal declarations at

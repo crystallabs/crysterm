@@ -17,6 +17,14 @@ module Crysterm
     property selected : Style { normal }
     property disabled : Style { normal }
 
+    # Whether a *distinct* selected style has been materialized, as opposed to
+    # lazily falling back to `normal`. Lets a list widget tell an explicit
+    # selected-item style (from `selection-*`, a `:selected` rule, or code) apart
+    # from the normal-state fallback — only the former should color a selection.
+    def own_selected? : Bool
+      !@selected.nil?
+    end
+
     # TODO Add each/each_entry iterators
 
     def initialize(@normal = @normal, @blurred = @blurred, @focused = @focused, @hovered = @hovered, @selected = @selected, @disabled = @disabled)

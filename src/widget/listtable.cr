@@ -121,8 +121,23 @@ module Crysterm
         # `Box:nth-child(even)`); use its computed style, reflecting selection
         # through the widget state so `:selected` rules apply.
         if item.css_styled?
-          item.state = item_selected?(item) ? WidgetState::Selected : WidgetState::Normal
-          return item.style
+          selected = item_selected?(item)
+          item.state = selected ? WidgetState::Selected : WidgetState::Normal
+          base = item.style
+          return selection_overlay(base) if selected
+          # Even (alternating) body rows pick up the table-level
+          # `alternate-background-color`. It is held on the *normal* style's
+          # `alternate_row` (a table-wide appearance, independent of the table's
+          # own focus/selection state), so read it from there rather than the
+          # current-state `style`, then overlay onto the row's own CSS style (the
+          # per-item path would otherwise return that verbatim).
+          # `alternate_row?` (a cheap nil check) gates before the O(items)
+          # `@items.index` scan, so an unstyled table skips it for every row.
+          n = styles.normal
+          if alternate_rows? && n.alternate_row? && (i = @items.index item) && i > 0 && i.even?
+            return overlay_colors(base, n.alternate_row)
+          end
+          return base
         end
 
         return item_render_style(true) if item_selected?(item)

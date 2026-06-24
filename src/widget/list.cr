@@ -114,15 +114,19 @@ module Crysterm
             i = @items.index item
             item.state = (i == @selected) ? WidgetState::Selected : WidgetState::Normal
             style = item.style
-            if i && i != @selected && @selected_indices.includes?(i)
+            if i == @selected
+              style = selection_overlay(style)
+            elsif i && @selected_indices.includes?(i)
               style = style.dup
               style.underline = true
             end
             return style
           end
 
-          item.state = item_selected?(item) ? WidgetState::Selected : WidgetState::Normal
-          return item.style
+          selected = item_selected?(item)
+          item.state = selected ? WidgetState::Selected : WidgetState::Normal
+          base = item.style
+          return selected ? selection_overlay(base) : base
         end
 
         # Fast path (the overwhelmingly common case): no multi-selection, so the
@@ -141,6 +145,33 @@ module Crysterm
         end
 
         item_render_style false
+      end
+
+      # Overlays the list-level selected style's colors onto a selected item's
+      # CSS-computed *style* (from `selection-color`/`selection-background-color`,
+      # or a `List:selected` rule / code). On the per-item CSS render path the
+      # item box's own computed style is returned verbatim, so without this the
+      # list-level selection colors — which live on the list's `styles.selected`,
+      # not the item's — would never reach the screen. A no-op (returns *style*
+      # unchanged) unless a distinct selected style was actually set.
+      private def selection_overlay(style : Style) : Style
+        return style unless styles.own_selected?
+        overlay_colors style, styles.selected
+      end
+
+      # Returns *base* with *source*'s explicitly-set fg/bg laid over it: *base*
+      # itself when *source* specifies neither color (the common case), else a
+      # `#dup` carrying the overlaid colors. Used to bridge list-level
+      # `selection-*`/`alternate-background-color` onto per-item CSS styles
+      # without disturbing the item's other (non-color) properties.
+      private def overlay_colors(base : Style, source : Style) : Style
+        fg = source.specified?(:fg)
+        bg = source.specified?(:bg)
+        return base unless fg || bg
+        out = base.dup
+        out.fg = source.fg if fg
+        out.bg = source.bg if bg
+        out
       end
 
       # Whether *item* should render in the selected style: it is the cursor

@@ -1048,4 +1048,65 @@ describe "CSS cascade" do
 
     box.styles.normal.fg.should eq before
   end
+
+  it "maps alternate-background-color onto the alternate_row sub-style" do
+    screen = headless_screen
+    table = Widget::ListTable.new
+    screen.append table
+
+    without_default_theme do
+      screen.stylesheet = "ListTable { color: red; alternate-background-color: blue; }"
+      screen.apply_stylesheet
+
+      style = table.styles.normal
+      # The alternate row gets its own background...
+      style.alternate_row.bg.should eq rgb("blue")
+      # ...without leaking into the main/cell style (whose getter is the fallback).
+      style.bg.should be_nil
+      style.cell.bg.should be_nil
+      # The main foreground is unaffected.
+      style.fg.should eq rgb("red")
+    end
+  end
+
+  it "maps selection-color/-background-color onto the selected state" do
+    screen = headless_screen
+    list = Widget::List.new
+    screen.append list
+
+    without_default_theme do
+      screen.stylesheet = <<-CSS
+        List { color: white; background-color: black;
+               selection-color: yellow; selection-background-color: magenta; }
+      CSS
+      screen.apply_stylesheet
+
+      # Selection colors land on the selected state, not normal.
+      list.styles.selected.fg.should eq rgb("yellow")
+      list.styles.selected.bg.should eq rgb("magenta")
+      # ...and override the base color folded into the selected state.
+      list.styles.normal.fg.should eq rgb("white")
+      list.styles.normal.bg.should eq rgb("black")
+      # A distinct selected style was materialized (not the lazy normal fallback).
+      list.styles.selected.should_not be list.styles.normal
+    end
+  end
+
+  it "lets an explicit higher-specificity :selected rule win over selection-*" do
+    screen = headless_screen
+    list = Widget::List.new
+    list.css_id = "lst"
+    screen.append list
+
+    without_default_theme do
+      screen.stylesheet = <<-CSS
+        List { selection-background-color: magenta; }
+        #lst:selected { background-color: green; }
+      CSS
+      screen.apply_stylesheet
+
+      # The id selector is more specific, so it wins on the selected state.
+      list.styles.selected.bg.should eq rgb("green")
+    end
+  end
 end

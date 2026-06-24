@@ -21,6 +21,15 @@ private def cell_bg(screen, y, x)
   Crysterm::Attr.unpack_color(Crysterm::Attr.bg(screen.lines[y][x].attr))
 end
 
+private def count_cells_bg(screen, color)
+  n = 0
+  (0...screen.height).each do |y|
+    next unless screen.lines[y]?
+    (0...screen.width).each { |x| n += 1 if cell_bg(screen, y, x) == color }
+  end
+  n
+end
+
 describe "CSS end-to-end rendering" do
   it "paints CSS colors into the rendered cell buffer" do
     screen = render_screen
@@ -91,6 +100,42 @@ describe "CSS end-to-end rendering" do
     reds.should_not be_empty
     blues.should_not be_empty
     reds.max.not_nil!.should be < blues.min.not_nil! # red column left of blue column
+  end
+
+  it "paints alternate-background-color onto alternating Table rows" do
+    screen = render_screen
+    Widget::Table.new parent: screen, top: 0, left: 0, width: 24,
+      rows: [["h1", "h2"], ["a", "b"], ["c", "d"], ["e", "f"]], alternate_rows: true
+    screen.stylesheet = "Table { alternate-background-color: #00ff00; }"
+    screen._render
+
+    greens = count_cells_bg(screen, 0x00ff00)
+    greens.should be > 0
+  end
+
+  it "paints alternate-background-color onto alternating ListTable rows" do
+    # ListTable renders rows via the per-item CSS path (and is focusable), so this
+    # exercises the overlay bridge, not Table's direct cell fill.
+    screen = render_screen
+    Widget::ListTable.new parent: screen, top: 0, left: 0, width: 24,
+      rows: [["h1", "h2"], ["a", "b"], ["c", "d"], ["e", "f"]], alternate_rows: true
+    screen.stylesheet = "ListTable { alternate-background-color: #00ff00; }"
+    screen._render
+
+    greens = count_cells_bg(screen, 0x00ff00)
+    greens.should be > 0
+  end
+
+  it "paints selection-background-color onto the selected List item" do
+    screen = render_screen
+    list = Widget::List.new parent: screen, top: 0, left: 0, width: 20, height: 6,
+      items: ["one", "two", "three"]
+    list.selekt(1)
+    screen.stylesheet = "List { selection-background-color: #ff00ff; }"
+    screen._render
+
+    magentas = count_cells_bg(screen, 0xff00ff)
+    magentas.should be > 0
   end
 
   it "reflects a restyle in the next render" do

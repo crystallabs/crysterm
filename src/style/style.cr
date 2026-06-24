@@ -210,6 +210,26 @@ module Crysterm
       @alternate_row || cell
     end
 
+    # Whether a distinct alternate-row sub-style has been set (via
+    # `alternate-background-color`, `#alternate_row=`, or `#alternate_background=`),
+    # as opposed to the getter falling back to `cell`/`self`.
+    def alternate_row?
+      !@alternate_row.nil?
+    end
+
+    # Sets the background of the alternating-row sub-style (CSS
+    # `alternate-background-color`). Works on a *dup* and reassigns, rather than
+    # mutating `#alternate_row` in place: until set, `@alternate_row` is `nil` and
+    # the getter falls back to `cell`/`self`, and a `dup`'d `Style` shares its
+    # sub-styles with the original (see `#dup`) — so an in-place edit would leak
+    # into the shared fallback. Only the background is touched, matching Qt's
+    # `alternate-background-color`; the foreground is left to fall through.
+    def alternate_background=(color) : Nil
+      alt = (@alternate_row || Style.new).dup
+      alt.bg = color
+      @alternate_row = alt
+    end
+
     def border=(value)
       @specified << :border
       @border = Border.from value

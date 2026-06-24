@@ -21,6 +21,17 @@ module Crysterm
           style.fg = ColorValue.resolve(value, style.fg)
         when "background-color"
           style.bg = ColorValue.resolve(value, style.fg)
+        when "alternate-background-color"
+          # Background of every other row in a `Table`/`ListTable` with
+          # `alternate_rows` on (Qt's `alternate-background-color`). Lives in the
+          # `alternate_row` sub-style.
+          style.alternate_background = ColorValue.resolve(value, style.fg)
+        when "selection-color", "selection-background-color"
+          # Selected-item colors. These target a *different* `Style` (the
+          # `:selected` state), so they can't be applied to *this* style here —
+          # the cascade rewrites them onto the selected state (see
+          # `Cascade#selection_entries`). Named here only so they're not treated
+          # as unknown; the value is consumed there.
         when "background"
           # `background` shorthand: pull the color out (image/position/repeat
           # parts are meaningless in a terminal and ignored).
@@ -87,6 +98,7 @@ module Crysterm
         "font-style", "text-decoration", "visibility", "display", "opacity",
         "tab-size", "box-shadow", "tint", "z-index", "transition", "animation",
         "padding", "padding-left", "padding-top", "padding-right", "padding-bottom",
+        "alternate-background-color", "selection-color", "selection-background-color",
       }
 
       # Extracts a color from a `background` shorthand: the first token that
