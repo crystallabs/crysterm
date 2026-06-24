@@ -221,6 +221,7 @@ module Crysterm
 
       scrollbar : Bool? = nil,
       @scrollbar_policy = @scrollbar_policy,
+      @horizontal_scrollbar_policy = @horizontal_scrollbar_policy,
       # TODO Make it configurable which side it appears on etc.
       @track = @track,
       # XXX Should this whole section of 5 properties be in Style?

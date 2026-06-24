@@ -178,10 +178,10 @@ describe Crysterm::Widget::TextArea do
     s._render
     sb = ta.scrollbar_widget.not_nil!
 
-    sb.value = 3 # a small drag the old model lost into @child_offset
+    sb.value = 3              # a small drag the old model lost into @child_offset
     ta.child_base.should eq 3 # the view actually moved...
     ta.child_offset.should eq 0
-    ta.cursor_pos.should eq 0  # ...and the caret stayed (scrolled off the top)
+    ta.cursor_pos.should eq 0 # ...and the caret stayed (scrolled off the top)
     sb.sync_from_target
     sb.value.should eq 3 # no jump-back (single model, no feedback)
   end
@@ -1046,9 +1046,9 @@ describe "Event::Scroll payload (delta / orientation)" do
     events = [] of {Int32, Tput::Orientation}
     box.on(Crysterm::Event::Scroll) { |e| events << {e.delta, e.orientation} }
 
-    box.scroll 4                              # down
-    box.scroll -2                             # up
-    box.reset_scroll                          # back to top (was at base 2)
+    box.scroll 4     # down
+    box.scroll -2    # up
+    box.reset_scroll # back to top (was at base 2)
 
     events.should eq [
       {4, Tput::Orientation::Vertical},
@@ -1072,8 +1072,14 @@ describe "QAbstractScrollArea facade" do
     box.scrollbar_widget.should be_nil
     bar = box.vertical_scrollbar
     bar.should be_a Crysterm::Widget::ScrollBar
-    box.scrollbar_widget.should be bar     # cached, same instance
-    box.horizontal_scrollbar.should be_nil # until workstream D
+    box.scrollbar_widget.should be bar # cached, same instance
+
+    # Horizontal bar: also lazily created (Qt's object-always-exists shape).
+    box.horizontal_scrollbar_widget.should be_nil
+    hbar = box.horizontal_scrollbar
+    hbar.should be_a Crysterm::Widget::ScrollBar
+    hbar.orientation.horizontal?.should be_true
+    box.horizontal_scrollbar_widget.should be hbar
   end
 
   it "vertical_scrollbar_policy aliases scrollbar_policy" do
@@ -1576,5 +1582,93 @@ describe "Input grab (modal pop-ups)" do
     move.call bar_x.call(0), 0
     move.call 60, 12
     over.should eq 2 # hover reaches the box again once the grab is released
+  end
+end
+
+# A 10-col viewport over a 20-col non-wrapped line, AsNeeded horizontal bar.
+private def hbox(s)
+  Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
+    wrap_content: false,
+    horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
+    content: "ABCDEFGHIJKLMNOPQRST" # 20 cols, viewport 10
+end
+
+describe "Horizontal scroll API (workstream D)" do
+  it "reports content width and clamps scroll_x into range" do
+    s = qt_mem_screen
+    box = hbox(s)
+    s._render
+    box.get_scroll_width.should eq 20
+    box.get_scroll_x.should eq 0
+
+    box.scroll_x 100 # clamps to width(20) - viewport(10) = 10
+    box.child_base_x.should eq 10
+    box.get_scroll_x.should eq 10
+
+    box.scroll_x -100 # clamps to 0
+    box.child_base_x.should eq 0
+  end
+
+  it "scroll_x_to seeks to an absolute column" do
+    s = qt_mem_screen
+    box = hbox(s)
+    s._render
+    box.scroll_x_to 6
+    box.child_base_x.should eq 6
+    box.scroll_x_to 0
+    box.child_base_x.should eq 0
+  end
+
+  it "emits Scroll with a horizontal orientation and column delta" do
+    s = qt_mem_screen
+    box = hbox(s)
+    s._render
+    events = [] of {Int32, Tput::Orientation}
+    box.on(Crysterm::Event::Scroll) { |e| events << {e.delta, e.orientation} }
+    box.scroll_x 4
+    box.scroll_x -1
+    events.should eq [
+      {4, Tput::Orientation::Horizontal},
+      {-1, Tput::Orientation::Horizontal},
+    ]
+  end
+
+  it "shows the horizontal bar only on horizontal overflow (AsNeeded)" do
+    s = qt_mem_screen
+    box = hbox(s)
+    s._render
+    box.show_horizontal_scrollbar?.should be_true
+    box.horizontal_scrollbar_widget.not_nil!.visible?.should be_true
+
+    # Content that fits: no overflow, bar hidden.
+    fit = Crysterm::Widget::ScrollableBox.new parent: s, top: 6, left: 0, width: 30, height: 4,
+      wrap_content: false,
+      horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
+      content: "short"
+    s._render
+    fit.show_horizontal_scrollbar?.should be_false
+  end
+
+  it "scrolls horizontally with Left/Right keys" do
+    s = qt_mem_screen
+    box = hbox(s)
+    s._render
+    box.on_keypress keypress(' ', Tput::Key::Right)
+    box.child_base_x.should eq 1
+    box.on_keypress keypress(' ', Tput::Key::Right)
+    box.child_base_x.should eq 2
+    box.on_keypress keypress(' ', Tput::Key::Left)
+    box.child_base_x.should eq 1
+  end
+
+  it "scroll_contents_by moves both axes" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
+      wrap_content: false,
+      content: "ABCDEFGHIJKLMNOPQRST\nline2\nline3\nline4\nline5\nline6\nline7\nline8"
+    s._render
+    box.scroll_contents_by 5, 2
+    box.child_base_x.should eq 5 # horizontal axis moved
+    box.get_scroll.should eq 2   # vertical axis moved (combined position)
   end
 end

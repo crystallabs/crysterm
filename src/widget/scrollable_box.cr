@@ -47,6 +47,10 @@ module Crysterm
           scroll_to 0
         when e.key == ::Tput::Key::End, (@vi && e.char == 'G')
           scroll_to get_scroll_height
+        when e.key == ::Tput::Key::Left, (@vi && e.char == 'h')
+          scroll_x -1
+        when e.key == ::Tput::Key::Right, (@vi && e.char == 'l')
+          scroll_x 1
         else
           return
         end

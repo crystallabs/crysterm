@@ -55,11 +55,24 @@ module Crysterm
     # and current content: never when non-scrollable or `AlwaysOff`, always
     # under `AlwaysOn`, and only on overflow under `AsNeeded`.
     def show_scrollbar? : Bool
+      policy_shows?(scrollbar_policy) { really_scrollable? }
+    end
+
+    # Horizontal counterpart of `#show_scrollbar?`, keyed off
+    # `#horizontal_scrollbar_policy` and horizontal overflow.
+    def show_horizontal_scrollbar? : Bool
+      policy_shows?(horizontal_scrollbar_policy) { really_scrollable_x? }
+    end
+
+    # Whether a bar with *policy* should show: never when non-scrollable or
+    # `AlwaysOff`, always under `AlwaysOn`, and under `AsNeeded` only when the
+    # yielded overflow test is true. The block is `yield`ed (inlined, no closure).
+    private def policy_shows?(policy : ScrollBarPolicy, &) : Bool
       return false unless scrollable?
-      case scrollbar_policy
+      case policy
       in .always_off? then false
       in .always_on?  then true
-      in .as_needed?  then really_scrollable?
+      in .as_needed?  then yield
       end
     end
 
@@ -81,6 +94,12 @@ module Crysterm
       else
         @scrollbar_widget.try &.hide
       end
+
+      if show_horizontal_scrollbar?
+        ensure_horizontal_scrollbar_widget.show
+      else
+        @horizontal_scrollbar_widget.try &.hide
+      end
     end
 
     # Lazily create a real `Widget::ScrollBar` child — `fixed` (exempt from this
@@ -89,16 +108,29 @@ module Crysterm
     # interaction like any widget (and is styleable via CSS, e.g.
     # `ScrollBar { color: … }` / `.scrollbar { … }`). Idempotent; returns the bar.
     protected def ensure_scrollbar_widget : ScrollBar
-      sb = @scrollbar_widget
-      if sb.nil?
-        sb = ScrollBar.new parent: self, orientation: :vertical,
-          top: 0, right: 0, width: 1, height: "100%"
-        sb.fixed = true
-        sb.add_css_class "scrollbar"
-        sb.attach self
-        @scrollbar_widget = sb
-      end
+      sb = @scrollbar_widget ||= bind_scrollbar ScrollBar.new parent: self,
+        orientation: :vertical, top: 0, right: 0, width: 1, height: "100%"
       sb.sync_from_target
+      sb
+    end
+
+    # Horizontal counterpart of `#ensure_scrollbar_widget`: a real horizontal
+    # `Widget::ScrollBar` child, `fixed` at the bottom interior edge and bound to
+    # this widget's x-axis. Idempotent; returns the bar.
+    protected def ensure_horizontal_scrollbar_widget : ScrollBar
+      sb = @horizontal_scrollbar_widget ||= bind_scrollbar ScrollBar.new parent: self,
+        orientation: :horizontal, left: 0, bottom: 0, height: 1, width: "100%"
+      sb.sync_from_target
+      sb
+    end
+
+    # Common chrome setup shared by both `ensure_*` accessors: makes *sb* `fixed`
+    # (exempt from this widget's scroll), `.scrollbar`-classed, and `#attach`ed so
+    # it reflects/drives the scroll position. Returns *sb*.
+    private def bind_scrollbar(sb : ScrollBar) : ScrollBar
+      sb.fixed = true
+      sb.add_css_class "scrollbar"
+      sb.attach self
       sb
     end
 
@@ -112,17 +144,17 @@ module Crysterm
       ensure_scrollbar_widget
     end
 
-    # Qt's `horizontalScrollBar()`. `nil` until horizontal scrolling lands
-    # (workstream D); present now for API shape.
-    def horizontal_scrollbar : ScrollBar?
-      @horizontal_scrollbar_widget
+    # Qt's `horizontalScrollBar()`: the bound horizontal `ScrollBar`, created on
+    # first access (like Qt, the object exists even when the policy hides it).
+    def horizontal_scrollbar : ScrollBar
+      ensure_horizontal_scrollbar_widget
     end
 
     # Qt's `scrollContentsBy(dx, dy)`: scroll the viewport by *dy* lines
-    # (vertical). *dx* is accepted for API shape and applied once horizontal
-    # scrolling lands (workstream D).
+    # (vertical) and *dx* columns (horizontal).
     def scroll_contents_by(dx : Int32, dy : Int32) : Nil
       scroll dy unless dy == 0
+      scroll_x dx unless dx == 0
     end
 
     # Qt's `ensureVisible(y, margin)`: scroll the minimum amount so content line
@@ -172,6 +204,16 @@ module Crysterm
     # cursor being at first line of visible (potentially scrolled) content.
     property child_offset = 0
 
+    # Horizontal counterparts of `child_base`/`child_offset`, in display columns
+    # (the x-axis). `child_base_x` is the first visible column of (non-wrapped)
+    # content; `child_offset_x` mirrors `child_offset` for symmetry but the
+    # generic path keeps it 0, so `get_scroll_x == child_base_x`. Only meaningful
+    # when `wrap_content?` is off — wrapped content never overflows horizontally.
+    property child_base_x = 0
+
+    # :ditto:
+    property child_offset_x = 0
+
     property base_limit = Int32::MAX
 
     property? always_scroll : Bool = false
@@ -202,6 +244,51 @@ module Crysterm
       Math.max @_clines.size, _scroll_bottom
     end
 
+    # --- horizontal axis ----------------------------------------------------
+
+    # Combined horizontal scroll position, in columns (mirrors `#get_scroll`).
+    def get_scroll_x
+      @child_base_x + @child_offset_x
+    end
+
+    # Widest content row, in display columns — the horizontal analogue of
+    # `#get_scroll_height`. Computed by `_wrap_content` (the longest *unclipped*
+    # line); `0` for wrapped content, which never overflows horizontally.
+    def get_scroll_width
+      @_clines.full_width
+    end
+
+    # Whether content overflows the viewport horizontally (so an `AsNeeded`
+    # horizontal bar should show). Always false while wrapping, since wrapped
+    # content is reflowed to fit the width.
+    def really_scrollable_x?
+      return false if wrap_content?
+      get_scroll_width > (awidth - iwidth)
+    end
+
+    # Horizontal counterpart of `#scroll`: shift the visible column window by
+    # *offset* columns, clamped to the content width, and repaint. Emits
+    # `Event::Scroll` carrying the signed column delta and `:horizontal`.
+    def scroll_x(offset = 1)
+      return unless @scrollable && screen?
+      visible = awidth - iwidth
+      return if visible <= 0
+
+      base = @child_base_x
+      @child_offset_x = 0
+      @child_base_x = (base + offset).clamp(0, Math.max(0, get_scroll_width - visible))
+      return if @child_base_x == base
+
+      mark_dirty
+      emit Crysterm::Event::Scroll, @child_base_x - base, Tput::Orientation::Horizontal
+    end
+
+    # Horizontal counterpart of `#scroll_to`: move the column window so its left
+    # edge sits at *offset*.
+    def scroll_x_to(offset)
+      scroll_x offset - get_scroll_x
+    end
+
     def set_scroll_perc(i)
       m = get_scroll_height
       scroll_to ((i / 100) * m).to_i
@@ -212,6 +299,8 @@ module Crysterm
       prev = @child_base + @child_offset
       @child_offset = 0
       @child_base = 0
+      @child_offset_x = 0
+      @child_base_x = 0
       mark_dirty
       emit Crysterm::Event::Scroll, -prev
     end

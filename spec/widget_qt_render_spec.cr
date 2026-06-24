@@ -424,3 +424,68 @@ describe "ScrollBar rendering" do
     Crysterm::Attr.unpack_color(Crysterm::Attr.bg(s.lines[3][0].attr)).should eq 0x00ff00
   end
 end
+
+describe "Horizontal scrolling (workstream D)" do
+  it "shifts non-wrapped content by column and tracks the bar" do
+    s = render_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
+      wrap_content: false,
+      horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
+      content: "ABCDEFGHIJKLMNOPQRST\n0123456789abcdefghij"
+    s._render
+
+    box.get_scroll_width.should eq 20 # widest unclipped line
+    box.really_scrollable_x?.should be_true
+    box.show_horizontal_scrollbar?.should be_true
+    row_chars(s, 0, 0, 10).should eq "ABCDEFGHIJ" # columns [0,10)
+
+    box.scroll_x 5
+    s._render
+    box.child_base_x.should eq 5
+    row_chars(s, 0, 0, 10).should eq "FGHIJKLMNO" # columns [5,15)
+    row_chars(s, 1, 0, 10).should eq "56789abcde"
+
+    # The bound horizontal bar mirrors and drives the column window.
+    hb = box.horizontal_scrollbar_widget.not_nil!
+    hb.orientation.horizontal?.should be_true
+    hb.value.should eq 5
+    hb.maximum.should eq 10 # width(20) - viewport(10)
+
+    hb.value = 10 # drag the bar fully right
+    s._render
+    box.child_base_x.should eq 10
+    row_chars(s, 0, 0, 10).should eq "KLMNOPQRST" # columns [10,20)
+  end
+
+  it "leaves wrapped content unscrolled horizontally (no overflow)" do
+    s = render_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 6,
+      content: "ABCDEFGHIJKLMNOPQRST" # wraps by default
+    s._render
+    box.really_scrollable_x?.should be_false # wrapped → never horizontally scrollable
+    box.scroll_x 5                           # no-op
+    box.child_base_x.should eq 0
+    row_chars(s, 0, 0, 10).should eq "ABCDEFGHIJ"
+    row_chars(s, 1, 0, 10).should eq "KLMNOPQRST" # wrapped onto the next row
+  end
+
+  it "scrolls horizontally on Shift + wheel" do
+    s = render_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
+      wrap_content: false,
+      horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
+      content: "ABCDEFGHIJKLMNOPQRST"
+    s._render
+    # Shift + wheel-down scrolls right; plain wheel would scroll vertically.
+    down = mouse(::Tput::Mouse::Action::WheelDown, 2, 0, ::Tput::Mouse::Button::None)
+    down.shift = true
+    s.dispatch_mouse down
+    box.child_base_x.should be > 0
+    base = box.child_base_x
+
+    up = mouse(::Tput::Mouse::Action::WheelUp, 2, 0, ::Tput::Mouse::Button::None)
+    up.shift = true
+    s.dispatch_mouse up
+    box.child_base_x.should be < base
+  end
+end

@@ -200,16 +200,24 @@ module Crysterm
       def sync_from_target : Nil
         t = @target
         return unless t
-        visible = @orientation.horizontal? ? (t.awidth - t.iwidth) : (t.aheight - t.iheight)
-        total = t.get_scroll_height
+        if @orientation.horizontal?
+          visible = t.awidth - t.iwidth
+          total = t.get_scroll_width
+          pos = t.get_scroll_x
+        else
+          visible = t.aheight - t.iheight
+          total = t.get_scroll_height
+          pos = t.get_scroll
+        end
         @syncing = true
         @page_step = Math.max(1, visible)
         # `set_range` re-clamps and emits `Event::RangeChange`; `@syncing` keeps
         # the value re-clamp from driving the target back.
         set_range 0, Math.max(0, total - visible)
-        # Mirror the engine's combined scroll position (`child_base + child_offset`,
-        # what `scroll_to` also targets) so the two stay consistent.
-        self.value = t.get_scroll.clamp(@minimum, @maximum)
+        # Mirror the engine's scroll position along this bar's axis so the two
+        # stay consistent (vertical: `child_base + child_offset`, what `scroll_to`
+        # targets; horizontal: `child_base_x`).
+        self.value = pos.clamp(@minimum, @maximum)
         @syncing = false
         request_render
       rescue
@@ -217,11 +225,15 @@ module Crysterm
       end
 
       # Drives the bound target when the bar moves (mixin hook). A committed
-      # value supersedes any pending untracked drag.
+      # value supersedes any pending untracked drag. Routes to the matching axis.
       protected def on_value_changed
         @slider_position = nil
         return if @syncing
-        @target.try &.scroll_to(@value)
+        if @orientation.horizontal?
+          @target.try &.scroll_x_to(@value)
+        else
+          @target.try &.scroll_to(@value)
+        end
       end
 
       # Thumb length in cells, proportional to the visible page.

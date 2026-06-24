@@ -197,6 +197,16 @@ module Crysterm
       property max_width = 0
       property width = 0
 
+      # Horizontal scroll offset (in display columns) these lines were sliced for
+      # — part of the wrap cache key, so a horizontal scroll forces a reparse the
+      # same way a width change does. Only meaningful when `wrap_content` is off.
+      property base_x = 0
+
+      # Widest *unclipped* line, in display columns (the longest content row
+      # before the horizontal viewport slice). Drives `Widget#get_scroll_width`
+      # and thus the horizontal scroll bar's range. `0` for wrapped content.
+      property full_width = 0
+
       property content : String = ""
 
       # Version of the owning widget's `@content` that produced these wrapped
@@ -283,7 +293,7 @@ module Crysterm
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
       colwidth = (awidth_hint || awidth) - iwidth
-      if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version
+      if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version || @_clines.base_x != @child_base_x
         # A reparse reads the raw `@content`, so fold in any deferred appends
         # first. (The common cache-hit path below never enters here, so deferred
         # content is not materialized just to render an unchanged frame.)
@@ -353,6 +363,7 @@ module Crysterm
         # to an empty `CLines`), so it is always a valid reuse target.
         @_clines = _wrap_content(content, colwidth, into: @_clines)
         @_clines.width = colwidth
+        @_clines.base_x = @child_base_x
         @_clines.content = @content
         @_clines.content_version = @_content_version
         @_clines.attr = _parse_attr @_clines
@@ -564,6 +575,7 @@ module Crysterm
       # end. (The empty-content branch below returns before these are used and
       # sets its own literals.)
       outbuf.reset
+      outbuf.full_width = 0
       rtof = outbuf.rtof
       ftor = outbuf.ftor
 
@@ -623,6 +635,19 @@ module Crysterm
           end
         end
 
+        # Without wrapping the line is one full (unwrapped) row: record its true
+        # width for the horizontal scroll range, then slice it to the visible
+        # column window `[child_base_x, child_base_x + colwidth)`. At
+        # `child_base_x == 0` this is exactly the old "keep what fits, cut the
+        # rest off" truncation (see `#_hslice`).
+        unless @wrap_content
+          outbuf.full_width = Math.max(outbuf.full_width, str_width(line))
+          outbuf.push _align(_hslice(line, @child_base_x, colwidth), colwidth, align, align_left_too)
+          ftor[no].push(outbuf.size - 1)
+          rtof.push(no)
+          next
+        end
+
         # If the string could be too long, check it in more detail and wrap it if needed.
         # NOTE Done with loop+break due to https://github.com/crystal-lang/crystal/issues/1277
         loop_ret = loop do
@@ -632,16 +657,6 @@ module Crysterm
           # columns. SGR sequences consume no width; under `full_unicode?` widths
           # are grapheme / East-Asian and clusters are never split.
           i = wrap_cut_index(line, colwidth)
-
-          # If we're not wrapping the text, keep the columns that fit plus any
-          # remaining control sequences, and cut the rest off.
-          unless @wrap_content
-            rest = line[i..].scan(/\e\[[^m]*m/).join # remaining SGR sequences
-            outbuf.push _align(line[0...i] + rest, colwidth, align, align_left_too)
-            ftor[no].push(outbuf.size - 1)
-            rtof.push(no)
-            break :main
-          end
 
           # Try to break on a space within the last few columns (word wrap).
           if i != line.size
@@ -1323,6 +1338,36 @@ module Crysterm
         end
       end
       i
+    end
+
+    # Slices *line* to the display-column window `[from_col, from_col + width)`,
+    # preserving SGR colors: the active escape state at the cut is re-emitted as
+    # a prefix, and any escapes past the window are carried as a (zero-width)
+    # suffix — so a clipped line still starts and ends in the right color. Column
+    # math is grapheme/East-Asian-aware (via `#wrap_cut_index`) and never splits a
+    # cluster. With `from_col == 0` this reduces to the original no-wrap
+    # truncation (keep what fits, append trailing SGR). Used by `_wrap_content`
+    # for horizontal scrolling of non-wrapped content.
+    def _hslice(line : String, from_col : Int32, width : Int32) : String
+      # Fast path for the common SGR-free line: a plain column-window substring,
+      # no escape scanning (mirrors `#str_width`'s `includes?('\e')` guard).
+      unless line.includes? '\e'
+        from = from_col > 0 ? wrap_cut_index(line, from_col) : 0
+        rest = line[from..]
+        return rest[0...wrap_cut_index(rest, width)]
+      end
+
+      if from_col > 0
+        cut = wrap_cut_index(line, from_col)
+        prefix_sgr = line[0...cut].scan(/\e\[[^m]*m/).join # SGR active at the cut
+        rest = line[cut..]
+      else
+        prefix_sgr = ""
+        rest = line
+      end
+      keep = wrap_cut_index(rest, width)
+      trailing_sgr = rest[keep..].scan(/\e\[[^m]*m/).join
+      prefix_sgr + rest[0...keep] + trailing_sgr
     end
   end
 

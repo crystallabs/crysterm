@@ -286,9 +286,9 @@ module Crysterm
         # is not also emitted here on press.
         w.emit ::Crysterm::Event::Click unless w.draggable?
       elsif ev.action.wheel_up?
-        scroll_under w, -1
+        scroll_under w, -1, horizontal: ev.shift?
       elsif ev.action.wheel_down?
-        scroll_under w, 1
+        scroll_under w, 1, horizontal: ev.shift?
       end
     end
 
@@ -303,15 +303,16 @@ module Crysterm
       el
     end
 
-    # Scrolls the first scrollable widget at or above *w* by *offset* lines and
-    # re-renders. No-op if neither *w* nor any ancestor is scrollable.
-    private def scroll_under(w : Widget, offset : Int32)
+    # Scrolls the first scrollable widget at or above *w* by *offset* — vertically
+    # by lines, or (Shift + wheel) *horizontal*ly by columns — and re-renders.
+    # No-op if neither *w* nor any ancestor is scrollable.
+    private def scroll_under(w : Widget, offset : Int32, horizontal = false)
       el : Widget? = w
       while el && !el.scrollable?
         el = el.parent
       end
       return unless el
-      el.scroll offset
+      horizontal ? el.scroll_x(offset) : el.scroll(offset)
       render
     end
 
