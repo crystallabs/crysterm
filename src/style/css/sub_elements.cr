@@ -41,7 +41,7 @@ module Crysterm
 
     class DockWidget
       def css_sub_elements : Array(String)
-        super + ["title"]
+        super + ["title", "close-button", "float-button"]
       end
     end
 

@@ -333,6 +333,22 @@ module Crysterm
       @pane || self
     end
 
+    # Styles for a `Widget::DockWidget`'s title-bar buttons (Qt's
+    # `QDockWidget::close-button` / `::float-button`). Default to `self`; pushed
+    # onto the respective button only when a matching `::close-button`/
+    # `::float-button` rule set it.
+    setter close_button : Style?
+
+    def close_button
+      @close_button || self
+    end
+
+    setter float_button : Style?
+
+    def float_button
+      @float_button || self
+    end
+
     # Label value is used only when internally instantiating labels on widgets,
     # to be able to set their: `style: self.style.label`. Since labels are
     # widgets, everything after that is done by looking up `@_label.style....`.
@@ -410,6 +426,8 @@ module Crysterm
       @tab = inline.@tab if inline.@tab
       @title = inline.@title if inline.@title
       @pane = inline.@pane if inline.@pane
+      @close_button = inline.@close_button if inline.@close_button
+      @float_button = inline.@float_button if inline.@float_button
       @scrollbar = inline.@scrollbar if inline.@scrollbar
       @track = inline.@track if inline.@track
     end
@@ -430,6 +448,8 @@ module Crysterm
       @tab = @tab,
       @title = @title,
       @pane = @pane,
+      @close_button = @close_button,
+      @float_button = @float_button,
       @header = @header,
       @cell = @cell,
       @label = @label,

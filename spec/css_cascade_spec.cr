@@ -758,6 +758,20 @@ describe "CSS cascade" do
     page.styles.normal.bg.should eq rgb("blue")
   end
 
+  it "routes DockWidget::close-button / ::float-button onto the title-bar buttons" do
+    screen = headless_screen
+    dock = Widget::DockWidget.new title: "Files"
+    screen.append dock
+    screen.stylesheet = "DockWidget::close-button { color: red; }\n" \
+                        "DockWidget::float-button { color: green; }"
+    screen.apply_stylesheet
+    dock.style.close_button.fg.should eq rgb("red")
+    dock.style.float_button.fg.should eq rgb("green")
+    screen._render # PreRender pushes each onto its button box
+    dock.@close_button.not_nil!.styles.normal.fg.should eq rgb("red")
+    dock.@float_button.not_nil!.styles.normal.fg.should eq rgb("green")
+  end
+
   it "loads and reloads a stylesheet from a file" do
     path = File.tempname("crysterm-css", ".css")
     File.write(path, "Box { color: red; }")

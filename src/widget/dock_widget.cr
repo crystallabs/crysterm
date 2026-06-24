@@ -73,14 +73,19 @@ module Crysterm
         wire_drag
         refresh_buttons # show the glyph matching the initial docked/floating state
 
-        # `DockWidget::title { … }` styles the title bar. Push the computed `title`
-        # sub-style onto the title-bar box each frame after the cascade; guarded by
-        # `same?`, so without a `::title` rule it's a no-op and the bar keeps its
-        # `.titlebar` theme look. (An explicit `::title` rule replaces that look,
-        # as in Qt.) See `Widget::TabWidget#sync_tab_style`.
+        # `DockWidget::title`/`::close-button`/`::float-button { … }` style the
+        # title bar and its buttons. Push each computed sub-style onto the matching
+        # child box each frame after the cascade; guarded by `same?`, so without a
+        # matching rule it's a no-op and the elements keep their `.titlebar`/
+        # `.titlebutton` theme look. (An explicit rule replaces that look, as in
+        # Qt.) See `Widget::TabWidget#sync_tab_style`.
         on(::Crysterm::Event::PreRender) do
           t = style.title
           titlebar.styles.normal = t unless t.same?(style)
+          cb = style.close_button
+          @close_button.try { |b| b.styles.normal = cb } unless cb.same?(style)
+          fb = style.float_button
+          @float_button.try { |b| b.styles.normal = fb } unless fb.same?(style)
         end
       end
 
