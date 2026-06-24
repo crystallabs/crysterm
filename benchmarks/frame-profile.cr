@@ -118,3 +118,46 @@ end
       s.damage_fast_frames, FRAMES + 50, s.damage_full_frames
   end
 end
+
+# Pass D: PHASE 2 (overlap) — several *disjoint* overlap clusters (pairs of
+# overlapping panels, with pairs spaced apart). When one panel changes, damage
+# tracking recomposites just that panel's cluster (its pair) in z-order, not the
+# whole tree. With it off, every panel is re-composited each frame. (A fully
+# *connected* overlap chain would pull every panel into one cluster — then Phase
+# 2 correctly degenerates to a full recomposite with no win; the gain is real
+# only when clusters stay small relative to the widget count, as here.)
+private def build_overlap_scene(damage)
+  s = Crysterm::Screen.new(
+    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+    width: 120, height: 40,
+    optimization: damage ? Crysterm::OptimizationFlag::DamageTracking : Crysterm::OptimizationFlag::None)
+  ps = [] of Widget::Box
+  6.times do |pair|
+    base = pair * 20 # pairs 20 cols apart; each pair spans ~16 cols (disjoint)
+    2.times do |k|
+      ps << Widget::Box.new(parent: s, top: k * 3, left: base + k * 3,
+        width: 12, height: 10, style: Style.new(border: true), content: "P#{pair}.#{k}")
+    end
+  end
+  {s, ps}
+end
+
+[{"OFF (full recomposite)", false}, {"ON  (damage tracking)", true}].each do |label, dmg|
+  s, ps = build_overlap_scene dmg
+  50.times { s._render }
+  GC.collect
+  before3 = GC.stats.total_bytes
+  wall_d = Time.measure do
+    FRAMES.times do |f|
+      ps[f % ps.size].content = "P#{f % ps.size}.#{f}"
+      s._render
+    end
+  end
+  alloc_d = GC.stats.total_bytes - before3
+  STDERR.printf "OVERLAP %-22s render/frame: %5.1f µs   alloc/frame: %5d bytes\n",
+    label, wall_d.total_microseconds / FRAMES, alloc_d // FRAMES
+  if dmg
+    STDERR.printf "        fast frames: %d / %d  (full: %d)\n",
+      s.damage_fast_frames, FRAMES + 50, s.damage_full_frames
+  end
+end

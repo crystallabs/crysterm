@@ -60,6 +60,16 @@ private def build_panels(screen, count = 4)
   panels
 end
 
+# Builds two deliberately overlapping bordered boxes (B drawn over A) on
+# `screen` and returns {A, B}.
+private def build_overlap(screen)
+  a = Widget::Box.new(parent: screen, top: 0, left: 0, width: 20, height: 10,
+    style: Style.new(border: true), content: "A")
+  b = Widget::Box.new(parent: screen, top: 5, left: 5, width: 20, height: 10,
+    style: Style.new(border: true), content: "B")
+  {a, b}
+end
+
 describe "damage tracking" do
   it "is output-equivalent when one of N opaque panels updates per frame" do
     plain = new_screen false
@@ -143,26 +153,123 @@ describe "damage tracking" do
     assert_same_lines dmg, plain, "(shrunk)"
   end
 
-  it "falls back and stays equivalent for overlapping widgets" do
+  # --- Phase 2: overlap & z-order -----------------------------------------
+
+  it "recomposites overlapping widgets in z-order when the lower one updates" do
     plain = new_screen false
     dmg = new_screen true
-
-    # Two deliberately overlapping boxes.
-    pa = Widget::Box.new(parent: plain, top: 0, left: 0, width: 20, height: 10,
-      style: Style.new(border: true), content: "A")
-    pb = Widget::Box.new(parent: plain, top: 5, left: 5, width: 20, height: 10,
-      style: Style.new(border: true), content: "B")
-    da = Widget::Box.new(parent: dmg, top: 0, left: 0, width: 20, height: 10,
-      style: Style.new(border: true), content: "A")
-    db = Widget::Box.new(parent: dmg, top: 5, left: 5, width: 20, height: 10,
-      style: Style.new(border: true), content: "B")
+    pa, _pb = build_overlap plain
+    da, _db = build_overlap dmg
     plain._render; dmg._render
     assert_same_lines dmg, plain, "(overlap initial)"
 
+    before = dmg.damage_fast_frames
     pa.content = "A2"
     da.content = "A2"
     plain._render; dmg._render
-    assert_same_lines dmg, plain, "(overlap update)"
+    assert_same_lines dmg, plain, "(lower update)"
+    # The overlap was handled by the selective (Phase 2) path, not a full fallback.
+    dmg.damage_fast_frames.should be > before
+  end
+
+  it "recomposites overlapping widgets in z-order when the upper one updates" do
+    plain = new_screen false
+    dmg = new_screen true
+    _pa, pb = build_overlap plain
+    _da, db = build_overlap dmg
+    plain._render; dmg._render
+
+    before = dmg.damage_fast_frames
+    pb.content = "B2"
+    db.content = "B2"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(upper update)"
+    dmg.damage_fast_frames.should be > before
+  end
+
+  it "is equivalent for a transitive chain of three overlapping widgets" do
+    plain = new_screen false
+    dmg = new_screen true
+    build = ->(s : Crysterm::Screen) {
+      a = Widget::Box.new(parent: s, top: 0, left: 0, width: 16, height: 8,
+        style: Style.new(border: true), content: "A")
+      b = Widget::Box.new(parent: s, top: 4, left: 8, width: 16, height: 8,
+        style: Style.new(border: true), content: "B")
+      c = Widget::Box.new(parent: s, top: 8, left: 16, width: 16, height: 8,
+        style: Style.new(border: true), content: "C")
+      {a, b, c}
+    }
+    pa, _pb, _pc = build.call plain
+    da, _da2, _da3 = build.call dmg
+    plain._render; dmg._render
+
+    # Update the first link; the change reaches the third only transitively.
+    pa.content = "A2"
+    da.content = "A2"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(chain update)"
+  end
+
+  it "handles a widget moving into overlap with another" do
+    plain = new_screen false
+    dmg = new_screen true
+    # Two initially disjoint boxes.
+    pa = Widget::Box.new(parent: plain, top: 0, left: 0, width: 14, height: 6,
+      style: Style.new(border: true), content: "A")
+    Widget::Box.new(parent: plain, top: 0, left: 30, width: 14, height: 6,
+      style: Style.new(border: true), content: "B")
+    da = Widget::Box.new(parent: dmg, top: 0, left: 0, width: 14, height: 6,
+      style: Style.new(border: true), content: "A")
+    Widget::Box.new(parent: dmg, top: 0, left: 30, width: 14, height: 6,
+      style: Style.new(border: true), content: "B")
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(disjoint)"
+
+    # Move A so it now overlaps B.
+    pa.left = 24
+    da.left = 24
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(moved into overlap)"
+  end
+
+  it "handles a widget moving out of overlap (vacated cells)" do
+    plain = new_screen false
+    dmg = new_screen true
+    pa, _pb = build_overlap plain
+    da, _db = build_overlap dmg
+    plain._render; dmg._render
+
+    # Move A away from B.
+    pa.left = 38
+    pa.top = 14
+    da.left = 38
+    da.top = 14
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(moved out of overlap)"
+  end
+
+  it "handles two independent overlap clusters updating at once" do
+    plain = new_screen false
+    dmg = new_screen true
+    build = ->(s : Crysterm::Screen) {
+      a1 = Widget::Box.new(parent: s, top: 0, left: 0, width: 12, height: 6,
+        style: Style.new(border: true), content: "1")
+      Widget::Box.new(parent: s, top: 3, left: 4, width: 12, height: 6,
+        style: Style.new(border: true), content: "2")
+      b1 = Widget::Box.new(parent: s, top: 14, left: 40, width: 12, height: 6,
+        style: Style.new(border: true), content: "3")
+      Widget::Box.new(parent: s, top: 17, left: 44, width: 12, height: 6,
+        style: Style.new(border: true), content: "4")
+      {a1, b1}
+    }
+    pa1, pb1 = build.call plain
+    da1, db1 = build.call dmg
+    plain._render; dmg._render
+
+    pa1.content = "1x"; pb1.content = "3x"
+    da1.content = "1x"; db1.content = "3x"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(two clusters)"
   end
 
   it "falls back and stays equivalent when alpha is active" do

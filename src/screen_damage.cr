@@ -67,6 +67,12 @@ module Crysterm
     @damage_snapshot = [] of Widget
     @damage_rects = [] of Tuple(Int32, Int32, Int32, Int32)
 
+    # Reused Phase 2 (overlap) scratch buffers: the connected component of
+    # overlapping top-level children to recomposite, and the rectangles defining
+    # its current extent.
+    @damage_involved = [] of Widget
+    @damage_frontier = [] of Tuple(Int32, Int32, Int32, Int32)
+
     # Registers *w* (via its top-level ancestor) as needing a repaint next frame.
     def damage_mark_dirty(w : Widget) : Nil
       root = w
@@ -205,19 +211,89 @@ module Crysterm
         return false
       end
 
-      # Overlap / z-order is Phase 2: if a damaged rectangle touches an unchanged
-      # subtree, fall back so the painter's algorithm composites them correctly.
-      @children.each do |el|
-        next if dirty.includes? el
+      # Does any damaged rectangle touch an *unchanged* top-level subtree? If
+      # not, the changed subtrees are self-contained and Phase 1 is done.
+      overlap = @children.any? do |el|
+        next false if dirty.includes? el
         cb = el.damage_bounds
-        next unless cb
-        damaged.each do |d|
-          return false if damage_rects_overlap?(d, cb)
-        end
+        next false unless cb
+        damaged.any? { |d| damage_rects_overlap?(d, cb) }
       end
+
+      unless overlap
+        @damage_fast_frames += 1
+        return true
+      end
+
+      # Phase 2: a changed subtree overlaps an unchanged one, so the painter's
+      # algorithm has to recomposite the overlapping widgets together, in
+      # z-order. Hand off to the cluster recomposite; a false result means an
+      # effect surfaced and the caller must fall back to the full path.
+      return false unless damage_phase2 dirty, damaged
 
       @damage_fast_frames += 1
       true
+    end
+
+    # Phase 2 — overlap / z-order. Recomposites the connected cluster of
+    # top-level children (by bounding-box overlap) that contains the changed
+    # subtrees: clears the cluster's whole region and repaints every member in
+    # `@children` (z) order. Members *outside* the cluster provably do not
+    # overlap it (that is what "connected component" means), so leaving them — and
+    # their cells — untouched is correct, and the cluster region contains none of
+    # their cells, so clearing it cannot disturb them.
+    #
+    # `dirty` are the changed roots (already rendered once this frame, with
+    # up-to-date `damage_bounds`); `damaged` holds their old∪new rectangles. A
+    # `false` return means an alpha/shadow/tint/z-index surfaced during the
+    # repaint — the cluster can't be composited this way, fall back to full.
+    private def damage_phase2(dirty : Array(Widget), damaged : Array(Tuple(Int32, Int32, Int32, Int32))) : Bool
+      involved = @damage_involved
+      involved.clear
+      frontier = @damage_frontier
+      frontier.clear
+
+      # Seed the component with the changed roots and their damaged rectangles.
+      dirty.each { |r| involved << r }
+      damaged.each { |d| frontier << d }
+
+      # Grow to a fixpoint: any not-yet-included top-level child whose bounds
+      # overlap a rectangle already in the component joins it and contributes its
+      # own bounds, so transitively-overlapping widgets are pulled in too. (The
+      # damaged rects use old∪new, so a widget sitting where a changed one *was* —
+      # not where it is now — is still pulled in and its vacated cells repainted.)
+      changed = true
+      while changed
+        changed = false
+        @children.each do |el|
+          next if involved.includes? el
+          cb = el.damage_bounds
+          next unless cb
+          if frontier.any? { |r| damage_rects_overlap?(r, cb) }
+            involved << el
+            frontier << cb
+            changed = true
+          end
+        end
+      end
+
+      # Clear the cluster region (the union of every member's contributed
+      # rectangle) so it can be rebuilt from scratch.
+      region : Tuple(Int32, Int32, Int32, Int32)? = nil
+      frontier.each { |r| region = damage_union region, r }
+      if region
+        clear_region region[0], region[1], region[2], region[3]
+      end
+
+      # Repaint every member in `@children` (z) order, so overlapping cells are
+      # composited bottom-to-top exactly as the full painter's algorithm would.
+      @children.each do |el|
+        next unless involved.includes? el
+        el.render
+        el.damage_bounds = damage_subtree_bounds el
+      end
+
+      !(@frame_used_effects || !@layer_widgets.empty?)
     end
 
     # Union of *root*'s and all its descendants' `@lpos` rectangles, as a
