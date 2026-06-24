@@ -4,6 +4,15 @@ module Crysterm
       # Widget's children `Widget`s.
       getter children = [] of Widget
 
+      # O(1) membership index for `@children`, kept in sync by `insert`/`remove`.
+      # Without it, `insert`'s "already a child?" guard was a linear
+      # `@children.includes?` scan, making a batch of N appends O(N²) — which made
+      # building thousands of widgets (e.g. one-per-cell demos on large terminals)
+      # stall for seconds before the first frame. The only other place `@children`
+      # is mutated directly is the reorder in `widget_index.cr`, which removes and
+      # re-adds the same element and so leaves membership unchanged.
+      @children_set = Set(Widget).new
+
       # Adds `element` to list of children. Convenience method identical to `append`
       def <<(widget : Widget)
         append widget
@@ -47,7 +56,7 @@ module Crysterm
 
       # Inserts `element` into list of children widgets
       def insert(element, i = -1)
-        return if @children.includes? element
+        return unless @children_set.add? element
         @children.insert i, element
         invalidate_css_tree
         element
@@ -55,6 +64,7 @@ module Crysterm
 
       # Removes `element` from list of children widgets
       def remove(element)
+        return unless @children_set.delete element
         return unless i = @children.index(element)
         # No need to erase the removed element's old footprint: `Screen#_render`
         # clears the whole cell buffer before each frame, so once `element` is

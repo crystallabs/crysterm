@@ -43,6 +43,11 @@ module Crysterm
     # of the full content on every render.
     @_content_version = 0
 
+    # The `no_tags` mode the cached content was processed with, so a repeated
+    # `set_content` of the same string but a *different* tag mode still reparses
+    # (see the unchanged-content short-circuit in `#set_content`).
+    @_content_no_tags = false
+
     # The `sattr(style)` value that the currently-cached `@_clines.attr` was
     # computed against. `_parse_attr` only depends on the content (unchanged on
     # the cached path) and this base attribute, so it can be skipped whenever the
@@ -63,10 +68,23 @@ module Crysterm
       # That is now handled centrally: `Screen#_render` clears the whole cell
       # buffer before each frame. `no_clear` is kept for call compatibility.
 
+      # Re-setting the identical content is a no-op: the cached `@_clines` are
+      # already valid for this exact string and tag mode, so there is nothing to
+      # reparse and no `SetContent` to emit. (Style — fg/bg — changes flow through
+      # the separate `@_parse_attr_default` path in `process_content`, not here,
+      # so they are unaffected.) This is the common case in per-cell animations
+      # that re-assign a box's character every frame even when it did not change,
+      # turning tens of thousands of redundant `process_content` calls per frame
+      # into a single comparison each.
+      if @_content_version > 0 && no_tags == @_content_no_tags && content == @content
+        return @content
+      end
+
       # XXX make it possible to have `update_context`, which only updates
       # internal structures, not @content (for rendering purposes, where
       # original content should not be modified).
       @content = content
+      @_content_no_tags = no_tags
       @_content_version += 1
 
       process_content(no_tags)
