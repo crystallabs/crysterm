@@ -90,7 +90,7 @@ def run(label, opt)
   end
 
   frame = 0
-  step = ->{
+  step = -> {
     copper.each &.step
     hscroll.step
     greet.style.fg = (frame // 4).even? ? 0xffffff : 0xff3030

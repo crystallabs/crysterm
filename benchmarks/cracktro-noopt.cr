@@ -8,8 +8,8 @@
 require "../src/crysterm"
 include Crysterm
 
-WIDTH  = 80
-HEIGHT = 15
+WIDTH  =  80
+HEIGHT =  15
 FRAMES = 600
 
 MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
@@ -85,7 +85,7 @@ letters = slots.map do |_|
 end
 
 frame = 0
-step = ->{
+step = -> {
   copper.each &.step
   hscroll.step
   greet.style.fg = (frame // 4).even? ? 0xffffff : 0xff3030

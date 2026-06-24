@@ -38,6 +38,7 @@ require "./screen_connection"
 
 require "./widget"
 require "./widget/**"
+require "./capture"
 require "./button_group"
 require "./completer"
 require "./layout/**"

@@ -46,7 +46,7 @@ module Crysterm
         # Embedded coastline polylines (`{lon, lat}` points), grouped into the
         # segments `world.dat` separates with blank lines. Parsed once at load.
         WORLD = begin
-          raw = {{ read_file("#{__DIR__}/world.dat") }}
+          raw = {{ read_file("#{__DIR__}/../../../data/widget/map/world.dat") }}
           segments = [] of Array(Tuple(Float64, Float64))
           current = [] of Tuple(Float64, Float64)
           raw.each_line do |line|

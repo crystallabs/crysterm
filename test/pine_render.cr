@@ -1,15 +1,17 @@
 require "../src/crysterm"
 
 # Headless render check for the Pine/Alpine widgets: builds each screen, renders
-# it synchronously, and prints a plain-text screenshot. Run with:
+# it synchronously, and writes a PNG capture. Run with:
 #   crystal run test/pine_render.cr
 include Crysterm
 include Widgets
 
 def dump(s, label)
   s._render
+  path = "/tmp/pine_#{label.gsub(/[^A-Za-z0-9]+/, "_")}.png"
+  s.capture(path: path)
   STDOUT.puts "================= #{label} ================="
-  STDOUT.puts s.screenshot
+  STDOUT.puts "PNG #{File.size(path)} bytes -> #{path}"
   STDOUT.puts
 end
 

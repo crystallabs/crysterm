@@ -188,6 +188,24 @@ module Crysterm
         !@src_frames.nil?
       end
 
+      # Whether this backend's pixels are *visible to the terminal* and so must be
+      # composited into a capture (`Crysterm::Capture`). False here: the
+      # `Cells` family already lives in the screen's cell buffer (captured for
+      # free), while `External`/`Tek` are painted by an external program or a
+      # separate window the terminal can't see. The in-band terminal-graphics
+      # family (`Media::Graphics`: sixel/kitty/iterm/regis) overrides this to true.
+      def capture_pixels? : Bool
+        false
+      end
+
+      # The current frame as a capture layer: an RGBA `PNGGIF::Bitmap` sized to
+      # the widget's content cell-box × (*font_w* × *font_h*) pixels, plus the
+      # content's top-left cell coordinates `{bmp, cell_xi, cell_yi}`. `nil` when
+      # this backend contributes nothing (the default; `Media::Graphics` overrides).
+      def capture_layer(font_w : Int32, font_h : Int32) : Tuple(PNGGIF::Bitmap, Int32, Int32)?
+        nil
+      end
+
       # Starts (or resumes) animation playback. Source frames are composited once
       # (capped resolution, in a background fiber so a large GIF doesn't block
       # first paint); the loop then advances the frame index and re-renders.

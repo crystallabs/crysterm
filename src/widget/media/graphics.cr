@@ -243,6 +243,29 @@ module Crysterm
         nil
       end
 
+      # In-band terminal graphics ARE visible to the terminal, so they are
+      # composited into captures (`Crysterm::Capture`).
+      def capture_pixels? : Bool
+        true
+      end
+
+      # Current frame resampled to the widget's content cell-box × font cell size,
+      # plus its content top-left cell origin — composited by the capture
+      # renderer at the same place the terminal draws the graphic. Mirrors the
+      # geometry of `#redraw_image`. `nil` while hidden or with no image.
+      def capture_layer(font_w : Int32, font_h : Int32) : Tuple(PNGGIF::Bitmap, Int32, Int32)?
+        return nil unless visible?
+        return nil unless @file
+        pos = _get_coords(true) || return nil
+        xi = pos.xi + ileft
+        yi = pos.yi + itop
+        cols = (pos.xl - iright) - xi
+        rows = (pos.yl - ibottom) - yi
+        return nil if cols <= 0 || rows <= 0
+        bmp = fit_bitmap(cols * font_w, rows * font_h) || return nil
+        {bmp, xi, yi}
+      end
+
       # Resamples the source into a *bw*×*bh* pixel bitmap fit per `#fit` (pixels
       # are square, so no aspect correction). This is what makes the backends
       # resize-aware: it re-derives from the cached source for the current box on

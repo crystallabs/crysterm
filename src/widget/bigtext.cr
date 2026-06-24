@@ -1,13 +1,16 @@
 require "./box"
+require "../font"
 
 module Crysterm
   class Widget
-    # Widget for displaying text in big font.
-    #
-    # Fonts can be converted from BDF to the required JSON format using https://github.com/chjj/ttystudio
+    # Widget for displaying text in a big bitmap font — each character is drawn as
+    # a grid of cells. Glyph data comes from `Crysterm::Font` (the bundled Terminus
+    # faces by default); pass `font:` / `font_bold:` to use other ttystudio JSON
+    # fonts (https://github.com/chjj/ttystudio).
     class BigText < Widget::Box
-      property font
-      property font_bold
+      # Optional font-file overrides; `nil` uses the bundled Terminus normal/bold.
+      property font : String?
+      property font_bold : String?
 
       property ratio : Tput::Size = Tput::Size.new 0, 0
       property text = ""
@@ -15,25 +18,22 @@ module Crysterm
       # TODO This widget isn't very useful as-is.
       # Add support font scaling, character for fg/bg, etc.
 
-      # Normal font
-      property normal : Hash(String, Array(Array(Int32))) # JSON::Any
-
-      # Bold font
-      property bold : Hash(String, Array(Array(Int32))) # JSON::Any
-
-      # Currently active_font (points to normal or bold)
-      property active_font : Hash(String, Array(Array(Int32))) # JSON::Any
+      # Loaded fonts; `active_font` points at `normal` or `bold` per the style.
+      property normal : Font
+      property bold : Font
+      property active_font : Font
 
       property _shrink_width : Bool = false
       property _shrink_height : Bool = false
 
       def initialize(
-        @font = "#{__DIR__}/../fonts/ter-u14n.json",
-        @font_bold = "#{__DIR__}/../fonts/ter-u14b.json",
+        @font : String? = nil,
+        @font_bold : String? = nil,
         **box,
       )
-        @normal = load_font font
-        @bold = load_font font_bold
+        @normal = (f = @font) ? Font.load(f) : Font.default_normal
+        @bold = (f = @font_bold) ? Font.load(f) : Font.default_bold
+        @ratio = Tput::Size.new @normal.width, @normal.height
 
         box["content"]?.try do |c|
           @text = c
@@ -52,49 +52,6 @@ module Crysterm
         set_content "", true
       end
 
-      def load_font(filename)
-        data = JSON.parse File.read filename
-        @ratio.width = data["width"].as_i
-        @ratio.height = data["height"].as_i
-
-        font = {} of String => Array(Array(Int32))
-        data.as_h.["glyphs"].as_h.each do |ch, data2|
-          lines = data2.as_h.["map"].as_a.map &.as_s
-          font[ch] = convert_letter ch, lines
-        end
-
-        # font.delete " "
-        font
-      end
-
-      def convert_letter(ch, lines)
-        while lines.size > @ratio.height
-          lines.shift
-          lines.pop
-        end
-
-        lines = lines.map do |line|
-          chs = line.chars # line.split ""
-          chs = chs.map do |ch2|
-            (ch2 == ' ') ? 0 : 1
-          end
-          while chs.size < @ratio.width
-            chs.push 0
-          end
-          chs
-        end
-
-        while lines.size < @ratio.height
-          line = [] of Int32
-          (0...@ratio.width).each do # |i|
-            line.push 0
-          end
-          lines.push line
-        end
-
-        lines
-      end
-
       def set_content(content : String)
         @content = ""
         @_content_version += 1
@@ -103,18 +60,12 @@ module Crysterm
 
       def render
         if @width.nil? || @_shrink_width
-          # D O:
-          # if (awidth - iwidth < @ratio.width * @text.length)
           @width = @ratio.width * @text.size
           @_shrink_width = true
-          # end
         end
         if @height.nil? || @_shrink_height
-          # D O:
-          # if (aheight - iheight < @ratio.height + 0)
           @height = @ratio.height
           @_shrink_height = true
-          # end
         end
         coords = _render
         return unless coords
@@ -142,18 +93,11 @@ module Crysterm
         x = @align.right? ? (right - max_chars*@ratio.width) : left
         max_chars.times do |i|
           ch = graphemes[i].to_s
-          map = @active_font[ch]? || @active_font["?"]
+          # `Font#glyph` already falls back to "?" then a blank glyph, and pads
+          # every row to the font width, so `map[y - top]` is a non-nil row.
+          map = @active_font.glyph(ch)
           y = top
           while y < Math.min(bottom, top + @ratio.height)
-            # XXX Not sure if this needs to be activated/used, or can be deleted
-            # unless !lines[y]?
-            #  y += 1
-            #  next
-            # end
-            # `map[y - top]` is a non-nil Array(Int32) (glyphs are padded to
-            # @ratio.height rows), so no nil guard is needed here. A `next unless
-            # mline` used to sit here, which — in this `while` loop — would have
-            # skipped the `y += 1` below and spun forever if it ever fired.
             mline = map[y - top]
             mx = 0
             while mx < @ratio.width

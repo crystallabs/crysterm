@@ -29,7 +29,7 @@ def run(label, opt)
     style: Style.new(fg: "black", bg: 0x40e0c0)
 
   phase = 0.0
-  step = ->{
+  step = -> {
     cpu.value = (Math.sin(phase) * 0.5 + 0.5) * 100
     mem.value = (Math.cos(phase * 0.7) * 0.5 + 0.5) * 100
     gl.gauges.each_with_index { |g, i| gl[i] = (Math.sin(phase + i) * 0.5 + 0.5) * 100 }

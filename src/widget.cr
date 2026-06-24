@@ -20,7 +20,7 @@ require "./widget_content"
 require "./widget_scrolling"
 require "./widget_rendering"
 require "./widget_interaction"
-require "./widget_screenshot"
+require "./widget_capture"
 require "./widget_label"
 require "./widget_cursor"
 

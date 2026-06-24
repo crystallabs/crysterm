@@ -18,7 +18,7 @@ require "./screen_drawing"
 require "./screen_focus"
 require "./screen_rows"
 require "./screen_interaction"
-require "./screen_screenshot"
+require "./screen_capture"
 
 module Crysterm
   # Represents a screen.
