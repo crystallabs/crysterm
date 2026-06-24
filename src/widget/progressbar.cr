@@ -145,8 +145,9 @@ module Crysterm
           # rendered using foreground color. This is different than blessed, and:
           # 1) Arguably more correct as far as logic goes
           # 2) And also allows the widget to show filled value in a way which is visible
-          #    even if style.bar is not specifically defined
-          default_attr = sattr style.bar, style.bar.bg, style.bar.fg
+          #    even if style.indicator is not specifically defined
+          ind = style.indicator
+          default_attr = sattr ind, ind.bg, ind.fg
 
           # TODO Is this approach with using drawing routines valid, or it would be
           # better that we do this in-memory only here?

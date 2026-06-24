@@ -159,7 +159,7 @@ module Crysterm
           trough_attr = sattr style
           screen.fill_region trough_attr, @trough_char, xi, xl, yi, yl
 
-          thumb_attr = sattr style.bar
+          thumb_attr = sattr style.indicator
           if @orientation.horizontal?
             avail = xl - xi
             sz = thumb_size avail

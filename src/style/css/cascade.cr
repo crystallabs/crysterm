@@ -424,9 +424,8 @@ module Crysterm
         when "cell"      then style.cell
         when "header"    then style.header
         when "item"      then style.item
-        when "bar"       then style.bar
+        when "indicator" then style.indicator
         when "prefix"    then style.prefix
-        when "alternate" then style.alternate_row
         when "label"     then style.label
         else                  style
         end
@@ -439,9 +438,8 @@ module Crysterm
         when "cell"      then style.cell = sub
         when "header"    then style.header = sub
         when "item"      then style.item = sub
-        when "bar"       then style.bar = sub
+        when "indicator" then style.indicator = sub
         when "prefix"    then style.prefix = sub
-        when "alternate" then style.alternate_row = sub
         when "label"     then style.label = sub
         end
       end

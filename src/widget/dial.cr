@@ -74,7 +74,7 @@ module Crysterm
           screen.lines[cy]?.try do |line|
             line[cx]?.try do |cell|
               cell.char = pointer
-              cell.attr = sattr style.bar
+              cell.attr = sattr style.indicator
             end
             line.dirty = true
           end

@@ -2,7 +2,7 @@ module Crysterm
   # Per-widget `#css_sub_elements` overrides: each widget that draws with named
   # sub-styles exposes them as pseudo-element nodes in the CSS document, so they
   # can be targeted by their capitalized name (e.g. `Table Cell { ... }`,
-  # `ListBar Prefix { ... }`, `ProgressBar Bar { ... }`).
+  # `ListBar Prefix { ... }`, `ProgressBar Indicator { ... }`).
   #
   # The cascade already routes each slot into the matching `Style` sub-style
   # (see `Cascade#get_sub_style`); these overrides just make the nodes exist.
@@ -17,7 +17,7 @@ module Crysterm
 
     class ListBar
       def css_sub_elements : Array(String)
-        super + ["prefix", "bar"]
+        super + ["prefix"]
       end
     end
 
@@ -27,19 +27,19 @@ module Crysterm
 
     class ProgressBar
       def css_sub_elements : Array(String)
-        super + ["bar"]
+        super + ["indicator"]
       end
     end
 
     class Dial
       def css_sub_elements : Array(String)
-        super + ["bar"]
+        super + ["indicator"]
       end
     end
 
     class Slider
       def css_sub_elements : Array(String)
-        super + ["bar"]
+        super + ["indicator"]
       end
     end
   end

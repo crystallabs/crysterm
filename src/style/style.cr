@@ -210,12 +210,6 @@ module Crysterm
       @alternate_row || cell
     end
 
-    setter bar : Style?
-
-    def bar
-      @bar || self
-    end
-
     def border=(value)
       @specified << :border
       @border = Border.from value
@@ -236,6 +230,12 @@ module Crysterm
 
     def header
       @header || self
+    end
+
+    setter indicator : Style?
+
+    def indicator
+      @indicator || self
     end
 
     setter item : Style?
@@ -309,9 +309,9 @@ module Crysterm
     # otherwise always look "set").
     def fold_inline_sub_styles(inline : Style) : Nil
       @alternate_row = inline.@alternate_row if inline.@alternate_row
-      @bar = inline.@bar if inline.@bar
       @cell = inline.@cell if inline.@cell
       @header = inline.@header if inline.@header
+      @indicator = inline.@indicator if inline.@indicator
       @item = inline.@item if inline.@item
       @prefix = inline.@prefix if inline.@prefix
       @scrollbar = inline.@scrollbar if inline.@scrollbar
@@ -326,7 +326,7 @@ module Crysterm
       @scrollbar = @scrollbar,
       @track = @track,
       @alternate_row = @alternate_row,
-      @bar = @bar,
+      @indicator = @indicator,
       @item = @item,
       @prefix = @prefix,
       @header = @header,

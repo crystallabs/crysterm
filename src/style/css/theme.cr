@@ -192,7 +192,7 @@ module Crysterm
          (.scrollbar) on a thin translucent plane so content shows faintly through. */
       .scrollbar { color: var(--muted); z-index: 5; opacity: 0.82; }
       Track { color: var(--surface-dark); }
-      ProgressBar Bar, Slider Bar, Dial Bar { color: var(--accent); }
+      ProgressBar Indicator, Slider Indicator, Dial Indicator { color: var(--accent); }
 
       /* Tables */
       Header { background-color: var(--muted-dark); color: var(--text); font-weight: bold; }

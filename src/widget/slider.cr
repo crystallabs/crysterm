@@ -180,7 +180,7 @@ module Crysterm
           track_attr = sattr style
           screen.fill_region track_attr, @track_char, xi, xl, yi, yl
 
-          handle_attr = sattr style.bar
+          handle_attr = sattr style.indicator
           if @orientation.horizontal?
             hx = xi + handle_offset(xl - xi - 1)
             (yi...yl).each do |y|

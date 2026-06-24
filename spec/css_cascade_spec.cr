@@ -556,7 +556,7 @@ describe "CSS cascade" do
     inner.styles.normal.bold?.should be_false # own normal wins over inherited bold
   end
 
-  it "wires the bar sub-element slot for bar widgets" do
+  it "wires the indicator sub-element slot for bar widgets" do
     screen = headless_screen
     pb = Widget::ProgressBar.new
     slider = Widget::Slider.new
@@ -564,13 +564,13 @@ describe "CSS cascade" do
     screen.append slider
 
     screen.stylesheet = <<-CSS
-      ProgressBar Bar { color: red; }
-      Slider Bar { color: green; }
+      ProgressBar Indicator { color: red; }
+      Slider Indicator { color: green; }
     CSS
     screen.apply_stylesheet
 
-    pb.styles.normal.bar.fg.should eq rgb("red")
-    slider.styles.normal.bar.fg.should eq rgb("green")
+    pb.styles.normal.indicator.fg.should eq rgb("red")
+    slider.styles.normal.indicator.fg.should eq rgb("green")
   end
 
   it "loads and reloads a stylesheet from a file" do
