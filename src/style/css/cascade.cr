@@ -498,6 +498,8 @@ module Crysterm
         when "prefix"    then style.prefix
         when "separator" then style.separator
         when "tab"       then style.tab
+        when "title"     then style.title
+        when "pane"      then style.pane
         when "label"     then style.label
         else                  style
         end
@@ -514,6 +516,8 @@ module Crysterm
         when "prefix"    then style.prefix = sub
         when "separator" then style.separator = sub
         when "tab"       then style.tab = sub
+        when "title"     then style.title = sub
+        when "pane"      then style.pane = sub
         when "label"     then style.label = sub
         end
       end

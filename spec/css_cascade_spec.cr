@@ -723,6 +723,41 @@ describe "CSS cascade" do
     tabs.style.tab.same?(tabs.style).should be_true
   end
 
+  it "routes GroupBox::title onto the title label (PreRender bridge)" do
+    screen = headless_screen
+    gb = Widget::GroupBox.new title: "Opts", width: 30, height: 8
+    screen.append gb
+    screen.stylesheet = "GroupBox::title { color: red; }"
+    screen.apply_stylesheet
+    gb.style.title.fg.should eq rgb("red")
+    screen._render
+    gb.@_label.not_nil!.styles.normal.fg.should eq rgb("red")
+  end
+
+  it "routes DockWidget::title onto the title bar" do
+    screen = headless_screen
+    dock = Widget::DockWidget.new title: "Files"
+    screen.append dock
+    screen.stylesheet = "DockWidget::title { color: red; }"
+    screen.apply_stylesheet
+    dock.style.title.fg.should eq rgb("red")
+    screen._render
+    dock.titlebar.styles.normal.fg.should eq rgb("red")
+  end
+
+  it "routes TabWidget::pane onto the current page" do
+    screen = headless_screen
+    tabs = Widget::TabWidget.new width: 40, height: 10
+    page = Widget::Box.new
+    tabs.add_tab "One", page
+    screen.append tabs
+    screen.stylesheet = "TabWidget::pane { background-color: blue; }"
+    screen.apply_stylesheet
+    tabs.style.pane.bg.should eq rgb("blue")
+    screen._render
+    page.styles.normal.bg.should eq rgb("blue")
+  end
+
   it "loads and reloads a stylesheet from a file" do
     path = File.tempname("crysterm-css", ".css")
     File.write(path, "Box { color: red; }")

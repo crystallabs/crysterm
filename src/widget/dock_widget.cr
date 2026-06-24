@@ -72,6 +72,16 @@ module Crysterm
         build_buttons
         wire_drag
         refresh_buttons # show the glyph matching the initial docked/floating state
+
+        # `DockWidget::title { … }` styles the title bar. Push the computed `title`
+        # sub-style onto the title-bar box each frame after the cascade; guarded by
+        # `same?`, so without a `::title` rule it's a no-op and the bar keeps its
+        # `.titlebar` theme look. (An explicit `::title` rule replaces that look,
+        # as in Qt.) See `Widget::TabWidget#sync_tab_style`.
+        on(::Crysterm::Event::PreRender) do
+          t = style.title
+          titlebar.styles.normal = t unless t.same?(style)
+        end
       end
 
       def floating? : Bool

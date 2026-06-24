@@ -315,6 +315,24 @@ module Crysterm
       @tab || self
     end
 
+    # Style used for a widget's title chrome (Qt's `QGroupBox::title` /
+    # `QDockWidget::title`). Defaults to `self`; the owning widget only pushes it
+    # onto its title element when a `::title` rule actually set it.
+    setter title : Style?
+
+    def title
+      @title || self
+    end
+
+    # Style used for a `Widget::TabWidget` page area (Qt's `QTabWidget::pane`).
+    # Defaults to `self`; only pushed onto the current page when a `::pane` rule
+    # actually set it.
+    setter pane : Style?
+
+    def pane
+      @pane || self
+    end
+
     # Label value is used only when internally instantiating labels on widgets,
     # to be able to set their: `style: self.style.label`. Since labels are
     # widgets, everything after that is done by looking up `@_label.style....`.
@@ -390,6 +408,8 @@ module Crysterm
       @prefix = inline.@prefix if inline.@prefix
       @separator = inline.@separator if inline.@separator
       @tab = inline.@tab if inline.@tab
+      @title = inline.@title if inline.@title
+      @pane = inline.@pane if inline.@pane
       @scrollbar = inline.@scrollbar if inline.@scrollbar
       @track = inline.@track if inline.@track
     end
@@ -408,6 +428,8 @@ module Crysterm
       @prefix = @prefix,
       @separator = @separator,
       @tab = @tab,
+      @title = @title,
+      @pane = @pane,
       @header = @header,
       @cell = @cell,
       @label = @label,

@@ -39,6 +39,16 @@ module Crysterm
         # (`GroupBox { border: solid }`) so it stays overridable by author CSS.
         update_label
 
+        # `GroupBox::title { … }` styles the title — which is the auto-created label
+        # child (`#set_label`, snapshotting `style.label` at creation), so push the
+        # computed `title` sub-style onto it each frame after the cascade. Guarded
+        # by `same?`, so it's a no-op (and the label keeps its default style) unless
+        # a `::title` rule matched. See `Widget::TabWidget#sync_tab_style`.
+        on(::Crysterm::Event::PreRender) do
+          t = style.title
+          @_label.try { |lbl| lbl.styles.normal = t } unless t.same?(style)
+        end
+
         if checkable?
           # Toggle only when the *title* row is clicked (Qt toggles via the group's
           # checkbox, not the whole area). Toggling on any click in the group made

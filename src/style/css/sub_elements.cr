@@ -29,7 +29,19 @@ module Crysterm
 
     class TabWidget
       def css_sub_elements : Array(String)
-        super + ["tab"]
+        super + ["tab", "pane"]
+      end
+    end
+
+    class GroupBox
+      def css_sub_elements : Array(String)
+        super + ["title"]
+      end
+    end
+
+    class DockWidget
+      def css_sub_elements : Array(String)
+        super + ["title"]
       end
     end
 
