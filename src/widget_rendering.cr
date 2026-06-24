@@ -118,7 +118,10 @@ module Crysterm
       # attr
       # ch
       # Log.trace { lines.inspect }
-      pcontent = @_pcontent || ""
+      # `#pcontent` materializes the printable string if a deferred append left it
+      # stale (nil), caching it back into `@_pcontent`. Once per frame after a
+      # change — not once per appended line.
+      pcontent = self.pcontent
       # Reuse the cached codepoint index unless `@_pcontent` was reparsed into a
       # fresh `String` (identity check). Rebuilding it every frame would re-scan
       # the content and, for non-ASCII text, re-materialize a `chars` array —

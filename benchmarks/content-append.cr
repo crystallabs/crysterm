@@ -66,7 +66,10 @@ def assert_equiv(name, tags, lines)
   ic = inc._clines
   oc = one._clines
   checks = {
-    "pcontent" => inc._pcontent == one._pcontent,
+    # `.pcontent` (not `._pcontent`) so the lazily-deferred string is materialized
+    # before comparison — the whole point of the lazy path is that `._pcontent`
+    # stays nil until something reads it.
+    "pcontent" => inc.pcontent == one.pcontent,
     "lines"    => ic.lines == oc.lines,
     "fake"     => ic.fake == oc.fake,
     "ci"       => ic.ci == oc.ci,
@@ -88,6 +91,19 @@ assert_equiv "tagged + wrapped", true, Array.new(40) { |i| "{green-fg}[#{i}]{/gr
 assert_equiv "multi-line text per push", false, Array.new(40) { |i| "line #{i}a\nline #{i}b\nline #{i}c" }
 assert_equiv "unclosed colour carries across lines", true, ["{red-fg}opens red", "still red", "still red 2"]
 assert_equiv "blank lines interspersed", false, ["a", "", "b", "", "", "c"]
+
+# Lazy `@content` fold must reproduce the eager concatenation of the same appends
+# (raw text, joined by "\n"), and `_pcontent` must stay deferred (nil) until read.
+begin
+  box = make_box(false)
+  box.push_line "alpha"            # seeds line 0 (eager set_content; builds _pcontent)
+  box.push_line "beta"             # append path -> defers
+  box.push_line "gamma"            # append path -> defers
+  deferred_ok = box._pcontent.nil? # _pcontent stayed nil after the appends
+  content_ok = box.content == "alpha\nbeta\ngamma"
+  printf "  %-46s => %s\n", "lazy @content fold + deferred _pcontent",
+    (content_ok && deferred_ok) ? "OK" : "MISMATCH (content=#{box.content.inspect} deferred=#{deferred_ok})"
+end
 puts
 
 # --------------------------------------------------------------------------

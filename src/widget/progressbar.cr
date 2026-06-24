@@ -153,10 +153,10 @@ module Crysterm
           screen.fill_region default_attr, style.pchar, xi, xl, yi, yl
 
           # Determine the text to overlay: the Qt-style indicator when enabled,
-          # otherwise any pre-parsed content (`@_pcontent`).
+          # otherwise any pre-parsed content (materialized via `#pcontent`).
           if show_text?
             draw_overlay_text formatted_text
-          elsif (pc = @_pcontent) && !pc.empty?
+          elsif !(pc = pcontent).empty?
             screen.lines[yi]?.try do |line|
               pc.each_char_with_index do |c, i|
                 line[xi + i]?.try do |cell|

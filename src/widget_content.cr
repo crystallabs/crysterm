@@ -23,10 +23,59 @@ module Crysterm
     Crystallabs::Helpers::Enums.enum_property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
 
     # Widget's user-set content in original form. Includes any attributes and tags.
-    getter content : String = ""
+    # Materialized lazily: `append_content` defers the O(total) string concat by
+    # stashing the raw appended chunks in `@_content_tail` and folding them into
+    # `@content` only when the content is actually read (see `#content`). This is
+    # what makes a stream of appends O(1) amortized instead of O(n) each.
+    @content : String = ""
+
+    # Raw appended chunks not yet folded into `@content` (see `#content` /
+    # `#fold_content_tail`). Empty in the common (non-appended) case.
+    @_content_tail = [] of String
+
+    # Widget's user-set content in original form, with any pending appends folded
+    # in. O(total) on the first read after appends, then cached until the next
+    # append. Most readers (`get_content`, list items, `content=`) go through here.
+    def content : String
+      fold_content_tail
+      @content
+    end
+
+    # Folds the deferred raw appends (`@_content_tail`) into `@content`. No-op when
+    # nothing is pending, so it is cheap to call defensively before any code that
+    # reads the `@content` ivar directly.
+    private def fold_content_tail : Nil
+      return if @_content_tail.empty?
+      @content = String.build do |s|
+        s << @content
+        @_content_tail.each do |t|
+          s << '\n'
+          s << t
+        end
+      end
+      @_content_tail.clear
+    end
+
+    # Whether there is no content at all — neither materialized nor pending. O(1)
+    # (does not fold), for the hot `append_content`/`push_line` guards.
+    private def content_blank?
+      @content.empty? && @_content_tail.empty?
+    end
 
     # Printable, word-wrapped content, ready for rendering into the element.
+    # `nil` means "stale" — `append_content` sets it nil rather than rebuilding the
+    # O(total) joined string per line; `#pcontent` rebuilds it on demand (once per
+    # render after a change, not once per append). The incremental `@_clines.ci`
+    # offsets stay valid because they are derived from line lengths, not from this
+    # string.
     property _pcontent : String?
+
+    # The printable content string, rebuilt from the wrapped lines if stale. The
+    # render path and any other consumer must go through this (not the `@_pcontent`
+    # ivar) so a deferred append is materialized before use.
+    def pcontent : String
+      @_pcontent ||= @_clines.join("\n")
+    end
 
     # Cached codepoint index over `@_pcontent`, reused across frames. `_render`
     # indexes content per cell, so for non-ASCII content the index materializes a
@@ -71,6 +120,10 @@ module Crysterm
     end
 
     def set_content(content = "", no_clear = false, no_tags = false)
+      # Fold any deferred appends so the unchanged-content comparisons below see
+      # the real current content (and so the tail is dropped — this call replaces
+      # the content wholesale).
+      fold_content_tail
       # Idempotent: setting the content to its current value changes nothing, so
       # the widget does no work and propagates no repaint — no version bump, no
       # (expensive) reparse, no `request_render`, no `SetContent`. This is the
@@ -231,6 +284,10 @@ module Crysterm
 
       colwidth = (awidth_hint || awidth) - iwidth
       if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version
+        # A reparse reads the raw `@content`, so fold in any deferred appends
+        # first. (The common cache-hit path below never enters here, so deferred
+        # content is not materialized just to render an unchanged frame.)
+        fold_content_tail
         # Single pass over the content instead of four chained `gsub`s (each of
         # which scanned the whole string and built an intermediate copy). The
         # four rules act on disjoint characters — control chars, a stray ESC
@@ -448,13 +505,14 @@ module Crysterm
       outbuf.to_s
     end
 
-    # Base (per-line-start) attribute that results from scanning `line`'s inline
-    # SGR sequences starting from `attr`. Mirrors the per-line state update in
-    # `_parse_attr` and is used by `append_content` to carry the SGR state across
-    # the append boundary (a `{red-fg}` left open on an earlier line colors the
-    # appended lines too, exactly as a full reparse would).
-    private def _attr_after(line : String, attr : Int64) : Int64
-      default_attr = sattr(style)
+    # Base attribute after scanning `line`'s inline SGR sequences starting from
+    # `attr`. The shared per-line attr step: `_parse_attr` uses it to advance the
+    # running attr line-to-line, and `append_content` uses it to carry the SGR
+    # state across the append boundary (a `{red-fg}` left open on an earlier line
+    # colors the appended lines too, exactly as a full reparse would).
+    # `default_attr` is `sattr(style)`, passed in so callers compute it once rather
+    # than per line.
+    private def _attr_after(line : String, attr : Int64, default_attr : Int64) : Int64
       line.each_char_with_index do |char, i|
         if char == '\e'
           if c = SGR_REGEX.match(line, i, options: Regex::MatchOptions::ANCHORED)
@@ -477,19 +535,11 @@ module Crysterm
 
       lines.each do |line|
         attrs.push attr
-
-        # `each_char_with_index` walks the codepoints without materializing a
-        # `line.chars` array, and the SGR match is anchored in place at `i`
-        # instead of slicing `line[i..]` — so a colored line is scanned with no
-        # per-line/per-escape `String` allocation. (Matching at THIS escape, not
-        # a fixed offset of 1, preserves the leading-SGR fix.)
-        line.each_char_with_index do |char, i|
-          if char == '\e'
-            if c = SGR_REGEX.match(line, i, options: Regex::MatchOptions::ANCHORED)
-              attr = screen.attr2code(c[0], attr, default_attr)
-            end
-          end
-        end
+        # Advance the running attr through this line's inline SGRs. `_attr_after`
+        # walks codepoints with `each_char_with_index` (no `line.chars` array) and
+        # matches each SGR anchored in place (no `line[i..]` slice), so a colored
+        # line is scanned with no per-line/per-escape `String` allocation.
+        attr = _attr_after(line, attr, default_attr)
       end
 
       attrs
@@ -775,7 +825,7 @@ module Crysterm
       # Cache must be current: if a reparse is pending, splicing onto stale
       # `@_clines` would corrupt it. Let the normal path run first.
       return false unless @_clines.content_version == @_content_version
-      return false if @content.empty?
+      return false if content_blank?
       colwidth = @_clines.width
       return false if colwidth <= 0
       # Bail if the widget's width changed since the cache was built — the slow
@@ -783,11 +833,10 @@ module Crysterm
       # in `process_content`); the fast path can only splice when the existing
       # wrapped lines are still valid for the current width.
       return false if (awidth - iwidth) != colwidth
-      # The splice extends the existing `@_pcontent`; if it is empty (content that
-      # cleaned away to nothing) the existing single empty line has nothing to
-      # join against — leave that degenerate case to the full path.
-      pcontent = @_pcontent || ""
-      return false if pcontent.empty?
+      # Degenerate state: content that cleaned away to nothing leaves `_wrap_content`
+      # in its empty-content shape (`fake` empty, one blank real line). Splicing
+      # onto that would desync `fake` from `lines`; let the full path handle it.
+      return false if @_clines.fake.empty?
 
       # Clean control chars on JUST the appended text (same single-pass rule as
       # `process_content`), then tag-parse only the new segment.
@@ -822,18 +871,21 @@ module Crysterm
       base_fake = cl.fake.size
 
       # Splice the scratch's real lines, fake lines and mappings onto the tail,
-      # offsetting the indices by where the existing content ends.
-      scratch.lines.each { |ln| cl.lines << ln }
-      scratch.fake.each { |fk| cl.fake << fk }
+      # offsetting the indices by where the existing content ends. `lines`/`fake`
+      # need no offset (bulk `concat`); `ftor`/`rtof` are renumbered.
+      cl.lines.concat scratch.lines
+      cl.fake.concat scratch.fake
       scratch.ftor.each do |row|
         cl.ftor << row.map { |r| r + base_real }
       end
       scratch.rtof.each { |f| cl.rtof << (f + base_fake) }
 
-      # Extend `ci` (char offset of each real line within `@_pcontent`). The first
-      # new line starts right after the existing pcontent's joining "\n" (pcontent
-      # is guaranteed non-empty by the bail above).
-      running = pcontent.size + 1
+      # Extend `ci` (char offset of each real line within the joined pcontent),
+      # derived from the existing offsets — NOT from `@_pcontent`, which is now
+      # built lazily and may be stale/nil here. The first new line starts one past
+      # the end of the last existing line: `ci[last] + len(last) + 1` (the +1 is
+      # the joining "\n"). `base_real >= 1` because content is non-blank.
+      running = cl.ci[base_real - 1] + cl.lines[base_real - 1].size + 1
       scratch.lines.each do |ln|
         cl.ci << running
         running += ln.size + 1
@@ -845,29 +897,32 @@ module Crysterm
       # SGRs), and each subsequent new line continues from the previous. This
       # matches `_parse_attr`'s line-to-line carry exactly.
       if attrs = cl.attr
-        carry = if base_real > 0 && base_real <= attrs.size
-                  _attr_after(cl.lines[base_real - 1], attrs[base_real - 1])
-                else
-                  sattr(style)
-                end
+        da = sattr(style)
+        # `base_real >= 1` (content non-blank), so the boundary attr comes from the
+        # last existing line unless `attrs` is somehow short (degrade to default).
+        carry = base_real <= attrs.size ? _attr_after(cl.lines[base_real - 1], attrs[base_real - 1], da) : da
         scratch.lines.each do |ln|
           attrs << carry
-          carry = _attr_after(ln, carry)
+          carry = _attr_after(ln, carry, da)
         end
       end
 
       cl.max_width = Math.max(cl.max_width, scratch.max_width)
 
-      # Extend the canonical strings. These two concats are the only O(total)
-      # work left (string is immutable); everything heavy above is O(appended).
-      # `@_pcontent` becomes a fresh String, so the render's `built_from?` identity
-      # check rebuilds `@_content_index` on its own — no need to null it here (the
-      # full path relies on the same mechanism).
-      @_pcontent = pcontent + "\n" + scratch.lines.join("\n")
-      @content = @content + "\n" + text
+      # Defer the two O(total) string builds instead of doing them per append —
+      # this is what makes a run of appends O(1) amortized rather than O(n) each:
+      #   * `@_pcontent` is marked stale (nil); `#pcontent` rebuilds it from the
+      #     wrapped lines on demand — once per render after a change, not per line.
+      #     A fresh String also makes the render's `built_from?` check rebuild the
+      #     codepoint index on its own.
+      #   * the raw appended `text` is stashed in `@_content_tail`; `#content`
+      #     folds it in only when the raw content is actually read.
+      # `cl.content` (write-only bookkeeping) is left as-is rather than forcing a
+      # materialization here.
+      @_pcontent = nil
+      @_content_tail << text
       @_content_has_tags ||= seg_has_tags
       @_content_version += 1
-      cl.content = @content
       cl.content_version = @_content_version
 
       # Mirror the full path: mark the widget for repaint and emit the same event
@@ -1072,9 +1127,9 @@ module Crysterm
     end
 
     def push_line(line)
-      # `@content` is a non-nilable String, so the old `!@content` was always
-      # false (an empty String is truthy in Crystal) and this never set line 0.
-      if @content.empty?
+      # Seed line 0 when there is no content yet (counting any deferred appends,
+      # without materializing them).
+      if content_blank?
         return set_line(0, line)
       end
       # Appending at the end is the common case (logs, transcripts, streaming
