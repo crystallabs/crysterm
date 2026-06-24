@@ -5,7 +5,9 @@ module Crysterm
     # `Style`. Geometry is a single per-widget concern, so the cascade applies
     # these only from the `normal` state's winning declarations.
     module Geometry
-      PROPERTIES = Set{"width", "height", "top", "left", "right", "bottom", "text-align", "spacing"}
+      PROPERTIES = Set{"width", "height", "top", "left", "right", "bottom",
+                       "min-width", "max-width", "min-height", "max-height",
+                       "text-align", "spacing"}
 
       # Whether *property* is a geometry property handled here.
       def self.handles?(property : String) : Bool
@@ -35,6 +37,13 @@ module Crysterm
           # `right`/`bottom` are offsets in cells only (no `center`/`%` form).
         when "right"  then value.to_i?.try { |cells| widget.right = cells }
         when "bottom" then value.to_i?.try { |cells| widget.bottom = cells }
+          # Size constraints are cells only (a bare number or a unit'd length);
+          # `%`/unmapped units yield `nil` and are ignored, as `awidth`/`aheight`
+          # have no per-frame hook to re-resolve a percentage constraint.
+        when "min-width"  then Length.to_cells(value).try { |c| widget.min_width = c }
+        when "max-width"  then Length.to_cells(value).try { |c| widget.max_width = c }
+        when "min-height" then Length.to_cells(value).try { |c| widget.min_height = c }
+        when "max-height" then Length.to_cells(value).try { |c| widget.max_height = c }
         when "text-align"
           case value
           when "left"   then widget.align = Tput::AlignFlag::Left

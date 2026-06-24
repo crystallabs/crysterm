@@ -27,6 +27,40 @@ module Crysterm
       mark_dirty
     end
 
+    # CSS `min-width`/`max-width`/`min-height`/`max-height` size constraints, in
+    # cells (`nil` = unconstrained). `awidth`/`aheight` clamp the *used* size to
+    # `[min, max]` — so they cap a `width: "100%"` or stretched widget and raise a
+    # too-small one, exactly like CSS, and `min` wins when it exceeds `max`. Set
+    # from a stylesheet by `CSS::Geometry`; settable directly too.
+    getter min_width : Int32? = nil
+    getter max_width : Int32? = nil
+    getter min_height : Int32? = nil
+    getter max_height : Int32? = nil
+
+    {% for dim in %w[min_width max_width min_height max_height] %}
+      def {{dim.id}}=(val : Int32?)
+        return if @{{dim.id}} == val
+        @{{dim.id}} = val
+        mark_dirty
+      end
+    {% end %}
+
+    # Clamps a computed width to the `[min_width, max_width]` constraints (a
+    # no-op when both are `nil`). `max` is applied before `min` so `min` wins a
+    # `min > max` conflict, per CSS.
+    private def clamp_awidth(w : Int32) : Int32
+      w = Math.min(w, @max_width.not_nil!) if @max_width
+      w = Math.max(w, @min_width.not_nil!) if @min_width
+      w
+    end
+
+    # :ditto: for height.
+    private def clamp_aheight(h : Int32) : Int32
+      h = Math.min(h, @max_height.not_nil!) if @max_height
+      h = Math.max(h, @min_height.not_nil!) if @min_height
+      h
+    end
+
     # Returns computed width
     def awidth(get = false)
       oleft = @left
@@ -43,7 +77,7 @@ module Crysterm
         # with no insets (e.g. a screen child) this is unchanged. The matching
         # `aleft` adds the parent's near inset, so a `left: 0` child sits just
         # inside the border and a `"100%"` child reaches exactly the far inset.
-        return resolve_dimension(width, (parent.awidth || 0) - parent.ileft - parent.iright, "half")
+        return clamp_awidth(resolve_dimension(width, (parent.awidth || 0) - parent.ileft - parent.iright, "half"))
       end
 
       # This is for if the element is being stretched or shrunken.
@@ -73,7 +107,7 @@ module Crysterm
         width -= parent.iright
       end
 
-      width
+      width.is_a?(Int32) ? clamp_awidth(width) : width
     end
 
     # Returns computed height
@@ -88,7 +122,7 @@ module Crysterm
       when String
         # Percentage of the parent's *content* height (inside border/padding);
         # see `awidth` for the rationale (CSS-like, fills the interior).
-        return resolve_dimension(height, (parent.aheight || 0) - parent.itop - parent.ibottom, "half")
+        return clamp_aheight(resolve_dimension(height, (parent.aheight || 0) - parent.itop - parent.ibottom, "half"))
       end
 
       # This is for if the element is being stretched or shrunken.
@@ -114,7 +148,7 @@ module Crysterm
         height -= parent.ibottom
       end
 
-      height
+      height.is_a?(Int32) ? clamp_aheight(height) : height
     end
 
     # Returns minimum widget size based on bounding box

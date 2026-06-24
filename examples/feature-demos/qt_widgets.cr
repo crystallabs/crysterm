@@ -362,7 +362,7 @@ dock.top = 4; dock.left = 40; dock.width = 34; dock.height = 15
 
 # A corner grip resizes the dock while it's floating (when docked, MainWindow
 # re-imposes the dock's size each frame).
-Widget::SizeGrip.new parent: dock, bottom: 0, right: 0, width: 1, height: 1, min_width: 12, min_height: 4
+Widget::SizeGrip.new parent: dock, bottom: 0, right: 0, width: 1, height: 1, min_drag_width: 12, min_drag_height: 4
 
 # --- Live status from widget events ------------------------------------------
 

@@ -49,6 +49,45 @@ describe "CSS geometry units" do
     a.style.margin.left.should eq 1  # 1 / 1
   end
 
+  it "caps a stretched/percentage width at max-width" do
+    s = render_screen
+    s.stylesheet = "Box#a { width: 100%; max-width: 10; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.max_width.should eq 10
+    a.awidth.should eq 10 # 80% of the 80-wide screen, clamped to 10
+  end
+
+  it "raises a too-small width to min-width" do
+    s = render_screen
+    s.stylesheet = "Box#a { width: 4; min-width: 8; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.awidth.should eq 8
+  end
+
+  it "lets min-width win when it exceeds max-width (per CSS)" do
+    s = render_screen
+    s.stylesheet = "Box#a { width: 100%; max-width: 5; min-width: 10; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.awidth.should eq 10
+  end
+
+  it "scales unit'd size constraints through the divisor table (and ignores %)" do
+    s = render_screen
+    s.stylesheet = "Box#a { height: 100%; max-height: 200px; min-height: 50%; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.max_height.should eq 20  # 200 / 10
+    a.min_height.should be_nil # `50%` has no cell mapping -> ignored
+    a.aheight.should eq 20     # full 24-row height clamped to 20
+  end
+
   it "honors a retuned divisor" do
     original = Crysterm::CSS::Geometry.unit_divisors["px"]
     begin

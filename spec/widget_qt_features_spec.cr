@@ -1218,7 +1218,7 @@ describe Crysterm::Widget::SizeGrip do
     win = Crysterm::Widget::Box.new parent: s, top: 5, left: 0, width: 20, height: 6,
       style: Style.new(border: true)
     grip = Crysterm::Widget::SizeGrip.new parent: win, bottom: 0, right: 0, width: 1, height: 1,
-      min_width: 3, min_height: 3
+      min_drag_width: 3, min_drag_height: 3
     s._render
     s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, grip.aleft, grip.atop, source: :test))
     s.dispatch_mouse(::Tput::Mouse::Event.new(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::Left, 30, 12, source: :test))
