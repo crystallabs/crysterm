@@ -219,7 +219,8 @@ module Crysterm
       @layout = @layout,
       @layout_hint = @layout_hint,
 
-      @scrollbar = @scrollbar,
+      scrollbar : Bool? = nil,
+      @scrollbar_policy = @scrollbar_policy,
       # TODO Make it configurable which side it appears on etc.
       @track = @track,
       # XXX Should this whole section of 5 properties be in Style?
@@ -294,12 +295,11 @@ module Crysterm
       on(Crysterm::Event::Attach) { process_content }
       # on(Crysterm::Event::Detach) { @lpos = nil } # XXX D O or E O?
 
-      if s = scrollbar
-        # Allow controlling of the scrollbar via the mouse:
-        # TODO
-        # if @mouse
-        #  # TODO
-        # end
+      # Legacy `scrollbar: true/false` sugar maps onto `#scrollbar_policy`
+      # (`true` ⇒ `AsNeeded`, `false` ⇒ `AlwaysOff`). When omitted (`nil`), the
+      # class/`scrollbar_policy:` default stands.
+      unless scrollbar.nil?
+        self.scrollbar = scrollbar
       end
 
       # # TODO same as above

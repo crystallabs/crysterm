@@ -590,7 +590,9 @@ module Crysterm
         lines << content
       end
 
-      margin += 1 if @scrollbar
+      # Reserve a column for the scroll bar when it will actually be shown
+      # (policy + overflow), so wrapped content doesn't render underneath it.
+      margin += 1 if show_scrollbar?
       margin += 1 if is_a? Widget::TextArea
       colwidth -= margin if colwidth > margin
 

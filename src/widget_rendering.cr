@@ -474,8 +474,8 @@ module Crysterm
       # Scrollbar: a real `Widget::ScrollBar` child — created lazily, fixed at the
       # right edge, and bound to this widget — renders and drives it (so it is a
       # styleable, interactive, compositable widget rather than an inline glyph).
-      # See `#ensure_scrollbar_widget`. It renders below via `render_children`.
-      ensure_scrollbar_widget if scrollbar?
+      # See `#update_scrollbar_widget`. It renders below via `render_children`.
+      update_scrollbar_widget
 
       # TODO See if these 4 values could be packed somehow to just replace individual
       # settings with the usual: style.border.try &.adjust(pos, -1) ?

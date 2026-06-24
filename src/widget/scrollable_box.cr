@@ -13,6 +13,10 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class ScrollableBox < Box
       @scrollable = true
+      # Show a real `ScrollBar` automatically when the content overflows (Qt's
+      # default `AsNeeded`). Inherited by `ScrollableText`/`Log`. Opt out with
+      # `scrollbar_policy: AlwaysOff` (or the legacy `scrollbar: false`).
+      @scrollbar_policy = ScrollBarPolicy::AsNeeded
 
       def initialize(**box)
         super **box

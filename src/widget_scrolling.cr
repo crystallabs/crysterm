@@ -8,18 +8,68 @@ module Crysterm
     # scrollbar widget, which must not scroll away with the content it tracks.)
     property? fixed = false
 
-    property? scrollbar : Bool = false
+    # When a scrollable widget shows its scroll bar — Qt's `Qt::ScrollBarPolicy`.
+    enum ScrollBarPolicy
+      # Show the bar only while the content overflows the viewport (Qt default).
+      AsNeeded
+      # Always reserve and show the bar.
+      AlwaysOn
+      # Never show the bar.
+      AlwaysOff
+    end
+
+    # When this widget's scroll bar chrome is shown (per-axis vertical for now;
+    # horizontal lands with horizontal scrolling). Base widgets default to
+    # `AlwaysOff` (opt-in, as before); scrollable widgets override to `AsNeeded`.
+    property scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
+
+    # Whether the scroll bar is enabled at all (i.e. the policy is not
+    # `AlwaysOff`). Back-compat alias for the former `scrollbar : Bool`.
+    def scrollbar? : Bool
+      !scrollbar_policy.always_off?
+    end
+
+    # Back-compat sugar for the former `scrollbar : Bool`: `true` ⇒ `AsNeeded`,
+    # `false` ⇒ `AlwaysOff`.
+    def scrollbar=(v : Bool) : Bool
+      @scrollbar_policy = v ? ScrollBarPolicy::AsNeeded : ScrollBarPolicy::AlwaysOff
+      v
+    end
+
+    # Whether the scroll bar chrome should be shown right now, given the policy
+    # and current content: never when non-scrollable or `AlwaysOff`, always
+    # under `AlwaysOn`, and only on overflow under `AsNeeded`.
+    def show_scrollbar? : Bool
+      return false unless scrollable?
+      case scrollbar_policy
+      in .always_off? then false
+      in .always_on?  then true
+      in .as_needed?  then really_scrollable?
+      end
+    end
 
     # The `Widget::ScrollBar` child rendering this widget's scrollbar, created
-    # lazily by `#ensure_scrollbar_widget` when `#scrollbar?` is enabled.
-    @scrollbar_widget : ScrollBar?
+    # lazily by `#ensure_scrollbar_widget` (`nil` until first shown). Precursor
+    # to Qt's `verticalScrollBar()` accessor.
+    getter scrollbar_widget : ScrollBar?
 
-    # When `#scrollbar?` is enabled, lazily create a real `Widget::ScrollBar`
-    # child — `fixed` (exempt from this widget's scroll), pinned to the right
-    # interior edge, and `#attach`ed so it reflects/drives the scroll position.
-    # It then renders and handles interaction like any widget (and is styleable
-    # via CSS, e.g. `ScrollBar { color: … }` / `.scrollbar { … }`). Idempotent.
-    protected def ensure_scrollbar_widget : Nil
+    # Called each render to reconcile the scroll bar chrome with the policy:
+    # create+show+sync the bar when `#show_scrollbar?`, hide (never destroy) it
+    # otherwise so it can reappear without losing state. Idempotent.
+    protected def update_scrollbar_widget : Nil
+      if show_scrollbar?
+        ensure_scrollbar_widget.show
+      else
+        @scrollbar_widget.try &.hide
+      end
+    end
+
+    # Lazily create a real `Widget::ScrollBar` child — `fixed` (exempt from this
+    # widget's scroll), pinned to the right interior edge, and `#attach`ed so it
+    # reflects/drives the scroll position. It then renders and handles
+    # interaction like any widget (and is styleable via CSS, e.g.
+    # `ScrollBar { color: … }` / `.scrollbar { … }`). Idempotent; returns the bar.
+    protected def ensure_scrollbar_widget : ScrollBar
       sb = @scrollbar_widget
       if sb.nil?
         sb = ScrollBar.new parent: self, orientation: :vertical,
@@ -30,6 +80,7 @@ module Crysterm
         @scrollbar_widget = sb
       end
       sb.sync_from_target
+      sb
     end
 
     # Should widget indicate the scroll position?

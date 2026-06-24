@@ -6,6 +6,10 @@ module Crysterm
     class List < Widget
       property ignore_keys = true
       property scrollable = true
+      # Auto-show the scroll bar when items overflow (Qt `AsNeeded`); the bar's
+      # thumb sizes from the item-count model via `#get_scroll_height`.
+      # Inherited by `Tree`.
+      @scrollbar_policy = ScrollBarPolicy::AsNeeded
 
       property _list_initialized = false
 
@@ -221,7 +225,7 @@ module Crysterm
         @selected_indices.clear
       end
 
-      def create_item(content, screen = ::Crysterm::Screen.global, align : ::Tput::AlignFlag | Shorthands = ::Tput::AlignFlag::Left, top = 0, left = 0, right = (@scrollbar ? 1 : 0), parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
+      def create_item(content, screen = ::Crysterm::Screen.global, align : ::Tput::AlignFlag | Shorthands = ::Tput::AlignFlag::Left, top = 0, left = 0, right = (scrollbar? ? 1 : 0), parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
 
         if @resizable || normal_resizable
           right = nil

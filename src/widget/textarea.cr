@@ -9,6 +9,12 @@ module Crysterm
       @_reading = false
 
       @scrollable = true
+      # NOTE: intentionally NOT defaulting `scrollbar_policy` to `AsNeeded` yet.
+      # Here `@child_offset` is the *cursor* row offset, so a dragged bar driving
+      # `scroll_to` would fight the cursor model. Unifying that (folding
+      # `ensure_cursor_visible` onto the shared scroll machinery) is its own pass
+      # (see SCROLLBAR-EXTRACTION-PLAN.md, workstream C / decision #4). Callers
+      # can still opt in explicitly with `scrollbar: true`.
       @input_on_focus = false
 
       property __update_cursor : Proc(Nil)?

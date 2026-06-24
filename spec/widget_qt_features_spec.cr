@@ -865,7 +865,7 @@ describe Crysterm::Widget::ScrollBar do
     s = qt_mem_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..20).map { |i| "line#{i}" }.join("\n")
-    s.render # establish geometry + wrapped content lines
+    s._render # establish geometry + wrapped content lines
 
     sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 21, width: 1, height: 5
     sb.attach box
@@ -923,6 +923,69 @@ describe Crysterm::Widget::ScrollBar do
     sb.slider_position = 4
     sb.value.should eq 4 # committed live
     sb.slider_position.should eq 4
+  end
+end
+
+describe "Widget::ScrollBarPolicy (auto show/hide)" do
+  it "AsNeeded shows the bar only when content overflows" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..20).map { |i| "line#{i}" }.join("\n")
+    box.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
+    s._render
+    box.show_scrollbar?.should be_true
+    sb = box.scrollbar_widget.should_not be_nil
+    sb.visible?.should be_true
+    sb.maximum.should be > 0
+  end
+
+  it "AsNeeded keeps the bar hidden when content fits" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 10,
+      content: "a\nb\nc"
+    s._render
+    box.show_scrollbar?.should be_false
+    box.scrollbar_widget.try(&.visible?).should_not eq true
+  end
+
+  it "AlwaysOn shows the bar even without overflow" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 10,
+      content: "a\nb\nc", scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AlwaysOn
+    s._render
+    box.show_scrollbar?.should be_true
+    box.scrollbar_widget.not_nil!.visible?.should be_true
+  end
+
+  it "AlwaysOff never shows the bar, even on overflow" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      content: (1..20).map { |i| "line#{i}" }.join("\n"),
+      scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AlwaysOff
+    s._render
+    box.show_scrollbar?.should be_false
+    box.scrollbar_widget.try(&.visible?).should_not eq true
+  end
+
+  it "legacy scrollbar: true/false maps to a policy" do
+    s = qt_mem_screen
+    on = Crysterm::Widget::Box.new parent: s, scrollbar: true, width: 10, height: 5
+    on.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
+    on.scrollbar?.should be_true
+    off = Crysterm::Widget::ScrollableBox.new parent: s, scrollbar: false, width: 10, height: 5
+    off.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AlwaysOff
+  end
+
+  it "List defaults to AsNeeded and sizes the thumb to its item count" do
+    s = qt_mem_screen
+    list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 5,
+      items: (1..20).map { |i| "item#{i}" }
+    list.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
+    s._render
+    list.show_scrollbar?.should be_true
+    sb = list.scrollbar_widget.not_nil!
+    sb.maximum.should be > 0      # range derived from item count
+    sb.page_step.should be <= 5   # thumb page = visible rows
   end
 end
 
