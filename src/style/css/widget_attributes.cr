@@ -15,7 +15,34 @@ module Crysterm
       def css_attributes : Hash(String, String?)
         attrs = {} of String => String?
         attrs["checkable"] = nil if checkable?
-        attrs["checked"] = nil if checked?
+        if checkable?
+          # Both checked and its complement are surfaced: Qt's `:unchecked`/`:off`
+          # translate to `[unchecked]` because an attribute selector inside
+          # `:not()` doesn't compile in our selector engine.
+          attrs[checked? ? "checked" : "unchecked"] = nil
+        end
+        attrs
+      end
+    end
+
+    # Widgets with an orientation surface it as a boolean attribute, so Qt's
+    # `:horizontal`/`:vertical` (→ `[horizontal]`/`[vertical]`, see `CSS::Qss`)
+    # can target them.
+    {% for w in %w[ScrollBar Slider ProgressBar Splitter] %}
+      class {{w.id}}
+        def css_attributes : Hash(String, String?)
+          attrs = super
+          attrs[orientation.horizontal? ? "horizontal" : "vertical"] = nil
+          attrs
+        end
+      end
+    {% end %}
+
+    class ComboBox
+      # Qt's `:editable` → `[editable]` (see `CSS::Qss`).
+      def css_attributes : Hash(String, String?)
+        attrs = super
+        attrs["editable"] = nil if editable?
         attrs
       end
     end
@@ -24,8 +51,13 @@ module Crysterm
       # `RadioButton` (a `CheckBox` subclass) inherits this.
       def css_attributes : Hash(String, String?)
         attrs = {} of String => String?
-        attrs["checked"] = nil if checked?
-        attrs["indeterminate"] = nil if partial? # Qt's PartiallyChecked / CSS :indeterminate
+        if partial?
+          attrs["indeterminate"] = nil # Qt's PartiallyChecked / CSS :indeterminate
+        else
+          # Complementary `[checked]`/`[unchecked]` (Qt `:checked`/`:unchecked`,
+          # `:on`/`:off`); `:not([checked])` can't be used — see `CSS::Qss`.
+          attrs[checked? ? "checked" : "unchecked"] = nil
+        end
         attrs
       end
     end

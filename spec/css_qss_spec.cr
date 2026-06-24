@@ -26,11 +26,9 @@ describe Crysterm::CSS::Qss do
         .should eq "ComboBox List { }"
     end
 
-    it "leaves ids, classes, combinators and pseudo-elements intact" do
+    it "leaves ids, classes and combinators intact" do
       Crysterm::CSS::Qss.to_css("QToolButton#foo, QPushButton.bar { }")
         .should eq "ToolButton#foo, Button.bar { }"
-      Crysterm::CSS::Qss.to_css("QCheckBox::indicator:checked { }")
-        .should eq "CheckBox::indicator:checked { }"
     end
 
     it "passes through Qt selectors with no Crysterm analog (they just match nothing)" do
@@ -40,6 +38,68 @@ describe Crysterm::CSS::Qss do
     it "does not touch property names or values" do
       Crysterm::CSS::Qss.to_css("QFrame { qproperty-x: 1; color: #ccc; }")
         .should eq "Box { qproperty-x: 1; color: #ccc; }"
+    end
+  end
+
+  describe "sub-elements (::)" do
+    it "rewrites a mapped Qt pseudo-element to a Crysterm descendant slot" do
+      Crysterm::CSS::Qss.to_css("QProgressBar::chunk { }")
+        .should eq "ProgressBar Indicator { }"
+      Crysterm::CSS::Qss.to_css("QSlider::handle:hover { }")
+        .should eq "Slider Indicator:hover { }"
+      Crysterm::CSS::Qss.to_css("QScrollBar::groove { }")
+        .should eq "ScrollBar Track { }"
+    end
+
+    it "keeps a sub-control's own state pseudo attached (e.g. handle hovered)" do
+      Crysterm::CSS::Qss.to_css("QSlider::handle:pressed { }")
+        .should eq "Slider Indicator:active { }"
+    end
+
+    # KNOWN GAP: Qt's `::indicator:checked` means "indicator *while the parent is
+    # checked*", but we don't hoist a parent-state onto the type — the state pass
+    # lands `[checked]` on the sub-element node, which matches nothing. The plain
+    # `QCheckBox:checked` (state on the widget) and `QCheckBox::indicator`
+    # (sub-element, no state) forms both work. Tracked in the plan.
+    it "composes sub-element + state literally (parent-state-on-subcontrol is a gap)" do
+      Crysterm::CSS::Qss.to_css("QCheckBox::indicator:checked { }")
+        .should eq "CheckBox Indicator[checked] { }"
+    end
+
+    it "leaves an unmapped Qt pseudo-element verbatim (matches nothing)" do
+      Crysterm::CSS::Qss.to_css("QTabBar::tab { }").should eq "TabWidget::tab { }"
+      Crysterm::CSS::Qss.to_css("QComboBox::down-arrow { }")
+        .should eq "ComboBox::down-arrow { }"
+    end
+  end
+
+  describe "state pseudo-classes" do
+    it "maps checkable Qt states to complementary boolean attributes" do
+      Crysterm::CSS::Qss.to_css("QCheckBox:checked { }").should eq "CheckBox[checked] { }"
+      Crysterm::CSS::Qss.to_css("QCheckBox:unchecked { }").should eq "CheckBox[unchecked] { }"
+      Crysterm::CSS::Qss.to_css("QCheckBox:indeterminate { }").should eq "CheckBox[indeterminate] { }"
+      Crysterm::CSS::Qss.to_css("QPushButton:on { }").should eq "Button[checked] { }"
+      Crysterm::CSS::Qss.to_css("QPushButton:off { }").should eq "Button[unchecked] { }"
+    end
+
+    it "maps :enabled and :pressed to expressible Crysterm forms" do
+      Crysterm::CSS::Qss.to_css("QPushButton:enabled { }").should eq "Button:not(:disabled) { }"
+      Crysterm::CSS::Qss.to_css("QPushButton:pressed { }").should eq "Button:active { }"
+    end
+
+    it "maps orientation and :editable to boolean attributes" do
+      Crysterm::CSS::Qss.to_css("QScrollBar:horizontal { }").should eq "ScrollBar[horizontal] { }"
+      Crysterm::CSS::Qss.to_css("QSlider:vertical { }").should eq "Slider[vertical] { }"
+      Crysterm::CSS::Qss.to_css("QComboBox:editable { }").should eq "ComboBox[editable] { }"
+    end
+
+    it "leaves states Crysterm already handles untouched" do
+      Crysterm::CSS::Qss.to_css("QPushButton:hover { }").should eq "Button:hover { }"
+      Crysterm::CSS::Qss.to_css("QPushButton:focus:disabled { }").should eq "Button:focus:disabled { }"
+    end
+
+    it "does not bite into longer tokens (e.g. :only-one, :on-prefix)" do
+      Crysterm::CSS::Qss.to_css("QTabBar:only-one { }").should eq "TabWidget:only-one { }"
     end
   end
 

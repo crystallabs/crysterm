@@ -573,6 +573,71 @@ describe "CSS cascade" do
     slider.styles.normal.indicator.fg.should eq rgb("green")
   end
 
+  it "styles checkable widgets by Qt :checked/:unchecked/:indeterminate state via .qss" do
+    path = File.tempname("crysterm-qss", ".qss")
+    File.write(path, "QCheckBox:checked { color: red; }\n" \
+                     "QCheckBox:unchecked { color: green; }\n" \
+                     "QCheckBox:indeterminate { color: blue; }\n")
+    begin
+      screen = headless_screen
+      on = Widget::CheckBox.new checked: true
+      off = Widget::CheckBox.new checked: false
+      tri = Widget::CheckBox.new tristate: true
+      tri.partial
+      screen.append on
+      screen.append off
+      screen.append tri
+      screen.load_stylesheet path
+      screen.apply_stylesheet
+      on.style.fg.should eq rgb("red")
+      off.style.fg.should eq rgb("green")
+      tri.style.fg.should eq rgb("blue")
+    ensure
+      File.delete(path)
+    end
+  end
+
+  it "styles widgets by Qt :horizontal/:vertical/:editable state via .qss" do
+    path = File.tempname("crysterm-qss", ".qss")
+    File.write(path, "QSlider:horizontal { color: red; }\n" \
+                     "QSlider:vertical { color: green; }\n" \
+                     "QComboBox:editable { color: blue; }\n")
+    begin
+      screen = headless_screen
+      h = Widget::Slider.new orientation: Tput::Orientation::Horizontal
+      v = Widget::Slider.new orientation: Tput::Orientation::Vertical
+      c = Widget::ComboBox.new ["a", "b"], editable: true
+      screen.append h
+      screen.append v
+      screen.append c
+      screen.load_stylesheet path
+      screen.apply_stylesheet
+      h.style.fg.should eq rgb("red")
+      v.style.fg.should eq rgb("green")
+      c.style.fg.should eq rgb("blue")
+    ensure
+      File.delete(path)
+    end
+  end
+
+  it "routes a Qt ::chunk/::handle sub-control to the indicator slot via .qss" do
+    path = File.tempname("crysterm-qss", ".qss")
+    File.write(path, "QProgressBar::chunk { color: red; }\nQSlider::handle { color: green; }\n")
+    begin
+      screen = headless_screen
+      pb = Widget::ProgressBar.new
+      slider = Widget::Slider.new
+      screen.append pb
+      screen.append slider
+      screen.load_stylesheet path
+      screen.apply_stylesheet
+      pb.styles.normal.indicator.fg.should eq rgb("red")
+      slider.styles.normal.indicator.fg.should eq rgb("green")
+    ensure
+      File.delete(path)
+    end
+  end
+
   it "loads and reloads a stylesheet from a file" do
     path = File.tempname("crysterm-css", ".css")
     File.write(path, "Box { color: red; }")

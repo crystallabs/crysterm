@@ -14,11 +14,11 @@ module Crysterm
       class_property divisors : Hash(String, Float64?) = {
         "px"  => 10.0,
         "pt"  => 12.0,
-        "pc"  =>  1.0,
-        "em"  =>  1.0,
-        "rem" =>  1.0,
-        "ex"  =>  1.0,
-        "ch"  =>  1.0,
+        "pc"  => 1.0,
+        "em"  => 1.0,
+        "rem" => 1.0,
+        "ex"  => 1.0,
+        "ch"  => 1.0,
         "cm"  => nil, # physical units: no TUI mapping → ignored (set a number to enable)
         "mm"  => nil,
         "in"  => nil,

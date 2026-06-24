@@ -59,7 +59,7 @@ module Crysterm
         if value.matches?(Length::PATTERN) || value.to_i?
           Length.to_cells(value) # bare cells or a unit'd length (nil ⇒ ignore)
         else
-          value                  # `50%`, `center`, `50%-10`, ... pass through
+          value # `50%`, `center`, `50%-10`, ... pass through
         end
       end
     end
