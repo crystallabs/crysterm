@@ -59,13 +59,17 @@ sine = Widget::Effect::SineScroller.new \
   parent: s, top: sine_top, left: 0, width: "100%", height: h - sine_top,
   text: MSG, style: Style.new(bg: "black")
 
-# Background already present at a given row, so a flying letter can adopt it and
-# ride over the scene without changing the background it passes across.
-bg_under = ->(row : Int32, fr : Int32) {
-  if ci = copper_idx[row]?
-    Colors.hsv((ci * 26 + fr * 9) % 360)
-  else
-    0x000000
+# Background present at each row for the current frame, so a flying letter can
+# adopt it and ride over the scene without changing the background it passes
+# across: the copper rows carry the current raster-bar hue, every other row is
+# black. Recomputed once per row each frame (`refresh_row_bg`) and then read by
+# index in the per-cell loop — turning what used to be a `Hash` lookup + an
+# `hsv` *string* (re-parsed by `style.bg=`) on every one of the screen's cells
+# into a single array read. (`hsv_i` yields the native `0xRRGGBB` int directly.)
+row_bg = Array.new(h, 0x000000)
+refresh_row_bg = ->(fr : Int32) {
+  (0...h).each do |r|
+    row_bg[r] = (ci = copper_idx[r]?) ? Colors.hsv_i((ci * 26 + fr * 9) % 360) : 0x000000
   end
 }
 
@@ -141,6 +145,9 @@ s.every(0.07.seconds) do
   # sine-wave rainbow scroller (advance one column per master frame)
   sine.step
 
+  # per-row background for this frame (copper hue on the bar rows, else black)
+  refresh_row_bg.call frame
+
   # letters shot from the centre dot, spiralling clockwise to fill the screen
   f = frame % cycle
   letters.each_with_index do |box, i|
@@ -156,16 +163,16 @@ s.every(0.07.seconds) do
       col = (cx + (destx - cx) * p).round.to_i
       row = (cy + (desty - cy) * p).round.to_i
       box.content = GROW[(p * GROW.size).to_i.clamp(0, GROW.size - 1)]
-      box.style.fg = Colors.hsv((i * 9 + frame * 9) % 360)
+      box.style.fg = Colors.hsv_i((i * 9 + frame * 9) % 360)
     else
       col = destx
       row = desty
       box.content = fch.to_s
-      box.style.fg = Colors.hsv((i * 9 + frame * 6) % 360)
+      box.style.fg = Colors.hsv_i((i * 9 + frame * 6) % 360)
     end
     box.left = col
     box.top = row
-    box.style.bg = bg_under.call(row, frame)
+    box.style.bg = row_bg[row]
   end
 
   frame += 1
