@@ -877,6 +877,53 @@ describe Crysterm::Widget::ScrollBar do
     box.scroll 3
     sb.value.should eq box.get_scroll # the box drove the bar back
   end
+
+  it "set_range re-clamps the value and emits RangeChange" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 100, value: 80,
+      width: 1, height: 5
+    ranges = [] of {Int32, Int32}
+    sb.on(Crysterm::Event::RangeChange) { |e| ranges << {e.minimum, e.maximum} }
+    sb.set_range 0, 50
+    sb.maximum.should eq 50
+    sb.value.should eq 50 # 80 re-clamped into [0, 50]
+    ranges.should eq [{0, 50}]
+
+    sb.range = 0..10
+    sb.maximum.should eq 10
+    sb.value.should eq 10
+    ranges.last.should eq({0, 10})
+
+    sb.set_range 0, 10 # no change → no emit
+    ranges.size.should eq 2
+  end
+
+  it "single_step aliases step" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 10, value: 0,
+      step: 1, width: 1, height: 5
+    sb.single_step.should eq 1
+    sb.single_step = 3
+    sb.step.should eq 3
+    sb.increment
+    sb.value.should eq 3
+  end
+
+  it "defers value to release when tracking is off (slider_position)" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 10, value: 0,
+      width: 1, height: 5
+    sb.tracking = false
+    sb.tracking?.should be_false
+    sb.slider_position = 7
+    sb.slider_position.should eq 7
+    sb.value.should eq 0 # not committed yet
+
+    sb.tracking = true
+    sb.slider_position = 4
+    sb.value.should eq 4 # committed live
+    sb.slider_position.should eq 4
+  end
 end
 
 describe Crysterm::Widget::ToolBox do

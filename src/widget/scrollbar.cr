@@ -38,8 +38,48 @@ module Crysterm
       property orientation : Tput::Orientation = :vertical
 
       # Size of one "page" (Qt's `pageStep`): the visible span, which also sizes
-      # the thumb. Page Up/Down move by this much.
-      property page_step : Int32 = 1
+      # the thumb. Page Up/Down move by this much. Changing it emits
+      # `Event::RangeChange` so a bound area can react to the thumb resize.
+      getter page_step : Int32 = 1
+
+      # :ditto:
+      def page_step=(v : Int32) : Int32
+        return v if v == @page_step
+        @page_step = v
+        emit Crysterm::Event::RangeChange, @minimum, @maximum
+        request_render
+        v
+      end
+
+      # Qt's `QAbstractSlider#tracking`: when `true` (the default), `#value`
+      # updates live as the thumb is dragged. When `false`, dragging updates
+      # only `#slider_position` (and the rendered thumb), committing to `#value`
+      # on release.
+      property? tracking : Bool = true
+
+      # Live thumb position while an untracked drag is in progress; `nil`
+      # otherwise (in which case `#slider_position` falls back to `#value`).
+      @slider_position : Int32? = nil
+
+      # Qt's `sliderPosition`: the thumb's current position. Equal to `#value`
+      # except mid-drag when `tracking?` is `false`.
+      def slider_position : Int32
+        @slider_position || @value
+      end
+
+      # Moves the thumb to *v*. With `tracking?` this commits straight to
+      # `#value`; without it the thumb moves but `#value` stays put until
+      # release.
+      def slider_position=(v : Int32) : Int32
+        v = v.clamp(@minimum, @maximum)
+        if tracking?
+          self.value = v
+        else
+          @slider_position = v
+          request_render
+        end
+        v
+      end
 
       # Glyphs for the thumb and the trough.
       property thumb_char : Char = '█'
@@ -83,6 +123,17 @@ module Crysterm
             next
           end
 
+          # Commit an untracked drag on release.
+          if e.action.up?
+            if (p = @slider_position)
+              @slider_position = nil
+              self.value = p
+              e.accept
+              request_render
+            end
+            next
+          end
+
           next unless e.action.down? || (e.action.move? && !e.button.none?)
           if @orientation.horizontal?
             pos = e.x - aleft - ileft
@@ -92,7 +143,7 @@ module Crysterm
             span = aheight - iheight - 1
           end
           next if span <= 0
-          self.value = @minimum + (pos * value_span / span.to_f).round.to_i
+          self.slider_position = @minimum + (pos * value_span / span.to_f).round.to_i
           e.accept
           request_render
         end
@@ -124,10 +175,11 @@ module Crysterm
         return unless t
         visible = @orientation.horizontal? ? (t.awidth - t.iwidth) : (t.aheight - t.iheight)
         total = t.get_scroll_height
-        @minimum = 0
-        @maximum = Math.max(0, total - visible)
-        @page_step = Math.max(1, visible)
         @syncing = true
+        @page_step = Math.max(1, visible)
+        # `set_range` re-clamps and emits `Event::RangeChange`; `@syncing` keeps
+        # the value re-clamp from driving the target back.
+        set_range 0, Math.max(0, total - visible)
         # Mirror the engine's combined scroll position (`child_base + child_offset`,
         # what `scroll_to` also targets) so the two stay consistent.
         self.value = t.get_scroll.clamp(@minimum, @maximum)
@@ -137,8 +189,10 @@ module Crysterm
         # Target not laid out yet.
       end
 
-      # Drives the bound target when the bar moves (mixin hook).
+      # Drives the bound target when the bar moves (mixin hook). A committed
+      # value supersedes any pending untracked drag.
       protected def on_value_changed
+        @slider_position = nil
         return if @syncing
         @target.try &.scroll_to(@value)
       end
@@ -155,7 +209,7 @@ module Crysterm
       private def thumb_offset(avail : Int32) : Int32
         return 0 if value_span <= 0
         room = avail - thumb_size(avail)
-        ((@value - @minimum) * room / value_span.to_f).round.to_i.clamp(0, Math.max(0, room))
+        ((slider_position - @minimum) * room / value_span.to_f).round.to_i.clamp(0, Math.max(0, room))
       end
 
       def render

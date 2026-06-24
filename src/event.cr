@@ -124,6 +124,11 @@ module Crysterm
     # Mirrors Qt's `valueChanged(int)` signal.
     event ValueChange, value : Int32
 
+    # Emitted when a ranged widget's `[minimum, maximum]` bounds change (e.g.
+    # `Widget::ScrollBar` resyncing to a scrollable target's content size).
+    # Mirrors Qt's `QAbstractSlider#rangeChanged(int, int)` signal.
+    event RangeChange, minimum : Int32, maximum : Int32
+
     # Emitted when a floating-point numeric widget's value changes (e.g.
     # `Widget::DoubleSpinBox`). Mirrors Qt's `valueChanged(double)` signal.
     event DoubleValueChange, value : Float64
