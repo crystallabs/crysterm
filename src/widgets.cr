@@ -78,7 +78,7 @@ module Crysterm
     DoubleSpinBox = Widget::DoubleSpinBox
     TabWidget     = Widget::TabWidget
     # A `TabWidget` with `auto_advance:` set is a carousel.
-    Carousel = Widget::TabWidget
+    Carousel      = Widget::TabWidget
     ComboBox      = Widget::ComboBox
     GroupBox      = Widget::GroupBox
     Splitter      = Widget::Splitter

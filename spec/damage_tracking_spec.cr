@@ -70,6 +70,23 @@ private def build_overlap(screen)
   {a, b}
 end
 
+# Builds a scene with several opaque base panels and one translucent z-indexed
+# overlay (a plane) over the left two of them. The overlay is promoted to a layer
+# via CSS (the supported path — an inline `style.z_index=` is dropped by the
+# cascade). Returns {base panels, overlay}.
+private def build_plane(screen)
+  bases = [] of Widget::Box
+  3.times do |i|
+    bases << Widget::Box.new(parent: screen, top: 0, left: i * 18, width: 16, height: 10,
+      style: Style.new(border: true, bg: 0x202020), content: "B#{i}")
+  end
+  overlay = Widget::Box.new(parent: screen, top: 2, left: 6, width: 18, height: 6,
+    style: Style.new(border: true, bg: 0x0055aa), content: "ov")
+  overlay.add_css_class "ov"
+  screen.stylesheet = ".ov { z-index: 5; opacity: 0.6; }"
+  {bases, overlay}
+end
+
 # Builds an opaque base box with a translucent box layered over it; returns
 # {base, alpha}.
 private def build_alpha(screen)
@@ -420,6 +437,111 @@ describe "damage tracking" do
     dl1.content = "L1x"; dr1.content = "R1x"
     plain._render; dmg._render
     assert_same_lines dmg, plain, "(gap widget preserved)"
+  end
+
+  # --- Phase 4: z-index planes --------------------------------------------
+
+  it "re-folds the plane over a freshly rebuilt base when the base UNDER it changes" do
+    plain = new_screen false
+    dmg = new_screen true
+    pbases, _pov = build_plane plain
+    dbases, _dov = build_plane dmg
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(plane initial)"
+
+    before = dmg.damage_fast_frames
+    3.times do |f|
+      pbases[0].content = "X#{f}"
+      dbases[0].content = "X#{f}"
+      plain._render; dmg._render
+      assert_same_lines dmg, plain, "(base under plane, frame #{f})"
+    end
+    # Handled by the selective Phase 4 plane path, not a full fallback.
+    dmg.damage_fast_frames.should be > before
+  end
+
+  it "re-renders and re-folds the plane when the overlay itself changes" do
+    plain = new_screen false
+    dmg = new_screen true
+    _pbases, pov = build_plane plain
+    _dbases, dov = build_plane dmg
+    plain._render; dmg._render
+
+    before = dmg.damage_fast_frames
+    pov.content = "overlay!"
+    dov.content = "overlay!"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(overlay changed)"
+    dmg.damage_fast_frames.should be > before
+  end
+
+  it "clears the vacated region and re-folds when the plane moves" do
+    plain = new_screen false
+    dmg = new_screen true
+    _pbases, pov = build_plane plain
+    _dbases, dov = build_plane dmg
+    plain._render; dmg._render
+
+    before = dmg.damage_fast_frames
+    pov.left = 20; pov.top = 8
+    dov.left = 20; dov.top = 8
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(plane moved)"
+    dmg.damage_fast_frames.should be > before
+  end
+
+  it "shows bare base where the plane was when the plane hides" do
+    plain = new_screen false
+    dmg = new_screen true
+    _pbases, pov = build_plane plain
+    _dbases, dov = build_plane dmg
+    plain._render; dmg._render
+
+    pov.hide
+    dov.hide
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(plane hidden)"
+  end
+
+  it "is equivalent when a base panel far from the plane changes" do
+    plain = new_screen false
+    dmg = new_screen true
+    pbases, _pov = build_plane plain
+    dbases, _dov = build_plane dmg
+    plain._render; dmg._render
+
+    pbases[2].content = "far away"
+    dbases[2].content = "far away"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(base far from plane)"
+  end
+
+  it "stays equivalent for a multi-plane scene (full-path fallback)" do
+    # Two distinct z-indices = two planes; Phase 4 handles only a single plane,
+    # so this must fall back to the full path and stay output-equivalent.
+    build = ->(s : Crysterm::Screen) {
+      base = Widget::Box.new(parent: s, top: 0, left: 0, width: 40, height: 16,
+        style: Style.new(border: true, bg: 0x101010), content: "base")
+      o1 = Widget::Box.new(parent: s, top: 2, left: 2, width: 16, height: 6,
+        style: Style.new(border: true, bg: 0x0055aa), content: "o1")
+      o1.add_css_class "o1"
+      o2 = Widget::Box.new(parent: s, top: 6, left: 14, width: 16, height: 6,
+        style: Style.new(border: true, bg: 0xaa5500), content: "o2")
+      o2.add_css_class "o2"
+      s.stylesheet = ".o1 { z-index: 5; opacity: 0.6; } .o2 { z-index: 8; opacity: 0.5; }"
+      {base, o1}
+    }
+    plain = new_screen false
+    dmg = new_screen true
+    pbase, _po1 = build.call plain
+    dbase, _do1 = build.call dmg
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(multi-plane initial)"
+
+    pbase.content = "BASE2"
+    dbase.content = "BASE2"
+    plain._render; dmg._render
+    assert_same_lines dmg, plain, "(multi-plane base change)"
   end
 
   it "is output-equivalent across child add and remove" do

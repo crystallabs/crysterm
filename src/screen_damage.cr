@@ -84,6 +84,30 @@ module Crysterm
     @damage_involved = [] of Widget
     @damage_frontier = [] of Tuple(Int32, Int32, Int32, Int32)
 
+    # --- Phase 4 — z-index planes -------------------------------------------
+    #
+    # Whether the most recently completed *full* frame used **exactly one** plane
+    # (single z-index), with every layer widget a top-level child, and no
+    # out-of-cell-model effects or docking. Only then can the next frame take the
+    # selective *plane* path (`#damage_plane_composite`), which rebuilds the base
+    # under the plane and re-folds the plane over just that region. Multi-plane
+    # frames (and nested layers) stay on the full path — a legitimate end state.
+    @damage_plane_safe = false
+
+    # The single plane's z-index, recorded on the last full frame (valid only
+    # when `@damage_plane_safe`).
+    @damage_plane_z = 0
+
+    # The layer roots (top-level children with a `z_index`) that fed the single
+    # plane on the last full frame. The selective plane frame requires the same
+    # set to still be present — a z-index added/removed/changed means the plane
+    # structure changed, so it falls back to the full path. Reused across frames.
+    @damage_layer_roots = [] of Widget
+
+    # Reused scratch for recomputing this frame's layer roots, to compare against
+    # `@damage_layer_roots` without allocating.
+    @damage_cur_layers = [] of Widget
+
     # Registers *w* (via its top-level ancestor) as needing a repaint next frame.
     def damage_mark_dirty(w : Widget) : Nil
       root = w
@@ -150,7 +174,25 @@ module Crysterm
         # fast-path. `@frame_used_effects` was set by any alpha/shadow/tint
         # (and `@layer_widgets` is non-empty iff a z-index was used).
         @children.each { |el| el.damage_bounds = damage_subtree_bounds el }
-        @damage_safe = !@frame_used_effects && @layer_widgets.empty? && !@dock_borders
+        no_planes = @layer_widgets.empty?
+        @damage_safe = !@frame_used_effects && no_planes && !@dock_borders
+
+        # Phase 4: a single-plane frame (one z-index, all layer widgets
+        # top-level, no out-of-model effects, no docking) can be carried over and
+        # selectively re-folded next frame. `@sorted_zs` was freshly populated by
+        # `composite_planes` above (it runs only when planes are present, which is
+        # exactly the case here). Record the plane's z and its layer roots so the
+        # next frame can validate the structure is unchanged.
+        @damage_plane_safe = false
+        unless no_planes || @frame_used_effects || @dock_borders
+          if @sorted_zs.size == 1 && @layer_widgets.all? { |w| w.parent.nil? }
+            @damage_plane_safe = true
+            @damage_plane_z = @sorted_zs.first
+            @damage_layer_roots.clear
+            @children.each { |el| @damage_layer_roots << el if el.style.z_index }
+          end
+        end
+
         @damage_force_full = false
         @damage_last_awidth = awidth
         @damage_last_aheight = aheight
@@ -166,9 +208,13 @@ module Crysterm
     private def damage_try_composite : Bool
       # Cheap, frame-global preconditions.
       return false if @damage_force_full
-      return false if @damage_last_awidth < 0          # no prior full frame yet
-      return false unless @damage_safe                 # last full frame had effects
-      return false if @dock_borders                    # docking joins across widgets
+      return false if @damage_last_awidth < 0 # no prior full frame yet
+      # The last full frame must be carry-over-safe either as a plain frame
+      # (`@damage_safe`) or as a single-plane frame (`@damage_plane_safe`, Phase
+      # 4). The two are mutually exclusive (one requires no planes, the other
+      # requires exactly one).
+      return false unless @damage_safe || @damage_plane_safe
+      return false if @dock_borders # docking joins across widgets
       return false if awidth != @damage_last_awidth || aheight != @damage_last_aheight
 
       # Snapshot the dirty roots and clear the live set *before* re-rendering, so
@@ -183,10 +229,12 @@ module Crysterm
       @damage_dirty_roots.clear
 
       # Every dirty root must still be a current top-level child (no structural
-      # change snuck past the structural hook) and must not itself be a layer.
+      # change snuck past the structural hook). A z-indexed (layer) root is only
+      # acceptable on the Phase 4 plane path; on the plain path it forces a full
+      # frame (which sets the plane up).
       dirty.each do |r|
         return false unless r.parent.nil? && @children.includes?(r)
-        return false if r.style.z_index
+        return false if r.style.z_index && !@damage_plane_safe
       end
 
       # Nothing to do: no changed subtree. The buffer already matches the
@@ -196,6 +244,12 @@ module Crysterm
       if dirty.empty?
         @damage_fast_frames += 1
         return true
+      end
+
+      # Phase 4: the last frame was a single-plane frame, so route to the plane
+      # composite (it rebuilds the base under the plane and re-folds the plane).
+      if @damage_plane_safe
+        return damage_plane_composite dirty
       end
 
       @layer_widgets.clear
@@ -273,20 +327,7 @@ module Crysterm
       # own bounds, so transitively-overlapping widgets are pulled in too. (The
       # damaged rects use old∪new, so a widget sitting where a changed one *was* —
       # not where it is now — is still pulled in and its vacated cells repainted.)
-      changed = true
-      while changed
-        changed = false
-        @children.each do |el|
-          next if involved.includes? el
-          cb = el.damage_bounds
-          next unless cb
-          if frontier.any? { |r| damage_rects_overlap?(r, cb) }
-            involved << el
-            frontier << cb
-            changed = true
-          end
-        end
-      end
+      damage_grow_component involved, frontier
 
       # Clear each member's contributed rectangle *separately* (NOT their
       # bounding-box union) so the cluster's exact footprint is cleared and gaps
@@ -306,6 +347,169 @@ module Crysterm
       end
 
       !(@frame_used_effects || !@layer_widgets.empty?)
+    end
+
+    # Grows *involved* to the connected component of top-level **base** children
+    # (by transitive bounding-box overlap) reachable from the rectangles already
+    # in *frontier*, appending each newly included child's bounds to *frontier*
+    # as it joins. Iterates to a fixpoint. Shared by the Phase 2 overlap cluster
+    # and the Phase 4 plane rebuild. Layer (z-indexed) children are skipped: they
+    # paint into a plane, not the base buffer, so they never belong to a base
+    # cluster (on the no-plane Phase 2 path there are none, so the guard is a
+    # no-op there).
+    private def damage_grow_component(involved : Array(Widget), frontier : Array(Tuple(Int32, Int32, Int32, Int32))) : Nil
+      changed = true
+      while changed
+        changed = false
+        @children.each do |el|
+          next if el.style.z_index
+          next if involved.includes? el
+          cb = el.damage_bounds
+          next unless cb
+          if frontier.any? { |r| damage_rects_overlap?(r, cb) }
+            involved << el
+            frontier << cb
+            changed = true
+          end
+        end
+      end
+    end
+
+    # Phase 4 — single z-index plane. Reached only when the last full frame was a
+    # single-plane frame (`@damage_plane_safe`). A z-indexed widget is composited
+    # through a separate screen-sized `Plane` that is *folded* over the base after
+    # the base is painted. The base cells under the plane therefore already carry
+    # last frame's fold; re-folding over them would saturate. So this method
+    # rebuilds the base **pre-plane** in the plane's covered region (and in any
+    # base sub-cluster connected to it or to a base change), then re-folds the
+    # plane over just that region — a region-local version of what the full path
+    # does for the whole screen.
+    #
+    # Scope (first cut, per the brief): one plane (single z-index), all layer
+    # widgets top-level. Anything else (multi-plane, nested layers, an out-of-
+    # model write) returns `false` and the caller falls back to the full path,
+    # which is always correct (it clears and recomposites the whole buffer).
+    private def damage_plane_composite(dirty : Array(Widget)) : Bool
+      z = @damage_plane_z
+      pl = @planes[z]?
+      return false unless pl
+
+      # Recompute this frame's layer roots and require the structure to match what
+      # the last full frame recorded: same widgets, all still at the single z. A
+      # z-index added / removed / changed (or a second plane appearing) means the
+      # plane layout changed — fall back to the full path, which rebuilds it.
+      cur = @damage_cur_layers
+      cur.clear
+      @children.each do |el|
+        if zi = el.style.z_index
+          return false unless zi == z
+          cur << el
+        end
+      end
+      return false if cur.empty?
+      return false unless cur.size == @damage_layer_roots.size
+      cur.each { |el| return false unless @damage_layer_roots.includes? el }
+
+      # The plane's covered rectangle as of last frame (union of its layer roots'
+      # recorded footprints).
+      plane_old = nil
+      cur.each { |el| plane_old = damage_union(plane_old, el.damage_bounds) }
+
+      # Re-render the plane into its own buffer if any of its widgets changed —
+      # mirroring `composite_planes` for this single z (clear, opacity from the
+      # root's alpha, render each member opaquely into the plane). If nothing in
+      # the layer changed, the plane buffer still holds last frame's content and
+      # is folded as-is below.
+      @layer_widgets.clear
+      layer_changed = dirty.any? &.style.z_index
+      if layer_changed
+        # Opacity is a fold-time property (read by `composite_onto`, not during
+        # the render into the plane), so it is set just before the fold below —
+        # not here.
+        pl.clear
+        @compositing_layers = true
+        begin
+          with_render_target(pl.cells) do
+            cur.each do |el|
+              el.compositing = true
+              el.render
+              el.compositing = false
+            end
+          end
+        ensure
+          @compositing_layers = false
+        end
+        # A nested z-index inside the layer got deferred again (a second plane) —
+        # out of scope, fall back.
+        return false unless @layer_widgets.empty?
+        cur.each { |el| el.damage_bounds = damage_subtree_bounds el }
+      end
+
+      # The plane's covered rectangle as of this frame (after any re-render).
+      plane_new = nil
+      cur.each { |el| plane_new = damage_union(plane_new, el.damage_bounds) }
+
+      # Re-render the base-layer (non-z) dirty roots into the base buffer to learn
+      # their new footprints (clearing each one's old footprint first), collecting
+      # the old∪new damaged rectangles. These are repainted again as part of the
+      # cluster below — the first render is only to compute bounds (same as the
+      # plain Phase 2 path).
+      damaged = @damage_rects
+      damaged.clear
+      dirty.each do |root|
+        next if root.style.z_index
+        old = root.damage_bounds
+        clear_region old[0], old[1], old[2], old[3] if old
+        root.render
+        nb = damage_subtree_bounds root
+        root.damage_bounds = nb
+        if rect = damage_union(old, nb)
+          damaged << rect
+        end
+      end
+      # A base dirty root deferred a nested layer, or wrote outside the cell model.
+      return false if @frame_used_effects
+      return false unless @layer_widgets.empty?
+
+      # Build the region to rebuild pre-plane. The plane's covered region
+      # (old∪new) always participates: its base must be rebuilt and the plane
+      # re-folded over it, and a vacated part (where the plane moved away from)
+      # must revert to bare base. Base sub-clusters connected to that region — or
+      # to a base change — are pulled in transitively, exactly as Phase 2 does.
+      involved = @damage_involved
+      involved.clear
+      frontier = @damage_frontier
+      frontier.clear
+      damaged.each { |d| frontier << d }
+      dirty.each { |r| involved << r unless r.style.z_index }
+      frontier << plane_old if plane_old
+      frontier << plane_new if plane_new && plane_new != plane_old
+
+      # Grow the connected component over the base children (the shared helper
+      # skips layer roots — they never paint into the base buffer).
+      damage_grow_component involved, frontier
+
+      # Clear every contributed rectangle, then repaint the involved base widgets
+      # in `@children` (z) order — a region-local pre-plane base rebuild.
+      frontier.each { |r| clear_region r[0], r[1], r[2], r[3] }
+      @children.each do |el|
+        next if el.style.z_index
+        next unless involved.includes? el
+        el.render
+        el.damage_bounds = damage_subtree_bounds el
+      end
+      return false if @frame_used_effects
+      return false unless @layer_widgets.empty?
+
+      # Re-fold the plane over its (now freshly rebuilt, pre-plane) covered
+      # region. Opacity is recomputed from the root's current alpha each frame.
+      if plane_new
+        pl.opacity = cur.first.style.alpha? || 1.0
+        pl.composite_onto @lines, plane_new[0], plane_new[1], plane_new[2], plane_new[3]
+      end
+
+      @damage_fast_frames += 1
+      true
     end
 
     # Union of *root*'s and all its descendants' `@lpos` rectangles, as a

@@ -45,8 +45,8 @@ module Superconf
   option "render.fps_window", 30,
     description: "Number of frames averaged by a Widget::Fps overlay's rolling averages",
     validate: ->(n : Int32) { n > 0 }
-  option "render.optimization", Crysterm::OptimizationFlag::None,
-    description: "Render/draw optimization flags (fast_csr|smart_csr|bce, comma-separated)"
+  option "render.optimization", Crysterm::OptimizationFlag::DamageTracking,
+    description: "Render/draw optimization flags (fast_csr|smart_csr|bce|damage_tracking, comma-separated)"
   option "render.dock_contrast", Crysterm::DockContrast::Blend,
     description: "What to do when docked borders have differing colors (ignore|dont_dock|blend)"
   option "render.csr_threshold", 40,

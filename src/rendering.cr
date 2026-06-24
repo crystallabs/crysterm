@@ -15,21 +15,26 @@ module Crysterm
   # the default background color. As it stands with the current implementation,
   # it's uncertain how much terminal performance this adds at the cost of code overhead.
   #
-  # DamageTracking: Opt-in per-widget damage tracking. With it off (the default),
-  # `Screen#_render` clears the whole cell buffer and re-composites every widget
-  # every frame. With it on, a frame in which only a few top-level subtrees
-  # changed re-composites just those (clearing their old footprint first) and
-  # leaves the rest of the buffer from the previous frame — making a 1-of-N
-  # update cost ~O(changed) instead of O(N). It engages only for the tractable
-  # subset (no alpha/shadow/tint/z-index/border-docking active, and the changed
-  # subtrees don't overlap unchanged ones) and otherwise falls back to the full
-  # re-composite, so it is always output-equivalent. See `screen_damage.cr`.
+  # DamageTracking: Per-widget damage tracking — **on by default** (see
+  # `Config` `render.optimization`). With it off, `Screen#_render` clears the
+  # whole cell buffer and re-composites every widget every frame. With it on, a
+  # frame in which only a few top-level subtrees changed re-composites just those
+  # (clearing their old footprint first) and leaves the rest of the buffer from
+  # the previous frame — making a 1-of-N update cost ~O(changed) instead of O(N).
+  # It engages for the tractable subset (the changed subtrees and any they
+  # overlap, including alpha/shadow/tint blends and a single z-index plane) and
+  # falls back to the full re-composite for the rest (multi-plane, nested layers,
+  # border docking, out-of-cell-model writes), so it is always output-equivalent.
+  # See `screen_damage.cr`.
   #
   # NOTE: damage tracking relies on widget mutations going through the tracked
   # setters (`content=`, geometry/size setters, `show`/`hide`, `scroll`, child
   # add/remove) or through `Widget#mark_dirty`/`#request_render`. Mutating a
   # `Style` object in place (e.g. `widget.style.bg = ...`) is NOT observed; call
-  # `widget.mark_dirty` after such a change, or leave this flag off.
+  # `widget.mark_dirty` after such a change. Since this is on by default, that is
+  # the one rule to remember; a UI that mutates styles in place without marking
+  # dirty (or that hits a bug here) can opt out by setting `render.optimization`
+  # to `OptimizationFlag::None` (or any set without `DamageTracking`).
   @[Flags]
   enum OptimizationFlag
     FastCSR

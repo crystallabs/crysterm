@@ -43,7 +43,7 @@ describe Crysterm::Widget::Marquee do
     m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 10, height: 1, text: "ABCDE"
     w = m.awidth
 
-    m.step    # frame 1 — window has shifted left by one column
+    m.step # frame 1 — window has shifted left by one column
     s._render
     row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[(1 + x) % 5] } }
   end

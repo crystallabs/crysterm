@@ -60,7 +60,13 @@ module Crysterm
     # its `Attr::Alpha` modes (`Colors.composite`), then — when `opacity < 1` —
     # scaled toward the base so the whole layer reads as translucent. Untouched
     # (transparent-sentinel) cells are skipped, so the base shows through.
-    def composite_onto(base : Array(Screen::Row)) : Nil
+    #
+    # `xi`/`xl`/`yi`/`yl` clip the fold to a half-open sub-rectangle (defaults
+    # cover the whole plane). Damage tracking's Phase 4 selective plane frame
+    # uses this to re-fold the plane over only the region of the base it just
+    # rebuilt — re-folding over a carried-over (already-folded) base would
+    # saturate, so the caller rebuilds the base in this exact rectangle first.
+    def composite_onto(base : Array(Screen::Row), xi : Int32 = 0, xl : Int32 = Int32::MAX, yi : Int32 = 0, yl : Int32 = Int32::MAX) : Nil
       op = @opacity
       # The plane's opacity is constant for the whole composite, so decide once
       # — not per cell — whether a painted cell is taken straight from the fold
@@ -68,7 +74,8 @@ module Crysterm
       # with a per-cell read of this local bool.
       opaque = op >= 1.0
       rows = {@cells.size, base.size}.min
-      y = 0
+      y = yi < 0 ? 0 : yi
+      rows = yl if yl < rows
       while y < rows
         pr = @cells.unsafe_fetch(y)
         # A plane row that no widget painted into this frame is entirely the
@@ -87,6 +94,7 @@ module Crysterm
         pa = pr.attrs; pc = pr.chars
         ba = br.attrs; bc = br.chars
         cols = {pa.size, ba.size}.min
+        cols = xl if xl < cols
         # Whether this plane row carries any grapheme-cluster overlay. When it
         # does not (the overwhelmingly common all-single-codepoint row), the
         # per-cell `grapheme_at?` hash probe below is pointless and skipped — the
@@ -94,7 +102,7 @@ module Crysterm
         # cleared so an opaque plane cell never inherits a stale cluster.
         pr_has_g = pr.has_graphemes?
         changed = false
-        x = 0
+        x = xi < 0 ? 0 : xi
         while x < cols
           patt = pa.unsafe_fetch(x)
           ch = pc.unsafe_fetch(x)

@@ -11,9 +11,14 @@ require "../src/crysterm"
 
 include Crysterm
 
+# Pinned to the full-recomposite path: this section measures the baseline
+# per-frame compositing cost. (Damage tracking is now the default, so without
+# this the STATIC pass would hit the no-change fast-path skip and stop measuring
+# what it is here to measure; the OFF/ON passes below do the damage comparison.)
 screen = Screen.new(
   input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-  width: 120, height: 40)
+  width: 120, height: 40,
+  optimization: Crysterm::OptimizationFlag::None)
 
 # A realistic-ish dashboard: a few bordered panels, each with content and
 # nested children, plus a list.
@@ -199,6 +204,58 @@ end
   alloc_e = GC.stats.total_bytes - before4
   STDERR.printf "ALPHA   %-22s render/frame: %5.1f µs   alloc/frame: %5d bytes\n",
     label, wall_e.total_microseconds / FRAMES, alloc_e // FRAMES
+  if dmg
+    STDERR.printf "        fast frames: %d / %d  (full: %d)\n",
+      s.damage_fast_frames, FRAMES + 50, s.damage_full_frames
+  end
+end
+
+# Pass F: PHASE 4 (z-index plane) — the realistic plane workload: a static scene
+# of several opaque base panels filling the screen, plus ONE translucent
+# z-indexed overlay (a modal) covering a corner of it. Each frame, a base panel
+# *under* the overlay changes, so the overlay must re-blend over the freshly
+# rebuilt base region. With damage tracking off, every panel is re-composited and
+# the whole plane re-folded each frame (O(N)); with it on (Phase 4), only the
+# changed base panels and the plane's covered region are rebuilt and the plane is
+# re-folded over just that region (O(changed ∪ covered)). Before Phase 4 the ON
+# column matched OFF (planes always fell back to the full path).
+private def build_plane_scene(damage)
+  s = Crysterm::Screen.new(
+    input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+    width: 120, height: 40,
+    optimization: damage ? Crysterm::OptimizationFlag::DamageTracking : Crysterm::OptimizationFlag::None)
+  bases = [] of Widget::Box
+  6.times do |i|
+    b = Widget::Box.new(parent: s, top: 0, left: i * 20, width: 18, height: 12,
+      style: Style.new(border: true, bg: 0x202020), content: "B#{i}")
+    bases << b
+  end
+  # One translucent z-indexed overlay over the far-left two panels (cols ~6..30).
+  # z-index/opacity are set via CSS — the supported way to promote a widget to a
+  # plane (the cascade folds them in; an inline `style.z_index=` is dropped by the
+  # first cascade run).
+  overlay = Widget::Box.new(parent: s, top: 2, left: 6, width: 24, height: 8,
+    style: Style.new(border: true, bg: 0x0055aa), content: "overlay")
+  overlay.add_css_class "ov"
+  s.stylesheet = ".ov { z-index: 5; opacity: 0.6; }"
+  {s, bases}
+end
+
+[{"OFF (full recomposite)", false}, {"ON  (damage tracking)", true}].each do |label, dmg|
+  s, bases = build_plane_scene dmg
+  50.times { s._render }
+  GC.collect
+  before5 = GC.stats.total_bytes
+  wall_f = Time.measure do
+    FRAMES.times do |f|
+      # A base panel UNDER the overlay changes each frame (panels 0 and 1).
+      bases[f % 2].content = "B#{f % 2}.#{f}"
+      s._render
+    end
+  end
+  alloc_f = GC.stats.total_bytes - before5
+  STDERR.printf "PLANE   %-22s render/frame: %5.1f µs   alloc/frame: %5d bytes\n",
+    label, wall_f.total_microseconds / FRAMES, alloc_f // FRAMES
   if dmg
     STDERR.printf "        fast frames: %d / %d  (full: %d)\n",
       s.damage_fast_frames, FRAMES + 50, s.damage_full_frames
