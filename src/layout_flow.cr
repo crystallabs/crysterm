@@ -68,14 +68,15 @@ module Crysterm
         # computed for them at render time.
         el.resizable = true
 
+        # `get_last` only ever returns a rendered child, so `rendered_lpos` is
+        # non-nil whenever `last` is — binding it here drops a `not_nil!` and
+        # narrows `llp` to non-nil for the rest of the method.
         last = get_last container, i
-        if !last
+        unless last && (llp = rendered_lpos(last))
           el.left = 0
           el.top = 0
           return
         end
-
-        llp = last.lpos.not_nil!
         # Chain off `last`'s *outer* right edge: `llp.xl` is its drawn
         # (margin-inset) edge, so add back its right margin. `el` then
         # self-offsets by its own left margin during render (`_get_coords`),
@@ -101,8 +102,7 @@ module Crysterm
           j = @row_index
           while j < i
             el2 = container.children[j]
-            if rendered? el2
-              elp = el2.lpos.not_nil!
+            if elp = rendered_lpos(el2)
               # Outer height: the drawn rect lost its vertical margin to the
               # inset, so add it back, leaving the next row separated by this
               # child's bottom margin plus the next child's top margin.

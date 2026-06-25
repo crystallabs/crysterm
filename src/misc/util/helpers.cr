@@ -1,22 +1,6 @@
 module Crysterm
   # Mixin containing helper functions
   module Helpers
-    # Sorts array alphabetically by first letter of property 'name'.
-    def asort(obj)
-      obj.stable_sort! do |a, b|
-        a_name = a.not_nil!.name.not_nil!.downcase
-        b_name = b.not_nil!.name.not_nil!.downcase
-
-        # Compare the FULL names (with a single leading '.' stripped), not just
-        # the first character — comparing only `name[0]` left same-initial names
-        # (e.g. "banana"/"berry") unordered.
-        a_name = a_name[1..] if a_name[0]? == '.'
-        b_name = b_name[1..] if b_name[0]? == '.'
-
-        a_name <=> b_name
-      end
-    end
-
     # Sorts array numerically by property 'index'
     def hsort(obj)
       obj.sort_by! { |item| -item.index }

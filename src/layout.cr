@@ -114,10 +114,18 @@ module Crysterm
       LPos.new xi: xi, xl: xl, yi: yi, yl: yl
     end
 
+    # `el`'s rendered rectangle from the last frame if it was non-empty, else nil.
+    # Lets layout callers bind the `lpos` directly instead of re-reading it through
+    # a `not_nil!` after a separate `rendered?` check.
+    @[AlwaysInline]
+    protected def rendered_lpos(el : Widget) : LPos?
+      return nil unless l = el.lpos
+      ((l.xl - l.xi) > 0) && ((l.yl - l.yi) > 0) ? l : nil
+    end
+
     # Whether `el` produced a non-empty rendered rectangle on the last frame.
     protected def rendered?(el : Widget) : Bool
-      return false unless l = el.lpos
-      ((l.xl - l.xi) > 0) && ((l.yl - l.yi) > 0)
+      !rendered_lpos(el).nil?
     end
 
     # The most recently *rendered* child before index `i` (skipping children

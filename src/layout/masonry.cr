@@ -30,11 +30,11 @@ module Crysterm
         j = @last_row_index
         while j < @row_index
           l = container.children[j]
-          unless rendered? l
+          unless lp = rendered_lpos(l)
             j += 1
             next
           end
-          abs = (el.left.as(Int) - (l.lpos.not_nil!.xi - xi)).abs
+          abs = (el.left.as(Int) - (lp.xi - xi)).abs
           if abs < abovea
             above = l
             abovea = abs
@@ -42,8 +42,8 @@ module Crysterm
           j += 1
         end
 
-        if above
-          el.top = above.lpos.not_nil!.yl - yi
+        if (ab = above) && (alp = rendered_lpos(ab))
+          el.top = alp.yl - yi
         end
       end
     end
