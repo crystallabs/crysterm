@@ -34,15 +34,15 @@ module Crysterm
   # Append a second line showing the computed/relative positions of `inner`.
   inner.set_content \
     inner.content.to_s + "\n" + {
-      "aleft"   => inner.aleft,
-      "aright"  => inner.aright,
-      "atop"    => inner.atop,
-      "abottom" => inner.abottom,
-      "awidth"  => inner.awidth,
-      "aheight" => inner.aheight,
-      "rleft"   => inner.rleft,
-      "rtop"    => inner.rtop,
-    }.to_s
+    "aleft"   => inner.aleft,
+    "aright"  => inner.aright,
+    "atop"    => inner.atop,
+    "abottom" => inner.abottom,
+    "awidth"  => inner.awidth,
+    "aheight" => inner.aheight,
+    "rleft"   => inner.rleft,
+    "rtop"    => inner.rtop,
+  }.to_s
 
   s.on(Event::KeyPress) do |e|
     if e.char == 'q' || e.key == ::Tput::Key::Escape || e.key == ::Tput::Key::CtrlQ

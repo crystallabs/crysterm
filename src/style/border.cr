@@ -6,6 +6,7 @@ module Crysterm
     Dashed # Dashed line (light box-drawing dashes)
     Dotted # Dotted line (light box-drawing dots)
     Double # Double line
+
     # DotDash
     # DotDotDash
     # Groove

@@ -208,9 +208,9 @@ module Crysterm
       private def field_value(el : Widget) : String?
         case el
         when PlainTextEdit then el.value
-        when CheckBox then el.checked?.to_s
-        when List     then el.value
-        else               nil
+        when CheckBox      then el.checked?.to_s
+        when List          then el.value
+        else                    nil
         end
       end
 
@@ -229,11 +229,11 @@ module Crysterm
 
       private def reset_children(el : Widget)
         case el
-        when FileManager then el.refresh
-        when List        then el.selekt 0
-        when PlainTextEdit    then el.clear_value
-        when CheckBox    then el.uncheck
-        when ProgressBar then el.reset
+        when FileManager   then el.refresh
+        when List          then el.selekt 0
+        when PlainTextEdit then el.clear_value
+        when CheckBox      then el.uncheck
+        when ProgressBar   then el.reset
         end
         el.children.each { |child| reset_children child }
       end

@@ -388,10 +388,10 @@ class Minesweeper
     @status.add_permanent "Time #{sprintf("%03d", @elapsed.clamp(0, 999))}"
 
     message = case @state
-              when :won  then "{green-fg}{bold} YOU WIN!{/}  press n for a new game"
-              when :lost then "{red-fg}{bold} BOOM! You lost.{/}  press n for a new game"
+              when :won   then "{green-fg}{bold} YOU WIN!{/}  press n for a new game"
+              when :lost  then "{red-fg}{bold} BOOM! You lost.{/}  press n for a new game"
               when :ready then " Click any cell to begin"
-              else            " Playing…"
+              else             " Playing…"
               end
     @status.show_message message
   end

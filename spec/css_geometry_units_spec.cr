@@ -174,8 +174,8 @@ describe "CSS geometry units" do
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
       s._render
-      a.width.should eq 25  # map px=4, then px_per_cell=8 wins ⇒ 200 / 8
-      a.height.should eq 2  # em=2 from the map ⇒ 4 / 2
+      a.width.should eq 25 # map px=4, then px_per_cell=8 wins ⇒ 200 / 8
+      a.height.should eq 2 # em=2 from the map ⇒ 4 / 2
     ensure
       Superconf.css_unit_divisors = ""
       Superconf.css_px_per_cell = 10.0

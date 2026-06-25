@@ -147,21 +147,37 @@ class Wumpus
 
   # ---- Flags -----------------------------------------------------------------
 
-  private def mesg?; @opt["mesg"]; end
+  private def mesg?
+    @opt["mesg"]
+  end
 
-  private def prompts?; @opt["prompts"]; end
+  private def prompts?
+    @opt["prompts"]
+  end
 
-  private def bump?; @opt["bump"]; end
+  private def bump?
+    @opt["bump"]
+  end
 
-  private def crooked?; @opt["crooked"]; end
+  private def crooked?
+    @opt["crooked"]
+  end
 
-  private def same?; @opt["same"]; end
+  private def same?
+    @opt["same"]
+  end
 
-  private def back?; @opt["back"]; end
+  private def back?
+    @opt["back"]
+  end
 
-  private def reveal?; @opt["reveal"]; end
+  private def reveal?
+    @opt["reveal"]
+  end
 
-  private def gap?; @opt["gap"]; end
+  private def gap?
+    @opt["gap"]
+  end
 
   # Pick original (1973) vs modern (2026) wording for a line, per the mesg flag.
   private def w(orig : String, modern : String) : String
@@ -206,7 +222,7 @@ class Wumpus
   # ---- Output helpers --------------------------------------------------------
 
   private def say(line : String = "")
-	  return if line.empty?
+    return if line.empty?
     @transcript.push_line line
     @transcript.scroll_to @transcript.get_content.lines.size
   end
@@ -244,7 +260,7 @@ class Wumpus
     @prev_player = @player
     @prev_wumpus = @wumpus
 
-		say
+    say
     if mesg?
       say "HUNT THE WUMPUS"
     else

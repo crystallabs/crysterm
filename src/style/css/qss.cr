@@ -46,12 +46,12 @@ module Crysterm
         "ListView"           => "List",
         # Qt's rich `TextEdit` folds onto our plain editor (no rich-text widget
         # yet); `LineEdit`/`PlainTextEdit` are identical and need no entry.
-        "TextEdit"           => "PlainTextEdit",
-        "TextBrowser"        => "ScrollableText",
-        "TabBar"             => "TabWidget",
-        "TableView"          => "Table",
-        "TableWidget"        => "Table",
-        "TreeView"           => "Tree",
+        "TextEdit"    => "PlainTextEdit",
+        "TextBrowser" => "ScrollableText",
+        "TabBar"      => "TabWidget",
+        "TableView"   => "Table",
+        "TableWidget" => "Table",
+        "TreeView"    => "Tree",
       }
 
       # Matches a Qt type-selector token: `Q` + a CamelCase identifier. The
