@@ -80,6 +80,7 @@ module Crysterm
     end
 
     # Renders all child elements into the output buffer.
+    # ameba:disable Metrics/CyclomaticComplexity
     def _render(with_children = true)
       emit Crysterm::Event::PreRender
 
@@ -648,6 +649,7 @@ module Crysterm
     end
 
     @[AlwaysInline]
+    # ameba:disable Metrics/CyclomaticComplexity
     def border_char(border, g, x, xi, xl, y, yi, yl, default_attr)
       if border.type.line_family?
         # Per-type glyph set (solid/dashed/dotted/double), resolved once by the

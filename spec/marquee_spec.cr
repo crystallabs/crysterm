@@ -74,7 +74,7 @@ describe Crysterm::Widget::Marquee do
 
   it "tints each non-space glyph when rainbow is on" do
     s = marquee_screen
-    m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 6, height: 1,
+    Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 6, height: 1,
       text: "AB", rainbow: true
     s._render # frame 0: columns show A B A B A B, all tinted
     cell_char(s, 0, 0).should eq 'A'
@@ -85,7 +85,7 @@ describe Crysterm::Widget::Marquee do
 
   it "leaves spaces untinted under rainbow" do
     s = marquee_screen
-    m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 4, height: 1,
+    Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 4, height: 1,
       text: "    ", rainbow: true
     s._render
     (0...4).each do |x|

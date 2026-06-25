@@ -12,6 +12,7 @@ module Crysterm
       # Applies a single `property: value` declaration onto *style*. Unknown
       # properties are ignored, matching CSS's forgiving behavior.
       #
+      # ameba:disable Metrics/CyclomaticComplexity
       def self.apply(style : Style, property : String, value : String) : Nil
         return apply_border(style, property, value) if property.starts_with?("border")
 

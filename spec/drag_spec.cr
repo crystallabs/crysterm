@@ -290,7 +290,7 @@ describe "drag-and-drop" do
 
     it "does not float a ghost for a reposition drag" do
       s = drag_screen
-      box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4, draggable: true
+      Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4, draggable: true
       press s, 12, 6
       move s, 14, 8
       # No extra widget was added under the pointer (only the box itself moved).

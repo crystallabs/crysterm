@@ -19,6 +19,14 @@ Globs:
 Performance/AnyInsteadOfEmpty:
   Enabled: false
 
+# The rule token-matches `.lines.each` assuming `String#lines` (which allocates
+# an array). Here `lines` is a stored buffer property — `Screen#lines`
+# (`Array(Row)`) and `CLines#lines` (`getter lines : Array(String)`) — so there
+# is no allocation, and the suggested `each_line` does not exist on those types.
+# `lines` is a core buffer concept across the codebase, so the rule only misfires.
+Performance/ExcessiveAllocations:
+  Enabled: false
+
 # src/event.cr is wall-to-wall `event Foo, bar : T` macro calls (event_handler
 # shard) that the rule misreads as assignments, so the whole file is excluded.
 # The scattered `enum_property foo : T = ...` macro hits (crystallabs-helpers
@@ -54,6 +62,18 @@ Naming/QueryBoolMethods:
 # TODO / NOTE / FIXME admonitions are intentional in-code work markers, not
 # things to clear before the linter passes.
 Documentation/DocumentationAdmonition:
+  Enabled: false
+
+# Parentheses around an assignment-in-condition (`if (x = foo)`, `elsif (n =
+# t.to_i?)`) are used deliberately here to signal "intentional assignment, not
+# `==`". Stripping them removes that cue, so the rule is off.
+Style/ParenthesesAroundCondition:
+  Enabled: false
+
+# `return/next unless cond` guard clauses are idiomatic even when `cond` contains
+# a negation (`unless text && !text.empty?`); mechanically inverting them to `if`
+# generally reads worse for early-exit guards.
+Style/NegatedConditionsInUnless:
   Enabled: false
 
 # --- Relaxed thresholds -------------------------------------------------------

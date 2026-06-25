@@ -350,6 +350,7 @@ module Crysterm
     # again — the identical call, since nothing in between changes the widget's
     # width — so the hint lets us skip that second resolution. Only the render
     # path passes it; other callers (`get == false`) resolve on demand as before.
+    # ameba:disable Metrics/CyclomaticComplexity
     def _get_coords(get = false, noscroll = false, into : LPos? = nil, width_hint : Int32? = nil)
       unless style.visible?
         return

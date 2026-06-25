@@ -45,7 +45,7 @@ describe Crysterm::Widget::Graph::Donut do
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
-      d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0, width: 20, height: 11,
+      Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0, width: 20, height: 11,
         value: 8, show_label: false, type: Crysterm::Widget::Media::Type::Glyph,
         style: Crysterm::Style.new(border: true)
       s._render
@@ -63,7 +63,7 @@ describe Crysterm::Widget::Graph::Donut do
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
-      d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0, width: 20, height: 11,
+      Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0, width: 20, height: 11,
         value: 35, show_label: false, show_track: true,
         fill_color: 0x40E0D0, track_color: 0x404850,
         type: Crysterm::Widget::Media::Type::Glyph, style: Crysterm::Style.new(border: true)

@@ -48,12 +48,12 @@ describe Crysterm::Widget::Graph::Map do
     begin
       m = Crysterm::Widget::Graph::Map.new parent: s, top: 0, left: 0, width: 78, height: 22,
         type: Crysterm::Widget::Media::Type::Glyph
-      west = m.add_marker latitude: 0.0, longitude: -150.0, char: 'W'
-      east = m.add_marker latitude: 0.0, longitude: 150.0, char: 'E'
+      m.add_marker latitude: 0.0, longitude: -150.0, char: 'W'
+      m.add_marker latitude: 0.0, longitude: 150.0, char: 'E'
       s._render
       rows = (0...s.aheight).map { |y| (0...s.awidth).map { |x| s.lines[y][x].char }.join }
-      wx = rows.map(&.index('W')).compact.first?
-      ex = rows.map(&.index('E')).compact.first?
+      wx = rows.compact_map(&.index('W')).first?
+      ex = rows.compact_map(&.index('E')).first?
       wx.should_not be_nil
       ex.should_not be_nil
       (wx.not_nil! < ex.not_nil!).should be_true # western marker left of eastern

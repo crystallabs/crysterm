@@ -67,7 +67,7 @@ describe Crysterm::Widget::Effect::SineScroller do
   it "tints glyphs and leaves spaces blank under rainbow" do
     s = sine_screen
     # "A B": columns 0 and 2 carry glyphs, column 1 is a space (blank).
-    sc = Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
+    Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
       width: 4, height: 3, text: "A B", rainbow: true,
       wave_frequency: 0.0, wave_speed: 0.0 # flat: all glyphs on the middle row (amp=1)
     s._render
@@ -82,7 +82,7 @@ describe Crysterm::Widget::Effect::SineScroller do
 
   it "renders an all-blank frame for an all-space message" do
     s = sine_screen
-    sc = Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
+    Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
       width: 4, height: 3, text: "    ", rainbow: true
     s._render
 

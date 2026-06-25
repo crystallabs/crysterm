@@ -321,6 +321,11 @@ module Crysterm
 
         ::Log.trace { "Internal content is #{content.inspect}" }
 
+        # Scaffolding for content-level Unicode handling (see FIX-UNICODE.md). The
+        # bodies are still TODO; `if true` is a deliberate placeholder for the
+        # eventual `screen.full_unicode?` gate, so the literal-condition lint is
+        # suppressed rather than the branch removed.
+        # ameba:disable Lint/LiteralInCondition
         if true # (screen.full_unicode)
           # double-width chars will eat the next char after render. create a
           # blank character after it so it doesn't eat the real next char.

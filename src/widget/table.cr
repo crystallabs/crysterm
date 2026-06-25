@@ -151,6 +151,7 @@ module Crysterm
 
       # Recolors header/cell text and draws the internal cell borders. Ported
       # from Blessed's `Table.prototype.render`, adapted to Crysterm's cell grid.
+      # ameba:disable Metrics/CyclomaticComplexity
       private def draw_borders(coords)
         lines = screen.lines
         xi = coords.xi

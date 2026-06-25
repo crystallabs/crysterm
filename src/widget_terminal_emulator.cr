@@ -415,6 +415,7 @@ module Crysterm
            end
     end
 
+    # ameba:disable Metrics/CyclomaticComplexity
     private def dispatch_csi(c : Char) : Nil
       case c
       when 'A'      then @y = Math.max(0, @y - param(0, 1)); @wrap_pending = false
