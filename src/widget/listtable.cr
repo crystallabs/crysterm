@@ -103,12 +103,18 @@ module Crysterm
         # its `style.header` background stops a few cells short of the right
         # border. The proper fix lives in the same content-width/scrollbar-width
         # model being reworked separately.
+        # The header is an interior overlay: the table itself draws the frame and
+        # the `│` column separators, so the header must not carry the table's
+        # border. Inheriting it (via `style.header` folding in the table's
+        # `border`) gave the header box `ileft`/`iright` insets that shrank its
+        # content area by two columns, clipping the last visible column's text
+        # (`City` → `Cit`). Strip it, mirroring the body rows' `render_style_for`.
         @header = Box.new(
           parent: self,
           left: 0,
           top: 0,
           height: 1,
-          style: style.header,
+          style: without_border(style.header),
           parse_tags: @parse_tags,
         )
 
