@@ -116,6 +116,7 @@ module Crysterm
     #
     # `default` colors are resolved to the configured terminal default for the
     # blend/contrast math, and left `default` only when that is itself unknown.
+    @[AlwaysInline]
     def self.composite(top : Int64, under : Int64) : Int64
       fg = composite_field(Attr.fg_alpha(top), Attr.fg(top), Attr.fg(under), true)
       bg = composite_field(Attr.bg_alpha(top), Attr.bg(top), Attr.bg(under), false)
@@ -124,6 +125,7 @@ module Crysterm
 
     # Composites one packed color field of *top* over *under*'s, per *mode*.
     # Returns a packed color field (the result is always `Opaque`).
+    @[AlwaysInline]
     def self.composite_field(mode : Attr::Alpha, top : Int64, under : Int64, fg : Bool) : Int64
       case mode
       in Attr::Alpha::Opaque

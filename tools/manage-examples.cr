@@ -152,7 +152,6 @@ module WidgetExamples
     )
   end
 
-
   # Layouts aren't standalone widgets: each is installed on a container via
   # `layout:` and arranges the container's children. So a scaffolded layout
   # example builds a full-screen container with the layout, then drops a handful
