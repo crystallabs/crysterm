@@ -21,6 +21,20 @@ module Crysterm
           # `:not()` doesn't compile in our selector engine.
           attrs[checked? ? "checked" : "unchecked"] = nil
         end
+        # Qt's `:flat`/`:default` (see `CSS::Qss`) — frameless and dialog-default
+        # buttons. The theme's `Button[flat]` strips the border.
+        attrs["flat"] = nil if flat?
+        attrs["default"] = nil if default?
+        attrs
+      end
+    end
+
+    class GroupBox
+      # Qt's `:flat` → `[flat]`: a flat group box drops its frame
+      # (`GroupBox[flat]` in the theme).
+      def css_attributes : Hash(String, String?)
+        attrs = super
+        attrs["flat"] = nil if flat?
         attrs
       end
     end

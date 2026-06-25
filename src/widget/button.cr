@@ -26,11 +26,24 @@ module Crysterm
       # (Qt's `QAbstractButton#checked`).
       property? checked : Bool = false
 
-      def initialize(checkable : Bool = false, checked : Bool = false, **input)
+      # Whether the button is *flat* — drawn without a frame (Qt's
+      # `QPushButton#flat`). Surfaced as the `[flat]` attribute so author/theme
+      # CSS can target it (the theme strips the border via `Button[flat]`); also
+      # the target of Qt's `:flat` pseudo-class (see `CSS::Qss`).
+      getter? flat : Bool = false
+
+      # Whether this is the dialog's *default* button — the one a bare Enter
+      # activates (Qt's `QPushButton#default`). Surfaced as `[default]` for the
+      # `:default` pseudo-class, so it can be emphasized via CSS.
+      getter? default : Bool = false
+
+      def initialize(checkable : Bool = false, checked : Bool = false, flat : Bool = false, default : Bool = false, **input)
         super **input
 
         @checkable = checkable
         @checked = checked
+        @flat = flat
+        @default = default
 
         handle Crysterm::Event::KeyPress
         handle Crysterm::Event::Click
@@ -80,6 +93,25 @@ module Crysterm
         invalidate_css
         emit Crysterm::Event::UnCheck, @checked
         request_render
+      end
+
+      # Toggles the flat (frameless) look, re-cascading so the `[flat]` attribute
+      # selector matches/unmatches.
+      def flat=(value : Bool) : Bool
+        return value if value == @flat
+        @flat = value
+        invalidate_css
+        request_render
+        value
+      end
+
+      # Marks/unmarks this as the dialog's default button (`[default]`).
+      def default=(value : Bool) : Bool
+        return value if value == @default
+        @default = value
+        invalidate_css
+        request_render
+        value
       end
 
       def on_keypress(e)

@@ -192,6 +192,8 @@ module Crysterm
 
       /* Framed containers */
       GroupBox { border: solid; border-color: var(--muted); }
+      /* Flat buttons/groups drop their frame (Qt's `flat` property). Overridable. */
+      Button[flat], GroupBox[flat] { border: none; }
       /* Overlays sit on their own compositing planes (z-index) so they layer
          correctly over content, with a slight translucency for a modern look —
          all via the general compositor, no overlay-specific code. */

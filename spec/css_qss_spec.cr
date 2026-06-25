@@ -111,6 +111,12 @@ describe Crysterm::CSS::Qss do
       Crysterm::CSS::Qss.to_css("QComboBox:editable { }").should eq "ComboBox[editable] { }"
     end
 
+    it "maps :flat/:default to boolean attributes" do
+      Crysterm::CSS::Qss.to_css("QPushButton:flat { }").should eq "Button[flat] { }"
+      Crysterm::CSS::Qss.to_css("QGroupBox:flat { }").should eq "GroupBox[flat] { }"
+      Crysterm::CSS::Qss.to_css("QPushButton:default { }").should eq "Button[default] { }"
+    end
+
     it "leaves states Crysterm already handles untouched" do
       Crysterm::CSS::Qss.to_css("QPushButton:hover { }").should eq "Button:hover { }"
       Crysterm::CSS::Qss.to_css("QPushButton:focus:disabled { }").should eq "Button:focus:disabled { }"

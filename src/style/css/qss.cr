@@ -141,12 +141,14 @@ module Crysterm
         "horizontal" => "[horizontal]", # ScrollBar/Slider/ProgressBar/Splitter orientation
         "vertical"   => "[vertical]",
         "editable"   => "[editable]", # ComboBox
+        "flat"       => "[flat]",     # Button/GroupBox frameless look
+        "default"    => "[default]",  # the dialog's default Button
       }
 
       # Matches exactly the Qt state pseudo-classes in `STATE_PSEUDOS` as whole
       # tokens (the trailing lookahead stops `:on` matching inside `:only-one`,
       # etc.). Other `:pseudo` tokens are left for the parser to handle or ignore.
-      STATE_PSEUDO = /:(unchecked|pressed|on|off|horizontal|vertical|editable)(?![\w-])/
+      STATE_PSEUDO = /:(unchecked|pressed|on|off|horizontal|vertical|editable|flat|default)(?![\w-])/
 
       # Rewrites *source* (the contents of a `.qss` file) into Crysterm CSS:
       # `Q`-prefixed type selectors are renamed, Qt `::sub-control` pseudo-elements

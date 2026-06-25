@@ -652,6 +652,50 @@ describe "CSS cascade" do
     end
   end
 
+  it "styles flat/default buttons by Qt :flat/:default state via .qss" do
+    path = File.tempname("crysterm-qss", ".qss")
+    File.write(path, "QPushButton:flat { color: red; }\n" \
+                     "QPushButton:default { color: blue; }\n" \
+                     "QGroupBox:flat { color: green; }\n")
+    begin
+      screen = headless_screen
+      without_default_theme do
+        flat = Widget::Button.new flat: true
+        deflt = Widget::Button.new default: true
+        plain = Widget::Button.new
+        gb = Widget::GroupBox.new flat: true
+        screen.append flat
+        screen.append deflt
+        screen.append plain
+        screen.append gb
+        screen.load_stylesheet path
+        screen.apply_stylesheet
+        flat.style.fg.should eq rgb("red")
+        deflt.style.fg.should eq rgb("blue")
+        gb.style.fg.should eq rgb("green")
+        plain.style.fg.should be_nil # neither flat nor default → unmatched
+      end
+    ensure
+      File.delete(path)
+    end
+  end
+
+  it "strips a flat GroupBox's border via a [flat] { border: none } rule" do
+    screen = headless_screen
+    without_default_theme do
+      framed = Widget::GroupBox.new title: "A"
+      flat = Widget::GroupBox.new title: "B", flat: true
+      screen.append framed
+      screen.append flat
+      # Mirrors the theme's `GroupBox { border: solid } / GroupBox[flat] { border: none }`.
+      screen.stylesheet = "GroupBox { border: solid; }\nGroupBox[flat] { border: none; }"
+      screen.apply_stylesheet
+
+      framed.style.border.top.should eq 1 # framed group keeps its border
+      flat.style.border.top.should eq 0   # [flat] strips it
+    end
+  end
+
   it "routes a Qt ::chunk/::handle sub-control to the indicator slot via .qss" do
     path = File.tempname("crysterm-qss", ".qss")
     File.write(path, "QProgressBar::chunk { color: red; }\nQSlider::handle { color: green; }\n")

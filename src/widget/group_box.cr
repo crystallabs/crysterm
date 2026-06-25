@@ -28,10 +28,16 @@ module Crysterm
       # disabled.
       getter? checked : Bool = true
 
-      def initialize(title = "", checkable = false, checked = true, **box)
+      # Whether the group is *flat* — drawn without its frame (Qt's
+      # `QGroupBox#flat`). Surfaced as the `[flat]` attribute; the theme strips
+      # the default border via `GroupBox[flat]`, and Qt's `:flat` targets it.
+      getter? flat : Bool = false
+
+      def initialize(title = "", checkable = false, checked = true, flat = false, **box)
         @title = title
         @checkable = checkable
         @checked = checked
+        @flat = flat
 
         super **box
 
@@ -97,6 +103,16 @@ module Crysterm
 
       def toggle
         self.checked = !checked?
+      end
+
+      # Toggles the flat (frameless) look, re-cascading so `GroupBox[flat]`
+      # matches/unmatches.
+      def flat=(value : Bool) : Bool
+        return value if value == @flat
+        @flat = value
+        invalidate_css
+        request_render
+        value
       end
 
       # Reflects the checked state onto the children's `state`, so an unchecked
