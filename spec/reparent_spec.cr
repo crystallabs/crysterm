@@ -24,9 +24,9 @@ describe "Widget re-parenting" do
     a.children.should eq [child]
 
     b.append child
-    child.parent.should eq b      # now under b
+    child.parent.should eq b # now under b
     b.children.should eq [child]
-    a.children.should be_empty    # and gone from a
+    a.children.should be_empty # and gone from a
   end
 
   it "emits Reparent on the child, with a nil detach between the two parents" do

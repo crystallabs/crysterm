@@ -420,26 +420,25 @@ module Crysterm
         return true
       end
 
-      # The carried-over per-line attrs (`@_clines.attr`) are read back by the
-      # render loop ONLY on a non-first wrapped/scrolled line — `_render` consults
-      # `@_clines.attr[base]` exclusively under `if ci > 0`, which requires either
-      # multi-line content or a non-zero vertical scroll base. For the common
-      # single-line, unscrolled widget the array is never read, so recomputing it
-      # whenever the base attr (fg/bg/flags) changes is pure waste — e.g. a
-      # per-cell color animation that recolors thousands of one-line boxes every
-      # frame would otherwise run `sattr` + an `O(content)` `_parse_attr` scan per
-      # box per frame for a value nothing consults. Gate the refresh on the array
-      # actually being reachable; multi-line / scrolled content still refreshes
-      # exactly as before. (A content change that alters the line count goes
-      # through the full reparse above, which always rebuilds the array.)
-      if @_clines.size > 1 || @child_base > 0
-        # Recompute only when the base attr actually changed (default fg/bg/flags);
-        # on a frame where nothing changed this skips the `_parse_attr` scan too.
-        da = sattr(style)
-        if da != @_parse_attr_default
-          @_parse_attr_default = da
-          @_clines.attr = _parse_attr(@_clines)
-        end
+      # Refresh the cached base attribute only when it actually changed (default
+      # fg/bg/flags); on a frame where nothing changed this skips all the work
+      # below. `@_parse_attr_default` MUST stay current regardless of content
+      # shape: `_render` reads it unconditionally as the widget's fill/background
+      # attr (`default_attr`), so freezing it would freeze the background of any
+      # widget that only ever changes `style.bg` — e.g. an empty single-line
+      # `Effect::CopperBar` that recolors every frame would stop animating.
+      da = sattr(style)
+      if da != @_parse_attr_default
+        @_parse_attr_default = da
+        # The per-line attrs array (`@_clines.attr`), in contrast, is read back by
+        # the render loop ONLY on a non-first wrapped/scrolled line — `_render`
+        # consults `@_clines.attr[base]` exclusively under `if ci > 0`, which
+        # requires multi-line content or a non-zero vertical scroll base. For the
+        # common single-line, unscrolled widget the array is never read, so the
+        # `O(content)` `_parse_attr` scan is pure waste there; gate it on the
+        # array actually being reachable. (A content change that alters the line
+        # count goes through the full reparse above, which always rebuilds it.)
+        @_clines.attr = _parse_attr(@_clines) if @_clines.size > 1 || @child_base > 0
       end
 
       false

@@ -1099,8 +1099,8 @@ module WidgetExamples
   # The authoritative demo -> capture(s) map (mirrors the recorders' own lists).
   FEATURE_SHOTS = begin
     gif = %w[concurrent_rendering truecolor unicode mouse widgets layout image
-             styling terminfo events diff_rendering matrix dashboard clock
-             netscape cracktro]
+      styling terminfo events diff_rendering matrix dashboard clock
+      netscape cracktro]
     graphics = %w[sixel_image regis_image kitty_image iterm_image ueberzug_image tek_image]
     list = [] of FeatureShot
     gif.each { |s| list << FeatureShot.new(s, ["#{s}-capture.gif"], :gifs, s) }
