@@ -111,13 +111,44 @@ module Crysterm
       # `#popup`), so it dismisses itself on outside click / after a leaf fires.
       @popup_mode = false
 
+      # Per-action `Event::Changed` handlers, so the menu can refresh when an
+      # action's display state (checked, text, enabled, visibility) is changed
+      # from the outside. Kept by action so the handler can be removed in `>>`.
+      @action_changed = {} of Action => ::Proc(::Crysterm::Event::Changed, ::Nil)
+
       # Adds *action* to the menu (no-op if already present).
       def <<(action : Action)
         unless @actions.includes? action
           @actions << action
+          watch_action action
           sync_items
         end
         self
+      end
+
+      # Re-render the menu whenever *action*'s display state changes, mirroring
+      # how a Qt menu tracks its `QAction`s' `changed()` signal. Without this, an
+      # external `action.checked = ...` (or `text=`, `enabled=`, `visible=`)
+      # would not update the already-rendered rows.
+      private def watch_action(action : Action) : Nil
+        return if @action_changed.has_key? action
+        handler = ->(_e : ::Crysterm::Event::Changed) do
+          # Preserve the highlighted row across the rebuild (item count can shift
+          # when visibility toggles), matching the in-menu activate path.
+          sel = selected
+          sync_items
+          selekt sel
+          request_render
+          nil
+        end
+        action.on ::Crysterm::Event::Changed, handler
+        @action_changed[action] = handler
+      end
+
+      private def unwatch_action(action : Action) : Nil
+        if handler = @action_changed.delete action
+          action.off ::Crysterm::Event::Changed, handler
+        end
       end
 
       # Creates an `Action` labeled *text*, appends it, and returns it (Qt's
@@ -154,6 +185,7 @@ module Crysterm
       # Removes *action* from the menu.
       def >>(action : Action)
         if @actions.delete action
+          unwatch_action action
           sync_items
         end
         self
@@ -370,14 +402,9 @@ module Crysterm
           return
         end
 
-        # Toggle a checkable action's state and redraw its marker before firing.
-        if action.checkable?
-          action.checked = !action.checked?
-          sel = selected
-          sync_items
-          selekt sel
-          request_render
-        end
+        # Toggle a checkable action's state before firing; the assignment emits
+        # `Event::Changed`, which `watch_action` turns into a marker redraw.
+        action.checked = !action.checked? if action.checkable?
 
         action.activate
 

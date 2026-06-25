@@ -39,6 +39,12 @@ module Crysterm
         item = add(action.text) { activate_action action }
         @item_actions[item] = action
         action.tool_tip.try { |t| item.tool_tip = t }
+        # Reflect external state changes (Qt's `QAction::changed()`): toggling a
+        # checkable action's `checked` from elsewhere must re-light its button.
+        action.on(::Crysterm::Event::Changed) do
+          refresh
+          request_render
+        end
         refresh
         item
       end

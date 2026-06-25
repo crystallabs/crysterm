@@ -22,19 +22,51 @@ module Crysterm
     # property icon : Icon?
 
     # Text / label of action
-    property text : String = ""
+    getter text : String = ""
+
+    # :ditto:
+    def text=(value : String) : String
+      return value if @text == value
+      @text = value
+      notify_changed
+      value
+    end
 
     # Action enabled?
-    property enabled = true
+    getter enabled = true
+
+    # :ditto:
+    def enabled=(value : Bool) : Bool
+      return value if @enabled == value
+      @enabled = value
+      notify_changed
+      value
+    end
 
     # Whether the action has an on/off checked state (Qt's `QAction#checkable`),
     # e.g. a toggleable "Word Wrap" menu entry. A `Widget::Menu` draws a
     # `[x]`/`[ ]` marker for checkable actions and flips `#checked?` when they are
     # activated.
-    property? checkable = false
+    getter? checkable = false
+
+    # :ditto:
+    def checkable=(value : Bool) : Bool
+      return value if @checkable == value
+      @checkable = value
+      notify_changed
+      value
+    end
 
     # Current checked state; only meaningful when `#checkable?`.
-    property? checked = false
+    getter? checked = false
+
+    # :ditto:
+    def checked=(value : Bool) : Bool
+      return value if @checked == value
+      @checked = value
+      notify_changed
+      value
+    end
 
     # Whether this is a non-selectable separator rather than a real action
     # (Qt's `QAction#isSeparator`). Created via `Action.separator`.
@@ -43,7 +75,15 @@ module Crysterm
     # Optional child actions forming a submenu (Qt's `QAction#menu`). When set, a
     # `Widget::Menu` shows this action with a `▶` marker and opens a nested menu
     # of these actions instead of activating it.
-    property submenu : Array(Action)?
+    getter submenu : Array(Action)?
+
+    # :ditto:
+    def submenu=(value : Array(Action)?) : Array(Action)?
+      return value if @submenu == value
+      @submenu = value
+      notify_changed
+      value
+    end
 
     # Whether this action opens a (non-empty) submenu.
     def submenu? : Bool
@@ -66,7 +106,15 @@ module Crysterm
     # TODO Needs to become proper `KeySequence?` later, so that it can trigger on a sequence
     # of key presses (E.g. Ctrl+a, d)
     alias KeySequence = Tput::Key
-    property shortcut : KeySequence?
+    getter shortcut : KeySequence?
+
+    # :ditto:
+    def shortcut=(value : KeySequence?) : KeySequence?
+      return value if @shortcut == value
+      @shortcut = value
+      notify_changed
+      value
+    end
 
     # Tip to show in status bar, if/when applicable
     property status_tip : String?
@@ -79,7 +127,22 @@ module Crysterm
     property whats_this : String?
 
     # This property holds whether the action can be seen (e.g. in menus and toolbars) or is hidden.
-    property? visible = true
+    getter? visible = true
+
+    # :ditto:
+    def visible=(value : Bool) : Bool
+      return value if @visible == value
+      @visible = value
+      notify_changed
+      value
+    end
+
+    # Notifies observers (menus, tool bars) that a display-affecting property
+    # changed, by emitting `Event::Changed` (Qt's `QAction::changed()`). Emitted
+    # only on an actual change, so redundant assignments don't trigger re-renders.
+    protected def notify_changed : Nil
+      emit ::Crysterm::Event::Changed
+    end
 
     def initialize(
       @parent : EventHandler? = nil,

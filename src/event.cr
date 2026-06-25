@@ -111,6 +111,12 @@ module Crysterm
     # Emitted on button press
     event Press
 
+    # Emitted by an `Action` when a display-affecting property (`text`,
+    # `enabled`, `checkable`, `checked`, `visible`) changes, so that any widget
+    # presenting the action (a `Widget::Menu`, tool bar, etc.) can refresh its
+    # rendering. Mirrors Qt's `QAction::changed()` signal.
+    event Changed
+
     # Emitted on checkbox checked
     event Check, value : Bool
 

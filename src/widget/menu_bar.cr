@@ -87,9 +87,13 @@ module Crysterm
       def open(i : Int) : Nil
         return unless menu = @menus[i]?
         @menus.each_with_index { |m, j| m.hide_popup if j != i && m.visible? }
-        @open_index = i.to_i
+        @open_index = i = i.to_i
+        # Move the bar's current item to the opened menu so a mouse hover-switch
+        # also carries the keyboard cursor (otherwise Left/Right or Down would
+        # resume from the previously-clicked title). `selekt` re-imposes the
+        # open-menu highlight via the override below.
+        selekt i
         menu.popup title_x(i), menu_y
-        highlight i
       end
 
       # Toggles menu *i*: opens it, or closes it (deselecting the title) if it is

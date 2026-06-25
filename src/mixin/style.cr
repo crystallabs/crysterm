@@ -16,6 +16,13 @@ module Crysterm
         # `transition` can tween from them to the new state's values.
         prev = transition_from
         @state = value
+        # A state change selects a different style (e.g. `styles.selected` vs
+        # `styles.normal`), so the widget must be repainted. The tracked geometry
+        # setters can't see this in-place style swap, so flag it for damage
+        # tracking explicitly; otherwise the optimized render leaves the previous
+        # state's pixels in the buffer (a stale highlight). Guarded above on an
+        # actual change, so a list re-asserting the same state every frame is free.
+        mark_dirty
         screen?.try do |scr|
           if scr.css_dynamic_state?
             scr.restyle_subtree self # ancestor-state rules exist: recascade
