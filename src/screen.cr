@@ -277,6 +277,9 @@ module Crysterm
       # Apply the configured startup stylesheet (Config.colors_stylesheet), if
       # any, over the theme — unless the app already set one in code.
       apply_config_stylesheet
+      # Seed CSS unit→cell divisors from config (css.px_per_cell / css.unit_divisors)
+      # before the first restyle resolves any unit'd geometry against them.
+      CSS::Length.apply_config
       restyle
 
       # Spawning the loop does not start rendering until the first call to #render

@@ -192,7 +192,7 @@ describe Crysterm::Completer do
 
   it "attaches to a text box without raising" do
     s = add_mem_screen
-    box = Crysterm::Widget::TextBox.new parent: s, width: 20, height: 1
+    box = Crysterm::Widget::LineEdit.new parent: s, width: 20, height: 1
     c = Crysterm::Completer.new %w[apple apricot]
     c.attach box
     c.open?.should be_false

@@ -1,9 +1,9 @@
 require "./box"
 
-# `SpinBox`, `TextBox`, `Button` and `DialogButtonBox` are referenced only in
+# `SpinBox`, `LineEdit`, `Button` and `DialogButtonBox` are referenced only in
 # method bodies (resolved after the whole `widget/**` glob is required), so they
-# need no explicit `require` here — and requiring `textbox` directly would fail,
-# since it relies on the glob to have loaded its `TextArea` parent first.
+# need no explicit `require` here — and requiring `lineedit` directly would fail,
+# since it relies on the glob to have loaded its `PlainTextEdit` parent first.
 
 module Crysterm
   class Widget
@@ -78,7 +78,7 @@ module Crysterm
       getter value_v : Float64 = 1.0
 
       @preview : Box?
-      @hexbox : TextBox?
+      @hexbox : LineEdit?
       @rspin : SpinBox?
       @gspin : SpinBox?
       @bspin : SpinBox?
@@ -174,7 +174,7 @@ module Crysterm
           style: Style.new(bg: "black")
 
         Box.new parent: self, top: 2, left: INFO_X, width: 3, height: 1, content: "Hex"
-        @hexbox = hb = TextBox.new parent: self, top: 2, left: SPIN_X + 1, width: SPIN_W - 1, height: 1,
+        @hexbox = hb = LineEdit.new parent: self, top: 2, left: SPIN_X + 1, width: SPIN_W - 1, height: 1,
           style: Style.new(fg: "white", bg: "#303030")
         # Apply the color live, on every keystroke (`TextChange`) as well as on
         # Enter (`Submit`); the leading space is cosmetic, so strip it first.

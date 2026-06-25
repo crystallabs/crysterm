@@ -16,7 +16,7 @@ describe Crysterm::CSS::Qss do
 
     it "renames Qt selectors that Crysterm spells differently" do
       Crysterm::CSS::Qss.to_css("QPushButton { }").should eq "Button { }"
-      Crysterm::CSS::Qss.to_css("QLineEdit { }").should eq "TextBox { }"
+      Crysterm::CSS::Qss.to_css("QLineEdit { }").should eq "LineEdit { }"
       Crysterm::CSS::Qss.to_css("QTreeView { }").should eq "Tree { }"
       Crysterm::CSS::Qss.to_css("QHeaderView { }").should eq "Header { }"
     end

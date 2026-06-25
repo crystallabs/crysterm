@@ -15,7 +15,7 @@ module Crysterm
     # win = Widget::MainWindow.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
     # win.menu_bar = Widget::ListBar.new keys: true, mouse: true
     # win.status_bar = Widget::StatusBar.new
-    # win.central_widget = Widget::TextArea.new
+    # win.central_widget = Widget::PlainTextEdit.new
     # win.add_dock Widget::DockWidget.new(title: "Files", area: :left)
     # ```
     #

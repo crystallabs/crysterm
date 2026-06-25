@@ -22,7 +22,7 @@ module Crysterm
 
       # The text entry field (Qt's `QInputDialog` line edit). Exposed so callers
       # can configure echo mode / placeholder directly, and for testing.
-      getter textinput = TextBox.new(
+      getter textinput = LineEdit.new(
         top: 3,
         height: 1,
         left: 2,

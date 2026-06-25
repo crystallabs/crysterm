@@ -150,6 +150,40 @@ describe "CSS geometry units" do
     a.height.should eq Int32::MAX
   end
 
+  it "seeds the px divisor from the css.px_per_cell config option" do
+    Superconf.css_px_per_cell = 5.0
+    begin
+      s = render_screen
+      s.stylesheet = "Box#a { width: 200px; }"
+      a = Widget::Box.new parent: s, content: "x"
+      a.css_id = "a"
+      s._render
+      a.width.should eq 40 # 200 / 5
+    ensure
+      Superconf.css_px_per_cell = 10.0 # back to default ⇒ un-configured
+      Crysterm::CSS::Length.divisors["px"] = 10.0
+    end
+  end
+
+  it "seeds divisors from a css.unit_divisors map, with px_per_cell winning for px" do
+    Superconf.css_unit_divisors = "px=4,em=2,cm=none,junk"
+    Superconf.css_px_per_cell = 8.0
+    begin
+      s = render_screen
+      s.stylesheet = "Box#a { width: 200px; height: 4em; }"
+      a = Widget::Box.new parent: s, content: "x"
+      a.css_id = "a"
+      s._render
+      a.width.should eq 25  # map px=4, then px_per_cell=8 wins ⇒ 200 / 8
+      a.height.should eq 2  # em=2 from the map ⇒ 4 / 2
+    ensure
+      Superconf.css_unit_divisors = ""
+      Superconf.css_px_per_cell = 10.0
+      Crysterm::CSS::Length.divisors["px"] = 10.0
+      Crysterm::CSS::Length.divisors["em"] = 1.0
+    end
+  end
+
   it "honors a retuned divisor" do
     original = Crysterm::CSS::Geometry.unit_divisors["px"]
     begin

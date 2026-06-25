@@ -4,7 +4,7 @@ include Crysterm
 
 # Behavioral specs for the Qt-inspired widget options added to Crysterm:
 # `ProgressBar` value range / percentage mapping, `CheckBox` tri-state,
-# `Button` checkable toggling, and `TextArea`/`TextBox` `max_length` /
+# `Button` checkable toggling, and `PlainTextEdit`/`LineEdit` `max_length` /
 # `read_only` / placeholder.
 
 private def qt_mem_screen
@@ -130,24 +130,24 @@ describe Crysterm::Widget::Button do
   end
 end
 
-describe Crysterm::Widget::TextArea do
+describe Crysterm::Widget::PlainTextEdit do
   it "enforces max_length on interactive input" do
     s = qt_mem_screen
-    ta = Crysterm::Widget::TextArea.new parent: s, max_length: 3
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, max_length: 3
     "abcdef".each_char { |c| ta._listener keypress(c) }
     ta.value.should eq "abc"
   end
 
   it "does not truncate programmatic value=" do
     s = qt_mem_screen
-    ta = Crysterm::Widget::TextArea.new parent: s, max_length: 3
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, max_length: 3
     ta.value = "abcdef"
     ta.value.should eq "abcdef"
   end
 
   it "ignores edits when read_only" do
     s = qt_mem_screen
-    ta = Crysterm::Widget::TextArea.new parent: s, read_only: true
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, read_only: true
     ta.value = "hi"
     ta._listener keypress('x')
     ta._listener keypress('\u{8}', Tput::Key::Backspace)
@@ -158,7 +158,7 @@ describe Crysterm::Widget::TextArea do
   # `@cursor_pos`, `@child_offset` ≡ 0, so the attached bar drives the viewport.
   it "defaults to AsNeeded and shows a working bar on overflow" do
     s = qt_mem_screen
-    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 20, height: 5,
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     ta.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
     s._render
@@ -172,7 +172,7 @@ describe Crysterm::Widget::TextArea do
 
   it "drags the bar to scroll the viewport, leaving the caret put" do
     s = qt_mem_screen
-    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 20, height: 5,
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     ta.cursor_pos = 0 # caret at the top
     s._render
@@ -188,7 +188,7 @@ describe Crysterm::Widget::TextArea do
 
   it "follows the caret with the viewport, and the bar follows the view" do
     s = qt_mem_screen
-    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 20, height: 5,
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 5,
       content: (1..30).map { |i| "line#{i}" }.join("\n")
     ta.cursor_pos = 0
     s._render
@@ -203,13 +203,13 @@ describe Crysterm::Widget::TextArea do
 
   it "shows the vertical bar only on real overflow, not for content that fits" do
     s = qt_mem_screen
-    short = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 12, height: 4,
+    short = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 4,
       content: "hi"
     s._render
     short.really_scrollable?.should be_false # `@resizable` no longer forces this
     short.show_scrollbar?.should be_false    # …so no vertical bar for a fitting field
 
-    tall = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 20, width: 12, height: 4,
+    tall = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 20, width: 12, height: 4,
       content: (1..10).map { |i| "L#{i}" }.join("\n")
     s._render
     tall.show_scrollbar?.should be_true
@@ -217,7 +217,7 @@ describe Crysterm::Widget::TextArea do
 
   it "hides the vertical bar again after content shrinks (chrome is not content)" do
     s = qt_mem_screen
-    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 12, height: 6,
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 6,
       content: "hi"
     s._render
     ta.value = (1..20).map { |i| "line#{i}" }.join("\n") # overflow → bar appears
@@ -232,7 +232,7 @@ describe Crysterm::Widget::TextArea do
 
   it "scrolls horizontally for non-wrapped long lines, following the caret" do
     s = qt_mem_screen
-    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 12, height: 3,
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,
       wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     ta.focus
     s._render
@@ -247,7 +247,7 @@ describe Crysterm::Widget::TextArea do
 
   it "drags the horizontal bar without moving the caret" do
     s = qt_mem_screen
-    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 12, height: 3,
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,
       wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     ta.focus
     ta._listener keypress(' ', Tput::Key::Home)
@@ -261,10 +261,10 @@ describe Crysterm::Widget::TextArea do
   end
 end
 
-describe Crysterm::Widget::TextBox do
+describe Crysterm::Widget::LineEdit do
   it "exposes a placeholder while empty without affecting the value" do
     s = qt_mem_screen
-    tb = Crysterm::Widget::TextBox.new parent: s, placeholder: "type here"
+    tb = Crysterm::Widget::LineEdit.new parent: s, placeholder: "type here"
     tb.placeholder.should eq "type here"
     tb.value.should eq ""
   end

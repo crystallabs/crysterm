@@ -8,9 +8,9 @@ class MyProg
   style1 = Style.new fg: "black", bg: "#729fcf", border: Border.new(fg: "black", bg: "#729fcf"), scrollbar: Style.new(bg: "#000000"), track: Style.new(bg: "red")
   style2 = Style.new fg: "black", bg: "magenta", border: Border.new(fg: "black", bg: "#729fcf"), alpha: 0.5, padding: 1
   # style2 = Style.new fg: "white", bg: "#870087", border: Border.new(fg: "black", bg: "#870087", alpha: true), alpha: true
-  style3 = Style.new fg: "black", "bg": "#729fcf", border: Border.new(fg: "magenta", bg: "#729fcf"), bar: Style.new(fg: "#d75f00")
+  style3 = Style.new fg: "black", bg: "#729fcf", border: Border.new(fg: "magenta", bg: "#729fcf"), indicator: Style.new(fg: "#d75f00")
 
-  chat = Widget::TextArea.new \
+  chat = Widget::PlainTextEdit.new \
     top: 0,
     left: 0,
     width: "100%-19",
@@ -20,7 +20,7 @@ class MyProg
     style: style1,
     scrollbar: true
 
-  input = Widget::TextBox.new \
+  input = Widget::LineEdit.new \
     top: "100%-3",
     left: 0,
     width: "100%-19",

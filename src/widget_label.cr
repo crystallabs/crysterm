@@ -7,7 +7,7 @@ module Crysterm
     # over the widget content.
 
     # Widget implementing the label. If label is asked for and no specific
-    # widget is set, we create a TextBox with chosen content.. But one can
+    # widget is set, we create a LineEdit with chosen content.. But one can
     # set this property manually to have a custom/specific label.
     property _label : Widget?
 

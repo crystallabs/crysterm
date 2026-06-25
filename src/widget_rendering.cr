@@ -508,6 +508,10 @@ module Crysterm
         left_attr = sattr border, border.left_fg, border.bg
         right_attr = sattr border, border.right_fg, border.bg
 
+        # The line-drawing glyph set depends only on `border.type`, so resolve it
+        # once here instead of re-dispatching it per cell inside `border_char`.
+        glyphs = border.type.line_glyphs
+
         # `{yi, yl - 1}` is a stack-allocated tuple, not a heap `Array`, so the
         # top/bottom row pair is iterated without per-frame allocation.
         {yi, yl - 1}.each do |y|
@@ -535,7 +539,7 @@ module Crysterm
             cell = line[x]?
             next unless cell
 
-            ch = border_char(border, x, xi, xl, y, yi, yl, default_attr)
+            ch = border_char(border, glyphs, x, xi, xl, y, yi, yl, default_attr)
 
             if cell != {battr, ch}
               cell.attr = battr
@@ -562,7 +566,7 @@ module Crysterm
             cell = line[x]?
             next unless cell
 
-            ch = border_char(border, x, xi, xl, y, yi, yl, default_attr)
+            ch = border_char(border, glyphs, x, xi, xl, y, yi, yl, default_attr)
 
             battr = x == xi ? left_attr : right_attr
 
@@ -644,20 +648,21 @@ module Crysterm
     end
 
     @[AlwaysInline]
-    def border_char(border, x, xi, xl, y, yi, yl, default_attr)
-      if border.type.line?
+    def border_char(border, g, x, xi, xl, y, yi, yl, default_attr)
+      if border.type.line_family?
+        # Per-type glyph set (solid/dashed/dotted/double), resolved once by the
+        # caller. A corner cell falls back to the straight run glyph when one of
+        # its two sides has 0 width.
         ch = case {x, y}
-             when {xi, yi}         then border.left > 0 && border.top > 0 ? '┌' : (border.left == 0 && border.top > 0 ? '─' : '│')
-             when {xl - 1, yi}     then border.right > 0 && border.top > 0 ? '┐' : (border.right == 0 && border.top > 0 ? '─' : '│')
-             when {xi, yl - 1}     then border.left > 0 && border.bottom > 0 ? '└' : (border.left == 0 && border.bottom > 0 ? '─' : '│')
-             when {xl - 1, yl - 1} then border.right > 0 && border.bottom > 0 ? '┘' : (border.right == 0 && border.bottom > 0 ? '─' : '│')
-               # when [xi, yi + 1...yl - 1], [xl - 1, yi + 1...yl - 1] then '│'
-               # else '─'
+             when {xi, yi}         then border.left > 0 && border.top > 0 ? g[:tl] : (border.left == 0 && border.top > 0 ? g[:h] : g[:v])
+             when {xl - 1, yi}     then border.right > 0 && border.top > 0 ? g[:tr] : (border.right == 0 && border.top > 0 ? g[:h] : g[:v])
+             when {xi, yl - 1}     then border.left > 0 && border.bottom > 0 ? g[:bl] : (border.left == 0 && border.bottom > 0 ? g[:h] : g[:v])
+             when {xl - 1, yl - 1} then border.right > 0 && border.bottom > 0 ? g[:br] : (border.right == 0 && border.bottom > 0 ? g[:h] : g[:v])
              else
                if (x == xi || x == xl - 1) && (y > yi && y < yl - 1)
-                 '│'
+                 g[:v]
                else
-                 '─'
+                 g[:h]
                end
              end
       elsif border.type.bg?

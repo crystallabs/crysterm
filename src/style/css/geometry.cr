@@ -7,7 +7,7 @@ module Crysterm
     module Geometry
       PROPERTIES = Set{"width", "height", "top", "left", "right", "bottom",
                        "min-width", "max-width", "min-height", "max-height",
-                       "text-align", "spacing"}
+                       "text-align", "spacing", "lineedit-password-character"}
 
       # Whether *property* is a geometry property handled here.
       def self.handles?(property : String) : Bool
@@ -55,7 +55,26 @@ module Crysterm
           # `gap` lives on the `Layout` base; engines that don't honor it (the
           # flow layouts) simply ignore the value. No-op without a layout.
           value.to_i?.try { |cells| widget.layout.try { |l| l.gap = cells } }
+        when "lineedit-password-character"
+          # Mask character for a censored `LineEdit` (Qt's
+          # `lineedit-password-character`). No-op on any other widget type.
+          widget.as?(Widget::LineEdit).try do |t|
+            password_char(value).try { |c| t.password_character = c }
+          end
         end
+      end
+
+      # Resolves a `lineedit-password-character` value to a `Char`. Qt themes
+      # give a Unicode code point as a bare number (e.g. `9679` ⇒ ●); a literal
+      # (optionally quoted) value uses its first character. `nil` if empty or an
+      # out-of-range code point.
+      private def self.password_char(value : String) : Char?
+        v = value.strip
+        if cp = v.to_i?
+          return (cp.chr rescue nil)
+        end
+        v = v.strip('"').strip('\'')
+        v.empty? ? nil : v[0]
       end
 
       # Resolves a `width`/`height`/`top`/`left` value. A viewport unit (`50vw`)

@@ -17,7 +17,7 @@ require "./spec_helper"
 
   describe "DOM::REGISTRY round-trip invariant" do
     it "discovered the expected core widgets" do
-      %w[box label button checkbox radiobutton form list textarea textbox progressbar].each do |tag|
+      %w[box label button checkbox radiobutton form list plaintextedit lineedit progressbar].each do |tag|
         Crysterm::DOM.registry.has_key?(tag).should be_true
       end
     end

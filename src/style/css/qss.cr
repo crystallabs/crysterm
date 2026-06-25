@@ -10,7 +10,7 @@ module Crysterm
     #      (`QPushButton` -> `PushButton`); Crysterm's widget classes carry no
     #      `Q`.
     #   2. Names Crysterm spells differently are renamed via `RENAMES`
-    #      (`PushButton` -> `Button`, `LineEdit` -> `TextBox`, ...).
+    #      (`PushButton` -> `Button`, `TextEdit` -> `PlainTextEdit`, ...).
     #
     # Only type-selector tokens (a `Q` immediately followed by an upper-case
     # letter) are touched; property names/values, ids, classes and `:state`
@@ -23,7 +23,8 @@ module Crysterm
       # Q-stripped Qt selector => Crysterm widget class name.
       #
       # Identical names (`CheckBox`, `ComboBox`, `GroupBox`, `MenuBar`, `Slider`,
-      # `Widget`, ...) need no entry: step 1's `Q`-strip already lands them.
+      # `Widget`, `LineEdit`, `PlainTextEdit`, ...) need no entry: step 1's
+      # `Q`-strip already lands them.
       # Qt selectors with no Crysterm analog (`ColumnView`, `ColumnViewGrip`,
       # `PrevNextCalButton`, `TableCornerButton`) and ambiguous ones with no
       # single target (`Dialog`) are intentionally absent — they pass through
@@ -42,10 +43,10 @@ module Crysterm
         "Frame"              => "Box",
         "GraphicsView"       => "Canvas",
         "HeaderView"         => "Header",
-        "LineEdit"           => "TextBox",
         "ListView"           => "List",
-        "PlainTextEdit"      => "TextArea",
-        "TextEdit"           => "TextArea",
+        # Qt's rich `TextEdit` folds onto our plain editor (no rich-text widget
+        # yet); `LineEdit`/`PlainTextEdit` are identical and need no entry.
+        "TextEdit"           => "PlainTextEdit",
         "TextBrowser"        => "ScrollableText",
         "TabBar"             => "TabWidget",
         "TableView"          => "Table",

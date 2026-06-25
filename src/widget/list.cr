@@ -598,7 +598,7 @@ module Crysterm
 
       # Lazily-created one-line input shown at the bottom of the screen during a
       # search (see `#start_search`).
-      @search_box : Widget::TextBox? = nil
+      @search_box : Widget::LineEdit? = nil
 
       # Index of the first item whose tag-stripped, case-insensitive text
       # contains *query*, scanning from the current selection and wrapping.
@@ -618,9 +618,9 @@ module Crysterm
         selected
       end
 
-      private def ensure_search_box : Widget::TextBox
+      private def ensure_search_box : Widget::LineEdit
         @search_box ||= begin
-          box = Widget::TextBox.new(
+          box = Widget::LineEdit.new(
             screen: screen,
             bottom: 0, left: 0, right: 0, height: 1,
           )

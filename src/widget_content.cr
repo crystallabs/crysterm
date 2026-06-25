@@ -603,7 +603,7 @@ module Crysterm
       end
 
       # Reserve the right-edge columns content must avoid: the scroll bar's
-      # column when shown, plus any per-widget reservation (a `TextArea`'s
+      # column when shown, plus any per-widget reservation (a `PlainTextEdit`'s
       # end-of-line caret column). `#content_margin_x` is the single source of
       # truth shared with the horizontal-scroll math (`#content_width`).
       margin += content_margin_x

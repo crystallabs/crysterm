@@ -21,7 +21,7 @@ module Crysterm
     #
     # ```
     # form = Widget::Form.new keys: true
-    # name = Widget::TextBox.new parent: form, name: "name", top: 0, height: 1
+    # name = Widget::LineEdit.new parent: form, name: "name", top: 0, height: 1
     # ok = Widget::Button.new parent: form, name: "ok", top: 2, content: "OK"
     #
     # form.on(Crysterm::Event::SubmitData) do |e|
@@ -33,7 +33,7 @@ module Crysterm
     # ![Form screenshot](../../examples/widget/form/form-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Form < Box
-      # When enabled, pressing `Enter` in a `TextBox` child moves focus to the
+      # When enabled, pressing `Enter` in a `LineEdit` child moves focus to the
       # next focusable child (instead of only submitting that field).
       property? auto_next : Bool = false
 
@@ -45,7 +45,7 @@ module Crysterm
       # pairs. `nil` until the form has been submitted at least once.
       getter submission : Hash(String, String)?
 
-      # Tracks `TextBox` children already wired for `auto_next`, so the Submit
+      # Tracks `LineEdit` children already wired for `auto_next`, so the Submit
       # handler is installed at most once per field.
       @auto_next_wired = Set(UInt64).new
 
@@ -84,11 +84,11 @@ module Crysterm
         end
       end
 
-      # Installs (once) a Submit handler on a `TextBox` child so that, when
+      # Installs (once) a Submit handler on a `LineEdit` child so that, when
       # `auto_next` is enabled, submitting the field advances focus.
       private def wire_auto_next(el : Widget)
         return unless @auto_next
-        return unless el.is_a? TextBox
+        return unless el.is_a? LineEdit
         return unless @auto_next_wired.add? el.object_id
         el.on(Crysterm::Event::Submit) do
           focus_next
@@ -207,7 +207,7 @@ module Crysterm
       # The submitted value of a single widget, or `nil` if it is not an input.
       private def field_value(el : Widget) : String?
         case el
-        when TextArea then el.value
+        when PlainTextEdit then el.value
         when CheckBox then el.checked?.to_s
         when List     then el.value
         else               nil
@@ -231,7 +231,7 @@ module Crysterm
         case el
         when FileManager then el.refresh
         when List        then el.selekt 0
-        when TextArea    then el.clear_value
+        when PlainTextEdit    then el.clear_value
         when CheckBox    then el.uncheck
         when ProgressBar then el.reset
         end

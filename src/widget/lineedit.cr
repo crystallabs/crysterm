@@ -1,11 +1,20 @@
+# `LineEdit` subclasses `PlainTextEdit`, which the `widget/**` glob loads
+# *after* this file (`lineedit` sorts before `plaintextedit`), so require the
+# parent explicitly to make it available at class-definition time.
+require "./plaintextedit"
+
 module Crysterm
   class Widget
     # <!-- widget-examples:capture v1 -->
-    # ![TextBox screenshot](../../examples/widget/textbox/textbox-capture5s.apng)
+    # ![LineEdit screenshot](../../examples/widget/lineedit/lineedit-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class TextBox < TextArea
+    class LineEdit < PlainTextEdit
       property secret : Bool = false
       property censor : Bool = false
+
+      # Mask character shown for each hidden character when `censor` is on
+      # (Qt's `lineedit-password-character`). Defaults to `*`.
+      property password_character : Char = '*'
 
       # Greyed-out prompt shown while the box is empty, like Qt's
       # `QLineEdit#placeholderText`. It is purely visual: `#value` stays empty.
@@ -20,9 +29,9 @@ module Crysterm
         parse_tags = false,
         input_on_focus = true,
         scrollable = false,
-        **textarea,
+        **plaintextedit,
       )
-        super **textarea, parse_tags: parse_tags, input_on_focus: input_on_focus, scrollable: scrollable
+        super **plaintextedit, parse_tags: parse_tags, input_on_focus: input_on_focus, scrollable: scrollable
 
         secret.try { |v| @secret = v }
         censor.try { |v| @censor = v }
@@ -42,7 +51,7 @@ module Crysterm
 
       def value=(value = nil)
         # A non-nil argument is an external set (cursor to the end); `nil` is a
-        # redisplay that preserves the cursor (see `TextArea#value=`).
+        # redisplay that preserves the cursor (see `PlainTextEdit#value=`).
         external = !value.nil?
         value ||= @value
         value = value.gsub /\n/, ""
@@ -65,7 +74,7 @@ module Crysterm
           elsif @censor
             # One mask char per user-perceived character (grapheme) under
             # full_unicode; per codepoint otherwise.
-            "*" * (full_unicode? ? value.graphemes.size : value.size)
+            @password_character.to_s * (full_unicode? ? value.graphemes.size : value.size)
           else
             val = @value.gsub /\t/, style.tab_char * style.tab_size
             # Show the tail of the value that fits the input's visible width

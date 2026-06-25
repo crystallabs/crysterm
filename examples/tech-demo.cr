@@ -122,7 +122,7 @@ module Crysterm
     content: "Big"
   )
 
-  textarea = TextArea.new(
+  textarea = PlainTextEdit.new(
     parent: layout,
     width: 36,
     input_on_focus: true,
@@ -131,12 +131,12 @@ module Crysterm
     content: ""
   )
 
-  textbox = TextBox.new(
+  textbox = LineEdit.new(
     parent: layout,
     width: 36,
     height: 3,
     style: Style.new(border: true),
-    content: "TextBox. One-line element."
+    content: "LineEdit. One-line element."
   )
 
   boxtp2 = Box.new(
@@ -178,7 +178,7 @@ module Crysterm
 
   s.render
 
-  textv = "TextArea. This is a multi-line user input enabled widget with automatic content wrapping. " +
+  textv = "PlainTextEdit. This is a multi-line user input enabled widget with automatic content wrapping. " +
           "There is a lot of text that can fit it, when the terminal doesn't use too big font."
   textboxv = " This will add more text to textbox and always show only visible portion."
 

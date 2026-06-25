@@ -3,7 +3,7 @@ require "../../widget/list"
 module Crysterm
   # Autocompletion helper for a text input, modeled after Qt's `QCompleter`.
   #
-  # A `Completer` is not a widget; it attaches to a `Widget::TextBox` and offers
+  # A `Completer` is not a widget; it attaches to a `Widget::LineEdit` and offers
   # completions from a fixed list (its *model*) as the user types. The matches
   # appear in a drop-down `Widget::List` below the box; Down/Up move the
   # highlight (Down also opens the list), Enter or Tab inserts the highlighted
@@ -11,7 +11,7 @@ module Crysterm
   # focus throughout.
   #
   # ```
-  # box = Widget::TextBox.new parent: screen, top: 2, left: 2, width: 30, height: 1
+  # box = Widget::LineEdit.new parent: screen, top: 2, left: 2, width: 30, height: 1
   # comp = Completer.new %w[apple apricot banana blueberry cherry]
   # comp.attach box
   # ```
@@ -21,7 +21,7 @@ module Crysterm
   #
   # NOTE The per-keystroke filter handler is (re)registered *after* the text
   # box's own input handler so it always sees the updated value; this relies on
-  # the box using `input_on_focus` (the `Widget::TextBox` default).
+  # the box using `input_on_focus` (the `Widget::LineEdit` default).
   class Completer
     # How a candidate is matched against the typed text.
     enum Mode
@@ -111,7 +111,7 @@ module Crysterm
       end
     end
 
-    @widget : Widget::TextBox?
+    @widget : Widget::LineEdit?
     @popup : Popup?
     @open = false
     @matches = [] of String
@@ -135,7 +135,7 @@ module Crysterm
     # Attaches the completer to *widget*. Installs the navigation interceptor
     # immediately, and the per-keystroke filter handler so that it runs after the
     # box's input handler (now if already focused, otherwise on first focus).
-    def attach(widget : Widget::TextBox) : Nil
+    def attach(widget : Widget::LineEdit) : Nil
       detach
       @widget = widget
 
@@ -199,7 +199,7 @@ module Crysterm
     # The per-keystroke filter handler. Re-registered at the tail (removing any
     # prior one) so it always runs *after* the box's input handler and therefore
     # sees the post-keystroke `#value`.
-    private def install_filter(widget : Widget::TextBox) : Nil
+    private def install_filter(widget : Widget::LineEdit) : Nil
       @filter.try { |h| widget.off Crysterm::Event::KeyPress, h }
       @filter = widget.on(Crysterm::Event::KeyPress, at: ::EventHandler.at_end) do |_|
         if @suppress_filter
@@ -339,7 +339,7 @@ module Crysterm
       commit_index(@popup.try(&.selected) || 0)
     end
 
-    private def ensure_popup(widget : Widget::TextBox) : Popup
+    private def ensure_popup(widget : Widget::LineEdit) : Popup
       @popup ||= begin
         pop = Popup.new(
           screen: widget.screen,
@@ -364,7 +364,7 @@ module Crysterm
       end
     end
 
-    private def position(pop : Widget::List, widget : Widget::TextBox) : Nil
+    private def position(pop : Widget::List, widget : Widget::LineEdit) : Nil
       begin
         pop.top = widget.atop + widget.aheight
         pop.left = widget.aleft

@@ -3,9 +3,9 @@ module Crysterm
     # Text area element
     #
     # <!-- widget-examples:capture v1 -->
-    # ![TextArea screenshot](../../examples/widget/textarea/textarea-capture5s.apng)
+    # ![PlainTextEdit screenshot](../../examples/widget/plaintextedit/plaintextedit-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class TextArea < Input
+    class PlainTextEdit < Input
       @_reading = false
 
       @scrollable = true
@@ -107,18 +107,18 @@ module Crysterm
         # XXX if mouse...
       end
 
-      # A `TextArea` has a fixed viewport that scrolls its content, so whether it
+      # A `PlainTextEdit` has a fixed viewport that scrolls its content, so whether it
       # is "scrollable right now" is a real content-vs-height overflow test — not
       # the `@resizable` always-scrollable short-circuit it would otherwise
       # inherit from `Input` (`really_scrollable?` returns `@scrollable` for
       # resizable widgets, which made an `AsNeeded` vertical bar show even when the
-      # content fits). Without this, every `TextArea` — even a one-line one —
+      # content fits). Without this, every `PlainTextEdit` — even a one-line one —
       # showed a vertical scroll bar.
       def really_scrollable?
         get_scroll_height > (aheight - iheight)
       end
 
-      # A `TextArea` reserves one extra right-edge column beyond the scroll bar's
+      # A `PlainTextEdit` reserves one extra right-edge column beyond the scroll bar's
       # so the caret has somewhere to sit at the end of a full-width line. Folded
       # into the shared content/horizontal-scroll width via `super`.
       def content_margin_x : Int32
@@ -515,7 +515,7 @@ module Crysterm
       end
 
       # Finishes the current read, submitting the entered text. Previously this
-      # routed an Enter keypress through `@__listener`, but the TextArea listener
+      # routed an Enter keypress through `@__listener`, but the PlainTextEdit listener
       # treats Enter as inserting a literal newline — so `submit` *inserted a
       # newline* instead of completing. Call the done-callback directly with the
       # value so the `Submit` (and `read_input`) path fires.

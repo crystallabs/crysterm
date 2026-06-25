@@ -18,7 +18,7 @@ Widget::Box.new \
 list = Widget::List.new \
   parent: s, top: 1, left: 0, width: 22, height: 14,
   items: ["Box", "Button", "Checkbox", "RadioButton", "List", "Table",
-          "ProgressBar", "TextArea", "Loading", "BigText", "Media", "Menu"],
+          "ProgressBar", "PlainTextEdit", "Loading", "BigText", "Media", "Menu"],
   style: Style.new(fg: "white", bg: "black", border: true)
 
 progress = Widget::ProgressBar.new \
@@ -34,7 +34,7 @@ button = Widget::Button.new \
   parent: s, top: 9, left: 23, width: 32, height: 3, align: :hcenter,
   content: "OK", style: Style.new(fg: "yellow", bg: "blue", border: true)
 
-input = Widget::TextBox.new \
+input = Widget::LineEdit.new \
   parent: s, top: 12, left: 23, width: 32, height: 1,
   style: Style.new(fg: "black", bg: "green")
 

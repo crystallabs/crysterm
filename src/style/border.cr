@@ -1,18 +1,41 @@
 module Crysterm
   # Type of border to draw.
   enum BorderType
-    Bg   # Bg color
-    Line # Line, drawn in ACS or Unicode chars
-    # Dotted
-    # Dashed
-    # Solid
-    # Double
+    Bg     # Bg color (a fill character, see `Border#fill_char`)
+    Line   # Solid line, drawn in light box-drawing chars
+    Dashed # Dashed line (light box-drawing dashes)
+    Dotted # Dotted line (light box-drawing dots)
+    Double # Double line
     # DotDash
     # DotDotDash
     # Groove
     # Ridge
     # Inset
     # Outset
+
+    # Whether this is a line-drawing border (as opposed to the `Bg`
+    # fill-character border). `Line`, `Dashed`, `Dotted` and `Double` all use
+    # box-drawing glyphs; only their glyph set differs.
+    def line_family?
+      self != Bg
+    end
+
+    # The six glyphs used to draw a line-family border: the four corners
+    # (`tl`/`tr`/`bl`/`br`) plus the horizontal (`h`) and vertical (`v`) runs.
+    # The dashed/dotted variants keep the light corners and only swap the
+    # straight runs; `Double` swaps all six.
+    def line_glyphs
+      case self
+      when Double
+        {tl: '╔', tr: '╗', bl: '╚', br: '╝', h: '═', v: '║'}
+      when Dashed
+        {tl: '┌', tr: '┐', bl: '└', br: '┘', h: '┄', v: '┆'}
+      when Dotted
+        {tl: '┌', tr: '┐', bl: '└', br: '┘', h: '┈', v: '┊'}
+      else # Line (and any non-line type, defensively)
+        {tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│'}
+      end
+    end
   end
 
   # Class for border definition.

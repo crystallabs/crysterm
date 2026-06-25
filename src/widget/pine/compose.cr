@@ -16,8 +16,8 @@ module Crysterm
       # ```
       #
       # Move between fields with Tab / Shift-Tab (the `Screen`'s built-in focus
-      # navigation). Each header field is a `Widget::TextBox`; the body is a
-      # `Widget::TextArea`. Values are exposed via `#values` for the demo.
+      # navigation). Each header field is a `Widget::LineEdit`; the body is a
+      # `Widget::PlainTextEdit`. Values are exposed via `#values` for the demo.
       #
       # <!-- widget-examples:capture v1 -->
       # ![Compose screenshot](../../../examples/widget/pine/compose/compose-capture5s.apng)
@@ -27,10 +27,10 @@ module Crysterm
         FIELD_NAMES = ["To", "Cc", "Bcc", "Attchmnt", "Subject"]
 
         # The header input boxes, keyed by lower-cased field name.
-        getter fields = {} of String => Widget::TextBox
+        getter fields = {} of String => Widget::LineEdit
 
         # The message-body editor.
-        getter! body : Widget::TextArea
+        getter! body : Widget::PlainTextEdit
 
         def initialize(**box)
           super **box
@@ -48,7 +48,7 @@ module Crysterm
               style: label_style,
             )
 
-            input = Widget::TextBox.new(
+            input = Widget::LineEdit.new(
               screen: screen,
               top: i,
               left: 10,
@@ -75,7 +75,7 @@ module Crysterm
           )
           append separator
 
-          body = Widget::TextArea.new(
+          body = Widget::PlainTextEdit.new(
             screen: screen,
             top: sep_top + 1,
             left: 0,

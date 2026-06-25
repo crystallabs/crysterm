@@ -53,6 +53,9 @@ module Crysterm
           words = value.split
           style.underline = words.includes?("underline")
           style.blink = words.includes?("blink")
+          # `line-through` maps to the terminal's strikethrough attribute
+          # (`Style#strike` / SGR 9). Shorthand semantics: absent -> off.
+          style.strike = words.includes?("line-through")
           # `reverse` (alias `inverse`) maps to the terminal's reverse-video
           # attribute — the classic TUI selection/highlight look, which has no
           # standard CSS spelling. Shorthand semantics: absent -> off.
@@ -280,32 +283,52 @@ module Crysterm
         end
       end
 
+      # A border-shorthand token that is a width: a bare integer, optionally
+      # with the default `px` unit (e.g. `2`, `2px`). Anything else in a
+      # shorthand is a style keyword or a color.
+      WIDTH_TOKEN = /\A\d+(?:px)?\z/
+
+      # Maps a CSS `border-style` keyword to a `BorderType`, or `nil` if the
+      # token isn't a style keyword (a width, color, or `none`). `solid`/`line`
+      # both mean the light line border; `bg`/`background` the fill-char border;
+      # `dashed`/`dotted`/`double` their respective glyph sets.
+      private def self.border_type_keyword(token : String) : BorderType?
+        case token
+        when "solid", "line"    then BorderType::Line
+        when "dashed"           then BorderType::Dashed
+        when "dotted"           then BorderType::Dotted
+        when "double"           then BorderType::Double
+        when "bg", "background" then BorderType::Bg
+        else                         nil
+        end
+      end
+
       # A single-side `border-<side>` shorthand: a width sets that side, a style
       # keyword sets the border type (or hides the side with `none`), and any
       # other token is treated as the whole-border color.
       private def self.apply_border_side(border : Border, side : Symbol, value : String) : Nil
         value.split.each do |token|
-          case token
-          when "none"             then set_side border, side, 0
-          when "solid", "line"    then border.type = BorderType::Line; ensure_side border, side
-          when "bg", "background" then border.type = BorderType::Bg; ensure_side border, side
-          when /\A\d+(?:px)?\z/   then set_side border, side, border_cells(token)
-          else                         border.fg = ColorValue.resolve(token, border.fg)
+          if token == "none"
+            set_side border, side, 0
+          elsif type = border_type_keyword(token)
+            border.type = type
+            ensure_side border, side
+          elsif token.matches?(WIDTH_TOKEN)
+            set_side border, side, border_cells(token)
+          else
+            border.fg = ColorValue.resolve(token, border.fg)
           end
         end
       end
 
       # Applies a `border-style` keyword to the given *sides*: `none` hides them,
-      # `solid`/`line` and `bg` set the type (enabling the sides).
+      # any line/fill keyword (`solid`/`line`/`dashed`/`dotted`/`double`/`bg`)
+      # sets the type and enables the sides.
       private def self.apply_border_style(border : Border, value : String, sides : Tuple) : Nil
-        case value
-        when "none"
+        if value == "none"
           sides.each { |side| set_side border, side, 0 }
-        when "solid", "line"
-          border.type = BorderType::Line
-          sides.each { |side| ensure_side border, side }
-        when "bg", "background"
-          border.type = BorderType::Bg
+        elsif type = border_type_keyword(value)
+          border.type = type
           sides.each { |side| ensure_side border, side }
         end
       end
@@ -410,12 +433,9 @@ module Crysterm
         return Border.new(0) if value.strip == "none"
         border = Border.new # default: line border, 1 cell on each side
         value.split.each do |token|
-          case token
-          when "solid", "line"
-            border.type = BorderType::Line
-          when "bg", "background"
-            border.type = BorderType::Bg
-          when /\A\d+(?:px)?\z/
+          if type = border_type_keyword(token)
+            border.type = type
+          elsif token.matches?(WIDTH_TOKEN)
             w = border_cells(token)
             border.left = border.top = border.right = border.bottom = w
           else

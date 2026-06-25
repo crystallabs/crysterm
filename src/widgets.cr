@@ -31,8 +31,8 @@ module Crysterm
     ScrollableBox  = Widget::ScrollableBox
     ScrollableText = Widget::ScrollableText
     Marquee        = Widget::Marquee
-    TextBox        = Widget::TextBox
-    TextArea       = Widget::TextArea
+    LineEdit       = Widget::LineEdit
+    PlainTextEdit  = Widget::PlainTextEdit
 
     BigText = Widget::BigText
 

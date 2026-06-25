@@ -181,8 +181,8 @@ module Crysterm
 
       /* Editable fields (Button is an Input subclass, so this comes first and
          the Button rules below win the equal-specificity tie via source order). */
-      Input, TextBox, TextArea, SpinBox, DoubleSpinBox, ComboBox { background-color: var(--surface-dark); color: var(--text); }
-      Input:focus, TextBox:focus, TextArea:focus, SpinBox:focus, DoubleSpinBox:focus, ComboBox:focus { background-color: var(--surface-light); }
+      Input, LineEdit, PlainTextEdit, SpinBox, DoubleSpinBox, ComboBox { background-color: var(--surface-dark); color: var(--text); }
+      Input:focus, LineEdit:focus, PlainTextEdit:focus, SpinBox:focus, DoubleSpinBox:focus, ComboBox:focus { background-color: var(--surface-light); }
 
       /* Buttons (after Input so they win the tie) */
       Button { background-color: var(--muted-dark); color: var(--text); }

@@ -35,6 +35,49 @@ module Crysterm
         "in"  => nil,
       }
 
+      # Seeds the divisor table from the `css.unit_divisors` / `css.px_per_cell`
+      # config options — but only for whichever an app actually set (env / file /
+      # CLI / API); an untouched option leaves the table alone, so a programmatic
+      # `divisors[...]` tweak still stands. The `css.unit_divisors` comma map is
+      # applied first, then the `css.px_per_cell` shortcut wins for `px`. Called
+      # once per `Screen` at startup; idempotent, so calling it again is harmless.
+      def self.apply_config : Nil
+        if config_set?("css.unit_divisors")
+          merge_divisor_spec(Superconf.css_unit_divisors)
+        end
+        if config_set?("css.px_per_cell")
+          divisors["px"] = Superconf.css_px_per_cell
+        end
+      end
+
+      # Whether a config option carries a non-default value (i.e. an app actually
+      # configured it). Compared as the rendered string so it works for any option
+      # type; a value equal to the default is treated as unconfigured, so it never
+      # overrides a programmatic `divisors[...]` tweak (and tests stay isolated).
+      private def self.config_set?(key : String) : Bool
+        opt = Superconf[key]
+        opt.stringify != opt.default_string
+      end
+
+      # Parses a `"px=10,pt=7.5,cm=none"` map and merges it onto `divisors`: a
+      # positive number sets the unit, `none`/`nil`/`drop` maps it to `nil`
+      # (ignored), and any malformed entry is skipped — parsing is non-fatal.
+      private def self.merge_divisor_spec(spec : String) : Nil
+        spec.split(',') do |entry|
+          key, _, val = entry.partition('=')
+          key = key.strip.downcase
+          next if key.empty?
+          case val = val.strip.downcase
+          when "none", "nil", "drop"
+            divisors[key] = nil
+          else
+            if (f = val.to_f?) && f > 0
+              divisors[key] = f
+            end
+          end
+        end
+      end
+
       # Splits a `<number><unit>` length into number + (letters-only) unit. `%`
       # forms are intentionally excluded so they pass through to the positioner.
       PATTERN = /\A(-?\d+(?:\.\d+)?)([a-z]+)\z/i

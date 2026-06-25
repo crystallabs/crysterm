@@ -19,7 +19,7 @@ class MyProg
     parent: s
 
   # User input box
-  input = Widget::TextBox.new \
+  input = Widget::LineEdit.new \
     top: "100%-2",
     left: 0,
     width: "100%",
@@ -39,7 +39,7 @@ class MyProg
     end
   end
 
-  # Handle the line being entered. The `TextBox` reads input while focused and,
+  # Handle the line being entered. The `LineEdit` reads input while focused and,
   # on Enter, emits `Event::Submit` with the typed text and then gives up focus
   # (it is an input-on-focus widget). We append the line to the main box and
   # re-focus the input so the user can keep typing line after line; without the

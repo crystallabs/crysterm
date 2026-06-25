@@ -408,7 +408,7 @@ describe "ScrollBar rendering" do
     s = render_screen
     # A focusable sibling holds focus, so the bar renders in its normal state
     # (chrome is typically unfocused) — the state the unprefixed rules target.
-    Crysterm::Widget::TextBox.new parent: s, top: 10, left: 0, width: 10, height: 1
+    Crysterm::Widget::LineEdit.new parent: s, top: 10, left: 0, width: 10, height: 1
     sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
       minimum: 0, maximum: 10, value: 0, stepper_buttons: true
     s.stylesheet = "ScrollBar::add-page { background-color: #00ff00; } " \
@@ -579,9 +579,9 @@ describe "ListTable column-level horizontal scrolling (workstream D)" do
 end
 
 describe "Horizontal scroll reaches the last column past the reserved margin" do
-  it "scrolls a TextArea fully right despite its caret-column margin" do
+  it "scrolls a PlainTextEdit fully right despite its caret-column margin" do
     s = render_screen
-    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 12, height: 3,
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,
       wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     ta.focus
     s._render

@@ -326,7 +326,7 @@ module Crysterm
         # XXX But look at this. Unless the key is processed by screen, it gets
         # passed to widget in focus and from there to its parents. How can a widget
         # on a screen, which is not in focus,
-        # When a widget has grabbed keys (e.g. a `TextArea`/`TextBox` reading
+        # When a widget has grabbed keys (e.g. a `PlainTextEdit`/`LineEdit` reading
         # input), the key goes to the focused widget only — it must NOT also
         # propagate up to ancestors, or e.g. typing `j`/`k` into a text field
         # inside a `vi:`-enabled `Form` would both insert the character and

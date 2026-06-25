@@ -294,7 +294,7 @@ module Crysterm
     # the vertical scroll bar's column when shown. `_wrap_content` subtracts this
     # (so wrapped/clipped content avoids the bar), and the horizontal-scroll math
     # uses it via `#content_width`, keeping the two in agreement. Subclasses add
-    # their own reservations (`TextArea`'s end-of-line caret column).
+    # their own reservations (`PlainTextEdit`'s end-of-line caret column).
     def content_margin_x : Int32
       show_scrollbar? ? 1 : 0
     end
@@ -396,7 +396,7 @@ module Crysterm
       bottom = @children.reduce(0) do |current, el|
         # `fixed` children are chrome, not scrollable content — the scroll bars
         # (pinned to the right/bottom edge) and labels. Counting them inflated the
-        # scroll height to ~the viewport height, which (e.g.) kept a `TextArea`'s
+        # scroll height to ~the viewport height, which (e.g.) kept a `PlainTextEdit`'s
         # vertical bar stuck on after its content shrank back to a single line.
         next current if el.fixed?
 

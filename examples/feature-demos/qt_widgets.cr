@@ -19,7 +19,7 @@
 #   * StackedWidget    — auto-cycling pages (no tab bar)
 #   * ButtonGroup      — exclusive toggle buttons (only one stays on)
 #   * ToolButton       — a default Action plus a Down-key popup menu
-#   * Completer        — type-ahead autocomplete attached to a TextBox
+#   * Completer        — type-ahead autocomplete attached to a LineEdit
 #   * ColorDialog      — modal palette picker that recolors a swatch
 #   * DialogButtonBox  — standard Ok/Apply/Cancel buttons with accept/reject roles
 #
@@ -247,7 +247,7 @@ end
 
 # Extras tab: the newest Qt-modeled widgets — ButtonGroup (exclusive toggle
 # buttons), ToolButton (default action + popup menu), Completer (autocomplete on
-# a TextBox), ColorDialog (modal picker), and DialogButtonBox (standard buttons).
+# a LineEdit), ColorDialog (modal picker), and DialogButtonBox (standard buttons).
 
 # Exclusive ButtonGroup: three checkable buttons of which only one stays "on".
 mode_labels = %w[Low Mid High]
@@ -290,9 +290,9 @@ toolbtn = Widget::ToolButton.new \
   style: Style.new(fg: "white", bg: "#252540")
 toolbtn.tool_tip = "Enter/Space applies; Down opens the menu"
 
-# Completer: type into the TextBox to autocomplete from a fixed word list.
+# Completer: type into the LineEdit to autocomplete from a fixed word list.
 Widget::Box.new parent: extraspage, top: 5, left: 1, width: 9, height: 1, content: "Lang:"
-langbox = Widget::TextBox.new \
+langbox = Widget::LineEdit.new \
   parent: extraspage, top: 5, left: 10, width: 18, height: 1,
   style: Style.new(fg: "white", bg: "#303030")
 langbox.tool_tip = "Type to autocomplete (Down opens the list, Tab/Enter accepts)"
