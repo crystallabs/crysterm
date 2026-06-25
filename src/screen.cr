@@ -89,6 +89,13 @@ module Crysterm
     # TODO make these check @output, not STDOUT which is probably used. Also see how urwid does the size check
     property height = 1
 
+    # Whether `width`/`height` were given explicitly to the constructor. When set,
+    # `#on_attach` must not overwrite them with the size probed from the terminal
+    # (which, for a headless screen whose output is an `IO::Memory`, falls back to
+    # the *real* controlling terminal — see `Tput#get_screen_size`). This keeps a
+    # fixed-size `Screen` fixed, as tests and off-screen rendering rely on.
+    @explicit_size = false
+
     # Terminal cell size in pixels, detected once at startup (`0` = the terminal
     # reported none). Set by `#detect_cell_geometry`; drives the CSS cell aspect
     # ratio and is a ready source for pixel-addressed graphics.
@@ -158,8 +165,8 @@ module Crysterm
       @output = @output,
       @error = @error,
       @title = @title,
-      @width = @width,
-      @height = @height,
+      width : Int32? = nil,
+      height : Int32? = nil,
       @dock_borders = @dock_borders,
       @dock_contrast = @dock_contrast,
       @always_propagate = @always_propagate,
@@ -228,6 +235,14 @@ module Crysterm
       self.optimization = optimization
       padding.try { |pad| @padding = Padding.from(pad) }
       title.try { |t| self.title = t }
+
+      # An explicitly-sized screen keeps its size; `#on_attach` (fired below) must
+      # not replace it with the probed terminal size.
+      if width || height
+        @explicit_size = true
+        width.try { |w| @width = w }
+        height.try { |h| @height = h }
+      end
 
       @_resize_loop_fiber = spawn(name: "resize_loop") { resize_loop }
 
@@ -360,8 +375,12 @@ module Crysterm
       # Take the size from *this* screen's own `tput`, which sized itself from
       # its own output fd. Using the global `::Term::Screen` here would probe
       # STDIN/STDOUT and give every screen the launching terminal's size.
-      @width = self.tput.screen.width
-      @height = self.tput.screen.height
+      # Skip when the size was pinned explicitly at construction (headless /
+      # fixed-size screens), so it isn't replaced by a probed terminal size.
+      unless @explicit_size
+        @width = self.tput.screen.width
+        @height = self.tput.screen.height
+      end
 
       # Push resize event to screens assigned to this display. We choose this approach
       # because it results in less links between the components (as opposed to pull model).
@@ -390,9 +409,13 @@ module Crysterm
     end
 
     def on_resize(e)
+      # A pinned, explicitly-sized screen ignores the terminal's reported size;
+      # its dimensions only change when set directly (see `@explicit_size`).
       e.size.try { |size|
-        @width = size.width
-        @height = size.height
+        unless @explicit_size
+          @width = size.width
+          @height = size.height
+        end
       }
 
       realloc

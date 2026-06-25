@@ -46,7 +46,10 @@ describe "Crysterm config integration" do
     # so the test is independent of the host terminal and any global screen).
     Crysterm::Config.set "media.backend", Crysterm::Widget::Media::Backend::Auto
     ti = (Unibilium.from_env rescue Unibilium.from_terminal("xterm"))
-    tput = Tput.new(terminfo: ti, input: STDIN, output: STDOUT)
+    # `probe: false` — emulator facts are set explicitly below, so suppress the
+    # live terminal probe that would otherwise write query sequences to STDOUT
+    # (and echo the replies) into the middle of the spec run's progress output.
+    tput = Tput.new(terminfo: ti, input: STDIN, output: STDOUT, probe: false)
 
     # Picks Kitty when the terminal speaks the kitty graphics protocol...
     tput.emulator.kitty = true
