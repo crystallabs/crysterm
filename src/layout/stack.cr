@@ -28,6 +28,7 @@ module Crysterm
         shown = current.clamp(0, children.size - 1)
 
         children.each_with_index do |el, i|
+          next if el.layout_excluded?
           # Every child gets an index slot (z-order bookkeeping) regardless.
           bump_index el
           if i == shown

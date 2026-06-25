@@ -190,6 +190,7 @@ module Crysterm
         AnimatedImage # an animated image — GIF / APNG (Qt Quick: AnimatedImage)
         Video         # a video file, decoded via `Media::VideoSource` (Qt Quick: Video)
         Painter       # vector/line-art rasterized fresh each frame (`Graph::Canvas`)
+        Background    # an image painted *behind* a widget's content (CSS `background-image`)
       end
 
       # The default backend when `type:` is not given, resolved from the config
@@ -263,6 +264,15 @@ module Crysterm
           # re-blit for thin lines, so it ranks above iTerm here. `Glyph` (braille
           # by default, set on `Graph::Canvas`) is the universal sub-cell fallback.
           [Type::Kitty, Type::Sixel, Type::Iterm, Type::Glyph, Type::Ansi]
+        in Content::Background
+          # A background sits *behind* text. Only Kitty draws true pixels under the
+          # cell grid (negative `z=`); the in-band raster backends (sixel/iTerm)
+          # own their cells and can't sit under text, so they're excluded. The
+          # cell-grid backends (`Glyph`/`Ansi`) render the image *into* the buffer,
+          # so they compose under content the ordinary way — the universal fallback.
+          # The user picks among these via `image.exclude` (e.g. exclude `kitty` to
+          # force the cell-grid look).
+          [Type::Kitty, Type::Glyph, Type::Ansi]
         end
       end
 

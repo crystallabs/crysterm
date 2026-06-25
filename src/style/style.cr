@@ -77,6 +77,32 @@ module Crysterm
     # plane's opacity. `nil` = the base layer (the ordinary painter's path).
     property z_index : Int32?
 
+    # How a `background_image` is scaled to fill the widget box.
+    enum BackgroundSize
+      Cover   # fill the box, preserve aspect, crop overflow (default)
+      Contain # fit entirely inside the box, preserve aspect, letterbox remainder
+      Stretch # stretch to fill exactly, ignoring aspect (CSS `100% 100%`)
+      Auto    # natural size, no scaling (CSS default `auto`)
+    end
+
+    # CSS `background-image`: the `url(...)` path/URL of an image painted *behind*
+    # the widget's own content. `nil` = none. Realized lazily as an internal
+    # `Widget::Media` background layer (see `Widget#update_background_media`); the
+    # backend is chosen by `Media.resolve(Content::Background)` and so only has a
+    # visible effect where a background-capable backend is available (Kitty for
+    # true pixels under the text, or the cell-grid `Glyph`/`Ansi` fallback).
+    property background_image : String?
+
+    # CSS `background-size`: how `background_image` fills the box. Default `Cover`
+    # (rather than the strict CSS `auto`) — the most useful default for a widget
+    # backdrop. Explicit assignment is tracked so the cascade folds it.
+    getter background_size : BackgroundSize = BackgroundSize::Cover
+
+    def background_size=(value : BackgroundSize) : BackgroundSize
+      @specified << :background_size
+      @background_size = value
+    end
+
     # CSS `transition`: animatable property name -> `{duration, easing}`. When an
     # animated property's value changes (e.g. on a `:hover`/`:focus` state change)
     # the new value is tweened in over its duration rather than snapping. Set by
@@ -104,15 +130,16 @@ module Crysterm
     # Whether *property* was explicitly set on this style.
     def specified?(property : Symbol) : Bool
       case property
-      when :fg             then !@fg.nil?
-      when :bg             then !@bg.nil?
-      when :alpha          then !@alpha.nil?
-      when :tint           then !@tint.nil?
-      when :gridline_color then !@gridline_color.nil?
-      when :z_index        then !@z_index.nil?
-      when :transition     then !@transitions.nil?
-      when :animation      then !@animation.nil?
-      else                      @specified.includes?(property)
+      when :fg               then !@fg.nil?
+      when :bg               then !@bg.nil?
+      when :alpha            then !@alpha.nil?
+      when :tint             then !@tint.nil?
+      when :gridline_color   then !@gridline_color.nil?
+      when :z_index          then !@z_index.nil?
+      when :background_image then !@background_image.nil?
+      when :transition       then !@transitions.nil?
+      when :animation        then !@animation.nil?
+      else                        @specified.includes?(property)
       end
     end
 

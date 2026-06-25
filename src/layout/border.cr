@@ -56,6 +56,7 @@ module Crysterm
         # order with zero per-frame allocation. Children retain their relative
         # order within a region (container order), exactly as the buckets did.
         container.children.each do |el|
+          next if el.layout_excluded?
           next unless region_of(el).top?
           ch = el.aheight
           el.left = x0; el.top = y0; el.width = x1 - x0; el.height = ch
@@ -63,6 +64,7 @@ module Crysterm
           y0 += ch
         end
         container.children.each do |el|
+          next if el.layout_excluded?
           next unless region_of(el).bottom?
           ch = el.aheight
           el.left = x0; el.top = y1 - ch; el.width = x1 - x0; el.height = ch
@@ -70,6 +72,7 @@ module Crysterm
           y1 -= ch
         end
         container.children.each do |el|
+          next if el.layout_excluded?
           next unless region_of(el).left?
           cw = el.awidth
           el.left = x0; el.top = y0; el.width = cw; el.height = y1 - y0
@@ -77,6 +80,7 @@ module Crysterm
           x0 += cw
         end
         container.children.each do |el|
+          next if el.layout_excluded?
           next unless region_of(el).right?
           cw = el.awidth
           el.left = x1 - cw; el.top = y0; el.width = cw; el.height = y1 - y0
@@ -84,6 +88,7 @@ module Crysterm
           x1 -= cw
         end
         container.children.each do |el|
+          next if el.layout_excluded?
           # Center is the default region: everything not top/bottom/left/right.
           r = region_of el
           next if r.top? || r.bottom? || r.left? || r.right?

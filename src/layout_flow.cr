@@ -27,6 +27,7 @@ module Crysterm
         before_flow container
 
         container.children.each_with_index do |el, i|
+          next if el.layout_excluded?
           # Every child consumes a render index, even one we skip below, to
           # match the original loop's z-order bookkeeping.
           bump_index el

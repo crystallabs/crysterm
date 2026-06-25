@@ -375,6 +375,8 @@ module Crysterm
         end
         style.gridline_color = inline.gridline_color if inline.specified?(:gridline_color)
         style.z_index = inline.z_index if inline.specified?(:z_index)
+        style.background_image = inline.background_image if inline.specified?(:background_image)
+        style.background_size = inline.background_size if inline.specified?(:background_size)
         style.transitions = inline.transitions if inline.specified?(:transition)
         style.animation = inline.animation if inline.specified?(:animation)
         # `specified?` (not `any?`) so an inline style can switch border/padding/

@@ -36,9 +36,18 @@ module Crysterm
           # `Cascade#selection_entries`). Named here only so they're not treated
           # as unknown; the value is consumed there.
         when "background"
-          # `background` shorthand: pull the color out (image/position/repeat
-          # parts are meaningless in a terminal and ignored).
+          # `background` shorthand: pull out the color *and* a `url(...)` image.
+          # Per CSS shorthand semantics this resets the image layer, so a
+          # `background` with no `url(...)` clears any prior `background-image`.
+          # (position/repeat and the `/size` syntax are not parsed from the
+          # shorthand yet; set `background-size` longhand for scaling.)
           parse_background_color(value, style.fg).try { |color| style.bg = color }
+          style.background_image = parse_background_image(value)
+        when "background-image"
+          # `none` (or any value without a `url(...)`) clears it.
+          style.background_image = parse_background_image(value)
+        when "background-size"
+          style.background_size = parse_background_size(value)
         when "font"
           # `font` shorthand: only the weight/style words mean anything here;
           # presence sets the attribute, absence resets it (shorthand semantics).
@@ -110,7 +119,8 @@ module Crysterm
       end
 
       KNOWN = Set{
-        "color", "background-color", "background", "font", "font-weight",
+        "color", "background-color", "background", "background-image",
+        "background-size", "font", "font-weight",
         "font-style", "text-decoration", "visibility", "display", "opacity",
         "tab-size", "box-shadow", "tint", "z-index", "transition", "animation",
         "padding", "padding-left", "padding-top", "padding-right", "padding-bottom",
@@ -132,6 +142,29 @@ module Crysterm
           end
         end
         nil
+      end
+
+      # Matches a CSS `url(...)` token, capturing the (optionally quoted) path.
+      URL_TOKEN = /url\(\s*['"]?([^'")]+?)['"]?\s*\)/
+
+      # Extracts the first `url(...)` path from a `background`/`background-image`
+      # value, e.g. `url("pics/bg.png")` ⇒ `pics/bg.png`. Returns `nil` when there
+      # is no `url(...)` (e.g. `none`, or a `background` shorthand carrying only a
+      # color) — which, assigned to `background_image`, clears any prior image.
+      private def self.parse_background_image(value : String) : String?
+        URL_TOKEN.match(value).try &.[1]
+      end
+
+      # Maps a `background-size` value to a `Style::BackgroundSize`. `cover`
+      # (preserve aspect, fill, crop) is both the keyword and the fallback for
+      # unrecognized input; `100% 100%` is the CSS spelling of a full stretch.
+      private def self.parse_background_size(value : String) : Style::BackgroundSize
+        case value.strip.downcase
+        when "contain"           then Style::BackgroundSize::Contain
+        when "auto"              then Style::BackgroundSize::Auto
+        when "100% 100%", "100%" then Style::BackgroundSize::Stretch
+        else                          Style::BackgroundSize::Cover
+        end
       end
 
       # Parses a `tint`: a color the widget is overlaid toward, plus an optional

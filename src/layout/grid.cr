@@ -55,6 +55,7 @@ module Crysterm
 
         # Explicitly-placed children first, so auto-flow can skip their cells.
         container.children.each do |el|
+          next if el.layout_excluded?
           next unless hint = el.layout_hint.as?(Hint)
           rs = Math.max(hint.row_span, 1)
           cs = Math.max(hint.col_span, 1)
@@ -66,6 +67,7 @@ module Crysterm
         r = 0
         c = 0
         container.children.each do |el|
+          next if el.layout_excluded?
           next if el.layout_hint.is_a?(Hint)
           while occupied.includes?({r, c})
             c += 1

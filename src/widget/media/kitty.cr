@@ -36,6 +36,25 @@ module Crysterm
       @id_a : UInt32
       @id_b : UInt32
 
+      # Stacking order, mapped to the Kitty placement `z=` parameter. `nil`
+      # (default) omits `z=`, so the image draws *on top of* text as before. A
+      # negative value draws it *under* text — the way a background is rendered:
+      # `z = -1` shows the image through default-background cells while a cell with
+      # a concrete background color hides it; a value below `INT32_MIN/2`
+      # (`-1_073_741_824`) additionally goes under non-default cell backgrounds.
+      property z : Int32?
+
+      # Convenience: render as a background (under text, `z = -1`) or back to the
+      # default on-top placement (`z = nil`).
+      def background=(on : Bool) : Bool
+        @z = on ? -1 : nil
+        on
+      end
+
+      def background? : Bool
+        (@z || 0) < 0
+      end
+
       def initialize(*args, **opts)
         @@next_id += 1; @id_a = @@next_id
         @@next_id += 1; @id_b = @@next_id
@@ -116,10 +135,13 @@ module Crysterm
             # i/p stable ids (replace, don't accumulate), q=2 suppress replies.
             # C=1 keeps the text cursor put: otherwise the terminal advances it
             # past the image and a full-height image scrolls the screen (carrying
-            # off whatever cells — e.g. a title row — sat above it).
+            # off whatever cells — e.g. a title row — sat above it). An optional
+            # `z=` sets the stacking order (negative ⇒ under text; see `#z`).
             io << "a=T,f=32,s=" << pw << ",v=" << ph \
               << ",i=" << id << ",p=1,c=" << cols << ",r=" << rows \
-              << ",C=1,q=2,m=" << more
+              << ",C=1,q=2"
+            @z.try { |z| io << ",z=" << z }
+            io << ",m=" << more
             first = false
           else
             io << "m=" << more

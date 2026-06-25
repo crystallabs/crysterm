@@ -71,6 +71,9 @@ module Crysterm
     # Renders one child, performing the same render-index bookkeeping the
     # default (no-layout) loop in `Widget#_render` does.
     protected def render_child(el : Widget) : Nil
+      # Layout-excluded chrome (e.g. a `background-image` layer) is rendered
+      # out-of-band from `Widget#_render`, never through the child pass.
+      return if el.layout_excluded?
       bump_index el
       scr = el.screen
       # A z-indexed child is deferred to its own plane (composited after the base

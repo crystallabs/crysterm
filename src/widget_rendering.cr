@@ -251,6 +251,12 @@ module Crysterm
         end
       end
 
+      # Background image (CSS `background-image`): paint the internal `Media`
+      # layer behind the content. Done *before* the content loop so text draws on
+      # top; the layer is excluded from the normal child pass and rendered here
+      # instead (see `widget_background.cr`). A cell-neutral Kitty layer today.
+      update_background_media
+
       p = padding
       xi += p.left
       xl -= p.right

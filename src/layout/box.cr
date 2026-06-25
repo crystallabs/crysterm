@@ -80,6 +80,7 @@ module Crysterm
       def arrange(container : Widget, interior : LPos) : Nil
         measure container, interior
         container.children.each do |el|
+          next if el.layout_excluded?
           place el, interior
           render_child el
         end
@@ -100,6 +101,7 @@ module Crysterm
         grow = 0
         @measured.clear
         children.each do |el|
+          next if el.layout_excluded?
           if main_flex? el
             grow += grow_of el
           else
