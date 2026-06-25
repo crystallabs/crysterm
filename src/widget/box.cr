@@ -9,6 +9,19 @@ module Crysterm
       # XXX Why this must be here, even though it's set in src/widget_size.cr?
       # Check e.g. small-tests/shadow.cr with and without this option here.
       @resizable = false
+
+      # `Box` is the first subclass of `Widget`, and the `Mixin::Css`-installed
+      # `macro inherited` that generates each widget's `#css_type_classes` does not
+      # fire for it (it fires for every *other* widget — `Input`, `Button`, …).
+      # Without this, `Box` falls back to the base `["Widget"]`, so its CSS document
+      # node carries no `Box` class and `Box { … }` / `Box#id` selectors silently
+      # never match a plain `Box`. Define the chain explicitly (same shape the macro
+      # emits) so type selectors work for `Box` like every other widget.
+      CSS_TYPE_CLASSES = ["Box", "Widget"]
+
+      def css_type_classes : Array(String)
+        CSS_TYPE_CLASSES
+      end
     end
   end
 end

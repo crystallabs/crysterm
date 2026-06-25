@@ -155,7 +155,12 @@ module Crysterm
         if item.css_styled?
           selected = item_selected?(item)
           item.state = selected ? WidgetState::Selected : WidgetState::Normal
-          base = item.style
+          # A row never draws its own border: the table owns the outer frame and
+          # the `│` column separators, so a cell box painting a border would nest
+          # a frame inside each cell. The non-CSS paths strip it (`item_render_style`,
+          # `without_border`); the per-item CSS style must too. (Before `Box` type
+          # selectors matched, this branch was never reached for a plain cell.)
+          base = without_border(item.style)
           return selection_overlay(base) if selected
           # Even (alternating) body rows pick up the table-level
           # `alternate-background-color`. It is held on the *normal* style's
@@ -175,14 +180,21 @@ module Crysterm
         return item_render_style(true) if item_selected?(item)
 
         if alternate_rows? && (i = @items.index item) && i > 0 && i.even?
-          base = style.alternate_row
-          return base unless base.border.any?
-          borderless = base.dup
-          borderless.border = false
-          return borderless
+          return without_border(style.alternate_row)
         end
 
         item_render_style false
+      end
+
+      # A cell's render style never carries a border: the table draws the frame
+      # and `│` separators itself, so a bordered cell style would nest a frame in
+      # every cell. Returns *base* untouched when it has no border (the common
+      # case — no allocation), else a borderless copy.
+      private def without_border(base : Style) : Style
+        return base unless base.border.any?
+        borderless = base.dup
+        borderless.border = false
+        borderless
       end
 
       # Sorts the body rows (the header at index 0 stays pinned) by *col*. Cells
@@ -233,12 +245,7 @@ module Crysterm
       # `List` uses `style.item`. `Style#cell` falls back to the list's own
       # style when no `cell:` style is given, so the default look is unchanged.
       def item_render_style(selected : Bool) : Style
-        base = selected ? styles.selected : style.cell
-        return base unless base.border.any?
-
-        borderless = base.dup
-        borderless.border = false
-        borderless
+        without_border(selected ? styles.selected : style.cell)
       end
 
       # :ditto:
