@@ -44,7 +44,7 @@ module Crysterm
         parent: self,
         content: text,
         top: -itop,
-        # parse_tags: @parse_tags,
+        parse_tags: @parse_tags,
         style: style.label,
         resizable: true,
       )

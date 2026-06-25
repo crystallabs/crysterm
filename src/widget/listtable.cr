@@ -96,6 +96,13 @@ module Crysterm
         # children are laid out relative to the list's *content* area (already
         # inside the border), so an `ileft` offset here would shift the header
         # right of the items and clip its last column.
+        #
+        # TODO (deferred to the width/scrollbar rework): when the table is
+        # *content-sized* (no explicit `width:`) the header collapses to its text
+        # width instead of stretching to the row width like the body items, so
+        # its `style.header` background stops a few cells short of the right
+        # border. The proper fix lives in the same content-width/scrollbar-width
+        # model being reworked separately.
         @header = Box.new(
           parent: self,
           left: 0,

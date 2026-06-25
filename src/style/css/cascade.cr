@@ -175,17 +175,19 @@ module Crysterm
           widget.css_styled = false
           widget.css_reset_extra
 
-          # Visibility is a per-*widget* concern, not a per-state one: `#hide`/
-          # `#show` record it on the inline `@style`. The per-state inline fold
-          # below only runs for states a rule actually *touches*, so a widget
-          # hidden before its first cascade (or one themed only for, say,
-          # `:selected`) would have the flag folded into that state while its
-          # active `normal` state — the canonical fallback for every unset
-          # state — reverted to the pristine `visible = true`, making the
-          # widget reappear (and silently intercept clicks). Stamp the explicit
-          # inline visibility onto `normal` here so it survives every restyle.
-          if (inl = widget.css_inline_style) && inl.specified?(:visible)
-            widget.styles.normal.visible = inl.visible?
+          # Fold the full inline `@style` onto `normal` — the canonical fallback
+          # state every unset state defers to. The per-state inline fold below
+          # only runs for states a rule actually *touches*; a widget themed only
+          # for, say, `:selected` (e.g. by a default selection rule) would
+          # otherwise have its inline `border`/`bg`/visibility folded into that
+          # state alone, while its active `normal` state reverted to pristine —
+          # dropping the inline styling on the state it actually renders in (the
+          # symptom: an inline `border: true` dialog renders borderless once CSS
+          # is active). Touched states are reset to pristine again at
+          # `set_state_style` below and re-fold inline at the correct cascade
+          # tier in `apply_entries_with_inline`, so this never double-applies.
+          if inl = widget.css_inline_style
+            fold_inline widget.styles.normal, inl
           end
         end
 
@@ -383,6 +385,10 @@ module Crysterm
         style.padding = inline.padding if inline.specified?(:padding)
         style.margin = inline.margin if inline.specified?(:margin)
         style.shadow = inline.shadow if inline.specified?(:shadow)
+        style.fill_char = inline.fill_char if inline.specified?(:fill_char)
+        style.percent_char = inline.percent_char if inline.specified?(:percent_char)
+        style.foreground_char = inline.foreground_char if inline.specified?(:foreground_char)
+        style.background_char = inline.background_char if inline.specified?(:background_char)
         # Nested sub-styles (header/cell/alternate/bar/…) the inline set wholesale;
         # without this they'd be dropped by the reset-and-recompute, since no
         # `Widget::slot` sub-element rule restores an inline-only sub-style.

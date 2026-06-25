@@ -189,6 +189,20 @@ module Crysterm
     # Background char (WIP)
     property background_char : Char = ' '
 
+    # Re-wrap the `property`-generated setters for the per-glyph fill characters
+    # so an explicit assignment is recorded as `specified` (must come *after* the
+    # `property` declarations above so it overrides their plain setters).
+    # Otherwise these `Char = ' '` defaults are indistinguishable from an
+    # intentional `' '`, and the CSS cascade (`fold_inline`) can't tell an
+    # inline-set `fill_char` from the default — so e.g. `Widget::BigText`'s
+    # `fill_char: '▒'` would be silently dropped once CSS is active.
+    {% for attr in %w(fill_char percent_char foreground_char background_char) %}
+      def {{attr.id}}=(value : Char) : Char
+        @specified << :{{attr.id}}
+        @{{attr.id}} = value
+      end
+    {% end %}
+
     # XXX Test/document this.
     property? fill = true
 
@@ -533,10 +547,10 @@ module Crysterm
       strike = nil,
       visible = nil,
       alpha = nil,
-      @fill_char = @fill_char,
-      @percent_char = @percent_char,
-      @foreground_char = @foreground_char,
-      @background_char = @background_char,
+      fill_char = nil,
+      percent_char = nil,
+      foreground_char = nil,
+      background_char = nil,
       @draw_over_border = @draw_over_border,
     )
       # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized
@@ -559,6 +573,12 @@ module Crysterm
       padding.try { |v| self.padding = Padding.from(v) }
       margin.try { |v| self.margin = Margin.from(v) }
       shadow.try { |v| self.shadow = Shadow.from(v) }
+      # Only record an explicitly-passed fill character as `specified` (an
+      # omitted one keeps the unspecified `' '` default).
+      fill_char.try { |v| self.fill_char = v }
+      percent_char.try { |v| self.percent_char = v }
+      foreground_char.try { |v| self.foreground_char = v }
+      background_char.try { |v| self.background_char = v }
     end
 
     def self.alpha_from(value : Float64 | Bool?)

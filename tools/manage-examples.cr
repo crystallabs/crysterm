@@ -818,17 +818,22 @@ module WidgetExamples
       puts "── full chain: scaffold → still+APNG+dump → doc-comments → docs ──"
       process(widgets, opts) # one run per example produces all three outputs
       process_tests(opts)    # tests/: captures only (no scaffold/doc-comments/docs)
-      maintain_doc_comments(widgets)
-      build_docs
+      # Doc-comments and docs are a widget/layout concern. When the filter
+      # selected no widgets (e.g. `--only tests/blessed-test/`), this is a
+      # tests-only run — skip them so it doesn't rebuild the whole docs tree.
+      unless widgets.empty?
+        maintain_doc_comments(widgets)
+        build_docs
+      end
       return
     end
 
     # A bare run (no flags): fill in only what's *missing* (all three output
     # kinds), then refresh the docs.
     if opts.default_run?
-      process(widgets, opts) # generate missing example files + still/APNG/dump
-      process_tests(opts)    # tests/: produce any missing captures
-      build_docs             # `crystal docs` + copy examples into the docs tree
+      process(widgets, opts)           # generate missing example files + still/APNG/dump
+      process_tests(opts)              # tests/: produce any missing captures
+      build_docs unless widgets.empty? # `crystal docs` + copy examples (widgets only)
       return
     end
 
@@ -1005,9 +1010,12 @@ module WidgetExamples
     return [] of String unless Dir.exists?(TESTS_DIR)
     progs = Dir.glob(File.join(TESTS_DIR, "**", "*.cr")).sort
     return progs if opts.filters.empty?
+    # A filter matches a test if it's a substring of the test's full path, so a
+    # stem (`widget-bigtext`), a path fragment (`blessed-test/widget-dock`) or a
+    # directory (`tests/blessed-test/`) all select the expected files.
     progs.select do |p|
-      stem = prog_stem(p).downcase
-      opts.filters.any? { |f| f.downcase.chomp(".cr") == stem }
+      pl = p.downcase
+      opts.filters.any? { |f| pl.includes?(f.downcase) }
     end
   end
 

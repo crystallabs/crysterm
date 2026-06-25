@@ -12,14 +12,14 @@ class X
   def initialize
     s = Screen.new always_propagate: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
+    # Blessed: a borderless `width:'shrink', height:'shrink'` box pinned top-right
+    # (so the "..." sit flush in the corner). `resizable: true` is Crysterm's shrink.
     box = Widget::Box.new \
       parent: s,
       top: 0,
       right: 0,
-      width: 30,
-      height: 3,
-      content: "...",
-      style: Style.new(border: true)
+      resizable: true,
+      content: "..."
 
     bar = Widget::ListBar.new \
       bottom: 0,

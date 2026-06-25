@@ -7,6 +7,7 @@ module Crysterm
     style: Style.new(
       bg: "blue",
     ),
+    parse_tags: true,
     height: 5,
     top: "center",
     left: 0,

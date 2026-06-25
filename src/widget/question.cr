@@ -43,13 +43,16 @@ module Crysterm
       )
 
       def initialize(ok_text = nil, cancel_text = nil, **box)
-        # self.style.visible = false # XXX Enable correctly
-
         box["content"]?.try do |c|
           @text = c
         end
 
         super **box
+
+        # Dialogs start hidden, like Blessed's `options.hidden = true`: `ask` /
+        # `ask_choices` call `show` to reveal the dialog. Without this it renders
+        # on the first frame and stacks with any other dialog on the screen.
+        hide
 
         # Custom button labels (Qt lets you relabel the standard buttons).
         ok_text.try { |t| @ok.set_content t }

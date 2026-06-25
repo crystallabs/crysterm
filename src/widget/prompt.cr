@@ -62,13 +62,17 @@ module Crysterm
       )
 
       def initialize(secret = nil, censor = nil, placeholder = nil, validator = nil, **box)
-        # style.visible = false # XXX Enable correctly
-
         box["content"]?.try do |c|
           @text = c
         end
 
         super **box
+
+        # Dialogs start hidden, like Blessed's `options.hidden = true`: `read_input`
+        # calls `show` to reveal the prompt. Without this the prompt renders on the
+        # first frame and, when several dialogs share a screen, they stack on top
+        # of each other.
+        hide
 
         # Echo mode (Qt `QLineEdit::EchoMode`): hide the typed text entirely
         # (`secret`) or mask it with `*` (`censor`), and an optional placeholder.

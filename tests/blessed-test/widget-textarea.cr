@@ -8,7 +8,7 @@ class X
     s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
 
     # parent: l,
-    i = Widget::TextArea.new \
+    i = Widget::PlainTextEdit.new \
       width: "half",
       height: "half",
       top: "center",

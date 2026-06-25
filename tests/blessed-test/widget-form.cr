@@ -50,7 +50,7 @@ class X
       content: "radio2",
       style: Style.new(bg: "magenta")
 
-    Widget::TextBox.new \
+    Widget::LineEdit.new \
       parent: form,
       keys: true,
       height: 1,

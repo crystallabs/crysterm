@@ -22,6 +22,9 @@ module Crysterm
     vi: true,
     style: Style.new(
       bg: "blue",
+      # Blessed: border:{type:'bg', ch:' '} + style.border.inverse → an
+      # inverse-video space frame that reads as a light outline around the box.
+      border: Border.new(type: BorderType::Bg).tap { |b| b.reverse = true },
     ),
   )
 

@@ -43,7 +43,7 @@ module Crysterm
     content: "Foo",
     parse_tags: true
 
-  Widget::TextBox.new \
+  Widget::LineEdit.new \
     parent: form,
     name: "foo",
     input_on_focus: true,
@@ -62,7 +62,7 @@ module Crysterm
     content: "Bar",
     parse_tags: true
 
-  Widget::TextBox.new \
+  Widget::LineEdit.new \
     parent: form,
     name: "bar",
     input_on_focus: true,
@@ -81,7 +81,7 @@ module Crysterm
     content: "Baz",
     parse_tags: true
 
-  Widget::TextBox.new \
+  Widget::LineEdit.new \
     parent: form,
     name: "baz",
     input_on_focus: true,
