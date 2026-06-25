@@ -225,7 +225,17 @@ module Crysterm
         @selected_indices.clear
       end
 
-      def create_item(content, screen = ::Crysterm::Screen.global, align : ::Tput::AlignFlag | Shorthands = ::Tput::AlignFlag::Left, top = 0, left = 0, right = (scrollbar? ? 1 : 0), parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
+      # A `List` has a fixed viewport that scrolls its items, so "scrollable right
+      # now" must be a real content-vs-height overflow test — not the `@resizable`
+      # always-scrollable short-circuit it would otherwise inherit (`really_scrollable?`
+      # returns `@scrollable` for resizable widgets, which made an `AsNeeded`
+      # vertical scroll bar — its `█` thumb — appear even when every item fits).
+      # Mirrors `PlainTextEdit#really_scrollable?`.
+      def really_scrollable?
+        get_scroll_height > (aheight - iheight)
+      end
+
+      def create_item(content, screen = ::Crysterm::Screen.global, align : ::Tput::AlignFlag | Shorthands = @align, top = 0, left = 0, right = (scrollbar? ? 1 : 0), parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
 
         if @resizable || normal_resizable
           right = nil

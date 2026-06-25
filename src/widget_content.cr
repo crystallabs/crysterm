@@ -450,6 +450,17 @@ module Crysterm
           break
         end
 
+        # `{|}` is Blessed's right-align *separator*, not an attribute tag: text
+        # after it is pushed to the right edge of the line. It must survive
+        # parsing verbatim so `#_align` (which splits the line on the braces and
+        # right-justifies the trailing part) can act on it; without this it would
+        # fall through to the drop-malformed branch below and render as a bare `|`.
+        if text[pos, 3]? == "{|}"
+          outbuf << "{|}"
+          pos += 3
+          next
+        end
+
         # A recognized `{tag}` / `{/tag}`. `{open}`/`{close}` emit literal
         # braces; a known attribute name emits its SGR (tracking nesting so a
         # close restores the previous state); an UNRECOGNIZED tag is malformed
@@ -726,6 +737,23 @@ module Crysterm
 
     # Aligns content
     def _align(line, width, align = Tput::AlignFlag::None, align_left_too = false)
+      # Right-align separator `{|}` (Blessed): text after `{|}` is pushed to the
+      # right edge of the line. It distributes content *within* the line, so it is
+      # independent of the line's own alignment — handle it before the
+      # align-direction early-returns below so it also works for the default Left
+      # alignment (the common case; `_parse_tags` passes `{|}` through verbatim
+      # for exactly this). The general `{|}` branch further down is only reachable
+      # for HCenter/Right, so this is what makes it fire for left-aligned content.
+      if @parse_tags && line.includes?("{|}")
+        cl = line.includes?('\e') ? line.gsub(SGR_REGEX, "") : line
+        parts = line.split(/\{|\}/)
+        cparts = cl.split(/\{|\}/)
+        if cparts[0]? && cparts[2]?
+          pad = style.fill_char.to_s * Math.max(width - str_width(cparts[0]) - str_width(cparts[2]), 0)
+          return "#{parts[0]}#{pad}#{parts[2]}"
+        end
+      end
+
       return line if align.none?
 
       # Plain left alignment pads nothing — only HCenter/Right (or a forced
