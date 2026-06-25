@@ -1,6 +1,6 @@
-require "../box"
-require "./animated"
-require "../../colors"
+require "./widget/box"
+require "./widget_effect_animated"
+require "./colors"
 
 module Crysterm
   class Widget

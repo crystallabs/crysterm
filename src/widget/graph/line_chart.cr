@@ -1,6 +1,6 @@
 require "../box"
 require "./canvas"
-require "../../misc/glyph/scale"
+require "../../widget_graph_scale"
 
 module Crysterm
   class Widget

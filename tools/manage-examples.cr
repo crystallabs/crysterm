@@ -15,12 +15,16 @@
 #      FILE THE TOOL EVER WRITES. From then on the example files in `examples/`
 #      are the source of truth — hand-edited in place (add CSS, a demo `script`,
 #      extra `button2.cr`, …); the tool never rewrites them.
-#   3. Renders each example headlessly and saves a still beside it as
-#      `<stem>-capture.png`. With `--anim`, *every* example is instead recorded
-#      as `<stem>-capture<secs>s.apng`: ones with a demo `script:` are driven
-#      (synthetic key/mouse events), the rest are a static hold. Both go through
-#      the shared harness in `examples/<kind>/example.cr` (CRYSTERM_SHOT /
-#      CRYSTERM_ANIM).
+#   3. Renders each example headlessly and, by default, saves all three captures
+#      beside it — produced in ONE example run (one compile, one process):
+#        * `<stem>-capture.png`        — still PNG
+#        * `<stem>-capture<secs>s.apng` — APNG (scripted ones play their demo,
+#                                         the rest a static hold)
+#        * `<stem>-capture.dump`        — text golden (a frame per scripted
+#                                         action; diffable via git)
+#      Scope to one kind with `--shot`/`--anim`/`--dump`. All go through the
+#      shared harness in `examples/<kind>/example.cr`, gated by the dest env vars
+#      CRYSTERM_SHOT / CRYSTERM_ANIM / CRYSTERM_DUMP.
 #   4. `--build`/`--release` compile every example (a build-health check).
 #   5. `--doc-comments` embeds each item's capture in its API docs by maintaining
 #      a fenced block in the class doc comment; `--docs` runs `crystal docs` and
@@ -285,6 +289,12 @@ module WidgetExamples
     File.join(File.dirname(prog), "#{prog_stem(prog)}-capture#{duration}s.apng")
   end
 
+  # Where *prog*'s text dump goes: `<stem>-capture.dump` (same place/logic as the
+  # PNG/APNG, just a plain-text golden — see `WidgetExample.dump_run`).
+  def self.dump_for(prog : String) : String
+    File.join(File.dirname(prog), "#{prog_stem(prog)}-capture.dump")
+  end
+
   # Where *prog*'s compiled binary goes (`--build`): `<stem>` next to the source.
   def self.bin_for(prog : String) : String
     File.join(File.dirname(prog), prog_stem(prog))
@@ -541,7 +551,10 @@ module WidgetExamples
     property doc_comments = false
     property docs = false
     property copy = false
+    property shot = false
     property anim = false
+    property dump = false
+    property all = false
     property duration = 5
     property build = false
     property release = false
@@ -561,13 +574,13 @@ module WidgetExamples
     # whole chain (`#full_chain?`); without it, the bare run just fills in what's
     # missing and refreshes the docs (`#default_run?`).
     private def bare? : Bool
-      !no_shot && !shots_only && !anim && !build && !doc_comments && !docs && !copy && !list
+      !no_shot && !shots_only && !shot && !anim && !dump && !all && !build && !doc_comments && !docs && !copy && !list
     end
 
     # `--force` on its own (no step/mode flag) means "re-do the whole chain":
-    # generate, shoot stills, record APNGs, refresh doc-comments, build docs.
-    # `--jobs`, `--duration` and name filters aren't mode flags, so they may
-    # accompany it.
+    # generate, capture all three outputs (still + APNG + dump), refresh
+    # doc-comments, build docs. `--jobs`, `--duration` and name filters aren't
+    # mode flags, so they may accompany it.
     def full_chain? : Bool
       force && bare?
     end
@@ -593,7 +606,10 @@ module WidgetExamples
       when "--doc-comments" then o.doc_comments = true
       when "--docs"         then o.docs = true
       when "--copy"         then o.copy = true
+      when "--shot"         then o.shot = true
       when "--anim"         then o.anim = true
+      when "--dump"         then o.dump = true
+      when "--all"          then o.all = true
       when "--build"        then o.build = true
       when "--release"      then o.release = true; o.build = true
       when "--duration"
@@ -632,7 +648,12 @@ module WidgetExamples
           --only NAME   restrict to NAME (repeatable; bare args work too)
           --no-shot     scaffold missing files but skip screenshots
           --shots-only  only (re)take screenshots; don't author any files
-          --anim                                example that has a demo script, instead of a still
+          --shot        ONLY the still PNG (scope the run to one output kind)
+          --anim        ONLY the APNG (scripted examples play their demo)
+          --dump        ONLY the text golden (<stem>-capture.dump): a frame per
+                        scripted action, diffable via git
+          --all         all three explicitly (same as the default); combine the
+                        scope flags above for any other subset
           --duration N  animation length in seconds (default 5)
           --build       compile each example next to its source (x/<prog>.cr -> x/<prog>)
           --release     like --build, but a crystal --release (optimized) build
@@ -647,13 +668,15 @@ module WidgetExamples
     Example files in examples/ are the source of truth — edit them in place; the
     tool only scaffolds the MISSING ones (from a generic template) and never
     rewrites an existing .cr.
-    With NO flags: scaffold missing examples + stills, then build docs
-    (`crystal docs` + copy examples into docs/).
+    With NO flags: scaffold missing examples, produce every MISSING output
+    (still + APNG + dump, one run each), then build docs.
     -f/--force on its OWN (no mode flag) re-does the whole chain end to end:
-    scaffold -> stills -> anims -> doc-comments -> docs. Pair --force with a
-    mode flag to force just that step (e.g. `--force --anim`).
-    --anim, --doc-comments and --docs run only their own step.
+    scaffold -> still+APNG+dump -> doc-comments -> docs. Pair --force with a
+    scope flag to force just that kind (e.g. `--force --dump`).
+    --doc-comments and --docs run only their own step.
     [name ...], --jobs and --duration may accompany any of the above.
+    So day to day you only need `--force` and/or a name filter; the rest is
+    automatic.
     TXT
 
   # ---- screenshot -----------------------------------------------------------
@@ -708,15 +731,18 @@ module WidgetExamples
     end
   end
 
-  # Run an example headlessly with *env* set, producing *out*. Returns {ok, msg}.
-  # Used for both stills (CRYSTERM_SHOT) and animations (CRYSTERM_ANIM).
+  # Run an example headlessly with *env* set, producing every file in *dests* in
+  # ONE process. *env* holds whichever of `CRYSTERM_SHOT`/`CRYSTERM_DUMP`/
+  # `CRYSTERM_ANIM` were requested; the harness emits all of them in a single run,
+  # so `--all` costs one compile + one exec instead of one per output kind.
+  # Returns {ok, msg}.
   #
   # We `crystal build` to a *unique* temp binary and then exec it, rather than
   # `crystal run` — because two examples that share a basename (e.g. the
   # `status_bar.cr` of both `Widget::StatusBar` and `Pine::StatusBar`) would race
   # on `crystal run`'s basename-derived temp executable under `--jobs`. The
   # compile cache stays shared/warm; only the output binary is per-job.
-  def self.capture_run(example_cr : String, dest : String, env : Process::Env) : {Bool, String}
+  def self.capture_run(example_cr : String, dests : Array(String), env : Process::Env) : {Bool, String}
     bin = File.tempname("crysterm-ex", "")
     io = IO::Memory.new
     build = Process.run("crystal", ["build", "--no-color", example_cr, "-o", bin],
@@ -728,11 +754,13 @@ module WidgetExamples
     status = Process.run(bin, env: env, output: run_io, error: run_io)
     File.delete(bin) rescue nil
     File.delete("#{bin}.dwarf") rescue nil
-    if status.success? && File.exists?(dest)
-      {true, "#{relative_to_root(dest)} (#{File.size(dest)} bytes)"}
+    missing = dests.reject { |d| File.exists?(d) }
+    if status.success? && missing.empty?
+      {true, dests.map { |d| "#{relative_to_root(d)} (#{File.size(d)} bytes)" }.join(", ")}
     else
       tail = run_io.to_s.lines.last(6).join("\n")
-      {false, tail.empty? ? "exit #{status.exit_code}" : tail}
+      detail = tail.presence || (missing.empty? ? "exit #{status.exit_code}" : "did not produce #{missing.map { |d| relative_to_root(d) }.join(", ")}")
+      {false, detail}
     end
   end
 
@@ -780,20 +808,17 @@ module WidgetExamples
     # the docs tree. Existing example .cr files are never rewritten. A mode flag
     # (or `--no-shot`/`--shots-only`) instead scopes the run to just that step.
     if opts.full_chain?
-      puts "── full chain: scaffold → stills → anims → doc-comments → docs ──"
-      process(widgets, opts) # scaffold missing examples + still PNGs
-      anim_opts = opts.dup
-      anim_opts.anim = true
-      anim_opts.shots_only = true # don't re-scaffold; stills pass already did
-      process(widgets, anim_opts) # record the APNGs
+      puts "── full chain: scaffold → still+APNG+dump → doc-comments → docs ──"
+      process(widgets, opts) # one run per example produces all three outputs
       maintain_doc_comments(widgets)
       build_docs
       return
     end
 
-    # A bare run (no flags): fill in only what's missing, then refresh the docs.
+    # A bare run (no flags): fill in only what's *missing* (all three output
+    # kinds), then refresh the docs.
     if opts.default_run?
-      process(widgets, opts) # generate missing example files + stills
+      process(widgets, opts) # generate missing example files + still/APNG/dump
       build_docs             # `crystal docs` + copy examples into the docs tree
       return
     end
@@ -810,7 +835,7 @@ module WidgetExamples
     no_script = [] of String
     # Examples to capture, collected during the (sequential) scan phase and run
     # in parallel afterwards. Each is {item, example.cr, output, env}.
-    captures = [] of {Item, String, String, Process::Env}
+    captures = [] of {Item, String, Array(String), Process::Env}
     # Examples to compile, when --build/--release. Each is {item, example.cr, bin}.
     builds = [] of {Item, String, String}
 
@@ -836,7 +861,7 @@ module WidgetExamples
       progs.each do |path|
         next if opts.no_shot && !opts.build
 
-        # Existing outputs are preserved unless --force.
+        # `--build` compiles instead of capturing (its own, separate output).
         if opts.build
           bin = bin_for(path)
           if skip_output?(bin, opts.force)
@@ -844,24 +869,44 @@ module WidgetExamples
           else
             builds << {w, path, bin}
           end
-        elsif opts.anim
-          # Every example gets an APNG. Scripted ones play their demo; the rest
-          # are recorded as a static hold (still capturing any self-animation).
-          no_script << prog_stem(path) unless File.read(path).includes?("script:")
-          dest = anim_for(path, opts.duration)
-          if skip_output?(dest, opts.force)
+          next
+        end
+
+        # Which capture outputs this run wants. The DEFAULT (no mode flag) is
+        # *all* of them — still + APNG + dump — so a bare run (or `--force`) just
+        # produces everything. A specific flag (`--shot`/`--anim`/`--dump`, or
+        # `--all`) scopes the run to that subset. Whatever the set, it is produced
+        # by a SINGLE example run (one compile, one process): the harness honors
+        # every dest env var set.
+        explicit = opts.shot || opts.anim || opts.dump || opts.all
+        want_shot = opts.shot || opts.all || !explicit
+        want_anim = opts.anim || opts.all || !explicit
+        want_dump = opts.dump || opts.all || !explicit
+
+        no_script << prog_stem(path) if want_anim && !File.read(path).includes?("script:")
+
+        env = {} of String => String
+        dests = [] of String
+        if want_shot
+          d = shot_for(path)
+          skip_output?(d, opts.force) ? (skipped += 1) : (env["CRYSTERM_SHOT"] = d; dests << d)
+        end
+        if want_dump
+          d = dump_for(path)
+          skip_output?(d, opts.force) ? (skipped += 1) : (env["CRYSTERM_DUMP"] = d; dests << d)
+        end
+        if want_anim
+          d = anim_for(path, opts.duration)
+          if skip_output?(d, opts.force)
             skipped += 1
           else
-            captures << {w, path, dest, {"CRYSTERM_ANIM" => dest, "CRYSTERM_ANIM_SECS" => opts.duration.to_s}}
-          end
-        else
-          dest = shot_for(path)
-          if skip_output?(dest, opts.force)
-            skipped += 1
-          else
-            captures << {w, path, dest, {"CRYSTERM_SHOT" => dest}}
+            env["CRYSTERM_ANIM"] = d
+            env["CRYSTERM_ANIM_SECS"] = opts.duration.to_s
+            dests << d
           end
         end
+
+        captures << {w, path, dests, env} unless dests.empty?
       end
     end
 
@@ -897,14 +942,13 @@ module WidgetExamples
     ok_n = 0
     fail_n = 0
     failures = [] of String
-    verb = opts.anim ? "anim " : "shot "
     unless captures.empty?
-      puts "#{opts.anim ? "recording" : "shooting"} #{captures.size} example(s) with #{Math.min(opts.jobs, captures.size)} job(s)..."
-      parallel_each(captures, opts.jobs) do |(w, path, dest, env)|
-        ok, msg = capture_run(path, dest, env)
+      puts "capturing #{captures.size} example(s) with #{Math.min(opts.jobs, captures.size)} job(s)..."
+      parallel_each(captures, opts.jobs) do |(w, path, dests, env)|
+        ok, msg = capture_run(path, dests, env)
         if ok
           ok_n += 1
-          puts "#{verb}  #{msg}"
+          puts "wrote  #{msg}"
         else
           fail_n += 1
           failures << w.basename
@@ -918,13 +962,12 @@ module WidgetExamples
     end
 
     puts
-    captured = opts.anim ? "anims" : "shots"
     puts "Summary: #{scaffolded} scaffolded, #{skipped} skipped, " \
-         "#{ok_n} #{captured} ok, #{fail_n} #{captured} failed."
+         "#{ok_n} captured ok, #{fail_n} failed."
     unless failures.empty?
       puts "Build/capture failures (the example needs fixing): #{failures.uniq.join(", ")}"
     end
-    if opts.anim && !no_script.empty?
+    if (opts.anim || opts.all) && !no_script.empty?
       puts "Recorded as a static hold (no demo script — add a `script:` to the example to drive it): #{no_script.uniq.join(", ")}"
     end
     unless stubs.empty?

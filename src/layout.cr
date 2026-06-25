@@ -132,3 +132,8 @@ module Crysterm
     end
   end
 end
+
+# The abstract `Flow` strategy base subclasses `Layout`, so it is required after
+# the base above is defined; its concrete engines (Masonry, UniformGrid, Wrap)
+# live under `src/layout/`.
+require "./layout_flow"

@@ -1,5 +1,5 @@
 require "base64"
-require "./graphics"
+require "../../widget_media_graphics"
 
 module Crysterm
   class Widget

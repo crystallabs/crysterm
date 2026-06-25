@@ -47,6 +47,17 @@ module Crysterm
       end
     end
 
+    # Whether any declarative CSS `transition` is currently tweening on this
+    # widget. Drives `Screen#animating?`, which capture/test harnesses poll to
+    # wait for a state change to settle before snapshotting.
+    def transition_running? : Bool
+      if h = @style_transitions
+        h.each_value.any? &.running?
+      else
+        false
+      end
+    end
+
     # Stops any running transition for *key* (so a new one replaces it).
     private def cancel_transition(key : Symbol) : Nil
       @style_transitions.try { |h| h[key]?.try(&.stop); h.delete key }

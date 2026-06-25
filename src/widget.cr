@@ -24,6 +24,25 @@ require "./widget_capture"
 require "./widget_label"
 require "./widget_cursor"
 
+# Supporting code for the widget families whose concrete members live under
+# `src/widget/`: the abstract `Media` (image) backend bases + fitting/decoder,
+# the `Graph` rasterizer/scale helpers, the shared `Effect` animation mixins, the
+# `Terminal` backend (pty + emulator), and the table widgets' content-layout helper.
+require "./widget_media_base"
+require "./widget_media_cells"
+require "./widget_media_external"
+require "./widget_media_graphics"
+require "./widget_media_fit"
+require "./widget_media_fitting"
+require "./widget_media_video_source"
+require "./widget_graph_scale"
+require "./widget_graph_painter"
+require "./widget_effect_animated"
+require "./widget_effect_direct"
+require "./widget_terminal_pty"
+require "./widget_terminal_emulator"
+require "./widget_table_layout"
+
 module Crysterm
   # States in which a widget can be
   enum WidgetState

@@ -1,4 +1,4 @@
-require "./external"
+require "../../widget_media_external"
 require "w3m_image_display"
 
 module Crysterm

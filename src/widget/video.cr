@@ -1,5 +1,5 @@
-require "./base"
-require "./video_source"
+require "../widget_media_base"
+require "../widget_media_video_source"
 
 module Crysterm
   class Widget

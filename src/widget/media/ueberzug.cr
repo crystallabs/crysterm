@@ -1,4 +1,4 @@
-require "./external"
+require "../../widget_media_external"
 require "json"
 
 module Crysterm

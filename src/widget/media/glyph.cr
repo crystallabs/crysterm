@@ -1,4 +1,4 @@
-require "./cells"
+require "../../widget_media_cells"
 
 module Crysterm
   class Widget

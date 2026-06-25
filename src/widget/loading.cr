@@ -1,4 +1,4 @@
-require "./effect/animated"
+require "../widget_effect_animated"
 
 module Crysterm
   class Widget

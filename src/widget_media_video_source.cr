@@ -1,4 +1,4 @@
-require "../media"
+require "./widget/media"
 
 module Crysterm
   class Widget

@@ -25,5 +25,28 @@ module Crysterm
 
       screen.capture(xi, xl, yi, yl, **opts)
     end
+
+    # Text counterpart to `Widget#capture`: dumps just this widget's on-screen
+    # region via `Screen#dump`, auto-selecting the area the widget occupies.
+    # Mirrors `#capture` exactly (same `include_decorations` + per-edge `d*`
+    # deltas, same forwarding of `Screen#dump`'s options); returns the dump text,
+    # or `nil` if the widget hasn't been rendered yet (no known position).
+    #
+    # ```
+    # widget.dump                # -> String
+    # widget.dump path: "w.dump" # writes the file
+    # widget.dump include_decorations: false
+    # ```
+    def dump(include_decorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0, **opts) : String?
+      lpos = @lpos
+      return unless lpos
+
+      xi = lpos.xi + (include_decorations ? 0 : ileft) + dxi
+      xl = lpos.xl + (include_decorations ? 0 : -iright) + dxl
+      yi = lpos.yi + (include_decorations ? 0 : itop) + dyi
+      yl = lpos.yl + (include_decorations ? 0 : -ibottom) + dyl
+
+      screen.dump(xi, xl, yi, yl, **opts)
+    end
   end
 end

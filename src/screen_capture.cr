@@ -1,4 +1,94 @@
 module Crysterm
+  # Text counterpart to `Capture`: serialize a region of the rendered cell
+  # buffer (`Screen#lines`) into a deterministic, human-readable, **diffable**
+  # form. Where `Capture` produces pixels (a bitmap render, for the eye), `Dump`
+  # produces plain text (for `git diff`): the exact glyphs the terminal would
+  # show, plus a compact run-length summary of every non-default cell attribute.
+  #
+  # The point is golden testing without a comparison engine: write a `.dump`
+  # next to the example's `.png`/`.apng`, commit it once, and any later change to
+  # the rendered output shows up as a localized diff in that file. Because the
+  # cell buffer is fully deterministic (no fonts, no anti-aliasing, no clock),
+  # identical behavior reproduces byte-for-byte identical text.
+  module Dump
+    # Serializes cells in the region `[xi,xl) x [yi,yl)` of *screen*'s composited
+    # buffer. Two sections:
+    #
+    #   * **text** — one line per row, each wrapped in `|...|` so trailing spaces
+    #     and width changes are visible in a diff. Wide (2-column) graphemes emit
+    #     their cluster once; their continuation cell is skipped.
+    #   * **attrs** — for each row that has any non-default cell, a run-length
+    #     list `col0-colN:fg/bg+flags` (columns relative to `xi`). Rows that are
+    #     entirely the screen default attribute are omitted, so a plain
+    #     monochrome widget has an empty attrs section.
+    def self.text(screen : Screen, xi : Int32, xl : Int32, yi : Int32, yl : Int32) : String
+      w = xl - xi
+      h = yl - yi
+      String.build do |io|
+        io << "w=" << w << " h=" << h << '\n'
+        io << '+' << ("-" * w) << "+\n"
+
+        # Same region walk `Capture.render` uses (continuation cells skipped,
+        # bounds-safe) — shared via `Screen#each_content_cell` so the two stay
+        # consistent. Capture rasterizes each yielded cell; we stringify it.
+        rows = Array(String::Builder).new(h) { String::Builder.new }
+        screen.each_content_cell(xi, xl, yi, yl) do |cell, _rx, ry|
+          g = cell.grapheme
+          rows[ry] << (g.empty? ? " " : g)
+        end
+        rows.each { |rb| io << '|' << rb.to_s << "|\n" }
+        io << '+' << ("-" * w) << "+\n"
+
+        dfl = screen.default_attr
+        attr_lines = String.build do |a|
+          (yi...yl).each do |y|
+            line = screen.lines[y]
+            runs = String.build do |r|
+              x = xi
+              while x < xl
+                attr = line[x].attr
+                start = x
+                x += 1
+                while x < xl && line[x].attr == attr
+                  x += 1
+                end
+                next if attr == dfl
+                r << ' ' unless r.empty?
+                r << (start - xi) << '-' << (x - 1 - xi) << ':' << attr_s(attr)
+              end
+            end
+            next if runs.empty?
+            a << 'y' << (y - yi) << ": " << runs << '\n'
+          end
+        end
+        unless attr_lines.empty?
+          io << "attrs:\n" << attr_lines
+        end
+      end
+    end
+
+    # `fg/bg` plus a `+flag` suffix for each set style flag, e.g. `#c0caf5/def+b`.
+    def self.attr_s(attr : Int64) : String
+      String.build do |io|
+        io << color_s(Attr.fg(attr)) << '/' << color_s(Attr.bg(attr))
+        flags = Attr.flags(attr)
+        io << "+b" if flags & Attr::BOLD != 0
+        io << "+u" if flags & Attr::UNDERLINE != 0
+        io << "+k" if flags & Attr::BLINK != 0
+        io << "+r" if flags & Attr::REVERSE != 0
+        io << "+x" if flags & Attr::INVISIBLE != 0
+        io << "+i" if flags & Attr::ITALIC != 0
+        io << "+s" if flags & Attr::STRIKE != 0
+      end
+    end
+
+    # `def` for the terminal default, else `#rrggbb`.
+    private def self.color_s(field : Int64) : String
+      c = Attr.unpack_color(field)
+      c < 0 ? "def" : ("#%06x" % c)
+    end
+  end
+
   class Screen
     # The one entry point for capturing rendered/drawn screen content as an
     # image or a video. It captures what the *terminal* shows — the flushed cell
@@ -130,6 +220,68 @@ module Crysterm
       proc.wait
       devnull.close
       result
+    end
+
+    # Walks the composited buffer over region `[xi,xl) x [yi,yl)`, yielding each
+    # *visible* cell with its region-relative column/row. Out-of-range rows/cells
+    # are skipped (bounds-safe), as is the trailing *continuation* half of a wide
+    # (2-column) grapheme — the lead cell carries the whole cluster. This is the
+    # one place the "which cells are content" rule lives; both `Capture.render`
+    # (rasterize to pixels) and `Dump.text` (stringify) drive off it so they can
+    # never disagree about wide glyphs or bounds.
+    def each_content_cell(xi : Int32, xl : Int32, yi : Int32, yl : Int32,
+                          & : Screen::Cell, Int32, Int32 ->) : Nil
+      (yi...yl).each do |y|
+        line = lines[y]?
+        next unless line
+        (xi...xl).each do |x|
+          cell = line[x]?
+          next unless cell
+          next if cell.continuation?
+          yield cell, x - xi, y - yi
+        end
+      end
+    end
+
+    # Text counterpart to `Screen#capture` — same region semantics, plain-text
+    # output. Serializes the current composited buffer for the region (whole
+    # screen by default) via `Dump`. Renders nothing itself: call `_render`
+    # first so the buffer reflects the intended frame (the example/spec harnesses
+    # do this).
+    #
+    # With *path*, writes the dump there and returns `nil`; otherwise returns the
+    # dump as a `String`.
+    #
+    # ```
+    # text = screen.dump             # -> String
+    # screen.dump path: "frame.dump" # writes the file
+    # ```
+    def dump(xi = 0, xl = awidth, yi = 0, yl = aheight, *, path : String? = nil) : String?
+      xi = xi.to_i; xl = xl.to_i; yi = yi.to_i; yl = yl.to_i
+      xi = 0 if xi < 0
+      yi = 0 if yi < 0
+      xl = awidth if xl > awidth
+      yl = aheight if yl > aheight
+
+      text = Dump.text(self, xi, xl, yi, yl)
+      if path
+        File.write(path, text)
+        nil
+      else
+        text
+      end
+    end
+
+    # Whether any declarative CSS `transition` is currently tweening on any
+    # widget in the tree. Used by capture/test harnesses to wait for a state
+    # change to *settle* before snapshotting, so the recorded frame is the
+    # deterministic end state rather than a wall-clock-dependent mid-tween.
+    # (Infinite `@keyframes` animations have no settled state and are
+    # deliberately not counted here.)
+    def animating? : Bool
+      found = false
+      each_descendant { |w| found = true if w.transition_running? }
+      found
     end
   end
 end

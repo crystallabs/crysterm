@@ -41,17 +41,12 @@ module Crysterm
       bg0 = rgb(default_bg)
       canvas = Array(Array(PNGGIF::Pixel)).new(ph) { Array(PNGGIF::Pixel).new(pw, bg0) }
 
-      # 1) Text cells from the rendered buffer.
-      (yi...yl).each do |y|
-        line = screen.lines[y]?
-        next unless line
-        (xi...xl).each do |x|
-          cell = line[x]?
-          next unless cell
-          next if cell.continuation? # trailing half of a wide glyph
-          draw_cell canvas, cell, (x - xi) * cw, (y - yi) * ch, cw, ch,
-            font, bold_font, default_fg, default_bg
-        end
+      # 1) Text cells from the rendered buffer. The region walk (skip
+      #    continuation halves, bounds-safe) is shared with `Dump.text` via
+      #    `Screen#each_content_cell`; here each visible cell is rasterized.
+      screen.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
+        draw_cell canvas, cell, rx * cw, ry * ch, cw, ch,
+          font, bold_font, default_fg, default_bg
       end
 
       # 2) Terminal-native graphics, composited over the text exactly as the

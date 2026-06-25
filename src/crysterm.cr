@@ -35,7 +35,6 @@ require "./screen"
 require "./plane"
 require "./terminal/launchers"
 require "./terminal/handshake"
-require "./screen_connection"
 
 require "./widget"
 require "./widget/**"
@@ -44,6 +43,7 @@ require "./capture"
 # < Widget::List`), so the widget types must already be defined. The other misc
 # helpers only reference widgets inside method bodies, so their order is free.
 require "./misc/**"
+require "./layout"
 require "./layout/**"
 require "./widgets"
 

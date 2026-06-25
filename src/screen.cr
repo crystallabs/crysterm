@@ -19,6 +19,7 @@ require "./screen_focus"
 require "./screen_rows"
 require "./screen_interaction"
 require "./screen_capture"
+require "./screen_connection"
 
 module Crysterm
   # How a `Screen` built without explicit IO chooses between a real terminal and

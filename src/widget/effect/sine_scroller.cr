@@ -1,6 +1,6 @@
 require "../box"
 require "../marquee"
-require "./animated"
+require "../../widget_effect_animated"
 require "../../colors"
 
 module Crysterm

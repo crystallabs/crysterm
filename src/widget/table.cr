@@ -1,5 +1,5 @@
 require "./box"
-require "../layout/table_layout"
+require "../widget_table_layout"
 
 module Crysterm
   class Widget
