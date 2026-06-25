@@ -72,6 +72,9 @@ module WidgetExamples
 
   ROOT       = File.expand_path(File.join(__DIR__, ".."))
   WIDGETS_CR = File.join(ROOT, "src", "widgets.cr")
+  # Standalone programs (not registered widgets/layouts, not docs material). The
+  # tool only (re)captures them — see `process_tests`.
+  TESTS_DIR = File.join(ROOT, "tests")
   # The single shared example harness; every generated example requires it.
   HELPER = File.join(ROOT, "examples", "widget", "example")
 
@@ -677,6 +680,10 @@ module WidgetExamples
     [name ...], --jobs and --duration may accompany any of the above.
     So day to day you only need `--force` and/or a name filter; the rest is
     automatic.
+
+    tests/ : every .cr under tests/ is also (re)captured to png/apng/dump next
+    to itself on any capturing run — no scaffolding, doc-comments or docs (it
+    is not docs material). The same scope/force/duration/jobs/name flags apply.
     TXT
 
   # ---- screenshot -----------------------------------------------------------
@@ -771,8 +778,8 @@ module WidgetExamples
     all = discover
     widgets = all.select { |w| opts.matches?(w) }
 
-    if widgets.empty?
-      STDERR.puts "no matching widgets (#{all.size} discovered)"
+    if widgets.empty? && matching_tests(opts).empty?
+      STDERR.puts "no matching widgets or tests (#{all.size} widgets discovered)"
       exit 1
     end
 
@@ -810,6 +817,7 @@ module WidgetExamples
     if opts.full_chain?
       puts "── full chain: scaffold → still+APNG+dump → doc-comments → docs ──"
       process(widgets, opts) # one run per example produces all three outputs
+      process_tests(opts)    # tests/: captures only (no scaffold/doc-comments/docs)
       maintain_doc_comments(widgets)
       build_docs
       return
@@ -819,11 +827,16 @@ module WidgetExamples
     # kinds), then refresh the docs.
     if opts.default_run?
       process(widgets, opts) # generate missing example files + still/APNG/dump
+      process_tests(opts)    # tests/: produce any missing captures
       build_docs             # `crystal docs` + copy examples into the docs tree
       return
     end
 
     process(widgets, opts)
+    # `--build` only applies to the registered examples (compiled next to their
+    # source); for every other scope flag (`--shot`/`--anim`/`--dump`/`--all`/
+    # `--shots-only`) also (re)capture the tests.
+    process_tests(opts) unless opts.build
   end
 
   # The generation + capture/build phase, shared by a normal single-mode run and
@@ -973,6 +986,87 @@ module WidgetExamples
     unless stubs.empty?
       puts "Scaffolded from the generic template (flesh out in place): #{stubs.uniq.join(", ")}"
     end
+  end
+
+  # ---- tests ----------------------------------------------------------------
+
+  # `tests/` holds standalone programs — not registered widgets/layouts, and not
+  # docs material — so the tool's *only* job there is to (re)produce the three
+  # capture artifacts next to each `.cr`: `<stem>-capture.png`,
+  # `<stem>-capture.dump`, and `<stem>-capture<secs>s.apng`. No scaffolding, no
+  # doc-comments, no docs. Each program captures itself headlessly via the
+  # `CRYSTERM_SHOT`/`CRYSTERM_DUMP`/`CRYSTERM_ANIM` env vars honored by
+  # `Screen#exec`. Output scoping (`--shot`/`--anim`/`--dump`/`--all`/default),
+  # `--force`, `--duration`, `--jobs` and name filters all apply, exactly as for
+  # examples. `--build` is a no-op here (tests are run, not compiled to binaries).
+  # All `tests/**/*.cr` programs the current name filters select (every test when
+  # no filter is given). Shared by `process_tests` and `run`'s emptiness check.
+  def self.matching_tests(opts : Options) : Array(String)
+    return [] of String unless Dir.exists?(TESTS_DIR)
+    progs = Dir.glob(File.join(TESTS_DIR, "**", "*.cr")).sort
+    return progs if opts.filters.empty?
+    progs.select do |p|
+      stem = prog_stem(p).downcase
+      opts.filters.any? { |f| f.downcase.chomp(".cr") == stem }
+    end
+  end
+
+  def self.process_tests(opts : Options)
+    progs = matching_tests(opts)
+    return if progs.empty?
+
+    explicit = opts.shot || opts.anim || opts.dump || opts.all
+    want_shot = opts.shot || opts.all || !explicit
+    want_anim = opts.anim || opts.all || !explicit
+    want_dump = opts.dump || opts.all || !explicit
+
+    skipped = 0
+    captures = [] of {String, Array(String), Hash(String, String)}
+    progs.each do |prog|
+      env = {} of String => String
+      dests = [] of String
+      if want_shot
+        d = shot_for(prog)
+        skip_output?(d, opts.force) ? (skipped += 1) : (env["CRYSTERM_SHOT"] = d; dests << d)
+      end
+      if want_dump
+        d = dump_for(prog)
+        skip_output?(d, opts.force) ? (skipped += 1) : (env["CRYSTERM_DUMP"] = d; dests << d)
+      end
+      if want_anim
+        d = anim_for(prog, opts.duration)
+        if skip_output?(d, opts.force)
+          skipped += 1
+        else
+          env["CRYSTERM_ANIM"] = d
+          env["CRYSTERM_ANIM_SECS"] = opts.duration.to_s
+          dests << d
+        end
+      end
+      captures << {prog, dests, env} unless dests.empty?
+    end
+
+    return if captures.empty?
+    puts "capturing #{captures.size} test(s) with #{Math.min(opts.jobs, captures.size)} job(s)..."
+    ok_n = 0
+    fail_n = 0
+    failures = [] of String
+    parallel_each(captures, opts.jobs) do |(prog, dests, env)|
+      ok, msg = capture_run(prog, dests, env)
+      if ok
+        ok_n += 1
+        puts "wrote  #{msg}"
+      else
+        fail_n += 1
+        failures << prog_stem(prog)
+        puts(String.build do |io|
+          io << "FAIL   " << relative_to_root(prog)
+          msg.each_line { |l| io << "\n         " << l }
+        end)
+      end
+    end
+    puts "Tests: #{ok_n} captured ok, #{fail_n} failed, #{skipped} skipped."
+    puts "Test capture failures (the program needs fixing): #{failures.uniq.join(", ")}" unless failures.empty?
   end
 end
 

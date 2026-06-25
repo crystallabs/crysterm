@@ -1,0 +1,42 @@
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|  Welcome to my program                                                         |
+|                                                                                |
+|    Hello                                                                       |
+|    {"aleft" => 4, "aright" => 19, "atop" => 4, "abottom" =>                    |
+|    13, "awidth" => 57, "aheight" => 7, "rleft" => 2, "rtop"                    |
+|    => 2}                                                                       |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y2: 2-79:def/#cdcd00
+y3: 2-79:def/#cdcd00
+y4: 2-3:def/#cdcd00 4-60:def/#0000ee 61-79:def/#cdcd00
+y5: 2-3:def/#cdcd00 4-60:def/#0000ee 61-79:def/#cdcd00
+y6: 2-3:def/#cdcd00 4-60:def/#0000ee 61-79:def/#cdcd00
+y7: 2-3:def/#cdcd00 4-60:def/#0000ee 61-79:def/#cdcd00
+y8: 2-3:def/#cdcd00 4-60:def/#0000ee 61-79:def/#cdcd00
+y9: 2-3:def/#cdcd00 4-60:def/#0000ee 61-79:def/#cdcd00
+y10: 2-3:def/#cdcd00 4-60:def/#0000ee 61-79:def/#cdcd00
+y11: 2-79:def/#cdcd00
+y12: 2-79:def/#cdcd00
+y13: 2-79:def/#cdcd00
+y14: 2-79:def/#cdcd00
+y15: 2-79:def/#cdcd00

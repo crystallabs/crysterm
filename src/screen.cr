@@ -349,6 +349,13 @@ module Crysterm
       #  raise Exception.new "Screen does not belong to this Display."
       # end
 
+      # Headless capture mode: if the capture env vars are set this process is
+      # being driven by the example/test tooling — render one frame, write the
+      # requested artifact(s), and return instead of entering the interactive
+      # loop. Lets any standalone program (the `tests/` ports, a user app) be
+      # captured without code changes.
+      return if capture_from_env
+
       if s
         s.render
       else
@@ -364,6 +371,32 @@ module Crysterm
 
       # Shouldn't reach for now
       emit ::Crysterm::Event::Detach, self
+    end
+
+    # When any of `CRYSTERM_SHOT` / `CRYSTERM_DUMP` / `CRYSTERM_ANIM` is set, each
+    # names a file to write the current screen to — a still PNG, a text `#dump`
+    # golden, and/or an APNG (with `CRYSTERM_ANIM_SECS` / `CRYSTERM_ANIM_FPS`
+    # tuning duration/rate). Renders one frame, writes whichever artifacts were
+    # requested, and returns `true` so `exec` skips the interactive loop. Returns
+    # `false` (the normal interactive case) when no capture var is set. This is
+    # what makes every Crysterm program self-capturable headlessly.
+    private def capture_from_env : Bool
+      shot = ENV["CRYSTERM_SHOT"]?.presence
+      dump_dest = ENV["CRYSTERM_DUMP"]?.presence
+      anim = ENV["CRYSTERM_ANIM"]?.presence
+      return false unless shot || dump_dest || anim
+
+      _render
+
+      capture path: shot if shot
+      dump path: dump_dest if dump_dest
+      if anim
+        secs = ENV["CRYSTERM_ANIM_SECS"]?.try(&.to_f?) || 5.0
+        fps = ENV["CRYSTERM_ANIM_FPS"]?.try(&.to_i?) || 10
+        capture path: anim, format: "apng", duration: secs.seconds, fps: fps, loops: 0
+      end
+
+      true
     end
 
     def enter

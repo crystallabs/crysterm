@@ -1,0 +1,52 @@
+w=80 h=24
++--------------------------------------------------------------------------------+
+|Non eram nescius Brute cum quae summis ingeniis exquisitaque doctrina philosophi|
+| Graeco sermone tractavissent ea Latinis litteris mandaremus fore ut hic noster |
+|labor in varias reprehensiones incurreret nam quibusdam et iis quidem non admodu|
+|m indoctis totum hoc displicet philosophari. Non eram nescius Brute cum quae sum|
+|mis ingeni┌──────────────────────────────┐phi Graeco sermone tractavissent ea La|
+|tinis litt│                              │er labor in varias reprehensiones incu|
+|rreret nam│         ┌────────────────────┴─────────────────┐m hoc displicet phil|
+|osophari. │         │ --Drag Me--                          │quisitaque doctrina |
+|philosophi│         │                                      │mandaremus fore ut h|
+|ic noster │         │                                      │usdam et iis quidem |
+|non admodu└─────────┤                                      │ram nescius Brute cu|
+|m quae summis ingeni│                                      │co sermone tractavis|
+|sent ea Latinis litt│                                      │ in varias reprehens|
+|iones incurreret nam│                                      │octis totum hoc disp|
+|licet philosophari. │                                      │ngeniis exquisitaque|
+| doctrina philosophi│                                      │ litteris mandaremus|
+| fore ut hic noster │                                      │t nam quibusdam et i|
+|is quidem non admodu└──────────────────────────────────────┘ari. Non eram nesciu|
+|s Brute cum quae summis ingeniis exquisitaque doctrina philosophi Graeco sermone|
+| tractavissent ea Latinis litteris mandaremus fore ut hic noster labor in varias|
+| reprehensiones incurreret nam quibusdam et iis quidem non admodum indoctis totu|
+|m hoc displicet philosophari. Non eram nescius Brute cum quae summis ingeniis ex|
+|quisitaque doctrina philosophi Graeco sermone tractavissent ea Latinis litteris |
+|mandaremus fore ut hic noster labor in varias reprehensiones incurreret nam quib|
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-79:def/#5c5cff
+y1: 0-79:def/#5c5cff
+y2: 0-79:def/#5c5cff
+y3: 0-79:def/#5c5cff
+y4: 0-9:def/#5c5cff 42-79:def/#5c5cff
+y5: 0-9:def/#5c5cff 11-40:def/#cdcd00 42-43:def/#2e2e7f 44-79:def/#5c5cff
+y6: 0-9:def/#5c5cff 11-19:def/#cdcd00 60-79:def/#5c5cff
+y7: 0-9:def/#5c5cff 11-19:def/#cdcd00 21-33:#cd0000/#00cd00+b 34-58:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y8: 0-9:def/#5c5cff 11-19:def/#cdcd00 21-58:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y9: 0-9:def/#5c5cff 11-19:def/#cdcd00 21-58:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y10: 0-9:def/#5c5cff 21-58:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y11: 0-11:def/#5c5cff 12-19:def/#2e2e7f 21-58:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y12: 0-19:def/#5c5cff 21-58:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y13: 0-19:def/#5c5cff 21-58:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y14: 0-19:def/#5c5cff 21-58:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y15: 0-19:def/#5c5cff 21-58:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y16: 0-19:def/#5c5cff 21-58:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y17: 0-19:def/#5c5cff 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y18: 0-21:def/#5c5cff 22-61:def/#2e2e7f 62-79:def/#5c5cff
+y19: 0-79:def/#5c5cff
+y20: 0-79:def/#5c5cff
+y21: 0-79:def/#5c5cff
+y22: 0-79:def/#5c5cff
+y23: 0-79:def/#5c5cff
