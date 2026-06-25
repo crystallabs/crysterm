@@ -13,10 +13,14 @@ module Crysterm
     # More usefully, it **binds to** a scrollable widget via `#attach`: the bar
     # then reflects and drives that widget's scroll position through the existing
     # scroll machinery (`Widget#scroll_to`/`#child_base`/`Event::Scroll` from
-    # `widget_scrolling.cr`), rather than reimplementing it. Crysterm's other
-    # scrollable widgets keep their built-in render-time scrollbar indicator;
-    # this widget is for when you want a *separate*, interactive bar (e.g. beside
-    # a `Box`, or shared by a custom layout).
+    # `widget_scrolling.cr`), rather than reimplementing it. This *is* the scroll
+    # bar every scrollable widget uses: there is no separate "built-in" render-time
+    # indicator — `Widget#ensure_scrollbar_widget` creates one of these as a
+    # `fixed` child and `#update_scrollbar_widget` shows/hides it per the policy.
+    # The bar is `#scrollbar_width` columns (vertical) / `#scrollbar_height` rows
+    # (horizontal) thick — never assumed to be `1`. You can also create one
+    # directly and `#attach` it for a standalone, interactive bar (e.g. beside a
+    # `Box`, or shared by a custom layout).
     #
     # ```
     # box = Widget::ScrollableBox.new parent: screen, top: 0, left: 0, width: 40, height: 10, content: long_text
@@ -85,6 +89,14 @@ module Crysterm
       property thumb_char : Char = '█'
       property trough_char : Char = '░'
 
+      # Whether the trough (the track on either side of the thumb) is painted with
+      # `#trough_char`. **On by default** — Crysterm's Qt-style bar shows the full
+      # track. Set `false` for a blessed-style bar that draws only the thumb,
+      # leaving the rest of the track blank. The thumb and any stepper buttons are
+      # unaffected; the trough's color still comes from the `::groove`/`track`
+      # style when shown.
+      property? show_trough : Bool = true
+
       # Qt's `QScrollBar` stepper buttons (`::sub-line`/`::add-line`). Off by
       # default — terminal scroll bars rarely show them. When on, one cell at
       # each end of the trough becomes a clickable step button drawing an arrow
@@ -118,6 +130,7 @@ module Crysterm
         @thumb_char = '█',
         @trough_char = '░',
         @stepper_buttons = false,
+        @show_trough = true,
         **input,
       )
         super **input
@@ -305,6 +318,11 @@ module Crysterm
           add_page_attr = sattr resolve_slot(base.add_page, base.track, base)
           thumb_attr = sattr base.indicator
 
+          # With the trough hidden (blessed-style), the track on either side of the
+          # thumb is left blank — only the thumb is drawn. The reserved column is
+          # cleared each frame, so a space keeps it empty rather than glyph-filled.
+          trough_ch = show_trough? ? @trough_char : ' '
+
           (main_lo...main_hi).each do |m|
             attr, ch =
               if steppers && m == main_lo
@@ -312,9 +330,9 @@ module Crysterm
               elsif steppers && m == main_hi - 1
                 stepper_cell false, base
               elsif m < thumb_lo
-                {sub_page_attr, @trough_char}
+                {sub_page_attr, trough_ch}
               elsif m >= thumb_hi
-                {add_page_attr, @trough_char}
+                {add_page_attr, trough_ch}
               else
                 {thumb_attr, @thumb_char}
               end

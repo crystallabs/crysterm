@@ -405,7 +405,19 @@ module Crysterm
         # first rendered frame. Assigned directly (not via `width=`) to avoid the
         # `Resize`-before-store recursion our own `Resize` handler would trigger.
         calculate_maxes
-        @width = row_width + iwidth if @content_sized && !@maxes.empty?
+
+        # Reserve the vertical scroll bar's column (when shown) for the pinned
+        # header too, mirroring the body items (synced in `List#render`). The
+        # header is an interior overlay built by `render_row` — already sliced for
+        # horizontal scroll like the rows — so it just needs the same right-edge
+        # reservation, else the shown bar overpaints its last column. `right=` is a
+        # no-op when unchanged.
+        reserve = content_margin_x
+        header.right = reserve
+        # A content-sized table widens by that column so the bar gets its own cell
+        # instead of clipping the last data column; a fixed-width table keeps its
+        # width and scrolls horizontally instead.
+        @width = row_width + iwidth + reserve if @content_sized && !@maxes.empty?
 
         coords = super
         return coords unless coords

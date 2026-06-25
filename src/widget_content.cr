@@ -197,6 +197,13 @@ module Crysterm
       property max_width = 0
       property width = 0
 
+      # Right-edge columns (`Widget#content_margin_x`) these lines were wrapped to
+      # avoid — the vertical scroll bar's reservation in force at wrap time. Part
+      # of the convergence check in `Widget#process_content`: an `AsNeeded` bar's
+      # presence is only known *after* wrapping, so if reserving its column now
+      # differs from what was applied here, the content is re-wrapped once.
+      property margin = 0
+
       # Horizontal scroll offset (in display columns) these lines were sliced for
       # — part of the wrap cache key, so a horizontal scroll forces a reparse the
       # same way a width change does. Only meaningful when `wrap_content` is off.
@@ -366,7 +373,25 @@ module Crysterm
         # Reuse the existing `@_clines` object (refill in place) instead of
         # allocating a new one each reparse — `@_clines` is non-nilable (defaults
         # to an empty `CLines`), so it is always a valid reuse target.
-        @_clines = _wrap_content(content, colwidth, into: @_clines)
+        #
+        # Wrap, then *converge* the scroll-bar reservation. An `AsNeeded` bar's
+        # presence depends on whether the content overflows the viewport, which
+        # is only known from the wrapped line count — i.e. *after* wrapping — yet
+        # the wrap width itself depends on the bar reserving its column. On the
+        # first wrap `@_clines` is empty, so `content_margin_x` sees
+        # `get_scroll_height == 0`, reserves nothing, and the content wraps one
+        # column too wide; the bar then overpaints the last content column (the
+        # `widget-csr` bug). So if the freshly-produced lines flip the reservation
+        # `content_margin_x` returns, re-wrap once with it. Monotonic: reserving a
+        # column only narrows the width, which only adds lines, so the bar cannot
+        # then disappear — two passes always suffice (the loop is bounded anyway).
+        2.times do
+          @_clines = _wrap_content(content, colwidth, into: @_clines)
+          # The break test keys off line count (`content_margin_x` →
+          # `get_scroll_height` → `@_clines.size`), which `_wrap_content` already
+          # set; the cache-key fields below don't affect it, so set them once after.
+          break if @_clines.margin == content_margin_x
+        end
         @_clines.width = colwidth
         @_clines.base_x = @child_base_x
         @_clines.content = @content
@@ -582,8 +607,21 @@ module Crysterm
     # buffers (see `CLines#reset`). When nil a new `CLines` is built.
     def _wrap_content(content, colwidth, into : CLines? = nil)
       default_state = @align
-      margin = 0
+      # Capture the right-edge reservation BEFORE `outbuf.reset` below. When
+      # `into` is the widget's own `@_clines`, `reset` clears it — and
+      # `content_margin_x` → `show_scrollbar?` → `really_scrollable?` →
+      # `get_scroll_height` *reads* `@_clines`. Read post-reset, the just-emptied
+      # lines make `get_scroll_height == 0`, so an `AsNeeded` bar looks un-needed
+      # mid-wrap. Reading it here, pre-reset, sees the lines still in place — which
+      # is exactly what `process_content`'s convergence pass relies on: its second
+      # `_wrap_content` call must see the *first* pass's line count to keep the
+      # reservation, not re-zero it and oscillate.
+      margin = content_margin_x
       outbuf = into || CLines.new
+      # Record the reservation this wrap is built against, so `process_content`
+      # can tell when an `AsNeeded` bar's presence (only known post-wrap) flips
+      # it and a re-wrap is needed.
+      outbuf.margin = margin
       # Clear the in-place arrays so a reused `CLines` starts empty (a no-op on a
       # freshly built one). After this, fill the `CLines`' own `rtof`/`ftor`
       # arrays directly via these aliases — no throwaway locals reassigned at the
@@ -617,11 +655,10 @@ module Crysterm
         lines << content
       end
 
-      # Reserve the right-edge columns content must avoid: the scroll bar's
-      # column when shown, plus any per-widget reservation (a `PlainTextEdit`'s
-      # end-of-line caret column). `#content_margin_x` is the single source of
-      # truth shared with the horizontal-scroll math (`#content_width`).
-      margin += content_margin_x
+      # Subtract the right-edge reservation captured above so content wraps clear
+      # of the scroll bar (and any per-widget reservation, e.g. `PlainTextEdit`'s
+      # caret column). `#content_margin_x` is the single source of truth, shared
+      # with the horizontal-scroll math (`#content_width`).
       colwidth -= margin if colwidth > margin
 
       lines.each_with_index do |line, no|

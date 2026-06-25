@@ -515,6 +515,13 @@ module Crysterm
       yi -= p.top
       yl += p.bottom
 
+      # Add back the row(s) reserved for a shown horizontal scroll bar (subtracted
+      # at the content stage above). The bar occupies the last *interior* row; the
+      # border must still be drawn at the widget's true bottom edge. Without this
+      # restore `yl` stays one row short, so the bottom border paints over the bar
+      # row and the real bottom row is left frameless.
+      yl += hscrollbar_rows
+
       # Draw the border.
       style.border.try do |border|
         # A border with all sides 0 is "no border": nothing to draw.

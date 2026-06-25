@@ -222,6 +222,28 @@ describe "List multi-select rendering" do
   end
 end
 
+describe "List scroll-bar column reservation" do
+  it "reserves the vertical bar's column for items even when they grow into overflow" do
+    s = render_screen
+    # Two items: fits in height 4, no vertical overflow, no bar yet.
+    list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 12, height: 4,
+      scrollbar: true, items: ["AAAAAAAAAA", "BBBBBBBBBB"]
+    s._render
+    list.show_scrollbar?.should be_false
+    list.items.all? { |i| i.right == 0 }.should be_true
+
+    # Grow past the viewport: the bar now shows, and #render must re-sync every
+    # item's reservation to the real bar width (not leave the originals at 0,
+    # which the shown bar would then overpaint).
+    list.append_item "CCCCCCCCCC"
+    list.append_item "DDDDDDDDDD"
+    list.append_item "EEEEEEEEEE" # 5 items > height 4 -> overflow
+    s._render
+    list.show_scrollbar?.should be_true
+    list.items.all? { |i| i.right == list.scrollbar_width }.should be_true
+  end
+end
+
 describe "Question#ask_choices" do
   it "invokes the block with the chosen button index and restores OK/Cancel" do
     s = render_screen
@@ -375,6 +397,15 @@ describe "ScrollBar rendering" do
     col_chars(s, 0, 0, 7).should eq "█░░░░░░"
   end
 
+  it "draws only the thumb when the trough is hidden (blessed-style)" do
+    s = render_screen
+    Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
+      minimum: 0, maximum: 10, value: 0, show_trough: false
+    s._render
+    # Thumb at the top, the rest of the track left blank (no `░` trough).
+    col_chars(s, 0, 0, 7).should eq "█      "
+  end
+
   it "draws stepper buttons at the trough ends when enabled" do
     s = render_screen
     Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
@@ -477,6 +508,22 @@ describe "Horizontal scrolling (workstream D)" do
     bar_glyphs.call(4).should be_true
   end
 
+  it "draws the bottom border below a shown horizontal bar, not over it" do
+    s = render_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 12, height: 6,
+      wrap_content: false,
+      style: Style.new(border: Crysterm::BorderType::Line),
+      horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
+      content: (1..8).map { |i| "L#{i}-ABCDEFGHIJKLMNOP" }.join("\n") # wide + tall
+    s._render
+
+    box.show_horizontal_scrollbar?.should be_true
+    # The bar reserves the last *interior* row (row 4); the bottom border stays at
+    # the widget's true bottom edge (row 5) instead of being painted one row up.
+    row_chars(s, 4, 1, 11).chars.all? { |c| c == '█' || c == '░' }.should be_true
+    row_chars(s, 5, 0, 12).should eq "└──────────┘"
+  end
+
   it "leaves wrapped content unscrolled horizontally (no overflow)" do
     s = render_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 6,
@@ -575,6 +622,24 @@ describe "ListTable column-level horizontal scrolling (workstream D)" do
     lt.show_horizontal_scrollbar?.should be_false
     lt.scroll_x 1 # no-op
     lt.child_base_x.should eq 0
+  end
+
+  it "reserves the vertical bar's column for the pinned header too" do
+    s = render_screen
+    # Content-sized table with enough rows to overflow height 5 -> vertical bar.
+    rows = [["Name", "Status"]]
+    8.times { |i| rows << ["item#{i}", "okay#{i}"] }
+    lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, height: 5,
+      scrollbar: true, rows: rows
+    s._render
+
+    lt.show_scrollbar?.should be_true
+    # The header reserves the bar's column, matching the body items (List#render),
+    # so the shown bar never overpaints the header's last column.
+    lt.header.right.should eq lt.scrollbar_width
+    lt.items.all? { |i| i.right == lt.scrollbar_width }.should be_true
+    # A content-sized table widens by that column so the bar gets its own cell.
+    lt.awidth.should eq lt.row_width + lt.iwidth + lt.scrollbar_width
   end
 end
 

@@ -51,6 +51,20 @@ module Crysterm
     # shape, but not yet consulted — horizontal scrolling lands with workstream D.
     property horizontal_scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
 
+    # Thickness of the scroll bars, in cells — the **single source of truth** for
+    # how many cells a bar occupies, so no part of the toolkit assumes a width of
+    # `1`. The vertical bar is `#scrollbar_width` columns wide (reserved on the
+    # right by `#content_margin_x`); the horizontal bar is `#scrollbar_height`
+    # rows tall (reserved at the bottom by `#hscrollbar_rows`). The `ScrollBar`
+    # child widgets (`#ensure_scrollbar_widget`) are created at exactly these
+    # sizes, so the reserved space and the rendered bar always agree. Both
+    # default to `1` (the historical single-cell bar) and may be set wider; Qt's
+    # analogue is `QStyle::PM_ScrollBarExtent`.
+    property scrollbar_width : Int32 = 1
+
+    # :ditto:
+    property scrollbar_height : Int32 = 1
+
     # Whether the scroll bar chrome should be shown right now, given the policy
     # and current content: never when non-scrollable or `AlwaysOff`, always
     # under `AlwaysOn`, and only on overflow under `AsNeeded`.
@@ -70,7 +84,7 @@ module Crysterm
     # unless the bar is actually shown, so widgets without a horizontal bar are
     # unaffected.
     def hscrollbar_rows : Int32
-      show_horizontal_scrollbar? ? 1 : 0
+      show_horizontal_scrollbar? ? scrollbar_height : 0
     end
 
     # Whether a bar with *policy* should show: never when non-scrollable or
@@ -118,7 +132,7 @@ module Crysterm
     # `ScrollBar { color: … }` / `.scrollbar { … }`). Idempotent; returns the bar.
     protected def ensure_scrollbar_widget : ScrollBar
       sb = @scrollbar_widget ||= bind_scrollbar ScrollBar.new parent: self,
-        orientation: :vertical, top: 0, right: 0, width: 1, height: "100%"
+        orientation: :vertical, top: 0, right: 0, width: scrollbar_width, height: "100%"
       sb.sync_from_target
       sb
     end
@@ -128,7 +142,7 @@ module Crysterm
     # this widget's x-axis. Idempotent; returns the bar.
     protected def ensure_horizontal_scrollbar_widget : ScrollBar
       sb = @horizontal_scrollbar_widget ||= bind_scrollbar ScrollBar.new parent: self,
-        orientation: :horizontal, left: 0, bottom: 0, height: 1, width: "100%"
+        orientation: :horizontal, left: 0, bottom: 0, height: scrollbar_height, width: "100%"
       sb.sync_from_target
       sb
     end
@@ -291,12 +305,13 @@ module Crysterm
     end
 
     # Columns reserved at the right of the content area beyond border/padding —
-    # the vertical scroll bar's column when shown. `_wrap_content` subtracts this
+    # the vertical scroll bar's columns when shown. `_wrap_content` subtracts this
     # (so wrapped/clipped content avoids the bar), and the horizontal-scroll math
-    # uses it via `#content_width`, keeping the two in agreement. Subclasses add
+    # uses it via `#content_width`, keeping the two in agreement. The reservation
+    # is the bar's real `#scrollbar_width`, never a hardcoded `1`. Subclasses add
     # their own reservations (`PlainTextEdit`'s end-of-line caret column).
     def content_margin_x : Int32
-      show_scrollbar? ? 1 : 0
+      show_scrollbar? ? scrollbar_width : 0
     end
 
     # Width in columns actually available to content: the viewport minus

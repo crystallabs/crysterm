@@ -235,7 +235,35 @@ module Crysterm
         get_scroll_height > (aheight - iheight)
       end
 
-      def create_item(content, screen = ::Crysterm::Screen.global, align : ::Tput::AlignFlag | Shorthands = @align, top = 0, left = 0, right = (scrollbar? ? 1 : 0), parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
+      # Keeps every item's right-edge reservation in lock-step with the vertical
+      # scroll bar's *current* presence, each frame. The items *are* this widget's
+      # content, so their reservation is exactly `#content_margin_x` (the same
+      # columns the wrap/content-width math reserves — never a hardcoded `1`).
+      # Items bake `right` at creation (`#create_item`), but whether the bar shows
+      # can change after they exist — the list grew past the viewport, `#set_items`
+      # replaced the data reusing the old item widgets (which never re-run
+      # `create_item`), the viewport was resized, etc. A stale `right: 0` would let
+      # the shown bar overpaint the last content column (visible with centered/
+      # right-aligned rows, e.g. a `ListTable`); a stale reservation would waste a
+      # column the bar no longer needs (the `Paris → Pari` over-reservation).
+      # `right=` is a no-op when unchanged, so this costs nothing in steady state.
+      # Items created resizable carry `right: nil` (full width) and are left alone.
+      def render(with_children = true)
+        # Only scrollable lists can reserve a bar column; for a plain list/menu
+        # `content_margin_x` is always 0 and every item already has `right: 0`, so
+        # skip the per-frame item walk entirely (the common non-scrolling case).
+        if scrollable?
+          reserve = content_margin_x
+          @items.each { |item| item.right = reserve unless item.right.nil? }
+        end
+        super
+      end
+
+      # *right* defaults to `#content_margin_x` (the vertical bar's real width,
+      # reserved only when it shows) — just the item's *initial* value; `#render`
+      # re-syncs it every frame (see there). The horizontal bar reserves a bottom
+      # *row* via `#hscrollbar_rows`, so nothing is taken off the right for it.
+      def create_item(content, screen = ::Crysterm::Screen.global, align : ::Tput::AlignFlag | Shorthands = @align, top = 0, left = 0, right = content_margin_x, parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
 
         if @resizable || normal_resizable
           right = nil
