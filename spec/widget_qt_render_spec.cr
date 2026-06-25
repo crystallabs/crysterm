@@ -457,6 +457,26 @@ describe "Horizontal scrolling (workstream D)" do
     row_chars(s, 0, 0, 10).should eq "KLMNOPQRST" # columns [10,20)
   end
 
+  it "reserves a bottom row for the horizontal bar instead of overlaying content" do
+    s = render_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 12, height: 5,
+      wrap_content: false,
+      horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
+      content: (1..8).map { |i| "L#{i}-ABCDEFGHIJKLMNOP" }.join("\n") # wide + tall: both bars
+    s._render
+
+    box.hscrollbar_rows.should eq 1
+    bar_glyphs = ->(y : Int32) { row_chars(s, y, 0, 12).chars.all? { |c| c == '█' || c == '░' } }
+    bar_glyphs.call(4).should be_true # the bottom row is the bar, not content
+    row_chars(s, 0, 0, 4).should eq "L1-A" # content sits in the rows above it
+
+    # The last line stays reachable above the bar (not permanently hidden under it).
+    box.scroll_to box.get_scroll_height
+    s._render
+    row_chars(s, 3, 0, 4).should eq "L8-A"
+    bar_glyphs.call(4).should be_true
+  end
+
   it "leaves wrapped content unscrolled horizontally (no overflow)" do
     s = render_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 6,

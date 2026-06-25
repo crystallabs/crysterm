@@ -64,6 +64,15 @@ module Crysterm
       policy_shows?(horizontal_scrollbar_policy) { really_scrollable_x? }
     end
 
+    # Rows reserved at the bottom for a shown horizontal scroll bar, so content
+    # and vertical-scroll math don't run underneath it — the horizontal analogue
+    # of the column the vertical bar reserves in `_wrap_content`. `0` (no effect)
+    # unless the bar is actually shown, so widgets without a horizontal bar are
+    # unaffected.
+    def hscrollbar_rows : Int32
+      show_horizontal_scrollbar? ? 1 : 0
+    end
+
     # Whether a bar with *policy* should show: never when non-scrollable or
     # `AlwaysOff`, always under `AlwaysOn`, and under `AsNeeded` only when the
     # yielded overflow test is true. The block is `yield`ed (inlined, no closure).
@@ -164,7 +173,7 @@ module Crysterm
     # viewport moved.
     def ensure_visible(y : Int32, margin : Int32 = 0) : Bool
       return false unless scrollable?
-      visible = aheight - iheight
+      visible = aheight - iheight - hscrollbar_rows
       return false if visible <= 0
 
       base = @child_base
@@ -312,7 +321,7 @@ module Crysterm
         return s ? -1 : 0
       end
 
-      height = (pos.yl - pos.yi) - iheight
+      height = (pos.yl - pos.yi) - iheight - hscrollbar_rows
       i = get_scroll_height
       # p
 
@@ -381,8 +390,8 @@ module Crysterm
       # Handle scrolling.
       # visible == amount of actual content lines visible in the widget. E.g. for
       # a widget of height=4 and border (which renders within height), the amount
-      # of visible lines == 2.
-      visible = aheight - iheight
+      # of visible lines == 2. A shown horizontal bar reserves the bottom row.
+      visible = aheight - iheight - hscrollbar_rows
       # Current scrolling amount, i.e. the index of the first line of content which
       # is actually shown. (base == 2 means content is showing from its 3rd line onwards)
       base = @child_base
@@ -465,7 +474,7 @@ module Crysterm
     # inner height — then re-clamps into `[0, @base_limit]`. Shared by `#scroll`
     # and `#_recalculate_index`, which had identical copies of this.
     private def clamp_child_base_to_content
-      visible = aheight - iheight
+      visible = aheight - iheight - hscrollbar_rows
 
       max = @_clines.size - visible
       max = 0 if max < 0

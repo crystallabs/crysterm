@@ -256,6 +256,10 @@ module Crysterm
       yi += p.top
       yl -= p.bottom
 
+      # Reserve the bottom row(s) for a shown horizontal scroll bar so content
+      # never paints under it (the row stays `fixed` for the bar to draw into).
+      yl -= hscrollbar_rows
+
       # Determine where to place the text if it's vertically aligned.
       if @align.v_center? || @align.bottom?
         visible = yl - yi
