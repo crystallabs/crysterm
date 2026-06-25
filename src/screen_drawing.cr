@@ -48,9 +48,12 @@ module Crysterm
     # cell. The sequence fields (`smacs`/`rmacs`/`el`) are the terminal's static,
     # parameter-free capabilities, captured (and `dup`'d off terminfo's own
     # memory) so they can be written straight into the frame buffer. The
-    # *parameterized* hot-path sequences (`cup`/`cuf`/SGR) are not here — they are
-    # emitted as direct ANSI at their call sites, since materializing them through
-    # terminfo `run` allocates a `Bytes` per call. Derived once per `@tput` via
+    # *parameterized* hot-path sequences (`cup`/`cuf`/SGR) are still emitted as
+    # direct ANSI at their call sites (materializing them through terminfo `run`
+    # allocates a `Bytes` per call), but their inline emission is now gated on
+    # `ansi_cursor` — tput's verification that those forms are byte-for-byte
+    # standard on this terminal — so a non-conforming terminal falls back to the
+    # safe tput path instead of getting wrong bytes. Derived once per `@tput` via
     # `#compute_draw_caps` (in `Screen#initialize` and on reconnect).
     record DrawCaps,
       has_bce : Bool,
@@ -63,7 +66,13 @@ module Crysterm
       acscr : Hash(Char, Char),
       smacs : Bytes,
       rmacs : Bytes,
-      el : Bytes
+      el : Bytes,
+      # Whether tput verified the terminal's `cup`/`cuf`/… are byte-for-byte
+      # standard ANSI (`Tput::Features#ansi_cursor?`). When true, the hot-path
+      # cursor moves below are emitted as direct inline ANSI; when false they
+      # route through tput (via `divert`) so a non-conforming terminal still gets
+      # correct sequences. Constant for the terminal, so it is read once here.
+      ansi_cursor : Bool
 
     # The per-terminal draw capabilities (`DrawCaps`). Assigned `= compute_draw_caps`
     # wherever `@tput` is created — in `Screen#initialize` and on reconnect — so
@@ -89,6 +98,7 @@ module Crysterm
         smacs: (s.smacs? || Bytes.empty).dup,
         rmacs: (s.rmacs? || Bytes.empty).dup,
         el: (s.el? || Bytes.empty).dup,
+        ansi_cursor: tput.features.ansi_cursor?,
       )
     end
 
@@ -169,6 +179,7 @@ module Crysterm
       smacs = caps.smacs
       rmacs = caps.rmacs
       el = caps.el
+      ansi_cursor = caps.ansi_cursor
 
       bce_opt = @optimization.bce?
       fu = full_unicode?
@@ -322,9 +333,13 @@ module Crysterm
                 Screen.code2attr_to(@outbuf, attr, ncolors)
               end
 
-              # Clear to end of line at (x, y): a direct-ANSI cursor move (see the
-              # reposition note below) followed by the hoisted static `el`.
-              @outbuf << "\e[" << (y + 1) << ';' << (x + 1) << 'H'
+              # Clear to end of line at (x, y): a cursor move (see the reposition
+              # note below) followed by the hoisted static `el`.
+              if ansi_cursor
+                @outbuf << "\e[" << (y + 1) << ';' << (x + 1) << 'H'
+              else
+                divert(@tmpbuf, @outbuf) { tput.cursor_position(y, x) }
+              end
               @outbuf.write el
 
               (x...line_size).each do |xx|
@@ -432,7 +447,12 @@ module Crysterm
               # already assumes ANSI SGR), so the hardcoded forms match terminfo's
               # output. Writing an `Int` to the IO emits its digits with no
               # `String` allocation.
-              if parm_right_cursor && y == ly
+              if !ansi_cursor
+                # Non-conforming terminal: route through tput (captured into the
+                # frame buffer via `divert`). Always an absolute move, since this
+                # path can't assume `cuf` either.
+                divert(@tmpbuf, @outbuf) { tput.cursor_position(y, x) }
+              elsif parm_right_cursor && y == ly
                 @outbuf << "\e[" << (x - lx) << 'C'
               else
                 @outbuf << "\e[" << (y + 1) << ';' << (x + 1) << 'H'
@@ -607,9 +627,13 @@ module Crysterm
 
         unless @outbuf.empty?
           # STDERR.puts @outbuf.size
-          # Line-start cursor position, direct ANSI (see the reposition note
-          # above): `cup(y, 0)` == `\e[<row>;1H` (1-based).
-          @main << "\e[" << (y + 1) << ";1H"
+          # Line-start cursor position (see the reposition note above):
+          # `cup(y, 0)` == `\e[<row>;1H` (1-based), gated on `ansi_cursor`.
+          if ansi_cursor
+            @main << "\e[" << (y + 1) << ";1H"
+          else
+            divert(@tmpbuf, @main) { tput.cursor_position(y, 0) }
+          end
           @main.write @outbuf.to_slice
         end
       end
