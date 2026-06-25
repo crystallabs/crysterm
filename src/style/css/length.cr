@@ -43,7 +43,18 @@ module Crysterm
       # `calc(<expr>)`, capturing the inner expression.
       CALC = /\Acalc\(\s*(.*?)\s*\)\z/i
       # A viewport-relative length, resolved against the screen by `viewport_cells`.
-      VIEWPORT = /\A(-?\d+(?:\.\d+)?)(vw|vh|vmin|vmax)\z/i
+      # Intentionally case-*sensitive* (no `/i`): every caller first gates on a
+      # lowercase `includes?('v')`, so an uppercase `VW` never reaches here anyway,
+      # and this lets `viewport_cells` use the captured unit without a `downcase`
+      # copy on its per-frame path.
+      VIEWPORT = /\A(-?\d+(?:\.\d+)?)(vw|vh|vmin|vmax)\z/
+
+      # Rounds fractional cells to an `Int32`, *clamping* into range so an absurd
+      # length (`99999999999px`) can't raise `OverflowError` — the contract is
+      # never-raises, and a value past the screen is meaningless anyway.
+      def self.to_cell_count(cells : Float64) : Int32
+        cells.round.clamp(Int32::MIN.to_f64, Int32::MAX.to_f64).to_i
+      end
 
       # Cells for a bare integer (`5` → 5), a unit'd length (`200px` → 20 with the
       # default table), or a `calc(...)` whose terms all resolve; `nil` for an
@@ -51,10 +62,14 @@ module Crysterm
       # or any non-cell form (`50%`, `center`, junk). Never raises.
       def self.to_cells(value : String) : Int32?
         s = value.strip
-        if m = s.match(CALC)
+        # `to_cells` is the most-called length entry point. Only `calc(...)` needs
+        # the heavier CALC regex, so gate it on a case-insensitive first-byte
+        # check (`| 0x20` lowercases an ASCII letter) — every plain number/length
+        # skips the regex entirely.
+        if (b = s.byte_at?(0)) && (b | 0x20) == 'c'.ord && (m = s.match(CALC))
           calc(m[1])
         else
-          to_cells_f(s).try(&.round.to_i)
+          to_cells_f(s).try { |f| to_cell_count(f) }
         end
       end
 
@@ -63,10 +78,18 @@ module Crysterm
       # `to_cells` and the `calc()` evaluator (which rounds only the final result).
       def self.to_cells_f(value : String) : Float64?
         s = value.strip
-        if s.matches?(NUMBER)
+        # Fast path for a bare integer (`5`, `0`, `-3`) — the common case — with no
+        # regex. Only a bare *decimal* (`5.5`) needs the NUMBER regex, and only a
+        # unit'd length needs PATTERN.
+        if i = s.to_i?
+          i.to_f
+        elsif s.matches?(NUMBER)
           s.to_f
         elsif m = s.match(PATTERN)
-          divisors[m[2].downcase]?.try { |div| m[1].to_f / div }
+          # Look the unit up as-captured first (almost always already lowercase),
+          # only allocating a `downcase` copy on the rare uppercase unit.
+          u = m[2]
+          divisors.fetch(u) { divisors[u.downcase]? }.try { |div| m[1].to_f / div }
         end
       end
 
@@ -81,13 +104,13 @@ module Crysterm
       # smaller/larger side. `nil` if *value* isn't a viewport unit.
       def self.viewport_cells(value : String, screen_width : Int32, screen_height : Int32) : Int32?
         return unless m = value.strip.match(VIEWPORT)
-        basis = case m[2].downcase
+        basis = case m[2] # lowercase by construction (VIEWPORT is case-sensitive)
                 when "vw"   then screen_width
                 when "vh"   then screen_height
                 when "vmin" then {screen_width, screen_height}.min
                 else             {screen_width, screen_height}.max
                 end
-        (basis * m[1].to_f / 100.0).round.to_i
+        to_cell_count(basis * m[1].to_f / 100.0)
       end
 
       # Evaluates a `calc()` body (the text inside the parens) to cells, honoring
@@ -96,7 +119,7 @@ module Crysterm
       # malformed or references a value that needs layout context (`%`, viewport
       # units) — the caller then ignores the declaration.
       def self.calc(body : String) : Int32?
-        CalcEval.new(body).result.try(&.round.to_i)
+        CalcEval.new(body).result.try { |f| to_cell_count(f) }
       end
 
       # Recursive-descent evaluator for `calc()` bodies. Internal to `Length`.
@@ -108,11 +131,15 @@ module Crysterm
         class Error < Exception
         end
 
+        # One token: a number/length (`12`, `1.5`, `200px`, `50%`) or an operator
+        # / paren. Whitespace between tokens is simply skipped (unmatched).
+        TOKEN = /[0-9]*\.?[0-9]+[a-z%]*|[-+*\/()]/i
+
         @tokens : Array(String)
         @pos = 0
 
         def initialize(body : String)
-          @tokens = body.scan(/[0-9]*\.?[0-9]+[a-z%]*|[-+*\/()]/i).map(&.[0])
+          @tokens = body.scan(TOKEN).map(&.[0])
         end
 
         def result : Float64?

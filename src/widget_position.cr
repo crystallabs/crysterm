@@ -135,6 +135,25 @@ module Crysterm
     # `aheight`; `aliased` is passed (rather than mapping both words) so an
     # unusual input like `width: "center"` keeps its original meaning.
     private def resolve_dimension(expr : String, parent_dim : Int32, aliased : String) : Int32
+      # Viewport units resolve against the *screen*, not the parent — and they do
+      # so here, every frame, so a `width: 50vw` widget re-sizes on terminal
+      # resize. The unit picks the basis (`vw`→screen width, `vh`→height,
+      # `vmin`/`vmax`→the smaller/larger side) regardless of which edge/size this
+      # is, exactly like CSS.
+      #
+      # `resolve_dimension` is on the per-frame layout hot path (every `"50%"`/
+      # `"center"`/`"half"` widget hits it). A viewport unit is the only form
+      # containing a `'v'`, so this allocation-free byte scan gates the heavier
+      # regex, keeping the common percentage/keyword path untouched. When a `'v'`
+      # is present we resolve in one shot: `viewport_cells` returns `nil` for a
+      # non-viewport string (which then falls through), and a real `0`-cell
+      # result is truthy, so it still returns here.
+      if expr.includes?('v')
+        scr = screen
+        if cells = CSS::Length.viewport_cells(expr, scr.awidth, scr.aheight)
+          return cells
+        end
+      end
       if expr == aliased
         expr = "50%"
       elsif expr.starts_with?(aliased) && (c = expr[aliased.size]?) && (c == '+' || c == '-')

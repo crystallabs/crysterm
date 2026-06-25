@@ -353,13 +353,18 @@ module Crysterm
       # the default `px` divisor, which rounds to 0 — clamps up to 1 so a declared
       # border doesn't silently vanish. An explicit `0`, a negative width, or a
       # non-length value (`50%`, junk, a dropped unit) still yields 0.
+      #
+      # A border width is almost always a bare number or one unit'd length, so
+      # resolve the fractional cells in a single pass (`to_cells_f`) and clamp from
+      # it. Only a `calc()` border (rare) falls back to `to_cells`.
       private def self.border_cells(value : String) : Int32
-        c = Length.to_cells(value)
-        return 0 unless c # %, junk, or a dropped unit → no border
-        return c if c > 0
-        # A resolvable length that rounded to 0: keep a positive width visible.
-        frac = Length.to_cells_f(value)
-        (frac && frac > 0) ? 1 : 0
+        if frac = Length.to_cells_f(value)
+          cells = Length.to_cell_count(frac)
+          return cells unless cells == 0
+          return frac > 0 ? 1 : 0 # positive sub-cell width → keep it visible
+        end
+        c = Length.to_cells(value) # a `calc()` border still resolves here
+        (c && c > 0) ? c : 0
       end
 
       # Parses a `box-shadow`. `none` disables the shadow; otherwise a default

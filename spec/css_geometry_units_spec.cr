@@ -88,15 +88,26 @@ describe "CSS geometry units" do
     a.aheight.should eq 20     # full 24-row height clamped to 20
   end
 
-  it "resolves a viewport unit against the screen size" do
+  it "resolves a viewport unit against the screen size, reactively on resize" do
     s = render_screen # 80 x 24
     s.stylesheet = "Box#a { width: 50vw; height: 100vh; top: 25vmin; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s._render
-    a.width.should eq 40  # 50% of 80
-    a.height.should eq 24 # 100% of 24
-    a.top.should eq 6     # 25% of min(80, 24)
+    # The viewport string is kept on the widget (not baked to cells), so it can
+    # re-resolve against the screen every frame.
+    a.width.should eq "50vw"
+    a.awidth.should eq 40  # 50% of 80
+    a.aheight.should eq 24 # 100% of 24
+    a.atop.should eq 6     # 25% of min(80, 24)
+
+    # Resize the terminal: the same widget re-resolves against the new size.
+    s.width = 120
+    s.height = 40
+    s._render
+    a.awidth.should eq 60  # 50% of 120
+    a.aheight.should eq 40 # 100% of 40
+    a.atop.should eq 10    # 25% of min(120, 40)
   end
 
   it "evaluates calc() to cells when every term resolves" do
@@ -127,6 +138,16 @@ describe "CSS geometry units" do
     s._render
     a.style.border.top.should eq 1  # 2px rounds to 0 -> clamped to 1
     a.style.border.left.should eq 0 # explicit 0 stays 0
+  end
+
+  it "clamps an absurd length instead of overflowing (never raises)" do
+    s = render_screen
+    s.stylesheet = "Box#a { width: 99999999999px; height: calc(99999999999px * 99); }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render # must not raise OverflowError
+    a.width.should eq Int32::MAX
+    a.height.should eq Int32::MAX
   end
 
   it "honors a retuned divisor" do

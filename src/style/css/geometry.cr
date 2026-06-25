@@ -30,10 +30,10 @@ module Crysterm
       # ameba:disable Metrics/CyclomaticComplexity
       def self.apply(widget : Widget, property : String, value : String) : Nil
         case property
-        when "width"  then resolve_dim(widget, value).try { |d| widget.width = d }
-        when "height" then resolve_dim(widget, value).try { |d| widget.height = d }
-        when "top"    then resolve_dim(widget, value).try { |d| widget.top = d }
-        when "left"   then resolve_dim(widget, value).try { |d| widget.left = d }
+        when "width"  then resolve_dim(value).try { |d| widget.width = d }
+        when "height" then resolve_dim(value).try { |d| widget.height = d }
+        when "top"    then resolve_dim(value).try { |d| widget.top = d }
+        when "left"   then resolve_dim(value).try { |d| widget.left = d }
           # `right`/`bottom` are offsets in cells only (no `center`/`%` form).
         when "right"  then value.to_i?.try { |cells| widget.right = cells }
         when "bottom" then value.to_i?.try { |cells| widget.bottom = cells }
@@ -58,38 +58,50 @@ module Crysterm
         end
       end
 
-      # Resolves a `width`/`height`/`top`/`left` value, adding the context the
-      # static `dimension` can't supply: a viewport unit (`50vw`) is sized against
-      # the widget's screen here and now (ignored if it isn't on a screen yet,
-      # since there's nothing to size against).
-      private def self.resolve_dim(widget : Widget, value : String) : Int32 | String | Nil
-        if Length.viewport?(value)
-          widget.screen?.try { |scr| Length.viewport_cells(value, scr.width, scr.height) }
-        else
-          dimension(value)
-        end
+      # Resolves a `width`/`height`/`top`/`left` value. A viewport unit (`50vw`)
+      # passes through as its *string*, so the positioner re-resolves it against
+      # the screen on every frame and it tracks terminal resize (see
+      # `Widget#resolve_dimension`); everything else resolves to a static value
+      # now via `dimension`.
+      private def self.resolve_dim(value : String) : Int32 | String | Nil
+        # Only a viewport unit contains a 'v'; this allocation-free byte scan keeps
+        # the VIEWPORT regex off every plain width/height/top/left value.
+        (value.includes?('v') && Length.viewport?(value)) ? value : dimension(value)
       end
 
       # Resolves a `min-*`/`max-*` size constraint, which must be a cell count.
-      # Like `resolve_dim` but with no `%`/keyword pass-through (a constraint has
-      # no per-frame hook to re-resolve a percentage).
+      # Like `resolve_dim`, but a constraint has no per-frame hook to re-resolve,
+      # so a viewport unit is sized against the screen once, here and now (`nil`
+      # if the widget isn't on a screen yet), and `%` has no cell mapping at all.
       private def self.size_cells(widget : Widget, value : String) : Int32?
-        if Length.viewport?(value)
-          widget.screen?.try { |scr| Length.viewport_cells(value, scr.width, scr.height) }
-        else
-          Length.to_cells(value)
+        # A viewport unit ('v' present) sizes against the screen once, here and
+        # now — a single `viewport_cells` both detects and resolves it (no extra
+        # `viewport?` regex pass). If the widget isn't mounted yet, or it's some
+        # other 'v' string, fall through to `to_cells` (which drops a viewport
+        # unit to `nil`, i.e. ignored).
+        if value.includes?('v')
+          if (scr = widget.screen?) && (cells = Length.viewport_cells(value, scr.awidth, scr.aheight))
+            return cells
+          end
         end
+        Length.to_cells(value)
       end
 
       # Parses a geometry value: a bare integer becomes an `Int32` (cells); a
       # value carrying a CSS unit (`200px`, `0.5em`, ...) or a `calc(...)` is
-      # converted to cells through `unit_divisors` (an unmapped/`nil`-mapped unit,
-      # or a `calc` needing layout context, returns `nil` so the caller ignores
-      # it); everything else (`50%`, `center`, `50%-10`, ...) passes through as a
-      # `String`, which crysterm's positioning already understands.
+      # converted to cells through `unit_divisors`; everything else (`50%`,
+      # `center`, `50%-10`, ...) passes through as a `String`, which crysterm's
+      # positioning already understands.
+      #
+      # Resolve *once* (the old code pre-matched the same regexes that `to_cells`
+      # re-runs): a non-`nil` result is the cell count (`0` included). On `nil`,
+      # one regex pass tells an unmappable length (`3cm`, a `%`-bearing `calc`) —
+      # which we ignore — apart from a positioner string, which we pass through.
       private def self.dimension(value : String) : Int32 | String | Nil
-        if value.matches?(Length::PATTERN) || value.matches?(Length::CALC) || value.to_i?
-          Length.to_cells(value) # bare cells, a unit'd length, or calc (nil ⇒ ignore)
+        if cells = Length.to_cells(value)
+          cells
+        elsif value.matches?(Length::PATTERN) || value.matches?(Length::CALC)
+          nil # recognized length form but no cell mapping ⇒ ignore
         else
           value # `50%`, `center`, `50%-10`, ... pass through
         end
