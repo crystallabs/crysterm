@@ -32,8 +32,10 @@ module Crysterm
     parse_tags: true,
     style: Style.new(bg: "yellow", border: true, shadow: true)
 
-  # NOTE: blessed `style.transparent: true` has no boolean equivalent in
-  # crysterm (translucency is modelled via `Style#tint_alpha`), so it is omitted.
+  # blessed `style.transparent: true` → crysterm's `Style#alpha` (the render blends
+  # each cell with what's underneath via `Colors.blend`). `0.5` matches blessed's
+  # 50% mix, so the yellow box, its shadow, and the blue background text show
+  # through the red window.
   over = Widget::Box.new \
     parent: s,
     left: "center", top: "center",
@@ -41,7 +43,7 @@ module Crysterm
     draggable: true,
     parse_tags: true,
     content: "{green-bg}{red-fg}{bold} --Drag Me-- {/}",
-    style: Style.new(bg: "red", border: true, shadow: true)
+    style: Style.new(bg: "red", border: true, shadow: true, alpha: 0.5)
 
   over.focus
 

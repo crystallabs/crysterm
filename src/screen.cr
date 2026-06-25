@@ -673,6 +673,45 @@ module Crysterm
       super
     end
 
+    # Rebuilds this screen on a different terminal type and returns the **new**
+    # screen, carrying every top-level widget across. Crysterm loads terminfo
+    # once per `Screen`, so changing the terminal at runtime (Blessed's
+    # `screen.terminal = '...'`) means a *new* `Screen` with the same widgets.
+    # This is the single call that does it: it constructs a new screen on
+    # *term*'s terminfo (copying this screen's salient options — but not its IO,
+    # which the new screen opens fresh, since `#destroy` closes this one's),
+    # reparents every widget onto it, destroys this screen, and returns the new
+    # one. Re-`render`/`exec` the returned screen.
+    #
+    # ```
+    # screen = screen.switch_terminal "vt100"
+    # ```
+    def switch_terminal(term : String) : Screen
+      reparent_onto Screen.new(
+        terminfo: Unibilium.from_terminal(term),
+        title: @title,
+        width: @width, height: @height,
+        dock_borders: @dock_borders, dock_contrast: @dock_contrast,
+        always_propagate: @always_propagate, propagate_keys: @propagate_keys,
+        default_quit_keys: @default_quit_keys, tab_navigation: @tab_navigation,
+        optimization: @optimization,
+        force_unicode: @force_unicode, full_unicode: @full_unicode,
+        resize_interval: @resize_interval,
+      )
+    end
+
+    # Moves every top-level widget from this screen onto *other*, destroys this
+    # screen, and returns *other*. The migration half of `#switch_terminal`; also
+    # usable on its own to move a whole UI between two existing screens.
+    def reparent_onto(other : Screen) : Screen
+      children.dup.each do |child|
+        remove child
+        other.append child
+      end
+      destroy
+      other
+    end
+
     # Unused
     # def sigtstp(callback)
     #  display.sigtstp {

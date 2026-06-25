@@ -1,57 +1,56 @@
 require "../../src/crysterm"
 
 # Port of Blessed's test/widget-termswitch.js
-# A centered 80%x80% green box with a line border, plus a centered 50%x50%
-# draggable ScrollableText holding a long multi-line String that can be
-# scrolled with the mouse, arrow keys or vi keys.
+#
+# Blessed switches the *live* terminal type at runtime (`screen.terminal =
+# 'vt100'`) and re-renders. Crysterm loads terminfo once per `Screen`, so the
+# equivalent is a single `Screen#switch_terminal` call: it builds a new screen on
+# the requested terminal, reparents the existing widgets onto it, destroys the
+# old screen and returns the new one. This demo shows the widgets on the default
+# terminal for ~1s, then switches to `vt100`.
 module Crysterm
-  # NOTE: Blessed reads test/git.diff for the scrollable content. We don't have
-  # that file, so a long multi-line String is substituted to make scrolling
-  # visible.
   lorem = (1..40).map { |i| "Line #{i}: Lorem ipsum dolor sit amet, consectetur adipiscing elit." }.join("\n")
 
+  quit = ->(scr : Screen, e : Event::KeyPress) do
+    if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
+      scr.destroy
+      exit
+    end
+  end
+
+  # --- Initial screen, on the default terminal. ---
   s = Screen.new optimization: OptimizationFlag::SmartCSR, always_propagate: [::Tput::Key::CtrlQ]
 
   btext = Widget::Box.new(
     parent: s,
-    left: "center",
-    top: "center",
-    width: "80%",
-    height: "80%",
+    left: "center", top: "center",
+    width: "80%", height: "80%",
     style: Style.new(bg: "green", border: BorderType::Line),
-    content: "CSR should still work.",
+    content: "Terminal: default — switching to vt100 in 1s…",
   )
 
   text = Widget::ScrollableText.new(
     parent: s,
     content: lorem,
     style: Style.new(border: BorderType::Line),
-    left: "center",
-    top: "center",
+    left: "center", top: "center",
     draggable: true,
-    width: "50%",
-    height: "50%",
-    # NOTE: Blessed's `mouse: true` has no per-widget kwarg in Crysterm; mouse
-    # wheel scrolling comes from being scrollable and mouse drag from
-    # `draggable: true`, so it is dropped.
-    keys: true,
-    vi: true,
+    width: "50%", height: "50%",
+    keys: true, vi: true,
   )
 
   text.focus
-
-  s.on(Event::KeyPress) do |e|
-    if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
-      s.destroy
-      exit
-    end
-  end
-
+  s.on(Event::KeyPress) { |e| quit.call s, e }
   s.render
 
-  s.exec
+  # Show the default terminal briefly, then switch — one call does the teardown,
+  # the new-terminal screen, and reparenting the widgets onto it.
+  sleep 1.seconds
+  s = s.switch_terminal "vt100"
 
-  # NOTE: Blessed switches the terminal to 'vt100' after 1s via setTimeout and
-  # re-renders. Crysterm has no runtime terminal switch, so the timeout and the
-  # terminal-switch are dropped.
+  btext.set_content "Terminal: vt100 (widgets reparented onto the new screen)"
+  text.focus
+  s.on(Event::KeyPress) { |e| quit.call s, e }
+  s.render
+  s.exec
 end
