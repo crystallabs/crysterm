@@ -489,3 +489,71 @@ describe "Horizontal scrolling (workstream D)" do
     box.child_base_x.should be < base
   end
 end
+
+describe "ListTable column-level horizontal scrolling (workstream D)" do
+  it "scrolls a fixed-width table by whole columns" do
+    s = render_screen
+    lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 8,
+      rows: [["Name", "City", "Age"], ["Alice", "Paris", "30"], ["Bob", "Rome", "25"]]
+    s._render
+    lt.get_scroll_width.should eq 22
+    lt.really_scrollable_x?.should be_true
+    lt.show_horizontal_scrollbar?.should be_true
+    lt.column_start_offsets.should eq [0, 8, 16]
+    row_chars(s, 0, 0, 14).should eq " Name    City " # header: col0 + col1 partial
+
+    lt.scroll_x 1 # advance one whole column
+    s._render
+    lt.child_base_x.should eq 8 # snapped to column 1's offset
+    row_chars(s, 0, 0, 14).should eq " City    Age  "
+
+    lt.scroll_x 1 # already at the last column — clamps
+    s._render
+    lt.child_base_x.should eq 8
+
+    lt.scroll_x -1
+    s._render
+    lt.child_base_x.should eq 0
+    row_chars(s, 0, 0, 14).should eq " Name    City "
+  end
+
+  it "binds the horizontal bar to the column offset" do
+    s = render_screen
+    lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 8,
+      rows: [["Name", "City", "Age"], ["Alice", "Paris", "30"]]
+    s._render
+    hb = lt.horizontal_scrollbar_widget.not_nil!
+    hb.orientation.horizontal?.should be_true
+    hb.value.should eq 0
+    hb.maximum.should eq 8 # scroll_width(22) - viewport(14)
+
+    hb.value = hb.maximum # drag fully right
+    s._render
+    lt.child_base_x.should eq 8
+    row_chars(s, 0, 0, 14).should eq " City    Age  "
+  end
+
+  it "keeps cell borders aligned with the scrolled columns" do
+    s = render_screen
+    lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 16, height: 8,
+      style: Crysterm::Style.new(border: true),
+      rows: [["Name", "City", "Age"], ["Alice", "Paris", "30"]]
+    s._render
+    # Header is row 1 (inside the top border); the `│` separator tracks the columns.
+    row_chars(s, 1, 0, 16).should eq "│ Name  │ City │"
+    lt.scroll_x 1
+    s._render
+    row_chars(s, 1, 0, 16).should eq "│ City  │ Age  │"
+  end
+
+  it "does not horizontally scroll a content-sized table" do
+    s = render_screen
+    lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, height: 6,
+      rows: [["Name", "City"], ["Alice", "Paris"]] # no width: → content-sized
+    s._render
+    lt.really_scrollable_x?.should be_false
+    lt.show_horizontal_scrollbar?.should be_false
+    lt.scroll_x 1 # no-op
+    lt.child_base_x.should eq 0
+  end
+end

@@ -121,16 +121,22 @@ module Crysterm
     # Renders one row of cells into a string, padding each cell to its column
     # width and separating columns with a single space.
     #
+    # *first_col* drops the leading columns (used by `ListTable`'s column-level
+    # horizontal scroll); the default `0` renders the whole row. The emitted row
+    # begins at column *first_col* with no leading separator.
+    #
     # A trailing space is appended so the row is one column wider than its
     # visible content: Crysterm's content draw loop (`while x < xl - 1` in
     # `Widget#_render`) never paints the final content column, so without this
     # spare column a last cell filled to its full width would lose its last
     # character. `#row_width` accounts for this extra column.
-    def render_row(row : Array(String)) : String
+    def render_row(row : Array(String), first_col : Int32 = 0) : String
       String.build do |str|
-        row.each_with_index do |cell, ci|
-          str << ' ' if ci != 0
-          str << pad_cell(cell, @maxes[ci]? || cell_width(cell))
+        ci = first_col
+        while ci < row.size
+          str << ' ' unless ci == first_col
+          str << pad_cell(row[ci], @maxes[ci]? || cell_width(row[ci]))
+          ci += 1
         end
         str << ' '
       end
@@ -140,6 +146,20 @@ module Crysterm
     # inter-column separators and the trailing spare column.
     def row_width : Int32
       @maxes.sum + (@maxes.size - 1) + 1
+    end
+
+    # Display column at which each table column *starts* in a full `#render_row`
+    # output: `offsets[c] = @maxes[0...c].sum + c` (the `+ c` for the one-column
+    # separators before it). Used by `ListTable` to snap the horizontal scroll
+    # offset to a column boundary. `offsets.size == @maxes.size`.
+    def column_start_offsets : Array(Int32)
+      offs = [] of Int32
+      acc = 0
+      @maxes.each do |m|
+        offs << acc
+        acc += m + 1
+      end
+      offs
     end
 
     # Pads/clips a single cell's text to `width` columns according to the

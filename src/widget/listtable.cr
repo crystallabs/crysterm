@@ -48,6 +48,23 @@ module Crysterm
       # The pinned header row.
       getter! header : Box
 
+      # Index of the first horizontally-visible column. `0` until the table is
+      # given a fixed width narrower than its content and scrolled right. Scroll
+      # is column-level: this snaps to whole columns and `@child_base_x` tracks
+      # its display-column offset (so the horizontal `ScrollBar` binds to it).
+      @first_col = 0
+
+      # Whether the box is sized to its content width (no explicit `width:`). When
+      # true, `#render`/`#set_data` keep pinning `@width = row_width + iwidth`, so
+      # the table grows to fit every column and never overflows horizontally. When
+      # false (a fixed `width:` was given), the width is left alone and the table
+      # scrolls horizontally by column. Captured once, after `super`.
+      @content_sized = true
+
+      # Show a horizontal `ScrollBar` automatically when a fixed-width table's
+      # columns overflow its viewport (Qt's `AsNeeded`).
+      @horizontal_scrollbar_policy = ScrollBarPolicy::AsNeeded
+
       def initialize(
         rows = nil,
         data = nil,
@@ -69,6 +86,10 @@ module Crysterm
         fill_cell_borders.try { |v| @fill_cell_borders = v }
 
         super **box
+
+        # Remember whether the caller fixed a width: if so, leave it alone and
+        # let the table scroll horizontally; otherwise size to content (below).
+        @content_sized = @width.nil?
 
         # Header overlay, pinned to the top of the list and kept above the
         # items. Positioned at `left: 0` / `top: 0` like the item boxes:
@@ -218,6 +239,81 @@ module Crysterm
         set_data rows
       end
 
+      # --- column-level horizontal scrolling ---------------------------------
+      # A fixed-width `ListTable` (one given an explicit `width:`) can be narrower
+      # than its columns; it then scrolls horizontally by whole columns. The
+      # `ScrollBar` machinery in `widget_scrolling.cr` binds to `@child_base_x`
+      # (the display-column offset of the first visible column), so these only
+      # supply the table-specific width, overflow test, and column snapping.
+
+      # Total content width in columns — the horizontal analogue of the scroll
+      # height. `0` (no overflow) before the columns are measured.
+      def get_scroll_width
+        @maxes.empty? ? 0 : row_width
+      end
+
+      # A content-sized table grows to fit its columns and so never overflows;
+      # a fixed-width one overflows once its columns exceed the viewport.
+      def really_scrollable_x?
+        return false if @content_sized
+        get_scroll_width > (awidth - iwidth)
+      end
+
+      # Scrolls horizontally by *offset* columns' worth of display columns,
+      # snapping the result to a whole-column boundary (so a cell is never split
+      # mid-width) and re-rendering the visible rows from the new first column.
+      def scroll_x(offset = 1)
+        return unless @scrollable && screen?
+        return if @content_sized || @maxes.empty?
+        visible = awidth - iwidth
+        return if visible <= 0
+
+        offsets = column_start_offsets
+        max_left = Math.max(0, get_scroll_width - visible)
+        max_col = column_for_offset max_left, offsets
+        base = @child_base_x
+        new_col = column_for_offset (base + offset).clamp(0, max_left), offsets
+        # A nonzero request that snaps back to the current column (e.g. a one-cell
+        # wheel tick smaller than a column) still advances one whole column, so
+        # column-level scrolling responds to fine input.
+        if new_col == @first_col && offset != 0
+          new_col = (@first_col + (offset <=> 0)).clamp(0, max_col)
+        end
+        snapped = offsets[new_col]? || 0
+        return if snapped == base
+
+        @first_col = new_col
+        @child_base_x = snapped
+        render_visible_rows
+        mark_dirty
+        emit Crysterm::Event::Scroll, @child_base_x - base, Tput::Orientation::Horizontal
+      end
+
+      # Largest column index whose start offset is at or before *target*.
+      private def column_for_offset(target : Int32, offsets : Array(Int32)) : Int32
+        col = 0
+        offsets.each_with_index do |o, i|
+          break if o > target
+          col = i
+        end
+        col
+      end
+
+      # Re-renders the header and every body item sliced from `@first_col`, in
+      # place (no item recreation, so selection/state survive). Called when the
+      # horizontal offset changes.
+      private def render_visible_rows
+        return if @maxes.empty?
+        @rows.each_with_index do |row, i|
+          text = render_row row, @first_col
+          if i == 0
+            header.set_content text
+          elsif item = @items[i]?
+            set_item item, content: text
+          end
+        end
+      end
+
       # Replaces the table data and rebuilds items + header.
       def set_data(rows)
         sel = @ritems[selected]?
@@ -227,23 +323,29 @@ module Crysterm
         calculate_maxes
         return if @maxes.empty?
 
-        # Size the widget to the table's content width. A list otherwise sizes
-        # to its full-width item children (it has no content of its own to
-        # shrink to), which would stretch the last column across the whole
-        # parent and clip the header. `@maxes.sum + separators + insets` is the
-        # exact width of a rendered row plus the border/padding.
+        # Keep the horizontal offset valid across a data change (fewer columns),
+        # and re-derive its display-column offset.
+        @first_col = @first_col.clamp(0, Math.max(0, @maxes.size - 1))
+        @child_base_x = column_start_offsets[@first_col]? || 0
+
+        # Size the widget to the table's content width *unless* a fixed width was
+        # given (then it scrolls horizontally instead). A list otherwise sizes to
+        # its full-width item children (it has no content of its own to shrink
+        # to), which would stretch the last column across the whole parent and
+        # clip the header. `@maxes.sum + separators + insets` is the exact width
+        # of a rendered row plus the border/padding.
         #
         # The ivar is assigned directly rather than via `width=`: that setter
         # emits `Resize` *before* storing the new value, and our own `Resize`
         # handler calls `set_data` again — which would see the old width and
         # re-emit, recursing forever. A direct assignment just updates the size
         # for the upcoming render.
-        @width = row_width + iwidth
+        @width = row_width + iwidth if @content_sized
 
         # Index 0 is a spacer that the pinned header overlays.
         items = [""]
         @rows.each_with_index do |row, i|
-          text = render_row row
+          text = render_row row, @first_col
           if i == 0
             header.set_content text
           else
@@ -281,7 +383,7 @@ module Crysterm
         # first rendered frame. Assigned directly (not via `width=`) to avoid the
         # `Resize`-before-store recursion our own `Resize` handler would trigger.
         calculate_maxes
-        @width = row_width + iwidth unless @maxes.empty?
+        @width = row_width + iwidth if @content_sized && !@maxes.empty?
 
         coords = super
         return coords unless coords
@@ -306,9 +408,12 @@ module Crysterm
         width = coords.xl - coords.xi - iright
         height = coords.yl - coords.yi - ibottom
 
+        # Map visible x → actual column index, starting from the first visible
+        # column so per-cell CSS recolors the right cells when scrolled right.
         col_for_x = {} of Int32 => Int32
         cx = ileft
-        @maxes.each_with_index do |max, col_i|
+        (@first_col...@maxes.size).each do |col_i|
+          max = @maxes[col_i]
           (cx...cx + max).each { |xpos| col_for_x[xpos] = col_i }
           cx += max
         end
@@ -342,8 +447,14 @@ module Crysterm
         xi = coords.xi
         yi = coords.yi
         battr = sattr border
+        width = coords.xl - coords.xi - iright
         height = coords.yl - coords.yi - ibottom
         last = @maxes.size - 1
+
+        # Separators are drawn between the *visible* columns (`@first_col..`), with
+        # `rx` accumulating from the left of the viewport — matching the rows,
+        # which are likewise re-rendered from `@first_col` — and clipped once they
+        # pass the right edge.
 
         # Top/bottom junctions per grid row.
         ry = 0
@@ -352,8 +463,9 @@ module Crysterm
           break unless line
 
           rx = 0
-          (0...last).each do |mi|
+          (@first_col...last).each do |mi|
             rx += @maxes[mi]
+            break if rx >= width
             next unless line[xi + rx + 1]?
             rx += 1
             if cell = line[xi + rx]?
@@ -379,8 +491,9 @@ module Crysterm
           break unless line
 
           rx = 0
-          (0...last).each do |mi|
+          (@first_col...last).each do |mi|
             rx += @maxes[mi]
+            break if rx >= width
             next unless line[xi + rx + 1]?
             rx += 1
             if cell = line[xi + rx]?

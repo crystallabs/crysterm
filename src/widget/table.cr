@@ -44,6 +44,14 @@ module Crysterm
       # cells).
       @wrap_content = false
 
+      # A `Table` is *content-sized*: `#render` pins `@width = row_width + iwidth`
+      # so the box always grows to fit every column, and never overflows
+      # horizontally. It therefore intentionally opts out of horizontal scrolling
+      # — `child_base_x` stays 0, where `_hslice` is a no-op — and a wide table is
+      # simply clipped by its parent. For a scrollable wide table use the
+      # interactive `Widget::ListTable`, which decouples its width from its
+      # content and scrolls by whole columns.
+
       def initialize(
         rows = nil,
         data = nil,
