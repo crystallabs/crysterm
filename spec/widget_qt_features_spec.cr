@@ -200,6 +200,65 @@ describe Crysterm::Widget::TextArea do
     ta.child_base.should be > 0
     sb.value.should eq ta.child_base
   end
+
+  it "shows the vertical bar only on real overflow, not for content that fits" do
+    s = qt_mem_screen
+    short = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 12, height: 4,
+      content: "hi"
+    s._render
+    short.really_scrollable?.should be_false # `@resizable` no longer forces this
+    short.show_scrollbar?.should be_false    # …so no vertical bar for a fitting field
+
+    tall = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 20, width: 12, height: 4,
+      content: (1..10).map { |i| "L#{i}" }.join("\n")
+    s._render
+    tall.show_scrollbar?.should be_true
+  end
+
+  it "hides the vertical bar again after content shrinks (chrome is not content)" do
+    s = qt_mem_screen
+    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 12, height: 6,
+      content: "hi"
+    s._render
+    ta.value = (1..20).map { |i| "line#{i}" }.join("\n") # overflow → bar appears
+    s._render
+    ta.show_scrollbar?.should be_true
+
+    ta.value = "hi" # shrink back: the (now-hidden) bar child must not keep the
+    s._render       # scroll height inflated and re-trigger AsNeeded
+    ta.get_scroll_height.should eq 1
+    ta.show_scrollbar?.should be_false
+  end
+
+  it "scrolls horizontally for non-wrapped long lines, following the caret" do
+    s = qt_mem_screen
+    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 12, height: 3,
+      wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ta.focus
+    s._render
+    ta.really_scrollable_x?.should be_true
+    ta.show_horizontal_scrollbar?.should be_true
+    ta.child_base_x.should be > 0 # caret created at the line end → view followed it
+
+    ta._listener keypress(' ', Tput::Key::Home) # caret to line start → view snaps left
+    ta.child_base_x.should eq 0
+    ta.cursor_pos.should eq 0
+  end
+
+  it "drags the horizontal bar without moving the caret" do
+    s = qt_mem_screen
+    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 12, height: 3,
+      wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ta.focus
+    ta._listener keypress(' ', Tput::Key::Home)
+    s._render
+    ta.child_base_x.should eq 0
+
+    hb = ta.horizontal_scrollbar_widget.not_nil!
+    hb.value = hb.maximum # drag right
+    ta.child_base_x.should be > 0
+    ta.cursor_pos.should eq 0 # the caret stayed put (it may scroll off-screen)
+  end
 end
 
 describe Crysterm::Widget::TextBox do

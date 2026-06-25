@@ -198,6 +198,29 @@ module Crysterm
       ensure_visible(child.rtop, margin) || moved
     end
 
+    # Horizontal counterpart of `#ensure_visible`: scroll the column window the
+    # minimum amount so content column *x* sits within the viewport. No-op when
+    # already visible or not horizontally scrollable. Returns whether the view
+    # moved.
+    def ensure_visible_x(x : Int32, margin : Int32 = 0) : Bool
+      return false unless scrollable?
+      visible = content_width
+      return false if visible <= 0
+
+      base = @child_base_x
+      if x < @child_base_x + margin
+        @child_base_x = x - margin
+      elsif x > @child_base_x + visible - 1 - margin
+        @child_base_x = x - (visible - 1) + margin
+      end
+      @child_base_x = @child_base_x.clamp(0, Math.max(0, get_scroll_width - visible))
+
+      return false if @child_base_x == base
+      mark_dirty
+      emit Crysterm::Event::Scroll, @child_base_x - base, Tput::Orientation::Horizontal
+      true
+    end
+
     # ------------------------------------------------------------------------
 
     # Should widget indicate the scroll position?
@@ -267,12 +290,30 @@ module Crysterm
       @_clines.full_width
     end
 
+    # Columns reserved at the right of the content area beyond border/padding —
+    # the vertical scroll bar's column when shown. `_wrap_content` subtracts this
+    # (so wrapped/clipped content avoids the bar), and the horizontal-scroll math
+    # uses it via `#content_width`, keeping the two in agreement. Subclasses add
+    # their own reservations (`TextArea`'s end-of-line caret column).
+    def content_margin_x : Int32
+      show_scrollbar? ? 1 : 0
+    end
+
+    # Width in columns actually available to content: the viewport minus
+    # border/padding (`iwidth`) and the reserved right-edge columns
+    # (`content_margin_x`). The horizontal analogue of the visible content
+    # height, used for the horizontal scroll extent and bar range so the last
+    # columns are reachable rather than hidden behind the reserved margin.
+    def content_width : Int32
+      Math.max 0, awidth - iwidth - content_margin_x
+    end
+
     # Whether content overflows the viewport horizontally (so an `AsNeeded`
     # horizontal bar should show). Always false while wrapping, since wrapped
     # content is reflowed to fit the width.
     def really_scrollable_x?
       return false if wrap_content?
-      get_scroll_width > (awidth - iwidth)
+      get_scroll_width > content_width
     end
 
     # Horizontal counterpart of `#scroll`: shift the visible column window by
@@ -280,7 +321,7 @@ module Crysterm
     # `Event::Scroll` carrying the signed column delta and `:horizontal`.
     def scroll_x(offset = 1)
       return unless @scrollable && screen?
-      visible = awidth - iwidth
+      visible = content_width
       return if visible <= 0
 
       base = @child_base_x
@@ -353,6 +394,12 @@ module Crysterm
       end
 
       bottom = @children.reduce(0) do |current, el|
+        # `fixed` children are chrome, not scrollable content — the scroll bars
+        # (pinned to the right/bottom edge) and labels. Counting them inflated the
+        # scroll height to ~the viewport height, which (e.g.) kept a `TextArea`'s
+        # vertical bar stuck on after its content shrank back to a single line.
+        next current if el.fixed?
+
         # el.aheight alone does not calculate the shrunken height, we need to use
         # get_coords. A shrunken box inside a scrollable element will not grow any
         # larger than the scrollable element's context regardless of how much

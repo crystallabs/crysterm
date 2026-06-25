@@ -19,6 +19,10 @@ module Crysterm
       # bar moves the view, not the caret). With one coherent model it can safely
       # default to `AsNeeded`.
       @scrollbar_policy = ScrollBarPolicy::AsNeeded
+      # Horizontal scroll only engages with `wrap_content: false` (long lines that
+      # run off the right edge); `really_scrollable_x?` is false while wrapping,
+      # so this stays inert for the default wrapping editor.
+      @horizontal_scrollbar_policy = ScrollBarPolicy::AsNeeded
       @input_on_focus = false
 
       property __update_cursor : Proc(Nil)?
@@ -103,6 +107,24 @@ module Crysterm
         # XXX if mouse...
       end
 
+      # A `TextArea` has a fixed viewport that scrolls its content, so whether it
+      # is "scrollable right now" is a real content-vs-height overflow test — not
+      # the `@resizable` always-scrollable short-circuit it would otherwise
+      # inherit from `Input` (`really_scrollable?` returns `@scrollable` for
+      # resizable widgets, which made an `AsNeeded` vertical bar show even when the
+      # content fits). Without this, every `TextArea` — even a one-line one —
+      # showed a vertical scroll bar.
+      def really_scrollable?
+        get_scroll_height > (aheight - iheight)
+      end
+
+      # A `TextArea` reserves one extra right-edge column beyond the scroll bar's
+      # so the caret has somewhere to sit at the end of a full-width line. Folded
+      # into the shared content/horizontal-scroll width via `super`.
+      def content_margin_x : Int32
+        super + 1
+      end
+
       def _update_cursor(get = false, to_scroll_pos = false)
         return unless focused? # if screen.focused != self
 
@@ -126,9 +148,18 @@ module Crysterm
 
         cy = lpos.yi + itop + line
 
-        rline = @_clines[rl]? || ""
-        prefix = rline[0...col.clamp(0, rline.size)]
-        cx = lpos.xi + ileft + str_width(prefix)
+        if wrap_content?
+          rline = @_clines[rl]? || ""
+          prefix = rline[0...col.clamp(0, rline.size)]
+          cx = lpos.xi + ileft + str_width(prefix)
+        else
+          # `@_clines[rl]` is horizontally *sliced* when scrolled (see `_hslice`),
+          # so derive the caret's display column from the full value line and
+          # offset it by the horizontal scroll, clamped into the viewport (the
+          # caret may sit at an edge when scrolled off, as in Qt's text edit).
+          left = lpos.xi + ileft
+          cx = (left + caret_display_column - @child_base_x).clamp(left, left + content_width - 1)
+        end
 
         # XXX Not sure, but this may still sometimes
         # cause problems when leaving editor.
@@ -285,6 +316,22 @@ module Crysterm
         ensure_visible rl
       end
 
+      # Display column of the caret within its (non-wrapped) logical line — the
+      # width of the line prefix up to `@cursor_pos`. Derived from `@value`, not
+      # the horizontally-sliced `@_clines`, so it stays correct while scrolled.
+      private def caret_display_column : Int32
+        str_width @value[line_start_pos...@cursor_pos]
+      end
+
+      # Horizontal counterpart of `#ensure_cursor_visible`: when lines don't wrap,
+      # scroll the column window the minimum amount to keep the caret on screen,
+      # so typing past the right edge follows it. No-op while wrapping (no
+      # horizontal overflow). Returns whether the view moved.
+      private def ensure_cursor_visible_x : Bool
+        return false if wrap_content?
+        ensure_visible_x caret_display_column
+      end
+
       # Pure viewport scroll: shift `@child_base` by *offset* wrapped rows,
       # keeping `@child_offset` at 0 so `get_scroll == child_base` and the bound
       # `ScrollBar` reflects/drives the view top. Overrides the base `#scroll`
@@ -370,10 +417,12 @@ module Crysterm
           end
 
           if moved
-            # Scroll the viewport to follow the cursor (no-op when it is already
-            # visible); re-render if it moved, then place the terminal cursor at
-            # its new position.
-            request_render if ensure_cursor_visible
+            # Scroll the viewport to follow the cursor on both axes (no-op when
+            # already visible); re-render if it moved, then place the terminal
+            # cursor at its new position.
+            scrolled = ensure_cursor_visible
+            scrolled = ensure_cursor_visible_x || scrolled
+            request_render if scrolled
             _update_cursor
           end
 
@@ -434,6 +483,7 @@ module Crysterm
         # the cursor is then on the last line. No render here — `value=` calls
         # this from within the widget's own render.
         ensure_cursor_visible
+        ensure_cursor_visible_x
       end
 
       def value=(value = nil)

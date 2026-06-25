@@ -602,10 +602,11 @@ module Crysterm
         lines << content
       end
 
-      # Reserve a column for the scroll bar when it will actually be shown
-      # (policy + overflow), so wrapped content doesn't render underneath it.
-      margin += 1 if show_scrollbar?
-      margin += 1 if is_a? Widget::TextArea
+      # Reserve the right-edge columns content must avoid: the scroll bar's
+      # column when shown, plus any per-widget reservation (a `TextArea`'s
+      # end-of-line caret column). `#content_margin_x` is the single source of
+      # truth shared with the horizontal-scroll math (`#content_width`).
+      margin += content_margin_x
       colwidth -= margin if colwidth > margin
 
       lines.each_with_index do |line, no|

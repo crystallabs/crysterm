@@ -256,7 +256,7 @@ module Crysterm
       # a fixed-width one overflows once its columns exceed the viewport.
       def really_scrollable_x?
         return false if @content_sized
-        get_scroll_width > (awidth - iwidth)
+        get_scroll_width > content_width
       end
 
       # Scrolls horizontally by *offset* columns' worth of display columns,
@@ -265,7 +265,7 @@ module Crysterm
       def scroll_x(offset = 1)
         return unless @scrollable && screen?
         return if @content_sized || @maxes.empty?
-        visible = awidth - iwidth
+        visible = content_width
         return if visible <= 0
 
         offsets = column_start_offsets
@@ -284,7 +284,7 @@ module Crysterm
 
         @first_col = new_col
         @child_base_x = snapped
-        render_visible_rows
+        reslice_rows
         mark_dirty
         emit Crysterm::Event::Scroll, @child_base_x - base, Tput::Orientation::Horizontal
       end
@@ -299,10 +299,12 @@ module Crysterm
         col
       end
 
-      # Re-renders the header and every body item sliced from `@first_col`, in
-      # place (no item recreation, so selection/state survive). Called when the
+      # Re-slices the header and every body item to the visible column window
+      # (from `@first_col`), updating their content in place — no item recreation,
+      # so selection/state survive. All rows are resliced (not just on-screen
+      # ones) since vertical scrolling does not re-slice. Called when the
       # horizontal offset changes.
-      private def render_visible_rows
+      private def reslice_rows
         return if @maxes.empty?
         @rows.each_with_index do |row, i|
           text = render_row row, @first_col

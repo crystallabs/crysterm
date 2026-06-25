@@ -467,7 +467,7 @@ describe "Horizontal scrolling (workstream D)" do
 
     box.hscrollbar_rows.should eq 1
     bar_glyphs = ->(y : Int32) { row_chars(s, y, 0, 12).chars.all? { |c| c == '█' || c == '░' } }
-    bar_glyphs.call(4).should be_true # the bottom row is the bar, not content
+    bar_glyphs.call(4).should be_true      # the bottom row is the bar, not content
     row_chars(s, 0, 0, 4).should eq "L1-A" # content sits in the rows above it
 
     # The last line stays reachable above the bar (not permanently hidden under it).
@@ -575,5 +575,26 @@ describe "ListTable column-level horizontal scrolling (workstream D)" do
     lt.show_horizontal_scrollbar?.should be_false
     lt.scroll_x 1 # no-op
     lt.child_base_x.should eq 0
+  end
+end
+
+describe "Horizontal scroll reaches the last column past the reserved margin" do
+  it "scrolls a TextArea fully right despite its caret-column margin" do
+    s = render_screen
+    ta = Crysterm::Widget::TextArea.new parent: s, top: 0, left: 0, width: 12, height: 3,
+      wrap_content: false, content: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ta.focus
+    s._render
+    # 12 cols − 1 reserved caret column (no vertical bar for one line) = 11 usable.
+    ta.content_width.should eq 11
+
+    hb = ta.horizontal_scrollbar_widget.not_nil!
+    hb.maximum.should eq ta.get_scroll_width - ta.content_width # 26 − 11 = 15 (was 14)
+
+    hb.value = hb.maximum # drag fully right
+    s._render
+    ta.child_base_x.should eq 15
+    # The trailing 'Z' is now visible — previously the margin left it unreachable.
+    row_chars(s, 0, 0, 11).should eq "PQRSTUVWXYZ"
   end
 end

@@ -201,7 +201,7 @@ module Crysterm
         t = @target
         return unless t
         if @orientation.horizontal?
-          visible = t.awidth - t.iwidth
+          visible = t.content_width
           total = t.get_scroll_width
           pos = t.get_scroll_x
         else
