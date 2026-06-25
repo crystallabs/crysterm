@@ -166,6 +166,12 @@ module Crysterm
     # wall-clock interval for `throughput_actual`. Nil before the first frame.
     @last_frame_start : Time::Instant? = nil
 
+    # Raw per-frame durations (nanoseconds) of the most recent `_render`, exposed
+    # for benchmarking harnesses that want the precise split without the lossy
+    # `Int32` frames/sec rounding of `render_rate`/`draw_rate`.
+    getter render_ns_last : Int64 = 0
+    getter draw_ns_last : Int64 = 0
+
     # `numerator / seconds` as an `Int32`, guarding the sub-microsecond case
     # where `seconds` rounds to zero (a `1 // 0.0`-style overflow) and clamping
     # absurdly large results to `Int32::MAX`.
@@ -463,6 +469,8 @@ module Crysterm
       # overlay can display them (see the getters above). Always computed — they
       # are a handful of cheap arithmetic ops — and nothing is drawn unless a
       # widget actually reads them.
+      @render_ns_last = (t2 - t1).total_nanoseconds.to_i64
+      @draw_ns_last = (t3 - t2).total_nanoseconds.to_i64
       @render_rate = per_second 1, (t2 - t1).total_seconds
       @draw_rate = per_second 1, (t3 - t2).total_seconds
       @frame_rate = per_second 1, (t3 - t1).total_seconds

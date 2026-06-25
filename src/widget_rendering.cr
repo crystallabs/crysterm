@@ -86,8 +86,11 @@ module Crysterm
 
       # Let the parent dictate this widget's render style (a list highlights its
       # selected row, etc.); for an ordinary parent `render_style_for` just hands
-      # back our own style.
-      style = parent.try(&.render_style_for(self)) || self.style
+      # back our own style. `own_style` is captured so the `default_attr` below can
+      # tell when the render style IS the widget's own (the overwhelmingly common
+      # case) and reuse the `sattr` already computed by `process_content`.
+      own_style = self.style
+      style = parent.try(&.render_style_for(self)) || own_style
 
       # Keep any border label glued to the (possibly CSS-resolved) top inset.
       # Must run before the label child renders, hence here at the frame's start.
@@ -206,7 +209,15 @@ module Crysterm
 
       register_dock_stops coords
 
-      default_attr = sattr style
+      # `process_content` (called above) already computed `sattr(self.style)` and
+      # cached it in `@_parse_attr_default`. When the render style IS the widget's
+      # own style (true for everything except a parent that substitutes one, e.g. a
+      # `List` highlighting its selected row), that cached value equals what
+      # `sattr style` would recompute, so reuse it instead of repacking the same
+      # eight style fields a second time per widget per frame. The `same?` identity
+      # check is cheap; the `|| sattr(style)` is a defensive fallback (the cache is
+      # always populated here, since `process_content` ran with a non-nil screen).
+      default_attr = (style.same?(own_style) ? @_parse_attr_default : nil) || sattr(style)
       attr = default_attr
 
       # If we're in a scrollable text box, check to
@@ -268,7 +279,21 @@ module Crysterm
 
       # Reserve the bottom row(s) for a shown horizontal scroll bar so content
       # never paints under it (the row stays `fixed` for the bar to draw into).
-      yl -= hscrollbar_rows
+      #
+      # All the scroll-bar machinery (`hscrollbar_rows`, `update_scrollbar_widget`,
+      # and the matching `yl += hscrollbar_rows` restore below) only ever does
+      # anything when this widget can scroll — `show_*scrollbar?` short-circuits to
+      # `false` unless `scrollable?`, regardless of policy. A non-scrollable widget
+      # that has never shown a bar (`@*scrollbar_widget` both nil) therefore has
+      # nothing to compute or reconcile, so skip the whole block: it turns three
+      # `show_*scrollbar?` method-chain calls per widget per frame into zero for
+      # the overwhelmingly common non-scrollable case (every plain Box/Label). The
+      # `@*scrollbar_widget` guard still runs the reconcile for a widget that *was*
+      # scrollable and showed a bar, so a bar is still hidden when scrolling is
+      # turned off. `hsr` is computed once and reused by the restore below.
+      may_scroll = scrollable? || !@scrollbar_widget.nil? || !@horizontal_scrollbar_widget.nil?
+      hsr = may_scroll ? hscrollbar_rows : 0
+      yl -= hsr
 
       # Determine where to place the text if it's vertically aligned.
       if @align.v_center? || @align.bottom?
@@ -498,7 +523,8 @@ module Crysterm
       # right edge, and bound to this widget — renders and drives it (so it is a
       # styleable, interactive, compositable widget rather than an inline glyph).
       # See `#update_scrollbar_widget`. It renders below via `render_children`.
-      update_scrollbar_widget
+      # Skipped entirely for a never-scrollable widget (see `may_scroll` above).
+      update_scrollbar_widget if may_scroll
 
       # TODO See if these 4 values could be packed somehow to just replace individual
       # settings with the usual: style.border.try &.adjust(pos, -1) ?
@@ -519,8 +545,10 @@ module Crysterm
       # at the content stage above). The bar occupies the last *interior* row; the
       # border must still be drawn at the widget's true bottom edge. Without this
       # restore `yl` stays one row short, so the bottom border paints over the bar
-      # row and the real bottom row is left frameless.
-      yl += hscrollbar_rows
+      # row and the real bottom row is left frameless. Reuses `hsr` from above so
+      # `hscrollbar_rows` (and its `show_horizontal_scrollbar?` chain) is computed
+      # at most once per render instead of twice.
+      yl += hsr
 
       # Draw the border.
       style.border.try do |border|

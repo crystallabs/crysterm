@@ -118,11 +118,13 @@ module Crysterm
     # cost, against which a selective attempt is measured.
     @damage_all_area = 0_i64
 
-    # Membership set of current top-level children, rebuilt on each full frame.
-    # Replaces the O(N) `@children.includes?` scan in the dirty-root validation
-    # with an O(1) lookup (the child list only changes on a structural change,
-    # which forces a full frame anyway).
-    @damage_children_set = Set(Widget).new
+    # The dirty-root validation needs an O(1) "is this a current top-level child?"
+    # test (the `@children.includes?` scan would be O(N) per dirty root). That set
+    # already exists: `Mixin::Children#@children_set`, kept in sync by
+    # `insert`/`remove`. It is reused directly (see `damage_try_composite`) instead
+    # of maintaining a second, identical set that was cleared and refilled with all
+    # N children on every full frame — a full `Set` rebuild (N hash inserts) per
+    # frame that showed up as ~6% of a full-screen-animation render.
 
     # Stamp for O(1) "is this widget in the current cluster?" membership during
     # the overlap grow, via `Widget#damage_seen` (no per-frame allocation, no
@@ -315,12 +317,10 @@ module Crysterm
         # path is measured against this + the screen area) and the membership
         # set for O(1) dirty-root validation.
         @damage_all_area = 0_i64
-        @damage_children_set.clear
         @children.each do |el|
           b = damage_subtree_bounds el
           el.damage_bounds = b
           @damage_all_area += damage_rect_area(b)
-          @damage_children_set << el
         end
         no_planes = @layer_widgets.empty?
         @damage_safe = !@frame_used_effects && no_planes && !@dock_borders
@@ -381,7 +381,7 @@ module Crysterm
       # acceptable on the Phase 4 plane path; on the plain path it forces a full
       # frame (which sets the plane up).
       dirty.each do |r|
-        return false unless r.parent.nil? && @damage_children_set.includes?(r)
+        return false unless r.parent.nil? && @children_set.includes?(r)
         return false if r.style.z_index && !@damage_plane_safe
       end
 

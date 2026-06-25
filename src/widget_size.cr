@@ -75,10 +75,14 @@ module Crysterm
       oright = @right
       width = @width
 
-      parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
-
+      # The parent's rendered position is only needed by the String/`nil` branches
+      # below; a fixed `Int32` width (the common case) ignores it. Resolving it
+      # eagerly walked `parent_or_screen`(`.last_rendered_position`) on every
+      # `awidth` call for every fixed-size widget every frame — pure waste — so it
+      # is now computed lazily inside the branches that use it.
       case width
       when String
+        parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
         # A percentage is of the parent's *content* area (inside its border/
         # padding), like CSS `width: 100%` — so `width: "100%"` fills the
         # interior of a bordered parent rather than overrunning it. For a parent
@@ -95,6 +99,7 @@ module Crysterm
       # decided by the width the element, so it needs to be
       # calculated here.
       if width.nil?
+        parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
         # `parent.awidth` climbs the whole ancestor chain (or, under `get`, reads
         # the parent's stored `LPos`). This branch needs it for both the string
         # `resolve_dimension` base and the width subtraction; calling it twice
@@ -124,10 +129,12 @@ module Crysterm
       obottom = @bottom
       height = @height
 
-      parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
-
+      # See `awidth`: the parent's rendered position is only needed by the
+      # String/`nil` branches, so it is resolved lazily there rather than on every
+      # call for every fixed-height widget.
       case height
       when String
+        parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
         # Percentage of the parent's *content* height (inside border/padding);
         # see `awidth` for the rationale (CSS-like, fills the interior).
         return clamp_aheight(resolve_dimension(height, (parent.aheight || 0) - parent.itop - parent.ibottom, "half"))
@@ -140,6 +147,7 @@ module Crysterm
       # decided by the height of the element, so it needs to be
       # calculated here.
       if height.nil?
+        parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
         # See `awidth`: one `parent.aheight` shared between the string base and
         # the height subtraction, kept inside this branch so a fixed-height
         # widget still never recurses. O(2^depth) → O(depth).

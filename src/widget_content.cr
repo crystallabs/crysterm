@@ -74,7 +74,23 @@ module Crysterm
     # render path and any other consumer must go through this (not the `@_pcontent`
     # ivar) so a deferred append is materialized before use.
     def pcontent : String
-      @_pcontent ||= @_clines.join("\n")
+      @_pcontent ||= clines_joined
+    end
+
+    # The wrapped lines as one `"\n"`-joined string. For the overwhelmingly common
+    # single-line content (every `Label`, `Fps`, and per-cell box) `join` would
+    # allocate a fresh `String` that merely duplicates the sole line; returning
+    # that line directly avoids a per-widget, per-frame allocation (and the GC
+    # pressure it creates across thousands of widgets). `String`s are immutable, so
+    # aliasing the line is safe; `@_pcontent` is replaced wholesale on the next
+    # reparse. The empty case returns the shared empty string, also alloc-free.
+    private def clines_joined : String
+      cl = @_clines
+      case cl.size
+      when 0 then ""
+      when 1 then cl[0]
+      else        cl.join("\n")
+      end
     end
 
     # Cached codepoint index over `@_pcontent`, reused across frames. `_render`
@@ -104,6 +120,18 @@ module Crysterm
     # so this avoids re-scanning it for tags on every reparse. Defaults to false:
     # empty default content has no tags.
     @_content_has_tags = false
+
+    # Whether the current `@content` contains any inline SGR escape (a raw `\e`),
+    # decided once in `#set_content`/`#append_content`. Together with
+    # `@_content_has_tags` (tags expand to SGR via `_parse_tags`) this tells
+    # `_parse_attr` whether ANY line can carry an inline attribute change. When
+    # neither is set, every wrapped line has the same base attr, so `_parse_attr`
+    # fills the attr array directly and skips the per-line `_attr_after` codepoint
+    # scan (a `Char::Reader` decode loop) entirely — the common case for plain
+    # text (labels, list items, per-cell boxes). Conservative: a stray `\e` that
+    # `process_content` later strips, or unexpanded tags under `no_tags`, only make
+    # it take the (correct) slow path. Defaults false: empty content has no SGR.
+    @_content_has_sgr = false
 
     # The `sattr(style)` value that the currently-cached `@_clines.attr` was
     # computed against. `_parse_attr` only depends on the content (unchanged on
@@ -162,6 +190,9 @@ module Crysterm
       # `process_content` won't bother calling `_parse_tags` at all — see the
       # guarded call below.
       @_content_has_tags = content.matches? TAG_REGEX
+      # Cheap byte search (`\e` is ASCII): records whether any inline SGR is
+      # present so `_parse_attr` can skip its per-line scan for plain text.
+      @_content_has_sgr = content.includes? '\e'
       @_content_version += 1
 
       process_content(no_tags)
@@ -396,8 +427,9 @@ module Crysterm
         @_clines.base_x = @child_base_x
         @_clines.content = @content
         @_clines.content_version = @_content_version
+        # `_parse_attr` already computes `sattr(style)` and records it in
+        # `@_parse_attr_default`, so no separate recompute is needed here.
         @_clines.attr = _parse_attr @_clines
-        @_parse_attr_default = sattr(style)
         # Reuse the `CLines`' own (empty) `ci` array — `_wrap_content` never
         # touches it — by clearing and refilling, instead of allocating a fresh
         # replacement every reparse.
@@ -408,7 +440,7 @@ module Crysterm
           total + line.size + 1
         end
 
-        @_pcontent = @_clines.join "\n"
+        @_pcontent = clines_joined
         emit Crysterm::Event::ParsedContent
 
         return true
@@ -579,6 +611,10 @@ module Crysterm
 
     def _parse_attr(lines : CLines)
       default_attr = sattr(style)
+      # Record the base attribute this parse was built against, so callers don't
+      # recompute `sattr(style)` separately (it is the same value, several style
+      # field reads + a pack). Both `process_content` call sites previously did so.
+      @_parse_attr_default = default_attr
       attr = default_attr
       # Reuse the `CLines`' own `attr` array (clear + refill) so a reparse does
       # not allocate a fresh `Array(Int64)` each time; allocated once on first
@@ -586,6 +622,17 @@ module Crysterm
       # same array, so that assignment is a no-op.
       attrs = (lines.attr ||= [] of Int64)
       attrs.clear
+
+      # Fast path: when the content has no inline SGR at all — no raw `\e` and no
+      # tags that expand into one (see `@_content_has_sgr`/`@_content_has_tags`) —
+      # every line carries the same base attr, so fill the array directly and skip
+      # the per-line `_attr_after` codepoint scan (and its `Char::Reader`). This is
+      # the overwhelmingly common case (plain-text labels/list-items/per-cell
+      # boxes) and avoids a decode loop per line per widget per frame.
+      if !@_content_has_sgr && !@_content_has_tags
+        lines.size.times { attrs.push default_attr }
+        return attrs
+      end
 
       lines.each do |line|
         attrs.push attr
@@ -1016,6 +1063,9 @@ module Crysterm
       @_pcontent = nil
       @_content_tail << text
       @_content_has_tags ||= seg_has_tags
+      # Keep the inline-SGR flag current across deferred appends (the cleaned
+      # `seg` retains valid SGR; stray ESC was already stripped above).
+      @_content_has_sgr ||= seg.includes? '\e'
       @_content_version += 1
       cl.content_version = @_content_version
 
