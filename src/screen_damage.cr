@@ -597,8 +597,8 @@ module Crysterm
       end
 
       # …and of whatever base child sits under each glue rectangle.
-      glue.each do |g|
-        damage_rasterize(g, w, h) do |cell|
+      glue.each do |gr|
+        damage_rasterize(gr, w, h) do |cell|
           v = grid.unsafe_fetch(cell)
           seed.unsafe_put(damage_uf_find(uf, (v & 0xFFFFFFFF).to_i32), stamp) if v >= s64
         end
@@ -615,7 +615,7 @@ module Crysterm
           end
         end
       end
-      glue.each { |g| frontier << g }
+      glue.each { |gr| frontier << gr }
       cluster_area
     end
 

@@ -51,11 +51,10 @@ module Crysterm
         property label : String
 
         @value : Float64
-        @canvas : Canvas?
 
-        def canvas : Canvas
-          @canvas.not_nil!
-        end
+        # The drawing surface, built in `#initialize`. `canvas` raises if read
+        # before construction completes; `canvas?` is the nilable variant.
+        getter! canvas : Canvas
 
         def initialize(
           value : Number = 0,

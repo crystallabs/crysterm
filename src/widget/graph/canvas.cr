@@ -42,15 +42,11 @@ module Crysterm
       # ![Canvas screenshot](../../../examples/widget/graph/canvas/canvas-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Canvas < Box
-        # The concrete Media backend that presents the painted bitmap. Built in
-        # `#initialize` (after `super`, once the screen is reachable for backend
-        # detection), so it is stored nilable but is never `nil` post-construction.
-        @device : Media::Base?
-
-        # The Media backend presenting the painted bitmap.
-        def device : Media::Base
-          @device.not_nil!
-        end
+        # The Media backend presenting the painted bitmap. Built in `#initialize`
+        # (after `super`, once the screen is reachable for backend detection), so
+        # it is stored nilable but is never `nil` post-construction. `device`
+        # raises if read before then; `device?` is the nilable variant.
+        getter! device : Media::Base
 
         # The glyph family used when the backend resolved to `Media::Glyph`
         # (braille by default). Ignored by the pixel backends.

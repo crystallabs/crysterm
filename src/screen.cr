@@ -220,7 +220,7 @@ module Crysterm
       # termcap: @termcap,
 
       self.optimization = optimization
-      padding.try { |padding| @padding = Padding.from(padding) }
+      padding.try { |pad| @padding = Padding.from(pad) }
       title.try { |t| self.title = t }
 
       @_resize_loop_fiber = spawn(name: "resize_loop") { resize_loop }
@@ -307,7 +307,7 @@ module Crysterm
     end
 
     def on_detach(e)
-      @_resize_handler.try { |e| GlobalEvents.off ::Crysterm::Event::Resize, e }
+      @_resize_handler.try { |handler| GlobalEvents.off ::Crysterm::Event::Resize, handler }
 
       # NOTE Per-screen teardown only. We deliberately do NOT cascade-destroy the
       # other `Screen.instances` here: with multiple emulator windows each screen

@@ -49,15 +49,23 @@ module Crysterm
     # no-op when both are `nil`). `max` is applied before `min` so `min` wins a
     # `min > max` conflict, per CSS.
     private def clamp_awidth(w : Int32) : Int32
-      w = Math.min(w, @max_width.not_nil!) if @max_width
-      w = Math.max(w, @min_width.not_nil!) if @min_width
+      if max = @max_width
+        w = Math.min(w, max)
+      end
+      if min = @min_width
+        w = Math.max(w, min)
+      end
       w
     end
 
     # :ditto: for height.
     private def clamp_aheight(h : Int32) : Int32
-      h = Math.min(h, @max_height.not_nil!) if @max_height
-      h = Math.max(h, @min_height.not_nil!) if @min_height
+      if max = @max_height
+        h = Math.min(h, max)
+      end
+      if min = @min_height
+        h = Math.max(h, min)
+      end
       h
     end
 

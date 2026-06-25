@@ -165,8 +165,8 @@ module Crysterm
             ty = (yl - 1) - ((tv - @minimum) * avail / value_span.to_f).round.to_i
             unless ty == hy
               screen.lines[ty]?.try do |line|
-                cols.each do |tx|
-                  line[tx]?.try do |cell|
+                cols.each do |cx|
+                  line[cx]?.try do |cell|
                     cell.char = @tick_char
                     cell.attr = attr
                   end

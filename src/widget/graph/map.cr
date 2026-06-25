@@ -87,12 +87,9 @@ module Crysterm
 
         getter markers : Array(Marker) = [] of Marker
 
-        @canvas : Canvas?
-
-        # The Canvas the coastlines are drawn on.
-        def canvas : Canvas
-          @canvas.not_nil!
-        end
+        # The Canvas the coastlines are drawn on. `canvas` raises if read before
+        # construction completes; `canvas?` is the nilable variant.
+        getter! canvas : Canvas
 
         def initialize(
           @min_lon : Float64 = -180.0,

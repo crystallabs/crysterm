@@ -91,13 +91,10 @@ module Crysterm
         property? show_grid : Bool
 
         # The Canvas the plot is drawn on. Built in `#initialize` after `super`
-        # (so it is stored nilable but is never `nil` post-construction).
-        @plot : Canvas?
-
-        # The plot's drawing surface.
-        def plot : Canvas
-          @plot.not_nil!
-        end
+        # (so it is stored nilable but is never `nil` post-construction). The
+        # `plot` accessor raises if read before construction completes; `plot?`
+        # is the nilable variant.
+        getter! plot : Canvas
 
         # Resolved data ranges for the current frame (set in `#compute_ranges`,
         # read by the plot's paint callback).
@@ -176,10 +173,10 @@ module Crysterm
           xs_min = xs_max = ys_min = ys_max = nil
           @series.each do |s|
             s.points.each do |(x, y)|
-              xs_min = x if xs_min.nil? || x < xs_min.not_nil!
-              xs_max = x if xs_max.nil? || x > xs_max.not_nil!
-              ys_min = y if ys_min.nil? || y < ys_min.not_nil!
-              ys_max = y if ys_max.nil? || y > ys_max.not_nil!
+              xs_min = xs_min.nil? ? x : Math.min(xs_min, x)
+              xs_max = xs_max.nil? ? x : Math.max(xs_max, x)
+              ys_min = ys_min.nil? ? y : Math.min(ys_min, y)
+              ys_max = ys_max.nil? ? y : Math.max(ys_max, y)
             end
           end
           @xmin = axis_x.minimum || xs_min || 0.0

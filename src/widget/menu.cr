@@ -221,7 +221,7 @@ module Crysterm
         # auto-close here. That lets the title's toggle handler close it cleanly —
         # otherwise this watcher would hide the popup and the toggle would
         # immediately reopen it, so a second click never appeared to close.
-        @ev_popup ||= screen.on_press_outside(->(x : Int32, y : Int32) { grab_contains?(x, y) }) { hide_popup }
+        @ev_popup ||= screen.on_press_outside(->(px : Int32, py : Int32) { grab_contains?(px, py) }) { hide_popup }
 
         request_render
         self

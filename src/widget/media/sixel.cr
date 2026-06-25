@@ -55,20 +55,20 @@ module Crysterm
         bands.times do |band|
           y0 = band * 6
           # color index -> one 6-bit sixel value per column
-          cols = Hash(Int32, Array(UInt8)).new
+          col_runs = Hash(Int32, Array(UInt8)).new
           pw.times do |x|
             6.times do |dy|
               y = y0 + dy
               break if y >= ph
               ci = idx[y][x]
               next if ci < 0 # transparent (e.g. Contain letterbox margin)
-              arr = cols[ci] ||= Array(UInt8).new(pw, 0u8)
+              arr = col_runs[ci] ||= Array(UInt8).new(pw, 0u8)
               arr[x] = (arr[x] | (1u8 << dy))
             end
           end
 
           first = true
-          cols.each do |ci, vals|
+          col_runs.each do |ci, vals|
             io << '$' unless first # graphics CR: overlay next color in same band
             first = false
             io << '#' << ci

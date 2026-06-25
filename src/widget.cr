@@ -367,7 +367,9 @@ module Crysterm
     # If the widget already is `Screen`, returns `nil`.
     def parent_or_screen
       return self if Screen === self
-      (@parent || screen).not_nil!
+      # `screen` already returns a non-nil `Screen` (it raises when unattached),
+      # so `@parent || screen` is non-nil without a `not_nil!`.
+      @parent || screen
     end
   end
 end
