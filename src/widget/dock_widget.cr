@@ -83,9 +83,9 @@ module Crysterm
           t = style.title
           titlebar.styles.normal = t unless t.same?(style)
           cb = style.close_button
-          @close_button.try { |b| b.styles.normal = cb } unless cb.same?(style)
+          @close_button.try(&.styles.normal=(cb)) unless cb.same?(style)
           fb = style.float_button
-          @float_button.try { |b| b.styles.normal = fb } unless fb.same?(style)
+          @float_button.try(&.styles.normal=(fb)) unless fb.same?(style)
         end
       end
 

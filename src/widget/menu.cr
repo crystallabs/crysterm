@@ -254,7 +254,7 @@ module Crysterm
 
       # Sizes the menu to its rendered rows plus border.
       private def fit_to_content : Nil
-        w = ritems.max_of?(&.size) || (visible_actions.max_of? { |a| a.text.size } || 8)
+        w = ritems.max_of?(&.size) || (visible_actions.max_of?(&.text.size) || 8)
         self.width = w + 2
         self.height = visible_actions.size + 2
       end
@@ -482,7 +482,7 @@ module Crysterm
         child.parent_menu = self
 
         # Size to the content and float to the right of the selected row.
-        child.width = (subs.max_of? { |a| a.text.size } || 8) + 6
+        child.width = (subs.max_of?(&.text.size) || 8) + 6
         child.height = subs.size + 2
         begin
           lp = last_rendered_position

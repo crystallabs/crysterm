@@ -27,7 +27,6 @@ module Crysterm
 
       # Applies a geometry declaration onto *widget*.
       #
-      # ameba:disable Metrics/CyclomaticComplexity
       def self.apply(widget : Widget, property : String, value : String) : Nil
         case property
         when "width"  then resolve_dim(value).try { |d| widget.width = d }
@@ -54,7 +53,7 @@ module Crysterm
           # Inter-child spacing of the widget's layout (Qt's layout `spacing`).
           # `gap` lives on the `Layout` base; engines that don't honor it (the
           # flow layouts) simply ignore the value. No-op without a layout.
-          value.to_i?.try { |cells| widget.layout.try { |l| l.gap = cells } }
+          value.to_i?.try { |cells| widget.layout.try(&.gap=(cells)) }
         when "lineedit-password-character"
           # Mask character for a censored `LineEdit` (Qt's
           # `lineedit-password-character`). No-op on any other widget type.

@@ -56,7 +56,6 @@ module Crysterm
       # (incremental update); selector matching is still over the whole document
       # so ancestor/sibling context is correct.
       #
-      # ameba:disable Metrics/CyclomaticComplexity
       def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), screen : Screen, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
@@ -359,7 +358,6 @@ module Crysterm
       # property is copied only if the inline style `specified?` it — so inline
       # can switch a text attribute either on *or* off over a stylesheet.
       #
-      # ameba:disable Metrics/CyclomaticComplexity
       private def self.fold_inline(style : Style, inline : Style) : Nil
         style.fg = inline.fg if inline.specified?(:fg)
         style.bg = inline.bg if inline.specified?(:bg)

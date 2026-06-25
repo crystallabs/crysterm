@@ -57,7 +57,7 @@ module Crysterm
 
           set_messages messages
 
-          on ::Crysterm::Event::ActionItem do |e|
+          on ::Crysterm::Event::ActionItem do |_e|
             run_selected
           end
         end

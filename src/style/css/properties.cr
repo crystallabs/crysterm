@@ -12,7 +12,6 @@ module Crysterm
       # Applies a single `property: value` declaration onto *style*. Unknown
       # properties are ignored, matching CSS's forgiving behavior.
       #
-      # ameba:disable Metrics/CyclomaticComplexity
       def self.apply(style : Style, property : String, value : String) : Nil
         return apply_border(style, property, value) if property.starts_with?("border")
 
@@ -235,7 +234,6 @@ module Crysterm
       # value in crysterm's model, so per-side `*-color` longhands all set it;
       # per-side widths/styles are honored individually.
       #
-      # ameba:disable Metrics/CyclomaticComplexity
       private def self.apply_border(style : Style, property : String, value : String) : Nil
         border = style.border
         case property

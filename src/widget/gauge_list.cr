@@ -97,7 +97,7 @@ module Crysterm
         return "" if cols <= 0 || rows <= 0 || @gauges.empty?
 
         lw = @label_width
-        lw = (@gauges.map(&.label.size).max? || 0) if lw <= 0
+        lw = (@gauges.max_of?(&.label.size) || 0) if lw <= 0
         lw = lw.clamp(0, Math.max(0, cols - 8)) # leave room for bar + " nn%"
 
         pct_w = 5 # " 100%"

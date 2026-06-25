@@ -123,7 +123,7 @@ module Crysterm
         em.on_title = ->(t : String) { @title = t; emit ::Crysterm::Event::SetContent; nil }
         @emulator = em
 
-        if handler = @handler
+        if @handler
           # Externally driven: nothing to spawn. Keystrokes go to the handler
           # (see #on_data); output arrives via #write.
           return

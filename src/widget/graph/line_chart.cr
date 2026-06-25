@@ -231,7 +231,7 @@ module Crysterm
         # labels); right = enough for the last X label's overhang.
         private def margins : Tuple(Int32, Int32, Int32, Int32)
           y_labels = axis_values(axis_y, @ymin, @ymax).map { |v| axis_y.format v }
-          lm = y_labels.map(&.size).max? || 0
+          lm = y_labels.max_of?(&.size) || 0
           lm += 1 if axis_y.title.empty? # a hair of breathing room
           lm = lm.clamp(0, Math.max(0, (awidth - iwidth) // 2))
 

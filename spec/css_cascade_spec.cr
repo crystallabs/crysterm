@@ -410,7 +410,7 @@ describe "CSS cascade" do
     CSS
     screen.apply_stylesheet
 
-    list.items.each { |item| item.styles.normal.fg.should eq rgb("white") }
+    list.items.each(&.styles.normal.fg.should(eq(rgb("white"))))
     # items are children at positions 1..4, so :nth-child(even) hits #2 and #4
     list.items[0].styles.normal.bg.should be_nil
     list.items[1].styles.normal.bg.should eq rgb("blue")
@@ -707,7 +707,7 @@ describe "CSS cascade" do
     screen.apply_stylesheet
     tabs.style.tab.fg.should eq rgb("red") # cascade computed the slot
     screen._render                         # PreRender pushes it onto each tab
-    tabs.bar.items.each { |it| it.styles.normal.fg.should eq rgb("red") }
+    tabs.bar.items.each(&.styles.normal.fg.should(eq(rgb("red"))))
   end
 
   it "leaves tabs at their default style when no TabWidget::tab rule matches" do
@@ -840,7 +840,7 @@ describe "CSS cascade" do
 
     screen.stylesheet = "Box { color: white; } .hot { color: red; }"
     screen.apply_stylesheet
-    [a, b, c].each { |w| w.styles.normal.fg.should eq rgb("white") }
+    [a, b, c].each(&.styles.normal.fg.should(eq(rgb("white"))))
 
     # sentinels: if a widget is recomputed, the author rule overwrites these
     green = rgb("green")

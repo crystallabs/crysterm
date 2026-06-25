@@ -210,7 +210,6 @@ module Crysterm
       # level; when non-empty, the scope's direct declarations are emitted as a
       # rule for them.
       #
-      # ameba:disable Metrics/CyclomaticComplexity
       private def self.parse_scope(css : String, parents : Array(String), media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
         declarations = {} of String => String
         important = {} of String => String

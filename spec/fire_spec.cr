@@ -52,7 +52,7 @@ describe Crysterm::Widget::Effect::Fire do
   it "honors a custom integer color override" do
     s = fire_screen
     f = Crysterm::Widget::Effect::Fire.new parent: s, width: 8, height: 4,
-      color: ->(heat : Float64) { 0x123456 }
+      color: ->(_heat : Float64) { 0x123456 }
     f.resize 8, 4
     f.advance 8, 4
 

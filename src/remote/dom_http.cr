@@ -241,7 +241,7 @@ module Crysterm
       case method
       when "setContent"
         text = string_param params, "value"
-        each_match(selector) { |w| w.set_content text }
+        each_match(selector, &.set_content(text))
       when "getContent"
         on_ui { match(selector).first?.try(&.content) }
       when "setAttribute"
@@ -250,17 +250,17 @@ module Crysterm
         each_match(selector) { |w| w.dom_apply name, attr_value }
       when "addClass"
         klass = string_param params, "class"
-        each_match(selector) { |w| w.add_css_class klass }
+        each_match(selector, &.add_css_class(klass))
       when "removeClass"
         klass = string_param params, "class"
-        each_match(selector) { |w| w.remove_css_class klass }
+        each_match(selector, &.remove_css_class(klass))
       when "toggleClass"
         klass = string_param params, "class"
-        each_match(selector) { |w| w.toggle_css_class klass }
+        each_match(selector, &.toggle_css_class(klass))
       when "focus"
-        each_match(selector) { |w| w.focus }
+        each_match(selector, &.focus)
       when "remove"
-        n = each_match(selector) { |w| w.remove_from_parent }
+        n = each_match(selector, &.remove_from_parent)
         rewire
         n
       when "append"

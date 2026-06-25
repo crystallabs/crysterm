@@ -184,7 +184,7 @@ module Crysterm
 
       # Collapses every node in the whole hierarchy.
       def collapse_all : Nil
-        each_node { |n| n.expanded = false }
+        each_node(&.expanded=(false))
         rebuild
       end
 

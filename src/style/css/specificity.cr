@@ -15,7 +15,6 @@ module Crysterm
       # pseudo-class itself.
       RECURSIVE_PSEUDOS = {"not", "is", "matches", "has"}
 
-      # ameba:disable Metrics/CyclomaticComplexity
       def self.calculate(selector : String) : Tuple(Int32, Int32, Int32)
         a = b = c = 0
         chars = selector.chars

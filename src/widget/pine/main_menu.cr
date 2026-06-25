@@ -58,7 +58,7 @@ module Crysterm
           set_options options
 
           # Run the activated option's callback (Enter / click).
-          on ::Crysterm::Event::ActionItem do |e|
+          on ::Crysterm::Event::ActionItem do |_e|
             run_selected
           end
         end

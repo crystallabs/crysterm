@@ -97,13 +97,13 @@ module Crysterm
       # tmux: a new window in the current session when run from inside tmux
       # ($TMUX set), otherwise a new detached session. The command's args follow
       # the tmux options directly.
-      Launcher.new("tmux", ->(inner : Array(String), c : Int32, r : Int32, t : String?) do
+      Launcher.new("tmux", ->(inner : Array(String), _c : Int32, _r : Int32, t : String?) do
         argv = ENV["TMUX"]? ? ["tmux", "new-window"] : ["tmux", "new-session", "-d"]
         argv += ["-n", t] if t
         argv + inner
       end),
       # screen: a new window in the current session (best run from inside screen).
-      Launcher.new("screen", ->(inner : Array(String), c : Int32, r : Int32, t : String?) do
+      Launcher.new("screen", ->(inner : Array(String), _c : Int32, _r : Int32, t : String?) do
         argv = ["screen"]
         argv += ["-t", t] if t
         argv + inner
@@ -114,8 +114,8 @@ module Crysterm
       # it over D-Bus. Best-effort; lifecycle relies on the helper/socket (the
       # qdbus call itself returns immediately and is not the window's process).
       Launcher.new("yakuake",
-        ->(inner : Array(String), c : Int32, r : Int32, t : String?) { inner },
-        ->(inner : Array(String), c : Int32, r : Int32, t : String?) do
+        ->(inner : Array(String), _c : Int32, _r : Int32, _t : String?) { inner },
+        ->(inner : Array(String), _c : Int32, _r : Int32, _t : String?) do
           Process.run("qdbus", ["org.kde.yakuake", "/yakuake/sessions", "addSession"]) rescue nil
           cmdstr = inner.map { |a| Process.quote(a) }.join(" ")
           Process.new("qdbus", ["org.kde.yakuake", "/yakuake/sessions", "runCommand", cmdstr])

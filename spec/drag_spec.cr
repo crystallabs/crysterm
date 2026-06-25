@@ -42,7 +42,7 @@ private def transfer_setup
   source.enable_drag reposition: false
   source.on(Crysterm::Event::DragStart) { |e| e.data["text/plain"] = "x" }
   target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
-  target.on(Crysterm::Event::DragOver) { |e| e.accept }
+  target.on(Crysterm::Event::DragOver, &.accept)
   {s, target}
 end
 
@@ -259,7 +259,7 @@ describe "drag-and-drop" do
       source = Widget::Box.new parent: s, name: "src", left: 0, top: 0, width: 6, height: 3
       source.enable_drag reposition: false
       target = Widget::Box.new parent: s, name: "dst", left: 40, top: 0, width: 10, height: 4
-      target.on(Event::DragOver) { |e| e.accept }
+      target.on(Event::DragOver, &.accept)
 
       press s, 1, 1
       move s, 2, 1
@@ -267,7 +267,7 @@ describe "drag-and-drop" do
       release s, 44, 1
 
       msgs.first.should contain("Picked up src")
-      msgs.any? { |m| m.includes? "Over dst" }.should be_true
+      msgs.any?(&.includes?("Over dst")).should be_true
       msgs.last.should contain("Dropped on dst")
     end
   end
@@ -308,7 +308,7 @@ describe "drag-and-drop" do
       source.enable_drag reposition: false
       source.on(Event::DragStart) { |e| e.data["text/plain"] = "p" }
       target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
-      target.on(Event::DragOver) { |e| e.accept }
+      target.on(Event::DragOver, &.accept)
       received = nil
       target.on(Event::Drop) { |e| received = e.data["text/plain"] }
 

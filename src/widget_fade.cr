@@ -104,7 +104,7 @@ module Crysterm
       # value eases at both ends and never stops on its own (runs until stopped).
       half = period.total_seconds
       elapsed = 0.0
-      anim = Animation.new(interval) do |clock|
+      anim = Animation.new(interval) do |_clock|
         elapsed += interval.total_seconds
         # Triangle phase 0→1→0 over `2*half`, eased by sine for a soft turnaround.
         phase = (elapsed % (2.0 * half)) / half  # 0..2

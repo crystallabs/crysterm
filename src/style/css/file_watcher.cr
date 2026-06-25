@@ -15,7 +15,7 @@ module Crysterm
       # No-op stub. Previously watched *path* and invoked *callback* on changes,
       # returning the running `FSWatch::Session`. With watching disabled this
       # does nothing and returns `nil`, so callers degrade to no hot-reload.
-      def self.watch(path : String, latency : Float64 = 0.1, &callback : ->) : Nil
+      def self.watch(path : String, latency : Float64 = 0.1, &_callback : ->) : Nil
         nil
       end
     end

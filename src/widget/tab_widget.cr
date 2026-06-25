@@ -133,11 +133,11 @@ module Crysterm
       # overrides that page's normal style for the area beside the bar.)
       private def sync_tab_style : Nil
         tab = style.tab
-        bar.items.each { |it| it.styles.normal = tab } unless tab.same?(style)
+        bar.items.each(&.styles.normal=(tab)) unless tab.same?(style)
 
         pane = style.pane
         unless pane.same?(style)
-          current_page.try { |page| page.styles.normal = pane }
+          current_page.try(&.styles.normal=(pane))
         end
       end
 

@@ -566,7 +566,6 @@ module Crysterm
     # buffers (see `CLines#reset`). When nil a new `CLines` is built.
     def _wrap_content(content, colwidth, into : CLines? = nil)
       default_state = @align
-      wrap = @wrap_content
       margin = 0
       outbuf = into || CLines.new
       # Clear the in-place arrays so a reused `CLines` starts empty (a no-op on a

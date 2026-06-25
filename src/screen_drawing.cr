@@ -919,7 +919,7 @@ module Crysterm
           ocell.char = '\u{0}'
         end
 
-        @lines[y]?.try { |line| line.dirty = true }
+        @lines[y]?.try(&.dirty=(true))
       end
     end
 

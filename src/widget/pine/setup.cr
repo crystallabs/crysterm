@@ -47,7 +47,7 @@ module Crysterm
 
           set_options options
 
-          on ::Crysterm::Event::ActionItem do |e|
+          on ::Crysterm::Event::ActionItem do |_e|
             toggle_selected
           end
         end

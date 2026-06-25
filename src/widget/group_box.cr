@@ -46,7 +46,7 @@ module Crysterm
         # a `::title` rule matched. See `Widget::TabWidget#sync_tab_style`.
         on(::Crysterm::Event::PreRender) do
           t = style.title
-          @_label.try { |lbl| lbl.styles.normal = t } unless t.same?(style)
+          @_label.try(&.styles.normal=(t)) unless t.same?(style)
         end
 
         if checkable?

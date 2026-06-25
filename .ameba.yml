@@ -1,0 +1,65 @@
+# Ameba configuration for Crysterm.
+#
+# Rationale lives next to each rule so the suppressions stay auditable. Run with
+# `--all-rules` or comment a section out to re-surface anything below.
+
+# --- Scope --------------------------------------------------------------------
+# Lint only the shipping library and its specs. examples/, benchmarks/, tools/,
+# tests/ and small-tests/ are demo / scratch code; their warnings (stray `p`
+# debug calls, throwaway unused assignments, benchmark shadowing) are noise and
+# were ~35% of the report.
+Globs:
+  - src/**/*.cr
+  - spec/**/*.cr
+
+# --- False positives (the rule's suggestion is wrong here) --------------------
+
+# `SidedGeometry#any?` / `Margin#any?` are domain methods ("is any amount set on
+# any side?"), not `Enumerable#any?`. Rewriting to `!empty?` would be incorrect.
+Performance/AnyInsteadOfEmpty:
+  Enabled: false
+
+# src/event.cr is wall-to-wall `event Foo, bar : T` macro calls (event_handler
+# shard) that the rule misreads as assignments, so the whole file is excluded.
+# The scattered `enum_property foo : T = ...` macro hits (crystallabs-helpers
+# shard) in otherwise-normal files are handled with inline `# ameba:disable`
+# directives instead, so real assignments in those files stay checked.
+Lint/UselessAssign:
+  Excluded:
+    - src/event.cr
+
+# `not_nil!` is idiomatic in test setup/assertions; flagging it across the spec
+# suite is noise. Still active for src/.
+Lint/NotNil:
+  Excluded:
+    - spec/**/*.cr
+
+# --- Deliberate, pervasive project conventions --------------------------------
+
+# Short single-letter block parameters (|w|, |c|, |s|) are the house style,
+# applied consistently across the codebase. This rule alone was ~half the report.
+Naming/BlockParameterName:
+  Enabled: false
+
+# `set_image`, `set_resources(*args)`, `set_index`, ... are blessed.js-derived
+# public API names (many take arguments and are not plain accessors).
+Naming/AccessorMethodName:
+  Enabled: false
+
+# Boolean `property force = false` style is standard Crystal and used throughout;
+# we do not rename these to `force?`.
+Naming/QueryBoolMethods:
+  Enabled: false
+
+# TODO / NOTE / FIXME admonitions are intentional in-code work markers, not
+# things to clear before the linter passes.
+Documentation/DocumentationAdmonition:
+  Enabled: false
+
+# --- Relaxed thresholds -------------------------------------------------------
+
+# TUI rendering, damage calculation and event dispatch are legitimately branchy.
+# Keep the rule active to catch genuine monsters, but raise the floor above the
+# normal-but-busy methods (most reports sat in the 11-20 range).
+Metrics/CyclomaticComplexity:
+  MaxComplexity: 30

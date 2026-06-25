@@ -17,7 +17,6 @@ require "./screen_damage"
 require "./screen_drawing"
 require "./screen_focus"
 require "./screen_rows"
-require "./screen_interaction"
 require "./screen_capture"
 require "./screen_connection"
 
@@ -120,6 +119,7 @@ module Crysterm
 
     # Optimization flags to use for rendering and/or drawing.
     # XXX See also a TODO item related to dynamically deciding on default flags.
+    # ameba:disable Lint/UselessAssign
     Crystallabs::Helpers::Enums.enum_property optimization : OptimizationFlag = Config.render_optimization
 
     # Returns current screen width. This is now a local operation since we
@@ -144,6 +144,7 @@ module Crysterm
 
     # Specifies what to do with "overflowing" (too large) widgets. The default setting of
     # `Overflow::Ignore` simply ignores the overflow and renders the parts that are in view.
+    # ameba:disable Lint/UselessAssign
     Crystallabs::Helpers::Enums.enum_property overflow : Overflow = Config.screen_overflow
 
     def initialize(
