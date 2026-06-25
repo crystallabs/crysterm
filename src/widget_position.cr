@@ -184,7 +184,7 @@ module Crysterm
     # right-anchored and `"center"` branches need it, and `_get_coords` has
     # computed it once anyway, so passing it in avoids a second `awidth` walk per
     # frame for those widgets. When nil it is resolved on demand as before.
-    def aleft(get = false, width = nil)
+    def aleft(get = false, width = nil, parent_pos = nil)
       # Original left
       oleft = @left
       oright = @right
@@ -193,7 +193,11 @@ module Crysterm
         return screen.awidth - (width || awidth(get)) - aright(get)
       end
 
-      parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
+      # `parent_pos`, when given, is the parent's already-resolved position for
+      # this frame (`parent_or_screen.last_rendered_position` under `get`, else
+      # `parent_or_screen`) — the render path resolves it once in `_get_coords`
+      # and threads it in so `aleft`/`atop` don't each re-resolve it.
+      parent = parent_pos || (get ? parent_or_screen.last_rendered_position : parent_or_screen)
 
       left = oleft || 0
       if left.is_a? String
@@ -214,7 +218,7 @@ module Crysterm
     # widget's already-resolved `aheight(get)` — see `#aleft` for why this is
     # passed in (avoids a redundant `aheight` walk for bottom-anchored /
     # `"center"` widgets).
-    def atop(get = false, height = nil)
+    def atop(get = false, height = nil, parent_pos = nil)
       otop = @top
       obottom = @bottom
 
@@ -222,7 +226,9 @@ module Crysterm
         return screen.aheight - (height || aheight(get)) - abottom(get)
       end
 
-      parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
+      # See `#aleft`: `parent_pos` is the parent's already-resolved position,
+      # threaded in by the render path so it is resolved once per frame.
+      parent = parent_pos || (get ? parent_or_screen.last_rendered_position : parent_or_screen)
 
       top = otop || 0
       if top.is_a? String
@@ -361,15 +367,25 @@ module Crysterm
       #   get = true
       # end
 
+      # Resolve the parent (or screen) and its rendered position *once* for the
+      # whole coordinate pass. `aleft`/`atop` each used to re-resolve it
+      # (`parent_or_screen` → `screen?` → `last_rendered_position`), and the
+      # clip/shrink section below resolves `parent_or_screen` again — three
+      # lookups per widget per frame where one suffices. Threading the resolved
+      # value through collapses that to one (profiling a flat scene of N siblings
+      # showed `screen?` and the `a*` accessors near the top of the render path).
+      por = parent_or_screen
+      ppos = get ? por.last_rendered_position : por
+
       # Resolve each dimension once and reuse it for both the anchored-origin
       # computation (`aleft`/`atop`) and the far edge (`xl`/`yl`). Without this,
       # a right-anchored or `"center"`-positioned widget walked `awidth` twice
       # (and likewise `aheight`) every frame.
       w = width_hint || awidth(get)
       h = aheight(get)
-      xi = aleft(get, w)
+      xi = aleft(get, w, ppos)
       xl = xi + w
-      yi = atop(get, h)
+      yi = atop(get, h, ppos)
       yl = yi + h
 
       # Informs us which side is partly hidden due to being enclosed in a
@@ -552,7 +568,7 @@ module Crysterm
         end
       end
 
-      parent = parent_or_screen
+      parent = por
 
       # NOTE `plp=parent.lpos` assignment below-right is intentional:
       if (parent.overflow == Overflow::ShrinkWidget) && (plp = parent.lpos)
