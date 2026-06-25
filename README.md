@@ -89,7 +89,7 @@ crystal examples/hello2.cr
 crystal examples/tech-demo.cr
 ```
 
-(And other examples from directories `examples/`, `small-tests/`, `test/` and `test-auto/`.)
+(And other examples from directories `examples/` and `tests/`.)
 
 ## Testing
 

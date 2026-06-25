@@ -1,4 +1,4 @@
-# Headless reproduction of examples/feature-demos/donut.cr's hot path — the
+# Headless reproduction of examples/features/donut.cr's hot path — the
 # "common" damage-tracking case: a few disjoint top-level widgets, each updating
 # per frame. Measures per-frame render cost ON (damage tracking) vs OFF (full
 # recomposite). Size via COLUMNS/LINES (defaults to 80x24).

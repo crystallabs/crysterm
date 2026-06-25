@@ -1,4 +1,4 @@
-# Headless reproduction of examples/feature-demos/cracktro.cr's hot path, so the
+# Headless reproduction of examples/features/cracktro.cr's hot path, so the
 # per-frame render cost can be measured deterministically (no real terminal, no
 # wall-clock pacing) and compared between OptimizationFlag::None and
 # ::DamageTracking. Same scene (copper bars, marquee, greet, sine scroller, and

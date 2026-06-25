@@ -359,39 +359,13 @@ module Crysterm
 
         ::Log.trace { "Internal content is #{content.inspect}" }
 
-        # Scaffolding for content-level Unicode handling (see FIX-UNICODE.md). The
-        # bodies are still TODO; `if true` is a deliberate placeholder for the
-        # eventual `screen.full_unicode?` gate, so the literal-condition lint is
-        # suppressed rather than the branch removed.
-        # ameba:disable Lint/LiteralInCondition
-        if true # (screen.full_unicode)
-          # double-width chars will eat the next char after render. create a
-          # blank character after it so it doesn't eat the real next char.
-          # TODO
-          # content = content.replace(unicode.chars.all, '$1\x03')
-
-          # iTerm2 cannot render combining characters properly.
-          if screen.tput.emulator.iterm2?
-            # TODO
-            # content = content.replace(unicode.chars.combining, "")
-          end
-        else
-          # no double-width: replace them with question-marks.
-          # TODO
-          # content = content.gsub unicode.chars.all, "??"
-          # delete combining characters since they're 0-width anyway.
-          # Note: We could drop this, the non-surrogates would get changed to ? by
-          # the unicode filter, and surrogates changed to ? by the surrogate
-          # regex. however, the user might expect them to be 0-width.
-          # Note: Might be better for performance to drop it!
-          # TODO
-          # content = content.replace(unicode.chars.combining, '')
-          # no surrogate pairs: replace them with question-marks.
-          # TODO
-          # content = content.replace(unicode.chars.surrogate, '?')
-          # XXX Deduplicate code here:
-          # content = helpers.dropUnicode(content)
-        end
+        # No content-level Unicode munging here: wide-char layout, grapheme
+        # clusters, and combining marks are all handled at the cell level in the
+        # renderer (keyed off `screen.full_unicode?`). See FIX-UNICODE.md for why
+        # the blessed content-string approach (the `\x03` wide-char sentinel,
+        # surrogate-pair repair) does not apply, and for the two optional, still-
+        # open behaviors (non-Unicode-terminal degradation; the iTerm2 combining
+        # quirk) if a real need ever appears.
 
         # Only parse tags when this call hasn't disabled them *and* the content
         # actually contains tags (decided in `#set_content`). For plain-text

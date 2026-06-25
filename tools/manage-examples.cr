@@ -3,6 +3,12 @@
 # manage-examples.cr — maintenance tool that standardizes how every Crysterm
 # widget AND layout is exemplified, screenshotted and animated.
 #
+# It also manages two areas of standalone programs with the same
+# `<stem>-capture.*` naming and freshness checks: `tests/` (captured in-process)
+# and `examples/features/` (rendered by the external recorders in `tools/`, since
+# they paint through real terminal graphics protocols / a PTY — see `--features`
+# and `process_features`).
+#
 # For each widget under `src/widget/` and each layout under `src/layout/`, it:
 #
 #   1. Mirrors the source hierarchy into `examples/<kind>/` and gives the item
@@ -75,6 +81,17 @@ module WidgetExamples
   # Standalone programs (not registered widgets/layouts, not docs material). The
   # tool only (re)captures them — see `process_tests`.
   TESTS_DIR = File.join(ROOT, "tests")
+  # Feature demos. Like `tests/` these are standalone programs (re)captured next
+  # to themselves with the `<stem>-capture.*` naming — but a feature demo paints
+  # via a real terminal's graphics protocol or a PTY animation, so it CANNOT be
+  # captured by the in-process headless harness. Its capture is produced by the
+  # external recorders in `tools/` (ttygif.py / make-gifs.sh / make-graphics-shots.sh);
+  # the tool still owns *which* outputs exist and *when* they're stale. See
+  # `FEATURE_SHOTS` and `process_features`.
+  FEATURES_DIR = File.join(ROOT, "examples", "features")
+  # The recorder scripts that actually render the feature captures.
+  GIFS_SCRIPT     = File.join(ROOT, "tools", "make-gifs.sh")
+  GRAPHICS_SCRIPT = File.join(ROOT, "tools", "make-graphics-shots.sh")
   # The single shared example harness; every generated example requires it.
   HELPER = File.join(ROOT, "examples", "widget", "example")
 
@@ -561,6 +578,7 @@ module WidgetExamples
     property duration = 5
     property build = false
     property release = false
+    property features = false
     property jobs = WidgetExamples.default_jobs
     property filters = [] of String
 
@@ -577,7 +595,7 @@ module WidgetExamples
     # whole chain (`#full_chain?`); without it, the bare run just fills in what's
     # missing and refreshes the docs (`#default_run?`).
     private def bare? : Bool
-      !no_shot && !shots_only && !shot && !anim && !dump && !all && !build && !doc_comments && !docs && !copy && !list
+      !no_shot && !shots_only && !shot && !anim && !dump && !all && !build && !doc_comments && !docs && !copy && !list && !features
     end
 
     # `--force` on its own (no step/mode flag) means "re-do the whole chain":
@@ -615,6 +633,7 @@ module WidgetExamples
       when "--all"          then o.all = true
       when "--build"        then o.build = true
       when "--release"      then o.release = true; o.build = true
+      when "--features"     then o.features = true
       when "--duration"
         i += 1
         o.duration = (i < argv.size ? argv[i].to_i? : nil) || o.duration
@@ -665,6 +684,9 @@ module WidgetExamples
                         class doc comment (so `crystal docs` shows it)
           --docs        run `crystal docs`, then copy examples/ into docs/
           --copy        just copy examples/ into docs/ (skip `crystal docs`)
+          --features    (re)capture examples/features/ via the external recorders
+                        (tools/make-gifs.sh / make-graphics-shots.sh); honors a
+                        name filter and --force. Stops after; touches nothing else.
           --list        show the plan and exit
       -h, --help        this help
 
@@ -684,6 +706,13 @@ module WidgetExamples
     tests/ : every .cr under tests/ is also (re)captured to png/apng/dump next
     to itself on any capturing run — no scaffolding, doc-comments or docs (it
     is not docs material). The same scope/force/duration/jobs/name flags apply.
+
+    examples/features/ : standalone demos that paint via a real terminal graphics
+    protocol or a PTY animation, so they can't be captured in-process. The tool
+    owns their `<stem>-capture.*` naming and staleness checks, but delegates the
+    actual rendering to the recorders in tools/. Opt in with --features (it's
+    heavyweight and needs python3+Pillow, and an X display for the graphics demos),
+    so it never fires on a bare run.
     TXT
 
   # ---- screenshot -----------------------------------------------------------
@@ -799,8 +828,13 @@ module WidgetExamples
     all = discover
     widgets = all.select { |w| opts.matches?(w) }
 
-    if widgets.empty? && matching_tests(opts).empty?
-      STDERR.puts "no matching widgets or tests (#{all.size} widgets discovered)"
+    # Features only count toward "is there anything to do" when explicitly asked
+    # for (`--features`); otherwise a bare feature-name filter would be a silent
+    # no-op that still triggered a docs rebuild.
+    features_sel = opts.features ? matching_features(opts) : [] of FeatureShot
+
+    if widgets.empty? && matching_tests(opts).empty? && features_sel.empty?
+      STDERR.puts "no matching widgets, tests or features (#{all.size} widgets discovered)"
       exit 1
     end
 
@@ -813,6 +847,25 @@ module WidgetExamples
           w.basename, w.fqn, status, relative_to_root(example_dir(w)),
         ]
       end
+      feats = matching_features(opts)
+      unless feats.empty?
+        puts
+        puts "#{feats.size} feature demo(s) (captured by tools/make-*.sh):"
+        feats.each do |fs|
+          have = fs.outputs.count { |o| File.exists?(feature_output(o)) }
+          puts "  %-22s [%d/%d captured] -> %s" % [
+            fs.stem, have, fs.outputs.size, "examples/features/#{fs.outputs.first}",
+          ]
+        end
+      end
+      return
+    end
+
+    # `--features`: (re)capture the feature demos via the external recorders, then
+    # stop — it does not touch widgets/layouts/tests/docs. Honors name filters
+    # (to subset), `--force` and the staleness checks.
+    if opts.features
+      process_features(opts)
       return
     end
 
@@ -1012,6 +1065,149 @@ module WidgetExamples
     unless stubs.empty?
       puts "Scaffolded from the generic template (flesh out in place): #{stubs.uniq.join(", ")}"
     end
+  end
+
+  # ---- features -------------------------------------------------------------
+  #
+  # Feature demos under `examples/features/`. Unlike widgets/layouts/tests, these
+  # cannot be captured in-process: each paints through a real terminal graphics
+  # protocol (sixel/ReGIS/kitty/iTerm/Tek/überzug/w3m) or is a PTY animation, so
+  # the actual rendering is delegated to the recorder scripts in `tools/`. What
+  # the tool keeps is everything *else* it does for the other kinds: the
+  # `<stem>-capture.*` naming next to each program, the staleness checks
+  # (`skip_output?`), `--force`, name filters and the run reporting.
+  #
+  # A single registry entry maps one demo `.cr` to the capture file(s) it
+  # produces and the recorder that makes them. Most demos are 1:1; a few fan out
+  # (glyph render modes, the 256/16-color ANSI palettes).
+
+  # One feature demo's capture(s): the program stem (its `<stem>.cr` under
+  # `examples/features/`), the capture filenames it yields, the recorder that
+  # produces them (`:gifs` -> make-gifs.sh, `:graphics` -> make-graphics-shots.sh),
+  # and the token the recorder expects (usually the stem; `make-gifs.sh` calls the
+  # glyph/overlay demos by a special name).
+  record FeatureShot,
+    stem : String,
+    outputs : Array(String),
+    gen : Symbol,
+    arg : String
+
+  # Glyph render modes (one still each) and the two ANSI-palette variants — the
+  # only fan-out demos; everything else yields a single capture.
+  GLYPH_MODES = %w[block ascii half quadrant sextant octant braille]
+
+  # The authoritative demo -> capture(s) map (mirrors the recorders' own lists).
+  FEATURE_SHOTS = begin
+    gif = %w[concurrent_rendering truecolor unicode mouse widgets layout image
+             styling terminfo events diff_rendering matrix dashboard clock
+             netscape cracktro]
+    graphics = %w[sixel_image regis_image kitty_image iterm_image ueberzug_image tek_image]
+    list = [] of FeatureShot
+    gif.each { |s| list << FeatureShot.new(s, ["#{s}-capture.gif"], :gifs, s) }
+    list << FeatureShot.new("png_image", ["png_image-capture.png"], :gifs, "png_image")
+    list << FeatureShot.new("overlay_image", ["overlay_image-capture.png"], :gifs, "overlay")
+    list << FeatureShot.new("glyph_mode",
+      GLYPH_MODES.map { |m| "glyph_mode-capture-#{m}.png" }, :gifs, "glyph_modes")
+    graphics.each { |s| list << FeatureShot.new(s, ["#{s}-capture.png"], :graphics, s) }
+    list << FeatureShot.new("ansi256_image",
+      ["ansi256_image-capture-c256.png", "ansi256_image-capture-c16.png"], :graphics, "ansi256_image")
+    list
+  end
+
+  # The feature demos the current name filters select (all of them when no filter
+  # is given). A filter matches a shot when it is a substring of the stem or of
+  # its source path — so `truecolor`, `sixel`, or `examples/features/` all work.
+  def self.matching_features(opts : Options) : Array(FeatureShot)
+    return FEATURE_SHOTS if opts.filters.empty?
+    FEATURE_SHOTS.select do |fs|
+      src = File.join(FEATURES_DIR, "#{fs.stem}.cr").downcase
+      opts.filters.any? { |f| fl = f.downcase; fs.stem.downcase.includes?(fl) || src.includes?(fl) }
+    end
+  end
+
+  # Absolute path of a feature capture, next to its program in examples/features/.
+  def self.feature_output(filename : String) : String
+    File.join(FEATURES_DIR, filename)
+  end
+
+  # (Re)produce feature captures whose program or the library is newer than them
+  # (or all, with --force). Generation is delegated to the recorder scripts in
+  # `tools/`, run sequentially — they drive real terminals / a PTY recorder and
+  # so are NOT parallel-safe (they grab windows by name) and ignore `--jobs`.
+  #
+  # Because a feature render is heavyweight and needs an external toolchain
+  # (python3 + Pillow for the PTY/animation demos; an X11 display plus
+  # sixel/ReGIS/Tek-capable terminals for the graphics demos), it does not fire
+  # on an unscoped bare run. It runs when the demos are explicitly requested —
+  # `--features`, or a name filter that selects one — so freshness is always
+  # *computed*, but the external pipeline only starts when asked for.
+  def self.process_features(opts : Options)
+    shots = matching_features(opts)
+    return if shots.empty?
+
+    # Decide what's stale (per output file) and which recorder produces it.
+    stale_gifs = [] of FeatureShot
+    stale_graphics = [] of FeatureShot
+    up_to_date = 0
+    shots.each do |fs|
+      src = File.join(FEATURES_DIR, "#{fs.stem}.cr")
+      unless File.exists?(src)
+        puts "miss   examples/features/#{fs.stem}.cr (no such demo; skipping)"
+        next
+      end
+      stale = fs.outputs.map { |o| feature_output(o) }.any? { |d| !skip_output?(d, opts.force, src) }
+      if stale
+        fs.gen == :graphics ? (stale_graphics << fs) : (stale_gifs << fs)
+      else
+        up_to_date += 1
+      end
+    end
+
+    if stale_gifs.empty? && stale_graphics.empty?
+      puts "Features: nothing to do (#{up_to_date} up to date; --force to overwrite)."
+      return
+    end
+
+    ok = 0
+    failed = [] of String
+    # One recorder invocation per stale demo (each renders all of that demo's
+    # outputs), so a failure is attributable and the run is resumable.
+    {GIFS_SCRIPT => stale_gifs, GRAPHICS_SCRIPT => stale_graphics}.each do |script, list|
+      next if list.empty?
+      unless File.exists?(script)
+        failed.concat list.map(&.stem)
+        puts "FAIL   #{relative_to_root(script)} not found"
+        next
+      end
+      list.each do |fs|
+        puts "render #{fs.stem} -> #{fs.outputs.join(", ")}  (#{relative_to_root(script)})"
+        gen_ok, msg = run_recorder(script, fs.arg)
+        produced = fs.outputs.map { |o| feature_output(o) }.select { |d| File.exists?(d) }
+        if gen_ok && !produced.empty?
+          ok += 1
+          puts "wrote  #{produced.map { |d| relative_to_root(d) }.join(", ")}"
+        else
+          failed << fs.stem
+          detail = msg.presence || "no capture produced (recorder deps/display missing?)"
+          puts(String.build do |io|
+            io << "FAIL   " << fs.stem
+            detail.each_line { |l| io << "\n         " << l }
+          end)
+        end
+      end
+    end
+
+    puts
+    puts "Features: #{ok} rendered, #{failed.size} failed, #{up_to_date} up to date."
+    puts "Feature render failures (need the recorder's toolchain/display, or a demo fix): #{failed.uniq.join(", ")}" unless failed.empty?
+  end
+
+  # Run a recorder script for one demo token, capturing its output. Returns
+  # {ok, combined-output-tail}.
+  def self.run_recorder(script : String, arg : String) : {Bool, String}
+    io = IO::Memory.new
+    status = Process.run("bash", [script, arg], output: io, error: io, chdir: ROOT)
+    {status.success?, io.to_s.lines.last(8).join("\n")}
   end
 
   # ---- tests ----------------------------------------------------------------

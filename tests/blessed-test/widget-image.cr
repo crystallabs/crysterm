@@ -12,7 +12,7 @@ require "../../src/crysterm"
 # fail at draw time, exactly as Blessed's widget does without w3m).
 #
 # Pass an image path as the first argument, or it defaults to one of the repo's
-# screenshots.
+# bundled sample images.
 class X
   include Crysterm
 
@@ -32,12 +32,12 @@ class X
   def initialize
     s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
 
-    # Default to a bundled screenshot. Look in ../../screenshots (running from
-    # tests/blessed-test/) first, then fall back to ./screenshots (running from
+    # Default to a bundled sample image. Look in ../../data/image (running from
+    # tests/blessed-test/) first, then fall back to ./data/image (running from
     # the repo root).
     file = ARGV[0]? || begin
-      up = File.expand_path(File.join(__DIR__, "..", "..", "screenshots", "widget.png"))
-      here = File.expand_path(File.join("screenshots", "widget.png"))
+      up = File.expand_path(File.join(__DIR__, "..", "..", "data", "image", "widget.png"))
+      here = File.expand_path(File.join("data", "image", "widget.png"))
       File.exists?(up) ? up : here
     end
 

@@ -5,7 +5,7 @@
 
 # --- Scope --------------------------------------------------------------------
 # Lint only the shipping library and its specs. examples/, benchmarks/, tools/,
-# tests/ and small-tests/ are demo / scratch code; their warnings (stray `p`
+# tests/ is demo / scratch code; its warnings (stray `p`
 # debug calls, throwaway unused assignments, benchmark shadowing) are noise and
 # were ~35% of the report.
 Globs:

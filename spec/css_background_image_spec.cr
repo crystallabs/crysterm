@@ -9,7 +9,7 @@ end
 
 # A real PNG shipped in the repo, decoded by the pure-Crystal PNGGIF reader.
 private def bg_image_path
-  "#{__DIR__}/../screenshots/matterhorn.png"
+  "#{__DIR__}/../data/image/matterhorn.png"
 end
 
 # Runs *block* with `image.exclude` set to *value*, restoring it afterward, so a
