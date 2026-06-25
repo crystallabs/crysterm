@@ -254,8 +254,11 @@ module Crysterm
       # Background image (CSS `background-image`): paint the internal `Media`
       # layer behind the content. Done *before* the content loop so text draws on
       # top; the layer is excluded from the normal child pass and rendered here
-      # instead (see `widget_background.cr`). A cell-neutral Kitty layer today.
+      # instead (see `widget_background.cr`). A Kitty layer is cell-neutral; a
+      # cell-grid (`Media::Cells`) layer paints the buffer, so `bg_cells` then
+      # tells the content loop to leave its empty cells showing the image.
       update_background_media
+      bg_cells = background_paints_cells?
 
       p = padding
       xi += p.left
@@ -369,25 +372,29 @@ module Crysterm
             # We could use fill_region here, name the
             # outer loop, and continue to it instead.
             ch = bch
-            while x < xl
-              cell = line[x]?
-              if !cell
-                break
-              end
-              if alpha = style_alpha
-                cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
-                if content[ci - 1]?
-                  cell.char = ch
+            # A buffer-image background owns the rest of this line: leave its
+            # cells showing the painted image instead of clearing them.
+            unless bg_cells
+              while x < xl
+                cell = line[x]?
+                if !cell
+                  break
                 end
-                line.dirty = true
-              else
-                if cell != {attr, ch}
-                  cell.attr = attr
-                  cell.char = ch
+                if alpha = style_alpha
+                  cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
+                  if content[ci - 1]?
+                    cell.char = ch
+                  end
                   line.dirty = true
+                else
+                  if cell != {attr, ch}
+                    cell.attr = attr
+                    cell.char = ch
+                    line.dirty = true
+                  end
                 end
+                x += 1
               end
-              x += 1
             end
 
             # It was a newline; we've filled the row to the end, we
@@ -398,6 +405,11 @@ module Crysterm
           # Whether this cell maps to a real content codepoint (vs. the fill
           # char `bch` past the end of content).
           has_content = !content[ci - 1]?.nil?
+
+          # A buffer-image background (`Media::Cells`) has painted this content
+          # box; leave an empty (no-glyph) cell showing the image rather than
+          # overwriting it with the widget's fill. Text cells still draw on top.
+          next if bg_cells && !has_content
 
           # Grapheme handling (full_unicode): lay multi-codepoint clusters (emoji
           # ZWJ sequences, flags, base+combining marks) into one cell + a wide

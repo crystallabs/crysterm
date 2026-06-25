@@ -94,7 +94,10 @@ module Crysterm
         @filled.select! { |el| children.includes? el }
 
         main = main_extent interior
-        n = children.size
+        # Count only the children this engine actually arranges; layout-excluded
+        # chrome (e.g. a `background-image` layer, a scrollbar) must not consume a
+        # gap or a `justify` slot.
+        n = children.count { |el| !el.layout_excluded? }
         gaps = n > 1 ? @gap * (n - 1) : 0
 
         fixed = 0

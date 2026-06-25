@@ -11,11 +11,18 @@ module Crysterm
     # sits underneath.
     #
     # Backend selection reuses `Media.resolve(Content::Background)` (and thus the
-    # `image.exclude` config): today only the Kitty graphics layer can draw true
-    # pixels *under* the cell grid (negative `z=`), so a non-Kitty resolution is
-    # treated as "no background layer" and the property simply has no visible
-    # effect. The cell-grid backends (`Glyph`/`Ansi`) need the content loop to
-    # leave their painted cells alone, which is a separate change.
+    # `image.exclude` config). Two backend families render a background:
+    #
+    # * **Kitty** (`Media::Graphics`) — true pixels drawn *under* the cell grid
+    #   (negative `z=`). The image is a terminal layer, so cells stay untouched
+    #   and a default-background cell lets it show through (binary visibility).
+    # * **Cells** (`Media::Glyph`/`Ansi`) — the image is painted *into* the screen
+    #   buffer. `_render` skips its empty (no-glyph) content cells so those keep
+    #   the image, while text cells draw over it (and `style.alpha` grades them).
+    #
+    # The host doesn't branch on the backend except to mark a Kitty layer as a
+    # background (`z=-1`); the Cells case is distinguished in `_render` by the
+    # layer being a `Media::Cells` (see `#background_paints_cells?`).
 
     # Whether this widget is internal chrome that the layout engines must neither
     # arrange (measure/place) nor render in the normal child pass. The background
@@ -45,13 +52,20 @@ module Crysterm
       end
     end
 
-    # The backend `Media.resolve` picks for a background on this terminal, or
-    # `nil` when none can render one (only the Kitty graphics layer can sit under
-    # text today; see the file header).
+    # Whether the active background layer paints into the cell buffer (a
+    # `Media::Cells` backend) rather than being a separate terminal-graphics layer
+    # (Kitty). `_render` uses this to leave the layer's empty cells showing the
+    # image instead of overwriting them with the widget's own fill.
+    def background_paints_cells? : Bool
+      @background_media.is_a?(Media::Cells)
+    end
+
+    # The backend `Media.resolve` picks for a background on this terminal (it
+    # always resolves to *some* backend — Kitty when available, else the cell-grid
+    # fallback), or `nil` when this widget has no screen yet.
     private def background_backend : Media::Type?
       return nil unless s = screen?
-      type = Media.resolve Media::Content::Background, s.tput
-      type.kitty? ? type : nil
+      Media.resolve Media::Content::Background, s.tput
     end
 
     # Lazily builds the background `Media` child for the resolved backend, pinned

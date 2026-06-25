@@ -1,16 +1,20 @@
 # DEMO: a CSS `background-image` painted *behind* a widget's text.
 #
 # `background-image: url(...)` resolves an internal `Widget::Media` background
-# layer (`Media.resolve(Content::Background)`). On a Kitty-graphics terminal it
-# becomes a true-color image placed *under* the cell grid (negative `z=`), so the
-# text renders on top of it; cells with the terminal-default background let the
-# image show through, while a cell with an explicit `background-color` hides it.
+# layer (`Media.resolve(Content::Background)`):
 #
-# Backend choice reuses the `image.exclude` config, so excluding `kitty` falls
-# back to the next candidate. Only Kitty draws under text today, so on other
-# terminals the background simply has no visible effect (the text still shows).
+# * On a **Kitty-graphics** terminal it is a true-color image placed *under* the
+#   cell grid (negative `z=`); text renders on top, default-background cells let
+#   the image show through, and an explicit `background-color` cell hides it.
+# * On any other terminal it falls back to a **cell-grid** backend (`Glyph`/
+#   `Ansi`): the image is painted into the buffer at cell resolution, empty cells
+#   keep the image, and text draws over it (with `style.alpha` grading how much
+#   shows through).
 #
-# This needs a Kitty-graphics-capable terminal on a real display.
+# Backend choice reuses the `image.exclude` config, so e.g. excluding `kitty`
+# forces the cell-grid look even on a Kitty terminal.
+#
+# Best viewed on a Kitty-graphics-capable terminal, but it renders anywhere.
 
 require "../../src/crysterm"
 
