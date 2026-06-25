@@ -420,14 +420,26 @@ module Crysterm
         return true
       end
 
-      # The carried-over per-line attrs depend only on the (unchanged) content
-      # and the style's base attribute, so recompute them only when that base
-      # attr actually changed (default fg/bg/flags). On the common frame where
-      # nothing changed this skips the O(content) `_parse_attr` scan entirely.
-      da = sattr(style)
-      if da != @_parse_attr_default
-        @_parse_attr_default = da
-        @_clines.attr = _parse_attr(@_clines)
+      # The carried-over per-line attrs (`@_clines.attr`) are read back by the
+      # render loop ONLY on a non-first wrapped/scrolled line — `_render` consults
+      # `@_clines.attr[base]` exclusively under `if ci > 0`, which requires either
+      # multi-line content or a non-zero vertical scroll base. For the common
+      # single-line, unscrolled widget the array is never read, so recomputing it
+      # whenever the base attr (fg/bg/flags) changes is pure waste — e.g. a
+      # per-cell color animation that recolors thousands of one-line boxes every
+      # frame would otherwise run `sattr` + an `O(content)` `_parse_attr` scan per
+      # box per frame for a value nothing consults. Gate the refresh on the array
+      # actually being reachable; multi-line / scrolled content still refreshes
+      # exactly as before. (A content change that alters the line count goes
+      # through the full reparse above, which always rebuilds the array.)
+      if @_clines.size > 1 || @child_base > 0
+        # Recompute only when the base attr actually changed (default fg/bg/flags);
+        # on a frame where nothing changed this skips the `_parse_attr` scan too.
+        da = sattr(style)
+        if da != @_parse_attr_default
+          @_parse_attr_default = da
+          @_clines.attr = _parse_attr(@_clines)
+        end
       end
 
       false

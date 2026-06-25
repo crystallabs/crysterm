@@ -180,7 +180,18 @@ module Crysterm
     end
 
     # Registers *w* (via its top-level ancestor) as needing a repaint next frame.
+    #
+    # The dirty-roots set is consumed *only* by the selective damage path
+    # (`#damage_try_composite`), so when damage tracking is disabled — the
+    # default `OptimizationFlag::None` — every mark would be a parent-chain walk
+    # plus a `Set` insertion whose result nothing ever reads (the set is neither
+    # cleared nor consumed off the damage path). `#mark_dirty`/`#request_render`
+    # call this on every state-changing setter, so in a per-cell animation that
+    # is thousands of pointless walks+inserts per frame. Bail immediately when
+    # tracking is off; the behavior is identical (the set is unused) and the hot
+    # path that drives a plain full-recomposite scene gets the work back.
     def damage_mark_dirty(w : Widget) : Nil
+      return unless @optimization.damage_tracking?
       root = w
       while p = root.parent
         root = p
