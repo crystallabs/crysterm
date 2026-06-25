@@ -111,13 +111,13 @@ module Crysterm
         super **box
         setup_animate animate
 
-        # Resolve the cell pixel size: ask the terminal (TIOCGWINSZ) when the
-        # caller didn't pin it, falling back to a typical monospace cell.
-        if @cell_pixel_width <= 0 || @cell_pixel_height <= 0
-          if cp = Media::Graphics.terminal_cell_pixels(screen?)
-            @cell_pixel_width = cp[0] if @cell_pixel_width <= 0
-            @cell_pixel_height = cp[1] if @cell_pixel_height <= 0
-          end
+        # Resolve the cell pixel size: when the caller didn't pin it, reuse what
+        # the Screen already detected at startup (one shared TIOCGWINSZ plus an
+        # XTWINOPS fallback this path doesn't do itself), then fall back to a
+        # typical monospace cell when the terminal reported nothing.
+        if s = screen?
+          @cell_pixel_width = s.cell_pixel_width if @cell_pixel_width <= 0
+          @cell_pixel_height = s.cell_pixel_height if @cell_pixel_height <= 0
         end
         @cell_pixel_width = 10 if @cell_pixel_width <= 0
         @cell_pixel_height = 20 if @cell_pixel_height <= 0

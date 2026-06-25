@@ -14,7 +14,32 @@ module Crysterm
     # Beyond plain lengths it also understands `calc(...)` (evaluated to cells when
     # every term resolves) and the viewport units `vw/vh/vmin/vmax` (resolved
     # against the screen size via `viewport_cells`, since a bare divisor can't).
+    #
+    # ## Cell aspect ratio
+    #
+    # A cell is taller than it is wide, so an *absolute* length (one that denotes a
+    # real device distance: `px`/`pt`/`pc`/`cm`/`mm`/`in`) spans fewer cells
+    # vertically than the same length does horizontally. The divisor table anchors
+    # the **horizontal** mapping (`1 cell ≈ 10px` *wide*); a vertical absolute
+    # length additionally divides by `cell_aspect_ratio` (cell height ÷ width), so
+    # a `200px × 200px` box comes out square on screen rather than as a 2:1-tall
+    # rectangle. Relative units (`em`/`rem`/`ch`/`ex`) are defined in cell terms and
+    # map identically on both axes. The ratio defaults to `2.0` and is replaced by
+    # the terminal's measured cell size (or `css.cell_aspect_ratio`) in
+    # `apply_config`.
     module Length
+      # Absolute/physical length units — those denoting a real device distance
+      # rather than a count of cells. Only these are scaled by `cell_aspect_ratio`
+      # on the vertical axis; the relative units (`em`/`rem`/`ex`/`ch`) are not.
+      PHYSICAL = Set{"px", "pt", "pc", "cm", "mm", "in"}
+
+      # Cell height ÷ width: how many times taller a cell is than wide. Scales the
+      # divisor of an absolute unit on the *vertical* axis (see the module docs).
+      # Defaults to the common `2.0`; the Screen replaces it at startup with the
+      # terminal's measured cell size (`Screen#detect_cell_geometry`), and an
+      # explicit `css.cell_aspect_ratio` config pins it (`apply_config`).
+      class_property cell_aspect_ratio : Float64 = 2.0
+
       # Anchored on `1 cell ≈ 10px`; the on-screen absolute units below are
       # *derived* from the fixed CSS ratios (`1in = 96px = 72pt = 6pc`) so they all
       # agree with one another, instead of being picked independently. Relative
@@ -48,6 +73,18 @@ module Crysterm
         if config_set?("css.px_per_cell")
           divisors["px"] = Superconf.css_px_per_cell
         end
+        # An explicit `css.cell_aspect_ratio` pins the ratio; otherwise the Screen
+        # feeds in the terminal's measured value (see `Screen#detect_cell_geometry`),
+        # and absent both the `2.0` default stands.
+        if config_set?("css.cell_aspect_ratio")
+          self.cell_aspect_ratio = Superconf.css_cell_aspect_ratio
+        end
+      end
+
+      # Whether `css.cell_aspect_ratio` was explicitly configured. The Screen uses
+      # this to skip terminal cell-size detection when the ratio is already pinned.
+      def self.cell_aspect_ratio_configured? : Bool
+        config_set?("css.cell_aspect_ratio")
       end
 
       # Whether a config option carries a non-default value (i.e. an app actually
@@ -103,23 +140,23 @@ module Crysterm
       # default table), or a `calc(...)` whose terms all resolve; `nil` for an
       # unmapped/`nil`-mapped unit (`3cm`), a viewport unit (use `viewport_cells`),
       # or any non-cell form (`50%`, `center`, junk). Never raises.
-      def self.to_cells(value : String) : Int32?
+      def self.to_cells(value : String, vertical : Bool = false) : Int32?
         s = value.strip
         # `to_cells` is the most-called length entry point. Only `calc(...)` needs
         # the heavier CALC regex, so gate it on a case-insensitive first-byte
         # check (`| 0x20` lowercases an ASCII letter) — every plain number/length
         # skips the regex entirely.
         if (b = s.byte_at?(0)) && (b | 0x20) == 'c'.ord && (m = s.match(CALC))
-          calc(m[1])
+          calc(m[1], vertical)
         else
-          to_cells_f(s).try { |f| to_cell_count(f) }
+          to_cells_f(s, vertical).try { |f| to_cell_count(f) }
         end
       end
 
       # Fractional cells for a single bare number or unit'd length token, without
       # rounding; `nil` for `%`, viewport units, an unmapped unit, or junk. Used by
       # `to_cells` and the `calc()` evaluator (which rounds only the final result).
-      def self.to_cells_f(value : String) : Float64?
+      def self.to_cells_f(value : String, vertical : Bool = false) : Float64?
         s = value.strip
         # Fast path for a bare integer (`5`, `0`, `-3`) — the common case — with no
         # regex. Only a bare *decimal* (`5.5`) needs the NUMBER regex, and only a
@@ -132,7 +169,13 @@ module Crysterm
           # Look the unit up as-captured first (almost always already lowercase),
           # only allocating a `downcase` copy on the rare uppercase unit.
           u = m[2]
-          divisors.fetch(u) { divisors[u.downcase]? }.try { |div| m[1].to_f / div }
+          divisors.fetch(u) { divisors[u.downcase]? }.try do |div|
+            # A vertical absolute length spans fewer cells than the same horizontal
+            # one (a cell is taller than wide), so scale its divisor by the cell
+            # aspect ratio. Relative units stay isotropic and are left untouched.
+            div *= cell_aspect_ratio if vertical && (PHYSICAL.includes?(u) || PHYSICAL.includes?(u.downcase))
+            m[1].to_f / div
+          end
         end
       end
 
@@ -161,8 +204,8 @@ module Crysterm
       # so `calc(200px + 2em)` → 20 + 2 → 22. Returns `nil` if the expression is
       # malformed or references a value that needs layout context (`%`, viewport
       # units) — the caller then ignores the declaration.
-      def self.calc(body : String) : Int32?
-        CalcEval.new(body).result.try { |f| to_cell_count(f) }
+      def self.calc(body : String, vertical : Bool = false) : Int32?
+        CalcEval.new(body, vertical).result.try { |f| to_cell_count(f) }
       end
 
       # Recursive-descent evaluator for `calc()` bodies. Internal to `Length`.
@@ -181,7 +224,7 @@ module Crysterm
         @tokens : Array(String)
         @pos = 0
 
-        def initialize(body : String)
+        def initialize(body : String, @vertical : Bool = false)
           @tokens = body.scan(TOKEN).map(&.[0])
         end
 
@@ -245,7 +288,7 @@ module Crysterm
             -factor
           else
             advance
-            Length.to_cells_f(tok) || raise Error.new
+            Length.to_cells_f(tok, @vertical) || raise Error.new
           end
         end
       end

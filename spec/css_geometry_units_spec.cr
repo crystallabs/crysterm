@@ -45,8 +45,9 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s._render
-    a.style.padding.top.should eq 20 # 200 / 10
-    a.style.margin.left.should eq 1  # 1 / 1
+    a.style.padding.left.should eq 20 # 200 / 10            (horizontal)
+    a.style.padding.top.should eq 10  # 200 / (10 * 2:1 aspect) (vertical)
+    a.style.margin.left.should eq 1   # 1 / 1
   end
 
   it "caps a stretched/percentage width at max-width" do
@@ -83,9 +84,9 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s._render
-    a.max_height.should eq 20  # 200 / 10
+    a.max_height.should eq 10  # 200 / (10 * 2:1 aspect) -- vertical
     a.min_height.should be_nil # `50%` has no cell mapping -> ignored
-    a.aheight.should eq 20     # full 24-row height clamped to 20
+    a.aheight.should eq 10     # full 24-row height clamped to 10
   end
 
   it "resolves a viewport unit against the screen size, reactively on resize" do
@@ -181,6 +182,44 @@ describe "CSS geometry units" do
       Superconf.css_px_per_cell = 10.0
       Crysterm::CSS::Length.divisors["px"] = 10.0
       Crysterm::CSS::Length.divisors["em"] = 1.0
+    end
+  end
+
+  it "maps the same absolute length to fewer cells vertically (cell aspect ratio)" do
+    s = render_screen
+    # width and height carry the *same* px length; the vertical one resolves to
+    # fewer cells because a cell is taller than wide (default 2:1).
+    s.stylesheet = "Box#a { width: 200px; height: 200px; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.width.should eq 20  # 200 / 10
+    a.height.should eq 10 # 200 / (10 * 2.0)
+  end
+
+  it "leaves relative units (em/ch) isotropic regardless of axis" do
+    s = render_screen
+    s.stylesheet = "Box#a { width: 4em; height: 4em; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.width.should eq 4  # 4 / 1
+    a.height.should eq 4 # 4 / 1 -- not scaled by the aspect ratio
+  end
+
+  it "honors an explicit css.cell_aspect_ratio override" do
+    Superconf.css_cell_aspect_ratio = 4.0
+    begin
+      s = render_screen
+      s.stylesheet = "Box#a { width: 200px; height: 200px; }"
+      a = Widget::Box.new parent: s, content: "x"
+      a.css_id = "a"
+      s._render
+      a.width.should eq 20 # 200 / 10 (horizontal, unaffected)
+      a.height.should eq 5 # 200 / (10 * 4.0)
+    ensure
+      Superconf.css_cell_aspect_ratio = 2.0
+      Crysterm::CSS::Length.cell_aspect_ratio = 2.0
     end
   end
 

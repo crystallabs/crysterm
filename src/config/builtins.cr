@@ -82,6 +82,9 @@ module Superconf
     validate: ->(f : Float64) { f > 0 }
   option "css.unit_divisors", "",
     description: "Override CSS unit→cell divisors as a comma map, e.g. 'px=10,pt=7.5,em=1,cm=none' (cells = round(value / divisor); 'none' drops the unit). Merged over the built-in table and applied before css.px_per_cell; empty = leave the table as-is"
+  option "css.cell_aspect_ratio", 2.0,
+    description: "Terminal cell height ÷ width, used so a vertical absolute CSS length (px/pt/pc/cm/mm/in) spans fewer cells than the same horizontal one (a 200px×200px box renders square). Leave at the default to auto-detect from the terminal's reported pixel size (falling back to 2.0); set explicitly to override detection",
+    validate: ->(f : Float64) { f > 0 }
 
   # -- Images ----------------------------------------------------------------
   option "media.backend", Crysterm::Widget::Media::Backend::Auto,

@@ -30,8 +30,8 @@ module Crysterm
       def self.apply(widget : Widget, property : String, value : String) : Nil
         case property
         when "width"  then resolve_dim(value).try { |d| widget.width = d }
-        when "height" then resolve_dim(value).try { |d| widget.height = d }
-        when "top"    then resolve_dim(value).try { |d| widget.top = d }
+        when "height" then resolve_dim(value, vertical: true).try { |d| widget.height = d }
+        when "top"    then resolve_dim(value, vertical: true).try { |d| widget.top = d }
         when "left"   then resolve_dim(value).try { |d| widget.left = d }
           # `right`/`bottom` are offsets in cells only (no `center`/`%` form).
         when "right"  then value.to_i?.try { |cells| widget.right = cells }
@@ -41,8 +41,8 @@ module Crysterm
           # have no per-frame hook to re-resolve a percentage constraint.
         when "min-width"  then size_cells(widget, value).try { |c| widget.min_width = c }
         when "max-width"  then size_cells(widget, value).try { |c| widget.max_width = c }
-        when "min-height" then size_cells(widget, value).try { |c| widget.min_height = c }
-        when "max-height" then size_cells(widget, value).try { |c| widget.max_height = c }
+        when "min-height" then size_cells(widget, value, vertical: true).try { |c| widget.min_height = c }
+        when "max-height" then size_cells(widget, value, vertical: true).try { |c| widget.max_height = c }
         when "text-align"
           case value
           when "left"   then widget.align = Tput::AlignFlag::Left
@@ -81,17 +81,17 @@ module Crysterm
       # the screen on every frame and it tracks terminal resize (see
       # `Widget#resolve_dimension`); everything else resolves to a static value
       # now via `dimension`.
-      private def self.resolve_dim(value : String) : Int32 | String | Nil
+      private def self.resolve_dim(value : String, vertical : Bool = false) : Int32 | String | Nil
         # Only a viewport unit contains a 'v'; this allocation-free byte scan keeps
         # the VIEWPORT regex off every plain width/height/top/left value.
-        (value.includes?('v') && Length.viewport?(value)) ? value : dimension(value)
+        (value.includes?('v') && Length.viewport?(value)) ? value : dimension(value, vertical)
       end
 
       # Resolves a `min-*`/`max-*` size constraint, which must be a cell count.
       # Like `resolve_dim`, but a constraint has no per-frame hook to re-resolve,
       # so a viewport unit is sized against the screen once, here and now (`nil`
       # if the widget isn't on a screen yet), and `%` has no cell mapping at all.
-      private def self.size_cells(widget : Widget, value : String) : Int32?
+      private def self.size_cells(widget : Widget, value : String, vertical : Bool = false) : Int32?
         # A viewport unit ('v' present) sizes against the screen once, here and
         # now — a single `viewport_cells` both detects and resolves it (no extra
         # `viewport?` regex pass). If the widget isn't mounted yet, or it's some
@@ -102,7 +102,7 @@ module Crysterm
             return cells
           end
         end
-        Length.to_cells(value)
+        Length.to_cells(value, vertical)
       end
 
       # Parses a geometry value: a bare integer becomes an `Int32` (cells); a
@@ -115,8 +115,8 @@ module Crysterm
       # re-runs): a non-`nil` result is the cell count (`0` included). On `nil`,
       # one regex pass tells an unmappable length (`3cm`, a `%`-bearing `calc`) —
       # which we ignore — apart from a positioner string, which we pass through.
-      private def self.dimension(value : String) : Int32 | String | Nil
-        if cells = Length.to_cells(value)
+      private def self.dimension(value : String, vertical : Bool = false) : Int32 | String | Nil
+        if cells = Length.to_cells(value, vertical)
           cells
         elsif value.matches?(Length::PATTERN) || value.matches?(Length::CALC)
           nil # recognized length form but no cell mapping ⇒ ignore

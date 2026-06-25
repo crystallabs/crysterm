@@ -89,6 +89,12 @@ module Crysterm
     # TODO make these check @output, not STDOUT which is probably used. Also see how urwid does the size check
     property height = 1
 
+    # Terminal cell size in pixels, detected once at startup (`0` = the terminal
+    # reported none). Set by `#detect_cell_geometry`; drives the CSS cell aspect
+    # ratio and is a ready source for pixel-addressed graphics.
+    property cell_pixel_width = 0
+    property cell_pixel_height = 0
+
     # Instance of `Tput`, used for generating term control sequences.
     getter tput : ::Tput
 
@@ -279,14 +285,53 @@ module Crysterm
       # Apply the configured startup stylesheet (Config.colors_stylesheet), if
       # any, over the theme — unless the app already set one in code.
       apply_config_stylesheet
-      # Seed CSS unit→cell divisors from config (css.px_per_cell / css.unit_divisors)
-      # before the first restyle resolves any unit'd geometry against them.
+      # Seed CSS unit→cell divisors and the cell aspect ratio before the first
+      # restyle resolves any unit'd geometry against them: config first (it can
+      # pin the ratio), then — unless pinned — the terminal's measured cell size.
       CSS::Length.apply_config
+      detect_cell_geometry unless CSS::Length.cell_aspect_ratio_configured?
       restyle
 
       # Spawning the loop does not start rendering until the first call to #render
       # is issued. Therefore, it seems OK to call this from initialize.
       spawn render_loop
+    end
+
+    # Best-effort budget for each terminal cell-size query. A responsive terminal
+    # answers in well under a millisecond; this only bounds the wait when it stays
+    # silent, so it is kept small to never stall startup.
+    CELL_QUERY_TIMEOUT = 150.milliseconds
+
+    # Detects the terminal's cell size in pixels and feeds the derived aspect
+    # ratio (cell height ÷ width) to the CSS layer, which uses it to map vertical
+    # absolute lengths. Prefers the `TIOCGWINSZ` ioctl (no terminal round-trip);
+    # when the kernel carries no pixel size (common under tmux/screen/ssh), falls
+    # back to querying the terminal via XTWINOPS — done here, before the input
+    # listen loop spawns, per `Tput::Response`'s synchronous-read rule. Stores the
+    # pixel size on the screen; leaves the CSS default untouched when the terminal
+    # reports nothing. The ratio is clamped to a sane band so a bogus report can't
+    # wreck layout.
+    private def detect_cell_geometry : Nil
+      cp = Widget::Media::Graphics.terminal_cell_pixels(self) || query_cell_pixels
+      return unless cp && cp[0] > 0 && cp[1] > 0
+      @cell_pixel_width, @cell_pixel_height = cp
+      CSS::Length.cell_aspect_ratio = (cp[1].to_f / cp[0].to_f).clamp(1.0, 4.0)
+    end
+
+    # Cell pixel size `{width, height}` queried from the terminal itself, for when
+    # the ioctl reported nothing. Asks via XTWINOPS 16 (cell size in pixels); if
+    # that goes unanswered, derives it from the text-area size in pixels (op 14)
+    # divided by the screen's known size in cells. `nil` if the terminal answers
+    # neither (or isn't a tty — `query` then no-ops instantly, so tests/pipes
+    # don't block).
+    private def query_cell_pixels : {Int32, Int32}?
+      if cp = tput.get_cell_size_pixels(CELL_QUERY_TIMEOUT)
+        return {cp[1], cp[0]} # XTWINOPS reports {height, width}; return {width, height}
+      end
+      if @width > 0 && @height > 0 && (px = tput.get_text_area_size_pixels(CELL_QUERY_TIMEOUT))
+        return {px[1] // @width, px[0] // @height} # {width_px ÷ cols, height_px ÷ rows}
+      end
+      nil
     end
 
     def on_attach(e)

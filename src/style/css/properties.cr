@@ -92,21 +92,21 @@ module Crysterm
         when "padding-left"
           style.padding.left = cells(value)
         when "padding-top"
-          style.padding.top = cells(value)
+          style.padding.top = cells(value, vertical: true)
         when "padding-right"
           style.padding.right = cells(value)
         when "padding-bottom"
-          style.padding.bottom = cells(value)
+          style.padding.bottom = cells(value, vertical: true)
         when "margin"
           style.margin = parse_margin(value)
         when "margin-left"
           style.margin.left = cells(value)
         when "margin-top"
-          style.margin.top = cells(value)
+          style.margin.top = cells(value, vertical: true)
         when "margin-right"
           style.margin.right = cells(value)
         when "margin-bottom"
-          style.margin.bottom = cells(value)
+          style.margin.bottom = cells(value, vertical: true)
         else
           # Unknown / not-yet-supported property: ignore.
         end
@@ -292,9 +292,9 @@ module Crysterm
         when "border-right"        then apply_border_side border, :right, value
         when "border-bottom"       then apply_border_side border, :bottom, value
         when "border-left"         then apply_border_side border, :left, value
-        when "border-top-width"    then border.top = border_cells(value)
+        when "border-top-width"    then border.top = border_cells(value, vertical: true)
         when "border-right-width"  then border.right = border_cells(value)
-        when "border-bottom-width" then border.bottom = border_cells(value)
+        when "border-bottom-width" then border.bottom = border_cells(value, vertical: true)
         when "border-left-width"   then border.left = border_cells(value)
         when "border-top-style"    then apply_border_style border, value, {:top}
         when "border-right-style"  then apply_border_style border, value, {:right}
@@ -346,7 +346,7 @@ module Crysterm
             border.type = type
             ensure_side border, side
           elsif token.matches?(WIDTH_TOKEN)
-            set_side border, side, border_cells(token)
+            set_side border, side, border_cells(token, vertical: side == :top || side == :bottom)
           else
             border.fg = ColorValue.resolve(token, border.fg)
           end
@@ -400,8 +400,8 @@ module Crysterm
       # divisor, `"1em"` -> 1). Inputs that aren't a cell count — percentages
       # (`50%`), ranges (`5-10`), an unmapped unit (`3cm`), junk — have no meaning
       # in the cell model and yield `0` rather than a silently-wrong number.
-      private def self.cells(value : String) : Int32
-        Length.to_cells(value) || 0
+      private def self.cells(value : String, vertical : Bool = false) : Int32
+        Length.to_cells(value, vertical) || 0
       end
 
       # Like `cells`, but a *positive* sub-cell width — e.g. a `2px` border with
@@ -412,13 +412,13 @@ module Crysterm
       # A border width is almost always a bare number or one unit'd length, so
       # resolve the fractional cells in a single pass (`to_cells_f`) and clamp from
       # it. Only a `calc()` border (rare) falls back to `to_cells`.
-      private def self.border_cells(value : String) : Int32
-        if frac = Length.to_cells_f(value)
+      private def self.border_cells(value : String, vertical : Bool = false) : Int32
+        if frac = Length.to_cells_f(value, vertical)
           cells = Length.to_cell_count(frac)
           return cells unless cells == 0
           return frac > 0 ? 1 : 0 # positive sub-cell width → keep it visible
         end
-        c = Length.to_cells(value) # a `calc()` border still resolves here
+        c = Length.to_cells(value, vertical) # a `calc()` border still resolves here
         (c && c > 0) ? c : 0
       end
 
@@ -435,12 +435,17 @@ module Crysterm
       # Parses the CSS `padding` shorthand (1-4 cell values, CSS TRBL order)
       # into a `Padding`.
       private def self.parse_padding(value : String) : Padding
-        v = value.split.map { |part| cells(part) }
-        case v.size
-        when 1 then Padding.new(v[0], v[0], v[0], v[0])
-        when 2 then Padding.new(v[1], v[0], v[1], v[0]) # L,T,R,B from V,H
-        when 3 then Padding.new(v[1], v[0], v[1], v[2]) # from T,H,B
-        when 4 then Padding.new(v[3], v[0], v[1], v[2]) # from T,R,B,L
+        parts = value.split
+        # Each shorthand value maps to a horizontal (left/right) and a vertical
+        # (top/bottom) slot, which scale absolute units differently — so resolve
+        # both axes and pick the right one per side.
+        h = parts.map { |part| cells(part) }
+        v = parts.map { |part| cells(part, vertical: true) }
+        case parts.size #   left, top, right, bottom
+        when 1 then Padding.new(h[0], v[0], h[0], v[0])
+        when 2 then Padding.new(h[1], v[0], h[1], v[0]) # from V,H
+        when 3 then Padding.new(h[1], v[0], h[1], v[2]) # from T,H,B
+        when 4 then Padding.new(h[3], v[0], h[1], v[2]) # from T,R,B,L
         else        Padding.default
         end
       end
@@ -448,12 +453,14 @@ module Crysterm
       # Parses the CSS `margin` shorthand (1-4 cell values, CSS TRBL order)
       # into a `Margin`. Same grammar as `padding`.
       private def self.parse_margin(value : String) : Margin
-        v = value.split.map { |part| cells(part) }
-        case v.size
-        when 1 then Margin.new(v[0], v[0], v[0], v[0])
-        when 2 then Margin.new(v[1], v[0], v[1], v[0]) # L,T,R,B from V,H
-        when 3 then Margin.new(v[1], v[0], v[1], v[2]) # from T,H,B
-        when 4 then Margin.new(v[3], v[0], v[1], v[2]) # from T,R,B,L
+        parts = value.split
+        h = parts.map { |part| cells(part) }
+        v = parts.map { |part| cells(part, vertical: true) }
+        case parts.size #   left, top, right, bottom
+        when 1 then Margin.new(h[0], v[0], h[0], v[0])
+        when 2 then Margin.new(h[1], v[0], h[1], v[0]) # from V,H
+        when 3 then Margin.new(h[1], v[0], h[1], v[2]) # from T,H,B
+        when 4 then Margin.new(h[3], v[0], h[1], v[2]) # from T,R,B,L
         else        Margin.default
         end
       end
@@ -468,8 +475,10 @@ module Crysterm
           if type = border_type_keyword(token)
             border.type = type
           elsif token.matches?(WIDTH_TOKEN)
-            w = border_cells(token)
-            border.left = border.top = border.right = border.bottom = w
+            # One width for all four sides, but top/bottom (vertical) and
+            # left/right (horizontal) scale absolute units differently.
+            border.left = border.right = border_cells(token)
+            border.top = border.bottom = border_cells(token, vertical: true)
           else
             border.fg = token
           end
