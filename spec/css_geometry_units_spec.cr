@@ -88,6 +88,47 @@ describe "CSS geometry units" do
     a.aheight.should eq 20     # full 24-row height clamped to 20
   end
 
+  it "resolves a viewport unit against the screen size" do
+    s = render_screen # 80 x 24
+    s.stylesheet = "Box#a { width: 50vw; height: 100vh; top: 25vmin; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.width.should eq 40  # 50% of 80
+    a.height.should eq 24 # 100% of 24
+    a.top.should eq 6     # 25% of min(80, 24)
+  end
+
+  it "evaluates calc() to cells when every term resolves" do
+    s = render_screen
+    s.stylesheet = "Box#a { width: calc(200px + 2em); left: calc(8px - 2px); }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.width.should eq 22 # 20 + 2
+    a.left.should eq 1   # round(0.8 - 0.2)
+  end
+
+  it "ignores a calc() that needs layout context (a percentage term)" do
+    s = render_screen
+    s.stylesheet = "Box#a { width: 7; height: calc(50% - 10px); }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.width.should eq 7    # sibling still applies
+    a.height.should be_nil # calc with `%` -> dropped, never set
+  end
+
+  it "clamps a sub-cell border width up to 1 so it stays visible" do
+    s = render_screen
+    s.stylesheet = "Box#a { border-width: 2px; border-left-width: 0; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.style.border.top.should eq 1  # 2px rounds to 0 -> clamped to 1
+    a.style.border.left.should eq 0 # explicit 0 stays 0
+  end
+
   it "honors a retuned divisor" do
     original = Crysterm::CSS::Geometry.unit_divisors["px"]
     begin

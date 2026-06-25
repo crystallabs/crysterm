@@ -239,7 +239,7 @@ module Crysterm
         when "border"
           style.border = parse_border(value)
         when "border-width"
-          w = cells(value)
+          w = border_cells(value)
           border.left = border.top = border.right = border.bottom = w
         when "border-color"
           border.fg = ColorValue.resolve(value, border.fg)
@@ -257,10 +257,10 @@ module Crysterm
         when "border-right"        then apply_border_side border, :right, value
         when "border-bottom"       then apply_border_side border, :bottom, value
         when "border-left"         then apply_border_side border, :left, value
-        when "border-top-width"    then border.top = cells(value)
-        when "border-right-width"  then border.right = cells(value)
-        when "border-bottom-width" then border.bottom = cells(value)
-        when "border-left-width"   then border.left = cells(value)
+        when "border-top-width"    then border.top = border_cells(value)
+        when "border-right-width"  then border.right = border_cells(value)
+        when "border-bottom-width" then border.bottom = border_cells(value)
+        when "border-left-width"   then border.left = border_cells(value)
         when "border-top-style"    then apply_border_style border, value, {:top}
         when "border-right-style"  then apply_border_style border, value, {:right}
         when "border-bottom-style" then apply_border_style border, value, {:bottom}
@@ -289,7 +289,7 @@ module Crysterm
           when "none"             then set_side border, side, 0
           when "solid", "line"    then border.type = BorderType::Line; ensure_side border, side
           when "bg", "background" then border.type = BorderType::Bg; ensure_side border, side
-          when /\A\d+(?:px)?\z/   then set_side border, side, cells(token)
+          when /\A\d+(?:px)?\z/   then set_side border, side, border_cells(token)
           else                         border.fg = ColorValue.resolve(token, border.fg)
           end
         end
@@ -349,6 +349,19 @@ module Crysterm
         Length.to_cells(value) || 0
       end
 
+      # Like `cells`, but a *positive* sub-cell width — e.g. a `2px` border with
+      # the default `px` divisor, which rounds to 0 — clamps up to 1 so a declared
+      # border doesn't silently vanish. An explicit `0`, a negative width, or a
+      # non-length value (`50%`, junk, a dropped unit) still yields 0.
+      private def self.border_cells(value : String) : Int32
+        c = Length.to_cells(value)
+        return 0 unless c # %, junk, or a dropped unit → no border
+        return c if c > 0
+        # A resolvable length that rounded to 0: keep a positive width visible.
+        frac = Length.to_cells_f(value)
+        (frac && frac > 0) ? 1 : 0
+      end
+
       # Parses a `box-shadow`. `none` disables the shadow; otherwise a default
       # drop shadow is enabled, and a bare `0..1` number anywhere in the value is
       # taken as its alpha (opacity). The full CSS offset/blur/spread/color
@@ -398,7 +411,7 @@ module Crysterm
           when "bg", "background"
             border.type = BorderType::Bg
           when /\A\d+(?:px)?\z/
-            w = cells(token)
+            w = border_cells(token)
             border.left = border.top = border.right = border.bottom = w
           else
             border.fg = token
