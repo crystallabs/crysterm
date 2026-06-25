@@ -232,7 +232,10 @@ module Crysterm
         emit Crysterm::Event::Paste.new pasted
       elsif scheme = e.color_scheme
         emit Crysterm::Event::ColorScheme.new scheme
-      elsif e.resize?
+      elsif r = e.resize
+        # The report carries the new window size in pixels (`0` when unknown), so
+        # refresh the cell geometry straight from it — no ioctl/escape round-trip.
+        apply_cell_pixels(r.pixel_width // r.cols, r.pixel_height // r.rows) if r.cols > 0 && r.rows > 0
         schedule_resize
       else
         ev = if e.release?

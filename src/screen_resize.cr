@@ -44,6 +44,11 @@ module Crysterm
     # redraw of all displays.
     def resize
       self.tput.reset_screen_size
+      # Pick up a changed cell pixel size (e.g. a font/zoom change) via the ioctl;
+      # safe here because it does no escape-sequence round-trip. The in-band path
+      # has already refreshed from its report by the time this debounced redraw
+      # runs, so this is a no-op there unless the ioctl carries a fresher size.
+      refresh_cell_geometry
       # # NOTE Tput#screen should have been called `size` or `screen_size`
       emit ::Crysterm::Event::Resize.new tput.screen
     end
