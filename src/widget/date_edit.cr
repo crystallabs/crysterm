@@ -98,8 +98,7 @@ module Crysterm
 
       private def update_content : Nil
         parts = [@date.year.to_s.rjust(4, '0'), @date.month.to_s.rjust(2, '0'), @date.day.to_s.rjust(2, '0')]
-        parts[@section] = "{reverse}#{parts[@section]}{/reverse}"
-        set_content parts.join('-')
+        set_content highlight_part(parts).join('-')
       end
 
       # Steps the active section by *delta*, wrapping within that section's own
@@ -109,20 +108,17 @@ module Crysterm
       # (possibly shorter) target month so the date stays valid.
       private def step(delta : Int32) : Nil
         y, m, d = @date.year, @date.month, @date.day
+        dim = nil
         case @section
         when 0 # year
           y += delta
         when 1 # month, wrapping 1..12
-          m = (m - 1 + delta) % 12
-          m += 12 if m < 0
-          m += 1
+          m = wrap(m - 1, delta, 12) + 1
         else # day, wrapping 1..days-in-month
-          dim = Time.days_in_month(y, m)
-          d = (d - 1 + delta) % dim
-          d += dim if d < 0
-          d += 1
+          d = wrap(d - 1, delta, dim = Time.days_in_month(y, m)) + 1
         end
-        d = Math.min(d, Time.days_in_month(y, m))
+        # Reuse the day branch's count; year/month branches changed y/m, so recompute.
+        d = Math.min(d, dim || Time.days_in_month(y, m))
         self.date = Time.local(y, m, d)
       end
 

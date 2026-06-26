@@ -134,6 +134,37 @@ module Crysterm
         out
       end
 
+      # Clamps *v* into the `0..255` byte range. Shared by the palette backends
+      # (`Media::Ansi`, `Media::Regis`) when nudging a channel by a dither offset
+      # before the nearest-color search.
+      def self.clamp8(v : Int32) : Int32
+        v < 0 ? 0 : (v > 255 ? 255 : v)
+      end
+
+      # Index of the nearest entry in *palette* (packed `0xRRGGBB` values) to
+      # *r*,*g*,*b* by squared RGB distance; ties go to the lower index. The
+      # shared nearest-color search behind `Media::Ansi` (xterm-256/16 cube) and
+      # `Media::Regis` (8 named colors), which differ only in the palette passed.
+      def self.nearest_index(palette : Array(Int32), r : Int32, g : Int32, b : Int32) : Int32
+        best = 0
+        bestd = Int32::MAX
+        i = 0
+        n = palette.size
+        while i < n
+          rgb = palette.unsafe_fetch(i)
+          dr = r - ((rgb >> 16) & 0xff)
+          dg = g - ((rgb >> 8) & 0xff)
+          db = b - (rgb & 0xff)
+          d = dr*dr + dg*dg + db*db
+          if d < bestd
+            bestd = d
+            best = i
+          end
+          i += 1
+        end
+        best
+      end
+
       # Backend used to render the image. See the families described above.
       enum Type
         Ansi     # cell-grid, one cell per pixel (`Media::Ansi`)

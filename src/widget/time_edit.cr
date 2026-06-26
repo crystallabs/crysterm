@@ -75,21 +75,17 @@ module Crysterm
       private def update_content : Nil
         parts = [@time.hour.to_s.rjust(2, '0'), @time.minute.to_s.rjust(2, '0')]
         parts << @time.second.to_s.rjust(2, '0') if show_seconds?
-        parts[@section] = "{reverse}#{parts[@section]}{/reverse}" if @section < parts.size
-        set_content parts.join(':')
+        set_content highlight_part(parts).join(':')
       end
 
       # Steps the active section by *delta*, wrapping within its own range.
       private def step(delta : Int32) : Nil
         h, m, sec = @time.hour, @time.minute, @time.second
         case @section
-        when 0 then h = (h + delta) % 24
-        when 1 then m = (m + delta) % 60
-        else        sec = (sec + delta) % 60
+        when 0 then h = wrap(h, delta, 24)
+        when 1 then m = wrap(m, delta, 60)
+        else        sec = wrap(sec, delta, 60)
         end
-        h += 24 if h < 0
-        m += 60 if m < 0
-        sec += 60 if sec < 0
         self.time = Time.local(@time.year, @time.month, @time.day, h, m, sec)
       end
 

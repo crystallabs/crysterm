@@ -1,5 +1,6 @@
 require "../box"
 require "./canvas"
+require "../../widget_graph_text_overlay"
 
 module Crysterm
   class Widget
@@ -35,6 +36,8 @@ module Crysterm
       # ![Map screenshot](../../../examples/widget/graph/map/map-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Map < Box
+        include TextOverlay
+
         # A coordinate-placed marker (Qt's `MapQuickItem`).
         struct Marker
           property latitude : Float64
@@ -198,42 +201,11 @@ module Crysterm
             fy = (@max_lat - m.latitude) / (@max_lat - @min_lat)
             cx = xi + (fx * (w - 1)).round.to_i
             cy = yi + (fy * (h - 1)).round.to_i
-            put_cell cx, cy, m.char, marker_attr(m.color), xi, xl
+            put_cell cx, cy, m.char, overlay_attr(m.color), xi, xl
             if (label = m.label)
-              put_text cx + 1, cy, label, marker_attr(m.color), xi, xl
+              put_text cx + 1, cy, label, overlay_attr(m.color), xi, xl
             end
           end
-        end
-
-        @attr_cache = {} of Int32 => Int64
-
-        private def marker_attr(color : Int32) : Int64
-          @attr_cache[color] ||= sattr(style, color, style.bg)
-        end
-
-        private def put_cell(x : Int32, y : Int32, ch : Char, attr : Int64, lo : Int32, hi : Int32) : Nil
-          return if x < lo || x >= hi
-          line = screen.lines[y]?
-          return unless line
-          if cell = line[x]?
-            cell.char = ch
-            cell.attr = attr
-            line.dirty = true
-          end
-        end
-
-        private def put_text(x : Int32, y : Int32, text : String, attr : Int64, lo : Int32, hi : Int32) : Nil
-          line = screen.lines[y]?
-          return unless line
-          text.each_char_with_index do |ch, i|
-            cx = x + i
-            next if cx < lo || cx >= hi
-            if cell = line[cx]?
-              cell.char = ch
-              cell.attr = attr
-            end
-          end
-          line.dirty = true
         end
       end
     end

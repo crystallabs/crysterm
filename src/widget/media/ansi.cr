@@ -110,7 +110,8 @@ module Crysterm
         lines = screen.lines
         # In a reduced-color mode, dither the whole sample to the palette up front
         # (error diffusion needs the neighbours, so it can't be done per cell).
-        plane = @colors.true_color? ? nil : dither_plane(bmp)
+        # Memoized per sample bitmap; unused (and never computed) in TrueColor.
+        plane = @colors.true_color? ? nil : cached_dither_plane(bmp)
         (yi...yl).each do |y|
           cmrow = bmp[y - yi]?
           next unless cmrow
@@ -166,6 +167,25 @@ module Crysterm
         {ch, fg}
       end
 
+      # Dithered plane for the *current* `@sample`, and the bitmap it was built
+      # for. The full Floyd–Steinberg/ordered pass is the per-render hot spot, so
+      # it's cached and only rerun when the sample bitmap actually changes. Keying
+      # on the bitmap's identity ties the plane's lifetime to `@sample` exactly:
+      # every resample (resize, reload, `bitmap=`, `reset_sample_cache`) and every
+      # animation frame yields a fresh bitmap object, which forces a recompute,
+      # while a repeated render of the same still reuses it.
+      @dither_plane : Array(Array(Int32))?
+      @dither_plane_for : PNGGIF::Bitmap?
+
+      private def cached_dither_plane(bmp : PNGGIF::Bitmap) : Array(Array(Int32))
+        cached = @dither_plane
+        return cached if cached && @dither_plane_for.try(&.same?(bmp))
+        plane = dither_plane(bmp)
+        @dither_plane = plane
+        @dither_plane_for = bmp
+        plane
+      end
+
       # Builds a palette-quantized, dithered color plane for the whole sample —
       # one packed RGB per pixel (`-1` for fully transparent). Used only in the
       # reduced-color modes; `paint_cell` reads it instead of quantizing per cell.
@@ -188,7 +208,7 @@ module Crysterm
       private def quantize_dither(r : Int32, g : Int32, b : Int32, t : Float64) : Int32
         if t != 0.0
           n = (t * ORDERED_AMP).round.to_i
-          r = clamp8(r + n); g = clamp8(g + n); b = clamp8(b + n)
+          r = Media.clamp8(r + n); g = Media.clamp8(g + n); b = Media.clamp8(b + n)
         end
         nearest_palette_rgb r, g, b
       end
@@ -204,28 +224,17 @@ module Crysterm
 
       @quant_cache : Hash(Int32, Int32)?
 
+      # The xterm palette as packed `0xRRGGBB`, precomputed once from
+      # `TermColors::HI2RGB` so the nearest-color search (`Media.nearest_index`)
+      # is a flat `Array(Int32)` scan: the first 16 entries are the ANSI palette
+      # (`C16`), all 256 the xterm cube (`C256`).
+      C256_PALETTE = TermColors::HI2RGB.map { |(pr, pg, pb)| (pr << 16) | (pg << 8) | pb }
+      C16_PALETTE  = C256_PALETTE[0, 16]
+
       # Packed RGB of the nearest xterm-256 (or 16) palette color to *r*,*g*,*b*.
       private def nearest_palette_rgb(r : Int32, g : Int32, b : Int32) : Int32
-        n = @colors.c16? ? 16 : 256
-        best = 0
-        bestd = Int32::MAX
-        i = 0
-        while i < n
-          pr, pg, pb = TermColors::HI2RGB[i]
-          dr = r - pr; dg = g - pg; db = b - pb
-          d = dr*dr + dg*dg + db*db
-          if d < bestd
-            bestd = d
-            best = i
-          end
-          i += 1
-        end
-        pr, pg, pb = TermColors::HI2RGB[best]
-        (pr << 16) | (pg << 8) | pb
-      end
-
-      private def clamp8(v : Int32) : Int32
-        v < 0 ? 0 : (v > 255 ? 255 : v)
+        pal = @colors.c16? ? C16_PALETTE : C256_PALETTE
+        pal[Media.nearest_index(pal, r, g, b)]
       end
 
       # Fetches *url* using `curl` (then `wget`), returning the raw bytes.

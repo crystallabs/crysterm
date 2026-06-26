@@ -367,6 +367,9 @@ module Crysterm
         dim = Time.days_in_month(@shown_year, @shown_month)
         lead = column_of first
         nrows = (lead + dim + 6) // 7
+        # Resolve "today" once per render rather than once per day cell — up to
+        # ~42 `Time.local` calls otherwise (only needed when highlighting today).
+        today = highlight_today? ? default_today : nil
 
         String.build do |io|
           io << build_nav_bar << '\n' if nav
@@ -385,7 +388,7 @@ module Crysterm
 
             7.times do |c|
               d = r * 7 + c - lead + 1
-              io << (1 <= d <= dim ? render_day(d) : "  ")
+              io << (1 <= d <= dim ? render_day(d, today) : "  ")
               io << sep if c < 6
             end
 
@@ -394,21 +397,18 @@ module Crysterm
         end
       end
 
-      # Renders a single day cell, highlighting the selection and today.
-      private def render_day(d : Int32) : String
+      # Renders a single day cell, highlighting the selection and today. `today`
+      # is resolved once per render by `build_content` (nil when today isn't
+      # highlighted), so each cell is a cheap field comparison.
+      private def render_day(d : Int32, today : Time?) : String
         cell = d.to_s.rjust 2
         if selection_mode.single_selection? && @date.year == @shown_year && @date.month == @shown_month && @date.day == d
           "{reverse}#{cell}{/reverse}"
-        elsif highlight_today? && today_is?(d)
+        elsif today && today.year == @shown_year && today.month == @shown_month && today.day == d
           "{underline}#{cell}{/underline}"
         else
           cell
         end
-      end
-
-      private def today_is?(d : Int32) : Bool
-        t = default_today
-        t.year == @shown_year && t.month == @shown_month && t.day == d
       end
 
       # Builds the `‹ Month Year ›` navigation bar and records the columns of its
@@ -503,29 +503,37 @@ module Crysterm
 
       # ── Month / year pop-up menus ─────────────────────────────────────────
 
-      private def open_month_menu(col : Int32) : Nil
+      # Shared scaffold for the two navigation pop-ups: a screen-gated, CSS
+      # `popup`-classed `Menu` populated by the block, or nil with no screen.
+      private def new_nav_menu(& : Menu ->) : Menu?
         return unless screen?
-        @month_menu.try &.destroy
         menu = Menu.new screen: screen
         menu.add_css_class "popup"
-        MONTHS.each_with_index do |name, i|
-          m = i + 1
-          menu.add(name) { set_current_page @shown_year, m; focus }
-        end
+        yield menu
+        menu
+      end
+
+      private def open_month_menu(col : Int32) : Nil
+        @month_menu.try &.destroy
+        return unless menu = new_nav_menu do |m|
+                        MONTHS.each_with_index do |name, i|
+                          mo = i + 1
+                          m.add(name) { set_current_page @shown_year, mo; focus }
+                        end
+                      end
         @month_menu = menu
         menu.popup aleft + ileft + col, atop + itop + 1
         menu.selekt @shown_month - 1
       end
 
       private def open_year_menu(col : Int32) : Nil
-        return unless screen?
         @year_menu.try &.destroy
-        menu = Menu.new screen: screen
-        menu.add_css_class "popup"
-        base = @shown_year
-        (base - 8..base + 7).each do |yr|
-          menu.add(yr.to_s) { set_current_page yr, @shown_month; focus }
-        end
+        return unless menu = new_nav_menu do |m|
+                        base = @shown_year
+                        (base - 8..base + 7).each do |yr|
+                          m.add(yr.to_s) { set_current_page yr, @shown_month; focus }
+                        end
+                      end
         @year_menu = menu
         menu.popup aleft + ileft + col, atop + itop + 1
         menu.selekt 8 # the current year sits 8 rows down

@@ -830,10 +830,6 @@ module Crysterm
       @ydisp = @ybase
     end
 
-    def scroll_height : Int32
-      @rows - 1
-    end
-
     def scroll_perc : Float64
       @ybase == 0 ? 0.0 : (@ydisp.to_f / @ybase) * 100
     end

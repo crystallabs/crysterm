@@ -192,17 +192,6 @@ module Crysterm
         item_render_style false
       end
 
-      # A cell's render style never carries a border: the table draws the frame
-      # and `│` separators itself, so a bordered cell style would nest a frame in
-      # every cell. Returns *base* untouched when it has no border (the common
-      # case — no allocation), else a borderless copy.
-      private def without_border(base : Style) : Style
-        return base unless base.border.any?
-        borderless = base.dup
-        borderless.border = false
-        borderless
-      end
-
       # Sorts the body rows (the header at index 0 stays pinned) by *col*. Cells
       # that both parse as numbers compare numerically; otherwise they compare as
       # tag-stripped text. Re-applies the current sort whenever data is set.
@@ -444,13 +433,7 @@ module Crysterm
 
         # Map visible x → actual column index, starting from the first visible
         # column so per-cell CSS recolors the right cells when scrolled right.
-        col_for_x = {} of Int32 => Int32
-        cx = ileft
-        (@first_col...@maxes.size).each do |col_i|
-          max = @maxes[col_i]
-          (cx...cx + max).each { |xpos| col_for_x[xpos] = col_i }
-          cx += max
-        end
+        col_map = col_for_x(@first_col, ileft)
 
         y = itop
         while y < height
@@ -458,7 +441,7 @@ module Crysterm
           if line = lines[yi + y]?
             x = ileft
             while x < width
-              col = col_for_x[x]?
+              col = col_map[x]?
               cell_style = col ? css_cell_style(row, col) : nil
               if cell_style && (cell = line[xi + x]?)
                 cell.attr = sattr cell_style

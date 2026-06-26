@@ -101,6 +101,14 @@ module Crysterm
         end
       end
 
+      # Stop the privately-owned animation timer (if any) so its tick fiber does
+      # not outlive the widget. A shared timer passed in via `animate:` belongs
+      # to the caller and is left running.
+      def destroy
+        @own_timer.try &.stop
+        super
+      end
+
       # Native color at normalized position *t* (in `0.0...1.0`) along the axis,
       # accounting for `phase` and `cycles`.
       def color_at(t : Float64) : Int32
@@ -126,16 +134,24 @@ module Crysterm
         with_inner_coords do |xi, xl, yi, yl|
           next if xl <= xi || yl <= yi
 
+          # Only the bg color varies from cell to cell; the style flags and the
+          # foreground are invariant across the whole gradient, so compute them
+          # once and repack just the bg per cell instead of running `sattr`'s
+          # full flag derivation every time.
+          base = sattr style, style.fg, style.bg
+          flags = Attr.flags base
+          fg_packed = Attr.fg base
+
           if @direction.horizontal?
             span = (xl - xi).to_f
             (xi...xl).each do |x|
-              attr = sattr style, style.fg, color_at((x - xi) / span)
+              attr = Attr.pack flags, fg_packed, Attr.pack_color(color_at((x - xi) / span))
               screen.fill_region attr, ' ', x, x + 1, yi, yl
             end
           else
             span = (yl - yi).to_f
             (yi...yl).each do |y|
-              attr = sattr style, style.fg, color_at((y - yi) / span)
+              attr = Attr.pack flags, fg_packed, Attr.pack_color(color_at((y - yi) / span))
               screen.fill_region attr, ' ', xi, xl, y, y + 1
             end
           end

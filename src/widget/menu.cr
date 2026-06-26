@@ -71,6 +71,13 @@ module Crysterm
       # any later selection (`#selekt`) turns it back on.
       @show_highlight = true
 
+      # The item boxes that render as separator rules, rebuilt once per
+      # `#sync_items` (which already walks the visible actions). Lets
+      # `#render_style_for` decide "is this row a separator?" with an O(1) set
+      # lookup, instead of the per-row `@items.index` scan + fresh
+      # `visible_actions` array it would otherwise do on every child every frame.
+      @separator_items = Set(Widget).new
+
       # Screen-level click watcher installed (on the top-level menu only) while a
       # submenu is open, to dismiss the chain when the user clicks away — e.g.
       # switching tabs.
@@ -276,13 +283,10 @@ module Crysterm
         # `QMenu::separator`), regardless of highlight state — separators are
         # never selectable, so they never take the highlight. Drop any inherited
         # border (the menu itself is bordered) so the rule renders as a flat line,
-        # mirroring `item_render_style`.
-        if (i = @items.index item) && (act = visible_actions[i]?) && act.separator?
-          sep = style.separator
-          return sep unless sep.border.any?
-          borderless = sep.dup
-          borderless.border = false
-          borderless
+        # mirroring `item_render_style`. The separator rows are precomputed in
+        # `#sync_items`, so this is an O(1) set lookup with no allocation.
+        if @separator_items.includes? item
+          without_border style.separator
         else
           return item_render_style(false) unless @show_highlight
           super
@@ -347,6 +351,16 @@ module Crysterm
         end
 
         set_items rows
+
+        # Rebuild the separator-row lookup from the just-built rows. `set_items`
+        # left `@items[i]` corresponding to `acts[i]` (rows were built from
+        # `acts` in order), so a separator action's row is the same-index item.
+        @separator_items = Set(Widget).new
+        acts.each_with_index do |a, i|
+          if a.separator? && (itm = @items[i]?)
+            @separator_items << itm
+          end
+        end
       end
 
       # Skips over separator rows so the highlight never rests on one. The

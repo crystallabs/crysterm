@@ -1,3 +1,5 @@
+require "../../widget_pine_selectable_list"
+
 module Crysterm
   class Widget
     module Pine
@@ -16,66 +18,68 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![MessageIndex screenshot](../../../examples/widget/pine/message_index/message_index-capture5s.apng)
       # <!-- /widget-examples:capture -->
-      class MessageIndex < Widget::List
-        # A single message row.
-        class Message
-          # Status flags shown at the very left (e.g. `"+"`, `"N"`, `"D"`, `"A"`).
-          property status : String
+      # A single message row.
+      class Message
+        # Status flags shown at the very left (e.g. `"+"`, `"N"`, `"D"`, `"A"`).
+        property status : String
 
-          # Sender display name.
-          property from : String
+        # Sender display name.
+        property from : String
 
-          # Short date string (e.g. `"Jun 20"`).
-          property date : String
+        # Short date string (e.g. `"Jun 20"`).
+        property date : String
 
-          # Subject line.
-          property subject : String
+        # Subject line.
+        property subject : String
 
-          # Size, in bytes (rendered grouped, e.g. `(1,234)`).
-          property size : Int32
+        # Size, in bytes (rendered grouped, e.g. `(1,234)`).
+        property size : Int32
 
-          # Whether the message is unread (shown with an `N` flag by default).
-          property? unread : Bool
+        # Whether the message is unread (shown with an `N` flag by default).
+        property? unread : Bool
 
-          # Action invoked when the message is activated.
-          property callback : Proc(Nil)?
+        # Action invoked when the message is activated.
+        property callback : Proc(Nil)?
 
-          def initialize(@from, @subject, *, @date = "", @size = 0, @status = "", @unread = false, @callback = nil)
-          end
+        def initialize(@from, @subject, *, @date = "", @size = 0, @status = "", @unread = false, @callback = nil)
         end
+      end
 
-        # The messages currently displayed, parallel to the list items.
-        getter messages = [] of Message
+      class MessageIndex < SelectableList(Message)
+        # Historical nested name for the record type (see `SelectableList`).
+        alias Message = ::Crysterm::Widget::Pine::Message
 
         def initialize(
           messages : Array(Message) = [] of Message,
           **list,
         )
-          super **list
+          super messages, **list
+        end
 
-          styles.selected = Style.new reverse: true
-
-          set_messages messages
-
-          on ::Crysterm::Event::ActionItem do |_e|
-            run_selected
-          end
+        # The messages currently displayed, parallel to the list items.
+        def messages : Array(Message)
+          records
         end
 
         # Replaces the displayed messages.
         def set_messages(messages : Array(Message))
-          @messages = messages
-          set_items messages.map_with_index { |m, i| format_message(m, i + 1) }
+          set_records messages
         end
 
         # The currently-selected message, if any.
         def selected_message : Message?
-          @messages[selected]?
+          selected_record
         end
 
         # Activates the currently-selected message.
         def run_selected
-          selected_message.try &.callback.try &.call
+          activate
+        end
+
+        # Formats one message into a fixed-column row; *index* (0-based) becomes
+        # the 1-based message number.
+        def format_row(item : Message, index : Int32) : String
+          format_message(item, index + 1)
         end
 
         # Formats one message into a fixed-column row.

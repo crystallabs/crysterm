@@ -36,9 +36,7 @@ module Crysterm
       property tool_height : Int32 = 1
       property status_height : Int32 = 1
 
-      def initialize(**box)
-        super **box
-      end
+      # `initialize` is inherited from `Box` unchanged.
 
       def menu_bar=(w : Widget) : Widget
         @menu_bar.try &.remove_from_parent
@@ -102,21 +100,21 @@ module Crysterm
         end
 
         # Left/right docks span the full height between the top and bottom bars.
-        active_docks(DockWidget::Area::Left).each do |d|
+        each_active_dock(DockWidget::Area::Left) do |d|
           set_geo d, top: top, bottom: bottom, left: left, width: d.dock_size
           left += d.dock_size
         end
-        active_docks(DockWidget::Area::Right).each do |d|
+        each_active_dock(DockWidget::Area::Right) do |d|
           set_geo d, top: top, bottom: bottom, right: right, width: d.dock_size
           right += d.dock_size
         end
 
         # Top/bottom docks sit within the column left after the side docks.
-        active_docks(DockWidget::Area::Top).each do |d|
+        each_active_dock(DockWidget::Area::Top) do |d|
           set_geo d, top: top, left: left, right: right, height: d.dock_size
           top += d.dock_size
         end
-        active_docks(DockWidget::Area::Bottom).each do |d|
+        each_active_dock(DockWidget::Area::Bottom) do |d|
           set_geo d, bottom: bottom, left: left, right: right, height: d.dock_size
           bottom += d.dock_size
         end
@@ -126,8 +124,12 @@ module Crysterm
         end
       end
 
-      private def active_docks(area : DockWidget::Area) : Array(DockWidget)
-        @docks.select { |d| d.area == area && d.visible? }
+      # Yields each visible dock in *area* without the per-frame `Array` a
+      # `@docks.select` would allocate (relayout calls this four times a frame).
+      private def each_active_dock(area : DockWidget::Area, &)
+        @docks.each do |d|
+          yield d if d.area == area && d.visible?
+        end
       end
 
       # Sets a child's geometry, clearing the dimensions not given so stale

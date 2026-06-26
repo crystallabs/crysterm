@@ -146,18 +146,6 @@ module Crysterm
         request_render
       end
 
-      # Re-derives the first divider's position from where it currently sits
-      # (compatibility shim used by older callers).
-      def sync_from_divider : Nil
-        div = @dividers[0]?
-        return unless div
-        if horizontal?
-          set_divider_position 0, (div.left.as?(Int32) || @positions[0]? || 0)
-        else
-          set_divider_position 0, (div.top.as?(Int32) || @positions[0]? || 0)
-        end
-      end
-
       # --- Internals -----------------------------------------------------------
 
       private def wire_divider(div : Box, i : Int)

@@ -23,9 +23,15 @@ module Crysterm
       # The current temporary (left-aligned) message.
       getter message : String = ""
 
-      # The permanent (right-aligned) sections, in insertion order; rendered
-      # right-to-left so the first added sits left-most of the right group.
+      # The permanent (right-aligned) sections, in insertion order; the first
+      # added sits left-most of the right group (Qt's `addPermanentWidget`
+      # order). Mutate via `#add_permanent`/`#clear_permanent` so the cached
+      # render string (`@permanent_text`) stays in sync.
       getter permanent = [] of String
+
+      # Cached joined render string for `#permanent`, rebuilt only when the
+      # sections change (rather than re-joining a reversed copy every frame).
+      @permanent_text = ""
 
       # Bumped on each `#show_message` so a pending timeout only clears *its own*
       # message, not a newer one.
@@ -76,12 +82,14 @@ module Crysterm
       # specialized to a text label).
       def add_permanent(text : String) : Nil
         @permanent << text
+        @permanent_text = @permanent.join " │ "
         request_render
       end
 
       # Removes all permanent sections.
       def clear_permanent : Nil
         @permanent.clear
+        @permanent_text = ""
         request_render
       end
 
@@ -97,7 +105,7 @@ module Crysterm
       private def draw_permanent : Nil
         return if @permanent.empty?
         with_inner_coords do |xi, xl, yi, _yl|
-          text = @permanent.reverse.join " │ "
+          text = @permanent_text
           start = Math.max(xi, xl - text.size)
           attr = sattr style
           screen.lines[yi]?.try do |line|

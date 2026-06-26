@@ -1,4 +1,5 @@
 require "./widget_media_base"
+require "./widget_media_screen_overlay"
 
 # `struct winsize` for reading the terminal's pixel dimensions via `TIOCGWINSZ`
 # (the `ws_xpixel`/`ws_ypixel` that come back alongside rows/cols), so a graphics
@@ -42,6 +43,8 @@ module Crysterm
     # the pixel-resolution/encoding machinery and the "screen owns the pixels"
     # erase-on-move lifecycle the cell grid doesn't manage.
     abstract class Media::Graphics < Media::Base
+      include Media::ScreenOverlay
+
       # Assumed terminal cell size in pixels, used to translate the widget's
       # cell box into a pixel resolution for the graphic. Defaults approximate a
       # typical monospace xterm; override to match your font, or rely on the
@@ -87,15 +90,8 @@ module Crysterm
       # need re-emitting every frame — see `#repaint_every_frame?`).
       @emitted_key : Tuple(Int32, Int32, Int32, Int32, Int32, Int32, Int32, Int32)?
 
-      # Cell rectangle (`{xi, yi, w, h}`) the graphic was last painted at, used
-      # to detect movement/resize so the old position can be cleared.
-      @last_drawn : Tuple(Int32, Int32, Int32, Int32)?
-
-      # Screen the render listeners were registered on (kept so they can be
-      # removed on destroy even after the widget is detached).
-      @listener_screen : ::Crysterm::Screen?
-      @ev_prerender : ::Crysterm::Event::PreRender::Wrapper?
-      @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
+      # `@last_drawn` and the listener-wrapper ivars (`@listener_screen`,
+      # `@ev_prerender`, `@ev_rendered`) come from `Media::ScreenOverlay`.
 
       def initialize(
         @file = nil,
@@ -125,13 +121,10 @@ module Crysterm
         # Mirror Media::Overlay: repaint after the *screen* finishes each render
         # (the cells are flushed by then, so the graphic lands on top), and use
         # PreRender to deal with the graphic left at our previous position.
-        s = screen
-        @listener_screen = s
-        @ev_prerender = s.on(::Crysterm::Event::PreRender) { invalidate_old_position }
-        @ev_rendered = s.on(::Crysterm::Event::Rendered) { redraw_image }
+        register_overlay_listeners screen
 
-        on(::Crysterm::Event::Hide) { clear_graphic }
-        on(::Crysterm::Event::Detach) { |e| clear_graphic e.object.as?(::Crysterm::Screen) }
+        on(::Crysterm::Event::Hide) { clear_overlay }
+        on(::Crysterm::Event::Detach) { |e| clear_overlay e.object.as?(::Crysterm::Screen) }
         on(::Crysterm::Event::Show) { request_render }
         on(::Crysterm::Event::Destroy) { teardown }
       end
@@ -215,7 +208,7 @@ module Crysterm
 
       # Clears the loaded image, erasing its graphic from the screen.
       def clear_image
-        clear_graphic
+        clear_overlay
         super # stop + drop file/source/frames
         @raw = nil
         @anim_checked = false
@@ -393,49 +386,37 @@ module Crysterm
         true
       end
 
-      # Before this frame's cells are composited: if we've moved since the last
-      # paint, force Crysterm to re-emit the cells of the *previous* region so
-      # the terminal's text rendering covers the graphic we left there. (Same
-      # rationale as `Media::Overlay#invalidate_old_position`.)
-      private def invalidate_old_position
-        return unless @file && visible?
-        last = @last_drawn || return
-        pos = _get_coords(false) || return
+      # Draw into the *content* area, inside any border/padding (the in-band
+      # erase/track rectangle the shared `Media::ScreenOverlay` lifecycle uses).
+      protected def overlay_rect(pos) : Tuple(Int32, Int32, Int32, Int32)
         xi = pos.xi + ileft
         yi = pos.yi + itop
-        rect = {xi, yi, (pos.xl - iright) - xi, (pos.yl - ibottom) - yi}
-        return if last == rect
-        screen.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
+        {xi, yi, (pos.xl - iright) - xi, (pos.yl - ibottom) - yi}
       end
 
-      # Erases the graphic at its last position by forcing those cells to be
-      # re-emitted, then forgets the position.
-      private def clear_graphic(on_screen : ::Crysterm::Screen? = nil)
-        last = @last_drawn || return
-        s = on_screen || screen? || return
+      # The graphic is only on screen once a file is loaded.
+      protected def overlay_visible? : Bool
+        !@file.nil?
+      end
+
+      # On erase, give a separate-layer backend (Kitty) the chance to delete its
+      # image, and drop the emit-skip key so a re-show re-emits.
+      protected def overlay_cleared(s : ::Crysterm::Screen)
         graphic_cleared s
-        s.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
-        @last_drawn = nil
         @emitted_key = nil
-        s.render
       end
 
       # Hook for backends whose pixels are NOT erased by re-emitting the cells
       # underneath (re-emitted text covers sixel/ReGIS, but not e.g. a Kitty
       # image, which is a separate layer that must be explicitly deleted).
-      # Called from `#clear_graphic` before the cells are invalidated. No-op by
+      # Called from `#overlay_cleared` before the cells are invalidated. No-op by
       # default.
       protected def graphic_cleared(s : ::Crysterm::Screen)
       end
 
       private def teardown
         stop
-        s = @listener_screen || return
-        @ev_prerender.try { |w| s.off ::Crysterm::Event::PreRender, w }
-        @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }
-        @ev_prerender = nil
-        @ev_rendered = nil
-        @listener_screen = nil
+        teardown_overlay_listeners
       end
     end
   end

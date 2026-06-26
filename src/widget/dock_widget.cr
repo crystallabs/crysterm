@@ -1,4 +1,5 @@
 require "./box"
+require "../mixin/sub_style"
 
 module Crysterm
   class Widget
@@ -21,6 +22,9 @@ module Crysterm
     # ![DockWidget screenshot](../../examples/widget/dock_widget/dock_widget-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class DockWidget < Box
+      # `#apply_substyle`, used by the `PreRender` handler below.
+      include Mixin::SubStyle
+
       # Where the dock sits in a `MainWindow` (or `Floating`, positioned freely).
       enum Area
         Left
@@ -80,12 +84,9 @@ module Crysterm
         # `.titlebutton` theme look. (An explicit rule replaces that look, as in
         # Qt.) See `Widget::TabWidget#sync_tab_style`.
         on(::Crysterm::Event::PreRender) do
-          t = style.title
-          titlebar.styles.normal = t unless t.same?(style)
-          cb = style.close_button
-          @close_button.try(&.styles.normal=(cb)) unless cb.same?(style)
-          fb = style.float_button
-          @float_button.try(&.styles.normal=(fb)) unless fb.same?(style)
+          apply_substyle titlebar, style.title
+          apply_substyle @close_button, style.close_button
+          apply_substyle @float_button, style.float_button
         end
       end
 

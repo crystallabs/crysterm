@@ -101,9 +101,7 @@ module Crysterm
       property collapsed_char : Char = '▸'
       property leaf_char : Char = ' '
 
-      def initialize(**list)
-        super **list
-      end
+      # `initialize` is inherited from `List` unchanged.
 
       # Appends a top-level node (given as text, or an existing `Node`) and
       # refreshes the view. Returns the node.

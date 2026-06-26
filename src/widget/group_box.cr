@@ -1,4 +1,5 @@
 require "./box"
+require "../mixin/sub_style"
 
 module Crysterm
   class Widget
@@ -18,6 +19,9 @@ module Crysterm
     # ![GroupBox screenshot](../../examples/widget/group_box/group_box-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class GroupBox < Box
+      # `#apply_substyle`, used by the `PreRender` handler below.
+      include Mixin::SubStyle
+
       property title : String = ""
 
       # Whether the group has a checkable title that enables/disables its
@@ -50,10 +54,7 @@ module Crysterm
         # computed `title` sub-style onto it each frame after the cascade. Guarded
         # by `same?`, so it's a no-op (and the label keeps its default style) unless
         # a `::title` rule matched. See `Widget::TabWidget#sync_tab_style`.
-        on(::Crysterm::Event::PreRender) do
-          t = style.title
-          @_label.try(&.styles.normal=(t)) unless t.same?(style)
-        end
+        on(::Crysterm::Event::PreRender) { apply_substyle @_label, style.title }
 
         if checkable?
           # Toggle only when the *title* row is clicked (Qt toggles via the group's

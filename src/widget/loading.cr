@@ -59,7 +59,7 @@ module Crysterm
 
         super **box
 
-        @pos = 0 # @step > 0 ? (@step - 1) : @step
+        @pos = 0
 
         @icon = Text.new \
           align: :center,
@@ -90,13 +90,6 @@ module Crysterm
 
       # Shows the widget and starts the spinner loop (`Effect::Animated#start`).
       def start(@text = nil)
-        # D O:
-        # Keep on top:
-        # @parent.try do |p|
-        #   detach
-        #   p.append self
-        # end
-
         show
         set_content @text || @orig_text
 
@@ -105,8 +98,6 @@ module Crysterm
 
         super()
       end
-
-      alias_previous :load
 
       # Advances the spinner one frame (state + paint only); the shared
       # `Effect::Animated` loop handles `screen.render` and the inter-frame sleep.

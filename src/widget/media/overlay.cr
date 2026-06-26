@@ -1,4 +1,5 @@
 require "../../widget_media_external"
+require "../../widget_media_screen_overlay"
 require "w3m_image_display"
 
 module Crysterm
@@ -8,20 +9,14 @@ module Crysterm
 
     # Overlay (w3m-img) image element
     class Media::Overlay < Media::External
+      include Media::ScreenOverlay
+
       property stretch = false
       property center = false
       property image : W3MImageDisplay::Image?
 
-      # Cell rectangle (`{xi, yi, w, h}`) the overlay was last painted at, used
-      # to detect movement/resize so the old position can be cleared.
-      @last_drawn : Tuple(Int32, Int32, Int32, Int32)? = nil
-
-      # The screen the render listeners below were registered on, kept so they
-      # can be removed on destroy even after the widget has been detached (when
-      # `#screen?` is already nil).
-      @listener_screen : ::Crysterm::Screen?
-      @ev_prerender : ::Crysterm::Event::PreRender::Wrapper?
-      @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
+      # `@last_drawn` and the listener-wrapper ivars (`@listener_screen`,
+      # `@ev_prerender`, `@ev_rendered`) come from `Media::ScreenOverlay`.
 
       def initialize(
         @file = nil,
@@ -52,10 +47,7 @@ module Crysterm
         # overlay left at our previous position when we move (see
         # `#invalidate_old_position`). This mirrors Blessed's
         # `onScreenEvent('render')`.
-        s = screen
-        @listener_screen = s
-        @ev_prerender = s.on(::Crysterm::Event::PreRender) { invalidate_old_position }
-        @ev_rendered = s.on(::Crysterm::Event::Rendered) { redraw_image }
+        register_overlay_listeners screen
 
         # The overlay lives outside the cell buffer, so hiding/detaching the
         # widget would leave it on screen. Clear it on hide/detach and let it be
@@ -86,24 +78,11 @@ module Crysterm
         super # stop + clear file/source/frames
       end
 
-      # Before this frame's cells are composited: if the widget has moved since
-      # the last paint, force crysterm to re-emit the cells of the *previous*
-      # box region so the terminal redraws text over the overlay we left there.
-      #
-      # crysterm's diff renderer skips cells whose text is unchanged (e.g. green
-      # padding shared by the old and new box positions); without this the old
-      # overlay would linger there as a ghost. We deliberately do NOT w3m-clear
-      # the old region — a w3m clear paints black into cells crysterm then
-      # refuses to repaint, leaving black smears. Re-emitting the cells lets the
-      # terminal's own text rendering cover the stale overlay.
-      private def invalidate_old_position
-        return unless @image && visible?
-        last = @last_drawn || return
-        pos = _get_coords(false) || return
-        rect = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
-        return if last == rect
-
-        screen.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
+      # The overlay is only on screen once an image is loaded. (The erase rect is
+      # the full box — `Media::ScreenOverlay#overlay_rect`'s default — since the
+      # external helper paints over the whole box, borders/padding included.)
+      protected def overlay_visible? : Bool
+        !@image.nil?
       end
 
       # (Re)paints the loaded image over the terminal at this widget's current
@@ -121,25 +100,8 @@ module Crysterm
         end
       end
 
-      # Erases the overlay at its last painted position by forcing crysterm to
-      # re-emit those cells (covering the external w3m image), then forgets the
-      # position. *on_screen* lets the caller pass the screen explicitly (e.g.
-      # the `Detach` event, fired after `#screen?` has already been cleared).
-      private def clear_overlay(on_screen : ::Crysterm::Screen? = nil)
-        last = @last_drawn || return
-        s = on_screen || screen? || return
-        s.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
-        @last_drawn = nil
-        s.render
-      end
-
       private def teardown
-        s = @listener_screen || return
-        @ev_prerender.try { |w| s.off ::Crysterm::Event::PreRender, w }
-        @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }
-        @ev_prerender = nil
-        @ev_rendered = nil
-        @listener_screen = nil
+        teardown_overlay_listeners
       end
     end
   end

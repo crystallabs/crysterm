@@ -1,3 +1,5 @@
+require "../../widget_pine_selectable_list"
+
 module Crysterm
   class Widget
     module Pine
@@ -16,64 +18,60 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![FolderList screenshot](../../../examples/widget/pine/folder_list/folder_list-capture5s.apng)
       # <!-- /widget-examples:capture -->
-      class FolderList < Widget::List
-        # A single mail folder.
-        class Folder
-          # Folder name (e.g. `"INBOX"`).
-          property name : String
+      # A single mail folder.
+      class Folder
+        # Folder name (e.g. `"INBOX"`).
+        property name : String
 
-          # Number of messages it contains.
-          property count : Int32
+        # Number of messages it contains.
+        property count : Int32
 
-          # Action invoked when the folder is opened.
-          property callback : Proc(Nil)?
+        # Action invoked when the folder is opened.
+        property callback : Proc(Nil)?
 
-          def initialize(@name, @count = 0, *, @callback = nil)
-          end
+        def initialize(@name, @count = 0, *, @callback = nil)
         end
+      end
 
-        # The folders currently displayed, parallel to the list rows.
-        getter folders = [] of Folder
+      class FolderList < SelectableList(Folder)
+        # Historical nested name for the record type (see `SelectableList`).
+        alias Folder = ::Crysterm::Widget::Pine::Folder
 
         def initialize(
           folders : Array(Folder) = [] of Folder,
           **list,
         )
-          super **list
+          super folders, **list
+        end
 
-          styles.selected = Style.new reverse: true
-
-          set_folders folders
-
-          on ::Crysterm::Event::ActionItem do |_e|
-            run_selected
-          end
+        # The folders currently displayed, parallel to the list rows.
+        def folders : Array(Folder)
+          records
         end
 
         # Replaces the displayed folders.
         def set_folders(folders : Array(Folder))
-          @folders = folders
-          set_items folders.map { |f| format_folder f }
+          set_records folders
         end
 
         # The currently-selected folder, if any.
         def selected_folder : Folder?
-          @folders[selected]?
+          selected_record
         end
 
         # Opens the currently-selected folder.
         def run_selected
-          selected_folder.try &.callback.try &.call
+          activate
         end
 
         # Formats one folder into a name + count row.
-        private def format_folder(f : Folder) : String
-          count = case f.count
+        def format_row(item : Folder, index : Int32) : String
+          count = case item.count
                   when 0 then "(empty)"
                   when 1 then "1 Message"
-                  else        "#{f.count} Messages"
+                  else        "#{item.count} Messages"
                   end
-          "  #{f.name.ljust(28)}#{count}"
+          "  #{item.name.ljust(28)}#{count}"
         end
       end
     end

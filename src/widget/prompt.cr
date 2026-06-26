@@ -6,6 +6,8 @@ module Crysterm
     # ![Prompt screenshot](../../examples/widget/prompt/prompt-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Prompt < Box
+      include ::Crysterm::Mixin::OkCancelDialog
+
       property text : String = ""
 
       # Optional validator (Qt's `QLineEdit` validator / `QInputDialog`
@@ -17,8 +19,6 @@ module Crysterm
       # TODO Positioning is bad for buttons.
       # Use a layout for buttons.
       # Also, make unlimited number of buttons/choices possible.
-      # XXX Same fixes here and in Question element.
-      # Actually OK/Cancel buttons need to be imported from Question.
 
       # The text entry field (Qt's `QInputDialog` line edit). Exposed so callers
       # can configure echo mode / placeholder directly, and for testing.
@@ -33,33 +33,8 @@ module Crysterm
         input_on_focus: false,
       )
 
-      @ok = Button.new(
-        top: 5,
-        height: 1,
-        width: 6,
-        left: 2,
-        resizable: true,
-        content: "Okay",
-        align: :center,
-        # bg: "black",
-        # hover_bg: "blue",
-        focus_on_click: false,
-        # mouse: true
-      )
-
-      @cancel = Button.new(
-        left: 10,
-        top: 5,
-        width: 8,
-        height: 1,
-        resizable: true,
-        content: "Cancel",
-        align: :center,
-        # bg: "black",
-        # hover_bg: "blue",
-        focus_on_click: false,
-        # mouse: true
-      )
+      @ok : Button = ::Crysterm::Mixin::OkCancelDialog.ok_button(top: 5, left: 2, width: 6)
+      @cancel : Button = ::Crysterm::Mixin::OkCancelDialog.cancel_button(top: 5, left: 10, width: 8)
 
       def initialize(secret = nil, censor = nil, placeholder = nil, validator = nil, **box)
         box["content"]?.try do |c|
@@ -117,10 +92,7 @@ module Crysterm
               next
             end
 
-            hide
-            screen.restore_focus
-            @ok.off ::Crysterm::Event::Press, ev_ok
-            @cancel.off ::Crysterm::Event::Press, ev_cancel
+            teardown_ok_cancel ev_ok, ev_cancel
 
             callback.try do |c|
               c.call err, data

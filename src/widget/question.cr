@@ -8,39 +8,16 @@ module Crysterm
     # ![Question screenshot](../../examples/widget/question/question-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Question < Box
+      include ::Crysterm::Mixin::OkCancelDialog
+
       property text : String = ""
 
       # TODO Positioning is bad for buttons.
       # Use a layout for buttons.
       # Also, make unlimited number of buttons/choices possible.
 
-      @ok = Button.new(
-        left: 1,
-        top: 4,
-        width: 6,
-        height: 1,
-        resizable: true,
-        content: "Okay",
-        align: :center,
-        # bg: "black",
-        # hover_bg: "blue",
-        focus_on_click: false,
-        # mouse: true
-      )
-
-      @cancel = Button.new(
-        left: 8,
-        top: 4,
-        width: 8,
-        height: 1,
-        resizable: true,
-        content: "Cancel",
-        align: :center,
-        # bg: "black",
-        # hover_bg: "blue",
-        focus_on_click: false,
-        # mouse: true
-      )
+      @ok : Button = ::Crysterm::Mixin::OkCancelDialog.ok_button(top: 4, left: 1, width: 6)
+      @cancel : Button = ::Crysterm::Mixin::OkCancelDialog.cancel_button(top: 4, left: 8, width: 8)
 
       def initialize(ok_text = nil, cancel_text = nil, **box)
         box["content"]?.try do |c|
@@ -87,11 +64,8 @@ module Crysterm
         # registration, so a key/press arriving in between would have invoked an
         # uninitialized Proc (crash).
         done = ->(err : String?, data : Bool) do
-          hide
-          screen.restore_focus
+          teardown_ok_cancel ev_ok, ev_cancel
           ev_keys.try { |h| screen.off Crysterm::Event::KeyPress, h }
-          ev_ok.try { |h| @ok.off Crysterm::Event::Press, h }
-          ev_cancel.try { |h| @cancel.off Crysterm::Event::Press, h }
           block.call err, data
           request_render
         end

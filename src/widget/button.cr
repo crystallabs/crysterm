@@ -14,8 +14,6 @@ module Crysterm
     # ![Button screenshot](../../examples/widget/button/button-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Button < Input
-      include EventHandler
-
       getter value = false
 
       # Whether the button toggles a sticky checked state instead of acting as a

@@ -284,71 +284,9 @@ module Crysterm
       bottom
     end
 
-    # XXX Disabled because nothing uses these at the moment, and also they
-    # are not resize-safe. Widget will remain in the old/unresized position
-    # after a resize.
-    #
-    # def aleft=(val)
-    #  if val.is_a? String
-    #    if (val == "center")
-    #      val = screen.awidth // 2
-    #      val -= @width // 2
-    #    else
-    #      expr = val.split(/(?=\+|-)/)
-    #      val = expr[0]
-    #      val = val.slice[0...-1].to_f / 100
-    #      val = (screen.awidth * val).to_i
-    #      val += expr[1] if expr[1]?
-    #    end
-    #  end
-    #  val -= parent_or_screen.aleft
-    #  if @left == val
-    #    return
-    #  end
-    #  clear_last_rendered_position
-    #  @left = val
-    #  emit ::Crysterm::Event::Move
-    #  val
-    # end
-
-    # def aright=(val)
-    #  val -= parent_or_screen.aright
-    #  return if @right == val
-    #  clear_last_rendered_position
-    #  @right = val
-    #  emit ::Crysterm::Event::Move
-    #  val
-    # end
-
-    # def atop=(val)
-    #  if val.is_a? String
-    #    if val == "center"
-    #      val = screen.aheight // 2
-    #      val -= height // 2
-    #    else
-    #      expr = val.split(/(?=\+|-)/)
-    #      val = expr[0].to_i
-    #      val = val[0...-1].to_f / 100
-    #      val = (screen.aheight * val).to_i
-    #      val += expr[1] if expr[1]?
-    #    end
-    #  end
-    #  val -= parent_or_screen.atop
-    #  return if @top == val
-    #  clear_last_rendered_position
-    #  @top = val
-    #  emit ::Crysterm::Event::Move
-    #  val
-    # end
-
-    # def abottom=(val)
-    #  val -= parent_or_screen.abottom
-    #  return if @bottom == val
-    #  clear_last_rendered_position
-    #  @bottom = val
-    #  emit ::Crysterm::Event::Move
-    #  val
-    # end
+    # (Removed: ~65 lines of disabled `aleft=`/`aright=`/`atop=`/`abottom=`
+    # setters — "Disabled because nothing uses these, and not resize-safe."
+    # Recoverable from git history if ever needed.)
 
     # `width_hint`, when given, is this widget's already-resolved `awidth(get)`.
     # `#_render` computes it (to feed `process_content`) immediately before

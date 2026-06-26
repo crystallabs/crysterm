@@ -86,7 +86,6 @@ module Crysterm
 
             self.filled = (pos * 100 // span).clamp(0, 100)
             e.accept
-            request_render
           end
         end
       end
@@ -207,24 +206,19 @@ module Crysterm
         emit Crysterm::Event::Reset
         @value = @minimum
         emit Crysterm::Event::ValueChange, @value
+        request_render
       end
 
       def on_keypress(e)
-        # Since the keys aren't conflicting, support both regardless
-        # of orientation.
-        back_keys = [Tput::Key::Left, Tput::Key::Down]
-        back_chars = ['h', 'j']
-        forward_keys = [Tput::Key::Right, Tput::Key::Up]
-        forward_chars = ['l', 'k']
-
-        if back_keys.includes?(e.key) || back_chars.includes?(e.char)
+        k = e.key
+        ch = e.char
+        # Since the keys aren't conflicting, support both regardless of
+        # orientation. `#progress` routes through `#value=`, which repaints on
+        # an actual change.
+        if k == Tput::Key::Left || k == Tput::Key::Down || ch == 'h' || ch == 'j'
           progress -@step
-          request_render
-          return
-        elsif forward_keys.includes?(e.key) || forward_chars.includes?(e.char)
+        elsif k == Tput::Key::Right || k == Tput::Key::Up || ch == 'l' || ch == 'k'
           progress @step
-          request_render
-          return
         end
       end
     end

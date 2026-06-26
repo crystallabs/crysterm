@@ -1,5 +1,6 @@
 require "../box"
 require "./canvas"
+require "../../widget_graph_text_overlay"
 require "../../widget_graph_scale"
 
 module Crysterm
@@ -37,6 +38,8 @@ module Crysterm
       # ![LineChart screenshot](../../../examples/widget/graph/line_chart/line_chart-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class LineChart < Box
+        include TextOverlay
+
         # A `QValueAxis`-like value axis. `#minimum`/`#maximum` of `nil` auto-range
         # from the plotted data.
         class Axis
@@ -105,6 +108,11 @@ module Crysterm
 
         @device : Media::Type?
 
+        # Tick positions for the current frame, computed once per render (right
+        # after `#compute_ranges`) and reused by the plot/margins/chrome.
+        @x_ticks = [] of Float64
+        @y_ticks = [] of Float64
+
         def initialize(
           @title : String = "",
           @show_legend : Bool = true,
@@ -155,6 +163,10 @@ module Crysterm
 
         def render(with_children = true)
           compute_ranges
+          # Tick positions are stable for the whole frame; compute each axis once
+          # here and reuse them in #margins, #paint_plot and #draw_chrome.
+          @x_ticks = axis_values(axis_x, @xmin, @xmax)
+          @y_ticks = axis_values(axis_y, @ymin, @ymax)
           lm, tm, rm, bm = margins
           # Position the plot Canvas inside the chrome margins (no width/height ->
           # auto-stretch to the remaining interior).
@@ -201,8 +213,8 @@ module Crysterm
 
           if show_grid?
             p.pen = GRID_COLOR
-            axis_values(axis_x, @xmin, @xmax).each { |xv| p.draw_line xv, @ymin, xv, @ymax }
-            axis_values(axis_y, @ymin, @ymax).each { |yv| p.draw_line @xmin, yv, @xmax, yv }
+            @x_ticks.each { |xv| p.draw_line xv, @ymin, xv, @ymax }
+            @y_ticks.each { |yv| p.draw_line @xmin, yv, @xmax, yv }
           end
 
           @series.each do |s|
@@ -215,7 +227,7 @@ module Crysterm
             in Series::Kind::Area
               # Vertical fill from each sample down to the baseline, plus the
               # outline on top (reads as a filled area for dense series).
-              base = @ymin.clamp(@ymin, @ymax)
+              base = @ymin
               s.points.each { |(x, y)| p.draw_line x, base, x, y }
               p.draw_polyline s.points
             end
@@ -227,14 +239,14 @@ module Crysterm
         # Left margin = widest Y label; top = title + legend rows; bottom = 1 (X
         # labels); right = enough for the last X label's overhang.
         private def margins : Tuple(Int32, Int32, Int32, Int32)
-          y_labels = axis_values(axis_y, @ymin, @ymax).map { |v| axis_y.format v }
+          y_labels = @y_ticks.map { |v| axis_y.format v }
           lm = y_labels.max_of?(&.size) || 0
           lm += 1 if axis_y.title.empty? # a hair of breathing room
           lm = lm.clamp(0, Math.max(0, (awidth - iwidth) // 2))
 
           tm = (@title.empty? ? 0 : 1) + (show_legend? && !@series.empty? ? 1 : 0)
 
-          x_labels = axis_values(axis_x, @xmin, @xmax).map { |v| axis_x.format v }
+          x_labels = @x_ticks.map { |v| axis_x.format v }
           rm = ((x_labels.last?.try(&.size) || 0) // 2).clamp(1, 4)
 
           {lm, tm, rm, 1}
@@ -258,7 +270,7 @@ module Crysterm
           # Title (top row, centered over the content area).
           unless @title.empty?
             tx = cl + Math.max(0, (cr - cl - @title.size) // 2)
-            put_text tx, ct, @title, text_attr(LABEL_COLOR), cl, cr
+            put_text tx, ct, @title, overlay_attr(LABEL_COLOR), cl, cr
           end
 
           # Legend (row under the title), each entry "■ name" in its color.
@@ -267,54 +279,30 @@ module Crysterm
             x = cl
             @series.each do |s|
               break if x >= cr
-              put_text x, ly, "■", text_attr(s.color), cl, cr
+              put_text x, ly, "■", overlay_attr(s.color), cl, cr
               label = " #{s.name}  "
-              put_text x + 1, ly, label, text_attr(LABEL_COLOR), cl, cr
+              put_text x + 1, ly, label, overlay_attr(LABEL_COLOR), cl, cr
               x += 1 + label.size
             end
           end
 
           # Y axis labels (right-aligned in the left margin, at each tick row).
-          axis_values(axis_y, @ymin, @ymax).each do |val|
+          @y_ticks.each do |val|
             frac = (@ymax - val) / (@ymax - @ymin)
             row = plot_t + (frac * (plot_h - 1)).round.to_i
             next if row < plot_t || row >= plot_b
             label = axis_y.format val
-            put_text plot_l - label.size, row, label, text_attr(LABEL_COLOR), cl, plot_l
+            put_text plot_l - label.size, row, label, overlay_attr(LABEL_COLOR), cl, plot_l
           end
 
           # X axis labels (centered under each tick column, on the bottom row).
-          axis_values(axis_x, @xmin, @xmax).each do |val|
+          @x_ticks.each do |val|
             frac = (val - @xmin) / (@xmax - @xmin)
             col = plot_l + (frac * (plot_w - 1)).round.to_i
             label = axis_x.format val
             x = col - label.size // 2
-            put_text x, plot_b, label, text_attr(LABEL_COLOR), plot_l, cr
+            put_text x, plot_b, label, overlay_attr(LABEL_COLOR), plot_l, cr
           end
-        end
-
-        # Caches an attr per color so labels don't rebuild a `Style` per cell.
-        @attr_cache = {} of Int32 => Int64
-
-        private def text_attr(color : Int32) : Int64
-          @attr_cache[color] ||= sattr(style, color, style.bg)
-        end
-
-        # Writes *text* at absolute cell (x, y), clipped to the half-open column
-        # range `[clip_lo, clip_hi)` so labels never bleed past their region.
-        private def put_text(x : Int32, y : Int32, text : String, attr : Int64,
-                             clip_lo : Int32, clip_hi : Int32) : Nil
-          line = screen.lines[y]?
-          return unless line
-          text.each_char_with_index do |ch, i|
-            cx = x + i
-            next if cx < clip_lo || cx >= clip_hi
-            if cell = line[cx]?
-              cell.char = ch
-              cell.attr = attr
-            end
-          end
-          line.dirty = true
         end
       end
     end

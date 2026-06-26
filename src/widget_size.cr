@@ -281,7 +281,8 @@ module Crysterm
     # maximum/full size of the surrounding box.
     def _minimal_content_rectangle(xi, xl, yi, yl)
       h = @_clines.size
-      w = @_clines.max_width || 0
+      # `max_width` is `property max_width = 0` (Int32, never nil), so no `|| 0`.
+      w = @_clines.max_width
 
       # The extra IFs which are commented appear unnecessary.
       # If a person sets resizable: true, this is expected to happen

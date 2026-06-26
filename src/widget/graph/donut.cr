@@ -1,5 +1,6 @@
 require "../box"
 require "./canvas"
+require "../../widget_graph_text_overlay"
 
 module Crysterm
   class Widget
@@ -23,6 +24,8 @@ module Crysterm
       # ![Donut screenshot](../../../examples/widget/graph/donut/donut-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Donut < Box
+        include TextOverlay
+
         property minimum : Float64
         property maximum : Float64
 
@@ -150,7 +153,7 @@ module Crysterm
 
           cy = yi + (yl - yi - 1) // 2
           pct = formatted_text
-          put_centered pct, xi, xl, cy, sattr(style, @fill_color, style.bg)
+          put_centered pct, xi, xl, cy, overlay_attr(@fill_color)
           unless @label.empty?
             put_centered @label, xi, xl, cy + 1, sattr(style, style.fg, style.bg)
           end
@@ -164,20 +167,12 @@ module Crysterm
             .gsub("%M", Scale.fmt(@minimum))
         end
 
+        # Centers *text* within the column range `[xi, xl)` on row *y* (a thin
+        # wrapper over `TextOverlay#put_text`).
         private def put_centered(text : String, xi : Int32, xl : Int32, y : Int32, attr : Int64) : Nil
           return if text.empty?
-          line = screen.lines[y]?
-          return unless line
           x = xi + Math.max(0, (xl - xi - text.size) // 2)
-          text.each_char_with_index do |ch, i|
-            cx = x + i
-            next if cx < xi || cx >= xl
-            if cell = line[cx]?
-              cell.char = ch
-              cell.attr = attr
-            end
-          end
-          line.dirty = true
+          put_text x, y, text, attr, xi, xl
         end
       end
     end

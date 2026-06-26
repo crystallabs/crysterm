@@ -1,5 +1,5 @@
 require "../box"
-require "../../widget_effect_animated"
+require "../../widget_effect_direct"
 
 module Crysterm
   class Widget
@@ -11,11 +11,15 @@ module Crysterm
       # spread, random confetti, or any caller-supplied ordering — so the spiral
       # of the original `cracktro` demo is just the default, not the widget.
       #
-      # Like `Widget::Effect::Matrix`, it is self-contained and self-animating: it
-      # recomposes its whole area into one tag-parsed `content` string every frame
-      # (so every glyph carries its own `{#rrggbb-fg}` TrueColor tag), reads its
-      # size lazily each frame (tracking resize and `%`-relative sizing), and runs
-      # its own render fiber. Call `#start` to begin and `#stop` to halt.
+      # Like `Widget::Effect::Plasma`, it paints its interior straight into the
+      # screen's cell buffer as packed `Int64` attrs (each fg a direct `0xRRGGBB`)
+      # via `Effect::Direct` — there is no tagged-content round-trip, so a frame
+      # costs no per-cell `String` and no per-frame tag re-parse. Each frame the
+      # slot simulation is resolved once into two flat `w*h` cell buffers (glyph
+      # and color) in `#advance`, which `#cell` then reads. It is self-contained
+      # and self-animating, reads its size lazily each frame (tracking resize and
+      # `%`-relative sizing), and runs its own render fiber. Call `#start` to begin
+      # and `#stop` to halt.
       #
       # ```
       # # Default: a spiral of dithered DOS bricks (`▒`) filling the box.
@@ -31,7 +35,7 @@ module Crysterm
       # ![Spray screenshot](../../../examples/widget/effect/spray/spray-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Spray < Box
-        include Animated
+        include Effect::Direct
 
         # A fill strategy: given the area's width and height, returns the order in
         # which cells `{x, y}` are visited (one landed glyph per cell).
@@ -85,13 +89,19 @@ module Crysterm
         # Run once, after a non-looping spray has filled the area.
         property on_complete : Proc(Nil)?
 
-        # Per-area state, (re)built lazily whenever the area's size changes.
-        @cols = 0
-        @rows = 0
+        # Per-area state, (re)built lazily whenever the area's size changes (`@cols`
+        # / `@rows` are the interior size, owned by `Effect::Direct`).
         @slots = [] of Tuple(Int32, Int32, Char)
         @frame = 0
 
-        # Set by `#step`: `true` once a non-looping spray has filled the area.
+        # Flat `w*h` per-cell buffers (row-major), filled once per frame in
+        # `#advance` and read back per cell in `#cell`. `@cell_glyph` defaults to a
+        # space and `@cell_color` to `-1` (the widget's default fg), so untouched
+        # cells paint as blank background.
+        @cell_glyph = [] of Char
+        @cell_color = [] of Int32
+
+        # Set by `#advance`: `true` once a non-looping spray has filled the area.
         # Read by the shared animation loop via `#done?`.
         @done = false
 
@@ -111,9 +121,7 @@ module Crysterm
           **box,
         )
           self.spark_colors = spark_colors
-          # Per-glyph `{#rrggbb-fg}` tags require tag parsing regardless of caller.
           super **box
-          self.parse_tags = true
         end
 
         # The visit order for the built-in (or custom) fill strategy.
@@ -167,7 +175,6 @@ module Crysterm
         # (Re)build the landing slots for *w*×*h*: each visited cell paired with the
         # non-space glyph it will settle on, cycled from `pattern`.
         private def reset_slots(w, h)
-          @cols, @rows = w, h
           letters = @pattern.chars.reject(&.whitespace?)
           letters = ['*'] if letters.empty?
           @slots = fill_cells(w, h).map_with_index do |(x, y), i|
@@ -180,45 +187,64 @@ module Crysterm
           @slots.size * @spacing + @travel
         end
 
-        # Builds one frame of spray sized to the current box and advances time.
-        # Returns `true` once a non-looping spray has finished filling.
-        def step : Bool
-          mark_dirty # animation state changes each frame; repaint under damage tracking
-          w = awidth
-          h = aheight
-          return @done = false if w <= 0 || h <= 0
-          reset_slots w, h if w != @cols || h != @rows
-          return @done = false if @slots.empty?
+        # `Effect::Direct` hook: (re)allocate per-area state when the interior size
+        # changes. Builds the landing slots and the two flat `w*h` cell buffers the
+        # per-frame simulation fills; both buffers start cleared (blank glyph,
+        # default fg).
+        def resize(w, h)
+          reset_slots w, h
+          @cell_glyph = Array(Char).new(w * h, ' ')
+          @cell_color = Array(Int32).new(w * h, -1)
+        end
 
+        # `Effect::Direct` hook: resolve one frame of the spray simulation into the
+        # flat cell buffers, then advance time. Sets `@done` once a non-looping
+        # spray has finished filling.
+        def advance(w, h)
+          return @done = false if w <= 0 || h <= 0 || @slots.empty?
+          recompute w, h
+          @frame += 1
+          @done = !loop? && @frame > fill_frame
+        end
+
+        # Project every slot to its position/glyph/color for the current frame and
+        # write it into the flat cell buffers. Cleared first so cells that no glyph
+        # currently covers fall back to blank background. No allocation: it only
+        # overwrites the buffers `#resize` already sized.
+        private def recompute(w, h)
           ox, oy = emitter(w, h)
           cycle = fill_frame + @hold
           f = loop? ? @frame % cycle : @frame
 
-          grid = Array.new(h) { Array(String?).new(w, nil) }
+          @cell_glyph.fill(' ')
+          @cell_color.fill(-1)
+
           @slots.each_with_index do |(dx, dy, ch), i|
             launch = i * @spacing
             if f < launch
-              gx, gy, glyph, phase = ox, oy, "·", :pending
+              gx, gy, gch, phase = ox, oy, '·', :pending
             elsif f < launch + @travel
               p = (f - launch) / @travel.to_f
               gx = (ox + (dx - ox) * p).round.to_i
               gy = (oy + (dy - oy) * p).round.to_i
-              glyph = @grow[(p * @grow.size).to_i.clamp(0, @grow.size - 1)]
+              gch = @grow[(p * @grow.size).to_i.clamp(0, @grow.size - 1)][0]
               phase = :flight
             else
-              gx, gy, glyph, phase = dx, dy, ch.to_s, :landed
+              gx, gy, gch, phase = dx, dy, ch, :landed
             end
             next unless 0 <= gx < w && 0 <= gy < h
-            col = colorize i, phase
-            grid[gy][gx] = "{##{"%06x" % (col & 0xffffff)}-fg}#{glyph}{/}"
+            idx = gy * w + gx
+            @cell_glyph[idx] = gch
+            @cell_color[idx] = colorize i, phase
           end
+        end
 
-          self.content = (0...h).map { |y|
-            String.build { |io| (0...w).each { |x| io << (grid[y][x] || " ") } }
-          }.join('\n')
-
-          @frame += 1
-          @done = !loop? && @frame > fill_frame
+        # `Effect::Direct` hook: the glyph and packed `0xRRGGBB` fg (or `-1` for the
+        # widget default) for interior cell `{x, y}`, read straight from the flat
+        # buffers `#advance` filled.
+        def cell(x, y, w, h) : {Char, Int32}
+          idx = y * w + x
+          {@cell_glyph[idx], @cell_color[idx]}
         end
 
         # Color (native `0xRRGGBB`) for slot *i* in *phase* at the current frame.
@@ -233,7 +259,7 @@ module Crysterm
           end
         end
 
-        # A non-looping spray finishes once it has filled the area (see `#step`),
+        # A non-looping spray finishes once it has filled the area (see `#advance`),
         # at which point the shared animation loop stops and runs `#on_complete`.
         protected def done? : Bool
           @done

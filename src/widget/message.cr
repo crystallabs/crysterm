@@ -13,13 +13,7 @@ module Crysterm
       @ev_keypress : Crysterm::Event::KeyPress::Wrapper?
 
       def display(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
-        # D O:
-        # Keep above:
-        # parent = @parent
-        # detach
-        # parent.append self
-
-        if @scrollable
+        if scrollable?
           screen.save_focus
           focus
           scroll_to 0
@@ -33,38 +27,13 @@ module Crysterm
           # No timeout: dismiss on the next keypress. Install the handler
           # immediately. (It used to `sleep 10.seconds` first, which made the
           # message un-dismissable for 10s and then linger until a key.)
-          begin
-            @ev_keypress = screen.on(Crysterm::Event::KeyPress) do |_|
-              #  ##return if e.key.try(&.name) == ::Tput::Key::Mouse # XXX
-              #  #if scrollable?
-              #  #  if (e.key == ::Tput::Key::Up) || # || (@vi && e.char == 'k') # XXX
-              #  #    (e.key == ::Tput::Key::Down) # || (@vi && e.char == 'j')) # XXX
-              #  #    #(@vi && e.key == 'u' && e.key.control?) # XXX
-              #  #    #(@vi && e.key == 'd' && e.key.control?)
-              #  #    #(@vi && e.key == 'b' && e.key.control?)
-              #  #    #(@vi && e.key == 'f' && e.key.control?)
-              #  #    #(@vi && e.key == 'g' && !e.key.shift?)
-              #  #    #(@vi && e.key == 'g' && e.key.shift?)
-              #  #    return
-              #  #  end
-              #  #end
-              #  if @ignore_keys.includes? e.key # XXX
-              #    return
-              #  end
-              @ev_keypress.try do |w|
-                screen.off ::Crysterm::Event::KeyPress, w
-              end
-              end_it do
-                callback.try &.call
-              end
+          @ev_keypress = screen.on(Crysterm::Event::KeyPress) do |_|
+            @ev_keypress.try do |w|
+              screen.off ::Crysterm::Event::KeyPress, w
             end
-            # XXX May be affected by new @mouse option.
-            # return unless @mouse
-            # on_screen_event(::Tput::Key::Mouse) do |e|
-            #  #return if data.action == ::Tput::Mouse::Move
-            #  remove_screen_event(::Tput::Key::Mouse, fn_wrapper)
-            #  end_it callback
-            # end
+            end_it do
+              callback.try &.call
+            end
           end
 
           return

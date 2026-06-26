@@ -177,12 +177,7 @@ module Crysterm
         # Maps each relative text-column x to its table column index (packed by
         # `@maxes`), so CSS per-cell styles (`#css_cell_style`) can override the
         # row default per column.
-        col_for_x = {} of Int32 => Int32
-        cx = ileft
-        @maxes.each_with_index do |max, col_i|
-          (cx...cx + max).each { |xpos| col_for_x[xpos] = col_i }
-          cx += max
-        end
+        col_map = col_for_x(0, ileft)
 
         # Apply header/cell attributes to text cells that still hold the default
         # attribute (so explicit tags inside cells are preserved).
@@ -207,7 +202,7 @@ module Crysterm
               if cell = line[xi + x]?
                 if cell.attr == dattr
                   # A CSS rule may have computed a style for this specific cell.
-                  col = col_for_x[x]?
+                  col = col_map[x]?
                   cell_style = col ? css_cell_style(row_index, col) : nil
                   cell.attr = cell_style ? sattr(cell_style) : default_attr
                   line.dirty = true

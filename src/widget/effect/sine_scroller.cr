@@ -102,17 +102,24 @@ module Crysterm
             h = yl - yi
             next if w <= 0 || h <= 0
 
+            # Pack the attr's invariant parts once per frame (flags + bg), exactly
+            # as `Effect::Direct#paint` does. Only the fg varies per column, so the
+            # per-column cost becomes a single `Attr.pack` rather than a full
+            # `sattr` rebuild (7-flag bitmask + bg pack) on every glyph cell.
+            da = sattr(style)
+            flags = Attr.flags da
+            bgf = Attr.bg da
+            deff = Attr.fg da # widget's own fg, for the non-rainbow case
+
             # Background fill: the box's own colors, every cell (the field the
             # glyphs ride over).
-            screen.fill_region(sattr(style), ' ', xi, xl, yi, yl)
+            screen.fill_region(da, ' ', xi, xl, yi, yl)
 
             n = text.size
             next if n == 0
 
             f = @frame
             amp = (h - 1) / 2.0
-            bg = style.bg
-            fg_default = style.fg
 
             (0...w).each do |x|
               # Horizontal scroll, identical to `Marquee`: `:left` shifts the row
@@ -122,8 +129,8 @@ module Crysterm
               ch = text[idx]
               next if ch == ' '
               r = (amp * (1.0 + Math.sin(x * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, h - 1)
-              fg = rainbow? ? Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360) : fg_default
-              screen.fill_region(sattr(style, fg, bg), ch, xi + x, xi + x + 1, yi + r, yi + r + 1)
+              fgf = rainbow? ? Attr.pack_color(Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360)) : deff
+              screen.fill_region(Attr.pack(flags, fgf, bgf), ch, xi + x, xi + x + 1, yi + r, yi + r + 1)
             end
           end
         end

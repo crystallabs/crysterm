@@ -8,17 +8,12 @@ module Crysterm
     # ![RadioButton screenshot](../../examples/widget/radiobutton/radiobutton-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class RadioButton < Checkbox
-      include EventHandler
-
       # TODO option for changing icons
 
       # Add support for real toggling instead of unchecking
       # other elements. So that one can even make a widget
       # where only 1 is unchecked, the rest are all checked.
 
-      # getter value = false
-
-      # def initialize(value = false, **element)
       def initialize(**checkbox)
         super **checkbox
 
@@ -49,16 +44,8 @@ module Crysterm
         el = el || parent
 
         el.try &.each_descendant do |cel|
-          # TODO
-          # next if !(cel.is_a? RadioButton) || cel == self
-          # cel.toggle if cel.is_a?(RadioButton) && cel != self
           cel.uncheck if cel.is_a?(RadioButton) && cel != self
         end
-        # TODO
-        # el.try &.children.each do |cel|
-        #  # next if !(cel.is_a? RadioButton) || cel == self
-        #  cel.uncheck if cel.is_a?(RadioButton) && cel != self
-        # end
       end
     end
   end

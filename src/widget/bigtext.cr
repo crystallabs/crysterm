@@ -60,6 +60,10 @@ module Crysterm
         @content = ""
         @_content_version += 1
         @text = content || ""
+        # The glyphs are drawn from `@text`, so a content change must schedule a
+        # repaint just like the base `set_content` does — otherwise the new text
+        # only appears on the next render triggered by something else.
+        mark_dirty
       end
 
       def render

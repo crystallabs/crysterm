@@ -13,8 +13,6 @@ module Crysterm
 
       property _list_initialized = false
 
-      # property items = [] of Widget::Box # Already defined in widget.cr
-
       property ritems = [] of String
       property selected = 0
 
@@ -74,8 +72,6 @@ module Crysterm
         end
 
         on ::Crysterm::Event::Resize, ->on_resize(::Crysterm::Event::Resize)
-        on ::Crysterm::Event::Adopt, ->on_adopt(::Crysterm::Event::Adopt)
-        on ::Crysterm::Event::Remove, ->on_remove(::Crysterm::Event::Remove)
       end
 
       # Returns the `Style` an item box should render with, given whether it is
@@ -92,9 +88,17 @@ module Crysterm
       # symmetry (and in case a user gives the selected style a border). See
       # `Widget#_render`, which calls this.
       def item_render_style(selected : Bool) : Style
-        base = selected ? styles.selected : style.item
-        return base unless base.border.any?
+        without_border(selected ? styles.selected : style.item)
+      end
 
+      # Returns *base* with any border stripped: *base* untouched when it has no
+      # border (the common case — no allocation), else a borderless `#dup`. Items
+      # must never carry the list's border — the list draws the frame around the
+      # whole widget, so a per-item border would nest stray line-drawing chars and
+      # also reserve `iwidth`, shrinking the item's content area. Shared by the
+      # item-style paths here and in `ListTable`/`Menu` (which subclass `List`).
+      protected def without_border(base : Style) : Style
+        return base unless base.border.any?
         borderless = base.dup
         borderless.border = false
         borderless
@@ -277,8 +281,7 @@ module Crysterm
         # Give items a borderless base style so their geometry matches.
         item_style = style
         if item_style.border.any?
-          item_style = item_style.dup
-          item_style.border = false
+          item_style = without_border item_style
           # An item's own style must not carry the list's *hidden* state: the
           # parent's visibility gates the subtree, and a dup made while the list
           # is hidden (e.g. menu rows added after `hide`) would otherwise snapshot
@@ -751,16 +754,6 @@ module Crysterm
           @child_base = selected - visible + 1
           @child_offset = visible - 1
         end
-      end
-
-      def on_adopt(e)
-        # unless @items.includes? el
-        #  el.fixed = true
-        # end
-      end
-
-      def on_remove(e)
-        # XXX remove_item e.widget
       end
     end
   end

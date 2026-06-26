@@ -1,4 +1,5 @@
 require "./box"
+require "../mixin/paged_container"
 
 module Crysterm
   class Widget
@@ -17,11 +18,9 @@ module Crysterm
     # ![StackedWidget screenshot](../../examples/widget/stacked_widget/stacked_widget-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class StackedWidget < Box
-      # The pages, in insertion order.
-      getter pages = [] of Widget
-
-      # Index of the visible page (`-1` until the first page is added).
-      getter current_index : Int32 = -1
+      # `#pages`, `#current_index`, `#current_page` and the show/next/previous
+      # core all come from here.
+      include Mixin::PagedContainer
 
       # Appends *page*, sized to fill the widget. The first page added becomes
       # current; later ones come up hidden.
@@ -47,21 +46,10 @@ module Crysterm
         @pages.size
       end
 
-      # The currently visible page, or `nil` when there are none.
-      def current_page : Widget?
-        @pages[@current_index]?
-      end
-
       # Raises the page at *index*, hiding the others. No-op for an out-of-range
       # index or the already-current page.
       def show_page(index : Int) : Nil
-        return unless 0 <= index < @pages.size
-        return if index == @current_index
-        @current_index = index.to_i
-        @pages.each_with_index do |page, i|
-          i == index ? page.show : page.hide
-        end
-        request_render
+        show_index index
       end
 
       # :ditto:
@@ -70,13 +58,11 @@ module Crysterm
       end
 
       def next_page : Nil
-        return if @pages.empty?
-        show_page((@current_index + 1) % @pages.size)
+        next_index
       end
 
       def previous_page : Nil
-        return if @pages.empty?
-        show_page((@current_index - 1) % @pages.size)
+        previous_index
       end
     end
   end

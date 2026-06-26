@@ -87,7 +87,7 @@ module Crysterm
           t.minute.to_s.rjust(2, '0'),
           t.second.to_s.rjust(2, '0'),
         ]
-        parts[@section] = "{reverse}#{parts[@section]}{/reverse}" if @section < section_count
+        parts = highlight_part parts
 
         date = "#{parts[0]}-#{parts[1]}-#{parts[2]}"
         time = show_seconds? ? "#{parts[3]}:#{parts[4]}:#{parts[5]}" : "#{parts[3]}:#{parts[4]}"
@@ -99,22 +99,18 @@ module Crysterm
       private def step(delta : Int32) : Nil
         y, mo, d = @datetime.year, @datetime.month, @datetime.day
         h, mi, s = @datetime.hour, @datetime.minute, @datetime.second
+        dim = nil
         case @section
         when 0 then y += delta
         when 1 then mo = wrap(mo - 1, delta, 12) + 1
-        when 2 then d = wrap(d - 1, delta, Time.days_in_month(y, mo)) + 1
+        when 2 then d = wrap(d - 1, delta, dim = Time.days_in_month(y, mo)) + 1
         when 3 then h = wrap(h, delta, 24)
         when 4 then mi = wrap(mi, delta, 60)
         else        s = wrap(s, delta, 60)
         end
-        d = Math.min(d, Time.days_in_month(y, mo))
+        # Reuse the day branch's count; year/month branches changed y/mo, so recompute.
+        d = Math.min(d, dim || Time.days_in_month(y, mo))
         self.date_time = Time.local(y, mo, d, h, mi, s)
-      end
-
-      # Adds *delta* to *v* modulo *mod*, staying in `0...mod`.
-      private def wrap(v : Int32, delta : Int32, mod : Int32) : Int32
-        r = (v + delta) % mod
-        r < 0 ? r + mod : r
       end
 
       def on_keypress(e)

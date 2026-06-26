@@ -83,6 +83,54 @@ module Crysterm
         Math.max(0, @maximum - @minimum)
       end
 
+      # Handles a mouse-wheel notch on a ranged control: wheel-up steps the
+      # value up by `#step`, wheel-down steps it down. Accepts *e* and returns
+      # `true` when the event was a wheel notch (so callers can `next`).
+      def ranged_wheel(e) : Bool
+        if e.action.wheel_up?
+          increment
+          e.accept
+          true
+        elsif e.action.wheel_down?
+          decrement
+          e.accept
+          true
+        else
+          false
+        end
+      end
+
+      # Handles the stepping keys shared by `Widget::Slider` and `Widget::Dial`:
+      # Up/Right (and `k`/`l`) step up, Down/Left (and `j`/`h`) step down, Page
+      # Up/Down move by `#page_step`, and Home/End jump to the bounds. Accepts
+      # *e* and returns `true` when a key was handled. Stepping routes through
+      # `#value=`, which repaints only on an actual change.
+      def ranged_step_key(e) : Bool
+        case e.key
+        when Tput::Key::Right, Tput::Key::Up
+          increment
+        when Tput::Key::Left, Tput::Key::Down
+          decrement
+        when Tput::Key::PageUp
+          increment page_step
+        when Tput::Key::PageDown
+          decrement page_step
+        when Tput::Key::Home
+          self.value = @minimum
+        when Tput::Key::End
+          self.value = @maximum
+        else
+          case e.char
+          when 'l', 'k' then increment
+          when 'h', 'j' then decrement
+          else
+            return false
+          end
+        end
+        e.accept
+        true
+      end
+
       # Sets both bounds at once (Qt's `setRange(min, max)`). On an actual change
       # it runs `#on_range_changed`, emits `Event::RangeChange`, re-clamps the
       # current value into the new range (which may emit `Event::ValueChange`),
@@ -114,6 +162,24 @@ module Crysterm
       # actually changes — e.g. `SpinBox` refreshes its displayed text. No-op by
       # default.
       protected def on_value_changed
+      end
+    end
+
+    # Float-valued range helpers shared by the read-only meter widgets
+    # `Widget::Gauge` and `Widget::GaugeList`. Both keep a `Float64`
+    # `[minimum, maximum]` range; this provides a `#span` that never reports
+    # zero (keeping divisions safe; an empty range simply renders empty) and a
+    # `#percent_of` that maps a value onto a `0..100` percentage of that range.
+    module PercentRange
+      # Size of the value range (`maximum - minimum`), never zero.
+      def span : Float64
+        s = maximum - minimum
+        s <= 0 ? 1.0 : s
+      end
+
+      # *value*'s position in `[minimum, maximum]` as a `0..100` percentage.
+      def percent_of(value : Float64) : Float64
+        ((value - minimum) / span * 100).clamp(0.0, 100.0)
       end
     end
   end

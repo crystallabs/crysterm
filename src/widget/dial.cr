@@ -48,15 +48,7 @@ module Crysterm
         handle Crysterm::Event::KeyPress
 
         on(Crysterm::Event::Mouse) do |e|
-          if e.action.wheel_up?
-            increment
-            e.accept
-            request_render
-          elsif e.action.wheel_down?
-            decrement
-            e.accept
-            request_render
-          end
+          ranged_wheel e
         end
       end
 
@@ -100,35 +92,10 @@ module Crysterm
         end
       end
 
+      # Qt's dial increases clockwise: Up/Right raise, Down/Left lower — the
+      # mapping shared with `Slider` via `Mixin::RangedValue#ranged_step_key`.
       def on_keypress(e)
-        k = e.key
-        ch = e.char
-        # Qt's dial increases clockwise: Up/Right raise, Down/Left lower.
-        if k == Tput::Key::Right || k == Tput::Key::Up || ch == 'l' || ch == 'k'
-          increment
-          e.accept
-          request_render
-        elsif k == Tput::Key::Left || k == Tput::Key::Down || ch == 'h' || ch == 'j'
-          decrement
-          e.accept
-          request_render
-        elsif k == Tput::Key::PageUp
-          increment @page_step
-          e.accept
-          request_render
-        elsif k == Tput::Key::PageDown
-          decrement @page_step
-          e.accept
-          request_render
-        elsif k == Tput::Key::Home
-          self.value = @minimum
-          e.accept
-          request_render
-        elsif k == Tput::Key::End
-          self.value = @maximum
-          e.accept
-          request_render
-        end
+        ranged_step_key e
       end
     end
   end

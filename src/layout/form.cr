@@ -29,7 +29,11 @@ module Crysterm
         fw = w - lw - @gap
         fw = 0 if fw < 0
 
-        children = container.children
+        # Pair only the children this engine arranges; layout-excluded chrome
+        # (e.g. a `background-image` layer) must not be consumed as a
+        # label/field slot — matching every other engine's `layout_excluded?`
+        # skip.
+        children = container.children.reject &.layout_excluded?
         y = 0
         i = 0
         while i < children.size

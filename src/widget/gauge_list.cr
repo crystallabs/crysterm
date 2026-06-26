@@ -1,5 +1,6 @@
 require "./box"
 require "../widget_graph_scale"
+require "../mixin/ranged_value"
 
 module Crysterm
   class Widget
@@ -21,6 +22,9 @@ module Crysterm
     # ![GaugeList screenshot](../../examples/widget/gauge_list/gauge_list-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class GaugeList < Box
+      # Float-valued `#span`/`#percent_of` helpers (shared with `Gauge`).
+      include Mixin::PercentRange
+
       # One gauge row.
       class Item
         property label : String
@@ -81,11 +85,6 @@ module Crysterm
         request_render
       end
 
-      private def span : Float64
-        s = @maximum - @minimum
-        s <= 0 ? 1.0 : s
-      end
-
       def render
         self.content = build_content
         super
@@ -109,7 +108,7 @@ module Crysterm
       end
 
       private def gauge_line(item : Item, lw : Int32, bar_cols : Int32, pct_w : Int32) : String
-        pct = ((item.value - @minimum) / span * 100).clamp(0.0, 100.0)
+        pct = percent_of item.value
         cells = [] of Char
         colors = [] of String?
 

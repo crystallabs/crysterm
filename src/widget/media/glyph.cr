@@ -118,7 +118,7 @@ module Crysterm
         # Braille is one colour per cell, so it needs a single global on/off
         # threshold (a per-cell threshold would just produce ~50% noise). Skipped
         # under `#alpha_key?`, where opacity (not luminance) drives the dots.
-        thr = (@mode.braille? && !alpha_key?) ? global_threshold(bmp) : 0.0
+        thr = (@mode.braille? && !alpha_key?) ? cached_global_threshold(bmp) : 0.0
 
         (yi...yl).each do |y|
           cy = y - yi
@@ -309,6 +309,24 @@ module Crysterm
 
       private def rgb_of(px : PNGGIF::Pixel) : Int32
         (px.r << 16) | (px.g << 8) | px.b
+      end
+
+      # Cached braille on/off threshold for the *current* `@sample`, and the
+      # bitmap it was computed for. The whole-bitmap luminance mean is otherwise
+      # recomputed on every render; keying on the bitmap's identity ties the
+      # cache to `@sample`'s lifetime exactly — each resample (resize, reload,
+      # `bitmap=`, `reset_sample_cache`) and each animation frame is a fresh
+      # bitmap object, forcing a recompute, while a repeated still reuses it.
+      @global_threshold : Float64?
+      @global_threshold_for : PNGGIF::Bitmap?
+
+      private def cached_global_threshold(bmp : PNGGIF::Bitmap) : Float64
+        cached = @global_threshold
+        return cached if cached && @global_threshold_for.try(&.same?(bmp))
+        thr = global_threshold(bmp)
+        @global_threshold = thr
+        @global_threshold_for = bmp
+        thr
       end
 
       private def global_threshold(sub) : Float64

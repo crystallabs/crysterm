@@ -1,5 +1,7 @@
 require "./box"
 require "./listbar"
+require "../mixin/paged_container"
+require "../mixin/sub_style"
 
 module Crysterm
   class Widget
@@ -25,6 +27,12 @@ module Crysterm
     # ![TabWidget screenshot](../../examples/widget/tab_widget/tab_widget-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class TabWidget < Box
+      # `#pages`, `#current_index`, `#current_page` and the show/next/previous
+      # core (raise one page, hide the rest) come from here.
+      include Mixin::PagedContainer
+      # `#apply_substyle`, used by `#sync_tab_style`.
+      include Mixin::SubStyle
+
       # Where the tab bar sits relative to the pages (Qt's `QTabWidget::North` /
       # `South`).
       enum Position
@@ -35,14 +43,8 @@ module Crysterm
       # The tab bar. (Built in `initialize` after `super`, hence `getter!`.)
       getter! bar : ListBar
 
-      # The page widgets, parallel to `#tab_titles`.
-      getter pages = [] of Widget
-
       # The tab titles, parallel to `#pages`.
       getter tab_titles = [] of String
-
-      # Index of the currently visible page (`-1` until the first tab is added).
-      getter current_index : Int32 = -1
 
       # Height (in rows) reserved for the tab bar.
       property tab_height : Int32 = 1
@@ -133,12 +135,10 @@ module Crysterm
       # overrides that page's normal style for the area beside the bar.)
       private def sync_tab_style : Nil
         tab = style.tab
-        bar.items.each(&.styles.normal=(tab)) unless tab.same?(style)
+        bar.items.each { |it| apply_substyle it, tab }
 
-        pane = style.pane
-        unless pane.same?(style)
-          current_page.try(&.styles.normal=(pane))
-        end
+        # `::pane` styles the *current page itself*, since it fills the pane region.
+        apply_substyle current_page, style.pane
       end
 
       # Sets the carousel interval, (re)starting or stopping the timer. `nil`
@@ -230,29 +230,19 @@ module Crysterm
         end
       end
 
-      # The currently visible page, or `nil` when there are no tabs.
-      def current_page : Widget?
-        @pages[@current_index]?
-      end
-
       # Raises the page (and selects the tab) at *index*, hiding the others.
       def show_tab(index : Int) : Nil
-        return unless 0 <= index < @pages.size
-        return if index == @current_index
+        show_index index
+      end
 
-        @current_index = index.to_i
-        @pages.each_with_index do |page, i|
-          i == index ? page.show : page.hide
-        end
-
-        # Mirror the selection in the bar without re-triggering this handler.
+      # Mirror the new selection in the bar without re-triggering its `SelectItem`
+      # handler (see `#initialize`). Runs after `#show_index` switches the page.
+      protected def after_show_index(index : Int) : Nil
         unless bar.selected == index
           @switching = true
           bar.selekt index
           @switching = false
         end
-
-        request_render
       end
 
       # Removes the tab at *index*, detaching (but **not** destroying) its page
@@ -319,14 +309,12 @@ module Crysterm
 
       # Selects the next tab (wrapping at the end).
       def next_tab : Nil
-        return if @pages.empty?
-        show_tab (@current_index + 1) % @pages.size
+        next_index
       end
 
       # Selects the previous tab (wrapping at the start).
       def previous_tab : Nil
-        return if @pages.empty?
-        show_tab (@current_index - 1) % @pages.size
+        previous_index
       end
     end
   end

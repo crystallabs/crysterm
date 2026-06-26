@@ -49,7 +49,16 @@ module Crysterm
       end
 
       # The message scrolled across the widget. Reassigning it is safe at any time.
-      property text : String
+      getter text : String
+
+      # `text` decomposed into its characters once, so the per-column paint can
+      # index it in O(1). `String#[]` is O(n) for non-ASCII strings, which would
+      # make a frame O(w·n); this cache is rebuilt only when `text` changes.
+      @chars : Array(Char)
+
+      def text=(@text : String)
+        @chars = @text.chars
+      end
 
       # Direction the text travels.
       property direction : Direction
@@ -77,6 +86,7 @@ module Crysterm
         @hue_speed = 8,
         **box,
       )
+        @chars = @text.chars
         super **box
       end
 
@@ -105,18 +115,24 @@ module Crysterm
           next if n == 0
 
           f = @frame
-          bg = style.bg
-          fg_default = style.fg
+
+          # Per-frame invariants hoisted out of the column loop. `base` is the
+          # plain glyph attr (and is used as-is when not in rainbow mode); in
+          # rainbow mode only the foreground varies, so its flags and packed bg
+          # are reused and just the fg is repacked per column.
+          base = sattr style, style.fg, style.bg
+          flags = Attr.flags base
+          bg_packed = Attr.bg base
 
           (0...w).each do |x|
             # For `:left`, column x shows text[f + x] so that as f grows the row
             # shifts left; `:right` is the mirror. Crystal's `%` follows the
             # divisor's sign, so the index is always valid.
             idx = (direction.left? ? f + x : f - x) % n
-            ch = text[idx]
+            ch = @chars[idx]
             next if ch == ' '
-            fg = rainbow? ? Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360) : fg_default
-            screen.fill_region(sattr(style, fg, bg), ch, xi + x, xi + x + 1, yi, yi + 1)
+            attr = rainbow? ? Attr.pack(flags, Attr.pack_color(Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360)), bg_packed) : base
+            screen.fill_region(attr, ch, xi + x, xi + x + 1, yi, yi + 1)
           end
         end
       end

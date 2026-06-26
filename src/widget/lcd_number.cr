@@ -109,15 +109,17 @@ module Crysterm
 
       # Builds the three-row seven-segment rendering of *str*.
       private def render_segments(str : String) : String
-        rows = ["", "", ""]
-        str.each_char_with_index do |ch, i|
-          seg = SEGMENTS[ch.upcase]? || EMPTY
+        last = str.size - 1
+        String.build do |io|
           3.times do |r|
-            rows[r] += seg[r]
-            rows[r] += " " if i < str.size - 1 # one-cell gap between glyphs
+            io << '\n' if r > 0
+            str.each_char_with_index do |ch, i|
+              seg = SEGMENTS[ch.upcase]? || EMPTY
+              io << seg[r]
+              io << ' ' if i < last # one-cell gap between glyphs
+            end
           end
         end
-        rows.join('\n')
       end
     end
   end

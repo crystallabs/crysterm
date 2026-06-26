@@ -163,6 +163,23 @@ module Crysterm
       offs
     end
 
+    # Maps each interior text-column x to the `@maxes` column index it falls in,
+    # packing columns left-to-right from *start_col* (inclusive) starting at
+    # display column *base_x* (the left content inset, `ileft`). Used by the
+    # table widgets to resolve a CSS per-cell style from an x position:
+    # `Table` maps every column (`start_col == 0`), `ListTable` maps from its
+    # first horizontally-visible column (`@first_col`).
+    def col_for_x(start_col : Int32, base_x : Int32) : Hash(Int32, Int32)
+      map = {} of Int32 => Int32
+      cx = base_x
+      (start_col...@maxes.size).each do |col_i|
+        max = @maxes[col_i]
+        (cx...cx + max).each { |xpos| map[xpos] = col_i }
+        cx += max
+      end
+      map
+    end
+
     # Pads/clips a single cell's text to `width` columns according to the
     # widget's horizontal alignment.
     def pad_cell(cell : String, width : Int32) : String

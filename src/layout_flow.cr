@@ -2,11 +2,12 @@ require "./layout"
 
 module Crysterm
   class Layout
-    # Shared base for the two *flow* layouts, `Masonry` and `Grid`. Both place
-    # children left-to-right, wrapping to a new row when the next child would
-    # overflow the interior width; they differ only in column alignment (grid
-    # snaps every child to a uniform column width) and in whether lower-row
-    # children gravitate upward (masonry only).
+    # Shared base for the *flow* layouts — `Masonry`, `UniformGrid` and `Wrap`
+    # (distinct from `Layout::Grid`, which is a real row/column grid, not a
+    # flow). All place children left-to-right, wrapping to a new row when the
+    # next child would overflow the interior width; they differ only in column
+    # alignment (`UniformGrid` snaps every child to a uniform column width) and
+    # in whether lower-row children gravitate upward (`Masonry` only).
     #
     # `Flow` owns the arrange loop — render-index bookkeeping, overflow handling
     # and per-child rendering — and defers the actual per-child positioning to

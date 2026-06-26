@@ -1,5 +1,6 @@
 require "./box"
 require "../widget_graph_scale"
+require "../mixin/ranged_value"
 
 module Crysterm
   class Widget
@@ -30,6 +31,9 @@ module Crysterm
     # ![Gauge screenshot](../../examples/widget/gauge/gauge-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Gauge < Box
+      # Float-valued `#span`/`#percent_of` helpers (shared with `GaugeList`).
+      include Mixin::PercentRange
+
       # One colored slice of a stacked gauge.
       struct Segment
         # The slice's value, measured on the gauge's `minimum`..`maximum` span.
@@ -85,13 +89,6 @@ module Crysterm
         self.parse_tags = true
       end
 
-      # Size of the value range (`maximum - minimum`), never zero (so divisions
-      # are safe; an empty range simply renders empty).
-      private def span : Float64
-        s = @maximum - @minimum
-        s <= 0 ? 1.0 : s
-      end
-
       # Current value, within `[minimum, maximum]`.
       def value : Float64
         @value
@@ -112,7 +109,7 @@ module Crysterm
 
       # Current fill as a `0..100` percentage of the range.
       def percent : Float64
-        ((@value - @minimum) / span * 100).clamp(0.0, 100.0)
+        percent_of @value
       end
 
       def render

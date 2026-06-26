@@ -644,11 +644,6 @@ module Crysterm
       def _done_default(err = nil, data = nil)
         __done_default err, data
       end
-
-      def _done_default(err = nil, data = nil, &callback : Proc(String, String, Nil))
-        __done_default err, data
-        callback.call err, value
-      end
     end
   end
 end

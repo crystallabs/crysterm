@@ -83,17 +83,7 @@ module Crysterm
         # the drag. A free move (no button) is ignored.
         on(Crysterm::Event::Mouse) do |e|
           # Wheel nudges the value by one step (up = increase).
-          if e.action.wheel_up?
-            increment
-            e.accept
-            request_render
-            next
-          elsif e.action.wheel_down?
-            decrement
-            e.accept
-            request_render
-            next
-          end
+          next if ranged_wheel e
 
           next unless e.action.down? || (e.action.move? && !e.button.none?)
           if @orientation.horizontal?
@@ -107,7 +97,6 @@ module Crysterm
           next if span_px <= 0
           self.value = @minimum + (pos * value_span / span_px.to_f).round.to_i
           e.accept
-          request_render
         end
       end
 
@@ -226,34 +215,10 @@ module Crysterm
         end
       end
 
+      # Arrow/Page/Home/End stepping is shared with `Dial` via
+      # `Mixin::RangedValue#ranged_step_key`.
       def on_keypress(e)
-        k = e.key
-        ch = e.char
-        if k == Tput::Key::Left || k == Tput::Key::Down || ch == 'h' || ch == 'j'
-          decrement
-          e.accept
-          request_render
-        elsif k == Tput::Key::Right || k == Tput::Key::Up || ch == 'l' || ch == 'k'
-          increment
-          e.accept
-          request_render
-        elsif k == Tput::Key::PageDown
-          decrement @page_step
-          e.accept
-          request_render
-        elsif k == Tput::Key::PageUp
-          increment @page_step
-          e.accept
-          request_render
-        elsif k == Tput::Key::Home
-          self.value = @minimum
-          e.accept
-          request_render
-        elsif k == Tput::Key::End
-          self.value = @maximum
-          e.accept
-          request_render
-        end
+        ranged_step_key e
       end
     end
   end

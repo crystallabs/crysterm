@@ -139,35 +139,14 @@ module Crysterm
         Media.dither_rgb(bmp, pw, ph, @dither, false, -1) do |r, g, b, t|
           if t != 0.0
             n = t * 110.0
-            r = clamp8 (r + n).round.to_i
-            g = clamp8 (g + n).round.to_i
-            b = clamp8 (b + n).round.to_i
+            r = Media.clamp8 (r + n).round.to_i
+            g = Media.clamp8 (g + n).round.to_i
+            b = Media.clamp8 (b + n).round.to_i
           end
-          ci = nearest r, g, b
+          ci = Media.nearest_index PALETTE, r, g, b
           rgb = PALETTE[ci]
           {ci, (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff}
         end
-      end
-
-      # Index of the nearest palette color to (r,g,b) by squared distance.
-      private def nearest(r : Int32, g : Int32, b : Int32) : Int32
-        best = 0
-        bestd = Int32::MAX
-        PALETTE.each_with_index do |rgb, i|
-          dr = r - ((rgb >> 16) & 0xff)
-          dg = g - ((rgb >> 8) & 0xff)
-          db = b - (rgb & 0xff)
-          d = dr*dr + dg*dg + db*db
-          if d < bestd
-            bestd = d
-            best = i
-          end
-        end
-        best
-      end
-
-      private def clamp8(v : Int32) : Int32
-        v < 0 ? 0 : (v > 255 ? 255 : v)
       end
     end
   end

@@ -86,6 +86,24 @@ module Crysterm
         true
       end
 
+      # Adds *delta* to *v* modulo *mod*, staying in `0...mod` (the no-carry
+      # step convention shared by every section editor). Used by each widget's
+      # `step` to wrap minutes/months/etc. within their own range.
+      private def wrap(v : Int32, delta : Int32, mod : Int32) : Int32
+        r = (v + delta) % mod
+        r < 0 ? r + mod : r
+      end
+
+      # Highlights the active section in place by wrapping `parts[@section]` in
+      # `{reverse}…{/reverse}`, guarded to the array bounds, and returns *parts*
+      # so the caller can join them with its own separators.
+      private def highlight_part(parts : Array(String)) : Array(String)
+        if 0 <= @section < parts.size
+          parts[@section] = "{reverse}#{parts[@section]}{/reverse}"
+        end
+        parts
+      end
+
       # Hook run after a press selects a section. Default: nothing.
       protected def on_section_press : Nil
       end

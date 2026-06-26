@@ -13,8 +13,6 @@ module Crysterm
     # ![CheckBox screenshot](../../examples/widget/checkbox/checkbox-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class CheckBox < Input
-      include EventHandler
-
       # TODO support for changing icons
 
       # TODO checkboxes don't have keys enabled by default, so to be

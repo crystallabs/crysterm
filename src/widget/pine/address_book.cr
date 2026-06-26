@@ -1,3 +1,5 @@
+require "../../widget_pine_selectable_list"
+
 module Crysterm
   class Widget
     module Pine
@@ -15,67 +17,63 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![AddressBook screenshot](../../../examples/widget/pine/address_book/address_book-capture5s.apng)
       # <!-- /widget-examples:capture -->
-      class AddressBook < Widget::List
-        # A single address-book entry.
-        class Contact
-          # Short nickname / alias.
-          property nickname : String
+      # A single address-book entry.
+      class Contact
+        # Short nickname / alias.
+        property nickname : String
 
-          # Full display name.
-          property name : String
+        # Full display name.
+        property name : String
 
-          # Email address.
-          property email : String
+        # Email address.
+        property email : String
 
-          # Action invoked when the contact is selected.
-          property callback : Proc(Nil)?
+        # Action invoked when the contact is selected.
+        property callback : Proc(Nil)?
 
-          def initialize(@nickname, @name, @email, *, @callback = nil)
-          end
-
-          # The contact formatted as a mail recipient: `Name <email>`.
-          def recipient : String
-            "#{name} <#{email}>"
-          end
+        def initialize(@nickname, @name, @email, *, @callback = nil)
         end
 
-        # The contacts currently displayed, parallel to the list rows.
-        getter contacts = [] of Contact
+        # The contact formatted as a mail recipient: `Name <email>`.
+        def recipient : String
+          "#{name} <#{email}>"
+        end
+      end
+
+      class AddressBook < SelectableList(Contact)
+        # Historical nested name for the record type (see `SelectableList`).
+        alias Contact = ::Crysterm::Widget::Pine::Contact
 
         def initialize(
           contacts : Array(Contact) = [] of Contact,
           **list,
         )
-          super **list
+          super contacts, **list
+        end
 
-          styles.selected = Style.new reverse: true
-
-          set_contacts contacts
-
-          on ::Crysterm::Event::ActionItem do |_e|
-            run_selected
-          end
+        # The contacts currently displayed, parallel to the list rows.
+        def contacts : Array(Contact)
+          records
         end
 
         # Replaces the displayed contacts.
         def set_contacts(contacts : Array(Contact))
-          @contacts = contacts
-          set_items contacts.map { |c| format_contact c }
+          set_records contacts
         end
 
         # The currently-selected contact, if any.
         def selected_contact : Contact?
-          @contacts[selected]?
+          selected_record
         end
 
         # Selects the currently-highlighted contact.
         def run_selected
-          selected_contact.try &.callback.try &.call
+          activate
         end
 
         # Formats one contact into a nickname / name / email row.
-        private def format_contact(c : Contact) : String
-          "  #{c.nickname.ljust(10)}#{c.name.ljust(24)}#{c.email}"
+        def format_row(item : Contact, index : Int32) : String
+          "  #{item.nickname.ljust(10)}#{item.name.ljust(24)}#{item.email}"
         end
       end
     end
