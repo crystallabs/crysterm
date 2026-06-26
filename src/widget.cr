@@ -53,6 +53,7 @@ module Crysterm
     Hovered # Hover
     Selected
     Disabled # Does not react to keyboard input
+
     # XXX Does state Hidden belong here?
     # Also does 'Unmanaged' belong here, indicating that Crysterm should not be
     # doing state transitions on it?
