@@ -25,6 +25,12 @@
 #
 # Everything is laid out by `MainWindow` and re-flows to the terminal size.
 #
+# Styling note: this example sets NO inline styles — every color and border comes
+# from the active theme (the built-in `terminal`/`dark`/`light`, or a Qt theme
+# loaded with `--colors-stylesheet data/css/<name>.qss`). That keeps the widgets
+# faithful to whatever theme is loaded; an inline `Style.new(...)` would sit at
+# the top (inline) cascade tier and override the theme.
+#
 # Try it: wait for the splash to clear; click File/Edit/Help for pop-up menus
 # (clicking the open menu's title again closes it; with one open, hover another
 # to switch); use the tool-bar buttons; hover a control for a tooltip; drag the
@@ -66,8 +72,7 @@ end
 # a title (or Enter/Down while focused) to open it, and once open, hovering or
 # arrowing onto another title switches to it. Right on a submenu-less item / Left
 # also move between menus.
-menubar = Widget::MenuBar.new menu_style: Style.new(border: true, fg: "white", bg: "#202030"),
-  style: Style.new(fg: "white", bg: "#303050")
+menubar = Widget::MenuBar.new
 win.menu_bar = menubar
 
 filemenu = menubar.add_menu "File"
@@ -91,7 +96,7 @@ menubar.add_menu("Help").add("About") { status.show_message " Crysterm — Qt-in
 
 # --- Tool bar (action buttons) -----------------------------------------------
 
-toolbar = Widget::ToolBar.new style: Style.new(fg: "white", bg: "#252540")
+toolbar = Widget::ToolBar.new
 win.tool_bar = toolbar
 toolbar.add_button("New") { status.show_message " new file"; s.render }
 toolbar.add_button("Open") { status.show_message " open file"; s.render }
@@ -104,7 +109,7 @@ toolbar.add_action tb_bold
 
 # --- Central tabbed area -----------------------------------------------------
 
-tabs = Widget::TabWidget.new tabs_closable: true, style: Style.new(border: true)
+tabs = Widget::TabWidget.new tabs_closable: true
 win.central_widget = tabs
 
 controls = Widget::Box.new
@@ -123,49 +128,42 @@ tabs.add_tab "Extras", extraspage
 # Controls tab: a checkable GroupBox holding the value widgets (with tooltips).
 gb = Widget::GroupBox.new \
   parent: controls, top: 1, left: 1, right: 1, bottom: 1,
-  title: "Profile", checkable: true, checked: true,
-  style: Style.new(fg: "white", border: true)
+  title: "Profile", checkable: true, checked: true
 
 Widget::Box.new parent: gb, top: 1, left: 1, width: 8, height: 1, content: "Volume:"
 slider = Widget::Slider.new \
   parent: gb, top: 1, left: 9, width: 16, height: 2,
   minimum: 0, maximum: 100, value: 40, show_value: true,
-  tick_position: Widget::Slider::TickPosition::Below, tick_interval: 20,
-  style: Style.new(fg: "green")
+  tick_position: Widget::Slider::TickPosition::Below, tick_interval: 20
 slider.tool_tip = "Master volume (0–100)"
 
 Widget::Box.new parent: gb, top: 3, left: 1, width: 8, height: 1, content: "Count:"
 spin = Widget::SpinBox.new \
   parent: gb, top: 3, left: 9, width: 12, height: 1,
-  minimum: 0, maximum: 10, value: 3, suffix: " items",
-  style: Style.new(fg: "yellow")
+  minimum: 0, maximum: 10, value: 3, suffix: " items"
 spin.tool_tip = "Item count (type or step)"
 
 Widget::Box.new parent: gb, top: 5, left: 1, width: 8, height: 1, content: "Angle:"
 dial = Widget::Dial.new \
   parent: gb, top: 5, left: 9, width: 7, height: 3,
-  minimum: 0, maximum: 360, value: 90,
-  style: Style.new(fg: "magenta")
+  minimum: 0, maximum: 360, value: 90
 dial.tool_tip = "Angle in degrees"
 
 # Color combo placed last so its drop-down opens *below* the other controls.
 Widget::Box.new parent: gb, top: 9, left: 1, width: 8, height: 1, content: "Color:"
 combo = Widget::ComboBox.new \
   parent: gb, top: 9, left: 9, width: 16, height: 1, editable: true,
-  options: ["Red", "Green", "Blue", "Cyan", "Magenta", "Maroon"],
-  style: Style.new(fg: "white", bg: "#303030")
+  options: ["Red", "Green", "Blue", "Cyan", "Magenta", "Maroon"]
 combo.tool_tip = "Pick or type a color"
 
 # A seven-segment LCD mirroring the volume slider, updated on its events.
 Widget::Box.new parent: gb, top: 11, left: 1, width: 8, height: 1, content: "Vol:"
 lcd = Widget::LCDNumber.new \
-  parent: gb, top: 11, left: 9, width: 16, height: 3, digit_count: 3,
-  style: Style.new(fg: "green")
+  parent: gb, top: 11, left: 9, width: 16, height: 3, digit_count: 3
 lcd.display slider.value
 
 # Menu tab: an embedded menu with nested submenus + a checkable item.
-menu = Widget::Menu.new parent: menupage, top: 1, left: 1, width: 22, height: 10,
-  style: Style.new(fg: "white", border: true)
+menu = Widget::Menu.new parent: menupage, top: 1, left: 1, width: 22, height: 10
 
 recent = Action.new "Recent"
 recent.submenu = [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md")]
@@ -181,11 +179,10 @@ menu << wrap
 menu << mk.call("About", "about")
 
 Widget::Box.new parent: menupage, bottom: 1, left: 1, width: 34, height: 2,
-  content: "Right opens a submenu, Left closes it.", style: Style.new(fg: "#aaaaaa")
+  content: "Right opens a submenu, Left closes it."
 
 # Tree tab: a collapsible node hierarchy.
-tree = Widget::Tree.new parent: treepage, top: 1, left: 1, right: 1, bottom: 3,
-  style: Style.new(fg: "white", border: true)
+tree = Widget::Tree.new parent: treepage, top: 1, left: 1, right: 1, bottom: 3
 src = tree.add "src"
 wdir = src.add "widget"
 wdir.add "tree.cr"
@@ -201,29 +198,25 @@ tree.on(Event::Expand) { status.show_message " tree: expanded #{tree.selected_no
 tree.on(Event::Collapse) { status.show_message " tree: collapsed #{tree.selected_node.try(&.text)}"; s.render }
 
 Widget::Box.new parent: treepage, bottom: 1, left: 1, width: 34, height: 2,
-  content: "Right/Left or Space expand/collapse nodes.", style: Style.new(fg: "#aaaaaa")
+  content: "Right/Left or Space expand/collapse nodes."
 
 # Dates tab: DateEdit (calendar popup), TimeEdit, DateTimeEdit, DoubleSpinBox.
 Widget::Box.new parent: datespage, top: 1, left: 1, width: 8, height: 1, content: "Date:"
 dateedit = Widget::DateEdit.new \
-  parent: datespage, top: 1, left: 9, width: 12, height: 1,
-  style: Style.new(fg: "white", bg: "#303030")
+  parent: datespage, top: 1, left: 9, width: 12, height: 1
 
 Widget::Box.new parent: datespage, top: 3, left: 1, width: 8, height: 1, content: "Time:"
 timeedit = Widget::TimeEdit.new \
-  parent: datespage, top: 3, left: 9, width: 10, height: 1,
-  style: Style.new(fg: "white", bg: "#303030")
+  parent: datespage, top: 3, left: 9, width: 10, height: 1
 
 Widget::Box.new parent: datespage, top: 5, left: 1, width: 8, height: 1, content: "Stamp:"
 dtedit = Widget::DateTimeEdit.new \
-  parent: datespage, top: 5, left: 9, width: 21, height: 1,
-  style: Style.new(fg: "white", bg: "#303030")
+  parent: datespage, top: 5, left: 9, width: 21, height: 1
 
 Widget::Box.new parent: datespage, top: 7, left: 1, width: 8, height: 1, content: "Ratio:"
 dspin = Widget::DoubleSpinBox.new \
   parent: datespage, top: 7, left: 9, width: 10, height: 1,
-  minimum: 0.0, maximum: 1.0, step: 0.05, value: 0.25,
-  style: Style.new(fg: "yellow")
+  minimum: 0.0, maximum: 1.0, step: 0.05, value: 0.25
 
 dateedit.on(Event::DateChange) { |e| status.show_message " date: #{e.date.to_s("%Y-%m-%d")}"; s.render }
 timeedit.on(Event::DateChange) { |e| status.show_message " time: #{e.date.to_s("%H:%M:%S")}"; s.render }
@@ -234,22 +227,19 @@ dspin.on(Event::DoubleValueChange) { |e| status.show_message " ratio: #{e.value}
 # (‹/›), pops up a month menu (click the name) and a year menu (click the year),
 # with ISO week numbers down the left. Arrow keys move the selection.
 cal = Widget::Calendar.new \
-  parent: datespage, top: 1, left: 30, width: 25, height: 10,
-  style: Style.new(border: true, fg: "white")
+  parent: datespage, top: 1, left: 30, width: 25, height: 10
 cal.vertical_header_format = Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
 cal.on(Event::DateChange) { |e| status.show_message " calendar: #{e.date.to_s("%Y-%m-%d")}"; s.render }
 cal.on(Event::CurrentPageChange) { |e| status.show_message " page: #{e.year}-#{e.month.to_s.rjust(2, '0')}"; s.render }
 
 Widget::Box.new parent: datespage, bottom: 1, left: 1, width: 54, height: 2,
-  content: "Click the date field for a calendar; click the calendar's month/year to pick. Wheel a section to step it.",
-  style: Style.new(fg: "#aaaaaa")
+  content: "Click the date field for a calendar; click the calendar's month/year to pick. Wheel a section to step it."
 
 # Stack tab: a tab-less StackedWidget that auto-cycles its pages.
 stack = Widget::StackedWidget.new parent: stackpage, top: 1, left: 1, right: 1, bottom: 1
-{"#2a2a4a" => "Page One", "#2a4a2a" => "Page Two", "#4a2a2a" => "Page Three"}.each do |bg, label|
+["Page One", "Page Two", "Page Three"].each do |label|
   stack.add_page Widget::Box.new(
-    content: "{center}#{label}\n\n(click to flip){/center}", parse_tags: true,
-    style: Style.new(fg: "white", bg: bg))
+    content: "{center}#{label}\n\n(click to flip){/center}", parse_tags: true)
 end
 
 # Extras tab: the newest Qt-modeled widgets — ButtonGroup (exclusive toggle
@@ -263,8 +253,7 @@ bgroup = ButtonGroup.new
 mode_labels.each_with_index do |label, i|
   b = Widget::Button.new \
     parent: extraspage, top: 1, left: 10 + i * 8, width: 7, height: 1,
-    content: label, align: :center, checkable: true, focus_on_click: true,
-    style: Style.new(fg: "white", bg: "#303050")
+    content: label, align: :center, checkable: true, focus_on_click: true
   bgroup.add b, i
 end
 bgroup.on(Event::ButtonClick) do
@@ -282,7 +271,7 @@ end
 
 # ToolButton with a default Action (Enter/Space applies it) and a popup Menu
 # (press Down to open it), like a Qt tool button with a drop-down.
-tb_menu = Widget::Menu.new parent: s, width: 16, height: 4, style: Style.new(fg: "white", border: true)
+tb_menu = Widget::Menu.new parent: s, width: 16, height: 4
 tb_menu.add("Rename") { status.show_message " tool: rename"; s.render }
 tb_menu.add("Delete") { status.show_message " tool: delete"; s.render }
 tb_menu.hide # stays hidden until opened from the ToolButton (via Down)
@@ -293,32 +282,29 @@ tool_action.on(Event::Triggered) { status.show_message " tool: apply"; s.render 
 Widget::Box.new parent: extraspage, top: 3, left: 1, width: 9, height: 1, content: "Tool:"
 toolbtn = Widget::ToolButton.new \
   parent: extraspage, top: 3, left: 10, width: 12, height: 1,
-  action: tool_action, menu: tb_menu, align: :center,
-  style: Style.new(fg: "white", bg: "#252540")
+  action: tool_action, menu: tb_menu, align: :center
 toolbtn.tool_tip = "Enter/Space applies; Down opens the menu"
 
 # Completer: type into the LineEdit to autocomplete from a fixed word list.
 Widget::Box.new parent: extraspage, top: 5, left: 1, width: 9, height: 1, content: "Lang:"
 langbox = Widget::LineEdit.new \
-  parent: extraspage, top: 5, left: 10, width: 18, height: 1,
-  style: Style.new(fg: "white", bg: "#303030")
+  parent: extraspage, top: 5, left: 10, width: 18, height: 1
 langbox.tool_tip = "Type to autocomplete (Down opens the list, Tab/Enter accepts)"
 completer = Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java JavaScript Kotlin Lua]
 completer.attach langbox
 
-# ColorDialog: a modal palette picker launched from a button; the chosen color
-# recolors the swatch next to it.
-swatch = Widget::Box.new parent: extraspage, top: 7, left: 18, width: 6, height: 1,
-  style: Style.new(bg: "red")
+# ColorDialog: a modal palette picker launched from a button. The picked color
+# is reported in the status bar; with no inline style on the swatch, the theme's
+# `Box` rule paints its surface (a `style.bg=` here would be re-applied by the
+# cascade each render — see the ButtonGroup note above).
+swatch = Widget::Box.new parent: extraspage, top: 7, left: 18, width: 6, height: 1
 colordlg = Widget::ColorDialog.new \
-  parent: s, top: "center", left: "center", width: 56, height: 20,
-  style: Style.new(fg: "white", border: true)
+  parent: s, top: "center", left: "center", width: 56, height: 20
 colordlg.hide
 Widget::Box.new parent: extraspage, top: 7, left: 1, width: 9, height: 1, content: "Color:"
 pickbtn = Widget::Button.new \
   parent: extraspage, top: 7, left: 10, width: 6, height: 1,
-  content: "Pick", align: :center, focus_on_click: true,
-  style: Style.new(fg: "white", bg: "#303050")
+  content: "Pick", align: :center, focus_on_click: true
 open_picker = -> do
   colordlg.pick do |color|
     if color
@@ -349,11 +335,10 @@ end
 
 # --- Floating dock: a Splitter inside a DockWidget ---------------------------
 
-split = Widget::Splitter.new style: Style.new(border: true)
-["#202038", "#203828", "#382020"].each_with_index do |bg, i|
+split = Widget::Splitter.new
+3.times do |i|
   split.add_pane Widget::Box.new(
-    content: "{center}Pane #{i + 1}{/center}", parse_tags: true,
-    style: Style.new(fg: "white", bg: bg))
+    content: "{center}Pane #{i + 1}{/center}", parse_tags: true)
 end
 
 # The dock's home is the right edge (width `dock_size`), but we immediately float
@@ -399,7 +384,7 @@ tabs.bar.focus
 splash_banner = Widget::Marquee.new text: "  ✦  Crysterm — Qt-inspired terminal widgets  ✦  ", rainbow: true
 splash = Widget::SplashScreen.new \
   parent: s, width: 46, height: 7,
-  content: splash_banner, style: Style.new(border: true, fg: "white", bg: "#101028")
+  content: splash_banner
 splash.show_message "Loading…"
 splash_banner.start
 splash.on(Event::Complete) { splash_banner.stop }

@@ -24,7 +24,9 @@ module Crysterm
         when "initial", "unset"
           nil
         else
-          if v.starts_with?("rgb")
+          if v.includes?("gradient") && (grad = gradient_color(v))
+            grad
+          elsif v.starts_with?("rgb")
             parse_rgb(v)
           elsif v.starts_with?("hsl")
             parse_hsl(v)
@@ -32,6 +34,40 @@ module Crysterm
             v # named or #hex — let `Colors.convert` handle it
           end
         end
+      end
+
+      # Matches a CSS/Qt gradient function head: CSS `linear-gradient(`/
+      # `radial-gradient(`/`conic-gradient(` and Qt `qlineargradient(`/
+      # `qradialgradient(`/`qconicalgradient(`.
+      GRADIENT_HEAD = /\b[a-z]*gradient\s*\(/i
+
+      # A color stop inside a gradient: a `#rgb[a]`/`#rrggbb[aa]` hex or an
+      # `rgb()/rgba()` function. (Qt stops read `stop: <pos> <color>`, CSS stops
+      # `<color> <pos>` — either spelling, we just harvest the colors.)
+      GRADIENT_STOP = /#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)/i
+
+      # Collapses a CSS/Qt gradient to a representative solid color: a terminal
+      # cell paints a flat background, not a real gradient, so the best we can
+      # display is the channel-wise average of the gradient's stop colors (a
+      # blue→cyan bar reads as the blue-cyan midpoint). Returns `nil` when *value*
+      # is not a gradient or has no parseable stops. This is what lets a theme
+      # like breeze's `…::item:selected:active { background: qlineargradient(...) }`
+      # render — rather than feeding a stray `#rrggbb,` stop token to the color
+      # parser (which used to crash).
+      def self.gradient_color(value : String) : Int32?
+        return nil unless value =~ GRADIENT_HEAD
+        r = g = b = n = 0
+        value.scan(GRADIENT_STOP) do |m|
+          tok = m[0]
+          c = tok.starts_with?('#') ? Colors.convert_cached(tok) : (parse_rgb(tok) || -1)
+          next if c < 0
+          r += (c >> 16) & 0xff
+          g += (c >> 8) & 0xff
+          b += c & 0xff
+          n += 1
+        end
+        return nil if n == 0
+        rgb r // n, g // n, b // n
       end
 
       # The numeric arguments of a color function, in source order

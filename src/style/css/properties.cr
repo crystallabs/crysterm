@@ -129,10 +129,17 @@ module Crysterm
         "selection-color", "selection-background-color",
       }
 
-      # Extracts a color from a `background` shorthand: the first token that
-      # resolves to a real color (functions/keywords, or a named/hex color whose
-      # `Colors.convert` isn't the `-1` "unknown" sentinel).
+      # Extracts a color from a `background`/`background-color` value. A gradient
+      # (`qlineargradient(...)` etc.) is collapsed to a representative solid color;
+      # otherwise the first token that resolves to a real color wins (functions/
+      # keywords, or a named/hex color whose `Colors.convert` isn't the `-1`
+      # "unknown" sentinel).
       private def self.parse_background_color(value : String, current_fg : Int32?) : Int32?
+        # A gradient spans multiple whitespace-split tokens, so collapse it whole
+        # (to its averaged solid) before the per-token scan below.
+        if grad = ColorValue.gradient_color(value)
+          return grad
+        end
         value.split.each do |token|
           case resolved = ColorValue.resolve(token, current_fg)
           when Int32 then return resolved

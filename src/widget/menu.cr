@@ -294,26 +294,38 @@ module Crysterm
         w + iwidth
       end
 
+      # The height that fits the rows: one row per visible action plus the menu's
+      # own `iheight` — its top/bottom border **and** any vertical padding. Derived
+      # from `iheight` rather than a hardcoded `+ 2` so a theme that draws no menu
+      # border (e.g. qdarkstyle's `QMenu { border: 0px }`) doesn't leave blank rows
+      # where the borders would have been — no assumption that a border exists.
+      private def fit_height : Int32
+        visible_actions.size + iheight
+      end
+
       # Sizes a popup/submenu to fit its content. Marks the menu auto-sizing so
-      # `#autosize` keeps the width correct after the cascade resolves the real box
+      # `#autosize` keeps the box correct after the cascade resolves the real box
       # model (this runs pre-cascade for a freshly-opened submenu). Protected so
       # `#open_submenu` can size a child the same way `#popup` sizes a top-level.
       protected def fit_to_content : Nil
         @autosize = true
         self.width = fit_width
-        self.height = visible_actions.size + 2
+        self.height = fit_height
       end
 
-      # Re-fits an auto-sized menu's width at render, now that the cascade has set
+      # Re-fits an auto-sized menu's box at render, now that the cascade has set
       # the real box model — the row `QMenu::item` padding (in `@item_box_w`, just
-      # captured by `#strip_item_box_model`) and the menu's own padding (in
-      # `iwidth`). `#fit_to_content` runs before that for a submenu, so its width
-      # can miss the padding; this corrects it (the menu grows rightward, its left
-      # anchor fixed). No-op for an explicitly-sized embedded menu.
+      # captured by `#strip_item_box_model`) and the menu's own border/padding (in
+      # `iwidth`/`iheight`). `#fit_to_content` runs before that for a submenu, so
+      # its width *and* height can miss the resolved box model (e.g. a border the
+      # theme adds, or omits); this corrects both — the menu grows rightward/down,
+      # its top-left anchor fixed. No-op for an explicitly-sized embedded menu.
       private def autosize : Nil
         return unless @autosize
         w = fit_width
         self.width = w unless width == w
+        h = fit_height
+        self.height = h unless height == h
       end
 
       # Lays each row's text out across the menu's full inner width: the checkbox
@@ -701,26 +713,40 @@ module Crysterm
         subs.each { |a| child << a }
         child.parent_menu = self
 
+        # Add to the tree and resolve its themed box model *now*, before sizing or
+        # focusing. A submenu is created fresh on open, so (unlike a top-level menu
+        # built at startup and cascaded over earlier frames) its border/padding
+        # come only from the cascade — which otherwise wouldn't run until the next
+        # render. Without this, `#fit_to_content` would size against a borderless
+        # `iheight == 0` box and the focus-time scroll math would run against that
+        # too-short height, scrolling the first rows out of view: the deep-submenu
+        # "last entry invisible until you hover" bug on bordered themes.
+        screen.append child
+        screen.restyle_structural child
+        screen.apply_stylesheet
+
         # Size the child exactly like a top-level popup (`#fit_to_content`), so a
-        # submenu gets the same column layout, breathing and padding — and stays
-        # correct after the cascade via `#autosize`. Then float it to the right of
-        # the selected row. The left baseline is the parent's right *border column*
-        # (`lp.xl - 1`), so with the default zero margin the submenu's left border
-        # overlaps the parent's right border (a shared divider, like a desktop
-        # menu). Any gap is then driven purely by the submenu's `style.margin` —
-        # `_get_coords` adds `margin.left`/`margin.top` to the resolved box — so a
-        # themed or explicit margin distances it without any hardcoded offset.
+        # submenu gets the same column layout, breathing and padding. Then float it
+        # to the right of the selected row. When the menu draws a border, the left
+        # baseline is the parent's right *border column* (`lp.xl - 1`) so the
+        # submenu's left border overlaps it (a shared divider, like a desktop
+        # menu); a borderless theme (e.g. qdarkstyle) has no border to share, so
+        # the child sits flush at the parent's right edge (`lp.xl`) rather than
+        # biting a content column — no assumption that a border exists. The
+        # vertical offset uses `itop` (0 when borderless) likewise. Any further gap
+        # is driven purely by the submenu's `style.margin` (`_get_coords` adds
+        # `margin.left`/`margin.top`), so a themed or explicit margin distances it
+        # without any hardcoded offset.
         child.fit_to_content
         begin
           lp = last_rendered_position
-          child.left = lp.xl - 1
+          child.left = lp.xl - (style.border.any? ? 1 : 0)
           child.top = lp.yi + itop + (selected - @child_base)
         rescue
           child.left = 0
           child.top = 0
         end
 
-        screen.append child
         child.front!
         child.focus
         @submenu_open = child

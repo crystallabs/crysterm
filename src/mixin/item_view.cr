@@ -292,14 +292,18 @@ module Crysterm
         # content area (e.g. a tight popup menu showing "Abo" instead of "About").
         # Give items a borderless base style so their geometry matches.
         item_style = style
-        if item_style.border.any?
-          item_style = without_border item_style
-          # An item's own style must not carry the list's *hidden* state: the
-          # parent's visibility gates the subtree, and a dup made while the list
-          # is hidden (e.g. menu rows added after `hide`) would otherwise snapshot
-          # `visible: false` and never reappear when the list is shown.
-          item_style.visible = true
-        end
+        item_style = without_border item_style if item_style.border.any?
+        # An item's own style must not carry the list's *hidden* state: the
+        # parent's visibility gates the subtree, so a style captured while the
+        # list is hidden would otherwise keep `visible: false` and never reappear
+        # when the list is shown. This bites whenever rows are built from a hidden
+        # list — menu rows added after `hide`, or (now that menus are theme-driven
+        # rather than given an inline `Style.new(border: true)`) a freshly opened
+        # menu whose inline style has no border, so `without_border` above didn't
+        # already dup it. Dup if we're still pointing at the list's own style — so
+        # forcing this never flips the list itself visible — then mark it visible.
+        item_style = item_style.dup if item_style.same?(style)
+        item_style.visible = true
 
         item = Widget::Box.new(content: content, screen: screen, align: align, top: top, left: left, right: right, parse_tags: parse_tags, height: 1, focus_on_click: focus_on_click, width: width, style: item_style)
         # XXX above: alpha

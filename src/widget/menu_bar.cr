@@ -47,6 +47,9 @@ module Crysterm
         # ("File", not the ActionBar default "1:File").
         super(**listbar.merge(keys: true))
         setup_action_bar mouse: true, auto_prefix: false
+        # Titles pack flush — no inert gap cells between menus (only trailing the
+        # last title). Each title box keeps its own side padding.
+        @item_gap = 0
 
         # Keep the highlight on the open menu (nothing when none is open), even as
         # focus enters/leaves the bar — the action bar would otherwise re-light its

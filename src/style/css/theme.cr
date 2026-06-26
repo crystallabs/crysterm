@@ -199,9 +199,14 @@ module Crysterm
          its plane over whatever sits behind it, so rows over darker content come
          out darker than rows over lighter content — banding that reads as the
          frame/rows "alternating". An overlay is a solid surface, so no opacity
-         here. (Set `opacity` on a specific menu to opt back into translucency.) */
-      Menu { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; padding: 0 1; }
-      .popup { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; }
+         here. (Set `opacity` on a specific menu to opt back into translucency.)
+         Background is `--surface` (the window/general surface), matching what an
+         unstyled `QMenu` inherits in Qt (the `Window` palette role). Upstream Qt
+         themes conventionally don't style the menu, so this baseline keeps menus
+         consistent with the loaded theme's surface; a theme that *does* style the
+         menu (e.g. qdarkstyle's explicit `QMenu`) overrides it. */
+      Menu { border: solid; border-color: var(--muted); background-color: var(--surface); z-index: 10; padding: 0 1; }
+      .popup { border: solid; border-color: var(--muted); background-color: var(--surface); z-index: 10; }
 
       /* Scrollbars and progress indicators. The scrollbar is a real widget
          (.scrollbar) on a thin translucent plane so content shows faintly through. */

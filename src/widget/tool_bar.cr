@@ -34,6 +34,9 @@ module Crysterm
       def initialize(**listbar)
         super(**listbar.merge(keys: true))
         setup_action_bar mouse: true, auto_prefix: false
+        # Buttons pack flush — no inert gap cells between them (only trailing the
+        # last one). Each button box keeps its own side padding. Same as MenuBar.
+        @item_gap = 0
       end
 
       # Adds a button for *action*, returns its box. Clicking triggers the action

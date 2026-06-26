@@ -74,6 +74,14 @@ module Crysterm
       # default). Turn off for a plain bar of labels, e.g. a `Widget::MenuBar`.
       property? auto_prefix = true
 
+      # Inert cells between adjacent item boxes (no leading gap, so inert cells
+      # fall only after the last item). Defaults to 2 — the historical spacing; a
+      # `Widget::MenuBar`/`Widget::ToolBar` sets it to 0 so its titles/buttons
+      # pack flush, with every cell up to the last one belonging to an item. Each
+      # item box already carries its own side padding (`width = text + 2`), so 0
+      # still leaves breathing between items.
+      property item_gap : Int32 = 2
+
       # Wires the keyboard navigation and focus re-selection handlers, and sets
       # the bar's interaction defaults. Call from `initialize` after `super`.
       # `mouse`/`auto_prefix` default to the values already on the widget, so a
@@ -148,13 +156,13 @@ module Crysterm
 
       # Appends a `Command`.
       def add(cmd : Command)
-        prev = @items.last?
-
-        drawn = if @parent.nil?
-                  0
-                else
-                  prev ? (prev.aleft || 0) + (prev.awidth || 0) : 0
-                end
+        # Pack each item flush after the ones already added: its left is the sum
+        # of their widths plus `item_gap` inert cells between each. No leading
+        # gap, so inert cells fall only after the last item. Built from the stored
+        # command widths (relative to the bar), so it's correct before the bar is
+        # parented/rendered — unlike reading the previous item's absolute `aleft`,
+        # which double-counted the bar's own offset.
+        drawn = @commands.sum(&.width) + item_gap * @commands.size
 
         if cmd.separator?
           # Separators carry no prefix/hotkey and are sized to their glyph.
@@ -178,7 +186,7 @@ module Crysterm
         item = Widget::Box.new(
           screen: screen,
           top: 0,
-          left: drawn + 1,
+          left: drawn,
           height: 1,
           width: cmd.width,
           content: title,
@@ -252,8 +260,8 @@ module Crysterm
           if i < @left_base
             el.hide
           else
-            el.left = drawn + 1
-            drawn += (el.awidth || 0) + 2
+            el.left = drawn
+            drawn += (el.awidth || 0) + item_gap
             el.show
           end
         end
@@ -301,7 +309,7 @@ module Crysterm
           next if i < @left_base
           w = item.awidth || 0
           next if w <= 0
-          drawn += w + 2
+          drawn += w + item_gap
           visible += 1 if drawn <= width
         end
 

@@ -31,12 +31,24 @@ module Crysterm
     # The non-`String` overload covers `nil`/other specs; those resolve cheaply
     # through `convert` and are not cached.
     def self.convert_cached(color : String) : Int32
-      @@convert_cache.fetch(color) { @@convert_cache[color] = convert(color).to_i32 }
+      @@convert_cache.fetch(color) { @@convert_cache[color] = safe_convert(color) }
     end
 
     # :ditto:
     def self.convert_cached(color) : Int32
+      safe_convert(color)
+    end
+
+    # `TermColors#convert` *raises* on a malformed spec (e.g. a stray `#2a79a3,`
+    # token left by an unsupported Qt `qlineargradient(...)` value when the CSS
+    # parser splits the declaration). A stylesheet must never crash the renderer,
+    # so treat anything unparseable as the `-1` "unknown" sentinel the callers
+    # already handle (the token is then skipped, letting a later real color in the
+    # same value win — so a gradient still yields a sensible solid fallback).
+    private def self.safe_convert(color) : Int32
       convert(color).to_i32
+    rescue ArgumentError
+      -1
     end
 
     # Neutral RGB values substituted for a "default" color when it has to be
