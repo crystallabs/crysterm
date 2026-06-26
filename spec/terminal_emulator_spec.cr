@@ -95,6 +95,35 @@ describe Crysterm::TerminalEmulator do
       em.reset_scroll
       em.ydisp.should eq em.ybase
     end
+
+    it "holds the scrollback position when output arrives while scrolled back" do
+      em = emu(5, 2)
+      4.times { |i| em.feed "L#{i}\r\n" }
+      em.scroll_to 0
+      em.ydisp.should eq 0
+      top = row(em, 0)
+      em.feed "L4\r\n" # fresh output scrolls the live screen; the view must hold
+      em.ydisp.should eq 0
+      row(em, 0).should eq top
+      em.ybase.should be > em.ydisp # live bottom advanced past the held view
+    end
+
+    it "follows the live bottom when output arrives and not scrolled back" do
+      em = emu(5, 2)
+      4.times { |i| em.feed "L#{i}\r\n" }
+      em.ydisp.should eq em.ybase
+      em.feed "L4\r\n"
+      em.ydisp.should eq em.ybase # still tracking the bottom
+    end
+
+    it "scrolls the held view with history when scrollback overflows" do
+      em = emu(5, 2)
+      1100.times { em.feed "x\r\n" } # fill scrollback past SCROLLBACK_LIMIT
+      em.scroll_to 500
+      before = em.ydisp
+      em.feed "y\r\n" # overflow path shifts every row up by one
+      em.ydisp.should eq before - 1
+    end
   end
 
   describe "DEC special-graphics charset" do

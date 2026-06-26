@@ -672,6 +672,10 @@ module Crysterm
     # pushed into scrollback instead of being discarded.
     private def scroll_up : Nil
       if @scroll_top == 0 && @scroll_bottom == @rows - 1
+        # xterm holds the scrollback position when fresh output arrives while the
+        # user is scrolled back; the view only follows the live bottom when it is
+        # already there. `follow` captures "at bottom" *before* `@ybase` moves.
+        follow = @ydisp == @ybase
         if @lines.size - @rows >= SCROLLBACK_LIMIT
           # Scrollback is already full — the steady state while a child streams
           # output. Rather than allocate a fresh `blank_line` for the new bottom
@@ -683,11 +687,14 @@ module Crysterm
           recycled = @lines.shift
           blank_in_place recycled
           @lines << recycled
+          # Every row shifted up by one, so a held scrollback view shifts with it
+          # (clamped at the top) to stay on the same content.
+          @ydisp -= 1 unless follow || @ydisp == 0
         else
           @lines << blank_line
           @ybase += 1
         end
-        @ydisp = @ybase
+        @ydisp = @ybase if follow
       else
         top = @ybase + @scroll_top
         bot = @ybase + @scroll_bottom

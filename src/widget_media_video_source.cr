@@ -166,29 +166,11 @@ module Crysterm
       # Estimates the total frame count via ffprobe (nb_frames, else
       # duration × fps), or `nil` when unknown.
       def estimate_frames(file : String) : Int32?
-        stdout = IO::Memory.new
-        status = Process.run("ffprobe", [
-          "-v", "error", "-select_streams", "v:0",
-          "-show_entries", "stream=nb_frames,avg_frame_rate,duration",
-          "-of", "default=noprint_wrappers=1:nokey=0", file,
-        ], output: stdout, error: Process::Redirect::Close)
-        return nil unless status.success?
-        nb = 0
-        dur = 0.0
-        fps = 0.0
-        stdout.to_s.each_line do |line|
-          key, _, val = line.partition('=')
-          case key.strip
-          when "nb_frames" then nb = val.to_i? || 0
-          when "duration"  then dur = val.to_f? || 0.0
-          when "avg_frame_rate"
-            num, _, den = val.partition('/')
-            n = num.to_f? || 0.0
-            d = den.to_f? || 0.0
-            fps = d > 0 ? n / d : n
-          end
-        end
+        fields = ffprobe_fields(file, "nb_frames,avg_frame_rate,duration") || return nil
+        nb = fields["nb_frames"]?.try(&.to_i?) || 0
         return nb if nb > 0
+        dur = fields["duration"]?.try(&.to_f?) || 0.0
+        fps = parse_frame_rate fields["avg_frame_rate"]?
         return (dur * fps).to_i if dur > 0 && fps > 0
         nil
       rescue
@@ -222,32 +204,46 @@ module Crysterm
       # ffprobe is missing or the file has no usable video stream.
       # :nodoc:
       def probe(file : String) : Info?
+        fields = ffprobe_fields(file, "width,height,avg_frame_rate") || return nil
+        w = fields["width"]?.try(&.to_i?) || 0
+        h = fields["height"]?.try(&.to_i?) || 0
+        return nil if w <= 0 || h <= 0
+        Info.new w, h, parse_frame_rate(fields["avg_frame_rate"]?)
+      rescue
+        nil
+      end
+
+      # Runs ffprobe for the first video stream, requesting *entries* (a
+      # comma-separated `stream=…` field list), and returns the printed
+      # `key => value` pairs — or `nil` if ffprobe is missing / fails.
+      # :nodoc:
+      def ffprobe_fields(file : String, entries : String) : Hash(String, String)?
         stdout = IO::Memory.new
         status = Process.run("ffprobe", [
           "-v", "error", "-select_streams", "v:0",
-          "-show_entries", "stream=width,height,avg_frame_rate",
+          "-show_entries", "stream=#{entries}",
           "-of", "default=noprint_wrappers=1:nokey=0", file,
         ], output: stdout, error: Process::Redirect::Close)
         return nil unless status.success?
-
-        w = h = 0
-        fps = 0.0
+        fields = {} of String => String
         stdout.to_s.each_line do |line|
           key, _, val = line.partition('=')
-          case key.strip
-          when "width"  then w = val.to_i? || 0
-          when "height" then h = val.to_i? || 0
-          when "avg_frame_rate"
-            num, _, den = val.partition('/')
-            n = num.to_f? || 0.0
-            d = den.to_f? || 0.0
-            fps = d > 0 ? n / d : n
-          end
+          fields[key.strip] = val
         end
-        return nil if w <= 0 || h <= 0
-        Info.new w, h, fps
+        fields
       rescue
         nil
+      end
+
+      # Parses an ffprobe `avg_frame_rate` value (`"num/den"`) into fps, or `0.0`
+      # when unset/unusable.
+      # :nodoc:
+      def parse_frame_rate(val : String?) : Float64
+        return 0.0 unless val
+        num, _, den = val.partition('/')
+        n = num.to_f? || 0.0
+        d = den.to_f? || 0.0
+        d > 0 ? n / d : n
       end
 
       # Caps *sw*×*sh* to a *cap* long edge (preserving aspect), forcing even
