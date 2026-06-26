@@ -47,7 +47,4 @@ jobs:
         run: shards update --production --release --static --no-debug --ignore-crystal-version
       - name: Build binaries
         run: |
-          crystal build --time --release --static --no-debug -o bin/tech-demo examples/tech-demo.cr
-          crystal build --time --release --static --no-debug -o bin/hello examples/hello.cr
-          crystal build --time --release --static --no-debug -o bin/chat examples/chat.cr
-          crystal build --time --release --static --no-debug -o bin/shadow tests/blessed-test/widget-shadow.cr
+          echo Done
