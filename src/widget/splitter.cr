@@ -61,7 +61,25 @@ module Crysterm
       # fitted to the span actually being painted.
       def render(with_children = true)
         relayout
+        refresh_divider_glyphs
         super
+      end
+
+      # At the unstyled floor (no `.divider { background: … }` theme rule computed
+      # a divider — it isn't `css_styled`), a divider is otherwise an invisible
+      # one-cell gap: there's no color to set it apart from the panes. Fill it with
+      # the orientation-appropriate line glyph (`│` between side-by-side panes,
+      # `─` between stacked ones) so the split reads on any terminal. Under a theme
+      # the divider is a `css_styled` colored bar, so the glyph is cleared and the
+      # theme's look stands. Written through `state_style` (the raw backing style)
+      # so the fill persists like any other programmatic default.
+      private def refresh_divider_glyphs
+        glyph = horizontal? ? '│' : '─'
+        @dividers.each do |div|
+          ch = div.css_styled? ? ' ' : glyph
+          st = div.state_style
+          st.fill_char = ch unless st.fill_char == ch
+        end
       end
 
       def horizontal? : Bool

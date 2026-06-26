@@ -53,6 +53,11 @@ module Crysterm
       @close_button : Box?
       @float_button : Box?
 
+      # The bottom-right resize grip (Qt's `QSizeGrip`). Present only on a
+      # `#floatable?` dock and shown only while floating — a docked pane is
+      # resized via its dock separator, not a corner handle (see `#refresh_grip`).
+      getter size_grip : SizeGrip?
+
       # Grab offset captured at the start of a title-bar drag (floating only).
       @drag_dx = 0
       @drag_dy = 0
@@ -74,6 +79,7 @@ module Crysterm
         @titlebar = tb
 
         build_buttons
+        build_size_grip
         wire_drag
         refresh_buttons # show the glyph matching the initial docked/floating state
 
@@ -94,11 +100,36 @@ module Crysterm
           # look; only a color it leaves unset falls back to the bar.
           sync_titlebutton @close_button, style.close_button
           sync_titlebutton @float_button, style.float_button
+          position_grip
         end
       end
 
       def floating? : Bool
         @area.floating?
+      end
+
+      # A dock always carries a structural border at the unstyled floor (see
+      # `#floor_border_value` for *which* sides); under a theme the cascade owns
+      # the border instead.
+      def floor_border? : Bool
+        true
+      end
+
+      # A *floating* dock is an overlay over the central content, so it gets a
+      # full frame to read against what it covers. A *docked* pane abuts one edge
+      # of the window, so it only needs a border on the single side facing the
+      # content — enough to part it from the central area without boxing in the
+      # whole panel. `#ensure_floor_border` re-syncs this as the dock floats and
+      # re-docks (and across `Area` changes).
+      def floor_border_value
+        return true if floating? # full frame for a detached pane
+        case @area
+        in .left?     then Border.new(0, 0, 1, 0) # content is to the right
+        in .right?    then Border.new(1, 0, 0, 0) # content is to the left
+        in .top?      then Border.new(0, 0, 0, 1) # content is below
+        in .bottom?   then Border.new(0, 1, 0, 0) # content is above
+        in .floating? then true                   # handled above; keep exhaustive
+        end
       end
 
       # The contained widget, or `nil`.
@@ -116,6 +147,9 @@ module Crysterm
         w.right = 0
         w.bottom = 0
         append w
+        # Content is appended after the grip (built in `#initialize`), so it
+        # would render over the grip's corner cell. Keep the grip on top.
+        @size_grip.try(&.front!)
         request_render
         w
       end
@@ -233,6 +267,54 @@ module Crysterm
 
       private def refresh_buttons
         @float_button.try &.set_content(floating? ? "▣" : "⇕")
+        refresh_grip
+      end
+
+      # A floatable dock owns a corner resize grip (Qt's `QSizeGrip`); a
+      # non-floatable dock can't detach, so it gets none. Targets the dock itself
+      # and starts hidden — it is revealed only while floating (`#refresh_grip`).
+      private def build_size_grip
+        return unless floatable?
+        g = SizeGrip.new(
+          parent: self, target: self,
+          bottom: 0, right: 0, width: 1, height: 1,
+          min_drag_width: 12, min_drag_height: 4,
+        )
+        g.hide
+        @size_grip = g
+      end
+
+      # The resize grip is a floating-window affordance: a docked pane is resized
+      # via its dock separator, not a corner handle, so a grip shown while docked
+      # would be an inert, misleading control. Show it only when floating, and
+      # keep it in front of the dock's content (which fills the corner the grip
+      # sits in — otherwise the content paints over it). Placement is handled per
+      # frame by `#position_grip`.
+      private def refresh_grip
+        @size_grip.try do |g|
+          if floating?
+            g.show
+            g.front!
+          else
+            g.hide
+          end
+        end
+      end
+
+      # Plant the (floating-only) grip on the dock's outer bottom-right corner —
+      # *over* the border corner when there is one — rather than one cell inside
+      # it. Child coordinates are content-relative (inside the frame), so the grip
+      # is pushed back out by the negative border+padding inset; re-derived each
+      # frame since a theme can change the border. With no border/padding the
+      # inset is 0 and the grip simply sits at the corner cell.
+      private def position_grip
+        @size_grip.try do |g|
+          next unless g.visible?
+          r = -iright
+          b = -ibottom
+          g.right = r unless g.right == r
+          g.bottom = b unless g.bottom == b
+        end
       end
 
       # Dragging the title bar moves a floating dock; grabbing the title bar of a

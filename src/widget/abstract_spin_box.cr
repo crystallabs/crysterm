@@ -16,6 +16,13 @@ module Crysterm
     # a fixed-width, in-place-editable field stepped with Up/Down — which is what
     # the `QAbstractSpinBox` selector should match.
     abstract class AbstractSpinBox < Input
+      # `SpinBox` indicates focus via reverse-video at the unstyled floor (see
+      # `Mixin::Style#floor_focus_reverse?`): like the button family it is a
+      # small, single-line control, so inverting it is the clearest no-color
+      # focus cue.
+      def floor_focus_reverse? : Bool
+        true
+      end
     end
   end
 end

@@ -17,6 +17,14 @@ module Crysterm
     # is a plain `QWidget`, not a `QAbstractSlider`, so it keeps its own range.
     abstract class AbstractSlider < Input
       include Mixin::RangedValue
+
+      # `Slider`/`Dial` indicate focus via reverse-video at the unstyled floor
+      # (see `Mixin::Style#floor_focus_reverse?`): like the button family they
+      # are small, single-line controls, so inverting them is the clearest
+      # no-color focus cue.
+      def floor_focus_reverse? : Bool
+        true
+      end
     end
   end
 end

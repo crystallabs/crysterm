@@ -1397,6 +1397,23 @@ describe Crysterm::Widget::DockWidget do
     states.should eq [true, false]
   end
 
+  it "shows the resize grip only while floating (Qt: no corner grip when docked)" do
+    s = qt_mem_screen
+    dock = Crysterm::Widget::DockWidget.new parent: s, title: "P",
+      area: Crysterm::Widget::DockWidget::Area::Left
+    grip = dock.size_grip.not_nil!
+    grip.visible?.should be_false # docked → resized via the separator, no grip
+    dock.toggle_floating
+    grip.visible?.should be_true # floating → grip available
+    dock.toggle_floating
+    grip.visible?.should be_false # re-docked → grip hidden again
+
+    # A non-floatable dock can't detach, so it has no grip at all.
+    fixed = Crysterm::Widget::DockWidget.new parent: s, title: "X",
+      area: Crysterm::Widget::DockWidget::Area::Left, floatable: false
+    fixed.size_grip.should be_nil
+  end
+
   it "gives the title buttons the bar's background so they are never transparent" do
     # Mimics a Qt theme (e.g. Breeze) that styles the dock title bar with a solid
     # background but its `::close-button`/`::float-button` with a transparent one
@@ -1460,7 +1477,13 @@ describe Crysterm::Widget::ToolTip do
     tip.visible?.should be_true
     tip.left.should eq 3
     tip.top.should eq 4
-    tip.width.should eq 7 # "Hello" (5) + 2 padding
+    # No stylesheet applied here, so the tooltip is on the unstyled floor and
+    # carries its structural border (see `ToolTip#floor_border?`). `show_at`
+    # must reserve room for that frame, else the box collapses to a single row
+    # (the old "black box with a lone underline" bug).
+    tip.css_styled?.should be_false
+    tip.width.should eq 9  # "Hello" (5) + 2 padding + border (iwidth 2)
+    tip.height.should eq 3 # 1 text line + border (iheight 2)
   end
 end
 

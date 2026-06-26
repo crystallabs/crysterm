@@ -88,6 +88,14 @@ module Crysterm
         request_render
       end
 
+      # Button-family controls indicate focus via reverse-video at the unstyled
+      # floor (see `Mixin::Style#floor_focus_reverse?`). They are small, mostly
+      # single-line controls, so inverting them is the clearest no-color focus
+      # cue — unlike a large container/editor, which this hook leaves alone.
+      def floor_focus_reverse? : Bool
+        true
+      end
+
       def on_keypress(e)
         if e.activates?
           e.accept

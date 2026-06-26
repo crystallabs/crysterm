@@ -99,6 +99,110 @@ require "./spec_helper"
       m.css_base_styles.normal.border.any?.should be_false
     end
 
+    it "shows a focused Button via reverse-video at the floor" do
+      s = floor_screen
+      btn = Crysterm::Widget::Button.new parent: s, top: 0, left: 0, width: 12, height: 1,
+        content: "OK"
+      btn.state = :focused
+      s.apply_stylesheet
+      s._render
+
+      btn.css_styled?.should be_false # confirm we are on the non-CSS floor path
+      btn.floor_focus_reverse?.should be_true
+      btn.style.reverse?.should be_true
+      row_has_reverse?(s, 0, btn.aleft.not_nil!, btn.aleft.not_nil! + btn.awidth.not_nil! - 1).should be_true
+
+      # A non-focused button stays plain (no stray inversion).
+      btn.state = :normal
+      btn.style.reverse?.should be_false
+    end
+
+    it "shows other focusable controls (Slider/SpinBox/Dial) via reverse-video at the floor" do
+      s = floor_screen
+      controls = [
+        Crysterm::Widget::Slider.new(parent: s, top: 0, left: 0, width: 12, height: 1,
+          minimum: 0, maximum: 10, value: 5),
+        Crysterm::Widget::SpinBox.new(parent: s, top: 0, left: 0, width: 6, height: 1,
+          minimum: 0, maximum: 10, value: 5),
+        Crysterm::Widget::Dial.new(parent: s, top: 0, left: 0, width: 7, height: 5,
+          minimum: 0, maximum: 10, value: 5),
+      ] of Crysterm::Widget
+
+      controls.each do |c|
+        c.floor_focus_reverse?.should be_true
+        c.state = :normal
+        c.style.reverse?.should be_false # unfocused stays plain
+        c.state = :focused
+        c.css_styled?.should be_false
+        c.style.reverse?.should be_true
+      end
+    end
+
+    it "does not reverse-video a focused plain container (Box) at the floor" do
+      s = floor_screen
+      box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 12, height: 3,
+        content: "hi"
+      box.state = :focused
+      s.apply_stylesheet
+
+      box.css_styled?.should be_false
+      box.floor_focus_reverse?.should be_false # large widgets opt out
+      box.style.reverse?.should be_false
+    end
+
+    it "frames a floating DockWidget and borders a docked one on the content-facing edge" do
+      s = floor_screen
+      floating = Crysterm::Widget::DockWidget.new parent: s, title: "F",
+        area: Crysterm::Widget::DockWidget::Area::Floating, top: 0, left: 0, width: 14, height: 5
+      left_docked = Crysterm::Widget::DockWidget.new parent: s, title: "D",
+        area: Crysterm::Widget::DockWidget::Area::Left, top: 0, left: 0, width: 14, height: 5
+      s.apply_stylesheet
+      s._render
+
+      floating.css_styled?.should be_false # on the non-CSS floor
+      # Floating overlay → full frame.
+      fb = floating.style.border
+      {fb.left?, fb.top?, fb.right?, fb.bottom?}.should eq({true, true, true, true})
+      # Docked Left → only the right edge (the one facing the central content).
+      lb = left_docked.style.border
+      {lb.left?, lb.top?, lb.right?, lb.bottom?}.should eq({false, false, true, false})
+
+      # Rendered: that single right divider spans the *full* height — including
+      # the titlebar row and the bottom row, not just the interior — so a partial
+      # border isn't clipped at its corners.
+      col = left_docked.aleft.not_nil! + left_docked.awidth.not_nil! - 1
+      bottom = left_docked.atop.not_nil! + left_docked.aheight.not_nil! - 1
+      s.lines[left_docked.atop.not_nil!][col].char.should eq '│'
+      s.lines[bottom][col].char.should eq '│'
+
+      # The border *syncs* as the dock floats/re-docks: a re-dock must drop back to
+      # the single content-facing edge, not keep the full floating frame.
+      left_docked.toggle_floating                   # → floating
+      left_docked.style.border.left?.should be_true # now a full frame
+      left_docked.toggle_floating                   # → docked Left again
+      b = left_docked.style.border
+      {b.left?, b.top?, b.right?, b.bottom?}.should eq({false, false, true, false})
+
+      # The floor border never seeds the cascade base, so a theme stays in control.
+      floating.css_base_styles.normal.border.any?.should be_false
+    end
+
+    it "fills Splitter dividers with a line glyph at the floor" do
+      s = floor_screen
+      sp = Crysterm::Widget::Splitter.new parent: s, orientation: Tput::Orientation::Horizontal,
+        top: 0, left: 0, width: 22, height: 4
+      sp.add_pane Crysterm::Widget::Box.new(content: "A")
+      sp.add_pane Crysterm::Widget::Box.new(content: "B")
+      s.apply_stylesheet
+      s._render
+
+      div = sp.dividers.first
+      div.css_styled?.should be_false   # no `.divider` rule on the floor
+      div.style.fill_char.should eq '│' # vertical divider between side-by-side panes
+      # And it actually paints: the divider column shows the glyph.
+      s.lines[div.atop.not_nil!][div.aleft.not_nil!].char.should eq '│'
+    end
+
     it "does not give a plain content widget (List) a border at the floor" do
       s = floor_screen
       list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 12, height: 5,

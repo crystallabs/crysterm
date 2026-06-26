@@ -577,28 +577,39 @@ module Crysterm
           line = lines[y]?
           next if y == -1 || !line
 
-          # A 0-height top/bottom border was not expanded into its own row
-          # (yi/yl-1 still sit on the content), so treat it exactly like
-          # `no_top?`/`no_bottom?` and skip the whole row. Drawing here would
-          # otherwise overwrite the content on that line.
-          if y == yi && (coords.no_top? || border.top == 0)
-            next
-          elsif y == yl - 1 && (coords.no_bottom? || border.bottom == 0)
-            next
-          end
+          top_row = y == yi
+          # When this end row is clipped offscreen (`no_top?`/`no_bottom?`), skip
+          # it outright, exactly as before — its border row isn't present here.
+          next if top_row ? coords.no_top? : coords.no_bottom?
+
+          # Whether this row's *horizontal* border is actually present. A 0-height
+          # top/bottom border was not expanded into its own row (yi/yl-1 still sit
+          # on content), so the span between the corners stays content. But a
+          # left/right border still runs *vertically* through this row's end
+          # cells, so we keep drawing just those — otherwise a partial border
+          # (e.g. a docked pane's single content-facing edge) is clipped at the
+          # corners, leaving the divider short by its top and bottom cells.
+          draw_h = top_row ? border.top > 0 : border.bottom > 0
 
           # The corners live on the top/bottom rows, so they take that side's
-          # color.
-          battr = y == yi ? top_attr : bottom_attr
+          # color (or the vertical side's color when there's no horizontal one).
+          h_attr = top_row ? top_attr : bottom_attr
 
           (xi...xl).each do |x|
             next if coords.no_left? && x == xi
             next if coords.no_right? && x == xl - 1
 
+            on_left = x == xi && border.left > 0
+            on_right = x == xl - 1 && border.right > 0
+            # Without a horizontal border on this row, draw only the vertical
+            # sides crossing it (its end cells); keep the content in between.
+            next unless draw_h || on_left || on_right
+
             cell = line[x]?
             next unless cell
 
             ch = border_char(border, glyphs, x, xi, xl, y, yi, yl, default_attr)
+            battr = draw_h ? h_attr : (on_left ? left_attr : right_attr)
 
             if cell != {battr, ch}
               cell.attr = battr

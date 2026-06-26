@@ -40,11 +40,21 @@ module Crysterm
       def show_at(x : Int32, y : Int32, text : String) : Nil
         return unless s = screen?
         lines = text.split('\n')
-        w = (lines.max_of?(&.size) || 0) + 2 # one cell of padding each side
-        h = lines.size
 
         # Pad each line by one leading space so the text doesn't hug the edge.
         set_content lines.map { |l| " #{l}" }.join('\n')
+
+        # Reserve space for the frame (border + padding) on top of the text box,
+        # so a bordered tooltip — notably the unstyled floor's structural border
+        # (see `#floor_border?`) — isn't squished into a single collapsed row (it
+        # otherwise rendered as a black box with a lone underline). Reading
+        # `iwidth`/`iheight` resolves `#style`, which installs the floor border,
+        # so the insets reflect the border this very render will draw. Under a
+        # theme that supplies a background instead of a border these insets are
+        # 0, leaving the themed size unchanged.
+        w = (lines.max_of?(&.size) || 0) + 2 + iwidth # one cell of padding each side
+        h = lines.size + iheight
+
         self.width = w
         self.height = h
 

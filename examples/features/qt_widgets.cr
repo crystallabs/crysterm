@@ -352,9 +352,9 @@ win.add_dock dock
 dock.toggle_floating
 dock.top = 4; dock.left = 40; dock.width = 34; dock.height = 15
 
-# A corner grip resizes the dock while it's floating (when docked, MainWindow
-# re-imposes the dock's size each frame).
-Widget::SizeGrip.new parent: dock, bottom: 0, right: 0, width: 1, height: 1, min_drag_width: 12, min_drag_height: 4
+# The dock provides its own corner resize grip (Qt's `QSizeGrip`), shown only
+# while floating — when docked, resizing is the dock separator's job and
+# MainWindow re-imposes the dock's size each frame, so no grip is shown.
 
 # --- Live status from widget events ------------------------------------------
 
