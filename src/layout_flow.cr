@@ -46,7 +46,12 @@ module Crysterm
             # fall through and render it where it lands.
           end
 
-          el.render
+          # Honor z-index deferral like the other engines. A deferred (z-indexed)
+          # flow child still renders at the position assigned above, but is
+          # composited on its own plane, so `get_last` won't see its `lpos` this
+          # frame and the next child chains off the previous *inline* child —
+          # acceptable for the rare z-indexed flow child.
+          render_or_defer el
         end
       end
 

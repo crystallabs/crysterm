@@ -148,14 +148,14 @@ module Crysterm
       end
 
       # Returns a flat list of all children widgets, recursively
-      def collect_descendants(el : Widget) : Array(Widget)
+      def collect_descendants : Array(Widget)
         children = [] of Widget
         each_descendant { |e| children << e }
         children
       end
 
       # Returns a flat list of all parent widgets, recursively
-      def collect_ancestors(el : Widget) : Array(Widget)
+      def collect_ancestors : Array(Widget)
         parents = [] of Widget
         each_ancestor { |e| parents << e }
         parents

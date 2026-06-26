@@ -82,10 +82,17 @@ module Crysterm
       # out-of-band from `Widget#_render`, never through the child pass.
       return if el.layout_excluded?
       bump_index el
+      render_or_defer el
+    end
+
+    # Renders `el` inline, or — when it carries a `z_index` and we are not
+    # already compositing a layer — defers it to its own plane (composited after
+    # the base tree); while compositing a layer, nested layers flatten into the
+    # enclosing plane, so it renders inline there. Split from `#render_child`
+    # (which also bumps the render index) so the flow/stack engines, which bump
+    # every child themselves, can still honor the z-index deferral.
+    protected def render_or_defer(el : Widget) : Nil
       scr = el.screen
-      # A z-indexed child is deferred to its own plane (composited after the base
-      # tree). While already compositing a layer, nested layers flatten into the
-      # enclosing plane, so render inline there.
       if el.style.z_index && !scr.compositing_layers?
         scr.defer_layer el
       else

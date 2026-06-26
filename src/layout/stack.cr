@@ -34,7 +34,7 @@ module Crysterm
           if i == shown
             el.left = 0
             el.top = 0
-            el.render
+            render_or_defer el
           else
             skip el
           end

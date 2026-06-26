@@ -77,7 +77,7 @@ module Crysterm
           maxes[i] = clen if maxes[i] < clen
         end
       end
-      return if maxes.empty?
+      return @maxes if maxes.empty?
 
       # Minimum width of a rendered row: column contents, one separator
       # between each pair, plus the trailing spare column. This must match
