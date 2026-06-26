@@ -57,17 +57,28 @@ module Crysterm
         i
       end
 
+      # Copies the balanced region opened by *open* at *i* verbatim into *io*,
+      # returning the index just past its matching *close*. The region's extent
+      # (nesting, quoted strings) is found by the shared `skip_balanced`, then the
+      # exact slice is emitted — identical to a char-by-char copy.
       private def self.copy_balanced(chars : Array(Char), i : Int32, open : Char, close : Char, io) : Int32
+        stop = skip_balanced(chars, i, open, close)
+        (i...stop).each { |j| io << chars[j] }
+        stop
+      end
+
+      # Index just past the region opened by *open* at *i* up to its matching
+      # *close*, honoring nesting and quoted strings. The shared balanced-scan
+      # used by this module's `copy_balanced` and by `Specificity`.
+      def self.skip_balanced(chars : Array(Char), i : Int32, open : Char, close : Char) : Int32
         depth = 0
         n = chars.size
         while i < n
           ch = chars[i]
           if ch == '"' || ch == '\''
-            i = copy_string(chars, i, io)
+            i = skip_string(chars, i)
             next
-          end
-          io << ch
-          if ch == open
+          elsif ch == open
             depth += 1
           elsif ch == close
             depth -= 1
@@ -78,19 +89,18 @@ module Crysterm
         i
       end
 
-      private def self.copy_string(chars : Array(Char), i : Int32, io) : Int32
+      # Index just past the quoted string starting at the opening quote *i*,
+      # honoring backslash escapes.
+      def self.skip_string(chars : Array(Char), i : Int32) : Int32
         quote = chars[i]
-        io << quote # the opening quote (copy_balanced delegates the whole string here)
         i += 1
         n = chars.size
         while i < n
-          ch = chars[i]
-          io << ch
-          return i + 1 if ch == quote
-          if ch == '\\' && i + 1 < n
-            io << chars[i + 1]
-            i += 1
-          end
+          return i + 1 if chars[i] == quote
+          # Skip the escaped char (the loop's own `+= 1` consumes the backslash);
+          # the `i + 1 < n` guard keeps a malformed trailing `\` from running the
+          # returned index past the array end (callers slice up to it).
+          i += 1 if chars[i] == '\\' && i + 1 < n
           i += 1
         end
         i

@@ -48,6 +48,31 @@ module Crysterm
       !@selected.nil?
     end
 
+    # The `Style` slot for *state* — the single state→slot map. The non-`normal`
+    # accessors lazily fall back to `normal` without materializing (see above).
+    def for_state(state : WidgetState) : Style
+      case state
+      in .normal?   then normal
+      in .blurred?  then blurred
+      in .focused?  then focused
+      in .hovered?  then hovered
+      in .selected? then selected
+      in .disabled? then disabled
+      end
+    end
+
+    # Stores *style* into the slot for *state* (the setter side of `#for_state`).
+    def set_for_state(state : WidgetState, style : Style) : Nil
+      case state
+      in .normal?   then self.normal = style
+      in .blurred?  then self.blurred = style
+      in .focused?  then self.focused = style
+      in .hovered?  then self.hovered = style
+      in .selected? then self.selected = style
+      in .disabled? then self.disabled = style
+      end
+    end
+
     # TODO Add each/each_entry iterators
 
     def initialize(@normal = @normal, @blurred = @blurred, @focused = @focused, @hovered = @hovered, @selected = @selected, @disabled = @disabled)

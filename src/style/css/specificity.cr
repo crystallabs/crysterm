@@ -31,7 +31,7 @@ module Crysterm
             i = skip_ident(chars, i + 1)
           when '['
             b += 1
-            i = skip_balanced(chars, i, '[', ']')
+            i = Selectors.skip_balanced(chars, i, '[', ']')
           when ':'
             if i + 1 < n && chars[i + 1] == ':'
               c += 1 # pseudo-element
@@ -40,7 +40,7 @@ module Crysterm
               name_end = skip_ident(chars, i + 1)
               name = String.build { |str| (i + 1...name_end).each { |idx| str << chars[idx] } }
               if name_end < n && chars[name_end] == '('
-                arg_end = skip_balanced(chars, name_end, '(', ')')
+                arg_end = Selectors.skip_balanced(chars, name_end, '(', ')')
                 if RECURSIVE_PSEUDOS.includes?(name)
                   arg = String.build { |str| (name_end + 1...arg_end - 1).each { |idx| str << chars[idx] } }
                   aa, bb, cc = calculate(arg)
@@ -78,39 +78,6 @@ module Crysterm
         i
       end
 
-      # Advances past a region opened by *open* at index *i* to just after its
-      # matching *close*, honoring nesting and quoted strings.
-      private def self.skip_balanced(chars : Array(Char), i : Int32, open : Char, close : Char) : Int32
-        depth = 0
-        n = chars.size
-        while i < n
-          ch = chars[i]
-          if ch == '"' || ch == '\''
-            i = skip_string(chars, i)
-            next
-          elsif ch == open
-            depth += 1
-          elsif ch == close
-            depth -= 1
-            return i + 1 if depth == 0
-          end
-          i += 1
-        end
-        i
-      end
-
-      # Advances past a quoted string starting at the opening quote *i*.
-      private def self.skip_string(chars : Array(Char), i : Int32) : Int32
-        quote = chars[i]
-        i += 1
-        n = chars.size
-        while i < n
-          return i + 1 if chars[i] == quote
-          i += 1 if chars[i] == '\\' # skip the escaped char with the loop's own += 1
-          i += 1
-        end
-        i
-      end
     end
   end
 end

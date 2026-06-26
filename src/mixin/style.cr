@@ -108,14 +108,7 @@ module Crysterm
       # no floor highlight fallbacks — the single source of the state→style map
       # shared by `#state_style` and `#style`.
       private def per_state_style : ::Crysterm::Style
-        case @state
-        in .normal?   then @styles.normal
-        in .focused?  then @styles.focused
-        in .selected? then @styles.selected
-        in .hovered?  then @styles.hovered
-        in .blurred?  then @styles.blurred
-        in .disabled? then @styles.disabled
-        end
+        @styles.for_state(@state)
       end
 
       # If specific style is not set, it will depend on current state

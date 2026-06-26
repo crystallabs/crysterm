@@ -520,39 +520,18 @@ module Crysterm
 
       # --- per-state style accessors -----------------------------------------
 
-      # The per-state slot of a `Styles` (the non-`normal` accessors lazily fall
-      # back to `normal` without materializing — see `Styles`). Shared by the
-      # base-snapshot and current-style accessors below.
-      private def self.state_style(styles : ::Crysterm::Styles, state : WidgetState) : Style
-        case state
-        in .normal?   then styles.normal
-        in .blurred?  then styles.blurred
-        in .focused?  then styles.focused
-        in .hovered?  then styles.hovered
-        in .selected? then styles.selected
-        in .disabled? then styles.disabled
-        end
-      end
-
       # A fresh dup of the widget's pristine (pre-CSS) style for *state* — the
       # clean base the cascade applies declarations onto.
       private def self.base_state_style(widget : Widget, state : WidgetState) : Style
-        state_style(widget.css_base_styles, state).dup
+        widget.css_base_styles.for_state(state).dup
       end
 
       private def self.get_state_style(widget : Widget, state : WidgetState) : Style
-        state_style(widget.styles, state)
+        widget.styles.for_state(state)
       end
 
       private def self.set_state_style(widget : Widget, state : WidgetState, style : Style) : Nil
-        case state
-        in .normal?   then widget.styles.normal = style
-        in .blurred?  then widget.styles.blurred = style
-        in .focused?  then widget.styles.focused = style
-        in .hovered?  then widget.styles.hovered = style
-        in .selected? then widget.styles.selected = style
-        in .disabled? then widget.styles.disabled = style
-        end
+        widget.styles.set_for_state(state, style)
       end
 
       # The slot → sub-`Style` mapping (getter `Style#sub_style`, setter
