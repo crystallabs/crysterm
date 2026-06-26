@@ -272,6 +272,16 @@ module Crysterm
       get_scroll_height > aheight
     end
 
+    # Whether laid-out content exceeds the visible content height (the viewport
+    # minus border/padding, `iheight`). The overflow test shared by fixed-viewport
+    # widgets (`PlainTextEdit`, `List`) that scroll their content rather than grow
+    # with it — they override `#really_scrollable?` with this so an `AsNeeded`
+    # vertical bar tracks real overflow instead of inheriting the `@resizable`
+    # always-scrollable short-circuit.
+    def content_overflows_height?
+      get_scroll_height > (aheight - iheight)
+    end
+
     # Returns total amount of lines by which widget is scrolled.
     #
     # The value combines invisible and visible parts. E.g. if a widget is scrolled

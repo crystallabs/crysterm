@@ -107,7 +107,7 @@ module Crysterm
       # content fits). Without this, every editor — even a one-line one —
       # showed a vertical scroll bar.
       def really_scrollable?
-        get_scroll_height > (aheight - iheight)
+        content_overflows_height?
       end
 
       # A text editor reserves one extra right-edge column beyond the scroll bar's

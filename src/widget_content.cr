@@ -759,14 +759,18 @@ module Crysterm
           # are grapheme / East-Asian and clusters are never split.
           i = wrap_cut_index(line, colwidth)
 
-          # Try to break on a space within the last few columns (word wrap).
+          # Try to break on a space within the last few columns (word wrap):
+          # back up from the column-fit cut `i` to the most recent space within
+          # the previous ~10 chars and cut just after it, so a word isn't split
+          # mid-way. If no space is found in that window, keep `i` (character
+          # wrap fallback). Mirrors blessed's `while (j > i-10 && j > 0)` scan.
           if i != line.size
             j = i
-            # TODO how can the condition and subsequent IF ever match
-            # with the line[j] thing?
-            while (j > i - 10) && (j > 0) && (j -= 1) && (line[j] != ' ')
+            while (j > i - 10) && (j > 0)
+              j -= 1
               if line[j] == ' '
                 i = j + 1
+                break
               end
             end
           end
@@ -791,16 +795,13 @@ module Crysterm
           end
         end
 
-        if loop_ret == :main
-          no += 1
-          next
-        end
+        # `each_with_index` rebinds `no` each iteration, so mutating it here is
+        # dead — `next`/falling through both advance to the next fake line.
+        next if loop_ret == :main
 
         outbuf.push(_align(line, colwidth, align, align_left_too))
         ftor[no].push(outbuf.size - 1)
         rtof.push(no)
-
-        no += 1
       end
 
       # `rtof`/`ftor` already alias `outbuf`'s own arrays (filled in place above),
@@ -884,8 +885,13 @@ module Crysterm
       fc = style.fill_char.to_s
 
       if (align & Tput::AlignFlag::HCenter) != Tput::AlignFlag::None
-        s = fc * (s//2)
-        return s + line + s
+        # Split the free space across both sides; the odd extra cell goes to the
+        # right (Blessed's convention) so a centered line still fills the full
+        # `width` (`s//2 + (s - s//2) == s`) instead of being one cell short for
+        # odd free space — which would otherwise also under-report `max_width`.
+        left = fc * (s // 2)
+        right = fc * (s - s // 2)
+        return left + line + right
       elsif align.right?
         s = fc * s
         return s + line

@@ -275,7 +275,7 @@ module Crysterm
       # vertical scroll bar — its `█` thumb — appear even when every item fits).
       # Mirrors `PlainTextEdit#really_scrollable?`.
       def really_scrollable?
-        get_scroll_height > (aheight - iheight)
+        content_overflows_height?
       end
 
       # Keeps every item's right-edge reservation in lock-step with the vertical
