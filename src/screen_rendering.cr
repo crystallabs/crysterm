@@ -227,6 +227,13 @@ module Crysterm
     # widgets) and consumed by `#_dock`. See `Crysterm::Docking`.
     property _dock_stops = {} of Int32 => Bool
 
+    # Like `#_dock_stops`, but for line-drawing rows emitted by widgets rendering
+    # into a *compositing plane* (an overlay, e.g. a `Menu` chain). Docking these
+    # on the plane's own buffer — not the composited base — joins overlapping
+    # overlay borders to each other without ever joining them to the content the
+    # overlay floats over. Collected per plane in `#composite_planes`.
+    property _plane_dock_stops = {} of Int32 => Bool
+
     # Rendering optimizations.
     property optimization : OptimizationFlag = OptimizationFlag::None
 
@@ -346,12 +353,22 @@ module Crysterm
           # the plane (its render-time self-blend is suppressed while
           # `#compositing`).
           pl.opacity = members.first.style.alpha? || 1.0
+          @_plane_dock_stops.clear
           with_render_target(pl.cells) do
             members.each do |el|
               el.compositing = true
               el.render
               el.compositing = false
             end
+          end
+          # Join overlapping overlay borders (e.g. a menu chain) on the plane's
+          # own buffer before it composites down. The plane holds only the overlay
+          # widgets' cells (everything else is transparent), so docking here can
+          # never reach into the base content the overlay floats over — fixing the
+          # stray junctions the base `#_dock` produced where a popup overlapped a
+          # widget below it. Gated on `dock_borders`, like the base pass.
+          if @dock_borders && !@_plane_dock_stops.empty?
+            Docking.dock pl.cells, @_plane_dock_stops, awidth, @dock_contrast
           end
           pl.composite_onto @lines
         end

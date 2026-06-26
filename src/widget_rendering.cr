@@ -700,8 +700,13 @@ module Crysterm
     def register_dock_stops(coords)
       style.border.try do |border|
         if border.any? && border.type.line?
-          screen._dock_stops[coords.yi] = true
-          screen._dock_stops[coords.yl - 1] = true
+          # A widget rendering into a compositing plane (an overlay) registers on
+          # the *plane* stops, docked against the plane's own buffer — so overlay
+          # borders join one another but not the base content they float over. A
+          # base-layer widget registers on the screen stops as before.
+          stops = @compositing ? screen._plane_dock_stops : screen._dock_stops
+          stops[coords.yi] = true
+          stops[coords.yl - 1] = true
         end
       end
     end

@@ -279,24 +279,41 @@ module Crysterm
         (width.as?(Int) || 1)
       end
 
-      # The widest item's horizontal box model (the theme's `QMenu::item`
-      # `padding`/`border`), remembered from before `#strip_item_box_model` zeroes
-      # it on the rows. Used as the menu's breathing width so menus aren't cramped.
-      @item_box_w = 0
+      # Whether this menu auto-fits its width to its content (a popup or submenu);
+      # an embedded menu given an explicit width opts out, keeping it.
+      @autosize = false
 
-      # Sizes the menu to its row text **plus** the rows' CSS box model (the
-      # `QMenu::item` padding) **plus** the menu border. The row text already holds
-      # the column layout, so it is laid out flush by `#size_rows`; the box model
-      # is reserved here as breathing room (it becomes fill between the label and
-      # the right column / trailing space), so the menu keeps the comfortable
-      # theme-derived width without insetting the text. `@item_box_w` is captured
-      # from the live (not-yet-stripped) rows on first open and remembered after.
-      private def fit_to_content : Nil
+      # The width that fits the rows: the widest row text plus the menu's own
+      # `iwidth` — its border **and** padding. The padding (`Menu { padding: 0 1 }`)
+      # is the single breathing source: a sane gap between the text and the side
+      # borders. Reserving it here (rather than insetting the text) lets
+      # `#size_rows` lay the rows out across the content box, with the padding
+      # falling outside as that gap. Bump the theme padding for a roomier menu.
+      private def fit_width : Int32
         w = ritems.max_of?(&.size) || (visible_actions.max_of?(&.text.size) || 8)
-        box = @items.max_of?(&.iwidth) || 0
-        @item_box_w = box unless box.zero?
-        self.width = w + @item_box_w + 2
+        w + iwidth
+      end
+
+      # Sizes a popup/submenu to fit its content. Marks the menu auto-sizing so
+      # `#autosize` keeps the width correct after the cascade resolves the real box
+      # model (this runs pre-cascade for a freshly-opened submenu). Protected so
+      # `#open_submenu` can size a child the same way `#popup` sizes a top-level.
+      protected def fit_to_content : Nil
+        @autosize = true
+        self.width = fit_width
         self.height = visible_actions.size + 2
+      end
+
+      # Re-fits an auto-sized menu's width at render, now that the cascade has set
+      # the real box model — the row `QMenu::item` padding (in `@item_box_w`, just
+      # captured by `#strip_item_box_model`) and the menu's own padding (in
+      # `iwidth`). `#fit_to_content` runs before that for a submenu, so its width
+      # can miss the padding; this corrects it (the menu grows rightward, its left
+      # anchor fixed). No-op for an explicitly-sized embedded menu.
+      private def autosize : Nil
+        return unless @autosize
+        w = fit_width
+        self.width = w unless width == w
       end
 
       # Lays each row's text out across the menu's full inner width: the checkbox
@@ -327,6 +344,7 @@ module Crysterm
       # repainted.
       def render(with_children = true)
         strip_item_box_model
+        autosize
         size_rows
         size_separators
         ret = super
@@ -346,14 +364,11 @@ module Crysterm
       # leaving a gap after the ▶) — those columns are realized by the row text,
       # not by literal padding. Colors (`background`, `:selected`) are left intact.
       private def strip_item_box_model : Nil
-        box = 0
         @items.each do |it|
           next if @separator_items.includes? it
-          box = Math.max(box, it.iwidth) # capture the theme's box model before zeroing it
           strip_box_model it.styles.normal
           strip_box_model it.styles.selected if it.styles.own_selected?
         end
-        @item_box_w = box unless box.zero?
       end
 
       private def strip_box_model(st : Style) : Nil
@@ -686,12 +701,19 @@ module Crysterm
         subs.each { |a| child << a }
         child.parent_menu = self
 
-        # Size to the content and float to the right of the selected row.
-        child.width = (subs.max_of?(&.text.size) || 8) + 6
-        child.height = subs.size + 2
+        # Size the child exactly like a top-level popup (`#fit_to_content`), so a
+        # submenu gets the same column layout, breathing and padding — and stays
+        # correct after the cascade via `#autosize`. Then float it to the right of
+        # the selected row. The left baseline is the parent's right *border column*
+        # (`lp.xl - 1`), so with the default zero margin the submenu's left border
+        # overlaps the parent's right border (a shared divider, like a desktop
+        # menu). Any gap is then driven purely by the submenu's `style.margin` —
+        # `_get_coords` adds `margin.left`/`margin.top` to the resolved box — so a
+        # themed or explicit margin distances it without any hardcoded offset.
+        child.fit_to_content
         begin
           lp = last_rendered_position
-          child.left = lp.xl
+          child.left = lp.xl - 1
           child.top = lp.yi + itop + (selected - @child_base)
         rescue
           child.left = 0

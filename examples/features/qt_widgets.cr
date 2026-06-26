@@ -40,6 +40,9 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Screen.new title: "Qt-like Widgets"
+# Join touching/overlapping borders into seamless junctions (├ ┬ ┼ …) — e.g.
+# where a submenu's left border overlaps its parent's right border.
+s.dock_borders = true
 
 # --- Main window frame -------------------------------------------------------
 
@@ -70,7 +73,11 @@ win.menu_bar = menubar
 filemenu = menubar.add_menu "File"
 filemenu.add("New") { status.show_message " new file"; s.render }
 filemenu.add("Open") { status.show_message " open file"; s.render }
-filemenu.add_menu "Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md")]
+# Recent holds two files plus a nested "Bucket" submenu, giving a 3-level chain:
+# File → Recent → Bucket → (entries).
+bucket = Action.new "Bucket"
+bucket.submenu = [mk.call("old-1.txt", "open old-1.txt"), mk.call("old-2.txt", "open old-2.txt")]
+filemenu.add_menu "Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md"), bucket]
 filemenu.add_separator
 filemenu.add("Quit") { s.destroy; exit }
 

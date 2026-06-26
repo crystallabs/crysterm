@@ -200,7 +200,7 @@ module Crysterm
          out darker than rows over lighter content — banding that reads as the
          frame/rows "alternating". An overlay is a solid surface, so no opacity
          here. (Set `opacity` on a specific menu to opt back into translucency.) */
-      Menu { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; }
+      Menu { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; padding: 0 1; }
       .popup { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; }
 
       /* Scrollbars and progress indicators. The scrollbar is a real widget
