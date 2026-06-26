@@ -1,14 +1,16 @@
-require "./list"
+require "./abstract_item_view"
+require "../mixin/item_view"
 require "../widget_table_layout"
 
 module Crysterm
   class Widget
     # Interactive list rendered as a table.
     #
-    # Combines `Widget::List` (selectable rows, keyboard/mouse navigation) with
+    # Combines `Mixin::ItemView` (selectable rows, keyboard/mouse navigation) with
     # the column layout of `Widget::Table`. The first row of the supplied data
     # is treated as a fixed header that stays pinned at the top while the body
-    # rows scroll.
+    # rows scroll. A sibling of `List` under `AbstractItemView` (it has no exact
+    # Qt class), it reuses the row machinery via the mixin rather than inheritance.
     #
     # ```
     # Widget::ListTable.new(
@@ -25,7 +27,8 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![ListTable screenshot](../../examples/widget/listtable/listtable-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class ListTable < List
+    class ListTable < AbstractItemView
+      include Mixin::ItemView
       include TableLayout
 
       # The table data (including the header row at index 0).
@@ -75,7 +78,7 @@ module Crysterm
         sortable = false,
         *,
         align : Tput::AlignFlag | Shorthands = Tput::AlignFlag::Center,
-        keys = nil, # Absorbed: `List` always enables key handling.
+        keys = nil, # Absorbed: an item view always enables key handling.
         **box,
       )
         self.cell_align = align
@@ -396,7 +399,7 @@ module Crysterm
         calculate_maxes
 
         # Reserve the vertical scroll bar's column (when shown) for the pinned
-        # header too, mirroring the body items (synced in `List#render`). The
+        # header too, mirroring the body items (synced in `Mixin::ItemView#render`). The
         # header is an interior overlay built by `render_row` — already sliced for
         # horizontal scroll like the rows — so it just needs the same right-edge
         # reservation, else the shown bar overpaints its last column. `right=` is a

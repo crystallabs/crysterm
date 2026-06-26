@@ -1,5 +1,6 @@
 require "./input"
-require "./list"
+require "./abstract_item_view"
+require "../mixin/item_view"
 require "../mixin/popup"
 
 module Crysterm
@@ -34,9 +35,13 @@ module Crysterm
       # would — otherwise its clickable area collapses to a few cells.
       @resizable = false
 
-      # The popup `List`. It overrides `List`'s commit/cancel hooks so a choice
-      # routes back to the owning combo rather than emitting list item events.
-      class Popup < List
+      # The popup drop-down list. An `AbstractItemView` (a sibling of `List`,
+      # reusing the row machinery via `Mixin::ItemView` — Qt uses an internal
+      # `QListView` here). It overrides the item view's commit/cancel hooks so a
+      # choice routes back to the owning combo rather than emitting list item events.
+      class Popup < AbstractItemView
+        include Mixin::ItemView
+
         # A single click on any row commits it.
         @activate_on_click = true
 

@@ -316,7 +316,7 @@ module Crysterm
       # re-running the O(n) `item_selected?` scan — on every SGR escape of every
       # cell with colored content.
       keep_selected_fg = parent.try do |parent2|
-        parent2._is_list && parent2.interactive? && parent2.is_a?(Widget::List) && parent2.item_selected?(self) # XXX && parent2.invert_selected
+        parent2._is_list && parent2.interactive? && parent2.item_selected?(self) # XXX && parent2.invert_selected
       end || false
 
       # Draw the content and background.

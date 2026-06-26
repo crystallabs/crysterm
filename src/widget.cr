@@ -227,11 +227,18 @@ module Crysterm
       screen?.try &.damage_force_full
     end
 
-    # XXX FIX by removing at some point
-    # Used only for lists. The reason why it hasn't been replaced with is_a?(List)
-    # already is because maybe someone would want this to be true even if not
-    # inheriting from List.
+    # Marks a widget as an item view (a list/tree/table/menu — anything that
+    # includes `Mixin::ItemView`). Duck-typed on purpose: the renderer keys off
+    # this flag plus `#item_selected?` rather than an `is_a?(List)` check, so an
+    # item view need not derive any one concrete class (Qt makes them siblings).
     property _is_list = false
+
+    # Whether *item* (a child) renders in the selected style. The base answer is
+    # `false`; `Mixin::ItemView` overrides it. Defined here so the render path can
+    # ask any parent without a concrete-type (`is_a?(List)`) special-case.
+    def item_selected?(item : Widget) : Bool
+      false
+    end
 
     def initialize(
       parent = nil,

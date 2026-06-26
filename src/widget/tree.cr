@@ -1,20 +1,23 @@
-require "./list"
+require "./abstract_item_view"
+require "../mixin/item_view"
 
 module Crysterm
   class Widget
     # Hierarchical item view, modeled after Qt's `QTreeWidget`/`QTreeView`.
     #
-    # A `Tree` is a `List` whose rows are the *visible* nodes of a node
-    # hierarchy, flattened depth-first with each node indented by its depth and
-    # prefixed with an expand marker (`▸` collapsed, `▾` expanded, blank for a
-    # leaf). Collapsing a node hides its whole subtree; expanding it brings the
-    # subtree back. All of `List`'s navigation (arrow keys, Home/End, PageUp/Down,
-    # incremental search, the mouse) therefore works unchanged.
+    # A `Tree` is an `AbstractItemView` (a sibling of `List`, exactly as Qt makes
+    # `QTreeWidget` a sibling of `QListWidget` under `QAbstractItemView`) whose
+    # rows are the *visible* nodes of a node hierarchy, flattened depth-first with
+    # each node indented by its depth and prefixed with an expand marker (`▸`
+    # collapsed, `▾` expanded, blank for a leaf). Collapsing a node hides its whole
+    # subtree; expanding it brings the subtree back. All of `Mixin::ItemView`'s
+    # navigation (arrow keys, Home/End, PageUp/Down, incremental search, the
+    # mouse) therefore works unchanged.
     #
     # On top of that the tree adds: Right to expand (or descend into an already-
     # expanded node), Left to collapse (or jump to the parent), and Space/Enter to
     # toggle a node. It emits `Event::Expand`/`Event::Collapse` (carrying the
-    # node's row) alongside the usual `List` item events.
+    # node's row) alongside the usual item events.
     #
     # ```
     # tree = Widget::Tree.new parent: screen, width: 30, height: 12, style: Style.new(border: true)
@@ -28,7 +31,9 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Tree screenshot](../../examples/widget/tree/tree-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class Tree < List
+    class Tree < AbstractItemView
+      include Mixin::ItemView
+
       # A single node in a `Tree`. Holds its `#text`, optional user `#data`, and
       # its `#children`; whether it is currently `#expanded?`; and back-references
       # to its `#parent` node and owning `#tree` (so structural edits can refresh
@@ -89,7 +94,7 @@ module Crysterm
       # The top-level nodes.
       getter roots = [] of Node
 
-      # The node shown on each visible row, parallel to the underlying `List`'s
+      # The node shown on each visible row, parallel to the item view's
       # `#items`/`#ritems`.
       getter nodes = [] of Node
 
@@ -101,7 +106,7 @@ module Crysterm
       property collapsed_char : Char = '▸'
       property leaf_char : Char = ' '
 
-      # `initialize` is inherited from `List` unchanged.
+      # `initialize` is inherited from `Mixin::ItemView` unchanged.
 
       # Appends a top-level node (given as text, or an existing `Node`) and
       # refreshes the view. Returns the node.
@@ -198,7 +203,7 @@ module Crysterm
       end
 
       # Toggling a node (Enter, or a click on the already-selected row) expands or
-      # collapses it; leaves fall through to the normal `List` activation.
+      # collapses it; leaves fall through to the normal item activation.
       def enter_selected : Nil
         if (node = selected_node) && !node.leaf?
           toggle node

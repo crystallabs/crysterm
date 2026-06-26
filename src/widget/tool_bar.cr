@@ -1,5 +1,6 @@
-require "./listbar"
+require "./box"
 require "../action"
+require "../mixin/action_bar"
 
 module Crysterm
   class Widget
@@ -10,8 +11,8 @@ module Crysterm
     # triggers it; a checkable action's button stays highlighted while checked.
     # Each action's `#tool_tip` becomes the button's hover tooltip.
     #
-    # Built on `ListBar` (horizontal layout, keyboard navigation, hotkeys) with
-    # plain labels (no `1:` prefixes).
+    # Built on `Mixin::ActionBar` (horizontal layout, keyboard navigation,
+    # hotkeys) with plain labels (no `1:` prefixes).
     #
     # ```
     # tb = Widget::ToolBar.new parent: screen, top: 0, left: 0, width: "100%", height: 1
@@ -24,13 +25,15 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![ToolBar screenshot](../../examples/widget/tool_bar/tool_bar-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class ToolBar < ListBar
+    class ToolBar < Box
+      include Mixin::ActionBar
+
       # The action backing each button box (absent for plain buttons/separators).
       @item_actions = {} of Widget::Box => Action
 
       def initialize(**listbar)
-        super(**listbar.merge(mouse: true, keys: true))
-        @auto_prefix = false
+        super(**listbar.merge(keys: true))
+        setup_action_bar mouse: true, auto_prefix: false
       end
 
       # Adds a button for *action*, returns its box. Clicking triggers the action
@@ -61,7 +64,7 @@ module Crysterm
       end
 
       # A tool bar has no persistent cursor: only checkable buttons stay lit (when
-      # checked). Re-applied after every `ListBar#selekt` (which a click/move would
+      # checked). Re-applied after every `Mixin::ActionBar#selekt` (which a click/move would
       # otherwise leave highlighting the last button).
       private def refresh : Nil
         items.each do |it|

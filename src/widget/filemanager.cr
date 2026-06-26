@@ -1,10 +1,12 @@
-require "./list"
+require "./abstract_item_view"
+require "../mixin/item_view"
 
 module Crysterm
   class Widget
     # File manager element.
     #
-    # A `Widget::List` whose items are the entries of a directory. Selecting a
+    # An `AbstractItemView` (a sibling of `List`, reusing the row machinery via
+    # `Mixin::ItemView`) whose items are the entries of a directory. Selecting a
     # directory (with `Enter`) navigates into it; selecting a file emits
     # `Event::OpenFile`. Directory changes emit `Event::ChangeDir`, and each
     # (re)listing emits `Event::Refresh`.
@@ -19,7 +21,9 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![FileManager screenshot](../../examples/widget/filemanager/filemanager-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class FileManager < List
+    class FileManager < AbstractItemView
+      include Mixin::ItemView
+
       # Current working directory.
       getter cwd : String
 
@@ -35,7 +39,7 @@ module Crysterm
       @ev_cancel : Crysterm::Event::Cancel::Wrapper?
 
       def initialize(cwd : String? = nil, label : String? = nil, keys = nil, **list)
-        # `keys` is absorbed here: `List` always enables key handling, so
+        # `keys` is absorbed here: an item view always enables key handling, so
         # forwarding it would duplicate the `keys:` argument it passes to `super`.
         @cwd = cwd || Dir.current
         @file = @cwd

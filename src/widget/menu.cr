@@ -1,9 +1,10 @@
-require "./list"
+require "./box"
 require "../action"
+require "../mixin/item_view"
 
 module Crysterm
   class Widget
-    # A vertical menu of `Action`s, built on `List`.
+    # A vertical menu of `Action`s.
     #
     # The (visible) actions are shown as selectable rows; arrow keys (and, with
     # `vi: true`, `j`/`k`) navigate, and Enter — or a click on the highlighted
@@ -11,6 +12,17 @@ module Crysterm
     # `Event::Triggered`, received by any listener attached via
     # `action.on(Crysterm::Event::Triggered) { ... }`. Disabled actions are
     # listed but not activated.
+    #
+    # In Qt, `QMenu : public QWidget` — a menu is a plain widget, **not** a
+    # `QAbstractItemView` (which `CSS::Qss` maps to `List`). So `Menu` derives
+    # `Box` (the `QWidget`-like base) and only *includes* `Mixin::ItemView` for
+    # the item rows and navigation, rather than inheriting `List`. Its CSS
+    # identity is therefore `Menu < Box < Widget`, matching Qt's hierarchy
+    # (`QMenu < QWidget`): a theme's item-view rules — `QAbstractItemView {
+    # background-color; alternate-background-color; … }` — don't bleed onto menus,
+    # so the menu takes the window/`QMenu` surface like the other `QWidget`-derived
+    # chrome (`QMenuBar`/`QStatusBar`). (`Tree`/`ListTable`/the combo `Popup` are
+    # real `QAbstractItemView`s.)
     #
     # ```
     # menu = Widget::Menu.new parent: screen
@@ -23,20 +35,8 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Menu screenshot](../../examples/widget/menu/menu-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class Menu < List
-      # In Qt, `QMenu : public QWidget` — a menu is a plain widget, **not** a
-      # `QAbstractItemView` (which `CSS::Qss` maps to `List`). We build `Menu` on
-      # top of `Widget::List` purely for code reuse (item rows, navigation), but
-      # its *CSS identity* must match Qt's hierarchy (`QMenu < QWidget`), so a
-      # theme's item-view rules — `QAbstractItemView { background-color;
-      # alternate-background-color; … }` — don't bleed onto menus and give the
-      # frame the wrong (list/base) surface. Drop the `List` rung; the menu then
-      # takes the window/`QMenu` surface like the other `QWidget`-derived chrome
-      # (`QMenuBar`/`QStatusBar`). (`Tree`/`ListTable`/the combo `Popup` are real
-      # `QAbstractItemView`s and keep `List`.)
-      def css_all_classes : Array(String)
-        super.reject { |c| c == "List" }
-      end
+    class Menu < Box
+      include Mixin::ItemView
 
       # Optional title, shown as the widget's label.
       property title : String = ""
@@ -104,7 +104,7 @@ module Crysterm
       @ev_popup : Crysterm::Event::Mouse::Wrapper?
 
       def initialize(title = "", keys = nil, **widget)
-        # `keys` is absorbed: `List` always enables key handling.
+        # `keys` is absorbed: an item view always enables key handling.
         @title = title
 
         super **widget
@@ -403,7 +403,7 @@ module Crysterm
       end
 
       # While the menu is "inactive" (dismissed by an outside click) no row is
-      # highlighted; otherwise rendering defers to `List`.
+      # highlighted; otherwise rendering defers to `Mixin::ItemView`.
       def render_style_for(item : Widget) : Style
         # A separator draws from its own `Menu::separator` sub-style (Qt's
         # `QMenu::separator`), regardless of highlight state — separators are
@@ -464,12 +464,12 @@ module Crysterm
         line
       end
 
-      # Pointer moved onto row *i* (`List#hover_item` override, active because
+      # Pointer moved onto row *i* (`Mixin::ItemView#hover_item` override, active because
       # menus set `#hover_select?`). Moves the highlight there — which closes any
       # submenu anchored elsewhere — and, if the row opens a submenu, opens it.
       # Separators are skipped; disabled rows highlight but don't open.
       # Whether *e* is a key that moves the list selection (so the first such
-      # press should reveal the highlight). Mirrors the keys `List#on_keypress`
+      # press should reveal the highlight). Mirrors the keys `Mixin::ItemView#on_keypress`
       # acts on, plus the vi aliases when `#vi?`.
       private def selection_key?(e) : Bool
         case e.key
@@ -641,7 +641,7 @@ module Crysterm
 
         # Right opens the highlighted item's submenu; Left/Escape closes this
         # submenu and returns focus to its parent. Handled before `super` so a
-        # submenu's Escape doesn't fall through to `List`'s cancel path.
+        # submenu's Escape doesn't fall through to the item view's cancel path.
         if e.key == ::Tput::Key::Right
           act = selected_action
           if act && act.submenu?

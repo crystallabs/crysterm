@@ -1,5 +1,6 @@
-require "./listbar"
+require "./box"
 require "./menu"
+require "../mixin/action_bar"
 
 module Crysterm
   class Widget
@@ -12,8 +13,9 @@ module Crysterm
     # the active title is highlighted, and nothing is highlighted while no menu is
     # open. Escape, an outside click, or activating a leaf closes the menu.
     #
-    # Built on `ListBar` (layout, keyboard navigation, hotkeys) and `Menu` (the
-    # pop-ups), it packages the wiring an app would otherwise repeat by hand.
+    # Built on `Mixin::ActionBar` (layout, keyboard navigation, hotkeys) and
+    # `Menu` (the pop-ups), it packages the wiring an app would otherwise repeat
+    # by hand.
     #
     # ```
     # bar = Widget::MenuBar.new parent: screen, top: 0, left: 0, width: "100%", height: 1
@@ -26,7 +28,9 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![MenuBar screenshot](../../examples/widget/menu_bar/menu_bar-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class MenuBar < ListBar
+    class MenuBar < Box
+      include Mixin::ActionBar
+
       # The pop-up menus, parallel to the bar's commands/items.
       getter menus = [] of Menu
 
@@ -40,12 +44,12 @@ module Crysterm
         @menu_style = menu_style
 
         # A menu bar is always keyboard- and mouse-driven, and shows plain titles
-        # ("File", not the ListBar default "1:File").
-        super(**listbar.merge(keys: true, mouse: true))
-        @auto_prefix = false
+        # ("File", not the ActionBar default "1:File").
+        super(**listbar.merge(keys: true))
+        setup_action_bar mouse: true, auto_prefix: false
 
         # Keep the highlight on the open menu (nothing when none is open), even as
-        # focus enters/leaves the bar — the ListBar would otherwise re-light its
+        # focus enters/leaves the bar — the action bar would otherwise re-light its
         # own selected item.
         on(::Crysterm::Event::Focus) { sync_highlight }
         on(::Crysterm::Event::Blur) { sync_highlight }
@@ -70,7 +74,7 @@ module Crysterm
 
         index = @menus.size
         @menus << menu
-        add(title) { toggle index } # ListBar command: click / Enter toggles it
+        add(title) { toggle index } # action-bar command: click / Enter toggles it
 
         # Hover a different title (while a menu is open) to switch to it.
         if item = items[index]?
@@ -79,7 +83,7 @@ module Crysterm
           end
         end
 
-        sync_highlight # clear the ListBar's auto-selection of the first item
+        sync_highlight # clear the bar's auto-selection of the first item
         menu
       end
 
@@ -113,7 +117,7 @@ module Crysterm
 
       def on_keypress(e)
         # While focused, Down/Space (in addition to the inherited Enter) open the
-        # highlighted menu; Left/Right navigation is inherited from `ListBar`.
+        # highlighted menu; Left/Right navigation is inherited from `Mixin::ActionBar`.
         if (e.key == ::Tput::Key::Down || e.char == ' ') && !@menus.empty?
           open selected
           e.accept
@@ -151,8 +155,8 @@ module Crysterm
         1
       end
 
-      # The title highlight tracks the *open* menu, never ListBar's own raw
-      # selection. `ListBar#trigger` re-`selekt`s the clicked item *after* our
+      # The title highlight tracks the *open* menu, never the action bar's own raw
+      # selection. `Mixin::ActionBar#trigger` re-`selekt`s the clicked item *after* our
       # toggle callback has run, so a click that closed the open menu would
       # otherwise leave its title lit — re-impose the open-menu highlight here.
       # (With no menu open this clears the highlight, matching the bar's "nothing

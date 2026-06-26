@@ -1,14 +1,21 @@
-# `LineEdit` subclasses `PlainTextEdit`, which the `widget/**` glob loads
-# *after* this file (`lineedit` sorts before `plaintextedit`), so require the
-# parent explicitly to make it available at class-definition time.
-require "./plaintextedit"
+require "./input"
+require "../mixin/text_editing"
 
 module Crysterm
   class Widget
+    # Single-line text entry, modeled after Qt's `QLineEdit`.
+    #
+    # Qt's `QLineEdit < QWidget` — *not* a scroll area like `QPlainTextEdit`. So
+    # `LineEdit` derives `Input` (Crysterm's interactive intermediate, the same
+    # base `Button` uses) and includes `Mixin::TextEditing` for the shared text
+    # buffer/caret/key handling, rather than inheriting `PlainTextEdit`.
+    #
     # <!-- widget-examples:capture v1 -->
     # ![LineEdit screenshot](../../examples/widget/lineedit/lineedit-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class LineEdit < PlainTextEdit
+    class LineEdit < Input
+      include Mixin::TextEditing
+
       property secret : Bool = false
       property censor : Bool = false
 
@@ -19,8 +26,6 @@ module Crysterm
       # Greyed-out prompt shown while the box is empty, like Qt's
       # `QLineEdit#placeholderText`. It is purely visual: `#value` stays empty.
       property placeholder : String = ""
-
-      getter value : String = ""
 
       # Submitted lines, oldest first — the input history walked by Up/Down
       # (like a shell prompt or Qt's editable combo). Public so an app can
@@ -40,10 +45,16 @@ module Crysterm
         placeholder = nil,
         parse_tags = false,
         input_on_focus = true,
+        max_length = nil,
+        read_only = false,
         scrollable = false,
-        **plaintextedit,
+        **input,
       )
-        super **plaintextedit, parse_tags: parse_tags, input_on_focus: input_on_focus, scrollable: scrollable
+        setup_text_buffer(input["content"]? || "", max_length, read_only)
+
+        super **input.merge({parse_tags: parse_tags, scrollable: scrollable, keys: true})
+
+        setup_text_editing input_on_focus: input_on_focus, install_enter: !!input["keys"]?
 
         secret.try { |v| @secret = v }
         censor.try { |v| @censor = v }
