@@ -7,11 +7,14 @@ module Crysterm
         Stretch # fill the box exactly, distorting aspect ratio (default)
         Contain # scale to fit inside the box, letterboxing the remainder
         Cover   # scale to fill the box, cropping the overflow
+        None    # draw at the source's native 1:1 size, centered (cropped if larger than the box)
 
         # Lays an image of *sw*×*sh* into a *bw*×*bh* box, returning the drawn
         # size and top-left offset `{dw, dh, ox, oy}` (offsets are negative for
-        # `Cover`, where the image is larger than the box and gets cropped).
+        # `Cover`/`None`, where the image is larger than the box and gets cropped).
         def layout(bw : Int32, bh : Int32, sw : Int32, sh : Int32) : Tuple(Int32, Int32, Int32, Int32)
+          # 1:1 — keep the source's own pixel size, centered in the box.
+          return {sw, sh, (bw - sw) // 2, (bh - sh) // 2} if none? && sw > 0 && sh > 0
           return {bw, bh, 0, 0} if stretch? || sw <= 0 || sh <= 0 || bw <= 0 || bh <= 0
           ar = sw.to_f / sh.to_f
           box_ar = bw.to_f / bh.to_f

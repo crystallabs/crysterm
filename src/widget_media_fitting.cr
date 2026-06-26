@@ -37,19 +37,47 @@ module Crysterm
 
       # Convenience: fit a PNG's own (still) bitmap.
       def self.compose(src : PNGGIF::PNG, bw : Int32, bh : Int32,
-                       fit : Media::Fit, aspect_mul : Float64 = 1.0) : PNGGIF::Bitmap?
-        compose src, src.bmp, bw, bh, fit, aspect_mul
+                       fit : Media::Fit, aspect_mul : Float64 = 1.0,
+                       sub_w : Int32 = 1, sub_h : Int32 = 1) : PNGGIF::Bitmap?
+        compose src, src.bmp, bw, bh, fit, aspect_mul, sub_w, sub_h
       end
 
       # Fit an arbitrary full-resolution *src_bmp* (e.g. a composited animation
       # frame) into a *bw*×*bh* box, resampling via *png*'s nearest-neighbour
       # `create_cellmap`. Letterbox margins are left fully transparent.
+      #
+      # *bw*/*bh* are in the caller's sampling units. For a sub-cell backend
+      # (`Media::Glyph`) those are *sub-pixels* — `cols*sub_w` × `rows*sub_h` — so
+      # `sub_w`/`sub_h` tell `Fit::None` how many sub-pixels make one terminal
+      # cell. That lets 1:1 size the image by its *terminal-cell* footprint
+      # (sub-grid-independent), so switching ascii/half/quadrant/sextant/octant
+      # changes only the detail, never the size.
       def self.compose(png : PNGGIF::PNG, src_bmp : PNGGIF::Bitmap, bw : Int32, bh : Int32,
-                       fit : Media::Fit, aspect_mul : Float64 = 1.0) : PNGGIF::Bitmap?
+                       fit : Media::Fit, aspect_mul : Float64 = 1.0,
+                       sub_w : Int32 = 1, sub_h : Int32 = 1) : PNGGIF::Bitmap?
         return nil if bw <= 0 || bh <= 0
         sh = src_bmp.size
         sw = sh > 0 ? src_bmp[0].size : 0
         return nil if sw <= 0 || sh <= 0
+
+        # 1:1 — draw at the source's native *terminal-cell* footprint, centered/
+        # cropped. The footprint uses the terminal's measured cell aspect ratio
+        # (cell height ÷ width, auto-detected from the reported pixel size / CSS
+        # config — see `CSS::Length.cell_aspect_ratio`), independent of the backend
+        # and of the Glyph sub-grid; the sub-grid only multiplies it up into
+        # sub-pixels. So every backend/sub-mode shows the image at the SAME size;
+        # finer sub-grids merely resolve more detail within it. (Separate from the
+        # ratio fits below, which fill the box and are already size-stable.)
+        if fit.none?
+          car = Crysterm::CSS::Length.cell_aspect_ratio
+          car = 2.0 if car <= 0
+          fcw = sw                             # footprint cells wide  (1 px/cell)
+          fch = {(sh / car).round.to_i, 1}.max # footprint cells tall  (cell h÷w)
+          tw = {fcw * sub_w, 1}.max            # → sub-pixels for this backend
+          th = {fch * sub_h, 1}.max
+          sampled = png.create_cellmap(src_bmp, cmwidth: tw, cmheight: th, cell_aspect: 1.0)
+          return place_centered(sampled, bw, bh)
+        end
 
         dw, dh, ox, oy = fit.layout(bw, bh, (sw * aspect_mul).round.to_i, sh)
         sampled = png.create_cellmap(src_bmp, cmwidth: dw, cmheight: dh, cell_aspect: 1.0)
@@ -67,6 +95,30 @@ module Crysterm
           orow = out[ty]
           srow.each_with_index do |px, x|
             tx = x + ox
+            next if tx < 0 || tx >= bw
+            orow[tx] = px
+          end
+        end
+        out
+      end
+
+      # Centers *src* (its own size) into a *bw*×*bh* transparent canvas, cropping
+      # any overflow (so an over-size 1:1 image shows its middle). Returns nil if
+      # *src* is empty.
+      def self.place_centered(src : PNGGIF::Bitmap, bw : Int32, bh : Int32) : PNGGIF::Bitmap?
+        return nil if src.empty?
+        nh = src.size
+        nw = src[0]?.try(&.size) || 0
+        return nil if nw <= 0
+        out = Array(Array(PNGGIF::Pixel)).new(bh) { Array.new(bw, TRANSPARENT) }
+        oy0 = (bh - nh) // 2
+        ox0 = (bw - nw) // 2
+        src.each_with_index do |srow, y|
+          ty = y + oy0
+          next if ty < 0 || ty >= bh
+          orow = out[ty]
+          srow.each_with_index do |px, x|
+            tx = x + ox0
             next if tx < 0 || tx >= bw
             orow[tx] = px
           end

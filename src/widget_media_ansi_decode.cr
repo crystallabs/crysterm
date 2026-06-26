@@ -1,0 +1,222 @@
+require "./font"
+require "./widget/media"
+
+module Crysterm
+  class Widget
+    module Media
+      # ANSI/ASCII **art** file extensions handled by `#decode_ansi` — BBS /
+      # "textmode" art: CP437 glyphs plus ANSI SGR + cursor sequences (often with
+      # no newlines at all; the layout is done entirely with cursor positioning).
+      ANSI_ART_RE = /\.(ans|asc|nfo|diz|ansi)$/i
+
+      # CP437 (DOS OEM) high half, `0x80..0xFF` -> Unicode codepoints. Ported from
+      # blessed's `singlebyte.js`. The low half (`0x20..0x7E`) is plain ASCII.
+      CP437_HIGH = [
+        0x00C7, 0x00FC, 0x00E9, 0x00E2, 0x00E4, 0x00E0, 0x00E5, 0x00E7,
+        0x00EA, 0x00EB, 0x00E8, 0x00EF, 0x00EE, 0x00EC, 0x00C4, 0x00C5,
+        0x00C9, 0x00E6, 0x00C6, 0x00F4, 0x00F6, 0x00F2, 0x00FB, 0x00F9,
+        0x00FF, 0x00D6, 0x00DC, 0x00A2, 0x00A3, 0x00A5, 0x20A7, 0x0192,
+        0x00E1, 0x00ED, 0x00F3, 0x00FA, 0x00F1, 0x00D1, 0x00AA, 0x00BA,
+        0x00BF, 0x2310, 0x00AC, 0x00BD, 0x00BC, 0x00A1, 0x00AB, 0x00BB,
+        0x2591, 0x2592, 0x2593, 0x2502, 0x2524, 0x2561, 0x2562, 0x2556,
+        0x2555, 0x2563, 0x2551, 0x2557, 0x255D, 0x255C, 0x255B, 0x2510,
+        0x2514, 0x2534, 0x252C, 0x251C, 0x2500, 0x253C, 0x255E, 0x255F,
+        0x255A, 0x2554, 0x2569, 0x2566, 0x2560, 0x2550, 0x256C, 0x2567,
+        0x2568, 0x2564, 0x2565, 0x2559, 0x2558, 0x2552, 0x2553, 0x256B,
+        0x256A, 0x2518, 0x250C, 0x2588, 0x2584, 0x258C, 0x2590, 0x2580,
+        0x03B1, 0x00DF, 0x0393, 0x03C0, 0x03A3, 0x03C3, 0x00B5, 0x03C4,
+        0x03A6, 0x0398, 0x03A9, 0x03B4, 0x221E, 0x03C6, 0x03B5, 0x2229,
+        0x2261, 0x00B1, 0x2265, 0x2264, 0x2320, 0x2321, 0x00F7, 0x2248,
+        0x00B0, 0x2219, 0x00B7, 0x221A, 0x207F, 0x00B2, 0x25A0, 0x00A0,
+      ]
+
+      # 16-color ANSI/VGA palette (RGB), indices 0..15 (8..15 = bright).
+      ANSI_PALETTE = [
+        0x000000, 0xAA0000, 0x00AA00, 0xAA5500, 0x0000AA, 0xAA00AA, 0x00AAAA, 0xAAAAAA,
+        0x555555, 0xFF5555, 0x55FF55, 0xFFFF55, 0x5555FF, 0xFF55FF, 0x55FFFF, 0xFFFFFF,
+      ]
+
+      # Maps a CP437 byte to its Unicode `Char`.
+      def self.cp437(b : UInt8) : Char
+        case b
+        when 0x00..0x1F then ' '
+        when 0x7F       then '\u{2302}'
+        when 0x20..0x7E then b.unsafe_chr
+        else                 CP437_HIGH[b - 0x80].unsafe_chr
+        end
+      end
+
+      private def self.pal(idx : Int32) : PNGGIF::Pixel
+        v = ANSI_PALETTE[idx.clamp(0, 15)]
+        PNGGIF::Pixel.new((v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF)
+      end
+
+      # Ink fraction (0..1) of the sub-region of glyph *g* (sized *gw*x*gh*) that
+      # maps to sub-pixel (*sx*,*sy*) of an *sw*x*sh* per-cell grid. With sw=sh=1
+      # this is the whole-glyph coverage; finer grids give sub-cell shape.
+      private def self.subcoverage(g : Array(Array(Int32)), gw : Int32, gh : Int32,
+                                   sx : Int32, sw : Int32, sy : Int32, sh : Int32) : Float64
+        return 0.0 if gw == 0 || gh == 0
+        x0 = sx * gw // sw
+        x1 = {(sx + 1) * gw // sw, x0 + 1}.max
+        y0 = sy * gh // sh
+        y1 = {(sy + 1) * gh // sh, y0 + 1}.max
+        lit = 0
+        tot = 0
+        (y0...y1).each do |yy|
+          row = g[yy]?
+          (x0...x1).each do |xx|
+            tot += 1
+            lit += 1 if row && row[xx]? == 1
+          end
+        end
+        tot > 0 ? lit.to_f / tot : 0.0
+      end
+
+      # Linear blend of *fg* over *bg* by *cov* (0 = bg, 1 = fg).
+      private def self.blend(fg : PNGGIF::Pixel, bg : PNGGIF::Pixel, cov : Float64) : PNGGIF::Pixel
+        inv = 1.0 - cov
+        PNGGIF::Pixel.new(
+          (fg.r * cov + bg.r * inv).round.to_i,
+          (fg.g * cov + bg.g * inv).round.to_i,
+          (fg.b * cov + bg.b * inv).round.to_i)
+      end
+
+      # Decodes BBS / "textmode" ANSI art (*data*: CP437 bytes + ANSI escapes)
+      # into a pixel bitmap, wrapped as a still `PNGGIF::PNG` so the ordinary
+      # Media output backends (Ansi/Glyph/Sixel/Kitty/…) render it like any other
+      # image, with the usual `fit`. This is an **input decoder**, a peer of
+      # `PNGGIF` — it never writes to the terminal itself.
+      #
+      # It runs a small, self-contained ANSI interpreter (no terminal/emulator):
+      # a 2D cell grid is built honoring SGR colour/bold and cursor motion
+      # (CUP/CUU/CUD/CUF/CUB, CR/LF, ED), then each cell is rasterized with the
+      # bitmap `Font`.
+      def self.decode_ansi(data : Bytes, font : Font = Font.default_normal) : PNGGIF::PNG
+        # cell = {char, fg(0..7|nil), fg_bright, bg(0..7|nil), bg_bright}
+        cells = {} of Tuple(Int32, Int32) => Tuple(Char, Int32?, Bool, Int32?, Bool)
+        x = 0; y = 0; maxx = 0; maxy = 0
+        fg = nil.as(Int32?); fgb = false; bg = nil.as(Int32?); bgb = false
+        sx = 0; sy = 0
+        clampx = ->(v : Int32) { v.clamp(0, 1000) }
+        clampy = ->(v : Int32) { v.clamp(0, 4000) }
+
+        i = 0
+        n = data.size
+        while i < n
+          b = data[i]
+          if b == 0x1B && data[i + 1]? == 0x5B # CSI: ESC [
+            j = i + 2
+            while j < n && (data[j] == 0x3B || (0x30 <= data[j] <= 0x39))
+              j += 1
+            end
+            final = j < n ? data[j] : 0_u8
+            nums = String.new(data[(i + 2)...j]).split(';').map { |p| p.empty? ? 0 : (p.to_i? || 0) }
+            case final
+            when 0x6D # 'm' — SGR
+              (nums.empty? ? [0] : nums).each do |c|
+                case c
+                when 0        then fg = nil; bg = nil; fgb = false; bgb = false
+                when 1        then fgb = true
+                when 22       then fgb = false
+                when 30..37   then fg = c - 30
+                when 90..97   then fg = c - 90; fgb = true
+                when 39       then fg = nil
+                when 40..47   then bg = c - 40
+                when 100..107 then bg = c - 100; bgb = true
+                when 49       then bg = nil
+                else # 5 (blink) / 7 (reverse) / … ignored
+                end
+              end
+            when 0x48, 0x66 # 'H' / 'f' — CUP
+              y = clampy.call((nums[0]? || 1) - 1)
+              x = clampx.call((nums[1]? || 1) - 1)
+            when 0x41 then y = clampy.call(y - (nums[0]? || 1)) # 'A' up
+            when 0x42 then y = clampy.call(y + (nums[0]? || 1)) # 'B' down
+            when 0x43 then x = clampx.call(x + (nums[0]? || 1)) # 'C' right
+            when 0x44 then x = clampx.call(x - (nums[0]? || 1)) # 'D' left
+            when 0x4A                                           # 'J' — erase display (2 = whole screen)
+              if (nums[0]? || 0) == 2
+                cells.clear; maxx = 0; maxy = 0; x = 0; y = 0
+              end
+            when 0x73 then sx = x; sy = y # 's' save cursor
+            when 0x75 then x = sx; y = sy # 'u' restore cursor
+            else                          # 'K' (erase line) and others: ignored
+            end
+            i = j + 1
+            next
+          elsif b == 0x1B
+            i += 2 # other escape: skip ESC + next byte
+            next
+          end
+
+          case b
+          when 0x0D then x = 0                               # CR
+          when 0x0A then y = clampy.call(y + 1); x = 0       # LF
+          when 0x1A then break                               # SUB — DOS EOF marker
+          when 0x08 then x = clampx.call(x - 1)              # BS
+          when 0x09 then x = clampx.call(((x // 8) + 1) * 8) # TAB
+          else
+            cells[{x, y}] = {cp437(b), fg, fgb, bg, bgb}
+            maxx = x if x > maxx
+            maxy = y if y > maxy
+            x = clampx.call(x + 1)
+          end
+          i += 1
+        end
+
+        cols = {maxx + 1, 1}.max
+        rows = {maxy + 1, 1}.max
+
+        # Rasterize a small pixel-block per art cell (NOT the full 8x16 glyph: the
+        # output backends nearest-neighbour-downsample the bitmap, which would
+        # shred a high-res text image). Each sub-pixel is the glyph's fg/bg blended
+        # by the *coverage* (ink fraction) of the glyph region it maps to.
+        #
+        # Two resolutions, chosen by `media.ansi_art_detail`:
+        #   * on (default): 2x4 per cell — enough sub-cell structure for the Glyph
+        #     backend (quadrant/sextant/octant/braille) to resolve outlines.
+        #   * off: 1x2 per cell — one averaged colour; softer, but cleaner under
+        #     the Ansi backend and at 1:1 (nothing to alias).
+        #
+        # The block is 1-wide x 2-tall *per sub-pixel-column scaled* so that, after
+        # the cell backends' ~2:1 aspect correction, native size is the art's
+        # `cols`x`rows` grid for the Glyph backend — i.e. "1:1" is one art cell per
+        # terminal cell.
+        detail = Crysterm::Config.media_ansi_art_detail
+        cw = detail ? 2 : 1
+        ch = detail ? 4 : 2
+        pw = cols * cw
+        ph = rows * ch
+        black = PNGGIF::Pixel.new(0, 0, 0)
+        bmp = Array(Array(PNGGIF::Pixel)).new(ph) { Array(PNGGIF::Pixel).new(pw, black) }
+
+        rows.times do |cy|
+          cols.times do |cx|
+            c = cells[{cx, cy}]?
+            char, cfg, cfgb, cbg, cbgb = c || {' ', nil, false, nil, false}
+            fg_rgb = pal(cfg ? (cfgb ? cfg + 8 : cfg) : 7)
+            bg_rgb = pal(cbg ? (cbgb ? cbg + 8 : cbg) : 0)
+            g = font.glyph(char.to_s)
+            gh = g.size
+            gw = gh > 0 ? g[0].size : 0
+            ch.times do |dy|
+              drow = bmp[cy * ch + dy]
+              cw.times do |dx|
+                cov = subcoverage(g, gw, gh, dx, cw, dy, ch)
+                drow[cx * cw + dx] = blend(fg_rgb, bg_rgb, cov)
+              end
+            end
+          end
+        end
+
+        # Wrap as a *still* PNG. We round-trip through `encode_png` rather than the
+        # frames constructor on purpose: the latter leaves `frames` non-nil, which
+        # the cell backends read as "animated" (then find no frame loop and render
+        # nothing). A decoded still has `frames == nil`, the path every backend
+        # treats as a single image.
+        PNGGIF::PNG.new(PNGGIF.encode_png(bmp))
+      end
+    end
+  end
+end

@@ -20,6 +20,11 @@ module Crysterm
         Padding.default
       in Padding
         value
+      in Symbol
+        # A side symbol (`:right`, `:horizontal`, ...) — one cell on the
+        # named side(s); see `SidedGeometry.sides`.
+        s = SidedGeometry.sides value
+        Padding.new s[:left], s[:top], s[:right], s[:bottom]
       in Int
         Padding.new value, value, value, value
       end

@@ -18,8 +18,9 @@ require "../../../src/crysterm"
 # A pit, bats, and The Wumpus can be in the same room. You cannot.
 #
 # Commands (typed into the input box, then Enter):
-#   <room> / m <room>  move to an adjacent room
-#   s <room> [room…]   shoot an arrow through up to 5 rooms
+#   <room> / m <room>  move to an adjacent room (the space is optional: m5)
+#   s <room> [room…]   shoot an arrow through up to 5 rooms (space optional, and
+#                      rooms may be split by any non-word delimiter: s3 12, s3,12)
 #   b                  go back to your previous room (needs the "back" flag)
 #   n                  start a new game
 #   h                  help (also shows current flags)
@@ -41,7 +42,7 @@ class Wumpus
   STARTING_ARROWS = 5
 
   # Every difference between the flavors, as an independent on/off flag.
-  FLAGS = %w[mesg prompts bump crooked same back reveal gap score]
+  FLAGS = %w[mesg prompts bump crooked same back reveal gap score wimpus]
 
   # One-line description of each flag, for the help screen.
   FLAG_HELP = {
@@ -54,15 +55,24 @@ class Wumpus
     "reveal"  => "reveal the Wumpus's room after loss",
     "gap"     => "teletype blank-line spacing (off = compact)",
     "score"   => "running scoreboard pinned top-right (off = hidden)",
+    "wimpus"  => "Wumpus suffers bats & pits too (off = immune)",
   }
 
   # Named groups of flag settings. The default pack is the first key.
   PRESETS = {
     "1973" => {"mesg" => true, "prompts" => true, "bump" => true, "crooked" => false,
-               "same" => true, "back" => false, "reveal" => false, "gap" => true, "score" => false},
+               "same" => true, "back" => false, "reveal" => false, "gap" => true, "score" => false,
+               "wimpus" => false},
     "2026" => {"mesg" => false, "prompts" => false, "bump" => false, "crooked" => true,
-               "same" => false, "back" => true, "reveal" => true, "gap" => false, "score" => true},
+               "same" => false, "back" => true, "reveal" => true, "gap" => false, "score" => true,
+               "wimpus" => true},
   }
+
+  # Grammatical forms of whoever a hazard message is about, so the same bat /
+  # pit wording serves both the player and — with "wimpus" on — the Wumpus, in
+  # either the 1973 (caps) or modern wording. See bat_snatch_msg / pit_msg.
+  PLAYER = {caps: "YOU", name: "you", subj: "You", obj: "you", verb_s: ""}
+  WUMPUS = {caps: "THE WUMPUS", name: "the Wumpus", subj: "The Wumpus", obj: "it", verb_s: "s"}
 
   @player = 1
   @prev_player = 1 # room occupied before the current one (for the "back" flag)
@@ -97,7 +107,7 @@ class Wumpus
   @shoot_path = [] of Int32
 
   # Running scoreboard (the "score" flag). Tallies persist across games:
-  #   player - +1 each time you shoot the Wumpus
+  #   player - +1 each win: you shoot the Wumpus, or ("wimpus" on) it falls in a pit
   #   wumpus - +1 each time it eats you
   #   holes  - +1 each time you fall into a pit
   #   bats   - +1 each time bats drop you straight into a pit
@@ -129,17 +139,22 @@ class Wumpus
       height: 3,
       style: Style.new(fg: "black", bg: "#e0e000", border: true)
 
-    # The scoreboard: a small box pinned to the top-right corner, just inside the
-    # transcript's outer border. Shown only when the "score" flag is on (see
-    # update_score). top:1 / right:1 keep it clear of the surrounding border.
-    @scorebox = Widget::Box.new \
+    # The scoreboard: a small titled box pinned to the top-right corner, just
+    # inside the transcript's outer border. Shown only when the "score" flag is on
+    # (see update_score). top:1 / right:1 keep it clear of the surrounding border.
+    # It overlays the transcript, whose scroll bar shares this column once the log
+    # scrolls; `z-index: 10` floats the box above that bar (the theme puts the bar
+    # on plane 5) so its right border isn't eaten. See the theme's `.popup`/`Menu`
+    # overlays for the same pattern.
+    @scorebox = Widget::GroupBox.new \
       top: 1,
       right: 1,
       width: 15,
       height: 7,
-      label: " Score ",
+      title: " Score ",
       parse_tags: true,
-      style: Style.new(fg: "white", bg: "#16213e", border: true)
+      style: Style.new(fg: "white", bg: "#16213e", border: true, margin: :right)
+    @scorebox.style.z_index = 10
 
     @screen.append @transcript
     @screen.append @input
@@ -209,6 +224,10 @@ class Wumpus
     @opt["score"]
   end
 
+  private def wimpus?
+    @opt["wimpus"]
+  end
+
   # Pick original (1973) vs modern (2026) wording for a line, per the mesg flag.
   private def w(orig : String, modern : String) : String
     mesg? ? orig : modern
@@ -262,6 +281,21 @@ class Wumpus
   # omitted when off (compact).
   private def gap
     say if gap?
+  end
+
+  # The "super bat snatch" notice for whoever got grabbed — the player, or the
+  # Wumpus (with "wimpus" on). `who` is PLAYER or WUMPUS; both wordings name the
+  # subject so the message reads right whichever it is.
+  private def bat_snatch_msg(who) : String
+    w("ZAP--SUPER BAT SNATCH! ELSEWHERE FOR #{who[:caps]}!",
+      "{magenta-fg}Super bats snatch #{who[:name]} and whisk #{who[:obj]} away!{/}")
+  end
+
+  # The "fell down a pit" notice, likewise parameterized by subject (PLAYER or
+  # WUMPUS) so it serves the player's death and the Wumpus's (which is your win).
+  private def pit_msg(who) : String
+    w("YYYIIIIEEEE . . . #{who[:caps]} FELL IN A PIT",
+      "{red-fg}{bold}#{who[:subj]} plummet#{who[:verb_s]} into a bottomless pit. Aaaaaa…{/}")
   end
 
   # ---- Scoreboard ------------------------------------------------------------
@@ -337,7 +371,14 @@ class Wumpus
     say w("", "Type {bold}h{/} for help.") # always shown
     gap
     update_score
-    describe_room
+
+    # With "wimpus" on, check the Wumpus's starting room against the cave's
+    # hazards before the hunt begins (placement keeps everyone in distinct rooms,
+    # so this is a safeguard): bats would relocate it, a pit would win outright.
+    case wumpus_landing
+    when :pit then wumpus_pit_win
+    else           describe_room
+    end
   end
 
   # ---- Per-turn description --------------------------------------------------
@@ -368,6 +409,13 @@ class Wumpus
 
   # ---- Command dispatch ------------------------------------------------------
 
+  # The room numbers from a shoot/move command's argument tokens, split so that
+  # any run of non-word characters — spaces, commas, etc. — delimits them
+  # ("3 12", "3,12"). Non-numeric or out-of-range tokens are simply dropped.
+  private def room_args(parts : Array(String)) : Array(Int32)
+    parts[1..].join(" ").split(/\W+/, remove_empty: true).compact_map(&.to_i?)
+  end
+
   # With "prompts" on, a turn walks the teletype sequence one Enter at a time
   # (see @input_state); otherwise a whole command is parsed per line.
   private def handle_command(cmd : String)
@@ -378,6 +426,14 @@ class Wumpus
     @prev_wumpus = @wumpus
     parts = cmd.split(/\s+/)
     verb = parts[0].downcase
+    # Let the shoot/move verb be written glued onto its first room number
+    # ("s3", "m5"): peel a leading s/m off when a digit follows. The rooms
+    # themselves are pulled out with room_args below, where any non-word
+    # character (space, comma, …) delimits them.
+    if g = verb.match(/\A([sm])(\d.*)\z/)
+      verb = g[1]
+      parts = [g[1], g[2]] + parts[1..]
+    end
 
     # A pack name ("1973"), a bare flag ("bump", toggles it), or a forced
     # "+flag" / "-flag" reconfigures the game without resetting it — and works
@@ -417,6 +473,11 @@ class Wumpus
     when "n", "new"
       new_game
       return
+    when "where"
+      # Undocumented peek: reveal every hazard's room (the Wumpus, pits, bats).
+      say w("WUMPUS #{@wumpus} - PITS #{@pits.sort.join(" ")} - BATS #{@bats.sort.join(" ")}",
+        "Wumpus: {bold}#{@wumpus}{/}. Pits: #{@pits.sort.join(", ")}. Bats: #{@bats.sort.join(", ")}.")
+      return
     end
 
     # Step back to the previous room (single-letter "b"), if enabled.
@@ -443,14 +504,14 @@ class Wumpus
     # Free-form one-line commands.
     case verb
     when "s", "shoot"
-      path = parts[1..].map(&.to_i?).compact
+      path = room_args(parts)
       if path.empty?
         say "Shoot where? e.g. {bold}s 3 12{/}"
       else
         shoot path
       end
     when "m", "move"
-      if (room = parts[1]?.try &.to_i?)
+      if (room = room_args(parts).first?)
         move room
       else
         say "Move where? e.g. {bold}m 5{/}"
@@ -513,8 +574,8 @@ class Wumpus
       say "  s, then NO. OF ROOMS (1-5)?  then a ROOM # for each, to shoot"
     else
       say "  <room>           move to an adjacent room (e.g. 5)"
-      say "  m <room>         move to an adjacent room"
-      say "  s <room> [room…] shoot an arrow through up to 5 rooms"
+      say "  m <room>         move to an adjacent room (space optional: m5)"
+      say "  s <room> [room…] shoot up to 5 rooms; space optional, any delimiter (s3 12, s3,12)"
     end
     say "  b                go back to the room you were last in" if back?
     say "  n                start a new game"
@@ -569,14 +630,19 @@ class Wumpus
     if @player == @wumpus
       if bump?
         # A bump only wakes the Wumpus: it stirs (75%) and may shuffle out of
-        # your room, so you can survive. Only being eaten ends the game.
+        # your room, so you can survive. Only being eaten ends the game. With
+        # "wimpus" on, that shuffle can carry it into a hazard too (see
+        # wumpus_stirs): bats relocate it, a pit means you win.
         say w("... OOPS! BUMPED A WUMPUS!",
           "{yellow-fg}You blunder into the Wumpus — it wakes with a roar!{/}")
-        if wumpus_stirs
+        case wumpus_stirs
+        when :ate
           say w("TSK TSK TSK - WUMPUS GOT YOU!",
             "{red-fg}{bold}It lunges and devours you!{/}")
           score_wumpus_ate
           lose
+        when :pit
+          wumpus_pit_win
         else
           gap
           describe_room
@@ -591,8 +657,7 @@ class Wumpus
     end
 
     if @pits.includes?(@player)
-      say w("YYYIIIIEEEE . . . FELL IN A PIT",
-        "{red-fg}{bold}You plummet into a bottomless pit. Aaaaaa…{/}")
+      say pit_msg(PLAYER)
       @score_holes += 1
       update_score
       lose
@@ -600,8 +665,7 @@ class Wumpus
     end
 
     if @bats.includes?(@player)
-      say w("ZAP--SUPER BAT SNATCH! ELSEWHERE FOR YOU!",
-        "{magenta-fg}Super bats snatch you and whisk you away!{/}")
+      say bat_snatch_msg(PLAYER)
       @player = rand(1..20)
       # Credit the bats if they happened to drop you straight down a pit. The
       # recursive enter_room below still credits the hole itself.
@@ -618,10 +682,41 @@ class Wumpus
   end
 
   # The Wumpus stirs after a shot or a bump: 75% chance it shuffles to a random
-  # adjacent room (25% it stays put). Returns true if it ends up eating you.
-  private def wumpus_stirs : Bool
+  # adjacent room (25% it stays put). Returns its fate via wumpus_landing:
+  #   :safe - nothing happened (still lurking somewhere harmless)
+  #   :ate  - it ended up in your room (you're eaten)
+  #   :pit  - it fell down a pit ("wimpus" on) — you win
+  private def wumpus_stirs : Symbol
     @wumpus = MAP[@wumpus].to_a.sample if rand < 0.75
-    @wumpus == @player
+    wumpus_landing
+  end
+
+  # Work out what the Wumpus's current room means. It's eaten you if it's on
+  # you. With "wimpus" on it also faces the cave's hazards just like you do:
+  # bats whisk it to a random room (which the recursion re-checks), and a pit
+  # swallows it — which is your win. Always announces those events (in either
+  # wording), since the player can't otherwise see the Wumpus move.
+  private def wumpus_landing : Symbol
+    return :ate if @wumpus == @player
+    return :safe unless wimpus?
+
+    if @bats.includes?(@wumpus)
+      say bat_snatch_msg(WUMPUS)
+      @wumpus = rand(1..20)
+      return wumpus_landing
+    end
+
+    return :pit if @pits.includes?(@wumpus)
+    :safe
+  end
+
+  # The Wumpus fell down a pit (only possible with "wimpus" on): announce it in
+  # the same words a pit uses for the player, tally the win, and end the game.
+  private def wumpus_pit_win
+    say pit_msg(WUMPUS)
+    @score_player += 1
+    update_score
+    win
   end
 
   # ---- Shooting --------------------------------------------------------------
@@ -676,12 +771,17 @@ class Wumpus
     say w("MISSED", "Your arrow clatters away into the dark. A miss.")
     @arrows -= 1
 
-    # The shot startles the Wumpus; it may shamble into an adjacent room.
-    if wumpus_stirs
+    # The shot startles the Wumpus; it may shamble into an adjacent room — and
+    # with "wimpus" on, into a hazard there (bats relocate it, a pit wins).
+    case wumpus_stirs
+    when :ate
       say w("TSK TSK TSK - WUMPUS GOT YOU!",
         "{red-fg}{bold}The noise wakes the Wumpus and it stumbles into your room. It eats you!{/}")
       score_wumpus_ate
       lose
+      return
+    when :pit
+      wumpus_pit_win
       return
     end
 
@@ -711,13 +811,13 @@ class Wumpus
     # @prev_wumpus (the Wumpus's room at the start of this turn), not @wumpus: a
     # stir can move it onto you in the same turn, which would otherwise reveal
     # your own room instead of where the Wumpus had been lurking.
-    say w("THE WUMPUS WAS IN ROOM #{@prev_wumpus}", "The Wumpus was in room #{@prev_wumpus}.") if reveal?
     end_prompt
   end
 
   # After a game ends: with "same" on, ask "SAME SET-UP (Y-N)?" and wait;
   # otherwise start a fresh game immediately.
   private def end_prompt
+    say w("THE WUMPUS WAS IN ROOM #{@prev_wumpus}", "The Wumpus was in room #{@prev_wumpus}.") if reveal?
     if same?
       @awaiting_replay = true
       say "SAME SET-UP (Y-N)?"

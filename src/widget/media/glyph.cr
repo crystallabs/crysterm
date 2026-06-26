@@ -77,11 +77,15 @@ module Crysterm
         {cols * sx, rows * sy}
       end
 
-      # A sub-cell pixel is `(cell_w/sx) × (cell_h/sy)`; with a ~1:2 cell this is
-      # square for braille/octant (2×4) and half (1×2), wide for block/quadrant.
+      # A sub-cell pixel is `(cell_w/sx) × (cell_h/sy)`; with the terminal's
+      # measured cell aspect (`CSS::Length.cell_aspect_ratio`, cell height÷width)
+      # this is square for braille/octant (2×4) and half (1×2), wide for
+      # block/quadrant.
       def native_pixel_aspect : Float64
         sx, sy = @mode.subgrid
-        sy / (2.0 * sx)
+        car = Crysterm::CSS::Length.cell_aspect_ratio
+        car = 2.0 if car <= 0
+        sy / (car * sx)
       end
 
       # Switches glyph family; the next render re-samples at the new sub-cell
@@ -104,10 +108,19 @@ module Crysterm
       # Sample at the current mode's sub-cell resolution (cells × sub-grid).
       protected def compose(img : PNGGIF::PNG, cols : Int32, rows : Int32, frame : PNGGIF::Bitmap?) : PNGGIF::Bitmap?
         sx, sy = @mode.subgrid
+        # Sub-pixel aspect (height/width): a cell is `car`:1 (tall — the terminal's
+        # measured cell height÷width, see `CSS::Length.cell_aspect_ratio`), split
+        # into sx columns x sy rows, so a sub-pixel is (1/sx) wide x (car/sy) tall.
+        # It is only *square* when sy == car*sx; for the other modes it is
+        # non-square, and passing 1.0 would distort the fit so the image comes out
+        # a different size per mode. The correct correction is car*sx/sy.
+        car = Crysterm::CSS::Length.cell_aspect_ratio
+        car = 2.0 if car <= 0
+        am = car * sx / sy
         if frame
-          Media::Fitting.compose(img, frame, cols * sx, rows * sy, @fit, 1.0)
+          Media::Fitting.compose(img, frame, cols * sx, rows * sy, @fit, am, sx, sy)
         else
-          Media::Fitting.compose(img, cols * sx, rows * sy, @fit, 1.0)
+          Media::Fitting.compose(img, cols * sx, rows * sy, @fit, am, sx, sy)
         end
       end
 

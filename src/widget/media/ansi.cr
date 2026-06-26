@@ -62,7 +62,9 @@ module Crysterm
         animate : Bool | Timer = true,
         @ascii : Bool = false,
         @speed : Float64 = 1.0,
-        @cell_aspect : Float64 = 2.0,
+        # Cell height÷width. Defaults to the terminal's measured ratio (CSS layer),
+        # not a hardcoded 2:1, so the image's proportions match the real cells.
+        @cell_aspect : Float64 = Crysterm::CSS::Length.cell_aspect_ratio,
         @colors : ColorMode = ColorMode::TrueColor,
         @dither : Media::Dither = Media::Dither::Auto,
         @fit : Media::Fit = Media::Fit::Stretch,
@@ -87,13 +89,15 @@ module Crysterm
       # Size the widget to a native-scaled render when no explicit size was given;
       # `#render` then (re)samples to the actual box.
       protected def on_loaded(png : PNGGIF::PNG)
-        cw = @width.as?(Int32)
-        ch = @height.as?(Int32)
-        if cw.nil? || ch.nil?
-          native = png.create_cellmap(png.bmp, scale: @scale, cell_aspect: @cell_aspect)
-          self.width = (native[0]?.try(&.size) || 0) if cw.nil?
-          self.height = native.size if ch.nil?
-        end
+        # Only auto-size an axis the caller left *unset*. A non-nil size — including
+        # a String like "100%"/"50%" — is explicit and must be honored (the box,
+        # resolved at render, then drives `#fit`). The old `@width.as?(Int32)` test
+        # treated any non-Int as unset, so a percentage width was silently replaced
+        # by the native size, defeating both box-fitting and the `fit` option.
+        return unless @width.nil? || @height.nil?
+        native = png.create_cellmap(png.bmp, scale: @scale, cell_aspect: @cell_aspect)
+        self.width = (native[0]?.try(&.size) || 0) if @width.nil?
+        self.height = native.size if @height.nil?
       end
 
       # One cell per pixel: sample at the content box size, with cell-aspect

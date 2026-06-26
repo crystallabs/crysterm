@@ -321,6 +321,42 @@ module Crysterm
         end
       end
 
+      # Whether *type* can actually render in the current environment — terminal
+      # capability for the in-band backends (Kitty/Iterm/Sixel), Unicode for the
+      # cell grid, and **helper-binary presence** for the external ones (Overlay
+      # needs `w3mimgdisplay`, Ueberzug needs `ueberzug`). `Regis`/`Tek` have no
+      # detection and report unavailable. Use this to gate selection in a UI so a
+      # backend the host can't drive is never invoked (no escape-sequence spew, no
+      # crash). *tput* defaults to the global screen's.
+      def self.available?(type : Type, tput : ::Tput? = nil) : Bool
+        case type
+        when .ansi?, .glyph?
+          tp = tput || (Crysterm::Screen.total > 0 ? Crysterm::Screen.global.tput : nil)
+          tp ? backend_supported?(type, tp.emulator, tp.features) : true
+        when .kitty?, .iterm?, .sixel?
+          tp = tput || (Crysterm::Screen.total > 0 ? Crysterm::Screen.global.tput : nil)
+          tp ? backend_supported?(type, tp.emulator, tp.features) : false
+        when .overlay?  then w3m_available?
+        when .ueberzug? then ueberzug_available?
+        else                 false # Regis/Tek: no detection
+        end
+      end
+
+      # Whether the `w3mimgdisplay` helper (used by `Media::Overlay`) is present.
+      def self.w3m_available? : Bool
+        paths = [ENV["W3MIMGDISPLAY_ENV"]?,
+                 "/usr/lib/w3m/w3mimgdisplay", "/usr/libexec/w3m/w3mimgdisplay",
+                 "/usr/lib64/w3m/w3mimgdisplay", "/usr/libexec64/w3m/w3mimgdisplay",
+                 "/usr/local/libexec/w3m/w3mimgdisplay"]
+        paths.any? { |p| p && File.exists?(p) }
+      end
+
+      # Whether an `ueberzug`/`ueberzugpp` helper (used by `Media::Ueberzug`) is
+      # on `PATH`.
+      def self.ueberzug_available? : Bool
+        {"ueberzug", "ueberzugpp", "ueberzug++"}.any? { |n| Process.find_executable(n) }
+      end
+
       # Builds the concrete image/media widget for *type*, forwarding all
       # remaining options to its constructor. When *type* is omitted it is
       # resolved for the current terminal and *file*'s content kind via
@@ -375,10 +411,18 @@ module Crysterm
             key = "#{file}\u{0}#{info.size}\u{0}#{info.modification_time.to_unix}"
           end
         end
+        # ANSI-art decoding depends on the detail setting, so key on it too — a
+        # toggle re-decodes rather than serving the stale rasterization.
+        key += "\u{0}d#{Crysterm::Config.media_ansi_art_detail}" if file =~ ANSI_ART_RE
         return @@decode_cache[key] if @@decode_cache.has_key?(key)
         png =
           begin
-            if VideoSource.video? file
+            if file =~ ANSI_ART_RE
+              # ANSI/textmode art: decode CP437 + ANSI sequences to a bitmap
+              # (an input decoder, peer to PNGGIF — see `#decode_ansi`).
+              raw = file =~ /^https?:/ ? Ansi.fetch(file) : File.open(file, &.getb_to_end)
+              decode_ansi(raw)
+            elsif VideoSource.video? file
               # Decoded to animation frames via ffmpeg; nil if ffmpeg/ffprobe
               # are missing or decoding fails.
               VideoSource.decode file

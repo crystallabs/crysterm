@@ -88,15 +88,27 @@ module Crysterm
       # (Re)paints the loaded image over the terminal at this widget's current
       # position. Called after every screen render so the overlay stays on top;
       # skips while the widget is hidden or detached.
+      # Set once the external helper has failed (e.g. `w3mimgdisplay` is not
+      # installed), so we stop hammering it every render and never crash.
+      @helper_failed = false
+
       private def redraw_image
+        return if @helper_failed
         return unless visible?
         screen? || return
         @image.try do |image|
           pos = _get_coords(true) || return
           # TODO - get coords of content only, without borders/padding
           # style.border.try &.adjust(pos)
-          image.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
-          @last_drawn = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
+          begin
+            image.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
+            @last_drawn = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
+          rescue
+            # w3mimgdisplay missing/failed: degrade instead of crashing the render
+            # fiber. Selection UIs should gate on `Media.available?`; this is a
+            # backstop.
+            @helper_failed = true
+          end
         end
       end
 

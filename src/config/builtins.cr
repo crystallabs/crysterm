@@ -93,6 +93,8 @@ module Superconf
     description: "What a Widget::Media backend does when asked for a feature it can't do (error|ignore)"
   option "media.exclude", "",
     description: "Backends excluded from automatic selection (comma/space separated: kitty,iterm,sixel,glyph,ansi,…); the 'best' is then chosen from the rest"
+  option "media.ansi_art_detail", true,
+    description: "When decoding ANSI/textmode art (.ans), rasterize each cell at 2x4 sub-cell resolution so the Glyph backend can resolve sub-cell shapes (sharper outlines). Set false to rasterize one averaged colour per cell (softer, but cleaner under the Ansi backend and at 1:1)"
   option "video.fps", 15.0,
     description: "Maximum frame rate Widget::Video samples a video at",
     validate: ->(f : Float64) { f > 0 }
