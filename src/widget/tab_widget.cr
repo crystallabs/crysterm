@@ -134,8 +134,10 @@ module Crysterm
       # since the page fills the pane region; an explicit `::pane` rule therefore
       # overrides that page's normal style for the area beside the bar.)
       private def sync_tab_style : Nil
-        tab = style.tab
-        bar.items.each { |it| apply_substyle it, tab }
+        # `apply_substyle` `dup`s the sub-style per child, so the pane the current
+        # page receives is its own copy — `show`/`hide` mutating one page's
+        # `visible` can't leak through a shared object and blank the next page.
+        bar.items.each { |it| apply_substyle it, style.tab }
 
         # `::pane` styles the *current page itself*, since it fills the pane region.
         apply_substyle current_page, style.pane

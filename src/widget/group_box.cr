@@ -54,7 +54,20 @@ module Crysterm
         # computed `title` sub-style onto it each frame after the cascade. Guarded
         # by `same?`, so it's a no-op (and the label keeps its default style) unless
         # a `::title` rule matched. See `Widget::TabWidget#sync_tab_style`.
-        on(::Crysterm::Event::PreRender) { apply_substyle @_label, style.title }
+        on(::Crysterm::Event::PreRender) do
+          t = style.title
+          unless t.same?(style)
+            # The title is an inline label, not a framed box, but the `title`
+            # sub-style folds in the group's own border (sub-styles inherit the
+            # parent style) — which would draw a full box around the title text.
+            # Strip it on an own copy, as `Menu#render_style_for` does for its
+            # separator rule. (Done here rather than via `apply_substyle` because
+            # that border-strip is GroupBox-specific.)
+            t = t.dup
+            t.border = false
+            @_label.try(&.styles.normal = t)
+          end
+        end
 
         if checkable?
           # Toggle only when the *title* row is clicked (Qt toggles via the group's

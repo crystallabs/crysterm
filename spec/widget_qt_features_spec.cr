@@ -1396,6 +1396,30 @@ describe Crysterm::Widget::DockWidget do
     dock.area.right?.should be_true
     states.should eq [true, false]
   end
+
+  it "gives the title buttons the bar's background so they are never transparent" do
+    # Mimics a Qt theme (e.g. Breeze) that styles the dock title bar with a solid
+    # background but its `::close-button`/`::float-button` with a transparent one
+    # (for icon images). In a terminal that transparent bg paints the screen
+    # default (`-1`) and the glyph renders as a "black hole"; the widget must fall
+    # the buttons back to the bar's own background so they stay legible.
+    s = qt_mem_screen
+    s.stylesheet = "DockWidget::title { background-color: #334455; color: #ffffff; } " \
+                   "DockWidget::close-button, DockWidget::float-button { background-color: transparent; }"
+    dock = Crysterm::Widget::DockWidget.new parent: s, title: "Panes",
+      area: Crysterm::Widget::DockWidget::Area::Floating
+    dock.top = 1; dock.left = 1; dock.width = 20; dock.height = 6
+    dock.widget = Crysterm::Widget::Box.new content: "x"
+    s._render
+
+    bar_bg = dock.titlebar.style.bg
+    bar_bg.should eq 0x334455
+    [dock.@close_button, dock.@float_button].each do |btn|
+      b = btn.not_nil!
+      b.style.bg.should eq bar_bg # adopted the bar's bg, not the transparent -1
+      b.style.bg.should_not eq -1
+    end
+  end
 end
 
 describe Crysterm::Widget::MainWindow do

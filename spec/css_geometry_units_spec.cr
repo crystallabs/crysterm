@@ -141,6 +141,32 @@ describe "CSS geometry units" do
     a.style.border.left.should eq 0 # explicit 0 stays 0
   end
 
+  it "honors (does not clamp) a sub-cell width in the border shorthand" do
+    # Qt stylesheets put hairline widths in the `border`/`border-<side>`
+    # *shorthand* (`border: 0.04em solid #ccc`, `border: 1px solid #ccc`). In a
+    # cell grid these round to 0; clamping each up to a full-cell box would
+    # destroy short widgets and over-frame containers, so the shorthand honors
+    # the rounded count (only the explicit `border-width` longhand clamps).
+    s = render_screen
+    s.stylesheet = "Box#a { border: 0.04em solid #cccccc; } " \
+                   "Box#b { border: 1px solid #cccccc; } " \
+                   "Box#c { border: solid #cccccc; } " \
+                   "Box#d { border: 2 solid #cccccc; } " \
+                   "Box#e { border-top: 0.04em solid #cccccc; }"
+    %w[a b c d e].each do |id|
+      w = Widget::Box.new parent: s, content: "x"
+      w.css_id = id
+    end
+    s._render
+    boxes = s.children.to_a.compact_map(&.as?(Widget::Box))
+    by = ->(id : String) { boxes.find! { |w| w.css_id == id }.style.border }
+    by.call("a").any?.should be_false # 0.04em -> 0 cells -> no border
+    by.call("b").any?.should be_false # 1px    -> 0 cells -> no border
+    by.call("c").top.should eq 1      # no width given -> default 1-cell border
+    by.call("d").top.should eq 2      # bare cell count honored
+    by.call("e").top.should eq 0      # hairline side stays invisible despite `solid`
+  end
+
   it "clamps an absurd length instead of overflowing (never raises)" do
     s = render_screen
     s.stylesheet = "Box#a { width: 99999999999px; height: calc(99999999999px * 99); }"

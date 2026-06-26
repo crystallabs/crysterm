@@ -85,8 +85,15 @@ module Crysterm
         # Qt.) See `Widget::TabWidget#sync_tab_style`.
         on(::Crysterm::Event::PreRender) do
           apply_substyle titlebar, style.title
-          apply_substyle @close_button, style.close_button
-          apply_substyle @float_button, style.float_button
+          # The float/close buttons are glyphs sitting *on* the title bar, so they
+          # take the bar's own colors by default — keeping them legible under any
+          # theme instead of rendering as transparent "black holes". (Qt's
+          # `::close-button { background: transparent }` lowers to the terminal
+          # default, which paints the screen background, not the bar's.) An
+          # explicit `::close-button`/`::float-button` rule still supplies the base
+          # look; only a color it leaves unset falls back to the bar.
+          sync_titlebutton @close_button, style.close_button
+          sync_titlebutton @float_button, style.float_button
         end
       end
 
@@ -187,6 +194,22 @@ module Crysterm
         self.height = g[3]
         self.left = g[0]
         self.top = g[1]
+      end
+
+      # Styles one title-bar button so it always reads as part of the bar. Starts
+      # from an explicit `::close-button`/`::float-button` rule when one matched,
+      # else the bar's own style, then fills any unset/terminal-default (`-1`)
+      # background or foreground from the bar — so a button can never paint the
+      # terminal background (a "black hole") or hide its glyph against its own bg.
+      private def sync_titlebutton(btn : Box?, sub : Style) : Nil
+        return unless btn
+        bar = titlebar.style
+        st = sub.same?(style) ? bar.dup : sub.dup
+        bg = st.bg
+        st.bg = bar.bg if bg.nil? || bg == -1
+        fg = st.fg
+        st.fg = bar.fg if fg.nil? || fg == -1
+        btn.styles.normal = st
       end
 
       private def build_buttons

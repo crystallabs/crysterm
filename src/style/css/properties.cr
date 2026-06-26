@@ -315,11 +315,6 @@ module Crysterm
         end
       end
 
-      # A border-shorthand token that is a width: a bare integer, optionally
-      # with the default `px` unit (e.g. `2`, `2px`). Anything else in a
-      # shorthand is a style keyword or a color.
-      WIDTH_TOKEN = /\A\d+(?:px)?\z/
-
       # Maps a CSS `border-style` keyword to a `BorderType`, or `nil` if the
       # token isn't a style keyword (a width, color, or `none`). `solid`/`line`
       # both mean the light line border; `bg`/`background` the fill-char border;
@@ -339,17 +334,31 @@ module Crysterm
       # keyword sets the border type (or hides the side with `none`), and any
       # other token is treated as the whole-border color.
       private def self.apply_border_side(border : Border, side : Symbol, value : String) : Nil
+        vertical = side == :top || side == :bottom
+        # A width token (if any) is authoritative for the side; a bare style
+        # keyword only *ensures* visibility when no width was given. A width is
+        # honored at its rounded cell count (`0.04em`/`1px` → 0, `1.5em` → 2), so
+        # a Qt-style sub-cell hairline collapses to no border instead of being
+        # forced to a full-cell box by the accompanying `solid`. (Unlike the
+        # explicit `border-width` *longhand*, a shorthand width is not clamped up.)
+        explicit_width = nil
+        type_seen = false
         value.split.each do |token|
           if token == "none"
-            set_side border, side, 0
+            explicit_width = 0
           elsif type = border_type_keyword(token)
             border.type = type
-            ensure_side border, side
-          elsif token.matches?(WIDTH_TOKEN)
-            set_side border, side, border_cells(token, vertical: side == :top || side == :bottom)
+            type_seen = true
+          elsif w = Length.to_cells(token, vertical)
+            explicit_width = w
           else
             border.fg = ColorValue.resolve(token, border.fg)
           end
+        end
+        if explicit_width
+          set_side border, side, explicit_width
+        elsif type_seen
+          ensure_side border, side
         end
       end
 
@@ -480,11 +489,13 @@ module Crysterm
         value.split.each do |token|
           if type = border_type_keyword(token)
             border.type = type
-          elsif token.matches?(WIDTH_TOKEN)
-            # One width for all four sides, but top/bottom (vertical) and
-            # left/right (horizontal) scale absolute units differently.
-            border.left = border.right = border_cells(token)
-            border.top = border.bottom = border_cells(token, vertical: true)
+          elsif w = Length.to_cells(token)
+            # One width for all four sides, honored at its rounded cell count
+            # rather than clamping a sub-cell hairline up to a full-cell box —
+            # so a Qt theme's thin border (`0.04em`/`1px` → 0) collapses to none
+            # in the cell grid. (top/bottom scale absolute units differently.)
+            border.left = border.right = w
+            border.top = border.bottom = (Length.to_cells(token, vertical: true) || w)
           else
             border.fg = token
           end

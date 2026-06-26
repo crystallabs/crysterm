@@ -17,9 +17,17 @@ module Crysterm
       # widget's own `#style` (the `same?` fallback meaning "no sub-rule matched"),
       # in which case it is a no-op. Tolerates a nil *child* (e.g. an optional
       # button or auto-created label).
+      #
+      # The pushed style is a **`dup`**, so each child gets its own copy instead of
+      # sharing the parent's single sub-`Style` object. Sharing is actively
+      # harmful: `show`/`hide` mutate `styles.normal.visible` in place, so a
+      # `TabWidget` hiding the previously-current page would flip the shared pane
+      # object's `visible` to false — and the next page handed that same object
+      # (or the same page next frame) would then render blank. A per-child copy
+      # keeps each child's in-place style edits to itself.
       protected def apply_substyle(child : Widget?, substyle : ::Crysterm::Style) : Nil
         return if substyle.same? style
-        child.try { |c| c.styles.normal = substyle }
+        child.try { |c| c.styles.normal = substyle.dup }
       end
     end
   end

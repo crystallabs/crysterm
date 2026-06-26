@@ -44,4 +44,29 @@ describe "TabWidget switching (regression check)" do
     (t1.includes?("BBBcc")).should be_true # <-- switched-to page must render
     (t1.includes?("AAAcc")).should be_false
   end
+
+  it "renders a switched-to page immediately when a ::pane rule is active" do
+    # A `TabWidget::pane` rule makes `sync_tab_style` push the pane sub-style onto
+    # the current page. The bug: the shared pane object was assigned directly, so
+    # `hide`-ing the old page flipped the shared object's `visible` to false and
+    # the freshly-raised page rendered blank for a frame (content only appeared
+    # after toggling back and forth). Each page must get its own copy.
+    s = tab_screen
+    s.stylesheet = "TabWidget::pane { background-color: #202020; }"
+    tw = Widget::TabWidget.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
+      style: Style.new(border: true)
+    p0 = Widget::Box.new
+    p1 = Widget::Box.new
+    tw.add_tab "Apage", p0
+    tw.add_tab "Bpage", p1
+    Widget::Box.new parent: p0, top: 1, left: 1, width: 7, height: 1, content: "AAAcc"
+    Widget::Box.new parent: p1, top: 1, left: 1, width: 7, height: 1, content: "BBBcc"
+
+    s._render
+    tw.show_tab 1
+    s._render
+    # No intervening toggle: the very first render after the switch must show it.
+    screen_text(s).includes?("BBBcc").should be_true
+    p1.style.visible?.should be_true # visibility preserved through the pane push
+  end
 end
