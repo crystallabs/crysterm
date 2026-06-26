@@ -13,6 +13,8 @@ module Crysterm
   class Widget
     class Button
       def css_attributes : Hash(String, String?)
+        # The common plain push-button has none of these — reuse the shared empty.
+        return EMPTY_CSS_ATTRIBUTES unless checkable? || flat? || default?
         attrs = {} of String => String?
         attrs["checkable"] = nil if checkable?
         if checkable?
@@ -31,10 +33,12 @@ module Crysterm
 
     class GroupBox
       # Qt's `:flat` → `[flat]`: a flat group box drops its frame
-      # (`GroupBox[flat]` in the theme).
+      # (`GroupBox[flat]` in the theme). `super.dup` before mutating, since the
+      # base may hand back a shared empty hash.
       def css_attributes : Hash(String, String?)
-        attrs = super
-        attrs["flat"] = nil if flat?
+        return super unless flat?
+        attrs = super.dup
+        attrs["flat"] = nil
         attrs
       end
     end
@@ -45,7 +49,7 @@ module Crysterm
     {% for w in %w[ScrollBar Slider ProgressBar Splitter] %}
       class {{w.id}}
         def css_attributes : Hash(String, String?)
-          attrs = super
+          attrs = super.dup # never mutate super's (possibly shared) result
           attrs[orientation.horizontal? ? "horizontal" : "vertical"] = nil
           attrs
         end
@@ -55,8 +59,9 @@ module Crysterm
     class ComboBox
       # Qt's `:editable` → `[editable]` (see `CSS::Qss`).
       def css_attributes : Hash(String, String?)
-        attrs = super
-        attrs["editable"] = nil if editable?
+        return super unless editable?
+        attrs = super.dup
+        attrs["editable"] = nil
         attrs
       end
     end

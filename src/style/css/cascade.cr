@@ -169,7 +169,7 @@ module Crysterm
         # starts clean rather than building on its previous computed styles.
         # (Inherited-into widgets aren't `css_styled`, so every candidate is
         # reset, not just matched ones.)
-        recompute_candidates(index, scope).each do |widget|
+        each_recompute_candidate(index, scope) do |widget|
           widget.styles = widget.css_base_styles.deep_dup
           widget.css_styled = false
           widget.css_reset_extra
@@ -395,15 +395,20 @@ module Crysterm
         style.fold_inline_sub_styles inline
       end
 
-      # The widgets eligible to be reset/recomputed: every (main) widget in the
-      # document index, intersected with *scope* when scoped. Intersecting with
-      # the index guarantees the cascade only ever touches *this* screen's
-      # widgets — a `scope` could otherwise include a widget that has since moved
-      # to another screen (a stale dirty-subtree root).
-      private def self.recompute_candidates(index, scope : Set(Widget)?) : Enumerable(Widget)
-        widgets = Set(Widget).new
-        index.each_value { |(widget, slot)| widgets << widget if slot.nil? }
-        scope ? (widgets & scope) : widgets
+      # Yields each widget eligible to be reset/recomputed: every (main) widget
+      # in the document index (`slot.nil?`), intersected with *scope* when
+      # scoped. Filtering against the index guarantees the cascade only ever
+      # touches *this* screen's widgets — a `scope` could otherwise include a
+      # widget that has since moved to another screen (a stale dirty-subtree
+      # root). Each main widget appears exactly once in the index, so iterating
+      # it directly needs no intermediate `Set` (one fewer N-element allocation
+      # per cascade).
+      private def self.each_recompute_candidate(index, scope : Set(Widget)?, & : Widget ->) : Nil
+        index.each_value do |(widget, slot)|
+          next unless slot.nil?
+          next unless scope.nil? || scope.includes?(widget)
+          yield widget
+        end
       end
 
       # Walks the widget tree, mapping each `data-uid` key (and each sub-element
@@ -455,30 +460,28 @@ module Crysterm
 
       # --- per-state style accessors -----------------------------------------
 
+      # The per-state slot of a `Styles` (the non-`normal` accessors lazily fall
+      # back to `normal` without materializing — see `Styles`). Shared by the
+      # base-snapshot and current-style accessors below.
+      private def self.state_style(styles : ::Crysterm::Styles, state : WidgetState) : Style
+        case state
+        in .normal?   then styles.normal
+        in .blurred?  then styles.blurred
+        in .focused?  then styles.focused
+        in .hovered?  then styles.hovered
+        in .selected? then styles.selected
+        in .disabled? then styles.disabled
+        end
+      end
+
       # A fresh dup of the widget's pristine (pre-CSS) style for *state* — the
       # clean base the cascade applies declarations onto.
       private def self.base_state_style(widget : Widget, state : WidgetState) : Style
-        base = widget.css_base_styles
-        style = case state
-                in .normal?   then base.normal
-                in .blurred?  then base.blurred
-                in .focused?  then base.focused
-                in .hovered?  then base.hovered
-                in .selected? then base.selected
-                in .disabled? then base.disabled
-                end
-        style.dup
+        state_style(widget.css_base_styles, state).dup
       end
 
       private def self.get_state_style(widget : Widget, state : WidgetState) : Style
-        case state
-        in .normal?   then widget.styles.normal
-        in .blurred?  then widget.styles.blurred
-        in .focused?  then widget.styles.focused
-        in .hovered?  then widget.styles.hovered
-        in .selected? then widget.styles.selected
-        in .disabled? then widget.styles.disabled
-        end
+        state_style(widget.styles, state)
       end
 
       private def self.set_state_style(widget : Widget, state : WidgetState, style : Style) : Nil

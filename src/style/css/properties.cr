@@ -137,7 +137,7 @@ module Crysterm
           case resolved = ColorValue.resolve(token, current_fg)
           when Int32 then return resolved
           when String
-            color = Colors.convert(token).to_i32
+            color = Colors.convert_cached(token)
             return color unless color == -1
           end
         end
@@ -185,7 +185,7 @@ module Crysterm
             case resolved = ColorValue.resolve(token, style.fg)
             when Int32 then color = resolved unless resolved == -1
             when String
-              c = Colors.convert(token).to_i32
+              c = Colors.convert_cached(token)
               color = c unless c == -1
             end
           end
@@ -310,7 +310,7 @@ module Crysterm
       private def self.border_side_color(value : String, border : Border) : Int32?
         case resolved = ColorValue.resolve(value, border.fg)
         when Int32  then resolved
-        when String then Colors.convert(resolved).to_i32
+        when String then Colors.convert_cached(resolved)
         else             nil
         end
       end
@@ -432,36 +432,42 @@ module Crysterm
         alpha ? Shadow.from(alpha) : Shadow.from(true)
       end
 
+      # Resolves the shared CSS `padding`/`margin` 1-4 value shorthand (CSS TRBL
+      # order) into `{left, top, right, bottom}` cell counts, or `nil` for an
+      # empty/over-long value. Each shorthand value maps to a horizontal
+      # (left/right) and a vertical (top/bottom) slot, which scale absolute units
+      # differently — so both axes are resolved and the right one is picked per
+      # side.
+      private def self.parse_sides(value : String) : Tuple(Int32, Int32, Int32, Int32)?
+        parts = value.split
+        h = parts.map { |part| cells(part) }
+        v = parts.map { |part| cells(part, vertical: true) }
+        case parts.size #     left,  top,  right, bottom
+        when 1 then {h[0], v[0], h[0], v[0]}
+        when 2 then {h[1], v[0], h[1], v[0]} # from V,H
+        when 3 then {h[1], v[0], h[1], v[2]} # from T,H,B
+        when 4 then {h[3], v[0], h[1], v[2]} # from T,R,B,L
+        else        nil
+        end
+      end
+
       # Parses the CSS `padding` shorthand (1-4 cell values, CSS TRBL order)
       # into a `Padding`.
       private def self.parse_padding(value : String) : Padding
-        parts = value.split
-        # Each shorthand value maps to a horizontal (left/right) and a vertical
-        # (top/bottom) slot, which scale absolute units differently — so resolve
-        # both axes and pick the right one per side.
-        h = parts.map { |part| cells(part) }
-        v = parts.map { |part| cells(part, vertical: true) }
-        case parts.size #   left, top, right, bottom
-        when 1 then Padding.new(h[0], v[0], h[0], v[0])
-        when 2 then Padding.new(h[1], v[0], h[1], v[0]) # from V,H
-        when 3 then Padding.new(h[1], v[0], h[1], v[2]) # from T,H,B
-        when 4 then Padding.new(h[3], v[0], h[1], v[2]) # from T,R,B,L
-        else        Padding.default
+        if sides = parse_sides(value)
+          Padding.new(*sides)
+        else
+          Padding.default
         end
       end
 
       # Parses the CSS `margin` shorthand (1-4 cell values, CSS TRBL order)
       # into a `Margin`. Same grammar as `padding`.
       private def self.parse_margin(value : String) : Margin
-        parts = value.split
-        h = parts.map { |part| cells(part) }
-        v = parts.map { |part| cells(part, vertical: true) }
-        case parts.size #   left, top, right, bottom
-        when 1 then Margin.new(h[0], v[0], h[0], v[0])
-        when 2 then Margin.new(h[1], v[0], h[1], v[0]) # from V,H
-        when 3 then Margin.new(h[1], v[0], h[1], v[2]) # from T,H,B
-        when 4 then Margin.new(h[3], v[0], h[1], v[2]) # from T,R,B,L
-        else        Margin.default
+        if sides = parse_sides(value)
+          Margin.new(*sides)
+        else
+          Margin.default
         end
       end
 

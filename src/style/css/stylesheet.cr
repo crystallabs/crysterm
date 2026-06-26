@@ -523,7 +523,7 @@ module Crysterm
       # `.state-*` class it lowers to. Built once: compiling a regex (and the
       # replacement string) per selector at parse time would be wasteful.
       STATE_PSEUDO_MATCHERS = STATE_PSEUDOS_BY_LENGTH.map do |(token, state)|
-        {Regex.new(Regex.escape(token) + "(?![A-Za-z0-9_-])"), ".state-#{state.to_s.downcase}"}
+        {Regex.new(Regex.escape(token) + "(?![A-Za-z0-9_-])"), ".#{state.css_class}"}
       end
 
       # Splits a state pseudo-class off a selector, returning `{state,
@@ -570,10 +570,10 @@ module Crysterm
 
       # Whether *char* can appear inside a CSS identifier (so a state token
       # followed by one is really part of a longer pseudo-class). `nil` (end of
-      # string) is a boundary, not an identifier char.
+      # string) is a boundary, not an identifier char. Delegates to the shared
+      # `Selectors.ident?` grammar predicate.
       private def self.ident_char?(char : Char?) : Bool
-        return false unless char
-        char.alphanumeric? || char == '-' || char == '_'
+        char ? Selectors.ident?(char) : false
       end
 
       # Splits a selector into `{prefix, subject}`, where *subject* is the

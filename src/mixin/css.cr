@@ -36,6 +36,16 @@ module Crysterm
           def css_type_classes : Array(String)
             CSS_TYPE_CLASSES
           end
+
+          # The CSS document tag for this widget class (`w-` + lowercased leaf
+          # type, e.g. `w-button`), computed once at compile time. `#to_html`
+          # emits it for every widget on every (dirty) cascade, so a constant
+          # avoids the per-widget `"w-" + downcase` allocation.
+          CSS_TAG = \{{ "w-" + @type.name.split("::").last.downcase }}
+
+          def css_tag : String
+            CSS_TAG
+          end
         end
       end
 
@@ -82,6 +92,12 @@ module Crysterm
 
       def css_type_classes : Array(String)
         WIDGET_TYPE_CLASSES
+      end
+
+      # :ditto: tag for `Widget` itself; subclasses override via the `inherited`
+      # hook above with their own leaf-derived `CSS_TAG`.
+      def css_tag : String
+        "w-widget"
       end
 
       # The complete class list emitted for this widget in the CSS document:

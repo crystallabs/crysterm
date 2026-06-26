@@ -96,11 +96,15 @@ module Crysterm
         i
       end
 
-      private def self.ident?(ch : Char) : Bool
+      # Whether *ch* may appear inside a CSS identifier (the shared grammar fact
+      # used by every selector scanner — this module, `Specificity`, the
+      # `Stylesheet` parser).
+      def self.ident?(ch : Char) : Bool
         ch.alphanumeric? || ch == '-' || ch == '_'
       end
 
-      private def self.ident_start?(ch : Char) : Bool
+      # Whether *ch* may *start* a CSS identifier (a bare type selector).
+      def self.ident_start?(ch : Char) : Bool
         ch.letter? || ch == '-' || ch == '_'
       end
     end

@@ -63,7 +63,7 @@ module Crysterm
 
     # Backwards-compat: a `"#rrggbb"`/named color string, parsed to the native int.
     def tint=(color : String)
-      @tint = Colors.convert(color).to_i32
+      @tint = Colors.convert_cached(color)
     end
 
     # Clearing the tint leaves it unset (no overlay applied).
@@ -314,7 +314,7 @@ module Crysterm
 
     # :ditto:
     def gridline_color=(color : String)
-      @gridline_color = Colors.convert(color).to_i32
+      @gridline_color = Colors.convert_cached(color)
     end
 
     # :ditto:

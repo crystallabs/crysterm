@@ -58,7 +58,7 @@ module Crysterm
           when '*', '>', '+', '~', ',', ' ', '\t', '\n', '\r'
             i += 1
           else
-            if ident_start?(ch)
+            if Selectors.ident_start?(ch)
               c += 1 # type selector
               i = skip_ident(chars, i + 1)
             else
@@ -72,7 +72,7 @@ module Crysterm
 
       # Advances past an identifier run (letters, digits, `-`, `_`).
       private def self.skip_ident(chars : Array(Char), i : Int32) : Int32
-        while i < chars.size && ident?(chars[i])
+        while i < chars.size && Selectors.ident?(chars[i])
           i += 1
         end
         i
@@ -110,14 +110,6 @@ module Crysterm
           i += 1
         end
         i
-      end
-
-      private def self.ident?(ch : Char) : Bool
-        ch.alphanumeric? || ch == '-' || ch == '_'
-      end
-
-      private def self.ident_start?(ch : Char) : Bool
-        ch.letter? || ch == '-' || ch == '_'
       end
     end
   end

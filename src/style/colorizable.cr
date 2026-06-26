@@ -22,12 +22,12 @@ module Crysterm
     # Backwards compatibility: a `"#rrggbb"` or named ("blue") color string is
     # parsed to the native int.
     def fg=(color : String)
-      @fg = Colors.convert(color).to_i32
+      @fg = Colors.convert_cached(color)
     end
 
     # :ditto:
     def bg=(color : String)
-      @bg = Colors.convert(color).to_i32
+      @bg = Colors.convert_cached(color)
     end
 
     # Clearing a color leaves it unset (no SGR sequence emitted).

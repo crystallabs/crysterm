@@ -34,16 +34,23 @@ module Crysterm
         end
       end
 
+      # The numeric arguments of a color function, in source order
+      # (`rgb(10, 20, 30)` ⇒ `[10.0, 20.0, 30.0]`). Shared by the `rgb`/`hsl`
+      # parsers, which differ only in how they interpret the three components.
+      private def self.numbers(value : String) : Array(Float64)
+        value.scan(RGB_RE).map(&.[1].to_f)
+      end
+
       # `rgb(r, g, b)` / `rgba(r, g, b, a)` (commas or spaces). Alpha is ignored.
       private def self.parse_rgb(value : String) : Int32?
-        nums = value.scan(RGB_RE).map(&.[1].to_f)
+        nums = numbers(value)
         return nil if nums.size < 3
         rgb clamp(nums[0]), clamp(nums[1]), clamp(nums[2])
       end
 
       # `hsl(h, s%, l%)` / `hsla(...)`. h in degrees, s/l in percent.
       private def self.parse_hsl(value : String) : Int32?
-        nums = value.scan(RGB_RE).map(&.[1].to_f)
+        nums = numbers(value)
         return nil if nums.size < 3
         h = nums[0] % 360.0
         s = (nums[1] / 100.0).clamp(0.0, 1.0)

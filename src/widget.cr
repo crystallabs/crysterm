@@ -56,6 +56,21 @@ module Crysterm
     # XXX Does state Hidden belong here?
     # Also does 'Unmanaged' belong here, indicating that Crysterm should not be
     # doing state transitions on it?
+
+    # The `state-*` class this state is stamped as in the CSS document (and that
+    # ancestor-state selectors are lowered to match). Each branch is a string
+    # *literal* — interned, so it allocates nothing — unlike `to_s.downcase`,
+    # which the per-widget per-cascade `Widget#to_html` would otherwise call.
+    def css_class : String
+      case self
+      in .normal?   then "state-normal"
+      in .blurred?  then "state-blurred"
+      in .focused?  then "state-focused"
+      in .hovered?  then "state-hovered"
+      in .selected? then "state-selected"
+      in .disabled? then "state-disabled"
+      end
+    end
   end
 
   class Widget

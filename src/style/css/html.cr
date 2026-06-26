@@ -58,11 +58,11 @@ module Crysterm
       # parser rewrites type selectors to class selectors), so the tag name is
       # cosmetic. Use the lowercased leaf type for a valid, readable tag.
       classes = css_all_classes
-      # Tag is internal (matching is by class). Prefix with `w-` so it is always
-      # a hyphenated *custom element*: this avoids HTML5's special parsing for
-      # real element names like `table`/`input`/`select`, which would otherwise
-      # foster-parent or drop the children we emit.
-      tag = "w-" + classes.first.downcase
+      # Tag is internal (matching is by class). It is the precomputed `w-`-prefixed
+      # leaf type (`#css_tag`) — always a hyphenated *custom element*, which avoids
+      # HTML5's special parsing for real element names like `table`/`input`/`select`
+      # that would otherwise foster-parent or drop the children we emit.
+      tag = css_tag
       io << '<' << tag
       io << " data-uid=\"" << uid << '"'
       if id = css_id
@@ -71,7 +71,15 @@ module Crysterm
       # The current widget state is stamped as a `state-*` class so ancestor
       # state selectors (e.g. `Form:focus Button`, lowered to `.state-focused`)
       # match against the live tree.
-      io << " class=\"" << CSS.escape_attr(classes.join(' ')) << " state-" << state.to_s.downcase << '"'
+      # Stream the class list directly (no `join` intermediate), then the
+      # `state-*` class. Run for every widget on every cascade, so the avoided
+      # per-node `join` + `to_s.downcase` allocations add up.
+      io << " class=\""
+      classes.each_with_index do |cls, i|
+        io << ' ' if i > 0
+        io << CSS.escape_attr(cls)
+      end
+      io << ' ' << state.css_class << '"'
       css_attributes.each do |key, value|
         io << ' ' << key
         value.try { |v| io << "=\"" << CSS.escape_attr(v) << '"' }
@@ -99,11 +107,18 @@ module Crysterm
     def css_render_extra(io : IO) : Nil
     end
 
+    # Shared empty slot list for the (common) widgets that expose no sub-element
+    # or extra slots. `#to_html` and the cascade's `index_tree` each call these
+    # accessors per widget per cascade and only iterate the result, so the
+    # no-slot case costs no per-node allocation. Overrides build a *new* list
+    # (`super + [...]`), never mutating this, so sharing is safe.
+    EMPTY_CSS_SLOTS = [] of String
+
     # Extra writeback slots (paired with `#css_render_extra`), so the cascade can
     # route each extra node's computed style back. A `Table` returns its cell
     # slots (`"cell:0:1"`, ...). Default: none.
     def css_extra_slots : Array(String)
-      [] of String
+      EMPTY_CSS_SLOTS
     end
 
     # The pristine base style for an extra *slot* (what the cascade applies rules
@@ -136,7 +151,7 @@ module Crysterm
       if id = css_id
         attrs << HTML5::Attribute.new("", "id", id)
       end
-      attrs << HTML5::Attribute.new("", "class", "#{css_all_classes.join(' ')} state-#{state.to_s.downcase}")
+      attrs << HTML5::Attribute.new("", "class", "#{css_all_classes.join(' ')} #{state.css_class}")
       css_attributes.each do |key, value|
         attrs << HTML5::Attribute.new("", key, value || "")
       end
@@ -149,8 +164,16 @@ module Crysterm
     #
     # The base widget exposes none; subclasses override to surface their own
     # state (e.g. `Button` exposes `checked`).
+    #
+    # Returns a single shared empty hash — `#to_html` runs for every widget on
+    # every cascade and only *reads* the result, so the overwhelmingly common
+    # attribute-less widget (a plain `Box`) costs no per-node allocation.
+    # Subclasses that add attributes must not mutate a `super` result (it may be
+    # this shared constant); they build a fresh hash or `#merge` onto super.
+    EMPTY_CSS_ATTRIBUTES = {} of String => String?
+
     def css_attributes : Hash(String, String?)
-      {} of String => String?
+      EMPTY_CSS_ATTRIBUTES
     end
 
     # The named sub-`Style` slots this widget exposes as pseudo-element nodes in
@@ -160,6 +183,8 @@ module Crysterm
     # label); other widgets override to add their own (e.g. a table's
     # `cell`/`header`).
     def css_sub_elements : Array(String)
+      # Common case (no scrollbar, no label) reuses the shared empty list.
+      return EMPTY_CSS_SLOTS unless scrollbar? || @_label
       slots = [] of String
       slots << "scrollbar" << "track" if scrollbar?
       slots << "label" if @_label

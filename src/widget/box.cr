@@ -22,6 +22,16 @@ module Crysterm
       def css_type_classes : Array(String)
         CSS_TYPE_CLASSES
       end
+
+      # Same reason as `CSS_TYPE_CLASSES` above: the `inherited` macro that emits
+      # each class's `#css_tag` doesn't fire for `Box`, so define it explicitly
+      # (matching the macro's `w-` + lowercased-leaf form) — otherwise a plain
+      # `Box` would serialize as `<w-widget>`.
+      CSS_TAG = "w-box"
+
+      def css_tag : String
+        CSS_TAG
+      end
     end
   end
 end

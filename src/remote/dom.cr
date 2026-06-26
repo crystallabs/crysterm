@@ -95,7 +95,7 @@ module Crysterm
     # emitted: they are styling slots, not reconstructable widgets.
     def to_layout_html(io : IO, indent : Int32 = 0) : Nil
       pad = " " * indent
-      tag = "w-" + css_type_classes.first.downcase
+      tag = css_tag
       io << pad << '<' << tag
       if id = css_id
         io << " id=\"" << CSS.escape_attr(id) << '"'
