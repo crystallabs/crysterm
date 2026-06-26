@@ -1,6 +1,7 @@
 require "../box"
 require "./canvas"
 require "../../widget_graph_text_overlay"
+require "../../mixin/ranged_value"
 
 module Crysterm
   class Widget
@@ -25,6 +26,8 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class Donut < Box
         include TextOverlay
+        # Float-valued `#span`/`#percent_of` helpers (shared with `Gauge`).
+        include Mixin::PercentRange
 
         property minimum : Float64
         property maximum : Float64
@@ -85,11 +88,6 @@ module Crysterm
           @canvas = cv
         end
 
-        private def span : Float64
-          s = @maximum - @minimum
-          s <= 0 ? 1.0 : s
-        end
-
         def value : Float64
           @value
         end
@@ -107,7 +105,7 @@ module Crysterm
         end
 
         def percent : Float64
-          ((@value - @minimum) / span * 100).clamp(0.0, 100.0)
+          percent_of @value
         end
 
         def render(with_children = true)

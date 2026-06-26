@@ -132,10 +132,19 @@ module Crysterm
       # Reflects the checked state onto the children's `state`, so an unchecked
       # group renders its contents with the `disabled` style. The auto-created
       # label is left untouched.
+      #
+      # When re-checking, only children *we* greyed out (currently `:disabled`)
+      # are restored to `:normal`; a child carrying any other state — focus,
+      # hover, selection — is left alone instead of being clobbered back to
+      # `:normal` on every toggle and every `Adopt`.
       private def apply_enabled
         @children.each do |c|
           next if c.same? @_label
-          c.state = checked? ? :normal : :disabled
+          if checked?
+            c.state = :normal if c.state.disabled?
+          else
+            c.state = :disabled
+          end
         end
       end
     end

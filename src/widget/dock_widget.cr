@@ -332,10 +332,17 @@ module Crysterm
         end
         titlebar.on(::Crysterm::Event::Drag) do |e|
           next unless floating?
+          # `left`/`top` are parent-relative but the pointer (`e.x`/`e.y`) is
+          # absolute, so convert by subtracting the parent's origin — matching the
+          # `aleft - px` convention in `#save_float_geom`/`#freeze_rect`. Without
+          # this the dock only tracked the pointer when its parent sat at the
+          # screen origin (the same class of bug `Splitter#wire_divider` notes).
+          px = parent.try(&.aleft) || 0
+          py = parent.try(&.atop) || 0
           bound_w = (parent.try(&.awidth) || screen.awidth) - awidth
           bound_h = (parent.try(&.aheight) || screen.aheight) - aheight
-          self.left = (e.x - @drag_dx).clamp(0, Math.max(0, bound_w))
-          self.top = (e.y - @drag_dy).clamp(0, Math.max(0, bound_h))
+          self.left = (e.x - @drag_dx - px).clamp(0, Math.max(0, bound_w))
+          self.top = (e.y - @drag_dy - py).clamp(0, Math.max(0, bound_h))
           request_render
         end
       end
