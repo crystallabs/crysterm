@@ -71,5 +71,15 @@ module Crysterm
       pos.yl -= sign * @bottom
       pos
     end
+
+    # By-value counterpart of `#adjust` for callers that hold the rectangle as
+    # loose `xi/xl/yi/yl` locals rather than a position object: returns the
+    # grown (`sign = 1`) / shrunk (`sign = -1`) coordinates as a tuple, so they
+    # can be reassigned in one step (`xi, xl, yi, yl = border.adjust xi, xl, yi, yl`).
+    # The arithmetic is identical to the object form; `Tuple` is a value type so
+    # this allocates nothing.
+    def adjust(xi : Int32, xl : Int32, yi : Int32, yl : Int32, sign = 1)
+      {xi + sign * @left, xl - sign * @right, yi + sign * @top, yl - sign * @bottom}
+    end
   end
 end

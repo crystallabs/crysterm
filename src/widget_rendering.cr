@@ -226,13 +226,8 @@ module Crysterm
         attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || 0_i64
       end
 
-      # TODO See if these 4 values could be packed somehow to just replace individual
-      # settings with the usual: style.border.try &.adjust(pos) ?
       style.border.try do |border|
-        xi += border.left
-        xl -= border.right
-        yi += border.top
-        yl -= border.bottom
+        xi, xl, yi, yl = border.adjust xi, xl, yi, yl
       end
 
       # If we have padding/valign, that means the
@@ -272,10 +267,7 @@ module Crysterm
       bg_cells = background_paints_cells?
 
       p = padding
-      xi += p.left
-      xl -= p.right
-      yi += p.top
-      yl -= p.bottom
+      xi, xl, yi, yl = p.adjust xi, xl, yi, yl
 
       # Reserve the bottom row(s) for a shown horizontal scroll bar so content
       # never paints under it (the row stays `fixed` for the bar to draw into).
@@ -526,20 +518,12 @@ module Crysterm
       # Skipped entirely for a never-scrollable widget (see `may_scroll` above).
       update_scrollbar_widget if may_scroll
 
-      # TODO See if these 4 values could be packed somehow to just replace individual
-      # settings with the usual: style.border.try &.adjust(pos, -1) ?
       style.border.try do |border|
-        xi -= border.left
-        xl += border.right
-        yi -= border.top
-        yl += border.bottom
+        xi, xl, yi, yl = border.adjust xi, xl, yi, yl, -1
       end
 
       p = padding
-      xi -= p.left
-      xl += p.right
-      yi -= p.top
-      yl += p.bottom
+      xi, xl, yi, yl = p.adjust xi, xl, yi, yl, -1
 
       # Add back the row(s) reserved for a shown horizontal scroll bar (subtracted
       # at the content stage above). The bar occupies the last *interior* row; the
