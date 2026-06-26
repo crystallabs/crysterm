@@ -195,10 +195,13 @@ module Crysterm
       /* Flat buttons/groups drop their frame (Qt's `flat` property). Overridable. */
       Button[flat], GroupBox[flat] { border: none; }
       /* Overlays sit on their own compositing planes (z-index) so they layer
-         correctly over content, with a slight translucency for a modern look —
-         all via the general compositor, no overlay-specific code. */
-      Menu { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; opacity: 0.96; }
-      .popup { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; opacity: 0.96; }
+         correctly over content. They are *opaque*: a translucent menu/popup blends
+         its plane over whatever sits behind it, so rows over darker content come
+         out darker than rows over lighter content — banding that reads as the
+         frame/rows "alternating". An overlay is a solid surface, so no opacity
+         here. (Set `opacity` on a specific menu to opt back into translucency.) */
+      Menu { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; }
+      .popup { border: solid; border-color: var(--muted); background-color: var(--surface-light); z-index: 10; }
 
       /* Scrollbars and progress indicators. The scrollbar is a real widget
          (.scrollbar) on a thin translucent plane so content shows faintly through. */

@@ -28,10 +28,16 @@ module Crysterm
     module Cascade
       # Cascade origin/priority tiers, lowest to highest. A declaration in a
       # higher tier always wins over a lower one regardless of specificity.
-      TIER_DEFAULT   = 0 # default/UA stylesheet
-      TIER_AUTHOR    = 1 # normal author rules
-      TIER_INLINE    = 2 # inline `@style`
-      TIER_IMPORTANT = 3 # `!important` declarations
+      TIER_DEFAULT = 0 # default/UA stylesheet (base *and* state rules)
+      TIER_AUTHOR  = 1 # normal author rules (base)
+      TIER_INLINE  = 2 # inline `@style`
+      # An author-origin *state* rule (`:hover`/`:selected`/…) or `selection-*`
+      # sorts here, above the inline base style — a themed highlight from the
+      # author stylesheet must show even on a widget given an inline base
+      # `background`/`color`. (A default/UA-origin state rule stays at
+      # `TIER_DEFAULT`, so an author *base* rule still overrides it.)
+      TIER_AUTHOR_STATE = 3
+      TIER_IMPORTANT    = 4 # `!important` declarations
 
       # An accumulated match: `{tier, specificity, order, declarations}`. Sorted
       # by `{tier, specificity, order}` so the winning declaration is applied
@@ -118,7 +124,15 @@ module Crysterm
             if has = rule.has
               nodes = nodes.select { |node| has_descendant?(node, has) }
             end
-            entries = rule_entries(rule, tier)
+            # A state pseudo-class rule (`:hover`/`:selected`/`:focus`/…) styles a
+            # *state*, which is conceptually more specific than the state-agnostic
+            # inline `@style`: a themed selection/hover highlight must show even on
+            # a widget given an inline base `background`/`color` (e.g. a `Menu`
+            # with `menu_style: Style.new(bg: ...)`). So an *author* state rule's
+            # normal declarations sort at `TIER_AUTHOR_STATE` (above the inline
+            # fold), while a default/UA state rule — and any base rule — stays at
+            # its sheet tier. (`!important` still outranks all.)
+            entries = rule_entries(rule, rule.state ? state_tier(tier) : tier)
             sel_entries = selection_entries(rule, tier)
             next if entries.empty? && sel_entries.empty?
             nodes.each do |node|
@@ -278,7 +292,11 @@ module Crysterm
         return EMPTY_ENTRIES unless has_normal || has_important
         order = rule.order + SELECTION_ORDER_BIAS
         entries = [] of Entry
-        entries << {base_tier, rule.layer_rank, rule.specificity, order, remap_selection(rule.declarations)} if has_normal
+        # `selection-*` styles the selected state, so — like a `:selected` rule —
+        # an author-origin one sorts at `TIER_AUTHOR_STATE` to win over an inline
+        # base `background`/`color` for that state (a default-origin one stays at
+        # its sheet tier, which an author base rule still beats).
+        entries << {state_tier(base_tier), rule.layer_rank, rule.specificity, order, remap_selection(rule.declarations)} if has_normal
         entries << {TIER_IMPORTANT, rule.layer_rank, rule.specificity, order, remap_selection(rule.important)} if has_important
         entries
       end
@@ -296,6 +314,14 @@ module Crysterm
         out = {} of String => String
         SELECTION_PROPS.each { |from, to| decls[from]?.try { |v| out[to] = v } }
         out
+      end
+
+      # The tier for a state/selection rule's *normal* declarations: an author
+      # rule is lifted above the inline `@style` (`TIER_AUTHOR_STATE`) so a themed
+      # highlight shows over an inline base color; a default/UA rule keeps its
+      # sheet tier (so an author base rule still overrides it).
+      private def self.state_tier(base_tier : Int32) : Int32
+        base_tier == TIER_AUTHOR ? TIER_AUTHOR_STATE : base_tier
       end
 
       # The cascade entries a rule contributes: its normal declarations at

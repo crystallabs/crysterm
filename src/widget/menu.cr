@@ -24,6 +24,20 @@ module Crysterm
     # ![Menu screenshot](../../examples/widget/menu/menu-capture5s.apng)
     # <!-- /widget-examples:capture -->
     class Menu < List
+      # In Qt, `QMenu : public QWidget` — a menu is a plain widget, **not** a
+      # `QAbstractItemView` (which `CSS::Qss` maps to `List`). We build `Menu` on
+      # top of `Widget::List` purely for code reuse (item rows, navigation), but
+      # its *CSS identity* must match Qt's hierarchy (`QMenu < QWidget`), so a
+      # theme's item-view rules — `QAbstractItemView { background-color;
+      # alternate-background-color; … }` — don't bleed onto menus and give the
+      # frame the wrong (list/base) surface. Drop the `List` rung; the menu then
+      # takes the window/`QMenu` surface like the other `QWidget`-derived chrome
+      # (`QMenuBar`/`QStatusBar`). (`Tree`/`ListTable`/the combo `Popup` are real
+      # `QAbstractItemView`s and keep `List`.)
+      def css_all_classes : Array(String)
+        super.reject { |c| c == "List" }
+      end
+
       # Optional title, shown as the widget's label.
       property title : String = ""
 
@@ -66,10 +80,12 @@ module Crysterm
       # alone rather than fighting that toggle.
       @submenu_anchor : Widget?
 
-      # Whether the highlighted row is drawn highlighted. Cleared when the menu is
-      # dismissed by a click outside it, so no row is left looking "selected";
-      # any later selection (`#selekt`) turns it back on.
-      @show_highlight = true
+      # Whether the highlighted row is drawn highlighted. A menu opens with *no*
+      # row highlighted (Qt-like): the highlight appears only once the user hovers
+      # a row (`#hover_item`) or presses a selection key (`#on_keypress`), and is
+      # cleared again when the menu is dismissed by an outside click. So an
+      # untouched, freshly-opened menu shows no pre-selected entry.
+      @show_highlight = false
 
       # The item boxes that render as separator rules, rebuilt once per
       # `#sync_items` (which already walks the visible actions). Lets
@@ -211,6 +227,10 @@ module Crysterm
       # ```
       def popup(x : Int32, y : Int32) : self
         @popup_mode = true
+        # A (re)opened menu starts with no row highlighted — the highlight is a
+        # transient interaction state, not carried across opens. Without this a
+        # menu reopened after a prior hover would come up pre-highlighted.
+        @show_highlight = false
         fit_to_content
         sw = screen.awidth
         sh = screen.aheight
@@ -259,11 +279,102 @@ module Crysterm
         (width.as?(Int) || 1)
       end
 
-      # Sizes the menu to its rendered rows plus border.
+      # The widest item's horizontal box model (the theme's `QMenu::item`
+      # `padding`/`border`), remembered from before `#strip_item_box_model` zeroes
+      # it on the rows. Used as the menu's breathing width so menus aren't cramped.
+      @item_box_w = 0
+
+      # Sizes the menu to its row text **plus** the rows' CSS box model (the
+      # `QMenu::item` padding) **plus** the menu border. The row text already holds
+      # the column layout, so it is laid out flush by `#size_rows`; the box model
+      # is reserved here as breathing room (it becomes fill between the label and
+      # the right column / trailing space), so the menu keeps the comfortable
+      # theme-derived width without insetting the text. `@item_box_w` is captured
+      # from the live (not-yet-stripped) rows on first open and remembered after.
       private def fit_to_content : Nil
         w = ritems.max_of?(&.size) || (visible_actions.max_of?(&.text.size) || 8)
-        self.width = w + 2
+        box = @items.max_of?(&.iwidth) || 0
+        @item_box_w = box unless box.zero?
+        self.width = w + @item_box_w + 2
         self.height = visible_actions.size + 2
+      end
+
+      # Lays each row's text out across the menu's full inner width: the checkbox
+      # slot + label flush-left, the shortcut/▶ column flush-right (at the border),
+      # the theme's breathing reserved by `#fit_to_content` falling between them.
+      # Done at render because that is the first point the final width is known.
+      private def size_rows : Nil
+        inner = awidth - iwidth
+        return if inner < 1
+        acts = visible_actions
+        return unless acts.size == @items.size
+        lefts, rights = row_columns(acts)
+        @items.each_with_index do |it, i|
+          next if @separator_items.includes? it
+          l = lefts[i]
+          r = rights[i]
+          pad = inner - l.size - r.size
+          content = pad >= 1 ? "#{l}#{" " * pad}#{r}" : "#{l}#{r}"[0, inner]
+          it.set_content(content) unless it.content == content
+        end
+      end
+
+      # Renders the menu, then docks its separator rules to the vertical borders
+      # so each reads as `├────┤` rather than a detached dash. Reuses the screen's
+      # border-docking component (`#dock_rows`), so it needs no global
+      # `dock_borders`. Runs after `super` (which draws the border *and* the
+      # separator-row items), re-applying the junctions each frame the border is
+      # repainted.
+      def render(with_children = true)
+        strip_item_box_model
+        size_rows
+        size_separators
+        ret = super
+        unless @separator_items.empty?
+          rows = @separator_items.compact_map { |itm| itm.@lpos.try &.yi }
+          dock_rows rows
+        end
+        ret
+      end
+
+      # Strips the `QMenu::item` `padding`/`border` from every row's computed
+      # style, in place, before the rows lay out (`super`). A row's content box
+      # then spans its full width, so its text — the `[x] ` checkable prefix, the
+      # label, and the right-aligned shortcut/▶ — sits flush: prefix at the left
+      # border, label after it, the ▶ at the right border. Honoring the theme's
+      # pixel padding here instead would inset the text (pushing labels right and
+      # leaving a gap after the ▶) — those columns are realized by the row text,
+      # not by literal padding. Colors (`background`, `:selected`) are left intact.
+      private def strip_item_box_model : Nil
+        box = 0
+        @items.each do |it|
+          next if @separator_items.includes? it
+          box = Math.max(box, it.iwidth) # capture the theme's box model before zeroing it
+          strip_box_model it.styles.normal
+          strip_box_model it.styles.selected if it.styles.own_selected?
+        end
+        @item_box_w = box unless box.zero?
+      end
+
+      private def strip_box_model(st : Style) : Nil
+        st.padding = Padding.new(0) if st.padding.any?
+        st.border = false if st.border.any?
+      end
+
+      # Stretches each separator's `─` rule across the menu's full inner width,
+      # sized here (at render) because that is the first point the final width is
+      # known — it is grown by `#fit_to_content` to reserve the rows' `QMenu::item`
+      # padding, which the rows are built before. A separator carries no item
+      # padding (it is not tagged `Item`), so it spans the whole content area and,
+      # via `#dock_rows`, joins the side borders as `├────┤`. Guarded so the
+      # content is only rewritten when the width actually changed.
+      private def size_separators : Nil
+        return if @separator_items.empty?
+        inner = awidth - iwidth
+        return if inner < 1
+        @separator_items.each do |it|
+          it.set_content("─" * inner) unless it.content.size == inner
+        end
       end
 
       # The currently highlighted action, or `nil` when the menu is empty.
@@ -279,29 +390,88 @@ module Crysterm
       # While the menu is "inactive" (dismissed by an outside click) no row is
       # highlighted; otherwise rendering defers to `List`.
       def render_style_for(item : Widget) : Style
-        # A separator rule draws from its own `Menu::separator` sub-style (Qt's
+        # A separator draws from its own `Menu::separator` sub-style (Qt's
         # `QMenu::separator`), regardless of highlight state — separators are
-        # never selectable, so they never take the highlight. Drop any inherited
-        # border (the menu itself is bordered) so the rule renders as a flat line,
-        # mirroring `item_render_style`. The separator rows are precomputed in
-        # `#sync_items`, so this is an O(1) set lookup with no allocation.
+        # never selectable, so they never take the highlight. The separator rows
+        # are precomputed in `#sync_items`, so this is an O(1) set lookup.
         if @separator_items.includes? item
-          without_border style.separator
-        else
-          return item_render_style(false) unless @show_highlight
-          super
+          return separator_render_style
         end
+        # Until the highlight is revealed (hover / first nav key), draw every row
+        # in its *normal* look — but still via the per-item CSS style, so themed
+        # colors apply. Falling back to a bare `item_render_style` here dropped the
+        # cascaded styling and made a freshly-opened menu look disabled.
+        base =
+          if !@show_highlight && item.css_styled?
+            item.state = ::Crysterm::WidgetState::Normal
+            item.style
+          elsif !@show_highlight
+            item_render_style(false)
+          else
+            super
+          end
+        item_on_surface base
+      end
+
+      # A `QMenu::item { background: transparent }` row (Qt's default — the item
+      # shows the menu surface) resolves to *no* background; but a child widget
+      # with no background paints the terminal default, not its parent's painted
+      # surface. So fill an unset/transparent item background from the menu's own,
+      # giving the Qt look (rows flush with the frame) without a per-theme hack.
+      # The item's `padding`/`border` are *kept* — they're reserved in the menu's
+      # width by `#fit_to_content` so the label still fits.
+      private def item_on_surface(st : Style) : Style
+        bg = st.bg
+        return st unless (bg.nil? || bg == -1) && (surface = style.bg)
+        out = st.dup
+        out.bg = surface
+        out
+      end
+
+      # The style for a separator row: the `─` rule (its content, built in
+      # `#sync_items`) sits on the menu's own surface — not a filled band of the
+      # divider color. Qt's `QMenu::separator` carries the divider color in its
+      # `background-color`, so that becomes the *line* color (the rule's
+      # foreground) when a rule set it; otherwise the menu's own foreground draws
+      # the line. Keeping the menu's background lets the separator integrate with
+      # the surrounding entries and the frame. The border is dropped (the menu
+      # draws the frame), mirroring `#item_render_style`.
+      private def separator_render_style : Style
+        sep = style.separator
+        line = sep.dup
+        line.border = false
+        bg = style.bg
+        # A separator rule that set a (divider) background different from the menu
+        # surface supplies the line color; otherwise fall back to the foreground.
+        sep_bg = sep.bg
+        line.fg = (sep_bg && sep_bg != bg) ? sep_bg : sep.fg
+        line.bg = bg
+        line
       end
 
       # Pointer moved onto row *i* (`List#hover_item` override, active because
       # menus set `#hover_select?`). Moves the highlight there — which closes any
       # submenu anchored elsewhere — and, if the row opens a submenu, opens it.
       # Separators are skipped; disabled rows highlight but don't open.
+      # Whether *e* is a key that moves the list selection (so the first such
+      # press should reveal the highlight). Mirrors the keys `List#on_keypress`
+      # acts on, plus the vi aliases when `#vi?`.
+      private def selection_key?(e) : Bool
+        case e.key
+        when ::Tput::Key::Up, ::Tput::Key::Down, ::Tput::Key::Home, ::Tput::Key::End,
+             ::Tput::Key::PageUp, ::Tput::Key::PageDown, ::Tput::Key::CtrlU, ::Tput::Key::CtrlD
+          true
+        else
+          @vi && {'j', 'k', 'g', 'G', 'H', 'M', 'L'}.includes?(e.char)
+        end
+      end
+
       def hover_item(i : Int)
         act = visible_actions[i]?
         return unless act
         return if act.separator?
 
+        @show_highlight = true # hovering a row reveals (and moves) the highlight
         selekt i
         if act.enabled && act.submenu?
           open_submenu act unless @submenu_open && @submenu_action == act
@@ -312,22 +482,16 @@ module Crysterm
         @actions.select &.visible?
       end
 
-      # Rebuilds the list rows from the visible actions, drawing a `[x]`/`[ ]`
-      # marker for checkable actions and a right-aligned shortcut column, and
-      # rendering separators as a horizontal rule.
-      private def sync_items
-        acts = visible_actions
-        any_checkable = acts.any? &.checkable?
-
+      # The left (checkbox slot + label) and right (shortcut / ▶) text columns for
+      # each visible action; separators get empty entries. The **checkbox slot is
+      # always reserved** — `[x] `/`[ ] ` for a checkable action, four blanks
+      # otherwise — so labels start at a consistent column even in a menu with no
+      # checkable items (Qt always reserves the check/icon gutter). The same
+      # columns are measured by `#sync_items` and re-laid-out by `#size_rows`.
+      private def row_columns(acts : Array(Action)) : {Array(String), Array(String)}
         lefts = acts.map do |a|
           next "" if a.separator?
-          prefix = if a.checkable?
-                     a.checked? ? "[x] " : "[ ] "
-                   elsif any_checkable
-                     "    "
-                   else
-                     ""
-                   end
+          prefix = a.checkable? ? (a.checked? ? "[x] " : "[ ] ") : "    "
           "#{prefix}#{a.text}"
         end
         rights = acts.map do |a|
@@ -335,17 +499,24 @@ module Crysterm
           next "▶" if a.submenu?
           a.shortcut.try(&.to_s) || ""
         end
+        {lefts, rights}
+      end
 
-        maxleft = lefts.max_of?(&.size) || 0
-        maxright = rights.max_of?(&.size) || 0
-        total = maxleft + (maxright > 0 ? 2 + maxright : 0)
+      # Rebuilds the list rows from the visible actions. Each row's text holds the
+      # full column layout — the checkbox slot + label, then the shortcut/▶ — and
+      # `#size_rows` stretches it to the final width (label flush-left, shortcut/▶
+      # flush-right) at render. Separators are a placeholder here, sized by
+      # `#size_separators`.
+      private def sync_items
+        acts = visible_actions
+        lefts, rights = row_columns(acts)
 
         rows = acts.map_with_index do |a, i|
           if a.separator?
-            "─" * Math.max(1, total)
+            "─"
           else
-            row = lefts[i].ljust(maxleft)
-            row += "  " + rights[i].rjust(maxright) if maxright > 0
+            row = lefts[i]
+            row += "  " + rights[i] unless rights[i].empty?
             row
           end
         end
@@ -355,10 +526,18 @@ module Crysterm
         # Rebuild the separator-row lookup from the just-built rows. `set_items`
         # left `@items[i]` corresponding to `acts[i]` (rows were built from
         # `acts` in order), so a separator action's row is the same-index item.
+        # Each non-separator row is also tagged with the `Item` CSS class so it is
+        # styled as the menu's `::item` sub-control — Qt's model: a `QMenu`'s rows
+        # aren't independent widgets but the menu's `::item`, which inherits the
+        # menu surface (`QMenu::item { background: transparent | <surface> }`) and
+        # takes its highlight from `QMenu::item:selected`. Without this the row
+        # `Box`es fall through to generic `QWidget` rules and mismatch the frame.
         @separator_items = Set(Widget).new
-        acts.each_with_index do |a, i|
-          if a.separator? && (itm = @items[i]?)
+        @items.each_with_index do |itm, i|
+          if (a = acts[i]?) && a.separator?
             @separator_items << itm
+          else
+            itm.add_css_class "Item"
           end
         end
       end
@@ -367,9 +546,10 @@ module Crysterm
       # direction is inferred from whether the requested index is above or below
       # the current selection.
       def selekt(index : Int)
-        # Any explicit selection re-activates the highlight (a prior outside-click
-        # dismissal may have hidden it).
-        @show_highlight = true
+        # Note: `selekt` does *not* enable `@show_highlight` — that is driven only
+        # by user interaction (`#hover_item` / a selection key in `#on_keypress`),
+        # so a programmatic selection (the initial `selekt 0` when the first item
+        # is added, an action-change refresh, …) never lights up a row on its own.
         acts = visible_actions
         unless acts.empty?
           dir = index >= selected ? 1 : -1
@@ -433,6 +613,17 @@ module Crysterm
       end
 
       def on_keypress(e)
+        # A menu opens with no row highlighted; the first selection-moving key
+        # *reveals* the highlight on the current item rather than moving it (like
+        # pressing an arrow on a freshly-opened desktop menu). Subsequent keys
+        # move it normally via `super`.
+        if !@show_highlight && selection_key?(e)
+          @show_highlight = true
+          request_render
+          e.accept
+          return
+        end
+
         # Right opens the highlighted item's submenu; Left/Escape closes this
         # submenu and returns focus to its parent. Handled before `super` so a
         # submenu's Escape doesn't fall through to `List`'s cancel path.

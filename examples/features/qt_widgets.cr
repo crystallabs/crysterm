@@ -72,7 +72,7 @@ filemenu.add("New") { status.show_message " new file"; s.render }
 filemenu.add("Open") { status.show_message " open file"; s.render }
 filemenu.add_menu "Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md")]
 filemenu.add_separator
-filemenu.add("Quit") { status.show_message " (press q to quit)"; s.render }
+filemenu.add("Quit") { s.destroy; exit }
 
 editmenu = menubar.add_menu "Edit", [mk.call("Cut", "cut"), mk.call("Copy", "copy"), mk.call("Paste", "paste")]
 editmenu.add_separator

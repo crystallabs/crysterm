@@ -252,8 +252,9 @@ module Crysterm
 
     # Dockable borders will not dock if the colors or attributes are different.
     # This option will allow docking regardless. It may produce odd looking
-    # multi-colored borders.
-    @dock_contrast : DockContrast = Config.render_dock_contrast
+    # multi-colored borders. Exposed so a widget that docks its own line art
+    # (e.g. `Widget#dock_rows`) honors the same contrast policy as `#_dock`.
+    getter dock_contrast : DockContrast = Config.render_dock_contrast
 
     property lines = Array(Row).new
     property olines = Array(Row).new

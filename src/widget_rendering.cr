@@ -556,11 +556,16 @@ module Crysterm
         next unless border.any?
 
         # Per-side attributes, so `border-top-color`/`border-left-color`/... can
-        # differ. Each falls back to the whole-border color when unset.
-        top_attr = sattr border, border.top_fg, border.bg
-        bottom_attr = sattr border, border.bottom_fg, border.bg
-        left_attr = sattr border, border.left_fg, border.bg
-        right_attr = sattr border, border.right_fg, border.bg
+        # differ. Each falls back to the whole-border color when unset. The border
+        # background falls back to the widget's own background (not the terminal
+        # default), so a themed widget's frame sits on the same surface as its
+        # interior instead of punching a dark hole around it (e.g. a light-themed
+        # menu's border row/columns).
+        border_bg = border.bg || style.bg
+        top_attr = sattr border, border.top_fg, border_bg
+        bottom_attr = sattr border, border.bottom_fg, border_bg
+        left_attr = sattr border, border.left_fg, border_bg
+        right_attr = sattr border, border.right_fg, border_bg
 
         # The line-drawing glyph set depends only on `border.type`, so resolve it
         # once here instead of re-dispatching it per cell inside `border_char`.
@@ -699,6 +704,26 @@ module Crysterm
           screen._dock_stops[coords.yl - 1] = true
         end
       end
+    end
+
+    # Re-joins the line-drawing characters on the given screen *rows* into
+    # seamless junctions (`├ ┤ ┬ ┼` …), reusing the same `Docking` component the
+    # screen uses for `dock_borders` — but on demand, for one widget, regardless
+    # of that global setting. Lets a widget connect interior line art (e.g. a
+    # `Menu`'s separator rules) to its own border. No-op when detached or given
+    # no rows.
+    #
+    # *contrast* defaults to `DockContrast::Ignore` (each cell keeps its own
+    # color, only the joining glyph changes) rather than the screen's global
+    # setting — the latter (`Blend`) diffuses the junction's blended color along
+    # the whole run, muddying e.g. a separator's divider color. Pass another
+    # value to opt into blending.
+    protected def dock_rows(rows : Enumerable(Int32), contrast : DockContrast = DockContrast::Ignore) : Nil
+      scr = screen? || return
+      stops = {} of Int32 => Bool
+      rows.each { |y| stops[y] = true }
+      return if stops.empty?
+      Docking.dock scr.lines, stops, scr.awidth, contrast
     end
 
     @[AlwaysInline]
