@@ -83,11 +83,16 @@ module Crysterm
     # exactly fills a row).
     @wrap_pending : Bool = false
 
-    # Parser state.
+    # Parser state. The CSI/OSC accumulation buffers are reused `IO::Memory`s
+    # (cleared, not reallocated, at the start of each sequence): a child redrawing
+    # a full screen emits a CSI per cursor move / colour change, and the old
+    # per-byte `@csi_buf += c` allocated a fresh `String` on every appended byte.
+    # `IO::Memory` also makes long OSC payloads (e.g. an OSC 52 clipboard set)
+    # linear instead of the quadratic copying that repeated `String` concat did.
     @state : Symbol = :ground
-    @csi_buf : String = ""
+    @csi_buf = IO::Memory.new
     @csi_private : Bool = false
-    @osc_buf : String = ""
+    @osc_buf = IO::Memory.new
     @osc_esc : Bool = false
 
     # Trailing incomplete UTF-8 bytes held back between `#feed` calls.
@@ -174,6 +179,20 @@ module Crysterm
     private def blank_line : Array(Cell)
       ea = erase_attr
       Array(Cell).new(@cols) { Cell.new(ea, ' ') }
+    end
+
+    # Overwrites every cell of an existing line with the current erase blank,
+    # reusing the line's storage (used to recycle a scrolled-off line into a fresh
+    # blank one without allocating). Re-fits the line to `@cols` in the unusual
+    # case its length drifted from the current width (e.g. a mid-stream resize).
+    private def blank_in_place(line : Array(Cell)) : Nil
+      blank = Cell.new(erase_attr, ' ')
+      if line.size == @cols
+        line.fill blank
+      else
+        line.clear
+        @cols.times { line << blank }
+      end
     end
 
     # The live (cursor) line.
@@ -270,11 +289,11 @@ module Crysterm
       case c
       when '['
         @state = :csi
-        @csi_buf = ""
+        @csi_buf.clear
         @csi_private = false
       when ']'
         @state = :osc
-        @osc_buf = ""
+        @osc_buf.clear
         @osc_esc = false
       when '(', ')', '*', '+'
         @charset_index = {'(' => 0, ')' => 1, '*' => 2, '+' => 3}[c]
@@ -282,7 +301,7 @@ module Crysterm
       when 'P', 'X', '^', '_'
         # DCS/SOS/PM/APC string — swallow like an OSC (until ST/BEL).
         @state = :osc
-        @osc_buf = ""
+        @osc_buf.clear
         @osc_esc = false
       when '7' then save_cursor; @state = :ground
       when '8' then restore_cursor; @state = :ground
@@ -307,15 +326,17 @@ module Crysterm
       case c.ord
       when 0x07 then finish_osc; @state = :ground # BEL terminator
       when 0x1b then @osc_esc = true
-      else           @osc_buf += c
+      else           @osc_buf << c
       end
     end
 
     private def finish_osc : Nil
-      # Only window/icon title (codes 0, 1, 2) are acted on.
-      if idx = @osc_buf.index(';')
-        code = @osc_buf[0, idx]
-        text = @osc_buf[(idx + 1)..]
+      # Only window/icon title (codes 0, 1, 2) are acted on. The buffer is
+      # materialized once here (on the rare terminator), not per appended byte.
+      buf = @osc_buf.to_s
+      if idx = buf.index(';')
+        code = buf[0, idx]
+        text = buf[(idx + 1)..]
         @on_title.try(&.call(text)) if code == "0" || code == "1" || code == "2"
       end
     end
@@ -327,7 +348,7 @@ module Crysterm
         return
       end
       if o >= 0x20 && o <= 0x3f
-        @csi_buf += c # parameter / intermediate bytes
+        @csi_buf.write_byte(o.to_u8) # parameter / intermediate bytes (all ASCII)
         return
       end
       dispatch_csi c # final byte (0x40..0x7e)
@@ -342,9 +363,8 @@ module Crysterm
     # this replaces the per-CSI `Array(String)` + `Array(Int32)` that `split`/
     # `map` produced on every cursor move / SGR change a full-screen child emits.
     private def csi_param_raw(n : Int32) : Int32?
-      buf = @csi_buf
-      ptr = buf.to_unsafe
-      size = buf.bytesize
+      ptr = @csi_buf.buffer
+      size = @csi_buf.bytesize
       field = 0
       val = 0
       bad = false # field holds a non-digit ⇒ `to_i?` would have failed ⇒ 0
@@ -383,9 +403,8 @@ module Crysterm
     # Yields every `;`-separated parameter in turn (used by `set_mode`). Like the
     # old `split(';')`, always yields at least one value (0 for an empty buffer).
     private def each_csi_param(& : Int32 ->) : Nil
-      buf = @csi_buf
-      ptr = buf.to_unsafe
-      size = buf.bytesize
+      ptr = @csi_buf.buffer
+      size = @csi_buf.bytesize
       val = 0
       bad = false
       idx = 0
@@ -546,15 +565,17 @@ module Crysterm
     end
 
     private def respond(s : String) : Nil
-      @output.try &.print(s)
-      @output.try &.flush
+      if out = @output
+        out.print s
+        out.flush
+      end
     end
 
     private def apply_sgr : Nil
       # Parse the bare parameter list (`@csi_buf`) directly, instead of rebuilding
       # a framed `"\e[" + @csi_buf + "m"` string only to have `attr2code`
       # re-scan it — one fewer `String` allocation per SGR sequence.
-      @cur_attr = Crysterm::Screen.attr2code_params(@csi_buf, @cur_attr, @default_attr)
+      @cur_attr = Crysterm::Screen.attr2code_params(@csi_buf.to_slice, @cur_attr, @default_attr)
     end
 
     # ───────────────────────── editing primitives ─────────────────────────
@@ -628,11 +649,20 @@ module Crysterm
     # pushed into scrollback instead of being discarded.
     private def scroll_up : Nil
       if @scroll_top == 0 && @scroll_bottom == @rows - 1
-        @lines << blank_line
-        @ybase += 1
-        if @lines.size - @rows > SCROLLBACK_LIMIT
-          @lines.shift
-          @ybase -= 1
+        if @lines.size - @rows >= SCROLLBACK_LIMIT
+          # Scrollback is already full — the steady state while a child streams
+          # output. Rather than allocate a fresh `blank_line` for the new bottom
+          # row and let the shifted-off top line become garbage, recycle that
+          # line's `Array(Cell)` storage: `shift` it, blank it in place, and
+          # `push` it back as the new bottom row. The resulting `@lines` (and
+          # `@ybase`, left unchanged) are identical to the old push-then-trim, but
+          # this path now allocates nothing on every scrolled line.
+          recycled = @lines.shift
+          blank_in_place recycled
+          @lines << recycled
+        else
+          @lines << blank_line
+          @ybase += 1
         end
         @ydisp = @ybase
       else

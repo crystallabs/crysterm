@@ -51,6 +51,13 @@ module Crysterm
       attr2code_impl bytes, 0, bytes.size, cur, dfl
     end
 
+    # :ditto: but reading the parameter bytes straight out of a `Bytes` view
+    # (e.g. an `IO::Memory#to_slice` over a reused CSI accumulation buffer), so
+    # the caller never has to materialize a `String` per SGR sequence.
+    def self.attr2code_params(params : Bytes, cur : Int64, dfl : Int64) : Int64
+      attr2code_impl params, 0, params.size, cur, dfl
+    end
+
     # Parses an SGR sequence straight out of a `StringIndex` between the
     # codepoint index of its `\e` (*esc*) and that of its trailing `m`
     # (*finish*), with NO intermediate substring. This is the render hot path's
