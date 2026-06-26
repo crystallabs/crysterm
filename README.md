@@ -1,5 +1,3 @@
-[![License](https://img.shields.io/github/license/crystallabs/crysterm.svg)](https://github.com/crystallabs/crysterm/blob/master/LICENSE)
-
 Crysterm is a console/terminal toolkit for Crystal, inspired by 
 [Blessed](https://github.com/chjj/blessed), [Blessed-contrib](https://github.com/yaronn/blessed-contrib), and
 [Qt](https://doc.qt.io/).
