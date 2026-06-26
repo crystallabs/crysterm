@@ -28,7 +28,8 @@ module Crysterm
       when :horizontal, :x then l = r = amount
       when :vertical, :y   then t = b = amount
       when :all            then l = t = r = b = amount
-      when :none then # leave all at 0
+      when :none # leave all at 0
+ then
       else
         raise ArgumentError.new "Unknown side symbol #{symbol.inspect} " \
                                 "(expected :left/:top/:right/:bottom/" \
