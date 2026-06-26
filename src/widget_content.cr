@@ -832,11 +832,8 @@ module Crysterm
       # for HCenter/Right, so this is what makes it fire for left-aligned content.
       if @parse_tags && line.includes?("{|}")
         cl = line.includes?('\e') ? line.gsub(SGR_REGEX, "") : line
-        parts = line.split(/\{|\}/)
-        cparts = cl.split(/\{|\}/)
-        if cparts[0]? && cparts[2]?
-          pad = style.fill_char.to_s * Math.max(width - str_width(cparts[0]) - str_width(cparts[2]), 0)
-          return "#{parts[0]}#{pad}#{parts[2]}"
+        if res = split_right_align(line, cl, width)
+          return res
         end
       end
 
@@ -918,19 +915,33 @@ module Crysterm
         # how to put that as a flag yet. Maybe this (or another)
         # widget flag could mean to spread words to fill up the whole
         # line, increasing spaces between them?
-        parts = line.split /\{|\}/
-
-        cparts = cline.split /\{|\}/
-        if cparts[0]? && cparts[2]? # Don't trip on just single { or }
-          s = Math.max(width - str_width(cparts[0]) - str_width(cparts[2]), 0)
-          s = fc * s
-          return "#{parts[0]}#{s}#{parts[2]}"
-        else
-          # Nothing; will default to returning `line` below.
+        if res = split_right_align(line, cline, width)
+          return res
         end
+        # Otherwise (just a lone `{` or `}`): falls through to `return line` below.
       end
 
       line
+    end
+
+    # Right-aligns the text after a `{...}` split: the segment before the first
+    # delimiter stays put and the segment after the second delimiter is pushed
+    # flush against the right edge of `width`, with the gap filled by
+    # `Style#fill_char`. This backs both the `{|}` right-align separator (handled
+    # up front, independent of the line's own alignment) and the generic
+    # `{left}…{right}` spread reachable through the HCenter/Right align path.
+    #
+    # `line` is the raw (possibly SGR-carrying) line; `cline` is its SGR-stripped
+    # form, used for width measurement. Returns the padded line, or `nil` when
+    # there is no usable two-sided split (e.g. just a lone `{` or `}`), in which
+    # case the caller leaves `line` unchanged.
+    private def split_right_align(line, cline, width) : String?
+      parts = line.split(/\{|\}/)
+      cparts = cline.split(/\{|\}/)
+      if cparts[0]? && cparts[2]?
+        pad = style.fill_char.to_s * Math.max(width - str_width(cparts[0]) - str_width(cparts[2]), 0)
+        "#{parts[0]}#{pad}#{parts[2]}"
+      end
     end
 
     # Rebuilds the widget's content from the in-place-mutated `@_clines.fake`
@@ -1356,7 +1367,13 @@ module Crysterm
     # grapheme-aware backspace in text inputs. Empty in, empty out.
     def chop_grapheme(text : String) : String
       return text if text.empty?
-      text.each_grapheme.to_a[0...-1].join
+      # Drop only the final grapheme cluster: track its byte length while scanning
+      # (no per-cluster String, array, or join allocation) and slice it off the
+      # end. Byte-identical to re-joining all-but-last clusters, since clusters
+      # partition the string into contiguous byte spans.
+      last_bytes = 0
+      text.each_grapheme { |g| last_bytes = g.bytesize }
+      text.byte_slice 0, text.bytesize - last_bytes
     end
 
     # Whether *base* begins a multi-codepoint grapheme cluster, given its
