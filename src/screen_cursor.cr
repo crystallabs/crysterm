@@ -151,7 +151,10 @@ module Crysterm
       elsif cursor.shape.underline?
         attr = Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, white, Attr.bg(attr))
       elsif cursor.shape.block?
-        attr = Attr.pack(Attr.flags(attr) | Attr::REVERSE, white, Attr.bg(attr))
+        # A reverse-video block is the classic terminal cursor: it reads on any
+        # background with no color assumption, so keep the cell's own fg/bg and
+        # just invert (rather than forcing a white foreground).
+        attr = Attr.pack(Attr.flags(attr) | Attr::REVERSE, Attr.fg(attr), Attr.bg(attr))
       elsif cursor.shape.none?
         # `None` is the custom cursor: draw it from the cursor's own `style`
         # (glyph and colors), the equivalent of blessed's object-shaped cursor
@@ -212,7 +215,9 @@ module Crysterm
 
       c.shape = :block
       c.blink = false
-      c.style.bg = 0xffffff
+      # No forced color: the artificial block cursor is reverse-video of the cell
+      # (see `#_artificial_cursor_attr`), so its style needs no hardcoded bg.
+      c.style.bg = nil
       c._set = false
 
       tput.cursor_reset

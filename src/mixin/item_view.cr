@@ -100,7 +100,34 @@ module Crysterm
       # symmetry (and in case a user gives the selected style a border). See
       # `Widget#_render`, which calls this.
       def item_render_style(selected : Bool) : ::Crysterm::Style
-        without_border(selected ? styles.selected : style.item)
+        return without_border(style.item) unless selected
+        selection_fallback without_border(styles.selected)
+      end
+
+      # Whether the selection state carries its own visible distinction (a color
+      # or reverse video). When it does not — the unstyled floor, where
+      # `styles.selected` lazily falls back to `normal` with no selection colors
+      # — selection is shown via reverse-video instead (see `#selection_fallback`):
+      # the one highlight that needs no color and reads on any terminal
+      # background. This path is only reached for non-CSS-styled items (see
+      # `#render_style_for`), so a themed selection (which sets explicit colors
+      # via `Box:selected`) is never touched.
+      private def selection_visibly_styled? : Bool
+        return false unless styles.own_selected?
+        sel = styles.selected
+        sel.specified?(:fg) || sel.specified?(:bg) || sel.reverse?
+      end
+
+      # Returns *st* with reverse-video forced on when the selection has no
+      # visible styling of its own, so the cursor row stays distinguishable with
+      # no theme active. A `#dup` is taken before toggling so a shared
+      # `styles.selected`/`normal` is never mutated in place. When the selection
+      # is already visibly styled, *st* is returned untouched.
+      private def selection_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
+        return st if selection_visibly_styled?
+        st = st.dup
+        st.reverse = true
+        st
       end
 
       # Returns *base* with any border stripped: *base* untouched when it has no

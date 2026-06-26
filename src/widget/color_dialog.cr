@@ -174,8 +174,10 @@ module Crysterm
           style: Style.new(bg: "black")
 
         Box.new parent: self, top: 2, left: INFO_X, width: 3, height: 1, content: "Hex"
-        @hexbox = hb = LineEdit.new parent: self, top: 2, left: SPIN_X + 1, width: SPIN_W - 1, height: 1,
-          style: Style.new(fg: "white", bg: "#303030")
+        # The editors are *chrome*: they carry no hardcoded color, so they follow
+        # the terminal default at the unstyled floor and the theme otherwise
+        # (only the swatches/preview/gradient below use functional color).
+        @hexbox = hb = LineEdit.new parent: self, top: 2, left: SPIN_X + 1, width: SPIN_W - 1, height: 1
         # Apply the color live, on every keystroke (`TextChange`) as well as on
         # Enter (`Submit`); the leading space is cosmetic, so strip it first.
         # Invalid/half-typed specs are ignored by `set_color`.
@@ -218,17 +220,17 @@ module Crysterm
         # content layout treats it as a single cell, so a wide glyph would push
         # everything after it one column right and overrun the row's right edge.
         add = Button.new parent: self, top: CUST_Y, left: 0, width: 3, height: 1,
-          content: "+", align: :center, focus_on_click: false,
-          style: Style.new(fg: "white", bg: "#404040")
+          content: "+", align: :center, focus_on_click: false
         add.on(Crysterm::Event::Press) { store_custom }
         # Slots sit flush against the "＋" button (no gap, so the row's right edge
-        # lines up). Empty ones carry a dim "·" placeholder so they read as slots
-        # even before anything is stored in them.
+        # lines up). Empty ones carry a "·" placeholder so they read as slots even
+        # before anything is stored in them. They take *functional* color only
+        # once filled (`#store_custom` sets `style.bg` to the stored color); empty,
+        # they stay terminal-default chrome.
         cx = 3
         @custom_colors.size.times do |i|
           slot = Box.new parent: self, top: CUST_Y, left: cx, width: 3, height: 1,
-            align: :center, content: "·",
-            style: Style.new(fg: "#808080", bg: "#383838")
+            align: :center, content: "·"
           slot.on(Crysterm::Event::Click) do
             @custom_colors[i]?.try { |c| set_color c; request_render }
           end
@@ -243,8 +245,7 @@ module Crysterm
 
         # Eyedropper: arm a screen-wide color pick (see `begin_pick`).
         pick = Button.new parent: self, top: BTN_Y, left: 20, width: 8, height: 1,
-          content: "Pick", align: :center, focus_on_click: false,
-          style: Style.new(fg: "white", bg: "#305030")
+          content: "Pick", align: :center, focus_on_click: false
         pick.tool_tip = "Pick a color from anywhere on the screen"
         pick.on(Crysterm::Event::Press) { begin_pick }
       end
@@ -253,8 +254,7 @@ module Crysterm
       private def labeled_spin(label : String, row : Int32, min : Int32, max : Int32) : SpinBox
         Box.new parent: self, top: row, left: INFO_X, width: 2, height: 1, content: label
         SpinBox.new parent: self, top: row, left: SPIN_X, width: SPIN_W, height: 1,
-          minimum: min, maximum: max, value: min,
-          style: Style.new(fg: "white", bg: "#303030")
+          minimum: min, maximum: max, value: min
       end
 
       # --------------------------------------------------------- state set

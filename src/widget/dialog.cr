@@ -15,6 +15,13 @@ module Crysterm
     # gives the family a shared type so a `Dialog { … }` selector — and Qt's
     # `QDialog` selector — matches every dialog at once.
     abstract class Dialog < Box
+      # Dialogs are overlays: at the unstyled floor (no theme/CSS) they carry a
+      # structural border so they separate from the content behind them. Any
+      # active theme makes the dialog `css_styled`, so it can override or remove
+      # this freely (see `Mixin::Style#floor_border?`).
+      def floor_border? : Bool
+        true
+      end
     end
   end
 end

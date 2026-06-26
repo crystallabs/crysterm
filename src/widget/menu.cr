@@ -130,6 +130,15 @@ module Crysterm
         on(::Crysterm::Event::ActionItem) { |e| activate_index e.index }
       end
 
+      # A menu is an overlay: at the unstyled floor (no theme/CSS) it carries a
+      # structural border so it separates from the content behind it. Any active
+      # theme makes the menu `css_styled`, so it stays free to set any border —
+      # including none (qdarkstyle's `QMenu { border: 0 }`); see
+      # `Mixin::Style#floor_border?`.
+      def floor_border? : Bool
+        true
+      end
+
       # Whether this menu is being shown as a floating context menu (see
       # `#popup`), so it dismisses itself on outside click / after a leaf fires.
       @popup_mode = false

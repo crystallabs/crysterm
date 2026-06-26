@@ -188,7 +188,9 @@ module Crysterm
         left: sess.x + 1,
         top: sess.y,
         content: label,
-        style: Style.new(fg: 0x000000, bg: 0xe5e5e5))
+        # Reverse-video so the drag ghost reads on any background (light or dark,
+        # any theme) without a hardcoded color.
+        style: Style.new(reverse: true))
       @_drag_ghost = g
     end
 

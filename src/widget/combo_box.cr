@@ -45,6 +45,13 @@ module Crysterm
         # A single click on any row commits it.
         @activate_on_click = true
 
+        # The drop-down is an overlay (Qt's `.popup`): at the unstyled floor it
+        # carries a structural border so it separates from the content behind it.
+        # A theme can override or remove it (see `Mixin::Style#floor_border?`).
+        def floor_border? : Bool
+          true
+        end
+
         property combo : ComboBox?
 
         def enter_selected

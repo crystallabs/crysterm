@@ -28,6 +28,13 @@ module Crysterm
         hide
       end
 
+      # A tooltip is an overlay: at the unstyled floor it carries a structural
+      # border so it separates from the content behind it (a theme otherwise
+      # supplies a `ToolTip` background; see `Mixin::Style#floor_border?`).
+      def floor_border? : Bool
+        true
+      end
+
       # Shows the tooltip displaying *text* with its top-left near (*x*, *y*),
       # sized to the text and clamped to stay on-screen.
       def show_at(x : Int32, y : Int32, text : String) : Nil

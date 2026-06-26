@@ -53,7 +53,16 @@ module Crysterm
 
       # :ditto:
       def css_base_styles : ::Crysterm::Styles
-        @css_base_styles ||= styles.deep_dup
+        @css_base_styles ||= begin
+          snap = styles.deep_dup
+          # The programmatic floor border (installed by `#ensure_floor_border` for
+          # overlays) must never seed the cascade: a stylesheet owns the border
+          # entirely. Drop it from the pristine snapshot so a theme *without* a
+          # border rule doesn't inherit the floor default (no themed regression),
+          # while a theme that does set one still wins.
+          snap.normal.border = false if @floor_border_installed
+          snap
+        end
       end
 
       # Drops the pristine snapshot so it is recaptured from the current `#styles`
@@ -84,7 +93,10 @@ module Crysterm
         # When CSS has computed this widget's styles, the inline `@style` has
         # already been folded into them at the right cascade tier, so return the
         # per-state style. Otherwise inline `@style` (if any) wins wholesale.
-        @style.try { |style| return style } unless @css_styled
+        unless @css_styled
+          ensure_floor_border
+          @style.try { |style| return style }
+        end
 
         case @state
         in .normal?
@@ -92,7 +104,7 @@ module Crysterm
         in .focused?
           @styles.focused
         in .selected?
-          @styles.selected
+          selection_highlight_fallback @styles.selected
         in .hovered?
           @styles.hovered
         in .blurred?
@@ -100,6 +112,49 @@ module Crysterm
         in .disabled?
           @styles.disabled
         end
+      end
+
+      # Whether this widget should carry a default structural border at the
+      # unstyled floor (no CSS active). Overlays (Menu, popups, dialogs,
+      # tooltips, splash screens) override this to `true` so they separate from
+      # content when there is no color to do it; plain content widgets do not.
+      # The border is purely a programmatic *floor* default — any active theme
+      # makes the widget `css_styled`, so the cascade is then fully in control
+      # and free to set any border, including none (e.g. qdarkstyle's
+      # `QMenu { border: 0 }`).
+      def floor_border? : Bool
+        false
+      end
+
+      @floor_border_installed = false
+
+      # Idempotently installs the structural *floor* border on `styles.normal` for
+      # overlays (see `#floor_border?`), reached from `#style` only while no CSS is
+      # active. Set *in place* (not on a dup) so it survives `hide`/`show`, which
+      # toggle `visible` on this very style; it is excluded from the cascade base
+      # (see `#css_base_styles`) so a theme stays in full control. An explicit
+      # border is honored (the `specified?` guard) — including `border: false`.
+      private def ensure_floor_border : Nil
+        return unless floor_border?
+        normal = @styles.normal
+        return if normal.specified?(:border)
+        normal.border = true
+        @floor_border_installed = true
+      end
+
+      # At the unstyled floor (no CSS computed this widget — `@css_styled` is
+      # false), a `:selected` widget whose selected style carries no visible
+      # distinction of its own (no fg/bg/reverse — e.g. a `MenuBar`/`ToolBar`/
+      # `ListBar` item lazily falling back to `normal`) is shown via reverse-video,
+      # so the active entry reads on any terminal with no theme. Under any theme
+      # the widget is `css_styled` and this returns the cascade-computed style
+      # untouched; a `#dup` is taken before toggling so a shared style is never
+      # mutated in place.
+      private def selection_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
+        return st if @css_styled || st.specified?(:fg) || st.specified?(:bg) || st.reverse?
+        st = st.dup
+        st.reverse = true
+        st
       end
 
       # Version with keeping @state and @style in sync:

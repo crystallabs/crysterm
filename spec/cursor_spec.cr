@@ -58,11 +58,14 @@ describe "Screen#_artificial_cursor_attr" do
   end
 
   describe "block shape" do
-    it "sets the reverse flag, white foreground, and no glyph override" do
+    it "sets the reverse flag and inverts the cell (no forced white foreground)" do
       attr, ch = cursor_attr Tput::Namespace::CursorShape::Block
       ch.should be_nil
-      Attr.fg(attr).should eq WHITE_FG
+      # A reverse-video block reads on any background, so it keeps the cell's own
+      # foreground and just inverts — rather than forcing a white foreground.
       (Attr.flags(attr) & Attr::REVERSE).should_not eq 0
+      Attr.fg(attr).should eq Attr.fg(0_i64)
+      Attr.fg(attr).should_not eq WHITE_FG
     end
   end
 
