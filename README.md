@@ -1,5 +1,3 @@
-[![Linux CI](https://github.com/crystallabs/crysterm/workflows/Linux%20CI/badge.svg)](https://github.com/crystallabs/crysterm/actions?query=workflow%3A%22Linux+CI%22+event%3Apush+branch%3Amaster)
-[![Version](https://img.shields.io/github/tag/crystallabs/crysterm.svg?maxAge=360)](https://github.com/crystallabs/crysterm/releases/latest)
 [![License](https://img.shields.io/github/license/crystallabs/crysterm.svg)](https://github.com/crystallabs/crysterm/blob/master/LICENSE)
 
 Crysterm is a console/terminal toolkit for Crystal, inspired by 
