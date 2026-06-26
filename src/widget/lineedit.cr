@@ -22,6 +22,18 @@ module Crysterm
 
       getter value : String = ""
 
+      # Submitted lines, oldest first — the input history walked by Up/Down
+      # (like a shell prompt or Qt's editable combo). Public so an app can
+      # pre-seed or inspect it.
+      getter history = [] of String
+
+      # Cursor into `@history`. `history.size` is the sentinel "on the live
+      # line you're typing", so Up steps back from there and Down returns to it.
+      @history_pos = 0
+      # The half-typed line stashed on the first Up, restored when Down walks
+      # back past the newest entry — so browsing history never loses your draft.
+      @history_draft = ""
+
       def initialize(
         secret = nil,
         censor = nil,
@@ -41,12 +53,55 @@ module Crysterm
       def _listener(e : Crysterm::Event::KeyPress)
         if e.key == Tput::Key::Enter
           e.accept
+          record_history @value
           @_done.try do |done2|
             done2.call nil, @value
           end
           return
         end
+        # Single-line, so Up/Down can't move between rows — repurpose them to
+        # walk the input history instead.
+        if e.key == Tput::Key::Up
+          e.accept
+          history_prev
+          return
+        end
+        if e.key == Tput::Key::Down
+          e.accept
+          history_next
+          return
+        end
         super
+      end
+
+      # Append a just-submitted line to the history and reset the cursor to the
+      # live line. Blank lines and an immediate repeat of the last entry are
+      # skipped (shell `ignoredups`), so Up gives back meaningful commands.
+      private def record_history(line)
+        @history_pos = @history.size
+        @history_draft = ""
+        return if line.empty?
+        return if !@history.empty? && @history.last == line
+        @history << line
+        @history_pos = @history.size
+      end
+
+      # Up: recall an older entry. On the first step off the live line, stash the
+      # draft so Down can bring it back.
+      private def history_prev
+        return if @history.empty? || @history_pos == 0
+        @history_draft = @value if @history_pos == @history.size
+        @history_pos -= 1
+        # A non-nil `value=` is an external set, which parks the cursor at the end.
+        self.value = @history[@history_pos]
+      end
+
+      # Down: recall a newer entry, or step back onto the stashed draft once you
+      # walk past the newest entry.
+      private def history_next
+        return if @history_pos >= @history.size
+        @history_pos += 1
+        self.value = @history_pos == @history.size ? @history_draft : @history[@history_pos]
       end
 
       def value=(value = nil)

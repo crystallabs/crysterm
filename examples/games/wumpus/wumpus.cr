@@ -98,7 +98,7 @@ class Wumpus
   def initialize(@opt : Hash(String, Bool))
     @screen = Screen.new title: "Hunt the Wumpus"
 
-    @transcript = Widget::TextArea.new \
+    @transcript = Widget::PlainTextEdit.new \
       top: 0,
       left: 0,
       width: "100%",
@@ -109,7 +109,7 @@ class Wumpus
       style: Style.new(fg: "white", bg: "#1a1a2e", border: true,
         scrollbar: Style.new(bg: "#5555aa"))
 
-    @input = Widget::TextBox.new \
+    @input = Widget::LineEdit.new \
       top: "100%-3",
       left: 0,
       width: "100%",
