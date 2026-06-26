@@ -157,17 +157,31 @@ module Crysterm
         end
       end
 
+      # Whole-cell `{start, width}` span actually occupied by each segment,
+      # clipped to `cols` and laid left-to-right. Computed once and shared by the
+      # fill and the caption overlay so captions can't drift off their slice.
+      private def segment_spans(segs, cols : Int32) : Array({Int32, Int32})
+        x = 0
+        segs.map do |seg|
+          w = (cols * (seg.value / span)).round.to_i
+          w = 0 if w < 0
+          w = cols - x if x + w > cols
+          start = x
+          x += w
+          {start, w}
+        end
+      end
+
       # Stacked-mode fill: consecutive whole-cell runs, one per segment.
       private def fill_segments(segs, cells, colors) : Nil
         cols = cells.size
-        x = 0
-        segs.each do |seg|
-          w = (cols * (seg.value / span)).round.to_i
-          w.times do
-            break if x >= cols
+        spans = segment_spans(segs, cols)
+        segs.each_with_index do |seg, i|
+          start, w = spans[i]
+          w.times do |k|
+            x = start + k
             cells[x] = Graph::Scale::FULL
             colors[x] = seg.color || @fill_color
-            x += 1
           end
         end
       end
@@ -183,13 +197,12 @@ module Crysterm
         cols = cells.size
 
         if segs && !segs.empty?
-          x = 0
-          segs.each do |seg|
-            w = (cols * (seg.value / span)).round.to_i
+          spans = segment_spans(segs, cols)
+          segs.each_with_index do |seg, i|
+            start, w = spans[i]
             if (lbl = seg.label) && w > 0
-              overlay(cells, colors, x + Math.max(0, (w - lbl.size) // 2), lbl)
+              overlay(cells, colors, start + Math.max(0, (w - lbl.size) // 2), lbl)
             end
-            x += w
           end
         else
           overlay(cells, colors, 1, formatted_text)

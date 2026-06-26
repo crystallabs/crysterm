@@ -136,10 +136,27 @@ module Crysterm
         rows = [] of String
         @roots.each { |n| flatten n, rows }
         set_items rows
-        if prev && (i = @nodes.index prev)
-          selekt i
+        if prev
+          if i = @nodes.index prev
+            selekt i
+          elsif (anc = nearest_visible_ancestor prev) && (j = @nodes.index anc)
+            # The previously-selected node was hidden by a collapse; follow the
+            # selection up to its nearest still-visible ancestor (the collapsed
+            # node), as Qt does, rather than stranding it on row 0.
+            selekt j
+          end
         end
         request_render
+      end
+
+      # Nearest ancestor of *node* that is currently a visible row, or `nil`.
+      private def nearest_visible_ancestor(node : Node) : Node?
+        p = node.parent
+        while p
+          return p if @nodes.includes? p
+          p = p.parent
+        end
+        nil
       end
 
       private def flatten(node : Node, rows : Array(String)) : Nil

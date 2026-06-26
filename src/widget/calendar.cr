@@ -566,6 +566,9 @@ module Crysterm
         end
         e.accept
         request_render
+      rescue
+        # `Time.local` is unavailable in some headless contexts (as guarded in
+        # `#default_today` and `#handle_mouse`); ignore the key rather than raise.
       end
 
       def destroy
