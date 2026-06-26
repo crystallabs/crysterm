@@ -20,6 +20,11 @@ module Crysterm
       # Vertical gap between rows.
       property row_gap : Int32
 
+      # Reused list of the children this engine arranges (the non-excluded ones),
+      # refilled each frame instead of allocating a `reject` array per render.
+      # Transient; a layout instance serves a single container.
+      @row_children = [] of Widget
+
       def initialize(@label_width : Int32 = 12, @gap : Int32 = 1, @row_gap : Int32 = 0)
       end
 
@@ -33,7 +38,9 @@ module Crysterm
         # (e.g. a `background-image` layer) must not be consumed as a
         # label/field slot — matching every other engine's `layout_excluded?`
         # skip.
-        children = container.children.reject &.layout_excluded?
+        children = @row_children
+        children.clear
+        container.children.each { |el| children << el unless el.layout_excluded? }
         y = 0
         i = 0
         while i < children.size

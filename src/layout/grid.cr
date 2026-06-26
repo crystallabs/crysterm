@@ -37,6 +37,13 @@ module Crysterm
 
       # `#gap` (inter-cell spacing) is inherited from `Layout`.
 
+      # Per-arrange scratch, reused across frames (cleared, not reallocated) so a
+      # grid re-render allocates nothing — `Set#clear`/`Array#clear` keep their
+      # capacity. Transient and not retained past `#arrange`; a layout instance
+      # serves a single container.
+      @occupied = Set({Int32, Int32}).new
+      @placements = [] of Tuple(Widget, Int32, Int32, Int32, Int32)
+
       def initialize(@columns : Int32 = 2, @rows : Int32? = nil, @gap : Int32 = 0)
       end
 
@@ -45,13 +52,12 @@ module Crysterm
         h = interior.yl - interior.yi
         cols = Math.max(@columns, 1)
 
-        occupied = Set({Int32, Int32}).new
+        occupied = @occupied
+        occupied.clear
         # {widget, row, col, row_span, col_span}. The tuples live inline in the
-        # array's buffer (value types, no per-element heap box), so the only
-        # per-frame collections here are `placements` and `occupied`; the former
-        # `auto` array is gone — auto children are handled by a second filtered
-        # pass over `container.children` instead of being collected first.
-        placements = [] of Tuple(Widget, Int32, Int32, Int32, Int32)
+        # array's buffer (value types, no per-element heap box).
+        placements = @placements
+        placements.clear
 
         # Explicitly-placed children first, so auto-flow can skip their cells.
         container.children.each do |el|

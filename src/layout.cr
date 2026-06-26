@@ -55,6 +55,13 @@ module Crysterm
     # pack children at their natural spacing.
     property gap : Int32 = 0
 
+    # Reused interior rectangle, mutated and returned by `#interior_coords` each
+    # frame instead of allocating a fresh `LPos` per render (mirroring
+    # `LPos#reset` on the widget render path). `#arrange` reads only its four
+    # coordinates and never retains it past the call, and a layout instance
+    # serves a single container, so one cached rectangle per layout is safe.
+    @interior_lpos = LPos.new
+
     # Entry point invoked by `Widget#_render`. Computes the container's interior
     # content rectangle and, if non-empty, delegates to `#arrange`.
     def render_children(container : Widget) : Nil
@@ -114,7 +121,12 @@ module Crysterm
       yi = lpos.yi + container.itop
       yl = lpos.yl - container.ibottom
       return if (xl - xi <= 0) || (yl - yi <= 0)
-      LPos.new xi: xi, xl: xl, yi: yi, yl: yl
+      i = @interior_lpos
+      i.xi = xi
+      i.xl = xl
+      i.yi = yi
+      i.yl = yl
+      i
     end
 
     # `el`'s rendered rectangle from the last frame if it was non-empty, else nil.
