@@ -140,7 +140,8 @@ module Crysterm
     {% begin %}
       {% tracked = %w(bold italic underline blink reverse strike visible
            background_size fill_char percent_char foreground_char
-           background_char border padding margin shadow) %}
+           background_char border padding margin shadow
+           tab_size tab_char fill draw_over_border) %}
       {% for prop, i in tracked %}
         SPEC_{{prop.upcase.id}} = 1_u32 << {{i}}
       {% end %}
@@ -229,6 +230,23 @@ module Crysterm
     # Character to replace TABs with, multiplied by tab_size
     property tab_char = " "
 
+    # Re-wrap the `property`-generated setters for TAB expansion so an explicit
+    # assignment is recorded as `specified` (must come *after* the `property`
+    # declarations above so it overrides their plain setters). Otherwise the
+    # `tab_size = 4`/`tab_char = " "` defaults are indistinguishable from an
+    # intentional value, and the CSS cascade (`fold_inline`) can't carry an
+    # inline-set tab width/char once a stylesheet is active (`tab-size` is itself
+    # a CSS property, so inline must fold at the inline tier, beating author).
+    def tab_size=(value : Int32) : Int32
+      @specified_mask |= SPEC_TAB_SIZE
+      @tab_size = value
+    end
+
+    def tab_char=(value : String) : String
+      @specified_mask |= SPEC_TAB_CHAR
+      @tab_char = value
+    end
+
     # Generic fill char (WIP)
     property fill_char : Char = ' '
 
@@ -262,6 +280,22 @@ module Crysterm
     # Currently used for `Widget::Scrollbar` only.
     # XXX Rename, or make more general, or otherwise unify.
     property? draw_over_border : Bool = false
+
+    # Re-wrap the `property?`-generated setters for `fill`/`draw_over_border` so an
+    # explicit assignment is recorded as `specified` (must come *after* the
+    # `property?` declarations above so it overrides their plain setters).
+    # Otherwise these defaults are indistinguishable from an intentional value, and
+    # the CSS cascade (`fold_inline`) can't carry an inline-set value once a
+    # stylesheet is active.
+    def fill=(value : Bool) : Bool
+      @specified_mask |= SPEC_FILL
+      @fill = value
+    end
+
+    def draw_over_border=(value : Bool) : Bool
+      @specified_mask |= SPEC_DRAW_OVER_BORDER
+      @draw_over_border = value
+    end
 
     # Each of the following subelements are separate and can be styled individually.
     # If any of them is not defined, it defaults to main/parent style.
@@ -656,7 +690,7 @@ module Crysterm
       percent_char = nil,
       foreground_char = nil,
       background_char = nil,
-      @draw_over_border = @draw_over_border,
+      draw_over_border = nil,
     )
       # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized
       # to its `#rrggbb` string (the param is unrestricted, so each call type —
@@ -684,6 +718,9 @@ module Crysterm
       percent_char.try { |v| self.percent_char = v }
       foreground_char.try { |v| self.foreground_char = v }
       background_char.try { |v| self.background_char = v }
+      # Only record an explicitly-passed `draw_over_border` as `specified` (an
+      # omitted one keeps the unspecified `false` default).
+      draw_over_border.try { |v| self.draw_over_border = v }
     end
 
     def self.alpha_from(value : Float64 | Bool?)

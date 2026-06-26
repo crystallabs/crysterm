@@ -407,6 +407,47 @@ describe "CSS cascade" do
     button.styles.normal.fg.should eq rgb("red") # !important outranks inline
   end
 
+  it "carries inline-only Style fields (tab_size/tab_char/fill/draw_over_border) through the cascade" do
+    screen = headless_screen
+    inline = Style.new(fg: "lime")
+    inline.tab_size = 8
+    inline.tab_char = ">"
+    inline.fill = false
+    inline.draw_over_border = true
+    box = Widget::Box.new style: inline
+    screen.append box
+
+    # An author rule that touches the widget but not these fields must not drop
+    # the inline-set values during the reset-and-recompute.
+    screen.stylesheet = "Box { color: red; }"
+    screen.apply_stylesheet
+
+    normal = box.styles.normal
+    normal.fg.should eq rgb("lime") # inline beats author color
+    normal.tab_size.should eq 8
+    normal.tab_char.should eq ">"
+    normal.fill?.should be_false
+    normal.draw_over_border?.should be_true
+  end
+
+  it "lets a CSS tab-size beat an inline tab_size, but inline beats author" do
+    screen = headless_screen
+    inline = Style.new
+    inline.tab_size = 8
+    box = Widget::Box.new style: inline
+    screen.append box
+
+    # Author tab-size loses to inline (inline folds at the inline tier)...
+    screen.stylesheet = "Box { tab-size: 2; }"
+    screen.apply_stylesheet
+    box.styles.normal.tab_size.should eq 8
+
+    # ...but !important beats inline.
+    screen.stylesheet = "Box { tab-size: 3 !important; }"
+    screen.apply_stylesheet
+    box.styles.normal.tab_size.should eq 3
+  end
+
   it "applies geometry and layout via CSS (onto the widget, not the style)" do
     screen = headless_screen
     box = Widget::Box.new

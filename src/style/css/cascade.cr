@@ -449,6 +449,10 @@ module Crysterm
         style.percent_char = inline.percent_char if inline.specified?(:percent_char)
         style.foreground_char = inline.foreground_char if inline.specified?(:foreground_char)
         style.background_char = inline.background_char if inline.specified?(:background_char)
+        style.tab_size = inline.tab_size if inline.specified?(:tab_size)
+        style.tab_char = inline.tab_char if inline.specified?(:tab_char)
+        style.fill = inline.fill? if inline.specified?(:fill)
+        style.draw_over_border = inline.draw_over_border? if inline.specified?(:draw_over_border)
         # Nested sub-styles (header/cell/alternate/bar/…) the inline set wholesale;
         # without this they'd be dropped by the reset-and-recompute, since no
         # `Widget::slot` sub-element rule restores an inline-only sub-style.
