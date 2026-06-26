@@ -134,6 +134,15 @@ module Crysterm
         out
       end
 
+      # Rec.709 relative luminance of *px* (`0.2126·R + 0.7152·G + 0.0722·B`),
+      # in the channels' own 0..255 scale. The shared brightness measure behind
+      # every backend that maps colour to a glyph/bit/intensity (`Media::Glyph`,
+      # `Media::Tek`, `Media::Ansi`). Callers that need alpha- or scale-folding do
+      # it themselves on the result (e.g. `Media::Ansi`: `luminance(px) * a / 255`).
+      def self.luminance(px : PNGGIF::Pixel) : Float64
+        0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b
+      end
+
       # Clamps *v* into the `0..255` byte range. Shared by the palette backends
       # (`Media::Ansi`, `Media::Regis`) when nudging a channel by a dither offset
       # before the nearest-color search.

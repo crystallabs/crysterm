@@ -248,7 +248,7 @@ module Crysterm
           rin = bmp[y]
           Array(Float64).new(pw) do |x|
             px = rin[x]?
-            px ? 0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b : 0.0
+            px ? Media.luminance(px) : 0.0
           end
         end
 

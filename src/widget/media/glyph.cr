@@ -291,7 +291,7 @@ module Crysterm
       end
 
       private def lum(px : PNGGIF::Pixel) : Float64
-        0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b
+        Media.luminance px
       end
 
       # Luminance of a neighbour sub-pixel, or *fallback* when out of bounds (so

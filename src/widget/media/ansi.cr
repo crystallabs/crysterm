@@ -164,7 +164,7 @@ module Crysterm
 
       # Picks an ASCII glyph + foreground color for *px* (used when `ascii`).
       private def ascii_glyph(px : PNGGIF::Pixel, a : Float64) : Tuple(Char, Int32)
-        l = (0.2126 * px.r * a + 0.7152 * px.g * a + 0.0722 * px.b * a) / 255.0
+        l = Media.luminance(px) * a / 255.0
         ch = DCHARS[(l * (DCHARS.size - 1)).to_i]
         # Foreground at half intensity, like tng's `fga = 0.5`.
         fg = ((px.r * a * 0.5).to_i << 16) | ((px.g * a * 0.5).to_i << 8) | (px.b * a * 0.5).to_i

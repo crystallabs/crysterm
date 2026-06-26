@@ -92,6 +92,11 @@ module Crysterm
     @state : Symbol = :ground
     @csi_buf = IO::Memory.new
     @csi_private : Bool = false
+    # Leading private/intermediate prefix byte of the current CSI (`<`, `=`, `>`
+    # or `?`, range 0x3c-0x3f), or nil for a plain CSI. Kept out of `@csi_buf` so
+    # parameter parsing stays numeric, and so `c`/`n` finals can tell a secondary
+    # DA (`CSI > c`) or DEC-private DSR (`CSI ? 6 n`) from their plain forms.
+    @csi_prefix : Char? = nil
     @osc_buf = IO::Memory.new
     @osc_esc : Bool = false
 
@@ -291,6 +296,7 @@ module Crysterm
         @state = :csi
         @csi_buf.clear
         @csi_private = false
+        @csi_prefix = nil
       when ']'
         @state = :osc
         @osc_buf.clear
@@ -343,8 +349,11 @@ module Crysterm
 
     private def handle_csi(c : Char) : Nil
       o = c.ord
-      if c == '?' && @csi_buf.empty?
-        @csi_private = true
+      # A leading byte in 0x3c-0x3f (`<` `=` `>` `?`) is the private/intermediate
+      # prefix — capture it instead of folding it into the numeric parameters.
+      if @csi_prefix.nil? && @csi_buf.empty? && 0x3c <= o <= 0x3f
+        @csi_prefix = c
+        @csi_private = (c == '?')
         return
       end
       if o >= 0x20 && o <= 0x3f
@@ -473,7 +482,14 @@ module Crysterm
       when 's' then save_cursor unless @csi_private
       when 'u' then restore_cursor unless @csi_private
       when 'n' then device_status(param0(0))
-      when 'c' then respond("\e[?6c") if param0(0) == 0 # VT102 Device Attributes
+      when 'c'
+        if param0(0) == 0
+          case @csi_prefix
+          when nil then respond("\e[?6c")     # primary DA  (CSI c)   — VT102
+          when '>' then respond("\e[>0;0;0c") # secondary DA (CSI > c) — VT100, ver 0
+            # tertiary (`=`) / unknown prefix: not answered
+          end
+        end
       else
         # Unimplemented final byte — ignored.
       end
@@ -558,9 +574,16 @@ module Crysterm
     end
 
     private def device_status(code : Int32) : Nil
-      case code
-      when 5 then respond("\e[0n")                   # "OK"
-      when 6 then respond("\e[#{@y + 1};#{@x + 1}R") # cursor position
+      if @csi_private
+        # DEC-private DSR (DECDSR): the reply mirrors the request's `?` prefix.
+        case code
+        when 6 then respond("\e[?#{@y + 1};#{@x + 1}R") # DECXCPR (extended CPR)
+        end
+      else
+        case code
+        when 5 then respond("\e[0n")                   # "OK"
+        when 6 then respond("\e[#{@y + 1};#{@x + 1}R") # cursor position (CPR)
+        end
       end
     end
 
@@ -827,6 +850,16 @@ module Crysterm
       screen_lines = @lines.size - @ybase
       if screen_lines < rows
         (rows - screen_lines).times { @lines << blank_line }
+      end
+
+      # When on the alt page, grow the parked main buffer's viewport too (it uses
+      # the saved `@main_ybase`); otherwise a grow-resize leaves `@main_lines`
+      # short and restoring it after `#leave_alt` would yield a truncated screen.
+      if ml = @main_lines
+        main_screen_lines = ml.size - @main_ybase
+        if main_screen_lines < rows
+          (rows - main_screen_lines).times { ml << blank_line }
+        end
       end
 
       @scroll_top = 0

@@ -24,21 +24,14 @@ module Crysterm
   # pre-exec hook, the command is run through the `setsid(1)` helper — see
   # `#spawn_child`. That keeps everything on the safe `Process` path.
   class Pty
-    # `openpty` lives in libutil; `ioctl` is already bound by Crystal's `LibC`.
+    # `openpty` lives in libutil; `ioctl` and `struct winsize` (`LibC::Winsize`)
+    # are already bound by the term-screen shard — reused here for both calls.
     @[Link("util")]
     lib LibUtil
-      # `struct winsize` from <termios.h>.
-      struct Winsize
-        ws_row : LibC::UShort
-        ws_col : LibC::UShort
-        ws_xpixel : LibC::UShort
-        ws_ypixel : LibC::UShort
-      end
-
       # `int openpty(int *amaster, int *aslave, char *name,
       #              const struct termios *termp, const struct winsize *winp);`
       fun openpty(amaster : LibC::Int*, aslave : LibC::Int*, name : LibC::Char*,
-                  termp : Void*, winp : Winsize*) : LibC::Int
+                  termp : Void*, winp : LibC::Winsize*) : LibC::Int
     end
 
     # `TIOCSWINSZ` request number (Linux, arch-independent for mainstream archs).
@@ -66,7 +59,7 @@ module Crysterm
       master_fd = uninitialized LibC::Int
       slave_fd = uninitialized LibC::Int
 
-      ws = LibUtil::Winsize.new
+      ws = LibC::Winsize.new
       ws.ws_row = rows.to_u16
       ws.ws_col = cols.to_u16
 
@@ -111,7 +104,7 @@ module Crysterm
     # Tells the kernel (and thus the child) about a new terminal geometry.
     def resize(cols : Int32, rows : Int32) : Nil
       return if @closed
-      ws = LibUtil::Winsize.new
+      ws = LibC::Winsize.new
       ws.ws_row = rows.to_u16
       ws.ws_col = cols.to_u16
       # `ioctl` is already declared (variadically) by Crystal's `LibC`.

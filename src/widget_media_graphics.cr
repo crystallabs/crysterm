@@ -1,18 +1,10 @@
 require "./widget_media_base"
 require "./widget_media_screen_overlay"
 
-# `struct winsize` for reading the terminal's pixel dimensions via `TIOCGWINSZ`
-# (the `ws_xpixel`/`ws_ypixel` that come back alongside rows/cols), so a graphics
-# backend can derive the *real* cell pixel size instead of guessing. `ioctl` and
-# `TIOCGWINSZ` are already bound on `LibC` by the term-screen shard.
-lib LibCellSize
-  struct Winsize
-    ws_row : LibC::UShort
-    ws_col : LibC::UShort
-    ws_xpixel : LibC::UShort
-    ws_ypixel : LibC::UShort
-  end
-end
+# `struct winsize` (for the `ws_xpixel`/`ws_ypixel` that come back from
+# `TIOCGWINSZ` alongside rows/cols, so a graphics backend can derive the *real*
+# cell pixel size instead of guessing), `ioctl` and `TIOCGWINSZ` are all already
+# bound on `LibC` by the term-screen shard — reused here as `LibC::Winsize`.
 
 module Crysterm
   class Widget
@@ -136,7 +128,7 @@ module Crysterm
         s = screen || return nil
         tty = s.output
         return nil unless tty.is_a?(IO::FileDescriptor)
-        ws = LibCellSize::Winsize.new
+        ws = LibC::Winsize.new
         return nil unless LibC.ioctl(tty.fd, LibC::TIOCGWINSZ, pointerof(ws)) == 0
         xp = ws.ws_xpixel.to_i
         yp = ws.ws_ypixel.to_i
