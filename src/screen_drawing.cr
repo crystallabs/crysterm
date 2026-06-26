@@ -758,6 +758,34 @@ module Crysterm
       o
     end
 
+    # Shifts the cell buffer (`@lines`/`@olines`) *down* by `n` rows: a blank
+    # line appears at `y` and the line that was at `bottom` falls off. This is
+    # the buffer-side counterpart of the terminal `il`/scroll-down emitted by
+    # `insert_line`/`insert_line_nc`.
+    private def shift_lines_down(n, y, bottom)
+      j = bottom + 1
+      n.times do
+        @lines.insert y, blank_line
+        @lines.delete_at j
+        @olines.insert y, blank_line
+        @olines.delete_at j
+      end
+    end
+
+    # Shifts the cell buffer (`@lines`/`@olines`) *up* by `n` rows: the line at
+    # `y` is removed and a blank line appears at `bottom`. This is the
+    # buffer-side counterpart of the terminal `dl`/scroll-up emitted by
+    # `delete_line`/`delete_line_nc`.
+    private def shift_lines_up(n, y, bottom)
+      j = bottom + 1
+      n.times do
+        @lines.insert j, blank_line
+        @lines.delete_at y
+        @olines.insert j, blank_line
+        @olines.delete_at y
+      end
+    end
+
     # Inserts lines into the screen. (If CSR is used, it bypasses the output buffer.)
     def insert_line(n, y, top, bottom)
       # D O:
@@ -779,14 +807,7 @@ module Crysterm
         tput.set_scroll_region(0, aheight - 1)
       end
 
-      j = bottom + 1
-
-      n.times do
-        @lines.insert y, blank_line
-        @lines.delete_at j
-        @olines.insert y, blank_line
-        @olines.delete_at j
-      end
+      shift_lines_down n, y, bottom
     end
 
     # Inserts lines into the screen using ncurses-compatible method. (If CSR is used, it bypasses the output buffer.)
@@ -808,14 +829,7 @@ module Crysterm
         tput.set_scroll_region(0, aheight - 1)
       end
 
-      j = bottom + 1
-
-      n.times do
-        @lines.insert y, blank_line
-        @lines.delete_at j
-        @olines.insert y, blank_line
-        @olines.delete_at j
-      end
+      shift_lines_down n, y, bottom
     end
 
     # Deletes lines from the screen. (If CSR is used, it bypasses the output buffer.)
@@ -840,14 +854,7 @@ module Crysterm
         tput.set_scroll_region(0, aheight - 1)
       end
 
-      # j = bottom + 1 # Unused
-      while n > 0
-        n -= 1
-        @lines.insert y, blank_line
-        @lines.delete_at y
-        @olines.insert y, blank_line
-        @olines.delete_at y
-      end
+      shift_lines_up n, y, bottom
     end
 
     # Deletes lines from the screen using ncurses-compatible method. (If CSR is used, it bypasses the output buffer.)
@@ -870,14 +877,7 @@ module Crysterm
         tput.set_scroll_region(0, aheight - 1)
       end
 
-      j = bottom + 1
-
-      n.times do
-        @lines.insert j, blank_line
-        @lines.delete_at y
-        @olines.insert j, blank_line
-        @olines.delete_at y
-      end
+      shift_lines_up n, y, bottom
     end
 
     # Inserts line at bottom of screen.
