@@ -41,7 +41,7 @@ class Wumpus
   STARTING_ARROWS = 5
 
   # Every difference between the flavors, as an independent on/off flag.
-  FLAGS = %w[mesg prompts bump crooked same back reveal gap]
+  FLAGS = %w[mesg prompts bump crooked same back reveal gap score]
 
   # One-line description of each flag, for the help screen.
   FLAG_HELP = {
@@ -53,14 +53,15 @@ class Wumpus
     "back"    => "enable 'b' for step-back command",
     "reveal"  => "reveal the Wumpus's room after loss",
     "gap"     => "teletype blank-line spacing (off = compact)",
+    "score"   => "running scoreboard pinned top-right (off = hidden)",
   }
 
   # Named groups of flag settings. The default pack is the first key.
   PRESETS = {
     "1973" => {"mesg" => true, "prompts" => true, "bump" => true, "crooked" => false,
-               "same" => true, "back" => false, "reveal" => false, "gap" => true},
+               "same" => true, "back" => false, "reveal" => false, "gap" => true, "score" => false},
     "2026" => {"mesg" => false, "prompts" => false, "bump" => false, "crooked" => true,
-               "same" => false, "back" => true, "reveal" => true, "gap" => false},
+               "same" => false, "back" => true, "reveal" => true, "gap" => false, "score" => true},
   }
 
   @player = 1
@@ -95,6 +96,18 @@ class Wumpus
   @shoot_needed = 0
   @shoot_path = [] of Int32
 
+  # Running scoreboard (the "score" flag). Tallies persist across games:
+  #   player - +1 each time you shoot the Wumpus
+  #   wumpus - +1 each time it eats you
+  #   holes  - +1 each time you fall into a pit
+  #   bats   - +1 each time bats drop you straight into a pit
+  #   arrows - +1 when your own arrow skewers you, or you run out and die
+  @score_player = 0
+  @score_wumpus = 0
+  @score_holes = 0
+  @score_bats = 0
+  @score_arrows = 0
+
   def initialize(@opt : Hash(String, Bool))
     @screen = Screen.new title: "Hunt the Wumpus"
 
@@ -116,8 +129,21 @@ class Wumpus
       height: 3,
       style: Style.new(fg: "black", bg: "#e0e000", border: true)
 
+    # The scoreboard: a small box pinned to the top-right corner, just inside the
+    # transcript's outer border. Shown only when the "score" flag is on (see
+    # update_score). top:1 / right:1 keep it clear of the surrounding border.
+    @scorebox = Widget::Box.new \
+      top: 1,
+      right: 1,
+      width: 15,
+      height: 7,
+      label: " Score ",
+      parse_tags: true,
+      style: Style.new(fg: "white", bg: "#16213e", border: true)
+
     @screen.append @transcript
     @screen.append @input
+    @screen.append @scorebox
     @input.focus
 
     @input.on(Event::Submit) do |e|
@@ -179,6 +205,10 @@ class Wumpus
     @opt["gap"]
   end
 
+  private def score?
+    @opt["score"]
+  end
+
   # Pick original (1973) vs modern (2026) wording for a line, per the mesg flag.
   private def w(orig : String, modern : String) : String
     mesg? ? orig : modern
@@ -210,6 +240,7 @@ class Wumpus
   # teletype prompt is abandoned, since the input model itself may have changed.
   private def refresh_options
     @input_state = :command
+    update_score
     describe_room unless @awaiting_replay
   end
 
@@ -231,6 +262,41 @@ class Wumpus
   # omitted when off (compact).
   private def gap
     say if gap?
+  end
+
+  # ---- Scoreboard ------------------------------------------------------------
+
+  # Inner width (inside the box border) used to right-align the scores.
+  SCORE_WIDTH = 12
+
+  # One scoreboard row: a left-aligned, colored label and a right-aligned tally.
+  # Padding is computed on the plain text so the {tag} markup can't skew it.
+  private def score_line(label : String, value : Int32, color : String) : String
+    v = value.to_s
+    pad = " " * (SCORE_WIDTH - label.size - v.size)
+    "{#{color}-fg}#{label}{/}#{pad}#{v}"
+  end
+
+  # Refresh the scoreboard contents and toggle it with the "score" flag.
+  private def update_score
+    if score?
+      @scorebox.content = [
+        score_line("Player:", @score_player, "green"),
+        score_line("Wumpus:", @score_wumpus, "red"),
+        score_line("Holes:", @score_holes, "yellow"),
+        score_line("Bats:", @score_bats, "magenta"),
+        score_line("Arrows:", @score_arrows, "cyan"),
+      ].join("\n")
+      @scorebox.show
+    else
+      @scorebox.hide
+    end
+  end
+
+  # The Wumpus has eaten the player (whatever path got it there): tally and show.
+  private def score_wumpus_ate
+    @score_wumpus += 1
+    update_score
   end
 
   # ---- Game setup ------------------------------------------------------------
@@ -270,6 +336,7 @@ class Wumpus
     end
     say w("", "Type {bold}h{/} for help.") # always shown
     gap
+    update_score
     describe_room
   end
 
@@ -292,8 +359,7 @@ class Wumpus
       say "{red-fg}You smell a Wumpus!{/}" if smell
       say "{red-fg}You feel a cold draft.{/}" if draft
       say "{magenta-fg}You hear the flapping of bats.{/}" if flap
-      say "You are in room {bold}#{@player}{/}. Tunnels lead to #{tunnels.join(", ")}."
-      say "Arrows left: #{@arrows}."
+      say "You are in room {bold}#{@player}{/}. Tunnels lead to #{tunnels.join(", ")}. Arrows left: #{@arrows}."
     end
 
     # The teletype top-level prompt, independent of the wording flag.
@@ -509,6 +575,7 @@ class Wumpus
         if wumpus_stirs
           say w("TSK TSK TSK - WUMPUS GOT YOU!",
             "{red-fg}{bold}It lunges and devours you!{/}")
+          score_wumpus_ate
           lose
         else
           gap
@@ -517,6 +584,7 @@ class Wumpus
       else
         say w("TSK TSK TSK - WUMPUS GOT YOU!",
           "{red-fg}{bold}You walked right into the Wumpus! It gobbles you up.{/}")
+        score_wumpus_ate
         lose
       end
       return
@@ -525,6 +593,8 @@ class Wumpus
     if @pits.includes?(@player)
       say w("YYYIIIIEEEE . . . FELL IN A PIT",
         "{red-fg}{bold}You plummet into a bottomless pit. Aaaaaa…{/}")
+      @score_holes += 1
+      update_score
       lose
       return
     end
@@ -533,6 +603,12 @@ class Wumpus
       say w("ZAP--SUPER BAT SNATCH! ELSEWHERE FOR YOU!",
         "{magenta-fg}Super bats snatch you and whisk you away!{/}")
       @player = rand(1..20)
+      # Credit the bats if they happened to drop you straight down a pit. The
+      # recursive enter_room below still credits the hole itself.
+      if @pits.includes?(@player)
+        @score_bats += 1
+        update_score
+      end
       enter_room # might drop you somewhere nasty
       return
     end
@@ -581,6 +657,8 @@ class Wumpus
       if pos == @wumpus
         say w("AHA! YOU GOT THE WUMPUS!",
           "{green-fg}{bold}Your arrow strikes the Wumpus! You win!{/}")
+        @score_player += 1
+        update_score
         win
         return
       end
@@ -588,6 +666,8 @@ class Wumpus
       if pos == @player
         say w("OUCH! ARROW GOT YOU!",
           "{red-fg}{bold}Your own arrow circles back and skewers you!{/}")
+        @score_arrows += 1
+        update_score
         lose
         return
       end
@@ -600,6 +680,7 @@ class Wumpus
     if wumpus_stirs
       say w("TSK TSK TSK - WUMPUS GOT YOU!",
         "{red-fg}{bold}The noise wakes the Wumpus and it stumbles into your room. It eats you!{/}")
+      score_wumpus_ate
       lose
       return
     end
@@ -607,6 +688,8 @@ class Wumpus
     if @arrows <= 0
       say w("YOU ARE OUT OF ARROWS",
         "{red-fg}{bold}You've run out of arrows. The Wumpus will get you eventually…{/}")
+      @score_arrows += 1
+      update_score
       lose
       return
     end
