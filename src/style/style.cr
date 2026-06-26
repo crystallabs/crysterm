@@ -527,74 +527,91 @@ module Crysterm
       @right_arrow || self
     end
 
-    # Folds *inline*'s explicitly-set nested sub-styles (`header`/`cell`/
-    # `alternate`/`bar`/…) onto this style. Used by the CSS cascade so an inline
-    # `@style` that carries a sub-style — e.g. `Style.new(alternate_row: ...)` on a
-    # `Widget::Table` — survives recomputation even when no `Widget::slot`
-    # sub-element rule matched. Reads the raw nilable ivars (an instance may
-    # touch another instance's privates), so only sub-styles the caller actually
-    # set are carried (the getters above fall back to `self`/`cell`, which would
-    # otherwise always look "set").
-    def fold_inline_sub_styles(inline : Style) : Nil
-      @alternate_row = inline.@alternate_row if inline.@alternate_row
-      @cell = inline.@cell if inline.@cell
-      @header = inline.@header if inline.@header
-      @indicator = inline.@indicator if inline.@indicator
-      @item = inline.@item if inline.@item
-      @prefix = inline.@prefix if inline.@prefix
-      @separator = inline.@separator if inline.@separator
-      @tab = inline.@tab if inline.@tab
-      @title = inline.@title if inline.@title
-      @pane = inline.@pane if inline.@pane
-      @close_button = inline.@close_button if inline.@close_button
-      @float_button = inline.@float_button if inline.@float_button
-      @scrollbar = inline.@scrollbar if inline.@scrollbar
-      @track = inline.@track if inline.@track
-      @sub_line = inline.@sub_line if inline.@sub_line
-      @add_line = inline.@add_line if inline.@add_line
-      @sub_page = inline.@sub_page if inline.@sub_page
-      @add_page = inline.@add_page if inline.@add_page
-      @up_arrow = inline.@up_arrow if inline.@up_arrow
-      @down_arrow = inline.@down_arrow if inline.@down_arrow
-      @left_arrow = inline.@left_arrow if inline.@left_arrow
-      @right_arrow = inline.@right_arrow if inline.@right_arrow
-    end
+    # Canonical CSS *slot* → sub-`Style` accessor mapping. Every place that maps a
+    # cascade slot name to a nested `Style` is generated from this single list, so
+    # the slot set can't drift between the methods (the previous five hand-kept
+    # copies had already diverged — `alternate-row` was missing from the cascade's
+    # getter/setter, silently dropping its rules). Maps each CSS pseudo-element
+    # name to the underlying accessor (`#scrollbar`, `#sub_line`, …); keep it
+    # sorted by accessor for readability.
+    {% begin %}
+      {% slots = {
+           "scrollbar"     => "scrollbar",
+           "track"         => "track",
+           "sub-line"      => "sub_line",
+           "add-line"      => "add_line",
+           "sub-page"      => "sub_page",
+           "add-page"      => "add_page",
+           "up-arrow"      => "up_arrow",
+           "down-arrow"    => "down_arrow",
+           "left-arrow"    => "left_arrow",
+           "right-arrow"   => "right_arrow",
+           "cell"          => "cell",
+           "header"        => "header",
+           "item"          => "item",
+           "indicator"     => "indicator",
+           "prefix"        => "prefix",
+           "separator"     => "separator",
+           "tab"           => "tab",
+           "title"         => "title",
+           "pane"          => "pane",
+           "close-button"  => "close_button",
+           "float-button"  => "float_button",
+           "label"         => "label",
+           "alternate-row" => "alternate_row",
+         } %}
 
-    # The *explicitly-set* sub-`Style` for the cascade *slot* name, or `nil` when
-    # this style never set one. Unlike the public getters (`#indicator`, etc.),
-    # which fall back to `self`, this reports only what was actually assigned — so
-    # the cascade can tell "inline set an `indicator`" apart from "no indicator,
-    # use the base style". Used to re-fold an inline-only sub-style at the inline
-    # cascade tier so it outranks lower-tier (default/author) sub-element rules,
-    # mirroring how the main style honors inline via `fold_inline`.
-    def raw_sub_style(slot : String) : Style?
-      case slot
-      when "scrollbar"     then @scrollbar
-      when "track"         then @track
-      when "sub-line"      then @sub_line
-      when "add-line"      then @add_line
-      when "sub-page"      then @sub_page
-      when "add-page"      then @add_page
-      when "up-arrow"      then @up_arrow
-      when "down-arrow"    then @down_arrow
-      when "left-arrow"    then @left_arrow
-      when "right-arrow"   then @right_arrow
-      when "cell"          then @cell
-      when "header"        then @header
-      when "item"          then @item
-      when "indicator"     then @indicator
-      when "prefix"        then @prefix
-      when "separator"     then @separator
-      when "tab"           then @tab
-      when "title"         then @title
-      when "pane"          then @pane
-      when "close-button"  then @close_button
-      when "float-button"  then @float_button
-      when "label"         then @label
-      when "alternate-row" then @alternate_row
-      else                      nil
+      # Folds *inline*'s explicitly-set nested sub-styles (`header`/`cell`/
+      # `alternate`/`bar`/…) onto this style. Used by the CSS cascade so an inline
+      # `@style` that carries a sub-style — e.g. `Style.new(alternate_row: ...)` on a
+      # `Widget::Table` — survives recomputation even when no `Widget::slot`
+      # sub-element rule matched. Reads the raw nilable ivars (an instance may
+      # touch another instance's privates), so only sub-styles the caller actually
+      # set are carried (the getters fall back to `self`/`cell`, which would
+      # otherwise always look "set").
+      def fold_inline_sub_styles(inline : Style) : Nil
+        {% for css_name, accessor in slots %}
+        @{{accessor.id}} = inline.@{{accessor.id}} if inline.@{{accessor.id}}
+        {% end %}
       end
-    end
+
+      # The *explicitly-set* sub-`Style` for the cascade *slot* name, or `nil` when
+      # this style never set one. Unlike the public getters (`#indicator`, etc.),
+      # which fall back to `self`, this reports only what was actually assigned — so
+      # the cascade can tell "inline set an `indicator`" apart from "no indicator,
+      # use the base style". Used to re-fold an inline-only sub-style at the inline
+      # cascade tier so it outranks lower-tier (default/author) sub-element rules,
+      # mirroring how the main style honors inline via `fold_inline`.
+      def raw_sub_style(slot : String) : Style?
+        case slot
+        {% for css_name, accessor in slots %}
+        when {{css_name}} then @{{accessor.id}}
+        {% end %}
+        else nil
+        end
+      end
+
+      # The sub-`Style` for the cascade *slot* name via its public getter (so it
+      # falls back to `self`/`cell` like `#indicator` etc.), or `self` for an
+      # unknown/`nil` slot. The cascade applies declarations onto a dup of this.
+      def sub_style(slot : String?) : Style
+        case slot
+        {% for css_name, accessor in slots %}
+        when {{css_name}} then {{accessor.id}}
+        {% end %}
+        else self
+        end
+      end
+
+      # Assigns *sub* to the cascade *slot* name; a no-op for an unknown/`nil` slot.
+      def set_sub_style(slot : String?, sub : Style) : Nil
+        case slot
+        {% for css_name, accessor in slots %}
+        when {{css_name}} then self.{{accessor.id}} = sub
+        {% end %}
+        end
+      end
+    {% end %}
 
     def initialize(
       *,

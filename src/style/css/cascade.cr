@@ -84,6 +84,13 @@ module Crysterm
         # sheet's custom properties win.
         variables = {} of String => String
         sheets.each { |entry| variables.merge!(entry[0].variables) }
+        # A rule's `declarations` hash is shared across every widget it matches,
+        # and `variables` is fixed for the whole cascade — so each distinct
+        # property *value* resolves to the same string every time. Memoize the
+        # `var(...)` resolution per value for this cascade; the default theme is
+        # built from `var(--surface)` etc. and matches nearly every widget, so the
+        # same handful of values would otherwise be re-resolved thousands of times.
+        resolved = {} of String => String
 
         # Match each rule against the document exactly once: the document is the
         # same in every state (state is carried on the rules, not the nodes), so
@@ -237,10 +244,10 @@ module Crysterm
           widget = target[0]
           next unless scope.nil? || scope.includes?(widget)
           entries = acc[{uid, state}]? || EMPTY_ENTRIES
-          apply_entries_with_inline get_state_style(widget, state), entries, variables, widget.css_inline_style
+          apply_entries_with_inline get_state_style(widget, state), entries, variables, resolved, widget.css_inline_style
           # Geometry/layout is a single per-widget concern, not per-state, so
           # apply it once from the (now sorted) normal-state entries.
-          apply_geometry widget, entries, variables if state.normal?
+          apply_geometry widget, entries, variables, resolved if state.normal?
           widget.css_styled = true
         end
 
@@ -255,11 +262,11 @@ module Crysterm
           next unless scope.nil? || scope.includes?(widget)
           if slot.includes?(':')
             base = widget.css_extra_base_style(slot).dup
-            apply_entries base, entries, variables
+            apply_entries base, entries, variables, resolved
             widget.css_set_extra_style(slot, base)
           else
             state_style = get_state_style(widget, state)
-            sub = get_sub_style(state_style, slot).dup
+            sub = state_style.sub_style(slot).dup
             # Inline sub-styles outrank default/author sub-element rules, the same
             # inline-beats-stylesheet contract the main style honors via
             # `apply_entries_with_inline`. Without this the theme's
@@ -268,8 +275,8 @@ module Crysterm
             # though inline is a higher tier. Interleave the inline sub-style at
             # `TIER_INLINE` so `!important` sub-element rules still win over it.
             inline_sub = widget.css_inline_style.try &.raw_sub_style(slot)
-            apply_entries_with_inline sub, entries, variables, inline_sub
-            set_sub_style state_style, slot, sub
+            apply_entries_with_inline sub, entries, variables, resolved, inline_sub
+            state_style.set_sub_style slot, sub
           end
         end
 
@@ -358,44 +365,51 @@ module Crysterm
         {entry[0], entry[1], entry[2], entry[3]}
       end
 
+      # Resolves *value*'s `var(...)` references against *variables*, memoizing in
+      # *resolved* (one entry per distinct value, valid for the whole cascade —
+      # see where it is allocated). `var()`-free values cost only a hash lookup.
+      private def self.resolve_var(value : String, variables : Hash(String, String), resolved : Hash(String, String)) : String
+        resolved.fetch(value) { resolved[value] = Stylesheet.resolve_var(value, variables) }
+      end
+
       # Folds *entries* onto *style* in place, in cascade order (so the winning
       # declaration applies last). `var(...)` is resolved against *variables*.
-      private def self.apply_entries(style : Style, entries : Array(Entry), variables : Hash(String, String)) : Nil
+      private def self.apply_entries(style : Style, entries : Array(Entry), variables : Hash(String, String), resolved : Hash(String, String)) : Nil
         entries.sort_by! { |entry| entry_key entry }
-        entries.each { |entry| apply_decls style, entry[4], variables }
+        entries.each { |entry| apply_decls style, entry[4], variables, resolved }
       end
 
       # Like `apply_entries`, but interleaves the inline `@style` at
       # `TIER_INLINE`: entries below that tier (default + author) apply first,
       # then the inline style, then entries at/above it (`!important`). So inline
       # outranks normal author rules but `!important` outranks inline.
-      private def self.apply_entries_with_inline(style : Style, entries : Array(Entry), variables : Hash(String, String), inline : Style?) : Nil
+      private def self.apply_entries_with_inline(style : Style, entries : Array(Entry), variables : Hash(String, String), resolved : Hash(String, String), inline : Style?) : Nil
         entries.sort_by! { |entry| entry_key entry }
         i = 0
         while i < entries.size && entries[i][0] < TIER_INLINE
-          apply_decls style, entries[i][4], variables
+          apply_decls style, entries[i][4], variables, resolved
           i += 1
         end
         fold_inline style, inline if inline
         while i < entries.size
-          apply_decls style, entries[i][4], variables
+          apply_decls style, entries[i][4], variables, resolved
           i += 1
         end
       end
 
-      private def self.apply_decls(style : Style, declarations : Hash(String, String), variables : Hash(String, String)) : Nil
+      private def self.apply_decls(style : Style, declarations : Hash(String, String), variables : Hash(String, String), resolved : Hash(String, String)) : Nil
         declarations.each do |property, value|
-          Properties.apply(style, property, Stylesheet.resolve_var(value, variables))
+          Properties.apply(style, property, resolve_var(value, variables, resolved))
         end
       end
 
       # Applies geometry/layout declarations (width/height/position/text-align)
       # onto the widget itself, from *entries* in cascade order (last wins). The
       # entries are already sorted by the caller.
-      private def self.apply_geometry(widget : Widget, entries : Array(Entry), variables : Hash(String, String)) : Nil
+      private def self.apply_geometry(widget : Widget, entries : Array(Entry), variables : Hash(String, String), resolved : Hash(String, String)) : Nil
         entries.each do |entry|
           entry[4].each do |property, value|
-            Geometry.apply(widget, property, Stylesheet.resolve_var(value, variables)) if Geometry.handles?(property)
+            Geometry.apply(widget, property, resolve_var(value, variables, resolved)) if Geometry.handles?(property)
           end
         end
       end
@@ -541,62 +555,10 @@ module Crysterm
         end
       end
 
-      # --- sub-style slot accessors ------------------------------------------
-
-      private def self.get_sub_style(style : Style, slot : String?) : Style
-        case slot
-        when "scrollbar"    then style.scrollbar
-        when "track"        then style.track
-        when "sub-line"     then style.sub_line
-        when "add-line"     then style.add_line
-        when "sub-page"     then style.sub_page
-        when "add-page"     then style.add_page
-        when "up-arrow"     then style.up_arrow
-        when "down-arrow"   then style.down_arrow
-        when "left-arrow"   then style.left_arrow
-        when "right-arrow"  then style.right_arrow
-        when "cell"         then style.cell
-        when "header"       then style.header
-        when "item"         then style.item
-        when "indicator"    then style.indicator
-        when "prefix"       then style.prefix
-        when "separator"    then style.separator
-        when "tab"          then style.tab
-        when "title"        then style.title
-        when "pane"         then style.pane
-        when "close-button" then style.close_button
-        when "float-button" then style.float_button
-        when "label"        then style.label
-        else                     style
-        end
-      end
-
-      private def self.set_sub_style(style : Style, slot : String?, sub : Style) : Nil
-        case slot
-        when "scrollbar"    then style.scrollbar = sub
-        when "track"        then style.track = sub
-        when "sub-line"     then style.sub_line = sub
-        when "add-line"     then style.add_line = sub
-        when "sub-page"     then style.sub_page = sub
-        when "add-page"     then style.add_page = sub
-        when "up-arrow"     then style.up_arrow = sub
-        when "down-arrow"   then style.down_arrow = sub
-        when "left-arrow"   then style.left_arrow = sub
-        when "right-arrow"  then style.right_arrow = sub
-        when "cell"         then style.cell = sub
-        when "header"       then style.header = sub
-        when "item"         then style.item = sub
-        when "indicator"    then style.indicator = sub
-        when "prefix"       then style.prefix = sub
-        when "separator"    then style.separator = sub
-        when "tab"          then style.tab = sub
-        when "title"        then style.title = sub
-        when "pane"         then style.pane = sub
-        when "close-button" then style.close_button = sub
-        when "float-button" then style.float_button = sub
-        when "label"        then style.label = sub
-        end
-      end
+      # The slot → sub-`Style` mapping (getter `Style#sub_style`, setter
+      # `Style#set_sub_style`) lives on `Style` itself, generated from a single
+      # canonical slot table (see the `fold_inline_sub_styles` region in
+      # `style.cr`), so it can't drift from `raw_sub_style`/`fold_inline_sub_styles`.
     end
   end
 end
