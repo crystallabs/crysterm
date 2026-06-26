@@ -161,24 +161,19 @@ module Crysterm
       # at version -1), independent of whether this setter ran. (A bare
       # `no_tags` toggle with identical content is not re-applied; that combo
       # does not occur in practice.)
+      # Idempotent no-op for re-setting identical content (the common case in
+      # per-cell animations that re-assign a box's character every frame even
+      # when it did not change): nothing to reparse, no `SetContent` to emit.
+      # Style (fg/bg) changes flow through the separate `@_parse_attr_default`
+      # path in `process_content`, not here, so they are unaffected. (A bare
+      # `no_tags` toggle with otherwise-identical content does not occur in
+      # practice, so it is not separately handled.)
       return if content == @content
 
       # Previously this erased the widget's last-rendered footprint (unless
       # `no_clear`) so that shrinking content wouldn't leave stale cells behind.
       # That is now handled centrally: `Screen#_render` clears the whole cell
       # buffer before each frame. `no_clear` is kept for call compatibility.
-
-      # Re-setting the identical content is a no-op: the cached `@_clines` are
-      # already valid for this exact string and tag mode, so there is nothing to
-      # reparse and no `SetContent` to emit. (Style — fg/bg — changes flow through
-      # the separate `@_parse_attr_default` path in `process_content`, not here,
-      # so they are unaffected.) This is the common case in per-cell animations
-      # that re-assign a box's character every frame even when it did not change,
-      # turning tens of thousands of redundant `process_content` calls per frame
-      # into a single comparison each.
-      if @_content_version > 0 && no_tags == @_content_no_tags && content == @content
-        return @content
-      end
 
       # XXX make it possible to have `update_context`, which only updates
       # internal structures, not @content (for rendering purposes, where
@@ -188,8 +183,9 @@ module Crysterm
       # Decide here, once per content change, whether the content even contains
       # any tags, using the same syntax `_parse_tags` recognizes. If it does not,
       # `process_content` won't bother calling `_parse_tags` at all — see the
-      # guarded call below.
-      @_content_has_tags = content.matches? TAG_REGEX
+      # guarded call below. A tag needs a `{`, so the cheap byte scan short-
+      # circuits the PCRE2 match for the common (tag-free) text.
+      @_content_has_tags = content.includes?('{') && content.matches?(TAG_REGEX)
       # Cheap byte search (`\e` is ASCII): records whether any inline SGR is
       # present so `_parse_attr` can skip its per-line scan for plain text.
       @_content_has_sgr = content.includes? '\e'
@@ -472,24 +468,34 @@ module Crysterm
       size = text.size
       anchored = Regex::MatchOptions::ANCHORED
 
+      # Both the `{escape}` block and the `{|}` separator are rare. Decide once,
+      # up front, whether the text contains either, so the hot per-iteration path
+      # skips the `{escape}` regex match *and* the `text[pos, 3]` substring
+      # allocation it otherwise paid on every token. (Absent the substring/token
+      # the gated checks could never have matched, so this is equivalent.)
+      has_escape = text.includes?("{escape}")
+      has_bar = text.includes?("{|}")
+
       while pos < size
-        if !esc && (cap = /{escape}/.match(text, pos, options: anchored))
-          pos += cap[0].size
-          esc = true
-          next
-        end
+        if has_escape
+          if !esc && (cap = /{escape}/.match(text, pos, options: anchored))
+            pos += cap[0].size
+            esc = true
+            next
+          end
 
-        if esc && (cap = /([\s\S]+?){\/escape}/.match(text, pos, options: anchored))
-          pos += cap[0].size
-          outbuf << cap[1]
-          esc = false
-          next
-        end
+          if esc && (cap = /([\s\S]+?){\/escape}/.match(text, pos, options: anchored))
+            pos += cap[0].size
+            outbuf << cap[1]
+            esc = false
+            next
+          end
 
-        if esc
-          # raise "Unterminated escape tag."
-          outbuf << text[pos..]
-          break
+          if esc
+            # raise "Unterminated escape tag."
+            outbuf << text[pos..]
+            break
+          end
         end
 
         # `{|}` is Blessed's right-align *separator*, not an attribute tag: text
@@ -497,7 +503,7 @@ module Crysterm
         # parsing verbatim so `#_align` (which splits the line on the braces and
         # right-justifies the trailing part) can act on it; without this it would
         # fall through to the drop-malformed branch below and render as a bare `|`.
-        if text[pos, 3]? == "{|}"
+        if has_bar && text[pos, 3]? == "{|}"
           outbuf << "{|}"
           pos += 3
           next
@@ -515,7 +521,11 @@ module Crysterm
           # XXX Tags must be specified such as {light-blue-fg}, but are then
           # parsed here with - being ' '. See why? Can we work with - and skip
           # this replacement part?
-          param = cap[2].gsub(/-/, ' ')
+          # Char-`gsub` (not the `/-/` regex) and only when a dash is actually
+          # present — dash-free tags (`bold`, `red`) then reuse the captured
+          # name with no scan and no allocation.
+          param = cap[2]
+          param = param.gsub('-', ' ') if param.includes?('-')
 
           if param == "open"
             outbuf << '{'
@@ -561,10 +571,16 @@ module Crysterm
           next
         end
 
-        # A run of plain (brace-free) text passes through verbatim.
-        if cap = /[^{}]+/.match(text, pos, options: anchored)
-          pos += cap[0].size
-          outbuf << cap[0]
+        # A run of plain (brace-free) text passes through verbatim. Find the next
+        # brace by index instead of an anchored `/[^{}]+/` match, so a plain run
+        # costs no per-run `MatchData`/capture allocation — only the substring
+        # that has to be emitted anyway.
+        b1 = text.index('{', pos)
+        b2 = text.index('}', pos)
+        nb = b1 ? (b2 ? Math.min(b1, b2) : b1) : (b2 || size)
+        if nb > pos
+          outbuf << text[pos...nb]
+          pos = nb
           next
         end
 
@@ -980,7 +996,7 @@ module Crysterm
       # the blank line; let the full path produce it.
       return false if seg.empty?
 
-      seg_has_tags = @parse_tags && seg.matches?(TAG_REGEX)
+      seg_has_tags = @parse_tags && seg.includes?('{') && seg.matches?(TAG_REGEX)
       if seg_has_tags
         # Standalone tag parse of the new segment. Correct because earlier `fake`
         # lines are already SGR (tagless), so a full reparse's tag stacks are
