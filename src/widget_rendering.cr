@@ -254,7 +254,7 @@ module Crysterm
               cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
               # D O:
               # cell.char = bch
-              line.dirty = true
+              line.mark_dirty x
             end
           end
         else
@@ -410,12 +410,12 @@ module Crysterm
                   if content[ci - 1]?
                     cell.char = ch
                   end
-                  line.dirty = true
+                  line.mark_dirty x
                 else
                   if cell != {attr, ch}
                     cell.attr = attr
                     cell.char = ch
-                    line.dirty = true
+                    line.mark_dirty x
                   end
                 end
                 x += 1
@@ -472,7 +472,7 @@ module Crysterm
                 # the previous cell rather than consuming one.
                 if x > xi && (prev = line[x - 1]?)
                   prev.grapheme = prev.grapheme + grapheme
-                  line.dirty = true
+                  line.mark_dirty(x - 1)
                 end
                 x -= 1
                 next
@@ -492,18 +492,18 @@ module Crysterm
             if has_content
               is_cluster ? (cell.grapheme = grapheme) : (cell.char = ch)
             end
-            line.dirty = true
+            line.mark_dirty x
           elsif is_cluster
             if cell.attr != attr || !cell.grapheme_eq?(grapheme)
               cell.attr = attr
               cell.grapheme = grapheme
-              line.dirty = true
+              line.mark_dirty x
             end
           else
             if cell != {attr, ch}
               cell.attr = attr
               cell.char = ch
-              line.dirty = true
+              line.mark_dirty x
             end
           end
 
@@ -513,7 +513,7 @@ module Crysterm
           if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
             nxt.attr = attr
             nxt.continuation!
-            line.dirty = true
+            line.mark_dirty(x + 1)
             x += 1
           end
         end
@@ -598,7 +598,7 @@ module Crysterm
             if cell != {battr, ch}
               cell.attr = battr
               cell.char = ch
-              line.dirty = true
+              line.mark_dirty x
             end
           end
         end
@@ -627,7 +627,7 @@ module Crysterm
             if cell != {battr, ch}
               cell.attr = battr
               cell.char = ch
-              line.dirty = true
+              line.mark_dirty x
             end
           end
         end

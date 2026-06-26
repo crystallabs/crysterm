@@ -50,8 +50,11 @@ KINDS = %w[cursor clock scattered vbar full]
 screens = KINDS.to_h { |k| {k, make_screen(File.open("/dev/null", "w"))} }
 tgts = KINDS.to_h { |k| {k, targets(k)} }
 
+# `narrowed`: mark each changed cell's column via `Row#mark_dirty(x)` (the dirty-
+# column range → bounded scan). Otherwise `dirty = true` (full-width scan, the
+# pre-change behavior). The two must be byte-identical (see draw_diff_spec).
 @[AlwaysInline]
-def frame(s : Screen, ts : Array({Int32, Int32}), even : Bool) : Nil
+def frame(s : Screen, ts : Array({Int32, Int32}), even : Bool, narrowed : Bool) : Nil
   attr = even ? ATTR_A : ATTR_B
   ch = even ? 'A' : 'B'
   ts.each do |(y, x)|
@@ -59,36 +62,30 @@ def frame(s : Screen, ts : Array({Int32, Int32}), even : Bool) : Nil
     cell = line[x]
     cell.attr = attr
     cell.char = ch
-    line.dirty = true
+    narrowed ? line.mark_dirty(x) : (line.dirty = true)
   end
   s.draw
 end
 
 ROUNDS = 20_000
 
-def bytes_per_frame(rounds, s, ts) : Float64
-  GC.collect
-  before = GC.stats.total_bytes
-  rounds.times { |i| frame(s, ts, i.even?) }
-  (GC.stats.total_bytes - before).to_f / rounds
+def ns_per_frame(rounds, s, ts, narrowed) : Float64
+  best = Float64::INFINITY
+  3.times do
+    el = Time.measure { rounds.times { |i| frame(s, ts, i.even?, narrowed) } }
+    ns = el.total_nanoseconds / rounds
+    best = ns if ns < best
+  end
+  best
 end
 
-puts "=" * 60
-puts "Draw path — B/frame  (#{W}x#{H}, #{ROUNDS} rounds)"
-puts "=" * 60
+puts "=" * 64
+printf "%-12s %6s %12s %12s %8s\n", "scenario", "cells", "full ns", "narrowed ns", "speedup"
+puts "=" * 64
 KINDS.each do |k|
   ts = tgts[k]
-  printf "  %-10s %5d cells   %9.1f B/frame\n", k, ts.size, bytes_per_frame(ROUNDS, screens[k], ts)
-end
-
-puts "\n" + "=" * 60
-puts "Draw path — ns/frame  (ips, NOISY)"
-puts "=" * 60
-Benchmark.ips do |x|
-  i = 0
-  KINDS.each do |k|
-    ts = tgts[k]
-    s = screens[k]
-    x.report("#{k} (#{ts.size})") { i += 1; frame(s, ts, i.even?) }
-  end
+  s = screens[k]
+  full = ns_per_frame(ROUNDS, s, ts, false)
+  narrow = ns_per_frame(ROUNDS, s, ts, true)
+  printf "%-12s %6d %12.0f %12.0f %7.2fx\n", k, ts.size, full, narrow, full / narrow
 end

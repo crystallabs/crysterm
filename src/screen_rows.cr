@@ -221,7 +221,44 @@ module Crysterm
     class Row
       include Indexable(Cell)
 
-      property dirty = false
+      getter dirty = false
+
+      # Inclusive range of columns changed since the last `draw`, so the draw
+      # diff can scan only `[dirty_min, dirty_max]` instead of the whole row.
+      # When not dirty the range is empty (`min > max`). A writer that knows the
+      # column it changed calls `#mark_dirty(x)` to narrow it; a plain
+      # `dirty = true` widens to the full row — the safe default for writers that
+      # don't report a column, so an un-converted writer is still drawn correctly
+      # (just not narrowed). `Int32::MAX` as `dirty_max` means "to end of row".
+      getter dirty_min : Int32 = Int32::MAX
+      getter dirty_max : Int32 = Int32::MIN
+
+      # Plain dirty toggle. Setting `true` conservatively marks the *whole* row
+      # dirty (full-width scan); setting `false` clears the range. Column-aware
+      # writers should prefer `#mark_dirty`.
+      def dirty=(value : Bool) : Bool
+        @dirty = value
+        if value
+          @dirty_min = 0
+          @dirty_max = Int32::MAX
+        else
+          @dirty_min = Int32::MAX
+          @dirty_max = Int32::MIN
+        end
+        value
+      end
+
+      # Marks column *x* dirty, widening the dirty range to include it. Multiple
+      # writers in a frame union naturally (min/max), and a prior full
+      # `dirty = true` stays full. Lets `draw` bound its per-row scan to the
+      # columns that actually changed. Inlined: it is called per changed cell in
+      # the render hot loops (`widget_rendering`/`fill_region`).
+      @[AlwaysInline]
+      def mark_dirty(x : Int32) : Nil
+        @dirty = true
+        @dirty_min = x if x < @dirty_min
+        @dirty_max = x if x > @dirty_max
+      end
 
       getter attrs : Array(Int64)
       getter chars : Array(Char)

@@ -183,6 +183,12 @@ module Crysterm
 
       bce_opt = @optimization.bce?
       fu = full_unicode?
+      # Whether the per-row scan may be bounded to the dirty-column range at all.
+      # BCE's clear look-ahead reaches past the changed span and full_unicode's
+      # wide-grapheme continuations straddle cell boundaries, so both force a
+      # full-width scan. Constant for the frame; the only per-row variable left
+      # in the gate below is an artificial cursor landing on the row.
+      may_bound = !bce_opt && !fu
 
       if @_buf.size > 0
         @main.print @_buf
@@ -249,6 +255,22 @@ module Crysterm
           next
         end
 
+        # Bound the per-cell scan to the columns that actually changed
+        # (`[scan_lo, scan_hi]`), read before the dirty flag is cleared below.
+        # Only on the common fast path: with BCE (its look-ahead reaches past the
+        # changed span), full_unicode (wide-grapheme continuations straddle cell
+        # boundaries), or an artificial cursor on this row (its cell can lie
+        # outside the changed range), the scan must cover the whole width — so
+        # fall back to a full scan there, byte-for-byte the original behavior.
+        scan_lo = 0
+        scan_hi = line_size - 1
+        if may_bound && !(c_artificial && y == cursor_y)
+          dmin = line.dirty_min
+          dmax = line.dirty_max
+          scan_lo = dmin if dmin > scan_lo
+          scan_hi = dmax if dmax < scan_hi
+        end
+
         # We're processing this line, so mark it as not dirty now.
         line.dirty = false
 
@@ -270,8 +292,20 @@ module Crysterm
         # otherwise makes a "spaces then content" line O(width^2). Reset per row.
         bce_skip_until = -1
 
-        # For all cells in row (x = column coordinate)
-        line_size.times do |x|
+        # When the scan starts past column 0, seed the skipped-run cursor exactly
+        # as the full scan's leading run over [0, scan_lo) would: those cells are
+        # all unchanged, so it sets `lx = 0, ly = y` *only if* `lx` was -1 at row
+        # start; a non-(-1) `lx` left over from a previous row is preserved (so
+        # the first changed cell repositions with an absolute `cup`, matching the
+        # full scan, rather than a `cuf` keyed to this row). The row is prefixed
+        # with a cup to column 0 below.
+        if scan_lo > 0 && lx == -1
+          lx = 0
+          ly = y
+        end
+
+        # For all cells in the changed span (x = column coordinate)
+        scan_lo.upto(scan_hi) do |x|
           if skip_next
             skip_next = false
             next
@@ -636,6 +670,16 @@ module Crysterm
           end
 
           attr = desired_attr
+        end
+
+        # Reproduce the cursor-run state a full scan would leave: it would walk
+        # the trailing unchanged cells (scan_hi, line_size) and, having reset `lx`
+        # at the last changed cell, record the start of that trailing run. Mirror
+        # it so the *next* row's reposition math is byte-identical to the full
+        # scan. (No-op on the full-scan path, where scan_hi == line_size - 1.)
+        if scan_hi < line_size - 1 && lx == -1
+          lx = scan_hi + 1
+          ly = y
         end
 
         if attr != @default_attr
@@ -1034,7 +1078,10 @@ module Crysterm
             # Mirrors `Cell#char=`, which drops any cluster overlay on the cell —
             # only needed when the row actually carries one.
             line.delete_grapheme(x) if has_g
-            line.dirty = true
+            # Narrow the dirty range to this column so `draw` can bound its scan
+            # (the per-frame clear typically changes only the few cells a widget
+            # painted last frame).
+            line.mark_dirty x
           end
           x += 1
         end

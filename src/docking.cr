@@ -100,7 +100,7 @@ module Crysterm
             chars.unsafe_put(x, angle_at(lines, row, x, y, dock_contrast))
             # Mirror `Cell#char=`, which drops any cluster overlay on the cell.
             row.delete_grapheme x
-            row.dirty = true
+            row.mark_dirty x
           end
           x += 1
         end
