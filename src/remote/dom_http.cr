@@ -36,6 +36,9 @@ module Crysterm
       # re-applied across hot-reloads; `@event_wired` dedups per widget+event.
       @subscriptions = [] of Tuple(String, String)
       @event_wired = Set(String).new
+      # Dedups the declarative `on*` bindings across repeated `rewire`s (each
+      # `append`/`remove` re-runs it), so a binding is subscribed exactly once.
+      @declarative_wired = Set(String).new
       @on_quit = -> { quit; nil }
     end
 
@@ -79,7 +82,8 @@ module Crysterm
     # the render fiber, so a blocking cross-fiber `receive` here would deadlock.
     def reload_layout(html : String) : Nil
       @screen.children.dup.each { |child| @screen.remove child }
-      @event_wired.clear # old widgets are gone; re-wire subscriptions for the new tree
+      @event_wired.clear       # old widgets are gone; re-wire subscriptions for the new tree
+      @declarative_wired.clear # ...and their declarative `on*` bindings
       DOM.load html, @screen
       rewire
       @screen.render
@@ -91,7 +95,7 @@ module Crysterm
       # Re-subscribe declarative + named action bindings for the current tree.
       # A failing binding is reported to handlers as an `error` event rather than
       # crashing the render/input fiber it fired on.
-      DOM.each_binding(@screen) do |widget, type, action, value|
+      DOM.each_binding(@screen, @declarative_wired) do |widget, type, action, value|
         begin
           if DOM::Actions.declarative? action
             DOM::Actions.run action, widget, @screen, @on_quit

@@ -106,21 +106,17 @@ module Crysterm
       emit Crysterm::Event::ButtonClick, button
     end
 
-    # `Button` and `CheckBox` share the `#checked?`/`#uncheck` interface but have
-    # no common type that declares it, so dispatch concretely.
+    # Every member is a `Widget::AbstractButton` (`Button`, `CheckBox` and
+    # `RadioButton` all derive from it), which declares the shared
+    # `#checked?`/`#uncheck` interface — so dispatch through that one type.
+    # Dispatching on the concrete leaf types instead used to miss
+    # `RadioButton`, silently breaking exclusivity for radio members.
     private def member_checked?(b : Widget) : Bool
-      case b
-      when Widget::CheckBox then b.checked?
-      when Widget::Button   then b.checked?
-      else                       false
-      end
+      b.is_a?(Widget::AbstractButton) ? b.checked? : false
     end
 
     private def member_uncheck(b : Widget) : Nil
-      case b
-      when Widget::CheckBox then b.uncheck
-      when Widget::Button   then b.uncheck
-      end
+      b.uncheck if b.is_a?(Widget::AbstractButton)
     end
   end
 end

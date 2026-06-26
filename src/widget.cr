@@ -364,7 +364,11 @@ module Crysterm
     end
 
     def destroy
-      @children.each do |c|
+      # Iterate a snapshot: each child's `destroy` calls `remove_from_parent`,
+      # which mutates `@children` mid-iteration. Without the `dup`, the
+      # index-based `each` would skip every other child, leaking roughly half
+      # of them (no `Destroy` event; their PTYs/animations never torn down).
+      @children.dup.each do |c|
         c.destroy
       end
       # A hover tooltip is a screen overlay (not a child), so drop it explicitly

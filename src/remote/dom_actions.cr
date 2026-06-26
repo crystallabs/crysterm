@@ -9,10 +9,18 @@ module Crysterm
     # The handler receives `(widget, event_name, action, value)` where `value`
     # is the event's payload when meaningful (a `Submit`'s text, a `SelectItem`'s
     # index) and `nil` otherwise.
-    def self.each_binding(screen : Screen, &handler : Widget, String, String, String? ->) : Nil
+    # `seen`, when given, dedups subscriptions across repeated calls: each
+    # `(widget, event)` pair is wired at most once. The HTTP bridge re-runs this
+    # on every `append`/`remove`, so without it every existing binding would
+    # gain another listener each time and fire 2x, 3x, ... per event.
+    def self.each_binding(screen : Screen, seen : Set(String)? = nil,
+                          &handler : Widget, String, String, String? ->) : Nil
       screen.children.each do |top|
         top.self_and_each_descendant do |widget|
           widget.dom_events.each do |event_name, action|
+            if seen
+              next unless seen.add? "#{widget.uid}:#{event_name}"
+            end
             subscribe_binding widget, event_name, action, handler
           end
         end

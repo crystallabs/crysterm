@@ -211,10 +211,10 @@ module Crysterm
   # ```text
   #   bits  0..24  : bg        (25 bits: 24-bit RGB, or COLOR_DEFAULT)
   #   bits 25..49  : fg        (25 bits)
-  #   bits 50..55  : flags     (6 style bits: bold/underline/blink/reverse/invisible/italic)
-  #   bits 56..57  : fg alpha  (2-bit `Alpha` mode for the foreground channel)
-  #   bits 58..59  : bg alpha  (2-bit `Alpha` mode for the background channel)
-  #   bits 60..63  : reserved
+  #   bits 50..56  : flags     (7 style bits: bold/underline/blink/reverse/invisible/italic/strikethrough)
+  #   bits 57..58  : fg alpha  (2-bit `Alpha` mode for the foreground channel)
+  #   bits 59..60  : bg alpha  (2-bit `Alpha` mode for the background channel)
+  #   bits 61..63  : reserved
   # ```
   #
   # A *color field* holds either an RGB value (`0..0xFFFFFF`) or the sentinel
@@ -262,7 +262,7 @@ module Crysterm
     # widening this automatically shifts them up — the 7 flags now occupy bits
     # 50..56, fg/bg alpha 57..60, leaving 61..63 free.
     FLAGS_BITS = 7_i64
-    FLAGS_MASK = (1_i64 << FLAGS_BITS) - 1 # 0x3F
+    FLAGS_MASK = (1_i64 << FLAGS_BITS) - 1 # 0x7F
 
     # Per-channel alpha *mode*: how a cell's channel combines with the channel
     # beneath it when planes are composited (`Colors.composite`). `Opaque` is
@@ -313,7 +313,7 @@ module Crysterm
       (attr >> FG_SHIFT) & COLOR_MASK
     end
 
-    # Extracts the flags field (masked to its 6 bits, so the alpha modes packed
+    # Extracts the flags field (masked to its 7 bits, so the alpha modes packed
     # just above it never leak into a flag test or SGR emission).
     @[AlwaysInline]
     def self.flags(attr : Int64) : Int64
