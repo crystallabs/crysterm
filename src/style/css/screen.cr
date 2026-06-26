@@ -279,7 +279,7 @@ module Crysterm
       index = @css_node_index
       return unless index
       @css_patch_widgets.each do |widget|
-        node = index[widget.uid.to_s]?
+        node = index[widget.uid_s]?
         next unless node
         node.attr.clear
         node.attr.concat widget.css_node_attributes

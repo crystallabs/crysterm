@@ -415,12 +415,13 @@ module Crysterm
       end
 
       private def self.index_widget(widget : Widget, index) : Nil
-        index[widget.uid.to_s] = {widget, nil}
+        uid = widget.uid_s
+        index[uid] = {widget, nil}
         widget.css_sub_elements.each do |slot|
-          index["#{widget.uid}::#{slot}"] = {widget, slot}
+          index["#{uid}::#{slot}"] = {widget, slot}
         end
         widget.css_extra_slots.each do |slot|
-          index["#{widget.uid}::#{slot}"] = {widget, slot}
+          index["#{uid}::#{slot}"] = {widget, slot}
         end
         widget.children.each { |child| index_widget child, index }
       end

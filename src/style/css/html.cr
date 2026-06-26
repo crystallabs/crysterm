@@ -132,7 +132,7 @@ module Crysterm
     # serializes. Used to *patch* a cached parsed node in place instead of
     # re-parsing the whole document on an attribute-only change.
     def css_node_attributes : Array(HTML5::Attribute)
-      attrs = [HTML5::Attribute.new("", "data-uid", uid.to_s)]
+      attrs = [HTML5::Attribute.new("", "data-uid", uid_s)]
       if id = css_id
         attrs << HTML5::Attribute.new("", "id", id)
       end

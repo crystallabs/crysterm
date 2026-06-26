@@ -99,7 +99,7 @@ module Crysterm
     getter background_size : BackgroundSize = BackgroundSize::Cover
 
     def background_size=(value : BackgroundSize) : BackgroundSize
-      @specified << :background_size
+      @specified_mask |= SPEC_BACKGROUND_SIZE
       @background_size = value
     end
 
@@ -121,11 +121,41 @@ module Crysterm
     # driven generically by `Widget#ensure_css_animation`.
     property animation : AnimationSpec?
 
-    # Tracks which text-attribute booleans were *explicitly* set (vs left at
-    # their default), so the CSS cascade can tell "set to false" from "unset" —
-    # needed for inline-style folding and inheritance. Colors and `alpha` carry
-    # their own unset signal (`nil`), so they are not tracked here.
-    protected property specified = Set(Symbol).new
+    # Tracks which text-attribute booleans (and the struct properties) were
+    # *explicitly* set (vs left at their default), so the CSS cascade can tell
+    # "set to false" from "unset" — needed for inline-style folding and
+    # inheritance. Colors and `alpha` carry their own unset signal (`nil`), so
+    # they are not tracked here.
+    #
+    # Stored as a bitmask rather than a `Set(Symbol)`: the cascade resets every
+    # recomputed widget with a `#dup` per state per cascade (hundreds–thousands
+    # per frame on a deep tree), and a `Set` made each `#dup` allocate a fresh
+    # heap object. A `UInt32` is copied for free by the shallow `super` dup, so
+    # the reset path allocates nothing here, and the per-property checks become
+    # bit tests instead of hashed-set lookups.
+    protected property specified_mask : UInt32 = 0_u32
+
+    # Bit per tracked property. Order is arbitrary but must stay stable within a
+    # build (the mask is never persisted across builds).
+    {% begin %}
+      {% tracked = %w(bold italic underline blink reverse strike visible
+           background_size fill_char percent_char foreground_char
+           background_char border padding margin shadow) %}
+      {% for prop, i in tracked %}
+        SPEC_{{prop.upcase.id}} = 1_u32 << {{i}}
+      {% end %}
+
+      # The mask bit for a tracked property symbol (`0` if untracked — those use
+      # a `nil` unset signal and are answered directly in `#specified?`).
+      private def specified_bit(property : Symbol) : UInt32
+        case property
+        {% for prop in tracked %}
+        when :{{prop.id}} then SPEC_{{prop.upcase.id}}
+        {% end %}
+        else 0_u32
+        end
+      end
+    {% end %}
 
     # Whether *property* was explicitly set on this style.
     def specified?(property : Symbol) : Bool
@@ -139,7 +169,7 @@ module Crysterm
       when :background_image then !@background_image.nil?
       when :transition       then !@transitions.nil?
       when :animation        then !@animation.nil?
-      else                        @specified.includes?(property)
+      else                        (@specified_mask & specified_bit(property)) != 0_u32
       end
     end
 
@@ -148,34 +178,29 @@ module Crysterm
     # default `false`).
     {% for attr in %w(bold italic underline blink reverse strike visible) %}
       def {{attr.id}}=(value : Bool) : Bool
-        @specified << :{{attr.id}}
+        @specified_mask |= SPEC_{{attr.upcase.id}}
         @{{attr.id}} = value
       end
     {% end %}
 
-    # A plain shallow `dup` would share the `specified` set and the
-    # *mutable* sub-objects (`border`/`padding`/`shadow` are mutated in place by
-    # e.g. `border-left`/`padding-top`). Give the copy independent ones so a
-    # dup — in particular a cascade base snapshot — can't be corrupted by later
-    # in-place edits. (Sub-*styles* like `scrollbar` are replaced, not mutated,
-    # so they stay shared here.)
+    # A plain shallow `dup` would share the *mutable* sub-objects
+    # (`border`/`padding`/`shadow` are mutated in place by e.g.
+    # `border-left`/`padding-top`). Give the copy independent ones so a dup — in
+    # particular a cascade base snapshot — can't be corrupted by later in-place
+    # edits. (Sub-*styles* like `scrollbar` are replaced, not mutated, so they
+    # stay shared here. The `specified_mask` is a value field, copied for free by
+    # `super`.)
     def dup
       copy = super
-      # Give the copy its *own* `specified` set first (so the in-place sub-object
-      # copies below can't mutate ours through the shared reference `super` left).
-      copy.specified = @specified.dup
       @border.try { |border| copy.border = border.dup }
       copy.padding = @padding.dup
       copy.margin = @margin.dup
       copy.shadow = @shadow.dup
-      # Those `border=`/`padding=`/`margin=`/`shadow=` setters also stamp
-      # `:border`/`:padding`/`:margin`/`:shadow` into the copy's set; drop any we
-      # didn't actually specify (cheap deletes — no second `Set` allocation), so
-      # the dup reports exactly what *we* explicitly set, no more.
-      copy.specified.delete(:border) unless @specified.includes?(:border)
-      copy.specified.delete(:padding) unless @specified.includes?(:padding)
-      copy.specified.delete(:margin) unless @specified.includes?(:margin)
-      copy.specified.delete(:shadow) unless @specified.includes?(:shadow)
+      # The `border=`/`padding=`/`margin=`/`shadow=` setters above stamp their
+      # bits into the copy's mask; restore our exact mask so the dup reports
+      # precisely what *we* explicitly set, no more (a single value assignment,
+      # no allocation).
+      copy.specified_mask = @specified_mask
       copy
     end
 
@@ -225,7 +250,7 @@ module Crysterm
     # `fill_char: '▒'` would be silently dropped once CSS is active.
     {% for attr in %w(fill_char percent_char foreground_char background_char) %}
       def {{attr.id}}=(value : Char) : Char
-        @specified << :{{attr.id}}
+        @specified_mask |= SPEC_{{attr.upcase.id}}
         @{{attr.id}} = value
       end
     {% end %}
@@ -298,7 +323,7 @@ module Crysterm
     end
 
     def border=(value)
-      @specified << :border
+      @specified_mask |= SPEC_BORDER
       @border = Border.from value
     end
 
@@ -410,7 +435,7 @@ module Crysterm
     # border: true on the label as well!
 
     def padding=(value)
-      @specified << :padding
+      @specified_mask |= SPEC_PADDING
       @padding = Padding.from value
     end
 
@@ -420,7 +445,7 @@ module Crysterm
     # offsets and shrinks the element itself within its allotted slot; see
     # `Margin` and `Widget#_get_coords`.
     def margin=(value)
-      @specified << :margin
+      @specified_mask |= SPEC_MARGIN
       @margin = Margin.from value
     end
 
@@ -435,7 +460,7 @@ module Crysterm
 
     # Should element drop shadow?
     def shadow=(value)
-      @specified << :shadow
+      @specified_mask |= SPEC_SHADOW
       @shadow = Shadow.from value
     end
 
