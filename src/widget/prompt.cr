@@ -1,11 +1,11 @@
-require "./box"
+require "./dialog"
 
 module Crysterm
   class Widget
     # <!-- widget-examples:capture v1 -->
     # ![Prompt screenshot](../../examples/widget/prompt/prompt-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class Prompt < Box
+    class Prompt < Dialog
       include ::Crysterm::Mixin::OkCancelDialog
 
       property text : String = ""

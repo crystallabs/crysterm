@@ -1,4 +1,4 @@
-require "./input"
+require "./abstract_spin_box"
 require "../mixin/sectioned_field"
 
 module Crysterm
@@ -19,7 +19,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![DateTimeEdit screenshot](../../examples/widget/date_time_edit/date_time_edit-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class DateTimeEdit < Input
+    class DateTimeEdit < AbstractSpinBox
       include Mixin::SectionedField
 
       @resizable = false

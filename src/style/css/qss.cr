@@ -25,25 +25,30 @@ module Crysterm
       # Identical names (`CheckBox`, `ComboBox`, `GroupBox`, `MenuBar`, `Slider`,
       # `Widget`, `LineEdit`, `PlainTextEdit`, ...) need no entry: step 1's
       # `Q`-strip already lands them.
+      #
+      # The Qt *abstract* bases — `QAbstractButton`, `QAbstractItemView`,
+      # `QAbstractScrollArea`, `QAbstractSpinBox`, and `QDialog` — also need no
+      # entry: Crysterm now has matching `AbstractButton`/`AbstractItemView`/
+      # `AbstractScrollArea`/`AbstractSpinBox`/`Dialog` classes in the same place
+      # in the hierarchy, so the `Q`-stripped name matches the whole family
+      # natively (e.g. `QAbstractButton` styles every button). They used to be
+      # faked here by aliasing onto one concrete subclass, which missed the
+      # siblings; the real classes do better.
+      #
       # Qt selectors with no Crysterm analog (`ColumnView`, `ColumnViewGrip`,
-      # `PrevNextCalButton`, `TableCornerButton`) and ambiguous ones with no
-      # single target (`Dialog`) are intentionally absent — they pass through
-      # `Q`-stripped and just match nothing.
+      # `PrevNextCalButton`, `TableCornerButton`) are intentionally absent — they
+      # pass through `Q`-stripped and just match nothing.
       RENAMES = {
-        "AbstractButton"     => "Button",
-        "AbstractItemView"   => "List",
-        "AbstractView"       => "List",
-        "AbstractScrollArea" => "ScrollableBox",
-        "ScrollArea"         => "ScrollableBox",
-        "AbstractSpinBox"    => "SpinBox",
-        "CalendarWidget"     => "Calendar",
-        "CommandLinkButton"  => "Button",
-        "PushButton"         => "Button",
-        "MessageBox"         => "Message",
-        "Frame"              => "Box",
-        "GraphicsView"       => "Canvas",
-        "HeaderView"         => "Header",
-        "ListView"           => "List",
+        "AbstractView"      => "List", # QAbstractItemView's older alias; no Crysterm class
+        "ScrollArea"        => "ScrollableBox",
+        "CalendarWidget"    => "Calendar",
+        "CommandLinkButton" => "Button",
+        "PushButton"        => "Button",
+        "MessageBox"        => "Message",
+        "Frame"             => "Box",
+        "GraphicsView"      => "Canvas",
+        "HeaderView"        => "Header",
+        "ListView"          => "List",
         # Qt's rich `TextEdit` folds onto our plain editor (no rich-text widget
         # yet); `LineEdit`/`PlainTextEdit` are identical and need no entry.
         "TextEdit"    => "PlainTextEdit",

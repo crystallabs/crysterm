@@ -14,8 +14,8 @@ end
 
 describe "CSS (#to_html)" do
   it "derives the type-chain names from the widget hierarchy" do
-    # Button < Input < Box < Widget
-    Widget::Button.new.css_type_classes.should eq ["Button", "Input", "Box", "Widget"]
+    # Button < AbstractButton < Input < Box < Widget (Qt: QPushButton < QAbstractButton)
+    Widget::Button.new.css_type_classes.should eq ["Button", "AbstractButton", "Input", "Box", "Widget"]
     Widget::Box.new.css_type_classes.should eq ["Box", "Widget"]
     Widget.new.css_type_classes.should eq ["Widget"]
   end

@@ -1,4 +1,4 @@
-require "./input"
+require "./abstract_spin_box"
 require "../mixin/ranged_value"
 require "../mixin/spinbox_editing"
 
@@ -19,7 +19,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![SpinBox screenshot](../../examples/widget/spinbox/spinbox-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class SpinBox < Input
+    class SpinBox < AbstractSpinBox
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
       # `#increment`/`#decrement`, `Event::ValueChange`).
       include Mixin::RangedValue

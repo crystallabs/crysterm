@@ -22,8 +22,10 @@ describe Crysterm::CSS::Qss do
     end
 
     it "transforms every type selector in a compound/descendant selector" do
+      # `QAbstractItemView` is now a real Crysterm class (the item-view base), so
+      # it just `Q`-strips and matches the whole family natively — no rename.
       Crysterm::CSS::Qss.to_css("QComboBox QAbstractItemView { }")
-        .should eq "ComboBox List { }"
+        .should eq "ComboBox AbstractItemView { }"
     end
 
     it "leaves ids, classes and combinators intact" do

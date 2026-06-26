@@ -1,9 +1,15 @@
+require "./abstract_item_view"
+
 module Crysterm
   class Widget
     # <!-- widget-examples:capture v1 -->
     # ![List screenshot](../../examples/widget/list/list-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class List < Widget
+    #
+    # `List` is Crysterm's `QListWidget`: an `AbstractItemView`. It is also the
+    # base the other item views build on (`Tree`, `ListTable`, `Menu`,
+    # `FileManager`), so they too are `AbstractItemView`s.
+    class List < AbstractItemView
       property ignore_keys = true
       property scrollable = true
       # Auto-show the scroll bar when items overflow (Qt `AsNeeded`); the bar's

@@ -1,5 +1,4 @@
-require "./input"
-require "../mixin/sectioned_field"
+require "./date_time_edit"
 
 module Crysterm
   class Widget
@@ -21,27 +20,23 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![TimeEdit screenshot](../../examples/widget/time_edit/time_edit-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class TimeEdit < Input
-      include Mixin::SectionedField
-
-      @resizable = false
-
+    # `TimeEdit < DateTimeEdit` mirrors Qt's `QTimeEdit < QDateTimeEdit`: a
+    # time-only specialization. It keeps its own `@time` backing store and
+    # overrides the section machinery (hour/minute/second); the keyboard/mouse
+    # wiring, `#show_seconds?`, and the initial render come from
+    # `DateTimeEdit#initialize`.
+    class TimeEdit < DateTimeEdit
       @time : Time
-      # `@section`: 0 = hour, 1 = minute, 2 = second (default hour, from the mixin).
 
-      # Whether to show (and edit) the seconds section.
-      property? show_seconds : Bool = true
+      # `@section`: 0 = hour, 1 = minute, 2 = second (default hour, from the mixin).
 
       def initialize(time : Time? = nil, show_seconds = true, **input)
         @time = (time || (Time.local rescue Time.utc(2000, 1, 1)))
-        @show_seconds = show_seconds
-
+        # `DateTimeEdit#initialize` wires the section keyboard/mouse handlers and
+        # renders once (the hour section is the default `@section`). It defaults
+        # `@show_seconds` to true, so apply our own and re-render afterwards.
         super **input
-        @parse_tags = true
-
-        handle Crysterm::Event::KeyPress
-        setup_section_mouse
-
+        @show_seconds = show_seconds
         update_content
       end
 

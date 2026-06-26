@@ -1,11 +1,21 @@
+require "./abstract_scroll_area"
+require "../mixin/interactive"
+
 module Crysterm
   class Widget
-    # Text area element
+    # Text area element, modeled after Qt's `QPlainTextEdit`.
+    #
+    # Derives `AbstractScrollArea` (Qt's `QPlainTextEdit < QAbstractScrollArea`,
+    # not an input base) and mixes in `Mixin::Interactive` for the focus/keyboard
+    # behavior — the editability that, for the simpler controls, comes from
+    # `Input`.
     #
     # <!-- widget-examples:capture v1 -->
     # ![PlainTextEdit screenshot](../../examples/widget/plaintextedit/plaintextedit-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class PlainTextEdit < Input
+    class PlainTextEdit < AbstractScrollArea
+      include Mixin::Interactive
+
       @_reading = false
 
       @scrollable = true

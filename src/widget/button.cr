@@ -1,4 +1,4 @@
-require "./input"
+require "./abstract_button"
 
 module Crysterm
   class Widget
@@ -13,17 +13,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Button screenshot](../../examples/widget/button/button-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class Button < Input
-      getter value = false
-
-      # Whether the button toggles a sticky checked state instead of acting as a
-      # momentary push button (Qt's `QAbstractButton#checkable`).
-      property? checkable : Bool = false
-
-      # Current toggle state; only meaningful when `#checkable?`
-      # (Qt's `QAbstractButton#checked`).
-      property? checked : Bool = false
-
+    class Button < AbstractButton
       # Whether the button is *flat* — drawn without a frame (Qt's
       # `QPushButton#flat`). Surfaced as the `[flat]` attribute so author/theme
       # CSS can target it (the theme strips the border via `Button[flat]`); also
@@ -47,52 +37,6 @@ module Crysterm
         handle Crysterm::Event::Click
       end
 
-      def press
-        focus
-        @value = true
-        emit Crysterm::Event::Press
-        @value = false
-
-        toggle if checkable?
-      end
-
-      # Flips the checked state (only when `#checkable?`) and emits the matching
-      # `Event::Check`/`Event::UnCheck`.
-      def toggle
-        return unless checkable?
-        @checked = !@checked
-        invalidate_css # `checked` attribute selector may now match/unmatch
-        if @checked
-          emit Crysterm::Event::Check, @checked
-        else
-          emit Crysterm::Event::UnCheck, @checked
-        end
-        request_render
-      end
-
-      # Sets the checked state (only when `#checkable?`), emitting `Event::Check`
-      # if it changed. Mirrors `CheckBox#check` so a checkable button can be
-      # driven through the same interface (e.g. by `ButtonGroup`).
-      def check
-        return unless checkable?
-        return if checked?
-        @checked = true
-        invalidate_css
-        emit Crysterm::Event::Check, @checked
-        request_render
-      end
-
-      # Clears the checked state (only when `#checkable?`), emitting
-      # `Event::UnCheck` if it changed. Counterpart to `#check`.
-      def uncheck
-        return unless checkable?
-        return unless checked?
-        @checked = false
-        invalidate_css
-        emit Crysterm::Event::UnCheck, @checked
-        request_render
-      end
-
       # Toggles the flat (frameless) look, re-cascading so the `[flat]` attribute
       # selector matches/unmatches.
       def flat=(value : Bool) : Bool
@@ -110,18 +54,6 @@ module Crysterm
         invalidate_css
         request_render
         value
-      end
-
-      def on_keypress(e)
-        if e.activates?
-          e.accept
-          press
-        end
-      end
-
-      def on_click(e)
-        # e.accept
-        press
       end
     end
   end

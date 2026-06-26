@@ -1,4 +1,5 @@
-require "./input"
+require "./abstract_button"
+require "../mixin/check_marker"
 
 module Crysterm
   class Widget
@@ -12,13 +13,15 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![CheckBox screenshot](../../examples/widget/checkbox/checkbox-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class CheckBox < Input
+    class CheckBox < AbstractButton
+      # The `[x] label` / `(*) label` marker rendering, marker-click hit-test,
+      # activate-key toggle, and focus cursor — shared with `RadioButton`.
+      include Mixin::CheckMarker
+
       # TODO support for changing icons
 
       # TODO checkboxes don't have keys enabled by default, so to be
       # navigable via keys, they need `screen.enable_keys(checkbox_obj)`.
-
-      property? checked : Bool = false
 
       # Whether the box is in its partially-checked (indeterminate) state. Only
       # reachable when `#tristate?` (Qt's `Qt::PartiallyChecked`).
@@ -28,35 +31,19 @@ module Crysterm
       # Qt's `QCheckBox#tristate`.
       property? tristate : Bool = false
 
-      property value : Bool = false
-      property text : String = ""
-
-      def initialize(@checked : Bool = false, tristate : Bool = false, **input)
+      def initialize(checked : Bool = false, tristate : Bool = false, **input)
         super **input
 
+        @checkable = true # a checkbox is inherently checkable (Qt's `QCheckBox`)
+        @checked = checked
         @tristate = tristate
-        @value = @checked
+        @value = checked
 
         input["content"]?.try do |c|
           @text = c
         end
 
-        handle Crysterm::Event::KeyPress
-        handle Crysterm::Event::Focus
-        handle Crysterm::Event::Blur
-
-        # Toggle only when the `[ ]`/`( )` marker itself is clicked, not the text
-        # label. Uses `Mouse` (not `Click`) because only it carries coordinates;
-        # the marker is the three glyphs at the start of the content.
-        on(Crysterm::Event::Mouse) do |e|
-          next unless e.action.down?
-          marker_start = aleft + ileft
-          if e.x >= marker_start && e.x < marker_start + 3
-            toggle
-            request_render
-            e.accept
-          end
-        end
+        setup_check_marker
       end
 
       def render
@@ -70,14 +57,6 @@ module Crysterm
         return 'x' if checked?
         return '-' if partial?
         ' '
-      end
-
-      # Builds the `<open><glyph><close> text` line for a selectable control.
-      # Shared with `RadioButton`, which passes `(`/`)` and its own glyph.
-      private def selectable_content(open : Char, close : Char, glyph : Char) : String
-        String.build do |s|
-          s << open << glyph << close << ' ' << @text
-        end
       end
 
       def check
@@ -124,29 +103,6 @@ module Crysterm
           end
         else
           checked? ? uncheck : check
-        end
-      end
-
-      def on_keypress(e)
-        if e.activates?
-          e.accept
-          toggle
-          request_render
-        end
-      end
-
-      def on_focus(e)
-        return unless lpos = @lpos
-        screen?.try do |s|
-          s.tput.lsave_cursor self.hash
-          s.tput.cursor_pos lpos.yi + itop, lpos.xi + 1 + ileft
-          # s.show_cursor # XXX
-        end
-      end
-
-      def on_blur(e)
-        screen?.try do |s|
-          s.tput.lrestore_cursor self.hash, true
         end
       end
     end

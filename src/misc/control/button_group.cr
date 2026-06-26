@@ -56,7 +56,7 @@ module Crysterm
     # button.
     def add(button : Widget, id : Int32 = -1) : Widget
       return button if @buttons.includes? button
-      button.checkable = true if button.is_a?(Widget::Button) && !button.checkable?
+      button.checkable = true if button.is_a?(Widget::AbstractButton) && !button.checkable?
       @buttons << button
       @ids[button] = id
       @handlers[button] = button.on(Crysterm::Event::Check) do |_|

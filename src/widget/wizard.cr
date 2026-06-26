@@ -1,4 +1,4 @@
-require "./box"
+require "./dialog"
 require "./stacked_widget"
 require "./button"
 
@@ -22,7 +22,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Wizard screenshot](../../examples/widget/wizard/wizard-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class Wizard < Box
+    class Wizard < Dialog
       # The page stack. (Built in `initialize` after `super`, hence `getter!`.)
       getter! stack : StackedWidget
 

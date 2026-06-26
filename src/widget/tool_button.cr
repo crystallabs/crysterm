@@ -1,4 +1,4 @@
-require "./button"
+require "./abstract_button"
 require "./menu"
 
 module Crysterm
@@ -25,13 +25,14 @@ module Crysterm
     #       has no press-and-hold gesture.
     #
     # `#auto_raise?` mirrors Qt's flat-until-hovered appearance; it is stored and
-    # exposed (e.g. for CSS/styling) — the default drawing is inherited from
-    # `Button`.
+    # exposed (e.g. for CSS/styling) — the default push/activation behavior is
+    # inherited from `AbstractButton` (a sibling of `Button`, as in Qt where
+    # `QToolButton` and `QPushButton` are both `QAbstractButton`s).
     #
     # <!-- widget-examples:capture v1 -->
     # ![ToolButton screenshot](../../examples/widget/tool_button/tool_button-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class ToolButton < Button
+    class ToolButton < AbstractButton
       # How a `#menu` is summoned (see the class docs).
       enum PopupMode
         DelayedPopup
@@ -58,6 +59,11 @@ module Crysterm
         **button,
       )
         super **button
+
+        # Activate-key / click wiring (previously inherited from `Button`, now
+        # that `ToolButton` derives `AbstractButton` directly like Qt).
+        handle Crysterm::Event::KeyPress
+        handle Crysterm::Event::Click
 
         @auto_raise = auto_raise
         @popup_mode = popup_mode

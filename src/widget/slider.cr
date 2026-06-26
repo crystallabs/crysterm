@@ -1,5 +1,4 @@
-require "./input"
-require "../mixin/ranged_value"
+require "./abstract_slider"
 
 module Crysterm
   class Widget
@@ -13,11 +12,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Slider screenshot](../../examples/widget/slider/slider-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class Slider < Input
-      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
-      # `#increment`/`#decrement`, `Event::ValueChange`).
-      include Mixin::RangedValue
-
+    class Slider < AbstractSlider
       # Where tick marks are drawn relative to the groove (Qt's
       # `QSlider::TickPosition`). `Above`/`Below` are the cross-axis edges of the
       # widget (top/bottom for a horizontal slider, left/right for a vertical

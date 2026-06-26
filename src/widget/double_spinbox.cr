@@ -1,4 +1,4 @@
-require "./input"
+require "./abstract_spin_box"
 require "../mixin/spinbox_editing"
 
 module Crysterm
@@ -17,7 +17,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![DoubleSpinBox screenshot](../../examples/widget/double_spinbox/double_spinbox-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class DoubleSpinBox < Input
+    class DoubleSpinBox < AbstractSpinBox
       # Edit buffer, key dispatch, wheel/blur wiring, `#text`/`#commit_edit`/…
       include Mixin::SpinBoxEditing
 

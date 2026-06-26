@@ -1,4 +1,4 @@
-require "./box"
+require "./dialog"
 
 # `SpinBox`, `LineEdit`, `Button` and `DialogButtonBox` are referenced only in
 # method bodies (resolved after the whole `widget/**` glob is required), so they
@@ -45,7 +45,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![ColorDialog screenshot](../../examples/widget/color_dialog/color_dialog-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class ColorDialog < Box
+    class ColorDialog < Dialog
       # Inner-area layout (cells, relative to the content origin).
       FIELD_X =  0
       FIELD_Y =  0

@@ -1,6 +1,5 @@
-require "./input"
+require "./date_time_edit"
 require "./calendar"
-require "../mixin/sectioned_field"
 require "../mixin/popup"
 
 module Crysterm
@@ -22,13 +21,15 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![DateEdit screenshot](../../examples/widget/date_edit/date_edit-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class DateEdit < Input
-      include Mixin::SectionedField
+    # `DateEdit < DateTimeEdit` mirrors Qt's `QDateEdit < QDateTimeEdit`: it is a
+    # date-only specialization of the combined editor. It keeps its own `@date`
+    # backing store and overrides the section machinery (three sections instead
+    # of six), and adds the calendar popup; the keyboard/mouse wiring and initial
+    # render are inherited from `DateTimeEdit#initialize`.
+    class DateEdit < DateTimeEdit
       # Calendar-popup lifecycle (open flag, modal grab, outside-click dismissal,
       # grab region, teardown). We supply `#popup_widget` and `#close`.
       include Mixin::Popup
-
-      @resizable = false
 
       @date : Time
       # `@section`: 0 = year, 1 = month, 2 = day (defaulted to the day below).
@@ -42,13 +43,10 @@ module Crysterm
         @date = (date || (Time.local rescue Time.utc(2000, 1, 1))).at_beginning_of_day
         @calendar_popup = calendar_popup
 
+        # `DateTimeEdit#initialize` wires the section keyboard/mouse handlers,
+        # sets `@parse_tags`, and renders once (highlighting the default section).
         super **input
-        @parse_tags = true
         @section = 2 # start on the day section
-
-        handle Crysterm::Event::KeyPress
-        setup_section_mouse
-
         update_content
       end
 

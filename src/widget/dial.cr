@@ -1,5 +1,4 @@
-require "./input"
-require "../mixin/ranged_value"
+require "./abstract_slider"
 
 module Crysterm
   class Widget
@@ -14,11 +13,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Dial screenshot](../../examples/widget/dial/dial-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class Dial < Input
-      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
-      # `#increment`/`#decrement`, `Event::ValueChange`).
-      include Mixin::RangedValue
-
+    class Dial < AbstractSlider
       # A dial draws a fixed-size knob, not shrink-to-content like an `Input`.
       @resizable = false
 

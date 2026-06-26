@@ -1,5 +1,4 @@
-require "./input"
-require "../mixin/ranged_value"
+require "./abstract_slider"
 
 module Crysterm
   class Widget
@@ -31,11 +30,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![ScrollBar screenshot](../../examples/widget/scrollbar/scrollbar-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class ScrollBar < Input
-      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`,
-      # `#increment`/`#decrement`, `Event::ValueChange`).
-      include Mixin::RangedValue
-
+    class ScrollBar < AbstractSlider
       # A scroll bar draws a fixed-size trough; it must not shrink to its content.
       @resizable = false
 

@@ -1,3 +1,5 @@
+require "./abstract_scroll_area"
+
 module Crysterm
   class Widget
     # A `Box` whose content can exceed its visible area and be scrolled.
@@ -11,7 +13,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![ScrollableBox screenshot](../../examples/widget/scrollable_box/scrollable_box-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class ScrollableBox < Box
+    class ScrollableBox < AbstractScrollArea
       @scrollable = true
       # Show a real `ScrollBar` automatically when the content overflows (Qt's
       # default `AsNeeded`). Inherited by `ScrollableText`/`Log`. Opt out with

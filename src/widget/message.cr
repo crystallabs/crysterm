@@ -1,9 +1,11 @@
+require "./dialog"
+
 module Crysterm
   class Widget
     # <!-- widget-examples:capture v1 -->
     # ![Message screenshot](../../examples/widget/message/message-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class Message < Box
+    class Message < Dialog
       # These were previously set in the `class Widget` body (outside `Message`),
       # which polluted every widget's defaults and left `Message` itself
       # unscoped. They belong to `Message`.

@@ -1,4 +1,4 @@
-require "./box"
+require "./abstract_item_view"
 require "../widget_table_layout"
 
 module Crysterm
@@ -24,7 +24,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Table screenshot](../../examples/widget/table/table-capture5s.apng)
     # <!-- /widget-examples:capture -->
-    class Table < Box
+    class Table < AbstractItemView
       include TableLayout
 
       # The table data, as rows of string cells.
