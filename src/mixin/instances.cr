@@ -16,7 +16,9 @@ module Crysterm
           @@instances.size
         end
 
-        # Creates and/or returns the "global" (first) created instance.
+        # Creates and/or returns the "global" instance — the most recently
+        # created one (`instances[-1]`), i.e. the one being built most recently.
+        # If none exist yet and *create* is true, a new one is created.
         #
         # An alternative approach, which is currently not implemented, would be to hold the global
         # in a class variable, and return it here. In that way, the choice of the default/global

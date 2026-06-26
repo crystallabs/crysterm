@@ -141,28 +141,6 @@ module Crysterm
         angle |= result
       end
 
-      # Experimental: fixes this situation:
-      # +----------+
-      #            | <-- empty space here, should be a T angle
-      # +-------+  |
-      # |       |  |
-      # +-------+  |
-      # |          |
-      # +----------+
-      # if U_ANGLES.includes? lines[y][x].char
-      #  if lines[y + 1] && D_ANGLES.includes? lines[y + 1][x].char
-      #    case dock_contrast
-      #    when DockContrast::DontDock
-      #      if lines[y + 1][x].attr != attr
-      #        return ch
-      #      end
-      #    when DockContrast::Blend
-      #      lines[y][x].attr = Colors.blend lines[y + 1][x].attr, attr
-      #    end
-      #    angle |= BITWISE_D_ANGLE
-      #  end
-      # end
-
       ANGLE_TABLE[angle]? || ch
     end
 
