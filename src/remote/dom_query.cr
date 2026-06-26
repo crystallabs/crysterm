@@ -23,10 +23,12 @@ module Crysterm
       children.each { |child| dom_index_subtree child, index }
 
       result = [] of Widget
+      seen = Set(String).new
       nodes.each do |node|
         uid = node["data-uid"]?.try(&.val)
         next unless uid
-        index[uid]?.try { |w| result << w unless result.includes?(w) }
+        next unless seen.add?(uid)
+        index[uid]?.try { |w| result << w }
       end
       result
     end

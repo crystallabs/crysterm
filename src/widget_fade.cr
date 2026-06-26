@@ -165,17 +165,16 @@ module Crysterm
     # `#set_visible` (see `widget_visibility`).
     private def set_alpha(value : Float64?) : Nil
       self.style.alpha = value
-      (@style ||= ::Crysterm::Style.new).alpha = value if css_styled?
+      persist_inline_style { |s| s.alpha = value }
     end
 
     # Sets `style.tint`/`tint_alpha` (CSS-safely, like `#set_alpha`).
     private def set_tint(color, alpha : Float64) : Nil
       self.style.tint = color
       self.style.tint_alpha = alpha
-      if css_styled?
-        inline = (@style ||= ::Crysterm::Style.new)
-        inline.tint = color
-        inline.tint_alpha = alpha
+      persist_inline_style do |s|
+        s.tint = color
+        s.tint_alpha = alpha
       end
     end
   end

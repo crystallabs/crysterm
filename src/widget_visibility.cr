@@ -35,7 +35,18 @@ module Crysterm
       # `:focused`/`:selected` widget, so writing visibility through it would be
       # discarded (a focused `Button` could never be hidden).
       self.state_style.visible = value
-      (@style ||= ::Crysterm::Style.new).visible = value if css_styled?
+      persist_inline_style { |s| s.visible = value }
+    end
+
+    # Mirrors a just-applied state-style change onto the inline `@style`, but
+    # only when CSS has taken over styling (`css_styled?`) — otherwise the next
+    # cascade, which rebuilds from the pristine base + inline fold, would discard
+    # it. A no-op when not CSS-styled. The active-style write itself stays at the
+    # call site, since callers deliberately differ on whether they target `#style`
+    # or the raw `#state_style` (see `#set_visible` vs `#set_alpha`).
+    protected def persist_inline_style(& : ::Crysterm::Style ->) : Nil
+      return unless css_styled?
+      yield (@style ||= ::Crysterm::Style.new)
     end
 
     # Toggles widget visibility
