@@ -163,6 +163,18 @@ module Crysterm
         base.each do |key, entries|
           states = stated_keys[key]?.try(&.dup) || Set(WidgetState).new
           states << WidgetState::Normal
+          # A sub-element key (`uid::slot`) lives *inside* the parent widget's
+          # per-state styles, so it must also fold into every state the parent
+          # widget is materialized in — not just the slot's own stated states.
+          # Otherwise a widget given an explicit state by a widget-level rule
+          # (e.g. a focused `Input` via `Input:focus`) materializes that state's
+          # style with a pristine sub-element, dropping a base sub-element rule
+          # like `ProgressBar::indicator { ... }` on, say, the focused bar while
+          # its unfocused siblings keep it. Extra (`:`-bearing) slots are
+          # state-independent (stored via `css_set_extra_style`), so skip them.
+          if (sep = key.index("::")) && !key[(sep + 2)..].includes?(':')
+            stated_keys[key[0, sep]]?.try { |ps| states.concat ps }
+          end
           states.each { |state| (acc[{key, state}] ||= [] of Entry).concat entries }
         end
 

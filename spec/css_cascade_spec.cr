@@ -138,6 +138,41 @@ describe "CSS cascade" do
     box.styles.normal.fg.should eq rgb("white") # main style untouched by scrollbar rule
   end
 
+  it "lets an inline sub-style outrank a sub-element rule (inline beats author/default)" do
+    screen = headless_screen
+    # Inline `indicator` sub-style — the same shape the theme's
+    # `ProgressBar::indicator { color: accent }` would otherwise override.
+    bar = Widget::ProgressBar.new style: Style.new(indicator: Style.new(fg: rgb("green")))
+    screen.append bar
+
+    screen.stylesheet = "ProgressBar::indicator { color: red; }"
+    screen.apply_stylesheet
+
+    # Inline (`TIER_INLINE`) outranks the author sub-element rule, just as it does
+    # for the main style — the sub-element path must honor the same contract.
+    bar.styles.normal.indicator.fg.should eq rgb("green")
+  end
+
+  it "folds a base sub-element rule into a state the parent widget materializes" do
+    screen = headless_screen
+    bar = Widget::ProgressBar.new
+    screen.append bar
+    bar.state = WidgetState::Focused
+
+    # The widget-level `:focus` rule materializes the focused state; the base
+    # `::indicator` rule (no state of its own) must fold into it too, so a focused
+    # bar's indicator is themed identically to an unfocused one — not reverted to
+    # pristine.
+    screen.stylesheet = <<-CSS
+      ProgressBar::indicator { color: cyan; }
+      ProgressBar:focus { background-color: blue; }
+    CSS
+    screen.apply_stylesheet
+
+    bar.styles.focused.indicator.fg.should eq rgb("cyan")
+    bar.styles.normal.indicator.fg.should eq rgb("cyan")
+  end
+
   it "parses padding and border shorthands" do
     screen = headless_screen
     box = Widget::Box.new
