@@ -194,6 +194,13 @@ module Crysterm
       # The cursor that is actually drawn: the focused widget's own cursor if it
       # has one, else the screen default (see `Screen#active_cursor`).
       c = active_cursor
+      # The artificial-cursor predicate and its target position are constant for
+      # the whole draw (the diff never moves `tput.cursor`), but were evaluated
+      # per row (`c.artificial?`) and per cell (`c.artificial?` + `tput.cursor.x/y`).
+      # Hoist them so the per-cell hot path reads plain locals.
+      c_artificial = c.artificial?
+      cursor_x = tput.cursor.x
+      cursor_y = tput.cursor.y
 
       # For all rows (y = row coordinate)
       (start..stop).each do |y|
@@ -219,6 +226,10 @@ module Crysterm
         l_chars = line.chars
         o_attrs = o.attrs
         o_chars = o.chars
+        # Old-side width, hoisted so the per-cell diff can bound-check with a
+        # plain `x < o_size` instead of `o[x]?` (which builds a `Cell` handle for
+        # every cell just to test presence — see the diff below).
+        o_size = o_attrs.size
 
         # Whether either side of this row carries a grapheme overlay, hoisted
         # once. Under `full_unicode` the per-cell diff/BCE scans below otherwise
@@ -234,7 +245,7 @@ module Crysterm
         # ::Log.trace { line } if line.any? &.char.!=(' ')
 
         # Skip if no change in line
-        if !line.dirty && !(c.artificial? && (y == tput.cursor.y))
+        if !line.dirty && !(c_artificial && (y == cursor_y))
           next
         end
 
@@ -272,7 +283,7 @@ module Crysterm
           desired_char = l_chars.unsafe_fetch(x)
 
           # Render the artificial cursor.
-          if c.artificial? && !c._hidden && (c._state != 0) && (x == tput.cursor.x) && (y == tput.cursor.y)
+          if c_artificial && !c._hidden && (c._state != 0) && (x == cursor_x) && (y == cursor_y)
             desired_attr, tmpch = _artificial_cursor_attr(c, desired_attr)
             desired_char = tmpch if tmpch
             # XXX Is this needed:
@@ -406,7 +417,7 @@ module Crysterm
           # `next` would only exit the block, after which the cell would still be
           # printed below — defeating the skip and desyncing the `cuf` run math
           # from the real cursor position.
-          if ox = o[x]?
+          if x < o_size
             # Inlined, allocation-free cell diff, reading attr/char straight from
             # the backing arrays. In legacy mode a row never carries a grapheme
             # overlay, so the compare is just `attr == && char ==` and skipping the
@@ -460,6 +471,12 @@ module Crysterm
               lx = -1
               ly = -1
             end
+            # Changed cell: build the old-side handle now (only here — not for
+            # every unchanged cell, which is the common case) and write back what
+            # is being emitted, so `@olines` mirrors the terminal. `x < o_size`
+            # was already checked, so `unsafe_fetch` is the bounds-checked `o[x]`
+            # without re-checking.
+            ox = o.unsafe_fetch(x)
             ox.attr = desired_attr
             if fu && (g = line[x].grapheme_overlay)
               ox.grapheme = g
