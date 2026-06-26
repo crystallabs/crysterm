@@ -248,7 +248,15 @@ module Crysterm
           else
             state_style = get_state_style(widget, state)
             sub = get_sub_style(state_style, slot).dup
-            apply_entries sub, entries, variables
+            # Inline sub-styles outrank default/author sub-element rules, the same
+            # inline-beats-stylesheet contract the main style honors via
+            # `apply_entries_with_inline`. Without this the theme's
+            # `ProgressBar::indicator { color: ... }` (a default-tier rule) would
+            # overwrite an explicit inline `Style.new(indicator: ...)`, even
+            # though inline is a higher tier. Interleave the inline sub-style at
+            # `TIER_INLINE` so `!important` sub-element rules still win over it.
+            inline_sub = widget.css_inline_style.try &.raw_sub_style(slot)
+            apply_entries_with_inline sub, entries, variables, inline_sub
             set_sub_style state_style, slot, sub
           end
         end

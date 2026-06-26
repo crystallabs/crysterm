@@ -560,6 +560,42 @@ module Crysterm
       @right_arrow = inline.@right_arrow if inline.@right_arrow
     end
 
+    # The *explicitly-set* sub-`Style` for the cascade *slot* name, or `nil` when
+    # this style never set one. Unlike the public getters (`#indicator`, etc.),
+    # which fall back to `self`, this reports only what was actually assigned — so
+    # the cascade can tell "inline set an `indicator`" apart from "no indicator,
+    # use the base style". Used to re-fold an inline-only sub-style at the inline
+    # cascade tier so it outranks lower-tier (default/author) sub-element rules,
+    # mirroring how the main style honors inline via `fold_inline`.
+    def raw_sub_style(slot : String) : Style?
+      case slot
+      when "scrollbar"     then @scrollbar
+      when "track"         then @track
+      when "sub-line"      then @sub_line
+      when "add-line"      then @add_line
+      when "sub-page"      then @sub_page
+      when "add-page"      then @add_page
+      when "up-arrow"      then @up_arrow
+      when "down-arrow"    then @down_arrow
+      when "left-arrow"    then @left_arrow
+      when "right-arrow"   then @right_arrow
+      when "cell"          then @cell
+      when "header"        then @header
+      when "item"          then @item
+      when "indicator"     then @indicator
+      when "prefix"        then @prefix
+      when "separator"     then @separator
+      when "tab"           then @tab
+      when "title"         then @title
+      when "pane"          then @pane
+      when "close-button"  then @close_button
+      when "float-button"  then @float_button
+      when "label"         then @label
+      when "alternate-row" then @alternate_row
+      else                      nil
+      end
+    end
+
     def initialize(
       *,
       border = nil,
