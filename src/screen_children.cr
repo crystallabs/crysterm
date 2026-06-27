@@ -43,6 +43,18 @@ module Crysterm
       # silently miss it — stranding focus on a now-detached, off-screen widget.
       refocus = (f = focused) && (f == element || element.has_descendant?(f))
 
+      # Transient mouse-interaction pointers into the subtree being removed go
+      # stale exactly as keyboard focus does, so they must be dropped too —
+      # otherwise `screen.hovered` keeps reporting a detached widget (and the next
+      # pointer move emits `MouseOut` on it), a *pending* (armed-but-not-yet-moved)
+      # press later calls `start_drag` on a now-detached source, and an in-flight
+      # drag whose source is removed stays modal forever (every subsequent mouse
+      # event is swallowed by the `@_drag` branch of `#dispatch_mouse`). Sampled
+      # here, before the unlink, for the same `has_descendant?` reason as `refocus`.
+      drop_hover = (h = @_hover) && (h == element || element.has_descendant?(h))
+      drop_arm = (a = @_arm) && (a == element || element.has_descendant?(a))
+      stale_drag = ((d = @_drag) && (d.source == element || element.has_descendant?(d.source))) ? d : nil
+
       super
 
       # TODO Enable
@@ -65,6 +77,14 @@ module Crysterm
       detach element, previous
 
       rewind_focus if refocus
+
+      # Drop the stale mouse pointers sampled above. The drag is torn down via
+      # `#drag_cancel` (not just nilled) so its `DragEnd`/`DragLeave` cleanup still
+      # runs for any listeners; guarded on the session being unchanged in case an
+      # event emitted during the unlink above already ended it.
+      @_hover = nil if drop_hover
+      @_arm = nil if drop_arm
+      stale_drag.try { |d| drag_cancel d if @_drag == d }
     end
 
     # :ditto:
