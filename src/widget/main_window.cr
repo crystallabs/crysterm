@@ -93,7 +93,11 @@ module Crysterm
           set_geo mb, top: 0, left: 0, right: 0, height: @menu_height
         end
         if tb = @tool_bar
-          set_geo tb, top: @menu_height, left: 0, right: 0, height: @tool_height
+          # The tool bar sits directly below the menu bar — at the very top when
+          # there is no menu bar (otherwise row 0 would be left blank and the tool
+          # bar would overlap the central widget, which the `top` accumulator above
+          # already places below both bars).
+          set_geo tb, top: (@menu_bar ? @menu_height : 0), left: 0, right: 0, height: @tool_height
         end
         if sb = @status_bar
           set_geo sb, bottom: 0, left: 0, right: 0, height: @status_height

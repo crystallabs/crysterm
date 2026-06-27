@@ -1550,6 +1550,22 @@ describe Crysterm::Widget::MainWindow do
     central.aleft.should eq win.aleft + 20           # right of the 20-wide left dock
     central.atop.should eq win.atop + 1              # below the menu bar
   end
+
+  it "places the tool bar at the top when there is no menu bar" do
+    s = qt_mem_screen
+    win = Crysterm::Widget::MainWindow.new parent: s, top: 0, left: 0, width: 80, height: 24
+    tool = Crysterm::Widget::Box.new content: "tools"
+    central = Crysterm::Widget::Box.new content: "central"
+    win.tool_bar = tool
+    win.central_widget = central
+    s._render
+
+    # With no menu bar, the tool bar must occupy the very top row (not leave
+    # row 0 blank), and the central widget sits directly below it rather than
+    # overlapping it.
+    tool.atop.should eq win.atop
+    central.atop.should eq win.atop + 1
+  end
 end
 
 describe Crysterm::Widget::ToolTip do
