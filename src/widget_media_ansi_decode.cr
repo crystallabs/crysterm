@@ -51,6 +51,51 @@ module Crysterm
         PNGGIF::Pixel.new((v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF)
       end
 
+      # Resolves an extended-colour SGR selector's sub-parameters (those after a
+      # `38`/`48`, starting at *i*) into the nearest 16-colour `ANSI_PALETTE`
+      # index (0..15) plus the number of sub-parameters that were consumed.
+      # Handles `5;n` (xterm-256) and `2;r;g;b` (truecolour); a malformed or
+      # unknown selector consumes nothing and maps to `nil` (no colour change).
+      private def self.ext_color_index(params : Array(Int32), i : Int32)
+        none = {nil.as(Int32?), 0}
+        case params[i]?
+        when 5
+          n = params[i + 1]?
+          return {nil.as(Int32?), 1} unless n
+          r, g, b = xterm256_rgb(n)
+          {nearest_index(ANSI_PALETTE, r, g, b).as(Int32?), 2}
+        when 2
+          r = (params[i + 1]? || 0).clamp(0, 255)
+          g = (params[i + 2]? || 0).clamp(0, 255)
+          b = (params[i + 3]? || 0).clamp(0, 255)
+          {nearest_index(ANSI_PALETTE, r, g, b).as(Int32?), 4}
+        else
+          none
+        end
+      end
+
+      # RGB of an xterm-256 palette index (0..255): the 16 system colours, then
+      # the 6×6×6 colour cube, then the 24-step grayscale ramp.
+      private def self.xterm256_rgb(n : Int32) : Tuple(Int32, Int32, Int32)
+        n = n.clamp(0, 255)
+        if n < 16
+          v = ANSI_PALETTE[n]
+          {(v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF}
+        elsif n < 232
+          m = n - 16
+          {cube_level(m // 36), cube_level((m // 6) % 6), cube_level(m % 6)}
+        else
+          gr = (n - 232) * 10 + 8
+          {gr, gr, gr}
+        end
+      end
+
+      # One channel of the xterm-256 6×6×6 cube: 0 maps to 0, levels 1..5 to
+      # `55 + level*40` (the standard xterm ramp 95,135,175,215,255).
+      private def self.cube_level(c : Int32) : Int32
+        c == 0 ? 0 : 55 + c * 40
+      end
+
       # Ink fraction (0..1) of the sub-region of glyph *g* (sized *gw*x*gh*) that
       # maps to sub-pixel (*sx*,*sy*) of an *sw*x*sh* per-cell grid. With sw=sh=1
       # this is the whole-glyph coverage; finer grids give sub-cell shape.
@@ -130,7 +175,10 @@ module Crysterm
             final = j < n ? data[j] : 0_u8
             case priv ? 0_u8 : final
             when 0x6D # 'm' — SGR
-              (nums.empty? ? [0] : nums).each do |c|
+              params = nums.empty? ? [0] : nums
+              k = 0
+              while k < params.size
+                c = params[k]
                 case c
                 when 0        then fg = nil; bg = nil; fgb = false; bgb = false
                 when 1        then fgb = true
@@ -141,8 +189,26 @@ module Crysterm
                 when 40..47   then bg = c - 40; bgb = false # normal bg clears any prior bright bg
                 when 100..107 then bg = c - 100; bgb = true
                 when 49       then bg = nil; bgb = false
+                when 38, 48
+                  # Extended fg/bg selector (`38`/`48`) followed by `5;n`
+                  # (xterm-256) or `2;r;g;b` (truecolour). Its sub-parameters MUST
+                  # be consumed: otherwise they fall through and are misread as
+                  # standalone SGR codes — e.g. a `0` channel in `48;2;r;0;b`
+                  # reads as "reset all", and `…;5;1` as "bold" — corrupting the
+                  # attribute state. The colour is mapped to the nearest entry of
+                  # this decoder's own 16-colour palette (its only output palette).
+                  idx, consumed = ext_color_index(params, k + 1)
+                  k += consumed
+                  if idx
+                    if c == 38
+                      fgb = idx >= 8; fg = fgb ? idx - 8 : idx
+                    else
+                      bgb = idx >= 8; bg = bgb ? idx - 8 : idx
+                    end
+                  end
                 else # 5 (blink) / 7 (reverse) / … ignored
                 end
+                k += 1
               end
             when 0x48, 0x66 # 'H' / 'f' — CUP
               y = clampy.call((nums[0]? || 1) - 1)

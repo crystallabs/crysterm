@@ -70,4 +70,33 @@ describe Crysterm::Widget::Media do
       {px.r, px.g, px.b}.should eq({0x00, 0x00, 0x00})
     end
   end
+
+  describe ".decode_ansi extended-colour SGR" do
+    # `38`/`48` extended-colour selectors must be consumed (and mapped to the
+    # nearest 16-colour entry) rather than letting their sub-parameters fall
+    # through and be misread as standalone SGR codes.
+    it "maps a 256-colour background (48;5;n) to the palette" do
+      # Index 9 is bright red (0xFF5555) in both the 256- and 16-colour palettes.
+      px = png("\e[48;5;9m ").bmp[0][0]
+      {px.r, px.g, px.b}.should eq({0xFF, 0x55, 0x55})
+    end
+
+    it "maps a truecolour background (48;2;r;g;b) to the nearest palette entry" do
+      # Pure red maps to normal red (index 1, 0xAA0000). Crucially, the `0` green
+      # and blue channels must NOT be misread as SGR 0 (reset all) — which the
+      # old fall-through did, leaving the bg at the default black.
+      px = png("\e[48;2;255;0;0m ").bmp[0][0]
+      {px.r, px.g, px.b}.should eq({0xAA, 0x00, 0x00})
+    end
+
+    it "does not let an extended selector's params corrupt a following SGR" do
+      # `48;5;0` (256-colour black bg) then `41` (normal red bg). If the `5;0`
+      # leaked through, the trailing `0` would reset all attributes and the `41`
+      # would be the only surviving code anyway — but a `5` leaking as blink or
+      # the index being mis-consumed would desync the parse. Result must be the
+      # plain normal-red background (index 1, 0xAA0000).
+      px = png("\e[48;5;0m\e[41m ").bmp[0][0]
+      {px.r, px.g, px.b}.should eq({0xAA, 0x00, 0x00})
+    end
+  end
 end
