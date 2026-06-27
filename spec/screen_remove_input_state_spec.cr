@@ -31,6 +31,10 @@ private def ris_move(s, x, y)
   s.dispatch_mouse ris_mouse(::Tput::Mouse::Action::Move, x, y, ::Tput::Mouse::Button::None)
 end
 
+private def ris_release(s, x, y)
+  s.dispatch_mouse ris_mouse(::Tput::Mouse::Action::Up, x, y, ::Tput::Mouse::Button::None)
+end
+
 describe "Screen#remove (mouse-interaction state)" do
   it "clears the hover pointer when the hovered widget is removed" do
     s = ris_screen
@@ -70,5 +74,36 @@ describe "Screen#remove (mouse-interaction state)" do
     s.remove box
     s.dragging.should be_nil # drag no longer modal
     ended.should be_true     # DragEnd cleanup still ran
+  end
+
+  it "clears the drop target (and never Drops on it) when the target is removed mid-drag" do
+    s = ris_screen
+    source = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
+    source.enable_drag reposition: false
+    source.on(Crysterm::Event::DragStart) { |e| e.data["text/plain"] = "x" }
+
+    target = Widget::Box.new parent: s, left: 40, top: 0, width: 10, height: 4
+    target.on(Crysterm::Event::DragOver, &.accept)
+    left = 0
+    dropped_on_target = false
+    target.on(Crysterm::Event::DragLeave) { left += 1 }
+    target.on(Crysterm::Event::Drop) { dropped_on_target = true }
+
+    ris_press s, 1, 1
+    ris_move s, 2, 1  # promote arm -> in-flight transfer drag
+    ris_move s, 44, 1 # drag over the target -> it becomes the (accepting) drop target
+    s.dragging.try(&.target).should eq target
+
+    s.remove target
+    # The target was the drop target; removing it must clear the pointer (with a
+    # DragLeave) rather than leave the drag aimed at a detached widget.
+    s.dragging.should_not be_nil          # the drag itself (source still here) lives on
+    s.dragging.try(&.target).should be_nil # but no longer points at the removed widget
+    left.should eq(1)
+
+    # A release at the old target position must NOT Drop on the now-detached widget.
+    ris_release s, 44, 1
+    dropped_on_target.should be_false
+    s.dragging.should be_nil
   end
 end

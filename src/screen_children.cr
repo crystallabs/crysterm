@@ -54,6 +54,14 @@ module Crysterm
       drop_hover = (h = @_hover) && (h == element || element.has_descendant?(h))
       drop_arm = (a = @_arm) && (a == element || element.has_descendant?(a))
       stale_drag = ((d = @_drag) && (d.source == element || element.has_descendant?(d.source))) ? d : nil
+      # An in-flight drag whose drop TARGET (not its source) sits in the removed
+      # subtree would keep `@_drag.target` pointing at a now-detached widget — a
+      # later drop (a keyboard Space/Enter, or a mouse release with no intervening
+      # retarget) would then emit `Event::Drop` on an off-screen widget, since a
+      # mouse drag otherwise only re-evaluates its target on motion. Sampled here,
+      # before the unlink, for the same `has_descendant?` reason as the others;
+      # cleared below by retargeting the drag to "no target".
+      stale_target = ((td = @_drag) && (tg = td.target) && (tg == element || element.has_descendant?(tg))) ? td : nil
 
       super
 
@@ -85,6 +93,11 @@ module Crysterm
       @_hover = nil if drop_hover
       @_arm = nil if drop_arm
       stale_drag.try { |d| drag_cancel d if @_drag == d }
+      # Clear a stale drop-target pointing into the removed subtree, emitting the
+      # expected `DragLeave` on it. Guarded on the session being unchanged, so it
+      # is a no-op when the drag was already torn down above (its source was in
+      # the subtree too) or ended by an event during the unlink.
+      stale_target.try { |d| retarget(d, nil) if @_drag == d }
     end
 
     # :ditto:

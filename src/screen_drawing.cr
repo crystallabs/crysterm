@@ -737,14 +737,24 @@ module Crysterm
         @post.clear
         hidden = tput.cursor_hidden?
 
+        # Hide the *hardware* cursor for the duration of this multi-write frame so
+        # the real terminal cursor doesn't streak across the screen as the cell
+        # runs (each prefixed by a `cup`) are emitted, then restore it afterward.
+        # This MUST go straight to `tput` (not `Screen#hide_cursor`/`#show_cursor`):
+        # those dispatch on the *active* cursor and, when it is artificial, take
+        # the artificial branch — which writes no escape (so the hardware cursor is
+        # left visible and streaks anyway) and calls `render_if_active`, scheduling
+        # a redundant render from *inside* `draw`. For a hardware cursor the
+        # delegating form was byte-identical to this; for an artificial one it was
+        # wrong on both counts. The captured sequences land in `@pre`/`@post`.
         divert(@tmpbuf, @pre) do
           tput.save_cursor
-          hide_cursor unless hidden
+          tput.hide_cursor unless hidden
         end
 
         divert(@tmpbuf, @post) do
           tput.restore_cursor
-          show_cursor unless hidden
+          tput.show_cursor unless hidden
         end
 
         # D O:
