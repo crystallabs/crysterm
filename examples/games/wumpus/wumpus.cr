@@ -1,33 +1,51 @@
 require "../../../src/crysterm"
 
-# Hunt the Wumpus
-# ===============
-#
-# A faithful little port of Gregory Yob's 1973 classic, built as a Crysterm
-# example. You explore a fixed cave of 20 rooms laid out as a dodecahedron
-# (every room connects to exactly three others) hunting the Wumpus. You can't
-# see it, if you enter the room he wakes up and eats you. Try deduce its
-# location from warnings in adjacent rooms, then fire a "crooked arrow"
-# through up to 5 rooms to kill it. Arrows can veer as you want, but you
-# must know room numbers.
-#
-# Hazards:
-#   * The Wumpus     - shoot it to win; bump into it and it eats you.
-#   * Bottomless pits- fall in and you're gone.
-#   * Super bats     - pick you up and drop you in a random room.
-# A pit, bats, and The Wumpus can be in the same room. You cannot.
-#
-# Commands (typed into the input box, then Enter):
-#   <room> / m <room>  move to an adjacent room (the space is optional: m5)
-#   s <room> [room…]   shoot an arrow through up to 5 rooms (space optional, and
-#                      rooms may be split by any non-word delimiter: s3 12, s3,12)
-#   b                  go back to your previous room (needs the "back" flag)
-#   n                  start a new game
-#   h                  help (also shows current flags)
-#   q / Ctrl-Q         quit
-
 class Wumpus
   include Crysterm
+
+  private def help
+    say "
+A faithful little port of Gregory Yob's 1973 classic, built in Crysterm.
+You explore a fixed cave of 20 rooms laid out as a dodecahedrony (every
+room connects to three others, always the same) hunting the Wumpus.
+You can't see it. Entering his room or shooting from nearby make him wake
+up and eat you or move 1 room. Try deduce its location from warnings in
+adjacent rooms, then fire a \"crooked arrow\" to shoot it. Arrows can veer
+through up to 5 rooms, but you must give room numbers.
+
+{bold}Hazards{/}:
+  * The Wumpus     - shoot it to win; bump into it and it eats you.
+  * Bottomless pits- fall in and you're gone.
+  * Super bats     - pick you up and drop you in a random room.
+  * Arrows         - you have a limited number; may kill you.
+The Wumpus can move and stay in a room with bats or a pit. You cannot.
+
+{bold}Commands in current config (type, then press Enter):{/}"
+
+    if prompts?
+      say "  m, then WHERE TO?            answer with a room number to move"
+      say "  s, then NO. OF ROOMS (1-5)?  then a ROOM # for each, to shoot"
+    else
+      say "  <room>           move to an adjacent room (e.g. 5)"
+      say "  m <room>         move to an adjacent room (space optional: m5)"
+      say "  s <room> [room…] shoot up to 5 rooms; any delimiter (s 13/12+3,2)"
+    end
+    say "  b                go back to previous room"
+    say "  n                start a new game"
+    say "  h                help (show current preset and flags)"
+    say "  q                quit (also Ctrl-Q)"
+    say
+    say "{bold}Current flags (type name to toggle, +-name to set):{/}"
+    FLAGS.each do |f|
+      say "  #{@opt[f] ? "+" : "-"}#{f.ljust(8)} #{FLAG_HELP[f]}"
+    end
+    say
+    say "{bold}Presets:{/}"
+    PRESETS.each do |name, flags|
+      say "  #{name.ljust(6)} #{FLAGS.map { |f| "#{flags[f] ? "+" : "-"}#{f}" }.join(" ")}"
+    end
+    say
+  end
 
   # The canonical dodecahedron map from the original game. Room N (1-based)
   # connects to the three rooms listed.
@@ -46,11 +64,11 @@ class Wumpus
 
   # One-line description of each flag, for the help screen.
   FLAG_HELP = {
-    "mesg"    => "ALL-CAPS messages (off = modern, colorized)",
-    "prompts" => "longer prompts",
-    "bump"    => "bump the Wumpus only wakes it (off = instant loss)",
+    "mesg"    => "original and ALL-CAPS messages (off = modern, colorized)",
+    "prompts" => "original longer/slower prompts",
+    "bump"    => "bump the Wumpus only wakes it (off = sure loss, on = 25% loss)",
     "crooked" => "allow a shot that doubles back, A->B->A (off = no)",
-    "same"    => "ask SAME SET-UP? to replay cave (off = reshuffle)",
+    "same"    => "ask SAME SET-UP? to replay cave (off = new positions)",
     "back"    => "enable 'b' for step-back command",
     "reveal"  => "reveal the Wumpus's room after loss",
     "gap"     => "teletype blank-line spacing (off = compact)",
@@ -163,11 +181,17 @@ class Wumpus
 
     @input.on(Event::Submit) do |e|
       text = e.value.to_s.strip
-      # Echo the typed line into the transcript so the back-and-forth stays in
-      # the scrollback (like a real teletype). Braces are neutralized so user
-      # input can never be mistaken for {tag} markup.
-      say "> #{text.gsub('{', '(').gsub('}', ')')}" unless text.empty?
-      handle_command text
+      if text.empty?
+        # Enter on an empty line re-prints the current status: the room
+        # description, or whichever teletype prompt we're waiting on.
+        repeat_status
+      else
+        # Echo the typed line into the transcript so the back-and-forth stays in
+        # the scrollback (like a real teletype). Braces are neutralized so user
+        # input can never be mistaken for {tag} markup.
+        say "> #{text.gsub('{', '(').gsub('}', ')')}"
+        handle_command text
+      end
       @input.value = ""
       @input.focus
       @screen.render
@@ -272,7 +296,6 @@ class Wumpus
   # ---- Output helpers --------------------------------------------------------
 
   private def say(line : String = "")
-    return if line.empty?
     @transcript.push_line line
     @transcript.scroll_to @transcript.get_content.lines.size
   end
@@ -287,15 +310,15 @@ class Wumpus
   # Wumpus (with "wimpus" on). `who` is PLAYER or WUMPUS; both wordings name the
   # subject so the message reads right whichever it is.
   private def bat_snatch_msg(who) : String
-    w("ZAP--SUPER BAT SNATCH! ELSEWHERE FOR #{who[:caps]}!",
+    w("{magenta-fg}ZAP--SUPER BAT SNATCH! ELSEWHERE FOR #{who[:caps]}!{/}",
       "{magenta-fg}Super bats snatch #{who[:name]} and whisk #{who[:obj]} away!{/}")
   end
 
   # The "fell down a pit" notice, likewise parameterized by subject (PLAYER or
   # WUMPUS) so it serves the player's death and the Wumpus's (which is your win).
   private def pit_msg(who) : String
-    w("YYYIIIIEEEE . . . #{who[:caps]} FELL IN A PIT",
-      "{red-fg}{bold}#{who[:subj]} plummet#{who[:verb_s]} into a bottomless pit. Aaaaaa…{/}")
+    w("{yellow-fg}YYYIIIIEEEE . . . #{who[:caps]} FELL IN A PIT{/}",
+      "{yellow-fg}{bold}#{who[:subj]} plummet#{who[:verb_s]} into a bottomless pit. Aaaaaa…{/}")
   end
 
   # ---- Scoreboard ------------------------------------------------------------
@@ -336,7 +359,7 @@ class Wumpus
   # ---- Game setup ------------------------------------------------------------
 
   private def new_game(reuse = false)
-    say if @started # blank line between the previous game and this fresh prolog
+    # say if @started # blank line between the previous game and this fresh prolog
     @started = true
 
     if reuse
@@ -391,20 +414,37 @@ class Wumpus
     flap = adj.any? { |r| @bats.includes?(r) }
 
     if mesg?
-      say "I SMELL A WUMPUS!" if smell
-      say "I FEEL A DRAFT" if draft
-      say "BATS NEARBY!" if flap
-      say "YOU ARE IN ROOM #{@player}"
+      say "{red-fg}I SMELL A WUMPUS!{/}" if smell
+      say "{yellow-fg}I FEEL A DRAFT{/}" if draft
+      say "{magenta-fg}BATS NEARBY!{/}" if flap
+      say "{green-fg}YOU ARE IN ROOM #{@player}{/}"
       say "TUNNELS LEAD TO #{tunnels.join(" ")}"
     else
       say "{red-fg}You smell a Wumpus!{/}" if smell
-      say "{red-fg}You feel a cold draft.{/}" if draft
+      say "{yellow-fg}You feel a cold draft.{/}" if draft
       say "{magenta-fg}You hear the flapping of bats.{/}" if flap
       say "You are in room {bold}#{@player}{/}. Tunnels lead to #{tunnels.join(", ")}. Arrows left: #{@arrows}."
     end
 
     # The teletype top-level prompt, independent of the wording flag.
     say "SHOOT OR MOVE (S-M)?" if prompts?
+  end
+
+  # Re-print the line the game is currently waiting on, for when the player just
+  # presses Enter on an empty input: the pending teletype prompt if we're mid-
+  # turn, the replay question after a game ends, or otherwise the room status.
+  private def repeat_status
+    if @awaiting_replay
+      say "SAME SET-UP (Y-N)?"
+    elsif prompts? && @input_state != :command
+      case @input_state
+      when :move_target then say "WHERE TO?"
+      when :shoot_count then say "NO. OF ROOMS (1-5)?"
+      when :shoot_rooms then say "ROOM #?"
+      end
+    else
+      describe_room
+    end
   end
 
   # ---- Command dispatch ------------------------------------------------------
@@ -475,7 +515,7 @@ class Wumpus
       return
     when "where"
       # Undocumented peek: reveal every hazard's room (the Wumpus, pits, bats).
-      say w("WUMPUS #{@wumpus} - PITS #{@pits.sort.join(" ")} - BATS #{@bats.sort.join(" ")}",
+      say w("{red-fg}WUMPUS #{@wumpus}{/} - {yellow-fg}PITS #{@pits.sort.join(" ")}{/} - {magenta-fg}BATS #{@bats.sort.join(" ")}{/}",
         "Wumpus: {bold}#{@wumpus}{/}. Pits: #{@pits.sort.join(", ")}. Bats: #{@bats.sort.join(", ")}.")
       return
     end
@@ -566,33 +606,6 @@ class Wumpus
     end
   end
 
-  private def help
-    say
-    say "{bold}Commands:{/}"
-    if prompts?
-      say "  m, then WHERE TO?            answer with a room number to move"
-      say "  s, then NO. OF ROOMS (1-5)?  then a ROOM # for each, to shoot"
-    else
-      say "  <room>           move to an adjacent room (e.g. 5)"
-      say "  m <room>         move to an adjacent room (space optional: m5)"
-      say "  s <room> [room…] shoot up to 5 rooms; space optional, any delimiter (s3 12, s3,12)"
-    end
-    say "  b                go back to the room you were last in" if back?
-    say "  n                start a new game"
-    say "  q                quit (also Ctrl-Q)"
-    say
-    say "{bold}Flags:{/}"
-    FLAGS.each do |f|
-      say "  #{@opt[f] ? "+" : "-"}#{f.ljust(8)} #{FLAG_HELP[f]}"
-    end
-    say
-    say "{bold}Presets:{/}"
-    PRESETS.each do |name, flags|
-      say "  #{name.ljust(6)} #{FLAGS.map { |f| "#{flags[f] ? "+" : "-"}#{f}" }.join(" ")}"
-    end
-    say
-  end
-
   # ---- Moving ----------------------------------------------------------------
 
   # Returns true if the move succeeded (the room was adjacent).
@@ -633,11 +646,11 @@ class Wumpus
         # your room, so you can survive. Only being eaten ends the game. With
         # "wimpus" on, that shuffle can carry it into a hazard too (see
         # wumpus_stirs): bats relocate it, a pit means you win.
-        say w("... OOPS! BUMPED A WUMPUS!",
-          "{yellow-fg}You blunder into the Wumpus — it wakes with a roar!{/}")
+        say w("{red-fg}... OOPS! BUMPED A WUMPUS!{/}",
+          "{red-fg}You blunder into the Wumpus — it wakes with a roar!{/}")
         case wumpus_stirs
         when :ate
-          say w("TSK TSK TSK - WUMPUS GOT YOU!",
+          say w("{red-fg}TSK TSK TSK - WUMPUS GOT YOU!{/}",
             "{red-fg}{bold}It lunges and devours you!{/}")
           score_wumpus_ate
           lose
@@ -648,7 +661,7 @@ class Wumpus
           describe_room
         end
       else
-        say w("TSK TSK TSK - WUMPUS GOT YOU!",
+        say w("{red-fg}TSK TSK TSK - WUMPUS GOT YOU!{/}",
           "{red-fg}{bold}You walked right into the Wumpus! It gobbles you up.{/}")
         score_wumpus_ate
         lose
@@ -732,8 +745,8 @@ class Wumpus
     unless crooked?
       (2...path.size).each do |i|
         if path[i] == path[i - 2]
-          say w("ARROWS AREN'T THAT CROOKED - TRY ANOTHER ROOM",
-            "{yellow-fg}That shot would double back on itself — pick another room.{/}")
+          say w("{cyan-fg}ARROWS AREN'T THAT CROOKED - TRY ANOTHER ROOM{/}",
+            "{cyan-fg}That shot would double back on itself — pick another room.{/}")
           return
         end
       end
@@ -750,7 +763,7 @@ class Wumpus
             end
 
       if pos == @wumpus
-        say w("AHA! YOU GOT THE WUMPUS!",
+        say w("{green-fg}AHA! YOU GOT THE WUMPUS!{/}",
           "{green-fg}{bold}Your arrow strikes the Wumpus! You win!{/}")
         @score_player += 1
         update_score
@@ -759,8 +772,8 @@ class Wumpus
       end
 
       if pos == @player
-        say w("OUCH! ARROW GOT YOU!",
-          "{red-fg}{bold}Your own arrow circles back and skewers you!{/}")
+        say w("{cyan-fg}OUCH! ARROW GOT YOU!{/}",
+          "{cyan-fg}{bold}Your own arrow circles back and skewers you!{/}")
         @score_arrows += 1
         update_score
         lose
@@ -768,14 +781,15 @@ class Wumpus
       end
     end
 
-    say w("MISSED", "Your arrow clatters away into the dark. A miss.")
+    say w("{cyan-fg}MISSED{/}", "{cyan-fg}Your arrow clatters away into the dark. A miss.{/}")
     @arrows -= 1
 
     # The shot startles the Wumpus; it may shamble into an adjacent room — and
     # with "wimpus" on, into a hazard there (bats relocate it, a pit wins).
+    moved_from = @wumpus
     case wumpus_stirs
     when :ate
-      say w("TSK TSK TSK - WUMPUS GOT YOU!",
+      say w("{red-fg}TSK TSK TSK - WUMPUS GOT YOU!{/}",
         "{red-fg}{bold}The noise wakes the Wumpus and it stumbles into your room. It eats you!{/}")
       score_wumpus_ate
       lose
@@ -785,9 +799,13 @@ class Wumpus
       return
     end
 
+    # It only grumbled off to a neighbouring room: in modern mode, note the move
+    # (the player has no reveal, so this is the only hint the Wumpus shifted).
+    say "{red-fg}Wumpus moves with a grumble.{/}" if !mesg? && @wumpus != moved_from
+
     if @arrows <= 0
-      say w("YOU ARE OUT OF ARROWS",
-        "{red-fg}{bold}You've run out of arrows. The Wumpus will get you eventually…{/}")
+      say w("{cyan-fg}YOU ARE OUT OF ARROWS{/}",
+        "{cyan-fg}{bold}You've run out of arrows. The Wumpus will get you eventually…{/}")
       @score_arrows += 1
       update_score
       lose
@@ -802,7 +820,7 @@ class Wumpus
 
   private def win
     # The original's taunt; modern mode's "You win!" (printed in shoot) suffices.
-    say "HEE HEE HEE - THE WUMPUS'LL GET YOU NEXT TIME!!" if mesg?
+    say "{red-fg}HEE HEE HEE - THE WUMPUS'LL GET YOU NEXT TIME!!{/}" if mesg?
     end_prompt
   end
 
@@ -817,7 +835,7 @@ class Wumpus
   # After a game ends: with "same" on, ask "SAME SET-UP (Y-N)?" and wait;
   # otherwise start a fresh game immediately.
   private def end_prompt
-    say w("THE WUMPUS WAS IN ROOM #{@prev_wumpus}", "The Wumpus was in room #{@prev_wumpus}.") if reveal?
+    say w("{red-fg}THE WUMPUS WAS IN ROOM #{@prev_wumpus}{/}", "The Wumpus was in room #{@prev_wumpus}.") if reveal?
     if same?
       @awaiting_replay = true
       say "SAME SET-UP (Y-N)?"
