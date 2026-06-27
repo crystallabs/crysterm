@@ -194,11 +194,20 @@ module Crysterm
           h = yl - yi
           return if w <= 0 || h <= 0
 
+          # A degenerate viewport (`look_at` with a zero span, or `min_*` set equal
+          # to `max_*`) leaves a zero-width/height window. The normalization below
+          # would then divide by zero, yielding `NaN`, and `NaN.to_i` raises
+          # `OverflowError` — crashing the whole render. There is nothing to project
+          # onto a zero-area view, so skip the markers.
+          lon_span = @max_lon - @min_lon
+          lat_span = @max_lat - @min_lat
+          return if lon_span <= 0 || lat_span <= 0
+
           @markers.each do |m|
             next if m.longitude < @min_lon || m.longitude > @max_lon
             next if m.latitude < @min_lat || m.latitude > @max_lat
-            fx = (m.longitude - @min_lon) / (@max_lon - @min_lon)
-            fy = (@max_lat - m.latitude) / (@max_lat - @min_lat)
+            fx = (m.longitude - @min_lon) / lon_span
+            fy = (@max_lat - m.latitude) / lat_span
             cx = xi + (fx * (w - 1)).round.to_i
             cy = yi + (fy * (h - 1)).round.to_i
             put_cell cx, cy, m.char, overlay_attr(m.color), xi, xl
