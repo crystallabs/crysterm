@@ -44,7 +44,11 @@ module Crysterm
         when "min-height" then size_cells(widget, value, vertical: true).try { |c| widget.min_height = c }
         when "max-height" then size_cells(widget, value, vertical: true).try { |c| widget.max_height = c }
         when "text-align"
-          case value
+          # CSS keyword values are case-insensitive (`text-align: Center` ==
+          # `center`), so fold before matching — every other keyword property
+          # already does (see `Properties`). Without this, a capitalized value
+          # (common in Qt themes) would silently leave the alignment unchanged.
+          case Case.fold_keyword(value.strip)
           when "left"   then widget.align = Tput::AlignFlag::Left
           when "center" then widget.align = Tput::AlignFlag::HCenter
           when "right"  then widget.align = Tput::AlignFlag::Right

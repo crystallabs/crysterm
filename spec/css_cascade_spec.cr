@@ -514,6 +514,21 @@ describe "CSS cascade" do
     box.align.should eq Tput::AlignFlag::HCenter
   end
 
+  it "matches text-align case-insensitively (CSS keyword values fold)" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    # A capitalized keyword (as a Qt theme may emit) must still apply.
+    screen.stylesheet = "Box { text-align: CENTER; }"
+    screen.apply_stylesheet
+    box.align.should eq Tput::AlignFlag::HCenter
+
+    screen.stylesheet = "Box { text-align: Right; }"
+    screen.apply_stylesheet
+    box.align.should eq Tput::AlignFlag::Right
+  end
+
   it "hides a widget with display: none" do
     screen = headless_screen
     box = Widget::Box.new
