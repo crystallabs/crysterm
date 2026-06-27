@@ -1429,3 +1429,18 @@ describe "CSS cascade" do
     end
   end
 end
+
+describe "CSS::ColorValue" do
+  it "resolves rgb()/rgba() with 0..255 components" do
+    Crysterm::CSS::ColorValue.resolve("rgb(255, 0, 0)", nil).should eq 0xff0000
+    Crysterm::CSS::ColorValue.resolve("rgb(10, 20, 30)", nil).should eq 0x0a141e
+    # Alpha is ignored.
+    Crysterm::CSS::ColorValue.resolve("rgba(0, 255, 0, 0.5)", nil).should eq 0x00ff00
+  end
+
+  it "scales rgb()/rgba() percentage components to 0..255" do
+    Crysterm::CSS::ColorValue.resolve("rgb(100%, 0%, 0%)", nil).should eq 0xff0000
+    Crysterm::CSS::ColorValue.resolve("rgb(0%, 100%, 0%)", nil).should eq 0x00ff00
+    Crysterm::CSS::ColorValue.resolve("rgba(0%, 0%, 100%, 0.5)", nil).should eq 0x0000ff
+  end
+end

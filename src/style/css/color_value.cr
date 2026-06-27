@@ -71,17 +71,29 @@ module Crysterm
       end
 
       # The numeric arguments of a color function, in source order
-      # (`rgb(10, 20, 30)` ⇒ `[10.0, 20.0, 30.0]`). Shared by the `rgb`/`hsl`
-      # parsers, which differ only in how they interpret the three components.
+      # (`rgb(10, 20, 30)` ⇒ `[10.0, 20.0, 30.0]`). Used by the `hsl` parser
+      # (`rgb` handles per-component `%` itself, see `parse_rgb`).
       private def self.numbers(value : String) : Array(Float64)
         value.scan(RGB_RE).map(&.[1].to_f)
       end
 
-      # `rgb(r, g, b)` / `rgba(r, g, b, a)` (commas or spaces). Alpha is ignored.
+      # A single `rgb()` component: a number with an optional trailing `%`.
+      RGB_COMPONENT = /(\d+(?:\.\d+)?)(%)?/
+
+      # `rgb(r, g, b)` / `rgba(r, g, b, a)` (commas or spaces). Each channel may
+      # be a `0..255` number or a `0%..100%` percentage (CSS allows either form);
+      # a `%` component is scaled to `0..255`. Alpha is ignored.
       private def self.parse_rgb(value : String) : Int32?
-        nums = numbers(value)
-        return nil if nums.size < 3
-        rgb clamp(nums[0]), clamp(nums[1]), clamp(nums[2])
+        comps = value.scan(RGB_COMPONENT)
+        return nil if comps.size < 3
+        rgb component(comps[0]), component(comps[1]), component(comps[2])
+      end
+
+      # One `rgb()` channel → a `0..255` int, scaling a `%` form from `0..100`.
+      private def self.component(m : Regex::MatchData) : Int32
+        n = m[1].to_f
+        n = n * 255.0 / 100.0 if m[2]?
+        clamp n
       end
 
       # `hsl(h, s%, l%)` / `hsla(...)`. h in degrees, s/l in percent.
