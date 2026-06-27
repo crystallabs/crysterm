@@ -40,6 +40,15 @@ module Crysterm
       # is replaced with the current directory on every navigation.
       property label_format : String?
 
+      # The real entry names (`".."`, `"foo"`, …), parallel to the rendered rows.
+      # Kept so `#open_selected` resolves the path from the *actual* name rather
+      # than reverse-engineering it from the decorated row text — that text
+      # carries color tags and a `/`/`@` suffix, so a filename containing a
+      # `{...}` tag-like sequence (stripped by `clean_tags`) or ending in `@`
+      # (stripped as a symlink decoration) would otherwise resolve to the wrong
+      # path. Storing the names is also cheaper (no per-activation tag strip).
+      @entry_names = [] of String
+
       @ev_file : Crysterm::Event::OpenFile::Wrapper?
       @ev_cancel : Crysterm::Event::Cancel::Wrapper?
 
@@ -106,7 +115,9 @@ module Crysterm
         dirs.sort_by! &.[:name]
         files.sort_by! &.[:name]
 
-        set_items (dirs + files).map(&.[:text])
+        ordered = dirs + files
+        @entry_names = ordered.map &.[:name]
+        set_items ordered.map(&.[:text])
         selekt 0
         request_render
 
@@ -176,11 +187,13 @@ module Crysterm
 
       private def open_selected
         return if @items.empty?
-        raw = @ritems[selected]?
-        return unless raw
+        # Resolve from the stored real name (see `@entry_names`), not from the
+        # decorated row text — that would mishandle names with `{...}` tag-like
+        # sequences or a trailing `@`.
+        name = @entry_names[selected]?
+        return unless name
 
-        value = clean_tags(raw).gsub(/@\z/, "")
-        target = File.expand_path(value, @cwd)
+        target = File.expand_path(name, @cwd)
 
         info = begin
           File.info(target, follow_symlinks: true)
