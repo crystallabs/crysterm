@@ -1275,6 +1275,13 @@ module Crysterm
     end
 
     def get_line(i)
+      # Empty content leaves `@_clines.fake` empty (the empty-content branch of
+      # `_wrap_content`, and a freshly built `CLines`). `i.clamp(0, fake.size - 1)`
+      # is then `clamp(0, -1)`, which returns `-1` (Crystal's two-arg clamp yields
+      # `max` even when `min > max`), so `fake[-1]` would raise `IndexError` on the
+      # empty array. Return a blank line instead — the benign value Blessed's
+      # `getLine` yields for a missing line. Guards `get_baseline` too.
+      return "" if @_clines.fake.empty?
       i = i.clamp(0, @_clines.fake.size - 1)
       @_clines.fake[i]
     end
