@@ -104,6 +104,31 @@ describe "drag-and-drop" do
       box.top.should eq(6)
     end
 
+    it "clamps a nested widget within the parent's content area, not past its border" do
+      s = drag_screen
+      # Bordered container: 1-cell border on every side, so its content area is
+      # the inner 28x10 (awidth 30 - iwidth 2, aheight 12 - iheight 2). Child
+      # left/top are relative to the content origin (panel.aleft+1, panel.atop+1).
+      panel = Widget::Box.new parent: s, left: 20, top: 6, width: 30, height: 12,
+        style: Style.new(border: true)
+      box = Widget::Box.new parent: panel, left: 2, top: 2, width: 8, height: 4, draggable: true
+
+      press s, panel.aleft + 1 + 2, panel.atop + 1 + 2 # grab at offset (0,0) within the box
+      move s, panel.aleft + 1 + 3, panel.atop + 1 + 3   # promote arm -> drag
+      move s, 999, 999                                  # yank far past the bottom-right
+
+      # Clamped so the box stays fully inside the content area: max left/top is
+      # inner_extent - own_extent. With awidth-iwidth == 28 and box awidth 8 the
+      # furthest left is 20; with aheight-iheight == 10 and box aheight 4 it is 6.
+      # The OLD (awidth/aheight) clamp would have allowed 22 / 8 — letting the box
+      # spill across the panel's right/bottom border.
+      box.left.should eq(20)
+      box.top.should eq(6)
+      # Its absolute right/bottom edge therefore stays within the panel's content.
+      (box.aleft + box.awidth).should be <= (panel.aleft + panel.awidth - panel.iright)
+      (box.atop + box.aheight).should be <= (panel.atop + panel.aheight - panel.ibottom)
+    end
+
     it "clamps the widget within the screen bounds" do
       s = drag_screen # 80x24
       box = Widget::Box.new parent: s, left: 2, top: 2, width: 8, height: 4, draggable: true
@@ -113,6 +138,50 @@ describe "drag-and-drop" do
       move s, -50, -50 # far past the top-left corner
       box.left.should eq(0)
       box.top.should eq(0)
+    end
+
+    it "moves a top-level widget relative to the screen's padded content origin" do
+      # Screen padding insets every top-level widget: a child at left/top 0 lands
+      # at absolute (3, 2), so `aleft == screen.ileft + left`. The drag math must
+      # account for that origin (it used to assume (0, 0)) or the widget jumps by
+      # the padding on the first motion.
+      s = Crysterm::Screen.new(
+        input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+        width: 80, height: 24, padding: Crysterm::Padding.new(left: 3, top: 2, right: 3, bottom: 2))
+      box = Widget::Box.new parent: s, left: 4, top: 3, width: 8, height: 4, draggable: true
+
+      box.aleft.should eq(7) # 3 (padding) + 4
+      box.atop.should eq(5)  # 2 (padding) + 3
+
+      press s, 9, 6 # grab at offset (2, 1) within the box
+      move s, 12, 9 # promote arm -> drag, first motion
+
+      # The grab offset is preserved: the widget's absolute corner follows the
+      # pointer (was off by the padding before the fix).
+      box.aleft.should eq(10) # 12 - 2
+      box.atop.should eq(8)   # 9 - 1
+      # ...which is a screen-relative left/top of (7, 6), NOT the absolute (10, 8).
+      box.left.should eq(7)
+      box.top.should eq(6)
+    end
+
+    it "clamps a top-level widget within the screen's padded content area" do
+      s = Crysterm::Screen.new(
+        input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+        width: 80, height: 24, padding: Crysterm::Padding.new(left: 3, top: 2, right: 3, bottom: 2))
+      box = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
+
+      press s, 3, 2   # grab at offset (0, 0) within the box (its content corner)
+      move s, 4, 3    # promote
+      move s, 999, 999 # yank far past the bottom-right
+
+      # Content area is 80 - iwidth(6) == 74 wide and 24 - iheight(4) == 20 tall;
+      # the furthest left/top is inner_extent - own_extent (74 - 8, 20 - 4).
+      box.left.should eq(66)
+      box.top.should eq(16)
+      # Its absolute right/bottom edge therefore stays within the padded content.
+      (box.aleft + box.awidth).should be <= (s.awidth - s.iright)
+      (box.atop + box.aheight).should be <= (s.aheight - s.ibottom)
     end
   end
 

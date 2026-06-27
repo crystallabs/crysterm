@@ -207,26 +207,49 @@ module Crysterm
     # Absolute origin of this widget's `left`/`top` coordinate space — the point
     # an integer `left`/`top` of 0 maps to in absolute cells. For a nested widget
     # that is the parent's content corner (`parent.aleft + parent.ileft`); for a
-    # top-level (parent-less) widget it is (0, 0) (the screen sits at the origin
-    # with no insets, so `aleft == left`). Used by the drag handler to convert the
-    # pointer's absolute position into a parent-relative `left`/`top`.
+    # top-level (parent-less) widget it is the *screen's* content corner — `(0, 0)`
+    # only when the screen has no padding, but `(screen.ileft, screen.itop)` once
+    # it does, since a top-level widget at `left`/`top` 0 lands *after* the screen
+    # padding (`aleft == screen.ileft + left`; see `screen_decoration.cr`). Used by
+    # the drag handler to convert the pointer's absolute position into a
+    # parent-relative `left`/`top`.
     private def drag_origin : Tuple(Int32, Int32)
       if p = parent
         {p.aleft + p.ileft, p.atop + p.itop}
       else
-        {0, 0}
+        s = screen
+        {s.ileft, s.itop}
       end
     end
 
     # Largest `left`/`top` that keeps the widget within its parent (or the
     # screen, when parented directly to it).
+    #
+    # `left`/`top` are measured from the parent's *content* origin (`drag_origin`
+    # = `parent.aleft + parent.ileft`), so the upper clamp must be the parent's
+    # inner content extent — `awidth - iwidth` (`iwidth` is the summed left+right
+    # inset, see `widget_decoration`) — not the full `awidth`. Using `awidth` let
+    # a nested widget be dragged past the parent's right/bottom border by the
+    # inset amount (border + padding). For a top-level widget the parent is the
+    # screen, whose content extent is likewise `awidth - iwidth` — equal to the
+    # full `awidth` only when the screen has no padding, but correctly smaller
+    # once it does (mirroring `drag_origin`), so the widget can't be dragged across
+    # the padded edge.
     private def drag_max_left : Int32
-      bound = parent.try(&.awidth) || screen.awidth
+      bound = if p = parent
+                p.awidth - p.iwidth
+              else
+                screen.awidth - screen.iwidth
+              end
       {bound - awidth, 0}.max
     end
 
     private def drag_max_top : Int32
-      bound = parent.try(&.aheight) || screen.aheight
+      bound = if p = parent
+                p.aheight - p.iheight
+              else
+                screen.aheight - screen.iheight
+              end
       {bound - aheight, 0}.max
     end
 
