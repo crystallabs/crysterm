@@ -128,6 +128,23 @@ describe Crysterm::Widget::Button do
     b.checked?.should be_false
     states.should eq [true, false]
   end
+
+  it "keeps #value mirroring #checked? for checkable buttons and radios" do
+    s = qt_mem_screen
+    # Base toggle/check/uncheck (used by Button and RadioButton) must update
+    # @value, not just @checked — otherwise #value stays frozen at its initial.
+    b = Crysterm::Widget::Button.new parent: s, checkable: true
+    b.check
+    b.value.should eq true
+    b.uncheck
+    b.value.should eq false
+
+    r = Crysterm::Widget::RadioButton.new parent: s
+    r.check
+    r.value.should eq true
+    r.uncheck
+    r.value.should eq false
+  end
 end
 
 describe Crysterm::Widget::PlainTextEdit do

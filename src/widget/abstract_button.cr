@@ -56,6 +56,7 @@ module Crysterm
       def toggle
         return unless checkable?
         @checked = !@checked
+        @value = @checked # `#value` mirrors `#checked?` for a checkable control
         invalidate_css # `checked` attribute selector may now match/unmatch
         if @checked
           emit Crysterm::Event::Check, @checked
@@ -72,6 +73,7 @@ module Crysterm
         return unless checkable?
         return if checked?
         @checked = true
+        @value = true # `#value` mirrors `#checked?` for a checkable control
         invalidate_css
         emit Crysterm::Event::Check, @checked
         request_render
@@ -83,6 +85,7 @@ module Crysterm
         return unless checkable?
         return unless checked?
         @checked = false
+        @value = false # `#value` mirrors `#checked?` for a checkable control
         invalidate_css
         emit Crysterm::Event::UnCheck, @checked
         request_render
