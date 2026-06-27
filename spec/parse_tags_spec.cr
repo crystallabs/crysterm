@@ -53,4 +53,25 @@ describe "Widget#_parse_tags malformed input" do
     out.should contain "hi"
     out.should contain "\e[1m" # bold on
   end
+
+  # A *recognized* closing tag with no matching opening tag leaves the nesting
+  # stack empty; the close handler must not raise (Crystal's `Array#pop` would).
+  it "does not raise on a recognized closing tag with no matching open" do
+    box = tagged_box
+    out = box._parse_tags("{/bold}")
+    out.should contain "\e[" # emitted the bold "off" SGR rather than crashing
+  end
+
+  it "does not raise on an unmatched fg closing tag, keeping surrounding text" do
+    box = tagged_box
+    out = box._parse_tags("hi{/red-fg}there")
+    out.should contain "hi"
+    out.should contain "there"
+  end
+
+  it "does not raise on more closes than opens" do
+    box = tagged_box
+    out = box._parse_tags("{bold}x{/bold}{/bold}")
+    out.should contain "x"
+  end
 end

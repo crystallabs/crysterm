@@ -555,7 +555,15 @@ module Crysterm
               # if (param !== state[state.size - 1])
               #   throw new Error('Misnested tags.')
               # }
-              state.pop
+              # `pop?` (not `pop`): a recognized closing tag with NO matching open
+              # (e.g. `{/bold}` or `{/red-fg}` on its own, or more closes than
+              # opens) leaves the fg/bg/flag stack empty here. Crystal's `Array#pop`
+              # raises `IndexError` on an empty array — so the bare `pop` crashed
+              # the whole parse on such unbalanced-but-recognized input. Blessed's
+              # JS `array.pop()` returns `undefined` (no throw) and falls through to
+              # emit the tag's "off" SGR; `pop?` reproduces that: it returns nil on
+              # empty, `state.size` stays 0, and we emit `_attr(param, false)`.
+              state.pop?
               outbuf << (state.size > 0 ? screen.tput._attr(state[-1]) : screen.tput._attr(param, false))
             end
             # else: unrecognized closing tag -> dropped
