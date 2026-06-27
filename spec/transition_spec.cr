@@ -80,4 +80,16 @@ describe "CSS @keyframes / animation" do
     sleep 0.3.seconds                              # past the single iteration
     (b.style.alpha.not_nil! > 0.95).should be_true # landed on the final frame
   end
+
+  # CSS property names are case-insensitive, so a `transition` value naming the
+  # animated property in mixed case (`Background-Color`) must be folded to the
+  # lower-cased key the tween driver matches on; otherwise it silently never
+  # tweens.
+  it "folds the animated property name (case-insensitive)" do
+    st = Style.new
+    Crysterm::CSS::Properties.apply(st, "transition", "Background-Color 0.3s linear")
+    trans = st.transitions.not_nil!
+    trans.has_key?("background-color").should be_true
+    trans.has_key?("Background-Color").should be_false
+  end
 end

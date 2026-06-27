@@ -222,7 +222,12 @@ module Crysterm
           next if toks.empty?
           dur = (toks[1]?.try { |t| parse_time(t) }) || 0.3.seconds
           easing = toks[2]?.try { |e| css_easing(e) } || Animation::Easing::InOutSine
-          out[toks[0]] = {dur, easing}
+          # The animated property name is a CSS property — case-insensitive — so
+          # fold it (`Background-Color` == `background-color`). The consumer
+          # (`Widget#apply_style_transitions`) matches it against lower-cased
+          # literals (`"background-color"`, `"opacity"`, …), so an unfolded
+          # capitalized name would silently never tween.
+          out[Case.fold_property(toks[0])] = {dur, easing}
         end
         out.empty? ? nil : out
       end
