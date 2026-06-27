@@ -747,6 +747,31 @@ describe "Splitter multi-pane" do
     sp.divider_position(0).should eq 5
     a.width.should eq 5
   end
+
+  it "pulls pinned dividers back inside a shrunken span without inverting" do
+    s = qt_mem_screen
+    sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10
+    a = Crysterm::Widget::Box.new
+    b = Crysterm::Widget::Box.new
+    c = Crysterm::Widget::Box.new
+    sp.add_pane a
+    sp.add_pane b
+    sp.add_pane c
+
+    # Pin both dividers near the right edge of the wide splitter.
+    sp.set_divider_position 0, 23
+    sp.set_divider_position 1, 35
+
+    # Shrink the splitter far below where the dividers were pinned and relayout.
+    sp.width = 12
+    sp.set_divider_position 1, sp.divider_position(1)
+
+    # Dividers stay ordered and inside the new 12-cell span (each pane >= 1 cell).
+    sp.divider_position(0).should be < sp.divider_position(1)
+    sp.divider_position(1).should be <= 10 # total(12) - 2
+    a.width.as(Int32).should be >= 1
+    b.width.as(Int32).should be >= 1
+  end
 end
 
 describe Crysterm::Widget::Tree do

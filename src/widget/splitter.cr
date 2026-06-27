@@ -205,15 +205,28 @@ module Crysterm
         Math.max(0, span)
       end
 
-      # Clamps divider *i*'s position so each side keeps at least one cell, given
-      # its neighbors.
+      # Clamps divider *i*'s position so the layout stays valid no matter what its
+      # neighbors currently hold. Two constraints combine:
+      #
+      # * *Absolute room* — the panes/dividers on either side each need at least
+      #   one cell, so divider *i* can never go below `1 + 2*i` (panes `0..i-1`
+      #   plus dividers `0..i-1`) nor above `total - 2*(n-1-i)` (panes/dividers on
+      #   the far side). This bound depends only on `total`, so a shrinking span
+      #   pulls every divider back inside it — the previous code clamped solely
+      #   against neighbor *offsets*, letting a divider stay parked past the right
+      #   edge (and invert the panes) after a resize.
+      # * *Non-crossing* — additionally tightened against the live neighbor
+      #   offsets so a dragged divider can't pass the one beside it.
       private def clamp_position(i : Int, pos : Int32) : Int32
         total = total_span
         return pos if total <= 0
-        min = i == 0 ? 1 : @positions[i - 1] + 2
-        max = i == @positions.size - 1 ? total - 2 : @positions[i + 1] - 2
-        max = min if max < min
-        pos.clamp(min, max)
+        n = @panes.size
+        lo = 1 + 2*i
+        hi = total - 2*(n - 1 - i)
+        lo = Math.max(lo, @positions[i - 1] + 2) if i > 0
+        hi = Math.min(hi, @positions[i + 1] - 2) if i < @positions.size - 1
+        hi = lo if hi < lo
+        pos.clamp(lo, hi)
       end
 
       # Distributes the dividers evenly across the available span.
