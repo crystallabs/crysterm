@@ -150,6 +150,28 @@ describe "CSS geometry units" do
     a.style.border.left.should eq 0 # explicit 0 stays 0
   end
 
+  it "scales the border-width longhand's top/bottom edges by the cell aspect ratio" do
+    # A cell is taller than wide, so an absolute width on the top/bottom edges
+    # (a vertical measurement) resolves to fewer cells than on the left/right —
+    # the `border-width` shorthand must agree with the per-side longhands.
+    s = render_screen
+    s.stylesheet = "Box#a { border-width: 200px; } " \
+                   "Box#b { border-top-width: 200px; border-left-width: 200px; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    b = Widget::Box.new parent: s, content: "y"
+    b.css_id = "b"
+    s._render
+    a.style.border.left.should eq 20  # 200 / 10           (horizontal)
+    a.style.border.right.should eq 20
+    a.style.border.top.should eq 10    # 200 / (10 * 2.0)   (vertical)
+    a.style.border.bottom.should eq 10
+    # The per-side longhands resolve the same way — the longhand and shorthand
+    # now agree on the vertical edges.
+    b.style.border.top.should eq a.style.border.top
+    b.style.border.left.should eq a.style.border.left
+  end
+
   it "clamps a negative border width to 0 rather than a negative cell count" do
     # A negative `border-width` longhand is meaningless and must yield 0, not a
     # negative count — a negative side would *shrink* the widget via

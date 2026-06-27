@@ -290,8 +290,13 @@ module Crysterm
         when "border"
           style.border = parse_border(value)
         when "border-width"
-          w = border_cells(value)
-          border.left = border.top = border.right = border.bottom = w
+          # A cell is taller than wide, so the top/bottom edges (whose width is a
+          # *vertical* measurement) scale by the cell aspect ratio just like the
+          # `border-top-width`/`border-bottom-width` longhands and the `border`
+          # shorthand do — otherwise `border-width: 200px` gave a 20-cell top edge
+          # where `border-top-width: 200px` (correctly) gives 10.
+          border.left = border.right = border_cells(value)
+          border.top = border.bottom = border_cells(value, vertical: true)
         when "border-color"
           border.fg = ColorValue.resolve(value, border.fg)
         when "border-top-color"
