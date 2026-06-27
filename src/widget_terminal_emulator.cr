@@ -792,21 +792,43 @@ module Crysterm
       end
     end
 
+    # ICH: open *n* blank cells at the cursor, shifting the rest of the line right
+    # (cells pushed past the end are lost). A single in-place shift — capping *n*
+    # at the cells from the cursor to the line end (a larger count just blanks the
+    # whole tail, so the surplus is a no-op) — instead of *n* O(width) `Array#insert`
+    # calls, so an adversarial `CSI 99999 @` can't spin in O(n·width).
     private def insert_chars(n : Int32) : Nil
       line = cur_line
-      ea = erase_attr
-      n.times do
-        line.insert @x, Cell.new(ea, ' ')
-        line.pop
+      n = Math.min(n, line.size - @x)
+      return if n <= 0
+      blank = Cell.new(erase_attr, ' ')
+      i = line.size - 1
+      while i - n >= @x
+        line[i] = line[i - n]
+        i -= 1
+      end
+      while i >= @x
+        line[i] = blank
+        i -= 1
       end
     end
 
+    # DCH: remove *n* cells at the cursor, shifting the rest of the line left and
+    # backfilling the end with blanks. Same single in-place shift / cap as
+    # `#insert_chars`.
     private def delete_chars(n : Int32) : Nil
       line = cur_line
-      ea = erase_attr
-      n.times do
-        line.delete_at @x if @x < line.size
-        line.push Cell.new(ea, ' ')
+      n = Math.min(n, line.size - @x)
+      return if n <= 0
+      blank = Cell.new(erase_attr, ' ')
+      i = @x
+      while i + n < line.size
+        line[i] = line[i + n]
+        i += 1
+      end
+      while i < line.size
+        line[i] = blank
+        i += 1
       end
     end
 
