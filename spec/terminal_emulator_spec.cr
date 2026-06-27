@@ -233,6 +233,23 @@ describe Crysterm::TerminalEmulator do
     end
   end
 
+  describe "resize" do
+    it "drops rows that fall off the bottom on shrink (no stale content on a later scroll)" do
+      em = emu(4, 6)
+      6.times { |i| em.feed "\e[#{i + 1};1HL#{i}" } # L0..L5 on rows 0..5
+      em.resize(4, 3)                               # shrink: keep top 3 rows, drop L3..L5
+      row(em, 0).should eq "L0"
+      row(em, 1).should eq "L1"
+      row(em, 2).should eq "L2"
+      # A full-screen scroll (LF at the bottom row) must bring up a freshly blank
+      # line, not the orphaned L3 that fell off the bottom on the shrink.
+      em.feed "\e[3;1H\n"
+      row(em, 0).should eq "L1"
+      row(em, 1).should eq "L2"
+      row(em, 2).should eq "" # scrolled-in blank, NOT "L3"
+    end
+  end
+
   describe "origin mode" do
     it "addresses rows relative to the scroll region when DECOM is set" do
       em = emu(10, 6)

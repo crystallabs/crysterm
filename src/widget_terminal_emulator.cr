@@ -900,10 +900,18 @@ module Crysterm
         end
       end
 
-      # Ensure the viewport holds exactly `rows` lines.
+      # Ensure the viewport holds exactly `rows` lines. Growing pads with blanks;
+      # shrinking drops the lines that fell off the bottom of the smaller viewport
+      # (content is preserved at the top-left, matching the per-line column
+      # truncation above). Without the trim those rows linger past the live screen,
+      # and a later full-screen `scroll_up` — which appends at the end of `@lines`
+      # and advances `@ybase` — would shift them back into view instead of the
+      # freshly scrolled-in blank.
       screen_lines = @lines.size - @ybase
       if screen_lines < rows
         (rows - screen_lines).times { @lines << blank_line }
+      elsif screen_lines > rows
+        @lines.pop(screen_lines - rows)
       end
 
       # When on the alt page, grow the parked main buffer's viewport too (it uses
@@ -913,6 +921,8 @@ module Crysterm
         main_screen_lines = ml.size - @main_ybase
         if main_screen_lines < rows
           (rows - main_screen_lines).times { ml << blank_line }
+        elsif main_screen_lines > rows
+          ml.pop(main_screen_lines - rows)
         end
         # A resize resets the scroll margins to the full screen on the active page
         # (just below). Do the same to the *parked* main page, otherwise leaving
