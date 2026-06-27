@@ -173,7 +173,10 @@ module Crysterm
     # `0xRRGGBB`); `fg` selects foreground vs background; the encoding is the
     # richest the terminal's `colors` count allows (TrueColor / 256 / 16 / 8).
     def self.sgr_color_to(io : IO, color : Int, fg : Bool, colors : Int) : Nil
-      if color == -1
+      # A "default" color, or a monochrome target (`colors < 2`, e.g. NO_COLOR /
+      # colors.depth=none): emit the terminal's own default rather than mapping
+      # to any palette entry.
+      if color == -1 || colors < 2
         io << (fg ? "39" : "49")
         return
       end

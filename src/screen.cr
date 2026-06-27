@@ -29,6 +29,34 @@ module Crysterm
     No   # Always use the real terminal, even when non-interactive
   end
 
+  # Explicit output color-depth override, independent of what the terminal
+  # advertises. `Auto` (the default) keeps terminal detection but still honors
+  # the `NO_COLOR` / `FORCE_COLOR` / `CLICOLOR[_FORCE]` environment conventions;
+  # the rest pin a fixed depth. Drives color reduction at output time — see
+  # `Screen#colors` / `Screen.resolve_color_depth`.
+  enum ColorDepth
+    Auto      # Terminal detection (+ the NO_COLOR / FORCE_COLOR / CLICOLOR env vars)
+    None      # Monochrome: emit no color (styles like bold still apply)
+    Basic     # 8 ANSI colors
+    Ansi      # 16 ANSI colors (8 normal + 8 bright)
+    Xterm256  # 256-color palette
+    TrueColor # 24-bit RGB
+
+    # The terminal color-count this depth maps to in `Screen#colors` terms
+    # (1 = monochrome, then 8 / 16 / 256 / 0x1000000). `Auto` has no fixed count
+    # and returns `nil` (the caller falls back to detection + env).
+    def to_count : Int32?
+      case self
+      in Auto      then nil
+      in None      then 1
+      in Basic     then 8
+      in Ansi      then 16
+      in Xterm256  then 256
+      in TrueColor then 0x1000000
+      end
+    end
+  end
+
   # Represents a screen.
   class Screen
     include EventHandler

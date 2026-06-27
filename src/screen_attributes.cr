@@ -7,10 +7,49 @@ module Crysterm
     # internally and only reduced (to 256/16/8) when emitted, based on
     # `#colors`.
 
-    # Number of colors the output terminal supports (2, 8, 16, 256, or
-    # 16_777_216 for TrueColor). Drives color reduction at output time.
-    def colors
-      tput.features.number_of_colors
+    # Number of colors the output terminal supports (1 for monochrome, 8, 16,
+    # 256, or 16_777_216 for TrueColor). Drives color reduction at output time.
+    # The terminal-detected count is overridden by the `colors.depth` config
+    # option and the `NO_COLOR` / `FORCE_COLOR` / `CLICOLOR[_FORCE]` env vars —
+    # see `.resolve_color_depth`.
+    #
+    # Computed fresh on each call (it is read once per frame, not per cell), so
+    # it always reflects the *current* `colors.depth` — including overrides
+    # Superconf applies from a config file / env / CLI flag, at any point — and
+    # the live environment, rather than freezing a value at first paint.
+    def colors : Int32
+      self.class.resolve_color_depth(tput.features.number_of_colors)
+    end
+
+    # Resolves the effective output color count from the `colors.depth` config
+    # option and the `NO_COLOR` / `FORCE_COLOR` / `CLICOLOR[_FORCE]` environment
+    # conventions, falling back to the terminal-*detected* count. Memoized by
+    # `#colors`. Result `1` means monochrome (no color emitted; styles still
+    # apply), then `8` / `16` / `256` / `0x1000000` (TrueColor).
+    def self.resolve_color_depth(detected : Int32) : Int32
+      # An explicit config depth wins outright.
+      if forced = Config.colors_depth.to_count
+        return forced
+      end
+      # https://no-color.org : NO_COLOR present and non-empty disables color.
+      if (v = ENV["NO_COLOR"]?) && !v.empty?
+        return 1
+      end
+      # https://bixense.com/clicolors : CLICOLOR=0 disables; CLICOLOR_FORCE!=0 forces.
+      return 1 if ENV["CLICOLOR"]? == "0"
+      # FORCE_COLOR selects a depth: 0/false off, 1/true 16, 2 256, 3 truecolor.
+      if v = ENV["FORCE_COLOR"]?
+        case v
+        when "0", "false" then return 1
+        when "2"          then return {detected, 256}.max
+        when "3"          then return 0x1000000
+        else                   return {detected, 16}.max
+        end
+      end
+      if (v = ENV["CLICOLOR_FORCE"]?) && v != "0"
+        return {detected, 16}.max
+      end
+      detected
     end
 
     # Whether the output terminal can render the full 24-bit (TrueColor) space,

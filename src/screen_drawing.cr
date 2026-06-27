@@ -143,9 +143,9 @@ module Crysterm
     # emitted only when a frame actually produces output, in the same single
     # write as the frame, so they cost ~14 bytes per changed frame and nothing
     # otherwise. Harmless on terminals that don't support it (they ignore the
-    # markers and auto-release after a short timeout). Default on; set false to
-    # opt out.
-    property? synchronized_output : Bool = true
+    # markers and auto-release after a short timeout). Default from
+    # `Config.render_synchronized_output` (on); set false to opt out globally.
+    property? synchronized_output : Bool = Config.render_synchronized_output
 
     # Draws the screen based on the contents of in-memory grid of cells (`@lines`).
     def draw(start = 0, stop = @lines.size - 1)

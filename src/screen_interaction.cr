@@ -216,6 +216,21 @@ module Crysterm
       tput.request_clipboard selection
     end
 
+    # OSC 7: reports *path* to the terminal as the current working directory, so
+    # terminals that track it ("open new tab/split here", titles) follow along.
+    # *host* is the URI host (empty = local). Routed through tput (tmux-safe);
+    # ignored where unsupported.
+    def report_cwd(path : String, host : String = "") : Nil
+      tput.report_cwd path, host
+    end
+
+    # OSC 9;4: drives the terminal's progress indicator (taskbar / tab badge).
+    # *state*: 0 = clear, 1 = normal (show *progress*, 0–100), 2 = error,
+    # 3 = indeterminate, 4 = warning. Ignored where unsupported.
+    def progress(progress : Int32 = 0, state : Int32 = 1) : Nil
+      tput.progress progress, state
+    end
+
     # Routes one unit of terminal input (`Tput::InputEvent`) to the right
     # Crysterm event. Mouse reports go through the unified mouse path; a paste
     # becomes an `Event::Paste`; an in-band resize feeds the same debounced path

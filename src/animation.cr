@@ -109,6 +109,19 @@ module Crysterm
     # Starts the loop fiber. No-op if already running. Returns self for chaining.
     def start : self
       return self if running?
+
+      # Reduced motion: collapse a *tween* to its final state instantly — one
+      # tick at `value == 1.0`, then stop — instead of animating it. This makes
+      # CSS transitions/fades land immediately. Tickers (decorative effects,
+      # media playback, the shared `Timer`) have no duration and run normally.
+      if @duration && Config.render_reduced_motion
+        @completed = true
+        @value = 1.0
+        @on_tick.call self
+        @on_stop.try &.call
+        return self
+      end
+
       @running = true
       @completed = false
 

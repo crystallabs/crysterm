@@ -54,6 +54,10 @@ module Superconf
   option "render.csr_threshold", 40,
     description: "FastCSR optimization activates when a widget is within this many columns of a screen edge",
     validate: ->(n : Int32) { n > 0 }
+  option "render.synchronized_output", true,
+    description: "Bracket each painted frame in a DEC 2026 synchronized update (\\e[?2026h … \\e[?2026l) so the terminal presents it atomically (no flicker/tearing on a multi-write redraw). Harmless and ignored on terminals that don't support it; set false to opt out globally"
+  option "render.reduced_motion", false,
+    description: "Honor a reduced-motion preference: collapse duration-based animations (CSS transitions, fades, tweens) straight to their final state instead of animating. Decorative looping effects and media playback keep running"
 
   # -- Cursor ----------------------------------------------------------------
   option "cursor.glyph", '▮',
@@ -75,6 +79,8 @@ module Superconf
   option "colors.default_bg", 0x000000,
     description: "Neutral RGB substituted for a 'default' background when it must be blended",
     validate: ->(c : Int32) { 0 <= c <= 0xFFFFFF }
+  option "colors.depth", Crysterm::ColorDepth::Auto,
+    description: "Force the output color depth (auto|none|basic|ansi|xterm256|truecolor). 'auto' uses terminal detection and honors the NO_COLOR / FORCE_COLOR / CLICOLOR[_FORCE] environment variables; the rest pin a fixed depth ('none' = monochrome, with styles like bold still applied)"
 
   # -- CSS units -------------------------------------------------------------
   option "css.px_per_cell", 10.0,
