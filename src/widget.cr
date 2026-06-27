@@ -364,6 +364,18 @@ module Crysterm
     end
 
     def destroy
+      # Stop any animation driving this widget before it goes away. A `#pulse`
+      # (and an infinite CSS `@keyframes`) is a *ticker* that never ends on its
+      # own, so without this its fiber would spin forever on the now-detached
+      # widget — re-running `set_alpha`/`apply_keyframe` and a (no-op)
+      # `request_render` for the life of the process. The tween-based ones
+      # (fades, tints, transitions) would likewise keep ticking until their
+      # duration elapsed. Each stopper is a no-op when nothing is running.
+      stop_fade
+      stop_tint
+      stop_css_animation
+      @style_transitions.try &.each_value &.stop
+
       # Iterate a snapshot: each child's `destroy` calls `remove_from_parent`,
       # which mutates `@children` mid-iteration. Without the `dup`, the
       # index-based `each` would skip every other child, leaking roughly half
