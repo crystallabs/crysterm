@@ -73,6 +73,17 @@ describe "Graph::StackedBar rendering" do
     row_chars(s, 0, 0, 1).should eq "▄" # 4/8 partial top
     row_chars(s, 1, 0, 1).should eq "█" # full bottom
   end
+
+  it "drops a legend entry that does not fit, counting the inter-entry space" do
+    s = render_screen
+    # Width 8: "█ ab" (4 cells) fits; a second entry " █ cd" needs 5 more cells
+    # (separator included) and would overrun, so it must be omitted entirely.
+    Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0, width: 8, height: 2,
+      bar_width: 1, show_legend: true, segment_labels: %w[ab cd], values: [[1.0, 1.0]]
+    s._render
+    # Row 0 is the legend; only the first entry appears, the rest blank.
+    row_chars(s, 0, 0, 8).should eq "█ ab    "
+  end
 end
 
 describe "Gauge rendering" do

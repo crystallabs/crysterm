@@ -214,11 +214,14 @@ module Crysterm
             width = 0
             names.each_with_index do |name, level|
               entry = "#{Scale::FULL} #{name}"
-              # +1 for the separating space between entries.
-              break if width + entry.size > cols
+              # +1 for the separating space between entries (must be in the
+              # overflow check too, not just the running width, or a too-wide
+              # entry overruns the legend by that separator).
+              sep = level > 0 ? 1 : 0
+              break if width + sep + entry.size > cols
               io << ' ' if level > 0
               io << "{#{segment_color(level)}-fg}#{Scale::FULL}{/} #{name}"
-              width += entry.size + (level > 0 ? 1 : 0)
+              width += entry.size + sep
             end
           end
         end

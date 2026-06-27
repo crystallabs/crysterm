@@ -286,7 +286,11 @@ module Crysterm
         end
 
         def line_break(node : Markd::Node, entering : Bool)
-          newline if entering
+          # Inside a GFM table the paragraph's inline children are suppressed
+          # (the table is drawn atomically by `render_table`); a hard break —
+          # which markd emits for a table row ending in trailing spaces — must
+          # be swallowed too, like `soft_break`, or it leaks a stray newline.
+          newline if entering && !@in_table
         end
 
         def html_block(node : Markd::Node, entering : Bool)

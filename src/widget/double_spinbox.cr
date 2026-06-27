@@ -29,7 +29,15 @@ module Crysterm
       property step : Float64 = 1.0
 
       # Number of fractional digits shown (Qt's `QDoubleSpinBox#decimals`).
-      property decimals : Int32 = 2
+      # Never negative — a negative count would make the `"%.*f"` format string
+      # malformed and crash; Qt likewise clamps `setDecimals` at 0.
+      getter decimals : Int32 = 2
+
+      def decimals=(d : Int32) : Int32
+        @decimals = Math.max(d, 0)
+        update_content
+        @decimals
+      end
 
       # Text shown before/after the number.
       property prefix : String = ""
@@ -48,7 +56,7 @@ module Crysterm
         @minimum = 0.0,
         @maximum = 100.0,
         @step = 1.0,
-        @decimals = 2,
+        decimals = 2,
         @prefix = "",
         @suffix = "",
         @editable = true,
@@ -58,6 +66,7 @@ module Crysterm
         super **input
 
         @wrap = wrap
+        @decimals = Math.max(decimals, 0)
         @value = (value || @minimum).clamp(@minimum, @maximum)
 
         handle Crysterm::Event::KeyPress

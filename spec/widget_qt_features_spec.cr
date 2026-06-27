@@ -931,6 +931,17 @@ describe Crysterm::Widget::DoubleSpinBox do
     d.on_keypress keypress('\r', Tput::Key::Enter)
     d.value.should eq 2.5
   end
+
+  it "clamps negative decimals to zero instead of crashing on the format string" do
+    s = qt_mem_screen
+    # A negative count would make `"%.*f"` malformed and raise; Qt clamps at 0.
+    d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0,
+      value: 3.5, decimals: -2
+    d.decimals.should eq 0
+    d.formatted_value.should eq "4" # 3.5 rounded to 0 places
+    d.decimals = -5                  # setter clamps too
+    d.decimals.should eq 0
+  end
 end
 
 describe "Slider tick marks" do
