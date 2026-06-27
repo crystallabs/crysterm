@@ -213,5 +213,32 @@ require "http/client"
         fail "colon-bearing named action was not forwarded to the handler"
       end
     end
+
+    it "removes a top-level widget from the screen (not just nested children)" do
+      # A top-level widget (placed straight on the screen by the loader) has no
+      # widget parent, so the `remove` command must detach it from the *screen*.
+      # Using `remove_from_parent` here was a silent no-op: it reported a match
+      # but left the widget on screen.
+      s = headless_screen
+      s.load_layout %(<w-screen>) +
+                    %(<w-box id="top"><w-box id="nested"></w-box></w-box>) +
+                    %(</w-screen>)
+      Crysterm::HTTPBridge.new(s, port: 7107).start
+      sleep 100.milliseconds
+      base = "http://127.0.0.1:7107/rpc"
+
+      s.find_by_id("top").should_not be_nil
+      before = s.children.size
+
+      gone = HTTP::Client.post(base,
+        body: %({"jsonrpc":"2.0","id":1,"method":"remove","params":{"selector":"#top"}}))
+      JSON.parse(gone.body)["result"].as_i.should eq 1
+
+      # Actually detached: off the screen and no longer findable (the nested
+      # child goes with it).
+      s.children.size.should eq before - 1
+      s.find_by_id("top").should be_nil
+      s.find_by_id("nested").should be_nil
+    end
   end
 {% end %}

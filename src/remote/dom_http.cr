@@ -269,7 +269,18 @@ module Crysterm
       when "focus"
         each_match(selector, &.focus)
       when "remove"
-        n = each_match(selector, &.remove_from_parent)
+        # Detach from wherever the widget is attached. `remove_from_parent` only
+        # unlinks a *nested* widget (`@parent.try &.remove`); a top-level widget
+        # (anything `DOM.load`/`append` places straight on the screen) has no
+        # widget parent, so it must be removed from the screen instead — otherwise
+        # the command reports a match but leaves the widget on screen.
+        n = each_match(selector) do |w|
+          if p = w.parent
+            p.remove w
+          else
+            w.screen?.try &.remove w
+          end
+        end
         on_ui { rewire } # re-wire on the render fiber, like every other mutation
         n
       when "append"

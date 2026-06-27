@@ -40,6 +40,23 @@ require "./spec_helper"
       s.find_by_id("panel").not_nil!.css_classes.includes?("open").should be_false
     end
 
+    it "fires a non-button widget's onclick on a real click (and makes it hit-testable)" do
+      s = headless_screen
+      s.load_layout %(<w-screen>) +
+                    %(<w-box id="panel"></w-box>) +
+                    %(<w-box id="trigger" onclick="toggle-class:#panel:open"></w-box>) +
+                    %(</w-screen>)
+      s.wire_dom_actions
+
+      trigger = s.find_by_id("trigger").not_nil!
+      # A plain box doesn't emit Press, so the binding must go to Click — which
+      # also makes the box mouse-responsive so a click can actually reach it.
+      trigger.wants_mouse?.should be_true
+
+      trigger.emit Crysterm::Event::Click
+      s.find_by_id("panel").not_nil!.css_classes.includes?("open").should be_true
+    end
+
     it "sets content via a declarative action" do
       s = headless_screen
       s.load_layout %(<w-screen>) +

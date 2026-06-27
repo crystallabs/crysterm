@@ -43,7 +43,21 @@ module Crysterm
     def self.on_widget_event(widget : Widget, event_name : String, &block : String, String? ->) : Nil
       case event_name
       when "click", "press"
-        widget.on(::Crysterm::Event::Press) { block.call "press", nil }
+        # `Event::Press` is emitted *only* by `Widget::AbstractButton#activate`,
+        # and it fires for both a mouse click and a keyboard activation
+        # (Enter/Space) — so a button's declarative `onclick` (or a `"press"`
+        # subscription) reacts to either, matching a browser button. Any *other*
+        # widget never emits `Press`: binding it there would never fire, and —
+        # since `Widget#wants_mouse?` does not count `Press` handlers — the widget
+        # wouldn't even be hit-tested, so its `onclick` was silently dead. Bind
+        # those to `Event::Click`, which the screen emits on a mouse press over any
+        # hit-tested widget; registering the `Click` handler also makes the widget
+        # mouse-responsive (`#wants_mouse?`), so the click can reach it.
+        if widget.is_a?(::Crysterm::Widget::AbstractButton)
+          widget.on(::Crysterm::Event::Press) { block.call "press", nil }
+        else
+          widget.on(::Crysterm::Event::Click) { block.call "click", nil }
+        end
       when "submit"
         widget.on(::Crysterm::Event::Submit) { |e| block.call "submit", e.value }
       when "focus"

@@ -393,7 +393,19 @@ module Crysterm
         tip.destroy
         @_tooltip = nil
       end
-      remove_from_parent
+      # Detach from wherever this widget actually lives. `remove_from_parent`
+      # only unlinks a *nested* widget (`@parent.try &.remove`); a top-level
+      # widget — one added straight onto a `Screen` (where it has no widget
+      # parent, only a stored `@screen`) — would otherwise be left sitting in
+      # `screen.children` after `destroy`: still painted every frame, still
+      # keyable, and still potentially holding focus/hover/grab (none of the
+      # `Screen#remove` teardown would have run). Remove it from the screen in
+      # that case, mirroring the DOM bridge's "remove" command.
+      if @parent
+        remove_from_parent
+      else
+        screen?.try &.remove self
+      end
       emit Crysterm::Event::Destroy
     end
 
