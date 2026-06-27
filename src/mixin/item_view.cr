@@ -593,8 +593,16 @@ module Crysterm
         invalidate_item_index
         @items.insert i, item
         append item
-        if i == selected
-          selekt i + 1
+        # Keep the single-selection cursor on the same logical item. Inserting a
+        # row at or before the cursor shifts every row from the cursor onward
+        # (including the selected one) down by one, so the cursor must slide down
+        # with them — exactly as the multi-selection indices are slid above
+        # (`s >= i`), and the mirror of the realignment `remove_item` performs.
+        # The old `i == selected` guard only caught an insert *at* the cursor; an
+        # insert *before* it (`i < selected`) left `@selected` pointing at a
+        # different item, with `@value` going stale.
+        if i <= selected
+          selekt selected + 1
         end
         emit Crysterm::Event::InsertItem
       end
