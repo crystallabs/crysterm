@@ -131,6 +131,17 @@ module Crysterm
             if has = rule.has
               nodes = nodes.select { |node| has_descendant?(node, has) }
             end
+            # Ancestor-position `:has(...)` (`Form:has(.error) Button`): the
+            # structural selector already pins the subject under the qualifier
+            # compound; additionally require some matching ancestor to satisfy
+            # the relational `:has` (it has an `inner` descendant). Each condition
+            # must hold (logical AND).
+            if anc = rule.ancestor_has
+              anc.each do |(qualifier, inner)|
+                qualified = qualified_ancestors(sheet, doc, qualifier, inner, selector_cache)
+                nodes = qualified.empty? ? [] of HTML5::Node : nodes.select { |node| descends_from?(node, qualified) }
+              end
+            end
             # A state pseudo-class rule (`:hover`/`:selected`/`:focus`/…) styles a
             # *state*, which is conceptually more specific than the state-agnostic
             # inline `@style`: a themed selection/hover highlight must show even on
@@ -290,6 +301,39 @@ module Crysterm
       private def self.has_descendant?(node : HTML5::Node, inner : String) : Bool
         !node.css(inner).empty?
       rescue
+        false
+      end
+
+      # The set of nodes matching *qualifier* (an ancestor compound) that satisfy
+      # its relational `:has(inner)` — i.e. have an *inner* descendant. The bare
+      # *qualifier* match is cached in *cache* alongside the rule selectors (same
+      # selector against the same document yields the same nodes).
+      private def self.qualified_ancestors(sheet : Stylesheet, doc : HTML5::Node, qualifier : String, inner : String, cache : Hash(String, Array(HTML5::Node))) : Set(HTML5::Node)
+        base = cache.fetch(qualifier) do
+          matched = if compiled = sheet.compiled_selector(qualifier)
+                      begin
+                        compiled.select(doc)
+                      rescue
+                        [] of HTML5::Node
+                      end
+                    else
+                      [] of HTML5::Node
+                    end
+          cache[qualifier] = matched
+        end
+        set = Set(HTML5::Node).new
+        base.each { |n| set << n if has_descendant?(n, inner) }
+        set
+      end
+
+      # Whether *node* is a descendant of any node in *ancestors* (walking the
+      # parent chain; `Set(HTML5::Node)` uses reference identity).
+      private def self.descends_from?(node : HTML5::Node, ancestors : Set(HTML5::Node)) : Bool
+        cur = node.parent
+        while cur
+          return true if ancestors.includes?(cur)
+          cur = cur.parent
+        end
         false
       end
 

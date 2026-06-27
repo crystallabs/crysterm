@@ -43,7 +43,7 @@ module Crysterm
                 arg_end = Selectors.skip_balanced(chars, name_end, '(', ')')
                 if RECURSIVE_PSEUDOS.includes?(name)
                   arg = String.build { |str| (name_end + 1...arg_end - 1).each { |idx| str << chars[idx] } }
-                  aa, bb, cc = calculate(arg)
+                  aa, bb, cc = max_specificity(arg)
                   a += aa; b += bb; c += cc
                 elsif name != "where"
                   b += 1
@@ -76,6 +76,46 @@ module Crysterm
           i += 1
         end
         i
+      end
+
+      # The specificity a functional pseudo-class (`:is()`/`:not()`/`:has()`)
+      # contributes for *arg*, its argument: per Selectors Level 4 this is the
+      # specificity of its *most specific* argument — the maximum over the
+      # comma-separated list, NOT the sum. Each argument's full `(a, b, c)` is
+      # computed and the tuples compared lexicographically (`Tuple` is
+      # `Comparable`), so the single argument with the highest overall
+      # specificity wins. An empty argument list contributes nothing.
+      private def self.max_specificity(arg : String) : Tuple(Int32, Int32, Int32)
+        best = {0, 0, 0}
+        each_top_level_arg(arg) do |part|
+          s = calculate(part)
+          best = s if s > best
+        end
+        best
+      end
+
+      # Yields each top-level (comma-separated) argument of a functional
+      # pseudo-class, skipping commas nested inside `[...]`/`(...)` or quoted
+      # strings so a selector list like `:is(.a, [x=","] b)` splits correctly.
+      private def self.each_top_level_arg(arg : String, & : String ->) : Nil
+        chars = arg.chars
+        n = chars.size
+        i = 0
+        start = 0
+        while i < n
+          case chars[i]
+          when '['       then i = Selectors.skip_balanced(chars, i, '[', ']')
+          when '('       then i = Selectors.skip_balanced(chars, i, '(', ')')
+          when '"', '\'' then i = Selectors.skip_string(chars, i)
+          when ','
+            yield arg[start...i]
+            i += 1
+            start = i
+          else
+            i += 1
+          end
+        end
+        yield arg[start..]
       end
 
     end

@@ -1219,6 +1219,31 @@ describe "CSS cascade" do
     f2.styles.normal.fg.should be_nil        # checkbox is a grandchild, not a direct child
   end
 
+  it "applies an ancestor-position :has() rule to the right widget" do
+    without_default_theme do
+      screen = headless_screen
+      # f1's Button should match: its ancestor Form has an .error descendant.
+      f1 = Widget::Form.new
+      err = Widget::Box.new
+      err.add_css_class "error"
+      b1 = Widget::Button.new
+      f1.append err
+      f1.append b1
+      # f2's Button should not: its Form has no .error descendant.
+      f2 = Widget::Form.new
+      b2 = Widget::Button.new
+      f2.append b2
+      screen.append f1
+      screen.append f2
+
+      screen.stylesheet = "Form:has(.error) Button { color: red; }"
+      screen.apply_stylesheet
+
+      b1.styles.normal.fg.should eq rgb("red")
+      b2.styles.normal.fg.should be_nil
+    end
+  end
+
   it "computes per-cell styles for a table (Cell / Header / :nth-child)" do
     screen = headless_screen
     table = Widget::Table.new parent: screen, rows: [["A", "B"], ["1", "2"], ["3", "4"]]
@@ -1478,6 +1503,35 @@ describe "CSS cascade" do
       # The id selector is more specific, so it wins on the selected state.
       list.styles.selected.bg.should eq rgb("green")
     end
+  end
+end
+
+describe "CSS::Specificity" do
+  spec = ->(s : String) { Crysterm::CSS::Specificity.calculate(s) }
+
+  it "counts ids, classes/attrs/pseudos, and types" do
+    spec.call("#id").should eq({1, 0, 0})
+    spec.call(".cls").should eq({0, 1, 0})
+    spec.call("[attr]").should eq({0, 1, 0})
+    spec.call(":hover").should eq({0, 1, 0})
+    spec.call("Box").should eq({0, 0, 1})
+    spec.call("::before").should eq({0, 0, 1})
+    spec.call("Form #id .cls Button").should eq({1, 1, 2})
+  end
+
+  it "takes the MAX (not sum) of a functional pseudo-class's argument list" do
+    # :is()/:not()/:has() contribute the specificity of their most specific
+    # argument, comparing each argument's (a, b, c) tuple — not the sum.
+    spec.call(":is(.a, #b)").should eq({1, 0, 0})      # #b wins, not (1,1,0)
+    spec.call(":not(.a, .b, .c)").should eq({0, 1, 0}) # one class, not three
+    spec.call(":has(.a, Box Box)").should eq({0, 1, 0}) # .a (0,1,0) > two types (0,0,2)
+    # Combined with surrounding simple selectors, the max is just added in.
+    spec.call("Button:is(.a, #b)").should eq({1, 0, 1})
+  end
+
+  it "treats :where() as contributing zero specificity" do
+    spec.call(":where(#a, .b, Box)").should eq({0, 0, 0})
+    spec.call("Button:where(#big)").should eq({0, 0, 1})
   end
 end
 

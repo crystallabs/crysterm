@@ -76,11 +76,21 @@ module Crysterm
       # (`:has` is implemented here because the `html5` selector engine lacks it.)
       getter has : String?
 
+      # `:has(...)` relational conditions borne by an *ancestor* compound (e.g.
+      # `Form:has(.error) Button` — the `:has` is on `Form`, not the subject
+      # `Button`), or `nil`. Each entry is `{qualifier, inner}`: *qualifier* is
+      # the type-expanded selector for the ancestor up to and including the
+      # has-bearing compound (with the `:has(...)` itself removed, since the
+      # `html5` engine can't parse it), and *inner* is the type-expanded
+      # relative selector. A matched subject is kept only if it descends from a
+      # node matching *qualifier* that has an *inner* descendant.
+      getter ancestor_has : Array(Tuple(String, String))?
+
       # The `@layer` rank this rule belongs to (lower = declared earlier = lower
       # priority). Unlayered rules use `UNLAYERED`, which outranks every layer.
       getter layer_rank : Int32
 
-      def initialize(@selector, @declarations, @important, @state, @specificity, @order, @media = nil, @has = nil, @layer_rank = UNLAYERED)
+      def initialize(@selector, @declarations, @important, @state, @specificity, @order, @media = nil, @has = nil, @layer_rank = UNLAYERED, @ancestor_has = nil)
       end
     end
 
@@ -367,12 +377,16 @@ module Crysterm
           prefix, subject = split_subject(selector)
           state, subject = peel_state(subject)
           has, subject = peel_has(subject)
+          # `:has(...)` borne by an ancestor compound (`Form:has(.error) Button`)
+          # is peeled separately: the engine can't parse `:has`, so it's stripped
+          # from the structural prefix and evaluated relationally in the cascade.
+          ancestor_has, prefix = peel_ancestor_has(prefix)
           # Lower any *remaining* state pseudos — ancestor ones in the prefix and
           # any nested in the subject (e.g. `:not(:focus)`) — to `.state-*`
           # classes that match the document's stamped state. The subject's own
           # top-level state was already peeled above and carried on the rule.
           structural = Selectors.expand_types(lower_state_pseudos(prefix + subject))
-          ctx.rules << Rule.new(structural, declarations, important, state, spec, ctx.order, media, has, layer_rank)
+          ctx.rules << Rule.new(structural, declarations, important, state, spec, ctx.order, media, has, layer_rank, ancestor_has)
           ctx.order += 1
         end
       end
@@ -642,6 +656,64 @@ module Crysterm
         remaining = (selector[0...idx] + selector[(close + 1)..]).strip
         remaining = "*" if remaining.empty?
         {Selectors.expand_types(inner), remaining}
+      end
+
+      # Peels every `:has(...)` borne by an *ancestor* compound out of *prefix*
+      # (the part of the selector before the subject), returning
+      # `{conditions, prefix_without_has}`. Each condition is
+      # `{qualifier, inner}` — see `Rule#ancestor_has`. The structural prefix
+      # has all `:has(...)` stripped (the `html5` engine can't parse it); the
+      # `:has` is then re-applied relationally in the cascade.
+      private def self.peel_ancestor_has(prefix : String) : Tuple(Array(Tuple(String, String))?, String)
+        return {nil, prefix} unless prefix.includes?(":has(")
+        conditions = [] of Tuple(String, String)
+        search = 0
+        while idx = prefix.index(":has(", search)
+          open = idx + 4 # index of '('
+          close = matching_paren(prefix, open)
+          break unless close
+          inner = prefix[(open + 1)...close].strip
+          inner = ":scope #{inner}" if inner.starts_with?('>') || inner.starts_with?('+') || inner.starts_with?('~')
+          # The qualifier matches the ancestor: everything up to the end of the
+          # compound bearing this `:has`, with all `:has(...)` removed and types
+          # lowered exactly as the structural selector is.
+          compound_end = compound_end_index(prefix, close + 1)
+          qualifier = Selectors.expand_types(lower_state_pseudos(strip_has(prefix[0...compound_end]))).strip
+          conditions << {qualifier, Selectors.expand_types(inner)} unless qualifier.empty?
+          search = close + 1
+        end
+        {conditions.empty? ? nil : conditions, strip_has(prefix)}
+      end
+
+      # Index of the end of the compound that begins at/contains *from* — the
+      # first top-level combinator (space/`>`/`+`/`~`) at or after *from*, or the
+      # end of *selector*. Combinators inside `[...]`/`(...)` are ignored.
+      private def self.compound_end_index(selector : String, from : Int32) : Int32
+        depth = 0
+        i = from
+        while i < selector.size
+          case selector[i]
+          when '[', '(' then depth += 1
+          when ']', ')' then depth -= 1
+          when ' ', '>', '+', '~'
+            return i if depth == 0
+          end
+          i += 1
+        end
+        selector.size
+      end
+
+      # Removes every `:has(...)` span from *selector* (the `html5` engine can't
+      # parse `:has`, so it's evaluated relationally in the cascade instead).
+      private def self.strip_has(selector : String) : String
+        result = selector
+        while idx = result.index(":has(")
+          open = idx + 4
+          close = matching_paren(result, open)
+          break unless close
+          result = result[0...idx] + result[(close + 1)..]
+        end
+        result
       end
 
       # Index of the `)` matching the `(` at *open*, honoring nesting; `nil` if
