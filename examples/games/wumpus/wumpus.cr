@@ -212,45 +212,14 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
 
   # ---- Flags -----------------------------------------------------------------
 
-  private def mesg?
-    @opt["mesg"]
-  end
-
-  private def prompts?
-    @opt["prompts"]
-  end
-
-  private def bump?
-    @opt["bump"]
-  end
-
-  private def crooked?
-    @opt["crooked"]
-  end
-
-  private def same?
-    @opt["same"]
-  end
-
-  private def back?
-    @opt["back"]
-  end
-
-  private def reveal?
-    @opt["reveal"]
-  end
-
-  private def gap?
-    @opt["gap"]
-  end
-
-  private def score?
-    @opt["score"]
-  end
-
-  private def wimpus?
-    @opt["wimpus"]
-  end
+  # Give every flag a `<name>?` predicate that reads the live option, so call
+  # sites read as `mesg?` rather than `@opt["mesg"]`. Generated straight from
+  # FLAGS so the predicates and the flag list can never drift apart.
+  {% for flag in @type.constant("FLAGS") %}
+    private def {{flag.id}}?
+      @opt[{{flag}}]
+    end
+  {% end %}
 
   # Pick original (1973) vs modern (2026) wording for a line, per the mesg flag.
   private def w(orig : String, modern : String) : String
@@ -359,9 +328,6 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   # ---- Game setup ------------------------------------------------------------
 
   private def new_game(reuse = false)
-    # say if @started # blank line between the previous game and this fresh prolog
-    @started = true
-
     if reuse
       # "SAME SET-UP": restore the exact starting cave.
       @player, @wumpus = @start_player, @start_wumpus
@@ -383,7 +349,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     @prev_player = @player
     @prev_wumpus = @wumpus
 
-    say
+    say if @started # a blank line between games, but not above the very first
+    @started = true
     if mesg?
       say "HUNT THE WUMPUS"
     else
