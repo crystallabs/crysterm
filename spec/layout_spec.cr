@@ -75,6 +75,19 @@ describe Crysterm::Layout::UniformGrid do
       {0, 8, 2, 4}, {8, 16, 2, 4}, {16, 24, 2, 4},
     ]
   end
+
+  it "ignores layout-excluded chrome when sizing the uniform column" do
+    s = headless_screen
+    box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 12,
+      layout: Layout::UniformGrid.new, overflow: :ignore
+    # A full-width excluded layer (e.g. a background-image) must not widen the
+    # uniform column and collapse the grid to a single column.
+    Widget::Box.new(parent: box, width: 30, height: 12).layout_excluded = true
+    cells = Array.new(3) { Widget::Box.new parent: box, width: 8, height: 2 }
+
+    s._render
+    cells.map { |c| c.lpos.not_nil!.xi }.should eq [0, 8, 16]
+  end
 end
 
 describe Crysterm::Layout::Masonry do
