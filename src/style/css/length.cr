@@ -192,7 +192,7 @@ module Crysterm
       # smaller/larger side. `nil` if *value* isn't a viewport unit.
       def self.viewport_cells(value : String, screen_width : Int32, screen_height : Int32) : Int32?
         return unless m = value.strip.match(VIEWPORT)
-        basis = case m[2].downcase # CSS units are case-insensitive (`10VW`)
+        basis = case Case.fold_unit(m[2]) # CSS units are case-insensitive (`10VW`)
                 when "vw"   then screen_width
                 when "vh"   then screen_height
                 when "vmin" then {screen_width, screen_height}.min

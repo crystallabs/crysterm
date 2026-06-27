@@ -274,11 +274,10 @@ module Crysterm
       private def self.handle_statement(prelude : String, parents : Array(String), declarations, important, layer_rank : Int32, ctx : ParseCtx) : Nil
         return if prelude.empty?
         # At-rule *names* are case-insensitive (`@IMPORT`/`@Layer`); the slice
-        # offsets are by the (fixed) name length, so they hold for any casing.
-        lower = prelude.downcase
-        if lower.starts_with?("@import")
+        # offsets below are by the (fixed) name length, so they hold for any casing.
+        if Case.at_rule?(prelude, "import")
           handle_import prelude, layer_rank, ctx
-        elsif lower.starts_with?("@layer")
+        elsif Case.at_rule?(prelude, "layer")
           prelude[6..].split(',').each { |name| ctx.layer_rank(name.strip) unless name.strip.empty? }
         elsif parents.empty?
           ctx.warnings << "stray content at top level: #{prelude.inspect}"
@@ -291,13 +290,12 @@ module Crysterm
       # itself nest further rules).
       private def self.handle_block(prelude : String, body : String, parents : Array(String), media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
         # At-rule names are case-insensitive (`@MEDIA`/`@Keyframes`); the slice
-        # offsets are by the (fixed) name length, so they hold for any casing.
-        lower = prelude.downcase
-        if lower.starts_with?("@keyframes")
+        # offsets below are by the (fixed) name length, so they hold for any casing.
+        if Case.at_rule?(prelude, "keyframes")
           parse_keyframes prelude[10..].strip, body, ctx
-        elsif lower.starts_with?("@media")
+        elsif Case.at_rule?(prelude, "media")
           parse_scope body, parents, MediaQuery.parse(prelude[6..].strip), layer_rank, ctx
-        elsif lower.starts_with?("@layer")
+        elsif Case.at_rule?(prelude, "layer")
           name = prelude[6..].strip
           parse_scope body, parents, media, (name.empty? ? layer_rank : ctx.layer_rank(name)), ctx
         else
@@ -464,8 +462,8 @@ module Crysterm
       # few times so a variable whose value itself uses `var()` resolves too.
       def self.resolve_var(value : String, variables : Hash(String, String)) : String
         # `var(` is a CSS function name and so case-insensitive (`VAR(--x)`); the
-        # custom-property *name* inside it stays case-sensitive.
-        return value unless value.matches?(VAR_CALL)
+        # custom-property *name* inside it stays case-sensitive (see `Case::VAR_CALL`).
+        return value unless value.matches?(Case::VAR_CALL)
         result = value
         4.times do
           replaced = replace_vars(result, variables)
@@ -482,13 +480,8 @@ module Crysterm
       # `)` behind once the outer name resolves. A defined name takes its value
       # and drops the fallback; an undefined one falls back (which may itself hold
       # a `var()`, resolved on the next `resolve_var` iteration), else empty.
-      # Matches a `var(` function-call opener, case-insensitively (CSS function
-      # names are case-insensitive). The opener is always 4 chars (`v a r (`)
-      # regardless of case, so the matched start index + 3 is still the `(`.
-      VAR_CALL = /var\(/i
-
       private def self.replace_vars(value : String, variables : Hash(String, String)) : String
-        idx = value.index(VAR_CALL)
+        idx = value.index(Case::VAR_CALL)
         return value unless idx
         open = idx + 3 # index of the '('
         close = matching_paren(value, open)
