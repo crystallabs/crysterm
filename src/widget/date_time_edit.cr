@@ -101,7 +101,7 @@ module Crysterm
         h, mi, s = @datetime.hour, @datetime.minute, @datetime.second
         dim = nil
         case @section
-        when 0 then y += delta
+        when 0 then y = (y + delta).clamp(1, 9999) # `Time` only supports years 1..9999
         when 1 then mo = wrap(mo - 1, delta, 12) + 1
         when 2 then d = wrap(d - 1, delta, dim = Time.days_in_month(y, mo)) + 1
         when 3 then h = wrap(h, delta, 24)

@@ -77,10 +77,13 @@ module Crysterm
 
             if @orientation.horizontal?
               pos = e.x - aleft - ileft
-              span = awidth - iwidth
+              span = awidth - iwidth - 1
             else
-              pos = e.y - atop - itop
-              span = aheight - iheight
+              # The vertical bar fills bottom-up (see `#render`), so invert the
+              # axis: a click near the top reads as full, near the bottom as
+              # empty (mirrors `Slider`'s vertical mapping).
+              span = aheight - iheight - 1
+              pos = span - (e.y - atop - itop)
             end
             next if span <= 0
 
@@ -138,10 +141,15 @@ module Crysterm
       def render
         with_inner_coords do |xi, xl, yi, yl|
           pct = filled
+          # Filled sub-region (the rest of the interior stays unfilled). Kept in
+          # separate variables so `xi`/`xl`/`yi`/`yl` remain the full interior for
+          # the text/content overlay below.
+          fill_xl = xl
+          fill_yi = yi
           if @orientation.horizontal?
-            xl = xi + ((xl - xi) * (pct / 100)).to_i
+            fill_xl = xi + ((xl - xi) * (pct / 100)).to_i
           else
-            yi = yi + ((yl - yi) - (((yl - yi) * (pct / 100)).to_i))
+            fill_yi = yi + ((yl - yi) - (((yl - yi) * (pct / 100)).to_i))
           end
 
           # NOTE We invert fg and bg here, so that progressbar's filled value would be
@@ -154,15 +162,16 @@ module Crysterm
 
           # TODO Is this approach with using drawing routines valid, or it would be
           # better that we do this in-memory only here?
-          screen.fill_region default_attr, style.percent_char, xi, xl, yi, yl
+          screen.fill_region default_attr, style.percent_char, xi, fill_xl, fill_yi, yl
 
           # Determine the text to overlay: the Qt-style indicator when enabled,
           # otherwise any pre-parsed content (materialized via `#pcontent`).
           if show_text?
             draw_overlay_text formatted_text
           elsif !(pc = pcontent).empty?
-            screen.lines[yi]?.try do |line|
+            screen.lines[fill_yi]?.try do |line|
               pc.each_char_with_index do |c, i|
+                break if xi + i >= xl
                 line[xi + i]?.try do |cell|
                   cell.char = c
                 end

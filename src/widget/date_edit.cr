@@ -109,7 +109,7 @@ module Crysterm
         dim = nil
         case @section
         when 0 # year
-          y += delta
+          y = (y + delta).clamp(1, 9999) # `Time` only supports years 1..9999
         when 1 # month, wrapping 1..12
           m = wrap(m - 1, delta, 12) + 1
         else # day, wrapping 1..days-in-month

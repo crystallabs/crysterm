@@ -161,7 +161,9 @@ module Crysterm
         @options = opts.to_a
         @selected = @selected.clamp(0, Math.max(0, @options.size - 1))
         @value = @options[@selected]? || ""
-        @text = @value
+        # Keep the edit buffer empty so the box shows the committed value (and the
+        # popup isn't pre-filtered) — matching `#set_value`.
+        @text = ""
         refilter
         update_content
         request_render
@@ -176,7 +178,10 @@ module Crysterm
         pop = ensure_popup
         refilter
         pop.set_items @filtered
-        pop.selekt 0
+        # Land the highlight on the current selection (Qt opens a combo with the
+        # current item highlighted). In editable mode the popup is a freshly
+        # filtered list, so start at the top.
+        pop.selekt(editable? ? 0 : @selected.clamp(0, Math.max(0, @filtered.size - 1)))
         position_popup pop
         show_popup pop, focus_popup: !editable?
       end

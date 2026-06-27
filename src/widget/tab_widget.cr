@@ -258,6 +258,14 @@ module Crysterm
 
         @switching = true
         bar.remove_item index
+        # Each remaining command still holds the absolute index captured when it
+        # was added (`bar.add … { show_tab index }`); after the removal those go
+        # stale, so re-point every callback at its current position (as
+        # `#move_tab` does). Otherwise pressing Enter on a tab past the removed
+        # one runs a stale callback and jumps to the wrong page.
+        @tab_titles.each_with_index do |_, i|
+          bar.commands[i].callback = -> { show_tab i }
+        end
         @switching = false
 
         remove page

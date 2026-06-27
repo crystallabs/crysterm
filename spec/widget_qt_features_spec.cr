@@ -1803,3 +1803,87 @@ describe "Horizontal scroll API (workstream D)" do
     box.get_scroll.should eq 2   # vertical axis moved (combined position)
   end
 end
+
+# Regression specs for the cycle-4 concrete-widget bug fixes.
+
+private def mouse_down(x : Int32, y : Int32)
+  Crysterm::Event::Mouse.new(
+    Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, x, y))
+end
+
+describe "ProgressBar vertical mouse mapping" do
+  it "maps a click near the top to a high fill (bottom-up bar)" do
+    s = qt_mem_screen
+    pb = Crysterm::Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 3, height: 6,
+      orientation: Tput::Orientation::Vertical, mouse: true, minimum: 0, maximum: 100
+    s._render
+    # Top of the bar => full; bottom => empty (the bar fills bottom-up).
+    pb.emit Crysterm::Event::Mouse, mouse_down(pb.aleft, pb.atop).mouse
+    pb.filled.should eq 100
+    pb.emit Crysterm::Event::Mouse, mouse_down(pb.aleft, pb.atop + pb.aheight - 1).mouse
+    pb.filled.should eq 0
+  end
+end
+
+describe "Form radio buttons" do
+  it "includes radio buttons in submit and resets them" do
+    s = qt_mem_screen
+    form = Crysterm::Widget::Form.new parent: s, width: 20, height: 10
+    Crysterm::Widget::RadioButton.new parent: form, name: "choice", content: "A", checked: true
+    Crysterm::Widget::RadioButton.new parent: form, name: "choice", content: "B"
+    form.submit["choice"].should eq "true\nfalse"
+    form.reset
+    form.submit["choice"].should eq "false\nfalse"
+  end
+end
+
+describe "ComboBox opening" do
+  it "highlights the current selection when opened (non-editable)" do
+    s = qt_mem_screen
+    cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b", "c"], selected: 2
+    cb.open
+    cb.@popup.not_nil!.selected.should eq 2
+  end
+
+  it "leaves the edit buffer empty after replacing options" do
+    s = qt_mem_screen
+    cb = Crysterm::Widget::ComboBox.new parent: s, editable: true, options: ["a", "b"]
+    cb.options = ["xx", "yy"]
+    cb.@text.should eq ""
+  end
+end
+
+describe "DateEdit year clamping" do
+  it "does not crash when stepping the year past Time's 1..9999 range" do
+    s = qt_mem_screen
+    de = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(1, 1, 1), calendar_popup: false
+    de.on_keypress keypress('\0', Tput::Key::Left)  # day -> month
+    de.on_keypress keypress('\0', Tput::Key::Left)  # month -> year
+    de.on_keypress keypress('\0', Tput::Key::Down)  # year - 1 would be year 0
+    de.date.year.should eq 1
+
+    de2 = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(9999, 1, 1), calendar_popup: false
+    de2.on_keypress keypress('\0', Tput::Key::Left)
+    de2.on_keypress keypress('\0', Tput::Key::Left)
+    de2.on_keypress keypress('\0', Tput::Key::Up)
+    de2.date.year.should eq 9999
+  end
+end
+
+describe "TabWidget remove_tab" do
+  it "keeps tab command callbacks pointing at the right page after a removal" do
+    s = qt_mem_screen
+    tw = Crysterm::Widget::TabWidget.new parent: s, width: 40, height: 12
+    pa = Crysterm::Widget::Box.new content: "A"
+    pb = Crysterm::Widget::Box.new content: "B"
+    pc = Crysterm::Widget::Box.new content: "C"
+    tw.add_tab "A", pa
+    tw.add_tab "B", pb
+    tw.add_tab "C", pc
+    tw.remove_tab 0 # drop A; remaining B(0), C(1)
+    # The bar command for position 1 must now show C, not the stale old index 2.
+    tw.bar.commands[1].callback.try &.call
+    tw.current_index.should eq 1
+    tw.current_page.should be(pc)
+  end
+end
