@@ -63,3 +63,25 @@ describe "Screen#focus_offset" do
     s.focused.should_not eq inner
   end
 end
+
+describe "Screen#rewind_focus" do
+  # Regression: `_focus` already emits `Event::Blur` on the previously-focused
+  # widget, so `rewind_focus` must NOT emit it a second time. It used to, leaving
+  # the blurred widget with a double Blur.
+  it "emits Blur on the old widget exactly once" do
+    s = focus_screen
+    a = Widget::Box.new parent: s, keys: true
+    b = Widget::Box.new parent: s, keys: true
+
+    a.focus
+    b.focus
+    s.focused.should eq b
+
+    blurs = 0
+    b.on(Crysterm::Event::Blur) { blurs += 1 }
+
+    s.rewind_focus
+
+    blurs.should eq 1
+  end
+end

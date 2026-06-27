@@ -87,10 +87,10 @@ module Crysterm
 
       return unless el
 
-      if old
-        old.emit Crysterm::Event::Blur
-      end
-
+      # `_focus` (below) already emits `Event::Blur` on `old` (with the
+      # newly-focused widget as payload), exactly as `focus_push`/`focus_pop` rely
+      # on. Emitting it here too produced a *double* Blur on `old` — a stale, now
+      # redundant leftover from before focus changes were centralized in `_focus`.
       @history.push el
       _focus el, old
       el
