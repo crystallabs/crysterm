@@ -44,7 +44,18 @@ module Crysterm
         include Animated
 
         # The message scrolled across the widget. Reassigning it is safe at any time.
-        property text : String
+        getter text : String
+
+        # `text` decomposed into its characters once, so the per-column paint can
+        # index it in O(1). `String#[]` is O(n) for non-ASCII strings, which would
+        # make a frame O(w·n); this cache is rebuilt only when `text` changes.
+        # (Mirrors `Widget::Marquee`.)
+        @chars : Array(Char)
+
+        def text=(@text : String)
+          @chars = @text.chars
+          mark_dirty # the displayed message changed; repaint under damage tracking
+        end
 
         # Direction the text travels (shared with `Marquee`).
         property direction : Marquee::Direction
@@ -80,6 +91,7 @@ module Crysterm
           @hue_speed = 6,
           **box,
         )
+          @chars = @text.chars
           super **box
         end
 
@@ -126,7 +138,7 @@ module Crysterm
               # left as f grows, `:right` mirrors it. Crystal's `%` follows the
               # divisor's sign, so the index is always valid.
               idx = (direction.left? ? f + x : f - x) % n
-              ch = text[idx]
+              ch = @chars[idx]
               next if ch == ' '
               r = (amp * (1.0 + Math.sin(x * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, h - 1)
               fgf = rainbow? ? Attr.pack_color(Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360)) : deff

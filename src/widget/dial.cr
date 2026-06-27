@@ -52,7 +52,16 @@ module Crysterm
       private def pointer : Char
         s = value_span
         frac = s == 0 ? 0.0 : (@value - @minimum) / s.to_f
-        POINTERS[(frac * POINTERS.size).round.to_i % POINTERS.size]
+        # A wrapping dial maps the range onto the full circle, so the maximum
+        # rolls back onto the minimum's "north" (`frac * size` rounds 1.0 → size,
+        # which `% size` folds to 0). A non-wrapping dial must instead spread the
+        # range across the arc between the eight directions: `frac * (size - 1)`
+        # lands the maximum on the *last* glyph (`↖`), so the two ends point in
+        # distinct directions. With the old unconditional `* size`, a non-wrapping
+        # dial showed `↑` at both ends (a full dial looked identical to an empty
+        # one) and could skip an in-between direction (e.g. `↓` on an 8-value range).
+        steps = wrap? ? POINTERS.size : POINTERS.size - 1
+        POINTERS[(frac * steps).round.to_i % POINTERS.size]
       end
 
       def render

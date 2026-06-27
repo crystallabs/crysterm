@@ -80,6 +80,26 @@ describe Crysterm::Widget::Effect::SineScroller do
     cell_char(s, row, 1).should eq ' '
   end
 
+  it "rebuilds its glyph cache (and indexes correctly) when text is reassigned" do
+    s = sine_screen
+    # height 1 -> amp 0, flat wave: every glyph lands on row 0, so the row reads
+    # the message straight across (idx == x at frame 0).
+    sc = Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
+      width: 3, height: 1, text: "ABC", rainbow: false,
+      wave_frequency: 0.0, wave_speed: 0.0
+    s._render
+    String.build { |io| (0...3).each { |x| io << cell_char(s, 0, x) } }.should eq "ABC"
+
+    # Reassigning `text` must rebuild the per-column glyph cache. A non-ASCII
+    # message also exercises correct multibyte indexing (the reason the cache
+    # exists: `String#[]` is O(n) per column for such strings). These glyphs are
+    # single-width (one terminal cell each), so a width-3 scroller shows all
+    # three and the row reads them straight across.
+    sc.text = "áéí"
+    s._render
+    String.build { |io| (0...3).each { |x| io << cell_char(s, 0, x) } }.should eq "áéí"
+  end
+
   it "renders an all-blank frame for an all-space message" do
     s = sine_screen
     Crysterm::Widget::Effect::SineScroller.new parent: s, top: 0, left: 0,
