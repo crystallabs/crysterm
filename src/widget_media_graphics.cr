@@ -240,7 +240,7 @@ module Crysterm
       # geometry of `#redraw_image`. `nil` while hidden or with no image.
       def capture_layer(font_w : Int32, font_h : Int32) : Tuple(PNGGIF::Bitmap, Int32, Int32)?
         return nil unless visible?
-        return nil unless @file
+        return nil unless has_image?
         pos = _get_coords(true) || return nil
         xi = pos.xi + ileft
         yi = pos.yi + itop
@@ -324,6 +324,23 @@ module Crysterm
         @emitted_key = nil
       end
 
+      # A directly-injected bitmap (`Media::Base#bitmap=`) replaces the source
+      # content without changing the box geometry, so `#payload_for`'s
+      # geometry-keyed cache would otherwise keep serving the *previous* frame's
+      # encoded payload (and the `#redraw_image` emit-skip would treat it as
+      # already on screen for separate-layer backends like Kitty), freezing the
+      # graphic on the stale image. Drop the per-frame payload cache and the
+      # emit-tracking keys so the next render re-encodes the fresh bitmap and
+      # re-emits it. Mirrors `Media::Cells#reset_sample_cache`.
+      protected def reset_sample_cache : Nil
+        @anim_checked = false
+        @frame_payloads.clear
+        @payload_geom = nil
+        @payload = nil
+        @payload_key = nil
+        @emitted_key = nil
+      end
+
       # (Re)paints the graphic at the widget's current position. Runs after every
       # screen render so it stays on top of the freshly-drawn cells; skips while
       # hidden or detached. Wraps the emit in DECSC/DECRC so the terminal cursor
@@ -331,7 +348,7 @@ module Crysterm
       private def redraw_image
         return unless visible?
         s = screen? || return
-        return unless @file
+        return unless has_image?
         ensure_animation
         pos = _get_coords(true) || return
         # Draw into the *content* area, inside any border/padding.
@@ -386,9 +403,19 @@ module Crysterm
         {xi, yi, (pos.xl - iright) - xi, (pos.yl - ibottom) - yi}
       end
 
-      # The graphic is only on screen once a file is loaded.
+      # The graphic is only on screen once an image is present — either a loaded
+      # file or a directly-injected in-memory source (`Media::Base#bitmap=`, the
+      # `Graph::Canvas` path), which leaves `@file` nil but sets `@source`.
       protected def overlay_visible? : Bool
-        !@file.nil?
+        has_image?
+      end
+
+      # Whether this backend currently has something to draw: a loaded file path
+      # or an injected in-memory source. The whole-frame paint/erase/capture
+      # lifecycle keys on this rather than on `@file` alone, so a bitmap-fed
+      # graphic (no file) still renders.
+      protected def has_image? : Bool
+        !(@file.nil? && @source.nil?)
       end
 
       # On erase, give a separate-layer backend (Kitty) the chance to delete its
