@@ -62,6 +62,15 @@ module Crysterm
       # before the unlink, for the same `has_descendant?` reason as the others;
       # cleared below by retargeting the drag to "no target".
       stale_target = ((td = @_drag) && (tg = td.target) && (tg == element || element.has_descendant?(tg))) ? td : nil
+      # An active input grab (an open modal pop-up — menu, combo drop-down, … —
+      # see `Screen#grab`) whose widget sits in the removed subtree must be
+      # released. A pop-up normally `ungrab`s itself from its own close path, but
+      # a direct `remove` bypasses that, leaving `@grabs` pointing at a detached
+      # widget: every subsequent mouse event then runs `within_grab?` ->
+      # `grab_contains?` on the off-screen widget, modally blocking interaction
+      # with the rest of the screen forever (and dropping all hover/click). Sampled
+      # before the unlink for the same `has_descendant?` reason as the others.
+      stale_grabs = @grabs.select { |g| g == element || element.has_descendant?(g) }
 
       super
 
@@ -98,6 +107,9 @@ module Crysterm
       # is a no-op when the drag was already torn down above (its source was in
       # the subtree too) or ended by an event during the unlink.
       stale_target.try { |d| retarget(d, nil) if @_drag == d }
+      # Release any input grab that pointed into the removed subtree, lifting the
+      # stale modal lock so the rest of the screen takes mouse input again.
+      stale_grabs.each { |g| ungrab g }
     end
 
     # :ditto:

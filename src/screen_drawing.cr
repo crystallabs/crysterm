@@ -930,7 +930,13 @@ module Crysterm
 
     # Deletes line at bottom of screen.
     def delete_bottom(top, bottom)
-      clear_region(0, awidth, bottom, bottom)
+      # `clear_region`/`fill_region` are half-open in `y` (`yi.upto(yl - 1)`), so
+      # the far edge `yl` must be ONE PAST the row to clear. `bottom, bottom`
+      # iterates zero rows — i.e. the method was a complete no-op and the bottom
+      # row was never cleared. Pass `bottom + 1` so the single row `bottom` is
+      # actually cleared. (A faithful port of the same off-by-one in blessed's
+      # `deleteBottom`, whose `clearRegion` is likewise half-open.)
+      clear_region(0, awidth, bottom, bottom + 1)
     end
 
     # Deletes line at top of screen.
@@ -1052,6 +1058,16 @@ module Crysterm
     # row, mirroring the `break` behavior of the original per-region loops. With
     # `clamp` (the default) a negative `xi`/`yi` origin is pulled back to 0; the
     # shadow/blend callers pass their bounds verbatim with `clamp: false`.
+    #
+    # A negative index is treated as off the top/left of the grid and SKIPPED
+    # (the cell at column/row 0 onward is still visited). This must be explicit:
+    # Crystal's `Array#[]?`/`Indexable#[]?` count a negative index *from the
+    # end* (`@lines[-1]?` is the last row, not `nil`), so a `clamp: false`
+    # caller passing a negative origin — exactly what a widget's top/left shadow
+    # does when it sits against the top/left screen edge (`yi - s.top`,
+    # `xi - s.left`) — would otherwise wrap around and blend the shadow band onto
+    # rows/columns at the OPPOSITE (bottom/right) edge. Off the bottom/right
+    # (index >= size) correctly yields `nil` and breaks.
     private def each_region_cell(xi, xl, yi, yl, clamp = true, &)
       if clamp
         xi = 0 if xi < 0
@@ -1059,10 +1075,12 @@ module Crysterm
       end
 
       yi.upto(yl - 1) do |y|
+        next if y < 0
         line = @lines[y]?
         break unless line
 
         xi.upto(xl - 1) do |x|
+          next if x < 0
           cell = line[x]?
           break unless cell
 

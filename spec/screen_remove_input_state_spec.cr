@@ -106,4 +106,28 @@ describe "Screen#remove (mouse-interaction state)" do
     dropped_on_target.should be_false
     s.dragging.should be_nil
   end
+
+  it "releases an input grab when the grabbing widget is removed" do
+    s = ris_screen
+    # A modal pop-up that has grabbed input, plus another widget elsewhere.
+    popup = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3
+    other = Widget::Box.new parent: s, left: 40, top: 0, width: 8, height: 4
+    other.on(Crysterm::Event::MouseOver) { } # makes `other` hoverable
+
+    s.grab popup
+    s.grabbing?.should be_true
+    # While grabbed, the pointer over `other` (outside the grab region) interacts
+    # with nothing.
+    ris_move s, 44, 1
+    s.hovered.should be_nil
+
+    # Removing the grabbing widget directly (bypassing its own ungrab-on-close)
+    # must lift the modal lock rather than leave `@grabs` aimed at a detached
+    # widget and block all interaction forever.
+    s.remove popup
+    s.grabbing?.should be_false
+
+    ris_move s, 44, 1
+    s.hovered.should eq other
+  end
 end

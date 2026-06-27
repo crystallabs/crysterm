@@ -41,6 +41,37 @@ describe "Screen#fill_region / #blend_region" do
     s.lines[0][0].attr.should eq Colors.blend(before, alpha: 0.5)
     s.lines[0][0].char.should eq 'a' # blend only touches the attribute
   end
+
+  # A widget's top/left shadow that sits against the top/left screen edge passes
+  # `blend_region` a NEGATIVE origin (`yi - s.top` / `xi - s.left`). Crystal's
+  # `[]?` counts a negative index from the end, so without an explicit off-grid
+  # guard the unclamped (`clamp: false`) blend would wrap and tint cells at the
+  # OPPOSITE (bottom/right) edge. Lock that a negative origin touches nothing off
+  # the grid — only the in-bounds part of the region is blended.
+  it "does not wrap a negative-origin blend to the far edge (blend_region)" do
+    s = headless_screen
+    h = s.aheight
+    w = s.awidth
+    base = s.lines[h - 1][w - 1].attr
+
+    # A row band entirely above the top edge (negative y): must be a complete
+    # no-op, not a blend of the last row via negative-index wraparound.
+    s.blend_region 0.5, 0, w, -2, 0
+    s.lines[h - 1][w - 1].attr.should eq base
+    s.lines[h - 1][0].attr.should eq base
+
+    # A column band entirely left of the left edge (negative x) on a valid row:
+    # likewise no wrap to the rightmost column.
+    s.blend_region 0.5, -2, 0, 0, 1
+    s.lines[0][w - 1].attr.should eq base
+
+    # A region straddling the left edge blends only its in-bounds columns (0..1),
+    # leaving the wrapped-to far edge untouched.
+    s.blend_region 0.5, -1, 2, 0, 1
+    s.lines[0][w - 1].attr.should eq base
+    s.lines[0][0].attr.should eq Colors.blend(base, alpha: 0.5)
+    s.lines[0][1].attr.should eq Colors.blend(base, alpha: 0.5)
+  end
 end
 
 # The inline SGR emission in the draw loop relies on `sgr_params_to`'s return
