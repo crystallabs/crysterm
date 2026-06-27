@@ -48,10 +48,18 @@ module Crysterm
       # `qradialgradient(`/`qconicalgradient(`.
       GRADIENT_HEAD = /\b[a-z]*gradient\s*\(/i
 
-      # A color stop inside a gradient: a `#rgb[a]`/`#rrggbb[aa]` hex or an
-      # `rgb()/rgba()` function. (Qt stops read `stop: <pos> <color>`, CSS stops
-      # `<color> <pos>` — either spelling, we just harvest the colors.)
-      GRADIENT_STOP = /#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)/i
+      # A color stop inside a gradient: an `rgb()/rgba()` or `hsl()/hsla()` color
+      # function, a `#rgb[a]`/`#rrggbb[aa]` hex, or a bare identifier (a CSS named
+      # color such as `red`/`steelblue`). (Qt stops read `stop: <pos> <color>`,
+      # CSS stops `<color> <pos>` — either spelling, we just harvest the colors.)
+      # Functions are matched first so their inner numbers/commas aren't tokenized
+      # separately. A bare identifier also matches the gradient's *non-color*
+      # keywords (`to`/`circle`/`gradient`/...) and length/angle units (`deg`),
+      # but those resolve to the `-1` "unknown" sentinel and are skipped — only
+      # real colors contribute to the average. Without the identifier branch a
+      # plain CSS gradient with named stops (`linear-gradient(red, blue)`) yielded
+      # no parseable color at all and silently fell back to the terminal default.
+      GRADIENT_STOP = /rgba?\([^)]*\)|hsla?\([^)]*\)|#[0-9a-fA-F]{3,8}|[a-z][a-z]+/i
 
       # Collapses a CSS/Qt gradient to a representative solid color: a terminal
       # cell paints a flat background, not a real gradient, so the best we can
@@ -66,7 +74,16 @@ module Crysterm
         r = g = b = n = 0
         value.scan(GRADIENT_STOP) do |m|
           tok = m[0]
-          c = tok.starts_with?('#') ? Colors.convert_cached(tok) : (parse_rgb(tok) || -1)
+          dv = tok.downcase
+          c = if tok.starts_with?('#')
+                Colors.convert_cached(tok)
+              elsif dv.starts_with?("rgb") # rgb()/rgba()
+                parse_rgb(tok) || -1
+              elsif dv.starts_with?("hsl") # hsl()/hsla()
+                parse_hsl(tok) || -1
+              else # a CSS named color, or a non-color keyword (-1, skipped below)
+                Colors.convert_cached(tok)
+              end
           next if c < 0
           r += (c >> 16) & 0xff
           g += (c >> 8) & 0xff
@@ -84,12 +101,18 @@ module Crysterm
         value.scan(RGB_RE).map(&.[1].to_f)
       end
 
-      # A single `rgb()` component: a number with an optional trailing `%`.
-      RGB_COMPONENT = /(\d+(?:\.\d+)?)(%)?/
+      # A single `rgb()` component: an optionally-signed number with an optional
+      # trailing `%`. The leading `-?` matters: a negative channel is valid input
+      # (e.g. from a generated/animated value) and CSS clamps it to 0 — so it must
+      # be read as the negative it is and clamped by `#component`, not silently
+      # parsed as its magnitude (`rgb(-10, …)` is `0`, not `10`). Mirrors the
+      # signed `RGB_RE` used by `#parse_hsl`.
+      RGB_COMPONENT = /(-?\d+(?:\.\d+)?)(%)?/
 
       # `rgb(r, g, b)` / `rgba(r, g, b, a)` (commas or spaces). Each channel may
       # be a `0..255` number or a `0%..100%` percentage (CSS allows either form);
-      # a `%` component is scaled to `0..255`. Alpha is ignored.
+      # a `%` component is scaled to `0..255`. An out-of-range or negative channel
+      # is clamped to `0..255` (see `#component`). Alpha is ignored.
       private def self.parse_rgb(value : String) : Int32?
         comps = value.scan(RGB_COMPONENT)
         return nil if comps.size < 3
