@@ -426,7 +426,17 @@ module Crysterm
           end.to_set
         end
 
-        if i == selected
+        # Keep the single-selection cursor on the same logical item. Removing a
+        # row *before* the cursor shifts every later row (including the selected
+        # one) down by one, so the cursor must slide down with it — exactly as
+        # the multi-selection indices are slid above. Without this `@selected`
+        # stayed put and silently jumped to the next item, or — when the
+        # selection was the last row — pointed past the end at a phantom row (so
+        # nothing rendered as selected and `@value` went stale). Removing the
+        # selected row itself keeps the original behavior (select the row before).
+        if i < selected
+          selekt selected - 1
+        elsif i == selected
           selekt i - 1
         end
 
