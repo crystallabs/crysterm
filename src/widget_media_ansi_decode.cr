@@ -100,6 +100,10 @@ module Crysterm
         sx = 0; sy = 0
         clampx = ->(v : Int32) { v.clamp(0, 1000) }
         clampy = ->(v : Int32) { v.clamp(0, 4000) }
+        # Relative-motion count (CUU/CUD/CUF/CUB): an omitted *or* zero parameter
+        # means 1. Params are pre-mapped so a missing value arrives as 0 (not nil),
+        # and 0 is truthy in Crystal, so `|| 1` alone wouldn't catch it.
+        amt = ->(v : Int32?) { n = v || 1; n < 1 ? 1 : n }
 
         i = 0
         n = data.size
@@ -143,10 +147,10 @@ module Crysterm
             when 0x48, 0x66 # 'H' / 'f' — CUP
               y = clampy.call((nums[0]? || 1) - 1)
               x = clampx.call((nums[1]? || 1) - 1)
-            when 0x41 then y = clampy.call(y - (nums[0]? || 1)) # 'A' up
-            when 0x42 then y = clampy.call(y + (nums[0]? || 1)) # 'B' down
-            when 0x43 then x = clampx.call(x + (nums[0]? || 1)) # 'C' right
-            when 0x44 then x = clampx.call(x - (nums[0]? || 1)) # 'D' left
+            when 0x41 then y = clampy.call(y - amt.call(nums[0]?)) # 'A' up
+            when 0x42 then y = clampy.call(y + amt.call(nums[0]?)) # 'B' down
+            when 0x43 then x = clampx.call(x + amt.call(nums[0]?)) # 'C' right
+            when 0x44 then x = clampx.call(x - amt.call(nums[0]?)) # 'D' left
             when 0x4A                                           # 'J' — erase display (2 = whole screen)
               if (nums[0]? || 0) == 2
                 cells.clear; maxx = 0; maxy = 0; x = 0; y = 0

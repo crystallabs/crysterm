@@ -39,5 +39,12 @@ describe Crysterm::Widget::Media do
       # 3 columns wide — wider than a single bare glyph.
       png("\e[1;3HX").width.should be > png("X").width
     end
+
+    it "treats a parameterless relative move (CUF) as a move of 1" do
+      # `X ESC[C Y`: print X at col 0, CUF (no param) must advance 1 to col 2,
+      # print Y → a 3-column grid. An explicit `ESC[1C` must match exactly.
+      png("X\e[CY").width.should eq png("X\e[1CY").width
+      png("X\e[CY").width.should be > png("XY").width
+    end
   end
 end
