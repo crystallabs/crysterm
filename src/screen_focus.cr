@@ -121,13 +121,20 @@ module Crysterm
       # We only need to know whether *any* keyable element is visible, so
       # `any?` (which short-circuits on the first match) is enough; the old
       # `count { ... }.zero?` always scanned the entire list.
-      return unless @keyable.any? { |el| el.screen && el.style.visible? }
+      #
+      # `screen?` (not the raising `screen`): `@keyable` is NOT pruned when a
+      # widget is removed (the pruning in `screen_children.cr#remove` is still
+      # disabled — see its `XXX`), so it can hold detached widgets whose
+      # `@screen` is now nil. `screen` (`screen?.not_nil!`) would crash here on
+      # such an entry; `screen?` correctly treats it as "no longer attached" and
+      # skips it. Same non-raising pattern `rewind_focus`/`_focus` use.
+      return unless @keyable.any? { |el| el.screen? && el.style.visible? }
 
       i = @keyable.index(focused) || -1
       i += offset
 
       i %= @keyable.size
-      while !@keyable[i].screen || !@keyable[i].style.visible?
+      while !@keyable[i].screen? || !@keyable[i].style.visible?
         i += offset >= 0 ? 1 : -1
         i %= @keyable.size
       end
