@@ -119,6 +119,32 @@ require "http/client"
       JSON.parse(miss.body)["result"].as_i.should eq 0
     end
 
+    it "does not append to the screen root when the parent selector matches nothing" do
+      s = headless_screen
+      s.load_layout %(<w-screen><w-box id="root" content="r"></w-box></w-screen>)
+      Crysterm::HTTPBridge.new(s, port: 7106).start
+      sleep 100.milliseconds
+      base = "http://127.0.0.1:7106/rpc"
+
+      before = s.children.size
+
+      # Selector matches no widget: nothing must be appended (neither under the
+      # missing parent nor at the screen root), and the reported count is 0.
+      miss = HTTP::Client.post(base,
+        body: %({"jsonrpc":"2.0","id":1,"method":"append","params":{"selector":"#nope","html":"<w-box id=\\"added\\"></w-box>"}}))
+      JSON.parse(miss.body)["result"].as_i.should eq 0
+      s.children.size.should eq before
+      s.find_by_id("added").should be_nil
+
+      # A matching selector still appends under that parent.
+      hit = HTTP::Client.post(base,
+        body: %({"jsonrpc":"2.0","id":2,"method":"append","params":{"selector":"#root","html":"<w-box id=\\"added\\"></w-box>"}}))
+      JSON.parse(hit.body)["result"].as_i.should eq 1
+      child = s.find_by_id("added")
+      child.should_not be_nil
+      s.find_by_id("root").not_nil!.children.includes?(child.not_nil!).should be_true
+    end
+
     it "lets a handler subscribe to events at runtime (no on* attribute)" do
       s = headless_screen
       s.load_layout %(<w-screen><w-button id="ok"></w-button></w-screen>)

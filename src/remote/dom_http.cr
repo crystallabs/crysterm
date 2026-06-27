@@ -275,10 +275,24 @@ module Crysterm
       when "append"
         html = string_param params, "html"
         built = on_ui do
-          parent = selector ? match(selector).first? : nil
-          n = (parent ? DOM.load(html, @screen, parent) : DOM.load(html, @screen)).size
-          rewire # load + re-wire atomically on the render fiber
-          n
+          # A selector that matches nothing must NOT silently fall back to a
+          # top-level append: that drops the fragment at the screen root (not the
+          # intended parent) and still reports a nonzero count, so a handler can't
+          # tell "parent not found" from "appended". Return 0 instead. With no
+          # selector at all, a top-level append is the documented behavior.
+          if selector
+            if parent = match(selector).first?
+              n = DOM.load(html, @screen, parent).size
+              rewire # load + re-wire atomically on the render fiber
+              n
+            else
+              0
+            end
+          else
+            n = DOM.load(html, @screen).size
+            rewire
+            n
+          end
         end
         @screen.render
         built
