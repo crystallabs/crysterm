@@ -80,6 +80,14 @@ module Crysterm
       end
 
       @drawn = false
+      # Generation token for the animation loop, bumped on every (re)start (see
+      # `#start_drawing`). A running `#animate_loop` carries the generation it was
+      # spawned with and exits as soon as that no longer matches — so a `#redraw!`
+      # (from `#load` or a parameter setter) that stops playback and lets the next
+      # render spawn a fresh loop can't leave the previous loop running
+      # concurrently: `#redraw!` only flips `@playing` false, which the sleeping
+      # old fiber would otherwise see flip back to true under it. Exposed for tests.
+      getter anim_gen : Int32 = 0
       @listener_screen : ::Crysterm::Screen?
       @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
@@ -152,7 +160,12 @@ module Crysterm
         if frames && frames.size > 1
           @src_frames = frames
           @playing = true
-          spawn animate_loop(s, ox, oy)
+          # Bump the generation so any loop still running from a previous draw
+          # (one started before a `#load`/setter `#redraw!`) sees a stale
+          # generation and exits, instead of running concurrently with — and
+          # fighting over the Tek window against — this new loop.
+          gen = (@anim_gen += 1)
+          spawn animate_loop(s, ox, oy, gen)
         else
           png = PNGGIF::PNG.new(data, cell_width: dw, cell_height: dh, cell_aspect: 1.0)
           bmp = png.cellmap
@@ -168,12 +181,14 @@ module Crysterm
       # Plays the decoded frames in the Tek window: enter Tek once, then PAGE-clear
       # + redraw each frame on its own fiber (sleeping per-frame delay), and leave
       # Tek mode when stopped. Loops forever until `#stop`/destroy.
-      private def animate_loop(s : ::Crysterm::Screen, ox : Int32, oy : Int32)
+      private def animate_loop(s : ::Crysterm::Screen, ox : Int32, oy : Int32, gen : Int32)
         frames = @src_frames || return
         s.tput._oprint "\e[?38h" # enter Tek mode for the whole run
         s.tput.flush
         idx = 0
-        while @playing
+        # Exit as soon as a newer loop has taken over (`gen != @anim_gen`), even if
+        # `@playing` has been flipped back to true under us by that new loop.
+        while @playing && gen == @anim_gen
           bmp, delay = frames[idx]
           @anim_index = idx
           s.tput._oprint build_frame(bmp, ox, oy)
@@ -183,8 +198,13 @@ module Crysterm
           ms = 1 if ms < 1
           sleep ms.milliseconds
         end
-        s.tput._oprint "\e\u{03}" rescue nil # ESC ETX: back to VT100
-        s.tput.flush rescue nil
+        # Only hand the display back to VT100 if we are still the live loop. A loop
+        # that exited because it was superseded must NOT leave Tek mode — that would
+        # yank the window out from under the new loop now drawing into it.
+        if gen == @anim_gen
+          s.tput._oprint "\e\u{03}" rescue nil # ESC ETX: back to VT100
+          s.tput.flush rescue nil
+        end
       end
 
       # PAGE-clear + the image as horizontal vector runs (no mode enter/exit, so it

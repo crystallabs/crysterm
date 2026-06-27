@@ -260,6 +260,18 @@ module Crysterm
     end
 
     private def handle_char(c : Char) : Nil
+      # An ESC (0x1b) arriving in the middle of an escape/CSI/charset sequence
+      # aborts whatever was in progress and begins a *new* escape — the VT500
+      # parser's "anywhere: ESC → clear + enter escape" transition. Without this,
+      # an ESC seen mid-CSI fell through to `dispatch_csi` (a no-op for a non-final
+      # byte) which dropped us to `:ground`, so the following `[` of the new
+      # sequence (e.g. an interrupted/re-issued `CSI … ESC [ … H`) leaked into the
+      # grid as literal text instead of being parsed. The `:osc` (string) state is
+      # excluded: it does its own ESC handling for the `ESC \` (ST) terminator.
+      if c.ord == 0x1b && (@state == :esc || @state == :csi || @state == :charset)
+        @state = :esc
+        return
+      end
       case @state
       when :ground  then handle_ground c
       when :esc     then handle_esc c

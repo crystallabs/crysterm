@@ -77,6 +77,17 @@ describe Crysterm::TerminalEmulator do
       em2.cursor_y.should eq 1
     end
 
+    it "restarts the parser when an ESC arrives mid-sequence" do
+      # The VT500 parser treats an ESC as "abort whatever is in progress and begin
+      # a new escape" from any state but the string (OSC/DCS) states. A child that
+      # interrupts a half-emitted CSI with a fresh one (`CSI 1 ESC [ 2;3 H X`) must
+      # have the new CSI parsed — not have its leading `[` and params leak as text.
+      em = emu
+      em.feed "\e[1\e[2;3HX" # incomplete "CSI 1", then a full CUP to row 2 col 3
+      em.lines[1][2].char.should eq 'X'
+      row(em, 0).should eq "" # nothing leaked onto the first row
+    end
+
     it "swallows the final byte of ESC #/SP/% intermediate escapes" do
       # `ESC # n` (DECALN / double-width line), `ESC SP F` (S7C1T) and
       # `ESC % G` (UTF-8 select) are 3-byte sequences whose final byte is NOT

@@ -42,7 +42,16 @@ module Crysterm
           return
         end
 
-        @animated = !png.frames.nil? && animate?
+        # Only a *genuine* (multi-frame) animation drives the frame loop. A
+        # single-frame source whose `frames` is nonetheless non-nil — e.g. a
+        # 1-frame APNG (`build_apng_frames` returns its lone frame, unlike a GIF
+        # which leaves `frames` nil below 2 frames) — must be treated as a still:
+        # `Media::Base#play` bails on a single frame (never building `@src_frames`),
+        # so if `@animated` were set the `#render` animation branch would find no
+        # frames and the widget would draw *nothing*. Matching `#play`'s `> 1`
+        # guard routes such a source through the still path instead.
+        fr = png.frames
+        @animated = !fr.nil? && fr.size > 1 && animate?
         on_loaded png
         play if @animated
       end
