@@ -27,6 +27,11 @@ module Crysterm
       # Current working directory.
       getter cwd : String
 
+      # The directory the file manager was created in. `#reset` returns here
+      # (Qt/Blessed: `reset` goes back to the originally-configured `cwd`, not
+      # to wherever the user last navigated or selected).
+      @initial_cwd : String
+
       # The most recently selected entry (directory or file), as an absolute
       # path.
       getter file : String
@@ -42,6 +47,7 @@ module Crysterm
         # `keys` is absorbed here: an item view always enables key handling, so
         # forwarding it would duplicate the `keys:` argument it passes to `super`.
         @cwd = cwd || Dir.current
+        @initial_cwd = @cwd
         @file = @cwd
         @label_format = label
 
@@ -109,9 +115,13 @@ module Crysterm
         self
       end
 
-      # Resets the file manager back to its initial directory and reloads.
+      # Resets the file manager back to its initial directory (or *cwd*, when
+      # given) and reloads. Returns to the directory the manager was constructed
+      # with — *not* `@file`, which is the most recently selected *entry* and can
+      # be a regular file (whose `Dir.children` listing would fail, making the
+      # reset silently do nothing).
       def reset(cwd : String? = nil)
-        @cwd = cwd || @file
+        @cwd = cwd || @initial_cwd
         refresh
       end
 
