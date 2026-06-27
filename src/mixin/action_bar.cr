@@ -351,7 +351,19 @@ module Crysterm
         detach_command @commands.delete_at i
         remove item
 
-        selekt i - 1 if i == selected
+        # Keep the selection cursor on the same logical command. `selected` is
+        # `left_base + left_offset` (an *index*), so removing an item *before* it
+        # shifts every later command — including the selected one — down by one,
+        # and the cursor must slide down with them. Without this the cursor stayed
+        # at its old numeric index and silently pointed at the next command (or,
+        # when the last command was selected, past the end at nothing). Removing
+        # the selected command itself keeps the original behavior (select the
+        # prior one). This mirrors `ItemView#remove_item`'s cursor realignment.
+        if i < selected
+          selekt selected - 1
+        elsif i == selected
+          selekt i - 1
+        end
 
         emit ::Crysterm::Event::RemoveItem
         item
