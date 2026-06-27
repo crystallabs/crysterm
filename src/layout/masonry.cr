@@ -30,6 +30,14 @@ module Crysterm
         j = @last_row_index
         while j < @row_index
           l = container.children[j]
+          # Skip layout-excluded chrome (e.g. a `background-image` layer rendered
+          # out-of-band with a full-interior `lpos`) so a flow child never
+          # gravitates to sit below it — matching `get_last` and every engine's
+          # placement loop.
+          if l.layout_excluded?
+            j += 1
+            next
+          end
           unless lp = rendered_lpos(l)
             j += 1
             next

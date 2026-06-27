@@ -186,6 +186,23 @@ describe Crysterm::Layout::Wrap do
     coords = render_children s, wp
     coords.should eq [{0, 12, 0, 3}, {0, 12, 3, 6}]
   end
+
+  it "does not chain a flow child off a layout-excluded layer (e.g. background-image)" do
+    s = headless_screen
+    wp = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 10,
+      layout: Layout::Wrap.new, overflow: :ignore
+    # A `background-image` layer is a layout_excluded child that the flow skips
+    # but that carries a real (out-of-band-rendered) lpos. `get_last` must skip
+    # it: otherwise the next flow child chains its left edge off the layer's
+    # rect (here xl=10) instead of starting at the row's left edge.
+    bg = Widget::Box.new parent: wp, width: 10, height: 2
+    bg.layout_excluded = true
+    bg.lpos = Crysterm::LPos.new(xi: 0, xl: 10, yi: 0, yl: 2)
+    item = Widget::Box.new parent: wp, width: 8, height: 2
+
+    s._render
+    item.lpos.not_nil!.xi.should eq 0
+  end
 end
 
 describe "Crysterm::Layout::Box flex" do

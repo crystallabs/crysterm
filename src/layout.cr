@@ -152,10 +152,19 @@ module Crysterm
 
     # The most recently *rendered* child before index `i` (skipping children
     # that collapsed to nothing on the last frame), or nil if none.
+    #
+    # Layout-excluded chrome is skipped too: a `background-image` layer is a
+    # `layout_excluded?` child that is rendered out-of-band (so it carries a
+    # full-interior `lpos`) and lives in `children` like any other. Without this
+    # guard a flow child appended after such a layer would chain its left edge
+    # off the layer's full-width rect instead of off the previous *flow* child —
+    # mirroring the `layout_excluded?` skip every engine's placement loop already
+    # performs.
     protected def get_last(container : Widget, i : Int32) : Widget?
       while i > 0
         i -= 1
         el = container.children[i]
+        next if el.layout_excluded?
         return el if rendered? el
       end
       nil
