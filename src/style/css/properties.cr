@@ -89,7 +89,21 @@ module Crysterm
         when "tint"
           parse_tint(style, value)
         when "z-index"
-          style.z_index = (Case.fold_keyword(value.strip) == "auto" ? nil : value.to_i?)
+          # `auto` clears it (back to the base layer). An *unparseable* value —
+          # e.g. an `auto`-typo, or a `var(--x)` whose custom property is
+          # undefined and so collapsed to the empty string — is *ignored*, per
+          # CSS's "drop the invalid declaration" rule, leaving any
+          # previously-cascaded z-index intact. The old `value.to_i?` form
+          # assigned the `nil` straight through, so such a value silently
+          # *cleared* a z-index a lower-priority rule had set (e.g. the theme's
+          # `Menu { z-index: 10 }` overlay promotion), un-compositing the
+          # overlay. This now mirrors `opacity` above, which already guards its
+          # parse with `.try`.
+          if Case.fold_keyword(value.strip) == "auto"
+            style.z_index = nil
+          else
+            value.to_i?.try { |z| style.z_index = z }
+          end
         when "transition"
           style.transitions = parse_transition(value)
         when "animation"
