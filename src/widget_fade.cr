@@ -82,6 +82,11 @@ module Crysterm
                  fps : Int32 = FADE_FPS, &on_done : ->) : Animation
       fade_to(0.0, duration, easing, fps) do
         hide
+        # Clear the residual `alpha == 0.0` the tween lands on (mirroring
+        # `fade_in`'s `set_alpha nil`): the widget is now hidden, but leaving it
+        # fully transparent would make a *later* plain `#show` paint nothing —
+        # the widget would silently stay invisible.
+        set_alpha nil
         on_done.call
       end
     end
