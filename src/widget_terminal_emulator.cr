@@ -774,8 +774,16 @@ module Crysterm
       end
     end
 
+    # IL: open *n* blank lines at the cursor inside the scroll region, pushing the
+    # rest down (lines below the region's bottom are lost). *n* is capped at the
+    # lines from the cursor to the region bottom — a larger count just blanks the
+    # whole region below the cursor, so the surplus is a no-op — so an adversarial
+    # `CSI 99999 L` can't spin in O(n·height) (nor allocate *n* blank lines), the
+    # same cap `#insert_chars`/`#delete_chars` apply on the row.
     private def insert_lines(n : Int32) : Nil
       return unless @y >= @scroll_top && @y <= @scroll_bottom
+      n = Math.min(n, @scroll_bottom - @y + 1)
+      return if n <= 0
       bot = @ybase + @scroll_bottom
       n.times do
         @lines.delete_at bot
@@ -783,8 +791,12 @@ module Crysterm
       end
     end
 
+    # DL: remove *n* lines at the cursor inside the scroll region, pulling the rest
+    # up and backfilling the bottom with blanks. Same cap as `#insert_lines`.
     private def delete_lines(n : Int32) : Nil
       return unless @y >= @scroll_top && @y <= @scroll_bottom
+      n = Math.min(n, @scroll_bottom - @y + 1)
+      return if n <= 0
       bot = @ybase + @scroll_bottom
       n.times do
         @lines.delete_at @ybase + @y

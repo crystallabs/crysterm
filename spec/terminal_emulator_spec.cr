@@ -250,6 +250,53 @@ describe Crysterm::TerminalEmulator do
     end
   end
 
+  describe "insert / delete lines (IL / DL)" do
+    it "inserts blank lines at the cursor, pushing the rest down" do
+      em = emu(4, 4)
+      4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" } # L0..L3 on rows 0..3
+      em.feed "\e[2;1H\e[1L"                         # cursor row 2, insert 1 line
+      row(em, 0).should eq "L0"
+      row(em, 1).should eq "" # freshly inserted blank
+      row(em, 2).should eq "L1"
+      row(em, 3).should eq "L2" # L3 pushed off the bottom
+    end
+
+    it "deletes lines at the cursor, pulling the rest up" do
+      em = emu(4, 4)
+      4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
+      em.feed "\e[2;1H\e[1M" # cursor row 2, delete 1 line
+      row(em, 0).should eq "L0"
+      row(em, 1).should eq "L2"
+      row(em, 2).should eq "L3"
+      row(em, 3).should eq "" # backfilled blank
+    end
+
+    it "caps an adversarial huge count at the region size (IL)" do
+      # `CSI 99999 L` must not spin O(n·height) / allocate 99999 lines: the count
+      # is capped to the lines from the cursor to the region bottom, beyond which
+      # the result is just a fully-blanked region.
+      em = emu(4, 4)
+      4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
+      em.feed "\e[2;1H\e[99999L"
+      em.lines.size.should eq 4 # @lines did not grow
+      row(em, 0).should eq "L0"
+      row(em, 1).should eq ""
+      row(em, 2).should eq ""
+      row(em, 3).should eq ""
+    end
+
+    it "caps an adversarial huge count at the region size (DL)" do
+      em = emu(4, 4)
+      4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
+      em.feed "\e[2;1H\e[99999M"
+      em.lines.size.should eq 4
+      row(em, 0).should eq "L0"
+      row(em, 1).should eq ""
+      row(em, 2).should eq ""
+      row(em, 3).should eq ""
+    end
+  end
+
   describe "origin mode" do
     it "addresses rows relative to the scroll region when DECOM is set" do
       em = emu(10, 6)
