@@ -81,6 +81,22 @@ describe "drag-and-drop" do
       s.dragging.should be_nil
     end
 
+    it "does not start a drag when the widget accepts the press itself" do
+      # `accept`ing the `Event::Mouse` press suppresses the default behaviors
+      # (focus/click/wheel) — and the default drag too. A draggable widget that
+      # handles its own press must therefore NOT be dragged on a later motion.
+      s = drag_screen
+      box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4, draggable: true
+      box.on(Event::Mouse) { |e| e.accept if e.action.down? }
+
+      press s, 12, 6 # press over the draggable box; the widget accepts it
+      move s, 14, 8  # a motion that would otherwise promote the arm into a drag
+
+      s.dragging.should be_nil # no drag was started
+      box.left.should eq(10)   # the widget did not move
+      box.top.should eq(5)
+    end
+
     it "moves a nested draggable widget relative to its parent's content origin" do
       s = drag_screen
       # A bordered container offsets its children's content origin by (1, 1).

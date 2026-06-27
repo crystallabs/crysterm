@@ -133,7 +133,18 @@ module Crysterm
         return true
       end
 
-      ac.style.fg.try { |x| tput.cursor_color "#%06x" % x if x >= 0 }
+      if (x = ac.style.fg) && x >= 0
+        tput.cursor_color "#%06x" % x
+      else
+        # Clearing the color (`cursor_color nil`, or a `-1` "terminal default"
+        # sentinel): restore the terminal's own hardware cursor color via OSC 112.
+        # Previously the `try`-guarded form emitted nothing in this case, so
+        # `cursor_color nil` after a prior `cursor_color "red"` was a silent
+        # no-op — the hardware cursor stayed stuck at the last color, with no way
+        # to put it back to default. Mirrors the artificial path, which drops the
+        # override and re-renders to the same end state.
+        tput.reset_cursor_color
+      end
     end
 
     alias_previous reset_cursor

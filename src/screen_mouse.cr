@@ -279,7 +279,18 @@ module Crysterm
       # accepted it, so `me.try(&.accepted?)` correctly falls through to the
       # default focus/click handling below.
       me = w.emit ::Crysterm::Event::Mouse, ev
-      return if me.try(&.accepted?)
+      if me.try(&.accepted?)
+        # A `draggable?` widget that handles the press itself opts out of the
+        # default drag, exactly as accepting the event suppresses the
+        # focus/click/wheel defaults below. The drag was *armed* above — before
+        # the widget got a chance to see (and accept) the event — so clear that
+        # arm here; otherwise a later motion would promote this accepted press
+        # into a drag, the one default that would otherwise escape `accept`.
+        # Scoped to the arming press (`down?` over the armed widget) so an
+        # accepted move/up never disturbs an in-progress arm for another widget.
+        @_arm = nil if ev.action.down? && @_arm == w
+        return
+      end
 
       if ev.action.down?
         # Click-to-focus, the GUI-toolkit default. Only focusable widgets are
