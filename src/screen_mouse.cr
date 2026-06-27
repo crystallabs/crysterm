@@ -90,6 +90,12 @@ module Crysterm
       tput.disable_mouse
       @_gpm.try &.stop
       @_gpm = nil
+      # Also drop the fiber handle. Stopping the daemon ends `get_event`'s loop,
+      # so the fiber terminates on its own — but `listen_gpm` guards on
+      # `@_gpm_fiber` being nil, so leaving the (now-dead) handle set would make a
+      # later `listen_mouse` (e.g. after a disconnect/reattach, or any leave→listen
+      # cycle) silently skip re-establishing the gpm connection.
+      @_gpm_fiber = nil
       # Drop any lingering hover state so a widget isn't left "hovered".
       @_hover = nil
     end
