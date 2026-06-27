@@ -1067,6 +1067,12 @@ module Crysterm
       end
 
       cl.max_width = Math.max(cl.max_width, scratch.max_width)
+      # Carry the widest *unclipped* line forward too (non-wrapped content only;
+      # `full_width` is 0 when wrapping, so this is a no-op there). It drives
+      # `get_scroll_width` / the horizontal scroll range — without merging it,
+      # appending a wider line to a non-wrapping widget would leave the extent
+      # stale, deviating from the byte-identical-to-a-full-reparse contract.
+      cl.full_width = Math.max(cl.full_width, scratch.full_width)
 
       # Defer the two O(total) string builds instead of doing them per append —
       # this is what makes a run of appends O(1) amortized rather than O(n) each:
