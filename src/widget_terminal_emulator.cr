@@ -686,6 +686,17 @@ module Crysterm
     # pushed into scrollback instead of being discarded.
     private def scroll_up : Nil
       if @scroll_top == 0 && @scroll_bottom == @rows - 1
+        # The alternate screen has NO scrollback (matching xterm): a full-screen
+        # scroll discards the displaced top line rather than retaining it. Recycle
+        # its `Array(Cell)` storage in place as the new bottom row, so the alt page
+        # never grows `@lines`/`@ybase` (unbounded memory while a full-screen app
+        # scrolls) and never exposes bogus "history" to scrollback navigation.
+        if @alt_active
+          recycled = @lines.shift
+          blank_in_place recycled
+          @lines << recycled
+          return
+        end
         # xterm holds the scrollback position when fresh output arrives while the
         # user is scrolled back; the view only follows the live bottom when it is
         # already there. `follow` captures "at bottom" *before* `@ybase` moves.

@@ -187,6 +187,20 @@ describe Crysterm::TerminalEmulator do
       em.cursor_y.should eq 4
       row(em, 0).should eq "X"
     end
+
+    it "does not accumulate scrollback while on the alternate screen" do
+      # The alt screen has no scrollback: a full-screen app that scrolls past the
+      # bottom must neither grow @ybase/@lines (unbounded memory) nor expose a
+      # bogus history to scrollback navigation.
+      em = emu(4, 3)
+      em.feed "\e[?1049h" # enter alt
+      em.ybase.should eq 0
+      20.times { em.feed "x\r\n" } # scroll well past the 3-row page
+      em.ybase.should eq 0
+      em.lines.size.should eq 3 # exactly the visible page; nothing retained
+      em.feed "\e[?1049l"        # leaving restores the main buffer intact
+      em.alt_active?.should be_false
+    end
   end
 
   describe "mouse mode tracking" do
