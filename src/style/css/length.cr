@@ -127,11 +127,9 @@ module Crysterm
       # `calc(<expr>)`, capturing the inner expression.
       CALC = /\Acalc\(\s*(.*?)\s*\)\z/i
       # A viewport-relative length, resolved against the screen by `viewport_cells`.
-      # Intentionally case-*sensitive* (no `/i`): every caller first gates on a
-      # lowercase `includes?('v')`, so an uppercase `VW` never reaches here anyway,
-      # and this lets `viewport_cells` use the captured unit without a `downcase`
-      # copy on its per-frame path.
-      VIEWPORT = /\A(#{NUM})(vw|vh|vmin|vmax)\z/
+      # CSS units are case-insensitive (`10VW`/`10VMIN`), so this matches any
+      # casing; `viewport_cells` lower-cases the captured unit before dispatch.
+      VIEWPORT = /\A(#{NUM})(vw|vh|vmin|vmax)\z/i
 
       # Rounds fractional cells to an `Int32`, *clamping* into range so an absurd
       # length (`99999999999px`) can't raise `OverflowError` — the contract is
@@ -194,7 +192,7 @@ module Crysterm
       # smaller/larger side. `nil` if *value* isn't a viewport unit.
       def self.viewport_cells(value : String, screen_width : Int32, screen_height : Int32) : Int32?
         return unless m = value.strip.match(VIEWPORT)
-        basis = case m[2] # lowercase by construction (VIEWPORT is case-sensitive)
+        basis = case m[2].downcase # CSS units are case-insensitive (`10VW`)
                 when "vw"   then screen_width
                 when "vh"   then screen_height
                 when "vmin" then {screen_width, screen_height}.min

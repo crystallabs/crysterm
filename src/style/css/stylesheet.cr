@@ -273,9 +273,12 @@ module Crysterm
       # or, inside a rule body, a declaration.
       private def self.handle_statement(prelude : String, parents : Array(String), declarations, important, layer_rank : Int32, ctx : ParseCtx) : Nil
         return if prelude.empty?
-        if prelude.starts_with?("@import")
+        # At-rule *names* are case-insensitive (`@IMPORT`/`@Layer`); the slice
+        # offsets are by the (fixed) name length, so they hold for any casing.
+        lower = prelude.downcase
+        if lower.starts_with?("@import")
           handle_import prelude, layer_rank, ctx
-        elsif prelude.starts_with?("@layer")
+        elsif lower.starts_with?("@layer")
           prelude[6..].split(',').each { |name| ctx.layer_rank(name.strip) unless name.strip.empty? }
         elsif parents.empty?
           ctx.warnings << "stray content at top level: #{prelude.inspect}"
@@ -287,11 +290,14 @@ module Crysterm
       # A `{ ... }` block: `@media`, `@layer <name>`, or a style rule (which may
       # itself nest further rules).
       private def self.handle_block(prelude : String, body : String, parents : Array(String), media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
-        if prelude.starts_with?("@keyframes")
+        # At-rule names are case-insensitive (`@MEDIA`/`@Keyframes`); the slice
+        # offsets are by the (fixed) name length, so they hold for any casing.
+        lower = prelude.downcase
+        if lower.starts_with?("@keyframes")
           parse_keyframes prelude[10..].strip, body, ctx
-        elsif prelude.starts_with?("@media")
+        elsif lower.starts_with?("@media")
           parse_scope body, parents, MediaQuery.parse(prelude[6..].strip), layer_rank, ctx
-        elsif prelude.starts_with?("@layer")
+        elsif lower.starts_with?("@layer")
           name = prelude[6..].strip
           parse_scope body, parents, media, (name.empty? ? layer_rank : ctx.layer_rank(name)), ctx
         else
@@ -395,7 +401,7 @@ module Crysterm
       # path and parses it inline, so its rules precede — and are overridden by —
       # the importing file's.
       private def self.handle_import(prelude : String, layer_rank : Int32, ctx : ParseCtx) : Nil
-        path = prelude[/@import\s+(?:url\()?["']?([^"')]+)["']?\)?/, 1]?
+        path = prelude[/@import\s+(?:url\()?["']?([^"')]+)["']?\)?/i, 1]?
         return unless path
         base = ctx.base_path
         resolved = base ? File.expand_path(path, File.directory?(base) ? base : File.dirname(base)) : path
@@ -457,7 +463,9 @@ module Crysterm
       # back to the in-call fallback (or empty) for undefined names. Iterates a
       # few times so a variable whose value itself uses `var()` resolves too.
       def self.resolve_var(value : String, variables : Hash(String, String)) : String
-        return value unless value.includes?("var(")
+        # `var(` is a CSS function name and so case-insensitive (`VAR(--x)`); the
+        # custom-property *name* inside it stays case-sensitive.
+        return value unless value.matches?(VAR_CALL)
         result = value
         4.times do
           replaced = replace_vars(result, variables)
@@ -474,8 +482,13 @@ module Crysterm
       # `)` behind once the outer name resolves. A defined name takes its value
       # and drops the fallback; an undefined one falls back (which may itself hold
       # a `var()`, resolved on the next `resolve_var` iteration), else empty.
+      # Matches a `var(` function-call opener, case-insensitively (CSS function
+      # names are case-insensitive). The opener is always 4 chars (`v a r (`)
+      # regardless of case, so the matched start index + 3 is still the `(`.
+      VAR_CALL = /var\(/i
+
       private def self.replace_vars(value : String, variables : Hash(String, String)) : String
-        idx = value.index("var(")
+        idx = value.index(VAR_CALL)
         return value unless idx
         open = idx + 3 # index of the '('
         close = matching_paren(value, open)
@@ -566,7 +579,10 @@ module Crysterm
       # `.state-*` class it lowers to. Built once: compiling a regex (and the
       # replacement string) per selector at parse time would be wasteful.
       STATE_PSEUDO_MATCHERS = STATE_PSEUDOS_BY_LENGTH.map do |(token, state)|
-        {Regex.new(Regex.escape(token) + "(?![A-Za-z0-9_-])"), ".#{state.css_class}"}
+        # Pseudo-class names are case-insensitive (`:HOVER` == `:hover`), so the
+        # matcher ignores case; it rewrites only the `:state` token, leaving the
+        # rest of the selector (type names etc.) and its casing untouched.
+        {Regex.new(Regex.escape(token) + "(?![A-Za-z0-9_-])", Regex::Options::IGNORE_CASE), ".#{state.css_class}"}
       end
 
       # Splits a state pseudo-class off a selector, returning `{state,
@@ -602,7 +618,11 @@ module Crysterm
           when '[', '(' then depth += 1
           when ']', ')' then depth -= 1
           else
-            if depth == 0 && selector[i, token.size] == token && !ident_char?(selector[i + token.size]?)
+            # Pseudo-class names are case-insensitive (`:HOVER` == `:hover`), so
+            # compare the token span case-insensitively. Only this pseudo-class
+            # *token* is matched loosely — the rest of the selector (type names,
+            # ids, classes) is left untouched and stays case-sensitive.
+            if depth == 0 && selector[i, token.size].compare(token, case_insensitive: true) == 0 && !ident_char?(selector[i + token.size]?)
               return i
             end
           end

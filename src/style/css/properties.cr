@@ -14,9 +14,14 @@ module Crysterm
       #
       # ameba:disable Metrics/CyclomaticComplexity
       def self.apply(style : Style, property : String, value : String) : Nil
-        return apply_border(style, property, value) if property.starts_with?("border")
+        # CSS property names are case-insensitive, so match on a lower-cased
+        # name (`COLOR` == `color`). Custom properties (`--Foo`) are *case-
+        # sensitive* and aren't handled by this `case` anyway, so they're left
+        # untouched.
+        prop = property.starts_with?("--") ? property : property.downcase
+        return apply_border(style, prop, value) if prop.starts_with?("border")
 
-        case property
+        case prop
         when "color"
           style.fg = ColorValue.resolve(value, style.fg)
         when "background-color"
@@ -51,7 +56,7 @@ module Crysterm
         when "font"
           # `font` shorthand: only the weight/style words mean anything here;
           # presence sets the attribute, absence resets it (shorthand semantics).
-          words = value.split
+          words = value.downcase.split
           style.bold = words.includes?("bold")
           style.italic = words.includes?("italic")
         when "font-weight"
@@ -59,7 +64,7 @@ module Crysterm
         when "font-style"
           style.italic = bool_keyword(value, on: "italic", off: "normal", current: style.italic?)
         when "text-decoration"
-          words = value.split
+          words = value.downcase.split
           style.underline = words.includes?("underline")
           style.blink = words.includes?("blink")
           # `line-through` maps to the terminal's strikethrough attribute
@@ -70,9 +75,9 @@ module Crysterm
           # standard CSS spelling. Shorthand semantics: absent -> off.
           style.reverse = words.includes?("reverse") || words.includes?("inverse")
         when "visibility"
-          style.visible = (value != "hidden")
+          style.visible = (value.strip.downcase != "hidden")
         when "display"
-          style.visible = (value != "none")
+          style.visible = (value.strip.downcase != "none")
         when "opacity"
           # CSS clamps opacity into `[0, 1]`; an out-of-range value would
           # otherwise flow straight into `Colors.blend` as a bad mix factor.
@@ -84,7 +89,7 @@ module Crysterm
         when "tint"
           parse_tint(style, value)
         when "z-index"
-          style.z_index = (value.strip == "auto" ? nil : value.to_i?)
+          style.z_index = (value.strip.downcase == "auto" ? nil : value.to_i?)
         when "transition"
           style.transitions = parse_transition(value)
         when "animation"
@@ -181,7 +186,7 @@ module Crysterm
       # clears it. The color may be any form `color`/`background-color` accept; a
       # bare `0..1` number anywhere in the value is taken as the strength.
       private def self.parse_tint(style : Style, value : String) : Nil
-        if value.strip == "none"
+        if value.strip.downcase == "none"
           style.tint = nil
           return
         end
@@ -210,7 +215,7 @@ module Crysterm
       # map of property name -> `{duration, easing}`; `none` clears it. Unknown
       # easings fall back to a gentle in/out sine.
       private def self.parse_transition(value : String) : Hash(String, Tuple(Time::Span, Animation::Easing))?
-        return nil if value.strip == "none" || value.strip.empty?
+        return nil if value.strip.downcase == "none" || value.strip.empty?
         out = {} of String => Tuple(Time::Span, Animation::Easing)
         value.split(',').each do |entry|
           toks = entry.split
@@ -227,7 +232,7 @@ module Crysterm
       # is flexible. `none`/empty clears it.
       private def self.parse_animation(value : String) : Style::AnimationSpec?
         toks = value.split
-        return nil if toks.empty? || toks[0] == "none"
+        return nil if toks.empty? || toks[0].downcase == "none"
         name = toks[0]
         dur = 1.seconds
         easing = Animation::Easing::Linear
@@ -236,11 +241,12 @@ module Crysterm
         toks[1..].each do |t|
           # A unit-suffixed token is the duration; a bare integer is the
           # iteration count (so `... 0.15s ... 1` doesn't read "1" as seconds).
-          if (t.ends_with?("ms") || t.ends_with?("s")) && (span = parse_time(t))
+          tl = t.downcase
+          if (tl.ends_with?("ms") || tl.ends_with?("s")) && (span = parse_time(t))
             dur = span
-          elsif t == "infinite"
+          elsif tl == "infinite"
             iterations = nil
-          elsif t == "alternate"
+          elsif tl == "alternate"
             alternate = true
           elsif (n = t.to_i?)
             iterations = n
@@ -253,6 +259,7 @@ module Crysterm
 
       # `0.3s` / `200ms` / bare seconds -> `Time::Span`.
       private def self.parse_time(s : String) : Time::Span?
+        s = s.strip.downcase # time units (`s`/`ms`) are case-insensitive
         if s.ends_with? "ms"
           s[0...-2].to_f?.try &.milliseconds
         elsif s.ends_with? "s"
@@ -264,7 +271,7 @@ module Crysterm
 
       # Maps a CSS timing-function keyword to an `Animation::Easing`.
       private def self.css_easing(name : String) : Animation::Easing
-        case name
+        case name.downcase
         when "linear"              then Animation::Easing::Linear
         when "ease-in"             then Animation::Easing::InQuad
         when "ease-out"            then Animation::Easing::OutQuad
@@ -329,7 +336,7 @@ module Crysterm
       # both mean the light line border; `bg`/`background` the fill-char border;
       # `dashed`/`dotted`/`double` their respective glyph sets.
       private def self.border_type_keyword(token : String) : BorderType?
-        case token
+        case token.downcase
         when "solid", "line"    then BorderType::Line
         when "dashed"           then BorderType::Dashed
         when "dotted"           then BorderType::Dotted
@@ -353,7 +360,7 @@ module Crysterm
         explicit_width = nil
         type_seen = false
         value.split.each do |token|
-          if token == "none"
+          if token.downcase == "none"
             explicit_width = 0
           elsif type = border_type_keyword(token)
             border.type = type
@@ -375,7 +382,7 @@ module Crysterm
       # any line/fill keyword (`solid`/`line`/`dashed`/`dotted`/`double`/`bg`)
       # sets the type and enables the sides.
       private def self.apply_border_style(border : Border, value : String, sides : Tuple) : Nil
-        if value == "none"
+        if value.strip.downcase == "none"
           sides.each { |side| set_side border, side, 0 }
         elsif type = border_type_keyword(value)
           border.type = type
@@ -406,7 +413,9 @@ module Crysterm
       # Resolves a two-valued keyword property (e.g. `font-weight: bold|normal`)
       # to a Bool, leaving the current value untouched for unrecognized inputs.
       private def self.bool_keyword(value, *, on, off, current) : Bool
-        case value
+        # CSS keyword values (`bold`/`normal`, `italic`/`normal`) are
+        # case-insensitive, so compare on the lower-cased value.
+        case value.strip.downcase
         when on  then true
         when off then false
         else          current
@@ -451,7 +460,7 @@ module Crysterm
       # `box-shadow: 0 4px 8px <color>` would read its `0` offset as alpha `0` — a
       # fully transparent, *invisible* shadow.
       private def self.parse_box_shadow(value : String) : Shadow
-        return Shadow.from(false) if value.strip == "none"
+        return Shadow.from(false) if value.strip.downcase == "none"
         alpha = value.split.compact_map { |t| t.includes?('.') ? t.to_f? : nil }.find { |num| 0.0 <= num <= 1.0 }
         alpha ? Shadow.from(alpha) : Shadow.from(true)
       end
@@ -499,7 +508,7 @@ module Crysterm
       # (`solid`/`line` -> line border, `bg` -> background border, `none` -> no
       # border), and otherwise treats a token as a color.
       private def self.parse_border(value : String) : Border
-        return Border.new(0) if value.strip == "none"
+        return Border.new(0) if value.strip.downcase == "none"
         border = Border.new # default: line border, 1 cell on each side
         value.split.each do |token|
           if type = border_type_keyword(token)

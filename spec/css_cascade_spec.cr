@@ -1562,4 +1562,94 @@ describe "CSS::ColorValue" do
     Crysterm::CSS::ColorValue.resolve("RGBA(0, 255, 0, 0.5)", nil).should eq 0x00ff00
     Crysterm::CSS::ColorValue.resolve("HSL(240, 100%, 50%)", nil).should eq 0x0000ff
   end
+
+  # --- Case-insensitivity of the remaining CSS token classes ---
+
+  it "matches property names case-insensitively (CSS property names are case-insensitive)" do
+    style = Crysterm::Style.new
+    Crysterm::CSS::Properties.apply(style, "COLOR", "red")
+    style.fg.should eq rgb("red")
+    # mixed-case longhand, including the `border*` family
+    border_style = Crysterm::Style.new
+    Crysterm::CSS::Properties.apply(border_style, "Border-Width", "3")
+    border_style.border.left.should eq 3
+  end
+
+  it "matches keyword values case-insensitively (none/hidden/border keywords)" do
+    none = Crysterm::Style.new
+    Crysterm::CSS::Properties.apply(none, "display", "NONE")
+    none.visible?.should be_false
+
+    hidden = Crysterm::Style.new
+    Crysterm::CSS::Properties.apply(hidden, "visibility", "Hidden")
+    hidden.visible?.should be_false
+
+    # a border-style keyword still resolves when shouted (`DASHED`, distinct
+    # from the default `Line`, so this proves the keyword actually matched)
+    bordered = Crysterm::Style.new
+    Crysterm::CSS::Properties.apply(bordered, "border", "DASHED")
+    bordered.border.type.should eq Crysterm::BorderType::Dashed
+
+    # `font-weight: BOLD` (bool keyword) still turns on bold
+    weighted = Crysterm::Style.new
+    Crysterm::CSS::Properties.apply(weighted, "font-weight", "BOLD")
+    weighted.bold?.should be_true
+  end
+
+  it "resolves var() case-insensitively, but the custom-property name stays case-sensitive" do
+    vars = {"--accent" => "red"}
+    Crysterm::CSS::Stylesheet.resolve_var("VAR(--accent)", vars).should eq "red"
+    Crysterm::CSS::Stylesheet.resolve_var("Var(--accent)", vars).should eq "red"
+    # The name inside is case-sensitive: `--Accent` is undefined, so it falls
+    # back to empty (no fallback given) rather than resolving to `--accent`.
+    Crysterm::CSS::Stylesheet.resolve_var("var(--Accent)", vars).should eq ""
+  end
+
+  it "parses at-rule names case-insensitively (@MEDIA/@LAYER/@IMPORT)" do
+    sheet = Crysterm::CSS::Stylesheet.parse("@MEDIA (min-width: 1) { Button { color: red; } }")
+    sheet.rules.size.should eq 1
+    sheet.rules.first.media.should_not be_nil
+    sheet.rules.first.selector.should contain("Button")
+  end
+
+  it "matches viewport units case-insensitively (CSS units are case-insensitive)" do
+    Crysterm::CSS::Length.viewport?("10VW").should be_true
+    Crysterm::CSS::Length.viewport?("10VMIN").should be_true
+    Crysterm::CSS::Length.viewport_cells("50VW", 80, 24).should eq 40
+    # same answer as the lowercase form
+    Crysterm::CSS::Length.viewport_cells("50vw", 80, 24).should eq 40
+  end
+
+  it "peels a state pseudo-class case-insensitively (:FOCUS == :focus)" do
+    screen = headless_screen
+    button = Widget::Button.new
+    screen.append button
+    without_default_theme do
+      screen.stylesheet = <<-CSS
+        Button { color: red; }
+        Button:FOCUS { color: green; }
+      CSS
+      screen.apply_stylesheet
+      button.styles.normal.fg.should eq rgb("red")
+      button.styles.focused.fg.should eq rgb("green")
+    end
+  end
+
+  it "keeps type selectors case-sensitive (lowercase `button` does not match a Button)" do
+    screen = headless_screen
+    button = Widget::Button.new
+    screen.append button
+    without_default_theme do
+      # `button` (lowercase) is not the PascalCase `Button` type, so it must not
+      # match — CSS keywords are case-insensitive, but type/widget names are not.
+      screen.stylesheet = "button { color: red; }"
+      screen.apply_stylesheet
+      button.styles.normal.fg.should be_nil
+
+      # ...while the correctly-cased `Button` does match.
+      screen.stylesheet = "Button { color: red; }"
+      screen.apply_stylesheet
+      button.styles.normal.fg.should eq rgb("red")
+    end
+  end
 end
