@@ -377,7 +377,15 @@ module Crysterm
         # Only parse tags when this call hasn't disabled them *and* the content
         # actually contains tags (decided in `#set_content`). For plain-text
         # content this skips `_parse_tags` and its whole-string regex scan.
-        if !no_tags && @_content_has_tags
+        #
+        # `@_content_no_tags` is consulted too: it records the `no_tags` mode the
+        # current content was set with (e.g. via `#set_text`), so a *later*
+        # cache-miss reparse — a width change, resize, scroll or attach, all of
+        # which call `process_content` with the default `no_tags = false` — keeps
+        # tags literal instead of suddenly parsing the tags `set_text` asked to
+        # preserve. (On the `set_content` call itself the two flags agree, since
+        # it sets `@_content_no_tags = no_tags` right before calling here.)
+        if !no_tags && !@_content_no_tags && @_content_has_tags
           content = _parse_tags content
         end
         ::Log.trace { "After _parse_tags: #{content.inspect}" }
@@ -1032,7 +1040,11 @@ module Crysterm
       # the blank line; let the full path produce it.
       return false if seg.empty?
 
-      seg_has_tags = @parse_tags && seg.includes?('{') && seg.matches?(TAG_REGEX)
+      # Honor the content's `no_tags` mode (see `process_content`): content set
+      # via `#set_text` keeps tags literal, so an appended segment must not be
+      # tag-parsed either — otherwise the fast path would diverge from a full
+      # reparse (which now skips `_parse_tags` under `@_content_no_tags`).
+      seg_has_tags = @parse_tags && !@_content_no_tags && seg.includes?('{') && seg.matches?(TAG_REGEX)
       if seg_has_tags
         # Standalone tag parse of the new segment. Correct because earlier `fake`
         # lines are already SGR (tagless), so a full reparse's tag stacks are
