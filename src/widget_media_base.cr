@@ -51,7 +51,7 @@ module Crysterm
 
       # Whether playback is wanted. Stays the single source of truth: every place
       # that sets it false ends the loop, since the frame clock checks it each tick.
-      @playing = false
+      getter? playing = false
 
       # The private frame clock advancing `#anim_index` over time, used for solo
       # playback (`animate: true`); nil when not playing or when driven by a
@@ -213,6 +213,18 @@ module Crysterm
         return if @playing
         png = source # (re)opens the streaming decoder when applicable
         return unless png
+
+        # Only a *genuine* animation plays: a live video stream (`@stream`), or a
+        # decoded source with more than one frame. A single-frame source is a
+        # still — notably one injected via `#bitmap=`, which wraps the frame as a
+        # `PNGGIF::PNG` whose `frames` is non-nil (the frame-list constructor
+        # always sets it, unlike a decoded still where it stays nil). Without this
+        # guard, auto-play on such a source (e.g. a `Graph::Canvas` on a Sixel/
+        # Kitty backend, whose `#ensure_animation` plays any source with non-nil
+        # `frames`) would start a one-frame loop that re-renders forever at the
+        # minimum interval — a CPU/redraw spin.
+        return unless @stream || ((fr = png.frames) && fr.size > 1)
+
         @playing = true
 
         if @stream
