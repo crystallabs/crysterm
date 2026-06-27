@@ -147,8 +147,10 @@ module Crysterm
       # regex, keeping the common percentage/keyword path untouched. When a `'v'`
       # is present we resolve in one shot: `viewport_cells` returns `nil` for a
       # non-viewport string (which then falls through), and a real `0`-cell
-      # result is truthy, so it still returns here.
-      if expr.includes?('v')
+      # result is truthy, so it still returns here. CSS units are case-insensitive
+      # (`50VW`), and `viewport_cells` already folds case, so the gate matches
+      # either case to avoid silently dropping an uppercased unit.
+      if expr.includes?('v') || expr.includes?('V')
         scr = screen
         if cells = CSS::Length.viewport_cells(expr, scr.awidth, scr.aheight)
           return cells
