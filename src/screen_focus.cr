@@ -152,6 +152,15 @@ module Crysterm
     end
 
     def _focus(cur : Widget, old : Widget? = nil)
+      # Re-focusing the already-focused widget has no "previous" to blur or
+      # un-highlight: treating `cur` as its own `old` would set its state to
+      # `:focused` (a no-op) and then immediately back to `:normal` (clobbering
+      # the highlight), plus emit a spurious `Blur` on the widget being focused.
+      # This is reachable via the public `Screen#focus`/`focus_offset` (e.g. Tab
+      # with a single focusable widget wraps back onto it); `Widget#focus` already
+      # guards it, but the screen-level entry points do not.
+      old = nil if old == cur
+
       # Find a scrollable ancestor if we have one.
       el = cur
       while el = el.parent

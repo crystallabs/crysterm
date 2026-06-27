@@ -64,6 +64,40 @@ describe "Screen#focus_offset" do
   end
 end
 
+describe "Screen#focus (re-focus of the already-focused widget)" do
+  # Regression: `Screen#focus` (and `focus_offset`, e.g. Tab wrapping back onto
+  # the sole focusable widget) routes straight to `_focus el, el`. The state
+  # assignment used to set `:focused` (a no-op) then `:normal`, clobbering the
+  # highlight — and emit a spurious `Blur` on the widget being focused.
+  it "keeps the widget focused and emits no Blur on itself" do
+    s = focus_screen
+    a = Widget::Box.new parent: s, keys: true
+
+    s.focus a
+    a.state.should eq Crysterm::WidgetState::Focused
+
+    blurs = 0
+    a.on(Crysterm::Event::Blur) { blurs += 1 }
+
+    s.focus a # re-focus the already-focused widget (screen-level entry point)
+
+    a.state.should eq Crysterm::WidgetState::Focused
+    blurs.should eq 0
+  end
+
+  # The same hazard via keyboard navigation: with a single focusable widget,
+  # `focus_next` wraps the index back onto it, re-focusing it.
+  it "leaves the sole focusable widget focused after Tab wraps onto it" do
+    s = focus_screen
+    a = Widget::Box.new parent: s, keys: true
+
+    a.focus
+    s.focus_next # wraps back to `a`
+    s.focused.should eq a
+    a.state.should eq Crysterm::WidgetState::Focused
+  end
+end
+
 describe "Screen#rewind_focus" do
   # Regression: `_focus` already emits `Event::Blur` on the previously-focused
   # widget, so `rewind_focus` must NOT emit it a second time. It used to, leaving
