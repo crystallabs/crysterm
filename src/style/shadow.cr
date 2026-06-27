@@ -3,7 +3,16 @@ module Crysterm
   class Shadow
     include SidedGeometry
 
-    class_property default = new 0, 0, 0, 0
+    # A fresh zero-shadow instance ("no shadow": all sides 0). Deliberately *not*
+    # a shared singleton — exactly like `Padding.default`/`Margin.default`: a
+    # `Shadow` is mutable through its per-side/alpha setters (`left`/`top`/
+    # `right`/`bottom`/`alpha`), and `Style`'s default getter (`getter shadow =
+    # Shadow.default`) hands one to *every* `Style`. A single shared object would
+    # let one style's in-place edit leak into every other style (and corrupt the
+    # "no shadow" baseline). Each call returns its own.
+    def self.default : Shadow
+      new 0, 0, 0, 0
+    end
 
     # Width of shadow on the left side
     property left : Int32 = 0
