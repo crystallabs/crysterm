@@ -202,7 +202,15 @@ module Crysterm
             screen.lines[cy]?.try do |line|
               txt.each_char_with_index do |ch, i|
                 break if cx + i >= xl
-                line[cx + i]?.try &.char = ch
+                # Set the attr too, not just the glyph: the value text rides over
+                # the center row, which also carries the handle cell. Writing only
+                # the char left a digit landing on the handle wearing the handle's
+                # (indicator/reverse) attr, so the readout came out unevenly
+                # styled. Stamp the track attr so every digit reads consistently.
+                line[cx + i]?.try do |cell|
+                  cell.char = ch
+                  cell.attr = track_attr
+                end
               end
               line.dirty = true
             end

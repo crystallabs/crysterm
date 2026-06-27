@@ -58,6 +58,34 @@ describe "Slider rendering" do
     # value mid -> handle in the middle.
     row_chars(s, 0, 0, 11).should eq "-----#-----"
   end
+
+  it "draws the value readout in a uniform attr, even where it overlaps the handle" do
+    saved = Crysterm::CSS.default_stylesheet
+    Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
+    begin
+      s = render_screen
+      st = Crysterm::Style.new(fg: "white", bg: "black")
+      # A visibly distinct handle (indicator) style: if the readout inherited it
+      # at the overlapping cell, that digit would differ from the rest.
+      st.indicator = Crysterm::Style.new(fg: "red", bg: "blue")
+      Crysterm::Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1,
+        minimum: 0, maximum: 100, value: 50, show_value: true, style: st
+      s._render
+      # "50" is centered at columns 4-5; the handle sits at column 5, so the '0'
+      # digit lands directly on it.
+      s.lines[0][4].char.should eq '5'
+      s.lines[0][5].char.should eq '0'
+      track = s.lines[0][0].attr # a plain track cell, drawn with the base style
+      # Both digits carry the (single) track attr — the readout reads
+      # consistently rather than wearing the handle's indicator attr at the
+      # overlapping cell, so the two digits match each other and the track.
+      s.lines[0][4].attr.should eq track
+      s.lines[0][5].attr.should eq track
+      s.lines[0][4].attr.should eq s.lines[0][5].attr
+    ensure
+      Crysterm::CSS.default_stylesheet = saved
+    end
+  end
 end
 
 describe "SpinBox rendering" do
