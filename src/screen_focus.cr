@@ -139,8 +139,21 @@ module Crysterm
       # may still be visible. Mirrors `rewind_focus` and the mouse hit-test.
       return unless @keyable.any? { |el| el.screen? && displayed_in_tree?(el) }
 
-      i = @keyable.index(focused) || -1
-      i += offset
+      # With no current focus, enter from the natural end: forward navigation
+      # (`focus_next`) must land on the FIRST focusable widget, backward
+      # (`focus_previous`) on the LAST. A single `-1` sentinel only gets the
+      # forward case right (`-1 + 1 == 0`); for a negative offset `-1 + -1`
+      # wraps to second-from-last (or, with two widgets, the first) — never the
+      # last. So when `focused` isn't in the list, pick the virtual start per
+      # direction: just-before-0 going forward, 0 going backward (so the first
+      # backward step is `-1`, which wraps to the last element).
+      i = if idx = @keyable.index(focused)
+            idx + offset
+          elsif offset > 0
+            offset - 1
+          else
+            offset
+          end
 
       i %= @keyable.size
       while !@keyable[i].screen? || !displayed_in_tree?(@keyable[i])

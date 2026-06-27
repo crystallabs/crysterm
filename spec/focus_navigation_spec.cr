@@ -26,6 +26,31 @@ describe "Screen#focus_offset" do
     s.focused.should eq a
   end
 
+  # Regression: from a no-focus state (reachable once focus has been cleared —
+  # e.g. the focused widget was removed, or the history emptied), navigation
+  # must enter from the natural end: `focus_next` onto the FIRST focusable
+  # widget and `focus_previous` onto the LAST. The old `-1` sentinel only got
+  # the forward case right; `focus_previous` landed mid-list (second-from-last,
+  # or with two widgets the first) instead of the last.
+  it "enters from the correct end when nothing is focused" do
+    s = focus_screen
+    a = Widget::Box.new parent: s, keys: true
+    b = Widget::Box.new parent: s, keys: true
+    c = Widget::Box.new parent: s, keys: true
+
+    # Adding the first keyable widget auto-focuses it; clear back to no focus.
+    s.@history.clear
+    s.focused.should be_nil
+    s.focus_next # no focus -> first focusable
+    s.focused.should eq a
+
+    # Reset to "no focus" and go the other way -> last focusable.
+    s.@history.clear
+    s.focused.should be_nil
+    s.focus_previous
+    s.focused.should eq c
+  end
+
   # Regression: `@keyable` is not pruned when a widget is removed, so it can hold
   # detached widgets (whose `@screen` is nil). `focus_offset` must treat those as
   # "not attached" via `screen?` rather than crashing on the raising `screen`.
