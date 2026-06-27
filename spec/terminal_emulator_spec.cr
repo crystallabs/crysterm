@@ -327,6 +327,19 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[2;4H\e[6n"
       io.to_s.should eq "\e[2;4R"
     end
+
+    it "reports the cursor row relative to the scroll region under origin mode" do
+      em = emu(10, 6)
+      io = IO::Memory.new
+      em.output = io
+      em.feed "\e[2;5r"  # scroll region rows 2..5 (1-based)
+      em.feed "\e[?6h"   # DECOM on: row addressing is region-relative
+      em.feed "\e[1;1H"  # home to the region top in origin coords (== absolute row 2)
+      em.feed "\e[6n"
+      # The reply must echo the origin-relative row (1), not the absolute row (2),
+      # so it round-trips with the CUP the child just issued.
+      io.to_s.should eq "\e[1;1R"
+    end
   end
 
   describe "OSC title vs. DCS/PM/APC strings" do

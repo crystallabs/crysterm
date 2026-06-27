@@ -587,16 +587,25 @@ module Crysterm
       @wrap_pending = false
     end
 
+    # 1-based cursor row for a CPR/DECXCPR reply. Under origin mode (DECOM) the
+    # cursor row is addressed relative to the scroll region's top (see `#set_row`),
+    # so the report must be relative too — otherwise a child that homes with
+    # origin coords and then reads the position back gets a row that doesn't match
+    # the one it just set. The column is unaffected (no left/right margins here).
+    private def cpr_row : Int32
+      @origin_mode ? (@y - @scroll_top + 1) : (@y + 1)
+    end
+
     private def device_status(code : Int32) : Nil
       if @csi_private
         # DEC-private DSR (DECDSR): the reply mirrors the request's `?` prefix.
         case code
-        when 6 then respond("\e[?#{@y + 1};#{@x + 1}R") # DECXCPR (extended CPR)
+        when 6 then respond("\e[?#{cpr_row};#{@x + 1}R") # DECXCPR (extended CPR)
         end
       else
         case code
-        when 5 then respond("\e[0n")                   # "OK"
-        when 6 then respond("\e[#{@y + 1};#{@x + 1}R") # cursor position (CPR)
+        when 5 then respond("\e[0n")                    # "OK"
+        when 6 then respond("\e[#{cpr_row};#{@x + 1}R") # cursor position (CPR)
         end
       end
     end
