@@ -29,7 +29,13 @@ module Crysterm
           nil
         end
 
-        if stat.directory? && !stat.symlink?
+        # `stat` is `File::Info?` (the `rescue` above yields `nil` when `full`
+        # can't be stat'd — a dangling symlink, a races-away entry, EACCES).
+        # Guard before calling `directory?`/`symlink?`: without the nil check
+        # this is a `Nil`-method compile error, which only stayed hidden because
+        # nothing instantiates `find_file` (it is called solely by its own
+        # recursion), so its body was never type-checked.
+        if stat && stat.directory? && !stat.symlink?
           found = find_file full, target
           return found if found
         end
