@@ -175,7 +175,13 @@ module Crysterm
       (start_col...@maxes.size).each do |col_i|
         max = @maxes[col_i]
         (cx...cx + max).each { |xpos| map[xpos] = col_i }
-        cx += max
+        # Skip the single inter-column separator that `#render_row` emits between
+        # cells (and that `#column_start_offsets` accounts for with `acc += m + 1`).
+        # Without this `+ 1` the mapping drifted left by one cell per preceding
+        # column, so per-cell CSS styles landed on the wrong column for every
+        # column past the first. The separator cell itself stays unmapped (no
+        # cell style — it's a gridline gap), matching the rendered layout.
+        cx += max + 1
       end
       map
     end

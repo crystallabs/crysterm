@@ -74,3 +74,26 @@ describe "TableLayout @maxes cache" do
     t.row_width.should eq first
   end
 end
+
+describe "TableLayout#col_for_x" do
+  # `col_for_x` resolves an interior x to its table column for per-cell CSS
+  # styling. It must agree with the actual rendered layout, which inserts one
+  # separator cell between columns (`render_row`, `column_start_offsets`):
+  # without accounting for it the mapping drifted left by one cell per preceding
+  # column, misstyling every column past the first.
+  it "maps each column to its rendered start position" do
+    s = headless_screen
+    t = Crysterm::Widget::Table.new parent: s, rows: [["aa", "bbbb", "cc"], ["dd", "ee", "ff"]]
+    t.calculate_maxes
+
+    starts = t.column_start_offsets
+    map = t.col_for_x(0, 0)
+
+    # Each column's start offset must map to that column, and the cell just
+    # before it (the separator) must not map to it.
+    starts.each_with_index do |start, col|
+      map[start]?.should eq col
+      map[start - 1]?.should_not eq col if start > 0
+    end
+  end
+end
