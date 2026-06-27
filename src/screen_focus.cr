@@ -85,7 +85,22 @@ module Crysterm
       end
       @history.clear
 
-      return unless el
+      unless el
+        # No valid prior target remains (e.g. the focused widget — or its whole
+        # subtree — was hidden or removed, and nothing earlier in the history is
+        # still attached and visible). Focus is now cleared: `@history` is empty,
+        # so `focused` already returns nil. But `old` (the widget we just popped)
+        # must still be *blurred* — drop its `:focused` state and emit `Event::Blur`
+        # — exactly as `_focus` does on a normal transition. Without this the
+        # detached/hidden widget lingers in `WidgetState::Focused` (e.g. it would
+        # reappear visually focused on `#show`) and no listener ever sees focus
+        # leave it. `nil` payload: there is no widget taking over focus.
+        old.try do |o|
+          o.state = :normal
+          o.emit Crysterm::Event::Blur, nil
+        end
+        return
+      end
 
       # `_focus` (below) already emits `Event::Blur` on `old` (with the
       # newly-focused widget as payload), exactly as `focus_push`/`focus_pop` rely

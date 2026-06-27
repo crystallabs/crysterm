@@ -143,4 +143,28 @@ describe "Screen#rewind_focus" do
 
     blurs.should eq 1
   end
+
+  # Regression (deferred): when no valid prior target remains — the focused
+  # widget was hidden/removed and nothing earlier in the history is still
+  # attached and visible — `rewind_focus` must fully *clear* focus: `focused`
+  # becomes nil AND the previously-focused widget is blurred (its `:focused`
+  # state dropped and an `Event::Blur` emitted), instead of lingering in
+  # `WidgetState::Focused` with no Blur ever fired.
+  it "blurs and clears focus when no valid prior target remains" do
+    s = focus_screen
+    a = Widget::Box.new parent: s, keys: true
+
+    a.focus
+    s.focused.should eq a
+    a.state.should eq Crysterm::WidgetState::Focused
+
+    blurs = 0
+    a.on(Crysterm::Event::Blur) { blurs += 1 }
+
+    a.hide # the sole focusable widget; nothing valid to rewind to
+
+    s.focused.should be_nil
+    a.state.should_not eq Crysterm::WidgetState::Focused
+    blurs.should eq 1
+  end
 end
