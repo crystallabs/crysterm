@@ -274,7 +274,7 @@ describe "CSS cascade" do
     screen.apply_stylesheet
 
     style = box.styles.normal
-    style.shadow.right.should eq 2  # default drop shadow enabled
+    style.shadow.right.should eq 2   # default drop shadow enabled
     style.shadow.alpha.should eq 0.5 # default opacity, not 0
   end
 
@@ -1522,8 +1522,8 @@ describe "CSS::Specificity" do
   it "takes the MAX (not sum) of a functional pseudo-class's argument list" do
     # :is()/:not()/:has() contribute the specificity of their most specific
     # argument, comparing each argument's (a, b, c) tuple — not the sum.
-    spec.call(":is(.a, #b)").should eq({1, 0, 0})      # #b wins, not (1,1,0)
-    spec.call(":not(.a, .b, .c)").should eq({0, 1, 0}) # one class, not three
+    spec.call(":is(.a, #b)").should eq({1, 0, 0})       # #b wins, not (1,1,0)
+    spec.call(":not(.a, .b, .c)").should eq({0, 1, 0})  # one class, not three
     spec.call(":has(.a, Box Box)").should eq({0, 1, 0}) # .a (0,1,0) > two types (0,0,2)
     # Combined with surrounding simple selectors, the max is just added in.
     spec.call("Button:is(.a, #b)").should eq({1, 0, 1})

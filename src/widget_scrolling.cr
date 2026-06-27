@@ -264,6 +264,26 @@ module Crysterm
 
     property? always_scroll : Bool = false
 
+    # Qt-style sticky-bottom "follow tail": when on, the view stays pinned to the
+    # bottom as content grows — but only while it is *already* at the bottom, so
+    # a manual scroll-up to read back is preserved (the Qt `verticalScrollBar
+    # value == maximum` idiom). Off by default; `Widget::Log` defaults it on.
+    # *When* to stick is decided by `#stick_to_tail?`.
+    property? follow_tail : Bool = false
+
+    # Bottom-most scroll offset at the previous layout. `#clamp_child_base_to_content`
+    # compares `#child_base` against it to tell whether the view was at the tail
+    # before the content changed (the basis of the sticky-bottom decision).
+    @last_scroll_max = 0
+
+    # Whether to snap to the new bottom when content grows — consulted only when
+    # `#follow_tail?`. Sticky-bottom by default: true only when the view was
+    # already at the tail. Subclasses may override for an always-pin mode (e.g.
+    # `Widget::Log#scroll_on_input`).
+    protected def stick_to_tail?(content_max : Int32) : Bool
+      @child_base >= @last_scroll_max
+    end
+
     @ev_label_scroll : Crysterm::Event::Scroll::Wrapper?
 
     # Potentially use this where ever .scrollable? is used
@@ -552,8 +572,19 @@ module Crysterm
       max = 0 if max < 0
       emax = _scroll_bottom - visible
       emax = 0 if emax < 0
+      content_max = Math.max emax, max
 
-      @child_base = Math.min @child_base, Math.max(emax, max)
+      # Qt sticky-bottom (`#follow_tail`): when following the tail and the view
+      # was already at the bottom (or pinned — see `#stick_to_tail?`), snap to the
+      # new bottom as content grows; otherwise only pull the base *down* into
+      # range, so a reader who scrolled up is never yanked down. With follow-tail
+      # off this reduces to the original `min(child_base, content_max)`.
+      if follow_tail? && stick_to_tail?(content_max)
+        @child_base = content_max
+      else
+        @child_base = Math.min @child_base, content_max
+      end
+      @last_scroll_max = content_max
 
       clamp_child_base
     end

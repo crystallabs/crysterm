@@ -144,11 +144,11 @@ module Crysterm
           flags |= Attr::INVISIBLE
         when 9 # strikethrough
           flags |= Attr::STRIKE
-        # Each of these turns off ONLY its respective style attribute (leaving
-        # the others intact), per ECMA-48 — not a blanket flags reset. Clearing
-        # all flags here would make e.g. `{bold}{underline}x{/underline}y` drop
-        # the still-open bold on `y`. (For the common single-flag case the result
-        # is identical, since only the one set bit is cleared.)
+          # Each of these turns off ONLY its respective style attribute (leaving
+          # the others intact), per ECMA-48 — not a blanket flags reset. Clearing
+          # all flags here would make e.g. `{bold}{underline}x{/underline}y` drop
+          # the still-open bold on `y`. (For the common single-flag case the result
+          # is identical, since only the one set bit is cleared.)
         when 22 then flags &= ~Attr::BOLD.to_i64      # normal intensity (bold off)
         when 23 then flags &= ~Attr::ITALIC.to_i64    # italic off
         when 24 then flags &= ~Attr::UNDERLINE.to_i64 # underline off
@@ -156,7 +156,7 @@ module Crysterm
         when 27 then flags &= ~Attr::REVERSE.to_i64   # reverse off
         when 28 then flags &= ~Attr::INVISIBLE.to_i64 # reveal (invisible off)
         when 29 then flags &= ~Attr::STRIKE.to_i64    # strikethrough off
-        when 39 # default fg
+        when 39                                       # default fg
           fg = Attr.fg(dfl)
         when 49 # default bg
           bg = Attr.bg(dfl)

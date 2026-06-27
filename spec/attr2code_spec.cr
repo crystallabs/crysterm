@@ -51,9 +51,9 @@ describe "Screen.attr2code" do
     (Attr.flags(multi) & Attr::UNDERLINE).should_not eq 0
 
     after = Crysterm::Screen.attr2code("\e[24m", multi, dfl)
-    (Attr.flags(after) & Attr::UNDERLINE).should eq 0     # underline cleared
-    (Attr.flags(after) & Attr::BOLD).should_not eq 0      # bold preserved
-    (Attr.flags(after) & Attr::ITALIC).should_not eq 0    # italic preserved
+    (Attr.flags(after) & Attr::UNDERLINE).should eq 0  # underline cleared
+    (Attr.flags(after) & Attr::BOLD).should_not eq 0   # bold preserved
+    (Attr.flags(after) & Attr::ITALIC).should_not eq 0 # italic preserved
 
     # The other partial resets likewise clear only their own bit.
     {
@@ -66,8 +66,8 @@ describe "Screen.attr2code" do
     }.each do |code, bit|
       all = apply.call("\e[1;2;3;4;5;7;8;9m") # every flag on
       res = Crysterm::Screen.attr2code(code, all, dfl)
-      (Attr.flags(res) & bit).should eq 0                          # the targeted bit is off
-      (Attr.flags(res) & (Attr::FLAGS_MASK & ~bit.to_i64)).should eq (Attr.flags(all) & (Attr::FLAGS_MASK & ~bit.to_i64)) # the rest unchanged
+      (Attr.flags(res) & bit).should eq 0                                                                                # the targeted bit is off
+      (Attr.flags(res) & (Attr::FLAGS_MASK & ~bit.to_i64)).should eq(Attr.flags(all) & (Attr::FLAGS_MASK & ~bit.to_i64)) # the rest unchanged
     end
   end
 

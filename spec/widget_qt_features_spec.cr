@@ -985,7 +985,7 @@ describe Crysterm::Widget::DoubleSpinBox do
       value: 3.5, decimals: -2
     d.decimals.should eq 0
     d.formatted_value.should eq "4" # 3.5 rounded to 0 places
-    d.decimals = -5                  # setter clamps too
+    d.decimals = -5                 # setter clamps too
     d.decimals.should eq 0
   end
 end
@@ -1940,9 +1940,9 @@ describe "DateEdit year clamping" do
   it "does not crash when stepping the year past Time's 1..9999 range" do
     s = qt_mem_screen
     de = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(1, 1, 1), calendar_popup: false
-    de.on_keypress keypress('\0', Tput::Key::Left)  # day -> month
-    de.on_keypress keypress('\0', Tput::Key::Left)  # month -> year
-    de.on_keypress keypress('\0', Tput::Key::Down)  # year - 1 would be year 0
+    de.on_keypress keypress('\0', Tput::Key::Left) # day -> month
+    de.on_keypress keypress('\0', Tput::Key::Left) # month -> year
+    de.on_keypress keypress('\0', Tput::Key::Down) # year - 1 would be year 0
     de.date.year.should eq 1
 
     de2 = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(9999, 1, 1), calendar_popup: false

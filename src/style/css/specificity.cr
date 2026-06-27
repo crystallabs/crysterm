@@ -117,7 +117,6 @@ module Crysterm
         end
         yield arg[start..]
       end
-
     end
   end
 end

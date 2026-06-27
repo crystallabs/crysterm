@@ -123,6 +123,10 @@ module Superconf
     description: "Default Widget::Loading spinner frame interval",
     validate: ->(t : Time::Span) { t > Time::Span.zero }
 
+  # -- Input -----------------------------------------------------------------
+  option "input.readline_keys", true,
+    description: "Enable emacs/readline-style editing keys in text inputs: Ctrl-A/Ctrl-E (line start/end), word-wise Ctrl/Alt-Left/Right (+ Alt-B/Alt-F), Ctrl-W (kill word back), Ctrl-U/Ctrl-K (kill to line start/end), Alt-D (kill word forward), and Ctrl-Y (yank from the kill ring). When off, these keys are left unhandled so the application can bind them"
+
   # -- External programs / environment --------------------------------------
   option "input.shell", (ENV["SHELL"]? || "sh"),
     description: "Shell launched by Widget::Terminal"

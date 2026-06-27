@@ -500,7 +500,7 @@ module Crysterm
           case @csi_prefix
           when nil then respond("\e[?6c")     # primary DA  (CSI c)   — VT102
           when '>' then respond("\e[>0;0;0c") # secondary DA (CSI > c) — VT100, ver 0
-            # tertiary (`=`) / unknown prefix: not answered
+          # tertiary (`=`) / unknown prefix: not answered
           end
         end
       else

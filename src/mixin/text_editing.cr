@@ -211,6 +211,41 @@ module Crysterm
         @value.index('\n', @cursor_pos) || @value.size
       end
 
+      # Start of the (whitespace-delimited) word before the cursor: skip any
+      # whitespace immediately to the left, then the run of non-whitespace. Used
+      # by word-wise cursor motion and `Ctrl-W` (backward kill word).
+      private def word_left_pos
+        i = @cursor_pos
+        while i > 0 && @value[i - 1].whitespace?
+          i -= 1
+        end
+        while i > 0 && !@value[i - 1].whitespace?
+          i -= 1
+        end
+        i
+      end
+
+      # End of the (whitespace-delimited) word after the cursor: skip whitespace
+      # at the cursor, then the run of non-whitespace. Used by word-wise cursor
+      # motion and `Alt-D` (forward kill word).
+      private def word_right_pos
+        i = @cursor_pos
+        n = @value.size
+        while i < n && @value[i].whitespace?
+          i += 1
+        end
+        while i < n && !@value[i].whitespace?
+          i += 1
+        end
+        i
+      end
+
+      # The kill ring this input uses for `Ctrl-W`/`Ctrl-U`/`Ctrl-K`/`Alt-D`
+      # (kill) and `Ctrl-Y` (yank). Defaults to the shared `KillRing.default`, so
+      # text killed in one field can be yanked into another; assign a fresh
+      # `KillRing` to give a widget its own.
+      property kill_ring : Crysterm::KillRing { Crysterm::KillRing.default }
+
       # Maps `@cursor_pos` (an index into `@value`) to `{real_line, column}` in
       # the wrapped/displayed content (`@_clines`), using the fake→real line map
       # (`ftor`). For the default (unaligned) text area this is exact; with
@@ -375,6 +410,11 @@ module Crysterm
         done = @_done
         value = @value
         also_check_char = false
+        # Emacs/readline editing keys (gated by config). `killed` records whether
+        # this keystroke was a kill, so consecutive kills accumulate in the ring
+        # and any other action breaks the run (`kill_ring.interrupt`, below).
+        rl = Crysterm::Config.input_readline_keys
+        killed = false
 
         if k = e.key
           # return if k == Tput::Key::Return
@@ -411,6 +451,18 @@ module Crysterm
           elsif k == Tput::Key::End
             @goal_col = nil
             @cursor_pos = line_end_pos
+          elsif rl && k == Tput::Key::CtrlA # readline: line start
+            @goal_col = nil
+            @cursor_pos = line_start_pos
+          elsif rl && k == Tput::Key::CtrlE # readline: line end
+            @goal_col = nil
+            @cursor_pos = line_end_pos
+          elsif rl && (k == Tput::Key::CtrlLeft || k == Tput::Key::AltLeft || k == Tput::Key::AltB)
+            @goal_col = nil
+            @cursor_pos = word_left_pos
+          elsif rl && (k == Tput::Key::CtrlRight || k == Tput::Key::AltRight || k == Tput::Key::AltF)
+            @goal_col = nil
+            @cursor_pos = word_right_pos
           else
             moved = false
           end
@@ -450,6 +502,48 @@ module Crysterm
               w = cursor_next_width
               @value = @value[0...@cursor_pos] + @value[(@cursor_pos + w)..]
             end
+          elsif rl && !read_only? && k == Tput::Key::CtrlW # kill word before cursor
+            start = word_left_pos
+            if start < @cursor_pos
+              @goal_col = nil
+              kill_ring.kill @value[start...@cursor_pos], prepend: true
+              @value = @value[0...start] + @value[@cursor_pos..]
+              @cursor_pos = start
+              killed = true
+            end
+          elsif rl && !read_only? && k == Tput::Key::AltD # kill word after cursor
+            stop = word_right_pos
+            if stop > @cursor_pos
+              @goal_col = nil
+              kill_ring.kill @value[@cursor_pos...stop]
+              @value = @value[0...@cursor_pos] + @value[stop..]
+              killed = true
+            end
+          elsif rl && !read_only? && k == Tput::Key::CtrlU # kill to line start
+            start = line_start_pos
+            if start < @cursor_pos
+              @goal_col = nil
+              kill_ring.kill @value[start...@cursor_pos], prepend: true
+              @value = @value[0...start] + @value[@cursor_pos..]
+              @cursor_pos = start
+              killed = true
+            end
+          elsif rl && !read_only? && k == Tput::Key::CtrlK # kill to line end
+            stop = line_end_pos
+            # At the end of a line, kill the newline itself (join with the next).
+            stop += 1 if stop == @cursor_pos && @cursor_pos < @value.size
+            if stop > @cursor_pos
+              @goal_col = nil
+              kill_ring.kill @value[@cursor_pos...stop]
+              @value = @value[0...@cursor_pos] + @value[stop..]
+              killed = true
+            end
+          elsif rl && !read_only? && k == Tput::Key::CtrlY # yank
+            if text = kill_ring.yank
+              @goal_col = nil
+              @value = @value[0...@cursor_pos] + text + @value[@cursor_pos..]
+              @cursor_pos += text.size
+            end
           end
         end
 
@@ -472,6 +566,10 @@ module Crysterm
           emit Crysterm::Event::TextChange, @value
           request_render
         end
+
+        # Any keystroke that wasn't itself a kill ends the consecutive-kill run,
+        # so the next kill starts a fresh ring entry (emacs semantics).
+        kill_ring.interrupt if rl && !killed
       end
 
       def _type_scroll

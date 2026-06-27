@@ -176,7 +176,7 @@ describe Crysterm::TerminalEmulator do
       # grew must not leave the restored main screen scrolling inside the old,
       # smaller scroll region.
       em = emu(4, 4)
-      em.feed "\e[1;1HX" # X at row 0 of the main buffer
+      em.feed "\e[1;1HX"  # X at row 0 of the main buffer
       em.feed "\e[?1049h" # enter alt
       em.resize(4, 6)     # window grows while on the alt screen
       em.feed "\e[?1049l" # leave alt -> main buffer restored
@@ -198,7 +198,7 @@ describe Crysterm::TerminalEmulator do
       20.times { em.feed "x\r\n" } # scroll well past the 3-row page
       em.ybase.should eq 0
       em.lines.size.should eq 3 # exactly the visible page; nothing retained
-      em.feed "\e[?1049l"        # leaving restores the main buffer intact
+      em.feed "\e[?1049l"       # leaving restores the main buffer intact
       em.alt_active?.should be_false
     end
   end

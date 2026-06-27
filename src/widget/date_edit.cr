@@ -108,9 +108,9 @@ module Crysterm
         y, m, d = @date.year, @date.month, @date.day
         dim = nil
         case @section
-        when 0 # year
+        when 0                           # year
           y = (y + delta).clamp(1, 9999) # `Time` only supports years 1..9999
-        when 1 # month, wrapping 1..12
+        when 1                           # month, wrapping 1..12
           m = wrap(m - 1, delta, 12) + 1
         else # day, wrapping 1..days-in-month
           d = wrap(d - 1, delta, dim = Time.days_in_month(y, m)) + 1

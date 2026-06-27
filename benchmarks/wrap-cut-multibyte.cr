@@ -20,10 +20,10 @@ screen.realloc
 w = Widget::Box.new parent: screen, top: 0, left: 0, width: 80, height: 1
 
 # Long multibyte lines (no SGR), plain multibyte, and SGR-laden multibyte.
-cjk        = "日本語のテキストをここに置きます。" * 12          # ~204 wide CJK cps
-accents    = "café résumé naïve façade Zürich Köln " * 12       # latin + combining-ish
-emoji      = "👍🏽🎉🇯🇵👨‍👩‍👧‍👦abc " * 30                              # graphemes/ZWJ/flags
-sgr_multi  = ("\e[31m日本\e[0m語のテ\e[1mキスト\e[0m " * 20)
+cjk = "日本語のテキストをここに置きます。" * 12                         # ~204 wide CJK cps
+accents = "café résumé naïve façade Zürich Köln " * 12 # latin + combining-ish
+emoji = "👍🏽🎉🇯🇵👨‍👩‍👧‍👦abc " * 30                        # graphemes/ZWJ/flags
+sgr_multi = ("\e[31m日本\e[0m語のテ\e[1mキスト\e[0m " * 20)
 
 lines = {cjk, accents, emoji, sgr_multi}
 
@@ -39,7 +39,7 @@ Benchmark.ips do |x|
   {true, false}.each do |full|
     screen.full_unicode = full
     lines.each_with_index do |l, idx|
-      x.report("full=#{full} l#{idx} cut40")  { w.wrap_cut_index(l, 40) }
+      x.report("full=#{full} l#{idx} cut40") { w.wrap_cut_index(l, 40) }
       x.report("full=#{full} l#{idx} cut120") { w.wrap_cut_index(l, 120) }
     end
   end

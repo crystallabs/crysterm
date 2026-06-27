@@ -124,9 +124,9 @@ describe "CSS geometry units" do
   it "accepts a leading-dot decimal length (.5em), bare and inside calc()" do
     # CSS allows a leading-dot decimal (`.5em` == `0.5em`); it must parse the
     # same everywhere — as a bare length, a unit-less number, and a calc() term.
-    Crysterm::CSS::Length.to_cells_f(".5em").should eq 0.5      # unit'd, fractional cells
-    Crysterm::CSS::Length.to_cells_f("-.5em").should eq -0.5    # signed
-    Crysterm::CSS::Length.to_cells_f(".5").should eq 0.5        # bare unit-less number
+    Crysterm::CSS::Length.to_cells_f(".5em").should eq 0.5           # unit'd, fractional cells
+    Crysterm::CSS::Length.to_cells_f("-.5em").should eq -0.5         # signed
+    Crysterm::CSS::Length.to_cells_f(".5").should eq 0.5             # bare unit-less number
     Crysterm::CSS::Length.to_cells("calc(.5em + 1.5em)").should eq 2 # leading-dot term in calc()
   end
 

@@ -57,7 +57,7 @@ module Crysterm
         return unless checkable?
         @checked = !@checked
         @value = @checked # `#value` mirrors `#checked?` for a checkable control
-        invalidate_css # `checked` attribute selector may now match/unmatch
+        invalidate_css    # `checked` attribute selector may now match/unmatch
         if @checked
           emit Crysterm::Event::Check, @checked
         else

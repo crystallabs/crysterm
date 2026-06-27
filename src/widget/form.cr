@@ -208,8 +208,8 @@ module Crysterm
       private def field_value(el : Widget) : String?
         case el
         when PlainTextEdit then el.value
-        # `RadioButton`/`CheckBox` are siblings (both `< AbstractButton`), so the
-        # radio arm must be listed explicitly — `when CheckBox` does not match it.
+          # `RadioButton`/`CheckBox` are siblings (both `< AbstractButton`), so the
+          # radio arm must be listed explicitly — `when CheckBox` does not match it.
         when RadioButton then el.checked?.to_s
         when CheckBox    then el.checked?.to_s
         when List        then el.value
@@ -235,7 +235,7 @@ module Crysterm
         when FileManager   then el.refresh
         when List          then el.selekt 0
         when PlainTextEdit then el.clear_value
-        # `RadioButton` is a sibling of `CheckBox`, so it needs its own arm.
+          # `RadioButton` is a sibling of `CheckBox`, so it needs its own arm.
         when RadioButton then el.uncheck
         when CheckBox    then el.uncheck
         when ProgressBar then el.reset

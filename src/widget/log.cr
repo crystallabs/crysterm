@@ -68,6 +68,10 @@ module Crysterm
         # `max_lines` is the friendlier alias for `scrollback`.
         max_lines.try { |v| @scrollback = v }
 
+        # A log follows the tail by default (Qt sticky-bottom): new lines scroll
+        # into view unless the user has scrolled up to read back.
+        @follow_tail = true
+
         on Crysterm::Event::SetContent, ->set_content(Crysterm::Event::SetContent)
       end
 
@@ -120,12 +124,11 @@ module Crysterm
         log Level::Error, *args
       end
 
+      # Re-render when content changes; the actual tail-following is now the
+      # generic `#follow_tail` sticky-bottom (with `scroll_on_input` honored via
+      # `#stick_to_tail?` below), rather than a bespoke `@_user_scrolled` flag.
       def set_content(e)
-        if !@_user_scrolled || @scroll_on_input
-          self.scroll_percentage = 100
-          @_user_scrolled = false
-          request_render
-        end
+        request_render
       end
 
       # Append a line to the log. Multiple arguments are stringified and joined
@@ -152,26 +155,11 @@ module Crysterm
         ret
       end
 
-      # Defaults mirror the base `scroll(offset = 1, always = false)` so a
-      # one-arg `scroll 0` (from `scroll_to`/`set_scroll_perc`) dispatches here
-      # instead of silently falling through to the base method.
-      def scroll(offset = 1, always = false)
-        if offset == 0
-          return super offset, always
-        end
-
-        @_user_scrolled = true
-
-        ret = super offset, always
-
-        # `scroll_percentage` is a float; use `>= 100` rather than `== 100` so a
-        # bottom position that computes to e.g. 99.999 still re-enables
-        # auto-scroll instead of getting stuck with `@_user_scrolled` true.
-        if scroll_percentage >= 100
-          @_user_scrolled = false
-        end
-
-        ret
+      # Sticky-bottom normally; `scroll_on_input` additionally jumps to the
+      # bottom whenever new content arrives (`content_max` grew past the previous
+      # extent), even after a manual scroll-up.
+      protected def stick_to_tail?(content_max : Int32) : Bool
+        super || (@scroll_on_input && content_max > @last_scroll_max)
       end
     end
   end
