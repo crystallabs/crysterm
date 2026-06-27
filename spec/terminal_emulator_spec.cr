@@ -95,15 +95,15 @@ describe Crysterm::TerminalEmulator do
       # final byte rather than printing it — otherwise e.g. a program selecting
       # a double-width line with `ESC # 6` would leak a spurious '6'.
       em = emu
-      em.feed "\e#6Z"   # DECDWL select + print Z
+      em.feed "\e#6Z" # DECDWL select + print Z
       row(em, 0).should eq "Z"
 
       em2 = emu
-      em2.feed "\e GA"  # ESC SP G (S8C1T) + print A
+      em2.feed "\e GA" # ESC SP G (S8C1T) + print A
       row(em2, 0).should eq "A"
 
       em3 = emu
-      em3.feed "\e%GB"  # ESC % G (select UTF-8) + print B
+      em3.feed "\e%GB" # ESC % G (select UTF-8) + print B
       row(em3, 0).should eq "B"
     end
   end
@@ -294,7 +294,7 @@ describe Crysterm::TerminalEmulator do
     it "inserts blank lines at the cursor, pushing the rest down" do
       em = emu(4, 4)
       4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" } # L0..L3 on rows 0..3
-      em.feed "\e[2;1H\e[1L"                         # cursor row 2, insert 1 line
+      em.feed "\e[2;1H\e[1L"                        # cursor row 2, insert 1 line
       row(em, 0).should eq "L0"
       row(em, 1).should eq "" # freshly inserted blank
       row(em, 2).should eq "L1"
@@ -372,9 +372,9 @@ describe Crysterm::TerminalEmulator do
       em = emu(10, 6)
       io = IO::Memory.new
       em.output = io
-      em.feed "\e[2;5r"  # scroll region rows 2..5 (1-based)
-      em.feed "\e[?6h"   # DECOM on: row addressing is region-relative
-      em.feed "\e[1;1H"  # home to the region top in origin coords (== absolute row 2)
+      em.feed "\e[2;5r" # scroll region rows 2..5 (1-based)
+      em.feed "\e[?6h"  # DECOM on: row addressing is region-relative
+      em.feed "\e[1;1H" # home to the region top in origin coords (== absolute row 2)
       em.feed "\e[6n"
       # The reply must echo the origin-relative row (1), not the absolute row (2),
       # so it round-trips with the CUP the child just issued.
@@ -400,6 +400,43 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[H\eP0;1;0qABC\e\\X"
       titles.should be_empty
       em.lines[0][0].char.should eq 'X' # parsing resumed after the DCS
+    end
+  end
+
+  describe "tab stops (HT / HTS / TBC / CHT / CBT)" do
+    it "advances HT to the default 8-column stops" do
+      em = emu(20, 2)
+      em.feed "\tA" # HT from col 0 -> col 8
+      em.lines[0][8].char.should eq 'A'
+    end
+
+    it "honours a tab stop set with HTS (ESC H)" do
+      # Clear all stops, set a single custom stop at column 4, then HT must land
+      # there — not on a hardcoded 8-column boundary.
+      em = emu(20, 2)
+      em.feed "\e[3g"      # TBC 3: clear every stop
+      em.feed "\e[1;5H\eH" # cursor to col 4 (0-based), HTS sets a stop here
+      em.feed "\r\tX"      # CR to col 0, HT -> the only stop (col 4)
+      em.lines[0][4].char.should eq 'X'
+    end
+
+    it "clears a single stop with TBC (CSI g, mode 0)" do
+      em = emu(20, 2)
+      em.feed "\e[1;9H\e[g" # cursor to col 8, clear the stop there
+      em.feed "\r\tZ"       # HT from col 0 now skips the removed stop -> col 16
+      em.lines[0][16].char.should eq 'Z'
+    end
+
+    it "advances multiple stops with CHT (CSI I)" do
+      em = emu(20, 2)
+      em.feed "\e[2IQ" # CHT 2: col 0 -> 8 -> 16
+      em.lines[0][16].char.should eq 'Q'
+    end
+
+    it "moves back to the previous stop with CBT (CSI Z)" do
+      em = emu(20, 2)
+      em.feed "\e[1;17H\e[ZY" # cursor at col 16, CBT 1 -> col 8, print Y
+      em.lines[0][8].char.should eq 'Y'
     end
   end
 

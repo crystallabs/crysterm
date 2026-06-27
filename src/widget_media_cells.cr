@@ -51,7 +51,15 @@ module Crysterm
         # frames and the widget would draw *nothing*. Matching `#play`'s `> 1`
         # guard routes such a source through the still path instead.
         fr = png.frames
-        @animated = !fr.nil? && fr.size > 1 && animate?
+        # A genuinely animated source (frames.size > 1) drives the frame loop —
+        # but so does a live *streaming* video, whose `source` opened a `@stream`
+        # whose 1-frame vehicle would otherwise fail this gate, leaving the video
+        # static (and the ffmpeg subprocess open but never read). `Media::Base#play`
+        # plays whenever `@stream` is set, and `#render`'s animation branch reads
+        # the per-tick `@src_frames` slot the stream fills, so `@animated` must be
+        # true for a stream too. (The in-band graphics family reaches the same
+        # outcome via `#ensure_animation`, which plays on non-nil `frames`.)
+        @animated = ((!fr.nil? && fr.size > 1) || !@stream.nil?) && animate?
         on_loaded png
         play if @animated
       end

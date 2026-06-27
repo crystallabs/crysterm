@@ -118,6 +118,13 @@ module Crysterm
     @gl = 0
     @charset_index = 0 # which G is being designated while in :charset state
 
+    # Horizontal tab stops, as the set of columns HT/CHT advance *to* (and CBT
+    # backs up to). Defaults to every 8th column; a child can add a stop at the
+    # cursor with HTS (`ESC H`) and clear stops with TBC (`CSI g`). Honouring
+    # these is what lets a program that programmatically sets its own stops (e.g.
+    # for table columns, via `tput hts`) tab to them instead of a hardcoded 8.
+    @tab_stops = Set(Int32).new
+
     # Alternate-screen state (DECSET 47/1047/1049). When active, `@lines` is a
     # fresh page and the main buffer is parked in `@main_*` until restored.
     getter? alt_active : Bool = false
@@ -173,6 +180,18 @@ module Crysterm
       @scroll_bottom = @rows - 1
       @lines = Array(Array(Cell)).new
       @rows.times { @lines << blank_line }
+      reset_tab_stops
+    end
+
+    # Resets the horizontal tab stops to the default — one every 8 columns — for
+    # the current width. Used at construction, on RIS, and on resize.
+    private def reset_tab_stops : Nil
+      @tab_stops.clear
+      i = 8
+      while i < @cols
+        @tab_stops << i
+        i += 8
+      end
     end
 
     # Updates the attribute used for cleared/empty cells (the widget's resolved
@@ -346,10 +365,11 @@ module Crysterm
         @osc_string = true
       when '7' then save_cursor; @state = :ground
       when '8' then restore_cursor; @state = :ground
-      when 'M' then reverse_index; @state = :ground     # RI
-      when 'D' then line_feed; @state = :ground         # IND
-      when 'E' then @x = 0; line_feed; @state = :ground # NEL
-      when 'c' then full_reset; @state = :ground        # RIS
+      when 'H' then @tab_stops << cursor_x; @state = :ground # HTS: set tab stop at cursor
+      when 'M' then reverse_index; @state = :ground          # RI
+      when 'D' then line_feed; @state = :ground              # IND
+      when 'E' then @x = 0; line_feed; @state = :ground      # NEL
+      when 'c' then full_reset; @state = :ground             # RIS
       else
         @state = :ground # '=', '>', and anything else: no-op
       end
@@ -523,6 +543,9 @@ module Crysterm
       when 'X' then erase_chars(param(0, 1))
       when 'S' then param(0, 1).times { scroll_up }
       when 'T' then param(0, 1).times { scroll_down }
+      when 'I' then forward_tab(param(0, 1)); @wrap_pending = false # CHT
+      when 'Z' then back_tab(param(0, 1))                           # CBT
+      when 'g' then tab_clear(param0(0))                            # TBC
       when 'm' then apply_sgr
       when 'r'
         top = param(0, 1) - 1
@@ -712,9 +735,41 @@ module Crysterm
       @wrap_pending = false
     end
 
+    # HT: advance to the next tab stop to the right of the cursor, or to the last
+    # column when none remains. Honours the (possibly customized) `@tab_stops`
+    # rather than a hardcoded width.
     private def tab : Nil
-      @x = Math.min(@cols - 1, (@x // 8 + 1) * 8)
+      x = @x + 1
+      while x < @cols && !@tab_stops.includes?(x)
+        x += 1
+      end
+      @x = Math.min(x, @cols - 1)
       @wrap_pending = false
+    end
+
+    # CHT: advance *n* tab stops.
+    private def forward_tab(n : Int32) : Nil
+      n.times { tab }
+    end
+
+    # CBT: move back *n* tab stops (stopping at column 0).
+    private def back_tab(n : Int32) : Nil
+      n.times do
+        x = @x - 1
+        while x > 0 && !@tab_stops.includes?(x)
+          x -= 1
+        end
+        @x = x < 0 ? 0 : x
+      end
+      @wrap_pending = false
+    end
+
+    # TBC: clear the tab stop at the cursor (mode 0) or all stops (mode 3).
+    private def tab_clear(mode : Int32) : Nil
+      case mode
+      when 0 then @tab_stops.delete cursor_x
+      when 3 then @tab_stops.clear
+      end
     end
 
     private def line_feed : Nil
@@ -936,6 +991,7 @@ module Crysterm
       @origin_mode = false
       @bracketed_paste = false
       @focus_reporting = false
+      reset_tab_stops
     end
 
     # ───────────────────────── geometry / queries ─────────────────────────
@@ -1004,6 +1060,9 @@ module Crysterm
       @y = clamp(@y, 0, rows - 1)
       @wrap_pending = false
       @ydisp = @ybase
+      # Re-establish default stops for the new width (matching the scroll-region
+      # reset above; custom stops don't survive a resize, as in most emulators).
+      reset_tab_stops
     end
 
     # Cursor column for rendering (deferred-wrap aware: never reported past the
