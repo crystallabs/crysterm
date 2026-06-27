@@ -97,9 +97,14 @@ module Crysterm
       # crashing the render/input fiber it fired on.
       DOM.each_binding(@screen, @declarative_wired) do |widget, type, action, value|
         begin
-          if DOM::Actions.declarative? action
-            DOM::Actions.run action, widget, @screen, @on_quit
-          else
+          # A built-in declarative verb runs in-process; everything else is a
+          # named action forwarded to the handler. `declarative?` is true for any
+          # colon-bearing action, but `run` only *handles* a recognized verb (and
+          # reports so via its return) — so a colon-bearing action whose verb is
+          # NOT built-in (e.g. `navigate:home`, `open:file.txt`) must still reach
+          # the handler. Without the `run` result check it was classified
+          # declarative, matched no verb, and was silently dropped.
+          unless DOM::Actions.declarative?(action) && DOM::Actions.run(action, widget, @screen, @on_quit)
             publish_event type, widget, action, value: value
           end
         rescue ex

@@ -153,5 +153,39 @@ require "http/client"
         fail "no SSE event for runtime subscription"
       end
     end
+
+    it "forwards a colon-bearing named action (unknown verb) to the handler" do
+      # `navigate:home` looks declarative (it has a colon) but names no built-in
+      # verb, so it must reach the handler rather than being silently dropped.
+      s = headless_screen
+      s.load_layout %(<w-screen><w-button id="go" onclick="navigate:home"></w-button></w-screen>)
+      Crysterm::HTTPBridge.new(s, port: 7105).start
+      sleep 100.milliseconds
+      base = "http://127.0.0.1:7105"
+
+      events = Channel(String).new
+      spawn do
+        HTTP::Client.get("#{base}/events") do |response|
+          while line = response.body_io.gets
+            if line.starts_with?("data: ")
+              events.send line["data: ".size..]
+              break
+            end
+          end
+        end
+      end
+      sleep 100.milliseconds
+      s.find_by_id("go").not_nil!.emit Crysterm::Event::Press
+
+      select
+      when msg = events.receive
+        params = JSON.parse(msg)["params"]
+        params["type"].as_s.should eq "press"
+        params["action"].as_s.should eq "navigate:home"
+        params["target"].as_s.should eq "#go"
+      when timeout(2.seconds)
+        fail "colon-bearing named action was not forwarded to the handler"
+      end
+    end
   end
 {% end %}
