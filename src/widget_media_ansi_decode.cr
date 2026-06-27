@@ -107,12 +107,24 @@ module Crysterm
           b = data[i]
           if b == 0x1B && data[i + 1]? == 0x5B # CSI: ESC [
             j = i + 2
+            # Optional private-marker prefix (`<`,`=`,`>`,`?`) — common in real
+            # `.ans` art (e.g. `ESC[?7h` autowrap, `ESC[?25l` hide cursor). It must
+            # be consumed so the trailing param/final bytes aren't mis-rendered as
+            # text; private sequences carry no meaning for this still decoder.
+            priv = j < n && 0x3C <= data[j] <= 0x3F
+            j += 1 if priv
+            ps = j
             while j < n && (data[j] == 0x3B || (0x30 <= data[j] <= 0x39))
               j += 1
             end
+            nums = String.new(data[ps...j]).split(';').map { |p| p.empty? ? 0 : (p.to_i? || 0) }
+            # Skip any intermediate bytes (0x20..0x2F) preceding the final byte
+            # (e.g. the space in DECSCUSR `ESC[1 q`).
+            while j < n && 0x20 <= data[j] <= 0x2F
+              j += 1
+            end
             final = j < n ? data[j] : 0_u8
-            nums = String.new(data[(i + 2)...j]).split(';').map { |p| p.empty? ? 0 : (p.to_i? || 0) }
-            case final
+            case priv ? 0_u8 : final
             when 0x6D # 'm' — SGR
               (nums.empty? ? [0] : nums).each do |c|
                 case c
