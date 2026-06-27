@@ -30,6 +30,19 @@ module Crysterm
       # Whether the seconds section is shown and editable.
       property? show_seconds : Bool = true
 
+      # Re-wrap the generated setter so toggling seconds off while the seconds
+      # section (index 5) is selected re-clamps `@section` into the now-shorter
+      # range (0..4) instead of leaving it pointing at a section that no longer
+      # renders. No-op when the value is unchanged or `@section` is already valid.
+      def show_seconds=(value : Bool) : Bool
+        return value if value == @show_seconds
+        @show_seconds = value
+        @section = @section.clamp(0, section_count - 1)
+        update_content
+        request_render
+        value
+      end
+
       def initialize(date_time : Time? = nil, show_seconds = true, **input)
         @datetime = date_time || (Time.local rescue Time.utc(2000, 1, 1))
         @show_seconds = show_seconds

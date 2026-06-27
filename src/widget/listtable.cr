@@ -230,9 +230,14 @@ module Crysterm
       # widths (`@maxes`). Returns `nil` for a negative offset.
       private def column_at(x : Int32) : Int32?
         return nil if x < 0
+        # The header/rows render from `@first_col` (see `reslice_rows`), so a
+        # click at relative `x == 0` lands on column `@first_col`, not column 0 —
+        # accumulate the visible window from there so a horizontally-scrolled
+        # table sorts the column actually under the pointer. (Identical to the
+        # old column-0 scan when `@first_col == 0`.)
         acc = 0
-        @maxes.each_with_index do |m, i|
-          acc += m + 1 # +1 for the inter-column separator
+        (@first_col...@maxes.size).each do |i|
+          acc += @maxes[i] + 1 # +1 for the inter-column separator
           return i if x < acc
         end
         @maxes.empty? ? nil : @maxes.size - 1
