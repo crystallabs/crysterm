@@ -46,7 +46,7 @@ module Crysterm
       #    `Screen#each_content_cell`; here each visible cell is rasterized.
       screen.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
         draw_cell canvas, cell, rx * cw, ry * ch, cw, ch,
-          font, bold_font, default_fg, default_bg
+          font, bold_font, default_fg, default_bg, cell.width
       end
 
       # 2) Terminal-native graphics, composited over the text exactly as the
@@ -132,9 +132,16 @@ module Crysterm
     end
 
     # Draws one cell's background, glyph and line decorations into *canvas* at
-    # pixel origin (*px*,*py*). Cell size is *cw*×*ch* (the normal font's).
+    # pixel origin (*px*,*py*). Cell size is *cw*×*ch* (the normal font's). A
+    # *cols*-column-wide cell (a full-width / 2-column grapheme, e.g. CJK) spans
+    # `cols * cw` pixels: its trailing continuation half carries no cell of its
+    # own (`each_content_cell` skips it), so the lead cell must paint the whole
+    # span here — both its background and the right half of a wide glyph (which
+    # the default Unifont renders at 16 px for full-width characters). Clamped to
+    # the canvas so a wide cell at the region's right edge can't overflow.
     private def self.draw_cell(canvas, cell, px : Int32, py : Int32, cw : Int32, ch : Int32,
-                               font : Font, bold_font : Font, default_fg : Int32, default_bg : Int32)
+                               font : Font, bold_font : Font, default_fg : Int32, default_bg : Int32,
+                               cols : Int32 = 1)
       code = cell.attr
       flags = Attr.flags(code)
       fg = Attr.unpack_color(Attr.fg(code))
@@ -146,10 +153,17 @@ module Crysterm
       fgpx = rgb(fg)
       bgpx = rgb(bg)
 
+      # Pixel span of this cell, clamped to the canvas width (the continuation
+      # half of a wide cell at the far edge may fall outside the region).
+      pw = canvas[0].size
+      span = cw * (cols < 1 ? 1 : cols)
+      avail = pw - px
+      span = avail if span > avail
+
       # Background fill.
       ch.times do |gy|
         row = canvas[py + gy]
-        cw.times { |gx| row[px + gx] = bgpx }
+        span.times { |gx| row[px + gx] = bgpx }
       end
 
       # Glyph (skipped when invisible).
@@ -159,7 +173,7 @@ module Crysterm
         gh.times do |gy|
           grow = glyph[gy]
           crow = canvas[py + gy]
-          gw = Math.min(cw, grow.size)
+          gw = Math.min(span, grow.size)
           gw.times { |gx| crow[px + gx] = fgpx if grow.unsafe_fetch(gx) == 1 }
         end
       end
@@ -167,11 +181,11 @@ module Crysterm
       # Line decorations.
       if (flags & Attr::UNDERLINE) != 0
         row = canvas[py + ch - 1]
-        cw.times { |gx| row[px + gx] = fgpx }
+        span.times { |gx| row[px + gx] = fgpx }
       end
       if (flags & Attr::STRIKE) != 0
         row = canvas[py + ch // 2]
-        cw.times { |gx| row[px + gx] = fgpx }
+        span.times { |gx| row[px + gx] = fgpx }
       end
     end
 

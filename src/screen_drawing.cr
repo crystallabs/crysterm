@@ -320,6 +320,18 @@ module Crysterm
         # otherwise makes a "spaces then content" line O(width^2). Reset per row.
         bce_skip_until = -1
 
+        # Column at which an artificial cursor is being painted on THIS row (or
+        # -1 when none). The cursor cell must be drawn with its own (reverse /
+        # glyph) attribute, so the BCE clear-to-EOL look-ahead below must NOT
+        # treat it as a clearable blank: a run of blank cells reaching the cursor
+        # would otherwise be erased with `el`, breaking out of the row scan before
+        # the cursor cell is ever emitted — leaving the cursor undrawn this frame
+        # (it only carries the cursor attr in the local `desired_attr`, not in the
+        # buffer the look-ahead reads). `draw_acur && y == cursor_y` is exactly the
+        # condition under which the per-cell loop paints the cursor (see below);
+        # `-1` in the common (no-cursor) case never matches a column.
+        acur_col = (draw_acur && y == cursor_y) ? cursor_x : -1
+
         # When the scan starts past column 0, seed the skipped-run cursor exactly
         # as the full scan's leading run over [0, scan_lo) would: those cells are
         # all unchanged, so it sets `lx = 0, ly = y` *only if* `lx` was -1 at row
@@ -370,6 +382,11 @@ module Crysterm
               # multi-codepoint cluster is never a bare space even if its base
               # codepoint is one, so the overlay must be nil.
               clearable = lc_attr == desired_attr && lc_char == ' '
+              # The artificial-cursor cell is never clearable (see `acur_col`): the
+              # cursor's reverse/glyph attribute lives only in the per-cell loop's
+              # `desired_attr`, not in the buffer this look-ahead reads, so clearing
+              # over it with `el` would drop the cursor for the frame.
+              clearable = false if xx == acur_col
               # Only probe the overlay when this row actually has one; with none,
               # `grapheme_at?` is nil and `clearable &&= true` is a no-op.
               clearable &&= line.grapheme_at?(xx).nil? if l_has_g
