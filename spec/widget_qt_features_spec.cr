@@ -470,6 +470,15 @@ describe Crysterm::Widget::Log do
     log.max_lines = 9
     log.max_lines.should eq 9
   end
+
+  it "keeps the buffer bounded with a tiny max_lines" do
+    s = qt_mem_screen
+    # `scrollback // 3` is 0 for max_lines: 2, which used to `shift_line 0` (a
+    # no-op) and let the buffer grow without bound. It must still get trimmed.
+    log = Crysterm::Widget::Log.new parent: s, max_lines: 2
+    50.times { |i| log.add "line #{i}" }
+    log.@_clines.fake.size.should be <= 3
+  end
 end
 
 describe Crysterm::Widget::Menu do

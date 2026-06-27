@@ -141,7 +141,12 @@ module Crysterm
         ret = push_line text
 
         if @_clines.fake.size > @scrollback
-          shift_line @scrollback // 3
+          # Trim a chunk (a third of the limit) rather than one line at a time,
+          # so a busy log doesn't shift on every append. `Math.max(1, …)` keeps
+          # this making progress for a tiny `scrollback`: `scrollback // 3` is 0
+          # for `max_lines` of 1 or 2, which would `shift_line 0` (a no-op) and
+          # let the buffer grow without bound past the limit.
+          shift_line Math.max(1, @scrollback // 3)
         end
 
         ret
