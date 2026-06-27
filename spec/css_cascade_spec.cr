@@ -245,6 +245,22 @@ describe "CSS cascade" do
     style.shadow.alpha.should eq 0.3
   end
 
+  it "keeps a real box-shadow visible when its offset is 0" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    # A standard CSS `box-shadow` with a `0` offset must not read that `0` as
+    # alpha 0 (a fully transparent, invisible shadow) — only a fractional number
+    # is the opacity.
+    screen.stylesheet = "Box { box-shadow: 0 4px 8px rgba(0,0,0,0.5); }"
+    screen.apply_stylesheet
+
+    style = box.styles.normal
+    style.shadow.right.should eq 2  # default drop shadow enabled
+    style.shadow.alpha.should eq 0.5 # default opacity, not 0
+  end
+
   it "disables the shadow with box-shadow: none" do
     screen = headless_screen
     box = Widget::Box.new

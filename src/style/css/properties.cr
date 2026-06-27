@@ -439,12 +439,18 @@ module Crysterm
       end
 
       # Parses a `box-shadow`. `none` disables the shadow; otherwise a default
-      # drop shadow is enabled, and a bare `0..1` number anywhere in the value is
-      # taken as its alpha (opacity). The full CSS offset/blur/spread/color
-      # syntax is accepted but only its presence (and optional alpha) is honored.
+      # drop shadow is enabled, and a bare *fractional* `0..1` number anywhere in
+      # the value is taken as its alpha (opacity). The full CSS offset/blur/
+      # spread/color syntax is accepted but only its presence (and optional
+      # alpha) is honored.
+      #
+      # The alpha token must carry a decimal point: that is what tells an opacity
+      # (`0.3`) apart from an integer length offset. Otherwise a perfectly normal
+      # `box-shadow: 0 4px 8px <color>` would read its `0` offset as alpha `0` — a
+      # fully transparent, *invisible* shadow.
       private def self.parse_box_shadow(value : String) : Shadow
         return Shadow.from(false) if value.strip == "none"
-        alpha = value.split.compact_map(&.to_f?).find { |num| 0.0 <= num <= 1.0 }
+        alpha = value.split.compact_map { |t| t.includes?('.') ? t.to_f? : nil }.find { |num| 0.0 <= num <= 1.0 }
         alpha ? Shadow.from(alpha) : Shadow.from(true)
       end
 
