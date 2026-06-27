@@ -1611,6 +1611,37 @@ describe "CSS::ColorValue" do
     weighted.bold?.should be_true
   end
 
+  it "honors numeric and relative font-weight values (Qt: bold is weight > 500)" do
+    # Numeric weights: > 500 is bold (Qt's QFont#bold cutoff), <= 500 is not.
+    {700, 600, 800, 900, 501}.each do |w|
+      st = Crysterm::Style.new
+      Crysterm::CSS::Properties.apply(st, "font-weight", w.to_s)
+      st.bold?.should be_true
+    end
+    {100, 400, 500}.each do |w|
+      st = Crysterm::Style.new
+      st.bold = true # start bold so we prove the property turns it back off
+      Crysterm::CSS::Properties.apply(st, "font-weight", w.to_s)
+      st.bold?.should be_false
+    end
+
+    # Relative keywords map to the binary attribute.
+    bolder = Crysterm::Style.new
+    Crysterm::CSS::Properties.apply(bolder, "font-weight", "bolder")
+    bolder.bold?.should be_true
+
+    lighter = Crysterm::Style.new
+    lighter.bold = true
+    Crysterm::CSS::Properties.apply(lighter, "font-weight", "lighter")
+    lighter.bold?.should be_false
+
+    # An unrecognized value leaves the current weight untouched.
+    keep = Crysterm::Style.new
+    keep.bold = true
+    Crysterm::CSS::Properties.apply(keep, "font-weight", "garbage")
+    keep.bold?.should be_true
+  end
+
   it "resolves var() case-insensitively, but the custom-property name stays case-sensitive" do
     vars = {"--accent" => "red"}
     Crysterm::CSS::Stylesheet.resolve_var("VAR(--accent)", vars).should eq "red"

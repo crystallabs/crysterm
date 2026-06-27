@@ -60,7 +60,7 @@ module Crysterm
           style.bold = words.includes?("bold")
           style.italic = words.includes?("italic")
         when "font-weight"
-          style.bold = bool_keyword(value, on: "bold", off: "normal", current: style.bold?)
+          style.bold = font_weight_bold(value, style.bold?)
         when "font-style"
           style.italic = bool_keyword(value, on: "italic", off: "normal", current: style.italic?)
         when "text-decoration"
@@ -410,7 +410,25 @@ module Crysterm
         set_side border, side, 1 if current == 0
       end
 
-      # Resolves a two-valued keyword property (e.g. `font-weight: bold|normal`)
+      # Resolves a CSS `font-weight` to the terminal's single bold attribute.
+      # Beyond the `bold`/`normal` keywords this also honors the *numeric* CSS
+      # weights (`font-weight: 700`) and the relative `bolder`/`lighter`, which a
+      # plain keyword match silently dropped — so a theme's `font-weight: 600`
+      # rendered as non-bold while a browser shows it bold. The numeric cutoff is
+      # Qt's (`QFont#bold` is `weight > Medium(500)`), matching crysterm's Qt
+      # conventions: a weight over 500 (`semibold`/`bold`/`bolder` and up) is
+      # bold; `normal`/`lighter` and 100..500 are not. An unrecognized value
+      # leaves the current weight unchanged.
+      private def self.font_weight_bold(value : String, current : Bool) : Bool
+        case v = Case.fold_keyword(value.strip)
+        when "bold", "bolder"    then true
+        when "normal", "lighter" then false
+        else
+          (w = v.to_i?) ? w > 500 : current
+        end
+      end
+
+      # Resolves a two-valued keyword property (e.g. `font-style: italic|normal`)
       # to a Bool, leaving the current value untouched for unrecognized inputs.
       private def self.bool_keyword(value, *, on, off, current) : Bool
         # CSS keyword values (`bold`/`normal`, `italic`/`normal`) are
