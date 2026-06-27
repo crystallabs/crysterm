@@ -75,3 +75,46 @@ describe "Widget#_parse_tags malformed input" do
     out.should contain "x"
   end
 end
+
+# `{left}`/`{center}`/`{right}` are line-alignment tags consumed later by
+# `#_wrap_content`, not attribute tags. They carry no SGR, so the drop-malformed
+# policy used to treat them as "unknown" and strip them in `_parse_tags` — which
+# silently disabled `{center}…{/center}` alignment (the content rendered
+# left-aligned). They must instead pass through parsing verbatim, like `{|}`.
+describe "Widget#_parse_tags alignment tags" do
+  it "preserves {center}…{/center} verbatim (so wrapping can center)" do
+    tagged_box._parse_tags("{center}Hi{/center}").should eq "{center}Hi{/center}"
+  end
+
+  it "preserves {left}/{right} opener and closer verbatim" do
+    tagged_box._parse_tags("{right}R{/right}").should eq "{right}R{/right}"
+    tagged_box._parse_tags("{left}L{/left}").should eq "{left}L{/left}"
+  end
+
+  it "still parses attribute tags nested inside an alignment tag" do
+    out = tagged_box._parse_tags("{center}{bold}Hi{/bold}{/center}")
+    out.should eq "{center}\e[1mHi\e[22m{/center}"
+  end
+
+  it "actually centers content set with {center}…{/center}" do
+    box = Widget::Box.new parent: headless_screen, width: 20, height: 3
+    box.parse_tags = true
+    box.set_content "{center}Hi{/center}"
+    # 20-column interior: "Hi" centered => 9 cells + "Hi" + 9 cells.
+    box._clines.lines.should eq ["         Hi         "]
+  end
+
+  it "right-aligns content set with {right}…{/right}" do
+    box = Widget::Box.new parent: headless_screen, width: 12, height: 2
+    box.parse_tags = true
+    box.set_content "{right}R{/right}"
+    box._clines.lines.should eq ["           R"]
+  end
+
+  it "centers every row of multi-line {center} content" do
+    box = Widget::Box.new parent: headless_screen, width: 12, height: 4
+    box.parse_tags = true
+    box.set_content "{center}A\nBB{/center}"
+    box._clines.lines.should eq ["     A      ", "     BB     "]
+  end
+end

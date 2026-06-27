@@ -552,6 +552,19 @@ module Crysterm
           elsif param == "close"
             outbuf << '}'
             next
+          elsif param == "left" || param == "center" || param == "right"
+            # `{left}`/`{center}`/`{right}` (and their `{/...}` closers) are
+            # line-*alignment* tags, not attribute tags: they carry no SGR, so
+            # the recognized-attribute path below would treat them as unknown and
+            # drop them — which silently disabled `{center}…{/center}` alignment
+            # (every such Box rendered left-aligned). `#_wrap_content` is the code
+            # that actually consumes them (it matches `^{(left|center|right)}` /
+            # `{/(…)}$` per line and sets the row alignment), and it runs *after*
+            # `_parse_tags`, so they must survive parsing verbatim — exactly as the
+            # `{|}` right-align separator does above. `cap[0]` is the whole tag
+            # (slash included), so both the opener and the closer pass through.
+            outbuf << cap[0]
+            next
           end
 
           state = if param.ends_with?(" bg")
