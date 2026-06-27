@@ -53,4 +53,11 @@ describe Crysterm::Action do
       triggered.should eq 0
     end
   end
+
+  # The `Widgets` convenience namespace must alias the real `Crysterm::Action`
+  # (there is no `Widget::Action`). Referencing the alias forces its lazy
+  # resolution, guarding against the broken `Action = Widget::Action` mapping.
+  it "is reachable via the Widgets convenience namespace" do
+    Crysterm::Widgets::Action.should eq Crysterm::Action
+  end
 end

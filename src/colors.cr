@@ -278,8 +278,8 @@ module Crysterm
     # above the flags).
     ALPHA_BITS     = 2_i64
     ALPHA_MASK     = (1_i64 << ALPHA_BITS) - 1   # 0x3
-    FG_ALPHA_SHIFT = FLAGS_SHIFT + FLAGS_BITS    # 56
-    BG_ALPHA_SHIFT = FG_ALPHA_SHIFT + ALPHA_BITS # 58
+    FG_ALPHA_SHIFT = FLAGS_SHIFT + FLAGS_BITS    # 57
+    BG_ALPHA_SHIFT = FG_ALPHA_SHIFT + ALPHA_BITS # 59
 
     # Maps a *logical* color (`-1` default, or `0xRRGGBB`) to its packed color
     # field value (`COLOR_DEFAULT`, or the RGB value).

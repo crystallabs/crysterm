@@ -113,7 +113,7 @@ module Crysterm
     Fps = Widget::Fps
 
     # Qt-like
-    Action  = Widget::Action
+    Action  = Crysterm::Action
     Menu    = Widget::Menu
     MenuBar = Widget::MenuBar
 
