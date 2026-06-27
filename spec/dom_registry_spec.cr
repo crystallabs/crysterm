@@ -51,5 +51,23 @@ require "./spec_helper"
 
       fail failures.join("\n\n") unless failures.empty?
     end
+
+    # A string option whose constructor default is non-empty (e.g.
+    # `ProgressBar#text_format = "%p%"`) must round-trip even when the user
+    # *clears* it to "". The auto-serializer previously skipped empty strings
+    # entirely, so a cleared value silently reverted to the default on reload.
+    it "round-trips a non-empty-default string option cleared to empty" do
+      s = headless_screen
+      pb = Crysterm::Widget::ProgressBar.new screen: s
+      s.append pb
+      pb.css_id = "p"
+      pb.text_format.should eq "%p%" # sanity: non-empty default
+      pb.text_format = ""            # user clears it
+
+      reload = headless_screen
+      reload.load_layout s.to_layout_html
+      loaded = reload.find_by_id("p").as(Crysterm::Widget::ProgressBar)
+      loaded.text_format.should eq ""
+    end
   end
 {% end %}

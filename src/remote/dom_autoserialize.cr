@@ -88,7 +88,21 @@ macro dom_autoserialize_body(mode)
             attrs[{{ key }}] = "true" if @{{ n.id }}
           {% end %}
         {% elsif kind == "str" %}
-          (@{{ n.id }}).try { |s| attrs[{{ key }}] = s unless s.empty? }
+          {% sdef = defaults[n] %}
+          {% if !supported[n][1] && sdef.is_a?(StringLiteral) && sdef != "" %}
+            # Non-empty default (e.g. `ProgressBar#text_format = "%p%"`): emit
+            # whenever the value differs from it — *including* when the user
+            # clears it to "" — so the cleared value round-trips. The plain
+            # "skip empties" path below emits nothing for "", which would
+            # silently revert a cleared string to its constructor default on
+            # reload (`#dom_apply` only runs for attributes that are present) —
+            # exactly the trap the default-`true` Bool handling above avoids.
+            attrs[{{ key }}] = @{{ n.id }} unless @{{ n.id }} == {{ sdef }}
+          {% else %}
+            # Empty / no / non-literal default, or a nilable string: emit only
+            # when non-empty (a missing attribute reloads as the default).
+            (@{{ n.id }}).try { |s| attrs[{{ key }}] = s unless s.empty? }
+          {% end %}
         {% else %}
           (@{{ n.id }}).try { |v| attrs[{{ key }}] = v.to_s }
         {% end %}
