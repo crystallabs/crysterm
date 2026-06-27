@@ -106,6 +106,34 @@ describe "Screen#focus_offset" do
     s.focused.should be_nil
   end
 
+  # Regression: `@keyable` is not pruned when a widget is removed, so after a
+  # widget is MOVED from one screen to another it lingers in the old screen's
+  # `@keyable` — now with `screen?` pointing at the NEW screen. A bare truthy
+  # `screen?` guard would accept it, so Tab on the old screen could focus a
+  # widget that now lives on a different screen. The guard must require
+  # attachment to THIS screen (`screen? == self`).
+  it "does not focus a widget that was moved to another screen" do
+    s1 = focus_screen
+    s2 = focus_screen
+    a = Widget::Box.new parent: s1, keys: true
+    b = Widget::Box.new parent: s1, keys: true
+
+    a.focus
+    s1.focused.should eq a
+
+    # Move `b` to the other screen. It stays registered in `s1.@keyable` (not
+    # pruned) but now belongs to `s2`.
+    s1.remove b
+    s2.append b
+    b.screen?.should eq s2
+
+    # `a` is the only widget still on `s1`; navigation must stay on it and never
+    # jump onto `b` (which lives on `s2`).
+    s1.focus_next
+    s1.focused.should eq a
+    s1.focused.should_not eq b
+  end
+
   # Regression: focus-candidate selection must be ancestor-aware. A keyable
   # widget whose own `style.visible?` is still true but whose container is
   # hidden is not actually on screen, so navigation must skip over it instead of

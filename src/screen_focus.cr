@@ -78,16 +78,21 @@ module Crysterm
       # just to scan it once.
       el = nil
       @history.reverse_each do |e|
-        # `screen?` (not `screen`): a widget that was destroyed/detached while in
-        # the history has no screen, and the raising `#screen` would crash here
-        # (e.g. closing a menu whose submenu — the focused widget — was just torn
-        # down). Skip such stale entries instead.
+        # `screen? == self` (not the raising `screen`, nor a bare truthy
+        # `screen?`): a widget that was destroyed/detached while in the history has
+        # no screen, and the raising `#screen` would crash here (e.g. closing a
+        # menu whose submenu — the focused widget — was just torn down). A bare
+        # `screen?` would skip only the detached case but still accept a widget
+        # MOVED to another screen (its `@keyable`/history entries are not pruned —
+        # see `focus_offset`/`screen_children.cr#remove`), re-focusing a widget that
+        # now lives on a different screen. Require attachment to THIS screen, as
+        # `restore_focus` already does.
         #
         # `displayed_in_tree?` (not the per-widget `style.visible?`): a widget
         # whose own flag is visible but whose container is hidden is not actually
         # on screen, so it must not be re-focused. See the same helper in
         # `screen_mouse.cr`.
-        if e.screen? && displayed_in_tree?(e)
+        if e.screen? == self && displayed_in_tree?(e)
           el = e
           break
         end
@@ -151,12 +156,15 @@ module Crysterm
       # `any?` (which short-circuits on the first match) is enough; the old
       # `count { ... }.zero?` always scanned the entire list.
       #
-      # `screen?` (not the raising `screen`): `@keyable` is NOT pruned when a
-      # widget is removed (the pruning in `screen_children.cr#remove` is still
-      # disabled — see its `XXX`), so it can hold detached widgets whose
-      # `@screen` is now nil. `screen` (`screen?.not_nil!`) would crash here on
-      # such an entry; `screen?` correctly treats it as "no longer attached" and
-      # skips it. Same non-raising pattern `rewind_focus`/`_focus` use.
+      # `screen? == self` (not the raising `screen`, nor a bare truthy `screen?`):
+      # `@keyable` is NOT pruned when a widget is removed (the pruning in
+      # `screen_children.cr#remove` is still disabled — see its `XXX`), so it can
+      # hold widgets that were detached (whose `@screen` is now nil) OR moved to
+      # another screen (whose `screen?` now points elsewhere). `screen`
+      # (`screen?.not_nil!`) would crash on a detached entry; a bare `screen?`
+      # would skip the detached case but still select a widget that now lives on a
+      # DIFFERENT screen — Tab here would then focus a widget on another screen.
+      # Require attachment to THIS screen, matching `restore_focus`/`rewind_focus`.
       #
       # `displayed_in_tree?` (not the per-widget `style.visible?`) so a candidate
       # sitting inside a hidden container is skipped, not selected — its own flag
@@ -170,7 +178,7 @@ module Crysterm
       # `Disabled` state. Folding the check in here (and into the skip loop below)
       # also keeps the loop's termination guarantee intact: the `any?` proves at
       # least one acceptable candidate exists.
-      return unless @keyable.any? { |el| el.screen? && displayed_in_tree?(el) && !el.disabled? }
+      return unless @keyable.any? { |el| el.screen? == self && displayed_in_tree?(el) && !el.disabled? }
 
       # With no current focus, enter from the natural end: forward navigation
       # (`focus_next`) must land on the FIRST focusable widget, backward
@@ -189,7 +197,7 @@ module Crysterm
           end
 
       i %= @keyable.size
-      while !@keyable[i].screen? || !displayed_in_tree?(@keyable[i]) || @keyable[i].disabled?
+      while @keyable[i].screen? != self || !displayed_in_tree?(@keyable[i]) || @keyable[i].disabled?
         i += offset >= 0 ? 1 : -1
         i %= @keyable.size
       end
