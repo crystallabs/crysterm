@@ -471,6 +471,28 @@ describe Crysterm::Widget::SpinBox do
     sb2.minimum = 60
     sb2.value.should eq 60
   end
+
+  it "respects Range exclusivity when assigned a Range" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 0
+
+    # Inclusive range: upper bound is `end`.
+    sb.range = 2..8
+    sb.minimum.should eq 2
+    sb.maximum.should eq 8
+
+    # Exclusive range covers begin..end-1, so the upper bound must be end-1
+    # (10 here), not silently widened to `end` (11).
+    sb.range = 1...11
+    sb.minimum.should eq 1
+    sb.maximum.should eq 10
+
+    # A degenerate empty exclusive range collapses to the single value, never
+    # inverting the bounds (which would otherwise raise in the value clamp).
+    sb.range = 5...5
+    sb.minimum.should eq 5
+    sb.maximum.should eq 5
+  end
 end
 
 describe Crysterm::Widget::Message::Severity do

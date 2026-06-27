@@ -154,9 +154,14 @@ module Crysterm
       end
 
       # Sets the inclusive `[minimum, maximum]` range from a `Range` (Qt's
-      # `setRange`). Exclusive ranges are treated as inclusive of `end`.
+      # `setRange`). An exclusive range (`begin...end`) covers `begin..end - 1`,
+      # so its upper bound is `end - 1` — matching Crystal's own `Range`
+      # semantics rather than silently widening the range by one. A degenerate
+      # empty exclusive range (`n...n`) collapses to the single value `n` instead
+      # of inverting the bounds.
       def range=(r : ::Range(Int32, Int32)) : ::Range(Int32, Int32)
-        set_range r.begin, r.end
+        max = r.exclusive? ? Math.max(r.begin, r.end - 1) : r.end
+        set_range r.begin, max
         r
       end
 
