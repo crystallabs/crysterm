@@ -22,12 +22,15 @@ end
 # or their nilable forms — is emitted and loaded automatically.
 #
 # Mechanics:
-#  * Generated once per *direct subclass of `Widget`* (the root of each branch);
-#    the whole subtree inherits the methods, and because the scan body is wrapped
-#    in `{% verbatim %}` it re-resolves per *concrete* widget at instantiation
-#    (where `@type` is that widget and `#instance_vars` is available — the
-#    `JSON::Serializable` mechanism). The base `Widget` keeps its hand-curated
-#    handler for the universal options, reached via `super`.
+#  * Generated on *every concrete `Widget` subclass* (the `JSON::Serializable`
+#    pattern), so each gets its own specialization — necessary because the
+#    methods are reached through *virtual* dispatch (`Widget#to_layout_html`, the
+#    DOM loader), under which an inherited branch-root method would run with
+#    `@type` pinned to the branch root and so miss a deeper subclass's own
+#    options. The scan body is `{% verbatim %}` so `@type.instance_vars` is
+#    deferred to method-compile time (it isn't available at `macro finished`).
+#    The base `Widget` keeps its hand-curated handler for the universal options,
+#    reached via `super`.
 #  * The scan walks `[@type] + @type.ancestors`, so a widget also serializes
 #    options it inherits; `BASE_KEYS` excludes the universal/structural ones.
 #  * Types are matched precisely via `union_types` (so e.g. `Array(String)` or an
@@ -56,12 +59,19 @@ macro dom_autoserialize_body(mode)
       {% supported[iv.name.stringify] = {kind, iv.type.union_types.map(&.stringify).includes?("Nil")} if kind %}
     {% end %}
     {% names = [] of Nil %}
+    {% defaults = {} of Nil => Nil %}
     {% for anc in [@type] + @type.ancestors %}
       {% for m in anc.methods.select { |x| x.name == "initialize" } %}
         {% for a in m.args %}
           {% n = a.name.stringify %}
           {% if supported[n] && !::Crysterm::DOM::BASE_KEYS.includes?(n) && !names.includes?(n) %}
             {% names << n %}
+            # Record the initializer-arg default (the most-derived initializer
+            # wins, matching `names`' dedup). A default-`true` `Bool` must be
+            # emitted as `"false"` when cleared — emitting nothing (the old
+            # behavior) silently reverted it to `true` on reload, since `#dom_apply`
+            # only runs for attributes that are present.
+            {% defaults[n] = a.default_value %}
           {% end %}
         {% end %}
       {% end %}
@@ -70,7 +80,13 @@ macro dom_autoserialize_body(mode)
       {% for n in names %}
         {% kind = supported[n][0] %}{% key = n.split("_").join("-") %}
         {% if kind == "bool" %}
-          attrs[{{ key }}] = "true" if @{{ n.id }}
+          {% if defaults[n] && defaults[n].stringify == "true" %}
+            # Defaults to `true`: emit only when cleared (so the value round-trips).
+            attrs[{{ key }}] = "false" unless @{{ n.id }}
+          {% else %}
+            # Defaults to `false` (or no/non-literal default): emit only when set.
+            attrs[{{ key }}] = "true" if @{{ n.id }}
+          {% end %}
         {% elsif kind == "str" %}
           (@{{ n.id }}).try { |s| attrs[{{ key }}] = s unless s.empty? }
         {% else %}
@@ -105,7 +121,18 @@ end
 
 macro finished
   {% for t in Crysterm::Widget.all_subclasses %}
-    {% if t.superclass && t.superclass.stringify == "Crysterm::Widget" &&
+    # Generate on EVERY concrete widget, not just the direct children of Widget.
+    # A verbatim body re-resolves @type to the concrete widget only when the
+    # method is invoked on a statically-known concrete receiver; under the
+    # virtual dispatch Widget#to_layout_html / the DOM loader actually use, an
+    # inherited branch-root method runs with @type pinned to the branch root --
+    # so a deeper subclass's own options (e.g. SpinBox#editable,
+    # ScrollBar#tracking) were silently never (de)serialized. Defining the method
+    # on each concrete subclass gives it its own specialization, the way
+    # JSON::Serializable does. super still keeps @type at the concrete type, so
+    # each level re-scans the same option set into the shared hash (idempotent),
+    # bottoming out at the hand-written Widget base handler.
+    {% if !t.abstract? &&
             !t.methods.any? { |m| m.name == "dom_attributes" || m.name == "dom_apply" } %}
       class ::{{ t }}
         def dom_attributes : ::Hash(::String, ::String?)

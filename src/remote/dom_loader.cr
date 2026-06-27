@@ -32,8 +32,9 @@ module Crysterm
     # widgets do.) The round-trip invariant spec (`spec/dom_registry_spec.cr`)
     # fails loudly if a new self-populating widget slips through.
     SKIP = %w[
-      colordialog compose dockwidget headerbar listtable loading
-      prompt question splashscreen statusbar tabwidget wizard
+      canvas colordialog compose dockwidget donut headerbar linechart
+      listtable loading map prompt question splashscreen statusbar
+      tabwidget wizard
     ]
 
     # Tag (leaf type name, lowercased) -> widget factory, built lazily on first
