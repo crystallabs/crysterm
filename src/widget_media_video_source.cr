@@ -107,10 +107,20 @@ module Crysterm
           @delay = VideoSource.frame_delay @fps
           @buf = Bytes.new(@w * @h * 4)
           @process = launch
+          @pending, @vehicle = open_first
+        end
+
+        # Reads the first frame and builds the resampling vehicle, reaping ffmpeg
+        # on any failure (undecodable file, no frames). Without this an open that
+        # failed *after* launch would leak a live/zombie ffmpeg; `Stream.open`
+        # turns the re-raised failure into a `nil` result for the caller.
+        private def open_first : Tuple(PNGGIF::Bitmap, PNGGIF::PNG)
           first = read_one
           raise "no video frames" unless first
-          @pending = first
-          @vehicle = PNGGIF::PNG.from_frames([{first, @delay}], @w, @h)
+          {first, PNGGIF::PNG.from_frames([{first, @delay}], @w, @h)}
+        rescue ex
+          close
+          raise ex
         end
 
         # The next decoded frame, or `nil` at end-of-stream.
@@ -126,10 +136,15 @@ module Crysterm
         def restart : Bool
           close
           @process = launch
-          first = read_one || return false
+          first = read_one
+          if first.nil?
+            close # reap the just-relaunched ffmpeg; nothing decodable to play
+            return false
+          end
           @pending = first
           true
         rescue
+          close # don't leak the relaunched subprocess on an unexpected failure
           false
         end
 
