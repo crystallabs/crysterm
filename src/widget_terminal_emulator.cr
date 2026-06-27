@@ -99,6 +99,12 @@ module Crysterm
     @csi_prefix : Char? = nil
     @osc_buf = IO::Memory.new
     @osc_esc : Bool = false
+    # True while the accumulated string is a DCS/SOS/PM/APC payload (entered via
+    # `ESC P`/`X`/`^`/`_`) rather than a real OSC (`ESC ]`). Such a string is
+    # swallowed up to its terminator but must NOT be parsed as a window title —
+    # otherwise e.g. a child's sixel `ESC P 0;1;0 q …` (which begins `0;…`) would
+    # be mistaken for an OSC 0 title set.
+    @osc_string : Bool = false
 
     # Trailing incomplete UTF-8 bytes held back between `#feed` calls.
     @leftover : Bytes = Bytes.empty
@@ -301,14 +307,17 @@ module Crysterm
         @state = :osc
         @osc_buf.clear
         @osc_esc = false
+        @osc_string = false
       when '(', ')', '*', '+'
         @charset_index = {'(' => 0, ')' => 1, '*' => 2, '+' => 3}[c]
         @state = :charset
       when 'P', 'X', '^', '_'
-        # DCS/SOS/PM/APC string — swallow like an OSC (until ST/BEL).
+        # DCS/SOS/PM/APC string — swallow like an OSC (until ST/BEL), but flag it
+        # so the payload is discarded rather than parsed as an OSC title.
         @state = :osc
         @osc_buf.clear
         @osc_esc = false
+        @osc_string = true
       when '7' then save_cursor; @state = :ground
       when '8' then restore_cursor; @state = :ground
       when 'M' then reverse_index; @state = :ground     # RI
@@ -337,6 +346,9 @@ module Crysterm
     end
 
     private def finish_osc : Nil
+      # A DCS/SOS/PM/APC string was only swallowed for its terminator; never
+      # interpret its payload as an OSC title.
+      return if @osc_string
       # Only window/icon title (codes 0, 1, 2) are acted on. The buffer is
       # materialized once here (on the rare terminator), not per appended byte.
       buf = @osc_buf.to_s

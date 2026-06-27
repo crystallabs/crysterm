@@ -217,4 +217,25 @@ describe Crysterm::TerminalEmulator do
       io.to_s.should eq "\e[2;4R"
     end
   end
+
+  describe "OSC title vs. DCS/PM/APC strings" do
+    it "reports an OSC 0/2 window title" do
+      em = emu
+      titles = [] of String
+      em.on_title = ->(t : String) { titles << t; nil }
+      em.feed "\e]0;hello\a"
+      em.feed "\e]2;world\e\\" # ST-terminated
+      titles.should eq ["hello", "world"]
+    end
+
+    it "swallows a DCS string without mistaking it for a title" do
+      em = emu
+      titles = [] of String
+      em.on_title = ->(t : String) { titles << t; nil }
+      # A sixel-shaped DCS payload begins '0;…' — must NOT fire on_title.
+      em.feed "\e[H\eP0;1;0qABC\e\\X"
+      titles.should be_empty
+      em.lines[0][0].char.should eq 'X' # parsing resumed after the DCS
+    end
+  end
 end
