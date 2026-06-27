@@ -142,7 +142,14 @@ module Crysterm
         on_range_changed
         emit Crysterm::Event::RangeChange, @minimum, @maximum
         # Re-clamp the value into the new range; `#value=` no-ops if unchanged.
-        self.value = @value
+        # Pre-clamp here so a `#wrap?` control *clamps* on a range change (Qt's
+        # `setMaximum`/`setMinimum` semantics) instead of *wrapping*: handing
+        # `#value=` a still-out-of-range `@value` would trip its wrap branch and
+        # snap the value to the opposite bound (e.g. shrinking the max below the
+        # current value would jump it to the minimum rather than down to the new
+        # maximum). A pre-clamped value is always in range, so `#value=`'s wrap
+        # check is a no-op and it behaves as a plain clamp.
+        self.value = @value.clamp(@minimum, @maximum)
         request_render
       end
 

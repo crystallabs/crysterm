@@ -454,6 +454,23 @@ describe Crysterm::Widget::SpinBox do
     sb.decrement
     sb.value.should eq 3
   end
+
+  it "clamps (not wraps) the value when the range moves past it, even with wrap on" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100,
+      value: 50, wrap: true
+    # Qt's setMaximum clamps the value to the new bound; with wrap enabled this
+    # must still land on the new maximum (10), not snap to the opposite bound (0).
+    sb.maximum = 10
+    sb.value.should eq 10
+
+    # Likewise raising the minimum above the value clamps up to the new minimum
+    # (without the pre-clamp, wrap would snap it to the maximum instead).
+    sb2 = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100,
+      value: 50, wrap: true
+    sb2.minimum = 60
+    sb2.value.should eq 60
+  end
 end
 
 describe Crysterm::Widget::Message::Severity do
