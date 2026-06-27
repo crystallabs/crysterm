@@ -138,10 +138,10 @@ module Crysterm
       # (CUP/CUU/CUD/CUF/CUB, CR/LF, ED), then each cell is rasterized with the
       # bitmap `Font`.
       def self.decode_ansi(data : Bytes, font : Font = Font.default_normal) : PNGGIF::PNG
-        # cell = {char, fg(0..7|nil), fg_bright, bg(0..7|nil), bg_bright}
-        cells = {} of Tuple(Int32, Int32) => Tuple(Char, Int32?, Bool, Int32?, Bool)
+        # cell = {char, fg(0..7|nil), fg_bright, bg(0..7|nil), bg_bright, reverse}
+        cells = {} of Tuple(Int32, Int32) => Tuple(Char, Int32?, Bool, Int32?, Bool, Bool)
         x = 0; y = 0; maxx = 0; maxy = 0
-        fg = nil.as(Int32?); fgb = false; bg = nil.as(Int32?); bgb = false
+        fg = nil.as(Int32?); fgb = false; bg = nil.as(Int32?); bgb = false; rev = false
         sx = 0; sy = 0
         clampx = ->(v : Int32) { v.clamp(0, 1000) }
         clampy = ->(v : Int32) { v.clamp(0, 4000) }
@@ -180,8 +180,10 @@ module Crysterm
               while k < params.size
                 c = params[k]
                 case c
-                when 0        then fg = nil; bg = nil; fgb = false; bgb = false
+                when 0        then fg = nil; bg = nil; fgb = false; bgb = false; rev = false
                 when 1        then fgb = true
+                when 7        then rev = true  # reverse video: swap fg/bg at raster time
+                when 27       then rev = false # reverse off
                 when 22       then fgb = false
                 when 30..37   then fg = c - 30
                 when 90..97   then fg = c - 90; fgb = true
@@ -206,7 +208,7 @@ module Crysterm
                       bgb = idx >= 8; bg = bgb ? idx - 8 : idx
                     end
                   end
-                else # 5 (blink) / 7 (reverse) / … ignored
+                else # 5 (blink) / 8 (conceal) / … ignored
                 end
                 k += 1
               end
@@ -239,7 +241,7 @@ module Crysterm
           when 0x08 then x = clampx.call(x - 1)              # BS
           when 0x09 then x = clampx.call(((x // 8) + 1) * 8) # TAB
           else
-            cells[{x, y}] = {cp437(b), fg, fgb, bg, bgb}
+            cells[{x, y}] = {cp437(b), fg, fgb, bg, bgb, rev}
             maxx = x if x > maxx
             maxy = y if y > maxy
             x = clampx.call(x + 1)
@@ -276,9 +278,12 @@ module Crysterm
         rows.times do |cy|
           cols.times do |cx|
             c = cells[{cx, cy}]?
-            char, cfg, cfgb, cbg, cbgb = c || {' ', nil, false, nil, false}
+            char, cfg, cfgb, cbg, cbgb, crev = c || {' ', nil, false, nil, false, false}
             fg_rgb = pal(cfg ? (cfgb ? cfg + 8 : cfg) : 7)
             bg_rgb = pal(cbg ? (cbgb ? cbg + 8 : cbg) : 0)
+            # Reverse video (SGR 7): swap ink/paper. Resolved here (after defaults)
+            # so a reversed default cell becomes black-on-white, as on a real VT.
+            fg_rgb, bg_rgb = bg_rgb, fg_rgb if crev
             g = font.glyph(char.to_s)
             gh = g.size
             gw = gh > 0 ? g[0].size : 0

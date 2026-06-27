@@ -71,6 +71,34 @@ describe Crysterm::Widget::Media do
     end
   end
 
+  describe ".decode_ansi reverse video (SGR 7 / 27)" do
+    # A space cell renders purely its background colour, so reversing it surfaces
+    # the *foreground* — letting us assert the swap on the exact RGB.
+    it "swaps default fg/bg so a reversed blank shows the foreground (white)" do
+      # Default fg is white (index 7, 0xAAAAAA); reversed, the blank's background
+      # becomes that white instead of the default black.
+      px = png("\e[7m ").bmp[0][0]
+      {px.r, px.g, px.b}.should eq({0xAA, 0xAA, 0xAA})
+    end
+
+    it "swaps explicit fg/bg under reverse video" do
+      # fg red (31), bg white (47); reversed, the blank's background is the red fg.
+      px = png("\e[31;47m\e[7m ").bmp[0][0]
+      {px.r, px.g, px.b}.should eq({0xAA, 0x00, 0x00})
+    end
+
+    it "restores normal video with SGR 27" do
+      # Reverse on then off: the blank renders the (default black) background again.
+      px = png("\e[7m\e[27m ").bmp[0][0]
+      {px.r, px.g, px.b}.should eq({0x00, 0x00, 0x00})
+    end
+
+    it "clears reverse on a full SGR reset (SGR 0)" do
+      px = png("\e[7m\e[0m ").bmp[0][0]
+      {px.r, px.g, px.b}.should eq({0x00, 0x00, 0x00})
+    end
+  end
+
   describe ".decode_ansi extended-colour SGR" do
     # `38`/`48` extended-colour selectors must be consumed (and mapped to the
     # nearest 16-colour entry) rather than letting their sub-parameters fall

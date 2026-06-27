@@ -851,13 +851,18 @@ module Crysterm
       when 1 # start of screen → cursor
         (0...@y).each { |yy| clear_screen_line yy }
         erase_in_line 0, @x
-      when 2, 3 # whole screen (3 also clears scrollback)
+      when 2 # whole visible screen (scrollback retained)
         (0...@rows).each { |yy| clear_screen_line yy }
-        if mode == 3
-          @lines = @lines[@ybase, @rows].dup
-          @ybase = 0
-          @ydisp = 0
-        end
+      when 3
+        # ED 3 (xterm "Erase Saved Lines"): discard the scrollback ONLY; the
+        # visible page is left intact. This previously also cleared the visible
+        # rows (treating ED 3 as ED 2 + scrollback), so a child that sent a bare
+        # `CSI 3 J` to trim history — without the usual following `CSI 2 J` —
+        # wrongly lost its on-screen content. Keep the live rows (they are exactly
+        # `@lines[@ybase, @rows]`); just drop everything above them.
+        @lines = @lines[@ybase, @rows].dup
+        @ybase = 0
+        @ydisp = 0
       end
     end
 

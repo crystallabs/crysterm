@@ -130,6 +130,21 @@ describe Crysterm::TerminalEmulator do
       row(em, 0).should eq ""
       row(em, 1).should eq ""
     end
+
+    it "drops only the scrollback on ED 3, leaving the visible screen intact" do
+      # `CSI 3 J` is xterm's "Erase Saved Lines": it must discard the scrollback
+      # history ONLY, never the visible page. A child sending a bare `CSI 3 J`
+      # to trim history (without a following `CSI 2 J`) must keep what's on screen.
+      em = emu(5, 2)
+      em.feed "L0\r\nL1\r\nL2\r\nL3" # L0/L1 scroll into history; L2/L3 stay visible
+      em.ybase.should eq 2
+      em.feed "\e[3J"               # erase saved lines
+      em.ybase.should eq 0          # scrollback gone
+      em.ydisp.should eq 0
+      em.lines.size.should eq 2     # exactly the visible page retained
+      row(em, 0).should eq "L2"     # visible content untouched
+      row(em, 1).should eq "L3"
+    end
   end
 
   describe "scrollback" do
