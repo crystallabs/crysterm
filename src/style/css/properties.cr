@@ -410,7 +410,11 @@ module Crysterm
 
       # A single-side `border-<side>` shorthand: a width sets that side, a style
       # keyword sets the border type (or hides the side with `none`), and any
-      # other token is treated as the whole-border color.
+      # other token is the color for *that side* — routed to the per-side
+      # `border-<side>-color` slot (`fg_top`/`fg_left`/…) the renderer reads, not
+      # the whole-border `fg`. So `border-left: solid red` colors only the left
+      # edge, matching CSS and the `border-<side>-color` longhand; the previous
+      # whole-border assignment recolored every edge.
       private def self.apply_border_side(border : Border, side : Symbol, value : String) : Nil
         vertical = side == :top || side == :bottom
         # A width token (if any) is authoritative for the side; a bare style
@@ -430,13 +434,27 @@ module Crysterm
           elsif w = Length.to_cells(token, vertical)
             explicit_width = w
           else
-            border.fg = ColorValue.resolve(token, border.fg)
+            set_side_color border, side, ColorValue.resolve(token, border.fg)
           end
         end
         if explicit_width
           set_side border, side, explicit_width
         elsif type_seen
           ensure_side border, side
+        end
+      end
+
+      # Sets the per-side border color (`fg_top`/`fg_right`/`fg_bottom`/`fg_left`)
+      # for the `border-<side>` shorthand, coercing the resolved color to the
+      # native int form those slots store — the same routing the
+      # `border-<side>-color` longhand uses.
+      private def self.set_side_color(border : Border, side : Symbol, resolved : Int32 | String | Nil) : Nil
+        c = coerce_color_int(resolved)
+        case side
+        when :top    then border.fg_top = c
+        when :right  then border.fg_right = c
+        when :bottom then border.fg_bottom = c
+        when :left   then border.fg_left = c
         end
       end
 
