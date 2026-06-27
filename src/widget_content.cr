@@ -327,7 +327,18 @@ module Crysterm
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
       colwidth = (awidth_hint || awidth) - iwidth
-      if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version || @_clines.base_x != @child_base_x
+      # `@_clines.margin` is part of the wrap cache key too: an `AsNeeded` scroll
+      # bar's presence (and thus `content_margin_x`, the right-edge column the wrap
+      # reserves) can flip from a *height*-only change — a terminal resize, or a
+      # `widget.height=` — that leaves `colwidth`/`content_version`/`base_x` all
+      # unchanged, so without this the lines stay wrapped for the stale margin and
+      # the now-shown bar overpaints the last content column (the `widget-csr` bug)
+      # until the next content edit. After a reparse the convergence loop below
+      # leaves `@_clines.margin == content_margin_x`, so this never re-fires in
+      # steady state. Cheap on the common cache-hit path: non-scrollable widgets
+      # short-circuit `content_margin_x` to 0 via `show_scrollbar?`'s `scrollable?`
+      # guard, matching the `0` margin a tag-free wrap recorded.
+      if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version || @_clines.base_x != @child_base_x || @_clines.margin != content_margin_x
         # A reparse reads the raw `@content`, so fold in any deferred appends
         # first. (The common cache-hit path below never enters here, so deferred
         # content is not materialized just to render an unchanged frame.)

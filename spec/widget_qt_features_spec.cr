@@ -247,6 +247,33 @@ describe Crysterm::Widget::PlainTextEdit do
     ta.show_scrollbar?.should be_false
   end
 
+  it "re-wraps to reserve the bar column after a height-only resize flips overflow" do
+    s = qt_mem_screen
+    # Several short logical lines that each fit on one wrapped row regardless of the
+    # reserved margin (so the line count — and thus the overflow decision — depends
+    # only on the viewport height, not on a re-wrap).
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 12,
+      content: (1..8).map { |i| "line #{i}" }.join("\n")
+    s._render
+    # Tall enough to fit: no vertical bar, and the wrap reserved exactly the margin
+    # `content_margin_x` currently asks for (the convergence invariant).
+    ta.show_scrollbar?.should be_false
+    ta._clines.margin.should eq ta.content_margin_x
+
+    # Shrink the viewport WITHOUT touching width, content, or horizontal scroll.
+    # `colwidth`/`content_version`/`base_x` are all unchanged — the only thing that
+    # changes is whether the AsNeeded bar is now needed, i.e. `content_margin_x`.
+    ta.height = 4
+    s._render
+
+    ta.show_scrollbar?.should be_true
+    # Regression: the wrapped lines must be re-wrapped to reserve the now-shown
+    # bar's column. Before the margin was added to the reparse cache key, no
+    # reparse fired (width/version/base_x unchanged), leaving `margin` stale so the
+    # bar overpainted the last content column.
+    ta._clines.margin.should eq ta.content_margin_x
+  end
+
   it "scrolls horizontally for non-wrapped long lines, following the caret" do
     s = qt_mem_screen
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,
