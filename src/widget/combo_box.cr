@@ -258,11 +258,16 @@ module Crysterm
         end
       end
 
-      # Refreshes the open popup's rows after the filter changes.
+      # Refreshes the open popup's rows after the filter changes. Re-runs
+      # `#position_popup` so the drop-down's height tracks the (now narrower or
+      # wider) match count — otherwise it keeps the size it had when first opened,
+      # leaving blank rows once the filter narrows, or scrolling a too-short popup
+      # once it widens (e.g. after a Backspace), instead of fitting the matches.
       private def refresh_popup
         if @open && (pop = @popup)
           pop.set_items @filtered
           pop.selekt 0
+          position_popup pop
         end
       end
 
