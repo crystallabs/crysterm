@@ -50,6 +50,22 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[2;3HX"
       em.lines[1][2].char.should eq 'X'
     end
+
+    it "clears the deferred wrap on CNL/CPL/VPA cursor moves" do
+      # After exactly filling a row the cursor is parked in a pending-wrap state;
+      # an explicit cursor move (CNL 'E', CPL 'F', VPA 'd') must cancel it, like
+      # CUU/CUD/CUP do — otherwise the next printed char triggers a spurious
+      # extra line-feed (and, for VPA, the wrong column).
+      em = emu(3, 3)
+      em.feed "abc\e[EZ" # fill row 0, CNL to row 1 col 0, print Z
+      em.lines[1][0].char.should eq 'Z'
+      em.cursor_y.should eq 1
+
+      em2 = emu(3, 3)
+      em2.feed "abc\e[2dZ" # fill row 0, VPA to row 1 (col unchanged = 2), print Z
+      em2.lines[1][2].char.should eq 'Z'
+      em2.cursor_y.should eq 1
+    end
   end
 
   describe "SGR" do

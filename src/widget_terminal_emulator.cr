@@ -462,10 +462,10 @@ module Crysterm
       when 'B'      then @y = Math.min(@rows - 1, @y + param(0, 1)); @wrap_pending = false
       when 'C'      then @x = Math.min(@cols - 1, @x + param(0, 1)); @wrap_pending = false
       when 'D'      then @x = Math.max(0, @x - param(0, 1)); @wrap_pending = false
-      when 'E'      then @x = 0; @y = Math.min(@rows - 1, @y + param(0, 1))
-      when 'F'      then @x = 0; @y = Math.max(0, @y - param(0, 1))
+      when 'E'      then @x = 0; @y = Math.min(@rows - 1, @y + param(0, 1)); @wrap_pending = false
+      when 'F'      then @x = 0; @y = Math.max(0, @y - param(0, 1)); @wrap_pending = false
       when 'G', '`' then @x = clamp(param(0, 1) - 1, 0, @cols - 1); @wrap_pending = false
-      when 'd'      then set_row(param(0, 1) - 1)
+      when 'd'      then set_row(param(0, 1) - 1); @wrap_pending = false
       when 'H', 'f'
         set_row(param(0, 1) - 1)
         @x = clamp(param(1, 1) - 1, 0, @cols - 1)
@@ -488,6 +488,7 @@ module Crysterm
           @scroll_bottom = Math.min(@rows - 1, bot)
           @x = 0
           @y = @origin_mode ? @scroll_top : 0 # DECSTBM homes the cursor
+          @wrap_pending = false
         end
       when 'h' then set_mode true
       when 'l' then set_mode false
@@ -525,6 +526,7 @@ module Crysterm
           @origin_mode = on
           @x = 0
           @y = on ? @scroll_top : 0
+          @wrap_pending = false
         when 2004 then @bracketed_paste = on
         when 1004 then @focus_reporting = on
         else
