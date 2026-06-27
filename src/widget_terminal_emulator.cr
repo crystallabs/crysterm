@@ -311,6 +311,15 @@ module Crysterm
       when '(', ')', '*', '+'
         @charset_index = {'(' => 0, ')' => 1, '*' => 2, '+' => 3}[c]
         @state = :charset
+      when '#', ' ', '%'
+        # 3-byte intermediate escapes whose final byte must be swallowed, not
+        # printed: `ESC # n` (DECALN / double-width/height line — line size is
+        # not implemented, but the digit must not leak as text), `ESC SP F/G/…`
+        # (S7C1T/S8C1T, ANSI conformance) and `ESC % @/G` (charset selection;
+        # we are always UTF-8). Route through the charset state with a designate-
+        # nothing index (-1) so the next byte is consumed with no side effect.
+        @charset_index = -1
+        @state = :charset
       when 'P', 'X', '^', '_'
         # DCS/SOS/PM/APC string — swallow like an OSC (until ST/BEL), but flag it
         # so the payload is discarded rather than parsed as an OSC title.

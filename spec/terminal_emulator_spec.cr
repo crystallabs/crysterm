@@ -66,6 +66,25 @@ describe Crysterm::TerminalEmulator do
       em2.lines[1][2].char.should eq 'Z'
       em2.cursor_y.should eq 1
     end
+
+    it "swallows the final byte of ESC #/SP/% intermediate escapes" do
+      # `ESC # n` (DECALN / double-width line), `ESC SP F` (S7C1T) and
+      # `ESC % G` (UTF-8 select) are 3-byte sequences whose final byte is NOT
+      # text. The emulator does not implement them, but it must consume the
+      # final byte rather than printing it — otherwise e.g. a program selecting
+      # a double-width line with `ESC # 6` would leak a spurious '6'.
+      em = emu
+      em.feed "\e#6Z"   # DECDWL select + print Z
+      row(em, 0).should eq "Z"
+
+      em2 = emu
+      em2.feed "\e GA"  # ESC SP G (S8C1T) + print A
+      row(em2, 0).should eq "A"
+
+      em3 = emu
+      em3.feed "\e%GB"  # ESC % G (select UTF-8) + print B
+      row(em3, 0).should eq "B"
+    end
   end
 
   describe "SGR" do
