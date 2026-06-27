@@ -51,8 +51,17 @@ module Crysterm
     # Restores focus to the previously saved focused element.
     def restore_focus
       return unless sf = @_saved_focus
-      sf.focus
       @_saved_focus = nil
+      # The saved widget may have been detached/removed (or moved to another
+      # screen) while focus was held elsewhere — e.g. a dialog that saved the
+      # previously-focused widget (see `Widget::Message`/`Question`/`Prompt`/
+      # `FileManager`/`ColorDialog`) outlives the widget it saved. `Widget#focus`
+      # would then dereference that widget's now-nil `screen` (`screen?.not_nil!`)
+      # and crash. Restore focus only when the saved widget is still attached to
+      # THIS screen; otherwise there is no valid prior target (and focusing it on
+      # another screen would be wrong anyway). Mirrors the `screen?`/attachment
+      # guards already used by `rewind_focus` and `focus_offset`.
+      sf.focus if sf.screen? == self
       focused
     end
 
