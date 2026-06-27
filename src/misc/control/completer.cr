@@ -350,12 +350,17 @@ module Crysterm
         )
         pop.completer = self
         # The wheel moves the highlight while the list is open (the box keeps
-        # focus, so the list won't get these as key events).
+        # focus, so the list won't get these as key events). Route through
+        # `cursor_down`/`cursor_up` — not the raw `down`/`up` — so the wheel
+        # *reveals* the cursor (and then moves it) exactly like the arrow keys.
+        # With the raw moves the cursor stays hidden (`cursor_shown?` only flips
+        # on `cursor_down`/`cursor_up`/hover), so the highlight would shift
+        # invisibly and a following arrow press would snap it back to `reveal(0)`.
         pop.on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_down?
-            pop.down; e.accept; pop.request_render
+            pop.cursor_down; e.accept; pop.request_render
           elsif e.action.wheel_up?
-            pop.up; e.accept; pop.request_render
+            pop.cursor_up; e.accept; pop.request_render
           end
         end
         widget.screen.append pop
