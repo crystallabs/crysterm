@@ -283,8 +283,10 @@ module Crysterm
 
       if ev.action.down?
         # Click-to-focus, the GUI-toolkit default. Only focusable widgets are
-        # focused; `focus_on_click?` lets a widget opt out (e.g. list items).
-        if w.focus_on_click? && w.keyable?
+        # focused; `focus_on_click?` lets a widget opt out (e.g. list items), and
+        # a disabled widget is never focused (it cannot react to keys) — matching
+        # Tab navigation (`focus_offset`) and the wheel-focus path (`focusable_at`).
+        if w.focus_on_click? && w.keyable? && !w.disabled?
           w.focus
           render
         end
@@ -303,7 +305,10 @@ module Crysterm
     # Used to resolve which widget a click/wheel implicitly focuses.
     private def focusable_at(w : Widget) : Widget?
       el : Widget? = w
-      while el && !(el.focus_on_click? && el.keyable?)
+      # A disabled widget is not a focus target (it does not react to keys); skip
+      # past it to an enabled focusable ancestor, matching Tab navigation
+      # (`focus_offset`) and the click-to-focus guard below.
+      while el && !(el.focus_on_click? && el.keyable? && !el.disabled?)
         el = el.parent
       end
       el

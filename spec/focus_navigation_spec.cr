@@ -68,6 +68,44 @@ describe "Screen#focus_offset" do
     s.focused.should_not eq stale
   end
 
+  # Regression: a disabled widget does not react to keyboard input, so Tab /
+  # Shift+Tab navigation must step over it — focus must never land on a dead
+  # widget. (Landing on it would also route through `_focus`, which sets
+  # `state = :focused` and would silently clear the `Disabled` state.)
+  it "skips a disabled keyable widget" do
+    s = focus_screen
+    a = Widget::Box.new parent: s, keys: true
+    b = Widget::Box.new parent: s, keys: true
+    c = Widget::Box.new parent: s, keys: true
+
+    b.state = Crysterm::WidgetState::Disabled
+
+    a.focus
+    s.focused.should eq a
+    s.focus_next # must skip the disabled `b` and land on `c`
+    s.focused.should eq c
+    s.focused.should_not eq b
+    # `b` is still disabled — navigation did not focus (and thereby un-disable) it.
+    b.disabled?.should be_true
+
+    # And backward navigation skips it too: from `c`, `focus_previous` lands on
+    # `a`, not the disabled `b`.
+    s.focus_previous
+    s.focused.should eq a
+  end
+
+  # When the only keyable widget is disabled there is no valid target, so
+  # navigation is a no-op rather than focusing it (or looping forever).
+  it "does not focus the sole keyable widget when it is disabled" do
+    s = focus_screen
+    a = Widget::Box.new parent: s, keys: true
+    a.state = Crysterm::WidgetState::Disabled
+    s.@history.clear
+
+    s.focus_next
+    s.focused.should be_nil
+  end
+
   # Regression: focus-candidate selection must be ancestor-aware. A keyable
   # widget whose own `style.visible?` is still true but whose container is
   # hidden is not actually on screen, so navigation must skip over it instead of

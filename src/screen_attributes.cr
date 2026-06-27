@@ -198,12 +198,18 @@ module Crysterm
     # 'm'). Returns `{value, terminator}` where `terminator` is the index of the
     # ';' or `finish`. An empty parameter yields 0. Allocation-free helper for
     # `attr2code`; assumes ASCII digits (guaranteed by `SGR_REGEX`).
+    # Largest value we keep accumulating below; one more digit past this would
+    # overflow `Int32`. A param this large is not a real SGR code, so we stop
+    # accumulating (freezing it at an unrecognized magnitude) rather than raise
+    # `OverflowError` on adversarial input like `\e[9999999999m`.
+    SGR_PARAM_MAX = (Int32::MAX - 9) // 10
+
     private def self.sgr_param_at(bytes : Bytes, pos : Int32, finish : Int32) : {Int32, Int32}
       value = 0
       while pos < finish
         b = bytes.unsafe_fetch(pos)
         break if b == ';'.ord
-        value = value * 10 + (b.to_i - '0'.ord)
+        value = value * 10 + (b.to_i - '0'.ord) if value <= SGR_PARAM_MAX
         pos += 1
       end
       {value, pos}
@@ -218,7 +224,7 @@ module Crysterm
       while pos < finish
         ch = content[pos]
         break if ch.nil? || ch == ';'
-        value = value * 10 + (ch.ord - '0'.ord)
+        value = value * 10 + (ch.ord - '0'.ord) if value <= SGR_PARAM_MAX
         pos += 1
       end
       {value, pos}

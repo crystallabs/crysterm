@@ -161,7 +161,16 @@ module Crysterm
       # `displayed_in_tree?` (not the per-widget `style.visible?`) so a candidate
       # sitting inside a hidden container is skipped, not selected — its own flag
       # may still be visible. Mirrors `rewind_focus` and the mouse hit-test.
-      return unless @keyable.any? { |el| el.screen? && displayed_in_tree?(el) }
+      #
+      # `!el.disabled?`: a disabled widget does not react to keys (see
+      # `_listen_keys`), so Tab/Shift+Tab must step over it rather than strand
+      # focus on a dead widget — the GUI-toolkit convention (Qt skips disabled
+      # widgets in the focus chain). Worse, landing on it would route through
+      # `_focus`, which sets `state = :focused` and thereby silently clears the
+      # `Disabled` state. Folding the check in here (and into the skip loop below)
+      # also keeps the loop's termination guarantee intact: the `any?` proves at
+      # least one acceptable candidate exists.
+      return unless @keyable.any? { |el| el.screen? && displayed_in_tree?(el) && !el.disabled? }
 
       # With no current focus, enter from the natural end: forward navigation
       # (`focus_next`) must land on the FIRST focusable widget, backward
@@ -180,7 +189,7 @@ module Crysterm
           end
 
       i %= @keyable.size
-      while !@keyable[i].screen? || !displayed_in_tree?(@keyable[i])
+      while !@keyable[i].screen? || !displayed_in_tree?(@keyable[i]) || @keyable[i].disabled?
         i += offset >= 0 ? 1 : -1
         i %= @keyable.size
       end
