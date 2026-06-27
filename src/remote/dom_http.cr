@@ -265,15 +265,16 @@ module Crysterm
         each_match(selector, &.focus)
       when "remove"
         n = each_match(selector, &.remove_from_parent)
-        rewire
+        on_ui { rewire } # re-wire on the render fiber, like every other mutation
         n
       when "append"
         html = string_param params, "html"
         built = on_ui do
           parent = selector ? match(selector).first? : nil
-          (parent ? DOM.load(html, @screen, parent) : DOM.load(html, @screen)).size
+          n = (parent ? DOM.load(html, @screen, parent) : DOM.load(html, @screen)).size
+          rewire # load + re-wire atomically on the render fiber
+          n
         end
-        rewire
         @screen.render
         built
       when "subscribe"
