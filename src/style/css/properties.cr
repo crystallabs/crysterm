@@ -460,8 +460,8 @@ module Crysterm
       private def self.border_cells(value : String, vertical : Bool = false) : Int32
         if frac = Length.to_cells_f(value, vertical)
           cells = Length.to_cell_count(frac)
-          return cells unless cells == 0
-          return frac > 0 ? 1 : 0 # positive sub-cell width → keep it visible
+          return cells if cells > 0
+          return frac > 0 ? 1 : 0 # positive sub-cell width → keep it visible; 0 / negative → none
         end
         c = Length.to_cells(value, vertical) # a `calc()` border still resolves here
         (c && c > 0) ? c : 0

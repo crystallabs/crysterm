@@ -150,6 +150,23 @@ describe "CSS geometry units" do
     a.style.border.left.should eq 0 # explicit 0 stays 0
   end
 
+  it "clamps a negative border width to 0 rather than a negative cell count" do
+    # A negative `border-width` longhand is meaningless and must yield 0, not a
+    # negative count — a negative side would *shrink* the widget via
+    # `SidedGeometry#adjust` (inverted geometry), not just draw no border.
+    s = render_screen
+    s.stylesheet = "Box#a { border-width: -20px; } " \
+                   "Box#b { border-top-width: -3; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    b = Widget::Box.new parent: s, content: "y"
+    b.css_id = "b"
+    s._render
+    a.style.border.top.should eq 0    # -20px -> -2 cells, clamped to 0
+    a.style.border.left.should eq 0
+    b.style.border.top.should eq 0    # bare -3 -> clamped to 0
+  end
+
   it "honors (does not clamp) a sub-cell width in the border shorthand" do
     # Qt stylesheets put hairline widths in the `border`/`border-<side>`
     # *shorthand* (`border: 0.04em solid #ccc`, `border: 1px solid #ccc`). In a
