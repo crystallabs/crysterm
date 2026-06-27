@@ -16,7 +16,10 @@ module Crysterm
 
       def self.resolve(value : String, current_fg : Int32?) : Int32 | String | Nil
         v = value.strip
-        case v.downcase
+        # CSS function names and keywords are case-insensitive, so dispatch on a
+        # lowercased copy (`RGB(...)`/`HSL(...)`/`LINEAR-GRADIENT(...)` are valid).
+        # The parsers harvest numbers regardless of case, so they still get `v`.
+        case dv = v.downcase
         when "transparent"
           -1 # terminal default (closest TUI analog to "see-through")
         when "currentcolor"
@@ -28,11 +31,11 @@ module Crysterm
         when "initial", "unset"
           nil
         else
-          if v.includes?("gradient") && (grad = gradient_color(v))
+          if dv.includes?("gradient") && (grad = gradient_color(v))
             grad
-          elsif v.starts_with?("rgb")
+          elsif dv.starts_with?("rgb")
             parse_rgb(v)
-          elsif v.starts_with?("hsl")
+          elsif dv.starts_with?("hsl")
             parse_hsl(v)
           else
             v # named or #hex — let `Colors.convert` handle it

@@ -1556,4 +1556,10 @@ describe "CSS::ColorValue" do
     Crysterm::CSS::ColorValue.resolve("hsl(-120, 100%, 50%)", nil).should eq 0x0000ff
     Crysterm::CSS::ColorValue.resolve("hsl(-240, 100%, 50%)", nil).should eq 0x00ff00
   end
+
+  it "resolves color functions case-insensitively (CSS names are case-insensitive)" do
+    Crysterm::CSS::ColorValue.resolve("RGB(255, 0, 0)", nil).should eq 0xff0000
+    Crysterm::CSS::ColorValue.resolve("RGBA(0, 255, 0, 0.5)", nil).should eq 0x00ff00
+    Crysterm::CSS::ColorValue.resolve("HSL(240, 100%, 50%)", nil).should eq 0x0000ff
+  end
 end
