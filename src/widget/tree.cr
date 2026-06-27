@@ -51,7 +51,19 @@ module Crysterm
 
         # The owning tree, set when the node is attached. Used to refresh the
         # flattened view after a structural change.
-        property tree : Tree?
+        getter tree : Tree?
+
+        # Setting the owning tree adopts the whole subtree, not just this node.
+        # A `Node` (and its children) can be built *detached* and attached later
+        # via `#add`; without propagating ownership downward, those descendants
+        # keep a `nil` `#tree`, so a later structural edit through one of them
+        # (`grandchild.add "x"`) would find `@tree` nil and silently skip the
+        # `rebuild`, leaving the view stale. Propagating here keeps every node
+        # in an attached subtree able to refresh the view.
+        def tree=(@tree : Tree?) : Tree?
+          @children.each { |c| c.tree = @tree }
+          @tree
+        end
 
         property? expanded : Bool = false
 
