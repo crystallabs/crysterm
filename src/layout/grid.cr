@@ -97,18 +97,58 @@ module Crysterm
         nrows = @rows || placements.reduce(0) { |m, p| Math.max(m, p[1] + p[3]) }
         nrows = 1 if nrows < 1
 
-        cell_w = (w - (cols - 1) * @gap) // cols
-        cell_h = (h - (nrows - 1) * @gap) // nrows
-        cell_w = 0 if cell_w < 0
-        cell_h = 0 if cell_h < 0
+        # Interior space the cells share, with the inter-cell gaps removed. The
+        # columns/rows are carved out of this by *cumulative* integer division
+        # (see #fence) rather than a single floored `cell_w`/`cell_h`: a uniform
+        # floor dropped up to `cols - 1` columns (and `nrows - 1` rows) of
+        # remainder, leaving them blank at the right/bottom edge so the grid
+        # never filled a non-evenly-divisible interior. Carving by cumulative
+        # fences makes the column widths differ by at most one and sum to exactly
+        # `inner_w`, with the last column/row absorbing the remainder — matching
+        # how Box/Form hand their leftover to the final cell.
+        inner_w = w - (cols - 1) * @gap
+        inner_h = h - (nrows - 1) * @gap
+        inner_w = 0 if inner_w < 0
+        inner_h = 0 if inner_h < 0
 
         placements.each do |(el, row, col, rs, cs)|
-          el.left = col * (cell_w + @gap)
-          el.top = row * (cell_h + @gap)
-          el.width = cs * cell_w + (cs - 1) * @gap
-          el.height = rs * cell_h + (rs - 1) * @gap
+          # Clamp the cell's start/end *to the grid* before deriving the gap
+          # terms. `#fence` already clamps the pixel fences, so the off-grid part
+          # of a span contributes no width — but the gap multipliers below used
+          # the raw span (`cs`/`rs`) and the raw start (`col`/`row`), so an
+          # off-grid span (e.g. the common `col_span: 99` "span to the end"
+          # idiom) added `(cs - on_grid_cols)` phantom inter-cell gaps, shoving
+          # the cell's right/bottom edge well past the interior — defeating the
+          # very edge-clamp `#fence` documents. Counting gaps from the on-grid
+          # extent keeps in-grid cells byte-identical (for them `c0..c1` == the
+          # raw span) while making off-grid spans truly stop at the edge.
+          c0 = col.clamp(0, cols)
+          c1 = (col + cs).clamp(0, cols)
+          r0 = row.clamp(0, nrows)
+          r1 = (row + rs).clamp(0, nrows)
+          x0 = fence inner_w, cols, c0
+          x1 = fence inner_w, cols, c1
+          y0 = fence inner_h, nrows, r0
+          y1 = fence inner_h, nrows, r1
+          col_gaps = c1 > c0 ? c1 - c0 - 1 : 0
+          row_gaps = r1 > r0 ? r1 - r0 - 1 : 0
+          el.left = x0 + c0 * @gap
+          el.top = y0 + r0 * @gap
+          el.width = (x1 - x0) + col_gaps * @gap
+          el.height = (y1 - y0) + row_gaps * @gap
           render_child el
         end
+      end
+
+      # The cumulative offset of fence line `i` when `total` is divided into `n`
+      # equal-as-possible parts: `floor(i * total / n)`. Successive fences give
+      # each cell `fence(i+1) - fence(i)` (so the parts sum to exactly `total`,
+      # the last absorbing the remainder). `i` is clamped to `0..n` so an
+      # off-grid span (`col + col_span > columns`) stops at the interior edge
+      # instead of running past it.
+      private def fence(total : Int32, n : Int32, i : Int32) : Int32
+        i = i.clamp(0, n)
+        (i * total) // n
       end
 
       private def occupy(occupied, row, col, rs, cs)

@@ -58,6 +58,10 @@ module Crysterm
       @cursor = 0
       @avail = 0
       @total_grow = 0
+      # Running sum of the grow factors of the flex children placed so far, used
+      # to distribute @avail by cumulative rounding (see #place). Reset each
+      # #measure, consumed in #place order.
+      @grow_seen = 0
       @extra_gap = 0
       @flex = Set(Widget).new
       @filled = Set(Widget).new
@@ -115,6 +119,7 @@ module Crysterm
         end
 
         @total_grow = grow
+        @grow_seen = 0
         @avail = main - fixed - gaps
         @avail = 0 if @avail < 0
 
@@ -156,7 +161,23 @@ module Crysterm
         # Main axis: explicit size wins; otherwise a grow-weighted share.
         size =
           if main_flex? el
-            s = @total_grow > 0 ? (@avail * grow_of(el)) // @total_grow : 0
+            # Distribute @avail by *cumulative* rounding rather than rounding each
+            # child's share independently: a per-child `(@avail * grow) //
+            # total_grow` floors every child, so up to `total_grow - 1` columns
+            # were dropped and left blank at the far edge of a stretch layout
+            # (e.g. two equal-grow children in an odd-width HBox lost the last
+            # column). Taking each child's size as the difference of successive
+            # cumulative floors makes the shares sum to exactly @avail (the last
+            # flex child absorbs the remainder), matching how Grid/Form hand their
+            # leftover to the final cell.
+            s =
+              if @total_grow > 0
+                before = (@avail * @grow_seen) // @total_grow
+                @grow_seen += grow_of el
+                (@avail * @grow_seen) // @total_grow - before
+              else
+                0
+              end
             set_main_size el, s
             @flex << el
             s

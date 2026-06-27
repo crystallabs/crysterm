@@ -174,6 +174,41 @@ describe Crysterm::Layout::Grid do
       {0, 10, 5, 10}, {10, 20, 5, 10}, {20, 30, 5, 10},
     ]
   end
+
+  it "fills a non-evenly-divisible interior, giving the remainder to the last cell" do
+    s = headless_screen
+    # 32 wide / 3 cols = 10 r2: a single floored cell_w (10) left the right two
+    # columns blank (last col ended at 30, not 32). 8 tall / 3 rows = 2 r2 left
+    # the bottom row short likewise. Cumulative fences fill the whole interior.
+    g = Widget::Box.new parent: s, left: 0, top: 0, width: 32, height: 8,
+      layout: Layout::Grid.new(columns: 3, rows: 3)
+    9.times { Widget::Box.new parent: g }
+
+    coords = render_children s, g
+    # Columns carve 32 into 10/11/11 (fences 0,10,21,32); rows carve 8 into
+    # 2/3/3 (fences 0,2,5,8). The right column reaches x=32 and the bottom row
+    # reaches y=8 — no blank gutter.
+    coords.should eq [
+      {0, 10, 0, 2}, {10, 21, 0, 2}, {21, 32, 0, 2},
+      {0, 10, 2, 5}, {10, 21, 2, 5}, {21, 32, 2, 5},
+      {0, 10, 5, 8}, {10, 21, 5, 8}, {21, 32, 5, 8},
+    ]
+  end
+
+  it "clamps an off-grid span (e.g. col_span to the end) to the interior edge" do
+    s = headless_screen
+    # 3 cols, gap 2 over a 34-wide interior: inner_w = 34 - 2*2 = 30, carved
+    # 10/10/10 (fences 0,10,20,30). A cell with an oversized col_span ("span to
+    # the end") must reach exactly the interior's right edge (x1 == 34), not
+    # overshoot it by the phantom gaps of the off-grid columns.
+    g = Widget::Box.new parent: s, left: 0, top: 0, width: 34, height: 6,
+      layout: Layout::Grid.new(columns: 3, rows: 1, gap: 2)
+    Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, col_span: 99)
+
+    coords = render_children s, g
+    # Spans cols 0..2: x0=0, x1=30 + 2 internal gaps = width 34; right edge 34.
+    coords.should eq [{0, 34, 0, 6}]
+  end
 end
 
 describe Crysterm::Layout::Form do
@@ -252,6 +287,21 @@ describe "Crysterm::Layout::Box flex" do
     coords = render_children s, box
     # 30 split 1:2 -> 10 and 20.
     coords.should eq [{0, 10, 0, 2}, {10, 30, 0, 2}]
+  end
+
+  it "distributes the rounding remainder so flex children fill the interior exactly" do
+    s = headless_screen
+    # Two equal-grow children over an odd interior width (11). A per-child
+    # `width // 2` floors each to 5, leaving the 11th column blank at the right
+    # edge; cumulative rounding gives the last flex child the leftover so the
+    # children meet flush at the interior's right edge.
+    box = Widget::Box.new parent: s, left: 0, top: 0, width: 11, height: 4,
+      layout: Layout::HBox.new
+    Widget::Box.new parent: box, height: 2 # flexible width
+    Widget::Box.new parent: box, height: 2 # flexible width
+
+    coords = render_children s, box
+    coords.should eq [{0, 5, 0, 2}, {5, 11, 0, 2}]
   end
 
   it "justifies fixed children along the main axis" do
