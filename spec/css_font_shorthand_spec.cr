@@ -64,4 +64,25 @@ describe "CSS font shorthand" do
     s.bold?.should be_true
     s.italic?.should be_true
   end
+
+  # The `font-style` *longhand* must recognize the same slant keywords the
+  # shorthand does. `oblique` slants like `italic`; the longhand used to accept
+  # only `italic`/`normal`, so `font-style: oblique` silently rendered upright —
+  # the mirror of the `font-weight` longhand/shorthand fix above.
+  it "is italic for the `font-style: oblique` longhand (matches the shorthand)" do
+    long = Style.new
+    Crysterm::CSS::Properties.apply(long, "font-style", "oblique")
+    long.italic?.should be_true
+
+    short = Style.new
+    Crysterm::CSS::Properties.apply(short, "font", "oblique 14px serif")
+    long.italic?.should eq short.italic?
+  end
+
+  it "clears italic for `font-style: normal`" do
+    s = Style.new
+    s.italic = true
+    Crysterm::CSS::Properties.apply(s, "font-style", "normal")
+    s.italic?.should be_false
+  end
 end

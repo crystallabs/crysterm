@@ -68,7 +68,13 @@ module Crysterm
         when "font-weight"
           style.bold = font_weight_bold(value, style.bold?)
         when "font-style"
-          style.italic = bool_keyword(value, on: "italic", off: "normal", current: style.italic?)
+          # `italic` and `oblique` both map to the terminal's single slant
+          # attribute; `normal` clears it. The `font` shorthand already treats
+          # `oblique` as italic (see above), so the longhand must agree —
+          # otherwise `font-style: oblique` silently rendered upright, the mirror
+          # of the `font-weight` longhand/shorthand fix. An unrecognized value
+          # leaves the current slant unchanged.
+          style.italic = font_style_italic(value, style.italic?)
         when "text-decoration"
           words = Case.fold_keyword(value).split
           style.underline = words.includes?("underline")
@@ -508,15 +514,16 @@ module Crysterm
         end
       end
 
-      # Resolves a two-valued keyword property (e.g. `font-style: italic|normal`)
-      # to a Bool, leaving the current value untouched for unrecognized inputs.
-      private def self.bool_keyword(value, *, on, off, current) : Bool
-        # CSS keyword values (`bold`/`normal`, `italic`/`normal`) are
-        # case-insensitive, so compare on the lower-cased value.
+      # Resolves a CSS `font-style` value to the terminal's single slant
+      # attribute. Both `italic` and `oblique` slant (the terminal has only one
+      # slanted attribute), `normal` is upright, and an unrecognized value leaves
+      # the current slant unchanged. CSS keyword values are case-insensitive, so
+      # compare on the lower-cased value.
+      private def self.font_style_italic(value : String, current : Bool) : Bool
         case Case.fold_keyword(value.strip)
-        when on  then true
-        when off then false
-        else          current
+        when "italic", "oblique" then true
+        when "normal"            then false
+        else                          current
         end
       end
 

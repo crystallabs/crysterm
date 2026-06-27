@@ -87,8 +87,18 @@ module Crysterm
       # now via `dimension`.
       private def self.resolve_dim(value : String, vertical : Bool = false) : Int32 | String | Nil
         # Only a viewport unit contains a 'v'; this allocation-free byte scan keeps
-        # the VIEWPORT regex off every plain width/height/top/left value.
-        (value.includes?('v') && Length.viewport?(value)) ? value : dimension(value, vertical)
+        # the VIEWPORT regex off every plain width/height/top/left value. CSS units
+        # are case-insensitive (`50VW`), so the gate matches either case — the
+        # `VIEWPORT` regex and `viewport_cells` already fold case, only this
+        # fast-path check did not (an uppercased unit was silently dropped).
+        (maybe_viewport?(value) && Length.viewport?(value)) ? value : dimension(value, vertical)
+      end
+
+      # Whether *value* might be a viewport unit — a cheap, allocation-free gate
+      # before the `VIEWPORT` regex. Matches a `v`/`V` in either case so a
+      # case-insensitive unit (`50VW`) isn't missed.
+      private def self.maybe_viewport?(value : String) : Bool
+        value.includes?('v') || value.includes?('V')
       end
 
       # Resolves a `min-*`/`max-*` size constraint, which must be a cell count.
@@ -100,8 +110,9 @@ module Crysterm
         # now — a single `viewport_cells` both detects and resolves it (no extra
         # `viewport?` regex pass). If the widget isn't mounted yet, or it's some
         # other 'v' string, fall through to `to_cells` (which drops a viewport
-        # unit to `nil`, i.e. ignored).
-        if value.includes?('v')
+        # unit to `nil`, i.e. ignored). The 'v' gate folds case (`50VW`) so an
+        # uppercased viewport constraint isn't missed (see `resolve_dim`).
+        if maybe_viewport?(value)
           if (scr = widget.screen?) && (cells = Length.viewport_cells(value, scr.awidth, scr.aheight))
             return cells
           end

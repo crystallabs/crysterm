@@ -111,6 +111,22 @@ describe "CSS geometry units" do
     a.atop.should eq 10    # 25% of min(120, 40)
   end
 
+  it "resolves an uppercased viewport unit (units are case-insensitive)" do
+    s = render_screen # 80 x 24
+    # CSS units are case-insensitive, so `50VW`/`100VH` must behave exactly like
+    # their lowercase forms — the viewport string is kept on the widget and
+    # re-resolves against the screen, and an uppercased size constraint resolves
+    # once against the screen here (it isn't silently dropped).
+    s.stylesheet = "Box#a { width: 50VW; height: 100VH; max-width: 30VW; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s._render
+    a.width.should eq "50VW"  # kept as a (reactive) viewport string, not dropped
+    a.awidth.should eq 24     # 50% of 80, clamped to max-width (30% of 80 = 24)
+    a.aheight.should eq 24    # 100% of 24
+    a.max_width.should eq 24  # 30% of 80, resolved (not nil)
+  end
+
   it "evaluates calc() to cells when every term resolves" do
     s = render_screen
     s.stylesheet = "Box#a { width: calc(200px + 2em); left: calc(8px - 2px); }"
