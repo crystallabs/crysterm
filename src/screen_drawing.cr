@@ -38,6 +38,13 @@ module Crysterm
 
     property _ci = -1
 
+    # Position at which an artificial cursor was actually painted on the previous
+    # `draw`, or `-1` when none was. When the cursor later moves to another row
+    # (or stops being drawn), the cell it vacated must be repaired — see the
+    # repair note in `#draw`.
+    @_acur_x = -1
+    @_acur_y = -1
+
     @pre = IO::Memory.new 1024
     @post = IO::Memory.new 1024
 
@@ -207,6 +214,27 @@ module Crysterm
       c_artificial = c.artificial?
       cursor_x = tput.cursor.x
       cursor_y = tput.cursor.y
+
+      # Repair the cell a previously-painted artificial cursor has now left
+      # behind. `draw` only scans rows that are dirty or that currently hold the
+      # cursor (see the row gate below), so when the artificial cursor moves to a
+      # different row — or stops being drawn — the row it *was* on is otherwise
+      # untouched this frame (its buffer content didn't change). The cursor glyph
+      # written into `@olines` last frame would then never be diffed away, leaving
+      # a ghost cursor on screen. Mark that vacated cell dirty so the diff
+      # re-emits the real content under it. A cursor that stays on the same cell
+      # needs no repair; a same-row move is already covered by the full scan the
+      # cursor's own row gets.
+      draw_acur = c_artificial && !c._hidden && (c._state != 0) && cursor_y >= start && cursor_y <= stop
+      new_acur_x = draw_acur ? cursor_x : -1
+      new_acur_y = draw_acur ? cursor_y : -1
+      if @_acur_y >= 0 && (@_acur_x != new_acur_x || @_acur_y != new_acur_y)
+        if (old_line = @lines[@_acur_y]?) && @_acur_x < old_line.size
+          old_line.mark_dirty @_acur_x
+        end
+      end
+      @_acur_x = new_acur_x
+      @_acur_y = new_acur_y
 
       # For all rows (y = row coordinate)
       (start..stop).each do |y|
