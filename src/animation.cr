@@ -121,6 +121,13 @@ module Crysterm
       # CSS transitions/fades land immediately. Tickers (decorative effects,
       # media playback, the shared `Timer`) have no duration and run normally.
       if @duration && Config.render_reduced_motion
+        # Bump the generation even on this fiber-less path (the invariant is "on
+        # every `#start`"): a previous run's fiber that was `#stop`ped but hasn't
+        # yet observed it still holds the old generation. Without invalidating it,
+        # when it next wakes it would match `@generation == gen` and fire `on_stop`
+        # a *second* time — on top of the synchronous one below — if the
+        # reduced-motion preference flipped on between that run's `#start` and this.
+        @generation += 1
         @completed = true
         @value = 1.0
         @on_tick.call self

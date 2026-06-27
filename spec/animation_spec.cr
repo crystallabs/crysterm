@@ -29,4 +29,28 @@ describe Crysterm::Animation do
     # generation guard the orphaned (superseded) fiber also finalizes → 2.
     stops.should eq 1
   end
+
+  it "does not double-fire on_stop when reduced motion is enabled between a stop and a restart" do
+    # A tween started normally (reduced motion off) spawns a fiber. After a
+    # `#stop` — but before that fiber observes it — the preference flips on and
+    # `#start` is called again: the reduced-motion path completes synchronously.
+    # The early-return path must still bump the generation, or the orphaned
+    # fiber, whose captured generation would otherwise still match, wakes and
+    # finalizes a second time → a duplicate `on_stop`.
+    Crysterm::Config.set "render.reduced_motion", false
+    stops = 0
+    # A tween (has a duration) so the reduced-motion branch applies.
+    anim = Crysterm::Animation.new(20.milliseconds, duration: 10.seconds) { }
+    anim.on_stop { stops += 1 }
+
+    anim.start # normal path: spawns the loop fiber (not yet run — no yield point)
+    anim.stop  # cooperative cancel; the fiber hasn't observed it yet
+    Crysterm::Config.set "render.reduced_motion", true
+    anim.start # reduced-motion path: completes synchronously, fires on_stop once
+
+    sleep 60.milliseconds # let the orphaned fiber wake and (correctly) exit silently
+    stops.should eq 1
+  ensure
+    Crysterm::Config.set "render.reduced_motion", false
+  end
 end
