@@ -7,9 +7,13 @@ module Crysterm
   # Unlike `Widget::RadioSet` (which groups radio buttons by *widget-tree
   # containment*), a `ButtonGroup` groups buttons regardless of where they sit
   # in the layout. In the default *exclusive* mode it enforces radio behaviour:
-  # checking one member unchecks the others, so at most one stays checked. Set
-  # `#exclusive = false` to let any number be checked at once (e.g. independent
-  # toggle buttons that still report through one handler).
+  # checking one member unchecks the others, and — as with radio buttons — the
+  # checked member cannot be unchecked by clicking it (only by checking another),
+  # so exactly one stays checked once one has been. (`Widget::RadioButton`
+  # members enforce this themselves; `CheckBox`/`Button` members are kept
+  # consistent here so the group behaves the same regardless of member type.)
+  # Set `#exclusive = false` to let any number be checked at once (e.g.
+  # independent toggle buttons that still report through one handler).
   #
   # Members may be any checkable button — a `Widget::Button` (it is switched to
   # `checkable` automatically on add), a `Widget::CheckBox`, or a
@@ -38,8 +42,12 @@ module Crysterm
     @ids = {} of Widget => Int32
     # Per-button `Event::Check` listener handles, so `#remove` can detach again.
     @handlers = {} of Widget => Crysterm::Event::Check::Wrapper
-    # Guards the cascade: unchecking siblings must not itself trigger another
-    # round of exclusivity handling.
+    # Per-button `Event::UnCheck` listener handles. In an exclusive group these
+    # implement the "can't uncheck the selected member by clicking it" radio rule
+    # (see `#on_member_unchecked`); kept separately so `#remove` detaches them too.
+    @uncheck_handlers = {} of Widget => Crysterm::Event::UnCheck::Wrapper
+    # Guards the cascade: unchecking siblings (and the exclusive re-check revert)
+    # must not itself trigger another round of exclusivity handling.
     @suppress = false
 
     def initialize(exclusive : Bool = true)
@@ -62,13 +70,17 @@ module Crysterm
       @handlers[button] = button.on(Crysterm::Event::Check) do |_|
         on_member_checked button
       end
+      @uncheck_handlers[button] = button.on(Crysterm::Event::UnCheck) do |_|
+        on_member_unchecked button
+      end
       button
     end
 
-    # Removes *button* from the group and detaches its listener.
+    # Removes *button* from the group and detaches its listeners.
     def remove(button : Widget) : Nil
       return unless @buttons.includes? button
       @handlers.delete(button).try { |w| button.off Crysterm::Event::Check, w }
+      @uncheck_handlers.delete(button).try { |w| button.off Crysterm::Event::UnCheck, w }
       @ids.delete button
       @buttons.delete button
     end
@@ -106,6 +118,25 @@ module Crysterm
       emit Crysterm::Event::ButtonClick, button
     end
 
+    # Reacts to a member becoming unchecked. In an *exclusive* group a member
+    # cannot be unchecked by clicking it (radio behaviour): if unchecking it
+    # would leave the group with nothing selected, re-check it. The re-check is
+    # `@suppress`ed so it neither cascades nor re-announces a `ButtonClick`.
+    #
+    # `@suppress` is also already set during a legitimate switch (A→B unchecks A
+    # from inside `#on_member_checked`), so a normal selection change passes
+    # straight through — only a *direct* uncheck of the sole checked member is
+    # reverted. `Widget::RadioButton` members never reach here (their `#toggle`
+    # only ever checks), so this only changes `CheckBox`/`Button` members, making
+    # the whole group behave uniformly.
+    private def on_member_unchecked(button : Widget) : Nil
+      return if @suppress || !exclusive?
+      return if @buttons.any? { |b| member_checked? b }
+      @suppress = true
+      member_check button
+      @suppress = false
+    end
+
     # Every member is a `Widget::AbstractButton` (`Button`, `CheckBox` and
     # `RadioButton` all derive from it), which declares the shared
     # `#checked?`/`#uncheck` interface — so dispatch through that one type.
@@ -117,6 +148,10 @@ module Crysterm
 
     private def member_uncheck(b : Widget) : Nil
       b.uncheck if b.is_a?(Widget::AbstractButton)
+    end
+
+    private def member_check(b : Widget) : Nil
+      b.check if b.is_a?(Widget::AbstractButton)
     end
   end
 end

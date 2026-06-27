@@ -37,6 +37,54 @@ describe Crysterm::ButtonGroup do
     g.checked_id.should eq 2
   end
 
+  it "exclusive: re-clicking the sole checked member keeps it checked (radio behaviour)" do
+    s = add_mem_screen
+    a = Crysterm::Widget::CheckBox.new parent: s
+    b = Crysterm::Widget::CheckBox.new parent: s
+
+    g = Crysterm::ButtonGroup.new
+    g.add a
+    g.add b
+
+    a.check
+    a.checked?.should be_true
+
+    # Toggling the selected member off would empty an exclusive group; the group
+    # reverts it, so exactly one stays checked.
+    a.toggle
+    a.checked?.should be_true
+    g.checked_button.should eq a
+
+    # Switching selection to another member still works normally.
+    b.check
+    a.checked?.should be_false
+    b.checked?.should be_true
+  end
+
+  it "exclusive: reverting the uncheck does not emit a spurious ButtonClick" do
+    s = add_mem_screen
+    a = Crysterm::Widget::CheckBox.new parent: s
+    g = Crysterm::ButtonGroup.new
+    g.add a
+    a.check
+
+    clicks = 0
+    g.on(Crysterm::Event::ButtonClick) { clicks += 1 }
+    a.toggle # would uncheck; group reverts it
+    a.checked?.should be_true
+    clicks.should eq 0
+  end
+
+  it "non-exclusive: a member can be unchecked freely" do
+    s = add_mem_screen
+    a = Crysterm::Widget::CheckBox.new parent: s
+    g = Crysterm::ButtonGroup.new exclusive: false
+    g.add a
+    a.check
+    a.toggle
+    a.checked?.should be_false
+  end
+
   it "allows multiple checked when non-exclusive" do
     s = add_mem_screen
     a = Crysterm::Widget::CheckBox.new parent: s

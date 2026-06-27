@@ -105,6 +105,28 @@ require "http/client"
       s.find_by_id("status").not_nil!.content.should eq "v2"
     end
 
+    it "tears down (destroys) the old layout's widgets on hot-reload" do
+      # A hot-reload must `destroy` the previous layout, not merely detach it:
+      # `Screen#remove` leaves animation fibers (and PTYs) running, so a
+      # pulsing/keyframed widget from the old layout would tick forever. After a
+      # reload the old widget's animation must be stopped.
+      s = headless_screen
+      s.load_layout %(<w-screen><w-box id="fx" content="v1"></w-box></w-screen>)
+      bridge = Crysterm::HTTPBridge.new(s, port: 7108)
+      bridge.start
+
+      old = s.find_by_id("fx").not_nil!
+      anim = old.pulse # a never-ending ticker, stopped only by #destroy
+      anim.running?.should be_true
+
+      bridge.reload_layout %(<w-screen><w-box id="fx" content="v2"></w-box></w-screen>)
+
+      # The old widget was destroyed: its animation is stopped (no leaked fiber),
+      # and the new layout is live.
+      anim.running?.should be_false
+      s.find_by_id("fx").not_nil!.content.should eq "v2"
+    end
+
     it "returns a structured match count from mutating commands" do
       s = headless_screen
       s.load_layout %(<w-screen><w-box class="x"></w-box><w-box class="x"></w-box></w-screen>)

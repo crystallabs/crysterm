@@ -81,7 +81,16 @@ module Crysterm
     # mirroring the stylesheet hot-reload path: the fswatch callback runs outside
     # the render fiber, so a blocking cross-fiber `receive` here would deadlock.
     def reload_layout(html : String) : Nil
-      @screen.children.dup.each { |child| @screen.remove child }
+      # `#destroy` (not `#remove`) the old top-level widgets: a plain `Screen#remove`
+      # only detaches the subtree — it does NOT stop animations or tear down
+      # backing processes. Any pulsing/keyframed widget (a ticker that never ends
+      # on its own) or `Widget::Terminal` (a live PTY) from the previous layout
+      # would otherwise keep its fiber/child-process running for the life of the
+      # process, leaking one set per hot-reload. `#destroy` recurses the subtree,
+      # stops every fade/tint/css-animation/transition, kills PTYs, and unlinks
+      # the widget from the screen at the end (so `@screen.children` ends empty,
+      # ready for the rebuild) — exactly the teardown a full layout swap wants.
+      @screen.children.dup.each { |child| child.destroy }
       @event_wired.clear       # old widgets are gone; re-wire subscriptions for the new tree
       @declarative_wired.clear # ...and their declarative `on*` bindings
       DOM.load html, @screen
