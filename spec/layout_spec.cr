@@ -139,6 +139,23 @@ describe Crysterm::Layout::Stack do
     l = st.children[1].lpos.not_nil!
     {l.xi, l.xl, l.yi, l.yl}.should eq({0, 20, 0, 6})
   end
+
+  it "indexes #current among arrangeable children, skipping layout-excluded chrome" do
+    s = headless_screen
+    st = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 6,
+      layout: Layout::Stack.new(1)
+    # A layout-excluded layer (e.g. a background-image) placed before the pages
+    # must not occupy a page slot: #current still counts the real pages only.
+    bg = Widget::Box.new parent: st, width: 20, height: 6
+    bg.layout_excluded = true
+    pages = Array.new(3) { Widget::Box.new parent: st }
+
+    s._render
+    bg.lpos.should be_nil       # excluded chrome: not arranged by the page pass
+    pages[0].lpos.should be_nil # page 0 suppressed
+    pages[2].lpos.should be_nil # page 2 suppressed
+    pages[1].lpos.not_nil!      # current 1 -> the 2nd real page, not raw child 2
+  end
 end
 
 describe Crysterm::Layout::Grid do
