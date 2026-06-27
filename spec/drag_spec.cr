@@ -81,6 +81,29 @@ describe "drag-and-drop" do
       s.dragging.should be_nil
     end
 
+    it "moves a nested draggable widget relative to its parent's content origin" do
+      s = drag_screen
+      # A bordered container offsets its children's content origin by (1, 1).
+      panel = Widget::Box.new parent: s, left: 20, top: 6, width: 30, height: 12,
+        style: Style.new(border: true)
+      # Child `left`/`top` are relative to the panel's content corner
+      # (panel.aleft + panel.ileft == 21, panel.atop + panel.itop == 7).
+      box = Widget::Box.new parent: panel, left: 4, top: 3, width: 8, height: 4, draggable: true
+
+      box.aleft.should eq(25) # 21 + 4
+      box.atop.should eq(10)  # 7 + 3
+
+      press s, 27, 11 # grab at absolute (27, 11) -> offset (2, 1) within the box
+      move s, 30, 14  # promote arm -> drag, first motion to absolute (30, 14)
+
+      # Grab offset preserved: the widget's absolute corner follows the pointer.
+      box.aleft.should eq(28) # 30 - 2
+      box.atop.should eq(13)  # 14 - 1
+      # ...which is a parent-relative left/top of (7, 6), NOT the absolute (28, 13).
+      box.left.should eq(7)
+      box.top.should eq(6)
+    end
+
     it "clamps the widget within the screen bounds" do
       s = drag_screen # 80x24
       box = Widget::Box.new parent: s, left: 2, top: 2, width: 8, height: 4, draggable: true

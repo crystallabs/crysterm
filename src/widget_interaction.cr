@@ -189,12 +189,33 @@ module Crysterm
         end
 
         on(Crysterm::Event::Drag) do |e|
-          self.left = (e.x - @_drag_dx).clamp(0, drag_max_left)
-          self.top = (e.y - @_drag_dy).clamp(0, drag_max_top)
+          # `e.x`/`e.y` are absolute cell coordinates, but `left`/`top` are
+          # relative to the parent's content origin (`aleft = parent.aleft +
+          # parent.ileft + left`). Subtract that origin so a *nested* draggable
+          # widget tracks the pointer instead of jumping by its parent's absolute
+          # position. For a top-level widget (parent-less; screen at 0,0 with no
+          # insets) the origin is (0, 0), so this is a no-op there.
+          ox, oy = drag_origin
+          self.left = (e.x - @_drag_dx - ox).clamp(0, drag_max_left)
+          self.top = (e.y - @_drag_dy - oy).clamp(0, drag_max_top)
         end
       end
 
       @draggable
+    end
+
+    # Absolute origin of this widget's `left`/`top` coordinate space — the point
+    # an integer `left`/`top` of 0 maps to in absolute cells. For a nested widget
+    # that is the parent's content corner (`parent.aleft + parent.ileft`); for a
+    # top-level (parent-less) widget it is (0, 0) (the screen sits at the origin
+    # with no insets, so `aleft == left`). Used by the drag handler to convert the
+    # pointer's absolute position into a parent-relative `left`/`top`.
+    private def drag_origin : Tuple(Int32, Int32)
+      if p = parent
+        {p.aleft + p.ileft, p.atop + p.itop}
+      else
+        {0, 0}
+      end
     end
 
     # Largest `left`/`top` that keeps the widget within its parent (or the
