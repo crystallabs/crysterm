@@ -34,10 +34,41 @@ describe "Screen.attr2code" do
       (Attr.flags(a) & bit).should_not eq 0
     end
 
-    # 22/24/25/27/28 reset flags to the default's flags (0 here).
+    # 22/23/24/25/27/28/29 each turn off ONLY their own flag. With a single flag
+    # set, clearing it lands on the default's flags (0 here).
     bold = apply.call("\e[1m")
     Attr.flags(apply.call("\e[1m")).should_not eq 0
     Attr.flags(Crysterm::Screen.attr2code("\e[22m", bold, dfl)).should eq Attr.flags(dfl)
+  end
+
+  it "clears only the respective flag on a partial reset, leaving others set" do
+    # Bold + underline + italic all active, then `\e[24m` (underline off) must
+    # leave bold and italic intact — modeling `{bold}{italic}{underline}x{/underline}`
+    # where the closing underline tag emits `\e[24m`.
+    multi = apply.call("\e[1;3;4m")
+    (Attr.flags(multi) & Attr::BOLD).should_not eq 0
+    (Attr.flags(multi) & Attr::ITALIC).should_not eq 0
+    (Attr.flags(multi) & Attr::UNDERLINE).should_not eq 0
+
+    after = Crysterm::Screen.attr2code("\e[24m", multi, dfl)
+    (Attr.flags(after) & Attr::UNDERLINE).should eq 0     # underline cleared
+    (Attr.flags(after) & Attr::BOLD).should_not eq 0      # bold preserved
+    (Attr.flags(after) & Attr::ITALIC).should_not eq 0    # italic preserved
+
+    # The other partial resets likewise clear only their own bit.
+    {
+      "\e[22m" => Attr::BOLD,
+      "\e[23m" => Attr::ITALIC,
+      "\e[25m" => Attr::BLINK,
+      "\e[27m" => Attr::REVERSE,
+      "\e[28m" => Attr::INVISIBLE,
+      "\e[29m" => Attr::STRIKE,
+    }.each do |code, bit|
+      all = apply.call("\e[1;2;3;4;5;7;8;9m") # every flag on
+      res = Crysterm::Screen.attr2code(code, all, dfl)
+      (Attr.flags(res) & bit).should eq 0                          # the targeted bit is off
+      (Attr.flags(res) & (Attr::FLAGS_MASK & ~bit.to_i64)).should eq (Attr.flags(all) & (Attr::FLAGS_MASK & ~bit.to_i64)) # the rest unchanged
+    end
   end
 
   it "applies 8-color and bright (16-color) fg/bg" do
