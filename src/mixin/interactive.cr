@@ -42,39 +42,34 @@ module Crysterm
             end
 
             if @vi
-              # XXX remove all those protections for height being Int
+              # Page scrolling is sized off the *resolved* `aheight`, not the raw
+              # `height` property. The old code gated each branch on
+              # `height.is_a? Int`, so a widget whose height was a percentage
+              # (`"100%"` — the common case for a scrollable pane) or left unset
+              # silently dropped all four keys: line-scroll (Up/Down) worked but
+              # half-/full-page (Ctrl-U/D/B/F) did nothing. `aheight` always
+              # resolves to the actual rendered Int height, so the page step is
+              # correct regardless of how the height was specified.
               case key
               when Tput::Key::CtrlU
-                height.try do |h|
-                  next unless h.is_a? Int
-                  offs = -h // 2
-                  scroll offs == 0 ? -1 : offs
-                  request_render
-                end
+                offs = -aheight // 2
+                scroll offs == 0 ? -1 : offs
+                request_render
                 next
               when Tput::Key::CtrlD
-                height.try do |h|
-                  next unless h.is_a? Int
-                  offs = h // 2
-                  scroll offs == 0 ? 1 : offs
-                  request_render
-                end
+                offs = aheight // 2
+                scroll offs == 0 ? 1 : offs
+                request_render
                 next
               when Tput::Key::CtrlB
-                height.try do |h|
-                  next unless h.is_a? Int
-                  offs = -h
-                  scroll offs == 0 ? -1 : offs
-                  request_render
-                end
+                offs = -aheight
+                scroll offs == 0 ? -1 : offs
+                request_render
                 next
               when Tput::Key::CtrlF
-                height.try do |h|
-                  next unless h.is_a? Int
-                  offs = h
-                  scroll offs == 0 ? 1 : offs
-                  request_render
-                end
+                offs = aheight
+                scroll offs == 0 ? 1 : offs
+                request_render
                 next
               end
 

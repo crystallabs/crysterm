@@ -38,12 +38,21 @@ describe "Docking.angle_at" do
   end
 
   it "does not wrap to the far edge for an off-grid left/up neighbor" do
-    # The cell at column 0 is a horizontal rule; the LAST column is also a rule.
-    # Array `[]?` treats index -1 as "from the end", so without the explicit
-    # `>= 0` guard the left lookup would wrap to that last column and add a
-    # spurious left segment. With the guard there is no left neighbor (nor up,
-    # right, or down here), so the isolated rule resolves to a blank.
-    Docking.angle_at(grid(["─ ─"]), 0, 0, DockContrast::Ignore).should eq ' '
+    # The centre `┐` at (0,0) has only a DOWN neighbor (`│`); the LAST column is a
+    # rule (`─`). Array `[]?` treats index -1 as "from the end", so without the
+    # explicit `>= 0` guard the left lookup would wrap to that last-column rule and
+    # add a spurious left segment, turning the down-only `0001` (`│`) into `1001`
+    # (`┐`). With the guard there is no left neighbor, so it stays `│`.
+    Docking.angle_at(grid(["┐ ─", "│  "]), 0, 0, DockContrast::Ignore).should eq '│'
+  end
+
+  it "preserves an isolated line glyph (no line neighbors) instead of erasing it" do
+    # A line-drawing char whose four neighbors are all blank yields angle `0000`,
+    # which has no `ANGLE_TABLE` entry, so `angle_at` returns the cell's original
+    # character (matching blessed's empty-string `'0000'` entry). A one-cell rule
+    # must survive a docking pass rather than being blanked to a space.
+    Docking.angle_at(grid(["─"]), 0, 0, DockContrast::Ignore).should eq '─'
+    Docking.angle_at(grid([" │ "]), 1, 0, DockContrast::Ignore).should eq '│'
   end
 
   describe "contrast handling" do

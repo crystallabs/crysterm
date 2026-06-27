@@ -50,8 +50,16 @@ module Crysterm
     # Every ACS angle character can be
     # represented by 4 bits ordered like this:
     # [langle][uangle][rangle][dangle]
+    #
+    # The all-zero pattern (`0000`, no line-drawing neighbor in any direction) is
+    # deliberately *absent* rather than mapped to `' '`: `#angle_at` resolves it
+    # via `ANGLE_TABLE[angle]? || ch`, so a missing `0` key falls through to the
+    # cell's original character. This mirrors blessed, whose `angleTable['0000']`
+    # is the empty (falsy) string and thus `angleTable[angle] || ch` keeps the
+    # original glyph. A truthy `' '` entry instead *erased* an isolated line
+    # glyph (e.g. a one-cell `Line`, or a rule whose neighbors were cleared) when
+    # docking ran over it.
     ANGLE_TABLE = {
-       0 => ' ', # ?   '0000'
        1 => '│', # ?   '0001'
        2 => '─', # ??  '0010'
        3 => '┌', #     '0011'

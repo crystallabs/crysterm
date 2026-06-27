@@ -14,15 +14,23 @@ module Crysterm
 
       # Sets the lower bound (Qt's `setMinimum`), re-clamping the value and
       # emitting `Event::RangeChange` on an actual change. See `#set_range`.
+      #
+      # Following Qt's `setMinimum`, a new minimum *above* the current maximum
+      # carries the maximum up with it (the range collapses to the single value
+      # `v`) rather than leaving an inverted `minimum > maximum` range.
       def minimum=(v : Int32) : Int32
-        set_range v, @maximum
+        set_range v, Math.max(v, @maximum)
         @minimum
       end
 
       # Sets the upper bound (Qt's `setMaximum`), re-clamping the value and
       # emitting `Event::RangeChange` on an actual change. See `#set_range`.
+      #
+      # Following Qt's `setMaximum`, a new maximum *below* the current minimum
+      # carries the minimum down with it (the range collapses to the single
+      # value `v`) rather than leaving an inverted `minimum > maximum` range.
       def maximum=(v : Int32) : Int32
-        set_range @minimum, v
+        set_range Math.min(v, @minimum), v
         @maximum
       end
 
@@ -136,6 +144,14 @@ module Crysterm
       # current value into the new range (which may emit `Event::ValueChange`),
       # and repaints. No-op when neither bound moves.
       def set_range(min : Int32, max : Int32) : Nil
+        # Never store an inverted range (min > max). The value clamp below — and
+        # `#value=`/`#value_span`/the percent helpers — all assume `min <= max`;
+        # an inverted range would force the value to a nonsensical bound and emit
+        # spurious `Event::ValueChange`/`Event::RangeChange`. Mirror Qt's
+        # `setRange`, where a max below min collapses the range so `min` is the
+        # only legal value. (The `#minimum=`/`#maximum=` setters already pre-adjust
+        # the *other* bound; this guards a direct `set_range`/`range=` call too.)
+        max = min if max < min
         return if min == @minimum && max == @maximum
         @minimum = min
         @maximum = max
