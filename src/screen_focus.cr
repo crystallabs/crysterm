@@ -73,7 +73,12 @@ module Crysterm
         # the history has no screen, and the raising `#screen` would crash here
         # (e.g. closing a menu whose submenu — the focused widget — was just torn
         # down). Skip such stale entries instead.
-        if e.screen? && e.style.visible?
+        #
+        # `displayed_in_tree?` (not the per-widget `style.visible?`): a widget
+        # whose own flag is visible but whose container is hidden is not actually
+        # on screen, so it must not be re-focused. See the same helper in
+        # `screen_mouse.cr`.
+        if e.screen? && displayed_in_tree?(e)
           el = e
           break
         end
@@ -128,13 +133,17 @@ module Crysterm
       # `@screen` is now nil. `screen` (`screen?.not_nil!`) would crash here on
       # such an entry; `screen?` correctly treats it as "no longer attached" and
       # skips it. Same non-raising pattern `rewind_focus`/`_focus` use.
-      return unless @keyable.any? { |el| el.screen? && el.style.visible? }
+      #
+      # `displayed_in_tree?` (not the per-widget `style.visible?`) so a candidate
+      # sitting inside a hidden container is skipped, not selected — its own flag
+      # may still be visible. Mirrors `rewind_focus` and the mouse hit-test.
+      return unless @keyable.any? { |el| el.screen? && displayed_in_tree?(el) }
 
       i = @keyable.index(focused) || -1
       i += offset
 
       i %= @keyable.size
-      while !@keyable[i].screen? || !@keyable[i].style.visible?
+      while !@keyable[i].screen? || !displayed_in_tree?(@keyable[i])
         i += offset >= 0 ? 1 : -1
         i %= @keyable.size
       end

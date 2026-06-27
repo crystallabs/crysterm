@@ -42,4 +42,24 @@ describe "Screen#focus_offset" do
     s.focused.should_not be_nil
     s.focused.should_not eq stale
   end
+
+  # Regression: focus-candidate selection must be ancestor-aware. A keyable
+  # widget whose own `style.visible?` is still true but whose container is
+  # hidden is not actually on screen, so navigation must skip over it instead of
+  # landing focus inside an invisible subtree.
+  it "skips a keyable widget whose ancestor is hidden" do
+    s = focus_screen
+    a = Widget::Box.new parent: s, keys: true
+    container = Widget::Box.new parent: s
+    inner = Widget::Box.new parent: container, keys: true
+    b = Widget::Box.new parent: s, keys: true
+
+    container.hide # inner stays flagged visible, but its parent is hidden
+
+    a.focus
+    s.focused.should eq a
+    s.focus_next # must skip `inner` (hidden ancestor) and land on `b`
+    s.focused.should eq b
+    s.focused.should_not eq inner
+  end
 end
