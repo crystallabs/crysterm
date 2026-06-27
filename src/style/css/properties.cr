@@ -23,17 +23,17 @@ module Crysterm
 
         case prop
         when "color"
-          style.fg = ColorValue.resolve(value, style.fg)
+          with_color(value, style.fg) { |c| style.fg = c }
         when "background-color"
-          style.bg = ColorValue.resolve(value, style.fg)
+          with_color(value, style.fg) { |c| style.bg = c }
         when "alternate-background-color"
           # Background of every other row in a `Table`/`ListTable` with
           # `alternate_rows` on (Qt's `alternate-background-color`). Lives in the
           # `alternate_row` sub-style.
-          style.alternate_background = ColorValue.resolve(value, style.fg)
+          with_color(value, style.fg) { |c| style.alternate_background = c }
         when "gridline-color"
           # Color of a table's internal gridlines (Qt's `gridline-color`).
-          style.gridline_color = ColorValue.resolve(value, style.fg)
+          with_color(value, style.fg) { |c| style.gridline_color = c }
         when "selection-color", "selection-background-color"
           # Selected-item colors. These target a *different* `Style` (the
           # `:selected` state), so they can't be applied to *this* style here —
@@ -56,9 +56,15 @@ module Crysterm
         when "font"
           # `font` shorthand: only the weight/style words mean anything here;
           # presence sets the attribute, absence resets it (shorthand semantics).
+          # The weight is recognized exactly as the `font-weight` longhand does
+          # (via `font_weight_bold`), so the numeric/relative CSS weights count —
+          # `font: 700 14px serif` / `font: bolder …` are bold, not only the
+          # literal `bold` keyword (otherwise a clearly-bold shorthand silently
+          # rendered non-bold, the mirror of the longhand bug already fixed).
+          # `oblique` slants like `italic`.
           words = Case.fold_keyword(value).split
-          style.bold = words.includes?("bold")
-          style.italic = words.includes?("italic")
+          style.bold = words.any? { |w| font_weight_bold(w, false) }
+          style.italic = words.includes?("italic") || words.includes?("oblique")
         when "font-weight"
           style.bold = font_weight_bold(value, style.bold?)
         when "font-style"
@@ -75,9 +81,24 @@ module Crysterm
           # standard CSS spelling. Shorthand semantics: absent -> off.
           style.reverse = words.includes?("reverse") || words.includes?("inverse")
         when "visibility"
-          style.visible = (Case.fold_keyword(value.strip) != "hidden")
+          # Only the recognized keywords act; any *other* value — a typo, or a
+          # `var(--x)` whose custom property is undefined and so collapsed to the
+          # empty string — is *ignored*, per CSS's "drop the invalid declaration"
+          # rule, leaving any previously-cascaded visibility intact. The old
+          # `!= "hidden"` form forced `visible = true` for such a value, silently
+          # *un-hiding* a widget a lower-priority rule had hidden (the mirror of
+          # the `z-index` invalid-value bug). `collapse` hides like `hidden`.
+          case Case.fold_keyword(value.strip)
+          when "visible"            then style.visible = true
+          when "hidden", "collapse" then style.visible = false
+          end
         when "display"
-          style.visible = (Case.fold_keyword(value.strip) != "none")
+          # As with `visibility`: `none` hides, any other *non-empty* value shows.
+          # An empty/blank value (e.g. an undefined `var()` collapsed to "") is
+          # ignored rather than forcing `visible = true` — which would otherwise
+          # un-hide a widget a lower-priority `display: none` had hidden.
+          v = Case.fold_keyword(value.strip)
+          style.visible = (v != "none") unless v.empty?
         when "opacity"
           # CSS clamps opacity into `[0, 1]`; an out-of-range value would
           # otherwise flow straight into `Colors.blend` as a bad mix factor.
@@ -317,15 +338,15 @@ module Crysterm
           border.left = border.right = border_cells(value)
           border.top = border.bottom = border_cells(value, vertical: true)
         when "border-color"
-          border.fg = ColorValue.resolve(value, border.fg)
+          with_color(value, border.fg) { |c| border.fg = c }
         when "border-top-color"
-          border.fg_top = border_side_color(value, border)
+          with_color(value, border.fg) { |c| border.fg_top = coerce_color_int(c) }
         when "border-right-color"
-          border.fg_right = border_side_color(value, border)
+          with_color(value, border.fg) { |c| border.fg_right = coerce_color_int(c) }
         when "border-bottom-color"
-          border.fg_bottom = border_side_color(value, border)
+          with_color(value, border.fg) { |c| border.fg_bottom = coerce_color_int(c) }
         when "border-left-color"
-          border.fg_left = border_side_color(value, border)
+          with_color(value, border.fg) { |c| border.fg_left = coerce_color_int(c) }
         when "border-style"
           apply_border_style border, value, {:left, :top, :right, :bottom}
         when "border-top"          then apply_border_side border, :top, value
@@ -345,10 +366,27 @@ module Crysterm
         end
       end
 
-      # Resolves a per-side border color value to a native `0xRRGGBB` int
-      # (`border-*-color` stores ints, not the string form `border-color` keeps).
-      private def self.border_side_color(value : String, border : Border) : Int32?
-        case resolved = ColorValue.resolve(value, border.fg)
+      # Resolves *value* to a color and yields it to *block*, but *drops* a blank
+      # value rather than letting it clobber the color. A `var(--x)` whose custom
+      # property is undefined collapses to "" before reaching here (the cascade
+      # resolves `var()` first); the old `style.fg = ColorValue.resolve("", ...)`
+      # form then ran the empty string through `Colors.convert`, which maps an
+      # unknown spec to the `-1` terminal-default sentinel — silently resetting a
+      # color a lower-priority rule had set. CSS instead drops such an invalid
+      # declaration, leaving the previously-cascaded color intact. This mirrors the
+      # invalid-value guards already in place for `z-index`/`visibility`/`display`.
+      # (`transparent` resolves to a genuine `-1` `Int32`, not a blank string, so
+      # it is unaffected.)
+      private def self.with_color(value : String, current : Int32?, & : (Int32 | String | Nil) ->) : Nil
+        return if value.blank?
+        yield ColorValue.resolve(value, current)
+      end
+
+      # Coerces a resolved color (`Int32`, a named/hex `String`, or `nil`) to the
+      # native `0xRRGGBB` int the per-side `border-*-color` slots store (the
+      # whole-border `border-color` keeps the string form via `Colorizable`).
+      private def self.coerce_color_int(resolved : Int32 | String | Nil) : Int32?
+        case resolved
         when Int32  then resolved
         when String then Colors.convert_cached(resolved)
         else             nil
