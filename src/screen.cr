@@ -662,8 +662,14 @@ module Crysterm
       show_cursor
       alloc
 
+      # `leave` owns disabling the mouse on the alt-screen teardown path: clear
+      # the flag too so a subsequent `restore_terminal` sees it false and does
+      # not redundantly call `disable_mouse` again. On the non-alt path this
+      # method early-returns above and never reaches here, leaving the flag set
+      # so `restore_terminal` still disables the mouse itself.
       if @_listened_mouse
         disable_mouse
+        @_listened_mouse = false
       end
 
       tput.normal_buffer

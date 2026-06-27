@@ -248,9 +248,17 @@ module Crysterm
       elsif scheme = e.color_scheme
         emit Crysterm::Event::ColorScheme.new scheme
       elsif r = e.resize
-        # The report carries the new window size in pixels (`0` when unknown), so
-        # refresh the cell geometry straight from it — no ioctl/escape round-trip.
-        apply_cell_pixels(r.pixel_width // r.cols, r.pixel_height // r.rows) if r.cols > 0 && r.rows > 0
+        if r.cols > 0 && r.rows > 0
+          # The report carries the new window size in pixels (`0` when unknown), so
+          # refresh the cell geometry straight from it — no ioctl/escape round-trip.
+          apply_cell_pixels(r.pixel_width // r.cols, r.pixel_height // r.rows)
+          # Hand the authoritative new size in cells to the debounced `#resize`
+          # path so it drives the dimensions straight from the report instead of
+          # re-probing via the `TIOCGWINSZ` ioctl — that ioctl is exactly what
+          # in-band resize (DEC 2048) exists to bypass in environments (some
+          # PTYs/multiplexers) where SIGWINCH and the ioctl are unreliable.
+          @pending_inband_size = {r.cols, r.rows}
+        end
         schedule_resize
       else
         ev = if e.release?

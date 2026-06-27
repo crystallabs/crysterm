@@ -26,6 +26,13 @@ module Crysterm
     # collapse into a single pending notification.
     @_resize_channel = Channel(Nil).new(1)
 
+    # Authoritative new terminal size in cells (`{cols, rows}`) carried by the
+    # most recent in-band resize report (DEC 2048), awaiting the debounced
+    # `#resize`. `nil` for a SIGWINCH-driven resize, which has no report and must
+    # fall back to the `TIOCGWINSZ` ioctl. Set in `#dispatch_input`, consumed and
+    # cleared by `#resize`.
+    @pending_inband_size : {Int32, Int32}? = nil
+
     # Signals the resize loop that a terminal resize was observed. Repeated
     # invocations (before the `resize_interval` has elapsed) coalesce, so a
     # burst of resize events results in a single redraw once things settle.
@@ -43,14 +50,29 @@ module Crysterm
     # happened on, so a resize in any one managed display causes an update and
     # redraw of all displays.
     def resize
-      self.tput.reset_screen_size
-      # Pick up a changed cell pixel size (e.g. a font/zoom change) via the ioctl;
-      # safe here because it does no escape-sequence round-trip. The in-band path
-      # has already refreshed from its report by the time this debounced redraw
-      # runs, so this is a no-op there unless the ioctl carries a fresher size.
-      refresh_cell_geometry
-      # # NOTE Tput#screen should have been called `size` or `screen_size`
-      emit ::Crysterm::Event::Resize.new tput.screen
+      if size = @pending_inband_size
+        @pending_inband_size = nil
+        cols, rows = size
+        # An in-band resize report (DEC 2048) already delivered the authoritative
+        # new size, so trust it directly instead of re-probing via the
+        # `reset_screen_size` ioctl — that ioctl is precisely what in-band resize
+        # exists to bypass where SIGWINCH/`TIOCGWINSZ` are unreliable. Mirror
+        # `reset_screen_size`'s bookkeeping (update `tput`'s cached size and
+        # re-clamp the cursor) so the rest of the stack stays consistent, then
+        # let `#on_resize` apply the size under its `@explicit_size` guard. The
+        # report's cell pixel geometry was already applied in `#dispatch_input`.
+        tput.screen.width = cols
+        tput.screen.height = rows
+        tput._ncoords
+        emit ::Crysterm::Event::Resize.new ::Tput::Namespace::Size.new(cols, rows)
+      else
+        self.tput.reset_screen_size
+        # Pick up a changed cell pixel size (e.g. a font/zoom change) via the ioctl;
+        # safe here because it does no escape-sequence round-trip.
+        refresh_cell_geometry
+        # # NOTE Tput#screen should have been called `size` or `screen_size`
+        emit ::Crysterm::Event::Resize.new tput.screen
+      end
     end
 
     # :nodoc:

@@ -186,6 +186,10 @@ module Crysterm
       rescue
       end
 
+      # On the alt-screen path `leave` (above) already disabled the mouse and
+      # cleared `@_listened_mouse`, so this is a no-op. It still matters on the
+      # non-alt path, where `leave` early-returns without touching the mouse:
+      # here we own disabling it and clearing the flag.
       if @_listened_mouse
         begin
           disable_mouse
