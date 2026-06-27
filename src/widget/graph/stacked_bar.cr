@@ -142,12 +142,15 @@ module Crysterm
             lines << String.build { |io| Scale.tagged_row(io, cells, colors) }
           end
 
-          # Category captions along the bottom.
+          # Category captions along the bottom. Only the tail bars are shown when
+          # the values overflow the width (`@values.last(cap)`), so the labels
+          # follow the same offset — otherwise they mislabel the visible bars.
           if label_row == 1
             names = lbls.not_nil!
+            offset = @values.size - n
             lines << String.build do |io|
               n.times do |i|
-                io << Scale.center(names[i]? || "", @bar_width)
+                io << Scale.center(names[offset + i]? || "", @bar_width)
                 io << " " * @bar_spacing if i < n - 1
               end
             end

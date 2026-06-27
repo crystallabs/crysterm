@@ -147,10 +147,14 @@ module Crysterm
             lines << field_line(n) { |i| Scale.fmt(shown[i]) }
           end
 
-          # Category captions.
+          # Category captions. When the values overflow the width only the tail
+          # is shown (`@values.last(cap)`), so the labels must follow the same
+          # offset — otherwise the captions stay anchored to the first values and
+          # mislabel the visible (tail) bars.
           if label_row == 1
             names = lbls.not_nil!
-            lines << field_line(n) { |i| names[i]? || "" }
+            offset = @values.size - n
+            lines << field_line(n) { |i| names[offset + i]? || "" }
           end
 
           lines.join('\n')

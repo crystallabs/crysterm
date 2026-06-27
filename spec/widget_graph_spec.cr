@@ -50,6 +50,17 @@ describe "Graph::Bar rendering" do
     row_chars(s, 0, 0, 3).should eq "███"
     row_chars(s, 2, 0, 3).should eq "cpu"
   end
+
+  it "aligns category labels with the shown (tail) bars when values overflow" do
+    s = render_screen
+    # Width fits 2 bars but 3 values are given, so only the last two (b/c) show.
+    # Their labels must be the matching tail ("two"/"thr"), not the leading ones.
+    Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 7, height: 2,
+      min: 0.0, max: 1.0, bar_width: 3, bar_spacing: 1,
+      values: [1.0, 1.0, 1.0], labels: ["one", "two", "thr"]
+    s._render
+    row_chars(s, 1, 0, 7).should eq "two thr"
+  end
 end
 
 describe "Graph::StackedBar rendering" do
