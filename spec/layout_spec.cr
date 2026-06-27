@@ -203,6 +203,25 @@ describe Crysterm::Layout::Wrap do
     s._render
     item.lpos.not_nil!.xi.should eq 0
   end
+
+  it "ignores a layout-excluded layer when measuring a wrapped row's height" do
+    s = headless_screen
+    wp = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 12,
+      layout: Layout::Wrap.new, overflow: :ignore
+    # Full-interior background-image layer: layout_excluded, but carrying a real
+    # (out-of-band-rendered) full-height lpos. The row-height ("tallest") scan in
+    # `Flow#flow_place` must skip it; otherwise its 12-row height inflates the
+    # first row's height and shoves the wrapped child to top=12 (off-screen)
+    # instead of top=3, just below the real first-row child.
+    bg = Widget::Box.new parent: wp, width: 20, height: 12
+    bg.layout_excluded = true
+    bg.lpos = Crysterm::LPos.new(xi: 0, xl: 20, yi: 0, yl: 12)
+    Widget::Box.new parent: wp, width: 12, height: 3
+    second = Widget::Box.new parent: wp, width: 12, height: 3 # wraps to row 2
+
+    s._render
+    second.lpos.not_nil!.yi.should eq 3
+  end
 end
 
 describe "Crysterm::Layout::Box flex" do

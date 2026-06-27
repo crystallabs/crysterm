@@ -109,6 +109,15 @@ module Crysterm
           j = @row_index
           while j < i
             el2 = container.children[j]
+            # Skip layout-excluded chrome (e.g. a full-interior `background-image`
+            # layer rendered out-of-band): without this its full-height `lpos`
+            # would inflate the row's `tallest` and shove the next row far down —
+            # matching the `layout_excluded?` skip in `get_last`, `gravitate_up`
+            # and every engine's placement loop.
+            if el2.layout_excluded?
+              j += 1
+              next
+            end
             if elp = rendered_lpos(el2)
               # Outer height: the drawn rect lost its vertical margin to the
               # inset, so add it back, leaving the next row separated by this
