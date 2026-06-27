@@ -439,9 +439,6 @@ module Crysterm
         index > open && css[index - 1]? == '}' ? index - 1 : nil
       end
 
-      # Matches a `var(--name)` or `var(--name, fallback)` reference.
-      VAR_RE = /var\(\s*(--[A-Za-z0-9_-]+)\s*(?:,([^)]*))?\)/
-
       # Resolves `var(...)` references in *value* against *variables*, falling
       # back to the in-call fallback (or empty) for undefined names. Iterates a
       # few times so a variable whose value itself uses `var()` resolves too.
@@ -449,21 +446,53 @@ module Crysterm
         return value unless value.includes?("var(")
         result = value
         4.times do
-          replaced = result.gsub(VAR_RE) do |_match|
-            md = $~
-            name = md[1]
-            if defined = variables[name]?
-              defined
-            elsif fallback = md[2]?
-              fallback.strip
-            else
-              ""
-            end
-          end
+          replaced = replace_vars(result, variables)
           break if replaced == result
           result = replaced
         end
         result
+      end
+
+      # Replaces every `var(--name[, fallback])` reference in *value* in a single
+      # left-to-right pass, matching each call's *balanced* closing paren so a
+      # nested `var()` in the fallback (`var(--a, var(--b, red))`) is consumed as
+      # one unit — a `[^)]*` regex would stop at the first `)`, leaving a stray
+      # `)` behind once the outer name resolves. A defined name takes its value
+      # and drops the fallback; an undefined one falls back (which may itself hold
+      # a `var()`, resolved on the next `resolve_var` iteration), else empty.
+      private def self.replace_vars(value : String, variables : Hash(String, String)) : String
+        idx = value.index("var(")
+        return value unless idx
+        open = idx + 3 # index of the '('
+        close = matching_paren(value, open)
+        return value unless close
+        inner = value[(open + 1)...close]
+        comma = top_level_comma(inner)
+        name = (comma ? inner[0...comma] : inner).strip
+        fallback = comma ? inner[(comma + 1)..].strip : nil
+        replacement = if defined = variables[name]?
+                        defined
+                      elsif fallback
+                        fallback
+                      else
+                        ""
+                      end
+        value[0...idx] + replacement + replace_vars(value[(close + 1)..], variables)
+      end
+
+      # Index of the first top-level (paren-depth-0) comma in *value*, or `nil` —
+      # the separator between a `var()`'s name and its fallback, skipping any comma
+      # inside a nested function's parens.
+      private def self.top_level_comma(value : String) : Int32?
+        depth = 0
+        value.each_char_with_index do |ch, i|
+          case ch
+          when '(' then depth += 1
+          when ')' then depth -= 1
+          when ',' then return i if depth == 0
+          end
+        end
+        nil
       end
 
       # Parses a stylesheet from a `.css` file (its path is used to resolve

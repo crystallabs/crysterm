@@ -392,6 +392,24 @@ describe "CSS cascade" do
     box.styles.normal.bg.should eq rgb("magenta") # fallback for undefined var
   end
 
+  it "resolves a defined var() whose fallback holds a nested var()" do
+    screen = headless_screen
+    box = Widget::Box.new
+    screen.append box
+
+    # The outer `--brand` is defined, so its value wins and the nested-var
+    # fallback is dropped. A fallback parsed only up to the first `)` would
+    # leave a stray `)` (`cyan)`), which is not a valid color and silently
+    # fails to apply.
+    screen.stylesheet = <<-CSS
+      :root { --brand: cyan; }
+      Box { color: var(--brand, var(--other, red)); }
+    CSS
+    screen.apply_stylesheet
+
+    box.styles.normal.fg.should eq rgb("cyan")
+  end
+
   it "applies the default stylesheet beneath author rules" do
     screen = headless_screen
     box = Widget::Box.new
