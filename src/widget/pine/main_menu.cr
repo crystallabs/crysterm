@@ -117,10 +117,17 @@ module Crysterm
         end
 
         # Moves the selection by *direction* (±1) options, hopping over spacers.
+        # Derives the move from the current *option* index (`selected // 2`)
+        # rather than stepping the raw row index by two: if the selection ever
+        # lands on an odd (blank spacer) row — e.g. a mouse click on a spacer, or
+        # a PageUp/PageDown that fell through to the base handler — stepping the
+        # row index by two would keep it odd forever, leaving the arrow keys stuck
+        # cycling through blank spacers. Anchoring on the option index always
+        # lands the cursor back on a real option row (an even index).
         private def move_to_option(direction)
-          target = selected + direction * 2
-          return if target < 0 || target >= @items.size
-          selekt target
+          target = selected // 2 + direction
+          return if target < 0 || target >= records.size
+          selekt target * 2
         end
       end
     end
