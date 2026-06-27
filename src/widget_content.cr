@@ -1444,27 +1444,36 @@ module Crysterm
     def wrap_cut_index(line : String, colwidth : Int) : Int32
       full = full_unicode?
       total = 0
-      i = 0
-      n = line.size
-      while i < n
-        if line[i] == '\e'
-          i += 1
-          while i < n && line[i] != 'm'
-            i += 1
+      # Single forward walk. `String#[](Int)` is O(index) for multibyte content,
+      # so the old char-by-char run/escape scan was O(n²) per line; a `Char::Reader`
+      # decodes left-to-right in one pass. `cp` tracks the codepoint index of the
+      # reader's current char (the value callers slice by); `reader.pos` is its
+      # byte offset, used to slice runs cheaply for grapheme segmentation.
+      bytesize = line.bytesize
+      reader = Char::Reader.new line
+      cp = 0
+      while reader.pos < bytesize
+        if reader.current_char == '\e'
+          reader.next_char; cp += 1
+          while reader.pos < bytesize && reader.current_char != 'm'
+            reader.next_char; cp += 1
           end
-          i += 1 if i < n # consume the terminating 'm'
+          if reader.pos < bytesize # consume the terminating 'm'
+            reader.next_char; cp += 1
+          end
           next
         end
 
         # Contiguous run of visible text up to the next SGR (or end of line).
-        run_end = i
-        while run_end < n && line[run_end] != '\e'
-          run_end += 1
+        run_byte_start = reader.pos
+        run_cp_start = cp
+        while reader.pos < bytesize && reader.current_char != '\e'
+          reader.next_char; cp += 1
         end
 
         if full
-          pos = i
-          line[i...run_end].each_grapheme do |g|
+          pos = run_cp_start
+          line.byte_slice(run_byte_start, reader.pos - run_byte_start).each_grapheme do |g|
             gs = g.to_s
             w = Unicode.width gs
             # Cut before this cluster once we already have content placed.
@@ -1472,16 +1481,14 @@ module Crysterm
             total += w
             pos += gs.size
           end
-          i = run_end
         else
-          (i...run_end).each do |k|
+          (run_cp_start...cp).each do |k|
             total += 1
             return k + 1 if total == colwidth
           end
-          i = run_end
         end
       end
-      i
+      cp
     end
 
     # Slices *line* to the display-column window `[from_col, from_col + width)`,
