@@ -27,7 +27,8 @@ module Crysterm
         @last_row_index = 0
         before_flow container
 
-        container.children.each_with_index do |el, i|
+        children = container.children
+        children.each_with_index do |el, i|
           next if el.layout_excluded?
           # Every child consumes a render index, even one we skip below, to
           # match the original loop's z-order bookkeeping.
@@ -38,7 +39,22 @@ module Crysterm
             skip el
             next
           when Overflow::StopRendering
+            # `StopRendering` means "leave current *and remaining* widgets
+            # unrendered" (see `Overflow`). Clearing only `el`'s `lpos` left every
+            # later child carrying its stale rectangle from the previous frame, so
+            # a vertically-overflowing flow stayed mouse-clickable / focusable at
+            # ghost positions for the rows it never drew. Skip the not-yet-placed
+            # children too (their `lpos` is now nil → treated as not present),
+            # honoring the contract and the `Overflow` TODO about focus/hit-test.
+            # Layout-excluded chrome (e.g. a `background-image` layer) is rendered
+            # out-of-band with its own live `lpos`, so it must be left untouched.
             skip el
+            j = i + 1
+            while j < children.size
+              nxt = children[j]
+              skip nxt unless nxt.layout_excluded?
+              j += 1
+            end
             break
           when Overflow::MoveWidget
             # No-op at the layout level: a `MoveWidget` child repositions itself

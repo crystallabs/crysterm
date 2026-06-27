@@ -20,11 +20,17 @@ module Crysterm
 
         # Toggle only when the `[ ]`/`( )` marker itself is clicked, not the text
         # label. Uses `Mouse` (not `Click`) because only it carries coordinates;
-        # the marker is the three glyphs at the start of the content.
+        # the marker is the three glyphs at the start of the *first* content row.
         on(Crysterm::Event::Mouse) do |e|
           next unless e.action.down?
           marker_start = aleft + ileft
-          if e.x >= marker_start && e.x < marker_start + 3
+          # The marker lives on the first content row only. The `Mouse` event
+          # fires for a click anywhere inside the widget's rect, so without the
+          # row check a control taller than one line (one with a border, or an
+          # explicit `height`) toggled whenever its marker *column* was clicked
+          # on any row — e.g. the blank line below a bordered checkbox's marker.
+          marker_row = atop + itop
+          if e.y == marker_row && e.x >= marker_start && e.x < marker_start + 3
             toggle
             request_render
             e.accept

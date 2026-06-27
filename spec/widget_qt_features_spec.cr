@@ -1045,6 +1045,22 @@ describe "SpinBox direct entry" do
     sb.on_keypress keypress('\r', Tput::Key::Enter)
     sb.value.should eq 4
   end
+
+  it "re-accepts a leading minus after the buffer is backspaced to empty" do
+    s = qt_mem_screen
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: -100, maximum: 100, value: 0
+    # Type a digit, then backspace it away, leaving an empty (non-nil) buffer.
+    sb.on_keypress keypress('5')
+    sb.on_keypress keypress('\u{8}', Tput::Key::Backspace)
+    sb.editing?.should be_true
+    sb.text.should eq ""
+    # A leading '-' must still be accepted to start a negative number.
+    sb.on_keypress keypress('-')
+    sb.on_keypress keypress('7')
+    sb.text.should eq "-7"
+    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    sb.value.should eq -7
+  end
 end
 
 describe Crysterm::Widget::DoubleSpinBox do

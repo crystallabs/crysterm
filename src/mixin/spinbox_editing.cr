@@ -95,7 +95,14 @@ module Crysterm
         if editable? && ch &&
            (('0'..'9').includes?(ch) ||
            extra_entry_char?(ch) ||
-           (ch == '-' && @minimum < 0 && @editing.nil?))
+           # A leading `-` is only accepted as the *first* character of the
+           # buffer. Test the buffer's emptiness rather than `@editing.nil?`:
+           # backspacing every typed character leaves an empty *non-nil* buffer
+           # (`""`), so the nil check wrongly blocked re-entering a negative sign
+           # after a full backspace. `(@editing || "").empty?` covers both the
+           # not-yet-editing (nil) and backspaced-to-empty ("") states, while
+           # still rejecting a `-` typed mid-number.
+           (ch == '-' && @minimum < 0 && (@editing || "").empty?))
           @editing = (@editing || "") + ch
           update_content
           e.accept

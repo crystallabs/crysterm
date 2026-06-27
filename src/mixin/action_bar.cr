@@ -255,7 +255,14 @@ module Crysterm
       end
 
       def render(with_children = true)
-        drawn = ileft
+        # Item boxes are positioned with a *content-relative* `left` (0 == the
+        # bar's content origin): `Widget#aleft` already adds the parent's `ileft`
+        # to a child's relative `left`, so starting the cursor at `ileft` here
+        # double-counted the inset and shoved every item right by `ileft` (and
+        # the last items off the right edge) whenever the bar had a border or
+        # left padding. Start at 0, matching item creation in `#add` and the
+        # `drawn = 0` content-relative origin in `#selekt`'s visibility math.
+        drawn = 0
         @items.each_with_index do |el, i|
           if i < @left_base
             el.hide

@@ -266,3 +266,34 @@ describe "Crysterm::Layout::Box flex" do
     coords.should eq [{7, 15, 0, 2}, {15, 23, 0, 2}]
   end
 end
+
+describe "Crysterm::Layout flow StopRendering" do
+  it "clears the lpos of every child left unrendered after an overflow stop" do
+    s = headless_screen
+    # 20 wide so each 12-wide child wraps to its own row. Frame 1 is tall enough
+    # (3 rows) for all three to render, so each gets a real lpos.
+    box = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 3,
+      layout: Layout::Wrap.new, overflow: Crysterm::Overflow::StopRendering
+    a = Widget::Box.new parent: box, width: 12, height: 1
+    b = Widget::Box.new parent: box, width: 12, height: 1
+    c = Widget::Box.new parent: box, width: 12, height: 1
+
+    s._render
+    # All three rendered, so the later children carry a live rectangle.
+    a.lpos.should_not be_nil
+    b.lpos.should_not be_nil
+    c.lpos.should_not be_nil
+
+    # Frame 2: shrink to a single visible row. Now `a` fits, `b` wraps onto an
+    # overflowing row and trips StopRendering, and `c` is never reached. The
+    # stop must clear the stale rectangles of *both* unrendered children, not
+    # just the one that overflowed — otherwise `c` keeps frame-1's lpos and
+    # stays clickable/focusable at a ghost position.
+    box.height = 1
+    s._render
+
+    a.lpos.should_not be_nil
+    b.lpos.should be_nil
+    c.lpos.should be_nil
+  end
+end
