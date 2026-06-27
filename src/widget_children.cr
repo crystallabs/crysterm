@@ -37,6 +37,17 @@ module Crysterm
     def remove(element)
       return if element.parent != self
 
+      # Whether the screen's keyboard focus currently lives inside the subtree
+      # being detached. This MUST be sampled *before* `super`/the unlink runs:
+      # once the tree is severed, a focused *descendant* (not `element` itself)
+      # can no longer be related back to `element`, and the check would silently
+      # miss it — leaving focus stranded on a now-detached, off-screen widget.
+      s = screen?
+      refocus = false
+      if s && (f = s.focused)
+        refocus = (f == element) || element.has_descendant?(f)
+      end
+
       return unless super
 
       # Capture the screen the element is leaving *before* unlinking, so its
@@ -56,13 +67,13 @@ module Crysterm
       element.emit(Crysterm::Event::Reparent, nil)
       emit(Crysterm::Event::Remove, element)
 
-      previous.try do |s|
-        s.detach element, s
-
-        if s.focused == element
-          s.rewind_focus
-        end
+      previous.try do |sc|
+        sc.detach element, sc
       end
+
+      # Rewind off the detached subtree after the unlink, using the condition
+      # captured above so descendant focus is handled with correct timing.
+      s.rewind_focus if refocus && s
     end
   end
 end
