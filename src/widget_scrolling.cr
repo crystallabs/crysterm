@@ -415,7 +415,13 @@ module Crysterm
         if @always_scroll
           p = @child_base / (i - height)
         else
-          p = (@child_base + @child_offset) / (i - 1)
+          # `i - 1` is the scrollable span; when `i <= 1` there is nothing to
+          # scroll (a single content line / zero-or-negative visible height), so
+          # the span is 0. Guard it: integer `/` is float division here, so the
+          # bare expression would yield Infinity (or NaN for `0 / 0`) and `* 100`
+          # would propagate a garbage percentage. The position is the top == the
+          # bottom in that case, hence 0%. The `i > 1` path is unchanged.
+          p = i > 1 ? (@child_base + @child_offset) / (i - 1) : 0.0
         end
         return p * 100
       end
