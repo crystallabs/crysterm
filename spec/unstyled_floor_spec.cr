@@ -117,6 +117,24 @@ require "./spec_helper"
       btn.style.reverse?.should be_false
     end
 
+    it "applies a fade's alpha to a focused Button at the floor" do
+      # At the floor `#style` returns a transient reverse-video `#dup` for a
+      # focused small control, so a fade that wrote `style.alpha` through `#style`
+      # would land on a throwaway and never take effect. `#set_alpha` must write
+      # the persistent `#state_style` (like `#set_visible`), so the value survives
+      # to the render-time `#dup`.
+      s = floor_screen
+      btn = Crysterm::Widget::Button.new parent: s, top: 0, left: 0, width: 12, height: 1,
+        content: "OK"
+      btn.state = :focused
+      btn.css_styled?.should be_false # confirm the non-CSS floor path
+      btn.floor_focus_reverse?.should be_true
+
+      anim = btn.fade_in # synchronously sets alpha to 0.0, then tweens up
+      anim.stop
+      btn.style.alpha?.should eq 0.0
+    end
+
     it "shows other focusable controls (Slider/SpinBox/Dial) via reverse-video at the floor" do
       s = floor_screen
       controls = [

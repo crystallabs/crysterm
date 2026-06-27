@@ -164,14 +164,20 @@ module Crysterm
     # onto the inline `@style`, so the next cascade doesn't discard it. Mirrors
     # `#set_visible` (see `widget_visibility`).
     private def set_alpha(value : Float64?) : Nil
-      self.style.alpha = value
+      # Write the *raw* backing style (`#state_style`), not `#style`: at the
+      # unstyled floor `#style` returns a transient reverse-video `#dup` for a
+      # `:focused`/`:selected` small control (`floor_focus_reverse?` — `Button`,
+      # `CheckBox`, `RadioButton`), so a write through it would be discarded and
+      # the fade/pulse would never take effect (the same trap `#set_visible`
+      # avoids).
+      self.state_style.alpha = value
       persist_inline_style { |s| s.alpha = value }
     end
 
     # Sets `style.tint`/`tint_alpha` (CSS-safely, like `#set_alpha`).
     private def set_tint(color, alpha : Float64) : Nil
-      self.style.tint = color
-      self.style.tint_alpha = alpha
+      self.state_style.tint = color
+      self.state_style.tint_alpha = alpha
       persist_inline_style do |s|
         s.tint = color
         s.tint_alpha = alpha
