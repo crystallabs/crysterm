@@ -70,3 +70,23 @@ describe "TabWidget switching (regression check)" do
     p1.style.visible?.should be_true # visibility preserved through the pane push
   end
 end
+
+# Minimal includer to lock the `Mixin::PagedContainer` contract directly: the
+# real widgets never expose `current_index == -1` with pages present, but the
+# reusable mixin promises `current_page == nil` when no page is selected.
+private class FakePaged
+  include Crysterm::Mixin::PagedContainer
+end
+
+describe Crysterm::Mixin::PagedContainer do
+  it "current_page is nil while no page is selected, even with pages present" do
+    f = FakePaged.new
+    f.current_page.should be_nil # empty
+    f.pages << Widget::Box.new
+    f.pages << Widget::Box.new
+    # current_index is still the -1 sentinel; must not negative-index to the
+    # last page.
+    f.current_index.should eq -1
+    f.current_page.should be_nil
+  end
+end

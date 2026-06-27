@@ -21,6 +21,10 @@ module Crysterm
 
       # The currently visible page, or `nil` when there are none.
       def current_page : Widget?
+        # Guard the `-1` sentinel explicitly: Crystal's `[]?` treats a negative
+        # index as counting from the end, so `@pages[-1]?` would wrongly return
+        # the *last* page when no page is selected. Return `nil` instead.
+        return nil if @current_index < 0
         @pages[@current_index]?
       end
 
