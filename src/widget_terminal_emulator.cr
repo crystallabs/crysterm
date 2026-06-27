@@ -387,6 +387,16 @@ module Crysterm
 
     # ───────────────────────── CSI dispatch ─────────────────────────
 
+    # Largest accumulator value that can still take another decimal digit without
+    # overflowing `Int32`. The hand-rolled param parsers below accumulate digits
+    # with `val * 10 + d`, which — unlike the `String#to_i?` the old `split`-based
+    # parser used (it returns `nil`, not raises, on overflow) — would raise
+    # `OverflowError` on an adversarial CSI carrying a huge number (e.g.
+    # `CSI 9999999999 H`), tearing down the whole session in the reader fiber. A
+    # field that would overflow is instead flagged `bad`, so it reads as 0 — the
+    # exact value the old `s.to_i? || 0` produced for an out-of-range field.
+    PARAM_ACCUM_MAX = (Int32::MAX - 9) // 10
+
     # The n-th `;`-separated parameter in `@csi_buf` (0-based), parsed in place,
     # or nil when there is no n-th field. An empty or non-numeric field reads as
     # 0, matching the old `split(';').map { |s| s.to_i? || 0 }`. No allocation —
@@ -407,7 +417,11 @@ module Crysterm
           val = 0
           bad = false
         elsif '0'.ord <= b <= '9'.ord
-          val = val * 10 + (b - '0'.ord)
+          if val > PARAM_ACCUM_MAX
+            bad = true # one more digit would overflow Int32 ⇒ field reads as 0
+          else
+            val = val * 10 + (b - '0'.ord)
+          end
         else
           bad = true
         end
@@ -445,7 +459,11 @@ module Crysterm
           val = 0
           bad = false
         elsif '0'.ord <= b <= '9'.ord
-          val = val * 10 + (b - '0'.ord)
+          if val > PARAM_ACCUM_MAX
+            bad = true # one more digit would overflow Int32 ⇒ field reads as 0
+          else
+            val = val * 10 + (b - '0'.ord)
+          end
         else
           bad = true
         end

@@ -381,4 +381,30 @@ describe Crysterm::TerminalEmulator do
       em.lines[0][0].char.should eq 'X' # parsing resumed after the DCS
     end
   end
+
+  describe "oversized CSI parameters" do
+    it "does not overflow on a CSI parameter larger than Int32" do
+      # A child (buggy or hostile) can emit a numeric CSI parameter far beyond
+      # Int32::MAX. The in-place param accumulator must not raise OverflowError
+      # (which, in the reader fiber, would silently tear down the whole session);
+      # an out-of-range field reads as 0 — like the old `to_i? || 0` — so the move
+      # falls back to its default and the cursor stays in bounds.
+      em = emu(10, 4)
+      em.feed "\e[9999999999;9999999999HX" # CUP with both fields overflowing
+      em.cursor_x.should be < em.cols
+      em.cursor_y.should be < em.rows
+      # A real, in-range CUP still positions exactly (regression guard).
+      em.feed "\e[2;3HY"
+      em.lines[1][2].char.should eq 'Y'
+    end
+
+    it "does not overflow on an oversized private-mode (SGR / set_mode) parameter" do
+      em = emu
+      # `each_csi_param` (used by set_mode) shares the accumulator; a giant mode
+      # number must be swallowed, not crash, and unknown ⇒ no state change.
+      em.feed "\e[?9999999999h"
+      em.feed "\e[9999999999mZ" # oversized SGR param: ignored, char still prints
+      em.lines[0][0].char.should eq 'Z'
+    end
+  end
 end
