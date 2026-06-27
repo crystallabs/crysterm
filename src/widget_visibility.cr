@@ -19,8 +19,12 @@ module Crysterm
       emit Crysterm::Event::Hide
 
       screen?.try do |s|
-        # s.rewind_focus if focused?
-        s.rewind_focus if s.focused == self
+        # Rewind focus out of this subtree when it (or any descendant) holds
+        # focus: hiding a container must not leave an invisible-yet-focused
+        # child still receiving keyboard input.
+        if (f = s.focused) && (f == self || has_descendant? f)
+          s.rewind_focus
+        end
       end
     end
 
