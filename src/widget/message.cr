@@ -43,9 +43,14 @@ module Crysterm
           spawn do
             sleep time
 
-            hide
-            request_render
-            callback.try &.call
+            # Route the timed dismissal through `end_it` (as the keypress path
+            # does) so a scrollable message that grabbed focus on show restores
+            # it. Hiding directly here left focus stranded on the dismissed
+            # message. For a non-scrollable message `end_it` skips the restore,
+            # so its behaviour (hide + request_render + callback) is unchanged.
+            end_it do
+              callback.try &.call
+            end
           end
         end
       end
