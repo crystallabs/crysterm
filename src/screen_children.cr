@@ -36,6 +36,13 @@ module Crysterm
     def remove(element)
       return if element.screen? != self
 
+      # Whether keyboard focus currently lives inside the subtree being removed.
+      # This MUST be sampled *before* the unlink below: once `element.screen = nil`
+      # severs the tree, a focused *descendant* (not `element` itself) can no longer
+      # be related back to `element` via `has_descendant?`, and the check would
+      # silently miss it — stranding focus on a now-detached, off-screen widget.
+      refocus = (f = focused) && (f == element || element.has_descendant?(f))
+
       super
 
       # TODO Enable
@@ -57,9 +64,7 @@ module Crysterm
       element.screen = nil
       detach element, previous
 
-      if focused == element
-        rewind_focus
-      end
+      rewind_focus if refocus
     end
 
     # :ditto:
