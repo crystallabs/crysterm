@@ -662,6 +662,13 @@ module Crysterm
       end
 
       def enter_selected
+        # Nothing to act on when the list is empty. The events carry a non-nil
+        # `Widget::Box`, and `items[selected]` would raise `IndexError` on an
+        # empty list (`selected == 0`, no rows) — a focused empty list pressing
+        # Enter routes straight here from `#on_keypress`. (Blessed's JS yields a
+        # benign `undefined` here; Crystal's strict indexing turns it into a
+        # crash, so we guard instead.)
+        return if @items.empty?
         emit Crysterm::Event::ActionItem, items[selected], selected
         emit Crysterm::Event::SelectItem, items[selected], selected
       end
@@ -672,6 +679,9 @@ module Crysterm
       end
 
       def cancel_selected
+        # See `#enter_selected`: guard the empty list so Escape on a focused
+        # empty list does not raise `IndexError` on `items[selected]`.
+        return if @items.empty?
         emit Crysterm::Event::ActionItem, items[selected], selected
         emit Crysterm::Event::CancelItem, items[selected], selected
       end

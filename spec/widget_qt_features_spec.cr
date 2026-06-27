@@ -311,6 +311,16 @@ describe Crysterm::Widget::List do
     list.toggle_selection 1
     list.selected_indices.empty?.should be_true
   end
+
+  it "does not raise when activating/cancelling an empty list" do
+    # A focused empty list pressing Enter/Escape routes straight to
+    # `enter_selected`/`cancel_selected`, which used to index `items[selected]`
+    # (`selected == 0`, no rows) and raise `IndexError`.
+    s = qt_mem_screen
+    list = Crysterm::Widget::List.new parent: s, items: [] of String
+    list.enter_selected
+    list.cancel_selected
+  end
 end
 
 describe Crysterm::Widget::ListTable do
