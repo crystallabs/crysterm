@@ -138,9 +138,9 @@ module Crysterm
                 when 30..37   then fg = c - 30
                 when 90..97   then fg = c - 90; fgb = true
                 when 39       then fg = nil
-                when 40..47   then bg = c - 40
+                when 40..47   then bg = c - 40; bgb = false # normal bg clears any prior bright bg
                 when 100..107 then bg = c - 100; bgb = true
-                when 49       then bg = nil
+                when 49       then bg = nil; bgb = false
                 else # 5 (blink) / 7 (reverse) / … ignored
                 end
               end

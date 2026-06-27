@@ -47,4 +47,27 @@ describe Crysterm::Widget::Media do
       png("X\e[CY").width.should be > png("XY").width
     end
   end
+
+  describe ".decode_ansi SGR background" do
+    # A space cell has no glyph ink, so its pixels are painted purely with the
+    # resolved background color — letting us assert on the exact RGB.
+    it "selects a bright background via aixterm 100..107" do
+      px = png("\e[101m ").bmp[0][0] # bright red = ANSI index 9 (0xFF5555)
+      {px.r, px.g, px.b}.should eq({0xFF, 0x55, 0x55})
+    end
+
+    it "clears the bright-background flag when a normal background follows" do
+      # `ESC[101m` selects a bright-red bg; a subsequent `ESC[41m` must drop back
+      # to *normal* red (index 1, 0xAA0000), not stay bright (index 9, 0xFF5555).
+      px = png("\e[101m\e[41m ").bmp[0][0]
+      {px.r, px.g, px.b}.should eq({0xAA, 0x00, 0x00})
+    end
+
+    it "clears the bright-background flag when the default background follows" do
+      # `ESC[101m` then `ESC[49m` (default bg) must render as the default
+      # background (index 0, black), not a bright color.
+      px = png("\e[101m\e[49m ").bmp[0][0]
+      {px.r, px.g, px.b}.should eq({0x00, 0x00, 0x00})
+    end
+  end
 end
