@@ -5,7 +5,14 @@ module Crysterm
   class Padding
     include SidedGeometry
 
-    class_property default = new 0
+    # A fresh zero-padding instance. Deliberately *not* a shared singleton: a
+    # `Padding` is mutated in place by the per-side longhands (`padding-left`
+    # etc., see `CSS::Properties#apply`) and by `Style`'s default getter, so a
+    # single shared object would let one widget's edit leak into every other
+    # style (and corrupt the "no padding" baseline). Each call returns its own.
+    def self.default : Padding
+      new 0
+    end
 
     property left : Int32 = 0
     property top : Int32 = 0

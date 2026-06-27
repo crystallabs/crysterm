@@ -10,7 +10,14 @@ module Crysterm
   class Margin
     include SidedGeometry
 
-    class_property default = new 0
+    # A fresh zero-margin instance. Deliberately *not* a shared singleton: a
+    # `Margin` is mutated in place by the per-side longhands (`margin-left`
+    # etc., see `CSS::Properties#apply`) and by `Style`'s default getter, so a
+    # single shared object would let one widget's edit leak into every other
+    # style (and corrupt the "no margin" baseline). Each call returns its own.
+    def self.default : Margin
+      new 0
+    end
 
     property left : Int32 = 0
     property top : Int32 = 0

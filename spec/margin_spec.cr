@@ -27,6 +27,34 @@ describe "margin" do
       m = Margin.from(2)
       {m.left, m.top, m.right, m.bottom}.should eq({2, 2, 2, 2})
     end
+
+    # `Margin`/`Padding` are mutated in place by the per-side longhands, so the
+    # default ("no margin/padding") must never be a shared singleton — otherwise
+    # one style's edit leaks into every other style.
+    it "gives each style an independent margin/padding (no shared default)" do
+      a = Style.new
+      b = Style.new
+      a.margin.same?(b.margin).should be_false
+      a.padding.same?(b.padding).should be_false
+
+      a.margin.left = 5
+      a.padding.top = 7
+      b.margin.left.should eq 0
+      b.padding.top.should eq 0
+      Margin.default.left.should eq 0
+      Padding.default.top.should eq 0
+    end
+
+    # An invalid `margin`/`padding` shorthand resets the side to a fresh zero box;
+    # a following longhand must edit *that* style's own box, not the global default.
+    it "doesn't corrupt the default when an invalid shorthand precedes a longhand" do
+      s = Style.new
+      Crysterm::CSS::Properties.apply s, "margin", "1 2 3 4 5" # over-long → invalid
+      Crysterm::CSS::Properties.apply s, "margin-top", "3"
+      s.margin.top.should eq 3
+      Margin.default.top.should eq 0
+      Style.new.margin.top.should eq 0
+    end
   end
 
   describe "geometry" do
