@@ -153,10 +153,12 @@ module Crysterm
         ev_keys = screen.on(Crysterm::Event::KeyPress) do |e|
           case e.key
           when Tput::Key::Left
+            next if buttons.empty? # nothing to move between (and `% 0` would crash)
             cur = (cur - 1) % buttons.size
             buttons[cur].focus
             request_render
           when Tput::Key::Right
+            next if buttons.empty?
             cur = (cur + 1) % buttons.size
             buttons[cur].focus
             request_render

@@ -260,6 +260,23 @@ describe "Question#ask_choices" do
     # Choice buttons gone; the standard OK/Cancel pair is shown again.
     q.children.count { |c| c.is_a?(Crysterm::Widget::Button) && c.visible? }.should eq 2
   end
+
+  it "survives an arrow key with an empty choice list (no division-by-zero)" do
+    s = render_screen
+    q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
+    chosen = nil.as(Int32?)
+    q.ask_choices("Pick one", [] of String) { |i| chosen = i }
+    s._render
+
+    # Left/Right used to do `(cur ± 1) % buttons.size` with size 0 → crash.
+    s.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Left
+    s.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Right
+    chosen.should be_nil
+
+    # Escape still dismisses, yielding -1.
+    s.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Escape
+    chosen.should eq -1
+  end
 end
 
 describe "Prompt validation" do
