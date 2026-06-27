@@ -1215,11 +1215,33 @@ module Crysterm
     end
 
     def delete_line(i = nil, n = 1)
+      # Nothing to delete when there are no logical lines yet. `@_clines.fake`
+      # is empty for a freshly built / never-rendered widget AND for content
+      # that cleared to empty (`_wrap_content`'s empty branch leaves `fake`
+      # empty with a single blank real line). Without this guard the access
+      # below raises `IndexError`: on truly-empty `ftor` the `i.clamp(0,
+      # ftor.size - 1)` yields -1 and `ftor[-1]` raises, and even when `ftor`
+      # carries the lone blank row the subsequent `fake.delete_at i` raises on
+      # the empty `fake` — so `delete_top`/`delete_bottom`/`shift_line`/
+      # `pop_line`/`delete_line` crashed on such a widget. Mirrors the
+      # empty-content guard already in `#insert_line`/`#get_line`; the benign
+      # value Blessed's `deleteLine` yields here is simply "nothing happens".
+      return if @_clines.fake.empty?
       if i.nil?
         i = @_clines.ftor.size - 1
       end
 
       i = i.clamp(0, @_clines.ftor.size - 1)
+
+      # Clamp the count to the lines actually available from `i`. Each pass of the
+      # loop below `delete_at`s the element that shifts into slot `i`, so asking to
+      # delete more lines than remain — `pop_line 2`, `shift_line n` with `n` past
+      # the line count, or a `delete_bottom`/`delete_line(i, n)` whose `i + n`
+      # exceeds `fake.size` — ran `delete_at` off the end of the now-shorter `fake`
+      # and raised `IndexError`. JS `splice(i, n)` clamps, so this matches the
+      # Blessed semantics this ports (delete as many lines as exist from `i`).
+      n = Math.min(n, @_clines.fake.size - i)
+      return if n <= 0
 
       # NOTE: Could possibly compare the first and last ftor line numbers to see
       # if they're the same, or if they fit in the visible region entirely.

@@ -121,6 +121,9 @@ module Crysterm
     WIDE = [
       {0x1100, 0x115F},   # Hangul Jamo (leading consonants)
       {0x2329, 0x232A},   # angle brackets
+      {0x2B1B, 0x2B1C},   # ⬛⬜ black/white large square (emoji)
+      {0x2B50, 0x2B50},   # ⭐ white medium star (emoji)
+      {0x2B55, 0x2B55},   # ⭕ heavy large circle (emoji)
       {0x2E80, 0x303E},   # CJK radicals .. Kangxi .. CJK symbols
       {0x3041, 0x33FF},   # Hiragana, Katakana, CJK symbols/letters
       {0x3400, 0x4DBF},   # CJK Unified Ideographs Extension A
@@ -141,6 +144,8 @@ module Crysterm
       {0x1F200, 0x1F2FF}, # enclosed ideographic supplement
       {0x1F300, 0x1F64F}, # misc symbols & pictographs, emoticons
       {0x1F680, 0x1F6FF}, # transport & map symbols
+      {0x1F7E0, 0x1F7EB}, # geometric shapes extended (🟠🟢🟥🟫 colored circles/squares)
+      {0x1F7F0, 0x1F7F0}, # 🟰 heavy equals sign
       {0x1F900, 0x1F9FF}, # supplemental symbols & pictographs
       {0x1FA70, 0x1FAFF}, # symbols & pictographs extended-A
       {0x20000, 0x3FFFD}, # CJK Unified Ideographs Extension B..

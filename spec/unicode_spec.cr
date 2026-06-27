@@ -31,6 +31,20 @@ describe Crysterm::Unicode do
       Crysterm::Unicode.width("🚀").should eq 2
     end
 
+    it "is 2 for emoji in the WIDE-table gaps (colored shapes, large squares/star/circle)" do
+      # Emoji_Presentation=Yes codepoints that sit outside the main emoji
+      # blocks — previously measured as 1, misaligning any layout using them.
+      Crysterm::Unicode.width("🟠").should eq 2 # U+1F7E0 large orange circle
+      Crysterm::Unicode.width("🟢").should eq 2 # U+1F7E2 large green circle
+      Crysterm::Unicode.width("🟥").should eq 2 # U+1F7E5 large red square
+      Crysterm::Unicode.width("🟫").should eq 2 # U+1F7EB large brown square
+      Crysterm::Unicode.width("🟰").should eq 2 # U+1F7F0 heavy equals sign
+      Crysterm::Unicode.width("⬛").should eq 2 # U+2B1B black large square
+      Crysterm::Unicode.width("⬜").should eq 2 # U+2B1C white large square
+      Crysterm::Unicode.width("⭐").should eq 2 # U+2B50 white medium star
+      Crysterm::Unicode.width("⭕").should eq 2 # U+2B55 heavy large circle
+    end
+
     it "treats a ZWJ emoji sequence as one width-2 cluster" do
       Crysterm::Unicode.width("👨‍👩‍👧‍👦").should eq 2
     end
