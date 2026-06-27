@@ -8,7 +8,11 @@ module Crysterm
     # Handles the CSS color functions `rgb()/rgba()/hsl()/hsla()` and the
     # keywords `transparent`, `currentColor`, `inherit`, `initial`, `unset`.
     module ColorValue
-      RGB_RE = /(\d+(?:\.\d+)?)/
+      # A signed number, as used by `hsl()`'s arguments. The leading `-?` matters
+      # for the hue: a negative angle is valid CSS (`hsl(-120, …)`) and must wrap
+      # (`-120 ≡ 240`) rather than be read as its absolute value (a different
+      # color). A negative `s`/`l` is meaningless and simply clamps to 0.
+      RGB_RE = /(-?\d+(?:\.\d+)?)/
 
       def self.resolve(value : String, current_fg : Int32?) : Int32 | String | Nil
         v = value.strip

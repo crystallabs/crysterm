@@ -1494,4 +1494,12 @@ describe "CSS::ColorValue" do
     Crysterm::CSS::ColorValue.resolve("rgb(0%, 100%, 0%)", nil).should eq 0x00ff00
     Crysterm::CSS::ColorValue.resolve("rgba(0%, 0%, 100%, 0.5)", nil).should eq 0x0000ff
   end
+
+  it "resolves hsl() and wraps a negative hue" do
+    Crysterm::CSS::ColorValue.resolve("hsl(120, 100%, 50%)", nil).should eq 0x00ff00 # green
+    Crysterm::CSS::ColorValue.resolve("hsl(240, 100%, 50%)", nil).should eq 0x0000ff # blue
+    # A negative hue is valid CSS and wraps: -120 ≡ 240 (blue), not |−120| = 120.
+    Crysterm::CSS::ColorValue.resolve("hsl(-120, 100%, 50%)", nil).should eq 0x0000ff
+    Crysterm::CSS::ColorValue.resolve("hsl(-240, 100%, 50%)", nil).should eq 0x00ff00
+  end
 end
