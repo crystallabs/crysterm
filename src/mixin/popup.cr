@@ -71,6 +71,15 @@ module Crysterm
       # Detaches + destroys the pop-up and removes the watcher. Call from the
       # including widget's `#destroy` (before `super`).
       protected def teardown_popup_on_destroy : Nil
+        # Release the modal grab if we're destroyed while still open. `#close`
+        # (the normal dismiss path) does this via `#teardown_popup`, but destroy
+        # can run without a prior close — leaving the now-dead widget lingering in
+        # the screen's `@grabs`, which keeps `Screen#grabbing?` true and routes
+        # every later mouse press through `grab_contains?` on a destroyed widget.
+        if @open
+          @open = false
+          screen?.try &.ungrab self
+        end
         @ev_outside.try { |w| screen?.try &.off ::Crysterm::Event::Mouse, w }
         @ev_outside = nil
         if pop = popup_widget
