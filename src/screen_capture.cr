@@ -90,6 +90,25 @@ module Crysterm
   end
 
   class Screen
+    # Normalizes a capture/dump region to the screen: floors the origin at 0,
+    # caps the far edge at the screen size, and collapses an *inverted* region
+    # (far edge before origin) to an empty one. The last step is what keeps a
+    # `Widget#dump`/`#capture` with a large negative per-edge delta (or any
+    # `xi > xl` / `yi > yl` the caller computes) from reaching `Dump.text` with a
+    # negative width/height, where `"-" * w` / `Array.new(h)` would raise an
+    # opaque `ArgumentError` instead of yielding an empty dump. Shared by
+    # `#capture` and `#dump` so the two clamp identically.
+    private def clamp_capture_region(xi, xl, yi, yl) : {Int32, Int32, Int32, Int32}
+      xi = xi.to_i; xl = xl.to_i; yi = yi.to_i; yl = yl.to_i
+      xi = 0 if xi < 0
+      yi = 0 if yi < 0
+      xl = awidth if xl > awidth
+      yl = aheight if yl > aheight
+      xl = xi if xl < xi
+      yl = yi if yl < yi
+      {xi, xl, yi, yl}
+    end
+
     # The one entry point for capturing rendered/drawn screen content as an
     # image or a video. It captures what the *terminal* shows — the flushed cell
     # buffer rendered with a bitmap font, plus the in-band terminal-graphics
@@ -132,11 +151,7 @@ module Crysterm
                 default_fg : Int32 = Capture::DEFAULT_FG,
                 default_bg : Int32 = Capture::DEFAULT_BG,
                 ffmpeg_args : Array(String)? = nil) : Bytes?
-      xi = xi.to_i; xl = xl.to_i; yi = yi.to_i; yl = yl.to_i
-      xi = 0 if xi < 0
-      yi = 0 if yi < 0
-      xl = awidth if xl > awidth
-      yl = aheight if yl > aheight
+      xi, xl, yi, yl = clamp_capture_region xi, xl, yi, yl
 
       fmt = (format || (path ? File.extname(path).lchop('.') : nil)).to_s.downcase
       fmt = "png" if fmt.empty?
@@ -257,11 +272,7 @@ module Crysterm
     # screen.dump path: "frame.dump" # writes the file
     # ```
     def dump(xi = 0, xl = awidth, yi = 0, yl = aheight, *, path : String? = nil) : String?
-      xi = xi.to_i; xl = xl.to_i; yi = yi.to_i; yl = yl.to_i
-      xi = 0 if xi < 0
-      yi = 0 if yi < 0
-      xl = awidth if xl > awidth
-      yl = aheight if yl > aheight
+      xi, xl, yi, yl = clamp_capture_region xi, xl, yi, yl
 
       text = Dump.text(self, xi, xl, yi, yl)
       if path
