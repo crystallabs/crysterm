@@ -881,6 +881,13 @@ module Crysterm
         if main_screen_lines < rows
           (rows - main_screen_lines).times { ml << blank_line }
         end
+        # A resize resets the scroll margins to the full screen on the active page
+        # (just below). Do the same to the *parked* main page, otherwise leaving
+        # the alt screen after a resize would restore a stale (pre-resize) scroll
+        # region — e.g. quitting vim after the window grew would leave the shell
+        # scrolling inside the old, smaller region.
+        @main_scroll_top = 0
+        @main_scroll_bottom = rows - 1
       end
 
       @scroll_top = 0

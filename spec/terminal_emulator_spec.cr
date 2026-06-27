@@ -170,6 +170,23 @@ describe Crysterm::TerminalEmulator do
       em.alt_active?.should be_false
       row(em, 0).should eq "MAIN"
     end
+
+    it "resets the parked main scroll region when resized on the alt screen" do
+      # Quitting a full-screen app (which used the alt screen) after the window
+      # grew must not leave the restored main screen scrolling inside the old,
+      # smaller scroll region.
+      em = emu(4, 4)
+      em.feed "\e[1;1HX" # X at row 0 of the main buffer
+      em.feed "\e[?1049h" # enter alt
+      em.resize(4, 6)     # window grows while on the alt screen
+      em.feed "\e[?1049l" # leave alt -> main buffer restored
+      # With a full-screen scroll region (rows 0..5), a line-feed from row 3 just
+      # advances the cursor; with a stale region (0..3) it would scroll row 0
+      # (the "X") off the top.
+      em.feed "\e[4;1H\n"
+      em.cursor_y.should eq 4
+      row(em, 0).should eq "X"
+    end
   end
 
   describe "mouse mode tracking" do
