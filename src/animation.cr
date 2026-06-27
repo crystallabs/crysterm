@@ -80,6 +80,12 @@ module Crysterm
     getter value : Float64 = 0.0
 
     @fiber : Fiber?
+    # Bumped on every `#start`. The loop fiber captures the generation it was
+    # spawned for and exits if it no longer matches — so a `#stop` immediately
+    # followed by a `#start` on the *same* instance (which re-sets `@running`
+    # true before the old fiber observes the `stop`) can't leave two fibers
+    # ticking the same animation.
+    @generation : Int32 = 0
     @duration : Time::Span?
     @easing : Easing
     @on_tick : Animation ->
@@ -124,6 +130,7 @@ module Crysterm
 
       @running = true
       @completed = false
+      gen = (@generation += 1) # this run's identity; a superseding `#start` bumps it
 
       dur = @duration
       # Phase-lock to a moving deadline instead of `sleep interval` after the
@@ -134,7 +141,7 @@ module Crysterm
 
       @fiber = Fiber.new do
         loop do
-          break unless @running
+          break unless @running && @generation == gen
 
           if dur
             elapsed = Time.instant - start_at
@@ -149,7 +156,7 @@ module Crysterm
             @on_tick.call self
           end
 
-          break unless @running
+          break unless @running && @generation == gen
 
           next_at += @interval
           delay = next_at - Time.instant
@@ -162,8 +169,13 @@ module Crysterm
           end
         end
 
-        @running = false
-        @on_stop.try &.call
+        # Only finalize if this fiber is still the current run: a superseded
+        # fiber (a newer `#start` bumped `@generation`) must not clear the new
+        # run's `@running` nor fire `on_stop` for it.
+        if @generation == gen
+          @running = false
+          @on_stop.try &.call
+        end
       end.enqueue
 
       self
