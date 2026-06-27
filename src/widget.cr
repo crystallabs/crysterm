@@ -173,10 +173,13 @@ module Crysterm
 
     # Damage tracking (see `OptimizationFlag::DamageTracking`).
     #
-    # Set whenever this widget's appearance may have changed since it was last
-    # painted; read by `Screen`'s damage-tracking render path to decide which
-    # top-level subtrees to repaint. Starts `true` so a never-yet-painted widget
-    # is always rendered the first time. Cleared by the render path once painted.
+    # Coarse per-widget marker set by `#mark_dirty` whenever this widget's
+    # appearance may have changed since it was last painted. Note that the actual
+    # repaint decision is driven by the *screen-level* dirty set
+    # (`Screen#damage_mark_dirty`, which records the changed widget's top-level
+    # ancestor in `@damage_dirty_roots`), not by reading this flag back per
+    # widget — so this is an informational hint rather than the gate itself.
+    # Starts `true` so a never-yet-painted widget is treated as needing paint.
     property render_dirty : Bool = true
 
     # Bounding rectangle (`{xi, xl, yi, yl}`, half-open) of this widget's whole
