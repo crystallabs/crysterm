@@ -115,11 +115,15 @@ module Crysterm
         end
       end
 
+      # A CSS number: an integer, a fixed-point (`1.5`), or — per the CSS grammar —
+      # a *leading-dot* decimal (`.5`), optionally signed. Shared by the patterns
+      # below so every length entry point accepts the same numeric forms.
+      NUM = /-?(?:\d+(?:\.\d+)?|\.\d+)/
       # Splits a `<number><unit>` length into number + (letters-only) unit. `%`
       # forms are intentionally excluded so they pass through to the positioner.
-      PATTERN = /\A(-?\d+(?:\.\d+)?)([a-z]+)\z/i
+      PATTERN = /\A(#{NUM})([a-z]+)\z/i
       # A bare, unit-less number (cells).
-      NUMBER = /\A-?\d+(?:\.\d+)?\z/
+      NUMBER = /\A#{NUM}\z/
       # `calc(<expr>)`, capturing the inner expression.
       CALC = /\Acalc\(\s*(.*?)\s*\)\z/i
       # A viewport-relative length, resolved against the screen by `viewport_cells`.
@@ -127,7 +131,7 @@ module Crysterm
       # lowercase `includes?('v')`, so an uppercase `VW` never reaches here anyway,
       # and this lets `viewport_cells` use the captured unit without a `downcase`
       # copy on its per-frame path.
-      VIEWPORT = /\A(-?\d+(?:\.\d+)?)(vw|vh|vmin|vmax)\z/
+      VIEWPORT = /\A(#{NUM})(vw|vh|vmin|vmax)\z/
 
       # Rounds fractional cells to an `Int32`, *clamping* into range so an absurd
       # length (`99999999999px`) can't raise `OverflowError` — the contract is

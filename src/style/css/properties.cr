@@ -74,7 +74,9 @@ module Crysterm
         when "display"
           style.visible = (value != "none")
         when "opacity"
-          value.to_f?.try { |num| style.alpha = num }
+          # CSS clamps opacity into `[0, 1]`; an out-of-range value would
+          # otherwise flow straight into `Colors.blend` as a bad mix factor.
+          value.to_f?.try { |num| style.alpha = num.clamp(0.0, 1.0) }
         when "tab-size"
           style.tab_size = cells(value)
         when "box-shadow"

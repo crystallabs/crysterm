@@ -245,6 +245,23 @@ describe "CSS cascade" do
     style.shadow.alpha.should eq 0.3
   end
 
+  it "clamps an out-of-range opacity into [0, 1]" do
+    screen = headless_screen
+    hi = Widget::Box.new
+    lo = Widget::Box.new
+    hi.css_id = "hi"
+    lo.css_id = "lo"
+    screen.append hi
+    screen.append lo
+
+    # CSS clamps opacity; values above 1 / below 0 must not reach the blender.
+    screen.stylesheet = "#hi { opacity: 2.0; } #lo { opacity: -0.5; }"
+    screen.apply_stylesheet
+
+    hi.styles.normal.alpha.should eq 1.0
+    lo.styles.normal.alpha.should eq 0.0
+  end
+
   it "keeps a real box-shadow visible when its offset is 0" do
     screen = headless_screen
     box = Widget::Box.new
