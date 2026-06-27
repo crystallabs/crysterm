@@ -36,6 +36,16 @@ describe Crysterm::TerminalEmulator do
       em.cursor_y.should eq 1
     end
 
+    it "discards DEL (0x7f) from the data stream instead of printing it" do
+      # DEL is a fill/padding control byte; VT100/xterm ignore it. It must not be
+      # written into the grid nor advance the cursor (it's `>= 0x20`, so a naive
+      # printable test would leak it as a spurious cell).
+      em = emu
+      em.feed "a\u{7f}b"
+      row(em, 0).should eq "ab"
+      em.cursor_x.should eq 2
+    end
+
     it "wraps at the right margin (deferred wrap)" do
       em = emu(3, 2)
       em.feed "abc" # fills row 0; cursor parked on last column

@@ -292,7 +292,12 @@ module Crysterm
       when 0x0e             then @gl = 1 # SO: invoke G1 into GL
       when 0x0f             then @gl = 0 # SI: invoke G0 into GL
       else
-        print_char c if c.ord >= 0x20
+        # 0x7f (DEL) is a fill/padding control, not a glyph: VT100/xterm discard
+        # it from the data stream. Without this guard it falls through here (it is
+        # `>= 0x20`) and gets written into the grid as a spurious cell. Bytes in
+        # 0x00-0x1f that aren't handled above are already dropped by the `>= 0x20`
+        # test; only DEL needs excluding (0x80+ are printable multibyte glyphs).
+        print_char c if c.ord >= 0x20 && c.ord != 0x7f
       end
     end
 
