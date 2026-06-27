@@ -333,7 +333,14 @@ module Crysterm
       # it may scroll out of view, as in Qt's text edit.
       def scroll(offset = 1, always = false)
         return unless @scrollable && screen?
-        visible = aheight - iheight
+        # Reserve the row a shown horizontal bar occupies (`hscrollbar_rows`) when
+        # counting visible content rows — exactly as the base `#scroll`,
+        # `#ensure_visible`, and `#clamp_child_base_to_content` do. Omitting it
+        # over-counts the viewport by the bar's row, so with simultaneous
+        # vertical+horizontal overflow the view stops one line short and the last
+        # line can't be scrolled to sit just above the bar. (No-op when no bar is
+        # shown — `hscrollbar_rows` is then 0.)
+        visible = aheight - iheight - hscrollbar_rows
         return if visible <= 0
 
         mark_dirty

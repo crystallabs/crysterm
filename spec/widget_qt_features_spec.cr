@@ -262,6 +262,26 @@ describe Crysterm::Widget::PlainTextEdit do
     ta.cursor_pos.should eq 0
   end
 
+  it "scrolls the last line into view when a horizontal bar reserves a row (both overflows)" do
+    s = qt_mem_screen
+    long = "X" * 40
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 5,
+      wrap_content: false, content: (1..20).map { |i| "#{long} L#{i}" }.join("\n")
+    s._render
+    # Preconditions: both overflows — long lines show a horizontal bar (which
+    # reserves the bottom interior row), and there are more lines than fit.
+    ta.show_horizontal_scrollbar?.should be_true
+    ta.hscrollbar_rows.should eq 1
+    (ta.get_scroll_height > ta.aheight).should be_true
+
+    ta.scroll 1000 # scroll all the way down
+    # The bar's row is not content, so `#scroll` must let `@child_base` reach
+    # `scroll_height - (visible content rows)` — one row further than if the
+    # bar's row were miscounted as content (which left the last line unreachable).
+    visible = ta.aheight - ta.iheight - ta.hscrollbar_rows
+    ta.child_base.should eq ta.get_scroll_height - visible
+  end
+
   it "drags the horizontal bar without moving the caret" do
     s = qt_mem_screen
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,
