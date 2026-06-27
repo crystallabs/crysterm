@@ -51,6 +51,14 @@ module Crysterm
       # Moving the pointer onto a row highlights it (the box keeps focus, so the
       # list gets these as hover, not key, events).
       @hover_select = true
+      # The drop-down never takes focus — the owning box keeps it the whole time
+      # (so typing keeps filtering). Without this, a wheel (or click) over the
+      # popup would auto-focus it (`Screen#dispatch_mouse` focuses the topmost
+      # focusable widget under a wheel/press), blurring the box — which the
+      # completer treats as "focus left" and closes the popup. Opting out of
+      # focus-on-pointer keeps the box focused, so the wheel can scroll/cycle the
+      # list instead of dismissing it.
+      @focus_on_click = false
 
       property completer : Completer?
 
@@ -91,9 +99,39 @@ module Crysterm
         selekt index
       end
 
+      # All cursor movement (arrow keys via `cursor_down`/`cursor_up`, and the
+      # per-row wheel handler `List` installs, which calls `move ±2`) funnels
+      # through here so the wheel behaves exactly like the arrows: reveal the
+      # cursor on the first notch, then step one row per notch. The base `move`
+      # would step by the raw offset (±2, skipping rows) and never set
+      # `cursor_shown?`, so the highlight — gated on it in `render_style_for` —
+      # would shift invisibly. `selekt` (not `down`/`up`) avoids recursing back
+      # into `move`.
+      def move(offset) : Nil
+        return if offset == 0
+        if cursor_shown?
+          selekt @selected + (offset > 0 ? 1 : -1)
+        else
+          reveal(offset > 0 ? 0 : @items.size - 1)
+        end
+      end
+
       # Pointer onto a row counts as choosing it, so show the cursor there.
       def hover_item(i : Int)
         @cursor_shown = true
+        super
+      end
+
+      # The drop-down's auto-created scrollbar (appears once the match set
+      # overflows `max_visible`) must not steal focus either — same reason as
+      # `@focus_on_click = false` above. A wheel (or press) over the bar
+      # otherwise focuses it (`Screen#dispatch_mouse` focuses the topmost
+      # focusable widget under a wheel/press), blurring the box, which the
+      # completer treats as "focus left" and closes the popup. Opting the bar out
+      # of focus-on-pointer keeps the box focused, so the wheel scrolls the list
+      # through the bar instead of dismissing it.
+      private def bind_scrollbar(sb : Widget::ScrollBar) : Widget::ScrollBar
+        sb.focus_on_click = false
         super
       end
 
@@ -349,13 +387,13 @@ module Crysterm
           overflow: Crysterm::Overflow::MoveWidget,
         )
         pop.completer = self
-        # The wheel moves the highlight while the list is open (the box keeps
-        # focus, so the list won't get these as key events). Route through
-        # `cursor_down`/`cursor_up` — not the raw `down`/`up` — so the wheel
-        # *reveals* the cursor (and then moves it) exactly like the arrow keys.
-        # With the raw moves the cursor stays hidden (`cursor_shown?` only flips
-        # on `cursor_down`/`cursor_up`/hover), so the highlight would shift
-        # invisibly and a following arrow press would snap it back to `reveal(0)`.
+        # The wheel cycles the highlight while the list is open (the box keeps
+        # focus, so the list won't get these as key events). A wheel over a *row*
+        # is handled by the per-item handler `List` installs (`move ±2`), which
+        # `Popup#move` reroutes to the reveal-then-single-step cursor behavior;
+        # this handler covers a wheel over the popup's *border/padding* (where the
+        # topmost widget is the popup itself, not a row), going through the same
+        # `cursor_down`/`cursor_up` so both spots behave identically.
         pop.on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_down?
             pop.cursor_down; e.accept; pop.request_render

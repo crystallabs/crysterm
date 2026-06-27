@@ -247,34 +247,44 @@ describe Crysterm::Completer do
     c.detach
   end
 
-  # The drop-down opens with no row highlighted; only `cursor_down`/`cursor_up`
-  # (or a hover) reveal the cursor. The wheel-scroll handler must therefore go
-  # through `cursor_down`/`cursor_up` — raw `down`/`up` move the selection while
-  # leaving the cursor hidden, so the highlight would shift invisibly and a
-  # following arrow press would snap it back to the top.
-  it "reveals the cursor on cursor_down/up (what the wheel uses), not on raw down/up" do
+  # The drop-down opens with no row highlighted (via `reset_cursor`/`selekt`);
+  # any *movement* — the arrow keys (`cursor_down`/`cursor_up`) or the mouse
+  # wheel — reveals the cursor on the first step and then single-steps it. The
+  # per-item wheel handler `List` installs calls `move ±2`, so `Popup#move` is
+  # the funnel that gives raw `move`/`down`/`up` the same reveal-then-step
+  # behavior; otherwise a wheel over a row would shift the (still-hidden)
+  # selection invisibly and by two rows at a time.
+  it "reveals and single-steps the cursor on any movement (arrows or wheel)" do
     s = add_mem_screen
     pop = Crysterm::Completer::Popup.new(screen: s, width: 16, height: 6)
     pop.set_items %w[apple apricot banana blueberry]
 
+    # Opens with no row highlighted; `reset_cursor` uses `selekt`, not `move`,
+    # so it does not reveal.
     pop.reset_cursor
     pop.cursor_shown?.should be_false
 
-    # Raw List navigation (the old wheel behaviour): selection moves, cursor
-    # stays hidden — the highlight would not render.
-    pop.down
-    pop.cursor_shown?.should be_false
-
-    # The wheel now uses these: first step reveals the cursor on row 0, the next
-    # advances it — exactly like the arrow keys, so the highlight tracks visibly.
-    pop.reset_cursor
+    # The arrow keys: first step reveals the cursor on row 0, the next advances
+    # it one row, so the highlight tracks visibly.
     pop.cursor_down
     pop.cursor_shown?.should be_true
     pop.selected.should eq 0
     pop.cursor_down
     pop.selected.should eq 1
-
     pop.cursor_up
+    pop.selected.should eq 0
+
+    # The wheel funnels through `move` (the per-item handler passes ±2): it too
+    # reveals on the first notch and then single-steps — never jumping rows nor
+    # leaving the cursor hidden.
+    pop.reset_cursor
+    pop.cursor_shown?.should be_false
+    pop.move 2
+    pop.cursor_shown?.should be_true
+    pop.selected.should eq 0
+    pop.move 2
+    pop.selected.should eq 1
+    pop.move(-2)
     pop.selected.should eq 0
   end
 end

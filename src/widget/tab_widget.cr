@@ -94,6 +94,10 @@ module Crysterm
           show_tab e.index unless @switching
         end
 
+        # Wheel over the bar's free cells cycles tabs (a wheel over a tab *item*
+        # is handled per item in `#wire_close`, since mouse events don't bubble).
+        bar.on(::Crysterm::Event::Mouse) { |e| wheel_cycle e }
+
         # Close (Delete) and reorder (`<`/`>`) the current tab from the bar.
         bar.on(::Crysterm::Event::KeyPress) do |e|
           if tabs_closable? && e.key == ::Tput::Key::Delete
@@ -175,6 +179,7 @@ module Crysterm
       # that would otherwise switch to the tab.
       private def wire_close(item : Widget) : Nil
         item.on(::Crysterm::Event::Mouse) do |e|
+          next if wheel_cycle e
           next unless tabs_closable? && e.action.down?
           next unless i = bar.items.index(item)
           if e.x >= item.aleft + item.awidth - 2 && e.x < item.aleft + item.awidth
@@ -315,6 +320,22 @@ module Crysterm
         else
           show_tab to
         end
+      end
+
+      # Cycles tabs on a wheel notch over the bar — down to the next tab, up to
+      # the previous (both wrap), matching a browser tab strip. Returns `true`
+      # when it consumed a wheel notch so the caller can stop; `false` otherwise.
+      # Accepting the event suppresses the screen's default "scroll the view".
+      private def wheel_cycle(e : ::Crysterm::Event::Mouse) : Bool
+        if e.action.wheel_down?
+          next_tab
+        elsif e.action.wheel_up?
+          previous_tab
+        else
+          return false
+        end
+        e.accept
+        true
       end
 
       # Selects the next tab (wrapping at the end).
