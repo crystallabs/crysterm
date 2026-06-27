@@ -66,6 +66,7 @@ module Crysterm
         @value = true
         invalidate_css # `checked`/`indeterminate` attribute selectors may now match
         emit Crysterm::Event::Check, @value
+        request_render # repaint the marker (matches `AbstractButton#check`)
       end
 
       def uncheck
@@ -75,6 +76,7 @@ module Crysterm
         @value = false
         invalidate_css
         emit Crysterm::Event::UnCheck, @value
+        request_render # repaint the marker (matches `AbstractButton#uncheck`)
       end
 
       # Puts the box in its partially-checked (indeterminate) state. No-op unless
@@ -87,6 +89,7 @@ module Crysterm
         @value = false
         invalidate_css
         emit Crysterm::Event::PartialCheck, @value
+        request_render # repaint the `-` marker
       end
 
       # Cycles to the next state. With `#tristate?` the order matches Qt:

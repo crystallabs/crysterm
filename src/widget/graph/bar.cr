@@ -33,8 +33,11 @@ module Crysterm
       # ![Bar screenshot](../../../examples/widget/graph/bar/bar-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Bar < Box
-        # The data series. Each element is one bar.
-        property values : Array(Float64)
+        # The data series. Each element is one bar. (A `getter` with an explicit
+        # setter below, rather than a `property`, so *every* assignment — including
+        # an `Array(Float64)` literal that would otherwise bind the generated
+        # setter — routes through the repaint-scheduling `#values=`.)
+        getter values : Array(Float64)
 
         # Category captions drawn (centered, one row) under each bar. `nil` or
         # empty for none.
@@ -80,6 +83,7 @@ module Crysterm
         # Accepts any numeric array, coercing to `Float64`.
         def values=(vals : Array)
           @values = vals.map(&.to_f)
+          mark_dirty # repaint on data change (Qt's property-change-triggers-update), as in `StackedBar`
         end
 
         def render

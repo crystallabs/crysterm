@@ -15,8 +15,38 @@ module Crysterm
       # Lower/upper bounds of the value range (inclusive), like Qt's
       # `minimum`/`maximum`. With the defaults (0..100) a value equals its
       # percentage. Setting `maximum == minimum` yields a "busy"/empty bar.
-      property minimum : Int32 = 0
-      property maximum : Int32 = 100
+      getter minimum : Int32 = 0
+      getter maximum : Int32 = 100
+
+      # Sets the lower bound (Qt's `setMinimum`), re-clamping the value into the
+      # new range and repainting. See `#set_range`.
+      def minimum=(v : Int32) : Int32
+        set_range v, @maximum
+        @minimum
+      end
+
+      # Sets the upper bound (Qt's `setMaximum`), re-clamping the value into the
+      # new range and repainting. See `#set_range`.
+      def maximum=(v : Int32) : Int32
+        set_range @minimum, v
+        @maximum
+      end
+
+      # Sets both bounds at once (Qt's `setRange`). Since `#filled` and the
+      # `%p`/`%m`/`%M` text are all derived from the range, changing it alters the
+      # rendered bar, so this re-clamps the current value into the new range and
+      # schedules a repaint. Never stores an inverted range (an `Int32` `property`
+      # used to do neither, leaving the value out of range and the bar stale).
+      def set_range(min : Int32, max : Int32) : Nil
+        max = min if max < min
+        return if min == @minimum && max == @maximum
+        @minimum = min
+        @maximum = max
+        # Re-clamp; `#value=` repaints and emits only on an actual change, so
+        # `#request_render` below covers the value-unchanged-but-range-changed case.
+        self.value = @value.clamp(@minimum, @maximum)
+        request_render
+      end
 
       # Amount a single key press (or default `#progress`) moves the value by,
       # in domain units. Mirrors Qt's `QAbstractSlider#singleStep`.
