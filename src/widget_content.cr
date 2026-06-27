@@ -1172,8 +1172,17 @@ module Crysterm
       # real
 
       if i >= @_clines.ftor.size
-        real = @_clines.ftor[@_clines.ftor.size - 1]
-        real = real[-1] + 1
+        # `ftor` is empty before the first wrap — a freshly built widget, or one
+        # whose content cleared to empty (`set_content ""` early-returns without
+        # wrapping, leaving `@_clines` at its initial empty state). `ftor[-1]`
+        # then raised `IndexError`, crashing `insert_line`/`unshift_line`/
+        # `insert_top` on such a widget. Default the insert point to the first
+        # real line, mirroring the empty-content guards in `#get_line`/`#rtof_index`.
+        if last_row = @_clines.ftor.last?
+          real = last_row[-1] + 1
+        else
+          real = 0
+        end
       else
         real = @_clines.ftor[i][0]
       end

@@ -309,6 +309,32 @@ describe Crysterm::Widget::PlainTextEdit do
     ta.child_base.should eq ta.get_scroll_height - visible
   end
 
+  it "pages by visible content rows, not counting the horizontal bar's row" do
+    s = qt_mem_screen
+    # Long lines force a horizontal bar (reserving the bottom interior row);
+    # many lines force vertical overflow. Single fixed-width lines keep the
+    # cursor->offset mapping simple (col 0 stays col 0 across Page Down).
+    line = "X" * 40
+    ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 5,
+      wrap_content: false, content: (1..30).map { line }.join("\n")
+    ta.focus
+    s._render
+
+    ta.show_horizontal_scrollbar?.should be_true
+    ta.hscrollbar_rows.should eq 1
+
+    # Page Down should move by the *visible content* rows (which exclude the
+    # bar's reserved row) less one overlap row — not by the full inner height.
+    visible = ta.aheight - ta.iheight - ta.hscrollbar_rows
+    expected_page = Math.max(1, visible - 1)
+
+    ta.cursor_pos = 0 # start at row 0, col 0
+    ta._listener keypress(' ', Tput::Key::PageDown)
+
+    # Non-wrapped fixed-width lines: row r, col 0 == cursor_pos r*(len+1).
+    ta.cursor_pos.should eq expected_page * (line.size + 1)
+  end
+
   it "drags the horizontal bar without moving the caret" do
     s = qt_mem_screen
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 3,

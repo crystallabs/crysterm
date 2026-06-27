@@ -320,9 +320,15 @@ module Crysterm
       end
 
       # Number of visual rows to move per Page Up/Down: one viewport's worth, less
-      # one row of overlap for reading continuity (at least 1).
+      # one row of overlap for reading continuity (at least 1). A "viewport's
+      # worth" is the *visible content* rows, so a shown horizontal bar's reserved
+      # bottom row (`hscrollbar_rows`) is subtracted — exactly as `#scroll`,
+      # `#ensure_visible`, and `#clamp_child_base_to_content` do. Omitting it
+      # over-counted the page by the bar's row, so Page Down advanced one row too
+      # far and lost the overlap row whenever a horizontal bar was shown. (No-op
+      # when no bar is shown — `hscrollbar_rows` is then 0.)
       private def page_rows
-        Math.max(1, (aheight - iheight) - 1)
+        Math.max(1, (aheight - iheight - hscrollbar_rows) - 1)
       end
 
       # Scroll the *viewport* (only `@child_base`) so the caret's real (wrapped)
