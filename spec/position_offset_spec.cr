@@ -21,6 +21,20 @@ describe "center±N / half±N position & size offsets" do
     minus.atop.should eq base.atop - 3
   end
 
+  it "keeps the trailing offset when a centered widget shrinks to content" do
+    s = headless_screen
+    base = Widget::Box.new parent: s, top: "center", left: "center", content: "hi", resizable: true
+    plus = Widget::Box.new parent: s, top: "center", left: "center+4", content: "hi", resizable: true
+    s.render
+
+    bp = base._get_coords(true).not_nil!
+    pp = plus._get_coords(true).not_nil!
+    # Same shrunk size, and the offset shifts the box right by exactly 4 cells
+    # (it used to land far off because the recenter only matched bare "center").
+    (pp.xl - pp.xi).should eq(bp.xl - bp.xi)
+    (pp.xi - bp.xi).should eq 4
+  end
+
   it "offsets a half size by the trailing amount" do
     s = headless_screen
     half = Widget::Box.new parent: s, width: "half", height: "half"

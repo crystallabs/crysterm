@@ -336,14 +336,18 @@ module Crysterm
         yl = minimal_content_rectangle.yl
       end
 
-      # Recenter shrunken elements.
-      if xl < xll && @left == "center"
+      # Recenter shrunken elements. Matches `center`/`center±N` alike (via
+      # `center_expr?`): a shrunk widget pulled its origin back by half its
+      # *full* width in `aleft`, so without recentering by half the freed space
+      # an offset-centered (`center+N`) widget lands far off — the offset form is
+      # already honored everywhere else centering is computed.
+      if xl < xll && center_expr?(@left)
         xll = (xll - xl) // 2
         xi += xll
         xl += xll
       end
 
-      if yl < yll && @top == "center"
+      if yl < yll && center_expr?(@top)
         yll = (yll - yl) // 2
         yi += yll
         yl += yll
