@@ -559,11 +559,34 @@ module Crysterm
       private def self.inherit_into(widget : Widget, parent : Style?) : Nil
         normal = widget.styles.normal
         if parent
-          normal.fg = parent.fg if !normal.specified?(:fg) && parent.specified?(:fg)
-          normal.bold = parent.bold? if !normal.specified?(:bold) && parent.specified?(:bold)
-          normal.italic = parent.italic? if !normal.specified?(:italic) && parent.specified?(:italic)
+          inherit_props normal, parent
+          # An inherited value is *stateless* — it must reach every state the
+          # widget renders in, exactly as a stateless `color`/`font-*` rule does
+          # (the base fold folds such rules into `normal` *and* every materialized
+          # state; see the `base.each` fold above). Inheritance only seeded
+          # `normal`, so a widget whose color/weight/slant comes solely from its
+          # parent lost it the instant it entered a state with its own rule — e.g.
+          # a field given a bg-only `:focus` rule rendered its focused text in the
+          # terminal default fg instead of the inherited color. So propagate into
+          # this widget's *materialized* non-normal states too, wherever they leave
+          # the property unset. A lazily-falling-back state shares the very
+          # `normal` object (`for_state` returns `normal` when unset), so `same?`
+          # skips it — it already sees the inherited value through `normal`.
+          WidgetState.values.each do |state|
+            next if state.normal?
+            st = widget.styles.for_state(state)
+            inherit_props st, parent unless st.same?(normal)
+          end
         end
         widget.children.each { |child| inherit_into child, normal }
+      end
+
+      # Copies the classically-inherited properties from *parent* onto *style*
+      # wherever *style* leaves them unset (so an explicit value always wins).
+      private def self.inherit_props(style : Style, parent : Style) : Nil
+        style.fg = parent.fg if !style.specified?(:fg) && parent.specified?(:fg)
+        style.bold = parent.bold? if !style.specified?(:bold) && parent.specified?(:bold)
+        style.italic = parent.italic? if !style.specified?(:italic) && parent.specified?(:italic)
       end
 
       # --- per-state style accessors -----------------------------------------
