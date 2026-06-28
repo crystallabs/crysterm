@@ -40,6 +40,14 @@ module Crysterm
     {% for dim in %w[min_width max_width min_height max_height] %}
       def {{dim.id}}=(val : Int32?)
         return if @{{dim.id}} == val
+        # A size *constraint* change alters the effective `awidth`/`aheight` (via
+        # `clamp_awidth`/`clamp_aheight`) exactly as `width=`/`height=` do, so it
+        # must emit `Resize` too. Otherwise `Event::Resize` listeners never fire —
+        # e.g. `Mixin::ItemView#on_resize` (which recomputes the scroll
+        # `child_base`/`child_offset` for the new viewport height) and
+        # `Mixin::TextEditing`'s Resize→`_update_cursor` — leaving scroll/cursor
+        # state stale after a stylesheet `max-height`/`min-width` (or direct set).
+        emit ::Crysterm::Event::Resize
         @{{dim.id}} = val
         mark_dirty
       end

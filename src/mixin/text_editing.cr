@@ -270,7 +270,15 @@ module Crysterm
         head = @value[0...c]
         fake_line = head.count('\n')
         nl = head.rindex('\n')
-        col = nl ? c - (nl + 1) : c
+        # Column within the logical line, measured in the SAME tab-expanded
+        # codepoints `process_content` lays `@_clines` out with. `@value` stores a
+        # TAB as one char, but the rendered/wrapped line carries it as
+        # `tab_char * tab_size`; counting raw `@value` codepoints here desynced the
+        # caret from the text whenever a TAB sat before it (the column — and, after
+        # an Up/Down through `pos_from_rowcol`, the caret itself — drifted left by
+        # `tab_size - 1` per TAB, even onto the wrong line). With no TAB this is the
+        # original `c - (nl + 1)` / `c`.
+        col = expanded_width(nl ? @value[(nl + 1)...c] : @value[0...c])
 
         reals = @_clines.ftor[fake_line]?
         if reals.nil? || reals.empty?
@@ -293,28 +301,63 @@ module Crysterm
         {last_r, (@_clines[last_r]? || "").size}
       end
 
-      # Inverse of `cursor_rowcol`: maps a real (wrapped) line and a codepoint
+      # Inverse of `cursor_rowcol`: maps a real (wrapped) line and a tab-expanded
       # column within it back to an index into `@value`. Used by Up/Down to land
       # the cursor on the visual row above/below at the desired column.
       private def pos_from_rowcol(rl : Int32, col : Int32) : Int32
         rl = rl.clamp(0, Math.max(0, @_clines.size - 1))
         fake_line = @_clines.rtof[rl]? || 0
 
-        # Offset of this real line's start within its fake (logical) line: the
-        # total codepoints of the preceding wrapped pieces of the same fake line.
-        offset = 0
+        # Expanded column within the fake (logical) line: this real line's start
+        # (the total *expanded* width of the preceding wrapped pieces of the same
+        # fake line) plus `col` (itself expanded — see `cursor_rowcol`).
+        exp_col = col
         (@_clines.ftor[fake_line]? || [rl]).each do |r|
           break if r >= rl
-          offset += (@_clines[r]? || "").size
+          exp_col += (@_clines[r]? || "").size
         end
 
-        # Start of the fake (logical) line within `@value`; logical lines are
-        # joined by '\n', so each preceding one contributes its size plus one.
+        # Start of the fake (logical) line within `@value`. `@_clines.fake` carries
+        # the TAB-expanded form, so its codepoint sizes can't index the raw
+        # `@value`; walk `@value`'s own newlines instead.
         base = 0
-        fake = @_clines.fake
-        fake_line.times { |k| base += (fake[k]? || "").size + 1 }
+        fake_line.times do
+          nl = @value.index('\n', base)
+          break unless nl
+          base = nl + 1
+        end
+        line_end = @value.index('\n', base) || @value.size
 
-        (base + offset + col).clamp(0, @value.size)
+        # Convert the expanded column back to a raw `@value` offset within the
+        # line, so a TAB before it counts as the single editable char it is rather
+        # than its `tab_size` rendered columns.
+        (base + unexpand_col(@value[base...line_end], exp_col)).clamp(0, @value.size)
+      end
+
+      # Codepoint count of *s* after TAB expansion (`tab_char * tab_size`, exactly
+      # as `process_content` expands it) — i.e. its width in the `@_clines` column
+      # units the caret math runs in. Equal to `s.size` when *s* has no TAB.
+      private def expanded_width(s : String) : Int32
+        return s.size unless s.includes?('\t')
+        s.gsub('\t', style.tab_char * style.tab_size).size
+      end
+
+      # Inverse of `#expanded_width`: the raw codepoint offset into *line* whose
+      # tab-expanded width is as large as possible without exceeding *exp_col* (so a
+      # caret column landing inside a TAB's expansion snaps to before the TAB). A
+      # plain `min(exp_col, size)` when *line* has no TAB.
+      private def unexpand_col(line : String, exp_col : Int32) : Int32
+        return Math.min(exp_col, line.size) unless line.includes?('\t')
+        tw = style.tab_char.size * style.tab_size
+        acc = 0
+        i = 0
+        line.each_char do |ch|
+          cw = ch == '\t' ? tw : 1
+          break if acc + cw > exp_col
+          acc += cw
+          i += 1
+        end
+        i
       end
 
       # Move the cursor by `rows` visual (wrapped) rows — negative is up, positive
