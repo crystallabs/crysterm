@@ -10,10 +10,21 @@ module Crysterm
 
       property orientation : Tput::Orientation = :horizontal
 
-      def initialize(@orientation = @orientation, char = nil, size = "100%", **box)
+      def initialize(@orientation = @orientation, char = nil, size = nil, **box)
         super **box
 
-        size.try { |s| self.line_size = s }
+        # `size` is the line's *length* (its `width` when horizontal, its `height`
+        # when vertical). Apply it when explicitly given; otherwise default a line
+        # that was given no length to fill its parent (`100%`). Previously `size`
+        # defaulted to `"100%"` and was applied unconditionally, so it silently
+        # clobbered an explicit `width:`/`height:` passed through `**box` — e.g.
+        # `HLine.new(width: 40)` (or the `width: 40` in the hline example) ended up
+        # `100%`-wide, and `VLine.new(height: 16)` `100%`-tall, ignoring the value.
+        if size
+          self.line_size = size
+        elsif (@orientation.horizontal? ? @width : @height).nil?
+          self.line_size = "100%"
+        end
 
         char ||= (@orientation == Tput::Orientation::Vertical ? '│' : '─')
 
