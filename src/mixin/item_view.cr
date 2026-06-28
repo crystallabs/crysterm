@@ -690,7 +690,15 @@ module Crysterm
           end
         end
 
-        @ritems = items
+        # `dup`, not a bare alias: the list owns `@ritems` and mutates it in place
+        # on every `append_item`/`insert_item`/`remove_item` (each paired with
+        # `invalidate_item_index`). Storing the caller's array directly would make
+        # those later mutations leak back into it — e.g. `list.set_items(arr)`
+        # followed by `list.push_item("x")` would silently append `"x"` to `arr` —
+        # and a caller mutating `arr` afterwards would desync `@ritems` from
+        # `@items`. A shallow copy (elements are immutable `String`s) severs both.
+        # (`to_a` would NOT do: `Array#to_a` returns `self`.)
+        @ritems = items.dup
         invalidate_item_index
 
         # Try to find our old item if it still exists
