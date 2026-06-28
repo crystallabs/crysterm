@@ -218,28 +218,30 @@ module Crysterm
       end
     end
 
-    private def respond(context, id, *, result : Int32 | String | Array(String) | Nil) : Nil
+    # Writes a JSON-RPC response envelope (`jsonrpc`/`id` header) to *context*,
+    # yielding the open object builder so the caller adds the `result` or `error`
+    # member. Shared by `#respond` and `#respond_error`.
+    private def respond_envelope(context, id, &) : Nil
       context.response.content_type = "application/json"
       JSON.build(context.response) do |json|
         json.object do
           json.field "jsonrpc", "2.0"
           id.try { |v| json.field "id", v }
-          json.field "result", result
+          yield json
         end
       end
     end
 
+    private def respond(context, id, *, result : Int32 | String | Array(String) | Nil) : Nil
+      respond_envelope(context, id) { |json| json.field "result", result }
+    end
+
     private def respond_error(context, id, code : Int32, message : String?) : Nil
-      context.response.content_type = "application/json"
-      JSON.build(context.response) do |json|
-        json.object do
-          json.field "jsonrpc", "2.0"
-          id.try { |v| json.field "id", v }
-          json.field "error" do
-            json.object do
-              json.field "code", code
-              json.field "message", message || "error"
-            end
+      respond_envelope(context, id) do |json|
+        json.field "error" do
+          json.object do
+            json.field "code", code
+            json.field "message", message || "error"
           end
         end
       end
