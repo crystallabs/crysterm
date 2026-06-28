@@ -34,8 +34,19 @@ module Crysterm
                   termp : Void*, winp : LibC::Winsize*) : LibC::Int
     end
 
-    # `TIOCSWINSZ` request number (Linux, arch-independent for mainstream archs).
-    TIOCSWINSZ = 0x5414_u64
+    # `TIOCSWINSZ` request number — the write-side companion of the term-screen
+    # shard's `LibC::TIOCGWINSZ`, and platform-specific for the same reason: the
+    # BSD/macOS `_IOW('t', 103, struct winsize)` encoding (`0x80087467`) differs
+    # from Linux's flat `0x5414`. A single hardcoded Linux value silently issued
+    # the wrong ioctl on macOS/BSD, so `#resize` was a no-op there and the child
+    # (vim/htop/less …) kept its initial geometry through every window resize.
+    {% if flag?(:darwin) || flag?(:bsd) %}
+      TIOCSWINSZ = 0x80087467_u64
+    {% elsif flag?(:solaris) %}
+      TIOCSWINSZ = 0x5467_u64
+    {% else %}
+      TIOCSWINSZ = 0x5414_u64 # Linux (and the default for anything else)
+    {% end %}
 
     # The master side of the PTY. Read it for child output; write to it to send
     # input to the child. Crystal classifies a PTY master (a character device) as
