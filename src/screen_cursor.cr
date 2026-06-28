@@ -196,24 +196,27 @@ module Crysterm
       {attr, ch}
     end
 
-    # Shows cursor `c` (the active cursor by default).
-    def show_cursor(c : Cursor = active_cursor)
+    # Shared show/hide path: *hidden* `false` shows, `true` hides. For an
+    # artificial cursor this flips its hidden flag and repaints (the buffer-drawn
+    # cursor appears/disappears on the next frame); for the hardware cursor it
+    # emits the matching tput escape.
+    private def set_cursor_hidden(c : Cursor, hidden : Bool) : Nil
       if c.artificial?
-        c._hidden = false
+        c._hidden = hidden
         render_if_active
       else
-        tput.show_cursor
+        hidden ? tput.hide_cursor : tput.show_cursor
       end
+    end
+
+    # Shows cursor `c` (the active cursor by default).
+    def show_cursor(c : Cursor = active_cursor)
+      set_cursor_hidden c, false
     end
 
     # Hides cursor `c` (the active cursor by default).
     def hide_cursor(c : Cursor = active_cursor)
-      if c.artificial?
-        c._hidden = true
-        render_if_active
-      else
-        tput.hide_cursor
-      end
+      set_cursor_hidden c, true
     end
 
     # Re-enables and resets the hardware cursor. If an artificial cursor was in

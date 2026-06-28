@@ -178,53 +178,36 @@ module Crysterm
       @window = nil
     end
 
+    # Runs one terminal-mode teardown step — *block* — only when *enabled*,
+    # swallowing any error: a user-closed window leaves dead fds whose writes
+    # raise, and the restore must press on regardless. Folds the repeated
+    # `if @_listened_… begin disable_… rescue end end` guard that
+    # `restore_terminal` applies to each optionally-enabled input mode.
+    private def restore_step(enabled : Bool, & : -> Nil) : Nil
+      return unless enabled
+      begin
+        yield
+      rescue
+      end
+    end
+
     # Best-effort restore of the terminal to its normal state. All steps are
     # guarded because a user-closed window leaves dead fds that raise on write.
     private def restore_terminal : Nil
-      begin
-        leave
-      rescue
-      end
+      restore_step(true) { leave }
 
       # On the alt-screen path `leave` (above) already disabled the mouse and
       # cleared `@_listened_mouse`, so this is a no-op. It still matters on the
       # non-alt path, where `leave` early-returns without touching the mouse:
-      # here we own disabling it and clearing the flag.
-      if @_listened_mouse
-        begin
-          disable_mouse
-        rescue
-        end
-        @_listened_mouse = false
-      end
+      # here we own disabling it and clearing the flag (unconditionally — when
+      # the flag is already false the assignment is a no-op).
+      restore_step(@_listened_mouse) { disable_mouse }
+      @_listened_mouse = false
 
-      if @_listened_keyboard
-        begin
-          disable_keyboard_protocol
-        rescue
-        end
-      end
-
-      if @_listened_paste
-        begin
-          disable_bracketed_paste
-        rescue
-        end
-      end
-
-      if @_listened_in_band_resize
-        begin
-          disable_in_band_resize
-        rescue
-        end
-      end
-
-      if @_listened_color_scheme
-        begin
-          disable_color_scheme_notifications
-        rescue
-        end
-      end
+      restore_step(@_listened_keyboard) { disable_keyboard_protocol }
+      restore_step(@_listened_paste) { disable_bracketed_paste }
+      restore_step(@_listened_in_band_resize) { disable_in_band_resize }
+      restore_step(@_listened_color_scheme) { disable_color_scheme_notifications }
 
       # Restore line discipline on a real, still-open tty.
       @input.try do |i|

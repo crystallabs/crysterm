@@ -359,6 +359,23 @@ module Crysterm
       end
     end
 
+    # Re-renders a changed root in place for the selective composite paths:
+    # clears its *old* footprint (so cells it vacated revert to bare base),
+    # repaints it, then recomputes and stores its new damage bounds. Returns the
+    # `{old, new}` footprints. Shared by the Phase 2 (`damage_try_composite`) and
+    # Phase 4 (`damage_plane_composite`) renders, which both clear-then-repaint
+    # each changed root before clustering. (The `old` push into the caller's
+    # vacated-footprint accumulator is left to the caller, since the two paths
+    # differ in what else they do with `old`/`new`.)
+    private def damage_reclear_root(root : Widget) : {Tuple(Int32, Int32, Int32, Int32)?, Tuple(Int32, Int32, Int32, Int32)?}
+      old = root.damage_bounds
+      clear_region old[0], old[1], old[2], old[3] if old
+      root.render
+      nb = damage_subtree_bounds root
+      root.damage_bounds = nb
+      {old, nb}
+    end
+
     # Attempts the selective (damage-tracking) composite. Returns `true` if it
     # painted the frame, or `false` if a precondition failed and the caller must
     # run `damage_full_composite` instead. Any partial writes it made are
@@ -436,14 +453,8 @@ module Crysterm
       olds = @damage_dirty_old
       olds.clear
       dirty.each do |root|
-        old = root.damage_bounds
+        old, nb = damage_reclear_root root
         olds << old
-        if old
-          clear_region old[0], old[1], old[2], old[3]
-        end
-        root.render
-        nb = damage_subtree_bounds root
-        root.damage_bounds = nb
         if rect = damage_union(old, nb)
           damaged << rect
         end
@@ -752,11 +763,8 @@ module Crysterm
       olds.clear
       dirty.each do |root|
         next if root.style.z_index
-        old = root.damage_bounds
+        old, _ = damage_reclear_root root
         olds << old
-        clear_region old[0], old[1], old[2], old[3] if old
-        root.render
-        root.damage_bounds = damage_subtree_bounds root
       end
       # A base dirty root deferred a nested layer, or wrote outside the cell model.
       return false if @frame_used_effects
