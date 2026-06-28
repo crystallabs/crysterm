@@ -301,7 +301,7 @@ module Crysterm
         out.empty? ? nil : out
       end
 
-      # Parses `animation: <name> <duration> [easing] [<count>|infinite] [alternate]`,
+      # Parses `animation: <name> <duration> [easing] [<delay>] [<count>|infinite] [alternate]`,
       # e.g. `pulse 2s ease-in-out infinite alternate`. Order after name/duration
       # is flexible. `none`/empty clears it.
       private def self.parse_animation(value : String) : Style::AnimationSpec?
@@ -309,15 +309,22 @@ module Crysterm
         return nil if toks.empty? || Case.fold_keyword(toks[0]) == "none"
         name = toks[0]
         dur = 1.seconds
+        dur_seen = false
         easing = Animation::Easing::Linear
         iterations : Int32? = 1
         alternate = false
         toks[1..].each do |t|
-          # A unit-suffixed token is the duration; a bare integer is the
-          # iteration count (so `... 0.15s ... 1` doesn't read "1" as seconds).
+          # A unit-suffixed token is a time; a bare integer is the iteration count
+          # (so `... 0.15s ... 1` doesn't read "1" as seconds).
           tl = Case.fold_unit(t)
           if (tl.ends_with?("ms") || tl.ends_with?("s")) && (span = parse_time(t))
-            dur = span
+            # Per the CSS shorthand the *first* <time> is the duration and the
+            # *second* is the delay. Crysterm has no animation-delay, so only the
+            # first time token sets the duration; a following delay is consumed
+            # here but ignored — without this it overwrote the duration, so e.g.
+            # `slidein 3s ease-in 1s infinite` ran at the 1s delay instead of 3s.
+            dur = span unless dur_seen
+            dur_seen = true
           elsif tl == "infinite"
             iterations = nil
           elsif tl == "alternate"
