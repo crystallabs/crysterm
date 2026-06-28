@@ -229,10 +229,7 @@ module Crysterm
       # untouched; a `#dup` is taken before toggling so a shared style is never
       # mutated in place.
       private def selection_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
-        return st if @css_styled || st.specified?(:fg) || st.specified?(:bg) || st.reverse?
-        st = st.dup
-        st.reverse = true
-        st
+        reverse_highlight_fallback st
       end
 
       # Focus counterpart of `#selection_highlight_fallback`, gated additionally
@@ -247,6 +244,16 @@ module Crysterm
       # is taken before toggling so a shared style is never mutated in place.
       private def focus_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         return st unless floor_focus_reverse?
+        reverse_highlight_fallback st
+      end
+
+      # Shared core of `#selection_highlight_fallback`/`#focus_highlight_fallback`:
+      # at the unstyled floor (`@css_styled` false), a state style that carries no
+      # visible distinction of its own (no fg/bg/reverse) is shown via reverse-video
+      # so the entry reads on any terminal with no theme; otherwise *st* is returned
+      # untouched. A `#dup` is taken before toggling so a shared style is never
+      # mutated in place.
+      private def reverse_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         return st if @css_styled || st.specified?(:fg) || st.specified?(:bg) || st.reverse?
         st = st.dup
         st.reverse = true
