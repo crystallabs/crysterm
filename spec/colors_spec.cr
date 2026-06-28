@@ -87,6 +87,23 @@ describe Crysterm::Colors do
       Attr.unpack_color(Attr.bg(blended)).should eq 0x404040 # darkened toward black
     end
   end
+
+  describe ".tint" do
+    it "overlays the fg and bg toward the tint color by the given strength" do
+      a = Attr.pack(0, Attr.pack_color(0x000000), Attr.pack_color(0x000000))
+      tinted = Colors.tint(a, 0xffffff, 0.5) # halfway toward white
+      Attr.unpack_color(Attr.fg(tinted)).should eq 0x7f7f7f
+      Attr.unpack_color(Attr.bg(tinted)).should eq 0x7f7f7f
+    end
+
+    it "is a no-op for an unknown (-1) tint color instead of washing toward white" do
+      # A tint color of -1 (e.g. a `style.tint` set from a color string that did
+      # not parse) has nothing to tint toward, so the attr must come back
+      # unchanged — not blended toward 0xFFFFFF as a raw `mix(-1, ...)` would.
+      a = Attr.pack(Attr::BOLD, Attr.pack_color(0x102030), Attr.pack_color(0x405060))
+      Colors.tint(a, -1, 0.5).should eq a
+    end
+  end
 end
 
 describe Crysterm::Attr do

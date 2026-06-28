@@ -84,7 +84,8 @@ module Crysterm
     # black and leaves "default" colors untouched, a tint resolves a default
     # field to the configured terminal default (`default_fg_rgb`/`default_bg_rgb`)
     # so the overlay is visible there too — unless that default is itself unknown
-    # (`-1`), in which case the field is left as-is.
+    # (`-1`), in which case the field is left as-is. An unknown tint `color`
+    # (`-1`) is likewise a no-op: `attr` is returned unchanged.
     def self.tint(attr : Int64, color : Int32, alpha : Float | Int = 0.5) : Int64
       fg = tint_field(Attr.fg(attr), color, alpha, true)
       bg = tint_field(Attr.bg(attr), color, alpha, false)
@@ -93,6 +94,15 @@ module Crysterm
 
     # Tints a single packed color field toward `color`. Returns a packed field.
     def self.tint_field(field : Int64, color : Int32, alpha, fg : Bool) : Int64
+      # An unknown tint color (`-1`) — e.g. a `style.tint` set from a color string
+      # that didn't parse, which `Style#tint=` stores as the `-1` sentinel
+      # (`convert_cached`'s "unknown" result) — has nothing meaningful to tint
+      # toward, so leave the field unchanged. Without this, `mix` reads `-1`'s
+      # bits as `0xFFFFFF` and washes the cell toward white instead. The CSS
+      # `tint` parser already drops a `-1` color; this makes the programmatic
+      # path (`Widget#tint_to`, a raw `style.tint=`) just as safe. Mirrors how
+      # `#blend_field` leaves a default/unknown field untouched.
+      return field if color == -1
       base = Attr.default?(field) ? (fg ? default_fg_rgb : default_bg_rgb) : field.to_i32
       return field if base == -1 # unknown terminal default: nothing to tint toward
       # `mix(color, base, alpha)` lands on `color` at alpha 1, `base` at alpha 0
