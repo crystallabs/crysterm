@@ -512,6 +512,17 @@ module Crysterm
       # Clear each member's footprint and the changed roots' vacated cells, then
       # repaint every member in `@children` (z) order — the painter's algorithm
       # over exactly the cluster's cells.
+      damage_repaint_cluster frontier
+
+      !(@frame_used_effects || !@layer_widgets.empty?)
+    end
+
+    # Clears the cluster's cells (*frontier* = member footprints + glue) and
+    # repaints every cluster member — a base (non-z) child marked with the
+    # current `@damage_stamp` — in `@children` (z) order, refreshing its bounds.
+    # This is the painter's algorithm over exactly the cluster's cells, shared by
+    # the Phase 2 overlap recomposite and the Phase 4 plane base rebuild.
+    private def damage_repaint_cluster(frontier : Array(Tuple(Int32, Int32, Int32, Int32))) : Nil
       frontier.each { |r| clear_region r[0], r[1], r[2], r[3] }
       stamp = @damage_stamp
       @children.each do |el|
@@ -520,8 +531,6 @@ module Crysterm
         el.render
         el.damage_bounds = damage_subtree_bounds el
       end
-
-      !(@frame_used_effects || !@layer_widgets.empty?)
     end
 
     # Builds the connected cluster of base (non-z) top-level children to
@@ -721,13 +730,7 @@ module Crysterm
         pl.clear
         @compositing_layers = true
         begin
-          with_render_target(pl.cells) do
-            cur.each do |el|
-              el.compositing = true
-              el.render
-              el.compositing = false
-            end
-          end
+          render_members_into_plane pl, cur
         ensure
           @compositing_layers = false
         end
@@ -782,14 +785,7 @@ module Crysterm
 
       # Clear the cluster's cells (member footprints + glue) and repaint members in
       # `@children` (z) order — a region-local pre-plane base rebuild.
-      frontier.each { |r| clear_region r[0], r[1], r[2], r[3] }
-      stamp = @damage_stamp
-      @children.each do |el|
-        next if el.style.z_index
-        next unless el.damage_seen == stamp
-        el.render
-        el.damage_bounds = damage_subtree_bounds el
-      end
+      damage_repaint_cluster frontier
       return false if @frame_used_effects
       return false unless @layer_widgets.empty?
 

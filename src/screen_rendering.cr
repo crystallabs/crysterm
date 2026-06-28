@@ -318,6 +318,22 @@ module Crysterm
       end
     end
 
+    # Renders each of *members* into *pl*'s own buffer with its `compositing`
+    # flag set for the duration — so each layer widget paints opaquely into the
+    # plane (its render-time alpha self-blend suppressed), the layer's
+    # translucency being applied once at fold time as the plane's opacity. Shared
+    # by the full `#composite_planes` pass and the selective `#damage_plane_composite`
+    # (Phase 4); both manage `@compositing_layers` around their own call.
+    private def render_members_into_plane(pl : Plane, members : Enumerable(Widget)) : Nil
+      with_render_target(pl.cells) do
+        members.each do |el|
+          el.compositing = true
+          el.render
+          el.compositing = false
+        end
+      end
+    end
+
     # Renders every layered widget collected this frame (any widget, at any
     # nesting depth, that declares `style.z_index`) into its plane, then
     # composites the planes over the base buffer bottom-to-top. A no-op — and
@@ -354,13 +370,7 @@ module Crysterm
           # `#compositing`).
           pl.opacity = members.first.style.alpha? || 1.0
           @_plane_dock_stops.clear
-          with_render_target(pl.cells) do
-            members.each do |el|
-              el.compositing = true
-              el.render
-              el.compositing = false
-            end
-          end
+          render_members_into_plane pl, members
           # Join overlapping overlay borders (e.g. a menu chain) on the plane's
           # own buffer before it composites down. The plane holds only the overlay
           # widgets' cells (everything else is transparent), so docking here can
