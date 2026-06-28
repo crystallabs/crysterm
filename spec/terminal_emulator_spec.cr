@@ -115,6 +115,22 @@ describe Crysterm::TerminalEmulator do
       cell = em.lines[0][0]
       Crysterm::Attr.unpack_color(Crysterm::Attr.fg(cell.attr)).should eq 0xcd0000
     end
+
+    it "ignores a private/intermediate-prefixed CSI m (modifyOtherKeys), not as SGR" do
+      # `CSI > 4 ; 2 m` is xterm's modifyOtherKeys ("set key-modifier options"),
+      # which vim/neovim/tmux send at startup — it is NOT an SGR colour/style
+      # change. Treating it as SGR misread its `4` as underline, so every glyph
+      # printed afterwards came out wrongly underlined until the next reset.
+      em = emu
+      em.feed "\e[>4;2mX"
+      cell = em.lines[0][0]
+      cell.char.should eq 'X'
+      (Crysterm::Attr.flags(cell.attr) & Crysterm::Attr::UNDERLINE).should eq 0
+      # A real (unprefixed) SGR still applies, confirming the gate is specific.
+      em.feed "\e[4mY"
+      ycell = em.lines[0][1]
+      (Crysterm::Attr.flags(ycell.attr) & Crysterm::Attr::UNDERLINE).should_not eq 0
+    end
   end
 
   describe "erase" do

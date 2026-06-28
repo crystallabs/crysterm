@@ -546,7 +546,14 @@ module Crysterm
       when 'I' then forward_tab(param(0, 1)); @wrap_pending = false # CHT
       when 'Z' then back_tab(param(0, 1))                           # CBT
       when 'g' then tab_clear(param0(0))                            # TBC
-      when 'm' then apply_sgr
+      when 'm'
+        # Only a *plain* CSI (no private/intermediate prefix) is SGR. A
+        # prefixed form like `CSI > 4 ; 2 m` is xterm's modifyOtherKeys
+        # ("set key-modifier options"), which vim/neovim/tmux emit at startup —
+        # NOT a colour/style change. Running it through `apply_sgr` misread its
+        # `4` as SGR underline (and `0`/reset on the matching `CSI > 4 ; 0 m`),
+        # so every following glyph was wrongly underlined until the next reset.
+        apply_sgr if @csi_prefix.nil?
       when 'r'
         top = param(0, 1) - 1
         bot = param(1, @rows) - 1
