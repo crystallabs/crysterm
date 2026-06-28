@@ -24,6 +24,21 @@ module Crysterm
 
     # Inserts `element` to list of children at a specified position (at end by default)
     def insert(element, i = -1)
+      # A widget can never become a child of itself or of one of its own
+      # descendants: that would splice a *cycle* into the tree — `element` would
+      # end up both an ancestor and a child of `self` — so every parent/descendant
+      # walk (`#screen?`, `#has_descendant?`, `#invalidate_screen_cache`, the
+      # renderer's traversal) would recurse forever and overflow the stack. The
+      # damage is done immediately, the moment `element.parent = self` runs (its
+      # `#invalidate_screen_cache` walks the now-cyclic subtree). Qt's
+      # `QWidget::setParent` likewise refuses such a move; reject it as a no-op
+      # here, before any unlink/relink. `self.has_ancestor?(element)` covers
+      # `element` being any ancestor of `self`; the identity check covers
+      # re-inserting `self` into itself. A genuine reorder (re-inserting an
+      # existing *child* at a new index) is unaffected: a child is neither `self`
+      # nor an ancestor of `self`.
+      return if element.same?(self) || has_ancestor?(element)
+
       # A *nested* move that keeps the widget on this same screen must not churn
       # the screen-level `Detach`/`Attach` events: the widget never leaves the
       # screen, so those would wrongly fire transition handlers (a `Media` overlay
