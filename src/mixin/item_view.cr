@@ -617,6 +617,13 @@ module Crysterm
         if i < @ritems.size
           @ritems[i] = content
           invalidate_item_index
+          # Keep the cached selection `#value` in sync when the *selected* row's
+          # text is changed. `@value` is otherwise only refreshed by `#selekt`,
+          # which early-returns on an unchanged index — so editing the current
+          # item's content in place (e.g. `Pine`'s status row, or a `ListTable`
+          # re-formatting its selected row) left `value` stale, and any consumer
+          # of it (`Form` value collection, etc.) saw the previous text.
+          @value = clean_tags(content) if i == @selected
         end
       end
 
