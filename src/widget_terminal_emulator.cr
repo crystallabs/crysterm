@@ -261,6 +261,18 @@ module Crysterm
       end
     end
 
+    # Recycles the top line's `Array(Cell)` storage as a fresh blank bottom row
+    # (`shift` it off, blank it in place, `push` it back) instead of allocating a
+    # new `blank_line` and letting the displaced top become garbage. Used on the
+    # two full-screen `#scroll_up` paths that discard the top line — the alt page
+    # (no scrollback) and a full scrollback buffer — so neither allocates per
+    # scrolled line.
+    private def recycle_top_row : Nil
+      recycled = @lines.shift
+      blank_in_place recycled
+      @lines << recycled
+    end
+
     # The live (cursor) line.
     private def cur_line : Array(Cell)
       @lines[@ybase + @y]
@@ -945,9 +957,7 @@ module Crysterm
         # never grows `@lines`/`@ybase` (unbounded memory while a full-screen app
         # scrolls) and never exposes bogus "history" to scrollback navigation.
         if @alt_active
-          recycled = @lines.shift
-          blank_in_place recycled
-          @lines << recycled
+          recycle_top_row
           return
         end
         # xterm holds the scrollback position when fresh output arrives while the
@@ -962,9 +972,7 @@ module Crysterm
           # `push` it back as the new bottom row. The resulting `@lines` (and
           # `@ybase`, left unchanged) are identical to the old push-then-trim, but
           # this path now allocates nothing on every scrolled line.
-          recycled = @lines.shift
-          blank_in_place recycled
-          @lines << recycled
+          recycle_top_row
           # Every row shifted up by one, so a held scrollback view shifts with it
           # (clamped at the top) to stay on the same content.
           @ydisp -= 1 unless follow || @ydisp == 0

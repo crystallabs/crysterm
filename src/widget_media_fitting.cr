@@ -88,18 +88,7 @@ module Crysterm
           return sampled
         end
 
-        out = Array(Array(PNGGIF::Pixel)).new(bh) { Array.new(bw, TRANSPARENT) }
-        sampled.each_with_index do |srow, y|
-          ty = y + oy
-          next if ty < 0 || ty >= bh
-          orow = out[ty]
-          srow.each_with_index do |px, x|
-            tx = x + ox
-            next if tx < 0 || tx >= bw
-            orow[tx] = px
-          end
-        end
-        out
+        place_at sampled, bw, bh, ox, oy
       end
 
       # Centers *src* (its own size) into a *bw*×*bh* transparent canvas, cropping
@@ -110,15 +99,22 @@ module Crysterm
         nh = src.size
         nw = src[0]?.try(&.size) || 0
         return nil if nw <= 0
+        place_at src, bw, bh, (bw - nw) // 2, (bh - nh) // 2
+      end
+
+      # Copies *src* into a fresh *bw*×*bh* fully-transparent canvas at pixel
+      # offset (*ox*, *oy*), clipping anything that falls outside the canvas. The
+      # shared compositing step behind both the fit (`#compose`) and the 1:1
+      # centering (`#place_centered`) paths.
+      private def self.place_at(src : PNGGIF::Bitmap, bw : Int32, bh : Int32,
+                                ox : Int32, oy : Int32) : PNGGIF::Bitmap
         out = Array(Array(PNGGIF::Pixel)).new(bh) { Array.new(bw, TRANSPARENT) }
-        oy0 = (bh - nh) // 2
-        ox0 = (bw - nw) // 2
         src.each_with_index do |srow, y|
-          ty = y + oy0
+          ty = y + oy
           next if ty < 0 || ty >= bh
           orow = out[ty]
           srow.each_with_index do |px, x|
-            tx = x + ox0
+            tx = x + ox
             next if tx < 0 || tx >= bw
             orow[tx] = px
           end

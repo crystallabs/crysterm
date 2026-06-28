@@ -227,10 +227,7 @@ module Crysterm
         return nil unless visible?
         return nil unless has_image?
         pos = _get_coords(true) || return nil
-        xi = pos.xi + ileft
-        yi = pos.yi + itop
-        cols = (pos.xl - iright) - xi
-        rows = (pos.yl - ibottom) - yi
+        xi, yi, cols, rows = overlay_rect pos
         return nil if cols <= 0 || rows <= 0
         bmp = fit_bitmap(cols * font_w, rows * font_h) || return nil
         {bmp, xi, yi}
@@ -358,11 +355,8 @@ module Crysterm
         return unless has_image?
         ensure_animation
         pos = _get_coords(true) || return
-        # Draw into the *content* area, inside any border/padding.
-        xi = pos.xi + ileft
-        yi = pos.yi + itop
-        cols = (pos.xl - iright) - xi
-        rows = (pos.yl - ibottom) - yi
+        # Draw into the *content* area, inside any border/padding (`#overlay_rect`).
+        xi, yi, cols, rows = overlay_rect pos
         return if cols <= 0 || rows <= 0
 
         pw, ph = target_pixels(cols, rows)
