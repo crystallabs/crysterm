@@ -12,13 +12,26 @@ module Crysterm
 
     # Inserts `element` to list of children at a specified position (at end by default)
     def insert(element, i = -1)
-      # Detach the element from its current widget-parent first (if any). For a
-      # nested element this also emits its `Detach` events.
-      element.remove_from_parent
+      # Detach the element from its current home first, so it isn't left
+      # double-parented after being re-homed here. A *nested* element unlinks
+      # from its widget parent (which also emits its `Detach` events); a genuine
+      # *top-level* element — one actually listed in a screen's `children`, which
+      # `remove_from_parent` can't touch (it only follows a widget `@parent`) — is
+      # removed from that screen instead. Without the latter branch, reparenting a
+      # top-level widget left it in BOTH the old screen's `children` and the new
+      # parent's `children` (rendered twice, inconsistent tree); `attach` below
+      # only emits events and, for a same-screen move, doesn't run at all. This
+      # mirrors the same detach-from-screen fallback `Widget#destroy` uses.
+      if element.parent
+        element.remove_from_parent
+      elsif (prev_screen = element.screen?) && prev_screen.children.includes?(element)
+        prev_screen.remove element
+      end
 
-      # After unlinking, `screen?` is non-nil only if `element` was a *top-level*
-      # widget (which `remove_from_parent` cannot detach): that is the screen it
-      # is moving away from, so `attach` can emit the right `Detach`/`Attach`.
+      # `screen?` is still non-nil only for an *unattached* element that merely
+      # holds the auto-assigned global screen but was never added to any
+      # `children` (so neither branch above ran): that is the screen it is moving
+      # away from, letting `attach` emit the right cross-screen `Detach`/`Attach`.
       previous = element.screen?
 
       super
