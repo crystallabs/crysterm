@@ -82,6 +82,25 @@ module Crysterm
     BITWISE_R_ANGLE = 1 << 1
     BITWISE_D_ANGLE = 1 << 0
 
+    # The inverse of `ANGLE_TABLE`: the 4-bit stroke pattern (`[L][U][R][D]`)
+    # each box-drawing glyph is itself made of. Lets `#angle_at` ask which arms a
+    # cell's OWN glyph draws, so docking can *add* a join without ever *severing*
+    # an arm the cell already extends toward a neighboring line. See the
+    # self-preservation pass in `#angle_at`.
+    GLYPH_BITS = {
+      '│' => BITWISE_U_ANGLE | BITWISE_D_ANGLE,
+      '─' => BITWISE_L_ANGLE | BITWISE_R_ANGLE,
+      '┌' => BITWISE_R_ANGLE | BITWISE_D_ANGLE,
+      '┐' => BITWISE_L_ANGLE | BITWISE_D_ANGLE,
+      '└' => BITWISE_U_ANGLE | BITWISE_R_ANGLE,
+      '┘' => BITWISE_L_ANGLE | BITWISE_U_ANGLE,
+      '├' => BITWISE_U_ANGLE | BITWISE_R_ANGLE | BITWISE_D_ANGLE,
+      '┤' => BITWISE_L_ANGLE | BITWISE_U_ANGLE | BITWISE_D_ANGLE,
+      '┬' => BITWISE_L_ANGLE | BITWISE_R_ANGLE | BITWISE_D_ANGLE,
+      '┴' => BITWISE_L_ANGLE | BITWISE_U_ANGLE | BITWISE_R_ANGLE,
+      '┼' => BITWISE_L_ANGLE | BITWISE_U_ANGLE | BITWISE_R_ANGLE | BITWISE_D_ANGLE,
+    }
+
     # Re-evaluates and docks every angle character found on each of the `stops`
     # rows of `lines`. `width` is the number of columns to scan per row, and
     # `dock_contrast` controls how cells with differing colors/attributes are
@@ -135,6 +154,9 @@ module Crysterm
       attr = row.attrs.unsafe_fetch(x)
       ch = row.chars.unsafe_fetch(x)
 
+      # The arms this cell's OWN glyph already draws (0 for a non-box char).
+      self_bits = GLYPH_BITS[ch]? || 0
+
       # Evaluate each of the four neighbors (left, up, right, down). The deltas
       # double as the per-direction angle sets and bits. `each` over a tuple is
       # unrolled at compile time, so this is as cheap as the four inline blocks
@@ -147,9 +169,35 @@ module Crysterm
         result = neighbor_angle lines, row, x, y, dx, dy, angles, bit, attr, dock_contrast
         return ch if result.nil?
         angle |= result
+
+        # Preserve this cell's own arm toward any *present* line-drawing
+        # neighbor, even one whose glyph doesn't point back. Docking otherwise
+        # rebuilds a junction purely from neighbors that "reciprocate", so where
+        # one box's border continues past another box's overlapping corner — e.g.
+        # a parent menu's right border running past a sub-popup's top-left `┌`
+        # one row below — the parent's top-right `┐` finds no down-reciprocation
+        # and is reduced to `─`, dropping the corner. Keeping the arm where a
+        # real line sits below/beside it lets docking ADD joins without SEVERING
+        # an existing corner. Still gated on a line neighbor, so a `┐` against a
+        # blank/off-grid edge still reduces exactly as before.
+        if (self_bits & bit) != 0 && neighbor_line?(lines, x, y, dx, dy)
+          angle |= bit
+        end
       end
 
       ANGLE_TABLE[angle]? || ch
+    end
+
+    # Whether the cell offset by (`dx`, `dy`) from (`x`, `y`) holds a
+    # line-drawing glyph. Uses the same `>= 0` / bounds guards as
+    # `#neighbor_angle` (Crystal's `[]?` treats a negative index as from-the-end,
+    # which would wrap a left/up edge lookup to the far side).
+    private def neighbor_line?(lines, x, y, dx, dy) : Bool
+      nx, ny = x + dx, y + dy
+      return false unless nx >= 0 && ny >= 0
+      nrow = lines[ny]?
+      return false unless nrow && nx < nrow.size
+      ANGLES.includes? nrow.chars.unsafe_fetch(nx)
     end
 
     # Evaluates a single neighbor of the cell at (`x`, `y`), offset by
