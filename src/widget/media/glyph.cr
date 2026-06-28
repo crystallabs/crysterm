@@ -376,9 +376,17 @@ module Crysterm
         '▗', '▚', '▐', '▜', '▄', '▙', '▟', '█',
       ]
 
-      # 2x3 sextants (U+1FB00..), 2x4 octants (U+1CD00..). Both are binary-ordered
-      # over their sub-cells, skipping the patterns that already exist as block
-      # elements (empty/full/left-half/right-half, plus top/bottom-half for octants).
+      # 2x3 sextants (U+1FB00..1FB3B), 2x4 octants (U+1CD00..1CDE5). Each Unicode
+      # block assigns one codepoint per sub-cell pattern in increasing bit-mask
+      # order, *skipping* the patterns that already have a character elsewhere
+      # (which the renderer must therefore map to those pre-existing glyphs).
+      #
+      # Bit layout matches `paint_two_color` (LSB = top-left, then row-major), so
+      # the mask bit for Unicode "BLOCK OCTANT/SEXTANT position N" is `1 << (N-1)`:
+      #     pos1=1   pos2=2          pos1=1   pos2=2
+      #     pos3=4   pos4=8          pos3=4   pos4=8
+      #     pos5=16  pos6=32         pos5=16  pos6=32
+      #     (sextant)                pos7=64  pos8=128  (octant)
       SEXTANT = begin
         arr = Array(Char).new(64, ' ')
         idx = 0
@@ -398,9 +406,43 @@ module Crysterm
         arr
       end
 
+      # The 26 octant patterns Unicode did NOT encode in the Block Octant range
+      # (they already exist as half/quadrant/quarter blocks elsewhere). The other
+      # 230 masks take U+1CD00..1CDE5 sequentially in mask order. Deriving this
+      # set wrong both mis-maps glyphs and overruns past U+1CDE5 — the previous
+      # table listed only 6 of the 26, so it did both. Verified against the
+      # Unicode 16.0 UCD (NamesList for "Symbols for Legacy Computing Supplement").
       OCTANT = begin
         arr = Array(Char).new(256, ' ')
-        skip = {0 => ' ', 255 => '█', 15 => '▀', 240 => '▄', 85 => '▌', 170 => '▐'}
+        # mask => pre-existing character (positions filled, per the bit layout above)
+        skip = {
+          0   => ' ',         # (empty)               SPACE
+          1   => '\u{1CEA8}', # 1                     LEFT HALF UPPER ONE QUARTER BLOCK
+          2   => '\u{1CEAB}', # 2                     RIGHT HALF UPPER ONE QUARTER BLOCK
+          3   => '\u{1FB82}', # 12                    UPPER ONE QUARTER BLOCK
+          5   => '▘',         # 13                    QUADRANT UPPER LEFT
+          10  => '▝',         # 24                    QUADRANT UPPER RIGHT
+          15  => '▀',         # 1234                  UPPER HALF BLOCK
+          20  => '\u{1FBE6}', # 35                    MIDDLE LEFT ONE QUARTER BLOCK
+          40  => '\u{1FBE7}', # 46                    MIDDLE RIGHT ONE QUARTER BLOCK
+          63  => '\u{1FB85}', # 123456                UPPER THREE QUARTERS BLOCK
+          64  => '\u{1CEA3}', # 7                     LEFT HALF LOWER ONE QUARTER BLOCK
+          80  => '▖',         # 57                    QUADRANT LOWER LEFT
+          85  => '▌',         # 1357                  LEFT HALF BLOCK
+          90  => '▞',         # 2457                  QUADRANT UPPER RIGHT AND LOWER LEFT
+          95  => '▛',         # 123457                QUADRANT UL+UR+LL
+          128 => '\u{1CEA0}', # 8                     RIGHT HALF LOWER ONE QUARTER BLOCK
+          160 => '▗',         # 68                    QUADRANT LOWER RIGHT
+          165 => '▚',         # 1368                  QUADRANT UPPER LEFT AND LOWER RIGHT
+          170 => '▐',         # 2468                  RIGHT HALF BLOCK
+          175 => '▜',         # 123468                QUADRANT UL+UR+LR
+          192 => '\u{2582}', # 78                     LOWER ONE QUARTER BLOCK
+          240 => '▄',         # 5678                  LOWER HALF BLOCK
+          245 => '▙',         # 135678                QUADRANT UL+LL+LR
+          250 => '▟',         # 245678                QUADRANT UR+LL+LR
+          252 => '\u{2586}', # 345678                 LOWER THREE QUARTERS BLOCK
+          255 => '█',         # 12345678              FULL BLOCK
+        }
         idx = 0
         (0..255).each do |m|
           arr[m] =
