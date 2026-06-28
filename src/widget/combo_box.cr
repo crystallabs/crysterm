@@ -45,6 +45,18 @@ module Crysterm
         # A single click on any row commits it.
         @activate_on_click = true
 
+        # Moving the pointer onto a row highlights it — no click required — the
+        # way a desktop combo drop-down (and the `Completer` popup) tracks the
+        # mouse. The per-row `MouseOver` hook is wired by
+        # `Mixin::ItemView#create_item` when this is on; keyboard navigation and
+        # click-to-commit are unaffected.
+        @hover_select = true
+
+        # How many option rows the owning combo wants visible. The popup's outer
+        # height is this plus the popup's *own* border/padding (`#iheight`), set
+        # by `ComboBox#position_popup` and re-applied at render (see `#render`).
+        property visible_rows : Int32 = 1
+
         # The drop-down is an overlay (Qt's `.popup`): at the unstyled floor it
         # carries a structural border so it separates from the content behind it.
         # A theme can override or remove it (see `Mixin::Style#floor_border?`).
@@ -60,6 +72,47 @@ module Crysterm
 
         def cancel_selected
           combo.try &.dismiss
+        end
+
+        # Re-fits the popup's outer height to `#visible_rows` plus its *own*
+        # border/padding (`#iheight`) at render — now that the CSS cascade (which
+        # decides the border) has run. `ComboBox#position_popup` sizes us up
+        # front from `#iheight` too, but at that point a themed border may not yet
+        # be resolved; this corrects it the same way `Widget::Menu#autosize`
+        # re-fits a freshly-opened menu. No assumption of a 1-cell border: a
+        # borderless (`iheight == 0`) or thicker/asymmetric frame all fit. The
+        # `height=` is a no-op when unchanged, so this costs nothing in steady
+        # state.
+        def render(with_children = true)
+          # Re-place us against the combo's *final* geometry now that the cascade
+          # has run: this re-fits the height to `#visible_rows` plus the resolved
+          # border (`#iheight`) AND re-decides below-vs-above and clamps us to the
+          # screen (see `ComboBox#place_popup`). Doing it here — not only at open —
+          # means a themed border (sized after the open) or a relayout that moved
+          # the combo can't leave us mis-sized or spilling off-screen. Falls back
+          # to the local height-only refit if we somehow have no owning combo.
+          if c = combo
+            c.place_popup self
+          else
+            h = @visible_rows + iheight
+            self.height = h unless height == h
+          end
+          super
+        end
+
+        # Maps a hovered item index back to the entry actually under the pointer.
+        # Item boxes are hit-tested by their *unscrolled* geometry (see
+        # `Widget#atop`), so the index handed in is the pointer's visual row from
+        # the top of the viewport, independent of scroll — and rows below the last
+        # shown one still report a phantom index. Clamp the visual row to the
+        # viewport (so a pointer past the bottom parks on the last shown row) and
+        # add `#child_base`, mirroring `Completer::Popup#hover_item`. (For a short,
+        # unscrolled drop-down `child_base` is 0 and this is just `selekt i`.)
+        def hover_item(i : Int)
+          visible = aheight - iheight - hscrollbar_rows
+          visible = 1 if visible < 1
+          row = i.clamp(0, visible - 1)
+          selekt (@child_base + row).clamp(0, @items.size - 1)
         end
       end
 
@@ -119,7 +172,20 @@ module Crysterm
         # if focus leaves it — e.g. via Tab — nothing else would close the popup.
         # Tidy up on blur so no orphaned popup or screen-level mouse handler is
         # left behind (which otherwise corrupts later input handling).
-        on(Crysterm::Event::Blur) { close if editable? && @open }
+        #
+        # But focus merely moving *into* our own drop-down must NOT dismiss it: the
+        # screen implicitly focuses the scrollable list under the pointer on a wheel
+        # (`Screen#dispatch_mouse` → `focusable_at`), and that blur would otherwise
+        # close the popup mid-scroll. Only a blur to something *outside* the
+        # combo+popup (Tab away, a click elsewhere) closes. (The popup is also kept
+        # off the wheel-focus path entirely for editable combos — see `#open` — so
+        # this is belt-and-suspenders for any other focus-into-popup route.)
+        on(Crysterm::Event::Blur) do |e|
+          next unless editable? && @open
+          nf = e.el
+          next if nf && (p = @popup) && (nf == p || nf.has_ancestor?(p))
+          close
+        end
 
         update_content
       end
@@ -176,6 +242,13 @@ module Crysterm
         return if @open
         return if !editable? && @options.empty?
         pop = ensure_popup
+        # An editable combo keeps keyboard focus (so typing keeps filtering); the
+        # popup is driven indirectly (`@popup.down`/`up`). It must therefore stay
+        # *off* the wheel-implicit-focus path (`Screen#focusable_at`), otherwise
+        # wheeling over the open list focuses the list, blurs the combo, and the
+        # blur dismisses the drop-down. A non-editable combo navigates the popup
+        # directly, so it keeps the popup focusable.
+        pop.focus_on_click = !editable?
         refilter
         pop.set_items @filtered
         # Land the highlight on the current selection (Qt opens a combo with the
@@ -272,18 +345,67 @@ module Crysterm
       end
 
       private def position_popup(pop : Popup)
-        # Use the combo's *current* absolute box (not the cached last-rendered
-        # position, which can be stale after a relayout) so the dropdown always
-        # lands directly beneath the combo wherever it is nested.
+        # Horizontal placement (set once): use the combo's *current* absolute box
+        # (not the cached last-rendered position, which can be stale after a
+        # relayout) so the dropdown lands aligned to the combo wherever it nests.
         begin
-          pop.top = atop + aheight
           pop.left = aleft
           pop.width = Math.max(awidth, 4)
         rescue
           # Not laid out yet — keep defaults.
+          return
         end
         rows = Math.min(Math.max(@filtered.size, 1), @max_visible)
-        pop.height = rows + 2 # + border
+        pop.visible_rows = rows
+        # Vertical placement (below/above + clamp); re-run each render once the
+        # cascade resolves the border (see `#place_popup` / `Popup#render`).
+        place_popup pop
+      end
+
+      # Places the drop-down *vertically*: directly below the combo when its full
+      # height fits there, otherwise *flipped above* it. Qt opens a `QComboBox`
+      # upward when the list would run off the bottom of the screen (a combo low
+      # on screen — e.g. pushed down by a theme's group-box/title chrome). Without
+      # this the list spilled past the last row and looked like it never opened.
+      #
+      # Outer height = the visible rows plus the popup's *own* border/padding,
+      # derived from `#iheight` (the way `Widget::Menu` sizes from `iheight`)
+      # rather than a hardcoded `+ 2`: a themed border (none, or thicker/
+      # asymmetric) sizes correctly too. The height is capped to the room on the
+      # chosen side so it never starts past the screen edge — the list is
+      # scrollable, so a tight fit just scrolls. Called both at open and from
+      # `Popup#render`; guarded assignments make it a no-op in the steady state.
+      def place_popup(pop : Popup) : Nil
+        # Outer height = the visible rows plus the popup's *own* border/padding,
+        # derived from `#iheight` (the way `Widget::Menu` sizes from `iheight`)
+        # rather than a hardcoded `+ 2`: a borderless or thicker/asymmetric themed
+        # border sizes correctly too. Always the full height — the list is
+        # scrollable, so the only placement choice is *where* it drops, not how
+        # tall it is. `Popup#render` re-applies this once the cascade resolves the
+        # border.
+        want = pop.visible_rows + pop.iheight
+        pop.height = want unless pop.height == want
+
+        # Vertical drop direction. By default below the combo (`atop + aheight`).
+        # But flip the list *above* when it would otherwise run off the bottom of
+        # the screen and there's room above — Qt opens a `QComboBox` upward near
+        # the screen's last row (e.g. a combo pushed low by a theme's group-box /
+        # title chrome). Without this the list spilled past the bottom edge and
+        # looked like it never opened. Guarded on `aheight < sh` so a not-yet
+        # laid-out combo (which reports the *full* screen height until its first
+        # render) never trips the flip; `Popup#render` re-runs us with real
+        # geometry, so the final placement is always correct.
+        sh = screen.aheight
+        below = atop + aheight
+        top =
+          if aheight < sh && below + want > sh && atop >= want
+            atop - want # flip above (fully on-screen, since atop >= want)
+          else
+            below
+          end
+        pop.top = top unless pop.top == top
+      rescue
+        # Not laid out yet — keep defaults.
       end
 
       def on_keypress(e)
