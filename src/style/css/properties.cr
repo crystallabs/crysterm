@@ -371,7 +371,7 @@ module Crysterm
         el_color = style.fg
         case property
         when "border"
-          style.border = parse_border(value)
+          style.border = parse_border(value, el_color)
         when "border-width"
           # A cell is taller than wide, so the top/bottom edges (whose width is a
           # *vertical* measurement) scale by the cell aspect ratio just like the
@@ -659,11 +659,19 @@ module Crysterm
 
       # Parses a `border` shorthand. Recognizes a width (cells), a style keyword
       # (`solid`/`line` -> line border, `bg` -> background border, `none` -> no
-      # border), and otherwise treats a token as a color.
-      private def self.parse_border(value : String) : Border
+      # border), and otherwise treats a token as a color — resolved through
+      # `ColorValue` exactly like the `border-color` longhand and `border-<side>`
+      # shorthand, so `currentColor` (basis *el_color*, the element's text color)
+      # and the color *functions* (`rgb()`/`hsl()`/gradients) work here too. The
+      # tokens are split with `split_top_level` so a function's internal
+      # spaces/commas (`rgb(255, 0, 0)`) stay one token instead of being shredded
+      # — the old plain `value.split` broke every multi-token color out of the
+      # shorthand (and assigned the raw token straight to `fg`, bypassing
+      # resolution, so `border: solid currentColor`/`rgb(...)` rendered uncolored).
+      private def self.parse_border(value : String, el_color : Int32? = nil) : Border
         return Border.new(0) if Case.fold_keyword(value.strip) == "none"
         border = Border.new # default: line border, 1 cell on each side
-        value.split.each do |token|
+        split_top_level(value).each do |token|
           if type = border_type_keyword(token)
             border.type = type
           elsif w = Length.to_cells(token)
@@ -674,7 +682,11 @@ module Crysterm
             border.left = border.right = w
             border.top = border.bottom = (Length.to_cells(token, vertical: true) || w)
           else
-            border.fg = token
+            # Whole-border color: keep the resolved form (`Int32`/`String`) via
+            # `Colorizable`, matching the `border-color` longhand. A `nil` (an
+            # `inherit`/`initial`/`currentColor`-with-no-text-color) is dropped so
+            # it doesn't clobber the border's color with "unset".
+            ColorValue.resolve(token, el_color).try { |c| border.fg = c }
           end
         end
         border
