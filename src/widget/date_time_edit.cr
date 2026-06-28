@@ -63,9 +63,7 @@ module Crysterm
       def date_time=(value : Time) : Time
         return @datetime if value == @datetime
         @datetime = value
-        update_content
-        emit Crysterm::Event::DateChange, @datetime
-        request_render
+        commit_value @datetime
         @datetime
       end
 

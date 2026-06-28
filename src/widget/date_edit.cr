@@ -74,9 +74,7 @@ module Crysterm
         v = value.at_beginning_of_day
         return @date if v == @date
         @date = v
-        update_content
-        emit Crysterm::Event::DateChange, @date
-        request_render
+        commit_value @date
         @date
       end
 

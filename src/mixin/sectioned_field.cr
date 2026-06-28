@@ -104,6 +104,16 @@ module Crysterm
         parts
       end
 
+      # Commits a changed value: repaints (highlighting the active section),
+      # emits `Event::DateChange` carrying *value*, and requests a render. Each
+      # editor's value setter calls this after storing the new value, replacing
+      # the identical update/emit/render trio they otherwise repeat.
+      protected def commit_value(value : Time) : Nil
+        update_content
+        emit Crysterm::Event::DateChange, value
+        request_render
+      end
+
       # Hook run after a press selects a section. Default: nothing.
       protected def on_section_press : Nil
       end
