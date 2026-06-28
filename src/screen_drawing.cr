@@ -852,6 +852,29 @@ module Crysterm
       end
     end
 
+    # Shared scaffold for the `insert_line`/`delete_line` family: verifies the
+    # terminfo capabilities they need (always change-scroll-region + delete-line;
+    # plus insert-line when *need_insert_line*), then runs *block* with output
+    # diverted to `@_buf` and the scroll region temporarily set to `top..bottom`,
+    # restoring it to the full screen afterwards. Returns `true` when the block
+    # ran, `false` when a missing capability made it a no-op — so a caller does
+    # `return unless with_scroll_region(...)` and only shifts its buffer then.
+    private def with_scroll_region(top, bottom, need_insert_line = false, & : IO::Memory ->) : Bool
+      if !tput.has?(&.change_scroll_region?) ||
+         !tput.has?(&.delete_line?) ||
+         (need_insert_line && !tput.has?(&.insert_line?))
+        STDERR.puts "Missing needed terminfo capabilities"
+        return false
+      end
+
+      divert(@tmpbuf, @_buf) do |buf|
+        tput.set_scroll_region(top, bottom)
+        yield buf
+        tput.set_scroll_region(0, aheight - 1)
+      end
+      true
+    end
+
     # Inserts lines into the screen. (If CSR is used, it bypasses the output buffer.)
     def insert_line(n, y, top, bottom)
       # D O:
@@ -859,19 +882,10 @@ module Crysterm
       #  return insert_line_nc(n, y, top, bottom)
       # end
 
-      if !tput.has?(&.change_scroll_region?) ||
-         !tput.has?(&.delete_line?) ||
-         !tput.has?(&.insert_line?)
-        STDERR.puts "Missing needed terminfo capabilities"
-        return
-      end
-
-      divert(@tmpbuf, @_buf) do
-        tput.set_scroll_region(top, bottom)
-        tput.cup(y, 0)
-        tput.il(n)
-        tput.set_scroll_region(0, aheight - 1)
-      end
+      return unless with_scroll_region(top, bottom, need_insert_line: true) do
+                      tput.cup(y, 0)
+                      tput.il(n)
+                    end
 
       shift_lines_down n, y, bottom
     end
@@ -882,18 +896,10 @@ module Crysterm
     # Scroll down (up cursor-wise).
     # This will only work for top line deletion as opposed to arbitrary lines.
     def insert_line_nc(n, y, top, bottom)
-      if !tput.has?(&.change_scroll_region?) ||
-         !tput.has?(&.delete_line?)
-        STDERR.puts "Missing needed terminfo capabilities"
-        return
-      end
-
-      divert(@tmpbuf, @_buf) do
-        tput.set_scroll_region(top, bottom)
-        tput.cup(top, 0)
-        tput.dl(n)
-        tput.set_scroll_region(0, aheight - 1)
-      end
+      return unless with_scroll_region(top, bottom) do
+                      tput.cup(top, 0)
+                      tput.dl(n)
+                    end
 
       shift_lines_down n, y, bottom
     end
@@ -905,20 +911,11 @@ module Crysterm
       #   return delete_line_nc(n, y, top, bottom)
       # end
 
-      if !tput.has?(&.change_scroll_region?) ||
-         !tput.has?(&.delete_line?) ||
-         !tput.has?(&.insert_line?)
-        STDERR.puts "Missing needed terminfo capabilities"
-        return
-      end
-
       # XXX temporarily diverts output
-      divert(@tmpbuf, @_buf) do
-        tput.set_scroll_region(top, bottom)
-        tput.cup(y, 0)
-        tput.dl(n)
-        tput.set_scroll_region(0, aheight - 1)
-      end
+      return unless with_scroll_region(top, bottom, need_insert_line: true) do
+                      tput.cup(y, 0)
+                      tput.dl(n)
+                    end
 
       shift_lines_up n, y, bottom
     end
@@ -929,19 +926,11 @@ module Crysterm
     # Scroll down (up cursor-wise).
     # This will only work for top line deletion as opposed to arbitrary lines.
     def delete_line_nc(n, y, top, bottom)
-      if !tput.has?(&.change_scroll_region?) ||
-         !tput.has?(&.delete_line?)
-        STDERR.puts "Missing needed terminfo capabilities"
-        return
-      end
-
       # XXX temporarily diverts output
-      divert(@tmpbuf, @_buf) do |ret|
-        tput.set_scroll_region(top, bottom)
-        tput.cup(bottom, 0)
-        ret.print "\n" * n
-        tput.set_scroll_region(0, aheight - 1)
-      end
+      return unless with_scroll_region(top, bottom) do |ret|
+                      tput.cup(bottom, 0)
+                      ret.print "\n" * n
+                    end
 
       shift_lines_up n, y, bottom
     end
