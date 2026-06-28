@@ -84,20 +84,13 @@ module Crysterm
       # Run-length-encode a band's sixel values (`!count char`, or literals for
       # short runs).
       private def emit_rle(io : String::Builder, vals : Array(UInt8), w : Int32)
-        x = 0
-        while x < w
-          v = vals[x]
+        Media.each_run(vals, w) do |v, _x, rl|
           ch = (0x3f + v).chr
-          rl = 1
-          while x + rl < w && vals[x + rl] == v
-            rl += 1
-          end
           if rl >= 4
             io << '!' << rl << ch
           else
             rl.times { io << ch }
           end
-          x += rl
         end
       end
 

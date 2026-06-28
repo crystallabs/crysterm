@@ -104,18 +104,8 @@ module Crysterm
         last = -1
         ph.times do |y|
           ry = oy + y
-          x = 0
-          while x < pw
-            ci = idx[y][x]
-            rl = 1
-            while x + rl < pw && idx[y][x + rl] == ci
-              rl += 1
-            end
-
-            if ci < 0 # transparent (e.g. Contain letterbox margin): draw nothing
-              x += rl
-              next
-            end
+          Media.each_run(idx[y], pw) do |ci, x, rl|
+            next if ci < 0 # transparent (e.g. Contain letterbox margin): draw nothing
 
             if ci != last
               io << "W(I(" << LETTERS[ci] << "))"
@@ -125,7 +115,6 @@ module Crysterm
             x1 = ox + x + rl - 1
             # Position (beam off) then draw a horizontal vector across the run.
             io << "P[" << x0 << ',' << ry << "]V[" << x1 << ',' << ry << ']'
-            x += rl
           end
         end
 

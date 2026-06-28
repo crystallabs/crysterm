@@ -174,6 +174,24 @@ module Crysterm
         best
       end
 
+      # Scans a *row* of *width* values into maximal runs of equal adjacent
+      # values, yielding each run's value, start column, and length. The shared
+      # horizontal run-length kernel behind the vector/RLE graphics backends —
+      # `Media::Sixel` (sixel RLE bands), `Media::Regis` and `Media::Tek` (one
+      # horizontal vector per run) — which each open-coded the identical scan.
+      def self.each_run(row : Indexable(T), width : Int32, & : T, Int32, Int32 ->) forall T
+        x = 0
+        while x < width
+          v = row[x]
+          rl = 1
+          while x + rl < width && row[x + rl] == v
+            rl += 1
+          end
+          yield v, x, rl
+          x += rl
+        end
+      end
+
       # Backend used to render the image. See the families described above.
       enum Type
         Ansi     # cell-grid, one cell per pixel (`Media::Ansi`)

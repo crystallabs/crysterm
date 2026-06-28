@@ -221,19 +221,10 @@ module Crysterm
           ph.times do |y|
             ty = oy + (ph - 1 - y) # flip: Tek origin is bottom-left
             next if ty < 0 || ty >= TEK_H
-            x = 0
-            while x < pw
-              unless bits[y][x]
-                x += 1
-                next
-              end
-              rl = 1
-              while x + rl < pw && bits[y][x + rl]
-                rl += 1
-              end
+            Media.each_run(bits[y], pw) do |ink, x, rl|
+              next unless ink # skip a run of paper (non-ink) pixels
               x0 = ox + x
               x1 = ox + x + rl - 1
-              x += rl
               x0 = 0 if x0 < 0
               x1 = TEK_W - 1 if x1 > TEK_W - 1
               next if x1 < x0 || x0 > TEK_W - 1
