@@ -361,6 +361,14 @@ module Crysterm
       #
       private def self.apply_border(style : Style, property : String, value : String) : Nil
         border = style.border
+        # `currentColor` in a border color is the element's *text* color
+        # (`color` / `Style#fg`), per CSS — not the border's own existing color.
+        # This is the basis threaded into every border-color resolution below; for
+        # a concrete value (hex/named/`rgb()`/…) the basis is unused. The old code
+        # passed `border.fg`, so `border-color: currentColor` resolved to the
+        # border's prior color (usually unset → uncolored) instead of the text
+        # color it should match.
+        el_color = style.fg
         case property
         when "border"
           style.border = parse_border(value)
@@ -380,24 +388,24 @@ module Crysterm
           # leaving `border-top-color: red; border-color: blue` red on top. (A
           # blank value is dropped by `with_color`, so an invalid declaration —
           # e.g. an undefined `var()` — resets nothing, per CSS.)
-          with_color(value, border.fg) do |c|
+          with_color(value, el_color) do |c|
             border.fg = c
             border.fg_top = border.fg_right = border.fg_bottom = border.fg_left = nil
           end
         when "border-top-color"
-          with_color(value, border.fg) { |c| border.fg_top = coerce_color_int(c) }
+          with_color(value, el_color) { |c| border.fg_top = coerce_color_int(c) }
         when "border-right-color"
-          with_color(value, border.fg) { |c| border.fg_right = coerce_color_int(c) }
+          with_color(value, el_color) { |c| border.fg_right = coerce_color_int(c) }
         when "border-bottom-color"
-          with_color(value, border.fg) { |c| border.fg_bottom = coerce_color_int(c) }
+          with_color(value, el_color) { |c| border.fg_bottom = coerce_color_int(c) }
         when "border-left-color"
-          with_color(value, border.fg) { |c| border.fg_left = coerce_color_int(c) }
+          with_color(value, el_color) { |c| border.fg_left = coerce_color_int(c) }
         when "border-style"
           apply_border_style border, value, {:left, :top, :right, :bottom}
-        when "border-top"          then apply_border_side border, :top, value
-        when "border-right"        then apply_border_side border, :right, value
-        when "border-bottom"       then apply_border_side border, :bottom, value
-        when "border-left"         then apply_border_side border, :left, value
+        when "border-top"          then apply_border_side border, :top, value, el_color
+        when "border-right"        then apply_border_side border, :right, value, el_color
+        when "border-bottom"       then apply_border_side border, :bottom, value, el_color
+        when "border-left"         then apply_border_side border, :left, value, el_color
         when "border-top-width"    then border.top = border_cells(value, vertical: true)
         when "border-right-width"  then border.right = border_cells(value)
         when "border-bottom-width" then border.bottom = border_cells(value, vertical: true)
@@ -459,8 +467,9 @@ module Crysterm
       # `border-<side>-color` slot (`fg_top`/`fg_left`/…) the renderer reads, not
       # the whole-border `fg`. So `border-left: solid red` colors only the left
       # edge, matching CSS and the `border-<side>-color` longhand; the previous
-      # whole-border assignment recolored every edge.
-      private def self.apply_border_side(border : Border, side : Symbol, value : String) : Nil
+      # whole-border assignment recolored every edge. *el_color* is the element's
+      # text color, the basis for a `currentColor` token (see `apply_border`).
+      private def self.apply_border_side(border : Border, side : Symbol, value : String, el_color : Int32?) : Nil
         vertical = side == :top || side == :bottom
         # A width token (if any) is authoritative for the side; a bare style
         # keyword only *ensures* visibility when no width was given. A width is
@@ -479,7 +488,7 @@ module Crysterm
           elsif w = Length.to_cells(token, vertical)
             explicit_width = w
           else
-            set_side_color border, side, ColorValue.resolve(token, border.fg)
+            set_side_color border, side, ColorValue.resolve(token, el_color)
           end
         end
         if explicit_width
