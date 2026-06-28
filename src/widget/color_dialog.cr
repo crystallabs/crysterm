@@ -690,13 +690,13 @@ module Crysterm
         0.299 * r + 0.587 * g + 0.114 * b
       end
 
-      # HSV (h 0..360, s/v 0..1) → RGB (each 0..255).
-      private def hsv_to_rgb(h : Float64, s : Float64, v : Float64) : {Int32, Int32, Int32}
+      # Maps a hue angle to its RGB sextant and scales by chroma *c* and offset
+      # *m* — the shared tail of `hsv_to_rgb`/`hsl_to_rgb` (which differ only in
+      # how they derive *c*/*m* from value vs lightness).
+      private def hue_chroma_to_rgb(h : Float64, c : Float64, m : Float64) : {Int32, Int32, Int32}
         h = h % 360.0
         h += 360.0 if h < 0
-        c = v * s
         x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs)
-        m = v - c
         r1, g1, b1 =
           case h
           when .< 60.0  then {c, x, 0.0}
@@ -709,8 +709,10 @@ module Crysterm
         {((r1 + m) * 255).round.to_i, ((g1 + m) * 255).round.to_i, ((b1 + m) * 255).round.to_i}
       end
 
-      # RGB (each 0..255) → HSV (h 0..360, s/v 0..1).
-      private def rgb_to_hsv(r : Int32, g : Int32, b : Int32) : {Float64, Float64, Float64}
+      # Normalized channels and the common hue angle (0..360) — the shared head
+      # of `rgb_to_hsv`/`rgb_to_hsl` (which finish with their own saturation and
+      # third axis, value vs lightness). Returns `{hue, max, min, delta}`.
+      private def rgb_components(r : Int32, g : Int32, b : Int32) : {Float64, Float64, Float64, Float64}
         rf = r / 255.0
         gf = g / 255.0
         bf = b / 255.0
@@ -729,6 +731,18 @@ module Crysterm
             60.0 * (((rf - gf) / delta) + 4.0)
           end
         h += 360.0 if h < 0
+        {h, max, min, delta}
+      end
+
+      # HSV (h 0..360, s/v 0..1) → RGB (each 0..255).
+      private def hsv_to_rgb(h : Float64, s : Float64, v : Float64) : {Int32, Int32, Int32}
+        c = v * s
+        hue_chroma_to_rgb h, c, v - c
+      end
+
+      # RGB (each 0..255) → HSV (h 0..360, s/v 0..1).
+      private def rgb_to_hsv(r : Int32, g : Int32, b : Int32) : {Float64, Float64, Float64}
+        h, max, _, delta = rgb_components r, g, b
         s = max == 0.0 ? 0.0 : delta / max
         {h, s, max}
       end
@@ -737,43 +751,13 @@ module Crysterm
       # uses lightness (mid-point) and its own saturation, so it gives a second
       # intuitive handle on the same color (light/dark around a pure hue).
       private def hsl_to_rgb(h : Float64, s : Float64, l : Float64) : {Int32, Int32, Int32}
-        h = h % 360.0
-        h += 360.0 if h < 0
         c = (1.0 - (2.0 * l - 1.0).abs) * s
-        x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs)
-        m = l - c / 2.0
-        r1, g1, b1 =
-          case h
-          when .< 60.0  then {c, x, 0.0}
-          when .< 120.0 then {x, c, 0.0}
-          when .< 180.0 then {0.0, c, x}
-          when .< 240.0 then {0.0, x, c}
-          when .< 300.0 then {x, 0.0, c}
-          else               {c, 0.0, x}
-          end
-        {((r1 + m) * 255).round.to_i, ((g1 + m) * 255).round.to_i, ((b1 + m) * 255).round.to_i}
+        hue_chroma_to_rgb h, c, l - c / 2.0
       end
 
       # RGB (each 0..255) → HSL (h 0..360, s/l 0..1).
       private def rgb_to_hsl(r : Int32, g : Int32, b : Int32) : {Float64, Float64, Float64}
-        rf = r / 255.0
-        gf = g / 255.0
-        bf = b / 255.0
-        max = {rf, gf, bf}.max
-        min = {rf, gf, bf}.min
-        delta = max - min
-
-        h =
-          if delta == 0.0
-            0.0
-          elsif max == rf
-            60.0 * (((gf - bf) / delta) % 6.0)
-          elsif max == gf
-            60.0 * (((bf - rf) / delta) + 2.0)
-          else
-            60.0 * (((rf - gf) / delta) + 4.0)
-          end
-        h += 360.0 if h < 0
+        h, max, min, delta = rgb_components r, g, b
         l = (max + min) / 2.0
         denom = 1.0 - (2.0 * l - 1.0).abs
         s = denom == 0.0 ? 0.0 : delta / denom
