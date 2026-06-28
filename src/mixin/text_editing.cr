@@ -225,33 +225,50 @@ module Crysterm
         @value.index('\n', @cursor_pos) || @value.size
       end
 
+      # Two-phase backward word scan from the cursor: skip the run of *separator*
+      # characters immediately to the left (those the block yields true for),
+      # then the run of non-separators, and return the resulting index. The two
+      # backward word motions (`#word_left_pos`, `#word_start_left_pos`) differ
+      # only in what counts as a separator. The block is `yield`ed (inlined, no
+      # per-call closure).
+      private def scan_word_left(&) : Int32
+        i = @cursor_pos
+        while i > 0 && (yield @value[i - 1])
+          i -= 1
+        end
+        while i > 0 && !(yield @value[i - 1])
+          i -= 1
+        end
+        i
+      end
+
+      # Forward counterpart of `#scan_word_left`: skip the run of separators at
+      # the cursor, then the run of non-separators. Shared by `#word_right_pos`
+      # and `#word_end_right_pos`.
+      private def scan_word_right(&) : Int32
+        i = @cursor_pos
+        n = @value.size
+        while i < n && (yield @value[i])
+          i += 1
+        end
+        while i < n && !(yield @value[i])
+          i += 1
+        end
+        i
+      end
+
       # Start of the (whitespace-delimited) word before the cursor: skip any
       # whitespace immediately to the left, then the run of non-whitespace. Used
       # by word-wise cursor motion and `Ctrl-W` (backward kill word).
       private def word_left_pos
-        i = @cursor_pos
-        while i > 0 && @value[i - 1].whitespace?
-          i -= 1
-        end
-        while i > 0 && !@value[i - 1].whitespace?
-          i -= 1
-        end
-        i
+        scan_word_left(&.whitespace?)
       end
 
       # End of the (whitespace-delimited) word after the cursor: skip whitespace
       # at the cursor, then the run of non-whitespace. Used by word-wise cursor
       # motion and `Alt-D` (forward kill word).
       private def word_right_pos
-        i = @cursor_pos
-        n = @value.size
-        while i < n && @value[i].whitespace?
-          i += 1
-        end
-        while i < n && !@value[i].whitespace?
-          i += 1
-        end
-        i
+        scan_word_right(&.whitespace?)
       end
 
       # Whether *c* is a "word constituent" for word-wise cursor motion: a
@@ -268,29 +285,14 @@ module Crysterm
       # skip any non-word separators immediately to the left, then the run of
       # word characters — landing on the leftmost word character of that word.
       private def word_start_left_pos
-        i = @cursor_pos
-        while i > 0 && !word_char?(@value[i - 1])
-          i -= 1
-        end
-        while i > 0 && word_char?(@value[i - 1])
-          i -= 1
-        end
-        i
+        scan_word_left { |c| !word_char?(c) }
       end
 
       # One position past the end of the current/next word, for `Ctrl-Right`:
       # from the cursor, skip any non-word separators, then the run of word
       # characters — landing just after the last word character of that word.
       private def word_end_right_pos
-        i = @cursor_pos
-        n = @value.size
-        while i < n && !word_char?(@value[i])
-          i += 1
-        end
-        while i < n && word_char?(@value[i])
-          i += 1
-        end
-        i
+        scan_word_right { |c| !word_char?(c) }
       end
 
       # The kill ring this input uses for `Ctrl-W`/`Ctrl-U`/`Ctrl-K`/`Alt-D`
