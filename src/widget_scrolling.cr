@@ -208,8 +208,18 @@ module Crysterm
     # within the viewport. Reveals the bottom edge first, then the top, so the
     # top wins when the child is taller than the viewport.
     def ensure_widget_visible(child : Widget, margin : Int32 = 0) : Bool
-      moved = ensure_visible(child.rtop + child.aheight - 1, margin)
-      ensure_visible(child.rtop, margin) || moved
+      # `ensure_visible` wants a content-row index (0 = first content line), but
+      # `child.rtop` is measured from this widget's *outer* top: `atop` folds this
+      # widget's near inset (`itop`, the border + top padding) into the child's
+      # position, so `child.rtop` is `itop` rows larger than the child's content
+      # row. Subtract it — otherwise a bordered/padded scroll area scrolls the
+      # descendant `itop` rows too far, and (when already scrolled down) fails to
+      # reveal a child just above the viewport top, mistaking it for visible. A
+      # no-op for an inset-less scroll area (`itop == 0`), the only case the
+      # original handled correctly.
+      top = child.rtop - itop
+      moved = ensure_visible(top + child.aheight - 1, margin)
+      ensure_visible(top, margin) || moved
     end
 
     # Horizontal counterpart of `#ensure_visible`: scroll the column window the
