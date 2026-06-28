@@ -116,7 +116,15 @@ module Crysterm
 
       # Rewind off the detached subtree after the unlink, using the condition
       # captured above so descendant focus is handled with correct timing.
-      s.rewind_focus if refocus && s
+      #
+      # A same-screen reparent (see `#reparenting_same_screen?`) is exempt: the
+      # subtree never leaves the screen and `#insert` re-homes it immediately
+      # (synchronously, with no render in between), so its keyboard focus stays
+      # valid throughout. Rewinding there would strand focus — popping the still-
+      # on-screen widget out of the focus history and blurring it — on what is
+      # really just a tree-position change, exactly the spurious churn the
+      # screen-level `Detach` suppression above already avoids.
+      s.rewind_focus if refocus && s && !element.reparenting_same_screen?
     end
   end
 end
