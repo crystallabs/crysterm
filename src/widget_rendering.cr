@@ -802,8 +802,25 @@ module Crysterm
     def with_inner_coords(& : (Int32, Int32, Int32, Int32) -> _) : LPos?
       ret = _render
       return unless ret
-      style.border.try &.adjust(ret)
-      yield ret.xi, ret.xl, ret.yi, ret.yl
+      # Inset by the border to get the *interior* rectangle to hand the block, but
+      # do NOT mutate `ret`: it is this widget's cached `@lpos` (the very object
+      # `_render` just stored and returned). `Border#adjust(pos)` shrinks the
+      # position object *in place*, so the old `style.border.try &.adjust(ret)`
+      # permanently collapsed `@lpos` to the interior after every render — and this
+      # widget's `render` then returned that inset rect instead of its true outer
+      # `LPos`. Until the next frame recomputed it, every reader of the cached
+      # position saw the widget as border-smaller than it actually painted: mouse
+      # hit-testing (`last_rendered_position`) under-reported the clickable area by
+      # the border, damage-tracking subtree bounds (`damage_subtree_bounds`, which
+      # reads `@lpos`) excluded the border cells so a moved/hidden widget left its
+      # frame behind on the selective path, and `clear_last_rendered_position`
+      # erased only the interior. Compute the interior with the allocation-free
+      # by-value overload and leave `@lpos`/`ret` describing the full widget rect.
+      xi, xl, yi, yl = ret.xi, ret.xl, ret.yi, ret.yl
+      if border = style.border
+        xi, xl, yi, yl = border.adjust xi, xl, yi, yl
+      end
+      yield xi, xl, yi, yl
       ret
     end
 
