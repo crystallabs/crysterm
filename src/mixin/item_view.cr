@@ -445,6 +445,17 @@ module Crysterm
         if i < selected
           selekt selected - 1
         elsif i == selected
+          # The selected row itself was removed: the cursor lands on the prior
+          # row (`i - 1`), or — when the removed row was the first (`i == 0`) —
+          # stays at index 0, which now holds what used to be the *next* row.
+          # That latter case keeps the same `@selected` value (0), so `#selekt`'s
+          # unchanged-index short-circuit (`@selected == index &&
+          # @_list_initialized`) would return *without* refreshing `@value` or
+          # emitting `SelectItem`, leaving `value` pointing at the removed row's
+          # text. Clear the latch so the selection logic re-runs in full for the
+          # now-different item under the cursor. (For `i > 0` the index actually
+          # changes, so this is a harmless no-op there.)
+          @_list_initialized = false
           selekt i - 1
         end
 

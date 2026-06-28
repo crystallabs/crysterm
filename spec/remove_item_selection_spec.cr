@@ -63,4 +63,16 @@ describe "ItemView#remove_item single-selection cursor alignment" do
     list.selected.should eq 1
     list.value.should eq "b"
   end
+
+  it "refreshes value when the selected first row is removed" do
+    s = riss_screen
+    list = Crysterm::Widget::List.new parent: s, items: ["a", "b", "c"]
+    # Cursor stays at index 0 (default selection).
+    list.value.should eq "a"
+
+    list.remove_item list.items[0] # remove the selected first row; "b" shifts to 0
+    list.items.size.should eq 2
+    list.selected.should eq 0  # cursor stays at index 0
+    list.value.should eq "b"   # now tracking the row that slid into index 0
+  end
 end
