@@ -147,7 +147,12 @@ module Crysterm
 
     # :ditto: — *row* is the already-resolved `lines[y]`.
     def angle_at(lines, row, x, y, dock_contrast : DockContrast)
-      angle = 0
+      # Two separate accumulators: `recip` is the arms contributed by neighbors
+      # that *reciprocate* (point back at this cell — a real connection), and
+      # `preserve` is the cell's OWN arms that merely sit beside a present line
+      # glyph. They must stay distinct (see the guard below).
+      recip = 0
+      preserve = 0
       # The center cell's row is already resolved by the caller; read its attr
       # and char from the backing arrays once instead of re-indexing `lines[y]`
       # and building two `Cell` handles.
@@ -168,7 +173,7 @@ module Crysterm
        {0, 1, D_ANGLES, BITWISE_D_ANGLE} }.each do |(dx, dy, angles, bit)|
         result = neighbor_angle lines, row, x, y, dx, dy, angles, bit, attr, dock_contrast
         return ch if result.nil?
-        angle |= result
+        recip |= result
 
         # Preserve this cell's own arm toward any *present* line-drawing
         # neighbor, even one whose glyph doesn't point back. Docking otherwise
@@ -181,11 +186,22 @@ module Crysterm
         # an existing corner. Still gated on a line neighbor, so a `┐` against a
         # blank/off-grid edge still reduces exactly as before.
         if (self_bits & bit) != 0 && neighbor_line?(lines, x, y, dx, dy)
-          angle |= bit
+          preserve |= bit
         end
       end
 
-      ANGLE_TABLE[angle]? || ch
+      # No neighbor reciprocates: nothing actually connects to this cell, so keep
+      # its own glyph rather than letting self-preservation be the *sole* content
+      # of the angle. Self-preservation is meant to AUGMENT a real junction, never
+      # to stand alone — and a lone preserved arm maps to a straight stroke,
+      # severing the very corner the preservation exists to protect. Without this
+      # guard a `┌` with a `─` sitting directly below it (the `─` does not open
+      # upward, so it does not reciprocate) resolved to `│`, dropping the corner;
+      # likewise `└`/`┐`/`┘` against a single perpendicular rule. This subsumes
+      # the isolated-glyph rule (no neighbors at all → `recip == 0` → keep `ch`).
+      return ch if recip == 0
+
+      ANGLE_TABLE[(recip | preserve)]? || ch
     end
 
     # Whether the cell offset by (`dx`, `dy`) from (`x`, `y`) holds a
