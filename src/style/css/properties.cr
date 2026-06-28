@@ -354,9 +354,10 @@ module Crysterm
         end
       end
 
-      # Applies any `border*` property. Border color is a single whole-border
-      # value in crysterm's model, so per-side `*-color` longhands all set it;
-      # per-side widths/styles are honored individually.
+      # Applies any `border*` property. Per-side colors and widths are honored
+      # individually (`border-top-color`/`border-left-width` & co.); the border
+      # *type* is a single whole-border value. The `border-color` shorthand
+      # recolors every side, so it also clears any per-side color override.
       #
       private def self.apply_border(style : Style, property : String, value : String) : Nil
         border = style.border
@@ -372,7 +373,17 @@ module Crysterm
           border.left = border.right = border_cells(value)
           border.top = border.bottom = border_cells(value, vertical: true)
         when "border-color"
-          with_color(value, border.fg) { |c| border.fg = c }
+          # The `border-color` shorthand recolors the *whole* border, so it must
+          # also clear any per-side override (`border-top-color` & co.) a prior
+          # declaration set — the renderer reads `top_fg = @fg_top || @fg`, so a
+          # stale `@fg_top` would otherwise shadow the new whole-border `@fg`,
+          # leaving `border-top-color: red; border-color: blue` red on top. (A
+          # blank value is dropped by `with_color`, so an invalid declaration —
+          # e.g. an undefined `var()` — resets nothing, per CSS.)
+          with_color(value, border.fg) do |c|
+            border.fg = c
+            border.fg_top = border.fg_right = border.fg_bottom = border.fg_left = nil
+          end
         when "border-top-color"
           with_color(value, border.fg) { |c| border.fg_top = coerce_color_int(c) }
         when "border-right-color"
