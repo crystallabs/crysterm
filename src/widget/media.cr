@@ -390,8 +390,12 @@ module Crysterm
           in Type::Iterm    then Iterm.new **opts
           in Type::Tek      then Tek.new **opts
           end
-        if (db = double_buffer) && widget.is_a?(Graphics)
-          widget.double_buffer = db
+        # Distinguish "not given" (nil) from an explicit `false`: a plain
+        # truthiness test (`if (db = double_buffer)`) silently dropped a passed
+        # `double_buffer: false`, leaving the widget on its `true` default — so a
+        # caller could never turn double-buffering *off* through the factory.
+        unless (db = double_buffer).nil?
+          widget.double_buffer = db if widget.is_a?(Graphics)
         end
         widget
       end
