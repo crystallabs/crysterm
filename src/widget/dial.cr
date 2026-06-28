@@ -85,13 +85,7 @@ module Crysterm
             txt = focused? ? "‹#{@value}›" : @value.to_s
             tx = xi + Math.max(0, (xl - xi - txt.size) // 2)
             ty = yl - 1
-            screen.lines[ty]?.try do |line|
-              txt.each_char_with_index do |ch, i|
-                break if tx + i >= xl
-                line[tx + i]?.try &.char = ch
-              end
-              line.dirty = true
-            end
+            draw_text_run ty, tx, txt, xl
           end
         end
       end

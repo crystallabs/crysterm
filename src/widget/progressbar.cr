@@ -204,15 +204,7 @@ module Crysterm
             # edge of the filled region, so the label would slide up/down with the
             # value. (`fill_yi == yi` for a horizontal bar, so that case is
             # unchanged.)
-            screen.lines[yi]?.try do |line|
-              pc.each_char_with_index do |c, i|
-                break if xi + i >= xl
-                line[xi + i]?.try do |cell|
-                  cell.char = c
-                end
-              end
-              line.dirty = true
-            end
+            draw_text_run yi, xi, pc, xl
           end
         end
       end
@@ -228,15 +220,7 @@ module Crysterm
           return if inner_w <= 0 || inner_h <= 0
           cy = yi + (inner_h - 1) // 2
           cx = xi + Math.max(0, (inner_w - text.size) // 2)
-          screen.lines[cy]?.try do |line|
-            text.each_char_with_index do |c, i|
-              break if cx + i >= xl
-              line[cx + i]?.try do |cell|
-                cell.char = c
-              end
-            end
-            line.dirty = true
-          end
+          draw_text_run cy, cx, text, xl
         end
       end
 

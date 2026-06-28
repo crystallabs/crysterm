@@ -199,21 +199,12 @@ module Crysterm
             txt = @value.to_s
             cx = xi + Math.max(0, (xl - xi - txt.size) // 2)
             cy = yi + (yl - yi - 1) // 2
-            screen.lines[cy]?.try do |line|
-              txt.each_char_with_index do |ch, i|
-                break if cx + i >= xl
-                # Set the attr too, not just the glyph: the value text rides over
-                # the center row, which also carries the handle cell. Writing only
-                # the char left a digit landing on the handle wearing the handle's
-                # (indicator/reverse) attr, so the readout came out unevenly
-                # styled. Stamp the track attr so every digit reads consistently.
-                line[cx + i]?.try do |cell|
-                  cell.char = ch
-                  cell.attr = track_attr
-                end
-              end
-              line.dirty = true
-            end
+            # Set the attr too, not just the glyph: the value text rides over the
+            # center row, which also carries the handle cell. Writing only the
+            # char left a digit landing on the handle wearing the handle's
+            # (indicator/reverse) attr, so the readout came out unevenly styled.
+            # Stamp the track attr so every digit reads consistently.
+            draw_text_run cy, cx, txt, xl, track_attr
           end
         end
       end

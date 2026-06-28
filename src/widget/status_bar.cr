@@ -107,18 +107,7 @@ module Crysterm
         with_inner_coords do |xi, xl, yi, _yl|
           text = @permanent_text
           start = Math.max(xi, xl - text.size)
-          attr = sattr style
-          screen.lines[yi]?.try do |line|
-            text.each_char_with_index do |ch, i|
-              x = start + i
-              break if x >= xl
-              line[x]?.try do |cell|
-                cell.char = ch
-                cell.attr = attr
-              end
-            end
-            line.dirty = true
-          end
+          draw_text_run yi, start, text, xl, sattr(style)
         end
       end
     end

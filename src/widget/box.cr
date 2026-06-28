@@ -32,6 +32,27 @@ module Crysterm
       def css_tag : String
         CSS_TAG
       end
+
+      # Stamps `text` into the screen row at `y`, one glyph per cell starting at
+      # column `x` and stopping before reaching `xl`, then marks the row dirty.
+      # With a non-nil `attr` each touched cell's attribute is set as well;
+      # otherwise only the glyph is written and the existing attribute is kept.
+      # A shared primitive for the single-row text overlays drawn by
+      # `Slider`/`Dial`/`ProgressBar`/`StatusBar` (each previously inlined this
+      # same `screen.lines[y]?` + per-char write + `line.dirty` loop).
+      protected def draw_text_run(y : Int32, x : Int32, text : String, xl : Int32, attr : Int64? = nil) : Nil
+        screen.lines[y]?.try do |line|
+          text.each_char_with_index do |ch, i|
+            cx = x + i
+            break if cx >= xl
+            line[cx]?.try do |cell|
+              cell.char = ch
+              cell.attr = attr unless attr.nil?
+            end
+          end
+          line.dirty = true
+        end
+      end
     end
   end
 end
