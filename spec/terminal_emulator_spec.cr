@@ -524,6 +524,43 @@ describe Crysterm::TerminalEmulator do
     end
   end
 
+  describe "repeat (REP / CSI b)" do
+    it "repeats the last printed glyph n times" do
+      # ncurses emits REP on a terminal whose terminfo has `rep` (xterm-256color:
+      # `rep=\E[%p1%db`) to draw a run of one glyph — e.g. a horizontal rule — in a
+      # few bytes. `CSI Pn b` must re-emit the preceding character Pn more times.
+      em = emu
+      em.feed "-\e[3b" # one '-' then REP 3 -> four dashes total
+      row(em, 0).should eq "----"
+      em.cursor_x.should eq 4
+    end
+
+    it "defaults to repeating once when the count is omitted" do
+      em = emu
+      em.feed "Q\e[b"
+      row(em, 0).should eq "QQ"
+      em.cursor_x.should eq 2
+    end
+
+    it "is a no-op before any graphic character has been printed" do
+      em = emu
+      em.feed "\e[5bZ" # REP with no preceding glyph: ignored; Z prints at col 0
+      row(em, 0).should eq "Z"
+      em.cursor_x.should eq 1
+    end
+
+    it "caps an adversarial huge repeat count at the grid area" do
+      # `CSI 99999999 b` must not spin O(n): the count is capped at cols*rows, past
+      # which the screen is already full of the glyph. (Must return promptly and
+      # leave the grid full and the cursor in bounds, not loop ~10^8 times.)
+      em = emu(4, 2)
+      em.feed "x\e[99999999b"
+      row(em, 0).should eq "xxxx"
+      em.cursor_x.should be < em.cols
+      em.cursor_y.should be < em.rows
+    end
+  end
+
   describe "oversized CSI parameters" do
     it "does not overflow on a CSI parameter larger than Int32" do
       # A child (buggy or hostile) can emit a numeric CSI parameter far beyond

@@ -83,6 +83,13 @@ module Crysterm
     # exactly fills a row).
     @wrap_pending : Bool = false
 
+    # The last graphic character actually placed in the grid (after charset
+    # translation), so REP (`CSI Pn b`) can repeat it. ncurses emits REP on a
+    # terminal whose terminfo advertises `rep` (xterm-256color does:
+    # `rep=\E[%p1%db`) to draw a run of one glyph — e.g. a horizontal rule — in a
+    # few bytes; without REP the run collapses to a single glyph on screen.
+    @last_char : Char? = nil
+
     # Parser state. The CSI/OSC accumulation buffers are reused `IO::Memory`s
     # (cleared, not reallocated, at the start of each sequence): a child redrawing
     # a full screen emits a CSI per cursor move / colour change, and the old
@@ -543,6 +550,7 @@ module Crysterm
       when 'X' then erase_chars(param(0, 1))
       when 'S' then scroll_region_times(param(0, 1)) { scroll_up }   # SU
       when 'T' then scroll_region_times(param(0, 1)) { scroll_down } # SD
+      when 'b' then repeat_last(param(0, 1))                         # REP
       when 'I' then forward_tab(param(0, 1)); @wrap_pending = false  # CHT
       when 'Z' then back_tab(param(0, 1))                            # CBT
       when 'g' then tab_clear(param0(0))                             # TBC
@@ -736,6 +744,7 @@ module Crysterm
 
       line = cur_line
       line[@x] = Cell.new(@cur_attr, c)
+      @last_char = c # remember the placed glyph so REP ('b') can repeat it
       if w == 2 && @x + 1 < @cols
         line[@x + 1] = Cell.new(@cur_attr, CONTINUATION)
       end
@@ -746,6 +755,18 @@ module Crysterm
       else
         @x += w
       end
+    end
+
+    # REP (`CSI Pn b`): re-emit the last graphic character *n* more times, exactly
+    # as if it had been typed again (so it advances the cursor and wraps normally).
+    # A no-op when no graphic character has been printed yet. The count is capped
+    # at the grid area — repeating beyond a full screen is pointless, and the cap
+    # keeps an adversarial `CSI 99999999 b` from spinning O(n), the same guard the
+    # SU/IL/ICH handlers apply.
+    private def repeat_last(n : Int32) : Nil
+      c = @last_char || return
+      n = Math.min(n, @cols * @rows)
+      n.times { print_char c }
     end
 
     private def backspace : Nil
@@ -1011,6 +1032,7 @@ module Crysterm
       @x = 0
       @y = 0
       @wrap_pending = false
+      @last_char = nil
       @cursor_hidden = false
       @lines = Array(Array(Cell)).new
       @rows.times { @lines << blank_line }
