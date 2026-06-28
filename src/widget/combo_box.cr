@@ -279,7 +279,13 @@ module Crysterm
       # updates the value, closes the popup, and emits `Event::Action`.
       def commit(index : Int)
         if v = @filtered[index]?
-          set_value v
+          # For a non-editable combo `@filtered` is `@options` itself (unfiltered),
+          # so the chosen row's index *is* its index in `@options`; pass it through
+          # so a repeated option label commits the row actually picked rather than
+          # an identical earlier one (see `#set_value`). In editable mode the popup
+          # is a filtered subset, so its index doesn't map to `@options` — fall back
+          # to the value lookup there.
+          set_value v, editable? ? nil : index.to_i
         end
         close
       end
@@ -290,12 +296,20 @@ module Crysterm
         close
       end
 
-      private def set_value(v : String)
+      # Sets the displayed value, recording which option index it corresponds to.
+      # When the caller already knows the authoritative index (cycling, or a click
+      # on a specific row), it is passed in *index* so the selection lands on the
+      # row actually chosen. Otherwise the index is looked up by value — which,
+      # with duplicate option labels, would resolve to the *first* matching index
+      # and snap the selection back onto an identical earlier entry (leaving later
+      # duplicates unreachable). Falls back to the value lookup, then the current
+      # selection, when no index is given.
+      private def set_value(v : String, index : Int32? = nil)
         @value = v
         # Clear the edit buffer so the display reverts to showing the committed
         # value (not the leftover filter text).
         @text = ""
-        @selected = @options.index(v) || @selected
+        @selected = index || @options.index(v) || @selected
         update_content
         emit Crysterm::Event::Action, @value
       end
@@ -312,7 +326,11 @@ module Crysterm
         n = @options.size
         @selected = (@selected + delta) % n
         @selected += n if @selected < 0
-        set_value @options[@selected]
+        # Pass the freshly-computed index as authoritative: `#set_value`'s
+        # value-based lookup would otherwise resolve a repeated option label back
+        # to its first occurrence, so cycling could never advance onto a later
+        # duplicate (it would bounce off its earlier twin).
+        set_value @options[@selected], @selected
         request_render
       end
 

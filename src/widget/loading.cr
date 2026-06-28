@@ -101,9 +101,16 @@ module Crysterm
 
       # Advances the spinner one frame (state + paint only); the shared
       # `Effect::Animated` loop handles `screen.render` and the inter-frame sleep.
+      #
+      # `@pos` is advanced *before* painting: the icon already shows `icons[0]`
+      # from `initialize`/`spinner=`, so painting `icons[@pos]` first would
+      # re-draw that same frame on the very first tick — leaving the spinner
+      # frozen on frame 0 for two intervals before it began to move. Stepping
+      # first makes the first tick advance to `icons[1]`, so every interval
+      # shows a new frame.
       def step
-        @icon.set_content icons[@pos]
         @pos = (@pos + @step) % icons.size
+        @icon.set_content icons[@pos]
       end
 
       # Stops the spinner loop and hides the widget.
