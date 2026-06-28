@@ -128,6 +128,17 @@ module Crysterm
       el.height = height
     end
 
+    # Places `el`'s full rectangle and immediately renders it — the
+    # place-then-render pair the rectangular engines repeat when they place one
+    # child at a time (every `Border` region, and `Form`'s trailing full-width
+    # child). `Form`'s label/field *pair* deliberately does **not** use this: it
+    # places both children before rendering either (so the shared row height is
+    # applied to both), keeping the `#place_child`/`#render_child` calls separate.
+    protected def place_and_render(el : Widget, left : Int32, top : Int32, width : Int32, height : Int32) : Nil
+      place_child el, left, top, width, height
+      render_child el
+    end
+
     # Yields each of the container's *arrangeable* children — the ones an engine
     # actually positions — skipping `layout_excluded?` chrome (e.g. a
     # `background-image` layer or an out-of-band scrollbar, which is rendered

@@ -52,13 +52,27 @@ module Crysterm
       # whether it had been open, so `#close` can early-return when it wasn't.
       protected def teardown_popup : Bool
         return false unless @open
-        @open = false
-        screen?.try &.ungrab self
-        @ev_outside.try { |w| screen?.try &.off ::Crysterm::Event::Mouse, w }
-        @ev_outside = nil
+        release_grab
+        detach_outside_watcher
         popup_widget.try &.hide
         request_render
         true
+      end
+
+      # Marks the pop-up closed and releases the modal screen grab. Both teardown
+      # paths do this: unconditionally after the open-guard in `#teardown_popup`,
+      # and under `if @open` in `#teardown_popup_on_destroy`.
+      private def release_grab : Nil
+        @open = false
+        screen?.try &.ungrab self
+      end
+
+      # Removes the outside-click watcher from the screen (if installed) and
+      # clears the stored handle. Both teardown paths (`#teardown_popup` and
+      # `#teardown_popup_on_destroy`) detach it identically.
+      private def detach_outside_watcher : Nil
+        @ev_outside.try { |w| screen?.try &.off ::Crysterm::Event::Mouse, w }
+        @ev_outside = nil
       end
 
       # Modal grab region (see `Widget#grab_contains?`): this widget plus its
@@ -76,12 +90,8 @@ module Crysterm
         # can run without a prior close — leaving the now-dead widget lingering in
         # the screen's `@grabs`, which keeps `Screen#grabbing?` true and routes
         # every later mouse press through `grab_contains?` on a destroyed widget.
-        if @open
-          @open = false
-          screen?.try &.ungrab self
-        end
-        @ev_outside.try { |w| screen?.try &.off ::Crysterm::Event::Mouse, w }
-        @ev_outside = nil
+        release_grab if @open
+        detach_outside_watcher
         if pop = popup_widget
           screen?.try &.remove pop
           pop.destroy

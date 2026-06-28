@@ -74,19 +74,11 @@ module Crysterm
         each_arrangeable container do |el|
           next if el.layout_hint.is_a?(Hint)
           while occupied.includes?({r, c})
-            c += 1
-            if c >= cols
-              c = 0
-              r += 1
-            end
+            r, c = next_cell r, c, cols
           end
           placements << {el, r, c, 1, 1}
           occupied << {r, c}
-          c += 1
-          if c >= cols
-            c = 0
-            r += 1
-          end
+          r, c = next_cell r, c, cols
         end
 
         # Tallest occupied row index, without the intermediate array a
@@ -147,6 +139,19 @@ module Crysterm
       private def fence(total : Int32, n : Int32, i : Int32) : Int32
         i = i.clamp(0, n)
         (i * total) // n
+      end
+
+      # Advances the row-major auto-flow cursor to the next cell, wrapping to the
+      # start of the next row once it runs past the last column. Returns the new
+      # `{row, col}` as a value tuple (no heap allocation). Shared by the free-cell
+      # scan and the post-placement step, which advance the cursor identically.
+      private def next_cell(r : Int32, c : Int32, cols : Int32) : Tuple(Int32, Int32)
+        c += 1
+        if c >= cols
+          c = 0
+          r += 1
+        end
+        {r, c}
       end
 
       private def occupy(occupied, row, col, rs, cs)

@@ -33,20 +33,27 @@ module Crysterm
             # Up and down notches share the whole focus/select/step/accept path,
             # differing only in the step direction; merging them keeps the two
             # from drifting out of sync.
-            focus
-            select_section_at e.x
-            on_section_wheel
-            step(e.action.wheel_up? ? 1 : -1)
-            e.accept
-            request_render
+            section_interaction(e) do
+              on_section_wheel
+              step(e.action.wheel_up? ? 1 : -1)
+            end
           elsif e.action.down?
-            focus
-            select_section_at e.x
-            on_section_press
-            e.accept
-            request_render
+            section_interaction(e) { on_section_press }
           end
         end
+      end
+
+      # Focuses the field, selects the section under the pointer (*e*.x), runs the
+      # interaction-specific *block* (a wheel step, or the press hook), then
+      # accepts the event and repaints — the focus/select/…/accept/render scaffold
+      # the wheel and press branches otherwise repeat (cf.
+      # `SpinBoxEditing#stepping_key`). Block-yielding, so it allocates no `Proc`.
+      private def section_interaction(e, &) : Nil
+        focus
+        select_section_at e.x
+        yield
+        e.accept
+        request_render
       end
 
       # Selects the section under absolute *x* (no-op when off the field or

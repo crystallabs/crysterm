@@ -103,10 +103,7 @@ module Crysterm
            # not-yet-editing (nil) and backspaced-to-empty ("") states, while
            # still rejecting a `-` typed mid-number.
            (ch == '-' && @minimum < 0 && (@editing || "").empty?))
-          @editing = (@editing || "") + ch
-          update_content
-          e.accept
-          request_render
+          apply_edit(e) { @editing = (@editing || "") + ch }
           return
         end
 
@@ -119,10 +116,7 @@ module Crysterm
           e.accept
           request_render
         elsif (k == ::Tput::Key::Backspace || k == ::Tput::Key::CtrlH) && editing?
-          @editing = @editing.to_s[0...-1]
-          update_content
-          e.accept
-          request_render
+          apply_edit(e) { @editing = @editing.to_s[0...-1] }
         elsif k == ::Tput::Key::Up || ch == 'k' || ch == '+'
           stepping_key(e) { increment }
         elsif k == ::Tput::Key::Down || ch == 'j'
@@ -145,6 +139,17 @@ module Crysterm
       private def stepping_key(e, &) : Nil
         cancel_edit
         yield
+        e.accept
+        request_render
+      end
+
+      # Applies a buffer mutation (the *block* edits `@editing`), then refreshes
+      # the displayed text, accepts the event and repaints — the wrapper the
+      # buffer-editing keys (direct entry and Backspace) share, the display-side
+      # counterpart to `#stepping_key`. Block-yielding, so it allocates no `Proc`.
+      private def apply_edit(e, &) : Nil
+        yield
+        update_content
         e.accept
         request_render
       end

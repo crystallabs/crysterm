@@ -69,37 +69,32 @@ module Crysterm
         each_arrangeable container do |el|
           next unless region_of(el).top?
           ch = el.aheight.clamp(0, y1 - y0)
-          place_child el, x0, y0, x1 - x0, ch
-          render_child el
+          place_and_render el, x0, y0, x1 - x0, ch
           y0 += ch
         end
         each_arrangeable container do |el|
           next unless region_of(el).bottom?
           ch = el.aheight.clamp(0, y1 - y0)
-          place_child el, x0, y1 - ch, x1 - x0, ch
-          render_child el
+          place_and_render el, x0, y1 - ch, x1 - x0, ch
           y1 -= ch
         end
         each_arrangeable container do |el|
           next unless region_of(el).left?
           cw = el.awidth.clamp(0, x1 - x0)
-          place_child el, x0, y0, cw, y1 - y0
-          render_child el
+          place_and_render el, x0, y0, cw, y1 - y0
           x0 += cw
         end
         each_arrangeable container do |el|
           next unless region_of(el).right?
           cw = el.awidth.clamp(0, x1 - x0)
-          place_child el, x1 - cw, y0, cw, y1 - y0
-          render_child el
+          place_and_render el, x1 - cw, y0, cw, y1 - y0
           x1 -= cw
         end
         each_arrangeable container do |el|
           # Center is the default region: everything not top/bottom/left/right.
           r = region_of el
           next if r.top? || r.bottom? || r.left? || r.right?
-          place_child el, x0, y0, x1 - x0, y1 - y0
-          render_child el
+          place_and_render el, x0, y0, x1 - x0, y1 - y0
         end
       end
 

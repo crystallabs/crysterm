@@ -52,24 +52,16 @@ module Crysterm
               # correct regardless of how the height was specified.
               case key
               when Tput::Key::CtrlU
-                offs = -aheight // 2
-                scroll offs == 0 ? -1 : offs
-                request_render
+                page_scroll(-aheight // 2, -1)
                 next
               when Tput::Key::CtrlD
-                offs = aheight // 2
-                scroll offs == 0 ? 1 : offs
-                request_render
+                page_scroll(aheight // 2, 1)
                 next
               when Tput::Key::CtrlB
-                offs = -aheight
-                scroll offs == 0 ? -1 : offs
-                request_render
+                page_scroll(-aheight, -1)
                 next
               when Tput::Key::CtrlF
-                offs = aheight
-                scroll offs == 0 ? 1 : offs
-                request_render
+                page_scroll(aheight, 1)
                 next
               end
 
@@ -86,6 +78,15 @@ module Crysterm
             end
           end
         end
+      end
+
+      # Scrolls by a page step, then repaints — the body the four half-/full-page
+      # keys (Ctrl-U/D/B/F) otherwise repeat. *offs* is the computed page offset;
+      # *dir* (`-1`/`+1`) is the single-line fallback used when *offs* rounds to
+      # zero (a viewport only a line or two tall, where `aheight // 2` is 0).
+      private def page_scroll(offs : Int32, dir : Int32) : Nil
+        scroll(offs == 0 ? dir : offs)
+        request_render
       end
     end
   end

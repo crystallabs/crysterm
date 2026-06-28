@@ -54,8 +54,7 @@ module Crysterm
           else
             # Trailing odd child spans the full width.
             rh = row_height label
-            place_child label, 0, y, w, rh
-            render_child label
+            place_and_render label, 0, y, w, rh
             y += rh + @row_gap
             i += 1
           end

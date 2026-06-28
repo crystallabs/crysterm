@@ -58,8 +58,7 @@ module Crysterm
       def insert(element, i = -1)
         return unless @children_set.add? element
         @children.insert i, element
-        invalidate_css_tree
-        _damage_invalidate_structure
+        mark_structure_changed
         element
       end
 
@@ -71,9 +70,16 @@ module Crysterm
         # clears the whole cell buffer before each frame, so once `element` is
         # gone from `@children` it simply stops being repainted.
         @children.delete_at i
+        mark_structure_changed
+        element
+      end
+
+      # Propagates a structural change to the children list (an add/remove) to the
+      # subsystems that depend on it: the CSS tree and damage tracking. Shared by
+      # `#insert` and `#remove`, which both invalidate exactly this pair.
+      private def mark_structure_changed : Nil
         invalidate_css_tree
         _damage_invalidate_structure
-        element
       end
 
       # Hook invoked after the children list changes (a *structural* change). The
