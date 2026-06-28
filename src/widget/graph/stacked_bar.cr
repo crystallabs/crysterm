@@ -31,6 +31,8 @@ module Crysterm
       # ![StackedBar screenshot](../../../examples/widget/graph/stacked_bar/stacked_bar-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class StackedBar < Box
+        include BarChart
+
         # Default segment palette, cycled by stack level.
         DEFAULT_COLORS = %w[green magenta cyan red blue yellow]
 
@@ -82,17 +84,6 @@ module Crysterm
           mark_dirty # repaint on data change (Qt's property-change-triggers-update)
         end
 
-        def render
-          self.content = build_content
-          super
-        end
-
-        private def bar_capacity(cols : Int32) : Int32
-          unit = @bar_width + @bar_spacing
-          return 0 if unit <= 0 || cols <= 0
-          (cols + @bar_spacing) // unit
-        end
-
         private def segment_color(level : Int32) : String
           @colors[level % @colors.size]
         end
@@ -130,16 +121,7 @@ module Crysterm
 
           # Plot area.
           plot_rows.times do |r|
-            cells = [] of Char
-            colors = [] of String?
-            n.times do |i|
-              glyph, color = columns[i][r]
-              @bar_width.times { cells << glyph; colors << color }
-              if i < n - 1
-                @bar_spacing.times { cells << ' '; colors << nil }
-              end
-            end
-            lines << String.build { |io| Scale.tagged_row(io, cells, colors) }
+            lines << plot_row(n) { |i| columns[i][r] }
           end
 
           # Category captions along the bottom. Only the tail bars are shown when

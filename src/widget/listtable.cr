@@ -434,10 +434,7 @@ module Crysterm
         return if cells.nil? || cells.empty?
 
         lines = screen.lines
-        xi = coords.xi
-        yi = coords.yi
-        width = coords.xl - coords.xi - iright
-        height = coords.yl - coords.yi - ibottom
+        xi, yi, width, height = border_extent coords
 
         # Map visible x → actual column index, starting from the first visible
         # column so per-cell CSS recolors the right cells when scrolled right.
@@ -469,11 +466,8 @@ module Crysterm
         return if !border.any? || no_cell_borders?
 
         lines = screen.lines
-        xi = coords.xi
-        yi = coords.yi
+        xi, yi, width, height = border_extent coords
         battr = sattr border
-        width = coords.xl - coords.xi - iright
-        height = coords.yl - coords.yi - ibottom
         last = @maxes.size - 1
 
         # Separators are drawn between the *visible* columns (`@first_col..`), with

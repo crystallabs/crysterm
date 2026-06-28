@@ -154,8 +154,7 @@ module Crysterm
       # ameba:disable Metrics/CyclomaticComplexity
       private def draw_borders(coords)
         lines = screen.lines
-        xi = coords.xi
-        yi = coords.yi
+        xi, yi, width, height = border_extent coords
 
         dattr = sattr style
         hattr = sattr style.header
@@ -170,9 +169,6 @@ module Crysterm
           else
             sattr style.border
           end
-
-        width = coords.xl - coords.xi - iright
-        height = coords.yl - coords.yi - ibottom
 
         # Maps each relative text-column x to its table column index (packed by
         # `@maxes`), so CSS per-cell styles (`#css_cell_style`) can override the

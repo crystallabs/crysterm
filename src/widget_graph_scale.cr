@@ -74,6 +74,40 @@ module Crysterm
           v == v.round ? v.to_i.to_s : v.round(1).to_s
         end
       end
+
+      # Shared scaffolding for the block-glyph bar charts (`Bar`, `StackedBar`):
+      # the bar-capacity arithmetic, the repaint-on-render hook, and the per-row
+      # tagged-content builder. Including types are `Box` subclasses that declare
+      # `@bar_width`/`@bar_spacing` (`Int32`) and a private `#build_content`.
+      module BarChart
+        # How many bars fit across `cols` columns at the current width/spacing.
+        private def bar_capacity(cols : Int32) : Int32
+          unit = @bar_width + @bar_spacing
+          return 0 if unit <= 0 || cols <= 0
+          # The last bar needs no trailing spacing, hence the `+ bar_spacing`.
+          (cols + @bar_spacing) // unit
+        end
+
+        def render
+          self.content = build_content
+          super
+        end
+
+        # Builds one plot row of tagged content: each of the `n` bars contributes
+        # `bar_width` copies of its `{glyph, color}` (yielded for bar `i`),
+        # separated by `bar_spacing` blank columns. A blank glyph carries no color
+        # so coalesced color runs stay tight.
+        private def plot_row(n : Int32, & : Int32 -> {Char, String?}) : String
+          cells = [] of Char
+          colors = [] of String?
+          n.times do |i|
+            glyph, color = yield i
+            @bar_width.times { cells << glyph; colors << (glyph == ' ' ? nil : color) }
+            @bar_spacing.times { cells << ' '; colors << nil } if i < n - 1
+          end
+          String.build { |io| Scale.tagged_row(io, cells, colors) }
+        end
+      end
     end
   end
 end

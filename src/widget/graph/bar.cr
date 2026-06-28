@@ -33,6 +33,8 @@ module Crysterm
       # ![Bar screenshot](../../../examples/widget/graph/bar/bar-capture5s.apng)
       # <!-- /widget-examples:capture -->
       class Bar < Box
+        include BarChart
+
         # The data series. Each element is one bar. (A `getter` with an explicit
         # setter below, rather than a `property`, so *every* assignment — including
         # an `Array(Float64)` literal that would otherwise bind the generated
@@ -86,19 +88,6 @@ module Crysterm
           mark_dirty # repaint on data change (Qt's property-change-triggers-update), as in `StackedBar`
         end
 
-        def render
-          self.content = build_content
-          super
-        end
-
-        # How many bars fit across `cols` columns at the current width/spacing.
-        private def bar_capacity(cols : Int32) : Int32
-          unit = @bar_width + @bar_spacing
-          return 0 if unit <= 0 || cols <= 0
-          # The last bar needs no trailing spacing, hence the `+ bar_spacing`.
-          (cols + @bar_spacing) // unit
-        end
-
         private def bar_color(i : Int32) : String?
           c = @colors
           c ? c[i % c.size] : nil
@@ -130,20 +119,7 @@ module Crysterm
           # Plot area, top row down.
           plot_rows.times do |r|
             below = plot_rows - 1 - r
-            cells = [] of Char
-            colors = [] of String?
-            n.times do |i|
-              glyph = Scale.vglyph(levels[i], below)
-              color = bar_color(i)
-              @bar_width.times do
-                cells << glyph
-                colors << (glyph == ' ' ? nil : color)
-              end
-              if i < n - 1
-                @bar_spacing.times { cells << ' '; colors << nil }
-              end
-            end
-            lines << String.build { |io| Scale.tagged_row(io, cells, colors) }
+            lines << plot_row(n) { |i| {Scale.vglyph(levels[i], below), bar_color(i)} }
           end
 
           # Value captions.

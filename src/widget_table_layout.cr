@@ -236,6 +236,14 @@ module Crysterm
       rows.map { |row| row.map(&.to_s) }
     end
 
+    # Interior extent of the rendered table for *coords*, shared by the border
+    # and CSS-recolor passes: the content origin (`xi`, `yi`) plus the content
+    # `width`/`height` reaching the right/bottom insets. Destructure as
+    # `xi, yi, width, height = border_extent(coords)`.
+    def border_extent(coords) : Tuple(Int32, Int32, Int32, Int32)
+      {coords.xi, coords.yi, coords.xl - coords.xi - iright, coords.yl - coords.yi - ibottom}
+    end
+
     # The attribute for an internal cell-border junction: either the plain
     # border attribute, or (with `fill_cell_borders`) the border
     # flags/foreground laid over the existing cell's background.
