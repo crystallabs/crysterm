@@ -313,6 +313,26 @@ module Crysterm
       forward_missing_to @lines
     end
 
+    # Single-pass content sanitization shared by `process_content` (whole
+    # content) and `append_content` (just the appended segment): strips control
+    # characters and a stray ESC (one not starting an SGR sequence), normalizes
+    # CR/CRLF to LF, and expands TAB to `tab_char * tab_size`. The four rules act
+    # on disjoint characters, so one alternation with a dispatching block is
+    # equivalent to four chained `gsub`s. Allocation-free on the common tab-free,
+    # match-free input: `gsub` returns the receiver unchanged, and the `tab`
+    # replacement string is only built when a TAB is actually present (the `""`
+    # fallback is a constant).
+    private def clean_content_chars(text : String) : String
+      tab = text.includes?('\t') ? style.tab_char * style.tab_size : ""
+      text.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]|\e(?!\[[\d;]*m)|\r\n|\r|\t/) do |m|
+        case m
+        when "\r\n", "\r" then "\n"
+        when "\t"         then tab
+        else                   "" # control char or stray ESC
+        end
+      end
+    end
+
     # `awidth_hint`, when given, is this widget's already-resolved absolute width
     # for the current frame — the render path knows it cheaply (the parent has
     # rendered, so `awidth(true)` is an O(1) `lpos` read) and passes it in so the
@@ -343,26 +363,12 @@ module Crysterm
         # first. (The common cache-hit path below never enters here, so deferred
         # content is not materialized just to render an unchanged frame.)
         fold_content_tail
-        # Single pass over the content instead of four chained `gsub`s (each of
-        # which scanned the whole string and built an intermediate copy). The
-        # four rules act on disjoint characters — control chars, a stray ESC
-        # (not starting an SGR sequence), CR/CRLF, and TAB — so collapsing them
-        # into one alternation with a dispatching block is equivalent. `tab` is
-        # hoisted so the replacement string is built once, not per match — and
-        # only when the content actually contains a tab, since `style.tab_char *
-        # style.tab_size` allocates a `String` and the `"\t"` branch is otherwise
-        # never reached (the `""` fallback is a constant, no allocation). On the
-        # common tab-free reparse the whole `gsub` also returns `@content`
-        # unchanged (Crystal's `gsub` returns the receiver when nothing matches),
-        # so this branch is then allocation-free.
-        tab = @content.includes?('\t') ? style.tab_char * style.tab_size : ""
-        content = @content.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]|\e(?!\[[\d;]*m)|\r\n|\r|\t/) do |m|
-          case m
-          when "\r\n", "\r" then "\n"
-          when "\t"         then tab
-          else                   "" # control char or stray ESC
-          end
-        end
+        # Single pass over the content instead of four chained `gsub`s (control
+        # chars, a stray ESC, CR/CRLF, TAB) — see `#clean_content_chars`. On the
+        # common tab-free reparse this returns `@content` unchanged (Crystal's
+        # `gsub` returns the receiver when nothing matches), so it is then
+        # allocation-free.
+        content = clean_content_chars @content
 
         ::Log.trace { "Internal content is #{content.inspect}" }
 
@@ -1050,15 +1056,9 @@ module Crysterm
       return false if @_clines.fake.empty?
 
       # Clean control chars on JUST the appended text (same single-pass rule as
-      # `process_content`), then tag-parse only the new segment.
-      tab = text.includes?('\t') ? style.tab_char * style.tab_size : ""
-      seg = text.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]|\e(?!\[[\d;]*m)|\r\n|\r|\t/) do |m|
-        case m
-        when "\r\n", "\r" then "\n"
-        when "\t"         then tab
-        else                   ""
-        end
-      end
+      # `process_content`, via the shared `#clean_content_chars`), then tag-parse
+      # only the new segment.
+      seg = clean_content_chars text
       # Appending nothing (empty text, or text that cleaned away) would drive
       # `_wrap_content` down its empty-content branch, which desyncs `fake` from
       # `lines`. Such an append is a no-op for content but `push_line` still wants
