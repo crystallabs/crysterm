@@ -115,16 +115,7 @@ module Crysterm
               # Reuse the sheet's compiled selector (cross-cascade) and run it
               # against this cascade's document; a selector the engine can't
               # parse compiles to `nil` and matches nothing.
-              matched = if compiled = sheet.compiled_selector(rule.selector)
-                          begin
-                            compiled.select(doc)
-                          rescue
-                            [] of HTML5::Node
-                          end
-                        else
-                          [] of HTML5::Node
-                        end
-              selector_cache[rule.selector] = matched
+              selector_cache[rule.selector] = select_nodes(sheet, doc, rule.selector)
             end
             # `:has(...)` — keep only nodes with a descendant matching the inner
             # selector (the engine has no native `:has`).
@@ -304,22 +295,29 @@ module Crysterm
         false
       end
 
+      # Runs *selector* (compiled by and cached on *sheet*, reused across
+      # cascades) against this cascade's *doc*. A selector the engine can't parse
+      # compiles to `nil` and matches nothing; a select that raises also yields
+      # nothing. Shared by the rule-selector and ancestor-`:has` qualifier scans.
+      private def self.select_nodes(sheet : Stylesheet, doc : HTML5::Node, selector : String) : Array(HTML5::Node)
+        if compiled = sheet.compiled_selector(selector)
+          begin
+            compiled.select(doc)
+          rescue
+            [] of HTML5::Node
+          end
+        else
+          [] of HTML5::Node
+        end
+      end
+
       # The set of nodes matching *qualifier* (an ancestor compound) that satisfy
       # its relational `:has(inner)` — i.e. have an *inner* descendant. The bare
       # *qualifier* match is cached in *cache* alongside the rule selectors (same
       # selector against the same document yields the same nodes).
       private def self.qualified_ancestors(sheet : Stylesheet, doc : HTML5::Node, qualifier : String, inner : String, cache : Hash(String, Array(HTML5::Node))) : Set(HTML5::Node)
         base = cache.fetch(qualifier) do
-          matched = if compiled = sheet.compiled_selector(qualifier)
-                      begin
-                        compiled.select(doc)
-                      rescue
-                        [] of HTML5::Node
-                      end
-                    else
-                      [] of HTML5::Node
-                    end
-          cache[qualifier] = matched
+          cache[qualifier] = select_nodes(sheet, doc, qualifier)
         end
         set = Set(HTML5::Node).new
         base.each { |n| set << n if has_descendant?(n, inner) }

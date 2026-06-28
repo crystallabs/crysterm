@@ -9,35 +9,28 @@ module Crysterm
     @fg : Int32?
     @bg : Int32?
 
-    # Native numeric color (e.g. `fg: 0x40e0c0`); stored directly.
-    def fg=(color : Int)
-      @fg = color.to_i32
+    # Generates the three color-setter overloads for a `@name` ivar: a native
+    # `Int` (`fg: 0x40e0c0`) stored directly, a `"#rrggbb"`/named-color `String`
+    # parsed via `Colors.convert_cached` (backwards compatibility), and `Nil`
+    # which clears it (unset → no SGR sequence emitted). Shared verbatim by
+    # `fg`/`bg` here and by `Style`'s `tint`/`gridline_color` (which mix it in
+    # via `Colorizable.color_setter`); the getter is declared by each class.
+    macro color_setter(name)
+      def {{name.id}}=(color : Int)
+        @{{name.id}} = color.to_i32
+      end
+
+      def {{name.id}}=(color : String)
+        @{{name.id}} = Colors.convert_cached(color)
+      end
+
+      def {{name.id}}=(color : Nil)
+        @{{name.id}} = nil
+      end
     end
 
-    # :ditto:
-    def bg=(color : Int)
-      @bg = color.to_i32
-    end
-
-    # Backwards compatibility: a `"#rrggbb"` or named ("blue") color string is
-    # parsed to the native int.
-    def fg=(color : String)
-      @fg = Colors.convert_cached(color)
-    end
-
-    # :ditto:
-    def bg=(color : String)
-      @bg = Colors.convert_cached(color)
-    end
-
-    # Clearing a color leaves it unset (no SGR sequence emitted).
-    def fg=(color : Nil)
-      @fg = nil
-    end
-
-    # :ditto:
-    def bg=(color : Nil)
-      @bg = nil
-    end
+    # `fg`/`bg` color setters (Int/String/Nil); see `color_setter`.
+    color_setter fg
+    color_setter bg
   end
 end

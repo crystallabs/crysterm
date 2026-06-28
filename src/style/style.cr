@@ -56,20 +56,10 @@ module Crysterm
     # Strength of the `tint` overlay: `0.0` = none, `1.0` = fully the tint color.
     property tint_alpha : Float64 = 0.5
 
-    # Native numeric tint color (e.g. `tint: 0xff0000`); stored directly.
-    def tint=(color : Int)
-      @tint = color.to_i32
-    end
-
-    # Backwards-compat: a `"#rrggbb"`/named color string, parsed to the native int.
-    def tint=(color : String)
-      @tint = Colors.convert_cached(color)
-    end
-
-    # Clearing the tint leaves it unset (no overlay applied).
-    def tint=(color : Nil)
-      @tint = nil
-    end
+    # Tint color setters (Int/String/Nil, like `fg`/`bg`); see
+    # `Colorizable.color_setter`. Native `tint: 0xff0000` is stored directly, a
+    # `"#rrggbb"`/named string is parsed, and `nil` clears it (no overlay).
+    Colorizable.color_setter tint
 
     # Compositing layer (CSS `z-index`). When set, the widget (and its subtree)
     # is promoted to its own `Plane` at this z, composited over the base so it can
@@ -303,15 +293,24 @@ module Crysterm
 
     # Keep the list sorted alphabetically.
 
+    # Declares a nested sub-`Style` *slot*: a `setter` plus a getter that falls
+    # back to *fallback* (`self` for most slots, `cell` for the alternate row)
+    # when the slot was never explicitly assigned. Every sub-style below shares
+    # this exact `@slot || fallback` shape; see the canonical `slots` table for
+    # the cascade-facing name mapping.
+    private macro sub_style_accessor(name, fallback = "self")
+      setter {{name.id}} : Style?
+
+      def {{name.id}}
+        @{{name.id}} || {{fallback.id}}
+      end
+    end
+
     # Style used for alternating (even) rows when a `Widget::Table` or
     # `Widget::ListTable` has `alternate_rows` enabled — the equivalent of Qt's
     # `QAbstractItemView#alternatingRowColors`. Defaults to `cell` (and thus to
     # the main style), so it has no visible effect until styled.
-    setter alternate_row : Style?
-
-    def alternate_row
-      @alternate_row || cell
-    end
+    sub_style_accessor alternate_row, "cell"
 
     # Whether a distinct alternate-row sub-style has been set (via
     # `alternate-background-color`, `#alternate_row=`, or `#alternate_background=`),
@@ -341,20 +340,9 @@ module Crysterm
     # mirroring `tint`/`fg`/`bg`.
     getter gridline_color : Int32?
 
-    # :ditto:
-    def gridline_color=(color : Int)
-      @gridline_color = color.to_i32
-    end
-
-    # :ditto:
-    def gridline_color=(color : String)
-      @gridline_color = Colors.convert_cached(color)
-    end
-
-    # :ditto:
-    def gridline_color=(color : Nil)
-      @gridline_color = nil
-    end
+    # :ditto: setters (Int/String/Nil), mirroring `tint`/`fg`/`bg`; see
+    # `Colorizable.color_setter`.
+    Colorizable.color_setter gridline_color
 
     def border=(value)
       @specified_mask |= SPEC_BORDER
@@ -366,88 +354,44 @@ module Crysterm
     # and expands the widget by nothing — exactly like the old `nil` did.
     getter border : Border { Border.new 0 }
 
-    setter cell : Style?
+    sub_style_accessor cell
 
-    def cell
-      @cell || self
-    end
+    sub_style_accessor header
 
-    setter header : Style?
+    sub_style_accessor indicator
 
-    def header
-      @header || self
-    end
-
-    setter indicator : Style?
-
-    def indicator
-      @indicator || self
-    end
-
-    setter item : Style?
-
-    def item
-      @item || self
-    end
+    sub_style_accessor item
 
     # Style used for the numeric/letter prefix shown before each
     # `Widget::ListBar` command (e.g. the `1` in `1:open`). Defaults to `self`.
-    setter prefix : Style?
-
-    def prefix
-      @prefix || self
-    end
+    sub_style_accessor prefix
 
     # Style used for a `Widget::Menu` separator rule (Qt's `QMenu::separator`).
     # Defaults to `self`.
-    setter separator : Style?
-
-    def separator
-      @separator || self
-    end
+    sub_style_accessor separator
 
     # Style used for a `Widget::TabWidget` tab (Qt's `QTabBar::tab`). Defaults to
     # `self`; `TabWidget` only pushes it onto its tabs when a `TabWidget::tab` rule
     # actually set it (i.e. `tab.same?(self)` is false).
-    setter tab : Style?
-
-    def tab
-      @tab || self
-    end
+    sub_style_accessor tab
 
     # Style used for a widget's title chrome (Qt's `QGroupBox::title` /
     # `QDockWidget::title`). Defaults to `self`; the owning widget only pushes it
     # onto its title element when a `::title` rule actually set it.
-    setter title : Style?
-
-    def title
-      @title || self
-    end
+    sub_style_accessor title
 
     # Style used for a `Widget::TabWidget` page area (Qt's `QTabWidget::pane`).
     # Defaults to `self`; only pushed onto the current page when a `::pane` rule
     # actually set it.
-    setter pane : Style?
-
-    def pane
-      @pane || self
-    end
+    sub_style_accessor pane
 
     # Styles for a `Widget::DockWidget`'s title-bar buttons (Qt's
     # `QDockWidget::close-button` / `::float-button`). Default to `self`; pushed
     # onto the respective button only when a matching `::close-button`/
     # `::float-button` rule set it.
-    setter close_button : Style?
+    sub_style_accessor close_button
 
-    def close_button
-      @close_button || self
-    end
-
-    setter float_button : Style?
-
-    def float_button
-      @float_button || self
-    end
+    sub_style_accessor float_button
 
     # Label value is used only when internally instantiating labels on widgets,
     # to be able to set their: `style: self.style.label`. Since labels are
@@ -486,11 +430,7 @@ module Crysterm
     # :ditto:
     getter margin = Margin.default
 
-    setter scrollbar : Style?
-
-    def scrollbar
-      @scrollbar || self
-    end
+    sub_style_accessor scrollbar
 
     # Should element drop shadow?
     def shadow=(value)
@@ -501,11 +441,7 @@ module Crysterm
     # :ditto:
     getter shadow = Shadow.default
 
-    setter track : Style?
-
-    def track
-      @track || self
-    end
+    sub_style_accessor track
 
     # `Widget::ScrollBar` sub-control slots, mirroring Qt's `QScrollBar`
     # sub-controls (`::sub-line`/`::add-line` stepper buttons, `::up-arrow`/
@@ -513,53 +449,21 @@ module Crysterm
     # `::sub-page`/`::add-page`, the trough regions before/after the handle).
     # Each defaults to `self`; the bar resolves an unset arrow/page slot back to
     # its button/track slot at render time (see `ScrollBar#render`).
-    setter sub_line : Style?
+    sub_style_accessor sub_line
 
-    def sub_line
-      @sub_line || self
-    end
+    sub_style_accessor add_line
 
-    setter add_line : Style?
+    sub_style_accessor sub_page
 
-    def add_line
-      @add_line || self
-    end
+    sub_style_accessor add_page
 
-    setter sub_page : Style?
+    sub_style_accessor up_arrow
 
-    def sub_page
-      @sub_page || self
-    end
+    sub_style_accessor down_arrow
 
-    setter add_page : Style?
+    sub_style_accessor left_arrow
 
-    def add_page
-      @add_page || self
-    end
-
-    setter up_arrow : Style?
-
-    def up_arrow
-      @up_arrow || self
-    end
-
-    setter down_arrow : Style?
-
-    def down_arrow
-      @down_arrow || self
-    end
-
-    setter left_arrow : Style?
-
-    def left_arrow
-      @left_arrow || self
-    end
-
-    setter right_arrow : Style?
-
-    def right_arrow
-      @right_arrow || self
-    end
+    sub_style_accessor right_arrow
 
     # Canonical CSS *slot* → sub-`Style` accessor mapping. Every place that maps a
     # cascade slot name to a nested `Style` is generated from this single list, so
