@@ -115,7 +115,7 @@ module Crysterm
         # In a reduced-color mode, dither the whole sample to the palette up front
         # (error diffusion needs the neighbours, so it can't be done per cell).
         # Memoized per sample bitmap; unused (and never computed) in TrueColor.
-        plane = @colors.true_color? ? nil : cached_dither_plane(bmp)
+        plane = @colors.true_color? ? nil : @dither_plane_memo.get(bmp) { dither_plane bmp }
         (yi...yl).each do |y|
           cmrow = bmp[y - yi]?
           next unless cmrow
@@ -171,24 +171,10 @@ module Crysterm
         {ch, fg}
       end
 
-      # Dithered plane for the *current* `@sample`, and the bitmap it was built
-      # for. The full Floyd–Steinberg/ordered pass is the per-render hot spot, so
-      # it's cached and only rerun when the sample bitmap actually changes. Keying
-      # on the bitmap's identity ties the plane's lifetime to `@sample` exactly:
-      # every resample (resize, reload, `bitmap=`, `reset_sample_cache`) and every
-      # animation frame yields a fresh bitmap object, which forces a recompute,
-      # while a repeated render of the same still reuses it.
-      @dither_plane : Array(Array(Int32))?
-      @dither_plane_for : PNGGIF::Bitmap?
-
-      private def cached_dither_plane(bmp : PNGGIF::Bitmap) : Array(Array(Int32))
-        cached = @dither_plane
-        return cached if cached && @dither_plane_for.try(&.same?(bmp))
-        plane = dither_plane(bmp)
-        @dither_plane = plane
-        @dither_plane_for = bmp
-        plane
-      end
+      # Memoizes the dithered colour plane for the *current* `@sample` (the full
+      # Floyd–Steinberg/ordered pass is the per-render hot spot, so it's rerun
+      # only when the sample bitmap actually changes — see `SampleMemo`).
+      @dither_plane_memo = SampleMemo(Array(Array(Int32))).new
 
       # Builds a palette-quantized, dithered color plane for the whole sample —
       # one packed RGB per pixel (`-1` for fully transparent). Used only in the

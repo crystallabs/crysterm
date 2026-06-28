@@ -1177,6 +1177,20 @@ module Crysterm
 
     # ───────────────────────── geometry / queries ─────────────────────────
 
+    # Pads or trims *grid* so its viewport (the lines from *base* onward) holds
+    # exactly *rows* lines: growing appends blank lines, shrinking drops the
+    # lines that fell off the bottom of the smaller viewport (content is kept at
+    # the top-left). Used on resize for both the live grid and the parked main
+    # buffer.
+    private def fit_viewport(grid : Array(Array(Cell)), base : Int32, rows : Int32) : Nil
+      screen_lines = grid.size - base
+      if screen_lines < rows
+        (rows - screen_lines).times { grid << blank_line }
+      elsif screen_lines > rows
+        grid.pop(screen_lines - rows)
+      end
+    end
+
     # Resizes the grid. Content is preserved at the top-left; rows/cols are
     # padded with blanks or truncated. (A faithful reflow is out of scope for
     # v1; this matches the pragmatic behaviour of most emulators on resize.)
@@ -1209,23 +1223,13 @@ module Crysterm
       # and a later full-screen `scroll_up` — which appends at the end of `@lines`
       # and advances `@ybase` — would shift them back into view instead of the
       # freshly scrolled-in blank.
-      screen_lines = @lines.size - @ybase
-      if screen_lines < rows
-        (rows - screen_lines).times { @lines << blank_line }
-      elsif screen_lines > rows
-        @lines.pop(screen_lines - rows)
-      end
+      fit_viewport @lines, @ybase, rows
 
       # When on the alt page, grow the parked main buffer's viewport too (it uses
       # the saved `@main_ybase`); otherwise a grow-resize leaves `@main_lines`
       # short and restoring it after `#leave_alt` would yield a truncated screen.
       if ml = @main_lines
-        main_screen_lines = ml.size - @main_ybase
-        if main_screen_lines < rows
-          (rows - main_screen_lines).times { ml << blank_line }
-        elsif main_screen_lines > rows
-          ml.pop(main_screen_lines - rows)
-        end
+        fit_viewport ml, @main_ybase, rows
         # A resize resets the scroll margins to the full screen on the active page
         # (just below). Do the same to the *parked* main page, otherwise leaving
         # the alt screen after a resize would restore a stale (pre-resize) scroll

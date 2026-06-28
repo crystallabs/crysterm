@@ -12,6 +12,28 @@ module Crysterm
     # size, and iterate the cells. Subclasses provide only the sampling resolution
     # (`#compose`) and the per-cell painting (`#draw_sample`).
     abstract class Media::Cells < Media::Base
+      # Memoizes a value derived from the *whole* current sample bitmap (e.g. a
+      # dithered colour plane, a luminance threshold) keyed on the bitmap's
+      # identity, so the expensive whole-bitmap pass runs once per `@sample` and
+      # is reused on repeated renders of the same still. Keying on identity ties
+      # the cached value's lifetime to `@sample` exactly: every resample (resize,
+      # reload, `bitmap=`, `reset_sample_cache`) and every animation frame yields
+      # a fresh bitmap object, which forces a recompute, while a repeated render
+      # of the same still reuses it. Shared by `Media::Ansi` and `Media::Glyph`.
+      class SampleMemo(T)
+        @value : T?
+        @for : PNGGIF::Bitmap?
+
+        def get(bmp : PNGGIF::Bitmap, & : -> T) : T
+          cached = @value
+          return cached if cached && @for.try(&.same?(bmp))
+          val = yield
+          @value = val
+          @for = bmp
+          val
+        end
+      end
+
       # Whether the loaded image is animated (its frames drive the sampled bitmap).
       @animated = false
       # Per-frame sampled bitmaps for the *current* box size, filled lazily and
