@@ -69,10 +69,16 @@ module Crysterm
       screen.focus self
     end
 
-    # Returns whether widget is currently in focus
+    # Returns whether widget is currently in focus.
+    #
+    # Uses the non-raising `#screen?`: a *detached* widget (one removed from its
+    # screen) holds no `@screen` and derives none through a parent, so the raising
+    # `#screen` would make this pure query crash with a `NilAssertionError`
+    # instead of answering. A detached widget can never be the screen's focused
+    # widget, so the answer there is simply `false`.
     @[AlwaysInline]
     def focused?
-      screen.focused == self
+      screen?.try(&.focused) == self
     end
 
     # Hover help text shown in a floating `Widget::ToolTip` while the pointer is
