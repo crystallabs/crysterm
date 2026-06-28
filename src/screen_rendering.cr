@@ -472,9 +472,19 @@ module Crysterm
       # XXX Workaround to deal with cursor pos before the screen
       # has rendered and lpos is not reliable (stale).
       # Only some elements have this function; for others it's a noop.
+      #
+      # Only the cursor is repositioned here. A focus *event* is NOT emitted:
+      # `Event::Focus` denotes a focus *change* and is fired once, from
+      # `screen_focus.cr#_focus`, when focus actually moves (the rest of the code
+      # deliberately guards against spurious/duplicate Focus events — see
+      # `Widget#focus` and `_focus`'s `old == cur` handling). Re-emitting it on
+      # the focused widget every frame fired all of its focus side effects on each
+      # render — e.g. `Widget::Terminal` reporting focus-in (`\e[I`) to its child
+      # PTY, a `text_editing` widget with `input_on_focus` re-entering `read_input`,
+      # `action_bar`/`menu_bar`/`completer`/remote DOM observers re-running their
+      # focus handlers — none of which the cursor workaround needs.
       focused.try do |focused_widget|
         focused_widget._update_cursor(true)
-        focused_widget.emit(Crysterm::Event::Focus)
       end
 
       @renders += 1
