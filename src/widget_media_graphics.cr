@@ -219,6 +219,18 @@ module Crysterm
         true
       end
 
+      # The non-empty content cell-rectangle `{xi, yi, cols, rows}` this widget
+      # currently occupies — its rendered coords inset by border/padding
+      # (`#overlay_rect`) — or `nil` when it has no rendered position or is
+      # zero-sized. The shared geometry behind the paint path (`#redraw_image`)
+      # and the capture path (`#capture_layer`).
+      private def content_rect : Tuple(Int32, Int32, Int32, Int32)?
+        pos = _get_coords(true) || return nil
+        xi, yi, cols, rows = overlay_rect pos
+        return nil if cols <= 0 || rows <= 0
+        {xi, yi, cols, rows}
+      end
+
       # Current frame resampled to the widget's content cell-box × font cell size,
       # plus its content top-left cell origin — composited by the capture
       # renderer at the same place the terminal draws the graphic. Mirrors the
@@ -226,9 +238,7 @@ module Crysterm
       def capture_layer(font_w : Int32, font_h : Int32) : Tuple(PNGGIF::Bitmap, Int32, Int32)?
         return nil unless visible?
         return nil unless has_image?
-        pos = _get_coords(true) || return nil
-        xi, yi, cols, rows = overlay_rect pos
-        return nil if cols <= 0 || rows <= 0
+        xi, yi, cols, rows = content_rect || return nil
         bmp = fit_bitmap(cols * font_w, rows * font_h) || return nil
         {bmp, xi, yi}
       end
@@ -239,11 +249,8 @@ module Crysterm
       # every size change. See `Media::Fitting`.
       protected def fit_bitmap(bw : Int32, bh : Int32) : PNGGIF::Bitmap?
         src = source || return nil
-        if (frames = @src_frames) && (f = frames[@anim_index]?)
-          Media::Fitting.compose src, f[0], bw, bh, @fit, 1.0
-        else
-          Media::Fitting.compose src, bw, bh, @fit, 1.0
-        end
+        frame = @src_frames.try(&.[@anim_index]?).try &.[0]
+        Media::Fitting.compose src, frame, bw, bh, @fit, 1.0
       end
 
       # Whether this backend must drive animation frame-by-frame itself. True for
@@ -354,10 +361,8 @@ module Crysterm
         s = screen? || return
         return unless has_image?
         ensure_animation
-        pos = _get_coords(true) || return
         # Draw into the *content* area, inside any border/padding (`#overlay_rect`).
-        xi, yi, cols, rows = overlay_rect pos
-        return if cols <= 0 || rows <= 0
+        xi, yi, cols, rows = content_rect || return
 
         pw, ph = target_pixels(cols, rows)
         ox, oy = origin_pixels(xi, yi)

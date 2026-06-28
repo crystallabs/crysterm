@@ -103,11 +103,7 @@ module Crysterm
       # One cell per pixel: sample at the content box size, with cell-aspect
       # correction so the image isn't vertically squashed on tall cells.
       protected def compose(img : PNGGIF::PNG, cols : Int32, rows : Int32, frame : PNGGIF::Bitmap?) : PNGGIF::Bitmap?
-        if frame
-          Media::Fitting.compose(img, frame, cols, rows, @fit, @cell_aspect)
-        else
-          Media::Fitting.compose(img, cols, rows, @fit, @cell_aspect)
-        end
+        Media::Fitting.compose(img, frame, cols, rows, @fit, @cell_aspect)
       end
 
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
@@ -149,14 +145,8 @@ module Crysterm
           attr = Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(rgb))
         end
 
-        if a < 1.0
-          # Composite the image pixel over whatever is currently in the cell.
-          cell.attr = Colors.blend(attr, cell.attr, a)
-          cell.char = ch unless ch == ' '
-        else
-          cell.attr = attr
-          cell.char = ch
-        end
+        # Composite the image pixel over whatever is currently in the cell.
+        blend_cell cell, ch, attr, a
       end
 
       # Luminance glyphs taken from libcaca (via tng.js).

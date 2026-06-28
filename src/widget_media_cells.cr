@@ -125,6 +125,24 @@ module Crysterm
       # Paints the sampled *bmp* into the content cells `xi...xl`×`yi...yl`.
       protected abstract def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
 
+      # Composites *char*/*attr* into *cell*, honouring the cell's aggregate alpha
+      # *a*: `<= 0` leaves the cell untouched (fully transparent, e.g. a letterbox
+      # margin), `>= 1` overwrites it opaquely, and in between blends both colors
+      # over what's already there (keeping the underlying glyph when this cell
+      # would only draw a space). The shared per-cell paint primitive behind both
+      # `Media::Ansi#paint_cell` (one cell per pixel) and `Media::Glyph`'s sub-cell
+      # painters, which carried identical copies.
+      protected def blend_cell(cell, char : Char, attr : Int64, a : Float64) : Nil
+        return if a <= 0.0
+        if a < 1.0
+          cell.attr = Colors.blend(attr, cell.attr, a)
+          cell.char = char unless char == ' '
+        else
+          cell.attr = attr
+          cell.char = char
+        end
+      end
+
       def render
         coords = _render
         return unless coords

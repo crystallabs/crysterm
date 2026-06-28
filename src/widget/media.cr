@@ -435,6 +435,13 @@ module Crysterm
       # the whole subprocess pipeline every frame and stall the UI. The
       # size+mtime key means a later edit (or a missing file later appearing)
       # produces a new key and re-decodes.
+      # Resolves a *file* spec to data a `PNGGIF` decoder accepts: an `http(s)`
+      # URL is fetched to bytes (via `Ansi.fetch`); a local path is passed through
+      # as-is (the decoder opens it). Shared by `#decode` and `Media::Tek`.
+      def self.source_data(file : String) : String | Bytes
+        file =~ /^https?:/ ? Ansi.fetch(file) : file
+      end
+
       def self.decode(file : String) : PNGGIF::PNG?
         key = file
         unless file =~ /^https?:/
@@ -458,9 +465,7 @@ module Crysterm
               # are missing or decoding fails.
               VideoSource.decode file
             else
-              data : String | Bytes = file
-              data = Ansi.fetch(file) if file =~ /^https?:/
-              PNGGIF::PNG.new(data)
+              PNGGIF::PNG.new(source_data(file))
             end
           rescue
             nil

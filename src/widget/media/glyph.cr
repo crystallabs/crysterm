@@ -117,11 +117,7 @@ module Crysterm
         car = Crysterm::CSS::Length.cell_aspect_ratio
         car = 2.0 if car <= 0
         am = car * sx / sy
-        if frame
-          Media::Fitting.compose(img, frame, cols * sx, rows * sy, @fit, am, sx, sy)
-        else
-          Media::Fitting.compose(img, cols * sx, rows * sy, @fit, am, sx, sy)
-        end
+        Media::Fitting.compose(img, frame, cols * sx, rows * sy, @fit, am, sx, sy)
       end
 
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
@@ -151,7 +147,7 @@ module Crysterm
         case @mode
         in Mode::Block
           px = pix(sub, cx, cy) || return
-          apply cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(rgb_of px)), px.a / 255.0
+          blend_cell cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(rgb_of px)), px.a / 255.0
         in Mode::Ascii
           # Edge-aware ASCII: every cell keeps the pixel's full color, but an
           # ASCII glyph is overlaid ONLY where there is a real edge (high local
@@ -164,10 +160,10 @@ module Crysterm
           gx = neighbor_lum(sub, cx + 1, cy, l) - neighbor_lum(sub, cx - 1, cy, l)
           gy = neighbor_lum(sub, cx, cy + 1, l) - neighbor_lum(sub, cx, cy - 1, l)
           if gx.abs + gy.abs < ASCII_EDGE
-            apply cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(bg)), a
+            blend_cell cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(bg)), a
           else
             fg = l < 128 ? 0xf0f0f0 : 0x101010
-            apply cell, edge_char(gx, gy), Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg)), a
+            blend_cell cell, edge_char(gx, gy), Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg)), a
           end
         in Mode::Half
           top = pix(sub, cx, cy * 2 + 0)
@@ -178,28 +174,11 @@ module Crysterm
           at = top.a / 255.0
           ab = bot ? bot.a / 255.0 : at
           bcol = bot || top
-          apply cell, '▀', Attr.pack(0, Attr.pack_color(rgb_of top), Attr.pack_color(rgb_of bcol)), (at + ab) / 2.0
+          blend_cell cell, '▀', Attr.pack(0, Attr.pack_color(rgb_of top), Attr.pack_color(rgb_of bcol)), (at + ab) / 2.0
         in Mode::Quadrant, Mode::Sextant, Mode::Octant
           paint_two_color cell, sub, cx, cy, sx, sy
         in Mode::Braille
           paint_braille cell, sub, cx, cy, thr
-        end
-      end
-
-      # Writes *char*/*attr* into *cell*, compositing over the cell's current
-      # contents when the source is translucent — the sub-cell counterpart of
-      # `Image::Ansi#paint_cell`. *a* is the cell's aggregate alpha: `<= 0` leaves
-      # the cell untouched (fully transparent, e.g. a letterbox margin), `1`
-      # overwrites it opaquely, in between blends both colors over what's there
-      # (and keeps the underlying glyph when this cell would only draw a space).
-      private def apply(cell, char : Char, attr : Int64, a : Float64)
-        return if a <= 0.0
-        if a < 1.0
-          cell.attr = Colors.blend(attr, cell.attr, a)
-          cell.char = char unless char == ' '
-        else
-          cell.attr = attr
-          cell.char = char
         end
       end
 
@@ -243,7 +222,7 @@ module Crysterm
         fg = fn > 0 ? ((fr // fn) << 16) | ((fg_ // fn) << 8) | (fb // fn) : 0
         bg = bn > 0 ? ((br // bn) << 16) | ((bg_ // bn) << 8) | (bb // bn) : fg
 
-        apply cell, glyph_for(mask, sx, sy), Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg)), a
+        blend_cell cell, glyph_for(mask, sx, sy), Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg)), a
       end
 
       private def paint_braille(cell, sub, cx, cy, thr)
@@ -271,7 +250,7 @@ module Crysterm
         if n == 0
           # No lit dots: a blank cell whose opacity is the unlit pixels' mean
           # alpha (so a transparent region leaves the cell untouched).
-          apply cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT), (off_asum / 255.0) / total
+          blend_cell cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT), (off_asum / 255.0) / total
         else
           # Opacity is the mean alpha of the *lit* dots, not of the whole cell:
           # the unlit dots are conveyed by the glyph (their bit is off), so they
@@ -280,7 +259,7 @@ module Crysterm
           # a muddy, non-matching tint.
           a = (on_asum / 255.0) / n
           fg = ((r // n) << 16) | ((g // n) << 8) | (b // n)
-          apply cell, (0x2800 + mask).chr, Attr.pack(0, Attr.pack_color(fg), Attr::COLOR_DEFAULT), a
+          blend_cell cell, (0x2800 + mask).chr, Attr.pack(0, Attr.pack_color(fg), Attr::COLOR_DEFAULT), a
         end
       end
 

@@ -51,29 +51,21 @@ module Crysterm
       # The Tek display is a separate window that xterm auto-rescales from the
       # 4014 logical coordinate space, so a window/box resize needs no redraw.
       # Changing the *drawing* parameters does, though — these setters re-fire it.
-      def level=(v : Float64)
-        return if v == @level
-        @level = v
-        redraw!
+      # Defines a *name*`=` setter that, on an actual change, stores the value and
+      # re-fires the Tek redraw (`#redraw!`). The four drawing-parameter setters
+      # (`level`, `dither`, `invert`, `fit`) carried this identical change-guard.
+      private macro redraw_setter(name, type)
+        def {{name.id}}=(v : {{type}})
+          return if v == @{{name.id}}
+          @{{name.id}} = v
+          redraw!
+        end
       end
 
-      def dither=(v : Media::Dither)
-        return if v == @dither
-        @dither = v
-        redraw!
-      end
-
-      def invert=(v : Bool)
-        return if v == @invert
-        @invert = v
-        redraw!
-      end
-
-      def fit=(v : Media::Fit)
-        return if v == @fit
-        @fit = v
-        redraw!
-      end
+      redraw_setter level, Float64
+      redraw_setter dither, Media::Dither
+      redraw_setter invert, Bool
+      redraw_setter fit, Media::Fit
 
       # Forces the image to be re-emitted to the Tek window on the next render.
       private def redraw!
@@ -145,8 +137,7 @@ module Crysterm
       end
 
       private def start_drawing(s : ::Crysterm::Screen, file : String)
-        data : String | Bytes = file
-        data = Widget::Media::Ansi.fetch(file) if file =~ /^https?:/
+        data = Media.source_data(file)
 
         probe = PNGGIF::PNG.new(data)
         iw = probe.width

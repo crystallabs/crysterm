@@ -42,6 +42,16 @@ module Crysterm
         compose src, src.bmp, bw, bh, fit, aspect_mul, sub_w, sub_h
       end
 
+      # Fit either a specific animation *frame* (when non-nil) or *png*'s own
+      # still bitmap into a *bw*×*bh* box — folding the `frame ? … : …` source
+      # pick that the cell (`Media::Ansi`/`Media::Glyph`) and graphics
+      # (`Media::Graphics#fit_bitmap`) backends each open-coded.
+      def self.compose(png : PNGGIF::PNG, frame : PNGGIF::Bitmap?, bw : Int32, bh : Int32,
+                       fit : Media::Fit, aspect_mul : Float64 = 1.0,
+                       sub_w : Int32 = 1, sub_h : Int32 = 1) : PNGGIF::Bitmap?
+        compose png, frame || png.bmp, bw, bh, fit, aspect_mul, sub_w, sub_h
+      end
+
       # Fit an arbitrary full-resolution *src_bmp* (e.g. a composited animation
       # frame) into a *bw*×*bh* box, resampling via *png*'s nearest-neighbour
       # `create_cellmap`. Letterbox margins are left fully transparent.

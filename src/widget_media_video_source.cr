@@ -55,15 +55,24 @@ module Crysterm
         end
       end
 
+      # Probes *file* and resolves the capped frame dimensions and sampled fps as
+      # `{w, h, fps}`, or `nil` when ffprobe can't read it. The shared decode
+      # setup for both the eager `#decode` and the streaming `Stream.open`.
+      # :nodoc:
+      def resolve_geometry(file : String, cap : Int32, max_fps : Float64) : Tuple(Int32, Int32, Float64)?
+        info = probe(file) || return nil
+        w, h = cap_size info.width, info.height, cap
+        fps = sample_fps info.fps, max_fps
+        {w, h, fps}
+      end
+
       # Decodes *file* eagerly into a frame-backed `PNGGIF::PNG`, or `nil` on any
       # failure. *cap* is the long-edge pixel size frames are scaled to;
       # *max_fps* caps the sampled frame rate.
       def decode(file : String,
                  cap : Int32 = Crysterm::Config.video_max_size,
                  max_fps : Float64 = Crysterm::Config.video_fps) : PNGGIF::PNG?
-        info = probe(file) || return nil
-        w, h = cap_size info.width, info.height, cap
-        fps = sample_fps info.fps, max_fps
+        w, h, fps = resolve_geometry(file, cap, max_fps) || return nil
         frames = read_frames file, w, h, fps, Crysterm::Config.video_max_frames
         return nil if frames.nil? || frames.empty?
         delay = frame_delay fps
@@ -94,9 +103,7 @@ module Crysterm
         def self.open(file : String,
                       cap : Int32 = Crysterm::Config.video_max_size,
                       max_fps : Float64 = Crysterm::Config.video_fps) : Stream?
-          info = VideoSource.probe(file) || return nil
-          w, h = VideoSource.cap_size info.width, info.height, cap
-          fps = VideoSource.sample_fps info.fps, max_fps
+          w, h, fps = VideoSource.resolve_geometry(file, cap, max_fps) || return nil
           new file, w, h, fps
         rescue
           nil

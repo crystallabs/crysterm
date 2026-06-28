@@ -214,8 +214,7 @@ module Crysterm
       @saved_attr = default_attr
       @alt_saved_attr = default_attr
       @scroll_bottom = @rows - 1
-      @lines = Array(Array(Cell)).new
-      @rows.times { @lines << blank_line }
+      @lines = blank_page
       reset_tab_stops
     end
 
@@ -245,6 +244,15 @@ module Crysterm
     private def blank_line : Array(Cell)
       ea = erase_attr
       Array(Cell).new(@cols) { Cell.new(ea, ' ') }
+    end
+
+    # A fresh page of `@rows` blank lines at the current width/erase attr. The
+    # initial grid, the alternate page (`#enter_alt`) and a full reset
+    # (`#full_reset`) all build their `@lines` this way.
+    private def blank_page : Array(Array(Cell))
+      page = Array(Array(Cell)).new
+      @rows.times { page << blank_line }
+      page
     end
 
     # Overwrites every cell of an existing line with the current erase blank,
@@ -736,8 +744,7 @@ module Crysterm
         @alt_saved_attr = @cur_attr
       end
 
-      @lines = Array(Array(Cell)).new
-      @rows.times { @lines << blank_line }
+      @lines = blank_page
       @ybase = 0
       @ydisp = 0
       @scroll_top = 0
@@ -1158,8 +1165,7 @@ module Crysterm
       @insert_mode = false
       @last_char = nil
       @cursor_hidden = false
-      @lines = Array(Array(Cell)).new
-      @rows.times { @lines << blank_line }
+      @lines = blank_page
       @ybase = 0
       @ydisp = 0
       @g0_special = false
