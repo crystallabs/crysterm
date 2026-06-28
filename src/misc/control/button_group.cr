@@ -90,8 +90,12 @@ module Crysterm
       @ids[button]? || -1
     end
 
-    # The member with the given *id*, or `nil`.
+    # The member with the given *id*, or `nil`. `-1` is the "no id" sentinel (a
+    # member added without an explicit id, and the value `#checked_id` returns
+    # when nothing is checked), so — as in Qt — it never addresses a real button:
+    # `button(-1)` is always `nil`, even though several un-id'd members carry it.
     def button(id : Int32) : Widget?
+      return nil if id == -1
       @buttons.find { |b| @ids[b]? == id }
     end
 
