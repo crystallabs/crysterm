@@ -74,6 +74,14 @@ module Crysterm
         # hovering another title still switches menus while one is open.
         menu.grab_region = ->(x : Int32, y : Int32) { grab_contains? x, y }
         menu.on(::Crysterm::Event::Hide) { on_menu_hidden menu }
+        # Deactivate the bar when the open menu loses focus to something outside
+        # the bar's world (another widget gains focus, Tab away, …). Without this
+        # the menu is orphaned — left open with its title still highlighted — when
+        # focus leaves without a dismissing outside *click* (the mouse-click path
+        # is handled by `Menu#popup`'s `on_press_outside`). Diving into the menu's
+        # own submenu, or focus moving to the bar / another of its menus, is an
+        # internal move and is ignored.
+        menu.on(::Crysterm::Event::Blur) { |e| on_menu_blur menu, e }
 
         index = @menus.size
         @menus << menu
@@ -142,6 +150,21 @@ module Crysterm
         i = @menus.index menu
         @open_index = nil if i && @open_index == i
         sync_highlight
+      end
+
+      # *menu* (the open pop-up) lost focus. Close it — deactivating the bar and
+      # clearing its title highlight — unless focus stayed inside the bar's world:
+      # diving into *menu*'s own submenu, returning to the bar, or moving to one
+      # of the bar's other menus (the brief hand-off while switching).
+      private def on_menu_blur(menu : Menu, e) : Nil
+        return unless (oi = @open_index) && @menus[oi]? == menu
+        nf = e.el
+        # Focus moved into this menu's own (sub)menu chain — still active.
+        return if nf.is_a?(Menu) && (nf.parent_menu == menu || @menus.includes?(nf))
+        # Focus returned to the bar itself (e.g. Tab back onto it) — keep the
+        # menu open; the bar still owns it.
+        return if nf == self
+        close
       end
 
       # Absolute x of title *i* (0 before the bar is laid out).
