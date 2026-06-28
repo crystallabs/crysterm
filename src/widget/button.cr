@@ -38,23 +38,10 @@ module Crysterm
       end
 
       # Toggles the flat (frameless) look, re-cascading so the `[flat]` attribute
-      # selector matches/unmatches.
-      def flat=(value : Bool) : Bool
-        return value if value == @flat
-        @flat = value
-        invalidate_css
-        request_render
-        value
-      end
-
-      # Marks/unmarks this as the dialog's default button (`[default]`).
-      def default=(value : Bool) : Bool
-        return value if value == @default
-        @default = value
-        invalidate_css
-        request_render
-        value
-      end
+      # selector matches/unmatches; marks/unmarks this as the dialog's *default*
+      # button (`[default]`). Both are the shared CSS-toggle setter (`Box`).
+      css_toggle_setter flat
+      css_toggle_setter default
     end
   end
 end

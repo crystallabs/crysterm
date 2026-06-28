@@ -53,6 +53,23 @@ module Crysterm
           line.dirty = true
         end
       end
+
+      # Defines a `<name>=` setter for a boolean flag that is surfaced as a CSS
+      # attribute selector (e.g. `Button[flat]`, `GroupBox[flat]`). On an actual
+      # change it stores the value, re-cascades (`invalidate_css`) so the matching
+      # `[<name>]` selector starts/stops matching, and repaints — the identical
+      # body each such setter previously inlined (`Button#flat=`/`#default=`,
+      # `GroupBox#flat=`). The flag itself is still declared with its own
+      # `getter?`/default in each widget.
+      private macro css_toggle_setter(name)
+        def {{name.id}}=(value : Bool) : Bool
+          return value if value == @{{name.id}}
+          @{{name.id}} = value
+          invalidate_css
+          request_render
+          value
+        end
+      end
     end
   end
 end

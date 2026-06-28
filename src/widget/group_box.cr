@@ -120,14 +120,8 @@ module Crysterm
       end
 
       # Toggles the flat (frameless) look, re-cascading so `GroupBox[flat]`
-      # matches/unmatches.
-      def flat=(value : Bool) : Bool
-        return value if value == @flat
-        @flat = value
-        invalidate_css
-        request_render
-        value
-      end
+      # matches/unmatches (the shared CSS-toggle setter, `Box`).
+      css_toggle_setter flat
 
       # Reflects the checked state onto the children's `state`, so an unchecked
       # group renders its contents with the `disabled` style. The auto-created
