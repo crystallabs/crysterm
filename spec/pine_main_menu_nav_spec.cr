@@ -53,8 +53,8 @@ describe "Pine::MainMenu spaced navigation" do
 
     menu.selekt 3 # the spacer below COMPOSE (grouped as option 1)
     press menu, Tput::Key::Up
-    menu.selected.even?.should be_true       # an option row, not a blank spacer
-    menu.selected.should eq 0                # option 0 (HELP)
+    menu.selected.even?.should be_true # an option row, not a blank spacer
+    menu.selected.should eq 0          # option 0 (HELP)
     menu.selected_record.try(&.title).should eq "HELP"
   end
 

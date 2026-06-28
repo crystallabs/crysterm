@@ -72,7 +72,7 @@ describe "ItemView#remove_item single-selection cursor alignment" do
 
     list.remove_item list.items[0] # remove the selected first row; "b" shifts to 0
     list.items.size.should eq 2
-    list.selected.should eq 0  # cursor stays at index 0
-    list.value.should eq "b"   # now tracking the row that slid into index 0
+    list.selected.should eq 0 # cursor stays at index 0
+    list.value.should eq "b"  # now tracking the row that slid into index 0
   end
 end

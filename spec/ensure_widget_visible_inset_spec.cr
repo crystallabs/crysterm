@@ -29,8 +29,8 @@ describe "Widget#ensure_widget_visible with a bordered scroll area" do
       width: 5, height: 1, content: "x"
     s._render
 
-    box.itop.should eq 1                  # border contributes a top inset
-    content_row = child.rtop - box.itop   # the child's true content-row index
+    box.itop.should eq 1                # border contributes a top inset
+    content_row = child.rtop - box.itop # the child's true content-row index
     content_row.should eq 10
 
     # Scroll the viewport well past the child so it sits above the top edge.

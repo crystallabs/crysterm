@@ -80,6 +80,36 @@ module Crysterm
       @_hover
     end
 
+    # Whether widgets may change the GUI mouse-pointer shape (xterm's OSC 22)
+    # while hovered. Defaults to the `mouse.cursor_shape` config option (off);
+    # set per-screen to override. See `Widget#mouse_cursor_shape=`.
+    property? mouse_cursor_shape : Bool = Config.mouse_cursor_shape
+
+    # The GUI mouse-pointer shape currently pushed to the terminal via OSC 22, or
+    # `nil` for the terminal default. Tracked so we only emit on an actual change
+    # and can restore the default on teardown.
+    @_mouse_cursor_shape : ::Tput::MouseCursorShape? = nil
+
+    # Requests the GUI mouse-pointer (the windowing-system cursor) take *shape*
+    # while it is over this terminal, or restores the terminal default when
+    # *shape* is `nil`. A no-op unless `#mouse_cursor_shape?` (the
+    # `mouse.cursor_shape` gate) is on, and a no-op when the request matches what
+    # is already applied. Best-effort: only xterm-class terminals honor OSC 22
+    # (see `::Tput::Output#mouse_cursor_shape`); elsewhere it is silently ignored.
+    #
+    # Widgets drive this on hover in/out via `Widget#mouse_cursor_shape=`; it can
+    # also be called directly to set a screen-wide pointer shape.
+    def set_mouse_cursor_shape(shape : ::Tput::MouseCursorShape?) : Nil
+      return unless mouse_cursor_shape?
+      return if shape == @_mouse_cursor_shape
+      @_mouse_cursor_shape = shape
+      if shape
+        tput.mouse_cursor_shape shape
+      else
+        tput.reset_mouse_cursor_shape
+      end
+    end
+
     # Turns on xterm mouse reporting for this screen's terminal.
     def enable_mouse
       tput.enable_mouse
@@ -98,6 +128,10 @@ module Crysterm
       @_gpm_fiber = nil
       # Drop any lingering hover state so a widget isn't left "hovered".
       @_hover = nil
+      # With reporting off there will be no further `MouseOut` to revert a
+      # hover-set pointer shape, so restore the terminal default now — otherwise
+      # the GUI pointer could stay stuck in a widget's shape after teardown.
+      set_mouse_cursor_shape nil
     end
 
     # Sets up mouse listening: enables terminal mouse reporting and, when

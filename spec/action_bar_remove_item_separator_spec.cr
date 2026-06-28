@@ -49,7 +49,7 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
     s = abrs_screen
     bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
     bar.add_separator
-    bar.add "a"   # first selectable (auto-selected)
+    bar.add "a" # first selectable (auto-selected)
     bar.add "b"
     abrs_render s
 

@@ -19,7 +19,7 @@ describe Crysterm::Animation do
     anim.stop
     anim.start # supersedes the first run before its fiber observes the stop
 
-    sleep 40.milliseconds   # let the superseded fiber wake and exit, new run tick
+    sleep 40.milliseconds        # let the superseded fiber wake and exit, new run tick
     anim.running?.should be_true # the new run is the sole active one
 
     anim.stop

@@ -36,8 +36,8 @@ describe "ComboBox popup vertical placement" do
     pop = cb.popup_widget.not_nil!
     s.render
 
-    pop.atop.should be < cb.atop                 # opened above, not below
-    pop.atop.should be >= 0                       # not clipped at the top
+    pop.atop.should be < cb.atop                    # opened above, not below
+    pop.atop.should be >= 0                         # not clipped at the top
     (pop.atop + pop.aheight).should be <= s.aheight # nor off the bottom
   end
 

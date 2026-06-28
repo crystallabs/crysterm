@@ -63,6 +63,10 @@ module Superconf
   option "cursor.glyph", '▮',
     description: "Default character drawn for the artificial (software) cursor"
 
+  # -- Mouse -----------------------------------------------------------------
+  option "mouse.cursor_shape", false,
+    description: "Allow widgets to change the GUI mouse-pointer shape (xterm's OSC 22) while the pointer hovers them — e.g. a hand over a clickable widget, reset to the terminal default on leave. Off by default: it is best-effort (only xterm-class terminals honor OSC 22; most others ignore it) and changes a window the application doesn't otherwise own"
+
   # -- Focus -----------------------------------------------------------------
   option "focus.history_size", 10,
     description: "How many previously-focused widgets to remember for focus_pop",

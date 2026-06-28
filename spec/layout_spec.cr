@@ -140,11 +140,11 @@ describe Crysterm::Layout::Border do
 
     s._render
     tl = top.lpos.not_nil!
-    {tl.yi, tl.yl}.should eq({0, 4})    # header takes the first 4 rows
+    {tl.yi, tl.yl}.should eq({0, 4}) # header takes the first 4 rows
     bl = bottom.lpos.not_nil!
-    {bl.yi, bl.yl}.should eq({4, 6})    # footer clamped to the remaining 2 rows
-    bl.yi.should be >= tl.yl            # no overlap between header and footer
-    center.height.should eq 0          # squeezed-out center collapses to 0, not -2
+    {bl.yi, bl.yl}.should eq({4, 6}) # footer clamped to the remaining 2 rows
+    bl.yi.should be >= tl.yl         # no overlap between header and footer
+    center.height.should eq 0        # squeezed-out center collapses to 0, not -2
   end
 end
 

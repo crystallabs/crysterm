@@ -141,6 +141,45 @@ module Crysterm
       on(Crysterm::Event::Hide) { remove_hover }
     end
 
+    # The GUI mouse-pointer (windowing-system cursor) shape requested while the
+    # pointer is over this widget — e.g. `::Tput::MouseCursorShape::PointingHandCursor`
+    # for a clickable widget. `nil` (the default) leaves the pointer unchanged.
+    #
+    # Honored only when the screen's `Screen#mouse_cursor_shape?` gate (the
+    # `mouse.cursor_shape` config option, off by default) is on, and only on
+    # terminals that support OSC 22 (xterm-class); elsewhere it is silently
+    # ignored. See `::Tput::Output#mouse_cursor_shape`.
+    getter mouse_cursor_shape : ::Tput::MouseCursorShape?
+
+    # Whether the pointer-shape hover handlers have been installed (so re-setting
+    # the shape doesn't stack duplicate handlers).
+    @_mouse_cursor_shape_wired = false
+
+    # Sets the hover mouse-pointer shape. A non-nil value makes the widget
+    # mouse-hover-tracked (it begins receiving `Event::MouseOver`/`MouseOut`): the
+    # GUI pointer takes *shape* on enter and reverts to the terminal default on
+    # leave. Set `nil` to stop requesting a shape (already-installed handlers then
+    # become no-ops, and the next leave restores the default).
+    def mouse_cursor_shape=(shape : ::Tput::MouseCursorShape?)
+      @mouse_cursor_shape = shape
+      wire_mouse_cursor_shape if shape && !@_mouse_cursor_shape_wired
+      shape
+    end
+
+    private def wire_mouse_cursor_shape : Nil
+      @_mouse_cursor_shape_wired = true
+      on(Crysterm::Event::MouseOver) do
+        @mouse_cursor_shape.try { |shape| screen?.try &.set_mouse_cursor_shape shape }
+      end
+      on(Crysterm::Event::MouseOut) { screen?.try &.set_mouse_cursor_shape nil }
+      # If hidden while it owns the pointer shape, restore the default — there
+      # will be no `MouseOut` for a widget that vanishes under the pointer.
+      on(Crysterm::Event::Hide) do
+        s = screen?
+        s.set_mouse_cursor_shape nil if s && s.hovered == self
+      end
+    end
+
     private def show_tooltip(x : Int32, y : Int32) : Nil
       text = @tool_tip
       return unless text && !text.empty?

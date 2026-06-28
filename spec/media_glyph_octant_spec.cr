@@ -30,48 +30,48 @@ describe Crysterm::Widget::Media::Glyph do
     end
 
     it "maps the special-cased patterns to pre-existing block characters" do
-      OCTANT[0].should eq ' '                        # empty -> SPACE
+      OCTANT[0].should eq ' '                            # empty -> SPACE
       OCTANT[mask(1, 2, 3, 4, 5, 6, 7, 8)].should eq '█' # full -> FULL BLOCK
-      OCTANT[mask(1, 2, 3, 4)].should eq '▀'         # top half -> UPPER HALF BLOCK
-      OCTANT[mask(5, 6, 7, 8)].should eq '▄'         # bottom half -> LOWER HALF BLOCK
-      OCTANT[mask(1, 3, 5, 7)].should eq '▌'         # left col -> LEFT HALF BLOCK
-      OCTANT[mask(2, 4, 6, 8)].should eq '▐'         # right col -> RIGHT HALF BLOCK
+      OCTANT[mask(1, 2, 3, 4)].should eq '▀'             # top half -> UPPER HALF BLOCK
+      OCTANT[mask(5, 6, 7, 8)].should eq '▄'             # bottom half -> LOWER HALF BLOCK
+      OCTANT[mask(1, 3, 5, 7)].should eq '▌'             # left col -> LEFT HALF BLOCK
+      OCTANT[mask(2, 4, 6, 8)].should eq '▐'             # right col -> RIGHT HALF BLOCK
     end
 
     it "maps the quadrant-aligned patterns to QUADRANT characters" do
-      OCTANT[mask(1, 3)].should eq '▘'      # QUADRANT UPPER LEFT
-      OCTANT[mask(2, 4)].should eq '▝'      # QUADRANT UPPER RIGHT
-      OCTANT[mask(5, 7)].should eq '▖'      # QUADRANT LOWER LEFT
-      OCTANT[mask(6, 8)].should eq '▗'      # QUADRANT LOWER RIGHT
+      OCTANT[mask(1, 3)].should eq '▘'       # QUADRANT UPPER LEFT
+      OCTANT[mask(2, 4)].should eq '▝'       # QUADRANT UPPER RIGHT
+      OCTANT[mask(5, 7)].should eq '▖'       # QUADRANT LOWER LEFT
+      OCTANT[mask(6, 8)].should eq '▗'       # QUADRANT LOWER RIGHT
       OCTANT[mask(2, 4, 5, 7)].should eq '▞' # UPPER RIGHT AND LOWER LEFT
       OCTANT[mask(1, 3, 6, 8)].should eq '▚' # UPPER LEFT AND LOWER RIGHT
     end
 
     it "maps the quarter/three-quarter patterns to their dedicated characters" do
-      OCTANT[mask(1, 2)].should eq '\u{1FB82}'          # UPPER ONE QUARTER BLOCK
-      OCTANT[mask(7, 8)].should eq '\u{2582}'           # LOWER ONE QUARTER BLOCK
+      OCTANT[mask(1, 2)].should eq '\u{1FB82}'             # UPPER ONE QUARTER BLOCK
+      OCTANT[mask(7, 8)].should eq '\u{2582}'              # LOWER ONE QUARTER BLOCK
       OCTANT[mask(1, 2, 3, 4, 5, 6)].should eq '\u{1FB85}' # UPPER THREE QUARTERS BLOCK
       OCTANT[mask(3, 4, 5, 6, 7, 8)].should eq '\u{2586}'  # LOWER THREE QUARTERS BLOCK
-      OCTANT[mask(3, 5)].should eq '\u{1FBE6}'          # MIDDLE LEFT ONE QUARTER BLOCK
-      OCTANT[mask(4, 6)].should eq '\u{1FBE7}'          # MIDDLE RIGHT ONE QUARTER BLOCK
+      OCTANT[mask(3, 5)].should eq '\u{1FBE6}'             # MIDDLE LEFT ONE QUARTER BLOCK
+      OCTANT[mask(4, 6)].should eq '\u{1FBE7}'             # MIDDLE RIGHT ONE QUARTER BLOCK
     end
 
     it "maps single-cell patterns to the half-of-quarter blocks" do
-      OCTANT[mask(1)].should eq '\u{1CEA8}'  # LEFT HALF UPPER ONE QUARTER BLOCK
-      OCTANT[mask(2)].should eq '\u{1CEAB}'  # RIGHT HALF UPPER ONE QUARTER BLOCK
-      OCTANT[mask(7)].should eq '\u{1CEA3}'  # LEFT HALF LOWER ONE QUARTER BLOCK
-      OCTANT[mask(8)].should eq '\u{1CEA0}'  # RIGHT HALF LOWER ONE QUARTER BLOCK
+      OCTANT[mask(1)].should eq '\u{1CEA8}' # LEFT HALF UPPER ONE QUARTER BLOCK
+      OCTANT[mask(2)].should eq '\u{1CEAB}' # RIGHT HALF UPPER ONE QUARTER BLOCK
+      OCTANT[mask(7)].should eq '\u{1CEA3}' # LEFT HALF LOWER ONE QUARTER BLOCK
+      OCTANT[mask(8)].should eq '\u{1CEA0}' # RIGHT HALF LOWER ONE QUARTER BLOCK
     end
 
     it "maps the irregular Block Octants in their true Unicode order" do
       # U+1CD00 is BLOCK OCTANT-3 (mask 4), NOT octant-1 -- the ordering is not
       # a naive sequential mask layout.
-      OCTANT[mask(3)].should eq '\u{1CD00}'                # BLOCK OCTANT-3
-      OCTANT[mask(2, 3)].should eq '\u{1CD01}'             # BLOCK OCTANT-23
-      OCTANT[mask(1, 2, 3)].should eq '\u{1CD02}'          # BLOCK OCTANT-123
-      OCTANT[mask(4)].should eq '\u{1CD03}'                # BLOCK OCTANT-4
-      OCTANT[mask(1, 2, 4, 5)].should eq '\u{1CD13}'       # BLOCK OCTANT-1245
-      OCTANT[mask(1, 2, 7, 8)].should eq '\u{1CDAE}'       # BLOCK OCTANT-1278
+      OCTANT[mask(3)].should eq '\u{1CD00}'          # BLOCK OCTANT-3
+      OCTANT[mask(2, 3)].should eq '\u{1CD01}'       # BLOCK OCTANT-23
+      OCTANT[mask(1, 2, 3)].should eq '\u{1CD02}'    # BLOCK OCTANT-123
+      OCTANT[mask(4)].should eq '\u{1CD03}'          # BLOCK OCTANT-4
+      OCTANT[mask(1, 2, 4, 5)].should eq '\u{1CD13}' # BLOCK OCTANT-1245
+      OCTANT[mask(1, 2, 7, 8)].should eq '\u{1CDAE}' # BLOCK OCTANT-1278
       # Last codepoint in the block is BLOCK OCTANT-2345678 (mask 254).
       OCTANT[mask(2, 3, 4, 5, 6, 7, 8)].should eq '\u{1CDE5}'
     end

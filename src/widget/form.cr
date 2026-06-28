@@ -207,11 +207,11 @@ module Crysterm
       # The submitted value of a single widget, or `nil` if it is not an input.
       private def field_value(el : Widget) : String?
         case el
-          # Match the shared `Mixin::TextEditing` rather than `PlainTextEdit`
-          # alone: `LineEdit` is a *sibling* (`< Input`), not a subclass, and only
-          # shares the text buffer through this mixin. Keying off `PlainTextEdit`
-          # silently dropped every `LineEdit` field's value on submit (the form's
-          # primary use case — see the class docs' example).
+        # Match the shared `Mixin::TextEditing` rather than `PlainTextEdit`
+        # alone: `LineEdit` is a *sibling* (`< Input`), not a subclass, and only
+        # shares the text buffer through this mixin. Keying off `PlainTextEdit`
+        # silently dropped every `LineEdit` field's value on submit (the form's
+        # primary use case — see the class docs' example).
         when Mixin::TextEditing then el.value
           # `RadioButton`/`CheckBox` are siblings (both `< AbstractButton`), so the
           # radio arm must be listed explicitly — `when CheckBox` does not match it.
@@ -237,8 +237,8 @@ module Crysterm
 
       private def reset_children(el : Widget)
         case el
-        when FileManager        then el.refresh
-        when List               then el.selekt 0
+        when FileManager then el.refresh
+        when List        then el.selekt 0
           # As in `#field_value`: clear every text field via the shared
           # `Mixin::TextEditing`, so a `LineEdit` (an `Input`, not a
           # `PlainTextEdit`) is reset too.

@@ -48,7 +48,7 @@ describe "CheckBox programmatic state changes schedule a repaint" do
   it "schedules a repaint when checked programmatically" do
     s = cbr_screen
     cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept"
-    s._render # paint once,
+    s._render                   # paint once,
     s.@damage_dirty_roots.clear # then start from a clean damage set
     repaint_scheduled?(s, cb).should be_false
 

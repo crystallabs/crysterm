@@ -279,6 +279,7 @@ module Crysterm
 
       label = nil,
       hover_text = nil,
+      mouse_cursor_shape = nil,
       # TODO Unify naming label[_text]/hover[_text]
 
       scrollable = nil,
@@ -305,6 +306,9 @@ module Crysterm
       scrollable.try { |v| @scrollable = v }
       input.try { |v| @input = v }
       visible.try { |v| self.style.visible = v }
+      # Route through the setter so the hover handlers get wired (see
+      # `#mouse_cursor_shape=`); a plain `@mouse_cursor_shape = …` would not.
+      mouse_cursor_shape.try { |v| self.mouse_cursor_shape = v }
 
       # Set up the parent hierarchy first. The `parent` arg may be a `Widget`
       # or a `Screen`; appending establishes `#parent` (for a Widget) or

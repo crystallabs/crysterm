@@ -130,8 +130,8 @@ describe "drag-and-drop" do
       box = Widget::Box.new parent: panel, left: 2, top: 2, width: 8, height: 4, draggable: true
 
       press s, panel.aleft + 1 + 2, panel.atop + 1 + 2 # grab at offset (0,0) within the box
-      move s, panel.aleft + 1 + 3, panel.atop + 1 + 3   # promote arm -> drag
-      move s, 999, 999                                  # yank far past the bottom-right
+      move s, panel.aleft + 1 + 3, panel.atop + 1 + 3  # promote arm -> drag
+      move s, 999, 999                                 # yank far past the bottom-right
 
       # Clamped so the box stays fully inside the content area: max left/top is
       # inner_extent - own_extent. With awidth-iwidth == 28 and box awidth 8 the
@@ -187,8 +187,8 @@ describe "drag-and-drop" do
         width: 80, height: 24, padding: Crysterm::Padding.new(left: 3, top: 2, right: 3, bottom: 2))
       box = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
 
-      press s, 3, 2   # grab at offset (0, 0) within the box (its content corner)
-      move s, 4, 3    # promote
+      press s, 3, 2    # grab at offset (0, 0) within the box (its content corner)
+      move s, 4, 3     # promote
       move s, 999, 999 # yank far past the bottom-right
 
       # Content area is 80 - iwidth(6) == 74 wide and 24 - iheight(4) == 20 tall;

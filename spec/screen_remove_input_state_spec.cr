@@ -97,7 +97,7 @@ describe "Screen#remove (mouse-interaction state)" do
     s.remove target
     # The target was the drop target; removing it must clear the pointer (with a
     # DragLeave) rather than leave the drag aimed at a detached widget.
-    s.dragging.should_not be_nil          # the drag itself (source still here) lives on
+    s.dragging.should_not be_nil           # the drag itself (source still here) lives on
     s.dragging.try(&.target).should be_nil # but no longer points at the removed widget
     left.should eq(1)
 

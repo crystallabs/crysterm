@@ -60,7 +60,7 @@ describe Crysterm::Action do
       a.on(Event::Triggered) { fired << "triggered" }
       a.on(Event::Hovered) { fired << "hovered" }
 
-      a.activate              # Triggered by default -> suppressed
+      a.activate                # Triggered by default -> suppressed
       a.activate Event::Hovered # hover still notifies
 
       fired.should eq ["hovered"]

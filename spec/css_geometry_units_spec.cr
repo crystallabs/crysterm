@@ -121,10 +121,10 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s._render
-    a.width.should eq "50VW"  # kept as a (reactive) viewport string, not dropped
-    a.awidth.should eq 24     # 50% of 80, clamped to max-width (30% of 80 = 24)
-    a.aheight.should eq 24    # 100% of 24
-    a.max_width.should eq 24  # 30% of 80, resolved (not nil)
+    a.width.should eq "50VW" # kept as a (reactive) viewport string, not dropped
+    a.awidth.should eq 24    # 50% of 80, clamped to max-width (30% of 80 = 24)
+    a.aheight.should eq 24   # 100% of 24
+    a.max_width.should eq 24 # 30% of 80, resolved (not nil)
   end
 
   it "evaluates calc() to cells when every term resolves" do
@@ -178,9 +178,9 @@ describe "CSS geometry units" do
     b = Widget::Box.new parent: s, content: "y"
     b.css_id = "b"
     s._render
-    a.style.border.left.should eq 20  # 200 / 10           (horizontal)
+    a.style.border.left.should eq 20 # 200 / 10           (horizontal)
     a.style.border.right.should eq 20
-    a.style.border.top.should eq 10    # 200 / (10 * 2.0)   (vertical)
+    a.style.border.top.should eq 10 # 200 / (10 * 2.0)   (vertical)
     a.style.border.bottom.should eq 10
     # The per-side longhands resolve the same way — the longhand and shorthand
     # now agree on the vertical edges.
@@ -200,9 +200,9 @@ describe "CSS geometry units" do
     b = Widget::Box.new parent: s, content: "y"
     b.css_id = "b"
     s._render
-    a.style.border.top.should eq 0    # -20px -> -2 cells, clamped to 0
+    a.style.border.top.should eq 0 # -20px -> -2 cells, clamped to 0
     a.style.border.left.should eq 0
-    b.style.border.top.should eq 0    # bare -3 -> clamped to 0
+    b.style.border.top.should eq 0 # bare -3 -> clamped to 0
   end
 
   it "honors (does not clamp) a sub-cell width in the border shorthand" do
