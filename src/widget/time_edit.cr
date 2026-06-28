@@ -58,10 +58,16 @@ module Crysterm
       end
 
       # Maps an absolute x to a section index. Sections sit at `HH:MM:SS` columns
-      # 0-1 / 3-4 / 6-7 (3 cells apart); `nil` when off the field.
+      # 0-1 / 3-4 / 6-7 (3 cells apart); `nil` when off the field. The field is
+      # `HH:MM:SS` (8 cols, last col 7) or `HH:MM` (5 cols, last col 4) — clicks
+      # in the widget's trailing area past the text are off the field and must
+      # return `nil`, as `Mixin::SectionedField#select_section_at` relies on (it
+      # leaves the active section untouched then). Without the upper bound a click
+      # right of the text fell through `(col // 3).clamp` to the last section
+      # (seconds, or minute with seconds hidden), wrongly moving the cursor there.
       private def section_at(x : Int32) : Int32?
         col = x - aleft - ileft
-        return nil if col < 0
+        return nil if col < 0 || col > (show_seconds? ? 7 : 4)
         (col // 3).clamp(0, section_count - 1)
       rescue
         nil

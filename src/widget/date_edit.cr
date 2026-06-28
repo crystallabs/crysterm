@@ -85,10 +85,15 @@ module Crysterm
       end
 
       # Maps an absolute x to a section index (year/month/day at the `YYYY-MM-DD`
-      # columns 0-3 / 5-6 / 8-9); `nil` when off the field.
+      # columns 0-3 / 5-6 / 8-9); `nil` when off the field. The field is exactly
+      # 10 columns (last col 9) — a click in the widget's trailing area past the
+      # text is off the field and must return `nil`, as
+      # `Mixin::SectionedField#select_section_at` relies on (it leaves the active
+      # section untouched then). Without the upper bound a click right of the text
+      # fell into the day branch and wrongly moved the cursor onto the day.
       private def section_at(x : Int32) : Int32?
         col = x - aleft - ileft
-        return nil if col < 0
+        return nil if col < 0 || col > 9
         col <= 3 ? 0 : (col <= 6 ? 1 : 2)
       rescue
         nil

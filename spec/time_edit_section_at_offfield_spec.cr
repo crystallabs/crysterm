@@ -1,0 +1,50 @@
+require "./spec_helper"
+
+include Crysterm
+
+# `Mixin::SectionedField` drives section selection off `section_at(x)`, which is
+# documented to return `nil` when the pointer is *off the field*
+# (`select_section_at` then leaves the active section untouched). `TimeEdit`'s
+# `section_at` bounded only the left edge (`col < 0`); a click in the widget's
+# trailing area — past the `HH:MM:SS` text — fell through `(col // 3).clamp` to
+# the last section and wrongly moved the cursor onto the seconds. A fixed-width
+# control (`@resizable = false`) routinely has such trailing space, so this is
+# directly reachable. The fix bounds the right edge to the text width.
+private def te_screen
+  Crysterm::Screen.new(
+    input: IO::Memory.new,
+    output: IO::Memory.new,
+    error: IO::Memory.new,
+    width: 80,
+    height: 24,
+    default_quit_keys: false)
+end
+
+private def te_down(s, te, col)
+  s.dispatch_mouse ::Tput::Mouse::Event.new(
+    ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left,
+    te.aleft + col, te.atop)
+end
+
+describe "TimeEdit#section_at off-field clicks" do
+  it "ignores a click past the text instead of selecting the last section" do
+    s = te_screen
+    # Width 20 leaves trailing space after the 8-column "HH:MM:SS" text.
+    te = Crysterm::Widget::TimeEdit.new parent: s, top: 0, left: 0, width: 20, height: 1,
+      time: Time.utc(2020, 1, 1, 10, 20, 30)
+    s.render
+
+    # Opens on the hour section (highlighted reverse).
+    te.content.should eq "{reverse}10{/reverse}:20:30"
+
+    # A click well past the text (col 12, field ends at col 7) is off the field:
+    # the active section must stay on the hour, not jump to the seconds.
+    te_down s, te, 12
+    te.content.should eq "{reverse}10{/reverse}:20:30"
+
+    # Sanity: an in-field click on the minute column still selects it, so the
+    # bound didn't break legitimate section picking.
+    te_down s, te, 3
+    te.content.should eq "10:{reverse}20{/reverse}:30"
+  end
+end

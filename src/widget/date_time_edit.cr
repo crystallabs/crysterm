@@ -73,10 +73,15 @@ module Crysterm
         show_seconds? ? 6 : 5
       end
 
-      # Maps an absolute x to a section, by the `YYYY-MM-DD HH:MM:SS` layout.
+      # Maps an absolute x to a section, by the `YYYY-MM-DD HH:MM:SS` layout
+      # (19 cols, last col 18) or `YYYY-MM-DD HH:MM` with seconds hidden (16 cols,
+      # last col 15). A click in the widget's trailing area past the text is off
+      # the field and must return `nil`, as `Mixin::SectionedField#select_section_at`
+      # relies on (it leaves the active section untouched then). Without the upper
+      # bound a click right of the text fell through to the last section.
       private def section_at(x : Int32) : Int32?
         col = x - aleft - ileft
-        return nil if col < 0
+        return nil if col < 0 || col > (show_seconds? ? 18 : 15)
         sec = case col
               when .<=(4)  then 0 # YYYY (and the '-')
               when .<=(7)  then 1 # MM
