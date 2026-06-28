@@ -55,6 +55,26 @@ describe Crysterm::TerminalEmulator do
       row(em, 1).should eq "d"
     end
 
+    it "sticks at the last column without wrapping when autowrap (DECAWM ?7) is off" do
+      # With autowrap disabled a child paints the bottom-right cell by writing
+      # past the last column; the cursor must stick there and overwrite it,
+      # never wrapping to (or scrolling in) the next line.
+      em = emu(3, 2)
+      em.feed "\e[?7l" # DECRST 7: autowrap off
+      em.feed "abcd"   # 'a' 'b' 'c' fill row 0; 'd' overwrites the last column
+      row(em, 0).should eq "abd"
+      row(em, 1).should eq "" # nothing wrapped down
+      em.cursor_y.should eq 0
+      em.cursor_x.should eq 2
+
+      # Re-enabling autowrap restores the deferred-wrap behaviour.
+      em.feed "\e[?7h"
+      em.feed "ef" # 'e' overwrites col 2 (pending wrap was cleared); 'f' wraps
+      row(em, 0).should eq "abe"
+      row(em, 1).should eq "f"
+      em.cursor_y.should eq 1
+    end
+
     it "positions the cursor with CUP (row;col, 1-based)" do
       em = emu
       em.feed "\e[2;3HX"
@@ -245,6 +265,23 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e)0A\x0Eq\x0FB" # A=ascii, SO->G1(q=─), SI->G0(B)
       row(em, 0).should eq "A─B"
     end
+
+    it "restores the charset across DECSC/DECRC (ESC 7 / ESC 8)" do
+      # DECSC saves the active charset along with the cursor; DECRC restores it.
+      # Save and the final print happen at the *same* column so the DECRC cursor
+      # restore (which also fires) doesn't overwrite an earlier glyph and confuse
+      # the assertion: with G0 special saved by ESC 7, then reset to ASCII, the
+      # ESC 8 must bring the line-drawing designation back — so the second 'q'
+      # renders as '─' ("──"), not the literal ASCII 'q' ("─q").
+      em = emu
+      em.feed "\e(0"  # G0 = special-graphics
+      em.feed "q"     # '─' at col 0, cursor -> col 1
+      em.feed "\e7"   # DECSC: save cursor (col 1) + charset (G0 special)
+      em.feed "\e(B"  # G0 = ASCII
+      em.feed "\e8"   # DECRC: restore cursor (col 1) + G0 special again
+      em.feed "q"     # '─' at col 1 (would be ASCII 'q' without charset restore)
+      row(em, 0).should eq "──"
+    end
   end
 
   describe "alternate screen buffer" do
@@ -386,6 +423,20 @@ describe Crysterm::TerminalEmulator do
       row(em, 2).should eq ""
       row(em, 3).should eq ""
     end
+
+    it "moves the cursor to the left margin on IL and DL (ECMA-48 line home)" do
+      # Per ECMA-48, IL/DL move the active position to the line home position
+      # (column 0); xterm and modern terminals do this. The cursor must not be
+      # left at its prior column.
+      em = emu(10, 4)
+      em.feed "\e[2;5H\e[L" # cursor row 2 / col 5 (0-based 4), then IL
+      em.cursor_x.should eq 0
+      em.cursor_y.should eq 1
+
+      em.feed "\e[3;6H\e[M" # cursor row 3 / col 6, then DL
+      em.cursor_x.should eq 0
+      em.cursor_y.should eq 2
+    end
   end
 
   describe "scroll up / down (SU / SD)" do
@@ -418,6 +469,93 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[99999999T"    # SD: content moves down, blanks from the top
       em.lines.size.should eq 4 # SD never touches scrollback
       (0...4).each { |y| row(em, y).should eq "" }
+    end
+  end
+
+  describe "cursor up/down within a scroll region" do
+    it "clamps CUU/CUD to the scroll-region margins, not the screen edges" do
+      # xterm's CursorUp/CursorDown stop at the scroll region's top/bottom margin
+      # when the cursor starts inside the region — so a child driving a bounded
+      # status area with CUU/CUD can't walk the cursor out of its region. A naive
+      # clamp to the screen edges (0 / rows-1) lets it escape.
+      em = emu(10, 10)
+      em.feed "\e[3;7r" # scroll region rows 3..7 (1-based) == 0-based rows 2..6
+
+      em.feed "\e[6;1H" # absolute row 6 (1-based) == 0-based row 5, inside region
+      em.cursor_y.should eq 5
+      em.feed "\e[10A"        # CUU far past the top: must stop at the top margin
+      em.cursor_y.should eq 2 # scroll_top, NOT 0
+
+      em.feed "\e[4;1H" # 0-based row 3, inside the region
+      em.cursor_y.should eq 3
+      em.feed "\e[10B"        # CUD far past the bottom: must stop at the bottom margin
+      em.cursor_y.should eq 6 # scroll_bottom, NOT 9
+    end
+
+    it "does not treat a private-prefixed CSI r (XTRESTORE) as DECSTBM" do
+      # `CSI ? Pm r` is XTRESTORE (restore DEC private mode values) — the
+      # counterpart to the `CSI ? Pm s` XTSAVE the 's' handler already ignores.
+      # xterm-aware children pair them around a mode change, e.g. `CSI ? 7 r` to
+      # restore autowrap. Letting that fall through to DECSTBM misread its `7` as
+      # a top margin (rows 6..bottom) and homed the cursor — corrupting an app's
+      # scroll region. It must be a no-op (we don't track saved modes).
+      em = emu(10, 10)
+      em.feed "\e[6;4HX"      # park the cursor at 0-based row 5, col 3
+      em.cursor_x.should eq 4 # after printing 'X'
+      em.cursor_y.should eq 5
+      em.feed "\e[?7r"        # XTRESTORE autowrap: must NOT touch the scroll region
+      em.cursor_x.should eq 4 # real DECSTBM would have homed to (0,0)
+      em.cursor_y.should eq 5
+      # The full-screen region is intact: CUD walks all the way to the screen
+      # bottom (row 9), not a bogus margin a stray DECSTBM would have installed.
+      em.feed "\e[20B"
+      em.cursor_y.should eq 9
+    end
+  end
+
+  describe "reverse index (RI / ESC M)" do
+    it "clears the deferred (last-column) wrap so the next glyph overwrites at the cursor" do
+      # RI repositions the active line, so — like its mirror IND (LF) and every
+      # CSI cursor move — it must cancel a pending last-column wrap. If the stale
+      # `@wrap_pending` survives, the glyph printed right after RI spuriously
+      # wraps to the next line instead of overwriting at the cursor's column.
+      em = emu(3, 3)
+      em.feed "\e[2;1H" # cursor to 0-based row 1 (middle), col 0
+      em.feed "XYZ"     # fills row 1; cursor parks on the last column (wrap pending)
+      em.cursor_y.should eq 1
+
+      em.feed "\eM" # RI: move up to row 0 (no scroll); must clear wrap-pending
+      em.cursor_y.should eq 0
+
+      em.feed "Q"             # must land at the cursor's actual column on row 0
+      em.cursor_y.should eq 0 # NOT pushed down to row 1 by a spurious wrap
+      row(em, 0).should eq "  Q"
+      row(em, 1).should eq "XYZ" # row 1 untouched (Q did not wrap onto it)
+    end
+  end
+
+  describe "DECSTBM (set scroll region)" do
+    it "clamps an over-large bottom margin instead of dropping the whole request" do
+      # xterm clamps a DECSTBM bottom that exceeds the screen to the last row and
+      # still installs the region; it does NOT reject the request. A child that
+      # still uses its pre-resize row count can emit `CSI 1;<oldrows> r` before it
+      # handles SIGWINCH — rejecting that left the previous (smaller) region in
+      # place, so scrolling stayed confined to it. After clamping, the region is
+      # the full screen and a line-feed below the old margin no longer scrolls.
+      em = emu(4, 4)
+      em.feed "\e[1;2r"  # first install a small region: 0-based rows 0..1
+      em.feed "\e[1;1HA" # 'A' at row 0
+
+      # Now an oversized DECSTBM (bottom 99 > 4 rows). Buggy code drops it, leaving
+      # the 0..1 region; fixed code clamps to the full 0..3 region.
+      em.feed "\e[1;99r"
+
+      # Put the cursor on the *old* region's bottom margin (0-based row 1) and feed
+      # a line-feed. With the stale small region that LF scrolls (row 0's 'A' moves
+      # up and is lost); with the full region it just advances the cursor to row 2.
+      em.feed "\e[2;1H\n"
+      em.cursor_y.should eq 2 # advanced, not scrolled (full region in effect)
+      row(em, 0).should eq "A" # row 0 untouched — no scroll happened
     end
   end
 
@@ -584,6 +722,27 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[?9999999999h"
       em.feed "\e[9999999999mZ" # oversized SGR param: ignored, char still prints
       em.lines[0][0].char.should eq 'Z'
+    end
+  end
+
+  describe "insert mode (IRM / CSI 4 h)" do
+    it "inserts printed glyphs at the cursor, shifting the rest of the line right" do
+      # IRM is the ANSI (non-private) mode 4 — terminfo smir/rmir. With it on, a
+      # printed character is inserted (the tail shifts right, overflow dropped)
+      # instead of overwriting the cell under the cursor. A child that edits a
+      # line with the insert-character capability relies on this.
+      em = emu(10, 2)
+      em.feed "ABC"      # row0 = "ABC"
+      em.feed "\e[H"     # cursor home (row 0, col 0)
+      em.feed "\e[4h"    # IRM on
+      em.feed "X"        # insert X at col 0: "ABC" shifts right
+      row(em, 0).should eq "XABC"
+      em.cursor_x.should eq 1
+
+      # IRM off (CSI 4 l) returns to overwrite: the next glyph clobbers in place.
+      em.feed "\e[4l"
+      em.feed "Y"        # overwrites the 'A' now at col 1
+      row(em, 0).should eq "XYBC"
     end
   end
 end

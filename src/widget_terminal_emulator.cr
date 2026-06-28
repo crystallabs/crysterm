@@ -77,11 +77,40 @@ module Crysterm
     @saved_x : Int32 = 0
     @saved_y : Int32 = 0
     @saved_attr : Int64
+    # DECSC (`ESC 7`) saves more than the cursor position and SGR attributes: per
+    # the DEC spec it also snapshots the charset designations (G0/G1 special),
+    # the active GL invocation (SI/SO), origin mode (DECOM) and autowrap (DECAWM),
+    # all restored by DECRC (`ESC 8`). Without these a child that draws with the
+    # line-drawing set inside a DECSC/DECRC pair — `ESC ( 0` … `ESC 7` … switch
+    # charset … `ESC 8` — saw its charset left switched after the restore, so the
+    # text it expected as line-drawing glyphs rendered as plain ASCII.
+    @saved_g0_special = false
+    @saved_g1_special = false
+    @saved_gl = 0
+    @saved_origin_mode = false
+    @saved_autowrap = true
 
     # Deferred wrap: after writing the last column we stay on it until the next
     # printable char, matching xterm (prevents a spurious blank line when text
     # exactly fills a row).
     @wrap_pending : Bool = false
+
+    # Autowrap mode (DECAWM, DECSET ?7): when on (the xterm/terminfo `am` default),
+    # a glyph written past the last column wraps to the next line. When a child
+    # turns it off (`CSI ? 7 l`), the cursor instead *sticks* at the last column
+    # and each further glyph overwrites it — the standard way to paint the
+    # bottom-right cell (or a full-width status line) without triggering a scroll.
+    # Without this the emulator wrapped unconditionally, so such a child saw its
+    # last column scroll the screen and its rightmost glyph land on the next line.
+    @autowrap = true
+
+    # Insert/replace mode (IRM, the ANSI — *non*-private — mode 4, `CSI 4 h` /
+    # `CSI 4 l`; terminfo `smir`/`rmir`). When on, a printed glyph is *inserted*
+    # at the cursor — the rest of the line shifts right and the overflow drops off
+    # the end — instead of overwriting in place. A child that edits a line with
+    # the insert-character capabilities (rather than `CSI @`) relies on this;
+    # without it each typed character clobbered the one already under the cursor.
+    @insert_mode = false
 
     # The last graphic character actually placed in the grid (after charset
     # translation), so REP (`CSI Pn b`) can repeat it. ncurses emits REP on a
@@ -516,6 +545,24 @@ module Crysterm
       yield(bad ? 0 : val)
     end
 
+    # CUU/CPL: move the cursor up *n* rows, stopping at the scroll region's top
+    # margin when the cursor starts at or below it (matching xterm's `CursorUp`),
+    # else at the top of the screen. Without the margin clamp, a child that drives
+    # a scroll-region status area with CUU could walk the cursor up out of its
+    # region and overwrite rows above it.
+    private def cursor_up(n : Int32) : Nil
+      lo = @y >= @scroll_top ? @scroll_top : 0
+      @y = Math.max(lo, @y - n)
+    end
+
+    # CUD/CNL: move the cursor down *n* rows, stopping at the scroll region's
+    # bottom margin when the cursor starts at or above it (xterm's `CursorDown`),
+    # else at the bottom of the screen. The mirror of `#cursor_up`.
+    private def cursor_down(n : Int32) : Nil
+      hi = @y <= @scroll_bottom ? @scroll_bottom : @rows - 1
+      @y = Math.min(hi, @y + n)
+    end
+
     # Moves the cursor to a 0-based row, honouring origin mode: when set, the row
     # is relative to the scroll region's top and clamped inside the region.
     private def set_row(row : Int32) : Nil
@@ -529,12 +576,12 @@ module Crysterm
     # ameba:disable Metrics/CyclomaticComplexity
     private def dispatch_csi(c : Char) : Nil
       case c
-      when 'A'      then @y = Math.max(0, @y - param(0, 1)); @wrap_pending = false
-      when 'B'      then @y = Math.min(@rows - 1, @y + param(0, 1)); @wrap_pending = false
+      when 'A'      then cursor_up(param(0, 1)); @wrap_pending = false
+      when 'B'      then cursor_down(param(0, 1)); @wrap_pending = false
       when 'C'      then @x = Math.min(@cols - 1, @x + param(0, 1)); @wrap_pending = false
       when 'D'      then @x = Math.max(0, @x - param(0, 1)); @wrap_pending = false
-      when 'E'      then @x = 0; @y = Math.min(@rows - 1, @y + param(0, 1)); @wrap_pending = false
-      when 'F'      then @x = 0; @y = Math.max(0, @y - param(0, 1)); @wrap_pending = false
+      when 'E'      then @x = 0; cursor_down(param(0, 1)); @wrap_pending = false
+      when 'F'      then @x = 0; cursor_up(param(0, 1)); @wrap_pending = false
       when 'G', '`' then @x = clamp(param(0, 1) - 1, 0, @cols - 1); @wrap_pending = false
       when 'd'      then set_row(param(0, 1) - 1); @wrap_pending = false
       when 'H', 'f'
@@ -563,11 +610,27 @@ module Crysterm
         # so every following glyph was wrongly underlined until the next reset.
         apply_sgr if @csi_prefix.nil?
       when 'r'
+        # Only a *plain* `CSI Pt ; Pb r` is DECSTBM (set scroll region). The
+        # private form `CSI ? Pm r` is XTRESTORE — restore DEC private mode
+        # values, the counterpart to the `CSI ? Pm s` XTSAVE the 's' handler
+        # already ignores. xterm-aware children pair them around a mode change
+        # (e.g. `CSI ? 7 r` to restore autowrap), so letting the restore fall
+        # through to DECSTBM misread its `7` as a top margin and corrupted the
+        # scroll region. We don't track saved private modes; the restore is a
+        # no-op, but it must NOT be treated as DECSTBM. (We have nothing to
+        # intermediate-prefix here, so gate on the plain-CSI `@csi_prefix.nil?`.)
         top = param(0, 1) - 1
-        bot = param(1, @rows) - 1
-        if top < bot && bot <= @rows - 1
+        # xterm *clamps* an over-large bottom margin to the last row and still
+        # sets the region; it does not reject the request. Rejecting it (the old
+        # `bot <= @rows - 1` guard) left a stale region in place — e.g. a child
+        # still using its pre-resize row count emits `CSI 1;<oldrows> r` before it
+        # processes SIGWINCH, and that DECSTBM was silently dropped, so scrolling
+        # stayed confined to the previous (smaller) region until the child caught
+        # up. Clamp instead, matching xterm.
+        bot = Math.min(param(1, @rows) - 1, @rows - 1)
+        if @csi_prefix.nil? && top < bot
           @scroll_top = Math.max(0, top)
-          @scroll_bottom = Math.min(@rows - 1, bot)
+          @scroll_bottom = bot
           @x = 0
           @y = @origin_mode ? @scroll_top : 0 # DECSTBM homes the cursor
           @wrap_pending = false
@@ -602,7 +665,14 @@ module Crysterm
     end
 
     private def set_mode(on : Bool) : Nil
-      return unless @csi_private
+      unless @csi_private
+        # ANSI (non-private) modes. IRM (4) is the only one acted on: it toggles
+        # insert/replace mode (terminfo `smir`/`rmir`), consumed in `#print_char`.
+        # The other standard ANSI modes (e.g. LNM 20) are not used by the target
+        # programs and are ignored.
+        each_csi_param { |mode| @insert_mode = on if mode == 4 }
+        return
+      end
       each_csi_param do |mode|
         case mode
         when 25       then @cursor_hidden = !on # DECTCEM
@@ -622,6 +692,9 @@ module Crysterm
           @wrap_pending = false
         when 2004 then @bracketed_paste = on
         when 1004 then @focus_reporting = on
+        when 7 # DECAWM (autowrap): turning it off cancels any pending wrap too
+          @autowrap = on
+          @wrap_pending = false unless on
         else
           # 1 (DECCKM), 12 (cursor blink), 1000-series already handled … ignored.
         end
@@ -735,14 +808,26 @@ module Crysterm
       end
 
       # A wide glyph that would overrun the last column wraps to the next line,
-      # leaving the final column blank (matching xterm).
-      if w == 2 && @x == @cols - 1
+      # leaving the final column blank (matching xterm) — but only when autowrap
+      # is on; otherwise it overwrites the last column in place below.
+      if @autowrap && w == 2 && @x == @cols - 1
         cur_line[@x] = Cell.new(@cur_attr, ' ')
         @x = 0
         line_feed
       end
 
       line = cur_line
+      if @insert_mode
+        # IRM: open w cells at the cursor — shift the tail of the line right by w,
+        # dropping the cells pushed past the end — so the glyph is inserted rather
+        # than overwriting. The same in-place shift `#insert_chars` (ICH) performs,
+        # applied per printed character.
+        i = line.size - 1
+        while i - w >= @x
+          line[i] = line[i - w]
+          i -= 1
+        end
+      end
       line[@x] = Cell.new(@cur_attr, c)
       @last_char = c # remember the placed glyph so REP ('b') can repeat it
       if w == 2 && @x + 1 < @cols
@@ -750,8 +835,11 @@ module Crysterm
       end
 
       if @x + w >= @cols
+        # Park on the last column. With autowrap on, defer the wrap (the next
+        # glyph triggers it); with autowrap off, just stick there so the next
+        # glyph overwrites this cell instead of advancing the screen.
         @x = @cols - 1
-        @wrap_pending = true
+        @wrap_pending = @autowrap
       else
         @x += w
       end
@@ -821,6 +909,12 @@ module Crysterm
     end
 
     private def reverse_index : Nil
+      # RI repositions the active line, so it cancels any deferred (last-column)
+      # wrap — exactly as its mirror IND (`#line_feed`) and every CSI cursor move
+      # do. Without this, a glyph printed right after RI on a just-filled row saw
+      # the stale `@wrap_pending` and spuriously wrapped to the next line instead
+      # of overwriting at the cursor's actual column.
+      @wrap_pending = false
       if @y == @scroll_top
         scroll_down
       elsif @y > 0
@@ -946,6 +1040,13 @@ module Crysterm
     # same cap `#insert_chars`/`#delete_chars` apply on the row.
     private def insert_lines(n : Int32) : Nil
       return unless @y >= @scroll_top && @y <= @scroll_bottom
+      # IL moves the active position to the line home position (ECMA-48: "the
+      # active presentation position is moved to the line home position"), as
+      # xterm and modern terminals do. Without it the cursor was left at its old
+      # column, so a child that does `CSI L` and then prints — expecting the text
+      # at the left margin per spec, with no explicit CR — landed it mid-line.
+      @x = 0
+      @wrap_pending = false
       n = Math.min(n, @scroll_bottom - @y + 1)
       return if n <= 0
       bot = @ybase + @scroll_bottom
@@ -959,6 +1060,9 @@ module Crysterm
     # up and backfilling the bottom with blanks. Same cap as `#insert_lines`.
     private def delete_lines(n : Int32) : Nil
       return unless @y >= @scroll_top && @y <= @scroll_bottom
+      # DL, like IL, moves the active position to the line home position (ECMA-48).
+      @x = 0
+      @wrap_pending = false
       n = Math.min(n, @scroll_bottom - @y + 1)
       return if n <= 0
       bot = @ybase + @scroll_bottom
@@ -1016,12 +1120,22 @@ module Crysterm
       @saved_x = @x
       @saved_y = @y
       @saved_attr = @cur_attr
+      @saved_g0_special = @g0_special
+      @saved_g1_special = @g1_special
+      @saved_gl = @gl
+      @saved_origin_mode = @origin_mode
+      @saved_autowrap = @autowrap
     end
 
     private def restore_cursor : Nil
       @x = clamp(@saved_x, 0, @cols - 1)
       @y = clamp(@saved_y, 0, @rows - 1)
       @cur_attr = @saved_attr
+      @g0_special = @saved_g0_special
+      @g1_special = @saved_g1_special
+      @gl = @saved_gl
+      @origin_mode = @saved_origin_mode
+      @autowrap = @saved_autowrap
       @wrap_pending = false
     end
 
@@ -1032,6 +1146,8 @@ module Crysterm
       @x = 0
       @y = 0
       @wrap_pending = false
+      @autowrap = true
+      @insert_mode = false
       @last_char = nil
       @cursor_hidden = false
       @lines = Array(Array(Cell)).new
