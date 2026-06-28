@@ -125,9 +125,11 @@ describe Crysterm::Attr do
       Colors.hsv_i(0, 1.0, 0.0).should eq 0x000000 # no value -> black
     end
 
-    # Behavior-lock: `hsv` is now just `hsv_i` formatted; it must reproduce the
-    # OLD hand-rolled `"#%02x%02x%02x"` output across the wheel (and out of range).
-    it "stays byte-for-byte compatible with the previous hsv string formatting" do
+    # Behavior-lock: `hsv` is just `hsv_i` formatted, delegated to the
+    # `TermColors` shard, which *rounds* each channel via `clamp_byte`
+    # (`value.round.to_i.clamp(0, 255)`) rather than truncating. This reference
+    # mirrors that rounding so the lock tracks the shard's intended behavior.
+    it "stays byte-for-byte compatible with the hsv string formatting" do
       old = ->(h : Float64, s : Float64, v : Float64) {
         hh = h % 360.0
         hh += 360.0 if hh < 0
@@ -142,9 +144,9 @@ describe Crysterm::Attr do
                      when 4 then {x, 0.0, c}
                      else        {c, 0.0, x}
                      end
-        r = ((rf + m) * 255).to_i.clamp(0, 255)
-        g = ((gf + m) * 255).to_i.clamp(0, 255)
-        b = ((bf + m) * 255).to_i.clamp(0, 255)
+        r = ((rf + m) * 255).round.to_i.clamp(0, 255)
+        g = ((gf + m) * 255).round.to_i.clamp(0, 255)
+        b = ((bf + m) * 255).round.to_i.clamp(0, 255)
         "#%02x%02x%02x" % {r, g, b}
       }
       [-30, 0, 1, 47, 120, 200, 359, 360, 400, 720].each do |h|

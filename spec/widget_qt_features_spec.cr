@@ -1688,18 +1688,30 @@ describe Crysterm::Widget::ToolTip do
 
   it "sizes and positions itself via show_at" do
     s = qt_mem_screen
-    tip = Crysterm::Widget::ToolTip.new parent: s
-    tip.show_at 3, 4, "Hello"
-    tip.visible?.should be_true
-    tip.left.should eq 3
-    tip.top.should eq 4
-    # No stylesheet applied here, so the tooltip is on the unstyled floor and
-    # carries its structural border (see `ToolTip#floor_border?`). `show_at`
-    # must reserve room for that frame, else the box collapses to a single row
-    # (the old "black box with a lone underline" bug).
-    tip.css_styled?.should be_false
-    tip.width.should eq 9  # "Hello" (5) + 2 padding + border (iwidth 2)
-    tip.height.should eq 3 # 1 text line + border (iheight 2)
+    # Force the unstyled floor: the default terminal theme (auto-installed on
+    # screen creation) themes `ToolTip`, but this example asserts the
+    # floor-border path. Theme state is process-global, so save/restore to keep
+    # "no theme" from leaking into later specs (mirrors `unstyled_floor_spec`).
+    saved_theme = Crysterm::CSS.theme
+    saved_default = Crysterm::CSS.default_stylesheet
+    Crysterm::CSS.theme = nil
+    begin
+      tip = Crysterm::Widget::ToolTip.new parent: s
+      tip.show_at 3, 4, "Hello"
+      tip.visible?.should be_true
+      tip.left.should eq 3
+      tip.top.should eq 4
+      # On the unstyled floor the tooltip carries its structural border (see
+      # `ToolTip#floor_border?`). `show_at` must reserve room for that frame,
+      # else the box collapses to a single row (the old "black box with a lone
+      # underline" bug).
+      tip.css_styled?.should be_false
+      tip.width.should eq 9  # "Hello" (5) + 2 padding + border (iwidth 2)
+      tip.height.should eq 3 # 1 text line + border (iheight 2)
+    ensure
+      Crysterm::CSS.theme = saved_theme
+      Crysterm::CSS.default_stylesheet = saved_default
+    end
   end
 end
 
