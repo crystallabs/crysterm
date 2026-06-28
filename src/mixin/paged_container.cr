@@ -55,7 +55,14 @@ module Crysterm
       # Selects the previous page, wrapping at the start.
       protected def previous_index : Nil
         return if @pages.empty?
-        show_index((@current_index - 1) % @pages.size)
+        # Guard the `-1` "no page selected" sentinel explicitly, mirroring
+        # `#current_page`: a raw `(@current_index - 1) % size` maps `-1` to
+        # `size - 2`, silently *skipping* the last page (e.g. with 3 pages it
+        # lands on index 1, never 2). From the unselected state, "previous"
+        # should wrap to the last page — symmetric with `#next_index` landing on
+        # the first (`(-1 + 1) % size == 0`).
+        i = @current_index < 0 ? @pages.size - 1 : (@current_index - 1) % @pages.size
+        show_index i
       end
     end
   end
