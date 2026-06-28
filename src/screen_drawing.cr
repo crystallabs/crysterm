@@ -416,6 +416,17 @@ module Crysterm
               lx = -1
               ly = -1
               if attr != desired_attr
+                # Reset first when the terminal currently has any non-default
+                # attribute active. `code2attr_to` writes the target attr from a
+                # *blank* SGR state and emits NOTHING for the default attr (see
+                # Screen.code2attr_to), so without this reset a transition to the
+                # default attr (the common "colored content then a default-space
+                # tail" line) would leave the previous cell's color/flags active:
+                # the `el` below would then erase the rest of the line with that
+                # stale background (BCE), and the leftover SGR would bleed into the
+                # cells/rows drawn afterward. Mirrors the per-cell path's
+                # `\e[m`-then-set sequence below.
+                @outbuf.print "\e[m" if attr != @default_attr
                 attr = desired_attr
                 # Allocation-free SGR emission straight into the line buffer;
                 # `code2attr` would allocate a fresh String for every cleared
