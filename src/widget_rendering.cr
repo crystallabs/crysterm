@@ -322,18 +322,39 @@ module Crysterm
             next
           end
         end
+        # Rows above the top screen edge (`y < 0`) must still be walked so the
+        # content index keeps advancing and the on-screen rows stay correctly
+        # aligned — but they must NOT be painted. Crystal's `Indexable#[]?`
+        # counts a negative index from the END (`lines[-1]?` is the LAST row, not
+        # `nil`), so writing on such a row would corrupt the BOTTOM of the screen.
+        # The same hazard applies per-cell for `x < 0` (which would corrupt the
+        # row's right edge). `draw_row` and the `x < 0`/`target` guards below gate
+        # every write so an off-screen edge is consumed but never written. (The
+        # padding/valign fill, `fill_region`, and the shadow/tint passes already
+        # clamp their bounds to `>= 0`; these two loops were the gap.)
+        draw_row = y >= 0
         # TODO - make cell exist only if there's something to be drawn there?
         x = xi - 1
         while x < xl - 1
           x += 1
-          cell = line[x]?
-          unless cell
-            if x >= scr.awidth || xl < iright
-              break
-            else
-              next
+          if x < 0
+            # Off the left edge: do not fetch a cell (a negative index would wrap
+            # to the row's right end). Fall through so the content index still
+            # advances; `target` is nil, so nothing is painted.
+            cell = nil
+          else
+            cell = line[x]?
+            unless cell
+              if x >= scr.awidth || xl < iright
+                break
+              else
+                next
+              end
             end
           end
+          # The cell to actually paint into this iteration, or `nil` when the
+          # column/row is off-screen (`x < 0` or `y < 0`). Gates every write below.
+          target = draw_row ? cell : nil
 
           ch = content[ci]? || bch
           # Log.trace { ci }
@@ -393,21 +414,24 @@ module Crysterm
             # cells showing the painted image instead of clearing them.
             unless bg_cells
               while x < xl
-                cell = line[x]?
-                if !cell
-                  break
-                end
-                if alpha = style_alpha
-                  cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
-                  if content[ci - 1]?
-                    cell.char = ch
-                  end
-                  line.mark_dirty x
-                else
-                  if cell != {attr, ch}
-                    cell.attr = attr
-                    cell.char = ch
+                # Off-screen columns (`x < 0`) still advance to keep the fill
+                # aligned but are never fetched/painted (negative-index wrap);
+                # only an on-screen, drawable cell is written.
+                fcell = x >= 0 ? line[x]? : nil
+                break if x >= 0 && fcell.nil?
+                if draw_row && (fc = fcell)
+                  if alpha = style_alpha
+                    fc.attr = Colors.blend(attr, fc.attr, alpha: alpha)
+                    if content[ci - 1]?
+                      fc.char = ch
+                    end
                     line.mark_dirty x
+                  else
+                    if fc != {attr, ch}
+                      fc.attr = attr
+                      fc.char = ch
+                      line.mark_dirty x
+                    end
                   end
                 end
                 x += 1
@@ -462,7 +486,7 @@ module Crysterm
               if cell_width == 0
                 # Zero-width cluster (e.g. a leading combining mark): merge into
                 # the previous cell rather than consuming one.
-                if x > xi && (prev = line[x - 1]?)
+                if draw_row && x > xi && x - 1 >= 0 && (prev = line[x - 1]?)
                   prev.grapheme = prev.grapheme + grapheme
                   line.mark_dirty(x - 1)
                 end
@@ -479,33 +503,39 @@ module Crysterm
             next
           end
 
-          if alpha = style_alpha
-            cell.attr = Colors.blend(attr, cell.attr, alpha: alpha)
-            if has_content
-              is_cluster ? (cell.grapheme = grapheme) : (cell.char = ch)
-            end
-            line.mark_dirty x
-          elsif is_cluster
-            if cell.attr != attr || !cell.grapheme_eq?(grapheme)
-              cell.attr = attr
-              cell.grapheme = grapheme
+          if t = target
+            if alpha = style_alpha
+              t.attr = Colors.blend(attr, t.attr, alpha: alpha)
+              if has_content
+                is_cluster ? (t.grapheme = grapheme) : (t.char = ch)
+              end
               line.mark_dirty x
-            end
-          else
-            if cell != {attr, ch}
-              cell.attr = attr
-              cell.char = ch
-              line.mark_dirty x
+            elsif is_cluster
+              if t.attr != attr || !t.grapheme_eq?(grapheme)
+                t.attr = attr
+                t.grapheme = grapheme
+                line.mark_dirty x
+              end
+            else
+              if t != {attr, ch}
+                t.attr = attr
+                t.char = ch
+                line.mark_dirty x
+              end
             end
           end
 
           # Wide cell (a 2-column cluster, or a wide lone codepoint like CJK):
           # claim the following cell as its continuation so the cell grid stays
-          # 1 cell == 1 terminal column.
+          # 1 cell == 1 terminal column. The claim (`x += 1`) happens even when
+          # off-screen so the cell index stays in step with the terminal column;
+          # only the continuation write is gated (and skipped for `x + 1 < 0`).
           if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
-            nxt.attr = attr
-            nxt.continuation!
-            line.mark_dirty(x + 1)
+            if draw_row && x + 1 >= 0
+              nxt.attr = attr
+              nxt.continuation!
+              line.mark_dirty(x + 1)
+            end
             x += 1
           end
         end
@@ -559,7 +589,10 @@ module Crysterm
         # top/bottom row pair is iterated without per-frame allocation.
         {yi, yl - 1}.each do |y|
           line = lines[y]?
-          next if y == -1 || !line
+          # `y < 0` (not just `== -1`): a widget clipped off the TOP can have
+          # `yi` several rows above 0, and `lines[y]?` wraps a negative index to
+          # the bottom rows — drawing a border there would corrupt the screen.
+          next if y < 0 || !line
 
           top_row = y == yi
           # When this end row is clipped offscreen (`no_top?`/`no_bottom?`), skip
@@ -580,6 +613,7 @@ module Crysterm
           h_attr = top_row ? top_attr : bottom_attr
 
           (xi...xl).each do |x|
+            next if x < 0 # off the left edge (negative index would wrap)
             next if coords.no_left? && x == xi
             next if coords.no_right? && x == xl - 1
 
@@ -604,6 +638,7 @@ module Crysterm
         end
 
         (yi + 1...yl - 1).each do |y|
+          next if y < 0 # off the top edge (negative index would wrap)
           line = lines[y]?
           next unless line
 
@@ -611,6 +646,7 @@ module Crysterm
           # `Array(Int32)` literal that was otherwise allocated on every interior
           # border row, every frame, for every bordered widget.
           {xi, xl - 1}.each do |x|
+            next if x < 0 # off the left edge (negative index would wrap)
             # A 0-width left/right border was not expanded into its own column
             # (xi/xl-1 still sit on the content), so skip it like a
             # `no_left?`/`no_right?` clip instead of overwriting text.
