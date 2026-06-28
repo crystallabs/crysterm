@@ -1,4 +1,5 @@
 require "../../widget_media_base"
+require "../../widget_media_render_hook"
 
 module Crysterm
   class Widget
@@ -29,6 +30,8 @@ module Crysterm
     # # the Tek window appears on the next screen render
     # ```
     class Media::Tek < Media::Base
+      include Media::RenderHook
+
       # Tektronix 4014 addressable space (10-bit X, ~0..779 visible Y).
       TEK_W = 1024
       TEK_H =  780
@@ -88,8 +91,6 @@ module Crysterm
       # concurrently: `#redraw!` only flips `@playing` false, which the sleeping
       # old fiber would otherwise see flip back to true under it. Exposed for tests.
       getter anim_gen : Int32 = 0
-      @listener_screen : ::Crysterm::Screen?
-      @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
       def initialize(
         @file = nil,
@@ -108,9 +109,7 @@ module Crysterm
         super **box
 
         # Draw into the Tek window once the screen first renders.
-        s = screen
-        @listener_screen = s
-        @ev_rendered = s.on(::Crysterm::Event::Rendered) { draw_tek }
+        register_render_hook(screen) { draw_tek }
 
         on(::Crysterm::Event::Destroy) { teardown }
       end
@@ -296,10 +295,7 @@ module Crysterm
 
       private def teardown
         @playing = false
-        s = @listener_screen || return
-        @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }
-        @ev_rendered = nil
-        @listener_screen = nil
+        teardown_render_hook
       end
     end
   end

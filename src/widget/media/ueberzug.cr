@@ -1,4 +1,5 @@
 require "../../widget_media_external"
+require "../../widget_media_render_hook"
 require "json"
 
 module Crysterm
@@ -24,6 +25,8 @@ module Crysterm
     # img = Widget::Media::Ueberzug.new file: "pic.png", width: 40, height: 12, parent: screen
     # ```
     class Media::Ueberzug < Media::External
+      include Media::RenderHook
+
       # Überzug scaler: `fit_contain`, `contain`, `forced_cover`, `cover`,
       # `crop`, `distort`. `forced_cover` fills the box exactly.
       property scaler : String
@@ -35,8 +38,6 @@ module Crysterm
       @id : String
       @last : Tuple(Int32, Int32, Int32, Int32)? = nil
       @path : String? = nil
-      @listener_screen : ::Crysterm::Screen?
-      @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
       # The shared `Media::Base` contract knobs (`fit`/`animate`/`speed`) are
       # accepted so the `Media` factory can forward them uniformly, but advisory
@@ -51,9 +52,7 @@ module Crysterm
 
         @file.try { |f| load f }
 
-        s = screen
-        @listener_screen = s
-        @ev_rendered = s.on(::Crysterm::Event::Rendered) { redraw_image }
+        register_render_hook(screen) { redraw_image }
 
         on(::Crysterm::Event::Hide) { remove }
         on(::Crysterm::Event::Detach) { remove }
@@ -164,12 +163,7 @@ module Crysterm
 
       private def teardown
         remove
-        s = @listener_screen
-        if s
-          @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }
-        end
-        @ev_rendered = nil
-        @listener_screen = nil
+        teardown_render_hook
       end
     end
   end

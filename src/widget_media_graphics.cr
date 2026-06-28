@@ -114,11 +114,6 @@ module Crysterm
         # (the cells are flushed by then, so the graphic lands on top), and use
         # PreRender to deal with the graphic left at our previous position.
         register_overlay_listeners screen
-
-        on(::Crysterm::Event::Hide) { clear_overlay }
-        on(::Crysterm::Event::Detach) { |e| clear_overlay e.object.as?(::Crysterm::Screen) }
-        on(::Crysterm::Event::Show) { request_render }
-        on(::Crysterm::Event::Destroy) { teardown }
       end
 
       # The terminal's real cell size in pixels, read from `TIOCGWINSZ`

@@ -31,7 +31,8 @@ module Crysterm
     # register a single `Rendered` listener (no `PreRender`/erase-on-move), don't
     # track `@last_drawn`, and dispatch to their own paint method — they share too
     # little with this lifecycle to fold in without unused state or behaviour
-    # changes.
+    # changes. Their (smaller) shared register/teardown lives in
+    # `Media::RenderHook` instead.
     module Media::ScreenOverlay
       # Screen the listeners below were registered on, kept so they can be removed
       # on destroy even after the widget has been detached (when `#screen?` is
@@ -45,12 +46,23 @@ module Crysterm
       @last_drawn : Tuple(Int32, Int32, Int32, Int32)?
 
       # Registers the erase-on-move (`PreRender`) and repaint-on-top (`Rendered`)
-      # listeners on *s*, in that order, and remembers *s* + the wrappers. Mirrors
+      # listeners on *s*, in that order, and remembers *s* + the wrappers; then
+      # wires this widget's own `Hide`/`Detach`/`Show`/`Destroy` lifecycle. Mirrors
       # what both backends did inline in their constructor.
       protected def register_overlay_listeners(s : ::Crysterm::Screen)
         @listener_screen = s
         @ev_prerender = s.on(::Crysterm::Event::PreRender) { invalidate_old_position }
         @ev_rendered = s.on(::Crysterm::Event::Rendered) { redraw_image }
+
+        # The overlay lives outside the cell buffer, so hiding/detaching the widget
+        # would leave it on screen: clear it on hide/detach and let it be repainted
+        # on show (`#redraw_image` runs every render but skips while hidden). Tear
+        # the screen listeners down on destroy so they don't keep firing or leak
+        # `self`.
+        on(::Crysterm::Event::Hide) { clear_overlay }
+        on(::Crysterm::Event::Detach) { |e| clear_overlay e.object.as?(::Crysterm::Screen) }
+        on(::Crysterm::Event::Show) { request_render }
+        on(::Crysterm::Event::Destroy) { teardown }
       end
 
       # Removes the listeners registered above and forgets the screen.

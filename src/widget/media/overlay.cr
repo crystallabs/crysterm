@@ -48,16 +48,6 @@ module Crysterm
         # `#invalidate_old_position`). This mirrors Blessed's
         # `onScreenEvent('render')`.
         register_overlay_listeners screen
-
-        # The overlay lives outside the cell buffer, so hiding/detaching the
-        # widget would leave it on screen. Clear it on hide/detach and let it be
-        # repainted on show/attach (`#redraw_image` runs every render but skips
-        # while hidden). Tear the screen listeners down on destroy so they don't
-        # keep firing or leak `self`.
-        on(::Crysterm::Event::Hide) { clear_overlay }
-        on(::Crysterm::Event::Detach) { |e| clear_overlay e.object.as?(::Crysterm::Screen) }
-        on(::Crysterm::Event::Show) { request_render }
-        on(::Crysterm::Event::Destroy) { teardown }
       end
 
       def load(file : String)
