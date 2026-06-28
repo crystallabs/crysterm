@@ -53,28 +53,24 @@ module Crysterm
       end
     {% end %}
 
-    # Clamps a computed width to the `[min_width, max_width]` constraints (a
-    # no-op when both are `nil`). `max` is applied before `min` so `min` wins a
-    # `min > max` conflict, per CSS.
+    # Clamps a computed dimension to its `[min, max]` constraints (a no-op when
+    # both are `nil`). `max` is applied before `min` so `min` wins a `min > max`
+    # conflict, per CSS. Shared by `#clamp_awidth`/`#clamp_aheight`, which differ
+    # only in which pair of constraint fields they feed in.
+    private def clamp_dim(v : Int32, min : Int32?, max : Int32?) : Int32
+      v = Math.min(v, max) if max
+      v = Math.max(v, min) if min
+      v
+    end
+
+    # Clamps a computed width to the `[min_width, max_width]` constraints.
     private def clamp_awidth(w : Int32) : Int32
-      if max = @max_width
-        w = Math.min(w, max)
-      end
-      if min = @min_width
-        w = Math.max(w, min)
-      end
-      w
+      clamp_dim w, @min_width, @max_width
     end
 
     # :ditto: for height.
     private def clamp_aheight(h : Int32) : Int32
-      if max = @max_height
-        h = Math.min(h, max)
-      end
-      if min = @min_height
-        h = Math.max(h, min)
-      end
-      h
+      clamp_dim h, @min_height, @max_height
     end
 
     # Returns computed width
