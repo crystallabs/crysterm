@@ -124,36 +124,29 @@ module Crysterm
           e.accept
           request_render
         elsif k == ::Tput::Key::Up || ch == 'k' || ch == '+'
-          cancel_edit
-          increment
-          e.accept
-          request_render
+          stepping_key(e) { increment }
         elsif k == ::Tput::Key::Down || ch == 'j'
-          cancel_edit
-          decrement
-          e.accept
-          request_render
+          stepping_key(e) { decrement }
         elsif k == ::Tput::Key::PageUp
-          cancel_edit
-          increment @step * 10
-          e.accept
-          request_render
+          stepping_key(e) { increment @step * 10 }
         elsif k == ::Tput::Key::PageDown
-          cancel_edit
-          decrement @step * 10
-          e.accept
-          request_render
+          stepping_key(e) { decrement @step * 10 }
         elsif k == ::Tput::Key::Home
-          cancel_edit
-          self.value = @minimum
-          e.accept
-          request_render
+          stepping_key(e) { self.value = @minimum }
         elsif k == ::Tput::Key::End
-          cancel_edit
-          self.value = @maximum
-          e.accept
-          request_render
+          stepping_key(e) { self.value = @maximum }
         end
+      end
+
+      # Discards any in-progress edit buffer, runs the stepping *action*, then
+      # accepts the event and repaints — the wrapper every value-stepping key
+      # (Up/Down, `+`/`k`/`j`, PageUp/PageDown, Home/End) shares, differing only
+      # in how it moves the value. Block-yielding, so it allocates no `Proc`.
+      private def stepping_key(e, &) : Nil
+        cancel_edit
+        yield
+        e.accept
+        request_render
       end
     end
   end
