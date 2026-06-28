@@ -70,7 +70,14 @@ module Crysterm
     end
 
     # Returns computed width
-    def awidth(get = false)
+    def awidth(get = false, with_margin = true)
+      # The own left+right margins shrink the box (`_get_coords` does `xi += left`,
+      # `xl -= right`, so the rendered width loses `mwidth`). Folding that in here
+      # keeps the hit-test rectangle (`#aleft + #awidth`) matching the paint. The
+      # render path and the anchoring callers pass `with_margin: false` for the
+      # un-shrunk base; this is applied once, at every return below.
+      mw = (with_margin && (mg = style.margin).any?) ? mg.left + mg.right : 0
+
       oleft = @left
       oright = @right
       width = @width
@@ -89,7 +96,7 @@ module Crysterm
         # with no insets (e.g. a screen child) this is unchanged. The matching
         # `aleft` adds the parent's near inset, so a `left: 0` child sits just
         # inside the border and a `"100%"` child reaches exactly the far inset.
-        return clamp_awidth(resolve_dimension(width, (parent.awidth || 0) - parent.ileft - parent.iright, "half"))
+        return clamp_awidth(resolve_dimension(width, (parent.awidth || 0) - parent.ileft - parent.iright, "half")) - mw
       end
 
       # This is for if the element is being stretched or shrunken.
@@ -120,11 +127,16 @@ module Crysterm
         width -= parent.iright
       end
 
-      width.is_a?(Int32) ? clamp_awidth(width) : width
+      width.is_a?(Int32) ? clamp_awidth(width) - mw : width
     end
 
     # Returns computed height
-    def aheight(get = false)
+    def aheight(get = false, with_margin = true)
+      # See `#awidth`: the own top+bottom margins shrink the box; fold that in so
+      # the hit-test rectangle matches the paint. Base callers pass `with_margin:
+      # false`.
+      mh = (with_margin && (mg = style.margin).any?) ? mg.top + mg.bottom : 0
+
       otop = @top
       obottom = @bottom
       height = @height
@@ -137,7 +149,7 @@ module Crysterm
         parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
         # Percentage of the parent's *content* height (inside border/padding);
         # see `awidth` for the rationale (CSS-like, fills the interior).
-        return clamp_aheight(resolve_dimension(height, (parent.aheight || 0) - parent.itop - parent.ibottom, "half"))
+        return clamp_aheight(resolve_dimension(height, (parent.aheight || 0) - parent.itop - parent.ibottom, "half")) - mh
       end
 
       # This is for if the element is being stretched or shrunken.
@@ -164,7 +176,7 @@ module Crysterm
         height -= parent.ibottom
       end
 
-      height.is_a?(Int32) ? clamp_aheight(height) : height
+      height.is_a?(Int32) ? clamp_aheight(height) - mh : height
     end
 
     # Returns minimum widget size based on bounding box

@@ -186,13 +186,24 @@ module Crysterm
     # right-anchored and `"center"` branches need it, and `_get_coords` has
     # computed it once anyway, so passing it in avoids a second `awidth` walk per
     # frame for those widgets. When nil it is resolved on demand as before.
-    def aleft(get = false, width = nil, parent_pos = nil)
+    def aleft(get = false, width = nil, parent_pos = nil, with_margin = true)
+      # The widget's own left margin shifts its whole box inward — exactly what
+      # `_get_coords` applies (`xi += margin.left`) when it composes the rendered
+      # rectangle. Including it here keeps the *hit-test* geometry (`Screen#widget_at`
+      # / `#contains_point?` read these getters) consistent with where the widget is
+      # actually painted; without it a margined widget — or any child of a margined
+      # container, since a child's `aleft` is built on the parent's — was clickable a
+      # column off from its rendering. `_get_coords` itself, and the internal
+      # anchoring callers below, pass `with_margin: false` so the base rectangle they
+      # build is unchanged and the margin is still applied exactly once (there).
+      ml = (with_margin && (mg = style.margin).any?) ? mg.left : 0
+
       # Original left
       oleft = @left
       oright = @right
 
       if oleft.nil? && !oright.nil?
-        return screen.awidth - (width || awidth(get)) - aright(get)
+        return ml + screen.awidth - (width || awidth(get, with_margin: false)) - aright(get)
       end
 
       # `parent_pos`, when given, is the parent's already-resolved position for
@@ -205,7 +216,7 @@ module Crysterm
       if left.is_a? String
         left = resolve_dimension(left, parent.awidth || 0, "center")
         if center_expr?(oleft)
-          left -= (width || awidth(get)) // 2
+          left -= (width || awidth(get, with_margin: false)) // 2
         end
       end
 
@@ -213,19 +224,24 @@ module Crysterm
         left += parent.ileft
       end
 
-      (parent.aleft || 0) + left
+      (parent.aleft || 0) + left + ml
     end
 
     # Returns computed absolute top position. `height`, when given, is this
     # widget's already-resolved `aheight(get)` — see `#aleft` for why this is
     # passed in (avoids a redundant `aheight` walk for bottom-anchored /
     # `"center"` widgets).
-    def atop(get = false, height = nil, parent_pos = nil)
+    def atop(get = false, height = nil, parent_pos = nil, with_margin = true)
+      # See `#aleft`: the own top margin shifts the box down (`_get_coords` does
+      # `yi += margin.top`), so include it here to keep hit-testing aligned with the
+      # paint. `_get_coords` / anchoring callers pass `with_margin: false`.
+      mt = (with_margin && (mg = style.margin).any?) ? mg.top : 0
+
       otop = @top
       obottom = @bottom
 
       if otop.nil? && !obottom.nil?
-        return screen.aheight - (height || aheight(get)) - abottom(get)
+        return mt + screen.aheight - (height || aheight(get, with_margin: false)) - abottom(get)
       end
 
       # See `#aleft`: `parent_pos` is the parent's already-resolved position,
@@ -236,7 +252,7 @@ module Crysterm
       if top.is_a? String
         top = resolve_dimension(top, parent.aheight || 0, "center")
         if center_expr?(otop)
-          top -= (height || aheight(get)) // 2
+          top -= (height || aheight(get, with_margin: false)) // 2
         end
       end
 
@@ -244,7 +260,7 @@ module Crysterm
         top += parent.itop
       end
 
-      (parent.atop || 0) + top
+      (parent.atop || 0) + top + mt
     end
 
     # Returns computed absolute right position
@@ -255,7 +271,9 @@ module Crysterm
       parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
 
       if oright.nil? && !oleft.nil?
-        right = screen.awidth - (aleft(get) + awidth(get))
+        # Base geometry: margin is composed in by `_get_coords`, so this far-edge
+        # offset (which feeds right-anchored `#aleft`) must not double-count it.
+        right = screen.awidth - (aleft(get, with_margin: false) + awidth(get, with_margin: false))
         right += parent.iright
         return right
       end
@@ -274,7 +292,8 @@ module Crysterm
       parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
 
       if obottom.nil? && !otop.nil?
-        bottom = screen.aheight - atop(get) - aheight(get)
+        # Base geometry (see `#aright`): margin is composed in by `_get_coords`.
+        bottom = screen.aheight - atop(get, with_margin: false) - aheight(get, with_margin: false)
         bottom += parent.ibottom
         return bottom
       end
@@ -321,11 +340,26 @@ module Crysterm
       # computation (`aleft`/`atop`) and the far edge (`xl`/`yl`). Without this,
       # a right-anchored or `"center"`-positioned widget walked `awidth` twice
       # (and likewise `aheight`) every frame.
-      w = width_hint || awidth(get)
-      h = aheight(get)
-      xi = aleft(get, w, ppos)
+      # Base rectangle WITHOUT the element's own margin: the margin block further
+      # down composes it in (`xi += margin.left`, …). The geometry getters now fold
+      # the own-margin in by default (so hit-testing matches the paint — see
+      # `#aleft`/`#atop`/`#awidth`/`#aheight`), so they are called here with
+      # `with_margin: false` to keep this resolved rectangle — and therefore `lpos`
+      # and every `margin_spec` assertion — byte-identical.
+      # `width_hint` (passed by `#_render`) is `awidth(true)` — already margin-
+      # shrunk (see `#awidth`). The rectangle built here is the *base*, pre-margin
+      # one (the margin block below composes the margin in exactly once), so add the
+      # own horizontal margin back when a hint is supplied; without a hint we ask
+      # for the base width directly.
+      w = if wh = width_hint
+            wh + ((mg = style.margin).any? ? mg.left + mg.right : 0)
+          else
+            awidth(get, with_margin: false)
+          end
+      h = aheight(get, with_margin: false)
+      xi = aleft(get, w, ppos, with_margin: false)
       xl = xi + w
-      yi = atop(get, h, ppos)
+      yi = atop(get, h, ppos, with_margin: false)
       yl = yi + h
 
       # Informs us which side is partly hidden due to being enclosed in a
