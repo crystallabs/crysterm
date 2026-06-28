@@ -347,6 +347,20 @@ module Crysterm
       # (and thus Crysterm's positioning on the next frame) is left untouched.
       private def redraw_image
         return unless visible?
+        # `visible?` only consults THIS widget's own flag. Unlike the cell-render
+        # pass (which never paints a hidden subtree, so its descendants are
+        # naturally skipped), this overlay runs as a standalone `Rendered`
+        # listener, so it must also bail when an ANCESTOR is hidden: the widget is
+        # then off-screen, the hidden ancestor has no rendered position, and
+        # resolving coords against it (`_get_coords(true)` →
+        # `last_rendered_position`) would raise instead of returning nil — crashing
+        # the render-loop fiber. Walk the parent chain and skip if any link is
+        # hidden, mirroring the tree-aware visibility `Capture` uses.
+        anc = parent
+        while anc
+          return unless anc.visible?
+          anc = anc.parent
+        end
         s = screen? || return
         return unless has_image?
         ensure_animation
