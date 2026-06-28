@@ -22,6 +22,23 @@ module Crysterm
       @parent.try(&.remove(self))
     end
 
+    # Detaches this widget from wherever it is actually attached. A *nested*
+    # widget unlinks from its widget parent (`#remove_from_parent`, which only
+    # follows `@parent`); a *top-level* widget — one added straight onto a
+    # `Screen`, where it has no widget parent but holds a stored `@screen` — is
+    # removed from that screen instead, so the full `Screen#remove` teardown
+    # (focus/hover/grab release) runs and it doesn't linger in `screen.children`,
+    # still painted and keyable. Used by `Widget#destroy` and the HTTP bridge's
+    # `remove` command, which must each tear down a widget regardless of how it
+    # was attached.
+    def detach_from_tree : Nil
+      if @parent
+        remove_from_parent
+      else
+        screen?.try &.remove self
+      end
+    end
+
     # Inserts `element` to list of children at a specified position (at end by default)
     def insert(element, i = -1)
       # A widget can never become a child of itself or of one of its own
