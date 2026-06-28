@@ -44,6 +44,14 @@ module Crysterm
       # The actions in this menu, in display order.
       property actions = [] of Action
 
+      # Caps the auto-sized (popup/submenu) height to at most this many item rows,
+      # scrolling the remainder rather than growing past it — mirrors
+      # `ComboBox#max_visible`. `nil` (the default) fits every row. A long
+      # navigation dropdown (e.g. a `Calendar`'s ±100 year list, far taller than
+      # the screen) sets this so the popup stays on-screen and scrolls to its
+      # selected entry instead of being clamped over the content behind it.
+      property max_visible_rows : Int32? = nil
+
       # The menu this one is a submenu of (`nil` for a top-level menu). Set when a
       # submenu is opened; used to route Left/Escape back to the parent.
       property parent_menu : Menu?
@@ -309,7 +317,11 @@ module Crysterm
       # border (e.g. qdarkstyle's `QMenu { border: 0px }`) doesn't leave blank rows
       # where the borders would have been — no assumption that a border exists.
       private def fit_height : Int32
-        visible_actions.size + iheight
+        rows = visible_actions.size
+        if mv = @max_visible_rows
+          rows = Math.min(rows, mv)
+        end
+        rows + iheight
       end
 
       # Sizes a popup/submenu to fit its content. Marks the menu auto-sizing so

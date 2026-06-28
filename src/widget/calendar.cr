@@ -84,6 +84,10 @@ module Crysterm
       WEEKDAYS_SHORT  = %w[Su Mo Tu We Th Fr Sa]
       WEEKDAYS_SINGLE = %w[S M T W T F S]
       MONTHS          = %w[January February March April May June July August September October November December]
+      # Width of the navigation-bar month field, fixed to the longest month name
+      # ("September", 9 cols) so shorter names are padded/centered within it and
+      # the year and `‹`/`›` steppers keep a stable column as months cycle.
+      MONTH_FIELD_WIDTH = MONTHS.max_of &.size
 
       # A calendar is an interactive control: mark it keyable so the screen
       # routes key events to it when focused (e.g. as a `DateEdit` popup, or when
@@ -109,9 +113,10 @@ module Crysterm
       @grid_top_row = 0
       @col_offset = 0
 
-      # Month/year pop-up menus, lazily created and reused.
-      @month_menu : Menu?
-      @year_menu : Menu?
+      # Month/year pop-up menus, lazily created and reused. Exposed (read-only)
+      # so callers/tests can inspect the open dropdown's entries and selection.
+      getter month_menu : Menu?
+      getter year_menu : Menu?
 
       # `Time.local` is unavailable in some headless contexts; fall back to a
       # fixed date so construction never raises (callers normally pass a date).
@@ -427,17 +432,26 @@ module Crysterm
       # Builds the `‹ Month Year ›` navigation bar and records the columns of its
       # arrows / month / year regions for hit-testing.
       private def build_nav_bar : String
+        # Center the month name in a fixed `MONTH_FIELD_WIDTH` field so the year
+        # and steppers don't shift horizontally as months cycle (e.g. "May" vs
+        # "September"); the padding is split left/right to keep the name centered.
         name = MONTHS[@shown_month - 1]
+        pad = MONTH_FIELD_WIDTH - name.size
+        left_pad = pad // 2
+        right_pad = pad - left_pad
+        field = "#{" " * left_pad}#{name}#{" " * right_pad}"
         year = @shown_year.to_s
 
         @nav_prev_col = 0
         month_col = 2 # after "‹ "
-        @nav_month_range = (month_col...(month_col + name.size))
-        year_col = month_col + name.size + 1 # after the space
+        # The whole fixed-width field is the month hit-test region (so a click
+        # anywhere over the centered name — or its padding — opens the dropdown).
+        @nav_month_range = (month_col...(month_col + MONTH_FIELD_WIDTH))
+        year_col = month_col + MONTH_FIELD_WIDTH + 1 # after the space
         @nav_year_range = (year_col...(year_col + year.size))
         @nav_next_col = year_col + year.size + 1 # after the space
 
-        "‹ #{name} #{year} ›"
+        "‹ #{field} #{year} ›"
       end
 
       # ── Mouse ─────────────────────────────────────────────────────────────
@@ -526,6 +540,10 @@ module Crysterm
         menu
       end
 
+      # Number of years on each side of the shown year in the year dropdown
+      # (Qt-like span); the menu lists `shown_year - N .. shown_year + N`.
+      YEAR_MENU_RADIUS = 100
+
       private def open_month_menu(col : Int32) : Nil
         @month_menu.try &.destroy
         return unless menu = new_nav_menu do |m|
@@ -535,21 +553,65 @@ module Crysterm
                         end
                       end
         @month_menu = menu
-        menu.popup aleft + ileft + col, atop + itop + 1
-        menu.selekt @shown_month - 1
+        # Scroll to / center the currently-shown month.
+        popup_nav_menu menu, col, @shown_month - 1
       end
 
       private def open_year_menu(col : Int32) : Nil
         @year_menu.try &.destroy
         return unless menu = new_nav_menu do |m|
                         base = @shown_year
-                        (base - 8..base + 7).each do |yr|
+                        (base - YEAR_MENU_RADIUS..base + YEAR_MENU_RADIUS).each do |yr|
                           m.add(yr.to_s) { set_current_page yr, @shown_month; focus }
                         end
                       end
         @year_menu = menu
+        # The full ±100 list is far taller than the screen; cap the visible rows
+        # (fitting the space below the nav bar) so the dropdown stays on-screen
+        # and scrolls, rather than being clamped over the calendar behind it.
+        menu.max_visible_rows = Math.max(1, Math.min(12, (screen?.try(&.aheight) || 24) - 3))
+        # The shown year sits `YEAR_MENU_RADIUS` rows down — select/scroll to it
+        # so the dropdown opens centered on the current year.
+        popup_nav_menu menu, col, YEAR_MENU_RADIUS
+      end
+
+      # Floats *menu* under nav column *col* and selects (scrolls to) *index*.
+      #
+      # Also marks the calendar's own navigation bar as part of the menu's modal
+      # *grab region* (Qt's `QMenuBar` does the same with its title strip): while
+      # the dropdown is open the screen's modal grab would otherwise swallow every
+      # event outside the menu, so a wheel — or click — over the month/year/arrows
+      # would never reach the calendar. That was the reported regression: opening
+      # the dropdown left the wheel "stuck" until an arrow was clicked (the first
+      # such click merely dismissed the popup via the modal grab, only the second
+      # paged). Counting the nav bar as inside the grab lets `Screen#within_grab?`
+      # keep delivering its clicks/wheel to the calendar, so paging keeps working
+      # before, during, and after the dropdown — and the popup's own outside-press
+      # watcher still dismisses it on a click anywhere truly outside (e.g. a day).
+      private def popup_nav_menu(menu : Menu, col : Int32, index : Int32) : Nil
+        menu.grab_region = ->(x : Int32, y : Int32) { nav_grab_region? x, y }
+        # Select *before* showing: `#popup` sizes the menu via `#fit_to_content`,
+        # whose height assignment fires the item view's `on_resize`, which scrolls
+        # the selected row into view. Selecting first (vs. after `#popup`, as a
+        # short list could) makes the long year list open already scrolled to the
+        # current year rather than at its top.
+        menu.selekt index
         menu.popup aleft + ileft + col, atop + itop + 1
-        menu.selekt 8 # the current year sits 8 rows down
+      end
+
+      # Whether absolute point (*x*, *y*) falls on this calendar's navigation bar
+      # over an interactive region (the `‹`/`›` arrows or the month/year fields).
+      # Used as the open dropdown's extra grab region (see `#popup_nav_menu`).
+      private def nav_grab_region?(x : Int32, y : Int32) : Bool
+        return false unless navigation_bar_visible?
+        col = x - aleft - ileft
+        row = y - atop - itop
+        return false unless row == 0
+        col == @nav_prev_col || col == @nav_next_col ||
+          @nav_month_range.includes?(col) || @nav_year_range.includes?(col)
+      rescue
+        # Not laid out yet; treat as outside.
+        false
       end
 
       # ── Keyboard ──────────────────────────────────────────────────────────

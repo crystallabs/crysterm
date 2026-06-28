@@ -589,10 +589,10 @@ describe Crysterm::Widget::Menu do
   it "never rests the highlight on a boundary separator" do
     s = qt_mem_screen
     m = Crysterm::Widget::Menu.new parent: s
-    m.add_separator     # leading separator (index 0)
+    m.add_separator # leading separator (index 0)
     m << Crysterm::Action.new "One"
     m << Crysterm::Action.new "Two"
-    m.add_separator     # trailing separator (index 3)
+    m.add_separator # trailing separator (index 3)
     m.ritems.size.should eq 4
 
     # Stepping down off the last real item must not strand the highlight on the
@@ -1493,10 +1493,79 @@ describe Crysterm::Widget::Calendar do
     # in ISO week 52 (of 2023), but the row predominantly shows ISO week 1 (the
     # week of Mon Jan 1). It must be labeled "1", not the leftmost cell's "52".
     rows = cal.content.split('\n')
-    body = rows[2] # 0: nav bar, 1: weekday header, 2: first body row
+    body = rows[2]            # 0: nav bar, 1: weekday header, 2: first body row
     gutter = body[0, 3].strip # the week-number column ("Wk " is 3 cells wide)
     gutter.should eq "1"
     gutter.should_not eq "52"
+  end
+
+  it "keeps the year and steppers in a stable column as the month cycles" do
+    s = qt_mem_screen
+    cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
+      date: Time.local(2024, 5, 15) # May — a short month name
+    may_nav = cal.content.split('\n').first
+
+    cal.set_current_page 2024, 9 # September — the longest month name
+    sep_nav = cal.content.split('\n').first
+
+    # The month field is sized to the longest name, so the centered short name
+    # leaves the year and the trailing `›` stepper at identical columns.
+    may_nav.index("2024").should eq sep_nav.index("2024")
+    may_nav.index('›').should eq sep_nav.index('›')
+    # The short name is padded/centered, not stretched with its own letters.
+    may_nav.includes?("September").should be_false
+    sep_nav.includes?("September").should be_true
+  end
+
+  it "keeps the wheel paging the month after clicking the month opens its dropdown" do
+    s = qt_mem_screen
+    cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
+      date: Time.local(2024, 5, 15)
+    s._render
+
+    mx = cal.aleft + cal.ileft + 4 # a column inside the month field
+    navy = cal.atop + cal.itop     # the navigation-bar row
+
+    # Click the month — opens the dropdown and grabs the screen modally.
+    s.dispatch_mouse Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, mx, navy)
+    cal.month_menu.should_not be_nil
+    cal.month_menu.not_nil!.actions.size.should eq 12 # all twelve months
+    s._render
+
+    # Regression: a wheel over the month must STILL page it (previously the modal
+    # grab swallowed it, leaving the wheel "stuck" until an arrow was clicked).
+    before = cal.month_shown
+    s.dispatch_mouse Tput::Mouse::Event.new(Tput::Mouse::Action::WheelDown, Tput::Mouse::Button::None, mx, navy)
+    cal.month_shown.should eq before + 1
+    s.dispatch_mouse Tput::Mouse::Event.new(Tput::Mouse::Action::WheelUp, Tput::Mouse::Button::None, mx, navy)
+    cal.month_shown.should eq before
+  end
+
+  it "keeps the wheel paging the year after clicking the year, with a ±100 dropdown" do
+    s = qt_mem_screen
+    cal = Crysterm::Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
+      date: Time.local(2024, 5, 15)
+    s._render
+
+    # The year sits at content column 2 + MONTH_FIELD_WIDTH + 1 == 12.
+    yx = cal.aleft + cal.ileft + 13
+    navy = cal.atop + cal.itop
+
+    s.dispatch_mouse Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, yx, navy)
+    cal.year_menu.should_not be_nil
+    menu = cal.year_menu.not_nil!
+    # shown_year ± 100 == 201 entries, opened scrolled to the current year.
+    menu.actions.size.should eq 201
+    menu.actions.first.text.should eq "1924"
+    menu.actions.last.text.should eq "2124"
+    menu.selected.should eq 100
+    s._render
+
+    before = cal.year_shown
+    s.dispatch_mouse Tput::Mouse::Event.new(Tput::Mouse::Action::WheelDown, Tput::Mouse::Button::None, yx, navy)
+    cal.year_shown.should eq before + 1
+    s.dispatch_mouse Tput::Mouse::Event.new(Tput::Mouse::Action::WheelUp, Tput::Mouse::Button::None, yx, navy)
+    cal.year_shown.should eq before
   end
 end
 
@@ -1810,6 +1879,43 @@ describe Crysterm::Widget::MenuBar do
     bar.open_index.should eq 1
     bar.menus[1].on_keypress keypress('\0', Tput::Key::Left) # Edit -> File
     bar.open_index.should eq 0
+  end
+
+  it "deactivates when focus leaves the bar's world, but not while diving into a submenu" do
+    s = qt_mem_screen
+    other = Crysterm::Widget::Box.new parent: s, top: 5, left: 0, width: 6, height: 1, content: "X"
+    bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
+    fm = bar.add_menu "File"
+    fm.add("New") { }
+    fm.add_menu "Recent", [Crysterm::Action.new("old-1"), Crysterm::Action.new("old-2")]
+    bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
+    s._render
+
+    # Activate a top-level entry: its title highlights and the menu opens.
+    bar.open 0
+    bar.open_index.should eq 0
+    bar.items[0].state.selected?.should be_true
+    fm.visible?.should be_true
+
+    # Diving into the entry's own submenu keeps the bar active (focus moved into
+    # the bar's world, not away from it) — it must not be treated as a leave.
+    fm.selekt 1
+    fm.hover_item 1 # opens the "Recent" submenu and focuses it
+    bar.open_index.should eq 0
+    fm.visible?.should be_true
+
+    # Back out of the submenu, returning focus to the top-level menu.
+    fm.close_submenu
+    bar.open_index.should eq 0
+    fm.visible?.should be_true
+
+    # Focus moving to an unrelated widget (a click elsewhere / Tab away) closes
+    # the open menu and clears the top-level highlight — no orphaned, still-lit
+    # entry left behind.
+    other.focus
+    bar.open_index.should be_nil
+    fm.visible?.should be_false
+    bar.items.map(&.state.selected?).should eq [false, false]
   end
 end
 
