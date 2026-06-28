@@ -112,7 +112,7 @@ module Crysterm
       # the result clamped to the real item range so it can never select a
       # non-existent row.
       def hover_item(i : Int)
-        visible = aheight - iheight - hscrollbar_rows
+        visible = visible_content_rows
         visible = 1 if visible < 1
         row = i.clamp(0, visible - 1)
         selekt (@child_base + row).clamp(0, @items.size - 1)

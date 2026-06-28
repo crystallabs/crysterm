@@ -93,7 +93,7 @@ module Crysterm
     # the single source of truth for the viewport-height invariant that `#scroll`,
     # `#ensure_visible`, `#clamp_child_base_to_content`, and the `ItemView` /
     # `TextEditing` mixins must all compute identically.
-    private def visible_content_rows : Int32
+    protected def visible_content_rows : Int32
       aheight - iheight - hscrollbar_rows
     end
 

@@ -109,7 +109,7 @@ module Crysterm
         # add `#child_base`, mirroring `Completer::Popup#hover_item`. (For a short,
         # unscrolled drop-down `child_base` is 0 and this is just `selekt i`.)
         def hover_item(i : Int)
-          visible = aheight - iheight - hscrollbar_rows
+          visible = visible_content_rows
           visible = 1 if visible < 1
           row = i.clamp(0, visible - 1)
           selekt (@child_base + row).clamp(0, @items.size - 1)

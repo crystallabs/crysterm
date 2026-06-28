@@ -213,7 +213,7 @@ module Crysterm
           total = t.get_scroll_width
           pos = t.get_scroll_x
         else
-          visible = t.aheight - t.iheight - t.hscrollbar_rows
+          visible = t.visible_content_rows
           total = t.get_scroll_height
           pos = t.get_scroll
         end

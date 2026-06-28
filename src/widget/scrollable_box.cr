@@ -29,7 +29,7 @@ module Crysterm
       end
 
       def on_keypress(e)
-        visible = aheight - iheight - hscrollbar_rows
+        visible = visible_content_rows
         half = Math.max visible // 2, 1
 
         case
