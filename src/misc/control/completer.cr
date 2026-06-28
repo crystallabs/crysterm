@@ -62,13 +62,6 @@ module Crysterm
 
       property completer : Completer?
 
-      # Whether a row is actively highlighted. The popup opens with *no* cursor —
-      # `List#selected` is 0, but showing it as selected would be a lie (the user
-      # hasn't chosen anything) and would make the first Down land on the *second*
-      # row. The cursor only appears once the user navigates (`#cursor_down`/
-      # `#cursor_up`) or hovers a row.
-      getter? cursor_shown : Bool = false
-
       def enter_selected
         completer.try &.commit_index(selected)
       end
@@ -77,49 +70,34 @@ module Crysterm
         completer.try &.close
       end
 
-      # Clears the cursor (back to the "nothing highlighted" state) and parks the
-      # internal selection at the top. Called whenever the match set is (re)shown.
+      # Parks the highlight on the first row. Called whenever the match set is
+      # (re)shown, so the drop-down always opens with its first entry already
+      # highlighted: the box is focused and the list is open, so the user has in
+      # effect already "entered" the list, and the next Down should advance to the
+      # *second* row rather than merely reveal a cursor on the first.
       def reset_cursor : Nil
-        @cursor_shown = false
         selekt 0
       end
 
-      # Down: reveal the cursor on the first row on the first press, then step
-      # down. Up: reveal it on the last row first, then step up.
+      # Down/Up single-step the highlight from the currently selected row. The box
+      # keeps focus throughout, so the list never sees these as its own key
+      # events — the completer routes them here.
       def cursor_down : Nil
-        @cursor_shown ? down : reveal(0)
+        down
       end
 
       def cursor_up : Nil
-        @cursor_shown ? up : reveal(@items.size - 1)
+        up
       end
 
-      private def reveal(index : Int) : Nil
-        @cursor_shown = true
-        selekt index
-      end
-
-      # All cursor movement (arrow keys via `cursor_down`/`cursor_up`, and the
+      # All cursor movement (the arrow keys via `cursor_down`/`cursor_up`, and the
       # per-row wheel handler `List` installs, which calls `move ±2`) funnels
-      # through here so the wheel behaves exactly like the arrows: reveal the
-      # cursor on the first notch, then step one row per notch. The base `move`
-      # would step by the raw offset (±2, skipping rows) and never set
-      # `cursor_shown?`, so the highlight — gated on it in `render_style_for` —
-      # would shift invisibly. `selekt` (not `down`/`up`) avoids recursing back
-      # into `move`.
+      # through here so the wheel behaves exactly like the arrows: one row per
+      # notch. The base `move` would step by the raw offset (±2), skipping rows;
+      # `selekt` (not `down`/`up`) avoids recursing back into `move`.
       def move(offset) : Nil
         return if offset == 0
-        if cursor_shown?
-          selekt @selected + (offset > 0 ? 1 : -1)
-        else
-          reveal(offset > 0 ? 0 : @items.size - 1)
-        end
-      end
-
-      # Pointer onto a row counts as choosing it, so show the cursor there.
-      def hover_item(i : Int)
-        @cursor_shown = true
-        super
+        selekt @selected + (offset > 0 ? 1 : -1)
       end
 
       # The drop-down's auto-created scrollbar (appears once the match set
@@ -135,13 +113,13 @@ module Crysterm
         super
       end
 
-      # Reverse-video the highlighted row, but only once a cursor actually exists.
-      # `List` defers the selected look to `styles.selected` / a `:selected` CSS
-      # rule, neither of which covers the drop-down in the default theme, so the
-      # cursor row would otherwise be indistinguishable.
+      # Reverse-video the highlighted (selected) row. `List` defers the selected
+      # look to `styles.selected` / a `:selected` CSS rule, neither of which
+      # covers the drop-down in the default theme, so the highlighted row would
+      # otherwise be indistinguishable.
       def render_style_for(item : Widget) : Style
         st = super
-        if cursor_shown? && @items[@selected]? == item
+        if @items[@selected]? == item
           st = st.dup
           st.reverse = true
         end
@@ -318,7 +296,7 @@ module Crysterm
       return if @matches.empty?
       pop = ensure_popup widget
       pop.set_items @matches
-      pop.reset_cursor # open with no row pre-highlighted
+      pop.reset_cursor # open with the first match highlighted
       position pop, widget
       pop.show
       pop.front!
@@ -335,7 +313,7 @@ module Crysterm
       return unless widget = @widget
       if pop = @popup
         pop.set_items @matches
-        pop.reset_cursor # a changed match set starts again with no highlight
+        pop.reset_cursor # a changed match set re-highlights the first row
         position pop, widget
         widget.request_render
       end
@@ -390,7 +368,7 @@ module Crysterm
         # The wheel cycles the highlight while the list is open (the box keeps
         # focus, so the list won't get these as key events). A wheel over a *row*
         # is handled by the per-item handler `List` installs (`move ±2`), which
-        # `Popup#move` reroutes to the reveal-then-single-step cursor behavior;
+        # `Popup#move` reroutes to a single-row step per notch;
         # this handler covers a wheel over the popup's *border/padding* (where the
         # topmost widget is the popup itself, not a row), going through the same
         # `cursor_down`/`cursor_up` so both spots behave identically.

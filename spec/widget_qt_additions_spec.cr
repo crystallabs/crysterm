@@ -247,44 +247,60 @@ describe Crysterm::Completer do
     c.detach
   end
 
-  # The drop-down opens with no row highlighted (via `reset_cursor`/`selekt`);
-  # any *movement* — the arrow keys (`cursor_down`/`cursor_up`) or the mouse
-  # wheel — reveals the cursor on the first step and then single-steps it. The
+  # The drop-down opens with its first row already highlighted (via
+  # `reset_cursor`/`selekt`): the box is focused and the list is open, so the
+  # user has in effect already entered the list. Movement single-steps from
+  # there — the arrow keys (`cursor_down`/`cursor_up`) or the mouse wheel. The
   # per-item wheel handler `List` installs calls `move ±2`, so `Popup#move` is
-  # the funnel that gives raw `move`/`down`/`up` the same reveal-then-step
-  # behavior; otherwise a wheel over a row would shift the (still-hidden)
-  # selection invisibly and by two rows at a time.
-  it "reveals and single-steps the cursor on any movement (arrows or wheel)" do
+  # the funnel that turns the raw ±2 into a single-row step; otherwise a wheel
+  # over a row would jump two rows at a time.
+  it "highlights the first row on open and single-steps on any movement (arrows or wheel)" do
     s = add_mem_screen
     pop = Crysterm::Completer::Popup.new(screen: s, width: 16, height: 6)
     pop.set_items %w[apple apricot banana blueberry]
 
-    # Opens with no row highlighted; `reset_cursor` uses `selekt`, not `move`,
-    # so it does not reveal.
+    # Opens with the first row already highlighted.
     pop.reset_cursor
-    pop.cursor_shown?.should be_false
-
-    # The arrow keys: first step reveals the cursor on row 0, the next advances
-    # it one row, so the highlight tracks visibly.
-    pop.cursor_down
-    pop.cursor_shown?.should be_true
     pop.selected.should eq 0
+
+    # The arrow keys single-step from the first row: the first Down advances to
+    # the second row (index 1), not merely "into" the list.
     pop.cursor_down
     pop.selected.should eq 1
     pop.cursor_up
     pop.selected.should eq 0
 
     # The wheel funnels through `move` (the per-item handler passes ±2): it too
-    # reveals on the first notch and then single-steps — never jumping rows nor
-    # leaving the cursor hidden.
+    # single-steps, never jumping rows.
     pop.reset_cursor
-    pop.cursor_shown?.should be_false
-    pop.move 2
-    pop.cursor_shown?.should be_true
     pop.selected.should eq 0
     pop.move 2
     pop.selected.should eq 1
     pop.move(-2)
     pop.selected.should eq 0
+  end
+
+  # End-to-end through the real open path: because the list is already open, the
+  # first row is highlighted on open (so the first Down advances to the *second*
+  # entry, rather than just landing on the first). Driving the box's actual
+  # KeyPress flow, [Down(open), Down, Enter] must commit the second match.
+  it "opens with the first candidate highlighted; the first Down advances to the second" do
+    s = add_mem_screen
+    box = Crysterm::Widget::LineEdit.new parent: s, width: 20, height: 1
+    c = Crysterm::Completer.new %w[apple apricot banana]
+    c.attach box
+
+    # Down on the empty box opens the drop-down on the whole model (combo-box
+    # style), with the first match (apple, index 0) already highlighted.
+    box.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Down
+    c.open?.should be_true
+
+    # One Down moves the highlight to the second row (apricot, index 1) — not the
+    # first — and Enter commits it.
+    box.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Down
+    box.emit Crysterm::Event::KeyPress, '\r', Tput::Key::Enter
+    box.value.should eq "apricot"
+
+    c.detach
   end
 end
