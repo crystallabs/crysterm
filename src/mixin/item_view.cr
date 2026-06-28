@@ -495,6 +495,16 @@ module Crysterm
         if @items.empty?
           @selected = 0
           @value = ""
+          # The selection is back to its uninitialized state: clear the
+          # `@_list_initialized` latch so that re-populating the list actually
+          # re-runs the body below. Without this, emptying a list (the last
+          # `remove_item`/a `set_items []`) leaves `@selected == 0` AND
+          # `@_list_initialized == true`, so the `selekt 0` that `append_item`
+          # fires for the first new row hits the unchanged-index short-circuit
+          # and returns *without* refreshing `@value` or emitting `SelectItem` —
+          # the new row renders as selected while `value` stays the empty string
+          # (stale `Form` value collection, no `SelectItem` listener fired).
+          @_list_initialized = false
           scroll_to 0
           return
         end
