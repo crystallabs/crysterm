@@ -143,6 +143,30 @@ describe Crysterm::CSS::Qss do
     end
   end
 
+  describe "margin handling" do
+    # Qt px margins have no faithful meaning on a character grid: small ones round
+    # to zero cells, and a larger one (e.g. qtmodern's `QGroupBox { margin-top:
+    # 25px }`, reserving room for the title) rounds to a whole cell and then
+    # mis-aligns the box's children — a child's margin shifts where it *paints*
+    # but not its hit rectangle, so a click on it (opening the Color combo's
+    # drop-down) lands a row off and misses. The translator drops them.
+    it "drops margin / margin-<side> declarations, keeping the rest of the rule" do
+      Crysterm::CSS::Qss.to_css("QGroupBox { border: 1px solid #333; margin-top: 25px; }")
+        .should eq "GroupBox { border: 1px solid #333;  }"
+      Crysterm::CSS::Qss.to_css("QFoo { margin: 2px 4px 2px 4px; padding: 2px; }")
+        .should eq "Foo {  padding: 2px; }"
+      Crysterm::CSS::Qss.to_css("QBar { margin-left: 2px; margin-bottom: 2px; color: red; }")
+        .should eq "Bar {   color: red; }"
+    end
+
+    # `margin` as a *value* (Qt's `subcontrol-origin: margin`) is not a margin
+    # declaration and must survive untouched.
+    it "leaves `margin` used as a value alone" do
+      Crysterm::CSS::Qss.to_css("QScrollBar { subcontrol-origin: margin; }")
+        .should eq "ScrollBar { subcontrol-origin: margin; }"
+    end
+  end
+
   it "parses a translated stylesheet without aborting on unknown Qt syntax" do
     qss = <<-QSS
       QPushButton { background-color: #222; subcontrol-origin: margin; }

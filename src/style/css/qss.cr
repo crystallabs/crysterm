@@ -129,6 +129,22 @@ module Crysterm
       # Matches a Qt `::pseudo-element` token.
       SUB_ELEMENT = /::([a-z][a-z-]*)/
 
+      # A Qt `margin`/`margin-top|right|bottom|left` declaration (property through
+      # value and optional trailing `;`). Dropped wholesale during translation:
+      # Qt uses pixel margins for outer spacing that has no faithful meaning on a
+      # character grid — small ones round to zero cells (so they were already
+      # inert), and a larger one (e.g. qtmodern's `QGroupBox { margin-top: 25px }`,
+      # which Qt uses to reserve room for the group-box title) rounds to a whole
+      # cell and then *mis-aligns the box's children*: a widget's margin shifts
+      # where its children are painted but NOT their hit rectangle (`#atop`), so a
+      # click on a child — e.g. opening the Color combo's drop-down — lands a row
+      # off and misses. Crysterm widgets that need title space (`GroupBox`) handle
+      # it inside their own frame, so the Qt margin is pure noise here; ignoring it
+      # keeps the cell layout self-consistent. (`[^;{}]*` can't cross a declaration
+      # or rule boundary, and `margin` only ever appears as a *property* name in
+      # qss — never a value — so this never eats an unrelated declaration.)
+      MARGIN_DECL = /\bmargin(?:-(?:top|right|bottom|left))?\s*:[^;{}]*;?/i
+
       # *Genuinely Qt-specific* state pseudo-classes, mapped to Crysterm syntax.
       # Standard-CSS states (`:checked`/`:indeterminate`/`:enabled`) are NOT here —
       # they're lowered natively by `Stylesheet` (see its `ATTR_PSEUDOS`) for every
@@ -160,6 +176,7 @@ module Crysterm
       # become descendant sub-element selectors, and `palette(role)` functions
       # become `var(--role)` against the active theme's custom properties.
       def self.to_css(source : String) : String
+        source = source.gsub(MARGIN_DECL, "")
         source = source.gsub(SELECTOR) { RENAMES.fetch($1, $1) }
         source = source.gsub(SUB_ELEMENT) do |match|
           SUB_ELEMENTS[$1]?.try { |slot| " #{slot}" } || match
