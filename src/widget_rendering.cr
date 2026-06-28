@@ -735,7 +735,21 @@ module Crysterm
           # the *plane* stops, docked against the plane's own buffer — so overlay
           # borders join one another but not the base content they float over. A
           # base-layer widget registers on the screen stops as before.
-          stops = @compositing ? screen._plane_dock_stops : screen._dock_stops
+          #
+          # The gate is the screen's `compositing_layers?`, NOT this widget's own
+          # `@compositing`. `@compositing` is set only on the layer *root* (it also
+          # suppresses that root's alpha self-blend), so a bordered *descendant* of
+          # a z-indexed widget — which still paints into the plane, because the
+          # root redirected `screen.lines` to the plane buffer for the whole
+          # subtree — has `@compositing == false` and used to register its border
+          # rows on the BASE `_dock_stops`. The base `#_dock` then ran on the
+          # already-composited buffer and joined that child's border to whatever
+          # base content the overlay floats over, producing exactly the stray
+          # junctions plane-local docking exists to prevent (it only protected the
+          # root). `compositing_layers?` is true for the entire subtree while the
+          # plane is painted, so root and descendants alike dock within the plane.
+          scr = screen
+          stops = scr.compositing_layers? ? scr._plane_dock_stops : scr._dock_stops
           stops[coords.yi] = true
           stops[coords.yl - 1] = true
         end

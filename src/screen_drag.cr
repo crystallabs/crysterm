@@ -181,12 +181,13 @@ module Crysterm
 
     private def make_ghost(sess : DragSession) : Nil
       label = sess.data["text/plain"]? || "⠿ drag"
+      gx, gy = ghost_origin sess
       g = Widget::Box.new(
         parent: self,
         width: {label.size + 2, 6}.max,
         height: 1,
-        left: sess.x + 1,
-        top: sess.y,
+        left: gx,
+        top: gy,
         content: label,
         # Reverse-video so the drag ghost reads on any background (light or dark,
         # any theme) without a hardcoded color.
@@ -197,8 +198,23 @@ module Crysterm
     private def move_ghost(sess : DragSession) : Nil
       g = @_drag_ghost
       return unless g
-      g.left = sess.x + 1
-      g.top = sess.y
+      gx, gy = ghost_origin sess
+      g.left = gx
+      g.top = gy
+    end
+
+    # The ghost's `left`/`top` so that it floats at *absolute* cell
+    # (`sess.x + 1`, `sess.y`) — right under the pointer. A top-level widget's
+    # `left`/`top` are measured from the screen's *content* origin, so its
+    # absolute position is `aleft == screen.ileft + left` (see `Widget#aleft`'s
+    # near-offset branch). The pointer coordinates (`sess.x`/`sess.y`) are
+    # absolute, so the screen's padding must be subtracted here, exactly as the
+    # reposition handler does via `Widget#drag_origin`. Without it a ghost on a
+    # *padded* screen sat `ileft`/`itop` cells off the pointer (and drifted there
+    # for the whole drag); on an unpadded screen (the common case) `ileft`/`itop`
+    # are 0, so this is unchanged.
+    private def ghost_origin(sess : DragSession) : Tuple(Int32, Int32)
+      {sess.x + 1 - ileft, sess.y - itop}
     end
 
     private def remove_ghost : Nil

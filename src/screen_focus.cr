@@ -128,6 +128,22 @@ module Crysterm
     # Focuses element `el`. Equivalent to `@display.focused = el`.
     def focus_push(el)
       old = @history.last?
+      # Re-focusing the already-current element is not a history change. Pushing
+      # it again would stack a duplicate top entry and — once `@history` reaches
+      # `focus_history_size` — rotate a legitimately older entry off the front,
+      # corrupting the back-stack `focus_pop`/`rewind_focus` walk (a later
+      # `focus_pop` would pop the duplicate and leave focus put instead of
+      # returning to the real prior widget). The screen-level entry points reach
+      # here with `old == el` readily: `focus_offset`/Tab resolves back onto the
+      # focused widget when it is the sole focusable one, and `Screen#focus` has
+      # no `Widget#focus`-style `focused?` guard. `_focus` already treats
+      # `old == el` as a full no-op — no Blur, no Focus, no state clobber (see
+      # `focus_refocus_emission_spec`) — so just re-run that and leave the history
+      # untouched, keeping the prior target anchored.
+      if old == el
+        _focus el, old
+        return
+      end
       @history.shift if @history.size >= Config.focus_history_size
       @history.push el
       _focus el, old

@@ -4,17 +4,45 @@ module Crysterm
       # Prevents adding an element twice
       super || return
 
+      # An element moved here from another home must first be unlinked from it,
+      # or it is left double-parented — listed in BOTH its old container's
+      # `children` and ours (rendered twice, inconsistent tree, and a stale
+      # entry that keeps repainting on the old container). A *nested* element
+      # unlinks from its widget parent; a genuine *top-level* element — one
+      # listed directly in another screen's `children`, which `remove_from_parent`
+      # can't touch (it has no widget `@parent`, only a stored screen) — is
+      # removed from that screen instead. This mirrors the detach-from-old-home
+      # `Widget#insert` performs for the reverse move (a top-level widget pulled
+      # into a widget); without it, moving a widget *onto* a screen leaked.
+      if element.parent
+        element.remove_from_parent
+      elsif (prev_screen = element.screen?) && prev_screen != self && prev_screen.children.includes?(element)
+        prev_screen.remove element
+      end
+
       # A top-level widget (added straight to a Screen) is the single element
       # that actually stores its screen; its descendants derive it from the
       # tree. `previous` lets `attach` emit a `Detach` if it is being moved here
-      # from another screen.
+      # from another screen. (The unlink above already detached it from its old
+      # home, emitting that `Detach`, so `previous` is now nil and `attach` just
+      # emits the `Attach` — no redundant or missing transition events.)
       previous = element.screen?
       element.screen = self
       attach element, previous
 
       # XXX:
       # - Make sure this is undo-ed if widget is detached
-      if element.input? || element.keyable?
+      #
+      # Mirror the real focus-registration predicate (`@keys || @input`, see
+      # `widget.cr` where `register_keyable` is called on construction) — plus the
+      # already-registered `keyable?` flag for a widget being *moved* here from
+      # another screen. A widget built with `keys: true` has `keys? == true` but
+      # `keyable? == false` until registered, and the screen-parented case reaches
+      # this `insert` (via `Widget#initialize`'s `append`) BEFORE that construction-
+      # time registration runs — so without `keys?` here such a widget was never
+      # registered during insert, and the auto-focus gate below (which needs it in
+      # `@keyable`) could never focus it.
+      if element.keys? || element.input? || element.keyable?
         register_keyable element
       end
 
@@ -22,7 +50,25 @@ module Crysterm
         register_clickable element
       end
 
-      unless self.focused
+      # Auto-focus on insert, but only when the inserted widget can itself take
+      # focus. Inserting non-interactive chrome (a decorative box, a `Line`, the
+      # transient drag ghost — see `screen_drag.cr#make_ghost`) into a screen that
+      # currently has NO focus must not yank focus onto an unrelated, pre-existing
+      # keyable widget that merely happens to be unfocused (e.g. one left so after
+      # `rewind_focus` found no valid target, or after the history was cleared).
+      # The old unconditional `focus_next` did exactly that: adding a plain `Box`
+      # re-focused some earlier widget that nothing had selected. Gating on the new
+      # top-level element wanting keyboard focus keeps the intended "the first real
+      # focusable widget added gets focus" behavior, while making an unfocusable
+      # insert focus-neutral.
+      #
+      # The predicate must match the registration gate above (`keys? || input? ||
+      # keyable?`), NOT a bare `keyable?`: a `keys: true` widget reaches here with
+      # `keyable? == false` (its flag is only set by the `register_keyable` just
+      # run above), so a `keyable?`-only gate would never fire for it. With the
+      # broad predicate it is both registered (above) and focused (here), exactly
+      # like an `input: true` widget already was.
+      if (element.keys? || element.input? || element.keyable?) && !self.focused
         # element.focus
         focus_next
       end

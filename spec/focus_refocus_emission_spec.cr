@@ -23,20 +23,25 @@ end
 describe "Screen#_focus re-focus emission" do
   it "emits Event::Focus once on a real change but not on re-focus" do
     s = refocus_screen
+    # The first focusable widget auto-focuses on insert (see
+    # `insert_chrome_focus_spec`), so `a` already holds focus. Add a second
+    # focusable widget to observe a genuine focus *move* onto it.
     a = Widget::Box.new parent: s, keys: true
+    b = Widget::Box.new parent: s, keys: true
+    s.focused.should eq a
 
     focus_events = 0
-    a.on(Crysterm::Event::Focus) { focus_events += 1 }
+    b.on(Crysterm::Event::Focus) { focus_events += 1 }
 
-    # A genuine focus change (no prior focus): emits exactly once.
-    s.focus a
-    s.focused.should eq a
+    # A genuine focus change (a -> b): emits exactly once.
+    s.focus b
+    s.focused.should eq b
     focus_events.should eq 1
 
     # Re-focusing the already-focused widget via the screen-level entry point is
     # not a focus change: no further Event::Focus.
-    s.focus a
-    s.focused.should eq a
+    s.focus b
+    s.focused.should eq b
     focus_events.should eq 1
   end
 

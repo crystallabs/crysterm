@@ -409,8 +409,19 @@ module Crysterm
     # `Widget#front!` / `Widget#back!` affect which widget the mouse "sees":
     # reordering a widget within its parent's `children` both raises it visually
     # and makes it the hit target, with no separate bookkeeping to keep in sync.
+    #
+    # `z-index` is layered on top of that tree order: a widget (or any subtree)
+    # that declares a `style.z_index` is deferred to a compositing `Plane` and
+    # painted *above* the whole base layer, regardless of its position in the
+    # tree (see `Screen#composite_planes`, which composites every plane over
+    # `@lines`). So tree order alone is NOT the paint order once a z-index is in
+    # play: a non-z-indexed widget later in the tree must not steal clicks from a
+    # z-indexed widget painted on top of it. The hit test therefore ranks each
+    # candidate by its effective layer (`hit_layer`) first, and only breaks ties
+    # within the same layer by tree order ("last wins").
     def widget_at(x, y, skip : Widget? = nil) : Widget?
       found = nil
+      found_key = {0, 0}
       each_descendant do |el|
         next if skip && el == skip
         # The transient drag ghost is decorative and must never be a drop target.
@@ -428,9 +439,35 @@ module Crysterm
         next unless x >= left && x < left + el.awidth
         next unless y >= top && y < top + el.aheight
 
-        found = el
+        # Prefer a higher layer; within the same layer the later (more recently
+        # painted) widget wins, so `>=` keeps the historical "last match wins"
+        # tie-break for the overwhelmingly common no-z-index case (every key is
+        # `{0, 0}`, so this reduces to "last wins", unchanged).
+        key = hit_layer el
+        if found.nil? || key >= found_key
+          found = el
+          found_key = key
+        end
       end
       found
+    end
+
+    # The compositing layer a hit-test candidate is painted into, as a sortable
+    # `{plane?, z}` key. `{0, 0}` is the base layer (no `z-index` on the widget
+    # or any ancestor); a z-indexed subtree resolves to `{1, z}` — above ANY base
+    # widget (the leading `1` beats `0` even for a negative `z`, matching
+    # `composite_planes`, which paints every plane over the base) and ordered
+    # among other planes by `z`. The nearest self-or-ancestor `z_index` wins,
+    # since a z-index defers the whole subtree to one plane.
+    private def hit_layer(el : Widget) : Tuple(Int32, Int32)
+      e : Widget? = el
+      while e
+        if z = e.style.z_index
+          return {1, z}
+        end
+        e = e.parent
+      end
+      {0, 0}
     end
 
     # Whether *el* and every ancestor up the parent chain are visible — i.e. the
