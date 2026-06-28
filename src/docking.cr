@@ -230,7 +230,18 @@ module Crysterm
         when DockContrast::Blend
           # Blend the center cell toward the neighbor's attr (writes the center
           # row's backing array directly — same cell `lines[y][x]` as before).
-          row.attrs.unsafe_put(x, Colors.blend(nattr, attr))
+          # Blend into the cell's *current* attr (`row.attrs[x]`), not the
+          # captured original `attr`: `#angle_at` evaluates all four neighbors in
+          # turn, and a `┼`/`├`/… junction can border more than one contrasting
+          # color. Blending against the original each time made every contrasting
+          # neighbor overwrite the previous one, so only the *last* one processed
+          # (down, in the L/U/R/D order) survived and the others' colors were lost
+          # — defeating Blend's "as smooth a transition as possible" intent.
+          # Accumulating into the running attr mixes in every contrasting
+          # neighbor. The contrast test above still compares against the original
+          # `attr`, so which neighbors count as contrasting is unchanged (a
+          # neighbor matching the cell's true color never triggers a blend).
+          row.attrs.unsafe_put(x, Colors.blend(nattr, row.attrs.unsafe_fetch(x)))
           # when DockContrast::Ignore
           #  Note: ::Ignore needs no custom handler/code; it works as-is.
         end

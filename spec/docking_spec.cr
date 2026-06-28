@@ -82,5 +82,31 @@ describe "Docking.angle_at" do
       # Only the up neighbor (attr 99) contrasts, so the centre blends with it.
       g[1][1].attr.should eq Colors.blend(99_i64, 0_i64)
     end
+
+    it "Blend mixes in *every* contrasting neighbor, not just the last one" do
+      # A four-way crossing whose UP and DOWN neighbors carry different attrs
+      # from the centre (left/right match). Blend's intent is the smoothest
+      # transition, so the centre must reflect *both* contrasting neighbors.
+      # The previous code blended each neighbor against the original centre attr
+      # and overwrote the cell every time, so only the last-processed contrasting
+      # neighbor (DOWN, in L/U/R/D order) survived — the UP neighbor's colour was
+      # silently dropped. Accumulating into the running attr keeps both.
+      g = grid [
+        " │ ",
+        "─┼─",
+        " │ ",
+      ]
+      g[0][1].attr = 90_i64 # up neighbor
+      g[2][1].attr = 40_i64 # down neighbor
+
+      Docking.angle_at(g, 1, 1, DockContrast::Blend).should eq '┼'
+      result = g[1][1].attr
+
+      # Not merely the last (down) neighbor's blend — the up neighbor contributed.
+      result.should_not eq Colors.blend(40_i64, 0_i64)
+      # It is the progressive blend of both: up first (vs the original centre 0),
+      # then down mixed into that running value.
+      result.should eq Colors.blend(40_i64, Colors.blend(90_i64, 0_i64))
+    end
   end
 end
