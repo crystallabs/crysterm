@@ -90,16 +90,27 @@ module Crysterm
           # leaves the current slant unchanged.
           style.italic = font_style_italic(value, style.italic?)
         when "text-decoration"
-          words = Case.fold_keyword(value).split
-          style.underline = words.includes?("underline")
-          style.blink = words.includes?("blink")
-          # `line-through` maps to the terminal's strikethrough attribute
-          # (`Style#strike` / SGR 9). Shorthand semantics: absent -> off.
-          style.strike = words.includes?("line-through")
-          # `reverse` (alias `inverse`) maps to the terminal's reverse-video
-          # attribute — the classic TUI selection/highlight look, which has no
-          # standard CSS spelling. Shorthand semantics: absent -> off.
-          style.reverse = words.includes?("reverse") || words.includes?("inverse")
+          # A *blank* value — an undefined `var(--x)` collapsed to "" before
+          # reaching here — is *dropped*, per CSS's "drop the invalid
+          # declaration" rule, rather than treated as a shorthand reset. The old
+          # unguarded form ran `"".split` → `[]`, hard-resetting underline/blink/
+          # strike/reverse all to false and so silently switching off a
+          # decoration a lower-priority rule had set. The shorthand's `absent ->
+          # off` semantics apply only to a genuine `text-decoration` value, not
+          # to an invalid one. Mirrors the same guard already on the `font`
+          # shorthand and the `color`/`z-index`/`visibility`/`display` properties.
+          unless value.blank?
+            words = Case.fold_keyword(value).split
+            style.underline = words.includes?("underline")
+            style.blink = words.includes?("blink")
+            # `line-through` maps to the terminal's strikethrough attribute
+            # (`Style#strike` / SGR 9). Shorthand semantics: absent -> off.
+            style.strike = words.includes?("line-through")
+            # `reverse` (alias `inverse`) maps to the terminal's reverse-video
+            # attribute — the classic TUI selection/highlight look, which has no
+            # standard CSS spelling. Shorthand semantics: absent -> off.
+            style.reverse = words.includes?("reverse") || words.includes?("inverse")
+          end
         when "visibility"
           # Only the recognized keywords act; any *other* value — a typo, or a
           # `var(--x)` whose custom property is undefined and so collapsed to the
