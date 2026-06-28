@@ -131,6 +131,22 @@ describe "readline editing keys (Mixin::TextEditing)" do
     le.cursor_pos.should eq 7
   end
 
+  it "Ctrl-Left / Ctrl-Right navigate by word character, stopping at '-'" do
+    # "test-test2": t0 e1 s2 t3 -4 t5 e6 s7 t8 2:9, end=10. The '-' delimits
+    # words, so word-char navigation lands inside the hyphenated run.
+    le = editor "test-test2", 10
+    press le, Tput::Key::CtrlLeft
+    le.cursor_pos.should eq 5 # start of "test2"
+    press le, Tput::Key::CtrlLeft
+    le.cursor_pos.should eq 0 # start of "test"
+
+    le.cursor_pos = 0
+    press le, Tput::Key::CtrlRight
+    le.cursor_pos.should eq 4 # one past "test" (on the '-')
+    press le, Tput::Key::CtrlRight
+    le.cursor_pos.should eq 10 # one past "test2" (end)
+  end
+
   it "leaves the keys unhandled when input.readline_keys is off" do
     prev = Crysterm::Config.input_readline_keys
     begin

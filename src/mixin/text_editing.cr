@@ -254,6 +254,45 @@ module Crysterm
         i
       end
 
+      # Whether *c* is a "word constituent" for word-wise cursor motion: a
+      # letter, digit, or underscore (the usual readline word set). Separators
+      # like `-`, space, and punctuation delimit words. This is a finer split
+      # than the whitespace-only `word_left_pos`/`word_right_pos` (which back
+      # `Ctrl-W`/`Alt-D` kills): `Ctrl-Left`/`Ctrl-Right` stop at `-` and
+      # punctuation too, matching most editors' word navigation.
+      private def word_char?(c : Char) : Bool
+        c.alphanumeric? || c == '_'
+      end
+
+      # Start of the current/previous word, for `Ctrl-Left`: from the cursor,
+      # skip any non-word separators immediately to the left, then the run of
+      # word characters — landing on the leftmost word character of that word.
+      private def word_start_left_pos
+        i = @cursor_pos
+        while i > 0 && !word_char?(@value[i - 1])
+          i -= 1
+        end
+        while i > 0 && word_char?(@value[i - 1])
+          i -= 1
+        end
+        i
+      end
+
+      # One position past the end of the current/next word, for `Ctrl-Right`:
+      # from the cursor, skip any non-word separators, then the run of word
+      # characters — landing just after the last word character of that word.
+      private def word_end_right_pos
+        i = @cursor_pos
+        n = @value.size
+        while i < n && !word_char?(@value[i])
+          i += 1
+        end
+        while i < n && word_char?(@value[i])
+          i += 1
+        end
+        i
+      end
+
       # The kill ring this input uses for `Ctrl-W`/`Ctrl-U`/`Ctrl-K`/`Alt-D`
       # (kill) and `Ctrl-Y` (yank). Defaults to the shared `KillRing.default`, so
       # text killed in one field can be yanked into another; assign a fresh
@@ -557,10 +596,16 @@ module Crysterm
           elsif rl && k == Tput::Key::CtrlE # readline: line end
             @goal_col = nil
             @cursor_pos = line_end_pos
-          elsif rl && (k == Tput::Key::CtrlLeft || k == Tput::Key::AltLeft || k == Tput::Key::AltB)
+          elsif rl && k == Tput::Key::CtrlLeft # readline: word-char start, left
+            @goal_col = nil
+            @cursor_pos = word_start_left_pos
+          elsif rl && k == Tput::Key::CtrlRight # readline: past word-char end, right
+            @goal_col = nil
+            @cursor_pos = word_end_right_pos
+          elsif rl && (k == Tput::Key::AltLeft || k == Tput::Key::AltB)
             @goal_col = nil
             @cursor_pos = word_left_pos
-          elsif rl && (k == Tput::Key::CtrlRight || k == Tput::Key::AltRight || k == Tput::Key::AltF)
+          elsif rl && (k == Tput::Key::AltRight || k == Tput::Key::AltF)
             @goal_col = nil
             @cursor_pos = word_right_pos
           else
