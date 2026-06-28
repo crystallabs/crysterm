@@ -161,7 +161,11 @@ module Crysterm
         when "animation"
           style.animation = parse_animation(value)
         when "padding"
-          style.padding = parse_padding(value)
+          # Drop a *blank* value (a collapsed undefined `var(--x)`) rather than
+          # resetting padding to default: `parse_padding("")` -> `parse_sides`
+          # `nil` -> `Padding.default` would otherwise clobber a cascaded value.
+          # Same blank-clobber guard as the `font`/`text-decoration` shorthands.
+          style.padding = parse_padding(value) unless value.blank?
         when "padding-left"
           style.padding.left = cells(value)
         when "padding-top"
@@ -171,7 +175,9 @@ module Crysterm
         when "padding-bottom"
           style.padding.bottom = cells(value, vertical: true)
         when "margin"
-          style.margin = parse_margin(value)
+          # Drop a *blank* value (collapsed undefined `var(--x)`) rather than
+          # resetting margin to default — same rationale as `padding` above.
+          style.margin = parse_margin(value) unless value.blank?
         when "margin-left"
           style.margin.left = cells(value)
         when "margin-top"
