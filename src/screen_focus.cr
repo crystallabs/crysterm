@@ -213,7 +213,18 @@ module Crysterm
       # This is reachable via the public `Screen#focus`/`focus_offset` (e.g. Tab
       # with a single focusable widget wraps back onto it); `Widget#focus` already
       # guards it, but the screen-level entry points do not.
-      old = nil if old == cur
+      #
+      # It is also not a focus *change*: focus does not move, so the terminating
+      # `Event::Focus` below is suppressed too. Emitting it would re-run all of the
+      # widget's focus side effects on a widget that was *already* focused — a
+      # `Widget::Terminal` re-reporting focus-in (`\e[I`) to its child PTY, a
+      # `text_editing` widget with `input_on_focus` re-entering `read_input`,
+      # `action_bar`/`menu_bar`/`completer`/remote DOM focus handlers re-firing —
+      # the very same spurious-Focus defect `screen_rendering.cr#_render` already
+      # guards against per frame. `Event::Focus` denotes a focus change and must
+      # fire only when focus actually moves.
+      refocus = old == cur
+      old = nil if refocus
 
       # Find a scrollable ancestor if we have one.
       el = cur
@@ -273,7 +284,7 @@ module Crysterm
         render_if_active if old.try(&.cursor).try(&.artificial?)
       end
 
-      cur.emit Crysterm::Event::Focus, old
+      cur.emit Crysterm::Event::Focus, old unless refocus
     end
   end
 end
