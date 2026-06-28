@@ -204,15 +204,27 @@ module Crysterm
       ANGLE_TABLE[(recip | preserve)]? || ch
     end
 
-    # Whether the cell offset by (`dx`, `dy`) from (`x`, `y`) holds a
-    # line-drawing glyph. Uses the same `>= 0` / bounds guards as
-    # `#neighbor_angle` (Crystal's `[]?` treats a negative index as from-the-end,
-    # which would wrap a left/up edge lookup to the far side).
-    private def neighbor_line?(lines, x, y, dx, dy) : Bool
+    # Resolves the neighbor cell offset by (`dx`, `dy`) from (`x`, `y`) to its
+    # `{row, column}`, or nil when it falls off the grid — the edge-guarded
+    # lookup `#neighbor_line?` and `#neighbor_angle` both need. The explicit
+    # `>= 0` guards matter: Crystal's `[]?` treats negative indices as counting
+    # from the end, so without them a left/up lookup at the grid edge would wrap
+    # around to the far side instead of being absent. Inlined so the per-cell
+    # docking scan keeps its original codegen.
+    @[AlwaysInline]
+    private def neighbor_cell(lines, x, y, dx, dy)
       nx, ny = x + dx, y + dy
-      return false unless nx >= 0 && ny >= 0
+      return nil unless nx >= 0 && ny >= 0
       nrow = lines[ny]?
-      return false unless nrow && nx < nrow.size
+      return nil unless nrow && nx < nrow.size
+      {nrow, nx}
+    end
+
+    # Whether the cell offset by (`dx`, `dy`) from (`x`, `y`) holds a
+    # line-drawing glyph.
+    private def neighbor_line?(lines, x, y, dx, dy) : Bool
+      return false unless cell = neighbor_cell(lines, x, y, dx, dy)
+      nrow, nx = cell
       ANGLES.includes? nrow.chars.unsafe_fetch(nx)
     end
 
@@ -222,19 +234,12 @@ module Crysterm
     # if it does not participate, or `nil` to signal the caller to abort docking
     # (`DontDock` with a contrasting neighbor). For `Blend`, the cell's
     # attribute is blended with the neighbor's as a side effect.
-    #
-    # The explicit `>= 0` guards matter: Crystal's `[]?` treats negative indices
-    # as counting from the end, so without them a left/up lookup at the grid
-    # edge would wrap around to the far side instead of being absent.
     private def neighbor_angle(lines, row, x, y, dx, dy, angles, bit, attr, dock_contrast)
-      nx, ny = x + dx, y + dy
-      # `nx >= 0 && ny >= 0` first (Crystal's `[]?` treats negatives as
-      # from-the-end, so a left/up edge lookup must be rejected explicitly).
-      # Then resolve the neighbor row once and read its char/attr straight from
-      # the backing arrays, rather than indexing `lines[ny][nx]` four times.
-      return 0 unless nx >= 0 && ny >= 0
-      nrow = lines[ny]?
-      return 0 unless nrow && nx < nrow.size
+      # Resolve the neighbor cell once (edge-guarded) and read its char/attr
+      # straight from the backing arrays, rather than indexing `lines[ny][nx]`
+      # several times.
+      return 0 unless cell = neighbor_cell(lines, x, y, dx, dy)
+      nrow, nx = cell
 
       return 0 unless angles.includes? nrow.chars.unsafe_fetch(nx)
 

@@ -45,8 +45,8 @@ module Crysterm
           label = children[i]
           if field = children[i + 1]?
             rh = Math.max(row_height(label), row_height(field))
-            label.left = 0; label.top = y; label.width = lw; label.height = rh
-            field.left = lw + @gap; field.top = y; field.width = fw; field.height = rh
+            place_child label, 0, y, lw, rh
+            place_child field, lw + @gap, y, fw, rh
             render_child label
             render_child field
             y += rh + @row_gap
@@ -54,7 +54,7 @@ module Crysterm
           else
             # Trailing odd child spans the full width.
             rh = row_height label
-            label.left = 0; label.top = y; label.width = w; label.height = rh
+            place_child label, 0, y, w, rh
             render_child label
             y += rh + @row_gap
             i += 1

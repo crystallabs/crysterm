@@ -116,6 +116,18 @@ module Crysterm
       el.lpos = nil
     end
 
+    # Assigns `el`'s full rectangle (left/top/width/height) in one call — the
+    # four-assignment geometry block the rectangular engines (`Border`, `Form`)
+    # would otherwise repeat at every placement. Does not render; the caller
+    # follows with `#render_child` (so engines that place several children before
+    # rendering them — e.g. `Form`'s label/field pair — stay in control of order).
+    protected def place_child(el : Widget, left : Int32, top : Int32, width : Int32, height : Int32) : Nil
+      el.left = left
+      el.top = top
+      el.width = width
+      el.height = height
+    end
+
     # Yields each of the container's *arrangeable* children — the ones an engine
     # actually positions — skipping `layout_excluded?` chrome (e.g. a
     # `background-image` layer or an out-of-band scrollbar, which is rendered

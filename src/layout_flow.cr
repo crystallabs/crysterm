@@ -122,32 +122,38 @@ module Crysterm
           # `children[@row_index...i]`, which allocated a slice copy on every
           # wrap.
           tallest = 0
-          j = @row_index
-          while j < i
-            el2 = container.children[j]
-            # Skip layout-excluded chrome (e.g. a full-interior `background-image`
-            # layer rendered out-of-band): without this its full-height `lpos`
-            # would inflate the row's `tallest` and shove the next row far down —
-            # matching the `layout_excluded?` skip in `get_last`, `gravitate_up`
-            # and every engine's placement loop.
-            if el2.layout_excluded?
-              j += 1
-              next
-            end
-            if elp = rendered_lpos(el2)
-              # Outer height: the drawn rect lost its vertical margin to the
-              # inset, so add it back, leaving the next row separated by this
-              # child's bottom margin plus the next child's top margin.
-              eh = (elp.yl - elp.yi) + el2.mheight
-              tallest = eh if eh > tallest
-            end
-            j += 1
+          each_rendered_in_range(container, @row_index, i) do |el2, elp|
+            # Outer height: the drawn rect lost its vertical margin to the
+            # inset, so add it back, leaving the next row separated by this
+            # child's bottom margin plus the next child's top margin.
+            eh = (elp.yl - elp.yi) + el2.mheight
+            tallest = eh if eh > tallest
           end
           @row_offset += tallest
           @last_row_index = @row_index
           @row_index = i
           el.left = 0
           el.top = @row_offset
+        end
+      end
+
+      # Yields each child in `container.children[from...to]` that this engine
+      # actually arranged and that rendered to a non-empty rectangle, together
+      # with that rectangle — the index walk both the row-tallest scan
+      # (`#flow_place`) and the upward gravitation (`Masonry#gravitate_up`)
+      # otherwise hand-roll identically: skip `layout_excluded?` chrome (a
+      # full-interior `background-image` layer rendered out-of-band would wrongly
+      # inflate a row or be gravitated under), skip the not-yet/never-rendered,
+      # and bind `rendered_lpos`. Block-yielding (no captured `Proc`), so it
+      # allocates nothing per frame.
+      protected def each_rendered_in_range(container : Widget, from : Int32, to : Int32, &) : Nil
+        j = from
+        while j < to
+          el = container.children[j]
+          if !el.layout_excluded? && (lp = rendered_lpos(el))
+            yield el, lp
+          end
+          j += 1
         end
       end
 

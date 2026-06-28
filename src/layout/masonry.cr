@@ -27,27 +27,12 @@ module Crysterm
 
         above = nil
         abovea = Int32::MAX
-        j = @last_row_index
-        while j < @row_index
-          l = container.children[j]
-          # Skip layout-excluded chrome (e.g. a `background-image` layer rendered
-          # out-of-band with a full-interior `lpos`) so a flow child never
-          # gravitates to sit below it — matching `get_last` and every engine's
-          # placement loop.
-          if l.layout_excluded?
-            j += 1
-            next
-          end
-          unless lp = rendered_lpos(l)
-            j += 1
-            next
-          end
+        each_rendered_in_range(container, @last_row_index, @row_index) do |l, lp|
           abs = (el.left.as(Int) - (lp.xi - xi)).abs
           if abs < abovea
             above = l
             abovea = abs
           end
-          j += 1
         end
 
         if (ab = above) && (alp = rendered_lpos(ab))
