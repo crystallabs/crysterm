@@ -230,6 +230,20 @@ module Crysterm
 
     private def self.collect_graphics(node, acc : Array(Widget::Media::Base)) : Nil
       node.children.each do |child|
+        # A hidden subtree is not shown by the terminal — a hidden widget's
+        # `_render` is skipped, so neither its cells nor (for an in-band graphics
+        # backend) its escape sequence is ever emitted — so it must not appear in
+        # a capture either. `capture_layer` already guards a graphics widget's OWN
+        # `visible?` flag, but NOT its ancestors': a widget inside a hidden
+        # container (e.g. a non-current tab page, or a `hide`-n parent) is itself
+        # flag-visible yet off-screen, and was still composited into the capture —
+        # so a capture showed an image the live terminal does not. The text path
+        # never had this bug (hidden widgets simply aren't painted into the cell
+        # buffer `each_content_cell` walks); this brings the graphics path in line.
+        # Pruning the walk at any hidden node drops the whole off-screen subtree,
+        # matching the tree-aware `displayed_in_tree?` used by mouse hit-testing
+        # and focus traversal.
+        next unless child.visible?
         acc << child if child.is_a?(Widget::Media::Base) && child.capture_pixels?
         collect_graphics child, acc
       end
