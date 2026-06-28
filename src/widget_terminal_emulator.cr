@@ -541,8 +541,8 @@ module Crysterm
       when 'P' then delete_chars(param(0, 1))
       when '@' then insert_chars(param(0, 1))
       when 'X' then erase_chars(param(0, 1))
-      when 'S' then param(0, 1).times { scroll_up }
-      when 'T' then param(0, 1).times { scroll_down }
+      when 'S' then scroll_region_times(param(0, 1)) { scroll_up }   # SU
+      when 'T' then scroll_region_times(param(0, 1)) { scroll_down } # SD
       when 'I' then forward_tab(param(0, 1)); @wrap_pending = false # CHT
       when 'Z' then back_tab(param(0, 1))                           # CBT
       when 'g' then tab_clear(param0(0))                            # TBC
@@ -787,6 +787,18 @@ module Crysterm
       elsif @y > 0
         @y -= 1
       end
+    end
+
+    # Runs *block* (one scroll step) at most *n* times, capped at the scroll
+    # region's height. SU/SD by more than the region's height leaves the region
+    # fully blank either way, so the surplus is a no-op — but the raw
+    # `param.times` would still iterate it: an adversarial `CSI 99999999 S` would
+    # then spin O(n) (and, on a full-screen region, push n blank lines toward the
+    # scrollback limit), tearing through the reader fiber. This is the same cap
+    # `#insert_lines`/`#delete_lines` apply to IL/DL.
+    private def scroll_region_times(n : Int32, &) : Nil
+      n = Math.min(n, @scroll_bottom - @scroll_top + 1)
+      n.times { yield }
     end
 
     # Scrolls the scroll-region up by one line (content moves up; blank at

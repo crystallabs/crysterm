@@ -352,6 +352,39 @@ describe Crysterm::TerminalEmulator do
     end
   end
 
+  describe "scroll up / down (SU / SD)" do
+    it "scrolls the region up by SU, pushing the top line into scrollback" do
+      em = emu(4, 4)
+      4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" } # L0..L3 on rows 0..3
+      em.feed "\e[2S"                               # SU by 2
+      row(em, 0).should eq "L2"
+      row(em, 1).should eq "L3"
+      row(em, 2).should eq ""
+      row(em, 3).should eq ""
+    end
+
+    it "caps an adversarial huge SU count at the region height" do
+      # `CSI 99999999 S` must not spin O(n) (nor push ~n blank lines toward the
+      # scrollback limit): scrolling more than the region's height just leaves it
+      # blank, so the count is capped — @lines grows by at most the region height
+      # (4 lines into scrollback here), not toward SCROLLBACK_LIMIT.
+      em = emu(4, 4)
+      4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
+      em.feed "\e[99999999S"
+      em.lines.size.should eq 8 # 4 visible + the 4 original lines in scrollback
+      em.ybase.should eq 4
+      (0...4).each { |y| row(em, y).should eq "" } # visible screen fully blank
+    end
+
+    it "caps an adversarial huge SD count at the region height" do
+      em = emu(4, 4)
+      4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
+      em.feed "\e[99999999T"          # SD: content moves down, blanks from the top
+      em.lines.size.should eq 4       # SD never touches scrollback
+      (0...4).each { |y| row(em, y).should eq "" }
+    end
+  end
+
   describe "origin mode" do
     it "addresses rows relative to the scroll region when DECOM is set" do
       em = emu(10, 6)
