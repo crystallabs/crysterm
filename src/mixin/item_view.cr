@@ -822,7 +822,7 @@ module Crysterm
       # pick
 
       def on_keypress(e)
-        visible = aheight - iheight - hscrollbar_rows
+        visible = visible_content_rows
         half = Math.max visible // 2, 1
 
         case
@@ -869,7 +869,7 @@ module Crysterm
       end
 
       def on_resize(e)
-        visible = aheight - iheight - hscrollbar_rows
+        visible = visible_content_rows
         if visible >= selected + 1
           @child_base = 0
           @child_offset = selected

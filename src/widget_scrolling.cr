@@ -87,6 +87,16 @@ module Crysterm
       show_horizontal_scrollbar? ? scrollbar_height : 0
     end
 
+    # Number of content rows actually visible in the viewport: the full height
+    # minus the interior (border/padding) rows minus the row a shown horizontal
+    # scroll bar reserves (`#hscrollbar_rows`, `0` when no bar is shown). This is
+    # the single source of truth for the viewport-height invariant that `#scroll`,
+    # `#ensure_visible`, `#clamp_child_base_to_content`, and the `ItemView` /
+    # `TextEditing` mixins must all compute identically.
+    private def visible_content_rows : Int32
+      aheight - iheight - hscrollbar_rows
+    end
+
     # Whether a bar with *policy* should show: never when non-scrollable or
     # `AlwaysOff`, always under `AlwaysOn`, and under `AsNeeded` only when the
     # yielded overflow test is true. The block is `yield`ed (inlined, no closure).
@@ -185,18 +195,29 @@ module Crysterm
     # on the leading/trailing edge). No-op when already visible. Generalizes the
     # `scroll_to @selected` pattern used by `List`/`Tree`. Returns whether the
     # viewport moved.
+    # Smallest scroll base that brings position *pos* inside a *visible*-cell
+    # window currently starting at *current*, keeping *margin* cells of context
+    # on the leading/trailing edge, then clamped into `[0, extent - visible]`.
+    # The shared windowing math behind both `#ensure_visible` (vertical) and
+    # `#ensure_visible_x` (horizontal), which differ only in which axis's
+    # `visible`/`extent`/base they feed in.
+    private def windowed_base(pos : Int32, current : Int32, margin : Int32, visible : Int32, extent : Int32) : Int32
+      base = current
+      if pos < current + margin
+        base = pos - margin
+      elsif pos > current + visible - 1 - margin
+        base = pos - (visible - 1) + margin
+      end
+      base.clamp(0, Math.max(0, extent - visible))
+    end
+
     def ensure_visible(y : Int32, margin : Int32 = 0) : Bool
       return false unless scrollable?
-      visible = aheight - iheight - hscrollbar_rows
+      visible = visible_content_rows
       return false if visible <= 0
 
       base = @child_base
-      if y < @child_base + margin
-        @child_base = y - margin
-      elsif y > @child_base + visible - 1 - margin
-        @child_base = y - (visible - 1) + margin
-      end
-      @child_base = @child_base.clamp(0, Math.max(0, get_scroll_height - visible))
+      @child_base = windowed_base(y, @child_base, margin, visible, get_scroll_height)
 
       return false if @child_base == base
       mark_dirty
@@ -232,12 +253,7 @@ module Crysterm
       return false if visible <= 0
 
       base = @child_base_x
-      if x < @child_base_x + margin
-        @child_base_x = x - margin
-      elsif x > @child_base_x + visible - 1 - margin
-        @child_base_x = x - (visible - 1) + margin
-      end
-      @child_base_x = @child_base_x.clamp(0, Math.max(0, get_scroll_width - visible))
+      @child_base_x = windowed_base(x, @child_base_x, margin, visible, get_scroll_width)
 
       return false if @child_base_x == base
       mark_dirty
@@ -499,7 +515,7 @@ module Crysterm
       # visible == amount of actual content lines visible in the widget. E.g. for
       # a widget of height=4 and border (which renders within height), the amount
       # of visible lines == 2. A shown horizontal bar reserves the bottom row.
-      visible = aheight - iheight - hscrollbar_rows
+      visible = visible_content_rows
       # Current scrolling amount, i.e. the index of the first line of content which
       # is actually shown. (base == 2 means content is showing from its 3rd line onwards)
       base = @child_base
@@ -582,7 +598,7 @@ module Crysterm
     # inner height — then re-clamps into `[0, @base_limit]`. Shared by `#scroll`
     # and `#_recalculate_index`, which had identical copies of this.
     private def clamp_child_base_to_content
-      visible = aheight - iheight - hscrollbar_rows
+      visible = visible_content_rows
 
       max = @_clines.size - visible
       max = 0 if max < 0

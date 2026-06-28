@@ -412,7 +412,7 @@ module Crysterm
       # far and lost the overlap row whenever a horizontal bar was shown. (No-op
       # when no bar is shown — `hscrollbar_rows` is then 0.)
       private def page_rows
-        Math.max(1, (aheight - iheight - hscrollbar_rows) - 1)
+        Math.max(1, visible_content_rows - 1)
       end
 
       # Scroll the *viewport* (only `@child_base`) so the caret's real (wrapped)
@@ -474,7 +474,7 @@ module Crysterm
         # vertical+horizontal overflow the view stops one line short and the last
         # line can't be scrolled to sit just above the bar. (No-op when no bar is
         # shown — `hscrollbar_rows` is then 0.)
-        visible = aheight - iheight - hscrollbar_rows
+        visible = visible_content_rows
         return if visible <= 0
 
         mark_dirty

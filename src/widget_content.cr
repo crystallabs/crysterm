@@ -1207,22 +1207,30 @@ module Crysterm
 
       diff = @_clines.size - start
 
-      if diff > 0
-        pos = _get_coords
-        if !pos || pos == 0
-          return
-        end
+      render_line_shift(diff, real) do |d, y, top, bottom|
+        screen.insert_line(d, y, top, bottom)
+      end
+    end
 
-        height = pos.yl - pos.yi - iheight
-        base = @child_base
-        visible = real >= base && real - base < height
+    # Drives the terminal-side `screen.insert_line`/`delete_line` optimization
+    # shared by `#insert_line` and `#delete_line` (which differ only in *which*
+    # screen op they run). *diff* is the change in wrapped-line count (only acts
+    # when positive) and *real* the affected real (wrapped) line index. Computes
+    # the on-screen coordinates and, when the affected row is visible and the
+    # sides are clean, yields `(diff, y, top, bottom)` for the caller's screen
+    # op. A no-op (no yield) when the widget isn't laid out or the row is off
+    # the viewport.
+    private def render_line_shift(diff, real, &)
+      return unless diff > 0
+      pos = _get_coords
+      return if !pos || pos == 0
 
-        if pos && visible && screen.clean_sides(self)
-          screen.insert_line(diff,
-            pos.yi + itop + real - base,
-            pos.yi,
-            pos.yl - ibottom - 1)
-        end
+      height = pos.yl - pos.yi - iheight
+      base = @child_base
+      visible = real >= base && real - base < height
+
+      if visible && screen.clean_sides(self)
+        yield diff, pos.yi + itop + real - base, pos.yi, pos.yl - ibottom - 1
       end
     end
 
@@ -1268,25 +1276,8 @@ module Crysterm
       diff = start - @_clines.size
 
       # XXX clear_last_rendered_position() without diff statement?
-      height = 0
-
-      if diff > 0
-        pos = _get_coords
-        if !pos || pos == 0
-          return
-        end
-
-        height = pos.yl - pos.yi - iheight
-
-        base = @child_base
-        visible = real >= base && real - base < height
-
-        if pos && visible && screen.clean_sides(self)
-          screen.delete_line(diff,
-            pos.yi + itop + real - base,
-            pos.yi,
-            pos.yl - ibottom - 1)
-        end
+      render_line_shift(diff, real) do |d, y, top, bottom|
+        screen.delete_line(d, y, top, bottom)
       end
 
       # When content shrank this used to erase the leftover footprint via
