@@ -352,8 +352,17 @@ module Crysterm
       # Display column of the caret within its (non-wrapped) logical line — the
       # width of the line prefix up to `@cursor_pos`. Derived from `@value`, not
       # the horizontally-sliced `@_clines`, so it stays correct while scrolled.
+      #
+      # TABs are expanded to `tab_char * tab_size` exactly as `process_content`
+      # does before the content is laid out and rendered, so the caret is measured
+      # against the columns actually shown. Without this each TAB before the caret
+      # under-counts the column by `tab_size - 1`, drifting the cursor left of the
+      # text — and out of sync with the horizontal scroll base (`@child_base_x`),
+      # which is measured on the same expanded content.
       private def caret_display_column : Int32
-        str_width @value[line_start_pos...@cursor_pos]
+        prefix = @value[line_start_pos...@cursor_pos]
+        prefix = prefix.gsub('\t', style.tab_char * style.tab_size) if prefix.includes?('\t')
+        str_width prefix
       end
 
       # Horizontal counterpart of `#ensure_cursor_visible`: when lines don't wrap,
