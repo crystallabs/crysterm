@@ -60,7 +60,7 @@ module Crysterm
 
     RadioSet    = Widget::RadioSet
     RadioButton = Widget::RadioButton
-    Checkbox    = Widget::Checkbox
+    CheckBox    = Widget::CheckBox
 
     Button     = Widget::Button
     ToolButton = Widget::ToolButton
