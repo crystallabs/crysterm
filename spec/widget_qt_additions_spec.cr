@@ -303,4 +303,50 @@ describe Crysterm::Completer do
 
     c.detach
   end
+
+  # Mouse-hover must keep the highlight on the entry actually under the pointer
+  # row, and must not run past the last shown row when the pointer drops below
+  # the list. The drop-down's item boxes are hit-tested by their *unscrolled*
+  # geometry, so before the `Popup#hover_item` override a downward drag (over and
+  # past the rows) advanced the selection onto phantom rows below the viewport —
+  # the highlight drifting away from the pointer by up to a viewport's worth of
+  # rows. Open with enough candidates to overflow, drag the pointer straight
+  # down, and assert selection == visible row, clamped to the last shown row once
+  # the pointer leaves the bottom.
+  it "keeps the hover highlight under the pointer row and clamps below the list" do
+    s = add_mem_screen
+    box = Crysterm::Widget::LineEdit.new parent: s, top: 2, left: 2, width: 30, height: 1
+    c = Crysterm::Completer.new (1..20).map { |i| "item#{i.to_s.rjust(2, '0')}" }
+    c.attach box
+    box.focus
+
+    # Down opens the drop-down on the whole model.
+    box.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Down
+    c.open?.should be_true
+    s.render
+
+    pop = c.@popup.not_nil!
+    visible = pop.aheight - pop.iheight - pop.hscrollbar_rows
+    visible.should be > 1
+    content_top = pop.atop + pop.itop
+    x = pop.aleft + 2
+
+    # Drag the pointer straight down, over every shown row and several rows past
+    # the bottom of the list.
+    (0..(visible + 5)).each do |row|
+      y = content_top + row
+      s.dispatch_mouse ::Tput::Mouse::Event.new(
+        ::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, x, y)
+      s.render
+
+      # Within the viewport the highlight is exactly the row under the pointer;
+      # below it, the highlight stays parked on the last shown row (never drifting
+      # onto an off-viewport/phantom entry, and never past the real item range).
+      expected = (pop.child_base + row).clamp(0, pop.child_base + visible - 1)
+      expected = expected.clamp(0, 19)
+      pop.selected.should eq expected
+    end
+
+    c.detach
+  end
 end

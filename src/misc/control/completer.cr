@@ -90,6 +90,34 @@ module Crysterm
         up
       end
 
+      # Pointer-tracked highlight (`#hover_select?`). The per-row `MouseOver` hook
+      # in `Mixin::ItemView` passes the index of the item whose rectangle the
+      # pointer fell in — but item rectangles are hit-tested by their *unscrolled*
+      # geometry (`Widget#atop` is `content_top + item.top`, with no `#child_base`
+      # term; see `Screen#widget_at`). So the index handed in is really the
+      # pointer's *visual row* from the top of the viewport (0 == the first shown
+      # row), independent of how far the list is scrolled — and rows *below* the
+      # last shown one still report a (phantom) index, since those off-viewport
+      # item boxes remain mouse-hittable at their raw positions.
+      #
+      # Left as the base `selekt i`, moving the pointer down past the last visible
+      # row therefore kept advancing the highlight onto rows that aren't under the
+      # cursor (the selection drifting away from the pointer by up to a viewport's
+      # worth of rows), and once scrolled the visual-row index no longer matched
+      # the underlying entry at all.
+      #
+      # Map it back: the entry under the pointer is `#child_base + visual_row`,
+      # with the visual row clamped to the viewport so a pointer below the list
+      # parks on the last *shown* row instead of running onto phantom entries, and
+      # the result clamped to the real item range so it can never select a
+      # non-existent row.
+      def hover_item(i : Int)
+        visible = aheight - iheight - hscrollbar_rows
+        visible = 1 if visible < 1
+        row = i.clamp(0, visible - 1)
+        selekt (@child_base + row).clamp(0, @items.size - 1)
+      end
+
       # All cursor movement (the arrow keys via `cursor_down`/`cursor_up`, and the
       # per-row wheel handler `List` installs, which calls `move ±2`) funnels
       # through here so the wheel behaves exactly like the arrows: one row per
