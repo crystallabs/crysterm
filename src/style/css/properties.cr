@@ -177,6 +177,34 @@ module Crysterm
         "selection-color", "selection-background-color",
       }
 
+      # Splits a multi-token shorthand value on top-level whitespace, but keeps a
+      # function's parenthesized argument list intact — so a color function with
+      # internal spaces/commas (`rgb(30, 30, 46)`, `hsl(210, 50%, 40%)`) survives
+      # as a single token instead of being shredded by a plain `String#split`. A
+      # plain `split` would break the color out of a `background`/`tint` shorthand
+      # (`background: rgb(30, 30, 46) url(x.png)` parsing to *no* background),
+      # while the `background-color` longhand — which resolves the whole value at
+      # once — handled it fine. Whitespace inside `(...)` stays within the token;
+      # a `url(...)` (no inner spaces) tokenizes exactly as before.
+      private def self.split_top_level(value : String) : Array(String)
+        tokens = [] of String
+        depth = 0
+        start = 0
+        value.each_char_with_index do |ch, i|
+          case ch
+          when '(' then depth += 1
+          when ')' then depth -= 1 if depth > 0
+          else
+            if depth == 0 && ch.whitespace?
+              tokens << value[start...i] unless i == start
+              start = i + 1
+            end
+          end
+        end
+        tokens << value[start..] if start < value.size
+        tokens
+      end
+
       # Extracts a color from a `background`/`background-color` value. A gradient
       # (`qlineargradient(...)` etc.) is collapsed to a representative solid color;
       # otherwise the first token that resolves to a real color wins (functions/
@@ -188,7 +216,7 @@ module Crysterm
         if grad = ColorValue.gradient_color(value)
           return grad
         end
-        value.split.each do |token|
+        split_top_level(value).each do |token|
           case resolved = ColorValue.resolve(token, current_fg)
           when Int32 then return resolved
           when String
@@ -233,7 +261,7 @@ module Crysterm
         end
         color : Int32? = nil
         alpha : Float64? = nil
-        value.split.each do |token|
+        split_top_level(value).each do |token|
           if !token.starts_with?('#') && (f = token.to_f?) && 0.0 <= f <= 1.0
             alpha = f
           else
