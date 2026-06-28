@@ -17,6 +17,21 @@ module Crysterm
 
     alias OneOfEvents = Crysterm::Event::Triggered.class | Crysterm::Event::Hovered.class
 
+    # Defines a `name=` setter that assigns only on an actual change and then
+    # calls `#notify_changed` (emitting `Event::Changed`), so observers (menus,
+    # toolbars) refresh. Skipping the emit on a redundant assignment is what keeps
+    # repeated/no-op assignments from triggering needless re-renders. Shared by
+    # all the display-affecting `Action` properties; their getters stay declared
+    # separately (some are `getter`, some `getter?`).
+    private macro notifying_setter(name, type)
+      def {{ name.id }}=(value : {{ type }}) : {{ type }}
+        return value if @{{ name.id }} == value
+        @{{ name.id }} = value
+        notify_changed
+        value
+      end
+    end
+
     # Unused for now, reenable later
     # Icon of action
     # property icon : Icon?
@@ -25,23 +40,13 @@ module Crysterm
     getter text : String = ""
 
     # :ditto:
-    def text=(value : String) : String
-      return value if @text == value
-      @text = value
-      notify_changed
-      value
-    end
+    notifying_setter text, String
 
     # Action enabled?
     getter enabled = true
 
     # :ditto:
-    def enabled=(value : Bool) : Bool
-      return value if @enabled == value
-      @enabled = value
-      notify_changed
-      value
-    end
+    notifying_setter enabled, Bool
 
     # Whether the action has an on/off checked state (Qt's `QAction#checkable`),
     # e.g. a toggleable "Word Wrap" menu entry. A `Widget::Menu` draws a
@@ -50,23 +55,13 @@ module Crysterm
     getter? checkable = false
 
     # :ditto:
-    def checkable=(value : Bool) : Bool
-      return value if @checkable == value
-      @checkable = value
-      notify_changed
-      value
-    end
+    notifying_setter checkable, Bool
 
     # Current checked state; only meaningful when `#checkable?`.
     getter? checked = false
 
     # :ditto:
-    def checked=(value : Bool) : Bool
-      return value if @checked == value
-      @checked = value
-      notify_changed
-      value
-    end
+    notifying_setter checked, Bool
 
     # Whether this is a non-selectable separator rather than a real action
     # (Qt's `QAction#isSeparator`). Created via `Action.separator`.
@@ -78,12 +73,7 @@ module Crysterm
     getter submenu : Array(Action)?
 
     # :ditto:
-    def submenu=(value : Array(Action)?) : Array(Action)?
-      return value if @submenu == value
-      @submenu = value
-      notify_changed
-      value
-    end
+    notifying_setter submenu, Array(Action)?
 
     # Whether this action opens a (non-empty) submenu.
     def submenu? : Bool
@@ -109,12 +99,7 @@ module Crysterm
     getter shortcut : KeySequence?
 
     # :ditto:
-    def shortcut=(value : KeySequence?) : KeySequence?
-      return value if @shortcut == value
-      @shortcut = value
-      notify_changed
-      value
-    end
+    notifying_setter shortcut, KeySequence?
 
     # Tip to show in status bar, if/when applicable
     property status_tip : String?
@@ -130,12 +115,7 @@ module Crysterm
     getter? visible = true
 
     # :ditto:
-    def visible=(value : Bool) : Bool
-      return value if @visible == value
-      @visible = value
-      notify_changed
-      value
-    end
+    notifying_setter visible, Bool
 
     # Notifies observers (menus, tool bars) that a display-affecting property
     # changed, by emitting `Event::Changed` (Qt's `QAction::changed()`). Emitted
