@@ -260,6 +260,33 @@ module Crysterm
       # `KillRing` to give a widget its own.
       property kill_ring : Crysterm::KillRing { Crysterm::KillRing.default }
 
+      # Kill the text between *start* (an index into `@value` *before* the cursor)
+      # and the cursor: push it onto the kill ring (prepending, so a run of
+      # backward kills reads in forward order) and pull the cursor back to
+      # *start*. Returns whether anything was killed (so the caller can record the
+      # kill for the consecutive-kill run). Shared by `Ctrl-W` (word) and `Ctrl-U`
+      # (line start), which differ only in how *start* is computed.
+      private def kill_backward_to(start) : Bool
+        return false unless start < @cursor_pos
+        @goal_col = nil
+        kill_ring.kill @value[start...@cursor_pos], prepend: true
+        @value = @value[0...start] + @value[@cursor_pos..]
+        @cursor_pos = start
+        true
+      end
+
+      # Kill the text between the cursor and *stop* (an index into `@value`
+      # *after* the cursor): push it onto the kill ring, leaving the cursor put.
+      # Returns whether anything was killed. Shared by `Alt-D` (word) and `Ctrl-K`
+      # (line end), which differ only in how *stop* is computed.
+      private def kill_forward_to(stop) : Bool
+        return false unless stop > @cursor_pos
+        @goal_col = nil
+        kill_ring.kill @value[@cursor_pos...stop]
+        @value = @value[0...@cursor_pos] + @value[stop..]
+        true
+      end
+
       # Maps `@cursor_pos` (an index into `@value`) to `{real_line, column}` in
       # the wrapped/displayed content (`@_clines`), using the fake→real line map
       # (`ftor`). For the default (unaligned) text area this is exact; with
@@ -575,41 +602,16 @@ module Crysterm
               @value = @value[0...@cursor_pos] + @value[(@cursor_pos + w)..]
             end
           elsif rl && !read_only? && k == Tput::Key::CtrlW # kill word before cursor
-            start = word_left_pos
-            if start < @cursor_pos
-              @goal_col = nil
-              kill_ring.kill @value[start...@cursor_pos], prepend: true
-              @value = @value[0...start] + @value[@cursor_pos..]
-              @cursor_pos = start
-              killed = true
-            end
+            killed = kill_backward_to word_left_pos
           elsif rl && !read_only? && k == Tput::Key::AltD # kill word after cursor
-            stop = word_right_pos
-            if stop > @cursor_pos
-              @goal_col = nil
-              kill_ring.kill @value[@cursor_pos...stop]
-              @value = @value[0...@cursor_pos] + @value[stop..]
-              killed = true
-            end
+            killed = kill_forward_to word_right_pos
           elsif rl && !read_only? && k == Tput::Key::CtrlU # kill to line start
-            start = line_start_pos
-            if start < @cursor_pos
-              @goal_col = nil
-              kill_ring.kill @value[start...@cursor_pos], prepend: true
-              @value = @value[0...start] + @value[@cursor_pos..]
-              @cursor_pos = start
-              killed = true
-            end
+            killed = kill_backward_to line_start_pos
           elsif rl && !read_only? && k == Tput::Key::CtrlK # kill to line end
             stop = line_end_pos
             # At the end of a line, kill the newline itself (join with the next).
             stop += 1 if stop == @cursor_pos && @cursor_pos < @value.size
-            if stop > @cursor_pos
-              @goal_col = nil
-              kill_ring.kill @value[@cursor_pos...stop]
-              @value = @value[0...@cursor_pos] + @value[stop..]
-              killed = true
-            end
+            killed = kill_forward_to stop
           elsif rl && !read_only? && k == Tput::Key::CtrlY # yank
             if text = kill_ring.yank
               @goal_col = nil
