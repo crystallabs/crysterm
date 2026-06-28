@@ -225,7 +225,22 @@ module Crysterm
           end
         end
 
-        selekt 0 if @items.size == 1 && !cmd.separator?
+        # Auto-select the first *selectable* command. The old `@items.size == 1`
+        # test fired only for the very first item added, so a bar that opened
+        # with one or more separators (a leading `add_separator`) never selected
+        # its first real command — `selected` (and the focus highlight) stayed
+        # stuck on the non-selectable separator, with a dead Enter, until the
+        # user arrowed off it. Fire when this is the first non-separator command
+        # instead. The selection lives in `@left_base`/`@left_offset` (selected ==
+        # their sum): set them directly, since `#selekt`'s window math is gated on
+        # a laid-out `@lpos` and so cannot move the index before the first render
+        # (the original worked only because index 0 needs no offset). `@left_base`
+        # stays 0 so every command — separators included — remains visible.
+        if !cmd.separator? && @commands.count { |c| !c.separator? } == 1
+          @left_base = 0
+          @left_offset = @items.size - 1
+          selekt selected
+        end
 
         emit ::Crysterm::Event::AddItem
 
