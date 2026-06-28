@@ -383,7 +383,20 @@ module Crysterm
           nrows.times do |r|
             if weeks
               row_date = first + (r * 7 - lead).days
-              io << row_date.calendar_week[1].to_s.rjust(2) << ' '
+              # Derive the ISO week from the *Thursday* within this display row,
+              # not its leftmost cell. ISO weeks are Monday-based and identified
+              # by their Thursday; under the default Sunday-first calendar the
+              # leftmost cell is a Sunday — the last day of the *previous* ISO
+              # week — so labeling the row by it shows the week before the one the
+              # row mostly represents (e.g. a row of Jan 1–6 2024 mislabeled "52"
+              # instead of "1"). The Thursday is always one of the row's seven
+              # days, so it yields the correct, stable number for any
+              # `#first_day_of_week` (Monday-first is unaffected: its leftmost
+              # cell's week already matches its Thursday's).
+              first_col = first_day_of_week.value % 7
+              thursday_offset = (::Time::DayOfWeek::Thursday.value % 7 - first_col + 7) % 7
+              week = (row_date + thursday_offset.days).calendar_week[1]
+              io << week.to_s.rjust(2) << ' '
             end
 
             7.times do |c|

@@ -1481,6 +1481,23 @@ describe Crysterm::Widget::Calendar do
     cal.date.month.should eq 2
     cal.date.day.should eq 29
   end
+
+  it "labels ISO week rows by the row's week, not the previous one, when Sunday-first" do
+    s = qt_mem_screen
+    cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 15)
+    # Sunday is the default first day of week; enable the ISO week-number gutter.
+    cal.first_day_of_week = ::Time::DayOfWeek::Sunday
+    cal.vertical_header_format = Crysterm::Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
+
+    # The first body row of Jan 2024 shows Sun Dec 31 .. Sat Jan 6. Its Sunday is
+    # in ISO week 52 (of 2023), but the row predominantly shows ISO week 1 (the
+    # week of Mon Jan 1). It must be labeled "1", not the leftmost cell's "52".
+    rows = cal.content.split('\n')
+    body = rows[2] # 0: nav bar, 1: weekday header, 2: first body row
+    gutter = body[0, 3].strip # the week-number column ("Wk " is 3 cells wide)
+    gutter.should eq "1"
+    gutter.should_not eq "52"
+  end
 end
 
 describe Crysterm::Widget::DateEdit do
