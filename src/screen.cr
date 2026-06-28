@@ -244,12 +244,25 @@ module Crysterm
 
       # XXX Should `error` fd be passed to tput as well?
       # (Probably not since we're not initializing anything on the error output?)
+      #
+      # `probe: false`: do NOT run the live terminal round-trip (query sequences +
+      # blocking reads of the replies) here, inside the constructor. That probe
+      # puts the tty into raw mode while it waits, and at this point the screen is
+      # not yet in `@@instances`, so a Ctrl+C during it (delivered as a real SIGINT,
+      # since the input fiber's raw mode is not yet established) would run `at_exit`
+      # -> `Screen.instances.each &.destroy` over an *empty* list and never restore
+      # the tty — leaving the terminal in a half-cooked, no-echo state. We defer the
+      # probe to `#probe_terminal` below, after `bind`, so it runs inside the
+      # registered window and an interrupt is cleaned up. `compute_draw_caps` reads
+      # only terminfo-static capabilities, not the live-probe results, so deferring
+      # is safe.
       @tput = ::Tput.new(
         terminfo: terminfo,
         input: @input,
         output: @output,
         force_unicode: @force_unicode,
         use_buffer: false,
+        probe: false,
       )
       # Derive the terminal's static draw capabilities once, here. They are
       # re-derived wherever `@tput` is rebuilt (see `#connect`).
@@ -282,6 +295,15 @@ module Crysterm
       emit ::Crysterm::Event::Attach, self
 
       bind
+
+      # Now that the screen is registered in `@@instances`, run the live terminal
+      # probe that `Tput.new` skipped (see `probe: false` above). It round-trips
+      # query sequences in raw mode; if a Ctrl+C interrupts it, `at_exit` ->
+      # `Screen.instances.each &.destroy` -> `#restore_terminal` cooks the tty back
+      # because this screen is now in the list. Runs before `_listen_keys` so it
+      # does not race the input fiber for the reply bytes. Gated on the same config
+      # flag `Tput.new` itself uses, and `probe!` no-ops on a non-tty.
+      @tput.probe! if ::Superconf.tput_probe
 
       # ensure tput.zero_based = true, use_buffer=true
       # set resizeTimeout
