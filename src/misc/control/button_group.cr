@@ -115,9 +115,7 @@ module Crysterm
     private def on_member_checked(button : Widget) : Nil
       return if @suppress
       if exclusive?
-        @suppress = true
-        @buttons.each { |b| member_uncheck b unless b == button }
-        @suppress = false
+        suppressed { @buttons.each { |b| member_uncheck b unless b == button } }
       end
       emit Crysterm::Event::ButtonClick, button
     end
@@ -136,8 +134,15 @@ module Crysterm
     private def on_member_unchecked(button : Widget) : Nil
       return if @suppress || !exclusive?
       return if @buttons.any? { |b| member_checked? b }
+      suppressed { member_check button }
+    end
+
+    # Runs *block* with the cascade guard (`@suppress`) raised, so the
+    # check/uncheck it performs on member buttons doesn't re-enter the
+    # exclusivity handling. Replaces the manual set/reset both callers used.
+    private def suppressed(& : -> Nil) : Nil
       @suppress = true
-      member_check button
+      yield
       @suppress = false
     end
 

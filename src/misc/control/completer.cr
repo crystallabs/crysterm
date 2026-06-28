@@ -319,13 +319,22 @@ module Crysterm
       @matches = val.empty? ? @model.dup : completions(val)
     end
 
+    # Loads the current `@matches` into *pop*, re-parks the highlight on the
+    # first row, and repositions the drop-down under *widget*. Shared by `#open`
+    # (initial show — open with the first match highlighted) and `#refresh` (a
+    # changed match set re-highlights the first row): both must re-seed the
+    # items, re-highlight the first entry, and re-place the drop-down.
+    private def populate(pop : Popup, widget : Widget::LineEdit) : Nil
+      pop.set_items @matches
+      pop.reset_cursor
+      position pop, widget
+    end
+
     private def open : Nil
       return unless widget = @widget
       return if @matches.empty?
       pop = ensure_popup widget
-      pop.set_items @matches
-      pop.reset_cursor # open with the first match highlighted
-      position pop, widget
+      populate pop, widget
       pop.show
       pop.front!
       @open = true
@@ -340,9 +349,7 @@ module Crysterm
     private def refresh : Nil
       return unless widget = @widget
       if pop = @popup
-        pop.set_items @matches
-        pop.reset_cursor # a changed match set re-highlights the first row
-        position pop, widget
+        populate pop, widget
         widget.request_render
       end
     end
