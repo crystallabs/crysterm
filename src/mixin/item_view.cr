@@ -239,7 +239,15 @@ module Crysterm
       # Tag-stripped text of every multi-selected item, in row order. In
       # single-selection mode this is just `[value]` (or `[]` when empty).
       def selected_values : Array(String)
-        return [@value] unless multi_select?
+        unless multi_select?
+          # An empty list has no selection, so report none — `[]`, not `[""]`.
+          # `@value` is correctly `""` here, but wrapping it would surface a
+          # phantom one-element selection to callers (e.g. value collection),
+          # contradicting both this method's documented contract and the
+          # multi-select branch below, which yields `[]` for an empty selection.
+          return [] of String if @items.empty?
+          return [@value]
+        end
         @selected_indices.to_a.sort.compact_map { |i| @ritems[i]?.try { |r| clean_tags r } }
       end
 
