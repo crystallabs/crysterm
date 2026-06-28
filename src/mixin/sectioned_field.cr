@@ -29,18 +29,14 @@ module Crysterm
       # the section under the pointer.
       private def setup_section_mouse : Nil
         on(Crysterm::Event::Mouse) do |e|
-          if e.action.wheel_up?
+          if e.action.wheel_up? || e.action.wheel_down?
+            # Up and down notches share the whole focus/select/step/accept path,
+            # differing only in the step direction; merging them keeps the two
+            # from drifting out of sync.
             focus
             select_section_at e.x
             on_section_wheel
-            step 1
-            e.accept
-            request_render
-          elsif e.action.wheel_down?
-            focus
-            select_section_at e.x
-            on_section_wheel
-            step -1
+            step(e.action.wheel_up? ? 1 : -1)
             e.accept
             request_render
           elsif e.action.down?
