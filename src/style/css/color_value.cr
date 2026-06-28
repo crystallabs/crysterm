@@ -14,6 +14,15 @@ module Crysterm
       # color). A negative `s`/`l` is meaningless and simply clamps to 0.
       RGB_RE = /(-?\d+(?:\.\d+)?)/
 
+      # The hue argument of `hsl()`, with its optional CSS angle *unit*. The hue is
+      # an `<angle>`, so CSS lets it carry `deg`/`grad`/`rad`/`turn` (e.g.
+      # `hsl(0.5turn, …)`); a bare number is degrees. Capturing the unit lets
+      # `#hue_degrees` convert it, rather than reading every angle as degrees — so
+      # `0.5turn` resolves to 180° (cyan), not 0.5° (red). Matches the first
+      # number in the value (the `hsl(`/`hsla(` prefix has no digits), case-
+      # insensitively (`0.5TURN`).
+      HUE_RE = /(-?\d+(?:\.\d+)?)(deg|grad|rad|turn)?/i
+
       def self.resolve(value : String, current_fg : Int32?) : Int32 | String | Nil
         v = value.strip
         # CSS function names and keywords are case-insensitive, so dispatch on a
@@ -126,11 +135,12 @@ module Crysterm
         clamp n
       end
 
-      # `hsl(h, s%, l%)` / `hsla(...)`. h in degrees, s/l in percent.
+      # `hsl(h, s%, l%)` / `hsla(...)`. h is a CSS `<angle>` (see `#hue_degrees`
+      # for the unit handling), s/l in percent.
       private def self.parse_hsl(value : String) : Int32?
         nums = numbers(value)
         return nil if nums.size < 3
-        h = nums[0] % 360.0
+        h = hue_degrees(value) % 360.0
         s = (nums[1] / 100.0).clamp(0.0, 1.0)
         l = (nums[2] / 100.0).clamp(0.0, 1.0)
         c = (1.0 - (2.0 * l - 1.0).abs) * s
@@ -146,6 +156,22 @@ module Crysterm
           else                {c, 0.0, x}
           end
         rgb clamp((r + m) * 255), clamp((g + m) * 255), clamp((b + m) * 255)
+      end
+
+      # The `hsl()` hue in degrees, honoring the optional CSS angle unit on the
+      # first argument: `turn` (1turn = 360°), `grad` (400grad = 360°), `rad`
+      # (2π rad = 360°), or `deg`/unitless (already degrees). Without this every
+      # hue was read as degrees, so `hsl(0.5turn, …)` resolved to 0.5° (red)
+      # instead of 180° (cyan). The caller wraps the result into `0..360`.
+      private def self.hue_degrees(value : String) : Float64
+        return 0.0 unless m = value.match(HUE_RE)
+        n = m[1].to_f
+        case m[2]?.try(&.downcase)
+        when "turn" then n * 360.0
+        when "grad" then n * 0.9 # 400grad == 360deg
+        when "rad"  then n * 180.0 / Math::PI
+        else             n # deg or unitless
+        end
       end
 
       private def self.clamp(value : Float64) : Int32
