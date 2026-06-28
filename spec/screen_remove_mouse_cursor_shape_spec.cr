@@ -42,7 +42,7 @@ describe "Screen#remove (GUI mouse-pointer shape)" do
     rmcs_drained(s, buf).should contain "\e]22;hand2\a"
     s.hovered.should eq box
 
-    s.remove box # no MouseOut is emitted by a removal
+    s.remove box                                   # no MouseOut is emitted by a removal
     rmcs_drained(s, buf).should contain "\e]22;\a" # default pointer restored
     s.hovered.should be_nil
   end

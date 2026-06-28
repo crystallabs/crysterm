@@ -274,12 +274,12 @@ describe Crysterm::TerminalEmulator do
       # ESC 8 must bring the line-drawing designation back — so the second 'q'
       # renders as '─' ("──"), not the literal ASCII 'q' ("─q").
       em = emu
-      em.feed "\e(0"  # G0 = special-graphics
-      em.feed "q"     # '─' at col 0, cursor -> col 1
-      em.feed "\e7"   # DECSC: save cursor (col 1) + charset (G0 special)
-      em.feed "\e(B"  # G0 = ASCII
-      em.feed "\e8"   # DECRC: restore cursor (col 1) + G0 special again
-      em.feed "q"     # '─' at col 1 (would be ASCII 'q' without charset restore)
+      em.feed "\e(0" # G0 = special-graphics
+      em.feed "q"    # '─' at col 0, cursor -> col 1
+      em.feed "\e7"  # DECSC: save cursor (col 1) + charset (G0 special)
+      em.feed "\e(B" # G0 = ASCII
+      em.feed "\e8"  # DECRC: restore cursor (col 1) + G0 special again
+      em.feed "q"    # '─' at col 1 (would be ASCII 'q' without charset restore)
       row(em, 0).should eq "──"
     end
   end
@@ -554,7 +554,7 @@ describe Crysterm::TerminalEmulator do
       # a line-feed. With the stale small region that LF scrolls (row 0's 'A' moves
       # up and is lost); with the full region it just advances the cursor to row 2.
       em.feed "\e[2;1H\n"
-      em.cursor_y.should eq 2 # advanced, not scrolled (full region in effect)
+      em.cursor_y.should eq 2  # advanced, not scrolled (full region in effect)
       row(em, 0).should eq "A" # row 0 untouched — no scroll happened
     end
   end
@@ -732,16 +732,16 @@ describe Crysterm::TerminalEmulator do
       # instead of overwriting the cell under the cursor. A child that edits a
       # line with the insert-character capability relies on this.
       em = emu(10, 2)
-      em.feed "ABC"      # row0 = "ABC"
-      em.feed "\e[H"     # cursor home (row 0, col 0)
-      em.feed "\e[4h"    # IRM on
-      em.feed "X"        # insert X at col 0: "ABC" shifts right
+      em.feed "ABC"   # row0 = "ABC"
+      em.feed "\e[H"  # cursor home (row 0, col 0)
+      em.feed "\e[4h" # IRM on
+      em.feed "X"     # insert X at col 0: "ABC" shifts right
       row(em, 0).should eq "XABC"
       em.cursor_x.should eq 1
 
       # IRM off (CSI 4 l) returns to overwrite: the next glyph clobbers in place.
       em.feed "\e[4l"
-      em.feed "Y"        # overwrites the 'A' now at col 1
+      em.feed "Y" # overwrites the 'A' now at col 1
       row(em, 0).should eq "XYBC"
     end
   end
