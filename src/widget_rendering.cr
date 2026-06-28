@@ -427,11 +427,7 @@ module Crysterm
                     end
                     line.mark_dirty x
                   else
-                    if fc != {attr, ch}
-                      fc.attr = attr
-                      fc.char = ch
-                      line.mark_dirty x
-                    end
+                    fc.set_if_changed(attr, ch)
                   end
                 end
                 x += 1
@@ -517,11 +513,7 @@ module Crysterm
                 line.mark_dirty x
               end
             else
-              if t != {attr, ch}
-                t.attr = attr
-                t.char = ch
-                line.mark_dirty x
-              end
+              t.set_if_changed(attr, ch)
             end
           end
 
@@ -629,11 +621,7 @@ module Crysterm
             ch = border_char(border, glyphs, x, xi, xl, y, yi, yl, default_attr)
             battr = draw_h ? h_attr : (on_left ? left_attr : right_attr)
 
-            if cell != {battr, ch}
-              cell.attr = battr
-              cell.char = ch
-              line.mark_dirty x
-            end
+            cell.set_if_changed(battr, ch)
           end
         end
 
@@ -660,11 +648,7 @@ module Crysterm
 
             battr = x == xi ? left_attr : right_attr
 
-            if cell != {battr, ch}
-              cell.attr = battr
-              cell.char = ch
-              line.mark_dirty x
-            end
+            cell.set_if_changed(battr, ch)
           end
         end
       end

@@ -198,6 +198,21 @@ module Crysterm
           d
         end
       end
+
+      # Writes *attr*/*char* into this cell only when they differ from what it
+      # already holds — a cell carrying a grapheme-cluster overlay always counts
+      # as differing (see `#==(Tuple)`) — and marks the cell's column dirty on a
+      # real change. This is the per-cell write-if-changed guard the render loops
+      # in `widget_rendering` repeat (`if cell != {attr, ch}` then set+`mark_dirty`);
+      # `@row`/`@index` are exactly the `line`/`x` those sites pass to `mark_dirty`.
+      @[AlwaysInline]
+      def set_if_changed(attr : Int64, char : Char) : Nil
+        if self != {attr, char}
+          self.attr = attr
+          self.char = char
+          @row.mark_dirty @index
+        end
+      end
     end
 
     # A single screen row.
