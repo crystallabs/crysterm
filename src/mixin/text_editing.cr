@@ -149,8 +149,22 @@ module Crysterm
           # so derive the caret's display column from the full value line and
           # offset it by the horizontal scroll, clamped into the viewport (the
           # caret may sit at an edge when scrolled off, as in Qt's text edit).
+          #
+          # The clamp's upper bound is `left + content_width`, NOT
+          # `content_width - 1`: `content_margin_x` reserves one extra right-edge
+          # column precisely so the caret has somewhere to sit at the END of a
+          # line that overflows the viewport (see `#content_margin_x`), and that
+          # reserved column lives at offset `content_width` (the text occupies
+          # offsets `0..content_width-1`). When the value is wider than the
+          # viewport and the caret is at the very end, `#ensure_visible_x` can
+          # only scroll the base to `full_width - content_width`, leaving the
+          # caret at offset `content_width`; clamping to `content_width - 1` drew
+          # it one column too far left — on the last visible character instead of
+          # after it. A fitting line is unaffected: `#ensure_visible_x` keeps the
+          # caret within `0..content_width-1` there, so the raised bound never
+          # bites.
           left = lpos.xi + ileft
-          cx = (left + caret_display_column - @child_base_x).clamp(left, left + content_width - 1)
+          cx = (left + caret_display_column - @child_base_x).clamp(left, left + content_width)
         end
 
         # XXX Not sure, but this may still sometimes
