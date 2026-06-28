@@ -23,20 +23,17 @@ module Crysterm
       end
 
       def arrange(container : Widget, interior : LPos) : Nil
-        children = container.children
         # `#current` indexes the *pages* this engine arranges, not the raw child
-        # array: layout-excluded chrome (e.g. a `background-image` layer rendered
-        # out-of-band) must not occupy a page slot — matching the `layout_excluded?`
-        # skip every other engine performs. Counting raw children would shift the
-        # page indices (or, if `#current` landed on an excluded child, render
-        # nothing at all).
-        n = children.count { |el| !el.layout_excluded? }
+        # array: layout-excluded chrome (rendered out-of-band; see
+        # `#each_arrangeable`) must not occupy a page slot. Counting raw children
+        # would shift the page indices (or, if `#current` landed on an excluded
+        # child, render nothing at all).
+        n = arrangeable_count container
         return if n == 0
         shown = current.clamp(0, n - 1)
 
         visible = 0
-        children.each do |el|
-          next if el.layout_excluded?
+        each_arrangeable container do |el|
           # Every arrangeable child gets an index slot (z-order bookkeeping).
           bump_index el
           if visible == shown

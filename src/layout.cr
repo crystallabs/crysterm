@@ -116,6 +116,28 @@ module Crysterm
       el.lpos = nil
     end
 
+    # Yields each of the container's *arrangeable* children — the ones an engine
+    # actually positions — skipping `layout_excluded?` chrome (e.g. a
+    # `background-image` layer or an out-of-band scrollbar, which is rendered
+    # separately from `Widget#_render` and carries its own full-interior `lpos`).
+    # Every engine's placement loop performs this same skip: an excluded child
+    # must not consume a gap, a `justify`/page slot, a grid cell, a form
+    # label/field, a dock region, nor inflate a flow row — so it lives here once
+    # instead of being re-coded (and re-explained) per engine. Block-yielding (no
+    # captured `Proc`), so it allocates nothing per frame.
+    protected def each_arrangeable(container : Widget, &) : Nil
+      container.children.each do |el|
+        next if el.layout_excluded?
+        yield el
+      end
+    end
+
+    # Number of arrangeable (non-`layout_excluded?`) children — the slot/page
+    # count engines size their distribution against.
+    protected def arrangeable_count(container : Widget) : Int32
+      container.children.count { |el| !el.layout_excluded? }
+    end
+
     # The container's interior content rectangle (inside border + padding), in
     # absolute screen coordinates, or nil if it has collapsed to nothing.
     # `container.lpos` is already up to date by the time children render, so

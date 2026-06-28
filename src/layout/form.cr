@@ -34,13 +34,11 @@ module Crysterm
         fw = w - lw - @gap
         fw = 0 if fw < 0
 
-        # Pair only the children this engine arranges; layout-excluded chrome
-        # (e.g. a `background-image` layer) must not be consumed as a
-        # label/field slot — matching every other engine's `layout_excluded?`
-        # skip.
+        # Pair only the children this engine arranges (see `#each_arrangeable`):
+        # layout-excluded chrome must not be consumed as a label/field slot.
         children = @row_children
         children.clear
-        container.children.each { |el| children << el unless el.layout_excluded? }
+        each_arrangeable(container) { |el| children << el }
         y = 0
         i = 0
         while i < children.size

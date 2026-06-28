@@ -94,8 +94,7 @@ module Crysterm
 
       def arrange(container : Widget, interior : LPos) : Nil
         measure container, interior
-        container.children.each do |el|
-          next if el.layout_excluded?
+        each_arrangeable container do |el|
           place el, interior
           render_child el
         end
@@ -109,17 +108,16 @@ module Crysterm
         @filled.select! { |el| children.includes? el }
 
         main = main_extent interior
-        # Count only the children this engine actually arranges; layout-excluded
-        # chrome (e.g. a `background-image` layer, a scrollbar) must not consume a
-        # gap or a `justify` slot.
-        n = children.count { |el| !el.layout_excluded? }
+        # Count only the children this engine actually arranges (see
+        # `#each_arrangeable`): layout-excluded chrome must not consume a gap or a
+        # `justify` slot.
+        n = arrangeable_count container
         gaps = n > 1 ? @gap * (n - 1) : 0
 
         fixed = 0
         grow = 0
         @measured.clear
-        children.each do |el|
-          next if el.layout_excluded?
+        each_arrangeable container do |el|
           if main_flex? el
             grow += grow_of el
           else
