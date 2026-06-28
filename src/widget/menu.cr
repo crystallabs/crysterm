@@ -611,6 +611,21 @@ module Crysterm
           break if ni < 0 || ni >= n
           i = ni
         end
+        # Stepping in `dir` stops on a separator when it hits the array boundary
+        # before reaching a real item — e.g. a leading separator skipped upward,
+        # or a trailing one skipped downward. The highlight must never rest on a
+        # separator (`activate_index` refuses to fire one, so the row would be a
+        # dead selection), so fall back to scanning the opposite way for the
+        # nearest selectable action.
+        if acts[i]?.try &.separator?
+          j = i
+          while (j -= dir) >= 0 && j < n
+            unless acts[j].separator?
+              i = j
+              break
+            end
+          end
+        end
         i
       end
 

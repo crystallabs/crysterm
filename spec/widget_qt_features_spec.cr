@@ -586,6 +586,30 @@ describe Crysterm::Widget::Menu do
     m.selected.should eq 2
   end
 
+  it "never rests the highlight on a boundary separator" do
+    s = qt_mem_screen
+    m = Crysterm::Widget::Menu.new parent: s
+    m.add_separator     # leading separator (index 0)
+    m << Crysterm::Action.new "One"
+    m << Crysterm::Action.new "Two"
+    m.add_separator     # trailing separator (index 3)
+    m.ritems.size.should eq 4
+
+    # Stepping down off the last real item must not strand the highlight on the
+    # trailing separator — it has nowhere further to go, so it stays on "Two".
+    m.selekt 2 # "Two"
+    m.down
+    m.selected.should eq 2
+    m.selected_action.try(&.separator?).should be_false
+
+    # Likewise stepping up off the first real item must skip the leading
+    # separator and stay on "One" rather than land on the separator at 0.
+    m.selekt 1 # "One"
+    m.up
+    m.selected.should eq 1
+    m.selected_action.try(&.separator?).should be_false
+  end
+
   it "toggles checkable actions when activated" do
     s = qt_mem_screen
     m = Crysterm::Widget::Menu.new parent: s
