@@ -411,13 +411,7 @@ module Crysterm
         when "border"
           style.border = parse_border(value, el_color)
         when "border-width"
-          # A cell is taller than wide, so the top/bottom edges (whose width is a
-          # *vertical* measurement) scale by the cell aspect ratio just like the
-          # `border-top-width`/`border-bottom-width` longhands and the `border`
-          # shorthand do — otherwise `border-width: 200px` gave a 20-cell top edge
-          # where `border-top-width: 200px` (correctly) gives 10.
-          border.left = border.right = border_cells(value)
-          border.top = border.bottom = border_cells(value, vertical: true)
+          apply_border_width border, value
         when "border-color"
           # The `border-color` shorthand recolors the *whole* border, so it must
           # also clear any per-side override (`border-top-color` & co.) a prior
@@ -547,6 +541,51 @@ module Crysterm
         when :right  then border.fg_right = c
         when :bottom then border.fg_bottom = c
         when :left   then border.fg_left = c
+        end
+      end
+
+      # Applies the `border-width` shorthand: 1-4 cell widths in CSS TRBL order
+      # (`border-width: <top> <right> <bottom> <left>`), with the standard CSS
+      # fill-ins (1 value → all sides; 2 → vertical/horizontal; 3 → top/horizontal/
+      # bottom). Each side resolves through `border_cells`, so a cell is taller
+      # than wide the top/bottom (vertical) edges scale by the cell aspect ratio
+      # exactly as the per-side `border-top-width`/`border-bottom-width` longhands
+      # do, and a sub-cell width clamps up to 1 so a declared border stays visible
+      # — `border-width: 200px` is a 20-cell left edge but a 10-cell top edge, and
+      # `border-width: 0 0 1px 0` (the common Qt tab/header underline) gives a
+      # 1-cell *bottom* edge only.
+      #
+      # The old form passed the *whole* multi-token value to `border_cells`, which
+      # parsed only a single token: any multi-value `border-width` (`0 0 1px 0`,
+      # `1px 2px`) failed to parse and silently collapsed every side to 0 — the
+      # border vanished. A blank value (a collapsed undefined `var()`) or one with
+      # more than four widths is invalid CSS and dropped, leaving the border
+      # unchanged (mirrors `parse_sides`).
+      private def self.apply_border_width(border : Border, value : String) : Nil
+        tokens = value.split
+        # A cell is taller than wide, so the horizontal (left/right) and vertical
+        # (top/bottom) axes resolve absolute units differently — resolve each token
+        # on both axes and pick the right one per side.
+        h = tokens.map { |token| border_cells(token) }
+        v = tokens.map { |token| border_cells(token, vertical: true) }
+        case tokens.size
+        when 1
+          border.left = border.right = h[0]
+          border.top = border.bottom = v[0]
+        when 2 # vertical horizontal
+          border.top = border.bottom = v[0]
+          border.left = border.right = h[1]
+        when 3 # top horizontal bottom
+          border.top = v[0]
+          border.left = border.right = h[1]
+          border.bottom = v[2]
+        when 4 # top right bottom left
+          border.top = v[0]
+          border.right = h[1]
+          border.bottom = v[2]
+          border.left = h[3]
+        else
+          # 0 (blank/invalid) or >4 widths: invalid declaration, drop it.
         end
       end
 
