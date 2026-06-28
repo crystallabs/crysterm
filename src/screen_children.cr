@@ -146,6 +146,15 @@ module Crysterm
       # runs for any listeners; guarded on the session being unchanged in case an
       # event emitted during the unlink above already ended it.
       @_hover = nil if drop_hover
+      # The removed (not merely hidden) widget may have owned the GUI mouse-pointer
+      # shape (OSC 22 — see `Widget#mouse_cursor_shape=`), pushed on its `MouseOver`
+      # and normally reverted on its `MouseOut`. A removal emits no `MouseOut`, so
+      # without this the pointer stays stuck in the detached widget's shape. The
+      # `Widget`'s own `Hide` handler restores the default for the vanish-under-
+      # pointer case; a direct `remove` bypasses that, so restore it here too. A
+      # no-op unless the `mouse.cursor_shape` gate is on and a non-default shape is
+      # currently applied (`set_mouse_cursor_shape` self-guards both).
+      set_mouse_cursor_shape nil if drop_hover
       @_arm = nil if drop_arm
       stale_drag.try { |d| drag_cancel d if @_drag == d }
       # Clear a stale drop-target pointing into the removed subtree, emitting the

@@ -61,7 +61,16 @@ module Crysterm
       # THIS screen; otherwise there is no valid prior target (and focusing it on
       # another screen would be wrong anyway). Mirrors the `screen?`/attachment
       # guards already used by `rewind_focus` and `focus_offset`.
-      sf.focus if sf.screen? == self
+      #
+      # `displayed_in_tree?` (not the per-widget `style.visible?`), for the same
+      # reason `rewind_focus`/`focus_offset` use it: while the dialog was open the
+      # saved widget — or a container above it — may have been hidden (a switched
+      # tab page, a `hide`-n parent). It is then attached but off-screen, and
+      # `Widget#focus` does NOT itself gate on visibility, so without this it would
+      # place focus (and the cursor) on an invisible widget and emit `Event::Focus`
+      # on it. No valid prior target then remains, so leave focus as it is — exactly
+      # as the other two focus paths skip a hidden candidate.
+      sf.focus if sf.screen? == self && displayed_in_tree?(sf)
       focused
     end
 
