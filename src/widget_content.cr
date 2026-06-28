@@ -755,12 +755,23 @@ module Crysterm
 
         ftor.push outbuf.take_ftor_row
 
-        # Handle alignment tags.
+        # Handle alignment tags. The opener may be PRECEDED — and the closer
+        # FOLLOWED — by inline SGR sequences, which happens whenever an alignment
+        # tag is nested inside an attribute tag: `{bold}{center}Hi{/center}{/bold}`
+        # becomes `\e[1m{center}Hi{/center}\e[22m` after `_parse_tags`. Matching the
+        # alignment tag only at the absolute string edge (the old `^{...}` / `{...}$`)
+        # missed that SGR-wrapped form, which both silently dropped the alignment
+        # (the content rendered left-aligned) AND leaked the literal `{center}` /
+        # `{/center}` text into the wrapped output. Allow the surrounding SGR in the
+        # match and re-prepend/-append it, so only the alignment tag itself is
+        # consumed and the colors survive. The SGR-free case (`cap[1]`/`cap[2]`
+        # empty) reduces exactly to the original behavior.
         if @parse_tags
-          if cap = line.match /^{(left|center|right)}/
+          if cap = line.match /^((?:\e\[[\d;]*m)*){(left|center|right)}/
             align_left_too = true
-            line = line[cap[0].size..]
-            align = default_state = case cap[1]
+            # Drop the tag, keep any leading SGR that preceded it.
+            line = cap[1] + line[cap[0].size..]
+            align = default_state = case cap[2]
                                     when "center"
                                       Tput::AlignFlag::Center
                                     when "left"
@@ -769,8 +780,9 @@ module Crysterm
                                       Tput::AlignFlag::Right
                                     end
           end
-          if cap = line.match /{\/(left|center|right)}$/
-            line = line[0...(line.size - cap[0].size)]
+          if cap = line.match /{\/(left|center|right)}((?:\e\[[\d;]*m)*)$/
+            # Drop the closing tag, keep any trailing SGR that followed it.
+            line = line[0...(line.size - cap[0].size)] + cap[2]
             # Reset default_state to whatever alignment the widget has by default.
             default_state = @align
           end

@@ -117,4 +117,27 @@ describe "Widget#_parse_tags alignment tags" do
     box.set_content "{center}A\nBB{/center}"
     box._clines.lines.should eq ["     A      ", "     BB     "]
   end
+
+  # An alignment tag nested INSIDE an attribute tag is preceded/followed by SGR
+  # after `_parse_tags` (`{bold}{center}…{/center}{/bold}` ->
+  # `\e[1m{center}…{/center}\e[22m`). `#_wrap_content` used to match the alignment
+  # tag only at the absolute string edge, so the SGR-wrapped form was missed: the
+  # content rendered left-aligned AND the literal `{center}`/`{/center}` text
+  # leaked into the wrapped output. It must center identically to the un-nested
+  # form, with the surrounding SGR preserved.
+  it "centers content when {center} is nested inside an attribute tag" do
+    box = Widget::Box.new parent: headless_screen, width: 12, height: 3
+    box.parse_tags = true
+    box.set_content "{bold}{center}Hi{/center}{/bold}"
+    # 12-col interior, "Hi" centered => 5 + Hi + 5, with the SGR kept around it
+    # and no literal `{center}`/`{/center}` text remaining.
+    box._clines.lines.should eq ["     \e[1mHi\e[22m     "]
+  end
+
+  it "right-aligns content when {right} is nested inside an attribute tag" do
+    box = Widget::Box.new parent: headless_screen, width: 12, height: 2
+    box.parse_tags = true
+    box.set_content "{bold}{right}R{/right}{/bold}"
+    box._clines.lines.should eq ["           \e[1mR\e[22m"]
+  end
 end
