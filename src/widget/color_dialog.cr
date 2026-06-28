@@ -17,8 +17,9 @@ module Crysterm
     #     wheel nudges the value.
     #   * a vertical **hue bar** — the full spectrum; click/drag/wheel sets hue.
     #   * a **live preview** swatch.
-    #   * an editable **Hex** field plus editable **R/G/B** and **H/S/V** spin
-    #     boxes (type or wheel to set a component precisely).
+    #   * editable **R/G/B**, **H/S/V** and **H/S/L** spin-box columns (type or
+    #     wheel to set a component precisely) plus an editable **Hex** field; an
+    #     edit to any field updates all the others and the preview immediately.
     #   * a **Basic colors** palette and a row of **Custom colors** slots — the
     #     "+" button stores the current color into the next slot; clicking a
     #     filled slot recalls it.
@@ -55,12 +56,19 @@ module Crysterm
       HUE_Y   = 0
       HUE_W   = 2
       HUE_H   = FIELD_H
-      INFO_X  = HUE_X + HUE_W + 2 # 29
-      SPIN_X  = INFO_X + 2        # value column for the labeled spin boxes
-      SPIN_W  = 13
-      PAL_Y   = FIELD_H + 1 # 11
-      CUST_Y  = PAL_Y + 2   # 13
-      BTN_Y   = CUST_Y + 2  # 15
+      INFO_X  = HUE_X + HUE_W + 2 # 29 — origin of the right-hand editor column
+      COLOR_W = 3                 # cell width of one palette/custom swatch
+      # Right-hand editor rows. A blank row separates the preview from the
+      # columns, and another separates the columns from the Hex field.
+      PREVIEW_Y = 0
+      PREVIEW_H = 2
+      HEAD_Y    = 3 # column headers ("RGB"/"HSV"/"HSL")
+      COLS_Y    = 4 # the three label/field columns (3 rows each)
+      COLS_H    = 3
+      HEX_Y     = 8           # full-width Hex field, below the columns
+      PAL_Y     = FIELD_H + 1 # 11
+      CUST_Y    = PAL_Y + 2   # 13
+      BTN_Y     = CUST_Y + 2  # 15
 
       # The "Basic colors" palette (named colors that always resolve as specs).
       DEFAULT_COLORS = %w[
@@ -85,6 +93,9 @@ module Crysterm
       @hspin : SpinBox?
       @sspin : SpinBox?
       @vspin : SpinBox?
+      @lhspin : SpinBox?
+      @lsspin : SpinBox?
+      @llspin : SpinBox?
       @palette_swatches = [] of Box
       @custom_slots = [] of Box
       # Stored custom-slot colors (`nil` for an empty slot), in slot order.
@@ -168,16 +179,70 @@ module Crysterm
       # ------------------------------------------------------- construction
 
       private def build_children
+        # The right-hand editor area spans rightward as far as the row of basic
+        # colors below it (same right edge), so the preview and the editor columns
+        # line up with the palette.
+        info_w = Math.max(@colors.size * COLOR_W - INFO_X, COLOR_W)
+
         # A solid swatch (no border, so the color actually fills it) that tracks
         # the current color live — see `refresh_ui`.
-        @preview = Box.new parent: self, top: 0, left: INFO_X, width: SPIN_W + 2, height: 2,
-          style: Style.new(bg: "black")
+        @preview = Box.new parent: self, top: PREVIEW_Y, left: INFO_X, width: info_w,
+          height: PREVIEW_H, style: Style.new(bg: "black")
 
-        Box.new parent: self, top: 2, left: INFO_X, width: 3, height: 1, content: "Hex"
+        # Column headers, laid out by an `HBox` so they sit over the three editor
+        # columns below (same width/gap => same column fences).
+        headers = Box.new parent: self, top: HEAD_Y, left: INFO_X, width: info_w, height: 1,
+          layout: Layout::HBox.new(gap: 1)
+        {"RGB", "HSV", "HSL"}.each do |name|
+          Box.new parent: headers, height: 1, align: :center, content: name
+        end
+
+        # Three side-by-side editor columns — RGB, HSV and HSL — each a small
+        # `Form` (a label column + its field) so the toolkit, not hand-computed
+        # coordinates, places the label/field rows. The `HBox` shares the width
+        # evenly between the columns.
+        cols = Box.new parent: self, top: COLS_Y, left: INFO_X, width: info_w, height: COLS_H,
+          layout: Layout::HBox.new(gap: 1)
+
+        rgbcol = column_box cols
+        @rspin = column_spin rgbcol, "R", 0, 255
+        @gspin = column_spin rgbcol, "G", 0, 255
+        @bspin = column_spin rgbcol, "B", 0, 255
+
+        hsvcol = column_box cols
+        @hspin = column_spin hsvcol, "H", 0, 360
+        @sspin = column_spin hsvcol, "S", 0, 100
+        @vspin = column_spin hsvcol, "V", 0, 100
+
+        hslcol = column_box cols
+        @lhspin = column_spin hslcol, "H", 0, 360
+        @lsspin = column_spin hslcol, "S", 0, 100
+        @llspin = column_spin hslcol, "L", 0, 100
+
+        # Every field is editable and takes effect immediately, just like the Hex
+        # field, and all color spaces stay in sync (`refresh_ui`). R/G/B edits
+        # drive the state directly; H/S/V and H/S/L go through their color space.
+        {@rspin, @gspin, @bspin}.each do |sp|
+          next unless sp
+          sp.on(Crysterm::Event::ValueChange) { apply_rgb_spins }
+        end
+        {@hspin, @sspin, @vspin}.each do |sp|
+          next unless sp
+          sp.on(Crysterm::Event::ValueChange) { apply_hsv_spins }
+        end
+        {@lhspin, @lsspin, @llspin}.each do |sp|
+          next unless sp
+          sp.on(Crysterm::Event::ValueChange) { apply_hsl_spins }
+        end
+
+        # Hex field at the bottom, spanning the full width (a `Form` "Hex  […]").
         # The editors are *chrome*: they carry no hardcoded color, so they follow
         # the terminal default at the unstyled floor and the theme otherwise
         # (only the swatches/preview/gradient below use functional color).
-        @hexbox = hb = LineEdit.new parent: self, top: 2, left: SPIN_X + 1, width: SPIN_W - 1, height: 1
+        hexrow = Box.new parent: self, top: HEX_Y, left: INFO_X, width: info_w, height: 1,
+          layout: Layout::Form.new(label_width: 4, gap: 0)
+        Box.new parent: hexrow, height: 1, content: "Hex"
+        @hexbox = hb = LineEdit.new parent: hexrow, height: 1
         # Apply the color live, on every keystroke (`TextChange`) as well as on
         # Enter (`Submit`); the leading space is cosmetic, so strip it first.
         # Invalid/half-typed specs are ignored by `set_color`.
@@ -187,55 +252,45 @@ module Crysterm
           set_color e.value.strip
         end
 
-        @rspin = labeled_spin "R", 3, 0, 255
-        @gspin = labeled_spin "G", 4, 0, 255
-        @bspin = labeled_spin "B", 5, 0, 255
-        @hspin = labeled_spin "H", 6, 0, 360
-        @sspin = labeled_spin "S", 7, 0, 100
-        @vspin = labeled_spin "V", 8, 0, 100
-
-        # R/G/B edits drive the state directly; H/S/V edits go through HSV.
-        {@rspin, @gspin, @bspin}.each do |sp|
-          next unless sp
-          sp.on(Crysterm::Event::ValueChange) { apply_rgb_spins }
-        end
-        {@hspin, @sspin, @vspin}.each do |sp|
-          next unless sp
-          sp.on(Crysterm::Event::ValueChange) { apply_hsv_spins }
-        end
-
         # Basic palette: one click sets the color. A centered marker (drawn by
         # `mark_palette_selection`) shows which entry, if any, is current.
         x = 0
         @colors.each do |name|
-          sw = Box.new parent: self, top: PAL_Y, left: x, width: 3, height: 1,
+          sw = Box.new parent: self, top: PAL_Y, left: x, width: COLOR_W, height: 1,
             align: :center, style: Style.new(bg: name)
           sw.on(Crysterm::Event::Click) { set_color name; request_render }
           @palette_swatches << sw
-          x += 3
+          x += COLOR_W
         end
 
         # Custom colors: "+" stores the current color; each slot recalls its own.
         # Use an ASCII "+" (one cell), not the fullwidth "＋" (two cells) — the
         # content layout treats it as a single cell, so a wide glyph would push
         # everything after it one column right and overrun the row's right edge.
-        add = Button.new parent: self, top: CUST_Y, left: 0, width: 3, height: 1,
+        add = Button.new parent: self, top: CUST_Y, left: 0, width: COLOR_W, height: 1,
           content: "+", align: :center, focus_on_click: false
         add.on(Crysterm::Event::Press) { store_custom }
         # Slots sit flush against the "＋" button (no gap, so the row's right edge
         # lines up). Empty ones carry a "·" placeholder so they read as slots even
         # before anything is stored in them. They take *functional* color only
-        # once filled (`#store_custom` sets `style.bg` to the stored color); empty,
-        # they stay terminal-default chrome.
-        cx = 3
-        @custom_colors.size.times do |i|
-          slot = Box.new parent: self, top: CUST_Y, left: cx, width: 3, height: 1,
-            align: :center, content: "·"
+        # once filled. The painted color is folded onto the slot's *inline* style
+        # (`#paint_swatch`) so it survives a re-cascade — otherwise a reopened
+        # picker shows occupied-but-blank slots (the slot state agreed via
+        # `@custom_colors`, but the cascade had wiped the computed `style.bg`).
+        cx = COLOR_W
+        @custom_colors.each_with_index do |stored, i|
+          slot = Box.new parent: self, top: CUST_Y, left: cx, width: COLOR_W, height: 1,
+            align: :center, content: "·", style: Style.new
+          # Restore any color already stored in this slot (e.g. on reopen).
+          if c = stored
+            slot.content = ""
+            paint_swatch slot, c
+          end
           slot.on(Crysterm::Event::Click) do
             @custom_colors[i]?.try { |c| set_color c; request_render }
           end
           @custom_slots << slot
-          cx += 3
+          cx += COLOR_W
         end
 
         bb = DialogButtonBox.new parent: self, top: BTN_Y, left: 0,
@@ -250,11 +305,24 @@ module Crysterm
         pick.on(Crysterm::Event::Press) { begin_pick }
       end
 
-      # A `"<label> [spin]"` row at *row*, returning the spin box.
-      private def labeled_spin(label : String, row : Int32, min : Int32, max : Int32) : SpinBox
-        Box.new parent: self, top: row, left: INFO_X, width: 2, height: 1, content: label
-        SpinBox.new parent: self, top: row, left: SPIN_X, width: SPIN_W, height: 1,
-          minimum: min, maximum: max, value: min
+      # A `Form`-based editor column (a 1-cell label column + its field), shared
+      # by the RGB/HSV/HSL columns.
+      private def column_box(parent : Widget) : Box
+        Box.new parent: parent, height: COLS_H, layout: Layout::Form.new(label_width: 1, gap: 0)
+      end
+
+      # Appends a `"<label> [spin]"` row to a `column_box`, returning the spin box.
+      private def column_spin(col : Widget, label : String, min : Int32, max : Int32) : SpinBox
+        Box.new parent: col, height: 1, content: label
+        SpinBox.new parent: col, height: 1, minimum: min, maximum: max, value: min
+      end
+
+      # Folds a functional background color onto *box*'s inline style so it shows
+      # now and survives the next cascade (cf. `Widget#set_visible`). Mutating only
+      # the computed `style.bg` would be rebuilt away on the next restyle.
+      private def paint_swatch(box : Box, hex : String) : Nil
+        box.style.bg = hex
+        box.persist_inline_style { |s| s.bg = hex }
       end
 
       # --------------------------------------------------------- state set
@@ -270,6 +338,15 @@ module Crysterm
         s = (@sspin.try(&.value) || 0) / 100.0
         v = (@vspin.try(&.value) || 0) / 100.0
         set_hsv h, s, v
+      end
+
+      private def apply_hsl_spins : Nil
+        return if @syncing
+        h = (@lhspin.try(&.value) || 0).to_f
+        s = (@lsspin.try(&.value) || 0) / 100.0
+        l = (@llspin.try(&.value) || 0) / 100.0
+        r, g, b = hsl_to_rgb h, s, l
+        set_rgb r, g, b
       end
 
       private def set_rgb(r : Int32, g : Int32, b : Int32) : Nil
@@ -290,19 +367,21 @@ module Crysterm
         @custom_colors[@custom_index] = hex
         if slot = @custom_slots[@custom_index]?
           slot.content = "" # drop the empty-slot placeholder
-          slot.style.bg = hex
+          paint_swatch slot, hex
         end
         @custom_index = (@custom_index + 1) % @custom_colors.size
         request_render
       end
 
-      # Pushes the HSV state into every editor + the preview.
+      # Pushes the current color into every editor (RGB/HSV/HSL/Hex) + the preview.
       private def refresh_ui : Nil
         @syncing = true
         hex = current_color
         r, g, b = hsv_to_rgb @hue, @saturation, @value_v
+        # Fold onto the preview's inline style so the swatch survives a re-cascade
+        # (the same reason `#paint_swatch` exists for the custom slots).
         if pv = @preview
-          pv.style.bg = hex
+          paint_swatch pv, hex
         end
         if sp = @rspin
           sp.value = r
@@ -321,6 +400,16 @@ module Crysterm
         end
         if sp = @vspin
           sp.value = (@value_v * 100).round.to_i
+        end
+        lh, ls, ll = rgb_to_hsl r, g, b
+        if sp = @lhspin
+          sp.value = lh.round.to_i
+        end
+        if sp = @lsspin
+          sp.value = (ls * 100).round.to_i
+        end
+        if sp = @llspin
+          sp.value = (ll * 100).round.to_i
         end
         if hb = @hexbox
           # Cosmetic leading space before the "#". Don't clobber the field while
@@ -389,7 +478,8 @@ module Crysterm
         f = screen?.try &.focused
         return false unless f
         f == @hexbox || f == @rspin || f == @gspin || f == @bspin ||
-          f == @hspin || f == @sspin || f == @vspin
+          f == @hspin || f == @sspin || f == @vspin ||
+          f == @lhspin || f == @lsspin || f == @llspin
       end
 
       private def on_key(e : Crysterm::Event::KeyPress) : Nil
@@ -623,6 +713,53 @@ module Crysterm
         h += 360.0 if h < 0
         s = max == 0.0 ? 0.0 : delta / max
         {h, s, max}
+      end
+
+      # HSL (h 0..360, s/l 0..1) → RGB (each 0..255). HSL shares HSV's hue but
+      # uses lightness (mid-point) and its own saturation, so it gives a second
+      # intuitive handle on the same color (light/dark around a pure hue).
+      private def hsl_to_rgb(h : Float64, s : Float64, l : Float64) : {Int32, Int32, Int32}
+        h = h % 360.0
+        h += 360.0 if h < 0
+        c = (1.0 - (2.0 * l - 1.0).abs) * s
+        x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs)
+        m = l - c / 2.0
+        r1, g1, b1 =
+          case h
+          when .< 60.0  then {c, x, 0.0}
+          when .< 120.0 then {x, c, 0.0}
+          when .< 180.0 then {0.0, c, x}
+          when .< 240.0 then {0.0, x, c}
+          when .< 300.0 then {x, 0.0, c}
+          else               {c, 0.0, x}
+          end
+        {((r1 + m) * 255).round.to_i, ((g1 + m) * 255).round.to_i, ((b1 + m) * 255).round.to_i}
+      end
+
+      # RGB (each 0..255) → HSL (h 0..360, s/l 0..1).
+      private def rgb_to_hsl(r : Int32, g : Int32, b : Int32) : {Float64, Float64, Float64}
+        rf = r / 255.0
+        gf = g / 255.0
+        bf = b / 255.0
+        max = {rf, gf, bf}.max
+        min = {rf, gf, bf}.min
+        delta = max - min
+
+        h =
+          if delta == 0.0
+            0.0
+          elsif max == rf
+            60.0 * (((gf - bf) / delta) % 6.0)
+          elsif max == gf
+            60.0 * (((bf - rf) / delta) + 2.0)
+          else
+            60.0 * (((rf - gf) / delta) + 4.0)
+          end
+        h += 360.0 if h < 0
+        l = (max + min) / 2.0
+        denom = 1.0 - (2.0 * l - 1.0).abs
+        s = denom == 0.0 ? 0.0 : delta / denom
+        {h, s, l}
       end
     end
   end
