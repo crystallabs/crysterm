@@ -14,5 +14,5 @@ jobs:
         run: sudo apt-get update -y && sudo apt-get install -y libunibilium-dev
       - name: Install dependencies
         run: shards install --ignore-crystal-version
-      - name: Run specs
-        run: crystal spec
+      - name: Run ameba
+        run: bin/ameba
