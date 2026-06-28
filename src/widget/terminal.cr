@@ -123,9 +123,17 @@ module Crysterm
         em.on_title = ->(t : String) { @title = t; emit ::Crysterm::Event::SetContent; nil }
         @emulator = em
 
-        if @handler
+        if handler = @handler
           # Externally driven: nothing to spawn. Keystrokes go to the handler
-          # (see #on_data); output arrives via #write.
+          # (see #on_data); output arrives via #write. The emulator's *solicited*
+          # replies (DSR cursor-position, DA device-attributes) are child-bound
+          # too — the same direction as keystrokes and mouse/focus reports — so
+          # route them to the handler as well. Without this, `em.output` stayed
+          # nil for a handler-driven terminal and `respond` dropped every reply,
+          # so a child that probes the terminal at startup (vim/htop query DA/CPR)
+          # waited forever for an answer. The PTY path wires this to `pty.master`
+          # below; this is its handler-mode counterpart.
+          em.output = HandlerSink.new handler
           return
         end
 
@@ -441,6 +449,23 @@ module Crysterm
       def kill : Nil
         @pty.try &.kill
         @pty = nil
+      end
+
+      # A write-only `IO` that delivers the emulator's solicited replies
+      # (`TerminalEmulator#output`) to the external `handler`, the same
+      # child-bound channel keystrokes and mouse/focus reports use. Used in
+      # handler mode (no PTY); the PTY path uses `pty.master` directly.
+      private class HandlerSink < IO
+        def initialize(@handler : Proc(String, Nil))
+        end
+
+        def write(slice : Bytes) : Nil
+          @handler.call(String.new(slice)) unless slice.empty?
+        end
+
+        def read(slice : Bytes) : Int32
+          raise IO::Error.new("Crysterm::Widget::Terminal::HandlerSink is write-only")
+        end
       end
     end
   end
