@@ -199,7 +199,12 @@ module Crysterm
           if show_text?
             draw_overlay_text formatted_text
           elsif !(pc = pcontent).empty?
-            screen.lines[fill_yi]?.try do |line|
+            # Overlay on the stable top interior row (`yi`), as the comment above
+            # intends — not `fill_yi`, which for a *vertical* bar is the moving top
+            # edge of the filled region, so the label would slide up/down with the
+            # value. (`fill_yi == yi` for a horizontal bar, so that case is
+            # unchanged.)
+            screen.lines[yi]?.try do |line|
               pc.each_char_with_index do |c, i|
                 break if xi + i >= xl
                 line[xi + i]?.try do |cell|
