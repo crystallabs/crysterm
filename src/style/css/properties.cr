@@ -476,14 +476,10 @@ module Crysterm
           apply_border_width border, value
         when "border-color"
           apply_border_color border, value, el_color
-        when "border-top-color"
-          with_color(value, el_color) { |c| border.fg_top = coerce_color_int(c) }
-        when "border-right-color"
-          with_color(value, el_color) { |c| border.fg_right = coerce_color_int(c) }
-        when "border-bottom-color"
-          with_color(value, el_color) { |c| border.fg_bottom = coerce_color_int(c) }
-        when "border-left-color"
-          with_color(value, el_color) { |c| border.fg_left = coerce_color_int(c) }
+        when "border-top-color"    then apply_side_color border, :top, value, el_color
+        when "border-right-color"  then apply_side_color border, :right, value, el_color
+        when "border-bottom-color" then apply_side_color border, :bottom, value, el_color
+        when "border-left-color"   then apply_side_color border, :left, value, el_color
         when "border-style"
           apply_border_style border, value, {:left, :top, :right, :bottom}
         when "border-top"          then apply_border_side border, :top, value, el_color
@@ -671,10 +667,18 @@ module Crysterm
         end
       end
 
+      # A `border-<side>-color` longhand: resolves *value* (dropping a blank or
+      # malformed color, per `with_color`) and routes it to that side's per-side
+      # color slot via `set_side_color` — the same per-side dispatch the
+      # `border-<side>` shorthand uses, rather than four inline copies.
+      private def self.apply_side_color(border : Border, side : Symbol, value : String, el_color : Int32?) : Nil
+        with_color(value, el_color) { |c| set_side_color border, side, c }
+      end
+
       # Sets the per-side border color (`fg_top`/`fg_right`/`fg_bottom`/`fg_left`)
-      # for the `border-<side>` shorthand, coercing the resolved color to the
-      # native int form those slots store — the same routing the
-      # `border-<side>-color` longhand uses.
+      # for the `border-<side>` shorthand and the `border-<side>-color` longhand
+      # (via `apply_side_color`), coercing the resolved color to the native int
+      # form those slots store.
       private def self.set_side_color(border : Border, side : Symbol, resolved : Int32 | String | Nil) : Nil
         c = coerce_color_int(resolved)
         case side
