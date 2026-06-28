@@ -46,6 +46,16 @@ describe "CSS background-image" do
       s.background_image.should be_nil
     end
 
+    it "drops a blank background shorthand instead of clearing the image (invalid-declaration)" do
+      # A collapsed undefined `var(--x)` reaches here as "". Per CSS this invalid
+      # declaration is dropped, leaving any previously-cascaded background-image
+      # intact — not reset as a genuine no-`url(...)` shorthand would.
+      s = Style.new
+      Crysterm::CSS::Properties.apply(s, "background-image", "url(x.png)")
+      Crysterm::CSS::Properties.apply(s, "background", "")
+      s.background_image.should eq "x.png"
+    end
+
     it "clears the image on `background-image: none`" do
       s = Style.new
       Crysterm::CSS::Properties.apply(s, "background-image", "url(x.png)")

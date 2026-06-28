@@ -46,13 +46,40 @@ module Crysterm
           # `background` with no `url(...)` clears any prior `background-image`.
           # (position/repeat and the `/size` syntax are not parsed from the
           # shorthand yet; set `background-size` longhand for scaling.)
-          parse_background_color(value, style.fg).try { |color| style.bg = color }
-          style.background_image = parse_background_image(value)
+          #
+          # A *blank* value — an undefined `var(--x)` that collapsed to "" before
+          # reaching here — is *dropped*, per CSS's "drop the invalid declaration"
+          # rule, rather than being treated as a shorthand reset. The shorthand's
+          # `absence resets` semantics (no `url(...)` clears the image) apply only
+          # to a genuine `background` value, not to an invalid one: the old
+          # unguarded form ran `parse_background_image("")` -> `nil` and so
+          # silently *cleared* a `background-image` a lower-priority rule had set.
+          # Mirrors the same blank-value guard already on the
+          # `font`/`text-decoration`/`padding`/`margin`/`box-shadow` shorthands.
+          unless value.blank?
+            parse_background_color(value, style.fg).try { |color| style.bg = color }
+            style.background_image = parse_background_image(value)
+          end
         when "background-image"
-          # `none` (or any value without a `url(...)`) clears it.
-          style.background_image = parse_background_image(value)
+          # `none` (or any value without a `url(...)`) clears it — but a *blank*
+          # value (an undefined `var(--x)` that collapsed to "" before reaching
+          # here) is *dropped*, per CSS's "drop the invalid declaration" rule,
+          # leaving any previously-cascaded image intact rather than clearing it.
+          # The `background` shorthand already guards this exact case (see above:
+          # its blank no longer resets the image layer); the longhand must agree —
+          # the old unguarded form ran `parse_background_image("")` -> `nil` and so
+          # silently cleared a `background-image` a lower-priority rule had set.
+          style.background_image = parse_background_image(value) unless value.blank?
         when "background-size"
-          style.background_size = parse_background_size(value)
+          # Drop a *blank* value (an undefined `var(--x)` collapsed to "" before
+          # reaching here), per CSS's "drop the invalid declaration" rule, rather
+          # than resetting the size: `parse_background_size("")` matches no keyword
+          # and falls through to its `Cover` default, which — assigned here — both
+          # clobbers a `background-size` a lower-priority rule had set *and* marks
+          # it `specified?` (polluting the inline-fold/inheritance the cascade
+          # reads). The sibling `background-image` longhand already guards this
+          # exact blank-collapse case; the size longhand must agree.
+          style.background_size = parse_background_size(value) unless value.blank?
         when "font"
           # `font` shorthand: only the weight/style words mean anything here;
           # presence sets the attribute, absence resets it (shorthand semantics).
@@ -131,13 +158,34 @@ module Crysterm
           v = Case.fold_keyword(value.strip)
           style.visible = (v != "none") unless v.empty?
         when "opacity"
-          # CSS clamps opacity into `[0, 1]`; an out-of-range value would
-          # otherwise flow straight into `Colors.blend` as a bad mix factor.
-          value.to_f?.try { |num| style.alpha = num.clamp(0.0, 1.0) }
+          # CSS `opacity` is a `<number>` *or* a `<percentage>` (`opacity: 0.5`
+          # == `opacity: 50%`, per CSS Color 4) and is clamped into `[0, 1]` —
+          # an out-of-range value would otherwise flow straight into
+          # `Colors.blend` as a bad mix factor. The old `value.to_f?` form read
+          # only the number, silently *dropping* the percentage form
+          # (`"50%".to_f?` → `nil`) so a theme's `opacity: 50%` left the widget
+          # fully opaque; `parse_opacity` reads a trailing `%` and scales it.
+          parse_opacity(value).try { |num| style.alpha = num.clamp(0.0, 1.0) }
         when "tab-size"
-          style.tab_size = cells(value)
+          # Only a value that resolves to a cell count sets the tab width; an
+          # unparseable value — a typo, or an undefined `var(--x)` collapsed to
+          # "" before reaching here — is *dropped*, per CSS's "drop the invalid
+          # declaration" rule, leaving any previously-cascaded (or the default
+          # `4`) tab width intact. The old `cells(value)` form mapped every
+          # non-length to `0`, silently collapsing tab stops to zero width — the
+          # mirror of the `z-index`/`opacity` invalid-value bugs already fixed,
+          # which guard their parse with `.try` exactly as this now does.
+          Length.to_cells(value).try { |c| style.tab_size = c }
         when "box-shadow"
-          style.shadow = parse_box_shadow(value)
+          # Drop a *blank* value (a collapsed undefined `var(--x)`) rather than
+          # enabling a default drop shadow: per CSS's "drop the invalid
+          # declaration" rule an invalid value leaves any previously-cascaded
+          # shadow intact. The old unguarded form ran `parse_box_shadow("")`,
+          # which — finding neither `none` nor an alpha — returned
+          # `Shadow.from(true)`, silently switching a shadow *on* from nothing
+          # (the mirror of the `font`/`text-decoration`/`padding`/`margin`
+          # blank-clobber guards).
+          style.shadow = parse_box_shadow(value) unless value.blank?
         when "tint"
           parse_tint(style, value)
         when "z-index"
@@ -281,6 +329,20 @@ module Crysterm
         end
       end
 
+      # Parses a CSS `opacity` value: a bare `<number>` (`0.5`) or a
+      # `<percentage>` (`50%` → `0.5`), per CSS Color 4. Returns `nil` for a
+      # blank/non-numeric value (e.g. a collapsed undefined `var()`), so the
+      # caller drops the declaration rather than resetting the alpha. The caller
+      # clamps the result into `[0, 1]`.
+      private def self.parse_opacity(value : String) : Float64?
+        v = value.strip
+        if v.ends_with?('%')
+          v[0...-1].to_f?.try { |n| n / 100.0 }
+        else
+          v.to_f?
+        end
+      end
+
       # Parses a `tint`: a color the widget is overlaid toward, plus an optional
       # strength (`0..1`). `tint: #ff0000 0.3` ⇒ 30% red overlay; `tint: none`
       # clears it. The color may be any form `color`/`background-color` accept; a
@@ -413,17 +475,7 @@ module Crysterm
         when "border-width"
           apply_border_width border, value
         when "border-color"
-          # The `border-color` shorthand recolors the *whole* border, so it must
-          # also clear any per-side override (`border-top-color` & co.) a prior
-          # declaration set — the renderer reads `top_fg = @fg_top || @fg`, so a
-          # stale `@fg_top` would otherwise shadow the new whole-border `@fg`,
-          # leaving `border-top-color: red; border-color: blue` red on top. (A
-          # blank value is dropped by `with_color`, so an invalid declaration —
-          # e.g. an undefined `var()` — resets nothing, per CSS.)
-          with_color(value, el_color) do |c|
-            border.fg = c
-            border.fg_top = border.fg_right = border.fg_bottom = border.fg_left = nil
-          end
+          apply_border_color border, value, el_color
         when "border-top-color"
           with_color(value, el_color) { |c| border.fg_top = coerce_color_int(c) }
         when "border-right-color"
@@ -462,9 +514,38 @@ module Crysterm
       # invalid-value guards already in place for `z-index`/`visibility`/`display`.
       # (`transparent` resolves to a genuine `-1` `Int32`, not a blank string, so
       # it is unaffected.)
+      #
+      # A *non-blank but malformed* color *function* is the same kind of invalid
+      # declaration and is likewise dropped: an `rgb()`/`hsl()` whose argument
+      # list doesn't parse — most realistically `rgb(var(--x), 0, 0)` whose
+      # undefined `var()` collapsed to `rgb(, 0, 0)` before reaching here —
+      # resolves to `nil`, and the old `yield nil` ran `style.fg = nil`, silently
+      # *unsetting* a color a lower-priority rule had set (the non-blank mirror of
+      # the blank-value clobber above). The genuine-unset keyword forms
+      # (`inherit`/`initial`/`unset`, and `currentColor` with no text color) also
+      # resolve to `nil` but *should* reset the color so the cascade's inheritance
+      # pass can refill it — so only a failed `rgb`/`hsl` *function* is dropped,
+      # told apart by its leading function name.
       private def self.with_color(value : String, current : Int32?, & : (Int32 | String | Nil) ->) : Nil
         return if value.blank?
-        yield ColorValue.resolve(value, current)
+        resolved = ColorValue.resolve(value, current)
+        return if resolved.nil? && color_function?(value)
+        yield resolved
+      end
+
+      # Whether *value* is (an attempt at) an `rgb()`/`hsl()` color *function* —
+      # used by `with_color` to tell a malformed-function `nil` (drop it) apart
+      # from a genuine-unset keyword `nil` (`inherit`/`currentColor`, reset it).
+      # A gradient/keyword/named/hex never reaches `nil` *and* matches here:
+      # a failed gradient passes through as its string, and the keywords don't
+      # start with `rgb`/`hsl`.
+      private def self.color_function?(value : String) : Bool
+        # Reached only on the (rare) resolve-`nil` path, so the small `downcase`
+        # of the leading token is fine. CSS function names are case-insensitive
+        # (`RGB(...)` == `rgb(...)`), matching `ColorValue.resolve`'s own dispatch.
+        v = value.lstrip
+        head = v[0, 3].downcase
+        head == "rgb" || head == "hsl"
       end
 
       # Coerces a resolved color (`Int32`, a named/hex `String`, or `nil`) to the
@@ -475,6 +556,59 @@ module Crysterm
         when Int32  then resolved
         when String then Colors.convert_cached(resolved)
         else             nil
+        end
+      end
+
+      # Applies the `border-color` shorthand: 1-4 colors in CSS TRBL order
+      # (`border-color: <top> <right> <bottom> <left>`), with the standard CSS
+      # fill-ins (1 value → whole border; 2 → vertical/horizontal; 3 → top/
+      # horizontal/bottom). A *single* color recolors the whole border and clears
+      # any per-side override (`border-top-color` & co.) a prior declaration set —
+      # the renderer reads `top_fg = @fg_top || @fg`, so a stale `@fg_top` would
+      # otherwise shadow the new whole-border `@fg`, leaving
+      # `border-top-color: red; border-color: blue` red on top. Two-to-four colors
+      # set the per-side overrides directly (the `fg_top`/`fg_right`/… slots the
+      # renderer reads), so `border-color: red blue` colors the top/bottom red and
+      # the sides blue — the direct analog of the multi-value `border-width`
+      # shorthand (`apply_border_width`).
+      #
+      # The old form passed the *whole* multi-token value to `with_color`, which
+      # resolved e.g. `"red green blue yellow"` to the `-1` "unknown" sentinel
+      # (terminal default) and cleared every per-side slot — silently dropping all
+      # four colors. Tokens are split with `split_top_level` so a color function's
+      # internal spaces/commas (`rgb(255, 0, 0)`) stay one token. A blank value (a
+      # collapsed undefined `var()`) is dropped — an invalid declaration resets
+      # nothing, per CSS — as is one with more than four colors.
+      private def self.apply_border_color(border : Border, value : String, el_color : Int32?) : Nil
+        return if value.blank?
+        tokens = split_top_level(value)
+        if tokens.size == 1
+          # Whole-border recolor: keep the resolved form (`Int32`/`String`) via
+          # `Colorizable`, and clear any per-side override so it can't shadow it.
+          with_color(value, el_color) do |c|
+            border.fg = c
+            border.fg_top = border.fg_right = border.fg_bottom = border.fg_left = nil
+          end
+          return
+        end
+        # Resolve each token to the native per-side int form (`currentColor`
+        # against the element's text color, like the per-side longhands).
+        c = tokens.map { |token| coerce_color_int(ColorValue.resolve(token, el_color)) }
+        case tokens.size
+        when 2 # vertical horizontal
+          border.fg_top = border.fg_bottom = c[0]
+          border.fg_left = border.fg_right = c[1]
+        when 3 # top horizontal bottom
+          border.fg_top = c[0]
+          border.fg_left = border.fg_right = c[1]
+          border.fg_bottom = c[2]
+        when 4 # top right bottom left
+          border.fg_top = c[0]
+          border.fg_right = c[1]
+          border.fg_bottom = c[2]
+          border.fg_left = c[3]
+        else
+          # >4 colors: invalid declaration, drop it.
         end
       end
 
@@ -511,7 +645,14 @@ module Crysterm
         # explicit `border-width` *longhand*, a shorthand width is not clamped up.)
         explicit_width = nil
         type_seen = false
-        value.split.each do |token|
+        # Split on top-level whitespace only, so a color *function*'s internal
+        # spaces/commas (`rgb(30, 30, 46)`, `hsl(210, 50%, 40%)`) stay one token
+        # instead of being shredded into junk — the same tokenizing the `border`
+        # shorthand (`parse_border`) and `border-color` (`apply_border_color`)
+        # already use. The old plain `value.split` broke a multi-token color out of
+        # `border-left: solid rgb(...)`, so each fragment (`rgb(30,`, `30,`, `46)`)
+        # resolved to the `-1` "unknown" sentinel and mis-set the per-side color.
+        split_top_level(value).each do |token|
           if Case.fold_keyword(token) == "none"
             explicit_width = 0
           elsif type = border_type_keyword(token)
@@ -562,7 +703,13 @@ module Crysterm
       # more than four widths is invalid CSS and dropped, leaving the border
       # unchanged (mirrors `parse_sides`).
       private def self.apply_border_width(border : Border, value : String) : Nil
-        tokens = value.split
+        # Split on top-level whitespace only, so a `calc(...)` width whose
+        # internal `+`/`-` carry the spaces CSS *requires* around them
+        # (`calc(2em + 1px)`) stays one token instead of being shredded into
+        # `calc(2em`/`+`/`1px)` — none of which parse, collapsing the border to a
+        # bogus side count. The same tokenizing the `border-color`/`border-<side>`
+        # color shorthands already use.
+        tokens = split_top_level(value)
         # A cell is taller than wide, so the horizontal (left/right) and vertical
         # (top/bottom) axes resolve absolute units differently — resolve each token
         # on both axes and pick the right one per side.
@@ -702,7 +849,13 @@ module Crysterm
       # differently — so both axes are resolved and the right one is picked per
       # side.
       private def self.parse_sides(value : String) : Tuple(Int32, Int32, Int32, Int32)?
-        parts = value.split
+        # Split on top-level whitespace only, so a `calc(...)` value whose internal
+        # `+`/`-` carry the spaces CSS *requires* around them (`padding: calc(2em +
+        # 1px)`) stays one token. A plain `value.split` shredded it into `calc(2em`/
+        # `+`/`1px)` — three bogus "sides" (case 3) rather than one calc'd value, so
+        # a spec-valid `calc()` padding/margin was silently mis-applied. The color
+        # shorthands already use `split_top_level` for the same reason.
+        parts = split_top_level(value)
         h = parts.map { |part| cells(part) }
         v = parts.map { |part| cells(part, vertical: true) }
         case parts.size #     left,  top,  right, bottom

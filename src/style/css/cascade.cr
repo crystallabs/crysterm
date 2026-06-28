@@ -404,9 +404,21 @@ module Crysterm
         entries
       end
 
-      # Sort key: `{tier, layer_rank, specificity, order}`.
+      # Sort key: `{tier, layer_rank, specificity, order}`, ascending — the
+      # winning declaration sorts last.
+      #
+      # `!important` *reverses* layer priority, per the CSS cascade: among
+      # important declarations an *earlier*-declared `@layer` beats a later one,
+      # and an unlayered important declaration is the *weakest* of all — the exact
+      # opposite of normal declarations (where later layers, then unlayered, win).
+      # Negating `layer_rank` for the important tier flips its otherwise-ascending
+      # order to match. Without this an important rule in a later layer (or an
+      # unlayered important rule) wrongly beat an important rule in an earlier
+      # layer, since all important entries share `TIER_IMPORTANT` and were sorted
+      # by raw `layer_rank` like normal ones.
       private def self.entry_key(entry : Entry)
-        {entry[0], entry[1], entry[2], entry[3]}
+        layer = entry[0] == TIER_IMPORTANT ? -entry[1] : entry[1]
+        {entry[0], layer, entry[2], entry[3]}
       end
 
       # Resolves *value*'s `var(...)` references against *variables*, memoizing in

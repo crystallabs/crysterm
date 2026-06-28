@@ -11,8 +11,12 @@ module Crysterm
       # A signed number, as used by `hsl()`'s arguments. The leading `-?` matters
       # for the hue: a negative angle is valid CSS (`hsl(-120, …)`) and must wrap
       # (`-120 ≡ 240`) rather than be read as its absolute value (a different
-      # color). A negative `s`/`l` is meaningless and simply clamps to 0.
-      RGB_RE = /(-?\d+(?:\.\d+)?)/
+      # color). A negative `s`/`l` is meaningless and simply clamps to 0. The
+      # `|\.\d+` alternative accepts a CSS leading-dot decimal (`.5`) as the whole
+      # number — without it `.5turn` was read as `5turn` (its `.5` losing the
+      # leading dot), a different angle entirely; see `Length::NUM`, which already
+      # accepts the same forms.
+      RGB_RE = /(-?(?:\d+(?:\.\d+)?|\.\d+))/
 
       # The hue argument of `hsl()`, with its optional CSS angle *unit*. The hue is
       # an `<angle>`, so CSS lets it carry `deg`/`grad`/`rad`/`turn` (e.g.
@@ -20,8 +24,11 @@ module Crysterm
       # `#hue_degrees` convert it, rather than reading every angle as degrees — so
       # `0.5turn` resolves to 180° (cyan), not 0.5° (red). Matches the first
       # number in the value (the `hsl(`/`hsla(` prefix has no digits), case-
-      # insensitively (`0.5TURN`).
-      HUE_RE = /(-?\d+(?:\.\d+)?)(deg|grad|rad|turn)?/i
+      # insensitively (`0.5TURN`). The `|\.\d+` alternative accepts a leading-dot
+      # decimal (`.5turn` == `0.5turn`); without it the regex matched only the
+      # `5turn` *after* the dot, reading `.5turn` (180°, cyan) as `5turn`
+      # (1800° ≡ 0°, red).
+      HUE_RE = /(-?(?:\d+(?:\.\d+)?|\.\d+))(deg|grad|rad|turn)?/i
 
       def self.resolve(value : String, current_fg : Int32?) : Int32 | String | Nil
         v = value.strip
@@ -115,8 +122,9 @@ module Crysterm
       # (e.g. from a generated/animated value) and CSS clamps it to 0 — so it must
       # be read as the negative it is and clamped by `#component`, not silently
       # parsed as its magnitude (`rgb(-10, …)` is `0`, not `10`). Mirrors the
-      # signed `RGB_RE` used by `#parse_hsl`.
-      RGB_COMPONENT = /(-?\d+(?:\.\d+)?)(%)?/
+      # signed `RGB_RE` used by `#parse_hsl`, including its leading-dot decimal
+      # (`.5%`) — so a fractional channel reads as `0.5`, not the `5` after the dot.
+      RGB_COMPONENT = /(-?(?:\d+(?:\.\d+)?|\.\d+))(%)?/
 
       # `rgb(r, g, b)` / `rgba(r, g, b, a)` (commas or spaces). Each channel may
       # be a `0..255` number or a `0%..100%` percentage (CSS allows either form);
