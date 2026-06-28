@@ -543,9 +543,9 @@ module Crysterm
       when 'X' then erase_chars(param(0, 1))
       when 'S' then scroll_region_times(param(0, 1)) { scroll_up }   # SU
       when 'T' then scroll_region_times(param(0, 1)) { scroll_down } # SD
-      when 'I' then forward_tab(param(0, 1)); @wrap_pending = false # CHT
-      when 'Z' then back_tab(param(0, 1))                           # CBT
-      when 'g' then tab_clear(param0(0))                            # TBC
+      when 'I' then forward_tab(param(0, 1)); @wrap_pending = false  # CHT
+      when 'Z' then back_tab(param(0, 1))                            # CBT
+      when 'g' then tab_clear(param0(0))                             # TBC
       when 'm'
         # Only a *plain* CSI (no private/intermediate prefix) is SGR. A
         # prefixed form like `CSI > 4 ; 2 m` is xterm's modifyOtherKeys
@@ -566,8 +566,19 @@ module Crysterm
         end
       when 'h' then set_mode true
       when 'l' then set_mode false
-      when 's' then save_cursor unless @csi_private
-      when 'u' then restore_cursor unless @csi_private
+      when 's', 'u'
+        # SCOSC / SCORC (save/restore cursor) are only the *plain* `CSI s` / `CSI u`.
+        # A prefixed form is something else entirely and must NOT move the cursor:
+        # the Kitty keyboard protocol — which neovim, fish, kakoune, … negotiate at
+        # startup — pushes/pops/queries its flags with `CSI > Pn u`, `CSI < Pn u`,
+        # `CSI = Pn ; Pn u` and `CSI ? u`. Gating only on `@csi_private` (the `?`
+        # prefix) let `>`/`<`/`=` fall through to `restore_cursor`, so a child
+        # toggling Kitty-keyboard mode had its cursor yanked to the last saved
+        # position (0,0 if never saved). The same `@csi_prefix.nil?` gate the SGR
+        # ('m') handler uses for the modifyOtherKeys form applies here.
+        if @csi_prefix.nil?
+          c == 's' ? save_cursor : restore_cursor
+        end
       when 'n' then device_status(param0(0))
       when 'c'
         if param0(0) == 0

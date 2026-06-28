@@ -131,6 +131,26 @@ describe Crysterm::TerminalEmulator do
       ycell = em.lines[0][1]
       (Crysterm::Attr.flags(ycell.attr) & Crysterm::Attr::UNDERLINE).should_not eq 0
     end
+
+    it "does not treat a prefixed CSI u (Kitty keyboard protocol) as a cursor restore" do
+      # `CSI > Pn u` / `CSI < Pn u` / `CSI = … u` push/pop/set the Kitty keyboard
+      # protocol flags (neovim, fish, kakoune negotiate them at startup) — they are
+      # NOT SCORC. Treating a prefixed `u` as restore-cursor yanked the cursor to
+      # the last saved position (0,0 if never saved). Plain `CSI s`/`CSI u` must
+      # still save/restore.
+      em = emu
+      em.feed "\e[s"     # SCOSC: save the home position (0,0)
+      em.feed "\e[3;5HX" # move to row 3 / col 5 and print
+      em.feed "\e[>1u"   # Kitty-keyboard push — must be ignored, cursor unmoved
+      em.cursor_y.should eq 2
+      em.cursor_x.should eq 5
+      em.feed "\e[<u" # Kitty-keyboard pop — also ignored
+      em.cursor_y.should eq 2
+      em.cursor_x.should eq 5
+      em.feed "\e[u" # plain SCORC: now the cursor returns to the saved 0,0
+      em.cursor_y.should eq 0
+      em.cursor_x.should eq 0
+    end
   end
 
   describe "erase" do
@@ -154,11 +174,11 @@ describe Crysterm::TerminalEmulator do
       em = emu(5, 2)
       em.feed "L0\r\nL1\r\nL2\r\nL3" # L0/L1 scroll into history; L2/L3 stay visible
       em.ybase.should eq 2
-      em.feed "\e[3J"               # erase saved lines
-      em.ybase.should eq 0          # scrollback gone
+      em.feed "\e[3J"      # erase saved lines
+      em.ybase.should eq 0 # scrollback gone
       em.ydisp.should eq 0
-      em.lines.size.should eq 2     # exactly the visible page retained
-      row(em, 0).should eq "L2"     # visible content untouched
+      em.lines.size.should eq 2 # exactly the visible page retained
+      row(em, 0).should eq "L2" # visible content untouched
       row(em, 1).should eq "L3"
     end
   end
@@ -395,8 +415,8 @@ describe Crysterm::TerminalEmulator do
     it "caps an adversarial huge SD count at the region height" do
       em = emu(4, 4)
       4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
-      em.feed "\e[99999999T"          # SD: content moves down, blanks from the top
-      em.lines.size.should eq 4       # SD never touches scrollback
+      em.feed "\e[99999999T"    # SD: content moves down, blanks from the top
+      em.lines.size.should eq 4 # SD never touches scrollback
       (0...4).each { |y| row(em, y).should eq "" }
     end
   end
