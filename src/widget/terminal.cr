@@ -203,6 +203,14 @@ module Crysterm
       def on_mouse(e : ::Crysterm::Event::Mouse) : Nil
         em = @emulator
         return unless em && em.mouse_enabled?
+        # Only forward the event kinds the child's *active* tracking mode asked
+        # for. xterm's modes are progressive: X10 (9) reports button presses
+        # only; normal (1000) adds release + wheel; button-event (1002) adds
+        # motion while a button is held; any-event (1003) adds free motion.
+        # Forwarding every event regardless (the old behaviour) flooded a child
+        # in the common *normal* mode with spurious motion reports it never
+        # requested — corrupting programs that read mouse input.
+        return unless mouse_event_wanted? em, e
 
         # Coordinates relative to the inner (content) area, 0-based.
         col = e.x - (aleft + ileft)
@@ -217,6 +225,23 @@ module Crysterm
         forward_to_child report
         e.accept
         request_render
+      end
+
+      # Whether the child's active mouse-tracking mode wants this event. Mirrors
+      # xterm's progressive DECSET modes (see `#on_mouse`): a higher mode is a
+      # superset of the lower ones. `mouse_tracking` is the live DECSET value
+      # (9 / 1000 / 1002 / 1003) the emulator parsed.
+      private def mouse_event_wanted?(em : TerminalEmulator, e : ::Crysterm::Event::Mouse) : Bool
+        case em.mouse_tracking
+        when 9 # X10: button presses only (no release, wheel, or motion)
+          e.action.down?
+        when 1000 # normal (press/release + wheel), but NOT motion
+          !e.action.move?
+        when 1002 # button-event: motion only while a button is held
+          !e.action.move? || e.button != ::Tput::Mouse::Button::None
+        else # 1003 (any-event) and any future mode: everything
+          true
+        end
       end
 
       # Encodes a normalized `Event::Mouse` back into an xterm mouse report, in
