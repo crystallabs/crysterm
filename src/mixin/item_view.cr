@@ -688,6 +688,15 @@ module Crysterm
           end
         end
 
+        # Rows were reused in place (`set_content`) above, so the selection may
+        # land on the *same* index whose text just changed — in which case
+        # `selekt`'s unchanged-index short-circuit (`@selected == index &&
+        # @_list_initialized`) never refreshed the cached `#value`, leaving it on
+        # the pre-replacement text. Sync it to the now-current row (tags stripped,
+        # like `#selekt`/`#set_item`) so `Form` value collection and other `value`
+        # consumers don't read stale content. `""` when the list ended up empty.
+        @value = @ritems[@selected]?.try { |r| clean_tags r } || ""
+
         emit Crysterm::Event::SetItems
       end
 
