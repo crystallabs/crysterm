@@ -515,18 +515,7 @@ module Crysterm
           line = lines[yi + ry]?
           break unless line
 
-          rx = 0
-          (@first_col...last).each do |mi|
-            rx += @maxes[mi]
-            break if rx >= width
-            next unless line[xi + rx + 1]?
-            rx += 1
-            if cell = line[xi + rx]?
-              cell.attr = junction_attr(battr, cell.attr)
-              cell.char = '│'
-              line.dirty = true
-            end
-          end
+          draw_vertical_separators line, xi, battr, start_col: @first_col, width: width
 
           ry += 1
         end

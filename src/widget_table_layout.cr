@@ -243,5 +243,30 @@ module Crysterm
       return battr unless fill_cell_borders?
       Attr.pack Attr.flags(battr), Attr.fg(battr), Attr.bg(over)
     end
+
+    # Draws the internal `│` vertical cell separators on a single already-fetched
+    # grid `line`, accumulating the display position `rx` across the visible
+    # columns starting at *start_col* (`0` for `Table`, `@first_col` for
+    # `ListTable`'s horizontally-scrolled viewport). When *width* is given, the
+    # run stops once a separator would fall at or past the right content edge
+    # (`ListTable`'s clip); a nil *width* draws every internal column (`Table`,
+    # which sizes itself to its content and never clips). Each separator takes
+    # `junction_attr` so `fill_cell_borders` shows through. *xi* is the line's
+    # left content origin (`coords.xi`).
+    def draw_vertical_separators(line, xi : Int32, battr : Int64,
+                                 start_col : Int32 = 0, width : Int32? = nil) : Nil
+      rx = 0
+      (start_col...(@maxes.size - 1)).each do |mi|
+        rx += @maxes[mi]
+        break if width && rx >= width
+        next unless line[xi + rx + 1]?
+        rx += 1
+        if cell = line[xi + rx]?
+          cell.attr = junction_attr(battr, cell.attr)
+          cell.char = '│'
+          line.dirty = true
+        end
+      end
+    end
   end
 end

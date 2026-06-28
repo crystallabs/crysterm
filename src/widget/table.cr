@@ -300,17 +300,7 @@ module Crysterm
 
           if ry.odd?
             # Vertical separators between columns.
-            rx = 0
-            (0...last).each do |mi|
-              rx += @maxes[mi]
-              next unless line[xi + rx + 1]?
-              rx += 1
-              if cell = line[xi + rx]?
-                cell.attr = junction_attr(battr, cell.attr)
-                cell.char = '│'
-                line.dirty = true
-              end
-            end
+            draw_vertical_separators line, xi, battr
           else
             # Horizontal rules across cell widths.
             rx = 1
