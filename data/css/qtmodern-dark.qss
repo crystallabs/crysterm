@@ -5,7 +5,14 @@
 QGroupBox {
   background-color: palette(alternate-base);
   border: 1px solid palette(midlight);
-  margin-top: 25px;
+  /* Upstream Qt uses `margin-top: 25px` to reserve space *above* the frame for
+     the group-box title, which Qt paints overlapping the top border. Crysterm's
+     `GroupBox` draws its title inside its own frame, so it needs no outer top
+     margin — and `25px` rounds to ~1 cell, which shifts the box's children down
+     a row from their hit rectangle (their painted position picks up the parent
+     margin but their `atop` does not), so clicks on a child (e.g. the Color
+     combo's drop-down) miss it and nothing opens. Drop the Qt-only margin. */
+  margin-top: 0;
 }
 
 QGroupBox::title {
