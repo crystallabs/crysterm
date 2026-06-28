@@ -281,21 +281,13 @@ module Crysterm
     # once it does (mirroring `drag_origin`), so the widget can't be dragged across
     # the padded edge.
     private def drag_max_left : Int32
-      bound = if p = parent
-                p.awidth - p.iwidth
-              else
-                screen.awidth - screen.iwidth
-              end
-      {bound - awidth, 0}.max
+      c = parent_or_screen
+      {c.awidth - c.iwidth - awidth, 0}.max
     end
 
     private def drag_max_top : Int32
-      bound = if p = parent
-                p.aheight - p.iheight
-              else
-                screen.aheight - screen.iheight
-              end
-      {bound - aheight, 0}.max
+      c = parent_or_screen
+      {c.aheight - c.iheight - aheight, 0}.max
     end
 
     # Whether this widget self-moves while dragged (the default reposition
