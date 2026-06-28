@@ -1008,25 +1008,33 @@ module Crysterm
       return pos._clean_sides = false if pos.yi < 0 || pos.yl > aheight
       return pos._clean_sides = true if (pos.xi - 1) < 0 || pos.xl > awidth
 
+      # Both the band of columns left of the element and the band to its right
+      # must be uniform top-to-bottom for the sides to count as clean; the inner
+      # column scan is identical for either band, so it lives in `column_uniform?`.
       (pos.xi - 1).downto(0) do |x|
-        first = @olines[yi][x] if @olines[yi]?
-        yi.upto(yl - 1) do |y|
-          break unless @olines[y]? && @olines[y][x]?
-          ch = @olines[y][x]
-          return pos._clean_sides = false if ch != first
-        end
+        return pos._clean_sides = false unless column_uniform? x, yi, yl
       end
 
-      (pos.xl...awidth).each do |x2|
-        first = @olines[yi][x2] if @olines[yi]?
-        yi.upto(yl - 1) do |y|
-          break unless @olines[y]? && @olines[y][x2]?
-          ch = @olines[y][x2]
-          return pos._clean_sides = false if ch != first
-        end
+      (pos.xl...awidth).each do |x|
+        return pos._clean_sides = false unless column_uniform? x, yi, yl
       end
 
       pos._clean_sides = true
+    end
+
+    # Whether column *x* of `@olines` holds the same cell on every row of
+    # `yi...yl` (the uniformity test `clean_sides` runs on the columns flanking a
+    # scrollable element). A row missing the column stops the scan early, exactly
+    # as the original per-band loops did, and a missing top row (`@olines[yi]`)
+    # leaves the reference cell nil so the scan breaks before any comparison.
+    private def column_uniform?(x, yi, yl) : Bool
+      first = @olines[yi][x] if @olines[yi]?
+      yi.upto(yl - 1) do |y|
+        break unless @olines[y]? && @olines[y][x]?
+        ch = @olines[y][x]
+        return false if ch != first
+      end
+      true
     end
 
     # Clears any chosen region on the screen.
