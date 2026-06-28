@@ -398,46 +398,28 @@ module Crysterm
         if pv = @preview
           paint_swatch pv, hex
         end
-        # Don't clobber a field while it holds focus — the user may be mid-type
-        # (the live `TextChange` handler already drove the change that got us
-        # here), exactly like the Hex field below.
-        if (sp = @rspin) && !sp.focused?
-          sp.value = r.to_s
-        end
-        if (sp = @gspin) && !sp.focused?
-          sp.value = g.to_s
-        end
-        if (sp = @bspin) && !sp.focused?
-          sp.value = b.to_s
-        end
-        if (sp = @hspin) && !sp.focused?
-          sp.value = @hue.round.to_i.to_s
-        end
-        if (sp = @sspin) && !sp.focused?
-          sp.value = (@saturation * 100).round.to_i.to_s
-        end
-        if (sp = @vspin) && !sp.focused?
-          sp.value = (@value_v * 100).round.to_i.to_s
-        end
+        sync_field @rspin, r.to_s
+        sync_field @gspin, g.to_s
+        sync_field @bspin, b.to_s
+        sync_field @hspin, @hue.round.to_i.to_s
+        sync_field @sspin, (@saturation * 100).round.to_i.to_s
+        sync_field @vspin, (@value_v * 100).round.to_i.to_s
         lh, ls, ll = rgb_to_hsl r, g, b
-        if (sp = @lhspin) && !sp.focused?
-          sp.value = lh.round.to_i.to_s
-        end
-        if (sp = @lsspin) && !sp.focused?
-          sp.value = (ls * 100).round.to_i.to_s
-        end
-        if (sp = @llspin) && !sp.focused?
-          sp.value = (ll * 100).round.to_i.to_s
-        end
-        if hb = @hexbox
-          # Cosmetic leading space before the "#". Don't clobber the field while
-          # the user is typing into it (the live `TextChange` handler already
-          # drove the change that got us here).
-          hb.value = " #{hex}" unless hb.focused?
-        end
+        sync_field @lhspin, lh.round.to_i.to_s
+        sync_field @lsspin, (ls * 100).round.to_i.to_s
+        sync_field @llspin, (ll * 100).round.to_i.to_s
+        # The Hex field carries a cosmetic leading space before the "#".
+        sync_field @hexbox, " #{hex}"
         mark_palette_selection r, g, b
         @syncing = false
         request_render
+      end
+
+      # Pushes *value* into editor field *le*, unless it is `nil` or currently
+      # focused — never clobbering a field the user is mid-typing into, since the
+      # live `TextChange` handler already drove the change that got us here.
+      private def sync_field(le : LineEdit?, value : String) : Nil
+        le.value = value if le && !le.focused?
       end
 
       # Shows a centered marker on the basic-palette swatch (if any) whose color

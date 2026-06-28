@@ -196,6 +196,16 @@ module Crysterm
         tabs_closable? ? "#{title} ✕" : title
       end
 
+      # Re-points every tab command's callback at its *current* index. The
+      # commands capture an absolute index when added (`bar.add … { show_tab
+      # index }`), which goes stale after a tab is removed or reordered; this
+      # re-binds each to its present position. Callers wrap it in `@switching`.
+      private def repoint_tab_callbacks : Nil
+        @tab_titles.each_with_index do |_, i|
+          bar.commands[i].callback = -> { show_tab i }
+        end
+      end
+
       # Appends a tab titled *title* whose body is *page*. The page is sized to
       # fill the area beside the tab bar. The first tab added becomes current.
       def add_tab(title : String, page : Widget) : self
@@ -263,14 +273,11 @@ module Crysterm
 
         @switching = true
         bar.remove_item index
-        # Each remaining command still holds the absolute index captured when it
-        # was added (`bar.add … { show_tab index }`); after the removal those go
-        # stale, so re-point every callback at its current position (as
-        # `#move_tab` does). Otherwise pressing Enter on a tab past the removed
-        # one runs a stale callback and jumps to the wrong page.
-        @tab_titles.each_with_index do |_, i|
-          bar.commands[i].callback = -> { show_tab i }
-        end
+        # After the removal the remaining commands' captured indices go stale, so
+        # re-point every callback at its current position. Otherwise pressing
+        # Enter on a tab past the removed one runs a stale callback and jumps to
+        # the wrong page.
+        repoint_tab_callbacks
         @switching = false
 
         remove page
@@ -306,9 +313,7 @@ module Crysterm
         # Rebuild the bar from the reordered titles.
         @switching = true
         bar.set_items @tab_titles.map { |t| display_title t }
-        @tab_titles.each_with_index do |_, i|
-          bar.commands[i].callback = -> { show_tab i }
-        end
+        repoint_tab_callbacks
         @switching = false
         # `set_items` recreated the item boxes, so re-wire their `✕` close cells.
         bar.items.each { |it| wire_close it }
