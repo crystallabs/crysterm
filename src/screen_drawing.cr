@@ -92,7 +92,7 @@ module Crysterm
     # present (terminfo always resolves, with a fallback term), so `not_nil!`
     # cannot fail.
     private def compute_draw_caps : DrawCaps
-      s = tput.shim.not_nil!
+      s = tput.shim.not_nil! # ameba:disable Lint/NotNil
       DrawCaps.new(
         has_bce: !!(tput.has? &.back_color_erase?),
         parm_right_cursor: !s.parm_right_cursor?.nil?,

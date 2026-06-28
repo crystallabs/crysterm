@@ -86,7 +86,7 @@ describe Crysterm::Layout::UniformGrid do
     cells = Array.new(3) { Widget::Box.new parent: box, width: 8, height: 2 }
 
     s._render
-    cells.map { |c| c.lpos.not_nil!.xi }.should eq [0, 8, 16]
+    cells.map(&.lpos.not_nil!.xi).should eq [0, 8, 16]
   end
 end
 

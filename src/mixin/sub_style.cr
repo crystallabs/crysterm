@@ -27,7 +27,7 @@ module Crysterm
       # keeps each child's in-place style edits to itself.
       protected def apply_substyle(child : Widget?, substyle : ::Crysterm::Style) : Nil
         return if substyle.same? style
-        child.try { |c| c.styles.normal = substyle.dup }
+        child.try(&.styles.normal=(substyle.dup))
       end
     end
   end

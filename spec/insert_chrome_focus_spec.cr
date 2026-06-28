@@ -21,7 +21,7 @@ end
 describe "Screen#insert auto-focus" do
   it "does not re-focus an unrelated keyable widget when inserting non-focusable chrome" do
     s = chrome_screen
-    a = Widget::Box.new parent: s, keys: true # auto-focused as the first focusable
+    Widget::Box.new parent: s, keys: true # auto-focused as the first focusable
 
     # Clear back to a no-focus state. `a` stays keyable and registered, just
     # unfocused (the state reachable after `rewind_focus`/history clearing).

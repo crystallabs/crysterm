@@ -185,7 +185,7 @@ module Crysterm
       # the fade/pulse would never take effect (the same trap `#set_visible`
       # avoids).
       self.state_style.alpha = value
-      persist_inline_style { |s| s.alpha = value }
+      persist_inline_style(&.alpha=(value))
     end
 
     # Sets `style.tint`/`tint_alpha` (CSS-safely, like `#set_alpha`).

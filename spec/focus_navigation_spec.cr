@@ -35,7 +35,7 @@ describe "Screen#focus_offset" do
   it "enters from the correct end when nothing is focused" do
     s = focus_screen
     a = Widget::Box.new parent: s, keys: true
-    b = Widget::Box.new parent: s, keys: true
+    Widget::Box.new parent: s, keys: true
     c = Widget::Box.new parent: s, keys: true
 
     # Adding the first keyable widget auto-focuses it; clear back to no focus.
@@ -58,7 +58,7 @@ describe "Screen#focus_offset" do
     s = focus_screen
     a = Widget::Box.new parent: s, keys: true
     stale = Widget::Box.new parent: s, keys: true
-    b = Widget::Box.new parent: s, keys: true
+    Widget::Box.new parent: s, keys: true
 
     a.focus
     s.remove stale # stale stays registered in @keyable but is now detached

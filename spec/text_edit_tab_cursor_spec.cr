@@ -24,7 +24,7 @@ describe "PlainTextEdit caret with TABs" do
 
     # Rendered col 7 on "ab    cd" is the 'd'; the editable offset just before 'd'
     # in "ab\tcd" (a,b,\t,c,d) is index 4 — on the FIRST logical line.
-    first_nl = pte.value.index('\n').not_nil!
+    first_nl = pte.value.index!('\n')
     pte.cursor_pos.should be < first_nl
     pte.cursor_pos.should eq 4
   end

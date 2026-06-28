@@ -156,7 +156,7 @@ module Crysterm
           # offset — otherwise the captions stay anchored to the first values and
           # mislabel the visible (tail) bars.
           if label_row == 1
-            names = lbls.not_nil!
+            names = lbls.not_nil! # ameba:disable Lint/NotNil
             offset = @values.size - n
             lines << field_line(n) { |i| names[offset + i]? || "" }
           end

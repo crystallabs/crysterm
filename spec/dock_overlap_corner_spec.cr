@@ -32,7 +32,7 @@ describe "border docking with an overlapping popup" do
     # the parent's right border column (`parent.xl - 1`) and starts ONE ROW below
     # the parent's top, so exactly one parent border cell (the `┐` corner) sits
     # directly above the popup's top edge.
-    popup = Widget::Box.new(
+    Widget::Box.new(
       parent: s, top: 2, left: 20, width: 16, height: 6,
       style: Style.new(border: Border.new(type: BorderType::Line)))
 

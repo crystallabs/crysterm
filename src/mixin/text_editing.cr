@@ -505,6 +505,7 @@ module Crysterm
         # is already installed and yes==true).
       end
 
+      # ameba:disable Metrics/CyclomaticComplexity
       def _listener(e)
         done = @_done
         value = @value

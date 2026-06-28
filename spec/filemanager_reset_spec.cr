@@ -29,7 +29,7 @@ describe Crysterm::Widget::FileManager do
       fm.cwd.should eq base
 
       # Navigate into "sub" by selecting its row and activating it.
-      idx = fm.ritems.index { |r| r.includes?("sub") }
+      idx = fm.ritems.index(&.includes?("sub"))
       idx.should_not be_nil
       fm.selected = idx.not_nil!
       fm.enter_selected

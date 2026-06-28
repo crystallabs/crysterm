@@ -157,7 +157,7 @@ module Crysterm
     # Returns the `Screen` owning this widget, raising if it is not attached to
     # one. See `#screen?` for a non-raising variant.
     def screen : ::Crysterm::Screen
-      screen?.not_nil!
+      screen?.not_nil! # ameba:disable Lint/NotNil
     end
 
     # Sets the owning `Screen`.

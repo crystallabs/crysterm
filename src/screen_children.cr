@@ -156,12 +156,12 @@ module Crysterm
       # currently applied (`set_mouse_cursor_shape` self-guards both).
       set_mouse_cursor_shape nil if drop_hover
       @_arm = nil if drop_arm
-      stale_drag.try { |d| drag_cancel d if @_drag == d }
+      stale_drag.try { |sd| drag_cancel sd if @_drag == sd }
       # Clear a stale drop-target pointing into the removed subtree, emitting the
       # expected `DragLeave` on it. Guarded on the session being unchanged, so it
       # is a no-op when the drag was already torn down above (its source was in
       # the subtree too) or ended by an event during the unlink.
-      stale_target.try { |d| retarget(d, nil) if @_drag == d }
+      stale_target.try { |st| retarget(st, nil) if @_drag == st }
       # Release any input grab that pointed into the removed subtree, lifting the
       # stale modal lock so the rest of the screen takes mouse input again.
       stale_grabs.each { |g| ungrab g }

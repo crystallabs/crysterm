@@ -12,7 +12,7 @@ module Crysterm
     property _label : Widget?
 
     def _label!
-      @_label.not_nil!
+      @_label.not_nil! # ameba:disable Lint/NotNil
     end
 
     # Holder for event which will trigger on resize, to adjust the label

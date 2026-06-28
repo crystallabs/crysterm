@@ -31,7 +31,7 @@ describe Crysterm::Widget::FileManager do
       fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base, keys: true)
       fm.refresh
 
-      idx = fm.ritems.index { |r| r.includes?("mail") }
+      idx = fm.ritems.index(&.includes?("mail"))
       idx.should_not be_nil
       fm.selected = idx.not_nil!
       fm.enter_selected
@@ -55,7 +55,7 @@ describe Crysterm::Widget::FileManager do
       fm = Crysterm::Widget::FileManager.new(parent: s, cwd: base, keys: true)
       fm.refresh
 
-      idx = fm.ritems.index { |r| r.includes?("data") }
+      idx = fm.ritems.index(&.includes?("data"))
       idx.should_not be_nil
       fm.selected = idx.not_nil!
 

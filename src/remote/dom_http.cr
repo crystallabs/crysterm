@@ -90,7 +90,7 @@ module Crysterm
       # stops every fade/tint/css-animation/transition, kills PTYs, and unlinks
       # the widget from the screen at the end (so `@screen.children` ends empty,
       # ready for the rebuild) — exactly the teardown a full layout swap wants.
-      @screen.children.dup.each { |child| child.destroy }
+      @screen.children.dup.each(&.destroy)
       @event_wired.clear       # old widgets are gone; re-wire subscriptions for the new tree
       @declarative_wired.clear # ...and their declarative `on*` bindings
       DOM.load html, @screen

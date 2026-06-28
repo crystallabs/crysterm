@@ -1667,7 +1667,7 @@ module Crysterm
       if bytes = @bytes
         bytes.unsafe_fetch(i).unsafe_chr
       else
-        @chars.not_nil!.unsafe_fetch(i)
+        @chars.not_nil!.unsafe_fetch(i) # ameba:disable Lint/NotNil
       end
     end
 
@@ -1677,7 +1677,7 @@ module Crysterm
       if bytes = @bytes
         bytes.unsafe_fetch(i).unsafe_chr
       else
-        @chars.not_nil!.unsafe_fetch(i)
+        @chars.not_nil!.unsafe_fetch(i) # ameba:disable Lint/NotNil
       end
     end
 

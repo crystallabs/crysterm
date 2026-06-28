@@ -61,7 +61,7 @@ module Crysterm
         # `rebuild`, leaving the view stale. Propagating here keeps every node
         # in an attached subtree able to refresh the view.
         def tree=(@tree : Tree?) : Tree?
-          @children.each { |c| c.tree = @tree }
+          @children.each(&.tree=(@tree))
           @tree
         end
 

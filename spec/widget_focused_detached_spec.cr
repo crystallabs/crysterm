@@ -29,7 +29,7 @@ describe "Widget#focused?" do
 
   it "returns false (does not raise) for a detached widget" do
     s = detached_focus_screen
-    other = Widget::Box.new parent: s, keys: true
+    Widget::Box.new parent: s, keys: true
     w = Widget::Box.new parent: s, keys: true
 
     w.focus

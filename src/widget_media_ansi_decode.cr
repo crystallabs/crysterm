@@ -137,6 +137,7 @@ module Crysterm
       # a 2D cell grid is built honoring SGR colour/bold and cursor motion
       # (CUP/CUU/CUD/CUF/CUB, CR/LF, ED), then each cell is rasterized with the
       # bitmap `Font`.
+      # ameba:disable Metrics/CyclomaticComplexity
       def self.decode_ansi(data : Bytes, font : Font = Font.default_normal) : PNGGIF::PNG
         # cell = {char, fg(0..7|nil), fg_bright, bg(0..7|nil), bg_bright, reverse}
         cells = {} of Tuple(Int32, Int32) => Tuple(Char, Int32?, Bool, Int32?, Bool, Bool)

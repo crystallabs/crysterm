@@ -125,7 +125,7 @@ module Crysterm
 
           # Legend along the top.
           if legend_row == 1
-            lines << legend_line(seg_lbls.not_nil!, cols)
+            lines << legend_line(seg_lbls.not_nil!, cols) # ameba:disable Lint/NotNil
           end
 
           # Plot area.
@@ -146,7 +146,7 @@ module Crysterm
           # the values overflow the width (`@values.last(cap)`), so the labels
           # follow the same offset — otherwise they mislabel the visible bars.
           if label_row == 1
-            names = lbls.not_nil!
+            names = lbls.not_nil! # ameba:disable Lint/NotNil
             offset = @values.size - n
             lines << String.build do |io|
               n.times do |i|

@@ -39,7 +39,7 @@ module Crysterm
       # `:focused`/`:selected` widget, so writing visibility through it would be
       # discarded (a focused `Button` could never be hidden).
       self.state_style.visible = value
-      persist_inline_style { |s| s.visible = value }
+      persist_inline_style(&.visible=(value))
     end
 
     # Mirrors a just-applied state-style change onto the inline `@style`, but

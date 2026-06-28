@@ -334,7 +334,7 @@ module Crysterm
         # but none now) are skipped, matching `group_by`'s never-empty groups.
         @plane_buckets.each_value &.clear
         @layer_widgets.each do |el|
-          z = el.style.z_index.not_nil!
+          z = el.style.z_index.not_nil! # ameba:disable Lint/NotNil
           (@plane_buckets[z] ||= [] of Widget) << el
         end
 

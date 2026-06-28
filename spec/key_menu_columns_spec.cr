@@ -75,6 +75,6 @@ describe Crysterm::Widget::Pine::KeyMenu do
     (top_row.last.aleft + top_row.last.awidth).should eq right_edge
 
     # Every column is at least one cell wide (no column collapsed to nothing).
-    top_row.each { |c| c.awidth.should be > 0 }
+    top_row.each(&.awidth.should(be > 0))
   end
 end

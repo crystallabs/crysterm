@@ -116,6 +116,7 @@ module Crysterm
     # empty parameter (e.g. `\e[m`, or `\e[;1m`) counts as 0, matching the old
     # `split(';')` semantics; the truecolor/256-color forms read and consume
     # their extra parameters via `term`.
+    # ameba:disable Metrics/CyclomaticComplexity
     private def self.attr2code_impl(src, pos0 : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64
       flags = Attr.flags(cur)
       fg = Attr.fg(cur) # packed color field (RGB or COLOR_DEFAULT)
