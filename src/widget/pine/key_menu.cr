@@ -92,27 +92,51 @@ module Crysterm
           false
         end
 
-        # (Re)creates the child boxes for the current entries.
+        # Re-tile the cells across the full content width every paint, now that the
+        # resolved width is known (like `ToolBox`/`Splitter`/`MainWindow`). The old
+        # per-column `100 // columns` percentage rounded each column independently,
+        # so the columns drifted apart (a stray cell of gap between them) and the
+        # rightmost stopped short of the right edge whenever `columns` did not
+        # divide 100 evenly — leaving the bottom command bar with ragged gaps. The
+        # integer split below shares each boundary (`col * inner // n`), so columns
+        # abut exactly and the last reaches the edge for any `columns`/width.
+        def render(with_children = true)
+          relayout
+          super
+        end
+
+        # Positions every cell into its column using integer division on the
+        # resolved content width, so the columns tile the full width with no gaps.
+        private def relayout : Nil
+          return if @cells.empty?
+          inner = (awidth - iwidth) rescue return
+          return if inner <= 0
+          n = @columns
+          @cells.each_with_index do |box, i|
+            col = i // @rows
+            l = col * inner // n
+            r = (col + 1) * inner // n
+            box.left = l
+            box.width = r - l
+          end
+        end
+
+        # (Re)creates the child boxes for the current entries. Each cell's column
+        # position is assigned per frame by `#relayout`; here we only set the row
+        # (within the `rows`-row grid) and its content.
         private def build
           @cells.each &.remove_from_parent
           @cells.clear
-
-          col_pct = 100 // @columns
 
           @entries.each_with_index do |entry, i|
             col = i // @rows
             row = i % @rows
             next if col >= @columns
 
-            left = col == 0 ? 0 : "#{col * col_pct}%"
-            width = "#{col_pct}%"
-
             box = Widget::Box.new(
               screen: screen,
               parse_tags: true,
               top: row,
-              left: left,
-              width: width,
               height: 1,
               content: format_entry(entry),
             )
