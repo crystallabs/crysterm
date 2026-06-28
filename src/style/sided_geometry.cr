@@ -37,6 +37,56 @@ module Crysterm
       {left: l, top: t, right: r, bottom: b}
     end
 
+    # Generates the surface shared verbatim by the zero-defaulting integer
+    # sided-geometry classes (`Padding` and `Margin`), which are otherwise
+    # identical: the four per-side properties (each defaulting to 0), the
+    # `.default` factory, the `.from` value coercion, and the `all` /
+    # four-positional integer constructors. Mix it in with
+    # `SidedGeometry.zero_box` from the class body.
+    #
+    # `.default` deliberately returns a *fresh* instance rather than a shared
+    # singleton: each box is mutated in place by the per-side longhands
+    # (`padding-left` etc., see `CSS::Properties#apply`) and by `Style`'s default
+    # getter, so a single shared object would let one widget's edit leak into
+    # every other style (and corrupt the "no padding"/"no margin" baseline).
+    macro zero_box
+      # A fresh zero box (all sides 0); never a shared singleton, see
+      # `SidedGeometry.zero_box`.
+      def self.default : self
+        new 0
+      end
+
+      property left : Int32 = 0
+      property top : Int32 = 0
+      property right : Int32 = 0
+      property bottom : Int32 = 0
+
+      def self.from(value)
+        case value
+        in true
+          new 1
+        in nil, false
+          default
+        in {{@type}}
+          value
+        in Symbol
+          # A side symbol (`:right`, `:horizontal`, ...) — one cell on the
+          # named side(s); see `SidedGeometry.sides`.
+          s = SidedGeometry.sides value
+          new s[:left], s[:top], s[:right], s[:bottom]
+        in Int
+          new value, value, value, value
+        end
+      end
+
+      def initialize(all : Int)
+        @left = @top = @right = @bottom = all
+      end
+
+      def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
+      end
+    end
+
     # Is there anything on the left side?
     def left?
       @left > 0
