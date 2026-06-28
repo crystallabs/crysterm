@@ -124,6 +124,28 @@ describe Crysterm::Layout::Border do
       {10, 40, 1, 11}, # center fills the rest
     ]
   end
+
+  it "clamps oversized edges to the remaining space (no negative or overlapping regions)" do
+    s = headless_screen
+    # A header and footer that together (4 + 4) exceed the 6-row interior. Without
+    # clamping, the footer's `y1 - ch` ran back over the header (rows 2..3 doubly
+    # owned) and the center was handed a negative `y1 - y0` height (-2). Each edge
+    # must take only what remains: header rows 0..3, footer the last 2 rows (4..5),
+    # and the center collapses to zero height — never negative, never overlapping.
+    b = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 6,
+      layout: Layout::Border.new
+    top = Widget::Box.new parent: b, height: 4, layout_hint: Layout::Border::Hint.new(:top)
+    bottom = Widget::Box.new parent: b, height: 4, layout_hint: Layout::Border::Hint.new(:bottom)
+    center = Widget::Box.new parent: b # center
+
+    s._render
+    tl = top.lpos.not_nil!
+    {tl.yi, tl.yl}.should eq({0, 4})    # header takes the first 4 rows
+    bl = bottom.lpos.not_nil!
+    {bl.yi, bl.yl}.should eq({4, 6})    # footer clamped to the remaining 2 rows
+    bl.yi.should be >= tl.yl            # no overlap between header and footer
+    center.height.should eq 0          # squeezed-out center collapses to 0, not -2
+  end
 end
 
 describe Crysterm::Layout::Stack do

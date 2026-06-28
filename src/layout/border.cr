@@ -55,10 +55,21 @@ module Crysterm
         # `region_of` (an O(1) hint read) carves the working rect in the identical
         # order with zero per-frame allocation. Children retain their relative
         # order within a region (container order), exactly as the buckets did.
+        # Each edge consumes only what the working rect still has left
+        # (`#aheight`/`#awidth` clamped to the remaining span). Without the clamp,
+        # edges whose sizes together exceed the interior — e.g. a header and footer
+        # taller than the box — over-consumed the rect: the second edge of a pair
+        # overlapped the first (its `y1 - ch` / `x1 - cw` ran back into the
+        # already-placed region), and the cross-spanning edges and the center were
+        # then handed a *negative* `y1 - y0` / `x1 - x0` as their height/width.
+        # Clamping each edge to the live remainder keeps every region non-negative
+        # and non-overlapping, collapsing the squeezed-out ones to zero (the
+        # standard "container too small" degradation) instead. The clamp is a no-op
+        # whenever the edges fit, so well-sized layouts are unaffected.
         container.children.each do |el|
           next if el.layout_excluded?
           next unless region_of(el).top?
-          ch = el.aheight
+          ch = el.aheight.clamp(0, y1 - y0)
           el.left = x0; el.top = y0; el.width = x1 - x0; el.height = ch
           render_child el
           y0 += ch
@@ -66,7 +77,7 @@ module Crysterm
         container.children.each do |el|
           next if el.layout_excluded?
           next unless region_of(el).bottom?
-          ch = el.aheight
+          ch = el.aheight.clamp(0, y1 - y0)
           el.left = x0; el.top = y1 - ch; el.width = x1 - x0; el.height = ch
           render_child el
           y1 -= ch
@@ -74,7 +85,7 @@ module Crysterm
         container.children.each do |el|
           next if el.layout_excluded?
           next unless region_of(el).left?
-          cw = el.awidth
+          cw = el.awidth.clamp(0, x1 - x0)
           el.left = x0; el.top = y0; el.width = cw; el.height = y1 - y0
           render_child el
           x0 += cw
@@ -82,7 +93,7 @@ module Crysterm
         container.children.each do |el|
           next if el.layout_excluded?
           next unless region_of(el).right?
-          cw = el.awidth
+          cw = el.awidth.clamp(0, x1 - x0)
           el.left = x1 - cw; el.top = y0; el.width = cw; el.height = y1 - y0
           render_child el
           x1 -= cw
