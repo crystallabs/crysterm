@@ -287,7 +287,7 @@ module Crysterm
             paint_swatch slot, c
           end
           slot.on(Crysterm::Event::Click) do
-            @custom_colors[i]?.try { |c| set_color c; request_render }
+            @custom_colors[i]?.try { |col| set_color col; request_render }
           end
           @custom_slots << slot
           cx += COLOR_W
@@ -322,7 +322,7 @@ module Crysterm
       # the computed `style.bg` would be rebuilt away on the next restyle.
       private def paint_swatch(box : Box, hex : String) : Nil
         box.style.bg = hex
-        box.persist_inline_style { |s| s.bg = hex }
+        box.persist_inline_style(&.bg=(hex))
       end
 
       # --------------------------------------------------------- state set
