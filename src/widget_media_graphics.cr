@@ -189,12 +189,7 @@ module Crysterm
         @raw = nil
         @src_frames = nil
         @anim_index = 0
-        @anim_checked = false
-        @frame_payloads.clear
-        @payload_geom = nil
-        @payload = nil
-        @payload_key = nil
-        @emitted_key = nil
+        reset_payload_cache
         request_render
       end
 
@@ -203,12 +198,7 @@ module Crysterm
         clear_overlay
         super # stop + drop file/source/frames
         @raw = nil
-        @anim_checked = false
-        @frame_payloads.clear
-        @payload_geom = nil
-        @payload = nil
-        @payload_key = nil
-        @emitted_key = nil
+        reset_payload_cache
       end
 
       # Returns the original (undecoded) image bytes, cached. Used by backends
@@ -333,6 +323,14 @@ module Crysterm
       # emit-tracking keys so the next render re-encodes the fresh bitmap and
       # re-emits it. Mirrors `Media::Cells#reset_sample_cache`.
       protected def reset_sample_cache : Nil
+        reset_payload_cache
+      end
+
+      # Drops the per-frame payload cache and all emit-tracking keys, and forces
+      # the next paint to re-detect whether the source animates. Shared by
+      # `#load`, `#clear_image` and `#reset_sample_cache` — every entry point that
+      # invalidates the encoded-frame state.
+      private def reset_payload_cache : Nil
         @anim_checked = false
         @frame_payloads.clear
         @payload_geom = nil
