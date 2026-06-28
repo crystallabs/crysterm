@@ -378,13 +378,21 @@ module Crysterm
         # shifts every later command — including the selected one — down by one,
         # and the cursor must slide down with them. Without this the cursor stayed
         # at its old numeric index and silently pointed at the next command (or,
-        # when the last command was selected, past the end at nothing). Removing
-        # the selected command itself keeps the original behavior (select the
-        # prior one). This mirrors `ItemView#remove_item`'s cursor realignment.
+        # when the last command was selected, past the end at nothing). This
+        # mirrors `ItemView#remove_item`'s cursor realignment.
         if i < selected
+          # The formerly-selected (selectable) command is now one index lower.
           selekt selected - 1
         elsif i == selected
-          selekt i - 1
+          # The selected command itself was removed: fall back to the prior
+          # command, but skip back over any separators so the highlight never
+          # settles on a non-selectable separator (a dead cursor whose Enter does
+          # nothing) — mirroring how `#move` steps over separators, and the
+          # leading-separator skip in `#add`'s auto-select. Falls forward to the
+          # next selectable command when everything before the gap is a separator.
+          if sel = nearest_selectable(i - 1)
+            selekt sel
+          end
         end
 
         emit ::Crysterm::Event::RemoveItem
@@ -403,6 +411,27 @@ module Crysterm
       def destroy
         @commands.each { |cmd| detach_command cmd }
         super
+      end
+
+      # The nearest selectable (non-separator) command index at or before
+      # *from*, else the nearest one after it, or `nil` when the bar holds no
+      # selectable command at all. Used to keep the selection cursor off
+      # separators after a removal (see `#remove_item`).
+      private def nearest_selectable(from : Int32) : Int32?
+        n = @commands.size
+        return nil if n == 0
+        i = from.clamp(0, n - 1)
+        j = i
+        while j >= 0
+          return j unless @commands[j].separator?
+          j -= 1
+        end
+        j = i + 1
+        while j < n
+          return j unless @commands[j].separator?
+          j += 1
+        end
+        nil
       end
 
       # Moves the selection by `offset` (negative = left), stepping over any
