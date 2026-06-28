@@ -87,15 +87,15 @@ module Crysterm
 
       @preview : Box?
       @hexbox : LineEdit?
-      @rspin : SpinBox?
-      @gspin : SpinBox?
-      @bspin : SpinBox?
-      @hspin : SpinBox?
-      @sspin : SpinBox?
-      @vspin : SpinBox?
-      @lhspin : SpinBox?
-      @lsspin : SpinBox?
-      @llspin : SpinBox?
+      @rspin : LineEdit?
+      @gspin : LineEdit?
+      @bspin : LineEdit?
+      @hspin : LineEdit?
+      @sspin : LineEdit?
+      @vspin : LineEdit?
+      @lhspin : LineEdit?
+      @lsspin : LineEdit?
+      @llspin : LineEdit?
       @palette_swatches = [] of Box
       @custom_slots = [] of Box
       # Stored custom-slot colors (`nil` for an empty slot), in slot order.
@@ -194,7 +194,7 @@ module Crysterm
         headers = Box.new parent: self, top: HEAD_Y, left: INFO_X, width: info_w, height: 1,
           layout: Layout::HBox.new(gap: 1)
         {"RGB", "HSV", "HSL"}.each do |name|
-          Box.new parent: headers, height: 1, align: :center, content: name
+          Box.new parent: headers, height: 1, align: :left, content: name
         end
 
         # Three side-by-side editor columns — RGB, HSV and HSL — each a small
@@ -204,36 +204,25 @@ module Crysterm
         cols = Box.new parent: self, top: COLS_Y, left: INFO_X, width: info_w, height: COLS_H,
           layout: Layout::HBox.new(gap: 1)
 
-        rgbcol = column_box cols
-        @rspin = column_spin rgbcol, "R", 0, 255
-        @gspin = column_spin rgbcol, "G", 0, 255
-        @bspin = column_spin rgbcol, "B", 0, 255
-
-        hsvcol = column_box cols
-        @hspin = column_spin hsvcol, "H", 0, 360
-        @sspin = column_spin hsvcol, "S", 0, 100
-        @vspin = column_spin hsvcol, "V", 0, 100
-
-        hslcol = column_box cols
-        @lhspin = column_spin hslcol, "H", 0, 360
-        @lsspin = column_spin hslcol, "S", 0, 100
-        @llspin = column_spin hslcol, "L", 0, 100
-
         # Every field is editable and takes effect immediately, just like the Hex
         # field, and all color spaces stay in sync (`refresh_ui`). R/G/B edits
         # drive the state directly; H/S/V and H/S/L go through their color space.
-        {@rspin, @gspin, @bspin}.each do |sp|
-          next unless sp
-          sp.on(Crysterm::Event::ValueChange) { apply_rgb_spins }
-        end
-        {@hspin, @sspin, @vspin}.each do |sp|
-          next unless sp
-          sp.on(Crysterm::Event::ValueChange) { apply_hsv_spins }
-        end
-        {@lhspin, @lsspin, @llspin}.each do |sp|
-          next unless sp
-          sp.on(Crysterm::Event::ValueChange) { apply_hsl_spins }
-        end
+        # The apply path is wired per field inside `column_spin` (live on each
+        # keystroke / Enter / wheel).
+        rgbcol = column_box cols
+        @rspin = column_spin(rgbcol, "R", 0, 255) { apply_rgb_spins }
+        @gspin = column_spin(rgbcol, "G", 0, 255) { apply_rgb_spins }
+        @bspin = column_spin(rgbcol, "B", 0, 255) { apply_rgb_spins }
+
+        hsvcol = column_box cols
+        @hspin = column_spin(hsvcol, "H", 0, 360) { apply_hsv_spins }
+        @sspin = column_spin(hsvcol, "S", 0, 100) { apply_hsv_spins }
+        @vspin = column_spin(hsvcol, "V", 0, 100) { apply_hsv_spins }
+
+        hslcol = column_box cols
+        @lhspin = column_spin(hslcol, "H", 0, 360) { apply_hsl_spins }
+        @lsspin = column_spin(hslcol, "S", 0, 100) { apply_hsl_spins }
+        @llspin = column_spin(hslcol, "L", 0, 100) { apply_hsl_spins }
 
         # Hex field at the bottom, spanning the full width (a `Form` "Hex  […]").
         # The editors are *chrome*: they carry no hardcoded color, so they follow
@@ -308,13 +297,32 @@ module Crysterm
       # A `Form`-based editor column (a 1-cell label column + its field), shared
       # by the RGB/HSV/HSL columns.
       private def column_box(parent : Widget) : Box
-        Box.new parent: parent, height: COLS_H, layout: Layout::Form.new(label_width: 1, gap: 0)
+        Box.new parent: parent, height: COLS_H, layout: Layout::Form.new(label_width: 1, gap: 1)
       end
 
-      # Appends a `"<label> [spin]"` row to a `column_box`, returning the spin box.
-      private def column_spin(col : Widget, label : String, min : Int32, max : Int32) : SpinBox
+      # Appends a `"<label> [field]"` row to a `column_box`, returning the editable
+      # `LineEdit` field. The field behaves exactly like the Hex field: *apply*
+      # runs live on every keystroke (`TextChange`) and on Enter (`Submit`). The
+      # mouse wheel nudges this one component by ±1 (clamped to `min..max`) and
+      # re-applies through the same path.
+      private def column_spin(col : Widget, label : String, min : Int32, max : Int32, &apply : -> Nil) : LineEdit
         Box.new parent: col, height: 1, content: label
-        SpinBox.new parent: col, height: 1, minimum: min, maximum: max, value: min
+        le = LineEdit.new parent: col, height: 1
+        le.on(Crysterm::Event::Submit) { apply.call }
+        le.on(Crysterm::Event::TextChange) do
+          next if @syncing
+          apply.call
+        end
+        le.on(Crysterm::Event::Mouse) do |e|
+          if e.action.wheel_up? || e.action.wheel_down?
+            cur = (le.value.strip.to_i? || 0) + (e.action.wheel_up? ? 1 : -1)
+            le.value = cur.clamp(min, max).to_s
+            apply.call
+            e.accept
+            request_render
+          end
+        end
+        le
       end
 
       # Folds a functional background color onto *box*'s inline style so it shows
@@ -322,29 +330,36 @@ module Crysterm
       # the computed `style.bg` would be rebuilt away on the next restyle.
       private def paint_swatch(box : Box, hex : String) : Nil
         box.style.bg = hex
-        box.persist_inline_style(&.bg=(hex))
+        box.persist_inline_style(&.bg = hex)
       end
 
       # --------------------------------------------------------- state set
 
+      # Reads an editable component field as an integer, clamped into `min..max`.
+      # The field is free text, so a blank/half-typed value reads as the minimum
+      # of the range (0 for every component here).
+      private def field_int(le : LineEdit?, min : Int32, max : Int32) : Int32
+        (le.try(&.value).try(&.strip).try(&.to_i?) || 0).clamp(min, max)
+      end
+
       private def apply_rgb_spins : Nil
         return if @syncing
-        set_rgb (@rspin.try(&.value) || 0), (@gspin.try(&.value) || 0), (@bspin.try(&.value) || 0)
+        set_rgb field_int(@rspin, 0, 255), field_int(@gspin, 0, 255), field_int(@bspin, 0, 255)
       end
 
       private def apply_hsv_spins : Nil
         return if @syncing
-        h = (@hspin.try(&.value) || 0).to_f
-        s = (@sspin.try(&.value) || 0) / 100.0
-        v = (@vspin.try(&.value) || 0) / 100.0
+        h = field_int(@hspin, 0, 360).to_f
+        s = field_int(@sspin, 0, 100) / 100.0
+        v = field_int(@vspin, 0, 100) / 100.0
         set_hsv h, s, v
       end
 
       private def apply_hsl_spins : Nil
         return if @syncing
-        h = (@lhspin.try(&.value) || 0).to_f
-        s = (@lsspin.try(&.value) || 0) / 100.0
-        l = (@llspin.try(&.value) || 0) / 100.0
+        h = field_int(@lhspin, 0, 360).to_f
+        s = field_int(@lsspin, 0, 100) / 100.0
+        l = field_int(@llspin, 0, 100) / 100.0
         r, g, b = hsl_to_rgb h, s, l
         set_rgb r, g, b
       end
@@ -383,33 +398,36 @@ module Crysterm
         if pv = @preview
           paint_swatch pv, hex
         end
-        if sp = @rspin
-          sp.value = r
+        # Don't clobber a field while it holds focus — the user may be mid-type
+        # (the live `TextChange` handler already drove the change that got us
+        # here), exactly like the Hex field below.
+        if (sp = @rspin) && !sp.focused?
+          sp.value = r.to_s
         end
-        if sp = @gspin
-          sp.value = g
+        if (sp = @gspin) && !sp.focused?
+          sp.value = g.to_s
         end
-        if sp = @bspin
-          sp.value = b
+        if (sp = @bspin) && !sp.focused?
+          sp.value = b.to_s
         end
-        if sp = @hspin
-          sp.value = @hue.round.to_i
+        if (sp = @hspin) && !sp.focused?
+          sp.value = @hue.round.to_i.to_s
         end
-        if sp = @sspin
-          sp.value = (@saturation * 100).round.to_i
+        if (sp = @sspin) && !sp.focused?
+          sp.value = (@saturation * 100).round.to_i.to_s
         end
-        if sp = @vspin
-          sp.value = (@value_v * 100).round.to_i
+        if (sp = @vspin) && !sp.focused?
+          sp.value = (@value_v * 100).round.to_i.to_s
         end
         lh, ls, ll = rgb_to_hsl r, g, b
-        if sp = @lhspin
-          sp.value = lh.round.to_i
+        if (sp = @lhspin) && !sp.focused?
+          sp.value = lh.round.to_i.to_s
         end
-        if sp = @lsspin
-          sp.value = (ls * 100).round.to_i
+        if (sp = @lsspin) && !sp.focused?
+          sp.value = (ls * 100).round.to_i.to_s
         end
-        if sp = @llspin
-          sp.value = (ll * 100).round.to_i
+        if (sp = @llspin) && !sp.focused?
+          sp.value = (ll * 100).round.to_i.to_s
         end
         if hb = @hexbox
           # Cosmetic leading space before the "#". Don't clobber the field while
