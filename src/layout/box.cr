@@ -62,7 +62,18 @@ module Crysterm
       # to distribute @avail by cumulative rounding (see #place). Reset each
       # #measure, consumed in #place order.
       @grow_seen = 0
-      @extra_gap = 0
+      # Leftover space distributed along the main axis by `justify` when nothing
+      # grows. Carved into per-child gaps by *cumulative* rounding (see `#place`
+      # and `#justify_before`) rather than a single floored `leftover // slots`: a
+      # uniform floor dropped up to `slots - 1` columns, so the last child of a
+      # `SpaceBetween` row stopped short of the far edge (and `SpaceAround` came
+      # out lopsided) on a non-evenly-divisible leftover — the same defect the grow
+      # shares and Grid/Form already avoid by cumulative carving. `@just_n` is the
+      # arranged-child count and `@just_k` the running placement ordinal.
+      @just_leftover = 0
+      @just_n = 0
+      @just_around = false
+      @just_k = 0
       @flex = Set(Widget).new
       @filled = Set(Widget).new
       # Per-arrange cache of fixed children's resolved main-axis size, so the
@@ -124,17 +135,27 @@ module Crysterm
         @avail = 0 if @avail < 0
 
         lead = 0
-        @extra_gap = 0
+        @just_leftover = 0
+        @just_around = false
+        @just_n = n
+        @just_k = 0
         if grow == 0
           leftover = @avail
           case @justify
-          when .center?        then lead = leftover // 2
-          when .end?           then lead = leftover
-          when .space_between? then @extra_gap = n > 1 ? leftover // (n - 1) : 0
+          when .center? then lead = leftover // 2
+          when .end?    then lead = leftover
+          when .space_between?
+            # First child flush to the start, last flush to the end; the leftover
+            # between them is carved by cumulative rounding in `#place`.
+            @just_leftover = leftover
           when .space_around?
-            lead = n > 0 ? leftover // (2 * n) : 0
-            @extra_gap = n > 0 ? leftover // n : 0
+            # Equal space on both sides of every child (a half-slot at each end).
+            @just_leftover = leftover
+            @just_around = true
           end
+          # The lead for between/around is the cumulative offset before the first
+          # child (0 for between, a half-slot for around).
+          lead = justify_before(0) if @just_leftover > 0
         end
         @cursor = lead
       end
@@ -187,7 +208,39 @@ module Crysterm
           end
 
         set_main_pos el, @cursor
-        @cursor += size + @gap + @extra_gap
+        # Advance past this child, its base `@gap`, and its share of the justify
+        # leftover. The justify gap is the difference of successive cumulative
+        # offsets (see `#justify_before`), so the per-child gaps sum to exactly the
+        # leftover and the last child lands flush against the far edge — instead of
+        # a floored `leftover // slots` that left up to `slots - 1` columns blank
+        # at the end of a `SpaceBetween` row.
+        gap_after = justify_before(@just_k + 1) - justify_before(@just_k)
+        @just_k += 1
+        @cursor += size + @gap + gap_after
+      end
+
+      # Cumulative justify offset laid down *before* the `j`-th placed child, so a
+      # child's gap is `justify_before(k + 1) - justify_before(k)`. Carving the
+      # gaps this way makes them sum to `@just_leftover` exactly (no remainder
+      # stranded at the far edge), mirroring the cumulative grow-share and Grid
+      # `#fence` distributions.
+      #
+      # * `SpaceBetween`: `j` of the `n - 1` gaps precede child `j`, i.e.
+      #   `floor(j * leftover / (n - 1))` — 0 before the first, the whole leftover
+      #   before the (notional) `n`-th, so the last child reaches the end.
+      # * `SpaceAround`: each child sits in its own slot with a half-gap on each
+      #   side, so `2j + 1` half-slots of `2n` precede child `j`:
+      #   `floor((2j + 1) * leftover / (2n))`.
+      private def justify_before(j : Int32) : Int32
+        return 0 if @just_leftover == 0
+        if @just_around
+          return 0 if @just_n <= 0
+          ((2 * j + 1) * @just_leftover) // (2 * @just_n)
+        elsif @just_n > 1
+          (j * @just_leftover) // (@just_n - 1)
+        else
+          0
+        end
       end
 
       private def grow_of(el : Widget) : Int32

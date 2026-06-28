@@ -315,6 +315,21 @@ describe "Crysterm::Layout::Box flex" do
     # 16 used of 30 -> 14 leftover, 7 lead.
     coords.should eq [{7, 15, 0, 2}, {15, 23, 0, 2}]
   end
+
+  it "space-between lands the last child flush against the far edge on an odd leftover" do
+    s = headless_screen
+    box = Widget::Box.new parent: s, left: 0, top: 0, width: 31, height: 4,
+      layout: Layout::HBox.new(justify: Layout::Box::Justify::SpaceBetween)
+    Widget::Box.new parent: box, width: 8, height: 2
+    Widget::Box.new parent: box, width: 8, height: 2
+    Widget::Box.new parent: box, width: 8, height: 2
+
+    coords = render_children s, box
+    # 24 used of 31 -> 7 leftover over 2 gaps. A floored `7 // 2 == 3` gap left
+    # the last child ending at 30 (one short of 31); cumulative carving (gaps 3
+    # then 4) puts it flush at 31.
+    coords.should eq [{0, 8, 0, 2}, {11, 19, 0, 2}, {23, 31, 0, 2}]
+  end
 end
 
 describe "Crysterm::Layout flow StopRendering" do
