@@ -142,9 +142,12 @@ module Crysterm
   Signal::QUIT.trap do
     exit
   end
-  Signal::KILL.trap do
-    exit
-  end
+  # NOTE No `Signal::KILL.trap`: SIGKILL (like SIGSTOP) is uncatchable — the
+  # kernel never delivers it to a handler, so a trap can't run the exit/cleanup
+  # chain on it (Crystal's `sigaction` for it just fails silently). Attempting it
+  # is dead, misleading code (cf. `widget_media_video_source.cr`, which kills
+  # ffmpeg with SIGKILL *precisely because* it can't be trapped). A `kill -9`
+  # therefore leaves the terminal unrestored; that is unavoidable.
   Signal::WINCH.trap do
     # XXX IIRC, urwid has an additional method of tracking resizes. Check it out and add
     # additional support here if necessary.
