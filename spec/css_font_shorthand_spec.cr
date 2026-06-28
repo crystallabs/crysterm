@@ -85,4 +85,35 @@ describe "CSS font shorthand" do
     Crysterm::CSS::Properties.apply(s, "font-style", "normal")
     s.italic?.should be_false
   end
+
+  # A *blank* value — an undefined `var(--x)` that collapsed to "" before reaching
+  # the property — must be dropped (CSS's "drop the invalid declaration" rule),
+  # NOT treated as a shorthand reset that clobbers bold/italic. The `font-weight`/
+  # `font-style` longhands already preserve the current value on a blank input;
+  # the `font` shorthand must agree. (Mirror of the color/z-index/visibility/
+  # display invalid-value guards.)
+  it "drops a blank `font` value, keeping a previously-set bold/italic" do
+    s = Style.new
+    s.bold = true
+    s.italic = true
+    # Undefined `var()` collapses to "" before reaching the property.
+    Crysterm::CSS::Properties.apply(s, "font", "")
+    s.bold?.should be_true
+    s.italic?.should be_true
+    # Whitespace-only (also how a blank value can arrive) is dropped too.
+    Crysterm::CSS::Properties.apply(s, "font", "   ")
+    s.bold?.should be_true
+    s.italic?.should be_true
+  end
+
+  # A genuine `font` value with no weight/slant word still resets, exactly as
+  # before — the guard above only drops the *blank* (invalid) case.
+  it "still resets bold/italic for a real `font` value with no weight/slant" do
+    s = Style.new
+    s.bold = true
+    s.italic = true
+    Crysterm::CSS::Properties.apply(s, "font", "14px serif")
+    s.bold?.should be_false
+    s.italic?.should be_false
+  end
 end

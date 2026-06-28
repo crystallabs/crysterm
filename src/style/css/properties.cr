@@ -62,9 +62,23 @@ module Crysterm
           # literal `bold` keyword (otherwise a clearly-bold shorthand silently
           # rendered non-bold, the mirror of the longhand bug already fixed).
           # `oblique` slants like `italic`.
-          words = Case.fold_keyword(value).split
-          style.bold = words.any? { |w| font_weight_bold(w, false) }
-          style.italic = words.includes?("italic") || words.includes?("oblique")
+          #
+          # A *blank* value — an undefined `var(--x)` that collapsed to "" before
+          # reaching here — is *dropped*, per CSS's "drop the invalid declaration"
+          # rule, rather than being treated as a shorthand reset: the shorthand's
+          # `absence resets` semantics apply only to a genuine `font` value, not to
+          # an invalid one. The old unguarded form ran `"".split` → `[]`, hard-
+          # resetting bold *and* italic to false and so silently switching off a
+          # weight/slant a lower-priority rule had set. The `font-weight`/
+          # `font-style` longhands already preserve the current value on a
+          # blank/unknown input (`font_weight_bold`/`font_style_italic` return
+          # `current`); the shorthand must agree. Mirrors the same guard already in
+          # place for `color`/`z-index`/`visibility`/`display`.
+          unless value.blank?
+            words = Case.fold_keyword(value).split
+            style.bold = words.any? { |w| font_weight_bold(w, false) }
+            style.italic = words.includes?("italic") || words.includes?("oblique")
+          end
         when "font-weight"
           style.bold = font_weight_bold(value, style.bold?)
         when "font-style"
