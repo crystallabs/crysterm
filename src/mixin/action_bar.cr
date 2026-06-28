@@ -468,12 +468,21 @@ module Crysterm
       def select_tab(index : Int)
         # An out-of-range index is a no-op (previously it still emitted a
         # `SelectTab` carrying a nil item).
-        if cmd = @commands[index]?
-          cmd.callback.try &.call
-          selekt index
-          request_render
-          emit ::Crysterm::Event::SelectTab, @items[index]?, index
-        end
+        cmd = @commands[index]?
+        return if cmd.nil?
+        # A separator is not a real tab: selecting one would settle the highlight
+        # on a non-selectable command — a dead cursor whose Enter does nothing,
+        # the very state `#add`'s leading-separator skip, `#remove_item`'s
+        # `nearest_selectable` realignment and `#move`'s separator-stepping all
+        # already avoid. The `auto_command_keys` number keys route here by raw
+        # index (`select_tab i`), so a number landing on a separator must not
+        # highlight it (nor fire its nil callback / emit a `SelectTab` for it).
+        # Treat it like the out-of-range case above: a no-op.
+        return if cmd.separator?
+        cmd.callback.try &.call
+        selekt index
+        request_render
+        emit ::Crysterm::Event::SelectTab, @items[index]?, index
       end
 
       def on_keypress(e)
