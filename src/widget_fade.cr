@@ -32,18 +32,32 @@ module Crysterm
                 fps : Int32 = FADE_FPS, &on_done : ->) : Animation
       @fade.try &.stop
       from = (style.alpha? || 1.0).to_f
-      interval = (1.0 / fps).seconds
+      anim = build_value_tween(from, target, duration, easing, fps, on_done) { |v| set_alpha v }
+      @fade = anim
+      anim.start
+    end
 
+    # Builds (but does not start) a tween that eases a scalar from *from* to
+    # *target* over *duration*/*easing*, handing each interpolated value to
+    # *apply* and requesting a render per frame. *on_done* fires once on natural
+    # completion only (not on an interrupting `#stop`). Shared by `#fade_to` and
+    # `#tint_to`, which differ only in the value they animate and where they stash
+    # the running `Animation` — the caller stops the previous one and records the
+    # returned one *before* starting it, so the start (synchronous under reduced
+    # motion) already sees it stored.
+    private def build_value_tween(from : Float64, target : Float64, duration : Time::Span,
+                                  easing : Animation::Easing | Symbol, fps : Int32,
+                                  on_done : ->, &apply : Float64 ->) : Animation
+      interval = (1.0 / fps).seconds
       anim = Animation.new(interval, duration: duration, easing: easing) do |clock|
-        set_alpha from + (target - from) * clock.value
+        apply.call from + (target - from) * clock.value
         request_render
       end
       # `completed?` distinguishes a natural finish from an interrupting `#stop`;
-      # checked on the captured `anim` (not `@fade`, which a new fade may have
-      # already reassigned).
+      # checked on the captured `anim` (not the caller's ivar, which a superseding
+      # animation may have already reassigned).
       anim.on_stop { on_done.call if anim.completed? }
-      @fade = anim
-      anim.start
+      anim
     end
 
     # :ditto: (no completion callback).
@@ -142,12 +156,7 @@ module Crysterm
                 fps : Int32 = FADE_FPS, &on_done : ->) : Animation
       @tint_anim.try &.stop
       from = style.tint?.try(&.[1]) || 0.0 # current strength, or 0 if no tint yet
-      interval = (1.0 / fps).seconds
-      anim = Animation.new(interval, duration: duration, easing: easing) do |clock|
-        set_tint color, from + (target - from) * clock.value
-        request_render
-      end
-      anim.on_stop { on_done.call if anim.completed? }
+      anim = build_value_tween(from, target, duration, easing, fps, on_done) { |v| set_tint color, v }
       @tint_anim = anim
       anim.start
     end
