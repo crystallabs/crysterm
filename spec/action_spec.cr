@@ -52,6 +52,24 @@ describe Crysterm::Action do
 
       triggered.should eq 0
     end
+
+    it "does not fire Triggered when the action is disabled, but still hovers" do
+      a = Action.new
+      a.enabled = false
+      fired = [] of String
+      a.on(Event::Triggered) { fired << "triggered" }
+      a.on(Event::Hovered) { fired << "hovered" }
+
+      a.activate              # Triggered by default -> suppressed
+      a.activate Event::Hovered # hover still notifies
+
+      fired.should eq ["hovered"]
+
+      # Re-enabling lets it trigger again.
+      a.enabled = true
+      a.activate
+      fired.should eq ["hovered", "triggered"]
+    end
   end
 
   # The `Widgets` convenience namespace must alias the real `Crysterm::Action`

@@ -179,8 +179,17 @@ module Crysterm
 
     # def activate(event : ActionEvent = ActionEvent::Event::Triggered)
 
-    # Activates the action
+    # Activates the action: emits *event* (defaulting to `Event::Triggered`).
+    #
+    # A **disabled** action does not fire its `Triggered` action — mirroring
+    # Qt's `QAction::activate`, which gates the `triggered()` emission on
+    # `isEnabled()`. Without this, a presenter that doesn't pre-check `#enabled`
+    # before calling `#activate` (e.g. `Widget::ToolBar`'s button handler) would
+    # run a greyed-out command. `Hovered` is *not* gated — hovering a disabled
+    # entry still notifies (as in Qt), so status-tip/tooltip feedback keeps
+    # working.
     def activate(event : OneOfEvents = Crysterm::Event::Triggered)
+      return if event == Crysterm::Event::Triggered && !enabled
       emit event
     end
 
