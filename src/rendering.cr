@@ -25,7 +25,7 @@ module Crysterm
   # overlap, including alpha/shadow/tint blends and a single z-index plane) and
   # falls back to the full re-composite for the rest (multi-plane, nested layers,
   # border docking, out-of-cell-model writes), so it is always output-equivalent.
-  # See `screen_damage.cr`.
+  # See `window_damage.cr`.
   #
   # NOTE: damage tracking relies on widget mutations going through the tracked
   # setters (`content=`, geometry/size setters, `show`/`hide`, `scroll`, child

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for `Window#_focus` (`screen_focus.cr`).
+# Regression coverage for `Window#_focus` (`window_focus.cr`).
 #
 # `Event::Focus` denotes a focus *change* and must fire exactly once, when focus
 # actually moves. Re-focusing the already-focused widget through a screen-level
@@ -11,7 +11,7 @@ include Crysterm
 # already suppresses the spurious `Blur` and the state clobber, but the
 # terminating `Event::Focus` used to still fire — re-running the widget's focus
 # side effects on a widget that was already focused (the same family of defect
-# `screen_rendering.cr#_render` guards against per frame). Driven headlessly over
+# `window_rendering.cr#_render` guards against per frame). Driven headlessly over
 # in-memory IOs; no real terminal is touched.
 private def refocus_screen
   Crysterm::Window.new(

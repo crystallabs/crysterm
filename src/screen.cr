@@ -50,7 +50,7 @@ module Crysterm
   # A `Window` (the surface — formerly `Screen`) *has-a* `Screen` and delegates
   # all of these to it. Splitting the device out is what lets one app drive
   # multiple ttys and is the same seam that powers detach/reattach (a `Window`
-  # surviving while its `Screen` is rebuilt — see `screen_connection.cr`).
+  # surviving while its `Screen` is rebuilt — see `window_connection.cr`).
   #
   # The SGR/color encoding methods live in `screen_attributes.cr`.
   class Screen

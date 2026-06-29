@@ -138,7 +138,7 @@ module Crysterm
     end
 
     # Runs *block* only when *enabled*, swallowing any error (dead-fd writes on a
-    # user-closed window). Mirrors the surface-side guard in `screen_connection.cr`.
+    # user-closed window). Mirrors the surface-side guard in `window_connection.cr`.
     private def restore_step(enabled : Bool, & : -> Nil) : Nil
       return unless enabled
       begin

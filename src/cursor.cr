@@ -12,7 +12,7 @@ module Crysterm
   #
   # This class used to be nested as `Window::Cursor`; it was lifted to the
   # namespace level so both `Window` and `Widget` can own one (see the TODO that
-  # previously lived in `screen_cursor.cr`).
+  # previously lived in `window_cursor.cr`).
   class Cursor < Tput::Namespace::Cursor
     property style : Style = Style.new(fill_char: Config.cursor_glyph)
   end

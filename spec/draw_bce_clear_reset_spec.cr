@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Regression for the BCE (back-color-erase) clear-to-end-of-line path in
-# `Window#draw` (`screen_drawing.cr`).
+# `Window#draw` (`window_drawing.cr`).
 #
 # When a line is "colored/styled content followed by a default-attribute space
 # tail", the draw loop emits the leading content (leaving the terminal's SGR set

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Drag-and-drop engine (`src/drag.cr`, `src/screen_drag.cr`, and the mouse/
+# Drag-and-drop engine (`src/drag.cr`, `src/window_drag.cr`, and the mouse/
 # keyboard sensors). Driven headlessly over in-memory IOs so no real terminal is
 # touched. The mouse sensor is exercised through the public `#dispatch_mouse`
 # entry point (the same one the terminal/gpm inputs feed), and the keyboard

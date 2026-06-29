@@ -6,7 +6,7 @@ include Crysterm
 # must restore the terminal's default cursor color (OSC 112). It used to be a
 # silent no-op — the `try`-guarded emission did nothing when `style.fg` was nil
 # — so once a color was set there was no way to put the hardware cursor back to
-# the terminal default. See `src/screen_cursor.cr#cursor_color`.
+# the terminal default. See `src/window_cursor.cr#cursor_color`.
 
 describe "Window#cursor_color clearing (hardware path)" do
   it "emits the OSC 112 reset when the color is cleared with nil" do

@@ -11,7 +11,7 @@ end
 # Window-level padding (`Window.new padding: N`). A `Window` carries a `Padding`
 # for widget compatibility, and as a side effect the whole screen can be inset:
 # a child placed at (0,0) lands *after* the padding, and `width: "100%"` fills
-# only the padded content area (see `src/screen_decoration.cr`). This is distinct
+# only the padded content area (see `src/window_decoration.cr`). This is distinct
 # from per-widget/Box padding (covered by `tests/blessed-test/widget-padding.cr`)
 # and is demonstrated nowhere else. Migrated from `small-tests/screen-padding.cr`.
 describe "Window-level padding" do

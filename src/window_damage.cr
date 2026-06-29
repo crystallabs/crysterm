@@ -4,7 +4,7 @@ module Crysterm
     # `OptimizationFlag::DamageTracking`).
     #
     # The default render model clears the whole cell buffer and re-composites
-    # every widget every frame (see `screen_rendering.cr#_render` and the long
+    # every widget every frame (see `window_rendering.cr#_render` and the long
     # comment above its `clear_region`). That is simple and correct but O(N) in
     # the widget count even when a single widget changed. Damage tracking adds a
     # fast path that, on a frame where only a few top-level subtrees changed,

@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression coverage for the interaction of the artificial cursor with the BCE
 # (back-color-erase) clear-to-EOL optimization in `Window#draw`
-# (`screen_drawing.cr`).
+# (`window_drawing.cr`).
 #
 # With BCE enabled, a run of clearable blank cells reaching the end of the line
 # is collapsed into a single `el` (erase-to-EOL) instead of emitting each space.

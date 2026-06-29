@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Differential test for per-widget damage tracking
-# (`OptimizationFlag::DamageTracking`, see `src/screen_damage.cr`).
+# (`OptimizationFlag::DamageTracking`, see `src/window_damage.cr`).
 #
 # The strongest correctness guarantee the design asks for: damage tracking must
 # be *output-equivalent* to the full re-composite. So every scenario here builds

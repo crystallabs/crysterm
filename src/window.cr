@@ -5,21 +5,21 @@ require "./mixin/children"
 
 require "./screen"
 
-require "./screen_resize"
-require "./screen_interaction"
-require "./screen_mouse"
-require "./screen_drag"
+require "./window_resize"
+require "./window_interaction"
+require "./window_mouse"
+require "./window_drag"
 
-require "./screen_children"
-require "./screen_cursor"
-require "./screen_decoration"
-require "./screen_rendering"
-require "./screen_damage"
-require "./screen_drawing"
-require "./screen_focus"
-require "./screen_rows"
-require "./screen_capture"
-require "./screen_connection"
+require "./window_children"
+require "./window_cursor"
+require "./window_decoration"
+require "./window_rendering"
+require "./window_damage"
+require "./window_drawing"
+require "./window_focus"
+require "./window_rows"
+require "./window_capture"
+require "./window_connection"
 
 module Crysterm
   # The surface — the `QWindow` / top-level `QWidget` analogue of the Qt object
@@ -148,7 +148,7 @@ module Crysterm
     # Rendering performance figures (R/D/FPS and terminal byte throughput) are no
     # longer drawn by the screen itself. Add a `Widget::Fps` to a screen to
     # display them; it reads the per-frame measurements exposed by
-    # `screen_rendering.cr` (`#render_rate`, `#draw_rate`, `#frame_rate`,
+    # `window_rendering.cr` (`#render_rate`, `#draw_rate`, `#frame_rate`,
     # `#throughput`, `#bytes_written`).
 
     # Optimization flags to use for rendering and/or drawing.

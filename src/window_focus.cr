@@ -93,14 +93,14 @@ module Crysterm
         # menu whose submenu — the focused widget — was just torn down). A bare
         # `window?` would skip only the detached case but still accept a widget
         # MOVED to another screen (its `@keyable`/history entries are not pruned —
-        # see `focus_offset`/`screen_children.cr#remove`), re-focusing a widget that
+        # see `focus_offset`/`window_children.cr#remove`), re-focusing a widget that
         # now lives on a different screen. Require attachment to THIS screen, as
         # `restore_focus` already does.
         #
         # `displayed_in_tree?` (not the per-widget `style.visible?`): a widget
         # whose own flag is visible but whose container is hidden is not actually
         # on screen, so it must not be re-focused. See the same helper in
-        # `screen_mouse.cr`.
+        # `window_mouse.cr`.
         if e.window? == self && displayed_in_tree?(e)
           el = e
           break
@@ -183,7 +183,7 @@ module Crysterm
       #
       # `window? == self` (not the raising `screen`, nor a bare truthy `window?`):
       # `@keyable` is NOT pruned when a widget is removed (the pruning in
-      # `screen_children.cr#remove` is still disabled — see its `XXX`), so it can
+      # `window_children.cr#remove` is still disabled — see its `XXX`), so it can
       # hold widgets that were detached (whose `@screen` is now nil) OR moved to
       # another screen (whose `window?` now points elsewhere). `screen`
       # (`window?.not_nil!`) would crash on a detached entry; a bare `window?`
@@ -245,7 +245,7 @@ module Crysterm
       # `Widget::Terminal` re-reporting focus-in (`\e[I`) to its child PTY, a
       # `text_editing` widget with `input_on_focus` re-entering `read_input`,
       # `action_bar`/`menu_bar`/`completer`/remote DOM focus handlers re-firing —
-      # the very same spurious-Focus defect `screen_rendering.cr#_render` already
+      # the very same spurious-Focus defect `window_rendering.cr#_render` already
       # guards against per frame. `Event::Focus` denotes a focus change and must
       # fire only when focus actually moves.
       refocus = old == cur

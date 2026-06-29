@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for `Window#focus_push` history hygiene (`screen_focus.cr`).
+# Regression coverage for `Window#focus_push` history hygiene (`window_focus.cr`).
 #
 # Re-focusing the already-current widget through a screen-level entry point
 # (`Window#focus`, or `focus_offset`/Tab wrapping onto the sole focusable widget)

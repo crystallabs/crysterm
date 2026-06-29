@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Region clamping for the text `#dump` / image `#capture` entry points
-# (`src/screen_capture.cr`). Driven headlessly over in-memory IOs.
+# (`src/window_capture.cr`). Driven headlessly over in-memory IOs.
 
 private def capture_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)

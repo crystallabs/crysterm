@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Regression coverage for the artificial cursor in `Window#draw`
-# (`screen_drawing.cr`).
+# (`window_drawing.cr`).
 #
 # `draw` only scans a row when it is dirty or currently holds the cursor. The
 # artificial cursor is composited into the cell at `(tput.cursor.x, cursor.y)`

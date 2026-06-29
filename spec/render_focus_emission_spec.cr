@@ -2,12 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for `Window#_render` (`screen_rendering.cr`).
+# Regression coverage for `Window#_render` (`window_rendering.cr`).
 #
 # `_render` repositions the focused widget's cursor at the end of every frame
 # (the documented `_update_cursor` workaround for stale `lpos`). It must NOT
 # also emit `Event::Focus`: that event denotes a focus *change* and is fired
-# exactly once, from `screen_focus.cr#_focus`, when focus actually moves. Firing
+# exactly once, from `window_focus.cr#_focus`, when focus actually moves. Firing
 # it on the focused widget on every render frame re-ran all of that widget's
 # focus side effects (a `Widget::Terminal` reporting focus-in to its child PTY,
 # a text widget re-entering `read_input`, menu/action-bar/remote focus handlers)

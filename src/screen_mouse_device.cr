@@ -7,7 +7,7 @@ module Crysterm
   # (OSC 22) — all pure `tput`/IO concerns. Parsed mouse events are routed *up*
   # to the `Application` dispatcher exactly like keys; the surface-side hit-test
   # and hover/drag handling (`#dispatch_mouse`, `#widget_at`, …) stays on
-  # `Window` in `screen_mouse.cr`.
+  # `Window` in `window_mouse.cr`.
   #
   # Crysterm receives mouse input from two possible sources, unified behind a
   # single mechanism:

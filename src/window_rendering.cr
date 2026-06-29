@@ -468,7 +468,7 @@ module Crysterm
       # changes, and `draw` still diffs every cell against `@olines`, so unchanged
       # cells produce no terminal output. The damage path replaces this
       # whole-buffer clear with region-aware clears of just the changed subtrees,
-      # but only when it can prove output-equivalence (see `screen_damage.cr`).
+      # but only when it can prove output-equivalence (see `window_damage.cr`).
       if @optimization.damage_tracking?
         damage_composite
       else
@@ -485,7 +485,7 @@ module Crysterm
       #
       # Only the cursor is repositioned here. A focus *event* is NOT emitted:
       # `Event::Focus` denotes a focus *change* and is fired once, from
-      # `screen_focus.cr#_focus`, when focus actually moves (the rest of the code
+      # `window_focus.cr#_focus`, when focus actually moves (the rest of the code
       # deliberately guards against spurious/duplicate Focus events — see
       # `Widget#focus` and `_focus`'s `old == cur` handling). Re-emitting it on
       # the focused widget every frame fired all of its focus side effects on each

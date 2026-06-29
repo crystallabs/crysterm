@@ -52,7 +52,7 @@ module Crysterm
 
       # Auto-focus on insert, but only when the inserted widget can itself take
       # focus. Inserting non-interactive chrome (a decorative box, a `Line`, the
-      # transient drag ghost — see `screen_drag.cr#make_ghost`) into a screen that
+      # transient drag ghost — see `window_drag.cr#make_ghost`) into a screen that
       # currently has NO focus must not yank focus onto an unrelated, pre-existing
       # keyable widget that merely happens to be unfocused (e.g. one left so after
       # `rewind_focus` found no valid target, or after the history was cleared).

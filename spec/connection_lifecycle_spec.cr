@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Headless coverage of the connect/disconnect/reattach lifecycle
-# (`screen_connection.cr`). This path was previously exercised only indirectly
+# (`window_connection.cr`). This path was previously exercised only indirectly
 # (`startup_interrupt_restore_spec.cr` drives teardown). It is locked in here as
 # the safety net for relocating the input fiber + listening state onto the
 # device — see QT-OBJECT-MODEL-PLAN.md, input-routing split.

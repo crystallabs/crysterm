@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for the per-cell diff in `Window#draw` (`screen_drawing.cr`).
+# Regression coverage for the per-cell diff in `Window#draw` (`window_drawing.cr`).
 #
 # `draw` compares `@lines` (this frame) against `@olines` (what is on the
 # terminal), skips cells that did not change, and writes every emitted cell back

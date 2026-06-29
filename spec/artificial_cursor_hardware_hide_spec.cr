@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Regression coverage for the per-frame cursor save/hide/restore/show burst in
-# `Window#draw` (`screen_drawing.cr`).
+# `Window#draw` (`window_drawing.cr`).
 #
 # While a frame is being written (many cell runs, each prefixed by a `cup`), the
 # real terminal cursor must be hidden so it doesn't streak across the screen,
