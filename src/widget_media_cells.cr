@@ -88,11 +88,8 @@ module Crysterm
 
       def clear_image
         super
-        @animated = false
-        @frame_cache.clear
-        @rendered_size = nil
+        reset_sample_cache # @animated / @frame_cache / @rendered_size / @sample
         set_content ""
-        @sample = nil
       end
 
       # Streaming reuses frame index 0 with new content each tick; drop its cached
