@@ -20,7 +20,15 @@ module Crysterm
       macro included
         @_reading = false
         @input_on_focus = false
+        @_skip_rewind = false
       end
+
+      # Whether finishing a read (Enter/Escape, or blur) should `rewind_focus`
+      # back to the previously-focused widget. True suits one-shot inputs (a
+      # prompt that returns focus to its opener). A persistent form field that
+      # wants the host to control where focus goes next — e.g. advancing to the
+      # next field — sets this false so finishing leaves focus put.
+      property? rewind_on_done : Bool = true
 
       property __update_cursor : Proc(Nil)?
 
@@ -787,8 +795,18 @@ module Crysterm
         # Blur handler is added on every focus and they accumulate; worse,
         # `rewind_focus` emits Blur during teardown, so a stale handler would
         # re-enter `__done_default` and double-pop the focus history.
-        @ev_done_blur = on(Crysterm::Event::Blur) {
+        @ev_done_blur = on(Crysterm::Event::Blur) { |e|
+          # When focus moves to ANOTHER widget (e.g. Tab/Shift-Tab between the
+          # fields of a form, or a click on a sibling input), the user has
+          # deliberately chosen the new target: tear down this field's read state
+          # but do NOT `rewind_focus`, which would yank focus straight back here
+          # and make Tab appear to do nothing. Only rewind when focus is being
+          # cleared (no successor, `e.el.nil?`) — the one-shot prompt/dialog case
+          # — or when finishing via Enter/Escape (the `@_done` path, where
+          # `@_skip_rewind` stays false). See `#__done_default`.
+          @_skip_rewind = !e.el.nil?
           @__done.try &.call nil, nil
+          @_skip_rewind = false
         }
       end
 
@@ -836,7 +854,7 @@ module Crysterm
           screen.restore_focus
         end
 
-        if @input_on_focus
+        if @input_on_focus && !@_skip_rewind && rewind_on_done?
           screen.rewind_focus
         end
 

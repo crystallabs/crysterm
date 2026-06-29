@@ -13,7 +13,7 @@ module Crysterm
       # Unique ID. Auto-incremented.
       #
       # NOTE This is an instance var; setting it to the value of `@@uid` happens in includers.
-      property uid : Int32 = next_uid
+      property uid : Int32 = ::Crysterm::Mixin::Uid.next_uid
 
       # The uid in `String` form, memoized. The CSS cascade and document index
       # key every node by this string on each recompute (`index_tree`,

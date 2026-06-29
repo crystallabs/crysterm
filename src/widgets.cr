@@ -140,5 +140,11 @@ module Crysterm
     PineSetup        = Widget::Pine::Setup
     PineFolderList   = Widget::Pine::FolderList
     PineAddressBook  = Widget::Pine::AddressBook
+    PineKeyPrompt    = Widget::Pine::KeyPrompt
+    PineListSelect   = Widget::Pine::ListSelect
+    PineOptionList   = Widget::Pine::OptionList
+    PineFileBrowser  = Widget::Pine::FileBrowser
+    PineTextView     = Widget::Pine::TextView
+    PineProgressBar  = Widget::Pine::ProgressBar
   end
 end

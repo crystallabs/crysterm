@@ -43,15 +43,16 @@ module Crysterm
         # Historical nested name for the record type (see `SelectableList`).
         alias Option = ::Crysterm::Widget::Pine::MenuOption
 
-        # Whether to insert a blank spacer line between options (as Pine does).
-        property? spaced : Bool
-
         def initialize(
           options : Array(Option) = [] of Option,
           *,
-          @spaced = true,
+          # Blank rows between options (Pine spaces its menu out). Real list
+          # spacing — the gaps are NOT items, so they can't be selected or
+          # clicked. Assigned before `super` so the first layout uses it.
+          spacing : Int32 = 1,
           **list,
         )
+          @item_spacing = spacing
           super options, **list
         end
 
@@ -75,59 +76,11 @@ module Crysterm
           selected_record.try &.key
         end
 
-        # With spacer lines present, every other list item is a blank separator;
-        # map the list index back to the option index.
-        protected def selected_index : Int32
-          @spaced ? selected // 2 : selected
-        end
-
-        # Builds the list-item strings (with blank spacers when `spaced?`).
-        protected def rows(data : Array(Option)) : Array(String)
-          return super unless @spaced
-          lines = [] of String
-          data.each_with_index do |o, i|
-            lines << format_row(o, i)
-            lines << "" if i < data.size - 1
-          end
-          lines
-        end
-
         # Formats one option into a fixed-column row. The row is kept compact
         # (small left indent) because the menu is normally centered as a block,
         # the way Alpine presents it.
         def format_row(item : Option, index : Int32) : String
           "    #{item.key.ljust(2)}    #{item.title.ljust(16)} -  #{item.description}"
-        end
-
-        # Skip over blank spacer rows when navigating with the arrow keys so the
-        # selection always lands on a real option.
-        def on_keypress(e)
-          return super unless @spaced
-
-          case e.key
-          when ::Tput::Key::Up
-            move_to_option(-1)
-            request_render
-          when ::Tput::Key::Down
-            move_to_option(1)
-            request_render
-          else
-            super
-          end
-        end
-
-        # Moves the selection by *direction* (±1) options, hopping over spacers.
-        # Derives the move from the current *option* index (`selected // 2`)
-        # rather than stepping the raw row index by two: if the selection ever
-        # lands on an odd (blank spacer) row — e.g. a mouse click on a spacer, or
-        # a PageUp/PageDown that fell through to the base handler — stepping the
-        # row index by two would keep it odd forever, leaving the arrow keys stuck
-        # cycling through blank spacers. Anchoring on the option index always
-        # lands the cursor back on a real option row (an even index).
-        private def move_to_option(direction)
-          target = selected // 2 + direction
-          return if target < 0 || target >= records.size
-          selekt target * 2
         end
       end
     end

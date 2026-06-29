@@ -49,6 +49,13 @@ module Crysterm
         # Historical nested name for the record type (see `SelectableList`).
         alias Message = ::Crysterm::Widget::Pine::Message
 
+        # Width of the leftmost status/flags column. Defaults to Alpine's compact
+        # 3 (a marker, a space, and one status char); widen it (e.g. to show
+        # several simultaneous flag characters at once) without disturbing the
+        # rest of the columns — every row pads its status to this width, so they
+        # stay aligned.
+        property status_width : Int32 = 3
+
         def initialize(
           messages : Array(Message) = [] of Message,
           **list,
@@ -73,7 +80,7 @@ module Crysterm
         private def format_message(m : Message, number : Int32) : String
           status = m.status.presence || (m.unread? ? "N" : " ")
           String.build do |s|
-            s << status.ljust(3)
+            s << status.ljust(status_width)
             s << number.to_s.rjust(3)
             s << "  "
             s << m.date.ljust(7)
