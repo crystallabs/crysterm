@@ -213,11 +213,43 @@ module Crysterm
         end
         return if @floor_border_user_set
 
-        want = ::Crysterm::Border.from(floor_border_value)
-        sides = {want.left, want.top, want.right, want.bottom}
-        return if @floor_border_applied == sides # already in sync
-        normal.border = want
-        @floor_border_applied = sides
+        val = floor_border_value
+        # Resolve the wanted sides *without* constructing a `Border` for the common
+        # `Bool` floor values (`false` = no border, `true` = a full unit border) —
+        # what nearly every widget returns. `#ensure_floor_border` runs from
+        # `#style` on *every* render of an unstyled (non-`css_styled`) widget, and
+        # the steady state is "already in sync", so allocating a throwaway `Border`
+        # per call just to read its sides back was ~192 B of per-render garbage
+        # (and `#style` is called several times per `_render`, so ~2 KB/widget/frame).
+        # A non-`Bool` value (a `DockWidget`'s `Border`/side-symbol) still resolves
+        # through `Border.from`, exactly as before. When out of sync (a one-off
+        # state change) the `Bool` path also builds the `Border` to assign — the
+        # allocation that is actually needed. The applied border and
+        # `@floor_border_applied` end up byte-identical to before.
+        if quick = floor_border_quick_sides(val)
+          return if @floor_border_applied == quick # already in sync — no allocation
+          normal.border = ::Crysterm::Border.from(val)
+          @floor_border_applied = quick
+        else
+          want = ::Crysterm::Border.from(val)
+          sides = {want.left, want.top, want.right, want.bottom}
+          return if @floor_border_applied == sides # already in sync
+          normal.border = want
+          @floor_border_applied = sides
+        end
+      end
+
+      # The `{left, top, right, bottom}` a floor-border *value* resolves to for the
+      # two `Bool` cases, computed without allocating a `Border`; `nil` for any
+      # other value (resolved via `Border.from` by the caller). Mirrors
+      # `Border.from(true)` (a full unit border) and `Border.from(false)`/`nil`
+      # (no border). The returned tuple is a value type, so this allocates nothing.
+      private def floor_border_quick_sides(value) : Tuple(Int32, Int32, Int32, Int32)?
+        case value
+        when true       then {1, 1, 1, 1}
+        when false, nil then {0, 0, 0, 0}
+        else                 nil
+        end
       end
 
       # At the unstyled floor (no CSS computed this widget — `@css_styled` is
