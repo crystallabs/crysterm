@@ -1,23 +1,12 @@
-require "gpm"
-
 module Crysterm
   class Window
-    # Mouse support.
-    #
-    # Crysterm receives mouse input from two possible sources, unified behind a
-    # single mechanism:
-    #
-    #   * **Terminal escape sequences** (xterm SGR/X10) — enabled via `Tput` and
-    #     parsed by `Tput::Input#listen`, which hands us a `::Tput::Mouse::Event`.
-    #   * **The Linux console `gpm` daemon** — read from `/dev/gpmctl` and
-    #     converted to the same `::Tput::Mouse::Event`.
-    #
-    # Both feed `#dispatch_mouse`, which emits a single `Event::Mouse` on the
-    # screen and on the widget under the pointer. Listeners therefore never need
-    # to know which source produced an event.
-
-    # Whether mouse listening has been set up for this screen.
-    getter? _listened_mouse = false
+    # Surface-side mouse handling — the *hit-test* half: it takes a parsed
+    # `::Tput::Mouse::Event` (delivered by the device via `Application#route_input`
+    # → `#handle_input`), emits `Event::Mouse` on this surface and on the widget
+    # under the pointer, and runs the default focus/click/wheel/hover/drag
+    # behaviors. The raw-input half — enabling terminal mouse reporting, the `gpm`
+    # daemon reader, and the GUI cursor shape — lives on the device (`Screen`) in
+    # `screen_mouse_device.cr`; this surface delegates those (see `window.cr`).
 
     # Stack of widgets that have an *input grab* — an open pop-up (menu, combo
     # drop-down, …) that should behave modally: while any grab is active, only
@@ -66,10 +55,6 @@ module Crysterm
       @grabs.any? &.grab_contains?(x, y)
     end
 
-    # Connection to the `gpm` daemon, if one was established.
-    @_gpm : GPM? = nil
-    @_gpm_fiber : Fiber?
-
     # The widget the pointer is currently hovering over (topmost at the pointer
     # position), used to detect hover in/out transitions.
     @_hover : Widget?
@@ -80,129 +65,18 @@ module Crysterm
       @_hover
     end
 
-    # Whether widgets may change the GUI mouse-pointer shape (xterm's OSC 22)
-    # while hovered. Defaults to the `mouse.cursor_shape` config option (off);
-    # set per-screen to override. See `Widget#mouse_cursor_shape=`.
-    property? mouse_cursor_shape : Bool = Config.mouse_cursor_shape
+    # The raw mouse transport — terminal reporting (`enable_mouse`/`disable_mouse`),
+    # the `gpm` reader (`listen_mouse`), and the GUI cursor shape
+    # (`set_mouse_cursor_shape`) — now lives on the device (`Screen`, in
+    # `screen_mouse_device.cr`); this surface delegates them (see `window.cr`).
 
-    # The GUI mouse-pointer shape currently pushed to the terminal via OSC 22, or
-    # `nil` for the terminal default. Tracked so we only emit on an actual change
-    # and can restore the default on teardown.
-    @_mouse_cursor_shape : ::Tput::MouseCursorShape? = nil
-
-    # Requests the GUI mouse-pointer (the windowing-system cursor) take *shape*
-    # while it is over this terminal, or restores the terminal default when
-    # *shape* is `nil`. A no-op unless `#mouse_cursor_shape?` (the
-    # `mouse.cursor_shape` gate) is on, and a no-op when the request matches what
-    # is already applied. Best-effort: only xterm-class terminals honor OSC 22
-    # (see `::Tput::Output#mouse_cursor_shape`); elsewhere it is silently ignored.
-    #
-    # Widgets drive this on hover in/out via `Widget#mouse_cursor_shape=`; it can
-    # also be called directly to set a screen-wide pointer shape.
-    def set_mouse_cursor_shape(shape : ::Tput::MouseCursorShape?) : Nil
-      return unless mouse_cursor_shape?
-      return if shape == @_mouse_cursor_shape
-      @_mouse_cursor_shape = shape
-      if shape
-        tput.mouse_cursor_shape shape
-      else
-        tput.reset_mouse_cursor_shape
-      end
-    end
-
-    # Turns on xterm mouse reporting for this screen's terminal.
-    def enable_mouse
-      tput.enable_mouse
-    end
-
-    # Turns off xterm mouse reporting and disconnects from `gpm` (if connected).
-    def disable_mouse
-      tput.disable_mouse
-      @_gpm.try &.stop
-      @_gpm = nil
-      # Also drop the fiber handle. Stopping the daemon ends `get_event`'s loop,
-      # so the fiber terminates on its own — but `listen_gpm` guards on
-      # `@_gpm_fiber` being nil, so leaving the (now-dead) handle set would make a
-      # later `listen_mouse` (e.g. after a disconnect/reattach, or any leave→listen
-      # cycle) silently skip re-establishing the gpm connection.
-      @_gpm_fiber = nil
-      # Drop any lingering hover state so a widget isn't left "hovered".
+    # Turns off mouse reporting on the device and drops this surface's hover
+    # state — `Screen#disable_mouse` handles the terminal/gpm/cursor teardown;
+    # the `@_hover` reset is the surface's half (no further `MouseOut` will fire
+    # to clear it once reporting is off).
+    def disable_mouse : Nil
+      @screen.disable_mouse
       @_hover = nil
-      # With reporting off there will be no further `MouseOut` to revert a
-      # hover-set pointer shape, so restore the terminal default now — otherwise
-      # the GUI pointer could stay stuck in a widget's shape after teardown.
-      set_mouse_cursor_shape nil
-    end
-
-    # Sets up mouse listening: enables terminal mouse reporting and, when
-    # available, also starts reading from the `gpm` console daemon. Both sources
-    # are routed through `#dispatch_mouse`.
-    #
-    # The terminal escape-sequence reports are consumed by the existing input
-    # fiber (`#listen_keys`), so this method does not spawn a fiber for them.
-    def listen_mouse
-      return if @_listened_mouse
-      @_listened_mouse = true
-
-      enable_mouse
-      listen_gpm
-    end
-
-    # Attempts to connect to the `gpm` daemon and, on success, spawns a fiber
-    # that converts each `GPM::Event` into a `::Tput::Mouse::Event` and
-    # dispatches it. If `gpm` is unavailable (not a Linux console, daemon not
-    # running, no socket), this silently does nothing — the terminal
-    # escape-sequence path remains fully functional.
-    private def listen_gpm
-      return if @_gpm_fiber
-
-      gpm = begin
-        GPM.new
-      rescue
-        nil
-      end
-      return unless gpm
-
-      @_gpm = gpm
-      @_gpm_fiber = spawn do
-        while e = gpm.get_event
-          dispatch_mouse gpm_to_event(e)
-        end
-      end
-    end
-
-    # Converts a `GPM::Event` (Linux console mouse) into the normalized
-    # `::Tput::Mouse::Event`. GPM coordinates are 1-based; we shift them to the
-    # 0-based convention used throughout mouse handling.
-    private def gpm_to_event(e : GPM::Event) : ::Tput::Mouse::Event
-      button = if e.left?
-                 ::Tput::Mouse::Button::Left
-               elsif e.middle?
-                 ::Tput::Mouse::Button::Middle
-               elsif e.right?
-                 ::Tput::Mouse::Button::Right
-               else
-                 ::Tput::Mouse::Button::None
-               end
-
-      action = if e.wheel_up?
-                 ::Tput::Mouse::Action::WheelUp
-               elsif e.wheel_down?
-                 ::Tput::Mouse::Action::WheelDown
-               elsif e.released?
-                 ::Tput::Mouse::Action::Up
-               elsif e.pressed?
-                 ::Tput::Mouse::Action::Down
-               else
-                 # MOVE or DRAG (or anything else) is reported as movement.
-                 ::Tput::Mouse::Action::Move
-               end
-
-      ::Tput::Mouse::Event.new(
-        action, button,
-        (e.x - 1).to_i, (e.y - 1).to_i,
-        e.shift?, e.meta?, e.ctrl?, :gpm
-      )
     end
 
     # The single dispatch point for *all* mouse events, regardless of source.
@@ -486,7 +360,7 @@ module Crysterm
       return if @clickable.includes? el
       el.clickable = true
       @clickable.push el
-      enable_mouse if @_listened_mouse
+      @screen.enable_mouse if @screen._listened_mouse?
     end
   end
 end

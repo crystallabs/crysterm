@@ -86,6 +86,20 @@ module Crysterm
       _listened_in_band_resize?, _listened_color_scheme?,
       to: @screen
 
+    # Device-side mouse transport (lives on `Screen`, in `screen_mouse_device.cr`).
+    # The surface hit-test (`#dispatch_mouse`) and its `#disable_mouse` wrapper
+    # stay here; everything else delegates. The GUI cursor-shape gate is reached
+    # by widgets via `window.set_mouse_cursor_shape` / `window.mouse_cursor_shape?`.
+    delegate enable_mouse, listen_mouse, _listened_mouse?,
+      set_mouse_cursor_shape, mouse_cursor_shape?,
+      to: @screen
+
+    # The `mouse_cursor_shape` *gate* (config) lives on the device; `delegate`
+    # can't forward assignment, so forward it explicitly.
+    def mouse_cursor_shape=(value : Bool)
+      @screen.mouse_cursor_shape = value
+    end
+
     # Setters are forwarded explicitly (`delegate` does not accept assignment
     # forms). The device size setters honor the surface being full-screen.
     def width=(value : Int32)
@@ -528,15 +542,13 @@ module Crysterm
       show_cursor
       alloc
 
-      # `leave` owns disabling the mouse on the alt-screen teardown path: clear
-      # the flag too so a subsequent `restore_terminal` sees it false and does
-      # not redundantly call `disable_mouse` again. On the non-alt path this
-      # method early-returns above and never reaches here, leaving the flag set
-      # so `restore_terminal` still disables the mouse itself.
-      if @_listened_mouse
-        disable_mouse
-        @_listened_mouse = false
-      end
+      # `leave` owns disabling the mouse on the alt-screen teardown path:
+      # `#disable_mouse` clears the device's `_listened_mouse` flag, so a
+      # subsequent `restore_terminal` sees it false and does not redundantly
+      # disable again. On the non-alt path this method early-returns above and
+      # never reaches here, leaving the flag set so `restore_terminal` still
+      # disables the mouse itself.
+      disable_mouse if @screen._listened_mouse?
 
       tput.normal_buffer
       if cursor._set

@@ -75,7 +75,7 @@ module Crysterm
       # teardown/restore is unaffected.)
       Fiber.yield
 
-      listen_mouse
+      @screen.listen_mouse
 
       # Enable, by default, the input enhancements that are safe and universally
       # expected — done here (after raw mode is established, like mouse, so the

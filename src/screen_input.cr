@@ -6,9 +6,8 @@ module Crysterm
   # so they live on `Screen`; the owning `Window` delegates the enable/disable
   # methods and the `_listened_*?` predicates straight here.
   #
-  # Raw mouse reporting (`enable_mouse`/`@_listened_mouse`) is still on `Window`
-  # (`screen_mouse.cr`) pending the rest of the input-routing relocation — see
-  # QT-OBJECT-MODEL-PLAN.md.
+  # Raw mouse reporting (`enable_mouse` / `@_listened_mouse` / gpm / cursor shape)
+  # lives alongside this on the device in `screen_mouse_device.cr`.
   class Screen
     # The input read fiber. There is at most one; `#listen_keys` is idempotent.
     @_keys_fiber : Fiber?

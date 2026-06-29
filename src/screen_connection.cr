@@ -136,13 +136,11 @@ module Crysterm
     private def restore_terminal : Nil
       restore_step(true) { leave }
 
-      # On the alt-screen path `leave` (above) already disabled the mouse and
-      # cleared `@_listened_mouse`, so this is a no-op. It still matters on the
-      # non-alt path, where `leave` early-returns without touching the mouse:
-      # here we own disabling it and clearing the flag (unconditionally — when
-      # the flag is already false the assignment is a no-op).
-      restore_step(@_listened_mouse) { disable_mouse }
-      @_listened_mouse = false
+      # On the alt-screen path `leave` (above) already disabled the mouse (which
+      # cleared the device's `_listened_mouse` flag), so this is a no-op. It still
+      # matters on the non-alt path, where `leave` early-returns without touching
+      # the mouse: here we own disabling it (`#disable_mouse` clears the flag).
+      restore_step(@screen._listened_mouse?) { disable_mouse }
 
       # Device half: input-mode toggle-offs (keyboard-protocol / bracketed-paste
       # / in-band-resize / color-scheme) plus line-discipline restore.

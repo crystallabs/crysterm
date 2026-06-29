@@ -2,6 +2,7 @@ require "./macros"
 
 require "./screen_attributes"
 require "./screen_input"
+require "./screen_mouse_device"
 
 module Crysterm
   # How a `Screen` built without explicit IO chooses between a real terminal and
