@@ -33,9 +33,13 @@ module Crysterm
       def self.resolve(value : String, current_fg : Int32?) : Int32 | String | Nil
         v = value.strip
         # CSS function names and keywords are case-insensitive, so dispatch on a
-        # lowercased copy (`RGB(...)`/`HSL(...)`/`LINEAR-GRADIENT(...)` are valid).
+        # lower-cased copy (`RGB(...)`/`HSL(...)`/`LINEAR-GRADIENT(...)` are valid).
         # The parsers harvest numbers regardless of case, so they still get `v`.
-        case dv = v.downcase
+        # `Case.fold_keyword` returns `v` itself (no allocation) when it is already
+        # lower-case ASCII — the common case here, where every color resolves to a
+        # bare `#rrggbb`/named color and this runs per color declaration per widget
+        # on each cascade.
+        case dv = Case.fold_keyword(v)
         when "transparent"
           -1 # terminal default (closest TUI analog to "see-through")
         when "currentcolor"

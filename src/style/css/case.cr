@@ -33,21 +33,39 @@ module Crysterm
     # When in doubt: the *names of CSS grammar tokens* fold; the *author-chosen
     # identifiers and literals they carry* do not.
     module Case
+      # Lower-cases *s* for case-insensitive comparison, but returns *s* itself
+      # (no allocation) when it is already folded. `String#downcase` always
+      # builds a fresh `String` even when nothing changes, and these helpers run
+      # in the cascade's per-declaration inner loop (`Properties.apply` folds
+      # every property name, and the value parsers fold every keyword/unit) over
+      # CSS tokens that are *already* lowercase ASCII in the overwhelming common
+      # case (`color`, `background-color`, `none`, `px`, …). Scanning for a byte
+      # that `downcase` could change — an ASCII `A`-`Z`, or any non-ASCII byte —
+      # and returning *s* unchanged when none is found is byte-for-byte identical
+      # to `downcase` (a pure-ASCII string with no uppercase is its own
+      # lower-cased form) while skipping the allocation.
+      private def self.folded_or_self(s : String) : String
+        s.each_byte do |b|
+          return s.downcase if (b >= 0x41 && b <= 0x5A) || b >= 0x80
+        end
+        s
+      end
+
       # Folds a CSS keyword / value-keyword for comparison (`NONE` -> `none`).
       # Does not strip — callers that need to trim whitespace do so themselves.
       def self.fold_keyword(s : String) : String
-        s.downcase
+        folded_or_self s
       end
 
       # Folds a property name for comparison, but leaves a custom property
       # (`--Foo`) untouched: custom-property names are case-*sensitive*.
       def self.fold_property(name : String) : String
-        name.starts_with?("--") ? name : name.downcase
+        name.starts_with?("--") ? name : folded_or_self(name)
       end
 
       # Folds a unit token (`PX` -> `px`, `VW` -> `vw`).
       def self.fold_unit(s : String) : String
-        s.downcase
+        folded_or_self s
       end
 
       # Case-insensitive `@<name>` prefix test (*name* given without the `@`):
