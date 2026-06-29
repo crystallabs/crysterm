@@ -1,5 +1,3 @@
-require "base64"
-
 module Crysterm
   class Window
     # Drag-and-drop engine.
@@ -226,13 +224,9 @@ module Crysterm
 
     # --- Desktop-edge bridges -------------------------------------------------
 
-    # Outbound interop: copy *text* to the system clipboard via OSC 52, the one
-    # channel that reliably crosses to other apps from inside a terminal (it
-    # degrades to a no-op where the terminal does not support it). This is how a
-    # cross-app "transfer" is realistically delivered — see `DragData`.
-    def copy_to_clipboard(text : String) : Nil
-      tput.sel_data "c", Base64.strict_encode(text)
-    end
+    # Outbound interop (`#copy_to_clipboard`) — OSC-52 system-clipboard write —
+    # now lives on the device (`Screen`, in `screen_osc.cr`); this surface
+    # delegates it (see `window.cr`).
 
     # Inbound interop: synthesize a drop of externally-provided *uris* (e.g. a
     # file dragged from the desktop file manager, which terminals deliver as

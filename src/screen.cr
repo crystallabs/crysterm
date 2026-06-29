@@ -3,6 +3,7 @@ require "./macros"
 require "./screen_attributes"
 require "./screen_input"
 require "./screen_mouse_device"
+require "./screen_osc"
 
 module Crysterm
   # How a `Screen` built without explicit IO chooses between a real terminal and
@@ -215,8 +216,8 @@ module Crysterm
         use_buffer: false,
         probe: false,
       )
-      # Derive the terminal's static draw capabilities once, here. They are
-      # re-derived wherever `@tput` is rebuilt (see `#rebuild_connection`).
+      # Derive the terminal's static draw capabilities once, here. (A reattach
+      # builds a brand-new `Screen` via `#reconnected`, which derives them anew.)
       @draw_caps = compute_draw_caps
 
       # An explicitly-sized device keeps its size; the terminal-probed size (in
@@ -261,33 +262,39 @@ module Crysterm
       @height = height
     end
 
-    # Rebuilds `tput` (and the derived `draw_caps`) on a new connection — a fresh
-    # IO pair — reusing the existing read-only terminfo. Used by reattach
-    # (`Window#connect`). `probe: false` is essential: on reattach the new tty has
-    # no responder yet, so a live round-trip would block forever.
-    def rebuild_connection(input : IO, output : IO) : Nil
-      @input = input
-      @output = output
-      if output.responds_to?(:sync=)
-        output.sync = true
-      end
-      @tput = ::Tput.new(
-        terminfo: tput.terminfo,
+    # Builds a **fresh** device for a new connection (a new IO pair) and returns
+    # it — the `Window#screen=` companion to reattach (`Window#connect`). Reuses
+    # this device's read-only terminfo and carries its options across (force/full
+    # unicode), so only the tty changes; the new device sizes itself from the new
+    # terminal. `Screen.new` uses `probe: false`, essential on reattach: the new
+    # tty has no responder yet, so a live round-trip would block forever.
+    #
+    # Returning a *new* `Screen` (rather than mutating this one in place) is what
+    # makes reattach a clean `QWindow#screen=`: the previous connection's input
+    # fiber stays bound to the **old** device (its now-closed fd), so it can
+    # never steal input on the new tty or restore cooked mode on it; once the
+    # window swaps to the returned device, the old one is discarded.
+    def reconnected(input : IO, output : IO) : Screen
+      s = Screen.new(
         input: input,
         output: output,
+        error: @error,
         force_unicode: @force_unicode,
-        use_buffer: false,
-        probe: false,
+        full_unicode: @full_unicode,
+        # Reuse the existing read-only terminfo; `false` (no terminfo) on the rare
+        # chance this device was built without one.
+        terminfo: tput.terminfo || false,
       )
-      @draw_caps = compute_draw_caps
-      # `reset_screen_size` ioctls the fd, which raises on a non-tty (pipe/file/
-      # memory) — tolerate that for headless/redirected use.
+      # Take the size straight from the new terminal. `reset_screen_size` ioctls
+      # the fd, which raises on a non-tty (pipe/file/memory) — tolerate that for
+      # headless/redirected use.
       begin
-        tput.reset_screen_size
+        s.tput.reset_screen_size
       rescue
       end
-      @width = tput.screen.width
-      @height = tput.screen.height
+      s.width = s.tput.screen.width
+      s.height = s.tput.screen.height
+      s
     end
 
     # Derives the draw capabilities from the current terminal. The shim is always

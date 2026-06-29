@@ -100,6 +100,13 @@ module Crysterm
       @screen.mouse_cursor_shape = value
     end
 
+    # Device-side OSC escape-sequence transport (lives on `Screen`, in
+    # `screen_osc.cr`): the OSC-52 system clipboard, OSC 7 cwd, OSC 9;4 progress.
+    # The `Application#clipboard` facade and drag interop reach these through the
+    # surface, which forwards them to its device.
+    delegate copy, request_clipboard, copy_to_clipboard, report_cwd, progress,
+      to: @screen
+
     # Setters are forwarded explicitly (`delegate` does not accept assignment
     # forms). The device size setters honor the surface being full-screen.
     def width=(value : Int32)
@@ -273,7 +280,9 @@ module Crysterm
       _listen_keys
       # _listen_mouse # XXX
 
-      install_default_quit_keys if default_quit_keys?
+      # The default quit keys (`q` / Ctrl-Q) are now an app-global hotkey handled
+      # by `Application#route_input` (gated on `default_quit_keys?`), not a
+      # per-window `Event::KeyPress` handler installed here.
 
       enter # if alt # Only do clear-screen/full-screen if user wants alternate buffer
       post_enter
@@ -661,6 +670,13 @@ module Crysterm
       # this is the old `leave` plus line-discipline restore; for screens bound to
       # spawned windows it also closes the window.
       disconnect
+
+      # Drop this surface from its `Application`'s registry so input is no longer
+      # routed to it and it stops counting as an `active_window` (the app emits
+      # `ScreenRemoved` if its device is now unused). The global `Window.instances`
+      # teardown registry is cleared separately by `super` below. See the
+      # registry note on `Application`.
+      application.try &.remove self
 
       # XXX Blessed does this here (undoes the setup from initialize):
       #    process.removeListener('uncaughtException', Screen._exceptionHandler);

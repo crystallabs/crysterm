@@ -43,14 +43,17 @@ describe "Window connect/disconnect lifecycle" do
     buf.to_s.size.should eq after_first
   end
 
-  it "reconnect rebuilds the device on the new IO and repaints it" do
+  it "reconnect swaps in a fresh device (QWindow#screen=) and repaints it" do
     w = conn_window IO::Memory.new
+    old_device = w.screen
     w.disconnect
 
     new_out = IO::Memory.new
     w.connect(IO::Memory.new, new_out)
 
     w.connected?.should be_true
+    # Reattach builds a *new* `Screen` and swaps it in (not an in-place rebuild).
+    w.screen.should_not be(old_device)
     # Re-entered the alternate buffer on the *new* terminal.
     new_out.to_s.should contain("\e[?1049h")
     # The device's output is now the new buffer (delegated through @screen).

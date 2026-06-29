@@ -57,18 +57,8 @@ module Crysterm
       disconnect if @connected
       @owns_io = true
       @destroyed = false
-
-      # Rebuild the device on the new IO pair: a FRESH `Tput` (reusing the read-
-      # only terminfo) plus re-derived draw caps, and adopt the new terminal's
-      # size. The previous connection's input fiber may still be unwinding, so it
-      # must NOT share this Tput (it would steal input on the new fd and restore
-      # cooked mode on the new tty); the rebuild gives it a Tput bound to the old
-      # (now closed) fd. `probe: false` is essential — the new tty has no
-      # responder yet, so a live round-trip would block forever. See
-      # `Window#rebuild_connection`.
-      @screen.rebuild_connection(input, output)
-
-      @window = window
+      # Mark connected before the swap below so its repaint isn't suppressed (the
+      # render fiber no-ops while `@connected` is false).
       @connected = true
 
       # Re-establish the global-resize subscription if it was dropped.
@@ -77,8 +67,16 @@ module Crysterm
         schedule_resize unless _listened_in_band_resize?
       end
 
-      enter   # alternate buffer + modes + (re)alloc to new size
-      realloc # mark every cell dirty so the blank new terminal repaints
+      # Reattach as `QWindow#screen=`: swap onto a freshly-built device for the
+      # new tty (reusing the old device's terminfo + options, sized from the new
+      # terminal). `#screen=` enters the alternate buffer, reallocs to the new
+      # size, and fully repaints; the old device — its now-closed tput and unwound
+      # input fiber — is discarded. Building a brand-new device (rather than
+      # mutating the old one) is what keeps the previous input fiber from ever
+      # touching the new tty. See `Screen#reconnected`.
+      self.screen = @screen.reconnected(input, output)
+
+      @window = window
 
       # Re-apply the window title (sets it on the new terminal via tput).
       @title.try { |t| self.title = t }

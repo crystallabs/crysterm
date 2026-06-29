@@ -17,7 +17,18 @@ module Crysterm
     include EventHandler
     include Mixin::Instances
 
-    # Surfaces (`Window`s) this application is driving.
+    # Surfaces (`Window`s) this application is driving — the per-app routing /
+    # "active window" set (≈ `QGuiApplication::allWindows()` scoped to one app).
+    # Populated by `#add` (and `Window#listen` self-registers), and kept clean by
+    # `Window#destroy`, which calls `#remove`.
+    #
+    # This is deliberately **not** the same registry as the class-level
+    # `Window.instances`: that one tracks *every* surface ever created — including
+    # one never attached to an `Application` (a `Window.new` enters the alternate
+    # buffer in its constructor, before any `#exec`/`#listen`) — and is what
+    # `at_exit` walks to restore every terminal on shutdown. The two serve
+    # distinct purposes (global teardown net vs. per-app routing view), so both
+    # are kept rather than collapsed into one.
     getter windows = [] of Window
 
     def initialize
@@ -50,13 +61,24 @@ module Crysterm
     # `Window` on that device, and the window does the mouse/paste/key demux and
     # focus walk (`Window#handle_input`).
     #
-    # This is also the intended home for **app-global hotkeys** — a single place
-    # to intercept e.g. quit before any window sees the key. Today no key is
-    # intercepted here (quit is still wired per-window via `Event::KeyPress`
-    # handlers); the seam exists so that consolidation is a local change.
+    # This is also the home for **app-global hotkeys** — intercepted here, before
+    # any widget sees the key. The default quit keys (`q` / Ctrl-Q) live here: a
+    # press (never a release) on a window that opted into `default_quit_keys?`
+    # tears it down and exits, the `QGuiApplication`-level shortcut. Windows that
+    # opt out (`default_quit_keys: false`) fall through, so their own widgets'
+    # `q` bindings — or a wrapper's graceful quit (`Application.exec_all`) — still
+    # run.
     def route_input(screen : Screen, e : ::Tput::InputEvent) : Nil
-      # (app-global hotkey check will go here)
-      active_window_for(screen).try &.handle_input(e)
+      win = active_window_for(screen)
+      return unless win
+
+      if win.default_quit_keys? && !e.release? &&
+         (e.char == 'q' || e.key == ::Tput::Key::CtrlQ)
+        win.destroy
+        exit
+      end
+
+      win.handle_input e
     end
 
     # The most-recently-added `Window` shown on *screen* (its active surface), or
@@ -211,8 +233,9 @@ module Crysterm
       def initialize(@app : Application)
       end
 
-      # Last value set or received. (Asynchronous OSC-52 reply wiring that
-      # refreshes this on paste-from-system is a follow-up — see the plan.)
+      # Last value set or received. Refreshed automatically when an OSC-52 read
+      # reply arrives (`#request` → `#refresh_from_terminal`), so after the
+      # `Event::Clipboard` fires this reflects the system selection.
       getter text : String = ""
 
       # Sets the clipboard text and copies it to the active window's terminal.
@@ -220,6 +243,14 @@ module Crysterm
         @text = value
         @app.active_window.try &.copy(value)
         value
+      end
+
+      # Refreshes the cached text from an OSC-52 *read* reply that just arrived on
+      # a device's input (≈ `QClipboard::dataChanged`). Does NOT re-copy to the
+      # terminal — the value came *from* it. Called by `Window#handle_input` when
+      # it routes a `Tput::InputEvent#clipboard` reply.
+      def refresh_from_terminal(value : String) : String
+        @text = value
       end
 
       # Asynchronously requests the system clipboard from the active window's

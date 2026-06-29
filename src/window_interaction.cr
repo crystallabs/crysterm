@@ -8,23 +8,15 @@ module Crysterm
     # Are keypresses being propagated further, or (except ignored ones) not propagated?
     property? propagate_keys : Bool = Config.window_propagate_keys
 
-    # Should the constructor install a default quit handler? When on, pressing
-    # `q` (or Ctrl-Q) destroys the screen and exits the program — the behavior
-    # every demo used to wire up by hand. Apps that bind those keys themselves
-    # can turn it off globally via the `window.default_quit_keys` config option
-    # or per-window via `default_quit_keys: false`.
+    # Whether this window opts into the default quit keys. When on, pressing `q`
+    # (or Ctrl-Q) destroys the window and exits the program — the behavior every
+    # demo used to wire up by hand. The check itself is an **app-global hotkey**
+    # handled by `Application#route_input` *before* the key reaches any widget
+    # (the QGuiApplication-level shortcut), so it is intercepted at input
+    # dispatch rather than via an event handler. Apps that bind those keys
+    # themselves can turn it off globally via the `window.default_quit_keys`
+    # config option or per-window via `default_quit_keys: false`.
     property? default_quit_keys : Bool = Config.window_default_quit_keys
-
-    # Installs the default quit handler (see `default_quit_keys?`). Called from
-    # the constructor; idempotent enough for normal use (one screen, one call).
-    protected def install_default_quit_keys
-      on(Crysterm::Event::KeyPress) do |e|
-        if e.char == 'q' || e.key == Tput::Key::CtrlQ
-          destroy
-          exit
-        end
-      end
-    end
 
     # Array of keys to ignore when keys are locked or grabbed. Useful for defining
     # keys that will always execute their action (e.g. exit a program) regardless of
@@ -129,34 +121,9 @@ module Crysterm
     # the device (`Screen`, in `screen_input.cr`); this surface delegates them
     # (see the `delegate … to: @screen` block in `window.cr`).
 
-    # OSC 52: copies *text* to the terminal clipboard *selection* (`"c"`
-    # clipboard, `"p"` primary). Works over SSH/tmux; ignored where unsupported.
-    def copy(text : String, selection : String = "c") : Nil
-      tput.set_clipboard text, selection
-    end
-
-    # OSC 52: asks the terminal for the clipboard *selection*. The contents
-    # arrive asynchronously as an `Event::Paste` (so it works during the input
-    # loop). Many terminals disable clipboard *reads* for security, in which case
-    # no event arrives.
-    def request_clipboard(selection : String = "c") : Nil
-      tput.request_clipboard selection
-    end
-
-    # OSC 7: reports *path* to the terminal as the current working directory, so
-    # terminals that track it ("open new tab/split here", titles) follow along.
-    # *host* is the URI host (empty = local). Routed through tput (tmux-safe);
-    # ignored where unsupported.
-    def report_cwd(path : String, host : String = "") : Nil
-      tput.report_cwd path, host
-    end
-
-    # OSC 9;4: drives the terminal's progress indicator (taskbar / tab badge).
-    # *state*: 0 = clear, 1 = normal (show *progress*, 0–100), 2 = error,
-    # 3 = indeterminate, 4 = warning. Ignored where unsupported.
-    def progress(progress : Int32 = 0, state : Int32 = 1) : Nil
-      tput.progress progress, state
-    end
+    # The OSC escape-sequence transport (`copy` / `request_clipboard` / OSC-52
+    # clipboard, `report_cwd`, `progress`) now lives on the device (`Screen`, in
+    # `screen_osc.cr`); this surface delegates them (see `window.cr`).
 
     # Demuxes one parsed input event (`Tput::InputEvent`) into the right Crysterm
     # event on this surface. This is the per-window handler the `Application`
@@ -174,6 +141,13 @@ module Crysterm
         dispatch_mouse m
       elsif pasted = e.paste
         emit Crysterm::Event::Paste.new pasted
+      elsif clip = e.clipboard
+        # OSC-52 clipboard *read* reply (answer to `request_clipboard`). Refresh
+        # the app-wide clipboard mirror (≈ QClipboard::dataChanged) before
+        # notifying listeners, so a handler reading `application.clipboard.text`
+        # sees the fresh value. Distinct from a bracketed paste.
+        application.try &.clipboard.refresh_from_terminal(clip)
+        emit Crysterm::Event::Clipboard.new clip
       elsif scheme = e.color_scheme
         emit Crysterm::Event::ColorScheme.new scheme
       elsif r = e.resize

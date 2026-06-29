@@ -79,9 +79,17 @@ module Crysterm
     # enabled (`Window#enable_bracketed_paste`). `content` is the pasted text
     # verbatim — never interpreted as key presses, so embedded control sequences
     # are inert. Lets apps treat paste differently from typing (e.g. insert
-    # literally, skip auto-indent, guard against paste injection). Also emitted
-    # for a programmatic clipboard read (`Window#request_clipboard`, OSC 52).
+    # literally, skip auto-indent, guard against paste injection). A programmatic
+    # clipboard *read* reply arrives as `Clipboard` (below), not as a paste.
     event Paste, content : String
+
+    # Emitted when an OSC 52 clipboard *read* reply arrives, in answer to a
+    # `Window#request_clipboard` / `Application::Clipboard#request` — the
+    # `QClipboard::dataChanged` analogue. `content` is the decoded clipboard text.
+    # Distinct from `Paste`: this is the system clipboard's contents reported back
+    # asynchronously, not the user pasting into the app. The app-wide
+    # `Application#clipboard` cache is refreshed from it before this fires.
+    event Clipboard, content : String
 
     # Emitted when the terminal reports a light/dark color-scheme change, once
     # `Window#enable_color_scheme_notifications` (DEC 2031) is active. Lets an app

@@ -71,12 +71,15 @@ describe "Window#handle_input" do
     got.should eq [Tput::ColorScheme::Dark]
   end
 
-  it "routes an (OSC-52) clipboard paste to Event::Paste" do
+  it "routes an OSC-52 clipboard read reply to Event::Clipboard (not Paste)" do
     s = routing_screen
-    got = [] of String
-    s.on(Crysterm::Event::Paste) { |e| got << e.content }
-    s.handle_input Tput::InputEvent.new('\0', paste: "clipboard text")
-    got.should eq ["clipboard text"]
+    clips = [] of String
+    pastes = 0
+    s.on(Crysterm::Event::Clipboard) { |e| clips << e.content }
+    s.on(Crysterm::Event::Paste) { |_| pastes += 1 }
+    s.handle_input Tput::InputEvent.new('\0', clipboard: "clip text")
+    clips.should eq ["clip text"]
+    pastes.should eq 0
   end
 
   it "consumes an in-band resize without emitting a key or paste" do
@@ -125,5 +128,66 @@ describe "Application#route_input" do
     orphan = routing_screen # built but never added to the app
     # Should be a quiet no-op, not a raise.
     app.route_input orphan.screen, press('a', Tput::Key::CtrlA)
+  end
+
+  # The app-global quit path (`default_quit_keys?` + `q`/Ctrl-Q) calls `exit`, so
+  # it can't be unit-tested directly. We cover the *opt-out* side: a window with
+  # `default_quit_keys: false` must NOT be intercepted — `q` forwards to it as an
+  # ordinary key (so widgets' own `q` bindings keep working).
+  it "forwards 'q' to a default_quit_keys:false window instead of quitting" do
+    app = Crysterm::Application.new
+    win = Crysterm::Window.new(
+      input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
+      default_quit_keys: false)
+    app.add win
+    got = [] of Char?
+    win.on(Crysterm::Event::KeyPress) { |e| got << e.char }
+
+    app.route_input win.screen, press('q')
+    got.should eq ['q']
+  end
+
+  it "refreshes the app clipboard cache from an OSC-52 read reply" do
+    app = Crysterm::Application.new
+    win = routing_screen
+    app.add win
+
+    got = [] of String
+    win.on(Crysterm::Event::Clipboard) { |e| got << e.content }
+
+    app.route_input win.screen, Tput::InputEvent.new('\0', clipboard: "from terminal")
+    got.should eq ["from terminal"]
+    app.clipboard.text.should eq "from terminal"
+  end
+end
+
+describe "Application registry consistency" do
+  it "drops a destroyed window from the registry and active_window" do
+    app = Crysterm::Application.new
+    a = routing_screen
+    b = routing_screen
+    app.add a
+    app.add b
+    app.windows.should eq [a, b]
+    app.active_window.should be(b)
+
+    b.destroy
+
+    app.windows.includes?(b).should be_false
+    app.active_window.should be(a)
+  end
+
+  it "stops routing input to a destroyed window" do
+    app = Crysterm::Application.new
+    win = routing_screen
+    app.add win
+    dev = win.screen
+    got = 0
+    win.on(Crysterm::Event::KeyPress) { |_| got += 1 }
+
+    win.destroy
+    # The device is gone from the app, so nothing receives the event (no raise).
+    app.route_input dev, press('a', Tput::Key::CtrlA)
+    got.should eq 0
   end
 end
