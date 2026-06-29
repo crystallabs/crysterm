@@ -14,6 +14,46 @@
 #
 # Crysterm::Config.myapp_theme # => "dark"
 # ```
+
+module Crysterm
+  # Forced colour-depth policy, derived from the standard colour-convention
+  # environment variables. A single value resolved from *several* env vars (see
+  # `.color_force_from_env`) and exposed as the one `screen.color_force` option,
+  # rather than one option per variable. `resolve_color_depth` turns it into a
+  # concrete count with the terminal-detected count in hand; `Min16` / `Min256`
+  # never *lower* the detected depth.
+  enum ColorForce
+    None      # no env directive: use the detected count
+    Mono      # force monochrome (count 1)
+    Min16     # force colour on, at least 16
+    Min256    # force colour on, at least 256
+    Truecolor # force full 24-bit colour
+  end
+
+  # Resolve the colour-force policy from the colour-convention env vars in their
+  # historical precedence: `NO_COLOR` (present/non-empty), then `CLICOLOR=0`,
+  # then `FORCE_COLOR`'s level, then a non-zero `CLICOLOR_FORCE`. Read once to
+  # seed the `screen.color_force` option default (so a config file / CLI flag
+  # still outranks it, and the per-frame path reads one resolved enum).
+  def self.color_force_from_env : ColorForce
+    # https://no-color.org : NO_COLOR present and non-empty disables color.
+    return ColorForce::Mono if ENV["NO_COLOR"]?.presence
+    # https://bixense.com/clicolors : CLICOLOR=0 disables; CLICOLOR_FORCE!=0 forces.
+    return ColorForce::Mono if ENV["CLICOLOR"]? == "0"
+    # FORCE_COLOR selects a depth: 0/false off, 1/true 16, 2 256, 3 truecolor.
+    if v = ENV["FORCE_COLOR"]?
+      case v
+      when "0", "false" then return ColorForce::Mono
+      when "2"          then return ColorForce::Min256
+      when "3"          then return ColorForce::Truecolor
+      else                   return ColorForce::Min16
+      end
+    end
+    return ColorForce::Min16 if (v = ENV["CLICOLOR_FORCE"]?) && v != "0"
+    ColorForce::None
+  end
+end
+
 module Superconf
   # Parser for a `String?`-valued option (a presence/value environment mirror):
   # the built-in casts cover `String` but not the `String | Nil` union, so these
@@ -138,61 +178,57 @@ module Superconf
     description: "Enable emacs/readline-style editing keys in text inputs: Ctrl-A/Ctrl-E (line start/end), word-wise Ctrl/Alt-Left/Right (+ Alt-B/Alt-F), Ctrl-W (kill word back), Ctrl-U/Ctrl-K (kill to line start/end), Alt-D (kill word forward), and Ctrl-Y (yank from the kill ring). When off, these keys are left unhandled so the application can bind them"
 
   # -- External programs / environment --------------------------------------
-  # These options *are* the channel through which the standard `SHELL` / `TERM` /
-  # `HOME` variables reach Crysterm: `env:` binds each to its real OS variable, so
-  # the value now flows through the env source (which outranks a config file and
-  # the literal default) rather than being baked into the default. The trade-off
-  # is that the derived `CRYSTERM_INPUT_SHELL` / `CRYSTERM_TERMINAL_TERM` /
-  # `CRYSTERM_FILEMANAGER_HOME` names no longer exist — the real var is the name.
-  option "input.shell", "sh", env: "SHELL",
+  # The standard `SHELL` / `TERM` / `HOME` (and the CRYSTERM_* knobs below) reach
+  # Crysterm as the *default* of these options — read once from the environment at
+  # registration. Sourcing the env var in the default (rather than binding `env:`
+  # to the real variable) keeps a config file or CLI flag outranking the OS
+  # variable, so there is no env-over-config surprise. Each option still gets its
+  # own derived CRYSTERM_* env/CLI surface for explicit overrides.
+  option "input.shell", (ENV["SHELL"]? || "sh"),
     description: "Shell launched by Widget::Terminal (defaults from $SHELL)"
-  option "terminal.term", "xterm", env: "TERM",
+  option "terminal.term", (ENV["TERM"]? || "xterm"),
     description: "TERM name advertised to programs run inside Widget::Terminal (defaults from $TERM)"
   option "terminal.fallback_term", "xterm",
     description: "Terminfo entry used when $TERM is missing or unusable (e.g. headless/CI)"
-  option "terminal.window_helper", nil.as(String?), env: "CRYSTERM_WINDOW_HELPER", parse: ENV_STRING,
+  option "terminal.window_helper", ENV["CRYSTERM_WINDOW_HELPER"]?, parse: ENV_STRING,
     description: "Internal: when set (by Terminal.spawn_window on the child command), the rendezvous socket path that makes this process run as a detached-window helper and exit. Not meant to be set by hand"
-  option "filemanager.home", "/", env: "HOME",
+  option "filemanager.home", (ENV["HOME"]? || "/"),
     description: "Starting directory for Widget::FileManager (defaults from $HOME)"
 
   # -- Headless capture (Crysterm's own CRYSTERM_* knobs) -------------------
+  # Read once at registration as the option default (so config/CLI still win).
   # When set, each names a file the screen captures itself into on first render,
   # then exits the interactive loop — see `Screen#capture_from_env`. Presence
-  # paths (empty/unset = off), so they are `String?` read via `#presence`.
-  option "screen.shot", nil.as(String?), env: "CRYSTERM_SHOT", parse: ENV_STRING,
+  # paths (empty/unset = off), read via `#presence` at the call site.
+  option "screen.shot", ENV["CRYSTERM_SHOT"]?, parse: ENV_STRING,
     description: "When set, path to write a single still PNG of the first rendered frame to, then exit (headless self-capture)"
-  option "screen.dump", nil.as(String?), env: "CRYSTERM_DUMP", parse: ENV_STRING,
+  option "screen.dump", ENV["CRYSTERM_DUMP"]?, parse: ENV_STRING,
     description: "When set, path to write a textual `#dump` golden of the first rendered frame to, then exit"
-  option "screen.anim", nil.as(String?), env: "CRYSTERM_ANIM", parse: ENV_STRING,
+  option "screen.anim", ENV["CRYSTERM_ANIM"]?, parse: ENV_STRING,
     description: "When set, path to write an animated PNG (APNG) capture to, then exit; tuned by screen.anim_secs / screen.anim_fps"
-  option "screen.anim_secs", 5.0, env: "CRYSTERM_ANIM_SECS",
+  option "screen.anim_secs", (ENV["CRYSTERM_ANIM_SECS"]?.try(&.to_f?) || 5.0),
     description: "Duration in seconds of a screen.anim (CRYSTERM_ANIM) capture"
-  option "screen.anim_fps", 10, env: "CRYSTERM_ANIM_FPS",
+  option "screen.anim_fps", (ENV["CRYSTERM_ANIM_FPS"]?.try(&.to_i?) || 10),
     description: "Frame rate of a screen.anim (CRYSTERM_ANIM) capture"
 
   # -- Observed environment variables (standard names from the OS / other tools)
   # Mirror externally-defined variables into the registry so they appear in
-  # dumps/docs and can be overridden like any other option. Each is bound to its
-  # real name via `env:` and modeled as a presence/value `String?` (empty/unset =
-  # absent), so callers read `Config.environment_*` instead of the raw variable.
-  option "environment.no_color", nil.as(String?), env: "NO_COLOR", parse: ENV_STRING,
-    description: "https://no-color.org : when present and non-empty, disables color (monochrome output)"
-  option "environment.clicolor", nil.as(String?), env: "CLICOLOR", parse: ENV_STRING,
-    description: "https://bixense.com/clicolors : when set to 0, disables color (monochrome output)"
-  option "environment.force_color", nil.as(String?), env: "FORCE_COLOR", parse: ENV_STRING,
-    description: "Forces a color depth: 0/false off (monochrome), 1/true at least 16, 2 at least 256, 3 truecolor"
-  option "environment.clicolor_force", nil.as(String?), env: "CLICOLOR_FORCE", parse: ENV_STRING,
-    description: "https://bixense.com/clicolors : when set and non-zero, forces color on (at least 16)"
-  option "environment.w3mimgdisplay", nil.as(String?), env: "W3MIMGDISPLAY_ENV", parse: ENV_STRING,
+  # dumps/docs and can be overridden like any other option. Each is read once at
+  # registration as its option default (config/CLI still outrank it) and modeled
+  # as a presence/value `String?`, so callers read `Config.environment_*` instead
+  # of the raw variable.
+  option "screen.color_force", Crysterm.color_force_from_env,
+    description: "Forced colour-depth policy resolved at startup from the standard colour-convention env vars NO_COLOR / CLICOLOR / FORCE_COLOR / CLICOLOR_FORCE (precedence in that order). Override directly to force none|mono|min16|min256|truecolor regardless of the environment"
+  option "environment.w3mimgdisplay", ENV["W3MIMGDISPLAY_ENV"]?, parse: ENV_STRING,
     description: "Explicit path to the w3mimgdisplay helper used by the Media::Overlay backend (tried before the built-in candidate paths)"
-  option "environment.tmux", nil.as(String?), env: "TMUX", parse: ENV_STRING,
+  option "environment.tmux", ENV["TMUX"]?, parse: ENV_STRING,
     description: "Set by tmux when running inside it; presence makes Widget::Terminal open a new tmux window instead of a new session"
-  option "environment.terminal", nil.as(String?), env: "TERMINAL", parse: ENV_STRING,
+  option "environment.terminal", ENV["TERMINAL"]?, parse: ENV_STRING,
     description: "Preferred terminal-emulator command, tried first when auto-selecting a launcher for a detached window"
-  option "environment.xdg_runtime_dir", nil.as(String?), env: "XDG_RUNTIME_DIR", parse: ENV_STRING,
+  option "environment.xdg_runtime_dir", ENV["XDG_RUNTIME_DIR"]?, parse: ENV_STRING,
     description: "Per-user runtime directory used for the window-handshake socket (falls back to the system temp dir when unset)"
 
   # -- Remote control --------------------------------------------------------
-  option "remote.enabled", nil.as(String?), env: "CRYSTERM_REMOTE", parse: ENV_STRING,
+  option "remote.enabled", ENV["CRYSTERM_REMOTE"]?, parse: ENV_STRING,
     description: "When present and non-empty, allows the -Dremote HTTP bridge to start at runtime (overridable in code via Crysterm::Remote.enabled=)"
 end
