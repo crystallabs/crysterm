@@ -1,6 +1,7 @@
 require "../box"
 require "./canvas"
 require "../../widget_graph_text_overlay"
+require "../../widget_graph_scale"
 
 module Crysterm
   class Widget
@@ -37,6 +38,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class Map < Box
         include TextOverlay
+        include InteriorCoords
 
         # A coordinate-placed marker (Qt's `MapQuickItem`).
         struct Marker
@@ -185,11 +187,7 @@ module Crysterm
 
         private def draw_markers : Nil
           return if @markers.empty?
-          lp = @lpos || return
-          xi = lp.xi + ileft
-          xl = lp.xl - iright
-          yi = lp.yi + itop
-          yl = lp.yl - ibottom
+          xi, xl, yi, yl = interior_coords || return
           w = xl - xi
           h = yl - yi
           return if w <= 0 || h <= 0

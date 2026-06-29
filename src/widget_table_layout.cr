@@ -236,6 +236,28 @@ module Crysterm
       rows.map { |row| row.map(&.to_s) }
     end
 
+    # Applies the optional cell-border / padding constructor options, each only
+    # when explicitly given (a `nil` leaves the default). Shared by the table
+    # widgets' `#initialize`. The ivars are assigned directly (not via `pad=`)
+    # to match the original construction-time behavior — the cache is rebuilt by
+    # the following `#set_data` anyway.
+    def init_cell_options(pad, no_cell_borders, fill_cell_borders) : Nil
+      pad.try { |v| @pad = v }
+      no_cell_borders.try { |v| @no_cell_borders = v }
+      fill_cell_borders.try { |v| @fill_cell_borders = v }
+    end
+
+    # Normalizes *rows* into `@rows` and recomputes the cached column widths.
+    # Returns `false` when the table ends up with no columns, so a `#set_data`
+    # caller can early-return on an empty table via
+    # `return unless reload_rows(rows)`.
+    def reload_rows(rows) : Bool
+      @rows = normalize_rows rows
+      invalidate_maxes
+      calculate_maxes
+      !@maxes.empty?
+    end
+
     # Interior extent of the rendered table for *coords*, shared by the border
     # and CSS-recolor passes: the content origin (`xi`, `yi`) plus the content
     # `width`/`height` reaching the right/bottom insets. Destructure as

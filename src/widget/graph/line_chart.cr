@@ -39,6 +39,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class LineChart < Box
         include TextOverlay
+        include InteriorCoords
 
         # A `QValueAxis`-like value axis. `#minimum`/`#maximum` of `nil` auto-range
         # from the plotted data.
@@ -253,11 +254,7 @@ module Crysterm
         end
 
         private def draw_chrome(lm : Int32, tm : Int32, rm : Int32, bm : Int32) : Nil
-          lp = @lpos || return
-          cl = lp.xi + ileft
-          cr = lp.xl - iright
-          ct = lp.yi + itop
-          cb = lp.yl - ibottom
+          cl, cr, ct, cb = interior_coords || return
           return if cr - cl <= lm + rm || cb - ct <= tm + bm
 
           plot_l = cl + lm

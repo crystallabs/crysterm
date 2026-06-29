@@ -51,6 +51,29 @@ module Crysterm
           end
         end
 
+        # Defines the typed accessor trio a concrete subclass exposes over the
+        # generic `records`/`set_records`/`selected_record`, named for its record
+        # type: a `<plural>` reader, a `set_<plural>(<plural>)` replacer, and a
+        # `selected_<singular>` reader. *type* is the record class (`T`). E.g.
+        # `record_accessors folders, folder, Folder` generates `#folders`,
+        # `#set_folders` and `#selected_folder`.
+        macro record_accessors(plural, singular, type)
+          # The {{plural.id}} currently displayed, parallel to the list rows.
+          def {{plural.id}} : Array({{type}})
+            records
+          end
+
+          # Replaces the displayed {{plural.id}}.
+          def set_{{plural.id}}({{plural.id}} : Array({{type}}))
+            set_records {{plural.id}}
+          end
+
+          # The currently-selected {{singular.id}}, if any.
+          def selected_{{singular.id}} : {{type}}?
+            selected_record
+          end
+        end
+
         # Replaces the displayed records and rebuilds the visible rows.
         def set_records(data : Array(T))
           @records = data

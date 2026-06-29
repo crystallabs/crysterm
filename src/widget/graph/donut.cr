@@ -1,6 +1,7 @@
 require "../box"
 require "./canvas"
 require "../../widget_graph_text_overlay"
+require "../../widget_graph_scale"
 require "../../mixin/ranged_value"
 
 module Crysterm
@@ -26,6 +27,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class Donut < Box
         include TextOverlay
+        include InteriorCoords
         # Float-valued `#span`/`#percent_of` helpers (shared with `Gauge`).
         include Mixin::PercentRange
 
@@ -142,11 +144,7 @@ module Crysterm
 
         private def draw_center_label : Nil
           return unless show_label?
-          lp = @lpos || return
-          xi = lp.xi + ileft
-          xl = lp.xl - iright
-          yi = lp.yi + itop
-          yl = lp.yl - ibottom
+          xi, xl, yi, yl = interior_coords || return
           return if xl - xi <= 0 || yl - yi <= 0
 
           cy = yi + (yl - yi - 1) // 2

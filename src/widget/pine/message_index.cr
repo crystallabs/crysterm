@@ -56,20 +56,7 @@ module Crysterm
           super messages, **list
         end
 
-        # The messages currently displayed, parallel to the list items.
-        def messages : Array(Message)
-          records
-        end
-
-        # Replaces the displayed messages.
-        def set_messages(messages : Array(Message))
-          set_records messages
-        end
-
-        # The currently-selected message, if any.
-        def selected_message : Message?
-          selected_record
-        end
+        record_accessors messages, message, Message
 
         # Activates the currently-selected message.
         def run_selected

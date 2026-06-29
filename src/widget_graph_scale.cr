@@ -75,6 +75,20 @@ module Crysterm
         end
       end
 
+      # Interior-coordinate helper for the Canvas-based graph widgets (`Donut`,
+      # `Map`, `LineChart`), which draw terminal-text overlays inside their own
+      # content area. Mixed into `Box` subclasses.
+      module InteriorCoords
+        # The interior content rectangle `{xi, xl, yi, yl}` for the current frame,
+        # inset by both padding *and* border (the base `with_inner_coords` insets
+        # by border only), or `nil` when the widget isn't positioned yet
+        # (`@lpos` unset). Callers early-return via `... || return`.
+        private def interior_coords : Tuple(Int32, Int32, Int32, Int32)?
+          lp = @lpos || return nil
+          {lp.xi + ileft, lp.xl - iright, lp.yi + itop, lp.yl - ibottom}
+        end
+      end
+
       # Shared scaffolding for the block-glyph bar charts (`Bar`, `StackedBar`):
       # the bar-capacity arithmetic, the repaint-on-render hook, and the per-row
       # tagged-content builder. Including types are `Box` subclasses that declare

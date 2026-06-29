@@ -51,20 +51,7 @@ module Crysterm
           super contacts, **list
         end
 
-        # The contacts currently displayed, parallel to the list rows.
-        def contacts : Array(Contact)
-          records
-        end
-
-        # Replaces the displayed contacts.
-        def set_contacts(contacts : Array(Contact))
-          set_records contacts
-        end
-
-        # The currently-selected contact, if any.
-        def selected_contact : Contact?
-          selected_record
-        end
+        record_accessors contacts, contact, Contact
 
         # Selects the currently-highlighted contact.
         def run_selected

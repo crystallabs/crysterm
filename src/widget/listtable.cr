@@ -84,9 +84,7 @@ module Crysterm
         self.cell_align = align
         @alternate_rows = alternate_rows
         @sortable = sortable
-        pad.try { |v| @pad = v }
-        no_cell_borders.try { |v| @no_cell_borders = v }
-        fill_cell_borders.try { |v| @fill_cell_borders = v }
+        init_cell_options pad, no_cell_borders, fill_cell_borders
 
         super **box
 
@@ -337,10 +335,7 @@ module Crysterm
       def set_data(rows)
         sel = @ritems[selected]?
 
-        @rows = normalize_rows rows
-        invalidate_maxes
-        calculate_maxes
-        return if @maxes.empty?
+        return unless reload_rows rows
 
         # Keep the horizontal offset valid across a data change (fewer columns),
         # and re-derive its display-column offset.

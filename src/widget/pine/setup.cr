@@ -46,20 +46,7 @@ module Crysterm
           super options, **list
         end
 
-        # The configurable options, parallel to the list rows.
-        def options : Array(Option)
-          records
-        end
-
-        # Replaces the displayed options.
-        def set_options(options : Array(Option))
-          set_records options
-        end
-
-        # The currently-selected option, if any.
-        def selected_option : Option?
-          selected_record
-        end
+        record_accessors options, option, Option
 
         # Enter (via `Event::ActionItem`) toggles the selected option rather than
         # running a one-shot callback.

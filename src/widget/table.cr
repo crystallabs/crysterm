@@ -66,9 +66,7 @@ module Crysterm
         @rows = normalize_rows(rows || data)
         @alternate_rows = alternate_rows
         self.cell_align = align
-        pad.try { |v| @pad = v }
-        no_cell_borders.try { |v| @no_cell_borders = v }
-        fill_cell_borders.try { |v| @fill_cell_borders = v }
+        init_cell_options pad, no_cell_borders, fill_cell_borders
 
         super **box
 
@@ -88,10 +86,7 @@ module Crysterm
 
       # Replaces the table data and rebuilds the rendered content.
       def set_data(rows)
-        @rows = normalize_rows rows
-        invalidate_maxes
-        calculate_maxes
-        return if @maxes.empty?
+        return unless reload_rows rows
 
         # Pin the width to the exact table width so the box edge lines up with
         # the column positions `#draw_borders` uses. Relying on shrink-to-content

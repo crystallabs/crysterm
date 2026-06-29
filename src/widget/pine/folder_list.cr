@@ -44,20 +44,7 @@ module Crysterm
           super folders, **list
         end
 
-        # The folders currently displayed, parallel to the list rows.
-        def folders : Array(Folder)
-          records
-        end
-
-        # Replaces the displayed folders.
-        def set_folders(folders : Array(Folder))
-          set_records folders
-        end
-
-        # The currently-selected folder, if any.
-        def selected_folder : Folder?
-          selected_record
-        end
+        record_accessors folders, folder, Folder
 
         # Opens the currently-selected folder.
         def run_selected
