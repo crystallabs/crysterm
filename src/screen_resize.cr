@@ -29,7 +29,7 @@ module Crysterm
     # Authoritative new terminal size in cells (`{cols, rows}`) carried by the
     # most recent in-band resize report (DEC 2048), awaiting the debounced
     # `#resize`. `nil` for a SIGWINCH-driven resize, which has no report and must
-    # fall back to the `TIOCGWINSZ` ioctl. Set in `#dispatch_input`, consumed and
+    # fall back to the `TIOCGWINSZ` ioctl. Set in `#handle_input`, consumed and
     # cleared by `#resize`.
     @pending_inband_size : {Int32, Int32}? = nil
 
@@ -60,7 +60,7 @@ module Crysterm
         # `reset_screen_size`'s bookkeeping (update `tput`'s cached size and
         # re-clamp the cursor) so the rest of the stack stays consistent, then
         # let `#on_resize` apply the size under its `@explicit_size` guard. The
-        # report's cell pixel geometry was already applied in `#dispatch_input`.
+        # report's cell pixel geometry was already applied in `#handle_input`.
         tput.screen.width = cols
         tput.screen.height = rows
         tput._ncoords

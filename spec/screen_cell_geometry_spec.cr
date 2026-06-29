@@ -25,7 +25,7 @@ describe "Window cell geometry" do
       # 960×720 px over 80×24 cells ⇒ a 12×30 px cell ⇒ aspect 2.5.
       ev = ::Tput::InputEvent.new('\0',
         resize: ::Tput::Resize.new(rows: 24, cols: 80, pixel_height: 720, pixel_width: 960))
-      s.dispatch_input ev
+      s.handle_input ev
       s.cell_pixel_width.should eq 12
       s.cell_pixel_height.should eq 30
       Crysterm::CSS::Length.cell_aspect_ratio.should eq 2.5
@@ -39,7 +39,7 @@ describe "Window cell geometry" do
     Crysterm::CSS::Length.cell_aspect_ratio = 2.0
     ev = ::Tput::InputEvent.new('\0',
       resize: ::Tput::Resize.new(rows: 24, cols: 80, pixel_height: 0, pixel_width: 0))
-    s.dispatch_input ev
+    s.handle_input ev
     s.cell_pixel_width.should eq 0
     s.cell_pixel_height.should eq 0
     Crysterm::CSS::Length.cell_aspect_ratio.should eq 2.0 # unchanged
@@ -52,7 +52,7 @@ describe "Window cell geometry" do
     # resize rather than a `reset_screen_size` re-probe.
     ev = ::Tput::InputEvent.new('\0',
       resize: ::Tput::Resize.new(rows: 40, cols: 120, pixel_height: 0, pixel_width: 0))
-    s.dispatch_input ev
+    s.handle_input ev
     s.resize
     s.awidth.should eq 120
     s.aheight.should eq 40
@@ -65,7 +65,7 @@ describe "Window cell geometry" do
     s = make_screen # pinned 80×24 (@explicit_size)
     ev = ::Tput::InputEvent.new('\0',
       resize: ::Tput::Resize.new(rows: 40, cols: 120, pixel_height: 0, pixel_width: 0))
-    s.dispatch_input ev
+    s.handle_input ev
     s.resize
     s.awidth.should eq 80
     s.aheight.should eq 24
@@ -77,7 +77,7 @@ describe "Window cell geometry" do
     begin
       ev = ::Tput::InputEvent.new('\0',
         resize: ::Tput::Resize.new(rows: 24, cols: 80, pixel_height: 720, pixel_width: 960))
-      s.dispatch_input ev
+      s.handle_input ev
       s.cell_pixel_width.should eq 12 # pixels still recorded (e.g. for media)
       s.cell_pixel_height.should eq 30
       Crysterm::CSS::Length.cell_aspect_ratio.should eq 3.0 # pinned, not 2.5

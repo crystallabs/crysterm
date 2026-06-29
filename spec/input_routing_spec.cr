@@ -2,8 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# Routing of `Tput::InputEvent`s to Crysterm events (`Window#dispatch_input`),
-# exercised directly with constructed events — no TTY / input fiber needed.
+# Routing of `Tput::InputEvent`s to Crysterm events, exercised directly with
+# constructed events — no TTY / input fiber needed. Two layers are covered:
+#
+#   * `Window#handle_input` — the per-surface demux (key/paste/mouse/resize).
+#   * `Application#route_input` — the device→surface dispatch step: the device
+#     hands a parsed event to the app, which forwards it to the active window on
+#     that device.
 
 private def routing_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
@@ -18,12 +23,12 @@ private def release(number : Int32)
   Tput::InputEvent.new '\0', nil, ['\0'], key_event: ke
 end
 
-describe "Window#dispatch_input" do
+describe "Window#handle_input" do
   it "routes a paste to Event::Paste with the verbatim content" do
     s = routing_screen
     got = [] of String
     s.on(Crysterm::Event::Paste) { |e| got << e.content }
-    s.dispatch_input Tput::InputEvent.new('\0', paste: "a\e[Bb")
+    s.handle_input Tput::InputEvent.new('\0', paste: "a\e[Bb")
     got.should eq ["a\e[Bb"]
   end
 
@@ -33,7 +38,7 @@ describe "Window#dispatch_input" do
     releases = 0
     s.on(Crysterm::Event::KeyPress) { |e| presses << e.key }
     s.on(Crysterm::Event::KeyRelease) { |_| releases += 1 }
-    s.dispatch_input press('a', Tput::Key::CtrlA)
+    s.handle_input press('a', Tput::Key::CtrlA)
     presses.should eq [Tput::Key::CtrlA]
     releases.should eq 0
   end
@@ -44,7 +49,7 @@ describe "Window#dispatch_input" do
     releases = 0
     s.on(Crysterm::Event::KeyPress) { |_| presses += 1 }
     s.on(Crysterm::Event::KeyRelease) { |_| releases += 1 }
-    s.dispatch_input release('a'.ord)
+    s.handle_input release('a'.ord)
     presses.should eq 0
     releases.should eq 1
   end
@@ -53,8 +58,8 @@ describe "Window#dispatch_input" do
     s = routing_screen
     seen = [] of String
     s.on(Crysterm::Event::Key) { |e| seen << e.class.name.split("::").last }
-    s.dispatch_input press('a', Tput::Key::CtrlA)
-    s.dispatch_input release('a'.ord)
+    s.handle_input press('a', Tput::Key::CtrlA)
+    s.handle_input release('a'.ord)
     seen.should eq ["KeyPress", "KeyRelease"]
   end
 
@@ -62,7 +67,7 @@ describe "Window#dispatch_input" do
     s = routing_screen
     got = [] of Tput::ColorScheme
     s.on(Crysterm::Event::ColorScheme) { |e| got << e.scheme }
-    s.dispatch_input Tput::InputEvent.new('\0', color_scheme: Tput::ColorScheme::Dark)
+    s.handle_input Tput::InputEvent.new('\0', color_scheme: Tput::ColorScheme::Dark)
     got.should eq [Tput::ColorScheme::Dark]
   end
 
@@ -70,7 +75,7 @@ describe "Window#dispatch_input" do
     s = routing_screen
     got = [] of String
     s.on(Crysterm::Event::Paste) { |e| got << e.content }
-    s.dispatch_input Tput::InputEvent.new('\0', paste: "clipboard text")
+    s.handle_input Tput::InputEvent.new('\0', paste: "clipboard text")
     got.should eq ["clipboard text"]
   end
 
@@ -79,7 +84,46 @@ describe "Window#dispatch_input" do
     other = 0
     s.on(Crysterm::Event::KeyPress) { |_| other += 1 }
     s.on(Crysterm::Event::Paste) { |_| other += 1 }
-    s.dispatch_input Tput::InputEvent.new('\0', resize: Tput::Resize.new(24, 80, 0, 0))
+    s.handle_input Tput::InputEvent.new('\0', resize: Tput::Resize.new(24, 80, 0, 0))
     other.should eq 0
+  end
+end
+
+describe "Application#route_input" do
+  it "forwards a parsed event to the active window on that device" do
+    app = Crysterm::Application.new
+    win = routing_screen
+    app.add win
+
+    got = [] of Tput::Key?
+    win.on(Crysterm::Event::KeyPress) { |e| got << e.key }
+
+    app.route_input win.screen, press('a', Tput::Key::CtrlA)
+    got.should eq [Tput::Key::CtrlA]
+  end
+
+  it "routes to the window that owns the originating device, not the global active one" do
+    app = Crysterm::Application.new
+    win_a = routing_screen
+    win_b = routing_screen
+    app.add win_a
+    app.add win_b # win_b is now the globally active window
+
+    a_keys = [] of Tput::Key?
+    b_keys = [] of Tput::Key?
+    win_a.on(Crysterm::Event::KeyPress) { |e| a_keys << e.key }
+    win_b.on(Crysterm::Event::KeyPress) { |e| b_keys << e.key }
+
+    # Input read on win_a's device must reach win_a, even though win_b is active.
+    app.route_input win_a.screen, press('a', Tput::Key::CtrlA)
+    a_keys.should eq [Tput::Key::CtrlA]
+    b_keys.should be_empty
+  end
+
+  it "drops input from a device with no window (no error)" do
+    app = Crysterm::Application.new
+    orphan = routing_screen # built but never added to the app
+    # Should be a quiet no-op, not a raise.
+    app.route_input orphan.screen, press('a', Tput::Key::CtrlA)
   end
 end

@@ -39,6 +39,13 @@ module Crysterm
 
     # Sets up IO listeners for keyboard (and mouse, but mouse is currently unsupported).
     def listen
+      # Make sure this surface is known to an `Application` — the dispatcher that
+      # parsed input is routed through (`Screen` → `Application#route_input` →
+      # `Window#handle_input`). `#add` is idempotent, so the common case where
+      # `Application#exec` already registered us is a no-op; the standalone
+      # `Window.open(listen: true)` / reattach paths self-register here.
+      (@application ||= Application.global).add self
+
       # D O:
       # Potentially reset screen title on exit:
       # if !tput.rxvt?
@@ -124,7 +131,12 @@ module Crysterm
         # swallows the IO error (and the raw-mode-restore error on the now-dead
         # fd) that closing mid-read produces, letting the fiber end quietly.
         begin
-          tput.listen { |e| dispatch_input e }
+          # The device (`@screen`/`tput`) parses bytes into a `Tput::InputEvent`;
+          # routing goes *up* to the `Application` dispatcher, which picks the
+          # active window on this device and calls its `#handle_input`. (Today the
+          # fiber still lives on the surface; relocating it onto the device is the
+          # remaining half of the input-routing split — see QT-OBJECT-MODEL-PLAN.)
+          tput.listen { |e| (application || Application.global).route_input @screen, e }
         rescue
         end
       }
@@ -231,16 +243,18 @@ module Crysterm
       tput.progress progress, state
     end
 
-    # Routes one unit of terminal input (`Tput::InputEvent`) to the right
-    # Crysterm event. Mouse reports go through the unified mouse path; a paste
-    # becomes an `Event::Paste`; an in-band resize feeds the same debounced path
-    # as SIGWINCH; everything else is a key transition — a release (only seen
-    # when event reporting is enabled) becomes `Event::KeyRelease` so that
-    # `Event::KeyPress` always means a press, with the base `Event::Key` also
-    # emitted for listeners that want every transition.
+    # Demuxes one parsed input event (`Tput::InputEvent`) into the right Crysterm
+    # event on this surface. This is the per-window handler the `Application`
+    # dispatcher forwards to (`Application#route_input` → here). Mouse reports go
+    # through the unified mouse path; a paste becomes an `Event::Paste`; an
+    # in-band resize feeds the same debounced path as SIGWINCH; everything else is
+    # a key transition — a release (only seen when event reporting is enabled)
+    # becomes `Event::KeyRelease` so that `Event::KeyPress` always means a press,
+    # with the base `Event::Key` also emitted for listeners that want every
+    # transition.
     #
     # :nodoc:
-    def dispatch_input(e : Tput::InputEvent) : Nil
+    def handle_input(e : Tput::InputEvent) : Nil
       if m = e.mouse
         dispatch_mouse m
       elsif pasted = e.paste

@@ -43,6 +43,32 @@ module Crysterm
       @windows.last?
     end
 
+    # Routes one *parsed* input event from *screen* (the device that read it) to
+    # the right surface — the `QGuiApplication` dispatch step of the Qt object
+    # model (see QT-OBJECT-MODEL-PLAN.md). The device knows nothing about focus or
+    # widgets: it hands its `Tput::InputEvent` here, this resolves the active
+    # `Window` on that device, and the window does the mouse/paste/key demux and
+    # focus walk (`Window#handle_input`).
+    #
+    # This is also the intended home for **app-global hotkeys** — a single place
+    # to intercept e.g. quit before any window sees the key. Today no key is
+    # intercepted here (quit is still wired per-window via `Event::KeyPress`
+    # handlers); the seam exists so that consolidation is a local change.
+    def route_input(screen : Screen, e : ::Tput::InputEvent) : Nil
+      # (app-global hotkey check will go here)
+      active_window_for(screen).try &.handle_input(e)
+    end
+
+    # The most-recently-added `Window` shown on *screen* (its active surface), or
+    # `nil` if none. Mirrors `#active_window` but scoped to one device, so input
+    # read on a given tty reaches a window on *that* tty rather than the globally
+    # most-recent one (matters once an app drives several windows on distinct
+    # devices, e.g. `Application.run(windows: N)`).
+    private def active_window_for(screen : Screen) : Window?
+      @windows.reverse_each { |w| return w if w.screen.same? screen }
+      nil
+    end
+
     # Registers *window* with this application (idempotent), back-links it, and
     # emits `ScreenAdded` the first time a new device appears ↔
     # `QGuiApplication::screenAdded`.
