@@ -125,8 +125,12 @@ module Crysterm
       end
     end
 
-    # Best-effort restore of the terminal to its normal state. All steps are
-    # guarded because a user-closed window leaves dead fds that raise on write.
+    # Best-effort restore of the terminal to its normal state, split along the
+    # surface/device line: this surface tears down its alt buffer (`leave`) and
+    # the mouse, then the device (`Screen#restore_input_modes`) turns off the
+    # input-mode toggles it enabled and restores the tty's line discipline. All
+    # steps are guarded because a user-closed window leaves dead fds that raise
+    # on write.
     private def restore_terminal : Nil
       restore_step(true) { leave }
 
@@ -138,17 +142,9 @@ module Crysterm
       restore_step(@_listened_mouse) { disable_mouse }
       @_listened_mouse = false
 
-      restore_step(@_listened_keyboard) { disable_keyboard_protocol }
-      restore_step(@_listened_paste) { disable_bracketed_paste }
-      restore_step(@_listened_in_band_resize) { disable_in_band_resize }
-      restore_step(@_listened_color_scheme) { disable_color_scheme_notifications }
-
-      # Restore line discipline on a real, still-open tty.
-      i = input
-      begin
-        i.cooked! if i.responds_to?(:"cooked!") && i.responds_to?(:"tty?") && i.tty?
-      rescue
-      end
+      # Device half: input-mode toggle-offs (keyboard-protocol / bracketed-paste
+      # / in-band-resize / color-scheme) plus line-discipline restore.
+      @screen.restore_input_modes
     end
 
     # Spawns a fiber that watches the window's rendezvous socket: it routes

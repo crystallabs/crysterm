@@ -72,6 +72,17 @@ module Crysterm
       cell_pixel_width, cell_pixel_height,
       attr2code, code2attr, to: @screen
 
+    # Device-side input-mode toggles (live on `Screen`, in `screen_input.cr`).
+    # The surface keeps exposing them — `#listen` enables them and
+    # `#restore_terminal` disables whatever was enabled.
+    delegate enable_keyboard_protocol, disable_keyboard_protocol,
+      enable_bracketed_paste, disable_bracketed_paste,
+      enable_in_band_resize, disable_in_band_resize,
+      enable_color_scheme_notifications, disable_color_scheme_notifications,
+      _listened_keyboard?, _listened_paste?,
+      _listened_in_band_resize?, _listened_color_scheme?,
+      to: @screen
+
     # Setters are forwarded explicitly (`delegate` does not accept assignment
     # forms). The device size setters honor the surface being full-screen.
     def width=(value : Int32)

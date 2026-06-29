@@ -142,77 +142,10 @@ module Crysterm
       }
     end
 
-    # Whether an enhanced keyboard protocol was enabled for this screen (so
-    # `#restore_terminal` knows to turn it back off).
-    getter? _listened_keyboard = false
-
-    # Turns on the best enhanced keyboard protocol (kitty / modifyOtherKeys) the
-    # terminal supports — honoring the `keyboard.exclude` / `keyboard.protocol`
-    # config — so `Event::KeyPress#key_event` is populated. With *events* `true`,
-    # also requests key releases and lone-modifier presses (e.g. a "tap Alt"
-    # gesture); with `false`, only escape-code disambiguation, which never
-    # changes how ordinary typing is delivered. A no-op fallback to the legacy
-    # baseline on terminals that support neither protocol.
-    def enable_keyboard_protocol(events : Bool = false) : ::Tput::KeyboardProtocol
-      @_listened_keyboard = true
-      tput.enable_keyboard_protocol events
-    end
-
-    # Turns the enhanced keyboard protocol back off, restoring the terminal's
-    # default keyboard reporting.
-    def disable_keyboard_protocol : Nil
-      tput.disable_keyboard_protocol
-      @_listened_keyboard = false
-    end
-
-    # Whether bracketed paste was enabled for this screen.
-    getter? _listened_paste = false
-
-    # Enables bracketed paste (DEC 2004): pasted text arrives as
-    # `Event::Paste` instead of as individual key presses.
-    def enable_bracketed_paste : Nil
-      @_listened_paste = true
-      tput.enable_bracketed_paste
-    end
-
-    # Disables bracketed paste.
-    def disable_bracketed_paste : Nil
-      tput.disable_bracketed_paste
-      @_listened_paste = false
-    end
-
-    # Whether in-band resize notifications were enabled for this screen.
-    getter? _listened_in_band_resize = false
-
-    # Enables in-band resize notifications (DEC 2048): the terminal reports size
-    # changes through the input stream, feeding the same debounced redraw path
-    # as `SIGWINCH` (useful where SIGWINCH is unavailable, e.g. over some PTYs).
-    def enable_in_band_resize : Nil
-      @_listened_in_band_resize = true
-      tput.enable_in_band_resize
-    end
-
-    # Disables in-band resize notifications.
-    def disable_in_band_resize : Nil
-      tput.disable_in_band_resize
-      @_listened_in_band_resize = false
-    end
-
-    # Whether color-scheme notifications were enabled for this screen.
-    getter? _listened_color_scheme = false
-
-    # Enables light/dark color-scheme change notifications (DEC 2031): theme
-    # changes arrive as `Event::ColorScheme`. No-op on unsupported terminals.
-    def enable_color_scheme_notifications : Nil
-      @_listened_color_scheme = true
-      tput.enable_color_scheme_notifications
-    end
-
-    # Disables color-scheme change notifications.
-    def disable_color_scheme_notifications : Nil
-      tput.disable_color_scheme_notifications
-      @_listened_color_scheme = false
-    end
+    # The input-mode toggles (keyboard-protocol / bracketed-paste /
+    # in-band-resize / color-scheme) and their `_listened_*?` flags now live on
+    # the device (`Screen`, in `screen_input.cr`); this surface delegates them
+    # (see the `delegate … to: @screen` block in `window.cr`).
 
     # OSC 52: copies *text* to the terminal clipboard *selection* (`"c"`
     # clipboard, `"p"` primary). Works over SSH/tmux; ignored where unsupported.
