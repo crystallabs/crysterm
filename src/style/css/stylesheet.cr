@@ -652,6 +652,16 @@ module Crysterm
         {selector[0...cut], selector[cut..].strip}
       end
 
+      # The `:has(...)` inner (relative) selector carried between *open* (the
+      # `(`) and *close* (the `)`) in *source*: the trimmed body, anchored at
+      # `:scope` when it leads with a combinator (`> .x` / `+ .x` / `~ .x`) so
+      # the relational match is rooted at the subject. Shared by the subject
+      # `peel_has` and the ancestor `peel_ancestor_has`.
+      private def self.has_inner(source : String, open : Int32, close : Int32) : String
+        inner = source[(open + 1)...close].strip
+        inner.starts_with?('>') || inner.starts_with?('+') || inner.starts_with?('~') ? ":scope #{inner}" : inner
+      end
+
       # Splits a `:has(...)` relational pseudo-class off the (subject) selector,
       # returning `{inner_selector, remaining}`. The inner selector is
       # type-expanded for matching against a node's subtree; a leading
@@ -664,8 +674,7 @@ module Crysterm
         close = matching_paren(selector, open)
         return {nil, selector} unless close
 
-        inner = selector[(open + 1)...close].strip
-        inner = ":scope #{inner}" if inner.starts_with?('>') || inner.starts_with?('+') || inner.starts_with?('~')
+        inner = has_inner(selector, open, close)
         remaining = (selector[0...idx] + selector[(close + 1)..]).strip
         remaining = "*" if remaining.empty?
         {Selectors.expand_types(inner), remaining}
@@ -685,8 +694,7 @@ module Crysterm
           open = idx + 4 # index of '('
           close = matching_paren(prefix, open)
           break unless close
-          inner = prefix[(open + 1)...close].strip
-          inner = ":scope #{inner}" if inner.starts_with?('>') || inner.starts_with?('+') || inner.starts_with?('~')
+          inner = has_inner(prefix, open, close)
           # The qualifier matches the ancestor: everything up to the end of the
           # compound bearing this `:has`, with all `:has(...)` removed and types
           # lowered exactly as the structural selector is.
