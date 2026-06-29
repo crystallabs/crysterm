@@ -112,7 +112,10 @@ module Crysterm
           # For each shown bar, the per-row (glyph, color) from top to bottom.
           columns = shown.map { |bar| column(bar, plot_rows, top) }
 
-          lines = [] of String
+          # Optional legend row + `plot_rows` plot lines + optional label row;
+          # reserve up front so the per-frame collection (rebuilt every animated
+          # frame) doesn't realloc its backing as it grows.
+          lines = Array(String).new(legend_row + plot_rows + label_row)
 
           # Legend along the top.
           if legend_row == 1

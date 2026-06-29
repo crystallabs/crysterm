@@ -68,6 +68,35 @@ module Crysterm
       # columns overflow its viewport (Qt's `AsNeeded`).
       @horizontal_scrollbar_policy = ScrollBarPolicy::AsNeeded
 
+      # Cached x→column map used by `#recolor_css_cells`. `col_for_x` depends only
+      # on `@maxes`, `@first_col` and `ileft`, all stable between data/scroll/
+      # resize changes, yet `recolor_css_cells` runs every render — so rebuilding
+      # its `Hash` per frame is pure garbage. Rebuilt only when one of those
+      # inputs changes.
+      @border_col_map : Hash(Int32, Int32)? = nil
+      @border_col_map_maxes : Array(Int32)? = nil
+      @border_col_map_ileft : Int32 = -1
+      @border_col_map_first_col : Int32 = -1
+
+      private def border_col_map : Hash(Int32, Int32)
+        cached = @border_col_map
+        if cached.nil? || !@maxes.same?(@border_col_map_maxes) ||
+           ileft != @border_col_map_ileft || @first_col != @border_col_map_first_col
+          cached = @border_col_map = col_for_x(@first_col, ileft)
+          @border_col_map_maxes = @maxes
+          @border_col_map_ileft = ileft
+          @border_col_map_first_col = @first_col
+        end
+        cached
+      end
+
+      # Reused, allocation-free scratch set: the rows that actually carry a
+      # CSS-computed cell style this frame (`#recolor_css_cells` repopulates it
+      # from `@css_cells`). The default theme styles only the `Header` (row 0),
+      # so an otherwise-unstyled table has just row 0 here and every body row
+      # then skips the per-cell CSS lookups entirely.
+      @styled_rows = Set(Int32).new
+
       def initialize(
         rows = nil,
         data = nil,
@@ -433,12 +462,21 @@ module Crysterm
 
         # Map visible x → actual column index, starting from the first visible
         # column so per-cell CSS recolors the right cells when scrolled right.
-        col_map = col_for_x(@first_col, ileft)
+        # Cached: `col_for_x` depends only on `@maxes`, `@first_col` and `ileft`,
+        # all stable between data/scroll/resize changes, so rebuilding its `Hash`
+        # on every frame is pure garbage (`recolor_css_cells` runs each render).
+        col_map = border_col_map
+
+        # Only rows carrying a computed cell style need the per-cell lookups; an
+        # otherwise-unstyled table styles only its header row (via the default
+        # theme), so every body row is skipped wholesale.
+        @styled_rows.clear
+        cells.each_key { |(r, _)| @styled_rows << r }
 
         y = itop
         while y < height
           row = y - itop
-          if line = lines[yi + y]?
+          if @styled_rows.includes?(row) && (line = lines[yi + y]?)
             x = ileft
             while x < width
               col = col_map[x]?

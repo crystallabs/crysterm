@@ -114,7 +114,10 @@ module Crysterm
           # Total filled eighth-cells per shown bar.
           levels = shown.map { |v| Scale.eighths(v, @min, top, plot_rows) }
 
-          lines = [] of String
+          # Exactly `plot_rows` plot lines plus the optional value/label caption
+          # rows; reserve up front so the per-frame collection (rebuilt every
+          # animated frame) doesn't realloc its backing as it grows.
+          lines = Array(String).new(plot_rows + value_row + label_row)
 
           # Plot area, top row down.
           plot_rows.times do |r|

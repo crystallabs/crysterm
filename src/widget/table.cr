@@ -52,6 +52,33 @@ module Crysterm
       # interactive `Widget::ListTable`, which decouples its width from its
       # content and scrolls by whole columns.
 
+      # Cached x→column map used by `#draw_borders` to resolve a CSS per-cell
+      # style from a screen column. `col_for_x` depends only on `@maxes` and
+      # `ileft` — both stable between data/resize changes — yet `draw_borders`
+      # runs every frame, so rebuilding its `Hash` per frame is pure garbage.
+      # Rebuilt only when `@maxes` (reassigned wholesale by `#calculate_maxes`)
+      # or `ileft` changes.
+      @border_col_map : Hash(Int32, Int32)? = nil
+      @border_col_map_maxes : Array(Int32)? = nil
+      @border_col_map_ileft : Int32 = -1
+
+      private def border_col_map : Hash(Int32, Int32)
+        cached = @border_col_map
+        if cached.nil? || !@maxes.same?(@border_col_map_maxes) || ileft != @border_col_map_ileft
+          cached = @border_col_map = col_for_x(0, ileft)
+          @border_col_map_maxes = @maxes
+          @border_col_map_ileft = ileft
+        end
+        cached
+      end
+
+      # Reused, allocation-free scratch set: the rows that actually carry a
+      # CSS-computed cell style this frame (`#draw_borders` repopulates it from
+      # `@css_cells`). The default theme styles only the `Header` (row 0), so an
+      # otherwise-unstyled table has just row 0 here and every body row then skips
+      # the per-cell CSS lookups entirely.
+      @styled_rows = Set(Int32).new
+
       def initialize(
         rows = nil,
         data = nil,
@@ -167,8 +194,18 @@ module Crysterm
 
         # Maps each relative text-column x to its table column index (packed by
         # `@maxes`), so CSS per-cell styles (`#css_cell_style`) can override the
-        # row default per column.
-        col_map = col_for_x(0, ileft)
+        # row default per column. Built (and cached, see `#border_col_map`) only
+        # when CSS per-cell rules actually exist: otherwise the map is dead weight
+        # (the per-cell lookup below always misses) and a plain table re-renders
+        # every frame. `@styled_rows` collects which rows carry any computed cell
+        # style, so unstyled rows skip the per-cell lookups entirely (≈20× faster
+        # text-attr pass on an otherwise-unstyled table — only the themed header
+        # row does lookups).
+        @styled_rows.clear
+        col_map = if (cc = @css_cells) && !cc.empty?
+                    cc.each_key { |(r, _)| @styled_rows << r }
+                    border_col_map
+                  end
 
         # Apply header/cell attributes to text cells that still hold the default
         # attribute (so explicit tags inside cells are preserved).
@@ -188,13 +225,17 @@ module Crysterm
               else
                 cattr
               end
+            # CSS cell overrides only exist on styled rows; skip the per-cell
+            # `col_map`/`css_cell_style` lookups for every other row.
+            row_map = col_map.try { |cm| @styled_rows.includes?(row_index) ? cm : nil }
             x = ileft
             while x < width
               if cell = line[xi + x]?
                 if cell.attr == dattr
                   # A CSS rule may have computed a style for this specific cell.
-                  col = col_map[x]?
-                  cell_style = col ? css_cell_style(row_index, col) : nil
+                  cell_style = if rm = row_map
+                                 (col = rm[x]?) ? css_cell_style(row_index, col) : nil
+                               end
                   cell.attr = cell_style ? sattr(cell_style) : default_attr
                   line.dirty = true
                 end
