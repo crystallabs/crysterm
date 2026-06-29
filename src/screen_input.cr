@@ -10,6 +10,42 @@ module Crysterm
   # (`screen_mouse.cr`) pending the rest of the input-routing relocation — see
   # QT-OBJECT-MODEL-PLAN.md.
   class Screen
+    # The input read fiber. There is at most one; `#listen_keys` is idempotent.
+    @_keys_fiber : Fiber?
+
+    # Spawns the device's input read fiber: `tput.listen` blocks reading this
+    # device's input, parses each byte sequence into a `Tput::InputEvent`, and
+    # routes it *up* to the `Application` dispatcher — which picks the active
+    # `Window` on this device and hands it the event (`Application#route_input`
+    # → `Window#handle_input`). The device knows nothing about focus or widgets.
+    #
+    # `tput.listen` returns on EOF, so closing the input (`Window#disconnect`)
+    # ends this fiber; the rescue swallows the IO error (and the raw-mode-restore
+    # error on the now-dead fd) that closing mid-read produces, letting the fiber
+    # end quietly. Idempotent: a second call while a fiber exists is a no-op.
+    def listen_keys : Nil
+      return if @_keys_fiber
+      @_keys_fiber = spawn {
+        begin
+          tput.listen { |e| (application || Application.global).route_input self, e }
+        rescue
+        end
+      }
+    end
+
+    # Whether the input read fiber has been started (and not yet dropped). Used
+    # by reattach to restore the prior listening state.
+    def listening? : Bool
+      !@_keys_fiber.nil?
+    end
+
+    # Drops the input-fiber handle so a later `#listen_keys` can start a fresh
+    # one. The fiber itself ends when its input is closed (see `#listen_keys`);
+    # this just clears the reference (`Window#disconnect`).
+    def stop_keys : Nil
+      @_keys_fiber = nil
+    end
+
     # Whether an enhanced keyboard protocol was enabled for this device (so
     # `#restore_terminal` knows to turn it back off).
     getter? _listened_keyboard = false

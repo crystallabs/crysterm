@@ -77,6 +77,9 @@ module Crysterm
       new_device = !screens.includes?(window.screen)
       @windows << window
       window.application = self
+      # Back-link the device so its input read fiber can route up to this
+      # dispatcher (`Screen#listen_keys` → `#route_input`).
+      window.screen.application = self
       emit ::Crysterm::Event::ScreenAdded, window.screen if new_device
       window
     end

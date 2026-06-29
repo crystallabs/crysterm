@@ -96,17 +96,19 @@ module Crysterm
     def disconnect : Nil
       return unless @connected
       @connected = false
-      @was_listening = !@_keys_fiber.nil?
+      # The input read fiber now lives on the device; ask it whether it was
+      # running so a reattach can restore the prior listening state.
+      @was_listening = @screen.listening?
 
       restore_terminal
 
-      # Closing the input unblocks and ends the key fiber; nil it so a later
-      # `listen` can start a fresh one.
+      # Closing the input unblocks and ends the key fiber; drop its handle on the
+      # device so a later `listen` can start a fresh one.
       if @owns_io
         input.close rescue nil
         output.close rescue nil
       end
-      @_keys_fiber = nil
+      @screen.stop_keys
 
       @window.try &.close
       @window = nil

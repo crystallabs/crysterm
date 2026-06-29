@@ -156,6 +156,13 @@ module Crysterm
     # re-derived there anyway so it stays correct even if that ever changes.)
     getter draw_caps : DrawCaps
 
+    # The `Application` this device is registered with — the dispatcher the input
+    # read fiber routes parsed events up to (`Application#route_input`). Set by
+    # `Application#add` when an owning `Window` is registered; the fiber falls
+    # back to `Application.global` while it is still nil. See `#listen_keys`
+    # (`screen_input.cr`).
+    property application : Application? = nil
+
     def initialize(
       @input = @input,
       @output = @output,

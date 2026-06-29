@@ -54,6 +54,9 @@ module Crysterm
       enter
       realloc
       application.try do |app|
+        # Back-link the new device to the dispatcher (mirrors `Application#add`),
+        # so its input read fiber routes here.
+        new_screen.application = app
         app.emit ::Crysterm::Event::ScreenRemoved, old unless app.screens.includes? old
         app.emit ::Crysterm::Event::ScreenAdded, new_screen
       end

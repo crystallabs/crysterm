@@ -31,8 +31,6 @@ module Crysterm
     # whether keys are propagate.
     property always_propagate = Array(Tput::Key).new
 
-    @_keys_fiber : Fiber?
-
     # XXX Maybe in the future this would not be just `Tput::Key`s (which indicate
     # special keys), but also chars (ordinary letters) as well as sequences (arbitrary
     # sequences of chars and keys).
@@ -58,10 +56,12 @@ module Crysterm
       #  }
       # end
 
-      # Listen for keys/mouse on input
+      # Listen for keys/mouse on input. The read fiber lives on the device
+      # (`Screen#listen_keys`): it parses bytes and routes each event up to the
+      # `Application` dispatcher (`route_input` → `Window#handle_input`).
       # if (@tput.input._our_input == 0)
       #  @tput.input._out_input = 1
-      listen_keys
+      @screen.listen_keys
 
       # Order matters: `listen_keys` only *spawns* the input fiber, and that fiber
       # puts the terminal into raw (echo-off) mode as its very first action
@@ -120,27 +120,9 @@ module Crysterm
       # end
     end
 
-    # Starts emitting `Event::KeyPress` events on key presses.
-    #
-    # Keys are listened for in a separate `Fiber`. There should be at most 1.
-    def listen_keys
-      return if @_keys_fiber
-      @_keys_fiber = spawn {
-        # `tput.listen` blocks reading `@input` and returns when it hits EOF — so
-        # `#disconnect` stops this fiber simply by closing the input. The rescue
-        # swallows the IO error (and the raw-mode-restore error on the now-dead
-        # fd) that closing mid-read produces, letting the fiber end quietly.
-        begin
-          # The device (`@screen`/`tput`) parses bytes into a `Tput::InputEvent`;
-          # routing goes *up* to the `Application` dispatcher, which picks the
-          # active window on this device and calls its `#handle_input`. (Today the
-          # fiber still lives on the surface; relocating it onto the device is the
-          # remaining half of the input-routing split — see QT-OBJECT-MODEL-PLAN.)
-          tput.listen { |e| (application || Application.global).route_input @screen, e }
-        rescue
-        end
-      }
-    end
+    # The input read fiber now lives on the device (`Screen#listen_keys`, in
+    # `screen_input.cr`): it parses bytes and routes each event up to the
+    # `Application` dispatcher. `#listen` (above) starts it via `@screen.listen_keys`.
 
     # The input-mode toggles (keyboard-protocol / bracketed-paste /
     # in-band-resize / color-scheme) and their `_listened_*?` flags now live on
