@@ -439,6 +439,16 @@ module Crysterm
         end
       end
 
+      # Opens the popup if closed, steps its highlight (the block yields the live
+      # popup so the caller picks `#down`/`#up`), then accepts *e* and repaints.
+      # Shared by the editable combo's Down and Up keys.
+      private def step_open_popup(e, &)
+        open unless @open
+        @popup.try { |p| yield p }
+        e.accept
+        request_render
+      end
+
       # Key handling for an editable combo: the box keeps focus and drives the
       # (filtering) popup itself.
       private def on_keypress_editable(e)
@@ -456,15 +466,9 @@ module Crysterm
           close if @open
           e.accept
         elsif k == Tput::Key::Down
-          open unless @open
-          @popup.try &.down
-          e.accept
-          request_render
+          step_open_popup(e, &.down)
         elsif k == Tput::Key::Up
-          open unless @open
-          @popup.try &.up
-          e.accept
-          request_render
+          step_open_popup(e, &.up)
         elsif k == Tput::Key::Backspace || k == Tput::Key::CtrlH
           unless @text.empty?
             @text = @text[0...-1]

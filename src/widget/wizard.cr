@@ -47,24 +47,25 @@ module Crysterm
           bottom: @button_height,
         )
 
-        @back_button = Button.new(
-          parent: self, bottom: 0, left: 0, height: 1, width: 8,
-          content: "{center}Back{/center}", parse_tags: true,
-        )
-        @cancel_button = Button.new(
-          parent: self, bottom: 0, right: 10, height: 1, width: 8,
-          content: "{center}Cancel{/center}", parse_tags: true,
-        )
-        @next_button = Button.new(
-          parent: self, bottom: 0, right: 0, height: 1, width: 8,
-          content: "{center}Next{/center}", parse_tags: true,
-        )
+        @back_button = wizard_button "Back", left: 0
+        @cancel_button = wizard_button "Cancel", right: 10
+        @next_button = wizard_button "Next", right: 0
 
         back_button.on(::Crysterm::Event::Press) { back }
         next_button.on(::Crysterm::Event::Press) { advance }
         cancel_button.on(::Crysterm::Event::Press) { cancel }
 
         refresh_buttons
+      end
+
+      # Builds one of the wizard's three footer buttons: a centered, tag-parsed
+      # `Button` pinned to the bottom row with the given left/right anchor. The
+      # three buttons differ only in their label and horizontal anchor.
+      private def wizard_button(label : String, left = nil, right = nil) : Button
+        Button.new(
+          parent: self, bottom: 0, left: left, right: right, height: 1, width: 8,
+          content: "{center}#{label}{/center}", parse_tags: true,
+        )
       end
 
       # Index of the current page.

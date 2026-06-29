@@ -38,33 +38,23 @@ module Crysterm
 
       # `initialize` is inherited from `Box` unchanged.
 
-      def menu_bar=(w : Widget) : Widget
-        @menu_bar.try &.remove_from_parent
-        @menu_bar = w
-        append w
-        w
+      # Defines a `<name>=` setter for one of the singular top-level slots
+      # (menu/tool/status bar, central widget): it detaches the slot's previous
+      # occupant, stores and appends the new widget, and returns it — the
+      # identical body each of these setters previously inlined.
+      private macro def_slot_setter(name)
+        def {{name.id}}=(w : Widget) : Widget
+          @{{name.id}}.try &.remove_from_parent
+          @{{name.id}} = w
+          append w
+          w
+        end
       end
 
-      def tool_bar=(w : Widget) : Widget
-        @tool_bar.try &.remove_from_parent
-        @tool_bar = w
-        append w
-        w
-      end
-
-      def status_bar=(w : Widget) : Widget
-        @status_bar.try &.remove_from_parent
-        @status_bar = w
-        append w
-        w
-      end
-
-      def central_widget=(w : Widget) : Widget
-        @central_widget.try &.remove_from_parent
-        @central_widget = w
-        append w
-        w
-      end
+      def_slot_setter menu_bar
+      def_slot_setter tool_bar
+      def_slot_setter status_bar
+      def_slot_setter central_widget
 
       # Adds *dock* (optionally overriding its `#area`) and returns it.
       def add_dock(dock : DockWidget, area : DockWidget::Area? = nil) : DockWidget

@@ -188,19 +188,23 @@ module Crysterm
       # the view, and emits `Event::Expand`.
       def expand(node : Node) : Nil
         return if node.leaf? || node.expanded?
-        i = @nodes.index node
-        node.expanded = true
-        rebuild
-        emit Crysterm::Event::Expand, (i || 0)
+        set_expanded node, true, Crysterm::Event::Expand
       end
 
       # Collapses *node*, refreshes the view, and emits `Event::Collapse`.
       def collapse(node : Node) : Nil
         return if node.leaf? || !node.expanded?
+        set_expanded node, false, Crysterm::Event::Collapse
+      end
+
+      # Sets *node*'s expanded state, rebuilds the flattened view, and emits
+      # *event* carrying the node's (pre-rebuild) row index. Shared body of
+      # `#expand`/`#collapse`, which differ only in the flag and the event.
+      private def set_expanded(node : Node, expanded : Bool, event) : Nil
         i = @nodes.index node
-        node.expanded = false
+        node.expanded = expanded
         rebuild
-        emit Crysterm::Event::Collapse, (i || 0)
+        emit event, (i || 0)
       end
 
       # Flips *node*'s expanded state.

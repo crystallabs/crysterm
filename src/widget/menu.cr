@@ -704,21 +704,15 @@ module Crysterm
             return
           end
         elsif e.key == ::Tput::Key::Left
-          if pm = parent_menu
-            pm.close_submenu
-            e.accept
-            return
-          elsif (nav = @on_navigate) && @submenu_open.nil?
+          return if dismiss_to_parent_menu e
+          if (nav = @on_navigate) && @submenu_open.nil?
             nav.call -1
             e.accept
             return
           end
         elsif e.key == ::Tput::Key::Escape
-          if pm = parent_menu
-            pm.close_submenu
-            e.accept
-            return
-          elsif @popup_mode
+          return if dismiss_to_parent_menu e
+          if @popup_mode
             hide_popup
             e.accept
             return
@@ -729,6 +723,19 @@ module Crysterm
         end
 
         super
+      end
+
+      # When this menu is a submenu, closes it via its parent and accepts *e*,
+      # returning `true` (the caller then returns). A no-op returning `false` for
+      # a top-level menu. Shared by the Left and Escape keys, which dismiss a
+      # submenu back to its parent identically.
+      private def dismiss_to_parent_menu(e) : Bool
+        if pm = parent_menu
+          pm.close_submenu
+          e.accept
+          return true
+        end
+        false
       end
 
       # Opens *action*'s submenu as a nested `Menu` floated to the right of the

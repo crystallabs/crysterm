@@ -200,11 +200,18 @@ module Crysterm
       # captured the last time the dock was floating, restored on the next float.
       @float_geom : Tuple(Int32, Int32, Int32, Int32)?
 
-      # Records the current floating rectangle for later restoration.
-      private def save_float_geom : Nil
+      # The dock's current rectangle expressed relative to its parent's origin,
+      # as `{left, top, width, height}`. The coordinate accessors raise before the
+      # dock has been laid out, which the callers' own `rescue` handles.
+      private def current_float_rect : Tuple(Int32, Int32, Int32, Int32)
         px = parent.try(&.aleft) || 0
         py = parent.try(&.atop) || 0
-        @float_geom = {aleft - px, atop - py, awidth, aheight}
+        {aleft - px, atop - py, awidth, aheight}
+      end
+
+      # Records the current floating rectangle for later restoration.
+      private def save_float_geom : Nil
+        @float_geom = current_float_rect
       rescue
         # Not laid out yet; nothing to remember.
       end
@@ -212,9 +219,7 @@ module Crysterm
       # Pins the dock's current absolute rectangle as its explicit floating
       # geometry. No-op before the dock has been laid out (its coordinates raise).
       private def freeze_rect : Nil
-        px = parent.try(&.aleft) || 0
-        py = parent.try(&.atop) || 0
-        apply_rect({aleft - px, atop - py, awidth, aheight})
+        apply_rect current_float_rect
       rescue
         # Not laid out yet; keep whatever explicit geometry was given.
       end
@@ -247,22 +252,21 @@ module Crysterm
       end
 
       private def build_buttons
-        if closable?
-          @close_button = btn = Box.new(
-            parent: titlebar, top: 0, right: 0, width: 1, height: 1,
-            content: "✕", focus_on_click: false,
-          )
-          btn.add_css_class "titlebutton" # themed via `.titlebutton { ... }`
-          btn.on(::Crysterm::Event::Click) { close_dock }
-        end
-        if floatable?
-          @float_button = btn = Box.new(
-            parent: titlebar, top: 0, right: (closable? ? 2 : 0), width: 1, height: 1,
-            content: "⇕", focus_on_click: false,
-          )
-          btn.add_css_class "titlebutton" # themed via `.titlebutton { ... }`
-          btn.on(::Crysterm::Event::Click) { toggle_floating }
-        end
+        @close_button = titlebutton(0, "✕") { close_dock } if closable?
+        @float_button = titlebutton(closable? ? 2 : 0, "⇕") { toggle_floating } if floatable?
+      end
+
+      # Builds one title-bar button: a 1×1 `Box` pinned to the bar's right edge at
+      # *offset*, showing *glyph*, themed via `.titlebutton`, and invoking
+      # *handler* when clicked. Shared by the close and float buttons.
+      private def titlebutton(offset : Int32, glyph : String, &handler : ->) : Box
+        btn = Box.new(
+          parent: titlebar, top: 0, right: offset, width: 1, height: 1,
+          content: glyph, focus_on_click: false,
+        )
+        btn.add_css_class "titlebutton" # themed via `.titlebutton { ... }`
+        btn.on(::Crysterm::Event::Click) { handler.call }
+        btn
       end
 
       private def refresh_buttons
