@@ -240,9 +240,7 @@ module Crysterm
       # uninformative about whether selective pays — run it, and re-arm so the
       # next frame re-evaluates from scratch (the scene just changed).
       if @damage_force_full
-        t = Time.instant
-        damage_full_composite
-        @damage_full_ema = damage_ema @damage_full_ema, (Time.instant - t).total_microseconds
+        damage_full_composite_timed
         @damage_prefer_full = false
         @damage_reprobe = 0
         return
@@ -257,9 +255,7 @@ module Crysterm
       end
 
       unless attempt
-        t = Time.instant
-        damage_full_composite
-        @damage_full_ema = damage_ema @damage_full_ema, (Time.instant - t).total_microseconds
+        damage_full_composite_timed
         return
       end
 
@@ -274,9 +270,7 @@ module Crysterm
         # The attempt proved selective can't win this frame (cost parity / cluster
         # grew to the whole screen) and fell back. Measure the full path that now
         # runs and latch selective off, re-probing later.
-        tf = Time.instant
-        damage_full_composite
-        @damage_full_ema = damage_ema @damage_full_ema, (Time.instant - tf).total_microseconds
+        damage_full_composite_timed
         @damage_prefer_full = true
         @damage_reprobe = DAMAGE_REPROBE_FRAMES
       end
@@ -286,6 +280,15 @@ module Crysterm
     # of frames of memory, enough to smooth jitter without lagging scene changes.
     private def damage_ema(cur : Float64, sample : Float64) : Float64
       cur < 0 ? sample : cur * 0.8 + sample * 0.2
+    end
+
+    # Runs the full re-composite and folds its measured wall-clock cost into the
+    # full-path EMA. Every `damage_composite` arm that falls back to the full
+    # path needs exactly this timed-and-measured form, so it lives here once.
+    private def damage_full_composite_timed : Nil
+      t = Time.instant
+      damage_full_composite
+      @damage_full_ema = damage_ema @damage_full_ema, (Time.instant - t).total_microseconds
     end
 
     # Full re-composite: the original render body. Clears the whole buffer and

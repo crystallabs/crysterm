@@ -631,15 +631,19 @@ module Crysterm
 
     @[AlwaysInline]
     private def add_row(dirty)
-      col = Row.new
-      adjust_width col, 0, awidth, dirty
-      @lines.push col
-      @lines[-1].dirty = dirty
+      push_row @lines, dirty
+      push_row @olines, dirty
+    end
 
+    # Appends one fresh, width-adjusted row to *buf*, marked `dirty` — the block
+    # `add_row` runs identically for `@lines` and `@olines` to grow them in
+    # lock-step.
+    @[AlwaysInline]
+    private def push_row(buf, dirty)
       col = Row.new
       adjust_width col, 0, awidth, dirty
-      @olines.push col
-      @olines[-1].dirty = dirty
+      buf.push col
+      buf[-1].dirty = dirty
     end
 
     @[AlwaysInline]

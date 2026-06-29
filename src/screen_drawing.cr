@@ -829,13 +829,7 @@ module Crysterm
     # the buffer-side counterpart of the terminal `il`/scroll-down emitted by
     # `insert_line`/`insert_line_nc`.
     private def shift_lines_down(n, y, bottom)
-      j = bottom + 1
-      n.times do
-        @lines.insert y, blank_line
-        @lines.delete_at j
-        @olines.insert y, blank_line
-        @olines.delete_at j
-      end
+      shift_lines n, insert_at: y, delete_at: bottom + 1
     end
 
     # Shifts the cell buffer (`@lines`/`@olines`) *up* by `n` rows: the line at
@@ -843,12 +837,20 @@ module Crysterm
     # buffer-side counterpart of the terminal `dl`/scroll-up emitted by
     # `delete_line`/`delete_line_nc`.
     private def shift_lines_up(n, y, bottom)
-      j = bottom + 1
+      shift_lines n, insert_at: bottom + 1, delete_at: y
+    end
+
+    # Shared body of `shift_lines_down`/`shift_lines_up`: shifts both cell buffers
+    # `n` times by inserting a fresh blank line at `insert_at` and dropping the
+    # line at `delete_at`. The two directions differ only in which of the two
+    # indices is the insert and which is the delete. A fresh `blank_line` per
+    # buffer (never a shared row) so `@lines`/`@olines` stay independent.
+    private def shift_lines(n, insert_at, delete_at)
       n.times do
-        @lines.insert j, blank_line
-        @lines.delete_at y
-        @olines.insert j, blank_line
-        @olines.delete_at y
+        @lines.insert insert_at, blank_line
+        @lines.delete_at delete_at
+        @olines.insert insert_at, blank_line
+        @olines.delete_at delete_at
       end
     end
 
