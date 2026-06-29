@@ -101,7 +101,27 @@ module Crysterm
       # `Widget#_render`, which calls this.
       def item_render_style(selected : Bool) : ::Crysterm::Style
         return without_border(style.item) unless selected
-        selection_fallback without_border(styles.selected)
+        # Fuse the two transforms the selected style needs — strip the list border
+        # (items never draw their own; the list owns the frame) and, at the
+        # unstyled floor, force reverse-video so the cursor row reads with no theme
+        # — into a SINGLE `#dup`. The old `selection_fallback(without_border(...))`
+        # dup'd twice (once to strip, once to set reverse) whenever both applied,
+        # discarding the first copy; this produces a byte-identical style with at
+        # most one copy. The shared `styles.selected` is never mutated in place
+        # (only the local copy is), and nothing is cached across frames — so this
+        # carries none of the staleness hazard a cross-frame cache would (the base
+        # state style is mutated in place elsewhere, e.g. `hide`/`show` toggling
+        # `visible`). Each guard mirrors the helper it replaces exactly, so the
+        # no-op cases (no border AND visibly-styled selection) still return the
+        # shared `styles.selected` untouched.
+        base = styles.selected
+        strip = base.border.any?
+        reverse = !selection_visibly_styled?
+        return base unless strip || reverse
+        out = base.dup
+        out.border = false if strip
+        out.reverse = true if reverse
+        out
       end
 
       # Whether the selection state carries its own visible distinction (a color
