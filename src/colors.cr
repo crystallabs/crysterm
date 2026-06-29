@@ -138,8 +138,22 @@ module Crysterm
     #
     # `default` colors are resolved to the configured terminal default for the
     # blend/contrast math, and left `default` only when that is itself unknown.
+    # Mask over both channels' 2-bit alpha-mode fields (bits 57..60). Zero iff
+    # both channels are `Opaque` — the fully-opaque overlay cell.
+    COMPOSITE_ALPHA_MASK = (Attr::ALPHA_MASK << Attr::FG_ALPHA_SHIFT) | (Attr::ALPHA_MASK << Attr::BG_ALPHA_SHIFT)
+    # Keeps bits 0..56 (bg + fg + flags), clearing the alpha-mode and reserved
+    # bits above them — exactly what `composite` produces for an opaque cell.
+    COMPOSITE_KEEP_MASK = (1_i64 << Attr::FG_ALPHA_SHIFT) - 1
+
     @[AlwaysInline]
     def self.composite(top : Int64, under : Int64) : Int64
+      # Fast path for the overwhelmingly common fully-opaque overlay cell (a
+      # normal solid popup/box plane): when both channels are `Opaque` (their
+      # alpha-mode bits are all clear), the fold is just `top` with its
+      # alpha/reserved bits cleared — the result is always `Opaque`, and `pack`
+      # below would otherwise reconstruct bits 0..56 of `top` unchanged. One
+      # mask test then replaces both `composite_field`s and the `pack`.
+      return top & COMPOSITE_KEEP_MASK if (top & COMPOSITE_ALPHA_MASK) == 0
       fg = composite_field(Attr.fg_alpha(top), Attr.fg(top), Attr.fg(under), true)
       bg = composite_field(Attr.bg_alpha(top), Attr.bg(top), Attr.bg(under), false)
       Attr.pack(Attr.flags(top), fg, bg)
