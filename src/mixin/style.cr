@@ -119,8 +119,21 @@ module Crysterm
         # the floor border is installed lazily here, the one render-only step
         # `#state_style` deliberately omits.
         unless @css_styled
+          # An inline `@style` wins wholesale (returned as-is). The floor border is
+          # installed onto `@styles.normal` — the per-state backing that an inline
+          # style bypasses entirely — so for an inline-styled widget the result of
+          # `ensure_floor_border` is never observed (the returned `@style` carries
+          # its own border, or none). Skip it in that case: `#style` is reached
+          # ~10x per widget per frame through the geometry/damage paths, and running
+          # `ensure_floor_border` (virtual dispatch + per-state lookups) on every
+          # one was the hottest render leaf — pure waste for an inline-styled widget
+          # (e.g. each of a full-screen scene's cells). When `@style` is nil we fall
+          # through to the per-state style below, where the floor border IS observed,
+          # so it is still synced exactly as before.
+          if style = @style
+            return style
+          end
           ensure_floor_border
-          @style.try { |style| return style }
         end
 
         # Decorate only the per-state styles with the unstyled-floor highlight
