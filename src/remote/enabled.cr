@@ -25,7 +25,7 @@ module Crysterm
     def self.enabled? : Bool
       forced = @@enabled
       return forced unless forced.nil?
-      !(ENV["CRYSTERM_REMOTE"]?.presence).nil?
+      !Crysterm::Config.remote_enabled.presence.nil?
     end
   end
 end

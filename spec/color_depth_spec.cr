@@ -8,21 +8,38 @@ include Crysterm
 # `Colors.sgr_color_to` that emits the terminal's default rather than a palette
 # color once the depth collapses below 2.
 describe "output color-depth resolution" do
-  # Resolution reads process ENV and the global `colors.depth` option; snapshot
-  # and restore both around each example so they don't leak into one another.
-  color_env = %w[NO_COLOR FORCE_COLOR CLICOLOR CLICOLOR_FORCE]
-  saved = Hash(String, String?).new
+  # Resolution reads the colour `environment.*` config options (mirrors of
+  # NO_COLOR / FORCE_COLOR / CLICOLOR[_FORCE]) and the global `colors.depth`
+  # option, via the cached `Screen.color_force`. Snapshot and restore all of
+  # them around each example, and drop the force cache so each example
+  # re-derives from the options it sets (rather than the previous example's).
+  saved_no_color = Crysterm::Config.environment_no_color
+  saved_force_color = Crysterm::Config.environment_force_color
+  saved_clicolor = Crysterm::Config.environment_clicolor
+  saved_clicolor_force = Crysterm::Config.environment_clicolor_force
   prev_depth = Crysterm::ColorDepth::Auto
 
   before_each do
-    color_env.each { |k| saved[k] = ENV[k]?; ENV.delete k }
+    saved_no_color = Crysterm::Config.environment_no_color
+    saved_force_color = Crysterm::Config.environment_force_color
+    saved_clicolor = Crysterm::Config.environment_clicolor
+    saved_clicolor_force = Crysterm::Config.environment_clicolor_force
+    Crysterm::Config.environment_no_color = nil
+    Crysterm::Config.environment_force_color = nil
+    Crysterm::Config.environment_clicolor = nil
+    Crysterm::Config.environment_clicolor_force = nil
     prev_depth = Crysterm::Config.colors_depth
     Crysterm::Config.colors_depth = Crysterm::ColorDepth::Auto
+    Screen.reset_color_force
   end
 
   after_each do
-    color_env.each { |k| (v = saved[k]?) ? (ENV[k] = v) : ENV.delete(k) }
+    Crysterm::Config.environment_no_color = saved_no_color
+    Crysterm::Config.environment_force_color = saved_force_color
+    Crysterm::Config.environment_clicolor = saved_clicolor
+    Crysterm::Config.environment_clicolor_force = saved_clicolor_force
     Crysterm::Config.colors_depth = prev_depth
+    Screen.reset_color_force
   end
 
   describe "Crysterm::ColorDepth#to_count" do
@@ -43,43 +60,53 @@ describe "output color-depth resolution" do
     end
 
     it "honors NO_COLOR (present and non-empty) as monochrome" do
-      ENV["NO_COLOR"] = "1"
+      Crysterm::Config.environment_no_color = "1"
+      Screen.reset_color_force
       Screen.resolve_color_depth(0x1000000).should eq 1
     end
 
     it "ignores an empty NO_COLOR (per no-color.org)" do
-      ENV["NO_COLOR"] = ""
+      Crysterm::Config.environment_no_color = ""
+      Screen.reset_color_force
       Screen.resolve_color_depth(256).should eq 256
     end
 
     it "honors CLICOLOR=0 as monochrome" do
-      ENV["CLICOLOR"] = "0"
+      Crysterm::Config.environment_clicolor = "0"
+      Screen.reset_color_force
       Screen.resolve_color_depth(256).should eq 1
     end
 
     it "honors CLICOLOR_FORCE (non-zero) by forcing color on" do
-      ENV["CLICOLOR_FORCE"] = "1"
+      Crysterm::Config.environment_clicolor_force = "1"
+      Screen.reset_color_force
       Screen.resolve_color_depth(8).should eq 16 # at least 16
     end
 
     it "maps FORCE_COLOR levels (0 off, 1 -> 16, 2 -> 256, 3 -> truecolor)" do
-      ENV["FORCE_COLOR"] = "0"
+      Crysterm::Config.environment_force_color = "0"
+      Screen.reset_color_force
       Screen.resolve_color_depth(256).should eq 1
-      ENV["FORCE_COLOR"] = "1"
+      Crysterm::Config.environment_force_color = "1"
+      Screen.reset_color_force
       Screen.resolve_color_depth(8).should eq 16
-      ENV["FORCE_COLOR"] = "2"
+      Crysterm::Config.environment_force_color = "2"
+      Screen.reset_color_force
       Screen.resolve_color_depth(8).should eq 256
-      ENV["FORCE_COLOR"] = "3"
+      Crysterm::Config.environment_force_color = "3"
+      Screen.reset_color_force
       Screen.resolve_color_depth(16).should eq 0x1000000
     end
 
     it "never lowers the detected depth when forcing color on" do
-      ENV["FORCE_COLOR"] = "1"
+      Crysterm::Config.environment_force_color = "1"
+      Screen.reset_color_force
       Screen.resolve_color_depth(0x1000000).should eq 0x1000000 # max(detected, 16)
     end
 
     it "lets an explicit colors.depth override the environment" do
-      ENV["NO_COLOR"] = "1"
+      Crysterm::Config.environment_no_color = "1"
+      Screen.reset_color_force
       Crysterm::Config.colors_depth = Crysterm::ColorDepth::TrueColor
       Screen.resolve_color_depth(16).should eq 0x1000000
     end

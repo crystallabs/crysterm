@@ -15,6 +15,12 @@
 # Crysterm::Config.myapp_theme # => "dark"
 # ```
 module Superconf
+  # Parser for a `String?`-valued option (a presence/value environment mirror):
+  # the built-in casts cover `String` but not the `String | Nil` union, so these
+  # options pass this proc explicitly. A present value is taken verbatim;
+  # absence is represented by the `nil` default, never produced here.
+  ENV_STRING = ->(s : String) { s.as(String?) }
+
   # -- Screen ----------------------------------------------------------------
   option "screen.resize_interval", 0.2.seconds,
     description: "Debounce before redrawing after the last terminal-resize event",
@@ -132,12 +138,61 @@ module Superconf
     description: "Enable emacs/readline-style editing keys in text inputs: Ctrl-A/Ctrl-E (line start/end), word-wise Ctrl/Alt-Left/Right (+ Alt-B/Alt-F), Ctrl-W (kill word back), Ctrl-U/Ctrl-K (kill to line start/end), Alt-D (kill word forward), and Ctrl-Y (yank from the kill ring). When off, these keys are left unhandled so the application can bind them"
 
   # -- External programs / environment --------------------------------------
-  option "input.shell", (ENV["SHELL"]? || "sh"),
-    description: "Shell launched by Widget::Terminal"
-  option "terminal.term", (ENV["TERM"]? || "xterm"),
-    description: "TERM name advertised to programs run inside Widget::Terminal"
+  # These options *are* the channel through which the standard `SHELL` / `TERM` /
+  # `HOME` variables reach Crysterm: `env:` binds each to its real OS variable, so
+  # the value now flows through the env source (which outranks a config file and
+  # the literal default) rather than being baked into the default. The trade-off
+  # is that the derived `CRYSTERM_INPUT_SHELL` / `CRYSTERM_TERMINAL_TERM` /
+  # `CRYSTERM_FILEMANAGER_HOME` names no longer exist — the real var is the name.
+  option "input.shell", "sh", env: "SHELL",
+    description: "Shell launched by Widget::Terminal (defaults from $SHELL)"
+  option "terminal.term", "xterm", env: "TERM",
+    description: "TERM name advertised to programs run inside Widget::Terminal (defaults from $TERM)"
   option "terminal.fallback_term", "xterm",
     description: "Terminfo entry used when $TERM is missing or unusable (e.g. headless/CI)"
-  option "filemanager.home", (ENV["HOME"]? || "/"),
-    description: "Starting directory for Widget::FileManager"
+  option "terminal.window_helper", nil.as(String?), env: "CRYSTERM_WINDOW_HELPER", parse: ENV_STRING,
+    description: "Internal: when set (by Terminal.spawn_window on the child command), the rendezvous socket path that makes this process run as a detached-window helper and exit. Not meant to be set by hand"
+  option "filemanager.home", "/", env: "HOME",
+    description: "Starting directory for Widget::FileManager (defaults from $HOME)"
+
+  # -- Headless capture (Crysterm's own CRYSTERM_* knobs) -------------------
+  # When set, each names a file the screen captures itself into on first render,
+  # then exits the interactive loop — see `Screen#capture_from_env`. Presence
+  # paths (empty/unset = off), so they are `String?` read via `#presence`.
+  option "screen.shot", nil.as(String?), env: "CRYSTERM_SHOT", parse: ENV_STRING,
+    description: "When set, path to write a single still PNG of the first rendered frame to, then exit (headless self-capture)"
+  option "screen.dump", nil.as(String?), env: "CRYSTERM_DUMP", parse: ENV_STRING,
+    description: "When set, path to write a textual `#dump` golden of the first rendered frame to, then exit"
+  option "screen.anim", nil.as(String?), env: "CRYSTERM_ANIM", parse: ENV_STRING,
+    description: "When set, path to write an animated PNG (APNG) capture to, then exit; tuned by screen.anim_secs / screen.anim_fps"
+  option "screen.anim_secs", 5.0, env: "CRYSTERM_ANIM_SECS",
+    description: "Duration in seconds of a screen.anim (CRYSTERM_ANIM) capture"
+  option "screen.anim_fps", 10, env: "CRYSTERM_ANIM_FPS",
+    description: "Frame rate of a screen.anim (CRYSTERM_ANIM) capture"
+
+  # -- Observed environment variables (standard names from the OS / other tools)
+  # Mirror externally-defined variables into the registry so they appear in
+  # dumps/docs and can be overridden like any other option. Each is bound to its
+  # real name via `env:` and modeled as a presence/value `String?` (empty/unset =
+  # absent), so callers read `Config.environment_*` instead of the raw variable.
+  option "environment.no_color", nil.as(String?), env: "NO_COLOR", parse: ENV_STRING,
+    description: "https://no-color.org : when present and non-empty, disables color (monochrome output)"
+  option "environment.clicolor", nil.as(String?), env: "CLICOLOR", parse: ENV_STRING,
+    description: "https://bixense.com/clicolors : when set to 0, disables color (monochrome output)"
+  option "environment.force_color", nil.as(String?), env: "FORCE_COLOR", parse: ENV_STRING,
+    description: "Forces a color depth: 0/false off (monochrome), 1/true at least 16, 2 at least 256, 3 truecolor"
+  option "environment.clicolor_force", nil.as(String?), env: "CLICOLOR_FORCE", parse: ENV_STRING,
+    description: "https://bixense.com/clicolors : when set and non-zero, forces color on (at least 16)"
+  option "environment.w3mimgdisplay", nil.as(String?), env: "W3MIMGDISPLAY_ENV", parse: ENV_STRING,
+    description: "Explicit path to the w3mimgdisplay helper used by the Media::Overlay backend (tried before the built-in candidate paths)"
+  option "environment.tmux", nil.as(String?), env: "TMUX", parse: ENV_STRING,
+    description: "Set by tmux when running inside it; presence makes Widget::Terminal open a new tmux window instead of a new session"
+  option "environment.terminal", nil.as(String?), env: "TERMINAL", parse: ENV_STRING,
+    description: "Preferred terminal-emulator command, tried first when auto-selecting a launcher for a detached window"
+  option "environment.xdg_runtime_dir", nil.as(String?), env: "XDG_RUNTIME_DIR", parse: ENV_STRING,
+    description: "Per-user runtime directory used for the window-handshake socket (falls back to the system temp dir when unset)"
+
+  # -- Remote control --------------------------------------------------------
+  option "remote.enabled", nil.as(String?), env: "CRYSTERM_REMOTE", parse: ENV_STRING,
+    description: "When present and non-empty, allows the -Dremote HTTP bridge to start at runtime (overridable in code via Crysterm::Remote.enabled=)"
 end

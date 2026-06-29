@@ -98,7 +98,7 @@ module Crysterm
       # ($TMUX set), otherwise a new detached session. The command's args follow
       # the tmux options directly.
       Launcher.new("tmux", ->(inner : Array(String), _c : Int32, _r : Int32, t : String?) do
-        argv = ENV["TMUX"]? ? ["tmux", "new-window"] : ["tmux", "new-session", "-d"]
+        argv = Crysterm::Config.environment_tmux ? ["tmux", "new-window"] : ["tmux", "new-session", "-d"]
         argv += ["-n", t] if t
         argv + inner
       end),
@@ -132,7 +132,7 @@ module Crysterm
       when String
         find_launcher(launcher)
       else
-        if t = ENV["TERMINAL"]?
+        if t = Crysterm::Config.environment_terminal
           name = t.split.first? || t
           if found = find_launcher(name)
             return found

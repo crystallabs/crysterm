@@ -371,7 +371,7 @@ module Crysterm
 
       # Whether the `w3mimgdisplay` helper (used by `Media::Overlay`) is present.
       def self.w3m_available? : Bool
-        paths = [ENV["W3MIMGDISPLAY_ENV"]?,
+        paths = [Crysterm::Config.environment_w3mimgdisplay,
                  "/usr/lib/w3m/w3mimgdisplay", "/usr/libexec/w3m/w3mimgdisplay",
                  "/usr/lib64/w3m/w3mimgdisplay", "/usr/libexec64/w3m/w3mimgdisplay",
                  "/usr/local/libexec/w3m/w3mimgdisplay"]

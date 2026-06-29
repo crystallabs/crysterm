@@ -522,9 +522,9 @@ module Crysterm
     # `false` (the normal interactive case) when no capture var is set. This is
     # what makes every Crysterm program self-capturable headlessly.
     private def capture_from_env : Bool
-      shot = ENV["CRYSTERM_SHOT"]?.presence
-      dump_dest = ENV["CRYSTERM_DUMP"]?.presence
-      anim = ENV["CRYSTERM_ANIM"]?.presence
+      shot = Config.screen_shot.presence
+      dump_dest = Config.screen_dump.presence
+      anim = Config.screen_anim.presence
       return false unless shot || dump_dest || anim
 
       _render
@@ -532,8 +532,8 @@ module Crysterm
       capture path: shot if shot
       dump path: dump_dest if dump_dest
       if anim
-        secs = ENV["CRYSTERM_ANIM_SECS"]?.try(&.to_f?) || 5.0
-        fps = ENV["CRYSTERM_ANIM_FPS"]?.try(&.to_i?) || 10
+        secs = Config.screen_anim_secs
+        fps = Config.screen_anim_fps
         capture path: anim, format: "apng", duration: secs.seconds, fps: fps, loops: 0
       end
 

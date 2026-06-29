@@ -21,35 +21,77 @@ module Crysterm
       self.class.resolve_color_depth(tput.features.number_of_colors)
     end
 
+    # The colour-force directive derived from the environment colour conventions
+    # (`NO_COLOR` / `CLICOLOR` / `FORCE_COLOR` / `CLICOLOR_FORCE`), independent of
+    # the terminal-detected count. Computed once and cached (see `.color_force`);
+    # `resolve_color_depth` turns it into a concrete count with the detected
+    # count in hand. `Min16` / `Min256` never *lower* the detected depth.
+    enum ColorForce
+      None      # no env directive: use the detected count
+      Mono      # force monochrome (count 1)
+      Min16     # force colour on, at least 16
+      Min256    # force colour on, at least 256
+      Truecolor # force full 24-bit colour
+    end
+
+    # Memoized `ColorForce` (the environment colour conventions don't change
+    # during a run — they are read once at startup into `environment.*` options).
+    @@color_force : ColorForce? = nil
+
+    # The cached colour-force directive, derived from the colour-related
+    # `environment.*` config options on first use. This hoists the env/option
+    # reads out of the per-frame `#colors` path: `resolve_color_depth` now reads
+    # one cached enum instead of re-consulting four options on every frame.
+    def self.color_force : ColorForce
+      @@color_force ||= compute_color_force
+    end
+
+    # Forget the cached colour force so the next `#colors` re-derives it. Needed
+    # only when the colour `environment.*` options are changed after the first
+    # frame (e.g. at runtime, or between specs).
+    def self.reset_color_force : Nil
+      @@color_force = nil
+    end
+
+    # Derive the colour-force directive from the colour `environment.*` options,
+    # preserving the historical precedence: NO_COLOR, then CLICOLOR=0, then
+    # FORCE_COLOR's level, then a non-zero CLICOLOR_FORCE.
+    private def self.compute_color_force : ColorForce
+      # https://no-color.org : NO_COLOR present and non-empty disables color.
+      return ColorForce::Mono if Config.environment_no_color.presence
+      # https://bixense.com/clicolors : CLICOLOR=0 disables; CLICOLOR_FORCE!=0 forces.
+      return ColorForce::Mono if Config.environment_clicolor == "0"
+      # FORCE_COLOR selects a depth: 0/false off, 1/true 16, 2 256, 3 truecolor.
+      if v = Config.environment_force_color
+        case v
+        when "0", "false" then return ColorForce::Mono
+        when "2"          then return ColorForce::Min256
+        when "3"          then return ColorForce::Truecolor
+        else                   return ColorForce::Min16
+        end
+      end
+      return ColorForce::Min16 if (v = Config.environment_clicolor_force) && v != "0"
+      ColorForce::None
+    end
+
     # Resolves the effective output color count from the `colors.depth` config
     # option and the `NO_COLOR` / `FORCE_COLOR` / `CLICOLOR[_FORCE]` environment
-    # conventions, falling back to the terminal-*detected* count. Memoized by
-    # `#colors`. Result `1` means monochrome (no color emitted; styles still
-    # apply), then `8` / `16` / `256` / `0x1000000` (TrueColor).
+    # conventions (via the cached `.color_force`), falling back to the
+    # terminal-*detected* count. Memoized by `#colors`. Result `1` means
+    # monochrome (no color emitted; styles still apply), then `8` / `16` / `256`
+    # / `0x1000000` (TrueColor).
     def self.resolve_color_depth(detected : Int32) : Int32
       # An explicit config depth wins outright.
       if forced = Config.colors_depth.to_count
         return forced
       end
-      # https://no-color.org : NO_COLOR present and non-empty disables color.
-      if (v = ENV["NO_COLOR"]?) && !v.empty?
-        return 1
+      case color_force
+      in ColorForce::None      then detected
+      in ColorForce::Mono      then 1
+      in ColorForce::Min16     then {detected, 16}.max
+      in ColorForce::Min256    then {detected, 256}.max
+      in ColorForce::Truecolor then 0x1000000
       end
-      # https://bixense.com/clicolors : CLICOLOR=0 disables; CLICOLOR_FORCE!=0 forces.
-      return 1 if ENV["CLICOLOR"]? == "0"
-      # FORCE_COLOR selects a depth: 0/false off, 1/true 16, 2 256, 3 truecolor.
-      if v = ENV["FORCE_COLOR"]?
-        case v
-        when "0", "false" then return 1
-        when "2"          then return {detected, 256}.max
-        when "3"          then return 0x1000000
-        else                   return {detected, 16}.max
-        end
-      end
-      if (v = ENV["CLICOLOR_FORCE"]?) && v != "0"
-        return {detected, 16}.max
-      end
-      detected
     end
 
     # Whether the output terminal can render the full 24-bit (TrueColor) space,

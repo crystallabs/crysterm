@@ -69,7 +69,7 @@ module Crysterm
       raise "Cannot determine own executable path to launch the window helper" unless exe
 
       @@counter += 1
-      dir = ENV["XDG_RUNTIME_DIR"]? || Dir.tempdir
+      dir = Crysterm::Config.environment_xdg_runtime_dir || Dir.tempdir
       path = File.join(dir, "crysterm-win-#{Process.pid}-#{@@counter}.sock")
       File.delete(path) rescue nil
       server = UNIXServer.new(path)
@@ -145,7 +145,7 @@ module Crysterm
     # `spawn_window`), run the helper loop and exit — never returning to the
     # caller. Invoked once, very early, from `crysterm.cr`. A no-op otherwise.
     def self.run_helper_if_requested : Nil
-      path = ENV["CRYSTERM_WINDOW_HELPER"]?
+      path = Crysterm::Config.terminal_window_helper
       return unless path
       run_helper(path)
       exit 0
