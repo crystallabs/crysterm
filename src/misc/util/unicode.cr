@@ -29,6 +29,16 @@ module Crysterm
     # Display width, in terminal columns, of a whole string: the sum of the
     # widths of its grapheme clusters.
     def display_width(string : String) : Int32
+      # Fast path for ASCII-only content (the bulk of typical TUI text, even in a
+      # `full_unicode` app): every ASCII codepoint is its own width-1 grapheme —
+      # no combining marks, wide glyphs, VS16 promotion, or flag pairs — so the
+      # column width is exactly the character count. `#ascii_only?` is O(1) once
+      # the string's `size` is memoized (it tests `bytesize == size`), and for
+      # ASCII `bytesize == size`, so return it directly. This skips the whole
+      # `each_grapheme` walk (a `Char::Reader` decode + grapheme-break state
+      # machine per char) AND the per-grapheme `String` allocation that
+      # `width(Grapheme)`'s `#to_s` otherwise incurs on every character.
+      return string.bytesize if string.ascii_only?
       w = 0
       string.each_grapheme { |g| w += width(g) }
       w
