@@ -112,8 +112,13 @@ module Crysterm
         # separated by `bar_spacing` blank columns. A blank glyph carries no color
         # so coalesced color runs stay tight.
         private def plot_row(n : Int32, & : Int32 -> {Char, String?}) : String
-          cells = [] of Char
-          colors = [] of String?
+          # Final row length is known up front: `n` bars of `bar_width` columns
+          # plus `n - 1` inter-bar gaps of `bar_spacing`. Pre-reserve so this
+          # per-frame collection (rebuilt every animated frame, once per plot
+          # row) doesn't realloc its backing as it grows via `<<`.
+          cap = n <= 0 ? 0 : n * @bar_width + (n - 1) * @bar_spacing
+          cells = Array(Char).new(cap)
+          colors = Array(String?).new(cap)
           n.times do |i|
             glyph, color = yield i
             @bar_width.times { cells << glyph; colors << (glyph == ' ' ? nil : color) }
