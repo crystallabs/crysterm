@@ -186,16 +186,32 @@ module Crysterm
       # the cell mean) and "paper", pick the glyph for the ink pattern, and use
       # the average ink/paper colours as fg/bg.
       private def paint_two_color(cell, sub, cx, cy, sx, sy)
+        # Sub-pixels (≤ 2×4 = 8), cached on the stack in the first pass so the
+        # second pass need not re-fetch each `pix` (double bounds-checked nested
+        # array) nor recompute its `lum` — the per-cell hot spot of the multi-
+        # column modes. Enumeration is row-major (dy outer, dx inner), so cache
+        # slot `i` carries mask bit `1 << i`, matching the old `bit <<= 1` order.
+        pixels = uninitialized StaticArray(PNGGIF::Pixel, 8)
+        lums = uninitialized StaticArray(Float64, 8)
+        present = uninitialized StaticArray(Bool, 8)
         mean = 0.0
         count = 0
         asum = 0.0
+        i = 0
         sy.times do |dy|
           sx.times do |dx|
             if p = pix(sub, cx * sx + dx, cy * sy + dy)
-              mean += lum p
+              l = lum p
+              pixels[i] = p
+              lums[i] = l
+              present[i] = true
+              mean += l
               asum += p.a
               count += 1
+            else
+              present[i] = false
             end
+            i += 1
           end
         end
         return if count == 0
@@ -205,18 +221,19 @@ module Crysterm
         mask = 0
         fr = fg_ = fb = 0; fn = 0
         br = bg_ = bb = 0; bn = 0
-        bit = 1
-        sy.times do |dy|
-          sx.times do |dx|
-            p = pix(sub, cx * sx + dx, cy * sy + dy)
-            if p && lum(p) >= mean
-              mask |= bit
+        n = sx * sy
+        j = 0
+        while j < n
+          if present[j]
+            p = pixels[j]
+            if lums[j] >= mean
+              mask |= (1 << j)
               fr += p.r; fg_ += p.g; fb += p.b; fn += 1
-            elsif p
+            else
               br += p.r; bg_ += p.g; bb += p.b; bn += 1
             end
-            bit <<= 1
           end
+          j += 1
         end
 
         fg = fn > 0 ? ((fr // fn) << 16) | ((fg_ // fn) << 8) | (fb // fn) : 0

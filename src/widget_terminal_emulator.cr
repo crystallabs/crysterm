@@ -304,7 +304,26 @@ module Crysterm
       # All control/escape bytes are ASCII, so decoding the complete prefix as a
       # String is safe for the parser; only printable multibyte glyphs were ever
       # at risk, and those are now whole.
-      String.new(complete).each_char { |c| handle_char c }
+      #
+      # Fast path: terminal output is overwhelmingly ASCII, so feed those bytes
+      # straight as chars without materializing a `String` (which copied the whole
+      # chunk on every read). The moment a multibyte lead byte (>= 0x80) appears,
+      # decode the *remainder* via `String` exactly as before — same UTF-8 and
+      # invalid-byte handling — preserving behaviour while skipping the per-feed
+      # allocation + copy for the common all-ASCII case.
+      ptr = complete.to_unsafe
+      n = complete.size
+      i = 0
+      while i < n
+        b = ptr[i]
+        if b < 0x80
+          handle_char b.unsafe_chr
+          i += 1
+        else
+          String.new(complete[i, n - i]).each_char { |c| handle_char c }
+          break
+        end
+      end
 
       @on_refresh.try &.call
     end
