@@ -27,6 +27,11 @@ module Crysterm
       # `QLineEdit#placeholderText`. It is purely visual: `#value` stays empty.
       property placeholder : String = ""
 
+      # Whether Up/Down walk the input history. On by default (shell-prompt
+      # style); a form field that wants Up/Down to move between fields sets this
+      # false so the keys pass through for the host/screen to navigate.
+      property? history_keys : Bool = true
+
       # Submitted lines, oldest first — the input history walked by Up/Down
       # (like a shell prompt or Qt's editable combo). Public so an app can
       # pre-seed or inspect it.
@@ -71,16 +76,20 @@ module Crysterm
           return
         end
         # Single-line, so Up/Down can't move between rows — repurpose them to
-        # walk the input history instead.
-        if e.key == Tput::Key::Up
-          e.accept
-          history_prev
-          return
-        end
-        if e.key == Tput::Key::Down
-          e.accept
-          history_next
-          return
+        # walk the input history instead. A form that wants Up/Down to move
+        # between fields turns this off (`history_keys = false`), letting the
+        # keys fall through unhandled.
+        if history_keys?
+          if e.key == Tput::Key::Up
+            e.accept
+            history_prev
+            return
+          end
+          if e.key == Tput::Key::Down
+            e.accept
+            history_next
+            return
+          end
         end
         super
       end

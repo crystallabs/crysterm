@@ -28,6 +28,35 @@ module Crysterm
       property ritems = [] of String
       property selected = 0
 
+      # Blank rows of vertical spacing inserted *between* items (Qt's
+      # `QListView` spacing). The gaps are not items — nothing sits there to
+      # click or select — so the list stays a clean 1:1 model of its rows while
+      # still reading visually spaced. `0` (the default) stacks items flush.
+      getter item_spacing : Int32 = 0
+
+      # Re-places existing items when the spacing changes at runtime.
+      def item_spacing=(value : Int32) : Int32
+        @item_spacing = value
+        @items.each_with_index { |it, i| it.top = item_row(i) }
+        value
+      end
+
+      # The content row an item at *index* occupies, accounting for `item_spacing`
+      # (the gaps before it). With the default spacing of `0` this is just
+      # *index*, so the flush-stacked behavior is unchanged.
+      private def item_row(index : Int) : Int32
+        index * (1 + @item_spacing)
+      end
+
+      # Total content height in rows, including the inter-item gaps so the
+      # scrollbar/overflow logic sees the real extent (the list `_scroll_bottom`
+      # otherwise counts items, ignoring spacing). Unchanged when not spaced.
+      def get_scroll_height
+        base = super
+        return base if @item_spacing.zero? || @items.empty?
+        Math.max(base, item_row(@items.size - 1) + 1)
+      end
+
       # When true, a single mouse click on an item activates it (rather than the
       # default two-click select-then-activate). Set by `Widget::Menu`.
       property? activate_on_click : Bool = false
@@ -412,7 +441,7 @@ module Crysterm
 
       def append_item(content : String)
         item = create_item content
-        item.top = @items.size
+        item.top = item_row(@items.size)
 
         @ritems.push content
         invalidate_item_index
@@ -443,7 +472,7 @@ module Crysterm
           remove child
         end
 
-        (i...@items.size).each { |j| @items[j].top = @items[j].top.as(Int) - 1 }
+        (i...@items.size).each { |j| @items[j].top = item_row(j) }
 
         # Keep the multi-selection aligned with the shifted rows: drop the removed
         # index and slide everything past it down by one.
@@ -632,12 +661,13 @@ module Crysterm
           return append_item content
         end
         item = create_item content
-        (i...@items.size).each { |j| @items[j].top = @items[j].top.as(Int) + 1 }
         # Slide multi-selected indices at/after the insertion point up by one.
         if @selected_indices.any? { |s| s >= i }
           @selected_indices = @selected_indices.map { |s| s >= i ? s + 1 : s }.to_set
         end
-        item.top = i
+        item.top = item_row(i)
+        # The inserted item shifts every later row down one slot; re-place them.
+        (i...@items.size).each { |j| @items[j].top = item_row(j + 1) }
         @ritems.insert i, content
         invalidate_item_index
         @items.insert i, item
