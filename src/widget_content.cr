@@ -693,6 +693,18 @@ module Crysterm
       attrs
     end
 
+    # Appends one finished wrapped (real) line and records the fake↔real
+    # mapping: `line` becomes a new real row of `outbuf`, fake line `no` gains
+    # that real index in `ftor`, and `rtof` gains `no`. The shared three-line
+    # tail of the three line-emitting branches in `#_wrap_content` (no-wrap
+    # slice, mid-line wrap cut, and final remainder), which differ only in how
+    # `line` was produced.
+    private def push_real_line(outbuf : CLines, ftor, rtof, no : Int32, line : String) : Nil
+      outbuf.push line
+      ftor[no].push(outbuf.size - 1)
+      rtof.push(no)
+    end
+
     # Wraps content based on available widget width.
     #
     # `into`, when given, is an existing `CLines` to refill in place rather than
@@ -801,9 +813,7 @@ module Crysterm
         # rest off" truncation (see `#_hslice`).
         unless @wrap_content
           outbuf.full_width = Math.max(outbuf.full_width, str_width(line))
-          outbuf.push _align(_hslice(line, @child_base_x, colwidth), colwidth, align, align_left_too)
-          ftor[no].push(outbuf.size - 1)
-          rtof.push(no)
+          push_real_line outbuf, ftor, rtof, no, _align(_hslice(line, @child_base_x, colwidth), colwidth, align, align_left_too)
           next
         end
 
@@ -836,9 +846,7 @@ module Crysterm
           part = line[0...i]
           line = line[i..]
 
-          outbuf.push _align(part, colwidth, align, align_left_too)
-          ftor[no].push(outbuf.size - 1)
-          rtof.push(no)
+          push_real_line outbuf, ftor, rtof, no, _align(part, colwidth, align, align_left_too)
 
           # Make sure we didn't wrap the line at the very end, otherwise
           # we'd get an extra empty line after a newline.
@@ -857,9 +865,7 @@ module Crysterm
         # dead — `next`/falling through both advance to the next fake line.
         next if loop_ret == :main
 
-        outbuf.push(_align(line, colwidth, align, align_left_too))
-        ftor[no].push(outbuf.size - 1)
-        rtof.push(no)
+        push_real_line outbuf, ftor, rtof, no, _align(line, colwidth, align, align_left_too)
       end
 
       # `rtof`/`ftor` already alias `outbuf`'s own arrays (filled in place above),

@@ -328,6 +328,15 @@ module Crysterm
         true
       end
 
+      # Inserts `text` at the cursor and advances the cursor past it, clearing
+      # the goal column as every edit does. Shared by character typing and the
+      # `Ctrl-Y` yank, which differ only in where `text` comes from.
+      private def insert_at_cursor(text : String) : Nil
+        @goal_col = nil
+        @value = @value[0...@cursor_pos] + text + @value[@cursor_pos..]
+        @cursor_pos += text.size
+      end
+
       # Maps `@cursor_pos` (an index into `@value`) to `{real_line, column}` in
       # the wrapped/displayed content (`@_clines`), using the fake→real line map
       # (`ftor`). For the default (unaligned) text area this is exact; with
@@ -662,9 +671,7 @@ module Crysterm
             killed = kill_forward_to stop
           elsif rl && !read_only? && k == Tput::Key::CtrlY # yank
             if text = kill_ring.yank
-              @goal_col = nil
-              @value = @value[0...@cursor_pos] + text + @value[@cursor_pos..]
-              @cursor_pos += text.size
+              insert_at_cursor text
             end
           end
         end
@@ -677,10 +684,7 @@ module Crysterm
           unless at_limit || e.char.to_s.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
             # Insert the typed character at the cursor (not just at the end),
             # then advance the cursor past it.
-            @goal_col = nil
-            ch = e.char.to_s
-            @value = @value[0...@cursor_pos] + ch + @value[@cursor_pos..]
-            @cursor_pos += ch.size
+            insert_at_cursor e.char.to_s
           end
         end
 
