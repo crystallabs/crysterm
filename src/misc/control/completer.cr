@@ -11,7 +11,7 @@ module Crysterm
   # focus throughout.
   #
   # ```
-  # box = Widget::LineEdit.new parent: screen, top: 2, left: 2, width: 30, height: 1
+  # box = Widget::LineEdit.new parent: window, top: 2, left: 2, width: 30, height: 1
   # comp = Completer.new %w[apple apricot banana blueberry cherry]
   # comp.attach box
   # ```
@@ -53,7 +53,7 @@ module Crysterm
       @hover_select = true
       # The drop-down never takes focus — the owning box keeps it the whole time
       # (so typing keeps filtering). Without this, a wheel (or click) over the
-      # popup would auto-focus it (`Screen#dispatch_mouse` focuses the topmost
+      # popup would auto-focus it (`Window#dispatch_mouse` focuses the topmost
       # focusable widget under a wheel/press), blurring the box — which the
       # completer treats as "focus left" and closes the popup. Opting out of
       # focus-on-pointer keeps the box focused, so the wheel can scroll/cycle the
@@ -94,7 +94,7 @@ module Crysterm
       # in `Mixin::ItemView` passes the index of the item whose rectangle the
       # pointer fell in — but item rectangles are hit-tested by their *unscrolled*
       # geometry (`Widget#atop` is `content_top + item.top`, with no `#child_base`
-      # term; see `Screen#widget_at`). So the index handed in is really the
+      # term; see `Window#widget_at`). So the index handed in is really the
       # pointer's *visual row* from the top of the viewport (0 == the first shown
       # row), independent of how far the list is scrolled — and rows *below* the
       # last shown one still report a (phantom) index, since those off-viewport
@@ -131,7 +131,7 @@ module Crysterm
       # The drop-down's auto-created scrollbar (appears once the match set
       # overflows `max_visible`) must not steal focus either — same reason as
       # `@focus_on_click = false` above. A wheel (or press) over the bar
-      # otherwise focuses it (`Screen#dispatch_mouse` focuses the topmost
+      # otherwise focuses it (`Window#dispatch_mouse` focuses the topmost
       # focusable widget under a wheel/press), blurring the box, which the
       # completer treats as "focus left" and closes the popup. Opting the bar out
       # of focus-on-pointer keeps the box focused, so the wheel scrolls the list
@@ -166,8 +166,8 @@ module Crysterm
     @ev_focus : Crysterm::Event::Focus::Wrapper?
     @ev_blur : Crysterm::Event::Blur::Wrapper?
     @ev_click : Crysterm::Event::Mouse::Wrapper?
-    # Screen-level "click-away to dismiss" watcher, live only while the drop-down
-    # is open (the same `Screen#on_press_outside` the pop-up menus use).
+    # Window-level "click-away to dismiss" watcher, live only while the drop-down
+    # is open (the same `Window#on_press_outside` the pop-up menus use).
     @ev_outside : Crysterm::Event::Mouse::Wrapper?
     # Set when the intercept handler has consumed a key, so the (later) filter
     # handler skips that same keypress.
@@ -219,7 +219,7 @@ module Crysterm
         @ev_focus.try { |h| w.off Crysterm::Event::Focus, h }
         @ev_blur.try { |h| w.off Crysterm::Event::Blur, h }
         @ev_click.try { |h| w.off Crysterm::Event::Mouse, h }
-        @ev_outside.try { |h| w.screen?.try &.off Crysterm::Event::Mouse, h }
+        @ev_outside.try { |h| w.window?.try &.off Crysterm::Event::Mouse, h }
       end
       @intercept = @filter = nil
       @ev_focus = nil
@@ -227,7 +227,7 @@ module Crysterm
       @ev_click = nil
       @ev_outside = nil
       if pop = @popup
-        pop.screen?.try &.remove pop
+        pop.window?.try &.remove pop
         pop.destroy
       end
       @popup = nil
@@ -340,7 +340,7 @@ module Crysterm
       @open = true
       # Dismiss on a press outside both the drop-down and its box (a press on the
       # box itself is "inside" — its own handler toggles the list).
-      @ev_outside ||= widget.screen.on_press_outside(->(x : Int32, y : Int32) {
+      @ev_outside ||= widget.window.on_press_outside(->(x : Int32, y : Int32) {
         (@popup.try(&.contains_point?(x, y)) || false) || (@widget.try(&.contains_point?(x, y)) || false)
       }) { close }
       widget.request_render
@@ -372,7 +372,7 @@ module Crysterm
       return unless @open
       @open = false
       @popup.try &.hide
-      @ev_outside.try { |h| @widget.try &.screen?.try &.off Crysterm::Event::Mouse, h }
+      @ev_outside.try { |h| @widget.try &.window?.try &.off Crysterm::Event::Mouse, h }
       @ev_outside = nil
       @widget.try &.request_render
     end
@@ -393,7 +393,7 @@ module Crysterm
     private def ensure_popup(widget : Widget::LineEdit) : Popup
       @popup ||= begin
         pop = Popup.new(
-          screen: widget.screen,
+          window: widget.window,
           top: 0, left: 0,
           width: 16, height: 3,
           style: Style.new(border: true),
@@ -414,7 +414,7 @@ module Crysterm
             pop.cursor_up; e.accept; pop.request_render
           end
         end
-        widget.screen.append pop
+        widget.window.append pop
         pop.hide
         pop
       end

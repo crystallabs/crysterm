@@ -8,7 +8,7 @@ include Crysterm
 # (`checked_id` == -1) would hand back the first un-id'd member instead of nil.
 
 private def add_mem_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

@@ -10,7 +10,7 @@ module Crysterm
   # by the `TermColors` shard).
   #
   # Colors are only reduced to 256/16/8/2 colors at output time, and only when
-  # the terminal cannot do TrueColor (see `Screen#colors` / `Attr`).
+  # the terminal cannot do TrueColor (see `Window#colors` / `Attr`).
   module Colors
     extend ::TermColors
 
@@ -229,7 +229,7 @@ module Crysterm
   #
   # An attribute (`attr`) bundles a foreground color, a background color, and a
   # set of style flags (bold/underline/blink/reverse/invisible) into a single
-  # integer that every cell in the screen buffer stores.
+  # integer that every cell in the window buffer stores.
   #
   # Because each color is now a full 24-bit RGB value (plus a "default" marker),
   # two colors no longer fit alongside the flags in an `Int32`; the packed

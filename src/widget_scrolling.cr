@@ -331,7 +331,7 @@ module Crysterm
     # Returns total amount of lines by which widget is scrolled.
     #
     # The value combines invisible and visible parts. E.g. if a widget is scrolled
-    # by 6 lines which are invisible (out of screen), and the cursor is at the 5th
+    # by 6 lines which are invisible (out of window), and the cursor is at the 5th
     # line of visible content, `get_scroll` will return 11.
     def get_scroll
       @child_base + @child_offset
@@ -391,7 +391,7 @@ module Crysterm
     # *offset* columns, clamped to the content width, and repaint. Emits
     # `Event::Scroll` carrying the signed column delta and `:horizontal`.
     def scroll_x(offset = 1)
-      return unless @scrollable && screen?
+      return unless @scrollable && window?
       visible = content_width
       return if visible <= 0
 
@@ -483,7 +483,7 @@ module Crysterm
         # content is in the shrunken box, unless we do this (call get_coords
         # without the scrollable calculation):
         # See: $ test/widget-shrink-fail-2
-        el_bottom = if el.screen? && (lpos = el._get_coords false, true)
+        el_bottom = if el.window? && (lpos = el._get_coords false, true)
                       el.rtop + (lpos.yl - lpos.yi)
                     else
                       el.rtop + el.aheight
@@ -506,7 +506,7 @@ module Crysterm
     # Scrolls widget by `offset` lines down or up
     def scroll(offset = 1, always = false)
       return unless @scrollable
-      return unless screen?
+      return unless window?
 
       # A scroll shifts the whole viewport, so the subtree must be repainted.
       mark_dirty
@@ -563,18 +563,18 @@ module Crysterm
       # or if we **really** want shrinkable
       # scrolling elements.
       # p = _get_coords
-      if p && (@child_base != base) && screen.clean_sides(self)
+      if p && (@child_base != base) && window.clean_sides(self)
         t = p.yi + itop
         b = p.yl - ibottom - 1
         d = @child_base - base
 
         if d > 0 && d < visible
           # scrolled down
-          screen.delete_line(d, t, t, b)
+          window.delete_line(d, t, t, b)
         elsif d < 0 && -d < visible
           # scrolled up
           d = -d
-          screen.insert_line(d, t, t, b)
+          window.insert_line(d, t, t, b)
         end
       end
 
@@ -622,7 +622,7 @@ module Crysterm
     end
 
     def _recalculate_index
-      return 0 if !screen? || !@scrollable
+      return 0 if !window? || !@scrollable
 
       clamp_child_base_to_content
     end

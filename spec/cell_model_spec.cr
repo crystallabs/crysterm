@@ -3,14 +3,14 @@ require "./spec_helper"
 include Crysterm
 
 # Phase 1: the cell model — grapheme overlay + continuation cells on
-# `Screen::Row` / `Screen::Cell`. Exercised directly on a `Row` (no `Screen`).
+# `Window::Row` / `Window::Cell`. Exercised directly on a `Row` (no `Window`).
 private def row1
-  r = Crysterm::Screen::Row.new
+  r = Crysterm::Window::Row.new
   r.push # one default cell
   r
 end
 
-describe Crysterm::Screen::Cell do
+describe Crysterm::Window::Cell do
   it "stores a single-codepoint grapheme inline (no overlay)" do
     r = row1
     c = r[0]
@@ -97,7 +97,7 @@ describe Crysterm::Screen::Cell do
   end
 
   it "pop drops the popped cell's overlay" do
-    r = Crysterm::Screen::Row.new
+    r = Crysterm::Window::Row.new
     r.push
     r.push
     r[1].grapheme = "e\u{0301}"

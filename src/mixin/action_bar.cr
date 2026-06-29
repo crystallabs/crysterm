@@ -40,9 +40,9 @@ module Crysterm
         # command (Qt's `QToolBar#addSeparator`).
         property? separator = false
 
-        # Screen-level handler installed for this command's global hotkeys
+        # Window-level handler installed for this command's global hotkeys
         # (`#keys`). Retained so it can be removed when the command — or the whole
-        # bar — is torn down, instead of leaking onto the screen forever.
+        # bar — is torn down, instead of leaking onto the window forever.
         property key_handler : ::Crysterm::Event::KeyPress::Wrapper?
 
         def initialize(@text, @callback = nil, *, @prefix = nil, @keys = nil)
@@ -96,10 +96,10 @@ module Crysterm
         end
 
         # `auto_command_keys` (number-key selection) is handled inside the
-        # widget-local `#on_keypress` rather than via a global `screen.on`: number
+        # widget-local `#on_keypress` rather than via a global `window.on`: number
         # keys must not be hijacked while the bar is unfocused (they would collide
         # with any numeric input elsewhere), and a widget-local handler is torn
-        # down with the widget instead of leaking/accumulating on the screen.
+        # down with the widget instead of leaking/accumulating on the window.
 
         on(::Crysterm::Event::Focus) { selekt selected }
       end
@@ -184,7 +184,7 @@ module Crysterm
         end
 
         item = Widget::Box.new(
-          screen: screen,
+          window: window,
           top: 0,
           left: drawn,
           height: 1,
@@ -211,7 +211,7 @@ module Crysterm
         # stored on the command so it can be removed again (see `#detach_command`).
         cmd.keys.try do |keys|
           if cmd.callback
-            cmd.key_handler = screen.on(::Crysterm::Event::KeyPress) do |e|
+            cmd.key_handler = window.on(::Crysterm::Event::KeyPress) do |e|
               if keys.includes? e.char.to_s
                 trigger cmd
               end
@@ -309,9 +309,9 @@ module Crysterm
 
         # Mirror Blessed's `lpos = this._getCoords(); if (!lpos) return;`: the
         # horizontal-scroll math below needs a real layout. A top-level widget
-        # appended to a `Screen` has no `#parent` (a `Screen` is not a
+        # appended to a `Window` has no `#parent` (a `Window` is not a
         # `Widget`), so gating on `#parent` — as the original port did — wrongly
-        # skipped the scroll update for every screen-level listbar, freezing
+        # skipped the scroll update for every window-level listbar, freezing
         # `#selected` (= `left_base + left_offset`) at 0. Gate on having been
         # laid out instead (`@lpos` is set after the first render, for both
         # parented and top-level bars; nil beforehand — note that the public
@@ -399,15 +399,15 @@ module Crysterm
         item
       end
 
-      # Removes a command's global-hotkey handler from the screen (if any), so it
+      # Removes a command's global-hotkey handler from the window (if any), so it
       # stops firing once the command is gone.
       private def detach_command(cmd : Command)
-        cmd.key_handler.try { |w| screen?.try &.off ::Crysterm::Event::KeyPress, w }
+        cmd.key_handler.try { |w| window?.try &.off ::Crysterm::Event::KeyPress, w }
         cmd.key_handler = nil
       end
 
       # Tears down every command's global-hotkey handler before the bar is
-      # destroyed, so none linger on the screen.
+      # destroyed, so none linger on the window.
       def destroy
         @commands.each { |cmd| detach_command cmd }
         super

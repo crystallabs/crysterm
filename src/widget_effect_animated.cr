@@ -2,15 +2,15 @@ module Crysterm
   class Widget
     module Effect
       # Shared self-animation lifecycle for effects that drive their own frame
-      # loop. An including widget must be a `Widget` (the loop calls `screen`) and
+      # loop. An including widget must be a `Widget` (the loop calls `window`) and
       # define `#step` — advance the simulation and repaint one frame, *state and
-      # paint only* (no `screen.render`, no `sleep`). This module supplies
+      # paint only* (no `window.render`, no `sleep`). This module supplies
       # `#start` / `#stop` / `#toggle` and the fiber loop that ties
-      # `step` → `screen.render` → `sleep interval` together.
+      # `step` → `window.render` → `sleep interval` together.
       #
       # `#step` is public by convention so an effect can also be advanced from an
       # external clock — several effects sharing one frame counter, with a single
-      # `screen.render` then painting them all.
+      # `window.render` then painting them all.
       #
       # `Effect::Direct`, `Effect::CopperBar`, `Effect::SineScroller`, and
       # `Effect::Spray` all include this. A finite effect (like a non-looping

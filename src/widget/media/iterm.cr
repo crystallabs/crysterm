@@ -8,7 +8,7 @@ module Crysterm
     # in-band, and a supporting terminal (iTerm2, WezTerm, Konsole, mintty,
     # VS Code's terminal, …) decodes and draws it at the cursor. Like sixel the
     # pixels are owned by the terminal, so this inherits `Media::Graphics`'s
-    # screen-owns-pixels redraw/erase lifecycle (the image occupies cells, so
+    # window-owns-pixels redraw/erase lifecycle (the image occupies cells, so
     # re-emitting them clears it — no special delete needed, unlike Kitty).
     #
     # Because the protocol carries the encoded file as-is (PNG/JPEG/GIF), this
@@ -17,7 +17,7 @@ module Crysterm
     # (`width=`/`height=`, `preserveAspectRatio=0`).
     #
     # ```
-    # img = Widget::Media::Iterm.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Media::Iterm.new file: "pic.png", width: 40, height: 12, parent: window
     # ```
     class Media::Iterm < Media::Graphics
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)

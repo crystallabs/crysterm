@@ -43,7 +43,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class Canvas < Box
         # The Media backend presenting the painted bitmap. Built in `#initialize`
-        # (after `super`, once the screen is reachable for backend detection), so
+        # (after `super`, once the window is reachable for backend detection), so
         # it is stored nilable but is never `nil` post-construction. `device`
         # raises if read before then; `device?` is the nilable variant.
         getter! device : Media::Base
@@ -69,7 +69,7 @@ module Crysterm
           # Resolve the backend exactly like an image (honoring the user's
           # explicit type / backend / exclude preferences), then build it as a
           # child that fills our interior and presents each painted frame.
-          resolved = type || Media.resolve(Media::Content::Painter, screen?.try &.tput)
+          resolved = type || Media.resolve(Media::Content::Painter, window?.try &.tput)
           # Stretch to our *content* area, not `"100%"`: a string dimension is
           # 100% of the parent's full size (border included), which would overrun
           # the border on the right/bottom. Leaving width/height unset with all

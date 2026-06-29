@@ -13,7 +13,7 @@ include Crysterm
 # fix distinguishes "not given" (nil) from an explicit `false`.
 
 private def render_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 80, height: 24)
 end

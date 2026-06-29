@@ -9,7 +9,7 @@ include Crysterm
 # each tick — including the first — advance to a new frame.
 describe Crysterm::Widget::Loading do
   it "advances to the next spinner frame on the first step (no duplicated first frame)" do
-    screen = Crysterm::Screen.new(
+    screen = Crysterm::Window.new(
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
       width: 20, height: 10,
     )

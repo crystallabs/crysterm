@@ -11,7 +11,7 @@ include Crysterm
 # src/widget_children.cr). A genuine *cross-screen* move must still fire both.
 
 private def headless_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 20, height: 10)
 end
@@ -32,7 +32,7 @@ describe "Widget reparenting within the same screen" do
 
     # The widget moved, and still derives the same screen...
     child.parent.should eq b
-    child.screen?.should eq s
+    child.window?.should eq s
     # ...but no screen-transition events fired (it never left the screen).
     transitions.should be_empty
   end
@@ -68,7 +68,7 @@ describe "Widget reparenting within the same screen" do
 
     b.append child # move s1 -> s2
 
-    child.screen?.should eq s2
+    child.window?.should eq s2
     transitions.should eq ["detach", "attach"]
   end
 end

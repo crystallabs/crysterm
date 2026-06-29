@@ -8,7 +8,7 @@ include Crysterm
 # (autocompletion filtering).
 
 private def add_mem_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,
@@ -256,7 +256,7 @@ describe Crysterm::Completer do
   # over a row would jump two rows at a time.
   it "highlights the first row on open and single-steps on any movement (arrows or wheel)" do
     s = add_mem_screen
-    pop = Crysterm::Completer::Popup.new(screen: s, width: 16, height: 6)
+    pop = Crysterm::Completer::Popup.new(window: s, width: 16, height: 6)
     pop.set_items %w[apple apricot banana blueberry]
 
     # Opens with the first row already highlighted.

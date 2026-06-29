@@ -3,13 +3,13 @@ require "./spec_helper"
 include Crysterm
 
 private def headless_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
 # Behavior lock for the region writers after `fill_region`/`blend_region` were
 # routed through the shared `each_region_cell` helper. The two differ only in
 # whether they clamp a negative origin to 0 (`fill` clamps; `blend` does not).
-describe "Screen#fill_region / #blend_region" do
+describe "Window#fill_region / #blend_region" do
   it "fills the half-open region and marks the line dirty" do
     s = headless_screen
     s.fill_region 7_i64, 'X', 1, 4, 0, 1, override: true
@@ -81,7 +81,7 @@ end
 describe "Screen.sgr_params_to" do
   it "writes nothing and returns false for the default attribute" do
     io = IO::Memory.new
-    wrote = Crysterm::Screen.sgr_params_to io, Crysterm::Screen::DEFAULT_ATTR, 256
+    wrote = Crysterm::Screen.sgr_params_to io, Crysterm::Window::DEFAULT_ATTR, 256
     wrote.should be_false
     io.size.should eq 0
   end

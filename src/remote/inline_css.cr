@@ -1,12 +1,12 @@
 module Crysterm
   # Inline-`<style>` support for self-contained layouts — part of the remote
-  # subsystem, so it's only compiled with `-Dremote`. It reopens `Screen` to
+  # subsystem, so it's only compiled with `-Dremote`. It reopens `Window` to
   # keep an inline CSS source (extracted from a loaded layout's `<style>` by
   # `DOM.load`) alongside the external file/string source, recomposing both into
-  # the active stylesheet. The core `Screen` (in `style/css/screen.cr`) has no
+  # the active stylesheet. The core `Window` (in `style/css/window.cr`) has no
   # knowledge of any of this; these overrides supersede its plain versions when
   # the remote subsystem is present.
-  class Screen
+  class Window
     # CSS pulled from inline `<style>` blocks in a loaded layout. Kept separate
     # from the external source so each can change independently (file hot-reload,
     # layout hot-reload).

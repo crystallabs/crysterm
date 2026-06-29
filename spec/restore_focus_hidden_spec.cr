@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Screen#save_focus`/`#restore_focus` returns focus to a previously-focused
+# `Window#save_focus`/`#restore_focus` returns focus to a previously-focused
 # widget (used by dialogs: `Widget::Message`, `Question`, `Prompt`,
 # `FileManager`, `ColorDialog`). The saved widget can still be *attached* to the
 # screen yet no longer *displayed* — a container above it was hidden while the
@@ -12,13 +12,13 @@ include Crysterm
 # Otherwise focus (and the cursor) would land on an off-screen widget.
 
 private def restore_focus_hidden_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)
 end
 
-describe "Screen#restore_focus with a hidden saved widget" do
+describe "Window#restore_focus with a hidden saved widget" do
   it "does not restore focus to a saved widget whose container is hidden" do
     s = restore_focus_hidden_screen
     container = Widget::Box.new parent: s

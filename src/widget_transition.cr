@@ -28,7 +28,7 @@ module Crysterm
     # Tweens each declared, changed animatable property from *prev* to the new
     # (post-state-change) style value. Called from `Mixin::Style#state=`.
     def apply_style_transitions(prev : TransitionFrom) : Nil
-      return unless screen?
+      return unless window?
       st = style
       trans = st.transitions
       return unless trans
@@ -48,7 +48,7 @@ module Crysterm
     end
 
     # Whether any declarative CSS `transition` is currently tweening on this
-    # widget. Drives `Screen#animating?`, which capture/test harnesses poll to
+    # widget. Drives `Window#animating?`, which capture/test harnesses poll to
     # wait for a state change to settle before snapshotting.
     def transition_running? : Bool
       if h = @style_transitions

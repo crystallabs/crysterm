@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for the per-cell diff in `Screen#draw` (`screen_drawing.cr`).
+# Regression coverage for the per-cell diff in `Window#draw` (`screen_drawing.cr`).
 #
 # `draw` compares `@lines` (this frame) against `@olines` (what is on the
 # terminal), skips cells that did not change, and writes every emitted cell back
@@ -16,14 +16,14 @@ include Crysterm
 # overlay treated 'e' and 'e'+combining-mark as equal and never emitted the mark.
 
 private def fu_screen(output = IO::Memory.new, width = 10, height = 3)
-  s = Crysterm::Screen.new(
+  s = Crysterm::Window.new(
     input: IO::Memory.new, output: output, error: IO::Memory.new,
     width: width, height: height)
   s.full_unicode = true
   s
 end
 
-describe "Screen#draw cell diff (full_unicode)" do
+describe "Window#draw cell diff (full_unicode)" do
   it "re-emits a cell when its grapheme cluster changes but base char + attr do not" do
     s = fu_screen
     pending! "full_unicode unavailable in this environment" unless s.full_unicode?
@@ -96,7 +96,7 @@ end
 # narrowed via `mark_dirty(x)`, and full via `dirty = true` — and comparing the
 # exact bytes `draw` produces.
 private def plain_screen(output, width = 40, height = 6)
-  s = Crysterm::Screen.new(
+  s = Crysterm::Window.new(
     input: IO::Memory.new, output: output, error: IO::Memory.new,
     width: width, height: height)
   s.alloc
@@ -125,7 +125,7 @@ private def drawn_bytes(edits, narrowed : Bool, width = 40, height = 6) : Bytes
   buf.to_slice.dup
 end
 
-describe "Screen#draw dirty-column range" do
+describe "Window#draw dirty-column range" do
   red = Attr.pack(0_i64, Attr.pack_color(0xFF0000), Attr.pack_color(0x000000))
   blue = Attr.pack(0_i64, Attr.pack_color(0x0000FF), Attr.pack_color(0x000000))
 
@@ -171,9 +171,9 @@ private def fully_synced(s) : {Int32, Int32}?
   nil
 end
 
-describe "Screen#draw end-to-end dirty-range sync" do
+describe "Window#draw end-to-end dirty-range sync" do
   it "leaves @olines mirroring @lines as widgets change content and move" do
-    s = Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+    s = Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
     outer = Widget::Box.new parent: s, left: 0, top: 0, width: 40, height: 12
     label = Widget::Box.new parent: outer, left: 2, top: 1, width: 20, height: 1, content: "frame 0"
     side = Widget::Box.new parent: outer, left: 2, top: 3, width: 1, height: 6, content: "|"

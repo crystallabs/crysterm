@@ -3,7 +3,7 @@ module Crysterm
     # The default ("user-agent") stylesheet.
     #
     # Applied beneath all author rules (cascade tier `TIER_DEFAULT`) whenever CSS
-    # styling is active on a screen, so it provides a baseline that author
+    # styling is active on a window, so it provides a baseline that author
     # stylesheets override. It is empty by default — set it once at startup to
     # express widget default looks as CSS:
     #
@@ -15,7 +15,7 @@ module Crysterm
     # ```
     #
     # Being tier 0, every one of these is overridable by a user `Button { ... }`
-    # rule. It only participates when a screen has its own stylesheet set (CSS
+    # rule. It only participates when a window has its own stylesheet set (CSS
     # stays opt-in); with no author stylesheet, nothing is applied.
     @@default_stylesheet = Stylesheet.new
 

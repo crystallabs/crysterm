@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for `Screen#focus_push` history hygiene (`screen_focus.cr`).
+# Regression coverage for `Window#focus_push` history hygiene (`screen_focus.cr`).
 #
 # Re-focusing the already-current widget through a screen-level entry point
-# (`Screen#focus`, or `focus_offset`/Tab wrapping onto the sole focusable widget)
+# (`Window#focus`, or `focus_offset`/Tab wrapping onto the sole focusable widget)
 # must NOT stack a duplicate entry onto the focus history. A duplicate top entry
 # desyncs the back-stack walk: a later `focus_pop` would pop the duplicate and
 # leave focus put instead of returning to the genuine prior widget (and, at
@@ -15,13 +15,13 @@ include Crysterm
 # spurious `Event::Focus` on re-focus); this covers the *history* side. Driven
 # headlessly over in-memory IOs; no real terminal is touched.
 private def history_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)
 end
 
-describe "Screen#focus_push history on re-focus" do
+describe "Window#focus_push history on re-focus" do
   it "keeps focus_pop anchored to the prior widget after a redundant re-focus" do
     s = history_screen
     # The first focusable widget auto-focuses on insert, so `a` holds focus.

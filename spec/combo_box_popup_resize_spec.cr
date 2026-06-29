@@ -11,7 +11,7 @@ include Crysterm
 # `#refresh_popup` must re-run `#position_popup` so the height tracks the filter.
 
 private def combo_mem_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

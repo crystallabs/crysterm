@@ -6,14 +6,14 @@ module Crysterm
     # a sixel-capable terminal (xterm -ti vt340, foot, wezterm, mlterm, …) draws
     # as true raster pixels at the cursor position. Unlike `Media::Ansi`/`Media::Glyph`
     # the pixels are owned by the terminal, not Crysterm's cell grid — so this
-    # inherits `Media::Graphics`'s screen-owns-pixels erase/redraw lifecycle.
+    # inherits `Media::Graphics`'s window-owns-pixels erase/redraw lifecycle.
     #
     # The image is quantized to a fixed 6×7×6 (=252) level RGB palette and
     # dithered to smooth gradients (see `dither`; `Dither::Auto` by default),
     # then emitted as run-length-encoded sixel bands.
     #
     # ```
-    # img = Widget::Media::Sixel.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Media::Sixel.new file: "pic.png", width: 40, height: 12, parent: window
     # ```
     class Media::Sixel < Media::Graphics
       # Palette levels per channel (product must stay ≤ 256 color registers).

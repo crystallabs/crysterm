@@ -28,7 +28,7 @@ module Crysterm
 
         # Dialogs start hidden, like Blessed's `options.hidden = true`: `ask` /
         # `ask_choices` call `show` to reveal the dialog. Without this it renders
-        # on the first frame and stacks with any other dialog on the screen.
+        # on the first frame and stacks with any other dialog on the window.
         hide
 
         # Custom button labels (Qt lets you relabel the standard buttons).
@@ -65,12 +65,12 @@ module Crysterm
         # uninitialized Proc (crash).
         done = ->(err : String?, data : Bool) do
           teardown_ok_cancel ev_ok, ev_cancel
-          ev_keys.try { |h| screen.off Crysterm::Event::KeyPress, h }
+          ev_keys.try { |h| window.off Crysterm::Event::KeyPress, h }
           block.call err, data
           request_render
         end
 
-        ev_keys = screen.on(Crysterm::Event::KeyPress) do |e|
+        ev_keys = window.on(Crysterm::Event::KeyPress) do |e|
           c = e.char
           k = e.key
 
@@ -89,7 +89,7 @@ module Crysterm
           done.call nil, false
         end
 
-        screen.save_focus
+        window.save_focus
         focus
 
         request_render
@@ -130,18 +130,18 @@ module Crysterm
         ev_keys = nil
 
         finish = ->(idx : Int32) do
-          ev_keys.try { |h| screen.off Crysterm::Event::KeyPress, h }
+          ev_keys.try { |h| window.off Crysterm::Event::KeyPress, h }
           # Move focus onto a surviving widget *before* destroying the choice
           # buttons: removing the currently-focused widget would otherwise trigger
           # a focus rewind mid-teardown (the button is already detached, so its
-          # `screen` is gone). `restore_focus` alone isn't enough — there may be
+          # `window` is gone). `restore_focus` alone isn't enough — there may be
           # no saved focus — so anchor on the (now-shown) OK button.
           @ok.show
           @cancel.show
           @ok.focus
           buttons.each &.destroy
           hide
-          screen.restore_focus
+          window.restore_focus
           block.call idx
           request_render
         end
@@ -150,7 +150,7 @@ module Crysterm
           b.on(Crysterm::Event::Press) { finish.call i }
         end
 
-        ev_keys = screen.on(Crysterm::Event::KeyPress) do |e|
+        ev_keys = window.on(Crysterm::Event::KeyPress) do |e|
           case e.key
           when Tput::Key::Left
             next if buttons.empty? # nothing to move between (and `% 0` would crash)
@@ -167,7 +167,7 @@ module Crysterm
           end
         end
 
-        screen.save_focus
+        window.save_focus
         buttons[cur]?.try &.focus
         request_render
       end

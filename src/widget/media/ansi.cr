@@ -17,7 +17,7 @@ module Crysterm
     # there is no 256-color palette-matching step as in Blessed.
     #
     # ```
-    # img = Widget::Media::Ansi.new file: "picture.png", width: 30, parent: screen
+    # img = Widget::Media::Ansi.new file: "picture.png", width: 30, parent: window
     # ```
     #
     # Animated images (APNG, animated GIF) play automatically unless `animate:
@@ -107,7 +107,7 @@ module Crysterm
       end
 
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
-        lines = screen.lines
+        lines = window.lines
         # In a reduced-color mode, dither the whole sample to the palette up front
         # (error diffusion needs the neighbours, so it can't be done per cell).
         # Memoized per sample bitmap; unused (and never computed) in TrueColor.
@@ -132,7 +132,7 @@ module Crysterm
         end
       end
 
-      # Writes one image pixel into a screen *cell* (its background *rgb* already
+      # Writes one image pixel into a window *cell* (its background *rgb* already
       # palette-reduced for the active mode), blending against the cell's current
       # contents when the pixel is translucent.
       private def paint_cell(cell, px : PNGGIF::Pixel, a : Float64, rgb : Int32)

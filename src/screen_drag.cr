@@ -1,7 +1,7 @@
 require "base64"
 
 module Crysterm
-  class Screen
+  class Window
     # Drag-and-drop engine.
     #
     # A drag is **modal** and **per-screen**: at most one gesture is in flight on

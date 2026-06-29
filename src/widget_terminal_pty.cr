@@ -25,7 +25,7 @@ module Crysterm
   # `#spawn_child`. That keeps everything on the safe `Process` path.
   class Pty
     # `openpty` lives in libutil; `ioctl` and `struct winsize` (`LibC::Winsize`)
-    # are already bound by the term-screen shard — reused here for both calls.
+    # are already bound by the term-window shard — reused here for both calls.
     @[Link("util")]
     lib LibUtil
       # `int openpty(int *amaster, int *aslave, char *name,
@@ -34,7 +34,7 @@ module Crysterm
                   termp : Void*, winp : LibC::Winsize*) : LibC::Int
     end
 
-    # `TIOCSWINSZ` request number — the write-side companion of the term-screen
+    # `TIOCSWINSZ` request number — the write-side companion of the term-window
     # shard's `LibC::TIOCGWINSZ`, and platform-specific for the same reason: the
     # BSD/macOS `_IOW('t', 103, struct winsize)` encoding (`0x80087467`) differs
     # from Linux's flat `0x5414`. A single hardcoded Linux value silently issued
@@ -52,7 +52,7 @@ module Crysterm
     # input to the child. Crystal classifies a PTY master (a character device) as
     # non-blocking, so reads from a fiber yield through the event loop rather than
     # parking the whole (single) thread — which would otherwise starve the
-    # screen's keyboard-input fiber.
+    # window's keyboard-input fiber.
     getter master : IO::FileDescriptor
 
     # The spawned child process. Signalling/reaping always go through this object,

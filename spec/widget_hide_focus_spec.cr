@@ -7,7 +7,7 @@ include Crysterm
 # Otherwise an invisible widget keeps focus and keeps receiving key events.
 
 private def hide_focus_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)

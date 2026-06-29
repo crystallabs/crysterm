@@ -11,7 +11,7 @@ include Crysterm
 # row. These specs pin the marker to its row.
 
 private def cmr_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

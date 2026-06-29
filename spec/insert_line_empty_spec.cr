@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def headless_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
 # `Widget#insert_line` (and its `unshift_line`/`insert_top` callers) must not

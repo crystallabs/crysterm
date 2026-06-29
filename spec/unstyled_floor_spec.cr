@@ -1,7 +1,7 @@
 require "./spec_helper"
 
 # The "unstyled floor": with `colors.theme = none` and no author stylesheet, the
-# CSS cascade does nothing (see `Screen#apply_stylesheet`) and widgets keep their
+# CSS cascade does nothing (see `Window#apply_stylesheet`) and widgets keep their
 # programmatic, color-agnostic look. This suite renders representative widgets in
 # that state and asserts they stay *usable* with zero color assumptions:
 #
@@ -20,7 +20,7 @@ require "./spec_helper"
   # no-op and widgets render programmatically. `ensure_theme` runs once on
   # construction, so the theme is cleared *after* the screen exists.
   private def floor_screen(width = 40, height = 12)
-    s = Crysterm::Screen.new(
+    s = Crysterm::Window.new(
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
       width: width, height: height)
     Crysterm::CSS.theme = nil

@@ -14,21 +14,21 @@ module Crysterm
   # `#to_layout_html` emits. A new widget under `Widget::` is loadable with no
   # extra wiring; `dom_autoserialize.cr` likewise gives it serialization for free.
   #
-  #     screen = Screen.new
-  #     screen.load_layout_file "ui.html"
-  #     screen.find_by_id("ok").try &.on(Event::Click) { ... }
-  #     screen.exec
+  #     window = Window.new
+  #     window.load_layout_file "ui.html"
+  #     window.find_by_id("ok").try &.on(Event::Click) { ... }
+  #     window.exec
   module DOM
-    # Builds a widget already bound to the screen it will live on. The widget is
+    # Builds a widget already bound to the window it will live on. The widget is
     # created detached; the loader appends it into the tree afterwards.
-    alias Factory = Proc(::Crysterm::Screen, ::Crysterm::Widget)
+    alias Factory = Proc(::Crysterm::Window, ::Crysterm::Widget)
 
     # `Crysterm::Widget::*` widgets that namespace-based opt-in would otherwise
     # register, but must NOT be: each builds its own internal child subtree in
     # its constructor, so a freshly-built instance already has children.
     # Serializing those children and re-appending them on load would double the
     # subtree — they aren't user-authored structure. (Widgets that don't
-    # construct with `.new(screen:)` would also be excluded here, but all current
+    # construct with `.new(window:)` would also be excluded here, but all current
     # widgets do.) The round-trip invariant spec (`spec/dom_registry_spec.cr`)
     # fails loudly if a new self-populating widget slips through.
     SKIP = %w[
@@ -52,27 +52,27 @@ module Crysterm
       end
     end
 
-    # Parses `html` and builds its top-level widgets onto `screen` (or, when
+    # Parses `html` and builds its top-level widgets onto `window` (or, when
     # `parent` is given, as children of `parent`). Returns the widgets created
     # at the top level. Unknown tags (not in the registry) are skipped, so a
     # CSS-document dump or an enriched file still loads what it can.
-    def self.load(html : String, screen : ::Crysterm::Screen, parent : ::Crysterm::Widget? = nil) : Array(::Crysterm::Widget)
+    def self.load(html : String, window : ::Crysterm::Window, parent : ::Crysterm::Widget? = nil) : Array(::Crysterm::Widget)
       doc = HTML5.parse(html)
       # Self-contained layouts: any inline `<style>` is just CSS, handed to the
       # stylesheet parser (composed with any external sheet). Only on a top-level
       # load — appended fragments keep the page's existing styles.
       if parent.nil?
         css = String.build { |io| collect_style_css doc, io }
-        screen.add_inline_stylesheet css unless css.blank?
+        window.add_inline_stylesheet css unless css.blank?
       end
-      # The parser wraps content in <html><body>...; prefer our own `w-screen`
+      # The parser wraps content in <html><body>...; prefer our own `w-window`
       # root, else fall back to the synthesized `body` so a bare fragment (no
-      # `w-screen` wrapper) still yields its top-level widgets.
-      root = find_element(doc, "w-screen") || find_element(doc, "body") || doc
+      # `w-window` wrapper) still yields its top-level widgets.
+      root = find_element(doc, "w-window") || find_element(doc, "body") || doc
       built = [] of ::Crysterm::Widget
       each_element_child(root) do |node|
-        next unless widget = build(node, screen)
-        (parent || screen).append widget
+        next unless widget = build(node, window)
+        (parent || window).append widget
         built << widget
       end
       built
@@ -97,13 +97,13 @@ module Crysterm
     end
 
     # Recursively constructs the widget for one element node and its subtree.
-    private def self.build(node : HTML5::Node, screen : ::Crysterm::Screen) : ::Crysterm::Widget?
+    private def self.build(node : HTML5::Node, window : ::Crysterm::Window) : ::Crysterm::Widget?
       type = node.data.lchop("w-")
       return nil unless factory = registry[type]?
-      widget = factory.call(screen)
+      widget = factory.call(window)
       node.attr.each { |a| widget.dom_apply(a.key, a.val) }
       each_element_child(node) do |child|
-        build(child, screen).try { |c| widget.append c }
+        build(child, window).try { |c| widget.append c }
       end
       widget
     end
@@ -131,8 +131,8 @@ module Crysterm
     end
   end
 
-  class Screen
-    # Builds the widgets described by the layout-DOM `html` onto this screen.
+  class Window
+    # Builds the widgets described by the layout-DOM `html` onto this window.
     # Returns the top-level widgets created. See `DOM.load`.
     def load_layout(html : String) : Array(Widget)
       DOM.load(html, self)
@@ -156,9 +156,9 @@ macro finished
       {% leaf = t.name.split("::").last.downcase %}
       # Opt-in is by namespace: every concrete `Crysterm::Widget::*` is loadable,
       # except the `SKIP` exclusions (self-populating composites, and widgets
-      # that don't construct with `.new(screen:)`).
+      # that don't construct with `.new(window:)`).
       {% if t.name.starts_with?("Crysterm::Widget::") && !t.abstract? && !Crysterm::DOM::SKIP.includes?(leaf) %}
-        reg[{{ leaf }}] = ->(screen : ::Crysterm::Screen) { {{ t }}.new(screen: screen).as(::Crysterm::Widget) }
+        reg[{{ leaf }}] = ->(window : ::Crysterm::Window) { {{ t }}.new(window: window).as(::Crysterm::Widget) }
       {% end %}
     {% end %}
   end

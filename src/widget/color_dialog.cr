@@ -24,7 +24,7 @@ module Crysterm
     #     "+" button stores the current color into the next slot; clicking a
     #     filled slot recalls it.
     #   * a **Pick** button — an eyedropper: after pressing it, the next click
-    #     anywhere on the screen reads the color under the pointer into the next
+    #     anywhere on the window reads the color under the pointer into the next
     #     custom slot (and makes it current).
     #   * an **Ok / Cancel** `DialogButtonBox`.
     #
@@ -38,7 +38,7 @@ module Crysterm
     # a block, restoring the previously-focused widget.
     #
     # ```
-    # dialog = Widget::ColorDialog.new parent: screen, top: "center", left: "center",
+    # dialog = Widget::ColorDialog.new parent: window, top: "center", left: "center",
     #   width: 56, height: 20, style: Style.new(border: true)
     # dialog.pick { |hex| theme.accent = hex if hex }
     # ```
@@ -109,13 +109,13 @@ module Crysterm
       @syncing = false
 
       # Window-move (drag the border/empty area to reposition the dialog). While
-      # a move is in flight, a screen-level listener owns the pointer so the drag
+      # a move is in flight, a window-level listener owns the pointer so the drag
       # keeps tracking even off the dialog.
       @ev_move : Crysterm::Event::Mouse::Wrapper?
       @move_dx = 0
       @move_dy = 0
 
-      # Screen color pick ("eyedropper"): after the "Pick" button, the next click
+      # Window color pick ("eyedropper"): after the "Pick" button, the next click
       # anywhere reads the color under it into a custom slot.
       @ev_pick : Crysterm::Event::Mouse::Wrapper?
       @picking = false
@@ -158,11 +158,11 @@ module Crysterm
       # (accept) / Escape (cancel) handler.
       def pick(&block : String? -> Nil) : Nil
         @callback = block
-        screen.save_focus
+        window.save_focus
         show
         front!
         focus
-        @ev_keys ||= screen.on(Crysterm::Event::KeyPress) { |e| on_key e }
+        @ev_keys ||= window.on(Crysterm::Event::KeyPress) { |e| on_key e }
         request_render
       end
 
@@ -287,10 +287,10 @@ module Crysterm
         bb.on(Crysterm::Event::Accepted) { accept }
         bb.on(Crysterm::Event::Rejected) { cancel }
 
-        # Eyedropper: arm a screen-wide color pick (see `begin_pick`).
+        # Eyedropper: arm a window-wide color pick (see `begin_pick`).
         pick = Button.new parent: self, top: BTN_Y, left: 20, width: 8, height: 1,
           content: "Pick", align: :center, focus_on_click: false
-        pick.tool_tip = "Pick a color from anywhere on the screen"
+        pick.tool_tip = "Pick a color from anywhere on the window"
         pick.on(Crysterm::Event::Press) { begin_pick }
       end
 
@@ -451,13 +451,13 @@ module Crysterm
         end_move
         if @picking
           @picking = false
-          @ev_pick.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
+          @ev_pick.try { |w| window?.try &.off Crysterm::Event::Mouse, w }
           @ev_pick = nil
-          screen?.try &.ungrab self
+          window?.try &.ungrab self
         end
-        @ev_keys.try { |w| screen?.try &.off Crysterm::Event::KeyPress, w }
+        @ev_keys.try { |w| window?.try &.off Crysterm::Event::KeyPress, w }
         @ev_keys = nil
-        screen?.try &.restore_focus
+        window?.try &.restore_focus
         if color
           emit Crysterm::Event::Action, color
           emit Crysterm::Event::Accepted
@@ -475,7 +475,7 @@ module Crysterm
       # Whether one of the text/number editors currently holds focus (so the
       # modal Enter/Escape shouldn't steal those keys from it).
       private def editing_focused? : Bool
-        f = screen?.try &.focused
+        f = window?.try &.focused
         return false unless f
         f == @hexbox || f == @rspin || f == @gspin || f == @bspin ||
           f == @hspin || f == @sspin || f == @vspin ||
@@ -493,7 +493,7 @@ module Crysterm
 
       private def on_mouse(e : Crysterm::Event::Mouse) : Nil
         return unless @lpos
-        # While a window move or a screen pick is in flight, a screen-level
+        # While a window move or a window pick is in flight, a window-level
         # listener owns the pointer — don't also treat motion as field/hue input.
         return if @ev_move || @picking
         ox = aleft + ileft
@@ -533,12 +533,12 @@ module Crysterm
       # ----------------------------------------------------- window move
 
       # Begins a window move: capture the grab offset and take over the pointer
-      # at the screen level so the drag keeps tracking even off the dialog.
+      # at the window level so the drag keeps tracking even off the dialog.
       private def begin_move(x : Int32, y : Int32) : Nil
         @move_dx = x - aleft
         @move_dy = y - atop
         return if @ev_move
-        @ev_move = screen?.try &.on(Crysterm::Event::Mouse) do |e|
+        @ev_move = window?.try &.on(Crysterm::Event::Mouse) do |e|
           if e.action.move?
             self.left = (e.x - @move_dx).clamp(0, drag_max_left)
             self.top = (e.y - @move_dy).clamp(0, drag_max_top)
@@ -551,19 +551,19 @@ module Crysterm
       end
 
       private def end_move : Nil
-        @ev_move.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
+        @ev_move.try { |w| window?.try &.off Crysterm::Event::Mouse, w }
         @ev_move = nil
       end
 
-      # ------------------------------------------------- screen color pick
+      # ------------------------------------------------- window color pick
 
       # Arms the eyedropper: the next click anywhere reads the color under it.
       # A modal grab keeps that click from also activating whatever is beneath
-      # it, while the screen-level `Event::Mouse` (emitted before hit-testing)
+      # it, while the window-level `Event::Mouse` (emitted before hit-testing)
       # still delivers the coordinates here.
       private def begin_pick : Nil
         return if @picking
-        scr = screen? || return
+        scr = window? || return
         @picking = true
         scr.grab self
         @ev_pick = scr.on(Crysterm::Event::Mouse) do |e|
@@ -577,7 +577,7 @@ module Crysterm
       private def end_pick(x : Int32, y : Int32) : Nil
         return unless @picking
         @picking = false
-        scr = screen?
+        scr = window?
         @ev_pick.try { |w| scr.try &.off Crysterm::Event::Mouse, w }
         @ev_pick = nil
         scr.try &.ungrab self
@@ -588,11 +588,11 @@ module Crysterm
         request_render
       end
 
-      # The rendered color at screen cell *x*,*y* as `"#rrggbb"` — its
+      # The rendered color at window cell *x*,*y* as `"#rrggbb"` — its
       # background, or its foreground when the background is the terminal
       # default; `nil` when neither carries a concrete color.
       private def screen_color_at(x : Int32, y : Int32) : String?
-        scr = screen? || return nil
+        scr = window? || return nil
         line = scr.lines[y]? || return nil
         cell = line[x]? || return nil
         {Crysterm::Attr.bg(cell.attr), Crysterm::Attr.fg(cell.attr)}.each do |field|
@@ -607,7 +607,7 @@ module Crysterm
 
       def render
         ret = super
-        return ret unless ret && screen?
+        return ret unless ret && window?
         draw_field
         draw_hue
         ret
@@ -649,12 +649,12 @@ module Crysterm
         end
       end
 
-      # Writes one cell directly into the screen buffer (cf. `Slider#render`).
+      # Writes one cell directly into the window buffer (cf. `Slider#render`).
       # When *marked*, the glyph is drawn in a contrasting fg over the swatch.
       private def put_cell(x : Int32, y : Int32, ch : Char, bg : Int32, marked : Bool) : Nil
         fg = marked ? (luminance(bg) > 0.5 ? 0x000000 : 0xffffff) : bg
         attr = sattr style, fg, bg
-        screen.lines[y]?.try do |line|
+        window.lines[y]?.try do |line|
           line[x]?.try do |cell|
             cell.char = ch
             cell.attr = attr

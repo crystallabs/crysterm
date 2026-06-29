@@ -9,7 +9,7 @@ include Crysterm
 # stripped before measuring. The full-unicode (column-width) path needs an
 # attached, Unicode-capable screen and is exercised by
 # `test/`-style run verification rather than here, since constructing real
-# `Screen`s in the spec process interferes with the spec runner's teardown.
+# `Window`s in the spec process interferes with the spec runner's teardown.
 describe "Widget#str_width (legacy / unattached)" do
   it "counts codepoints when full_unicode is not active" do
     b = Widget::Box.new

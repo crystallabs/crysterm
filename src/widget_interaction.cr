@@ -12,7 +12,7 @@ module Crysterm
     # Out of the box (mirroring GUI toolkits), a widget is mouse-responsive if it
     # is interactive (`input?`/`keyable?`), `scrollable?` (so the wheel can scroll
     # it), `draggable?`, was explicitly marked `clickable?`, or already has a
-    # `Click`/`Mouse` listener attached. This is what `Screen#widget_at` uses for
+    # `Click`/`Mouse` listener attached. This is what `Window#widget_at` uses for
     # hit-testing, so e.g. a plain `Box` that the user later attaches an
     # `Event::Click` handler to automatically starts receiving clicks, with no
     # need to also set `clickable: true`.
@@ -48,7 +48,7 @@ module Crysterm
     property? input = false
 
     # Is the widget disabled? While disabled it does not react to keyboard
-    # input (see `Screen#_listen_keys`). Toggle via `state = WidgetState::Disabled`.
+    # input (see `Window#_listen_keys`). Toggle via `state = WidgetState::Disabled`.
     def disabled?
       state.disabled?
     end
@@ -66,19 +66,19 @@ module Crysterm
       # seen whether that's good, or it should always happen, even
       # if someone calls `#focus` multiple times in a row.
       return if focused?
-      screen.focus self
+      window.focus self
     end
 
     # Returns whether widget is currently in focus.
     #
-    # Uses the non-raising `#screen?`: a *detached* widget (one removed from its
-    # screen) holds no `@screen` and derives none through a parent, so the raising
-    # `#screen` would make this pure query crash with a `NilAssertionError`
-    # instead of answering. A detached widget can never be the screen's focused
+    # Uses the non-raising `#window?`: a *detached* widget (one removed from its
+    # window) holds no `@window` and derives none through a parent, so the raising
+    # `#window` would make this pure query crash with a `NilAssertionError`
+    # instead of answering. A detached widget can never be the window's focused
     # widget, so the answer there is simply `false`.
     @[AlwaysInline]
     def focused?
-      screen?.try(&.focused) == self
+      window?.try(&.focused) == self
     end
 
     # Hover help text shown in a floating `Widget::ToolTip` while the pointer is
@@ -119,8 +119,8 @@ module Crysterm
     end
 
     # Whether the absolute point (*x*, *y*) belongs to this widget's *grab
-    # region* — used by `Screen`'s input-grab to decide which points still
-    # interact while this widget is grabbing (see `Screen#grab`). The default is
+    # region* — used by `Window`'s input-grab to decide which points still
+    # interact while this widget is grabbing (see `Window#grab`). The default is
     # the widget's own rectangle; pop-ups that own extra area (a drop-down list, a
     # submenu chain) override this.
     def grab_contains?(x : Int32, y : Int32) : Bool
@@ -130,14 +130,14 @@ module Crysterm
     # Hides the tooltip (if shown). Qt's `QToolTip::hideText`.
     def remove_hover
       @_tooltip.try &.hide
-      screen?.try &.schedule_render
+      window?.try &.schedule_render
     end
 
     private def wire_tooltip : Nil
       @_tooltip_wired = true
       on(Crysterm::Event::MouseOver) { |e| show_tooltip e.x, e.y }
       on(Crysterm::Event::MouseOut) { remove_hover }
-      # A hidden widget must not leave its tooltip lingering on screen.
+      # A hidden widget must not leave its tooltip lingering on window.
       on(Crysterm::Event::Hide) { remove_hover }
     end
 
@@ -145,7 +145,7 @@ module Crysterm
     # pointer is over this widget — e.g. `::Tput::MouseCursorShape::PointingHandCursor`
     # for a clickable widget. `nil` (the default) leaves the pointer unchanged.
     #
-    # Honored only when the screen's `Screen#mouse_cursor_shape?` gate (the
+    # Honored only when the window's `Window#mouse_cursor_shape?` gate (the
     # `mouse.cursor_shape` config option, off by default) is on, and only on
     # terminals that support OSC 22 (xterm-class); elsewhere it is silently
     # ignored. See `::Tput::Output#mouse_cursor_shape`.
@@ -169,13 +169,13 @@ module Crysterm
     private def wire_mouse_cursor_shape : Nil
       @_mouse_cursor_shape_wired = true
       on(Crysterm::Event::MouseOver) do
-        @mouse_cursor_shape.try { |shape| screen?.try &.set_mouse_cursor_shape shape }
+        @mouse_cursor_shape.try { |shape| window?.try &.set_mouse_cursor_shape shape }
       end
-      on(Crysterm::Event::MouseOut) { screen?.try &.set_mouse_cursor_shape nil }
+      on(Crysterm::Event::MouseOut) { window?.try &.set_mouse_cursor_shape nil }
       # If hidden while it owns the pointer shape, restore the default — there
       # will be no `MouseOut` for a widget that vanishes under the pointer.
       on(Crysterm::Event::Hide) do
-        s = screen?
+        s = window?
         s.set_mouse_cursor_shape nil if s && s.hovered == self
       end
     end
@@ -183,9 +183,9 @@ module Crysterm
     private def show_tooltip(x : Int32, y : Int32) : Nil
       text = @tool_tip
       return unless text && !text.empty?
-      return unless s = screen?
+      return unless s = window?
       tip = (@_tooltip ||= begin
-        t = Widget::ToolTip.new screen: s
+        t = Widget::ToolTip.new window: s
         s.append t
         t
       end)
@@ -238,7 +238,7 @@ module Crysterm
           # relative to the parent's content origin (`aleft = parent.aleft +
           # parent.ileft + left`). Subtract that origin so a *nested* draggable
           # widget tracks the pointer instead of jumping by its parent's absolute
-          # position. For a top-level widget (parent-less; screen at 0,0 with no
+          # position. For a top-level widget (parent-less; window at 0,0 with no
           # insets) the origin is (0, 0), so this is a no-op there.
           ox, oy = drag_origin
           self.left = (e.x - @_drag_dx - ox).clamp(0, drag_max_left)
@@ -252,23 +252,23 @@ module Crysterm
     # Absolute origin of this widget's `left`/`top` coordinate space — the point
     # an integer `left`/`top` of 0 maps to in absolute cells. For a nested widget
     # that is the parent's content corner (`parent.aleft + parent.ileft`); for a
-    # top-level (parent-less) widget it is the *screen's* content corner — `(0, 0)`
-    # only when the screen has no padding, but `(screen.ileft, screen.itop)` once
-    # it does, since a top-level widget at `left`/`top` 0 lands *after* the screen
-    # padding (`aleft == screen.ileft + left`; see `screen_decoration.cr`). Used by
+    # top-level (parent-less) widget it is the *window's* content corner — `(0, 0)`
+    # only when the window has no padding, but `(window.ileft, window.itop)` once
+    # it does, since a top-level widget at `left`/`top` 0 lands *after* the window
+    # padding (`aleft == window.ileft + left`; see `screen_decoration.cr`). Used by
     # the drag handler to convert the pointer's absolute position into a
     # parent-relative `left`/`top`.
     private def drag_origin : Tuple(Int32, Int32)
       if p = parent
         {p.aleft + p.ileft, p.atop + p.itop}
       else
-        s = screen
+        s = window
         {s.ileft, s.itop}
       end
     end
 
     # Largest `left`/`top` that keeps the widget within its parent (or the
-    # screen, when parented directly to it).
+    # window, when parented directly to it).
     #
     # `left`/`top` are measured from the parent's *content* origin (`drag_origin`
     # = `parent.aleft + parent.ileft`), so the upper clamp must be the parent's
@@ -276,17 +276,17 @@ module Crysterm
     # inset, see `widget_decoration`) — not the full `awidth`. Using `awidth` let
     # a nested widget be dragged past the parent's right/bottom border by the
     # inset amount (border + padding). For a top-level widget the parent is the
-    # screen, whose content extent is likewise `awidth - iwidth` — equal to the
-    # full `awidth` only when the screen has no padding, but correctly smaller
+    # window, whose content extent is likewise `awidth - iwidth` — equal to the
+    # full `awidth` only when the window has no padding, but correctly smaller
     # once it does (mirroring `drag_origin`), so the widget can't be dragged across
     # the padded edge.
     private def drag_max_left : Int32
-      c = parent_or_screen
+      c = parent_or_window
       {c.awidth - c.iwidth - awidth, 0}.max
     end
 
     private def drag_max_top : Int32
-      c = parent_or_screen
+      c = parent_or_window
       {c.aheight - c.iheight - aheight, 0}.max
     end
 

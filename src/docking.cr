@@ -32,7 +32,7 @@ module Crysterm
   # were emitted (only rows with *horizontal* segments need to be collected;
   # vertical segments are picked up when a horizontal stop crosses them), then
   # call `dock` to re-evaluate every relevant cell on those rows. See
-  # `Screen#_dock` and `Widget#register_dock_stops` for the callers.
+  # `Window#_dock` and `Widget#register_dock_stops` for the callers.
   module Docking
     extend self
 
@@ -103,7 +103,7 @@ module Crysterm
 
     # Reusable scratch buffer for the sorted stop rows, mutated and reused by
     # every `#dock` call instead of allocating a fresh array per frame. `#dock`
-    # runs once per frame from `Screen#_dock` (and on demand from
+    # runs once per frame from `Window#_dock` (and on demand from
     # `Widget#dock_rows`); none of those paths nest or run concurrently
     # (rendering is single-fiber, and `#dock` never re-enters itself), so one
     # shared buffer is safe. `Array#clear` keeps the backing capacity, so after
@@ -130,7 +130,7 @@ module Crysterm
         # instead of re-indexing `lines[y]` and constructing a fresh `Cell`
         # handle for every column (the row is fixed for the whole scan). Bound
         # the scan by the row's actual width so the access can be unchecked;
-        # `width` is the screen width and rows are sized to it, so in practice
+        # `width` is the window width and rows are sized to it, so in practice
         # this still scans every column.
         chars = row.chars
         n = width < chars.size ? width : chars.size

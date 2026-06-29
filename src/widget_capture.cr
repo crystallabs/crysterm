@@ -1,8 +1,8 @@
 module Crysterm
   class Widget
-    # Captures this widget's on-screen region via `Screen#capture` (the single
+    # Captures this widget's on-window region via `Window#capture` (the single
     # capture entry point), auto-selecting the area the widget occupies in the
-    # screen's rendered content. All of `Screen#capture`'s options are forwarded
+    # window's rendered content. All of `Window#capture`'s options are forwarded
     # (`format`, `path`, `duration`, `fps`, `loops`, …); returns its result, or
     # `nil` if the widget hasn't been rendered yet (no known position).
     #
@@ -23,13 +23,13 @@ module Crysterm
       yi = lpos.yi + (include_decorations ? 0 : itop) + dyi
       yl = lpos.yl + (include_decorations ? 0 : -ibottom) + dyl
 
-      screen.capture(xi, xl, yi, yl, **opts)
+      window.capture(xi, xl, yi, yl, **opts)
     end
 
-    # Text counterpart to `Widget#capture`: dumps just this widget's on-screen
-    # region via `Screen#dump`, auto-selecting the area the widget occupies.
+    # Text counterpart to `Widget#capture`: dumps just this widget's on-window
+    # region via `Window#dump`, auto-selecting the area the widget occupies.
     # Mirrors `#capture` exactly (same `include_decorations` + per-edge `d*`
-    # deltas, same forwarding of `Screen#dump`'s options); returns the dump text,
+    # deltas, same forwarding of `Window#dump`'s options); returns the dump text,
     # or `nil` if the widget hasn't been rendered yet (no known position).
     #
     # ```
@@ -46,7 +46,7 @@ module Crysterm
       yi = lpos.yi + (include_decorations ? 0 : itop) + dyi
       yl = lpos.yl + (include_decorations ? 0 : -ibottom) + dyl
 
-      screen.dump(xi, xl, yi, yl, **opts)
+      window.dump(xi, xl, yi, yl, **opts)
     end
   end
 end

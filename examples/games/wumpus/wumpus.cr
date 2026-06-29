@@ -137,7 +137,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   @score_arrows = 0
 
   def initialize(@opt : Hash(String, Bool))
-    @screen = Screen.new title: "Hunt the Wumpus"
+    @screen = Window.new title: "Hunt the Wumpus"
 
     @transcript = Widget::PlainTextEdit.new \
       top: 0,

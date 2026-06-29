@@ -8,26 +8,26 @@ module Crysterm
     # which opens a *separate* window (named `tektronix`) and draws on a
     # simulated storage-tube display. This is fundamentally unlike the other
     # image widgets: the Tek display is monochrome (1-bit), vector-only (no
-    # raster blit, no partial erase — only a whole-screen PAGE), and lives in its
-    # own window, so it does NOT share the cell-grid or screen-overlay erase
+    # raster blit, no partial erase — only a whole-window PAGE), and lives in its
+    # own window, so it does NOT share the cell-grid or window-overlay erase
     # lifecycles. It's a deliberate takeover of the display.
     #
     # A photo is therefore dithered to 1 bit and drawn as one run of horizontal
     # vectors per "ink" span — a faithfully retro green-on-black rendering. It
-    # fits into the Tek screen per the shared `fit` contract (`Media::Fit`),
+    # fits into the Tek window per the shared `fit` contract (`Media::Fit`),
     # defaulting to `Contain`.
     #
     # An **animated** source (GIF/APNG) plays in the Tek window: each frame is a
     # full PAGE-clear + redraw (the storage tube can't update in place), so it
     # flickers and is heavier than the raster backends — but it works. Because the
-    # Tek window is *not* driven by the screen render loop, this overrides
+    # Tek window is *not* driven by the window render loop, this overrides
     # `Media::Base`'s render-driven animation with its own window loop. Animation
     # defaults to ordered (Bayer) dithering, which is frame-independent (stable);
     # error diffusion (the default for a still) would shimmer.
     #
     # ```
-    # tek = Widget::Media::Tek.new file: "pic.png", parent: screen
-    # # the Tek window appears on the next screen render
+    # tek = Widget::Media::Tek.new file: "pic.png", parent: window
+    # # the Tek window appears on the next window render
     # ```
     class Media::Tek < Media::Base
       include Media::RenderHook
@@ -100,8 +100,8 @@ module Crysterm
 
         super **box
 
-        # Draw into the Tek window once the screen first renders.
-        register_render_hook(screen) { draw_tek }
+        # Draw into the Tek window once the window first renders.
+        register_render_hook(window) { draw_tek }
 
         on(::Crysterm::Event::Destroy) { teardown }
       end
@@ -127,16 +127,16 @@ module Crysterm
       end
 
       # Switches to the Tek window and draws the image (or starts its animation).
-      # Safe to call directly; otherwise it fires once on the first screen render.
+      # Safe to call directly; otherwise it fires once on the first window render.
       def draw_tek
         return if @drawn
-        s = screen? || return
+        s = window? || return
         file = @file || return
         @drawn = true
         start_drawing s, file
       end
 
-      private def start_drawing(s : ::Crysterm::Screen, file : String)
+      private def start_drawing(s : ::Crysterm::Window, file : String)
         data = Media.source_data(file)
 
         probe = PNGGIF::PNG.new(data)
@@ -171,7 +171,7 @@ module Crysterm
       # Plays the decoded frames in the Tek window: enter Tek once, then PAGE-clear
       # + redraw each frame on its own fiber (sleeping per-frame delay), and leave
       # Tek mode when stopped. Loops forever until `#stop`/destroy.
-      private def animate_loop(s : ::Crysterm::Screen, ox : Int32, oy : Int32, gen : Int32)
+      private def animate_loop(s : ::Crysterm::Window, ox : Int32, oy : Int32, gen : Int32)
         frames = @src_frames || return
         s.tput._oprint "\e[?38h" # enter Tek mode for the whole run
         s.tput.flush

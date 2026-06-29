@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def render_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 80, height: 24)
 end
@@ -54,7 +54,7 @@ describe Crysterm::Widget::Graph::Canvas do
 
   it "fills only the interior of a bordered canvas (no overrun past the border)" do
     s = render_screen
-    # Neutralize the config-driven default theme that the first Screen installs
+    # Neutralize the config-driven default theme that the first Window installs
     # (it would drop the inline border in this headless run); a real terminal
     # keeps the border, which is the condition under test.
     saved = Crysterm::CSS.default_stylesheet

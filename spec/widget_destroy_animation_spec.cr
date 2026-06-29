@@ -8,7 +8,7 @@ include Crysterm
 # detached widget.
 
 private def sized_screen(w, h)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: w, height: h)
 end

@@ -66,7 +66,7 @@ module Crysterm
       def remove(element)
         return unless @children_set.delete element
         return unless i = @children.index(element)
-        # No need to erase the removed element's old footprint: `Screen#_render`
+        # No need to erase the removed element's old footprint: `Window#_render`
         # clears the whole cell buffer before each frame, so once `element` is
         # gone from `@children` it simply stops being repainted.
         @children.delete_at i
@@ -83,14 +83,14 @@ module Crysterm
       end
 
       # Hook invoked after the children list changes (a *structural* change). The
-      # CSS subsystem overrides this (on `Widget`/`Screen`) to mark styling dirty
+      # CSS subsystem overrides this (on `Widget`/`Window`) to mark styling dirty
       # and force a document re-parse, since structure can alter which selectors
       # match. No-op by default.
       protected def invalidate_css_tree : Nil
       end
 
       # Structural-change hook for damage tracking (a child was added/removed).
-      # Overridden on `Widget` (forwards to its screen) and `Screen` (forces a
+      # Overridden on `Widget` (forwards to its window) and `Window` (forces a
       # full re-composite next frame). No-op by default so the call site compiles
       # on any includer. See `OptimizationFlag::DamageTracking`.
       protected def _damage_invalidate_structure : Nil

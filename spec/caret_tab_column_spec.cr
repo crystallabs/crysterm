@@ -11,7 +11,7 @@ include Crysterm
 # by `tab_size - 1` and the cursor drifts left of (and out of sync with) the text.
 describe "Mixin::TextEditing caret column with TABs" do
   it "places the caret using the rendered TAB expansion, not the raw offset" do
-    s = Crysterm::Screen.new(
+    s = Crysterm::Window.new(
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 
     pte = Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 40, height: 5

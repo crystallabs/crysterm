@@ -1,7 +1,7 @@
 module Crysterm
   class Widget
     module Pine
-      # The Pine/Alpine COMPOSE MESSAGE screen: a set of single-line header
+      # The Pine/Alpine COMPOSE MESSAGE window: a set of single-line header
       # fields (To, Cc, Bcc, Attchmnt, Subject) above a separator, followed by a
       # multi-line message-body editor.
       #
@@ -15,7 +15,7 @@ module Crysterm
       # <body editor>
       # ```
       #
-      # Move between fields with Tab / Shift-Tab (the `Screen`'s built-in focus
+      # Move between fields with Tab / Shift-Tab (the `Window`'s built-in focus
       # navigation). Each header field is a `Widget::LineEdit`; the body is a
       # `Widget::PlainTextEdit`. Values are exposed via `#values` for the demo.
       #
@@ -39,7 +39,7 @@ module Crysterm
 
           FIELD_NAMES.each_with_index do |name, i|
             label = Widget::Box.new(
-              screen: screen,
+              window: window,
               top: i,
               left: 0,
               width: 10,
@@ -49,7 +49,7 @@ module Crysterm
             )
 
             input = Widget::LineEdit.new(
-              screen: screen,
+              window: window,
               top: i,
               left: 10,
               right: 0,
@@ -65,7 +65,7 @@ module Crysterm
           sep_top = FIELD_NAMES.size
 
           separator = Widget::Box.new(
-            screen: screen,
+            window: window,
             top: sep_top,
             left: 0,
             width: "100%",
@@ -76,7 +76,7 @@ module Crysterm
           append separator
 
           body = Widget::PlainTextEdit.new(
-            screen: screen,
+            window: window,
             top: sep_top + 1,
             left: 0,
             width: "100%",

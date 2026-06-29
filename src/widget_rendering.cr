@@ -4,20 +4,20 @@ module Crysterm
     include Crystallabs::Helpers::Alias_Methods
 
     # Per-widget override of the overflow action; `nil` means "inherit". Read
-    # through `#overflow`, which falls back to the screen's default when unset,
+    # through `#overflow`, which falls back to the window's default when unset,
     # so each widget is independently controllable while a plain widget still
-    # follows the screen-wide policy (`Config.screen_overflow`). Set via
+    # follows the window-wide policy (`Config.window_overflow`). Set via
     # `#overflow=` (accepts an `Overflow`, a shorthand, or `nil` to re-inherit).
     @overflow : Overflow? = nil
 
     # What action to take when this widget overflows its parent's rectangle.
-    # Returns the per-widget override if one is set, otherwise the screen's
-    # `#overflow` default (or `Overflow::Ignore` for a screen-less widget).
+    # Returns the per-widget override if one is set, otherwise the window's
+    # `#overflow` default (or `Overflow::Ignore` for a window-less widget).
     def overflow : Overflow
-      @overflow || screen?.try(&.overflow) || Overflow::Ignore
+      @overflow || window?.try(&.overflow) || Overflow::Ignore
     end
 
-    # The raw per-widget override (`nil` = inheriting the screen default).
+    # The raw per-widget override (`nil` = inheriting the window default).
     # Distinct from `#overflow`, which resolves the inherited value.
     def own_overflow : Overflow?
       @overflow
@@ -64,7 +64,7 @@ module Crysterm
     property items = [] of Widget::Box
 
     # True only while this widget is being rendered as a layer root into its own
-    # `Plane` (see `Screen#composite_planes`). Its overall translucency then comes
+    # `Plane` (see `Window#composite_planes`). Its overall translucency then comes
     # from the plane's opacity, so its render-time alpha self-blend is suppressed.
     property compositing = false
 
@@ -127,12 +127,12 @@ module Crysterm
         return
       end
 
-      # `screen` is `screen?.not_nil!`, which walks the parent chain on every
+      # `window` is `window?.not_nil!`, which walks the parent chain on every
       # call; bind it once. `full_unicode?` (which also walks the parent chain
-      # via `screen?`) and `style.alpha?`/`style.padding` are all constant for
+      # via `window?`) and `style.alpha?`/`style.padding` are all constant for
       # the whole render, so hoist them here instead of re-evaluating them in
-      # the per-cell loops below. Mirrors how `Screen#draw` binds `fu` once.
-      scr = screen
+      # the per-cell loops below. Mirrors how `Window#draw` binds `fu` once.
+      scr = window
       # Start/keep/stop any CSS `@keyframes` animation bound to this widget
       # (cheap no-op unless an `animation` is declared).
       ensure_css_animation
@@ -175,7 +175,7 @@ module Crysterm
       bch = style.fill_char
 
       # D O:
-      # Clip content if it's off the edge of the screen
+      # Clip content if it's off the edge of the window
       # if (xi + ileft < 0 || yi + itop < 0)
       #   clines = @_clines.slice()
       #   if (xi + ileft < 0)
@@ -216,7 +216,7 @@ module Crysterm
       # `sattr style` would recompute, so reuse it instead of repacking the same
       # eight style fields a second time per widget per frame. The `same?` identity
       # check is cheap; the `|| sattr(style)` is a defensive fallback (the cache is
-      # always populated here, since `process_content` ran with a non-nil screen).
+      # always populated here, since `process_content` ran with a non-nil window).
       default_attr = (style.same?(own_style) ? @_parse_attr_default : nil) || sattr(style)
       attr = default_attr
 
@@ -322,14 +322,14 @@ module Crysterm
             next
           end
         end
-        # Rows above the top screen edge (`y < 0`) must still be walked so the
-        # content index keeps advancing and the on-screen rows stay correctly
+        # Rows above the top window edge (`y < 0`) must still be walked so the
+        # content index keeps advancing and the on-window rows stay correctly
         # aligned — but they must NOT be painted. Crystal's `Indexable#[]?`
         # counts a negative index from the END (`lines[-1]?` is the LAST row, not
-        # `nil`), so writing on such a row would corrupt the BOTTOM of the screen.
+        # `nil`), so writing on such a row would corrupt the BOTTOM of the window.
         # The same hazard applies per-cell for `x < 0` (which would corrupt the
         # row's right edge). `draw_row` and the `x < 0`/`target` guards below gate
-        # every write so an off-screen edge is consumed but never written. (The
+        # every write so an off-window edge is consumed but never written. (The
         # padding/valign fill, `fill_region`, and the shadow/tint passes already
         # clamp their bounds to `>= 0`; these two loops were the gap.)
         draw_row = y >= 0
@@ -353,7 +353,7 @@ module Crysterm
             end
           end
           # The cell to actually paint into this iteration, or `nil` when the
-          # column/row is off-screen (`x < 0` or `y < 0`). Gates every write below.
+          # column/row is off-window (`x < 0` or `y < 0`). Gates every write below.
           target = draw_row ? cell : nil
 
           ch = content[ci]? || bch
@@ -414,9 +414,9 @@ module Crysterm
             # cells showing the painted image instead of clearing them.
             unless bg_cells
               while x < xl
-                # Off-screen columns (`x < 0`) still advance to keep the fill
+                # Off-window columns (`x < 0`) still advance to keep the fill
                 # aligned but are never fetched/painted (negative-index wrap);
-                # only an on-screen, drawable cell is written.
+                # only an on-window, drawable cell is written.
                 fcell = x >= 0 ? line[x]? : nil
                 break if x >= 0 && fcell.nil?
                 if draw_row && (fc = fcell)
@@ -471,7 +471,7 @@ module Crysterm
               # time. It cannot be rewritten away without changing the overlay's
               # storage type. It is, however, *rare* (only true clusters reach
               # here — plain text never does), so the per-frame allocation count
-              # is bounded by the handful of cluster cells on screen, not the cell
+              # is bounded by the handful of cluster cells on window, not the cell
               # count. (A further micro-optimization — comparing an unchanged
               # cluster against the content codepoints to skip even this
               # allocation on steady-state frames — was judged not worth the
@@ -520,7 +520,7 @@ module Crysterm
           # Wide cell (a 2-column cluster, or a wide lone codepoint like CJK):
           # claim the following cell as its continuation so the cell grid stays
           # 1 cell == 1 terminal column. The claim (`x += 1`) happens even when
-          # off-screen so the cell index stays in step with the terminal column;
+          # off-window so the cell index stays in step with the terminal column;
           # only the continuation write is gated (and skipped for `x + 1 < 0`).
           if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
             if draw_row && x + 1 >= 0
@@ -583,7 +583,7 @@ module Crysterm
           line = lines[y]?
           # `y < 0` (not just `== -1`): a widget clipped off the TOP can have
           # `yi` several rows above 0, and `lines[y]?` wraps a negative index to
-          # the bottom rows — drawing a border there would corrupt the screen.
+          # the bottom rows — drawing a border there would corrupt the window.
           next if y < 0 || !line
 
           top_row = y == yi
@@ -654,7 +654,7 @@ module Crysterm
       end
 
       # Shadow. Each side blends a band of cells toward black; the four blocks
-      # share one loop (`Screen#blend_region`) and differ only in their bounds.
+      # share one loop (`Window#blend_region`) and differ only in their bounds.
       # The exact (sometimes unclamped) bounds — including the `Math.max(.,0)`
       # clamps that only some sides applied — are reproduced here so behavior is
       # unchanged.
@@ -702,8 +702,8 @@ module Crysterm
       coords
     end
 
-    # Registers, on the screen, the rows on which this widget emits horizontal
-    # line-drawing characters, so the screen's docking pass (`Screen#_dock`)
+    # Registers, on the window, the rows on which this widget emits horizontal
+    # line-drawing characters, so the window's docking pass (`Window#_dock`)
     # can join them with crossing characters from neighboring widgets. See
     # `Crysterm::Docking`.
     #
@@ -718,13 +718,13 @@ module Crysterm
           # A widget rendering into a compositing plane (an overlay) registers on
           # the *plane* stops, docked against the plane's own buffer — so overlay
           # borders join one another but not the base content they float over. A
-          # base-layer widget registers on the screen stops as before.
+          # base-layer widget registers on the window stops as before.
           #
-          # The gate is the screen's `compositing_layers?`, NOT this widget's own
+          # The gate is the window's `compositing_layers?`, NOT this widget's own
           # `@compositing`. `@compositing` is set only on the layer *root* (it also
           # suppresses that root's alpha self-blend), so a bordered *descendant* of
           # a z-indexed widget — which still paints into the plane, because the
-          # root redirected `screen.lines` to the plane buffer for the whole
+          # root redirected `window.lines` to the plane buffer for the whole
           # subtree — has `@compositing == false` and used to register its border
           # rows on the BASE `_dock_stops`. The base `#_dock` then ran on the
           # already-composited buffer and joined that child's border to whatever
@@ -732,7 +732,7 @@ module Crysterm
           # junctions plane-local docking exists to prevent (it only protected the
           # root). `compositing_layers?` is true for the entire subtree while the
           # plane is painted, so root and descendants alike dock within the plane.
-          scr = screen
+          scr = window
           stops = scr.compositing_layers? ? scr._plane_dock_stops : scr._dock_stops
           stops[coords.yi] = true
           stops[coords.yl - 1] = true
@@ -740,20 +740,20 @@ module Crysterm
       end
     end
 
-    # Re-joins the line-drawing characters on the given screen *rows* into
+    # Re-joins the line-drawing characters on the given window *rows* into
     # seamless junctions (`├ ┤ ┬ ┼` …), reusing the same `Docking` component the
-    # screen uses for `dock_borders` — but on demand, for one widget, regardless
+    # window uses for `dock_borders` — but on demand, for one widget, regardless
     # of that global setting. Lets a widget connect interior line art (e.g. a
     # `Menu`'s separator rules) to its own border. No-op when detached or given
     # no rows.
     #
     # *contrast* defaults to `DockContrast::Ignore` (each cell keeps its own
-    # color, only the joining glyph changes) rather than the screen's global
+    # color, only the joining glyph changes) rather than the window's global
     # setting — the latter (`Blend`) diffuses the junction's blended color along
     # the whole run, muddying e.g. a separator's divider color. Pass another
     # value to opt into blending.
     protected def dock_rows(rows : Enumerable(Int32), contrast : DockContrast = DockContrast::Ignore) : Nil
-      scr = screen? || return
+      scr = window? || return
       stops = {} of Int32 => Bool
       rows.each { |y| stops[y] = true }
       return if stops.empty?
@@ -894,8 +894,8 @@ module Crysterm
         # Otherwise go compute:
         pos.aleft = pos.xi
         pos.atop = pos.yi
-        pos.aright = screen.awidth - pos.xl
-        pos.abottom = screen.aheight - pos.yl
+        pos.aright = window.awidth - pos.xl
+        pos.abottom = window.aheight - pos.yl
         pos.awidth = pos.xl - pos.xi
         pos.aheight = pos.yl - pos.yi
 
@@ -917,7 +917,7 @@ module Crysterm
 
     # Clears area/position of widget's last render
     def clear_last_rendered_position(get = false, override = false)
-      return unless screen?
+      return unless window?
       # Clear the rectangle this widget was *last painted* into, which is exactly
       # the cached `@lpos` from its previous `_render` — so reuse it instead of
       # recomputing the geometry from scratch (`awidth`/`aleft`/`atop` plus the
@@ -929,7 +929,7 @@ module Crysterm
       # `@lpos || _get_coords` idiom as `widget_scrolling.cr`.)
       lpos = @lpos || _get_coords(get)
       return unless lpos
-      screen.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
+      window.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, override)
     end
   end
 end

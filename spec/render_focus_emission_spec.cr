@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for `Screen#_render` (`screen_rendering.cr`).
+# Regression coverage for `Window#_render` (`screen_rendering.cr`).
 #
 # `_render` repositions the focused widget's cursor at the end of every frame
 # (the documented `_update_cursor` workaround for stale `lpos`). It must NOT
@@ -13,12 +13,12 @@ include Crysterm
 # a text widget re-entering `read_input`, menu/action-bar/remote focus handlers)
 # once per frame — a real, observable defect.
 private def render_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 20, height: 6)
 end
 
-describe "Screen#_render focus emission" do
+describe "Window#_render focus emission" do
   it "does not emit Event::Focus on every render frame" do
     screen = render_screen
     box = Widget::Box.new parent: screen, top: 0, left: 0, width: 10, height: 3

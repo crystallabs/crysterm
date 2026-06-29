@@ -15,7 +15,7 @@ include Crysterm
 # its interior, which these specs read back after one render.
 
 private def dp_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

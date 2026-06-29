@@ -1,5 +1,5 @@
 module Crysterm
-  class Screen
+  class Window
     # Per-widget damage / dirty tracking (opt-in via
     # `OptimizationFlag::DamageTracking`).
     #
@@ -62,7 +62,7 @@ module Crysterm
     # frame — the cluster recomposite reproduces them (Phase 3).
     @damage_safe = false
 
-    # Screen dimensions at the last full frame; a change means a resize, which
+    # Window dimensions at the last full frame; a change means a resize, which
     # rebuilds the buffer and invalidates every carried-over cell.
     @damage_last_awidth = -1
     @damage_last_aheight = -1

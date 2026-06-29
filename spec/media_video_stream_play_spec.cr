@@ -18,7 +18,7 @@ include Crysterm
 # the stream loop runs and the cell backends play streaming video too.
 
 private def headless_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 80, height: 24)
 end

@@ -25,7 +25,7 @@ module Crysterm
     # real `QAbstractItemView`s.)
     #
     # ```
-    # menu = Widget::Menu.new parent: screen
+    # menu = Widget::Menu.new parent: window
     # quit = Action.new "Quit"
     # quit.on(Crysterm::Event::Triggered) { exit }
     # menu << quit
@@ -48,7 +48,7 @@ module Crysterm
       # scrolling the remainder rather than growing past it — mirrors
       # `ComboBox#max_visible`. `nil` (the default) fits every row. A long
       # navigation dropdown (e.g. a `Calendar`'s ±100 year list, far taller than
-      # the screen) sets this so the popup stays on-screen and scrolls to its
+      # the window) sets this so the popup stays on-window and scrolls to its
       # selected entry instead of being clamped over the content behind it.
       property max_visible_rows : Int32? = nil
 
@@ -102,12 +102,12 @@ module Crysterm
       # `visible_actions` array it would otherwise do on every child every frame.
       @separator_items = Set(Widget).new
 
-      # Screen-level click watcher installed (on the top-level menu only) while a
+      # Window-level click watcher installed (on the top-level menu only) while a
       # submenu is open, to dismiss the chain when the user clicks away — e.g.
       # switching tabs.
       @ev_outside : Crysterm::Event::Mouse::Wrapper?
 
-      # Screen-level click watcher installed while shown as a `#popup` context
+      # Window-level click watcher installed while shown as a `#popup` context
       # menu, to dismiss the whole popup when the user clicks outside it.
       @ev_popup : Crysterm::Event::Mouse::Wrapper?
 
@@ -234,10 +234,10 @@ module Crysterm
       # Shows this menu as a floating context menu at absolute (*x*, *y*), sized
       # to its content, focused, and dismissed on an outside click, after a leaf
       # action fires, or on Escape (Qt's `QMenu#popup`/`#exec`). The menu must be
-      # on a screen (created with `screen:` / `parent:`).
+      # on a window (created with `window:` / `parent:`).
       #
       # ```
-      # menu = Widget::Menu.new screen: screen, style: Style.new(border: true)
+      # menu = Widget::Menu.new window: window, style: Style.new(border: true)
       # menu.add("Copy") { copy }
       # menu.add("Paste") { paste }
       # menu.popup e.x, e.y # e.g. from a right-click handler
@@ -249,15 +249,15 @@ module Crysterm
         # menu reopened after a prior hover would come up pre-highlighted.
         @show_highlight = false
         fit_to_content
-        sw = screen.awidth
-        sh = screen.aheight
-        # Keep the menu on-screen.
+        sw = window.awidth
+        sh = window.aheight
+        # Keep the menu on-window.
         self.left = x.clamp(0, Math.max(0, sw - (awidth_hint)))
         self.top = y.clamp(0, Math.max(0, sh - (height.as?(Int) || 1)))
         show
         front!
         focus
-        screen.grab self # modal: suppress hover/clicks outside the menu chain
+        window.grab self # modal: suppress hover/clicks outside the menu chain
 
         # Dismiss on a press outside the *grab region* (not merely outside the
         # submenu chain): for a `MenuBar` the region also covers the bar's title
@@ -265,7 +265,7 @@ module Crysterm
         # auto-close here. That lets the title's toggle handler close it cleanly —
         # otherwise this watcher would hide the popup and the toggle would
         # immediately reopen it, so a second click never appeared to close.
-        @ev_popup ||= screen.on_press_outside(->(px : Int32, py : Int32) { grab_contains?(px, py) }) { hide_popup }
+        @ev_popup ||= window.on_press_outside(->(px : Int32, py : Int32) { grab_contains?(px, py) }) { hide_popup }
 
         request_render
         self
@@ -284,13 +284,13 @@ module Crysterm
         @popup_mode = false
         close_submenu
         hide
-        screen?.try &.ungrab self
-        @ev_popup.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
+        window?.try &.ungrab self
+        @ev_popup.try { |w| window?.try &.off Crysterm::Event::Mouse, w }
         @ev_popup = nil
         request_render
       end
 
-      # Configured width used for on-screen clamping in `#popup` (the value just
+      # Configured width used for on-window clamping in `#popup` (the value just
       # assigned by `#fit_to_content`).
       private def awidth_hint : Int32
         (width.as?(Int) || 1)
@@ -370,7 +370,7 @@ module Crysterm
       end
 
       # Renders the menu, then docks its separator rules to the vertical borders
-      # so each reads as `├────┤` rather than a detached dash. Reuses the screen's
+      # so each reads as `├────┤` rather than a detached dash. Reuses the window's
       # border-docking component (`#dock_rows`), so it needs no global
       # `dock_borders`. Runs after `super` (which draws the border *and* the
       # separator-row items), re-applying the junctions each frame the border is
@@ -752,7 +752,7 @@ module Crysterm
         # while the chain was being rapidly reopened, could flash a borderless
         # copy alongside the styled one. Falls back to the theme (`Menu { ... }`)
         # when this menu has no inline style.
-        child = Menu.new(screen: screen, style: css_inline_style.try(&.dup))
+        child = Menu.new(window: window, style: css_inline_style.try(&.dup))
         subs.each { |a| child << a }
         child.parent_menu = self
 
@@ -764,9 +764,9 @@ module Crysterm
         # `iheight == 0` box and the focus-time scroll math would run against that
         # too-short height, scrolling the first rows out of view: the deep-submenu
         # "last entry invisible until you hover" bug on bordered themes.
-        screen.append child
-        screen.restyle_structural child
-        screen.apply_stylesheet
+        window.append child
+        window.restyle_structural child
+        window.apply_stylesheet
 
         # Size the child exactly like a top-level popup (`#fit_to_content`), so a
         # submenu gets the same column layout, breathing and padding. Then float it
@@ -809,7 +809,7 @@ module Crysterm
             (@submenu_open.try(&.in_chain?(x, y)) || false) ||
             (@submenu_anchor.try(&.contains_point?(x, y)) || false)
           end
-          @ev_outside = screen.on_press_outside(inside) do
+          @ev_outside = window.on_press_outside(inside) do
             close_submenu
             @show_highlight = false
             request_render
@@ -828,14 +828,14 @@ module Crysterm
           @submenu_action = nil
           @submenu_anchor = nil
           focus
-          screen?.try &.remove child
+          window?.try &.remove child
           child.destroy
           request_render
         end
 
         # Once the top-level menu has no submenu left, drop the click watcher.
         if parent_menu.nil?
-          @ev_outside.try { |w| screen?.try &.off Crysterm::Event::Mouse, w }
+          @ev_outside.try { |w| window?.try &.off Crysterm::Event::Mouse, w }
           @ev_outside = nil
         end
       end

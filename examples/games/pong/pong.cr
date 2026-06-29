@@ -42,7 +42,7 @@ class Pong
   @moving = true
 
   def initialize
-    @screen = Screen.new title: "pong.cr"
+    @screen = Window.new title: "pong.cr"
 
     # Play field: full width, all but the bottom row (reserved for the status bar).
     @table = Widget::Box.new parent: @screen, top: 0, left: 0, width: "100%", height: "100%-1"

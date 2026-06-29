@@ -95,7 +95,7 @@ module Crysterm
           # take the bar's own colors by default — keeping them legible under any
           # theme instead of rendering as transparent "black holes". (Qt's
           # `::close-button { background: transparent }` lowers to the terminal
-          # default, which paints the screen background, not the bar's.) An
+          # default, which paints the window background, not the bar's.) An
           # explicit `::close-button`/`::float-button` rule still supplies the base
           # look; only a color it leaves unset falls back to the bar.
           sync_titlebutton @close_button, style.close_button
@@ -158,7 +158,7 @@ module Crysterm
       def close_dock : Nil
         hide
         emit ::Crysterm::Event::Close
-        screen?.try &.schedule_render
+        window?.try &.schedule_render
       end
 
       # Toggles between `Floating` and the last docked area, emitting
@@ -191,7 +191,7 @@ module Crysterm
         end
         refresh_buttons
         emit ::Crysterm::Event::Float, floating?
-        screen?.try &.schedule_render
+        window?.try &.schedule_render
       end
 
       @prev_area : Area?
@@ -340,11 +340,11 @@ module Crysterm
           # absolute, so convert by subtracting the parent's origin — matching the
           # `aleft - px` convention in `#save_float_geom`/`#freeze_rect`. Without
           # this the dock only tracked the pointer when its parent sat at the
-          # screen origin (the same class of bug `Splitter#wire_divider` notes).
+          # window origin (the same class of bug `Splitter#wire_divider` notes).
           px = parent.try(&.aleft) || 0
           py = parent.try(&.atop) || 0
-          bound_w = (parent.try(&.awidth) || screen.awidth) - awidth
-          bound_h = (parent.try(&.aheight) || screen.aheight) - aheight
+          bound_w = (parent.try(&.awidth) || window.awidth) - awidth
+          bound_h = (parent.try(&.aheight) || window.aheight) - aheight
           self.left = (e.x - @drag_dx - px).clamp(0, Math.max(0, bound_w))
           self.top = (e.y - @drag_dy - py).clamp(0, Math.max(0, bound_h))
           request_render

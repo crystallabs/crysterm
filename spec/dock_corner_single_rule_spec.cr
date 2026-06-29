@@ -13,9 +13,9 @@ include Crysterm
 # glyph. Without the no-reciprocation guard, a `┌` with a `─` directly below it
 # (the `─` does not open upward, so it never connects to the `┌`) resolved to the
 # single-arm `│` — severing the corner the preservation pass is meant to protect.
-private def grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Crysterm::Screen::Row)
+private def grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Crysterm::Window::Row)
   rows.map do |s|
-    row = Crysterm::Screen::Row.new
+    row = Crysterm::Window::Row.new
     s.each_char { |c| row.push attr, c }
     row
   end

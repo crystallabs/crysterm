@@ -2,14 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
-# Destroying a *top-level* widget (one added straight onto a Screen, so it has
+# Destroying a *top-level* widget (one added straight onto a Window, so it has
 # no widget parent — only a stored `@screen`) must detach it from the screen.
 # Before the fix, `Widget#destroy` only called `remove_from_parent`, which is a
 # no-op for a parent-less widget, so the destroyed widget lingered in
 # `screen.children` — still painted, still keyable, possibly still focused.
 
 private def sized_screen(w, h)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: w, height: h)
 end

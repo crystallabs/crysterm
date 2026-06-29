@@ -32,10 +32,11 @@ require "./action"
 
 require "./cursor"
 
-require "./screen"
+require "./window"
 require "./plane"
 require "./terminal/launchers"
 require "./terminal/handshake"
+require "./application"
 
 require "./widget"
 require "./widget/**"
@@ -70,7 +71,7 @@ require "./style/css/**"
 # require "../src/crysterm"
 # alias C = Crysterm
 #
-# s = C::Screen.new
+# s = C::Window.new
 # t = C::Widget::Text.new content: "Hello, World!", style: C::Style.new(bg: "blue", fg: "yellow", border: true), left: "center", top: "center", parent: s
 #
 # s.append t
@@ -88,7 +89,7 @@ module Crysterm
 
   # Whether this process is attached to an interactive terminal — i.e. its
   # standard output is a TTY. False when output is redirected to a file or a
-  # pipe, or there is no controlling terminal (as on CI). A `Screen` built
+  # pipe, or there is no controlling terminal (as on CI). A `Window` built
   # without explicit IO uses this to decide whether to run `headless?`.
   def self.interactive? : Bool
     STDOUT.tty?
@@ -96,7 +97,7 @@ module Crysterm
     false
   end
 
-  # Whether a `Screen` constructed without explicit IO should default to a
+  # Whether a `Window` constructed without explicit IO should default to a
   # headless (in-memory) connection rather than the real `STDIN`/`STDOUT`/
   # `STDERR`. Resolves the `screen.headless` config option: `Auto` (the default)
   # follows the inverse of `interactive?` — non-interactive runs go headless —
@@ -121,10 +122,10 @@ module Crysterm
 
   # SIGINT (Ctrl+C) MUST be trapped: Crystal's default action terminates the
   # process WITHOUT running `at_exit`, so the terminal-restore chain (`at_exit`
-  # -> `Screen#destroy` -> `#disconnect` -> `#restore_terminal`, which leaves the
+  # -> `Window#destroy` -> `#disconnect` -> `#restore_terminal`, which leaves the
   # alternate buffer, shows the cursor, and disables raw mode + mouse reporting)
   # would never run. Routing it through `exit` (like TERM/QUIT) makes that cleanup
-  # fire. This matters most during the startup window: between `Screen.new`
+  # fire. This matters most during the startup window: between `Window.new`
   # (which enters the alternate buffer) and the input fiber establishing raw mode
   # (in `#listen`), the tty is still in cooked mode, so a Ctrl+C is delivered as a
   # real SIGINT rather than a keystroke. A slow-to-build app (e.g. the cracktro
@@ -155,11 +156,11 @@ module Crysterm
   end
 
   at_exit do
-    Screen.instances.each &.destroy
+    Window.instances.each &.destroy
   end
 end
 
-# If this process was launched as an in-window helper by `Screen.open` (env var
+# If this process was launched as an in-window helper by `Window.open` (env var
 # set on the spawned emulator), run the helper loop and exit here — before any
 # user code runs. A plain no-op in every normal run. Placed at the very bottom so
 # the whole library is loaded by the time it executes.

@@ -7,7 +7,7 @@ include Crysterm
 # escape position must find exactly the same sequence, at the same position, as
 # the previous "slice the tail, then match the ^-anchored regex" approach —
 # without allocating the tail substring. Pure string/regex, so it needs no
-# Screen (which the spec runner can't tear down cleanly).
+# Window (which the spec runner can't tear down cleanly).
 describe "SGR in-place anchored scanning" do
   sgr = Crysterm::Widget::SGR_REGEX
   sgr_at = Crysterm::Widget::SGR_REGEX_AT_BEGINNING

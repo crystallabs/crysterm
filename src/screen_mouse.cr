@@ -1,7 +1,7 @@
 require "gpm"
 
 module Crysterm
-  class Screen
+  class Window
     # Mouse support.
     #
     # Crysterm receives mouse input from two possible sources, unified behind a
@@ -404,7 +404,7 @@ module Crysterm
     #
     # Hit-testing follows the actual render/z order rather than registration
     # order: the widget tree is walked in the same depth-first order in which it
-    # is painted (`@children` array order; see `Screen#_render`), and the last
+    # is painted (`@children` array order; see `Window#_render`), and the last
     # match wins — i.e. the widget drawn last (on top). This is what makes
     # `Widget#front!` / `Widget#back!` affect which widget the mouse "sees":
     # reordering a widget within its parent's `children` both raises it visually
@@ -413,7 +413,7 @@ module Crysterm
     # `z-index` is layered on top of that tree order: a widget (or any subtree)
     # that declares a `style.z_index` is deferred to a compositing `Plane` and
     # painted *above* the whole base layer, regardless of its position in the
-    # tree (see `Screen#composite_planes`, which composites every plane over
+    # tree (see `Window#composite_planes`, which composites every plane over
     # `@lines`). So tree order alone is NOT the paint order once a z-index is in
     # play: a non-z-indexed widget later in the tree must not steal clicks from a
     # z-indexed widget painted on top of it. The hit test therefore ranks each

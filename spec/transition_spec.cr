@@ -7,7 +7,7 @@ include Crysterm
 # snapping. Generic — driven entirely from CSS, no widget-specific code.
 
 private def sized_screen(w, h)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: w, height: h)
 end

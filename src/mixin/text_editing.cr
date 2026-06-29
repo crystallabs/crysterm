@@ -118,13 +118,13 @@ module Crysterm
       end
 
       def _update_cursor(get = false, to_scroll_pos = false)
-        return unless focused? # if screen.focused != self
+        return unless focused? # if window.focused != self
 
         lpos = get ? @lpos : _get_coords
         # XXX is above a bug and should be vice-versa? `get ? _get_coords : @lpos`
         return unless lpos
 
-        display = screen
+        display = window
 
         # Map the insertion point (`@cursor_pos`, an index into `@value`) onto
         # the wrapped/displayed content: the real (post-wrap) line it lands on
@@ -466,7 +466,7 @@ module Crysterm
       end
 
       # Scroll the *viewport* (only `@child_base`) so the caret's real (wrapped)
-      # row stays on screen, crossing the top/bottom edge as the caret moves.
+      # row stays on window, crossing the top/bottom edge as the caret moves.
       # `@child_offset` is left at 0 — the caret is `@cursor_pos`, not a scroll
       # offset — so there is a single scroll model shared with the attached
       # `ScrollBar`. Delegates to the shared `#ensure_visible` (the same primitive
@@ -477,7 +477,7 @@ module Crysterm
       # Without this, vertical movement only moved `@cursor_pos`: once the cursor
       # passed the top/bottom visible row the view never followed, leaving the
       # cursor pinned to the edge while editing a line that was scrolled off (so
-      # typed text landed off-screen or painted at a stale position).
+      # typed text landed off-window or painted at a stale position).
       private def ensure_cursor_visible : Bool
         rl, _ = cursor_rowcol
         ensure_visible rl
@@ -500,7 +500,7 @@ module Crysterm
       end
 
       # Horizontal counterpart of `#ensure_cursor_visible`: when lines don't wrap,
-      # scroll the column window the minimum amount to keep the caret on screen,
+      # scroll the column window the minimum amount to keep the caret on window,
       # so typing past the right edge follows it. No-op while wrapping (no
       # horizontal overflow). Returns whether the view moved.
       private def ensure_cursor_visible_x : Bool
@@ -516,7 +516,7 @@ module Crysterm
       # and by a dragged scroll bar (via `#scroll_to`); the caret is untouched, so
       # it may scroll out of view, as in Qt's text edit.
       def scroll(offset = 1, always = false)
-        return unless @scrollable && screen?
+        return unless @scrollable && window?
         # Reserve the row a shown horizontal bar occupies (`hscrollbar_rows`) when
         # counting visible content rows — exactly as the base `#scroll`,
         # `#ensure_visible`, and `#clamp_child_base_to_content` do. Omitting it
@@ -638,7 +638,7 @@ module Crysterm
           #  # return(Invoke editor)
           # end
 
-          # TODO can optimize by writing directly to screen buffer
+          # TODO can optimize by writing directly to window buffer
           # here.
           if k == Tput::Key::Escape
             done.try &.call nil, nil
@@ -702,7 +702,7 @@ module Crysterm
         # Follow the cursor after an edit (or an external `value=`), rather than
         # always jumping to the bottom: when typing in the middle of a document
         # taller than the box, snapping to the end would push the just-typed
-        # character off-screen. Appending at the end still scrolls down, because
+        # character off-window. Appending at the end still scrolls down, because
         # the cursor is then on the last line. No render here — `value=` calls
         # this from within the widget's own render.
         ensure_cursor_visible
@@ -760,17 +760,17 @@ module Crysterm
 
       def _read_input
         if !focused?
-          screen.save_focus
+          window.save_focus
           focus
         end
 
-        screen.grab_keys = true
+        window.grab_keys = true
 
         _update_cursor
-        screen.show_cursor
+        window.show_cursor
 
         # D O:
-        # screen.tput.sgr "normal"
+        # window.tput.sgr "normal"
 
         # Define _done_default
         @__listener = ->_listener(Crysterm::Event::KeyPress)
@@ -829,15 +829,15 @@ module Crysterm
         @ev_done_blur = nil
         @__done = nil
 
-        screen.hide_cursor
-        screen.grab_keys = false
+        window.hide_cursor
+        window.grab_keys = false
 
         unless focused?
-          screen.restore_focus
+          window.restore_focus
         end
 
         if @input_on_focus
-          screen.rewind_focus
+          window.rewind_focus
         end
 
         # damn

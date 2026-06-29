@@ -7,7 +7,7 @@ include Crysterm
 # handler is exercised headlessly through a real `Widget::LineEdit`.
 
 private def editor(value : String, pos : Int32)
-  s = Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  s = Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
   le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
   le.value = value
   s.render # populate content/cursor geometry so motion keys can resolve

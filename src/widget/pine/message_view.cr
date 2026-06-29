@@ -8,7 +8,7 @@ module Crysterm
       # keys, PageUp/PageDown, and Home/End.
       #
       # ```
-      # view = Widget::Pine::MessageView.new parent: screen,
+      # view = Widget::Pine::MessageView.new parent: window,
       #   from: "John Smith <john@example.com>",
       #   subject: "Re: Project update",
       #   date: "Sat, 20 Jun 2026 10:30:00 +0000",

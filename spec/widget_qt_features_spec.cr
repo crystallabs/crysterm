@@ -13,7 +13,7 @@ private def qt_mem_screen
   # key events — e.g. the ListBar tests `emit KeyPress, 'q'` to exercise a `q`
   # *hotkey* — so leaving it on would terminate the whole spec process mid-run
   # (no summary, exit 0). Headless test screens want no interactive quit.
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

@@ -20,7 +20,7 @@ module Crysterm
     # node's row) alongside the usual item events.
     #
     # ```
-    # tree = Widget::Tree.new parent: screen, width: 30, height: 12, style: Style.new(border: true)
+    # tree = Widget::Tree.new parent: window, width: 30, height: 12, style: Style.new(border: true)
     # src = tree.add "src"
     # src.add "widget"
     # src.add "layout"

@@ -6,12 +6,12 @@ include Crysterm
 # `Widget#mouse_cursor_shape=`) must restore the terminal-default pointer, just
 # as the widget's own `Hide` handler does when it vanishes under the pointer.
 #
-# A removal emits no `MouseOut`, so without `Screen#remove` restoring it the
+# A removal emits no `MouseOut`, so without `Window#remove` restoring it the
 # pointer stays stuck in the detached widget's shape. Driven headlessly over
 # in-memory IOs through the public `#dispatch_mouse`/`#remove` entry points.
 
 private def rmcs_screen(output)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: output,
     error: IO::Memory.new)
@@ -29,7 +29,7 @@ private def rmcs_drained(s, io)
   str
 end
 
-describe "Screen#remove (GUI mouse-pointer shape)" do
+describe "Window#remove (GUI mouse-pointer shape)" do
   it "restores the default pointer when a hovered shape-owning widget is removed" do
     buf = IO::Memory.new
     s = rmcs_screen buf

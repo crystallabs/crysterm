@@ -12,7 +12,7 @@ include Crysterm
 # screen cache), so without the guard these examples crash rather than fail.
 
 private def headless_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 20, height: 10)
 end
@@ -28,7 +28,7 @@ describe "Widget#insert cycle guard" do
     a.parent.should_not eq a
     # Tree walks still terminate.
     a.has_descendant?(a).should be_false
-    a.screen?.should eq s
+    a.window?.should eq s
   end
 
   it "refuses to make a widget a child of its own descendant" do
@@ -45,8 +45,8 @@ describe "Widget#insert cycle guard" do
     b.parent.should eq a
     s.children.includes?(a).should be_true
     # And every node still derives its screen without looping.
-    a.screen?.should eq s
-    b.screen?.should eq s
+    a.window?.should eq s
+    b.window?.should eq s
   end
 
   it "still allows reordering an existing child (no false positive)" do

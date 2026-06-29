@@ -14,7 +14,7 @@ include Crysterm
 # that re-renders forever at the minimum interval (a CPU/redraw spin).
 
 private def headless_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
 private def solid_bitmap(w = 3, h = 2) : PNGGIF::Bitmap

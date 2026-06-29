@@ -15,7 +15,7 @@ module Crysterm
     # (animation loop, resize, `#play`/`#pause`/`#stop`) is the image machinery.
     #
     # ```
-    # vid = Widget::Video.new file: "clip.mp4", width: 40, height: 20, parent: screen
+    # vid = Widget::Video.new file: "clip.mp4", width: 40, height: 20, parent: window
     # ```
     #
     # Requires `ffmpeg` and `ffprobe` on `PATH`; without them (or on a decode

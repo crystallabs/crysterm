@@ -12,7 +12,7 @@ module Crysterm
       # of the original `cracktro` demo is just the default, not the widget.
       #
       # Like `Widget::Effect::Plasma`, it paints its interior straight into the
-      # screen's cell buffer as packed `Int64` attrs (each fg a direct `0xRRGGBB`)
+      # window's cell buffer as packed `Int64` attrs (each fg a direct `0xRRGGBB`)
       # via `Effect::Direct` — there is no tagged-content round-trip, so a frame
       # costs no per-cell `String` and no per-frame tag re-parse. Each frame the
       # slot simulation is resolved once into two flat `w*h` cell buffers (glyph
@@ -23,11 +23,11 @@ module Crysterm
       #
       # ```
       # # Default: a spiral of dithered DOS bricks (`▒`) filling the box.
-      # spray = Widget::Effect::Spray.new parent: screen, width: "100%", height: "100%"
+      # spray = Widget::Effect::Spray.new parent: window, width: "100%", height: "100%"
       # spray.start
       #
       # # Or spell out text and pick any fill order:
-      # spray = Widget::Effect::Spray.new parent: screen, width: "100%", height: "100%",
+      # spray = Widget::Effect::Spray.new parent: window, width: "100%", height: "100%",
       #   pattern: "CRYSTERM ", fill: :radial
       # ```
       #

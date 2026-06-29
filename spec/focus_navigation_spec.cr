@@ -2,17 +2,17 @@ require "./spec_helper"
 
 include Crysterm
 
-# Keyboard focus navigation (`Screen#focus_offset` and friends). Driven
+# Keyboard focus navigation (`Window#focus_offset` and friends). Driven
 # headlessly over in-memory IOs; no real terminal is touched.
 
 private def focus_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)
 end
 
-describe "Screen#focus_offset" do
+describe "Window#focus_offset" do
   it "moves focus between attached keyable widgets" do
     s = focus_screen
     a = Widget::Box.new parent: s, keys: true
@@ -125,7 +125,7 @@ describe "Screen#focus_offset" do
     # pruned) but now belongs to `s2`.
     s1.remove b
     s2.append b
-    b.screen?.should eq s2
+    b.window?.should eq s2
 
     # `a` is the only widget still on `s1`; navigation must stay on it and never
     # jump onto `b` (which lives on `s2`).
@@ -155,8 +155,8 @@ describe "Screen#focus_offset" do
   end
 end
 
-describe "Screen#focus (re-focus of the already-focused widget)" do
-  # Regression: `Screen#focus` (and `focus_offset`, e.g. Tab wrapping back onto
+describe "Window#focus (re-focus of the already-focused widget)" do
+  # Regression: `Window#focus` (and `focus_offset`, e.g. Tab wrapping back onto
   # the sole focusable widget) routes straight to `_focus el, el`. The state
   # assignment used to set `:focused` (a no-op) then `:normal`, clobbering the
   # highlight — and emit a spurious `Blur` on the widget being focused.
@@ -189,7 +189,7 @@ describe "Screen#focus (re-focus of the already-focused widget)" do
   end
 end
 
-describe "Screen#rewind_focus" do
+describe "Window#rewind_focus" do
   # Regression: `_focus` already emits `Event::Blur` on the previously-focused
   # widget, so `rewind_focus` must NOT emit it a second time. It used to, leaving
   # the blurred widget with a double Blur.

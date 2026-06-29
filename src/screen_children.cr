@@ -1,5 +1,5 @@
 module Crysterm
-  class Screen
+  class Window
     def insert(element, i = -1)
       # Prevents adding an element twice
       super || return
@@ -16,18 +16,18 @@ module Crysterm
       # into a widget); without it, moving a widget *onto* a screen leaked.
       if element.parent
         element.remove_from_parent
-      elsif (prev_screen = element.screen?) && prev_screen != self && prev_screen.children.includes?(element)
+      elsif (prev_screen = element.window?) && prev_screen != self && prev_screen.children.includes?(element)
         prev_screen.remove element
       end
 
-      # A top-level widget (added straight to a Screen) is the single element
+      # A top-level widget (added straight to a Window) is the single element
       # that actually stores its screen; its descendants derive it from the
       # tree. `previous` lets `attach` emit a `Detach` if it is being moved here
       # from another screen. (The unlink above already detached it from its old
       # home, emitting that `Detach`, so `previous` is now nil and `attach` just
       # emits the `Attach` — no redundant or missing transition events.)
-      previous = element.screen?
-      element.screen = self
+      previous = element.window?
+      element.window = self
       attach element, previous
 
       # XXX:
@@ -80,10 +80,10 @@ module Crysterm
     end
 
     def remove(element)
-      return if element.screen? != self
+      return if element.window? != self
 
       # Whether keyboard focus currently lives inside the subtree being removed.
-      # This MUST be sampled *before* the unlink below: once `element.screen = nil`
+      # This MUST be sampled *before* the unlink below: once `element.window = nil`
       # severs the tree, a focused *descendant* (not `element` itself) can no longer
       # be related back to `element` via `has_descendant?`, and the check would
       # silently miss it — stranding focus on a now-detached, off-screen widget.
@@ -109,7 +109,7 @@ module Crysterm
       # cleared below by retargeting the drag to "no target".
       stale_target = ((td = @_drag) && (tg = td.target) && (tg == element || element.has_descendant?(tg))) ? td : nil
       # An active input grab (an open modal pop-up — menu, combo drop-down, … —
-      # see `Screen#grab`) whose widget sits in the removed subtree must be
+      # see `Window#grab`) whose widget sits in the removed subtree must be
       # released. A pop-up normally `ungrab`s itself from its own close path, but
       # a direct `remove` bypasses that, leaving `@grabs` pointing at a detached
       # widget: every subsequent mouse event then runs `within_grab?` ->
@@ -135,8 +135,8 @@ module Crysterm
 
       # Clear the stored reference on this (top-level) element, then notify the
       # subtree that it has left this screen.
-      previous = element.screen?
-      element.screen = nil
+      previous = element.window?
+      element.window = nil
       detach element, previous
 
       rewind_focus if refocus
@@ -178,10 +178,10 @@ module Crysterm
     #
     # This only emits events; it does not store the screen on any node. The
     # caller links the tree (`#parent`/`#screen=`) beforehand, after which the
-    # whole subtree derives its screen via `Widget#screen?`. Because the subtree
+    # whole subtree derives its screen via `Widget#window?`. Because the subtree
     # shares a single owning screen, the attach is uniform: either the whole
     # subtree moved here, or (when `previous == self`) nothing changed.
-    def attach(element, previous : ::Crysterm::Screen? = nil)
+    def attach(element, previous : ::Crysterm::Window? = nil)
       return if previous == self
 
       element.self_and_each_descendant do |el|
@@ -195,7 +195,7 @@ module Crysterm
     #
     # Like `#attach`, this only emits events; the caller unlinks the tree
     # (`#parent`/`#screen=`) beforehand.
-    def detach(element, previous : ::Crysterm::Screen? = nil)
+    def detach(element, previous : ::Crysterm::Window? = nil)
       previous ||= self
 
       element.self_and_each_descendant do |el|

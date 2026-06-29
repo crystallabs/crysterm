@@ -4,11 +4,11 @@ include Crysterm
 
 # End-to-end proof that CSS doesn't just populate `Style` objects but actually
 # changes what gets drawn: it sets a stylesheet, runs a real synchronous render
-# (`Screen#_render`, which applies the cascade then fills the cell buffer), and
-# inspects the resulting packed attributes in `Screen#lines`.
+# (`Window#_render`, which applies the cascade then fills the cell buffer), and
+# inspects the resulting packed attributes in `Window#lines`.
 
 private def render_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 80, height: 24)
 end

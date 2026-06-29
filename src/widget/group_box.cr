@@ -11,7 +11,7 @@ module Crysterm
     # a checkable group's contents when unchecked).
     #
     # ```
-    # gb = Widget::GroupBox.new parent: screen, title: "Options", width: 30, height: 8
+    # gb = Widget::GroupBox.new parent: window, title: "Options", width: 30, height: 8
     # Widget::CheckBox.new parent: gb, top: 0, content: "Wrap"
     # ```
     #

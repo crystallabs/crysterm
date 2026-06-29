@@ -11,7 +11,7 @@ module Crysterm
     # inferred from placement.
     #
     # ```
-    # g = Widget::Box.new parent: screen, width: "100%", height: "100%",
+    # g = Widget::Box.new parent: window, width: "100%", height: "100%",
     #   layout: Layout::Grid.new(columns: 3, gap: 1)
     # Widget::Box.new parent: g,
     #   layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, col_span: 2)

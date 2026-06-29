@@ -11,7 +11,7 @@ include Crysterm
 # Driven headlessly over in-memory IOs against a real temp directory tree.
 
 private def fm_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)

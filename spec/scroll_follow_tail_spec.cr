@@ -7,7 +7,7 @@ include Crysterm
 # a manual scroll-up is preserved. Driven headlessly through real widgets.
 
 private def ft_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
 private def at_bottom?(w)

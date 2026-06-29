@@ -9,7 +9,7 @@ include Crysterm
 # version can be trusted to match exactly.
 #
 # `code2attr_to` is a pure class method (takes the color count directly), so no
-# Screen is needed.
+# Window is needed.
 describe "Screen.code2attr_to" do
   # Oracle: the old String-building code2attr semantics, expressed via the
   # already-tested `Colors.sgr_color`.
@@ -42,7 +42,7 @@ describe "Screen.code2attr_to" do
     io.to_s
   end
 
-  dfl = Crysterm::Screen::DEFAULT_ATTR
+  dfl = Crysterm::Window::DEFAULT_ATTR
 
   codes = {
     "default"        => dfl,

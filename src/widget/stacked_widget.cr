@@ -8,7 +8,7 @@ module Crysterm
     # visible page is chosen programmatically (or by another widget you wire up).
     #
     # ```
-    # stack = Widget::StackedWidget.new parent: screen, width: 40, height: 12
+    # stack = Widget::StackedWidget.new parent: window, width: 40, height: 12
     # stack.add_page Widget::Box.new(content: "page 1")
     # stack.add_page Widget::Box.new(content: "page 2")
     # stack.current = 1

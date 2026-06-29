@@ -11,7 +11,7 @@ include Crysterm
 # control (`@resizable = false`) routinely has such trailing space, so this is
 # directly reachable. The fix bounds the right edge to the text width.
 private def te_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

@@ -18,7 +18,7 @@ module Crysterm
     # by hand.
     #
     # ```
-    # bar = Widget::MenuBar.new parent: screen, top: 0, left: 0, width: "100%", height: 1
+    # bar = Widget::MenuBar.new parent: window, top: 0, left: 0, width: "100%", height: 1
     # file = bar.add_menu "File"
     # file.add("New") { new_doc }
     # file.add("Open") { open_doc }
@@ -61,12 +61,12 @@ module Crysterm
       # Adds a top-level menu titled *title* (optionally pre-filled with
       # *actions*) and returns the `Menu` so more can be added to it.
       def add_menu(title : String, actions : Array(Action) = [] of Action) : Menu
-        # `parent: screen` appends the pop-up to the screen so it actually renders
-        # (a bare `screen:` would set the screen but leave it out of the render
+        # `parent: window` appends the pop-up to the window so it actually renders
+        # (a bare `window:` would set the window but leave it out of the render
         # tree — visible-flagged but never drawn).
         # Border/look come from the theme (`Menu { ... }`) unless the bar was
         # given an explicit `@menu_style`.
-        menu = Menu.new(parent: screen, style: @menu_style)
+        menu = Menu.new(parent: window, style: @menu_style)
         actions.each { |a| menu << a }
         menu.hide
         menu.on_navigate = ->(dir : Int32) { switch_relative dir }
@@ -201,10 +201,10 @@ module Crysterm
         highlight @open_index
       end
 
-      # The pop-up menus are screen children, so tear them down with the bar.
+      # The pop-up menus are window children, so tear them down with the bar.
       def destroy
         @menus.each do |m|
-          screen?.try &.remove m
+          window?.try &.remove m
           m.destroy
         end
         @menus.clear

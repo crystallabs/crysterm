@@ -13,18 +13,18 @@ include Crysterm
 # identical cell for cell. Whatever the fast path does, it may never diverge.
 #
 # A few scenarios additionally assert that the fast path *engaged* (via
-# `Screen#damage_fast_frames`), so the suite can't pass trivially by always
+# `Window#damage_fast_frames`), so the suite can't pass trivially by always
 # falling back to the full path.
 
 private def new_screen(damage : Bool)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 60, height: 24,
     optimization: damage ? Crysterm::OptimizationFlag::DamageTracking : Crysterm::OptimizationFlag::None)
 end
 
 # Asserts the two screens' cell buffers are identical.
-private def assert_same_lines(a : Crysterm::Screen, b : Crysterm::Screen, ctx = "")
+private def assert_same_lines(a : Crysterm::Window, b : Crysterm::Window, ctx = "")
   a.lines.size.should eq b.lines.size
   a.lines.each_index do |y|
     la = a.lines[y]
@@ -217,7 +217,7 @@ describe "damage tracking" do
   it "is equivalent for a transitive chain of three overlapping widgets" do
     plain = new_screen false
     dmg = new_screen true
-    build = ->(s : Crysterm::Screen) {
+    build = ->(s : Crysterm::Window) {
       a = Widget::Box.new(parent: s, top: 0, left: 0, width: 16, height: 8,
         style: Style.new(border: true), content: "A")
       b = Widget::Box.new(parent: s, top: 4, left: 8, width: 16, height: 8,
@@ -278,7 +278,7 @@ describe "damage tracking" do
   it "handles two independent overlap clusters updating at once" do
     plain = new_screen false
     dmg = new_screen true
-    build = ->(s : Crysterm::Screen) {
+    build = ->(s : Crysterm::Window) {
       a1 = Widget::Box.new(parent: s, top: 0, left: 0, width: 12, height: 6,
         style: Style.new(border: true), content: "1")
       Widget::Box.new(parent: s, top: 3, left: 4, width: 12, height: 6,
@@ -336,7 +336,7 @@ describe "damage tracking" do
   it "clears the old shadow band when a shadowed widget moves" do
     plain = new_screen false
     dmg = new_screen true
-    mk = ->(s : Crysterm::Screen) {
+    mk = ->(s : Crysterm::Window) {
       Widget::Box.new(parent: s, top: 2, left: 2, width: 12, height: 6,
         style: Style.new(border: true, shadow: true), content: "S")
     }
@@ -354,7 +354,7 @@ describe "damage tracking" do
   it "re-blends a shadow over a widget under it when that widget changes" do
     plain = new_screen false
     dmg = new_screen true
-    build = ->(s : Crysterm::Screen) {
+    build = ->(s : Crysterm::Window) {
       # `under` sits where `caster`'s shadow falls (to its lower-right).
       under = Widget::Box.new(parent: s, top: 6, left: 12, width: 12, height: 6,
         style: Style.new(border: true), content: "U")
@@ -375,7 +375,7 @@ describe "damage tracking" do
   it "is equivalent when a tinted widget updates" do
     plain = new_screen false
     dmg = new_screen true
-    mk = ->(s : Crysterm::Screen) {
+    mk = ->(s : Crysterm::Window) {
       box = Widget::Box.new(parent: s, top: 1, left: 1, width: 16, height: 6,
         content: "t")
       box.style.tint = 0xff0000
@@ -413,7 +413,7 @@ describe "damage tracking" do
   it "does not disturb a widget sitting in the gap between two clusters" do
     plain = new_screen false
     dmg = new_screen true
-    build = ->(s : Crysterm::Screen) {
+    build = ->(s : Crysterm::Window) {
       # Two overlap pairs at the far left and far right, plus a lone box in the
       # middle that lies inside the bounding box of the two pairs but overlaps
       # neither — it must survive a selective frame untouched.
@@ -519,7 +519,7 @@ describe "damage tracking" do
   it "stays equivalent for a multi-plane scene (full-path fallback)" do
     # Two distinct z-indices = two planes; Phase 4 handles only a single plane,
     # so this must fall back to the full path and stay output-equivalent.
-    build = ->(s : Crysterm::Screen) {
+    build = ->(s : Crysterm::Window) {
       base = Widget::Box.new(parent: s, top: 0, left: 0, width: 40, height: 16,
         style: Style.new(border: true, bg: 0x101010), content: "base")
       o1 = Widget::Box.new(parent: s, top: 2, left: 2, width: 16, height: 6,

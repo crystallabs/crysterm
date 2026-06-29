@@ -16,7 +16,7 @@ module Crysterm
 
       def display(text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
         if scrollable?
-          screen.save_focus
+          window.save_focus
           focus
           scroll_to 0
         end
@@ -29,9 +29,9 @@ module Crysterm
           # No timeout: dismiss on the next keypress. Install the handler
           # immediately. (It used to `sleep 10.seconds` first, which made the
           # message un-dismissable for 10s and then linger until a key.)
-          @ev_keypress = screen.on(Crysterm::Event::KeyPress) do |_|
+          @ev_keypress = window.on(Crysterm::Event::KeyPress) do |_|
             @ev_keypress.try do |w|
-              screen.off ::Crysterm::Event::KeyPress, w
+              window.off ::Crysterm::Event::KeyPress, w
             end
             end_it do
               callback.try &.call
@@ -62,7 +62,7 @@ module Crysterm
         # end_it.done = true
         if scrollable?
           begin
-            screen.restore_focus
+            window.restore_focus
           rescue
           end
         end

@@ -22,19 +22,19 @@ module Crysterm
   end
 
   class Widget
-    # Marks the owning screen's styling dirty so the cascade re-runs on the next
+    # Marks the owning window's styling dirty so the cascade re-runs on the next
     # render. Called whenever something selector-relevant changes — the tree
     # shape (via `Mixin::Children`), a widget's classes/id (`Mixin::Css`), or an
     # intrinsic attribute (e.g. a checkbox's `checked`). A no-op while the widget
     # is detached; it will be styled when its subtree next attaches and renders.
     protected def invalidate_css : Nil
-      screen?.try &.restyle_subtree(self)
+      window?.try &.restyle_subtree(self)
     end
 
     # Structural-change variant (children added/removed): forces a document
     # re-parse in addition to recomputing the affected subtree.
     protected def invalidate_css_tree : Nil
-      screen?.try &.restyle_structural(self)
+      window?.try &.restyle_structural(self)
     end
 
     # Serializes this widget and its subtree into the CSS document.
@@ -192,13 +192,13 @@ module Crysterm
     end
   end
 
-  class Screen
-    # Serializes the whole screen as the root of the CSS document: a `w-screen`
+  class Window
+    # Serializes the whole window as the root of the CSS document: a `w-window`
     # element wrapping every top-level widget's subtree.
     def to_html(io : IO) : Nil
-      io << "<w-screen>"
+      io << "<w-window>"
       children.each &.to_html(io)
-      io << "</w-screen>"
+      io << "</w-window>"
     end
 
     # :ditto:

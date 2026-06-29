@@ -11,7 +11,7 @@ module Crysterm
     #
     # ```
     # Widget::Table.new(
-    #   parent: screen,
+    #   parent: window,
     #   rows: [
     #     ["Name", "Email"],
     #     ["Alice", "alice@example.com"],
@@ -53,7 +53,7 @@ module Crysterm
       # content and scrolls by whole columns.
 
       # Cached x→column map used by `#draw_borders` to resolve a CSS per-cell
-      # style from a screen column. `col_for_x` depends only on `@maxes` and
+      # style from a window column. `col_for_x` depends only on `@maxes` and
       # `ileft` — both stable between data/resize changes — yet `draw_borders`
       # runs every frame, so rebuilding its `Hash` per frame is pure garbage.
       # Rebuilt only when `@maxes` (reassigned wholesale by `#calculate_maxes`)
@@ -138,7 +138,7 @@ module Crysterm
 
       def render(with_children = true)
         # Re-pin the size now that the CSS cascade has run (it runs at the top of
-        # the screen's `_render`, before any widget renders). `set_data` pins the
+        # the window's `_render`, before any widget renders). `set_data` pins the
         # width at construction/Attach time, but a border arriving via CSS isn't
         # folded into `style` yet then, so `iwidth` would omit the two border
         # columns and leave the box two columns too narrow — the internal
@@ -175,7 +175,7 @@ module Crysterm
       # from Blessed's `Table.prototype.render`, adapted to Crysterm's cell grid.
       # ameba:disable Metrics/CyclomaticComplexity
       private def draw_borders(coords)
-        lines = screen.lines
+        lines = window.lines
         xi, yi, width, height = border_extent coords
 
         dattr = sattr style

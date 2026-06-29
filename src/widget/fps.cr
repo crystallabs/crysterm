@@ -3,7 +3,7 @@ require "./box"
 module Crysterm
   class Widget
     # Debug overlay that displays live rendering-performance figures for its
-    # `Screen`: how fast the render and draw phases run, the resulting frame
+    # `Window`: how fast the render and draw phases run, the resulting frame
     # rate, and how many bytes the draw phase writes to the terminal.
     #
     # It is an ordinary widget — position, style, show/hide and reparent it like
@@ -12,10 +12,10 @@ module Crysterm
     # element is "disabled" simply by leaving it out of `args`. The defaults
     # print everything:
     #
-    #     Crysterm::Widget::Fps.new(parent: screen)            # everything, bottom-left
-    #     Crysterm::Widget::Fps.new(parent: screen,
+    #     Crysterm::Widget::Fps.new(parent: window)            # everything, bottom-left
+    #     Crysterm::Widget::Fps.new(parent: window,
     #       format: "%s fps", args: [:fps])                    # just the frame rate
-    #     Crysterm::Widget::Fps.new(parent: screen,
+    #     Crysterm::Widget::Fps.new(parent: window,
     #       format: "R %s  D %s  TX %s/s", args: [:render, :draw, :throughput_h])
     #
     # Available `args` (see `#value_for`):
@@ -70,11 +70,11 @@ module Crysterm
       # docs / `#value_for` for the recognized symbols.
       property args : Array(Symbol) = DEFAULT_ARGS
 
-      @render_avg : Screen::Average
-      @draw_avg : Screen::Average
-      @fps_avg : Screen::Average
-      @throughput_avg : Screen::Average
-      @throughput_actual_avg : Screen::Average
+      @render_avg : Window::Average
+      @draw_avg : Window::Average
+      @fps_avg : Window::Average
+      @throughput_avg : Window::Average
+      @throughput_actual_avg : Window::Average
 
       # Averages computed once per frame in `#render` (so referencing a metric
       # zero or many times in `#format` never skews the rolling window).
@@ -89,11 +89,11 @@ module Crysterm
         args.try { |a| @args = a }
 
         window = Config.render_fps_window
-        @render_avg = Screen::Average.new window
-        @draw_avg = Screen::Average.new window
-        @fps_avg = Screen::Average.new window
-        @throughput_avg = Screen::Average.new window
-        @throughput_actual_avg = Screen::Average.new window
+        @render_avg = Window::Average.new window
+        @draw_avg = Window::Average.new window
+        @fps_avg = Window::Average.new window
+        @throughput_avg = Window::Average.new window
+        @throughput_actual_avg = Window::Average.new window
 
         super(parent, **opts)
 
@@ -106,7 +106,7 @@ module Crysterm
       end
 
       def render(with_children = true)
-        if s = screen?
+        if s = window?
           # Update the rolling averages exactly once per frame, then build the
           # text before the standard box render paints it.
           @render_avg_val = @render_avg.avg s.render_rate
@@ -132,7 +132,7 @@ module Crysterm
       # Resolves a metric symbol to a printf-ready value (`Int64` for numbers,
       # `String` for the human-readable variants). Unknown symbols render as
       # `?name` rather than raising.
-      private def value_for(sym : Symbol, s : Screen) : Int64 | String
+      private def value_for(sym : Symbol, s : Window) : Int64 | String
         case sym
         when :render                  then s.render_rate.to_i64
         when :draw                    then s.draw_rate.to_i64

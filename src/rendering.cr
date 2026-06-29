@@ -6,7 +6,7 @@ module Crysterm
   # This is known to cause flickering with elements that are not full-width, but
   # it is more optimal for terminal rendering.
   #
-  # Fast CSR: Enable CSR on any element within 20 columns of the screen edges on either side.
+  # Fast CSR: Enable CSR on any element within 20 columns of the window edges on either side.
   # It is faster than smart_csr, but may cause flickering depending on what is on
   # each side of the element.
   #
@@ -16,7 +16,7 @@ module Crysterm
   # it's uncertain how much terminal performance this adds at the cost of code overhead.
   #
   # DamageTracking: Per-widget damage tracking — **on by default** (see
-  # `Config` `render.optimization`). With it off, `Screen#_render` clears the
+  # `Config` `render.optimization`). With it off, `Window#_render` clears the
   # whole cell buffer and re-composites every widget every frame. With it on, a
   # frame in which only a few top-level subtrees changed re-composites just those
   # (clearing their old footprint first) and leaves the rest of the buffer from
@@ -45,7 +45,7 @@ module Crysterm
 
   # Overflow behavior when rendering and drawing elements.
   enum Overflow
-    Ignore        # Render without changes (part goes out of screen and is not visible)
+    Ignore        # Render without changes (part goes out of window and is not visible)
     Hidden        # Clip children to this widget's rectangle (like CSS `overflow: hidden`), even when the widget is not scrollable
     ShrinkWidget  # Make the Widget smaller to fit
     SkipWidget    # Do not render that widget

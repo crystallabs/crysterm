@@ -126,7 +126,7 @@ module Crysterm
             tx = xi + ((tv - @minimum) * avail / value_span.to_f).round.to_i
             unless tx == hx
               rows.each do |ty|
-                screen.lines[ty]?.try do |line|
+                window.lines[ty]?.try do |line|
                   line[tx]?.try do |cell|
                     cell.char = @tick_char
                     cell.attr = attr
@@ -148,7 +148,7 @@ module Crysterm
           while tv <= @maximum
             ty = (yl - 1) - ((tv - @minimum) * avail / value_span.to_f).round.to_i
             unless ty == hy
-              screen.lines[ty]?.try do |line|
+              window.lines[ty]?.try do |line|
                 cols.each do |cx|
                   line[cx]?.try do |cell|
                     cell.char = @tick_char
@@ -166,13 +166,13 @@ module Crysterm
       def render
         with_inner_coords do |xi, xl, yi, yl|
           track_attr = sattr style
-          screen.fill_region track_attr, @track_char, xi, xl, yi, yl
+          window.fill_region track_attr, @track_char, xi, xl, yi, yl
 
           handle_attr = sattr style.indicator
           if @orientation.horizontal?
             hx = xi + handle_offset(xl - xi - 1)
             (yi...yl).each do |y|
-              screen.lines[y]?.try do |line|
+              window.lines[y]?.try do |line|
                 line[hx]?.try do |cell|
                   cell.char = @handle_char
                   cell.attr = handle_attr
@@ -182,7 +182,7 @@ module Crysterm
             end
           else
             hy = (yl - 1) - handle_offset(yl - yi - 1)
-            screen.lines[hy]?.try do |line|
+            window.lines[hy]?.try do |line|
               (xi...xl).each do |x|
                 line[x]?.try do |cell|
                   cell.char = @handle_char

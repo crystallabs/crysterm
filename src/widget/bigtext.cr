@@ -83,7 +83,7 @@ module Crysterm
         # nothing to draw, so bail out with the computed coords.
         return coords if @ratio.width <= 0 || @ratio.height <= 0
 
-        lines = screen.lines
+        lines = window.lines
         left = coords.xi + ileft
         top = coords.yi + itop
         right = coords.xl - iright

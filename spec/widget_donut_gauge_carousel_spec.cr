@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def hscreen(w = 40, h = 12)
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: w, height: h)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: w, height: h)
 end
 
 private def text_of(s) : String

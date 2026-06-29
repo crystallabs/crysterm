@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Routing of `Tput::InputEvent`s to Crysterm events (`Screen#dispatch_input`),
+# Routing of `Tput::InputEvent`s to Crysterm events (`Window#dispatch_input`),
 # exercised directly with constructed events — no TTY / input fiber needed.
 
 private def routing_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
 private def press(char : Char, key : Tput::Key? = nil)
@@ -18,7 +18,7 @@ private def release(number : Int32)
   Tput::InputEvent.new '\0', nil, ['\0'], key_event: ke
 end
 
-describe "Screen#dispatch_input" do
+describe "Window#dispatch_input" do
   it "routes a paste to Event::Paste with the verbatim content" do
     s = routing_screen
     got = [] of String

@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Regression coverage for the interaction of the artificial cursor with the BCE
-# (back-color-erase) clear-to-EOL optimization in `Screen#draw`
+# (back-color-erase) clear-to-EOL optimization in `Window#draw`
 # (`screen_drawing.cr`).
 #
 # With BCE enabled, a run of clearable blank cells reaching the end of the line
@@ -15,14 +15,14 @@ include Crysterm
 # broken out of BEFORE the cursor cell was emitted, leaving the cursor undrawn
 # for that frame. The cursor cell must be excluded from the clearable run.
 private def bce_cursor_screen(width = 10, height = 4)
-  s = Crysterm::Screen.new(
+  s = Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: width, height: height)
   s.optimization = Crysterm::OptimizationFlag::BCE
   s
 end
 
-describe "Screen#draw artificial cursor + BCE" do
+describe "Window#draw artificial cursor + BCE" do
   it "draws the artificial cursor even inside a clearable blank run" do
     s = bce_cursor_screen
     s.alloc

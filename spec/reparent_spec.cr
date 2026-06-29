@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def headless_screen(width = 80, height = 24)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: width, height: height)
 end

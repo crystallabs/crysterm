@@ -222,7 +222,7 @@ module Crysterm
       # or a `List:selected` rule / code). On the per-item CSS render path the
       # item box's own computed style is returned verbatim, so without this the
       # list-level selection colors — which live on the list's `styles.selected`,
-      # not the item's — would never reach the screen. A no-op (returns *style*
+      # not the item's — would never reach the window. A no-op (returns *style*
       # unchanged) unless a distinct selected style was actually set.
       private def selection_overlay(style : ::Crysterm::Style) : ::Crysterm::Style
         return style unless styles.own_selected?
@@ -334,7 +334,7 @@ module Crysterm
       # reserved only when it shows) — just the item's *initial* value; `#render`
       # re-syncs it every frame (see there). The horizontal bar reserves a bottom
       # *row* via `#hscrollbar_rows`, so nothing is taken off the right for it.
-      def create_item(content, screen = ::Crysterm::Screen.global, align : ::Tput::AlignFlag | Shorthands = @align, top = 0, left = 0, right = content_margin_x, parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
+      def create_item(content, window = ::Crysterm::Window.global, align : ::Tput::AlignFlag | Shorthands = @align, top = 0, left = 0, right = content_margin_x, parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
 
         if @resizable || normal_resizable
           right = nil
@@ -360,7 +360,7 @@ module Crysterm
         item_style = item_style.dup if item_style.same?(style)
         item_style.visible = true
 
-        item = Widget::Box.new(content: content, screen: screen, align: align, top: top, left: left, right: right, parse_tags: parse_tags, height: 1, focus_on_click: focus_on_click, width: width, style: item_style)
+        item = Widget::Box.new(content: content, window: window, align: align, top: top, left: left, right: right, parse_tags: parse_tags, height: 1, focus_on_click: focus_on_click, width: width, style: item_style)
         # XXX above: alpha
 
         if mouse?
@@ -379,7 +379,7 @@ module Crysterm
             end
           end
 
-          # Wheel moves the selection (and `#accept`s the event so the screen's
+          # Wheel moves the selection (and `#accept`s the event so the window's
           # default "scroll the view" behavior doesn't also fire).
           item.on(::Crysterm::Event::Mouse) do |e|
             if e.action.wheel_up?
@@ -559,10 +559,10 @@ module Crysterm
         @value = clean_tags @ritems[@selected]
 
         # Gate the scroll + `SelectItem` emit on having been laid out, not on
-        # having a `#parent`. A top-level widget appended straight to a `Screen`
-        # has no `#parent` (a `Screen` is not a `Widget`; `Screen#insert` sets
-        # `screen=`, not `parent=`), so the old `unless @parent` guard silently
-        # skipped `scroll_to`/`SelectItem` for every screen-level list — the
+        # having a `#parent`. A top-level widget appended straight to a `Window`
+        # has no `#parent` (a `Window` is not a `Widget`; `Window#insert` sets
+        # `window=`, not `parent=`), so the old `unless @parent` guard silently
+        # skipped `scroll_to`/`SelectItem` for every window-level list — the
         # list would never scroll to keep the selection visible, nor notify
         # listeners. `@lpos` is nil only until the first render (when scrolling
         # can't be computed anyway), and set thereafter for parented and
@@ -781,7 +781,7 @@ module Crysterm
       # key handler.
       property? search = true
 
-      # Lazily-created one-line input shown at the bottom of the screen during a
+      # Lazily-created one-line input shown at the bottom of the window during a
       # search (see `#start_search`).
       @search_box : Widget::LineEdit? = nil
 
@@ -806,11 +806,11 @@ module Crysterm
       private def ensure_search_box : Widget::LineEdit
         @search_box ||= begin
           box = Widget::LineEdit.new(
-            screen: screen,
+            window: window,
             bottom: 0, left: 0, right: 0, height: 1,
           )
           box.add_css_class "search" # themed via `.search { ... }`
-          screen.append box
+          window.append box
           box.hide
           box
         end

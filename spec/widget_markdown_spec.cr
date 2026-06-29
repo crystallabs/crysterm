@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def md_screen(w = 50, h = 16)
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: w, height: h)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: w, height: h)
 end
 
 private def text_of(s) : String
@@ -71,7 +71,7 @@ describe Crysterm::Widget::Markdown do
 end
 
 private def md_render(doc, w = 46, h = 18)
-  s = Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: w, height: h)
+  s = Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new, width: w, height: h)
   saved = Crysterm::CSS.default_stylesheet
   Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
   Crysterm::Widget::Markdown.new parent: s, top: 0, left: 0, width: w, height: h, markdown: doc

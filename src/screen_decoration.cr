@@ -1,5 +1,5 @@
 module Crysterm
-  class Screen
+  class Window
     # For compatibility with widgets. But, as a side-effect, screens can have padding!
     # If you define widget at position (0,0), that will be counted after padding.
     # (We leave this at nil for no padding. If we used Padding.new that'd create a

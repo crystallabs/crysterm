@@ -17,7 +17,7 @@ module Crysterm
     # `#start` to spawn the render fiber and `#stop` to halt it.
     #
     # ```
-    # ticker = Widget::Marquee.new parent: screen, top: 0, left: 0,
+    # ticker = Widget::Marquee.new parent: window, top: 0, left: 0,
     #   width: "100%", height: 1, text: "BREAKING NEWS   ...   "
     # ticker.start
     # ```
@@ -25,7 +25,7 @@ module Crysterm
     # With `rainbow: true` each glyph carries its own hue, cycling across the
     # columns and over time — the classic demoscene color scroller.
     #
-    # The glyphs are painted straight into the screen cells in `#render`, each
+    # The glyphs are painted straight into the window cells in `#render`, each
     # cell's color set as a native `0xRRGGBB` attribute via `sattr`, rather than
     # by building a `{#rrggbb-fg}`-tagged content string that the content pipeline
     # re-tokenizes (`_parse_tags`) every frame. (Mirrors `Effect::SineScroller`
@@ -109,7 +109,7 @@ module Crysterm
 
           # Background fill: the box's own colors (the field the glyphs ride over,
           # and the inter-glyph gaps/spaces).
-          screen.fill_region(sattr(style), ' ', xi, xl, yi, yl)
+          window.fill_region(sattr(style), ' ', xi, xl, yi, yl)
 
           n = text.size
           next if n == 0
@@ -132,7 +132,7 @@ module Crysterm
             ch = @chars[idx]
             next if ch == ' '
             attr = rainbow? ? Attr.pack(flags, Attr.pack_color(Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360)), bg_packed) : base
-            screen.fill_region(attr, ch, xi + x, xi + x + 1, yi, yi + 1)
+            window.fill_region(attr, ch, xi + x, xi + x + 1, yi, yi + 1)
           end
         end
       end

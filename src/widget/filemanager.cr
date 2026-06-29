@@ -12,7 +12,7 @@ module Crysterm
     # (re)listing emits `Event::Refresh`.
     #
     # ```
-    # fm = Widget::FileManager.new parent: screen, keys: true, cwd: Dir.current
+    # fm = Widget::FileManager.new parent: window, keys: true, cwd: Dir.current
     # fm.refresh
     # fm.on(Crysterm::Event::OpenFile) { |e| puts e.path }
     # fm.focus
@@ -149,7 +149,7 @@ module Crysterm
           @ev_file = nil
           @ev_cancel = nil
           hide if was_hidden
-          screen.restore_focus unless was_focused
+          window.restore_focus unless was_focused
           request_render
         }
 
@@ -166,7 +166,7 @@ module Crysterm
         refresh cwd
         show if was_hidden
         unless was_focused
-          screen.save_focus
+          window.save_focus
           focus
         end
         request_render

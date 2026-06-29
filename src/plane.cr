@@ -1,5 +1,5 @@
 module Crysterm
-  # An independent, screen-sized cell buffer with a z-order — the unit a widget
+  # An independent, window-sized cell buffer with a z-order — the unit a widget
   # (and its subtree) renders into once it is promoted to a *layer* (via CSS
   # `z-index`, or `style.z_index`). After the base buffer is painted by the
   # normal painter's algorithm, each plane is composited over it bottom-to-top,
@@ -13,7 +13,7 @@ module Crysterm
     # A cleared cell carries both channels' alpha as `Transparent` and a space,
     # so an untouched cell contributes nothing (the base shows through). A
     # widget's normal render overwrites the cells it actually paints (`Opaque`).
-    CLEAR_ATTR = Attr.with_alpha(Screen::DEFAULT_ATTR, Attr::Alpha::Transparent, Attr::Alpha::Transparent)
+    CLEAR_ATTR = Attr.with_alpha(Window::DEFAULT_ATTR, Attr::Alpha::Transparent, Attr::Alpha::Transparent)
 
     getter z : Int32
 
@@ -21,11 +21,11 @@ module Crysterm
     # from the layer root's `opacity`. At `1.0` the per-cell modes alone decide.
     property opacity : Float64 = 1.0
 
-    # The plane's own cell buffer (kept the same size as the screen).
-    getter cells : Array(Screen::Row)
+    # The plane's own cell buffer (kept the same size as the window).
+    getter cells : Array(Window::Row)
 
     def initialize(@z : Int32, width : Int32, height : Int32)
-      @cells = Array(Screen::Row).new
+      @cells = Array(Window::Row).new
       resize width, height
     end
 
@@ -37,11 +37,11 @@ module Crysterm
       @cells.size
     end
 
-    # (Re)builds the buffer to *width*×*height* when the screen size changes.
+    # (Re)builds the buffer to *width*×*height* when the window size changes.
     def resize(width : Int32, height : Int32) : Nil
       return if width == self.width && height == self.height
-      @cells = Array(Screen::Row).new(height) do
-        row = Screen::Row.new width
+      @cells = Array(Window::Row).new(height) do
+        row = Window::Row.new width
         width.times { row.push CLEAR_ATTR, ' ' }
         row
       end
@@ -66,7 +66,7 @@ module Crysterm
     # uses this to re-fold the plane over only the region of the base it just
     # rebuilt — re-folding over a carried-over (already-folded) base would
     # saturate, so the caller rebuilds the base in this exact rectangle first.
-    def composite_onto(base : Array(Screen::Row), xi : Int32 = 0, xl : Int32 = Int32::MAX, yi : Int32 = 0, yl : Int32 = Int32::MAX) : Nil
+    def composite_onto(base : Array(Window::Row), xi : Int32 = 0, xl : Int32 = Int32::MAX, yi : Int32 = 0, yl : Int32 = Int32::MAX) : Nil
       op = @opacity
       # The plane's opacity is constant for the whole composite, so decide once
       # — not per cell — whether a painted cell is taken straight from the fold
@@ -82,7 +82,7 @@ module Crysterm
         # transparent sentinel — `#clear` marked it `dirty = false`, and the
         # render path sets `dirty = true` on any row it writes — so it composites
         # to nothing and the whole row scan can be skipped. The base buffer is
-        # rebuilt every frame (`Screen#_render` clears it), so there is never a
+        # rebuilt every frame (`Window#_render` clears it), so there is never a
         # stale overlay left behind on a now-transparent row. For a small overlay
         # on a large terminal this collapses the full O(width×height) scan to just
         # the rows the layer actually touched.

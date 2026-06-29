@@ -79,9 +79,9 @@ module Crysterm
     end
   end
 
-  # The state of one in-flight drag gesture. Owned by the `Screen` (at most one
+  # The state of one in-flight drag gesture. Owned by the `Window` (at most one
   # at a time — a drag is modal) and shared by both sensors. Coordinates are
-  # absolute (screen) cell positions.
+  # absolute (window) cell positions.
   class DragSession
     getter source : Widget
     getter data : DragData

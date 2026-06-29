@@ -4,10 +4,10 @@ module Crysterm
       # Shared text-overlay helpers for the Canvas-backed graph widgets
       # (`LineChart`, `Donut`, `Map`). These graphs draw their plot/pixels on a
       # `Graph::Canvas` child, then stamp crisp terminal text — titles, axis
-      # labels, markers, readouts — directly onto `screen.lines` on top. This
+      # labels, markers, readouts — directly onto `window.lines` on top. This
       # module centralizes that stamping plus a small per-color attr memoizer.
       #
-      # Including types are `Widget` subclasses, so `screen`, `style` and `sattr`
+      # Including types are `Widget` subclasses, so `window`, `style` and `sattr`
       # are available.
       module TextOverlay
         # Memoized cell attrs, keyed on *both* the requested color and the
@@ -27,7 +27,7 @@ module Crysterm
         # region.
         private def put_text(x : Int32, y : Int32, text : String, attr : Int64,
                              lo : Int32, hi : Int32) : Nil
-          line = screen.lines[y]?
+          line = window.lines[y]?
           return unless line
           text.each_char_with_index do |ch, i|
             cx = x + i
@@ -45,7 +45,7 @@ module Crysterm
         private def put_cell(x : Int32, y : Int32, ch : Char, attr : Int64,
                              lo : Int32, hi : Int32) : Nil
           return if x < lo || x >= hi
-          line = screen.lines[y]?
+          line = window.lines[y]?
           return unless line
           if cell = line[x]?
             cell.char = ch

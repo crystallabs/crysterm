@@ -14,7 +14,7 @@ include Crysterm
 # visible character instead of in the reserved column after it).
 describe "Mixin::TextEditing caret in the reserved end column" do
   it "places an end-of-line caret in the reserved column when the line overflows" do
-    s = Crysterm::Screen.new(
+    s = Crysterm::Window.new(
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
       width: 30, height: 10)
 
@@ -40,7 +40,7 @@ describe "Mixin::TextEditing caret in the reserved end column" do
   end
 
   it "leaves an end-of-line caret put when the whole line fits" do
-    s = Crysterm::Screen.new(
+    s = Crysterm::Window.new(
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
       width: 30, height: 10)
 

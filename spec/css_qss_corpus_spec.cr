@@ -46,7 +46,7 @@ describe "Qt `.qss` corpus (data/css)" do
       end
 
       it "drives a real render of a representative widget tree without raising" do
-        screen = Crysterm::Screen.new(
+        screen = Crysterm::Window.new(
           input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
           width: 80, height: 24)
         screen.auto_reload_stylesheet = false

@@ -1,6 +1,6 @@
 module Crysterm
   class Widget
-    # Shows widget on screen
+    # Shows widget on window
     def show
       return if self.state_style.visible?
       set_visible true
@@ -8,17 +8,17 @@ module Crysterm
       emit Crysterm::Event::Show
     end
 
-    # Hides widget from screen
+    # Hides widget from window
     def hide
       return if !self.state_style.visible?
-      # No need to erase the old footprint here: `Screen#_render` clears the
+      # No need to erase the old footprint here: `Window#_render` clears the
       # whole cell buffer before each frame, so a now-hidden widget simply
       # stops repainting and its old cells are gone on the next render.
       set_visible false
       mark_dirty
       emit Crysterm::Event::Hide
 
-      screen?.try do |s|
+      window?.try do |s|
         # Rewind focus out of this subtree when it (or any descendant) holds
         # focus: hiding a container must not leave an invisible-yet-focused
         # child still receiving keyboard input.

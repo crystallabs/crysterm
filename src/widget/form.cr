@@ -38,7 +38,7 @@ module Crysterm
       property? auto_next : Bool = false
 
       # The currently selected (focused) child, as tracked by the navigation
-      # methods. May differ from `Screen#focused` if focus was changed directly.
+      # methods. May differ from `Window#focused` if focus was changed directly.
       property selected : Widget?
 
       # Result of the most recent `#submit`, i.e. the collected `name => value`
@@ -53,7 +53,7 @@ module Crysterm
         super **box
 
         # A form does not consume keys itself; it only reacts to keys that
-        # bubble up from its focused descendants (see `Screen#_listen_keys`).
+        # bubble up from its focused descendants (see `Window#_listen_keys`).
         @ignore_keys = true
 
         auto_next.try { |v| @auto_next = v }

@@ -2,24 +2,24 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Screen#widget_at` resolves the topmost widget under the pointer. It must
+# `Window#widget_at` resolves the topmost widget under the pointer. It must
 # follow the actual PAINT order, which `z-index` overrides on top of tree order:
 # a widget that declares `style.z_index` is deferred to a compositing `Plane`
-# and painted ABOVE the whole base layer (see `Screen#composite_planes`),
+# and painted ABOVE the whole base layer (see `Window#composite_planes`),
 # regardless of where it sits in the tree.
 #
 # Before the fix, `widget_at` returned the last *tree-order* match, ignoring
 # z-index. So a non-z-indexed widget added AFTER (and overlapping) a z-indexed
 # one would steal the click even though the z-indexed widget is visually on top.
 private def waz_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,
     width: 40, height: 20)
 end
 
-describe "Screen#widget_at (z-index)" do
+describe "Window#widget_at (z-index)" do
   it "hits the z-indexed widget painted on top, not the later tree-order one" do
     s = waz_screen
 

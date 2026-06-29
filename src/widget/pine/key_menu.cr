@@ -2,7 +2,7 @@ module Crysterm
   class Widget
     module Pine
       # The two-row command-key menu shown at the bottom of every Pine/Alpine
-      # screen.
+      # window.
       #
       # Each entry is a `key` (the keyboard character the user presses) plus a
       # short `label` describing what it does. Entries are laid out in a grid of
@@ -11,13 +11,13 @@ module Crysterm
       # below it, the third to the top of the next column, and so on.
       #
       # The widget is purely presentational — it draws the hints. Wire the actual
-      # keys up with a `Screen`/`Widget` `Event::KeyPress` handler (the `key`
+      # keys up with a `Window`/`Widget` `Event::KeyPress` handler (the `key`
       # values here are meant to mirror those bindings). Each entry may carry an
       # optional `callback`, which `#trigger` can invoke if you want the menu to
       # double as a dispatch table.
       #
       # ```
-      # menu = Widget::Pine::KeyMenu.new parent: screen, bottom: 0, entries: [
+      # menu = Widget::Pine::KeyMenu.new parent: window, bottom: 0, entries: [
       #   Widget::Pine::KeyMenu::Entry.new("?", "Help"),
       #   Widget::Pine::KeyMenu::Entry.new("O", "OTHER CMDS"),
       #   Widget::Pine::KeyMenu::Entry.new("C", "Compose"),
@@ -134,7 +134,7 @@ module Crysterm
             next if col >= @columns
 
             box = Widget::Box.new(
-              screen: screen,
+              window: window,
               parse_tags: true,
               top: row,
               height: 1,

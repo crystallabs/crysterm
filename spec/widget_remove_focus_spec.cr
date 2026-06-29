@@ -8,10 +8,10 @@ include Crysterm
 # and keeps receiving key events. The focus condition must be sampled *before*
 # the unlink, so a focused descendant is still recognisable as belonging to the
 # removed subtree (`Widget::Box.new(parent: panel, ...)` exercises `Widget#remove`,
-# not the separate `Screen#remove`).
+# not the separate `Window#remove`).
 
 private def remove_focus_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)

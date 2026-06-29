@@ -1,5 +1,5 @@
 module Crysterm
-  class Screen
+  class Window
     # Things related to drawing (displaying rendered state on screen)
     #
     # In general terms, "rendering" refers to refreshing an (Y,X) array of cells in memory
@@ -60,54 +60,9 @@ module Crysterm
     # allocates a `Bytes` per call), but their inline emission is now gated on
     # `ansi_cursor` — tput's verification that those forms are byte-for-byte
     # standard on this terminal — so a non-conforming terminal falls back to the
-    # safe tput path instead of getting wrong bytes. Derived once per `@tput` via
-    # `#compute_draw_caps` (in `Screen#initialize` and on reconnect).
-    record DrawCaps,
-      has_bce : Bool,
-      parm_right_cursor : Bool,
-      alt_charset : Bool,
-      broken_acs : Bool,
-      term_unicode : Bool,
-      u8 : Int32?,
-      ncolors : Int32,
-      acscr : Hash(Char, Char),
-      smacs : Bytes,
-      rmacs : Bytes,
-      el : Bytes,
-      # Whether tput verified the terminal's `cup`/`cuf`/… are byte-for-byte
-      # standard ANSI (`Tput::Features#ansi_cursor?`). When true, the hot-path
-      # cursor moves below are emitted as direct inline ANSI; when false they
-      # route through tput (via `divert`) so a non-conforming terminal still gets
-      # correct sequences. Constant for the terminal, so it is read once here.
-      ansi_cursor : Bool
-
-    # The per-terminal draw capabilities (`DrawCaps`). Assigned `= compute_draw_caps`
-    # wherever `@tput` is created — in `Screen#initialize` and on reconnect — so
-    # it is always present and never derived per frame. (The reconnect reuses the
-    # same terminfo, so the values are in fact identical across it, but it is
-    # re-derived there anyway so it stays correct even if that ever changes.)
-    @draw_caps : DrawCaps
-
-    # Derives the draw capabilities from the current terminal. The shim is always
-    # present (terminfo always resolves, with a fallback term), so `not_nil!`
-    # cannot fail.
-    private def compute_draw_caps : DrawCaps
-      s = tput.shim.not_nil! # ameba:disable Lint/NotNil
-      DrawCaps.new(
-        has_bce: !!(tput.has? &.back_color_erase?),
-        parm_right_cursor: !s.parm_right_cursor?.nil?,
-        alt_charset: !s.enter_alt_charset_mode?.nil?,
-        broken_acs: tput.features.broken_acs?,
-        term_unicode: tput.features.unicode?,
-        u8: tput.terminfo.try(&.extensions.get_num?("U8")),
-        ncolors: colors,
-        acscr: tput.features.acscr,
-        smacs: (s.smacs? || Bytes.empty).dup,
-        rmacs: (s.rmacs? || Bytes.empty).dup,
-        el: (s.el? || Bytes.empty).dup,
-        ansi_cursor: tput.features.ansi_cursor?,
-      )
-    end
+    # safe tput path instead of getting wrong bytes. The `DrawCaps` record and
+    # its derivation (`#compute_draw_caps`) now live on the device `Window`; the
+    # window reads them through the delegated `#draw_caps`.
 
     # Number of bytes the previous `draw` actually wrote to the terminal (the
     # `@pre`+`@main`+`@post` payload). Read by `_render` to compute the
@@ -174,7 +129,7 @@ module Crysterm
       # frame buffer below. The parameterized hot-path moves (`cup`/`cuf`/SGR) are
       # emitted as direct ANSI at their call sites (see the notes there). Only
       # `bce_opt` and `fu` — which can change at runtime — stay per-frame.
-      caps = @draw_caps
+      caps = draw_caps
       has_bce = caps.has_bce
       parm_right_cursor = caps.parm_right_cursor
       alt_charset = caps.alt_charset
@@ -205,7 +160,7 @@ module Crysterm
       ::Log.trace { "Drawing #{start}..#{stop}" }
 
       # The cursor that is actually drawn: the focused widget's own cursor if it
-      # has one, else the screen default (see `Screen#active_cursor`).
+      # has one, else the screen default (see `Window#active_cursor`).
       c = active_cursor
       # The artificial-cursor predicate and its target position are constant for
       # the whole draw (the diff never moves `tput.cursor`), but were evaluated
@@ -396,7 +351,7 @@ module Crysterm
                 break
               end
 
-              # `line[xx] != o[xx]`: does this cell differ from what's on screen?
+              # `line[xx] != o[xx]`: does this cell differ from what's on window?
               changed = lc_attr != o_attrs.unsafe_fetch(xx) || lc_char != o_chars.unsafe_fetch(xx)
               # With no overlay on either side both probes are nil, so the
               # comparison is nil != nil (false) — skip it.
@@ -768,7 +723,7 @@ module Crysterm
         # Hide the *hardware* cursor for the duration of this multi-write frame so
         # the real terminal cursor doesn't streak across the screen as the cell
         # runs (each prefixed by a `cup`) are emitted, then restore it afterward.
-        # This MUST go straight to `tput` (not `Screen#hide_cursor`/`#show_cursor`):
+        # This MUST go straight to `tput` (not `Window#hide_cursor`/`#show_cursor`):
         # those dispatch on the *active* cursor and, when it is artificial, take
         # the artificial branch — which writes no escape (so the hardware cursor is
         # left visible and streaks anyway) and calls `render_if_active`, scheduling

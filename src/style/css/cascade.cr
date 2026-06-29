@@ -7,7 +7,7 @@ module Crysterm
     #
     # The flow, per `#apply`:
     #
-    # 1. Render the tree to the CSS document (`Screen#to_html`) and parse it.
+    # 1. Render the tree to the CSS document (`Window#to_html`) and parse it.
     # 2. Index every node's `data-uid` back to its `Widget` (and sub-style slot).
     # 3. Match every rule with the `html5` selector engine exactly once (the
     #    document is state-independent), accumulating the matched declarations
@@ -48,34 +48,34 @@ module Crysterm
       alias Entry = Tuple(Int32, Int32, Tuple(Int32, Int32, Int32), Int32, Hash(String, String))
 
       # Resolves the author *stylesheet* (plus the default stylesheet beneath it)
-      # against the tree rooted at *screen*. *document* is the prebuilt CSS
-      # document (`screen.to_html`); pass it to avoid rebuilding when the caller
+      # against the tree rooted at *window*. *document* is the prebuilt CSS
+      # document (`window.to_html`); pass it to avoid rebuilding when the caller
       # already has it.
-      def self.apply(stylesheet : Stylesheet, screen : Screen, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
-        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], screen, doc, scope)
+      def self.apply(stylesheet : Stylesheet, window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
+        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], window, doc, scope)
       end
 
       # Resolves a list of `{stylesheet, base_tier}` sources, lowest tier first,
-      # against *screen*, matching against the pre-parsed *doc* (the screen owns
+      # against *window*, matching against the pre-parsed *doc* (the window owns
       # parsing and caches it). Higher tiers win regardless of specificity. When
       # *scope* is given, only widgets in that set have their styles recomputed
       # (incremental update); selector matching is still over the whole document
       # so ancestor/sibling context is correct.
       #
-      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), screen : Screen, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
+      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
-        index = index_tree(screen)
+        index = index_tree(window)
 
         # Match each distinct structural selector at most once per cascade (the
         # same selector can recur across tiers, states and `@media` blocks).
         selector_cache = Hash(String, Array(HTML5::Node)).new
 
         # Terminal metrics for `@media` evaluation.
-        media_width = screen.width
-        media_height = screen.height
+        media_width = window.width
+        media_height = window.height
         media_colors = begin
-          screen.colors.to_i32
+          window.colors.to_i32
         rescue
           0x1000000
         end
@@ -282,7 +282,7 @@ module Crysterm
           end
         end
 
-        inherit screen
+        inherit window
       end
 
       EMPTY_ENTRIES = [] of Entry
@@ -516,8 +516,8 @@ module Crysterm
       # Yields each widget eligible to be reset/recomputed: every (main) widget
       # in the document index (`slot.nil?`), intersected with *scope* when
       # scoped. Filtering against the index guarantees the cascade only ever
-      # touches *this* screen's widgets — a `scope` could otherwise include a
-      # widget that has since moved to another screen (a stale dirty-subtree
+      # touches *this* window's widgets — a `scope` could otherwise include a
+      # widget that has since moved to another window (a stale dirty-subtree
       # root). Each main widget appears exactly once in the index, so iterating
       # it directly needs no intermediate `Set` (one fewer N-element allocation
       # per cascade).
@@ -531,9 +531,9 @@ module Crysterm
 
       # Walks the widget tree, mapping each `data-uid` key (and each sub-element
       # `uid::slot` key) back to its `{widget, slot}`.
-      private def self.index_tree(screen : Screen) : Hash(String, Tuple(Widget, String?))
+      private def self.index_tree(window : Window) : Hash(String, Tuple(Widget, String?))
         index = {} of String => Tuple(Widget, String?)
-        screen.children.each { |child| index_widget child, index }
+        window.children.each { |child| index_widget child, index }
         index
       end
 
@@ -556,14 +556,14 @@ module Crysterm
       # re-propagates to grandchildren.
       #
       # Visibility is deliberately *not* inherited: a hidden parent already keeps
-      # its children off-screen (its own `_render` returns before drawing them),
+      # its children off-window (its own `_render` returns before drawing them),
       # so propagating `visible: false` onto each child is redundant — and, worse,
       # it goes stale. When the parent is re-shown (e.g. a `TabWidget` page),
       # nothing re-cascades the child, so a child left holding an inherited
       # `false` would never render again. Each widget therefore owns its
       # visibility outright.
-      private def self.inherit(screen : Screen) : Nil
-        screen.children.each { |child| inherit_into child, nil }
+      private def self.inherit(window : Window) : Nil
+        window.children.each { |child| inherit_into child, nil }
       end
 
       private def self.inherit_into(widget : Widget, parent : Style?) : Nil

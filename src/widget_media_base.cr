@@ -190,7 +190,7 @@ module Crysterm
 
       # Whether this backend's pixels are *visible to the terminal* and so must be
       # composited into a capture (`Crysterm::Capture`). False here: the
-      # `Cells` family already lives in the screen's cell buffer (captured for
+      # `Cells` family already lives in the window's cell buffer (captured for
       # free), while `External`/`Tek` are painted by an external program or a
       # separate window the terminal can't see. The in-band terminal-graphics
       # family (`Media::Graphics`: sixel/kitty/iterm/regis) overrides this to true.

@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def popup_mem_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,
@@ -14,7 +14,7 @@ end
 
 # `Mixin::Popup#teardown_popup_on_destroy` must release the screen's modal grab
 # when a pop-up-owning widget is destroyed while still open. Otherwise the dead
-# widget lingers in `Screen#@grabs`, keeping `#grabbing?` true forever and
+# widget lingers in `Window#@grabs`, keeping `#grabbing?` true forever and
 # routing every later mouse press through `grab_contains?` on a destroyed widget.
 describe Crysterm::Mixin::Popup do
   it "releases the modal grab when destroyed while open" do

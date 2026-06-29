@@ -1,6 +1,6 @@
 module Crysterm
   module DOM
-    # Subscribes every `on*` action binding declared in a screen's widget tree
+    # Subscribes every `on*` action binding declared in a window's widget tree
     # (e.g. `onclick="save"`, `onsubmit="send"`) and invokes `handler` when the
     # corresponding event fires. Shared by the standalone declarative path and
     # the HTTP bridge so the event-name -> `Event` class mapping lives in one
@@ -13,9 +13,9 @@ module Crysterm
     # `(widget, event)` pair is wired at most once. The HTTP bridge re-runs this
     # on every `append`/`remove`, so without it every existing binding would
     # gain another listener each time and fire 2x, 3x, ... per event.
-    def self.each_binding(screen : Screen, seen : Set(String)? = nil,
+    def self.each_binding(window : Window, seen : Set(String)? = nil,
                           &handler : Widget, String, String, String? ->) : Nil
-      screen.children.each do |top|
+      window.children.each do |top|
         top.self_and_each_descendant do |widget|
           widget.dom_events.each do |event_name, action|
             if seen
@@ -50,7 +50,7 @@ module Crysterm
         # widget never emits `Press`: binding it there would never fire, and —
         # since `Widget#wants_mouse?` does not count `Press` handlers — the widget
         # wouldn't even be hit-tested, so its `onclick` was silently dead. Bind
-        # those to `Event::Click`, which the screen emits on a mouse press over any
+        # those to `Event::Click`, which the window emits on a mouse press over any
         # hit-tested widget; registering the `Click` handler also makes the widget
         # mouse-responsive (`#wants_mouse?`), so the click can reach it.
         if widget.is_a?(::Crysterm::Widget::AbstractButton)
@@ -94,17 +94,17 @@ module Crysterm
 
       # Executes a declarative verb. Returns true if it was handled. `on_quit`,
       # when given, is invoked for `quit` (so a host can unwind cleanly) instead
-      # of destroying the screen directly.
-      def self.run(action : String, source : Widget, screen : Screen, on_quit : Proc(Nil)? = nil) : Bool
+      # of destroying the window directly.
+      def self.run(action : String, source : Widget, window : Window, on_quit : Proc(Nil)? = nil) : Bool
         verb, _, rest = action.partition(':')
         case verb
         when "quit"
-          on_quit ? on_quit.call : screen.destroy
+          on_quit ? on_quit.call : window.destroy
         when "focus"
-          targets(rest, source, screen).each &.focus
+          targets(rest, source, window).each &.focus
         when "add-class", "remove-class", "toggle-class"
           sel, _, klass = rest.partition(':')
-          targets(sel, source, screen).each do |w|
+          targets(sel, source, window).each do |w|
             case verb
             when "add-class"    then w.add_css_class klass
             when "remove-class" then w.remove_css_class klass
@@ -113,24 +113,24 @@ module Crysterm
           end
         when "set-content"
           sel, _, text = rest.partition(':')
-          targets(sel, source, screen).each &.set_content(text)
+          targets(sel, source, window).each &.set_content(text)
         else
           return false
         end
-        screen.render
+        window.render
         true
       end
 
-      private def self.targets(selector : String, source : Widget, screen : Screen) : Array(Widget)
+      private def self.targets(selector : String, source : Widget, window : Window) : Array(Widget)
         case selector
         when "", "@self" then [source]
-        else                  screen.resolve_selector selector
+        else                  window.resolve_selector selector
         end
       end
     end
   end
 
-  class Screen
+  class Window
     # Wires declarative `on*` actions in the loaded tree so simple apps need no
     # handler process. Named (non-declarative) actions are ignored here — the
     # HTTP bridge handles those. `on_quit` lets a host unwind cleanly on `quit`.

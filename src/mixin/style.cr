@@ -24,7 +24,7 @@ module Crysterm
         # state's pixels in the buffer (a stale highlight). Guarded above on an
         # actual change, so a list re-asserting the same state every frame is free.
         mark_dirty
-        screen?.try do |scr|
+        window?.try do |scr|
           if scr.css_dynamic_state?
             scr.restyle_subtree self # ancestor-state rules exist: recascade
           else
@@ -127,7 +127,7 @@ module Crysterm
           # ~10x per widget per frame through the geometry/damage paths, and running
           # `ensure_floor_border` (virtual dispatch + per-state lookups) on every
           # one was the hottest render leaf — pure waste for an inline-styled widget
-          # (e.g. each of a full-screen scene's cells). When `@style` is nil we fall
+          # (e.g. each of a full-window scene's cells). When `@style` is nil we fall
           # through to the per-state style below, where the floor border IS observed,
           # so it is still synced exactly as before.
           if style = @style

@@ -3,13 +3,13 @@ require "./spec_helper"
 include Crysterm
 
 # Per-widget cursor: a `Widget` may carry its own `Cursor`, and the cursor that
-# is actually used/drawn is resolved by `Screen#active_cursor` — the focused
-# widget's cursor if it has one, otherwise the screen's default `Screen#cursor`.
+# is actually used/drawn is resolved by `Window#active_cursor` — the focused
+# widget's cursor if it has one, otherwise the screen's default `Window#cursor`.
 
-# A `Screen` backed by in-memory IOs, so constructing one neither writes escape
+# A `Window` backed by in-memory IOs, so constructing one neither writes escape
 # sequences to the real test terminal nor reads from it (see `cursor_spec.cr`).
 def cursor_mem_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)

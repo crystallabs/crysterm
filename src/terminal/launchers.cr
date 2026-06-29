@@ -1,17 +1,17 @@
 module Crysterm
   # Support code for opening real terminal *windows/panes/sessions* and driving
-  # them with a Crysterm `Screen`. A "launcher" is a registered recipe for one
+  # them with a Crysterm `Window`. A "launcher" is a registered recipe for one
   # backend program — how to instruct it to run a given command in a new window.
   #
   # Backends are NOT only GUI emulators (xterm, kitty, alacritty, …). They also
-  # include multiplexers and special terminals (tmux, screen, yakuake, …), each
+  # include multiplexers and special terminals (tmux, window, yakuake, …), each
   # of which is told to open a new window/pane/session differently. Every known
   # backend has a registered recipe; an unknown name falls back to the common
   # `<name> -e <command>` convention (the xterm style).
   #
   # The handshake env var (`CRYSTERM_WINDOW_HELPER`) is *inlined into the command*
   # (via `env VAR=… <exe>`) rather than passed through the process environment.
-  # This is essential for multiplexers: a running tmux/screen server does not
+  # This is essential for multiplexers: a running tmux/window server does not
   # inherit our process's environment, so only an inlined value reaches the
   # helper. It works identically for GUI emulators.
   module Terminal
@@ -102,9 +102,9 @@ module Crysterm
         argv += ["-n", t] if t
         argv + inner
       end),
-      # screen: a new window in the current session (best run from inside screen).
-      Launcher.new("screen", ->(inner : Array(String), _c : Int32, _r : Int32, t : String?) do
-        argv = ["screen"]
+      # window: a new window in the current session (best run from inside window).
+      Launcher.new("window", ->(inner : Array(String), _c : Int32, _r : Int32, t : String?) do
+        argv = ["window"]
         argv += ["-t", t] if t
         argv + inner
       end),

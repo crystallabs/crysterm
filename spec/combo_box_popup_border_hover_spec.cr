@@ -15,7 +15,7 @@ include Crysterm
 #      pointer, like the `Completer` popup and a desktop combo box.
 
 private def cbph_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

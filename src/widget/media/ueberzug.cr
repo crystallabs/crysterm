@@ -22,7 +22,7 @@ module Crysterm
     # display; with neither present the widget is inert (it draws nothing).
     #
     # ```
-    # img = Widget::Media::Ueberzug.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Media::Ueberzug.new file: "pic.png", width: 40, height: 12, parent: window
     # ```
     class Media::Ueberzug < Media::External
       include Media::RenderHook
@@ -52,7 +52,7 @@ module Crysterm
 
         @file.try { |f| load f }
 
-        register_render_hook(screen) { redraw_image }
+        register_render_hook(window) { redraw_image }
 
         on(::Crysterm::Event::Hide) { remove }
         on(::Crysterm::Event::Detach) { remove }
@@ -109,7 +109,7 @@ module Crysterm
       # (Re)places the image when its cell rectangle changes.
       private def redraw_image
         return unless visible?
-        screen? || return
+        window? || return
         path = @path || return
         pos = _get_coords(true) || return
         rect = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}

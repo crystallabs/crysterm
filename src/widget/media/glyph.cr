@@ -17,7 +17,7 @@ module Crysterm
     #   Braille   2x4   `⠿` 8 dots, single fg color            (8x res, monochrome/cell)
     #
     # ```
-    # img = Widget::Media::Glyph.new file: "pic.png", mode: :braille, width: 40, height: 12, parent: screen
+    # img = Widget::Media::Glyph.new file: "pic.png", mode: :braille, width: 40, height: 12, parent: window
     # img.mode = Widget::Media::Glyph::Mode::Octant # re-renders in another family
     # ```
     class Media::Glyph < Media::Cells
@@ -121,7 +121,7 @@ module Crysterm
       end
 
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
-        lines = screen.lines
+        lines = window.lines
         sx, sy = @mode.subgrid
 
         # Braille is one colour per cell, so it needs a single global on/off

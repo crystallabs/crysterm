@@ -3,7 +3,7 @@ module Crysterm
   # "spawn a fiber, do a bit of work, sleep, repeat" pattern lives.
   #
   # Everything that animates is built on this: `Timer` (a shared tick source),
-  # `Screen#every` (the demo animation helper), `Widget::Effect::Animated` (the
+  # `Window#every` (the demo animation helper), `Widget::Effect::Animated` (the
   # self-driven effects), and `Widget::Media` frame playback all delegate their
   # loop here instead of hand-rolling one. Centralizing it means the drift
   # correction (below) and the lifecycle (`start`/`stop`/`toggle`/`running?`) are

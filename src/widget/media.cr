@@ -13,7 +13,7 @@ module Crysterm
     # Every backend is a `Media::Base` (the shared contract: image source,
     # `fit`, animation, and the `image.unsupported` policy), so `Media.new`
     # returns `Media::Base`. They are grouped by how the image's pixels reach the
-    # screen — which determines the rendering/erase machinery, and the abstract
+    # window — which determines the rendering/erase machinery, and the abstract
     # family base each one inherits:
     #
     # * **cell-grid** (`Media::Cells`) — the image becomes character cells
@@ -29,8 +29,8 @@ module Crysterm
     #   `Tek` (`Media::Tek`, Tektronix 4014), directly on `Media::Base`.
     #
     # ```
-    # img = Widget::Media.new file: "picture.png", parent: screen # => Media::Ansi
-    # img = Widget::Media.new file: "picture.png", type: Widget::Media::Type::Sixel, parent: screen
+    # img = Widget::Media.new file: "picture.png", parent: window # => Media::Ansi
+    # img = Widget::Media.new file: "picture.png", type: Widget::Media::Type::Sixel, parent: window
     # ```
     #
     # The factory forwards a single common option bag (`file`, position, size) to
@@ -196,12 +196,12 @@ module Crysterm
       enum Type
         Ansi     # cell-grid, one cell per pixel (`Media::Ansi`)
         Glyph    # cell-grid, sub-cell Unicode glyphs (`Media::Glyph`)
-        Overlay  # screen-owns-pixels, external w3mimgdisplay overlay (`Media::Overlay`)
-        Ueberzug # screen-owns-pixels, external überzug overlay (`Media::Ueberzug`)
-        Sixel    # screen-owns-pixels, in-band sixel graphics (`Media::Sixel`)
-        Regis    # screen-owns-pixels, in-band ReGIS vector graphics (`Media::Regis`)
-        Kitty    # screen-owns-pixels, in-band Kitty graphics protocol (`Media::Kitty`)
-        Iterm    # screen-owns-pixels, in-band iTerm2 inline images (`Media::Iterm`)
+        Overlay  # window-owns-pixels, external w3mimgdisplay overlay (`Media::Overlay`)
+        Ueberzug # window-owns-pixels, external überzug overlay (`Media::Ueberzug`)
+        Sixel    # window-owns-pixels, in-band sixel graphics (`Media::Sixel`)
+        Regis    # window-owns-pixels, in-band ReGIS vector graphics (`Media::Regis`)
+        Kitty    # window-owns-pixels, in-band Kitty graphics protocol (`Media::Kitty`)
+        Iterm    # window-owns-pixels, in-band iTerm2 inline images (`Media::Iterm`)
         Tek      # separate window, Tektronix 4014 vectors (`Media::Tek`)
       end
 
@@ -275,11 +275,11 @@ module Crysterm
       # nothing else qualifies.
       #
       # The terminal is described by *tput* (the live `Tput` from the global
-      # screen by default); terminal facts come from `Tput::Emulator`/`Features`,
-      # so no escape-sequence probing is done here. With no screen/terminal
+      # window by default); terminal facts come from `Tput::Emulator`/`Features`,
+      # so no escape-sequence probing is done here. With no window/terminal
       # handle, the safe fallback (the last non-excluded candidate) is returned.
       def self.resolve(content : Content = Content::Image, tput : ::Tput? = nil) : Type
-        tput ||= (Crysterm::Screen.total > 0 ? Crysterm::Screen.global.tput : nil)
+        tput ||= (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
         excluded = excluded_types
         candidates = candidates_for(content).reject { |t| excluded.includes?(t) }
 
@@ -354,14 +354,14 @@ module Crysterm
       # needs `w3mimgdisplay`, Ueberzug needs `ueberzug`). `Regis`/`Tek` have no
       # detection and report unavailable. Use this to gate selection in a UI so a
       # backend the host can't drive is never invoked (no escape-sequence spew, no
-      # crash). *tput* defaults to the global screen's.
+      # crash). *tput* defaults to the global window's.
       def self.available?(type : Type, tput : ::Tput? = nil) : Bool
         case type
         when .ansi?, .glyph?
-          tp = tput || (Crysterm::Screen.total > 0 ? Crysterm::Screen.global.tput : nil)
+          tp = tput || (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
           tp ? backend_supported?(type, tp.emulator, tp.features) : true
         when .kitty?, .iterm?, .sixel?
-          tp = tput || (Crysterm::Screen.total > 0 ? Crysterm::Screen.global.tput : nil)
+          tp = tput || (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
           tp ? backend_supported?(type, tp.emulator, tp.features) : false
         when .overlay?  then w3m_available?
         when .ueberzug? then ueberzug_available?

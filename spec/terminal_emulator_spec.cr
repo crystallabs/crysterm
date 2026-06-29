@@ -4,7 +4,7 @@ include Crysterm
 
 # Behaviour specs for the VT100/xterm-subset `TerminalEmulator`. The emulator is
 # pure (it only depends on `Attr` and the class method `Screen.attr2code`), so it
-# is exercised directly with no `Screen`/PTY.
+# is exercised directly with no `Window`/PTY.
 
 private DFL = Crysterm::Attr.pack(0, Crysterm::Attr::COLOR_DEFAULT, Crysterm::Attr::COLOR_DEFAULT)
 

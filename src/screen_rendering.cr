@@ -1,5 +1,5 @@
 module Crysterm
-  class Screen
+  class Window
     # Things related to rendering (setting up memory state for display)
 
     # No flags, default fg, default bg. An `Int64` (see `Crysterm::Attr`).
@@ -112,7 +112,7 @@ module Crysterm
         # Running sum of the deque's contents, kept in sync on every push/shift
         # so `avg` is O(1) instead of re-summing the whole deque each call. Kept
         # as `Int64` because the pushed values can be as large as `Int32::MAX`
-        # (see `Screen#per_second`), and `capacity` of them would overflow an
+        # (see `Window#per_second`), and `capacity` of them would overflow an
         # `Int32` sum.
         @sum = 0_i64
       end
@@ -255,7 +255,7 @@ module Crysterm
     #     ┌─────────┬─────────┐
     #     │ box1    │ box2    │
     #     └─────────┴─────────┘
-    property? dock_borders : Bool = Config.screen_dock_borders
+    property? dock_borders : Bool = Config.window_dock_borders
 
     # Dockable borders will not dock if the colors or attributes are different.
     # This option will allow docking regardless. It may produce odd looking

@@ -3,10 +3,10 @@ require "./spec_helper"
 include Crysterm
 
 private def headless_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
-# Renders `container` headlessly (the public `Screen#render` only *schedules* a
+# Renders `container` headlessly (the public `Window#render` only *schedules* a
 # render via the loop fiber, which never runs in a one-shot spec) and returns
 # each child's rendered rectangle as `{xi, xl, yi, yl}` tuples.
 private def render_children(s, container)

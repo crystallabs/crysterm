@@ -1,6 +1,6 @@
 module Crysterm
-  class Screen
-    # Screen rows and cells
+  class Window
+    # Window rows and cells
 
     # A single screen cell.
     #

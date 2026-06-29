@@ -3,18 +3,18 @@ require "./spec_helper"
 include Crysterm
 
 # Regression coverage for the per-frame cursor save/hide/restore/show burst in
-# `Screen#draw` (`screen_drawing.cr`).
+# `Window#draw` (`screen_drawing.cr`).
 #
 # While a frame is being written (many cell runs, each prefixed by a `cup`), the
 # real terminal cursor must be hidden so it doesn't streak across the screen,
 # then restored afterward. That burst must drive the HARDWARE cursor directly
 # (`tput.hide_cursor`/`tput.show_cursor`). The bug: it used the screen-level
-# `Screen#hide_cursor`/`#show_cursor`, which dispatch on the *active* cursor —
+# `Window#hide_cursor`/`#show_cursor`, which dispatch on the *active* cursor —
 # when that cursor is artificial they take the artificial branch, emitting no
 # hide escape (so the real cursor still streaks) and calling `render_if_active`
 # (scheduling a redundant render from inside `draw`).
 private def hw_hide_screen(output = IO::Memory.new, width = 10, height = 4)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: output, error: IO::Memory.new,
     width: width, height: height)
 end
@@ -25,7 +25,7 @@ private def prime(s)
   s.lines.each &.dirty=(true)
 end
 
-describe "Screen#draw hardware cursor hide during the frame" do
+describe "Window#draw hardware cursor hide during the frame" do
   it "hides the hardware cursor even when the active cursor is artificial" do
     # Hardware-cursor baseline: with the hardware cursor shown, the draw burst
     # emits the terminal's hide-cursor escape. Capture it so the assertion below
@@ -54,7 +54,7 @@ describe "Screen#draw hardware cursor hide during the frame" do
     s.draw
 
     # The hardware hide escape is present (was absent before the fix, because
-    # the artificial branch of Screen#hide_cursor emitted nothing).
+    # the artificial branch of Window#hide_cursor emitted nothing).
     art_out.to_s.includes?("\e[?25l").should be_true
     # The artificial cursor's own visibility was untouched by the burst.
     s.cursor._hidden.should be_false

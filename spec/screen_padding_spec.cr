@@ -3,18 +3,18 @@ require "./spec_helper"
 include Crysterm
 
 private def headless_screen(width = 80, height = 24, padding = nil)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: width, height: height, padding: padding)
 end
 
-# Screen-level padding (`Screen.new padding: N`). A `Screen` carries a `Padding`
+# Window-level padding (`Window.new padding: N`). A `Window` carries a `Padding`
 # for widget compatibility, and as a side effect the whole screen can be inset:
 # a child placed at (0,0) lands *after* the padding, and `width: "100%"` fills
 # only the padded content area (see `src/screen_decoration.cr`). This is distinct
 # from per-widget/Box padding (covered by `tests/blessed-test/widget-padding.cr`)
 # and is demonstrated nowhere else. Migrated from `small-tests/screen-padding.cr`.
-describe "Screen-level padding" do
+describe "Window-level padding" do
   it "defaults to no padding" do
     s = headless_screen
     s.padding.any?.should be_false

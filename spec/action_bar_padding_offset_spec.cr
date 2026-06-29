@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def abp_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

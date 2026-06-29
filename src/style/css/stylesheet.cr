@@ -109,7 +109,7 @@ module Crysterm
 
       # Non-fatal diagnostics gathered while parsing — malformed declarations and
       # unknown property names. Parsing never raises; inspect this to surface
-      # problems (e.g. `screen.css_stylesheet.try &.warnings`).
+      # problems (e.g. `window.css_stylesheet.try &.warnings`).
       getter warnings : Array(String)
 
       # Parsed `@keyframes`: animation name -> ordered stops `[{offset 0..1,

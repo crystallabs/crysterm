@@ -9,7 +9,7 @@ module Crysterm
   # `Crysterm::Config` is a transparent alias, so the familiar API keeps working:
   #
   # ```
-  # Crysterm::Config.screen_resize_interval # typed accessor
+  # Crysterm::Config.window_resize_interval # typed accessor
   # Crysterm::Config.get("tput.read_timeout", Time::Span)
   # Crysterm::Config.dump STDOUT, Crysterm::Config::Format::Pretty
   # ```
@@ -35,7 +35,7 @@ require "./config/builtins"
 # Apply external configuration once, at load time, so every app honors the
 # config file, `CRYSTERM_*` env vars, and CLI flags (e.g. `--colors-stylesheet`)
 # out of the box — with no per-app `configure!` call. This must run here, before
-# any `Screen` is constructed: many options are read as `Screen` property
+# any `Window` is constructed: many options are read as `Window` property
 # defaults, which Crystal evaluates at the very start of `initialize`, so a later
 # (e.g. in-constructor) call would be too late for them.
 #

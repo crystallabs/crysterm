@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Regression: interrupting a program during the *startup window* — i.e. after
-# `Screen.new` has already entered the alternate buffer and hidden the cursor
+# `Window.new` has already entered the alternate buffer and hidden the cursor
 # (`#enter`, run from the constructor) but BEFORE any render / listen / draw has
 # happened — must still leave the terminal in a clean state.
 #
@@ -13,22 +13,22 @@ include Crysterm
 # (armed at module-load time, before any terminal-mode change) route that signal
 # through `exit`, which runs the `at_exit` handler:
 #
-#   exit -> at_exit -> Screen#destroy -> #disconnect -> #restore_terminal -> #leave
+#   exit -> at_exit -> Window#destroy -> #disconnect -> #restore_terminal -> #leave
 #
 # This spec exercises exactly that teardown path on a headless screen, driving
 # `#destroy` directly (the signal path itself is not portable to drive in a unit
 # spec). It locks in two properties:
 #   1. setup-then-teardown restores the terminal even when drawing never began;
 #   2. teardown is idempotent (a second `#destroy` does nothing and never raises).
-private def sir_screen(buf : IO) : Crysterm::Screen
-  Crysterm::Screen.new(
+private def sir_screen(buf : IO) : Crysterm::Window
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: buf,
     error: IO::Memory.new,
     width: 80, height: 24)
 end
 
-describe "Screen teardown during the startup window (before first draw)" do
+describe "Window teardown during the startup window (before first draw)" do
   it "restores the terminal when destroyed before any draw/listen" do
     buf = IO::Memory.new
     s = sir_screen buf

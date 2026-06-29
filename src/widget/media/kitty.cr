@@ -7,7 +7,7 @@ module Crysterm
     # escape (`ESC _G <control> ; <base64 payload> ESC \`) that a Kitty-protocol
     # terminal (kitty, WezTerm, Konsole, Ghostty, …) draws as true RGBA pixels.
     # Like sixel the pixels are owned by the terminal, so this inherits
-    # `Media::Graphics`'s screen-owns-pixels redraw lifecycle.
+    # `Media::Graphics`'s window-owns-pixels redraw lifecycle.
     #
     # Two things differ from sixel/ReGIS:
     #
@@ -22,7 +22,7 @@ module Crysterm
     # (`c=`/`r=`), so it fills cleanly regardless of font metrics.
     #
     # ```
-    # img = Widget::Media::Kitty.new file: "pic.png", width: 40, height: 12, parent: screen
+    # img = Widget::Media::Kitty.new file: "pic.png", width: 40, height: 12, parent: window
     # ```
     class Media::Kitty < Media::Graphics
       @@next_id = 0_u32
@@ -61,7 +61,7 @@ module Crysterm
         super *args, **opts
         # A Kitty image isn't erased by re-emitting cells, so delete it on
         # destroy too (Hide/Detach already go through `#graphic_cleared`).
-        on(::Crysterm::Event::Destroy) { screen?.try { |s| delete_image s } }
+        on(::Crysterm::Event::Destroy) { window?.try { |s| delete_image s } }
       end
 
       # The image id this frame transmits to: the front buffer when not
@@ -134,7 +134,7 @@ module Crysterm
             # a=T transmit+display, f=32 RGBA, s/v pixel size, c/r cell box,
             # i/p stable ids (replace, don't accumulate), q=2 suppress replies.
             # C=1 keeps the text cursor put: otherwise the terminal advances it
-            # past the image and a full-height image scrolls the screen (carrying
+            # past the image and a full-height image scrolls the window (carrying
             # off whatever cells — e.g. a title row — sat above it). An optional
             # `z=` sets the stacking order (negative ⇒ under text; see `#z`).
             io << "a=T,f=32,s=" << pw << ",v=" << ph \
@@ -161,18 +161,18 @@ module Crysterm
 
       # A Kitty image is a separate layer the terminal's cells never overdraw, so
       # it only needs (re)emitting when it actually changes (new frame / move /
-      # resize), not on every screen render like sixel.
+      # resize), not on every window render like sixel.
       protected def repaint_every_frame? : Bool
         false
       end
 
       # Erase by telling Kitty to delete this image (and its placements);
       # re-emitting cells wouldn't cover a Kitty image.
-      protected def graphic_cleared(s : ::Crysterm::Screen)
+      protected def graphic_cleared(s : ::Crysterm::Window)
         delete_image s
       end
 
-      private def delete_image(s : ::Crysterm::Screen)
+      private def delete_image(s : ::Crysterm::Window)
         s.tput._oprint "\e_Ga=d,d=i,i=#{@id_a},q=2\e\\\e_Ga=d,d=i,i=#{@id_b},q=2\e\\"
         s.tput.flush
       end

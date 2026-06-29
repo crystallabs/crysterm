@@ -5,12 +5,12 @@ include Crysterm
 # `Widget::Effect::SineScroller` scroll + wave logic, driven headlessly over
 # in-memory IOs so no real terminal is touched. The glyphs are painted straight
 # into the screen cell buffer in `#render` (`#step` only advances the frame
-# clock), so these specs run a real synchronous `Screen#_render` and inspect the
+# clock), so these specs run a real synchronous `Window#_render` and inspect the
 # resulting cells. `#render` reads `@frame`, so frame 0 is the state *before* the
 # first `#step`.
 
 private def sine_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)

@@ -17,7 +17,7 @@ module Crysterm
       # cold cells fall below `ignition` and render as blank space, leaving the
       # flame's silhouette.
       #
-      # It paints its interior straight into the screen's cell buffer as packed
+      # It paints its interior straight into the window's cell buffer as packed
       # `Int64` attrs (each fg a direct `0xRRGGBB` value) — see `Effect::Direct` —
       # so there is no tagged-content round-trip and no per-frame tag re-parse.
       # It drives its own animation: call `#start` to spawn the render fiber and
@@ -25,7 +25,7 @@ module Crysterm
       # instead be advanced from an external clock.
       #
       # ```
-      # fire = Widget::Effect::Fire.new parent: screen, width: "100%", height: "100%"
+      # fire = Widget::Effect::Fire.new parent: window, width: "100%", height: "100%"
       # fire.start
       # ```
       #

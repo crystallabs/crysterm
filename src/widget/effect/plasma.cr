@@ -14,9 +14,9 @@ module Crysterm
       # is mapped onto the colour wheel — so the whole area churns through a smooth,
       # seamless rainbow with no per-cell state to carry.
       #
-      # It paints its interior straight into the screen's cell buffer as packed
+      # It paints its interior straight into the window's cell buffer as packed
       # `Int64` attrs (each fg a direct `0xRRGGBB`, via `Colors.hsv_i`) — see
-      # `Effect::Direct`. There is no tagged-content round-trip, so a full-screen
+      # `Effect::Direct`. There is no tagged-content round-trip, so a full-window
       # field costs no per-cell `String` and no per-frame tag re-parse. It reads
       # its size lazily each frame (tracking resize and `%`-relative sizing) and
       # drives its own animation: call `#start` to spawn the render fiber and
@@ -24,7 +24,7 @@ module Crysterm
       # instead be advanced from an external clock.
       #
       # ```
-      # plasma = Widget::Effect::Plasma.new parent: screen, width: "100%", height: "100%"
+      # plasma = Widget::Effect::Plasma.new parent: window, width: "100%", height: "100%"
       # plasma.start
       # ```
       #

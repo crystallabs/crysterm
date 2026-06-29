@@ -4,12 +4,12 @@ include Crysterm
 
 # Render- and interaction-level specs for the Qt-inspired widgets. Unlike
 # `widget_qt_features_spec.cr` (which checks state/logic), these drive a real
-# synchronous render (`Screen#_render`) on an in-memory screen and inspect the
+# synchronous render (`Window#_render`) on an in-memory screen and inspect the
 # resulting cell buffer, and feed real mouse events through `#dispatch_mouse` —
 # so the layout-, focus- and pointer-dependent paths actually get exercised.
 
 private def render_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

@@ -13,7 +13,7 @@ module Crysterm
     # pressed on the last page, and `Event::Cancel` when Cancel is pressed.
     #
     # ```
-    # wiz = Widget::Wizard.new parent: screen, width: 50, height: 16, style: Style.new(border: true)
+    # wiz = Widget::Wizard.new parent: window, width: 50, height: 16, style: Style.new(border: true)
     # wiz.add_page Widget::Box.new(content: "Welcome"), title: "Intro"
     # wiz.add_page Widget::Form.new, title: "Details"
     # wiz.on(Event::Complete) { finish! }

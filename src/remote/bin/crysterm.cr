@@ -49,7 +49,7 @@ require "../../crysterm"
       # Running the server command *is* the runtime opt-in.
       Crysterm::Remote.enabled = true
 
-      screen = Screen.new
+      screen = Window.new
       if cp = css_path
         # `load_stylesheet` records the external source; inline `<style>` from the
         # layout composes with it. Hot-reload (the `--watch` path) is temporarily

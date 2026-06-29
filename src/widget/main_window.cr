@@ -12,7 +12,7 @@ module Crysterm
     # window's size each frame, so it adapts to terminal resizes.
     #
     # ```
-    # win = Widget::MainWindow.new parent: screen, top: 0, left: 0, width: "100%", height: "100%"
+    # win = Widget::MainWindow.new parent: window, top: 0, left: 0, width: "100%", height: "100%"
     # win.menu_bar = Widget::ListBar.new keys: true, mouse: true
     # win.status_bar = Widget::StatusBar.new
     # win.central_widget = Widget::PlainTextEdit.new

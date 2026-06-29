@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Screen#save_focus` remembers the currently-focused widget so a later
+# `Window#save_focus` remembers the currently-focused widget so a later
 # `#restore_focus` can return focus to it (used by dialogs: `Widget::Message`,
 # `Question`, `Prompt`, `FileManager`, `ColorDialog`). If that saved widget is
 # *removed* from the screen before focus is restored — e.g. the dialog outlives
@@ -12,13 +12,13 @@ include Crysterm
 # no longer attached to this screen.
 
 private def restore_focus_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)
 end
 
-describe "Screen#restore_focus" do
+describe "Window#restore_focus" do
   it "does not crash when the saved-focus widget was removed" do
     s = restore_focus_screen
     a = Widget::Box.new parent: s, keys: true
@@ -30,7 +30,7 @@ describe "Screen#restore_focus" do
     b.focus
     s.focused.should eq b
 
-    s.remove a # `a` is now detached (a.screen? is nil)
+    s.remove a # `a` is now detached (a.window? is nil)
 
     # Must not raise; there is no valid prior target, so focus is left as-is.
     s.restore_focus

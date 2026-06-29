@@ -1,6 +1,6 @@
 module Crysterm
   # Text counterpart to `Capture`: serialize a region of the rendered cell
-  # buffer (`Screen#lines`) into a deterministic, human-readable, **diffable**
+  # buffer (`Window#lines`) into a deterministic, human-readable, **diffable**
   # form. Where `Capture` produces pixels (a bitmap render, for the eye), `Dump`
   # produces plain text (for `git diff`): the exact glyphs the terminal would
   # show, plus a compact run-length summary of every non-default cell attribute.
@@ -21,7 +21,7 @@ module Crysterm
     #     list `col0-colN:fg/bg+flags` (columns relative to `xi`). Rows that are
     #     entirely the screen default attribute are omitted, so a plain
     #     monochrome widget has an empty attrs section.
-    def self.text(screen : Screen, xi : Int32, xl : Int32, yi : Int32, yl : Int32) : String
+    def self.text(screen : Window, xi : Int32, xl : Int32, yi : Int32, yl : Int32) : String
       w = xl - xi
       h = yl - yi
       String.build do |io|
@@ -29,7 +29,7 @@ module Crysterm
         io << '+' << ("-" * w) << "+\n"
 
         # Same region walk `Capture.render` uses (continuation cells skipped,
-        # bounds-safe) — shared via `Screen#each_content_cell` so the two stay
+        # bounds-safe) — shared via `Window#each_content_cell` so the two stay
         # consistent. Capture rasterizes each yielded cell; we stringify it.
         rows = Array(String::Builder).new(h) { String::Builder.new }
         screen.each_content_cell(xi, xl, yi, yl) do |cell, _rx, ry|
@@ -89,7 +89,7 @@ module Crysterm
     end
   end
 
-  class Screen
+  class Window
     # Normalizes a capture/dump region to the screen: floors the origin at 0,
     # caps the far edge at the screen size, and collapses an *inverted* region
     # (far edge before origin) to an empty one. The last step is what keeps a
@@ -133,7 +133,7 @@ module Crysterm
     #
     # Returns the encoded bytes when `path` is nil, otherwise `nil` (the output
     # is on disk). For a duration capture, call it from a fiber other than the one
-    # running `Screen#exec`, so the UI keeps rendering while it records.
+    # running `Window#exec`, so the UI keeps rendering while it records.
     #
     # ```
     # screen.capture path: "shot.png" # still PNG, in-process
@@ -245,7 +245,7 @@ module Crysterm
     # (rasterize to pixels) and `Dump.text` (stringify) drive off it so they can
     # never disagree about wide glyphs or bounds.
     def each_content_cell(xi : Int32, xl : Int32, yi : Int32, yl : Int32,
-                          & : Screen::Cell, Int32, Int32 ->) : Nil
+                          & : Window::Cell, Int32, Int32 ->) : Nil
       (yi...yl).each do |y|
         line = lines[y]?
         next unless line
@@ -258,7 +258,7 @@ module Crysterm
       end
     end
 
-    # Text counterpart to `Screen#capture` — same region semantics, plain-text
+    # Text counterpart to `Window#capture` — same region semantics, plain-text
     # output. Serializes the current composited buffer for the region (whole
     # screen by default) via `Dump`. Renders nothing itself: call `_render`
     # first so the buffer reflects the intended frame (the example/spec harnesses

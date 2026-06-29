@@ -58,7 +58,7 @@ module Crysterm
             break
           when Overflow::MoveWidget
             # No-op at the layout level: a `MoveWidget` child repositions itself
-            # to stay on screen during its own render (`Widget#_get_coords`), so
+            # to stay on window during its own render (`Widget#_get_coords`), so
             # fall through and render it where it lands.
           end
 

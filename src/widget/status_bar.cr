@@ -10,7 +10,7 @@ module Crysterm
     # at the bottom of a window.
     #
     # ```
-    # bar = Widget::StatusBar.new parent: screen, bottom: 0, left: 0, width: "100%", height: 1
+    # bar = Widget::StatusBar.new parent: window, bottom: 0, left: 0, width: "100%", height: 1
     # bar.add_permanent "UTF-8"
     # bar.add_permanent "Ln 1, Col 1"
     # bar.show_message "Saved", 2.seconds
@@ -55,7 +55,7 @@ module Crysterm
           spawn do
             sleep timeout
             # Marshal back onto the render fiber; only clear if still current.
-            screen?.try &.post do
+            window?.try &.post do
               if @message_gen == gen
                 @message = ""
                 request_render

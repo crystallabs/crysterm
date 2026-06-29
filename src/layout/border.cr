@@ -10,7 +10,7 @@ module Crysterm
     # footer, sidebars, main pane.
     #
     # ```
-    # b = Widget::Box.new parent: screen, width: "100%", height: "100%",
+    # b = Widget::Box.new parent: window, width: "100%", height: "100%",
     #   layout: Layout::Border.new
     # Widget::Box.new parent: b, height: 1,
     #   layout_hint: Layout::Border::Hint.new(:top) # header

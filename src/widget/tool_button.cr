@@ -122,11 +122,11 @@ module Crysterm
       end
 
       # Opens the popup menu directly below the button (no-op without a menu or
-      # while not laid out on a screen).
+      # while not laid out on a window).
       def show_menu : Nil
         m = @menu
         return unless m
-        return unless screen?
+        return unless window?
         m.popup aleft, atop + aheight
       end
 

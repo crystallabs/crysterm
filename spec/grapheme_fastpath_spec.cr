@@ -9,7 +9,7 @@ include Crysterm
 # inspecting the rendered cells.
 
 private def fu_render(content : String, width = 20)
-  s = Crysterm::Screen.new(
+  s = Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: width, height: 3)
   s.full_unicode = true

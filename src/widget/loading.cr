@@ -94,13 +94,13 @@ module Crysterm
         set_content @text || @orig_text
 
         # XXX We don't want to do this? (Blessed does it)
-        # @screen.propagate_keys = false
+        # @window.propagate_keys = false
 
         super()
       end
 
       # Advances the spinner one frame (state + paint only); the shared
-      # `Effect::Animated` loop handles `screen.render` and the inter-frame sleep.
+      # `Effect::Animated` loop handles `window.render` and the inter-frame sleep.
       #
       # `@pos` is advanced *before* painting: the icon already shows `icons[0]`
       # from `initialize`/`spinner=`, so painting `icons[@pos]` first would
@@ -116,7 +116,7 @@ module Crysterm
       # Stops the spinner loop and hides the widget.
       def stop
         # XXX We don't want to do this? (Blessed does it)
-        # @screen.propagate_keys = true
+        # @window.propagate_keys = true
         super
         hide
         @text = nil

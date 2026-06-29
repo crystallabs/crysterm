@@ -19,7 +19,7 @@ include Crysterm
 # boxes carry resolved absolute geometry to inspect.
 
 private def km_screen(width = 80)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

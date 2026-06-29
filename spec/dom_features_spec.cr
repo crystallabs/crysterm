@@ -4,10 +4,10 @@ require "./spec_helper"
   include Crysterm
 
   private def headless_screen
-    Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
   end
 
-  describe "Screen#resolve_selector" do
+  describe "Window#resolve_selector" do
     it "matches by id, class, type, and descendant combinator" do
       s = headless_screen
       s.load_layout %(<w-screen>) +

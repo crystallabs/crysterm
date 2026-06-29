@@ -5,7 +5,7 @@ require "./mixin/instances"
 require "./mixin/children"
 
 module Crysterm
-  class Screen
+  class Window
     # File related to display's ability to resize
 
     # Amount of time to wait before redrawing the screen, after the last successive terminal resize event is received.
@@ -16,7 +16,7 @@ module Crysterm
     #
     # This ensures the resizing/redrawing is done only once, once resizing is over.
     # To have redraws happen even while resizing is going on, reduce this interval.
-    property resize_interval : Time::Span = Config.screen_resize_interval
+    property resize_interval : Time::Span = Config.window_resize_interval
 
     @_resize_loop_fiber : Fiber?
     @_resize_handler : ::Crysterm::Event::Resize::Wrapper?
@@ -44,7 +44,7 @@ module Crysterm
       end
     end
 
-    # Re-reads current size of all `Display`s and triggers redraw of all `Screen`s.
+    # Re-reads current size of all `Display`s and triggers redraw of all `Window`s.
     #
     # NOTE There is currently no detection for which `Display` the resize has
     # happened on, so a resize in any one managed display causes an update and
@@ -69,7 +69,7 @@ module Crysterm
         self.tput.reset_screen_size
         # Pick up a changed cell pixel size (e.g. a font/zoom change) via the ioctl;
         # safe here because it does no escape-sequence round-trip.
-        refresh_cell_geometry
+        @screen.refresh_cell_geometry
         # # NOTE Tput#screen should have been called `size` or `screen_size`
         emit ::Crysterm::Event::Resize.new tput.screen
       end

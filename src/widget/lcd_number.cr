@@ -11,7 +11,7 @@ module Crysterm
     # three rows of interior height (e.g. `height: 3`, or `5` with a border).
     #
     # ```
-    # lcd = Widget::LCDNumber.new parent: screen, width: 24, height: 3, digit_count: 5, style: Style.new(fg: "red")
+    # lcd = Widget::LCDNumber.new parent: window, width: 24, height: 3, digit_count: 5, style: Style.new(fg: "red")
     # lcd.display 1234
     # ```
     #

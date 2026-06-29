@@ -2,16 +2,16 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: clearing a *hardware* cursor color with `Screen#cursor_color nil`
+# Regression: clearing a *hardware* cursor color with `Window#cursor_color nil`
 # must restore the terminal's default cursor color (OSC 112). It used to be a
 # silent no-op — the `try`-guarded emission did nothing when `style.fg` was nil
 # — so once a color was set there was no way to put the hardware cursor back to
 # the terminal default. See `src/screen_cursor.cr#cursor_color`.
 
-describe "Screen#cursor_color clearing (hardware path)" do
+describe "Window#cursor_color clearing (hardware path)" do
   it "emits the OSC 112 reset when the color is cleared with nil" do
     io = IO::Memory.new
-    screen = Crysterm::Screen.new(
+    screen = Crysterm::Window.new(
       input: IO::Memory.new,
       output: io,
       error: IO::Memory.new)

@@ -6,13 +6,13 @@ module Crysterm
   # counterpart of the `term.js` library that blessed's `terminal` widget drove:
   # it consumes the raw byte stream a child program writes to a PTY and maintains
   # an in-memory grid of cells (attribute + character) that a renderer can copy
-  # onto the screen.
+  # onto the window.
   #
   # Scope: it implements the sequences a normal interactive shell and the common
-  # full-screen programs (vim, htop, less, top, man) rely on — cursor movement,
+  # full-window programs (vim, htop, less, top, man) rely on — cursor movement,
   # SGR colours/styles, erase/insert/delete, scroll regions and scrollback,
   # cursor save/restore, title (OSC 0/2), the basic device-status/attributes
-  # replies, the alternate screen buffer (DECSET 47/1047/1049), the DEC
+  # replies, the alternate window buffer (DECSET 47/1047/1049), the DEC
   # special-graphics (line-drawing) charset (`ESC ( 0`), and mouse-mode tracking
   # (the active mode is exposed for the widget to encode and forward reports). It
   # intentionally does NOT implement double-width/height lines or G2/G3 charset
@@ -49,7 +49,7 @@ module Crysterm
     getter x : Int32 = 0
     getter y : Int32 = 0
 
-    # All lines, scrollback first; the live screen is the `rows` lines starting
+    # All lines, scrollback first; the live window is the `rows` lines starting
     # at `#ybase`. `#ydisp` is the top line currently *displayed* (equal to
     # `ybase` unless the user has scrolled back).
     getter lines : Array(Array(Cell))
@@ -65,7 +65,7 @@ module Crysterm
     # Optional notifications.
     property on_bell : Proc(Nil)? = nil
     property on_title : Proc(String, Nil)? = nil
-    # Called after each `#feed` so the owner can request a screen render.
+    # Called after each `#feed` so the owner can request a window render.
     property on_refresh : Proc(Nil)? = nil
 
     @default_attr : Int64
@@ -101,7 +101,7 @@ module Crysterm
     # and each further glyph overwrites it — the standard way to paint the
     # bottom-right cell (or a full-width status line) without triggering a scroll.
     # Without this the emulator wrapped unconditionally, so such a child saw its
-    # last column scroll the screen and its rightmost glyph land on the next line.
+    # last column scroll the window and its rightmost glyph land on the next line.
     @autowrap = true
 
     # Insert/replace mode (IRM, the ANSI — *non*-private — mode 4, `CSI 4 h` /
@@ -116,12 +116,12 @@ module Crysterm
     # translation), so REP (`CSI Pn b`) can repeat it. ncurses emits REP on a
     # terminal whose terminfo advertises `rep` (xterm-256color does:
     # `rep=\E[%p1%db`) to draw a run of one glyph — e.g. a horizontal rule — in a
-    # few bytes; without REP the run collapses to a single glyph on screen.
+    # few bytes; without REP the run collapses to a single glyph on window.
     @last_char : Char? = nil
 
     # Parser state. The CSI/OSC accumulation buffers are reused `IO::Memory`s
     # (cleared, not reallocated, at the start of each sequence): a child redrawing
-    # a full screen emits a CSI per cursor move / colour change, and the old
+    # a full window emits a CSI per cursor move / colour change, and the old
     # per-byte `@csi_buf += c` allocated a fresh `String` on every appended byte.
     # `IO::Memory` also makes long OSC payloads (e.g. an OSC 52 clipboard set)
     # linear instead of the quadratic copying that repeated `String` concat did.
@@ -161,7 +161,7 @@ module Crysterm
     # for table columns, via `tput hts`) tab to them instead of a hardcoded 8.
     @tab_stops = Set(Int32).new
 
-    # Alternate-screen state (DECSET 47/1047/1049). When active, `@lines` is a
+    # Alternate-window state (DECSET 47/1047/1049). When active, `@lines` is a
     # fresh page and the main buffer is parked in `@main_*` until restored.
     getter? alt_active : Bool = false
     @main_lines : Array(Array(Cell))? = nil
@@ -191,9 +191,9 @@ module Crysterm
     getter? focus_reporting : Bool = false
 
     # Sentinel char marking the trailing half of a wide (2-column) glyph in the
-    # emulator grid. Matches `Screen::Cell::CONTINUATION` so the widget can copy
-    # the notion straight through to the screen's own continuation cells.
-    CONTINUATION = '\u0000' # NUL — same sentinel as Screen::Cell::CONTINUATION
+    # emulator grid. Matches `Window::Cell::CONTINUATION` so the widget can copy
+    # the notion straight through to the window's own continuation cells.
+    CONTINUATION = '\u0000' # NUL — same sentinel as Window::Cell::CONTINUATION
 
     # VT100 DEC special-graphics map: the line-drawing glyphs a child selects via
     # `ESC ( 0`. Only 0x60–0x7e differ from ASCII; everything else passes through.
@@ -272,7 +272,7 @@ module Crysterm
     # Recycles the top line's `Array(Cell)` storage as a fresh blank bottom row
     # (`shift` it off, blank it in place, `push` it back) instead of allocating a
     # new `blank_line` and letting the displaced top become garbage. Used on the
-    # two full-screen `#scroll_up` paths that discard the top line — the alt page
+    # two full-window `#scroll_up` paths that discard the top line — the alt page
     # (no scrollback) and a full scrollback buffer — so neither allocates per
     # scrolled line.
     private def recycle_top_row : Nil
@@ -513,7 +513,7 @@ module Crysterm
     # or nil when there is no n-th field. An empty or non-numeric field reads as
     # 0, matching the old `split(';').map { |s| s.to_i? || 0 }`. No allocation —
     # this replaces the per-CSI `Array(String)` + `Array(Int32)` that `split`/
-    # `map` produced on every cursor move / SGR change a full-screen child emits.
+    # `map` produced on every cursor move / SGR change a full-window child emits.
     private def csi_param_raw(n : Int32) : Int32?
       ptr = @csi_buf.buffer
       size = @csi_buf.bytesize
@@ -586,7 +586,7 @@ module Crysterm
 
     # CUU/CPL: move the cursor up *n* rows, stopping at the scroll region's top
     # margin when the cursor starts at or below it (matching xterm's `CursorUp`),
-    # else at the top of the screen. Without the margin clamp, a child that drives
+    # else at the top of the window. Without the margin clamp, a child that drives
     # a scroll-region status area with CUU could walk the cursor up out of its
     # region and overwrite rows above it.
     private def cursor_up(n : Int32) : Nil
@@ -596,7 +596,7 @@ module Crysterm
 
     # CUD/CNL: move the cursor down *n* rows, stopping at the scroll region's
     # bottom margin when the cursor starts at or above it (xterm's `CursorDown`),
-    # else at the bottom of the screen. The mirror of `#cursor_up`.
+    # else at the bottom of the window. The mirror of `#cursor_up`.
     private def cursor_down(n : Int32) : Nil
       hi = @y <= @scroll_bottom ? @scroll_bottom : @rows - 1
       @y = Math.min(hi, @y + n)
@@ -745,7 +745,7 @@ module Crysterm
       @mouse_tracking != 0
     end
 
-    # ───────────────────────── alternate screen ─────────────────────────
+    # ───────────────────────── alternate window ─────────────────────────
 
     # Switches to a fresh alternate page, parking the main buffer (and, for 1049,
     # the cursor) until `#leave_alt`.
@@ -875,7 +875,7 @@ module Crysterm
       if @x + w >= @cols
         # Park on the last column. With autowrap on, defer the wrap (the next
         # glyph triggers it); with autowrap off, just stick there so the next
-        # glyph overwrites this cell instead of advancing the screen.
+        # glyph overwrites this cell instead of advancing the window.
         @x = @cols - 1
         @wrap_pending = @autowrap
       else
@@ -886,7 +886,7 @@ module Crysterm
     # REP (`CSI Pn b`): re-emit the last graphic character *n* more times, exactly
     # as if it had been typed again (so it advances the cursor and wraps normally).
     # A no-op when no graphic character has been printed yet. The count is capped
-    # at the grid area — repeating beyond a full screen is pointless, and the cap
+    # at the grid area — repeating beyond a full window is pointless, and the cap
     # keeps an adversarial `CSI 99999999 b` from spinning O(n), the same guard the
     # SU/IL/ICH handlers apply.
     private def repeat_last(n : Int32) : Nil
@@ -964,7 +964,7 @@ module Crysterm
     # region's height. SU/SD by more than the region's height leaves the region
     # fully blank either way, so the surplus is a no-op — but the raw
     # `param.times` would still iterate it: an adversarial `CSI 99999999 S` would
-    # then spin O(n) (and, on a full-screen region, push n blank lines toward the
+    # then spin O(n) (and, on a full-window region, push n blank lines toward the
     # scrollback limit), tearing through the reader fiber. This is the same cap
     # `#insert_lines`/`#delete_lines` apply to IL/DL.
     private def scroll_region_times(n : Int32, &) : Nil
@@ -973,14 +973,14 @@ module Crysterm
     end
 
     # Scrolls the scroll-region up by one line (content moves up; blank at
-    # bottom). When the region is the whole screen, the displaced top line is
+    # bottom). When the region is the whole window, the displaced top line is
     # pushed into scrollback instead of being discarded.
     private def scroll_up : Nil
       if @scroll_top == 0 && @scroll_bottom == @rows - 1
-        # The alternate screen has NO scrollback (matching xterm): a full-screen
+        # The alternate window has NO scrollback (matching xterm): a full-window
         # scroll discards the displaced top line rather than retaining it. Recycle
         # its `Array(Cell)` storage in place as the new bottom row, so the alt page
-        # never grows `@lines`/`@ybase` (unbounded memory while a full-screen app
+        # never grows `@lines`/`@ybase` (unbounded memory while a full-window app
         # scrolls) and never exposes bogus "history" to scrollback navigation.
         if @alt_active
           recycle_top_row
@@ -1024,20 +1024,20 @@ module Crysterm
 
     private def erase_display(mode : Int32) : Nil
       case mode
-      when 0 # cursor → end of screen
+      when 0 # cursor → end of window
         erase_in_line @x, @cols - 1
         ((@y + 1)...@rows).each { |yy| clear_screen_line yy }
-      when 1 # start of screen → cursor
+      when 1 # start of window → cursor
         (0...@y).each { |yy| clear_screen_line yy }
         erase_in_line 0, @x
-      when 2 # whole visible screen (scrollback retained)
+      when 2 # whole visible window (scrollback retained)
         (0...@rows).each { |yy| clear_screen_line yy }
       when 3
         # ED 3 (xterm "Erase Saved Lines"): discard the scrollback ONLY; the
         # visible page is left intact. This previously also cleared the visible
         # rows (treating ED 3 as ED 2 + scrollback), so a child that sent a bare
         # `CSI 3 J` to trim history — without the usual following `CSI 2 J` —
-        # wrongly lost its on-screen content. Keep the live rows (they are exactly
+        # wrongly lost its on-window content. Keep the live rows (they are exactly
         # `@lines[@ybase, @rows]`); just drop everything above them.
         @lines = @lines[@ybase, @rows].dup
         @ybase = 0
@@ -1244,20 +1244,20 @@ module Crysterm
       # Ensure the viewport holds exactly `rows` lines. Growing pads with blanks;
       # shrinking drops the lines that fell off the bottom of the smaller viewport
       # (content is preserved at the top-left, matching the per-line column
-      # truncation above). Without the trim those rows linger past the live screen,
-      # and a later full-screen `scroll_up` — which appends at the end of `@lines`
+      # truncation above). Without the trim those rows linger past the live window,
+      # and a later full-window `scroll_up` — which appends at the end of `@lines`
       # and advances `@ybase` — would shift them back into view instead of the
       # freshly scrolled-in blank.
       fit_viewport @lines, @ybase, rows
 
       # When on the alt page, grow the parked main buffer's viewport too (it uses
       # the saved `@main_ybase`); otherwise a grow-resize leaves `@main_lines`
-      # short and restoring it after `#leave_alt` would yield a truncated screen.
+      # short and restoring it after `#leave_alt` would yield a truncated window.
       if ml = @main_lines
         fit_viewport ml, @main_ybase, rows
-        # A resize resets the scroll margins to the full screen on the active page
+        # A resize resets the scroll margins to the full window on the active page
         # (just below). Do the same to the *parked* main page, otherwise leaving
-        # the alt screen after a resize would restore a stale (pre-resize) scroll
+        # the alt window after a resize would restore a stale (pre-resize) scroll
         # region — e.g. quitting vim after the window grew would leave the shell
         # scrolling inside the old, smaller region.
         @main_scroll_top = 0

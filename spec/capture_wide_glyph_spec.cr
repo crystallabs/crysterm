@@ -11,7 +11,7 @@ include Crysterm
 # Driven headlessly over in-memory IOs.
 
 private def wide_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new,
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
     error: IO::Memory.new, width: 4, height: 1)
 end
 
@@ -19,7 +19,7 @@ describe "Capture wide-glyph rendering" do
   it "paints the right half of a 2-column glyph into the continuation column" do
     s = wide_screen
     line = s.lines[0]
-    line[0].attr = Crysterm::Screen::DEFAULT_ATTR
+    line[0].attr = Crysterm::Window::DEFAULT_ATTR
     line[0].grapheme = "中" # full-width: occupies 2 columns
     line[1].continuation!
 

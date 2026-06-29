@@ -42,7 +42,7 @@ module Crysterm
     # `Event::Action` when a day is activated (Enter or click).
     #
     # ```
-    # cal = Widget::Calendar.new parent: screen, top: 0, left: 0, width: 22, height: 10,
+    # cal = Widget::Calendar.new parent: window, top: 0, left: 0, width: 22, height: 10,
     #   style: Style.new(border: true)
     # cal.on(Event::DateChange) { |e| status.content = e.date.to_s("%Y-%m-%d") }
     # ```
@@ -89,7 +89,7 @@ module Crysterm
       # the year and `‹`/`›` steppers keep a stable column as months cycle.
       MONTH_FIELD_WIDTH = MONTHS.max_of &.size
 
-      # A calendar is an interactive control: mark it keyable so the screen
+      # A calendar is an interactive control: mark it keyable so the window
       # routes key events to it when focused (e.g. as a `DateEdit` popup, or when
       # reached by Tab). Without this it would render but never receive keys.
       @keys = true
@@ -97,7 +97,7 @@ module Crysterm
       # Selected date (at the beginning of its day).
       @date : Time
 
-      # The month/year page currently on screen, tracked separately from the
+      # The month/year page currently on window, tracked separately from the
       # selection so the navigation bar can page without moving the selection.
       @shown_year : Int32
       @shown_month : Int32
@@ -530,11 +530,11 @@ module Crysterm
 
       # ── Month / year pop-up menus ─────────────────────────────────────────
 
-      # Shared scaffold for the two navigation pop-ups: a screen-gated, CSS
-      # `popup`-classed `Menu` populated by the block, or nil with no screen.
+      # Shared scaffold for the two navigation pop-ups: a window-gated, CSS
+      # `popup`-classed `Menu` populated by the block, or nil with no window.
       private def new_nav_menu(& : Menu ->) : Menu?
-        return unless screen?
-        menu = Menu.new screen: screen
+        return unless window?
+        menu = Menu.new window: window
         menu.add_css_class "popup"
         yield menu
         menu
@@ -566,10 +566,10 @@ module Crysterm
                         end
                       end
         @year_menu = menu
-        # The full ±100 list is far taller than the screen; cap the visible rows
-        # (fitting the space below the nav bar) so the dropdown stays on-screen
+        # The full ±100 list is far taller than the window; cap the visible rows
+        # (fitting the space below the nav bar) so the dropdown stays on-window
         # and scrolls, rather than being clamped over the calendar behind it.
-        menu.max_visible_rows = Math.max(1, Math.min(12, (screen?.try(&.aheight) || 24) - 3))
+        menu.max_visible_rows = Math.max(1, Math.min(12, (window?.try(&.aheight) || 24) - 3))
         # The shown year sits `YEAR_MENU_RADIUS` rows down — select/scroll to it
         # so the dropdown opens centered on the current year.
         popup_nav_menu menu, col, YEAR_MENU_RADIUS
@@ -579,12 +579,12 @@ module Crysterm
       #
       # Also marks the calendar's own navigation bar as part of the menu's modal
       # *grab region* (Qt's `QMenuBar` does the same with its title strip): while
-      # the dropdown is open the screen's modal grab would otherwise swallow every
+      # the dropdown is open the window's modal grab would otherwise swallow every
       # event outside the menu, so a wheel — or click — over the month/year/arrows
       # would never reach the calendar. That was the reported regression: opening
       # the dropdown left the wheel "stuck" until an arrow was clicked (the first
       # such click merely dismissed the popup via the modal grab, only the second
-      # paged). Counting the nav bar as inside the grab lets `Screen#within_grab?`
+      # paged). Counting the nav bar as inside the grab lets `Window#within_grab?`
       # keep delivering its clicks/wheel to the calendar, so paging keeps working
       # before, during, and after the dropdown — and the popup's own outside-press
       # watcher still dismisses it on a click anywhere truly outside (e.g. a day).

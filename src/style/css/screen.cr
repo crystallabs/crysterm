@@ -1,5 +1,5 @@
 module Crysterm
-  class Screen
+  class Window
     # The stylesheet driving CSS styling for this screen, if any. Assigning one
     # (as text or a parsed `CSS::Stylesheet`) marks styling dirty; the cascade
     # runs on the next render. With no stylesheet set, nothing changes and

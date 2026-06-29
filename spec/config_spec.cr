@@ -6,7 +6,7 @@ require "./spec_helper"
 # options, tput's options, and the alias all work through one combined registry.
 describe "Crysterm config integration" do
   it "registers Crysterm's builtin options with typed accessors (via the alias)" do
-    Crysterm::Config.screen_resize_interval.should eq 0.2.seconds
+    Crysterm::Config.window_resize_interval.should eq 0.2.seconds
     Crysterm::Config.cursor_glyph.should eq '▮'
     Crysterm::Config.render_csr_threshold.should eq 40
   end
@@ -14,11 +14,11 @@ describe "Crysterm config integration" do
   it "includes tput's options in the same registry (the unified list)" do
     Crysterm::Config["tput.read_timeout"]?.should_not be_nil
     Crysterm::Config["tput.use_buffer"]?.should_not be_nil
-    Crysterm::Config["screen.resize_interval"]?.should_not be_nil
+    Crysterm::Config["window.resize_interval"]?.should_not be_nil
   end
 
   it "brands env vars with CRYSTERM_ for both crysterm and tput options" do
-    Superconf.env_name(Crysterm::Config["screen.resize_interval"]).should eq "CRYSTERM_SCREEN_RESIZE_INTERVAL"
+    Superconf.env_name(Crysterm::Config["window.resize_interval"]).should eq "CRYSTERM_WINDOW_RESIZE_INTERVAL"
     Superconf.env_name(Crysterm::Config["tput.read_timeout"]).should eq "CRYSTERM_TPUT_READ_TIMEOUT"
   end
 
@@ -33,7 +33,7 @@ describe "Crysterm config integration" do
   it "dumps crysterm and tput options together" do
     yaml = Crysterm::Config.to_yaml
     yaml.should contain "tput:"
-    yaml.should contain "screen:"
+    yaml.should contain "window:"
   end
 
   it "resolves image.backend, including 'auto' detection" do

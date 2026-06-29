@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def make_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new,
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
     error: IO::Memory.new, width: 80, height: 24)
 end
 
@@ -12,13 +12,13 @@ end
 # probe falls back to the 80×24 default, which lets us tell an in-band-driven
 # size apart from an ioctl-driven one.
 private def make_dynamic_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new,
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
     error: IO::Memory.new)
 end
 
 # An in-band resize report carries the new window size in pixels; the screen
 # refreshes its cell pixel size and the CSS cell aspect ratio straight from it.
-describe "Screen cell geometry" do
+describe "Window cell geometry" do
   it "refreshes cell pixel size and CSS aspect ratio from an in-band resize report" do
     s = make_screen
     begin

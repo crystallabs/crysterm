@@ -13,7 +13,7 @@ include Crysterm
 # close). `Docking.angle_at` now keeps a cell's own arm toward any present line
 # neighbor, so the corner survives.
 private def sized_screen(w, h)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: w, height: h)
 end

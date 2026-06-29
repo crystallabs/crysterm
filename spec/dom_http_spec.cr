@@ -9,7 +9,7 @@ require "http/client"
   # stream — exactly as the bash handler does, but in-process so it can assert.
 
   private def headless_screen
-    Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
   end
 
   describe "HTTPBridge" do
@@ -107,7 +107,7 @@ require "http/client"
 
     it "tears down (destroys) the old layout's widgets on hot-reload" do
       # A hot-reload must `destroy` the previous layout, not merely detach it:
-      # `Screen#remove` leaves animation fibers (and PTYs) running, so a
+      # `Window#remove` leaves animation fibers (and PTYs) running, so a
       # pulsing/keyframed widget from the old layout would tick forever. After a
       # reload the old widget's animation must be stopped.
       s = headless_screen

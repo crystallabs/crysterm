@@ -9,7 +9,7 @@ include Crysterm
 # sensor through `#_drag_key_handled`.
 
 private def drag_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)
@@ -157,11 +157,11 @@ describe "drag-and-drop" do
     end
 
     it "moves a top-level widget relative to the screen's padded content origin" do
-      # Screen padding insets every top-level widget: a child at left/top 0 lands
+      # Window padding insets every top-level widget: a child at left/top 0 lands
       # at absolute (3, 2), so `aleft == screen.ileft + left`. The drag math must
       # account for that origin (it used to assume (0, 0)) or the widget jumps by
       # the padding on the first motion.
-      s = Crysterm::Screen.new(
+      s = Crysterm::Window.new(
         input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
         width: 80, height: 24, padding: Crysterm::Padding.new(left: 3, top: 2, right: 3, bottom: 2))
       box = Widget::Box.new parent: s, left: 4, top: 3, width: 8, height: 4, draggable: true
@@ -182,7 +182,7 @@ describe "drag-and-drop" do
     end
 
     it "clamps a top-level widget within the screen's padded content area" do
-      s = Crysterm::Screen.new(
+      s = Crysterm::Window.new(
         input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
         width: 80, height: 24, padding: Crysterm::Padding.new(left: 3, top: 2, right: 3, bottom: 2))
       box = Widget::Box.new parent: s, left: 0, top: 0, width: 8, height: 4, draggable: true
@@ -431,7 +431,7 @@ describe "drag-and-drop" do
   describe "desktop-edge bridges" do
     it "writes OSC 52 to the output when copying to clipboard" do
       outio = IO::Memory.new
-      s = Crysterm::Screen.new input: IO::Memory.new, output: outio, error: IO::Memory.new
+      s = Crysterm::Window.new input: IO::Memory.new, output: outio, error: IO::Memory.new
       s.copy_to_clipboard "hello"
       outio.to_s.should contain("\e]52;c;")
       outio.to_s.should contain(Base64.strict_encode("hello"))

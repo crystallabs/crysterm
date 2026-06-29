@@ -8,14 +8,14 @@ include Crysterm
 # The regression was specific to an *editable* combo: it keeps keyboard focus
 # while open (so typing keeps filtering), but the screen's wheel handling
 # implicitly focuses the scrollable list under the pointer
-# (`Screen#dispatch_mouse` → `focusable_at`). That stole focus from the combo,
+# (`Window#dispatch_mouse` → `focusable_at`). That stole focus from the combo,
 # and the combo's blur-closes-the-popup tidy-up then dismissed the drop-down
 # mid-wheel. The fix keeps the popup off the wheel-focus path for editable
 # combos (`#focus_on_click = false`) and hardens the blur handler to ignore a
 # focus that merely moved *into* the popup.
 
 private def cbw_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

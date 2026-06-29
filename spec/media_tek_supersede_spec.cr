@@ -20,7 +20,7 @@ include Crysterm
 # generation unchanged (which would let both loops believe they are live).
 
 private def headless_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
 describe "Widget::Media::Tek animation supersession" do

@@ -13,7 +13,7 @@ include Crysterm
 # ghost was offset by `ileft`/`itop` from the pointer on a padded screen.
 describe "drag ghost on a padded screen" do
   it "floats the ghost directly under the pointer regardless of screen padding" do
-    s = Crysterm::Screen.new(
+    s = Crysterm::Window.new(
       input: IO::Memory.new,
       output: IO::Memory.new,
       error: IO::Memory.new,

@@ -5,25 +5,25 @@ module Crysterm
   class Widget
     # A terminal-emulator widget: runs a child program (a shell by default)
     # inside a pseudo-terminal and renders its output as a live, scrollable
-    # screen — the Crystal counterpart of blessed's `terminal` element.
+    # window — the Crystal counterpart of blessed's `terminal` element.
     #
     # The heavy lifting is split into two self-contained helpers that are
     # candidates for their own shards (see their files): `Crysterm::Pty` spawns
     # and talks to the child via a PTY, and `Crysterm::TerminalEmulator` parses
     # the child's byte stream into a cell grid. This widget wires them to the
-    # screen: it sizes them from its inner area, forwards keystrokes to the
-    # child, copies the emulator grid onto `screen.lines` each render, and draws
+    # window: it sizes them from its inner area, forwards keystrokes to the
+    # child, copies the emulator grid onto `window.lines` each render, and draws
     # the cursor.
     #
     # Usage:
     # ```
     # term = Crysterm::Widget::Terminal.new width: 80, height: 24
-    # screen.append term
+    # window.append term
     # term.focus
     # ```
     #
     # Keyboard and mouse are both forwarded to the child; the emulator supports
-    # the alternate screen buffer, DEC line-drawing, scroll regions/scrollback,
+    # the alternate window buffer, DEC line-drawing, scroll regions/scrollback,
     # origin mode, and focus reporting. Scrollback is navigable with
     # Shift-PageUp/PageDown, and `Event::Exit` fires (with the exit code) when the
     # child process ends. Not yet implemented: double-width/height *lines* and
@@ -41,7 +41,7 @@ module Crysterm
       # supplies the data instead of a spawned process.
       getter pty : Pty? = nil
 
-      # The emulator holding the parsed screen grid. `nil` until the first render
+      # The emulator holding the parsed window grid. `nil` until the first render
       # (we need the resolved inner geometry to size it).
       getter emulator : TerminalEmulator? = nil
 
@@ -88,7 +88,7 @@ module Crysterm
         # The widget must receive keyboard input and participate in focus.
         @keys = true
         @input = true
-        screen?.try &.register_keyable self
+        window?.try &.register_keyable self
 
         on ::Crysterm::Event::KeyPress, ->on_data(::Crysterm::Event::KeyPress)
         on ::Crysterm::Event::Mouse, ->on_mouse(::Crysterm::Event::Mouse)
@@ -206,7 +206,7 @@ module Crysterm
 
       # Forwards a mouse event to the child when the child has enabled mouse
       # tracking, encoded in whichever scheme it asked for (normal/SGR/urxvt).
-      # When tracking is off this is a no-op, so the screen's default
+      # When tracking is off this is a no-op, so the window's default
       # click-to-focus / wheel-scroll behaviour still applies.
       def on_mouse(e : ::Crysterm::Event::Mouse) : Nil
         em = @emulator
@@ -344,7 +344,7 @@ module Crysterm
         @dattr = sattr style
         em.default_attr = @dattr
 
-        lines = screen.lines
+        lines = window.lines
 
         xi = coords.xi + ileft
         xl = coords.xl - iright
@@ -352,12 +352,12 @@ module Crysterm
         yl = coords.yl - ibottom
 
         disp = em.ydisp
-        focused = screen.focused == self
+        focused = window.focused == self
         # The cursor is hidden while the user is scrolled back into history.
         show_cursor = focused && !em.cursor_hidden? && disp == em.ybase
         cur_y = yi + em.cursor_y
         cur_x = xi + em.cursor_x
-        full_unicode = screen.full_unicode?
+        full_unicode = window.full_unicode?
 
         y = Math.max yi, 0
         while y < yl
@@ -392,8 +392,8 @@ module Crysterm
               line.dirty = true
             end
 
-            # Wide glyph: claim the following screen cell as its continuation so
-            # the screen grid stays 1 cell == 1 terminal column (matching how
+            # Wide glyph: claim the following window cell as its continuation so
+            # the window grid stays 1 cell == 1 terminal column (matching how
             # native wide content is laid out).
             if full_unicode && x != cursor_col && (nxt = line[x + 1]?) &&
                x + 1 < xl && ::Crysterm::Unicode.width(ch) == 2

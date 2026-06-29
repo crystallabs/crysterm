@@ -2,7 +2,7 @@ require "json"
 
 module Crysterm
   # A bitmap (pixel) font used by the capture rasterizer (`Crysterm::Capture`) to
-  # draw the screen's text cells as real pixels — so a capture is deterministic
+  # draw the window's text cells as real pixels — so a capture is deterministic
   # and independent of the user's actual terminal font.
   #
   # Two on-disk formats are supported, picked by extension:

@@ -17,7 +17,7 @@ include Crysterm
 # damage-tracking subtree bounds, `clear_last_rendered_position`) saw the widget
 # as border-smaller than it actually painted.
 private def render_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 20, height: 8)
 end

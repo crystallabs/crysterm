@@ -220,7 +220,7 @@ module Crysterm
             when 0x42 then y = clampy.call(y + amt.call(nums[0]?)) # 'B' down
             when 0x43 then x = clampx.call(x + amt.call(nums[0]?)) # 'C' right
             when 0x44 then x = clampx.call(x - amt.call(nums[0]?)) # 'D' left
-            when 0x4A                                              # 'J' — erase display (2 = whole screen)
+            when 0x4A                                              # 'J' — erase display (2 = whole window)
               if (nums[0]? || 0) == 2
                 cells.clear; maxx = 0; maxy = 0; x = 0; y = 0
               end

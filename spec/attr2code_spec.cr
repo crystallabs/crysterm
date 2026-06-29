@@ -6,9 +6,9 @@ include Crysterm
 # These pin the conversion across every SGR form so the allocation-free
 # in-place parser can be verified to match the previous split-based one.
 #
-# `attr2code` is a pure class method (no screen state), so no Screen is needed.
+# `attr2code` is a pure class method (no screen state), so no Window is needed.
 describe "Screen.attr2code" do
-  dfl = Crysterm::Screen::DEFAULT_ATTR # flags 0, default fg, default bg
+  dfl = Crysterm::Window::DEFAULT_ATTR # flags 0, default fg, default bg
 
   # Convenience: apply an SGR string starting from the default attr.
   apply = ->(code : String) { Crysterm::Screen.attr2code(code, dfl, dfl) }

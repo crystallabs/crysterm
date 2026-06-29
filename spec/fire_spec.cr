@@ -8,7 +8,7 @@ include Crysterm
 # animation fiber and no real terminal.
 
 private def fire_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)

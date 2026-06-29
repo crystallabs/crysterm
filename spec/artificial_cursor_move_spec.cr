@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for the artificial cursor in `Screen#draw`
+# Regression coverage for the artificial cursor in `Window#draw`
 # (`screen_drawing.cr`).
 #
 # `draw` only scans a row when it is dirty or currently holds the cursor. The
@@ -13,12 +13,12 @@ include Crysterm
 # repairing it the cursor glyph stranded in `@olines` is never diffed away and a
 # ghost cursor lingers on screen.
 private def cursor_screen(output = IO::Memory.new, width = 10, height = 4)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: output, error: IO::Memory.new,
     width: width, height: height)
 end
 
-describe "Screen#draw artificial cursor movement" do
+describe "Window#draw artificial cursor movement" do
   it "erases the artificial cursor from the row it leaves" do
     s = cursor_screen
     s.alloc

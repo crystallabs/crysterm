@@ -2,7 +2,7 @@ module Crysterm
   class Widget
     module Pine
       # The reverse-video title bar shown at the top of every Pine/Alpine
-      # screen. It is divided into three zones:
+      # window. It is divided into three zones:
       #
       # ```
       #   ALPINE 2.26   MESSAGE INDEX                 Folder: INBOX  5 Messages
@@ -10,7 +10,7 @@ module Crysterm
       # ```
       #
       # * `title`   — fixed-width left zone, usually the program name + version.
-      # * `section` — flexible middle zone, the current screen's name.
+      # * `section` — flexible middle zone, the current window's name.
       # * `info`    — fixed-width right zone, right-aligned status (e.g. folder).
       #
       # Each zone is a `Widget::Box`; update them at runtime via

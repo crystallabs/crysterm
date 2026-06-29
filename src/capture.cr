@@ -2,12 +2,12 @@ require "pnggif"
 require "./font"
 
 module Crysterm
-  # Renders a rectangular region of a `Screen`'s **rendered/drawn** content to an
+  # Renders a rectangular region of a `Window`'s **rendered/drawn** content to an
   # RGBA image and encodes it as a still PNG (or, via `Recorder`, an animated
   # APNG/GIF).
   #
-  # It deliberately works on what the *terminal* shows — the screen's flushed
-  # cell buffer (`Screen#lines`) plus the in-band terminal-graphics backends
+  # It deliberately works on what the *terminal* shows — the window's flushed
+  # cell buffer (`Window#lines`) plus the in-band terminal-graphics backends
   # (`Media::Graphics`: sixel / kitty / iterm / regis), whose pixels are
   # composited from each widget's current source frame. Content painted by an
   # external helper (`Media::Overlay` / `Media::Ueberzug`) or shown in a separate
@@ -22,10 +22,10 @@ module Crysterm
     DEFAULT_FG = 0xC0C0C0
     DEFAULT_BG = 0x000000
 
-    # Renders cells [*xi*,*xl*) × [*yi*,*yl*) of *screen* into an RGBA
+    # Renders cells [*xi*,*xl*) × [*yi*,*yl*) of *window* into an RGBA
     # `PNGGIF::Bitmap`. *font*/*bold_font* set the glyphs (and thus the pixel
     # size of each cell); *default_fg*/*default_bg* fill terminal-default colors.
-    def self.render(screen : Screen, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
+    def self.render(window : Window, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
                     font : Font = Font.default_normal,
                     bold_font : Font = Font.default_bold,
                     default_fg : Int32 = DEFAULT_FG,
@@ -43,15 +43,15 @@ module Crysterm
 
       # 1) Text cells from the rendered buffer. The region walk (skip
       #    continuation halves, bounds-safe) is shared with `Dump.text` via
-      #    `Screen#each_content_cell`; here each visible cell is rasterized.
-      screen.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
+      #    `Window#each_content_cell`; here each visible cell is rasterized.
+      window.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
         draw_cell canvas, cell, rx * cw, ry * ch, cw, ch,
           font, bold_font, default_fg, default_bg, cell.width
       end
 
       # 2) Terminal-native graphics, composited over the text exactly as the
       #    terminal stacks them.
-      graphics_layers(screen).each do |w|
+      graphics_layers(window).each do |w|
         layer = w.capture_layer(cw, ch)
         next unless layer
         bmp, cxi, cyi = layer
@@ -62,12 +62,12 @@ module Crysterm
     end
 
     # Renders the region and encodes it as a still PNG.
-    def self.png(screen : Screen, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
+    def self.png(window : Window, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
                  font : Font = Font.default_normal,
                  bold_font : Font = Font.default_bold,
                  default_fg : Int32 = DEFAULT_FG,
                  default_bg : Int32 = DEFAULT_BG) : Bytes
-      PNGGIF.encode_png render(screen, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
+      PNGGIF.encode_png render(window, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
     end
 
     # Flattens *bmp* to raw interleaved RGBA bytes (`w*h*4`), the format a video
@@ -94,7 +94,7 @@ module Crysterm
     # stdin and encodes it to format *fmt*, writing to *path* (the file extension
     # selects the muxer) or to stdout (`pipe:1`, which needs an explicit `-f`).
     # *loops* sets the gif/apng loop count (0 = infinite). *extra* is appended
-    # verbatim for power users. Used by `Screen#capture` for every non-PNG /
+    # verbatim for power users. Used by `Window#capture` for every non-PNG /
     # animated output; still PNG is encoded in-process and never reaches here.
     def self.ffmpeg_args(vw : Int32, vh : Int32, fps : Int32, fmt : String,
                          path : String?, loops : Int32, extra : Array(String)?) : Array(String)
@@ -236,11 +236,11 @@ module Crysterm
         # a capture either. `capture_layer` already guards a graphics widget's OWN
         # `visible?` flag, but NOT its ancestors': a widget inside a hidden
         # container (e.g. a non-current tab page, or a `hide`-n parent) is itself
-        # flag-visible yet off-screen, and was still composited into the capture —
+        # flag-visible yet off-window, and was still composited into the capture —
         # so a capture showed an image the live terminal does not. The text path
         # never had this bug (hidden widgets simply aren't painted into the cell
         # buffer `each_content_cell` walks); this brings the graphics path in line.
-        # Pruning the walk at any hidden node drops the whole off-screen subtree,
+        # Pruning the walk at any hidden node drops the whole off-window subtree,
         # matching the tree-aware `displayed_in_tree?` used by mouse hit-testing
         # and focus traversal.
         next unless child.visible?

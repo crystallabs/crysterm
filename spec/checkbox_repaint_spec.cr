@@ -14,8 +14,8 @@ include Crysterm
 # `request_render` does two things: it `damage_mark_dirty`s the widget (which,
 # under the default `DamageTracking` optimization, records the widget — via its
 # top-level ancestor — in the screen's pending dirty-roots set) and then calls
-# `Screen#render`. In a headless spec the render fiber never runs, so that
-# `Screen#render` (== `schedule_render`) only rings the doorbell and never
+# `Window#render`. In a headless spec the render fiber never runs, so that
+# `Window#render` (== `schedule_render`) only rings the doorbell and never
 # paints `s.lines` synchronously. The observable, synchronous effect of the fix
 # is therefore the *scheduled* repaint — the dirty mark — not an updated cell.
 #
@@ -26,7 +26,7 @@ include Crysterm
 # set is `request_render`: drop it (the regression) and the state still flips but
 # the set stays empty and every case below fails.
 private def cbr_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,
@@ -40,7 +40,7 @@ end
 # records the changed widget's top-level ancestor; these checkboxes are direct
 # screen children (the screen is not a `Widget`, so their `parent` is nil), so
 # each is its own root.
-private def repaint_scheduled?(s : Crysterm::Screen, w : Crysterm::Widget)
+private def repaint_scheduled?(s : Crysterm::Window, w : Crysterm::Widget)
   s.@damage_dirty_roots.includes? w
 end
 

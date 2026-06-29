@@ -3,7 +3,7 @@ require "../../widget_pine_selectable_list"
 module Crysterm
   class Widget
     module Pine
-      # The Pine/Alpine SETUP / CONFIGURATION screen: a scrollable list of
+      # The Pine/Alpine SETUP / CONFIGURATION window: a scrollable list of
       # on/off configuration features, each drawn with a checkbox-style prefix:
       #
       # ```

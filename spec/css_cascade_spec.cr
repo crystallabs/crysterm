@@ -3,11 +3,11 @@ require "./spec_helper"
 include Crysterm
 
 private def headless_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
 # Runs *block* with the global default (user-agent) stylesheet emptied, then
-# restores it. The first `Screen` auto-installs the config-driven default theme
+# restores it. The first `Window` auto-installs the config-driven default theme
 # (dark) into that global; its `Button:focus`/`Box:selected`/base-color rules
 # would otherwise materialize extra state styles / base colors and break specs
 # that assert author-CSS *cascade mechanics* in isolation. Must run after the
@@ -1158,7 +1158,7 @@ describe "CSS cascade" do
     child.styles.normal.fg.should eq rgb("red")
 
     parent.remove child
-    child.screen?.should be_nil
+    child.window?.should be_nil
 
     # CSS-relevant mutations are no-ops (not crashes) while detached
     child.add_css_class "x"

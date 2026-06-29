@@ -36,9 +36,9 @@ module Crysterm
       end
 
       # Shows the tooltip displaying *text* with its top-left near (*x*, *y*),
-      # sized to the text and clamped to stay on-screen.
+      # sized to the text and clamped to stay on-window.
       def show_at(x : Int32, y : Int32, text : String) : Nil
-        return unless s = screen?
+        return unless s = window?
         lines = text.split('\n')
 
         # Pad each line by one leading space so the text doesn't hug the edge.

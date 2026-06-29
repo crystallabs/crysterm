@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: `Screen#insert` auto-focuses the first focusable widget when a
+# Regression: `Window#insert` auto-focuses the first focusable widget when a
 # screen has no current focus. That auto-focus must fire ONLY when the inserted
 # subtree actually contributes a focusable widget. Inserting non-interactive
 # chrome (a decorative box, a `Line`, the transient drag ghost) into a screen
@@ -12,13 +12,13 @@ include Crysterm
 #
 # Driven headlessly over in-memory IOs; no real terminal is touched.
 private def chrome_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)
 end
 
-describe "Screen#insert auto-focus" do
+describe "Window#insert auto-focus" do
   it "does not re-focus an unrelated keyable widget when inserting non-focusable chrome" do
     s = chrome_screen
     Widget::Box.new parent: s, keys: true # auto-focused as the first focusable
@@ -51,7 +51,7 @@ describe "Screen#insert auto-focus" do
   end
 
   it "registers a keys: true widget into the keyable set at insert time" do
-    # The auto-focus gate runs DURING `Screen#insert`, before `Widget#initialize`
+    # The auto-focus gate runs DURING `Window#insert`, before `Widget#initialize`
     # finishes (and before its own construction-time `register_keyable`). A
     # `keys: true` widget therefore has to be registered by `insert` itself, or it
     # is absent from `@keyable` when the gate's `focus_next` runs and can never be

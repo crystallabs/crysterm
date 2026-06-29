@@ -1,7 +1,7 @@
 module Crysterm
   module CSS
     # Translates Qt Style Sheet (`.qss`) source into Crysterm CSS, so Qt themes
-    # can be loaded directly. Used by the loading path (`Screen#load_stylesheet`
+    # can be loaded directly. Used by the loading path (`Window#load_stylesheet`
     # / `Stylesheet.from_file`) whenever the file name ends in `.qss`.
     #
     # Two selector rewrites are applied, in order:

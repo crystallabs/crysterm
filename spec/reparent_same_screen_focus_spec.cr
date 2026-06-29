@@ -11,7 +11,7 @@ include Crysterm
 # leave focus untouched; a genuine *cross-screen* move must still rewind.
 
 private def headless_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 20, height: 10)
 end
@@ -31,7 +31,7 @@ describe "Focus on same-screen reparent" do
 
     # Moved, still on the same screen, and still focused.
     child.parent.should eq b
-    child.screen?.should eq s
+    child.window?.should eq s
     s.focused.should eq child
     child.focused?.should be_true
   end
@@ -50,7 +50,7 @@ describe "Focus on same-screen reparent" do
     b.append child # cross-screen move
 
     # The widget left s1, so s1 must no longer report it as focused.
-    child.screen?.should eq s2
+    child.window?.should eq s2
     s1.focused.should_not eq child
   end
 end

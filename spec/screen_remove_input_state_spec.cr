@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# Removing a widget from its `Screen` must drop any transient mouse-interaction
-# pointer aimed into the removed subtree, the same way `Screen#remove` already
+# Removing a widget from its `Window` must drop any transient mouse-interaction
+# pointer aimed into the removed subtree, the same way `Window#remove` already
 # rewinds keyboard focus out of it (see `screen_remove_focus_spec.cr`).
 #
 # Without this, three dangling references survive the detach:
@@ -13,7 +13,7 @@ include Crysterm
 #                  (every later pointer event is swallowed by `#dispatch_mouse`).
 
 private def ris_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)
@@ -35,7 +35,7 @@ private def ris_release(s, x, y)
   s.dispatch_mouse ris_mouse(::Tput::Mouse::Action::Up, x, y, ::Tput::Mouse::Button::None)
 end
 
-describe "Screen#remove (mouse-interaction state)" do
+describe "Window#remove (mouse-interaction state)" do
   it "clears the hover pointer when the hovered widget is removed" do
     s = ris_screen
     box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4

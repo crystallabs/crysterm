@@ -5,16 +5,16 @@
 # screen, and — optionally — a `script:` that drives it. The harness runs in one
 # of three modes:
 #
-#   * **interactive** (default) — a real terminal `Screen` plus `exec`. Press `q`
+#   * **interactive** (default) — a real terminal `Window` plus `exec`. Press `q`
 #     or Ctrl-Q to quit. This is what a human gets running the example directly.
 #
 #   * **screenshot** — when `CRYSTERM_SHOT=<path>` is set, the widget is built on
 #     a *headless* screen (all I/O on `IO::Memory`), rendered once, and captured
-#     to `<path>` via `Screen#capture`.
+#     to `<path>` via `Window#capture`.
 #
 #   * **animation** — when `CRYSTERM_ANIM=<path>` is set (and `CRYSTERM_ANIM_SECS`
 #     gives the duration, default 5), the widget is built headless and the
-#     `script:` is replayed while `Screen#capture(duration:, format: "apng")`
+#     `script:` is replayed while `Window#capture(duration:, format: "apng")`
 #     records it — producing an APNG that shows the widget actually being used.
 #
 # The `script:` is expressed with a small `Driver` (see below): a thin
@@ -103,10 +103,10 @@ module Crysterm
       #
       # When *dump_io* is set the Driver is in **dump** mode: each action emits
       # its event, the resulting state is settled (any CSS transition run to its
-      # end), and one text frame (`Screen#dump`) is appended to *dump_io* — the
+      # end), and one text frame (`Window#dump`) is appended to *dump_io* — the
       # textual analogue of recording one frame per action. Time/dwell is
       # irrelevant here, so `advance` neither sleeps nor renders dwell frames.
-      def initialize(@screen : Screen? = nil, fps : Int32 = FPS, @record : Bool = true,
+      def initialize(@screen : Window? = nil, fps : Int32 = FPS, @record : Bool = true,
                      @dump_io : IO? = nil)
         @frame_secs = 1.0 / fps
       end
@@ -177,7 +177,7 @@ module Crysterm
 
       # Escape hatch: run arbitrary code against the screen (e.g. call a widget
       # method directly), then dwell.
-      def act(*, dwell : Float64 = 0.3, &block : Screen ->)
+      def act(*, dwell : Float64 = 0.3, &block : Window ->)
         recording.try { |scr| block.call scr }
         advance dwell
         dump_frame "act"
@@ -190,7 +190,7 @@ module Crysterm
       end
 
       # The screen when recording, else nil (measure pass).
-      private def recording : Screen?
+      private def recording : Window?
         @record ? @screen : nil
       end
 
@@ -215,7 +215,7 @@ module Crysterm
     # Entry point used by every example. The block builds the widget(s) on the
     # screen; *script* (when given) drives them in animation mode.
     def self.run(title : String = "Crysterm example", *,
-                 script : (Driver ->)? = nil, &build : Screen ->)
+                 script : (Driver ->)? = nil, &build : Window ->)
       # Each capture mode is gated by its own dest env var and they are
       # independent: with several set (e.g. by `manage-examples --all`) the one
       # process produces all of them — one compile, one run — instead of a build
@@ -238,13 +238,13 @@ module Crysterm
     end
 
     # Headless **text dump** — the textual analogue of `animate`. Builds the
-    # widget headless, then writes one `Screen#dump` frame per scripted action to
+    # widget headless, then writes one `Window#dump` frame per scripted action to
     # *dest*: the initial state, one after each action (settled), and the final
     # state. The whole file is rewritten each run, so with no behavioral change it
     # reproduces byte-for-byte and `git diff` stays empty; a regression shows up
     # as a localized diff in the frame after the action that caused it. An example
     # with no `script:` still gets a single static frame (the built widget).
-    def self.dump_run(dest : String, script : (Driver ->)?, &build : Screen ->)
+    def self.dump_run(dest : String, script : (Driver ->)?, &build : Window ->)
       s = headless
       build.call s
       s._render
@@ -266,8 +266,8 @@ module Crysterm
       s.destroy rescue nil
     end
 
-    # Append one labelled text frame (a `Screen#dump`) to *io*.
-    def self.frame(io : IO, s : Screen, label : String) : Nil
+    # Append one labelled text frame (a `Window#dump`) to *io*.
+    def self.frame(io : IO, s : Window, label : String) : Nil
       io << "\n=== " << label << " ===\n"
       io << s.dump
     end
@@ -277,7 +277,7 @@ module Crysterm
     # wall-clock-dependent mid-tween. The transitions tick on their own fibers;
     # we just yield/sleep until none are running, bounded so an unexpected
     # never-ending animation can't hang the dump.
-    def self.settle(s : Screen, max_steps : Int32 = 400) : Nil
+    def self.settle(s : Window, max_steps : Int32 = 400) : Nil
       max_steps.times do
         break unless s.animating?
         sleep 0.005.seconds
@@ -286,8 +286,8 @@ module Crysterm
 
     # Real terminal; runs until the user quits. A self-animating widget is driven
     # live on its own interval.
-    def self.interactive(title : String, &build : Screen ->)
-      s = Screen.new title: title
+    def self.interactive(title : String, &build : Window ->)
+      s = Window.new title: title
       build.call s
       if step = @@anim_step
         s.every(@@anim_interval.seconds) { step.call }
@@ -303,7 +303,7 @@ module Crysterm
 
     # Headless still: build, render once (also establishes a self-animating
     # widget's size so it can be pre-rolled), pre-roll if needed, write the image.
-    def self.screenshot(dest : String, &build : Screen ->)
+    def self.screenshot(dest : String, &build : Window ->)
       s = headless
       build.call s
       s._render
@@ -325,7 +325,7 @@ module Crysterm
     # initial state and closes with a longer *outro* hold on the final state (the
     # outro also absorbs any min-duration padding) — so the wrap-around lands on
     # two calm, readable frames instead of mid-motion.
-    def self.animate(dest : String, minimum : Float64, script : (Driver ->)?, &build : Screen ->)
+    def self.animate(dest : String, minimum : Float64, script : (Driver ->)?, &build : Window ->)
       # 1. Measure the demo (no screen, no side effects).
       measure = Driver.new(record: false)
       script.try &.call(measure)
@@ -368,8 +368,8 @@ module Crysterm
     # rich glyphs (braille plots, box-drawing, sextant/octant mosaics, ...) rather
     # than ASCII fallbacks — the captured bitmap font (GNU Unifont) can render
     # them, and the capture is terminal-independent anyway.
-    private def self.headless : Screen
-      Screen.new(
+    private def self.headless : Window
+      Window.new(
         input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
         width: COLS, height: ROWS, force_unicode: true)
     end

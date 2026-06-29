@@ -3,14 +3,14 @@ require "./spec_helper"
 include Crysterm
 
 private def headless_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
-# `Screen#delete_bottom(top, bottom)` clears the single row `bottom`. It was a
+# `Window#delete_bottom(top, bottom)` clears the single row `bottom`. It was a
 # no-op: `clear_region`/`fill_region` are half-open in `y` (`yi.upto(yl - 1)`),
 # so `clear_region(0, awidth, bottom, bottom)` iterated zero rows and the bottom
 # row was never cleared. The far edge must be `bottom + 1`.
-describe "Screen#delete_bottom" do
+describe "Window#delete_bottom" do
   it "clears exactly the bottom row (was a no-op)" do
     s = headless_screen
     w = s.awidth

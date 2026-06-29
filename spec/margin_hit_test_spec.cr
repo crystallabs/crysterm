@@ -4,7 +4,7 @@ include Crysterm
 
 # `margin` shifts (and shrinks) where a widget is PAINTED — `_get_coords`/`lpos`
 # carries the inset (see margin_spec.cr). The geometry getters (`atop`/`aleft`/
-# `awidth`/`aheight`) feed hit-testing (`Screen#widget_at`, `Widget#contains_point?`),
+# `awidth`/`aheight`) feed hit-testing (`Window#widget_at`, `Widget#contains_point?`),
 # so they must report the SAME rectangle the widget is drawn at; otherwise a
 # margined widget — or any child of a margined container, whose position is built
 # on the parent's `atop`/`aleft` — is clickable a row/column off from where it
@@ -13,7 +13,7 @@ include Crysterm
 # rectangle, so clicking the visible combo hit the group box behind it.)
 
 private def mht_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 60, height: 24, default_quit_keys: false)
 end

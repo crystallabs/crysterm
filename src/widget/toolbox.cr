@@ -12,7 +12,7 @@ module Crysterm
     # its index) on a change.
     #
     # ```
-    # tb = Widget::ToolBox.new parent: screen, width: 30, height: 16, style: Style.new(border: true)
+    # tb = Widget::ToolBox.new parent: window, width: 30, height: 16, style: Style.new(border: true)
     # tb.add_item "General", Widget::Box.new(content: "...")
     # tb.add_item "Advanced", Widget::Form.new
     # ```

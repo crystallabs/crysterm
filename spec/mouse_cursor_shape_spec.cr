@@ -2,13 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget#mouse_cursor_shape=` + `Screen#set_mouse_cursor_shape`: changing the
+# `Widget#mouse_cursor_shape=` + `Window#set_mouse_cursor_shape`: changing the
 # GUI mouse-pointer shape (xterm's OSC 22) while a widget is hovered, gated
 # behind the `mouse.cursor_shape` config option. Driven headlessly over
 # in-memory IOs through the public `#dispatch_mouse` entry point.
 
 private def shape_screen(output)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: output,
     error: IO::Memory.new)

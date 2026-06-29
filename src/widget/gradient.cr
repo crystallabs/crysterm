@@ -146,13 +146,13 @@ module Crysterm
             span = (xl - xi).to_f
             (xi...xl).each do |x|
               attr = Attr.pack flags, fg_packed, Attr.pack_color(color_at((x - xi) / span))
-              screen.fill_region attr, ' ', x, x + 1, yi, yl
+              window.fill_region attr, ' ', x, x + 1, yi, yl
             end
           else
             span = (yl - yi).to_f
             (yi...yl).each do |y|
               attr = Attr.pack flags, fg_packed, Attr.pack_color(color_at((y - yi) / span))
-              screen.fill_region attr, ' ', xi, xl, y, y + 1
+              window.fill_region attr, ' ', xi, xl, y, y + 1
             end
           end
         end

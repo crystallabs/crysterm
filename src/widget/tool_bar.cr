@@ -15,7 +15,7 @@ module Crysterm
     # hotkeys) with plain labels (no `1:` prefixes).
     #
     # ```
-    # tb = Widget::ToolBar.new parent: screen, top: 0, left: 0, width: "100%", height: 1
+    # tb = Widget::ToolBar.new parent: window, top: 0, left: 0, width: "100%", height: 1
     # tb.add_button("New") { new_doc }
     # tb.add_separator
     # bold = Action.new "Bold"; bold.checkable = true

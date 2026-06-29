@@ -16,7 +16,7 @@ module Crysterm
     # * **Kitty** (`Media::Graphics`) — true pixels drawn *under* the cell grid
     #   (negative `z=`). The image is a terminal layer, so cells stay untouched
     #   and a default-background cell lets it show through (binary visibility).
-    # * **Cells** (`Media::Glyph`/`Ansi`) — the image is painted *into* the screen
+    # * **Cells** (`Media::Glyph`/`Ansi`) — the image is painted *into* the window
     #   buffer. `_render` skips its empty (no-glyph) content cells so those keep
     #   the image, while text cells draw over it (and `style.alpha` grades them).
     #
@@ -62,9 +62,9 @@ module Crysterm
 
     # The backend `Media.resolve` picks for a background on this terminal (it
     # always resolves to *some* backend — Kitty when available, else the cell-grid
-    # fallback), or `nil` when this widget has no screen yet.
+    # fallback), or `nil` when this widget has no window yet.
     private def background_backend : Media::Type?
-      return nil unless s = screen?
+      return nil unless s = window?
       Media.resolve Media::Content::Background, s.tput
     end
 

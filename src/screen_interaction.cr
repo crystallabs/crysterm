@@ -1,19 +1,19 @@
 module Crysterm
-  class Screen
+  class Window
     # File related to interaction on the display
 
     # Is the focused element grab and receiving all keypresses?
-    property? grab_keys : Bool = Config.screen_grab_keys
+    property? grab_keys : Bool = Config.window_grab_keys
 
     # Are keypresses being propagated further, or (except ignored ones) not propagated?
-    property? propagate_keys : Bool = Config.screen_propagate_keys
+    property? propagate_keys : Bool = Config.window_propagate_keys
 
     # Should the constructor install a default quit handler? When on, pressing
     # `q` (or Ctrl-Q) destroys the screen and exits the program — the behavior
     # every demo used to wire up by hand. Apps that bind those keys themselves
-    # can turn it off globally via the `screen.default_quit_keys` config option
-    # or per-screen via `default_quit_keys: false`.
-    property? default_quit_keys : Bool = Config.screen_default_quit_keys
+    # can turn it off globally via the `window.default_quit_keys` config option
+    # or per-window via `default_quit_keys: false`.
+    property? default_quit_keys : Bool = Config.window_default_quit_keys
 
     # Installs the default quit handler (see `default_quit_keys?`). Called from
     # the constructor; idempotent enough for normal use (one screen, one call).
@@ -251,7 +251,7 @@ module Crysterm
         if r.cols > 0 && r.rows > 0
           # The report carries the new window size in pixels (`0` when unknown), so
           # refresh the cell geometry straight from it — no ioctl/escape round-trip.
-          apply_cell_pixels(r.pixel_width // r.cols, r.pixel_height // r.rows)
+          @screen.apply_cell_pixels(r.pixel_width // r.cols, r.pixel_height // r.rows)
           # Hand the authoritative new size in cells to the debounced `#resize`
           # path so it drives the dimensions straight from the report instead of
           # re-probing via the `TIOCGWINSZ` ioctl — that ioctl is exactly what

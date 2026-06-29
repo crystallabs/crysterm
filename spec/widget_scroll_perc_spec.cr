@@ -14,7 +14,7 @@ include Crysterm
 # == bottom) and never NaN/Infinity.
 
 private def sp_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
 describe "Widget#get_scroll_perc" do

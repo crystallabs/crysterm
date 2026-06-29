@@ -151,10 +151,10 @@ module Crysterm
       end
 
       # Emits the `--role[-shade]: #rrggbb;` custom properties (carried on a
-      # `Screen` block; the parser collects custom properties globally, so no
-      # actual `Screen` rule is produced).
+      # `Window` block; the parser collects custom properties globally, so no
+      # actual `Window` rule is produced).
       private def emit_variables(io : IO) : Nil
-        io << "Screen {\n"
+        io << "Window {\n"
         ROLES.each do |role|
           s = shades(role)
           io << "  --" << role << ": " << Colors.hex(s[:base]) << ";\n"
@@ -248,10 +248,10 @@ module Crysterm
     end
 
     # Installs *theme* as the active theme: its generated stylesheet becomes the
-    # CSS *default* (user-agent) stylesheet, so every screen is styled by it out
+    # CSS *default* (user-agent) stylesheet, so every window is styled by it out
     # of the box. Passing `nil` clears the theme and empties the default
     # stylesheet (back to "no theme"). Setting this — or a non-empty
-    # `default_stylesheet` — before the first `Screen` is created suppresses the
+    # `default_stylesheet` — before the first `Window` is created suppresses the
     # automatic config-driven theme.
     def self.theme=(theme : Theme?) : Theme?
       @@active_theme = theme
@@ -263,25 +263,25 @@ module Crysterm
     @@theme_resolved = false
 
     # Resolves and installs the theme named by `Config.colors_theme` the first
-    # time a screen is created, unless the app already chose a theme (or set a
-    # non-empty default stylesheet). *screen* supplies the terminal probe data
+    # time a window is created, unless the app already chose a theme (or set a
+    # non-empty default stylesheet). *window* supplies the terminal probe data
     # the `"terminal"`/`"auto"` theme derives from.
-    def self.ensure_theme(screen) : Nil
+    def self.ensure_theme(window) : Nil
       return if @@theme_resolved
       @@theme_resolved = true
       return if @@active_theme || !default_stylesheet.rules.empty?
-      if theme = resolve_config_theme(screen)
+      if theme = resolve_config_theme(window)
         self.theme = theme
       end
     end
 
     # Maps the `colors.theme` config value to a `Theme` (`nil` for "no theme").
-    def self.resolve_config_theme(screen) : Theme?
+    def self.resolve_config_theme(window) : Theme?
       case Crysterm::Config.colors_theme
       in .none?     then nil
       in .dark?     then Theme.dark
       in .light?    then Theme.light
-      in .terminal? then screen.terminal_theme # derived from the terminal's probed colors
+      in .terminal? then window.terminal_theme # derived from the terminal's probed colors
       end
     end
   end

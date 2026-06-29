@@ -3,12 +3,12 @@ require "./spec_helper"
 include Crysterm
 
 # A z-indexed widget is deferred to a compositing `Plane` and painted above the
-# base layer (see `Screen#composite_planes`). Its line-drawing border rows must
+# base layer (see `Window#composite_planes`). Its line-drawing border rows must
 # dock on the plane's OWN buffer — before it composites down — so an overlay's
 # borders join one another but never join to the base content the overlay floats
 # over. That routing happens in `Widget#register_dock_stops`, which sends a
-# widget's border rows to `Screen#_plane_dock_stops` (plane-local) instead of
-# `Screen#_dock_stops` (base) while a plane is being painted.
+# widget's border rows to `Window#_plane_dock_stops` (plane-local) instead of
+# `Window#_dock_stops` (base) while a plane is being painted.
 #
 # Before the fix the gate was the widget's own `@compositing` flag, which is set
 # ONLY on the layer root. A bordered *descendant* of a z-indexed widget paints
@@ -19,7 +19,7 @@ include Crysterm
 # docking is meant to avoid. The fix gates on the screen's `compositing_layers?`,
 # true for the whole subtree, so descendants dock within the plane too.
 private def pds_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

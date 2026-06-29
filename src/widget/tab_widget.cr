@@ -17,7 +17,7 @@ module Crysterm
     # enables reordering the current tab with `<`/`>`.
     #
     # ```
-    # tabs = Widget::TabWidget.new parent: screen, width: 60, height: 20, tabs_closable: true
+    # tabs = Widget::TabWidget.new parent: window, width: 60, height: 20, tabs_closable: true
     # tabs.add_tab "Files", Widget::Box.new(content: "...")
     # tabs.add_tab "Edit", Widget::Box.new(content: "...")
     # tabs.bar.focus # so the arrow keys switch tabs
@@ -123,11 +123,11 @@ module Crysterm
         # their style when first created.
         on(::Crysterm::Event::PreRender) { sync_tab_style }
 
-        # Carousel auto-advance: start once attached to a screen (the timer needs
+        # Carousel auto-advance: start once attached to a window (the timer needs
         # one), and stop on destroy so it doesn't poke a dead widget.
         on(::Crysterm::Event::Attach) { start_carousel }
         on(::Crysterm::Event::Destroy) { stop_carousel }
-        start_carousel # in case we are already on a screen (parent: screen)
+        start_carousel # in case we are already on a window (parent: window)
       end
 
       # Applies the `TabWidget::tab` (Qt's `QTabBar::tab`) and `TabWidget::pane`
@@ -156,13 +156,13 @@ module Crysterm
         span
       end
 
-      # Starts the auto-advance timer if an interval is set and a screen is
+      # Starts the auto-advance timer if an interval is set and a window is
       # available. Idempotent (drops any prior timer first).
       private def start_carousel : Nil
         stop_carousel
         span = @auto_advance
         return unless span
-        scr = screen?
+        scr = window?
         return unless scr
         @carousel_timer = scr.every(span) { next_tab }
       end
@@ -330,7 +330,7 @@ module Crysterm
       # Cycles tabs on a wheel notch over the bar — down to the next tab, up to
       # the previous (both wrap), matching a browser tab strip. Returns `true`
       # when it consumed a wheel notch so the caller can stop; `false` otherwise.
-      # Accepting the event suppresses the screen's default "scroll the view".
+      # Accepting the event suppresses the window's default "scroll the view".
       private def wheel_cycle(e : ::Crysterm::Event::Mouse) : Bool
         if e.action.wheel_down?
           next_tab

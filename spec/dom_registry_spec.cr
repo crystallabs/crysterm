@@ -12,7 +12,7 @@ require "./spec_helper"
   # for any registered widget, fails here.
 
   private def headless_screen
-    Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
   end
 
   describe "DOM::REGISTRY round-trip invariant" do
@@ -58,7 +58,7 @@ require "./spec_helper"
     # entirely, so a cleared value silently reverted to the default on reload.
     it "round-trips a non-empty-default string option cleared to empty" do
       s = headless_screen
-      pb = Crysterm::Widget::ProgressBar.new screen: s
+      pb = Crysterm::Widget::ProgressBar.new window: s
       s.append pb
       pb.css_id = "p"
       pb.text_format.should eq "%p%" # sanity: non-empty default

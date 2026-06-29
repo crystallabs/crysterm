@@ -51,7 +51,7 @@ module Crysterm
         # end
       end
 
-      # Destroys self and removes it from the global list of `Screen`s.
+      # Destroys self and removes it from the global list of `Window`s.
       # Also remove all global events relevant to the object.
       # If no screens remain, the app is essentially reset to its initial state.
       def destroy

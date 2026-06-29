@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def map_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 78, height: 22)
 end

@@ -30,16 +30,26 @@ module Crysterm
     # shell) exits. `code` is the process exit status, or `nil` if unknown.
     event Exit, code : Int32? = nil
 
-    # Emitted when a `Screen` is bound to a freshly spawned terminal emulator
-    # window (see `Screen.open`). `screen` is the screen now driving the window.
-    event WindowOpened, screen : Crysterm::Screen
+    # Emitted when a `Window` is bound to a freshly spawned terminal emulator
+    # window (see `Window.open`). `screen` is the screen now driving the window.
+    event WindowOpened, screen : Crysterm::Window
 
-    # Emitted when the terminal emulator window backing a `Screen` goes away —
-    # typically because the user closed it. The `Screen` itself is NOT destroyed
+    # Emitted when the terminal emulator window backing a `Window` goes away —
+    # typically because the user closed it. The `Window` itself is NOT destroyed
     # by default (it is only disconnected, keeping its widget tree intact), so a
-    # handler may re-attach it to a new window via `Screen.open(into: screen)` or
+    # handler may re-attach it to a new window via `Window.open(into: screen)` or
     # tear it down with `screen.destroy`. `screen` is the affected screen.
-    event WindowClosed, screen : Crysterm::Screen
+    event WindowClosed, screen : Crysterm::Window
+
+    # Emitted by an `Application` when a new physical device (`Screen`) is added —
+    # i.e. the first window on a tty is registered ↔
+    # `QGuiApplication::screenAdded`. This is the attach half of the detach/
+    # reattach machinery. `screen` is the device.
+    event ScreenAdded, screen : Crysterm::Screen
+
+    # Emitted by an `Application` when a device (`Screen`) is no longer backing any
+    # of its windows ↔ `QGuiApplication::screenRemoved`. `screen` is the device.
+    event ScreenRemoved, screen : Crysterm::Screen
 
     # Emitted when widget focuses. Requires terminal supporting the focus protocol.
     event Focus, el : Widget? = nil
@@ -66,15 +76,15 @@ module Crysterm
     event Resize, size : Tput::Namespace::Size? = nil
 
     # Emitted when the user pastes text and bracketed paste (DEC 2004) is
-    # enabled (`Screen#enable_bracketed_paste`). `content` is the pasted text
+    # enabled (`Window#enable_bracketed_paste`). `content` is the pasted text
     # verbatim — never interpreted as key presses, so embedded control sequences
     # are inert. Lets apps treat paste differently from typing (e.g. insert
     # literally, skip auto-indent, guard against paste injection). Also emitted
-    # for a programmatic clipboard read (`Screen#request_clipboard`, OSC 52).
+    # for a programmatic clipboard read (`Window#request_clipboard`, OSC 52).
     event Paste, content : String
 
     # Emitted when the terminal reports a light/dark color-scheme change, once
-    # `Screen#enable_color_scheme_notifications` (DEC 2031) is active. Lets an app
+    # `Window#enable_color_scheme_notifications` (DEC 2031) is active. Lets an app
     # adapt its palette to the terminal theme at runtime.
     event ColorScheme, scheme : ::Tput::ColorScheme
 
@@ -261,7 +271,7 @@ module Crysterm
 
     # Base class for keyboard events. Carries the key identity (`char` / `key` /
     # `sequence`) and, when the terminal speaks an enhanced keyboard protocol
-    # (kitty / modifyOtherKeys) enabled via `Screen#enable_keyboard_protocol`,
+    # (kitty / modifyOtherKeys) enabled via `Window#enable_keyboard_protocol`,
     # the rich `key_event` plus flat accessors for its details (`#alt?`,
     # `#modifier_key`, …) — all `nil`/`false` for legacy (un-enhanced) input,
     # none of which the flat `#key`/`#char` can express.
@@ -355,7 +365,7 @@ module Crysterm
     end
 
     # A key release. Only emitted when an enhanced keyboard protocol with event
-    # reporting is active (`Screen#enable_keyboard_protocol(events: true)`);
+    # reporting is active (`Window#enable_keyboard_protocol(events: true)`);
     # otherwise the terminal never reports releases and this never fires.
     class KeyRelease < Key
     end
@@ -366,10 +376,10 @@ module Crysterm
     # both for mouse reports parsed from the terminal (xterm SGR/X10, via
     # `Tput`) and for events coming from the Linux console `gpm` daemon — both
     # sources are converted to a common `::Tput::Mouse::Event` and dispatched
-    # through `Screen#dispatch_mouse`, so listeners need not care about origin.
+    # through `Window#dispatch_mouse`, so listeners need not care about origin.
     #
-    # It is emitted on the `Screen` and, when the pointer is over a registered
-    # clickable `Widget`, on that widget as well (see `Screen#widget_at`).
+    # It is emitted on the `Window` and, when the pointer is over a registered
+    # clickable `Widget`, on that widget as well (see `Window#widget_at`).
     class Mouse < EventHandler::Event
       # The underlying normalized mouse event.
       property mouse : ::Tput::Mouse::Event
@@ -427,7 +437,7 @@ module Crysterm
     #
     # They are emitted on a `Widget` only — and only on the **topmost** widget
     # under the pointer, mirroring how a click is dispatched (see
-    # `Screen#dispatch_mouse`). A widget that is occluded by another does not
+    # `Window#dispatch_mouse`). A widget that is occluded by another does not
     # receive hover events; if it needs to react while in the background, it can
     # listen for the screen-level `Mouse` event (emitted for every mouse event)
     # and do its own hit-testing.

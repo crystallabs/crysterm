@@ -8,7 +8,7 @@ include Crysterm
 # without the animation fiber.
 
 private def copper_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)

@@ -14,7 +14,7 @@ include Crysterm
 # `#play` guard, so such a source renders through the still path.
 
 private def headless_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 80, height: 24)
 end

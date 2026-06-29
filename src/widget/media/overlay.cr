@@ -35,19 +35,19 @@ module Crysterm
 
         @file.try { |f| load f }
 
-        # Redraw the image after the *screen* finishes each render, not after
+        # Redraw the image after the *window* finishes each render, not after
         # this widget renders. A w3m image is an external overlay painted
         # directly onto the terminal, on top of whatever cells are currently
-        # there — so it must be (re)drawn *after* `Screen#draw` has flushed this
+        # there — so it must be (re)drawn *after* `Window#draw` has flushed this
         # frame's cells, or those cells land on top and hide it.
         #
-        # `Screen#_render` flushes its cell buffer (`draw`) and only *then* emits
-        # `Event::Rendered`, so we hook the screen's event. `PreRender` runs
+        # `Window#_render` flushes its cell buffer (`draw`) and only *then* emits
+        # `Event::Rendered`, so we hook the window's event. `PreRender` runs
         # *before* the cells are composited/flushed; we use it to deal with the
         # overlay left at our previous position when we move (see
         # `#invalidate_old_position`). This mirrors Blessed's
         # `onScreenEvent('render')`.
-        register_overlay_listeners screen
+        register_overlay_listeners window
       end
 
       def load(file : String)
@@ -61,14 +61,14 @@ module Crysterm
         request_render
       end
 
-      # Removes the currently displayed image, clearing its overlay from screen.
+      # Removes the currently displayed image, clearing its overlay from window.
       def clear_image
         clear_overlay
         @image = nil
         super # stop + clear file/source/frames
       end
 
-      # The overlay is only on screen once an image is loaded. (The erase rect is
+      # The overlay is only on window once an image is loaded. (The erase rect is
       # the full box — `Media::ScreenOverlay#overlay_rect`'s default — since the
       # external helper paints over the whole box, borders/padding included.)
       protected def overlay_visible? : Bool
@@ -76,7 +76,7 @@ module Crysterm
       end
 
       # (Re)paints the loaded image over the terminal at this widget's current
-      # position. Called after every screen render so the overlay stays on top;
+      # position. Called after every window render so the overlay stays on top;
       # skips while the widget is hidden or detached.
       # Set once the external helper has failed (e.g. `w3mimgdisplay` is not
       # installed), so we stop hammering it every render and never crash.
@@ -85,7 +85,7 @@ module Crysterm
       private def redraw_image
         return if @helper_failed
         return unless visible?
-        screen? || return
+        window? || return
         @image.try do |image|
           pos = _get_coords(true) || return
           # TODO - get coords of content only, without borders/padding

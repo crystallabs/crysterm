@@ -136,7 +136,7 @@ class Minesweeper
   @theme_index = 0
 
   def initialize(@difficulty)
-    @screen = Screen.new title: "Minesweeper"
+    @screen = Window.new title: "Minesweeper"
 
     @board = Widget::GroupBox.new \
       top: 2,

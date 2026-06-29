@@ -44,7 +44,7 @@ module Crysterm
     end
 
     private def start_css_animation(spec : ::Crysterm::Style::AnimationSpec) : Nil
-      scr = screen? || return
+      scr = window? || return
       raw = scr.css_keyframes(spec.name)
       return unless raw && raw.size >= 2
       stops = resolve_keyframes raw

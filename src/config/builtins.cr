@@ -62,20 +62,20 @@ module Superconf
   ENV_STRING = ->(s : String) { s.as(String?) }
 
   # -- Screen ----------------------------------------------------------------
-  option "screen.resize_interval", 0.2.seconds,
+  option "window.resize_interval", 0.2.seconds,
     description: "Debounce before redrawing after the last terminal-resize event",
     validate: ->(t : Time::Span) { t >= Time::Span.zero }
-  option "screen.tab_navigation", true,
+  option "window.tab_navigation", true,
     description: "Tab / Shift+Tab move keyboard focus between focusable widgets"
-  option "screen.propagate_keys", true,
+  option "window.propagate_keys", true,
     description: "Propagate unhandled keypresses up the widget tree"
-  option "screen.default_quit_keys", true,
+  option "window.default_quit_keys", true,
     description: "Install a default quit handler (q / Ctrl-Q destroy the screen and exit) in the Screen constructor"
-  option "screen.send_focus", false,
+  option "window.send_focus", false,
     description: "Emit focus events once the mouse is enabled"
-  option "screen.grab_keys", false,
+  option "window.grab_keys", false,
     description: "Route all keypresses to a single grabbing widget"
-  option "screen.dock_borders", false,
+  option "window.dock_borders", false,
     description: "Join adjacent widget borders instead of overlapping them"
   option "screen.headless", Crysterm::Headless::Auto,
     description: "Default a Screen built without explicit IO to a headless (in-memory) connection instead of the real terminal (auto|yes|no): 'auto' decides from whether the app runs interactively (output is a TTY), 'yes' forces headless, 'no' forces a real terminal"
@@ -83,7 +83,7 @@ module Superconf
     description: "Assume UTF-8 even if terminal auto-detection didn't find it"
   option "screen.full_unicode", false,
     description: "Grapheme / column-width-aware rendering (when the terminal supports Unicode)"
-  option "screen.overflow", Crysterm::Overflow::Ignore,
+  option "window.overflow", Crysterm::Overflow::Ignore,
     description: "Policy for widgets larger than their container (ignore|hidden|shrink_widget|skip_widget|stop_rendering|move_widget)"
 
   # -- Rendering -------------------------------------------------------------
@@ -200,16 +200,16 @@ module Superconf
   # When set, each names a file the screen captures itself into on first render,
   # then exits the interactive loop — see `Screen#capture_from_env`. Presence
   # paths (empty/unset = off), read via `#presence` at the call site.
-  option "screen.shot", ENV["CRYSTERM_SHOT"]?, parse: ENV_STRING,
+  option "window.shot", ENV["CRYSTERM_SHOT"]?, parse: ENV_STRING,
     description: "When set, path to write a single still PNG of the first rendered frame to, then exit (headless self-capture)"
-  option "screen.dump", ENV["CRYSTERM_DUMP"]?, parse: ENV_STRING,
+  option "window.dump", ENV["CRYSTERM_DUMP"]?, parse: ENV_STRING,
     description: "When set, path to write a textual `#dump` golden of the first rendered frame to, then exit"
-  option "screen.anim", ENV["CRYSTERM_ANIM"]?, parse: ENV_STRING,
-    description: "When set, path to write an animated PNG (APNG) capture to, then exit; tuned by screen.anim_secs / screen.anim_fps"
-  option "screen.anim_secs", (ENV["CRYSTERM_ANIM_SECS"]?.try(&.to_f?) || 5.0),
-    description: "Duration in seconds of a screen.anim (CRYSTERM_ANIM) capture"
-  option "screen.anim_fps", (ENV["CRYSTERM_ANIM_FPS"]?.try(&.to_i?) || 10),
-    description: "Frame rate of a screen.anim (CRYSTERM_ANIM) capture"
+  option "window.anim", ENV["CRYSTERM_ANIM"]?, parse: ENV_STRING,
+    description: "When set, path to write an animated PNG (APNG) capture to, then exit; tuned by window.anim_secs / window.anim_fps"
+  option "window.anim_secs", (ENV["CRYSTERM_ANIM_SECS"]?.try(&.to_f?) || 5.0),
+    description: "Duration in seconds of a window.anim (CRYSTERM_ANIM) capture"
+  option "window.anim_fps", (ENV["CRYSTERM_ANIM_FPS"]?.try(&.to_i?) || 10),
+    description: "Frame rate of a window.anim (CRYSTERM_ANIM) capture"
 
   # -- Observed environment variables (standard names from the OS / other tools)
   # Mirror externally-defined variables into the registry so they appear in

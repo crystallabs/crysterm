@@ -9,7 +9,7 @@ require "./spec_helper"
   # a serialize -> load -> serialize round-trip.
 
   private def headless_screen
-    Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+    Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
   end
 
   describe "Layout DOM (#to_layout_html / DOM.load)" do

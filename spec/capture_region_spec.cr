@@ -6,10 +6,10 @@ include Crysterm
 # (`src/screen_capture.cr`). Driven headlessly over in-memory IOs.
 
 private def capture_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
-describe "Screen#dump region clamping" do
+describe "Window#dump region clamping" do
   it "dumps a normal in-bounds region" do
     s = capture_screen
     text = s.dump(0, 4, 0, 2)

@@ -18,19 +18,19 @@ module Crysterm
     # placement). `Media::ScreenOverlay` documents why these two are kept out of
     # *its* (two-listener) lifecycle.
     module Media::RenderHook
-      # Screen the listener below was registered on, kept so it can be removed on
-      # destroy even after the widget has been detached (when `#screen?` is nil).
-      @listener_screen : ::Crysterm::Screen?
+      # Window the listener below was registered on, kept so it can be removed on
+      # destroy even after the widget has been detached (when `#window?` is nil).
+      @listener_screen : ::Crysterm::Window?
       @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
-      # Registers *block* to run after every screen render on *s*, remembering *s*
+      # Registers *block* to run after every window render on *s*, remembering *s*
       # and the wrapper so it can be removed later.
-      protected def register_render_hook(s : ::Crysterm::Screen, &block : ::Crysterm::Event::Rendered ->)
+      protected def register_render_hook(s : ::Crysterm::Window, &block : ::Crysterm::Event::Rendered ->)
         @listener_screen = s
         @ev_rendered = s.on(::Crysterm::Event::Rendered, &block)
       end
 
-      # Removes the listener registered above and forgets the screen.
+      # Removes the listener registered above and forgets the window.
       protected def teardown_render_hook
         s = @listener_screen || return
         @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }

@@ -24,16 +24,16 @@ module Crysterm
       # must share one frame counter.
       #
       # ```
-      # scroller = Widget::Effect::SineScroller.new parent: screen, top: 0, left: 0,
+      # scroller = Widget::Effect::SineScroller.new parent: window, top: 0, left: 0,
       #   width: "100%", height: 8, text: "GREETINGS TO EVERYONE   ...   "
       # scroller.start
       # ```
       #
-      # The glyphs are painted straight into the screen cells in `#render` —
+      # The glyphs are painted straight into the window cells in `#render` —
       # each cell's color is set as a native `0xRRGGBB` attribute via `sattr` —
       # rather than by building a `{#rrggbb-fg}`-tagged content string and letting
       # the content pipeline re-tokenize it (`_parse_tags`) every frame. A
-      # full-screen scroller emits one color run per column, so the tag reparse
+      # full-window scroller emits one color run per column, so the tag reparse
       # was this widget's dominant per-frame cost; the direct path skips it
       # entirely. (This mirrors how `Widget::Gradient` paints its cells.)
       #
@@ -97,7 +97,7 @@ module Crysterm
 
         # Advance one column. Painting happens in `#render` (state-only, like
         # `CopperBar#step`), which reads `@frame` — so an external master clock
-        # calls `step` then triggers a single `screen.render`.
+        # calls `step` then triggers a single `window.render`.
         def step
           @frame += 1
           mark_dirty # animation state changed; repaint under damage tracking
@@ -125,7 +125,7 @@ module Crysterm
 
             # Background fill: the box's own colors, every cell (the field the
             # glyphs ride over).
-            screen.fill_region(da, ' ', xi, xl, yi, yl)
+            window.fill_region(da, ' ', xi, xl, yi, yl)
 
             n = text.size
             next if n == 0
@@ -142,7 +142,7 @@ module Crysterm
               next if ch == ' '
               r = (amp * (1.0 + Math.sin(x * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, h - 1)
               fgf = rainbow? ? Attr.pack_color(Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360)) : deff
-              screen.fill_region(Attr.pack(flags, fgf, bgf), ch, xi + x, xi + x + 1, yi + r, yi + r + 1)
+              window.fill_region(Attr.pack(flags, fgf, bgf), ch, xi + x, xi + x + 1, yi + r, yi + r + 1)
             end
           end
         end

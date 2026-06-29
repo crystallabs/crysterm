@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Regression for the BCE (back-color-erase) clear-to-end-of-line path in
-# `Screen#draw` (`screen_drawing.cr`).
+# `Window#draw` (`screen_drawing.cr`).
 #
 # When a line is "colored/styled content followed by a default-attribute space
 # tail", the draw loop emits the leading content (leaving the terminal's SGR set
@@ -24,7 +24,7 @@ include Crysterm
 # scenario is deterministic. The clear must reset to default before `el`; that
 # reset is the bare `\e[m`, which is absent in the buggy output.
 private def bce_screen(output, width = 12, height = 2)
-  s = Crysterm::Screen.new(
+  s = Crysterm::Window.new(
     input: IO::Memory.new, output: output, error: IO::Memory.new,
     width: width, height: height)
   s.optimization = Crysterm::OptimizationFlag::BCE
@@ -32,7 +32,7 @@ private def bce_screen(output, width = 12, height = 2)
   s
 end
 
-describe "Screen#draw BCE clear-to-EOL" do
+describe "Window#draw BCE clear-to-EOL" do
   it "resets the terminal SGR before erasing the line when leading cells are styled" do
     obuf = IO::Memory.new
     s = bce_screen obuf

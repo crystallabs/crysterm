@@ -4,7 +4,7 @@ require "./widget_media_screen_overlay"
 # `struct winsize` (for the `ws_xpixel`/`ws_ypixel` that come back from
 # `TIOCGWINSZ` alongside rows/cols, so a graphics backend can derive the *real*
 # cell pixel size instead of guessing), `ioctl` and `TIOCGWINSZ` are all already
-# bound on `LibC` by the term-screen shard — reused here as `LibC::Winsize`.
+# bound on `LibC` by the term-window shard — reused here as `LibC::Winsize`.
 
 module Crysterm
   class Widget
@@ -18,7 +18,7 @@ module Crysterm
     #
     # Like `Media::Overlay`, the pixels here are owned by the terminal, not by
     # Crysterm's cell buffer, so this class reuses the very same erase/redraw
-    # lifecycle: the graphic is (re)painted *after* the screen flushes each
+    # lifecycle: the graphic is (re)painted *after* the window flushes each
     # frame's cells (`Event::Rendered`), and the cells under the previous
     # position are force-re-emitted when the widget moves or hides
     # (`#invalidate_region`) so the terminal's own text rendering covers the
@@ -32,7 +32,7 @@ module Crysterm
     # emit an escape sequence the terminal itself renders as pixels (`Media::Sixel`,
     # `Media::Regis`, `Media::Kitty`, `Media::Iterm`). The image source and the
     # render-driven animation framework come from `Media::Base`; this layer adds
-    # the pixel-resolution/encoding machinery and the "screen owns the pixels"
+    # the pixel-resolution/encoding machinery and the "window owns the pixels"
     # erase-on-move lifecycle the cell grid doesn't manage.
     abstract class Media::Graphics < Media::Base
       include Media::ScreenOverlay
@@ -100,27 +100,27 @@ module Crysterm
         setup_animate animate
 
         # Resolve the cell pixel size: when the caller didn't pin it, reuse what
-        # the Screen already detected at startup (one shared TIOCGWINSZ plus an
+        # the Window already detected at startup (one shared TIOCGWINSZ plus an
         # XTWINOPS fallback this path doesn't do itself), then fall back to a
         # typical monospace cell when the terminal reported nothing.
-        if s = screen?
+        if s = window?
           @cell_pixel_width = s.cell_pixel_width if @cell_pixel_width <= 0
           @cell_pixel_height = s.cell_pixel_height if @cell_pixel_height <= 0
         end
         @cell_pixel_width = 10 if @cell_pixel_width <= 0
         @cell_pixel_height = 20 if @cell_pixel_height <= 0
 
-        # Mirror Media::Overlay: repaint after the *screen* finishes each render
+        # Mirror Media::Overlay: repaint after the *window* finishes each render
         # (the cells are flushed by then, so the graphic lands on top), and use
         # PreRender to deal with the graphic left at our previous position.
-        register_overlay_listeners screen
+        register_overlay_listeners window
       end
 
       # The terminal's real cell size in pixels, read from `TIOCGWINSZ`
       # (`ws_xpixel`/`ws_ypixel` ÷ columns/rows), or `nil` when the terminal
       # doesn't report pixel dimensions or the output isn't a tty.
-      def self.terminal_cell_pixels(screen : ::Crysterm::Screen?) : Tuple(Int32, Int32)?
-        s = screen || return nil
+      def self.terminal_cell_pixels(window : ::Crysterm::Screen?) : Tuple(Int32, Int32)?
+        s = window || return nil
         tty = s.output
         return nil unless tty.is_a?(IO::FileDescriptor)
         ws = LibC::Winsize.new
@@ -188,7 +188,7 @@ module Crysterm
         request_render
       end
 
-      # Clears the loaded image, erasing its graphic from the screen.
+      # Clears the loaded image, erasing its graphic from the window.
       def clear_image
         clear_overlay
         super # stop + drop file/source/frames
@@ -317,7 +317,7 @@ module Crysterm
       # content without changing the box geometry, so `#payload_for`'s
       # geometry-keyed cache would otherwise keep serving the *previous* frame's
       # encoded payload (and the `#redraw_image` emit-skip would treat it as
-      # already on screen for separate-layer backends like Kitty), freezing the
+      # already on window for separate-layer backends like Kitty), freezing the
       # graphic on the stale image. Drop the per-frame payload cache and the
       # emit-tracking keys so the next render re-encodes the fresh bitmap and
       # re-emits it. Mirrors `Media::Cells#reset_sample_cache`.
@@ -339,7 +339,7 @@ module Crysterm
       end
 
       # (Re)paints the graphic at the widget's current position. Runs after every
-      # screen render so it stays on top of the freshly-drawn cells; skips while
+      # window render so it stays on top of the freshly-drawn cells; skips while
       # hidden or detached. Wraps the emit in DECSC/DECRC so the terminal cursor
       # (and thus Crysterm's positioning on the next frame) is left untouched.
       private def redraw_image
@@ -348,7 +348,7 @@ module Crysterm
         # pass (which never paints a hidden subtree, so its descendants are
         # naturally skipped), this overlay runs as a standalone `Rendered`
         # listener, so it must also bail when an ANCESTOR is hidden: the widget is
-        # then off-screen, the hidden ancestor has no rendered position, and
+        # then off-window, the hidden ancestor has no rendered position, and
         # resolving coords against it (`_get_coords(true)` →
         # `last_rendered_position`) would raise instead of returning nil — crashing
         # the render-loop fiber. Walk the parent chain and skip if any link is
@@ -358,7 +358,7 @@ module Crysterm
           return unless anc.visible?
           anc = anc.parent
         end
-        s = screen? || return
+        s = window? || return
         return unless has_image?
         ensure_animation
         # Draw into the *content* area, inside any border/padding (`#overlay_rect`).
@@ -393,7 +393,7 @@ module Crysterm
         @last_drawn = {xi, yi, cols, rows}
       end
 
-      # Whether the graphic must be re-emitted on every screen render (true when
+      # Whether the graphic must be re-emitted on every window render (true when
       # the terminal's cells overdraw it, e.g. sixel/ReGIS). Backends drawn on a
       # separate layer the cells don't touch (Kitty) override this to false and
       # are emitted only when the payload changes.
@@ -409,7 +409,7 @@ module Crysterm
         {xi, yi, (pos.xl - iright) - xi, (pos.yl - ibottom) - yi}
       end
 
-      # The graphic is only on screen once an image is present — either a loaded
+      # The graphic is only on window once an image is present — either a loaded
       # file or a directly-injected in-memory source (`Media::Base#bitmap=`, the
       # `Graph::Canvas` path), which leaves `@file` nil but sets `@source`.
       protected def overlay_visible? : Bool
@@ -426,7 +426,7 @@ module Crysterm
 
       # On erase, give a separate-layer backend (Kitty) the chance to delete its
       # image, and drop the emit-skip key so a re-show re-emits.
-      protected def overlay_cleared(s : ::Crysterm::Screen)
+      protected def overlay_cleared(s : ::Crysterm::Window)
         graphic_cleared s
         @emitted_key = nil
       end
@@ -436,7 +436,7 @@ module Crysterm
       # image, which is a separate layer that must be explicitly deleted).
       # Called from `#overlay_cleared` before the cells are invalidated. No-op by
       # default.
-      protected def graphic_cleared(s : ::Crysterm::Screen)
+      protected def graphic_cleared(s : ::Crysterm::Window)
       end
 
       private def teardown

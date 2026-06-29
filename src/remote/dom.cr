@@ -135,13 +135,13 @@ module Crysterm
     end
   end
 
-  class Screen
-    # Serializes the whole screen as layout DOM: a `w-screen` root wrapping each
+  class Window
+    # Serializes the whole window as layout DOM: a `w-window` root wrapping each
     # top-level widget's reconstructable subtree.
     def to_layout_html(io : IO) : Nil
-      io << "<w-screen>\n"
+      io << "<w-window>\n"
       children.each &.to_layout_html(io, 2)
-      io << "</w-screen>\n"
+      io << "</w-window>\n"
     end
 
     # :ditto:
@@ -149,7 +149,7 @@ module Crysterm
       String.build { |io| to_layout_html io }
     end
 
-    # Finds the first widget on this screen whose `#css_id` matches `id`.
+    # Finds the first widget on this window whose `#css_id` matches `id`.
     def find_by_id(id : String) : Widget?
       children.each do |child|
         if found = child.find_by_id(id)

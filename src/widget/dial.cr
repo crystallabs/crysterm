@@ -66,12 +66,12 @@ module Crysterm
 
       def render
         with_inner_coords do |xi, xl, yi, yl|
-          screen.fill_region sattr(style), style.fill_char, xi, xl, yi, yl
+          window.fill_region sattr(style), style.fill_char, xi, xl, yi, yl
 
           # Pointer in the middle of the knob.
           cx = xi + (xl - xi) // 2
           cy = yi + (yl - yi) // 2
-          screen.lines[cy]?.try do |line|
+          window.lines[cy]?.try do |line|
             line[cx]?.try do |cell|
               cell.char = pointer
               cell.attr = sattr style.indicator

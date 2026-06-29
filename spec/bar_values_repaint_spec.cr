@@ -16,7 +16,7 @@ include Crysterm
 # once, drain the damage set to a clean baseline, then assign new values with NO
 # manual render and assert the bar got marked for repaint.
 private def bvr_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,
@@ -26,7 +26,7 @@ private def bvr_screen
     optimization: Crysterm::OptimizationFlag::DamageTracking)
 end
 
-private def repaint_scheduled?(s : Crysterm::Screen, w : Crysterm::Widget)
+private def repaint_scheduled?(s : Crysterm::Window, w : Crysterm::Widget)
   s.@damage_dirty_roots.includes? w
 end
 

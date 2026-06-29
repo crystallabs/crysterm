@@ -12,7 +12,7 @@ include Crysterm
 # line given no length at all falls back to filling its parent.
 
 private def line_mem_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

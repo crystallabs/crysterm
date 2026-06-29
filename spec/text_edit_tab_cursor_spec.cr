@@ -9,7 +9,7 @@ include Crysterm
 # `tab_size - 1` — far enough that an Up/Down move lands on the wrong character,
 # even the wrong logical line. This locks the tab-aware mapping.
 private def te_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
 describe "PlainTextEdit caret with TABs" do

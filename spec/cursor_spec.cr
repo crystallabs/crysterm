@@ -2,21 +2,21 @@ require "./spec_helper"
 
 include Crysterm
 
-# Artificial cursor rendering: `Screen#_artificial_cursor_attr` is the Crysterm
-# equivalent of blessed's `Screen.prototype._cursorAttr`
+# Artificial cursor rendering: `Window#_artificial_cursor_attr` is the Crysterm
+# equivalent of blessed's `Window.prototype._cursorAttr`
 # (blessed `lib/widgets/screen.js`). It computes the cell attribute (and an
 # optional override glyph) used when `cursor.artificial?` is true and the cursor
-# is painted into the rendered buffer by `Screen#draw`.
+# is painted into the rendered buffer by `Window#draw`.
 #
 # A white-ish foreground (palette index 7) is forced for the predefined shapes,
 # matching blessed (`attr |= 7 << 9`).
 WHITE_FG = Attr.pack_color(Colors.palette_to_rgb(7))
 
-# A `Screen` backed by in-memory IOs, so constructing one neither writes the
+# A `Window` backed by in-memory IOs, so constructing one neither writes the
 # `enter` escape sequences to the real test terminal nor reads from it. We never
 # call `exec`, so no terminal I/O loop is started.
 def mem_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)
@@ -36,7 +36,7 @@ def cursor_attr(shape)
   cursor_attr(shape) { }
 end
 
-describe "Screen#_artificial_cursor_attr" do
+describe "Window#_artificial_cursor_attr" do
   describe "line shape" do
     it "overrides the glyph with a vertical bar and forces a white foreground" do
       attr, ch = cursor_attr Tput::Namespace::CursorShape::Line
@@ -102,7 +102,7 @@ describe "Screen#_artificial_cursor_attr" do
     end
   end
 
-  # `Screen#apply_cursor` is the single decision point: it routes a cursor
+  # `Window#apply_cursor` is the single decision point: it routes a cursor
   # request to either the hardware cursor or the artificial (Crysterm-drawn) one,
   # based on the terminal's probed/static capabilities
   # (`Tput::Features#cursor_style?`). One screen is reused across the cases, with

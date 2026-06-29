@@ -89,94 +89,106 @@ module Crysterm
     getter parent : Widget?
 
     # (This must be defined here rather than in src/mixin/children.cr because classes
-    # which have children do not necessarily also have a parent, e.g. `Screen`.)
+    # which have children do not necessarily also have a parent, e.g. `Window`.)
 
-    # Reparenting changes the screen this subtree derives (`#screen?`), so the
-    # memoized screen pointer on this node *and every descendant* becomes stale.
+    # Reparenting changes the window this subtree derives (`#window?`), so the
+    # memoized window pointer on this node *and every descendant* becomes stale.
     # All reparenting goes through this setter (there are no direct `@parent`
     # writes), so invalidating here is sufficient. The walk is O(subtree) but
-    # reparenting is rare, unlike the per-frame `#screen?` reads it speeds up.
+    # reparenting is rare, unlike the per-frame `#window?` reads it speeds up.
     def parent=(parent : Widget?)
       @parent = parent
-      invalidate_screen_cache
+      invalidate_window_cache
     end
 
-    # Owning `Screen`.
+    # Owning `Window` (the surface) ↔ `QWidget::window()`.
     #
     # Only a *top-level* widget (one with no `#parent`) stores this reference
-    # directly; a nested widget leaves it `nil` and derives its screen from its
-    # parent (see `#screen?`). This way the screen is always consistent with the
+    # directly; a nested widget leaves it `nil` and derives its window from its
+    # parent (see `#window?`). This way the window is always consistent with the
     # widget tree and never has to be propagated to, or kept in sync across,
     # descendants.
     #
-    # Do not read `@screen` directly; use `#screen` or `#screen?`.
-    @screen : ::Crysterm::Screen?
+    # Do not read `@window` directly; use `#window` or `#window?`.
+    @window : ::Crysterm::Window?
 
-    # Memoized result of the `#screen?` parent-chain walk. Cleared across the
-    # whole subtree on reparenting (see `#parent=`/`#screen=`/`#invalidate_screen_cache`).
-    # Only ever holds a *non-nil* screen — a detached widget leaves this nil and
-    # keeps resolving live, so it can never cache a stale screen while detached.
-    @screen_cache : ::Crysterm::Screen?
+    # Memoized result of the `#window?` parent-chain walk. Cleared across the
+    # whole subtree on reparenting (see `#parent=`/`#window=`/`#invalidate_window_cache`).
+    # Only ever holds a *non-nil* window — a detached widget leaves this nil and
+    # keeps resolving live, so it can never cache a stale window while detached.
+    @window_cache : ::Crysterm::Window?
 
-    # Returns the `Screen` owning this widget, or `nil` if this widget's subtree
-    # is not attached to any screen.
+    # Returns the `Window` (surface) owning this widget, or `nil` if this widget's
+    # subtree is not attached to any window ↔ `QWidget::window()`.
     #
     # The value is derived by walking up the parent chain; only the top-level
-    # widget of the subtree holds the reference. Use this when screen may
-    # legitimately be absent; use `#screen` when it must be present.
+    # widget of the subtree holds the reference. Use this when the window may
+    # legitimately be absent; use `#window` when it must be present.
     #
-    # The walk is memoized in `@screen_cache`: `#screen?` is read several times
+    # The walk is memoized in `@window_cache`: `#window?` is read several times
     # per widget per frame (the coordinate resolvers, `last_rendered_position`,
     # `request_render`, …), and without the cache each read walks parent→…→root
-    # (O(depth) × widget count, every frame). The owning screen only changes on
+    # (O(depth) × widget count, every frame). The owning window only changes on
     # reparenting, which clears the cache for the affected subtree.
-    def screen? : ::Crysterm::Screen?
-      if cached = @screen_cache
+    def window? : ::Crysterm::Window?
+      if cached = @window_cache
         return cached
       end
-      @screen_cache = if parent = @parent
-                        parent.screen?
+      @window_cache = if parent = @parent
+                        parent.window?
                       else
-                        @screen
+                        @window
                       end
     end
 
-    # Clears the memoized `#screen?` value on this node and all descendants.
-    # Called wherever the tree is relinked, since a node's screen is derived
+    # Clears the memoized `#window?` value on this node and all descendants.
+    # Called wherever the tree is relinked, since a node's window is derived
     # through its ancestors and a move invalidates the whole subtree at once.
-    protected def invalidate_screen_cache : Nil
-      self_and_each_descendant &.reset_screen_cache
+    protected def invalidate_window_cache : Nil
+      self_and_each_descendant &.reset_window_cache
     end
 
-    # Drops this single node's memoized screen pointer. Separate from
-    # `#invalidate_screen_cache` so the subtree walk can call it per node.
-    protected def reset_screen_cache : Nil
-      @screen_cache = nil
+    # Drops this single node's memoized window pointer. Separate from
+    # `#invalidate_window_cache` so the subtree walk can call it per node.
+    protected def reset_window_cache : Nil
+      @window_cache = nil
     end
 
-    # Returns the `Screen` owning this widget, raising if it is not attached to
-    # one. See `#screen?` for a non-raising variant.
-    def screen : ::Crysterm::Screen
-      screen?.not_nil! # ameba:disable Lint/NotNil
+    # Returns the `Window` (surface) owning this widget, raising if it is not
+    # attached to one. See `#window?` for a non-raising variant.
+    def window : ::Crysterm::Window
+      window?.not_nil! # ameba:disable Lint/NotNil
     end
 
-    # Sets the owning `Screen`.
+    # Sets the owning `Window`.
     #
-    # Only meaningful on a top-level widget; on a nested widget `#screen` is
+    # Only meaningful on a top-level widget; on a nested widget `#window` is
     # derived from `#parent`, so this value is ignored. Normally set only by
-    # `Screen`/`Widget` (re)parenting code, not by user code.
-    def screen=(@screen : ::Crysterm::Screen?)
+    # `Window`/`Widget` (re)parenting code, not by user code.
+    def window=(@window : ::Crysterm::Window?)
       # The stored reference is what the subtree derives from, so changing it
-      # invalidates the memoized `#screen?` on this node and its descendants.
-      invalidate_screen_cache
+      # invalidates the memoized `#window?` on this node and its descendants.
+      invalidate_window_cache
+    end
+
+    # The physical device (`Screen`) this widget is displayed on ↔
+    # `QWidget::screen()` — i.e. its window's `Screen`. `nil` when the widget is
+    # not attached to any window.
+    def screen? : ::Crysterm::Screen?
+      window?.try &.screen
+    end
+
+    # :ditto: but raises when the widget is not attached to a window.
+    def screen : ::Crysterm::Screen
+      window.screen
     end
 
     # Damage tracking (see `OptimizationFlag::DamageTracking`).
     #
     # Coarse per-widget marker set by `#mark_dirty` whenever this widget's
     # appearance may have changed since it was last painted. Note that the actual
-    # repaint decision is driven by the *screen-level* dirty set
-    # (`Screen#damage_mark_dirty`, which records the changed widget's top-level
+    # repaint decision is driven by the *window-level* dirty set
+    # (`Window#damage_mark_dirty`, which records the changed widget's top-level
     # ancestor in `@damage_dirty_roots`), not by reading this flag back per
     # widget — so this is an informational hint rather than the gate itself.
     # Starts `true` so a never-yet-painted widget is treated as needing paint.
@@ -190,34 +202,34 @@ module Crysterm
     # rendered to nothing.
     property damage_bounds : Tuple(Int32, Int32, Int32, Int32)? = nil
 
-    # Stamp used by `Screen`'s damage overlap-grow for O(1) cluster membership:
+    # Stamp used by `Window`'s damage overlap-grow for O(1) cluster membership:
     # this widget is in the cluster being assembled iff `@damage_seen` equals the
-    # screen's current grow stamp. Transient scratch, meaningful only mid-grow.
+    # window's current grow stamp. Transient scratch, meaningful only mid-grow.
     # `Int64` so it never wraps over the lifetime of a process.
     property damage_seen : Int64 = 0
 
-    # Index of this widget within the screen's base-child list for the current
+    # Index of this widget within the window's base-child list for the current
     # damage frame, used to address the overlap union-find. Transient scratch.
     property damage_idx : Int32 = -1
 
     # Marks this widget as needing a repaint and registers it (mapped to its
-    # top-level ancestor) with the owning screen's damage set. Cheap and safe to
+    # top-level ancestor) with the owning window's damage set. Cheap and safe to
     # call from any state-changing setter; a no-op for the buffer when damage
-    # tracking is off (the screen simply ignores the registration on a full
+    # tracking is off (the window simply ignores the registration on a full
     # frame). Call this after an in-place change the tracked setters don't see
     # (e.g. mutating a `Style` directly).
     def mark_dirty : Nil
       @render_dirty = true
-      screen?.try &.damage_mark_dirty(self)
+      window?.try &.damage_mark_dirty(self)
     end
 
-    # Requests a re-render of the owning `Screen`, if this widget is attached to
-    # one. This is the safe form of `screen.render` for use after a state change
+    # Requests a re-render of the owning `Window`, if this widget is attached to
+    # one. This is the safe form of `window.render` for use after a state change
     # (it is a no-op when the widget is detached) and centralizes the
     # render-triggering logic shared across widgets. Also flags this widget for
     # damage tracking, since a render was requested specifically on its behalf.
     def request_render : Nil
-      screen?.try do |s|
+      window?.try do |s|
         s.damage_mark_dirty self
         s.render
       end
@@ -228,7 +240,7 @@ module Crysterm
     # per-subtree damage rects don't cover, so it forces the next frame to be a
     # full re-composite. Mirrors the `invalidate_css_tree` structural hook.
     protected def _damage_invalidate_structure : Nil
-      screen?.try &.damage_force_full
+      window?.try &.damage_force_full
     end
 
     # Marks a widget as an item view (a list/tree/table/menu — anything that
@@ -249,7 +261,7 @@ module Crysterm
       *,
 
       @name = @name,
-      @screen = @screen,
+      window : ::Crysterm::Window? = nil,
 
       @left = @left,
       @top = @top,
@@ -310,20 +322,24 @@ module Crysterm
       # `#mouse_cursor_shape=`); a plain `@mouse_cursor_shape = …` would not.
       mouse_cursor_shape.try { |v| self.mouse_cursor_shape = v }
 
+      # An explicitly-passed owning `Window` is recorded before parenting (a
+      # `parent:` still wins, since appending re-derives the window via the tree).
+      @window = window if window
+
       # Set up the parent hierarchy first. The `parent` arg may be a `Widget`
-      # or a `Screen`; appending establishes `#parent` (for a Widget) or
-      # attaches to the `Screen`, after which `#screen` derives automatically.
+      # or a `Window`; appending establishes `#parent` (for a Widget) or
+      # attaches to the `Window`, after which `#window` derives automatically.
       parent.try &.append self
 
-      # If the widget is still stand-alone (created without a parent/screen),
-      # fall back to the global screen so it is immediately usable. Once it is
-      # later added to a parent or screen, `#screen` derives from there instead.
-      @screen ||= determine_screen unless screen?
+      # If the widget is still stand-alone (created without a parent/window),
+      # fall back to the global window so it is immediately usable. Once it is
+      # later added to a parent or window, `#window` derives from there instead.
+      @window ||= determine_window unless window?
 
-      # If this widget wants keyboard input, register it with its screen so it
+      # If this widget wants keyboard input, register it with its window so it
       # receives key events. Widgets no longer have to do this themselves.
       if @keys || @input
-        screen?.try &.register_keyable self
+        window?.try &.register_keyable self
       end
 
       # If constructed `draggable: true`, install the default reposition
@@ -390,38 +406,38 @@ module Crysterm
       @children.dup.each do |c|
         c.destroy
       end
-      # A hover tooltip is a screen overlay (not a child), so drop it explicitly
+      # A hover tooltip is a window overlay (not a child), so drop it explicitly
       # rather than leaking it past this widget's lifetime.
       if tip = @_tooltip
-        tip.screen?.try &.remove tip
+        tip.window?.try &.remove tip
         tip.destroy
         @_tooltip = nil
       end
       # Detach from wherever this widget actually lives — a nested widget from
-      # its parent, a top-level one from its screen (else it would be left in
-      # `screen.children` after `destroy`: still painted, still keyable, still
+      # its parent, a top-level one from its window (else it would be left in
+      # `window.children` after `destroy`: still painted, still keyable, still
       # potentially holding focus/hover/grab). See `#detach_from_tree`.
       detach_from_tree
       emit Crysterm::Event::Destroy
     end
 
-    # Returns the `Screen` to which a stand-alone (parent-less) widget should
-    # attach: the global screen, creating one on demand if none exists yet.
-    # (Auto-creation lets short scripts skip explicit `Screen` setup.)
+    # Returns the `Window` to which a stand-alone (parent-less) widget should
+    # attach: the global window, creating one on demand if none exists yet.
+    # (Auto-creation lets short scripts skip explicit `Window` setup.)
     #
-    # Widgets that have a parent do not need this: their `#screen` is derived
-    # from the parent chain (see `#screen?`).
-    def determine_screen : ::Crysterm::Screen
-      Screen.global
+    # Widgets that have a parent do not need this: their `#window` is derived
+    # from the parent chain (see `#window?`).
+    def determine_window : ::Crysterm::Window
+      Window.global
     end
 
-    # Returns parent `Widget` (if any) or `Screen` to which the widget may be attached.
-    # If the widget already is `Screen`, returns `nil`.
-    def parent_or_screen
-      return self if Screen === self
-      # `screen` already returns a non-nil `Screen` (it raises when unattached),
-      # so `@parent || screen` is non-nil without a `not_nil!`.
-      @parent || screen
+    # Returns parent `Widget` (if any) or `Window` to which the widget may be attached.
+    # If the widget already is `Window`, returns `nil`.
+    def parent_or_window
+      return self if Window === self
+      # `window` already returns a non-nil `Window` (it raises when unattached),
+      # so `@parent || window` is non-nil without a `not_nil!`.
+      @parent || window
     end
   end
 end

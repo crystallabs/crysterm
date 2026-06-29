@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for `Screen#_focus` (`screen_focus.cr`).
+# Regression coverage for `Window#_focus` (`screen_focus.cr`).
 #
 # `Event::Focus` denotes a focus *change* and must fire exactly once, when focus
 # actually moves. Re-focusing the already-focused widget through a screen-level
-# entry point (`Screen#focus`, or `focus_offset`/Tab wrapping onto the sole
+# entry point (`Window#focus`, or `focus_offset`/Tab wrapping onto the sole
 # focusable widget) routes straight to `_focus el, el`. The `old == cur` handling
 # already suppresses the spurious `Blur` and the state clobber, but the
 # terminating `Event::Focus` used to still fire — re-running the widget's focus
@@ -14,13 +14,13 @@ include Crysterm
 # `screen_rendering.cr#_render` guards against per frame). Driven headlessly over
 # in-memory IOs; no real terminal is touched.
 private def refocus_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)
 end
 
-describe "Screen#_focus re-focus emission" do
+describe "Window#_focus re-focus emission" do
   it "emits Event::Focus once on a real change but not on re-focus" do
     s = refocus_screen
     # The first focusable widget auto-focuses on insert (see

@@ -13,7 +13,7 @@ module Crysterm
     #
     # Beyond plain lengths it also understands `calc(...)` (evaluated to cells when
     # every term resolves) and the viewport units `vw/vh/vmin/vmax` (resolved
-    # against the screen size via `viewport_cells`, since a bare divisor can't).
+    # against the window size via `viewport_cells`, since a bare divisor can't).
     #
     # ## Cell aspect ratio
     #
@@ -22,7 +22,7 @@ module Crysterm
     # vertically than the same length does horizontally. The divisor table anchors
     # the **horizontal** mapping (`1 cell ≈ 10px` *wide*); a vertical absolute
     # length additionally divides by `cell_aspect_ratio` (cell height ÷ width), so
-    # a `200px × 200px` box comes out square on screen rather than as a 2:1-tall
+    # a `200px × 200px` box comes out square on window rather than as a 2:1-tall
     # rectangle. Relative units (`em`/`rem`/`ch`/`ex`) are defined in cell terms and
     # map identically on both axes. The ratio defaults to `2.0` and is replaced by
     # the terminal's measured cell size (or `css.cell_aspect_ratio`) in
@@ -35,12 +35,12 @@ module Crysterm
 
       # Cell height ÷ width: how many times taller a cell is than wide. Scales the
       # divisor of an absolute unit on the *vertical* axis (see the module docs).
-      # Defaults to the common `2.0`; the Screen replaces it at startup with the
-      # terminal's measured cell size (`Screen#detect_cell_geometry`), and an
+      # Defaults to the common `2.0`; the Window replaces it at startup with the
+      # terminal's measured cell size (`Window#detect_cell_geometry`), and an
       # explicit `css.cell_aspect_ratio` config pins it (`apply_config`).
       class_property cell_aspect_ratio : Float64 = 2.0
 
-      # Anchored on `1 cell ≈ 10px`; the on-screen absolute units below are
+      # Anchored on `1 cell ≈ 10px`; the on-window absolute units below are
       # *derived* from the fixed CSS ratios (`1in = 96px = 72pt = 6pc`) so they all
       # agree with one another, instead of being picked independently. Relative
       # units use the TUI conventions: `1ch ≡ 1 cell` (width of `0`), `1em/1rem ≈
@@ -65,7 +65,7 @@ module Crysterm
       # CLI / API); an untouched option leaves the table alone, so a programmatic
       # `divisors[...]` tweak still stands. The `css.unit_divisors` comma map is
       # applied first, then the `css.px_per_cell` shortcut wins for `px`. Called
-      # once per `Screen` at startup; idempotent, so calling it again is harmless.
+      # once per `Window` at startup; idempotent, so calling it again is harmless.
       def self.apply_config : Nil
         if config_set?("css.unit_divisors")
           merge_divisor_spec(Superconf.css_unit_divisors)
@@ -73,15 +73,15 @@ module Crysterm
         if config_set?("css.px_per_cell")
           divisors["px"] = Superconf.css_px_per_cell
         end
-        # An explicit `css.cell_aspect_ratio` pins the ratio; otherwise the Screen
-        # feeds in the terminal's measured value (see `Screen#detect_cell_geometry`),
+        # An explicit `css.cell_aspect_ratio` pins the ratio; otherwise the Window
+        # feeds in the terminal's measured value (see `Window#detect_cell_geometry`),
         # and absent both the `2.0` default stands.
         if config_set?("css.cell_aspect_ratio")
           self.cell_aspect_ratio = Superconf.css_cell_aspect_ratio
         end
       end
 
-      # Whether `css.cell_aspect_ratio` was explicitly configured. The Screen uses
+      # Whether `css.cell_aspect_ratio` was explicitly configured. The Window uses
       # this to skip terminal cell-size detection when the ratio is already pinned.
       def self.cell_aspect_ratio_configured? : Bool
         config_set?("css.cell_aspect_ratio")
@@ -126,14 +126,14 @@ module Crysterm
       NUMBER = /\A#{NUM}\z/
       # `calc(<expr>)`, capturing the inner expression.
       CALC = /\Acalc\(\s*(.*?)\s*\)\z/i
-      # A viewport-relative length, resolved against the screen by `viewport_cells`.
+      # A viewport-relative length, resolved against the window by `viewport_cells`.
       # CSS units are case-insensitive (`10VW`/`10VMIN`), so this matches any
       # casing; `viewport_cells` lower-cases the captured unit before dispatch.
       VIEWPORT = /\A(#{NUM})(vw|vh|vmin|vmax)\z/i
 
       # Rounds fractional cells to an `Int32`, *clamping* into range so an absurd
       # length (`99999999999px`) can't raise `OverflowError` — the contract is
-      # never-raises, and a value past the screen is meaningless anyway.
+      # never-raises, and a value past the window is meaningless anyway.
       def self.to_cell_count(cells : Float64) : Int32
         cells.round.clamp(Int32::MIN.to_f64, Int32::MAX.to_f64).to_i
       end
@@ -182,13 +182,13 @@ module Crysterm
       end
 
       # True if *value* is a viewport-relative length (`vw/vh/vmin/vmax`), which
-      # only `viewport_cells` (given the screen size) can resolve.
+      # only `viewport_cells` (given the window size) can resolve.
       def self.viewport?(value : String) : Bool
         value.strip.matches?(VIEWPORT)
       end
 
-      # Resolves a viewport-relative length against the screen size: `50vw` → half
-      # the screen width, `50vh` → half the height, `vmin`/`vmax` against the
+      # Resolves a viewport-relative length against the window size: `50vw` → half
+      # the window width, `50vh` → half the height, `vmin`/`vmax` against the
       # smaller/larger side. `nil` if *value* isn't a viewport unit.
       def self.viewport_cells(value : String, screen_width : Int32, screen_height : Int32) : Int32?
         return unless m = value.strip.match(VIEWPORT)

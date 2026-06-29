@@ -14,7 +14,7 @@ module Crysterm
     #
     # ```
     # Widget::ListTable.new(
-    #   parent: screen,
+    #   parent: window,
     #   keys: true,
     #   rows: [
     #     ["Name", "Score"],
@@ -307,7 +307,7 @@ module Crysterm
       # snapping the result to a whole-column boundary (so a cell is never split
       # mid-width) and re-rendering the visible rows from the new first column.
       def scroll_x(offset = 1)
-        return unless @scrollable && screen?
+        return unless @scrollable && window?
         return if @content_sized || @maxes.empty?
         visible = content_width
         return if visible <= 0
@@ -345,7 +345,7 @@ module Crysterm
 
       # Re-slices the header and every body item to the visible column window
       # (from `@first_col`), updating their content in place — no item recreation,
-      # so selection/state survive. All rows are resliced (not just on-screen
+      # so selection/state survive. All rows are resliced (not just on-window
       # ones) since vertical scrolling does not re-slice. Called when the
       # horizontal offset changes.
       private def reslice_rows
@@ -418,7 +418,7 @@ module Crysterm
 
       def render(with_children = true)
         # Re-pin the width now that the CSS cascade has run (it runs at the top
-        # of the screen's `_render`, before any widget renders). `set_data` pins
+        # of the window's `_render`, before any widget renders). `set_data` pins
         # the width at construction/Attach time, but a border arriving via CSS
         # isn't folded into `style` yet then, so `iwidth` would omit the border
         # columns and leave the box too narrow — the header and separators would
@@ -457,7 +457,7 @@ module Crysterm
         cells = @css_cells
         return if cells.nil? || cells.empty?
 
-        lines = screen.lines
+        lines = window.lines
         xi, yi, width, height = border_extent coords
 
         # Map visible x → actual column index, starting from the first visible
@@ -498,7 +498,7 @@ module Crysterm
         border = style.border
         return if !border.any? || no_cell_borders?
 
-        lines = screen.lines
+        lines = window.lines
         xi, yi, width, height = border_extent coords
         battr = sattr border
         last = @maxes.size - 1

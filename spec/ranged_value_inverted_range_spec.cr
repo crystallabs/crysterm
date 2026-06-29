@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def mem_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
 # `Mixin::RangedValue` must never store an inverted `minimum > maximum` range:

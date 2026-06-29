@@ -10,7 +10,7 @@ include Crysterm
 # (it has no widget `@parent`, only a stored screen), so the move leaked.
 
 private def headless_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: 20, height: 10)
 end
@@ -32,7 +32,7 @@ describe "Widget#insert reparenting a top-level widget" do
     # ...and no longer a top-level child of the screen.
     s.children.includes?(child).should be_false
     s.children.size.should eq before - 1
-    # Screen is still derived correctly through the new parent.
-    child.screen?.should eq s
+    # Window is still derived correctly through the new parent.
+    child.window?.should eq s
   end
 end

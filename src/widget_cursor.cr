@@ -2,11 +2,11 @@ module Crysterm
   class Widget
     # Per-widget terminal cursor.
     #
-    # `nil` (the default) means this widget inherits the screen's default cursor
-    # (`Screen#cursor`). As soon as any cursor setting is changed on the widget
+    # `nil` (the default) means this widget inherits the window's default cursor
+    # (`Window#cursor`). As soon as any cursor setting is changed on the widget
     # — via the methods below or via `#cursor!` — an override `Cursor` is created
     # and stored here; while the widget is focused it takes precedence over the
-    # screen default (the resolution happens in `Screen#active_cursor`).
+    # window default (the resolution happens in `Window#active_cursor`).
     property cursor : Cursor? = nil
 
     # Returns this widget's own cursor, creating (and thereby enabling) an
@@ -17,35 +17,35 @@ module Crysterm
       @cursor ||= Cursor.new
     end
 
-    # Sets this widget's cursor shape (and blink), overriding the screen default
-    # while the widget is focused. Routes through the screen so the hardware vs.
-    # artificial decision and (re)rendering are identical to the screen cursor.
+    # Sets this widget's cursor shape (and blink), overriding the window default
+    # while the widget is focused. Routes through the window so the hardware vs.
+    # artificial decision and (re)rendering are identical to the window cursor.
     def cursor_shape(shape : Tput::CursorShape = Tput::CursorShape::Block, blink : Bool = false)
-      screen?.try &.cursor_shape shape, blink, cursor!
+      window?.try &.cursor_shape shape, blink, cursor!
     end
 
-    # Sets this widget's cursor color, overriding the screen default while the
+    # Sets this widget's cursor color, overriding the window default while the
     # widget is focused.
     def cursor_color(color : String? = nil)
-      screen?.try &.cursor_color color, cursor!
+      window?.try &.cursor_color color, cursor!
     end
 
     # Shows this widget's cursor.
     def show_cursor
-      screen?.try &.show_cursor cursor!
+      window?.try &.show_cursor cursor!
     end
 
     # Hides this widget's cursor.
     def hide_cursor
-      screen?.try &.hide_cursor cursor!
+      window?.try &.hide_cursor cursor!
     end
 
-    # Drops this widget's cursor override, reverting to the screen default. If
-    # the widget is focused, the screen default is re-applied right away (and the
-    # screen repainted, in case an artificial cursor was being drawn).
+    # Drops this widget's cursor override, reverting to the window default. If
+    # the widget is focused, the window default is re-applied right away (and the
+    # window repainted, in case an artificial cursor was being drawn).
     def reset_cursor
       @cursor = nil
-      if (s = screen?) && s.focused == self
+      if (s = window?) && s.focused == self
         s.apply_cursor
         s.render if s.renders > 0
       end

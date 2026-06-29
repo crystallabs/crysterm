@@ -42,7 +42,7 @@ module Crysterm
 
         if @orientation.horizontal?
           (coords.yi..coords.yl - 1).each do |y|
-            screen._dock_stops[y] = true
+            window._dock_stops[y] = true
           end
         end
       end
@@ -54,7 +54,7 @@ module Crysterm
         when Tput::Orientation::Vertical
           self.height = size
         else
-          # Almost useless failsafe case; just prevents having nothing rendering on screen.
+          # Almost useless failsafe case; just prevents having nothing rendering on window.
           self.width = size
           self.height = size
         end

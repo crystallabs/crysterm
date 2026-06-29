@@ -9,7 +9,7 @@ include Crysterm
 # sampled glyph deterministic so colors can be asserted.
 
 private def matrix_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)

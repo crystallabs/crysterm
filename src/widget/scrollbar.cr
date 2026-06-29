@@ -22,8 +22,8 @@ module Crysterm
     # `Box`, or shared by a custom layout).
     #
     # ```
-    # box = Widget::ScrollableBox.new parent: screen, top: 0, left: 0, width: 40, height: 10, content: long_text
-    # sb = Widget::ScrollBar.new parent: screen, top: 0, left: 40, width: 1, height: 10
+    # box = Widget::ScrollableBox.new parent: window, top: 0, left: 0, width: 40, height: 10, content: long_text
+    # sb = Widget::ScrollBar.new parent: window, top: 0, left: 40, width: 1, height: 10
     # sb.attach box
     # ```
     #
@@ -342,7 +342,7 @@ module Crysterm
       private def paint_cross(horizontal, m, xi, xl, yi, yl, attr, ch) : Nil
         if horizontal
           (yi...yl).each do |y|
-            screen.lines[y]?.try do |line|
+            window.lines[y]?.try do |line|
               line[m]?.try do |cell|
                 cell.char = ch
                 cell.attr = attr
@@ -351,7 +351,7 @@ module Crysterm
             end
           end
         else
-          screen.lines[m]?.try do |line|
+          window.lines[m]?.try do |line|
             (xi...xl).each do |x|
               line[x]?.try do |cell|
                 cell.char = ch

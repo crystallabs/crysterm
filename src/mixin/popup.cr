@@ -40,11 +40,11 @@ module Crysterm
         pop.show
         pop.front!
         pop.focus if focus_popup
-        screen.grab self
-        # Shared "click-away to dismiss" (the same `Screen#on_press_outside` used
+        window.grab self
+        # Shared "click-away to dismiss" (the same `Window#on_press_outside` used
         # by the pop-up menus and the `Completer` drop-down): a press outside this
         # widget *and* its pop-up closes it.
-        @ev_outside ||= screen.on_press_outside(->(x : Int32, y : Int32) { grab_contains?(x, y) }) { close }
+        @ev_outside ||= window.on_press_outside(->(x : Int32, y : Int32) { grab_contains?(x, y) }) { close }
         request_render
       end
 
@@ -59,19 +59,19 @@ module Crysterm
         true
       end
 
-      # Marks the pop-up closed and releases the modal screen grab. Both teardown
+      # Marks the pop-up closed and releases the modal window grab. Both teardown
       # paths do this: unconditionally after the open-guard in `#teardown_popup`,
       # and under `if @open` in `#teardown_popup_on_destroy`.
       private def release_grab : Nil
         @open = false
-        screen?.try &.ungrab self
+        window?.try &.ungrab self
       end
 
-      # Removes the outside-click watcher from the screen (if installed) and
+      # Removes the outside-click watcher from the window (if installed) and
       # clears the stored handle. Both teardown paths (`#teardown_popup` and
       # `#teardown_popup_on_destroy`) detach it identically.
       private def detach_outside_watcher : Nil
-        @ev_outside.try { |w| screen?.try &.off ::Crysterm::Event::Mouse, w }
+        @ev_outside.try { |w| window?.try &.off ::Crysterm::Event::Mouse, w }
         @ev_outside = nil
       end
 
@@ -88,12 +88,12 @@ module Crysterm
         # Release the modal grab if we're destroyed while still open. `#close`
         # (the normal dismiss path) does this via `#teardown_popup`, but destroy
         # can run without a prior close — leaving the now-dead widget lingering in
-        # the screen's `@grabs`, which keeps `Screen#grabbing?` true and routes
+        # the window's `@grabs`, which keeps `Window#grabbing?` true and routes
         # every later mouse press through `grab_contains?` on a destroyed widget.
         release_grab if @open
         detach_outside_watcher
         if pop = popup_widget
-          screen?.try &.remove pop
+          window?.try &.remove pop
           pop.destroy
         end
       end

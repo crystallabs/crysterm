@@ -11,7 +11,7 @@ module Crysterm
     # or any sized `Box`.
     #
     # ```
-    # win = Widget::Box.new parent: screen, top: 2, left: 2, width: 30, height: 10, style: Style.new(border: true)
+    # win = Widget::Box.new parent: window, top: 2, left: 2, width: 30, height: 10, style: Style.new(border: true)
     # Widget::SizeGrip.new parent: win, bottom: 0, right: 0, width: 1, height: 1
     # ```
     #

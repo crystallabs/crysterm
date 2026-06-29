@@ -3,7 +3,7 @@ module Crysterm
   #
   # A layout is a strategy object installed on any container `Widget` via
   # `Widget#layout=`. It is deliberately **not** a widget (cf. Qt's `QLayout`,
-  # which is not a `QWidget`): the container owns the on-screen rectangle, the
+  # which is not a `QWidget`): the container owns the on-window rectangle, the
   # border, the padding and the z-order slot; the layout only decides where the
   # children go *inside* that rectangle.
   #
@@ -92,7 +92,7 @@ module Crysterm
     # (which also bumps the render index) so the flow/stack engines, which bump
     # every child themselves, can still honor the z-index deferral.
     protected def render_or_defer(el : Widget) : Nil
-      scr = el.screen
+      scr = el.window
       if el.style.z_index && !scr.compositing_layers?
         scr.defer_layer el
       else
@@ -105,9 +105,9 @@ module Crysterm
     # to the old loop (every child consumes an index, even one later `#skip`ped)
     # while still controlling whether the child renders.
     protected def bump_index(el : Widget) : Nil
-      if el.screen._ci != -1
-        el.index = el.screen._ci
-        el.screen._ci += 1
+      if el.window._ci != -1
+        el.index = el.window._ci
+        el.window._ci += 1
       end
     end
 
@@ -162,7 +162,7 @@ module Crysterm
     end
 
     # The container's interior content rectangle (inside border + padding), in
-    # absolute screen coordinates, or nil if it has collapsed to nothing.
+    # absolute window coordinates, or nil if it has collapsed to nothing.
     # `container.lpos` is already up to date by the time children render, so
     # this reads it directly rather than re-deriving coordinates.
     protected def interior_coords(container : Widget) : LPos?

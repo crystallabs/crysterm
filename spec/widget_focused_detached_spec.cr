@@ -10,7 +10,7 @@ include Crysterm
 # can't be on screen can't be the screen's focused widget.
 
 private def detached_focus_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)
@@ -38,7 +38,7 @@ describe "Widget#focused?" do
     # Detach it from the screen; focus rewinds to `other`. Querying the now
     # screen-less widget must answer `false`, not crash.
     s.remove w
-    w.screen?.should be_nil
+    w.window?.should be_nil
     w.focused?.should be_false
   end
 end

@@ -45,7 +45,7 @@ module Crysterm
 
         # Dialogs start hidden, like Blessed's `options.hidden = true`: `read_input`
         # calls `show` to reveal the prompt. Without this the prompt renders on the
-        # first frame and, when several dialogs share a screen, they stack on top
+        # first frame and, when several dialogs share a window, they stack on top
         # of each other.
         hide
 
@@ -67,10 +67,10 @@ module Crysterm
 
         @textinput.value = value
 
-        screen.save_focus
+        window.save_focus
         # focus
 
-        # ev_keys = screen.on(Event::KeyPress) do |e|
+        # ev_keys = window.on(Event::KeyPress) do |e|
         #  next unless (e.key == Tput::Key::Enter || e.key == Tput::Key::Escape)
         #  done.call nil, e.key == Tput::Key::Enter
         # end

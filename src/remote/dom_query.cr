@@ -1,5 +1,5 @@
 module Crysterm
-  class Screen
+  class Window
     # Resolves a CSS selector string to the live widgets it matches — the
     # runtime, query-anything counterpart to `#find_by_id`.
     #

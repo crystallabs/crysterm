@@ -11,7 +11,7 @@ include Crysterm
 # later duplicate unreachable — the cursor bounced between the early entries.
 
 private def cbdup_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

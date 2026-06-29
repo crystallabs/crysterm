@@ -11,10 +11,10 @@ module Crysterm
       #
       # Each column is a falling "drop": a bright head glyph trailing a tail that
       # fades from near-white down to deep green. It fills its own box (not
-      # necessarily the whole screen), reads its size lazily each frame, and so
+      # necessarily the whole window), reads its size lazily each frame, and so
       # tracks terminal resize and `%`-relative sizing automatically.
       #
-      # It paints its interior straight into the screen's cell buffer as packed
+      # It paints its interior straight into the window's cell buffer as packed
       # `Int64` attrs (each fg a direct `0xRRGGBB` value) — see `Effect::Direct` —
       # so there is no tagged-content round-trip and no per-frame tag re-parse.
       # Animation is driven by the widget itself: call `#start` to spawn the render
@@ -23,7 +23,7 @@ module Crysterm
       # clock.
       #
       # ```
-      # rain = Widget::Effect::Matrix.new parent: screen, width: "100%", height: "100%"
+      # rain = Widget::Effect::Matrix.new parent: window, width: "100%", height: "100%"
       # rain.start
       # ```
       #
@@ -33,7 +33,7 @@ module Crysterm
       class Matrix < Box
         include Effect::Direct
 
-        # Characters rained down the screen; one is sampled per lit cell per frame.
+        # Characters rained down the window; one is sampled per lit cell per frame.
         property pool : Array(Char)
 
         # Color of the leading ("head") glyph of every drop (a native `0xRRGGBB`
@@ -66,7 +66,7 @@ module Crysterm
 
         # (Re)initialize per-column state for *w* columns and *h* rows. Heads are
         # scattered over `[-h, h)` rather than only above the top: roughly half
-        # begin already on-screen (at random heights) so the very first frame is
+        # begin already on-window (at random heights) so the very first frame is
         # already full of rain, while the rest fall in from above — so a fresh
         # widget (or a single screenshot of it) looks established immediately,
         # with no empty warm-up.

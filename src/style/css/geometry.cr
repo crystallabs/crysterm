@@ -82,7 +82,7 @@ module Crysterm
 
       # Resolves a `width`/`height`/`top`/`left` value. A viewport unit (`50vw`)
       # passes through as its *string*, so the positioner re-resolves it against
-      # the screen on every frame and it tracks terminal resize (see
+      # the window on every frame and it tracks terminal resize (see
       # `Widget#resolve_dimension`); everything else resolves to a static value
       # now via `dimension`.
       private def self.resolve_dim(value : String, vertical : Bool = false) : Int32 | String | Nil
@@ -103,17 +103,17 @@ module Crysterm
 
       # Resolves a `min-*`/`max-*` size constraint, which must be a cell count.
       # Like `resolve_dim`, but a constraint has no per-frame hook to re-resolve,
-      # so a viewport unit is sized against the screen once, here and now (`nil`
-      # if the widget isn't on a screen yet), and `%` has no cell mapping at all.
+      # so a viewport unit is sized against the window once, here and now (`nil`
+      # if the widget isn't on a window yet), and `%` has no cell mapping at all.
       private def self.size_cells(widget : Widget, value : String, vertical : Bool = false) : Int32?
-        # A viewport unit ('v' present) sizes against the screen once, here and
+        # A viewport unit ('v' present) sizes against the window once, here and
         # now — a single `viewport_cells` both detects and resolves it (no extra
         # `viewport?` regex pass). If the widget isn't mounted yet, or it's some
         # other 'v' string, fall through to `to_cells` (which drops a viewport
         # unit to `nil`, i.e. ignored). The 'v' gate folds case (`50VW`) so an
         # uppercased viewport constraint isn't missed (see `resolve_dim`).
         if maybe_viewport?(value)
-          if (scr = widget.screen?) && (cells = Length.viewport_cells(value, scr.awidth, scr.aheight))
+          if (scr = widget.window?) && (cells = Length.viewport_cells(value, scr.awidth, scr.aheight))
             return cells
           end
         end

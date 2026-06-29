@@ -2,9 +2,9 @@ require "./widget_media_base"
 
 module Crysterm
   class Widget
-    # Shared *screen-overlay* lifecycle for the image backends whose pixels are
+    # Shared *window-overlay* lifecycle for the image backends whose pixels are
     # owned by the terminal (or an external helper) rather than by Crysterm's
-    # cell buffer, and which therefore must be (re)painted *after* the screen
+    # cell buffer, and which therefore must be (re)painted *after* the window
     # flushes each frame's cells and erased-by-re-emitting-cells when the widget
     # moves or hides.
     #
@@ -34,10 +34,10 @@ module Crysterm
     # changes. Their (smaller) shared register/teardown lives in
     # `Media::RenderHook` instead.
     module Media::ScreenOverlay
-      # Screen the listeners below were registered on, kept so they can be removed
-      # on destroy even after the widget has been detached (when `#screen?` is
+      # Window the listeners below were registered on, kept so they can be removed
+      # on destroy even after the widget has been detached (when `#window?` is
       # already nil).
-      @listener_screen : ::Crysterm::Screen?
+      @listener_screen : ::Crysterm::Window?
       @ev_prerender : ::Crysterm::Event::PreRender::Wrapper?
       @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
 
@@ -49,23 +49,23 @@ module Crysterm
       # listeners on *s*, in that order, and remembers *s* + the wrappers; then
       # wires this widget's own `Hide`/`Detach`/`Show`/`Destroy` lifecycle. Mirrors
       # what both backends did inline in their constructor.
-      protected def register_overlay_listeners(s : ::Crysterm::Screen)
+      protected def register_overlay_listeners(s : ::Crysterm::Window)
         @listener_screen = s
         @ev_prerender = s.on(::Crysterm::Event::PreRender) { invalidate_old_position }
         @ev_rendered = s.on(::Crysterm::Event::Rendered) { redraw_image }
 
         # The overlay lives outside the cell buffer, so hiding/detaching the widget
-        # would leave it on screen: clear it on hide/detach and let it be repainted
+        # would leave it on window: clear it on hide/detach and let it be repainted
         # on show (`#redraw_image` runs every render but skips while hidden). Tear
-        # the screen listeners down on destroy so they don't keep firing or leak
+        # the window listeners down on destroy so they don't keep firing or leak
         # `self`.
         on(::Crysterm::Event::Hide) { clear_overlay }
-        on(::Crysterm::Event::Detach) { |e| clear_overlay e.object.as?(::Crysterm::Screen) }
+        on(::Crysterm::Event::Detach) { |e| clear_overlay e.object.as?(::Crysterm::Window) }
         on(::Crysterm::Event::Show) { request_render }
         on(::Crysterm::Event::Destroy) { teardown }
       end
 
-      # Removes the listeners registered above and forgets the screen.
+      # Removes the listeners registered above and forgets the window.
       protected def teardown_overlay_listeners
         s = @listener_screen || return
         @ev_prerender.try { |w| s.off ::Crysterm::Event::PreRender, w }
@@ -99,22 +99,22 @@ module Crysterm
         pos = _get_coords(false) || return
         rect = overlay_rect(pos)
         return if last == rect
-        screen.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
+        window.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
       end
 
       # Hook run by `#clear_overlay` before the cells are invalidated, for backends
       # that must drop extra state (or delete a separate image layer) on erase.
       # No-op by default.
-      protected def overlay_cleared(s : ::Crysterm::Screen)
+      protected def overlay_cleared(s : ::Crysterm::Window)
       end
 
       # Erases the overlay at its last painted position by forcing those cells to
       # be re-emitted, then forgets the position. *on_screen* lets the caller pass
-      # the screen explicitly (e.g. the `Detach` event, fired after `#screen?` has
+      # the window explicitly (e.g. the `Detach` event, fired after `#window?` has
       # already been cleared).
-      private def clear_overlay(on_screen : ::Crysterm::Screen? = nil)
+      private def clear_overlay(on_screen : ::Crysterm::Window? = nil)
         last = @last_drawn || return
-        s = on_screen || screen? || return
+        s = on_screen || window? || return
         overlay_cleared s
         s.invalidate_region(last[0], last[0] + last[2], last[1], last[1] + last[3])
         @last_drawn = nil

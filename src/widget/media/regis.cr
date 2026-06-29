@@ -6,7 +6,7 @@ module Crysterm
     # commands that a ReGIS-capable terminal (xterm built with
     # `--enable-regis-graphics`, or a real VT240/VT330/VT340) draws into the VT
     # window. Like sixel the pixels are owned by the terminal, so this inherits
-    # `Media::Graphics`'s screen-owns-pixels erase/redraw lifecycle.
+    # `Media::Graphics`'s window-owns-pixels erase/redraw lifecycle.
     #
     # ReGIS is a *vector* format with no native raster blit, so a photo is drawn
     # the only faithful way: quantized to ReGIS's small set of built-in named
@@ -16,7 +16,7 @@ module Crysterm
     # (not the text cursor), so the widget's pixel origin is honored.
     #
     # ```
-    # img = Widget::Media::Regis.new file: "pic.png", width: 48, height: 14, parent: screen
+    # img = Widget::Media::Regis.new file: "pic.png", width: 48, height: 14, parent: window
     # ```
     class Media::Regis < Media::Graphics
       # ReGIS built-in named colors and their approximate RGB, used for
@@ -40,9 +40,9 @@ module Crysterm
       # `Ordered`/`Diffusion`/`Auto` are accepted for parity but rarely worth it.
       property dither : Media::Dither = Media::Dither::None
 
-      # ReGIS addresses a *fixed logical screen* (not raw window pixels): xterm
+      # ReGIS addresses a *fixed logical window* (not raw window pixels): xterm
       # maps `[0,0]..[regis_width-1, regis_height-1]` onto the whole text area.
-      # These default to xterm's typical ReGIS screen; set the matching
+      # These default to xterm's typical ReGIS window; set the matching
       # `XTerm*regisScreenSize` resource (e.g. `1100x400`) so the logical space
       # fills the window. The widget's cell box is mapped into this space.
       property regis_width : Int32 = 800
@@ -55,15 +55,15 @@ module Crysterm
         @regis_width = regis_width
         @regis_height = regis_height
         super *args, **opts
-        # 0 ⇒ auto: derive the logical screen from the terminal's real pixel size
+        # 0 ⇒ auto: derive the logical window from the terminal's real pixel size
         # (the base already detected the per-cell pixels via TIOCGWINSZ). Pair it
         # with xterm's `regisScreenSize: auto` so the logical space matches the
         # window and the image fills it instead of leaving a black margin.
         if @regis_width <= 0
-          @regis_width = cell_pixel_width * (screen?.try(&.awidth) || 80)
+          @regis_width = cell_pixel_width * (window?.try(&.awidth) || 80)
         end
         if @regis_height <= 0
-          @regis_height = cell_pixel_height * (screen?.try(&.aheight) || 24)
+          @regis_height = cell_pixel_height * (window?.try(&.aheight) || 24)
         end
       end
 
@@ -75,20 +75,20 @@ module Crysterm
         false
       end
 
-      # Map the cell box into ReGIS' logical screen (a fraction of the whole
+      # Map the cell box into ReGIS' logical window (a fraction of the whole
       # terminal). One bitmap pixel per logical unit keeps spans aligned.
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
-        sc = screen.awidth
-        sr = screen.aheight
+        sc = window.awidth
+        sr = window.aheight
         pw = sc > 0 ? (cols * @regis_width / sc).to_i : cols
         ph = sr > 0 ? (rows * @regis_height / sr).to_i : rows
         {pw < 1 ? 1 : pw, ph < 1 ? 1 : ph}
       end
 
-      # Logical origin of the content box within the ReGIS screen.
+      # Logical origin of the content box within the ReGIS window.
       protected def origin_pixels(xi : Int32, yi : Int32) : Tuple(Int32, Int32)
-        sc = screen.awidth
-        sr = screen.aheight
+        sc = window.awidth
+        sr = window.aheight
         ox = sc > 0 ? (xi * @regis_width / sc).to_i : xi
         oy = sr > 0 ? (yi * @regis_height / sr).to_i : yi
         {ox, oy}

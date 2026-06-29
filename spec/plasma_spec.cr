@@ -8,7 +8,7 @@ include Crysterm
 # headlessly, with no animation fiber and no real terminal.
 
 private def plasma_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new)

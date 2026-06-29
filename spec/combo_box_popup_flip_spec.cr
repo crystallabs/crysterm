@@ -10,7 +10,7 @@ include Crysterm
 # re-runs the placement at render, against the combo's final (themed) geometry.
 
 private def cbf_screen(height)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,

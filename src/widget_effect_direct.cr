@@ -6,13 +6,13 @@ module Crysterm
   class Widget
     module Effect
       # Shared machinery for "direct" effects — those that paint their interior
-      # straight into the screen's cell buffer as packed `Int64` attrs (each fg a
+      # straight into the window's cell buffer as packed `Int64` attrs (each fg a
       # direct `0xRRGGBB` value), bypassing the `content` → tag-parse → SGR →
       # re-parse pipeline entirely.
       #
       # That pipeline is a *content-change* path: `_parse_tags` reslices the
       # remaining string on every tag (O(n²)), so driving it every frame for a
-      # fully-tagged full-screen field is catastrophic — a single 80×24 plasma
+      # fully-tagged full-window field is catastrophic — a single 80×24 plasma
       # frame copies ~100 MB and parses for ~800 ms, which freezes the render
       # fiber (and with it the input loop, so mouse bytes leak to the terminal).
       # A direct effect instead computes a glyph and a `0xRRGGBB` color per cell
@@ -30,12 +30,12 @@ module Crysterm
       #
       # Like the other effects it drives its own animation (`#start`/`#stop`), and
       # `#step` (state only) is public so several effects can share one external
-      # clock — the shared `screen.render` then paints them all.
+      # clock — the shared `window.render` then paints them all.
       module Direct
         include Animated
 
         # Interior size seen at the last paint, so `#step` can advance the
-        # simulation at the right size without needing the screen.
+        # simulation at the right size without needing the window.
         @cols = 0
         @rows = 0
 
@@ -53,10 +53,10 @@ module Crysterm
           paint
         end
 
-        # Paint the current simulation state into the screen's cell buffer.
+        # Paint the current simulation state into the window's cell buffer.
         private def paint
           return unless lpos = @lpos
-          lines = screen.lines
+          lines = window.lines
 
           # Same border + padding inset the content-draw loop applies, so we paint
           # exactly the interior region.

@@ -20,7 +20,7 @@ module Crysterm
       # effects must share one frame counter.
       #
       # ```
-      # bar = Widget::Effect::CopperBar.new parent: screen, top: 0, left: 0,
+      # bar = Widget::Effect::CopperBar.new parent: window, top: 0, left: 0,
       #   width: "100%", height: 1
       # bar.start
       # ```

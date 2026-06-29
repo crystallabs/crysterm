@@ -14,7 +14,7 @@ include Crysterm
 # subtree's graphics must be excluded. Driven headlessly over in-memory IOs.
 
 private def graphics_screen
-  Crysterm::Screen.new(input: IO::Memory.new, output: IO::Memory.new,
+  Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
     error: IO::Memory.new, width: 20, height: 10)
 end
 

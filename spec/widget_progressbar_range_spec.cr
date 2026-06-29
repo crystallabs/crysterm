@@ -15,7 +15,7 @@ include Crysterm
 # As in the checkbox repaint specs, a headless render fiber never paints, so the
 # observable synchronous effect is the *scheduled* repaint (the damage mark).
 private def pbr_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,
@@ -25,7 +25,7 @@ private def pbr_screen
     optimization: Crysterm::OptimizationFlag::DamageTracking)
 end
 
-private def repaint_scheduled?(s : Crysterm::Screen, w : Crysterm::Widget)
+private def repaint_scheduled?(s : Crysterm::Window, w : Crysterm::Widget)
   s.@damage_dirty_roots.includes? w
 end
 

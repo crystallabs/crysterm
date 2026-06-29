@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def fps_screen
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
     error: IO::Memory.new,
@@ -80,7 +80,7 @@ describe Crysterm::Widget::Fps do
   end
 end
 
-describe "Screen performance measurements" do
+describe "Window performance measurements" do
   it "exposes per-frame rates and a growing byte total" do
     s = fps_screen
     # Something must actually be on screen for `draw` to emit output.

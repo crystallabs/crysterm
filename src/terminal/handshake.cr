@@ -4,8 +4,8 @@ require "./launchers"
 module Crysterm
   module Terminal
     # A spawned terminal-emulator window and everything needed to drive and tear
-    # it down. Built by `Terminal.spawn_window`; held by the `Screen` bound to
-    # the window (see `Screen#connect` / `Screen#adopt_window`).
+    # it down. Built by `Terminal.spawn_window`; held by the `Window` bound to
+    # the window (see `Window#connect` / `Window#adopt_window`).
     class Window
       # The backing process (for most backends this is the window; for the
       # gnome-terminal server, or D-Bus backends, it is a transient launcher —

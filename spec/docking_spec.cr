@@ -10,9 +10,9 @@ include Crysterm
 
 # Builds an `Array(Row)` grid from rows of text, one cell per character, all with
 # attribute `attr` unless overridden afterwards.
-private def grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Crysterm::Screen::Row)
+private def grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Crysterm::Window::Row)
   rows.map do |s|
-    row = Crysterm::Screen::Row.new
+    row = Crysterm::Window::Row.new
     s.each_char { |c| row.push attr, c }
     row
   end

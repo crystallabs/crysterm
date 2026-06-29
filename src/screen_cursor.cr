@@ -1,5 +1,5 @@
 module Crysterm
-  class Screen
+  class Window
     # Terminal (not mouse) cursor
     # module Cursor
     include Macros
@@ -13,7 +13,7 @@ module Crysterm
     # one, otherwise the screen's default `#cursor`.
     #
     # This is the single place that implements "per-widget cursor, falling back
-    # to the screen default". Everything that *draws* the cursor (`Screen#draw`)
+    # to the screen default". Everything that *draws* the cursor (`Window#draw`)
     # or *applies* it to the terminal goes through here, so a focused widget's
     # override transparently wins while everything else keeps using the default.
     # Re-render, but only once the screen has painted at least one frame
@@ -69,7 +69,7 @@ module Crysterm
       end
 
       if c.artificial?
-        # The artificial cursor is painted into the buffer by `Screen#draw`; a
+        # The artificial cursor is painted into the buffer by `Window#draw`; a
         # re-render reflects the new settings.
         render_if_active
       else

@@ -16,7 +16,7 @@ describe Crysterm::Widgets do
   end
 
   it "can construct a widget through the convenience alias" do
-    s = Crysterm::Screen.new(
+    s = Crysterm::Window.new(
       input: IO::Memory.new,
       output: IO::Memory.new,
       error: IO::Memory.new,

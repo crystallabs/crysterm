@@ -11,7 +11,7 @@ module Crysterm
     # two panes around it; divider offsets can also be set programmatically.
     #
     # ```
-    # sp = Widget::Splitter.new parent: screen, width: 60, height: 20
+    # sp = Widget::Splitter.new parent: window, width: 60, height: 20
     # sp.add_pane Widget::Box.new(content: "a")
     # sp.add_pane Widget::Box.new(content: "b")
     # sp.add_pane Widget::Box.new(content: "c")
@@ -170,7 +170,7 @@ module Crysterm
         # Drive the split from the *pointer's* position relative to the splitter's
         # content origin. The built-in `draggable` reposition also fires and moves
         # the divider's `left`/`top`, but those are parent-relative while the
-        # pointer is absolute — only correct when the splitter sits at the screen
+        # pointer is absolute — only correct when the splitter sits at the window
         # origin. Using the event coordinates works wherever the splitter is, and
         # `set_divider_position` → `relayout` snaps the divider back onto its track.
         div.on(Crysterm::Event::Drag) do |e|

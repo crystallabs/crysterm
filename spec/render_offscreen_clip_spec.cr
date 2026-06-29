@@ -14,7 +14,7 @@ include Crysterm
 # corrupting cells that belong to nothing. The fix consumes the off-screen edge
 # (so the on-screen portion stays correctly aligned) but never writes it.
 private def screen(width = 12, height = 4)
-  Crysterm::Screen.new(
+  Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: width, height: height)
 end
@@ -46,7 +46,7 @@ describe "Widget#_render off-screen clipping" do
     s << b
     s._render
 
-    def_char = Crysterm::Screen::DEFAULT_CHAR
+    def_char = Crysterm::Window::DEFAULT_CHAR
 
     # On-screen rows 0,1 show the widget's rows 2,3 ("cccc","dddd").
     (0...4).map { |x| s.lines[0][x].char }.join.should eq "cccc"
@@ -65,7 +65,7 @@ describe "Widget#_render off-screen clipping" do
     s << b
     s._render
 
-    def_char = Crysterm::Screen::DEFAULT_CHAR
+    def_char = Crysterm::Window::DEFAULT_CHAR
     # The widget occupies columns -2..3; its right border lands on column 3.
     # The off-screen-left border column must not have wrapped to the far right.
     (9...12).each do |x|

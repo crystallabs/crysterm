@@ -102,31 +102,31 @@ module Crysterm
     end
 
     #
-    # Computed relative position on screen
+    # Computed relative position on window
     #
 
     # Returns computed relative left position
     def rleft
-      (aleft || 0) - (parent_or_screen.aleft || 0)
+      (aleft || 0) - (parent_or_window.aleft || 0)
     end
 
     # Returns computed relative top position
     def rtop
-      (atop || 0) - (parent_or_screen.atop || 0)
+      (atop || 0) - (parent_or_window.atop || 0)
     end
 
     # Returns computed relative right position
     def rright
-      (aright || 0) - (parent_or_screen.aright || 0)
+      (aright || 0) - (parent_or_window.aright || 0)
     end
 
     # Returns computed relative bottom position
     def rbottom
-      (abottom || 0) - (parent_or_screen.abottom || 0)
+      (abottom || 0) - (parent_or_window.abottom || 0)
     end
 
     #
-    # Computed absolute position on screen
+    # Computed absolute position on window
     #
 
     # Resolves a `String` position/size expression to an absolute cell count
@@ -135,9 +135,9 @@ module Crysterm
     # `aheight`; `aliased` is passed (rather than mapping both words) so an
     # unusual input like `width: "center"` keeps its original meaning.
     private def resolve_dimension(expr : String, parent_dim : Int32, aliased : String) : Int32
-      # Viewport units resolve against the *screen*, not the parent — and they do
+      # Viewport units resolve against the *window*, not the parent — and they do
       # so here, every frame, so a `width: 50vw` widget re-sizes on terminal
-      # resize. The unit picks the basis (`vw`→screen width, `vh`→height,
+      # resize. The unit picks the basis (`vw`→window width, `vh`→height,
       # `vmin`/`vmax`→the smaller/larger side) regardless of which edge/size this
       # is, exactly like CSS.
       #
@@ -151,7 +151,7 @@ module Crysterm
       # (`50VW`), and `viewport_cells` already folds case, so the gate matches
       # either case to avoid silently dropping an uppercased unit.
       if expr.includes?('v') || expr.includes?('V')
-        scr = screen
+        scr = window
         if cells = CSS::Length.viewport_cells(expr, scr.awidth, scr.aheight)
           return cells
         end
@@ -189,7 +189,7 @@ module Crysterm
     def aleft(get = false, width = nil, parent_pos = nil, with_margin = true)
       # The widget's own left margin shifts its whole box inward — exactly what
       # `_get_coords` applies (`xi += margin.left`) when it composes the rendered
-      # rectangle. Including it here keeps the *hit-test* geometry (`Screen#widget_at`
+      # rectangle. Including it here keeps the *hit-test* geometry (`Window#widget_at`
       # / `#contains_point?` read these getters) consistent with where the widget is
       # actually painted; without it a margined widget — or any child of a margined
       # container, since a child's `aleft` is built on the parent's — was clickable a
@@ -203,14 +203,14 @@ module Crysterm
       oright = @right
 
       if oleft.nil? && !oright.nil?
-        return ml + screen.awidth - (width || awidth(get, with_margin: false)) - aright(get)
+        return ml + window.awidth - (width || awidth(get, with_margin: false)) - aright(get)
       end
 
       # `parent_pos`, when given, is the parent's already-resolved position for
-      # this frame (`parent_or_screen.last_rendered_position` under `get`, else
-      # `parent_or_screen`) — the render path resolves it once in `_get_coords`
+      # this frame (`parent_or_window.last_rendered_position` under `get`, else
+      # `parent_or_window`) — the render path resolves it once in `_get_coords`
       # and threads it in so `aleft`/`atop` don't each re-resolve it.
-      parent = parent_pos || (get ? parent_or_screen.last_rendered_position : parent_or_screen)
+      parent = parent_pos || (get ? parent_or_window.last_rendered_position : parent_or_window)
 
       left = oleft || 0
       if left.is_a? String
@@ -241,12 +241,12 @@ module Crysterm
       obottom = @bottom
 
       if otop.nil? && !obottom.nil?
-        return mt + screen.aheight - (height || aheight(get, with_margin: false)) - abottom(get)
+        return mt + window.aheight - (height || aheight(get, with_margin: false)) - abottom(get)
       end
 
       # See `#aleft`: `parent_pos` is the parent's already-resolved position,
       # threaded in by the render path so it is resolved once per frame.
-      parent = parent_pos || (get ? parent_or_screen.last_rendered_position : parent_or_screen)
+      parent = parent_pos || (get ? parent_or_window.last_rendered_position : parent_or_window)
 
       top = otop || 0
       if top.is_a? String
@@ -268,12 +268,12 @@ module Crysterm
       oleft = @left
       oright = @right
 
-      parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
+      parent = get ? parent_or_window.last_rendered_position : parent_or_window
 
       if oright.nil? && !oleft.nil?
         # Base geometry: margin is composed in by `_get_coords`, so this far-edge
         # offset (which feeds right-anchored `#aleft`) must not double-count it.
-        right = screen.awidth - (aleft(get, with_margin: false) + awidth(get, with_margin: false))
+        right = window.awidth - (aleft(get, with_margin: false) + awidth(get, with_margin: false))
         right += parent.iright
         return right
       end
@@ -289,11 +289,11 @@ module Crysterm
       otop = @top
       obottom = @bottom
 
-      parent = get ? parent_or_screen.last_rendered_position : parent_or_screen
+      parent = get ? parent_or_window.last_rendered_position : parent_or_window
 
       if obottom.nil? && !otop.nil?
         # Base geometry (see `#aright`): margin is composed in by `_get_coords`.
-        bottom = screen.aheight - atop(get, with_margin: false) - aheight(get, with_margin: false)
+        bottom = window.aheight - atop(get, with_margin: false) - aheight(get, with_margin: false)
         bottom += parent.ibottom
         return bottom
       end
@@ -326,14 +326,14 @@ module Crysterm
       #   get = true
       # end
 
-      # Resolve the parent (or screen) and its rendered position *once* for the
+      # Resolve the parent (or window) and its rendered position *once* for the
       # whole coordinate pass. `aleft`/`atop` each used to re-resolve it
-      # (`parent_or_screen` → `screen?` → `last_rendered_position`), and the
-      # clip/shrink section below resolves `parent_or_screen` again — three
+      # (`parent_or_window` → `window?` → `last_rendered_position`), and the
+      # clip/shrink section below resolves `parent_or_window` again — three
       # lookups per widget per frame where one suffices. Threading the resolved
       # value through collapses that to one (profiling a flat scene of N siblings
-      # showed `screen?` and the `a*` accessors near the top of the render path).
-      por = parent_or_screen
+      # showed `window?` and the `a*` accessors near the top of the render path).
+      por = parent_or_window
       ppos = get ? por.last_rendered_position : por
 
       # Resolve each dimension once and reuse it for both the anchored-origin
@@ -561,16 +561,16 @@ module Crysterm
       end
 
       # `MoveWidget`: translate the whole rectangle so it fits within the
-      # screen's visible area, preserving its size (the use case is pop-ups —
+      # window's visible area, preserving its size (the use case is pop-ups —
       # e.g. an auto-completion list placed below its box that would run off the
-      # bottom; it slides up just enough to stay on screen). Unlike
+      # bottom; it slides up just enough to stay on window). Unlike
       # `ShrinkWidget` (parent-policy, clamps the edges), this is child-policy:
       # the widget declares `overflow = MoveWidget` for itself. Far edges are
       # pulled in first, then the near edges are clamped, so a widget larger than
-      # the screen still starts at the top/left with the overflow on the far side
+      # the window still starts at the top/left with the overflow on the far side
       # ("if possible").
       if self.overflow.move_widget?
-        scr = screen
+        scr = window
         s_left = scr.ileft
         s_top = scr.itop
         s_right = scr.awidth - scr.iright
@@ -611,7 +611,7 @@ module Crysterm
           no_right: no_right,
           no_top: no_top,
           no_bottom: no_bottom,
-          renders: screen.renders
+          renders: window.renders
       else
         v = LPos.new \
           xi: xi,
@@ -623,7 +623,7 @@ module Crysterm
           no_right: no_right,
           no_top: no_top,
           no_bottom: no_bottom,
-          renders: screen.renders
+          renders: window.renders
       end
       v
     end

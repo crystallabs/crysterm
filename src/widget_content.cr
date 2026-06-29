@@ -172,7 +172,7 @@ module Crysterm
 
       # Previously this erased the widget's last-rendered footprint (unless
       # `no_clear`) so that shrinking content wouldn't leave stale cells behind.
-      # That is now handled centrally: `Screen#_render` clears the whole cell
+      # That is now handled centrally: `Window#_render` clears the whole cell
       # buffer before each frame. `no_clear` is kept for call compatibility.
 
       # XXX make it possible to have `update_context`, which only updates
@@ -340,9 +340,9 @@ module Crysterm
     # frame, before the parse cache is even consulted — is skipped. Off-render
     # callers (resize/attach/scroll) omit it and resolve the width as before.
     def process_content(no_tags = false, awidth_hint : Int32? = nil)
-      # Content layout (wrapping/alignment) needs the owning screen's
+      # Content layout (wrapping/alignment) needs the owning window's
       # dimensions, so there is nothing to do until the widget is attached.
-      return false unless screen?
+      return false unless window?
 
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
@@ -374,7 +374,7 @@ module Crysterm
 
         # No content-level Unicode munging here: wide-char layout, grapheme
         # clusters, and combining marks are all handled at the cell level in the
-        # renderer (keyed off `screen.full_unicode?`). See FIX-UNICODE.md for why
+        # renderer (keyed off `window.full_unicode?`). See FIX-UNICODE.md for why
         # the blessed content-string approach (the `\x03` wide-char sentinel,
         # surrogate-pair repair) does not apply, and for the two optional, still-
         # open behaviors (non-Unicode-terminal degradation; the iTerm2 combining
@@ -584,11 +584,11 @@ module Crysterm
           if slash
             if param.blank?
               # `{/}` resets everything.
-              outbuf << screen.tput._attr("normal")
+              outbuf << window.tput._attr("normal")
               bg.clear
               fg.clear
               flag.clear
-            elsif !screen.tput._attr(param).empty? # recognized -> restore prior
+            elsif !window.tput._attr(param).empty? # recognized -> restore prior
               # D O:
               # if (param !== state[state.size - 1])
               #   throw new Error('Misnested tags.')
@@ -602,11 +602,11 @@ module Crysterm
               # emit the tag's "off" SGR; `pop?` reproduces that: it returns nil on
               # empty, `state.size` stays 0, and we emit `_attr(param, false)`.
               state.pop?
-              outbuf << (state.size > 0 ? screen.tput._attr(state[-1]) : screen.tput._attr(param, false))
+              outbuf << (state.size > 0 ? window.tput._attr(state[-1]) : window.tput._attr(param, false))
             end
             # else: unrecognized closing tag -> dropped
           else
-            attr = screen.tput._attr(param)
+            attr = window.tput._attr(param)
             unless attr.empty? # recognized opening tag
               state.push(param)
               outbuf << attr
@@ -649,7 +649,7 @@ module Crysterm
       line.each_char_with_index do |char, i|
         if char == '\e'
           if c = SGR_REGEX.match(line, i, options: Regex::MatchOptions::ANCHORED)
-            attr = screen.attr2code(c[0], attr, default_attr)
+            attr = window.attr2code(c[0], attr, default_attr)
           end
         end
       end
@@ -1044,7 +1044,7 @@ module Crysterm
     #   `{red-fg}`) colors the appended lines too. `_attr_after` recreates that
     #   carry so the spliced per-line attrs match a full reparse.
     def append_content(text : String) : Bool
-      return false unless screen?
+      return false unless window?
       # Cache must be current: if a reparse is pending, splicing onto stale
       # `@_clines` would corrupt it. Let the normal path run first.
       return false unless @_clines.content_version == @_content_version
@@ -1214,16 +1214,16 @@ module Crysterm
       diff = @_clines.size - start
 
       render_line_shift(diff, real) do |d, y, top, bottom|
-        screen.insert_line(d, y, top, bottom)
+        window.insert_line(d, y, top, bottom)
       end
     end
 
-    # Drives the terminal-side `screen.insert_line`/`delete_line` optimization
+    # Drives the terminal-side `window.insert_line`/`delete_line` optimization
     # shared by `#insert_line` and `#delete_line` (which differ only in *which*
-    # screen op they run). *diff* is the change in wrapped-line count (only acts
+    # window op they run). *diff* is the change in wrapped-line count (only acts
     # when positive) and *real* the affected real (wrapped) line index. Computes
-    # the on-screen coordinates and, when the affected row is visible and the
-    # sides are clean, yields `(diff, y, top, bottom)` for the caller's screen
+    # the on-window coordinates and, when the affected row is visible and the
+    # sides are clean, yields `(diff, y, top, bottom)` for the caller's window
     # op. A no-op (no yield) when the widget isn't laid out or the row is off
     # the viewport.
     private def render_line_shift(diff, real, &)
@@ -1235,7 +1235,7 @@ module Crysterm
       base = @child_base
       visible = real >= base && real - base < height
 
-      if visible && screen.clean_sides(self)
+      if visible && window.clean_sides(self)
         yield diff, pos.yi + itop + real - base, pos.yi, pos.yl - ibottom - 1
       end
     end
@@ -1283,11 +1283,11 @@ module Crysterm
 
       # XXX clear_last_rendered_position() without diff statement?
       render_line_shift(diff, real) do |d, y, top, bottom|
-        screen.delete_line(d, y, top, bottom)
+        window.delete_line(d, y, top, bottom)
       end
 
       # When content shrank this used to erase the leftover footprint via
-      # `clear_last_rendered_position`; the whole-buffer clear in `Screen#_render`
+      # `clear_last_rendered_position`; the whole-buffer clear in `Window#_render`
       # now takes care of that, so the explicit clear is no longer needed.
     end
 
@@ -1418,10 +1418,10 @@ module Crysterm
     end
 
     # Whether grapheme / column-width-aware layout is in effect for this widget;
-    # delegates to the owning screen's effective gate (`Screen#full_unicode?` =
+    # delegates to the owning window's effective gate (`Window#full_unicode?` =
     # option AND terminal capability). False when unattached.
     def full_unicode?
-      screen?.try(&.full_unicode?) || false
+      window?.try(&.full_unicode?) || false
     end
 
     # Width, in terminal COLUMNS, of `text`'s visible content. SGR sequences are

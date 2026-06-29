@@ -209,7 +209,7 @@ module Crysterm
         # --- plot (drawn on the Canvas) ---------------------------------------
 
         private def paint_plot(p : Painter) : Nil
-          # Logical window with Y flipped (data up ⇒ screen up): height is negative.
+          # Logical window with Y flipped (data up ⇒ window up): height is negative.
           p.set_window @xmin, @ymax, @xmax - @xmin, @ymin - @ymax
 
           if show_grid?
