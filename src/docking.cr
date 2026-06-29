@@ -101,15 +101,28 @@ module Crysterm
       '┼' => BITWISE_L_ANGLE | BITWISE_U_ANGLE | BITWISE_R_ANGLE | BITWISE_D_ANGLE,
     }
 
+    # Reusable scratch buffer for the sorted stop rows, mutated and reused by
+    # every `#dock` call instead of allocating a fresh array per frame. `#dock`
+    # runs once per frame from `Screen#_dock` (and on demand from
+    # `Widget#dock_rows`); none of those paths nest or run concurrently
+    # (rendering is single-fiber, and `#dock` never re-enters itself), so one
+    # shared buffer is safe. `Array#clear` keeps the backing capacity, so after
+    # warmup the per-frame collection allocates nothing.
+    @@sorted_stops = [] of Int32
+
     # Re-evaluates and docks every angle character found on each of the `stops`
     # rows of `lines`. `width` is the number of columns to scan per row, and
     # `dock_contrast` controls how cells with differing colors/attributes are
     # treated (see `DockContrast`).
     def dock(lines, stops, width, dock_contrast : DockContrast)
-      # `stops` is a `Hash(Int32, Bool)`, so `keys` is already `Array(Int32)`:
-      # the previous `.map(&.to_i)` allocated a second identical array each
-      # frame. `keys` returns a fresh array, so sort it in place.
-      stops.keys.sort!.each do |y|
+      # `stops` is a `Hash(Int32, Bool)`; both `keys` and the previous
+      # `.map(&.to_i)` allocated a fresh `Array(Int32)` every frame. Copy the
+      # keys into the reused scratch buffer and sort it in place instead, so the
+      # per-frame docking pass allocates nothing.
+      sorted = @@sorted_stops
+      sorted.clear
+      stops.each_key { |k| sorted << k }
+      sorted.sort!.each do |y|
         row = lines[y]?
         next unless row
 
@@ -123,7 +136,7 @@ module Crysterm
         n = width < chars.size ? width : chars.size
         x = 0
         while x < n
-          if ANGLES.includes? chars.unsafe_fetch(x)
+          if angle? chars.unsafe_fetch(x)
             chars.unsafe_put(x, angle_at(lines, row, x, y, dock_contrast))
             # Mirror `Cell#char=`, which drops any cluster overlay on the cell.
             row.delete_grapheme x
@@ -204,6 +217,17 @@ module Crysterm
       ANGLE_TABLE[(recip | preserve)]? || ch
     end
 
+    # Whether `c` is one of the box-drawing glyphs in `ANGLES`. All eleven live
+    # in the contiguous U+2500..U+253C span, so a two-comparison range pre-check
+    # rejects the (typically many) blank/non-box cells the per-frame `#dock`
+    # scan walks before falling back to the tuple membership test for the rest.
+    # Pure superset guard: identical result to `ANGLES.includes?(c)`.
+    @[AlwaysInline]
+    private def angle?(c : Char) : Bool
+      o = c.ord
+      0x2500 <= o <= 0x253C && ANGLES.includes?(c)
+    end
+
     # Resolves the neighbor cell offset by (`dx`, `dy`) from (`x`, `y`) to its
     # `{row, column}`, or nil when it falls off the grid — the edge-guarded
     # lookup `#neighbor_line?` and `#neighbor_angle` both need. The explicit
@@ -225,7 +249,7 @@ module Crysterm
     private def neighbor_line?(lines, x, y, dx, dy) : Bool
       return false unless cell = neighbor_cell(lines, x, y, dx, dy)
       nrow, nx = cell
-      ANGLES.includes? nrow.chars.unsafe_fetch(nx)
+      angle? nrow.chars.unsafe_fetch(nx)
     end
 
     # Evaluates a single neighbor of the cell at (`x`, `y`), offset by
