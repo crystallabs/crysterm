@@ -445,13 +445,13 @@ module Crysterm
           in Type::GlyphOctant   then Glyph::Octant.new **opts
           in Type::GlyphBraille  then Glyph::Braille.new **opts
           in Type::GlyphAscii    then Glyph::Ascii.new **opts
-          in Type::Overlay  then Overlay.new **opts
-          in Type::Ueberzug then Ueberzug.new **opts
-          in Type::Sixel    then Sixel.new **opts
-          in Type::Regis    then Regis.new **opts
-          in Type::Kitty    then Kitty.new **opts
-          in Type::Iterm    then Iterm.new **opts
-          in Type::Tek      then Tek.new **opts
+          in Type::Overlay       then Overlay.new **opts
+          in Type::Ueberzug      then Ueberzug.new **opts
+          in Type::Sixel         then Sixel.new **opts
+          in Type::Regis         then Regis.new **opts
+          in Type::Kitty         then Kitty.new **opts
+          in Type::Iterm         then Iterm.new **opts
+          in Type::Tek           then Tek.new **opts
           end
         # Distinguish "not given" (nil) from an explicit `false`: a plain
         # truthiness test (`if (db = double_buffer)`) silently dropped a passed
