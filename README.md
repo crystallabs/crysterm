@@ -4,28 +4,55 @@ Crysterm is a console/terminal toolkit for Crystal, inspired by
 
 Advanced features:
 
-![Pine — a full terminal email-client clone](examples/pine/pine.5s.apng)
+![](tests/misc/truecolor.5s.apng)
 
-![Qt-modeled widgets showcase](tests/misc/qt_widgets.5s.apng)
+![](tests/misc/styling.5s.apng)
 
-![Minesweeper](examples/games/minesweeper/minesweeper.5s.apng)
+![](tests/widget/effect/matrix/matrix.5s.apng)
 
-![Matrix effect](tests/widget/effect/matrix/matrix.5s.apng)
+![](tests/misc/concurrent_rendering.5s.apng)
 
-![Plasma effect (truecolor)](tests/widget/effect/plasma/plasma.5s.apng)
+![](tests/misc/image.5s.apng)
 
-![Fire effect](tests/widget/effect/fire/fire.5s.apng)
+![](tests/misc/netscape.5s.apng)
 
-![Unicode rendering](tests/blessed-test/widget-unicode.5s.apng)
+![](tests/misc/unicode.5s.apng)
 
-Image-rendering backends — an image drawn straight into the terminal:
+![](tests/misc/widgets.5s.apng)
 
-![In-terminal image](tests/blessed-test/widget-image.5s.apng)
+Image-rendering backends:
 
-Crysterm can render images through a real terminal graphics protocol (overlay
-via w3m / überzug, Sixel, Kitty, iTerm2, ReGIS, and Tektronix 4014) or
-down-sample them to text using Unicode glyph mosaics (block, half, quadrant,
-sextant, octant, braille, ASCII) and ANSI 8/16/256-color or truecolor cells.
+![](tests/widget/media/overlay/overlay.png)
+
+![](tests/widget/media/sixel/sixel.png)
+
+![](tests/widget/media/kitty/kitty.png)
+
+![](tests/widget/media/iterm/iterm.png)
+
+![](tests/widget/media/glyph/octant/octant.png)
+
+![](tests/widget/media/glyph/sextant/sextant.png)
+
+![](tests/widget/media/glyph/quadrant/quadrant.png)
+
+![](tests/widget/media/glyph/half/half.png)
+
+![](tests/widget/media/glyph/block/block.png)
+
+![](tests/widget/media/glyph/ascii/ascii.png)
+
+![](tests/widget/media/ansi/c256/c256.png)
+
+![](tests/widget/media/ansi/c16/c16.png)
+
+![](tests/widget/media/glyph/braille/braille.png)
+
+![](tests/widget/media/regis/regis.png)
+
+Image::Tek (Tektronix 4014):
+
+![](tests/widget/media/tek/tek.png)
 
 ## Tech intro
 
