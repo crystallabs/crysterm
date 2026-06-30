@@ -1,0 +1,31 @@
+w=80 h=24
++--------------------------------------------------------------------------------+
+|         Images decoded to TrueColor cells (static PNG + animated GIF)          |
+|              static PNG                             animated GIF               |
+|                                                                                |
+|  Media Error: could not load             Media Error: could not load           |
+|  /Users/user/p/crysterm/crysterm/te      /Users/user/p/crysterm/crysterm/te    |
+|  sts/misc/assets/sample.png              sts/misc/assets/spin.gif              |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-79:#e5e5e5/#203040
+y1: 2-35:#00cdcd/def 42-75:#cd00cd/def
+y2: 2-35:#00cdcd/def 42-75:#cd00cd/def
