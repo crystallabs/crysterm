@@ -2,29 +2,26 @@ require "pnggif"
 require "./font"
 
 module Crysterm
-  # Renders a rectangular region of a `Window`'s **rendered/drawn** content to an
-  # RGBA image and encodes it as a still PNG (or, via `Recorder`, an animated
+  # Renders a rectangular region of a `Window`'s rendered content to an RGBA
+  # image and encodes it as a still PNG (or, via `Recorder`, an animated
   # APNG/GIF).
   #
-  # It deliberately works on what the *terminal* shows — the window's flushed
-  # cell buffer (`Window#lines`) plus the in-band terminal-graphics backends
-  # (`Media::Graphics`: sixel / kitty / iterm / regis), whose pixels are
-  # composited from each widget's current source frame. Content painted by an
-  # external helper (`Media::Overlay` / `Media::Ueberzug`) or shown in a separate
-  # window (`Media::Tek`) is *not* visible to the terminal and is omitted — the
-  # include/exclude decision is the `Media::Base#capture_pixels?` predicate.
+  # Works on what the *terminal* shows: the flushed cell buffer (`Window#lines`)
+  # plus the in-band terminal-graphics backends (`Media::Graphics`: sixel /
+  # kitty / iterm / regis). Content via an external helper (`Media::Overlay` /
+  # `Media::Ueberzug`) or a separate window (`Media::Tek`) is not visible to the
+  # terminal and is omitted; `Media::Base#capture_pixels?` is the predicate.
   #
-  # Text cells are drawn with a fixed bitmap `Font` (Terminus by default), so a
-  # capture is deterministic and independent of the user's real terminal font.
+  # Text cells use a fixed bitmap `Font` (Terminus by default), so a capture is
+  # deterministic regardless of the user's real terminal font.
   module Capture
-    # Foreground/background used for cells whose color is "terminal default"
-    # (`-1`). Chosen to look like a typical light-on-dark terminal.
+    # Fg/bg for cells with "terminal default" color (`-1`); light-on-dark.
     DEFAULT_FG = 0xC0C0C0
     DEFAULT_BG = 0x000000
 
     # Renders cells [*xi*,*xl*) × [*yi*,*yl*) of *window* into an RGBA
-    # `PNGGIF::Bitmap`. *font*/*bold_font* set the glyphs (and thus the pixel
-    # size of each cell); *default_fg*/*default_bg* fill terminal-default colors.
+    # `PNGGIF::Bitmap`. *font*/*bold_font* set the glyphs (and the cell pixel
+    # size); *default_fg*/*default_bg* fill terminal-default colors.
     def self.render(window : Window, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
                     font : Font = Font.default_normal,
                     bold_font : Font = Font.default_bold,
@@ -41,16 +38,15 @@ module Crysterm
       bg0 = rgb(default_bg)
       canvas = Array(Array(PNGGIF::Pixel)).new(ph) { Array(PNGGIF::Pixel).new(pw, bg0) }
 
-      # 1) Text cells from the rendered buffer. The region walk (skip
-      #    continuation halves, bounds-safe) is shared with `Dump.text` via
-      #    `Window#each_content_cell`; here each visible cell is rasterized.
+      # 1) Text cells from the rendered buffer. The region walk is shared with
+      #    `Dump.text` via `Window#each_content_cell`; here each cell is rasterized.
       window.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
         draw_cell canvas, cell, rx * cw, ry * ch, cw, ch,
           font, bold_font, default_fg, default_bg, cell.width
       end
 
-      # 2) Terminal-native graphics, composited over the text exactly as the
-      #    terminal stacks them.
+      # 2) Terminal-native graphics, composited over the text as the terminal
+      #    stacks them.
       graphics_layers(window).each do |w|
         layer = w.capture_layer(cw, ch)
         next unless layer
@@ -70,9 +66,9 @@ module Crysterm
       PNGGIF.encode_png render(window, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
     end
 
-    # Flattens *bmp* to raw interleaved RGBA bytes (`w*h*4`), the format a video
-    # encoder ingests as `-f rawvideo -pixel_format rgba`. Combined with `render`
-    # this is the per-frame payload to append to an `ffmpeg` stdin stream.
+    # Flattens *bmp* to raw interleaved RGBA bytes (`w*h*4`), the format ffmpeg
+    # ingests as `-f rawvideo -pixel_format rgba`. The per-frame payload for an
+    # `ffmpeg` stdin stream.
     def self.rgba(bmp : PNGGIF::Bitmap) : Bytes
       h = bmp.size
       w = h > 0 ? bmp[0].size : 0
@@ -91,11 +87,10 @@ module Crysterm
     end
 
     # Builds the `ffmpeg` argv that reads rawvideo (rgba, *vw*×*vh*, at *fps*) from
-    # stdin and encodes it to format *fmt*, writing to *path* (the file extension
-    # selects the muxer) or to stdout (`pipe:1`, which needs an explicit `-f`).
-    # *loops* sets the gif/apng loop count (0 = infinite). *extra* is appended
-    # verbatim for power users. Used by `Window#capture` for every non-PNG /
-    # animated output; still PNG is encoded in-process and never reaches here.
+    # stdin and encodes it to format *fmt*, writing to *path* or to stdout
+    # (`pipe:1`, which needs an explicit `-f`). *loops* sets the gif/apng loop
+    # count (0 = infinite). *extra* is appended verbatim. Used by `Window#capture`
+    # for every non-PNG / animated output; still PNG is encoded in-process.
     def self.ffmpeg_args(vw : Int32, vh : Int32, fps : Int32, fmt : String,
                          path : String?, loops : Int32, extra : Array(String)?) : Array(String)
       a = ["-hide_banner", "-loglevel", "error", "-y",
@@ -117,8 +112,8 @@ module Crysterm
       if path
         a << path
       else
-        # Streaming to stdout needs the muxer named explicitly; fragmented MP4 so
-        # it doesn't need to seek back to write the moov atom.
+        # Stdout needs the muxer named explicitly; fragmented MP4 avoids seeking
+        # back to write the moov atom.
         a.concat ["-movflags", "+frag_keyframe+empty_moov"] if {"mp4", "mov", "m4v"}.includes?(fmt)
         a.concat ["-f", fmt, "pipe:1"]
       end
@@ -132,13 +127,11 @@ module Crysterm
     end
 
     # Draws one cell's background, glyph and line decorations into *canvas* at
-    # pixel origin (*px*,*py*). Cell size is *cw*×*ch* (the normal font's). A
-    # *cols*-column-wide cell (a full-width / 2-column grapheme, e.g. CJK) spans
-    # `cols * cw` pixels: its trailing continuation half carries no cell of its
-    # own (`each_content_cell` skips it), so the lead cell must paint the whole
-    # span here — both its background and the right half of a wide glyph (which
-    # the default Unifont renders at 16 px for full-width characters). Clamped to
-    # the canvas so a wide cell at the region's right edge can't overflow.
+    # pixel origin (*px*,*py*). Cell size is *cw*×*ch*. A *cols*-column-wide cell
+    # (full-width / 2-column grapheme, e.g. CJK) spans `cols * cw` pixels: its
+    # continuation half carries no cell (`each_content_cell` skips it), so the
+    # lead cell paints the whole span (background + right half of a wide glyph).
+    # Clamped to the canvas so a wide cell at the right edge can't overflow.
     private def self.draw_cell(canvas, cell, px : Int32, py : Int32, cw : Int32, ch : Int32,
                                font : Font, bold_font : Font, default_fg : Int32, default_bg : Int32,
                                cols : Int32 = 1)
@@ -153,8 +146,7 @@ module Crysterm
       fgpx = rgb(fg)
       bgpx = rgb(bg)
 
-      # Pixel span of this cell, clamped to the canvas width (the continuation
-      # half of a wide cell at the far edge may fall outside the region).
+      # Pixel span of this cell, clamped to the canvas width.
       pw = canvas[0].size
       span = cw * (cols < 1 ? 1 : cols)
       avail = pw - px
@@ -220,8 +212,8 @@ module Crysterm
       end
     end
 
-    # All terminal-native graphics widgets under *node* (depth-first), i.e. those
-    # whose pixels the terminal itself draws and that opt in via `capture_pixels?`.
+    # All terminal-native graphics widgets under *node* (depth-first) that opt in
+    # via `capture_pixels?`.
     private def self.graphics_layers(node) : Array(Widget::Media::Base)
       acc = [] of Widget::Media::Base
       collect_graphics node, acc
@@ -230,18 +222,12 @@ module Crysterm
 
     private def self.collect_graphics(node, acc : Array(Widget::Media::Base)) : Nil
       node.children.each do |child|
-        # A hidden subtree is not shown by the terminal — a hidden widget's
-        # `_render` is skipped, so neither its cells nor (for an in-band graphics
-        # backend) its escape sequence is ever emitted — so it must not appear in
-        # a capture either. `capture_layer` already guards a graphics widget's OWN
-        # `visible?` flag, but NOT its ancestors': a widget inside a hidden
-        # container (e.g. a non-current tab page, or a `hide`-n parent) is itself
-        # flag-visible yet off-window, and was still composited into the capture —
-        # so a capture showed an image the live terminal does not. The text path
-        # never had this bug (hidden widgets simply aren't painted into the cell
-        # buffer `each_content_cell` walks); this brings the graphics path in line.
-        # Pruning the walk at any hidden node drops the whole off-window subtree,
-        # matching the tree-aware `displayed_in_tree?` used by mouse hit-testing
+        # A hidden subtree isn't shown by the terminal (its `_render` is skipped),
+        # so it must not appear in a capture. `capture_layer` guards a graphics
+        # widget's OWN `visible?` flag but NOT its ancestors': a widget inside a
+        # hidden container (non-current tab page, `hide`-n parent) is flag-visible
+        # yet off-window. Pruning the walk at any hidden node drops the whole
+        # off-window subtree, matching `displayed_in_tree?` used by hit-testing
         # and focus traversal.
         next unless child.visible?
         acc << child if child.is_a?(Widget::Media::Base) && child.capture_pixels?

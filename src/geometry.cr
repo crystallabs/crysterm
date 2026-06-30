@@ -1,10 +1,6 @@
 module Crysterm
-  # Used to represent minimal widget position. It is returned from methods
-  # that run calculations to determine that. *i fields are start positions,
-  # *l methods are end positions.
-  #
-  # Used only internally; could be replaced by anything else that has
-  # the necessary properties.
+  # Minimal widget position, returned from position-calculating methods. *i
+  # fields are start positions, *l end positions. Internal only.
   struct Rectangle
     getter xi : Int32
     getter xl : Int32
@@ -19,12 +15,10 @@ module Crysterm
     end
   end
 
-  # Helper class implementing only minimal position-related interface.
-  # Used for holding widget's last rendered position.
+  # Minimal position interface holding a widget's last rendered position.
   # XXX Could be renamed to LastRenderedPos[ition] for clarity.
   class LPos
-    # TODO Can almost be replaced with a struct. Only minimal problems appear.
-    # See tech-demo example, fix the issue and replace with struct.
+    # TODO Can almost be replaced with a struct; see tech-demo example.
 
     None = new
 
@@ -42,8 +36,7 @@ module Crysterm
 
     property base : Int32 = 0
 
-    # Informs us which side is partly hidden due to being enclosed in a
-    # parent (and potentially scrollable) element.
+    # Which side is partly hidden by an enclosing (scrollable) parent.
     property? no_left : Bool = false
     property? no_right : Bool = false
     property? no_top : Bool = false
@@ -59,10 +52,8 @@ module Crysterm
     property awidth : Int32? = nil
     property aheight : Int32? = nil
 
-    # These should be allowed to be just 0 because I'd think their offsets
-    # are already included in a* properties.
-    # (XXX Verify that and fix; seems like an inconsistency in logic if that
-    # sentence/description is true.
+    # These should be allowed to be just 0 since their offsets are likely already
+    # included in a* properties. XXX Verify and fix the apparent inconsistency.
     property ileft : Int32 = 0
     property itop : Int32 = 0
     property iright : Int32 = 0
@@ -103,17 +94,14 @@ module Crysterm
     )
     end
 
-    # Re-initializes this instance in place to the same state a freshly
-    # constructed `LPos.new(xi:, xl:, ...)` would have. Used by
-    # `Widget#_get_coords` on the render hot path to reuse the widget's existing
-    # `@lpos` instead of allocating a new `LPos` every widget, every frame (the
-    # allocation this whole class's `# TODO ... struct` note is about).
+    # Re-initializes this instance in place to a freshly-constructed state. Used
+    # by `Widget#_get_coords` on the render hot path to reuse the widget's `@lpos`
+    # instead of allocating a new `LPos` per widget per frame.
     #
-    # Besides the geometry fields passed in, this MUST reset the lazily-computed
-    # cache fields (`aleft`/`atop`/.../`_clean_sides`) back to their constructor
-    # defaults: they are filled on demand by `last_rendered_position`/`clean_sides`
-    # and keyed to the *previous* frame's geometry, so a reused instance that kept
-    # them would hand back stale absolute positions after a widget moves.
+    # MUST reset the lazily-computed cache fields (`aleft`/.../`_clean_sides`) to
+    # their defaults: filled on demand by `last_rendered_position`/`clean_sides`
+    # and keyed to the *previous* frame's geometry, they would otherwise return
+    # stale absolute positions after a widget moves.
     def reset(
       @xi,
       @xl,

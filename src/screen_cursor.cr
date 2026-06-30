@@ -1,21 +1,16 @@
 module Crysterm
-  # Device-side hardware-cursor control — the half of cursor handling that drives
-  # the REAL terminal cursor through `tput` (shape/blink, color, show/hide, full
-  # reset), plus the static capability probes for what the hardware cursor can
-  # do. These are pure `tput`/IO concerns, so they live on the physical device
-  # (`Screen`).
+  # Device-side hardware-cursor control: drives the REAL terminal cursor through
+  # `tput` (shape/blink, color, show/hide, reset), plus capability probes. Pure
+  # `tput`/IO concerns, so they live on the device (`Screen`).
   #
-  # The *artificial* cursor (composited into the cell buffer by `Window#draw`)
-  # and the hardware-vs-artificial decision read surface state (the focused
-  # widget's cursor, the cell buffer, rendering), so they stay on `Window`
-  # (`window_cursor.cr`). Those surface-coordination methods drive the hardware
-  # path by calling the primitives here (delegated from `Window`).
+  # The *artificial* cursor and the hardware-vs-artificial decision read surface
+  # state, so they stay on `Window` (`window_cursor.cr`) and drive the hardware
+  # path by calling the primitives here.
   class Screen
     # Whether the terminal can style its *hardware* cursor (shape/blink, via
-    # DECSCUSR or iTerm2's OSC 50). Backed by `Tput::Features#cursor_style?`,
-    # which is detected statically and can be confirmed at runtime by
-    # `Tput#probe!`. When this is false, `Window#apply_cursor` falls back to
-    # drawing an artificial cursor for any non-default shape.
+    # DECSCUSR or iTerm2's OSC 50). Backed by `Tput::Features#cursor_style?`
+    # (static, confirmable at runtime by `Tput#probe!`). When false,
+    # `Window#apply_cursor` falls back to an artificial cursor for non-default shapes.
     def hardware_cursor_styling?
       !!tput.features?.try(&.cursor_style?)
     end

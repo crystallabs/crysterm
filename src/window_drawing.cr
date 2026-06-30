@@ -1,21 +1,12 @@
 module Crysterm
   class Window
-    # Things related to drawing (displaying rendered state on screen)
+    # Drawing (displaying rendered state on screen).
     #
-    # In general terms, "rendering" refers to refreshing an (Y,X) array of cells in memory
-    # so that each has the desired cell attributes (color, bold, underline, etc.) and
-    # character printed in it (if any). (Sort of like a framebuffer for the console :)
-    #
-    # After that step, "drawing" refers to examining the differences between the current
-    # and desired state of screen, and generating a stream of plain text and embedded commands
-    # (escape sequences) that is sent to the terminal that will hopefully result in
-    # the screen showing the exact same picture as the in-memory representation.
-    #
-    # Rendering is the complicated part where everything has to be calculated and placed
-    # with the right position and content in the 2D array of cells.
-    # In comparison to rendering, drawing is simpler. It only deals with optimizing the commands
-    # sent to the terminal, so that the transition from previous rendered state to the new one
-    # is achieved in as few escape sequences as possible.
+    # "Rendering" fills an (Y,X) array of cells in memory with the desired
+    # attributes and character (a framebuffer for the console). "Drawing" then
+    # diffs the current vs. desired screen state and emits the text + escape
+    # sequences needed to make the terminal match the in-memory picture in as few
+    # sequences as possible.
 
     # Any prefix we want the final buffer to have
     @_buf = IO::Memory.new
@@ -27,10 +18,9 @@ module Crysterm
     # Temporary buffer for content and escape sequences for each individual row.
     @outbuf : IO::Memory = IO::Memory.new 10_240
 
-    # Even more temporary buffer, for parts of a row and for the short
-    # escape-sequence bursts of line insert/delete ops. Always cleared by
-    # `divert` before use, so it can be shared across these non-overlapping uses
-    # instead of allocating a throwaway `IO::Memory` each time.
+    # Even more temporary buffer, for parts of a row and the short escape bursts
+    # of line insert/delete ops. Cleared by `divert` before use, so it's shared
+    # across these non-overlapping uses instead of allocating throwaways.
     @tmpbuf : IO::Memory = IO::Memory.new 64
 
     # From rendering:
@@ -38,54 +28,39 @@ module Crysterm
 
     property _ci = -1
 
-    # Position at which an artificial cursor was actually painted on the previous
-    # `draw`, or `-1` when none was. When the cursor later moves to another row
-    # (or stops being drawn), the cell it vacated must be repaired — see the
-    # repair note in `#draw`.
+    # Position where an artificial cursor was painted on the previous `draw`, or
+    # `-1` when none. When the cursor moves rows (or stops), the vacated cell
+    # must be repaired — see the repair note in `#draw`.
     @_acur_x = -1
     @_acur_y = -1
 
     @pre = IO::Memory.new 1024
     @post = IO::Memory.new 1024
 
-    # Terminal control values used by the per-frame `#draw`. They derive only
-    # from the connected terminal (terminfo + detected features) and so are
-    # constant for the screen's lifetime — derived **once** here rather than
-    # re-queried every frame (the previous code did so per frame), let alone per
-    # cell. The sequence fields (`smacs`/`rmacs`/`el`) are the terminal's static,
-    # parameter-free capabilities, captured (and `dup`'d off terminfo's own
-    # memory) so they can be written straight into the frame buffer. The
-    # *parameterized* hot-path sequences (`cup`/`cuf`/SGR) are still emitted as
-    # direct ANSI at their call sites (materializing them through terminfo `run`
-    # allocates a `Bytes` per call), but their inline emission is now gated on
-    # `ansi_cursor` — tput's verification that those forms are byte-for-byte
-    # standard on this terminal — so a non-conforming terminal falls back to the
-    # safe tput path instead of getting wrong bytes. The `DrawCaps` record and
-    # its derivation (`#compute_draw_caps`) now live on the device `Window`; the
-    # window reads them through the delegated `#draw_caps`.
+    # Terminal control values used by the per-frame `#draw`. Derived from the
+    # connected terminal (terminfo + features) and constant for the screen's
+    # lifetime, so computed **once** here rather than per frame/cell. The static
+    # parameter-free sequences (`smacs`/`rmacs`/`el`) are captured (`dup`'d off
+    # terminfo's memory) for writing straight into the frame buffer. The
+    # parameterized hot-path sequences (`cup`/`cuf`/SGR) are emitted as direct
+    # ANSI at their call sites (terminfo `run` allocates a `Bytes` per call),
+    # gated on `ansi_cursor` so a non-conforming terminal falls back to the safe
+    # tput path. The `DrawCaps` record and `#compute_draw_caps` live on the
+    # device `Window`; read here via the delegated `#draw_caps`.
 
-    # Number of bytes the previous `draw` actually wrote to the terminal (the
-    # `@pre`+`@main`+`@post` payload). Read by `_render` to compute the
-    # throughput figures a `Widget::Fps` overlay can display. Zero on a frame
-    # where nothing changed and no output was produced.
+    # Bytes the previous `draw` wrote to the terminal (`@pre`+`@main`+`@post`).
+    # Read by `_render` for `Widget::Fps` throughput. Zero on an unchanged frame.
     getter last_draw_bytes : Int32 = 0
 
-    # Running total of all bytes ever written to the terminal by `draw`. Unlike
-    # `last_draw_bytes` (a per-frame delta for rate) this only grows, so a
-    # `Widget::Fps` overlay can show cumulative traffic.
+    # Cumulative bytes ever written by `draw` (only grows), for a `Widget::Fps`
+    # total-traffic display.
     getter bytes_written : UInt64 = 0_u64
 
-    # Temporarily routes Tput's escape-sequence output into `buf` for the
-    # duration of the block (Tput appends to `tput.ret` whenever it is set),
-    # then copies what was produced into `dest` and clears `tput.ret`. The block
-    # is yielded `buf` so it can also write to it directly (e.g. raw newlines).
-    #
-    # Centralizes the `(tput.ret = buf).try do |ret| … dest.write ret.to_slice;
-    # tput.ret = nil end` idiom repeated across `draw`/`insert_line`/`delete_line`
-    # &c. The reset now lives in an `ensure`, so a raising block can no longer
-    # leave output permanently diverted (the old inline `tput.ret = nil` was
-    # skipped on exception); `dest` is written only on success, matching the
-    # original (which wrote before the reset inside the block).
+    # Routes Tput's escape-sequence output into `buf` for the block's duration
+    # (Tput appends to `tput.ret` when set), then copies it into `dest` and
+    # clears `tput.ret`. The block is yielded `buf` so it can also write directly
+    # (e.g. raw newlines). The reset lives in an `ensure`, so a raising block
+    # can't leave output permanently diverted; `dest` is written only on success.
     private def divert(buf : IO::Memory, dest : IO, & : IO::Memory ->) : Nil
       # Clear here so the buffer can be safely reused across calls (callers used
       # to either pass a throwaway `IO::Memory.new` or clear it themselves).
@@ -100,13 +75,11 @@ module Crysterm
     end
 
     # Whether to bracket each painted frame in a DEC 2026 *synchronized update*
-    # (`\e[?2026h` … `\e[?2026l`) so the terminal presents the whole frame at
-    # once, eliminating flicker/tearing on a multi-write redraw. The markers are
-    # emitted only when a frame actually produces output, in the same single
-    # write as the frame, so they cost ~14 bytes per changed frame and nothing
-    # otherwise. Harmless on terminals that don't support it (they ignore the
-    # markers and auto-release after a short timeout). Default from
-    # `Config.render_synchronized_output` (on); set false to opt out globally.
+    # (`\e[?2026h` … `\e[?2026l`) so the terminal presents it atomically,
+    # eliminating flicker/tearing on a multi-write redraw. Markers are emitted
+    # only on frames that produce output (~14 bytes each), in the same write.
+    # Harmless on unsupporting terminals (ignored, auto-release after a timeout).
+    # Default from `Config.render_synchronized_output` (on).
     property? synchronized_output : Bool = Config.render_synchronized_output
 
     # Draws the screen based on the contents of in-memory grid of cells (`@lines`).
@@ -122,13 +95,9 @@ module Crysterm
       ly = -1
       acs = false
 
-      # Terminal-constant capabilities are derived once per `@tput` (`@draw_caps`,
-      # via `#compute_draw_caps`) instead of being re-queried every frame (let
-      # alone every cell). This includes the static, parameter-free sequence bytes
-      # (`smacs`/`rmacs`/`el`), bound to locals here and written straight into the
-      # frame buffer below. The parameterized hot-path moves (`cup`/`cuf`/SGR) are
-      # emitted as direct ANSI at their call sites (see the notes there). Only
-      # `bce_opt` and `fu` — which can change at runtime — stay per-frame.
+      # Terminal-constant capabilities (`@draw_caps`, via `#compute_draw_caps`),
+      # derived once per `@tput` and bound to locals here. Only `bce_opt` and
+      # `fu` — which can change at runtime — stay per-frame.
       caps = draw_caps
       has_bce = caps.has_bce
       parm_right_cursor = caps.parm_right_cursor
@@ -148,8 +117,7 @@ module Crysterm
       # Whether the per-row scan may be bounded to the dirty-column range at all.
       # BCE's clear look-ahead reaches past the changed span and full_unicode's
       # wide-grapheme continuations straddle cell boundaries, so both force a
-      # full-width scan. Constant for the frame; the only per-row variable left
-      # in the gate below is an artificial cursor landing on the row.
+      # full-width scan. Constant for the frame.
       may_bound = !bce_opt && !fu
 
       if @_buf.size > 0
@@ -162,24 +130,19 @@ module Crysterm
       # The cursor that is actually drawn: the focused widget's own cursor if it
       # has one, else the screen default (see `Window#active_cursor`).
       c = active_cursor
-      # The artificial-cursor predicate and its target position are constant for
-      # the whole draw (the diff never moves `tput.cursor`), but were evaluated
-      # per row (`c.artificial?`) and per cell (`c.artificial?` + `tput.cursor.x/y`).
-      # Hoist them so the per-cell hot path reads plain locals.
+      # The artificial-cursor predicate and target position are constant for the
+      # whole draw, so hoist them out of the per-row/per-cell hot path.
       c_artificial = c.artificial?
       cursor_x = tput.cursor.x
       cursor_y = tput.cursor.y
 
-      # Repair the cell a previously-painted artificial cursor has now left
-      # behind. `draw` only scans rows that are dirty or that currently hold the
-      # cursor (see the row gate below), so when the artificial cursor moves to a
-      # different row — or stops being drawn — the row it *was* on is otherwise
-      # untouched this frame (its buffer content didn't change). The cursor glyph
-      # written into `@olines` last frame would then never be diffed away, leaving
-      # a ghost cursor on screen. Mark that vacated cell dirty so the diff
-      # re-emits the real content under it. A cursor that stays on the same cell
-      # needs no repair; a same-row move is already covered by the full scan the
-      # cursor's own row gets.
+      # Repair the cell a previously-painted artificial cursor left behind.
+      # `draw` only scans dirty rows or the cursor's row, so when the cursor
+      # moves to another row (or stops), the old row is otherwise untouched and
+      # the cursor glyph in `@olines` would never be diffed away — a ghost cursor.
+      # Mark the vacated cell dirty so the diff re-emits the real content. Staying
+      # on the same cell needs no repair; a same-row move is covered by the full
+      # scan the cursor's row gets.
       draw_acur = c_artificial && !c._hidden && (c._state != 0) && cursor_y >= start && cursor_y <= stop
       new_acur_x = draw_acur ? cursor_x : -1
       new_acur_y = draw_acur ? cursor_y : -1
@@ -199,34 +162,28 @@ module Crysterm
         # Original line, as it was in the previous render
         o = @olines[y]
 
-        # Cache the row width once; it's read by the per-cell loop bound and by
-        # the two BCE look-ahead/clear scans below.
+        # Cache the row width once; read by the per-cell loop bound and the BCE
+        # scans below.
         line_size = line.size
 
         # Hoist the rows' backing arrays so the per-cell diff reads the
         # contiguous `Int64`/`Char` buffers directly via `unsafe_fetch`, instead
-        # of re-running `Indexable#[]` (a bounds check plus a fresh `Cell` handle)
-        # for every `line[x].attr` / `line[x].char`. The new-side reads are bounded
-        # by `line_size == l_attrs.size`, and the old-side reads sit behind the `o[x]?`
-        # guard below, so every `unsafe_fetch` is provably in range. The cells are
-        # mutated in place (`unsafe_put`), so these array references stay valid for
-        # the whole row.
+        # of `Indexable#[]` (bounds check plus a fresh `Cell` handle) per cell.
+        # New-side reads are bounded by `line_size`, old-side by the `x < o_size`
+        # guard below, so every `unsafe_fetch` is in range. Cells are mutated in
+        # place (`unsafe_put`), so these references stay valid for the whole row.
         l_attrs = line.attrs
         l_chars = line.chars
         o_attrs = o.attrs
         o_chars = o.chars
-        # Old-side width, hoisted so the per-cell diff can bound-check with a
-        # plain `x < o_size` instead of `o[x]?` (which builds a `Cell` handle for
-        # every cell just to test presence — see the diff below).
+        # Old-side width, hoisted so the diff bound-checks with `x < o_size`
+        # instead of `o[x]?` (which builds a `Cell` handle just to test presence).
         o_size = o_attrs.size
 
         # Whether either side of this row carries a grapheme overlay, hoisted
-        # once. Under `full_unicode` the per-cell diff/BCE scans below otherwise
-        # probe `grapheme_at?` (a hash lookup) on every cell; when neither the new
-        # nor the old row has any overlay (the overwhelming majority, even in
-        # full-unicode mode) those probes all compare nil==nil and can be skipped
-        # wholesale. `false` when full_unicode is off, collapsing the guards to a
-        # constant.
+        # once. When neither does (the overwhelming majority), the per-cell
+        # `grapheme_at?` probes all compare nil==nil and are skipped wholesale.
+        # `false` when full_unicode is off, collapsing the guards to a constant.
         l_has_g = fu && line.has_graphemes?
         o_has_g = fu && o.has_graphemes?
         any_g = l_has_g || o_has_g
@@ -240,11 +197,8 @@ module Crysterm
 
         # Bound the per-cell scan to the columns that actually changed
         # (`[scan_lo, scan_hi]`), read before the dirty flag is cleared below.
-        # Only on the common fast path: with BCE (its look-ahead reaches past the
-        # changed span), full_unicode (wide-grapheme continuations straddle cell
-        # boundaries), or an artificial cursor on this row (its cell can lie
-        # outside the changed range), the scan must cover the whole width — so
-        # fall back to a full scan there, byte-for-byte the original behavior.
+        # Only on the common fast path: BCE, full_unicode, or an artificial
+        # cursor on this row all force a full-width scan (see `may_bound`).
         scan_lo = 0
         scan_hi = line_size - 1
         if may_bound && !(c_artificial && y == cursor_y)
@@ -270,30 +224,24 @@ module Crysterm
         skip_next = false
 
         # Highest column for which the BCE look-ahead is known to be pointless
-        # (a previous scan proved the tail from here is not a clearable run of
-        # spaces). Lets us skip re-scanning every space in a leading run, which
-        # otherwise makes a "spaces then content" line O(width^2). Reset per row.
+        # (a previous scan proved the tail isn't a clearable run of spaces).
+        # Avoids re-scanning a leading space run (otherwise O(width^2) on a
+        # "spaces then content" line). Reset per row.
         bce_skip_until = -1
 
-        # Column at which an artificial cursor is being painted on THIS row (or
-        # -1 when none). The cursor cell must be drawn with its own (reverse /
-        # glyph) attribute, so the BCE clear-to-EOL look-ahead below must NOT
-        # treat it as a clearable blank: a run of blank cells reaching the cursor
-        # would otherwise be erased with `el`, breaking out of the row scan before
-        # the cursor cell is ever emitted — leaving the cursor undrawn this frame
-        # (it only carries the cursor attr in the local `desired_attr`, not in the
-        # buffer the look-ahead reads). `draw_acur && y == cursor_y` is exactly the
-        # condition under which the per-cell loop paints the cursor (see below);
-        # `-1` in the common (no-cursor) case never matches a column.
+        # Column where an artificial cursor is painted on THIS row (or -1 when
+        # none). The BCE clear-to-EOL look-ahead must NOT treat it as a clearable
+        # blank: erasing a run reaching the cursor with `el` would break out of
+        # the scan before the cursor cell is emitted, leaving it undrawn (the
+        # cursor attr lives only in `desired_attr`, not the buffer the look-ahead
+        # reads). `-1` in the common no-cursor case never matches a column.
         acur_col = (draw_acur && y == cursor_y) ? cursor_x : -1
 
         # When the scan starts past column 0, seed the skipped-run cursor exactly
-        # as the full scan's leading run over [0, scan_lo) would: those cells are
-        # all unchanged, so it sets `lx = 0, ly = y` *only if* `lx` was -1 at row
-        # start; a non-(-1) `lx` left over from a previous row is preserved (so
-        # the first changed cell repositions with an absolute `cup`, matching the
-        # full scan, rather than a `cuf` keyed to this row). The row is prefixed
-        # with a cup to column 0 below.
+        # as the full scan's leading run over [0, scan_lo) would: set `lx = 0,
+        # ly = y` only if `lx` was -1 at row start; a leftover non-(-1) `lx` is
+        # preserved (so the first changed cell repositions with an absolute `cup`,
+        # matching the full scan). The row is prefixed with a cup to column 0 below.
         if scan_lo > 0 && lx == -1
           lx = 0
           ly = y

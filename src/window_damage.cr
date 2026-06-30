@@ -3,42 +3,35 @@ module Crysterm
     # Per-widget damage / dirty tracking (opt-in via
     # `OptimizationFlag::DamageTracking`).
     #
-    # The default render model clears the whole cell buffer and re-composites
-    # every widget every frame (see `window_rendering.cr#_render` and the long
-    # comment above its `clear_region`). That is simple and correct but O(N) in
-    # the widget count even when a single widget changed. Damage tracking adds a
-    # fast path that, on a frame where only a few top-level subtrees changed,
-    # clears just those subtrees' old footprints and re-composites just them,
-    # leaving every other cell from the previous frame in place.
+    # The default render model clears the whole buffer and re-composites every
+    # widget every frame — simple and correct but O(N) even when one widget
+    # changed. Damage tracking adds a fast path: on a frame where only a few
+    # top-level subtrees changed, clear just their old footprints and
+    # re-composite just them, carrying over every other cell.
     #
-    # The fast path is *output-equivalent* to the full re-composite: it engages
-    # only when it can prove equivalence and otherwise falls back to the full
-    # path, so `@lines` (and the bytes `draw` emits) are identical with the flag
-    # on or off. The implemented phases:
+    # The fast path is *output-equivalent* to the full re-composite — it engages
+    # only when it can prove equivalence, else falls back — so `@lines` (and the
+    # bytes `draw` emits) are identical with the flag on or off. Phases:
     #
     # - **Phase 1** — opaque, non-overlapping: clear each changed subtree's old
     #   footprint, re-render just it, carry over everything else.
     # - **Phase 2** — overlap & z-order: when a changed subtree's damage touches
     #   another subtree, recomposite the whole connected overlap cluster in
     #   z-order over its cleared region (`#damage_phase2`).
-    # - **Phase 3** — alpha / shadow / tint: because the cluster recomposite is a
-    #   region-local "mini full clear" (clear the region, repaint every widget
-    #   touching it bottom-to-top), per-cell blend effects fall out for free —
-    #   a translucent/tinted widget always re-blends over a freshly rebuilt base,
-    #   so there is no saturation creep. The one extra requirement is that a
-    #   widget's damage rectangle includes its **shadow** band, which reaches past
-    #   `@lpos` (see `#damage_widget_rect`); the overlap machinery then pulls in
-    #   whatever the shadow falls on and re-blends it.
+    # - **Phase 3** — alpha / shadow / tint: the cluster recomposite is a
+    #   region-local "mini full clear", so per-cell blend effects re-blend over a
+    #   freshly rebuilt base (no saturation creep) for free. Requirement: a
+    #   widget's damage rect must include its **shadow** band, which reaches past
+    #   `@lpos` (see `#damage_widget_rect`).
     #
-    # Still always full-path: **z-index planes** (composited through a separate
-    # screen-sized buffer — declared out of scope, a legitimate end state),
-    # **border docking** (joins glyphs across adjacent widgets), and anything that
-    # writes outside the cell model (`#invalidate_region`, for w3m image
-    # overlays). Plus the usual frame-global bailouts: first frame, resize,
-    # structural change (child add/remove), and stylesheet change.
+    # Still always full-path: **z-index planes** (separate screen-sized buffer,
+    # out of scope), **border docking** (joins glyphs across widgets), and
+    # out-of-cell-model writes (`#invalidate_region`, for w3m image overlays).
+    # Plus frame-global bailouts: first frame, resize, structural change (child
+    # add/remove), stylesheet change.
     #
-    # Whenever any precondition fails the frame is rendered the full way, which
-    # also refreshes all the caches below, so the next frame can fast-path again.
+    # On any precondition failure the frame renders the full way, refreshing the
+    # caches below so the next frame can fast-path again.
 
     # Top-level widgets whose subtree changed since the last paint, registered by
     # `Widget#mark_dirty` (mapped to the top-level ancestor). Drained every frame.
@@ -49,11 +42,11 @@ module Crysterm
     # path cannot prove itself safe.
     @damage_force_full = true
 
-    # Set during a render when something the selective path *cannot* reproduce
-    # happened — currently only `#invalidate_region` (a w3m image overlay writing
-    # outside the cell model). Reset at the start of every `_render`. After a full
-    # frame it feeds `@damage_safe`; during a fast-path attempt it forces a
-    # fallback. (Plane usage is tracked separately via `@layer_widgets`.)
+    # Set during a render when something the selective path can't reproduce
+    # happened — currently only `#invalidate_region` (w3m overlay writing outside
+    # the cell model). Reset each `_render`. After a full frame feeds
+    # `@damage_safe`; during a fast-path attempt forces a fallback. (Plane usage
+    # tracked separately via `@layer_widgets`.)
     @frame_used_effects = false
 
     # Whether the most recently completed *full* frame can be safely carried over
@@ -72,9 +65,8 @@ module Crysterm
     getter damage_fast_frames = 0
     getter damage_full_frames = 0
 
-    # Reused per-frame scratch buffers (cleared, not reallocated, each frame) so
-    # a steady-state damage-tracked frame allocates nothing here: the snapshot of
-    # this frame's dirty roots and the damaged-rectangle list.
+    # Reused per-frame scratch (cleared, not reallocated) so a steady-state frame
+    # allocates nothing here: this frame's dirty-root snapshot and damaged-rect list.
     @damage_snapshot = [] of Widget
     @damage_rects = [] of Tuple(Int32, Int32, Int32, Int32)
 
@@ -84,12 +76,11 @@ module Crysterm
 
     # --- Phase 4 — z-index planes -------------------------------------------
     #
-    # Whether the most recently completed *full* frame used **exactly one** plane
-    # (single z-index), with every layer widget a top-level child, and no
-    # out-of-cell-model effects or docking. Only then can the next frame take the
-    # selective *plane* path (`#damage_plane_composite`), which rebuilds the base
-    # under the plane and re-folds the plane over just that region. Multi-plane
-    # frames (and nested layers) stay on the full path — a legitimate end state.
+    # Whether the last *full* frame used **exactly one** plane (single z-index),
+    # every layer widget a top-level child, no out-of-cell-model effects or
+    # docking. Only then can the next frame take the selective *plane* path
+    # (`#damage_plane_composite`): rebuild the base under the plane and re-fold
+    # the plane over just that region. Multi-plane / nested-layer frames stay full.
     @damage_plane_safe = false
 
     # The single plane's z-index, recorded on the last full frame (valid only
@@ -98,8 +89,7 @@ module Crysterm
 
     # The layer roots (top-level children with a `z_index`) that fed the single
     # plane on the last full frame. The selective plane frame requires the same
-    # set to still be present — a z-index added/removed/changed means the plane
-    # structure changed, so it falls back to the full path. Reused across frames.
+    # set; a z-index added/removed/changed falls back to full. Reused across frames.
     @damage_layer_roots = [] of Widget
 
     # Reused scratch for recomputing this frame's layer roots, to compare against
@@ -118,13 +108,11 @@ module Crysterm
     # cost, against which a selective attempt is measured.
     @damage_all_area = 0_i64
 
-    # The dirty-root validation needs an O(1) "is this a current top-level child?"
-    # test (the `@children.includes?` scan would be O(N) per dirty root). That set
-    # already exists: `Mixin::Children#@children_set`, kept in sync by
-    # `insert`/`remove`. It is reused directly (see `damage_try_composite`) instead
-    # of maintaining a second, identical set that was cleared and refilled with all
-    # N children on every full frame — a full `Set` rebuild (N hash inserts) per
-    # frame that showed up as ~6% of a full-screen-animation render.
+    # Dirty-root validation needs an O(1) "is this a current top-level child?"
+    # test; `Mixin::Children#@children_set` (kept in sync by `insert`/`remove`)
+    # already provides it, so it is reused directly (see `damage_try_composite`)
+    # rather than rebuilding a second identical set every full frame — that rebuild
+    # showed up as ~6% of a full-screen-animation render.
 
     # Stamp for O(1) "is this widget in the current cluster?" membership during
     # the overlap grow, via `Widget#damage_seen` (no per-frame allocation, no
@@ -181,15 +169,12 @@ module Crysterm
 
     # Registers *w* (via its top-level ancestor) as needing a repaint next frame.
     #
-    # The dirty-roots set is consumed *only* by the selective damage path
-    # (`#damage_try_composite`), so when damage tracking is disabled — the
-    # default `OptimizationFlag::None` — every mark would be a parent-chain walk
-    # plus a `Set` insertion whose result nothing ever reads (the set is neither
-    # cleared nor consumed off the damage path). `#mark_dirty`/`#request_render`
-    # call this on every state-changing setter, so in a per-cell animation that
-    # is thousands of pointless walks+inserts per frame. Bail immediately when
-    # tracking is off; the behavior is identical (the set is unused) and the hot
-    # path that drives a plain full-recomposite scene gets the work back.
+    # The dirty-roots set is consumed *only* by the selective damage path, so when
+    # damage tracking is off (default) the mark would be a wasted parent-chain
+    # walk + `Set` insert nothing reads. Since `#mark_dirty`/`#request_render`
+    # call this on every state-changing setter, that is thousands of pointless ops
+    # per frame in a per-cell animation — so bail immediately when tracking is off
+    # (behavior identical, the set is unused).
     def damage_mark_dirty(w : Widget) : Nil
       return unless @optimization.damage_tracking?
       root = w
@@ -219,22 +204,19 @@ module Crysterm
       @frame_used_effects = true
     end
 
-    # How often (in frames) to re-probe the selective path while it is latched
-    # off. Not a performance knob — it only sets how quickly the engine re-adapts
-    # after a scene shifts in a way that doesn't already force a full frame
-    # (structural/stylesheet/resize changes re-arm it immediately). Generous so a
-    # persistently-degenerate scene pays the probe cost only rarely.
+    # How often (frames) to re-probe the selective path while latched off. Not a
+    # perf knob — only how quickly the engine re-adapts after a scene shifts in a
+    # way that doesn't already force a full frame (structural/stylesheet/resize
+    # re-arm it immediately). Generous so a degenerate scene rarely pays the probe.
     DAMAGE_REPROBE_FRAMES = 120
 
-    # Compositing entry point under damage tracking: decides whether to even
-    # *attempt* the selective path this frame, runs it (or the full path), and
-    # feeds the self-measured backstop. The structural guards (cost parity, grid
-    # cluster) keep any single selective attempt from costing more than ~a full
-    # frame; this controller removes even that attempt cost once measurement shows
-    # selective isn't paying for the current scene — so a degenerate scene (every
-    # widget moving, one giant overlap cluster) settles to plain full-recomposite
-    # cost, while a scene the selective path helps keeps using it. No tuned ratio:
-    # it compares measured wall times and reacts to actual bail/continue outcomes.
+    # Compositing entry point under damage tracking: decides whether to *attempt*
+    # the selective path this frame, runs it (or the full path), and feeds the
+    # self-measured backstop. Structural guards keep any single attempt from
+    # costing more than ~a full frame; this controller drops even that attempt
+    # cost once measurement shows selective isn't paying — so a degenerate scene
+    # settles to full-recomposite cost while a scene it helps keeps using it. No
+    # tuned ratio: it compares measured wall times and reacts to bail/continue.
     private def damage_composite : Nil
       # A frame that MUST be full (first frame, structural/stylesheet/resize) is
       # uninformative about whether selective pays — run it, and re-arm so the
@@ -363,13 +345,10 @@ module Crysterm
     end
 
     # Re-renders a changed root in place for the selective composite paths:
-    # clears its *old* footprint (so cells it vacated revert to bare base),
-    # repaints it, then recomputes and stores its new damage bounds. Returns the
-    # `{old, new}` footprints. Shared by the Phase 2 (`damage_try_composite`) and
-    # Phase 4 (`damage_plane_composite`) renders, which both clear-then-repaint
-    # each changed root before clustering. (The `old` push into the caller's
-    # vacated-footprint accumulator is left to the caller, since the two paths
-    # differ in what else they do with `old`/`new`.)
+    # clears its *old* footprint (vacated cells revert to bare base), repaints it,
+    # then recomputes and stores its new bounds. Returns `{old, new}`. Shared by
+    # the Phase 2 and Phase 4 renders. (Pushing `old` into the caller's vacated-
+    # footprint accumulator is left to the caller, which differ in their use of it.)
     private def damage_reclear_root(root : Widget) : {Tuple(Int32, Int32, Int32, Int32)?, Tuple(Int32, Int32, Int32, Int32)?}
       old = root.damage_bounds
       clear_region old[0], old[1], old[2], old[3] if old
@@ -397,11 +376,9 @@ module Crysterm
       return false if awidth != @damage_last_awidth || aheight != @damage_last_aheight
 
       # Snapshot the dirty roots and clear the live set *before* re-rendering, so
-      # marks raised during the re-render (a widget that updates its own content
-      # from `#render`, a CSS keyframe step) carry to the next frame instead of
-      # being wiped by this one. The remainder of this method works off the
-      # snapshot; a `false` return falls back to the full path, which is correct
-      # regardless of the cleared set (it repaints everything).
+      # marks raised during the re-render (a widget updating its own content from
+      # `#render`, a CSS keyframe step) carry to the next frame. A `false` return
+      # falls back to the full path, correct regardless of the cleared set.
       dirty = @damage_snapshot
       dirty.clear
       @damage_dirty_roots.each { |r| dirty << r }
@@ -416,10 +393,9 @@ module Crysterm
         return false if r.style.z_index && !@damage_plane_safe
       end
 
-      # Nothing to do: no changed subtree. The buffer already matches the
-      # previous frame, so `draw` will emit nothing. (This is the realistic
-      # no-change frame, handled at per-widget granularity rather than via a
-      # fragile central flag.)
+      # Nothing to do: no changed subtree. The buffer already matches last frame,
+      # so `draw` emits nothing. (The realistic no-change frame, handled at
+      # per-widget granularity rather than via a fragile central flag.)
       if dirty.empty?
         @damage_fast_frames += 1
         return true
@@ -432,16 +408,14 @@ module Crysterm
       end
 
       # Up-front cost parity (tuning-free, O(dirty), from cached bounds). The
-      # selective path must at minimum clear each changed subtree's *old*
-      # footprint AND repaint its *new* one — at least `2 * Σ changed-area`
-      # cells — before any overlap pulls in more. The full path costs one
-      # whole-screen clear plus repainting every subtree: `W*H + Σ all-area`.
-      # So if twice the changed area already meets the full-path cost, the
-      # selective path provably cannot win however the cluster resolves; fall
-      # back now, before doing any render work. This is what catches the
-      # "(almost) everything changed" degeneracy — e.g. a scene that models
-      # every cell as its own widget and moves them all each frame — where the
-      # cluster would otherwise grow to the whole screen at super-linear cost.
+      # selective path must clear each changed subtree's *old* footprint AND
+      # repaint its *new* one — ≥ `2 * Σ changed-area` cells — before any overlap
+      # pulls in more, while the full path costs `W*H + Σ all-area`. So if twice
+      # the changed area already meets the full cost, selective can't win however
+      # the cluster resolves; fall back before any render work. Catches the
+      # "(almost) everything changed" degeneracy (e.g. every cell its own widget,
+      # all moving each frame), where the cluster would otherwise grow to the
+      # whole screen at super-linear cost.
       full_cost = awidth.to_i64 * aheight + @damage_all_area
       dirty_area = 0_i64
       dirty.each { |r| dirty_area += damage_rect_area(r.damage_bounds) }

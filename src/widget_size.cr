@@ -27,11 +27,10 @@ module Crysterm
       mark_dirty
     end
 
-    # CSS `min-width`/`max-width`/`min-height`/`max-height` size constraints, in
-    # cells (`nil` = unconstrained). `awidth`/`aheight` clamp the *used* size to
-    # `[min, max]` — so they cap a `width: "100%"` or stretched widget and raise a
-    # too-small one, exactly like CSS, and `min` wins when it exceeds `max`. Set
-    # from a stylesheet by `CSS::Geometry`; settable directly too.
+    # CSS `min-width`/`max-width`/`min-height`/`max-height` constraints, in cells
+    # (`nil` = unconstrained). `awidth`/`aheight` clamp the *used* size to
+    # `[min, max]`, with `min` winning when it exceeds `max`, like CSS. Set from a
+    # stylesheet by `CSS::Geometry`; settable directly too.
     getter min_width : Int32? = nil
     getter max_width : Int32? = nil
     getter min_height : Int32? = nil
@@ -40,23 +39,19 @@ module Crysterm
     {% for dim in %w[min_width max_width min_height max_height] %}
       def {{dim.id}}=(val : Int32?)
         return if @{{dim.id}} == val
-        # A size *constraint* change alters the effective `awidth`/`aheight` (via
-        # `clamp_awidth`/`clamp_aheight`) exactly as `width=`/`height=` do, so it
-        # must emit `Resize` too. Otherwise `Event::Resize` listeners never fire —
-        # e.g. `Mixin::ItemView#on_resize` (which recomputes the scroll
-        # `child_base`/`child_offset` for the new viewport height) and
-        # `Mixin::TextEditing`'s Resize→`_update_cursor` — leaving scroll/cursor
-        # state stale after a stylesheet `max-height`/`min-width` (or direct set).
+        # A constraint change alters effective `awidth`/`aheight` just as
+        # `width=`/`height=` do, so it must emit `Resize` too — otherwise listeners
+        # (`Mixin::ItemView#on_resize`, `Mixin::TextEditing`'s
+        # Resize→`_update_cursor`) never fire and scroll/cursor state goes stale.
         emit ::Crysterm::Event::Resize
         @{{dim.id}} = val
         mark_dirty
       end
     {% end %}
 
-    # Clamps a computed dimension to its `[min, max]` constraints (a no-op when
-    # both are `nil`). `max` is applied before `min` so `min` wins a `min > max`
-    # conflict, per CSS. Shared by `#clamp_awidth`/`#clamp_aheight`, which differ
-    # only in which pair of constraint fields they feed in.
+    # Clamps a computed dimension to `[min, max]`. `max` is applied before `min`
+    # so `min` wins a `min > max` conflict, per CSS. Shared by
+    # `#clamp_awidth`/`#clamp_aheight`.
     private def clamp_dim(v : Int32, min : Int32?, max : Int32?) : Int32
       v = Math.min(v, max) if max
       v = Math.max(v, min) if min
@@ -75,49 +70,39 @@ module Crysterm
 
     # Returns computed width
     def awidth(get = false, with_margin = true)
-      # The own left+right margins shrink the box (`_get_coords` does `xi += left`,
-      # `xl -= right`, so the rendered width loses `mwidth`). Folding that in here
-      # keeps the hit-test rectangle (`#aleft + #awidth`) matching the paint. The
-      # render path and the anchoring callers pass `with_margin: false` for the
-      # un-shrunk base; this is applied once, at every return below.
+      # Own left+right margins shrink the box (`_get_coords` does `xi += left`,
+      # `xl -= right`). Folding that in here keeps the hit-test rectangle
+      # (`#aleft + #awidth`) matching the paint. Render/anchoring callers pass
+      # `with_margin: false` for the un-shrunk base; applied at every return below.
       mw = (with_margin && (mg = style.margin).any?) ? mg.left + mg.right : 0
 
       oleft = @left
       oright = @right
       width = @width
 
-      # The parent's rendered position is only needed by the String/`nil` branches
-      # below; a fixed `Int32` width (the common case) ignores it. Resolving it
-      # eagerly walked `parent_or_window`(`.last_rendered_position`) on every
-      # `awidth` call for every fixed-size widget every frame — pure waste — so it
-      # is now computed lazily inside the branches that use it.
+      # The parent's rendered position is only needed by the String/`nil` branches;
+      # a fixed `Int32` width (common case) ignores it, so it's resolved lazily
+      # inside the branches to avoid walking the ancestor chain every frame.
       case width
       when String
         parent = get ? parent_or_window.last_rendered_position : parent_or_window
-        # A percentage is of the parent's *content* area (inside its border/
-        # padding), like CSS `width: 100%` — so `width: "100%"` fills the
-        # interior of a bordered parent rather than overrunning it. For a parent
-        # with no insets (e.g. a window child) this is unchanged. The matching
-        # `aleft` adds the parent's near inset, so a `left: 0` child sits just
-        # inside the border and a `"100%"` child reaches exactly the far inset.
+        # A percentage is of the parent's *content* area (inside border/padding),
+        # like CSS `width: 100%`. The matching `aleft` adds the parent's near
+        # inset, so a `left: 0` child sits inside the border and `"100%"` reaches
+        # exactly the far inset.
         return clamp_awidth(resolve_dimension(width, (parent.awidth || 0) - parent.ileft - parent.iright, "half")) - mw
       end
 
-      # This is for if the element is being stretched or shrunken.
-      # Although the width for shrunken elements is calculated
-      # in the render function, it may be calculated based on
-      # the content width, and the content width is initially
-      # decided by the width the element, so it needs to be
-      # calculated here.
+      # For a stretched or shrunken element. Shrunken widths are computed in the
+      # render function from content width, which is itself seeded by the element's
+      # width, so it must be calculated here too.
       if width.nil?
         parent = get ? parent_or_window.last_rendered_position : parent_or_window
-        # `parent.awidth` climbs the whole ancestor chain (or, under `get`, reads
-        # the parent's stored `LPos`). This branch needs it for both the string
-        # `resolve_dimension` base and the width subtraction; calling it twice
-        # made a chain of nil-width + string-left widgets recompute the ancestors
-        # O(2^depth) times (a centered, auto-width box is a completely ordinary
-        # config). Computing it once collapses that to O(depth). It stays *inside*
-        # this branch so an integer-width widget still never walks the chain.
+        # `parent.awidth` climbs the whole ancestor chain (or reads the stored
+        # `LPos` under `get`). This branch needs it twice (string base + width
+        # subtraction); computing it once collapses O(2^depth) to O(depth) for a
+        # chain of nil-width + string-left widgets. Stays inside this branch so an
+        # integer-width widget never walks the chain.
         pw = parent.awidth || 0
         left = oleft || 0
         if left.is_a? String
@@ -136,9 +121,8 @@ module Crysterm
 
     # Returns computed height
     def aheight(get = false, with_margin = true)
-      # See `#awidth`: the own top+bottom margins shrink the box; fold that in so
-      # the hit-test rectangle matches the paint. Base callers pass `with_margin:
-      # false`.
+      # See `#awidth`: own top+bottom margins shrink the box; fold in so hit-test
+      # matches the paint. Base callers pass `with_margin: false`.
       mh = (with_margin && (mg = style.margin).any?) ? mg.top + mg.bottom : 0
 
       otop = @top

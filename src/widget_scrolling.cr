@@ -4,8 +4,7 @@ module Crysterm
     property? scrollable = false
 
     # Whether the widget position is fixed even in presence of scroll?
-    # (Primary use in widget labels, which are always e.g. on top-left, and the
-    # scrollbar widget, which must not scroll away with the content it tracks.)
+    # (Used by labels and the scrollbar widget, which must not scroll away.)
     property? fixed = false
 
     # When a scrollable widget shows its scroll bar — Qt's `Qt::ScrollBarPolicy`.
@@ -18,13 +17,12 @@ module Crysterm
       AlwaysOff
     end
 
-    # When this widget's scroll bar chrome is shown (per-axis vertical for now;
-    # horizontal lands with horizontal scrolling). Base widgets default to
-    # `AlwaysOff` (opt-in, as before); scrollable widgets override to `AsNeeded`.
+    # When this widget's scroll bar chrome is shown (vertical only for now). Base
+    # widgets default to `AlwaysOff`; scrollable widgets override to `AsNeeded`.
     property scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
 
-    # Whether the scroll bar is enabled at all (i.e. the policy is not
-    # `AlwaysOff`). Back-compat alias for the former `scrollbar : Bool`.
+    # Whether the scroll bar is enabled at all (policy not `AlwaysOff`).
+    # Back-compat alias for the former `scrollbar : Bool`.
     def scrollbar? : Bool
       !scrollbar_policy.always_off?
     end
@@ -36,8 +34,7 @@ module Crysterm
       v
     end
 
-    # Qt `QAbstractScrollArea#verticalScrollBarPolicy`: an alias of
-    # `#scrollbar_policy` (the only axis wired today).
+    # Qt `QAbstractScrollArea#verticalScrollBarPolicy`: alias of `#scrollbar_policy`.
     def vertical_scrollbar_policy : ScrollBarPolicy
       scrollbar_policy
     end
@@ -47,27 +44,24 @@ module Crysterm
       self.scrollbar_policy = p
     end
 
-    # Qt `QAbstractScrollArea#horizontalScrollBarPolicy`. Stored now for API
-    # shape, but not yet consulted — horizontal scrolling lands with workstream D.
+    # Qt `QAbstractScrollArea#horizontalScrollBarPolicy`. Stored for API shape but
+    # not yet consulted — horizontal scrolling lands with workstream D.
     property horizontal_scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
 
-    # Thickness of the scroll bars, in cells — the **single source of truth** for
-    # how many cells a bar occupies, so no part of the toolkit assumes a width of
-    # `1`. The vertical bar is `#scrollbar_width` columns wide (reserved on the
-    # right by `#content_margin_x`); the horizontal bar is `#scrollbar_height`
-    # rows tall (reserved at the bottom by `#hscrollbar_rows`). The `ScrollBar`
-    # child widgets (`#ensure_scrollbar_widget`) are created at exactly these
-    # sizes, so the reserved space and the rendered bar always agree. Both
-    # default to `1` (the historical single-cell bar) and may be set wider; Qt's
-    # analogue is `QStyle::PM_ScrollBarExtent`.
+    # Thickness of the scroll bars, in cells — the **single source of truth** so
+    # no part of the toolkit assumes a width of `1`. The vertical bar is
+    # `#scrollbar_width` columns wide (reserved by `#content_margin_x`); the
+    # horizontal bar is `#scrollbar_height` rows tall (reserved by
+    # `#hscrollbar_rows`). The `ScrollBar` children are created at exactly these
+    # sizes, so reserved space and rendered bar agree. Both default to `1` and may
+    # be set wider; Qt's analogue is `QStyle::PM_ScrollBarExtent`.
     property scrollbar_width : Int32 = 1
 
     # :ditto:
     property scrollbar_height : Int32 = 1
 
-    # Whether the scroll bar chrome should be shown right now, given the policy
-    # and current content: never when non-scrollable or `AlwaysOff`, always
-    # under `AlwaysOn`, and only on overflow under `AsNeeded`.
+    # Whether the scroll bar chrome should be shown now: never when non-scrollable
+    # or `AlwaysOff`, always under `AlwaysOn`, on overflow under `AsNeeded`.
     def show_scrollbar? : Bool
       policy_shows?(scrollbar_policy) { really_scrollable? }
     end
@@ -79,27 +73,23 @@ module Crysterm
     end
 
     # Rows reserved at the bottom for a shown horizontal scroll bar, so content
-    # and vertical-scroll math don't run underneath it — the horizontal analogue
-    # of the column the vertical bar reserves in `_wrap_content`. `0` (no effect)
-    # unless the bar is actually shown, so widgets without a horizontal bar are
-    # unaffected.
+    # and vertical-scroll math don't run underneath it. `0` unless the bar is
+    # shown.
     def hscrollbar_rows : Int32
       show_horizontal_scrollbar? ? scrollbar_height : 0
     end
 
-    # Number of content rows actually visible in the viewport: the full height
-    # minus the interior (border/padding) rows minus the row a shown horizontal
-    # scroll bar reserves (`#hscrollbar_rows`, `0` when no bar is shown). This is
-    # the single source of truth for the viewport-height invariant that `#scroll`,
-    # `#ensure_visible`, `#clamp_child_base_to_content`, and the `ItemView` /
-    # `TextEditing` mixins must all compute identically.
+    # Content rows visible in the viewport: full height minus interior
+    # (border/padding) rows minus `#hscrollbar_rows`. Single source of truth for
+    # the viewport-height invariant shared by `#scroll`, `#ensure_visible`,
+    # `#clamp_child_base_to_content`, and the `ItemView`/`TextEditing` mixins.
     protected def visible_content_rows : Int32
       aheight - iheight - hscrollbar_rows
     end
 
     # Whether a bar with *policy* should show: never when non-scrollable or
-    # `AlwaysOff`, always under `AlwaysOn`, and under `AsNeeded` only when the
-    # yielded overflow test is true. The block is `yield`ed (inlined, no closure).
+    # `AlwaysOff`, always under `AlwaysOn`, under `AsNeeded` only when the yielded
+    # overflow test is true.
     private def policy_shows?(policy : ScrollBarPolicy, &) : Bool
       return false unless scrollable?
       case policy
@@ -111,16 +101,16 @@ module Crysterm
 
     # The `Widget::ScrollBar` child rendering this widget's scrollbar, created
     # lazily by `#ensure_scrollbar_widget` (`nil` until first shown). Precursor
-    # to Qt's `verticalScrollBar()` accessor.
+    # to Qt's `verticalScrollBar()`.
     getter scrollbar_widget : ScrollBar?
 
     # The horizontal `Widget::ScrollBar` child, once horizontal scrolling
     # (workstream D) exists. Always `nil` for now.
     getter horizontal_scrollbar_widget : ScrollBar?
 
-    # Called each render to reconcile the scroll bar chrome with the policy:
-    # create+show+sync the bar when `#show_scrollbar?`, hide (never destroy) it
-    # otherwise so it can reappear without losing state. Idempotent.
+    # Reconciles the scroll bar chrome with the policy each render: create+show+
+    # sync when `#show_scrollbar?`, else hide (never destroy) so it can reappear
+    # without losing state. Idempotent.
     protected def update_scrollbar_widget : Nil
       if show_scrollbar?
         ensure_scrollbar_widget.show
@@ -135,11 +125,9 @@ module Crysterm
       end
     end
 
-    # Lazily create a real `Widget::ScrollBar` child — `fixed` (exempt from this
-    # widget's scroll), pinned to the right interior edge, and `#attach`ed so it
-    # reflects/drives the scroll position. It then renders and handles
-    # interaction like any widget (and is styleable via CSS, e.g.
-    # `ScrollBar { color: … }` / `.scrollbar { … }`). Idempotent; returns the bar.
+    # Lazily create a real `Widget::ScrollBar` child pinned to the right interior
+    # edge. Styleable via CSS (`ScrollBar { … }` / `.scrollbar { … }`).
+    # Idempotent; returns the bar.
     protected def ensure_scrollbar_widget : ScrollBar
       sb = @scrollbar_widget ||= bind_scrollbar ScrollBar.new parent: self,
         orientation: :vertical, top: 0, right: 0, width: scrollbar_width, height: "100%"
@@ -147,9 +135,8 @@ module Crysterm
       sb
     end
 
-    # Horizontal counterpart of `#ensure_scrollbar_widget`: a real horizontal
-    # `Widget::ScrollBar` child, `fixed` at the bottom interior edge and bound to
-    # this widget's x-axis. Idempotent; returns the bar.
+    # Horizontal counterpart of `#ensure_scrollbar_widget`, pinned to the bottom
+    # interior edge. Idempotent; returns the bar.
     protected def ensure_horizontal_scrollbar_widget : ScrollBar
       sb = @horizontal_scrollbar_widget ||= bind_scrollbar ScrollBar.new parent: self,
         orientation: :horizontal, left: 0, bottom: 0, height: scrollbar_height, width: "100%"
@@ -157,9 +144,9 @@ module Crysterm
       sb
     end
 
-    # Common chrome setup shared by both `ensure_*` accessors: makes *sb* `fixed`
-    # (exempt from this widget's scroll), `.scrollbar`-classed, and `#attach`ed so
-    # it reflects/drives the scroll position. Returns *sb*.
+    # Common chrome setup for both `ensure_*` accessors: makes *sb* `fixed`,
+    # `.scrollbar`-classed, and `#attach`ed so it reflects/drives the scroll
+    # position. Returns *sb*.
     private def bind_scrollbar(sb : ScrollBar) : ScrollBar
       sb.fixed = true
       sb.add_css_class "scrollbar"
@@ -168,17 +155,17 @@ module Crysterm
     end
 
     # --- Qt `QAbstractScrollArea` facade ------------------------------------
-    # Thin, Qt-shaped accessors over the baked-in scroll machinery. The widget
-    # itself is the scroll area; its content area is the implicit `viewport()`.
+    # Thin Qt-shaped accessors over the scroll machinery. The widget is the
+    # scroll area; its content area is the implicit `viewport()`.
 
-    # Qt's `verticalScrollBar()`: the bound vertical `ScrollBar`, created on
-    # first access (like Qt, the object exists even when the policy hides it).
+    # Qt's `verticalScrollBar()`: the bound vertical `ScrollBar`, created on first
+    # access (the object exists even when the policy hides it).
     def vertical_scrollbar : ScrollBar
       ensure_scrollbar_widget
     end
 
     # Qt's `horizontalScrollBar()`: the bound horizontal `ScrollBar`, created on
-    # first access (like Qt, the object exists even when the policy hides it).
+    # first access (the object exists even when the policy hides it).
     def horizontal_scrollbar : ScrollBar
       ensure_horizontal_scrollbar_widget
     end
@@ -191,16 +178,13 @@ module Crysterm
     end
 
     # Qt's `ensureVisible(y, margin)`: scroll the minimum amount so content line
-    # *y* sits within the viewport (optionally keeping *margin* lines of context
-    # on the leading/trailing edge). No-op when already visible. Generalizes the
-    # `scroll_to @selected` pattern used by `List`/`Tree`. Returns whether the
-    # viewport moved.
-    # Smallest scroll base that brings position *pos* inside a *visible*-cell
-    # window currently starting at *current*, keeping *margin* cells of context
-    # on the leading/trailing edge, then clamped into `[0, extent - visible]`.
-    # The shared windowing math behind both `#ensure_visible` (vertical) and
-    # `#ensure_visible_x` (horizontal), which differ only in which axis's
-    # `visible`/`extent`/base they feed in.
+    # *y* sits within the viewport, keeping *margin* lines of context. No-op when
+    # already visible. Returns whether the viewport moved.
+    #
+    # Smallest scroll base that brings *pos* inside a *visible*-cell window
+    # starting at *current*, keeping *margin* cells of context, clamped into
+    # `[0, extent - visible]`. Shared windowing math behind `#ensure_visible`
+    # (vertical) and `#ensure_visible_x` (horizontal).
     private def windowed_base(pos : Int32, current : Int32, margin : Int32, visible : Int32, extent : Int32) : Int32
       base = current
       if pos < current + margin
@@ -229,24 +213,17 @@ module Crysterm
     # within the viewport. Reveals the bottom edge first, then the top, so the
     # top wins when the child is taller than the viewport.
     def ensure_widget_visible(child : Widget, margin : Int32 = 0) : Bool
-      # `ensure_visible` wants a content-row index (0 = first content line), but
-      # `child.rtop` is measured from this widget's *outer* top: `atop` folds this
-      # widget's near inset (`itop`, the border + top padding) into the child's
-      # position, so `child.rtop` is `itop` rows larger than the child's content
-      # row. Subtract it — otherwise a bordered/padded scroll area scrolls the
-      # descendant `itop` rows too far, and (when already scrolled down) fails to
-      # reveal a child just above the viewport top, mistaking it for visible. A
-      # no-op for an inset-less scroll area (`itop == 0`), the only case the
-      # original handled correctly.
+      # `ensure_visible` wants a content-row index, but `child.rtop` is measured
+      # from this widget's *outer* top — `itop` (border + top padding) larger than
+      # the content row. Subtract it, else a bordered/padded scroll area scrolls
+      # `itop` rows too far. No-op when `itop == 0`.
       top = child.rtop - itop
       moved = ensure_visible(top + child.aheight - 1, margin)
       ensure_visible(top, margin) || moved
     end
 
-    # Horizontal counterpart of `#ensure_visible`: scroll the column window the
-    # minimum amount so content column *x* sits within the viewport. No-op when
-    # already visible or not horizontally scrollable. Returns whether the view
-    # moved.
+    # Horizontal counterpart of `#ensure_visible`: scroll so content column *x*
+    # sits within the viewport. Returns whether the view moved.
     def ensure_visible_x(x : Int32, margin : Int32 = 0) : Bool
       return false unless scrollable?
       visible = content_width
@@ -266,21 +243,18 @@ module Crysterm
     # Should widget indicate the scroll position?
     property? track : Bool = false
 
-    # Offset from the top of content (in number of lines) due to scrolling.
-    # E.g. 0 == no scroll (first line is visible/shown at the top), or
-    # 5 == 5 lines are hidden due to scroll, 6th line of content is first to
-    # be displayed.
+    # Lines hidden above the top of content due to scrolling. 0 == no scroll;
+    # 5 == 5 lines hidden, 6th line of content is first displayed.
     property child_base = 0
 
-    # Offset of cursor (in number of lines) within Widget. Value of 0 means
-    # cursor being at first line of visible (potentially scrolled) content.
+    # Cursor offset (in lines) within the widget. 0 == cursor at first line of
+    # visible (potentially scrolled) content.
     property child_offset = 0
 
-    # Horizontal counterparts of `child_base`/`child_offset`, in display columns
-    # (the x-axis). `child_base_x` is the first visible column of (non-wrapped)
-    # content; `child_offset_x` mirrors `child_offset` for symmetry but the
-    # generic path keeps it 0, so `get_scroll_x == child_base_x`. Only meaningful
-    # when `wrap_content?` is off — wrapped content never overflows horizontally.
+    # Horizontal counterparts of `child_base`/`child_offset`, in display columns.
+    # `child_base_x` is the first visible column of (non-wrapped) content;
+    # `child_offset_x` mirrors `child_offset` but the generic path keeps it 0, so
+    # `get_scroll_x == child_base_x`. Only meaningful when `wrap_content?` is off.
     property child_base_x = 0
 
     # :ditto:
@@ -291,20 +265,19 @@ module Crysterm
     property? always_scroll : Bool = false
 
     # Qt-style sticky-bottom "follow tail": when on, the view stays pinned to the
-    # bottom as content grows — but only while it is *already* at the bottom, so
-    # a manual scroll-up to read back is preserved (the Qt `verticalScrollBar
-    # value == maximum` idiom). Off by default; `Widget::Log` defaults it on.
-    # *When* to stick is decided by `#stick_to_tail?`.
+    # bottom as content grows, but only while *already* at the bottom, so a manual
+    # scroll-up is preserved. Off by default; `Widget::Log` defaults it on. *When*
+    # to stick is decided by `#stick_to_tail?`.
     property? follow_tail : Bool = false
 
     # Bottom-most scroll offset at the previous layout. `#clamp_child_base_to_content`
     # compares `#child_base` against it to tell whether the view was at the tail
-    # before the content changed (the basis of the sticky-bottom decision).
+    # before the content changed.
     @last_scroll_max = 0
 
-    # Whether to snap to the new bottom when content grows — consulted only when
-    # `#follow_tail?`. Sticky-bottom by default: true only when the view was
-    # already at the tail. Subclasses may override for an always-pin mode (e.g.
+    # Whether to snap to the new bottom when content grows (consulted only when
+    # `#follow_tail?`). Sticky-bottom by default: true only when already at the
+    # tail. Subclasses may override for an always-pin mode (e.g.
     # `Widget::Log#scroll_on_input`).
     protected def stick_to_tail?(content_max : Int32) : Bool
       @child_base >= @last_scroll_max
@@ -318,21 +291,18 @@ module Crysterm
       get_scroll_height > aheight
     end
 
-    # Whether laid-out content exceeds the visible content height (the viewport
-    # minus border/padding, `iheight`). The overflow test shared by fixed-viewport
-    # widgets (`PlainTextEdit`, `List`) that scroll their content rather than grow
-    # with it — they override `#really_scrollable?` with this so an `AsNeeded`
-    # vertical bar tracks real overflow instead of inheriting the `@resizable`
-    # always-scrollable short-circuit.
+    # Whether laid-out content exceeds the visible content height (viewport minus
+    # `iheight`). Overflow test for fixed-viewport widgets (`PlainTextEdit`,
+    # `List`) that scroll rather than grow — they override `#really_scrollable?`
+    # with this so an `AsNeeded` bar tracks real overflow instead of the
+    # `@resizable` always-scrollable short-circuit.
     def content_overflows_height?
       get_scroll_height > (aheight - iheight)
     end
 
-    # Returns total amount of lines by which widget is scrolled.
-    #
-    # The value combines invisible and visible parts. E.g. if a widget is scrolled
-    # by 6 lines which are invisible (out of window), and the cursor is at the 5th
-    # line of visible content, `get_scroll` will return 11.
+    # Total lines by which widget is scrolled, combining invisible and visible
+    # parts. E.g. 6 lines scrolled out of window + cursor at 5th visible line
+    # returns 11.
     def get_scroll
       @child_base + @child_offset
     end
@@ -353,19 +323,17 @@ module Crysterm
       @child_base_x + @child_offset_x
     end
 
-    # Widest content row, in display columns — the horizontal analogue of
-    # `#get_scroll_height`. Computed by `_wrap_content` (the longest *unclipped*
-    # line); `0` for wrapped content, which never overflows horizontally.
+    # Widest content row, in display columns — horizontal analogue of
+    # `#get_scroll_height`. Computed by `_wrap_content`; `0` for wrapped content.
     def get_scroll_width
       @_clines.full_width
     end
 
     # Columns reserved at the right of the content area beyond border/padding —
-    # the vertical scroll bar's columns when shown. `_wrap_content` subtracts this
-    # (so wrapped/clipped content avoids the bar), and the horizontal-scroll math
-    # uses it via `#content_width`, keeping the two in agreement. The reservation
-    # is the bar's real `#scrollbar_width`, never a hardcoded `1`. Subclasses add
-    # their own reservations (`PlainTextEdit`'s end-of-line caret column).
+    # the vertical scroll bar's columns when shown (the bar's real
+    # `#scrollbar_width`, never a hardcoded `1`). `_wrap_content` and
+    # `#content_width` both subtract this, keeping them in agreement. Subclasses
+    # add their own reservations (`PlainTextEdit`'s end-of-line caret column).
     def content_margin_x : Int32
       show_scrollbar? ? scrollbar_width : 0
     end

@@ -1,35 +1,26 @@
 module Crysterm
   # A self-contained VT100/xterm-subset terminal emulator.
   #
-  # SUPPORTING CODE — like `Pty`, this has no dependency on the widget tree and
-  # is a candidate for extraction into its own shard. It is the Crystal-side
-  # counterpart of the `term.js` library that blessed's `terminal` widget drove:
-  # it consumes the raw byte stream a child program writes to a PTY and maintains
-  # an in-memory grid of cells (attribute + character) that a renderer can copy
-  # onto the window.
+  # SUPPORTING CODE — like `Pty`, no dependency on the widget tree; a candidate
+  # for extraction into its own shard. Consumes the raw byte stream a child
+  # writes to a PTY and maintains an in-memory grid of cells (attribute +
+  # character) a renderer can copy onto the window.
   #
-  # Scope: it implements the sequences a normal interactive shell and the common
-  # full-window programs (vim, htop, less, top, man) rely on — cursor movement,
-  # SGR colours/styles, erase/insert/delete, scroll regions and scrollback,
-  # cursor save/restore, title (OSC 0/2), the basic device-status/attributes
-  # replies, the alternate window buffer (DECSET 47/1047/1049), the DEC
-  # special-graphics (line-drawing) charset (`ESC ( 0`), and mouse-mode tracking
-  # (the active mode is exposed for the widget to encode and forward reports). It
-  # intentionally does NOT implement double-width/height lines or G2/G3 charset
-  # invocation; those are noted at each site and easy to add later without
-  # changing the public surface.
+  # Scope: the sequences a normal shell and common full-window programs (vim,
+  # htop, less, top, man) rely on — cursor movement, SGR colours/styles,
+  # erase/insert/delete, scroll regions and scrollback, cursor save/restore,
+  # title (OSC 0/2), basic device-status/attributes replies, the alternate
+  # buffer (DECSET 47/1047/1049), the DEC special-graphics charset (`ESC ( 0`),
+  # and mouse-mode tracking. Does NOT implement double-width/height lines or
+  # G2/G3 charset invocation (noted at each site).
   #
-  # The SGR ('m') handler deliberately reuses `Crysterm::Screen.attr2code`, the
-  # same well-tested converter the rest of Crysterm uses, so 16/256/truecolour
-  # all behave identically to native content.
+  # The SGR ('m') handler reuses `Crysterm::Screen.attr2code` so 16/256/truecolour
+  # behave identically to native content.
   class TerminalEmulator
-    # One grid cell. A `struct` so an `Array(Cell)` stores its cells inline in one
-    # contiguous buffer instead of as `@cols` separate heap objects per line —
-    # which dominated allocation on the hot scroll path (every scrolled line
-    # allocated a fresh `blank_line`). Because a struct read from `arr[x]` is a
-    # *copy*, cells are never mutated through the index (`arr[x].attr = …` would
-    # update the copy and be lost); writers replace the whole cell instead
-    # (`arr[x] = Cell.new(…)`). All such writers live in this file.
+    # One grid cell. A `struct` so an `Array(Cell)` stores cells inline in one
+    # contiguous buffer (not `@cols` heap objects per line, which dominated
+    # scroll-path allocation). Since `arr[x]` is a *copy*, cells are never mutated
+    # through the index; writers replace the whole cell (`arr[x] = Cell.new(…)`).
     struct Cell
       property attr : Int64
       property char : Char
@@ -77,13 +68,11 @@ module Crysterm
     @saved_x : Int32 = 0
     @saved_y : Int32 = 0
     @saved_attr : Int64
-    # DECSC (`ESC 7`) saves more than the cursor position and SGR attributes: per
-    # the DEC spec it also snapshots the charset designations (G0/G1 special),
-    # the active GL invocation (SI/SO), origin mode (DECOM) and autowrap (DECAWM),
-    # all restored by DECRC (`ESC 8`). Without these a child that draws with the
-    # line-drawing set inside a DECSC/DECRC pair — `ESC ( 0` … `ESC 7` … switch
-    # charset … `ESC 8` — saw its charset left switched after the restore, so the
-    # text it expected as line-drawing glyphs rendered as plain ASCII.
+    # DECSC (`ESC 7`) also snapshots charset designations (G0/G1 special), the
+    # active GL invocation, origin mode (DECOM) and autowrap (DECAWM), all
+    # restored by DECRC (`ESC 8`). Without these, a child drawing with the
+    # line-drawing set inside a DECSC/DECRC pair saw its charset left switched
+    # after restore, rendering line-drawing glyphs as plain ASCII.
     @saved_g0_special = false
     @saved_g1_special = false
     @saved_gl = 0
@@ -95,51 +84,41 @@ module Crysterm
     # exactly fills a row).
     @wrap_pending : Bool = false
 
-    # Autowrap mode (DECAWM, DECSET ?7): when on (the xterm/terminfo `am` default),
-    # a glyph written past the last column wraps to the next line. When a child
-    # turns it off (`CSI ? 7 l`), the cursor instead *sticks* at the last column
-    # and each further glyph overwrites it — the standard way to paint the
-    # bottom-right cell (or a full-width status line) without triggering a scroll.
-    # Without this the emulator wrapped unconditionally, so such a child saw its
-    # last column scroll the window and its rightmost glyph land on the next line.
+    # Autowrap mode (DECAWM, DECSET ?7): when on (the default), a glyph past the
+    # last column wraps to the next line. When off (`CSI ? 7 l`), the cursor
+    # *sticks* at the last column and further glyphs overwrite it — the standard
+    # way to paint the bottom-right cell or a full-width status line without
+    # triggering a scroll.
     @autowrap = true
 
-    # Insert/replace mode (IRM, the ANSI — *non*-private — mode 4, `CSI 4 h` /
-    # `CSI 4 l`; terminfo `smir`/`rmir`). When on, a printed glyph is *inserted*
-    # at the cursor — the rest of the line shifts right and the overflow drops off
-    # the end — instead of overwriting in place. A child that edits a line with
-    # the insert-character capabilities (rather than `CSI @`) relies on this;
-    # without it each typed character clobbered the one already under the cursor.
+    # Insert/replace mode (IRM, ANSI mode 4, `CSI 4 h`/`CSI 4 l`; terminfo
+    # `smir`/`rmir`). When on, a printed glyph is *inserted* at the cursor (rest
+    # of line shifts right, overflow drops) instead of overwriting in place.
     @insert_mode = false
 
-    # The last graphic character actually placed in the grid (after charset
-    # translation), so REP (`CSI Pn b`) can repeat it. ncurses emits REP on a
-    # terminal whose terminfo advertises `rep` (xterm-256color does:
-    # `rep=\E[%p1%db`) to draw a run of one glyph — e.g. a horizontal rule — in a
-    # few bytes; without REP the run collapses to a single glyph on window.
+    # The last graphic character placed in the grid (after charset translation),
+    # so REP (`CSI Pn b`) can repeat it. ncurses emits REP (terminfo `rep`) to
+    # draw a run of one glyph in a few bytes.
     @last_char : Char? = nil
 
     # Parser state. The CSI/OSC accumulation buffers are reused `IO::Memory`s
-    # (cleared, not reallocated, at the start of each sequence): a child redrawing
-    # a full window emits a CSI per cursor move / colour change, and the old
-    # per-byte `@csi_buf += c` allocated a fresh `String` on every appended byte.
-    # `IO::Memory` also makes long OSC payloads (e.g. an OSC 52 clipboard set)
-    # linear instead of the quadratic copying that repeated `String` concat did.
+    # (cleared, not reallocated, per sequence): avoids the per-byte `String`
+    # allocation the old `@csi_buf += c` did, and keeps long OSC payloads (e.g.
+    # OSC 52 clipboard) linear instead of quadratic.
     @state : Symbol = :ground
     @csi_buf = IO::Memory.new
     @csi_private : Bool = false
     # Leading private/intermediate prefix byte of the current CSI (`<`, `=`, `>`
-    # or `?`, range 0x3c-0x3f), or nil for a plain CSI. Kept out of `@csi_buf` so
+    # or `?`, 0x3c-0x3f), or nil for a plain CSI. Kept out of `@csi_buf` so
     # parameter parsing stays numeric, and so `c`/`n` finals can tell a secondary
     # DA (`CSI > c`) or DEC-private DSR (`CSI ? 6 n`) from their plain forms.
     @csi_prefix : Char? = nil
     @osc_buf = IO::Memory.new
     @osc_esc : Bool = false
-    # True while the accumulated string is a DCS/SOS/PM/APC payload (entered via
-    # `ESC P`/`X`/`^`/`_`) rather than a real OSC (`ESC ]`). Such a string is
-    # swallowed up to its terminator but must NOT be parsed as a window title —
-    # otherwise e.g. a child's sixel `ESC P 0;1;0 q …` (which begins `0;…`) would
-    # be mistaken for an OSC 0 title set.
+    # True while the string is a DCS/SOS/PM/APC payload (entered via
+    # `ESC P`/`X`/`^`/`_`) rather than a real OSC (`ESC ]`). Swallowed to its
+    # terminator but NOT parsed as a window title (else e.g. a sixel
+    # `ESC P 0;1;0 q …` would be mistaken for an OSC 0 title set).
     @osc_string : Bool = false
 
     # Trailing incomplete UTF-8 bytes held back between `#feed` calls.
@@ -154,11 +133,9 @@ module Crysterm
     @gl = 0
     @charset_index = 0 # which G is being designated while in :charset state
 
-    # Horizontal tab stops, as the set of columns HT/CHT advance *to* (and CBT
-    # backs up to). Defaults to every 8th column; a child can add a stop at the
-    # cursor with HTS (`ESC H`) and clear stops with TBC (`CSI g`). Honouring
-    # these is what lets a program that programmatically sets its own stops (e.g.
-    # for table columns, via `tput hts`) tab to them instead of a hardcoded 8.
+    # Horizontal tab stops: the columns HT/CHT advance *to* (and CBT backs up
+    # to). Defaults to every 8th column; a child can add a stop at the cursor
+    # with HTS (`ESC H`) and clear with TBC (`CSI g`).
     @tab_stops = Set(Int32).new
 
     # Alternate-window state (DECSET 47/1047/1049). When active, `@lines` is a
@@ -184,9 +161,9 @@ module Crysterm
     # relative to the scroll region's top and the cursor cannot leave it.
     @origin_mode = false
 
-    # Bracketed-paste (?2004) and focus-reporting (?1004) modes the child asked
-    # for. The emulator only tracks them; the widget acts on them (wrapping
-    # pasted input / emitting focus reports).
+    # Bracketed-paste (?2004) and focus-reporting (?1004) modes. The emulator
+    # only tracks them; the widget acts on them (wrapping pasted input / emitting
+    # focus reports).
     getter? bracketed_paste : Bool = false
     getter? focus_reporting : Bool = false
 
@@ -301,16 +278,11 @@ module Crysterm
 
       complete, @leftover = split_incomplete_utf8 bytes
 
-      # All control/escape bytes are ASCII, so decoding the complete prefix as a
-      # String is safe for the parser; only printable multibyte glyphs were ever
-      # at risk, and those are now whole.
-      #
       # Fast path: terminal output is overwhelmingly ASCII, so feed those bytes
-      # straight as chars without materializing a `String` (which copied the whole
-      # chunk on every read). The moment a multibyte lead byte (>= 0x80) appears,
-      # decode the *remainder* via `String` exactly as before — same UTF-8 and
-      # invalid-byte handling — preserving behaviour while skipping the per-feed
-      # allocation + copy for the common all-ASCII case.
+      # straight as chars without materializing a `String` (control/escape bytes
+      # are all ASCII, so this is safe for the parser). On a multibyte lead byte
+      # (>= 0x80), decode the *remainder* via `String` as before — same UTF-8 and
+      # invalid-byte handling — skipping the per-feed copy for the all-ASCII case.
       ptr = complete.to_unsafe
       n = complete.size
       i = 0
@@ -354,13 +326,10 @@ module Crysterm
     end
 
     private def handle_char(c : Char) : Nil
-      # An ESC (0x1b) arriving in the middle of an escape/CSI/charset sequence
-      # aborts whatever was in progress and begins a *new* escape — the VT500
-      # parser's "anywhere: ESC → clear + enter escape" transition. Without this,
-      # an ESC seen mid-CSI fell through to `dispatch_csi` (a no-op for a non-final
-      # byte) which dropped us to `:ground`, so the following `[` of the new
-      # sequence (e.g. an interrupted/re-issued `CSI … ESC [ … H`) leaked into the
-      # grid as literal text instead of being parsed. The `:osc` (string) state is
+      # An ESC arriving mid escape/CSI/charset aborts the sequence in progress and
+      # begins a *new* escape (the VT500 "anywhere: ESC → clear + enter escape"
+      # transition). Without it, an ESC mid-CSI dropped to `:ground` and the new
+      # sequence's `[` leaked into the grid as literal text. `:osc` (string) is
       # excluded: it does its own ESC handling for the `ESC \` (ST) terminator.
       if c.ord == 0x1b && (@state == :esc || @state == :csi || @state == :charset)
         @state = :esc
@@ -399,10 +368,8 @@ module Crysterm
       when 0x0f             then @gl = 0 # SI: invoke G0 into GL
       else
         # 0x7f (DEL) is a fill/padding control, not a glyph: VT100/xterm discard
-        # it from the data stream. Without this guard it falls through here (it is
-        # `>= 0x20`) and gets written into the grid as a spurious cell. Bytes in
-        # 0x00-0x1f that aren't handled above are already dropped by the `>= 0x20`
-        # test; only DEL needs excluding (0x80+ are printable multibyte glyphs).
+        # it. Without the guard it would pass the `>= 0x20` test and be written as
+        # a spurious cell. (0x80+ are printable multibyte glyphs.)
         print_char c if c.ord >= 0x20 && c.ord != 0x7f
       end
     end
@@ -424,11 +391,10 @@ module Crysterm
         @state = :charset
       when '#', ' ', '%'
         # 3-byte intermediate escapes whose final byte must be swallowed, not
-        # printed: `ESC # n` (DECALN / double-width/height line — line size is
-        # not implemented, but the digit must not leak as text), `ESC SP F/G/…`
-        # (S7C1T/S8C1T, ANSI conformance) and `ESC % @/G` (charset selection;
-        # we are always UTF-8). Route through the charset state with a designate-
-        # nothing index (-1) so the next byte is consumed with no side effect.
+        # printed: `ESC # n` (DECALN / line size — not implemented), `ESC SP F/G`
+        # (S7C1T/S8C1T) and `ESC % @/G` (charset; we are always UTF-8). Route
+        # through charset state with a designate-nothing index (-1) so the next
+        # byte is consumed with no side effect.
         @charset_index = -1
         @state = :charset
       when 'P', 'X', '^', '_'
@@ -500,26 +466,20 @@ module Crysterm
     # ───────────────────────── CSI dispatch ─────────────────────────
 
     # Largest accumulator value that can still take another decimal digit without
-    # overflowing `Int32`. The hand-rolled param parsers below accumulate digits
-    # with `val * 10 + d`, which — unlike the `String#to_i?` the old `split`-based
-    # parser used (it returns `nil`, not raises, on overflow) — would raise
-    # `OverflowError` on an adversarial CSI carrying a huge number (e.g.
-    # `CSI 9999999999 H`), tearing down the whole session in the reader fiber. A
-    # field that would overflow is instead flagged `bad`, so it reads as 0 — the
-    # exact value the old `s.to_i? || 0` produced for an out-of-range field.
+    # overflowing `Int32`. The digit-accumulating param parsers below would raise
+    # `OverflowError` on an adversarial huge number (e.g. `CSI 9999999999 H`); an
+    # overflowing field is flagged `bad` and reads as 0 instead.
     PARAM_ACCUM_MAX = (Int32::MAX - 9) // 10
 
     # The n-th `;`-separated parameter in `@csi_buf` (0-based), parsed in place,
-    # or nil when there is no n-th field. An empty or non-numeric field reads as
-    # 0, matching the old `split(';').map { |s| s.to_i? || 0 }`. No allocation —
-    # this replaces the per-CSI `Array(String)` + `Array(Int32)` that `split`/
-    # `map` produced on every cursor move / SGR change a full-window child emits.
+    # or nil when there is no n-th field. An empty/non-numeric field reads as 0.
+    # No allocation (replaces a per-CSI `split`/`map`).
     private def csi_param_raw(n : Int32) : Int32?
       ptr = @csi_buf.buffer
       size = @csi_buf.bytesize
       field = 0
       val = 0
-      bad = false # field holds a non-digit ⇒ `to_i?` would have failed ⇒ 0
+      bad = false # non-digit field ⇒ reads as 0
       idx = 0
       while idx < size
         b = ptr[idx].to_i
@@ -530,7 +490,7 @@ module Crysterm
           bad = false
         elsif '0'.ord <= b <= '9'.ord
           if val > PARAM_ACCUM_MAX
-            bad = true # one more digit would overflow Int32 ⇒ field reads as 0
+            bad = true # overflow ⇒ field reads as 0
           else
             val = val * 10 + (b - '0'.ord)
           end
@@ -543,8 +503,8 @@ module Crysterm
       nil
     end
 
-    # The n-th parameter, falling back to `default` when it is absent or zero
-    # (the VT "missing/zero ⇒ default" rule). Mirrors the old `param`.
+    # The n-th parameter, falling back to `default` when absent or zero (the VT
+    # "missing/zero ⇒ default" rule).
     private def param(n : Int32, default : Int32) : Int32
       v = csi_param_raw n
       (v.nil? || v == 0) ? default : v
@@ -556,8 +516,8 @@ module Crysterm
       csi_param_raw(n) || 0
     end
 
-    # Yields every `;`-separated parameter in turn (used by `set_mode`). Like the
-    # old `split(';')`, always yields at least one value (0 for an empty buffer).
+    # Yields every `;`-separated parameter in turn (used by `set_mode`). Always
+    # yields at least one value (0 for an empty buffer).
     private def each_csi_param(& : Int32 ->) : Nil
       ptr = @csi_buf.buffer
       size = @csi_buf.bytesize
@@ -572,7 +532,7 @@ module Crysterm
           bad = false
         elsif '0'.ord <= b <= '9'.ord
           if val > PARAM_ACCUM_MAX
-            bad = true # one more digit would overflow Int32 ⇒ field reads as 0
+            bad = true # overflow ⇒ field reads as 0
           else
             val = val * 10 + (b - '0'.ord)
           end
@@ -586,17 +546,15 @@ module Crysterm
 
     # CUU/CPL: move the cursor up *n* rows, stopping at the scroll region's top
     # margin when the cursor starts at or below it (matching xterm's `CursorUp`),
-    # else at the top of the window. Without the margin clamp, a child that drives
-    # a scroll-region status area with CUU could walk the cursor up out of its
-    # region and overwrite rows above it.
+    # else at the top of the window. The clamp keeps CUU from walking out of the
+    # scroll region.
     private def cursor_up(n : Int32) : Nil
       lo = @y >= @scroll_top ? @scroll_top : 0
       @y = Math.max(lo, @y - n)
     end
 
-    # CUD/CNL: move the cursor down *n* rows, stopping at the scroll region's
-    # bottom margin when the cursor starts at or above it (xterm's `CursorDown`),
-    # else at the bottom of the window. The mirror of `#cursor_up`.
+    # CUD/CNL: mirror of `#cursor_up` — move down *n* rows, stopping at the scroll
+    # region's bottom margin (when at or above it) else the window bottom.
     private def cursor_down(n : Int32) : Nil
       hi = @y <= @scroll_bottom ? @scroll_bottom : @rows - 1
       @y = Math.min(hi, @y + n)
@@ -641,31 +599,23 @@ module Crysterm
       when 'Z' then back_tab(param(0, 1))                            # CBT
       when 'g' then tab_clear(param0(0))                             # TBC
       when 'm'
-        # Only a *plain* CSI (no private/intermediate prefix) is SGR. A
-        # prefixed form like `CSI > 4 ; 2 m` is xterm's modifyOtherKeys
-        # ("set key-modifier options"), which vim/neovim/tmux emit at startup —
-        # NOT a colour/style change. Running it through `apply_sgr` misread its
-        # `4` as SGR underline (and `0`/reset on the matching `CSI > 4 ; 0 m`),
-        # so every following glyph was wrongly underlined until the next reset.
+        # Only a *plain* CSI (no prefix) is SGR. A prefixed form like
+        # `CSI > 4 ; 2 m` is xterm's modifyOtherKeys (emitted by vim/neovim/tmux
+        # at startup), NOT a colour/style change — running it through `apply_sgr`
+        # would misread its `4` as SGR underline.
         apply_sgr if @csi_prefix.nil?
       when 'r'
         # Only a *plain* `CSI Pt ; Pb r` is DECSTBM (set scroll region). The
-        # private form `CSI ? Pm r` is XTRESTORE — restore DEC private mode
-        # values, the counterpart to the `CSI ? Pm s` XTSAVE the 's' handler
-        # already ignores. xterm-aware children pair them around a mode change
-        # (e.g. `CSI ? 7 r` to restore autowrap), so letting the restore fall
-        # through to DECSTBM misread its `7` as a top margin and corrupted the
-        # scroll region. We don't track saved private modes; the restore is a
-        # no-op, but it must NOT be treated as DECSTBM. (We have nothing to
-        # intermediate-prefix here, so gate on the plain-CSI `@csi_prefix.nil?`.)
+        # private form `CSI ? Pm r` is XTRESTORE (restore DEC private modes,
+        # counterpart to the `CSI ? Pm s` XTSAVE the 's' handler ignores). We
+        # don't track saved modes, so the restore is a no-op — but it must NOT be
+        # mistaken for DECSTBM (which would misread e.g. `CSI ? 7 r`'s `7` as a
+        # top margin). Gate on the plain-CSI `@csi_prefix.nil?`.
         top = param(0, 1) - 1
         # xterm *clamps* an over-large bottom margin to the last row and still
-        # sets the region; it does not reject the request. Rejecting it (the old
-        # `bot <= @rows - 1` guard) left a stale region in place — e.g. a child
-        # still using its pre-resize row count emits `CSI 1;<oldrows> r` before it
-        # processes SIGWINCH, and that DECSTBM was silently dropped, so scrolling
-        # stayed confined to the previous (smaller) region until the child caught
-        # up. Clamp instead, matching xterm.
+        # sets the region (it does not reject the request). Rejecting it left a
+        # stale region in place — e.g. a child emitting `CSI 1;<oldrows> r` before
+        # processing SIGWINCH had its DECSTBM dropped. Clamp instead.
         bot = Math.min(param(1, @rows) - 1, @rows - 1)
         if @csi_prefix.nil? && top < bot
           @scroll_top = Math.max(0, top)

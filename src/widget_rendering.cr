@@ -3,16 +3,13 @@ module Crysterm
     # module Rendering
     include Crystallabs::Helpers::Alias_Methods
 
-    # Per-widget override of the overflow action; `nil` means "inherit". Read
-    # through `#overflow`, which falls back to the window's default when unset,
-    # so each widget is independently controllable while a plain widget still
-    # follows the window-wide policy (`Config.window_overflow`). Set via
-    # `#overflow=` (accepts an `Overflow`, a shorthand, or `nil` to re-inherit).
+    # Per-widget override of the overflow action; `nil` = inherit. Read through
+    # `#overflow`, which falls back to the window default (`Config.window_overflow`)
+    # when unset. Set via `#overflow=` (an `Overflow`, a shorthand, or `nil`).
     @overflow : Overflow? = nil
 
-    # What action to take when this widget overflows its parent's rectangle.
-    # Returns the per-widget override if one is set, otherwise the window's
-    # `#overflow` default (or `Overflow::Ignore` for a window-less widget).
+    # Action when this widget overflows its parent's rectangle: the per-widget
+    # override if set, else the window default (`Overflow::Ignore` if window-less).
     def overflow : Overflow
       @overflow || window?.try(&.overflow) || Overflow::Ignore
     end
@@ -31,50 +28,35 @@ module Crysterm
       @overflow = ::Crystallabs::Helpers::Enums.from(Overflow, value)
     end
 
-    # The layout engine that arranges this widget's children, or nil for manual
-    # placement — children positioning themselves from their own coordinates
-    # (the historical default). This mirrors Qt, where `QWidget::layout()` is
-    # null until one is installed. When nil, `#_render` falls back to the shared
-    # `Layout::Manual`. Assign an engine (`Layout::HBox`, `Layout::Border`, …)
-    # to have it arrange the children.
+    # Layout engine arranging this widget's children, or nil for manual placement
+    # (children use their own coordinates). Mirrors Qt's null `QWidget::layout()`.
+    # When nil, `#_render` falls back to `Layout::Manual`.
     property layout : Crysterm::Layout? = nil
 
     # Optional per-child hint read by this widget's *parent's* layout engine
-    # (a Border region, a Grid cell+span, a flex grow factor). The concrete type
-    # is defined by the engine; see `Crysterm::Layout::Hint`.
+    # (Border region, Grid cell+span, flex grow factor). See `Crysterm::Layout::Hint`.
     property layout_hint : Crysterm::Layout::Hint? = nil
 
     # Rendition and rendering
 
-    # The below methods are a bit confusing: basically
-    # whenever Box.render is called `lpos` gets set on
-    # the element, an object containing the rendered
-    # coordinates. Since these don't update if the
-    # element is moved somehow, they're unreliable in
-    # that situation. However, if we can guarantee that
-    # lpos is good and up to date, it can be more
-    # accurate than the calculated positions below.
-    # In this case, if the element is being rendered,
-    # it's guaranteed that the parent will have been
-    # rendered first, in which case we can use the
-    # parent's lpos instead of recalculating its
-    # position (since that might be wrong because
-    # it doesn't handle content shrinkage).
+    # `Box.render` sets `lpos` (rendered coordinates) on the element. It's stale
+    # if the element is later moved, but when guaranteed up to date it's more
+    # accurate than the calculated positions below. Since a parent always renders
+    # before its children, we can use the parent's `lpos` rather than recalculating
+    # its position (which mishandles content shrinkage).
 
     property items = [] of Widget::Box
 
-    # True only while this widget is being rendered as a layer root into its own
-    # `Plane` (see `Window#composite_planes`). Its overall translucency then comes
-    # from the plane's opacity, so its render-time alpha self-blend is suppressed.
+    # True only while this widget renders as a layer root into its own `Plane`
+    # (see `Window#composite_planes`). Translucency then comes from the plane's
+    # opacity, so the render-time alpha self-blend is suppressed.
     property compositing = false
 
     # Here be dragons
 
-    # Resolves the `Style` a *child* should render with. The base just returns
-    # the child's own style; container widgets that style their children (e.g.
-    # `Widget::List` highlighting the selected row) override this. Called from
-    # `#_render` on the child's parent, so a child renders with whatever style
-    # its parent dictates — no `is_a?`/flag check at the call site.
+    # Resolves the `Style` a *child* should render with. Base returns the child's
+    # own style; containers that style children (e.g. `Widget::List` highlighting
+    # the selected row) override this. Called on the child's parent from `#_render`.
     def render_style_for(item : Widget) : Style
       item.style
     end
@@ -85,10 +67,9 @@ module Crysterm
       emit Crysterm::Event::PreRender
 
       # Let the parent dictate this widget's render style (a list highlights its
-      # selected row, etc.); for an ordinary parent `render_style_for` just hands
-      # back our own style. `own_style` is captured so the `default_attr` below can
-      # tell when the render style IS the widget's own (the overwhelmingly common
-      # case) and reuse the `sattr` already computed by `process_content`.
+      # selected row); an ordinary parent just hands back our own style. `own_style`
+      # is captured so `default_attr` below can detect when the render style IS our
+      # own (the common case) and reuse the `sattr` from `process_content`.
       own_style = self.style
       style = parent.try(&.render_style_for(self)) || own_style
 
@@ -96,21 +77,15 @@ module Crysterm
       # Must run before the label child renders, hence here at the frame's start.
       sync_label_position
 
-      # The parent has already rendered this frame (children render after their
-      # parent), so `awidth(true)` is an O(1) read of the parent's cached `lpos`.
-      # Hand it to `process_content` so its per-frame width resolution doesn't
-      # walk the ancestor chain with `awidth(false)` (O(depth)) just to compute
-      # the content column width. `_get_coords` needs the very same value (its
-      # first step is `awidth(get)`), and nothing between here and there changes
-      # this widget's width, so resolve it once and pass it to both instead of
-      # computing it twice per widget per frame.
+      # The parent already rendered this frame, so `awidth(true)` is an O(1) read
+      # of its cached `lpos`. Resolve the width once and pass it to both
+      # `process_content` and `_get_coords` (both need it) instead of each walking
+      # the ancestor chain via `awidth(false)` (O(depth)) per widget per frame.
       aw = awidth(true)
       process_content awidth_hint: aw
 
-      # Pass the existing `@lpos` so `_get_coords` updates it in place instead of
-      # allocating a fresh `LPos` for this widget on every frame (per-frame heap
-      # garbage → GC jitter). On the first render (or after a frame that produced
-      # no coords) `@lpos` is nil and `_get_coords` allocates as before.
+      # Pass `@lpos` so `_get_coords` updates it in place rather than allocating a
+      # fresh `LPos` every frame (GC jitter). Nil on first render, then it allocates.
       coords = _get_coords(true, into: @lpos, width_hint: aw)
       unless coords
         @lpos = nil
@@ -127,11 +102,9 @@ module Crysterm
         return
       end
 
-      # `window` is `window?.not_nil!`, which walks the parent chain on every
-      # call; bind it once. `full_unicode?` (which also walks the parent chain
-      # via `window?`) and `style.alpha?`/`style.padding` are all constant for
-      # the whole render, so hoist them here instead of re-evaluating them in
-      # the per-cell loops below. Mirrors how `Window#draw` binds `fu` once.
+      # `window` walks the parent chain on every call; bind it once. `full_unicode?`,
+      # `style.alpha?` and `style.padding` are constant for the whole render, so
+      # hoist them here rather than re-evaluating in the per-cell loops below.
       scr = window
       # Start/keep/stop any CSS `@keyframes` animation bound to this widget
       # (cheap no-op unless an `animation` is declared).
@@ -154,13 +127,11 @@ module Crysterm
       # ch
       # Log.trace { lines.inspect }
       # `#pcontent` materializes the printable string if a deferred append left it
-      # stale (nil), caching it back into `@_pcontent`. Once per frame after a
-      # change — not once per appended line.
+      # stale, caching it into `@_pcontent`. Once per frame, not per appended line.
       pcontent = self.pcontent
       # Reuse the cached codepoint index unless `@_pcontent` was reparsed into a
       # fresh `String` (identity check). Rebuilding it every frame would re-scan
-      # the content and, for non-ASCII text, re-materialize a `chars` array —
-      # per-frame heap garbage that causes GC-induced frame jitter.
+      # the content and re-materialize a `chars` array — per-frame GC jitter.
       content = @_content_index
       unless content && content.built_from?(pcontent)
         content = StringIndex.new pcontent
@@ -209,14 +180,11 @@ module Crysterm
 
       register_dock_stops coords
 
-      # `process_content` (called above) already computed `sattr(self.style)` and
-      # cached it in `@_parse_attr_default`. When the render style IS the widget's
-      # own style (true for everything except a parent that substitutes one, e.g. a
-      # `List` highlighting its selected row), that cached value equals what
-      # `sattr style` would recompute, so reuse it instead of repacking the same
-      # eight style fields a second time per widget per frame. The `same?` identity
-      # check is cheap; the `|| sattr(style)` is a defensive fallback (the cache is
-      # always populated here, since `process_content` ran with a non-nil window).
+      # `process_content` already cached `sattr(self.style)` in `@_parse_attr_default`.
+      # When the render style IS our own (all but a parent substituting one, e.g. a
+      # `List` highlighting its selection), reuse it instead of repacking the same
+      # style fields again per widget per frame. `|| sattr(style)` is a defensive
+      # fallback (the cache is always populated here).
       default_attr = (style.same?(own_style) ? @_parse_attr_default : nil) || sattr(style)
       attr = default_attr
 
@@ -230,10 +198,8 @@ module Crysterm
         xi, xl, yi, yl = border.adjust xi, xl, yi, yl
       end
 
-      # If we have padding/valign, that means the
-      # content-drawing loop will skip a few cells/lines.
-      # To deal with this, we can just fill the whole thing
-      # ahead of time. This could be optimized.
+      # Padding/valign make the content loop skip some cells/lines, so fill the
+      # whole box ahead of time. Could be optimized.
       if padding.any? || !@align.top?
         if alpha = style_alpha
           (Math.max(yi, 0)...yl).each do |y|
@@ -257,12 +223,10 @@ module Crysterm
         end
       end
 
-      # Background image (CSS `background-image`): paint the internal `Media`
-      # layer behind the content. Done *before* the content loop so text draws on
-      # top; the layer is excluded from the normal child pass and rendered here
-      # instead (see `widget_background.cr`). A Kitty layer is cell-neutral; a
-      # cell-grid (`Media::Cells`) layer paints the buffer, so `bg_cells` then
-      # tells the content loop to leave its empty cells showing the image.
+      # Background image (CSS `background-image`): paint the internal `Media` layer
+      # behind the content, before the content loop so text draws on top (see
+      # `widget_background.cr`). A `Media::Cells` layer paints the buffer, so
+      # `bg_cells` tells the content loop to leave empty cells showing the image.
       update_background_media
       bg_cells = background_paints_cells?
 
@@ -270,19 +234,11 @@ module Crysterm
       xi, xl, yi, yl = p.adjust xi, xl, yi, yl
 
       # Reserve the bottom row(s) for a shown horizontal scroll bar so content
-      # never paints under it (the row stays `fixed` for the bar to draw into).
-      #
-      # All the scroll-bar machinery (`hscrollbar_rows`, `update_scrollbar_widget`,
-      # and the matching `yl += hscrollbar_rows` restore below) only ever does
-      # anything when this widget can scroll — `show_*scrollbar?` short-circuits to
-      # `false` unless `scrollable?`, regardless of policy. A non-scrollable widget
-      # that has never shown a bar (`@*scrollbar_widget` both nil) therefore has
-      # nothing to compute or reconcile, so skip the whole block: it turns three
-      # `show_*scrollbar?` method-chain calls per widget per frame into zero for
-      # the overwhelmingly common non-scrollable case (every plain Box/Label). The
-      # `@*scrollbar_widget` guard still runs the reconcile for a widget that *was*
-      # scrollable and showed a bar, so a bar is still hidden when scrolling is
-      # turned off. `hsr` is computed once and reused by the restore below.
+      # never paints under it. The scroll-bar machinery only does anything when the
+      # widget can scroll, so `may_scroll` skips the whole block for the common
+      # non-scrollable case (every plain Box/Label) — but still reconciles a widget
+      # that *was* scrollable so its bar is hidden when scrolling is turned off.
+      # `hsr` is computed once and reused by the restore below.
       may_scroll = scrollable? || !@scrollbar_widget.nil? || !@horizontal_scrollbar_widget.nil?
       hsr = may_scroll ? hscrollbar_rows : 0
       yl -= hsr
@@ -302,11 +258,9 @@ module Crysterm
       end
 
       # Whether this widget is the selected item of a parent list, in which case
-      # its content keeps the default foreground (only bg/flags follow inline SGR
-      # changes). This is invariant for the whole render, so resolve it once here
-      # instead of re-walking the parent chain — and, for a multi-select list,
-      # re-running the O(n) `item_selected?` scan — on every SGR escape of every
-      # cell with colored content.
+      # its content keeps the default foreground (only bg/flags follow inline SGR).
+      # Invariant for the render, so resolve once here instead of re-walking the
+      # parent chain (and re-running the O(n) `item_selected?` scan) per SGR escape.
       keep_selected_fg = parent.try do |parent2|
         parent2._is_list && parent2.interactive? && parent2.item_selected?(self) # XXX && parent2.invert_selected
       end || false
@@ -323,24 +277,20 @@ module Crysterm
           end
         end
         # Rows above the top window edge (`y < 0`) must still be walked so the
-        # content index keeps advancing and the on-window rows stay correctly
-        # aligned — but they must NOT be painted. Crystal's `Indexable#[]?`
-        # counts a negative index from the END (`lines[-1]?` is the LAST row, not
-        # `nil`), so writing on such a row would corrupt the BOTTOM of the window.
-        # The same hazard applies per-cell for `x < 0` (which would corrupt the
-        # row's right edge). `draw_row` and the `x < 0`/`target` guards below gate
-        # every write so an off-window edge is consumed but never written. (The
-        # padding/valign fill, `fill_region`, and the shadow/tint passes already
-        # clamp their bounds to `>= 0`; these two loops were the gap.)
+        # content index keeps advancing, but NOT painted: Crystal's `Indexable#[]?`
+        # counts a negative index from the END, so writing there corrupts the
+        # window bottom (same hazard per-cell for `x < 0`). `draw_row` and the
+        # `x < 0`/`target` guards gate every write so an off-window edge is
+        # consumed but never written.
         draw_row = y >= 0
         # TODO - make cell exist only if there's something to be drawn there?
         x = xi - 1
         while x < xl - 1
           x += 1
           if x < 0
-            # Off the left edge: do not fetch a cell (a negative index would wrap
-            # to the row's right end). Fall through so the content index still
-            # advances; `target` is nil, so nothing is painted.
+            # Off the left edge: don't fetch a cell (negative index wraps to the
+            # row's right end). Fall through so the content index advances; `target`
+            # is nil, so nothing is painted.
             cell = nil
           else
             cell = line[x]?
@@ -367,22 +317,18 @@ module Crysterm
 
           # Handle escape codes.
           while ch == '\e'
-            # Recognize the SGR sequence (`\e[[\d;]*m`, i.e. `SGR_REGEX`) in place
-            # by scanning codepoints directly, instead of `SGR_REGEX.match`, which
-            # allocated a `Regex::MatchData` plus a matched-substring `String`
-            # (`c[0]`) on EVERY escape of every cell with colored content. `ci - 1`
-            # is the `\e` we just consumed; `ci` should be the `[`, then a run of
-            # digits/`;`, then the terminating `m`. SGR is pure ASCII.
+            # Recognize the SGR sequence (`\e[[\d;]*m`) in place by scanning
+            # codepoints directly, instead of `SGR_REGEX.match` which allocated a
+            # `MatchData` + substring on every escape. `ci - 1` is the `\e` just
+            # consumed; `ci` should be `[`, then digits/`;`, then `m`. SGR is ASCII.
             if content[ci]? == '[' && (m = sgr_terminator(content, ci + 1))
-              # `m` is the codepoint index of the trailing 'm'. Parse the params
-              # straight out of `content` between the `\e` and the 'm' — no
-              # substring. Then advance just past the 'm' (matching the old
-              # `ci += c[0].size - 1`, where the match length is `m - (ci-1) + 1`).
+              # `m` is the index of the trailing 'm'. Parse params straight out of
+              # `content` between the `\e` and the 'm' (no substring), then advance
+              # past the 'm'.
               attr = scr.attr2code(content, ci - 1, m, attr, default_attr)
               ci = m + 1
-              # Ignore foreground changes for selected items (keep the default
-              # foreground while letting the rest of the attr change). The
-              # selection test is hoisted to `keep_selected_fg` above.
+              # Ignore foreground changes for selected items (keep default fg, let
+              # the rest of the attr change). Selection test hoisted to `keep_selected_fg`.
               if keep_selected_fg
                 attr = Attr.pack(Attr.flags(attr), Attr.fg(default_attr), Attr.bg(attr))
               end
@@ -400,9 +346,8 @@ module Crysterm
             ch = bch
           end
           if ch == '\n'
-            # If we're on the first cell and we find a newline and the last cell
-            # of the last line was not a newline, let's just treat this like the
-            # newline was already "counted".
+            # On the first cell, if the last cell of the previous line wasn't a
+            # newline, treat this newline as already "counted".
             if (x == xi) && (y != yi) && (content[ci - 2]? != '\n')
               x -= 1
               next
@@ -414,9 +359,8 @@ module Crysterm
             # cells showing the painted image instead of clearing them.
             unless bg_cells
               while x < xl
-                # Off-window columns (`x < 0`) still advance to keep the fill
-                # aligned but are never fetched/painted (negative-index wrap);
-                # only an on-window, drawable cell is written.
+                # Off-window columns (`x < 0`) advance to keep the fill aligned
+                # but are never fetched/painted (negative-index wrap).
                 fcell = x >= 0 ? line[x]? : nil
                 break if x >= 0 && fcell.nil?
                 if draw_row && (fc = fcell)
@@ -434,8 +378,7 @@ module Crysterm
               end
             end
 
-            # It was a newline; we've filled the row to the end, we
-            # can move to the next row.
+            # Newline: row filled to the end, move to the next row.
             next
           end
 
@@ -443,39 +386,25 @@ module Crysterm
           # char `bch` past the end of content).
           has_content = !content[ci - 1]?.nil?
 
-          # A buffer-image background (`Media::Cells`) has painted this content
-          # box; leave an empty (no-glyph) cell showing the image rather than
-          # overwriting it with the widget's fill. Text cells still draw on top.
+          # A `Media::Cells` background has painted this box; leave an empty cell
+          # showing the image rather than overwriting it. Text cells draw on top.
           next if bg_cells && !has_content
 
           # Grapheme handling (full_unicode): lay multi-codepoint clusters (emoji
-          # ZWJ sequences, flags, base+combining marks) into one cell + a wide
-          # continuation cell. Legacy keeps one codepoint per cell.
-          #
-          # Fast path: `needs_cluster?` cheaply rules out the lone codepoint that
-          # the overwhelming majority of cells are, so the common case takes the
-          # `Char` width overload and the `cell.char = ch` write below — NO
-          # `String` allocation, the same cost as legacy rendering. The
-          # (allocating) `extend_grapheme` runs only when a cell genuinely is a
-          # cluster, gated by `is_cluster`.
+          # ZWJ, flags, base+combining) into one cell + a wide continuation cell;
+          # legacy keeps one codepoint per cell. Fast path: `needs_cluster?` rules
+          # out the lone codepoint most cells are (no `String` alloc); the
+          # allocating `extend_grapheme` runs only for a real cluster.
           grapheme = ""
           cell_width = 1
           is_cluster = false
           if fu && has_content
             if needs_cluster? ch, content[ci]?
-              # Costly path — this cell really is a multi-codepoint cluster.
-              #
-              # The `String` here is essentially unavoidable: a cluster has no
-              # single-`Char` representation, and it must be materialized to store
-              # in the row's `@graphemes` overlay AND to emit as one unit at draw
-              # time. It cannot be rewritten away without changing the overlay's
-              # storage type. It is, however, *rare* (only true clusters reach
-              # here — plain text never does), so the per-frame allocation count
-              # is bounded by the handful of cluster cells on window, not the cell
-              # count. (A further micro-optimization — comparing an unchanged
-              # cluster against the content codepoints to skip even this
-              # allocation on steady-state frames — was judged not worth the
-              # complexity given how few cells are clusters.)
+              # Costly path — a real multi-codepoint cluster. The `String` is
+              # unavoidable (a cluster has no single-`Char` form; it's stored in
+              # the row's `@graphemes` overlay and emitted as one unit), but rare,
+              # so per-frame allocations are bounded by the few cluster cells on
+              # window, not the cell count.
               grapheme, ci = extend_grapheme(content, ci, ch)
               cell_width = ::Crysterm::Unicode.width grapheme
               is_cluster = true
@@ -517,11 +446,9 @@ module Crysterm
             end
           end
 
-          # Wide cell (a 2-column cluster, or a wide lone codepoint like CJK):
-          # claim the following cell as its continuation so the cell grid stays
-          # 1 cell == 1 terminal column. The claim (`x += 1`) happens even when
-          # off-window so the cell index stays in step with the terminal column;
-          # only the continuation write is gated (and skipped for `x + 1 < 0`).
+          # Wide cell (2-column cluster or wide codepoint like CJK): claim the
+          # next cell as its continuation so 1 cell == 1 terminal column. The claim
+          # (`x += 1`) happens even off-window to stay in step; only the write is gated.
           if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
             if draw_row && x + 1 >= 0
               nxt.attr = attr
@@ -533,11 +460,10 @@ module Crysterm
         end
       end
 
-      # Scrollbar: a real `Widget::ScrollBar` child — created lazily, fixed at the
-      # right edge, and bound to this widget — renders and drives it (so it is a
-      # styleable, interactive, compositable widget rather than an inline glyph).
-      # See `#update_scrollbar_widget`. It renders below via `render_children`.
-      # Skipped entirely for a never-scrollable widget (see `may_scroll` above).
+      # Scrollbar: a real `Widget::ScrollBar` child (lazy, fixed at the right edge),
+      # so it's a styleable/interactive widget, not an inline glyph. See
+      # `#update_scrollbar_widget`; renders below via `render_children`. Skipped for
+      # a never-scrollable widget (`may_scroll`).
       update_scrollbar_widget if may_scroll
 
       style.border.try do |border|
@@ -547,13 +473,10 @@ module Crysterm
       p = padding
       xi, xl, yi, yl = p.adjust xi, xl, yi, yl, -1
 
-      # Add back the row(s) reserved for a shown horizontal scroll bar (subtracted
-      # at the content stage above). The bar occupies the last *interior* row; the
-      # border must still be drawn at the widget's true bottom edge. Without this
-      # restore `yl` stays one row short, so the bottom border paints over the bar
-      # row and the real bottom row is left frameless. Reuses `hsr` from above so
-      # `hscrollbar_rows` (and its `show_horizontal_scrollbar?` chain) is computed
-      # at most once per render instead of twice.
+      # Add back the row(s) reserved for the horizontal scroll bar (subtracted
+      # above): the bar occupies the last interior row, but the border must draw at
+      # the true bottom edge. Without this `yl` stays one short, so the bottom
+      # border paints over the bar row. Reuses `hsr` so it's computed once.
       yl += hsr
 
       # Draw the border.
@@ -561,12 +484,10 @@ module Crysterm
         # A border with all sides 0 is "no border": nothing to draw.
         next unless border.any?
 
-        # Per-side attributes, so `border-top-color`/`border-left-color`/... can
-        # differ. Each falls back to the whole-border color when unset. The border
-        # background falls back to the widget's own background (not the terminal
-        # default), so a themed widget's frame sits on the same surface as its
-        # interior instead of punching a dark hole around it (e.g. a light-themed
-        # menu's border row/columns).
+        # Per-side attributes so `border-top-color` etc. can differ, each falling
+        # back to the whole-border color. The border background falls back to the
+        # widget's own bg (not the terminal default), so a themed frame sits on the
+        # same surface as its interior instead of punching a dark hole around it.
         border_bg = border.bg || style.bg
         top_attr = sattr border, border.top_fg, border_bg
         bottom_attr = sattr border, border.bottom_fg, border_bg
@@ -577,8 +498,8 @@ module Crysterm
         # once here instead of re-dispatching it per cell inside `border_char`.
         glyphs = border.type.line_glyphs
 
-        # `{yi, yl - 1}` is a stack-allocated tuple, not a heap `Array`, so the
-        # top/bottom row pair is iterated without per-frame allocation.
+        # `{yi, yl - 1}` is a stack tuple, so the top/bottom row pair iterates
+        # without per-frame allocation.
         {yi, yl - 1}.each do |y|
           line = lines[y]?
           # `y < 0` (not just `== -1`): a widget clipped off the TOP can have
@@ -587,17 +508,15 @@ module Crysterm
           next if y < 0 || !line
 
           top_row = y == yi
-          # When this end row is clipped offscreen (`no_top?`/`no_bottom?`), skip
-          # it outright, exactly as before — its border row isn't present here.
+          # If this end row is clipped offscreen (`no_top?`/`no_bottom?`), skip it
+          # — its border row isn't present here.
           next if top_row ? coords.no_top? : coords.no_bottom?
 
-          # Whether this row's *horizontal* border is actually present. A 0-height
-          # top/bottom border was not expanded into its own row (yi/yl-1 still sit
-          # on content), so the span between the corners stays content. But a
-          # left/right border still runs *vertically* through this row's end
-          # cells, so we keep drawing just those — otherwise a partial border
-          # (e.g. a docked pane's single content-facing edge) is clipped at the
-          # corners, leaving the divider short by its top and bottom cells.
+          # Whether this row's *horizontal* border is present. A 0-height top/bottom
+          # border wasn't expanded into its own row, so the span between corners
+          # stays content — but a left/right border still runs vertically through the
+          # end cells, so keep drawing just those (else a partial border is clipped
+          # at the corners).
           draw_h = top_row ? border.top > 0 : border.bottom > 0
 
           # The corners live on the top/bottom rows, so they take that side's
@@ -630,14 +549,12 @@ module Crysterm
           line = lines[y]?
           next unless line
 
-          # `{xi, xl - 1}` is a stack-allocated tuple, replacing the heap
-          # `Array(Int32)` literal that was otherwise allocated on every interior
-          # border row, every frame, for every bordered widget.
+          # `{xi, xl - 1}` is a stack tuple, avoiding the heap `Array` literal
+          # otherwise allocated per interior border row, per frame, per widget.
           {xi, xl - 1}.each do |x|
             next if x < 0 # off the left edge (negative index would wrap)
-            # A 0-width left/right border was not expanded into its own column
-            # (xi/xl-1 still sit on the content), so skip it like a
-            # `no_left?`/`no_right?` clip instead of overwriting text.
+            # A 0-width left/right border wasn't expanded into its own column, so
+            # skip it (like a `no_left?`/`no_right?` clip) instead of overwriting text.
             next if border.left == 0 && x == xi
             next if border.right == 0 && x == xl - 1
 
@@ -653,11 +570,9 @@ module Crysterm
         end
       end
 
-      # Shadow. Each side blends a band of cells toward black; the four blocks
-      # share one loop (`Window#blend_region`) and differ only in their bounds.
-      # The exact (sometimes unclamped) bounds — including the `Math.max(.,0)`
-      # clamps that only some sides applied — are reproduced here so behavior is
-      # unchanged.
+      # Shadow. Each side blends a band of cells toward black via `Window#blend_region`,
+      # differing only in bounds. The exact (sometimes unclamped) bounds are
+      # reproduced here so behavior is unchanged.
       if (s = style.shadow) && s.any?
         if s.left?
           i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
@@ -683,9 +598,9 @@ module Crysterm
         end
       end
 
-      # Tint: a colored overlay across this widget's whole box, toward
-      # `style.tint` by its strength. Applied before children (like `style.alpha`)
-      # so each widget tints only its own cells; animatable via `Widget#tint_to`.
+      # Tint: a colored overlay across the whole box toward `style.tint`. Applied
+      # before children (like `style.alpha`) so each widget tints only its own
+      # cells; animatable via `Widget#tint_to`.
       if t = style.tint?
         color, ta = t
         scr.tint_region ta, color, xi, xl, yi, yl
@@ -702,36 +617,27 @@ module Crysterm
       coords
     end
 
-    # Registers, on the window, the rows on which this widget emits horizontal
-    # line-drawing characters, so the window's docking pass (`Window#_dock`)
-    # can join them with crossing characters from neighboring widgets. See
-    # `Crysterm::Docking`.
-    #
-    # Only rows bearing *horizontal* segments need to be registered: a vertical
-    # segment is docked whenever a horizontal stop from some other widget
-    # crosses it. The base implementation registers the top and bottom rows of
-    # an actual line-type border. Widgets that draw lines by other means (e.g.
-    # `Widget::Line`) override this to register their own rows.
+    # Registers on the window the rows where this widget emits horizontal
+    # line-drawing chars, so the docking pass (`Window#_dock`) joins them with
+    # crossing chars from neighbors (see `Crysterm::Docking`). Only rows with
+    # *horizontal* segments need registering (verticals are docked when a
+    # horizontal stop crosses them). Base registers the top/bottom rows of a
+    # line-type border; widgets drawing lines otherwise (e.g. `Widget::Line`)
+    # override this.
     def register_dock_stops(coords)
       style.border.try do |border|
         if border.any? && border.type.line?
-          # A widget rendering into a compositing plane (an overlay) registers on
-          # the *plane* stops, docked against the plane's own buffer — so overlay
-          # borders join one another but not the base content they float over. A
-          # base-layer widget registers on the window stops as before.
+          # A widget rendering into a compositing plane registers on the *plane*
+          # stops (docked against the plane buffer), so overlay borders join each
+          # other but not the base content beneath; a base-layer widget uses the
+          # window stops.
           #
-          # The gate is the window's `compositing_layers?`, NOT this widget's own
-          # `@compositing`. `@compositing` is set only on the layer *root* (it also
-          # suppresses that root's alpha self-blend), so a bordered *descendant* of
-          # a z-indexed widget — which still paints into the plane, because the
-          # root redirected `window.lines` to the plane buffer for the whole
-          # subtree — has `@compositing == false` and used to register its border
-          # rows on the BASE `_dock_stops`. The base `#_dock` then ran on the
-          # already-composited buffer and joined that child's border to whatever
-          # base content the overlay floats over, producing exactly the stray
-          # junctions plane-local docking exists to prevent (it only protected the
-          # root). `compositing_layers?` is true for the entire subtree while the
-          # plane is painted, so root and descendants alike dock within the plane.
+          # The gate is the window's `compositing_layers?`, NOT this widget's
+          # `@compositing` — the latter is set only on the layer *root*, so a
+          # bordered descendant (which still paints into the plane) would otherwise
+          # register on the BASE stops and dock its border to the base content,
+          # producing the stray junctions plane-local docking exists to prevent.
+          # `compositing_layers?` is true for the whole subtree during the plane paint.
           scr = window
           stops = scr.compositing_layers? ? scr._plane_dock_stops : scr._dock_stops
           stops[coords.yi] = true

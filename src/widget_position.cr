@@ -6,15 +6,9 @@ module Crysterm
     # Resolves a percentage position/size expression against the parent
     # dimension `dim`. Accepts `"50%"`, `"50%+5"`, `"50%-3"` (callers pre-map
     # `"center"`/`"half"` to `"50%"`); returns `(dim * pct).to_i + offset`.
-    #
-    # This replaces six identical inline blocks in `widget_position`/
-    # `widget_size` that each did `expr.split(/(?=\+|-)/)` — a regex match plus
-    # an `Array(String)` of parameter strings — on EVERY `aleft`/`atop`/
-    # `awidth`/`aheight` call (i.e. several times per widget per frame). Here the
-    # `+`/`-` offset separator is found with a byte scan, the offset is parsed
-    # without allocating, and only the percentage number is materialized (to
-    # keep `to_f`'s decimal support, e.g. `"33.5%"`). Pure (depends only on its
-    # args), so it is unit-tested directly.
+    # Allocation-free: byte-scans for the `+`/`-` separator, parses the offset
+    # in place, and only materializes the percentage number (so `"33.5%"`
+    # decimals still work). Pure, so it is unit-tested directly.
     def self.dimension(expr : String, dim : Int32) : Int32
       bytes = expr.to_slice
 
@@ -32,10 +26,9 @@ module Crysterm
       end
 
       pct_end = sep == -1 ? bytes.size - 1 : sep - 1 # index of the '%'
-      # `to_f?` (not `to_f`) so a value that isn't a clean percentage — e.g. a
-      # CSS length with a unit that slipped through (`0.5em` -> `0.5e`) — yields
-      # 0 rather than raising `Invalid Float64`. Geometry already drops unit'd
-      # values upstream; this is the last-line guard so layout never aborts.
+      # `to_f?` (not `to_f`) so a non-clean percentage (e.g. a unit'd CSS length
+      # that slipped through, `0.5em` -> `0.5e`) yields 0 rather than raising;
+      # last-line guard so layout never aborts.
       pct = (expr.byte_slice(0, pct_end).to_f? || 0.0) / 100
 
       off = 0
@@ -53,8 +46,8 @@ module Crysterm
     end
 
     #
-    # Left/top/right/bottom getters and setters. These values are exactly what the user has set, rather than being computed.
-    # (I.e. they are equivalent of `widget.position` in blessed.)
+    # Left/top/right/bottom getters and setters: exactly what the user set, not
+    # computed (equivalent of `widget.position` in blessed).
     #
 
     # User-defined left
@@ -135,21 +128,13 @@ module Crysterm
     # `aheight`; `aliased` is passed (rather than mapping both words) so an
     # unusual input like `width: "center"` keeps its original meaning.
     private def resolve_dimension(expr : String, parent_dim : Int32, aliased : String) : Int32
-      # Viewport units resolve against the *window*, not the parent — and they do
-      # so here, every frame, so a `width: 50vw` widget re-sizes on terminal
-      # resize. The unit picks the basis (`vw`→window width, `vh`→height,
-      # `vmin`/`vmax`→the smaller/larger side) regardless of which edge/size this
-      # is, exactly like CSS.
-      #
-      # `resolve_dimension` is on the per-frame layout hot path (every `"50%"`/
-      # `"center"`/`"half"` widget hits it). A viewport unit is the only form
-      # containing a `'v'`, so this allocation-free byte scan gates the heavier
-      # regex, keeping the common percentage/keyword path untouched. When a `'v'`
-      # is present we resolve in one shot: `viewport_cells` returns `nil` for a
-      # non-viewport string (which then falls through), and a real `0`-cell
-      # result is truthy, so it still returns here. CSS units are case-insensitive
-      # (`50VW`), and `viewport_cells` already folds case, so the gate matches
-      # either case to avoid silently dropping an uppercased unit.
+      # Viewport units resolve against the *window* (every frame, so `width: 50vw`
+      # re-sizes on terminal resize): `vw`→window width, `vh`→height,
+      # `vmin`/`vmax`→smaller/larger side, like CSS. A `'v'` is the only marker of
+      # a viewport unit, so this allocation-free byte scan gates the heavier regex
+      # off the per-frame hot path. `viewport_cells` returns nil for a non-viewport
+      # string (falls through); a real `0`-cell result is truthy and returns here.
+      # Both cases of `'v'` are matched since `viewport_cells` folds case.
       if expr.includes?('v') || expr.includes?('V')
         scr = window
         if cells = CSS::Length.viewport_cells(expr, scr.awidth, scr.aheight)
@@ -165,37 +150,32 @@ module Crysterm
       Widget.dimension(expr, parent_dim)
     end
 
-    # Whether a position value asks to be centered — `"center"` or, now, an
-    # offset form like `"center+5"` / `"center-3"`. Centered widgets pull back by
-    # half their size and skip the near-side inner offset.
+    # Whether a position value asks to be centered — `"center"` or an offset form
+    # like `"center+5"` / `"center-3"`. Centered widgets pull back by half their
+    # size and skip the near-side inner offset.
     private def center_expr?(o) : Bool
       o.is_a?(String) && (o == "center" || o.starts_with?("center+") || o.starts_with?("center-"))
     end
 
     # Whether the parent's near-side inner offset (`ileft`/`itop`) applies to a
-    # widget whose primary edge is `o` and opposite edge is `o_opp`. Identical
-    # guard in `aleft`/`atop`/`awidth`/`aheight`; the actual `+=`/`-=` of the
-    # offset stays at each call site since it differs by axis/direction.
+    # widget whose primary edge is `o` and opposite edge is `o_opp`. The actual
+    # `+=`/`-=` stays at each call site since it differs by axis/direction.
     private def applies_near_offset?(o, o_opp) : Bool
       (!o.nil? || o_opp.nil?) && !center_expr?(o)
     end
 
     # Returns computed absolute left position.
     #
-    # `width`, when given, is this widget's already-resolved `awidth(get)` — the
-    # right-anchored and `"center"` branches need it, and `_get_coords` has
-    # computed it once anyway, so passing it in avoids a second `awidth` walk per
-    # frame for those widgets. When nil it is resolved on demand as before.
+    # `width`, when given, is this widget's already-resolved `awidth(get)`, needed
+    # by the right-anchored and `"center"` branches; passing it in avoids a second
+    # `awidth` walk per frame. When nil it is resolved on demand.
     def aleft(get = false, width = nil, parent_pos = nil, with_margin = true)
-      # The widget's own left margin shifts its whole box inward — exactly what
-      # `_get_coords` applies (`xi += margin.left`) when it composes the rendered
-      # rectangle. Including it here keeps the *hit-test* geometry (`Window#widget_at`
-      # / `#contains_point?` read these getters) consistent with where the widget is
-      # actually painted; without it a margined widget — or any child of a margined
-      # container, since a child's `aleft` is built on the parent's — was clickable a
-      # column off from its rendering. `_get_coords` itself, and the internal
-      # anchoring callers below, pass `with_margin: false` so the base rectangle they
-      # build is unchanged and the margin is still applied exactly once (there).
+      # Include the widget's own left margin so *hit-test* geometry
+      # (`Window#widget_at` / `#contains_point?`) matches where `_get_coords`
+      # actually paints it (`xi += margin.left`); without it a margined widget (or
+      # any child of a margined container) was clickable a column off. `_get_coords`
+      # and the anchoring callers below pass `with_margin: false` so the base
+      # rectangle is unchanged and the margin is applied exactly once (there).
       ml = (with_margin && (mg = style.margin).any?) ? mg.left : 0
 
       # Original left
@@ -207,9 +187,7 @@ module Crysterm
       end
 
       # `parent_pos`, when given, is the parent's already-resolved position for
-      # this frame (`parent_or_window.last_rendered_position` under `get`, else
-      # `parent_or_window`) — the render path resolves it once in `_get_coords`
-      # and threads it in so `aleft`/`atop` don't each re-resolve it.
+      # this frame, threaded in by `_get_coords` so `aleft`/`atop` don't re-resolve.
       parent = parent_pos || (get ? parent_or_window.last_rendered_position : parent_or_window)
 
       left = oleft || 0
@@ -228,13 +206,12 @@ module Crysterm
     end
 
     # Returns computed absolute top position. `height`, when given, is this
-    # widget's already-resolved `aheight(get)` — see `#aleft` for why this is
-    # passed in (avoids a redundant `aheight` walk for bottom-anchored /
-    # `"center"` widgets).
+    # widget's already-resolved `aheight(get)` — see `#aleft` (avoids a redundant
+    # `aheight` walk for bottom-anchored / `"center"` widgets).
     def atop(get = false, height = nil, parent_pos = nil, with_margin = true)
-      # See `#aleft`: the own top margin shifts the box down (`_get_coords` does
-      # `yi += margin.top`), so include it here to keep hit-testing aligned with the
-      # paint. `_get_coords` / anchoring callers pass `with_margin: false`.
+      # See `#aleft`: include the own top margin (`_get_coords` does `yi +=
+      # margin.top`) to keep hit-testing aligned with the paint. `_get_coords` /
+      # anchoring callers pass `with_margin: false`.
       mt = (with_margin && (mg = style.margin).any?) ? mg.top : 0
 
       otop = @top
@@ -244,8 +221,7 @@ module Crysterm
         return mt + window.aheight - (height || aheight(get, with_margin: false)) - abottom(get)
       end
 
-      # See `#aleft`: `parent_pos` is the parent's already-resolved position,
-      # threaded in by the render path so it is resolved once per frame.
+      # See `#aleft`: `parent_pos` is the parent's already-resolved position.
       parent = parent_pos || (get ? parent_or_window.last_rendered_position : parent_or_window)
 
       top = otop || 0
@@ -271,8 +247,8 @@ module Crysterm
       parent = get ? parent_or_window.last_rendered_position : parent_or_window
 
       if oright.nil? && !oleft.nil?
-        # Base geometry: margin is composed in by `_get_coords`, so this far-edge
-        # offset (which feeds right-anchored `#aleft`) must not double-count it.
+        # Base geometry: `_get_coords` composes in the margin, so this far-edge
+        # offset (feeding right-anchored `#aleft`) must not double-count it.
         right = window.awidth - (aleft(get, with_margin: false) + awidth(get, with_margin: false))
         right += parent.iright
         return right
@@ -309,12 +285,10 @@ module Crysterm
     # setters — "Disabled because nothing uses these, and not resize-safe."
     # Recoverable from git history if ever needed.)
 
-    # `width_hint`, when given, is this widget's already-resolved `awidth(get)`.
-    # `#_render` computes it (to feed `process_content`) immediately before
-    # calling here, and the first thing this method does is resolve `awidth`
-    # again — the identical call, since nothing in between changes the widget's
-    # width — so the hint lets us skip that second resolution. Only the render
-    # path passes it; other callers (`get == false`) resolve on demand as before.
+    # `width_hint`, when given, is this widget's already-resolved `awidth(get)`,
+    # computed by `#_render` just before calling here; the hint skips re-resolving
+    # the identical `awidth`. Only the render path passes it; other callers
+    # (`get == false`) resolve on demand.
     # ameba:disable Metrics/CyclomaticComplexity
     def _get_coords(get = false, noscroll = false, into : LPos? = nil, width_hint : Int32? = nil)
       unless style.visible?
@@ -327,30 +301,20 @@ module Crysterm
       # end
 
       # Resolve the parent (or window) and its rendered position *once* for the
-      # whole coordinate pass. `aleft`/`atop` each used to re-resolve it
-      # (`parent_or_window` → `window?` → `last_rendered_position`), and the
-      # clip/shrink section below resolves `parent_or_window` again — three
-      # lookups per widget per frame where one suffices. Threading the resolved
-      # value through collapses that to one (profiling a flat scene of N siblings
-      # showed `window?` and the `a*` accessors near the top of the render path).
+      # whole coordinate pass, and thread it through, instead of `aleft`/`atop`
+      # and the clip/shrink section each re-resolving it (three lookups per widget
+      # per frame collapsed to one).
       por = parent_or_window
       ppos = get ? por.last_rendered_position : por
 
-      # Resolve each dimension once and reuse it for both the anchored-origin
-      # computation (`aleft`/`atop`) and the far edge (`xl`/`yl`). Without this,
-      # a right-anchored or `"center"`-positioned widget walked `awidth` twice
-      # (and likewise `aheight`) every frame.
-      # Base rectangle WITHOUT the element's own margin: the margin block further
-      # down composes it in (`xi += margin.left`, …). The geometry getters now fold
-      # the own-margin in by default (so hit-testing matches the paint — see
-      # `#aleft`/`#atop`/`#awidth`/`#aheight`), so they are called here with
-      # `with_margin: false` to keep this resolved rectangle — and therefore `lpos`
-      # and every `margin_spec` assertion — byte-identical.
-      # `width_hint` (passed by `#_render`) is `awidth(true)` — already margin-
-      # shrunk (see `#awidth`). The rectangle built here is the *base*, pre-margin
-      # one (the margin block below composes the margin in exactly once), so add the
-      # own horizontal margin back when a hint is supplied; without a hint we ask
-      # for the base width directly.
+      # Resolve each dimension once and reuse it for both the anchored origin
+      # (`aleft`/`atop`) and the far edge (`xl`/`yl`), so a right-anchored or
+      # `"center"` widget doesn't walk `awidth`/`aheight` twice per frame.
+      # Built WITHOUT the element's own margin (the margin block below composes it
+      # in exactly once): the getters fold own-margin in by default, so they are
+      # called here with `with_margin: false` to keep this rectangle (and `lpos`
+      # and `margin_spec`) byte-identical. `width_hint` is `awidth(true)`, already
+      # margin-shrunk, so add the horizontal margin back when a hint is supplied.
       w = if wh = width_hint
             wh + ((mg = style.margin).any? ? mg.left + mg.right : 0)
           else
@@ -383,12 +347,10 @@ module Crysterm
         yl = coords.yl
       end
 
-      # Apply the element's own margin: an *outer* inset that shifts the box in by
-      # the near-side margins and shrinks it by the far-side ones. This is the
-      # mirror of the border/padding content insets (`ileft` & co.), but at the
-      # outer edge and belonging to the element itself rather than its parent, so
-      # it is applied here to the already-resolved rectangle rather than via the
-      # `i*` offsets. `_minimal_rectangle` reserves room for it (see
+      # Apply the element's own margin: an *outer* inset shifting the box in by the
+      # near-side margins and shrinking it by the far-side ones — the mirror of the
+      # border/padding insets (`ileft` & co.) but at the outer edge and owned by the
+      # element. `_minimal_rectangle` reserves room for it (see
       # `Widget#mwidth`/`mheight`), so a shrunk widget keeps its content intact.
       if (margin = style.margin).any?
         xi += margin.left
@@ -397,12 +359,11 @@ module Crysterm
         yl -= margin.bottom
       end
 
-      # Find the nearest ancestor that clips its children, if any. Two kinds of
-      # ancestor clip: a scrollable element (clips to its scroll viewport) or an
-      # element with `overflow: Hidden` (clips to its rectangle even though it
-      # does not scroll). Both are handled by the same block below; a Hidden,
-      # non-scrollable parent simply has `child_base == 0`, so the scroll-offset
-      # math degenerates to a plain clip.
+      # Find the nearest ancestor that clips its children: a scrollable element
+      # (clips to its scroll viewport) or one with `overflow: Hidden` (clips to its
+      # rectangle without scrolling). Both use the same block below; a Hidden,
+      # non-scrollable parent has `child_base == 0`, so the scroll-offset math
+      # degenerates to a plain clip.
       while el = el.parent
         if el.scrollable? || el.overflow.hidden?
           # `fixed` widgets (e.g. labels sitting on a border) are exempt from
@@ -434,12 +395,10 @@ module Crysterm
       if scrollable_parent && !noscroll
         # This is an intentional assignment:
         unless scrollable_parent_lpos = scrollable_parent.lpos
-          # The scrollable ancestor has not been laid out yet (its `lpos` is
-          # only computed during rendering). This happens when coordinates are
-          # requested before the first render, e.g. editing list/box content
-          # via `set_content`/`set_item`/`insert_item` up front. We simply have
-          # no coordinates to report yet, so return nil (the same signal used
-          # above for invisible widgets) and let callers degrade gracefully.
+          # The scrollable ancestor has no `lpos` yet (only computed during
+          # rendering) — coordinates requested before the first render, e.g. via
+          # `set_content`/`set_item`/`insert_item`. Return nil (same signal as for
+          # invisible widgets) and let callers degrade gracefully.
           return
         end
 
@@ -455,10 +414,8 @@ module Crysterm
         yi -= scrollable_parent_lpos.base
         yl -= scrollable_parent_lpos.base
 
-        # `style.border` is always non-nil now (a zero border means "no border";
-        # see Style#border), so the `.try` blocks below always executed anyway.
-        # Fetch both borders once and use them directly — no per-adjustment
-        # closure, and no repeated `style`/`border` getter calls.
+        # `style.border` is always non-nil (a zero border means "no border"; see
+        # Style#border), so fetch both borders once and use them directly.
         my_border = style.border
         sp_border = scrollable_parent.style.border
 
@@ -491,13 +448,10 @@ module Crysterm
           end
         end
 
-        # NOTE: This is a separate `if` (not `elsif` paired with the top check
-        # above): a widget can overflow BOTH the top and the bottom of its
-        # scrollable parent's visible region at the same time, namely whenever
-        # the widget is at least as tall as that region. With an `elsif`, once
-        # the top got clipped the bottom clip was skipped, so the widget would
-        # render past the parent's bottom edge (overflow leak). The horizontal
-        # clipping below already uses two independent `if`s for the same reason.
+        # NOTE: a separate `if` (not `elsif` with the top check): a widget at least
+        # as tall as the parent's visible region overflows BOTH top and bottom at
+        # once. With an `elsif` a top-clipped widget would skip the bottom clip and
+        # leak past the bottom edge. Horizontal clipping below uses two `if`s too.
         if yl > scrollable_parent_lpos.yl - b
           if yi > scrollable_parent_lpos.yl - 1 - b
             # Is below.
@@ -560,15 +514,12 @@ module Crysterm
         end
       end
 
-      # `MoveWidget`: translate the whole rectangle so it fits within the
-      # window's visible area, preserving its size (the use case is pop-ups —
-      # e.g. an auto-completion list placed below its box that would run off the
-      # bottom; it slides up just enough to stay on window). Unlike
-      # `ShrinkWidget` (parent-policy, clamps the edges), this is child-policy:
-      # the widget declares `overflow = MoveWidget` for itself. Far edges are
-      # pulled in first, then the near edges are clamped, so a widget larger than
-      # the window still starts at the top/left with the overflow on the far side
-      # ("if possible").
+      # `MoveWidget`: translate the whole rectangle to fit the window's visible
+      # area, preserving its size (use case: pop-ups, e.g. a completion list that
+      # would run off the bottom slides up to stay on window). Unlike `ShrinkWidget`
+      # (parent-policy, clamps edges), this is child-policy: the widget declares it
+      # for itself. Far edges are pulled in first, then near edges clamped, so a
+      # widget larger than the window starts at top/left with overflow on the far side.
       if self.overflow.move_widget?
         scr = window
         s_left = scr.ileft
@@ -597,9 +548,9 @@ module Crysterm
       # p xi, xl, yi, xl
 
       # Reuse the widget's existing `LPos` when the caller offers one (the render
-      # hot path passes `@lpos`), turning a per-widget, per-frame heap allocation
-      # into an in-place field update. All early `return`s above happen before
-      # this point, so `into` is never mutated on a path that yields no coords.
+      # hot path passes `@lpos`), turning a per-frame heap allocation into an
+      # in-place update. All early `return`s above precede this, so `into` is never
+      # mutated on a path that yields no coords.
       if v = into
         v.reset \
           xi: xi,
