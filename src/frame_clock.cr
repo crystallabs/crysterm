@@ -2,12 +2,12 @@ module Crysterm
   # A single phase-locked frame clock with optional tweening — the one place the
   # "spawn a fiber, do a bit of work, sleep, repeat" pattern lives.
   #
-  # Everything that animates is built on this: `Timer` (a shared tick source),
-  # `Window#every` (the demo animation helper), `Widget::Effect::Animated` (the
-  # self-driven effects), and `Widget::Media` frame playback all delegate their
-  # loop here instead of hand-rolling one. Centralizing it means the drift
-  # correction (below) and the lifecycle (`start`/`stop`/`toggle`/`running?`) are
-  # written — and fixed — once.
+  # Everything that animates is built on this: `Timer` (a shared tick source, a
+  # subclass — see below), `Window#every` (the demo animation helper),
+  # `Widget::Effect::Animated` (the self-driven effects), and `Widget::Media`
+  # frame playback all delegate their loop here instead of hand-rolling one.
+  # Centralizing it means the drift correction (below) and the lifecycle
+  # (`start`/`stop`/`toggle`/`running?`) are written — and fixed — once.
   #
   # Two shapes, picked by whether a `duration` is given:
   #
@@ -23,45 +23,17 @@ module Crysterm
   #
   # ```
   # # ticker: cycle a hue every 100 ms
-  # anim = Crysterm::Animation.new(0.1.seconds) { widget.phase += 0.02; widget.request_render }
+  # anim = Crysterm::FrameClock.new(0.1.seconds) { widget.phase += 0.02; widget.request_render }
   # anim.start
   # anim.stop
   #
   # # tween: fade a widget out over half a second (the block gets the clock)
-  # Crysterm::Animation.new(0.03.seconds, duration: 0.5.seconds, easing: :in_out_sine) do |clock|
+  # Crysterm::FrameClock.new(0.03.seconds, duration: 0.5.seconds, easing: :in_out_sine) do |clock|
   #   widget.style.alpha = 1.0 - clock.value
   #   widget.request_render
   # end.start
   # ```
-  class Animation
-    # Easing curves mapping linear progress (`0.0..1.0`) to eased progress
-    # (`0.0..1.0`). `Linear` is the identity; the rest accelerate (`In`),
-    # decelerate (`Out`), or both (`InOut`).
-    enum Easing
-      Linear
-      InQuad
-      OutQuad
-      InOutQuad
-      InCubic
-      OutCubic
-      InOutCubic
-      InOutSine
-
-      # Applies the curve to *t* (clamped `0.0..1.0` by the caller).
-      def apply(t : Float64) : Float64
-        case self
-        in Easing::Linear     then t
-        in Easing::InQuad     then t * t
-        in Easing::OutQuad    then t * (2.0 - t)
-        in Easing::InOutQuad  then t < 0.5 ? 2.0 * t * t : 1.0 - (-2.0 * t + 2.0) ** 2 / 2.0
-        in Easing::InCubic    then t ** 3
-        in Easing::OutCubic   then 1.0 - (1.0 - t) ** 3
-        in Easing::InOutCubic then t < 0.5 ? 4.0 * t ** 3 : 1.0 - (-2.0 * t + 2.0) ** 3 / 2.0
-        in Easing::InOutSine  then -(Math.cos(Math::PI * t) - 1.0) / 2.0
-        end
-      end
-    end
-
+  class FrameClock
     # Delay between ticks. A ticker block may reassign this to change its own
     # cadence (e.g. per-frame GIF delays); the new value applies from the next
     # sleep on.
@@ -84,23 +56,23 @@ module Crysterm
     # spawned for and exits if it no longer matches — so a `#stop` immediately
     # followed by a `#start` on the *same* instance (which re-sets `@running`
     # true before the old fiber observes the `stop`) can't leave two fibers
-    # ticking the same animation.
+    # ticking the same clock.
     @generation : Int32 = 0
     @duration : Time::Span?
     @easing : Easing
-    @on_tick : Animation ->
+    @on_tick : FrameClock ->
     @on_stop : (->)?
 
-    # Creates an animation ticking *block* every *interval*. With a *duration* it
+    # Creates a clock ticking *block* every *interval*. With a *duration* it
     # is a tween (see the class docs): it runs for *duration*, easing `#value`
     # with *easing*, then stops itself. Does not start until `#start`.
     #
-    # The block is handed the `Animation` itself, so it can drive its own cadence
+    # The block is handed the `FrameClock` itself, so it can drive its own cadence
     # (`clock.interval = …`, e.g. per-frame GIF delays), end the run early
     # (`clock.stop`), or read `clock.value` — without needing an outside reference
     # to it. A block that needs none of that can just omit the parameter.
     def initialize(@interval : Time::Span, *, duration : Time::Span? = nil,
-                   easing : Easing | Symbol = Easing::Linear, &@on_tick : Animation ->)
+                   easing : Easing | Symbol = Easing::Linear, &@on_tick : FrameClock ->)
       @duration = duration
       @easing = easing.is_a?(Symbol) ? Easing.parse(easing.to_s) : easing
     end
@@ -196,6 +168,43 @@ module Crysterm
 
     def toggle : Nil
       running? ? stop : start
+    end
+  end
+
+  # A periodic tick source: a `FrameClock` that, instead of running one captured
+  # block, *multicasts* `Event::Tick` to any number of subscribers.
+  #
+  # Its reason to exist is *sharing a clock*: pass one `Timer` to several widgets
+  # and they advance in lockstep off a single fiber (one wakeup per tick, not one
+  # per widget), and `stop`/`start` controls them all at once.
+  #
+  # ```
+  # clock = Crysterm::Timer.new 0.1.seconds      # one shared clock...
+  # Widget::Gradient.new parent: s, ..., animate: clock
+  # Widget::Gradient.new parent: s, ..., animate: clock   # ...in sync
+  #
+  # clock.stop   # pauses both
+  # ```
+  #
+  # A widget given `animate: true` instead makes its own private `Timer`; one
+  # given `animate: false` doesn't animate at all.
+  #
+  # All the timing machinery (the phase-locked loop, drift correction, lifecycle)
+  # is inherited from `FrameClock`; `Timer` only swaps the single-block tick for
+  # an `Event::Tick` broadcast.
+  class Timer < FrameClock
+    include EventHandler
+
+    # Creates a timer ticking every *interval*. Starts immediately unless
+    # *autostart* is false (in which case call `#start` when ready).
+    def initialize(interval : Time::Span = 0.1.seconds, *, autostart : Bool = true)
+      super(interval) { emit Crysterm::Event::Tick }
+      start if autostart
+    end
+
+    # Convenience: subscribe *block* to run on every tick.
+    def on_tick(&block : ->)
+      on(Crysterm::Event::Tick) { block.call }
     end
   end
 end

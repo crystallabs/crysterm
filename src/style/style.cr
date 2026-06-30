@@ -97,13 +97,13 @@ module Crysterm
     # animated property's value changes (e.g. on a `:hover`/`:focus` state change)
     # the new value is tweened in over its duration rather than snapping. Set by
     # the CSS layer; consumed generically by `Widget#apply_style_transitions`.
-    property transitions : Hash(String, Tuple(Time::Span, Animation::Easing))?
+    property transitions : Hash(String, Tuple(Time::Span, Easing))?
 
     # A CSS `animation` binding: which `@keyframes` to play and how. `nil` = none.
     record AnimationSpec,
       name : String,
       duration : Time::Span,
-      easing : Animation::Easing = Animation::Easing::Linear,
+      easing : Easing = Easing::Linear,
       iterations : Int32? = nil, # nil = infinite
       alternate : Bool = false   # ping-pong direction each cycle
 

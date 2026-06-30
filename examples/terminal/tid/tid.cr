@@ -1,31 +1,51 @@
 require "../../../src/crysterm"
 
-# Terminal identification (tid).
+# tid — terminal identification.
 #
-# Dumps to stdout everything Crysterm/Tput was able to determine about the
-# terminal it is running in:
+# A standalone diagnostic that answers one question: *what terminal am I running
+# in, and what can it do?* It leads with a synthesized verdict — the most likely
+# terminal, its version, and how confident that is — then prints the full
+# evidence behind it: the environment hints, the resolved terminfo, the
+# emulator/feature heuristics, and (on a real TTY) the terminal's own replies to
+# live query sequences. The replies are authoritative; the heuristics are not.
 #
-#   IDENTITY   resolved terminal name, aliases, terminfo, screen size
-#   EMULATOR   which emulator program it detected (and from what)
-#   GRAPHICS   derived in-band graphics capabilities (kitty / iterm / sixel)
-#   FEATURES   statically-detected features (env vars + terminfo), then the
-#              results of live probing (round-tripping query escape sequences
-#              and reading the replies)
+# Usage:
+#   crystal run examples/terminal/tid/tid.cr -- [options]
 #
-# With -v / --verbose, it also prints the *Crysterm-specific* terminal/rendering
-# determinations that sit on top of Tput — the effective color depth (after the
-# NO_COLOR / FORCE_COLOR / colors.depth policies), the unicode rendering mode,
-# the detected cell pixel size, and the per-terminal `DrawCaps` fast-path flags
-# the drawer derives once per terminal.
+#   -v, --verbose    also dump Crysterm's own rendering determinations
+#       --no-probe   don't round-trip query sequences (env/terminfo only)
+#       --json       emit machine-readable JSON instead of the report
+#   -h, --help       show this help
 #
-# Each line shows the setting name, its value, and a short description of *how*
-# that value was determined.
-#
-# Run with:  crystal examples/terminal/tid/tid.cr [-v|--verbose]
+# Probing only happens on a real terminal; when output is redirected (a pipe or
+# a file) the live section is skipped and the verdict falls back to env/TERM
+# heuristics — which is expected, and called out in the report.
 module Crysterm
   include Tput::Namespace
 
-  verbose = true # ARGV.any? { |a| a.in?("-v", "--verbose") }
+  verbose = no_probe = json = false
+  ARGV.each do |arg|
+    case arg
+    when "-v", "--verbose" then verbose = true
+    when "--no-probe"      then no_probe = true
+    when "--json"          then json = true
+    when "-h", "--help"
+      puts <<-HELP
+        tid — terminal identification
+
+        Usage: tid [options]
+
+          -v, --verbose    also dump Crysterm's rendering determinations
+              --no-probe   don't round-trip query sequences (env/terminfo only)
+              --json       emit machine-readable JSON instead of the report
+          -h, --help       show this help
+        HELP
+      exit 0
+    else
+      STDERR.puts "tid: unknown option #{arg.inspect} (try --help)"
+      exit 2
+    end
+  end
 
   # A `Screen` is the physical device: constructing it builds the `Tput` (with
   # `probe: false`) *and*, on top of it, Crysterm's per-terminal `DrawCaps` — all
@@ -35,32 +55,108 @@ module Crysterm
   screen = Screen.new
   tput = screen.tput
 
-  # Round-trip the live query sequences (colors, palette, cursor style,
-  # kitty/modifyOtherKeys, DA1/DA2, XTVERSION, …) and read the terminal's
-  # replies. This populates the "live probing" section. It no-ops when not
-  # attached to a real terminal (e.g. output redirected), in which case that
-  # section reads "(no reply)"/"(not probed)" — that is expected.
-  tput.probe!
+  # Ask the terminal about itself: round-trip the live query sequences (colors,
+  # palette, cursor style, kitty/modifyOtherKeys, DA1/DA2, XTVERSION, …) and read
+  # the replies. This is what turns a "best guess" into a confirmed identity. It
+  # no-ops when not attached to a real terminal (output redirected), so the
+  # report then shows only what env/terminfo can prove.
+  unless no_probe
+    tput.probe!
+    # Cell pixel geometry (ioctl, with an XTWINOPS fallback) — needed for the
+    # size line and the aspect ratio fed to layout.
+    screen.detect_cell_geometry
+  end
 
+  emu = tput.emulator
+  f = tput.features
+
+  # --- JSON mode: identity + the full detection map, machine-readable. --------
+  if json
+    puts({
+      identity: {
+        terminal:      emu.identity,
+        version:       emu.version,
+        multiplexer:   emu.multiplexer,
+        self_reported: emu.self_reported?,
+        probed:        f.probed?,
+        term:          tput.name,
+        aliases:       tput.aliases,
+        cols:          screen.width,
+        rows:          screen.height,
+        cell_px_w:     screen.cell_pixel_width,
+        cell_px_h:     screen.cell_pixel_height,
+        colors:        screen.colors,
+        truecolor:     screen.truecolor?,
+        unicode:       f.unicode?,
+        graphics:      emu.best_graphics.to_s,
+      },
+      detections: tput.detections,
+    }.to_pretty_json)
+    exit 0
+  end
+
+  # Small aligned printer: name / value / how-it-was-determined, matching the
+  # layout of `Tput#dump`.
+  section = ->(title : String, rows : Array({String, String, String})) {
+    puts title
+    nw = rows.max_of(&.[0].size)
+    vw = rows.max_of(&.[1].size)
+    rows.each { |name, value, note| puts "  #{name.ljust(nw)}  #{value.ljust(vw)}  #{note}" }
+  }
+
+  # --- VERDICT: the one-line answer first, then the supporting dimensions. -----
+  ident = emu.identity || "(unidentified)"
+  ident += " #{emu.version}" if emu.version
+  how = emu.self_reported? ? "XTVERSION self-report" : "env/TERM heuristic"
+
+  size = "#{screen.width} x #{screen.height} cells"
+  if screen.cell_pixel_width > 0
+    size += "  (cell #{screen.cell_pixel_width} x #{screen.cell_pixel_height} px"
+    size += ", window #{screen.width * screen.cell_pixel_width} x #{screen.height * screen.cell_pixel_height} px)"
+  end
+
+  color = screen.truecolor? ? "16M (truecolor)" : "#{screen.colors}"
+
+  kbd = [] of String
+  kbd << "kitty keyboard protocol" if f.kitty_keyboard?
+  kbd << "modifyOtherKeys=#{f.modify_other_keys}" if f.modify_other_keys?
+  kbd_s = kbd.empty? ? "legacy only" : kbd.join(", ")
+
+  cursor = [] of String
+  cursor << "styleable" if f.cursor_style?
+  cursor << "recolorable" if f.cursor_color?
+  cursor_s = cursor.empty? ? "default only" : cursor.join(", ")
+
+  rows = [
+    {"terminal", ident, how},
+  ]
+  rows << {"multiplexer", emu.multiplexer.not_nil!, "running inside a multiplexer"} if emu.multiplexer
+  rows.concat [
+    {"TERM", tput.name, tput.aliases.empty? ? "" : "aliases: #{tput.aliases.join(", ")}"},
+    {"size", size, screen.cell_pixel_width > 0 ? "ioctl / XTWINOPS" : "cells only (no pixel size reported)"},
+    {"color", color, f.sources["number_of_colors"]? || ""},
+    {"unicode", f.unicode? ? "yes" : "no", f.sources["unicode"]? || ""},
+    {"graphics", emu.best_graphics.to_s, "in-band image protocol"},
+    {"keyboard", kbd_s, "enhanced key reporting"},
+    {"cursor", cursor_s, "hardware cursor shape / color"},
+  ]
+
+  puts "TERMINAL IDENTIFICATION"
+  unless f.probed?
+    puts no_probe ? "  (probing disabled — identity from environment/terminfo only)" : "  (not a terminal — identity from environment/terminfo only)"
+  end
+  puts
+  section.call "VERDICT", rows
+  puts
+
+  # --- EVIDENCE: the full per-setting breakdown with provenance. --------------
   tput.dump STDOUT
 
   if verbose
-    # Crysterm-specific cell-pixel detection (ioctl, with an XTWINOPS fallback).
-    screen.detect_cell_geometry
-
-    # Small aligned printer matching the layout of `Tput#dump`.
-    section = ->(title : String, rows : Array({String, String, String})) {
-      puts
-      puts title
-      nw = rows.max_of(&.[0].size)
-      vw = rows.max_of(&.[1].size)
-      rows.each { |name, value, note| puts "  #{name.ljust(nw)}  #{value.ljust(vw)}  #{note}" }
-    }
     # Renders a raw capability byte string (e.g. smacs/el) readably.
     esc = ->(b : Bytes) { b.empty? ? "(none)" : String.new(b).inspect }
 
-    f = tput.features
-
+    puts
     section.call "CRYSTERM (rendering — derived on top of Tput)", [
       {"size", "#{screen.width} x #{screen.height}",
        screen.explicit_size? ? "explicit (constructor)" : "probed from terminal"},
@@ -78,6 +174,7 @@ module Crysterm
        CSS::Length.cell_aspect_ratio_configured? ? "pinned (css.cell_aspect_ratio)" : "derived from cell_pixels (default 2.0)"},
       {"headless", Crysterm.headless?.to_s, "no real tty / IO redirected"},
     ]
+    puts
 
     dc = screen.draw_caps
     section.call "CRYSTERM (draw_caps — per-terminal drawer fast path)", [

@@ -56,7 +56,7 @@ module Crysterm
       # The private frame clock advancing `#anim_index` over time, used for solo
       # playback (`animate: true`); nil when not playing or when driven by a
       # shared clock instead.
-      @animation : Animation? = nil
+      @animation : FrameClock? = nil
 
       # A shared frame clock (a `Timer`) when the widget was created with
       # `animate: someTimer`. While set, playback advances one frame per tick of
@@ -256,7 +256,7 @@ module Crysterm
 
       # Begins advancing frames once `@src_frames` exists: drive from the shared
       # clock if one was given (`animate: timer`), else run a private per-frame
-      # `Animation`.
+      # `FrameClock`.
       private def start_playback
         if @clock
           subscribe_clock
@@ -343,7 +343,7 @@ module Crysterm
         # Fresh run: drop any previous clock so a rapid stop→play can't leave two
         # fibers advancing the same index.
         @animation.try &.stop
-        @animation = Animation.new((src[@anim_index]?.try(&.[1]) || 100).milliseconds) do |clock|
+        @animation = FrameClock.new((src[@anim_index]?.try(&.[1]) || 100).milliseconds) do |clock|
           if @playing
             request_render
 

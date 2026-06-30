@@ -376,14 +376,14 @@ module Crysterm
       # entries, e.g. `opacity 0.3s ease-in-out, background-color 200ms`. Yields a
       # map of property name -> `{duration, easing}`; `none` clears it. Unknown
       # easings fall back to a gentle in/out sine.
-      private def self.parse_transition(value : String) : Hash(String, Tuple(Time::Span, Animation::Easing))?
+      private def self.parse_transition(value : String) : Hash(String, Tuple(Time::Span, Easing))?
         return nil if Case.fold_keyword(value.strip) == "none" || value.strip.empty?
-        out = {} of String => Tuple(Time::Span, Animation::Easing)
+        out = {} of String => Tuple(Time::Span, Easing)
         value.split(',').each do |entry|
           toks = entry.split
           next if toks.empty?
           dur = (toks[1]?.try { |t| parse_time(t) }) || 0.3.seconds
-          easing = toks[2]?.try { |e| css_easing(e) } || Animation::Easing::InOutSine
+          easing = toks[2]?.try { |e| css_easing(e) } || Easing::InOutSine
           # The animated property name is a CSS property — case-insensitive — so
           # fold it (`Background-Color` == `background-color`). The consumer
           # (`Widget#apply_style_transitions`) matches it against lower-cased
@@ -403,7 +403,7 @@ module Crysterm
         name = toks[0]
         dur = 1.seconds
         dur_seen = false
-        easing = Animation::Easing::Linear
+        easing = Easing::Linear
         iterations : Int32? = 1
         alternate = false
         toks[1..].each do |t|
@@ -443,14 +443,14 @@ module Crysterm
         end
       end
 
-      # Maps a CSS timing-function keyword to an `Animation::Easing`.
-      private def self.css_easing(name : String) : Animation::Easing
+      # Maps a CSS timing-function keyword to an `Easing`.
+      private def self.css_easing(name : String) : Easing
         case Case.fold_keyword(name)
-        when "linear"              then Animation::Easing::Linear
-        when "ease-in"             then Animation::Easing::InQuad
-        when "ease-out"            then Animation::Easing::OutQuad
-        when "ease", "ease-in-out" then Animation::Easing::InOutSine
-        else                            Animation::Easing::InOutSine
+        when "linear"              then Easing::Linear
+        when "ease-in"             then Easing::InQuad
+        when "ease-out"            then Easing::OutQuad
+        when "ease", "ease-in-out" then Easing::InOutSine
+        else                            Easing::InOutSine
         end
       end
 

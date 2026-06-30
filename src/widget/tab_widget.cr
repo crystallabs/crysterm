@@ -64,7 +64,7 @@ module Crysterm
       getter auto_advance : Time::Span?
 
       # The running auto-advance timer, if any.
-      @carousel_timer : Animation?
+      @carousel_timer : FrameClock?
 
       # Guards against the bar↔page selection feedback loop (see `#show_tab`).
       @switching = false

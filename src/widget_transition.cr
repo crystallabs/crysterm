@@ -4,7 +4,7 @@ module Crysterm
     # changes (typically on a `:hover`/`:focus`/`:selected` state change), tween
     # it in over its declared duration instead of snapping to the new value.
     #
-    # Built on the `Animation` driver and entirely generic — any widget that
+    # Built on the `FrameClock` driver and entirely generic — any widget that
     # declares a `transition` in CSS gets it, with no widget-specific code. The
     # tween writes the *current* per-state style each frame, so the renderer reads
     # the in-between value; it lands exactly on the target.
@@ -15,7 +15,7 @@ module Crysterm
 
     # Running per-property transition animations, so a re-triggered transition
     # replaces (rather than stacks on) the one already in flight.
-    @style_transitions : Hash(Symbol, Animation)?
+    @style_transitions : Hash(Symbol, FrameClock)?
 
     # Snapshots the current animatable style values — but only when a `transition`
     # is actually declared, so the common no-transition path stays free.
@@ -64,28 +64,28 @@ module Crysterm
     end
 
     private def transition_float(key : Symbol, from : Float64, to : Float64,
-                                 dur : Time::Span, easing : Animation::Easing, &set : Float64 ->) : Nil
+                                 dur : Time::Span, easing : Easing, &set : Float64 ->) : Nil
       return if (from - to).abs < 1e-6
       cancel_transition key
-      anim = Animation.new((1.0 / 30).seconds, duration: dur, easing: easing) do |clock|
+      anim = FrameClock.new((1.0 / 30).seconds, duration: dur, easing: easing) do |clock|
         set.call(from + (to - from) * clock.value)
         request_render
       end
-      (@style_transitions ||= {} of Symbol => Animation)[key] = anim
+      (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim
       anim.start
     end
 
     private def transition_color(key : Symbol, from : Int32?, to : Int32?,
-                                 dur : Time::Span, easing : Animation::Easing, &set : Int32 ->) : Nil
+                                 dur : Time::Span, easing : Easing, &set : Int32 ->) : Nil
       return unless from && to
       return if from == to
       f, t = from, to
       cancel_transition key
-      anim = Animation.new((1.0 / 30).seconds, duration: dur, easing: easing) do |clock|
+      anim = FrameClock.new((1.0 / 30).seconds, duration: dur, easing: easing) do |clock|
         set.call(lerp_color(f, t, clock.value))
         request_render
       end
-      (@style_transitions ||= {} of Symbol => Animation)[key] = anim
+      (@style_transitions ||= {} of Symbol => FrameClock)[key] = anim
       anim.start
     end
 

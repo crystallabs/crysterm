@@ -419,11 +419,11 @@ module Crysterm
     # into `screen.every(0.1.seconds) { # ...mutate widgets... }`. Because the
     # render happens after each block call, the body only needs to update state.
     #
-    # Returns the `Animation` driving the loop, so the caller can `#stop` it (the
+    # Returns the `FrameClock` driving the loop, so the caller can `#stop` it (the
     # phase-locking that keeps the period at `interval` regardless of work cost
     # lives there).
-    def every(interval : Time::Span, &block : ->) : Animation
-      Animation.new(interval) do
+    def every(interval : Time::Span, &block : ->) : FrameClock
+      FrameClock.new(interval) do
         block.call
         render
       end.start

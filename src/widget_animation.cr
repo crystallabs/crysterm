@@ -16,7 +16,7 @@ module Crysterm
       bg : Int32?,
       tint_alpha : Float64?
 
-    @css_animation : Animation?
+    @css_animation : FrameClock?
     @css_animation_spec : ::Crysterm::Style::AnimationSpec?
     # True once a *finite* animation has run out its iterations, so it isn't
     # restarted on every subsequent render (it has settled on its final frame).
@@ -58,7 +58,7 @@ module Crysterm
 
       @css_animation.try &.stop
       @css_animation_finished = false
-      anim = Animation.new(step.seconds) do |clock|
+      anim = FrameClock.new(step.seconds) do |clock|
         elapsed += step
         cycles = elapsed / total
         if iters && cycles >= iters

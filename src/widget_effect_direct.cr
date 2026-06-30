@@ -24,8 +24,8 @@ module Crysterm
         # Delay between frames.
         property interval : Time::Span = 0.07.seconds
 
-        # The frame clock; non-nil while running. The loop lives in `Animation`.
-        @animation : Animation?
+        # The frame clock; non-nil while running. The loop lives in `FrameClock`.
+        @animation : FrameClock?
 
         # Whether the effect is currently animating.
         def running? : Bool
@@ -48,12 +48,12 @@ module Crysterm
         protected def on_done
         end
 
-        # Start the animation: an `Animation` that steps, renders, and sleeps
+        # Start the animation: an `FrameClock` that steps, renders, and sleeps
         # `interval`, until `#stop` (or, for a finite effect, until `#done?`).
         # A no-op if already running.
         def start
           return if running?
-          @animation = Animation.new(@interval) do
+          @animation = FrameClock.new(@interval) do
             step
             request_render
             if done?
