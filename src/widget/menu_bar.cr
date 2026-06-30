@@ -56,6 +56,12 @@ module Crysterm
         # own selected item.
         on(::Crysterm::Event::Focus) { sync_highlight }
         on(::Crysterm::Event::Blur) { sync_highlight }
+
+        # Wire the menus' actions' keyboard accelerators to the bar's window
+        # lifecycle, so e.g. a "Copy" (`Ctrl+C`) action fires from the keyboard
+        # without opening the menu first (Qt's menu-action shortcuts).
+        on(::Crysterm::Event::Attach) { install_menu_shortcuts }
+        on(::Crysterm::Event::Detach) { uninstall_menu_shortcuts }
       end
 
       # Adds a top-level menu titled *title* (optionally pre-filled with
@@ -68,6 +74,10 @@ module Crysterm
         # given an explicit `@menu_style`.
         menu = Menu.new(parent: window, style: @menu_style)
         actions.each { |a| menu << a }
+        # The bar is normally already attached here (`parent: window` above), so
+        # wire these actions' accelerators now; `install_menu_shortcuts` re-covers
+        # them on a later re-attach.
+        window?.try { |w| visit_actions(menu, &.install_shortcut(w, self)) }
         menu.hide
         menu.on_navigate = ->(dir : Int32) { switch_relative dir }
         # The bar's own strip counts as "inside" the open menu's modal grab, so
@@ -96,6 +106,30 @@ module Crysterm
 
         sync_highlight # clear the bar's auto-selection of the first item
         menu
+      end
+
+      # Installs every menu action's accelerator (descending into submenus) on
+      # the bar's window. Idempotent per window.
+      private def install_menu_shortcuts : Nil
+        w = window? || return
+        @menus.each { |m| visit_actions(m, &.install_shortcut(w, self)) }
+      end
+
+      # Withdraws every menu action's accelerator from the bar's window.
+      private def uninstall_menu_shortcuts : Nil
+        w = window? || return
+        @menus.each { |m| visit_actions(m, &.uninstall_shortcut(w)) }
+      end
+
+      # Yields every action in *menu*, recursing into submenu actions (Qt installs
+      # a submenu's shortcuts too).
+      private def visit_actions(menu : Menu, &block : Action ->) : Nil
+        menu.actions.each { |a| visit_action a, block }
+      end
+
+      private def visit_action(action : Action, block : Action ->) : Nil
+        block.call action
+        action.menu.try &.each { |c| visit_action c, block }
       end
 
       # Opens menu *i* (closing any other), positioned under its title.

@@ -24,7 +24,7 @@ module Crysterm
     # direction is set by the layout. A child with no hint defaults to `Center`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Border screenshot](../../examples/layout/border/border.5s.apng)
+    # ![Border screenshot](../../tests/layout/border/border.5s.apng)
     # <!-- /widget-examples:capture -->
     class Border < Layout
       enum Region

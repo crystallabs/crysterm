@@ -13,7 +13,7 @@ module Crysterm
     # `#current = i`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Stack screenshot](../../examples/layout/stack/stack.5s.apng)
+    # ![Stack screenshot](../../tests/layout/stack/stack.5s.apng)
     # <!-- /widget-examples:capture -->
     class Stack < Layout
       # Index of the child to show. Clamped to the available children at render.

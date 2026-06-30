@@ -37,13 +37,19 @@ module Crysterm
         # Buttons pack flush — no inert gap cells between them (only trailing the
         # last one). Each button box keeps its own side padding. Same as MenuBar.
         @item_gap = 0
+        # Install/withdraw the actions' keyboard accelerators with the bar's own
+        # attach lifecycle, so a `Bold` (`Ctrl+B`) action fires from the keyboard
+        # whenever the bar is on a window — not only when its button is clicked.
+        on(::Crysterm::Event::Attach) { install_action_shortcuts }
+        on(::Crysterm::Event::Detach) { uninstall_action_shortcuts }
       end
 
       # Adds a button for *action*, returns its box. Clicking triggers the action
       # (toggling first when checkable); the action's tooltip is carried over.
       def add_action(action : Action) : Widget::Box
-        item = add(action.text) { activate_action action }
+        item = add(action.display_label) { activate_action action }
         @item_actions[item] = action
+        action.associate self # Qt's QAction::associatedWidgets bookkeeping
         action.tool_tip.try { |t| item.tool_tip = t }
         # Reflect external state changes (Qt's `QAction::changed()`): toggling a
         # checkable action's `checked` from elsewhere must re-light its button.
@@ -51,6 +57,9 @@ module Crysterm
           refresh
           request_render
         end
+        # If the bar is already on a window, wire this action's accelerator now;
+        # otherwise `install_action_shortcuts` does it on attach.
+        window?.try { |w| action.install_shortcut w, self }
         refresh
         item
       end
@@ -61,9 +70,22 @@ module Crysterm
       end
 
       private def activate_action(action : Action) : Nil
-        action.checked = !action.checked? if action.checkable?
+        # `#activate` toggles a checkable action and fires it (Qt semantics); the
+        # bar must not pre-toggle or it would cancel out.
         action.activate
         refresh
+      end
+
+      # Installs every backing action's keyboard accelerator on the bar's window.
+      private def install_action_shortcuts : Nil
+        w = window? || return
+        @item_actions.each_value(&.install_shortcut(w, self))
+      end
+
+      # Withdraws every backing action's accelerator from the bar's window.
+      private def uninstall_action_shortcuts : Nil
+        w = window? || return
+        @item_actions.each_value(&.uninstall_shortcut(w))
       end
 
       # A tool bar has no persistent cursor: only checkable buttons stay lit (when

@@ -9,7 +9,7 @@ module Crysterm
     # boxes.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Masonry screenshot](../../examples/layout/masonry/masonry.5s.apng)
+    # ![Masonry screenshot](../../tests/layout/masonry/masonry.5s.apng)
     # <!-- /widget-examples:capture -->
     class Masonry < Flow
       protected def place_one(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?

@@ -248,11 +248,32 @@ module Crysterm
     # element box (`nil` if the index is out of range), `index` its position.
     event SelectTab, item : Widget::Box?, index : Int32
 
-    # Emitted when an Action is Triggered
-    event Triggered
+    # Emitted when an `Action` is triggered (Qt's `QAction::triggered(bool)`).
+    # `checked` carries the action's checked state *after* activation, so a
+    # checkable action reports its new on/off value to the handler; it is always
+    # `false` for non-checkable actions.
+    event Triggered, checked : Bool = false
 
     # Emitted when a Widget or Action are hovered
     event Hovered
+
+    # Emitted when an `Action`'s checked state changes — programmatically or via
+    # activation (Qt's `QAction::toggled(bool)`). `checked` is the new state.
+    # Distinct from `Triggered`: `Toggled` fires on *any* checked change, whereas
+    # `Triggered` fires only on activation.
+    event Toggled, checked : Bool
+
+    # Emitted when an `Action`'s `enabled` changes (Qt's
+    # `QAction::enabledChanged(bool)`). Granular complement to `Changed`.
+    event EnabledChanged, enabled : Bool
+
+    # Emitted when an `Action`'s `checkable` changes (Qt's
+    # `QAction::checkableChanged(bool)`). Granular complement to `Changed`.
+    event CheckableChanged, checkable : Bool
+
+    # Emitted when an `Action`'s `visible` changes (Qt's
+    # `QAction::visibleChanged(bool)`). Granular complement to `Changed`.
+    event VisibleChanged, visible : Bool
 
     # Emitted when a closable panel (e.g. `Widget::DockWidget`) is closed via its
     # own UI (the title-bar `✕`). Mirrors Qt's close-event/`visibilityChanged`.

@@ -9,7 +9,7 @@ module Crysterm
     # row/column grid with spans, see `Layout::Grid`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![UniformGrid screenshot](../../examples/layout/uniform_grid/uniform_grid.5s.apng)
+    # ![UniformGrid screenshot](../../tests/layout/uniform_grid/uniform_grid.5s.apng)
     # <!-- /widget-examples:capture -->
     class UniformGrid < Flow
       @high_width = 0

@@ -175,7 +175,7 @@ module Crysterm
       # Cycles the wheel position over the menu's activatable (non-separator,
       # enabled, non-submenu) actions and triggers the one landed on.
       private def cycle_menu(m : Menu, delta : Int32) : Nil
-        acts = m.actions.select { |a| !a.separator? && a.enabled && !a.submenu? }
+        acts = m.actions.select { |a| !a.separator? && a.enabled && !a.menu? }
         return if acts.empty?
         @menu_index = (@menu_index + delta) % acts.size
         @menu_index += acts.size if @menu_index < 0

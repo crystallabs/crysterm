@@ -351,7 +351,7 @@ describe "Menu submenus" do
     m = Crysterm::Widget::Menu.new parent: s, top: 0, left: 0, width: 20, height: 8
     file = Crysterm::Action.new "File"
     new_a = Crysterm::Action.new "New"
-    file.submenu = [new_a, Crysterm::Action.new("Open")]
+    file.menu = [new_a, Crysterm::Action.new("Open")]
     triggered = false
     new_a.on(Crysterm::Event::Triggered) { triggered = true }
     m << file

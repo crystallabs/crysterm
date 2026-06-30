@@ -1626,8 +1626,8 @@ describe "Menu Qt conveniences" do
     s = qt_mem_screen
     m = Crysterm::Widget::Menu.new parent: s
     act = m.add_menu "File", [Crysterm::Action.new("a"), Crysterm::Action.new("b")]
-    act.submenu?.should be_true
-    act.submenu.not_nil!.size.should eq 2
+    act.menu?.should be_true
+    act.menu.not_nil!.size.should eq 2
   end
 
   it "shows and dismisses as a context-menu popup" do

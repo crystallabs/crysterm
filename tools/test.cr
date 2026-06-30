@@ -107,7 +107,7 @@ module WidgetExamples
 
   KINDS = [
     Kind.new("widget", File.join(ROOT, "src", "widget"), File.join(ROOT, "tests", "widget"), "Crysterm::Widget"),
-    Kind.new("layout", File.join(ROOT, "src", "layout"), File.join(ROOT, "examples", "layout"), "Crysterm::Layout"),
+    Kind.new("layout", File.join(ROOT, "src", "layout"), File.join(ROOT, "tests", "layout"), "Crysterm::Layout"),
   ]
 
   record Item,

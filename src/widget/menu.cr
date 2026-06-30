@@ -160,6 +160,7 @@ module Crysterm
       def <<(action : Action)
         unless @actions.includes? action
           @actions << action
+          action.associate self # Qt's QAction::associatedWidgets bookkeeping
           watch_action action
           sync_items
         end
@@ -210,14 +211,16 @@ module Crysterm
       # returns it (Qt's `QMenu#addMenu`).
       def add_menu(text : String, actions : Array(Action)) : Action
         action = Action.new text
-        action.submenu = actions
+        action.menu = actions
         self << action
         action
       end
 
       # Appends a non-selectable separator rule (Qt's `QMenu#addSeparator`).
       def add_separator
-        @actions << Action.separator
+        sep = Action.separator
+        @actions << sep
+        sep.associate self
         sync_items
         self
       end
@@ -225,6 +228,7 @@ module Crysterm
       # Removes *action* from the menu.
       def >>(action : Action)
         if @actions.delete action
+          action.dissociate self
           unwatch_action action
           sync_items
         end
@@ -521,7 +525,7 @@ module Crysterm
 
         @show_highlight = true # hovering a row reveals (and moves) the highlight
         selekt i
-        if act.enabled && act.submenu?
+        if act.enabled && act.menu?
           open_submenu act unless @submenu_open && @submenu_action == act
         end
       end
@@ -540,12 +544,13 @@ module Crysterm
         lefts = acts.map do |a|
           next "" if a.separator?
           prefix = a.checkable? ? (a.checked? ? "[x] " : "[ ] ") : "    "
-          "#{prefix}#{a.text}"
+          glyph = (i = a.icon) ? "#{i} " : ""
+          "#{prefix}#{glyph}#{a.text}"
         end
         rights = acts.map do |a|
           next "" if a.separator?
-          next "▶" if a.submenu?
-          a.shortcut.try(&.to_s) || ""
+          next "▶" if a.menu?
+          a.shortcut_text
         end
         {lefts, rights}
       end
@@ -650,7 +655,7 @@ module Crysterm
         # A submenu item opens its child menu instead of firing — or, if that
         # same submenu is already open, toggles it closed (a second click/Enter on
         # an open menu closes it).
-        if action.submenu?
+        if action.menu?
           if @submenu_open && @submenu_action == action
             close_submenu
           else
@@ -659,10 +664,9 @@ module Crysterm
           return
         end
 
-        # Toggle a checkable action's state before firing; the assignment emits
-        # `Event::Changed`, which `watch_action` turns into a marker redraw.
-        action.checked = !action.checked? if action.checkable?
-
+        # `#activate` flips a checkable action's state before firing (emitting
+        # `Event::Toggled`/`Event::Changed`, which `watch_action` turns into a
+        # marker redraw) and carries the new state on `Event::Triggered`.
         action.activate
 
         # After a leaf action runs from within a submenu, close the whole submenu
@@ -692,7 +696,7 @@ module Crysterm
         # submenu's Escape doesn't fall through to the item view's cancel path.
         if e.key == ::Tput::Key::Right
           act = selected_action
-          if act && act.submenu?
+          if act && act.menu?
             open_submenu act
             e.accept
             return
@@ -741,7 +745,7 @@ module Crysterm
       # Opens *action*'s submenu as a nested `Menu` floated to the right of the
       # current row, and moves focus into it.
       private def open_submenu(action : Action)
-        subs = action.submenu
+        subs = action.menu
         return unless subs && !subs.empty?
 
         close_submenu # replace any already-open child

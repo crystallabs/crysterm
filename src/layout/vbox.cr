@@ -9,7 +9,7 @@ module Crysterm
     # `Layout::Box`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![VBox screenshot](../../examples/layout/vbox/vbox.5s.apng)
+    # ![VBox screenshot](../../tests/layout/vbox/vbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class VBox < Box
       def initialize(gap : Int32 = 0, justify : Justify = Justify::Start, align : Align = Align::Stretch)
