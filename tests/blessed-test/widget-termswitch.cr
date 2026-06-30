@@ -11,7 +11,7 @@ require "../../src/crysterm"
 module Crysterm
   lorem = (1..40).map { |i| "Line #{i}: Lorem ipsum dolor sit amet, consectetur adipiscing elit." }.join("\n")
 
-  quit = ->(scr : Screen, e : Event::KeyPress) do
+  quit = ->(scr : Window, e : Event::KeyPress) do
     if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
       scr.destroy
       exit

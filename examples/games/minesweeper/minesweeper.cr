@@ -133,7 +133,8 @@ class Minesweeper
   @diff_actions = {} of String => Action
 
   # Index into THEMES of the active visual theme; advanced by the `t` key.
-  @theme_index = 0
+  # Defaults to Neon (resolved by name so it survives reordering THEMES).
+  @theme_index = THEMES.index { |t| t.name == "Neon" } || 0
 
   def initialize(@difficulty)
     @screen = Window.new title: "Minesweeper"

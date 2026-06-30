@@ -1,0 +1,85 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|  Name:      Ada Lovelace                                                       |
+|                                                                                |
+|  Email:     ada@example.com                                                    |
+|                                                                                |
+|  Role:      Engineer                                                           |
+|                                                                                |
+|                      [ Submit ]                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y2: 2-51:#c0caf5/def
+y3: 2-51:#c0caf5/def
+y4: 2-51:#c0caf5/def
+y5: 2-51:#c0caf5/def
+y6: 2-51:#c0caf5/def
+y7: 2-51:#c0caf5/def
+y8: 2-51:#c0caf5/def
+y9: 2-51:#c0caf5/def
+y10: 2-51:#c0caf5/def
+y11: 2-51:#c0caf5/def
+y12: 2-51:#c0caf5/def
+y13: 2-51:#c0caf5/def
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|  Name:      Ada Lovelace                                                       |
+|                                                                                |
+|  Email:     ada@example.com                                                    |
+|                                                                                |
+|  Role:      Engineer                                                           |
+|                                                                                |
+|                      [ Submit ]                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y2: 2-51:#c0caf5/def
+y3: 2-51:#c0caf5/def
+y4: 2-51:#c0caf5/def
+y5: 2-51:#c0caf5/def
+y6: 2-51:#c0caf5/def
+y7: 2-51:#c0caf5/def
+y8: 2-51:#c0caf5/def
+y9: 2-51:#c0caf5/def
+y10: 2-51:#c0caf5/def
+y11: 2-51:#c0caf5/def
+y12: 2-51:#c0caf5/def
+y13: 2-51:#c0caf5/def

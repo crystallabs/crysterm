@@ -5,7 +5,6 @@ module Crysterm
   include Widgets
 
   prompt = Prompt.new(
-    screen: s,
     style: Style.new(border: true),
     resizable: true,
     width: "half",
@@ -18,7 +17,6 @@ module Crysterm
   )
 
   question = Question.new(
-    screen: s,
     style: Style.new(border: true),
     resizable: true,
     width: "half",
@@ -31,7 +29,6 @@ module Crysterm
   )
 
   msg = Message.new(
-    screen: s,
     style: Style.new(border: true),
     resizable: true,
     width: "half",
@@ -45,7 +42,6 @@ module Crysterm
   )
 
   loader = Loading.new(
-    screen: s,
     style: Style.new(border: true),
     resizable: true,
     width: "half",

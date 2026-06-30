@@ -1,0 +1,89 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                 ../                                          █                 |
+|                 .claude/                                     █                 |
+|                 .git/                                        █                 |
+|                 .github/                                     █                 |
+|                 benchmarks/                                  █                 |
+|                 bin/                                         █                 |
+|                 data/                                        █                 |
+|                 examples/                                    █                 |
+|                 lib/                                         █                 |
+|                 screenshots/                                 ░                 |
+|                 spec/                                        ░                 |
+|                 src/                                         ░                 |
+|                 tests/                                       ░                 |
+|                 tools/                                       ░                 |
+|                 .ameba.yml                                   ░                 |
+|                 .editorconfig                                ░                 |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y4: 17-61:#101010/#89b4fa
+y5: 17-23:#5c5cff/def
+y6: 17-20:#5c5cff/def
+y7: 17-23:#5c5cff/def
+y8: 17-26:#5c5cff/def
+y9: 17-19:#5c5cff/def
+y10: 17-20:#5c5cff/def
+y11: 17-24:#5c5cff/def
+y12: 17-19:#5c5cff/def
+y13: 17-27:#5c5cff/def
+y14: 17-20:#5c5cff/def
+y15: 17-19:#5c5cff/def
+y16: 17-21:#5c5cff/def
+y17: 17-21:#5c5cff/def
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                 ../                                          █                 |
+|                 .claude/                                     █                 |
+|                 .git/                                        █                 |
+|                 .github/                                     █                 |
+|                 benchmarks/                                  █                 |
+|                 bin/                                         █                 |
+|                 data/                                        █                 |
+|                 examples/                                    █                 |
+|                 lib/                                         █                 |
+|                 screenshots/                                 ░                 |
+|                 spec/                                        ░                 |
+|                 src/                                         ░                 |
+|                 tests/                                       ░                 |
+|                 tools/                                       ░                 |
+|                 .ameba.yml                                   ░                 |
+|                 .editorconfig                                ░                 |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y4: 17-61:#101010/#89b4fa
+y5: 17-23:#5c5cff/def
+y6: 17-20:#5c5cff/def
+y7: 17-23:#5c5cff/def
+y8: 17-26:#5c5cff/def
+y9: 17-19:#5c5cff/def
+y10: 17-20:#5c5cff/def
+y11: 17-24:#5c5cff/def
+y12: 17-19:#5c5cff/def
+y13: 17-27:#5c5cff/def
+y14: 17-20:#5c5cff/def
+y15: 17-19:#5c5cff/def
+y16: 17-21:#5c5cff/def
+y17: 17-21:#5c5cff/def

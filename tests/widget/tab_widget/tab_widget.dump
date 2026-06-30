@@ -1,0 +1,271 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+| 1:Overview    2:Details    3:Settings                                          |
+|                                 Overview page                                  |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-0:#101010/#89b4fa 1-1:#7f7f7f/#89b4fa 2-11:#101010/#89b4fa 12-14:#c0caf5/def 15-15:#7f7f7f/def 16-27:#c0caf5/def 28-28:#7f7f7f/def 29-79:#c0caf5/def
+y1: 0-79:#c0caf5/def
+y2: 0-79:#c0caf5/def
+y3: 0-79:#c0caf5/def
+y4: 0-79:#c0caf5/def
+y5: 0-79:#c0caf5/def
+y6: 0-79:#c0caf5/def
+y7: 0-79:#c0caf5/def
+y8: 0-79:#c0caf5/def
+y9: 0-79:#c0caf5/def
+y10: 0-79:#c0caf5/def
+y11: 0-79:#c0caf5/def
+y12: 0-79:#c0caf5/def
+y13: 0-79:#c0caf5/def
+y14: 0-79:#c0caf5/def
+y15: 0-79:#c0caf5/def
+y16: 0-79:#c0caf5/def
+y17: 0-79:#c0caf5/def
+y18: 0-79:#c0caf5/def
+y19: 0-79:#c0caf5/def
+y20: 0-79:#c0caf5/def
+y21: 0-79:#c0caf5/def
+y22: 0-79:#c0caf5/def
+y23: 0-79:#c0caf5/def
+
+=== click 16,0 ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+| 1:Overview    2:Details    3:Settings                                          |
+|                                  Details page                                  |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-0:#c0caf5/def 1-1:#7f7f7f/def 2-13:#c0caf5/def 14-14:#101010/#89b4fa 15-15:#7f7f7f/#89b4fa 16-24:#101010/#89b4fa 25-27:#c0caf5/def 28-28:#7f7f7f/def 29-79:#c0caf5/def
+y1: 0-79:#c0caf5/def
+y2: 0-79:#c0caf5/def
+y3: 0-79:#c0caf5/def
+y4: 0-79:#c0caf5/def
+y5: 0-79:#c0caf5/def
+y6: 0-79:#c0caf5/def
+y7: 0-79:#c0caf5/def
+y8: 0-79:#c0caf5/def
+y9: 0-79:#c0caf5/def
+y10: 0-79:#c0caf5/def
+y11: 0-79:#c0caf5/def
+y12: 0-79:#c0caf5/def
+y13: 0-79:#c0caf5/def
+y14: 0-79:#c0caf5/def
+y15: 0-79:#c0caf5/def
+y16: 0-79:#c0caf5/def
+y17: 0-79:#c0caf5/def
+y18: 0-79:#c0caf5/def
+y19: 0-79:#c0caf5/def
+y20: 0-79:#c0caf5/def
+y21: 0-79:#c0caf5/def
+y22: 0-79:#c0caf5/def
+y23: 0-79:#c0caf5/def
+
+=== click 28,0 ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+| 1:Overview    2:Details    3:Settings                                          |
+|                                 Settings page                                  |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-0:#c0caf5/def 1-1:#7f7f7f/def 2-14:#c0caf5/def 15-15:#7f7f7f/def 16-26:#c0caf5/def 27-27:#101010/#89b4fa 28-28:#7f7f7f/#89b4fa 29-38:#101010/#89b4fa 39-79:#c0caf5/def
+y1: 0-79:#c0caf5/def
+y2: 0-79:#c0caf5/def
+y3: 0-79:#c0caf5/def
+y4: 0-79:#c0caf5/def
+y5: 0-79:#c0caf5/def
+y6: 0-79:#c0caf5/def
+y7: 0-79:#c0caf5/def
+y8: 0-79:#c0caf5/def
+y9: 0-79:#c0caf5/def
+y10: 0-79:#c0caf5/def
+y11: 0-79:#c0caf5/def
+y12: 0-79:#c0caf5/def
+y13: 0-79:#c0caf5/def
+y14: 0-79:#c0caf5/def
+y15: 0-79:#c0caf5/def
+y16: 0-79:#c0caf5/def
+y17: 0-79:#c0caf5/def
+y18: 0-79:#c0caf5/def
+y19: 0-79:#c0caf5/def
+y20: 0-79:#c0caf5/def
+y21: 0-79:#c0caf5/def
+y22: 0-79:#c0caf5/def
+y23: 0-79:#c0caf5/def
+
+=== click 5,0 ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+| 1:Overview    2:Details    3:Settings                                          |
+|                                 Overview page                                  |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-0:#101010/#89b4fa 1-1:#7f7f7f/#89b4fa 2-11:#101010/#89b4fa 12-14:#c0caf5/def 15-15:#7f7f7f/def 16-27:#c0caf5/def 28-28:#7f7f7f/def 29-79:#c0caf5/def
+y1: 0-79:#c0caf5/def
+y2: 0-79:#c0caf5/def
+y3: 0-79:#c0caf5/def
+y4: 0-79:#c0caf5/def
+y5: 0-79:#c0caf5/def
+y6: 0-79:#c0caf5/def
+y7: 0-79:#c0caf5/def
+y8: 0-79:#c0caf5/def
+y9: 0-79:#c0caf5/def
+y10: 0-79:#c0caf5/def
+y11: 0-79:#c0caf5/def
+y12: 0-79:#c0caf5/def
+y13: 0-79:#c0caf5/def
+y14: 0-79:#c0caf5/def
+y15: 0-79:#c0caf5/def
+y16: 0-79:#c0caf5/def
+y17: 0-79:#c0caf5/def
+y18: 0-79:#c0caf5/def
+y19: 0-79:#c0caf5/def
+y20: 0-79:#c0caf5/def
+y21: 0-79:#c0caf5/def
+y22: 0-79:#c0caf5/def
+y23: 0-79:#c0caf5/def
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+| 1:Overview    2:Details    3:Settings                                          |
+|                                 Overview page                                  |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-0:#101010/#89b4fa 1-1:#7f7f7f/#89b4fa 2-11:#101010/#89b4fa 12-14:#c0caf5/def 15-15:#7f7f7f/def 16-27:#c0caf5/def 28-28:#7f7f7f/def 29-79:#c0caf5/def
+y1: 0-79:#c0caf5/def
+y2: 0-79:#c0caf5/def
+y3: 0-79:#c0caf5/def
+y4: 0-79:#c0caf5/def
+y5: 0-79:#c0caf5/def
+y6: 0-79:#c0caf5/def
+y7: 0-79:#c0caf5/def
+y8: 0-79:#c0caf5/def
+y9: 0-79:#c0caf5/def
+y10: 0-79:#c0caf5/def
+y11: 0-79:#c0caf5/def
+y12: 0-79:#c0caf5/def
+y13: 0-79:#c0caf5/def
+y14: 0-79:#c0caf5/def
+y15: 0-79:#c0caf5/def
+y16: 0-79:#c0caf5/def
+y17: 0-79:#c0caf5/def
+y18: 0-79:#c0caf5/def
+y19: 0-79:#c0caf5/def
+y20: 0-79:#c0caf5/def
+y21: 0-79:#c0caf5/def
+y22: 0-79:#c0caf5/def
+y23: 0-79:#c0caf5/def

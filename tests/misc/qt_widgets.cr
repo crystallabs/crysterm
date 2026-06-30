@@ -45,7 +45,7 @@ require "../../src/crysterm"
 
 include Crysterm
 
-s = Screen.new title: "Qt-like Widgets"
+s = Window.new title: "Qt-like Widgets"
 # Join touching/overlapping borders into seamless junctions (├ ┬ ┼ …) — e.g.
 # where a submenu's left border overlaps its parent's right border.
 s.dock_borders = true

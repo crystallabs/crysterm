@@ -1,0 +1,47 @@
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|        ┌──────────────────────────────────────────────────────────────┐        |
+|        │Terminal: vt100 (widgets reparented onto the new screen)      │        |
+|        │                                                              │        |
+|        │           ┌──────────────────────────────────────┐           │        |
+|        │           │Line 1: Lorem ipsum dolor sit amet,  █│           │        |
+|        │           │consectetur adipiscing elit.         ░│           │        |
+|        │           │Line 2: Lorem ipsum dolor sit amet,  ░│           │        |
+|        │           │consectetur adipiscing elit.         ░│           │        |
+|        │           │Line 3: Lorem ipsum dolor sit amet,  ░│           │        |
+|        │           │consectetur adipiscing elit.         ░│           │        |
+|        │           │Line 4: Lorem ipsum dolor sit amet,  ░│           │        |
+|        │           │consectetur adipiscing elit.         ░│           │        |
+|        │           │Line 5: Lorem ipsum dolor sit amet,  ░│           │        |
+|        │           │consectetur adipiscing elit.         ░│           │        |
+|        │           └──────────────────────────────────────┘           │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        │                                                              │        |
+|        └──────────────────────────────────────────────────────────────┘        |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y3: 8-71:def/#00cd00
+y4: 8-71:def/#00cd00
+y5: 8-71:def/#00cd00
+y6: 8-19:def/#00cd00 60-71:def/#00cd00
+y7: 8-19:def/#00cd00 58-58:#6a6d7e/#08080c 60-71:def/#00cd00
+y8: 8-19:def/#00cd00 58-58:#2a2a2e/#08080c 60-71:def/#00cd00
+y9: 8-19:def/#00cd00 58-58:#2a2a2e/#08080c 60-71:def/#00cd00
+y10: 8-19:def/#00cd00 58-58:#2a2a2e/#08080c 60-71:def/#00cd00
+y11: 8-19:def/#00cd00 58-58:#2a2a2e/#08080c 60-71:def/#00cd00
+y12: 8-19:def/#00cd00 58-58:#2a2a2e/#08080c 60-71:def/#00cd00
+y13: 8-19:def/#00cd00 58-58:#2a2a2e/#08080c 60-71:def/#00cd00
+y14: 8-19:def/#00cd00 58-58:#2a2a2e/#08080c 60-71:def/#00cd00
+y15: 8-19:def/#00cd00 58-58:#2a2a2e/#08080c 60-71:def/#00cd00
+y16: 8-19:def/#00cd00 58-58:#2a2a2e/#08080c 60-71:def/#00cd00
+y17: 8-19:def/#00cd00 60-71:def/#00cd00
+y18: 8-71:def/#00cd00
+y19: 8-71:def/#00cd00
+y20: 8-71:def/#00cd00
+y21: 8-71:def/#00cd00

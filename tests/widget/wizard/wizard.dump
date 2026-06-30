@@ -1,0 +1,109 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                          Welcome to the setup wizard.                          |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|  Back                                                         Cancel     Next  |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-79:#c0caf5/def
+y1: 0-79:#c0caf5/def
+y2: 0-79:#c0caf5/def
+y3: 0-79:#c0caf5/def
+y4: 0-79:#c0caf5/def
+y5: 0-79:#c0caf5/def
+y6: 0-79:#c0caf5/def
+y7: 0-79:#c0caf5/def
+y8: 0-79:#c0caf5/def
+y9: 0-79:#c0caf5/def
+y10: 0-79:#c0caf5/def
+y11: 0-79:#c0caf5/def
+y12: 0-79:#c0caf5/def
+y13: 0-79:#c0caf5/def
+y14: 0-79:#c0caf5/def
+y15: 0-79:#c0caf5/def
+y16: 0-79:#c0caf5/def
+y17: 0-79:#c0caf5/def
+y18: 0-79:#c0caf5/def
+y19: 0-79:#c0caf5/def
+y20: 0-79:#c0caf5/def
+y21: 0-79:#c0caf5/def
+y22: 0-79:#c0caf5/def
+y23: 0-7:#6e728d/#424453 8-61:#c0caf5/def 62-69:#cdd6f4/#424453 70-71:#c0caf5/def 72-79:#cdd6f4/#424453
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                          Welcome to the setup wizard.                          |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|  Back                                                         Cancel     Next  |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-79:#c0caf5/def
+y1: 0-79:#c0caf5/def
+y2: 0-79:#c0caf5/def
+y3: 0-79:#c0caf5/def
+y4: 0-79:#c0caf5/def
+y5: 0-79:#c0caf5/def
+y6: 0-79:#c0caf5/def
+y7: 0-79:#c0caf5/def
+y8: 0-79:#c0caf5/def
+y9: 0-79:#c0caf5/def
+y10: 0-79:#c0caf5/def
+y11: 0-79:#c0caf5/def
+y12: 0-79:#c0caf5/def
+y13: 0-79:#c0caf5/def
+y14: 0-79:#c0caf5/def
+y15: 0-79:#c0caf5/def
+y16: 0-79:#c0caf5/def
+y17: 0-79:#c0caf5/def
+y18: 0-79:#c0caf5/def
+y19: 0-79:#c0caf5/def
+y20: 0-79:#c0caf5/def
+y21: 0-79:#c0caf5/def
+y22: 0-79:#c0caf5/def
+y23: 0-7:#6e728d/#424453 8-61:#c0caf5/def 62-69:#cdd6f4/#424453 70-71:#c0caf5/def 72-79:#cdd6f4/#424453

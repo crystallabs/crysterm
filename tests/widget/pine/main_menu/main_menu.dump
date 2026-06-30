@@ -1,0 +1,63 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                  C     Compose          -  Compose and send a                  |
+|                                                                                |
+|                  I     Message Index    -  View messages in the                |
+|                                                                                |
+|                  L     Folder List      -  Select a folder to                  |
+|                                                                                |
+|                  A     Address Book     -  Update your address                 |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y6: 14-65:#101010/#89b4fa
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                  C     Compose          -  Compose and send a                  |
+|                                                                                |
+|                  I     Message Index    -  View messages in the                |
+|                                                                                |
+|                  L     Folder List      -  Select a folder to                  |
+|                                                                                |
+|                  A     Address Book     -  Update your address                 |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y6: 14-65:#101010/#89b4fa

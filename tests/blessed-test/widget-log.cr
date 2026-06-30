@@ -21,15 +21,15 @@ module Crysterm
       )
     )
 
-  Screen.global.append logger
+  Window.global.append logger
   # Seed one line so the still capture / first frame isn't an empty box (the
   # timer below only starts logging after 0.5s).
   logger.add "Hello world: #{Time.utc}."
   # logger.focus
 
-  logger.screen.on(Event::KeyPress) do |e|
+  logger.window.on(Event::KeyPress) do |e|
     if e.char == 'q' || e.key == Tput::Key::CtrlQ
-      logger.screen.destroy
+      logger.window.destroy
       exit
     end
   end
@@ -47,5 +47,5 @@ module Crysterm
     end
   end
 
-  logger.screen.exec
+  logger.window.exec
 end

@@ -1,0 +1,109 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+| File  Edit  View  Help                                                         |
+| src/                 ┌────────────────────────────────────────────────────────┐|
+|   crysterm.cr        │                Editor — central widget                 │|
+|   widget.cr          │                                                        │|
+| docs/                │                                                        │|
+|   README.md          │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      └────────────────────────────────────────────────────────┘|
+|Ready                                                                Ln 1, Col 1|
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-23:#c0caf5/def 24-79:#c0caf5/#283457
+y1: 0-0:#c0caf5/#89b4fa 1-21:#c0caf5/def
+y2: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y3: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y4: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y5: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y6: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y7: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y8: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y9: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y10: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y11: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y12: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y13: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y14: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y15: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y16: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y17: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y18: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y19: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y20: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y21: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y22: 0-21:#c0caf5/def
+y23: 0-79:#c0caf5/#283457
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+| File  Edit  View  Help                                                         |
+| src/                 ┌────────────────────────────────────────────────────────┐|
+|   crysterm.cr        │                Editor — central widget                 │|
+|   widget.cr          │                                                        │|
+| docs/                │                                                        │|
+|   README.md          │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      │                                                        │|
+|                      └────────────────────────────────────────────────────────┘|
+|Ready                                                                Ln 1, Col 1|
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-23:#c0caf5/def 24-79:#c0caf5/#283457
+y1: 0-0:#c0caf5/#89b4fa 1-21:#c0caf5/def
+y2: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y3: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y4: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y5: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y6: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y7: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y8: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y9: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y10: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y11: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y12: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y13: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y14: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y15: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y16: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y17: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y18: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y19: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y20: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y21: 0-21:#c0caf5/def 23-78:#c0caf5/def
+y22: 0-21:#c0caf5/def
+y23: 0-79:#c0caf5/#283457

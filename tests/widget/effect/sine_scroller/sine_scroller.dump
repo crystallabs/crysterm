@@ -1,0 +1,83 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|LE                 NE                  RM                 * C                 RO|
+|  R               I   S               E   *                  R               C  |
+|                 S     C             T                  R     Y             S   |
+|    *                               S                          S                |
+|                        R          Y        S          E                        |
+|               *         O                            L         T         E     |
+|      C                           R          I                   E       N      |
+|                          L                   N      L                          |
+|       R     M             L     C                  O             R     I       |
+|        Y   R               E                  E   R               M   S        |
+|         STE                 R *                 SC                  *          |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y7: 0-0:#00ff1a/def 1-1:#00ff37/def 19-19:#5100ff/def 20-20:#6f00ff/def 39-39:#ffa600/def 40-40:#ffc400/def 58-58:#00ffdd/def 60-60:#00e5ff/def 78-78:#ff00cc/def 79-79:#ff00ae/def
+y8: 2-2:#00ff55/def 18-18:#3300ff/def 22-22:#aa00ff/def 38-38:#ff8800/def 42-42:#ffff00/def 61-61:#00c8ff/def 77-77:#ff00ea/def
+y9: 17-17:#1500ff/def 23-23:#c800ff/def 37-37:#ff6a00/def 56-56:#00ffa2/def 62-62:#00aaff/def 76-76:#f700ff/def
+y10: 4-4:#00ff91/def 36-36:#ff4d00/def 63-63:#008cff/def
+y11: 24-24:#e600ff/def 35-35:#ff2f00/def 44-44:#c3ff00/def 55-55:#00ff84/def
+y12: 15-15:#0026ff/def 25-25:#ff00fb/def 54-54:#00ff66/def 64-64:#006eff/def 74-74:#bb00ff/def
+y13: 6-6:#00ffcc/def 34-34:#ff1100/def 45-45:#a6ff00/def 65-65:#0051ff/def 73-73:#9d00ff/def
+y14: 26-26:#ff00dd/def 46-46:#88ff00/def 53-53:#00ff48/def
+y15: 7-7:#00ffea/def 13-13:#0062ff/def 27-27:#ff00bf/def 33-33:#ff000d/def 52-52:#00ff2a/def 66-66:#0033ff/def 72-72:#8000ff/def
+y16: 8-8:#00f7ff/def 12-12:#0080ff/def 28-28:#ff00a2/def 47-47:#6aff00/def 51-51:#00ff0d/def 67-67:#0015ff/def 71-71:#6200ff/def
+y17: 9-9:#00d9ff/def 10-10:#00bbff/def 11-11:#009dff/def 29-29:#ff0084/def 31-31:#ff0048/def 49-49:#2fff00/def 50-50:#11ff00/def 69-69:#2600ff/def
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|LE                 NE                  RM                 * C                 RO|
+|  R               I   S               E   *                  R               C  |
+|                 S     C             T                  R     Y             S   |
+|    *                               S                          S                |
+|                        R          Y        S          E                        |
+|               *         O                            L         T         E     |
+|      C                           R          I                   E       N      |
+|                          L                   N      L                          |
+|       R     M             L     C                  O             R     I       |
+|        Y   R               E                  E   R               M   S        |
+|         STE                 R *                 SC                  *          |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y7: 0-0:#00ff1a/def 1-1:#00ff37/def 19-19:#5100ff/def 20-20:#6f00ff/def 39-39:#ffa600/def 40-40:#ffc400/def 58-58:#00ffdd/def 60-60:#00e5ff/def 78-78:#ff00cc/def 79-79:#ff00ae/def
+y8: 2-2:#00ff55/def 18-18:#3300ff/def 22-22:#aa00ff/def 38-38:#ff8800/def 42-42:#ffff00/def 61-61:#00c8ff/def 77-77:#ff00ea/def
+y9: 17-17:#1500ff/def 23-23:#c800ff/def 37-37:#ff6a00/def 56-56:#00ffa2/def 62-62:#00aaff/def 76-76:#f700ff/def
+y10: 4-4:#00ff91/def 36-36:#ff4d00/def 63-63:#008cff/def
+y11: 24-24:#e600ff/def 35-35:#ff2f00/def 44-44:#c3ff00/def 55-55:#00ff84/def
+y12: 15-15:#0026ff/def 25-25:#ff00fb/def 54-54:#00ff66/def 64-64:#006eff/def 74-74:#bb00ff/def
+y13: 6-6:#00ffcc/def 34-34:#ff1100/def 45-45:#a6ff00/def 65-65:#0051ff/def 73-73:#9d00ff/def
+y14: 26-26:#ff00dd/def 46-46:#88ff00/def 53-53:#00ff48/def
+y15: 7-7:#00ffea/def 13-13:#0062ff/def 27-27:#ff00bf/def 33-33:#ff000d/def 52-52:#00ff2a/def 66-66:#0033ff/def 72-72:#8000ff/def
+y16: 8-8:#00f7ff/def 12-12:#0080ff/def 28-28:#ff00a2/def 47-47:#6aff00/def 51-51:#00ff0d/def 67-67:#0015ff/def 71-71:#6200ff/def
+y17: 9-9:#00d9ff/def 10-10:#00bbff/def 11-11:#009dff/def 29-29:#ff0084/def 31-31:#ff0048/def 49-49:#2fff00/def 50-50:#11ff00/def 69-69:#2600ff/def

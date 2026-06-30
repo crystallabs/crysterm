@@ -1,0 +1,93 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|  ┌────────────────────────────────────────┐ ┌                                  |
+|  │ Content line 1                         │ │                                  |
+|  │ Content line 2                         │ │                                  |
+|  │ Content line 3                         │ │                                  |
+|  │ Content line 4                         │ │                                  |
+|  │ Content line 5                         │ │                                  |
+|  │ Content line 6                         │ │                                  |
+|  │ Content line 7                         │ │                                  |
+|  │ Content line 8                         │ │                                  |
+|  │ Content line 9                         │ │                                  |
+|  │ Content line 10                        │ │                                  |
+|  │ Content line 11                        │ │                                  |
+|  │ Content line 12                        │ │                                  |
+|  │ Content line 13                        │ │                                  |
+|  │ Content line 14                        │ │                                  |
+|  └────────────────────────────────────────┘ └                                  |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y2: 45-45:def/#32324d
+y3: 3-42:#c0caf5/def 45-45:def/#32324d
+y4: 3-42:#c0caf5/def 45-45:def/#32324d
+y5: 3-42:#c0caf5/def 45-45:def/#32324d
+y6: 3-42:#c0caf5/def 45-45:def/#32324d
+y7: 3-42:#c0caf5/def 45-45:def/#32324d
+y8: 3-42:#c0caf5/def 45-45:def/#32324d
+y9: 3-42:#c0caf5/def 45-45:def/#32324d
+y10: 3-42:#c0caf5/def 45-45:def/#32324d
+y11: 3-42:#c0caf5/def 45-45:def/#32324d
+y12: 3-42:#c0caf5/def 45-45:def/#32324d
+y13: 3-42:#c0caf5/def 45-45:def/#32324d
+y14: 3-42:#c0caf5/def 45-45:def/#32324d
+y15: 3-42:#c0caf5/def 45-45:def/#32324d
+y16: 3-42:#c0caf5/def 45-45:def/#32324d
+y17: 45-45:def/#32324d
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|                                                                                |
+|                                                                                |
+|  ┌────────────────────────────────────────┐ ┌                                  |
+|  │ Content line 1                         │ │                                  |
+|  │ Content line 2                         │ │                                  |
+|  │ Content line 3                         │ │                                  |
+|  │ Content line 4                         │ │                                  |
+|  │ Content line 5                         │ │                                  |
+|  │ Content line 6                         │ │                                  |
+|  │ Content line 7                         │ │                                  |
+|  │ Content line 8                         │ │                                  |
+|  │ Content line 9                         │ │                                  |
+|  │ Content line 10                        │ │                                  |
+|  │ Content line 11                        │ │                                  |
+|  │ Content line 12                        │ │                                  |
+|  │ Content line 13                        │ │                                  |
+|  │ Content line 14                        │ │                                  |
+|  └────────────────────────────────────────┘ └                                  |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
+|                                                                                |
++--------------------------------------------------------------------------------+
+attrs:
+y2: 45-45:def/#32324d
+y3: 3-42:#c0caf5/def 45-45:def/#32324d
+y4: 3-42:#c0caf5/def 45-45:def/#32324d
+y5: 3-42:#c0caf5/def 45-45:def/#32324d
+y6: 3-42:#c0caf5/def 45-45:def/#32324d
+y7: 3-42:#c0caf5/def 45-45:def/#32324d
+y8: 3-42:#c0caf5/def 45-45:def/#32324d
+y9: 3-42:#c0caf5/def 45-45:def/#32324d
+y10: 3-42:#c0caf5/def 45-45:def/#32324d
+y11: 3-42:#c0caf5/def 45-45:def/#32324d
+y12: 3-42:#c0caf5/def 45-45:def/#32324d
+y13: 3-42:#c0caf5/def 45-45:def/#32324d
+y14: 3-42:#c0caf5/def 45-45:def/#32324d
+y15: 3-42:#c0caf5/def 45-45:def/#32324d
+y16: 3-42:#c0caf5/def 45-45:def/#32324d
+y17: 45-45:def/#32324d

@@ -6,7 +6,6 @@ module Crysterm
   s = Window.new propagate_keys: false, always_propagate: [Tput::Key::CtrlQ]
 
   b = Box.new(
-    screen: s,
     top: "center",
     left: "center",
     width: "70%",

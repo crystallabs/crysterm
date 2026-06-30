@@ -1,0 +1,52 @@
+w=80 h=24
++--------------------------------------------------------------------------------+
+|Non eram nescius Brute cum quae summis ingeniis exquisitaque doctrina philosophi|
+| Graeco sermone tractavissent ea Latinis litteris mandaremus fore ut hic noster |
+|labor in varias reprehensiones incurreret nam quibusdam et iis quidem non       |
+|admodum indoctis totum hoc displicet philosophari. Non eram nescius Brute cum   |
+|quae summi┌──────────────────────────────┐ philosophi Graeco sermone tractavisse|
+|nt ea Lati│                              │hic noster labor in varias reprehensio|
+|nes incurr│         ┌────────────────────┼─────────────────┐tis totum hoc       |
+|displicet │         │ --Drag Me--        │rute cum quae sum│is ingeniis         |
+|exquisitaq│         │                    │rmone tractavisse│t ea Latinis        |
+|litteris m│         │                    │or in varias repr│hensiones incurreret|
+| nam quibu└─────────┼────────────────────┘ndoctis totum hoc│displicet philosopha|
+|ri. Non eram nescius│Brute cum quae summis ingeniis exquisi│aque doctrina       |
+|philosophi Graeco se│mone tractavissent ea Latinis litteris│mandaremus fore ut  |
+|hic noster labor in │arias reprehensiones incurreret nam qu│busdam et iis       |
+|quidem non admodum i│doctis totum hoc displicet philosophar│. Non eram nescius  |
+|Brute cum quae summi│ ingeniis exquisitaque doctrina philos│phi Graeco sermone  |
+|tractavissent ea Lat│nis litteris mandaremus fore ut hic no│ter labor in varias |
+|reprehensiones incur└──────────────────────────────────────┘modum indoctis      |
+|totum hoc displicet philosophari. Non eram nescius Brute cum quae summis        |
+|ingeniis exquisitaque doctrina philosophi Graeco sermone tractavissent ea       |
+|Latinis litteris mandaremus fore ut hic noster labor in varias reprehensiones   |
+|incurreret nam quibusdam et iis quidem non admodum indoctis totum hoc displicet |
+|philosophari. Non eram nescius Brute cum quae summis ingeniis exquisitaque      |
+|doctrina philosophi Graeco sermone tractavissent ea Latinis litteris mandaremus |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-79:def/#5c5cff
+y1: 0-79:def/#5c5cff
+y2: 0-79:def/#5c5cff
+y3: 0-79:def/#5c5cff
+y4: 0-9:def/#5c5cff 10-41:def/#cdcd00 42-79:def/#5c5cff
+y5: 0-9:def/#5c5cff 10-41:def/#cdcd00 42-43:def/#2e2e7f 44-79:def/#5c5cff
+y6: 0-9:def/#5c5cff 10-19:def/#cdcd00 20-40:def/#cd0000 41-41:def/#cd6600 42-42:def/#cd3300 43-43:def/#cd1900 44-44:def/#cd0c00 45-45:def/#cd0600 46-46:def/#cd0300 47-47:def/#cd0100 48-59:def/#cd0000 60-79:def/#5c5cff
+y7: 0-9:def/#5c5cff 10-19:def/#cdcd00 20-20:def/#cd0000 21-33:#c66060/#66cd00+b 34-41:def/#cd6600 42-43:def/#7d173f 44-58:def/#942e7f 59-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y8: 0-9:def/#5c5cff 10-19:def/#cdcd00 20-20:def/#cd0000 21-41:def/#cd6600 42-43:def/#7d173f 44-58:def/#942e7f 59-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y9: 0-9:def/#5c5cff 10-19:def/#cdcd00 20-20:def/#cd0000 21-41:def/#cd6600 42-43:def/#7d173f 44-58:def/#942e7f 59-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y10: 0-9:def/#5c5cff 10-19:def/#cdcd00 20-41:def/#cd6600 42-43:def/#7d173f 44-58:def/#942e7f 59-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y11: 0-11:def/#5c5cff 12-19:def/#2e2e7f 20-20:def/#cd0000 21-43:def/#7d173f 44-58:def/#942e7f 59-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y12: 0-19:def/#5c5cff 20-20:def/#cd0000 21-58:def/#942e7f 59-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y13: 0-19:def/#5c5cff 20-20:def/#cd0000 21-58:def/#942e7f 59-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y14: 0-19:def/#5c5cff 20-20:def/#cd0000 21-58:def/#942e7f 59-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y15: 0-19:def/#5c5cff 20-20:def/#cd0000 21-58:def/#942e7f 59-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y16: 0-19:def/#5c5cff 20-20:def/#cd0000 21-58:def/#942e7f 59-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y17: 0-19:def/#5c5cff 20-59:def/#cd0000 60-61:def/#2e2e7f 62-79:def/#5c5cff
+y18: 0-21:def/#5c5cff 22-61:def/#2e2e7f 62-79:def/#5c5cff
+y19: 0-79:def/#5c5cff
+y20: 0-79:def/#5c5cff
+y21: 0-79:def/#5c5cff
+y22: 0-79:def/#5c5cff
+y23: 0-79:def/#5c5cff

@@ -1,0 +1,105 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│┌────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐│|
+|││      Left      │ │     Middle      │ │     Middle      │ │      Right      ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|│└────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘│|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 19-19:#c0caf5/def 39-39:#c0caf5/def 59-59:#c0caf5/def
+y2: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y3: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y4: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y5: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y6: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y7: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y8: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y9: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y10: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y11: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y12: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y13: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y14: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y15: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y16: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y17: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y18: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y19: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y20: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y21: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y22: 19-19:#c0caf5/def 39-39:#c0caf5/def 59-59:#c0caf5/def
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│┌────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐│|
+|││      Left      │ │     Middle      │ │     Middle      │ │      Right      ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|││                │ │                 │ │                 │ │                 ││|
+|│└────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘│|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 19-19:#c0caf5/def 39-39:#c0caf5/def 59-59:#c0caf5/def
+y2: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y3: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y4: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y5: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y6: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y7: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y8: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y9: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y10: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y11: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y12: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y13: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y14: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y15: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y16: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y17: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y18: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y19: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y20: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y21: 2-17:#c0caf5/def 19-19:#c0caf5/def 21-37:#c0caf5/def 39-39:#c0caf5/def 41-57:#c0caf5/def 59-59:#c0caf5/def 61-77:#c0caf5/def
+y22: 19-19:#c0caf5/def 39-39:#c0caf5/def 59-59:#c0caf5/def

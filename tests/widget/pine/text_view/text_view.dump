@@ -1,0 +1,63 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│Navigating this interface                                                     │|
+|│                                                                              │|
+|│Use the Up and Down arrow keys to scroll one line at a time.                  │|
+|│Use PageUp and PageDown to move half a screen at once.                        │|
+|│Press Home to jump to the top, and End to jump to the bottom.                 │|
+|│                                                                              │|
+|│This is a generic, scrollable text pane. It can show any text:                │|
+|│help screens, documentation, license notices, or release notes.               │|
+|│                                                                              │|
+|│Keep pressing Down to read all the way to the end of this text,               │|
+|│then press Home to return to the very beginning again.                        │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 1-25:def/def+b
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│Navigating this interface                                                     │|
+|│                                                                              │|
+|│Use the Up and Down arrow keys to scroll one line at a time.                  │|
+|│Use PageUp and PageDown to move half a screen at once.                        │|
+|│Press Home to jump to the top, and End to jump to the bottom.                 │|
+|│                                                                              │|
+|│This is a generic, scrollable text pane. It can show any text:                │|
+|│help screens, documentation, license notices, or release notes.               │|
+|│                                                                              │|
+|│Keep pressing Down to read all the way to the end of this text,               │|
+|│then press Home to return to the very beginning again.                        │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|│                                                                              │|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 1-25:def/def+b

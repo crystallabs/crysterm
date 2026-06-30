@@ -1,0 +1,34 @@
+w=80 h=24
++--------------------------------------------------------------------------------+
+|  ALPINE 2.26   MAIN MENU                            Folder: INBOX  8 Messages  |
+|                                                                                |
+|                                                                                |
+|** VISUAL DEMO - ALL CONTENT IS IN MEMORY - THERE IS NO DISK OR EMAIL ACCESS ** |
+|                                                                                |
+|                                                                                |
+|           ?     HELP             -  Get help using Alpine                      |
+|                                                                                |
+|           C     COMPOSE MESSAGE  -  Compose and send a message                 |
+|                                                                                |
+|           I     MESSAGE INDEX    -  View messages in current folder            |
+|                                                                                |
+|           L     FOLDER LIST      -  Select a folder to view                    |
+|                                                                                |
+|           A     ADDRESS BOOK     -  Update address book                        |
+|                                                                                |
+|           S     SETUP            -  Configure Alpine options                   |
+|                                                                                |
+|           Q     QUIT             -  Leave the Alpine program                   |
+|                                                                                |
+|                                                                                |
+|                    [Folder "INBOX" opened with 8 messages]                     |
+| ?  Help      I  MsgIndex  A  AddrBook                                          |
+| C  Compose   L            Q  Quit                                              |
++--------------------------------------------------------------------------------+
+attrs:
+y0: 0-79:def/def+r
+y3: 0-78:#ffff00/def
+y6: 7-72:#101010/#89b4fa
+y21: 0-79:#cdd6f4/def
+y22: 0-2:def/def+r 13-15:def/def+r 26-28:def/def+r
+y23: 0-2:def/def+r 13-15:def/def+r 26-28:def/def+r
