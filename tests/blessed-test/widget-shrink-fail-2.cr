@@ -5,7 +5,7 @@ require "../../src/crysterm"
 # An outer scrollable `tab` box containing a single resizable (blessed 'shrink')
 # Text whose content is a pretty-printed sample object.
 module Crysterm
-  s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
   tab = Widget::ScrollableBox.new \
     parent: s,

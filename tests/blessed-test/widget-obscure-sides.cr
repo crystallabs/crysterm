@@ -7,7 +7,7 @@ require "../../src/crysterm"
 module Crysterm
   # NOTE: Blessed's `autoPadding: true` screen option has no Crysterm equivalent
   # (grep of src/ finds no auto-padding screen setting), so it is dropped.
-  s = Screen.new optimization: OptimizationFlag::SmartCSR, always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new optimization: OptimizationFlag::SmartCSR, always_propagate: [::Tput::Key::CtrlQ]
 
   box = Widget::ScrollableBox.new(
     parent: s,

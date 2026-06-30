@@ -5,7 +5,7 @@ class X
   include EventHandler
 
   def initialize
-    s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
+    s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
     # parent: l,
     i = Widget::PlainTextEdit.new \

@@ -6,7 +6,7 @@ require "../../src/crysterm"
 # borders and are placed at negative offsets (left:-1, top:-1) with
 # "50%+1"/"50%+3" sizes so their borders overlap and dock together.
 module Crysterm
-  s = Screen.new optimization: OptimizationFlag::SmartCSR, dock_borders: true, always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new optimization: OptimizationFlag::SmartCSR, dock_borders: true, always_propagate: [::Tput::Key::CtrlQ]
 
   Widget::Box.new(
     parent: s,

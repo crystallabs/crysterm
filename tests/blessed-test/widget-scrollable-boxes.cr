@@ -4,7 +4,7 @@ module Crysterm
   include Tput::Namespace
   include Widgets
 
-  s = Screen.new(
+  s = Window.new(
     optimization: :smart_csr,
     always_propagate: [Tput::Key::CtrlQ], title: "Crysterm Tech Demo"
   )

@@ -6,7 +6,7 @@ require "../../src/crysterm"
 # instead of wrapped.
 # NOTE: Blessed's `wrap: false` maps to crysterm's `wrap_content: false`.
 module Crysterm
-  s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
   box = Widget::Box.new(
     parent: s,

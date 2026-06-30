@@ -10,7 +10,7 @@ require "../../src/crysterm"
 # Run it (optionally `COLORTERM=truecolor`) and resize the window to watch the
 # CJK paragraph re-wrap on column boundaries.
 module Crysterm
-  s = Screen.new full_unicode: true
+  s = Window.new full_unicode: true
 
   active = s.full_unicode? ? "ON" : "OFF (terminal lacks Unicode capability)"
 

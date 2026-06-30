@@ -14,7 +14,7 @@ module Crysterm
   # NOTE: Blessed's cleanSides/_oscroll overrides and the thrown assertions are a
   # blessed-internal test harness checking CSR behavior; they have no visual
   # purpose and are dropped. Only the two visible widgets are kept.
-  s = Screen.new optimization: OptimizationFlag::SmartCSR, always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new optimization: OptimizationFlag::SmartCSR, always_propagate: [::Tput::Key::CtrlQ]
 
   btext = Widget::Box.new(
     parent: s,

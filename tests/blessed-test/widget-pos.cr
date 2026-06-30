@@ -11,7 +11,7 @@ require "../../src/crysterm"
 # the computed-position accessors (aleft/atop/aright/abottom/awidth/aheight,
 # and relative rleft/rtop/...), so we display a few of them on `inner`.
 module Crysterm
-  s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
   main = Widget::Box.new \
     parent: s,

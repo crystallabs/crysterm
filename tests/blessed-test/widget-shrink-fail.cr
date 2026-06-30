@@ -7,7 +7,7 @@ require "../../src/crysterm"
 # (Foo/Bar/Baz) and a submit button. Pressing submit collects the textbox
 # values and emits Event::SubmitData.
 module Crysterm
-  s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
   tab = Widget::ScrollableBox.new \
     parent: s,

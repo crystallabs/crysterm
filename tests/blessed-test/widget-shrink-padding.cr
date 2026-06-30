@@ -5,7 +5,7 @@ require "../../src/crysterm"
 # centered, containing an inner shrink box with content "foobar" and a
 # magenta background.
 module Crysterm
-  s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
   outer = Widget::Box.new(
     parent: s,

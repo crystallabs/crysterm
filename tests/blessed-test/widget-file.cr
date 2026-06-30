@@ -10,7 +10,7 @@ class X
   include Crysterm
 
   def initialize
-    s = Screen.new always_propagate: [::Tput::Key::CtrlQ], full_unicode: true
+    s = Window.new always_propagate: [::Tput::Key::CtrlQ], full_unicode: true
 
     fm = Widget::FileManager.new \
       parent: s,

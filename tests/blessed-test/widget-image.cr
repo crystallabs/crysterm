@@ -30,7 +30,7 @@ class X
   end
 
   def initialize
-    s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
+    s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
     # Default to a bundled sample image. Look in ../../data/image (running from
     # tests/blessed-test/) first, then fall back to ./data/image (running from

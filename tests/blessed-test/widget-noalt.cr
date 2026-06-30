@@ -7,7 +7,7 @@ require "../../src/crysterm"
 module Crysterm
   # NOTE: Blessed's `noAlt: true` (don't switch to the terminal's alternate
   # screen buffer) has no Crysterm equivalent, so it is dropped.
-  s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
   list = Widget::List.new(
     parent: s,

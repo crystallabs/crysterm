@@ -3,7 +3,7 @@ require "../../src/crysterm"
 module Crysterm
   include Widgets # Just for convenience, to not have to write e.g. `Widget::Box`
 
-  s = Screen.new propagate_keys: false, always_propagate: [Tput::Key::CtrlQ]
+  s = Window.new propagate_keys: false, always_propagate: [Tput::Key::CtrlQ]
 
   b = Box.new(
     screen: s,

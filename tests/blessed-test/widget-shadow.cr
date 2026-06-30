@@ -6,7 +6,7 @@ require "../../src/crysterm"
 # static "under" box, and a centered draggable "over" box that casts a shadow
 # over the others. Arrow keys nudge the over box; drag it with the mouse.
 module Crysterm
-  s = Screen.new optimization: OptimizationFlag::SmartCSR,
+  s = Window.new optimization: OptimizationFlag::SmartCSR,
     dock_borders: true,
     always_propagate: [::Tput::Key::CtrlQ]
 

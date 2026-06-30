@@ -4,7 +4,7 @@ require "../../src/crysterm"
 # A single tags-enabled box with nested fg/bg color tags inside a line
 # border, centered, sized 80%x80%.
 module Crysterm
-  s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
   Widget::Box.new(
     parent: s,

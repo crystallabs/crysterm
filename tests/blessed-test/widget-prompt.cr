@@ -1,7 +1,7 @@
 require "../../src/crysterm"
 
 module Crysterm
-  s = Screen.new
+  s = Window.new
   include Widgets
 
   prompt = Prompt.new(

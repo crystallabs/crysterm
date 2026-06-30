@@ -1,7 +1,7 @@
 require "../../src/crysterm"
 
 module Crysterm
-  s = Screen.new optimization: OptimizationFlag::SmartCSR
+  s = Window.new optimization: OptimizationFlag::SmartCSR
 
   b = Widget::Box.new(
     top: "center",

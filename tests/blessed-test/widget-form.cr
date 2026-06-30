@@ -9,7 +9,7 @@ class X
   include Crysterm
 
   def initialize
-    s = Screen.new always_propagate: [::Tput::Key::CtrlQ]
+    s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
     form = Widget::Form.new \
       parent: s,

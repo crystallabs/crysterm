@@ -7,7 +7,7 @@ require "../../src/crysterm"
 # 0 = hide) so only the inner edges are drawn. The bottom-right quadrant is a
 # `Widget::ListTable`; a centered, draggable "Drag Me" box floats on top.
 module Crysterm
-  s = Screen.new optimization: OptimizationFlag::SmartCSR, dock_borders: true, always_propagate: [::Tput::Key::CtrlQ]
+  s = Window.new optimization: OptimizationFlag::SmartCSR, dock_borders: true, always_propagate: [::Tput::Key::CtrlQ]
 
   topleft = Widget::Box.new(
     parent: s,
