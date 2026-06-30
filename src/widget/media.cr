@@ -17,8 +17,11 @@ module Crysterm
     # family base each one inherits:
     #
     # * **cell-grid** (`Media::Cells`) — the image becomes character cells
-    #   Crysterm owns and diffs: `Ansi` (`Media::Ansi`) and `Glyph`
-    #   (`Media::Glyph`, sub-cell glyphs).
+    #   Crysterm owns and diffs: `Ansi` (`Media::Ansi`, one cell per pixel) and
+    #   `Glyph` (`Media::Glyph`, sub-cell glyphs). Each exposes single-variant
+    #   subclasses that pin one rendering: `Ansi::TrueColor` / `Ansi::C256` /
+    #   `Ansi::C16` / `Ansi::C8`, and `Glyph::Block` / `Half` / `Quadrant` / `Sextant` /
+    #   `Octant` / `Braille` / `Ascii`.
     # * **external overlay** (`Media::External`) — a helper process paints the
     #   pixels in its own window: `Overlay` (`Media::Overlay`, w3mimgdisplay) and
     #   `Ueberzug` (`Media::Ueberzug`).
@@ -193,16 +196,32 @@ module Crysterm
       end
 
       # Backend used to render the image. See the families described above.
+      #
+      # `Ansi` and `Glyph` are the cell-grid defaults (mode/colormode selectable on
+      # the widget, and what auto-selection ranks); each is *also* offered as
+      # single-variant members (`AnsiC256`, `GlyphOctant`, …) for picking one
+      # rendering explicitly.
       enum Type
-        Ansi     # cell-grid, one cell per pixel (`Media::Ansi`)
-        Glyph    # cell-grid, sub-cell Unicode glyphs (`Media::Glyph`)
-        Overlay  # window-owns-pixels, external w3mimgdisplay overlay (`Media::Overlay`)
-        Ueberzug # window-owns-pixels, external überzug overlay (`Media::Ueberzug`)
-        Sixel    # window-owns-pixels, in-band sixel graphics (`Media::Sixel`)
-        Regis    # window-owns-pixels, in-band ReGIS vector graphics (`Media::Regis`)
-        Kitty    # window-owns-pixels, in-band Kitty graphics protocol (`Media::Kitty`)
-        Iterm    # window-owns-pixels, in-band iTerm2 inline images (`Media::Iterm`)
-        Tek      # separate window, Tektronix 4014 vectors (`Media::Tek`)
+        Ansi          # cell-grid, one cell per pixel, default colormode (`Media::Ansi`)
+        AnsiTrueColor # cell-grid, one cell per pixel, 24-bit (`Media::Ansi::TrueColor`)
+        AnsiC256      # cell-grid, one cell per pixel, xterm-256 (`Media::Ansi::C256`)
+        AnsiC16       # cell-grid, one cell per pixel, ANSI-16 (`Media::Ansi::C16`)
+        AnsiC8        # cell-grid, one cell per pixel, ANSI-8 (`Media::Ansi::C8`)
+        Glyph         # cell-grid, sub-cell glyphs, default mode (`Media::Glyph`)
+        GlyphBlock    # cell-grid, 1×1 block (`Media::Glyph::Block`)
+        GlyphHalf     # cell-grid, 1×2 half-block (`Media::Glyph::Half`)
+        GlyphQuadrant # cell-grid, 2×2 quadrant (`Media::Glyph::Quadrant`)
+        GlyphSextant  # cell-grid, 2×3 sextant (`Media::Glyph::Sextant`)
+        GlyphOctant   # cell-grid, 2×4 octant (`Media::Glyph::Octant`)
+        GlyphBraille  # cell-grid, 2×4 braille dots (`Media::Glyph::Braille`)
+        GlyphAscii    # cell-grid, 1×1 ASCII contour (`Media::Glyph::Ascii`)
+        Overlay       # window-owns-pixels, external w3mimgdisplay overlay (`Media::Overlay`)
+        Ueberzug      # window-owns-pixels, external überzug overlay (`Media::Ueberzug`)
+        Sixel         # window-owns-pixels, in-band sixel graphics (`Media::Sixel`)
+        Regis         # window-owns-pixels, in-band ReGIS vector graphics (`Media::Regis`)
+        Kitty         # window-owns-pixels, in-band Kitty graphics protocol (`Media::Kitty`)
+        Iterm         # window-owns-pixels, in-band iTerm2 inline images (`Media::Iterm`)
+        Tek           # separate window, Tektronix 4014 vectors (`Media::Tek`)
       end
 
       # Selectable values of the `media.backend` config option: the special
@@ -213,7 +232,18 @@ module Crysterm
       enum Backend
         Auto # Pick the best backend the terminal supports (see `resolve`)
         Ansi
+        AnsiTrueColor
+        AnsiC256
+        AnsiC16
+        AnsiC8
         Glyph
+        GlyphBlock
+        GlyphHalf
+        GlyphQuadrant
+        GlyphSextant
+        GlyphOctant
+        GlyphBraille
+        GlyphAscii
         Overlay
         Ueberzug
         Sixel
@@ -308,6 +338,10 @@ module Crysterm
 
       # Ranked best→fallback backend candidates for *content* (see `resolve`).
       private def self.candidates_for(content : Content) : Array(Type)
+        # Auto-selection ranks by family default (`Glyph`/`Ansi`); the widget then
+        # picks the concrete mode/colormode (e.g. `Graph::Canvas` sets braille). A
+        # specific variant (`GlyphOctant`, `AnsiC256`, …) can be forced explicitly
+        # via `image.backend`/`type:`.
         case content
         in Content::Image
           [Type::Kitty, Type::Iterm, Type::Sixel, Type::Glyph, Type::Ansi]
@@ -398,8 +432,19 @@ module Crysterm
         opts = opts.merge(file: file)
         widget =
           case type
-          in Type::Ansi     then Ansi.new **opts
-          in Type::Glyph    then Glyph.new **opts
+          in Type::Ansi          then Ansi.new **opts
+          in Type::AnsiTrueColor then Ansi::TrueColor.new **opts
+          in Type::AnsiC256      then Ansi::C256.new **opts
+          in Type::AnsiC16       then Ansi::C16.new **opts
+          in Type::AnsiC8        then Ansi::C8.new **opts
+          in Type::Glyph         then Glyph.new **opts
+          in Type::GlyphBlock    then Glyph::Block.new **opts
+          in Type::GlyphHalf     then Glyph::Half.new **opts
+          in Type::GlyphQuadrant then Glyph::Quadrant.new **opts
+          in Type::GlyphSextant  then Glyph::Sextant.new **opts
+          in Type::GlyphOctant   then Glyph::Octant.new **opts
+          in Type::GlyphBraille  then Glyph::Braille.new **opts
+          in Type::GlyphAscii    then Glyph::Ascii.new **opts
           in Type::Overlay  then Overlay.new **opts
           in Type::Ueberzug then Ueberzug.new **opts
           in Type::Sixel    then Sixel.new **opts

@@ -16,8 +16,9 @@ module Crysterm
       # Backend selection reuses `Media.resolve(Content::Painter)`, so the user's
       # `image.backend` / `image.exclude` preferences apply exactly as for images:
       #
-      # * `type:` forces a specific backend (e.g. `Media::Type::Glyph`).
-      # * `mode:` picks the glyph family when the (resolved) backend is `Glyph`;
+      # * `type:` forces a specific backend (e.g. `Media::Type::Glyph`, or a
+      #   pinned variant like `Media::Type::GlyphBraille`).
+      # * `mode:` picks the glyph family when the (resolved) backend is a `Glyph`;
       #   the default is **braille** — its 8 visible dots read well for plots.
       # * otherwise the best supported backend is auto-detected.
       #

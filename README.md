@@ -25,7 +25,7 @@ Image-rendering backends — an image drawn straight into the terminal:
 Crysterm can render images through a real terminal graphics protocol (overlay
 via w3m / überzug, Sixel, Kitty, iTerm2, ReGIS, and Tektronix 4014) or
 down-sample them to text using Unicode glyph mosaics (block, half, quadrant,
-sextant, octant, braille, ASCII) and ANSI 16/256-color or truecolor cells.
+sextant, octant, braille, ASCII) and ANSI 8/16/256-color or truecolor cells.
 
 ## Tech intro
 

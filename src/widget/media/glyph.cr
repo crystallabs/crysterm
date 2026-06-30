@@ -439,6 +439,52 @@ module Crysterm
         end
         arr
       end
+
+      # ---- single-mode backends ------------------------------------------
+      # Each subclass pins one drawing `Mode`, so it is a one-variant image
+      # backend that can be exemplified and documented on its own. The base
+      # `Glyph` stays usable (mode-selectable via `mode:`) for programmatic use.
+      class Block < Glyph
+        def initialize(**box)
+          super **box.merge(mode: Mode::Block)
+        end
+      end
+
+      class Half < Glyph
+        def initialize(**box)
+          super **box.merge(mode: Mode::Half)
+        end
+      end
+
+      class Quadrant < Glyph
+        def initialize(**box)
+          super **box.merge(mode: Mode::Quadrant)
+        end
+      end
+
+      class Sextant < Glyph
+        def initialize(**box)
+          super **box.merge(mode: Mode::Sextant)
+        end
+      end
+
+      class Octant < Glyph
+        def initialize(**box)
+          super **box.merge(mode: Mode::Octant)
+        end
+      end
+
+      class Braille < Glyph
+        def initialize(**box)
+          super **box.merge(mode: Mode::Braille)
+        end
+      end
+
+      class Ascii < Glyph
+        def initialize(**box)
+          super **box.merge(mode: Mode::Ascii)
+        end
+      end
     end
   end
 end

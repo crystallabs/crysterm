@@ -1,54 +1,87 @@
 #!/usr/bin/env bash
-# Capture still PNGs of the terminal-graphics image demos (sixel, ReGIS,
-# Tektronix, …) beside each demo as examples/features/<demo>-capture.png.
-# Override the directory with OUT=...
+# make-graphics-shots.sh — capture the image backends that the built-in headless
+# capture CANNOT do, beside each demo as tests/widget/media/<backend>/<backend>.png.
 #
-# Normally driven by tools/manage-examples.cr (which owns naming and freshness);
-# also runs standalone. Pass demo stems as args to render only those backends,
-# e.g.  make-graphics-shots.sh sixel_image tek_image
+# Most image backends need NO external capture: `Window#capture` (used by
+# tools/test.cr) composites the cell buffer AND the in-band terminal-graphics
+# backends (sixel / kitty / iterm / regis) into the PNG/APNG in-process, and the
+# cell-based `ansi` (TrueColor/C256/C16/C8) and `glyph` (block/half/quadrant/
+# sextant/octant/braille/ascii) variants render straight into cells — so all of
+# those are captured headlessly on any platform (incl. macOS) by the normal:
 #
-# These can't go through the ttygif.py pseudo-terminal recorder: its built-in VT
-# emulator doesn't implement sixel/ReGIS/Tek (just as it can't show the w3m
-# overlay). So — exactly like the Media::Overlay path in make-gifs.sh — we run
-# each demo in a REAL xterm on $DISPLAY and screenshot the window with ffmpeg.
+#     crystal run tools/test.cr -- --force tests/widget/media
 #
-# Requirements:
-#   * DISPLAY + xterm built with sixel, --enable-regis-graphics and
-#     --enable-tek4014 (modern xterm; check `xterm -ti vt340` and `xterm -t`)
-#   * xwininfo, ffmpeg, python3 + Pillow
+# Only THREE backends fall outside that, because their pixels never reach
+# Crysterm's buffer:
+#   * tek      — Tektronix 4014 draws in xterm's SEPARATE Tek window
+#   * overlay  — Media::Overlay shells out to w3mimgdisplay (external X overlay)
+#   * ueberzug — Media::Ueberzug shells out to überzug (external X overlay)
+# Those three are what this script handles: run the demo in a REAL terminal on an
+# X display and screenshot the window.
 #
-# Each demo self-terminates via DEMO_SECONDS so no broad pkill is ever needed.
+# Pass backend names to render only some, e.g.:  make-graphics-shots.sh tek
+#
+# Requirements (an X11 stack):
+#   * $DISPLAY + xterm (Tek/overlay use it; built with --enable-tek4014 for tek)
+#   * xwininfo  (locate the window)
+#   * ImageMagick `import`  (grab the window) — preferred; falls back to
+#     `ffmpeg -f x11grab` where ImageMagick has no X support
+#   * python3 + Pillow  (normalize the grab to a uniform size)
+#   * w3mimgdisplay (overlay) / ueberzug|ueberzugpp (ueberzug)
+#
+# macOS: works under **XQuartz** (install XQuartz for the X server + xterm/
+# xwininfo and ImageMagick for `import`; macOS ffmpeg has no x11grab, hence
+# `import`). The native iTerm2/kitty + `screencapture` route is NOT automated
+# here — but it isn't needed for these three: tek has no macOS terminal, and the
+# overlays are X11-only by nature.
+#
+# Each demo self-terminates via its *_SECONDS knob, so no broad pkill is needed.
 set -u
 
-# This script lives in tools/; the demo programs live in examples/features/.
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-SRC="$ROOT/examples/features"
-OUT="${OUT:-$SRC}"
+MEDIA="$ROOT/tests/widget/media"          # demos live at $MEDIA/<backend>/<backend>.cr
 BUILD="${BUILD:-/tmp/_crysterm_gfx_build}"
-mkdir -p "$BUILD" "$OUT"
+mkdir -p "$BUILD"
 
 COLS="${COLS:-80}"
 ROWS="${ROWS:-15}"
 FONT_SIZE="${FONT_SIZE:-18}"
-OUT_W="${OUT_W:-880}"   # match the other <demo>-capture.png screenshots
+OUT_W="${OUT_W:-880}"
 OUT_H="${OUT_H:-330}"
 
-# Optional positional filter: which backend demos to render (default all).
 WANT=("$@")
-want() {  # want <stem> -> true if it should run
+want() {  # want <backend> -> true if it should run
   [ "${#WANT[@]}" -eq 0 ] && return 0
   local x; for x in "${WANT[@]}"; do [ "$x" = "$1" ] && return 0; done
   return 1
 }
 
+# Where a backend's still goes — beside its demo, matching tools/test.cr naming.
+outpng() { echo "$MEDIA/$1/$1.png"; }
+
+# Need an X display + xterm + xwininfo + a grabber (import OR ffmpeg-x11grab).
+have_grabber() { command -v import >/dev/null || command -v ffmpeg >/dev/null; }
 if [ -z "${DISPLAY:-}" ] || ! command -v xterm >/dev/null \
-   || ! command -v xwininfo >/dev/null || ! command -v ffmpeg >/dev/null; then
-  echo "skipped: needs DISPLAY, xterm, xwininfo and ffmpeg"; exit 0
+   || ! command -v xwininfo >/dev/null || ! have_grabber; then
+  if [ "$(uname)" = Darwin ]; then
+    cat >&2 <<'MSG'
+skipped: tek/overlay/ueberzug are captured by running the demo in a real X
+terminal and screenshotting its window — this needs an X11 stack.
+On macOS: install XQuartz (X server + xterm + xwininfo) and ImageMagick (`import`),
+launch from an XQuartz session ($DISPLAY set), then re-run.
+All OTHER image backends (ansi & glyph variants, sixel/kitty/iterm/regis) are
+captured headlessly:  crystal run tools/test.cr -- --force tests/widget/media
+MSG
+  else
+    echo "skipped: needs DISPLAY, xterm, xwininfo and import (ImageMagick) or ffmpeg" >&2
+  fi
+  exit 0
 fi
 
-# normalize <src.png> <dst.png>: resize to OUT_W x OUT_H to match the set.
-normalize() {
+# ---- image post-processing (Pillow) --------------------------------------
+
+normalize() {  # normalize <src.png> <dst.png>  — resize to OUT_W x OUT_H
   python3 - "$1" "$2" "$OUT_W" "$OUT_H" <<'PY'
 import sys
 from PIL import Image
@@ -58,11 +91,7 @@ print("   wrote", dst, (w, h))
 PY
 }
 
-# Like normalize(), but first trims any pure-black border. Used for the Tek
-# window: a source whose aspect differs from the ~4:3 Tek screen is letterboxed
-# with black, so trimming it keeps the image filling the final frame regardless
-# of the source's proportions.
-normalize_trim() {
+normalize_trim() {  # like normalize() but crop any pure-black letterbox first (Tek)
   python3 - "$1" "$2" "$OUT_W" "$OUT_H" <<'PY'
 import sys
 from PIL import Image, ImageChops
@@ -75,181 +104,91 @@ print("   wrote", dst, (W, H))
 PY
 }
 
-# Like normalize(), but first strips Konsole's chrome: the light top toolbar and
-# the right scrollbar. Their exact pixel size depends on the Konsole/Qt theme, so
-# we DETECT them (the chrome is light grey; the terminal content — dark title bar
-# + image — is not) rather than hardcoding a fragile offset.
-normalize_konsole() {
-  python3 - "$1" "$2" "$OUT_W" "$OUT_H" <<'PY'
-import sys
-from PIL import Image
-src, dst, W, H = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
-im = Image.open(src).convert("RGB"); w, h = im.size; px = im.load()
-def light(p): r, g, b = p; return r > 180 and g > 180 and b > 180
-def row_light(y): xs = range(0, w, 4); return sum(light(px[x, y]) for x in xs) / len(xs)
-def col_light(x, top): ys = range(top, h, 4); return sum(light(px[x, y]) for y in ys) / len(ys)
-top = next((y for y in range(h) if row_light(y) < 0.5), 0)        # toolbar bottom
-right = next((x + 1 for x in range(w - 1, -1, -1) if col_light(x, top) < 0.5), w)  # scrollbar left
-im.crop((0, top, right, h)).resize((W, H), Image.LANCZOS).save(dst)
-print("   wrote", dst, (W, H), "(konsole chrome: top=%d right=%d)" % (top, right))
-PY
-}
+# ---- window grab (X11; portable: import preferred, ffmpeg fallback) --------
 
-# grab_window <wm-name> <out.png>
-grab_window() {
-  local name="$1" dst="$2"
-  local info gx gy gw gh
+grab_window() {  # grab_window <wm-name> <out.png>
+  local name="$1" dst="$2" info id gx gy gw gh
   info=$(xwininfo -name "$name" 2>/dev/null || true)
-  gx=$(awk '/Absolute upper-left X/{print $4}' <<<"$info")
-  gy=$(awk '/Absolute upper-left Y/{print $4}' <<<"$info")
-  gw=$(awk '/Width:/{print $2}' <<<"$info")
-  gh=$(awk '/Height:/{print $2}' <<<"$info")
-  if [ -z "$gw" ]; then echo "   could not locate window '$name'"; return 1; fi
-  ffmpeg -hide_banner -loglevel error -f x11grab -video_size "${gw}x${gh}" \
-    -i "${DISPLAY}+${gx},${gy}" -frames:v 1 -y "$dst"
+  if [ -z "$info" ]; then echo "   could not locate window '$name'"; return 1; fi
+  if command -v import >/dev/null; then
+    id=$(awk '/Window id:/{print $4; exit}' <<<"$info")
+    import -window "$id" "$dst"
+  else
+    gx=$(awk '/Absolute upper-left X/{print $4}' <<<"$info")
+    gy=$(awk '/Absolute upper-left Y/{print $4}' <<<"$info")
+    gw=$(awk '/Width:/{print $2}' <<<"$info")
+    gh=$(awk '/Height:/{print $2}' <<<"$info")
+    [ -z "$gw" ] && { echo "   no geometry for '$name'"; return 1; }
+    ffmpeg -hide_banner -loglevel error -f x11grab -video_size "${gw}x${gh}" \
+      -i "${DISPLAY}+${gx},${gy}" -frames:v 1 -y "$dst"
+  fi
 }
 
-build() {
-  echo "   building $1 ..."
-  crystal build "$SRC/$1.cr" -o "$BUILD/$1" 2>&1 | sed 's/^/   /'
+build() {  # build <backend>  -> $BUILD/<backend>
+  local b="$1" src="$MEDIA/$1/$1.cr"
+  if [ ! -f "$src" ]; then echo "   no demo: ${src#$ROOT/}"; return 1; fi
+  echo "   building $b ..."
+  crystal build "$src" -o "$BUILD/$b" 2>&1 | sed 's/^/   /'
   return "${PIPESTATUS[0]}"
 }
 
-# ---- sixel ---------------------------------------------------------------
-echo ">> sixel (Media::Sixel, in-band DCS raster)"
-if want sixel_image && build sixel_image; then
-  # maxGraphicSize must exceed the sixel's pixel size or xterm silently drops it.
-  # No CELL_PW/PH: the demo auto-detects the real cell size (TIOCGWINSZ) so the
-  # raster matches the window exactly instead of leaving a black margin.
-  DEMO_SECONDS=10 \
-    xterm -title Sixel -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
-      -geometry "${COLS}x${ROWS}+50+50" -ti vt340 \
-      -xrm 'XTerm*numColorRegisters: 256' -xrm 'XTerm*maxGraphicSize: 4000x4000' \
-      -e "$BUILD/sixel_image" &
-  pid=$!; sleep 4
-  if grab_window Sixel /tmp/_sixel_grab.png; then
-    normalize /tmp/_sixel_grab.png "$OUT/sixel_image-capture.png"
-  fi
-  kill "$pid" 2>/dev/null || true
-fi
-echo
-
-# ---- regis ---------------------------------------------------------------
-echo ">> regis (Media::Regis, in-band ReGIS vectors)"
-if want regis_image && build regis_image; then
-  # xterm maps its ReGIS logical screen (regisScreenSize, in pixels) onto the
-  # window ~1:1, so it must equal the window's real pixel size or the image is
-  # left in a corner with a black margin. We don't know that until the window
-  # exists, so: launch once to read it (xwininfo), then relaunch with a matching
-  # regisScreenSize AND the same REGIS_W/H so the demo's logical space lines up.
-  probe=$(xterm -title RegisProbe -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
-            -geometry "${COLS}x${ROWS}+50+50" -ti vt340 -e sleep 6 & \
-          pp=$!; sleep 2; xwininfo -name RegisProbe 2>/dev/null; kill "$pp" 2>/dev/null)
-  gw=$(awk '/Width:/{print $2}' <<<"$probe"); gh=$(awk '/Height:/{print $2}' <<<"$probe")
-  gw=${gw:-1204}; gh=${gh:-454}
-  REGIS_W="$gw" REGIS_H="$gh" DEMO_SECONDS=12 \
-    xterm -title Regis -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
-      -geometry "${COLS}x${ROWS}+50+50" -ti vt340 \
-      -xrm 'XTerm*numColorRegisters: 256' -xrm "XTerm*regisScreenSize: ${gw}x${gh}" \
-      -e "$BUILD/regis_image" &
-  pid=$!; sleep 5
-  if grab_window Regis /tmp/_regis_grab.png; then
-    normalize /tmp/_regis_grab.png "$OUT/regis_image-capture.png"
-  fi
-  kill "$pid" 2>/dev/null || true
-fi
-echo
-
-# ---- kitty ---------------------------------------------------------------
-# Kitty graphics protocol — xterm doesn't speak it, so this one runs in the
-# `kitty` terminal itself (if installed) rather than xterm.
-echo ">> kitty (Media::Kitty, Kitty graphics protocol)"
-if want kitty_image && command -v kitty >/dev/null; then
-  if build kitty_image; then
-    DEMO_SECONDS=10 \
-      kitty --title Kitty -o font_size="$FONT_SIZE" -o remember_window_size=no \
-        -o initial_window_width=1100 -o initial_window_height=440 \
-        -o background=black -o cursor_blink_interval=0 "$BUILD/kitty_image" &
-    pid=$!; sleep 4
-    if grab_window Kitty /tmp/_kitty_grab.png; then
-      normalize /tmp/_kitty_grab.png "$OUT/kitty_image-capture.png"
+# ---- overlay -------------------------------------------------------------
+echo ">> overlay (Media::Overlay, w3mimgdisplay external X overlay)"
+if want overlay; then
+  if command -v w3mimgdisplay >/dev/null || [ -x /usr/lib/w3m/w3mimgdisplay ]; then
+    if build overlay; then
+      PATH="$PATH:/usr/lib/w3m" OVERLAY_SECONDS=12 \
+        xterm -title Overlay -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
+          -geometry "${COLS}x${ROWS}+50+50" -e "$BUILD/overlay" &
+      pid=$!; sleep 5
+      if grab_window Overlay /tmp/_overlay_grab.png; then
+        normalize /tmp/_overlay_grab.png "$(outpng overlay)"
+      fi
+      kill "$pid" 2>/dev/null || true
     fi
-    kill "$pid" 2>/dev/null || true
+  else
+    echo "   skipped: w3mimgdisplay not found"
   fi
-else
-  echo "   skipped: 'kitty' terminal not found"
-fi
-echo
-
-# ---- iterm2 --------------------------------------------------------------
-# iTerm2 inline-images protocol — captured in Konsole (xterm doesn't speak it).
-echo ">> iterm (Media::Iterm, iTerm2 OSC 1337 inline images)"
-if want iterm_image && command -v konsole >/dev/null; then
-  if build iterm_image; then
-    DEMO_SECONDS=11 konsole -p tabtitle=Iterm --hide-menubar --hide-tabbar \
-      --geometry 900x380+50+50 -e "$BUILD/iterm_image" &
-    pid=$!; sleep 5
-    if grab_window 'Iterm — Konsole' /tmp/_iterm_grab.png; then
-      normalize_konsole /tmp/_iterm_grab.png "$OUT/iterm_image-capture.png"
-    fi
-    kill "$pid" 2>/dev/null || true
-  fi
-else
-  echo "   skipped: 'konsole' (or another iTerm2-capable terminal) not found"
 fi
 echo
 
 # ---- ueberzug ------------------------------------------------------------
-# Überzug / Überzug++ overlay — needs the helper binary; otherwise skipped.
-echo ">> ueberzug (Media::Ueberzug, überzug X11 overlay)"
-if want ueberzug_image && { command -v ueberzug >/dev/null || command -v ueberzugpp >/dev/null; }; then
-  if build ueberzug_image; then
-    DEMO_SECONDS=11 \
-      xterm -title Ueberzug -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
-        -geometry "${COLS}x${ROWS}+50+50" -e "$BUILD/ueberzug_image" &
-    pid=$!; sleep 5
-    if grab_window Ueberzug /tmp/_ueberzug_grab.png; then
-      normalize /tmp/_ueberzug_grab.png "$OUT/ueberzug_image-capture.png"
+echo ">> ueberzug (Media::Ueberzug, überzug external X overlay)"
+if want ueberzug; then
+  if command -v ueberzug >/dev/null || command -v ueberzugpp >/dev/null; then
+    if build ueberzug; then
+      DEMO_SECONDS=11 \
+        xterm -title Ueberzug -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
+          -geometry "${COLS}x${ROWS}+50+50" -e "$BUILD/ueberzug" &
+      pid=$!; sleep 5
+      if grab_window Ueberzug /tmp/_ueberzug_grab.png; then
+        normalize /tmp/_ueberzug_grab.png "$(outpng ueberzug)"
+      fi
+      kill "$pid" 2>/dev/null || true
     fi
-    kill "$pid" 2>/dev/null || true
+  else
+    echo "   skipped: 'ueberzug'/'ueberzugpp' binary not found"
   fi
-else
-  echo "   skipped: 'ueberzug'/'ueberzugpp' binary not found"
-fi
-echo
-
-# ---- ansi palette stills (256 / 16 color) --------------------------------
-# Cell-based, so the normal ttygif.py recorder renders them (no real terminal).
-echo ">> ansi palette (Media::Ansi 256/16-color quantization)"
-if want ansi256_image && build ansi256_image; then
-  for m in c256 c16; do
-    ANSI_COLORS="$m" python3 "$HERE/ttygif.py" \
-      --out "$OUT/ansi256_image-capture-$m.png" --cols "$COLS" --rows "$ROWS" \
-      --duration 4 --fps 8 --font-size "$FONT_SIZE" --scale 1 \
-      -- "$BUILD/ansi256_image" 2>&1 | sed 's/^/   /'
-  done
 fi
 echo
 
 # ---- tektronix -----------------------------------------------------------
-echo ">> tek (Media::Tek, Tektronix 4014 — separate window)"
-if want tek_image && build tek_image; then
-  # fit defaults to Contain (fills the Tek screen, aspect preserved); the
-  # normalize_trim below crops the letterbox. No numeric TEK_FIT any more.
+echo ">> tek (Media::Tek, Tektronix 4014 — separate xterm window)"
+if want tek && build tek; then
   DEMO_SECONDS=12 \
     xterm -title Tek -fa 'DejaVu Sans Mono' -fs "$FONT_SIZE" \
-      -geometry "${COLS}x${ROWS}+50+50" -e "$BUILD/tek_image" &
+      -geometry "${COLS}x${ROWS}+50+50" -e "$BUILD/tek" &
   pid=$!; sleep 5
   # The drawing lands in xterm's SEPARATE Tek window, not the VT window.
   if grab_window 'tektronix(Tek)' /tmp/_tek_grab.png; then
-    normalize_trim /tmp/_tek_grab.png "$OUT/tek_image-capture.png"
+    normalize_trim /tmp/_tek_grab.png "$(outpng tek)"
   fi
   kill "$pid" 2>/dev/null || true
 fi
 echo
 
 echo "done:"
-ls -la "$OUT"/sixel_image-capture.png "$OUT"/regis_image-capture.png \
-       "$OUT"/kitty_image-capture.png "$OUT"/iterm_image-capture.png \
-       "$OUT"/ueberzug_image-capture.png "$OUT"/ansi256_image-capture-c256.png \
-       "$OUT"/ansi256_image-capture-c16.png "$OUT"/tek_image-capture.png 2>/dev/null | sed 's/^/  /'
+for b in overlay ueberzug tek; do
+  f="$(outpng "$b")"; [ -f "$f" ] && ls -la "$f" | sed 's/^/  /'
+done
+echo "  (ansi/sixel/kitty/iterm/regis are captured headlessly by tools/test.cr)"

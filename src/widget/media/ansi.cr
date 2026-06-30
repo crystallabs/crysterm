@@ -27,13 +27,14 @@ module Crysterm
       # Color depth the image is rendered in. Crysterm is natively TrueColor and
       # only reduces colors at output time when the terminal can't do 24-bit; the
       # non-`TrueColor` modes here additionally *quantize the pixels themselves*
-      # to the xterm-256 or 16-color palette, so the classic low-color look is
+      # to the xterm-256, 16- or 8-color palette, so the classic low-color look is
       # produced (and preserved) regardless of the terminal's own capability —
       # the portability story Blessed's `ansiimage` had via palette-matching.
       enum ColorMode
         TrueColor # 24-bit RGB used directly (default)
         C256      # quantized to the xterm 256-color palette
         C16       # quantized to the 16-color ANSI palette
+        C8        # quantized to the 8-color base ANSI palette
       end
 
       # Color depth used to render pixels (see `ColorMode`).
@@ -206,14 +207,16 @@ module Crysterm
 
       # The xterm palette as packed `0xRRGGBB`, precomputed once from
       # `TermColors::HI2RGB` so the nearest-color search (`Media.nearest_index`)
-      # is a flat `Array(Int32)` scan: the first 16 entries are the ANSI palette
-      # (`C16`), all 256 the xterm cube (`C256`).
+      # is a flat `Array(Int32)` scan: the first 8 entries are the base ANSI
+      # palette (`C8`), the first 16 the ANSI palette (`C16`), all 256 the xterm
+      # cube (`C256`).
       C256_PALETTE = TermColors::HI2RGB.map { |(pr, pg, pb)| (pr << 16) | (pg << 8) | pb }
       C16_PALETTE  = C256_PALETTE[0, 16]
+      C8_PALETTE   = C256_PALETTE[0, 8]
 
-      # Packed RGB of the nearest xterm-256 (or 16) palette color to *r*,*g*,*b*.
+      # Packed RGB of the nearest xterm-256 (or 16/8) palette color to *r*,*g*,*b*.
       private def nearest_palette_rgb(r : Int32, g : Int32, b : Int32) : Int32
-        pal = @colors.c16? ? C16_PALETTE : C256_PALETTE
+        pal = @colors.c8? ? C8_PALETTE : (@colors.c16? ? C16_PALETTE : C256_PALETTE)
         pal[Media.nearest_index(pal, r, g, b)]
       end
 
@@ -229,6 +232,34 @@ module Crysterm
           end
         end
         raise "curl or wget failed."
+      end
+
+      # ---- single-colormode backends -------------------------------------
+      # Each subclass pins one `ColorMode`, so it is a one-variant image backend
+      # that can be exemplified and documented on its own. The base `Ansi` stays
+      # usable (mode-selectable via `colors:`) for programmatic use.
+      class TrueColor < Ansi
+        def initialize(**box)
+          super **box.merge(colors: ColorMode::TrueColor)
+        end
+      end
+
+      class C256 < Ansi
+        def initialize(**box)
+          super **box.merge(colors: ColorMode::C256)
+        end
+      end
+
+      class C16 < Ansi
+        def initialize(**box)
+          super **box.merge(colors: ColorMode::C16)
+        end
+      end
+
+      class C8 < Ansi
+        def initialize(**box)
+          super **box.merge(colors: ColorMode::C8)
+        end
       end
     end
   end
