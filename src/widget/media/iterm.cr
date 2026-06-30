@@ -19,6 +19,10 @@ module Crysterm
     # ```
     # img = Widget::Media::Iterm.new file: "pic.png", width: 40, height: 12, parent: window
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Iterm screenshot](../../../tests/widget/media/iterm/iterm.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Media::Iterm < Media::Graphics
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
         # Unused (we size in cells), but feeds the payload cache key.

@@ -20,6 +20,10 @@ module Crysterm
     # img = Widget::Media::Glyph.new file: "pic.png", mode: :braille, width: 40, height: 12, parent: window
     # img.mode = Widget::Media::Glyph::Mode::Octant # re-renders in another family
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Glyph screenshot](../../../tests/widget/media/glyph/glyph.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Media::Glyph < Media::Cells
       enum Mode
         Block
@@ -444,42 +448,64 @@ module Crysterm
       # Each subclass pins one drawing `Mode`, so it is a one-variant image
       # backend that can be exemplified and documented on its own. The base
       # `Glyph` stays usable (mode-selectable via `mode:`) for programmatic use.
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![Block screenshot](../../../../tests/widget/media/glyph/block/block.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Block < Glyph
         def initialize(**box)
           super **box.merge(mode: Mode::Block)
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![Half screenshot](../../../../tests/widget/media/glyph/half/half.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Half < Glyph
         def initialize(**box)
           super **box.merge(mode: Mode::Half)
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![Quadrant screenshot](../../../../tests/widget/media/glyph/quadrant/quadrant.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Quadrant < Glyph
         def initialize(**box)
           super **box.merge(mode: Mode::Quadrant)
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![Sextant screenshot](../../../../tests/widget/media/glyph/sextant/sextant.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Sextant < Glyph
         def initialize(**box)
           super **box.merge(mode: Mode::Sextant)
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![Octant screenshot](../../../../tests/widget/media/glyph/octant/octant.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Octant < Glyph
         def initialize(**box)
           super **box.merge(mode: Mode::Octant)
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![Braille screenshot](../../../../tests/widget/media/glyph/braille/braille.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Braille < Glyph
         def initialize(**box)
           super **box.merge(mode: Mode::Braille)
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![Ascii screenshot](../../../../tests/widget/media/glyph/ascii/ascii.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Ascii < Glyph
         def initialize(**box)
           super **box.merge(mode: Mode::Ascii)

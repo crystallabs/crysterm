@@ -1,7 +1,7 @@
 # Example: Crysterm::Widget::PlainTextEdit
 #
 # Minimal, self-contained example of a single PlainTextEdit.
-# Run it:     crystal run examples/widget/textarea/textarea.cr
+# Run it:     crystal run tests/widget/plaintextedit/plaintextedit.cr
 # Maintained by tools/manage-examples.cr
 require "../example"
 

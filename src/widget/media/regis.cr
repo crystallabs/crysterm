@@ -18,6 +18,10 @@ module Crysterm
     # ```
     # img = Widget::Media::Regis.new file: "pic.png", width: 48, height: 14, parent: window
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Regis screenshot](../../../tests/widget/media/regis/regis.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Media::Regis < Media::Graphics
       # ReGIS built-in named colors and their approximate RGB, used for
       # nearest-color quantization. Letter order defines the palette index.

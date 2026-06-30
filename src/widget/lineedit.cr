@@ -9,6 +9,10 @@ module Crysterm
     # `LineEdit` derives `Input` (Crysterm's interactive intermediate, the same
     # base `Button` uses) and includes `Mixin::TextEditing` for the shared text
     # buffer/caret/key handling, rather than inheriting `PlainTextEdit`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![LineEdit screenshot](../../tests/widget/lineedit/lineedit.5s.apng)
+    # <!-- /widget-examples:capture -->
     class LineEdit < Input
       include Mixin::TextEditing
 

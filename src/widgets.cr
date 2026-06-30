@@ -8,23 +8,45 @@ module Crysterm
     Box   = Widget::Box
     Input = Widget::Input
 
-    # The concrete backends live under `Media` (e.g. `Media::Ansi`, `Media::Kitty`).
-    Media       = Widget::Media
-    Video       = Widget::Video
-    Gradient    = Widget::Gradient
-    ProgressBar = Widget::ProgressBar
-    Loading     = Widget::Loading
-    Question    = Widget::Question
-    Line        = Widget::Line
-    HLine       = Widget::HLine
-    VLine       = Widget::VLine
-    ListTable   = Widget::ListTable
-    ListBar     = Widget::ListBar
-    List        = Widget::List
-    Tree        = Widget::Tree
-    Table       = Widget::Table
-    Form        = Widget::Form
-    FileManager = Widget::FileManager
+    # `Media` is the factory (`Media.new` auto-picks a backend). Each concrete
+    # backend — and each single-variant cell-grid subclass — is registered too,
+    # for explicit construction.
+    Media              = Widget::Media
+    MediaAnsi          = Widget::Media::Ansi
+    MediaAnsiTrueColor = Widget::Media::Ansi::TrueColor
+    MediaAnsiC256      = Widget::Media::Ansi::C256
+    MediaAnsiC16       = Widget::Media::Ansi::C16
+    MediaAnsiC8        = Widget::Media::Ansi::C8
+    MediaGlyph         = Widget::Media::Glyph
+    MediaGlyphBlock    = Widget::Media::Glyph::Block
+    MediaGlyphHalf     = Widget::Media::Glyph::Half
+    MediaGlyphQuadrant = Widget::Media::Glyph::Quadrant
+    MediaGlyphSextant  = Widget::Media::Glyph::Sextant
+    MediaGlyphOctant   = Widget::Media::Glyph::Octant
+    MediaGlyphBraille  = Widget::Media::Glyph::Braille
+    MediaGlyphAscii    = Widget::Media::Glyph::Ascii
+    MediaSixel         = Widget::Media::Sixel
+    MediaKitty         = Widget::Media::Kitty
+    MediaIterm         = Widget::Media::Iterm
+    MediaRegis         = Widget::Media::Regis
+    MediaTek           = Widget::Media::Tek
+    MediaOverlay       = Widget::Media::Overlay
+    MediaUeberzug      = Widget::Media::Ueberzug
+    Video              = Widget::Video
+    Gradient           = Widget::Gradient
+    ProgressBar        = Widget::ProgressBar
+    Loading            = Widget::Loading
+    Question           = Widget::Question
+    Line               = Widget::Line
+    HLine              = Widget::HLine
+    VLine              = Widget::VLine
+    ListTable          = Widget::ListTable
+    ListBar            = Widget::ListBar
+    List               = Widget::List
+    Tree               = Widget::Tree
+    Table              = Widget::Table
+    Form               = Widget::Form
+    FileManager        = Widget::FileManager
 
     Label          = Widget::Label
     Text           = Widget::Text

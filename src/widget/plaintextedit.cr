@@ -11,6 +11,10 @@ module Crysterm
     # behavior — the editability that, for the simpler controls, comes from
     # `Input`. The text buffer/caret/wrapping/key handling itself lives in
     # `Mixin::TextEditing`, shared with `LineEdit` (an `Input`, not a scroll area).
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![PlainTextEdit screenshot](../../tests/widget/plaintextedit/plaintextedit.5s.apng)
+    # <!-- /widget-examples:capture -->
     class PlainTextEdit < AbstractScrollArea
       include Mixin::Interactive
       include Mixin::TextEditing

@@ -23,6 +23,10 @@ module Crysterm
     # Animated images (APNG, animated GIF) play automatically unless `animate:
     # false` is passed; `#play`, `#pause` and `#stop` control playback (the
     # animation framework is shared, in `Media::Base`).
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Ansi screenshot](../../../tests/widget/media/ansi/ansi.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Media::Ansi < Media::Cells
       # Color depth the image is rendered in. Crysterm is natively TrueColor and
       # only reduces colors at output time when the terminal can't do 24-bit; the
@@ -238,24 +242,37 @@ module Crysterm
       # Each subclass pins one `ColorMode`, so it is a one-variant image backend
       # that can be exemplified and documented on its own. The base `Ansi` stays
       # usable (mode-selectable via `colors:`) for programmatic use.
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![TrueColor screenshot](../../../../tests/widget/media/ansi/truecolor/truecolor.5s.apng)
+      # <!-- /widget-examples:capture -->
       class TrueColor < Ansi
         def initialize(**box)
           super **box.merge(colors: ColorMode::TrueColor)
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![C256 screenshot](../../../../tests/widget/media/ansi/c256/c256.5s.apng)
+      # <!-- /widget-examples:capture -->
       class C256 < Ansi
         def initialize(**box)
           super **box.merge(colors: ColorMode::C256)
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![C16 screenshot](../../../../tests/widget/media/ansi/c16/c16.5s.apng)
+      # <!-- /widget-examples:capture -->
       class C16 < Ansi
         def initialize(**box)
           super **box.merge(colors: ColorMode::C16)
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![C8 screenshot](../../../../tests/widget/media/ansi/c8/c8.5s.apng)
+      # <!-- /widget-examples:capture -->
       class C8 < Ansi
         def initialize(**box)
           super **box.merge(colors: ColorMode::C8)

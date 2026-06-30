@@ -24,6 +24,10 @@ module Crysterm
     # ```
     # img = Widget::Media::Kitty.new file: "pic.png", width: 40, height: 12, parent: window
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Kitty screenshot](../../../tests/widget/media/kitty/kitty.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Media::Kitty < Media::Graphics
       @@next_id = 0_u32
 

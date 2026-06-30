@@ -24,6 +24,10 @@ module Crysterm
     # ```
     # img = Widget::Media::Ueberzug.new file: "pic.png", width: 40, height: 12, parent: window
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Ueberzug screenshot](../../../tests/widget/media/ueberzug/ueberzug.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Media::Ueberzug < Media::External
       include Media::RenderHook
 

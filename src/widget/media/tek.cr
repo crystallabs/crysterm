@@ -29,6 +29,10 @@ module Crysterm
     # tek = Widget::Media::Tek.new file: "pic.png", parent: window
     # # the Tek window appears on the next window render
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Tek screenshot](../../../tests/widget/media/tek/tek.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Media::Tek < Media::Base
       include Media::RenderHook
 

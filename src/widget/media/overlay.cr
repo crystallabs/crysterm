@@ -8,6 +8,10 @@ module Crysterm
     # https://github.com/hut/ranger/blob/master/ranger/ext/img_display.py
 
     # Overlay (w3m-img) image element
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Overlay screenshot](../../../tests/widget/media/overlay/overlay.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Media::Overlay < Media::External
       include Media::ScreenOverlay
 

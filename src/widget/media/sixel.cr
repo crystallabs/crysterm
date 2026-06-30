@@ -15,6 +15,10 @@ module Crysterm
     # ```
     # img = Widget::Media::Sixel.new file: "pic.png", width: 40, height: 12, parent: window
     # ```
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![Sixel screenshot](../../../tests/widget/media/sixel/sixel.5s.apng)
+    # <!-- /widget-examples:capture -->
     class Media::Sixel < Media::Graphics
       # Palette levels per channel (product must stay ≤ 256 color registers).
       LR = 6

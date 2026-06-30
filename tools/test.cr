@@ -135,63 +135,59 @@ module WidgetExamples
       .sort_by { |p| File.basename(p).size } # "foo.cr" before "foo2.cr" before "foo10.cr"
   end
 
-  # The set of fully-qualified widget/layout classes Crysterm exposes, parsed
-  # from the authoritative `src/widgets.cr` registry (RHS of each
-  # `Name = Widget::...` / `Name = Crysterm::Layout::...`). Filename<->class is
-  # irregular (lcd_number -> LCDNumber, hline -> HLine), so the registry is the
-  # source of truth for *which* classes are real, public widgets/layouts.
-  def self.registry : Set(String)
-    set = Set(String).new
-    File.read_lines(WIDGETS_CR).each do |line|
-      if m = line.match(/=\s*((?:Crysterm::)?(?:Widget|Layout)::[A-Za-z0-9_:]+)\s*$/)
-        fqn = m[1]
-        fqn = "Crysterm::#{fqn}" unless fqn.starts_with?("Crysterm::")
-        set << fqn
+  # Discover documented widgets/layouts by mirroring the example tree onto the
+  # source. Each example program `<out_dir>/<rel>/<name>.cr` names one class; the
+  # exact FQN is read from the example's own instantiation — so irregular
+  # file<->class names (`lcd_number`<->`LCDNumber`, `hline`<->`HLine`) and nested
+  # classes (`Media::Glyph::Braille`) resolve with no registry — and the source
+  # file declaring it is found by walking up the rel path (a nested variant's
+  # class lives in its parent file: `media/glyph/braille` -> `media/glyph.cr`).
+  def self.discover : Array(Item)
+    items = [] of Item
+    KINDS.each do |kind|
+      next unless Dir.exists?(kind.out_dir)
+      ns = kind.base_ns.lchop("Crysterm::") # "Widget" / "Layout"
+      class_ref = /(?:Crysterm::)?#{ns}::[A-Za-z0-9_:]+/
+      discover_programs([kind.out_dir]).each do |prog|
+        dir = File.dirname(prog)
+        next unless dir.size > kind.out_dir.size # skip any program directly in out_dir
+        rel = dir[(kind.out_dir.size + 1)..]
+        src = source_file_for(kind, rel)
+        next unless src
+
+        # FQNs this example instantiates (e.g. "Crysterm::Widget::Media::Glyph::Braille").
+        candidates = File.read(prog).scan(class_ref).map do |m|
+          f = m[0]
+          f.starts_with?("Crysterm::") ? f : "Crysterm::#{f}"
+        end.uniq
+        # The subject is the candidate whose leaf class is declared in *src* (this
+        # rejects incidental references like the label `Widget::Box`).
+        decl = File.read(src)
+        subject = candidates.find do |fqn|
+          leaf = fqn.split("::").last
+          decl =~ /^\s*class\s+(?:[A-Z][A-Za-z0-9_]*::)*#{Regex.escape(leaf)}\b/m
+        end
+        next unless subject
+
+        items << Item.new(
+          kind: kind, klass: subject.split("::").last, fqn: subject,
+          src: src, rel: rel, basename: File.basename(prog, ".cr"))
       end
     end
-    set
+    items
   end
 
-  # Walk each kind's src tree, and for every file resolve the (one) registered
-  # class it defines. A file contributes an Item only if one of the classes it
-  # declares, namespaced by the kind plus its directory, is in the registry —
-  # which naturally skips abstract bases (media/base.cr, layout/layout.cr ...)
-  # and non-public helpers.
-  def self.discover : Array(Item)
-    reg = registry.map(&.downcase).to_set
-    items = [] of Item
-
-    KINDS.each do |kind|
-      next unless Dir.exists?(kind.src)
-      Dir.glob(File.join(kind.src, "**", "*.cr")).sort.each do |src|
-        rel = src[(kind.src.size + 1)..].chomp(".cr") # e.g. "graph/bar"
-        dir = File.dirname(rel)
-        ns_segments = dir == "." ? [] of String : dir.split('/').map(&.capitalize)
-        ns_prefix = ns_segments.empty? ? "" : ns_segments.join("::") + "::"
-
-        # Candidate class names declared in the file (skip the namespace wrapper
-        # class, `class Widget` / `class Layout`).
-        content = File.read(src)
-        chosen : String? = nil
-        content.scan(/^\s*class\s+([A-Z][A-Za-z0-9_]*)/m) do |m|
-          name = m[1]
-          next if "Crysterm::#{name}" == kind.base_ns # the wrapper class itself
-          fqn = "#{kind.base_ns}::#{ns_prefix}#{name}"
-          if reg.includes?(fqn.downcase)
-            chosen = name
-            break
-          end
-        end
-
-        next unless klass = chosen
-        fqn = "#{kind.base_ns}::#{ns_prefix}#{klass}"
-        items << Item.new(
-          kind: kind, klass: klass, fqn: fqn, src: src, rel: rel,
-          basename: File.basename(rel))
-      end
+  # The source file declaring example *rel*'s class under *kind*: the mirrored
+  # path `<src>/<rel>.cr`, or — when a nested variant's example sits deeper than
+  # its source file — the nearest existing ancestor file.
+  def self.source_file_for(kind : Kind, rel : String) : String?
+    parts = rel.split('/')
+    while !parts.empty?
+      candidate = File.join(kind.src, parts.join('/')) + ".cr"
+      return candidate if File.exists?(candidate)
+      parts.pop
     end
-
-    items
+    nil
   end
 
   # ---- doc-comment maintenance ----------------------------------------------
@@ -271,7 +267,10 @@ module WidgetExamples
   # page (no doc comment) would otherwise clobber the class page's screenshot —
   # so we document the alias too. Each anchor is {line index, indentation}.
   def self.doc_anchors(lines : Array(String), klass : String) : Array({Int32, String})
-    class_re = /^(\s*)class\s+#{Regex.escape(klass)}\b/
+    # Match the class by its leaf name, allowing a declared namespace prefix
+    # (`class Media::Sixel` for klass `Sixel`); the leaf is anchored at an
+    # identifier boundary so `class StackedBar` isn't matched for `Bar`.
+    class_re = /^(\s*)class\s+(?:[A-Z][A-Za-z0-9_]*::)*#{Regex.escape(klass)}\b/
     alias_re = /^(\s*)alias\s+([A-Za-z0-9_]+)\s*=\s*#{Regex.escape(klass)}\b/
     anchors = [] of {Int32, String}
     lines.each_with_index do |line, i|
@@ -300,35 +299,46 @@ module WidgetExamples
     removed
   end
 
-  # Insert or refresh the managed screenshot block above *w*'s class (and any
-  # case-only alias). Returns :inserted, :updated, :unchanged, :no_capture or
-  # :no_class.
-  def self.maintain_doc_comment(w : Item) : Symbol
-    original = File.read(w.src)
+  # Insert/refresh the managed screenshot blocks for every documented class in
+  # one source file at once — a file may host several (e.g. `Media::Glyph` plus
+  # its nested `Block`/`Octant`/… variants), and `strip_managed_blocks` clears
+  # *all* of them, so they must be re-inserted together or siblings get clobbered.
+  # Returns a per-item outcome (:inserted/:updated/:unchanged/:no_capture/:no_class).
+  def self.maintain_doc_comments_in_file(src : String, items : Array(Item)) : Hash(Item, Symbol)
+    original = File.read(src)
     lines = original.split('\n')
-
     had_block = strip_managed_blocks(lines)
-    anchors = doc_anchors(lines, w.klass)
-    return :no_class if anchors.empty?
+    outcomes = {} of Item => Symbol
 
-    if capture_filenames(w).empty?
-      # No screenshot yet: leave the file as-is apart from removing a stale block.
-      return write_if_changed(w.src, original, lines) ? :updated : :no_capture
+    # Collect every class's insertion against the (stripped) lines first, then
+    # apply bottom-up so earlier indices stay valid. A blank-comment line
+    # separates the image from existing prose; with none it becomes the anchor's
+    # doc comment.
+    insertions = [] of {Int32, Array(String)}
+    items.each do |w|
+      anchors = doc_anchors(lines, w.klass)
+      if anchors.empty?
+        outcomes[w] = :no_class
+      elsif capture_filenames(w).empty?
+        outcomes[w] = :no_capture
+      else
+        outcomes[w] = had_block ? :updated : :inserted
+        anchors.each do |(idx, indent)|
+          block = [] of String
+          block << "#{indent}#" if idx > 0 && lines[idx - 1] =~ /^\s*#/
+          block.concat doc_block_lines(w, indent).not_nil!
+          insertions << {idx, block}
+        end
+      end
     end
 
-    # Insert above each anchor, bottom-most first so earlier indices stay valid.
-    # A blank-comment line separates the image from any existing doc-comment
-    # prose; with no prose the block becomes the anchor's doc comment.
-    anchors.sort_by! { |(idx, _)| -idx }
-    anchors.each do |(idx, indent)|
-      insertion = [] of String
-      insertion << "#{indent}#" if idx > 0 && lines[idx - 1] =~ /^\s*#/
-      insertion.concat doc_block_lines(w, indent).not_nil!
-      lines = lines[0...idx] + insertion + lines[idx..]
-    end
+    insertions.sort_by! { |(idx, _)| -idx }
+    insertions.each { |(idx, block)| lines = lines[0...idx] + block + lines[idx..] }
 
-    changed = write_if_changed(w.src, original, lines)
-    changed ? (had_block ? :updated : :inserted) : :unchanged
+    unless write_if_changed(src, original, lines)
+      outcomes.each { |w, v| outcomes[w] = :unchanged if v.in?(:inserted, :updated) }
+    end
+    outcomes
   end
 
   def self.write_if_changed(path : String, original : String, lines : Array(String)) : Bool
@@ -338,24 +348,24 @@ module WidgetExamples
     true
   end
 
-  # Maintain the managed screenshot block in every selected widget's source,
-  # printing a one-line outcome per file.
+  # Maintain the managed screenshot blocks in every selected widget's source,
+  # grouped per file, printing a one-line outcome per class.
   def self.maintain_doc_comments(widgets : Array(Item)) : Nil
     counts = Hash(Symbol, Int32).new(0)
-    widgets.each do |w|
-      result = maintain_doc_comment(w)
-      counts[result] += 1
-      verb = case result
-             when :inserted   then "doc+   "
-             when :updated    then "doc~   "
-             when :unchanged  then "doc=   "
-             when :no_capture then "doc?   "
-             when :no_class   then "doc!   "
-             else                  "doc    "
-             end
-      next if result == :unchanged
-      note = result == :no_class ? " (no `class #{w.klass}` found)" : result == :no_capture ? " (no screenshot yet)" : ""
-      puts "#{verb}#{relative_to_root(w.src)}#{note}"
+    widgets.group_by(&.src).each do |src, group|
+      maintain_doc_comments_in_file(src, group).each do |w, result|
+        counts[result] += 1
+        next if result == :unchanged
+        verb = case result
+               when :inserted   then "doc+   "
+               when :updated    then "doc~   "
+               when :no_capture then "doc?   "
+               when :no_class   then "doc!   "
+               else                  "doc    "
+               end
+        note = result == :no_class ? " (no `class #{w.klass}` found)" : result == :no_capture ? " (no screenshot yet)" : ""
+        puts "#{verb}#{relative_to_root(w.src)} (#{w.klass})#{note}"
+      end
     end
     puts
     puts "Doc comments: #{counts[:inserted]} inserted, #{counts[:updated]} updated, " \
