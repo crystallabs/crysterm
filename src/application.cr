@@ -48,10 +48,23 @@ module Crysterm
     end
 
     # The app-wide active window — the surface app-level input is routed to, and
-    # whose device the clipboard facade talks to. Currently the most-recently
-    # added window.
+    # whose device the clipboard facade talks to. The most-recently added or
+    # activated window (see `#activate`).
     def active_window : Window?
       @windows.last?
+    end
+
+    # Brings *window* to the front of its device and makes it active: it becomes
+    # the most-recent window (so `#active_window` / `#active_window_for` route
+    # input to it) and is repainted over any sibling sharing the same `Screen`.
+    # The toolkit's "raise window" for the multi-`Window`-per-`Screen` (stacked
+    # surfaces) case. No-op if *window* is not registered. Returns it.
+    def activate(window : Window) : Window?
+      return unless @windows.includes? window
+      @windows.delete window
+      @windows << window
+      window.render
+      window
     end
 
     # Routes one *parsed* input event from *screen* (the device that read it) to
@@ -72,13 +85,26 @@ module Crysterm
       win = active_window_for(screen)
       return unless win
 
-      if win.default_quit_keys? && !e.release? &&
-         (e.char == 'q' || e.key == ::Tput::Key::CtrlQ)
+      if win.default_quit_keys? && !e.release? && quit_key?(e.char, e.key)
         win.destroy
         exit
       end
 
       win.handle_input e
+    end
+
+    # Whether *char*/*key* is one of the default quit keys (`q` or `Ctrl-Q`).
+    # Factored out so the two places that act on a quit key agree on what "quit"
+    # means: the app-global hard-exit hotkey in `#route_input`, and the graceful
+    # multi-window close in `.exec_all`. Pure and side-effect-free, so the quit
+    # decision is unit-testable without driving the blocking input loop.
+    def self.quit_key?(char : Char, key : ::Tput::Key?) : Bool
+      char == 'q' || key == ::Tput::Key::CtrlQ
+    end
+
+    # :ditto:
+    def quit_key?(char : Char, key : ::Tput::Key?) : Bool
+      self.class.quit_key? char, key
     end
 
     # The most-recently-added `Window` shown on *screen* (its active surface), or
@@ -195,7 +221,16 @@ module Crysterm
 
     # Renders and starts listening on every window in *windows*, wires a shared
     # quit (`q` / `Ctrl-Q` in any of them) and per-window close handling, then
-    # blocks until none remain.
+    # blocks until none remain — returning cleanly once the last one is gone.
+    #
+    # This wrapper *owns* quit for its windows. It opts each one out of the
+    # app-global hard-exit default (`#route_input`'s `win.destroy; exit`) by
+    # setting `default_quit_keys = false`, so a `q`/Ctrl-Q falls through to
+    # `Window#handle_input` and surfaces as `Event::KeyPress`. The handler below
+    # then runs the *graceful* close — tearing every managed window down through
+    # `finish` so the `remaining`/`done` bookkeeping reaches zero and `exec_all`
+    # (and its caller, `.run`) returns normally — instead of the process
+    # hard-exiting from inside `route_input` and leaving this loop blocked.
     def self.exec_all(windows : Array(Window)) : Nil
       return if windows.empty?
       remaining = windows.size
@@ -209,10 +244,11 @@ module Crysterm
       end
 
       windows.each do |w|
+        # Take over quit from the app-global hotkey (see method doc), so the
+        # graceful path below — not `route_input`'s `exit` — handles `q`/Ctrl-Q.
+        w.default_quit_keys = false
         w.on(Crysterm::Event::KeyPress) do |e|
-          if e.char == 'q' || e.key == Tput::Key::CtrlQ
-            windows.each { |o| finish.call o }
-          end
+          windows.each { |o| finish.call o } if quit_key? e.char, e.key
         end
         w.on(Crysterm::Event::WindowClosed) { finish.call w }
       end

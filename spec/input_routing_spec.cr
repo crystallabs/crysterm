@@ -147,6 +147,37 @@ describe "Application#route_input" do
     got.should eq ['q']
   end
 
+  # The quit decision is factored into `Application.quit_key?`, shared by the
+  # app-global hotkey (`#route_input`) and the graceful wrapper quit
+  # (`.exec_all`). Cover it directly, since the loops that consume it are
+  # IO-bound and can't run headlessly.
+  it "recognizes the default quit keys via Application.quit_key?" do
+    Crysterm::Application.quit_key?('q', nil).should be_true
+    Crysterm::Application.quit_key?('\0', Tput::Key::CtrlQ).should be_true
+    Crysterm::Application.quit_key?('a', nil).should be_false
+    Crysterm::Application.quit_key?('\0', Tput::Key::CtrlA).should be_false
+  end
+
+  # `exec_all` opts its windows out of the app-global hard-exit so it can run a
+  # graceful close instead. Verify the opt-out a window receives (the setter
+  # `exec_all` uses) actually flips routing from hard-exit to forward — the
+  # piece testable without the blocking loop.
+  it "lets default_quit_keys= flip a window out of the hard-exit path" do
+    app = Crysterm::Application.new
+    win = routing_screen # defaults to default_quit_keys: true
+    app.add win
+    win.default_quit_keys?.should be_true
+
+    # exec_all does exactly this to take over quit:
+    win.default_quit_keys = false
+    win.default_quit_keys?.should be_false
+
+    got = [] of Char?
+    win.on(Crysterm::Event::KeyPress) { |e| got << e.char }
+    app.route_input win.screen, press('q')
+    got.should eq ['q'] # forwarded, not hard-exited
+  end
+
   it "refreshes the app clipboard cache from an OSC-52 read reply" do
     app = Crysterm::Application.new
     win = routing_screen

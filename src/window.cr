@@ -100,6 +100,18 @@ module Crysterm
       @screen.mouse_cursor_shape = value
     end
 
+    # Device-side hardware-cursor control (lives on `Screen`, in
+    # `screen_cursor.cr`): the raw `tput` shape/color/show-hide/reset primitives
+    # and the static capability probes. The *artificial* cursor and the
+    # hardware-vs-artificial decision read surface state (focus, the cell buffer,
+    # rendering), so they stay here in `window_cursor.cr`; those surface methods
+    # drive the hardware path through these delegations.
+    delegate hardware_cursor_styling?, hardware_cursor_color?,
+      set_hardware_cursor_shape, set_hardware_cursor_color,
+      reset_hardware_cursor_color, show_hardware_cursor, hide_hardware_cursor,
+      reset_hardware_cursor,
+      to: @screen
+
     # Device-side OSC escape-sequence transport (lives on `Screen`, in
     # `screen_osc.cr`): the OSC-52 system clipboard, OSC 7 cwd, OSC 9;4 progress.
     # The `Application#clipboard` facade and drag interop reach these through the

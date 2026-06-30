@@ -30,22 +30,11 @@ module Crysterm
       focused.try(&.cursor) || @cursor
     end
 
-    # Should all these functions go to tput?
-
-    # Whether the terminal can style its *hardware* cursor (shape/blink, via
-    # DECSCUSR or iTerm2's OSC 50). Backed by `Tput::Features#cursor_style?`,
-    # which is detected statically and can be confirmed at runtime by
-    # `Tput#probe!`. When this is false, `apply_cursor` falls back to drawing an
-    # artificial cursor for any non-default shape.
-    def hardware_cursor_styling?
-      !!tput.features?.try(&.cursor_style?)
-    end
-
-    # Whether the terminal can recolor its *hardware* cursor (OSC 12). Backed by
-    # `Tput::Features#cursor_color?`.
-    def hardware_cursor_color?
-      !!tput.features?.try(&.cursor_color?)
-    end
+    # The hardware-cursor primitives — the capability probes
+    # (`hardware_cursor_styling?`/`hardware_cursor_color?`) and the raw `tput`
+    # shape/color/show-hide/reset operations — now live on the device (`Screen`,
+    # in `screen_cursor.cr`); this surface delegates them (see `window.cr`) and
+    # calls them below to drive the hardware path.
 
     # Applies cursor `c`'s settings to the screen. Defaults to the
     # `#active_cursor`, i.e. the focused widget's cursor or the screen default.
@@ -73,11 +62,11 @@ module Crysterm
         # re-render reflects the new settings.
         render_if_active
       else
-        c.shape.try { |shape| tput.cursor_shape shape, c.blink }
+        c.shape.try { |shape| set_hardware_cursor_shape shape, c.blink }
         # XXX consider a simpler structure than Style for cursor color?
-        # The native color is an int; `Tput#cursor_color` wants a `String`, so
-        # format it back to `#rrggbb` (skipping `-1`, the terminal default).
-        c.style.fg.try { |color| tput.cursor_color "#%06x" % color if color >= 0 }
+        # The native color is an int (skipping `-1`, the terminal default); the
+        # device formats it back to `#rrggbb` for `Tput#cursor_color`.
+        c.style.fg.try { |color| set_hardware_cursor_color color if color >= 0 }
       end
 
       c._set = true
@@ -134,7 +123,7 @@ module Crysterm
       end
 
       if (x = ac.style.fg) && x >= 0
-        tput.cursor_color "#%06x" % x
+        set_hardware_cursor_color x
       else
         # Clearing the color (`cursor_color nil`, or a `-1` "terminal default"
         # sentinel): restore the terminal's own hardware cursor color via OSC 112.
@@ -143,7 +132,7 @@ module Crysterm
         # no-op — the hardware cursor stayed stuck at the last color, with no way
         # to put it back to default. Mirrors the artificial path, which drops the
         # override and re-renders to the same end state.
-        tput.reset_cursor_color
+        reset_hardware_cursor_color
       end
     end
 
@@ -205,7 +194,7 @@ module Crysterm
         c._hidden = hidden
         render_if_active
       else
-        hidden ? tput.hide_cursor : tput.show_cursor
+        hidden ? hide_hardware_cursor : show_hardware_cursor
       end
     end
 
@@ -234,7 +223,7 @@ module Crysterm
       c.style.bg = nil
       c._set = false
 
-      tput.cursor_reset
+      reset_hardware_cursor
 
       # Repaint so the previously-drawn artificial cursor cell is cleared.
       render_if_active if was_artificial

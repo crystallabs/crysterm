@@ -1,6 +1,7 @@
 require "./macros"
 
 require "./screen_attributes"
+require "./screen_cursor"
 require "./screen_input"
 require "./screen_mouse_device"
 require "./screen_osc"

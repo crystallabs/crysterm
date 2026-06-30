@@ -98,6 +98,17 @@ module Crysterm
       # running so a reattach can restore the prior listening state.
       @was_listening = @screen.listening?
 
+      # Multiple `Window`s can share one `Screen` (one tty). The device-level
+      # teardown below — restoring the terminal (alt buffer / input modes /
+      # cooked), stopping the shared input fiber, closing IO, closing the spawned
+      # window — must run only when this is the **last** surface still using the
+      # device; otherwise destroying one window would leave the alt buffer and
+      # kill input for its siblings. A non-last window just stops painting
+      # (`@connected = false`). The last one out turns off the lights — and since
+      # `#disconnect` sets `@connected = false` up front, "live sibling" excludes
+      # any window already disconnecting, so the device is restored exactly once.
+      return if other_live_window_on_device?
+
       restore_terminal
 
       # Closing the input unblocks and ends the key fiber; drop its handle on the
@@ -110,6 +121,16 @@ module Crysterm
 
       @window.try &.close
       @window = nil
+    end
+
+    # Whether another live (connected, not-destroyed) `Window` still shares this
+    # window's `Screen` — i.e. tearing the device down now would break a sibling.
+    # Uses the global `Window.instances` registry so it holds even for windows
+    # that share a device without an `Application`.
+    private def other_live_window_on_device? : Bool
+      Window.instances.any? do |w|
+        !w.same?(self) && w.connected? && !w.destroyed? && w.screen.same?(@screen)
+      end
     end
 
     # Runs one terminal-mode teardown step — *block* — only when *enabled*,
