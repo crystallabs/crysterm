@@ -16,7 +16,7 @@ module Crysterm
     # engine is installed.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Manual screenshot](../../examples/layout/manual/manual-capture5s.apng)
+    # ![Manual screenshot](../../examples/layout/manual/manual.5s.apng)
     # <!-- /widget-examples:capture -->
     class Manual < Layout
       DEFAULT = new

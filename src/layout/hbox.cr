@@ -9,7 +9,7 @@ module Crysterm
     # `Layout::Box`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![HBox screenshot](../../examples/layout/hbox/hbox-capture5s.apng)
+    # ![HBox screenshot](../../examples/layout/hbox/hbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class HBox < Box
       def initialize(gap : Int32 = 0, justify : Justify = Justify::Start, align : Align = Align::Stretch)

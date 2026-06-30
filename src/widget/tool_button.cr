@@ -30,7 +30,7 @@ module Crysterm
     # `QToolButton` and `QPushButton` are both `QAbstractButton`s).
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ToolButton screenshot](../../examples/widget/tool_button/tool_button-capture5s.apng)
+    # ![ToolButton screenshot](../../tests/widget/tool_button/tool_button.5s.apng)
     # <!-- /widget-examples:capture -->
     class ToolButton < AbstractButton
       # How a `#menu` is summoned (see the class docs).

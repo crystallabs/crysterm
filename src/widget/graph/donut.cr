@@ -23,7 +23,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Donut screenshot](../../../examples/widget/graph/donut/donut-capture5s.apng)
+      # ![Donut screenshot](../../../tests/widget/graph/donut/donut.5s.apng)
       # <!-- /widget-examples:capture -->
       class Donut < Box
         include TextOverlay

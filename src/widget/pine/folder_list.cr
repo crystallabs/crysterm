@@ -14,10 +14,6 @@ module Crysterm
       #
       # Navigate with the arrow keys; Enter opens the folder (runs its
       # `callback`).
-      #
-      # <!-- widget-examples:capture v1 -->
-      # ![FolderList screenshot](../../../examples/widget/pine/folder_list/folder_list-capture5s.apng)
-      # <!-- /widget-examples:capture -->
       # A single mail folder.
       class Folder
         # Folder name (e.g. `"INBOX"`).
@@ -33,6 +29,9 @@ module Crysterm
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![FolderList screenshot](../../../tests/widget/pine/folder_list/folder_list.5s.apng)
+      # <!-- /widget-examples:capture -->
       class FolderList < SelectableList(Folder)
         # Historical nested name for the record type (see `SelectableList`).
         alias Folder = ::Crysterm::Widget::Pine::Folder

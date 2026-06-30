@@ -28,7 +28,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ScrollBar screenshot](../../examples/widget/scrollbar/scrollbar-capture5s.apng)
+    # ![ScrollBar screenshot](../../tests/widget/scrollbar/scrollbar.5s.apng)
     # <!-- /widget-examples:capture -->
     class ScrollBar < AbstractSlider
       # A scroll bar draws a fixed-size trough; it must not shrink to its content.

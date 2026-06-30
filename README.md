@@ -4,55 +4,28 @@ Crysterm is a console/terminal toolkit for Crystal, inspired by
 
 Advanced features:
 
-![](screenshots/features/truecolor.gif)
+![Pine — a full terminal email-client clone](examples/pine/pine.5s.apng)
 
-![](screenshots/features/styling.gif)
+![Qt-modeled widgets showcase](tests/misc/qt_widgets.5s.apng)
 
-![](screenshots/features/matrix.gif)
+![Minesweeper](examples/games/minesweeper/minesweeper.5s.apng)
 
-![](screenshots/features/concurrent_rendering.gif)
+![Matrix effect](tests/widget/effect/matrix/matrix.5s.apng)
 
-![](screenshots/features/image.gif)
+![Plasma effect (truecolor)](tests/widget/effect/plasma/plasma.5s.apng)
 
-![](screenshots/features/netscape.gif)
+![Fire effect](tests/widget/effect/fire/fire.5s.apng)
 
-![](screenshots/features/unicode.gif)
+![Unicode rendering](tests/blessed-test/widget-unicode.5s.apng)
 
-![](screenshots/features/widgets.gif)
+Image-rendering backends — an image drawn straight into the terminal:
 
-Image-rendering backends:
+![In-terminal image](tests/blessed-test/widget-image.5s.apng)
 
-![](screenshots/features/matterhorn-overlay.png)
-
-![](screenshots/features/matterhorn-sixel.png)
-
-![](screenshots/features/matterhorn-kitty.png)
-
-![](screenshots/features/matterhorn-iterm.png)
-
-![](screenshots/features/matterhorn-octant.png)
-
-![](screenshots/features/matterhorn-sextant.png)
-
-![](screenshots/features/matterhorn-quadrant.png)
-
-![](screenshots/features/matterhorn-half.png)
-
-![](screenshots/features/matterhorn-block.png)
-
-![](screenshots/features/matterhorn-ascii.png)
-
-![](screenshots/features/matterhorn-ansi-c256.png)
-
-![](screenshots/features/matterhorn-ansi-c16.png)
-
-![](screenshots/features/matterhorn-braille.png)
-
-![](screenshots/features/matterhorn-regis.png)
-
-Image::Tek (Tektronix 4014):
-
-![](screenshots/features/matterhorn-tek.png)
+Crysterm can render images through a real terminal graphics protocol (overlay
+via w3m / überzug, Sixel, Kitty, iTerm2, ReGIS, and Tektronix 4014) or
+down-sample them to text using Unicode glyph mosaics (block, half, quadrant,
+sextant, octant, braille, ASCII) and ANSI 16/256-color or truecolor cells.
 
 ## Tech intro
 

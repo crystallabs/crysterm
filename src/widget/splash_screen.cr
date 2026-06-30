@@ -19,7 +19,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![SplashScreen screenshot](../../examples/widget/splash_screen/splash_screen-capture5s.apng)
+    # ![SplashScreen screenshot](../../tests/widget/splash_screen/splash_screen.5s.apng)
     # <!-- /widget-examples:capture -->
     class SplashScreen < Box
       # A splash is a fixed-size overlay: honor the given `width`/`height` rather

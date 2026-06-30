@@ -29,7 +29,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Plasma screenshot](../../../examples/widget/effect/plasma/plasma-capture5s.apng)
+      # ![Plasma screenshot](../../../tests/widget/effect/plasma/plasma.5s.apng)
       # <!-- /widget-examples:capture -->
       class Plasma < Box
         include Effect::Direct

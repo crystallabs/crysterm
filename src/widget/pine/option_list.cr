@@ -109,7 +109,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![OptionList screenshot](../../../examples/widget/pine/option_list/option_list-capture5s.apng)
+      # ![OptionList screenshot](../../../tests/widget/pine/option_list/option_list.5s.apng)
       # <!-- /widget-examples:capture -->
       class OptionList < SelectableList(OptionListOption)
         # Historical nested name for the record type (see `SelectableList`).

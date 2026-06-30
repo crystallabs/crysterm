@@ -34,7 +34,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Map screenshot](../../../examples/widget/graph/map/map-capture5s.apng)
+      # ![Map screenshot](../../../tests/widget/graph/map/map.5s.apng)
       # <!-- /widget-examples:capture -->
       class Map < Box
         include TextOverlay

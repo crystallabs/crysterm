@@ -30,7 +30,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Fire screenshot](../../../examples/widget/effect/fire/fire-capture5s.apng)
+      # ![Fire screenshot](../../../tests/widget/effect/fire/fire.5s.apng)
       # <!-- /widget-examples:capture -->
       class Fire < Box
         include Effect::Direct

@@ -20,7 +20,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![MainWindow screenshot](../../examples/widget/main_window/main_window-capture5s.apng)
+    # ![MainWindow screenshot](../../tests/widget/main_window/main_window.5s.apng)
     # <!-- /widget-examples:capture -->
     class MainWindow < Box
       getter menu_bar : Widget?

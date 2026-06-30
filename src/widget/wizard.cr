@@ -20,7 +20,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Wizard screenshot](../../examples/widget/wizard/wizard-capture5s.apng)
+    # ![Wizard screenshot](../../tests/widget/wizard/wizard.5s.apng)
     # <!-- /widget-examples:capture -->
     class Wizard < Dialog
       # The page stack. (Built in `initialize` after `super`, hence `getter!`.)

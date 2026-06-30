@@ -24,7 +24,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![TabWidget screenshot](../../examples/widget/tab_widget/tab_widget-capture5s.apng)
+    # ![TabWidget screenshot](../../tests/widget/tab_widget/tab_widget.5s.apng)
     # <!-- /widget-examples:capture -->
     class TabWidget < Box
       # `#pages`, `#current_index`, `#current_page` and the show/next/previous

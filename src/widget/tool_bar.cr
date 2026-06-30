@@ -23,7 +23,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ToolBar screenshot](../../examples/widget/tool_bar/tool_bar-capture5s.apng)
+    # ![ToolBar screenshot](../../tests/widget/tool_bar/tool_bar.5s.apng)
     # <!-- /widget-examples:capture -->
     class ToolBar < Box
       include Mixin::ActionBar

@@ -31,7 +31,7 @@ module Crysterm
     # event to wrap yet).
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Terminal screenshot](../../examples/widget/terminal/terminal-capture5s.apng)
+    # ![Terminal screenshot](../../tests/widget/terminal/terminal.5s.apng)
     # <!-- /widget-examples:capture -->
     class Terminal < Widget
       # A terminal manages its own scrollback; it is not a scrollable Box.

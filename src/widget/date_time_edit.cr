@@ -17,7 +17,7 @@ module Crysterm
     # `Mixin::SectionedField`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![DateTimeEdit screenshot](../../examples/widget/date_time_edit/date_time_edit-capture5s.apng)
+    # ![DateTimeEdit screenshot](../../tests/widget/date_time_edit/date_time_edit.5s.apng)
     # <!-- /widget-examples:capture -->
     class DateTimeEdit < AbstractSpinBox
       include Mixin::SectionedField

@@ -29,7 +29,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Tree screenshot](../../examples/widget/tree/tree-capture5s.apng)
+    # ![Tree screenshot](../../tests/widget/tree/tree.5s.apng)
     # <!-- /widget-examples:capture -->
     class Tree < AbstractItemView
       include Mixin::ItemView

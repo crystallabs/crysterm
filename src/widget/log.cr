@@ -3,7 +3,7 @@ require "./scrollable_text"
 module Crysterm
   class Widget
     # <!-- widget-examples:capture v1 -->
-    # ![Log screenshot](../../examples/widget/log/log-capture5s.apng)
+    # ![Log screenshot](../../tests/widget/log/log.5s.apng)
     # <!-- /widget-examples:capture -->
     class Log < ScrollableText
       # Severity of a log line, à la a typical logger / Qt logging categories.

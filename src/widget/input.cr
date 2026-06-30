@@ -13,7 +13,7 @@ module Crysterm
     # can `include` it without becoming an `Input`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Input screenshot](../../examples/widget/input/input-capture5s.apng)
+    # ![Input screenshot](../../tests/widget/input/input.5s.apng)
     # <!-- /widget-examples:capture -->
     class Input < Box
       include Mixin::Interactive

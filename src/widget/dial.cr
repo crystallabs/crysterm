@@ -11,7 +11,7 @@ module Crysterm
     # Emits `Event::ValueChange` on every change.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Dial screenshot](../../examples/widget/dial/dial-capture5s.apng)
+    # ![Dial screenshot](../../tests/widget/dial/dial.5s.apng)
     # <!-- /widget-examples:capture -->
     class Dial < AbstractSlider
       # A dial draws a fixed-size knob, not shrink-to-content like an `Input`.

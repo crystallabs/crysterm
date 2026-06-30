@@ -15,7 +15,7 @@ module Crysterm
     # integer-only) so the integer controls keep their simpler `Int32` path.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![DoubleSpinBox screenshot](../../examples/widget/double_spinbox/double_spinbox-capture5s.apng)
+    # ![DoubleSpinBox screenshot](../../tests/widget/double_spinbox/double_spinbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class DoubleSpinBox < AbstractSpinBox
       # Edit buffer, key dispatch, wheel/blur wiring, `#text`/`#commit_edit`/…

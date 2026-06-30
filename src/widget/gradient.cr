@@ -29,7 +29,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Gradient screenshot](../../examples/widget/gradient/gradient-capture5s.apng)
+    # ![Gradient screenshot](../../tests/widget/gradient/gradient.5s.apng)
     # <!-- /widget-examples:capture -->
     class Gradient < Box
       enum Direction

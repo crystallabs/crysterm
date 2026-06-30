@@ -32,7 +32,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Spray screenshot](../../../examples/widget/effect/spray/spray-capture5s.apng)
+      # ![Spray screenshot](../../../tests/widget/effect/spray/spray.5s.apng)
       # <!-- /widget-examples:capture -->
       class Spray < Box
         include Effect::Direct

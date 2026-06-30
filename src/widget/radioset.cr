@@ -3,7 +3,7 @@ module Crysterm
     # Radio set element
     #
     # <!-- widget-examples:capture v1 -->
-    # ![RadioSet screenshot](../../examples/widget/radioset/radioset-capture5s.apng)
+    # ![RadioSet screenshot](../../tests/widget/radioset/radioset.5s.apng)
     # <!-- /widget-examples:capture -->
     class RadioSet < Box
       # D O:

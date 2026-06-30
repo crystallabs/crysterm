@@ -11,7 +11,7 @@ module Crysterm
     # typically used for a "select all" box whose children are mixed.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![CheckBox screenshot](../../examples/widget/checkbox/checkbox-capture5s.apng)
+    # ![CheckBox screenshot](../../tests/widget/checkbox/checkbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class CheckBox < AbstractButton
       # The `[x] label` / `(*) label` marker rendering, marker-click hit-test,
@@ -111,7 +111,7 @@ module Crysterm
     end
 
     # <!-- widget-examples:capture v1 -->
-    # ![CheckBox screenshot](../../examples/widget/checkbox/checkbox-capture5s.apng)
+    # ![CheckBox screenshot](../../tests/widget/checkbox/checkbox.5s.apng)
     # <!-- /widget-examples:capture -->
     alias Checkbox = CheckBox
   end

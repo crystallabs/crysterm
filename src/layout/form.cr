@@ -11,7 +11,7 @@ module Crysterm
     # so labels and single-line inputs line up.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Form screenshot](../../examples/layout/form/form-capture5s.apng)
+    # ![Form screenshot](../../examples/layout/form/form.5s.apng)
     # <!-- /widget-examples:capture -->
     class Form < Layout
       # Width of the (left) label column.

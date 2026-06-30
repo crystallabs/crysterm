@@ -19,7 +19,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![GaugeList screenshot](../../examples/widget/gauge_list/gauge_list-capture5s.apng)
+    # ![GaugeList screenshot](../../tests/widget/gauge_list/gauge_list.5s.apng)
     # <!-- /widget-examples:capture -->
     class GaugeList < Box
       # Float-valued `#span`/`#percent_of` helpers (shared with `Gauge`).

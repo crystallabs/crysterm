@@ -22,7 +22,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ListBar screenshot](../../examples/widget/listbar/listbar-capture5s.apng)
+    # ![ListBar screenshot](../../tests/widget/listbar/listbar.5s.apng)
     # <!-- /widget-examples:capture -->
     class ListBar < Box
       include Mixin::ActionBar

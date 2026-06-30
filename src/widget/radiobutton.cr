@@ -13,7 +13,7 @@ module Crysterm
     # adds is the group exclusivity (`#on_check`) and the check-only `#toggle`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![RadioButton screenshot](../../examples/widget/radiobutton/radiobutton-capture5s.apng)
+    # ![RadioButton screenshot](../../tests/widget/radiobutton/radiobutton.5s.apng)
     # <!-- /widget-examples:capture -->
     class RadioButton < AbstractButton
       include Mixin::CheckMarker

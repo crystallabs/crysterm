@@ -38,7 +38,7 @@ module Crysterm
       # entirely. (This mirrors how `Widget::Gradient` paints its cells.)
       #
       # <!-- widget-examples:capture v1 -->
-      # ![SineScroller screenshot](../../../examples/widget/effect/sine_scroller/sine_scroller-capture5s.apng)
+      # ![SineScroller screenshot](../../../tests/widget/effect/sine_scroller/sine_scroller.5s.apng)
       # <!-- /widget-examples:capture -->
       class SineScroller < Box
         include Animated

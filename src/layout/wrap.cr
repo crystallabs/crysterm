@@ -9,7 +9,7 @@ module Crysterm
     # toolbars that should reflow.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Wrap screenshot](../../examples/layout/wrap/wrap-capture5s.apng)
+    # ![Wrap screenshot](../../examples/layout/wrap/wrap.5s.apng)
     # <!-- /widget-examples:capture -->
     class Wrap < Flow
       protected def place_one(container : Widget, el : Widget, i : Int32, interior : LPos) : Overflow?

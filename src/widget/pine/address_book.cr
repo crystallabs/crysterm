@@ -13,10 +13,6 @@ module Crysterm
       #
       # Navigate with the arrow keys; Enter selects the contact (runs its
       # `callback` — e.g. to start composing a message to them).
-      #
-      # <!-- widget-examples:capture v1 -->
-      # ![AddressBook screenshot](../../../examples/widget/pine/address_book/address_book-capture5s.apng)
-      # <!-- /widget-examples:capture -->
       # A single address-book entry.
       class Contact
         # Short nickname / alias.
@@ -40,6 +36,9 @@ module Crysterm
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![AddressBook screenshot](../../../tests/widget/pine/address_book/address_book.5s.apng)
+      # <!-- /widget-examples:capture -->
       class AddressBook < SelectableList(Contact)
         # Historical nested name for the record type (see `SelectableList`).
         alias Contact = ::Crysterm::Widget::Pine::Contact

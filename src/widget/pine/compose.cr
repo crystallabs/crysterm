@@ -20,7 +20,7 @@ module Crysterm
       # `Widget::PlainTextEdit`. Values are exposed via `#values` for the demo.
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Compose screenshot](../../../examples/widget/pine/compose/compose-capture5s.apng)
+      # ![Compose screenshot](../../../tests/widget/pine/compose/compose.5s.apng)
       # <!-- /widget-examples:capture -->
       class Compose < Widget::Box
         # Header field names shown to the left of each input.

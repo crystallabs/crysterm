@@ -19,7 +19,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![DockWidget screenshot](../../examples/widget/dock_widget/dock_widget-capture5s.apng)
+    # ![DockWidget screenshot](../../tests/widget/dock_widget/dock_widget.5s.apng)
     # <!-- /widget-examples:capture -->
     class DockWidget < Box
       # `#apply_substyle`, used by the `PreRender` handler below.

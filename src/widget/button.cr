@@ -11,7 +11,7 @@ module Crysterm
     # `QPushButton` or a `QToolButton`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Button screenshot](../../examples/widget/button/button-capture5s.apng)
+    # ![Button screenshot](../../tests/widget/button/button.5s.apng)
     # <!-- /widget-examples:capture -->
     class Button < AbstractButton
       # Whether the button is *flat* — drawn without a frame (Qt's

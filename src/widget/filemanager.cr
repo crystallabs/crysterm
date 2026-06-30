@@ -19,7 +19,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![FileManager screenshot](../../examples/widget/filemanager/filemanager-capture5s.apng)
+    # ![FileManager screenshot](../../tests/widget/filemanager/filemanager.5s.apng)
     # <!-- /widget-examples:capture -->
     class FileManager < AbstractItemView
       include Mixin::ItemView

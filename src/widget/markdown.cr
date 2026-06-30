@@ -28,7 +28,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Markdown screenshot](../../examples/widget/markdown/markdown-capture5s.apng)
+    # ![Markdown screenshot](../../tests/widget/markdown/markdown.5s.apng)
     # <!-- /widget-examples:capture -->
     class Markdown < ScrollableText
       # A link found in the document (Qt's anchor). `text` is the visible label,

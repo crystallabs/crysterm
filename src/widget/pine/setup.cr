@@ -13,10 +13,6 @@ module Crysterm
       #
       # Navigate with the arrow keys; toggle the selected feature with Enter or
       # the space bar. The selected row is drawn reverse.
-      #
-      # <!-- widget-examples:capture v1 -->
-      # ![Setup screenshot](../../../examples/widget/pine/setup/setup-capture5s.apng)
-      # <!-- /widget-examples:capture -->
       # A single configurable feature.
       class SetupOption
         # Internal feature name (Pine-style, e.g. `"enable-incoming-folders"`).
@@ -35,6 +31,9 @@ module Crysterm
         end
       end
 
+      # <!-- widget-examples:capture v1 -->
+      # ![Setup screenshot](../../../tests/widget/pine/setup/setup.5s.apng)
+      # <!-- /widget-examples:capture -->
       class Setup < SelectableList(SetupOption)
         # Historical nested name for the record type (see `SelectableList`).
         alias Option = ::Crysterm::Widget::Pine::SetupOption

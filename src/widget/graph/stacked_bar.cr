@@ -28,7 +28,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![StackedBar screenshot](../../../examples/widget/graph/stacked_bar/stacked_bar-capture5s.apng)
+      # ![StackedBar screenshot](../../../tests/widget/graph/stacked_bar/stacked_bar.5s.apng)
       # <!-- /widget-examples:capture -->
       class StackedBar < Box
         include BarChart

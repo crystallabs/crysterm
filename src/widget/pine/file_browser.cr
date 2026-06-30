@@ -23,7 +23,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![FileBrowser screenshot](../../../examples/widget/pine/file_browser/file_browser-capture5s.apng)
+      # ![FileBrowser screenshot](../../../tests/widget/pine/file_browser/file_browser.5s.apng)
       # <!-- /widget-examples:capture -->
       class FileBrowser < Widget::FileManager
         def initialize(cwd : String? = nil, label : String? = nil, keys = true, **list)

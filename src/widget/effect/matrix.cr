@@ -28,7 +28,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Matrix screenshot](../../../examples/widget/effect/matrix/matrix-capture5s.apng)
+      # ![Matrix screenshot](../../../tests/widget/effect/matrix/matrix.5s.apng)
       # <!-- /widget-examples:capture -->
       class Matrix < Box
         include Effect::Direct

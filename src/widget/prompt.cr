@@ -3,7 +3,7 @@ require "./dialog"
 module Crysterm
   class Widget
     # <!-- widget-examples:capture v1 -->
-    # ![Prompt screenshot](../../examples/widget/prompt/prompt-capture5s.apng)
+    # ![Prompt screenshot](../../tests/widget/prompt/prompt.5s.apng)
     # <!-- /widget-examples:capture -->
     class Prompt < Dialog
       include ::Crysterm::Mixin::OkCancelDialog

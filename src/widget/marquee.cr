@@ -32,7 +32,7 @@ module Crysterm
     # and `Widget::Gradient`.)
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Marquee screenshot](../../examples/widget/marquee/marquee-capture5s.apng)
+    # ![Marquee screenshot](../../tests/widget/marquee/marquee.5s.apng)
     # <!-- /widget-examples:capture -->
     class Marquee < Box
       # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).

@@ -33,7 +33,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Menu screenshot](../../examples/widget/menu/menu-capture5s.apng)
+    # ![Menu screenshot](../../tests/widget/menu/menu.5s.apng)
     # <!-- /widget-examples:capture -->
     class Menu < Box
       include Mixin::ItemView

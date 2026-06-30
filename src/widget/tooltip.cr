@@ -14,7 +14,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ToolTip screenshot](../../examples/widget/tooltip/tooltip-capture5s.apng)
+    # ![ToolTip screenshot](../../tests/widget/tooltip/tooltip.5s.apng)
     # <!-- /widget-examples:capture -->
     class ToolTip < Box
       def initialize(**box)

@@ -39,7 +39,7 @@ module Crysterm
     # counter wants.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Fps screenshot](../../examples/widget/fps/fps-capture5s.apng)
+    # ![Fps screenshot](../../tests/widget/fps/fps.5s.apng)
     # <!-- /widget-examples:capture -->
     class Fps < Box
       # Auto-size to its single line of text, like `Label`.

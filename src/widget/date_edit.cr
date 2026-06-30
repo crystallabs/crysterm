@@ -17,15 +17,15 @@ module Crysterm
     #
     # The shared section machinery (selection, navigation, wheel/press handling)
     # lives in `Mixin::SectionedField`.
-    #
-    # <!-- widget-examples:capture v1 -->
-    # ![DateEdit screenshot](../../examples/widget/date_edit/date_edit-capture5s.apng)
-    # <!-- /widget-examples:capture -->
     # `DateEdit < DateTimeEdit` mirrors Qt's `QDateEdit < QDateTimeEdit`: it is a
     # date-only specialization of the combined editor. It keeps its own `@date`
     # backing store and overrides the section machinery (three sections instead
     # of six), and adds the calendar popup; the keyboard/mouse wiring and initial
     # render are inherited from `DateTimeEdit#initialize`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![DateEdit screenshot](../../tests/widget/date_edit/date_edit.5s.apng)
+    # <!-- /widget-examples:capture -->
     class DateEdit < DateTimeEdit
       # Calendar-popup lifecycle (open flag, modal grab, outside-click dismissal,
       # grab region, teardown). We supply `#popup_widget` and `#close`.

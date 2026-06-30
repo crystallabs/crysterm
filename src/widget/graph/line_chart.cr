@@ -35,7 +35,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![LineChart screenshot](../../../examples/widget/graph/line_chart/line_chart-capture5s.apng)
+      # ![LineChart screenshot](../../../tests/widget/graph/line_chart/line_chart.5s.apng)
       # <!-- /widget-examples:capture -->
       class LineChart < Box
         include TextOverlay

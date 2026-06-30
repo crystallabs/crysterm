@@ -22,7 +22,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Table screenshot](../../examples/widget/table/table-capture5s.apng)
+    # ![Table screenshot](../../tests/widget/table/table.5s.apng)
     # <!-- /widget-examples:capture -->
     class Table < AbstractItemView
       include TableLayout

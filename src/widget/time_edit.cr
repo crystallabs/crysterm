@@ -16,15 +16,15 @@ module Crysterm
     #
     # The value is held as a `Time` so it composes with `DateEdit`/`Calendar`;
     # only its hour/minute/second are shown and edited.
-    #
-    # <!-- widget-examples:capture v1 -->
-    # ![TimeEdit screenshot](../../examples/widget/time_edit/time_edit-capture5s.apng)
-    # <!-- /widget-examples:capture -->
     # `TimeEdit < DateTimeEdit` mirrors Qt's `QTimeEdit < QDateTimeEdit`: a
     # time-only specialization. It keeps its own `@time` backing store and
     # overrides the section machinery (hour/minute/second); the keyboard/mouse
     # wiring, `#show_seconds?`, and the initial render come from
     # `DateTimeEdit#initialize`.
+    #
+    # <!-- widget-examples:capture v1 -->
+    # ![TimeEdit screenshot](../../tests/widget/time_edit/time_edit.5s.apng)
+    # <!-- /widget-examples:capture -->
     class TimeEdit < DateTimeEdit
       @time : Time
 

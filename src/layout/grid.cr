@@ -19,7 +19,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Grid screenshot](../../examples/layout/grid/grid-capture5s.apng)
+    # ![Grid screenshot](../../examples/layout/grid/grid.5s.apng)
     # <!-- /widget-examples:capture -->
     class Grid < Layout
       class Hint < Layout::Hint

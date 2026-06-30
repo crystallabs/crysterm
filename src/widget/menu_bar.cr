@@ -26,7 +26,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![MenuBar screenshot](../../examples/widget/menu_bar/menu_bar-capture5s.apng)
+    # ![MenuBar screenshot](../../tests/widget/menu_bar/menu_bar.5s.apng)
     # <!-- /widget-examples:capture -->
     class MenuBar < Box
       include Mixin::ActionBar

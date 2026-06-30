@@ -3,7 +3,7 @@ module Crysterm
     # Box element
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Box screenshot](../../examples/widget/box/box-capture5s.apng)
+    # ![Box screenshot](../../tests/widget/box/box.5s.apng)
     # <!-- /widget-examples:capture -->
     class Box < Widget
       # XXX Why this must be here, even though it's set in src/widget_size.cr?

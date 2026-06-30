@@ -102,11 +102,11 @@ module WidgetExamples
   record Kind,
     name : String,    # "widget" / "layout"
     src : String,     # src dir, e.g. <root>/src/widget
-    out_dir : String, # output dir, e.g. <root>/examples/widget
+    out_dir : String, # examples dir mirroring src, e.g. <root>/tests/widget
     base_ns : String  # "Crysterm::Widget" / "Crysterm::Layout"
 
   KINDS = [
-    Kind.new("widget", File.join(ROOT, "src", "widget"), File.join(ROOT, "examples", "widget"), "Crysterm::Widget"),
+    Kind.new("widget", File.join(ROOT, "src", "widget"), File.join(ROOT, "tests", "widget"), "Crysterm::Widget"),
     Kind.new("layout", File.join(ROOT, "src", "layout"), File.join(ROOT, "examples", "layout"), "Crysterm::Layout"),
   ]
 
@@ -118,7 +118,8 @@ module WidgetExamples
     rel : String,     # path under the kind's src dir, no ext, e.g. "graph/bar"
     basename : String # "bar"
 
-  # The example directory for an item: examples/<kind>/<rel>/
+  # The example directory for an item: the kind's out_dir + the item's rel path
+  # (e.g. tests/widget/button, examples/layout/hbox).
   def self.example_dir(w : Item) : String
     File.join(w.kind.out_dir, w.rel)
   end
@@ -201,14 +202,15 @@ module WidgetExamples
   # find, refresh, or migrate it without disturbing hand-written prose:
   #
   #     # <!-- widget-examples:capture v1 -->
-  #     # ![Button screenshot](../../examples/widget/button/button.png)
+  #     # ![Button screenshot](../../tests/widget/button/button.5s.apng)
   #     # <!-- /widget-examples:capture -->
   #
   # `crystal docs` emits the `src` verbatim, resolved relative to the class's
   # generated page (`docs/Crysterm/Widget/Button.html`). `--docs` copies the
-  # whole `examples/widget/` tree to `docs/examples/widget/`, and the `../`
-  # prefix (one per namespace level of the class) walks from the page back to the
-  # docs root, so the reference resolves with no network and no per-page assets.
+  # example trees (`tests/widget/`, `examples/layout/` — see DOCS_ASSETS) into
+  # `docs/`, and the `../` prefix (one per namespace level of the class) walks
+  # from the page back to the docs root, so the reference resolves with no
+  # network and no per-page assets.
 
   # Bump when the block's rendered shape changes; lets `--doc-comments` recognize
   # and rewrite an older block. The migration matcher keys off the stable
@@ -242,7 +244,8 @@ module WidgetExamples
   end
 
   # The image path written into the doc comment: from the class page, up to the
-  # docs root, then into the copied `examples/<kind>/<rel>/` tree.
+  # docs root, then into the copied example tree (`tests/widget/<rel>/`,
+  # `examples/layout/<rel>/`).
   def self.doc_image_ref(w : Item, filename : String) : String
     ("../" * doc_depth(w)) + "#{relative_to_root(example_dir(w))}/#{filename}"
   end
@@ -363,20 +366,24 @@ module WidgetExamples
   # ---- docs build + asset copy ----------------------------------------------
 
   # Source trees (relative to the project root) copied verbatim into `docs/` so
-  # the doc-comment image references resolve. `examples/widget/` carries the
+  # the doc-comment image references resolve. `tests/widget/` carries the
   # screenshots; add more here if other docs reference in-repo assets.
-  DOCS_ASSETS = ["examples/widget", "examples/layout"]
+  DOCS_ASSETS = ["tests/widget", "examples/layout"]
 
-  # Run `crystal docs`, then mirror DOCS_ASSETS into the generated tree.
+  # Run `crystal docs`, then mirror DOCS_ASSETS into the generated tree. The
+  # shard entry is passed explicitly — bare `crystal docs` mis-resolves the file
+  # set on this project (it documents src files in an order that leaves the
+  # `Mixin::*` constants undefined) and fails.
   def self.build_docs : Nil
-    echo_cmd "crystal", ["docs"]
-    status = Process.run("crystal", ["docs"], output: STDOUT, error: STDERR, chdir: ROOT)
+    args = ["docs", "src/crysterm.cr"]
+    echo_cmd "crystal", args
+    status = Process.run("crystal", args, output: STDOUT, error: STDERR, chdir: ROOT)
     exit 1 unless status.success?
     copy_docs_assets
   end
 
   # Mirror DOCS_ASSETS into the (already-built) docs tree
-  # (`examples/widget/` -> `docs/examples/widget/`), without re-running
+  # (`tests/widget/` -> `docs/tests/widget/`, …), without re-running
   # `crystal docs`. Use after re-recording captures to refresh just the assets.
   def self.copy_docs_assets : Nil
     DOCS_ASSETS.each do |rel|

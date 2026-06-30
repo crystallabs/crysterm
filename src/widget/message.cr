@@ -3,7 +3,7 @@ require "./dialog"
 module Crysterm
   class Widget
     # <!-- widget-examples:capture v1 -->
-    # ![Message screenshot](../../examples/widget/message/message-capture5s.apng)
+    # ![Message screenshot](../../tests/widget/message/message.5s.apng)
     # <!-- /widget-examples:capture -->
     class Message < Dialog
       # These were previously set in the `class Widget` body (outside `Message`),

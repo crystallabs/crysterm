@@ -35,7 +35,7 @@ module Crysterm
       # The convenience `KeyPrompt.yes_no` builds a two-choice yes/no prompt.
       #
       # <!-- widget-examples:capture v1 -->
-      # ![KeyPrompt screenshot](../../../examples/widget/pine/key_prompt/key_prompt-capture5s.apng)
+      # ![KeyPrompt screenshot](../../../tests/widget/pine/key_prompt/key_prompt.5s.apng)
       # <!-- /widget-examples:capture -->
       class KeyPrompt < Widget::Box
         # A single key-choice the user can pick.

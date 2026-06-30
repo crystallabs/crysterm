@@ -25,7 +25,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![ListTable screenshot](../../examples/widget/listtable/listtable-capture5s.apng)
+    # ![ListTable screenshot](../../tests/widget/listtable/listtable.5s.apng)
     # <!-- /widget-examples:capture -->
     class ListTable < AbstractItemView
       include Mixin::ItemView

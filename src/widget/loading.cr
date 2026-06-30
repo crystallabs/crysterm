@@ -5,7 +5,7 @@ module Crysterm
     # Box element
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Loading screenshot](../../examples/widget/loading/loading-capture5s.apng)
+    # ![Loading screenshot](../../tests/widget/loading/loading.5s.apng)
     # <!-- /widget-examples:capture -->
     class Loading < Box
       # Self-driven frame loop (`start`/`stop`/`toggle`, `interval`, `running?`).

@@ -26,7 +26,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![ProgressBar screenshot](../../../examples/widget/pine/progress_bar/progress_bar-capture5s.apng)
+      # ![ProgressBar screenshot](../../../tests/widget/pine/progress_bar/progress_bar.5s.apng)
       # <!-- /widget-examples:capture -->
       class ProgressBar < ::Crysterm::Widget::ProgressBar
         def initialize(

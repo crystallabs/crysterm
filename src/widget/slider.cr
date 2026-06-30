@@ -10,7 +10,7 @@ module Crysterm
     # emits `Event::ValueChange` whenever the value changes.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Slider screenshot](../../examples/widget/slider/slider-capture5s.apng)
+    # ![Slider screenshot](../../tests/widget/slider/slider.5s.apng)
     # <!-- /widget-examples:capture -->
     class Slider < AbstractSlider
       # Where tick marks are drawn relative to the groove (Qt's

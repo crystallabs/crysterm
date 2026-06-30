@@ -26,7 +26,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![CopperBar screenshot](../../../examples/widget/effect/copper_bar/copper_bar-capture5s.apng)
+      # ![CopperBar screenshot](../../../tests/widget/effect/copper_bar/copper_bar.5s.apng)
       # <!-- /widget-examples:capture -->
       class CopperBar < Box
         include Animated

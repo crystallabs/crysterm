@@ -16,7 +16,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![GroupBox screenshot](../../examples/widget/group_box/group_box-capture5s.apng)
+    # ![GroupBox screenshot](../../tests/widget/group_box/group_box.5s.apng)
     # <!-- /widget-examples:capture -->
     class GroupBox < Box
       # `#apply_substyle`, used by the `PreRender` handler below.

@@ -30,7 +30,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Bar screenshot](../../../examples/widget/graph/bar/bar-capture5s.apng)
+      # ![Bar screenshot](../../../tests/widget/graph/bar/bar.5s.apng)
       # <!-- /widget-examples:capture -->
       class Bar < Box
         include BarChart

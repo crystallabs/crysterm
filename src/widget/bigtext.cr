@@ -9,7 +9,7 @@ module Crysterm
     # fonts (https://github.com/chjj/ttystudio).
     #
     # <!-- widget-examples:capture v1 -->
-    # ![BigText screenshot](../../examples/widget/bigtext/bigtext-capture5s.apng)
+    # ![BigText screenshot](../../tests/widget/bigtext/bigtext.5s.apng)
     # <!-- /widget-examples:capture -->
     class BigText < Widget::Box
       # Optional font-file overrides; `nil` uses the bundled Terminus normal/bold.
@@ -137,7 +137,7 @@ module Crysterm
     end
 
     # <!-- widget-examples:capture v1 -->
-    # ![BigText screenshot](../../examples/widget/bigtext/bigtext-capture5s.apng)
+    # ![BigText screenshot](../../tests/widget/bigtext/bigtext.5s.apng)
     # <!-- /widget-examples:capture -->
     alias Bigtext = BigText
   end

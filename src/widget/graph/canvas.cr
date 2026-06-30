@@ -39,7 +39,7 @@ module Crysterm
       # ```
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Canvas screenshot](../../../examples/widget/graph/canvas/canvas-capture5s.apng)
+      # ![Canvas screenshot](../../../tests/widget/graph/canvas/canvas.5s.apng)
       # <!-- /widget-examples:capture -->
       class Canvas < Box
         # The Media backend presenting the painted bitmap. Built in `#initialize`

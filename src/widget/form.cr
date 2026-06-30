@@ -30,7 +30,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Form screenshot](../../examples/widget/form/form-capture5s.apng)
+    # ![Form screenshot](../../tests/widget/form/form.5s.apng)
     # <!-- /widget-examples:capture -->
     class Form < Box
       # When enabled, pressing `Enter` in a `LineEdit` child moves focus to the

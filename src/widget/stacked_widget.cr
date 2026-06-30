@@ -15,7 +15,7 @@ module Crysterm
     # ```
     #
     # <!-- widget-examples:capture v1 -->
-    # ![StackedWidget screenshot](../../examples/widget/stacked_widget/stacked_widget-capture5s.apng)
+    # ![StackedWidget screenshot](../../tests/widget/stacked_widget/stacked_widget.5s.apng)
     # <!-- /widget-examples:capture -->
     class StackedWidget < Box
       # `#pages`, `#current_index`, `#current_page` and the show/next/previous
