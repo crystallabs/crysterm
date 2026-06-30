@@ -1,4 +1,4 @@
-require "../widget_media_fit"
+require "../widget_media_fitting"
 
 module Crysterm
   class Widget

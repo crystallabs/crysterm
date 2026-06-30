@@ -8,7 +8,6 @@ require "./mixin/data"
 require "./mixin/css"
 
 require "./widget_children"
-require "./widget_index"
 require "./widget_position"
 require "./widget_size"
 require "./widget_decoration"
@@ -21,7 +20,6 @@ require "./widget_scrolling"
 require "./widget_background"
 require "./widget_rendering"
 require "./widget_interaction"
-require "./widget_capture"
 require "./widget_label"
 require "./widget_cursor"
 
@@ -31,15 +29,12 @@ require "./widget_cursor"
 # `Terminal` backend (pty + emulator), and the table widgets' content-layout helper.
 require "./widget_media_base"
 require "./widget_media_cells"
-require "./widget_media_external"
 require "./widget_media_graphics"
-require "./widget_media_fit"
 require "./widget_media_fitting"
 require "./widget_media_video_source"
 require "./widget_media_ansi_decode"
 require "./widget_graph_scale"
 require "./widget_graph_painter"
-require "./widget_effect_animated"
 require "./widget_effect_direct"
 require "./widget_terminal_pty"
 require "./widget_terminal_emulator"
@@ -438,6 +433,55 @@ module Crysterm
       # `window` already returns a non-nil `Window` (it raises when unattached),
       # so `@parent || window` is non-nil without a `not_nil!`.
       @parent || window
+    end
+
+    # Captures this widget's on-window region via `Window#capture` (the single
+    # capture entry point), auto-selecting the area the widget occupies in the
+    # window's rendered content. All of `Window#capture`'s options are forwarded
+    # (`format`, `path`, `duration`, `fps`, `loops`, …); returns its result, or
+    # `nil` if the widget hasn't been rendered yet (no known position).
+    #
+    # By default the whole widget box (including decorations) is captured; pass
+    # `include_decorations: false` for the content area only. `d*` deltas
+    # grow/shrink the region per edge in cells.
+    #
+    # ```
+    # widget.capture path: "widget.png"
+    # widget.capture format: "gif", duration: 2.seconds
+    # ```
+    def capture(include_decorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0, **opts) : Bytes?
+      lpos = @lpos
+      return unless lpos
+
+      xi = lpos.xi + (include_decorations ? 0 : ileft) + dxi
+      xl = lpos.xl + (include_decorations ? 0 : -iright) + dxl
+      yi = lpos.yi + (include_decorations ? 0 : itop) + dyi
+      yl = lpos.yl + (include_decorations ? 0 : -ibottom) + dyl
+
+      window.capture(xi, xl, yi, yl, **opts)
+    end
+
+    # Text counterpart to `Widget#capture`: dumps just this widget's on-window
+    # region via `Window#dump`, auto-selecting the area the widget occupies.
+    # Mirrors `#capture` exactly (same `include_decorations` + per-edge `d*`
+    # deltas, same forwarding of `Window#dump`'s options); returns the dump text,
+    # or `nil` if the widget hasn't been rendered yet (no known position).
+    #
+    # ```
+    # widget.dump                # -> String
+    # widget.dump path: "w.dump" # writes the file
+    # widget.dump include_decorations: false
+    # ```
+    def dump(include_decorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0, **opts) : String?
+      lpos = @lpos
+      return unless lpos
+
+      xi = lpos.xi + (include_decorations ? 0 : ileft) + dxi
+      xl = lpos.xl + (include_decorations ? 0 : -iright) + dxl
+      yi = lpos.yi + (include_decorations ? 0 : itop) + dyi
+      yl = lpos.yl + (include_decorations ? 0 : -ibottom) + dyl
+
+      window.dump(xi, xl, yi, yl, **opts)
     end
   end
 end

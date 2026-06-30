@@ -1,6 +1,6 @@
 require "../box"
 require "./canvas"
-require "../../widget_graph_text_overlay"
+require "../../widget_graph_painter"
 require "../../widget_graph_scale"
 
 module Crysterm

@@ -1,5 +1,4 @@
-require "../../widget_media_external"
-require "../../widget_media_render_hook"
+require "../../widget_media_base"
 require "json"
 
 module Crysterm

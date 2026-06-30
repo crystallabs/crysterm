@@ -437,5 +437,69 @@ module Crysterm
         end
       end
     end
+
+    # Abstract base for the **external-overlay** image backends — those whose
+    # pixels are painted by a separate helper process in its own window placed
+    # over the terminal, owned by neither Crysterm's cell grid nor the terminal
+    # emulator (`Media::Overlay` via `w3mimgdisplay`, `Media::Ueberzug` via
+    # `ueberzug`).
+    #
+    # These are inherently static: the helper shows one image, so they don't
+    # implement the render-driven animation loop. `animate?` is false and `#play`
+    # routes through `Media::Base#unsupported`, so asking one to animate follows
+    # the `image.unsupported` policy (error or ignore) instead of silently doing
+    # nothing.
+    #
+    # The unified `fit` contract knob is advisory here: each helper has its own,
+    # richer scaling control — `Media::Overlay#stretch`/`#center`,
+    # `Media::Ueberzug#scaler` — which is what actually takes effect.
+    abstract class Media::External < Media::Base
+      # External overlays are static; never auto-animate.
+      @animate = false
+
+      # Animation is not supported by an external-helper overlay.
+      def play
+        unsupported "animation"
+      end
+    end
+
+    # Minimal *single post-render listener* lifecycle for the image backends whose
+    # pixels live outside Crysterm's cell buffer but which — unlike the
+    # `Media::ScreenOverlay` family — do NOT need the erase-on-move (`PreRender`)
+    # half or the `@last_drawn` cell-rectangle tracking:
+    #
+    # * `Media::Ueberzug` — an override-redirect helper window that stays on top,
+    #   so it only re-sends `add`/`remove` when the cell rectangle changes.
+    # * `Media::Tek` — a separate Tektronix window driven entirely by its own
+    #   PAGE-clear redraw, not by re-emitting cells.
+    #
+    # Both register a single `Rendered` listener (dispatching to their own paint
+    # method) and tear it down on destroy, with byte-identical boilerplate for the
+    # listener-wrapper ivars and the add/remove dance. That boilerplate lives here;
+    # each backend supplies just the paint block and whatever extra teardown it
+    # needs (`Media::Tek` stops its animation loop, `Media::Ueberzug` removes its
+    # placement). `Media::ScreenOverlay` documents why these two are kept out of
+    # *its* (two-listener) lifecycle.
+    module Media::RenderHook
+      # Window the listener below was registered on, kept so it can be removed on
+      # destroy even after the widget has been detached (when `#window?` is nil).
+      @listener_screen : ::Crysterm::Window?
+      @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
+
+      # Registers *block* to run after every window render on *s*, remembering *s*
+      # and the wrapper so it can be removed later.
+      protected def register_render_hook(s : ::Crysterm::Window, &block : ::Crysterm::Event::Rendered ->)
+        @listener_screen = s
+        @ev_rendered = s.on(::Crysterm::Event::Rendered, &block)
+      end
+
+      # Removes the listener registered above and forgets the window.
+      protected def teardown_render_hook
+        s = @listener_screen || return
+        @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }
+        @ev_rendered = nil
+        @listener_screen = nil
+      end
+    end
   end
 end

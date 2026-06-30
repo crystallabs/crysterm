@@ -1,7 +1,7 @@
 module Crysterm
   class Widget
     # Methods related to 2D position (X and Y).
-    # Position in 3D (index) is in widget_index.cr
+    # Position in 3D (index) is in widget_children.cr
 
     # Resolves a percentage position/size expression against the parent
     # dimension `dim`. Accepts `"50%"`, `"50%+5"`, `"50%-3"` (callers pre-map

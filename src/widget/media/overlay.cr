@@ -1,4 +1,4 @@
-require "../../widget_media_external"
+require "../../widget_media_base"
 require "../../widget_media_screen_overlay"
 require "w3m_image_display"
 

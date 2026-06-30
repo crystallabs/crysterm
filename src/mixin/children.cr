@@ -9,7 +9,7 @@ module Crysterm
       # `@children.includes?` scan, making a batch of N appends O(N²) — which made
       # building thousands of widgets (e.g. one-per-cell demos on large terminals)
       # stall for seconds before the first frame. The only other place `@children`
-      # is mutated directly is the reorder in `widget_index.cr`, which removes and
+      # is mutated directly is the reorder in `widget_children.cr`, which removes and
       # re-adds the same element and so leaves membership unchanged.
       @children_set = Set(Widget).new
 

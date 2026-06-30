@@ -255,7 +255,7 @@ module Crysterm
     # top-level (parent-less) widget it is the *window's* content corner — `(0, 0)`
     # only when the window has no padding, but `(window.ileft, window.itop)` once
     # it does, since a top-level widget at `left`/`top` 0 lands *after* the window
-    # padding (`aleft == window.ileft + left`; see `window_decoration.cr`). Used by
+    # padding (`aleft == window.ileft + left`; see `window.cr`). Used by
     # the drag handler to convert the pointer's absolute position into a
     # parent-relative `left`/`top`.
     private def drag_origin : Tuple(Int32, Int32)
