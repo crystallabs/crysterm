@@ -105,6 +105,16 @@ module Crysterm
     # rectangle. Returns false before layout (coordinates raise). Shared hit-test
     # used by pop-ups for outside-click dismissal and grab containment.
     def contains_point?(x : Int32, y : Int32) : Bool
+      # Prefer the painted rectangle (`lpos`): like `Window#widget_at`, it carries
+      # the margin shift, enclosing-scroll offset and clipping, so a scrolled or
+      # clipped widget is tested where it actually appears (and one painted to
+      # nothing, `lpos == nil`, is never contained). Fall back to the computed
+      # rectangle only before the first render, when `lpos` is still nil for a
+      # widget that has laid out but not painted; `aleft` may raise pre-layout, so
+      # keep the rescue.
+      if lp = lpos
+        return lp.xi <= x < lp.xl && lp.yi <= y < lp.yl
+      end
       l = aleft
       t = atop
       l <= x < l + awidth && t <= y < t + aheight

@@ -70,16 +70,16 @@ module Crysterm
     # `Mixin::TextEditing`'s word/line select.
     getter click_count : Int32 = 0
 
-    @_last_click_at : Time::Span?
+    @_last_click_at : Time::Instant?
     @_last_click_pos : Tuple(Int32, Int32)?
     @_last_click_target : Widget?
 
     # Advances `#click_count` for a press by *w* at (*x*, *y*): increments when
     # this press is close enough in time (`Config.mouse_double_click_interval`)
     # and position (same cell) to the previous one on the same widget, else
-    # resets to 1. `now` is the caller's monotonic timestamp so a single press
+    # resets to 1. `now` is the caller's instant timestamp so a single press
     # reads the clock once.
-    private def bump_click_count(w : Widget?, x : Int32, y : Int32, now : Time::Span) : Nil
+    private def bump_click_count(w : Widget?, x : Int32, y : Int32, now : Time::Instant) : Nil
       within = @_last_click_at.try { |t| now - t <= Config.mouse_double_click_interval } || false
       same = @_last_click_target == w && @_last_click_pos == {x, y}
       @click_count = within && same ? @click_count + 1 : 1
@@ -163,7 +163,7 @@ module Crysterm
       # own `Event::Mouse`/`Event::Click` handler can read `#click_count` for
       # this press (double/triple detection). Only a real button press counts;
       # motion/release/wheel leave the running count alone.
-      bump_click_count(w, ev.x, ev.y, Time.monotonic) if ev.action.down?
+      bump_click_count(w, ev.x, ev.y, Time.instant) if ev.action.down?
 
       update_hover w, ev
 
@@ -366,10 +366,31 @@ module Crysterm
         # container (e.g. a non-current tab page) can't intercept clicks.
         next unless displayed_in_tree? el
 
-        left = el.aleft
-        top = el.atop
-        next unless x >= left && x < left + el.awidth
-        next unless y >= top && y < top + el.aheight
+        # Hit-test against the widget's *painted* rectangle (`lpos`), not the raw
+        # `aleft/atop/awidth/aheight` geometry. `lpos` is what `_render` laid down:
+        # it folds in the margin shift AND the enclosing-scroll offset (`base`) and
+        # clips to every clipping ancestor's viewport, so a scrolled list item is
+        # matched where it actually appears (and a `resizable` widget by its shrunk
+        # content box, not the full slot `awidth` reports). Raw geometry ignored all
+        # of that and hit-tested scrolled/shrunk children by their unscrolled,
+        # unclipped rectangle. `render_children` refreshes every descendant's `lpos`
+        # each frame, so it is current once the window has painted.
+        lp = el.lpos
+        if lp
+          next unless x >= lp.xi && x < lp.xl
+          next unless y >= lp.yi && y < lp.yl
+        elsif renders > 0
+          # The window has painted but this widget laid down nothing — scrolled or
+          # clipped out of view (or not yet rendered since being added). Not a hit.
+          next
+        else
+          # No paint yet (e.g. a direct `widget_at` before the first render): fall
+          # back to raw geometry, since there is no `lpos` to consult.
+          left = el.aleft
+          top = el.atop
+          next unless x >= left && x < left + el.awidth
+          next unless y >= top && y < top + el.aheight
+        end
 
         # Prefer a higher layer; within the same layer `>=` keeps "last wins"
         # (the common no-z-index case, where every key is `{0, 0}`).
