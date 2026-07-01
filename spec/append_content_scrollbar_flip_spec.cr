@@ -86,7 +86,7 @@ describe "Widget#append_content across an AsNeeded scrollbar flip" do
     box.process_content
 
     lines = ["a"]
-    6.times do |i|
+    6.times do
       line = "wwwwwwwwwwww" # 12 columns: two wrapped lines once the bar shows
       box.push_line line
       lines << line
