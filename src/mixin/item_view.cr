@@ -355,7 +355,13 @@ module Crysterm
           # single click both select and activate.
           item.on(::Crysterm::Event::Click) do
             if i = @items.index item
-              focus
+              # Honor the list's own `#focus_on_click?` opt-out, exactly as
+              # `Window#dispatch_mouse`'s automatic click-to-focus does. A
+              # focus-declining list (e.g. a `Completer` drop-down, whose owning
+              # text box must keep focus so typing keeps filtering) would
+              # otherwise be pulled into focus here — blurring the box, tearing
+              # down its read mode, and leaving it focused-but-uneditable.
+              focus if focus_on_click?
               if activate_on_click? || i == @selected
                 enter_selected i
               else

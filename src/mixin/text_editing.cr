@@ -176,7 +176,16 @@ module Crysterm
               @cursor_pos = b
             else
               @cursor_pos = pos
-              @selection_anchor = pos
+              # A plain click positions the caret with NO selection. Leave the
+              # anchor nil rather than seeding it at the caret: the drag path
+              # establishes it lazily on the first motion (`@selection_anchor ||=
+              # @cursor_pos` below), so an eager seed here is redundant — and a
+              # dangling anchor equal to the caret is a live landmine. It reports
+              # as "no selection" only while the caret sits on it; the next
+              # cursor-moving edit (Backspace/Delete/type) leaves the stale anchor
+              # behind, turning it into a bogus range whose end can exceed the
+              # now-shorter value and crash `#delete_selection` with an IndexError.
+              @selection_anchor = nil
             end
             # Capture the mouse so a drag that leaves our bounds keeps extending
             # the selection (released on button-up in `Window#dispatch_mouse`).
