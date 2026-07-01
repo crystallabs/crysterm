@@ -44,8 +44,11 @@ module Crysterm
       self.scrollbar_policy = p
     end
 
-    # Qt `QAbstractScrollArea#horizontalScrollBarPolicy`. Stored for API shape but
-    # not yet consulted — horizontal scrolling lands with workstream D.
+    # Qt `QAbstractScrollArea#horizontalScrollBarPolicy`. Consulted by
+    # `#show_horizontal_scrollbar?` (which drives `#hscrollbar_rows` and the
+    # horizontal bar chrome). Defaults to `AlwaysOff` on the base widget, so
+    # horizontal scrolling is opt-in per widget — `PlainTextEdit`/`ListTable`
+    # flip it to `AsNeeded`.
     property horizontal_scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
 
     # Thickness of the scroll bars, in cells — the **single source of truth** so
@@ -104,8 +107,10 @@ module Crysterm
     # to Qt's `verticalScrollBar()`.
     getter scrollbar_widget : ScrollBar?
 
-    # The horizontal `Widget::ScrollBar` child, once horizontal scrolling
-    # (workstream D) exists. Always `nil` for now.
+    # The horizontal `Widget::ScrollBar` child rendering this widget's horizontal
+    # scrollbar, created lazily by `#ensure_horizontal_scrollbar_widget` (`nil`
+    # until first shown). Horizontal counterpart of `#scrollbar_widget`; Qt's
+    # `horizontalScrollBar()`.
     getter horizontal_scrollbar_widget : ScrollBar?
 
     # Reconciles the scroll bar chrome with the policy each render: create+show+

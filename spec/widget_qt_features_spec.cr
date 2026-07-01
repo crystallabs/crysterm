@@ -2052,7 +2052,7 @@ private def hbox(s)
     content: "ABCDEFGHIJKLMNOPQRST" # 20 cols, viewport 10
 end
 
-describe "Horizontal scroll API (workstream D)" do
+describe "Horizontal scroll API" do
   it "reports content width and clamps scroll_x into range" do
     s = qt_mem_screen
     box = hbox(s)
@@ -2118,6 +2118,40 @@ describe "Horizontal scroll API (workstream D)" do
     box.child_base_x.should eq 2
     box.on_keypress keypress(' ', Tput::Key::Left)
     box.child_base_x.should eq 1
+  end
+
+  it "pages horizontally with Ctrl-Left/Ctrl-Right (one content width)" do
+    s = qt_mem_screen
+    box = hbox(s)
+    s._render
+    box.content_width.should eq 10
+    box.on_keypress keypress(' ', Tput::Key::CtrlRight)
+    box.child_base_x.should eq 10 # advanced a full page, clamped to max (20 - 10)
+    box.on_keypress keypress(' ', Tput::Key::CtrlLeft)
+    box.child_base_x.should eq 0
+  end
+
+  it "jumps to the first/last column with Shift-Home/Shift-End" do
+    s = qt_mem_screen
+    box = hbox(s)
+    s._render
+    box.on_keypress keypress(' ', Tput::Key::ShiftEnd)
+    box.child_base_x.should eq 10 # last column window: width(20) - viewport(10)
+    box.on_keypress keypress(' ', Tput::Key::ShiftHome)
+    box.child_base_x.should eq 0
+  end
+
+  it "jumps to the first/last column with vi 0/$ keys" do
+    s = qt_mem_screen
+    box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
+      wrap_content: false, vi: true,
+      horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
+      content: "ABCDEFGHIJKLMNOPQRST"
+    s._render
+    box.on_keypress keypress('$')
+    box.child_base_x.should eq 10
+    box.on_keypress keypress('0')
+    box.child_base_x.should eq 0
   end
 
   it "scroll_contents_by moves both axes" do

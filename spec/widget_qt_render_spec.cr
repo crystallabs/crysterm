@@ -496,7 +496,7 @@ describe "ScrollBar rendering" do
   end
 end
 
-describe "Horizontal scrolling (workstream D)" do
+describe "Horizontal scrolling" do
   it "shifts non-wrapped content by column and tracks the bar" do
     s = render_screen
     box = Crysterm::Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 10, height: 4,
@@ -597,7 +597,7 @@ describe "Horizontal scrolling (workstream D)" do
   end
 end
 
-describe "ListTable column-level horizontal scrolling (workstream D)" do
+describe "ListTable column-level horizontal scrolling" do
   it "scrolls a fixed-width table by whole columns" do
     s = render_screen
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, width: 14, height: 8,
