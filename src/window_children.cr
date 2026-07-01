@@ -112,18 +112,9 @@ module Crysterm
 
       super
 
-      # TODO Enable
-      # if i = @display.clickable.index(element)
-      #  @display.clickable.delete_at i
-      # end
-      # if i = @display.keyable.index(element)
-      #  @display.keyable.delete_at i
-      # end
-
-      # s= @display
-      # raise Exception.new() unless s
-      # screen_clickable= s.clickable
-      # screen_keyable= s.keyable
+      # Drop this element (and its subtree) from the keyboard/mouse registries so
+      # detached widgets don't linger in `@keyable`/`@clickable`. See `#unregister`.
+      unregister element
 
       # Clear the stored reference on this (top-level) element, then notify the
       # subtree that it has left this screen.

@@ -183,6 +183,27 @@ module Crysterm
       @keyable.push el
     end
 
+    # Removes `el` and its entire subtree from this window's keyboard and mouse
+    # registries. The counterpart to `#register_keyable`/`#register_clickable`,
+    # invoked on removal (`Window#remove`/`Widget#remove`).
+    #
+    # Without it the lists grow unboundedly and pin every widget ever inserted (a
+    # leak), and `@keyable` keeps handing detached entries to the focus
+    # navigation — harmless only because every read there is guarded by
+    # `window? == self` (see `window_focus.cr#focus_offset`), but still wasted work.
+    #
+    # Walks `self_and_each_descendant` because removing a container also detaches
+    # its descendants, whose entries must go too. Leaves each widget's intrinsic
+    # `keyable?`/`clickable?` flag alone: it records that the widget *wants* keys/
+    # mouse, so a later re-`insert` re-registers it. `Array#delete` is by value
+    # and a no-op when absent, so unregistering a never-registered widget is safe.
+    def unregister(el : Widget)
+      el.self_and_each_descendant do |e|
+        @keyable.delete e
+        @clickable.delete e
+      end
+    end
+
     # Sets up the general, screen-level key listener. It receives every
     # `Event::KeyPress` and dispatches it to the focused widget and up its
     # parent tree (until one `#accept`s it). Installed once per screen.

@@ -110,13 +110,11 @@ module Crysterm
       element.parent = nil
       element.window = nil
 
-      # TODO Enable
-      # if i = window.clickable.index(element)
-      #  window.clickable.delete_at i
-      # end
-      # if i = window.keyable.index(element)
-      #  window.keyable.delete_at i
-      # end
+      # Drop this element (and its subtree) from the window's keyboard/mouse
+      # registries. Routed through `previous` (captured above) since the widget
+      # itself doesn't own the lists. No-op when it was never on a window. See
+      # `Window#unregister`.
+      previous.try &.unregister element
 
       element.emit(Crysterm::Event::Reparent, nil)
       emit(Crysterm::Event::Remove, element)

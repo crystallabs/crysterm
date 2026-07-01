@@ -86,9 +86,9 @@ module Crysterm
         # `window?`): a destroyed/detached widget has no screen, and `#screen`
         # would crash here (e.g. closing a menu whose focused submenu was just
         # torn down). A bare `window?` would still accept a widget MOVED to
-        # another screen (`@keyable`/history entries aren't pruned on move —
-        # see `focus_offset`/`window_children.cr#remove`). Require attachment to
-        # THIS screen, as `restore_focus` does.
+        # another screen — and `@history` entries (unlike `@keyable`, now pruned
+        # on remove via `Window#unregister`) are never pruned at all. Require
+        # attachment to THIS screen, as `restore_focus` does.
         #
         # `displayed_in_tree?` (not `style.visible?`): a widget whose own flag
         # is visible but whose container is hidden isn't actually on screen and
@@ -170,12 +170,14 @@ module Crysterm
       # `count { ... }.zero?` always scanned the entire list.
       #
       # `window? == self` (not the raising `screen`, nor a bare truthy
-      # `window?`): `@keyable` is NOT pruned when a widget is removed (pruning
-      # in `window_children.cr#remove` is still disabled, see its `XXX`), so it
-      # can hold detached widgets (`@screen` nil) or ones moved to another
-      # screen. `screen` (`window?.not_nil!`) would crash on a detached entry; a
-      # bare `window?` would still select a widget on a DIFFERENT screen. Require
-      # attachment to THIS screen, matching `restore_focus`/`rewind_focus`.
+      # `window?`): defensive attachment check. `#remove`/`Widget#remove` now
+      # prune `@keyable` via `Window#unregister`, but a widget can still be gone
+      # from the tree without that path having run for it (e.g. mid-reparent, or a
+      # future caller mutating `@screen` directly), so a detached (`@screen` nil)
+      # or moved-to-another-screen entry can't be assumed impossible. `screen`
+      # (`window?.not_nil!`) would crash on a detached entry; a bare `window?`
+      # would still select a widget on a DIFFERENT screen. Require attachment to
+      # THIS screen, matching `restore_focus`/`rewind_focus`.
       #
       # `displayed_in_tree?` (not `style.visible?`) so a candidate inside a
       # hidden container is skipped even if its own flag is visible. Mirrors
