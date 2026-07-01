@@ -62,7 +62,7 @@ module Crysterm
     property iheight : Int32 = 0
 
     property _scroll_bottom : Int32 = 0
-    property _clean_sides : Bool = false
+    property _clean_sides : Bool? = nil
 
     def initialize(
       @xi = @xi,
@@ -126,7 +126,7 @@ module Crysterm
       @iwidth = 0
       @iheight = 0
       @_scroll_bottom = 0
-      @_clean_sides = false
+      @_clean_sides = nil
       self
     end
   end

@@ -304,7 +304,13 @@ module Crysterm
       if e.key
         Crysterm::Event::KeyPress::KEYS[e.key]?.try do |keycls|
           if el.handlers(keycls).any?
-            el.emit keycls.new e.char, e.key, e.sequence
+            # Forward `key_event` so the specific-key event carries the same
+            # enhanced-protocol info (modifiers, repeat, codepoint) as `e`, and
+            # propagate a handler's `accept` back onto `e` so the shared
+            # propagation loop actually stops the key.
+            ke = keycls.new e.char, e.key, e.sequence, e.key_event
+            el.emit ke
+            e.accept if ke.accepted?
           end
         end
       end
