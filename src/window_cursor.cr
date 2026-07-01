@@ -55,7 +55,14 @@ module Crysterm
         # XXX consider a simpler structure than Style for cursor color?
         # Native color is an int (`-1` = terminal default); device formats it
         # to `#rrggbb` for `Tput#cursor_color`.
-        c.style.fg.try { |color| set_hardware_cursor_color color if color >= 0 }
+        if (color = c.style.fg) && color >= 0
+          set_hardware_cursor_color color
+        else
+          # No color on this cursor (nil / `-1`): restore the terminal's own
+          # hardware cursor color via OSC 112, else a stale color from a
+          # previously-focused cursor persists. Mirrors `#cursor_color`.
+          reset_hardware_cursor_color
+        end
       end
 
       c._set = true

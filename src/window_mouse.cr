@@ -249,8 +249,10 @@ module Crysterm
     # A widget that captured the mouse (`#capture_mouse`) receives all motion
     # and release regardless of the pointer's position, so a press-drag it
     # started keeps flowing after the pointer leaves its bounds. The release
-    # ends the capture. A down is left to fall through to normal hit-testing
-    # (a fresh press retargets). Returns whether the event was consumed.
+    # ends the capture. A down clears the capture and falls through to normal
+    # hit-testing (a fresh press retargets) — this also recovers if the
+    # matching release was lost, else the stale captor would eat all motion
+    # forever. Returns whether the event was consumed.
     private def handle_mouse_captor(ev : ::Tput::Mouse::Event) : Bool
       captor = @_mouse_captor
       return false unless captor
@@ -261,6 +263,8 @@ module Crysterm
         captor.emit ::Crysterm::Event::Mouse, ev
         @_mouse_captor = nil
         return true
+      elsif ev.action.down?
+        @_mouse_captor = nil
       end
       false
     end
@@ -273,15 +277,18 @@ module Crysterm
     private def handle_active_drag(ev : ::Tput::Mouse::Event) : Bool
       drag = @_drag
       return false unless drag
-      if drag.sensor.mouse?
-        if ev.action.move?
-          drag_motion drag, ev.x, ev.y, ev.shift?, ev.ctrl?
-        elsif drag.discrete? ? ev.action.down? : ev.action.up?
-          if drag.discrete?
-            retarget_over drag, widget_at(ev.x, ev.y, skip: drag.source)
-          end
-          drag_release drag
+      # A non-mouse (e.g. keyboard) drag targets the *focused* widget, not the
+      # pointer. Consuming pointer events here would starve hover/click/wheel
+      # dispatch to widgets for the whole duration of the drag, so let them
+      # flow through; only a mouse-sensor drag owns the pointer stream.
+      return false unless drag.sensor.mouse?
+      if ev.action.move?
+        drag_motion drag, ev.x, ev.y, ev.shift?, ev.ctrl?
+      elsif drag.discrete? ? ev.action.down? : ev.action.up?
+        if drag.discrete?
+          retarget_over drag, widget_at(ev.x, ev.y, skip: drag.source)
         end
+        drag_release drag
       end
       true
     end

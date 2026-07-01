@@ -232,7 +232,11 @@ module Crysterm
       if @width.nil? && (@left.nil? || @right.nil?)
         if @left.nil? && !@right.nil?
           xi = xl - (mxl - mxi)
-          xi -= style.padding.try { |padding| padding.left + padding.right } || 0
+          # Pull the left edge back by the full left inset (border + padding),
+          # mirroring the y-axis top branch (`yi -= itop`). The prior code
+          # subtracted both paddings and no border, sizing a bordered
+          # right-anchored shrink box too wide by `border.left + border.right`.
+          xi -= ileft
         else
           xl = mxl
           # D O:

@@ -153,7 +153,9 @@ module Crysterm
 
     # Removes focus from the current element and focuses the element that was previously in focus.
     def focus_pop
-      old = @history.pop
+      # Non-raising pop: `focus_pop` is public API and the history may be empty
+      # (mirrors `rewind_focus`, which also uses `pop?`).
+      old = @history.pop?
       if el = @history.last?
         _focus el, old
       end

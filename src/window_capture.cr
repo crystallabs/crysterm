@@ -224,12 +224,18 @@ module Crysterm
         spawn { out_ch.try &.send(proc.output.getb_to_end) }
       end
 
-      yield proc.input
-      proc.input.close rescue nil
-
-      result = out_ch.try &.receive
-      proc.wait
-      devnull.close
+      result = nil
+      begin
+        yield proc.input
+      ensure
+        # Reap the process and close fds even if the frame-writing block raised,
+        # else an exception leaves a zombie ffmpeg and an open `/dev/null` fd.
+        # Closing stdin first sends EOF so ffmpeg exits and the drain completes.
+        proc.input.close rescue nil
+        result = out_ch.try &.receive
+        proc.wait
+        devnull.close
+      end
       result
     end
 
