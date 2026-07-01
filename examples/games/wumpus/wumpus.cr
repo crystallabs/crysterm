@@ -32,7 +32,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     end
     say "  b                go back to previous room"
     say "  n                start a new game"
-    say "  h                help (show current preset and flags)"
+    say "  h or ?           help (show current preset and flags)"
     say "  q                quit (also Ctrl-Q)"
     say
     say "{bold}Current flags (type name to toggle, +-name to set):{/}"
@@ -155,7 +155,11 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       left: 0,
       width: "100%",
       height: 3,
-      style: Style.new(fg: "black", bg: "#e0e000", border: true)
+      # Yellow text field, but give the border its own dark background/white
+      # rule so it blends into the surrounding chrome (matching the transcript
+      # box above) instead of drawing a stark yellow frame.
+      style: Style.new(fg: "black", bg: "#e0e000",
+        border: Border.new(bg: "#1a1a2e", fg: "white"))
 
     # Scoreboard: a small titled box pinned to the top-right corner, inside the
     # transcript's outer border. Shown only when "score" is on (see
@@ -200,6 +204,16 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       if e.key == Tput::Key::CtrlQ
         @screen.destroy
         exit
+      end
+
+      # Keep typing effortless: a keystroke while focus has drifted off the
+      # input box (e.g. after clicking into the transcript) grabs focus back and
+      # still delivers that key, so you never have to click the box first. When
+      # the box is already focused this is a no-op and the key flows normally.
+      unless @input.focused?
+        @input.focus
+        @screen.emit_key @input, e
+        e.accept
       end
     end
   end
@@ -355,7 +369,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       say "You enter a cave of 20 rooms. Somewhere a Wumpus sleeps."
       say "You carry #{@arrows} crooked arrows. Find it and shoot it."
     end
-    say w("", "Type {bold}h{/} for help.") # always shown
+    say w("", "Type {bold}h{/} or {bold}?{/} for help.") # always shown
     gap
     update_score
 
