@@ -68,13 +68,7 @@ module Crysterm
     end
 
     # Returns computed width
-    def awidth(get = false, with_margin = true)
-      # Own left+right margins shrink the box (`_get_coords` does `xi += left`,
-      # `xl -= right`); folding that in here keeps the hit-test rectangle
-      # (`#aleft + #awidth`) matching the paint. Render/anchoring callers pass
-      # `with_margin: false` for the un-shrunk base.
-      mw = (with_margin && (mg = style.margin).any?) ? mg.left + mg.right : 0
-
+    def awidth(get = false)
       oleft = @left
       oright = @right
       width = @width
@@ -88,7 +82,9 @@ module Crysterm
         # Percentage of the parent's content area (inside border/padding), like
         # CSS `width: 100%`. Matching `aleft` adds the parent's near inset, so a
         # `left: 0` child sits inside the border and `"100%"` reaches the far inset.
-        return clamp_awidth(resolve_dimension(width, (parent.awidth || 0) - parent.ileft - parent.iright, "half")) - mw
+        # A specified size keeps its full extent — an outward margin *shifts* it
+        # (see `_get_coords`), it does not shrink it.
+        return clamp_awidth(resolve_dimension(width, (parent.awidth || 0) - parent.ileft - parent.iright, "half"))
       end
 
       # Stretched or shrunken element: shrunken widths are computed in the
@@ -112,17 +108,20 @@ module Crysterm
           width -= parent.ileft
         end
         width -= parent.iright
+
+        # `width: auto` fills the slot, so the element's *own* margins eat into
+        # the filled content (CSS: a stretched box shrinks by its margins). A
+        # fixed width instead keeps its size and shifts (see `_get_coords`), so
+        # only this auto branch folds the margin in.
+        mw = (mg = style.margin).any? ? mg.left + mg.right : 0
+        return clamp_awidth(width) - mw
       end
 
-      width.is_a?(Int32) ? clamp_awidth(width) - mw : width
+      width.is_a?(Int32) ? clamp_awidth(width) : width
     end
 
     # Returns computed height
-    def aheight(get = false, with_margin = true)
-      # See `#awidth`: own top+bottom margins shrink the box; folded in so
-      # hit-test matches the paint. Base callers pass `with_margin: false`.
-      mh = (with_margin && (mg = style.margin).any?) ? mg.top + mg.bottom : 0
-
+    def aheight(get = false)
       otop = @top
       obottom = @bottom
       height = @height
@@ -133,7 +132,8 @@ module Crysterm
       when String
         parent = get ? parent_or_window.last_rendered_position : parent_or_window
         # Percentage of the parent's content height; see `awidth` for rationale.
-        return clamp_aheight(resolve_dimension(height, (parent.aheight || 0) - parent.itop - parent.ibottom, "half")) - mh
+        # A specified size keeps its full extent (outward margin shifts it).
+        return clamp_aheight(resolve_dimension(height, (parent.aheight || 0) - parent.itop - parent.ibottom, "half"))
       end
 
       # Stretched or shrunken element: shrunken height is computed in the render
@@ -155,9 +155,14 @@ module Crysterm
           height -= parent.itop
         end
         height -= parent.ibottom
+
+        # See `awidth`: only an auto (stretched) height folds in the element's
+        # own margins; a fixed height shifts instead.
+        mh = (mg = style.margin).any? ? mg.top + mg.bottom : 0
+        return clamp_aheight(height) - mh
       end
 
-      height.is_a?(Int32) ? clamp_aheight(height) - mh : height
+      height.is_a?(Int32) ? clamp_aheight(height) : height
     end
 
     # Returns minimum widget size based on bounding box
@@ -228,13 +233,11 @@ module Crysterm
         if @left.nil? && !@right.nil?
           xi = xl - (mxl - mxi)
           xi -= style.padding.try { |padding| padding.left + padding.right } || 0
-          xi -= mwidth # reserve room for the margin _get_coords insets back out
         else
           xl = mxl
           # D O:
           # xl += style.padding.try(&.right) || 0
           xl += iright
-          xl += mwidth # reserve room for the margin _get_coords insets back out
         end
       end
       if @height.nil? && (@top.nil? || @bottom.nil?) && (!@scrollable || @_is_list)
@@ -247,11 +250,9 @@ module Crysterm
         if @top.nil? && !@bottom.nil?
           yi = yl - (myl - myi)
           yi -= itop
-          yi -= mheight # reserve room for the margin _get_coords insets back out
         else
           yl = myl
           yl += ibottom
-          yl += mheight # reserve room for the margin _get_coords insets back out
         end
       end
 
@@ -267,14 +268,14 @@ module Crysterm
       # `max_width` is `property max_width = 0` (Int32, never nil), so no `|| 0`.
       w = @_clines.max_width
 
-      # `mwidth`/`mheight` reserve room for the element's own margin, which
-      # `_get_coords` insets back out of the resolved rectangle. Without this a
-      # shrunk-to-content widget would have its content clipped by the margin.
+      # The border box is sized to exactly the content (`w`/`h` + inner insets);
+      # an outward margin shifts this box rather than shrinking it (see
+      # `_get_coords`), so no margin room is reserved here.
       if @width.nil? && (@left.nil? || @right.nil?)
         if @left.nil? && !@right.nil?
-          xi = xl - w - iwidth - mwidth
+          xi = xl - w - iwidth
         else
-          xl = xi + w + iwidth + mwidth
+          xl = xi + w + iwidth
         end
       end
       # end
@@ -282,9 +283,9 @@ module Crysterm
       if @height.nil? && (@top.nil? || @bottom.nil?) &&
          (!@scrollable || @_is_list)
         if @top.nil? && !@bottom.nil?
-          yi = yl - h - iheight - mheight # (iheight == 1 ? 0 : iheight)
+          yi = yl - h - iheight # (iheight == 1 ? 0 : iheight)
         else
-          yl = yi + h + iheight + mheight # (iheight == 1 ? 0 : iheight)
+          yl = yi + h + iheight # (iheight == 1 ? 0 : iheight)
         end
       end
 

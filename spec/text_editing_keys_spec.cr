@@ -96,7 +96,7 @@ describe "Mixin::TextEditing keyboard / clipboard / multi-click editing" do
     it "LineEdit: Backspace with a selection deletes the whole selection, cursor at its start" do
       s = sel_screen
       le = new_lineedit s
-      press s, 6, 0    # cursor + anchor at 6 (start of "world")
+      press s, 6, 0 # cursor + anchor at 6 (start of "world")
       drag_move s, 11, 0
       le.selected_text.should eq "world"
 

@@ -102,8 +102,8 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
       le = Widget::LineEdit.new parent: s, left: 0, top: 0, width: 20, height: 1, content: "hello"
       s._render
 
-      press s, 2, 0      # cursor_pos = 2, anchor = 2
-      drag_move s, 4, 0  # cursor_pos = 4
+      press s, 2, 0     # cursor_pos = 2, anchor = 2
+      drag_move s, 4, 0 # cursor_pos = 4
 
       le.cursor_pos.should eq 4
       le.selection_anchor.should eq 2

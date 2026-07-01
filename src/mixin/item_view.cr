@@ -520,8 +520,9 @@ module Crysterm
           return
         end
 
-        # XXX change this to more thread & bug safe code.
-
+        # Safe because the empty-list guard above returns early and `index` is
+        # clamped to a valid slot; the `@ritems[@selected]` read below relies on
+        # the `@items.size == @ritems.size` invariant every mutator maintains.
         index = index.clamp(0, @items.size - 1)
 
         return if @selected == index && @_list_initialized

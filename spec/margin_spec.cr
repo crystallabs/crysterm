@@ -3,10 +3,11 @@ require "./spec_helper"
 include Crysterm
 
 # `margin` is the element's own outer spacing, the mirror of `padding`/`border`
-# (inner insets). Shifts the element inward from its computed position and
-# shrinks it within its slot, without touching inner content offsets (`ileft`
-# & co.). Specs assert the resolved rectangle (`_get_coords`/`lpos`), content
-# preservation when shrinking, CSS parsing, and sibling spacing.
+# (inner insets), and outward like CSS: a fixed-size element keeps its size and
+# is pushed away from its anchored edge, reserving empty space around it,
+# without touching inner content offsets (`ileft` & co.). Specs assert the
+# resolved rectangle (`_get_coords`/`lpos`), content preservation, CSS parsing,
+# and sibling spacing.
 
 private def render_screen
   Crysterm::Window.new(
@@ -60,7 +61,7 @@ describe "margin" do
   describe "geometry" do
     # Pre-cascade: `style` short-circuits to the inline `@style`, exercising the
     # inline constructor + `_get_coords` inset directly, without CSS in between.
-    it "shifts and shrinks a fixed-size widget within its slot (inline)" do
+    it "shifts a fixed-size widget by its margin, keeping its size (inline)" do
       screen = render_screen
       plain = Widget::Box.new parent: screen, top: 1, left: 2, width: 10, height: 5
       boxed = Widget::Box.new parent: screen, top: 1, left: 2, width: 10, height: 5,
@@ -71,8 +72,9 @@ describe "margin" do
 
       # Plain box occupies its full slot.
       {pl.xi, pl.xl, pl.yi, pl.yl}.should eq({2, 12, 1, 6})
-      # Margin 1 pushes near edges in by 1 and pulls far edges in by 1.
-      {bx.xi, bx.xl, bx.yi, bx.yl}.should eq({3, 11, 2, 5})
+      # Margin 1 pushes the (left/top-anchored) box in by 1 on the near edges,
+      # keeping its 10x5 size — the margin reserves space outside it.
+      {bx.xi, bx.xl, bx.yi, bx.yl}.should eq({3, 13, 2, 7})
     end
 
     it "honors asymmetric per-side margins (inline)" do
@@ -81,7 +83,9 @@ describe "margin" do
         style: Style.new(margin: Margin.new(left: 1, top: 2, right: 3, bottom: 4))
 
       l = box._get_coords.not_nil!
-      {l.xi, l.xl, l.yi, l.yl}.should eq({0 + 1, 20 - 3, 0 + 2, 10 - 4})
+      # Left/top-anchored: only the near (left/top) margins shift the box; the
+      # far (right/bottom) margins reserve space outside, keeping the 20x10 size.
+      {l.xi, l.xl, l.yi, l.yl}.should eq({0 + 1, 20 + 1, 0 + 2, 10 + 2})
     end
 
     # Full pipeline: margin via CSS rule, folded by the cascade, applied at
@@ -93,7 +97,7 @@ describe "margin" do
       screen._render
 
       l = box.lpos.not_nil!
-      {l.xi, l.xl, l.yi, l.yl}.should eq({3, 11, 2, 5})
+      {l.xi, l.xl, l.yi, l.yl}.should eq({3, 13, 2, 7})
     end
 
     it "leaves the inner content offsets (border/padding) untouched" do

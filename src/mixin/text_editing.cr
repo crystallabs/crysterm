@@ -898,7 +898,7 @@ module Crysterm
             @goal_col = nil
             @selection_anchor = 0
             @cursor_pos = @value.size
-            extend_sel = true # keep the just-set anchor
+            extend_sel = true               # keep the just-set anchor
           elsif rl && k == Tput::Key::CtrlA # readline: line start
             @goal_col = nil
             @cursor_pos = line_start_pos

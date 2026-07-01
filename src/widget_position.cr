@@ -167,20 +167,25 @@ module Crysterm
     # by the right-anchored and `"center"` branches; passing it in avoids a second
     # `awidth` walk per frame. When nil it is resolved on demand.
     def aleft(get = false, width = nil, parent_pos = nil, with_margin = true)
-      # Include the widget's own left margin so hit-test geometry
-      # (`Window#widget_at` / `#contains_point?`) matches where `_get_coords`
-      # paints it (`xi += margin.left`); otherwise a margined widget was
-      # clickable a column off. `_get_coords` and the anchoring callers below
-      # pass `with_margin: false` so the margin is applied exactly once.
-      ml = (with_margin && (mg = style.margin).any?) ? mg.left : 0
-
       # Original left
       oleft = @left
       oright = @right
 
+      mg = style.margin
+
+      # Right-anchored: the outward margin pushes the box LEFT by its own right
+      # margin. Included so hit-test geometry (`Window#widget_at` /
+      # `#contains_point?`) matches where `_get_coords` paints it; `_get_coords`
+      # and the anchoring callers below pass `with_margin: false` so the shift is
+      # applied exactly once.
       if oleft.nil? && !oright.nil?
-        return ml + window.awidth - (width || awidth(get, with_margin: false)) - aright(get)
+        mr = (with_margin && mg.any?) ? mg.right : 0
+        return window.awidth - (width || awidth(get)) - aright(get) - mr
       end
+
+      # Left-anchored: the outward margin pushes the box RIGHT by its own left
+      # margin (see above for why it's gated on `with_margin`).
+      ml = (with_margin && mg.any?) ? mg.left : 0
 
       # `parent_pos`, when given, is the parent's already-resolved position for
       # this frame, threaded in by `_get_coords` so `aleft`/`atop` don't re-resolve.
@@ -190,7 +195,7 @@ module Crysterm
       if left.is_a? String
         left = resolve_dimension(left, parent.awidth || 0, "center")
         if center_expr?(oleft)
-          left -= (width || awidth(get, with_margin: false)) // 2
+          left -= (width || awidth(get)) // 2
         end
       end
 
@@ -205,16 +210,21 @@ module Crysterm
     # widget's already-resolved `aheight(get)` — see `#aleft` (avoids a redundant
     # `aheight` walk for bottom-anchored / `"center"` widgets).
     def atop(get = false, height = nil, parent_pos = nil, with_margin = true)
-      # See `#aleft`: include own top margin (`_get_coords` does `yi +=
-      # margin.top`) to keep hit-testing aligned with the paint.
-      mt = (with_margin && (mg = style.margin).any?) ? mg.top : 0
-
       otop = @top
       obottom = @bottom
 
+      mg = style.margin
+
+      # See `#aleft`: bottom-anchored, the outward margin pushes the box UP by
+      # its own bottom margin.
       if otop.nil? && !obottom.nil?
-        return mt + window.aheight - (height || aheight(get, with_margin: false)) - abottom(get)
+        mb = (with_margin && mg.any?) ? mg.bottom : 0
+        return window.aheight - (height || aheight(get)) - abottom(get) - mb
       end
+
+      # See `#aleft`: top-anchored, the outward margin pushes the box DOWN by its
+      # own top margin.
+      mt = (with_margin && mg.any?) ? mg.top : 0
 
       # See `#aleft`: `parent_pos` is the parent's already-resolved position.
       parent = parent_pos || (get ? parent_or_window.last_rendered_position : parent_or_window)
@@ -223,7 +233,7 @@ module Crysterm
       if top.is_a? String
         top = resolve_dimension(top, parent.aheight || 0, "center")
         if center_expr?(otop)
-          top -= (height || aheight(get, with_margin: false)) // 2
+          top -= (height || aheight(get)) // 2
         end
       end
 
@@ -244,7 +254,7 @@ module Crysterm
       if oright.nil? && !oleft.nil?
         # Base geometry: `_get_coords` composes in the margin, so this far-edge
         # offset must not double-count it.
-        right = window.awidth - (aleft(get, with_margin: false) + awidth(get, with_margin: false))
+        right = window.awidth - (aleft(get, with_margin: false) + awidth(get))
         right += parent.iright
         return right
       end
@@ -264,7 +274,7 @@ module Crysterm
 
       if obottom.nil? && !otop.nil?
         # Base geometry (see `#aright`): margin is composed in by `_get_coords`.
-        bottom = window.aheight - atop(get, with_margin: false) - aheight(get, with_margin: false)
+        bottom = window.aheight - atop(get, with_margin: false) - aheight(get)
         bottom += parent.ibottom
         return bottom
       end
@@ -302,17 +312,14 @@ module Crysterm
 
       # Resolve each dimension once, reused for both the anchored origin
       # (`aleft`/`atop`) and the far edge (`xl`/`yl`), so a right-anchored or
-      # `"center"` widget doesn't walk `awidth`/`aheight` twice per frame. Built
-      # without the element's own margin (the margin block below composes it in
-      # exactly once) — getters are called with `with_margin: false` to keep
-      # this rectangle byte-identical. `width_hint` is `awidth(true)`, already
-      # margin-shrunk, so the horizontal margin is added back when given.
-      w = if wh = width_hint
-            wh + ((mg = style.margin).any? ? mg.left + mg.right : 0)
-          else
-            awidth(get, with_margin: false)
-          end
-      h = aheight(get, with_margin: false)
+      # `"center"` widget doesn't walk `awidth`/`aheight` twice per frame.
+      # `awidth`/`aheight` give the border-box size (an auto width already folds
+      # in the margin; a fixed one does not — see `Widget#awidth`); the margin
+      # block below only *shifts* this box. The origin getters are called with
+      # `with_margin: false` so the shift is applied here exactly once.
+      # `width_hint` is `awidth(get)`, computed by `#_render` just before.
+      w = width_hint || awidth(get)
+      h = aheight(get)
       xi = aleft(get, w, ppos, with_margin: false)
       xl = xi + w
       yi = atop(get, h, ppos, with_margin: false)
@@ -339,16 +346,27 @@ module Crysterm
         yl = coords.yl
       end
 
-      # Apply the element's own margin: an outer inset shifting the box in by
-      # near-side margins and shrinking it by far-side ones — mirrors the
-      # border/padding insets (`ileft` & co.) but at the outer edge.
-      # `_minimal_rectangle` reserves room for it (see `Widget#mwidth`/`mheight`),
-      # so a shrunk widget keeps its content intact.
+      # Apply the element's own margin, CSS-style (*outward*): the border box
+      # keeps its size and is pushed away from its anchored edge by the near
+      # margin — right/left when right/left-anchored, so the margin reserves
+      # space *outside* the box rather than eating into it. (A stretched auto
+      # size already had its margin folded into `awidth`/`aheight`, so shifting
+      # is all that remains; a fixed size never shrinks.)
       if (margin = style.margin).any?
-        xi += margin.left
-        xl -= margin.right
-        yi += margin.top
-        yl -= margin.bottom
+        if @left.nil? && !@right.nil?
+          xi -= margin.right
+          xl -= margin.right
+        else
+          xi += margin.left
+          xl += margin.left
+        end
+        if @top.nil? && !@bottom.nil?
+          yi -= margin.bottom
+          yl -= margin.bottom
+        else
+          yi += margin.top
+          yl += margin.top
+        end
       end
 
       # Find the nearest ancestor that clips its children: a scrollable element

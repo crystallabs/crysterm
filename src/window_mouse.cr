@@ -145,40 +145,12 @@ module Crysterm
       # pointer position; surface on the screen and stop before hit-testing.
       return if ev.focus_event?
 
-      # A widget that captured the mouse (`#capture_mouse`) receives all motion
-      # and release regardless of the pointer's position, so a press-drag it
-      # started keeps flowing after the pointer leaves its bounds. The release
-      # ends the capture. A down is left to fall through to normal hit-testing
-      # (a fresh press retargets). Checked before `@_drag` since capture is the
-      # lighter mechanism a non-`draggable?` widget opts into.
-      if captor = @_mouse_captor
-        if ev.action.move?
-          captor.emit ::Crysterm::Event::Mouse, ev
-          return
-        elsif ev.action.up?
-          captor.emit ::Crysterm::Event::Mouse, ev
-          @_mouse_captor = nil
-          return
-        end
-      end
-
-      # An in-flight drag captures all motion/release regardless of what's
-      # underneath. A continuous drag ends on button-up; a discrete (two-click)
-      # drag ends on the next button-down, retargeting to whatever's under that
-      # click (works even without motion reporting).
-      if drag = @_drag
-        if drag.sensor.mouse?
-          if ev.action.move?
-            drag_motion drag, ev.x, ev.y, ev.shift?, ev.ctrl?
-          elsif drag.discrete? ? ev.action.down? : ev.action.up?
-            if drag.discrete?
-              retarget_over drag, widget_at(ev.x, ev.y, skip: drag.source)
-            end
-            drag_release drag
-          end
-        end
-        return
-      end
+      # A widget that captured the mouse or an in-flight drag consumes all
+      # motion/release regardless of the pointer's position; if either claims
+      # this event we're done. Capture is checked first since it's the lighter
+      # mechanism a non-`draggable?` widget opts into.
+      return if handle_mouse_captor ev
+      return if handle_active_drag ev
 
       w = widget_at ev.x, ev.y
 
@@ -272,6 +244,46 @@ module Crysterm
       elsif ev.action.wheel_down?
         scroll_under w, 1, horizontal: ev.shift?
       end
+    end
+
+    # A widget that captured the mouse (`#capture_mouse`) receives all motion
+    # and release regardless of the pointer's position, so a press-drag it
+    # started keeps flowing after the pointer leaves its bounds. The release
+    # ends the capture. A down is left to fall through to normal hit-testing
+    # (a fresh press retargets). Returns whether the event was consumed.
+    private def handle_mouse_captor(ev : ::Tput::Mouse::Event) : Bool
+      captor = @_mouse_captor
+      return false unless captor
+      if ev.action.move?
+        captor.emit ::Crysterm::Event::Mouse, ev
+        return true
+      elsif ev.action.up?
+        captor.emit ::Crysterm::Event::Mouse, ev
+        @_mouse_captor = nil
+        return true
+      end
+      false
+    end
+
+    # An in-flight drag captures all motion/release regardless of what's
+    # underneath. A continuous drag ends on button-up; a discrete (two-click)
+    # drag ends on the next button-down, retargeting to whatever's under that
+    # click (works even without motion reporting). Returns whether an active
+    # drag consumed the event.
+    private def handle_active_drag(ev : ::Tput::Mouse::Event) : Bool
+      drag = @_drag
+      return false unless drag
+      if drag.sensor.mouse?
+        if ev.action.move?
+          drag_motion drag, ev.x, ev.y, ev.shift?, ev.ctrl?
+        elsif drag.discrete? ? ev.action.down? : ev.action.up?
+          if drag.discrete?
+            retarget_over drag, widget_at(ev.x, ev.y, skip: drag.source)
+          end
+          drag_release drag
+        end
+      end
+      true
     end
 
     # The nearest widget at or above *w* that can take focus by pointer
