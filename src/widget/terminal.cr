@@ -373,8 +373,11 @@ module Crysterm
             end
 
             # Wide glyph: claim the following window cell as its continuation so
-            # the window grid stays 1 cell == 1 terminal column.
-            if full_unicode && x != cursor_col && (nxt = line[x + 1]?) &&
+            # the window grid stays 1 cell == 1 terminal column. This holds even
+            # when the cursor sits on the lead half (`x == cursor_col`): `attr`
+            # already carries the cursor styling from `apply_cursor` above, so
+            # we still consume both columns rather than emitting only one.
+            if full_unicode && (nxt = line[x + 1]?) &&
                x + 1 < xl && ::Crysterm::Unicode.width(ch) == 2
               nxt.attr = attr
               nxt.continuation!

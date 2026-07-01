@@ -64,8 +64,11 @@ module Crysterm
 
     private def transition_float(key : Symbol, from : Float64, to : Float64,
                                  dur : Time::Span, easing : Easing, &set : Float64 ->) : Nil
-      return if (from - to).abs < 1e-6
+      # Cancel first, even on the no-op early return: a state change to the
+      # current value must still stop a prior tween, or it keeps writing toward
+      # its old (now stale) target.
       cancel_transition key
+      return if (from - to).abs < 1e-6
       anim = FrameClock.new((1.0 / 30).seconds, duration: dur, easing: easing) do |clock|
         set.call(from + (to - from) * clock.value)
         request_render
@@ -76,10 +79,12 @@ module Crysterm
 
     private def transition_color(key : Symbol, from : Int32?, to : Int32?,
                                  dur : Time::Span, easing : Easing, &set : Int32 ->) : Nil
+      # Cancel first, even on the no-op early returns (nil target or from == to):
+      # otherwise a prior tween keeps writing toward its old (now stale) target.
+      cancel_transition key
       return unless from && to
       return if from == to
       f, t = from, to
-      cancel_transition key
       anim = FrameClock.new((1.0 / 30).seconds, duration: dur, easing: easing) do |clock|
         set.call(lerp_color(f, t, clock.value))
         request_render

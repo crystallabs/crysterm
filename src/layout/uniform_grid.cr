@@ -8,6 +8,10 @@ module Crysterm
     # tiled grid rather than a packed masonry. For an explicit row/column grid
     # with spans, see `Layout::Grid`.
     #
+    # NOTE: children must have an explicit `width`. A nil-width (`auto`) child's
+    # `awidth` reports the *stretched* full-interior size, which would make it
+    # the uniform column width and collapse the grid to a single column.
+    #
     # <!-- widget-examples:capture v1 -->
     # ![UniformGrid screenshot](../../tests/layout/uniform_grid/uniform_grid.5s.apng)
     # <!-- /widget-examples:capture -->

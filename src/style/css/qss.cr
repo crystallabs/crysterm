@@ -11,8 +11,13 @@ module Crysterm
     #   2. Rename names Crysterm spells differently via `RENAMES`
     #      (`PushButton` -> `Button`, `TextEdit` -> `PlainTextEdit`, ...).
     #
-    # Only type-selector tokens (`Q` + upper-case letter) are touched; property
-    # names/values, ids, classes and `:state` pseudo-classes are untouched. The
+    # The rewrites are plain text substitutions applied over the *whole* source
+    # (not just the selector portions), so in principle a property value that
+    # happens to spell a `Q`+CamelCase token, a Qt `:state` word, a `::name`, or
+    # `palette(...)` would be rewritten too. In practice this is harmless: the
+    # patterns (`Q` + upper-case letter, whole-token Qt state keywords, `::`
+    # pseudo-elements, `palette()`) don't occur in real Qt property values, and
+    # `palette()` in a value is exactly what we *do* want to rewrite. The
     # rewritten text then goes to the ordinary CSS parser, which tolerates
     # unrecognized properties/pseudo-elements — an unmapped selector just
     # matches nothing.

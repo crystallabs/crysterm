@@ -47,6 +47,33 @@ module Crysterm
       -1
     end
 
+    # :ditto:
+    #
+    # `TermColors#convert` only recognizes the `#rgb`/`#rrggbb` hex forms; the
+    # 4- and 8-digit alpha forms (`#rgba`/`#rrggbbaa`) would otherwise fall
+    # through to the `-1` default. Drop the trailing alpha nibble/byte (as
+    # `rgba()`/`hsla()` values already do) and parse the remaining RGB, so
+    # `#f00a` == `#f00` and `#11223344` == `#112233`.
+    private def self.safe_convert(color : String) : Int32
+      color = strip_hex_alpha(color)
+      convert(color).to_i32
+    rescue ArgumentError
+      -1
+    end
+
+    # Strips the alpha channel off the two hex-with-alpha forms, returning the
+    # plain `#rgb`/`#rrggbb` the shard's parser understands; any other string
+    # (named colors, already-alpha-free hex, malformed input) is returned as-is.
+    private def self.strip_hex_alpha(color : String) : String
+      return color unless color.starts_with?('#')
+      case color.size
+      when 5 # #rgba -> #rgb
+        color[0, 4] if color[1, 4].each_char.all? { |c| c.to_i?(16) }
+      when 9 # #rrggbbaa -> #rrggbb
+        color[0, 7] if color[1, 8].each_char.all? { |c| c.to_i?(16) }
+      end || color
+    end
+
     # Neutral RGB values substituted for a "default" color when it has to be
     # mixed with a concrete one (the real terminal default is unknown to us).
     # The typed `Config` accessors read a cached handle, so this costs no hash

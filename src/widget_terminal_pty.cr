@@ -35,7 +35,14 @@ module Crysterm
     # Linux's flat `0x5414`. A hardcoded Linux value would silently issue the
     # wrong ioctl on macOS/BSD, making `#resize` a no-op there.
     {% if flag?(:darwin) || flag?(:bsd) %}
-      TIOCSWINSZ = 0x80087467_u64
+      # BSD/macOS `_IOW('t', 103, struct winsize)`: IOC_OUT | (size << 16) |
+      # (group << 8) | num. Derive the size field from `sizeof(LibC::Winsize)`
+      # rather than baking in `0x0008` so the request stays correct if the
+      # struct layout ever changes. Equals `0x80087467` for the usual 8-byte
+      # winsize.
+      TIOCSWINSZ = (0x80000000_u64 |
+                    ((sizeof(LibC::Winsize).to_u64 & 0x1fff) << 16) |
+                    ('t'.ord.to_u64 << 8) | 103_u64)
     {% elsif flag?(:solaris) %}
       TIOCSWINSZ = 0x5467_u64
     {% else %}
@@ -110,7 +117,9 @@ module Crysterm
       ws.ws_row = rows.to_u16
       ws.ws_col = cols.to_u16
       # `ioctl` is already declared (variadically) by Crystal's `LibC`.
-      LibC.ioctl(@master.fd, TIOCSWINSZ, pointerof(ws))
+      if LibC.ioctl(@master.fd, TIOCSWINSZ, pointerof(ws)) != 0
+        raise RuntimeError.from_errno("ioctl(TIOCSWINSZ)")
+      end
     end
 
     # Writes input bytes to the child and flushes immediately (keystrokes must

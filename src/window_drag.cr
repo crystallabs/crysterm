@@ -85,6 +85,24 @@ module Crysterm
       render
     end
 
+    # Keyboard arrow during a drag. A repositioning source moves in the pressed
+    # direction (`drag_nudge`). A transfer source has nothing to reposition, so
+    # arrows retarget the drop candidate instead — mirroring Tab/Shift-Tab:
+    # right/down step to the next focusable, left/up to the previous.
+    private def drag_arrow(sess : DragSession, dx : Int32, dy : Int32) : Nil
+      if sess.source.drag_repositions?
+        drag_nudge sess, dx, dy
+      else
+        if dx > 0 || dy > 0
+          focus_next
+        else
+          focus_previous
+        end
+        retarget_over sess, focused
+        render
+      end
+    end
+
     # Keyboard nudge during a reposition drag: shift the anchor by (*dx*, *dy*)
     # cells and let the source reposition through its `Drag` handler.
     def drag_nudge(sess : DragSession, dx : Int32, dy : Int32) : Nil
@@ -283,13 +301,13 @@ module Crysterm
           e.accept
           return true
         when ::Tput::Key::Up
-          drag_nudge sess, 0, -1; e.accept; return true
+          drag_arrow sess, 0, -1; e.accept; return true
         when ::Tput::Key::Down
-          drag_nudge sess, 0, 1; e.accept; return true
+          drag_arrow sess, 0, 1; e.accept; return true
         when ::Tput::Key::Left
-          drag_nudge sess, -1, 0; e.accept; return true
+          drag_arrow sess, -1, 0; e.accept; return true
         when ::Tput::Key::Right
-          drag_nudge sess, 1, 0; e.accept; return true
+          drag_arrow sess, 1, 0; e.accept; return true
         end
         false
       elsif (w = focused) && w.draggable? && e.char == ' '

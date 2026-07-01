@@ -418,6 +418,9 @@ module Crysterm
       @child_base = 0
       @child_offset_x = 0
       @child_base_x = 0
+      # Keep `#stick_to_tail?` honest after a programmatic reset: otherwise the
+      # stale tail mark would make the base compare as still-at-tail.
+      @last_scroll_max = 0
       mark_dirty
       emit Crysterm::Event::Scroll, -prev
     end
@@ -504,6 +507,7 @@ module Crysterm
       # visible == content lines actually visible (e.g. height=4 with border ==
       # 2 visible lines). A shown horizontal bar reserves the bottom row.
       visible = visible_content_rows
+      return if visible <= 0
       # Index of the first content line actually shown (base == 2 means content
       # shows from its 3rd line onward).
       base = @child_base
@@ -578,11 +582,19 @@ module Crysterm
     private def clamp_child_base_to_content
       visible = visible_content_rows
 
-      max = @_clines.size - visible
-      max = 0 if max < 0
-      emax = _scroll_bottom - visible
-      emax = 0 if emax < 0
-      content_max = Math.max emax, max
+      # With no visible content rows there is nothing to scroll to, so the base
+      # must clamp to 0; `size - visible`/`_scroll_bottom - visible` would
+      # otherwise degrade to the full content height and fail to rein in a bad
+      # base.
+      if visible <= 0
+        content_max = 0
+      else
+        max = @_clines.size - visible
+        max = 0 if max < 0
+        emax = _scroll_bottom - visible
+        emax = 0 if emax < 0
+        content_max = Math.max emax, max
+      end
 
       # Qt sticky-bottom (`#follow_tail`): when following the tail and the view
       # was already at the bottom (or pinned — see `#stick_to_tail?`), snap to the

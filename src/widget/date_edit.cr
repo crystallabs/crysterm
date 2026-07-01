@@ -83,14 +83,17 @@ module Crysterm
       end
 
       # Maps an absolute x to a section index (year/month/day at the `YYYY-MM-DD`
-      # columns 0-3 / 5-6 / 8-9); `nil` when off the field. The field is exactly
-      # 10 columns (last col 9); `Mixin::SectionedField#select_section_at` relies
-      # on `nil` past that to leave the active section untouched — without the
-      # upper bound a click right of the text fell into the day branch.
+      # columns 0-4 / 5-7 / 8-9); `nil` when off the field. A separator column
+      # belongs to the field it follows — so the `-` at col 4 is part of the year
+      # and the `-` at col 7 part of the month, matching `DateTimeEdit#section_at`
+      # for the shared `YYYY-MM-DD` layout. The field is exactly 10 columns (last
+      # col 9); `Mixin::SectionedField#select_section_at` relies on `nil` past
+      # that to leave the active section untouched — without the upper bound a
+      # click right of the text fell into the day branch.
       private def section_at(x : Int32) : Int32?
         col = x - aleft - ileft
         return nil if col < 0 || col > 9
-        col <= 3 ? 0 : (col <= 6 ? 1 : 2)
+        col <= 4 ? 0 : (col <= 7 ? 1 : 2)
       rescue
         nil
       end

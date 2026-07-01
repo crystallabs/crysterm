@@ -100,6 +100,9 @@ module Crysterm
 
         @wrap = wrap
         @decimals = Math.max(decimals, 0)
+        # Never store an inverted range (mirrors `#set_range`), which would
+        # otherwise leave `#value` permanently stuck after `clamp`.
+        @maximum = Math.max(@minimum, @maximum)
         @value = (value || @minimum).clamp(@minimum, @maximum)
 
         handle Crysterm::Event::KeyPress

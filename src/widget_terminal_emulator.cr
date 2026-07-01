@@ -424,6 +424,10 @@ module Crysterm
           @state = :ground
           return
         end
+        # A lone ESC not forming ST (ESC \) was part of the string payload;
+        # restore it before handling the current byte so an OSC containing a
+        # literal ESC + non-`\` isn't silently corrupted.
+        @osc_buf << '\e'
       end
       case c.ord
       when 0x07 then finish_osc; @state = :ground # BEL terminator
@@ -1131,6 +1135,12 @@ module Crysterm
       @origin_mode = false
       @bracketed_paste = false
       @focus_reporting = false
+      # Drop any half-decoded UTF-8 and in-flight CSI so a partial sequence
+      # straddling the RIS can't be spliced onto post-reset input.
+      @leftover = Bytes.empty
+      @csi_buf.clear
+      @csi_private = false
+      @csi_prefix = nil
       reset_tab_stops
     end
 

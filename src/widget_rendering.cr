@@ -191,7 +191,7 @@ module Crysterm
       # If we're in a scrollable text box, check to
       # see which attributes this line starts with.
       if ci > 0
-        attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || 0_i64
+        attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || default_attr
       end
 
       style.border.try do |border|

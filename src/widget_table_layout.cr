@@ -206,15 +206,37 @@ module Crysterm
           right.times { s << ' ' }
         end
       elsif clen > width
-        # Trim whole characters until the column count fits (or the cell
-        # empties first): from the front for centered/right-aligned text, from
-        # the end otherwise. `clen` counts display columns while trimming
-        # removes characters one-for-one, so cap at the character length.
-        remove = Math.min(clen - width, cell.size)
+        # Trim by accumulating display width until the content fits `width`
+        # columns: from the front for centered/right-aligned text, from the end
+        # otherwise. Wide (CJK/emoji) graphemes count as 2 columns under
+        # `full_unicode?`, so trimming by grapheme width (not character count)
+        # keeps wide-char cells aligned. Graphemes are never split.
+        fu = full_unicode?
+        graphemes = cell.graphemes
         if align.h_center? || align.right?
-          cell[remove..]
+          # Keep the trailing `width` columns: drop leading graphemes.
+          kept = 0
+          start = graphemes.size
+          graphemes.reverse_each do |g|
+            gs = g.to_s
+            gw = fu ? Unicode.display_width(gs) : gs.size
+            break if kept + gw > width
+            kept += gw
+            start -= 1
+          end
+          graphemes[start..].join
         else
-          cell[0, cell.size - remove]
+          # Keep the leading `width` columns: drop trailing graphemes.
+          kept = 0
+          stop = 0
+          graphemes.each do |g|
+            gs = g.to_s
+            gw = fu ? Unicode.display_width(gs) : gs.size
+            break if kept + gw > width
+            kept += gw
+            stop += 1
+          end
+          graphemes[0, stop].join
         end
       else
         cell

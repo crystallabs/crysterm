@@ -259,10 +259,11 @@ module Crysterm
       # If we're in a scrollable element,
       # automatically scroll to the focused element.
       if el && el.window
-        # This needs the visible height of the scrolling element itself, not the
-        # element within it.
-        # NOTE why a/i values can be nil?
-        visible = cur.window.aheight - (el.atop || 0) - (el.itop || 0) - (el.abottom || 0) - (el.ibottom || 0)
+        # This needs the visible content height of the scrolling element itself
+        # (`el`), not the whole window nor the element within it (`cur`): `el`'s
+        # own height minus its top/bottom insets (border + padding). `aheight`
+        # can be nil pre-layout; `itop`/`ibottom` are always Int32.
+        visible = (el.aheight || 0) - el.itop - el.ibottom
         if cur.rtop < el.child_base
           el.scroll_to cur.rtop
           cur.window.render

@@ -40,6 +40,13 @@ module Crysterm
       @id_a : UInt32
       @id_b : UInt32
 
+      # Which double-buffer the *next* emit targets. Toggled once per emitted
+      # frame (not derived from `@anim_index`), so a streaming video — which
+      # pins `@anim_index` at 0 every frame — and an odd-length animation that
+      # wraps last→0 both still alternate buffers, keeping the place-then-delete
+      # swap atomic.
+      @buffer_parity = false
+
       # Stacking order, mapped to the Kitty placement `z=` parameter. `nil`
       # (default) omits `z=`, drawing on top of text. Negative draws under text:
       # `z = -1` shows through default-background cells but is hidden by a
@@ -68,9 +75,9 @@ module Crysterm
       end
 
       # The image id this frame transmits to: the front buffer when not
-      # double-buffering, else the buffer chosen by the frame's parity.
+      # double-buffering, else the buffer chosen by the current emit parity.
       private def frame_id : UInt32
-        double_buffer? && !@anim_index.even? ? @id_b : @id_a
+        double_buffer? && @buffer_parity ? @id_b : @id_a
       end
 
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
@@ -155,6 +162,7 @@ module Crysterm
         if double_buffer?
           other = id == @id_a ? @id_b : @id_a
           io << "\e_Ga=d,d=i,i=" << other << ",q=2\e\\"
+          @buffer_parity = !@buffer_parity # next emit targets the other buffer
         end
         io.to_s
       end

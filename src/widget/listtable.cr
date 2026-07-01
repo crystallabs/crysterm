@@ -220,17 +220,29 @@ module Crysterm
       def sort_by_column(col : Int32, descending = false)
         @sort_column = col
         @sort_descending = descending
+        # `set_data` re-applies the active sort (via `apply_sort`) over `@rows`.
+        set_data @rows
+      end
+
+      # Reorders the body rows of `@rows` in place according to the current
+      # `@sort_column`/`@sort_descending`, leaving the header (index 0) pinned.
+      # Does NOT call `set_data` — both `sort_by_column` and the tail of
+      # `set_data` call it, so calling `set_data` here would recurse forever.
+      # A no-op when no sort is active or the table has at most one body row.
+      private def apply_sort : Nil
+        col = @sort_column
+        return unless col
         return if @rows.size <= 2
 
+        descending = @sort_descending
         head = @rows.first
         body = @rows[1..].sort do |a, b|
           cmp = compare_cells(a[col]? || "", b[col]? || "")
           descending ? -cmp : cmp
         end
 
-        rebuilt = [head]
-        rebuilt.concat body
-        set_data rebuilt
+        @rows = [head]
+        @rows.concat body
       end
 
       private def compare_cells(a : String, b : String) : Int32
@@ -353,8 +365,16 @@ module Crysterm
       # Replaces the table data and rebuilds items + header.
       def set_data(rows)
         sel = @ritems[selected]?
+        prev_selected = selected
+        prev_count = @ritems.size
 
         return unless reload_rows rows
+
+        # Re-apply the active sort over the fresh body rows so the ordering is
+        # preserved across every data change, not just an explicit
+        # `sort_by_column` call. Reorders `@rows` in place (no `set_data`, to
+        # avoid recursion).
+        apply_sort
 
         # Keep the horizontal offset valid across a data change (fewer columns),
         # and re-derive its display-column offset.
@@ -386,8 +406,14 @@ module Crysterm
         set_items items
         header.front!
 
-        # Try to keep the previous selection.
-        if sel && (i = @ritems.index(sel))
+        # Try to keep the previous selection. When the row count is unchanged
+        # (e.g. an in-place re-sort or reslice), restore by numeric index: a
+        # value-based lookup can resolve an empty/duplicate cell to the wrong
+        # row — including item 0, the header spacer `""`. Fall back to the
+        # value-based lookup only when the row count changed.
+        if @ritems.size == prev_count && prev_selected < @ritems.size
+          selekt prev_selected
+        elsif sel && (i = @ritems.index(sel))
           selekt i
         else
           selekt Math.min(selected, @items.size - 1)

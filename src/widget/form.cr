@@ -215,7 +215,19 @@ module Crysterm
         when RadioButton then el.checked?.to_s
         when CheckBox    then el.checked?.to_s
         when List        then el.value
-        else                  nil
+          # Numeric spin boxes (`< Input`, `Int32`/`Float64` value).
+          # `DoubleSpinBox` renders to `#decimals` places, so use `#formatted_value`.
+        when SpinBox       then el.value.to_s
+        when DoubleSpinBox then el.formatted_value
+          # `ComboBox` (`< Input`) already exposes a `String` `#value`.
+        when ComboBox then el.value
+          # Date/time editors carry a `Time`. `DateEdit`/`TimeEdit` are subclasses
+          # of `DateTimeEdit`, so they must be matched *before* it. Format to the
+          # same layout each widget displays.
+        when DateEdit     then el.date.to_s("%Y-%m-%d")
+        when TimeEdit     then el.time.to_s(el.show_seconds? ? "%H:%M:%S" : "%H:%M")
+        when DateTimeEdit then el.date_time.to_s(el.show_seconds? ? "%Y-%m-%d %H:%M:%S" : "%Y-%m-%d %H:%M")
+        else                   nil
         end
       end
 
@@ -243,6 +255,17 @@ module Crysterm
         when RadioButton then el.uncheck
         when CheckBox    then el.uncheck
         when ProgressBar then el.reset
+          # Spin boxes reset to their minimum (via the public `#value=`).
+        when SpinBox       then el.value = el.minimum
+        when DoubleSpinBox then el.value = el.minimum
+          # Combo box reselects its first option (see `ComboBox#reset`).
+        when ComboBox then el.reset
+          # Date/time editors have no stored initial value; reset to "now",
+          # matching a freshly-constructed editor's default. `DateEdit`/`TimeEdit`
+          # are subclasses of `DateTimeEdit`, so match them first.
+        when DateEdit     then el.date = (Time.local rescue Time.utc(2000, 1, 1))
+        when TimeEdit     then el.time = (Time.local rescue Time.utc(2000, 1, 1))
+        when DateTimeEdit then el.date_time = (Time.local rescue Time.utc(2000, 1, 1))
         end
         el.children.each { |child| reset_children child }
       end

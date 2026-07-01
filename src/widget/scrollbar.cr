@@ -174,6 +174,13 @@ module Crysterm
           span = (steppers ? inner - 2 : inner) - 1
           next if span <= 0
           self.slider_position = @minimum + (pos.clamp(0, span) * value_span / span.to_f).round.to_i
+          # Capture the mouse so an untracked drag that leaves our bounds still
+          # delivers its release here — the commit below (on `up`) only fires on
+          # a report the bar receives, so without capture a release off the bar
+          # would strand the pending `@slider_position` uncommitted.
+          if @slider_position
+            window?.try &.capture_mouse(self)
+          end
           e.accept
           request_render
         end

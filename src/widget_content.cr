@@ -743,10 +743,22 @@ module Crysterm
           # space within the previous ~10 chars and cut just after it, so a word
           # isn't split mid-way. Falls back to character-wrap `i` if no space
           # found. Mirrors blessed's `while (j > i-10 && j > 0)` scan.
+          #
+          # The scan works on raw codepoints, which include inline SGR bytes
+          # (`\e[…m`). Skip over any escape run encountered so its `\e`/`[`/digit/
+          # `;`/`m` bytes neither consume the ~10-char lookback budget nor let the
+          # cut land inside an escape (`m`/digits are not spaces, but a preceding
+          # `\e` must stay attached to its sequence). When a run's terminating `m`
+          # is met walking backwards, jump `j` back to the opening `\e`.
           if i != line.size
             j = i
             while (j > i - 10) && (j > 0)
               j -= 1
+              if line[j] == 'm' && (esc = sgr_run_start(line, j))
+                # Land `j` on the `\e` so the next `j -= 1` steps past the run.
+                j = esc
+                next
+              end
               if line[j] == ' '
                 i = j + 1
                 break
@@ -766,7 +778,7 @@ module Crysterm
           end
 
           # If only an escape code got cut off, add it to `part`.
-          if line.matches? /^(?:\e[\[\d;]*m)+$/ # SGR
+          if line.matches? /^(?:\e\[[\d;]*m)+$/ # SGR
             outbuf[outbuf.size - 1] += line
             break :main
           end
@@ -985,8 +997,10 @@ module Crysterm
       # derived from existing offsets, not `@_pcontent` (lazily built, may be
       # stale/nil here). First new line starts one past the last existing line's
       # end: `ci[last] + len(last) + 1` (the +1 is the joining "\n"). `base_real
-      # >= 1` since content is non-blank.
-      running = cl.ci[base_real - 1] + cl.lines[base_real - 1].size + 1
+      # >= 1` since content is non-blank. Use the safe `[]?` for `ci` (mirroring
+      # the defensive access in `#insert_line`): if it's somehow short, fall back
+      # to `0` rather than raising, so the offsets stay monotonic.
+      running = (cl.ci[base_real - 1]? || 0) + cl.lines[base_real - 1].size + 1
       scratch.lines.each do |ln|
         cl.ci << running
         running += ln.size + 1
@@ -1396,6 +1410,30 @@ module Crysterm
       end
 
       {g.to_s, ci}
+    end
+
+    # Given a codepoint index `mi` in `line` pointing at an `'m'`, returns the
+    # codepoint index of the `\e` that opens the SGR sequence it terminates, or
+    # `nil` if the bytes back to the `\e` aren't a valid `\e[[\d;]*m` run. Used by
+    # the word-wrap back-scan to step over inline SGR runs. `line[k]` is O(k) for
+    # multibyte content, but the run is short and this only fires when a candidate
+    # `'m'` is seen within the ~10-char lookback window.
+    def sgr_run_start(line : String, mi : Int32) : Int32?
+      k = mi - 1
+      while k >= 0
+        c = line[k]
+        case c
+        when '\e'
+          # Need the `[` immediately after the `\e` (i.e. at `k + 1`).
+          return k if k + 1 < mi && line[k + 1] == '['
+          return nil
+        when '[', ';', '0'..'9'
+          k -= 1
+        else
+          return nil
+        end
+      end
+      nil
     end
 
     # Character index in `line` (which may contain inline SGR) at which to cut so

@@ -752,7 +752,6 @@ module Crysterm
         i = selected
         n.times do
           i = (i + step) % n
-          i += n if i < 0
           return i if clean_tags(@ritems[i]).downcase.includes? q
         end
         selected
@@ -857,7 +856,6 @@ module Crysterm
           @child_base = 0
           @child_offset = selected
         else
-          # NOTE Is this supposed to be: child_base = visible - selected + 1
           @child_base = selected - visible + 1
           @child_offset = visible - 1
         end

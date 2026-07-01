@@ -357,9 +357,15 @@ module Crysterm
             delay = src[@anim_index]?.try(&.[1]) || 100
             @anim_index += 1
             if @anim_index >= src.size
-              @anim_index = 0
               plays += 1
-              @playing = false if num_plays > 0 && plays >= num_plays
+              if num_plays > 0 && plays >= num_plays
+                # Finite animation done: hold the final frame instead of
+                # wrapping to 0, so the last render doesn't snap back to the start.
+                @anim_index = src.size - 1
+                @playing = false
+              else
+                @anim_index = 0
+              end
             end
 
             ms = (delay / @speed).to_i

@@ -113,8 +113,11 @@ module Crysterm
         # the filled content (CSS: a stretched box shrinks by its margins). A
         # fixed width instead keeps its size and shifts (see `_get_coords`), so
         # only this auto branch folds the margin in.
+        # Subtract the margin from the filled size *before* clamping so the
+        # [min_width, max_width] constraints apply to the post-margin (used)
+        # size, matching CSS min/max semantics.
         mw = (mg = style.margin).any? ? mg.left + mg.right : 0
-        return clamp_awidth(width) - mw
+        return clamp_awidth(width - mw)
       end
 
       width.is_a?(Int32) ? clamp_awidth(width) : width
@@ -158,8 +161,10 @@ module Crysterm
 
         # See `awidth`: only an auto (stretched) height folds in the element's
         # own margins; a fixed height shifts instead.
+        # Subtract the margin before clamping so [min_height, max_height] apply
+        # to the post-margin (used) size, matching CSS min/max semantics.
         mh = (mg = style.margin).any? ? mg.top + mg.bottom : 0
-        return clamp_aheight(height) - mh
+        return clamp_aheight(height - mh)
       end
 
       height.is_a?(Int32) ? clamp_aheight(height) : height

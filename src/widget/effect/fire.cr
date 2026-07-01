@@ -40,8 +40,14 @@ module Crysterm
 
         # Fraction of heat that survives each upward step (`0.0..1.0`); the flame
         # decays by this factor per row, so higher = taller flames, lower = a
-        # short fire that goes dark quickly.
-        property decay : Float64
+        # short fire that goes dark quickly. Clamped to `0.0..1.0`: a value above
+        # `1.0` would amplify heat each row and grow `@heat` without bound.
+        getter decay : Float64 = 0.9
+
+        # :ditto:
+        def decay=(value : Float64) : Float64
+          @decay = value.clamp(0.0, 1.0)
+        end
 
         # Lowest random ember heat seeded into the bottom row each frame; the source
         # flickers between `ignition` and `1.0`.
@@ -58,11 +64,12 @@ module Crysterm
         def initialize(
           @ramp = [' ', '.', ':', '*', 'o', 'O', '#', '@'],
           @interval = 0.07.seconds,
-          @decay = 0.9,
+          decay = 0.9,
           @ignition = 0.7,
           @color = nil,
           **box,
         )
+          self.decay = decay # clamp to 0.0..1.0
           super **box
         end
 

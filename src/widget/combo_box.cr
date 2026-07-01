@@ -293,6 +293,14 @@ module Crysterm
         close
       end
 
+      # Restores the initial state: selects the first option (empty when there
+      # are none) and clears any typed edit buffer. Used by `Form#reset`.
+      def reset
+        @selected = 0
+        set_value @options.first? || ""
+        request_render
+      end
+
       # Cycles the selection by *delta* without opening the popup (Qt changes the
       # current item with the arrow keys on a closed, non-editable combo).
       def cycle(delta : Int)

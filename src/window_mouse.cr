@@ -88,6 +88,17 @@ module Crysterm
       @_last_click_target = w
     end
 
+    # Clears the running click-count state so the next press starts fresh at 1.
+    # Used when a press is diverted (e.g. into a two-click drag) and never
+    # becomes an `Event::Click`, so it must not chain into a later click's
+    # double/triple detection.
+    private def reset_click_count : Nil
+      @click_count = 0
+      @_last_click_at = nil
+      @_last_click_pos = nil
+      @_last_click_target = nil
+    end
+
     # Widget that has captured the mouse: while set, all subsequent motion and
     # release reports route to it (via `Event::Mouse`) regardless of what's
     # under the pointer, and the release clears the capture. Lets a widget keep
@@ -172,6 +183,11 @@ module Crysterm
       # wait for motion, so a plain click still works.
       if ev.action.down? && w && w.draggable?
         if drag_two_click?
+          # This press is consumed by the two-click drag and never reaches the
+          # widget as an `Event::Click`, so undo the count bumped above —
+          # otherwise a later real click on the same spot/widget within the
+          # double-click interval would read an inflated `#click_count`.
+          reset_click_count
           start_drag w, ev.x, ev.y, ::Crysterm::DragSensor::Mouse,
             action: drag_action_for(ev.shift?, ev.ctrl?, ::Crysterm::DragAction::Move),
             discrete: true
