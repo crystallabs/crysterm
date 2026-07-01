@@ -18,8 +18,12 @@ module Crysterm
     #       format: "R %s  D %s  TX %s/s", args: [:render, :draw, :throughput_h])
     #
     # Available `args` (see `#value_for`):
-    #   :render  :draw  :fps              current per-frame rates (Int)
-    #   :render_avg  :draw_avg  :fps_avg  their rolling averages over the last
+    #   :render  :draw  :flush  :fps      current per-frame rates (Int). `:draw`
+    #                                     is the CPU-bound diff/encode; `:flush`
+    #                                     is the terminal write (where tty
+    #                                     backpressure shows up).
+    #   :render_avg  :draw_avg  :flush_avg  :fps_avg
+    #                                     their rolling averages over the last
     #                                     `Config.render_fps_window` frames (Int)
     #   :throughput      :throughput_avg      in-frame bytes/sec, raw integers
     #   :throughput_h    :throughput_avg_h    in-frame bytes/sec, human ("3.2KiB")
@@ -69,6 +73,7 @@ module Crysterm
 
       @render_avg : Window::Average
       @draw_avg : Window::Average
+      @flush_avg : Window::Average
       @fps_avg : Window::Average
       @throughput_avg : Window::Average
       @throughput_actual_avg : Window::Average
@@ -77,6 +82,7 @@ module Crysterm
       # zero or many times in `#format` never skews the rolling window).
       @render_avg_val : Int64 = 0
       @draw_avg_val : Int64 = 0
+      @flush_avg_val : Int64 = 0
       @fps_avg_val : Int64 = 0
       @throughput_avg_val : Int64 = 0
       @throughput_actual_avg_val : Int64 = 0
@@ -88,6 +94,7 @@ module Crysterm
         window = Config.render_fps_window
         @render_avg = Window::Average.new window
         @draw_avg = Window::Average.new window
+        @flush_avg = Window::Average.new window
         @fps_avg = Window::Average.new window
         @throughput_avg = Window::Average.new window
         @throughput_actual_avg = Window::Average.new window
@@ -107,6 +114,7 @@ module Crysterm
           # before the standard box render paints it.
           @render_avg_val = @render_avg.avg s.render_rate
           @draw_avg_val = @draw_avg.avg s.draw_rate
+          @flush_avg_val = @flush_avg.avg s.flush_rate
           @fps_avg_val = @fps_avg.avg s.frame_rate
           @throughput_avg_val = @throughput_avg.avg s.throughput
           @throughput_actual_avg_val = @throughput_actual_avg.avg s.throughput_actual
@@ -131,9 +139,11 @@ module Crysterm
         case sym
         when :render                  then s.render_rate.to_i64
         when :draw                    then s.draw_rate.to_i64
+        when :flush                   then s.flush_rate.to_i64
         when :fps                     then s.frame_rate.to_i64
         when :render_avg              then @render_avg_val
         when :draw_avg                then @draw_avg_val
+        when :flush_avg               then @flush_avg_val
         when :fps_avg                 then @fps_avg_val
         when :throughput              then s.throughput.to_i64
         when :throughput_avg          then @throughput_avg_val

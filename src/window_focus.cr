@@ -78,27 +78,31 @@ module Crysterm
       # degrades to a no-op instead of raising IndexError.
       old = @history.pop?
 
-      # `reverse_each` walks back-to-front in place; `@history.reverse.find`
-      # would allocate a whole reversed copy just to scan it once.
-      el = nil
-      @history.reverse_each do |e|
-        # `window? == self` (not the raising `screen`, nor a bare truthy
-        # `window?`): a destroyed/detached widget has no screen, and `#screen`
-        # would crash here (e.g. closing a menu whose focused submenu was just
-        # torn down). A bare `window?` would still accept a widget MOVED to
-        # another screen — and `@history` entries (unlike `@keyable`, now pruned
-        # on remove via `Window#unregister`) are never pruned at all. Require
-        # attachment to THIS screen, as `restore_focus` does.
-        #
-        # `displayed_in_tree?` (not `style.visible?`): a widget whose own flag
-        # is visible but whose container is hidden isn't actually on screen and
-        # must not be re-focused. See the same helper in `window_mouse.cr`.
-        if e.window? == self && displayed_in_tree?(e)
-          el = e
-          break
-        end
+      # Prune only the invalid *trailing* entries, popping back-to-front until
+      # the top is a still-valid target (or the history empties). Blessed's
+      # `rewindFocus` prunes just this tail; the old `@history.clear` here
+      # discarded ALL older-but-still-valid entries too, so a second
+      # `rewind_focus` (e.g. Tab A→B→C, hide C rewinds to B, then hide B) found
+      # nothing to fall back to and blurred focus entirely, even though an older
+      # valid entry (A) was still visible and should have been refocused.
+      #
+      # Per-entry validity, same predicate as before:
+      #
+      # `window? == self` (not the raising `screen`, nor a bare truthy
+      # `window?`): a destroyed/detached widget has no screen, and `#screen`
+      # would crash here (e.g. closing a menu whose focused submenu was just
+      # torn down). A bare `window?` would still accept a widget MOVED to
+      # another screen — and `@history` entries (unlike `@keyable`, now pruned
+      # on remove via `Window#unregister`) are never pruned at all. Require
+      # attachment to THIS screen, as `restore_focus` does.
+      #
+      # `displayed_in_tree?` (not `style.visible?`): a widget whose own flag
+      # is visible but whose container is hidden isn't actually on screen and
+      # must not be re-focused. See the same helper in `window_mouse.cr`.
+      while (e = @history.last?) && !(e.window? == self && displayed_in_tree?(e))
+        @history.pop
       end
-      @history.clear
+      el = @history.last?
 
       unless el
         # No valid prior target remains. Focus is now cleared (`@history` is
@@ -115,10 +119,11 @@ module Crysterm
         return
       end
 
-      # `_focus` (below) already emits `Event::Blur` on `old`, as
-      # `focus_push`/`focus_pop` rely on; emitting it here too would double-Blur
-      # `old`.
-      @history.push el
+      # `el` is already on top of `@history` (the surviving valid entry after
+      # the trailing tail was pruned), so it must NOT be pushed again — doing so
+      # would stack a duplicate top entry. `_focus` (below) already emits
+      # `Event::Blur` on `old`, as `focus_push`/`focus_pop` rely on; emitting it
+      # here too would double-Blur `old`.
       _focus el, old
       el
     end

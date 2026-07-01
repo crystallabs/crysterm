@@ -35,6 +35,12 @@ module Crysterm
     @pre = IO::Memory.new 1024
     @post = IO::Memory.new 1024
 
+    # Set by `#draw` when it produced output (`@pre`+`@main`+`@post`) that has
+    # not yet been written to the terminal; consumed (and cleared) by
+    # `#flush_frame`. Lets the caller time the diff/encode (`draw`) and the
+    # blocking terminal write (`flush_frame`) separately — see `#_render`.
+    @_frame_pending = false
+
     # Terminal control values used by the per-frame `#draw`, derived from the
     # connected terminal (terminfo + features) and constant for the screen's
     # lifetime — computed **once** here rather than per frame/cell. Static
@@ -80,7 +86,14 @@ module Crysterm
     property? synchronized_output : Bool = Config.render_synchronized_output
 
     # Draws the screen based on the contents of in-memory grid of cells (`@lines`).
-    def draw(start = 0, stop = @lines.size - 1)
+    #
+    # Diffs `@lines` against `@olines` and encodes the needed escapes into the
+    # frame buffers (`@pre`/`@main`/`@post`), then — unless *flush* is false —
+    # writes them to the terminal via `#flush_frame`. `#_render` passes
+    # `flush: false` so it can time the diff/encode and the (blocking) terminal
+    # write separately; direct callers (specs, external code) get the full
+    # build-and-write in one call, as before.
+    def draw(start = 0, stop = @lines.size - 1, flush = true)
       # D O:
       # emit Event::PreDraw
 
@@ -656,31 +669,46 @@ module Crysterm
           tput.show_cursor unless hidden
         end
 
-        # D O:
-        # display.flush()
-        # display._owrite(@pre + @main + @post)
-        #
-        # Bracket the frame in a DEC 2026 synchronized update (when enabled) so
-        # the terminal presents it atomically. Inlined into this single `_print`
-        # — rather than separate begin/end calls — so the markers and the frame
-        # land in one buffered write, with no markers emitted on empty frames.
-        tput._print do |io|
-          io << "\e[?2026h" if synchronized_output?
-          io.write @pre.to_slice
-          io.write @main.to_slice
-          io.write @post.to_slice
-          io << "\e[?2026l" if synchronized_output?
-        end
-
-        # Account for the bytes just emitted. `@_buf`'s buffered insert/delete-line
-        # output is already folded into `@main` above, so the three buffers cover
-        # everything `draw` sends this frame.
+        # Account for the bytes to be emitted. `@_buf`'s buffered
+        # insert/delete-line output is already folded into `@main` above, so the
+        # three buffers cover everything `draw` sends this frame. Mark the frame
+        # pending; `#flush_frame` performs the actual (blocking) terminal write.
         @last_draw_bytes = @pre.size + @main.size + @post.size
         @bytes_written += @last_draw_bytes
+        @_frame_pending = true
       end
+
+      # Direct callers get the terminal write inline (original contract);
+      # `#_render` opts out (`flush: false`) to time it on its own.
+      flush_frame if flush
 
       # D O:
       # emit Event::Draw
+    end
+
+    # Writes the frame `#draw` built (`@pre`+`@main`+`@post`) to the terminal.
+    #
+    # Split out of `#draw` so the terminal write can be timed on its own. On an
+    # unbuffered tty (`Superconf.tput_use_buffer` off — the default) this is a
+    # blocking `write()`; once the per-frame payload exceeds the pty buffer it
+    # stalls at the terminal's refresh cadence, so it — not the diff/encode in
+    # `#draw` — is where terminal backpressure shows up. A no-op when `draw`
+    # produced no output this frame.
+    def flush_frame : Nil
+      return unless @_frame_pending
+      @_frame_pending = false
+
+      # Bracket the frame in a DEC 2026 synchronized update (when enabled) so the
+      # terminal presents it atomically. Inlined into this single `_print` —
+      # rather than separate begin/end calls — so the markers and the frame land
+      # in one write, with no markers emitted on empty frames.
+      tput._print do |io|
+        io << "\e[?2026h" if synchronized_output?
+        io.write @pre.to_slice
+        io.write @main.to_slice
+        io.write @post.to_slice
+        io << "\e[?2026l" if synchronized_output?
+      end
     end
 
     def blank_line(ch = ' ', dirty = false)

@@ -245,7 +245,11 @@ module Crysterm
         # calculated from item count.
         if @_is_list
           myi = 0 - itop
-          myl = @items.size + ibottom
+          # Just the item count: the shared placement branch below adds the
+          # single bottom inset (`yl += ibottom`). Blessed's original was
+          # `myl = items.length`; adding `ibottom` here as well double-counted
+          # it, sizing a bordered shrink-to-content list one row too tall.
+          myl = @items.size
         end
         if @top.nil? && !@bottom.nil?
           yi = yl - (myl - myi)

@@ -133,8 +133,8 @@ end
 # top-left here (default is bottom-left, where the sine scroller is).
 Widget::Fps.new \
   parent: s, top: 0, left: 0,
-  format: " FPS %s (avg %s)  render %s  draw %s ",
-  args: %i[fps fps_avg render draw],
+  format: " FPS %s (avg %s)  render %s  draw %s  flush %s ",
+  args: %i[fps fps_avg render draw flush],
   style: Style.new(fg: "white", bg: "black")
 
 frame = 0

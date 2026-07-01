@@ -84,6 +84,21 @@ module Crysterm
 
       window?.try &.attach(element, previous)
 
+      # Re-register the reparented element in the window's keyboard/mouse
+      # registries. `#remove` unlinked it via `Window#unregister` when detaching
+      # from its old parent, and construction-time registration (`Widget#initialize`)
+      # only runs once — so without this a reparented keyable widget is stranded
+      # out of `@keyable` and can never be reached by Tab/Shift-Tab again (its
+      # `keyable?` flag stays true, but `@keyable` — the sole reader in
+      # `focus_offset`/`focus_next`/`focus_previous` — no longer lists it).
+      # Mirrors the registration `Window#insert` performs for a top-level widget;
+      # predicate and `keyable?` inclusion match that gate. `register_keyable`/
+      # `register_clickable` no-op if the element is already listed.
+      window?.try do |sc|
+        sc.register_keyable element if element.keys? || element.input? || element.keyable?
+        sc.register_clickable element if element.clickable?
+      end
+
       element.emit Crysterm::Event::Reparent, self
       emit Crysterm::Event::Adopt, element
     end

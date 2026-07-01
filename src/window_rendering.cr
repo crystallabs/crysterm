@@ -137,9 +137,19 @@ module Crysterm
     # could sustain: `1 / render_time`. The "R" in the classic `R/D/FPS`.
     getter render_rate : Int32 = 0
 
-    # Frames/sec the draw (diffing the buffer and writing escapes) phase could
-    # sustain: `1 / draw_time`. The "D".
+    # Frames/sec the draw (diffing the buffer and encoding escapes into the
+    # frame buffer) phase could sustain: `1 / draw_time`. The "D". Since the
+    # actual terminal write was split into `#flush_frame`, this now measures
+    # only the CPU-bound diff/encode — no terminal-backpressure stall.
     getter draw_rate : Int32 = 0
+
+    # Frames/sec the flush (writing the built frame to the terminal) phase could
+    # sustain: `1 / flush_time`. On an unbuffered tty this is a blocking
+    # `write()`, so it — not `draw_rate` — is where terminal backpressure lands
+    # (the write stalls at the terminal's refresh cadence once the per-frame
+    # payload exceeds the pty buffer). Separated from `draw_rate` so each figure
+    # measures one thing.
+    getter flush_rate : Int32 = 0
 
     # Frames/sec the whole frame could sustain: `1 / (render_time + draw_time)`.
     # The "FPS".
@@ -168,6 +178,7 @@ module Crysterm
     # lossy `Int32` frames/sec rounding of `render_rate`/`draw_rate`.
     getter render_ns_last : Int64 = 0
     getter draw_ns_last : Int64 = 0
+    getter flush_ns_last : Int64 = 0
 
     # `numerator / seconds` as an `Int32`, guarding the sub-microsecond case
     # where `seconds` rounds to zero (avoiding a `1 // 0.0`-style overflow) and
@@ -472,7 +483,18 @@ module Crysterm
 
       t2 = Time.instant
 
-      draw
+      # Diff + encode this frame into the output buffers (no terminal write —
+      # that's `flush_frame` below, timed separately).
+      draw flush: false
+
+      t_draw = Time.instant
+
+      # Write the built frame to the terminal. Timed separately from `draw` so
+      # the CPU-bound diff/encode and the (blocking, backpressure-prone) tty
+      # write each get their own figure — see `draw_rate`/`flush_rate`.
+      flush_frame
+
+      t_flush = Time.instant
 
       # XXX Workaround for cursor pos before the screen has rendered, when lpos
       # is stale. Only some elements implement this; others are a noop.
@@ -501,9 +523,11 @@ module Crysterm
       # overlay can display them (see getters above). Always computed — cheap
       # arithmetic — but nothing is drawn unless a widget reads them.
       @render_ns_last = (t2 - t1).total_nanoseconds.to_i64
-      @draw_ns_last = (t3 - t2).total_nanoseconds.to_i64
+      @draw_ns_last = (t_draw - t2).total_nanoseconds.to_i64
+      @flush_ns_last = (t_flush - t_draw).total_nanoseconds.to_i64
       @render_rate = per_second 1, (t2 - t1).total_seconds
-      @draw_rate = per_second 1, (t3 - t2).total_seconds
+      @draw_rate = per_second 1, (t_draw - t2).total_seconds
+      @flush_rate = per_second 1, (t_flush - t_draw).total_seconds
       @frame_rate = per_second 1, (t3 - t1).total_seconds
       @throughput = per_second @last_draw_bytes, (t3 - t1).total_seconds
 
