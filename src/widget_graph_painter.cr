@@ -139,24 +139,34 @@ module Crysterm
         # clockwise. Vertical radius is scaled by `#pixel_aspect` so the ring is
         # physically round on non-square backends. Used by `Graph::Donut`; works
         # in device space so geometry is independent of any window/viewport.
-        def fill_ring(cx : Int32, cy : Int32, r_inner : Number, r_outer : Number,
+        def fill_ring(cx : Number, cy : Number, r_inner : Number, r_outer : Number,
                       start_deg : Number = 0.0, sweep_deg : Number = 360.0,
                       step_deg : Number = 0.7) : Nil
           ri = r_inner.to_f
           ro = r_outer.to_f
           return if ro <= 0
-          a = start_deg.to_f
-          stop = start_deg.to_f + sweep_deg.to_f
-          while a < stop
-            rad = (a - 90.0) * Math::PI / 180.0
+          cxf = cx.to_f
+          cyf = cy.to_f
+          start = start_deg.to_f
+          stop = start + sweep_deg.to_f
+          step = step_deg.to_f
+          a = start
+          # Draw spokes at `start, start+step, …`, and always a final spoke at
+          # exactly `stop` so the arc reaches its full extent instead of stopping
+          # up to `step` short — which otherwise leaves a sliver open just
+          # counter-clockwise of the end angle (the top-left, for a full ring).
+          loop do
+            ang = a < stop ? a : stop
+            rad = (ang - 90.0) * Math::PI / 180.0
             ca = Math.cos rad
-            sa = Math.sin rad * @pixel_aspect
+            sa = Math.sin(rad) * @pixel_aspect
             r = ri
             while r <= ro
-              plot (cx + r * ca).round.to_i, (cy + r * sa).round.to_i
+              plot (cxf + r * ca).round.to_i, (cyf + r * sa).round.to_i
               r += 0.5
             end
-            a += step_deg.to_f
+            break if a >= stop
+            a += step
           end
         end
 

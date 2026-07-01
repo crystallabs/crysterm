@@ -232,45 +232,116 @@ module Crysterm
         end
         raise "curl or wget failed."
       end
+    end
 
-      # ---- single-colormode backends -------------------------------------
-      # Each subclass pins one `ColorMode`, giving a one-variant backend that
-      # can be exemplified and documented on its own. `Ansi` itself stays
-      # mode-selectable via `colors:` for programmatic use.
+    # ---- single-colormode ASCII backends -------------------------------
+    # The no-Unicode capability tier: each concrete widget pins one `Ansi`
+    # `ColorMode`, giving a one-variant backend that can be exemplified and
+    # documented on its own. Grouped under `Ascii::` (parallel to `Unicode::`);
+    # `Ansi` itself stays mode-selectable via `colors:` for programmatic use.
+    # `Solid` variants paint space + bg = pixel colour; `Art` variants render
+    # the libcaca luminance ramp (`ascii: true`). Palette depth is the second
+    # axis (`TrueColor`/`C256`/`C16`/`C8`).
+    module Media::Ascii
+      # Solid color blocks (space + bg = pixel color), by palette depth.
       #
       # <!-- widget-examples:capture v1 -->
       # ![TrueColor screenshot](../../../../tests/widget/media/ansi/truecolor/truecolor.5s.apng)
       # <!-- /widget-examples:capture -->
+      #
+      # <!-- widget-examples:capture v1 -->
+      # ![TrueColor screenshot](../../../../../tests/widget/media/ansi/art/truecolor/truecolor.5s.apng)
+      # <!-- /widget-examples:capture -->
       class TrueColor < Ansi
         def initialize(**box)
-          super **box.merge(colors: ColorMode::TrueColor)
+          super **box.merge(colors: Ansi::ColorMode::TrueColor)
         end
       end
 
       # <!-- widget-examples:capture v1 -->
       # ![C256 screenshot](../../../../tests/widget/media/ansi/c256/c256.5s.apng)
       # <!-- /widget-examples:capture -->
+      # <!-- widget-examples:capture v1 -->
+      # ![C256 screenshot](../../../../../tests/widget/media/ansi/art/c256/c256.5s.apng)
+      # <!-- /widget-examples:capture -->
       class C256 < Ansi
         def initialize(**box)
-          super **box.merge(colors: ColorMode::C256)
+          super **box.merge(colors: Ansi::ColorMode::C256)
         end
       end
 
       # <!-- widget-examples:capture v1 -->
       # ![C16 screenshot](../../../../tests/widget/media/ansi/c16/c16.5s.apng)
       # <!-- /widget-examples:capture -->
+      # <!-- widget-examples:capture v1 -->
+      # ![C16 screenshot](../../../../../tests/widget/media/ansi/art/c16/c16.5s.apng)
+      # <!-- /widget-examples:capture -->
       class C16 < Ansi
         def initialize(**box)
-          super **box.merge(colors: ColorMode::C16)
+          super **box.merge(colors: Ansi::ColorMode::C16)
         end
       end
 
       # <!-- widget-examples:capture v1 -->
       # ![C8 screenshot](../../../../tests/widget/media/ansi/c8/c8.5s.apng)
       # <!-- /widget-examples:capture -->
+      # <!-- widget-examples:capture v1 -->
+      # ![C8 screenshot](../../../../../tests/widget/media/ansi/art/c8/c8.5s.apng)
+      # <!-- /widget-examples:capture -->
       class C8 < Ansi
         def initialize(**box)
-          super **box.merge(colors: ColorMode::C8)
+          super **box.merge(colors: Ansi::ColorMode::C8)
+        end
+      end
+
+      # Luminance-ramp ASCII art (libcaca DCHARS), by palette depth.
+      module Art
+        # <!-- widget-examples:capture v1 -->
+        # ![TrueColor screenshot](../../../../tests/widget/media/ansi/truecolor/truecolor.5s.apng)
+        # <!-- /widget-examples:capture -->
+        # <!-- widget-examples:capture v1 -->
+        # ![TrueColor screenshot](../../../../../tests/widget/media/ansi/art/truecolor/truecolor.5s.apng)
+        # <!-- /widget-examples:capture -->
+        class TrueColor < Ansi
+          def initialize(**box)
+            super **box.merge(colors: Ansi::ColorMode::TrueColor, ascii: true)
+          end
+        end
+
+        # <!-- widget-examples:capture v1 -->
+        # ![C256 screenshot](../../../../tests/widget/media/ansi/c256/c256.5s.apng)
+        # <!-- /widget-examples:capture -->
+        # <!-- widget-examples:capture v1 -->
+        # ![C256 screenshot](../../../../../tests/widget/media/ansi/art/c256/c256.5s.apng)
+        # <!-- /widget-examples:capture -->
+        class C256 < Ansi
+          def initialize(**box)
+            super **box.merge(colors: Ansi::ColorMode::C256, ascii: true)
+          end
+        end
+
+        # <!-- widget-examples:capture v1 -->
+        # ![C16 screenshot](../../../../tests/widget/media/ansi/c16/c16.5s.apng)
+        # <!-- /widget-examples:capture -->
+        # <!-- widget-examples:capture v1 -->
+        # ![C16 screenshot](../../../../../tests/widget/media/ansi/art/c16/c16.5s.apng)
+        # <!-- /widget-examples:capture -->
+        class C16 < Ansi
+          def initialize(**box)
+            super **box.merge(colors: Ansi::ColorMode::C16, ascii: true)
+          end
+        end
+
+        # <!-- widget-examples:capture v1 -->
+        # ![C8 screenshot](../../../../tests/widget/media/ansi/c8/c8.5s.apng)
+        # <!-- /widget-examples:capture -->
+        # <!-- widget-examples:capture v1 -->
+        # ![C8 screenshot](../../../../../tests/widget/media/ansi/art/c8/c8.5s.apng)
+        # <!-- /widget-examples:capture -->
+        class C8 < Ansi
+          def initialize(**box)
+            super **box.merge(colors: Ansi::ColorMode::C8, ascii: true)
+          end
         end
       end
     end

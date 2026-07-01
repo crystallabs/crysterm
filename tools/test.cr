@@ -138,7 +138,7 @@ module WidgetExamples
   # source. Each example program `<out_dir>/<rel>/<name>.cr` names one class; the
   # exact FQN is read from the example's own instantiation, so irregular
   # file<->class names (`lcd_number`<->`LCDNumber`, `hline`<->`HLine`) and nested
-  # classes (`Media::Glyph::Braille`) resolve with no registry. The source file
+  # classes (`Media::Unicode::Braille`) resolve with no registry. The source file
   # is found by walking up the rel path (a nested variant's class lives in its
   # parent file: `media/glyph/braille` -> `media/glyph.cr`).
   def self.discover : Array(Item)
@@ -154,7 +154,7 @@ module WidgetExamples
         src = source_file_for(kind, rel)
         next unless src
 
-        # FQNs this example instantiates (e.g. "Crysterm::Widget::Media::Glyph::Braille").
+        # FQNs this example instantiates (e.g. "Crysterm::Widget::Media::Unicode::Braille").
         candidates = File.read(prog).scan(class_ref).map do |m|
           f = m[0]
           f.starts_with?("Crysterm::") ? f : "Crysterm::#{f}"

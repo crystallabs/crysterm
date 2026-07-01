@@ -1,19 +1,19 @@
-# Media::Ansi::C8 — Matterhorn rendered via the Ansi::C8 backend.
+# Media::Ascii::C8 — Matterhorn rendered via the Ascii::C8 backend.
 # Fixed variant of Media::Ansi (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
 include Crysterm
 
-s = Window.new title: "Media::Ansi::C8"
+s = Window.new title: "Media::Ascii::C8"
 
-Widget::Media::Ansi::C8.new \
+Widget::Media::Ascii::C8.new \
   parent: s, top: 1, left: 0, width: s.awidth, height: s.aheight - 1,
   animate: false,
   file: "#{__DIR__}/../../../../../data/image/matterhorn.png"
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
-  content: "{center}Media::Ansi::C8  ·  8-color · base ANSI palette{/center}", parse_tags: true,
+  content: "{center}Media::Ascii::C8  ·  8-color · base ANSI palette{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#202830")
 
 s.render

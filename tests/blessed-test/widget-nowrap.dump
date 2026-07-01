@@ -3,10 +3,9 @@ w=80 h=24
 |require "../../src/crysterm"                                                    |
 |                                                                                |
 |# Port of Blessed's test/widget-nowrap.js                                       |
-|# A width-60 box with wrapping disabled and tags enabled, wh                    |
-|# this example file's own source. Lines longer than the box                     |
-|# instead of wrapped.                                                           |
-|# NOTE: Blessed's `wrap: false` maps to crysterm's `wrap_con                    |
+|# Width-60 box with wrapping disabled and tags enabled, cont                    |
+|# file's own source; lines longer than the box are clipped i                    |
+|# Blessed's `wrap: false` maps to crysterm's `wrap_content:                     |
 |module Crysterm                                                                 |
 |  s = Window.new always_propagate: [::Tput::Key::CtrlQ]                         |
 |                                                                                |
@@ -24,4 +23,5 @@ w=80 h=24
 |    if e.char == 'q' || e.key == ::Tput::Key::CtrlQ                             |
 |      s.destroy                                                                 |
 |      exit                                                                      |
+|    end                                                                         |
 +--------------------------------------------------------------------------------+

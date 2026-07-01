@@ -117,8 +117,10 @@ module Crysterm
           w = p.width
           h = p.height
           return if w <= 0 || h <= 0
-          cx = w // 2
-          cy = h // 2
+          # True geometric center of the pixel span (`0..w-1`): `(w-1)/2`, not
+          # `w//2`, which sits half a pixel low-and-right and skews the ring.
+          cx = (w - 1) / 2.0
+          cy = (h - 1) / 2.0
           # Largest physically-round radius that fits (vertical extent is scaled
           # by pixel_aspect), with a small margin.
           aspect = p.pixel_aspect

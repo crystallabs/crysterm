@@ -224,9 +224,9 @@ module Crysterm
         # which fades the cell out through its alpha — matching how `Media::Ansi`
         # and `Mode::Braille` already drop transparent pixels.
         opaque = uninitialized StaticArray(Bool, 8)
-        mean = 0.0    # mean luminance of the *opaque* sub-pixels only
-        opq = 0       # opaque sub-pixel count
-        count = 0     # in-bounds sub-pixel count (opaque or not), for coverage
+        mean = 0.0 # mean luminance of the *opaque* sub-pixels only
+        opq = 0    # opaque sub-pixel count
+        count = 0  # in-bounds sub-pixel count (opaque or not), for coverage
         asum = 0.0
         i = 0
         sy.times do |dy|
@@ -250,9 +250,9 @@ module Crysterm
             i += 1
           end
         end
-        return if count == 0 # no in-bounds sub-pixels (letterbox): leave the cell
+        return if count == 0       # no in-bounds sub-pixels (letterbox): leave the cell
         a = (asum / 255.0) / count # cell opacity = mean alpha of its sub-pixels
-        return if opq == 0 # all in-bounds sub-pixels transparent: nothing to draw
+        return if opq == 0         # all in-bounds sub-pixels transparent: nothing to draw
         mean /= opq
 
         mask = 0
@@ -472,26 +472,38 @@ module Crysterm
         end
         arr
       end
+    end
 
-      # ---- single-mode backends ------------------------------------------
-      # Each subclass pins one drawing `Mode` so it can be exemplified and
-      # documented on its own. The base `Glyph` stays mode-selectable via `mode:`.
+    # ---- single-mode backends ------------------------------------------
+    # Each concrete widget pins one drawing `Glyph::Mode`, so it can be
+    # exemplified and documented on its own; all rendering lives in the shared
+    # `Glyph` base, which stays mode-selectable via `mode:`. They are grouped by
+    # terminal capability: `Ascii::*` need no Unicode at all (space + 7-bit
+    # glyphs), while `Unicode::*` rely on Unicode block/legacy-computing glyphs
+    # (see `Glyph.best_mode` for what a given terminal can render).
+    module Media::Ascii
+      # ASCII contour: full-colour cells with a `- | / \` glyph overlaid only
+      # where local contrast is high (edge-aware). Stays on the `Glyph` engine
+      # (`Mode::Ascii`) for now — solid ASCII blocks live on the `Ansi` engine
+      # as `Ascii::TrueColor`/etc.
       #
       # <!-- widget-examples:capture v1 -->
-      # ![Block screenshot](../../../../tests/widget/media/glyph/block/block.5s.apng)
+      # ![Edge screenshot](../../../../tests/widget/media/glyph/edge/edge.5s.apng)
       # <!-- /widget-examples:capture -->
-      class Block < Glyph
+      class Edge < Glyph
         def initialize(**box)
-          super **box.merge(mode: Mode::Block)
+          super **box.merge(mode: Glyph::Mode::Ascii)
         end
       end
+    end
 
+    module Media::Unicode
       # <!-- widget-examples:capture v1 -->
       # ![Half screenshot](../../../../tests/widget/media/glyph/half/half.5s.apng)
       # <!-- /widget-examples:capture -->
       class Half < Glyph
         def initialize(**box)
-          super **box.merge(mode: Mode::Half)
+          super **box.merge(mode: Glyph::Mode::Half)
         end
       end
 
@@ -500,7 +512,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class Quadrant < Glyph
         def initialize(**box)
-          super **box.merge(mode: Mode::Quadrant)
+          super **box.merge(mode: Glyph::Mode::Quadrant)
         end
       end
 
@@ -509,7 +521,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class Sextant < Glyph
         def initialize(**box)
-          super **box.merge(mode: Mode::Sextant)
+          super **box.merge(mode: Glyph::Mode::Sextant)
         end
       end
 
@@ -518,7 +530,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class Octant < Glyph
         def initialize(**box)
-          super **box.merge(mode: Mode::Octant)
+          super **box.merge(mode: Glyph::Mode::Octant)
         end
       end
 
@@ -527,16 +539,7 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class Braille < Glyph
         def initialize(**box)
-          super **box.merge(mode: Mode::Braille)
-        end
-      end
-
-      # <!-- widget-examples:capture v1 -->
-      # ![Ascii screenshot](../../../../tests/widget/media/glyph/ascii/ascii.5s.apng)
-      # <!-- /widget-examples:capture -->
-      class Ascii < Glyph
-        def initialize(**box)
-          super **box.merge(mode: Mode::Ascii)
+          super **box.merge(mode: Glyph::Mode::Braille)
         end
       end
     end

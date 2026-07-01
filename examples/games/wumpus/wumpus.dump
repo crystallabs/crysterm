@@ -1,13 +1,13 @@
 w=80 h=24
 +--------------------------------------------------------------------------------+
 |┌──────────────────────────────────────────────────────────────────────────────┐|
-|│HUNT THE WUMPUS                                                ┌─ Score ────┐ │|
-|│You enter a cave of 20 rooms. Somewhere a Wumpus sleeps.       │Player:    0│ │|
-|│You carry 5 crooked arrows. Find it and shoot it.              │Wumpus:    0│ │|
-|│Type h for help.                                               │Holes:     0│ │|
-|│You are in room 9. Tunnels lead to 10, 12, 19. Arrows left: 5. │Bats:      0│ │|
-|│                                                               │Arrows:    0│ │|
-|│                                                               └────────────┘ │|
+|│HUNT THE WUMPUS                                               ┌─ Score ─────┐ │|
+|│You enter a cave of 20 rooms. Somewhere a Wumpus sleeps.      │Player:    0 │ │|
+|│You carry 5 crooked arrows. Find it and shoot it.             │Wumpus:    0 │ │|
+|│Type h for help.                                              │Holes:     0 │ │|
+|│You hear the flapping of bats.                                │Bats:      0 │ │|
+|│You are in room 1. Tunnels lead to 2, 5, 8. Arrows left: 5.   │Arrows:    0 │ │|
+|│                                                              └─────────────┘ │|
 |│                                                                              │|
 |│                                                                              │|
 |│                                                                              │|
@@ -27,13 +27,13 @@ w=80 h=24
 +--------------------------------------------------------------------------------+
 attrs:
 y0: 0-79:def/#1a1a2e
-y1: 0-0:def/#1a1a2e 1-15:#cdcd00/#1a1a2e+b 16-63:#e5e5e5/#1a1a2e 64-65:def/#16213e 66-72:#e5e5e5/def 73-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
-y2: 0-0:def/#1a1a2e 1-63:#e5e5e5/#1a1a2e 64-64:def/#16213e 65-71:#00cd00/#16213e 72-76:#e5e5e5/#16213e 77-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
-y3: 0-0:def/#1a1a2e 1-63:#e5e5e5/#1a1a2e 64-64:def/#16213e 65-71:#cd0000/#16213e 72-76:#e5e5e5/#16213e 77-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
-y4: 0-0:def/#1a1a2e 1-5:#e5e5e5/#1a1a2e 6-6:#e5e5e5/#1a1a2e+b 7-63:#e5e5e5/#1a1a2e 64-64:def/#16213e 65-70:#cdcd00/#16213e 71-76:#e5e5e5/#16213e 77-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
-y5: 0-0:def/#1a1a2e 1-16:#e5e5e5/#1a1a2e 17-17:#e5e5e5/#1a1a2e+b 18-63:#e5e5e5/#1a1a2e 64-64:def/#16213e 65-69:#cd00cd/#16213e 70-76:#e5e5e5/#16213e 77-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
-y6: 0-0:def/#1a1a2e 1-63:#e5e5e5/#1a1a2e 64-64:def/#16213e 65-71:#00cdcd/#16213e 72-76:#e5e5e5/#16213e 77-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
-y7: 0-0:def/#1a1a2e 1-63:#e5e5e5/#1a1a2e 64-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
+y1: 0-0:def/#1a1a2e 1-15:#cdcd00/#1a1a2e+b 16-62:#e5e5e5/#1a1a2e 63-64:def/#16213e 65-71:#e5e5e5/def 72-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
+y2: 0-0:def/#1a1a2e 1-62:#e5e5e5/#1a1a2e 63-63:def/#16213e 64-70:#00cd00/#16213e 71-76:#e5e5e5/#16213e 77-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
+y3: 0-0:def/#1a1a2e 1-62:#e5e5e5/#1a1a2e 63-63:def/#16213e 64-70:#cd0000/#16213e 71-76:#e5e5e5/#16213e 77-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
+y4: 0-0:def/#1a1a2e 1-5:#e5e5e5/#1a1a2e 6-6:#e5e5e5/#1a1a2e+b 7-62:#e5e5e5/#1a1a2e 63-63:def/#16213e 64-69:#cdcd00/#16213e 70-76:#e5e5e5/#16213e 77-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
+y5: 0-0:def/#1a1a2e 1-30:#cd00cd/#1a1a2e 31-62:#e5e5e5/#1a1a2e 63-63:def/#16213e 64-68:#cd00cd/#16213e 69-76:#e5e5e5/#16213e 77-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
+y6: 0-0:def/#1a1a2e 1-16:#e5e5e5/#1a1a2e 17-17:#e5e5e5/#1a1a2e+b 18-62:#e5e5e5/#1a1a2e 63-63:def/#16213e 64-70:#00cdcd/#16213e 71-76:#e5e5e5/#16213e 77-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
+y7: 0-0:def/#1a1a2e 1-62:#e5e5e5/#1a1a2e 63-77:def/#16213e 78-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
 y8: 0-0:def/#1a1a2e 1-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
 y9: 0-0:def/#1a1a2e 1-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e
 y10: 0-0:def/#1a1a2e 1-78:#e5e5e5/#1a1a2e 79-79:def/#1a1a2e

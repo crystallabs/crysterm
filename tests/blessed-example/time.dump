@@ -26,12 +26,12 @@ w=80 h=24
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y8: 5-6:def/#e5e5e5 17-18:def/#e5e5e5 32-41:def/#e5e5e5 44-53:def/#e5e5e5
-y9: 5-6:def/#e5e5e5 17-18:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5
-y10: 5-6:def/#e5e5e5 17-18:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 56-65:def/#0000ee 68-77:def/#0000ee
-y11: 5-6:def/#e5e5e5 17-18:def/#e5e5e5 26-27:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 56-57:def/#0000ee 64-65:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
-y12: 5-6:def/#e5e5e5 17-18:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-53:def/#e5e5e5 56-57:def/#0000ee 64-65:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
-y13: 5-6:def/#e5e5e5 17-18:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 52-53:def/#e5e5e5 56-65:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
-y14: 5-6:def/#e5e5e5 17-18:def/#e5e5e5 26-27:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 52-53:def/#e5e5e5 56-57:def/#0000ee 64-65:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
-y15: 5-6:def/#e5e5e5 17-18:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 52-53:def/#e5e5e5 56-57:def/#0000ee 64-65:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
-y16: 5-6:def/#e5e5e5 17-18:def/#e5e5e5 32-41:def/#e5e5e5 44-53:def/#e5e5e5 56-57:def/#0000ee 64-65:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
+y8: 1-10:def/#e5e5e5 13-22:def/#e5e5e5 32-41:def/#e5e5e5 44-53:def/#e5e5e5
+y9: 1-2:def/#e5e5e5 9-10:def/#e5e5e5 21-22:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 52-53:def/#e5e5e5
+y10: 1-2:def/#e5e5e5 9-10:def/#e5e5e5 21-22:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 52-53:def/#e5e5e5 56-65:def/#0000ee 68-77:def/#0000ee
+y11: 1-2:def/#e5e5e5 9-10:def/#e5e5e5 21-22:def/#e5e5e5 26-27:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 52-53:def/#e5e5e5 56-57:def/#0000ee 64-65:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
+y12: 1-2:def/#e5e5e5 9-10:def/#e5e5e5 13-22:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-53:def/#e5e5e5 56-57:def/#0000ee 64-65:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
+y13: 1-2:def/#e5e5e5 9-10:def/#e5e5e5 21-22:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 52-53:def/#e5e5e5 56-65:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
+y14: 1-2:def/#e5e5e5 9-10:def/#e5e5e5 21-22:def/#e5e5e5 26-27:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 52-53:def/#e5e5e5 56-57:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
+y15: 1-2:def/#e5e5e5 9-10:def/#e5e5e5 21-22:def/#e5e5e5 32-33:def/#e5e5e5 40-41:def/#e5e5e5 44-45:def/#e5e5e5 52-53:def/#e5e5e5 56-57:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
+y16: 1-10:def/#e5e5e5 13-22:def/#e5e5e5 32-41:def/#e5e5e5 44-53:def/#e5e5e5 56-57:def/#0000ee 68-69:def/#0000ee 72-73:def/#0000ee 76-77:def/#0000ee
