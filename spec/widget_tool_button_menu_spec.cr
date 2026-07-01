@@ -77,6 +77,39 @@ describe Crysterm::Widget::ToolButton do
     end
   end
 
+  describe "#on_click" do
+    it "opens the menu when the button is menu-only (no bound action)" do
+      s = tbm_screen
+      m = Crysterm::Widget::Menu.new
+      m.add "Item"
+      m.hide # stays hidden until summoned (as in real usage)
+      tb = Crysterm::Widget::ToolButton.new parent: s, menu: m
+      s._render
+
+      pressed = false
+      tb.on(Crysterm::Event::Press) { pressed = true }
+      tb.on_click nil
+      m.visible?.should be_true # a mouse click opens the drop-down...
+      pressed.should be_false   # ...instead of emitting a bare Press
+    end
+
+    it "activates the bound action (not the menu) when an action is present" do
+      s = tbm_screen
+      m = Crysterm::Widget::Menu.new
+      m.add "Item"
+      m.hide # stays hidden; the action's click must not summon it
+      act = Crysterm::Action.new "Apply"
+      triggered = false
+      act.on(Crysterm::Event::Triggered) { triggered = true }
+      tb = Crysterm::Widget::ToolButton.new parent: s, action: act, menu: m
+      s._render
+
+      tb.on_click nil
+      triggered.should be_true   # click activates the action (reachable by mouse)
+      m.visible?.should be_false # ...and the menu stays closed (Down opens it)
+    end
+  end
+
   describe "wheel cycling" do
     it "triggers the menu's activatable actions in turn, skipping separators/disabled" do
       s = tbm_screen

@@ -144,13 +144,15 @@ module Crysterm
         end
       end
 
-      # A click mirrors `#press`: in InstantPopup mode the whole surface is the
-      # menu drop-down, so it opens the menu; in the (default) MenuButtonPopup/
-      # DelayedPopup modes activation is reserved for the action/press, and the
-      # menu is summoned separately (Down key). Deferring to `press` keeps the
-      # bound `action:` reachable by mouse.
+      # A click opens the popup menu when there is nothing else for the click to
+      # do — InstantPopup mode (the whole surface is the drop-down) or a menu-only
+      # button (no bound `action:`). The keyboard reserves press for the action
+      # and summons the menu with Down, but a mouse click has no Down equivalent,
+      # so a pure dropdown tool button must open on click. When an `action:` is
+      # bound (MenuButtonPopup/DelayedPopup), the click defers to `press` so the
+      # action stays reachable by mouse; Down still opens the menu.
       def on_click(e)
-        if @menu && @popup_mode.instant_popup?
+        if @menu && (@popup_mode.instant_popup? || @action.nil?)
           focus
           show_menu
         else
