@@ -39,13 +39,12 @@ module Crysterm
     # * Otherwise the request is pushed to the hardware cursor.
     def apply_cursor(c : Cursor = active_cursor)
       # If the hardware cursor can't satisfy the request, draw it ourselves.
-      unless c.artificial?
-        if c.shape.none?
-          c.artificial = true
-        elsif wants_cursor_styling?(c) && !hardware_cursor_styling?
-          c.artificial = true
-        end
-      end
+      # Re-derived unconditionally every call: gating on the current
+      # `c.artificial?` made the decision monotonic — once a cursor turned
+      # artificial (e.g. an underline shape the hardware couldn't style) a later
+      # request the hardware *can* render (a steady block) stayed artificial
+      # forever, since the `unless` short-circuited the re-evaluation.
+      c.artificial = c.shape.none? || (wants_cursor_styling?(c) && !hardware_cursor_styling?)
 
       if c.artificial?
         # Artificial cursor is painted by `Window#draw`; re-render to reflect.

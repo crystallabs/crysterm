@@ -90,6 +90,28 @@ module Crysterm
       aheight - iheight - hscrollbar_rows
     end
 
+    # Rows the horizontal bar reserves, computed *without* consulting the
+    # vertical scrollbar. The normal `#hscrollbar_rows` path runs the horizontal
+    # overflow test against `#content_width`, which subtracts the vertical bar's
+    # reserved column via `#content_margin_x` → `#show_scrollbar?` →
+    # `#really_scrollable?`. The vertical-overflow predicates below need the
+    # reserved-row count, so they must use *this* variant to avoid the cycle
+    # `really_scrollable? → hscrollbar_rows → … → really_scrollable?`. The
+    # horizontal test here uses the full interior width (`awidth - iwidth`).
+    private def hscrollbar_rows_indep : Int32
+      reserve = policy_shows?(horizontal_scrollbar_policy) do
+        !wrap_content? && (get_scroll_width > Math.max(0, awidth - iwidth))
+      end
+      reserve ? scrollbar_height : 0
+    end
+
+    # Viewport content rows for the vertical-overflow predicates, using
+    # `#hscrollbar_rows_indep` so it doesn't recurse back through the vertical
+    # scrollbar. See `#hscrollbar_rows_indep`.
+    private def visible_content_rows_indep : Int32
+      aheight - iheight - hscrollbar_rows_indep
+    end
+
     # Whether a bar with *policy* should show: never when non-scrollable or
     # `AlwaysOff`, always under `AlwaysOn`, under `AsNeeded` only when the yielded
     # overflow test is true.
@@ -217,10 +239,13 @@ module Crysterm
     # within the viewport. Reveals the bottom edge first, then the top, so the
     # top wins when the child is taller than the viewport.
     def ensure_widget_visible(child : Widget, margin : Int32 = 0) : Bool
-      # `ensure_visible` wants a content-row index, but `child.rtop` is measured
-      # from this widget's outer top (`itop` larger). Subtract it, else a
-      # bordered/padded scroll area scrolls `itop` rows too far.
-      top = child.rtop - itop
+      # `ensure_visible` wants a content-row index in *this* container's content
+      # space. `child.rtop` is relative to the child's *immediate parent*, so it
+      # is only correct for a direct child; for a deeper descendant it omits the
+      # intervening ancestors' offsets. Compute from absolute tops instead:
+      # `child.atop - atop` is the child's row within this container, minus `itop`
+      # (border/padding) gives the content-row index.
+      top = (child.atop || 0) - (atop || 0) - itop
       moved = ensure_visible(top + child.aheight - 1, margin)
       ensure_visible(top, margin) || moved
     end
@@ -291,7 +316,7 @@ module Crysterm
     # Potentially use this wherever .scrollable? is used
     def really_scrollable?
       return @scrollable if @resizable
-      get_scroll_height > (aheight - iheight)
+      get_scroll_height > visible_content_rows_indep
     end
 
     # Whether laid-out content exceeds the visible content height (viewport minus
@@ -300,7 +325,7 @@ module Crysterm
     # with this so an `AsNeeded` bar tracks real overflow instead of the
     # `@resizable` always-scrollable short-circuit.
     def content_overflows_height?
-      get_scroll_height > (aheight - iheight)
+      get_scroll_height > visible_content_rows_indep
     end
 
     # Total lines by which widget is scrolled, combining invisible and visible

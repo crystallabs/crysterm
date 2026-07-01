@@ -123,6 +123,15 @@ module Crysterm
         self.value = @history_pos == @history.size ? @history_draft : @history[@history_pos]
       end
 
+      # Expanded-codepoint index of the first content column currently shown —
+      # the left edge of the horizontal window `#compute_display` slices. `0`
+      # while the value fits; grows as the caret moves past the right edge and
+      # shrinks (down to `0`) as it moves back toward the start, so the edit
+      # point stays visible even when the value overflows the box. This is the
+      # "dropped prefix" `#position_at`/`#selection_columns_for_row` measure
+      # from; it replaces the old "tail of the whole value" assumption.
+      @view_start : Int32 = 0
+
       def value=(value = nil)
         # A non-nil argument is an external set (cursor to the end); `nil` is a
         # redisplay that preserves the cursor (see `PlainTextEdit#value=`).
@@ -139,40 +148,57 @@ module Crysterm
         # indices; mirror `Mixin::TextEditing#value=` (this override bypasses it).
         clear_selection if external
 
-        # Compute the string actually shown. `@_value` caches the *displayed*
-        # text so the dedup guard also fires the first time an empty box needs
-        # to paint its placeholder.
-        disp =
-          if @value.empty? && !@placeholder.empty?
-            # Show the placeholder while empty; the real value stays "".
-            @placeholder
-          elsif @secret
-            ""
-          elsif @censor
-            # One mask char per user-perceived character (grapheme) under
-            # full_unicode; per codepoint otherwise.
-            @password_character.to_s * (full_unicode? ? value.graphemes.size : value.size)
-          else
-            val = @value.gsub /\t/, style.tab_char * style.tab_size
-            # Show the tail of the value that fits the input's visible width
-            # (`awidth - iwidth - 1`; -1 leaves room for the cursor).
-            cols = awidth - iwidth - 1
-            if full_unicode?
-              tail_within(val, cols)
-            else
-              # Legacy: one column per codepoint. Clamp to [0, val.size] — a very
-              # narrow box makes `cols` negative and `val[-visible..]` would raise
-              # IndexError; slicing from `val.size - visible` shows the last
-              # `visible` chars (and "" when 0).
-              visible = cols.clamp(0, val.size)
-              val[(val.size - visible)..]
-            end
-          end
-
+        # `@_value` caches the *displayed* text so the dedup guard also fires
+        # the first time an empty box needs to paint its placeholder.
+        disp = compute_display
         if @_value != disp
           @_value = disp
           set_content disp
           _update_cursor
+        end
+      end
+
+      # Computes the string actually shown, scrolling the `@view_start` window so
+      # the caret stays visible when the value is wider than the box. Called from
+      # `#value=` (and thus once per frame via `Mixin::TextEditing#render`), so
+      # the window re-tracks the caret every render.
+      private def compute_display : String
+        if @value.empty? && !@placeholder.empty?
+          # Show the placeholder while empty; the real value stays "".
+          @view_start = 0
+          @placeholder
+        elsif @secret
+          @view_start = 0
+          ""
+        elsif @censor
+          # One mask char per user-perceived character (grapheme) under
+          # full_unicode; per codepoint otherwise.
+          @view_start = 0
+          @password_character.to_s * (full_unicode? ? @value.graphemes.size : @value.size)
+        else
+          val = @value.gsub /\t/, style.tab_char * style.tab_size
+          # Visible width (`awidth - iwidth - 1`; -1 leaves room for the caret).
+          cols = Math.max 0, awidth - iwidth - 1
+          # Caret column in the tab-expanded value (single line → from index 0).
+          caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
+          # Slide the window to keep the caret inside `[@view_start, +cols]`,
+          # then clamp so we never scroll past the value's end (showing the tail
+          # when the caret sits there, the previous unconditional behavior).
+          if caret_cp < @view_start
+            @view_start = caret_cp
+          elsif caret_cp > @view_start + cols
+            @view_start = caret_cp - cols
+          end
+          @view_start = @view_start.clamp(0, Math.max(0, val.size - cols))
+
+          window = val[@view_start..]
+          if full_unicode?
+            # Leading graphemes of the window that fit `cols` display columns.
+            window[0, column_index(window, cols)]
+          else
+            # Legacy: one column per codepoint.
+            window[0, cols]
+          end
         end
       end
 
@@ -192,16 +218,16 @@ module Crysterm
         return nil if @secret || @censor
         return nil unless range = selection_range
 
-        # First `@value` index actually shown: `@_value` is the tail of the
-        # tab-expanded value (`tail_within` in `#value=`), so the hidden prefix
-        # is `expanded.size - @_value.size` expanded columns; map that back to a
-        # raw `@value` index. The tail always runs to the value's end, so only
-        # the low end of the selection can fall off (to the left).
-        expanded = @value.includes?('\t') ? @value.gsub('\t', style.tab_char * style.tab_size) : @value
-        vis_start = unexpand_col(@value, expanded.size - @_value.size)
+        # First and last `@value` indices actually shown. `@_value` is a window
+        # of the tab-expanded value starting at `@view_start` expanded columns
+        # (see `#compute_display`); map both edges back to raw `@value` indices.
+        # Unlike the old tail-only slice, the window can now be scrolled left of
+        # the value's end, so *both* ends of the selection can fall off-view.
+        vis_start = unexpand_col(@value, @view_start)
+        vis_end = unexpand_col(@value, @view_start + @_value.size)
 
         lo = Math.max(range.begin, vis_start)
-        hi = range.end
+        hi = Math.min(range.end, vis_end)
         return nil if lo >= hi
 
         col_lo = rendered_column(vis_start, lo)
@@ -244,14 +270,72 @@ module Crysterm
             disp_idx
           end
         else
-          # `@_value` is the tab-expanded, front-truncated tail of `@value`
-          # actually shown (`tail_within` in `#value=`); map back by the
-          # dropped-prefix length, then undo the tab expansion to land on a
-          # raw `@value` index.
-          expanded = @value.includes?('\t') ? @value.gsub('\t', style.tab_char * style.tab_size) : @value
-          dropped = expanded.size - @_value.size
-          unexpand_col(@value, dropped + disp_idx)
+          # `@_value` is the tab-expanded window of `@value` actually shown,
+          # starting at `@view_start` expanded columns (see `#compute_display`).
+          # Offset the click's index within the window by that dropped prefix,
+          # then undo the tab expansion to land on a raw `@value` index.
+          unexpand_col(@value, @view_start + disp_idx)
         end
+      end
+
+      # Caret's column within the shown window (see `#compute_display`), used by
+      # `#_update_cursor`. `0` in secret mode (nothing shown); grapheme/codepoint
+      # count before the caret in censor mode (the mask isn't windowed).
+      private def caret_view_col : Int32
+        return 0 if @secret
+        if @censor
+          before = @value[0...@cursor_pos.clamp(0, @value.size)]
+          return full_unicode? ? before.graphemes.size : before.size
+        end
+        caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
+        Math.max(0, caret_cp - @view_start)
+      end
+
+      # Overrides `Mixin::TextEditing#_update_cursor`: the inherited version maps
+      # `@cursor_pos` onto `@_clines`, which for `LineEdit` is only the re-sliced
+      # window (`#compute_display`) — so it clamps the caret to the window's end
+      # instead of tracking the real edit point. Place the caret at its column
+      # within that window instead, clamped into the viewport (the trailing
+      # `content_width` column is reserved for an end-of-line caret).
+      def _update_cursor(get = false, to_scroll_pos = false)
+        return unless focused?
+
+        lpos = get ? @lpos : _get_coords
+        return unless lpos
+
+        display = window
+        left = lpos.xi + ileft
+        cy = lpos.yi + itop
+        cx = (left + caret_view_col).clamp(left, left + Math.max(0, content_width))
+
+        if cy == display.tput.cursor.y
+          if cx > display.tput.cursor.x
+            display.tput.cuf(cx - display.tput.cursor.x)
+          elsif cx < display.tput.cursor.x
+            display.tput.cub(display.tput.cursor.x - cx)
+          end
+        elsif cx == display.tput.cursor.x
+          if cy > display.tput.cursor.y
+            display.tput.cud(cy - display.tput.cursor.y)
+          elsif cy < display.tput.cursor.y
+            display.tput.cuu(display.tput.cursor.y - cy)
+          end
+        else
+          display.tput.cup(cy, cx)
+        end
+      end
+
+      # Overrides the mixin's `#ensure_cursor_visible_x` (a no-op while not a
+      # scroll area, which `LineEdit` isn't — it scrolls a `@view_start` window
+      # instead). Reports whether the caret currently sits outside that window,
+      # so a caret move that needs to scroll flags `scrolled` in the key handler
+      # and triggers a render; the actual window shift is done by
+      # `#compute_display` on that render.
+      private def ensure_cursor_visible_x : Bool
+        return false if @secret || @censor
+        cols = Math.max 0, awidth - iwidth - 1
+        caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
+        caret_cp < @view_start || caret_cp > @view_start + cols
       end
     end
   end

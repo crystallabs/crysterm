@@ -458,7 +458,13 @@ module Crysterm
     # later `#shortcut=`/`#shortcuts=` change takes effect on attached windows.
     private def reinstall_shortcuts : Nil
       hosts = @shortcut_host_by_window.dup
-      windows = @shortcut_wrappers.keys
+      # Union of windows that hold a wrapper *and* those that only recorded a
+      # host: `#install_shortcut` early-returns before creating a wrapper while
+      # `@shortcuts` is empty, so an action given its shortcut *after* being added
+      # to a window has a host there but no wrapper. Iterating only
+      # `@shortcut_wrappers.keys` would never revisit it, leaving the new shortcut
+      # dead on that window. `uninstall_shortcut` no-ops when no wrapper exists.
+      windows = (@shortcut_wrappers.keys | hosts.keys)
       windows.each do |w|
         uninstall_shortcut w
         install_shortcut w, hosts[w]?

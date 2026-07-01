@@ -933,6 +933,7 @@ module Crysterm
           # A non-selecting movement collapses any selection; a selecting one
           # keeps its anchor so the range grows/shrinks with the cursor. Editing
           # keys (`moved == false`) manage the selection themselves below.
+          had_sel = has_selection?
           clear_selection if moved && !extend_sel
 
           if moved
@@ -942,7 +943,10 @@ module Crysterm
             scrolled = ensure_cursor_visible_x || scrolled
             # A selecting move must always repaint (the highlight changed even
             # when the view didn't scroll); a plain move only when it scrolled.
-            request_render if scrolled || extend_sel
+            # Collapsing a selection (`had_sel` cleared just above) must repaint
+            # too — otherwise the previously highlighted cells stay painted, since
+            # `_update_cursor` only moves the terminal caret.
+            request_render if scrolled || extend_sel || had_sel
             _update_cursor
           end
 

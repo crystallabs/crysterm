@@ -40,12 +40,13 @@ module Crysterm
       # construction-time registration runs — so without `keys?` here such a
       # widget would never get registered, and the auto-focus gate below
       # (needing it in `@keyable`) could never focus it.
-      if element.keys? || element.input? || element.keyable?
-        register_keyable element
-      end
-
-      if element.clickable?
-        register_clickable element
+      # Walks `self_and_each_descendant` (mirroring `#unregister`, which drops the
+      # whole subtree on removal): inserting a *container* moved here from another
+      # screen must re-register its keyable/clickable descendants too, else they
+      # stay stranded out of `@keyable`/`@clickable`. `register_*` no-op on dupes.
+      element.self_and_each_descendant do |e|
+        register_keyable e if e.keys? || e.input? || e.keyable?
+        register_clickable e if e.clickable?
       end
 
       # Auto-focus on insert, but only when the inserted widget can itself take

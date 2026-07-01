@@ -94,9 +94,16 @@ module Crysterm
       # Mirrors the registration `Window#insert` performs for a top-level widget;
       # predicate and `keyable?` inclusion match that gate. `register_keyable`/
       # `register_clickable` no-op if the element is already listed.
+      #
+      # Walks `self_and_each_descendant` (mirroring `Window#unregister`, which
+      # drops the whole subtree): reparenting a *container* also detached its
+      # keyable/clickable descendants, so re-registering only the container root
+      # would strand them out of `@keyable`/`@clickable` forever.
       window?.try do |sc|
-        sc.register_keyable element if element.keys? || element.input? || element.keyable?
-        sc.register_clickable element if element.clickable?
+        element.self_and_each_descendant do |e|
+          sc.register_keyable e if e.keys? || e.input? || e.keyable?
+          sc.register_clickable e if e.clickable?
+        end
       end
 
       element.emit Crysterm::Event::Reparent, self

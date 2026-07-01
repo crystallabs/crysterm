@@ -813,7 +813,11 @@ module Crysterm
       # end
 
       # XXX temporarily diverts output
-      return unless with_scroll_region(top, bottom, need_insert_line: true) do
+      # Only emits `dl` (delete_line), so it needs change-scroll-region +
+      # delete_line — not insert_line. Requiring `il` here made `delete_line` a
+      # silent no-op (dropping the buffer-side `shift_lines_up` too) on terminals
+      # that advertise CSR + delete_line but not insert_line.
+      return unless with_scroll_region(top, bottom) do
                       tput.cup(y, 0)
                       tput.dl(n)
                     end
@@ -924,7 +928,7 @@ module Crysterm
     # as the original per-band loops did, and a missing top row (`@olines[yi]`)
     # leaves the reference cell nil so the scan breaks before any comparison.
     private def column_uniform?(x, yi, yl) : Bool
-      first = @olines[yi][x] if @olines[yi]?
+      first = @olines[yi]?.try &.[x]?
       yi.upto(yl - 1) do |y|
         break unless @olines[y]? && @olines[y][x]?
         ch = @olines[y][x]

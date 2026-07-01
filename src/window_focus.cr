@@ -249,7 +249,12 @@ module Crysterm
       end
 
       cur.state = :focused
-      old.try &.state = :normal
+      # Only clear the blurred widget's state when it is actually Focused.
+      # `WidgetState` is single-valued: an unconditional reset re-enables a
+      # widget disabled *while focused* (e.g. a wizard "Back" button) — silently
+      # flipping it back to `:normal`/keyable — and clobbers a Selected/Hovered
+      # state a blurred widget may legitimately hold.
+      old.try { |o| o.state = :normal if o.state.focused? }
 
       # If we're in a scrollable element,
       # automatically scroll to the focused element.

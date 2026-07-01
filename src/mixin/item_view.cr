@@ -845,7 +845,15 @@ module Crysterm
 
       def on_resize(e)
         visible = visible_content_rows
-        if visible >= selected + 1
+        if visible <= 0
+          # Collapsed viewport (`iheight >= aheight`, e.g. a bordered list
+          # squeezed too small): the `else` branch below would compute
+          # `@child_offset = visible - 1` (negative) and an out-of-range
+          # `@child_base`. Park the selection at the base with a zero offset
+          # instead — a valid state for a list showing no rows.
+          @child_base = selected
+          @child_offset = 0
+        elsif visible >= selected + 1
           @child_base = 0
           @child_offset = selected
         else
