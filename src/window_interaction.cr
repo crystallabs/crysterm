@@ -24,7 +24,7 @@ module Crysterm
     # special keys), but also chars (ordinary letters) as well as sequences (arbitrary
     # sequences of chars and keys).
 
-    # Sets up IO listeners for keyboard (and mouse, but mouse is currently unsupported).
+    # Sets up IO listeners for keyboard and mouse input.
     def listen
       # Ensure this surface is registered with an `Application` (the dispatcher
       # input is routed through: `Screen` → `Application#route_input` →

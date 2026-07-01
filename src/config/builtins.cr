@@ -174,7 +174,14 @@ module Superconf
 
   # -- Input -----------------------------------------------------------------
   option "input.readline_keys", true,
-    description: "Enable emacs/readline-style editing keys in text inputs: Ctrl-A/Ctrl-E (line start/end), word-wise Ctrl/Alt-Left/Right (+ Alt-B/Alt-F), Ctrl-W (kill word back), Ctrl-U/Ctrl-K (kill to line start/end), Alt-D (kill word forward), and Ctrl-Y (yank from the kill ring). When off, these keys are left unhandled so the application can bind them"
+    description: "Enable emacs/readline-style editing keys in text inputs: Ctrl-A/Ctrl-E (line start/end), word-wise Ctrl/Alt-Left/Right (+ Alt-B/Alt-F), Ctrl-W (kill word back), Ctrl-U/Ctrl-K (kill to line start/end), Alt-D (kill word forward), and Ctrl-Y (yank from the kill ring). When off, these keys are left unhandled so the application can bind them. Also decides Ctrl-A's meaning in text inputs: line-start when on (emacs), select-all when off (GUI)"
+  option "input.clipboard_keys", true,
+    description: "Enable Ctrl-C/Ctrl-X/Ctrl-V clipboard keys in text inputs (copy/cut the selection, paste at the cursor). When off, these keys are left unhandled so the application can bind them"
+
+  # -- Mouse -----------------------------------------------------------------
+  option "mouse.double_click_interval", 0.4.seconds,
+    description: "Maximum time between two presses (on the same widget, at the same spot) for them to count as a double-click; a third within the same window is a triple-click. Drives Window#click_count and text-input word/line select",
+    validate: ->(t : Time::Span) { t > Time::Span.zero }
 
   # -- External programs / environment --------------------------------------
   # The standard `SHELL` / `TERM` / `HOME` (and the CRYSTERM_* knobs below) reach

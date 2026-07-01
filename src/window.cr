@@ -276,7 +276,6 @@ module Crysterm
 
       # XXX Why here instead of in enter/leave?
       _listen_keys
-      # _listen_mouse # XXX
 
       # The default quit keys (`q` / Ctrl-Q) are now an app-global hotkey
       # handled by `Application#route_input` (gated on `default_quit_keys?`),

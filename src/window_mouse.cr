@@ -62,6 +62,52 @@ module Crysterm
       @_hover
     end
 
+    # Number of consecutive presses on the same widget at the same spot within
+    # `Config.mouse_double_click_interval` of each other: `1` for a single
+    # click, `2` for a double, `3`+ for triple and beyond. Valid to read from
+    # within a widget's `Event::Mouse`/`Event::Click` handler for the current
+    # press (computed by `#dispatch_mouse` before the widget is notified). See
+    # `Mixin::TextEditing`'s word/line select.
+    getter click_count : Int32 = 0
+
+    @_last_click_at : Time::Span?
+    @_last_click_pos : Tuple(Int32, Int32)?
+    @_last_click_target : Widget?
+
+    # Advances `#click_count` for a press by *w* at (*x*, *y*): increments when
+    # this press is close enough in time (`Config.mouse_double_click_interval`)
+    # and position (same cell) to the previous one on the same widget, else
+    # resets to 1. `now` is the caller's monotonic timestamp so a single press
+    # reads the clock once.
+    private def bump_click_count(w : Widget?, x : Int32, y : Int32, now : Time::Span) : Nil
+      within = @_last_click_at.try { |t| now - t <= Config.mouse_double_click_interval } || false
+      same = @_last_click_target == w && @_last_click_pos == {x, y}
+      @click_count = within && same ? @click_count + 1 : 1
+      @_last_click_at = now
+      @_last_click_pos = {x, y}
+      @_last_click_target = w
+    end
+
+    # Widget that has captured the mouse: while set, all subsequent motion and
+    # release reports route to it (via `Event::Mouse`) regardless of what's
+    # under the pointer, and the release clears the capture. Lets a widget keep
+    # receiving a press-drag it started even after the pointer leaves its bounds
+    # (e.g. `Mixin::TextEditing` extending a selection past the edge) — the
+    # lightweight, self-managed counterpart of the `draggable?` drag machinery.
+    @_mouse_captor : Widget?
+
+    # Directs subsequent mouse motion/release to *w* until the button is
+    # released (or `#release_mouse`). Called by a widget from its own press
+    # handler.
+    def capture_mouse(w : Widget) : Nil
+      @_mouse_captor = w
+    end
+
+    # Ends any active mouse capture (see `#capture_mouse`).
+    def release_mouse : Nil
+      @_mouse_captor = nil
+    end
+
     # The raw mouse transport (terminal reporting, `gpm` reader, GUI cursor
     # shape) lives on the device (`Screen`, in `screen_mouse_device.cr`); this
     # surface delegates to it (see `window.cr`).
@@ -99,6 +145,23 @@ module Crysterm
       # pointer position; surface on the screen and stop before hit-testing.
       return if ev.focus_event?
 
+      # A widget that captured the mouse (`#capture_mouse`) receives all motion
+      # and release regardless of the pointer's position, so a press-drag it
+      # started keeps flowing after the pointer leaves its bounds. The release
+      # ends the capture. A down is left to fall through to normal hit-testing
+      # (a fresh press retargets). Checked before `@_drag` since capture is the
+      # lighter mechanism a non-`draggable?` widget opts into.
+      if captor = @_mouse_captor
+        if ev.action.move?
+          captor.emit ::Crysterm::Event::Mouse, ev
+          return
+        elsif ev.action.up?
+          captor.emit ::Crysterm::Event::Mouse, ev
+          @_mouse_captor = nil
+          return
+        end
+      end
+
       # An in-flight drag captures all motion/release regardless of what's
       # underneath. A continuous drag ends on button-up; a discrete (two-click)
       # drag ends on the next button-down, retargeting to whatever's under that
@@ -123,6 +186,12 @@ module Crysterm
       # region; elsewhere drop the target (outside-click dismissal already ran
       # via the screen-level `Event::Mouse` above).
       w = nil unless within_grab? ev.x, ev.y
+
+      # Resolve the click count before the target sees the press, so a widget's
+      # own `Event::Mouse`/`Event::Click` handler can read `#click_count` for
+      # this press (double/triple detection). Only a real button press counts;
+      # motion/release/wheel leave the running count alone.
+      bump_click_count(w, ev.x, ev.y, Time.monotonic) if ev.action.down?
 
       update_hover w, ev
 

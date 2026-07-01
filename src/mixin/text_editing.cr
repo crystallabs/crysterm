@@ -44,6 +44,40 @@ module Crysterm
       # `full_unicode?`, a single codepoint otherwise.
       property cursor_pos = 0
 
+      # The fixed end of an in-progress mouse selection (a codepoint index into
+      # `@value`), or `nil` when nothing is selected. `#cursor_pos` is the other,
+      # moving end. Set by the mouse-down handler installed in
+      # `#_setup_text_mouse`; any keyboard interaction (`#_listener`) or external
+      # `value=` drops it, since there's no keyboard-extend (Shift+arrow) support
+      # yet — a plain keystroke always means "the selection is no longer live".
+      property selection_anchor : Int32? = nil
+
+      # The selected range as `[lo, hi)` codepoint indices into `@value`, or
+      # `nil` when nothing is selected (no anchor, or anchor and cursor coincide
+      # — a plain click with no drag).
+      def selection_range : Range(Int32, Int32)?
+        return nil unless anchor = @selection_anchor
+        lo, hi = anchor < cursor_pos ? {anchor, cursor_pos} : {cursor_pos, anchor}
+        return nil if lo == hi
+        lo...hi
+      end
+
+      def has_selection? : Bool
+        !!selection_range
+      end
+
+      # The currently-selected substring of `@value`, or `""` when nothing is
+      # selected.
+      def selected_text : String
+        (r = selection_range) ? @value[r] : ""
+      end
+
+      # Drops the in-progress/completed mouse selection without moving the
+      # cursor.
+      def clear_selection : Nil
+        @selection_anchor = nil
+      end
+
       # Max characters the user may type, `nil` for unlimited (Qt's
       # `QLineEdit#maxLength`). Enforced only for interactive input; `value=`
       # set programmatically is not truncated.
@@ -103,7 +137,91 @@ module Crysterm
           end
         end
 
-        # XXX if mouse...
+        _setup_text_mouse
+      end
+
+      # Installs the click-to-position / drag-to-select mouse handler.
+      #
+      # A press moves the cursor to the clicked position and drops an anchor
+      # there. It deliberately does NOT `#accept` the event: `Window#dispatch_mouse`
+      # still needs to run its own default click-to-focus and emit `Event::Click`
+      # (see `Window#dispatch_mouse`'s `unless me.try(&.accepted?)` gate) — this
+      # handler only owns the cursor/selection side effect, not the click itself.
+      #
+      # A subsequent `Event::Mouse` reporting motion with a button still held
+      # (`ev.button` is populated on `Move`, not just `Down`/`Up` — see
+      # `Tput::Mouse::Event`) extends the selection to the new position and
+      # requests a render so the highlight (`#selection_columns_for_row`) tracks
+      # the drag live. Requesting the anchor lazily (`@selection_anchor ||=`)
+      # tolerates a drag whose initial press this widget didn't see (e.g. focus
+      # moved here without a matching `Down`).
+      private def _setup_text_mouse : Nil
+        on(Crysterm::Event::Mouse) do |e|
+          if e.action.down?
+            @goal_col = nil
+            pos = position_at(e.x, e.y)
+            clicks = window?.try(&.click_count) || 1
+            if clicks >= 3
+              # Triple-click selects the whole logical line.
+              @cursor_pos = pos
+              a = line_start_pos
+              b = line_end_pos
+              @selection_anchor = a
+              @cursor_pos = b
+            elsif clicks == 2
+              # Double-click selects the word under the pointer (empty range —
+              # i.e. just the caret — when the click is on non-word text).
+              a, b = word_bounds_at(pos)
+              @selection_anchor = a
+              @cursor_pos = b
+            else
+              @cursor_pos = pos
+              @selection_anchor = pos
+            end
+            # Capture the mouse so a drag that leaves our bounds keeps extending
+            # the selection (released on button-up in `Window#dispatch_mouse`).
+            window?.try &.capture_mouse(self)
+            # Reflect the reposition/selection ourselves rather than relying on
+            # `dispatch_mouse`'s click-to-focus render, which is skipped when
+            # `focus_on_click?` is off. `render` repositions the terminal caret
+            # via `_update_cursor` too. Not `#accept`ed (see method doc), so the
+            # default click behavior still runs.
+            request_render
+          elsif e.action.move? && !e.button.none? && focused?
+            # Extend the selection to the pointer. If the pointer is past the
+            # vertical edge, scroll first so the drag can select off-window
+            # content (`scrolled` also forces a repaint even if the mapped
+            # position didn't change).
+            scrolled = autoscroll_for_drag e.y
+            pos = position_at(e.x, e.y)
+            next if pos == @cursor_pos && @selection_anchor && !scrolled
+            @goal_col = nil
+            @selection_anchor ||= @cursor_pos
+            @cursor_pos = pos
+            request_render
+            e.accept
+          end
+        end
+      end
+
+      # During a drag-select, scrolls one row when the pointer is past the top
+      # or bottom of the visible content, so the selection can extend beyond the
+      # viewport. Returns whether it scrolled. No-op for a non-scrollable widget
+      # (e.g. a fitting `PlainTextEdit`, or `LineEdit`, whose `#scroll` guards on
+      # `@scrollable`). Uses the same row geometry as `#position_at`.
+      private def autoscroll_for_drag(y : Int32) : Bool
+        return false unless @scrollable
+        lpos = @lpos || _get_coords
+        return false unless lpos
+        max_line = (lpos.yl - lpos.yi) - iheight - 1
+        raw = y - lpos.yi - itop
+        before = @child_base
+        if raw < 0
+          scroll(-1)
+        elsif raw > max_line
+          scroll(1)
+        end
+        @child_base != before
       end
 
       # A text editor's "scrollable right now" is a real content-vs-height
@@ -329,6 +447,71 @@ module Crysterm
         @cursor_pos += text.size
       end
 
+      # Removes the selected range from `@value`, parks the cursor at its start,
+      # and clears the selection. Returns whether anything was deleted (`false`
+      # when there was no selection), so callers can branch on "replaced a
+      # selection vs. plain edit". Used by typing/Backspace/Delete/cut/paste to
+      # make a selection behave as a single replaceable unit.
+      private def delete_selection : Bool
+        return false unless r = selection_range
+        @goal_col = nil
+        @value = @value[0...r.begin] + @value[r.end..]
+        @cursor_pos = r.begin
+        clear_selection
+        true
+      end
+
+      # The `[start, end)` bounds of the word-character run touching *pos* — the
+      # word double-click selects. Empty (`{pos, pos}`) when *pos* sits on a
+      # non-word character (e.g. whitespace), which the caller treats as "no
+      # word here". Uses the same `#word_char?` class as `Ctrl-Left`/`Ctrl-Right`.
+      private def word_bounds_at(pos : Int32) : Tuple(Int32, Int32)
+        lo = pos
+        while lo > 0 && word_char?(@value[lo - 1])
+          lo -= 1
+        end
+        hi = pos
+        while hi < @value.size && word_char?(@value[hi])
+          hi += 1
+        end
+        {lo, hi}
+      end
+
+      # The clipboard facade (`Application::Clipboard`) for copy/cut/paste: the
+      # active window's application, or the global one as a fallback. `#text=`
+      # updates the in-process mirror *and* pushes to the terminal (OSC 52);
+      # `#text` reads the mirror (which may lag the real OS clipboard, but is
+      # always current for a copy→paste round-trip within the app).
+      private def text_clipboard
+        (window?.try(&.application) || Crysterm::Application.global).clipboard
+      end
+
+      # Copies the current selection to the clipboard (mirror + terminal).
+      # Returns whether there was a selection, so `Ctrl-X` only deletes when
+      # something was actually cut.
+      private def copy_selection : Bool
+        return false unless has_selection?
+        text_clipboard.text = selected_text
+        true
+      end
+
+      # Inserts the clipboard's current text at the cursor, replacing any
+      # selection. Reads the in-process mirror (see `#text_clipboard`), so a
+      # copy→paste round-trip within the app is synchronous. Honors `max_length`
+      # by truncating the pasted text to the remaining room. A single-line
+      # `LineEdit` strips any pasted newlines on its next redisplay (`#value=`).
+      private def paste_clipboard : Nil
+        text = text_clipboard.text
+        return if text.empty?
+        delete_selection
+        if ml = @max_length
+          room = ml - @value.size
+          return if room <= 0
+          text = text[0, room] if text.size > room
+        end
+        insert_at_cursor text
+      end
+
       # Maps `@cursor_pos` (an index into `@value`) to `{real_line, column}` in
       # the wrapped/displayed content (`@_clines`), using the fake->real line map
       # (`ftor`). Exact for the default (unaligned) text area; best-effort with
@@ -369,7 +552,8 @@ module Crysterm
 
       # Inverse of `cursor_rowcol`: maps a real (wrapped) line and a tab-expanded
       # column within it back to an index into `@value`. Used by Up/Down to land
-      # the cursor on the visual row above/below at the desired column.
+      # the cursor on the visual row above/below at the desired column, and by
+      # `#position_at` to map a mouse click to a buffer index.
       private def pos_from_rowcol(rl : Int32, col : Int32) : Int32
         rl = rl.clamp(0, Math.max(0, @_clines.size - 1))
         fake_line = @_clines.rtof[rl]? || 0
@@ -383,20 +567,92 @@ module Crysterm
           exp_col += (@_clines[r]? || "").size
         end
 
-        # Start of the fake (logical) line within `@value`. `@_clines.fake` is
-        # TAB-expanded, so its codepoint sizes can't index raw `@value`; walk
-        # `@value`'s own newlines instead.
+        base, line_end = fake_line_bounds(fake_line)
+
+        # Convert back to a raw `@value` offset: a TAB counts as one editable
+        # char, not its `tab_size` rendered columns.
+        (base + unexpand_col(@value[base...line_end], exp_col)).clamp(0, @value.size)
+      end
+
+      # The `@value` span (as `{start, end}` indices, half-open) of the fake
+      # (logical, `\n`-delimited) line numbered *fake_line*. `@_clines.fake` is
+      # TAB-expanded, so its codepoint sizes can't index raw `@value`; this walks
+      # `@value`'s own newlines instead. Shared by `#pos_from_rowcol` and
+      # `#position_at`.
+      private def fake_line_bounds(fake_line : Int32) : Tuple(Int32, Int32)
         base = 0
         fake_line.times do
           nl = @value.index('\n', base)
           break unless nl
           base = nl + 1
         end
-        line_end = @value.index('\n', base) || @value.size
+        {base, @value.index('\n', base) || @value.size}
+      end
 
-        # Convert back to a raw `@value` offset: a TAB counts as one editable
-        # char, not its `tab_size` rendered columns.
-        (base + unexpand_col(@value[base...line_end], exp_col)).clamp(0, @value.size)
+      # Maps an absolute screen point (as delivered by `Event::Mouse`) to the
+      # nearest codepoint index into `@value` — the mouse-click counterpart of
+      # `#cursor_rowcol`/`#pos_from_rowcol`, kept consistent with how
+      # `#_update_cursor` actually places the caret (so clicking exactly where
+      # the caret is currently drawn is a no-op). Overridden by `LineEdit`,
+      # whose single visible line is a separately re-sliced tail of `@value`
+      # rather than the `@_clines`/`@child_base_x` model this generic version
+      # assumes. Returns the current `#cursor_pos` unchanged if the widget has
+      # no on-window geometry yet (not rendered, or off-window).
+      def position_at(x : Int32, y : Int32) : Int32
+        lpos = _get_coords
+        return cursor_pos unless lpos
+
+        # Mirrors the row math in `#_update_cursor`: clamp to the visible
+        # content rows, then add the scroll offset to get the real line index.
+        max_line = (lpos.yl - lpos.yi) - iheight - 1
+        line = (y - lpos.yi - itop).clamp(0, Math.max(0, max_line))
+        rl = (line + @child_base).clamp(0, Math.max(0, @_clines.size - 1))
+
+        if wrap_content?
+          # `@_clines[rl]` is the actual painted (already tab-expanded) text for
+          # this row — `#column_index` walks it directly by display width.
+          rline = @_clines[rl]? || ""
+          col = column_index(rline, x - lpos.xi - ileft)
+          pos_from_rowcol(rl, col)
+        else
+          # Non-wrap: `@_clines[rl]` is horizontally *sliced* to the viewport
+          # (see `_hslice`), so it can't be walked directly — reconstruct the
+          # real line's own (tab-expanded) text from `@value` instead, exactly
+          # as `#_update_cursor`'s `caret_display_column` does, and undo the
+          # `@child_base_x` scroll to land back in that line's own column space.
+          fake_line = @_clines.rtof[rl]? || 0
+          base, line_end = fake_line_bounds(fake_line)
+          raw_line = @value[base...line_end]
+          expanded = raw_line.includes?('\t') ? raw_line.gsub('\t', style.tab_char * style.tab_size) : raw_line
+
+          target = (x - lpos.xi - ileft).clamp(0, content_width) + @child_base_x
+          base + unexpand_col(raw_line, column_index(expanded, target))
+        end
+      end
+
+      # The codepoint index within *text* whose accumulated display width
+      # (`#str_width`, wide-character aware) is nearest *target_col* — the
+      # character boundary nearest a click at that pixel column. Rounds to
+      # the nearest boundary (not always down), so clicking the right half of
+      # a wide character lands after it. Walks whole grapheme clusters under
+      # `#full_unicode?`, matching how `#cursor_prev_width`/`#cursor_next_width`
+      # keep the cursor off cluster-internal codepoints elsewhere in this
+      # module. Shared by both branches of `#position_at`.
+      private def column_index(text : String, target_col : Int32) : Int32
+        return 0 if target_col <= 0
+        return target_col.clamp(0, text.size) unless full_unicode?
+
+        acc = 0
+        idx = 0
+        text.each_grapheme do |g|
+          s = g.to_s
+          w = str_width s
+          w = 1 if w <= 0 # zero-width (e.g. a lone combining mark): still one step
+          return idx if acc + w / 2 > target_col
+          acc += w
+          idx += s.size
+        end
+        idx
       end
 
       # Codepoint count of *s* after TAB expansion (`tab_char * tab_size`, exactly
@@ -487,6 +743,50 @@ module Crysterm
         ensure_visible_x caret_display_column
       end
 
+      # Display width of `@value[from...to]` (TAB-expanded, wide-character
+      # aware) — the render-column distance between two buffer indices on the
+      # same line. `#position_at`'s inverse, used to turn the selection's
+      # `@value` indices into the column range `#selection_columns_for_row`
+      # paints. `from` must be at or before the start of *to*'s line (both are
+      # always same-line callers here, so no embedded `\n` is sliced across).
+      private def rendered_column(from : Int32, to : Int32) : Int32
+        s = @value[from...to]
+        s = s.gsub('\t', style.tab_char * style.tab_size) if s.includes?('\t')
+        str_width s
+      end
+
+      # Overrides `Widget#selection_columns_for_row` (a free no-op there): the
+      # portion of `#selection_range` that falls on real (post-wrap) line *rl*,
+      # as a `x - xi` column range for `Widget#_render`'s highlight pass, or
+      # `nil` when the selection doesn't touch this row.
+      #
+      # `rl` is assumed to be `@child_base`-relative like everywhere else in
+      # this module (`#position_at`, `#cursor_rowcol`) — exact for the default
+      # top-aligned case `_render` uses when computing it; approximate (like
+      # `#cursor_rowcol` itself) under vertical center/bottom alignment.
+      #
+      # Columns are shifted left by `@child_base_x` so a horizontally-scrolled
+      # non-wrap view highlights the right cells (0 in wrap mode, where there is
+      # no horizontal scroll). A range whose start is left of the viewport comes
+      # back with a negative `begin`, which the per-cell `includes?` check in
+      # `_render` handles correctly. `LineEdit` renders a re-sliced *tail* rather
+      # than a `@child_base_x` slice, so it overrides this entirely.
+      protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
+        return nil unless range = selection_range
+        return nil if rl < 0 || rl >= @_clines.size
+
+        line_start = pos_from_rowcol(rl, 0)
+        line_end = pos_from_rowcol(rl, (@_clines[rl]? || "").size)
+
+        lo = Math.max(range.begin, line_start)
+        hi = Math.min(range.end, line_end)
+        return nil if lo >= hi
+
+        col_lo = rendered_column(line_start, lo) - @child_base_x
+        col_hi = rendered_column(line_start, hi) - @child_base_x
+        col_lo...col_hi
+      end
+
       # Pure viewport scroll: shift `@child_base` by *offset* wrapped rows,
       # keeping `@child_offset` at 0 so `get_scroll == child_base` and the bound
       # `ScrollBar` reflects/drives the view top. Overrides the base `#scroll`
@@ -549,6 +849,25 @@ module Crysterm
             also_check_char = true
           end
 
+          # Shift-modified movement extends the selection instead of clearing
+          # it: normalize the key to its base motion and remember it was a
+          # selecting move. The base motion below runs unchanged; the anchor is
+          # set (once) before it and left intact after.
+          extend_sel = false
+          case k
+          when Tput::Key::ShiftLeft     then k = Tput::Key::Left; extend_sel = true
+          when Tput::Key::ShiftRight    then k = Tput::Key::Right; extend_sel = true
+          when Tput::Key::ShiftUp       then k = Tput::Key::Up; extend_sel = true
+          when Tput::Key::ShiftDown     then k = Tput::Key::Down; extend_sel = true
+          when Tput::Key::ShiftHome     then k = Tput::Key::Home; extend_sel = true
+          when Tput::Key::ShiftEnd      then k = Tput::Key::End; extend_sel = true
+          when Tput::Key::ShiftPageUp   then k = Tput::Key::PageUp; extend_sel = true
+          when Tput::Key::ShiftPageDown then k = Tput::Key::PageDown; extend_sel = true
+          end
+          # Anchor the selection at the pre-move cursor on the first selecting
+          # move; subsequent ones keep extending from it.
+          @selection_anchor ||= @cursor_pos if extend_sel
+
           # Cursor movement. Left/Right step over a whole grapheme cluster under
           # `full_unicode?` (a single codepoint otherwise). Home/End jump to the
           # start/end of the current line. Up/Down move one visual row and Page
@@ -575,6 +894,11 @@ module Crysterm
           elsif k == Tput::Key::End
             @goal_col = nil
             @cursor_pos = line_end_pos
+          elsif !rl && k == Tput::Key::CtrlA # GUI: select all (readline off)
+            @goal_col = nil
+            @selection_anchor = 0
+            @cursor_pos = @value.size
+            extend_sel = true # keep the just-set anchor
           elsif rl && k == Tput::Key::CtrlA # readline: line start
             @goal_col = nil
             @cursor_pos = line_start_pos
@@ -597,12 +921,19 @@ module Crysterm
             moved = false
           end
 
+          # A non-selecting movement collapses any selection; a selecting one
+          # keeps its anchor so the range grows/shrinks with the cursor. Editing
+          # keys (`moved == false`) manage the selection themselves below.
+          clear_selection if moved && !extend_sel
+
           if moved
             # Follow the cursor on both axes (no-op if already visible);
             # re-render if it moved, then place the terminal cursor.
             scrolled = ensure_cursor_visible
             scrolled = ensure_cursor_visible_x || scrolled
-            request_render if scrolled
+            # A selecting move must always repaint (the highlight changed even
+            # when the view didn't scroll); a plain move only when it scrolled.
+            request_render if scrolled || extend_sel
             _update_cursor
           end
 
@@ -613,23 +944,38 @@ module Crysterm
 
           # TODO can optimize by writing directly to window buffer
           # here.
+          clipboard = Crysterm::Config.input_clipboard_keys
+
           if k == Tput::Key::Escape
             done.try &.call nil, nil
+          elsif clipboard && k == Tput::Key::CtrlC # copy selection
+            copy_selection
+          elsif clipboard && !read_only? && k == Tput::Key::CtrlX # cut selection
+            if copy_selection
+              delete_selection
+            end
+          elsif clipboard && !read_only? && k == Tput::Key::CtrlV # paste at cursor
+            paste_clipboard
           elsif !read_only? && (k == Tput::Key::Backspace || k == Tput::Key::CtrlH)
-            # Delete the grapheme cluster immediately before the cursor, then
-            # move the cursor back over it.
-            if @cursor_pos > 0
-              @goal_col = nil
-              w = cursor_prev_width
-              @value = @value[0...(@cursor_pos - w)] + @value[@cursor_pos..]
-              @cursor_pos -= w
+            # A selection deletes as one unit; otherwise remove the grapheme
+            # cluster immediately before the cursor and step back over it.
+            unless delete_selection
+              if @cursor_pos > 0
+                @goal_col = nil
+                w = cursor_prev_width
+                @value = @value[0...(@cursor_pos - w)] + @value[@cursor_pos..]
+                @cursor_pos -= w
+              end
             end
           elsif !read_only? && k == Tput::Key::Delete
-            # Delete the grapheme cluster at the cursor; the cursor stays put.
-            if @cursor_pos < @value.size
-              @goal_col = nil
-              w = cursor_next_width
-              @value = @value[0...@cursor_pos] + @value[(@cursor_pos + w)..]
+            # A selection deletes as one unit; otherwise remove the grapheme
+            # cluster at the cursor, leaving the cursor put.
+            unless delete_selection
+              if @cursor_pos < @value.size
+                @goal_col = nil
+                w = cursor_next_width
+                @value = @value[0...@cursor_pos] + @value[(@cursor_pos + w)..]
+              end
             end
           elsif rl && !read_only? && k == Tput::Key::CtrlW # kill word before cursor
             killed = kill_backward_to word_left_pos
@@ -651,11 +997,17 @@ module Crysterm
 
         if !read_only? && e.char && (!e.key || also_check_char)
           # XXX can we avoid to_s ?
-          # Enforce the character limit (Qt `maxLength`); a newline from Enter
-          # (`also_check_char`) counts toward it too.
-          at_limit = (ml = @max_length) ? @value.size >= ml : false
-          unless at_limit || e.char.to_s.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
-            insert_at_cursor e.char.to_s
+          ch = e.char.to_s
+          # Ignore control characters (the TAB and the Enter-newline fall
+          # outside this class and are kept). Deciding this *before* touching the
+          # selection means a stray control keystroke doesn't clobber it. A real
+          # character typed over a selection replaces it: drop the selection
+          # first, then measure `max_length` against the freed-up length so a
+          # replacement in a full field still works.
+          unless ch.matches? /^[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]$/
+            delete_selection
+            at_limit = (ml = @max_length) ? @value.size >= ml : false
+            insert_at_cursor ch unless at_limit
           end
         end
 
@@ -693,6 +1045,9 @@ module Crysterm
         # external set (e.g. clearing) is never lost when `@_value` is stale.
         @value = value
         @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
+        # An external set replaces the content out from under any selection
+        # indices; a redisplay of the same content has nothing to invalidate.
+        clear_selection if external
         return if @_value == value
 
         @_value = value

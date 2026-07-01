@@ -92,6 +92,12 @@ module Crysterm
       # Sampled here for the same `has_descendant?` reason as `refocus`.
       drop_hover = (h = @_hover) && (h == element || element.has_descendant?(h))
       drop_arm = (a = @_arm) && (a == element || element.has_descendant?(a))
+      # A widget that captured the mouse (`#capture_mouse`, e.g. an in-flight
+      # text drag-select) and is then removed before button-up would keep
+      # `@_mouse_captor` pointing at a detached widget, routing every subsequent
+      # Move/Up to it forever (the capture branch of `#dispatch_mouse`) — the
+      # same "modal forever" hazard as `@_drag`.
+      drop_captor = (c = @_mouse_captor) && (c == element || element.has_descendant?(c))
       stale_drag = ((d = @_drag) && (d.source == element || element.has_descendant?(d.source))) ? d : nil
       # An in-flight drag whose drop target (not source) sits in the removed
       # subtree would keep `@_drag.target` pointing at a detached widget — a
@@ -138,6 +144,7 @@ module Crysterm
       # too (no-op unless a non-default shape is actually applied).
       set_mouse_cursor_shape nil if drop_hover
       @_arm = nil if drop_arm
+      @_mouse_captor = nil if drop_captor
       stale_drag.try { |sd| drag_cancel sd if @_drag == sd }
       # Clear a stale drop-target pointing into the removed subtree, emitting
       # the expected `DragLeave`. No-op if the drag was already torn down above.

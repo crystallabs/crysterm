@@ -48,8 +48,6 @@ module Crysterm
         # that for widgets that ask for keys (`keys`/`input`).
 
         setup_text_editing input_on_focus: input_on_focus, install_enter: !!input["keys"]?
-
-        # XXX if mouse...
       end
     end
   end

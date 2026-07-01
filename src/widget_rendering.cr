@@ -56,6 +56,26 @@ module Crysterm
       item.style
     end
 
+    # Column range (`x - xi` units, half-open) on real (post-wrap) line *rl*
+    # that `#_render` should paint with the selection highlight, or `nil` for
+    # none. A free no-op on every widget; `Mixin::TextEditing` overrides it
+    # while a mouse selection is active. Checked once per row, not per cell.
+    protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
+      nil
+    end
+
+    # *attr* with the selection highlight applied (reverse video, the same
+    # idiom `Window#_artificial_cursor_attr` uses for the block cursor) when
+    # *col* falls inside *sel_cols*, else *attr* unchanged. `sel_cols` is `nil`
+    # on every widget without an active selection, so this is a single
+    # comparison in the common case. Never mutates the SGR-tracking `attr`
+    # local in `#_render`'s loop — only the value actually painted to the cell.
+    @[AlwaysInline]
+    private def highlighted_attr(attr : Int64, sel_cols : Range(Int32, Int32)?, col : Int32) : Int64
+      return attr unless sel_cols && sel_cols.includes?(col)
+      Attr.pack(Attr.flags(attr) | Attr::REVERSE, Attr.fg(attr), Attr.bg(attr))
+    end
+
     # Renders all child elements into the output buffer.
     # ameba:disable Metrics/CyclomaticComplexity
     def _render(with_children = true)
@@ -258,6 +278,12 @@ module Crysterm
         # hazard per-cell for `x < 0`). `draw_row` and the `x < 0`/`target`
         # guards gate every write.
         draw_row = y >= 0
+
+        # Text-selection highlight (`Mixin::TextEditing`): resolved once per
+        # row, not per cell — a free `nil` on every widget without a selection.
+        # `y - yi` assumes top alignment, like `#selection_columns_for_row`'s
+        # own doc notes.
+        sel_cols = selection_columns_for_row(coords.base + (y - yi))
         # TODO - make cell exist only if there's something to be drawn there?
         x = xi - 1
         while x < xl - 1
@@ -330,14 +356,15 @@ module Crysterm
                 fcell = x >= 0 ? line[x]? : nil
                 break if x >= 0 && fcell.nil?
                 if draw_row && (fc = fcell)
+                  paint_attr = highlighted_attr(attr, sel_cols, x - xi)
                   if alpha = style_alpha
-                    fc.attr = Colors.blend(attr, fc.attr, alpha: alpha)
+                    fc.attr = Colors.blend(paint_attr, fc.attr, alpha: alpha)
                     if content[ci - 1]?
                       fc.char = ch
                     end
                     line.mark_dirty x
                   else
-                    fc.set_if_changed(attr, ch)
+                    fc.set_if_changed(paint_attr, ch)
                   end
                 end
                 x += 1
@@ -394,20 +421,21 @@ module Crysterm
           end
 
           if t = target
+            paint_attr = highlighted_attr(attr, sel_cols, x - xi)
             if alpha = style_alpha
-              t.attr = Colors.blend(attr, t.attr, alpha: alpha)
+              t.attr = Colors.blend(paint_attr, t.attr, alpha: alpha)
               if has_content
                 is_cluster ? (t.grapheme = grapheme) : (t.char = ch)
               end
               line.mark_dirty x
             elsif is_cluster
-              if t.attr != attr || !t.grapheme_eq?(grapheme)
-                t.attr = attr
+              if t.attr != paint_attr || !t.grapheme_eq?(grapheme)
+                t.attr = paint_attr
                 t.grapheme = grapheme
                 line.mark_dirty x
               end
             else
-              t.set_if_changed(attr, ch)
+              t.set_if_changed(paint_attr, ch)
             end
           end
 
@@ -416,7 +444,7 @@ module Crysterm
           # claim happens even off-window to stay in step; only the write is gated.
           if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
             if draw_row && x + 1 >= 0
-              nxt.attr = attr
+              nxt.attr = highlighted_attr(attr, sel_cols, x + 1 - xi)
               nxt.continuation!
               line.mark_dirty(x + 1)
             end

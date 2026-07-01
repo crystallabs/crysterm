@@ -135,6 +135,9 @@ module Crysterm
         # set like `input.value = ""`, leaving stale text across submits.
         @value = value
         @cursor_pos = external ? @value.size : @cursor_pos.clamp(0, @value.size)
+        # An external set replaces the content out from under any selection
+        # indices; mirror `Mixin::TextEditing#value=` (this override bypasses it).
+        clear_selection if external
 
         # Compute the string actually shown. `@_value` caches the *displayed*
         # text so the dedup guard also fires the first time an empty box needs
@@ -175,6 +178,80 @@ module Crysterm
 
       def submit
         @__listener.try &.call Crysterm::Event::KeyPress.new '\r', Tput::Key::Enter
+      end
+
+      # Overrides `Mixin::TextEditing#selection_columns_for_row` for the same
+      # reason `#position_at` is overridden: the visible line is a re-sliced
+      # *tail* of `@value` (`@_value`), so selection columns must be measured
+      # from the first visible `@value` index, not from the logical line start
+      # the generic (`@child_base_x`-based) version assumes. Highlight is
+      # suppressed in `secret`/`censor` modes (nothing meaningful to mark, and
+      # a masked field's selection shouldn't be visually revealed anyway).
+      protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
+        return nil unless rl == 0
+        return nil if @secret || @censor
+        return nil unless range = selection_range
+
+        # First `@value` index actually shown: `@_value` is the tail of the
+        # tab-expanded value (`tail_within` in `#value=`), so the hidden prefix
+        # is `expanded.size - @_value.size` expanded columns; map that back to a
+        # raw `@value` index. The tail always runs to the value's end, so only
+        # the low end of the selection can fall off (to the left).
+        expanded = @value.includes?('\t') ? @value.gsub('\t', style.tab_char * style.tab_size) : @value
+        vis_start = unexpand_col(@value, expanded.size - @_value.size)
+
+        lo = Math.max(range.begin, vis_start)
+        hi = range.end
+        return nil if lo >= hi
+
+        col_lo = rendered_column(vis_start, lo)
+        col_hi = rendered_column(vis_start, hi)
+        col_lo...col_hi
+      end
+
+      # Overrides `Mixin::TextEditing#position_at`: `LineEdit`'s single visible
+      # line (`@_value`) is `value=`'s own re-sliced tail of `@value` (see
+      # `#value=`), not a `@_clines`/`@child_base_x` viewport slice — the
+      # generic mixin version assumes the latter, so it would map a click to
+      # the wrong `@value` index whenever the field is scrolled (i.e. its
+      # content overflows the box).
+      def position_at(x : Int32, y : Int32) : Int32
+        return 0 if @value.empty?
+        # Secret mode shows nothing to click onto; park at the end, matching
+        # how the field is fully obscured.
+        return @value.size if @secret
+
+        lpos = _get_coords
+        return cursor_pos unless lpos
+
+        left = lpos.xi + ileft
+        disp_idx = column_index(@_value, (x - left).clamp(0, content_width))
+
+        if @censor
+          # `@_value` is one mask char per grapheme of `@value` (see
+          # `#value=`) — `disp_idx` is already a grapheme count; convert to a
+          # codepoint offset by walking that many graphemes.
+          if full_unicode?
+            offset = 0
+            seen = 0
+            @value.each_grapheme do |g|
+              break if seen >= disp_idx
+              offset += g.to_s.size
+              seen += 1
+            end
+            offset
+          else
+            disp_idx
+          end
+        else
+          # `@_value` is the tab-expanded, front-truncated tail of `@value`
+          # actually shown (`tail_within` in `#value=`); map back by the
+          # dropped-prefix length, then undo the tab expansion to land on a
+          # raw `@value` index.
+          expanded = @value.includes?('\t') ? @value.gsub('\t', style.tab_char * style.tab_size) : @value
+          dropped = expanded.size - @_value.size
+          unexpand_col(@value, dropped + disp_idx)
+        end
       end
     end
   end
