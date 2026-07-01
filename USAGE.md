@@ -466,10 +466,13 @@ A few behaviors to keep in mind:
 
 - **Per-side borders.** Each side's thickness is independent. A border is "on"
   for a side when that side's value is greater than 0.
-- **Thickness > 1.** A side thicker than one cell currently reserves that much
-  space (reducing content area accordingly, like padding), but the line glyphs
-  are still drawn only in the outermost row/column — it does not yet draw nested
-  or repeated border lines.
+- **Thickness > 1.** A side thicker than one cell reserves that much space
+  (reducing content area accordingly, like padding) and fills its whole reserved
+  band: the run glyph repeats across the band and the corner block uses the
+  corner glyph. Cells are classified by which band(s) they fall in — horizontal
+  (top/bottom), vertical (left/right), or a corner where the two meet — so a
+  `Bg` border can use distinct chars for each (`char_horizontal`,
+  `char_vertical`, `char_corner`, all defaulting to `char`).
 - **Border + scrollbar.** When a widget has a scrollbar, it normally renders in
   the rightmost content column. With a border present it moves one column
   inward. If the scrollbar's style has `ignore_border?` set, it instead renders

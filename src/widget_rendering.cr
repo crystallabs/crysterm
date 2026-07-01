@@ -488,71 +488,51 @@ module Crysterm
         # Resolved once here instead of re-dispatching per cell inside `border_char`.
         glyphs = border.type.line_glyphs
 
-        # `{yi, yl - 1}` is a stack tuple, so the top/bottom pair iterates
-        # without allocation.
-        {yi, yl - 1}.each do |y|
-          line = lines[y]?
-          # `y < 0` (not just `== -1`): a widget clipped off the TOP can have
-          # `yi` several rows above 0, and `lines[y]?` wraps a negative index to
-          # the bottom rows — drawing a border there would corrupt the window.
-          next if y < 0 || !line
+        # Interior (content) rectangle: the outer box `(xi..xl, yi..yl)` inset by
+        # each side's thickness. A side thicker than one cell fills its whole
+        # reserved band (nested/repeated lines), not just the outermost row/col —
+        # every cell of the outer box outside this interior is a border cell.
+        in_yi = yi + border.top
+        in_yl = yl - border.bottom
+        in_xi = xi + border.left
+        in_xl = xl - border.right
 
-          top_row = y == yi
-          # Skip if this end row is clipped offscreen — its border row isn't
-          # present here.
-          next if top_row ? coords.no_top? : coords.no_bottom?
-
-          # Whether this row's *horizontal* border is present. A 0-height
-          # top/bottom border leaves the span between corners as content, but a
-          # left/right border still runs through the end cells, so draw just
-          # those.
-          draw_h = top_row ? border.top > 0 : border.bottom > 0
-
-          # Corners take the top/bottom side's color (or the vertical side's
-          # color when there's no horizontal one).
-          h_attr = top_row ? top_attr : bottom_attr
-
-          (xi...xl).each do |x|
-            next if x < 0 # off the left edge (negative index would wrap)
-            next if coords.no_left? && x == xi
-            next if coords.no_right? && x == xl - 1
-
-            on_left = x == xi && border.left > 0
-            on_right = x == xl - 1 && border.right > 0
-            # Without a horizontal border on this row, draw only the vertical
-            # sides crossing it; keep content in between.
-            next unless draw_h || on_left || on_right
-
-            cell = line[x]?
-            next unless cell
-
-            ch = border_char(border, glyphs, x, xi, xl, y, yi, yl, default_attr)
-            battr = draw_h ? h_attr : (on_left ? left_attr : right_attr)
-
-            cell.set_if_changed(battr, ch)
-          end
-        end
-
-        (yi + 1...yl - 1).each do |y|
-          next if y < 0 # off the top edge (negative index would wrap)
+        (yi...yl).each do |y|
+          next if y < 0 # off the top edge (a negative index would wrap)
           line = lines[y]?
           next unless line
 
-          # `{xi, xl - 1}` is a stack tuple, avoiding a heap `Array` literal per
-          # interior border row.
-          {xi, xl - 1}.each do |x|
-            next if x < 0 # off the left edge (negative index would wrap)
-            # A 0-width left/right border isn't its own column; skip instead of
-            # overwriting text.
-            next if border.left == 0 && x == xi
-            next if border.right == 0 && x == xl - 1
+          in_top = y < in_yi  # within the top band
+          in_bot = y >= in_yl # within the bottom band
+
+          # Skip a band row that's clipped offscreen — it isn't present here.
+          next if in_top && coords.no_top?
+          next if in_bot && coords.no_bottom?
+
+          (xi...xl).each do |x|
+            next if x < 0 # off the left edge (a negative index would wrap)
+
+            in_left = x < in_xi   # within the left band
+            in_right = x >= in_xl # within the right band
+
+            # Only border cells: skip the interior (content) region.
+            next unless in_top || in_bot || in_left || in_right
+
+            next if in_left && coords.no_left?
+            next if in_right && coords.no_right?
 
             cell = line[x]?
             next unless cell
 
-            ch = border_char(border, glyphs, x, xi, xl, y, yi, yl, default_attr)
-
-            battr = x == xi ? left_attr : right_attr
+            ch = border_char border, glyphs, in_top, in_bot, in_left, in_right
+            # Horizontal (top/bottom) cells — including corners, which the old
+            # single-line renderer also colored with the horizontal side — take
+            # the top/bottom color; a purely vertical cell takes left/right.
+            battr = if in_top || in_bot
+                      in_top ? top_attr : bottom_attr
+                    else
+                      in_left ? left_attr : right_attr
+                    end
 
             cell.set_if_changed(battr, ch)
           end
@@ -649,46 +629,44 @@ module Crysterm
     end
 
     @[AlwaysInline]
-    # ameba:disable Metrics/CyclomaticComplexity
-    def border_char(border, g, x, xi, xl, y, yi, yl, default_attr)
+    # Picks the glyph for one border cell, classified by which band(s) it falls
+    # in: `in_top`/`in_bot` mark a horizontal (top/bottom) band, `in_left`/
+    # `in_right` a vertical (left/right) band. A cell in both a horizontal and a
+    # vertical band is a corner/join cell. The classification is thickness-aware,
+    # so a side wider than one cell fills its whole band with the run glyph and
+    # the corner block with the corner glyph. A side with 0 thickness never sets
+    # its flag (`in_top` is `y < yi + 0`, always false at the edge), so a
+    # corner degrades to the crossing run glyph exactly as before.
+    def border_char(border, g, in_top, in_bot, in_left, in_right)
+      h_band = in_top || in_bot
+      v_band = in_left || in_right
+
       if border.type.line_family?
         # Per-type glyph set (solid/dashed/dotted/double), resolved once by the
-        # caller. A corner cell falls back to the straight glyph when one of its
-        # two sides has 0 width.
-        ch = case {x, y}
-             when {xi, yi}         then border.left > 0 && border.top > 0 ? g[:tl] : (border.left == 0 && border.top > 0 ? g[:h] : g[:v])
-             when {xl - 1, yi}     then border.right > 0 && border.top > 0 ? g[:tr] : (border.right == 0 && border.top > 0 ? g[:h] : g[:v])
-             when {xi, yl - 1}     then border.left > 0 && border.bottom > 0 ? g[:bl] : (border.left == 0 && border.bottom > 0 ? g[:h] : g[:v])
-             when {xl - 1, yl - 1} then border.right > 0 && border.bottom > 0 ? g[:br] : (border.right == 0 && border.bottom > 0 ? g[:h] : g[:v])
-             else
-               if (x == xi || x == xl - 1) && (y > yi && y < yl - 1)
-                 g[:v]
-               else
-                 g[:h]
-               end
-             end
-      elsif border.type.bg?
-        # Pick the char by position so a `Bg` border can use distinct glyphs for
-        # horizontal sides, vertical sides, and corners (see
-        # `Border#horizontal_char`/`#vertical_char`/`#corner_char`).
-        on_top = y == yi && border.top > 0
-        on_bottom = y == yl - 1 && border.bottom > 0
-        on_left = x == xi && border.left > 0
-        on_right = x == xl - 1 && border.right > 0
-        ch = if (on_top || on_bottom) && (on_left || on_right)
-               # Cell where a horizontal and a vertical side actually meet.
-               border.corner_char
-             elsif on_top || on_bottom
-               border.horizontal_char
-             else
-               border.vertical_char
-             end
+        # caller.
+        if h_band && v_band
+          if in_top
+            in_left ? g[:tl] : g[:tr]
+          else
+            in_left ? g[:bl] : g[:br]
+          end
+        elsif h_band
+          g[:h]
+        else
+          g[:v]
+        end
+      else # Bg
+        # Distinct glyphs for horizontal sides, vertical sides and corners, each
+        # defaulting to `char` (see `Border#horizontal_char`/`#vertical_char`/
+        # `#corner_char`).
+        if h_band && v_band
+          border.corner_char
+        elsif h_band
+          border.horizontal_char
+        else
+          border.vertical_char
+        end
       end
-
-      # Cells on a 0-width/height side are no longer reached here — `_render`'s
-      # drawing loops skip them outright.
-
-      ch || ' ' # failsafe
     end
 
     # Returns the codepoint index of the `m` terminating an SGR sequence whose
