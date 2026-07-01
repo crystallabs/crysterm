@@ -171,8 +171,13 @@ module Crysterm
           # alpha (missing bottom reuses top's).
           at = top.a / 255.0
           ab = bot ? bot.a / 255.0 : at
-          bcol = bot || top
-          blend_cell cell, '▀', Attr.pack(0, Attr.pack_color(rgb_of top), Attr.pack_color(rgb_of bcol)), (at + ab) / 2.0
+          # A transparent half carries no real colour (it's black in the source),
+          # so borrow the opaque half's colour rather than bleeding black into a
+          # letterbox row or edge; the cell still fades out via its lower mean
+          # alpha. Mirrors the `paint_two_color` transparency handling.
+          tcol = at > 0 ? top : (bot || top)
+          bcol = (bot && ab > 0) ? bot : top
+          blend_cell cell, '▀', Attr.pack(0, Attr.pack_color(rgb_of tcol), Attr.pack_color(rgb_of bcol)), (at + ab) / 2.0
         in Mode::Quadrant, Mode::Sextant, Mode::Octant
           paint_two_color cell, sub, cx, cy, sx, sy
         in Mode::Braille
@@ -190,30 +195,46 @@ module Crysterm
         # (dy outer, dx inner), so cache slot `i` carries mask bit `1 << i`.
         pixels = uninitialized StaticArray(PNGGIF::Pixel, 8)
         lums = uninitialized StaticArray(Float64, 8)
-        present = uninitialized StaticArray(Bool, 8)
-        mean = 0.0
-        count = 0
+        # `opaque[i]` gates the ink/paper split: only sub-pixels with alpha > 0
+        # carry a real colour. A fully-transparent sub-pixel — a letterbox
+        # margin (`Fit::Contain`) or a hole in the source (GIF/PNG alpha) — is
+        # stored as black `(0,0,0,0)`, so counting it would drag the luminance
+        # mean down and average black into the paper (bg) colour, leaving a
+        # dark fringe along the image's edges and letterbox rows. Instead its
+        # only contribution is to the cell's coverage (`asum`/`count` below),
+        # which fades the cell out through its alpha — matching how `Media::Ansi`
+        # and `Mode::Braille` already drop transparent pixels.
+        opaque = uninitialized StaticArray(Bool, 8)
+        mean = 0.0    # mean luminance of the *opaque* sub-pixels only
+        opq = 0       # opaque sub-pixel count
+        count = 0     # in-bounds sub-pixel count (opaque or not), for coverage
         asum = 0.0
         i = 0
         sy.times do |dy|
           sx.times do |dx|
             if p = pix(sub, cx * sx + dx, cy * sy + dy)
-              l = lum p
-              pixels[i] = p
-              lums[i] = l
-              present[i] = true
-              mean += l
-              asum += p.a
               count += 1
+              asum += p.a
+              if p.a > 0
+                l = lum p
+                pixels[i] = p
+                lums[i] = l
+                opaque[i] = true
+                mean += l
+                opq += 1
+              else
+                opaque[i] = false
+              end
             else
-              present[i] = false
+              opaque[i] = false
             end
             i += 1
           end
         end
-        return if count == 0
-        mean /= count
+        return if count == 0 # no in-bounds sub-pixels (letterbox): leave the cell
         a = (asum / 255.0) / count # cell opacity = mean alpha of its sub-pixels
+        return if opq == 0 # all in-bounds sub-pixels transparent: nothing to draw
+        mean /= opq
 
         mask = 0
         fr = fg_ = fb = 0; fn = 0
@@ -221,7 +242,7 @@ module Crysterm
         n = sx * sy
         j = 0
         while j < n
-          if present[j]
+          if opaque[j]
             p = pixels[j]
             if lums[j] >= mean
               mask |= (1 << j)

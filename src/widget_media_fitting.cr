@@ -115,10 +115,31 @@ module Crysterm
           tw = {fcw * sub_w, 1}.max            # → sub-pixels for this backend
           th = {fch * sub_h, 1}.max
           sampled = png.create_cellmap(src_bmp, cmwidth: tw, cmheight: th, cell_aspect: 1.0)
-          return place_centered(sampled, bw, bh)
+          return nil if sampled.empty?
+          nh = sampled.size
+          nw = sampled[0]?.try(&.size) || 0
+          # Center on a whole-cell boundary (see the letterbox note below).
+          return place_at sampled, bw, bh, snap((bw - nw) // 2, sub_w), snap((bh - nh) // 2, sub_h)
         end
 
         dw, dh, ox, oy = fit.layout(bw, bh, (sw * aspect_mul).round.to_i, sh)
+
+        # Align the drawn image to whole terminal cells (sub-cell backends only,
+        # where sub_w/sub_h > 1). Otherwise the image↔letterbox boundary can land
+        # in the middle of an edge cell, which then samples partly image and
+        # partly transparent margin and paints as a dim fringe hugging the whole
+        # border — visible along the top/bottom or left/right edge, and flickering
+        # as a resizing box crosses cell parities. Snapping the size and offset to
+        # the sub-grid makes every edge cell fall wholly inside or outside the
+        # image, so letterbox meets image on a clean cell boundary. Stretch fills
+        # exactly (no margin) and 1:1 backends have sub == 1, so both are untouched.
+        unless fit.stretch?
+          dw = {snap(dw, sub_w), sub_w}.max
+          dh = {snap(dh, sub_h), sub_h}.max
+          ox = snap(ox, sub_w)
+          oy = snap(oy, sub_h)
+        end
+
         sampled = png.create_cellmap(src_bmp, cmwidth: dw, cmheight: dh, cell_aspect: 1.0)
         return nil if sampled.empty?
 
@@ -128,6 +149,15 @@ module Crysterm
         end
 
         place_at sampled, bw, bh, ox, oy
+      end
+
+      # Rounds *v* to the nearest multiple of *s* (the sub-cell grid step), so a
+      # letterbox size/offset lands on a whole-cell boundary. A no-op for the
+      # 1:1 backends (`s == 1`). Handles negatives (a `Cover` crop offset) via
+      # symmetric rounding.
+      private def self.snap(v : Int32, s : Int32) : Int32
+        return v if s <= 1
+        (v.to_f / s).round.to_i * s
       end
 
       # Centers *src* (its own size) into a *bw*×*bh* transparent canvas, cropping
