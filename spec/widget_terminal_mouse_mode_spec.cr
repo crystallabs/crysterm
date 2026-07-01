@@ -52,6 +52,7 @@ describe "Widget::Terminal#on_mouse (tracking-mode gating)" do
     term.on_mouse mouse(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::Left, 3, 1)
     captured.size.should eq 1 # drag motion: forwarded
 
+
   ensure
     term.try &.kill
     s.try &.destroy
