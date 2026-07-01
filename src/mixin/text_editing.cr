@@ -432,6 +432,7 @@ module Crysterm
         kill_ring.kill @value[start...@cursor_pos], prepend: true
         @value = @value[0...start] + @value[@cursor_pos..]
         @cursor_pos = start
+        clear_selection
         true
       end
 
@@ -444,6 +445,7 @@ module Crysterm
         @goal_col = nil
         kill_ring.kill @value[@cursor_pos...stop]
         @value = @value[0...@cursor_pos] + @value[stop..]
+        clear_selection
         true
       end
 
@@ -1003,6 +1005,7 @@ module Crysterm
             killed = kill_forward_to stop
           elsif rl && !read_only? && k == Tput::Key::CtrlY # yank
             if text = kill_ring.yank
+              clear_selection
               insert_at_cursor text
             end
           end

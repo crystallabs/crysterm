@@ -51,6 +51,11 @@ module Crysterm
         Shadow.new s[:left] > 0, s[:top] > 0, s[:right] > 0, s[:bottom] > 0
       in Float
         Shadow.new value
+      in Int
+        # Consistent with `Border`/`Padding`/`Margin` `.from`: a bare integer sets
+        # every side to that width (alpha stays at its default). Sides are `Int32`.
+        v = value.to_i32
+        Shadow.new(v, v, v, v)
       end
     end
 

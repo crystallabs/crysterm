@@ -420,17 +420,21 @@ module Crysterm
             next
           end
 
-          # A wide (2-column) glyph whose continuation cell would fall outside
-          # the content region (`x + 1 >= xl`) cannot be shown: half a wide glyph
+          # A wide (2-column) glyph whose continuation cell cannot be claimed —
+          # because it falls outside the content region (`x + 1 >= xl`) OR simply
+          # does not exist in the screen row (`line[x + 1]?.nil?`, true whenever
+          # `x + 1 >= awidth`, i.e. the last screen column even when `xl > awidth`
+          # under `Overflow::Ignore`) — cannot be shown: half a wide glyph
           # desyncs cell-index from terminal column. `draw` (window_drawing)
           # claims the continuation cell purely from the lead cell's width, with
           # no knowledge of `xl`, so it would over-claim the neighboring column
           # (e.g. the border) and skip emitting it. Blank the lead cell to a
           # space instead (blessed's end-of-line safeguard), preserving the
           # invariant "a width-2 cell is always followed by an in-region
-          # continuation" so `draw` never over-claims. The continuation-claim
-          # block below is then doubly guarded (`cell_width == 1`, `x + 1 < xl`).
-          if fu && cell_width == 2 && !(x + 1 < xl)
+          # continuation" so `draw` never over-claims. This condition is the exact
+          # complement of the continuation-claim block below (`(x + 1 < xl) &&
+          # line[x + 1]?`), keeping the two in lockstep.
+          if fu && cell_width == 2 && (x + 1 >= xl || line[x + 1]?.nil?)
             ch = ' '
             grapheme = ""
             is_cluster = false

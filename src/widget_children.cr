@@ -188,7 +188,24 @@ module Crysterm
 
       return unless i
 
+      # No-op when the widget is already at the target slot: avoid churning
+      # damage/CSS for a stacking change that isn't one.
+      return true if i == index
+
       parent.children.insert index, parent.children.delete_at i
+
+      # A pure z-order reorder mutates the children list directly, bypassing the
+      # `Mixin::Children#insert`/`#remove` path and thus `mark_structure_changed`.
+      # Without this, under `OptimizationFlag::DamageTracking` a lone `front!`/
+      # `back!` leaves the dirty set empty, so `damage_try_composite` returns a
+      # fast frame and the new stacking order isn't painted until an unrelated
+      # full-frame trigger fires. Order-dependent selectors (`:nth-child`,
+      # `:first`/`:last-child`, sibling combinators) also wouldn't re-evaluate.
+      # Mirror what `mark_structure_changed` does: force a full re-composite and
+      # re-parse the affected subtree (covers siblings via the parent subtree).
+      mark_dirty
+      window?.try &.damage_force_full
+      invalidate_css_tree
 
       true
     end

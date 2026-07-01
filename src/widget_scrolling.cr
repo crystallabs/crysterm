@@ -407,8 +407,14 @@ module Crysterm
     end
 
     def set_scroll_perc(i)
-      m = get_scroll_height
-      scroll_to ((i / 100) * m).to_i
+      # Map against the same scrollable span `#get_scroll_perc` divides by, so
+      # the two are true inverses (`w.scroll_percentage = w.scroll_percentage`
+      # is idempotent). `get_scroll_perc` uses `child_base / (height_total -
+      # viewport)` under `@always_scroll` and `get_scroll / (height_total - 1)`
+      # otherwise; mapping set against `get_scroll_height` (the full content
+      # height) instead over-scrolled every round-trip.
+      m = @always_scroll ? get_scroll_height - visible_content_rows : get_scroll_height - 1
+      scroll_to ((i / 100) * Math.max(0, m)).to_i
     end
 
     def reset_scroll

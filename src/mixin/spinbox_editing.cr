@@ -73,7 +73,12 @@ module Crysterm
         return unless buf
         @editing = nil
         if v = parse_buffer(buf)
-          self.value = v # clamps, emits a value-change event if changed
+          # Clamp here rather than leaning on `#value=`: on a `#wrap?` box,
+          # `#value=` treats an out-of-range value as a single-step overshoot
+          # and snaps to the *opposite* bound (typing 150 on a 0..100 wrap box
+          # would commit 0). A typed entry is an absolute value, not a step, so
+          # it must clamp into range regardless of `#wrap?`.
+          self.value = v.clamp(@minimum, @maximum) # emits a value-change event if changed
         end
         update_content # revert the display even when value did not change
       end

@@ -51,14 +51,18 @@ module Crysterm
       total = spec.duration.total_seconds
       total = 0.001 if total <= 0
       step = 1.0 / 30
-      elapsed = 0.0
       iters = spec.iterations
       alt = spec.alternate
 
       @css_animation.try &.stop
       @css_animation_finished = false
+      # Drive progress from real wall-clock elapsed (like the tween/transition
+      # path in `FrameClock`), not a fixed per-tick step: dropped/late ticks are
+      # real time the animation must still count, or a finite animation runs
+      # longer than its duration and a looping one drifts slow under load.
+      start_at = Time.instant
       anim = FrameClock.new(step.seconds) do |clock|
-        elapsed += step
+        elapsed = (Time.instant - start_at).total_seconds
         cycles = elapsed / total
         if iters && cycles >= iters
           # Settle on the final frame (honoring alternate parity), stop, and mark

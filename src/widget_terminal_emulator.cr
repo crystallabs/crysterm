@@ -596,18 +596,18 @@ module Crysterm
       when 'P' then delete_chars(param(0, 1))
       when '@' then insert_chars(param(0, 1))
       when 'X' then erase_chars(param(0, 1))
-      # SU/SD are only the *plain* `CSI Ps S` / `CSI Ps T`. A prefixed form is a
-      # different command that must NOT scroll: `CSI ? Pi;Pa;Pv S` is XTSMGRAPHICS
-      # (a common sixel-capability probe at startup) and `CSI > Pm T` resets xterm
-      # title modes. Without the gate, `param(0, 1)` read the probe's first field
-      # and scrolled the live screen (e.g. `\e[?2;1;0S` → `scroll_up` twice).
-      # Same `@csi_prefix.nil?` gate as SGR/DECSTBM/SCOSC/DA.
+        # SU/SD are only the *plain* `CSI Ps S` / `CSI Ps T`. A prefixed form is a
+        # different command that must NOT scroll: `CSI ? Pi;Pa;Pv S` is XTSMGRAPHICS
+        # (a common sixel-capability probe at startup) and `CSI > Pm T` resets xterm
+        # title modes. Without the gate, `param(0, 1)` read the probe's first field
+        # and scrolled the live screen (e.g. `\e[?2;1;0S` → `scroll_up` twice).
+        # Same `@csi_prefix.nil?` gate as SGR/DECSTBM/SCOSC/DA.
       when 'S' then scroll_region_times(param(0, 1)) { scroll_up } if @csi_prefix.nil?   # SU
       when 'T' then scroll_region_times(param(0, 1)) { scroll_down } if @csi_prefix.nil? # SD
-      when 'b' then repeat_last(param(0, 1))                         # REP
-      when 'I' then forward_tab(param(0, 1)); @wrap_pending = false  # CHT
-      when 'Z' then back_tab(param(0, 1))                            # CBT
-      when 'g' then tab_clear(param0(0))                             # TBC
+      when 'b' then repeat_last(param(0, 1))                                             # REP
+      when 'I' then forward_tab(param(0, 1)); @wrap_pending = false                      # CHT
+      when 'Z' then back_tab(param(0, 1))                                                # CBT
+      when 'g' then tab_clear(param0(0))                                                 # TBC
       when 'm'
         # Only a *plain* CSI (no prefix) is SGR. A prefixed form like
         # `CSI > 4 ; 2 m` is xterm's modifyOtherKeys (emitted by vim/neovim/tmux
@@ -1147,6 +1147,20 @@ module Crysterm
       @csi_buf.clear
       @csi_private = false
       @csi_prefix = nil
+      # RIS also resets the DECSC/DECRC save slot (and the alt-buffer cursor
+      # save) to defaults; otherwise a DECRC (`ESC 8`) after `ESC c` would
+      # restore the pre-reset cursor position/attribute/charset.
+      @saved_x = 0
+      @saved_y = 0
+      @saved_attr = @default_attr
+      @saved_g0_special = false
+      @saved_g1_special = false
+      @saved_gl = 0
+      @saved_origin_mode = false
+      @saved_autowrap = true
+      @alt_saved_x = 0
+      @alt_saved_y = 0
+      @alt_saved_attr = @default_attr
       reset_tab_stops
     end
 

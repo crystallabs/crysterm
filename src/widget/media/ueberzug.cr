@@ -41,6 +41,9 @@ module Crysterm
       @id : String
       @last : Tuple(Int32, Int32, Int32, Int32)? = nil
       @path : String? = nil
+      # Path of the temp file a URL-sourced image was fetched into, so it can be
+      # deleted on reload/clear/teardown instead of leaking into `/tmp`.
+      @tmp_path : String? = nil
 
       # The shared `Media::Base` contract knobs (`fit`/`animate`/`speed`) are
       # accepted so the `Media` factory can forward them uniformly, but are
@@ -77,6 +80,7 @@ module Crysterm
       def clear_image
         remove
         @path = nil
+        cleanup_tmp
         super # stop + clear file/source/frames
       end
 
@@ -152,11 +156,13 @@ module Crysterm
       # Resolves *file* to an absolute local path the helper can open, fetching a
       # URL to a temp file if necessary.
       private def local_path(file : String) : String?
+        cleanup_tmp # a previous URL fetch's temp file is now superseded
         if file =~ /^https?:/
-          bytes = Widget::Media::Ansi.fetch file
+          bytes = fetch_bytes file
           tmp = File.tempfile("crysterm_uz", File.extname(file))
+          tmp.close # File.tempfile returns an open handle; close it before writing
           File.write(tmp.path, bytes)
-          tmp.path
+          @tmp_path = tmp.path
         else
           File.expand_path file
         end
@@ -164,8 +170,29 @@ module Crysterm
         nil
       end
 
+      # Fetches *file*'s bytes over the network. Isolated as a seam so tests can
+      # exercise the temp-file lifecycle without real network access.
+      protected def fetch_bytes(file : String) : Bytes
+        Widget::Media::Ansi.fetch file
+      end
+
+      # Path of the temp file the most recent URL fetch wrote to (if any), so
+      # tests can assert it is created and later cleaned up.
+      protected def tmp_path : String?
+        @tmp_path
+      end
+
+      # Deletes and forgets the fetched temp file, if one is tracked.
+      protected def cleanup_tmp : Nil
+        if p = @tmp_path
+          File.delete? p
+          @tmp_path = nil
+        end
+      end
+
       private def teardown
         remove
+        cleanup_tmp
         teardown_render_hook
       end
     end

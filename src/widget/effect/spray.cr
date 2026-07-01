@@ -47,9 +47,19 @@ module Crysterm
         # shaded fill; pass any string to spell it out instead.
         property pattern : String
 
+        # Default growth ramp; also the fallback if an empty ramp is assigned.
+        DEFAULT_GROW = [".", "·", ":", "*", "o", "O", "0", "@"]
+
         # Growth ramp a glyph steps through while in flight, faking a zoom toward
         # the viewer as it flies out of the emitter.
-        property grow : Array(String)
+        getter grow : Array(String) = DEFAULT_GROW
+
+        # :ditto:
+        # An empty ramp would crash the render fiber (`@grow[…].clamp` / `[0]`), so
+        # it is rejected in favour of the default.
+        def grow=(value : Array(String)) : Array(String)
+          @grow = value.empty? ? DEFAULT_GROW.dup : value
+        end
 
         # Emitter point `{x, y}` the glyphs are launched from. `nil` = box centre.
         property origin : Tuple(Int32, Int32)?
@@ -67,13 +77,23 @@ module Crysterm
         # `false`, the effect stops after one fill and runs `#on_complete`.
         property? loop : Bool
 
+        # Default spark colors; also the fallback if an empty list is assigned.
+        DEFAULT_SPARK_COLORS = [0xff8080, 0x80c0ff]
+
         # Colors the pre-launch "charge-up" spark cycles through at the emitter
         # (native `0xRRGGBB` ints).
-        property spark_colors : Array(Int32) = [0xff8080, 0x80c0ff]
+        getter spark_colors : Array(Int32) = DEFAULT_SPARK_COLORS
+
+        # :ditto:
+        # An empty list would crash the render fiber (`% @spark_colors.size` is a
+        # division by zero), so it is rejected in favour of the default.
+        def spark_colors=(colors : Array(Int32)) : Array(Int32)
+          @spark_colors = colors.empty? ? DEFAULT_SPARK_COLORS.dup : colors
+        end
 
         # Backwards compatibility: accept `"#rrggbb"`/named color strings.
         def spark_colors=(colors : Array(String))
-          @spark_colors = colors.map { |c| Colors.convert(c).to_i32 }
+          self.spark_colors = colors.map { |c| Colors.convert(c).to_i32 }
         end
 
         # Optional color override: `(slot_index, frame, phase) -> 0xRRGGBB`, where
@@ -102,18 +122,19 @@ module Crysterm
         def initialize(
           @pattern = "▒",
           @fill = :spiral,
-          @grow = [".", "·", ":", "*", "o", "O", "0", "@"],
+          grow = DEFAULT_GROW,
           @origin = nil,
           @interval = 0.07.seconds,
           @spacing = 1,
           @travel = 12,
           @hold = 28,
           @loop = true,
-          spark_colors = [0xff8080, 0x80c0ff],
+          spark_colors = DEFAULT_SPARK_COLORS,
           @color = nil,
           @on_complete = nil,
           **box,
         )
+          self.grow = grow # reject empty in favour of the default
           self.spark_colors = spark_colors
           super **box
         end

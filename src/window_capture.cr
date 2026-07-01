@@ -184,6 +184,14 @@ module Crysterm
       vh = first.size
 
       run_ffmpeg(vw, vh, fps, fmt, path, loops, ffmpeg_args) do |input|
+        # Write the first frame *before* registering the `Rendered` handler.
+        # A full-screen RGBA frame overflows the pipe buffer, so this write
+        # blocks and yields mid-write; were the handler already registered, the
+        # render fiber could emit `Rendered` during those yields and write a
+        # second frame to the same ffmpeg stdin, interleaving the two writes and
+        # corrupting the rawvideo stream. Registering only after the first frame
+        # is fully written serializes the pipe writes.
+        input.write Capture.rgba(first) rescue nil
         sub = on(::Crysterm::Event::Rendered) do
           begin
             bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
@@ -192,7 +200,6 @@ module Crysterm
             # Pipe closed / encoder gone: stop feeding it.
           end
         end
-        input.write Capture.rgba(first) rescue nil
         sleep duration
         off ::Crysterm::Event::Rendered, sub
       end

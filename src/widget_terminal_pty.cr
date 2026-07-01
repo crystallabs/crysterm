@@ -82,7 +82,17 @@ module Crysterm
       @master = IO::FileDescriptor.new master_fd
       slave = IO::FileDescriptor.new slave_fd
 
-      @process = spawn_child command, args, slave, env, chdir
+      process = begin
+        spawn_child command, args, slave, env, chdir
+      rescue ex
+        # Spawn failed (e.g. a missing/bad command on the no-setsid fallback
+        # path raises File::NotFoundError). Close both freshly-opened fds before
+        # propagating so we don't leak them until GC finalizes the descriptors.
+        @master.close rescue nil
+        slave.close rescue nil
+        raise ex
+      end
+      @process = process
 
       # The child holds its own dup'd copies of the slave fds; the parent must
       # close the slave so the master reports EOF once the child exits.

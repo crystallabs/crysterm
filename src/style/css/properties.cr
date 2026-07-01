@@ -329,14 +329,27 @@ module Crysterm
         value.split(',').each do |entry|
           toks = entry.split
           next if toks.empty?
-          dur = (toks[1]?.try { |t| parse_time(t) }) || 0.3.seconds
-          easing = toks[2]?.try { |e| css_easing(e) } || Easing::InOutSine
+          # CSS only pins <time> values positionally (1st = duration, 2nd = delay);
+          # the easing keyword may sit before or after the time. So classify tokens
+          # by kind rather than by index: `opacity ease-out 0.3s` and `color
+          # ease-in` are as valid as `opacity 0.3s ease-in-out`. A unitless number
+          # is not a duration (`300` is not `300s`), so it is ignored here.
+          dur : Time::Span? = nil
+          easing : Easing? = nil
+          toks[1..].each do |t|
+            tl = Case.fold_unit(t)
+            if dur.nil? && (tl.ends_with?("ms") || tl.ends_with?("s")) && (span = parse_time(t))
+              dur = span
+            elsif easing.nil? && easing?(t)
+              easing = css_easing(t)
+            end
+          end
           # The animated property name is a CSS property — case-insensitive — so
           # fold it (`Background-Color` == `background-color`). The consumer
           # (`Widget#apply_style_transitions`) matches it against lower-cased
           # literals (`"background-color"`, `"opacity"`, …), so an unfolded
           # capitalized name would silently never tween.
-          out[Case.fold_property(toks[0])] = {dur, easing}
+          out[Case.fold_property(toks[0])] = {dur || 0.3.seconds, easing || Easing::InOutSine}
         end
         out.empty? ? nil : out
       end
@@ -347,13 +360,16 @@ module Crysterm
       private def self.parse_animation(value : String) : Style::AnimationSpec?
         toks = value.split
         return nil if toks.empty? || Case.fold_keyword(toks[0]) == "none"
-        name = toks[0]
+        name : String? = nil
         dur = 1.seconds
         dur_seen = false
         easing = Easing::Linear
         iterations : Int32? = 1
         alternate = false
-        toks[1..].each do |t|
+        toks.each do |t|
+          # Classify by kind, not by position: the CSS `animation` shorthand orders
+          # its fields freely, so the @keyframes name is not necessarily first
+          # (`2s linear infinite spin` is as valid as `spin 2s linear infinite`).
           # A unit-suffixed token is a time; a bare integer is the iteration count
           # (so `... 0.15s ... 1` doesn't read "1" as seconds).
           tl = Case.fold_unit(t)
@@ -369,13 +385,18 @@ module Crysterm
             iterations = nil
           elsif tl == "alternate"
             alternate = true
+          elsif easing?(t)
+            easing = css_easing(t)
           elsif (n = t.to_i?)
             iterations = n
           else
-            easing = css_easing(t)
+            # Anything that is not a time, keyword, easing or count is the
+            # keyframes name. Prefer the last such token.
+            name = t
           end
         end
-        Style::AnimationSpec.new(name, dur, easing, iterations, alternate)
+        # No name → no keyframes to resolve; treat as no animation.
+        name.try { |n| Style::AnimationSpec.new(n, dur, easing, iterations, alternate) }
       end
 
       # `0.3s` / `200ms` / bare seconds -> `Time::Span`.
@@ -387,6 +408,17 @@ module Crysterm
           s[0...-1].to_f?.try &.seconds
         else
           s.to_f?.try &.seconds
+        end
+      end
+
+      # Whether a token is a recognized CSS timing-function keyword (rather than an
+      # animation/keyframes name or property). Used by `parse_animation` /
+      # `parse_transition` to classify shorthand tokens by kind, so a name is not
+      # mistaken for an easing (and vice-versa).
+      private def self.easing?(name : String) : Bool
+        case Case.fold_keyword(name)
+        when "linear", "ease", "ease-in", "ease-out", "ease-in-out" then true
+        else                                                             false
         end
       end
 
@@ -748,11 +780,44 @@ module Crysterm
       #
       # The alpha token must carry a decimal point to tell an opacity (`0.3`)
       # apart from an integer length offset — otherwise `box-shadow: 0 4px 8px
-      # <color>` would read its `0` offset as alpha `0`, an invisible shadow.
+      # <color>` would read its `0` offset as alpha `0`, an invisible shadow. It
+      # must also lie *outside* the offset run: the leading length tokens are the
+      # geometry fields (offset-x, offset-y, blur, spread), so a fractional value
+      # there (`0.0 4px 8px black`, `0.5 0.5 black`) is an offset, not opacity.
       private def self.parse_box_shadow(value : String) : Shadow
         return Shadow.from(false) if Case.fold_keyword(value.strip) == "none"
-        alpha = value.split.compact_map { |t| t.includes?('.') ? t.to_f? : nil }.find { |num| 0.0 <= num <= 1.0 }
+        toks = value.split
+        # Count the leading run of length/number tokens (up to the 4 geometry
+        # slots). A number within this run is always a geometry offset.
+        offsets = 0
+        toks.each do |t|
+          break unless length_token?(t)
+          offsets += 1
+          break if offsets >= 4
+        end
+        # A CSS offset spec needs *both* offset-x and offset-y, so a lone leading
+        # length isn't a coordinate — it's crysterm's bare-fractional alpha
+        # shorthand (`box-shadow: 0.3`). Only a run of >= 2 lengths is offsets.
+        offsets = 0 if offsets < 2
+        # Alpha is a unitless fractional 0..1 *outside* that run (e.g. after the
+        # color). Unit'd lengths (`0.5px`) fail `to_f?` and are excluded anyway.
+        alpha = nil
+        toks.each_with_index do |t, i|
+          next if i < offsets
+          if (num = t.to_f?) && t.includes?('.') && 0.0 <= num <= 1.0
+            alpha = num
+            break
+          end
+        end
         alpha ? Shadow.from(alpha) : Shadow.from(true)
+      end
+
+      # Whether a `box-shadow` token occupies a geometry (offset/blur/spread) slot,
+      # i.e. begins like a number or length rather than a color name or keyword.
+      private def self.length_token?(t : String) : Bool
+        return false if t.empty?
+        c = t[0]
+        c.ascii_number? || c == '.' || c == '-' || c == '+'
       end
 
       # Resolves the shared CSS `padding`/`margin` 1-4 value shorthand (CSS TRBL

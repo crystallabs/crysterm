@@ -152,6 +152,15 @@ module Crysterm
       # rather than raw `height` so a child with no explicit/nil/percent height
       # (legal here since flow children are `resizable`) is measured instead of
       # raising on an `.as(Int)` cast.
+      #
+      # NOTE: for a nil/auto-height child the auto branch of `aheight` fills the
+      # remaining interior *below* `el.top`, so `el.top + aheight` collapses to
+      # exactly the interior height (it never exceeds it) regardless of how far
+      # the child has wrapped. As a result a nil-height flow child is never
+      # reported as overflowing, so `SkipWidget`/`StopRendering` cannot rely on
+      # it — reliable bottom-overflow detection requires an explicit child
+      # height (the vertical analogue of the explicit-width requirement flow
+      # widths already carry).
       protected def overflow_action(container : Widget, el : Widget, interior : LPos) : Overflow?
         height = interior.yl - interior.yi
         if el.top.as(Int) + el.aheight > height

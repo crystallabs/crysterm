@@ -427,6 +427,14 @@ module Crysterm
         sp_border = scrollable_parent.style.border
 
         b = sp_border.top
+        # The clip on each edge must trigger at THAT edge's inner (border) width:
+        # the bottom clip against the parent's BOTTOM border and the horizontal
+        # clips against the LEFT/RIGHT borders. Reusing `b` (the top border) for
+        # all edges mis-clips asymmetric borders (e.g. `border-top-width: 1;
+        # border-bottom-width: 0`, or a left border of 1 with `left: -1`).
+        bb = sp_border.bottom
+        bl = sp_border.left
+        br = sp_border.right
         # Old code: b = scrollable_parent.border ? 1 : 0
 
         # D O:
@@ -435,6 +443,9 @@ module Crysterm
         # if @left < 0 || @right < 0 || @top < 0 || @bottom < 0
         if @_label
           b = 0
+          bb = 0
+          bl = 0
+          br = 0
         end
 
         if yi < scrollable_parent_lpos.yi + b
@@ -456,8 +467,8 @@ module Crysterm
         # visible region overflows both top and bottom at once. An `elsif` would
         # let a top-clipped widget skip the bottom clip and leak past it.
         # Horizontal clipping below uses two `if`s too.
-        if yl > scrollable_parent_lpos.yl - b
-          if yi > scrollable_parent_lpos.yl - 1 - b
+        if yl > scrollable_parent_lpos.yl - bb
+          if yi > scrollable_parent_lpos.yl - 1 - bb
             # Is below.
             return
           else
@@ -479,13 +490,13 @@ module Crysterm
 
         # Could allow overlapping stuff in scrolling elements
         # if we cleared the pending buffer before every draw.
-        if xi < scrollable_parent_lpos.xi
+        if xi < scrollable_parent_lpos.xi + bl
           xi = scrollable_parent_lpos.xi
           no_left = true
           xi -= my_border.left
           xi += sp_border.left
         end
-        if xl > scrollable_parent_lpos.xl
+        if xl > scrollable_parent_lpos.xl - br
           xl = scrollable_parent_lpos.xl
           no_right = true
           xl += my_border.right

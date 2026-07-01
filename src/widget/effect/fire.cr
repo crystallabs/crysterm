@@ -33,10 +33,20 @@ module Crysterm
       class Fire < Box
         include Effect::Direct
 
+        # Default glyph ramp; also the fallback if an empty ramp is assigned.
+        DEFAULT_RAMP = [' ', '.', ':', '*', 'o', 'O', '#', '@']
+
         # Glyph ramp indexed by cell heat, coldest first. The first entry is used
         # for cells below `ignition` (so a leading space leaves cold cells blank);
         # the rest shade the flame from faint to solid.
-        property ramp : Array(Char)
+        getter ramp : Array(Char) = DEFAULT_RAMP
+
+        # :ditto:
+        # An empty ramp would crash the render fiber (`@ramp[0]` / `clamp`), so it
+        # is rejected in favour of the default.
+        def ramp=(value : Array(Char)) : Array(Char)
+          @ramp = value.empty? ? DEFAULT_RAMP.dup : value
+        end
 
         # Fraction of heat that survives each upward step (`0.0..1.0`); the flame
         # decays by this factor per row, so higher = taller flames, lower = a
@@ -62,13 +72,14 @@ module Crysterm
         @heat = [] of Float64
 
         def initialize(
-          @ramp = [' ', '.', ':', '*', 'o', 'O', '#', '@'],
+          ramp = DEFAULT_RAMP,
           @interval = 0.07.seconds,
           decay = 0.9,
           @ignition = 0.7,
           @color = nil,
           **box,
         )
+          self.ramp = ramp   # reject empty in favour of the default
           self.decay = decay # clamp to 0.0..1.0
           super **box
         end
@@ -112,7 +123,9 @@ module Crysterm
           if heat < @ignition * 0.15
             {@ramp[0], -1}
           else
-            idx = (heat * (@ramp.size - 1)).to_i.clamp(1, @ramp.size - 1)
+            # A single-glyph ramp has no hot range (`clamp(1, 0)` would raise), so
+            # index 0 is the only valid slot.
+            idx = @ramp.size > 1 ? (heat * (@ramp.size - 1)).to_i.clamp(1, @ramp.size - 1) : 0
             {@ramp[idx], colorize(heat)}
           end
         end

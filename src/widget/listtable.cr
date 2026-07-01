@@ -422,7 +422,12 @@ module Crysterm
 
       # The header spacer (item 0) is never selectable.
       def selekt(index : Int)
-        index = 1 if index == 0
+        # Clamp to the first *data* row: index 0 is the header spacer
+        # (`@ritems[0] == ""`, overlaid by the pinned header) and is not
+        # selectable. Guarding only `== 0` let a negative index (e.g. PageUp /
+        # Ctrl-B / Ctrl-U near the top, `selected - visible < 0`) slip through
+        # and clamp to 0 in the parent, activating the empty header row.
+        index = index.clamp(1, @items.size - 1) if @items.size > 1
         if index <= @child_base
           scroll_to Math.max(@child_base - 1, 0)
         end

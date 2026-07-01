@@ -108,7 +108,20 @@ module Crysterm
     def drag_nudge(sess : DragSession, dx : Int32, dy : Int32) : Nil
       sess.x += dx
       sess.y += dy
-      sess.source.emit ::Crysterm::Event::Drag, sess
+      src = sess.source
+      src.emit ::Crysterm::Event::Drag, sess
+      # Re-sync the anchor to the source's ACTUAL (clamped) position. The
+      # reposition handler clamps `left`/`top` to the parent's bounds
+      # (`widget_interaction.cr`), but `sess.x`/`sess.y` above accumulate freely.
+      # Without this, once the widget is pinned at an edge each further arrow in
+      # that direction pushes the virtual anchor past the edge, and the user must
+      # first unwind that overshoot before the widget moves back — input looks
+      # dead for N presses. At pickup the anchor equals `aleft + offset_x`
+      # (`offset_x == @_drag_dx`, both `x - aleft`), so recomputing it from the
+      # post-clamp `aleft` keeps anchor and widget in lockstep. (Mouse drags set
+      # `sess.x = x` absolutely, so they were never affected.)
+      sess.x = src.aleft + sess.offset_x
+      sess.y = src.atop + sess.offset_y
       render
     end
 

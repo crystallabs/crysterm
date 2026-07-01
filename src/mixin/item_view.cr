@@ -52,6 +52,18 @@ module Crysterm
         Math.max(base, item_row(@items.size - 1) + 1)
       end
 
+      # Spaced extent for the scroll clamp/thumb: the base `_scroll_bottom`
+      # (`widget_scrolling.cr`) returns `@items.size` for lists, ignoring
+      # `item_spacing`, so `clamp_child_base_to_content`'s `_scroll_bottom -
+      # visible` would rein the base in too far and hide the last item(s) of a
+      # spaced, overflowing list. Report the same spaced height as
+      # `#get_scroll_height` so the clamp reaches the true bottom.
+      def _scroll_bottom
+        base = super
+        return base if @item_spacing.zero? || @items.empty?
+        Math.max(base, item_row(@items.size - 1) + 1)
+      end
+
       # When true, a single mouse click on an item activates it (rather than the
       # default two-click select-then-activate). Set by `Widget::Menu`.
       property? activate_on_click : Bool = false
@@ -544,7 +556,11 @@ module Crysterm
         # is nil only until the first render.
         return unless @lpos
 
-        scroll_to @selected
+        # Scroll to the item's *content row*, not its bare index: with
+        # `item_spacing > 0` the item sits at `item_row(@selected) ==
+        # @selected * (1 + item_spacing)`, so `scroll_to @selected` landed
+        # `@selected * item_spacing` rows short.
+        scroll_to item_row(@selected)
 
         emit ::Crysterm::Event::SelectItem, @items[@selected], @selected
       end
@@ -844,19 +860,23 @@ module Crysterm
 
       def on_resize(e)
         visible = visible_content_rows
+        # Position against the selected item's *content row* (which includes the
+        # inter-item gaps), not its bare index; otherwise a spaced, overflowing
+        # list parks the base `selected * item_spacing` rows above the item.
+        row = item_row(selected)
         if visible <= 0
           # Collapsed viewport (`iheight >= aheight`, e.g. a bordered list
           # squeezed too small): the `else` branch below would compute
           # `@child_offset = visible - 1` (negative) and an out-of-range
           # `@child_base`. Park the selection at the base with a zero offset
           # instead — a valid state for a list showing no rows.
-          @child_base = selected
+          @child_base = row
           @child_offset = 0
-        elsif visible >= selected + 1
+        elsif visible >= row + 1
           @child_base = 0
-          @child_offset = selected
+          @child_offset = row
         else
-          @child_base = selected - visible + 1
+          @child_base = row - visible + 1
           @child_offset = visible - 1
         end
       end

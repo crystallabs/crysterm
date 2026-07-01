@@ -69,6 +69,9 @@ module Crysterm
       def _listener(e : Crysterm::Event::KeyPress)
         if e.key == Tput::Key::Enter
           e.accept
+          # A non-kill action breaks the consecutive-kill run (emacs semantics);
+          # the mixin's `super` normally does this, but these keys return early.
+          kill_ring.interrupt if Crysterm::Config.input_readline_keys
           record_history @value
           @_done.try do |done2|
             done2.call @value
@@ -81,11 +84,13 @@ module Crysterm
         if history_keys?
           if e.key == Tput::Key::Up
             e.accept
+            kill_ring.interrupt if Crysterm::Config.input_readline_keys
             history_prev
             return
           end
           if e.key == Tput::Key::Down
             e.accept
+            kill_ring.interrupt if Crysterm::Config.input_readline_keys
             history_next
             return
           end

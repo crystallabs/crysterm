@@ -379,7 +379,15 @@ module Crysterm
             # we still consume both columns rather than emitting only one.
             if full_unicode && (nxt = line[x + 1]?) &&
                x + 1 < xl && ::Crysterm::Unicode.width(ch) == 2
-              nxt.attr = attr
+              nxt_attr = attr
+              # If the cursor sits on the TRAILING (continuation) half of this
+              # wide glyph, this branch would otherwise swallow the cursor column
+              # (`x += 2` skips it) leaving the cursor invisible. Carry the cursor
+              # styling onto the continuation cell so it stays visible there.
+              if x + 1 == cursor_col
+                nxt_attr, _ = apply_cursor attr, ' '
+              end
+              nxt.attr = nxt_attr
               nxt.continuation!
               line.dirty = true
               x += 2
@@ -397,7 +405,10 @@ module Crysterm
       private def apply_cursor(attr : Int64, ch : Char) : {Int64, Char}
         case @cursor_shape
         when :line
-          {@dattr, '│'}
+          # A bar/beam cursor overlays the column (the host terminal draws the
+          # real beam there); it must not hide the cell's glyph or color, so
+          # preserve both `ch` and `attr` rather than overwriting with '│'.
+          {attr, ch}
         when :underline
           {Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, Attr.fg(attr), Attr.bg(attr)), ch}
         else # :block — invert the cell
