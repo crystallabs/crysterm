@@ -92,7 +92,22 @@ module Crysterm
       # Index of the frame currently shown. The animation loop advances it, but
       # it can also be set directly (after `#pause`) to drive playback from an
       # external clock — e.g. to keep several images in lockstep.
-      property anim_index : Int32 = 0
+      getter anim_index : Int32 = 0
+
+      # Sets the shown frame. Assigning a *new* index marks the widget dirty so it
+      # repaints under `OptimizationFlag::DamageTracking` (on by default): unlike
+      # the internal animation loops — which assign `@anim_index` directly and pair
+      # it with `request_render` — an external clock writing `anim_index =` would
+      # otherwise change the frame without notifying the damage tracker, so the
+      # selective composite would carry over the stale cells and the image would
+      # appear frozen. A no-op write (same index) leaves the dirty set untouched.
+      def anim_index=(i : Int32) : Int32
+        unless i == @anim_index
+          @anim_index = i
+          mark_dirty
+        end
+        i
+      end
 
       # Loads *file* (decodes lazily via `#source`); the canonical implementation
       # each backend provides. `#set_image` is an alias.

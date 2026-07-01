@@ -7,8 +7,10 @@
 # frame is sampled to the current box (lazily, cached per size).
 #
 # BACKEND env var picks the renderer; all animate:
-#   glyph (default) — sub-cell Unicode glyphs (octant: 2x4 sub-pixels per cell),
-#                     ~8x the resolution of plain cells, capturable anywhere
+#   glyph (default) — sub-cell Unicode glyphs at the highest resolution the
+#                     terminal supports (octant 2x4 → quadrant 2x2; see
+#                     Glyph.best_mode), ~8x the resolution of plain cells,
+#                     capturable anywhere
 #   kitty | sixel | iterm — true-pixel terminal graphics (needs a capable
 #                     terminal: kitty/WezTerm/Konsole, an xterm -ti vt340, …)
 #   ansi            — one cell per pixel (lowest resolution)
@@ -29,7 +31,7 @@ def make_image(backend, **opts)
   when "sixel" then Widget::Media::Sixel.new(**opts)
   when "iterm" then Widget::Media::Iterm.new(**opts)
   when "ansi"  then Widget::Media::Ansi.new(**opts)
-  else              Widget::Media::Glyph.new(**opts, mode: Widget::Media::Glyph::Mode::Octant)
+  else              Widget::Media::Glyph.new(**opts, mode: Widget::Media::Glyph.best_mode)
   end
 end
 
@@ -46,9 +48,13 @@ frame_count = frame_delays.size
 
 s = Window.new title: "Netscape"
 
+# Header label: the glyph backend resolves to a concrete sub-cell family
+# (`Glyph.best_mode`, the same choice `make_image` makes), so show which one.
+desc = backend == "glyph" ? "glyph (#{Widget::Media::Glyph.best_mode.to_s.downcase})" : backend
+
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
-  content: "{center}#{name}  ·  #{backend} graphics  ·  left: fixed size   ·   right: resizing while it plays{/center}",
+  content: "{center}#{name}  ·  #{desc} graphics  ·  left: fixed size   ·   right: resizing while it plays{/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
 
 ih = s.aheight - 1

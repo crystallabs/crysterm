@@ -358,36 +358,60 @@ module Crysterm
       end
 
       # Whether *type* can render on the terminal described by *emu*/*feat*.
-      # Overlay/Ueberzug/Regis/Tek are never auto-selected (set `image.backend`
-      # or pass `type:` explicitly for those).
+      # Accepts both the family types (`Glyph`/`Ansi`, what `resolve` ranks) and
+      # their single-variant members (`GlyphOctant`, `AnsiC256`, …), so
+      # `available?` can gate a specific rendering. Overlay/Ueberzug/Regis/Tek
+      # are never auto-selected (set `image.backend` or pass `type:` explicitly
+      # for those) and report unsupported here.
       private def self.backend_supported?(type : Type, emu : ::Tput::Emulator, feat : ::Tput::Features) : Bool
         case type
         when .kitty? then emu.kitty_graphics?
         when .iterm? then emu.iterm_images?
         when .sixel? then emu.sixel?
-        when .glyph? then feat.unicode?
-        when .ansi?  then true
-        else              false
+        when .glyph_sextant?
+          # Draws from the Unicode legacy-computing sextant range (U+1FB00),
+          # which some fonts/terminals lack and render as `?`.
+          feat.unicode? && emu.legacy_computing_sextant?
+        when .glyph_octant?
+          # The octant range (U+1CD00) is newer than sextants and gated
+          # separately (see `Tput::Emulator#legacy_computing_octant?`).
+          feat.unicode? && emu.legacy_computing_octant?
+        when .glyph_ascii?
+          true # pure ASCII contour — needs no Unicode
+        when .glyph?, .glyph_block?, .glyph_half?, .glyph_quadrant?, .glyph_braille?
+          # Block/half/quadrant (U+2580 block elements, Unicode 1.0) and braille
+          # (U+2800, Unicode 3.0) are near-universal wherever Unicode works.
+          feat.unicode?
+        when .ansi?, .ansi_true_color?, .ansi_c256?, .ansi_c16?, .ansi_c8?
+          true # the universal cell grid renders anywhere
+        else
+          false # overlay/ueberzug/regis/tek: gated by `available?`, never auto
         end
       end
 
       # Whether *type* can actually render in the current environment — terminal
-      # capability for in-band backends (Kitty/Iterm/Sixel), Unicode for the cell
-      # grid, helper-binary presence for the external ones (Overlay needs
+      # capability for in-band backends (Kitty/Iterm/Sixel) and the high-res
+      # glyph families (see `backend_supported?`), Unicode for the rest of the
+      # cell grid, helper-binary presence for the external ones (Overlay needs
       # `w3mimgdisplay`, Ueberzug needs `ueberzug`). `Regis`/`Tek` always report
-      # unavailable. Use to gate UI selection so an undrivable backend is never
-      # invoked. *tput* defaults to the global window's.
+      # unavailable. Accepts family types and their single-variant members
+      # (`GlyphOctant`, `AnsiC256`, …), so a specific rendering can be gated. Use
+      # to gate UI selection so an undrivable backend is never invoked. *tput*
+      # defaults to the global window's.
       def self.available?(type : Type, tput : ::Tput? = nil) : Bool
         case type
-        when .ansi?, .glyph?
+        when .overlay?      then w3m_available?
+        when .ueberzug?     then ueberzug_available?
+        when .regis?, .tek? then false # no detection
+        else
           tp = tput || (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
-          tp ? backend_supported?(type, tp.emulator, tp.features) : true
-        when .kitty?, .iterm?, .sixel?
-          tp = tput || (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
-          tp ? backend_supported?(type, tp.emulator, tp.features) : false
-        when .overlay?  then w3m_available?
-        when .ueberzug? then ueberzug_available?
-        else                 false # Regis/Tek: no detection
+          if tp
+            backend_supported?(type, tp.emulator, tp.features)
+          else
+            # No terminal handle: the cell grid works anywhere; in-band graphics
+            # (Kitty/Iterm/Sixel) can't be confirmed, so report unavailable.
+            !(type.kitty? || type.iterm? || type.sixel?)
+          end
         end
       end
 

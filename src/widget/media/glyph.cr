@@ -47,6 +47,25 @@ module Crysterm
 
       getter mode : Mode
 
+      # The highest-resolution *colour* glyph mode the terminal supports, for
+      # callers that want maximum detail without hard-coding a family that may
+      # render as `?`. Walks the resolution ladder — `Octant` (2×4) → `Sextant`
+      # (2×3) → `Quadrant` (2×2, universally supported block elements) — using
+      # the terminal's separately-gated legacy-computing capabilities (see
+      # `Tput::Emulator#legacy_computing_octant?` / `#legacy_computing_sextant?`),
+      # or `Ascii` when the terminal has no Unicode at all. `Braille` is excluded
+      # — it is monochrome, not a colour family. *tput* defaults to the global
+      # window's; with no terminal handle the optimistic `Octant` is returned.
+      def self.best_mode(tput : ::Tput? = nil) : Mode
+        tput ||= (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
+        return Mode::Octant unless tp = tput
+        return Mode::Ascii unless tp.features.unicode?
+        emu = tp.emulator
+        return Mode::Octant if emu.legacy_computing_octant?
+        return Mode::Sextant if emu.legacy_computing_sextant?
+        Mode::Quadrant
+      end
+
       # Whether to key dots on *opacity* rather than luminance. Normally a
       # `Braille` dot is on where the image is bright (luminance threshold), but
       # for vector content on a transparent canvas (`Graph::Canvas`) a dark
