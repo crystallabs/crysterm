@@ -9,8 +9,7 @@ module Crysterm
     Input = Widget::Input
 
     # `Media` is the factory (`Media.new` auto-picks a backend). Each concrete
-    # backend — and each single-variant cell-grid subclass — is registered too,
-    # for explicit construction.
+    # backend is also registered for explicit construction.
     Media              = Widget::Media
     MediaAnsi          = Widget::Media::Ansi
     MediaAnsiTrueColor = Widget::Media::Ansi::TrueColor

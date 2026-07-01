@@ -53,9 +53,9 @@ module Crysterm
 
       # Resolves an extended-colour SGR selector's sub-parameters (those after a
       # `38`/`48`, starting at *i*) into the nearest 16-colour `ANSI_PALETTE`
-      # index (0..15) plus the number of sub-parameters that were consumed.
-      # Handles `5;n` (xterm-256) and `2;r;g;b` (truecolour); a malformed or
-      # unknown selector consumes nothing and maps to `nil` (no colour change).
+      # index (0..15) plus the number of sub-parameters consumed. Handles `5;n`
+      # (xterm-256) and `2;r;g;b` (truecolour); malformed/unknown consumes
+      # nothing and maps to `nil`.
       private def self.ext_color_index(params : Array(Int32), i : Int32)
         none = {nil.as(Int32?), 0}
         case params[i]?
@@ -130,11 +130,11 @@ module Crysterm
       # Decodes BBS / "textmode" ANSI art (*data*: CP437 bytes + ANSI escapes)
       # into a pixel bitmap, wrapped as a still `PNGGIF::PNG` so the ordinary
       # Media output backends (Ansi/Glyph/Sixel/Kitty/…) render it like any other
-      # image, with the usual `fit`. This is an **input decoder**, a peer of
-      # `PNGGIF` — it never writes to the terminal itself.
+      # image. This is an **input decoder**, a peer of `PNGGIF` — it never
+      # writes to the terminal itself.
       #
-      # It runs a small, self-contained ANSI interpreter (no terminal/emulator):
-      # a 2D cell grid is built honoring SGR colour/bold and cursor motion
+      # Runs a small self-contained ANSI interpreter (no terminal/emulator): a
+      # 2D cell grid is built honoring SGR colour/bold and cursor motion
       # (CUP/CUU/CUD/CUF/CUB, CR/LF, ED), then each cell is rasterized with the
       # bitmap `Font`.
       # ameba:disable Metrics/CyclomaticComplexity
@@ -157,10 +157,9 @@ module Crysterm
           b = data[i]
           if b == 0x1B && data[i + 1]? == 0x5B # CSI: ESC [
             j = i + 2
-            # Optional private-marker prefix (`<`,`=`,`>`,`?`) — common in real
-            # `.ans` art (e.g. `ESC[?7h` autowrap, `ESC[?25l` hide cursor). It must
-            # be consumed so the trailing param/final bytes aren't mis-rendered as
-            # text; private sequences carry no meaning for this still decoder.
+            # Optional private-marker prefix (`<`,`=`,`>`,`?`), e.g. `ESC[?7h`
+            # autowrap, `ESC[?25l` hide cursor. Must be consumed so trailing
+            # bytes aren't mis-rendered as text; carries no meaning here.
             priv = j < n && 0x3C <= data[j] <= 0x3F
             j += 1 if priv
             ps = j
@@ -193,13 +192,11 @@ module Crysterm
                 when 100..107 then bg = c - 100; bgb = true
                 when 49       then bg = nil; bgb = false
                 when 38, 48
-                  # Extended fg/bg selector (`38`/`48`) followed by `5;n`
-                  # (xterm-256) or `2;r;g;b` (truecolour). Its sub-parameters MUST
-                  # be consumed: otherwise they fall through and are misread as
-                  # standalone SGR codes — e.g. a `0` channel in `48;2;r;0;b`
-                  # reads as "reset all", and `…;5;1` as "bold" — corrupting the
-                  # attribute state. The colour is mapped to the nearest entry of
-                  # this decoder's own 16-colour palette (its only output palette).
+                  # Extended fg/bg selector followed by `5;n` (xterm-256) or
+                  # `2;r;g;b` (truecolour). Sub-parameters must be consumed or
+                  # they're misread as standalone SGR codes (e.g. a `0` channel
+                  # in `48;2;r;0;b` reads as "reset all"). Mapped to the
+                  # nearest entry in this decoder's 16-colour palette.
                   idx, consumed = ext_color_index(params, k + 1)
                   k += consumed
                   if idx
@@ -253,10 +250,11 @@ module Crysterm
         cols = {maxx + 1, 1}.max
         rows = {maxy + 1, 1}.max
 
-        # Rasterize a small pixel-block per art cell (NOT the full 8x16 glyph: the
-        # output backends nearest-neighbour-downsample the bitmap, which would
-        # shred a high-res text image). Each sub-pixel is the glyph's fg/bg blended
-        # by the *coverage* (ink fraction) of the glyph region it maps to.
+        # Rasterize a small pixel-block per art cell (not the full 8x16 glyph,
+        # since output backends nearest-neighbour-downsample the bitmap, which
+        # would shred a high-res text image). Each sub-pixel is the glyph's
+        # fg/bg blended by the *coverage* (ink fraction) of the glyph region it
+        # maps to.
         #
         # Two resolutions, chosen by `media.ansi_art_detail`:
         #   * on (default): 2x4 per cell — enough sub-cell structure for the Glyph
@@ -264,10 +262,9 @@ module Crysterm
         #   * off: 1x2 per cell — one averaged colour; softer, but cleaner under
         #     the Ansi backend and at 1:1 (nothing to alias).
         #
-        # The block is 1-wide x 2-tall *per sub-pixel-column scaled* so that, after
-        # the cell backends' ~2:1 aspect correction, native size is the art's
-        # `cols`x`rows` grid for the Glyph backend — i.e. "1:1" is one art cell per
-        # terminal cell.
+        # Block is 1-wide x 2-tall per sub-pixel-column scaled, so after the cell
+        # backends' ~2:1 aspect correction, native size is the art's `cols`x`rows`
+        # grid — "1:1" is one art cell per terminal cell.
         detail = Crysterm::Config.media_ansi_art_detail
         cw = detail ? 2 : 1
         ch = detail ? 4 : 2
@@ -298,11 +295,10 @@ module Crysterm
           end
         end
 
-        # Wrap as a *still* PNG. We round-trip through `encode_png` rather than the
-        # frames constructor on purpose: the latter leaves `frames` non-nil, which
-        # the cell backends read as "animated" (then find no frame loop and render
-        # nothing). A decoded still has `frames == nil`, the path every backend
-        # treats as a single image.
+        # Round-trip through `encode_png` rather than the frames constructor:
+        # the latter leaves `frames` non-nil, which cell backends read as
+        # "animated" and then render nothing (no frame loop). A decoded still
+        # has `frames == nil`, the single-image path every backend expects.
         PNGGIF::PNG.new(PNGGIF.encode_png(bmp))
       end
     end

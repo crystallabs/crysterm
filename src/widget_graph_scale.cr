@@ -3,9 +3,8 @@ module Crysterm
     # Namespace for data-graphing widgets.
     module Graph
       # Shared helpers for the block-glyph graph widgets (`Bar`, `StackedBar`,
-      # and the top-level `Widget::Gauge`). They render numeric values with
-      # Unicode "eighth block" glyphs, which give 8× sub-cell resolution along
-      # one axis — so a bar/gauge looks smooth even at small sizes.
+      # `Widget::Gauge`). Render numeric values with Unicode "eighth block"
+      # glyphs, giving 8x sub-cell resolution along one axis.
       module Scale
         # Vertical eighth blocks: empty (0) .. full (8), filling *upward*.
         VERTICAL = " ▁▂▃▄▅▆▇█".chars
@@ -75,9 +74,9 @@ module Crysterm
         end
       end
 
-      # Interior-coordinate helper for the Canvas-based graph widgets (`Donut`,
-      # `Map`, `LineChart`), which draw terminal-text overlays inside their own
-      # content area. Mixed into `Box` subclasses.
+      # Interior-coordinate helper for Canvas-based graph widgets (`Donut`,
+      # `Map`, `LineChart`) that draw text overlays inside their content area.
+      # Mixed into `Box` subclasses.
       module InteriorCoords
         # The interior content rectangle `{xi, xl, yi, yl}` for the current frame,
         # inset by both padding *and* border (the base `with_inner_coords` insets
@@ -112,10 +111,8 @@ module Crysterm
         # separated by `bar_spacing` blank columns. A blank glyph carries no color
         # so coalesced color runs stay tight.
         private def plot_row(n : Int32, & : Int32 -> {Char, String?}) : String
-          # Final row length is known up front: `n` bars of `bar_width` columns
-          # plus `n - 1` inter-bar gaps of `bar_spacing`. Pre-reserve so this
-          # per-frame collection (rebuilt every animated frame, once per plot
-          # row) doesn't realloc its backing as it grows via `<<`.
+          # Pre-reserve the known final length so this per-frame rebuild doesn't
+          # realloc its backing as it grows via `<<`.
           cap = n <= 0 ? 0 : n * @bar_width + (n - 1) * @bar_spacing
           cells = Array(Char).new(cap)
           colors = Array(String?).new(cap)

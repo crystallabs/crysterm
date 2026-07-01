@@ -2,14 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Mixin::SectionedField` drives section selection off `section_at(x)`, which is
-# documented to return `nil` when the pointer is *off the field*
-# (`select_section_at` then leaves the active section untouched). `TimeEdit`'s
-# `section_at` bounded only the left edge (`col < 0`); a click in the widget's
-# trailing area — past the `HH:MM:SS` text — fell through `(col // 3).clamp` to
-# the last section and wrongly moved the cursor onto the seconds. A fixed-width
-# control (`@resizable = false`) routinely has such trailing space, so this is
-# directly reachable. The fix bounds the right edge to the text width.
+# `Mixin::SectionedField` drives section selection off `section_at(x)`, which
+# must return `nil` when the pointer is off the field (`select_section_at`
+# then leaves the active section untouched). `TimeEdit`'s `section_at` only
+# bounded the left edge (`col < 0`), so a click past the `HH:MM:SS` text fell
+# through `(col // 3).clamp` to the last section, wrongly selecting seconds —
+# easily hit since fixed-width controls (`@resizable = false`) have trailing
+# space. Fix: bound the right edge to the text width.
 private def te_screen
   Crysterm::Window.new(
     input: IO::Memory.new,
@@ -37,13 +36,11 @@ describe "TimeEdit#section_at off-field clicks" do
     # Opens on the hour section (highlighted reverse).
     te.content.should eq "{reverse}10{/reverse}:20:30"
 
-    # A click well past the text (col 12, field ends at col 7) is off the field:
-    # the active section must stay on the hour, not jump to the seconds.
+    # Click past the text (col 12, field ends at col 7): stays on the hour.
     te_down s, te, 12
     te.content.should eq "{reverse}10{/reverse}:20:30"
 
-    # Sanity: an in-field click on the minute column still selects it, so the
-    # bound didn't break legitimate section picking.
+    # In-field click on the minute column still selects it.
     te_down s, te, 3
     te.content.should eq "10:{reverse}20{/reverse}:30"
   end

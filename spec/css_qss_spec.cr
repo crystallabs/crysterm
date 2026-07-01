@@ -22,8 +22,8 @@ describe Crysterm::CSS::Qss do
     end
 
     it "transforms every type selector in a compound/descendant selector" do
-      # `QAbstractItemView` is now a real Crysterm class (the item-view base), so
-      # it just `Q`-strips and matches the whole family natively — no rename.
+      # `QAbstractItemView` is a real Crysterm class (the item-view base), so it
+      # just `Q`-strips and matches the whole family natively — no rename.
       Crysterm::CSS::Qss.to_css("QComboBox QAbstractItemView { }")
         .should eq "ComboBox AbstractItemView { }"
     end
@@ -60,21 +60,19 @@ describe Crysterm::CSS::Qss do
 
     it "passes QScrollBar sub-controls through for native :: lowering" do
       # `::add-page`/`::up-arrow`/… have no `SUB_ELEMENTS` alias, so qss leaves
-      # the `::` for the native parser, which lowers it onto `ScrollBar`'s slot.
+      # `::` for the native parser to lower onto `ScrollBar`'s slot.
       Crysterm::CSS::Qss.to_css("QScrollBar::add-page { color: red; }")
         .should eq "ScrollBar::add-page { color: red; }"
       Crysterm::CSS::Qss.to_css("QScrollBar::up-arrow:hover { }")
         .should eq "ScrollBar::up-arrow:hover { }"
     end
 
-    # KNOWN GAP: Qt's `::indicator:checked` means "indicator *while the parent is
-    # checked*", but we don't hoist a parent-state onto the type. `::indicator`
-    # and `:checked` are now both lowered by the *native* parser (to the
-    # `Indicator` descendant node and `[checked]`), so `Qss.to_css` leaves them
-    # verbatim here — and the resulting `CheckBox Indicator[checked]` matches
-    # nothing. The plain `QCheckBox:checked` (state on the widget) and
-    # `QCheckBox::indicator` (sub-element, no state) forms both work. Tracked in
-    # the plan.
+    # KNOWN GAP: Qt's `::indicator:checked` means "indicator while the parent is
+    # checked", but we don't hoist a parent-state onto the type. `::indicator`
+    # and `:checked` are both lowered natively (to `Indicator` descendant node
+    # and `[checked]`), so `Qss.to_css` leaves them verbatim — and the resulting
+    # `CheckBox Indicator[checked]` matches nothing. Plain `QCheckBox:checked`
+    # and `QCheckBox::indicator` forms both still work.
     it "composes sub-element + state literally (parent-state-on-subcontrol is a gap)" do
       Crysterm::CSS::Qss.to_css("QCheckBox::indicator:checked { }")
         .should eq "CheckBox::indicator:checked { }"
@@ -89,15 +87,15 @@ describe Crysterm::CSS::Qss do
 
   describe "state pseudo-classes" do
     it "maps the Qt-specific checkable spellings to complementary boolean attributes" do
-      # `:on`/`:off` and `:unchecked` are Qt vocabulary, rewritten here.
+      # `:on`/`:off`/`:unchecked` are Qt vocabulary, rewritten here.
       Crysterm::CSS::Qss.to_css("QCheckBox:unchecked { }").should eq "CheckBox[unchecked] { }"
       Crysterm::CSS::Qss.to_css("QPushButton:on { }").should eq "Button[checked] { }"
       Crysterm::CSS::Qss.to_css("QPushButton:off { }").should eq "Button[unchecked] { }"
     end
 
     it "leaves standard-CSS :checked/:indeterminate/:enabled for the native parser" do
-      # These are Selectors-L4 standard and lowered natively by `Stylesheet`
-      # (`ATTR_PSEUDOS`) for every stylesheet, so `Qss.to_css` passes them through.
+      # Selectors-L4 standard, lowered natively by `Stylesheet` (`ATTR_PSEUDOS`)
+      # for every stylesheet, so `Qss.to_css` passes them through.
       Crysterm::CSS::Qss.to_css("QCheckBox:checked { }").should eq "CheckBox:checked { }"
       Crysterm::CSS::Qss.to_css("QCheckBox:indeterminate { }").should eq "CheckBox:indeterminate { }"
       Crysterm::CSS::Qss.to_css("QPushButton:enabled { }").should eq "Button:enabled { }"

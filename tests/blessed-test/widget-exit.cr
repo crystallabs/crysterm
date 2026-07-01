@@ -1,7 +1,7 @@
 require "../../src/crysterm"
 
 module Crysterm
-  include Widgets # Just for convenience, to not have to write e.g. `Widget::Box`
+  include Widgets # avoids writing e.g. `Widget::Box`
 
   s = Window.new propagate_keys: false, always_propagate: [Tput::Key::CtrlQ]
 
@@ -25,8 +25,7 @@ module Crysterm
         # Display.global.input.resume # XXX no resume() on IO::FileDescriptor
         puts "Resuming stdin (not implemented)"
       when "end"
-        # This will happen on at_exit; not needed to do here.
-        # Well, can do both, but then at_exit handler will throw -EBADF
+        # Happens on at_exit already; doing it here too throws -EBADF in the at_exit handler.
         # Display.global.input.cooked!
         # Display.global.input.close
         puts "Ending stdin (not implemented)"

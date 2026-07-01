@@ -13,18 +13,17 @@ module Crysterm
     property normal : Style = Style.new
 
     # The non-`normal` states lazily fall back to `normal` when not explicitly
-    # set — but the fallback is *non-materializing*: reading e.g. `#focused`
-    # returns `normal` without storing it, so an unset state stays unset
-    # (`@focused == nil`).
+    # set — but non-materializing: reading e.g. `#focused` returns `normal`
+    # without storing it, so an unset state stays `nil`.
     #
     # This matters because the CSS cascade snapshots a widget's pristine styles
-    # with `#deep_dup` (reading the ivars directly) and folds stateless rules
-    # into `normal` plus only the states that are explicitly present. A getter
-    # that materialized `@focused = normal` on a mere read would turn that into a
-    # *distinct* `normal` copy in the snapshot, which the base fold then skips —
-    # so a widget rendered in that state (e.g. a focused `List`) would lose every
-    # stateless rule, such as its CSS border. The `own_*?` predicates rely on the
-    # same: an unread state must stay `nil`.
+    # with `#deep_dup` (reading ivars directly) and folds stateless rules into
+    # `normal` plus only the explicitly-present states. A getter that
+    # materialized `@focused = normal` on read would make the snapshot see a
+    # distinct `normal` copy, which the base fold then skips — so a widget
+    # rendered in that state (e.g. a focused `List`) would lose every stateless
+    # rule, like its CSS border. `own_*?` relies on the same: an unread state
+    # must stay `nil`.
     @blurred : Style?
     @focused : Style?
     @hovered : Style?
@@ -40,10 +39,10 @@ module Crysterm
       end
     {% end %}
 
-    # Whether a *distinct* selected style has been materialized, as opposed to
+    # Whether a distinct selected style has been materialized, as opposed to
     # lazily falling back to `normal`. Lets a list widget tell an explicit
     # selected-item style (from `selection-*`, a `:selected` rule, or code) apart
-    # from the normal-state fallback — only the former should color a selection.
+    # from the fallback — only the former should color a selection.
     def own_selected? : Bool
       !@selected.nil?
     end
@@ -78,12 +77,11 @@ module Crysterm
     def initialize(@normal = @normal, @blurred = @blurred, @focused = @focused, @hovered = @hovered, @selected = @selected, @disabled = @disabled)
     end
 
-    # A deep copy: `normal` plus each *explicitly-set* state gets its own
-    # independent `Style` (each `#dup` being itself deep — see `Style#dup`).
-    # Unset states are left lazy (defaulting to the copy's `normal`), and the
-    # ivars are read directly so reading them here does not *materialize* the
-    # lazy states on the original. Used by the CSS cascade to snapshot a widget's
-    # pristine, pre-CSS styles so every recompute starts clean.
+    # A deep copy: `normal` plus each explicitly-set state gets its own
+    # independent `Style` (`#dup` is itself deep — see `Style#dup`). Unset states
+    # stay lazy (defaulting to the copy's `normal`); ivars are read directly so
+    # this doesn't materialize lazy states on the original. Used by the CSS
+    # cascade to snapshot a widget's pristine, pre-CSS styles.
     def deep_dup : Styles
       copy = Styles.new(@normal.dup)
       @blurred.try { |style| copy.blurred = style.dup }

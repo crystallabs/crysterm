@@ -4,18 +4,17 @@ include Crysterm
 
 # Regression coverage for `Widget#with_inner_coords` (`widget_rendering.cr`).
 #
-# Widgets that paint their own interior on top of the standard render — a
-# `Gradient`, `ProgressBar`, `Slider`, `Dial`, `ScrollBar`, `Marquee`, … — drive
-# their `#render` through `with_inner_coords`, which insets the rendered
-# rectangle by the border and yields the *interior* to the block.
+# Widgets that paint their own interior (`Gradient`, `ProgressBar`, `Slider`,
+# `Dial`, `ScrollBar`, `Marquee`, ...) drive `#render` through
+# `with_inner_coords`, which insets the rendered rectangle by the border and
+# yields the interior to the block.
 #
-# That inset must NOT corrupt the widget's cached position: the object handed to
-# the block is the very `@lpos` `_render` just stored (and returns), and
-# `Border#adjust(pos)` shrinks it *in place*. The bug left `@lpos` collapsed to
-# the interior after every render, so until the next frame recomputed it, every
-# reader of the cached position (mouse hit-testing via `last_rendered_position`,
-# damage-tracking subtree bounds, `clear_last_rendered_position`) saw the widget
-# as border-smaller than it actually painted.
+# That inset must not corrupt the widget's cached position: the object handed
+# to the block is the same `@lpos` `_render` stored, and `Border#adjust(pos)`
+# shrinks it in place. The bug left `@lpos` collapsed to the interior after
+# every render, so readers of the cached position (hit-testing via
+# `last_rendered_position`, damage-tracking bounds, `clear_last_rendered_position`)
+# saw the widget as border-smaller than it actually painted.
 private def render_screen
   Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -34,8 +33,7 @@ describe "Widget#with_inner_coords cached position" do
     screen._render
 
     lp = g.last_rendered_position
-    # The cached position must span the whole widget (10x5), NOT the
-    # border-inset interior (8x3).
+    # Must span the whole widget (10x5), not the border-inset interior (8x3).
     lp.awidth.should eq 10
     lp.aheight.should eq 5
     (lp.xl - lp.xi).should eq 10

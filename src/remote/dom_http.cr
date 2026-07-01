@@ -4,17 +4,15 @@ require "json"
 module Crysterm
   # HTTP/JSON-RPC bridge — "a browser for the terminal".
   #
-  # Crysterm owns the TTY and renders; an out-of-process handler in *any*
-  # language drives the UI over HTTP. The bridge is the engine side:
+  # Crysterm owns the TTY and renders; an out-of-process handler in any
+  # language drives the UI over HTTP:
   #
   # * `GET /events` — a Server-Sent-Events stream. Each UI event is pushed as a
-  #   JSON-RPC notification (`{"jsonrpc":"2.0","method":"event","params":...}`),
-  #   read line by line (e.g. `curl -sN .../events`). A `: ping` comment is sent
-  #   periodically as a keep-alive / disconnect probe.
+  #   JSON-RPC notification (`{"jsonrpc":"2.0","method":"event","params":...}`).
+  #   A `: ping` comment is sent periodically as a keep-alive/disconnect probe.
   # * `POST /rpc` — a JSON-RPC request: a command (`setContent`, `addClass`,
   #   `focus`, `append`, `remove`, `quit`, ...) or a getter (`getContent`,
-  #   `query`, `snapshot`). HTTP request/response pairing gives correlation, so
-  #   getters are synchronous.
+  #   `query`, `snapshot`). HTTP request/response pairing makes getters synchronous.
   #
   # Selectors are full CSS (via `Window#resolve_selector`), so commands act on
   # every match. Declarative `on*` actions in the HTML run in-process (see
@@ -36,8 +34,8 @@ module Crysterm
       # re-applied across hot-reloads; `@event_wired` dedups per widget+event.
       @subscriptions = [] of Tuple(String, String)
       @event_wired = Set(String).new
-      # Dedups the declarative `on*` bindings across repeated `rewire`s (each
-      # `append`/`remove` re-runs it), so a binding is subscribed exactly once.
+      # Dedups declarative `on*` bindings across repeated `rewire`s (each
+      # `append`/`remove` re-runs it).
       @declarative_wired = Set(String).new
       @on_quit = -> { quit; nil }
     end
@@ -45,9 +43,9 @@ module Crysterm
     # Starts the HTTP server in a background fiber and wires the current tree's
     # events. Idempotent. Use `#run` for the full blocking lifecycle.
     #
-    # No-op unless remote control is enabled at runtime (see `Crysterm::Remote`)
-    # — so an app/binary built with `-Dremote` opens no port until explicitly
-    # enabled via `CRYSTERM_REMOTE` or `Crysterm::Remote.enabled = true`.
+    # No-op unless remote control is enabled at runtime (see `Crysterm::Remote`):
+    # a `-Dremote` build opens no port until enabled via `CRYSTERM_REMOTE` or
+    # `Crysterm::Remote.enabled = true`.
     def start : Nil
       return if @running
       return unless Crysterm::Remote.enabled?
@@ -77,22 +75,20 @@ module Crysterm
     # Replaces the whole layout from new HTML (hot-reload): clears the top-level
     # widgets, rebuilds from `html`, re-wires events, and repaints.
     #
-    # Mutates directly and rings `render` (rather than marshalling via `#on_ui`),
-    # mirroring the stylesheet hot-reload path: the fswatch callback runs outside
-    # the render fiber, so a blocking cross-fiber `receive` here would deadlock.
+    # Mutates directly and rings `render` (rather than marshalling via `#on_ui`):
+    # the fswatch callback runs outside the render fiber, so a blocking
+    # cross-fiber `receive` here would deadlock.
     def reload_layout(html : String) : Nil
-      # `#destroy` (not `#remove`) the old top-level widgets: a plain `Window#remove`
-      # only detaches the subtree — it does NOT stop animations or tear down
-      # backing processes. Any pulsing/keyframed widget (a ticker that never ends
-      # on its own) or `Widget::Terminal` (a live PTY) from the previous layout
-      # would otherwise keep its fiber/child-process running for the life of the
-      # process, leaking one set per hot-reload. `#destroy` recurses the subtree,
-      # stops every fade/tint/css-animation/transition, kills PTYs, and unlinks
-      # the widget from the window at the end (so `@window.children` ends empty,
-      # ready for the rebuild) — exactly the teardown a full layout swap wants.
+      # `#destroy` (not `#remove`): a plain `Window#remove` only detaches the
+      # subtree — it doesn't stop animations or tear down backing processes. A
+      # pulsing/keyframed widget or `Widget::Terminal` (live PTY) from the
+      # previous layout would otherwise leak its fiber/child-process on every
+      # hot-reload. `#destroy` recurses the subtree, stops animations, kills
+      # PTYs, and unlinks from the window (leaving `@window.children` empty for
+      # the rebuild).
       @window.children.dup.each(&.destroy)
       @event_wired.clear       # old widgets are gone; re-wire subscriptions for the new tree
-      @declarative_wired.clear # ...and their declarative `on*` bindings
+      @declarative_wired.clear # ...and their declarative on* bindings
       DOM.load html, @window
       rewire
       @window.render
@@ -102,17 +98,15 @@ module Crysterm
 
     private def rewire : Nil
       # Re-subscribe declarative + named action bindings for the current tree.
-      # A failing binding is reported to handlers as an `error` event rather than
-      # crashing the render/input fiber it fired on.
+      # A failing binding is reported to handlers as an `error` event rather
+      # than crashing the render/input fiber it fired on.
       DOM.each_binding(@window, @declarative_wired) do |widget, type, action, value|
         begin
-          # A built-in declarative verb runs in-process; everything else is a
-          # named action forwarded to the handler. `declarative?` is true for any
-          # colon-bearing action, but `run` only *handles* a recognized verb (and
-          # reports so via its return) — so a colon-bearing action whose verb is
-          # NOT built-in (e.g. `navigate:home`, `open:file.txt`) must still reach
-          # the handler. Without the `run` result check it was classified
-          # declarative, matched no verb, and was silently dropped.
+          # A built-in declarative verb runs in-process; everything else is
+          # forwarded to the handler. `declarative?` is true for any colon-bearing
+          # action, but `run` only handles a recognized verb — a colon-bearing
+          # action whose verb isn't built-in (e.g. `navigate:home`) must still
+          # reach the handler, hence checking `run`'s return, not just `declarative?`.
           unless DOM::Actions.declarative?(action) && DOM::Actions.run(action, widget, @window, @on_quit)
             publish_event type, widget, action, value: value
           end
@@ -131,9 +125,9 @@ module Crysterm
       end
     end
 
-    # Subscribes the widgets matching `selector` to `event`, forwarding each as a
-    # plain `event` notification (no action). Deduped per widget+event so it is
-    # safe to call repeatedly (e.g. on re-wire). Returns the match count.
+    # Subscribes the widgets matching `selector` to `event`, forwarding each as
+    # a plain `event` notification (no action). Deduped per widget+event so
+    # it's safe to call repeatedly (e.g. on re-wire). Returns the match count.
     private def wire_subscription(selector : String, event : String) : Int32
       matches = match selector
       matches.each do |widget|
@@ -219,8 +213,8 @@ module Crysterm
     end
 
     # Writes a JSON-RPC response envelope (`jsonrpc`/`id` header) to *context*,
-    # yielding the open object builder so the caller adds the `result` or `error`
-    # member. Shared by `#respond` and `#respond_error`.
+    # yielding the open object builder so the caller adds `result`/`error`.
+    # Shared by `#respond` and `#respond_error`.
     private def respond_envelope(context, id, &) : Nil
       context.response.content_type = "application/json"
       JSON.build(context.response) do |json|
@@ -253,9 +247,8 @@ module Crysterm
 
     class BadParams < Exception; end
 
-    # Returns a structured result. Mutating commands return the number of
-    # widgets they affected (so a handler can tell "matched nothing" from
-    # "done"); getters return their value.
+    # Mutating commands return the number of widgets affected (so a handler can
+    # tell "matched nothing" from "done"); getters return their value.
     private def dispatch(method : String, params : JSON::Any?) : Int32 | String | Array(String) | Nil
       selector = params.try(&.["selector"]?).try(&.as_s)
       case method
@@ -280,21 +273,19 @@ module Crysterm
       when "focus"
         each_match(selector, &.focus)
       when "remove"
-        # Detach from wherever the widget is attached — a nested widget from its
-        # parent, a top-level one (anything `DOM.load`/`append` places straight on
-        # the window) from the window; otherwise the command reports a match but
-        # leaves the widget on window. See `Widget#detach_from_tree`.
+        # Detach from wherever the widget is attached — nested from its parent,
+        # top-level from the window. See `Widget#detach_from_tree`.
         n = each_match(selector, &.detach_from_tree)
         on_ui { rewire } # re-wire on the render fiber, like every other mutation
         n
       when "append"
         html = string_param params, "html"
         built = on_ui do
-          # A selector that matches nothing must NOT silently fall back to a
-          # top-level append: that drops the fragment at the window root (not the
-          # intended parent) and still reports a nonzero count, so a handler can't
-          # tell "parent not found" from "appended". Return 0 instead. With no
-          # selector at all, a top-level append is the documented behavior.
+          # A selector matching nothing must not silently fall back to a
+          # top-level append (would drop the fragment at the window root and
+          # still report nonzero); return 0 instead so a handler can tell
+          # "parent not found" from "appended". No selector at all is documented
+          # as a top-level append.
           if selector
             if parent = match(selector).first?
               n = DOM.load(html, @window, parent).size

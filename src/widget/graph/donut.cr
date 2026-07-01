@@ -8,10 +8,9 @@ module Crysterm
   class Widget
     module Graph
       # A circular (ring) percentage indicator — blessed-contrib's `donut`,
-      # reframed Qt-style as a *radial* sibling of `ProgressBar`/`Gauge` (and akin
-      # to a single-slice QtCharts donut). The ring is drawn on a backend-agnostic
-      # `Graph::Canvas` (sixel/kitty where available, else braille); the center
-      # readout is terminal text.
+      # reframed as a *radial* sibling of `ProgressBar`/`Gauge`. The ring is
+      # drawn on a backend-agnostic `Graph::Canvas` (sixel/kitty where
+      # available, else braille); the center readout is terminal text.
       #
       # The authoritative state is `#value` within `[#minimum, #maximum]`
       # (defaults `0`..`100`, so a value reads as its percentage). The filled arc
@@ -39,10 +38,9 @@ module Crysterm
         property track_color : Int32
 
         # Whether to draw the unfilled remainder as a (dim) full ring. Off by
-        # default: the default `Glyph`/braille backend is one color per cell, so
-        # a track ring can't be color-distinguished from the fill and would just
-        # make every value look 100% full. Turn it on for the truecolor graphics
-        # backends (sixel/kitty), where the two colors read distinctly.
+        # default: the `Glyph`/braille backend is one color per cell, so a track
+        # ring can't be color-distinguished from the fill. Turn it on for
+        # truecolor backends (sixel/kitty), where the colors read distinctly.
         property? show_track : Bool
 
         # Ring thickness as a fraction of its radius (0..1).
@@ -128,9 +126,9 @@ module Crysterm
           return if ro <= 1
           ri = ro * (1.0 - @thickness.clamp(0.05, 1.0))
 
-          # Optional full track ring (only useful on truecolor backends), then
-          # the value arc. With the track off (default), the unfilled remainder
-          # is genuinely empty so the arc length reads as the percentage.
+          # Optional full track ring (truecolor backends only), then the value
+          # arc. With the track off (default), the unfilled remainder is empty
+          # so the arc length reads as the percentage.
           if show_track?
             p.pen = @track_color
             p.fill_ring cx, cy, ri, ro, 0.0, 360.0

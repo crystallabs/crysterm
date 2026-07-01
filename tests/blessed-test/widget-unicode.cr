@@ -2,13 +2,11 @@ require "../../src/crysterm"
 
 # Grapheme / full-Unicode demo.
 #
-# With `full_unicode: true` (on a Unicode-capable terminal) Crysterm measures
-# and lays out text by terminal **column width**: wide CJK and emoji occupy two
-# columns, combining marks stay in one cell, grapheme clusters are never split
-# across a wrap, and alignment/sizing are column-correct.
+# With `full_unicode: true` Crysterm lays out text by terminal column width:
+# wide CJK/emoji occupy two columns, combining marks stay in one cell,
+# grapheme clusters are never split across a wrap.
 #
-# Run it (optionally `COLORTERM=truecolor`) and resize the window to watch the
-# CJK paragraph re-wrap on column boundaries.
+# Resize to see the CJK paragraph re-wrap on column boundaries.
 module Crysterm
   s = Window.new full_unicode: true
 
@@ -20,7 +18,7 @@ module Crysterm
     style: Style.new(bg: "#202020", fg: "#ffffff"),
   )
 
-  # Mixed wide + narrow + emoji, centered — padding accounts for column width.
+  # Mixed wide + narrow + emoji, centered.
   Widget::Box.new(
     parent: s, top: 2, left: "center", width: 40, height: 3,
     content: "中文 + emoji 👍🚀🎉 + café",
@@ -28,7 +26,7 @@ module Crysterm
     style: Style.new(border: true, fg: "#80d0ff"),
   )
 
-  # A CJK paragraph that wraps on column boundaries (never splitting a glyph).
+  # CJK paragraph wraps on column boundaries (never splits a glyph).
   Widget::Box.new(
     parent: s, top: 6, left: "center", width: 24, height: 7,
     content: "日本語のテキストは全角文字なので、各文字は二桁分の幅を占めます。",
@@ -42,8 +40,7 @@ module Crysterm
     style: Style.new(border: true, fg: "#a0ffa0"),
   )
 
-  # Smileys and other usual emoji — each is a wide (two-column) grapheme, so the
-  # rows stay column-aligned under full_unicode.
+  # Each emoji is a wide (two-column) grapheme, so rows stay column-aligned.
   Widget::Box.new(
     parent: s, top: 18, left: "center", width: 40, height: 5,
     content: "😀 😃 😄 😁 😆 😅 😂 🤣 😉 😊\n" \
@@ -53,7 +50,7 @@ module Crysterm
     style: Style.new(border: true, fg: "#ffd0e0"),
   )
 
-  # Headless: render once and exit (so `-- --test-auto` does not block).
+  # Headless: render once and exit.
   if ARGV.includes? "--test-auto"
     s._render
     exit

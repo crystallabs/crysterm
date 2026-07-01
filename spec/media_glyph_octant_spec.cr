@@ -3,8 +3,8 @@ require "./spec_helper"
 # Focused specs for the `Widget::Media::Glyph::OCTANT` table: the mask -> glyph
 # mapping for the 2x4 sub-cell ("octant") render mode.
 #
-# A 2x4 cell encodes 8 sub-cells as a byte. The bit layout (see `paint_two_color`)
-# is LSB = top-left, then row-major:
+# A 2x4 cell encodes 8 sub-cells as a byte. Bit layout (see `paint_two_color`),
+# LSB = top-left, row-major:
 #     pos1=1   pos2=2
 #     pos3=4   pos4=8
 #     pos5=16  pos6=32
@@ -64,8 +64,8 @@ describe Crysterm::Widget::Media::Glyph do
     end
 
     it "maps the irregular Block Octants in their true Unicode order" do
-      # U+1CD00 is BLOCK OCTANT-3 (mask 4), NOT octant-1 -- the ordering is not
-      # a naive sequential mask layout.
+      # U+1CD00 is BLOCK OCTANT-3 (mask 4), not octant-1: not a naive
+      # sequential mask layout.
       OCTANT[mask(3)].should eq '\u{1CD00}'          # BLOCK OCTANT-3
       OCTANT[mask(2, 3)].should eq '\u{1CD01}'       # BLOCK OCTANT-23
       OCTANT[mask(1, 2, 3)].should eq '\u{1CD02}'    # BLOCK OCTANT-123
@@ -77,9 +77,8 @@ describe Crysterm::Widget::Media::Glyph do
     end
 
     it "never assigns a codepoint past the end of the Block Octant range" do
-      # The old table walked U+1CD00 sequentially for 250 masks, overrunning the
-      # 230-codepoint block (ending U+1CDE5) into unrelated symbols. No glyph may
-      # land in U+1CDE6..U+1CDFF.
+      # Old table walked U+1CD00 sequentially for 250 masks, overrunning the
+      # 230-codepoint block (ending U+1CDE5). No glyph may land in U+1CDE6..U+1CDFF.
       OCTANT.count { |c| (0x1CDE6..0x1CDFF).includes?(c.ord) }.should eq 0
     end
   end

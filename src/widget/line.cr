@@ -13,13 +13,12 @@ module Crysterm
       def initialize(@orientation = @orientation, char = nil, size = nil, **box)
         super **box
 
-        # `size` is the line's *length* (its `width` when horizontal, its `height`
-        # when vertical). Apply it when explicitly given; otherwise default a line
-        # that was given no length to fill its parent (`100%`). Previously `size`
-        # defaulted to `"100%"` and was applied unconditionally, so it silently
-        # clobbered an explicit `width:`/`height:` passed through `**box` — e.g.
-        # `HLine.new(width: 40)` (or the `width: 40` in the hline example) ended up
-        # `100%`-wide, and `VLine.new(height: 16)` `100%`-tall, ignoring the value.
+        # `size` is the line's *length* (`width` when horizontal, `height` when
+        # vertical). Apply it when explicitly given; otherwise default to filling
+        # the parent (`100%`). Previously `size` defaulted to `"100%"` and was
+        # applied unconditionally, silently clobbering an explicit `width:`/
+        # `height:` passed through `**box` (e.g. `HLine.new(width: 40)` ended up
+        # `100%`-wide).
         if size
           self.line_size = size
         elsif (@orientation.horizontal? ? @width : @height).nil?
@@ -31,12 +30,11 @@ module Crysterm
         style.fill_char = char
       end
 
-      # In addition to any border (handled by `super`), a *horizontal* line
-      # emits a horizontal run of line-drawing characters across its row(s), so
-      # those rows must participate in docking. A *vertical* line emits only
-      # `│` down a single column; it needs no stop of its own, as it is docked
-      # whenever a horizontal line/border registers the crossing row.
-      # See `Crysterm::Docking`.
+      # Beyond any border (handled by `super`), a *horizontal* line emits a run
+      # of line-drawing characters across its row(s), so those rows must
+      # participate in docking. A *vertical* line emits only `│` down a single
+      # column and needs no stop of its own — it's docked whenever a horizontal
+      # line/border registers the crossing row. See `Crysterm::Docking`.
       def register_dock_stops(coords)
         super
 
@@ -54,7 +52,7 @@ module Crysterm
         when Tput::Orientation::Vertical
           self.height = size
         else
-          # Almost useless failsafe case; just prevents having nothing rendering on window.
+          # Failsafe case; prevents nothing rendering at all.
           self.width = size
           self.height = size
         end

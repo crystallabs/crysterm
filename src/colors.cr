@@ -19,14 +19,11 @@ module Crysterm
 
     # Allocation-free cached form of `convert` for color *strings*.
     #
-    # Colors are now stored natively (as `0xRRGGBB` ints), so the render hot
-    # path (`sattr`) no longer parses strings per frame. This memoizer remains
-    # for the cases that still resolve a *string* color repeatedly — e.g. an
-    # effect whose configurable color is supplied as a string — since
     # `TermColors#convert(String)` allocates (a `gsub` to strip separators plus a
-    # substring in `hex_to_rgb`). The set of distinct color strings an
-    # application uses is small and bounded, so memoizing turns that garbage into
-    # an allocation-free hash lookup.
+    # substring in `hex_to_rgb`), which still matters for cases that resolve the
+    # same *string* color repeatedly (e.g. an effect's configurable color). The
+    # set of distinct color strings is small and bounded, so memoizing turns that
+    # allocation into a hash lookup.
     #
     # The non-`String` overload covers `nil`/other specs; those resolve cheaply
     # through `convert` and are not cached.
@@ -41,10 +38,9 @@ module Crysterm
 
     # `TermColors#convert` *raises* on a malformed spec (e.g. a stray `#2a79a3,`
     # token left by an unsupported Qt `qlineargradient(...)` value when the CSS
-    # parser splits the declaration). A stylesheet must never crash the renderer,
-    # so treat anything unparseable as the `-1` "unknown" sentinel the callers
-    # already handle (the token is then skipped, letting a later real color in the
-    # same value win — so a gradient still yields a sensible solid fallback).
+    # parser splits the declaration). Treat anything unparseable as the `-1`
+    # "unknown" sentinel so a stylesheet can't crash the renderer; callers skip
+    # the token, letting a later real color in the same value win.
     private def self.safe_convert(color) : Int32
       convert(color).to_i32
     rescue ArgumentError
@@ -53,9 +49,8 @@ module Crysterm
 
     # Neutral RGB values substituted for a "default" color when it has to be
     # mixed with a concrete one (the real terminal default is unknown to us).
-    # The typed `Config` accessors read a cached handle, so this stays
-    # runtime-tunable yet costs no hash lookup per blend — and blending is on
-    # the per-cell compositing path.
+    # The typed `Config` accessors read a cached handle, so this costs no hash
+    # lookup per blend on the per-cell compositing path.
     def self.default_fg_rgb : Int32
       Crysterm::Config.colors_default_fg
     end
@@ -80,12 +75,10 @@ module Crysterm
 
     # Tints the fg and bg of `attr` toward `color` by `alpha` (`0.0` = unchanged,
     # `1.0` = fully `color`) — the animatable color-overlay (`style.tint`)
-    # counterpart of the shadow blend. Where the shadow always darkens toward
-    # black and leaves "default" colors untouched, a tint resolves a default
-    # field to the configured terminal default (`default_fg_rgb`/`default_bg_rgb`)
-    # so the overlay is visible there too — unless that default is itself unknown
-    # (`-1`), in which case the field is left as-is. An unknown tint `color`
-    # (`-1`) is likewise a no-op: `attr` is returned unchanged.
+    # counterpart of the shadow blend. Unlike the shadow, which leaves "default"
+    # fields untouched, a tint resolves a default field to the configured
+    # terminal default so the overlay is visible there too, unless that default
+    # is itself unknown (`-1`). An unknown tint `color` (`-1`) is a no-op.
     def self.tint(attr : Int64, color : Int32, alpha : Float | Int = 0.5) : Int64
       fg = tint_field(Attr.fg(attr), color, alpha, true)
       bg = tint_field(Attr.bg(attr), color, alpha, false)
@@ -94,14 +87,10 @@ module Crysterm
 
     # Tints a single packed color field toward `color`. Returns a packed field.
     def self.tint_field(field : Int64, color : Int32, alpha, fg : Bool) : Int64
-      # An unknown tint color (`-1`) — e.g. a `style.tint` set from a color string
-      # that didn't parse, which `Style#tint=` stores as the `-1` sentinel
-      # (`convert_cached`'s "unknown" result) — has nothing meaningful to tint
-      # toward, so leave the field unchanged. Without this, `mix` reads `-1`'s
-      # bits as `0xFFFFFF` and washes the cell toward white instead. The CSS
-      # `tint` parser already drops a `-1` color; this makes the programmatic
-      # path (`Widget#tint_to`, a raw `style.tint=`) just as safe. Mirrors how
-      # `#blend_field` leaves a default/unknown field untouched.
+      # An unknown tint color (`-1`, e.g. an unparsed `style.tint` string stored
+      # by `Style#tint=`) has nothing to tint toward; leave the field unchanged.
+      # Otherwise `mix` would read `-1`'s bits as `0xFFFFFF` and wash toward
+      # white. Mirrors how `#blend_field` leaves a default/unknown field alone.
       return field if color == -1
       base = Attr.default?(field) ? (fg ? default_fg_rgb : default_bg_rgb) : field.to_i32
       return field if base == -1 # unknown terminal default: nothing to tint toward
@@ -115,7 +104,7 @@ module Crysterm
       if other.nil?
         # Shadow: composite the cell color over black, with `alpha` as the
         # shadow's opacity (1.0 = fully black, 0.0 = unchanged). A default color
-        # can't be darkened (we don't know its value), so leave it as-is.
+        # can't be darkened (unknown value), so leave it as-is.
         return field if Attr.default? field
         Attr.pack_color(mix(0x000000, field.to_i32, alpha))
       else
@@ -128,8 +117,8 @@ module Crysterm
     end
 
     # Folds *top* over *under* per *top*'s per-channel `Attr::Alpha` modes — the
-    # per-cell operation a plane compositor (Step 6) runs bottom-to-top. The
-    # result is a flattened, `Opaque` attr carrying *top*'s flags. Each channel:
+    # per-cell operation a plane compositor runs bottom-to-top. The result is a
+    # flattened, `Opaque` attr carrying *top*'s flags. Each channel:
     #
     # * `Opaque`       → *top*'s color (the default; identical to a plain overwrite)
     # * `Transparent`  → *under*'s color (*top* contributes nothing)
@@ -147,12 +136,10 @@ module Crysterm
 
     @[AlwaysInline]
     def self.composite(top : Int64, under : Int64) : Int64
-      # Fast path for the overwhelmingly common fully-opaque overlay cell (a
-      # normal solid popup/box plane): when both channels are `Opaque` (their
-      # alpha-mode bits are all clear), the fold is just `top` with its
-      # alpha/reserved bits cleared — the result is always `Opaque`, and `pack`
-      # below would otherwise reconstruct bits 0..56 of `top` unchanged. One
-      # mask test then replaces both `composite_field`s and the `pack`.
+      # Fast path for the common fully-opaque overlay cell (a normal solid
+      # popup/box plane): when both channels are `Opaque`, the fold is just
+      # `top` with its alpha/reserved bits cleared. One mask test then replaces
+      # both `composite_field`s and the `pack`.
       return top & COMPOSITE_KEEP_MASK if (top & COMPOSITE_ALPHA_MASK) == 0
       fg = composite_field(Attr.fg_alpha(top), Attr.fg(top), Attr.fg(under), true)
       bg = composite_field(Attr.bg_alpha(top), Attr.bg(top), Attr.bg(under), false)
@@ -182,23 +169,21 @@ module Crysterm
     end
 
     # NOTE: `hsv_i` (HSV -> packed `0xRRGGBB`) and `hsv` (HSV -> `#rrggbb`
-    # string) now live in the `TermColors` shard (pure color-space math) and are
-    # reached through `extend ::TermColors` above, so `Colors.hsv_i`/`Colors.hsv`
-    # keep working unchanged.
+    # string) live in the `TermColors` shard and are reached through
+    # `extend ::TermColors` above.
 
     # Allocation-free counterpart of `TermColors#sgr_color`: writes the SGR
     # parameter fragment for one color straight into `io` instead of building
     # and returning a fresh `String`. The draw loop emits a color on every
-    # attribute change, so the per-call `String` (and its `#{...}`
-    # interpolations) is pure garbage; integers `to_s` directly into the IO with
-    # no intermediate allocation.
+    # attribute change, so integers `to_s` directly into the IO with no
+    # intermediate allocation.
     #
     # Mirrors `sgr_color` exactly: `color` is a native color (`-1` default, or
     # `0xRRGGBB`); `fg` selects foreground vs background; the encoding is the
     # richest the terminal's `colors` count allows (TrueColor / 256 / 16 / 8).
     def self.sgr_color_to(io : IO, color : Int, fg : Bool, colors : Int) : Nil
       # A "default" color, or a monochrome target (`colors < 2`, e.g. NO_COLOR /
-      # colors.depth=none): emit the terminal's own default rather than mapping
+      # colors.depth=none): emit the terminal's own default instead of mapping
       # to any palette entry.
       if color == -1 || colors < 2
         io << (fg ? "39" : "49")
@@ -231,9 +216,9 @@ module Crysterm
   # set of style flags (bold/underline/blink/reverse/invisible) into a single
   # integer that every cell in the window buffer stores.
   #
-  # Because each color is now a full 24-bit RGB value (plus a "default" marker),
-  # two colors no longer fit alongside the flags in an `Int32`; the packed
-  # `attr` is an **`Int64`** laid out as:
+  # Each color is a full 24-bit RGB value (plus a "default" marker), so two
+  # colors don't fit alongside the flags in an `Int32`; the packed `attr` is an
+  # **`Int64`** laid out as:
   #
   # ```text
   #   bits  0..24  : bg        (25 bits: 24-bit RGB, or COLOR_DEFAULT)
@@ -251,8 +236,7 @@ module Crysterm
   # Each channel also carries an `Alpha` *mode* (à la notcurses) saying how it
   # combines with the cell beneath it when planes are composited (`Opaque`,
   # `Blend`, `Transparent`, `HighContrast`; see `Colors.composite`). `Opaque` is
-  # value `0`, so a zero-initialized attr is `Opaque`/`Opaque` — the old
-  # always-replace behavior — and existing cells are unaffected.
+  # value `0`, so a zero-initialized attr is `Opaque`/`Opaque` (always-replace).
   #
   # This module is the single source of truth for the bit layout; nothing else
   # should hard-code shifts or masks.
@@ -284,10 +268,10 @@ module Crysterm
     ITALIC    = 32
     STRIKE    = 64 # strikethrough (SGR 9)
 
-    # Width of the style-flags field (bits 50..56). The alpha-mode fields are
-    # placed directly above it (`FG_ALPHA_SHIFT = FLAGS_SHIFT + FLAGS_BITS`), so
-    # widening this automatically shifts them up — the 7 flags now occupy bits
-    # 50..56, fg/bg alpha 57..60, leaving 61..63 free.
+    # Width of the style-flags field (bits 50..56). The alpha-mode fields sit
+    # directly above it (`FG_ALPHA_SHIFT = FLAGS_SHIFT + FLAGS_BITS`), so
+    # widening this shifts them up too: 7 flags occupy bits 50..56, fg/bg alpha
+    # 57..60, leaving 61..63 free.
     FLAGS_BITS = 7_i64
     FLAGS_MASK = (1_i64 << FLAGS_BITS) - 1 # 0x7F
 

@@ -52,8 +52,8 @@ module Crysterm
       def initialize(auto_next = nil, **box)
         super **box
 
-        # A form does not consume keys itself; it only reacts to keys that
-        # bubble up from its focused descendants (see `Window#_listen_keys`).
+        # A form doesn't consume keys itself; it only reacts to keys bubbling
+        # up from focused descendants (see `Window#_listen_keys`).
         @ignore_keys = true
 
         auto_next.try { |v| @auto_next = v }
@@ -120,12 +120,11 @@ module Crysterm
         return if list.empty?
         return unless list.any? &.style.visible?
 
-        # Start from the selected child if it is still part of the form,
-        # otherwise from just before the start (so +1 lands on the first child).
+        # Start from the selected child if still part of the form, otherwise
+        # just before the start (so +1 lands on the first child).
         i = (sel = @selected) ? (list.index(sel) || -1) : -1
 
         size = list.size
-        # Step at least once, then keep stepping over invisible children.
         size.times do
           i = (i + direction) % size
           candidate = list[i]
@@ -179,11 +178,10 @@ module Crysterm
       # Collects the value of every input child into a `name => value` `Hash`,
       # stores it in `#submission`, emits `Event::SubmitData`, and returns it.
       #
-      # A child contributes a value only if it is a recognized input type (text
-      # area/box, checkbox, radio button, list and its subclasses). The key is
-      # the child's `#name`, falling back to its widget type. If several inputs
-      # share a name, their values are joined with newlines (mirroring how
-      # Blessed groups same-named fields).
+      # A child contributes a value only if it is a recognized input type. The
+      # key is the child's `#name`, falling back to its widget type. Inputs
+      # sharing a name have their values joined with newlines (mirroring
+      # Blessed's same-named field grouping).
       def submit
         data = {} of String => String
         collect_values self, data
@@ -207,14 +205,13 @@ module Crysterm
       # The submitted value of a single widget, or `nil` if it is not an input.
       private def field_value(el : Widget) : String?
         case el
-        # Match the shared `Mixin::TextEditing` rather than `PlainTextEdit`
-        # alone: `LineEdit` is a *sibling* (`< Input`), not a subclass, and only
-        # shares the text buffer through this mixin. Keying off `PlainTextEdit`
-        # silently dropped every `LineEdit` field's value on submit (the form's
-        # primary use case — see the class docs' example).
+        # Match `Mixin::TextEditing`, not `PlainTextEdit`: `LineEdit` is a
+        # sibling (`< Input`), not a subclass, and only shares the buffer via
+        # this mixin. Keying off `PlainTextEdit` alone silently dropped
+        # `LineEdit` values on submit.
         when Mixin::TextEditing then el.value
-          # `RadioButton`/`CheckBox` are siblings (both `< AbstractButton`), so the
-          # radio arm must be listed explicitly — `when CheckBox` does not match it.
+          # `RadioButton`/`CheckBox` are siblings (both `< AbstractButton`);
+          # `when CheckBox` alone wouldn't match `RadioButton`.
         when RadioButton then el.checked?.to_s
         when CheckBox    then el.checked?.to_s
         when List        then el.value
@@ -239,9 +236,8 @@ module Crysterm
         case el
         when FileManager then el.refresh
         when List        then el.selekt 0
-          # As in `#field_value`: clear every text field via the shared
-          # `Mixin::TextEditing`, so a `LineEdit` (an `Input`, not a
-          # `PlainTextEdit`) is reset too.
+          # As in `#field_value`: clear via `Mixin::TextEditing` so `LineEdit`
+          # (an `Input`, not a `PlainTextEdit`) is reset too.
         when Mixin::TextEditing then el.clear_value
           # `RadioButton` is a sibling of `CheckBox`, so it needs its own arm.
         when RadioButton then el.uncheck

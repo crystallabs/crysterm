@@ -11,17 +11,17 @@ module Crysterm
     # Hides widget from window
     def hide
       return if !self.state_style.visible?
-      # No need to erase the old footprint here: `Window#_render` clears the
-      # whole cell buffer before each frame, so a now-hidden widget simply
-      # stops repainting and its old cells are gone on the next render.
+      # No need to erase the old footprint: `Window#_render` clears the whole
+      # cell buffer before each frame, so a hidden widget's old cells are gone
+      # on the next render.
       set_visible false
       mark_dirty
       emit Crysterm::Event::Hide
 
       window?.try do |s|
-        # Rewind focus out of this subtree when it (or any descendant) holds
-        # focus: hiding a container must not leave an invisible-yet-focused
-        # child still receiving keyboard input.
+        # Rewind focus out of this subtree when it (or a descendant) holds
+        # focus: a hidden container must not leave a focused child still
+        # receiving keyboard input.
         if (f = s.focused) && (f == self || has_descendant? f)
           s.rewind_focus
         end
@@ -29,10 +29,9 @@ module Crysterm
     end
 
     # Sets visibility on the active style and, when CSS has taken over styling
-    # (`css_styled?`), also persists it onto the inline `@style`. Without that,
-    # the change would land only on the computed per-state style and be discarded
-    # by the next cascade (which rebuilds from the pristine base + inline fold) —
-    # making the widget reappear/disappear on any restyle.
+    # (`css_styled?`), also persists it onto the inline `@style`. Otherwise the
+    # change would land only on the computed per-state style and be discarded by
+    # the next cascade, making the widget reappear/disappear on any restyle.
     private def set_visible(value : Bool) : Nil
       # Write to the *raw* backing style (see `Mixin::Style#state_style`): at the
       # unstyled floor `#style` returns a transient reverse-video `#dup` for a
@@ -44,10 +43,10 @@ module Crysterm
 
     # Mirrors a just-applied state-style change onto the inline `@style`, but
     # only when CSS has taken over styling (`css_styled?`) — otherwise the next
-    # cascade, which rebuilds from the pristine base + inline fold, would discard
-    # it. A no-op when not CSS-styled. The active-style write itself stays at the
-    # call site, since callers deliberately differ on whether they target `#style`
-    # or the raw `#state_style` (see `#set_visible` vs `#set_alpha`).
+    # cascade would discard it. No-op when not CSS-styled. The active-style write
+    # itself stays at the call site, since callers deliberately differ on
+    # targeting `#style` vs the raw `#state_style` (see `#set_visible` vs
+    # `#set_alpha`).
     protected def persist_inline_style(& : ::Crysterm::Style ->) : Nil
       return unless css_styled?
       yield (@style ||= ::Crysterm::Style.new)
@@ -61,7 +60,7 @@ module Crysterm
     # Returns whether widget is visible. Currently does not check if all parents are also visible.
     def visible?
       self.state_style.visible?
-      # This version also checks the complete chain of widget parents:
+      # Alternative that also checks the full ancestor chain:
       # visible = true
       # self_and_each_ancestor { |a| visible &&= a.style.visible? }
       # visible

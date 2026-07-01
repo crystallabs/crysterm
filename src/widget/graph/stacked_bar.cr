@@ -112,9 +112,8 @@ module Crysterm
           # For each shown bar, the per-row (glyph, color) from top to bottom.
           columns = shown.map { |bar| column(bar, plot_rows, top) }
 
-          # Optional legend row + `plot_rows` plot lines + optional label row;
-          # reserve up front so the per-frame collection (rebuilt every animated
-          # frame) doesn't realloc its backing as it grows.
+          # Reserve up front (legend + plot_rows + label rows) so the per-frame
+          # collection doesn't realloc its backing as it grows.
           lines = Array(String).new(legend_row + plot_rows + label_row)
 
           # Legend along the top.
@@ -127,9 +126,8 @@ module Crysterm
             lines << plot_row(n) { |i| columns[i][r] }
           end
 
-          # Category captions along the bottom. Only the tail bars are shown when
-          # the values overflow the width (`@values.last(cap)`), so the labels
-          # follow the same offset — otherwise they mislabel the visible bars.
+          # Category captions along the bottom, offset to match the tail bars
+          # shown when values overflow the width (`@values.last(cap)`).
           if label_row == 1
             names = lbls.not_nil! # ameba:disable Lint/NotNil
             offset = @values.size - n
@@ -146,11 +144,11 @@ module Crysterm
 
         # Computes the per-row `{glyph, color}` for one bar (index 0 = top row).
         #
-        # The bar's *total* height is measured in eighth-cells, so the very top
-        # of the stack lands on a sub-cell block glyph (`▁`..`█`) — smooth, like
-        # `Bar`. Segment boundaries *within* the stack snap to whole cells, since
-        # a single cell can't show two colors; only the topmost segment keeps the
-        # sub-cell partial. Each cell is therefore wholly one segment's color.
+        # The bar's *total* height is measured in eighth-cells, so the top of
+        # the stack lands on a sub-cell block glyph (`▁`..`█`) — smooth, like
+        # `Bar`. Segment boundaries *within* the stack snap to whole cells
+        # (a single cell can't show two colors); only the topmost segment keeps
+        # the sub-cell partial.
         private def column(bar : Array(Float64), plot_rows : Int32, top : Float64) : Array({Char, String?})
           blank = {' ', nil.as(String?)}
           col = Array({Char, String?}).new(plot_rows, blank)
@@ -202,9 +200,8 @@ module Crysterm
             width = 0
             names.each_with_index do |name, level|
               entry = "#{Scale::FULL} #{name}"
-              # +1 for the separating space between entries (must be in the
-              # overflow check too, not just the running width, or a too-wide
-              # entry overruns the legend by that separator).
+              # +1 for the separating space; must be in the overflow check
+              # too, or a too-wide entry overruns the legend by that separator.
               sep = level > 0 ? 1 : 0
               break if width + sep + entry.size > cols
               io << ' ' if level > 0

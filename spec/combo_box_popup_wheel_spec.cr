@@ -2,17 +2,15 @@ require "./spec_helper"
 
 include Crysterm
 
-# Wheeling over an OPEN combo drop-down must scroll/move through the entries and
-# keep the list open — it must NOT dismiss it.
+# Wheeling over an OPEN combo drop-down must scroll through entries and keep
+# the list open, not dismiss it.
 #
-# The regression was specific to an *editable* combo: it keeps keyboard focus
-# while open (so typing keeps filtering), but the screen's wheel handling
-# implicitly focuses the scrollable list under the pointer
-# (`Window#dispatch_mouse` → `focusable_at`). That stole focus from the combo,
-# and the combo's blur-closes-the-popup tidy-up then dismissed the drop-down
-# mid-wheel. The fix keeps the popup off the wheel-focus path for editable
-# combos (`#focus_on_click = false`) and hardens the blur handler to ignore a
-# focus that merely moved *into* the popup.
+# Regression was specific to an *editable* combo: it keeps keyboard focus while
+# open, but the screen's wheel handling implicitly focuses the scrollable list
+# under the pointer (`Window#dispatch_mouse` -> `focusable_at`), stealing focus
+# from the combo and triggering its blur-closes-the-popup cleanup mid-wheel.
+# Fix: exclude the popup from the wheel-focus path for editable combos
+# (`#focus_on_click = false`) and ignore blur that merely moves into the popup.
 
 private def cbw_screen
   Crysterm::Window.new(
@@ -48,14 +46,12 @@ describe "ComboBox popup wheel scrolling" do
     cb.open?.should be_true
     before = pop.selected
 
-    # Wheel down over the list: it must scroll the entries (selection moves
-    # forward) AND stay open — not close without selecting anything.
+    # Wheel down: must scroll entries (selection moves forward) and stay open.
     cbw_wheel_over s, pop, 1
     cb.open?.should be_true
     pop.selected.should be > before
 
-    # And focus must remain on the editable combo (so typing keeps filtering),
-    # not get stolen by the list.
+    # Focus must remain on the editable combo, not get stolen by the list.
     s.focused.should eq cb
   end
 

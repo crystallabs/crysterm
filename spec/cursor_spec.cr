@@ -4,17 +4,17 @@ include Crysterm
 
 # Artificial cursor rendering: `Window#_artificial_cursor_attr` is the Crysterm
 # equivalent of blessed's `Window.prototype._cursorAttr`
-# (blessed `lib/widgets/screen.js`). It computes the cell attribute (and an
-# optional override glyph) used when `cursor.artificial?` is true and the cursor
-# is painted into the rendered buffer by `Window#draw`.
+# (blessed `lib/widgets/screen.js`). Computes the cell attribute (and optional
+# override glyph) used when `cursor.artificial?` is true and the cursor is
+# painted into the rendered buffer by `Window#draw`.
 #
-# A white-ish foreground (palette index 7) is forced for the predefined shapes,
-# matching blessed (`attr |= 7 << 9`).
+# A white-ish foreground (palette index 7) is forced for the predefined
+# shapes, matching blessed (`attr |= 7 << 9`).
 WHITE_FG = Attr.pack_color(Colors.palette_to_rgb(7))
 
-# A `Window` backed by in-memory IOs, so constructing one neither writes the
-# `enter` escape sequences to the real test terminal nor reads from it. We never
-# call `exec`, so no terminal I/O loop is started.
+# A `Window` backed by in-memory IOs, so constructing one neither writes
+# `enter` escape sequences to the real test terminal nor reads from it. We
+# never call `exec`, so no terminal I/O loop is started.
 def mem_screen
   Crysterm::Window.new(
     input: IO::Memory.new,
@@ -42,7 +42,7 @@ describe "Window#_artificial_cursor_attr" do
       attr, ch = cursor_attr Tput::Namespace::CursorShape::Line
       ch.should eq '│'
       Attr.fg(attr).should eq WHITE_FG
-      # No flags are added for the line cursor.
+      # No flags added for the line cursor.
       (Attr.flags(attr) & Attr::UNDERLINE).should eq 0
       (Attr.flags(attr) & Attr::REVERSE).should eq 0
     end
@@ -61,8 +61,8 @@ describe "Window#_artificial_cursor_attr" do
     it "sets the reverse flag and inverts the cell (no forced white foreground)" do
       attr, ch = cursor_attr Tput::Namespace::CursorShape::Block
       ch.should be_nil
-      # A reverse-video block reads on any background, so it keeps the cell's own
-      # foreground and just inverts — rather than forcing a white foreground.
+      # A reverse-video block reads on any background, so it keeps the cell's
+      # own foreground and just inverts, rather than forcing white.
       (Attr.flags(attr) & Attr::REVERSE).should_not eq 0
       Attr.fg(attr).should eq Attr.fg(0_i64)
       Attr.fg(attr).should_not eq WHITE_FG
@@ -70,8 +70,8 @@ describe "Window#_artificial_cursor_attr" do
   end
 
   describe "color overrides" do
-    # blessed's `cursor.color` recolors the glyph (the foreground) for every
-    # shape; the forced white is only a default. Here a line cursor is recolored.
+    # blessed's `cursor.color` recolors the glyph for every shape; forced
+    # white is only a default. Here a line cursor is recolored.
     it "applies cursor.style.fg into the foreground field, overriding the default white" do
       attr, ch = cursor_attr(Tput::Namespace::CursorShape::Line) do |c|
         c.style.fg = "#ff0000"
@@ -96,16 +96,16 @@ describe "Window#_artificial_cursor_attr" do
       # A native int is stored as-is...
       screen.cursor_color 0xff8800
       screen.cursor.style.fg.should eq 0xff8800
-      # ...and a back-compat color string is parsed to its native int.
+      # ...and a back-compat color string parses to its native int.
       screen.cursor_color "red"
       screen.cursor.style.fg.should eq Crysterm::Colors.convert("red")
     end
   end
 
-  # `Window#apply_cursor` is the single decision point: it routes a cursor
-  # request to either the hardware cursor or the artificial (Crysterm-drawn) one,
-  # based on the terminal's probed/static capabilities
-  # (`Tput::Features#cursor_style?`). One screen is reused across the cases, with
+  # `Window#apply_cursor` is the single decision point: routes a cursor
+  # request to either the hardware cursor or the artificial (Crysterm-drawn)
+  # one, based on the terminal's probed/static capabilities
+  # (`Tput::Features#cursor_style?`). One screen is reused across cases, with
   # `cursor.artificial` reset between them.
   describe "#apply_cursor hardware vs artificial decision" do
     it "chooses hardware or artificial based on shape and terminal support" do
@@ -126,21 +126,20 @@ describe "Window#_artificial_cursor_attr" do
 
       # A styled shape stays on the hardware cursor when supported...
       reset.call(true, Tput::Namespace::CursorShape::Line, false).should be_false
-      # ...and falls back to the artificial cursor when not.
+      # ...and falls back to artificial when not.
       reset.call(false, Tput::Namespace::CursorShape::Line, false).should be_true
 
-      # The default steady block needs no styling, so it stays on the hardware
-      # cursor regardless of support.
+      # The default steady block needs no styling, so stays on hardware
+      # regardless of support.
       reset.call(false, Tput::Namespace::CursorShape::Block, false).should be_false
     end
   end
 
-  # `None` is the custom cursor (blessed's "object shape"): the cursor is drawn
-  # from its own `style` rather than as a predefined shape. This used to be
-  # unreachable: `CursorShape` was a `@[Flags]` enum with `Block = 0`, so the
-  # auto-generated `None` was also `0` (`Block == None`) and `shape.block?` was
-  # always true, swallowing the custom branch. `None` and `Block` now have
-  # distinct values, so the branch is reachable.
+  # `None` is the custom cursor (blessed's "object shape"): drawn from its own
+  # `style` rather than a predefined shape. Previously unreachable:
+  # `CursorShape` was a `@[Flags]` enum with `Block = 0`, so auto-generated
+  # `None` was also `0` and `shape.block?` was always true, swallowing the
+  # custom branch. `None` and `Block` now have distinct values.
   describe "None / custom shape" do
     it "is distinct from Block" do
       Tput::Namespace::CursorShape::None.should_not eq Tput::Namespace::CursorShape::Block

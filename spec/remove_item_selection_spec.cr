@@ -13,12 +13,11 @@ private def riss_screen
 end
 
 # `ItemView#remove_item` must keep the single-selection cursor on the same
-# logical item when an *earlier* row is removed — the rows below the deletion
-# (including the selected one) all shift down by one, so the cursor has to slide
-# with them. This mirrors the multi-selection-index alignment that the same
-# method already performs. Before the fix `@selected` stayed put and silently
-# pointed at a different item, or — when the selection was the last row — at a
-# phantom index past the end (nothing rendered selected, `@value` stale).
+# logical item when an *earlier* row is removed — rows below the deletion
+# (including the selected one) shift down by one, so the cursor must slide
+# with them. Mirrors the multi-selection-index alignment the method already
+# performs. Before the fix `@selected` stayed put, pointing at the wrong item
+# or (if selection was the last row) a phantom index past the end.
 describe "ItemView#remove_item single-selection cursor alignment" do
   it "slides the cursor down when an earlier row is removed" do
     s = riss_screen

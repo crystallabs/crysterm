@@ -27,8 +27,8 @@ module Crysterm
         super **box
 
         # Dialogs start hidden, like Blessed's `options.hidden = true`: `ask` /
-        # `ask_choices` call `show` to reveal the dialog. Without this it renders
-        # on the first frame and stacks with any other dialog on the window.
+        # `ask_choices` call `show` to reveal the dialog. Without this it
+        # renders on the first frame and stacks with other dialogs on window.
         hide
 
         # Custom button labels (Qt lets you relabel the standard buttons).
@@ -54,14 +54,14 @@ module Crysterm
         show
 
         # Declare the listener handles up front so `done` can close over them;
-        # they are assigned below, before any of these events can fire.
+        # assigned below, before any of these events can fire.
         ev_keys = nil
         ev_ok = nil
         ev_cancel = nil
 
         # `done` must be defined *before* the handlers that call it are
-        # registered. Previously it was `uninitialized` and only assigned after
-        # registration, so a key/press arriving in between would have invoked an
+        # registered — previously `uninitialized` and assigned after
+        # registration, so a key/press arriving in between invoked an
         # uninitialized Proc (crash).
         done = ->(err : String?, data : Bool) do
           teardown_ok_cancel ev_ok, ev_cancel
@@ -95,11 +95,11 @@ module Crysterm
         request_render
       end
 
-      # Asks the user to pick one of an arbitrary list of *choices*, addressing
-      # the long-standing TODO above (Qt-style "multiple standard buttons"). The
-      # block receives the chosen 0-based index, or `-1` if dismissed with
-      # Escape. Buttons are laid out in a row; Left/Right move focus, Enter/Space
-      # or a click activates the focused one.
+      # Asks the user to pick one of an arbitrary list of *choices* (Qt-style
+      # "multiple standard buttons"; see TODO above). The block receives the
+      # chosen 0-based index, or `-1` if dismissed with Escape. Buttons are laid
+      # out in a row; Left/Right move focus, Enter/Space or a click activates
+      # the focused one.
       def ask_choices(text = nil, choices : Array(String) = ["Okay", "Cancel"], default = 0, &block : Int32 -> Nil)
         set_content text || @text
         show
@@ -132,10 +132,10 @@ module Crysterm
         finish = ->(idx : Int32) do
           ev_keys.try { |h| window.off Crysterm::Event::KeyPress, h }
           # Move focus onto a surviving widget *before* destroying the choice
-          # buttons: removing the currently-focused widget would otherwise trigger
-          # a focus rewind mid-teardown (the button is already detached, so its
-          # `window` is gone). `restore_focus` alone isn't enough — there may be
-          # no saved focus — so anchor on the (now-shown) OK button.
+          # buttons: removing the focused widget would otherwise trigger a focus
+          # rewind mid-teardown (the button is already detached, so its `window`
+          # is gone). `restore_focus` alone isn't enough — there may be no saved
+          # focus — so anchor on the (now-shown) OK button.
           @ok.show
           @cancel.show
           @ok.focus

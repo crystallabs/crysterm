@@ -2,9 +2,8 @@ require "../src/crysterm"
 
 # Per-frame render profile for the table widgets (Table / ListTable). Both run
 # their full `draw_borders` (and, for Table, the per-cell text-attr pass) on
-# every render. This harness pins the screen to the full-recomposite path
-# (OptimizationFlag::None) so the widget re-renders every frame, and reports the
-# deterministic metric — heap allocation per frame — plus wall time.
+# every render. Pins the screen to the full-recomposite path
+# (OptimizationFlag::None) and reports heap allocation per frame plus wall time.
 #
 # Run:  crystal run --release benchmarks/table-render.cr
 
@@ -12,7 +11,7 @@ include Crysterm
 
 FRAMES = (ENV["FRAMES"]? || "4000").to_i
 
-# A realistic-ish table: a header + body rows, several columns, bordered.
+# A header row plus body rows, several columns, bordered.
 def make_rows(cols, body)
   rows = [Array.new(cols) { |c| "Col#{c}" }]
   body.times do |r|
@@ -32,7 +31,7 @@ def bench_table(label, cols, body)
     rows: make_rows(cols, body),
     style: Style.new(border: true))
 
-  50.times { s._render } # warm caches + first full frame
+  50.times { s._render } # warm caches
 
   GC.collect
   before = GC.stats.total_bytes

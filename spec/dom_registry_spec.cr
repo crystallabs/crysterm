@@ -3,13 +3,11 @@ require "./spec_helper"
 {% if flag?(:remote) %}
   include Crysterm
 
-  # Invariant: EVERY widget that opted into the layout DOM (auto-discovered into
-  # `DOM::REGISTRY`) must survive a serialize -> load -> serialize round-trip
-  # unchanged. The loop runs at example time (the registry is filled by a
-  # `macro finished` sweep that lands at program start, after spec *collection*),
-  # so adding a new widget under `Crysterm::Widget::` automatically subjects
-  # it to the check — any asymmetry between `#dom_attributes` and `#dom_apply`,
-  # for any registered widget, fails here.
+  # Invariant: every widget auto-discovered into `DOM::REGISTRY` must survive a
+  # serialize -> load -> serialize round-trip unchanged. The registry is filled
+  # by a `macro finished` sweep at program start (after spec collection), so
+  # any new `Crysterm::Widget::` is automatically checked — any asymmetry
+  # between `#dom_attributes` and `#dom_apply` fails here.
 
   private def headless_screen
     Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
@@ -52,10 +50,10 @@ require "./spec_helper"
       fail failures.join("\n\n") unless failures.empty?
     end
 
-    # A string option whose constructor default is non-empty (e.g.
-    # `ProgressBar#text_format = "%p%"`) must round-trip even when the user
-    # *clears* it to "". The auto-serializer previously skipped empty strings
-    # entirely, so a cleared value silently reverted to the default on reload.
+    # A string option with a non-empty constructor default (e.g.
+    # `ProgressBar#text_format = "%p%"`) must round-trip when cleared to "".
+    # The auto-serializer previously skipped empty strings, so a cleared value
+    # silently reverted to the default on reload.
     it "round-trips a non-empty-default string option cleared to empty" do
       s = headless_screen
       pb = Crysterm::Widget::ProgressBar.new window: s

@@ -5,7 +5,7 @@ include Crysterm
 # `Widget::Effect::Matrix` paints its interior directly into the cell buffer as
 # packed `Int64` attrs (no tagged-content round-trip). Its per-column drop
 # simulation (`#resize`/`#advance`/`#cell`) is exercised directly, headlessly,
-# with no animation fiber and no real terminal. A single-char `pool` makes the
+# with no animation fiber or real terminal. A single-char `pool` makes the
 # sampled glyph deterministic so colors can be asserted.
 
 private def matrix_screen
@@ -26,8 +26,8 @@ describe Crysterm::Widget::Effect::Matrix do
     seen_head = false
     seen_trail = false
 
-    # Drops start above the top (negative offsets); run enough frames for heads
-    # and trails to fall through the box.
+    # Drops start above the top (negative offsets); run enough frames for
+    # heads and trails to fall through the box.
     40.times do
       m.advance 8, 8
       (0...8).each do |y|
@@ -40,7 +40,7 @@ describe Crysterm::Widget::Effect::Matrix do
             if color == head_color
               seen_head = true
             else
-              # Trail: r == 0x00, b == 0x22, green channel carries the fade.
+              # Trail: r == 0x00, b == 0x22, green carries the fade.
               ((color >> 16) & 0xff).should eq 0x00
               (color & 0xff).should eq 0x22
               seen_trail = true

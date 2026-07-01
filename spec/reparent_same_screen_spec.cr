@@ -2,13 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# Reparenting a widget from one container to another *on the same screen* must
-# not churn the screen-level `Event::Attach`/`Event::Detach`: the widget never
-# leaves the screen, so those transition events are spurious. Real handlers key
-# off them — e.g. a `Media`/überzug overlay clears its still-visible image on
-# `Detach`, and a carousel/`Table` re-runs setup on `Attach` — so firing them on
-# a pure tree-position change is a visible defect (`Widget#insert`/`#remove`,
-# src/widget_children.cr). A genuine *cross-screen* move must still fire both.
+# Reparenting a widget between containers on the same screen must not churn
+# `Event::Attach`/`Event::Detach`: the widget never leaves the screen, so those
+# events are spurious. Real handlers key off them — e.g. a `Media`/überzug
+# overlay clears its image on `Detach`, a carousel/`Table` re-runs setup on
+# `Attach` — so firing them on a pure tree-position change is a visible defect
+# (`Widget#insert`/`#remove`, src/widget_children.cr). A genuine cross-screen
+# move must still fire both.
 
 private def headless_screen
   Crysterm::Window.new(
@@ -30,10 +30,10 @@ describe "Widget reparenting within the same screen" do
 
     b.append child # same-screen move
 
-    # The widget moved, and still derives the same screen...
+    # The widget moved but still derives the same screen...
     child.parent.should eq b
     child.window?.should eq s
-    # ...but no screen-transition events fired (it never left the screen).
+    # ...and no screen-transition events fired (it never left the screen).
     transitions.should be_empty
   end
 
@@ -49,8 +49,8 @@ describe "Widget reparenting within the same screen" do
     a.append child # adopt by a
     b.append child # detach from a (nil), then adopt by b
 
-    # Suppressing the screen Attach/Detach must NOT swallow the widget-tree
-    # Reparent events (documented in reparent_spec).
+    # Suppressing screen Attach/Detach must not swallow Reparent events
+    # (documented in reparent_spec).
     seen.should eq [a, nil, b]
   end
 

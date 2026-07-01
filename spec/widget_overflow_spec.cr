@@ -8,9 +8,8 @@ private def headless_screen(width = 80, height = 24)
     width: width, height: height)
 end
 
-# Per-widget `overflow` override that falls back to the screen's default when
-# unset (see todoc Q2). A plain widget follows the screen-wide policy; setting
-# `overflow=` overrides it per widget; setting it to `nil` re-inherits.
+# Per-widget `overflow` override falls back to the screen's default when unset
+# (see todoc Q2); setting it to `nil` re-inherits.
 describe "Widget#overflow inheritance" do
   it "inherits the screen's overflow when the widget has no override" do
     s = headless_screen
@@ -64,8 +63,8 @@ describe "Widget#overflow inheritance" do
 end
 
 # `Overflow::MoveWidget`: a widget that would run off the screen edge is
-# translated (size preserved) to stay within the screen's visible area, rather
-# than clipped. Child-policy — the widget declares it for itself (see todoc Q8).
+# translated (size preserved) to stay on screen instead of clipped. Child
+# policy — the widget declares it for itself (see todoc Q8).
 describe "Overflow::MoveWidget" do
   it "slides a bottom/right-overflowing widget back on screen" do
     s = headless_screen

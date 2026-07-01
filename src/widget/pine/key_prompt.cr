@@ -3,24 +3,21 @@ module Crysterm
     module Pine
       # A one-line "press a key to answer" prompt, modeled on Alpine's
       # bottom-of-screen key-choice prompt (the `radio_buttons` mechanism in
-      # `radio.c`). It shows a question followed by a set of single-key choices,
-      # highlights the chosen key, runs that choice's callback, and remembers the
-      # answer.
+      # `radio.c`). Shows a question followed by single-key choices, highlights
+      # the chosen key, runs that choice's callback, and remembers the answer.
       #
       # ```
       #   Expunge the selected items? [y/n]
       #   └──── question ──────────┘ └ choices ┘
       # ```
       #
-      # It is completely generic: a `question` string plus any set of
-      # `Choice`s (each a single-key `key`, a short `label`, and an optional
-      # `callback`). It is not tied to any particular domain.
+      # Generic: a `question` string plus any set of `Choice`s (each a
+      # single-key `key`, a short `label`, and an optional `callback`).
       #
-      # When the user presses a key matching one of the choices, that choice
-      # becomes the `#answer`, its `callback` runs, and the widget emits
-      # `Event::Action` with the chosen key, so callers can react with a handler
-      # instead of (or in addition to) the per-choice callback. Wire it up by
-      # giving the widget focus, the same as any other interactive widget.
+      # When the user presses a key matching a choice, that choice becomes the
+      # `#answer`, its `callback` runs, and the widget emits `Event::Action`
+      # with the chosen key. Wire it up by giving the widget focus, like any
+      # other interactive widget.
       #
       # ```
       # prompt = Widget::Pine::KeyPrompt.new "Save changes?", [
@@ -79,12 +76,11 @@ module Crysterm
         )
           @choices = choices
           # `keys: true` registers the prompt as keyable so the screen dispatches
-          # key presses to it once it is focused — without it a plain `Box` never
-          # receives `Event::KeyPress`, and the choice keys (Y/N/…) do nothing.
+          # key presses to it once focused — a plain `Box` never receives
+          # `Event::KeyPress` otherwise.
           super **layout, width: w, height: h, parse_tags: true, keys: true
-          # Flow the question + choice boxes left-to-right (like `HeaderBar`), so
-          # each choice is a real child that can be clicked. Set the ivar directly
-          # so it is in place before `#rebuild` appends children.
+          # Flow the question + choice boxes left-to-right (like `HeaderBar`).
+          # Set the ivar directly so it's in place before `#rebuild` appends children.
           @layout = Crysterm::Layout::Masonry.new
           rebuild
           on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
@@ -146,11 +142,9 @@ module Crysterm
           request_render
         end
 
-        # (Re)creates the child boxes: an optional question box, then one box per
-        # choice rendered as a highlighted key plus its label (the `KeyMenu`
-        # look). Each choice box is clickable — clicking it picks that choice —
-        # and `focus_on_click` is off so a click doesn't pull focus off the
-        # prompt (which holds the keyboard).
+        # (Re)creates the child boxes: an optional question box, then one
+        # clickable box per choice (highlighted key + label, `KeyMenu` look).
+        # `focus_on_click` is off so a click doesn't pull focus off the prompt.
         private def rebuild : Nil
           @cells.each &.remove_from_parent
           @cells.clear

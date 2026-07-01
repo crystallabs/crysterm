@@ -1,9 +1,9 @@
 module Crysterm
   module CSS
     # Translates CSS geometry/layout declarations onto a `Widget` itself (its
-    # position, size and alignment) — as opposed to `Properties`, which targets a
-    # `Style`. Geometry is a single per-widget concern, so the cascade applies
-    # these only from the `normal` state's winning declarations.
+    # position, size and alignment) — as opposed to `Properties`, which targets
+    # a `Style`. Geometry is a single per-widget concern, so the cascade
+    # applies these only from the `normal` state's winning declarations.
     module Geometry
       PROPERTIES = Set{"width", "height", "top", "left", "right", "bottom",
                        "min-width", "max-width", "min-height", "max-height",
@@ -36,18 +36,16 @@ module Crysterm
           # `right`/`bottom` are offsets in cells only (no `center`/`%` form).
         when "right"  then value.to_i?.try { |cells| widget.right = cells }
         when "bottom" then value.to_i?.try { |cells| widget.bottom = cells }
-          # Size constraints are cells only (a bare number or a unit'd length);
-          # `%`/unmapped units yield `nil` and are ignored, as `awidth`/`aheight`
-          # have no per-frame hook to re-resolve a percentage constraint.
+          # Size constraints are cells only; `%`/unmapped units yield `nil`
+          # and are ignored (no per-frame hook to re-resolve a percentage).
         when "min-width"  then size_cells(widget, value).try { |c| widget.min_width = c }
         when "max-width"  then size_cells(widget, value).try { |c| widget.max_width = c }
         when "min-height" then size_cells(widget, value, vertical: true).try { |c| widget.min_height = c }
         when "max-height" then size_cells(widget, value, vertical: true).try { |c| widget.max_height = c }
         when "text-align"
-          # CSS keyword values are case-insensitive (`text-align: Center` ==
-          # `center`), so fold before matching — every other keyword property
-          # already does (see `Properties`). Without this, a capitalized value
-          # (common in Qt themes) would silently leave the alignment unchanged.
+          # CSS keyword values are case-insensitive, so fold before matching
+          # (see `Properties`) — otherwise a capitalized value (common in Qt
+          # themes) would silently leave the alignment unchanged.
           case Case.fold_keyword(value.strip)
           when "left"   then widget.align = Tput::AlignFlag::Left
           when "center" then widget.align = Tput::AlignFlag::HCenter
@@ -82,36 +80,28 @@ module Crysterm
 
       # Resolves a `width`/`height`/`top`/`left` value. A viewport unit (`50vw`)
       # passes through as its *string*, so the positioner re-resolves it against
-      # the window on every frame and it tracks terminal resize (see
-      # `Widget#resolve_dimension`); everything else resolves to a static value
-      # now via `dimension`.
+      # the window every frame and tracks terminal resize (see
+      # `Widget#resolve_dimension`); everything else resolves statically via
+      # `dimension`.
       private def self.resolve_dim(value : String, vertical : Bool = false) : Int32 | String | Nil
-        # Only a viewport unit contains a 'v'; this allocation-free byte scan keeps
-        # the VIEWPORT regex off every plain width/height/top/left value. CSS units
-        # are case-insensitive (`50VW`), so the gate matches either case — the
-        # `VIEWPORT` regex and `viewport_cells` already fold case, only this
-        # fast-path check did not (an uppercased unit was silently dropped).
+        # Only a viewport unit contains a 'v'; this allocation-free scan keeps
+        # the VIEWPORT regex off every plain width/height/top/left value.
         (maybe_viewport?(value) && Length.viewport?(value)) ? value : dimension(value, vertical)
       end
 
-      # Whether *value* might be a viewport unit — a cheap, allocation-free gate
-      # before the `VIEWPORT` regex. Matches a `v`/`V` in either case so a
-      # case-insensitive unit (`50VW`) isn't missed.
+      # Whether *value* might be a viewport unit — a cheap gate before the
+      # `VIEWPORT` regex. Matches `v`/`V` in either case (`50VW`).
       private def self.maybe_viewport?(value : String) : Bool
         value.includes?('v') || value.includes?('V')
       end
 
       # Resolves a `min-*`/`max-*` size constraint, which must be a cell count.
       # Like `resolve_dim`, but a constraint has no per-frame hook to re-resolve,
-      # so a viewport unit is sized against the window once, here and now (`nil`
-      # if the widget isn't on a window yet), and `%` has no cell mapping at all.
+      # so a viewport unit is sized against the window once, here and now
+      # (`nil` if not on a window yet); `%` has no cell mapping at all.
       private def self.size_cells(widget : Widget, value : String, vertical : Bool = false) : Int32?
-        # A viewport unit ('v' present) sizes against the window once, here and
-        # now — a single `viewport_cells` both detects and resolves it (no extra
-        # `viewport?` regex pass). If the widget isn't mounted yet, or it's some
-        # other 'v' string, fall through to `to_cells` (which drops a viewport
-        # unit to `nil`, i.e. ignored). The 'v' gate folds case (`50VW`) so an
-        # uppercased viewport constraint isn't missed (see `resolve_dim`).
+        # If the widget isn't mounted, or it's some other 'v' string, fall
+        # through to `to_cells` (drops a viewport unit to `nil`).
         if maybe_viewport?(value)
           if (scr = widget.window?) && (cells = Length.viewport_cells(value, scr.awidth, scr.aheight))
             return cells
@@ -125,11 +115,6 @@ module Crysterm
       # converted to cells through `unit_divisors`; everything else (`50%`,
       # `center`, `50%-10`, ...) passes through as a `String`, which crysterm's
       # positioning already understands.
-      #
-      # Resolve *once* (the old code pre-matched the same regexes that `to_cells`
-      # re-runs): a non-`nil` result is the cell count (`0` included). On `nil`,
-      # one regex pass tells an unmappable length (`3cm`, a `%`-bearing `calc`) —
-      # which we ignore — apart from a positioner string, which we pass through.
       private def self.dimension(value : String, vertical : Bool = false) : Int32 | String | Nil
         if cells = Length.to_cells(value, vertical)
           cells

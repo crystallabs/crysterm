@@ -4,14 +4,12 @@ include Crysterm
 
 # Regression spec for `Media::Cells#load`'s "genuinely animated" gate.
 #
-# A *single-frame* APNG decodes to a `PNGGIF::PNG` whose `frames` is non-nil but
-# holds exactly one frame (`build_apng_frames` returns its lone frame, unlike a
-# GIF, which leaves `frames` nil below two frames). `Media::Base#play` correctly
-# bails on a single frame and never builds `@src_frames`. But `Media::Cells#load`
-# used `!frames.nil?` to set `@animated`, so the cell backends (`Ansi`/`Glyph`)
-# entered `#render`'s animation branch, found no `@src_frames`, and drew NOTHING
-# — a blank widget. The fix gates `@animated` on `frames.size > 1`, matching the
-# `#play` guard, so such a source renders through the still path.
+# A single-frame APNG decodes to a `PNGGIF::PNG` whose `frames` is non-nil but
+# holds exactly one frame (unlike a GIF, which leaves `frames` nil below two
+# frames). `Media::Base#play` bails on a single frame and never builds
+# `@src_frames`, but `Media::Cells#load` used `!frames.nil?` to set `@animated`,
+# so the cell backends entered the animation branch, found no `@src_frames`,
+# and drew nothing. Fix: gate `@animated` on `frames.size > 1`, matching `#play`.
 
 private def headless_screen
   Crysterm::Window.new(
@@ -25,7 +23,7 @@ end
 
 describe "Media::Cells single-frame APNG" do
   it "renders a 1-frame APNG as a still (not a blank animated widget)" do
-    # A real single-frame APNG: acTL numFrames=1 + one fcTL + IDAT, so the
+    # Real single-frame APNG: acTL numFrames=1 + one fcTL + IDAT, so the
     # decoder yields `frames` non-nil with size 1.
     apng = PNGGIF.encode_apng([{solid_bitmap(10, 20, 30), 100}])
     tmp = File.tempfile("crysterm_apng", ".png")
@@ -40,9 +38,8 @@ describe "Media::Cells single-frame APNG" do
     # A single frame is a still: playback must NOT engage.
     img.playing?.should be_false
 
-    # The content cell must carry the image pixel's color (Ansi block mode paints
-    # the background). With the bug the animation branch composed no sample and
-    # the cell stayed at the screen default.
+    # Content cell must carry the image pixel's color. With the bug the
+    # animation branch composed no sample and the cell stayed at screen default.
     cell = s.lines[0][0]
     Attr.bg(cell.attr).should eq Attr.pack_color(0x0a141e)
   ensure

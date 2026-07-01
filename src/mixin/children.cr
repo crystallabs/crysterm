@@ -6,11 +6,10 @@ module Crysterm
 
       # O(1) membership index for `@children`, kept in sync by `insert`/`remove`.
       # Without it, `insert`'s "already a child?" guard was a linear
-      # `@children.includes?` scan, making a batch of N appends O(N²) — which made
-      # building thousands of widgets (e.g. one-per-cell demos on large terminals)
-      # stall for seconds before the first frame. The only other place `@children`
-      # is mutated directly is the reorder in `widget_children.cr`, which removes and
-      # re-adds the same element and so leaves membership unchanged.
+      # `@children.includes?` scan, making a batch of N appends O(N²). The only
+      # other direct mutator of `@children` is the reorder in
+      # `widget_children.cr`, which removes and re-adds the same element so
+      # membership is unchanged.
       @children_set = Set(Widget).new
 
       # Adds `element` to list of children. Convenience method identical to `append`
@@ -67,8 +66,7 @@ module Crysterm
         return unless @children_set.delete element
         return unless i = @children.index(element)
         # No need to erase the removed element's old footprint: `Window#_render`
-        # clears the whole cell buffer before each frame, so once `element` is
-        # gone from `@children` it simply stops being repainted.
+        # clears the whole cell buffer each frame, so it just stops being repainted.
         @children.delete_at i
         mark_structure_changed
         element
@@ -82,17 +80,15 @@ module Crysterm
         _damage_invalidate_structure
       end
 
-      # Hook invoked after the children list changes (a *structural* change). The
-      # CSS subsystem overrides this (on `Widget`/`Window`) to mark styling dirty
-      # and force a document re-parse, since structure can alter which selectors
-      # match. No-op by default.
+      # Hook invoked after a structural children-list change. CSS overrides this
+      # (on `Widget`/`Window`) to mark styling dirty and force a re-parse, since
+      # structure can alter which selectors match. No-op by default.
       protected def invalidate_css_tree : Nil
       end
 
-      # Structural-change hook for damage tracking (a child was added/removed).
-      # Overridden on `Widget` (forwards to its window) and `Window` (forces a
-      # full re-composite next frame). No-op by default so the call site compiles
-      # on any includer. See `OptimizationFlag::DamageTracking`.
+      # Structural-change hook for damage tracking. Overridden on `Widget`
+      # (forwards to its window) and `Window` (forces full re-composite next
+      # frame). No-op by default. See `OptimizationFlag::DamageTracking`.
       protected def _damage_invalidate_structure : Nil
       end
 
@@ -122,9 +118,8 @@ module Crysterm
 
       # Runs a particular block for all descendants, recursively
       def each_descendant(&block : Proc(Widget, Nil)) : Nil
-        # Recurse by passing the already-captured `block` down, instead of
-        # building an extra self-referential closure (`f`) — that closure was
-        # allocated afresh on every call to this frequently-used traversal.
+        # Pass the captured `block` down rather than building a fresh
+        # self-referential closure per call on this hot traversal.
         @children.each do |el|
           _each_descendant el, block
         end

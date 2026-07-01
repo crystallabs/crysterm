@@ -29,12 +29,10 @@ module Crysterm
           nil
         end
 
-        # `stat` is `File::Info?` (the `rescue` above yields `nil` when `full`
-        # can't be stat'd — a dangling symlink, a races-away entry, EACCES).
-        # Guard before calling `directory?`/`symlink?`: without the nil check
-        # this is a `Nil`-method compile error, which only stayed hidden because
-        # nothing instantiates `find_file` (it is called solely by its own
-        # recursion), so its body was never type-checked.
+        # `stat` is `File::Info?` (`rescue` above yields `nil` for a dangling
+        # symlink, a races-away entry, EACCES). Guard before `directory?`/
+        # `symlink?`, or it's a `Nil`-method compile error — hidden until now
+        # only because nothing instantiates `find_file` outside its own recursion.
         if stat && stat.directory? && !stat.symlink?
           found = find_file full, target
           return found if found
@@ -94,12 +92,10 @@ module Crysterm
 
     # Combined {...}-tag + SGR-sequence regex, built once.
     #
-    # This used to be assembled inline inside `clean_tags` from
-    # `#{...source}` interpolation. Unlike a plain regex *literal* (which Crystal
-    # compiles once and caches), an interpolated regex is recompiled on every
-    # evaluation, so the old code paid a full regex compile on every
-    # `clean_tags` call — and `clean_tags` is called per-item in e.g.
-    # `List#get_item_index`. Hoisting it to a constant compiles it a single time.
+    # Previously assembled inline inside `clean_tags` via interpolation, which
+    # (unlike a regex literal) recompiles on every evaluation — costly since
+    # `clean_tags` is called per-item in e.g. `List#get_item_index`. Hoisted to
+    # a constant to compile it once.
     CLEAN_TAGS_REGEX = /(?:#{Crysterm::Widget::TAG_REGEX.source})|(?:#{Crysterm::Widget::SGR_REGEX.source})/
 
     # Strips text of {...} tags and SGR sequences

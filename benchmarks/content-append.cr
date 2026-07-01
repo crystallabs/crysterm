@@ -6,15 +6,13 @@ require "../src/crysterm"
 # BEFORE this optimization, every appended line went:
 #   push_line -> insert_line -> rebuild_content_from_fake
 #             -> set_content(@_clines.fake.join("\n")) -> process_content
-# i.e. a full re-join + full reparse of ALL content per line: whole-string
-# `matches? TAG_REGEX`, control-char `gsub`, `_parse_tags`, `_wrap_content`,
-# `_parse_attr`, `@_pcontent = join`. That is O(total) per append, O(n^2) total.
+# i.e. a full re-join + full reparse of all content per line: O(total) per
+# append, O(n^2) total.
 #
-# AFTER, `push_line` first tries `append_content`, which cleans / tag-parses /
-# wraps / attr-scans ONLY the new segment and splices it onto the tail of
-# `@_clines` — O(appended). It falls back to the old path when it cannot
-# guarantee an identical result (stale cache, width change, open tag at the
-# boundary).
+# AFTER, `push_line` first tries `append_content`, which cleans/tag-parses/
+# wraps/attr-scans only the new segment and splices it onto the tail of
+# `@_clines` — O(appended). Falls back to the old path when it can't guarantee
+# an identical result (stale cache, width change, open tag at the boundary).
 #
 # Here "before" = calling `insert_line` at the end index directly (the old slow
 # path), "after" = the real `push_line`. The correctness block proves the fast
@@ -42,11 +40,11 @@ def tagged_line(i)
   "{green-fg}[INFO]{/green-fg} log line number #{i} with {bold}content{/bold} here"
 end
 
-# Old slow path's PARSE cost: splice the new line into `fake` and reparse the
-# whole content (exactly what `insert_line` -> `rebuild_content_from_fake` did).
-# We call `set_content` directly rather than `insert_line` to skip the terminal
-# line-scroll optimization, which needs a real rendered screen (it crashes
-# headless) and is render bookkeeping, not the content-parse cost being compared.
+# Old slow path's parse cost: splice the new line into `fake` and reparse the
+# whole content (what `insert_line` -> `rebuild_content_from_fake` did). Calls
+# `set_content` directly rather than `insert_line` to skip the terminal
+# line-scroll optimization (needs a real rendered screen, crashes headless, and
+# is render bookkeeping, not the parse cost being compared).
 def slow_push(box, line)
   box._clines.fake << line
   box.set_content(box._clines.fake.join("\n"), true)
@@ -66,9 +64,8 @@ def assert_equiv(name, tags, lines)
   ic = inc._clines
   oc = one._clines
   checks = {
-    # `.pcontent` (not `._pcontent`) so the lazily-deferred string is materialized
-    # before comparison — the whole point of the lazy path is that `._pcontent`
-    # stays nil until something reads it.
+    # `.pcontent` (not `._pcontent`) materializes the lazily-deferred string
+    # before comparison — `._pcontent` stays nil until something reads it.
     "pcontent" => inc.pcontent == one.pcontent,
     "lines"    => ic.lines == oc.lines,
     "fake"     => ic.fake == oc.fake,
@@ -92,8 +89,8 @@ assert_equiv "multi-line text per push", false, Array.new(40) { |i| "line #{i}a\
 assert_equiv "unclosed colour carries across lines", true, ["{red-fg}opens red", "still red", "still red 2"]
 assert_equiv "blank lines interspersed", false, ["a", "", "b", "", "", "c"]
 
-# Lazy `@content` fold must reproduce the eager concatenation of the same appends
-# (raw text, joined by "\n"), and `_pcontent` must stay deferred (nil) until read.
+# Lazy `@content` fold must reproduce the eager concatenation of the same
+# appends (raw text, joined by "\n"), and `_pcontent` must stay deferred until read.
 begin
   box = make_box(false)
   box.push_line "alpha"            # seeds line 0 (eager set_content; builds _pcontent)

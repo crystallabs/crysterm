@@ -1,6 +1,5 @@
-# Media::Glyph::Octant — the Matterhorn rendered via the Glyph::Octant backend.
-#
-# A single fixed variant of Media::Glyph (see the sibling dirs for the rest).
+# Media::Glyph::Octant — Matterhorn rendered via the Glyph::Octant backend.
+# Fixed variant of Media::Glyph (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
 include Crysterm

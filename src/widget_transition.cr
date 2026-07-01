@@ -2,12 +2,11 @@ module Crysterm
   class Widget
     # Declarative CSS `transition` support: when an animatable style property
     # changes (typically on a `:hover`/`:focus`/`:selected` state change), tween
-    # it in over its declared duration instead of snapping to the new value.
+    # it over its declared duration instead of snapping to the new value.
     #
-    # Built on the `FrameClock` driver and entirely generic — any widget that
-    # declares a `transition` in CSS gets it, with no widget-specific code. The
-    # tween writes the *current* per-state style each frame, so the renderer reads
-    # the in-between value; it lands exactly on the target.
+    # Built on the `FrameClock` driver and generic across widgets. The tween
+    # writes the current per-state style each frame, so the renderer reads the
+    # in-between value and lands exactly on the target.
 
     # Snapshot of the animatable values *before* a state change, so the new
     # state's values can be tweened *from* them.
@@ -17,8 +16,8 @@ module Crysterm
     # replaces (rather than stacks on) the one already in flight.
     @style_transitions : Hash(Symbol, FrameClock)?
 
-    # Snapshots the current animatable style values — but only when a `transition`
-    # is actually declared, so the common no-transition path stays free.
+    # Snapshots the current animatable style values, but only when a `transition`
+    # is declared, so the common no-transition path stays free.
     def transition_from : TransitionFrom?
       s = style
       return nil if s.transitions.nil?
@@ -48,7 +47,7 @@ module Crysterm
     end
 
     # Whether any declarative CSS `transition` is currently tweening on this
-    # widget. Drives `Window#animating?`, which capture/test harnesses poll to
+    # widget. Drives `Window#animating?`, polled by capture/test harnesses to
     # wait for a state change to settle before snapshotting.
     def transition_running? : Bool
       if h = @style_transitions

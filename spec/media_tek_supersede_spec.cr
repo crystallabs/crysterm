@@ -8,16 +8,14 @@ include Crysterm
 # render-driven `Media::Base` framework. A parameter setter (`#level=`,
 # `#dither=`, `#invert=`, `#fit=`) — and `#load` — call `#redraw!`, which only
 # flips `@playing` false and lets the next render spawn a fresh loop. The old
-# loop is asleep at that moment, so when `#start_drawing` flips `@playing` back
-# to true and spawns the new loop, the old one would wake to `while @playing`
-# still true and run *concurrently* with the new loop, both drawing into (and
-# fighting over) the single Tek window.
+# loop is asleep at that point, so when `#start_drawing` flips `@playing` back
+# true and spawns the new loop, the old one would wake to `while @playing`
+# still true and run concurrently, both fighting over the single Tek window.
 #
-# The fix gives each loop a generation token (`@anim_gen`, bumped on every
-# (re)start); a loop exits as soon as its generation is no longer current. This
-# spec asserts the mechanism: a re-draw while animating issues a NEW generation
-# (so the previous loop detects it is stale and exits) rather than leaving the
-# generation unchanged (which would let both loops believe they are live).
+# Fix: each loop gets a generation token (`@anim_gen`, bumped on every
+# (re)start); a loop exits once its generation is no longer current. This spec
+# asserts a re-draw while animating issues a NEW generation, so the previous
+# loop detects staleness and exits instead of running alongside the new one.
 
 private def headless_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
@@ -37,8 +35,7 @@ describe "Widget::Media::Tek animation supersession" do
     gen1.should be > 0
 
     # A parameter change while animating must restart playback under a *new*
-    # generation, so the loop spawned for gen1 sees a stale generation and stops
-    # instead of running concurrently with the new loop.
+    # generation, so the loop spawned for gen1 sees itself as stale and stops.
     tek.invert = true # -> redraw! (clears @drawn, stops @playing)
     tek.draw_tek      # next "render": spawns the replacement loop
 

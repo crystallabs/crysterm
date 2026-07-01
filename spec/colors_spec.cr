@@ -46,8 +46,7 @@ describe Crysterm::Colors do
   end
 
   describe ".sgr_color_to" do
-    # The allocation-free IO variant must produce byte-for-byte what the
-    # String-returning `sgr_color` does, across every encoding depth.
+    # The allocation-free IO variant must match `sgr_color`'s output byte-for-byte.
     it "matches sgr_color for every color/depth/ground combination" do
       colors = [0x1000000, 256, 16, 8]
       values = [0xff8800, 0x102030, 0xcd0000, 0x000000, 0xffffff, -1]
@@ -97,9 +96,8 @@ describe Crysterm::Colors do
     end
 
     it "is a no-op for an unknown (-1) tint color instead of washing toward white" do
-      # A tint color of -1 (e.g. a `style.tint` set from a color string that did
-      # not parse) has nothing to tint toward, so the attr must come back
-      # unchanged — not blended toward 0xFFFFFF as a raw `mix(-1, ...)` would.
+      # -1 has nothing to tint toward, so the attr must come back unchanged —
+      # not blended toward 0xFFFFFF as a raw `mix(-1, ...)` would.
       a = Attr.pack(Attr::BOLD, Attr.pack_color(0x102030), Attr.pack_color(0x405060))
       Colors.tint(a, -1, 0.5).should eq a
     end
@@ -142,10 +140,9 @@ describe Crysterm::Attr do
       Colors.hsv_i(0, 1.0, 0.0).should eq 0x000000 # no value -> black
     end
 
-    # Behavior-lock: `hsv` is just `hsv_i` formatted, delegated to the
-    # `TermColors` shard, which *rounds* each channel via `clamp_byte`
-    # (`value.round.to_i.clamp(0, 255)`) rather than truncating. This reference
-    # mirrors that rounding so the lock tracks the shard's intended behavior.
+    # Behavior-lock: `hsv` delegates to `TermColors`, which rounds each channel
+    # via `clamp_byte` (`value.round.to_i.clamp(0, 255)`) rather than truncating.
+    # This reference mirrors that rounding.
     it "stays byte-for-byte compatible with the hsv string formatting" do
       old = ->(h : Float64, s : Float64, v : Float64) {
         hh = h % 360.0

@@ -7,15 +7,13 @@ module Crysterm
     # Horizontal bar of pop-up menus, modeled after Qt's `QMenuBar`.
     #
     # Each title added with `#add_menu` drops a `Widget::Menu` when clicked (or
-    # via Enter/Down/Space while the bar is focused). Once a menu is open, the bar
-    # tracks the mouse and keyboard like a desktop menu bar: hovering — or arrowing
-    # with Left/Right — onto another title switches to it (closing the previous);
-    # the active title is highlighted, and nothing is highlighted while no menu is
-    # open. Escape, an outside click, or activating a leaf closes the menu.
+    # via Enter/Down/Space while the bar is focused). Once a menu is open, hovering
+    # or arrowing with Left/Right onto another title switches to it (closing the
+    # previous); the active title is highlighted, none when no menu is open.
+    # Escape, an outside click, or activating a leaf closes the menu.
     #
     # Built on `Mixin::ActionBar` (layout, keyboard navigation, hotkeys) and
-    # `Menu` (the pop-ups), it packages the wiring an app would otherwise repeat
-    # by hand.
+    # `Menu` (the pop-ups).
     #
     # ```
     # bar = Widget::MenuBar.new parent: window, top: 0, left: 0, width: "100%", height: 1
@@ -43,23 +41,19 @@ module Crysterm
       def initialize(menu_style : Style? = nil, **listbar)
         @menu_style = menu_style
 
-        # A menu bar is always keyboard- and mouse-driven, and shows plain titles
-        # ("File", not the ActionBar default "1:File").
+        # Always keyboard/mouse-driven, plain titles ("File", not ActionBar's default "1:File").
         super(**listbar.merge(keys: true))
         setup_action_bar mouse: true, auto_prefix: false
-        # Titles pack flush — no inert gap cells between menus (only trailing the
-        # last title). Each title box keeps its own side padding.
+        # Titles pack flush (only trailing the last title); each keeps its own side padding.
         @item_gap = 0
 
-        # Keep the highlight on the open menu (nothing when none is open), even as
-        # focus enters/leaves the bar — the action bar would otherwise re-light its
-        # own selected item.
+        # Keep highlight on the open menu regardless of bar focus — the action bar
+        # would otherwise re-light its own selected item.
         on(::Crysterm::Event::Focus) { sync_highlight }
         on(::Crysterm::Event::Blur) { sync_highlight }
 
-        # Wire the menus' actions' keyboard accelerators to the bar's window
-        # lifecycle, so e.g. a "Copy" (`Ctrl+C`) action fires from the keyboard
-        # without opening the menu first (Qt's menu-action shortcuts).
+        # Wire menu actions' keyboard accelerators to the window lifecycle, so e.g.
+        # "Copy" (Ctrl+C) fires without opening the menu first (Qt's menu-action shortcuts).
         on(::Crysterm::Event::Attach) { install_menu_shortcuts }
         on(::Crysterm::Event::Detach) { uninstall_menu_shortcuts }
       end
@@ -67,16 +61,13 @@ module Crysterm
       # Adds a top-level menu titled *title* (optionally pre-filled with
       # *actions*) and returns the `Menu` so more can be added to it.
       def add_menu(title : String, actions : Array(Action) = [] of Action) : Menu
-        # `parent: window` appends the pop-up to the window so it actually renders
-        # (a bare `window:` would set the window but leave it out of the render
-        # tree — visible-flagged but never drawn).
-        # Border/look come from the theme (`Menu { ... }`) unless the bar was
-        # given an explicit `@menu_style`.
+        # `parent: window` appends the pop-up to the render tree so it actually
+        # draws (a bare `window:` would leave it visible-flagged but undrawn).
+        # Border/look come from the theme (`Menu { ... }`) unless `@menu_style` is set.
         menu = Menu.new(parent: window, style: @menu_style)
         actions.each { |a| menu << a }
-        # The bar is normally already attached here (`parent: window` above), so
-        # wire these actions' accelerators now; `install_menu_shortcuts` re-covers
-        # them on a later re-attach.
+        # Bar is normally already attached here, so wire accelerators now;
+        # `install_menu_shortcuts` re-covers them on a later re-attach.
         window?.try { |w| visit_actions(menu, &.install_shortcut(w, self)) }
         menu.hide
         menu.on_navigate = ->(dir : Int32) { switch_relative dir }
@@ -84,13 +75,10 @@ module Crysterm
         # hovering another title still switches menus while one is open.
         menu.grab_region = ->(x : Int32, y : Int32) { grab_contains? x, y }
         menu.on(::Crysterm::Event::Hide) { on_menu_hidden menu }
-        # Deactivate the bar when the open menu loses focus to something outside
-        # the bar's world (another widget gains focus, Tab away, …). Without this
-        # the menu is orphaned — left open with its title still highlighted — when
-        # focus leaves without a dismissing outside *click* (the mouse-click path
-        # is handled by `Menu#popup`'s `on_press_outside`). Diving into the menu's
-        # own submenu, or focus moving to the bar / another of its menus, is an
-        # internal move and is ignored.
+        # Close the menu when it loses focus to something outside the bar's world
+        # (mouse-click dismissal is handled separately by `Menu#popup`'s
+        # `on_press_outside`). Diving into a submenu or moving to the bar/another
+        # menu is an internal move and is ignored.
         menu.on(::Crysterm::Event::Blur) { |e| on_menu_blur menu, e }
 
         index = @menus.size
@@ -108,8 +96,8 @@ module Crysterm
         menu
       end
 
-      # Installs every menu action's accelerator (descending into submenus) on
-      # the bar's window. Idempotent per window.
+      # Installs every menu action's accelerator (descending into submenus).
+      # Idempotent per window.
       private def install_menu_shortcuts : Nil
         w = window? || return
         @menus.each { |m| visit_actions(m, &.install_shortcut(w, self)) }
@@ -121,8 +109,7 @@ module Crysterm
         @menus.each { |m| visit_actions(m, &.uninstall_shortcut(w)) }
       end
 
-      # Yields every action in *menu*, recursing into submenu actions (Qt installs
-      # a submenu's shortcuts too).
+      # Yields every action in *menu*, recursing into submenu actions.
       private def visit_actions(menu : Menu, &block : Action ->) : Nil
         menu.actions.each { |a| visit_action a, block }
       end
@@ -137,10 +124,8 @@ module Crysterm
         return unless menu = @menus[i]?
         @menus.each_with_index { |m, j| m.hide_popup if j != i && m.visible? }
         @open_index = i = i.to_i
-        # Move the bar's current item to the opened menu so a mouse hover-switch
-        # also carries the keyboard cursor (otherwise Left/Right or Down would
-        # resume from the previously-clicked title). `selekt` re-imposes the
-        # open-menu highlight via the override below.
+        # Move the bar's current item to match, so hover-switching also carries
+        # the keyboard cursor. `selekt` re-imposes the open-menu highlight below.
         selekt i
         menu.popup title_x(i), menu_y
       end
@@ -161,8 +146,7 @@ module Crysterm
       end
 
       def on_keypress(e)
-        # While focused, Down/Space (in addition to the inherited Enter) open the
-        # highlighted menu; Left/Right navigation is inherited from `Mixin::ActionBar`.
+        # Down/Space open the highlighted menu (Enter and Left/Right come from `Mixin::ActionBar`).
         if (e.key == ::Tput::Key::Down || e.char == ' ') && !@menus.empty?
           open selected
           e.accept
@@ -186,17 +170,15 @@ module Crysterm
         sync_highlight
       end
 
-      # *menu* (the open pop-up) lost focus. Close it — deactivating the bar and
-      # clearing its title highlight — unless focus stayed inside the bar's world:
-      # diving into *menu*'s own submenu, returning to the bar, or moving to one
-      # of the bar's other menus (the brief hand-off while switching).
+      # *menu* lost focus. Close it unless focus stayed inside the bar's world:
+      # diving into *menu*'s own submenu, returning to the bar, or moving to
+      # another of the bar's menus (hand-off while switching).
       private def on_menu_blur(menu : Menu, e) : Nil
         return unless (oi = @open_index) && @menus[oi]? == menu
         nf = e.el
         # Focus moved into this menu's own (sub)menu chain — still active.
         return if nf.is_a?(Menu) && (nf.parent_menu == menu || @menus.includes?(nf))
-        # Focus returned to the bar itself (e.g. Tab back onto it) — keep the
-        # menu open; the bar still owns it.
+        # Focus returned to the bar itself — keep the menu open.
         return if nf == self
         close
       end
@@ -215,12 +197,10 @@ module Crysterm
         1
       end
 
-      # The title highlight tracks the *open* menu, never the action bar's own raw
-      # selection. `Mixin::ActionBar#trigger` re-`selekt`s the clicked item *after* our
-      # toggle callback has run, so a click that closed the open menu would
-      # otherwise leave its title lit — re-impose the open-menu highlight here.
-      # (With no menu open this clears the highlight, matching the bar's "nothing
-      # lit while closed" rule, including bare Left/Right navigation.)
+      # Title highlight tracks the *open* menu, not the action bar's raw selection.
+      # `Mixin::ActionBar#trigger` re-`selekt`s the clicked item after our toggle
+      # callback runs, so a click that closed the menu would otherwise leave its
+      # title lit — re-impose the open-menu highlight here.
       def selekt(offset : Int)
         super
         sync_highlight

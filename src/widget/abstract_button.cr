@@ -5,17 +5,17 @@ module Crysterm
     # Abstract base for the button family, modeled after Qt's `QAbstractButton`.
     #
     # `Button` (push/checkable), `ToolButton`, `CheckBox` and `RadioButton` all
-    # derive this *directly* — siblings, exactly as Qt makes
-    # `QPushButton`/`QToolButton`/`QCheckBox`/`QRadioButton` siblings under
+    # derive this directly as siblings, matching Qt's
+    # `QPushButton`/`QToolButton`/`QCheckBox`/`QRadioButton` under
     # `QAbstractButton` (rather than chaining `QToolButton` off `QPushButton` or
     # `QRadioButton` off `QCheckBox`, as Crysterm previously did).
     #
-    # It holds the shared `QAbstractButton`-level state — `#text`, `#checkable?`,
+    # Holds the shared `QAbstractButton`-level state — `#text`, `#checkable?`,
     # `#checked?`, `#value` — and the canonical push/toggle behavior
-    # (`#press`/`#toggle`/`#check`/`#uncheck` and the activate-key/click handlers).
-    # The push-style buttons (`Button`, `ToolButton`) inherit this behavior
-    # wholesale; the marker controls (`CheckBox`, `RadioButton`) override the
-    # rendering/toggle and wire their own input via `Mixin::CheckMarker`.
+    # (`#press`/`#toggle`/`#check`/`#uncheck` plus activate-key/click handlers).
+    # Push-style buttons (`Button`, `ToolButton`) inherit this wholesale; marker
+    # controls (`CheckBox`, `RadioButton`) override rendering/toggle and wire
+    # their own input via `Mixin::CheckMarker`.
     abstract class AbstractButton < Input
       # The button's text label (Qt's `QAbstractButton#text`). The marker controls
       # render it after their `[x]`/`(*)` glyph; the push buttons use `#content`.
@@ -92,9 +92,9 @@ module Crysterm
       end
 
       # Button-family controls indicate focus via reverse-video at the unstyled
-      # floor (see `Mixin::Style#floor_focus_reverse?`). They are small, mostly
-      # single-line controls, so inverting them is the clearest no-color focus
-      # cue — unlike a large container/editor, which this hook leaves alone.
+      # floor (see `Mixin::Style#floor_focus_reverse?`) — inverting a small,
+      # mostly single-line control is the clearest no-color focus cue, unlike a
+      # large container/editor, which this hook leaves alone.
       def floor_focus_reverse? : Bool
         true
       end

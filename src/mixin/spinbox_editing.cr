@@ -36,7 +36,6 @@ module Crysterm
         # value rather than committing a half-typed one).
         on(Crysterm::Event::Blur) { cancel_edit if editing? }
 
-        # Mouse wheel nudges the value.
         on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_up?
             increment
@@ -74,9 +73,9 @@ module Crysterm
         return unless buf
         @editing = nil
         if v = parse_buffer(buf)
-          self.value = v # clamps and emits a value-change event if it actually changed
+          self.value = v # clamps, emits a value-change event if changed
         end
-        update_content # revert the display even when the value did not change
+        update_content # revert the display even when value did not change
       end
 
       # Abandons the edit buffer and restores the committed value.
@@ -95,13 +94,11 @@ module Crysterm
         if editable? && ch &&
            (('0'..'9').includes?(ch) ||
            extra_entry_char?(ch) ||
-           # A leading `-` is only accepted as the *first* character of the
-           # buffer. Test the buffer's emptiness rather than `@editing.nil?`:
-           # backspacing every typed character leaves an empty *non-nil* buffer
-           # (`""`), so the nil check wrongly blocked re-entering a negative sign
-           # after a full backspace. `(@editing || "").empty?` covers both the
-           # not-yet-editing (nil) and backspaced-to-empty ("") states, while
-           # still rejecting a `-` typed mid-number.
+           # A leading `-` is only accepted as the first buffer character. Test
+           # emptiness rather than `@editing.nil?`: backspacing to empty leaves a
+           # non-nil `""`, so a nil check wrongly blocked re-entering `-` after a
+           # full backspace. `(@editing || "").empty?` covers both cases while
+           # still rejecting `-` mid-number.
            (ch == '-' && @minimum < 0 && (@editing || "").empty?))
           apply_edit(e) { @editing = (@editing || "") + ch }
           return
@@ -133,9 +130,9 @@ module Crysterm
       end
 
       # Discards any in-progress edit buffer, runs the stepping *action*, then
-      # accepts the event and repaints — the wrapper every value-stepping key
-      # (Up/Down, `+`/`k`/`j`, PageUp/PageDown, Home/End) shares, differing only
-      # in how it moves the value. Block-yielding, so it allocates no `Proc`.
+      # accepts the event and repaints — shared by every value-stepping key
+      # (Up/Down, `+`/`k`/`j`, PageUp/PageDown, Home/End). Block-yielding, so it
+      # allocates no `Proc`.
       private def stepping_key(e, &) : Nil
         cancel_edit
         yield
@@ -144,8 +141,8 @@ module Crysterm
       end
 
       # Applies a buffer mutation (the *block* edits `@editing`), then refreshes
-      # the displayed text, accepts the event and repaints — the wrapper the
-      # buffer-editing keys (direct entry and Backspace) share, the display-side
+      # the displayed text, accepts the event and repaints — shared by the
+      # buffer-editing keys (direct entry and Backspace), the display-side
       # counterpart to `#stepping_key`. Block-yielding, so it allocates no `Proc`.
       private def apply_edit(e, &) : Nil
         yield

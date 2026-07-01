@@ -6,12 +6,12 @@ include Crysterm
 # kitty / iterm / regis) by walking the widget tree directly
 # (`collect_graphics`), separately from the text-cell pass. That walk only
 # consulted a graphics widget's OWN `visible?` flag (via `capture_layer`), not
-# its ancestors' — so a graphics widget sitting inside a HIDDEN container was
-# still painted into the capture even though the live terminal never shows it
-# (a hidden widget's `_render`, and thus its escape sequence, is skipped).
+# its ancestors' — so a graphics widget inside a hidden container was still
+# painted into the capture even though the live terminal never shows it (a
+# hidden widget's `_render`, and thus its escape sequence, is skipped).
 #
 # A faithful capture must mirror what the terminal displays, so a hidden
-# subtree's graphics must be excluded. Driven headlessly over in-memory IOs.
+# subtree's graphics must be excluded.
 
 private def graphics_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
@@ -44,9 +44,8 @@ describe "Capture of in-band graphics inside a hidden subtree" do
 
     # Hiding the *parent* (the image itself stays flag-visible) must remove the
     # image from the capture, since the terminal would no longer show it.
-    # `Capture.render` recomputes each graphics layer's geometry itself, so this
-    # needs no re-render (and avoids the unrelated Media-overlay redraw path that
-    # a hidden widget's `_render` walks).
+    # `Capture.render` recomputes each graphics layer's geometry itself, so no
+    # re-render is needed here.
     parent.hide
     capture_has_red?(Crysterm::Capture.render(s, 0, s.awidth, 0, s.aheight)).should be_false
   end

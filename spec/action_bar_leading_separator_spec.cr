@@ -18,14 +18,11 @@ private def separator(text = "|")
   cmd
 end
 
-# `Mixin::ActionBar` (the command model behind `Widget::ListBar`, `MenuBar`,
-# `ToolBar`) auto-selects the first command when a bar is built. The old
-# `@items.size == 1` guard fired only for the very first item added, so a bar
-# whose first item was a non-selectable separator (a leading `add_separator`)
-# never auto-selected its first real command: `selected` (and the focus
-# highlight / Enter target) stayed stuck on the separator. The fix selects the
-# first *selectable* command regardless of how many separators precede it,
-# while keeping every command — separators included — visible.
+# `Mixin::ActionBar` auto-selects the first command when a bar is built. The
+# old `@items.size == 1` guard fired only for the first item added, so a bar
+# starting with a separator never auto-selected a real command — `selected`
+# stayed stuck on the separator. Fix selects the first *selectable* command
+# regardless of how many separators precede it, keeping all commands visible.
 describe "Mixin::ActionBar leading-separator auto-selection" do
   it "selects the first real command when the bar opens with a separator" do
     s = abls_screen
@@ -33,14 +30,13 @@ describe "Mixin::ActionBar leading-separator auto-selection" do
     bar.set_items [separator, Crysterm::Mixin::ActionBar::Command.new("a"),
                    Crysterm::Mixin::ActionBar::Command.new("b")]
 
-    # Selection lands on the first selectable command (index 1), not the
-    # separator at index 0.
+    # Lands on the first selectable command (index 1), not the separator.
     bar.selected.should eq 1
     bar.commands[bar.selected].separator?.should be_false
     bar.ritems[bar.selected].should eq "a"
 
-    # And it stays there across a render (the separator must remain visible —
-    # i.e. not scrolled off by an inflated left_base).
+    # Stays there across a render (separator must not be scrolled off by an
+    # inflated left_base).
     s._render
     bar.selected.should eq 1
     bar.items[0].lpos.should_not be_nil

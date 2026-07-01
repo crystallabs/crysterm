@@ -1,9 +1,7 @@
-# Headless reproduction of examples/features/cracktro.cr's hot path, so the
-# per-frame render cost can be measured deterministically (no real terminal, no
-# wall-clock pacing) and compared between OptimizationFlag::None and
-# ::DamageTracking. Same scene (copper bars, marquee, greet, sine scroller, and
-# one Box per screen cell as a flying letter) and same per-frame mutation as the
-# demo, just driven by direct `_render` calls instead of `s.every`/`s.exec`.
+# Headless reproduction of examples/features/cracktro.cr's hot path, for
+# deterministic per-frame render cost (no real terminal, no wall-clock pacing),
+# comparing OptimizationFlag::None vs ::DamageTracking. Same scene and mutation
+# as the demo, driven by direct `_render` calls instead of `s.every`/`s.exec`.
 #
 # Run:  crystal run --release benchmarks/cracktro-profile.cr
 
@@ -12,9 +10,9 @@ include Crysterm
 
 FRAMES = (ENV["FRAMES"]? || "300").to_i
 
-# The scene sizes itself from the real terminal (`s.awidth`/`s.aheight`), which
-# headless falls back to 80x24 unless COLUMNS/LINES are set. So control the size
-# with e.g. `COLUMNS=120 LINES=40 ./cp`. The widget count is awidth*aheight.
+# Scene sizes itself from `s.awidth`/`s.aheight`, which headless falls back to
+# 80x24 unless COLUMNS/LINES are set, e.g. `COLUMNS=120 LINES=40 ./cp`. Widget
+# count is awidth*aheight.
 
 MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
        "BLESSED-CONTRIB * QT * NCURSES (R.I.P.) * EVERY CRYSTAL CODER * " +

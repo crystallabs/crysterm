@@ -2,15 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Focused spec for `Crysterm::CSS::ColorValue.resolve` with `hsl()` hues that
-# carry a CSS angle *unit*.
+# `Crysterm::CSS::ColorValue.resolve` with `hsl()` hues carrying a CSS angle
+# unit (`deg`, `grad`, `rad`, `turn`; bare number is degrees).
 #
-# The hue of `hsl()` is a CSS `<angle>`, so it may be written with `deg`, `grad`,
-# `rad` or `turn` (a bare number is degrees). The parser used to read *every*
-# hue as degrees, ignoring the unit — so `hsl(0.5turn, …)` (180°, cyan) resolved
-# to 0.5° (red), and `200grad`/`π rad` (also 180°) were likewise mis-read. The
-# unit is now converted to degrees before the wrap, mirroring how the sibling
-# `rgb()` parser was fixed to honor its signed channels.
+# The parser used to read every hue as degrees regardless of unit, so
+# `hsl(0.5turn, …)` (180°, cyan) resolved to 0.5° (red). Unit is now converted
+# to degrees before the wrap.
 describe "Crysterm::CSS::ColorValue hsl() angle units" do
   cyan = (0 << 16) | (255 << 8) | 255 # hsl(180, 100%, 50%)
 

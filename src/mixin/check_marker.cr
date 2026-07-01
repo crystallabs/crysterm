@@ -3,13 +3,12 @@ module Crysterm
     # Shared rendering and interaction for the marker-style checkable controls —
     # `Widget::CheckBox` (`[x] label`) and `Widget::RadioButton` (`(*) label`).
     #
-    # Both derive `Widget::AbstractButton` *directly* (siblings, exactly as Qt
-    # makes `QCheckBox` and `QRadioButton` siblings under `QAbstractButton`,
-    # rather than one inheriting the other). This module is the implementation
-    # detail they have in common: the marker-only click hit-test, the activate
-    # key toggle, the focus/blur cursor placement over the marker, and the
-    # `<open><glyph><close> text` line builder. The differing pieces (the glyph
-    # set, tri-state, the radio group exclusivity) stay in each widget.
+    # Both derive `Widget::AbstractButton` directly as siblings (like Qt's
+    # `QCheckBox`/`QRadioButton` under `QAbstractButton`, not one inheriting
+    # the other). This module holds their common implementation: marker-only
+    # click hit-test, activate-key toggle, focus/blur cursor placement over the
+    # marker, and the `<open><glyph><close> text` line builder. Differing
+    # pieces (glyph set, tri-state, radio group exclusivity) stay per-widget.
     module CheckMarker
       # Wires the activate keys, focus/blur cursor handling, and the marker-click
       # hit-test. Call from `initialize`, after `super`.
@@ -19,16 +18,14 @@ module Crysterm
         handle Crysterm::Event::Blur
 
         # Toggle only when the `[ ]`/`( )` marker itself is clicked, not the text
-        # label. Uses `Mouse` (not `Click`) because only it carries coordinates;
-        # the marker is the three glyphs at the start of the *first* content row.
+        # label. Uses `Mouse` (not `Click`) since only it carries coordinates;
+        # the marker is the three glyphs at the start of the first content row.
         on(Crysterm::Event::Mouse) do |e|
           next unless e.action.down?
           marker_start = aleft + ileft
-          # The marker lives on the first content row only. The `Mouse` event
-          # fires for a click anywhere inside the widget's rect, so without the
-          # row check a control taller than one line (one with a border, or an
-          # explicit `height`) toggled whenever its marker *column* was clicked
-          # on any row — e.g. the blank line below a bordered checkbox's marker.
+          # Row check needed because `Mouse` fires for clicks anywhere in the
+          # widget's rect — without it, a taller control (border/explicit
+          # height) would toggle on any row at the marker's column.
           marker_row = atop + itop
           if e.y == marker_row && e.x >= marker_start && e.x < marker_start + 3
             toggle

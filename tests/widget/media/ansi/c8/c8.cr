@@ -1,6 +1,5 @@
-# Media::Ansi::C8 — the Matterhorn rendered via the Ansi::C8 backend.
-#
-# A single fixed variant of Media::Ansi (see the sibling dirs for the rest).
+# Media::Ansi::C8 — Matterhorn rendered via the Ansi::C8 backend.
+# Fixed variant of Media::Ansi (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
 include Crysterm

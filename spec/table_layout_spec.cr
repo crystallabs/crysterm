@@ -9,12 +9,11 @@ end
 # Behavior lock for `TableLayout#pad_cell` and the `@maxes` column-width cache.
 #
 # `pad_cell` was rewritten from two allocate-per-iteration loops (pad then trim)
-# into a single computed pad/trim. The oracle below reproduces the ORIGINAL loop
-# semantics exactly — including the centred-odd-remainder behaviour (overshoot by
-# one, then trim one leading space) and the column-count-vs-character trim — so
+# into a single computed pad/trim. The oracle below reproduces the original loop
+# semantics exactly (including centred-odd-remainder overshoot-then-trim), so
 # the rewrite is pinned across alignments, cell contents and widths.
 describe "TableLayout#pad_cell" do
-  # The exact pre-rewrite logic. For tag-free ASCII, display width == char count,
+  # Exact pre-rewrite logic. For tag-free ASCII, display width == char count,
   # so `cell.size` stands in for `cell_width`.
   old = ->(cell : String, width : Int32, align : Tput::AlignFlag) do
     clen = cell.size
@@ -70,17 +69,16 @@ describe "TableLayout @maxes cache" do
 
     t.calculate_maxes
     first = t.row_width
-    t.calculate_maxes # cache hit: must not change the widths
+    t.calculate_maxes # cache hit: must not change widths
     t.row_width.should eq first
   end
 end
 
 describe "TableLayout#col_for_x" do
   # `col_for_x` resolves an interior x to its table column for per-cell CSS
-  # styling. It must agree with the actual rendered layout, which inserts one
-  # separator cell between columns (`render_row`, `column_start_offsets`):
-  # without accounting for it the mapping drifted left by one cell per preceding
-  # column, misstyling every column past the first.
+  # styling. Must agree with the rendered layout, which inserts one separator
+  # cell between columns (`render_row`, `column_start_offsets`); previously the
+  # mapping drifted left by one cell per preceding column.
   it "maps each column to its rendered start position" do
     s = headless_screen
     t = Crysterm::Widget::Table.new parent: s, rows: [["aa", "bbbb", "cc"], ["dd", "ee", "ff"]]
@@ -89,8 +87,8 @@ describe "TableLayout#col_for_x" do
     starts = t.column_start_offsets
     map = t.col_for_x(0, 0)
 
-    # Each column's start offset must map to that column, and the cell just
-    # before it (the separator) must not map to it.
+    # Each column's start offset must map to that column; the separator cell
+    # just before it must not.
     starts.each_with_index do |start, col|
       map[start]?.should eq col
       map[start - 1]?.should_not eq col if start > 0

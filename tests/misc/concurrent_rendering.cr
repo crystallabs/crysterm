@@ -1,10 +1,9 @@
 # FEATURE: single-threaded, fiber-based, lock-free rendering (Qt-style).
 #
-# Every widget below is animated by its OWN independent fiber, each calling
-# `screen.render` whenever it likes. Crysterm coordinates them through a single
-# capacity-1 "doorbell" channel: bursts of render requests coalesce into frames
-# rendered on one fiber, so widget state is never mutated concurrently and no
-# locks are needed. The result is many things moving at once, smoothly.
+# Every widget below is animated by its own independent fiber, calling
+# `screen.render` whenever it likes. Crysterm coalesces bursts of render
+# requests via a capacity-1 "doorbell" channel into frames on one fiber, so
+# widget state is never mutated concurrently and no locks are needed.
 
 require "../../src/crysterm"
 
@@ -22,10 +21,9 @@ Widget::Box.new \
 # Five progress bars, each advancing at its own pace from its own fiber.
 colors = [0xe05050, 0x50e050, 0x5080e0, 0xe0c050, 0xc050e0]
 5.times do |i|
-  # The filled portion is the bar's `indicator` sub-style. The default theme
-  # paints every `ProgressBar::indicator` with its accent color, so set the
-  # indicator explicitly here (an inline sub-style outranks the theme) to give
-  # each bar its own color instead of a uniform accent.
+  # The filled portion is the bar's `indicator` sub-style. Set it explicitly
+  # (an inline sub-style outranks the theme) to give each bar its own color
+  # instead of the theme's uniform accent.
   pb = Widget::ProgressBar.new \
     parent: s,
     top: 2 + i, left: 2, width: 46, height: 1,
@@ -34,8 +32,8 @@ colors = [0xe05050, 0x50e050, 0x5080e0, 0xe0c050, 0xc050e0]
       indicator: Style.new(fg: colors[i]))
   step = i + 1
   s.every((0.05 + i * 0.02).seconds) do
-    # `filled` saturates at 100 (the Qt-style value model clamps it), so the old
-    # `+= step; = 0 if > 100` could never wrap. Restart from empty once full.
+    # `filled` clamps at 100, so `+= step; = 0 if > 100` could never wrap.
+    # Restart from empty once full.
     pb.filled = pb.filled >= 100 ? 0 : pb.filled + step
   end
 end
@@ -62,8 +60,8 @@ s.every(0.04.seconds) do
   pos += 0.15
 end
 
-# Live FPS overlay (bottom-left): with so many fibers each calling `render`, the
-# doorbell coalesces their bursts into the frames this counts.
+# Live FPS overlay (bottom-left): counts the frames the doorbell coalesces
+# these fibers' render bursts into.
 Widget::Fps.new parent: s
 
 s.exec

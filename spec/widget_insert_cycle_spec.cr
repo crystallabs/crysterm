@@ -3,13 +3,13 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget#insert` (src/widget_children.cr) must refuse to make a widget a child
-# of itself or of one of its own descendants. Such a move splices a *cycle* into
-# the widget tree (`element` becomes both an ancestor and a child of `self`),
-# after which every parent/descendant walk — `#screen?`, `#has_descendant?`,
-# `#invalidate_screen_cache`, the renderer's traversal — recurses forever and
-# overflows the stack. The corruption happens synchronously inside the `append`
-# itself (the `parent=` setter walks the now-cyclic subtree to invalidate the
-# screen cache), so without the guard these examples crash rather than fail.
+# of itself or of one of its own descendants. Such a move splices a cycle into
+# the widget tree, after which every parent/descendant walk — `#screen?`,
+# `#has_descendant?`, `#invalidate_screen_cache`, the renderer's traversal —
+# recurses forever and overflows the stack. The corruption happens
+# synchronously inside `append` (the `parent=` setter walks the now-cyclic
+# subtree to invalidate the screen cache), so without the guard these examples
+# crash rather than fail.
 
 private def headless_screen
   Crysterm::Window.new(
@@ -26,8 +26,7 @@ describe "Widget#insert cycle guard" do
 
     a.children.includes?(a).should be_false
     a.parent.should_not eq a
-    # Tree walks still terminate.
-    a.has_descendant?(a).should be_false
+    a.has_descendant?(a).should be_false # tree walks still terminate
     a.window?.should eq s
   end
 
@@ -39,12 +38,11 @@ describe "Widget#insert cycle guard" do
 
     b.append a # `a` is an ancestor of `b` -> would create a cycle
 
-    # The tree is unchanged: `a` stays top-level, `b` stays nested under `a`.
+    # Tree unchanged: `a` stays top-level, `b` stays nested under `a`.
     b.children.includes?(a).should be_false
     a.children.includes?(b).should be_true
     b.parent.should eq a
     s.children.includes?(a).should be_true
-    # And every node still derives its screen without looping.
     a.window?.should eq s
     b.window?.should eq s
   end

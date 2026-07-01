@@ -2,17 +2,17 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for off-screen (negative-coordinate) clipping in
-# `Widget#_render` (`widget_rendering.cr`).
+# Regression: off-screen (negative-coordinate) clipping in `Widget#_render`
+# (`widget_rendering.cr`).
 #
-# A top-level widget positioned partly off the LEFT or TOP screen edge has a
+# A top-level widget positioned partly off the left or top screen edge has a
 # rendered rectangle whose `xi`/`yi` is negative. The content- and border-draw
-# loops index the cell buffer with `lines[y]?` / `line[x]?`, and Crystal's
-# `Indexable#[]?` counts a negative index from the END (`line[-1]?` is the LAST
-# cell, not `nil`). So before this fix the off-screen columns/rows did not vanish
-# — they WRAPPED AROUND and painted onto the opposite (right / bottom) edge,
-# corrupting cells that belong to nothing. The fix consumes the off-screen edge
-# (so the on-screen portion stays correctly aligned) but never writes it.
+# loops index the cell buffer with `lines[y]?`/`line[x]?`, and Crystal's
+# `Indexable#[]?` counts a negative index from the end (`line[-1]?` is the last
+# cell, not `nil`). Before this fix, off-screen columns/rows wrapped around and
+# painted onto the opposite (right/bottom) edge instead of vanishing. The fix
+# consumes the off-screen edge (keeping the on-screen portion aligned) but never
+# writes it.
 private def screen(width = 12, height = 4)
   Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -32,8 +32,8 @@ describe "Widget#_render off-screen clipping" do
 
     # The on-screen portion shows the widget's columns 3.. ("DEF") at column 0.
     chars[0, 3].should eq "DEF"
-    # The off-screen-left columns (-3,-2,-1) must NOT have wrapped onto the right
-    # edge: the right cells stay blank instead of showing "ABC".
+    # The off-screen-left columns (-3,-2,-1) must not wrap onto the right edge:
+    # right cells stay blank instead of showing "ABC".
     chars[9, 3].should eq "   "
   end
 
@@ -51,8 +51,8 @@ describe "Widget#_render off-screen clipping" do
     # On-screen rows 0,1 show the widget's rows 2,3 ("cccc","dddd").
     (0...4).map { |x| s.lines[0][x].char }.join.should eq "cccc"
     (0...4).map { |x| s.lines[1][x].char }.join.should eq "dddd"
-    # The off-screen-top rows must NOT have wrapped onto the bottom rows: rows
-    # 3 and 4 stay blank (would have been "aaaa"/"bbbb" before the fix).
+    # The off-screen-top rows must not wrap onto the bottom rows: rows 3 and 4
+    # stay blank (would have been "aaaa"/"bbbb" before the fix).
     (0...4).all? { |x| s.lines[3][x].char == def_char }.should be_true
     (0...4).all? { |x| s.lines[4][x].char == def_char }.should be_true
   end
@@ -67,7 +67,7 @@ describe "Widget#_render off-screen clipping" do
 
     def_char = Crysterm::Window::DEFAULT_CHAR
     # The widget occupies columns -2..3; its right border lands on column 3.
-    # The off-screen-left border column must not have wrapped to the far right.
+    # The off-screen-left border column must not wrap to the far right.
     (9...12).each do |x|
       (0...3).each do |y|
         s.lines[y][x].char.should eq def_char

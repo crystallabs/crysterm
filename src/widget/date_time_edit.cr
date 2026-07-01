@@ -30,10 +30,9 @@ module Crysterm
       # Whether the seconds section is shown and editable.
       property? show_seconds : Bool = true
 
-      # Re-wrap the generated setter so toggling seconds off while the seconds
-      # section (index 5) is selected re-clamps `@section` into the now-shorter
-      # range (0..4) instead of leaving it pointing at a section that no longer
-      # renders. No-op when the value is unchanged or `@section` is already valid.
+      # Re-wraps the generated setter: toggling seconds off while the seconds
+      # section (index 5) is selected re-clamps `@section` into range (0..4)
+      # instead of pointing at a section that no longer renders.
       def show_seconds=(value : Bool) : Bool
         return value if value == @show_seconds
         @show_seconds = value
@@ -73,10 +72,10 @@ module Crysterm
 
       # Maps an absolute x to a section, by the `YYYY-MM-DD HH:MM:SS` layout
       # (19 cols, last col 18) or `YYYY-MM-DD HH:MM` with seconds hidden (16 cols,
-      # last col 15). A click in the widget's trailing area past the text is off
-      # the field and must return `nil`, as `Mixin::SectionedField#select_section_at`
-      # relies on (it leaves the active section untouched then). Without the upper
-      # bound a click right of the text fell through to the last section.
+      # last col 15). Returns `nil` past the text (trailing widget area), which
+      # `Mixin::SectionedField#select_section_at` relies on to leave the active
+      # section untouched — without the upper bound such a click fell through to
+      # the last section.
       private def section_at(x : Int32) : Int32?
         col = x - aleft - ileft
         return nil if col < 0 || col > (show_seconds? ? 18 : 15)
@@ -124,7 +123,7 @@ module Crysterm
         when 4 then mi = wrap(mi, delta, 60)
         else        s = wrap(s, delta, 60)
         end
-        # Reuse the day branch's count; year/month branches changed y/mo, so recompute.
+        # Year/month branches changed y/mo, so recompute if not already set.
         d = Math.min(d, dim || Time.days_in_month(y, mo))
         self.date_time = Time.local(y, mo, d, h, mi, s)
       end

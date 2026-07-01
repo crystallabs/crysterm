@@ -35,10 +35,9 @@ module Crysterm
       class Bar < Box
         include BarChart
 
-        # The data series. Each element is one bar. (A `getter` with an explicit
-        # setter below, rather than a `property`, so *every* assignment — including
-        # an `Array(Float64)` literal that would otherwise bind the generated
-        # setter — routes through the repaint-scheduling `#values=`.)
+        # The data series. Each element is one bar. `getter` with an explicit
+        # setter below (not `property`) so every assignment routes through the
+        # repaint-scheduling `#values=`.
         getter values : Array(Float64)
 
         # Category captions drawn (centered, one row) under each bar. `nil` or
@@ -85,7 +84,7 @@ module Crysterm
         # Accepts any numeric array, coercing to `Float64`.
         def values=(vals : Array)
           @values = vals.map(&.to_f)
-          mark_dirty # repaint on data change (Qt's property-change-triggers-update), as in `StackedBar`
+          mark_dirty # repaint on data change, as in `StackedBar`
         end
 
         private def bar_color(i : Int32) : String?
@@ -114,9 +113,8 @@ module Crysterm
           # Total filled eighth-cells per shown bar.
           levels = shown.map { |v| Scale.eighths(v, @min, top, plot_rows) }
 
-          # Exactly `plot_rows` plot lines plus the optional value/label caption
-          # rows; reserve up front so the per-frame collection (rebuilt every
-          # animated frame) doesn't realloc its backing as it grows.
+          # Exactly `plot_rows` plot lines plus optional value/label caption rows;
+          # reserve up front so the per-frame rebuild doesn't realloc as it grows.
           lines = Array(String).new(plot_rows + value_row + label_row)
 
           # Plot area, top row down.
@@ -130,10 +128,9 @@ module Crysterm
             lines << field_line(n) { |i| Scale.fmt(shown[i]) }
           end
 
-          # Category captions. When the values overflow the width only the tail
-          # is shown (`@values.last(cap)`), so the labels must follow the same
-          # offset — otherwise the captions stay anchored to the first values and
-          # mislabel the visible (tail) bars.
+          # Category captions. When values overflow the width only the tail is
+          # shown (`@values.last(cap)`), so labels must follow the same offset —
+          # otherwise captions mislabel the visible (tail) bars.
           if label_row == 1
             names = lbls.not_nil! # ameba:disable Lint/NotNil
             offset = @values.size - n

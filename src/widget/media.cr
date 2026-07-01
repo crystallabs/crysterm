@@ -4,17 +4,16 @@ module Crysterm
   class Widget
     # Factory for image widgets, ported from Blessed's `image` element.
     #
-    # In Blessed, `image` is a thin dispatcher that constructs one of several
-    # concrete image widgets depending on `type`. Crystal can't mutate an
-    # object's class at runtime the way Blessed does, so here `Media` is a
-    # factory: `Media.new` returns the concrete widget for the requested `type`
-    # and forwards all other options to it.
+    # Blessed's `image` mutates an object's class at runtime to dispatch to a
+    # concrete widget; Crystal can't do that, so `Media` is a factory instead:
+    # `Media.new` returns the concrete widget for the requested `type` and
+    # forwards all other options to it.
     #
-    # Every backend is a `Media::Base` (the shared contract: image source,
-    # `fit`, animation, and the `image.unsupported` policy), so `Media.new`
-    # returns `Media::Base`. They are grouped by how the image's pixels reach the
-    # window — which determines the rendering/erase machinery, and the abstract
-    # family base each one inherits:
+    # Every backend is a `Media::Base` (shared contract: image source, `fit`,
+    # animation, `image.unsupported` policy), so `Media.new` returns
+    # `Media::Base`. Backends are grouped by how the image's pixels reach the
+    # window, which determines the rendering/erase machinery and the abstract
+    # family base each inherits:
     #
     # * **cell-grid** (`Media::Cells`) — the image becomes character cells
     #   Crysterm owns and diffs: `Ansi` (`Media::Ansi`, one cell per pixel) and
@@ -37,9 +36,9 @@ module Crysterm
     # ```
     #
     # The factory forwards a single common option bag (`file`, position, size) to
-    # whichever backend is selected; backend-specific options (e.g. Media::Glyph's
-    # `mode`, Media::Sixel's `dither`) are best passed by constructing the concrete
-    # widget directly.
+    # whichever backend is selected; backend-specific options (e.g.
+    # Media::Glyph's `mode`, Media::Sixel's `dither`) are best passed by
+    # constructing the concrete widget directly.
     module Media
       # 4×4 Bayer ordered-dither matrix (values 0..15), shared by the dithering
       # backends (`Media::Sixel`, `Media::Regis`, `Media::Tek`) which each used
@@ -51,25 +50,24 @@ module Crysterm
         [15, 7, 13, 5],
       ]
 
-      # How an image's colors are dithered when they have to be reduced to a
-      # smaller palette than the source (the fixed sixel grid, ReGIS' 8 colors,
-      # the xterm-256/16 cube, or Tek's 1 bit). Shared by every backend that
-      # quantizes, so the option means the same thing everywhere.
+      # How an image's colors are dithered when reduced to a smaller palette than
+      # the source (sixel grid, ReGIS' 8 colors, xterm-256/16 cube, Tek's 1 bit).
+      # Shared by every quantizing backend, so the option means the same thing
+      # everywhere.
       #
       # Dithering trades spatial resolution for perceived color depth: instead of
-      # snapping each pixel to its nearest palette entry (which bands smooth
-      # gradients), it scatters the two nearest entries so the eye averages them
-      # back to the in-between color.
+      # snapping each pixel to its nearest palette entry (which bands gradients),
+      # it scatters the two nearest entries so the eye averages them back to the
+      # in-between color.
       enum Dither
         None      # snap to the nearest palette entry — cleanest, but bands gradients
         Ordered   # 4×4 Bayer ordered dither — deterministic per pixel, so frame-stable
         Diffusion # Floyd–Steinberg error diffusion — best for a still; shimmers if animated
         Auto      # Diffusion for a still image, Ordered for an animation (default)
 
-        # Collapses `Auto` to a concrete method: error diffusion gives the nicest
-        # still, but its irregular stipple changes from frame to frame and would
-        # shimmer in an animation, so an animated source falls back to the
-        # frame-stable ordered dither. Any non-`Auto` value is returned as-is.
+        # Collapses `Auto` to a concrete method: error diffusion looks best on a
+        # still, but its irregular stipple shimmers across frames, so an animated
+        # source falls back to the frame-stable ordered dither.
         def resolve(animated : Bool) : Dither
           return self unless auto?
           animated ? Ordered : Diffusion
@@ -77,18 +75,17 @@ module Crysterm
       end
 
       # Quantizes an RGBA *bmp* (*pw*×*ph*) to one backend value per pixel,
-      # applying the requested *dither*. This is the shared color-reduction loop
-      # for every palette backend (`Media::Sixel`, `Media::Regis`, `Media::Ansi`);
+      # applying the requested *dither*. Shared color-reduction loop for every
+      # palette backend (`Media::Sixel`, `Media::Regis`, `Media::Ansi`);
       # `Media::Tek` does its own 1-bit variant.
       #
       # The block is invoked once per opaque pixel with the channels to quantize
-      # and an ordered-dither threshold *t* (the Bayer offset in `[-0.5, 0.5)` for
-      # `Ordered`, else `0.0`); it must return `{value, qr, qg, qb}` — the value
-      # to store (a palette index, or a packed `0xRRGGBB`) plus the RGB that value
-      # actually resolves to, so `Diffusion` can spread the residual (target −
-      # chosen) onto the not-yet-visited neighbours. Fully transparent pixels
-      # (`a == 0`, or missing) are assigned *transparent* and never reach the
-      # block. *animated* collapses `Dither::Auto` (see `Dither#resolve`).
+      # and an ordered-dither threshold *t* (Bayer offset in `[-0.5, 0.5)` for
+      # `Ordered`, else `0.0`); it must return `{value, qr, qg, qb}` — the stored
+      # value (palette index or packed `0xRRGGBB`) plus the RGB it resolves to, so
+      # `Diffusion` can spread the residual onto not-yet-visited neighbours. Fully
+      # transparent pixels (`a == 0` or missing) are assigned *transparent* and
+      # never reach the block. *animated* collapses `Dither::Auto`.
       def self.dither_rgb(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32,
                           dither : Dither, animated : Bool, transparent : V,
                           & : Int32, Int32, Int32, Float64 -> Tuple(V, Int32, Int32, Int32)) : Array(Array(V)) forall V
@@ -129,19 +126,19 @@ module Crysterm
             end
           end
           out << row
-          # The next line's accumulated error becomes the current line's; reuse
-          # the drained buffers as the new (zeroed) next line.
+          # Next line's accumulated error becomes the current line's; reuse the
+          # drained buffers as the new (zeroed) next line.
           cur_r, nxt_r = nxt_r, cur_r; cur_g, nxt_g = nxt_g, cur_g; cur_b, nxt_b = nxt_b, cur_b
           nxt_r.fill(0.0); nxt_g.fill(0.0); nxt_b.fill(0.0)
         end
         out
       end
 
-      # Rec.709 relative luminance of *px* (`0.2126·R + 0.7152·G + 0.0722·B`),
-      # in the channels' own 0..255 scale. The shared brightness measure behind
-      # every backend that maps colour to a glyph/bit/intensity (`Media::Glyph`,
-      # `Media::Tek`, `Media::Ansi`). Callers that need alpha- or scale-folding do
-      # it themselves on the result (e.g. `Media::Ansi`: `luminance(px) * a / 255`).
+      # Rec.709 relative luminance of *px* (`0.2126·R + 0.7152·G + 0.0722·B`), in
+      # the channels' own 0..255 scale. Shared brightness measure for backends
+      # mapping colour to a glyph/bit/intensity (`Media::Glyph`, `Media::Tek`,
+      # `Media::Ansi`). Callers fold alpha/scale themselves on the result (e.g.
+      # `Media::Ansi`: `luminance(px) * a / 255`).
       def self.luminance(px : PNGGIF::Pixel) : Float64
         0.2126 * px.r + 0.7152 * px.g + 0.0722 * px.b
       end
@@ -154,9 +151,9 @@ module Crysterm
       end
 
       # Index of the nearest entry in *palette* (packed `0xRRGGBB` values) to
-      # *r*,*g*,*b* by squared RGB distance; ties go to the lower index. The
-      # shared nearest-color search behind `Media::Ansi` (xterm-256/16 cube) and
-      # `Media::Regis` (8 named colors), which differ only in the palette passed.
+      # *r*,*g*,*b* by squared RGB distance; ties go to the lower index. Shared
+      # nearest-color search behind `Media::Ansi` (xterm-256/16 cube) and
+      # `Media::Regis` (8 named colors), differing only in the palette passed.
       def self.nearest_index(palette : Array(Int32), r : Int32, g : Int32, b : Int32) : Int32
         best = 0
         bestd = Int32::MAX
@@ -178,10 +175,10 @@ module Crysterm
       end
 
       # Scans a *row* of *width* values into maximal runs of equal adjacent
-      # values, yielding each run's value, start column, and length. The shared
-      # horizontal run-length kernel behind the vector/RLE graphics backends —
-      # `Media::Sixel` (sixel RLE bands), `Media::Regis` and `Media::Tek` (one
-      # horizontal vector per run) — which each open-coded the identical scan.
+      # values, yielding each run's value, start column, and length. Shared
+      # horizontal run-length kernel for the vector/RLE graphics backends —
+      # `Media::Sixel` (sixel RLE bands), `Media::Regis`/`Media::Tek` (one
+      # horizontal vector per run).
       def self.each_run(row : Indexable(T), width : Int32, & : T, Int32, Int32 ->) forall T
         x = 0
         while x < width
@@ -197,8 +194,8 @@ module Crysterm
 
       # Backend used to render the image. See the families described above.
       #
-      # `Ansi` and `Glyph` are the cell-grid defaults (mode/colormode selectable on
-      # the widget, and what auto-selection ranks); each is *also* offered as
+      # `Ansi` and `Glyph` are the cell-grid defaults (mode/colormode selectable
+      # on the widget, what auto-selection ranks); each is also offered as
       # single-variant members (`AnsiC256`, `GlyphOctant`, …) for picking one
       # rendering explicitly.
       enum Type
@@ -224,11 +221,10 @@ module Crysterm
         Tek           # separate window, Tektronix 4014 vectors (`Media::Tek`)
       end
 
-      # Selectable values of the `media.backend` config option: the special
-      # `Auto` (pick the best `Type` the terminal supports) plus one member per
-      # `Type`, named identically so a non-`Auto` choice maps to its `Type` via
-      # `Type.parse?(choice.to_s)`. A real enum (rather than a free string) so
-      # the option is an explicit, validated, dump-round-trippable choice.
+      # Selectable values of the `media.backend` config option: `Auto` (pick the
+      # best `Type` the terminal supports) plus one member per `Type`, named
+      # identically so a non-`Auto` choice maps via `Type.parse?(choice.to_s)`.
+      # A real enum keeps the option explicit, validated, and dump-round-trippable.
       enum Backend
         Auto # Pick the best backend the terminal supports (see `resolve`)
         Ansi
@@ -270,9 +266,9 @@ module Crysterm
 
       # The kind of media to display, named after Qt Quick's media elements
       # (`Image`, `AnimatedImage`, `Video`). Used by `resolve` to pick the best
-      # default backend, since the ranking differs by kind (e.g. iTerm2 animates
-      # GIFs natively so it ranks higher for `AnimatedImage`, but it can't stream
-      # raw video so it's excluded from `Video`).
+      # default backend, since ranking differs by kind (e.g. iTerm2 animates GIFs
+      # natively so it ranks higher for `AnimatedImage`, but can't stream raw
+      # video so it's excluded from `Video`).
       enum Content
         Image         # a single still image (Qt Quick: Image)
         AnimatedImage # an animated image — GIF / APNG (Qt Quick: AnimatedImage)
@@ -283,11 +279,10 @@ module Crysterm
 
       # The default backend when `type:` is not given, resolved from the config
       # registry (key `image.backend`, env `CRYSTERM_MEDIA_BACKEND`, CLI
-      # `--media-backend`). A concrete value (e.g. `kitty`) is used as-is; the
-      # special value `auto` runs `resolve`, picking the content kind from *file*
-      # (a video file resolves with `Content::Video`, which excludes backends that
-      # can't play decoded frames; anything else with `Content::Image`). An
-      # unrecognized value falls back to `Ansi`.
+      # `--media-backend`). A concrete value (e.g. `kitty`) is used as-is; `auto`
+      # runs `resolve`, picking the content kind from *file* (video resolves with
+      # `Content::Video`, anything else with `Content::Image`). Unrecognized
+      # values fall back to `Ansi`.
       def self.default_type(file : String? = nil) : Type
         backend = Crysterm::Config.media_backend
         # A non-`auto` choice shares its name with the matching `Type`.
@@ -299,15 +294,13 @@ module Crysterm
       # The best backend `Type` for *content* on the current terminal.
       #
       # Walks the ranked candidate list for that content type (most
-      # native/optimized first; see `candidates_for`), skips any the user has
-      # excluded via the `image.exclude` "umask", and returns the first the
-      # terminal supports — falling back to the universal cell grid (`Ansi`) when
-      # nothing else qualifies.
+      # native/optimized first; see `candidates_for`), skips any excluded via
+      # `image.exclude`, and returns the first the terminal supports — falling
+      # back to the universal cell grid (`Ansi`) when nothing else qualifies.
       #
-      # The terminal is described by *tput* (the live `Tput` from the global
-      # window by default); terminal facts come from `Tput::Emulator`/`Features`,
-      # so no escape-sequence probing is done here. With no window/terminal
-      # handle, the safe fallback (the last non-excluded candidate) is returned.
+      # *tput* describes the terminal (the global window's by default); facts
+      # come from `Tput::Emulator`/`Features`, so no probing happens here. With
+      # no window/terminal handle, the last non-excluded candidate is returned.
       def self.resolve(content : Content = Content::Image, tput : ::Tput? = nil) : Type
         tput ||= (Crysterm::Window.total > 0 ? Crysterm::Window.global.tput : nil)
         excluded = excluded_types
@@ -321,15 +314,14 @@ module Crysterm
           end
         end
 
-        # No terminal handle, or nothing matched: the safest available fallback
-        # (the lists end in `Ansi`, which works anywhere).
+        # No terminal handle, or nothing matched: lists end in `Ansi`, which
+        # works anywhere.
         candidates.last? || Type::Ansi
       end
 
-      # Backends the user has excluded from automatic selection via the
-      # `image.exclude` config option (a comma/space separated list of backend
-      # names, e.g. `"kitty,sixel"`). `resolve` skips these and chooses the best
-      # of what remains. Unknown names are ignored.
+      # Backends excluded from automatic selection via `image.exclude` (a
+      # comma/space separated list of backend names, e.g. `"kitty,sixel"`).
+      # `resolve` skips these. Unknown names are ignored.
       def self.excluded_types : Array(Type)
         Crysterm::Config.media_exclude
           .split(/[\s,]+/, remove_empty: true)
@@ -338,10 +330,9 @@ module Crysterm
 
       # Ranked best→fallback backend candidates for *content* (see `resolve`).
       private def self.candidates_for(content : Content) : Array(Type)
-        # Auto-selection ranks by family default (`Glyph`/`Ansi`); the widget then
-        # picks the concrete mode/colormode (e.g. `Graph::Canvas` sets braille). A
-        # specific variant (`GlyphOctant`, `AnsiC256`, …) can be forced explicitly
-        # via `image.backend`/`type:`.
+        # Auto-selection ranks by family default (`Glyph`/`Ansi`); the widget
+        # then picks the concrete mode/colormode (e.g. `Graph::Canvas` sets
+        # braille). A specific variant can be forced via `image.backend`/`type:`.
         case content
         in Content::Image
           [Type::Kitty, Type::Iterm, Type::Sixel, Type::Glyph, Type::Ansi]
@@ -353,17 +344,15 @@ module Crysterm
           [Type::Kitty, Type::Sixel, Type::Glyph, Type::Ansi]
         in Content::Painter
           # Vector strokes: Sixel's crisp pixel control beats iTerm's per-frame
-          # re-blit for thin lines, so it ranks above iTerm here. `Glyph` (braille
-          # by default, set on `Graph::Canvas`) is the universal sub-cell fallback.
+          # re-blit for thin lines. `Glyph` (braille by default on
+          # `Graph::Canvas`) is the universal sub-cell fallback.
           [Type::Kitty, Type::Sixel, Type::Iterm, Type::Glyph, Type::Ansi]
         in Content::Background
-          # A background sits *behind* text. Only Kitty draws true pixels under the
-          # cell grid (negative `z=`); the in-band raster backends (sixel/iTerm)
-          # own their cells and can't sit under text, so they're excluded. The
-          # cell-grid backends (`Glyph`/`Ansi`) render the image *into* the buffer,
-          # so they compose under content the ordinary way — the universal fallback.
-          # The user picks among these via `image.exclude` (e.g. exclude `kitty` to
-          # force the cell-grid look).
+          # A background sits *behind* text. Only Kitty draws true pixels under
+          # the cell grid (negative `z=`); sixel/iTerm own their cells and can't
+          # sit under text, so they're excluded. `Glyph`/`Ansi` render into the
+          # buffer and compose under content normally. Exclude `kitty` via
+          # `image.exclude` to force the cell-grid look.
           [Type::Kitty, Type::Glyph, Type::Ansi]
         end
       end
@@ -383,12 +372,11 @@ module Crysterm
       end
 
       # Whether *type* can actually render in the current environment — terminal
-      # capability for the in-band backends (Kitty/Iterm/Sixel), Unicode for the
-      # cell grid, and **helper-binary presence** for the external ones (Overlay
-      # needs `w3mimgdisplay`, Ueberzug needs `ueberzug`). `Regis`/`Tek` have no
-      # detection and report unavailable. Use this to gate selection in a UI so a
-      # backend the host can't drive is never invoked (no escape-sequence spew, no
-      # crash). *tput* defaults to the global window's.
+      # capability for in-band backends (Kitty/Iterm/Sixel), Unicode for the cell
+      # grid, helper-binary presence for the external ones (Overlay needs
+      # `w3mimgdisplay`, Ueberzug needs `ueberzug`). `Regis`/`Tek` always report
+      # unavailable. Use to gate UI selection so an undrivable backend is never
+      # invoked. *tput* defaults to the global window's.
       def self.available?(type : Type, tput : ::Tput? = nil) : Bool
         case type
         when .ansi?, .glyph?
@@ -420,13 +408,12 @@ module Crysterm
 
       # Builds the concrete image/media widget for *type*, forwarding all
       # remaining options to its constructor. When *type* is omitted it is
-      # resolved for the current terminal and *file*'s content kind via
-      # `default_type` (a video file picks a video-capable backend); pass *type*
-      # explicitly to force a specific backend.
+      # resolved via `default_type` for the current terminal and *file*'s
+      # content kind; pass *type* explicitly to force a specific backend.
       #
-      # *double_buffer* is applied only to the in-band graphics backends it
-      # applies to (`Media::Graphics`: sixel/regis/kitty/iterm); on cell/external
-      # backends it is silently ignored, so it can be passed uniformly here.
+      # *double_buffer* applies only to the in-band graphics backends
+      # (`Media::Graphics`: sixel/regis/kitty/iterm); silently ignored on
+      # cell/external backends, so it can be passed uniformly here.
       def self.new(*, type : Type? = nil, file : String? = nil, double_buffer : Bool? = nil, **opts) : Media::Base
         type ||= default_type(file)
         opts = opts.merge(file: file)
@@ -454,9 +441,8 @@ module Crysterm
           in Type::Tek           then Tek.new **opts
           end
         # Distinguish "not given" (nil) from an explicit `false`: a plain
-        # truthiness test (`if (db = double_buffer)`) silently dropped a passed
-        # `double_buffer: false`, leaving the widget on its `true` default — so a
-        # caller could never turn double-buffering *off* through the factory.
+        # truthiness test would silently drop `double_buffer: false`, leaving
+        # the widget on its `true` default.
         unless (db = double_buffer).nil?
           widget.double_buffer = db if widget.is_a?(Graphics)
         end
@@ -464,25 +450,22 @@ module Crysterm
       end
 
       # Process-wide decode cache: the same file shown by several widgets (or
-      # reloaded) is parsed only once. The decoded `PNGGIF::PNG` holds the
-      # full-resolution bitmap + raw frames; every widget derives its sized
-      # render from it without mutating it, so the instance is shared read-only.
-      # A `nil` value is a cached *failure* (see `decode`).
+      # reloaded) is parsed only once. Every widget derives its sized render
+      # from the shared `PNGGIF::PNG` read-only. A `nil` value is a cached
+      # *failure* (see `decode`).
       @@decode_cache = {} of String => PNGGIF::PNG?
 
       # Decodes *file* (a local path or `http(s)` URL) once, caching the result
       # keyed on path + size + mtime (so an on-disk change invalidates it).
       # Returns `nil` on failure.
       #
-      # Failures are cached too (as a `nil` value): `source` is called on every
-      # render pass, so without negative caching a file that fails to decode —
-      # especially a video whose ffprobe/ffmpeg pipeline errors — would re-spawn
-      # the whole subprocess pipeline every frame and stall the UI. The
-      # size+mtime key means a later edit (or a missing file later appearing)
-      # produces a new key and re-decodes.
+      # Failures are cached too: `source` is called every render pass, so
+      # without negative caching a file that fails to decode — especially a
+      # video whose ffprobe/ffmpeg pipeline errors — would re-spawn the
+      # subprocess pipeline every frame and stall the UI.
       # Resolves a *file* spec to data a `PNGGIF` decoder accepts: an `http(s)`
-      # URL is fetched to bytes (via `Ansi.fetch`); a local path is passed through
-      # as-is (the decoder opens it). Shared by `#decode` and `Media::Tek`.
+      # URL is fetched to bytes (via `Ansi.fetch`); a local path passes through
+      # as-is. Shared by `#decode` and `Media::Tek`.
       def self.source_data(file : String) : String | Bytes
         file =~ /^https?:/ ? Ansi.fetch(file) : file
       end
@@ -494,20 +477,18 @@ module Crysterm
             key = "#{file}\u{0}#{info.size}\u{0}#{info.modification_time.to_unix}"
           end
         end
-        # ANSI-art decoding depends on the detail setting, so key on it too — a
-        # toggle re-decodes rather than serving the stale rasterization.
+        # ANSI-art decoding depends on the detail setting, so key on it too.
         key += "\u{0}d#{Crysterm::Config.media_ansi_art_detail}" if file =~ ANSI_ART_RE
         return @@decode_cache[key] if @@decode_cache.has_key?(key)
         png =
           begin
             if file =~ ANSI_ART_RE
               # ANSI/textmode art: decode CP437 + ANSI sequences to a bitmap
-              # (an input decoder, peer to PNGGIF — see `#decode_ansi`).
+              # (see `#decode_ansi`).
               raw = file =~ /^https?:/ ? Ansi.fetch(file) : File.open(file, &.getb_to_end)
               decode_ansi(raw)
             elsif VideoSource.video? file
-              # Decoded to animation frames via ffmpeg; nil if ffmpeg/ffprobe
-              # are missing or decoding fails.
+              # Decoded to animation frames via ffmpeg; nil if missing/failed.
               VideoSource.decode file
             else
               PNGGIF::PNG.new(source_data(file))

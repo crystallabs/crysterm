@@ -6,9 +6,8 @@ include Crysterm
 # constructed events — no TTY / input fiber needed. Two layers are covered:
 #
 #   * `Window#handle_input` — the per-surface demux (key/paste/mouse/resize).
-#   * `Application#route_input` — the device→surface dispatch step: the device
-#     hands a parsed event to the app, which forwards it to the active window on
-#     that device.
+#   * `Application#route_input` — device->surface dispatch: forwards a parsed
+#     event to the active window on that device.
 
 private def routing_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
@@ -117,7 +116,7 @@ describe "Application#route_input" do
     win_a.on(Crysterm::Event::KeyPress) { |e| a_keys << e.key }
     win_b.on(Crysterm::Event::KeyPress) { |e| b_keys << e.key }
 
-    # Input read on win_a's device must reach win_a, even though win_b is active.
+    # Must reach win_a (its device), even though win_b is the active window.
     app.route_input win_a.screen, press('a', Tput::Key::CtrlA)
     a_keys.should eq [Tput::Key::CtrlA]
     b_keys.should be_empty
@@ -126,14 +125,12 @@ describe "Application#route_input" do
   it "drops input from a device with no window (no error)" do
     app = Crysterm::Application.new
     orphan = routing_screen # built but never added to the app
-    # Should be a quiet no-op, not a raise.
-    app.route_input orphan.screen, press('a', Tput::Key::CtrlA)
+    app.route_input orphan.screen, press('a', Tput::Key::CtrlA) # no-op, not a raise
   end
 
-  # The app-global quit path (`default_quit_keys?` + `q`/Ctrl-Q) calls `exit`, so
-  # it can't be unit-tested directly. We cover the *opt-out* side: a window with
-  # `default_quit_keys: false` must NOT be intercepted — `q` forwards to it as an
-  # ordinary key (so widgets' own `q` bindings keep working).
+  # The app-global quit path calls `exit`, so it can't be unit-tested directly.
+  # Covers the opt-out side: `default_quit_keys: false` means `q` forwards as
+  # an ordinary key instead of being intercepted.
   it "forwards 'q' to a default_quit_keys:false window instead of quitting" do
     app = Crysterm::Application.new
     win = Crysterm::Window.new(
@@ -147,9 +144,8 @@ describe "Application#route_input" do
     got.should eq ['q']
   end
 
-  # The quit decision is factored into `Application.quit_key?`, shared by the
-  # app-global hotkey (`#route_input`) and the graceful wrapper quit
-  # (`.exec_all`). Cover it directly, since the loops that consume it are
+  # `Application.quit_key?` is shared by the app-global hotkey and the graceful
+  # wrapper quit (`.exec_all`); tested directly since the consuming loops are
   # IO-bound and can't run headlessly.
   it "recognizes the default quit keys via Application.quit_key?" do
     Crysterm::Application.quit_key?('q', nil).should be_true
@@ -158,10 +154,9 @@ describe "Application#route_input" do
     Crysterm::Application.quit_key?('\0', Tput::Key::CtrlA).should be_false
   end
 
-  # `exec_all` opts its windows out of the app-global hard-exit so it can run a
-  # graceful close instead. Verify the opt-out a window receives (the setter
-  # `exec_all` uses) actually flips routing from hard-exit to forward — the
-  # piece testable without the blocking loop.
+  # `exec_all` opts its windows out of the app-global hard-exit for a graceful
+  # close. Verifies the setter actually flips routing from hard-exit to
+  # forward — the piece testable without the blocking loop.
   it "lets default_quit_keys= flip a window out of the hard-exit path" do
     app = Crysterm::Application.new
     win = routing_screen # defaults to default_quit_keys: true
@@ -217,8 +212,7 @@ describe "Application registry consistency" do
     win.on(Crysterm::Event::KeyPress) { |_| got += 1 }
 
     win.destroy
-    # The device is gone from the app, so nothing receives the event (no raise).
-    app.route_input dev, press('a', Tput::Key::CtrlA)
+    app.route_input dev, press('a', Tput::Key::CtrlA) # device gone: no receiver, no raise
     got.should eq 0
   end
 end

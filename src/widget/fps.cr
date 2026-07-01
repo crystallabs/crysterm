@@ -2,15 +2,14 @@ require "./box"
 
 module Crysterm
   class Widget
-    # Debug overlay that displays live rendering-performance figures for its
-    # `Window`: how fast the render and draw phases run, the resulting frame
-    # rate, and how many bytes the draw phase writes to the terminal.
+    # Debug overlay showing live rendering-performance figures for its
+    # `Window`: render/draw phase speed, resulting frame rate, and bytes the
+    # draw phase writes to the terminal.
     #
-    # It is an ordinary widget — position, style, show/hide and reparent it like
-    # any other. What it prints is driven by a printf-style `#format` string and
-    # a `#args` list naming which metrics fill the format's `%` slots, so any
-    # element is "disabled" simply by leaving it out of `args`. The defaults
-    # print everything:
+    # An ordinary widget — position, style, show/hide and reparent it like any
+    # other. What it prints is driven by a printf-style `#format` string and an
+    # `#args` list naming which metrics fill the format's `%` slots; an element
+    # is disabled by leaving it out of `args`. Defaults print everything:
     #
     #     Crysterm::Widget::Fps.new(parent: window)            # everything, bottom-left
     #     Crysterm::Widget::Fps.new(parent: window,
@@ -31,12 +30,10 @@ module Crysterm
     #
     # `:throughput` is the rate *while a frame paints* (what continuous rendering
     # would sustain); `:throughput_actual` divides by the real interval between
-    # frames, so it reflects sustained traffic and integrates over time to
-    # `:total`.
+    # frames, reflecting sustained traffic, and integrates over time to `:total`.
     #
     # The figures describe the *previous* frame (the overlay paints as a child,
-    # before the frame it appears in has finished) — exactly what a frame-rate
-    # counter wants.
+    # before the frame it appears in has finished).
     #
     # <!-- widget-examples:capture v1 -->
     # ![Fps screenshot](../../tests/widget/fps/fps.5s.apng)
@@ -48,11 +45,11 @@ module Crysterm
       # Default layout: the classic `R/D/FPS: cur/cur/cur (avg/avg/avg)` line,
       # plus terminal write throughput and the cumulative byte total.
       #
-      # Every field is given a fixed minimum width (right-justified) so the line
-      # keeps a constant length as the numbers gain or lose digits — otherwise
-      # the auto-sized box would shrink/grow by a column and visibly jitter. The
-      # `%s` specifiers accept both the integer and the human-readable string
-      # metrics. (`5` fits any realistic frame rate; `9` fits "1023.9MiB".)
+      # Each field has a fixed minimum width (right-justified) so the line
+      # keeps a constant length as digit counts change — otherwise the
+      # auto-sized box would jitter. `%s` accepts both integer and
+      # human-readable metrics. (`5` fits any realistic frame rate; `9` fits
+      # "1023.9MiB".)
       DEFAULT_FORMAT = "R/D/FPS: %5s/%5s/%5s (%5s/%5s/%5s)  TX: %9s/s (%9s/s)  ~TX: %9s/s (%9s/s)  Σ: %9s"
       DEFAULT_ARGS   = %i[
         render draw fps
@@ -97,8 +94,7 @@ module Crysterm
 
         super(parent, **opts)
 
-        # Sit in the bottom-left corner (where the old built-in overlay lived)
-        # unless the caller anchored it explicitly.
+        # Default to the bottom-left corner unless the caller anchored it explicitly.
         if @left.nil? && @right.nil? && @top.nil? && @bottom.nil?
           @left = 0
           @bottom = 0
@@ -107,8 +103,8 @@ module Crysterm
 
       def render(with_children = true)
         if s = window?
-          # Update the rolling averages exactly once per frame, then build the
-          # text before the standard box render paints it.
+          # Update the rolling averages once per frame, then build the text
+          # before the standard box render paints it.
           @render_avg_val = @render_avg.avg s.render_rate
           @draw_avg_val = @draw_avg.avg s.draw_rate
           @fps_avg_val = @fps_avg.avg s.frame_rate
@@ -119,8 +115,7 @@ module Crysterm
             begin
               @format % @args.map { |sym| value_for sym, s }
             rescue ex
-              # A bad format/args combination shouldn't take down the render
-              # loop; surface the problem in the overlay instead.
+              # Bad format/args combo shouldn't take down the render loop.
               "FPS format error: #{ex.message}"
             end
           set_content text

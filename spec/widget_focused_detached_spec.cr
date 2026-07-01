@@ -2,12 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget#focused?` is a pure boolean query, so it must answer for *any* widget —
-# including a detached one (removed from its screen). A detached widget holds no
-# `@screen` and derives none through a parent, so the predicate must consult the
-# non-raising `#screen?` and report `false`, rather than crashing with a
-# `NilAssertionError` (which the old raising `#screen` produced). A widget that
-# can't be on screen can't be the screen's focused widget.
+# `Widget#focused?` must answer for any widget, including a detached one
+# (removed from its screen, holding no `@screen` and deriving none through a
+# parent). It must consult the non-raising `#screen?` and report `false`
+# rather than crash with `NilAssertionError` (what the old raising `#screen`
+# produced).
 
 private def detached_focus_screen
   Crysterm::Window.new(
@@ -35,7 +34,7 @@ describe "Widget#focused?" do
     w.focus
     w.focused?.should be_true
 
-    # Detach it from the screen; focus rewinds to `other`. Querying the now
+    # Detach from the screen; focus rewinds to `other`. Querying the
     # screen-less widget must answer `false`, not crash.
     s.remove w
     w.window?.should be_nil

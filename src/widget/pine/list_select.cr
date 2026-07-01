@@ -4,10 +4,10 @@ module Crysterm
   class Widget
     module Pine
       # A generic "select from a list" picker — the reusable counterpart of the
-      # Pine/Alpine `select_from_list` family. It shows a scrollable list of
-      # arbitrary items and lets the user either pick one (single-select) or
-      # check several with `[X]` checkboxes (multi-select), then confirm with
-      # Enter. Think of it as a terminal `<select>` / `<select multiple>`.
+      # Pine/Alpine `select_from_list` family. Shows a scrollable list of
+      # arbitrary items and lets the user pick one (single-select) or check
+      # several with `[X]` checkboxes (multi-select), confirming with Enter.
+      # Think of it as a terminal `<select>` / `<select multiple>`.
       #
       # The widget is fully generic over the item type `T`: the caller supplies a
       # *label* proc describing how to render each item, so it carries no domain
@@ -79,9 +79,8 @@ module Crysterm
 
           super items, **list
 
-          # In multi mode a single click toggles the row's checkbox (like Space)
-          # rather than confirming — see `#activate`. (Single-select keeps the
-          # default click-to-select / activate-to-confirm behavior.)
+          # In multi mode a click toggles the row's checkbox (like Space) rather
+          # than confirming — see `#activate`.
           self.activate_on_click = true if @multi
         end
 
@@ -159,11 +158,10 @@ module Crysterm
           request_render
         end
 
-        # Invoked on `Event::ActionItem` (Enter / click). In multi mode this
-        # TOGGLES the current row's checkbox — so clicking or Entering a row
-        # checks/unchecks it without dismissing the list (apply the result by
-        # reading `#checked`/`#selection` when the user leaves). In single mode it
-        # confirms the highlighted item via `on_confirm`.
+        # Invoked on `Event::ActionItem` (Enter / click). In multi mode toggles
+        # the current row's checkbox without dismissing the list (read
+        # `#checked`/`#selection` when the user leaves). In single mode confirms
+        # the highlighted item via `on_confirm`.
         def activate
           if @multi
             toggle_selected

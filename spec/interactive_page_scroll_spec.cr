@@ -13,12 +13,9 @@ private def ips_screen
 end
 
 # `Mixin::Interactive`'s vi page-scroll keys (Ctrl-U/D/B/F) used to be gated on
-# `height.is_a? Int`, so a scrollable widget sized with a *percentage* height
-# (`"100%"` — the usual case for a full-pane scroller) or no explicit height at
-# all dropped every page-scroll key: line scrolling (Up/Down) worked but
-# half-/full-page paging did nothing. The handler now sizes the page step off
-# the resolved `aheight`, so paging works regardless of how the height was
-# specified.
+# `height.is_a? Int`, so a scrollable widget with a percentage height (`"100%"`)
+# or no explicit height dropped every page-scroll key (line scrolling still
+# worked). The handler now sizes the page step off the resolved `aheight`.
 describe "Mixin::Interactive page scroll with non-Int height" do
   it "pages down with Ctrl-D when height is a percentage" do
     s = ips_screen
@@ -33,9 +30,8 @@ describe "Mixin::Interactive page scroll with non-Int height" do
     s._render
 
     input.get_scroll.should eq 0
-    # Half-page down: ~aheight/2 ≈ 12 lines on a 24-row screen. (`get_scroll`
-    # is the combined `child_base + child_offset` position; a half page on a
-    # tall viewport lands in `child_offset`, so assert on the combined value.)
+    # Half-page down: ~aheight/2 ≈ 12 lines on a 24-row screen. `get_scroll` is
+    # the combined `child_base + child_offset`; assert on the combined value.
     input.emit Crysterm::Event::KeyPress, '\0', Tput::Key::CtrlD
     input.get_scroll.should be > 0
     paged = input.get_scroll

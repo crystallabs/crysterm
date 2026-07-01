@@ -12,13 +12,11 @@ private def mem_screen
     default_quit_keys: false)
 end
 
-# Regression: `ensure_widget_visible` must map the descendant's *outer*-relative
-# top (`child.rtop`, which `atop` folds the scroll area's near inset `itop` into)
-# down to a content-row index before handing it to `ensure_visible`. The previous
-# code passed `child.rtop` verbatim, which is correct only for an inset-less
-# scroll area (`itop == 0`). With a border (so `itop == 1`) it scrolled the child
-# one row too far and — when already scrolled down — failed to reveal a child
-# just above the viewport top.
+# Regression: `ensure_widget_visible` must map the descendant's outer-relative
+# top (`child.rtop`, which folds in the scroll area's near inset `itop`) down to
+# a content-row index before calling `ensure_visible`. The old code passed
+# `child.rtop` verbatim, correct only when `itop == 0`. With a border (`itop ==
+# 1`) it scrolled one row too far, failing to reveal a child above the viewport.
 describe "Widget#ensure_widget_visible with a bordered scroll area" do
   it "reveals a descendant above the viewport, accounting for the top inset" do
     s = mem_screen
@@ -38,8 +36,8 @@ describe "Widget#ensure_widget_visible with a bordered scroll area" do
 
     box.ensure_widget_visible(child).should be_true
 
-    # The child's top is now within the visible content rows — not left stranded
-    # one row above the viewport top by the missing-inset over-scroll.
+    # The child's top must be within the visible content rows, not stranded one
+    # row above by the missing-inset over-scroll.
     (box.child_base <= content_row).should be_true
     visible = box.aheight - box.iheight
     (content_row + child.aheight - 1 <= box.child_base + visible - 1).should be_true

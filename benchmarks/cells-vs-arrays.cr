@@ -2,12 +2,10 @@ require "benchmark"
 
 require "../src/crysterm"
 
-# This tests performance of accessing a 2D grid that represents cells on the
-# screen. The original implementation from Blessed has cells represented as
-# chars to which it attaches an additional property 'attr'.
-#
-# In Crysterm this was ported over as `class Cell`. In search of ways to
-# optimize that, this test file was created.
+# Tests performance of accessing a 2D grid representing screen cells. Blessed's
+# original implementation represents cells as chars with an attached 'attr'
+# property; Crysterm ported that as `class Cell`. This benchmark explores
+# alternatives.
 #
 # Results were:
 #                                             user     system      total        real
@@ -20,8 +18,8 @@ require "../src/crysterm"
 # separate 1d arrays, combined access yx   1.821288   0.000000   1.821288 (  1.850375)
 # separate 1d arrays, combined access xy   1.771367   0.000000   1.771367 (  1.808968)
 #
-# Which shows that the optimal way is to split the whole thing into 2 separate 2D
-# arrays (for attrs and cells) and to access them in [y][x] fashion, e.g:
+# Shows the optimal way is to split into 2 separate 2D arrays (attrs, chars)
+# accessed [y][x], e.g:
 #
 # (ystart...yend) do |y|
 #   (xstart...xend) do |x|
@@ -30,11 +28,10 @@ require "../src/crysterm"
 #   end
 # end
 #
-# But not done for now since this is not where the most of time is being spent, and
-# changing this part requires a lot of changes. See patches/2-separate-arrays.patch
-# as a good base to finish the work.
+# Not done for now: not where most time is spent, and changing this requires a
+# lot of changes. See patches/2-separate-arrays.patch as a base to finish the work.
 
-# Actually, both above and in the new tests:
+# Both above and in the new tests:
 #                                              user     system      total        real
 # class Cell                               1.278690   0.000000   1.278690 (  1.284420)
 # struct Cell                              0.948687   0.000000   0.948687 (  0.952492)
@@ -45,8 +42,8 @@ require "../src/crysterm"
 # separate 1d arrays, combined access yx   1.282447   0.000000   1.282447 (  1.287833)
 # separate 1d arrays, combined access xy   1.288152   0.000000   1.288152 (  1.293539)
 #
-# it appears the winning option is row 2, which is two separate arrays (1 for attrs,
-# 1 for chars) using combined access, e.g. attrs[width * y + x].
+# Winning option is row 2: two separate arrays (attrs, chars) with combined
+# access, e.g. attrs[width * y + x].
 
 xs = 2000
 ys = 600
@@ -159,7 +156,6 @@ module Crysterm
         ysize = 20 # Random.rand ys-1
         ypos = Random.rand ys - 1 - ysize
 
-        # Iterate over the cells of the screen, setting them to something
         (ypos...ypos + ysize).each do |y|
           (xpos...xpos + xsize).each do |x|
             lines[y][x].attr = 10
@@ -176,7 +172,6 @@ module Crysterm
         ysize = 20 # Random.rand ys-1
         ypos = Random.rand ys - 1 - ysize
 
-        # Iterate over the cells of the screen, setting them to something
         (ypos...ypos + ysize).each do |y|
           (xpos...xpos + xsize).each do |x|
             lines2[y][x] = lines2[y][x].attr = 10
@@ -193,7 +188,6 @@ module Crysterm
         ysize = 20 # Random.rand ys-1
         ypos = Random.rand ys - 1 - ysize
 
-        # Iterate over the cells of the screen, setting them to something
         (ypos...ypos + ysize).each do |y|
           (xpos...xpos + xsize).each do |x|
             lines3_attr[y][x] = 0
@@ -210,14 +204,12 @@ module Crysterm
         ysize = 20 # Random.rand ys-1
         ypos = Random.rand ys - 1 - ysize
 
-        # Iterate over the cells of the screen, setting them to something
         (ypos...ypos + ysize).each do |y|
           (xpos...xpos + xsize).each do |x|
             lines3_attr[y][x] = 0
           end
         end
 
-        # Iterate over the cells of the screen, setting them to something
         (ypos...ypos + ysize).each do |y|
           (xpos...xpos + xsize).each do |x|
             lines3_char[y][x] = 'e'
@@ -233,7 +225,6 @@ module Crysterm
         ysize = 20 # Random.rand ys-1
         ypos = Random.rand ys - 1 - ysize
 
-        # Iterate over the cells of the screen, setting them to something
         (xpos...xpos + xsize).each do |x|
           (ypos...ypos + ysize).each do |y|
             lines3_attr[y][x] = 0
@@ -250,14 +241,12 @@ module Crysterm
         ysize = 20 # Random.rand ys-1
         ypos = Random.rand ys - 1 - ysize
 
-        # Iterate over the cells of the screen, setting them to something
         (xpos...xpos + xsize).each do |x|
           (ypos...ypos + ysize).each do |y|
             lines3_attr[y][x] = 0
           end
         end
 
-        # Iterate over the cells of the screen, setting them to something
         (xpos...xpos + xsize).each do |x|
           (ypos...ypos + ysize).each do |y|
             lines3_char[y][x] = 'e'
@@ -273,7 +262,6 @@ module Crysterm
         ysize = 20 # Random.rand ys-1
         ypos = Random.rand ys - 1 - ysize
 
-        # Iterate over the cells of the screen, setting them to something
         (ypos...ypos + ysize).each do |y|
           (xpos...xpos + xsize).each do |x|
             lines4_attr[y*x + x] = 0
@@ -290,7 +278,6 @@ module Crysterm
         ysize = 20 # Random.rand ys-1
         ypos = Random.rand ys - 1 - ysize
 
-        # Iterate over the cells of the screen, setting them to something
         (xpos...xpos + xsize).each do |x|
           (ypos...ypos + ysize).each do |y|
             lines4_attr[y*x + x] = 0

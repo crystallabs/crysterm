@@ -1,12 +1,12 @@
 # FEATURE: 24-bit TrueColor + alpha-compositing.
 #
-# Crysterm stores colors as full 24-bit RGB and only reduces them to the
-# terminal's real capability at output time. It can also *blend* colors in RGB
-# space, which is how translucent ("alpha") widgets and soft shadows are drawn.
+# Crysterm stores colors as full 24-bit RGB, reducing to the terminal's real
+# capability only at output time. It can also blend colors in RGB space,
+# which is how translucent ("alpha") widgets and soft shadows are drawn.
 #
-# This demo fills the screen with a smooth 24-bit color sweep (one full-height
-# strip per column) and slides two translucent boxes with shadows across it.
-# Where a box overlaps the sweep and the other box, the colors mix per channel.
+# This demo fills the screen with a smooth 24-bit color sweep and slides two
+# translucent boxes with shadows across it, mixing colors per channel where
+# they overlap.
 
 require "../../src/crysterm"
 
@@ -17,15 +17,13 @@ s = Window.new title: "TrueColor"
 w = s.awidth
 h = s.aheight
 
-# Background: a smooth 24-bit color sweep — a single static `Gradient` that
-# paints one color per column (no `animate:`, so it just renders once). The
-# explicit `colors:` stops give a soft, photographic cyan→green→amber→red sweep
-# (interpolated in RGB), rather than the harsh full-saturation HSV rainbow the
-# default produces — the point here is a *smooth* 24-bit gradient.
+# Static `Gradient` (no `animate:`, renders once), one color per column. The
+# explicit `colors:` stops give a soft cyan→green→amber→red sweep interpolated
+# in RGB, instead of the default's full-saturation HSV rainbow.
 Widget::Gradient.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
   colors: [0x00dbdf, 0x61fc9f, 0xb4f647, 0xebcb00, 0xff8100, 0xeb2300, 0xb40000, 0x610000, 0x000000]
 
-# Caption strip (drawn on top of the gradient): the standard one-line header.
+# Caption strip drawn on top of the gradient.
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}24-bit TrueColor & alpha compositing{/center}", parse_tags: true,

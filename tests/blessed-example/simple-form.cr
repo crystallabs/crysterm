@@ -2,12 +2,9 @@ require "../../src/crysterm"
 
 # Port of blessed's `example/simple-form.js`.
 #
-# A tiny form with two buttons. "submit" submits the form, "cancel" resets it;
-# the form's content reflects which happened. Tab / Shift-Tab move between the
-# buttons, Enter or a mouse click activates the focused one, q quits.
-#
-# Styling (button colours and their focus/hover state) is done through a CSS
-# stylesheet, which is how per-state styling is expressed in Crysterm.
+# Two-button form: "submit" submits, "cancel" resets; content reflects which
+# happened. Tab/Shift-Tab move focus, Enter or click activates, q quits.
+# Button colors and focus/hover state come from a CSS stylesheet.
 
 include Crysterm
 

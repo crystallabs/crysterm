@@ -1,9 +1,9 @@
-# IMPRESSIVE DEMO: a true-color image via the iTerm2 inline-images protocol.
+# Demo: true-color image via the iTerm2 inline-images protocol.
 #
-# `Widget::Media::Iterm` base64-encodes the *original* PNG file and sends it in
-# an `OSC 1337;File=…` escape that a supporting terminal (iTerm2, WezTerm,
-# Konsole, mintty, VS Code's terminal, …) decodes and draws — full true-color,
-# no decode or palette on our side. Here: the Matterhorn, sized to the cell box.
+# `Widget::Media::Iterm` base64-encodes the original PNG and sends it in an
+# `OSC 1337;File=…` escape that a supporting terminal (iTerm2, WezTerm, Konsole,
+# mintty, VS Code's terminal, …) decodes and draws — no decode/palette work on
+# our side. Here: the Matterhorn, sized to the cell box.
 #
 # Needs an iTerm2-inline-images-capable terminal on a real display.
 
@@ -18,9 +18,9 @@ Widget::Box.new \
   content: "{center}Media::Iterm  ·  iTerm2 inline-images protocol (OSC 1337)  ·  the Matterhorn{/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
 
-# Leave the title row at the top AND one row free at the bottom: the terminal
-# advances the cursor below an inline image, so one reaching the last screen row
-# would scroll the title off the top. One spare row keeps the cursor on-screen.
+# Leave the title row and one row free at the bottom: the terminal advances the
+# cursor below an inline image, so one reaching the last row would scroll the
+# title off the top.
 iw = s.awidth
 ih = s.aheight - 2
 

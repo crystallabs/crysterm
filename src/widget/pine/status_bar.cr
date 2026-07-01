@@ -21,13 +21,11 @@ module Crysterm
         )
           super **layout, style: style, width: w, height: h
 
-          # Give the child its own `Style` copy rather than sharing the bar's
-          # instance: a shared `Style` means a visibility (or any state) change on
-          # one bleeds onto the other. Hiding/showing the whole bar (e.g. a Pine
-          # status-line yes/no prompt overlaying it, then restoring it) would
-          # otherwise also flip this child's `visible` flag and never restore it —
-          # the status text and themed background would not come back. Mirrors
-          # `Widget::ToolBox`, which dups its child styles for the same reason.
+          # Give the child its own `Style` copy: a shared instance means a
+          # visibility/state change on one bleeds onto the other, so
+          # hiding/showing the bar would flip the child's `visible` flag and
+          # never restore it. Mirrors `Widget::ToolBox`, which dups child
+          # styles for the same reason.
           @status = Widget::Box.new(
             height: h,
             width: "100%",

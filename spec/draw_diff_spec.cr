@@ -5,15 +5,13 @@ include Crysterm
 # Regression coverage for the per-cell diff in `Window#draw` (`window_drawing.cr`).
 #
 # `draw` compares `@lines` (this frame) against `@olines` (what is on the
-# terminal), skips cells that did not change, and writes every emitted cell back
-# into `@olines`. So after a `draw`, `@olines` mirrors exactly the cells the diff
-# chose to emit: a changed cell that is wrongly skipped leaves its `@olines`
-# entry stale, and a cell that is emitted leaves bytes in the output IO. Both are
-# used as observables below.
+# terminal), skips unchanged cells, and writes every emitted cell back into
+# `@olines`. After a `draw`, `@olines` mirrors exactly what the diff emitted —
+# used as the observable below.
 #
-# The bug these guard against (full_unicode): the diff's `desired_char` is only
-# the BASE codepoint of a cell, so a compare that ignores the new cell's grapheme
-# overlay treated 'e' and 'e'+combining-mark as equal and never emitted the mark.
+# Bug guarded against (full_unicode): `desired_char` is only the BASE codepoint
+# of a cell, so a compare ignoring the grapheme overlay treated 'e' and
+# 'e'+combining-mark as equal and never emitted the mark.
 
 private def fu_screen(output = IO::Memory.new, width = 10, height = 3)
   s = Crysterm::Window.new(
@@ -37,9 +35,8 @@ describe "Window#draw cell diff (full_unicode)" do
     s.olines[y][x].char.should eq 'e'
     s.olines[y][x].grapheme_overlay.should be_nil
 
-    # Frame 2: same base 'e' and same attr, now a 2-codepoint cluster
-    # (e + combining acute). A diff that ignored the new overlay would skip this
-    # cell, leaving @olines stale at a bare 'e' (the combining mark lost).
+    # Frame 2: same base 'e' and attr, now a 2-codepoint cluster (e + combining
+    # acute). Ignoring the overlay would skip this cell and lose the mark.
     s.lines[y][x].grapheme = "e\u{0301}"
     s.lines[y].dirty = true
     s.draw
@@ -79,9 +76,8 @@ describe "Window#draw cell diff (full_unicode)" do
     s.draw
     s.olines[y][x].grapheme.should eq "e\u{0301}"
 
-    # Redraw identical content: the cell is unchanged, so the diff must skip it
-    # and write nothing. (A compare that keyed the skip on the OLD cell's overlay
-    # would needlessly re-emit this cluster cell every frame.)
+    # Redraw identical content: unchanged, so the diff must skip it and write
+    # nothing. (Keying the skip on the OLD cell's overlay would re-emit every frame.)
     before = output.size
     s.lines[y].dirty = true
     s.draw
@@ -90,11 +86,9 @@ describe "Window#draw cell diff (full_unicode)" do
 end
 
 # The per-row dirty-column range (`Row#mark_dirty(x)` + the bounded scan in
-# `draw`) must be byte-for-byte identical to a full-width scan of the same
-# changes: it only skips iterating *unchanged* leading/trailing columns, never
-# changes what is emitted. We assert that by applying the same edits two ways —
-# narrowed via `mark_dirty(x)`, and full via `dirty = true` — and comparing the
-# exact bytes `draw` produces.
+# `draw`) must be byte-for-byte identical to a full-width scan: it only skips
+# unchanged leading/trailing columns, never changes what is emitted. Asserted
+# by applying the same edits two ways — narrowed and full — and comparing bytes.
 private def plain_screen(output, width = 40, height = 6)
   s = Crysterm::Window.new(
     input: IO::Memory.new, output: output, error: IO::Memory.new,
@@ -104,7 +98,7 @@ private def plain_screen(output, width = 40, height = 6)
 end
 
 # Applies *edits* (`{y, x, char, attr}`) to a freshly-primed screen, marking
-# rows dirty via `mark_dirty(x)` when *narrowed*, else `dirty = true`, and
+# rows dirty via `mark_dirty(x)` when *narrowed* else `dirty = true`, and
 # returns the exact bytes the resulting `draw` emits.
 private def drawn_bytes(edits, narrowed : Bool, width = 40, height = 6) : Bytes
   buf = IO::Memory.new
@@ -150,13 +144,11 @@ describe "Window#draw dirty-column range" do
   end
 end
 
-# End-to-end guard for the real render path now driving the dirty-column range
-# (the `mark_dirty(x)` calls in `widget_rendering`/`fill_region`/`docking`).
-# Invariant: after `draw`, `@olines` mirrors `@lines` exactly — `draw` writes
-# back every cell it emits, and unchanged cells already matched. So a cell that
-# changed but fell outside the (too-narrow) dirty range would be skipped, leaving
-# its `@olines` entry stale: that desync is what this asserts can't happen, while
-# real widgets move and change content across frames.
+# End-to-end guard for the render path driving the dirty-column range (the
+# `mark_dirty(x)` calls in `widget_rendering`/`fill_region`/`docking`).
+# Invariant: after `draw`, `@olines` mirrors `@lines` exactly. A cell that
+# changed but fell outside a too-narrow dirty range would be skipped, leaving
+# `@olines` stale — asserted here can't happen as widgets move and change.
 private def fully_synced(s) : {Int32, Int32}?
   s.lines.size.times do |y|
     line = s.lines[y]
@@ -186,7 +178,7 @@ describe "Window#draw end-to-end dirty-range sync" do
     s._render; s.draw
     fully_synced(s).should be_nil
 
-    # Move a widget (clears old cells, paints new ones — different columns).
+    # Move a widget (clears old cells, paints new ones at different columns).
     label.left = 10
     s._render; s.draw
     fully_synced(s).should be_nil
@@ -196,7 +188,7 @@ describe "Window#draw end-to-end dirty-range sync" do
     s._render; s.draw
     fully_synced(s).should be_nil
 
-    # Move the vertical bar across columns (sparse per-row change in many rows).
+    # Move the vertical bar across columns (sparse change across many rows).
     side.left = 30
     s._render; s.draw
     fully_synced(s).should be_nil

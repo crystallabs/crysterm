@@ -2,11 +2,11 @@ require "./widget/media"
 
 module Crysterm
   class Widget
-    # Decodes a video file into animation frames using the external `ffmpeg`
-    # (with `ffprobe` for dimensions/frame rate), so the existing
-    # `Widget::Media` backends can play it like an animated GIF. ffmpeg is asked
-    # to scale frames to a small cap (terminal boxes are tiny) and emit raw RGBA
-    # on stdout; each frame is `w*h*4` bytes, converted into a `PNGGIF::Bitmap`.
+    # Decodes a video file into animation frames using external `ffmpeg` (with
+    # `ffprobe` for dimensions/frame rate), so the existing `Widget::Media`
+    # backends can play it like an animated GIF. ffmpeg scales frames to a small
+    # cap and emits raw RGBA on stdout; each frame is `w*h*4` bytes, converted
+    # into a `PNGGIF::Bitmap`.
     #
     # Two decoders, chosen per `media.video_decode` (`auto` by default):
     #
@@ -23,8 +23,8 @@ module Crysterm
     module Media::VideoSource
       extend self
 
-      # File extensions routed through ffmpeg as video. (`.ogg` is intentionally
-      # excluded — it's commonly audio-only; use `.ogv` for Ogg video.)
+      # File extensions routed through ffmpeg as video. `.ogg` is excluded
+      # (commonly audio-only); use `.ogv` for Ogg video.
       EXTENSIONS = %w[mp4 m4v mkv webm mov avi wmv flv mpg mpeg mpe ogv ts 3gp]
 
       # Decoder strategy for a video source.
@@ -56,8 +56,8 @@ module Crysterm
       end
 
       # Probes *file* and resolves the capped frame dimensions and sampled fps as
-      # `{w, h, fps}`, or `nil` when ffprobe can't read it. The shared decode
-      # setup for both the eager `#decode` and the streaming `Stream.open`.
+      # `{w, h, fps}`, or `nil` when ffprobe can't read it. Shared setup for both
+      # eager `#decode` and streaming `Stream.open`.
       # :nodoc:
       def resolve_geometry(file : String, cap : Int32, max_fps : Float64) : Tuple(Int32, Int32, Float64)?
         info = probe(file) || return nil
@@ -86,9 +86,9 @@ module Crysterm
       # from the start on `#restart` (for looping). Always `#close` it to reap the
       # subprocess. Build via `Stream.open` (returns `nil` on failure).
       class Stream
-        # A 1-frame `PNGGIF::PNG` (first frame + true canvas dims) used purely as
-        # the resampling vehicle (`create_cellmap`) and dimension source by the
-        # backends; the live per-frame bitmaps come from `#next_frame`.
+        # A 1-frame `PNGGIF::PNG` (first frame + true canvas dims) used as the
+        # resampling vehicle (`create_cellmap`) and dimension source by the
+        # backends; live per-frame bitmaps come from `#next_frame`.
         getter vehicle : PNGGIF::PNG
 
         # Per-frame delay in ms (from the sampled fps).
@@ -118,9 +118,8 @@ module Crysterm
         end
 
         # Reads the first frame and builds the resampling vehicle, reaping ffmpeg
-        # on any failure (undecodable file, no frames). Without this an open that
-        # failed *after* launch would leak a live/zombie ffmpeg; `Stream.open`
-        # turns the re-raised failure into a `nil` result for the caller.
+        # on failure (undecodable file, no frames) to avoid leaking a zombie
+        # process; `Stream.open` turns the re-raised failure into `nil`.
         private def open_first : Tuple(PNGGIF::Bitmap, PNGGIF::PNG)
           first = read_one
           raise "no video frames" unless first
@@ -157,10 +156,9 @@ module Crysterm
 
         # Terminates and reaps the ffmpeg subprocess. Idempotent.
         #
-        # Uses SIGKILL, not SIGTERM: playback pauses between frames, so ffmpeg is
-        # usually blocked writing to a back-filled stdout pipe, where it can't act
-        # on the SIGTERM it traps for graceful shutdown — `wait` would then hang.
-        # SIGKILL can't be trapped, so it dies immediately and `wait` reaps it.
+        # Uses SIGKILL, not SIGTERM: ffmpeg is usually blocked writing to a
+        # back-filled stdout pipe between frames and can't act on a trapped
+        # SIGTERM, which would make `wait` hang. SIGKILL can't be trapped.
         def close : Nil
           pr = @process
           @process = nil
@@ -291,8 +289,7 @@ module Crysterm
 
       # Runs ffmpeg to decode the video to raw RGBA frames of *w*×*h* at *fps*,
       # returning one `PNGGIF::Bitmap` per frame (or `nil` on failure). Stops
-      # after *max_frames* (closing the pipe ends ffmpeg) so an accidentally huge
-      # video can't exhaust memory in this eager decoder.
+      # after *max_frames* (closing the pipe ends ffmpeg) to cap memory use.
       private def read_frames(file : String, w : Int32, h : Int32, fps : Float64,
                               max_frames : Int32) : Array(PNGGIF::Bitmap)?
         frames = [] of PNGGIF::Bitmap
@@ -306,8 +303,8 @@ module Crysterm
             frames << to_bitmap(buf, w, h)
           end
         end
-        # `Process.run`'s block form waits for (and reaps) the process on exit,
-        # even when we stop reading early or an exception unwinds through it.
+        # `Process.run`'s block form reaps the process on exit even if we stop
+        # reading early or an exception unwinds through it.
         frames.empty? ? nil : frames
       rescue
         nil

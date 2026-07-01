@@ -2,11 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# The full_unicode single-codepoint fast path (`Widget#_render`): a lone
-# codepoint with no combining/extending successor is stored as a `Char` with no
-# `String`/overlay allocation, while a genuine multi-codepoint cluster still
-# goes through `extend_grapheme` into the row's grapheme overlay. Verified by
-# inspecting the rendered cells.
+# full_unicode single-codepoint fast path (`Widget#_render`): a lone codepoint
+# with no combining/extending successor is stored as a `Char`, no
+# `String`/overlay allocation. A genuine multi-codepoint cluster still goes
+# through `extend_grapheme` into the row's grapheme overlay.
 
 private def fu_render(content : String, width = 20)
   s = Crysterm::Window.new(

@@ -101,9 +101,9 @@ module Crysterm
         end
       end
 
-      # Stop the privately-owned animation timer (if any) so its tick fiber does
-      # not outlive the widget. A shared timer passed in via `animate:` belongs
-      # to the caller and is left running.
+      # Stops the privately-owned animation timer (if any) so its tick fiber
+      # doesn't outlive the widget. A shared `animate:` timer belongs to the
+      # caller and is left running.
       def destroy
         @own_timer.try &.stop
         super
@@ -128,9 +128,7 @@ module Crysterm
       end
 
       def render
-        # Interior inset (border kept intact) via `with_inner_coords`, mirroring
-        # `Widget::ProgressBar`. `next` bails out early (empty interior) while
-        # still returning the coords.
+        # Interior inset (border kept intact), mirroring `Widget::ProgressBar`.
         with_inner_coords do |xi, xl, yi, yl|
           next if xl <= xi || yl <= yi
 

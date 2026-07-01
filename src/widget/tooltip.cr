@@ -23,8 +23,8 @@ module Crysterm
         # A tooltip is a passive overlay: it must never grab the mouse or focus.
         @clickable = false
         @focus_on_click = false
-        # Classic pale tooltip colors now come from the CSS theme
-        # (`ToolTip { ... }`), overridable by author CSS or an inline style.
+        # Pale tooltip colors come from the CSS theme (`ToolTip { ... }`),
+        # overridable by author CSS or an inline style.
         hide
       end
 
@@ -44,28 +44,19 @@ module Crysterm
         # Pad each line by one leading space so the text doesn't hug the edge.
         set_content lines.map { |l| " #{l}" }.join('\n')
 
-        # Run the CSS cascade now so the insets read below reflect this tooltip's
-        # *themed* style. The shared tooltip is created lazily and shown in the
-        # same tick, so on its very first show it hasn't been cascaded yet: until
-        # then `@css_styled` is false and `#style` falls back to the unstyled
-        # floor border (see `Mixin::Style#ensure_floor_border`), reporting border
-        # insets even under a theme that supplies a borderless background. That
-        # over-measured the height — text row plus two phantom border rows — and
-        # only corrected itself once a later render had cascaded the widget (so a
-        # hidden-then-reshown tooltip looked right but the first one didn't).
-        # Cascading here keeps the first show correct too; under no theme there is
-        # no matching rule, the tooltip stays unstyled, and its real floor border
-        # is measured as before.
+        # Cascade now so insets below reflect the themed style. The shared
+        # tooltip is created lazily and shown in the same tick, so on first
+        # show it hasn't been cascaded yet: `#style` would fall back to the
+        # unstyled floor border (see `Mixin::Style#ensure_floor_border`) and
+        # over-measure the height even under a borderless theme, until a later
+        # render cascaded it. Cascading here fixes the first show too.
         s.apply_stylesheet
 
-        # Reserve space for the frame (border + padding) on top of the text box,
-        # so a bordered tooltip — notably the unstyled floor's structural border
-        # (see `#floor_border?`) — isn't squished into a single collapsed row (it
-        # otherwise rendered as a black box with a lone underline). Reading
-        # `iwidth`/`iheight` resolves `#style`, which installs the floor border,
-        # so the insets reflect the border this very render will draw. Under a
-        # theme that supplies a background instead of a border these insets are
-        # 0, leaving the themed size unchanged.
+        # Reserve space for the frame (border + padding) so a bordered tooltip
+        # isn't squished into a single collapsed row. Reading `iwidth`/`iheight`
+        # resolves `#style` (installing the floor border per `#floor_border?`),
+        # so insets reflect the border this render will draw; under a theme with
+        # a background instead of a border these insets are 0.
         w = (lines.max_of?(&.size) || 0) + 2 + iwidth # one cell of padding each side
         h = lines.size + iheight
 

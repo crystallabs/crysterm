@@ -1,8 +1,8 @@
 module Crysterm
   module CSS
     # A parsed `@media` condition: a conjunction of feature tests evaluated
-    # against the terminal's size (and color depth). Only the responsive
-    # width/height features plus `min-colors`/`max-colors` are supported.
+    # against the terminal's size and color depth. Only width/height and
+    # `min-colors`/`max-colors` features are supported.
     struct MediaQuery
       getter conditions : Array(Tuple(String, Int32))
 
@@ -43,21 +43,20 @@ module Crysterm
     # A comma-separated selector list in the source becomes one `Rule` per
     # selector, so each carries its own specificity and (peeled) state.
     struct Rule
-      # The *structural* selector handed to the `html5` matcher — i.e. the
-      # source selector with any state pseudo-class (`:focus`, ...) removed.
+      # The *structural* selector handed to the `html5` matcher — the source
+      # selector with any state pseudo-class (`:focus`, ...) removed.
       getter selector : String
 
       # Normal (non-`!important`) declarations: property => value, property
       # names lower-cased.
       getter declarations : Hash(String, String)
 
-      # Declarations flagged `!important`; these outrank everything else in the
+      # Declarations flagged `!important`; outrank everything else in the
       # cascade (see `Cascade`).
       getter important : Hash(String, String)
 
       # The widget state this rule applies to, peeled from a trailing
-      # pseudo-class. `nil` means the rule has no state pseudo-class and so
-      # applies in *every* state (a base rule).
+      # pseudo-class. `nil` means the rule applies in *every* state (a base rule).
       getter state : WidgetState?
 
       # CSS specificity as `{ids, classes+attrs+pseudos, types}`, compared
@@ -73,15 +72,14 @@ module Crysterm
 
       # A `:has(...)` relational condition on the subject (already type-expanded),
       # or `nil`. Matched nodes are kept only if `node.css(has)` is non-empty.
-      # (`:has` is implemented here because the `html5` selector engine lacks it.)
+      # (Implemented here since the `html5` selector engine lacks `:has`.)
       getter has : String?
 
       # `:has(...)` relational conditions borne by an *ancestor* compound (e.g.
       # `Form:has(.error) Button` — the `:has` is on `Form`, not the subject
       # `Button`), or `nil`. Each entry is `{qualifier, inner}`: *qualifier* is
-      # the type-expanded selector for the ancestor up to and including the
-      # has-bearing compound (with the `:has(...)` itself removed, since the
-      # `html5` engine can't parse it), and *inner* is the type-expanded
+      # the type-expanded selector for the ancestor up to the has-bearing
+      # compound (with `:has(...)` removed), *inner* is the type-expanded
       # relative selector. A matched subject is kept only if it descends from a
       # node matching *qualifier* that has an *inner* descendant.
       getter ancestor_has : Array(Tuple(String, String))?
@@ -104,7 +102,7 @@ module Crysterm
 
       # Custom properties (`--name: value`) collected globally, last definition
       # winning. Resolved into `var(--name[, fallback])` references at cascade
-      # time. (A pragmatic, document-global model — not per-element cascaded.)
+      # time. Document-global, not per-element cascaded.
       getter variables : Hash(String, String)
 
       # Non-fatal diagnostics gathered while parsing — malformed declarations and
@@ -118,8 +116,7 @@ module Crysterm
 
       # Whether any rule depends on a widget's *state* via an ancestor-state
       # pseudo-class (e.g. `Form:focus Button`), lowered to a `.state-*` class.
-      # Such rules must be re-evaluated when states change, so the cascade is
-      # invalidated on state transitions only when this is set.
+      # The cascade is invalidated on state transitions only when this is set.
       @dynamic_state : Bool = false
 
       def initialize(@rules = [] of Rule, @variables = {} of String => String, @warnings = [] of String,
@@ -132,11 +129,10 @@ module Crysterm
         @dynamic_state
       end
 
-      # Compiled selectors, memoized by their structural string. A selector is
-      # reused on every cascade, so compiling it once here — rather than letting
-      # `Node#css` re-lex and re-compile it on each match — avoids repeated
-      # parser work. A `nil` entry marks a selector the engine can't parse, so it
-      # isn't retried.
+      # Compiled selectors, memoized by their structural string. Compiling once
+      # here — rather than letting `Node#css` re-lex/re-compile on each match —
+      # avoids repeated parser work. A `nil` entry marks an unparseable selector
+      # so it isn't retried.
       @compiled_selectors = {} of String => ::CSS::Selector?
 
       def compiled_selector(selector : String) : ::CSS::Selector?
@@ -162,11 +158,10 @@ module Crysterm
       # boolean *attributes* rather than `.state-*` classes — `:checked` and
       # `:indeterminate` map to the `[checked]`/`[indeterminate]` attributes
       # emitted by `widget_attributes.cr`, and `:enabled` to `:not(:disabled)`
-      # (its inner `:disabled` is then lowered to `.state-disabled`, which is
-      # legal inside `:not()`). Unlike `STATE_PSEUDOS` these are rewritten
-      # textually into the selector for *every* stylesheet (author `.css`, inline,
-      # theme, `.qss`), so the idiomatic spelling works natively — not only when
-      # translated from Qt by `CSS::Qss`.
+      # (its inner `:disabled` is then lowered to `.state-disabled`, legal inside
+      # `:not()`). Unlike `STATE_PSEUDOS`, these are rewritten textually into
+      # every stylesheet (author `.css`, inline, theme, `.qss`), so the idiomatic
+      # spelling works natively, not only when translated from Qt by `CSS::Qss`.
       ATTR_PSEUDOS = {
         "checked"       => "[checked]",
         "indeterminate" => "[indeterminate]",
@@ -178,8 +173,7 @@ module Crysterm
       ATTR_PSEUDO = /:(checked|indeterminate|enabled)(?![A-Za-z0-9_-])/
 
       # Matches a `::slot` pseudo-element token (`ProgressBar::indicator`). Lowered
-      # to the *capitalized descendant node* Crysterm emits for that slot — the
-      # idiomatic CSS spelling of the internal representation; see
+      # to the *capitalized descendant node* Crysterm emits for that slot; see
       # `lower_sub_elements`.
       SUB_ELEMENT_PSEUDO = /::([a-z][a-z-]*)/
 
@@ -229,9 +223,9 @@ module Crysterm
           pos = skip_ws(css, pos)
           break if pos >= n
           start = pos
-          # Read the prelude up to the next top-level `{`/`;`/`}` (skipping
+          # Read the prelude up to the next top-level `{`/`;`/`}`, skipping
           # parenthesised, bracketed and quoted spans so values like `url(a;b)`
-          # and attribute selectors like `[href="a{b}"]` / `[x=a;b]` are safe).
+          # and attribute selectors like `[href="a{b}"]` / `[x=a;b]` are safe.
           while pos < n
             ch = css[pos]
             break if ch == '{' || ch == ';' || ch == '}'
@@ -245,9 +239,9 @@ module Crysterm
               pos += 1
             end
           end
-          # End of input with no terminator: the final construct in a block may
-          # legitimately omit its trailing `;` (e.g. `{ color: red }`), so flush
-          # it as a statement rather than dropping it.
+          # No terminator at end of input: the final construct in a block may
+          # omit its trailing `;` (e.g. `{ color: red }`), so flush it as a
+          # statement rather than dropping it.
           if pos >= n
             handle_statement(css[start...pos].strip, parents, declarations, important, layer_rank, ctx)
             break
@@ -273,8 +267,8 @@ module Crysterm
       # or, inside a rule body, a declaration.
       private def self.handle_statement(prelude : String, parents : Array(String), declarations, important, layer_rank : Int32, ctx : ParseCtx) : Nil
         return if prelude.empty?
-        # At-rule *names* are case-insensitive (`@IMPORT`/`@Layer`); the slice
-        # offsets below are by the (fixed) name length, so they hold for any casing.
+        # At-rule names are case-insensitive (`@IMPORT`/`@Layer`); the slice
+        # offsets below are by the fixed name length, so they hold for any casing.
         if Case.at_rule?(prelude, "import")
           handle_import prelude, layer_rank, ctx
         elsif Case.at_rule?(prelude, "layer")
@@ -290,7 +284,7 @@ module Crysterm
       # itself nest further rules).
       private def self.handle_block(prelude : String, body : String, parents : Array(String), media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
         # At-rule names are case-insensitive (`@MEDIA`/`@Keyframes`); the slice
-        # offsets below are by the (fixed) name length, so they hold for any casing.
+        # offsets below are by the fixed name length, so they hold for any casing.
         if Case.at_rule?(prelude, "keyframes")
           parse_keyframes prelude[10..].strip, body, ctx
         elsif Case.at_rule?(prelude, "media")
@@ -374,9 +368,9 @@ module Crysterm
           # `expand_types` — then operates on the form actually matched.
           selector = lower_sub_elements(selector)
           selector = lower_attr_pseudos(selector)
-          # Specificity is from the (attr-lowered) selector; then the subject's
+          # Specificity is from the attr-lowered selector; then the subject's
           # state pseudo / `:has` are peeled, ancestor state pseudos lowered, and
-          # types rewritten to classes — exactly as before, now per combined selector.
+          # types rewritten to classes — per combined selector.
           spec = Specificity.calculate(selector)
           prefix, subject = split_subject(selector)
           state, subject = peel_state(subject)
@@ -385,10 +379,10 @@ module Crysterm
           # is peeled separately: the engine can't parse `:has`, so it's stripped
           # from the structural prefix and evaluated relationally in the cascade.
           ancestor_has, prefix = peel_ancestor_has(prefix)
-          # Lower any *remaining* state pseudos — ancestor ones in the prefix and
-          # any nested in the subject (e.g. `:not(:focus)`) — to `.state-*`
-          # classes that match the document's stamped state. The subject's own
-          # top-level state was already peeled above and carried on the rule.
+          # Lower remaining state pseudos — ancestor ones in the prefix and any
+          # nested in the subject (e.g. `:not(:focus)`) — to `.state-*` classes
+          # matching the document's stamped state. The subject's own top-level
+          # state was already peeled above and carried on the rule.
           structural = Selectors.expand_types(lower_state_pseudos(prefix + subject))
           ctx.rules << Rule.new(structural, declarations, important, state, spec, ctx.order, media, has, layer_rank, ancestor_has)
           ctx.order += 1
@@ -396,8 +390,8 @@ module Crysterm
       end
 
       # Loads `@import "file";` (or `@import url(file);`) relative to the base
-      # path and parses it inline, so its rules precede — and are overridden by —
-      # the importing file's.
+      # path and parses it inline, so its rules precede — and are overridden
+      # by — the importing file's.
       private def self.handle_import(prelude : String, layer_rank : Int32, ctx : ParseCtx) : Nil
         path = prelude[/@import\s+(?:url\()?["']?([^"')]+)["']?\)?/i, 1]?
         return unless path
@@ -461,8 +455,8 @@ module Crysterm
       # back to the in-call fallback (or empty) for undefined names. Iterates a
       # few times so a variable whose value itself uses `var()` resolves too.
       def self.resolve_var(value : String, variables : Hash(String, String)) : String
-        # `var(` is a CSS function name and so case-insensitive (`VAR(--x)`); the
-        # custom-property *name* inside it stays case-sensitive (see `Case::VAR_CALL`).
+        # `var(` is a case-insensitive CSS function name (`VAR(--x)`); the
+        # custom-property name inside it stays case-sensitive (see `Case::VAR_CALL`).
         return value unless value.matches?(Case::VAR_CALL)
         result = value
         4.times do
@@ -474,12 +468,12 @@ module Crysterm
       end
 
       # Replaces every `var(--name[, fallback])` reference in *value* in a single
-      # left-to-right pass, matching each call's *balanced* closing paren so a
+      # left-to-right pass, matching each call's balanced closing paren so a
       # nested `var()` in the fallback (`var(--a, var(--b, red))`) is consumed as
       # one unit — a `[^)]*` regex would stop at the first `)`, leaving a stray
-      # `)` behind once the outer name resolves. A defined name takes its value
-      # and drops the fallback; an undefined one falls back (which may itself hold
-      # a `var()`, resolved on the next `resolve_var` iteration), else empty.
+      # `)` once the outer name resolves. A defined name takes its value and
+      # drops the fallback; an undefined one falls back (possibly itself a
+      # `var()`, resolved on the next `resolve_var` iteration), else empty.
       private def self.replace_vars(value : String, variables : Hash(String, String)) : String
         idx = value.index(Case::VAR_CALL)
         return value unless idx
@@ -501,7 +495,7 @@ module Crysterm
       end
 
       # Index of the first top-level (paren-depth-0) comma in *value*, or `nil` —
-      # the separator between a `var()`'s name and its fallback, skipping any comma
+      # the separator between a `var()`'s name and its fallback, skipping commas
       # inside a nested function's parens.
       private def self.top_level_comma(value : String) : Int32?
         depth = 0
@@ -519,8 +513,8 @@ module Crysterm
       # `@import`).
       def self.from_file(path : String | Path) : Stylesheet
         source = File.read(path)
-        # `.qss` (Qt Style Sheet) files are translated to Crysterm CSS first
-        # (strip the `Q` selector prefix and rename Qt classes to ours); see
+        # `.qss` (Qt Style Sheet) files are translated to Crysterm CSS first —
+        # strip the `Q` selector prefix and rename Qt classes to ours; see
         # `CSS::Qss`. Unmapped selectors fall through to the tolerant parser.
         source = Qss.to_css(source) if path.to_s.downcase.ends_with?(".qss")
         parse source, base_path: path.to_s
@@ -548,7 +542,7 @@ module Crysterm
           return
         end
         if name.starts_with?("--")
-          ctx.variables[name] = value # custom property (case-sensitive name)
+          ctx.variables[name] = value # custom property, case-sensitive name
           return
         end
         name = name.downcase
@@ -566,26 +560,25 @@ module Crysterm
       STATE_PSEUDOS_BY_LENGTH = STATE_PSEUDOS.to_a.sort_by! { |(token, _)| -token.size }
 
       # Precompiled matchers for `lower_state_pseudos`, one per state pseudo
-      # (longest token first). Each pairs a boundary-anchored regex — the leading
-      # `:` bounds the start, the negative lookahead forbids a trailing
-      # identifier char so `:focus` can't match inside `:focus-within` — with the
-      # `.state-*` class it lowers to. Built once: compiling a regex (and the
-      # replacement string) per selector at parse time would be wasteful.
+      # (longest token first). Each pairs a boundary-anchored regex — leading
+      # `:` bounds the start, negative lookahead forbids a trailing identifier
+      # char so `:focus` can't match inside `:focus-within` — with the
+      # `.state-*` class it lowers to. Built once: compiling a regex per
+      # selector at parse time would be wasteful.
       STATE_PSEUDO_MATCHERS = STATE_PSEUDOS_BY_LENGTH.map do |(token, state)|
-        # Pseudo-class names are case-insensitive (`:HOVER` == `:hover`), so the
-        # matcher ignores case; it rewrites only the `:state` token, leaving the
-        # rest of the selector (type names etc.) and its casing untouched.
+        # Pseudo-class names are case-insensitive (`:HOVER` == `:hover`); the
+        # matcher rewrites only the `:state` token, leaving the rest of the
+        # selector (type names etc.) and its casing untouched.
         {Regex.new(Regex.escape(token) + "(?![A-Za-z0-9_-])", Regex::Options::IGNORE_CASE), ".#{state.css_class}"}
       end
 
       # Splits a state pseudo-class off a selector, returning `{state,
-      # structural_selector}`. Only a *top-level* pseudo (outside any `[...]`
+      # structural_selector}`. Only a top-level pseudo (outside any `[...]`
       # attribute value or `(...)` functional-pseudo argument) that stands as a
       # complete token — not a prefix of a longer pseudo such as
       # `:focus-within` — is treated as the subject's state; nested ones are
-      # left in place for `lower_state_pseudos` to handle. Only the first
-      # recognized pseudo-class is peeled (Phase 1 supports a single,
-      # subject-anchored state pseudo per selector).
+      # left for `lower_state_pseudos`. Only the first recognized pseudo-class
+      # is peeled (a single subject-anchored state pseudo per selector).
       private def self.peel_state(selector : String) : Tuple(WidgetState?, String)
         return {nil, selector} unless selector.includes?(':') # fast path: no pseudo at all
         STATE_PSEUDOS_BY_LENGTH.each do |(token, state)|
@@ -600,8 +593,8 @@ module Crysterm
 
       # Index of the first occurrence of *token* in *selector* that is at the top
       # level (depth 0 w.r.t. `[]`/`()`) and bounded as a complete pseudo-class
-      # (the following char, if any, is not an identifier char — so `:focus`
-      # never matches inside `:focus-within`), or `nil`.
+      # (following char, if any, is not an identifier char, so `:focus` never
+      # matches inside `:focus-within`), or `nil`.
       private def self.top_level_pseudo_index(selector : String, token : String) : Int32?
         depth = 0
         last = selector.size - token.size
@@ -612,9 +605,8 @@ module Crysterm
           when ']', ')' then depth -= 1
           else
             # Pseudo-class names are case-insensitive (`:HOVER` == `:hover`), so
-            # compare the token span case-insensitively. Only this pseudo-class
-            # *token* is matched loosely — the rest of the selector (type names,
-            # ids, classes) is left untouched and stays case-sensitive.
+            # compare the token span case-insensitively; the rest of the
+            # selector (type names, ids, classes) stays case-sensitive.
             if depth == 0 && selector[i, token.size].compare(token, case_insensitive: true) == 0 && !ident_char?(selector[i + token.size]?)
               return i
             end
@@ -626,8 +618,7 @@ module Crysterm
 
       # Whether *char* can appear inside a CSS identifier (so a state token
       # followed by one is really part of a longer pseudo-class). `nil` (end of
-      # string) is a boundary, not an identifier char. Delegates to the shared
-      # `Selectors.ident?` grammar predicate.
+      # string) is a boundary, not an identifier char.
       private def self.ident_char?(char : Char?) : Bool
         char ? Selectors.ident?(char) : false
       end
@@ -635,8 +626,7 @@ module Crysterm
       # Splits a selector into `{prefix, subject}`, where *subject* is the
       # rightmost compound (after the last top-level combinator) and *prefix* is
       # everything up to and including that combinator (so `prefix + subject`
-      # reconstructs the selector). Combinators inside `[...]`/`(...)` are
-      # ignored.
+      # reconstructs the selector). Combinators inside `[...]`/`(...)` are ignored.
       private def self.split_subject(selector : String) : Tuple(String, String)
         depth = 0
         cut = -1
@@ -655,8 +645,8 @@ module Crysterm
       # The `:has(...)` inner (relative) selector carried between *open* (the
       # `(`) and *close* (the `)`) in *source*: the trimmed body, anchored at
       # `:scope` when it leads with a combinator (`> .x` / `+ .x` / `~ .x`) so
-      # the relational match is rooted at the subject. Shared by the subject
-      # `peel_has` and the ancestor `peel_ancestor_has`.
+      # the relational match is rooted at the subject. Shared by `peel_has` and
+      # `peel_ancestor_has`.
       private def self.has_inner(source : String, open : Int32, close : Int32) : String
         inner = source[(open + 1)...close].strip
         inner.starts_with?('>') || inner.starts_with?('+') || inner.starts_with?('~') ? ":scope #{inner}" : inner
@@ -666,7 +656,7 @@ module Crysterm
       # returning `{inner_selector, remaining}`. The inner selector is
       # type-expanded for matching against a node's subtree; a leading
       # combinator (`> .x`) is anchored with `:scope`. Only the first `:has` is
-      # handled. The `html5` engine has no `:has`, so the cascade evaluates it.
+      # handled; the `html5` engine has no `:has`, so the cascade evaluates it.
       private def self.peel_has(selector : String) : Tuple(String?, String)
         idx = selector.index(":has(")
         return {nil, selector} unless idx
@@ -684,8 +674,8 @@ module Crysterm
       # (the part of the selector before the subject), returning
       # `{conditions, prefix_without_has}`. Each condition is
       # `{qualifier, inner}` — see `Rule#ancestor_has`. The structural prefix
-      # has all `:has(...)` stripped (the `html5` engine can't parse it); the
-      # `:has` is then re-applied relationally in the cascade.
+      # has all `:has(...)` stripped (the `html5` engine can't parse it); it's
+      # re-applied relationally in the cascade.
       private def self.peel_ancestor_has(prefix : String) : Tuple(Array(Tuple(String, String))?, String)
         return {nil, prefix} unless prefix.includes?(":has(")
         conditions = [] of Tuple(String, String)
@@ -696,8 +686,8 @@ module Crysterm
           break unless close
           inner = has_inner(prefix, open, close)
           # The qualifier matches the ancestor: everything up to the end of the
-          # compound bearing this `:has`, with all `:has(...)` removed and types
-          # lowered exactly as the structural selector is.
+          # compound bearing this `:has`, with `:has(...)` removed and types
+          # lowered as the structural selector is.
           compound_end = compound_end_index(prefix, close + 1)
           qualifier = Selectors.expand_types(lower_state_pseudos(strip_has(prefix[0...compound_end]))).strip
           conditions << {qualifier, Selectors.expand_types(inner)} unless qualifier.empty?
@@ -725,7 +715,7 @@ module Crysterm
       end
 
       # Removes every `:has(...)` span from *selector* (the `html5` engine can't
-      # parse `:has`, so it's evaluated relationally in the cascade instead).
+      # parse `:has`; it's evaluated relationally in the cascade instead).
       private def self.strip_has(selector : String) : String
         result = selector
         while idx = result.index(":has(")
@@ -756,9 +746,8 @@ module Crysterm
       # the prefix, and any nested in the subject like `:not(:focus)`) into
       # `.state-*` classes (e.g. `Form:focus ` -> `Form.state-focused `), so they
       # match against the live document's stamped state classes. Each token is
-      # matched only as a complete pseudo-class (identifier boundary after it),
-      # so `:focus` is not torn out of `:focus-within` nor `:blur` out of
-      # `:blurred`.
+      # matched only as a complete pseudo-class, so `:focus` is not torn out of
+      # `:focus-within` nor `:blur` out of `:blurred`.
       private def self.lower_state_pseudos(selector : String) : String
         return selector unless selector.includes?(':') # fast path: no pseudo at all
         result = selector
@@ -770,9 +759,8 @@ module Crysterm
       # pseudo-classes into the attribute/`:not()` forms Crysterm matches against
       # (see `ATTR_PSEUDOS`). Applied to the whole selector up front in
       # `emit_rules`, before specificity/state peeling, so the rewrite is uniform
-      # across the prefix and subject (and any `:not()`-nested occurrence) and
-      # specificity is computed on the form actually matched — an attribute and a
-      # pseudo-class weigh the same, so the count is unchanged either way.
+      # across prefix and subject and specificity is computed on the form
+      # actually matched — an attribute and a pseudo-class weigh the same.
       private def self.lower_attr_pseudos(selector : String) : String
         return selector unless selector.includes?(':') # fast path: no pseudo at all
         selector.gsub(ATTR_PSEUDO) { ATTR_PSEUDOS[$1] }
@@ -780,13 +768,12 @@ module Crysterm
 
       # Rewrites `Type::slot` pseudo-elements into the capitalized descendant node
       # Crysterm matches a slot by (`ProgressBar::indicator` -> `ProgressBar
-      # Indicator`, which `expand_types` then turns into the `.Indicator` class on
-      # the slot node — see `html.cr`/`sub_elements.cr`). The descendant-capitalized
-      # form is an internal representation; this lets the conventional `::slot`
-      # spelling work in *every* stylesheet, not only via `CSS::Qss`. A `::name`
-      # with no backing slot becomes a class that matches nothing — tolerant, as
-      # before. Run before `expand_types` (which otherwise keeps `::name` verbatim
-      # as an inert pseudo-element).
+      # Indicator`, which `expand_types` turns into the `.Indicator` class on the
+      # slot node — see `html.cr`/`sub_elements.cr`). Lets the conventional
+      # `::slot` spelling work in every stylesheet, not only via `CSS::Qss`. A
+      # `::name` with no backing slot becomes a class matching nothing
+      # (tolerant). Run before `expand_types`, which otherwise keeps `::name`
+      # verbatim as an inert pseudo-element.
       private def self.lower_sub_elements(selector : String) : String
         return selector unless selector.includes?("::")
         selector.gsub(SUB_ELEMENT_PSEUDO) { " #{$1.capitalize}" }

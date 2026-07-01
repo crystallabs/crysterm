@@ -5,9 +5,8 @@ module Crysterm
   class Widget
     # A read-only Markdown viewer, modeled after Qt's `QTextBrowser` fed by
     # `QTextDocument#setMarkdown`. CommonMark is parsed by the `markd` shard and
-    # rendered to styled, scrollable terminal text (crysterm style tags), so the
-    # output is theme-consistent with the rest of the toolkit rather than raw
-    # ANSI. As a `ScrollableText` it scrolls and wraps for free.
+    # rendered to styled, scrollable terminal text (crysterm style tags) rather
+    # than raw ANSI. As a `ScrollableText` it scrolls and wraps for free.
     #
     # Supported: headings, **bold**/*italic*, `inline code`, fenced code blocks,
     # blockquotes, ordered/unordered (nestable) lists, thematic breaks, links and
@@ -85,15 +84,13 @@ module Crysterm
       end
 
       # Activates the link with the given *url*, emitting `Event::AnchorClick`
-      # (Qt's `anchorClicked`). This is the programmatic entry point; pointer
-      # click-detection is intentionally not wired up yet.
+      # (Qt's `anchorClicked`). Programmatic entry point; pointer click-detection
+      # isn't wired up yet.
       def activate_link(url : String) : Nil
         emit Crysterm::Event::AnchorClick, url
       end
 
-      # Walks the `markd` AST and emits crysterm style tags. Mirrors how
-      # blessed-contrib pairs `marked` with `marked-terminal`: the parser is the
-      # library, the terminal renderer is ours.
+      # Walks the `markd` AST and emits crysterm style tags.
       class Renderer < Markd::Renderer
         getter links = [] of Link
 
@@ -118,10 +115,10 @@ module Crysterm
           super(Markd::Options.new)
         end
 
-        # `Markd::Renderer#render` strips the *first* newline of the output (it
-        # trims a leading blank in the HTML case). Prepend a sacrificial one
-        # directly to the buffer — not via `#literal`, so it touches neither
-        # `@emitted` nor `@last_output` — so our first real line break survives.
+        # `Markd::Renderer#render` strips the first newline of the output.
+        # Prepend a sacrificial one directly to the buffer (not via `#literal`,
+        # so it doesn't touch `@emitted`/`@last_output`) so the real first
+        # line break survives.
         def render(document : Markd::Node) : String
           @output_io << "\n"
           super
@@ -150,8 +147,8 @@ module Crysterm
         def paragraph(node : Markd::Node, entering : Bool)
           if entering
             # GFM tables aren't parsed by markd — they arrive as a paragraph of
-            # `| … |` rows. Detect and render those as a box-drawing table,
-            # suppressing the paragraph's own (text) children.
+            # `| … |` rows. Detect and render as a box-drawing table, suppressing
+            # the paragraph's own children.
             txt = node_text node
             if table? txt
               @in_table = true
@@ -159,7 +156,7 @@ module Crysterm
               return
             end
             # Separate top-level paragraphs with a blank line; inside a list item
-            # a paragraph stays tight (no blank), just a trailing break.
+            # stays tight (just a trailing break).
             blank_line if @lists.empty? && @quote == 0
           elsif @in_table
             @in_table = false
@@ -215,8 +212,8 @@ module Crysterm
           return if @lists.empty?
           depth = @lists.size - 1
           literal "  " * depth
-          # Task-list item (`- [ ] …` / `- [x] …`): markd renders the marker as
-          # plain text, so swap it for a checkbox glyph and strip the `[ ] `.
+          # Task-list marker (`- [ ] …` / `- [x] …`) renders as plain text in
+          # markd; swap it for a checkbox glyph and strip the `[ ] `.
           case task_marker node
           when :done
             literal "{#{hex @md.quote_color}-fg}☑{/#{hex @md.quote_color}-fg} "
@@ -275,21 +272,18 @@ module Crysterm
         end
 
         def image(node : Markd::Node, entering : Bool)
-          # Render the alt text (its child text nodes) prefixed, since we can't
-          # show the image inline here.
+          # Prefix the alt text since the image itself can't render inline.
           literal(entering ? "{#808a96-fg}🖼 " : "{/#808a96-fg}")
         end
 
         def soft_break(node : Markd::Node, entering : Bool)
-          # A soft wrap becomes a space — the widget re-wraps to its width.
+          # Soft wrap becomes a space; the widget re-wraps to its width.
           literal " " if entering && !@in_table
         end
 
         def line_break(node : Markd::Node, entering : Bool)
-          # Inside a GFM table the paragraph's inline children are suppressed
-          # (the table is drawn atomically by `render_table`); a hard break —
-          # which markd emits for a table row ending in trailing spaces — must
-          # be swallowed too, like `soft_break`, or it leaks a stray newline.
+          # Table rows suppress inline children (drawn atomically by
+          # `render_table`); swallow hard breaks too or they leak a stray newline.
           newline if entering && !@in_table
         end
 
@@ -306,9 +300,8 @@ module Crysterm
         # --- helpers -----------------------------------------------------------
 
         # Emits literal text: drops any pending task-marker prefix, escapes
-        # crysterm's `{`/`}` so they aren't read as tags, converts `~~…~~` to a
-        # `{strike}` span (markd leaves `~` literal), and captures the link label
-        # while inside a link.
+        # crysterm's `{`/`}` tags, converts `~~…~~` to a `{strike}` span (markd
+        # leaves `~` literal), and captures the link label while inside a link.
         private def text_out(str : String) : Nil
           if @strip_task > 0
             drop = Math.min(@strip_task, str.size)
@@ -316,8 +309,8 @@ module Crysterm
             str = str[drop..]
           end
           @link_text += str unless @link_url.nil?
-          # Escape braces first, then wrap `~~…~~` in real `{strike}` tags (added
-          # after escaping, so the tags aren't escaped; `Attr::STRIKE` renders it).
+          # Escape braces first, then add `{strike}` tags after (so they aren't
+          # themselves escaped; `Attr::STRIKE` renders it).
           escaped = str.gsub('{', "{open}").gsub('}', "{close}")
           escaped = escaped.gsub(/~~(.+?)~~/) { "{strike}#{$1}{/strike}" }
           literal escaped

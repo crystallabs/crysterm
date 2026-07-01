@@ -4,15 +4,14 @@ include Crysterm
 
 # Regression spec for `Media::Graphics#reset_sample_cache`.
 #
-# `Media::Base#bitmap=` (the entry point `Graph::Canvas` uses to present each
-# freshly painted frame) replaces the source content WITHOUT changing the box
-# geometry and calls `#reset_sample_cache` to drop any per-size derived cache.
-# The cell-grid family (`Media::Cells`) overrides that hook, but the in-band
-# graphics family (`Media::Graphics`: sixel/Kitty/iTerm/ReGIS) used to inherit
-# the no-op base version. Its `#payload_for` cache is keyed only on geometry, so
-# a same-size live update kept serving the *previous* frame's encoded payload —
-# the graphic froze on the stale image. The override clears that cache (and the
-# emit-tracking keys) so the next render re-encodes the new bitmap.
+# `Media::Base#bitmap=` replaces the source content without changing box
+# geometry and calls `#reset_sample_cache` to drop per-size derived caches.
+# `Media::Cells` overrides that hook, but `Media::Graphics` (sixel/Kitty/
+# iTerm/ReGIS) used to inherit the no-op base version. Its `#payload_for`
+# cache is keyed only on geometry, so a same-size live update kept serving the
+# previous frame's encoded payload, freezing the graphic on a stale image. Fix:
+# override clears that cache (and emit-tracking keys) so the next render
+# re-encodes the new bitmap.
 
 private def render_screen
   Crysterm::Window.new(
@@ -46,8 +45,8 @@ describe "Media::Graphics#reset_sample_cache (live bitmap= update)" do
     red_payload = sixel_of(buf.to_s)
     red_payload.should_not be_nil
 
-    # Frame 2: same box, different content (solid blue). Without the override the
-    # geometry-keyed payload cache would re-emit the red payload verbatim.
+    # Frame 2: same box, different content. Without the override the
+    # geometry-keyed cache would re-emit the red payload verbatim.
     img.bitmap = solid(0, 0, 255)
     buf.clear
     s._render

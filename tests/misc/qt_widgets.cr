@@ -25,11 +25,10 @@
 #
 # Everything is laid out by `MainWindow` and re-flows to the terminal size.
 #
-# Styling note: this example sets NO inline styles — every color and border comes
-# from the active theme (the built-in `terminal`/`dark`/`light`, or a Qt theme
-# loaded with `--colors-stylesheet data/css/<name>.qss`). That keeps the widgets
-# faithful to whatever theme is loaded; an inline `Style.new(...)` would sit at
-# the top (inline) cascade tier and override the theme.
+# Styling note: this example sets no inline styles — every color and border
+# comes from the active theme (built-in `terminal`/`dark`/`light`, or a Qt
+# theme via `--colors-stylesheet data/css/<name>.qss`). An inline
+# `Style.new(...)` would sit at the top cascade tier and override the theme.
 #
 # Try it: wait for the splash to clear; click File/Edit/Help for pop-up menus
 # (clicking the open menu's title again closes it; with one open, hover another
@@ -46,7 +45,7 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Window.new title: "Qt-like Widgets"
-# Join touching/overlapping borders into seamless junctions (├ ┬ ┼ …) — e.g.
+# Join touching/overlapping borders into seamless junctions (├ ┬ ┼ …), e.g.
 # where a submenu's left border overlaps its parent's right border.
 s.dock_borders = true
 
@@ -68,18 +67,16 @@ end
 
 # --- Menu bar (pop-up Menus) -------------------------------------------------
 
-# A `MenuBar` packages all the open/switch/hover/highlight/keyboard wiring: click
-# a title (or Enter/Down while focused) to open it, and once open, hovering or
-# arrowing onto another title switches to it. Right on a submenu-less item / Left
-# also move between menus.
+# A `MenuBar` packages all the open/switch/hover/highlight/keyboard wiring:
+# click a title (or Enter/Down while focused) to open it; once open, hovering
+# or arrowing onto another title switches to it. Right/Left also move between menus.
 menubar = Widget::MenuBar.new
 win.menu_bar = menubar
 
 filemenu = menubar.add_menu "File"
 filemenu.add("New") { status.show_message " new file"; s.render }
 filemenu.add("Open") { status.show_message " open file"; s.render }
-# Recent holds two files plus a nested "Bucket" submenu, giving a 3-level chain:
-# File → Recent → Bucket → (entries).
+# Recent holds two files plus a nested "Bucket" submenu: File → Recent → Bucket → (entries).
 bucket = Action.new "Bucket"
 bucket.menu = [mk.call("old-1.txt", "open old-1.txt"), mk.call("old-2.txt", "open old-2.txt")]
 filemenu.add_menu "Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md"), bucket]
@@ -223,9 +220,9 @@ timeedit.on(Event::DateChange) { |e| status.show_message " time: #{e.date.to_s("
 dtedit.on(Event::DateChange) { |e| status.show_message " stamp: #{e.date.to_s("%Y-%m-%d %H:%M:%S")}"; s.render }
 dspin.on(Event::DoubleValueChange) { |e| status.show_message " ratio: #{e.value}"; s.render }
 
-# A standalone Calendar (QCalendarWidget): the navigation bar pages months
-# (‹/›), pops up a month menu (click the name) and a year menu (click the year),
-# with ISO week numbers down the left. Arrow keys move the selection.
+# A standalone Calendar (QCalendarWidget): the nav bar pages months (‹/›),
+# pops up a month menu (click name) and year menu (click year), with ISO week
+# numbers down the left. Arrow keys move the selection.
 cal = Widget::Calendar.new \
   parent: datespage, top: 1, left: 30, width: 25, height: 10
 cal.vertical_header_format = Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
@@ -242,9 +239,9 @@ stack = Widget::StackedWidget.new parent: stackpage, top: 1, left: 1, right: 1, 
     content: "{center}#{label}\n\n(click to flip){/center}", parse_tags: true)
 end
 
-# Extras tab: the newest Qt-modeled widgets — ButtonGroup (exclusive toggle
-# buttons), ToolButton (default action + popup menu), Completer (autocomplete on
-# a LineEdit), ColorDialog (modal picker), and DialogButtonBox (standard buttons).
+# Extras tab: ButtonGroup (exclusive toggle buttons), ToolButton (default
+# action + popup menu), Completer (autocomplete on a LineEdit), ColorDialog
+# (modal picker), and DialogButtonBox (standard buttons).
 
 # Exclusive ButtonGroup: three checkable buttons of which only one stays "on".
 mode_labels = %w[Low Mid High]
@@ -257,10 +254,9 @@ mode_labels.each_with_index do |label, i|
   bgroup.add b, i
 end
 bgroup.on(Event::ButtonClick) do
-  # Mark the checked button by bracketing its label. A plain Button has no
+  # Mark the checked button by bracketing its label: a plain Button has no
   # built-in checked glyph, and a direct `style.bg=` would be undone by the CSS
-  # cascade on the next render (the theme rebuilds each widget's style) — but
-  # content is outside the style cascade, so it sticks.
+  # cascade on the next render, but content is outside the cascade.
   bgroup.buttons.each_with_index do |b, i|
     btn = b.as(Widget::Button)
     btn.set_content(btn.checked? ? "[#{mode_labels[i]}]" : mode_labels[i])
@@ -294,9 +290,8 @@ completer = Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java Ja
 completer.attach langbox
 
 # ColorDialog: a modal palette picker launched from a button. The picked color
-# is reported in the status bar; with no inline style on the swatch, the theme's
-# `Box` rule paints its surface (a `style.bg=` here would be re-applied by the
-# cascade each render — see the ButtonGroup note above).
+# is reported in the status bar; with no inline style on the swatch, the
+# theme's `Box` rule paints its surface (see the ButtonGroup note above).
 swatch = Widget::Box.new parent: extraspage, top: 7, left: 18, width: 6, height: 1
 colordlg = Widget::ColorDialog.new \
   parent: s, top: "center", left: "center", width: 56, height: 20
@@ -341,11 +336,10 @@ split = Widget::Splitter.new
     content: "{center}Pane #{i + 1}{/center}", parse_tags: true)
 end
 
-# The dock's home is the right edge (width `dock_size`), but we immediately float
-# it as a compact, freely-draggable panel so its title bar is a ready drag handle
-# and it can move on both axes. Grab the "Panes" title bar to move it, drag its ◢
-# corner grip to resize; its ⇕ title button docks it back to the right, and
-# dragging a docked dock's title bar floats it again in place.
+# The dock's home is the right edge (width `dock_size`), but we immediately
+# float it as a compact, freely-draggable panel. Grab the "Panes" title bar to
+# move it, drag its ◢ corner grip to resize; its ⇕ title button docks it back
+# to the right, and dragging a docked dock's title bar floats it again.
 dock = Widget::DockWidget.new title: "Panes", area: Widget::DockWidget::Area::Right, dock_size: 30
 dock.widget = split
 win.add_dock dock
@@ -379,8 +373,7 @@ tabs.bar.focus
 # --- Splash screen (animated, auto-dismisses) --------------------------------
 
 # A centered overlay holding a scrolling rainbow banner (a `Marquee` drives its
-# own animation fiber via `#start`); it clears itself after a couple of seconds,
-# revealing the UI behind it.
+# own animation fiber via `#start`); clears itself after a couple seconds.
 splash_banner = Widget::Marquee.new text: "  ✦  Crysterm — Qt-inspired terminal widgets  ✦  ", rainbow: true
 splash = Widget::SplashScreen.new \
   parent: s, width: 46, height: 7,

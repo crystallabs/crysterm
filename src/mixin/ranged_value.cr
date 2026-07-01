@@ -15,9 +15,9 @@ module Crysterm
       # Sets the lower bound (Qt's `setMinimum`), re-clamping the value and
       # emitting `Event::RangeChange` on an actual change. See `#set_range`.
       #
-      # Following Qt's `setMinimum`, a new minimum *above* the current maximum
-      # carries the maximum up with it (the range collapses to the single value
-      # `v`) rather than leaving an inverted `minimum > maximum` range.
+      # As in Qt, a new minimum above the current maximum carries the maximum
+      # up with it (range collapses to the single value `v`) rather than
+      # inverting.
       def minimum=(v : Int32) : Int32
         set_range v, Math.max(v, @maximum)
         @minimum
@@ -26,9 +26,9 @@ module Crysterm
       # Sets the upper bound (Qt's `setMaximum`), re-clamping the value and
       # emitting `Event::RangeChange` on an actual change. See `#set_range`.
       #
-      # Following Qt's `setMaximum`, a new maximum *below* the current minimum
-      # carries the minimum down with it (the range collapses to the single
-      # value `v`) rather than leaving an inverted `minimum > maximum` range.
+      # As in Qt, a new maximum below the current minimum carries the minimum
+      # down with it (range collapses to the single value `v`) rather than
+      # inverting.
       def maximum=(v : Int32) : Int32
         set_range Math.min(v, @minimum), v
         @maximum
@@ -144,37 +144,28 @@ module Crysterm
       # current value into the new range (which may emit `Event::ValueChange`),
       # and repaints. No-op when neither bound moves.
       def set_range(min : Int32, max : Int32) : Nil
-        # Never store an inverted range (min > max). The value clamp below — and
-        # `#value=`/`#value_span`/the percent helpers — all assume `min <= max`;
-        # an inverted range would force the value to a nonsensical bound and emit
-        # spurious `Event::ValueChange`/`Event::RangeChange`. Mirror Qt's
-        # `setRange`, where a max below min collapses the range so `min` is the
-        # only legal value. (The `#minimum=`/`#maximum=` setters already pre-adjust
-        # the *other* bound; this guards a direct `set_range`/`range=` call too.)
+        # Never store an inverted range: `#value=`/`#value_span`/the percent
+        # helpers all assume `min <= max`. Mirrors Qt's `setRange`, where a max
+        # below min collapses the range to `min`. (`#minimum=`/`#maximum=`
+        # already pre-adjust the other bound; this guards a direct call too.)
         max = min if max < min
         return if min == @minimum && max == @maximum
         @minimum = min
         @maximum = max
         on_range_changed
         emit Crysterm::Event::RangeChange, @minimum, @maximum
-        # Re-clamp the value into the new range; `#value=` no-ops if unchanged.
-        # Pre-clamp here so a `#wrap?` control *clamps* on a range change (Qt's
-        # `setMaximum`/`setMinimum` semantics) instead of *wrapping*: handing
-        # `#value=` a still-out-of-range `@value` would trip its wrap branch and
-        # snap the value to the opposite bound (e.g. shrinking the max below the
-        # current value would jump it to the minimum rather than down to the new
-        # maximum). A pre-clamped value is always in range, so `#value=`'s wrap
-        # check is a no-op and it behaves as a plain clamp.
+        # Pre-clamp (rather than let `#value=` handle it) so a `#wrap?` control
+        # clamps on a range change instead of wrapping to the opposite bound:
+        # an out-of-range `@value` would trip `#value=`'s wrap branch. A
+        # pre-clamped value makes that check a no-op, behaving as a plain clamp.
         self.value = @value.clamp(@minimum, @maximum)
         request_render
       end
 
       # Sets the inclusive `[minimum, maximum]` range from a `Range` (Qt's
       # `setRange`). An exclusive range (`begin...end`) covers `begin..end - 1`,
-      # so its upper bound is `end - 1` — matching Crystal's own `Range`
-      # semantics rather than silently widening the range by one. A degenerate
-      # empty exclusive range (`n...n`) collapses to the single value `n` instead
-      # of inverting the bounds.
+      # matching Crystal's own `Range` semantics. A degenerate empty exclusive
+      # range (`n...n`) collapses to the single value `n` instead of inverting.
       def range=(r : ::Range(Int32, Int32)) : ::Range(Int32, Int32)
         max = r.exclusive? ? Math.max(r.begin, r.end - 1) : r.end
         set_range r.begin, max

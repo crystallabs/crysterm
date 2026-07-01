@@ -6,16 +6,16 @@ require "../src/crysterm"
 # `parse_key_event`). See TP.md for the full plan.
 #
 # Each stream is a recorded byte sequence fed through `#listen`. We rewind one
-# reusable `IO::Memory` between iterations, so the harness itself allocates
-# nothing per iteration — every byte of B/event is the parser's own cost.
+# reusable `IO::Memory` between iterations, so the harness allocates nothing per
+# iteration — every byte of B/event is the parser's own cost.
 #
 # The reliable signal on this noisy machine is **B/event** (deterministic);
 # ns/event is reported too but treat it as noisy (interleave / re-run).
 #
 # Caveat: `IO::Memory` is not a tty, so `with_raw_input` and the
-# `read_timeout=` toggle in `next_char(true)` are both no-ops here — the real
-# STDIN path pays the timeout toggle, which this harness does not see. It does
-# not allocate, so B/event is unaffected.
+# `read_timeout=` toggle in `next_char(true)` are no-ops here — the real STDIN
+# path pays the timeout toggle, which this harness doesn't see, but it doesn't
+# allocate so B/event is unaffected.
 #
 # Run:  crystal run --release benchmarks/input-parse.cr
 
@@ -24,7 +24,7 @@ include Crysterm
 # The realistic input streams (highest-frequency real input first).
 STREAMS = {
   # A mouse drag: a burst of SGR motion reports — the highest-frequency real
-  # input and the throughput case worth optimizing most.
+  # input, worth optimizing most.
   "sgr_drag" => String.build { |s|
     100.times { |i| s << "\e[<35;#{(i % 200) + 1};#{(i % 50) + 1}M" }
   },
@@ -49,7 +49,7 @@ struct Driver
     @io = IO::Memory.new data
     @tput = Tput.new input: @io, output: IO::Memory.new,
       screen_size: Tput::DEFAULT_SCREEN_SIZE, probe: false
-    # Count the events this stream produces (for per-event normalization).
+    # Count events for per-event normalization.
     n = 0
     @io.rewind
     @tput.listen { n += 1 }

@@ -7,8 +7,8 @@ private def headless_screen
 end
 
 # Behavior lock for the region writers after `fill_region`/`blend_region` were
-# routed through the shared `each_region_cell` helper. The two differ only in
-# whether they clamp a negative origin to 0 (`fill` clamps; `blend` does not).
+# routed through the shared `each_region_cell` helper. They differ only in
+# whether a negative origin is clamped to 0 (`fill` clamps; `blend` does not).
 describe "Window#fill_region / #blend_region" do
   it "fills the half-open region and marks the line dirty" do
     s = headless_screen
@@ -42,11 +42,11 @@ describe "Window#fill_region / #blend_region" do
     s.lines[0][0].char.should eq 'a' # blend only touches the attribute
   end
 
-  # A widget's top/left shadow that sits against the top/left screen edge passes
-  # `blend_region` a NEGATIVE origin (`yi - s.top` / `xi - s.left`). Crystal's
+  # A widget's top/left shadow against the top/left screen edge passes
+  # `blend_region` a negative origin (`yi - s.top` / `xi - s.left`). Crystal's
   # `[]?` counts a negative index from the end, so without an explicit off-grid
   # guard the unclamped (`clamp: false`) blend would wrap and tint cells at the
-  # OPPOSITE (bottom/right) edge. Lock that a negative origin touches nothing off
+  # opposite (bottom/right) edge. Lock that a negative origin touches nothing off
   # the grid — only the in-bounds part of the region is blended.
   it "does not wrap a negative-origin blend to the far edge (blend_region)" do
     s = headless_screen
@@ -54,7 +54,7 @@ describe "Window#fill_region / #blend_region" do
     w = s.awidth
     base = s.lines[h - 1][w - 1].attr
 
-    # A row band entirely above the top edge (negative y): must be a complete
+    # A row band entirely above the top edge (negative y) must be a complete
     # no-op, not a blend of the last row via negative-index wraparound.
     s.blend_region 0.5, 0, w, -2, 0
     s.lines[h - 1][w - 1].attr.should eq base
@@ -76,8 +76,8 @@ end
 
 # The inline SGR emission in the draw loop relies on `sgr_params_to`'s return
 # value to decide whether to back over a trailing ';' before the terminating
-# 'm'. Lock that contract: nothing written (and false) for the all-default attr,
-# something written (and true) otherwise.
+# 'm'. Lock the contract: nothing written (false) for the all-default attr,
+# something written (true) otherwise.
 describe "Screen.sgr_params_to" do
   it "writes nothing and returns false for the default attribute" do
     io = IO::Memory.new

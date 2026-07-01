@@ -24,10 +24,10 @@ private def rgb(name)
 end
 
 # An inherited value (`color`/`font-weight`/`font-style`) is stateless, so it
-# must reach every state a widget actually renders in — not only `normal`. A
-# materialized non-normal state (one given its own `:focus`/`:selected` rule)
-# that leaves an inherited property unset previously reverted to the terminal
-# default for that property the moment the widget entered the state.
+# must reach every state a widget renders in, not only `normal`. A materialized
+# non-normal state (given its own `:focus`/`:selected` rule) that left an
+# inherited property unset previously reverted to the terminal default the
+# moment the widget entered the state.
 describe "CSS inheritance into materialized states" do
   it "inherits color/weight/slant into a state materialized by a non-color rule" do
     screen = headless_screen
@@ -47,7 +47,7 @@ describe "CSS inheritance into materialized states" do
       inner.styles.focused.should_not be inner.styles.normal
       inner.styles.focused.bg.should eq rgb("blue")
 
-      # The inherited color/weight/slant must show in the focused state too —
+      # Inherited color/weight/slant must show in the focused state too —
       # otherwise a focused field renders with the default fg (the bug).
       inner.styles.focused.fg.should eq rgb("yellow")
       inner.styles.focused.bold?.should be_true

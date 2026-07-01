@@ -12,12 +12,10 @@ private def te_screen
     default_quit_keys: false)
 end
 
-# An `input_on_focus` field grabs the keyboard and, when it loses focus, used to
-# unconditionally `rewind_focus` — which yanked focus straight back to itself.
-# That made `Tab`/click navigation between the fields of a form (e.g. the Pine
-# `Compose` screen) impossible: focus never actually advanced. The fix only
-# rewinds when focus is *cleared* (no successor), not when it deliberately moves
-# to another widget.
+# An `input_on_focus` field grabs the keyboard and, on losing focus, used to
+# unconditionally `rewind_focus` back to itself — breaking Tab/click navigation
+# between form fields. Fix: only rewind when focus is *cleared* (no successor),
+# not when it deliberately moves elsewhere.
 describe "input_on_focus focus hand-off" do
   it "moves focus to another field instead of bouncing back" do
     s = te_screen

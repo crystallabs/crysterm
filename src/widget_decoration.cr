@@ -40,10 +40,10 @@ module Crysterm
         (style.padding.try { |p| p.top + p.bottom })
     end
 
-    # Outer (margin) offsets. Counterpart to the inner `i*` offsets above: these
-    # are the element's own outer spacing, applied to the resolved rectangle in
-    # `#_get_coords`. Used by the shrink-to-content sizing (`widget_size.cr`) to
-    # reserve room so a margin doesn't eat into a shrunk widget's content.
+    # Outer (margin) offsets. Counterpart to the inner `i*` offsets above,
+    # applied to the resolved rectangle in `#_get_coords`. Used by
+    # shrink-to-content sizing (`widget_size.cr`) so margin doesn't eat into a
+    # shrunk widget's content.
 
     # Margin offset on the left side
     def mleft

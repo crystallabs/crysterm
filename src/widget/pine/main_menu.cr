@@ -46,8 +46,8 @@ module Crysterm
           options : Array(Option) = [] of Option,
           *,
           # Blank rows between options (Pine spaces its menu out). Real list
-          # spacing — the gaps are NOT items, so they can't be selected or
-          # clicked. Assigned before `super` so the first layout uses it.
+          # spacing — gaps are NOT items, so they can't be selected or clicked.
+          # Assigned before `super` so the first layout uses it.
           spacing : Int32 = 1,
           **list,
         )
@@ -75,9 +75,8 @@ module Crysterm
           selected_record.try &.key
         end
 
-        # Formats one option into a fixed-column row. The row is kept compact
-        # (small left indent) because the menu is normally centered as a block,
-        # the way Alpine presents it.
+        # Formats one option into a fixed-column row. Kept compact (small left
+        # indent) since the menu is normally centered as a block, as Alpine does.
         def format_row(item : Option, index : Int32) : String
           "    #{item.key.ljust(2)}    #{item.title.ljust(16)} -  #{item.description}"
         end

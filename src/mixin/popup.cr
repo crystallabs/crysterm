@@ -2,7 +2,7 @@ module Crysterm
   module Mixin
     # Shared lifecycle for a widget that owns a floating pop-up *child* shown next
     # to it — a drop-down list, a calendar, … (`Widget::ComboBox`,
-    # `Widget::DateEdit`). It centralizes the open flag, showing/raising/focusing
+    # `Widget::DateEdit`). Centralizes the open flag, showing/raising/focusing
     # the pop-up, the modal input grab, the outside-click watcher that dismisses
     # it, the grab region, and teardown.
     #
@@ -21,9 +21,8 @@ module Crysterm
       @ev_outside : ::Crysterm::Event::Mouse::Wrapper?
 
       # NOTE: the including widget must define `#popup_widget : Widget?` — its
-      # current pop-up (or `nil`). (Left as a duck-typed requirement rather than
-      # an `abstract def`, which tripped a codegen crash when the module was
-      # included by more than one widget.)
+      # current pop-up (or `nil`). Left duck-typed rather than `abstract def`,
+      # which tripped a codegen crash when included by more than one widget.
 
       # Whether the pop-up is open.
       def open? : Bool
@@ -41,8 +40,8 @@ module Crysterm
         pop.front!
         pop.focus if focus_popup
         window.grab self
-        # Shared "click-away to dismiss" (the same `Window#on_press_outside` used
-        # by the pop-up menus and the `Completer` drop-down): a press outside this
+        # Shared "click-away to dismiss" (same `Window#on_press_outside` used by
+        # pop-up menus and the `Completer` drop-down): a press outside this
         # widget *and* its pop-up closes it.
         @ev_outside ||= window.on_press_outside(->(x : Int32, y : Int32) { grab_contains?(x, y) }) { close }
         request_render
@@ -85,11 +84,10 @@ module Crysterm
       # Detaches + destroys the pop-up and removes the watcher. Call from the
       # including widget's `#destroy` (before `super`).
       protected def teardown_popup_on_destroy : Nil
-        # Release the modal grab if we're destroyed while still open. `#close`
-        # (the normal dismiss path) does this via `#teardown_popup`, but destroy
-        # can run without a prior close — leaving the now-dead widget lingering in
-        # the window's `@grabs`, which keeps `Window#grabbing?` true and routes
-        # every later mouse press through `grab_contains?` on a destroyed widget.
+        # Release the modal grab if destroyed while still open. `#close` does
+        # this via `#teardown_popup`, but destroy can run without a prior close,
+        # leaving the dead widget lingering in `@grabs` — keeping
+        # `Window#grabbing?` true and routing mouse presses to a dead widget.
         release_grab if @open
         detach_outside_watcher
         if pop = popup_widget

@@ -128,10 +128,9 @@ module Crysterm
         @edit_buffer : String? = nil
 
         # The record index currently being edited, captured when editing begins.
-        # Editing is anchored to THIS row — not the live `selected` — because a
-        # mouse click moves the selection *before* it emits the activating
-        # `ActionItem`, so committing against `selected` would write the edit into
-        # whatever row was just clicked rather than the one being edited.
+        # Anchored to this row, not the live `selected`, because a mouse click
+        # moves the selection before emitting the activating `ActionItem` — using
+        # `selected` would write the edit into whatever row was just clicked.
         @edit_index : Int32? = nil
 
         def initialize(
@@ -141,9 +140,8 @@ module Crysterm
           super options, **list
 
           # A click on another row moves the selection (emitting `SelectItem`)
-          # before it activates the row. If an inline edit is in progress on a
-          # different row, finish it now so the edit never lingers on the old row
-          # until a second click.
+          # before activating it. Finish any in-progress edit on a different row
+          # now, so it doesn't linger until a second click.
           on ::Crysterm::Event::SelectItem do
             commit_edit if @editing && @edit_index != selected
           end
@@ -160,9 +158,9 @@ module Crysterm
         # Enter (via `Event::ActionItem`) edits the selected option according to
         # its `kind` rather than running a one-shot callback.
         def activate
-          # While editing, ANY activation (Enter, or a click that just moved the
-          # selection to another row) commits the in-progress edit to its own
-          # row and stops — it must not act on the newly-selected row.
+          # While editing, any activation (Enter, or a click that just moved the
+          # selection) commits the in-progress edit to its own row and stops —
+          # must not act on the newly-selected row.
           if @editing
             commit_edit
             return

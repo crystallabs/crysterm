@@ -1,10 +1,9 @@
 module Crysterm
-  # Device-side input-mode toggles — the optional terminal input enhancements
-  # negotiated over `tput` (escape sequences on one tty), with the bookkeeping
-  # flag each one needs so teardown (`Window#restore_terminal`) knows what to
-  # turn back off. These are pure device concerns (they touch only `tput`/IO),
-  # so they live on `Screen`; the owning `Window` delegates the enable/disable
-  # methods and the `_listened_*?` predicates straight here.
+  # Device-side input-mode toggles — optional terminal input enhancements
+  # negotiated over `tput`, with the bookkeeping flag each needs so teardown
+  # (`Window#restore_terminal`) knows what to turn back off. Pure device
+  # concerns (touch only `tput`/IO), so they live on `Screen`; the owning
+  # `Window` delegates the enable/disable methods and `_listened_*?` here.
   #
   # Raw mouse reporting (`enable_mouse` / `@_listened_mouse` / gpm / cursor shape)
   # lives alongside this on the device in `screen_mouse_device.cr`.
@@ -12,16 +11,16 @@ module Crysterm
     # The input read fiber. There is at most one; `#listen_keys` is idempotent.
     @_keys_fiber : Fiber?
 
-    # Spawns the device's input read fiber: `tput.listen` blocks reading this
-    # device's input, parses each byte sequence into a `Tput::InputEvent`, and
-    # routes it *up* to the `Application` dispatcher — which picks the active
-    # `Window` on this device and hands it the event (`Application#route_input`
-    # → `Window#handle_input`). The device knows nothing about focus or widgets.
+    # Spawns the device's input read fiber: `tput.listen` parses each byte
+    # sequence into a `Tput::InputEvent` and routes it *up* to the `Application`
+    # dispatcher (`Application#route_input` → `Window#handle_input`), which picks
+    # the active `Window` on this device. The device itself knows nothing about
+    # focus or widgets.
     #
     # `tput.listen` returns on EOF, so closing the input (`Window#disconnect`)
-    # ends this fiber; the rescue swallows the IO error (and the raw-mode-restore
-    # error on the now-dead fd) that closing mid-read produces, letting the fiber
-    # end quietly. Idempotent: a second call while a fiber exists is a no-op.
+    # ends this fiber; the rescue swallows the IO/raw-mode-restore errors that
+    # closing mid-read produces. Idempotent: a second call while a fiber exists
+    # is a no-op.
     def listen_keys : Nil
       return if @_keys_fiber
       @_keys_fiber = spawn {
@@ -33,14 +32,14 @@ module Crysterm
     end
 
     # Whether the input read fiber has been started (and not yet dropped). Used
-    # by reattach to restore the prior listening state.
+    # by reattach to restore prior listening state.
     def listening? : Bool
       !@_keys_fiber.nil?
     end
 
-    # Drops the input-fiber handle so a later `#listen_keys` can start a fresh
-    # one. The fiber itself ends when its input is closed (see `#listen_keys`);
-    # this just clears the reference (`Window#disconnect`).
+    # Drops the input-fiber handle so a later `#listen_keys` can start fresh.
+    # The fiber itself ends when its input is closed (see `#listen_keys`); this
+    # just clears the reference (`Window#disconnect`).
     def stop_keys : Nil
       @_keys_fiber = nil
     end
@@ -50,12 +49,11 @@ module Crysterm
     getter? _listened_keyboard = false
 
     # Turns on the best enhanced keyboard protocol (kitty / modifyOtherKeys) the
-    # terminal supports — honoring the `keyboard.exclude` / `keyboard.protocol`
-    # config — so `Event::KeyPress#key_event` is populated. With *events* `true`,
-    # also requests key releases and lone-modifier presses (e.g. a "tap Alt"
-    # gesture); with `false`, only escape-code disambiguation, which never
-    # changes how ordinary typing is delivered. A no-op fallback to the legacy
-    # baseline on terminals that support neither protocol.
+    # terminal supports — honoring `keyboard.exclude`/`keyboard.protocol` config
+    # — so `Event::KeyPress#key_event` is populated. With *events* `true`, also
+    # requests key releases and lone-modifier presses (e.g. "tap Alt"); with
+    # `false`, only escape-code disambiguation. No-op fallback on terminals
+    # supporting neither protocol.
     def enable_keyboard_protocol(events : Bool = false) : ::Tput::KeyboardProtocol
       @_listened_keyboard = true
       tput.enable_keyboard_protocol events
@@ -87,9 +85,9 @@ module Crysterm
     # Whether in-band resize notifications were enabled for this device.
     getter? _listened_in_band_resize = false
 
-    # Enables in-band resize notifications (DEC 2048): the terminal reports size
-    # changes through the input stream, feeding the same debounced redraw path
-    # as `SIGWINCH` (useful where SIGWINCH is unavailable, e.g. over some PTYs).
+    # Enables in-band resize notifications (DEC 2048): reports size changes
+    # through the input stream, feeding the same debounced redraw path as
+    # `SIGWINCH` (useful where SIGWINCH is unavailable, e.g. over some PTYs).
     def enable_in_band_resize : Nil
       @_listened_in_band_resize = true
       tput.enable_in_band_resize
@@ -118,11 +116,10 @@ module Crysterm
     end
 
     # Best-effort turn-off of every input mode this device enabled, then restore
-    # the tty's line discipline (cooked mode). This is the *device* half of
-    # teardown; the owning `Window#restore_terminal` calls it after its own
-    # surface-half (`leave` the alt buffer, disable the mouse). Every step is
-    # guarded: a user-closed window leaves dead fds that raise on write, and the
-    # restore must press on regardless.
+    # the tty's line discipline (cooked mode). The *device* half of teardown;
+    # `Window#restore_terminal` calls it after its own surface-half (leave the
+    # alt buffer, disable the mouse). Every step is guarded: a user-closed
+    # window leaves dead fds that raise on write.
     def restore_input_modes : Nil
       restore_step(_listened_keyboard?) { disable_keyboard_protocol }
       restore_step(_listened_paste?) { disable_bracketed_paste }
@@ -137,8 +134,8 @@ module Crysterm
       end
     end
 
-    # Runs *block* only when *enabled*, swallowing any error (dead-fd writes on a
-    # user-closed window). Mirrors the surface-side guard in `window_connection.cr`.
+    # Runs *block* only when *enabled*, swallowing any error (dead-fd writes on
+    # a user-closed window). Mirrors the surface-side guard in `window_connection.cr`.
     private def restore_step(enabled : Bool, & : -> Nil) : Nil
       return unless enabled
       begin

@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# End-to-end proof that CSS doesn't just populate `Style` objects but actually
-# changes what gets drawn: it sets a stylesheet, runs a real synchronous render
-# (`Window#_render`, which applies the cascade then fills the cell buffer), and
-# inspects the resulting packed attributes in `Window#lines`.
+# End-to-end proof that CSS actually changes what gets drawn: sets a
+# stylesheet, runs a real synchronous render (`Window#_render`, which applies
+# the cascade then fills the cell buffer), and inspects the packed attributes
+# in `Window#lines`.
 
 private def render_screen
   Crysterm::Window.new(
@@ -38,7 +38,7 @@ describe "CSS end-to-end rendering" do
     screen.stylesheet = "Box { background-color: #0000ff; color: #ff0000; }"
     screen._render # applies the cascade (dirty) and fills @lines
 
-    # a cell well inside the box carries the CSS colors
+    # cell inside the box carries the CSS colors
     cell_bg(screen, 2, 3).should eq 0x0000ff
     cell_fg(screen, 2, 3).should eq 0xff0000
   end
@@ -114,8 +114,8 @@ describe "CSS end-to-end rendering" do
   end
 
   it "paints alternate-background-color onto alternating ListTable rows" do
-    # ListTable renders rows via the per-item CSS path (and is focusable), so this
-    # exercises the overlay bridge, not Table's direct cell fill.
+    # ListTable renders rows via the per-item CSS path (focusable), exercising
+    # the overlay bridge, not Table's direct cell fill.
     screen = render_screen
     Widget::ListTable.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["h1", "h2"], ["a", "b"], ["c", "d"], ["e", "f"]], alternate_rows: true
@@ -145,8 +145,8 @@ describe "CSS end-to-end rendering" do
     menu.add_separator
     menu.add "Quit"
     screen.append menu
-    # `opacity: 1.0` cancels the theme's translucent Menu plane so the separator
-    # fg lands as the exact color rather than an alpha-blended approximation.
+    # opacity: 1.0 cancels the theme's translucent Menu plane so the separator
+    # fg is exact rather than alpha-blended
     screen.stylesheet = "Menu { opacity: 1.0; } Menu::separator { color: #ff00ff; }"
     screen._render
 
@@ -188,7 +188,7 @@ describe "CSS end-to-end rendering" do
     screen._render
     cell_bg(screen, 2, 3).should eq 0x0000ff
 
-    # add a class -> auto-invalidates -> next render repaints with the new rule
+    # adding a class auto-invalidates -> next render repaints with the new rule
     box.add_css_class "hot"
     screen._render
     cell_bg(screen, 2, 3).should eq 0x00ff00

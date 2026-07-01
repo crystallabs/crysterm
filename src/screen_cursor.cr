@@ -1,11 +1,11 @@
 module Crysterm
-  # Device-side hardware-cursor control: drives the REAL terminal cursor through
+  # Device-side hardware-cursor control: drives the real terminal cursor through
   # `tput` (shape/blink, color, show/hide, reset), plus capability probes. Pure
   # `tput`/IO concerns, so they live on the device (`Screen`).
   #
   # The *artificial* cursor and the hardware-vs-artificial decision read surface
-  # state, so they stay on `Window` (`window_cursor.cr`) and drive the hardware
-  # path by calling the primitives here.
+  # state, so they stay on `Window` (`window_cursor.cr`), which drives the
+  # hardware path via the primitives here.
   class Screen
     # Whether the terminal can style its *hardware* cursor (shape/blink, via
     # DECSCUSR or iTerm2's OSC 50). Backed by `Tput::Features#cursor_style?`

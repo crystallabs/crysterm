@@ -2,17 +2,17 @@ require "benchmark"
 require "../src/crysterm"
 
 # Per-frame cost of the border-docking pass (`Crysterm::Docking.dock`), invoked
-# every frame from `Screen#_dock` when `dock_borders` is on. It scans the FULL
+# every frame from `Screen#_dock` when `dock_borders` is on. It scans the full
 # screen width of every "stop" row (rows that emitted a horizontal border
-# segment), testing each cell against the box-drawing `ANGLES` set and rejoining
-# junctions. On a wide screen most cells on a stop row are blank/non-box, so the
-# per-cell reject path dominates.
+# segment), testing each cell against the box-drawing `ANGLES` set and
+# rejoining junctions. On a wide screen most cells on a stop row are
+# blank/non-box, so the per-cell reject path dominates.
 #
-# Method: build a headless screen with several adjacent bordered boxes (so real
-# border rows and crossing junctions exist), render once to populate `@lines`
-# and `@_dock_stops`, then drive `Docking.dock` directly in a loop. Docking is
-# idempotent on an already-docked grid (each angle resolves to the same glyph),
-# so repeated calls are stable and measure the scan itself.
+# Method: build a headless screen with several adjacent bordered boxes (real
+# border rows and crossing junctions), render once to populate `@lines` and
+# `@_dock_stops`, then drive `Docking.dock` directly in a loop. Docking is
+# idempotent on an already-docked grid, so repeated calls measure the scan
+# itself.
 #
 # Run:  crystal run --release benchmarks/docking.cr
 
@@ -26,8 +26,8 @@ def build : {Crysterm::Screen, Hash(Int32, Bool)}
     width: WIDTH, height: HEIGHT
   s.dock_borders = true
 
-  # A grid of adjacent bordered boxes whose borders overlap/touch, producing
-  # many docking junctions and many stop rows.
+  # Adjacent bordered boxes whose borders overlap/touch, producing many
+  # docking junctions and stop rows.
   rows = 4
   cols = 6
   bw = 12

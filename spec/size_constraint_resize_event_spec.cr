@@ -2,14 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# A size *constraint* (`min_width`/`max_width`/`min_height`/`max_height`) change
+# A size constraint (`min_width`/`max_width`/`min_height`/`max_height`) change
 # alters the widget's effective `awidth`/`aheight` just as `width=`/`height=` do,
-# so it must emit `Event::Resize` — otherwise Resize listeners (e.g.
-# `Mixin::ItemView#on_resize`, which recomputes the scroll offsets for the new
-# viewport, and `Mixin::TextEditing`'s Resize→`_update_cursor`) never fire and
-# scroll/cursor state goes stale after a `max-height`/`min-width` change.
+# so it must emit `Event::Resize` — otherwise listeners (`Mixin::ItemView#on_resize`,
+# `Mixin::TextEditing`'s Resize->`_update_cursor`) never fire and scroll/cursor
+# state goes stale after a `max-height`/`min-width` change.
 #
-# Headless: a plain unattached `Box` is enough — `emit`/`on` work without a
+# A plain unattached `Box` is enough headless: `emit`/`on` work without a
 # screen and `mark_dirty` no-ops when detached.
 describe "Widget size-constraint setters emit Resize" do
   {% for dim in %w[min_width max_width min_height max_height] %}

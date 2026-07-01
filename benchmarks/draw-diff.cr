@@ -3,10 +3,9 @@ require "../src/crysterm"
 
 # Per-frame cost of the draw / terminal-output path (`Screen#draw` in
 # `screen_drawing.cr`): the cell-diff of `@lines` vs `@olines` + SGR/cursor byte
-# emission. The existing cracktro harness measures an all-changing scene; this
-# one targets the common real case — a mostly-static screen where only a few
-# cells change per frame — where the per-dirty-row scan and SGR encoding are the
-# cost.
+# emission. The cracktro harness measures an all-changing scene; this one
+# targets the common case — a mostly-static screen where only a few cells
+# change per frame — where the per-dirty-row scan and SGR encoding dominate.
 #
 # `draw` is driven directly: each frame toggles a fixed set of target cells
 # between two colored states (forcing the diff to emit them), marks their rows
@@ -50,9 +49,9 @@ KINDS = %w[cursor clock scattered vbar full]
 screens = KINDS.to_h { |k| {k, make_screen(File.open("/dev/null", "w"))} }
 tgts = KINDS.to_h { |k| {k, targets(k)} }
 
-# `narrowed`: mark each changed cell's column via `Row#mark_dirty(x)` (the dirty-
-# column range → bounded scan). Otherwise `dirty = true` (full-width scan, the
-# pre-change behavior). The two must be byte-identical (see draw_diff_spec).
+# `narrowed`: mark each changed cell's column via `Row#mark_dirty(x)` (bounded
+# scan of the dirty-column range). Otherwise `dirty = true` (full-width scan,
+# pre-change behavior). Both must produce byte-identical output (draw_diff_spec).
 @[AlwaysInline]
 def frame(s : Screen, ts : Array({Int32, Int32}), even : Bool, narrowed : Bool) : Nil
   attr = even ? ATTR_A : ATTR_B

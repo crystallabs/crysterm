@@ -10,7 +10,7 @@ module Crysterm
     # it recomposes its single visible row as the `awidth`-wide window onto an
     # endlessly looping message. The message wraps modulo its own length, so any
     # trailing spaces in `text` become the gap between repeats and the loop is
-    # seamless. It reads its size lazily each frame, so it tracks terminal resize
+    # seamless. Reads its size lazily each frame, so it tracks terminal resize
     # and `%`-relative widths automatically.
     #
     # Like `Effect::Matrix` and `Loading`, it drives its own animation: call
@@ -25,11 +25,10 @@ module Crysterm
     # With `rainbow: true` each glyph carries its own hue, cycling across the
     # columns and over time — the classic demoscene color scroller.
     #
-    # The glyphs are painted straight into the window cells in `#render`, each
+    # Glyphs are painted straight into the window cells in `#render`, each
     # cell's color set as a native `0xRRGGBB` attribute via `sattr`, rather than
-    # by building a `{#rrggbb-fg}`-tagged content string that the content pipeline
-    # re-tokenizes (`_parse_tags`) every frame. (Mirrors `Effect::SineScroller`
-    # and `Widget::Gradient`.)
+    # building a `{#rrggbb-fg}`-tagged content string re-tokenized (`_parse_tags`)
+    # every frame. (Mirrors `Effect::SineScroller` and `Widget::Gradient`.)
     #
     # <!-- widget-examples:capture v1 -->
     # ![Marquee screenshot](../../tests/widget/marquee/marquee.5s.apng)
@@ -94,7 +93,7 @@ module Crysterm
       # `Effect::CopperBar#step`), which reads `@frame`.
       def step
         @frame += 1
-        mark_dirty # animation state changed; repaint under damage tracking
+        mark_dirty # repaint under damage tracking
       end
 
       # Paints the `awidth`-wide window onto the looping message into the top
@@ -107,8 +106,7 @@ module Crysterm
           h = yl - yi
           next if w <= 0 || h <= 0
 
-          # Background fill: the box's own colors (the field the glyphs ride over,
-          # and the inter-glyph gaps/spaces).
+          # Background fill: the field the glyphs ride over and the inter-glyph gaps.
           window.fill_region(sattr(style), ' ', xi, xl, yi, yl)
 
           n = text.size
@@ -117,16 +115,16 @@ module Crysterm
           f = @frame
 
           # Per-frame invariants hoisted out of the column loop. `base` is the
-          # plain glyph attr (and is used as-is when not in rainbow mode); in
-          # rainbow mode only the foreground varies, so its flags and packed bg
-          # are reused and just the fg is repacked per column.
+          # plain glyph attr, used as-is outside rainbow mode; in rainbow mode
+          # only the foreground varies, so flags and packed bg are reused and
+          # just the fg is repacked per column.
           base = sattr style, style.fg, style.bg
           flags = Attr.flags base
           bg_packed = Attr.bg base
 
           (0...w).each do |x|
-            # For `:left`, column x shows text[f + x] so that as f grows the row
-            # shifts left; `:right` is the mirror. Crystal's `%` follows the
+            # For `:left`, column x shows text[f + x] so the row shifts left as
+            # f grows; `:right` is the mirror. Crystal's `%` follows the
             # divisor's sign, so the index is always valid.
             idx = (direction.left? ? f + x : f - x) % n
             ch = @chars[idx]

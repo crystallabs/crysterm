@@ -2,10 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# Destroying a widget must stop any animation driving it. A `#pulse` (like an
-# infinite CSS `@keyframes`) is a ticker that never ends on its own, so before
-# this was wired into `Widget#destroy` its fiber would spin forever on the
-# detached widget.
+# Destroying a widget must stop any animation driving it. `#pulse` never ends
+# on its own, so without this wired into `Widget#destroy` its fiber would spin
+# forever on the detached widget.
 
 private def sized_screen(w, h)
   Crysterm::Window.new(

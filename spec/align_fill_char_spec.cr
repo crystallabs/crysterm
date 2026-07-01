@@ -6,9 +6,8 @@ private def headless_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
-# Alignment padding is drawn with the widget's `Style#fill_char` instead of a
-# hardcoded space, so a non-space fill carries through (see todoc Q5). The
-# default fill char is a space, so existing alignment is unchanged.
+# Alignment padding uses `Style#fill_char` instead of a hardcoded space
+# (see todoc Q5). Default fill char is a space, so existing alignment is unchanged.
 describe "Widget#_align fill char" do
   it "pads right alignment with a space by default" do
     box = Widget::Box.new parent: headless_screen, width: 10, height: 1

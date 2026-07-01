@@ -6,20 +6,18 @@ module Crysterm
     #
     # On its own it is a draggable position control: an integer `#value` in
     # `[#minimum, #maximum]` with a proportional thumb sized from `#page_step`,
-    # moved by dragging/clicking the trough, the arrow keys, Page Up/Down, or the
-    # wheel. It emits `Event::ValueChange` on every change.
+    # moved by dragging/clicking the trough, arrow keys, Page Up/Down, or the
+    # wheel. Emits `Event::ValueChange` on every change.
     #
-    # More usefully, it **binds to** a scrollable widget via `#attach`: the bar
-    # then reflects and drives that widget's scroll position through the existing
-    # scroll machinery (`Widget#scroll_to`/`#child_base`/`Event::Scroll` from
-    # `widget_scrolling.cr`), rather than reimplementing it. This *is* the scroll
-    # bar every scrollable widget uses: there is no separate "built-in" render-time
-    # indicator — `Widget#ensure_scrollbar_widget` creates one of these as a
-    # `fixed` child and `#update_scrollbar_widget` shows/hides it per the policy.
-    # The bar is `#scrollbar_width` columns (vertical) / `#scrollbar_height` rows
-    # (horizontal) thick — never assumed to be `1`. You can also create one
-    # directly and `#attach` it for a standalone, interactive bar (e.g. beside a
-    # `Box`, or shared by a custom layout).
+    # More usefully, it binds to a scrollable widget via `#attach`: the bar
+    # then reflects and drives that widget's scroll position through the
+    # existing scroll machinery (`Widget#scroll_to`/`#child_base`/`Event::Scroll`
+    # from `widget_scrolling.cr`). This is the scroll bar every scrollable
+    # widget uses — `Widget#ensure_scrollbar_widget` creates one as a `fixed`
+    # child, `#update_scrollbar_widget` shows/hides it per policy. The bar is
+    # `#scrollbar_width` columns (vertical) / `#scrollbar_height` rows
+    # (horizontal) thick, never assumed to be `1`. Can also be created directly
+    # and `#attach`ed for a standalone bar (e.g. beside a `Box`).
     #
     # ```
     # box = Widget::ScrollableBox.new parent: window, top: 0, left: 0, width: 40, height: 10, content: long_text
@@ -84,20 +82,17 @@ module Crysterm
       property thumb_char : Char = '█'
       property trough_char : Char = '░'
 
-      # Whether the trough (the track on either side of the thumb) is painted with
-      # `#trough_char`. **On by default** — Crysterm's Qt-style bar shows the full
-      # track. Set `false` for a blessed-style bar that draws only the thumb,
-      # leaving the rest of the track blank. The thumb and any stepper buttons are
-      # unaffected; the trough's color still comes from the `::groove`/`track`
-      # style when shown.
+      # Whether the trough (track on either side of the thumb) is painted with
+      # `#trough_char`. On by default (Qt-style, full track). Set `false` for a
+      # blessed-style bar drawing only the thumb. Thumb and stepper buttons are
+      # unaffected; trough color still comes from `::groove`/`track` when shown.
       property? show_trough : Bool = true
 
       # Qt's `QScrollBar` stepper buttons (`::sub-line`/`::add-line`). Off by
-      # default — terminal scroll bars rarely show them. When on, one cell at
-      # each end of the trough becomes a clickable step button drawing an arrow
-      # glyph (see `#up_arrow_char` …), styleable via the `::up-arrow`/
-      # `::down-arrow`/`::left-arrow`/`::right-arrow` and `::sub-line`/`::add-line`
-      # CSS slots; the trough shrinks by the two reserved cells.
+      # default. When on, one cell at each end of the trough becomes a clickable
+      # step button drawing an arrow glyph (see `#up_arrow_char` …), styleable
+      # via the `::up-arrow`/`::down-arrow`/`::left-arrow`/`::right-arrow` and
+      # `::sub-line`/`::add-line` CSS slots; the trough shrinks by two cells.
       property? stepper_buttons : Bool = false
 
       # Arrow glyphs drawn in the stepper buttons. Up/down are used when
@@ -203,8 +198,8 @@ module Crysterm
         @target = nil
       end
 
-      # Recomputes the range/page from the target's geometry and mirrors its
-      # current scroll offset onto `#value` (without driving the target back).
+      # Recomputes range/page from the target's geometry and mirrors its
+      # current scroll offset onto `#value`, without driving the target back.
       def sync_from_target : Nil
         t = @target
         return unless t
@@ -222,9 +217,8 @@ module Crysterm
         # `set_range` re-clamps and emits `Event::RangeChange`; `@syncing` keeps
         # the value re-clamp from driving the target back.
         set_range 0, Math.max(0, total - visible)
-        # Mirror the engine's scroll position along this bar's axis so the two
-        # stay consistent (vertical: `child_base + child_offset`, what `scroll_to`
-        # targets; horizontal: `child_base_x`).
+        # Mirror the engine's scroll position along this bar's axis (vertical:
+        # `child_base + child_offset`; horizontal: `child_base_x`).
         self.value = pos.clamp(@minimum, @maximum)
         @syncing = false
         request_render
@@ -259,11 +253,10 @@ module Crysterm
         ((slider_position - @minimum) * room / value_span.to_f).round.to_i.clamp(0, Math.max(0, room))
       end
 
-      # Resolves a sub-style slot to *fallback* when it was not explicitly
-      # styled. The `Style` slot getters return the bar's own `base` style in
-      # that case, so object identity tells "unset" apart — letting e.g.
-      # `::sub-page` inherit `::groove` (`track`), and the arrows inherit their
-      # `::sub-line`/`::add-line` button.
+      # Resolves a sub-style slot to *fallback* when not explicitly styled. The
+      # `Style` slot getters return the bar's own `base` style in that case, so
+      # object identity tells "unset" apart — letting e.g. `::sub-page` inherit
+      # `::groove` (`track`), and the arrows inherit their `::sub-line`/`::add-line` button.
       private def resolve_slot(slot : Style, fallback : Style, base : Style) : Style
         slot.same?(base) ? fallback : slot
       end
@@ -313,9 +306,8 @@ module Crysterm
           add_page_attr = sattr resolve_slot(base.add_page, base.track, base)
           thumb_attr = sattr base.indicator
 
-          # With the trough hidden (blessed-style), the track on either side of the
-          # thumb is left blank — only the thumb is drawn. The reserved column is
-          # cleared each frame, so a space keeps it empty rather than glyph-filled.
+          # With the trough hidden (blessed-style), only the thumb is drawn; a
+          # space keeps the reserved column empty rather than glyph-filled.
           trough_ch = show_trough? ? @trough_char : ' '
 
           (main_lo...main_hi).each do |m|

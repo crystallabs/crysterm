@@ -1,14 +1,14 @@
-# FEATURED ANIMATION: the classic Netscape throbber, shown two ways at once —
+# The classic Netscape throbber, shown two ways at once:
 #
 #   left  — the animation at a FIXED size
 #   right — the SAME animation while its box is RESIZED every frame
 #
-# It demonstrates that every image backend now ANIMATES *and* resizes: each
-# shown frame is sampled to the current box (lazily, cached per size).
+# Demonstrates that every image backend animates *and* resizes: each shown
+# frame is sampled to the current box (lazily, cached per size).
 #
-# The BACKEND env var picks the renderer; all of these animate:
+# BACKEND env var picks the renderer; all animate:
 #   glyph (default) — sub-cell Unicode glyphs (octant: 2x4 sub-pixels per cell),
-#                     ~8x the resolution of plain cells and capturable anywhere
+#                     ~8x the resolution of plain cells, capturable anywhere
 #   kitty | sixel | iterm — true-pixel terminal graphics (needs a capable
 #                     terminal: kitty/WezTerm/Konsole, an xterm -ti vt340, …)
 #   ansi            — one cell per pixel (lowest resolution)
@@ -35,10 +35,9 @@ end
 
 backend = ENV["BACKEND"]? || "glyph"
 
-# The source animation's per-frame delays (ms). When recording, one fiber drives
-# both throbbers and the resize box off this single frame clock (see below) so
-# the whole scene has an exact period of `frame_delays.size` frames and the GIF
-# captured marker-to-marker tiles seamlessly — it looks like it runs forever.
+# Source animation's per-frame delays (ms). One fiber drives both throbbers and
+# the resize box off a single frame clock (see below) so the scene has an
+# exact period of `frame_delays.size` frames and captured GIFs tile seamlessly.
 frame_delays = begin
   fr = PNGGIF::PNG.new(img_path).frames
   fr && !fr.empty? ? fr.map(&.delay) : [100]
@@ -78,16 +77,14 @@ resize_right = ->(idx : Int32) do
   right.height = (5 + (ih - 5) * f).to_i
 end
 
-# A single clock for the whole scene. Each Media widget normally animates in its
-# own fiber, but those run at slightly different per-frame cost (the resizing box
-# re-samples every frame) so they drift apart and the scene never has an exact
-# period. Instead, once both have composited their frames, we pause them and
-# advance every animated element — both throbbers and the resize — from this one
-# frame index. The scene then repeats exactly every `frame_count` frames.
+# A single clock for the whole scene. Each Media widget normally animates in
+# its own fiber, but those drift apart in per-frame cost (the resizing box
+# re-samples every frame), so once both have composited a frame we pause them
+# and drive every animated element from this one frame index instead. The
+# scene then repeats exactly every `frame_count` frames.
 #
-# When recording (TTYGIF_MARK, set by make-gifs.sh), each frame is tagged with a
-# capture marker (see the loop body) so the recorder can grab exactly one loop
-# and the resulting GIF tiles seamlessly.
+# When recording (TTYGIF_MARK, set by make-gifs.sh), each frame is tagged with
+# a capture marker so the recorder can grab exactly one loop.
 spawn do
   ready = ->(w : Widget) { w.responds_to?(:frames_ready?) ? w.frames_ready? : true }
   show = ->(w : Widget, i : Int32) { w.anim_index = i if w.responds_to?(:anim_index=) }
@@ -98,20 +95,17 @@ spawn do
   left.pause if left.responds_to?(:pause)
   right.pause if right.responds_to?(:pause)
 
-  # One shared `Animation` clock drives the whole scene. A single frame index
-  # `idx` is written into BOTH throbbers and the resize each tick, so they stay
-  # in exact lockstep (a per-widget clock would drift, since the resizing box
-  # re-samples every frame at a different cost). The clock honors each frame's
-  # own GIF delay via `clock.interval=`, so playback keeps its native timing and
-  # the scene repeats precisely every `frame_count` frames.
+  # One shared `Animation` clock drives the whole scene: a single frame index
+  # `idx` is written into both throbbers and the resize each tick, keeping them
+  # in exact lockstep (a per-widget clock would drift). `clock.interval=` honors
+  # each frame's own GIF delay, so playback keeps native timing.
   mark = ENV["TTYGIF_MARK"]?
   idx = 0
   Crysterm::Animation.new(frame_delays[0].milliseconds) do |clock|
-    # Tag every frame with an out-of-band marker (an APC string terminals ignore)
-    # carrying its index and source delay, emitted just before the frame is
-    # drawn. The recorder uses these to grab exactly one loop, one output frame
-    # per source frame at its true boundary (so it tiles seamlessly) and timed by
-    # the source delay (so playback is smooth, free of capture jitter).
+    # Tag every frame with an out-of-band marker (an APC string terminals
+    # ignore) carrying its index and source delay, emitted before the frame is
+    # drawn. The recorder uses these to grab one output frame per source frame
+    # at its true boundary, timed by the source delay.
     if mark
       s.output.print "\e_TTYGIF#{idx},#{frame_delays[idx]}\e\\"
       s.output.flush

@@ -8,11 +8,10 @@ module Crysterm
   # Two on-disk formats are supported, picked by extension:
   #
   # * **`.hex`** — GNU Unifont's format (`CODEPOINT:HEXBITMAP`, 16 px tall, 8 px
-  #   wide for half-width glyphs and 16 px for full-width). This is the default,
-  #   for its enormous coverage (Latin, box-drawing, blocks, **Braille**,
-  #   sextants, **octants**, … — everything TUI graphics widgets draw with).
-  #   Glyphs are decoded lazily, on first use, so loading the ~100k-glyph file is
-  #   cheap.
+  #   wide for half-width glyphs and 16 px for full-width). Default, for its
+  #   coverage (Latin, box-drawing, blocks, **Braille**, sextants, **octants**,
+  #   … — everything TUI graphics widgets draw with). Glyphs decode lazily, on
+  #   first use, so loading the ~100k-glyph file is cheap.
   # * **`.json`** — the ttystudio format (per-glyph pixel `map`), the files
   #   `Widget::BigText` uses.
   #
@@ -34,7 +33,7 @@ module Crysterm
 
     # Raw `CODEPOINT -> hex bitmap` map for `.hex` fonts (nil for `.json`).
     @hex : Hash(String, String)?
-    # Render a synthetic bold (smear each row 1 px right) — `.hex` has no bold face.
+    # Render synthetic bold (smear each row 1 px right) — `.hex` has no bold face.
     @bold : Bool
 
     # Loads (and memoizes) the font at *path*. *bold* synthesizes a bold variant
@@ -100,7 +99,7 @@ module Crysterm
     end
 
     # Expand a Unifont hex bitmap to a `height`×width 0/1 grid (width = 8 or 16,
-    # taken from the row length). Synthesizes bold by OR-ing each row with itself
+    # taken from row length). Synthesizes bold by OR-ing each row with itself
     # shifted right one pixel.
     private def decode_hex(hex : String) : Array(Array(Int32))
       per_row = hex.size // @height # hex digits per row (2 -> 8px, 4 -> 16px)

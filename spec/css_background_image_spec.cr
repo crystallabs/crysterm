@@ -12,8 +12,8 @@ private def bg_image_path
   "#{__DIR__}/../data/image/matterhorn.png"
 end
 
-# Runs *block* with `image.exclude` set to *value*, restoring it afterward, so a
-# rendering test can force a particular backend without leaking global config.
+# Runs *block* with `image.exclude` set to *value*, restoring it afterward, so
+# a test can force a particular backend without leaking global config.
 private def with_media_exclude(value : String, &)
   orig = Crysterm::Config.media_exclude
   Crysterm::Config.media_exclude = value
@@ -47,9 +47,9 @@ describe "CSS background-image" do
     end
 
     it "drops a blank background shorthand instead of clearing the image (invalid-declaration)" do
-      # A collapsed undefined `var(--x)` reaches here as "". Per CSS this invalid
-      # declaration is dropped, leaving any previously-cascaded background-image
-      # intact — not reset as a genuine no-`url(...)` shorthand would.
+      # A collapsed undefined `var(--x)` reaches here as "". Per CSS this
+      # invalid declaration is dropped, leaving any cascaded background-image
+      # intact, unlike a genuine no-`url(...)` shorthand which resets it.
       s = Style.new
       Crysterm::CSS::Properties.apply(s, "background-image", "url(x.png)")
       Crysterm::CSS::Properties.apply(s, "background", "")
@@ -166,8 +166,8 @@ describe "CSS background-image" do
         box.style.alpha = 0.5
         s._render
 
-        # With alpha the text cell blends over the image, so its background is an
-        # image-derived color rather than the terminal default.
+        # With alpha the text cell blends over the image, so its background is
+        # image-derived, not the terminal default.
         hcell = s.lines[0][0]
         hcell.char.should eq 'H'
         Crysterm::Attr.bg(hcell.attr).should_not eq Crysterm::Attr::COLOR_DEFAULT
@@ -193,9 +193,8 @@ describe "CSS background-image" do
         s._render
         box.background_media.should_not be_nil
 
-        # Clearing the property and re-rendering the widget tears the layer down.
-        # (Rendered directly: the screen's damage tracking skips a clean widget on
-        # a second `s._render`, which is unrelated to the teardown path here.)
+        # Rendered directly: the screen's damage tracking would skip a clean
+        # widget on a second `s._render`.
         box.style.background_image = nil
         box._render
         box.background_media.should be_nil

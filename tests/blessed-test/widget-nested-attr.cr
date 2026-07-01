@@ -1,8 +1,7 @@
 require "../../src/crysterm"
 
 # Port of Blessed's test/widget-nested-attr.js
-# A single tags-enabled box with nested fg/bg color tags inside a line
-# border, centered, sized 80%x80%.
+# Tags-enabled box with nested fg/bg color tags, centered, sized 80%x80%.
 module Crysterm
   s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 

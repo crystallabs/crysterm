@@ -1,14 +1,13 @@
 require "benchmark"
 require "../src/crysterm"
 
-# `Widget#screen?` derives the owning `Screen` by walking parent→…→root. It is
-# read several times per widget per frame (the coordinate resolvers,
-# `last_rendered_position`, `request_render`, …), so on a deep tree that walk —
-# O(depth) per call — adds up across every widget, every frame.
+# `Widget#screen?` derives the owning `Screen` by walking parent→…→root,
+# read several times per widget per frame — on a deep tree the O(depth) walk
+# adds up.
 #
-# The optimization memoizes the resolved screen on each widget (`@screen_cache`),
-# invalidated across the subtree only on reparenting. This benchmark compares,
-# at several depths:
+# Fix: memoize the resolved screen on each widget (`@screen_cache`),
+# invalidated across the subtree only on reparenting. Compares, at several
+# depths:
 #   * OLD: the uncached walk (reproduced inline as `walk_to_screen`), and
 #   * NEW: the live, memoized `Widget#screen?`.
 #
@@ -16,8 +15,7 @@ require "../src/crysterm"
 
 include Crysterm
 
-# Reproduction of the pre-cache `screen?` body: climb the parent chain to the
-# top-level widget, which holds the reference.
+# Pre-cache `screen?` body: climb the parent chain to the top-level widget.
 def walk_to_screen(w : Widget) : Crysterm::Screen?
   if parent = w.parent
     walk_to_screen parent
@@ -42,7 +40,7 @@ end
 
 {4, 16, 64}.each do |depth|
   leaf = leaf_at depth
-  leaf.screen? # warm the cache once (as the first per-frame read would)
+  leaf.screen? # warm the cache
 
   puts "depth=#{depth}:"
   Benchmark.ips do |x|

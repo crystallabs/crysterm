@@ -2,11 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Action` (src/action.cr, modeled on Qt's `QAction`) represents a command that
-# can be invoked from several interfaces and re-run uniformly. It is *not* a
-# widget, so it has no example under `examples/widget/`; these assertions are the
-# only coverage of its activation/event behavior. Migrated from the former
-# `small-tests/action.cr` smoke test, which only `p`-printed.
+# `Action` (src/action.cr, modeled on Qt's `QAction`) is not a widget, so it has
+# no example under `examples/widget/`; these are the only tests of its
+# activation/event behavior.
 describe Crysterm::Action do
   describe "#activate" do
     it "emits Triggered by default" do
@@ -72,9 +70,8 @@ describe Crysterm::Action do
     end
   end
 
-  # The `Widgets` convenience namespace must alias the real `Crysterm::Action`
-  # (there is no `Widget::Action`). Referencing the alias forces its lazy
-  # resolution, guarding against the broken `Action = Widget::Action` mapping.
+  # `Widgets` must alias the real `Crysterm::Action` (there is no
+  # `Widget::Action`); guards against a broken `Action = Widget::Action` mapping.
   it "is reachable via the Widgets convenience namespace" do
     Crysterm::Widgets::Action.should eq Crysterm::Action
   end
@@ -247,8 +244,8 @@ private def headless_window
     default_quit_keys: false)
 end
 
-# Integration: a `ToolBar`/`MenuBar` installs its actions' keyboard accelerators
-# on the owning window, so a shortcut fires the action without clicking it.
+# `ToolBar`/`MenuBar` install their actions' keyboard accelerators on the owning
+# window, so a shortcut fires the action without clicking it.
 describe "Action shortcut dispatch" do
   it "fires a ToolBar action when its shortcut is pressed on the window" do
     s = headless_window
@@ -291,8 +288,7 @@ describe "Action shortcut dispatch" do
     fired.should eq 1
   end
 
-  # Multi-keystroke chord (Qt's "Ctrl+K, Ctrl+B"): fires only once the whole
-  # sequence is entered, in order.
+  # Multi-keystroke chord: fires only once the whole sequence is entered, in order.
   it "fires a chord shortcut only after the full sequence" do
     s = headless_window
     tb = Crysterm::Widget::ToolBar.new parent: s, top: 0, left: 0, width: "100%", height: 1
@@ -342,8 +338,7 @@ describe "Action#icon (Unicode glyph)" do
   end
 end
 
-# Qt's QAction::associatedWidgets — the reverse "added to" membership list,
-# maintained by the host widgets' add/remove paths.
+# Reverse "added to" membership list, maintained by the host widgets' add/remove paths.
 describe "Action#associated_widgets" do
   it "is empty until the action is added to a widget" do
     Action.new("X").associated_widgets.empty?.should be_true

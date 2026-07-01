@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# Step 4: per-cell, per-channel alpha *modes* stored in the free high bits of the
-# packed `Int64` attr, plus the `Colors.composite` fold a plane compositor uses.
+# Per-cell, per-channel alpha *modes* stored in the free high bits of the packed
+# `Int64` attr, plus `Colors.composite`, the fold a plane compositor uses.
 
 describe Crysterm::Attr do
   it "defaults to Opaque/Opaque, leaving pre-alpha attrs bit-identical" do

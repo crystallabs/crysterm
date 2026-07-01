@@ -2,12 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Focused specs for the CSS `opacity` property parser
-# (`Crysterm::CSS::Properties.apply`). Per CSS Color 4 `opacity` accepts a
-# `<number>` *or* a `<percentage>` (`opacity: 0.5` == `opacity: 50%`); both are
-# clamped into `[0, 1]`. The percentage form is the interesting case — the old
-# `value.to_f?` parse silently dropped it (`"50%".to_f?` → `nil`), leaving a
-# theme's `opacity: 50%` fully opaque.
+# CSS `opacity` (`Crysterm::CSS::Properties.apply`) accepts a `<number>` or a
+# `<percentage>` per CSS Color 4 (`opacity: 0.5` == `opacity: 50%`), clamped to
+# `[0, 1]`. Regression: the old `value.to_f?` parse silently dropped the
+# percentage form (`"50%".to_f?` -> `nil`), leaving `opacity: 50%` fully opaque.
 describe "CSS opacity" do
   it "parses a numeric opacity" do
     s = Style.new

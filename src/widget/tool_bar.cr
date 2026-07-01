@@ -34,12 +34,11 @@ module Crysterm
       def initialize(**listbar)
         super(**listbar.merge(keys: true))
         setup_action_bar mouse: true, auto_prefix: false
-        # Buttons pack flush — no inert gap cells between them (only trailing the
-        # last one). Each button box keeps its own side padding. Same as MenuBar.
+        # Buttons pack flush — no gap cells between them (only trailing the last
+        # one); each button box keeps its own side padding. Same as MenuBar.
         @item_gap = 0
-        # Install/withdraw the actions' keyboard accelerators with the bar's own
-        # attach lifecycle, so a `Bold` (`Ctrl+B`) action fires from the keyboard
-        # whenever the bar is on a window — not only when its button is clicked.
+        # Install/withdraw keyboard accelerators with the bar's attach lifecycle,
+        # so e.g. `Ctrl+B` fires whenever the bar is on a window, not only on click.
         on(::Crysterm::Event::Attach) { install_action_shortcuts }
         on(::Crysterm::Event::Detach) { uninstall_action_shortcuts }
       end
@@ -57,8 +56,8 @@ module Crysterm
           refresh
           request_render
         end
-        # If the bar is already on a window, wire this action's accelerator now;
-        # otherwise `install_action_shortcuts` does it on attach.
+        # Wire the accelerator now if already on a window; otherwise
+        # `install_action_shortcuts` does it on attach.
         window?.try { |w| action.install_shortcut w, self }
         refresh
         item
@@ -88,9 +87,9 @@ module Crysterm
         @item_actions.each_value(&.uninstall_shortcut(w))
       end
 
-      # A tool bar has no persistent cursor: only checkable buttons stay lit (when
-      # checked). Re-applied after every `Mixin::ActionBar#selekt` (which a click/move would
-      # otherwise leave highlighting the last button).
+      # A tool bar has no persistent cursor: only checkable buttons stay lit.
+      # Re-applied after every `Mixin::ActionBar#selekt`, which a click/move
+      # would otherwise leave highlighting the last button.
       private def refresh : Nil
         items.each do |it|
           act = @item_actions[it]?

@@ -5,12 +5,11 @@ include Crysterm
 # Differential test for per-widget damage tracking
 # (`OptimizationFlag::DamageTracking`, see `src/window_damage.cr`).
 #
-# The strongest correctness guarantee the design asks for: damage tracking must
-# be *output-equivalent* to the full re-composite. So every scenario here builds
-# the same scene twice — once on a plain screen and once on a damage-tracking
-# screen — applies the same mutation sequence to both, renders both each step,
-# and asserts their cell buffers (`@lines`: attr + char + grapheme overlay) are
-# identical cell for cell. Whatever the fast path does, it may never diverge.
+# Damage tracking must be *output-equivalent* to the full re-composite. Every
+# scenario builds the same scene twice — plain screen and damage-tracking
+# screen — applies the same mutations to both, renders both each step, and
+# asserts their cell buffers (`@lines`: attr + char + grapheme overlay) are
+# identical cell for cell.
 #
 # A few scenarios additionally assert that the fast path *engaged* (via
 # `Window#damage_fast_frames`), so the suite can't pass trivially by always
@@ -71,9 +70,8 @@ private def build_overlap(screen)
 end
 
 # Builds a scene with several opaque base panels and one translucent z-indexed
-# overlay (a plane) over the left two of them. The overlay is promoted to a layer
-# via CSS (the supported path — an inline `style.z_index=` is dropped by the
-# cascade). Returns {base panels, overlay}.
+# overlay (a plane) over the left two of them. Promoted to a layer via CSS (an
+# inline `style.z_index=` is dropped by the cascade). Returns {base panels, overlay}.
 private def build_plane(screen)
   bases = [] of Widget::Box
   3.times do |i|

@@ -2,14 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Focused specs for the CSS `animation` shorthand parser
-# (`Crysterm::CSS::Properties.apply`). Per the CSS grammar the shorthand may
-# carry *two* `<time>` values — the first is `animation-duration`, the second is
-# `animation-delay`. Crysterm has no animation-delay, so the second time must be
-# ignored, NOT folded back onto the duration. The parser used to assign the
-# duration from every time-valued token, so a delay clobbered the real duration:
-# `slidein 3s ease-in 1s infinite` ran at the 1s delay instead of its 3s
-# duration.
+# Specs for the CSS `animation` shorthand parser (`Crysterm::CSS::Properties.apply`).
+# The shorthand may carry two `<time>` values: the first is animation-duration,
+# the second animation-delay. Crysterm has no animation-delay, so the second time
+# must be ignored, not folded onto the duration. Regression: the parser used to
+# assign duration from every time-valued token, so `slidein 3s ease-in 1s infinite`
+# ran at the 1s delay instead of its 3s duration.
 describe "CSS animation shorthand" do
   it "takes the first <time> as the duration (a single time value)" do
     s = Style.new
@@ -24,8 +22,7 @@ describe "CSS animation shorthand" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "animation", "slidein 3s ease-in 1s infinite")
     spec = s.animation.not_nil!
-    # The 1s is the delay, which Crysterm ignores — the duration stays 3s rather
-    # than being overwritten by the delay.
+    # The 1s is the delay, which Crysterm ignores; duration stays 3s.
     spec.duration.should eq 3.seconds
     spec.iterations.should be_nil
   end

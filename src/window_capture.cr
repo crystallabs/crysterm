@@ -1,15 +1,14 @@
 module Crysterm
   # Text counterpart to `Capture`: serialize a region of the rendered cell
-  # buffer (`Window#lines`) into a deterministic, human-readable, **diffable**
-  # form. Where `Capture` produces pixels (a bitmap render, for the eye), `Dump`
-  # produces plain text (for `git diff`): the exact glyphs the terminal would
-  # show, plus a compact run-length summary of every non-default cell attribute.
+  # buffer (`Window#lines`) into a deterministic, human-readable, diffable form.
+  # `Capture` produces pixels (bitmap render); `Dump` produces plain text (for
+  # `git diff`): the exact glyphs plus a run-length summary of non-default
+  # cell attributes.
   #
-  # The point is golden testing without a comparison engine: write a `.dump`
-  # next to the example's `.png`/`.apng`, commit it once, and any later change to
-  # the rendered output shows up as a localized diff in that file. Because the
-  # cell buffer is fully deterministic (no fonts, no anti-aliasing, no clock),
-  # identical behavior reproduces byte-for-byte identical text.
+  # Enables golden testing without a comparison engine: commit a `.dump` next
+  # to the example's `.png`/`.apng`, and later changes show up as a localized
+  # diff. The cell buffer is fully deterministic, so identical behavior
+  # reproduces byte-for-byte identical text.
   module Dump
     # Serializes cells in the region `[xi,xl) x [yi,yl)` of *screen*'s composited
     # buffer. Two sections:
@@ -28,9 +27,8 @@ module Crysterm
         io << "w=" << w << " h=" << h << '\n'
         io << '+' << ("-" * w) << "+\n"
 
-        # Same region walk `Capture.render` uses (continuation cells skipped,
-        # bounds-safe) — shared via `Window#each_content_cell` so the two stay
-        # consistent. Capture rasterizes each yielded cell; we stringify it.
+        # Same region walk as `Capture.render`, shared via `Window#each_content_cell`
+        # so the two stay consistent; Capture rasterizes each cell, we stringify it.
         rows = Array(String::Builder).new(h) { String::Builder.new }
         screen.each_content_cell(xi, xl, yi, yl) do |cell, _rx, ry|
           g = cell.grapheme
@@ -91,13 +89,11 @@ module Crysterm
 
   class Window
     # Normalizes a capture/dump region to the screen: floors the origin at 0,
-    # caps the far edge at the screen size, and collapses an *inverted* region
-    # (far edge before origin) to an empty one. The last step is what keeps a
-    # `Widget#dump`/`#capture` with a large negative per-edge delta (or any
-    # `xi > xl` / `yi > yl` the caller computes) from reaching `Dump.text` with a
-    # negative width/height, where `"-" * w` / `Array.new(h)` would raise an
-    # opaque `ArgumentError` instead of yielding an empty dump. Shared by
-    # `#capture` and `#dump` so the two clamp identically.
+    # caps the far edge at the screen size, and collapses an inverted region
+    # (far edge before origin) to empty. Prevents `Dump.text` from receiving a
+    # negative width/height (which would raise an opaque `ArgumentError` in
+    # `"-" * w` / `Array.new(h)`) instead of yielding an empty dump. Shared by
+    # `#capture` and `#dump` so both clamp identically.
     private def clamp_capture_region(xi, xl, yi, yl) : {Int32, Int32, Int32, Int32}
       xi = xi.to_i; xl = xl.to_i; yi = yi.to_i; yl = yl.to_i
       xi = 0 if xi < 0
@@ -109,11 +105,11 @@ module Crysterm
       {xi, xl, yi, yl}
     end
 
-    # The one entry point for capturing rendered/drawn screen content as an
-    # image or a video. It captures what the *terminal* shows — the flushed cell
-    # buffer rendered with a bitmap font, plus the in-band terminal-graphics
-    # backends (sixel/kitty/iterm/regis) composited on top; external-helper and
-    # separate-window backends are excluded (see `Crysterm::Capture`).
+    # Entry point for capturing rendered screen content as an image or video.
+    # Captures what the terminal shows — the flushed cell buffer rendered with a
+    # bitmap font, plus in-band terminal-graphics backends (sixel/kitty/iterm/regis)
+    # composited on top; external-helper and separate-window backends are
+    # excluded (see `Crysterm::Capture`).
     #
     # Options:
     # * region — `xi`/`xl`/`yi`/`yl` in cells (whole screen by default).
@@ -127,9 +123,9 @@ module Crysterm
     # * `fps` — animation frame rate. `loops` — gif/apng loop count (0 = forever).
     # * `ffmpeg_args` — extra ffmpeg flags appended verbatim.
     #
-    # Still **PNG** is encoded in-process (no external tools). Every other format,
-    # and any animation, is encoded by piping raw RGBA frames to `ffmpeg` — so
-    # ffmpeg is only required when you ask for something other than a still PNG.
+    # Still PNG is encoded in-process (no external tools). Every other format,
+    # and any animation, is encoded by piping raw RGBA frames to `ffmpeg` — only
+    # required when asking for something other than a still PNG.
     #
     # Returns the encoded bytes when `path` is nil, otherwise `nil` (the output
     # is on disk). For a duration capture, call it from a fiber other than the one
@@ -160,7 +156,7 @@ module Crysterm
         capture_animation(xi, xl, yi, yl, fmt, path, duration, fps, loops,
           font, bold_font, default_fg, default_bg, ffmpeg_args)
       elsif fmt == "png"
-        # Still PNG: in-process, no ffmpeg.
+        # In-process, no ffmpeg.
         data = Capture.png(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
         if path
           File.write(path, data)
@@ -169,7 +165,7 @@ module Crysterm
           data
         end
       else
-        # Still in a non-PNG format: one frame through ffmpeg.
+        # Non-PNG: one frame through ffmpeg.
         bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
         vw = bmp[0]?.try(&.size) || 0
         vh = bmp.size
@@ -238,12 +234,11 @@ module Crysterm
     end
 
     # Walks the composited buffer over region `[xi,xl) x [yi,yl)`, yielding each
-    # *visible* cell with its region-relative column/row. Out-of-range rows/cells
-    # are skipped (bounds-safe), as is the trailing *continuation* half of a wide
-    # (2-column) grapheme — the lead cell carries the whole cluster. This is the
-    # one place the "which cells are content" rule lives; both `Capture.render`
-    # (rasterize to pixels) and `Dump.text` (stringify) drive off it so they can
-    # never disagree about wide glyphs or bounds.
+    # visible cell with its region-relative column/row. Out-of-range rows/cells
+    # are skipped, as is the trailing continuation half of a wide (2-column)
+    # grapheme — the lead cell carries the whole cluster. The one place the
+    # "which cells are content" rule lives; `Capture.render` and `Dump.text`
+    # both drive off it so they can't disagree about wide glyphs or bounds.
     def each_content_cell(xi : Int32, xl : Int32, yi : Int32, yl : Int32,
                           & : Window::Cell, Int32, Int32 ->) : Nil
       (yi...yl).each do |y|
@@ -259,10 +254,8 @@ module Crysterm
     end
 
     # Text counterpart to `Window#capture` — same region semantics, plain-text
-    # output. Serializes the current composited buffer for the region (whole
-    # screen by default) via `Dump`. Renders nothing itself: call `_render`
-    # first so the buffer reflects the intended frame (the example/spec harnesses
-    # do this).
+    # output, via `Dump`. Renders nothing itself: call `_render` first so the
+    # buffer reflects the intended frame.
     #
     # With *path*, writes the dump there and returns `nil`; otherwise returns the
     # dump as a `String`.
@@ -285,10 +278,9 @@ module Crysterm
 
     # Whether any declarative CSS `transition` is currently tweening on any
     # widget in the tree. Used by capture/test harnesses to wait for a state
-    # change to *settle* before snapshotting, so the recorded frame is the
-    # deterministic end state rather than a wall-clock-dependent mid-tween.
-    # (Infinite `@keyframes` animations have no settled state and are
-    # deliberately not counted here.)
+    # change to settle before snapshotting, so the recorded frame is deterministic
+    # rather than a wall-clock-dependent mid-tween. Infinite `@keyframes`
+    # animations have no settled state and are not counted here.
     def animating? : Bool
       found = false
       each_descendant { |w| found = true if w.transition_running? }

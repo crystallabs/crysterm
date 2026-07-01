@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# `margin` is the element's own *outer* spacing — the mirror of `padding`/`border`
-# (which are inner insets). It shifts the element inward from its computed position
-# and shrinks it within its allotted slot, without touching the inner content
-# offsets (`ileft` & co.). These specs assert the resolved rectangle (`_get_coords`
-# / `lpos`), content preservation when shrinking, CSS parsing, and sibling spacing.
+# `margin` is the element's own outer spacing, the mirror of `padding`/`border`
+# (inner insets). Shifts the element inward from its computed position and
+# shrinks it within its slot, without touching inner content offsets (`ileft`
+# & co.). Specs assert the resolved rectangle (`_get_coords`/`lpos`), content
+# preservation when shrinking, CSS parsing, and sibling spacing.
 
 private def render_screen
   Crysterm::Window.new(
@@ -28,9 +28,9 @@ describe "margin" do
       {m.left, m.top, m.right, m.bottom}.should eq({2, 2, 2, 2})
     end
 
-    # `Margin`/`Padding` are mutated in place by the per-side longhands, so the
-    # default ("no margin/padding") must never be a shared singleton — otherwise
-    # one style's edit leaks into every other style.
+    # `Margin`/`Padding` are mutated in place by per-side longhands, so the
+    # default must never be a shared singleton, or one style's edit leaks into
+    # every other style.
     it "gives each style an independent margin/padding (no shared default)" do
       a = Style.new
       b = Style.new
@@ -45,8 +45,8 @@ describe "margin" do
       Padding.default.top.should eq 0
     end
 
-    # An invalid `margin`/`padding` shorthand resets the side to a fresh zero box;
-    # a following longhand must edit *that* style's own box, not the global default.
+    # An invalid `margin`/`padding` shorthand resets the side to a fresh zero
+    # box; a following longhand must edit that style's own box, not the default.
     it "doesn't corrupt the default when an invalid shorthand precedes a longhand" do
       s = Style.new
       Crysterm::CSS::Properties.apply s, "margin", "1 2 3 4 5" # over-long → invalid
@@ -58,9 +58,8 @@ describe "margin" do
   end
 
   describe "geometry" do
-    # Pre-cascade: `style` short-circuits to the inline `@style`, so this exercises
-    # the inline constructor + the `_get_coords` inset directly, without the CSS
-    # tier in between.
+    # Pre-cascade: `style` short-circuits to the inline `@style`, exercising the
+    # inline constructor + `_get_coords` inset directly, without CSS in between.
     it "shifts and shrinks a fixed-size widget within its slot (inline)" do
       screen = render_screen
       plain = Widget::Box.new parent: screen, top: 1, left: 2, width: 10, height: 5
@@ -85,8 +84,8 @@ describe "margin" do
       {l.xi, l.xl, l.yi, l.yl}.should eq({0 + 1, 20 - 3, 0 + 2, 10 - 4})
     end
 
-    # Full pipeline: margin set via a CSS rule, folded by the cascade, applied at
-    # render — the resulting `lpos` carries the same inset.
+    # Full pipeline: margin via CSS rule, folded by the cascade, applied at
+    # render — `lpos` carries the same inset.
     it "applies a CSS margin at render time" do
       screen = render_screen
       box = Widget::Box.new parent: screen, top: 1, left: 2, width: 10, height: 5
@@ -104,8 +103,8 @@ describe "margin" do
       screen.stylesheet = ".deco { border: solid; padding: 1; margin: 2; }"
       screen._render
 
-      # i* are inner offsets: border(1) + padding(1) = 2 on each side, regardless
-      # of margin. m* are the separate outer offsets.
+      # i* are inner offsets: border(1) + padding(1) = 2 per side, regardless of
+      # margin. m* are the separate outer offsets.
       box.ileft.should eq 2
       box.iwidth.should eq 4
       box.mleft.should eq 2

@@ -10,12 +10,10 @@ module Crysterm
       # The bottom row is reseeded with random "embers" every frame; every cell
       # above cools to a blend of the (hotter) cells just below it, so the field
       # settles into a flickering flame that fades as it climbs (a stronger `decay`
-      # lets it reach higher before going dark). The one persistent `@heat` buffer
-      # is the only state; it is rebuilt whenever the box size changes, so the
-      # effect tracks terminal resize and `%`-relative sizing automatically. Each
-      # cell's heat is mapped through a black → red → orange → yellow → white ramp;
-      # cold cells fall below `ignition` and render as blank space, leaving the
-      # flame's silhouette.
+      # lets it reach higher before going dark). The `@heat` buffer is the only
+      # state; it's rebuilt whenever the box size changes, so the effect tracks
+      # resize and `%`-relative sizing automatically. Heat maps through a black →
+      # red → orange → yellow → white ramp; cells below `ignition` render blank.
       #
       # It paints its interior straight into the window's cell buffer as packed
       # `Int64` attrs (each fg a direct `0xRRGGBB` value) — see `Effect::Direct` —
@@ -74,8 +72,7 @@ module Crysterm
         end
 
         # Reseed the bottom row and cool each cell toward the (hotter) cells just
-        # below it, working upward so the flame settles into a flickering, cooling
-        # gradient.
+        # below it, working upward.
         def advance(w, h)
           return if w <= 0 || h <= 0 || @heat.size != w * h
 

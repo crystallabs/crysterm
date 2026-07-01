@@ -53,9 +53,8 @@ module Crysterm
       @close_button : Box?
       @float_button : Box?
 
-      # The bottom-right resize grip (Qt's `QSizeGrip`). Present only on a
-      # `#floatable?` dock and shown only while floating — a docked pane is
-      # resized via its dock separator, not a corner handle (see `#refresh_grip`).
+      # The bottom-right resize grip. Present only on a `#floatable?` dock and
+      # shown only while floating (see `#refresh_grip`).
       getter size_grip : SizeGrip?
 
       # Grab offset captured at the start of a title-bar drag (floating only).
@@ -84,20 +83,16 @@ module Crysterm
         refresh_buttons # show the glyph matching the initial docked/floating state
 
         # `DockWidget::title`/`::close-button`/`::float-button { … }` style the
-        # title bar and its buttons. Push each computed sub-style onto the matching
-        # child box each frame after the cascade; guarded by `same?`, so without a
-        # matching rule it's a no-op and the elements keep their `.titlebar`/
-        # `.titlebutton` theme look. (An explicit rule replaces that look, as in
-        # Qt.) See `Widget::TabWidget#sync_tab_style`.
+        # title bar and its buttons. Pushed onto each child box every frame after
+        # the cascade; guarded by `same?` so a missing rule is a no-op and the
+        # elements keep their `.titlebar`/`.titlebutton` theme look. See
+        # `Widget::TabWidget#sync_tab_style`.
         on(::Crysterm::Event::PreRender) do
           apply_substyle titlebar, style.title
-          # The float/close buttons are glyphs sitting *on* the title bar, so they
-          # take the bar's own colors by default — keeping them legible under any
-          # theme instead of rendering as transparent "black holes". (Qt's
-          # `::close-button { background: transparent }` lowers to the terminal
-          # default, which paints the window background, not the bar's.) An
-          # explicit `::close-button`/`::float-button` rule still supplies the base
-          # look; only a color it leaves unset falls back to the bar.
+          # Float/close buttons default to the bar's own colors so they stay
+          # legible under any theme instead of rendering as transparent "black
+          # holes". An explicit `::close-button`/`::float-button` rule still
+          # supplies the base look; only unset colors fall back to the bar.
           sync_titlebutton @close_button, style.close_button
           sync_titlebutton @float_button, style.float_button
           position_grip
@@ -108,19 +103,15 @@ module Crysterm
         @area.floating?
       end
 
-      # A dock always carries a structural border at the unstyled floor (see
-      # `#floor_border_value` for *which* sides); under a theme the cascade owns
-      # the border instead.
+      # Structural border at the unstyled floor (see `#floor_border_value` for
+      # which sides); under a theme the cascade owns the border instead.
       def floor_border? : Bool
         true
       end
 
-      # A *floating* dock is an overlay over the central content, so it gets a
-      # full frame to read against what it covers. A *docked* pane abuts one edge
-      # of the window, so it only needs a border on the single side facing the
-      # content — enough to part it from the central area without boxing in the
-      # whole panel. `#ensure_floor_border` re-syncs this as the dock floats and
-      # re-docks (and across `Area` changes).
+      # A floating dock is an overlay, so it gets a full frame. A docked pane
+      # only needs a border on the side facing the content. `#ensure_floor_border`
+      # re-syncs this as the dock floats/re-docks (and across `Area` changes).
       def floor_border_value
         return true if floating? # full frame for a detached pane
         case @area
@@ -147,8 +138,8 @@ module Crysterm
         w.right = 0
         w.bottom = 0
         append w
-        # Content is appended after the grip (built in `#initialize`), so it
-        # would render over the grip's corner cell. Keep the grip on top.
+        # Content is appended after the grip, so it would render over the grip's
+        # corner cell without this.
         @size_grip.try(&.front!)
         request_render
         w
@@ -165,16 +156,13 @@ module Crysterm
       # `Event::Float` with the new state. A `MainWindow` re-lays-out on the next
       # frame; a floating dock keeps its current position.
       #
-      # Docking remembers the floating rectangle; *restore*-ing (the default, used
-      # by the ⇕ button) puts the dock back at exactly that position and size on
-      # the next float, rather than leaving it at the docked size. The drag-undock
-      # path passes `restore: false` so the dock detaches *in place* under the
-      # pointer instead of jumping back to its old floating spot.
+      # `restore` (default true, used by the ⇕ button) puts the dock back at its
+      # last floating position/size. The drag-undock path passes `restore: false`
+      # so the dock detaches in place under the pointer instead.
       #
-      # Either way, un-docking pins an explicit `left`/`top`/`width`/`height`
-      # (clearing `right`/`bottom`) so the now-floating dock has one unambiguous
-      # geometry — otherwise the leftover docked constraints (`right` + `width`,
-      # `top` + `bottom`) and the drag handler's `left`/`top` writes would fight.
+      # Un-docking pins explicit `left`/`top`/`width`/`height` (clearing
+      # `right`/`bottom`) so leftover docked constraints don't fight the drag
+      # handler's `left`/`top` writes.
       def toggle_floating(restore : Bool = true) : Nil
         return unless floatable?
         if floating?
@@ -200,9 +188,9 @@ module Crysterm
       # captured the last time the dock was floating, restored on the next float.
       @float_geom : Tuple(Int32, Int32, Int32, Int32)?
 
-      # The dock's current rectangle expressed relative to its parent's origin,
-      # as `{left, top, width, height}`. The coordinate accessors raise before the
-      # dock has been laid out, which the callers' own `rescue` handles.
+      # The dock's current rectangle relative to its parent's origin, as
+      # `{left, top, width, height}`. Coordinate accessors raise before layout,
+      # handled by callers' `rescue`.
       private def current_float_rect : Tuple(Int32, Int32, Int32, Int32)
         px = parent.try(&.aleft) || 0
         py = parent.try(&.atop) || 0
@@ -216,8 +204,8 @@ module Crysterm
         # Not laid out yet; nothing to remember.
       end
 
-      # Pins the dock's current absolute rectangle as its explicit floating
-      # geometry. No-op before the dock has been laid out (its coordinates raise).
+      # Pins the dock's current absolute rectangle as its floating geometry.
+      # No-op before layout (coordinates raise).
       private def freeze_rect : Nil
         apply_rect current_float_rect
       rescue
@@ -235,11 +223,10 @@ module Crysterm
         self.top = g[1]
       end
 
-      # Styles one title-bar button so it always reads as part of the bar. Starts
-      # from an explicit `::close-button`/`::float-button` rule when one matched,
-      # else the bar's own style, then fills any unset/terminal-default (`-1`)
-      # background or foreground from the bar — so a button can never paint the
-      # terminal background (a "black hole") or hide its glyph against its own bg.
+      # Styles one title-bar button so it always reads as part of the bar. Uses
+      # an explicit `::close-button`/`::float-button` rule if matched, else the
+      # bar's own style, then fills any unset/terminal-default (`-1`) bg/fg from
+      # the bar so a button never paints the terminal bg or hides its glyph.
       private def sync_titlebutton(btn : Box?, sub : Style) : Nil
         return unless btn
         bar = titlebar.style
@@ -256,9 +243,8 @@ module Crysterm
         @float_button = titlebutton(closable? ? 2 : 0, "⇕") { toggle_floating } if floatable?
       end
 
-      # Builds one title-bar button: a 1×1 `Box` pinned to the bar's right edge at
-      # *offset*, showing *glyph*, themed via `.titlebutton`, and invoking
-      # *handler* when clicked. Shared by the close and float buttons.
+      # Builds one title-bar button: a 1x1 `Box` pinned to the bar's right edge
+      # at *offset*, showing *glyph*, invoking *handler* when clicked.
       private def titlebutton(offset : Int32, glyph : String, &handler : ->) : Box
         btn = Box.new(
           parent: titlebar, top: 0, right: offset, width: 1, height: 1,
@@ -274,9 +260,8 @@ module Crysterm
         refresh_grip
       end
 
-      # A floatable dock owns a corner resize grip (Qt's `QSizeGrip`); a
-      # non-floatable dock can't detach, so it gets none. Targets the dock itself
-      # and starts hidden — it is revealed only while floating (`#refresh_grip`).
+      # A floatable dock owns a corner resize grip; non-floatable docks get none.
+      # Starts hidden, revealed only while floating (`#refresh_grip`).
       private def build_size_grip
         return unless floatable?
         g = SizeGrip.new(
@@ -288,12 +273,9 @@ module Crysterm
         @size_grip = g
       end
 
-      # The resize grip is a floating-window affordance: a docked pane is resized
-      # via its dock separator, not a corner handle, so a grip shown while docked
-      # would be an inert, misleading control. Show it only when floating, and
-      # keep it in front of the dock's content (which fills the corner the grip
-      # sits in — otherwise the content paints over it). Placement is handled per
-      # frame by `#position_grip`.
+      # A docked pane is resized via its dock separator, not a corner handle, so
+      # the grip is shown only while floating and kept in front of the content
+      # (which would otherwise paint over it). Placement handled by `#position_grip`.
       private def refresh_grip
         @size_grip.try do |g|
           if floating?
@@ -305,12 +287,10 @@ module Crysterm
         end
       end
 
-      # Plant the (floating-only) grip on the dock's outer bottom-right corner —
-      # *over* the border corner when there is one — rather than one cell inside
-      # it. Child coordinates are content-relative (inside the frame), so the grip
-      # is pushed back out by the negative border+padding inset; re-derived each
-      # frame since a theme can change the border. With no border/padding the
-      # inset is 0 and the grip simply sits at the corner cell.
+      # Plants the grip on the dock's outer bottom-right corner (over the border
+      # corner if any) rather than one cell inside it. Child coords are
+      # content-relative, so pushed out by the negative border+padding inset;
+      # re-derived each frame since a theme can change the border.
       private def position_grip
         @size_grip.try do |g|
           next unless g.visible?
@@ -321,26 +301,24 @@ module Crysterm
         end
       end
 
-      # Dragging the title bar moves a floating dock; grabbing the title bar of a
-      # *docked* dock undocks it in place first (Qt's drag-to-float), so the same
-      # gesture both detaches and moves it — giving every dock a drag handle.
+      # Dragging the title bar moves a floating dock; grabbing a docked dock's
+      # title bar undocks it in place first (drag-to-float), so the same gesture
+      # both detaches and moves it.
       private def wire_drag
         titlebar.enable_drag reposition: false
         titlebar.on(::Crysterm::Event::DragStart) do |e|
           @drag_dx = e.x - aleft
           @drag_dy = e.y - atop
-          # Undock on grab, *in place* (`restore: false`): the dock detaches at
-          # its current spot so `aleft`/`atop` — hence the offsets just captured —
-          # stay valid and the drag continues smoothly from the grab point.
+          # Undock in place (`restore: false`) so `aleft`/`atop` — hence the
+          # offsets just captured — stay valid and the drag continues smoothly.
           toggle_floating(restore: false) unless floating?
         end
         titlebar.on(::Crysterm::Event::Drag) do |e|
           next unless floating?
           # `left`/`top` are parent-relative but the pointer (`e.x`/`e.y`) is
-          # absolute, so convert by subtracting the parent's origin — matching the
-          # `aleft - px` convention in `#save_float_geom`/`#freeze_rect`. Without
-          # this the dock only tracked the pointer when its parent sat at the
-          # window origin (the same class of bug `Splitter#wire_divider` notes).
+          # absolute; convert by subtracting the parent's origin (matches the
+          # `aleft - px` convention in `#save_float_geom`/`#freeze_rect`), else the
+          # dock only tracks the pointer when its parent is at the window origin.
           px = parent.try(&.aleft) || 0
           py = parent.try(&.atop) || 0
           bound_w = (parent.try(&.awidth) || window.awidth) - awidth

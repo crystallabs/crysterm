@@ -1,8 +1,7 @@
 # FEATURE: rich widget library (30+ widgets).
 #
-# A compact showcase of several built-in widgets working together: a list, a
-# progress bar, checkboxes, a button, a text box and a loading spinner — all
-# animating at once.
+# Showcase of several built-in widgets animating together: list, progress
+# bar, checkboxes, button, text box, loading spinner.
 
 require "../../src/crysterm"
 

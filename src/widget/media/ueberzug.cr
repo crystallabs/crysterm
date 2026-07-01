@@ -6,16 +6,16 @@ module Crysterm
     # Renders a true-color image via **Überzug / Überzug++** (`ueberzug`), the
     # modern successor to `w3mimgdisplay`. Like `Media::Overlay` this is an
     # *out-of-band* overlay: an external helper draws the actual image pixels in
-    # its own X11 child window placed over the terminal — the pixels are owned
-    # by neither Crysterm's cell grid nor the terminal emulator.
+    # its own X11 child window placed over the terminal — pixels owned by
+    # neither Crysterm's cell grid nor the terminal emulator.
     #
-    # It differs from `Media::Overlay` in two ways: the helper speaks a JSON
+    # Differs from `Media::Overlay` in two ways: the helper speaks a JSON
     # protocol on stdin (`{"action":"add",…}` / `{"action":"remove",…}`) and
     # positions/sizes placements in *terminal cells* (not pixels); and its
-    # override-redirect window stays on top, so — unlike w3m — it does not get
-    # covered by subsequently drawn text and need re-painting every frame. We
-    # therefore just (re)send `add` when the cell rectangle changes and `remove`
-    # on hide/detach/destroy.
+    # override-redirect window stays on top, so — unlike w3m — it doesn't get
+    # covered by subsequently drawn text and need re-painting every frame. So we
+    # just (re)send `add` when the cell rectangle changes and `remove` on
+    # hide/detach/destroy.
     #
     # Requires the `ueberzug` or `ueberzugpp` binary on PATH and a real X
     # display; with neither present the widget is inert (it draws nothing).
@@ -43,8 +43,8 @@ module Crysterm
       @path : String? = nil
 
       # The shared `Media::Base` contract knobs (`fit`/`animate`/`speed`) are
-      # accepted so the `Media` factory can forward them uniformly, but advisory
-      # here: überzug does its own scaling (`scaler`) and can't animate.
+      # accepted so the `Media` factory can forward them uniformly, but are
+      # advisory here: überzug does its own scaling (`scaler`) and can't animate.
       def initialize(@file = nil, @scaler : String = "forced_cover",
                      @fit : Media::Fit = Media::Fit::Stretch,
                      @animate : Bool = false,

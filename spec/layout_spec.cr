@@ -6,9 +6,9 @@ private def headless_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end
 
-# Renders `container` headlessly (the public `Window#render` only *schedules* a
-# render via the loop fiber, which never runs in a one-shot spec) and returns
-# each child's rendered rectangle as `{xi, xl, yi, yl}` tuples.
+# Renders `container` headlessly (`Window#render` only *schedules* a render via
+# the loop fiber, which never runs in a one-shot spec) and returns each child's
+# rendered rectangle as `{xi, xl, yi, yl}` tuples.
 private def render_children(s, container)
   s._render
   container.children.map do |c|
@@ -80,7 +80,7 @@ describe Crysterm::Layout::UniformGrid do
     s = headless_screen
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 12,
       layout: Layout::UniformGrid.new, overflow: :ignore
-    # A full-width excluded layer (e.g. a background-image) must not widen the
+    # A full-width excluded layer (e.g. background-image) must not widen the
     # uniform column and collapse the grid to a single column.
     Widget::Box.new(parent: box, width: 30, height: 12).layout_excluded = true
     cells = Array.new(3) { Widget::Box.new parent: box, width: 8, height: 2 }
@@ -100,8 +100,7 @@ describe Crysterm::Layout::Masonry do
 
     coords = render_children s, box
     coords[0].should eq({0, 12, 0, 3})
-    # Second box doesn't fit beside the first (12 + 12 > 20), so it wraps to a
-    # new row at the left edge.
+    # Doesn't fit beside the first (12 + 12 > 20), so wraps to a new row.
     coords[1].should eq({0, 12, 3, 6})
   end
 end
@@ -127,11 +126,10 @@ describe Crysterm::Layout::Border do
 
   it "clamps oversized edges to the remaining space (no negative or overlapping regions)" do
     s = headless_screen
-    # A header and footer that together (4 + 4) exceed the 6-row interior. Without
-    # clamping, the footer's `y1 - ch` ran back over the header (rows 2..3 doubly
-    # owned) and the center was handed a negative `y1 - y0` height (-2). Each edge
-    # must take only what remains: header rows 0..3, footer the last 2 rows (4..5),
-    # and the center collapses to zero height — never negative, never overlapping.
+    # Header and footer together (4 + 4) exceed the 6-row interior. Without
+    # clamping, the footer's `y1 - ch` ran back over the header (rows 2..3
+    # doubly owned) and the center got a negative height (-2). Each edge must
+    # take only what remains: header 0..3, footer 4..5, center collapses to 0.
     b = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 6,
       layout: Layout::Border.new
     top = Widget::Box.new parent: b, height: 4, layout_hint: Layout::Border::Hint.new(:top)
@@ -166,7 +164,7 @@ describe Crysterm::Layout::Stack do
     s = headless_screen
     st = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 6,
       layout: Layout::Stack.new(1)
-    # A layout-excluded layer (e.g. a background-image) placed before the pages
+    # A layout-excluded layer (e.g. background-image) placed before the pages
     # must not occupy a page slot: #current still counts the real pages only.
     bg = Widget::Box.new parent: st, width: 20, height: 6
     bg.layout_excluded = true
@@ -200,8 +198,8 @@ describe Crysterm::Layout::Grid do
   it "fills a non-evenly-divisible interior, giving the remainder to the last cell" do
     s = headless_screen
     # 32 wide / 3 cols = 10 r2: a single floored cell_w (10) left the right two
-    # columns blank (last col ended at 30, not 32). 8 tall / 3 rows = 2 r2 left
-    # the bottom row short likewise. Cumulative fences fill the whole interior.
+    # columns blank (last col ended at 30, not 32); same for rows. Cumulative
+    # fences fill the whole interior.
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 32, height: 8,
       layout: Layout::Grid.new(columns: 3, rows: 3)
     9.times { Widget::Box.new parent: g }
@@ -219,10 +217,9 @@ describe Crysterm::Layout::Grid do
 
   it "clamps an off-grid span (e.g. col_span to the end) to the interior edge" do
     s = headless_screen
-    # 3 cols, gap 2 over a 34-wide interior: inner_w = 34 - 2*2 = 30, carved
-    # 10/10/10 (fences 0,10,20,30). A cell with an oversized col_span ("span to
-    # the end") must reach exactly the interior's right edge (x1 == 34), not
-    # overshoot it by the phantom gaps of the off-grid columns.
+    # 3 cols, gap 2 over a 34-wide interior: inner_w = 30, carved 10/10/10. A
+    # cell with an oversized col_span ("span to the end") must reach exactly the
+    # interior's right edge (x1 == 34), not overshoot via phantom off-grid gaps.
     g = Widget::Box.new parent: s, left: 0, top: 0, width: 34, height: 6,
       layout: Layout::Grid.new(columns: 3, rows: 1, gap: 2)
     Widget::Box.new parent: g, layout_hint: Layout::Grid::Hint.new(row: 0, col: 0, col_span: 99)
@@ -265,10 +262,9 @@ describe Crysterm::Layout::Wrap do
     s = headless_screen
     wp = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 10,
       layout: Layout::Wrap.new, overflow: :ignore
-    # A `background-image` layer is a layout_excluded child that the flow skips
-    # but that carries a real (out-of-band-rendered) lpos. `get_last` must skip
-    # it: otherwise the next flow child chains its left edge off the layer's
-    # rect (here xl=10) instead of starting at the row's left edge.
+    # A background-image layer is layout_excluded but carries a real
+    # (out-of-band-rendered) lpos. `get_last` must skip it: otherwise the next
+    # flow child chains off the layer's rect (xl=10) instead of the row's left edge.
     bg = Widget::Box.new parent: wp, width: 10, height: 2
     bg.layout_excluded = true
     bg.lpos = Crysterm::LPos.new(xi: 0, xl: 10, yi: 0, yl: 2)
@@ -282,11 +278,10 @@ describe Crysterm::Layout::Wrap do
     s = headless_screen
     wp = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 12,
       layout: Layout::Wrap.new, overflow: :ignore
-    # Full-interior background-image layer: layout_excluded, but carrying a real
-    # (out-of-band-rendered) full-height lpos. The row-height ("tallest") scan in
-    # `Flow#flow_place` must skip it; otherwise its 12-row height inflates the
-    # first row's height and shoves the wrapped child to top=12 (off-screen)
-    # instead of top=3, just below the real first-row child.
+    # Full-interior background-image layer: layout_excluded but with a real
+    # full-height lpos. The row-height ("tallest") scan in `Flow#flow_place`
+    # must skip it; otherwise its 12-row height inflates the first row and
+    # shoves the wrapped child to top=12 (off-screen) instead of top=3.
     bg = Widget::Box.new parent: wp, width: 20, height: 12
     bg.layout_excluded = true
     bg.lpos = Crysterm::LPos.new(xi: 0, xl: 20, yi: 0, yl: 12)
@@ -314,9 +309,8 @@ describe "Crysterm::Layout::Box flex" do
   it "distributes the rounding remainder so flex children fill the interior exactly" do
     s = headless_screen
     # Two equal-grow children over an odd interior width (11). A per-child
-    # `width // 2` floors each to 5, leaving the 11th column blank at the right
-    # edge; cumulative rounding gives the last flex child the leftover so the
-    # children meet flush at the interior's right edge.
+    # `width // 2` floors each to 5, leaving column 11 blank; cumulative
+    # rounding gives the last flex child the leftover so they meet flush.
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 11, height: 4,
       layout: Layout::HBox.new
     Widget::Box.new parent: box, height: 2 # flexible width
@@ -348,8 +342,8 @@ describe "Crysterm::Layout::Box flex" do
 
     coords = render_children s, box
     # 24 used of 31 -> 7 leftover over 2 gaps. A floored `7 // 2 == 3` gap left
-    # the last child ending at 30 (one short of 31); cumulative carving (gaps 3
-    # then 4) puts it flush at 31.
+    # the last child ending at 30 (one short); cumulative carving (gaps 3 then
+    # 4) puts it flush at 31.
     coords.should eq [{0, 8, 0, 2}, {11, 19, 0, 2}, {23, 31, 0, 2}]
   end
 end
@@ -358,7 +352,7 @@ describe "Crysterm::Layout flow StopRendering" do
   it "clears the lpos of every child left unrendered after an overflow stop" do
     s = headless_screen
     # 20 wide so each 12-wide child wraps to its own row. Frame 1 is tall enough
-    # (3 rows) for all three to render, so each gets a real lpos.
+    # (3 rows) for all three to render.
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 3,
       layout: Layout::Wrap.new, overflow: Crysterm::Overflow::StopRendering
     a = Widget::Box.new parent: box, width: 12, height: 1
@@ -366,16 +360,15 @@ describe "Crysterm::Layout flow StopRendering" do
     c = Widget::Box.new parent: box, width: 12, height: 1
 
     s._render
-    # All three rendered, so the later children carry a live rectangle.
+    # All three rendered, so each carries a live rectangle.
     a.lpos.should_not be_nil
     b.lpos.should_not be_nil
     c.lpos.should_not be_nil
 
-    # Frame 2: shrink to a single visible row. Now `a` fits, `b` wraps onto an
-    # overflowing row and trips StopRendering, and `c` is never reached. The
-    # stop must clear the stale rectangles of *both* unrendered children, not
-    # just the one that overflowed — otherwise `c` keeps frame-1's lpos and
-    # stays clickable/focusable at a ghost position.
+    # Frame 2: shrink to a single visible row. `a` fits, `b` wraps onto an
+    # overflowing row and trips StopRendering, `c` is never reached. The stop
+    # must clear the stale rectangles of *both* unrendered children — otherwise
+    # `c` keeps frame-1's lpos and stays clickable/focusable at a ghost position.
     box.height = 1
     s._render
 

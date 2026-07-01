@@ -1,15 +1,13 @@
 require "benchmark"
 require "../src/crysterm"
 
-# `Colors.blend` is the per-cell alpha/shadow blend: it runs PER CELL over
-# shadow regions (`Screen#blend_region`, attr2 == nil) and over alpha widgets /
-# media / docking (attr2 provided). Its `alpha` param is a `Float | Int` union
-# for API generality, but every live caller passes a `Float64`.
+# `Colors.blend` is the per-cell alpha/shadow blend: runs per cell over shadow
+# regions (`Screen#blend_region`, attr2 == nil) and over alpha widgets /
+# media / docking (attr2 provided). Its `alpha` param is `Float | Int` for API
+# generality, but every live caller passes `Float64`.
 #
-# This benchmark exercises both shapes (shadow + alpha-widget) at screen scale.
-# Use it to compare a candidate `Colors.blend` against the live one — the two
-# loops below call the live method; to evaluate a change, edit src/colors.cr and
-# re-run, comparing ips against the numbers recorded in the report.
+# Exercises both shapes (shadow + alpha-widget) at screen scale. To evaluate a
+# change, edit src/colors.cr and re-run, comparing ips against the report.
 #
 # Run:  crystal run --release benchmarks/blend-attr.cr
 

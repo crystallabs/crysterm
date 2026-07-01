@@ -2,12 +2,11 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-termswitch.js
 #
-# Blessed switches the *live* terminal type at runtime (`screen.terminal =
-# 'vt100'`) and re-renders. Crysterm loads terminfo once per `Screen`, so the
-# equivalent is a single `Screen#switch_terminal` call: it builds a new screen on
-# the requested terminal, reparents the existing widgets onto it, destroys the
-# old screen and returns the new one. This demo shows the widgets on the default
-# terminal for ~1s, then switches to `vt100`.
+# Blessed switches the live terminal type at runtime (`screen.terminal = 'vt100'`)
+# and re-renders. Crysterm loads terminfo once per `Screen`, so the equivalent is
+# `Screen#switch_terminal`: builds a new screen on the requested terminal,
+# reparents existing widgets onto it, destroys the old screen, returns the new one.
+# This demo shows widgets on the default terminal for ~1s, then switches to `vt100`.
 module Crysterm
   lorem = (1..40).map { |i| "Line #{i}: Lorem ipsum dolor sit amet, consectetur adipiscing elit." }.join("\n")
 
@@ -43,8 +42,8 @@ module Crysterm
   s.on(Event::KeyPress) { |e| quit.call s, e }
   s.render
 
-  # Show the default terminal briefly, then switch — one call does the teardown,
-  # the new-terminal screen, and reparenting the widgets onto it.
+  # Show the default terminal briefly, then switch — one call handles teardown,
+  # new screen, and reparenting.
   sleep 1.seconds
   s = s.switch_terminal "vt100"
 

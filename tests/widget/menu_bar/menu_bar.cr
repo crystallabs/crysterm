@@ -8,7 +8,7 @@ require "../example"
 Crysterm::WidgetExample.run("MenuBar",
   script: ->(d : Crysterm::WidgetExample::Driver) {
     d.hold 0.6
-    # Open the File menu, then close it again.
+    # Open File menu, then close it.
     d.act(dwell: 1.2) { |s| s.children.each { |c| c.toggle(0) if c.is_a?(Crysterm::Widget::MenuBar) } }
     d.act(dwell: 0.8) { |s| s.children.each { |c| c.toggle(0) if c.is_a?(Crysterm::Widget::MenuBar) } }
   }) do |screen|

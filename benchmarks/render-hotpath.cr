@@ -3,17 +3,15 @@ require "../src/crysterm"
 
 # Before/after benchmark for the render/draw hot-path optimizations on branch
 # perf/cell-alloc-hotpath. Each case runs the PREVIOUS ("OLD") approach and the
-# NEW one side by side, so the two are directly comparable in a single process.
+# NEW one side by side for direct comparison in a single process.
 #
 # IMPORTANT — read the numbers correctly:
 #   * The `ips` (CPU-time) figures are NOISE-DOMINATED on a typical dev box
-#     (±30–60% run to run; a case can flip faster/slower between runs). Do not
-#     read fine-grained speed deltas from them.
+#     (±30-60% run to run). Don't read fine-grained speed deltas from them.
 #   * The DETERMINISTIC metrics are the real result: bytes allocated per batch
-#     (printed under each case) and, for #6, the scan-iteration count. These do
-#     not vary run to run. The point of these changes is removing per-FRAME heap
-#     garbage (GC pauses cause frame-time jitter in a TUI), so allocation is the
-#     metric that matters.
+#     and, for #6, the scan-iteration count. These don't vary run to run. The
+#     point is removing per-frame heap garbage (GC pauses cause frame-time
+#     jitter in a TUI), so allocation is the metric that matters.
 #
 # Run:  crystal run --release benchmarks/render-hotpath.cr
 
@@ -92,10 +90,9 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { io.clear; WIDTH.times { io << Colors.sgr
      "  vs  NEW #{alloc_mb(ROUNDS) { io.clear; WIDTH.times { Colors.sgr_color_to(io, 0xff8800, true, 0x1000000) } }.round(2)} MB  (#{ROUNDS} rows)"
 
 # ---------------------------------------------------------------------------
-# #6  BCE space-run look-ahead. OLD rescans (x..end) from EVERY leading space
+# #6  BCE space-run look-ahead. OLD rescans (x..end) from every leading space
 #     (O(width^2) on a "spaces then content" line); NEW remembers the breaker
-#     and skips the redundant rescans (O(width)). The deterministic metric is
-#     the number of cell comparisons performed.
+#     and skips redundant rescans (O(width)). Metric: cell comparisons performed.
 section "#6  BCE look-ahead  (\"spaces then content\" line)"
 split = WIDTH // 2
 bce_row = Crysterm::Screen::Row.new
@@ -139,9 +136,9 @@ puts "  cell comparisons: OLD #{old_bce.call}  vs  NEW #{new_bce.call}  (per lin
 
 # ---------------------------------------------------------------------------
 # #7/#8  SGR scan over a styled line — the render escape loop and _parse_attr.
-#        OLD slices the remaining content per escape (`content[(ci-1)..]`) then
-#        ^-matches; NEW matches the SGR regex anchored in place. Same matches,
-#        no tail-substring allocation.
+#        OLD slices the remaining content per escape then ^-matches; NEW
+#        matches the SGR regex anchored in place. Same matches, no
+#        tail-substring allocation.
 section "#7/#8  SGR scan over a styled line  (render loop + _parse_attr)"
 sgr_at = Crysterm::Widget::SGR_REGEX_AT_BEGINNING
 sgr = Crysterm::Widget::SGR_REGEX
@@ -160,10 +157,9 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { styled.each_char_with_index { |ch, i| st
 # ---------------------------------------------------------------------------
 # #10  StringIndex reuse — `_render` builds a codepoint index over @_pcontent
 #      once per widget every frame. OLD rebuilt it each frame; for non-ASCII
-#      content that re-materializes a `chars` array (per-frame garbage) and even
-#      for ASCII re-runs the O(n) `ascii_only?` scan. NEW reuses a cached index
-#      while the underlying @_pcontent String is unchanged (the common case:
-#      content only changes on edit, not every frame).
+#      that re-materializes a `chars` array (per-frame garbage), and even ASCII
+#      re-runs the O(n) `ascii_only?` scan. NEW reuses a cached index while
+#      @_pcontent is unchanged (the common case: content changes on edit only).
 section "#10  StringIndex reuse  (per widget, every frame)"
 ascii_line = (0...WIDTH).map { |i| ('a' + (i % 26)) }.join
 unicode_line = (0...WIDTH).map { |i| (i % 3 == 0) ? 'é' : ('a' + (i % 26)) }.join
@@ -186,7 +182,7 @@ puts "not measured above (it is a cache hit, i.e. zero work)."
 # ---------------------------------------------------------------------------
 # #9  attr2code — converts an SGR sequence to a packed attr, per SGR every
 #     frame for colored content. OLD did `code[2...-1].split(';')` (substring +
-#     Array(String) of per-parameter strings); NEW parses the bytes in place.
+#     Array(String)); NEW parses the bytes in place.
 section "#9  attr2code  (per SGR sequence, every frame)"
 dfl = Crysterm::Screen::DEFAULT_ATTR
 codes = ["\e[0m", "\e[1m", "\e[31m", "\e[1;31m", "\e[38;5;208m", "\e[38;2;255;136;0m", "\e[39;49m"]
@@ -230,10 +226,9 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { stops.keys.map(&.to_i).sort! }.round(2)}
 
 # ---------------------------------------------------------------------------
 # #11  code2attr — SGR emission on the draw BCE line-clear (per cleared line,
-#      every frame). OLD built and returned a fresh `String` (`code2attr`); NEW
-#      writes the same sequence straight into the line buffer
-#      (`Screen.code2attr_to`), so a frame that clears N lines no longer
-#      produces N throwaway strings.
+#      every frame). OLD built and returned a fresh `String`; NEW writes the
+#      same sequence straight into the line buffer (`Screen.code2attr_to`), so
+#      clearing N lines no longer produces N throwaway strings.
 section "#11  code2attr  (BCE line-clear, per cleared line)"
 attr_code = Crysterm::Attr.pack(Crysterm::Attr::BOLD, Crysterm::Attr.pack_color(0xff8800), Crysterm::Attr.pack_color(0x102030))
 cio = IO::Memory.new 64
@@ -254,10 +249,9 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { old_code2attr.call }.round(2)} MB" \
 
 # ---------------------------------------------------------------------------
 # #convert  Colors.convert(String) — color-string parsing in `sattr`, run per
-#      widget every frame (default attr, border, padding fill, ...). OLD reparsed
-#      the string each call (`gsub` to strip separators + a substring in
-#      `hex_to_rgb`); NEW memoizes the parse (the app's set of color strings is
-#      small and bounded), so steady-state frames are allocation-free.
+#      widget every frame. OLD reparsed the string each call; NEW memoizes the
+#      parse (the app's set of color strings is small and bounded), so
+#      steady-state frames are allocation-free.
 section "#convert  Colors.convert(String)  (per sattr, per widget, every frame)"
 Colors.convert_cached("red"); Colors.convert_cached("#ff8800") # warm the cache
 Benchmark.ips do |x|

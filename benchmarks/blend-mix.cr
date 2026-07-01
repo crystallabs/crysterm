@@ -2,16 +2,14 @@ require "benchmark"
 require "../lib/term_colors/src/term_colors"
 
 # `TermColors#mix` is the per-channel RGB blend behind `Colors.blend`/`tint` and
-# `Plane#composite_onto` — i.e. it runs PER CELL on every shadow, tint, alpha
-# widget, and plane composite. The old form did three Float64 multiplies plus
-# three float→int truncations per call, with `alpha` flowing in as a
-# `Float | Int` union (so the per-channel math could not monomorphize). The new
-# form materializes `(1 - alpha)` once as a 16-bit fixed-point weight and does
-# pure integer math per channel.
+# `Plane#composite_onto` — runs per cell on every shadow, tint, alpha widget,
+# and plane composite. The old form did three Float64 multiplies plus three
+# float->int truncations per call, with `alpha` as a `Float | Int` union
+# (blocking monomorphization). The new form precomputes `(1 - alpha)` as a
+# 16-bit fixed-point weight and does pure integer math per channel.
 #
-# This benchmark runs OLD (float) and NEW (integer) side by side and ALSO
-# asserts they agree: bit-exact for the alpha 0.5 every blend/composite uses,
-# and within 1/255 per channel for arbitrary alpha.
+# Runs OLD (float) and NEW (integer) side by side and asserts they agree:
+# bit-exact at alpha 0.5, within 1/255 per channel for arbitrary alpha.
 #
 # Run:  crystal run --release benchmarks/blend-mix.cr
 
@@ -37,7 +35,7 @@ end
 
 max_channel_diff = 0
 exact_at_half = true
-step = 17 # walk 0,17,...,255 in each channel (16^3 pairs) — enough coverage
+step = 17 # walk 0,17,...,255 per channel (16^3 pairs) — enough coverage
 {0.0, 0.25, 0.5, 0.75, 1.0, 0.3, 0.1, 0.9}.each do |a|
   r1 = 0
   while r1 <= 255
@@ -69,15 +67,13 @@ puts
 
 # ---- Throughput: a full-screen shadow/tint pass (per-cell blend) ------------
 #
-# Each iteration feeds the previous result back into the next call's inputs (a
-# loop-carried dependency), so the optimizer cannot dead-code-eliminate or
-# vectorize the (pure) blend away — both loops do the same honest per-cell work.
+# Each iteration feeds the previous result into the next call's inputs
+# (loop-carried dependency), preventing dead-code-elimination/vectorization.
 
 CELLS  = 200 * 50 # a 200x50 terminal
 COLORS = Array(Int32).new(CELLS) { |i| ((i.to_u64 &* 2654435761_u64) & 0xFFFFFF_u64).to_i32 }
-# Each pass stores every blended cell here; the store-to-memory is a side effect
-# the optimizer must keep, so it cannot fold either loop to a closed form. SINK
-# is read after the benchmark so it is not itself dead.
+# Stores every blended cell; the memory write is a side effect the optimizer
+# must keep. Read after the benchmark so it isn't itself dead.
 SINK = Array(Int32).new(CELLS, 0)
 
 Benchmark.ips do |x|

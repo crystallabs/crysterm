@@ -2,10 +2,9 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-shrink-fail.js
 #
-# An outer scrollable `tab` box containing a `form` whose height is computed
-# (blessed 'shrink' -> resizable). The form holds three label/textbox pairs
-# (Foo/Bar/Baz) and a submit button. Pressing submit collects the textbox
-# values and emits Event::SubmitData.
+# Outer scrollable `tab` box containing a `form` with computed height (blessed
+# 'shrink' -> resizable). Form holds three label/textbox pairs (Foo/Bar/Baz)
+# and a submit button; submit collects the textbox values and emits Event::SubmitData.
 module Crysterm
   s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
@@ -26,11 +25,9 @@ module Crysterm
     top: 0,
     left: 1,
     right: 1,
-    # NOTE: blessed height:'shrink' -> resizable: true (form height is computed)
-    resizable: true,
+    resizable: true, # blessed height:'shrink' -> resizable: true
     keys: true,
-    # NOTE: blessed's `mouse: true` is not a Crysterm constructor kwarg; dropped.
-    label: " {blue-fg}Form{/blue-fg} ",
+    label: " {blue-fg}Form{/blue-fg} ", # blessed's `mouse: true` isn't a Crysterm kwarg; dropped
     parse_tags: true,
     style: Style.new(border: BorderType::Line)
 
@@ -103,14 +100,12 @@ module Crysterm
     style: Style.new(bg: "black")
 
   submit.on(Crysterm::Event::Press) do
-    # NOTE: blessed had a buggy `tabs.send._.form.submit()` here; the intent is
-    # to submit the enclosing form.
+    # blessed had a buggy `tabs.send._.form.submit()` here; intent is to submit the enclosing form.
     form.submit
   end
 
   form.on(Crysterm::Event::SubmitData) do |e|
-    # NOTE: blessed left the screen and console.log'd the data; here we just
-    # collect (no-op) and destroy.
+    # blessed logged the data here; no-op instead.
     _ = e.data
     s.destroy
     exit

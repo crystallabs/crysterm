@@ -157,9 +157,9 @@ module Crysterm
         end
       end
 
-      # Whole-cell `{start, width}` span actually occupied by each segment,
-      # clipped to `cols` and laid left-to-right. Computed once and shared by the
-      # fill and the caption overlay so captions can't drift off their slice.
+      # Whole-cell `{start, width}` span occupied by each segment, clipped to
+      # `cols` and laid left-to-right. Shared by the fill and caption overlay
+      # so captions can't drift off their slice.
       private def segment_spans(segs, cols : Int32) : Array({Int32, Int32})
         x = 0
         segs.map do |seg|

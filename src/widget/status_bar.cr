@@ -23,10 +23,10 @@ module Crysterm
       # The current temporary (left-aligned) message.
       getter message : String = ""
 
-      # The permanent (right-aligned) sections, in insertion order; the first
-      # added sits left-most of the right group (Qt's `addPermanentWidget`
-      # order). Mutate via `#add_permanent`/`#clear_permanent` so the cached
-      # render string (`@permanent_text`) stays in sync.
+      # Permanent (right-aligned) sections, in insertion order; the first added
+      # sits left-most of the right group (Qt's `addPermanentWidget` order).
+      # Mutate via `#add_permanent`/`#clear_permanent` so the cached render
+      # string (`@permanent_text`) stays in sync.
       getter permanent = [] of String
 
       # Cached joined render string for `#permanent`, rebuilt only when the
@@ -99,8 +99,8 @@ module Crysterm
         draw_permanent
       end
 
-      # Overlays the permanent sections, right-aligned, after the base render has
-      # painted the background and the (left) message. Uses the freshly resolved
+      # Overlays the permanent sections, right-aligned, after the base render
+      # paints the background and (left) message. Uses freshly resolved
       # interior coordinates, so it never lags a frame behind a resize.
       private def draw_permanent : Nil
         return if @permanent.empty?

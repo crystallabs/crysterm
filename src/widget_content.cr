@@ -33,17 +33,16 @@ module Crysterm
     # `#fold_content_tail`). Empty in the common (non-appended) case.
     @_content_tail = [] of String
 
-    # Widget's user-set content in original form, with any pending appends folded
-    # in. O(total) on the first read after appends, then cached until the next
-    # append. Most readers (`get_content`, list items, `content=`) go through here.
+    # `@content` with pending appends folded in. O(total) on first read after
+    # appends, then cached until the next append. Most readers (`get_content`,
+    # list items, `content=`) go through here.
     def content : String
       fold_content_tail
       @content
     end
 
-    # Folds the deferred raw appends (`@_content_tail`) into `@content`. No-op when
-    # nothing is pending, so it is cheap to call defensively before any code that
-    # reads the `@content` ivar directly.
+    # Folds `@_content_tail` into `@content`. No-op when nothing is pending, so
+    # it's cheap to call defensively before reading the `@content` ivar directly.
     private def fold_content_tail : Nil
       return if @_content_tail.empty?
       @content = String.build do |s|
@@ -56,34 +55,31 @@ module Crysterm
       @_content_tail.clear
     end
 
-    # Whether there is no content at all — neither materialized nor pending. O(1)
-    # (does not fold), for the hot `append_content`/`push_line` guards.
+    # No content at all, materialized or pending. O(1) (does not fold), for the
+    # hot `append_content`/`push_line` guards.
     private def content_blank?
       @content.empty? && @_content_tail.empty?
     end
 
-    # Printable, word-wrapped content, ready for rendering into the element.
-    # `nil` means "stale" — `append_content` sets it nil rather than rebuilding the
-    # O(total) joined string per line; `#pcontent` rebuilds it on demand (once per
-    # render after a change, not once per append). The incremental `@_clines.ci`
-    # offsets stay valid because they are derived from line lengths, not from this
-    # string.
+    # Printable, word-wrapped content, ready for rendering. `nil` means "stale" —
+    # `append_content` sets it nil rather than rebuilding the joined string per
+    # append; `#pcontent` rebuilds it on demand (once per render, not per append).
+    # `@_clines.ci` offsets stay valid since they derive from line lengths, not
+    # this string.
     property _pcontent : String?
 
-    # The printable content string, rebuilt from the wrapped lines if stale. The
-    # render path and any other consumer must go through this (not the `@_pcontent`
-    # ivar) so a deferred append is materialized before use.
+    # Printable content string, rebuilt from wrapped lines if stale. Consumers
+    # must go through this (not `@_pcontent` directly) so a deferred append is
+    # materialized before use.
     def pcontent : String
       @_pcontent ||= clines_joined
     end
 
-    # The wrapped lines as one `"\n"`-joined string. For the overwhelmingly common
-    # single-line content (every `Label`, `Fps`, and per-cell box) `join` would
-    # allocate a fresh `String` that merely duplicates the sole line; returning
-    # that line directly avoids a per-widget, per-frame allocation (and the GC
-    # pressure it creates across thousands of widgets). `String`s are immutable, so
-    # aliasing the line is safe; `@_pcontent` is replaced wholesale on the next
-    # reparse. The empty case returns the shared empty string, also alloc-free.
+    # Wrapped lines as one `"\n"`-joined string. For the common single-line case
+    # (`Label`, `Fps`, per-cell boxes), `join` would allocate a `String` that just
+    # duplicates the sole line; returning that line directly avoids a per-widget,
+    # per-frame allocation. Safe since `String`s are immutable; `@_pcontent` is
+    # replaced wholesale on the next reparse.
     private def clines_joined : String
       cl = @_clines
       case cl.size
@@ -94,100 +90,79 @@ module Crysterm
     end
 
     # Cached codepoint index over `@_pcontent`, reused across frames. `_render`
-    # indexes content per cell, so for non-ASCII content the index materializes a
-    # `chars` array; rebuilding it every frame is pure per-frame garbage. It is
-    # rebuilt only when `@_pcontent` becomes a different `String` (i.e. on a
-    # content reparse — see `StringIndex#built_from?`).
+    # indexes content per cell; for non-ASCII content this materializes a `chars`
+    # array, so it's rebuilt only when `@_pcontent` becomes a different `String`
+    # (see `StringIndex#built_from?`).
     @_content_index : StringIndex? = nil
 
     property _clines = CLines.new
 
-    # Bumped every time `@content` changes (see `set_content`). `process_content`
-    # compares this integer against the version baked into `@_clines` to decide
-    # whether a reparse is needed, instead of doing an O(n) `String` comparison
-    # of the full content on every render.
+    # Bumped on every `@content` change (see `set_content`). `process_content`
+    # compares this against the version baked into `@_clines` to decide whether a
+    # reparse is needed, avoiding an O(n) `String` comparison on every render.
     @_content_version = 0
 
     # The `no_tags` mode the cached content was processed with, so a repeated
-    # `set_content` of the same string but a *different* tag mode still reparses
+    # `set_content` of the same string but a different tag mode still reparses
     # (see the unchanged-content short-circuit in `#set_content`).
     @_content_no_tags = false
 
-    # Whether the current `@content` contains any Crysterm tags (`{...}` /
-    # `{/...}`), decided once in `#set_content` by matching against the tag
-    # syntax. When false, `process_content` skips the `_parse_tags` call (and the
-    # whole-string regex scan inside it) entirely — most content is plain text,
-    # so this avoids re-scanning it for tags on every reparse. Defaults to false:
-    # empty default content has no tags.
+    # Whether `@content` contains any Crysterm tags (`{...}` / `{/...}`), decided
+    # once in `#set_content`. When false, `process_content` skips `_parse_tags`
+    # (and its whole-string regex scan) entirely, since most content is plain
+    # text. Defaults false.
     @_content_has_tags = false
 
-    # Whether the current `@content` contains any inline SGR escape (a raw `\e`),
-    # decided once in `#set_content`/`#append_content`. Together with
-    # `@_content_has_tags` (tags expand to SGR via `_parse_tags`) this tells
-    # `_parse_attr` whether ANY line can carry an inline attribute change. When
-    # neither is set, every wrapped line has the same base attr, so `_parse_attr`
-    # fills the attr array directly and skips the per-line `_attr_after` codepoint
-    # scan (a `Char::Reader` decode loop) entirely — the common case for plain
-    # text (labels, list items, per-cell boxes). Conservative: a stray `\e` that
-    # `process_content` later strips, or unexpanded tags under `no_tags`, only make
-    # it take the (correct) slow path. Defaults false: empty content has no SGR.
+    # Whether `@content` contains any inline SGR escape (raw `\e`), decided once
+    # in `#set_content`/`#append_content`. Together with `@_content_has_tags`
+    # (tags expand to SGR via `_parse_tags`), tells `_parse_attr` whether any line
+    # can carry an inline attribute change. When neither is set, every wrapped
+    # line has the same base attr, so `_parse_attr` fills the attr array directly
+    # and skips the per-line `_attr_after` scan — the common case for plain text.
+    # Conservative: a stray `\e` later stripped, or unexpanded tags under
+    # `no_tags`, only force the (correct) slow path. Defaults false.
     @_content_has_sgr = false
 
-    # The `sattr(style)` value that the currently-cached `@_clines.attr` was
-    # computed against. `_parse_attr` only depends on the content (unchanged on
-    # the cached path) and this base attribute, so it can be skipped whenever the
-    # style's packed attr is unchanged frame-to-frame (the common case). `nil`
-    # forces the first computation.
+    # The `sattr(style)` value the cached `@_clines.attr` was computed against.
+    # `_parse_attr` depends only on content (unchanged on the cached path) and
+    # this base attribute, so it's skipped when the style's packed attr is
+    # unchanged frame-to-frame. `nil` forces the first computation.
     @_parse_attr_default : Int64? = nil
 
-    # Processes and sets widget content. Does not allow extra options re.
-    # how content is to be processed; use `#set_content` if you need to provide
-    # extra options.
+    # Sets widget content without extra options; use `#set_content` for those.
     def content=(content)
       set_content content
     end
 
     def set_content(content = "", no_clear = false, no_tags = false)
-      # Fold any deferred appends so the unchanged-content comparisons below see
-      # the real current content (and so the tail is dropped — this call replaces
-      # the content wholesale).
+      # Fold deferred appends so the comparison below sees current content, and
+      # drop the tail since this call replaces content wholesale.
       fold_content_tail
-      # Idempotent: setting the content to its current value changes nothing, so
-      # the widget does no work and propagates no repaint — no version bump, no
-      # (expensive) reparse, no `request_render`, no `SetContent`. This is the
-      # widget itself deciding it didn't change, rather than a central flag
-      # detecting it after the fact. The first parse still happens regardless:
-      # `process_content` reparses on the CLines/version mismatch (CLines starts
-      # at version -1), independent of whether this setter ran. (A bare
-      # `no_tags` toggle with identical content is not re-applied; that combo
-      # does not occur in practice.)
-      # Idempotent no-op for re-setting identical content (the common case in
-      # per-cell animations that re-assign a box's character every frame even
-      # when it did not change): nothing to reparse, no `SetContent` to emit.
-      # Style (fg/bg) changes flow through the separate `@_parse_attr_default`
-      # path in `process_content`, not here, so they are unaffected. (A bare
-      # `no_tags` toggle with otherwise-identical content does not occur in
-      # practice, so it is not separately handled.)
+      # Idempotent no-op for re-setting identical content (common in per-cell
+      # animations re-assigning a box's character every frame even when
+      # unchanged): no version bump, no reparse, no `request_render`, no
+      # `SetContent`. Style changes flow through the separate
+      # `@_parse_attr_default` path in `process_content`, unaffected by this.
+      # The first parse still happens regardless via the CLines/version mismatch
+      # in `process_content` (CLines starts at version -1).
       return if content == @content
 
       # Previously this erased the widget's last-rendered footprint (unless
-      # `no_clear`) so that shrinking content wouldn't leave stale cells behind.
-      # That is now handled centrally: `Window#_render` clears the whole cell
-      # buffer before each frame. `no_clear` is kept for call compatibility.
+      # `no_clear`) to avoid stale cells when content shrank. Now handled
+      # centrally by `Window#_render` clearing the whole cell buffer per frame.
+      # `no_clear` is kept for call compatibility.
 
       # XXX make it possible to have `update_context`, which only updates
       # internal structures, not @content (for rendering purposes, where
       # original content should not be modified).
       @content = content
       @_content_no_tags = no_tags
-      # Decide here, once per content change, whether the content even contains
-      # any tags, using the same syntax `_parse_tags` recognizes. If it does not,
-      # `process_content` won't bother calling `_parse_tags` at all — see the
-      # guarded call below. A tag needs a `{`, so the cheap byte scan short-
-      # circuits the PCRE2 match for the common (tag-free) text.
+      # Decide once per content change whether it contains any tags, so
+      # `process_content` can skip `_parse_tags` (and its regex scan) when not.
+      # The `{` check short-circuits the PCRE2 match for the common tag-free case.
       @_content_has_tags = content.includes?('{') && content.matches?(TAG_REGEX)
-      # Cheap byte search (`\e` is ASCII): records whether any inline SGR is
-      # present so `_parse_attr` can skip its per-line scan for plain text.
+      # Cheap byte search: records whether inline SGR is present so `_parse_attr`
+      # can skip its per-line scan for plain text.
       @_content_has_sgr = content.includes? '\e'
       @_content_version += 1
 
@@ -214,39 +189,37 @@ module Crysterm
     # to map between the original ("fake") and wrapped ("real") line numbers.
     #
     # This used to subclass `Array(String)`. Subclassing a stdlib generic is
-    # deprecated, and—more importantly—it promotes every `Array(String)` in the
-    # whole program (including in unrelated shards) to the virtual type
-    # `Array(String)+`, which produces confusing compile errors far away from
-    # here (see issue #30). It now *wraps* an array and forwards the array API
-    # to it via `forward_missing_to`, so no `Array(String)` is ever subclassed.
+    # deprecated, and promotes every `Array(String)` in the program (including
+    # unrelated shards) to the virtual type `Array(String)+`, causing confusing
+    # compile errors elsewhere (see issue #30). It now wraps an array and
+    # forwards the array API via `forward_missing_to`.
     class CLines
       property string = ""
       property max_width = 0
       property width = 0
 
       # Right-edge columns (`Widget#content_margin_x`) these lines were wrapped to
-      # avoid — the vertical scroll bar's reservation in force at wrap time. Part
-      # of the convergence check in `Widget#process_content`: an `AsNeeded` bar's
-      # presence is only known *after* wrapping, so if reserving its column now
-      # differs from what was applied here, the content is re-wrapped once.
+      # avoid — the vertical scroll bar's reservation at wrap time. Part of the
+      # convergence check in `Widget#process_content`: an `AsNeeded` bar's
+      # presence is only known after wrapping, so if its reserved column now
+      # differs, content is re-wrapped once.
       property margin = 0
 
-      # Horizontal scroll offset (in display columns) these lines were sliced for
-      # — part of the wrap cache key, so a horizontal scroll forces a reparse the
-      # same way a width change does. Only meaningful when `wrap_content` is off.
+      # Horizontal scroll offset (display columns) these lines were sliced for —
+      # part of the wrap cache key, so scrolling forces a reparse like a width
+      # change does. Only meaningful when `wrap_content` is off.
       property base_x = 0
 
-      # Widest *unclipped* line, in display columns (the longest content row
-      # before the horizontal viewport slice). Drives `Widget#get_scroll_width`
-      # and thus the horizontal scroll bar's range. `0` for wrapped content.
+      # Widest unclipped line in display columns (before horizontal viewport
+      # slice). Drives `Widget#get_scroll_width` and the horizontal scroll bar's
+      # range. `0` for wrapped content.
       property full_width = 0
 
       property content : String = ""
 
       # Version of the owning widget's `@content` that produced these wrapped
-      # lines. Defaults to -1 so a freshly-built `CLines` never matches a real
-      # (>= 0) widget content version, forcing the first parse. See
-      # `Widget#process_content`.
+      # lines. Defaults to -1 so a fresh `CLines` never matches a real (>= 0)
+      # version, forcing the first parse. See `Widget#process_content`.
       property content_version : Int32 = -1
 
       property real : CLines? = nil
@@ -257,38 +230,34 @@ module Crysterm
       property rtof = [] of Int32
       property ci = [] of Int32
 
-      # Pool of recycled `ftor` sub-arrays. `#reset` drains the old per-line
-      # `ftor` rows into here (cleared) and `#take_ftor_row` hands them back out,
-      # so a steady-state reparse of same-shaped content reuses the very same
-      # `Array(Int32)` objects instead of allocating one per line every frame.
+      # Pool of recycled `ftor` sub-arrays. `#reset` drains old per-line `ftor`
+      # rows here (cleared); `#take_ftor_row` hands them back out, so steady-state
+      # reparsing reuses the same `Array(Int32)` objects instead of allocating
+      # one per line every frame.
       @ftor_pool = [] of Array(Int32)
 
-      # Defaults to `nil` (not an empty array): `process_content` always replaces
-      # this with `_parse_attr`'s result on a reparse before the lines are used,
-      # so pre-allocating an array here is pure per-reparse waste. All readers go
-      # through `attr.try(...)`, so `nil` is handled.
+      # Defaults to `nil`, not an empty array: `process_content` always replaces
+      # this with `_parse_attr`'s result on reparse, so pre-allocating would be
+      # waste. Readers go through `attr.try(...)`.
       property attr : Array(Int64)? = nil
 
-      # Backing store of wrapped lines. The array API (`push`, `[]`, `size`,
-      # `each`, `join`, `reduce`, ...) is forwarded to it below.
+      # Backing store of wrapped lines. Array API (`push`, `[]`, `size`, `each`,
+      # `join`, `reduce`, ...) is forwarded to it below.
       getter lines : Array(String)
 
       def initialize(@lines = [] of String)
       end
 
-      # Clears the arrays a reparse refills in place (`#lines`, `rtof`, `ftor`,
-      # `ci`) so this same `CLines` can be reused by the next `_wrap_content`
-      # instead of allocating a fresh object + arrays every reparse. `clear`
-      # keeps each array's backing buffer, so steady-state reparsing of
-      # same-shaped content reallocates nothing here. `fake`/`attr`/`real` and
-      # the scalar fields are overwritten wholesale by the reparse, so they are
-      # not touched. (`ftor`'s per-line sub-arrays are dropped and rebuilt; only
-      # the outer array's buffer is retained.)
+      # Clears arrays a reparse refills in place (`#lines`, `rtof`, `ftor`, `ci`)
+      # so this `CLines` is reused by the next `_wrap_content` instead of
+      # allocating fresh. `clear` keeps each array's backing buffer, so
+      # steady-state reparsing reallocates nothing here. `fake`/`attr`/`real` and
+      # scalar fields are overwritten wholesale by the reparse, so untouched.
       def reset : Nil
         @lines.clear
         @rtof.clear
-        # Recycle the per-line `ftor` sub-arrays into the pool (cleared) instead
-        # of dropping them, so the next wrap reuses them via `#take_ftor_row`.
+        # Recycle per-line `ftor` sub-arrays into the pool instead of dropping
+        # them, for reuse via `#take_ftor_row`.
         @ftor.each do |row|
           row.clear
           @ftor_pool << row
@@ -297,15 +266,15 @@ module Crysterm
         @ci.clear
       end
 
-      # A cleared per-line `ftor` sub-array: a recycled one from the pool (see
+      # A cleared per-line `ftor` sub-array: recycled from the pool (see
       # `#reset`) when available, otherwise a fresh allocation.
       def take_ftor_row : Array(Int32)
         @ftor_pool.pop? || [] of Int32
       end
 
-      # Match the old `Array#dup` behavior: a fresh, independent `Array(String)`
-      # copy (without the extra bookkeeping). Defined explicitly because
-      # `dup` already exists on `Object` and so is not forwarded.
+      # Matches old `Array#dup` behavior: a fresh, independent copy without the
+      # extra bookkeeping. Defined explicitly since `dup` exists on `Object` and
+      # isn't forwarded.
       def dup
         @lines.dup
       end
@@ -314,14 +283,12 @@ module Crysterm
     end
 
     # Single-pass content sanitization shared by `process_content` (whole
-    # content) and `append_content` (just the appended segment): strips control
-    # characters and a stray ESC (one not starting an SGR sequence), normalizes
-    # CR/CRLF to LF, and expands TAB to `tab_char * tab_size`. The four rules act
-    # on disjoint characters, so one alternation with a dispatching block is
-    # equivalent to four chained `gsub`s. Allocation-free on the common tab-free,
-    # match-free input: `gsub` returns the receiver unchanged, and the `tab`
-    # replacement string is only built when a TAB is actually present (the `""`
-    # fallback is a constant).
+    # content) and `append_content` (appended segment only): strips control
+    # characters and a stray ESC (not starting an SGR sequence), normalizes
+    # CR/CRLF to LF, and expands TAB to `tab_char * tab_size`. One alternation
+    # with a dispatching block replaces four chained `gsub`s. Allocation-free on
+    # tab-free, match-free input: `gsub` returns the receiver unchanged, and the
+    # `tab` string is only built when a TAB is present.
     private def clean_content_chars(text : String) : String
       tab = text.includes?('\t') ? style.tab_char * style.tab_size : ""
       text.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]|\e(?!\[[\d;]*m)|\r\n|\r|\t/) do |m|
@@ -334,88 +301,70 @@ module Crysterm
     end
 
     # `awidth_hint`, when given, is this widget's already-resolved absolute width
-    # for the current frame — the render path knows it cheaply (the parent has
-    # rendered, so `awidth(true)` is an O(1) `lpos` read) and passes it in so the
-    # default `awidth` (`get: false`) ancestor-chain walk — which runs here every
-    # frame, before the parse cache is even consulted — is skipped. Off-render
-    # callers (resize/attach/scroll) omit it and resolve the width as before.
+    # for the current frame — the render path knows it cheaply (`awidth(true)` is
+    # an O(1) `lpos` read once the parent has rendered) and passes it in to skip
+    # the default `awidth` ancestor-chain walk. Off-render callers (resize/
+    # attach/scroll) omit it and resolve the width as before.
     def process_content(no_tags = false, awidth_hint : Int32? = nil)
-      # Content layout (wrapping/alignment) needs the owning window's
-      # dimensions, so there is nothing to do until the widget is attached.
+      # Content layout needs the owning window's dimensions, so nothing to do
+      # until the widget is attached.
       return false unless window?
 
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
       colwidth = (awidth_hint || awidth) - iwidth
       # `@_clines.margin` is part of the wrap cache key too: an `AsNeeded` scroll
-      # bar's presence (and thus `content_margin_x`, the right-edge column the wrap
-      # reserves) can flip from a *height*-only change — a terminal resize, or a
-      # `widget.height=` — that leaves `colwidth`/`content_version`/`base_x` all
-      # unchanged, so without this the lines stay wrapped for the stale margin and
-      # the now-shown bar overpaints the last content column (the `widget-csr` bug)
-      # until the next content edit. After a reparse the convergence loop below
-      # leaves `@_clines.margin == content_margin_x`, so this never re-fires in
-      # steady state. Cheap on the common cache-hit path: non-scrollable widgets
-      # short-circuit `content_margin_x` to 0 via `show_scrollbar?`'s `scrollable?`
-      # guard, matching the `0` margin a tag-free wrap recorded.
+      # bar's presence (and thus `content_margin_x`) can flip from a height-only
+      # change (resize, `widget.height=`) that leaves the other cache-key fields
+      # unchanged. Without this check the lines stay wrapped for the stale
+      # margin and the now-shown bar overpaints the last content column (the
+      # `widget-csr` bug) until the next content edit. The convergence loop below
+      # leaves `@_clines.margin == content_margin_x` after a reparse, so this
+      # doesn't re-fire in steady state.
       if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version || @_clines.base_x != @child_base_x || @_clines.margin != content_margin_x
-        # A reparse reads the raw `@content`, so fold in any deferred appends
-        # first. (The common cache-hit path below never enters here, so deferred
-        # content is not materialized just to render an unchanged frame.)
+        # A reparse reads raw `@content`, so fold deferred appends first (the
+        # cache-hit path below never reaches here).
         fold_content_tail
-        # Single pass over the content instead of four chained `gsub`s (control
-        # chars, a stray ESC, CR/CRLF, TAB) — see `#clean_content_chars`. On the
-        # common tab-free reparse this returns `@content` unchanged (Crystal's
-        # `gsub` returns the receiver when nothing matches), so it is then
-        # allocation-free.
+        # Single pass instead of four chained `gsub`s — see `#clean_content_chars`.
+        # Allocation-free on the common tab-free reparse since `gsub` returns the
+        # receiver unchanged when nothing matches.
         content = clean_content_chars @content
 
         ::Log.trace { "Internal content is #{content.inspect}" }
 
         # No content-level Unicode munging here: wide-char layout, grapheme
-        # clusters, and combining marks are all handled at the cell level in the
+        # clusters, and combining marks are handled at the cell level in the
         # renderer (keyed off `window.full_unicode?`). See FIX-UNICODE.md for why
-        # the blessed content-string approach (the `\x03` wide-char sentinel,
-        # surrogate-pair repair) does not apply, and for the two optional, still-
-        # open behaviors (non-Unicode-terminal degradation; the iTerm2 combining
-        # quirk) if a real need ever appears.
+        # the blessed content-string approach doesn't apply here.
 
-        # Only parse tags when this call hasn't disabled them *and* the content
-        # actually contains tags (decided in `#set_content`). For plain-text
-        # content this skips `_parse_tags` and its whole-string regex scan.
-        #
-        # `@_content_no_tags` is consulted too: it records the `no_tags` mode the
-        # current content was set with (e.g. via `#set_text`), so a *later*
-        # cache-miss reparse — a width change, resize, scroll or attach, all of
-        # which call `process_content` with the default `no_tags = false` — keeps
-        # tags literal instead of suddenly parsing the tags `set_text` asked to
-        # preserve. (On the `set_content` call itself the two flags agree, since
-        # it sets `@_content_no_tags = no_tags` right before calling here.)
+        # Parse tags only when not disabled and content actually has tags
+        # (decided in `#set_content`); skips `_parse_tags`'s regex scan for
+        # plain text. `@_content_no_tags` records the mode content was set with
+        # (e.g. via `#set_text`), so a later cache-miss reparse (width change,
+        # resize, scroll, attach — all calling with default `no_tags = false`)
+        # keeps tags literal instead of parsing what `set_text` asked to
+        # preserve.
         if !no_tags && !@_content_no_tags && @_content_has_tags
           content = _parse_tags content
         end
         ::Log.trace { "After _parse_tags: #{content.inspect}" }
 
         # Reuse the existing `@_clines` object (refill in place) instead of
-        # allocating a new one each reparse — `@_clines` is non-nilable (defaults
-        # to an empty `CLines`), so it is always a valid reuse target.
+        # allocating a new one each reparse.
         #
-        # Wrap, then *converge* the scroll-bar reservation. An `AsNeeded` bar's
-        # presence depends on whether the content overflows the viewport, which
-        # is only known from the wrapped line count — i.e. *after* wrapping — yet
-        # the wrap width itself depends on the bar reserving its column. On the
-        # first wrap `@_clines` is empty, so `content_margin_x` sees
-        # `get_scroll_height == 0`, reserves nothing, and the content wraps one
-        # column too wide; the bar then overpaints the last content column (the
-        # `widget-csr` bug). So if the freshly-produced lines flip the reservation
-        # `content_margin_x` returns, re-wrap once with it. Monotonic: reserving a
-        # column only narrows the width, which only adds lines, so the bar cannot
-        # then disappear — two passes always suffice (the loop is bounded anyway).
+        # Wrap, then converge the scroll-bar reservation. An `AsNeeded` bar's
+        # presence depends on the wrapped line count, known only after wrapping,
+        # yet the wrap width depends on the bar reserving its column. On the
+        # first wrap `@_clines` is empty, so `content_margin_x` reserves nothing
+        # and content wraps one column too wide, letting the bar overpaint the
+        # last content column (the `widget-csr` bug). So if the produced lines
+        # flip the reservation, re-wrap once. Monotonic: reserving a column only
+        # narrows width and adds lines, so the bar can't then disappear — two
+        # passes always suffice.
         2.times do
           @_clines = _wrap_content(content, colwidth, into: @_clines)
-          # The break test keys off line count (`content_margin_x` →
-          # `get_scroll_height` → `@_clines.size`), which `_wrap_content` already
-          # set; the cache-key fields below don't affect it, so set them once after.
+          # Break test keys off line count, which `_wrap_content` already set;
+          # cache-key fields below don't affect it, so set them once after.
           break if @_clines.margin == content_margin_x
         end
         @_clines.width = colwidth
@@ -423,11 +372,10 @@ module Crysterm
         @_clines.content = @content
         @_clines.content_version = @_content_version
         # `_parse_attr` already computes `sattr(style)` and records it in
-        # `@_parse_attr_default`, so no separate recompute is needed here.
+        # `@_parse_attr_default`, so no separate recompute needed here.
         @_clines.attr = _parse_attr @_clines
-        # Reuse the `CLines`' own (empty) `ci` array — `_wrap_content` never
-        # touches it — by clearing and refilling, instead of allocating a fresh
-        # replacement every reparse.
+        # Reuse the `CLines`' own `ci` array by clearing and refilling, instead
+        # of allocating a fresh replacement every reparse.
         ci = @_clines.ci
         ci.clear
         @_clines.reduce(0) do |total, line|
@@ -451,14 +399,11 @@ module Crysterm
       da = sattr(style)
       if da != @_parse_attr_default
         @_parse_attr_default = da
-        # The per-line attrs array (`@_clines.attr`), in contrast, is read back by
-        # the render loop ONLY on a non-first wrapped/scrolled line — `_render`
-        # consults `@_clines.attr[base]` exclusively under `if ci > 0`, which
-        # requires multi-line content or a non-zero vertical scroll base. For the
-        # common single-line, unscrolled widget the array is never read, so the
-        # `O(content)` `_parse_attr` scan is pure waste there; gate it on the
-        # array actually being reachable. (A content change that alters the line
-        # count goes through the full reparse above, which always rebuilds it.)
+        # `@_clines.attr` is read by the render loop only on a non-first
+        # wrapped/scrolled line (`_render` checks `@_clines.attr[base]` under
+        # `if ci > 0`), which requires multi-line content or a non-zero scroll
+        # base. For the common single-line, unscrolled widget the array is never
+        # read, so skip the `O(content)` `_parse_attr` scan there.
         @_clines.attr = _parse_attr(@_clines) if @_clines.size > 1 || @child_base > 0
       end
 
@@ -468,21 +413,15 @@ module Crysterm
     # Convert `{red-fg}foo{/red-fg}` to `\e[31mfoo\e[39m`.
     def _parse_tags(text)
       return text unless @parse_tags
-      # Enter the parser whenever a brace is present (not only on a *valid* tag):
-      # under the drop-malformed policy a stray `{`/`}` must be stripped too, and
-      # brace-free text is returned untouched by this fast byte scan.
+      # Enter the parser whenever a brace is present (not only on a valid tag):
+      # under the drop-malformed policy a stray `{`/`}` must be stripped too.
       return text unless text.includes?('{') || text.includes?('}')
 
-      # Accumulate into a `String::Builder` rather than `outbuf += ...`: repeated
-      # `String` concatenation rebuilds the whole (growing) result on every tag,
-      # which is O(n^2) for heavily-tagged content. The cursor is an integer
-      # offset (`pos`) advanced through `text` with ANCHORED matches at that
-      # offset, instead of re-slicing `text = text[cap[0].size..]` each step —
-      # the old reslicing allocated a fresh tail `String` per tag/segment, a
-      # second O(n^2). (Anchored matching at an offset is the same technique
-      # `_parse_attr` already uses to scan SGR sequences without slicing.) This
-      # path is cold — content-change only — but the quadratic blowup made
-      # heavily-tagged content disproportionately expensive to (re)parse.
+      # `String::Builder` instead of `outbuf += ...`, which would rebuild the
+      # whole result on every tag (O(n^2) for heavily-tagged content). The
+      # cursor is an integer offset advanced via ANCHORED matches rather than
+      # reslicing `text` each step (the old approach allocated a fresh tail
+      # `String` per tag, a second O(n^2)).
       outbuf = String::Builder.new
       bg = [] of String
       fg = [] of String
@@ -493,11 +432,9 @@ module Crysterm
       size = text.size
       anchored = Regex::MatchOptions::ANCHORED
 
-      # Both the `{escape}` block and the `{|}` separator are rare. Decide once,
-      # up front, whether the text contains either, so the hot per-iteration path
-      # skips the `{escape}` regex match *and* the `text[pos, 3]` substring
-      # allocation it otherwise paid on every token. (Absent the substring/token
-      # the gated checks could never have matched, so this is equivalent.)
+      # `{escape}` and `{|}` are rare; decide once up front whether either is
+      # present so the per-iteration path skips the `{escape}` regex match and
+      # the `text[pos, 3]` substring allocation otherwise paid per token.
       has_escape = text.includes?("{escape}")
       has_bar = text.includes?("{|}")
 
@@ -523,11 +460,10 @@ module Crysterm
           end
         end
 
-        # `{|}` is Blessed's right-align *separator*, not an attribute tag: text
-        # after it is pushed to the right edge of the line. It must survive
-        # parsing verbatim so `#_align` (which splits the line on the braces and
-        # right-justifies the trailing part) can act on it; without this it would
-        # fall through to the drop-malformed branch below and render as a bare `|`.
+        # `{|}` is Blessed's right-align separator, not an attribute tag: text
+        # after it is pushed to the line's right edge. Must survive parsing
+        # verbatim so `#_align` can act on it; otherwise it falls through to the
+        # drop-malformed branch and renders as a bare `|`.
         if has_bar && text[pos, 3]? == "{|}"
           outbuf << "{|}"
           pos += 3
@@ -536,19 +472,17 @@ module Crysterm
 
         # A recognized `{tag}` / `{/tag}`. `{open}`/`{close}` emit literal
         # braces; a known attribute name emits its SGR (tracking nesting so a
-        # close restores the previous state); an UNRECOGNIZED tag is malformed
-        # and dropped (drop-malformed policy, todoc Q6). `Tput#_attr` returns ""
-        # for an unknown name and a non-empty SGR for every known one (in the
-        # opening sense), so `empty?` is the recognition test.
+        # close restores the previous state); an unrecognized tag is dropped
+        # (drop-malformed policy, todoc Q6). `Tput#_attr` returns "" for an
+        # unknown name, non-empty for every known one, so `empty?` is the test.
         if cap = TAG_REGEX.match(text, pos, options: anchored)
           pos += cap[0].size
           slash = cap[1] == "/"
           # XXX Tags must be specified such as {light-blue-fg}, but are then
           # parsed here with - being ' '. See why? Can we work with - and skip
           # this replacement part?
-          # Char-`gsub` (not the `/-/` regex) and only when a dash is actually
-          # present — dash-free tags (`bold`, `red`) then reuse the captured
-          # name with no scan and no allocation.
+          # Char-`gsub`, only when a dash is present — dash-free tags (`bold`,
+          # `red`) reuse the captured name with no scan or allocation.
           param = cap[2]
           param = param.gsub('-', ' ') if param.includes?('-')
 
@@ -559,16 +493,14 @@ module Crysterm
             outbuf << '}'
             next
           elsif param == "left" || param == "center" || param == "right"
-            # `{left}`/`{center}`/`{right}` (and their `{/...}` closers) are
-            # line-*alignment* tags, not attribute tags: they carry no SGR, so
-            # the recognized-attribute path below would treat them as unknown and
-            # drop them — which silently disabled `{center}…{/center}` alignment
-            # (every such Box rendered left-aligned). `#_wrap_content` is the code
-            # that actually consumes them (it matches `^{(left|center|right)}` /
-            # `{/(…)}$` per line and sets the row alignment), and it runs *after*
-            # `_parse_tags`, so they must survive parsing verbatim — exactly as the
-            # `{|}` right-align separator does above. `cap[0]` is the whole tag
-            # (slash included), so both the opener and the closer pass through.
+            # `{left}`/`{center}`/`{right}` (and `{/...}` closers) are line-
+            # alignment tags, not attribute tags — no SGR, so the recognized-
+            # attribute path below would drop them as unknown, silently
+            # disabling `{center}…{/center}` alignment. `#_wrap_content` consumes
+            # them (matches `^{(left|center|right)}` / `{/(…)}$` per line) after
+            # `_parse_tags` runs, so they must survive parsing verbatim, like
+            # `{|}` above. `cap[0]` includes the slash, so opener and closer both
+            # pass through.
             outbuf << cap[0]
             next
           end
@@ -593,14 +525,11 @@ module Crysterm
               # if (param !== state[state.size - 1])
               #   throw new Error('Misnested tags.')
               # }
-              # `pop?` (not `pop`): a recognized closing tag with NO matching open
-              # (e.g. `{/bold}` or `{/red-fg}` on its own, or more closes than
-              # opens) leaves the fg/bg/flag stack empty here. Crystal's `Array#pop`
-              # raises `IndexError` on an empty array — so the bare `pop` crashed
-              # the whole parse on such unbalanced-but-recognized input. Blessed's
-              # JS `array.pop()` returns `undefined` (no throw) and falls through to
-              # emit the tag's "off" SGR; `pop?` reproduces that: it returns nil on
-              # empty, `state.size` stays 0, and we emit `_attr(param, false)`.
+              # `pop?` (not `pop`): a recognized closing tag with no matching open
+              # leaves the stack empty. Crystal's `Array#pop` raises on empty,
+              # which would crash the parse on unbalanced-but-recognized input.
+              # Blessed's JS `array.pop()` returns `undefined` and falls through
+              # to emit the tag's "off" SGR; `pop?` reproduces that.
               state.pop?
               outbuf << (state.size > 0 ? window.tput._attr(state[-1]) : window.tput._attr(param, false))
             end
@@ -618,9 +547,8 @@ module Crysterm
         end
 
         # A run of plain (brace-free) text passes through verbatim. Find the next
-        # brace by index instead of an anchored `/[^{}]+/` match, so a plain run
-        # costs no per-run `MatchData`/capture allocation — only the substring
-        # that has to be emitted anyway.
+        # brace by index instead of an anchored regex match, avoiding a per-run
+        # `MatchData`/capture allocation.
         b1 = text.index('{', pos)
         b2 = text.index('}', pos)
         nb = b1 ? (b2 ? Math.min(b1, b2) : b1) : (b2 || size)
@@ -639,12 +567,10 @@ module Crysterm
     end
 
     # Base attribute after scanning `line`'s inline SGR sequences starting from
-    # `attr`. The shared per-line attr step: `_parse_attr` uses it to advance the
-    # running attr line-to-line, and `append_content` uses it to carry the SGR
-    # state across the append boundary (a `{red-fg}` left open on an earlier line
-    # colors the appended lines too, exactly as a full reparse would).
-    # `default_attr` is `sattr(style)`, passed in so callers compute it once rather
-    # than per line.
+    # `attr`. Shared by `_parse_attr` (advances the running attr line-to-line)
+    # and `append_content` (carries SGR state across the append boundary, so a
+    # `{red-fg}` left open on an earlier line colors appended lines too).
+    # `default_attr` is `sattr(style)`, passed in so callers compute it once.
     private def _attr_after(line : String, attr : Int64, default_attr : Int64) : Int64
       line.each_char_with_index do |char, i|
         if char == '\e'
@@ -659,23 +585,19 @@ module Crysterm
     def _parse_attr(lines : CLines)
       default_attr = sattr(style)
       # Record the base attribute this parse was built against, so callers don't
-      # recompute `sattr(style)` separately (it is the same value, several style
-      # field reads + a pack). Both `process_content` call sites previously did so.
+      # recompute `sattr(style)` separately.
       @_parse_attr_default = default_attr
       attr = default_attr
-      # Reuse the `CLines`' own `attr` array (clear + refill) so a reparse does
-      # not allocate a fresh `Array(Int64)` each time; allocated once on first
-      # use. The caller assigns the result back to `lines.attr`, which is this
-      # same array, so that assignment is a no-op.
+      # Reuse the `CLines`' own `attr` array (clear + refill) instead of
+      # allocating a fresh `Array(Int64)` each reparse.
       attrs = (lines.attr ||= [] of Int64)
       attrs.clear
 
-      # Fast path: when the content has no inline SGR at all — no raw `\e` and no
-      # tags that expand into one (see `@_content_has_sgr`/`@_content_has_tags`) —
-      # every line carries the same base attr, so fill the array directly and skip
-      # the per-line `_attr_after` codepoint scan (and its `Char::Reader`). This is
-      # the overwhelmingly common case (plain-text labels/list-items/per-cell
-      # boxes) and avoids a decode loop per line per widget per frame.
+      # Fast path: with no inline SGR at all (no raw `\e`, no tags expanding into
+      # one — see `@_content_has_sgr`/`@_content_has_tags`), every line carries
+      # the same base attr, so fill directly and skip the per-line `_attr_after`
+      # scan. Covers the common case (plain-text labels/list-items/per-cell
+      # boxes).
       if !@_content_has_sgr && !@_content_has_tags
         lines.size.times { attrs.push default_attr }
         return attrs
@@ -713,26 +635,21 @@ module Crysterm
     # buffers (see `CLines#reset`). When nil a new `CLines` is built.
     def _wrap_content(content, colwidth, into : CLines? = nil)
       default_state = @align
-      # Capture the right-edge reservation BEFORE `outbuf.reset` below. When
-      # `into` is the widget's own `@_clines`, `reset` clears it — and
-      # `content_margin_x` → `show_scrollbar?` → `really_scrollable?` →
-      # `get_scroll_height` *reads* `@_clines`. Read post-reset, the just-emptied
-      # lines make `get_scroll_height == 0`, so an `AsNeeded` bar looks un-needed
-      # mid-wrap. Reading it here, pre-reset, sees the lines still in place — which
-      # is exactly what `process_content`'s convergence pass relies on: its second
-      # `_wrap_content` call must see the *first* pass's line count to keep the
-      # reservation, not re-zero it and oscillate.
+      # Capture the right-edge reservation before `outbuf.reset` below: `reset`
+      # clears `@_clines` when `into` is the widget's own, and
+      # `content_margin_x` reads `@_clines.size` to size an `AsNeeded` bar — read
+      # post-reset it would see zero lines and think the bar unneeded mid-wrap.
+      # Reading pre-reset lets `process_content`'s convergence pass see the first
+      # pass's line count instead of re-zeroing and oscillating.
       margin = content_margin_x
       outbuf = into || CLines.new
       # Record the reservation this wrap is built against, so `process_content`
       # can tell when an `AsNeeded` bar's presence (only known post-wrap) flips
       # it and a re-wrap is needed.
       outbuf.margin = margin
-      # Clear the in-place arrays so a reused `CLines` starts empty (a no-op on a
-      # freshly built one). After this, fill the `CLines`' own `rtof`/`ftor`
-      # arrays directly via these aliases — no throwaway locals reassigned at the
-      # end. (The empty-content branch below returns before these are used and
-      # sets its own literals.)
+      # Clear in-place arrays so a reused `CLines` starts empty (no-op when
+      # freshly built). `rtof`/`ftor` aliases below fill the `CLines`' own
+      # arrays directly. (The empty-content branch returns before these are used.)
       outbuf.reset
       outbuf.full_width = 0
       rtof = outbuf.rtof
@@ -748,11 +665,10 @@ module Crysterm
         return outbuf
       end
 
-      # Reuse the `fake` array for the common single-line content (a label, list
-      # item, panel title, …): refill it in place instead of letting
-      # `String#split` allocate a fresh `Array(String)` every reparse. Multi-line
-      # content still splits — its sub-strings have to be allocated anyway — and
-      # the final `outbuf.fake = lines` below records whichever array we used.
+      # Reuse the `fake` array for common single-line content (label, list item,
+      # panel title): refill in place instead of letting `String#split` allocate
+      # a fresh `Array(String)` every reparse. Multi-line content still splits,
+      # since its substrings must be allocated anyway.
       if content.includes?('\n')
         lines = content.split('\n')
       else
@@ -761,10 +677,10 @@ module Crysterm
         lines << content
       end
 
-      # Subtract the right-edge reservation captured above so content wraps clear
-      # of the scroll bar (and any per-widget reservation, e.g. `PlainTextEdit`'s
-      # caret column). `#content_margin_x` is the single source of truth, shared
-      # with the horizontal-scroll math (`#content_width`).
+      # Subtract the right-edge reservation so content wraps clear of the scroll
+      # bar (and any per-widget reservation, e.g. `PlainTextEdit`'s caret
+      # column). `#content_margin_x` is shared with the horizontal-scroll math
+      # (`#content_width`).
       colwidth -= margin if colwidth > margin
 
       lines.each_with_index do |line, no|
@@ -773,17 +689,14 @@ module Crysterm
 
         ftor.push outbuf.take_ftor_row
 
-        # Handle alignment tags. The opener may be PRECEDED — and the closer
-        # FOLLOWED — by inline SGR sequences, which happens whenever an alignment
-        # tag is nested inside an attribute tag: `{bold}{center}Hi{/center}{/bold}`
-        # becomes `\e[1m{center}Hi{/center}\e[22m` after `_parse_tags`. Matching the
-        # alignment tag only at the absolute string edge (the old `^{...}` / `{...}$`)
-        # missed that SGR-wrapped form, which both silently dropped the alignment
-        # (the content rendered left-aligned) AND leaked the literal `{center}` /
-        # `{/center}` text into the wrapped output. Allow the surrounding SGR in the
-        # match and re-prepend/-append it, so only the alignment tag itself is
-        # consumed and the colors survive. The SGR-free case (`cap[1]`/`cap[2]`
-        # empty) reduces exactly to the original behavior.
+        # Handle alignment tags. The opener may be preceded — and the closer
+        # followed — by inline SGR, which happens when an alignment tag nests
+        # inside an attribute tag: `{bold}{center}Hi{/center}{/bold}` becomes
+        # `\e[1m{center}Hi{/center}\e[22m` after `_parse_tags`. Matching the
+        # alignment tag only at the absolute string edge missed that SGR-wrapped
+        # form, silently dropping the alignment and leaking literal
+        # `{center}`/`{/center}` text into output. Allow surrounding SGR in the
+        # match and re-prepend/-append it so only the alignment tag is consumed.
         if @parse_tags
           if cap = line.match /^((?:\e\[[\d;]*m)*){(left|center|right)}/
             align_left_too = true
@@ -806,11 +719,10 @@ module Crysterm
           end
         end
 
-        # Without wrapping the line is one full (unwrapped) row: record its true
-        # width for the horizontal scroll range, then slice it to the visible
-        # column window `[child_base_x, child_base_x + colwidth)`. At
-        # `child_base_x == 0` this is exactly the old "keep what fits, cut the
-        # rest off" truncation (see `#_hslice`).
+        # Without wrapping, the line is one full row: record its true width for
+        # the horizontal scroll range, then slice to the visible column window
+        # `[child_base_x, child_base_x + colwidth)`. At `child_base_x == 0` this
+        # is the old "keep what fits, cut the rest" truncation (see `#_hslice`).
         unless @wrap_content
           outbuf.full_width = Math.max(outbuf.full_width, str_width(line))
           push_real_line outbuf, ftor, rtof, no, _align(_hslice(line, @child_base_x, colwidth), colwidth, align, align_left_too)
@@ -823,15 +735,14 @@ module Crysterm
           break unless str_width(line) > colwidth
 
           # Character index at which to cut so the kept prefix fits `colwidth`
-          # columns. SGR sequences consume no width; under `full_unicode?` widths
-          # are grapheme / East-Asian and clusters are never split.
+          # columns. SGR consumes no width; under `full_unicode?` widths are
+          # grapheme/East-Asian and clusters are never split.
           i = wrap_cut_index(line, colwidth)
 
-          # Try to break on a space within the last few columns (word wrap):
-          # back up from the column-fit cut `i` to the most recent space within
-          # the previous ~10 chars and cut just after it, so a word isn't split
-          # mid-way. If no space is found in that window, keep `i` (character
-          # wrap fallback). Mirrors blessed's `while (j > i-10 && j > 0)` scan.
+          # Word wrap: back up from the column-fit cut `i` to the most recent
+          # space within the previous ~10 chars and cut just after it, so a word
+          # isn't split mid-way. Falls back to character-wrap `i` if no space
+          # found. Mirrors blessed's `while (j > i-10 && j > 0)` scan.
           if i != line.size
             j = i
             while (j > i - 10) && (j > 0)
@@ -868,16 +779,13 @@ module Crysterm
         push_real_line outbuf, ftor, rtof, no, _align(line, colwidth, align, align_left_too)
       end
 
-      # `rtof`/`ftor` already alias `outbuf`'s own arrays (filled in place above),
-      # so no reassignment is needed here.
+      # `rtof`/`ftor` already alias `outbuf`'s own arrays (filled in place above).
       outbuf.fake = lines
       outbuf.real = outbuf
 
-      # Note that this is intended to save the length of the longest line to
-      # outbuf.max_width. In the case that the text was aligned, the alignment
-      # has padded it with spaces, effectively lengthening it. So, in that case
-      # the max_width value won't be actual max. length of longest line, but it
-      # will be the full width of the surrounding box, to which it was aligned.
+      # Saves the longest line's length to outbuf.max_width. If text was
+      # aligned, padding spaces lengthen it, so max_width then reflects the
+      # surrounding box's width rather than the actual longest line.
       outbuf.max_width = outbuf.reduce(0) do |current, line|
         Math.max str_width(line), current
       end
@@ -887,13 +795,10 @@ module Crysterm
 
     # Aligns content
     def _align(line, width, align = Tput::AlignFlag::None, align_left_too = false)
-      # Right-align separator `{|}` (Blessed): text after `{|}` is pushed to the
-      # right edge of the line. It distributes content *within* the line, so it is
-      # independent of the line's own alignment — handle it before the
-      # align-direction early-returns below so it also works for the default Left
-      # alignment (the common case; `_parse_tags` passes `{|}` through verbatim
-      # for exactly this). The general `{|}` branch further down is only reachable
-      # for HCenter/Right, so this is what makes it fire for left-aligned content.
+      # Right-align separator `{|}` (Blessed): text after it is pushed to the
+      # right edge. Distributes content within the line independent of the
+      # line's own alignment, so handle before the align-direction early-returns
+      # below — otherwise it would never fire for default Left alignment.
       if @parse_tags && line.includes?("{|}")
         cl = line.includes?('\e') ? line.gsub(SGR_REGEX, "") : line
         if res = split_right_align(line, cl, width)
@@ -904,23 +809,19 @@ module Crysterm
       return line if align.none?
 
       # Plain left alignment pads nothing — only HCenter/Right (or a forced
-      # `{left}` via `align_left_too`) add spaces — so it returns `line` unchanged
-      # anyway. Bail before measuring width: a widget's default `@align` carries
-      # `Left` (plus a vertical flag), so this is the overwhelmingly common case
-      # and skips a `str_width` (and the ESC scan) on every aligned line.
+      # `{left}` via `align_left_too`) add spaces. Bail before measuring width: a
+      # widget's default `@align` carries `Left`, the common case, skipping a
+      # `str_width` call on every aligned line.
       if !align_left_too && (align & (Tput::AlignFlag::HCenter | Tput::AlignFlag::Right)).none?
         return line
       end
 
-      # Only run the SGR-stripping `gsub` (which allocates a fresh `String`) when
-      # the line actually contains an escape; the vast majority of aligned lines
-      # carry no color, so a cheap `includes?` byte scan lets them reuse `line`
-      # with no allocation. When there is no ESC, `cline == line` and everything
-      # below (width, splits) behaves identically.
+      # Only run the SGR-stripping `gsub` when the line actually contains an
+      # escape; most aligned lines carry no color, so a cheap `includes?` check
+      # lets them reuse `line` with no allocation.
       cline = line.includes?('\e') ? line.gsub(SGR_REGEX, "") : line
-      # `cline` is already SGR-stripped (or had none), so measure it directly.
-      # `str_width line` would strip the SGR sequences a second time; `str_width
-      # cline` skips the regex (no ESC present) and yields the identical width.
+      # `cline` is already SGR-stripped (or had none); `str_width cline` skips
+      # the regex scan `str_width line` would otherwise repeat.
       len = str_width cline
 
       # XXX In blessed's code (and here) it was done only with this commented
@@ -946,10 +847,9 @@ module Crysterm
       fc = style.fill_char.to_s
 
       if (align & Tput::AlignFlag::HCenter) != Tput::AlignFlag::None
-        # Split the free space across both sides; the odd extra cell goes to the
-        # right (Blessed's convention) so a centered line still fills the full
-        # `width` (`s//2 + (s - s//2) == s`) instead of being one cell short for
-        # odd free space — which would otherwise also under-report `max_width`.
+        # Split free space across both sides; the odd extra cell goes right
+        # (Blessed's convention), so a centered line still fills `width` exactly
+        # instead of falling one cell short on odd free space.
         left = fc * (s // 2)
         right = fc * (s - s // 2)
         return left + line + right
@@ -957,21 +857,13 @@ module Crysterm
         s = fc * s
         return s + line
       elsif align_left_too && align.left?
-        # Technically, left align is visually the same as no align at all.
-        # But when text is aligned to center or right, all the available empty space is padded
-        # with spaces (around the text in center align, and in front of text in right align).
-        # So, because of this padding with spaces, which affects the size of the widget, we
-        # want to pad {left} align for uniformity as well.
-        #
-        # But, because aligning left affects almost everything in undesired ways (a lot
-        # more chars are present, and cursor in text widgets is wrong), we do not want to do
-        # this when Widget's `align = AlignFlag::Left`. We only want to do it when there is
-        # "{left}" in content, and parse_tags is true.
-        #
-        # This should ensure that {left|center|right} behave 100% identical re. the effect
-        # it has on row width. To see the old behavior without this, comment this elseif,
-        # run test/widget-list.cr, and observe the look of the first element in the list
-        # vs. the other elements when they are selected.
+        # Left align is visually the same as no align, but center/right padding
+        # affects widget size, so pad {left} for uniformity too — only when
+        # "{left}" is explicitly in content with parse_tags on, not for a
+        # widget's default `align = AlignFlag::Left` (which affects cursor
+        # position in text widgets undesirably). Ensures {left|center|right}
+        # behave identically re. row width. To see old behavior, comment this
+        # elseif and check test/widget-list.cr's first list element.
         s = fc * s
         return line + s
       elsif @parse_tags && (line.includes?('{') || line.includes?('}'))
@@ -982,23 +874,20 @@ module Crysterm
         if res = split_right_align(line, cline, width)
           return res
         end
-        # Otherwise (just a lone `{` or `}`): falls through to `return line` below.
+        # Otherwise (lone `{` or `}`): falls through to `return line` below.
       end
 
       line
     end
 
-    # Right-aligns the text after a `{...}` split: the segment before the first
-    # delimiter stays put and the segment after the second delimiter is pushed
-    # flush against the right edge of `width`, with the gap filled by
-    # `Style#fill_char`. This backs both the `{|}` right-align separator (handled
-    # up front, independent of the line's own alignment) and the generic
-    # `{left}…{right}` spread reachable through the HCenter/Right align path.
+    # Right-aligns text after a `{...}` split: the segment before the first
+    # delimiter stays put, the segment after the second is pushed flush right
+    # within `width`, gap filled by `Style#fill_char`. Backs both the `{|}`
+    # right-align separator and the generic `{left}…{right}` spread.
     #
     # `line` is the raw (possibly SGR-carrying) line; `cline` is its SGR-stripped
-    # form, used for width measurement. Returns the padded line, or `nil` when
-    # there is no usable two-sided split (e.g. just a lone `{` or `}`), in which
-    # case the caller leaves `line` unchanged.
+    # form for width measurement. Returns `nil` when there's no usable two-sided
+    # split (e.g. a lone `{` or `}`), and the caller leaves `line` unchanged.
     private def split_right_align(line, cline, width) : String?
       parts = line.split(/\{|\}/)
       cparts = cline.split(/\{|\}/)
@@ -1008,11 +897,10 @@ module Crysterm
       end
     end
 
-    # Rebuilds the widget's content from the in-place-mutated `@_clines.fake`
-    # lines (re-joining them and reparsing). The `no_clear` flag is set so the
-    # existing `@_clines` machinery is refreshed rather than wiped. Used by the
-    # line-level editors (`insert_line`/`delete_line`/`set_line`) after they
-    # splice `fake`.
+    # Rebuilds widget content from the in-place-mutated `@_clines.fake` lines
+    # (re-joining and reparsing). `no_clear` is set so `@_clines` is refreshed
+    # rather than wiped. Used by line-level editors (`insert_line`/
+    # `delete_line`/`set_line`) after they splice `fake`.
     private def rebuild_content_from_fake
       set_content(@_clines.fake.join("\n"), true)
     end
@@ -1021,28 +909,23 @@ module Crysterm
     # appended line never allocates a fresh bookkeeping object.
     @_append_scratch : CLines? = nil
 
-    # Append `text` (one or more `\n`-separated logical lines) to the end of the
-    # content WITHOUT reparsing everything already there. The existing wrapped
-    # lines, their tag parse, and their per-line attributes are all left
-    # untouched; only the newly appended text is cleaned, tag-parsed, wrapped and
-    # attr-scanned, then spliced onto the tail of `@_clines`. This turns the
-    # O(total) work that `set_content` does per append into O(appended).
+    # Appends `text` (one or more `\n`-separated logical lines) without reparsing
+    # existing content. Only the new text is cleaned, tag-parsed, wrapped and
+    # attr-scanned, then spliced onto `@_clines`'s tail — turning `set_content`'s
+    # O(total) per-append cost into O(appended).
     #
     # Returns `true` if the fast path handled it, `false` if it bailed (caller
-    # should fall back to `set_content`/`push_line`). It bails when the content
-    # is empty (let the normal path seed line 0), the parse cache is stale, or the
-    # width changed (the existing wrapped lines would need re-wrapping).
+    # falls back to `set_content`/`push_line`): empty content, stale parse cache,
+    # or a width change requiring re-wrap.
     #
-    # Why it is byte-identical to a full reparse:
-    # * Per-fake-line wrapping is independent in `_wrap_content` (each `\n`-split
-    #   segment wraps on its own), so appending never re-wraps earlier lines.
-    # * Tags: `@_clines.fake` stores already-*parsed* (SGR) content for earlier
-    #   lines, so a full reparse's `_parse_tags` sees no tag tokens before the new
-    #   segment — the fg/bg/flag stacks always start empty at the boundary. Parsing
-    #   the new segment standalone is therefore exactly what a full reparse does.
-    # * Attributes DO carry: an SGR left open on an earlier line (e.g. an unclosed
-    #   `{red-fg}`) colors the appended lines too. `_attr_after` recreates that
-    #   carry so the spliced per-line attrs match a full reparse.
+    # Byte-identical to a full reparse because:
+    # * `_wrap_content` wraps each `\n`-split segment independently, so appending
+    #   never re-wraps earlier lines.
+    # * `@_clines.fake` stores already-parsed (SGR) content for earlier lines, so
+    #   a full reparse's tag stacks start empty at the new segment's boundary —
+    #   parsing it standalone matches that exactly.
+    # * Attributes do carry: an SGR left open on an earlier line (e.g. unclosed
+    #   `{red-fg}`) colors appended lines too; `_attr_after` recreates that carry.
     def append_content(text : String) : Bool
       return false unless window?
       # Cache must be current: if a reparse is pending, splicing onto stale
@@ -1051,35 +934,32 @@ module Crysterm
       return false if content_blank?
       colwidth = @_clines.width
       return false if colwidth <= 0
-      # Bail if the widget's width changed since the cache was built — the slow
-      # path reparses everything at the new width (the `width != colwidth` check
-      # in `process_content`); the fast path can only splice when the existing
-      # wrapped lines are still valid for the current width.
+      # Bail if width changed since the cache was built — the slow path reparses
+      # at the new width; the fast path can only splice when existing wrapped
+      # lines are still valid for the current width.
       return false if (awidth - iwidth) != colwidth
-      # Degenerate state: content that cleaned away to nothing leaves `_wrap_content`
-      # in its empty-content shape (`fake` empty, one blank real line). Splicing
-      # onto that would desync `fake` from `lines`; let the full path handle it.
+      # Degenerate state: content cleaned to nothing leaves `_wrap_content` in
+      # its empty-content shape (`fake` empty, one blank real line). Splicing
+      # there would desync `fake` from `lines`; let the full path handle it.
       return false if @_clines.fake.empty?
 
-      # Clean control chars on JUST the appended text (same single-pass rule as
-      # `process_content`, via the shared `#clean_content_chars`), then tag-parse
-      # only the new segment.
+      # Clean control chars on just the appended text (same rule as
+      # `process_content`, via `#clean_content_chars`), then tag-parse only the
+      # new segment.
       seg = clean_content_chars text
-      # Appending nothing (empty text, or text that cleaned away) would drive
-      # `_wrap_content` down its empty-content branch, which desyncs `fake` from
-      # `lines`. Such an append is a no-op for content but `push_line` still wants
-      # the blank line; let the full path produce it.
+      # An append that cleans away to nothing would drive `_wrap_content` down
+      # its empty-content branch, desyncing `fake` from `lines`; let the full
+      # path produce the blank line `push_line` wants.
       return false if seg.empty?
 
-      # Honor the content's `no_tags` mode (see `process_content`): content set
-      # via `#set_text` keeps tags literal, so an appended segment must not be
-      # tag-parsed either — otherwise the fast path would diverge from a full
-      # reparse (which now skips `_parse_tags` under `@_content_no_tags`).
+      # Honor the content's `no_tags` mode: content set via `#set_text` keeps
+      # tags literal, so an appended segment must not be tag-parsed either, or
+      # the fast path would diverge from a full reparse.
       seg_has_tags = @parse_tags && !@_content_no_tags && seg.includes?('{') && seg.matches?(TAG_REGEX)
       if seg_has_tags
-        # Standalone tag parse of the new segment. Correct because earlier `fake`
-        # lines are already SGR (tagless), so a full reparse's tag stacks are
-        # likewise empty at this boundary (see the method doc).
+        # Standalone tag parse is correct here since earlier `fake` lines are
+        # already SGR (tagless), so a full reparse's tag stacks are likewise
+        # empty at this boundary.
         seg = _parse_tags seg
       end
 
@@ -1101,26 +981,25 @@ module Crysterm
       end
       scratch.rtof.each { |f| cl.rtof << (f + base_fake) }
 
-      # Extend `ci` (char offset of each real line within the joined pcontent),
-      # derived from the existing offsets — NOT from `@_pcontent`, which is now
-      # built lazily and may be stale/nil here. The first new line starts one past
-      # the end of the last existing line: `ci[last] + len(last) + 1` (the +1 is
-      # the joining "\n"). `base_real >= 1` because content is non-blank.
+      # Extend `ci` (char offset of each real line in the joined pcontent),
+      # derived from existing offsets, not `@_pcontent` (lazily built, may be
+      # stale/nil here). First new line starts one past the last existing line's
+      # end: `ci[last] + len(last) + 1` (the +1 is the joining "\n"). `base_real
+      # >= 1` since content is non-blank.
       running = cl.ci[base_real - 1] + cl.lines[base_real - 1].size + 1
       scratch.lines.each do |ln|
         cl.ci << running
         running += ln.size + 1
       end
 
-      # Per-line starting attrs for the new lines, carrying the SGR state across
-      # the boundary: the first new line starts from the attr the existing
-      # content ended on (its last line's start attr advanced through that line's
-      # SGRs), and each subsequent new line continues from the previous. This
-      # matches `_parse_attr`'s line-to-line carry exactly.
+      # Per-line starting attrs for new lines, carrying SGR state across the
+      # boundary: first new line starts from the attr the existing content ended
+      # on, each subsequent line continues from the previous — matching
+      # `_parse_attr`'s line-to-line carry.
       if attrs = cl.attr
         da = sattr(style)
-        # `base_real >= 1` (content non-blank), so the boundary attr comes from the
-        # last existing line unless `attrs` is somehow short (degrade to default).
+        # `base_real >= 1` (content non-blank); degrade to default if `attrs` is
+        # somehow short.
         carry = base_real <= attrs.size ? _attr_after(cl.lines[base_real - 1], attrs[base_real - 1], da) : da
         scratch.lines.each do |ln|
           attrs << carry
@@ -1129,34 +1008,30 @@ module Crysterm
       end
 
       cl.max_width = Math.max(cl.max_width, scratch.max_width)
-      # Carry the widest *unclipped* line forward too (non-wrapped content only;
-      # `full_width` is 0 when wrapping, so this is a no-op there). It drives
-      # `get_scroll_width` / the horizontal scroll range — without merging it,
-      # appending a wider line to a non-wrapping widget would leave the extent
-      # stale, deviating from the byte-identical-to-a-full-reparse contract.
+      # Carry widest unclipped line forward too (non-wrapped content only;
+      # `full_width` is 0 when wrapping). Drives `get_scroll_width` / horizontal
+      # scroll range — without merging, a wider appended line would leave the
+      # extent stale.
       cl.full_width = Math.max(cl.full_width, scratch.full_width)
 
       # Defer the two O(total) string builds instead of doing them per append —
-      # this is what makes a run of appends O(1) amortized rather than O(n) each:
-      #   * `@_pcontent` is marked stale (nil); `#pcontent` rebuilds it from the
-      #     wrapped lines on demand — once per render after a change, not per line.
-      #     A fresh String also makes the render's `built_from?` check rebuild the
-      #     codepoint index on its own.
+      # this makes a run of appends O(1) amortized rather than O(n) each:
+      #   * `@_pcontent` is marked stale (nil); `#pcontent` rebuilds it on demand.
+      #     A fresh String also makes render's `built_from?` check rebuild the
+      #     codepoint index.
       #   * the raw appended `text` is stashed in `@_content_tail`; `#content`
-      #     folds it in only when the raw content is actually read.
-      # `cl.content` (write-only bookkeeping) is left as-is rather than forcing a
-      # materialization here.
+      #     folds it in only when read.
       @_pcontent = nil
       @_content_tail << text
       @_content_has_tags ||= seg_has_tags
-      # Keep the inline-SGR flag current across deferred appends (the cleaned
-      # `seg` retains valid SGR; stray ESC was already stripped above).
+      # Keep inline-SGR flag current across deferred appends (cleaned `seg`
+      # retains valid SGR; stray ESC already stripped above).
       @_content_has_sgr ||= seg.includes? '\e'
       @_content_version += 1
       cl.content_version = @_content_version
 
-      # Mirror the full path: mark the widget for repaint and emit the same event
-      # contract — `ParsedContent` (scrollable widgets' `_recalculate_index`) and
+      # Mirror the full path: mark for repaint, emit the same events —
+      # `ParsedContent` (scrollable widgets' `_recalculate_index`) and
       # `SetContent` (e.g. `Log` auto-scroll).
       mark_dirty
       emit Crysterm::Event::ParsedContent
@@ -1190,12 +1065,11 @@ module Crysterm
       # real
 
       if i >= @_clines.ftor.size
-        # `ftor` is empty before the first wrap — a freshly built widget, or one
-        # whose content cleared to empty (`set_content ""` early-returns without
-        # wrapping, leaving `@_clines` at its initial empty state). `ftor[-1]`
-        # then raised `IndexError`, crashing `insert_line`/`unshift_line`/
-        # `insert_top` on such a widget. Default the insert point to the first
-        # real line, mirroring the empty-content guards in `#get_line`/`#rtof_index`.
+        # `ftor` is empty before the first wrap (freshly built widget, or content
+        # cleared to empty). `ftor[-1]` would then raise `IndexError`, crashing
+        # `insert_line`/`unshift_line`/`insert_top`. Default the insert point to
+        # the first real line, mirroring the empty-content guards in
+        # `#get_line`/`#rtof_index`.
         if last_row = @_clines.ftor.last?
           real = last_row[-1] + 1
         else
@@ -1241,17 +1115,11 @@ module Crysterm
     end
 
     def delete_line(i = nil, n = 1)
-      # Nothing to delete when there are no logical lines yet. `@_clines.fake`
-      # is empty for a freshly built / never-rendered widget AND for content
-      # that cleared to empty (`_wrap_content`'s empty branch leaves `fake`
-      # empty with a single blank real line). Without this guard the access
-      # below raises `IndexError`: on truly-empty `ftor` the `i.clamp(0,
-      # ftor.size - 1)` yields -1 and `ftor[-1]` raises, and even when `ftor`
-      # carries the lone blank row the subsequent `fake.delete_at i` raises on
-      # the empty `fake` — so `delete_top`/`delete_bottom`/`shift_line`/
-      # `pop_line`/`delete_line` crashed on such a widget. Mirrors the
-      # empty-content guard already in `#insert_line`/`#get_line`; the benign
-      # value Blessed's `deleteLine` yields here is simply "nothing happens".
+      # Nothing to delete when there are no logical lines yet (`@_clines.fake`
+      # empty: freshly built widget, or content cleared to empty). Without this
+      # guard, `delete_top`/`delete_bottom`/`shift_line`/`pop_line`/`delete_line`
+      # would raise `IndexError` on such a widget. Mirrors the empty-content
+      # guard in `#insert_line`/`#get_line`; Blessed's `deleteLine` is a no-op here.
       return if @_clines.fake.empty?
       if i.nil?
         i = @_clines.ftor.size - 1
@@ -1259,13 +1127,10 @@ module Crysterm
 
       i = i.clamp(0, @_clines.ftor.size - 1)
 
-      # Clamp the count to the lines actually available from `i`. Each pass of the
-      # loop below `delete_at`s the element that shifts into slot `i`, so asking to
-      # delete more lines than remain — `pop_line 2`, `shift_line n` with `n` past
-      # the line count, or a `delete_bottom`/`delete_line(i, n)` whose `i + n`
-      # exceeds `fake.size` — ran `delete_at` off the end of the now-shorter `fake`
-      # and raised `IndexError`. JS `splice(i, n)` clamps, so this matches the
-      # Blessed semantics this ports (delete as many lines as exist from `i`).
+      # Clamp count to lines actually available from `i`: deleting more than
+      # remain (`pop_line 2`, `shift_line n` past the line count, etc.) would
+      # otherwise run `delete_at` off the end of `fake`. JS `splice(i, n)`
+      # clamps, so this matches the ported Blessed semantics.
       n = Math.min(n, @_clines.fake.size - i)
       return if n <= 0
 
@@ -1292,11 +1157,8 @@ module Crysterm
     end
 
     # Maps a real (wrapped) line index to its fake (logical) line index via
-    # `@_clines.rtof`, guarding against out-of-range access. `rtof` has one
-    # entry per wrapped line, so indices such as `@child_base` are normally in
-    # range, but for empty/short content (e.g. before content is wrapped) a raw
-    # `rtof[i]` would raise `IndexError`. Returns 0 when `rtof` is empty and
-    # clamps otherwise.
+    # `@_clines.rtof`, guarding out-of-range access (e.g. before content is
+    # wrapped). Returns 0 when `rtof` is empty, clamps otherwise.
     private def rtof_index(i)
       rtof = @_clines.rtof
       return 0 if rtof.empty?
@@ -1333,11 +1195,9 @@ module Crysterm
 
     def set_line(i, line)
       i = Math.max(i, 0)
-      # Pad up to AND including index `i` (`<=`, not `<`). Blessed relies on JS
-      # auto-extending arrays so `fake[i] = line` can create the slot; in Crystal
-      # `fake[i] = line` raises when `i == fake.size` (e.g. `set_line(0, …)` on an
-      # empty `fake`, as `push_line` does for empty content), so the slot must
-      # exist first.
+      # Pad up to and including index `i` (`<=`, not `<`). Blessed relies on JS
+      # auto-extending arrays; Crystal's `fake[i] = line` raises when `i ==
+      # fake.size`, so the slot must exist first.
       while @_clines.fake.size <= i
         @_clines.fake.push("")
       end
@@ -1351,12 +1211,11 @@ module Crysterm
     end
 
     def get_line(i)
-      # Empty content leaves `@_clines.fake` empty (the empty-content branch of
-      # `_wrap_content`, and a freshly built `CLines`). `i.clamp(0, fake.size - 1)`
-      # is then `clamp(0, -1)`, which returns `-1` (Crystal's two-arg clamp yields
-      # `max` even when `min > max`), so `fake[-1]` would raise `IndexError` on the
-      # empty array. Return a blank line instead — the benign value Blessed's
-      # `getLine` yields for a missing line. Guards `get_baseline` too.
+      # Empty content leaves `@_clines.fake` empty. `i.clamp(0, fake.size - 1)`
+      # then clamps to `-1` (Crystal's two-arg clamp yields `max` even when `min
+      # > max`), so `fake[-1]` would raise on the empty array. Return a blank
+      # line instead, matching Blessed's `getLine` for a missing line. Guards
+      # `get_baseline` too.
       return "" if @_clines.fake.empty?
       i = i.clamp(0, @_clines.fake.size - 1)
       @_clines.fake[i]
@@ -1386,21 +1245,19 @@ module Crysterm
     end
 
     def push_line(line)
-      # Seed line 0 when there is no content yet (counting any deferred appends,
+      # Seed line 0 when there is no content yet (counting deferred appends
       # without materializing them).
       if content_blank?
         return set_line(0, line)
       end
       # Appending at the end is the common case (logs, transcripts, streaming
       # output). `append_content` splices just the new line onto `@_clines`
-      # instead of re-joining and reparsing all existing content — O(appended)
-      # rather than O(total). It bails (returns false) when it cannot guarantee
-      # an identical result (stale cache or width change), in which case fall
-      # through to the general insert.
+      # instead of reparsing everything — O(appended) rather than O(total). It
+      # bails (returns false) when it can't guarantee an identical result (stale
+      # cache or width change), falling through to the general insert.
       #
       # NOTE: there is deliberately no `Widget#<<` text alias — `<<` already means
-      # "append a child widget" (`Mixin::Children#<<`), so appending text goes
-      # through `push_line` / `append_content` to avoid overloading it.
+      # "append a child widget" (`Mixin::Children#<<`).
       return if append_content(line)
       insert_line(@_clines.fake.size, line)
     end
@@ -1459,27 +1316,23 @@ module Crysterm
       kept.join
     end
 
-    # Returns `text` with its last **grapheme cluster** removed (e.g. a base +
+    # Returns `text` with its last grapheme cluster removed (e.g. a base +
     # combining mark, or a wide emoji, comes off as one unit). Used for
     # grapheme-aware backspace in text inputs. Empty in, empty out.
     def chop_grapheme(text : String) : String
       return text if text.empty?
-      # Drop only the final grapheme cluster: track its byte length while scanning
-      # (no per-cluster String, array, or join allocation) and slice it off the
-      # end. Byte-identical to re-joining all-but-last clusters, since clusters
-      # partition the string into contiguous byte spans.
+      # Track the final cluster's byte length while scanning (no per-cluster
+      # allocation) and slice it off the end.
       last_bytes = 0
       text.each_grapheme { |g| last_bytes = g.bytesize }
       text.byte_slice 0, text.bytesize - last_bytes
     end
 
-    # Whether *base* begins a multi-codepoint grapheme cluster, given its
-    # successor *nxt* — i.e. whether `#extend_grapheme` would assemble anything
-    # beyond `base` alone. This is the cheap pre-check that lets the renderer skip
-    # the (String-allocating) cluster assembly for the lone codepoint that the
-    # overwhelming majority of cells are. It exactly mirrors `#extend_grapheme`'s
-    # own start conditions, so `needs_cluster? == false` ⟺ the cluster is just
-    # `base`.
+    # Whether *base* begins a multi-codepoint grapheme cluster, given successor
+    # *nxt* — i.e. whether `#extend_grapheme` would assemble anything beyond
+    # `base` alone. Cheap pre-check letting the renderer skip cluster assembly
+    # for the common lone-codepoint cell. Mirrors `#extend_grapheme`'s start
+    # conditions exactly.
     def needs_cluster?(base : Char, nxt : Char?) : Bool
       return true if base.mark? # a leading combining mark (zero-width; merges back)
       bp = base.ord
@@ -1491,15 +1344,14 @@ module Crysterm
       nxt.mark? || np == 0x200D || (0xFE00 <= np <= 0xFE0F) || (0x1F3FB <= np <= 0x1F3FF)
     end
 
-    # Assembles the grapheme cluster that begins with `base` (the codepoint at
-    # `content[ci - 1]`) by consuming any following *extending* codepoints from
+    # Assembles the grapheme cluster beginning with `base` (codepoint at
+    # `content[ci - 1]`) by consuming following extending codepoints from
     # `content` starting at `ci`: combining marks, ZWJ (and the codepoint it
-    # joins), variation selectors, emoji skin-tone modifiers, and — for a flag —
-    # a second regional indicator. Returns `{cluster, new_ci}`.
+    # joins), variation selectors, emoji skin-tone modifiers, and a second
+    # regional indicator for flags. Returns `{cluster, new_ci}`.
     #
-    # This is a pragmatic subset of UAX-#29 that covers the cases that actually
-    # occur in terminal text; `content` is anything indexable by codepoint
-    # (`#[]?` returning `Char?`).
+    # A pragmatic subset of UAX-#29 covering cases that occur in terminal text;
+    # `content` is anything indexable by codepoint (`#[]?` returning `Char?`).
     def extend_grapheme(content, ci : Int32, base : Char) : Tuple(String, Int32)
       g = String::Builder.new
       g << base
@@ -1532,20 +1384,19 @@ module Crysterm
     end
 
     # Character index in `line` (which may contain inline SGR) at which to cut so
-    # the kept prefix fits within `colwidth` columns. SGR sequences (`\e[…m`)
-    # consume no columns. Under `#full_unicode?` widths are grapheme /
-    # East-Asian and grapheme clusters are never split; otherwise it is one
-    # column per codepoint (legacy). Returns `line.size` when the whole line
-    # fits, and always makes progress — a single grapheme wider than `colwidth`
-    # is kept whole (overflowing) rather than looping forever.
+    # the kept prefix fits within `colwidth` columns. SGR sequences consume no
+    # columns. Under `#full_unicode?` widths are grapheme/East-Asian and
+    # clusters are never split; otherwise one column per codepoint (legacy).
+    # Returns `line.size` when the whole line fits; a single grapheme wider than
+    # `colwidth` is kept whole rather than looping forever.
     def wrap_cut_index(line : String, colwidth : Int) : Int32
       full = full_unicode?
       total = 0
-      # Single forward walk. `String#[](Int)` is O(index) for multibyte content,
-      # so the old char-by-char run/escape scan was O(n²) per line; a `Char::Reader`
-      # decodes left-to-right in one pass. `cp` tracks the codepoint index of the
-      # reader's current char (the value callers slice by); `reader.pos` is its
-      # byte offset, used to slice runs cheaply for grapheme segmentation.
+      # Single forward walk via `Char::Reader` instead of the old char-by-char
+      # scan (O(n²), since `String#[](Int)` is O(index) for multibyte content).
+      # `cp` tracks the codepoint index of the reader's current char (what
+      # callers slice by); `reader.pos` is the byte offset, used for grapheme
+      # segmentation.
       bytesize = line.bytesize
       reader = Char::Reader.new line
       cp = 0
@@ -1590,15 +1441,14 @@ module Crysterm
 
     # Slices *line* to the display-column window `[from_col, from_col + width)`,
     # preserving SGR colors: the active escape state at the cut is re-emitted as
-    # a prefix, and any escapes past the window are carried as a (zero-width)
-    # suffix — so a clipped line still starts and ends in the right color. Column
-    # math is grapheme/East-Asian-aware (via `#wrap_cut_index`) and never splits a
-    # cluster. With `from_col == 0` this reduces to the original no-wrap
-    # truncation (keep what fits, append trailing SGR). Used by `_wrap_content`
-    # for horizontal scrolling of non-wrapped content.
+    # a prefix, and escapes past the window carried as a zero-width suffix, so a
+    # clipped line still starts and ends in the right color. Column math is
+    # grapheme/East-Asian-aware via `#wrap_cut_index`. With `from_col == 0` this
+    # reduces to the original no-wrap truncation. Used by `_wrap_content` for
+    # horizontal scrolling of non-wrapped content.
     def _hslice(line : String, from_col : Int32, width : Int32) : String
-      # Fast path for the common SGR-free line: a plain column-window substring,
-      # no escape scanning (mirrors `#str_width`'s `includes?('\e')` guard).
+      # Fast path for the common SGR-free line: plain column-window substring,
+      # no escape scanning.
       unless line.includes? '\e'
         from = from_col > 0 ? wrap_cut_index(line, from_col) : 0
         rest = line[from..]
@@ -1628,15 +1478,13 @@ module Crysterm
     getter object : String
     # Non-ASCII path: codepoints materialized once. nil for ASCII content.
     @chars : Array(Char)?
-    # ASCII fast path: a zero-copy byte view of `@object`. For an ASCII string a
-    # byte *is* its codepoint, so indexing the bytes directly avoids
-    # `String#[]?(Int)` — which recomputes `size` and decodes a char on every
-    # call. Per cell that call dominated the render CPU profile; a byte view is
-    # allocation-free (a slice over the string's buffer) and indexes in one
-    # bounds-checked fetch. nil for non-ASCII content (which uses `@chars`).
+    # ASCII fast path: a zero-copy byte view of `@object`. For ASCII a byte is
+    # its codepoint, so indexing bytes directly avoids `String#[]?(Int)`
+    # (recomputes size, decodes a char per call — this dominated the render CPU
+    # profile per cell). nil for non-ASCII content (uses `@chars`).
     @bytes : Bytes?
-    # Codepoint count, cached so `#size` and the per-cell bounds check below are
-    # field reads, not `String#size` calls.
+    # Codepoint count, cached so `#size` and the per-cell bounds check are field
+    # reads, not `String#size` calls.
     @size : Int32
 
     def initialize(@object : String)
@@ -1645,9 +1493,8 @@ module Crysterm
         @bytes = @object.to_slice
         @size = @object.bytesize # == codepoint count for ASCII
       else
-        # Materialize the chars once (O(n)) so per-cell indexing is O(1) instead
-        # of `String#[](Int)`'s O(n) codepoint walk (which made drawing a line of
-        # Unicode content O(n²)).
+        # Materialize chars once (O(n)) so per-cell indexing is O(1) instead of
+        # `String#[](Int)`'s O(n) walk (which made drawing Unicode lines O(n²)).
         chars = @object.chars
         @chars = chars
         @bytes = nil
@@ -1655,11 +1502,10 @@ module Crysterm
       end
     end
 
-    # Whether this index was built from `s` (the *same* `String` object). The
+    # Whether this index was built from `s` (the same `String` object). The
     # render loop builds one `StringIndex` per widget per frame from
-    # `@_pcontent`, which only changes when content is reparsed; this lets the
-    # caller reuse a cached index across frames instead of rebuilding the
-    # `chars` array (and re-running the `ascii_only?` scan) every frame.
+    # `@_pcontent`; lets callers reuse a cached index across frames instead of
+    # rebuilding `chars` every frame.
     def built_from?(s : String) : Bool
       @object.same? s
     end

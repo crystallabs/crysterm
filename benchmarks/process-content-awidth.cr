@@ -1,13 +1,12 @@
 require "benchmark"
 require "../src/crysterm"
 
-# `Widget#process_content` computes `colwidth = awidth - iwidth` on EVERY frame
-# (before its parse-cache guard), using `awidth` with the default `get: false`.
-# For the very common `width: nil` (stretch) widget, `awidth(false)` climbs the
-# whole ancestor chain — O(depth) — every frame, per widget. This benchmark
-# shows that O(depth) scaling and the absolute per-call cost, so we can judge
-# whether threading the already-known (O(1)) width into `process_content` is
-# worth the extra parameter.
+# `Widget#process_content` computes `colwidth = awidth - iwidth` on every
+# frame (before its parse-cache guard), using `awidth` with default
+# `get: false`. For a `width: nil` (stretch) widget, `awidth(false)` climbs
+# the whole ancestor chain — O(depth) — every frame, per widget. This
+# benchmarks that scaling and per-call cost, to judge whether threading the
+# already-known O(1) width into `process_content` is worth the extra param.
 #
 # Run:  crystal run --release benchmarks/process-content-awidth.cr
 

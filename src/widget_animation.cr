@@ -2,10 +2,9 @@ module Crysterm
   class Widget
     # Plays a CSS `@keyframes` sequence bound via the `animation` property — a
     # looping, declarative animation (vs. `transition`, which fires once on a
-    # state change). Generic: any widget with an `animation` plays it, no
-    # per-widget code. It interpolates the same animatable properties as
-    # transitions (`opacity`, `color`, `background-color`, `tint`) across the
-    # keyframe stops, writing the resolved style each frame.
+    # state change). Generic across widgets; interpolates the same animatable
+    # properties as transitions (`opacity`, `color`, `background-color`, `tint`)
+    # across the keyframe stops, writing the resolved style each frame.
 
     # One resolved keyframe stop: its offset (`0..1`) and the animatable values it
     # sets (nil = not set by this stop).
@@ -19,7 +18,7 @@ module Crysterm
     @css_animation : FrameClock?
     @css_animation_spec : ::Crysterm::Style::AnimationSpec?
     # True once a *finite* animation has run out its iterations, so it isn't
-    # restarted on every subsequent render (it has settled on its final frame).
+    # restarted on every subsequent render.
     @css_animation_finished = false
 
     # Starts/keeps/stops this widget's CSS `animation` to match its current style.
@@ -62,8 +61,8 @@ module Crysterm
         elapsed += step
         cycles = elapsed / total
         if iters && cycles >= iters
-          # Settle on the final frame (honoring alternate parity) and stop — and
-          # mark finished so the next render doesn't restart it.
+          # Settle on the final frame (honoring alternate parity), stop, and mark
+          # finished so the next render doesn't restart it.
           frac = (alt && (iters - 1).odd?) ? 0.0 : 1.0
           apply_keyframe stops, st, frac
           @css_animation_finished = true
@@ -96,10 +95,8 @@ module Crysterm
       p = p.clamp(0.0, 1.0)
       a = stops.first
       b = stops.last
-      # Find the bracketing pair with a plain index loop instead of
-      # `each_cons(2)`, which allocates a backing array plus a fresh 2-element
-      # slice per call — and this runs once per tick (≈30fps) for every running
-      # CSS `@keyframes` animation, so that was per-tick GC garbage.
+      # Plain index loop instead of `each_cons(2)` to avoid per-call allocation;
+      # runs once per tick (~30fps) per running animation.
       i = 0
       while i < stops.size - 1
         if p >= stops[i].offset && p <= stops[i + 1].offset

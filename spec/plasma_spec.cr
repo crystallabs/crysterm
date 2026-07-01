@@ -2,10 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::Effect::Plasma` paints its interior directly into the cell buffer as
-# packed `Int64` attrs (no tagged-content round-trip). Its per-cell logic is
-# pure given the frame counter, so `#cell`/`#advance` are exercised directly,
-# headlessly, with no animation fiber and no real terminal.
+# `Plasma` paints directly into the cell buffer as packed `Int64` attrs. Its
+# per-cell logic is pure given the frame counter, so `#cell`/`#advance` are
+# exercised directly with no animation fiber or real terminal.
 
 private def plasma_screen
   Crysterm::Window.new(

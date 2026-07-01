@@ -2,22 +2,17 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression guard for the real Qt theme corpus shipped in `data/css/*.qss`.
-#
-# These are large, hand-written Qt stylesheets (Breeze, QDarkStyle, qtmodern)
-# full of vocabulary Crysterm only partially supports — `url()`, `border-radius`,
-# unmapped `::sub-controls`, gradients, `subcontrol-origin`, etc. The contract
-# (see `CSS::Qss` / the tolerant parser) is that none of it is ever *fatal*:
-# unknown selectors match nothing, unknown properties are skipped. This spec
-# proves that end-to-end — every corpus file must translate, parse, and drive a
-# real render of a representative widget tree without raising — so future
-# `.qss`-support work can't silently regress the "never aborts" guarantee.
+# Regression guard for the Qt theme corpus in `data/css/*.qss` (Breeze,
+# QDarkStyle, qtmodern), full of vocabulary Crysterm only partially supports
+# (`url()`, `border-radius`, unmapped `::sub-controls`, gradients, etc). Per
+# the tolerant-parser contract (`CSS::Qss`), none of it is ever fatal: unknown
+# selectors match nothing, unknown properties are skipped. Every corpus file
+# must translate, parse, and drive a real render without raising.
 
 private CORPUS = Dir.glob(File.join(__DIR__, "..", "data", "css", "*.qss")).sort
 
-# A small but varied widget tree: each widget exercises a different family of
-# corpus selectors (buttons, check/radio, sliders/bars, lists/tables, combos,
-# containers, text). Built once per file so the cascade runs against every rule.
+# Varied widget tree exercising different families of corpus selectors
+# (buttons, check/radio, sliders/bars, lists/tables, combos, containers, text).
 private def build_widget_zoo(screen) : Nil
   Widget::Box.new parent: screen, top: 0, left: 0, width: 20, height: 6
   Widget::Button.new parent: screen, top: 0, left: 22, width: 10, height: 3, content: "ok"

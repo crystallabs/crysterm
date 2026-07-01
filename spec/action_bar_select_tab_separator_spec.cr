@@ -18,13 +18,11 @@ private def separator(text = "|")
   cmd
 end
 
-# `Mixin::ActionBar` keeps the selection highlight off non-selectable separators
-# everywhere — `#add` (leading-separator auto-select), `#remove_item` (via
-# `#nearest_selectable`) and `#move` (separator-stepping). `#select_tab`, reached
-# both directly and by the `auto_command_keys` number keys (`select_tab i`), was
-# the one path that did not: selecting a separator's index settled the cursor on
-# it (a dead Enter target) and fired its nil callback. It now treats a separator
-# index like an out-of-range one — a no-op.
+# `Mixin::ActionBar` keeps the selection highlight off separators everywhere
+# (`#add`, `#remove_item` via `#nearest_selectable`, `#move`). `#select_tab`
+# (reached directly or via `auto_command_keys`) was the exception: selecting a
+# separator's index settled the cursor there and fired its nil callback. Now
+# treats a separator index like an out-of-range one — a no-op.
 describe "Mixin::ActionBar#select_tab separator guard" do
   it "is a no-op when the target tab is a separator" do
     s = abst_screen
@@ -32,8 +30,8 @@ describe "Mixin::ActionBar#select_tab separator guard" do
     bar.set_items [Crysterm::Mixin::ActionBar::Command.new("a"), separator,
                    Crysterm::Mixin::ActionBar::Command.new("b")]
 
-    # Lay the bar out so `#selekt`'s scroll math (gated on a real `@lpos`) is
-    # live; otherwise selecting an index can't move `selected` at all.
+    # Lay out so `#selekt`'s scroll math (gated on a real `@lpos`) is live;
+    # otherwise selecting an index can't move `selected` at all.
     s._render
     bar.selected.should eq 0 # the first real command
 

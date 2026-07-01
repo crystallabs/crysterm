@@ -2,9 +2,8 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-dock-noborder.js
 #
-# Same docking demo as widget-dock, but the quadrants use plain full `line`
-# borders and are placed at negative offsets (left:-1, top:-1) with
-# "50%+1"/"50%+3" sizes so their borders overlap and dock together.
+# Same as widget-dock, but quadrants use plain `line` borders at negative
+# offsets (left:-1, top:-1) with "50%+1"/"50%+3" sizes so borders overlap and dock.
 module Crysterm
   s = Window.new optimization: OptimizationFlag::SmartCSR, dock_borders: true, always_propagate: [::Tput::Key::CtrlQ]
 

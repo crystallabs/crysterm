@@ -3,10 +3,10 @@ require "html5"
 
 include Crysterm
 
-# Locks the CSS document the styling subsystem hands to the `html5` selector
-# engine. These tests pin (a) the per-widget identity emitted by `#to_html` and
-# (b) that the emitted tags/classes/attributes match by real CSS selectors and
-# resolve back to the originating widget via `data-uid`.
+# Pins the CSS document the styling subsystem hands to the `html5` selector
+# engine: (a) the per-widget identity emitted by `#to_html`, and (b) that
+# emitted tags/classes/attributes match real CSS selectors and resolve back
+# to the originating widget via `data-uid`.
 
 private def uid_of(node)
   node["data-uid"]?.try(&.val)
@@ -56,7 +56,7 @@ describe "CSS (#to_html)" do
     # exact leaf type
     doc.css(".Button").map { |node| uid_of node }.to_a.should eq [button.uid.to_s]
 
-    # descendant combinator + writeback key resolves to the right widget
+    # descendant combinator resolves to the right widget via data-uid
     matched = doc.css(".Form .CheckBox").to_a
     matched.size.should eq 1
     uid_of(matched.first).should eq check.uid.to_s

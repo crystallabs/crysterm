@@ -5,16 +5,16 @@ require "../../widget_graph_painter"
 module Crysterm
   class Widget
     module Graph
-      # A backend-agnostic vector drawing surface — crysterm's answer to
-      # blessed-contrib's braille `canvas`, but *not* tied to braille.
+      # A backend-agnostic vector drawing surface — like blessed-contrib's
+      # braille `canvas`, but *not* tied to braille.
       #
-      # You draw with a `Graph::Painter` (a `QPainter`-style API) inside an
+      # Draw with a `Graph::Painter` (a `QPainter`-style API) inside an
       # `#on_paint` block; the result is rasterized into a `PNGGIF::Bitmap` and
-      # displayed through whichever `Widget::Media` backend the terminal was
-      # detected to support — Kitty/Sixel/iTerm graphics where available, falling
-      # back to sub-cell Unicode glyphs (braille by default), then plain cells.
+      # displayed through whichever `Widget::Media` backend the terminal
+      # supports — Kitty/Sixel/iTerm graphics where available, falling back to
+      # sub-cell Unicode glyphs (braille by default), then plain cells.
       # Backend selection reuses `Media.resolve(Content::Painter)`, so the user's
-      # `image.backend` / `image.exclude` preferences apply exactly as for images:
+      # `image.backend` / `image.exclude` preferences apply as for images:
       #
       # * `type:` forces a specific backend (e.g. `Media::Type::Glyph`, or a
       #   pinned variant like `Media::Type::GlyphBraille`).
@@ -44,9 +44,9 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class Canvas < Box
         # The Media backend presenting the painted bitmap. Built in `#initialize`
-        # (after `super`, once the window is reachable for backend detection), so
-        # it is stored nilable but is never `nil` post-construction. `device`
-        # raises if read before then; `device?` is the nilable variant.
+        # (after `super`, once the window is reachable for backend detection),
+        # so stored nilable but never `nil` post-construction. `device` raises
+        # if read before then; `device?` is the nilable variant.
         getter! device : Media::Base
 
         # The glyph family used when the backend resolved to `Media::Glyph`
@@ -67,28 +67,26 @@ module Crysterm
         )
           super **box
 
-          # Resolve the backend exactly like an image (honoring the user's
-          # explicit type / backend / exclude preferences), then build it as a
-          # child that fills our interior and presents each painted frame.
+          # Resolve the backend like an image (honoring the user's explicit
+          # type / backend / exclude preferences), then build it as a child
+          # that fills our interior and presents each painted frame.
           resolved = type || Media.resolve(Media::Content::Painter, window?.try &.tput)
           # Stretch to our *content* area, not `"100%"`: a string dimension is
-          # 100% of the parent's full size (border included), which would overrun
-          # the border on the right/bottom. Leaving width/height unset with all
-          # four offsets at 0 makes the auto-stretch path subtract our insets, so
-          # the device exactly fills the interior.
+          # 100% of the parent's full size (border included), which would
+          # overrun the border. Leaving width/height unset with all four
+          # offsets at 0 makes auto-stretch subtract our insets instead.
           @device = Media.new(type: resolved, parent: self,
             top: 0, left: 0, right: 0, bottom: 0)
           @device.as?(Media::Glyph).try do |g|
             g.mode = @glyph_mode
-            # Canvas content is vector art on a transparent background: key dots
-            # on opacity, not luminance, so dark strokes still render and each
-            # cell takes its drawn color (no luminance-threshold flicker).
+            # Vector art on a transparent background: key dots on opacity, not
+            # luminance, so dark strokes still render without flicker.
             g.alpha_key = true
           end
 
-          # Paint into the device's bitmap just before our children (the device)
-          # render this frame. `PreRender` fires at the top of our own `_render`,
-          # ahead of the child render pass.
+          # Paint into the device's bitmap just before children render this
+          # frame. `PreRender` fires at the top of our own `_render`, ahead of
+          # the child render pass.
           on(Crysterm::Event::PreRender) { paint_frame }
         end
 
@@ -103,7 +101,7 @@ module Crysterm
         end
 
         # Paints the current frame into the backend's bitmap at its native
-        # resolution. Runs from our `PreRender`, so the device child then renders
+        # resolution. Runs from our `PreRender`, so the device child renders
         # the fresh frame.
         private def paint_frame : Nil
           cols = awidth - iwidth

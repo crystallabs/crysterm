@@ -13,6 +13,7 @@ module Crysterm
       #
       # Navigate with the arrow keys; toggle the selected feature with Enter or
       # the space bar. The selected row is drawn reverse.
+
       # A single configurable feature.
       class SetupOption
         # Internal feature name (Pine-style, e.g. `"enable-incoming-folders"`).

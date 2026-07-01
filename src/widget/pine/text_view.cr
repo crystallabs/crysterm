@@ -3,13 +3,11 @@ require "../scrollable_text"
 module Crysterm
   class Widget
     module Pine
-      # The Pine/Alpine text pager: a generic scrollable pane for arbitrary
-      # text, such as Alpine's HELP TEXT VIEWER or any plain read-only text
-      # pane. Navigate with the arrow keys (line at a time), PageUp/PageDown
-      # (half a page), and Home/End (top/bottom). Tag markup is rendered.
+      # Pine/Alpine text pager: a generic scrollable pane for arbitrary text
+      # (e.g. Alpine's HELP TEXT VIEWER). Navigate with arrow keys (line),
+      # PageUp/PageDown (half page), Home/End (top/bottom). Tag markup rendered.
       #
-      # Unlike `MessageView`, this widget has no email/header semantics: it just
-      # shows whatever text you give it.
+      # Unlike `MessageView`, this widget has no email/header semantics.
       #
       # ```
       # view = Widget::Pine::TextView.new parent: screen,

@@ -2,10 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# `gridline-color` (Qt) recolors a table's internal gridlines independently of the
-# box border; `spacing` (Qt's layout spacing) sets the inter-child gap of the
-# widget's layout. These drive the full CSS pipeline and inspect rendered cells /
-# computed positions.
+# `gridline-color` (Qt) recolors a table's internal gridlines independently of
+# the box border; `spacing` (Qt's layout spacing) sets the inter-child gap.
+# These drive the full CSS pipeline and inspect rendered cells / positions.
 
 private def render_screen
   Crysterm::Window.new(
@@ -50,7 +49,7 @@ describe "gridline-color" do
     screen = render_screen
     Widget::Table.new parent: screen, top: 0, left: 0, width: 24,
       rows: [["aa", "bb"], ["11", "22"]]
-    # A border is what enables gridline drawing; gridline-color recolors them.
+    # Border enables gridline drawing; gridline-color recolors them.
     screen.stylesheet = "Table { border: solid; gridline-color: #ff00ff; }"
     screen._render
 
@@ -103,8 +102,8 @@ describe "spacing" do
   end
 
   it "is inherited on the Layout base so flow layouts accept it too" do
-    # gap now lives on Layout, so even a flow layout exposes the setter (it just
-    # doesn't act on it). This guards the lifted-to-base refactor.
+    # gap lives on Layout, so a flow layout exposes the setter even though it
+    # doesn't act on it. Guards the lifted-to-base refactor.
     Layout::Wrap.new.gap.should eq 0
     Layout::Box.new.responds_to?(:gap=).should be_true
   end

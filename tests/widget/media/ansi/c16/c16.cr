@@ -1,6 +1,5 @@
-# Media::Ansi::C16 — the Matterhorn rendered via the Ansi::C16 backend.
-#
-# A single fixed variant of Media::Ansi (see the sibling dirs for the rest).
+# Media::Ansi::C16 — Matterhorn rendered via the Ansi::C16 backend.
+# Fixed variant of Media::Ansi (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
 include Crysterm

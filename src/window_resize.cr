@@ -8,14 +8,9 @@ module Crysterm
   class Window
     # File related to display's ability to resize
 
-    # Amount of time to wait before redrawing the screen, after the last successive terminal resize event is received.
-    #
-    # The value used in Qt is 0.3 seconds.
-    # The value commonly used in console apps is 0.2 seconds.
-    # Yet another choice could be the frame rate, i.e. 1/29 seconds.
-    #
-    # This ensures the resizing/redrawing is done only once, once resizing is over.
-    # To have redraws happen even while resizing is going on, reduce this interval.
+    # Debounce interval before redrawing after the last terminal resize event.
+    # Qt uses 0.3s, console apps commonly use 0.2s; another option is the frame
+    # rate (1/29s). Reduce this to redraw while resizing is still in progress.
     property resize_interval : Time::Span = Config.window_resize_interval
 
     @_resize_loop_fiber : Fiber?
@@ -55,11 +50,9 @@ module Crysterm
         cols, rows = size
         # An in-band resize report (DEC 2048) already delivered the authoritative
         # new size, so trust it directly instead of re-probing via the
-        # `reset_screen_size` ioctl — that ioctl is precisely what in-band resize
-        # exists to bypass where SIGWINCH/`TIOCGWINSZ` are unreliable. Mirror
-        # `reset_screen_size`'s bookkeeping (update `tput`'s cached size and
-        # re-clamp the cursor) so the rest of the stack stays consistent, then
-        # let `#on_resize` apply the size under its `@explicit_size` guard. The
+        # `reset_screen_size` ioctl (which in-band resize exists to bypass where
+        # SIGWINCH/`TIOCGWINSZ` are unreliable). Mirror its bookkeeping (cached
+        # size, cursor clamp) so the rest of the stack stays consistent; the
         # report's cell pixel geometry was already applied in `#handle_input`.
         tput.screen.width = cols
         tput.screen.height = rows
@@ -67,10 +60,10 @@ module Crysterm
         emit ::Crysterm::Event::Resize.new ::Tput::Namespace::Size.new(cols, rows)
       else
         self.tput.reset_screen_size
-        # Pick up a changed cell pixel size (e.g. a font/zoom change) via the ioctl;
-        # safe here because it does no escape-sequence round-trip.
+        # Pick up a changed cell pixel size (e.g. font/zoom change) via the
+        # ioctl; safe here since it does no escape-sequence round-trip.
         @screen.refresh_cell_geometry
-        # # NOTE Tput#screen should have been called `size` or `screen_size`
+        # NOTE Tput#screen should have been called `size` or `screen_size`
         emit ::Crysterm::Event::Resize.new tput.screen
       end
     end
@@ -80,9 +73,8 @@ module Crysterm
     #
     # Waits for resize notifications from `schedule_resize` and, once the
     # terminal has been quiet for `resize_interval`, re-reads the size and
-    # triggers a redraw. Debouncing this way ensures the (potentially
-    # expensive) redraw runs once per burst of resize events instead of once
-    # per event.
+    # triggers a redraw. Ensures the (potentially expensive) redraw runs once
+    # per burst instead of once per event.
     def resize_loop
       loop do
         # Block until at least one resize is requested.

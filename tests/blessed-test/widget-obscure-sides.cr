@@ -5,8 +5,8 @@ require "../../src/crysterm"
 # green child boxes positioned so they stick out past the parent's edges — one
 # near the top, one (with a line border) running off the bottom/left.
 module Crysterm
-  # NOTE: Blessed's `autoPadding: true` screen option has no Crysterm equivalent
-  # (grep of src/ finds no auto-padding screen setting), so it is dropped.
+  # Blessed's `autoPadding: true` screen option has no Crysterm equivalent, so
+  # it's dropped.
   s = Window.new optimization: OptimizationFlag::SmartCSR, always_propagate: [::Tput::Key::CtrlQ]
 
   box = Widget::ScrollableBox.new(
@@ -22,8 +22,7 @@ module Crysterm
     vi: true,
     style: Style.new(
       bg: "blue",
-      # Blessed: border:{type:'bg', ch:' '} + style.border.inverse → an
-      # inverse-video space frame that reads as a light outline around the box.
+      # Blessed: border:{type:'bg', ch:' '} + style.border.inverse.
       border: Border.new(type: BorderType::Bg).tap { |b| b.reverse = true },
     ),
   )

@@ -9,10 +9,9 @@ include Crysterm
 
 private def qt_mem_screen
   # `default_quit_keys: false`: the default handler calls `exit` on a `q`/Ctrl-Q
-  # keypress (the interactive "press q to quit" behavior). These specs synthesize
-  # key events — e.g. the ListBar tests `emit KeyPress, 'q'` to exercise a `q`
-  # *hotkey* — so leaving it on would terminate the whole spec process mid-run
-  # (no summary, exit 0). Headless test screens want no interactive quit.
+  # keypress. These specs synthesize key events (e.g. ListBar tests `emit
+  # KeyPress, 'q'` for a `q` hotkey), which would otherwise kill the spec
+  # process mid-run.
   Crysterm::Window.new(
     input: IO::Memory.new,
     output: IO::Memory.new,
@@ -131,8 +130,7 @@ describe Crysterm::Widget::Button do
 
   it "keeps #value mirroring #checked? for checkable buttons and radios" do
     s = qt_mem_screen
-    # Base toggle/check/uncheck (used by Button and RadioButton) must update
-    # @value, not just @checked — otherwise #value stays frozen at its initial.
+    # Base toggle/check/uncheck must update @value, not just @checked.
     b = Crysterm::Widget::Button.new parent: s, checkable: true
     b.check
     b.value.should eq true
@@ -171,8 +169,8 @@ describe Crysterm::Widget::PlainTextEdit do
     ta.value.should eq "hi"
   end
 
-  # Workstream C-tail: one scroll model (`@child_base`), caret tracked via
-  # `@cursor_pos`, `@child_offset` ≡ 0, so the attached bar drives the viewport.
+  # One scroll model (`@child_base`), caret tracked via `@cursor_pos`,
+  # `@child_offset` ≡ 0, so the attached bar drives the viewport.
   it "defaults to AsNeeded and shows a working bar on overflow" do
     s = qt_mem_screen
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 5,
@@ -241,36 +239,32 @@ describe Crysterm::Widget::PlainTextEdit do
     s._render
     ta.show_scrollbar?.should be_true
 
-    ta.value = "hi" # shrink back: the (now-hidden) bar child must not keep the
-    s._render       # scroll height inflated and re-trigger AsNeeded
+    ta.value = "hi" # shrink back: the hidden bar child must not keep scroll
+    s._render       # height inflated and re-trigger AsNeeded
     ta.get_scroll_height.should eq 1
     ta.show_scrollbar?.should be_false
   end
 
   it "re-wraps to reserve the bar column after a height-only resize flips overflow" do
     s = qt_mem_screen
-    # Several short logical lines that each fit on one wrapped row regardless of the
-    # reserved margin (so the line count — and thus the overflow decision — depends
-    # only on the viewport height, not on a re-wrap).
+    # Short logical lines each fit on one wrapped row regardless of the reserved
+    # margin, so the overflow decision depends only on viewport height.
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 20, height: 12,
       content: (1..8).map { |i| "line #{i}" }.join("\n")
     s._render
-    # Tall enough to fit: no vertical bar, and the wrap reserved exactly the margin
-    # `content_margin_x` currently asks for (the convergence invariant).
+    # Tall enough to fit: no vertical bar, wrap reserved exactly `content_margin_x`.
     ta.show_scrollbar?.should be_false
     ta._clines.margin.should eq ta.content_margin_x
 
-    # Shrink the viewport WITHOUT touching width, content, or horizontal scroll.
-    # `colwidth`/`content_version`/`base_x` are all unchanged — the only thing that
-    # changes is whether the AsNeeded bar is now needed, i.e. `content_margin_x`.
+    # Shrink height only; width/content/horizontal scroll unchanged — only
+    # whether the AsNeeded bar is now needed (`content_margin_x`) changes.
     ta.height = 4
     s._render
 
     ta.show_scrollbar?.should be_true
-    # Regression: the wrapped lines must be re-wrapped to reserve the now-shown
-    # bar's column. Before the margin was added to the reparse cache key, no
-    # reparse fired (width/version/base_x unchanged), leaving `margin` stale so the
-    # bar overpainted the last content column.
+    # Regression: wrapped lines must re-wrap to reserve the now-shown bar's
+    # column. Without the margin in the reparse cache key, `margin` stayed
+    # stale and the bar overpainted the last content column.
     ta._clines.margin.should eq ta.content_margin_x
   end
 
@@ -295,25 +289,23 @@ describe Crysterm::Widget::PlainTextEdit do
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 5,
       wrap_content: false, content: (1..20).map { |i| "#{long} L#{i}" }.join("\n")
     s._render
-    # Preconditions: both overflows — long lines show a horizontal bar (which
-    # reserves the bottom interior row), and there are more lines than fit.
+    # Both overflows: horizontal bar reserves the bottom interior row, and
+    # there are more lines than fit.
     ta.show_horizontal_scrollbar?.should be_true
     ta.hscrollbar_rows.should eq 1
     (ta.get_scroll_height > ta.aheight).should be_true
 
     ta.scroll 1000 # scroll all the way down
     # The bar's row is not content, so `#scroll` must let `@child_base` reach
-    # `scroll_height - (visible content rows)` — one row further than if the
-    # bar's row were miscounted as content (which left the last line unreachable).
+    # `scroll_height - (visible content rows)`, else the last line is unreachable.
     visible = ta.aheight - ta.iheight - ta.hscrollbar_rows
     ta.child_base.should eq ta.get_scroll_height - visible
   end
 
   it "pages by visible content rows, not counting the horizontal bar's row" do
     s = qt_mem_screen
-    # Long lines force a horizontal bar (reserving the bottom interior row);
-    # many lines force vertical overflow. Single fixed-width lines keep the
-    # cursor->offset mapping simple (col 0 stays col 0 across Page Down).
+    # Long lines force a horizontal bar (reserving the bottom row); many lines
+    # force vertical overflow. Fixed-width lines keep col 0 stable across Page Down.
     line = "X" * 40
     ta = Crysterm::Widget::PlainTextEdit.new parent: s, top: 0, left: 0, width: 12, height: 5,
       wrap_content: false, content: (1..30).map { line }.join("\n")
@@ -403,8 +395,7 @@ describe Crysterm::Widget::List do
   end
 
   it "does not raise when activating/cancelling an empty list" do
-    # A focused empty list pressing Enter/Escape routes straight to
-    # `enter_selected`/`cancel_selected`, which used to index `items[selected]`
+    # `enter_selected`/`cancel_selected` used to index `items[selected]`
     # (`selected == 0`, no rows) and raise `IndexError`.
     s = qt_mem_screen
     list = Crysterm::Widget::List.new parent: s, items: [] of String
@@ -490,8 +481,7 @@ describe Crysterm::Widget::SpinBox do
     sb.maximum = 10
     sb.value.should eq 10
 
-    # Likewise raising the minimum above the value clamps up to the new minimum
-    # (without the pre-clamp, wrap would snap it to the maximum instead).
+    # Likewise raising the minimum clamps up to it, not wrap to the maximum.
     sb2 = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100,
       value: 50, wrap: true
     sb2.minimum = 60
@@ -507,14 +497,14 @@ describe Crysterm::Widget::SpinBox do
     sb.minimum.should eq 2
     sb.maximum.should eq 8
 
-    # Exclusive range covers begin..end-1, so the upper bound must be end-1
-    # (10 here), not silently widened to `end` (11).
+    # Exclusive range covers begin..end-1, so upper bound must be end-1 (10),
+    # not widened to `end` (11).
     sb.range = 1...11
     sb.minimum.should eq 1
     sb.maximum.should eq 10
 
     # A degenerate empty exclusive range collapses to the single value, never
-    # inverting the bounds (which would otherwise raise in the value clamp).
+    # inverting the bounds.
     sb.range = 5...5
     sb.minimum.should eq 5
     sb.maximum.should eq 5
@@ -566,7 +556,7 @@ describe Crysterm::Widget::Log do
   it "keeps the buffer bounded with a tiny max_lines" do
     s = qt_mem_screen
     # `scrollback // 3` is 0 for max_lines: 2, which used to `shift_line 0` (a
-    # no-op) and let the buffer grow without bound. It must still get trimmed.
+    # no-op) and let the buffer grow unbounded. Must still get trimmed.
     log = Crysterm::Widget::Log.new parent: s, max_lines: 2
     50.times { |i| log.add "line #{i}" }
     log.@_clines.fake.size.should be <= 3
@@ -595,15 +585,14 @@ describe Crysterm::Widget::Menu do
     m.add_separator # trailing separator (index 3)
     m.ritems.size.should eq 4
 
-    # Stepping down off the last real item must not strand the highlight on the
-    # trailing separator — it has nowhere further to go, so it stays on "Two".
+    # Stepping down off the last real item must not strand the highlight on
+    # the trailing separator; it stays on "Two".
     m.selekt 2 # "Two"
     m.down
     m.selected.should eq 2
     m.selected_action.try(&.separator?).should be_false
 
-    # Likewise stepping up off the first real item must skip the leading
-    # separator and stay on "One" rather than land on the separator at 0.
+    # Likewise stepping up off the first item must skip the leading separator.
     m.selekt 1 # "One"
     m.up
     m.selected.should eq 1
@@ -638,8 +627,7 @@ describe Crysterm::Widget::ListBar do
     bar.commands[1].separator?.should be_true
 
     # Moving right from item 0 must land on item 2, stepping over the
-    # separator at index 1. `selekt` flips each item's state regardless of
-    # layout, so the selected glyph follows even on a headless screen.
+    # separator at index 1.
     bar.move 1
     bar.items[2].state.selected?.should be_true
     bar.items[1].state.selected?.should be_false
@@ -934,7 +922,7 @@ describe "Splitter multi-pane" do
     sp.set_divider_position 0, 23
     sp.set_divider_position 1, 35
 
-    # Shrink the splitter far below where the dividers were pinned and relayout.
+    # Shrink far below where the dividers were pinned and relayout.
     sp.width = 12
     sp.set_divider_position 1, sp.divider_position(1)
 
@@ -962,8 +950,7 @@ describe Crysterm::Widget::Tree do
     tree.expand src
     tree.nodes.map(&.text).should eq ["src", "widget", "layout", "README.md"]
     tree.ritems.first.should eq "\u{25be} src" # ▾ expanded marker
-    # depth-1 (2-space) indent + leaf marker (space) + separator space:
-    tree.ritems[1].should eq "    widget"
+    tree.ritems[1].should eq "    widget"      # depth-1 indent + leaf marker + separator
 
     tree.collapse src
     tree.nodes.map(&.text).should eq ["src", "README.md"]
@@ -1112,7 +1099,7 @@ describe Crysterm::Widget::DoubleSpinBox do
 
   it "clamps negative decimals to zero instead of crashing on the format string" do
     s = qt_mem_screen
-    # A negative count would make `"%.*f"` malformed and raise; Qt clamps at 0.
+    # A negative count would malform "%.*f" and raise; Qt clamps at 0.
     d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0,
       value: 3.5, decimals: -2
     d.decimals.should eq 0
@@ -1485,13 +1472,13 @@ describe Crysterm::Widget::Calendar do
   it "labels ISO week rows by the row's week, not the previous one, when Sunday-first" do
     s = qt_mem_screen
     cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 15)
-    # Sunday is the default first day of week; enable the ISO week-number gutter.
+    # Sunday is the default first day of week; enable ISO week-number gutter.
     cal.first_day_of_week = ::Time::DayOfWeek::Sunday
     cal.vertical_header_format = Crysterm::Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
 
-    # The first body row of Jan 2024 shows Sun Dec 31 .. Sat Jan 6. Its Sunday is
-    # in ISO week 52 (of 2023), but the row predominantly shows ISO week 1 (the
-    # week of Mon Jan 1). It must be labeled "1", not the leftmost cell's "52".
+    # First body row of Jan 2024 shows Sun Dec 31 .. Sat Jan 6. Its Sunday is in
+    # ISO week 52 (2023), but the row predominantly shows week 1 (Mon Jan 1) —
+    # must be labeled "1", not the leftmost cell's "52".
     rows = cal.content.split('\n')
     body = rows[2]            # 0: nav bar, 1: weekday header, 2: first body row
     gutter = body[0, 3].strip # the week-number column ("Wk " is 3 cells wide)
@@ -1509,10 +1496,9 @@ describe Crysterm::Widget::Calendar do
     sep_nav = cal.content.split('\n').first
 
     # The month field is sized to the longest name, so the centered short name
-    # leaves the year and the trailing `›` stepper at identical columns.
+    # leaves the year and trailing `›` stepper at identical columns.
     may_nav.index("2024").should eq sep_nav.index("2024")
     may_nav.index('›').should eq sep_nav.index('›')
-    # The short name is padded/centered, not stretched with its own letters.
     may_nav.includes?("September").should be_false
     sep_nav.includes?("September").should be_true
   end
@@ -1532,8 +1518,8 @@ describe Crysterm::Widget::Calendar do
     cal.month_menu.not_nil!.actions.size.should eq 12 # all twelve months
     s._render
 
-    # Regression: a wheel over the month must STILL page it (previously the modal
-    # grab swallowed it, leaving the wheel "stuck" until an arrow was clicked).
+    # Regression: a wheel over the month must still page it — the modal grab
+    # previously swallowed it, leaving the wheel "stuck" until an arrow was clicked.
     before = cal.month_shown
     s.dispatch_mouse Tput::Mouse::Event.new(Tput::Mouse::Action::WheelDown, Tput::Mouse::Button::None, mx, navy)
     cal.month_shown.should eq before + 1
@@ -1725,11 +1711,9 @@ describe Crysterm::Widget::DockWidget do
   end
 
   it "gives the title buttons the bar's background so they are never transparent" do
-    # Mimics a Qt theme (e.g. Breeze) that styles the dock title bar with a solid
-    # background but its `::close-button`/`::float-button` with a transparent one
-    # (for icon images). In a terminal that transparent bg paints the screen
-    # default (`-1`) and the glyph renders as a "black hole"; the widget must fall
-    # the buttons back to the bar's own background so they stay legible.
+    # Mimics a Qt theme styling the title bar solid but its buttons transparent
+    # (for icon images). In a terminal that paints the screen default (`-1`),
+    # rendering as a "black hole" — the widget must fall back to the bar's bg.
     s = qt_mem_screen
     s.stylesheet = "DockWidget::title { background-color: #334455; color: #ffffff; } " \
                    "DockWidget::close-button, DockWidget::float-button { background-color: transparent; }"
@@ -1778,9 +1762,8 @@ describe Crysterm::Widget::MainWindow do
     win.central_widget = central
     s._render
 
-    # With no menu bar, the tool bar must occupy the very top row (not leave
-    # row 0 blank), and the central widget sits directly below it rather than
-    # overlapping it.
+    # With no menu bar, the tool bar must occupy row 0, and the central widget
+    # sits below it rather than overlapping it.
     tool.atop.should eq win.atop
     central.atop.should eq win.atop + 1
   end
@@ -1798,10 +1781,9 @@ describe Crysterm::Widget::ToolTip do
 
   it "sizes and positions itself via show_at" do
     s = qt_mem_screen
-    # Force the unstyled floor: the default terminal theme (auto-installed on
-    # screen creation) themes `ToolTip`, but this example asserts the
-    # floor-border path. Theme state is process-global, so save/restore to keep
-    # "no theme" from leaking into later specs (mirrors `unstyled_floor_spec`).
+    # Force the unstyled floor: the default theme styles `ToolTip`, but this
+    # asserts the floor-border path. Theme state is process-global, so
+    # save/restore to keep "no theme" from leaking into later specs.
     saved_theme = Crysterm::CSS.theme
     saved_default = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.theme = nil
@@ -1811,10 +1793,8 @@ describe Crysterm::Widget::ToolTip do
       tip.visible?.should be_true
       tip.left.should eq 3
       tip.top.should eq 4
-      # On the unstyled floor the tooltip carries its structural border (see
-      # `ToolTip#floor_border?`). `show_at` must reserve room for that frame,
-      # else the box collapses to a single row (the old "black box with a lone
-      # underline" bug).
+      # On the unstyled floor the tooltip carries a structural border (see
+      # `ToolTip#floor_border?`); `show_at` must reserve room for it.
       tip.css_styled?.should be_false
       tip.width.should eq 9  # "Hello" (5) + 2 padding + border (iwidth 2)
       tip.height.should eq 3 # 1 text line + border (iheight 2)
@@ -1897,8 +1877,8 @@ describe Crysterm::Widget::MenuBar do
     bar.items[0].state.selected?.should be_true
     fm.visible?.should be_true
 
-    # Diving into the entry's own submenu keeps the bar active (focus moved into
-    # the bar's world, not away from it) — it must not be treated as a leave.
+    # Diving into the entry's own submenu keeps the bar active — must not be
+    # treated as a leave.
     fm.selekt 1
     fm.hover_item 1 # opens the "Recent" submenu and focuses it
     bar.open_index.should eq 0
@@ -1909,9 +1889,8 @@ describe Crysterm::Widget::MenuBar do
     bar.open_index.should eq 0
     fm.visible?.should be_true
 
-    # Focus moving to an unrelated widget (a click elsewhere / Tab away) closes
-    # the open menu and clears the top-level highlight — no orphaned, still-lit
-    # entry left behind.
+    # Focus moving to an unrelated widget closes the open menu and clears the
+    # top-level highlight — no orphaned, still-lit entry left behind.
     other.focus
     bar.open_index.should be_nil
     fm.visible?.should be_false
@@ -2011,9 +1990,8 @@ describe "MenuBar rendering (regression)" do
     s = qt_mem_screen
     bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     fm = bar.add_menu "File"
-    # Rows added *after* the menu is hidden (the menu bar hides each menu on
-    # creation) must still be visible once shown — they must not snapshot the
-    # menu's hidden state via a shared/dup'd style.
+    # Rows added after the menu is hidden must still be visible once shown —
+    # must not snapshot the menu's hidden state via a shared/dup'd style.
     fm.add("New") { }
     fm.add("Open") { }
 
@@ -2154,7 +2132,7 @@ describe "Horizontal scroll API (workstream D)" do
   end
 end
 
-# Regression specs for the cycle-4 concrete-widget bug fixes.
+# Regression specs for concrete-widget bug fixes.
 
 private def mouse_down(x : Int32, y : Int32)
   Crysterm::Event::Mouse.new(
@@ -2231,7 +2209,7 @@ describe "TabWidget remove_tab" do
     tw.add_tab "B", pb
     tw.add_tab "C", pc
     tw.remove_tab 0 # drop A; remaining B(0), C(1)
-    # The bar command for position 1 must now show C, not the stale old index 2.
+    # Bar command for position 1 must now show C, not the stale old index 2.
     tw.bar.commands[1].callback.try &.call
     tw.current_index.should eq 1
     tw.current_page.should be(pc)

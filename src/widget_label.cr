@@ -1,21 +1,20 @@
 module Crysterm
   class Widget
-    # Label, if present is kind of object title/text appearing in the first
-    # line, similar to a label/title in Qt's QFrame.
-    # Usually this means you will want the widget to have a padding or border,
-    # so that the label gets rendered over the border/padding instead of
-    # over the widget content.
+    # Label: object title/text appearing in the first line, similar to a
+    # label/title in Qt's QFrame. Usually wants the widget to have padding or a
+    # border, so the label renders over the border/padding instead of the
+    # widget content.
 
-    # Widget implementing the label. If label is asked for and no specific
-    # widget is set, we create a LineEdit with chosen content.. But one can
-    # set this property manually to have a custom/specific label.
+    # Widget implementing the label. If asked for and no specific widget is
+    # set, a LineEdit with the chosen content is created; can also be set
+    # manually for a custom label.
     property _label : Widget?
 
     def _label!
       @_label.not_nil! # ameba:disable Lint/NotNil
     end
 
-    # Holder for event which will trigger on resize, to adjust the label
+    # Fires on resize, to adjust the label
     @ev_label_resize : Crysterm::Event::Resize::Wrapper?
 
     # Sets or clears label text
@@ -25,7 +24,7 @@ module Crysterm
 
     # Sets widget label. Can be positioned "left" (default) or "right"
     def set_label(text : String, side = "left")
-      # If label widget exists, we update it and return
+      # If label widget exists, update it and return
       @_label.try do |_label|
         _label.set_content(text)
         if side != "right"
@@ -39,7 +38,7 @@ module Crysterm
         return
       end
 
-      # Or if it doesn't exist, we create it
+      # Otherwise create it
       @_label = _label = Widget::Box.new(
         parent: self,
         content: text,
@@ -63,9 +62,8 @@ module Crysterm
     def reposition_label(event = nil)
       @_label.try do |_label|
         new_top = @child_base - itop
-        # Only re-render when the label actually moves: this fires on every
-        # Scroll and Resize, and resize jitter would otherwise trigger a stream
-        # of no-op renders.
+        # Only re-render when the label actually moves: fires on every Scroll
+        # and Resize, and resize jitter would otherwise trigger no-op renders.
         next if _label.top == new_top
         _label.top = new_top
         request_render
@@ -73,12 +71,10 @@ module Crysterm
     end
 
     # Re-glues the label to the top inset for the current frame. `set_label`
-    # positions the label (`top: -itop`) at *construction* time, but a border
-    # supplied by the CSS cascade only lands at render time — so a widget whose
-    # border comes from a stylesheet (e.g. `GroupBox`) would otherwise leave its
-    # label one row inside the box instead of on the border. Called from
-    # `_render` once styles are resolved; cheap (a nil check) for label-less
-    # widgets, and a no-op when the position is already correct.
+    # positions the label at construction time, but a CSS-cascade border lands
+    # only at render time, so a stylesheet-styled border (e.g. `GroupBox`) would
+    # otherwise leave the label one row inside the box. Called from `_render`
+    # once styles are resolved; cheap for label-less widgets.
     protected def sync_label_position : Nil
       @_label.try do |_label|
         top = @child_base - itop

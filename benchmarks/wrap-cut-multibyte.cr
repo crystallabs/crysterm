@@ -1,9 +1,9 @@
 require "benchmark"
 require "../src/crysterm"
 
-# Micro-benchmark for `wrap_cut_index` on NON-ASCII content, where
-# `String#[](Int)` is O(index) and the original char-by-char run scan was
-# O(n^2). Exercises both `full_unicode?` paths.
+# Micro-benchmark for `wrap_cut_index` on non-ASCII content, where
+# `String#[](Int)` is O(index) and the original char-by-char scan was O(n^2).
+# Exercises both `full_unicode?` paths.
 #
 # Run:  crystal run --release benchmarks/wrap-cut-multibyte.cr
 
@@ -21,13 +21,13 @@ w = Widget::Box.new parent: screen, top: 0, left: 0, width: 80, height: 1
 
 # Long multibyte lines (no SGR), plain multibyte, and SGR-laden multibyte.
 cjk = "日本語のテキストをここに置きます。" * 12                         # ~204 wide CJK cps
-accents = "café résumé naïve façade Zürich Köln " * 12 # latin + combining-ish
+accents = "café résumé naïve façade Zürich Köln " * 12 # latin + combining
 emoji = "👍🏽🎉🇯🇵👨‍👩‍👧‍👦abc " * 30                        # graphemes/ZWJ/flags
 sgr_multi = ("\e[31m日本\e[0m語のテ\e[1mキスト\e[0m " * 20)
 
 lines = {cjk, accents, emoji, sgr_multi}
 
-# Sanity: print the cut indices so before/after can be diffed.
+# Print cut indices so before/after can be diffed.
 {true, false}.each do |full|
   screen.full_unicode = full
   lines.each_with_index do |l, idx|

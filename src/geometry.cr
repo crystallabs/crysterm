@@ -52,8 +52,8 @@ module Crysterm
     property awidth : Int32? = nil
     property aheight : Int32? = nil
 
-    # These should be allowed to be just 0 since their offsets are likely already
-    # included in a* properties. XXX Verify and fix the apparent inconsistency.
+    # XXX Verify: should be allowed to be just 0 since offsets are likely
+    # already included in a* properties.
     property ileft : Int32 = 0
     property itop : Int32 = 0
     property iright : Int32 = 0
@@ -95,12 +95,11 @@ module Crysterm
     end
 
     # Re-initializes this instance in place to a freshly-constructed state. Used
-    # by `Widget#_get_coords` on the render hot path to reuse the widget's `@lpos`
-    # instead of allocating a new `LPos` per widget per frame.
+    # by `Widget#_get_coords` on the render hot path to reuse the widget's
+    # `@lpos` instead of allocating a new `LPos` per widget per frame.
     #
-    # MUST reset the lazily-computed cache fields (`aleft`/.../`_clean_sides`) to
-    # their defaults: filled on demand by `last_rendered_position`/`clean_sides`
-    # and keyed to the *previous* frame's geometry, they would otherwise return
+    # MUST reset the lazily-computed cache fields (`aleft`/.../`_clean_sides`):
+    # they're keyed to the previous frame's geometry and would otherwise return
     # stale absolute positions after a widget moves.
     def reset(
       @xi,

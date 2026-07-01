@@ -1,17 +1,15 @@
 require "base64"
 
 module Crysterm
-  # Device-side OSC escape-sequence transport — the small set of "tell the
-  # terminal something / ask it something" operations that are pure `tput`/IO on
-  # one tty: the OSC-52 system clipboard (write + read-back), OSC 7 working
-  # directory, and OSC 9;4 progress. They belong on the device (`Screen`) for the
-  # same reason the input-mode toggles do; the owning `Window` delegates them
-  # (see the `delegate … to: @screen` block in `window.cr`).
+  # Device-side OSC escape-sequence transport: OSC-52 system clipboard (write +
+  # read-back), OSC 7 working directory, and OSC 9;4 progress. These live on the
+  # device (`Screen`), like the input-mode toggles; the owning `Window` delegates
+  # to them (see `delegate … to: @screen` in `window.cr`).
   #
-  # The `Application#clipboard` facade (≈ `QGuiApplication::clipboard()`) talks to
-  # the active window's device through these. The async OSC-52 *read* reply still
-  # arrives as an `Event::Paste` (Tput surfaces it that way), so wiring
-  # `clipboard.text` to refresh on it is a separate follow-up — see the plan.
+  # `Application#clipboard` (≈ `QGuiApplication::clipboard()`) talks to the active
+  # window's device through these. The async OSC-52 read reply arrives as an
+  # `Event::Paste`; wiring `clipboard.text` to refresh on it is a separate
+  # follow-up.
   class Screen
     # OSC 52: copies *text* to the terminal clipboard *selection* (`"c"`
     # clipboard, `"p"` primary). Works over SSH/tmux; ignored where unsupported.
@@ -20,25 +18,22 @@ module Crysterm
     end
 
     # OSC 52: asks the terminal for the clipboard *selection*. The contents
-    # arrive asynchronously as an `Event::Paste` (so it works during the input
-    # loop). Many terminals disable clipboard *reads* for security, in which case
-    # no event arrives.
+    # arrive asynchronously as an `Event::Paste`. Many terminals disable
+    # clipboard reads for security, in which case no event arrives.
     def request_clipboard(selection : String = "c") : Nil
       tput.request_clipboard selection
     end
 
-    # Outbound interop: copy *text* to the system clipboard via OSC 52, the one
-    # channel that reliably crosses to other apps from inside a terminal (it
-    # degrades to a no-op where the terminal does not support it). This is how a
-    # cross-app "transfer" is realistically delivered — see `DragData`.
+    # Outbound interop: copy *text* to the system clipboard via OSC 52 (no-op
+    # where unsupported). How a cross-app "transfer" gets delivered — see
+    # `DragData`.
     def copy_to_clipboard(text : String) : Nil
       tput.sel_data "c", Base64.strict_encode(text)
     end
 
-    # OSC 7: reports *path* to the terminal as the current working directory, so
-    # terminals that track it ("open new tab/split here", titles) follow along.
-    # *host* is the URI host (empty = local). Routed through tput (tmux-safe);
-    # ignored where unsupported.
+    # OSC 7: reports *path* to the terminal as the current working directory
+    # (for "open new tab/split here", titles, etc). *host* is the URI host
+    # (empty = local). Routed through tput (tmux-safe); ignored where unsupported.
     def report_cwd(path : String, host : String = "") : Nil
       tput.report_cwd path, host
     end

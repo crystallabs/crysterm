@@ -2,28 +2,26 @@
 #
 # Every generated example is a tiny file that calls `Crysterm::WidgetExample.run`
 # with a block that builds *one* widget (or a layout + children) on the given
-# screen, and — optionally — a `script:` that drives it. The harness runs in one
-# of three modes:
+# screen, and optionally a `script:` that drives it. Runs in one of three modes:
 #
 #   * **interactive** (default) — a real terminal `Window` plus `exec`. Press `q`
-#     or Ctrl-Q to quit. This is what a human gets running the example directly.
+#     or Ctrl-Q to quit.
 #
 #   * **screenshot** — when `CRYSTERM_SHOT=<path>` is set, the widget is built on
-#     a *headless* screen (all I/O on `IO::Memory`), rendered once, and captured
-#     to `<path>` via `Window#capture`.
+#     a headless screen (all I/O on `IO::Memory`), rendered once, and captured to
+#     `<path>` via `Window#capture`.
 #
-#   * **animation** — when `CRYSTERM_ANIM=<path>` is set (and `CRYSTERM_ANIM_SECS`
-#     gives the duration, default 5), the widget is built headless and the
-#     `script:` is replayed while `Window#capture(duration:, format: "apng")`
-#     records it — producing an APNG that shows the widget actually being used.
+#   * **animation** — when `CRYSTERM_ANIM=<path>` is set (`CRYSTERM_ANIM_SECS`
+#     gives duration, default 5), the widget is built headless and `script:` is
+#     replayed while `Window#capture(duration:, format: "apng")` records it.
 #
-# The `script:` is expressed with a small `Driver` (see below): a thin
-# convenience wrapper over the same event `emit`s real input goes through, so the
-# demo "rules" read declaratively (`d.key :down, times: 4`, `d.type "hi"`, ...).
+# `script:` is expressed with a small `Driver` (below): a thin wrapper over the
+# same event `emit`s real input goes through, so demo "rules" read declaratively
+# (`d.key :down, times: 4`, `d.type "hi"`, ...).
 #
 # Styling note: set colors/borders through CSS (`screen.stylesheet = "..."`), not
 # the legacy `style:` constructor argument — the CSS cascade discards inline
-# `style:` values it doesn't also see as CSS, so only CSS-applied styling renders.
+# `style:` values it doesn't also see as CSS.
 require "../../src/crysterm"
 
 module Crysterm
@@ -31,10 +29,10 @@ module Crysterm
     # Headless capture size, in cells.
     COLS = (ENV["CRYSTERM_COLS"]?.try(&.to_i?) || 80)
     ROWS = (ENV["CRYSTERM_ROWS"]?.try(&.to_i?) || 24)
-    # Animation frame rate. Playback length = frames / FPS, and one frame is
-    # emitted per render, so the `Driver` renders FPS times per second of dwell.
+    # Animation frame rate. Playback length = frames / FPS; the `Driver` renders
+    # FPS times per second of dwell.
     FPS = (ENV["CRYSTERM_ANIM_FPS"]?.try(&.to_i?) || 10)
-    # Sim seconds pre-rolled before a *still* of a self-animating widget, so the
+    # Sim seconds pre-rolled before a still of a self-animating widget, so the
     # capture isn't of a blank first frame.
     PREROLL = 1.5
 
@@ -45,13 +43,12 @@ module Crysterm
     @@anim_acc : Float64 = 0.0
 
     # Register a self-animating widget (an `Effect`, `Loading`, ...) by its
-    # per-tick advance *step* and its tick *interval*. The harness animates it
-    # itself rather than letting the widget run its own render fiber. That matters
-    # for `--anim`: the harness must stay the *single* frame source, advancing the
-    # widget exactly one real frame per recorded frame — a widget that also
-    # rendered would emit extra frames and, since the APNG plays at a fixed FPS,
-    # make the playback run slow. Live (interactive) and still modes use the same
-    # registration so the example file stays mode-agnostic.
+    # per-tick advance *step* and tick *interval*. The harness animates it itself
+    # rather than letting the widget run its own render fiber: for `--anim` the
+    # harness must stay the single frame source (advancing exactly one real frame
+    # per recorded frame), or a widget that also rendered would emit extra frames
+    # and make the fixed-FPS APNG play back slow. Live and still modes use the
+    # same registration, keeping the example file mode-agnostic.
     def self.animate_with(interval : Time::Span, &step : -> Nil)
       @@anim_step = step
       @@anim_interval = interval.total_seconds
@@ -69,10 +66,10 @@ module Crysterm
       end
     end
 
-    # The "convenience wrapper over emits" the demo scripts are written against.
-    # Each call performs a synthetic input event (the very same `emit` real key/
-    # mouse input goes through) and then renders one or more frames so the action
-    # is visible in the recorded animation.
+    # Convenience wrapper over `emit` the demo scripts are written against. Each
+    # call performs a synthetic input event (the same `emit` real key/mouse input
+    # goes through) then renders one or more frames so the action is visible in
+    # the recorded animation.
     class Driver
       # Friendly names for the non-printable keys a demo is likely to use.
       KEYS = {
@@ -93,19 +90,19 @@ module Crysterm
       }
 
       getter frame_secs : Float64
-      # Total demo time (seconds) accumulated so far — used by the *measure* pass
+      # Total demo time (seconds) accumulated so far — used by the measure pass
       # (`record: false`) to size the recording before any frame is captured.
       getter elapsed : Float64 = 0.0
 
-      # In *record* mode each call emits a real event and renders frames; in
-      # *measure* mode (no screen) it only tallies `elapsed`, so the animation's
-      # length can be computed from the same script before recording it.
+      # In record mode each call emits a real event and renders frames; in
+      # measure mode (no screen) it only tallies `elapsed`, so the animation's
+      # length can be computed before recording it.
       #
       # When *dump_io* is set the Driver is in **dump** mode: each action emits
-      # its event, the resulting state is settled (any CSS transition run to its
-      # end), and one text frame (`Window#dump`) is appended to *dump_io* — the
-      # textual analogue of recording one frame per action. Time/dwell is
-      # irrelevant here, so `advance` neither sleeps nor renders dwell frames.
+      # its event, the state is settled (CSS transitions run to their end), and
+      # one text frame (`Window#dump`) is appended to *dump_io* — the textual
+      # analogue of recording one frame per action. `advance` neither sleeps nor
+      # renders dwell frames here, since time is irrelevant.
       def initialize(@screen : Window? = nil, fps : Int32 = FPS, @record : Bool = true,
                      @dump_io : IO? = nil)
         @frame_secs = 1.0 / fps
@@ -128,9 +125,9 @@ module Crysterm
         end
       end
 
-      # Press a named special key (`:down`, `:enter`, ...) — or `:space`, sent as
-      # a space character. *times* repeats it; *dwell* is how long (seconds) the
-      # result stays on screen before the next step.
+      # Press a named special key (`:down`, `:enter`, ...), or `:space` sent as a
+      # space character. *times* repeats it; *dwell* is seconds the result stays
+      # on screen before the next step.
       def key(name : Symbol | String, *, times : Int32 = 1, dwell : Float64 = 0.3)
         n = name.to_s
         times.times do
@@ -183,8 +180,8 @@ module Crysterm
         dump_frame "act"
       end
 
-      # Hold the current frame for *seconds* (a pause in the demo). In dump mode
-      # this is a no-op (time is irrelevant; it would only duplicate a frame).
+      # Hold the current frame for *seconds*. No-op in dump mode (would only
+      # duplicate a frame).
       def hold(seconds : Float64)
         advance seconds
       end
@@ -203,7 +200,7 @@ module Crysterm
           frames = Math.max(1, (seconds / @frame_secs).round.to_i)
           frames.times do
             WidgetExample.tick_animation(@frame_secs) # advance any self-animating widget
-            scr._render                               # the single frame source
+            scr._render                               # single frame source
             sleep @frame_secs.seconds
           end
         else
@@ -216,10 +213,10 @@ module Crysterm
     # screen; *script* (when given) drives them in animation mode.
     def self.run(title : String = "Crysterm example", *,
                  script : (Driver ->)? = nil, &build : Window ->)
-      # Each capture mode is gated by its own dest env var and they are
-      # independent: with several set (e.g. by `manage-examples --all`) the one
-      # process produces all of them — one compile, one run — instead of a build
-      # + run per output. Only with none set do we fall through to interactive.
+      # Each capture mode is gated by its own dest env var, independently: with
+      # several set (e.g. by `manage-examples --all`) one process produces all
+      # of them instead of a build+run per output. With none set, fall through
+      # to interactive.
       ran = false
       if dest = ENV["CRYSTERM_SHOT"]?
         screenshot dest, &build
@@ -237,19 +234,19 @@ module Crysterm
       interactive title, &build unless ran
     end
 
-    # Headless **text dump** — the textual analogue of `animate`. Builds the
-    # widget headless, then writes one `Window#dump` frame per scripted action to
-    # *dest*: the initial state, one after each action (settled), and the final
-    # state. The whole file is rewritten each run, so with no behavioral change it
-    # reproduces byte-for-byte and `git diff` stays empty; a regression shows up
-    # as a localized diff in the frame after the action that caused it. An example
-    # with no `script:` still gets a single static frame (the built widget).
+    # Headless text dump, the textual analogue of `animate`. Builds the widget
+    # headless, then writes one `Window#dump` frame per scripted action to
+    # *dest*: initial state, one after each action (settled), and final state.
+    # Rewritten in full each run, so with no behavioral change it reproduces
+    # byte-for-byte and `git diff` stays empty; a regression shows as a localized
+    # diff in the frame after the action that caused it. No `script:` still gets
+    # a single static frame.
     def self.dump_run(dest : String, script : (Driver ->)?, &build : Window ->)
       s = headless
       build.call s
       s._render
       # A self-animating widget has no settled state; pre-roll to a deterministic,
-      # representative frame (same as the still `screenshot` mode does).
+      # representative frame (same as still `screenshot` mode).
       if step = @@anim_step
         (PREROLL / @@anim_interval).to_i.times { step.call }
         s._render
@@ -272,11 +269,10 @@ module Crysterm
       io << s.dump
     end
 
-    # Run any in-flight CSS `transition` to its settled end state, so the next
-    # dump frame is the deterministic result of an action rather than a
-    # wall-clock-dependent mid-tween. The transitions tick on their own fibers;
-    # we just yield/sleep until none are running, bounded so an unexpected
-    # never-ending animation can't hang the dump.
+    # Runs any in-flight CSS `transition` to its settled end state, so the next
+    # dump frame is deterministic rather than a wall-clock-dependent mid-tween.
+    # Transitions tick on their own fibers; just sleep until none are running,
+    # bounded so a never-ending animation can't hang the dump.
     def self.settle(s : Window, max_steps : Int32 = 400) : Nil
       max_steps.times do
         break unless s.animating?
@@ -315,16 +311,14 @@ module Crysterm
       s.destroy rescue nil
     end
 
-    # Headless animation. The recording length *follows the demo*: it is
-    # `intro + demo + outro`, but never shorter than *minimum* (the nominal
-    # seconds — short demos are padded, long ones run to completion instead of
-    # being cut off at a fixed window).
+    # Headless animation. Recording length follows the demo: `intro + demo +
+    # outro`, never shorter than *minimum* (short demos are padded, long ones
+    # run to completion instead of being cut off).
     #
-    # The APNG loops forever (`loops: 0`). To make that loop read as an endless
-    # play rather than a hard cut, it opens with a brief *intro* hold on the
-    # initial state and closes with a longer *outro* hold on the final state (the
-    # outro also absorbs any min-duration padding) — so the wrap-around lands on
-    # two calm, readable frames instead of mid-motion.
+    # The APNG loops forever (`loops: 0`). To make the loop read as endless
+    # rather than a hard cut, it opens with a brief intro hold on the initial
+    # state and closes with a longer outro hold on the final state (outro also
+    # absorbs min-duration padding), so the wrap-around lands on two calm frames.
     def self.animate(dest : String, minimum : Float64, script : (Driver ->)?, &build : Window ->)
       # 1. Measure the demo (no screen, no side effects).
       measure = Driver.new(record: false)
@@ -338,8 +332,8 @@ module Crysterm
       tail = total - intro - demo # outro plus any min-duration padding
 
       # 3. Record: build fresh, then intro -> demo -> tail. Give the capture a
-      #    small wall-clock margin beyond `total` so it can't stop before the
-      #    last driven frame is in (extra idle time adds no frames).
+      #    small wall-clock margin beyond `total` so it can't stop before the last
+      #    driven frame is in (extra idle time adds no frames).
       s = headless
       build.call s
       s._render
@@ -364,10 +358,9 @@ module Crysterm
       s.destroy rescue nil
     end
 
-    # A headless screen for capturing. `force_unicode` so widgets always emit the
-    # rich glyphs (braille plots, box-drawing, sextant/octant mosaics, ...) rather
-    # than ASCII fallbacks — the captured bitmap font (GNU Unifont) can render
-    # them, and the capture is terminal-independent anyway.
+    # A headless screen for capturing. `force_unicode` so widgets emit rich
+    # glyphs (braille plots, box-drawing, sextant/octant mosaics) rather than
+    # ASCII fallbacks — the captured bitmap font (GNU Unifont) can render them.
     private def self.headless : Window
       Window.new(
         input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,

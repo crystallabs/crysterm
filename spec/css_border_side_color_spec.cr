@@ -2,22 +2,20 @@ require "./spec_helper"
 
 include Crysterm
 
-# Focused specs for the per-side `border-<side>` *shorthand* color
-# (`Crysterm::CSS::Properties.apply`).
+# Focused specs for `border-<side>` shorthand color (`Crysterm::CSS::Properties.apply`).
 #
 # The renderer paints each border edge from its per-side color
-# (`Border#top_fg`/`#left_fg`/…, which fall back to the whole-border `#fg`), and
-# the `border-<side>-color` longhand already routes its color to that per-side
-# slot. The `border-<side>` shorthand must do the same: `border-left: solid red`
-# colors only the left edge — not the whole border (which is what the old
-# whole-`fg` assignment did, recoloring every edge).
+# (`Border#top_fg`/`#left_fg`/…, falling back to the whole-border `#fg`); the
+# `border-<side>-color` longhand already routes to that per-side slot, and the
+# `border-<side>` shorthand must too: `border-left: solid red` colors only the
+# left edge, not the whole border.
 describe "CSS border-<side> shorthand color" do
   it "colors only the named side, leaving the others on the whole-border color" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "border-color", "#0000ff") # whole-border blue
     Crysterm::CSS::Properties.apply(s, "border-left", "solid #ff0000")
     b = s.border
-    # Left edge takes the per-side override; the others still fall back to blue.
+    # Left edge takes the per-side override; others fall back to blue.
     b.fg_left.should eq 0xff0000
     b.left_fg.should eq 0xff0000
     b.fg_top.should be_nil

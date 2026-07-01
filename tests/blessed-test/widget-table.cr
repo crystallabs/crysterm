@@ -2,9 +2,8 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-table.js
 #
-# Demonstrates the static `Widget::Table`: aligned columns, line borders with
-# styled header/cell/border, tag-colored cells, wide (CJK) characters, and
-# re-setting the data after a delay.
+# Demonstrates the static `Widget::Table`: aligned columns, styled line
+# borders/header/cell, tag-colored cells, CJK characters, and re-setting data after a delay.
 class X
   include Crysterm
 

@@ -7,9 +7,8 @@ private def headless_screen
 end
 
 # `Widget#insert_line` (and its `unshift_line`/`insert_top` callers) must not
-# raise on a freshly built widget. Empty content leaves `@_clines.ftor` empty
-# (a brand-new widget, or content cleared with `set_content ""`, never wraps),
-# and the old `ftor[@_clines.ftor.size - 1]` was `ftor[-1]`, which raised
+# raise on a freshly built widget. Empty content leaves `@_clines.ftor` empty,
+# and the old `ftor[@_clines.ftor.size - 1]` became `ftor[-1]`, raising
 # `IndexError`. Mirrors the empty-content guard already proven for `#get_line`.
 describe "Widget#insert_line on empty content" do
   it "unshift_line into a freshly built widget does not raise" do

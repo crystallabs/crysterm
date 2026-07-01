@@ -1,6 +1,5 @@
-# Media::Glyph::Ascii — the Matterhorn rendered via the Glyph::Ascii backend.
-#
-# A single fixed variant of Media::Glyph (see the sibling dirs for the rest).
+# Media::Glyph::Ascii — Matterhorn rendered via the Glyph::Ascii backend.
+# Fixed variant of Media::Glyph (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
 include Crysterm

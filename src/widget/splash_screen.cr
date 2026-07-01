@@ -114,11 +114,9 @@ module Crysterm
         emit ::Crysterm::Event::Complete
         scr.try &.remove self
         destroy
-        # Repaint so the splash actually clears. `request_render` is useless here
-        # (we're no longer on the window) and the animation that had been driving
-        # frames just stopped via `Event::Complete`, so without this the stale
-        # splash frame would linger until the next unrelated event. Removing a
-        # top-level child forces a full composite, so this one render is enough.
+        # Repaint so the splash clears immediately; `request_render` is a no-op
+        # once detached. Removing a top-level child forces a full composite, so
+        # this one render suffices.
         scr.try &.render
       end
 

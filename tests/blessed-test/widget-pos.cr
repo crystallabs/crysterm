@@ -5,11 +5,9 @@ require "../../src/crysterm"
 # Demonstrates absolute vs. relative widget positioning: a `main` box with an
 # `inner` box positioned at top:2,left:2 with width/height 50% of its parent.
 #
-# NOTE: blessed's version was primarily an assertion test harness (assert(...),
-# screen.program.cols/rows pokes, screen.alloc(), and a reset() helper). That
-# whole harness is dropped here; we keep the visual demo. Crysterm DOES expose
-# the computed-position accessors (aleft/atop/aright/abottom/awidth/aheight,
-# and relative rleft/rtop/...), so we display a few of them on `inner`.
+# Blessed's assertion harness (assert(...), screen.alloc(), reset(), etc.) is
+# dropped; we keep the visual demo and show Crysterm's computed-position
+# accessors (aleft/atop/aright/abottom/awidth/aheight, rleft/rtop/...) on `inner`.
 module Crysterm
   s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
@@ -31,7 +29,7 @@ module Crysterm
     content: "Hello",
     style: Style.new(bg: "blue")
 
-  # Append a second line showing the computed/relative positions of `inner`.
+  # Show `inner`'s computed/relative positions on a second line.
   inner.set_content \
     inner.content.to_s + "\n" + {
     "aleft"   => inner.aleft,

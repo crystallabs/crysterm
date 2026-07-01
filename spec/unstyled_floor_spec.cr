@@ -2,23 +2,20 @@ require "./spec_helper"
 
 # The "unstyled floor": with `colors.theme = none` and no author stylesheet, the
 # CSS cascade does nothing (see `Window#apply_stylesheet`) and widgets keep their
-# programmatic, color-agnostic look. This suite renders representative widgets in
-# that state and asserts they stay *usable* with zero color assumptions:
+# programmatic, color-agnostic look. This suite renders representative widgets
+# in that state and asserts they stay usable with zero color assumptions:
 #
-#   * a selected row/item is distinguishable via reverse-video (the one highlight
-#     that needs no color and reads on any terminal background);
-#   * overlays (Menu, ...) separate from content via a default structural border
-#     that a theme is still free to override (including to none).
+#   * a selected row/item is distinguishable via reverse-video (needs no color);
+#   * overlays (Menu, ...) separate from content via a default structural
+#     border, still overridable by a theme (including to none).
 #
-# Gated to `-Dremote` like the other render specs (so the bridge/headless paths
-# are active).
+# Gated to `-Dremote` like the other render specs.
 {% if flag?(:remote) %}
   include Crysterm
 
-  # A headless screen with the unstyled floor forced: no theme is installed and
-  # the default (user-agent) stylesheet is empty, so `apply_stylesheet` is a
-  # no-op and widgets render programmatically. `ensure_theme` runs once on
-  # construction, so the theme is cleared *after* the screen exists.
+  # A headless screen with the unstyled floor forced: no theme installed and
+  # the default stylesheet empty, so `apply_stylesheet` is a no-op. `ensure_theme`
+  # runs once on construction, so the theme is cleared *after* the screen exists.
   private def floor_screen(width = 40, height = 12)
     s = Crysterm::Window.new(
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -36,9 +33,9 @@ require "./spec_helper"
   end
 
   describe "unstyled floor (colors.theme = none)" do
-    # The active theme / default stylesheet is process-global. Restore whatever
-    # was installed before each example after it runs, so forcing the floor here
-    # can't leak "no theme" into specs that run later in the same process.
+    # The active theme / default stylesheet is process-global. Restore what was
+    # installed before each example so forcing the floor here can't leak into
+    # later specs.
     around_each do |example|
       saved_theme = Crysterm::CSS.theme
       saved_default = Crysterm::CSS.default_stylesheet
@@ -119,10 +116,9 @@ require "./spec_helper"
 
     it "applies a fade's alpha to a focused Button at the floor" do
       # At the floor `#style` returns a transient reverse-video `#dup` for a
-      # focused small control, so a fade that wrote `style.alpha` through `#style`
-      # would land on a throwaway and never take effect. `#set_alpha` must write
-      # the persistent `#state_style` (like `#set_visible`), so the value survives
-      # to the render-time `#dup`.
+      # focused small control, so writing `style.alpha` through `#style` would
+      # land on a throwaway. `#set_alpha` must write the persistent
+      # `#state_style` (like `#set_visible`) so the value survives the dup.
       s = floor_screen
       btn = Crysterm::Widget::Button.new parent: s, top: 0, left: 0, width: 12, height: 1,
         content: "OK"
@@ -185,16 +181,15 @@ require "./spec_helper"
       lb = left_docked.style.border
       {lb.left?, lb.top?, lb.right?, lb.bottom?}.should eq({false, false, true, false})
 
-      # Rendered: that single right divider spans the *full* height — including
-      # the titlebar row and the bottom row, not just the interior — so a partial
-      # border isn't clipped at its corners.
+      # Rendered: the single right divider spans the *full* height (titlebar and
+      # bottom row included, not just the interior), so it isn't clipped at corners.
       col = left_docked.aleft.not_nil! + left_docked.awidth.not_nil! - 1
       bottom = left_docked.atop.not_nil! + left_docked.aheight.not_nil! - 1
       s.lines[left_docked.atop.not_nil!][col].char.should eq '│'
       s.lines[bottom][col].char.should eq '│'
 
-      # The border *syncs* as the dock floats/re-docks: a re-dock must drop back to
-      # the single content-facing edge, not keep the full floating frame.
+      # The border syncs as the dock floats/re-docks: re-docking must drop back
+      # to the single content-facing edge, not keep the full floating frame.
       left_docked.toggle_floating                   # → floating
       left_docked.style.border.left?.should be_true # now a full frame
       left_docked.toggle_floating                   # → docked Left again

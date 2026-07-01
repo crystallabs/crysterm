@@ -3,8 +3,8 @@ require "./spec_helper"
 include Crysterm
 
 # Behavior lock for `Screen.attr2code` (SGR sequence -> packed Int64 attr).
-# These pin the conversion across every SGR form so the allocation-free
-# in-place parser can be verified to match the previous split-based one.
+# Pins conversion across every SGR form so the allocation-free in-place parser
+# can be verified against the previous split-based one.
 #
 # `attr2code` is a pure class method (no screen state), so no Window is needed.
 describe "Screen.attr2code" do
@@ -34,17 +34,14 @@ describe "Screen.attr2code" do
       (Attr.flags(a) & bit).should_not eq 0
     end
 
-    # 22/23/24/25/27/28/29 each turn off ONLY their own flag. With a single flag
-    # set, clearing it lands on the default's flags (0 here).
+    # 22/23/24/25/27/28/29 each turn off ONLY their own flag.
     bold = apply.call("\e[1m")
     Attr.flags(apply.call("\e[1m")).should_not eq 0
     Attr.flags(Crysterm::Screen.attr2code("\e[22m", bold, dfl)).should eq Attr.flags(dfl)
   end
 
   it "clears only the respective flag on a partial reset, leaving others set" do
-    # Bold + underline + italic all active, then `\e[24m` (underline off) must
-    # leave bold and italic intact — modeling `{bold}{italic}{underline}x{/underline}`
-    # where the closing underline tag emits `\e[24m`.
+    # `\e[24m` (underline off) must leave bold and italic intact.
     multi = apply.call("\e[1;3;4m")
     (Attr.flags(multi) & Attr::BOLD).should_not eq 0
     (Attr.flags(multi) & Attr::ITALIC).should_not eq 0

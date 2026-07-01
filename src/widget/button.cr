@@ -15,14 +15,14 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class Button < AbstractButton
       # Whether the button is *flat* — drawn without a frame (Qt's
-      # `QPushButton#flat`). Surfaced as the `[flat]` attribute so author/theme
-      # CSS can target it (the theme strips the border via `Button[flat]`); also
-      # the target of Qt's `:flat` pseudo-class (see `CSS::Qss`).
+      # `QPushButton#flat`). Surfaced as the `[flat]` attribute so theme CSS can
+      # target it (theme strips the border via `Button[flat]`); also the target
+      # of Qt's `:flat` pseudo-class (see `CSS::Qss`).
       getter? flat : Bool = false
 
-      # Whether this is the dialog's *default* button — the one a bare Enter
-      # activates (Qt's `QPushButton#default`). Surfaced as `[default]` for the
-      # `:default` pseudo-class, so it can be emphasized via CSS.
+      # Whether this is the dialog's *default* button, activated by a bare Enter
+      # (Qt's `QPushButton#default`). Surfaced as `[default]` for the `:default`
+      # pseudo-class.
       getter? default : Bool = false
 
       def initialize(checkable : Bool = false, checked : Bool = false, flat : Bool = false, default : Bool = false, **input)
@@ -39,7 +39,7 @@ module Crysterm
 
       # Toggles the flat (frameless) look, re-cascading so the `[flat]` attribute
       # selector matches/unmatches; marks/unmarks this as the dialog's *default*
-      # button (`[default]`). Both are the shared CSS-toggle setter (`Box`).
+      # button (`[default]`).
       css_toggle_setter flat
       css_toggle_setter default
     end

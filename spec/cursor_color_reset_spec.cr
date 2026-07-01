@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: clearing a *hardware* cursor color with `Window#cursor_color nil`
-# must restore the terminal's default cursor color (OSC 112). It used to be a
-# silent no-op — the `try`-guarded emission did nothing when `style.fg` was nil
-# — so once a color was set there was no way to put the hardware cursor back to
-# the terminal default. See `src/window_cursor.cr#cursor_color`.
+# Regression: clearing a hardware cursor color with `Window#cursor_color nil`
+# must restore the terminal's default (OSC 112). It used to be a silent no-op —
+# the `try`-guarded emission did nothing when `style.fg` was nil — leaving no way
+# to reset the hardware cursor once a color was set. See
+# `src/window_cursor.cr#cursor_color`.
 
 describe "Window#cursor_color clearing (hardware path)" do
   it "emits the OSC 112 reset when the color is cleared with nil" do
@@ -16,8 +16,8 @@ describe "Window#cursor_color clearing (hardware path)" do
       output: io,
       error: IO::Memory.new)
 
-    # Make the test deterministic regardless of $TERM: pretend the terminal can
-    # recolor its hardware cursor, and keep the cursor on the hardware path.
+    # Force determinism regardless of $TERM: pretend the terminal supports
+    # hardware cursor recoloring.
     screen.tput.features.cursor_color = true
     screen.cursor.artificial = false
 
@@ -25,8 +25,7 @@ describe "Window#cursor_color clearing (hardware path)" do
     screen.cursor_color "red"
     screen.cursor.style.fg.should eq Crysterm::Colors.convert("red")
 
-    # Now clear it. The cleared state must be reflected on the wire as a reset
-    # of the hardware cursor color (OSC 112), not nothing.
+    # Clearing must emit an OSC 112 reset, not nothing.
     mark = io.size
     screen.cursor_color nil
     screen.cursor.style.fg.should be_nil

@@ -3,10 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # Behavior lock for `Screen.code2attr_to` (packed Int64 attr -> SGR sequence
-# written straight into an IO, allocation-free). These pin its output against an
-# independent reference that reproduces the previous String-building `code2attr`,
-# across the full matrix of flags / colors / color depths, so the hot-path
-# version can be trusted to match exactly.
+# written straight into an IO, allocation-free). Pins its output against an
+# independent reference reproducing the old String-building `code2attr`, across
+# the full matrix of flags / colors / color depths.
 #
 # `code2attr_to` is a pure class method (takes the color count directly), so no
 # Window is needed.

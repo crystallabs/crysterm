@@ -11,16 +11,14 @@ class Pong
   PADDLE_H     = 6
   PADDLE_SPEED = 2
 
-  # The loop runs at a fixed FPS; speed is a velocity, not a frame rate. The
-  # level (0..9) sets how many cells/second the ball travels — MAX_SPEED at
-  # level 9, a dead stop at 0 — and the per-tick step is just that ÷ FPS. `+` /
-  # `-` step the level and `0`-`9` set it directly (see the key handler in
-  # `initialize`).
+  # Fixed FPS loop; speed is a velocity, not a frame rate. The level (0..9)
+  # sets cells/second — MAX_SPEED at level 9, dead stop at 0 — and the
+  # per-tick step is that ÷ FPS. `+`/`-` step the level, `0`-`9` set it
+  # directly (see key handler in `initialize`).
   #
-  # The speed is held *constant* between hits so the pace never lurches; only
-  # the angle changes at a paddle hit. ASPECT compensates for the ~2:1 terminal
-  # cell (taller than wide) so an on-screen diagonal looks ~45° instead of
-  # racing vertically. See `set_vel`.
+  # Speed is held constant between hits; only the angle changes on a paddle
+  # hit. ASPECT compensates for the ~2:1 terminal cell so an on-screen
+  # diagonal looks ~45° instead of racing vertically. See `set_vel`.
   FPS         =   60                # fixed render/step rate
   MAX_SPEED   = 80.0                # cells/second at level 9
   SPEED_STEP  = MAX_SPEED / 9 / FPS # cells-per-tick added per speed level
@@ -56,9 +54,9 @@ class Pong
     Widget::Box.new parent: @table, width: 1, height: "100%", top: 0, left: "center",
       style: Style.new(bg: "yellow")
 
-    # Created after the net so it renders *over* the center line instead of
-    # vanishing behind it on each pass; kept before the scoreboard/overlay so
-    # those still sit on top of the ball.
+    # Created after the net so it renders over the center line instead of
+    # vanishing behind it; kept before the scoreboard/overlay so those still
+    # sit on top of the ball.
     @ball = Widget::Box.new parent: @table, width: 1, height: 1, top: 0, left: 0,
       content: "●", style: Style.new(fg: "white")
 
@@ -124,11 +122,11 @@ class Pong
     {dir * vx, vy}
   end
 
-  # Push the state onto the widgets and repaint. We deliberately do NOT erase the
-  # ball/paddles' previous positions by hand: `screen.render` clears the whole
-  # buffer and re-composites every frame, so moved widgets leave no trail. Doing
-  # it manually (the old `clear_last_rendered_position` call) raced the now-async
-  # renderer and made the stationary paddles flicker — see git history.
+  # Push the state onto the widgets and repaint. Deliberately does not erase
+  # previous positions by hand: `screen.render` clears the whole buffer and
+  # re-composites every frame. Manual erasing (the old
+  # `clear_last_rendered_position` call) raced the async renderer and made
+  # stationary paddles flicker — see git history.
   private def sync
     @ball.left = @ball_l.round.to_i
     @ball.top = @ball_t.round.to_i
@@ -184,10 +182,8 @@ class Pong
       @vel_t = -@vel_t.abs
     end
 
-    # Judge the paddle hit against the *rendered* row (`@ball.top` is `@ball_t`
-    # rounded), so the verdict matches what the player sees — otherwise a ball
-    # rounding onto the paddle's edge cell reads as a miss, or one rounding into
-    # the empty cell just past the paddle reads as a hit. The paddle occupies the
+    # Judge the paddle hit against the rendered row (`@ball.top` is `@ball_t`
+    # rounded), so the verdict matches what the player sees. Paddle occupies
     # rows `pad_t .. pad_t + PADDLE_H - 1`.
     by = @ball_t.round.to_i
 

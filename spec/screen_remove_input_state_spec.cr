@@ -2,9 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# Removing a widget from its `Window` must drop any transient mouse-interaction
-# pointer aimed into the removed subtree, the same way `Window#remove` already
-# rewinds keyboard focus out of it (see `screen_remove_focus_spec.cr`).
+# `Window#remove` must drop any transient mouse-interaction pointer aimed into
+# the removed subtree, same as it rewinds keyboard focus (see
+# `screen_remove_focus_spec.cr`).
 #
 # Without this, three dangling references survive the detach:
 #   * `@_hover`  — `screen.hovered` keeps reporting an off-screen widget.
@@ -55,8 +55,8 @@ describe "Window#remove (mouse-interaction state)" do
     ris_press s, 12, 6 # arms the drag, but does not start it yet
     s.remove box
 
-    # The press was armed on a widget that no longer belongs to the screen; the
-    # next motion must NOT promote it into a drag.
+    # Press was armed on a widget no longer on the screen; next motion must
+    # NOT promote it into a drag.
     ris_move s, 14, 8
     s.dragging.should be_nil
   end
@@ -95,8 +95,8 @@ describe "Window#remove (mouse-interaction state)" do
     s.dragging.try(&.target).should eq target
 
     s.remove target
-    # The target was the drop target; removing it must clear the pointer (with a
-    # DragLeave) rather than leave the drag aimed at a detached widget.
+    # Removing the drop target must clear the pointer (with a DragLeave)
+    # rather than leave the drag aimed at a detached widget.
     s.dragging.should_not be_nil           # the drag itself (source still here) lives on
     s.dragging.try(&.target).should be_nil # but no longer points at the removed widget
     left.should eq(1)
@@ -116,14 +116,12 @@ describe "Window#remove (mouse-interaction state)" do
 
     s.grab popup
     s.grabbing?.should be_true
-    # While grabbed, the pointer over `other` (outside the grab region) interacts
-    # with nothing.
+    # While grabbed, the pointer over `other` (outside the grab region) hits nothing.
     ris_move s, 44, 1
     s.hovered.should be_nil
 
     # Removing the grabbing widget directly (bypassing its own ungrab-on-close)
-    # must lift the modal lock rather than leave `@grabs` aimed at a detached
-    # widget and block all interaction forever.
+    # must lift the modal lock rather than leave `@grabs` aimed at a detached widget.
     s.remove popup
     s.grabbing?.should be_false
 

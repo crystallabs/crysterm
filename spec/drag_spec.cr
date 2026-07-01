@@ -3,10 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # Drag-and-drop engine (`src/drag.cr`, `src/window_drag.cr`, and the mouse/
-# keyboard sensors). Driven headlessly over in-memory IOs so no real terminal is
-# touched. The mouse sensor is exercised through the public `#dispatch_mouse`
-# entry point (the same one the terminal/gpm inputs feed), and the keyboard
-# sensor through `#_drag_key_handled`.
+# keyboard sensors). Driven headlessly over in-memory IOs. The mouse sensor is
+# exercised through the public `#dispatch_mouse` entry point (the same one the
+# terminal/gpm inputs feed); the keyboard sensor through `#_drag_key_handled`.
 
 private def drag_screen
   Crysterm::Window.new(
@@ -82,9 +81,9 @@ describe "drag-and-drop" do
     end
 
     it "does not start a drag when the widget accepts the press itself" do
-      # `accept`ing the `Event::Mouse` press suppresses the default behaviors
-      # (focus/click/wheel) — and the default drag too. A draggable widget that
-      # handles its own press must therefore NOT be dragged on a later motion.
+      # `accept`ing the `Event::Mouse` press suppresses default behaviors
+      # (focus/click/wheel/drag), so a draggable widget that handles its own
+      # press must NOT be dragged on a later motion.
       s = drag_screen
       box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4, draggable: true
       box.on(Event::Mouse) { |e| e.accept if e.action.down? }
@@ -99,7 +98,6 @@ describe "drag-and-drop" do
 
     it "moves a nested draggable widget relative to its parent's content origin" do
       s = drag_screen
-      # A bordered container offsets its children's content origin by (1, 1).
       panel = Widget::Box.new parent: s, left: 20, top: 6, width: 30, height: 12,
         style: Style.new(border: true)
       # Child `left`/`top` are relative to the panel's content corner
@@ -123,8 +121,7 @@ describe "drag-and-drop" do
     it "clamps a nested widget within the parent's content area, not past its border" do
       s = drag_screen
       # Bordered container: 1-cell border on every side, so its content area is
-      # the inner 28x10 (awidth 30 - iwidth 2, aheight 12 - iheight 2). Child
-      # left/top are relative to the content origin (panel.aleft+1, panel.atop+1).
+      # the inner 28x10 (awidth 30 - iwidth 2, aheight 12 - iheight 2).
       panel = Widget::Box.new parent: s, left: 20, top: 6, width: 30, height: 12,
         style: Style.new(border: true)
       box = Widget::Box.new parent: panel, left: 2, top: 2, width: 8, height: 4, draggable: true
@@ -136,8 +133,8 @@ describe "drag-and-drop" do
       # Clamped so the box stays fully inside the content area: max left/top is
       # inner_extent - own_extent. With awidth-iwidth == 28 and box awidth 8 the
       # furthest left is 20; with aheight-iheight == 10 and box aheight 4 it is 6.
-      # The OLD (awidth/aheight) clamp would have allowed 22 / 8 — letting the box
-      # spill across the panel's right/bottom border.
+      # A clamp using raw awidth/aheight would have allowed 22/8, spilling the
+      # box across the panel's right/bottom border.
       box.left.should eq(20)
       box.top.should eq(6)
       # Its absolute right/bottom edge therefore stays within the panel's content.
@@ -157,10 +154,9 @@ describe "drag-and-drop" do
     end
 
     it "moves a top-level widget relative to the screen's padded content origin" do
-      # Window padding insets every top-level widget: a child at left/top 0 lands
-      # at absolute (3, 2), so `aleft == screen.ileft + left`. The drag math must
-      # account for that origin (it used to assume (0, 0)) or the widget jumps by
-      # the padding on the first motion.
+      # Window padding insets every top-level widget: a child at left/top 0
+      # lands at absolute (3, 2), so `aleft == screen.ileft + left`. The drag
+      # math must account for that origin or the widget jumps on first motion.
       s = Crysterm::Window.new(
         input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
         width: 80, height: 24, padding: Crysterm::Padding.new(left: 3, top: 2, right: 3, bottom: 2))
@@ -172,8 +168,7 @@ describe "drag-and-drop" do
       press s, 9, 6 # grab at offset (2, 1) within the box
       move s, 12, 9 # promote arm -> drag, first motion
 
-      # The grab offset is preserved: the widget's absolute corner follows the
-      # pointer (was off by the padding before the fix).
+      # Grab offset preserved: the widget's absolute corner follows the pointer.
       box.aleft.should eq(10) # 12 - 2
       box.atop.should eq(8)   # 9 - 1
       # ...which is a screen-relative left/top of (7, 6), NOT the absolute (10, 8).
@@ -283,7 +278,7 @@ describe "drag-and-drop" do
       box.focus
 
       # A real Space press is printable: char == ' ', key == nil (the input
-      # layer only sets `key` for control sequences). Must still lift.
+      # layer only sets `key` for control sequences); must still lift.
       s._drag_key_handled(keypress(' ')).should be_true
       s.dragging.should_not be_nil
 

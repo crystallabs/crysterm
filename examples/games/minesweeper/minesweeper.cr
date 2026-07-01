@@ -3,9 +3,8 @@ require "../../../src/crysterm"
 # Minesweeper
 # ===========
 #
-# The classic. A grid hides a number of mines; every safe cell you uncover
-# shows how many of its eight neighbours are mined. Use that to deduce where
-# the mines are, flag them, and clear every safe cell without detonating one.
+# A grid hides mines; every safe cell you uncover shows how many of its eight
+# neighbours are mined. Flag suspected mines and clear every safe cell.
 #
 # Controls (mouse):
 #   * Left-click  - uncover a cell.
@@ -19,19 +18,18 @@ require "../../../src/crysterm"
 #   t           cycle the visual theme (Grass / Neon / Classic)
 #   q / Ctrl-Q  quit
 #
-# The same commands are available from the "Game" menu in the menu bar at the
-# top; the live stats (difficulty, mines remaining, elapsed time, game state)
-# show in the status bar along the bottom.
+# Same commands available from the "Game" menu; live stats (difficulty, mines
+# remaining, elapsed time, game state) show in the status bar.
 #
 # Niceties:
-#   * First-click safety - the first cell you open is never a mine, and is
-#     guaranteed to open into a blank area, so no game is lost on move one.
+#   * First-click safety - the first cell you open is never a mine and always
+#     opens into a blank area.
 #   * A live timer and a remaining-mine counter (mines minus flags).
 class Minesweeper
   include Crysterm
 
-  # Each cell is drawn this many columns wide and one row tall. Fixed width is
-  # what lets a click's (x, y) be mapped straight back to a (row, col).
+  # Each cell is drawn this many columns wide and one row tall. Fixed width lets
+  # a click's (x, y) be mapped straight back to a (row, col).
   CELL_W = 3
 
   # name => {rows, cols, mines}
@@ -43,8 +41,7 @@ class Minesweeper
 
   # The board is drawn as coloured tiles, not plain text. Each visual theme
   # carries a full palette; the `t` key cycles between them at runtime. Tiles use
-  # a two-tone checkerboard (light/dark by cell parity) for both covered and dug
-  # cells, which is what gives the board its depth.
+  # a two-tone checkerboard (light/dark by cell parity) for covered and dug cells.
   record Theme,
     name : String,
     box_bg : String,               # board frame / border backdrop
@@ -61,14 +58,14 @@ class Minesweeper
     correct_fg : String,
     wrong_fg : String # ✗ over a wrongly-flagged safe cell
 
-  # Glyphs, each a single terminal cell wide so the 3-column tiles stay aligned
+  # Each glyph is a single terminal cell wide so the 3-column tiles stay aligned
   # (emoji would be double-width and break the grid).
   FLAG  = '⚑'
   MINE  = '●'
   WRONG = '✗'
 
   THEMES = [
-    # Google-style: a bright grass field that "digs" into sandy tan.
+    # Bright grass field that "digs" into sandy tan.
     Theme.new(
       name: "Grass",
       box_bg: "#4e7a27", border_type: BorderType::Line, border_fg: "#86a94e",
@@ -78,7 +75,7 @@ class Minesweeper
       flag_fg: "#d32f2f", mine_fg: "#1a1a1a",
       hit_bg: "#d32f2f", hit_fg: "#ffffff",
       correct_bg: "#4caf50", correct_fg: "#10240a", wrong_fg: "#b71c1c"),
-    # Neon dark: slate tiles and bright glyphs, matching the dark menu/status bars.
+    # Slate tiles and bright glyphs, matching the dark menu/status bars.
     Theme.new(
       name: "Neon",
       box_bg: "#0e0e16", border_type: BorderType::Double, border_fg: "#89b4fa",
@@ -88,7 +85,7 @@ class Minesweeper
       flag_fg: "#f38ba8", mine_fg: "#94e2d5",
       hit_bg: "#f38ba8", hit_fg: "#11111a",
       correct_bg: "#a6e3a1", correct_fg: "#11111a", wrong_fg: "#f38ba8"),
-    # Classic: the flat grey/beige Windows look with its traditional numbers.
+    # Flat grey/beige Windows look with traditional numbers.
     Theme.new(
       name: "Classic",
       box_bg: "#9e9e9e", border_type: BorderType::Double, border_fg: "#ffffff",
@@ -111,8 +108,8 @@ class Minesweeper
   @flagged = [] of Array(Bool)
   @adj = [] of Array(Int32) # neighbouring-mine count, computed once mines are laid
 
-  # Lifecycle: Ready before the first click (mines not yet placed), then
-  # Playing, and finally Won or Lost.
+  # Ready before the first click (mines not yet placed), then Playing, then
+  # Won or Lost.
   enum State
     Ready
     Playing
@@ -147,7 +144,7 @@ class Minesweeper
       title: " MINESWEEPER ",
       parse_tags: true,
       style: Style.new(fg: "white", border: true)
-    @board.style.shadow = Shadow.from(true) # cast a drop shadow for depth
+    @board.style.shadow = Shadow.from(true)
 
     @status = Widget::StatusBar.new \
       parent: @screen,
@@ -159,14 +156,14 @@ class Minesweeper
       style: Style.new(fg: "white", bg: "#303050")
 
     @screen.append @board
-    apply_theme # paint the starting theme onto the board frame
+    apply_theme
 
-    # Built last so its drop-down menus append over the board (and after the
-    # widgets the menu actions reference exist).
+    # Built last so its drop-down menus append over the board, and after the
+    # widgets the menu actions reference exist.
     build_menu_bar
 
-    # One handler covers the whole board; we recover the clicked cell from the
-    # event coordinates. Acting on `down?` only means one action per press.
+    # One handler covers the whole board; recover the clicked cell from event
+    # coordinates. Acting on `down?` only means one action per press.
     @board.on(Event::Mouse) do |e|
       next unless e.action.down?
       handle_click e
@@ -190,7 +187,7 @@ class Minesweeper
       end
     end
 
-    # Tick the timer once a second while a game is in progress.
+    # Tick timer once a second while a game is in progress.
     spawn do
       loop do
         sleep 1.second
@@ -204,8 +201,8 @@ class Minesweeper
   end
 
   # Build the top menu bar: a "Game" menu mirroring every keyboard command, and
-  # a "Help" menu. The difficulty entries are checkable and act as a radio group
-  # (the current one is ticked), updated in `new_game`.
+  # a "Help" menu. Difficulty entries are checkable and act as a radio group
+  # (current one ticked), updated in `new_game`.
   private def build_menu_bar
     menubar = Widget::MenuBar.new \
       parent: @screen,
@@ -256,9 +253,9 @@ class Minesweeper
     THEMES[@theme_index]
   end
 
-  # Push the active theme onto the board frame: its border style/colour and the
-  # backdrop behind the border. The per-cell colours are read straight from the
-  # theme in `cell_glyph`, so a theme change only needs a repaint.
+  # Push the active theme onto the board frame: border style/colour and backdrop.
+  # Per-cell colours are read straight from the theme in `cell_glyph`, so a
+  # theme change only needs a repaint.
   private def apply_theme
     @board.style.bg = theme.box_bg
     @board.style.border = Border.new(theme.border_type, fg: theme.border_fg)
@@ -278,7 +275,7 @@ class Minesweeper
     coords
   end
 
-  # Yield each in-bounds neighbour (the up-to-eight surrounding cells) of (r, c).
+  # Yield each in-bounds neighbour (up to eight surrounding cells) of (r, c).
   private def neighbors(r, c, &)
     (-1..1).each do |dr|
       (-1..1).each do |dc|
@@ -319,8 +316,8 @@ class Minesweeper
     @screen.render
   end
 
-  # Lay the mines, keeping the first-clicked cell and its neighbours clear so
-  # the opening move always reveals a blank pocket. Called on the first click.
+  # Lay mines, keeping the first-clicked cell and its neighbours clear so the
+  # opening move always reveals a blank pocket. Called on the first click.
   private def place_mines(safe_r : Int32, safe_c : Int32)
     safe = Set{ {safe_r, safe_c} }
     neighbors(safe_r, safe_c) { |r, c| safe << {r, c} }
@@ -347,7 +344,7 @@ class Minesweeper
     return unless @state.ready? || @state.playing?
 
     # Map absolute event coordinates to a grid cell using the board's inner
-    # (post-border) origin.
+    # origin (post-border).
     origin_x = @board.aleft(true) + @board.ileft
     origin_y = @board.atop(true) + @board.itop
     return if e.x < origin_x || e.y < origin_y
@@ -376,8 +373,8 @@ class Minesweeper
     @flags += @flagged[r][c] ? 1 : -1
   end
 
-  # Reveal a single cell, starting the game (and laying mines) on the very first
-  # reveal and flood-filling outward from blank cells.
+  # Reveal a cell, starting the game (and laying mines) on the first reveal,
+  # flood-filling outward from blank cells.
   private def reveal(r, c)
     return if @flagged[r][c] || @revealed[r][c]
 
@@ -398,7 +395,7 @@ class Minesweeper
   end
 
   # Iterative flood fill: uncover this cell, and if it has no neighbouring mines
-  # keep spreading through its neighbours (classic "open area" behaviour).
+  # keep spreading through its neighbours.
   private def flood(r, c)
     stack = [{r, c}]
     until stack.empty?
@@ -413,8 +410,8 @@ class Minesweeper
   end
 
   # "Chord": clicking a revealed number whose adjacent flags already equal its
-  # count opens all of its remaining, unflagged neighbours in one go. A wrong
-  # flag here can lose the game — exactly as in the original.
+  # count opens all remaining unflagged neighbours in one go. A wrong flag here
+  # can lose the game.
   private def chord(r, c)
     n = @adj[r][c]
     return if n == 0
@@ -437,8 +434,7 @@ class Minesweeper
 
   private def win
     @state = :won
-    # A win implies every non-mine cell is open, so flag all mines for a tidy
-    # finished board and a 0 remaining-mine count.
+    # Every non-mine cell is open; flag remaining mines for a 0 remaining-mine count.
     all_cells.each do |(r, c)|
       if @mine[r][c] && !@flagged[r][c]
         @flagged[r][c] = true
@@ -455,10 +451,10 @@ class Minesweeper
     @screen.render
   end
 
-  # Mirror the live stats into the status bar: the game state plus a key hint as
-  # the left-aligned message, and the difficulty / theme / mines-remaining / time
-  # as the right-aligned permanent sections. The permanent sections are plain
-  # text, so any colour goes in the message.
+  # Mirror live stats into the status bar: game state / key hint as the
+  # left-aligned message, difficulty / theme / mines-remaining / time as the
+  # right-aligned permanent sections. Permanent sections are plain text, so any
+  # colour goes in the message.
   private def render_status
     remaining = @mines_total - @flags
     @status.clear_permanent
@@ -467,9 +463,8 @@ class Minesweeper
     @status.add_permanent "#{FLAG} #{sprintf("%03d", remaining)}" # mines left
     @status.add_permanent "#{sprintf("%03d", @elapsed.clamp(0, 999))}s"
 
-    # On win/loss show the outcome; the rest of the time show the key hints (the
-    # left message and the right permanent sections share the row, so both are
-    # kept short to fit without colliding).
+    # On win/loss show the outcome, otherwise the key hints; kept short since the
+    # message and permanent sections share the row.
     message = case @state
               when .won?  then "{green-fg}{bold}YOU WIN!{/}  press n for a new game"
               when .lost? then "{red-fg}{bold}BOOM! You lost.{/}  press n for a new game"
@@ -489,20 +484,20 @@ class Minesweeper
     @board.content = sb.to_s
   end
 
-  # One 3-column tile: a centred glyph over a background. Both colours are hex,
-  # so they render through the truecolor tag form (`{#rrggbb-bg}`/`{#rrggbb-fg}`).
+  # One 3-column tile: a centred glyph over a background, rendered through the
+  # truecolor tag form (`{#rrggbb-bg}`/`{#rrggbb-fg}`).
   private def tile(bg : String, fg : String, glyph : Char) : String
     "{#{bg}-bg}{#{fg}-fg} #{glyph} {/}"
   end
 
-  # An empty 3-column tile (covered or dug) — just a coloured background.
+  # An empty 3-column tile (covered or dug): just a coloured background.
   private def blank_tile(bg : String) : String
     "{#{bg}-bg}   {/}"
   end
 
-  # The 3-wide drawing for one cell in the active theme. A two-tone checkerboard
-  # (by cell parity) gives both covered and dug cells visible texture; a single
-  # centred glyph keeps every tile exactly CELL_W columns regardless of tags.
+  # The 3-wide drawing for one cell in the active theme. Two-tone checkerboard
+  # (by cell parity); a single centred glyph keeps every tile exactly CELL_W
+  # columns regardless of tags.
   private def cell_glyph(r, c) : String
     t = theme
     light = (r + c).even?
@@ -514,14 +509,14 @@ class Minesweeper
     if over && @mine[r][c]
       # Reveal every mine once the game is over.
       if r == @hit_r && c == @hit_c
-        tile t.hit_bg, t.hit_fg, MINE # the one you detonated
+        tile t.hit_bg, t.hit_fg, MINE # detonated
       elsif @flagged[r][c]
         tile t.correct_bg, t.correct_fg, FLAG # correctly flagged
       else
         tile dug, t.mine_fg, MINE
       end
     elsif over && @flagged[r][c] && !@mine[r][c]
-      tile dug, t.wrong_fg, WRONG # a flag on a cell that was safe
+      tile dug, t.wrong_fg, WRONG # flag on a safe cell
     elsif @flagged[r][c]
       tile covered, t.flag_fg, FLAG
     elsif !@revealed[r][c]
@@ -534,8 +529,7 @@ class Minesweeper
   end
 end
 
-# Pick the difficulty from the first CLI argument (name or 1/2/3); default to
-# Beginner.
+# Pick difficulty from the first CLI argument (name or 1/2/3); default Beginner.
 arg = ARGV[0]?.try(&.downcase)
 difficulty =
   case arg

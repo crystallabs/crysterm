@@ -10,8 +10,7 @@ module Crysterm
     dock_borders: true,
     always_propagate: [::Tput::Key::CtrlQ]
 
-  # NOTE: blessed shortens to a long Cicero passage; a short filler suffices to
-  # show the background under the shadows.
+  # Blessed uses a long Cicero passage; a short filler suffices here.
   lorem = ([
     "Non eram nescius Brute cum quae summis ingeniis exquisitaque doctrina",
     "philosophi Graeco sermone tractavissent ea Latinis litteris mandaremus",
@@ -32,10 +31,8 @@ module Crysterm
     parse_tags: true,
     style: Style.new(bg: "yellow", border: true, shadow: true)
 
-  # blessed `style.transparent: true` → crysterm's `Style#alpha` (the render blends
-  # each cell with what's underneath via `Colors.blend`). `0.5` matches blessed's
-  # 50% mix, so the yellow box, its shadow, and the blue background text show
-  # through the red window.
+  # blessed `style.transparent: true` → crysterm's `Style#alpha` (blends each cell
+  # with what's underneath via `Colors.blend`). 0.5 matches blessed's 50% mix.
   over = Widget::Box.new \
     parent: s,
     left: "center", top: "center",

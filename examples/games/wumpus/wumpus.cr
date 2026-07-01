@@ -47,8 +47,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     say
   end
 
-  # The canonical dodecahedron map from the original game. Room N (1-based)
-  # connects to the three rooms listed.
+  # Dodecahedron map from the original game. Room N (1-based) connects to the
+  # three rooms listed.
   MAP = {
     1 => {2, 5, 8}, 2 => {1, 3, 10}, 3 => {2, 4, 12}, 4 => {3, 5, 14},
     5 => {1, 4, 6}, 6 => {5, 7, 15}, 7 => {6, 8, 17}, 8 => {1, 7, 11},
@@ -86,16 +86,16 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
                "wimpus" => true},
   }
 
-  # Grammatical forms of whoever a hazard message is about, so the same bat /
-  # pit wording serves both the player and — with "wimpus" on — the Wumpus, in
-  # either the 1973 (caps) or modern wording. See bat_snatch_msg / pit_msg.
+  # Grammatical forms of whoever a hazard message is about, so the same bat/pit
+  # wording serves both the player and (with "wimpus" on) the Wumpus. See
+  # bat_snatch_msg / pit_msg.
   PLAYER = {caps: "YOU", name: "you", subj: "You", obj: "you", verb_s: ""}
   WUMPUS = {caps: "THE WUMPUS", name: "the Wumpus", subj: "The Wumpus", obj: "it", verb_s: "s"}
 
   @player = 1
   @prev_player = 1 # room occupied before the current one (for the "back" flag)
   @wumpus = 1
-  @prev_wumpus = 1 # the Wumpus's room as of the start of the current turn (for the loss reveal)
+  @prev_wumpus = 1 # Wumpus's room at the start of the current turn (for the loss reveal)
   @pits = [] of Int32
   @bats = [] of Int32
   @arrows = STARTING_ARROWS
@@ -110,7 +110,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   # y/n answer is interpreted here instead of as a move.
   @awaiting_replay = false
 
-  # Whether any game has started yet, so new_game can separate each fresh prolog
+  # Whether any game has started yet, so new_game separates each fresh prolog
   # from the previous game with a blank line (but not at the very top).
   @started = false
 
@@ -157,13 +157,12 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       height: 3,
       style: Style.new(fg: "black", bg: "#e0e000", border: true)
 
-    # The scoreboard: a small titled box pinned to the top-right corner, just
-    # inside the transcript's outer border. Shown only when the "score" flag is on
-    # (see update_score). top:1 / right:1 keep it clear of the surrounding border.
-    # It overlays the transcript, whose scroll bar shares this column once the log
-    # scrolls; `z-index: 10` floats the box above that bar (the theme puts the bar
-    # on plane 5) so its right border isn't eaten. See the theme's `.popup`/`Menu`
-    # overlays for the same pattern.
+    # Scoreboard: a small titled box pinned to the top-right corner, inside the
+    # transcript's outer border. Shown only when "score" is on (see
+    # update_score). Overlays the transcript, whose scroll bar shares this
+    # column once the log scrolls; `z-index: 10` floats the box above that bar
+    # (theme puts the bar on plane 5) so its right border isn't eaten. See the
+    # theme's `.popup`/`Menu` overlays for the same pattern.
     @scorebox = Widget::GroupBox.new \
       top: 1,
       right: 1,
@@ -186,9 +185,9 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
         # description, or whichever teletype prompt we're waiting on.
         repeat_status
       else
-        # Echo the typed line into the transcript so the back-and-forth stays in
-        # the scrollback (like a real teletype). Braces are neutralized so user
-        # input can never be mistaken for {tag} markup.
+        # Echo the typed line into the transcript so it stays in the scrollback
+        # (like a real teletype). Braces are neutralized so user input can't be
+        # mistaken for {tag} markup.
         say "> #{text.gsub('{', '(').gsub('}', ')')}"
         handle_command text
       end
@@ -213,8 +212,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   # ---- Flags -----------------------------------------------------------------
 
   # Give every flag a `<name>?` predicate that reads the live option, so call
-  # sites read as `mesg?` rather than `@opt["mesg"]`. Generated straight from
-  # FLAGS so the predicates and the flag list can never drift apart.
+  # sites read as `mesg?` rather than `@opt["mesg"]`. Generated from FLAGS so
+  # the predicates can't drift from the flag list.
   {% for flag in @type.constant("FLAGS") %}
     private def {{flag.id}}?
       @opt[{{flag}}]
@@ -227,10 +226,9 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   end
 
   # Apply one configuration token to an options hash: a pack name ("1973"), a
-  # bare flag name ("bump", which toggles it), or a forced "+flag" / "-flag".
-  # Shared by the command-line args at startup and by typed input mid-game.
-  # Returns the name of the single flag changed, "" for a preset, or nil if the
-  # token wasn't recognized.
+  # bare flag name ("bump", toggles it), or a forced "+flag" / "-flag". Shared
+  # by the command-line args at startup and typed input mid-game. Returns the
+  # name of the single flag changed, "" for a preset, or nil if unrecognized.
   def self.apply_arg(opts : Hash(String, Bool), token : String) : String?
     token = token.downcase
     if pack = PRESETS[token]?
@@ -247,17 +245,17 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     end
   end
 
-  # Re-render the current room after a flag/preset change, in the new style. The
-  # game state (player, hazards, arrows) is untouched; only a half-entered
-  # teletype prompt is abandoned, since the input model itself may have changed.
+  # Re-render the current room after a flag/preset change, in the new style.
+  # Game state is untouched; a half-entered teletype prompt is abandoned since
+  # the input model itself may have changed.
   private def refresh_options
     @input_state = :command
     update_score
     describe_room unless @awaiting_replay
   end
 
-  # Current config as a list of +flag / -flag tokens — which is exactly what you
-  # can type back to set them (e.g. "+bump", "-reveal").
+  # Current config as +flag/-flag tokens — exactly what you can type back to
+  # set them (e.g. "+bump", "-reveal").
   private def options_line : String
     FLAGS.map { |f| "#{@opt[f] ? "+" : "-"}#{f}" }.join(" ")
   end
@@ -275,16 +273,15 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     say if gap?
   end
 
-  # The "super bat snatch" notice for whoever got grabbed — the player, or the
-  # Wumpus (with "wimpus" on). `who` is PLAYER or WUMPUS; both wordings name the
-  # subject so the message reads right whichever it is.
+  # The "super bat snatch" notice for whoever got grabbed (player, or Wumpus
+  # with "wimpus" on). `who` is PLAYER or WUMPUS.
   private def bat_snatch_msg(who) : String
     w("{magenta-fg}ZAP--SUPER BAT SNATCH! ELSEWHERE FOR #{who[:caps]}!{/}",
       "{magenta-fg}Super bats snatch #{who[:name]} and whisk #{who[:obj]} away!{/}")
   end
 
-  # The "fell down a pit" notice, likewise parameterized by subject (PLAYER or
-  # WUMPUS) so it serves the player's death and the Wumpus's (which is your win).
+  # The "fell down a pit" notice, parameterized by subject (PLAYER or WUMPUS):
+  # serves the player's death and the Wumpus's (which is your win).
   private def pit_msg(who) : String
     w("{yellow-fg}YYYIIIIEEEE . . . #{who[:caps]} FELL IN A PIT{/}",
       "{yellow-fg}{bold}#{who[:subj]} plummet#{who[:verb_s]} into a bottomless pit. Aaaaaa…{/}")
@@ -295,8 +292,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   # Inner width (inside the box border) used to right-align the scores.
   SCORE_WIDTH = 12
 
-  # One scoreboard row: a left-aligned, colored label and a right-aligned tally.
-  # Padding is computed on the plain text so the {tag} markup can't skew it.
+  # One scoreboard row: left-aligned colored label, right-aligned tally.
+  # Padding is computed on the plain text so {tag} markup can't skew it.
   private def score_line(label : String, value : Int32, color : String) : String
     v = value.to_s
     pad = " " * (SCORE_WIDTH - label.size - v.size)
@@ -333,7 +330,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       @player, @wumpus = @start_player, @start_wumpus
       @pits, @bats = @start_pits.dup, @start_bats.dup
     else
-      # Place the player and hazards in six distinct rooms, and remember the
+      # Place the player and hazards in six distinct rooms, remembering the
       # layout so a later "SAME SET-UP" can restore it.
       rooms = (1..20).to_a.shuffle
       @player = rooms[0]
@@ -363,8 +360,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     update_score
 
     # With "wimpus" on, check the Wumpus's starting room against the cave's
-    # hazards before the hunt begins (placement keeps everyone in distinct rooms,
-    # so this is a safeguard): bats would relocate it, a pit would win outright.
+    # hazards before the hunt begins: bats would relocate it, a pit wins outright.
     case wumpus_landing
     when :pit then wumpus_pit_win
     else           describe_room
@@ -397,9 +393,9 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     say "SHOOT OR MOVE (S-M)?" if prompts?
   end
 
-  # Re-print the line the game is currently waiting on, for when the player just
-  # presses Enter on an empty input: the pending teletype prompt if we're mid-
-  # turn, the replay question after a game ends, or otherwise the room status.
+  # Re-print the line the game is waiting on when the player presses Enter on
+  # an empty input: the pending teletype prompt if mid-turn, the replay
+  # question after a game ends, or otherwise the room status.
   private def repeat_status
     if @awaiting_replay
       say "SAME SET-UP (Y-N)?"
@@ -416,9 +412,9 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
 
   # ---- Command dispatch ------------------------------------------------------
 
-  # The room numbers from a shoot/move command's argument tokens, split so that
-  # any run of non-word characters — spaces, commas, etc. — delimits them
-  # ("3 12", "3,12"). Non-numeric or out-of-range tokens are simply dropped.
+  # The room numbers from a shoot/move command's argument tokens, split so any
+  # run of non-word characters (spaces, commas, etc.) delimits them ("3 12",
+  # "3,12"). Non-numeric or out-of-range tokens are dropped.
   private def room_args(parts : Array(String)) : Array(Int32)
     parts[1..].join(" ").split(/\W+/, remove_empty: true).compact_map(&.to_i?)
   end
@@ -428,24 +424,23 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   private def handle_command(cmd : String)
     return if cmd.empty?
     # Snapshot the Wumpus's room before resolving the turn: if it later stirs
-    # onto you (a shot startling it into your room), the reveal still names where
-    # it *was*, not the room it died in (which is now yours). See lose.
+    # onto you, the reveal still names where it *was*, not the room it died in
+    # (now yours). See lose.
     @prev_wumpus = @wumpus
     parts = cmd.split(/\s+/)
     verb = parts[0].downcase
-    # Let the shoot/move verb be written glued onto its first room number
-    # ("s3", "m5"): peel a leading s/m off when a digit follows. The rooms
-    # themselves are pulled out with room_args below, where any non-word
-    # character (space, comma, …) delimits them.
+    # Let the shoot/move verb be glued onto its first room number ("s3", "m5"):
+    # peel a leading s/m off when a digit follows. Rooms are pulled out with
+    # room_args below.
     if g = verb.match(/\A([sm])(\d.*)\z/)
       verb = g[1]
       parts = [g[1], g[2]] + parts[1..]
     end
 
     # A pack name ("1973"), a bare flag ("bump", toggles it), or a forced
-    # "+flag" / "-flag" reconfigures the game without resetting it — and works
-    # any time (even mid-turn). Same token format as the command-line args. For a
-    # single flag we echo its new state (+on / -off); presets stay silent.
+    # "+flag" / "-flag" reconfigures the game without resetting it, any time
+    # (even mid-turn). For a single flag we echo its new state (+on/-off);
+    # presets stay silent.
     if changed = Wumpus.apply_arg(@opt, verb)
       say(@opt[changed] ? "+" : "-") unless changed.empty?
       refresh_options
@@ -533,8 +528,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     end
   end
 
-  # Handle one answer in the teletype prompt sequence, re-asking the same prompt
-  # on bad input just as the original did.
+  # Handle one answer in the teletype prompt sequence, re-asking on bad input
+  # just as the original did.
   private def handle_prompt(verb : String)
     num = verb.to_i?
     case @input_state
@@ -610,9 +605,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     if @player == @wumpus
       if bump?
         # A bump only wakes the Wumpus: it stirs (75%) and may shuffle out of
-        # your room, so you can survive. Only being eaten ends the game. With
-        # "wimpus" on, that shuffle can carry it into a hazard too (see
-        # wumpus_stirs): bats relocate it, a pit means you win.
+        # your room, so you can survive. With "wimpus" on, that shuffle can
+        # carry it into a hazard too (see wumpus_stirs).
         say w("{red-fg}... OOPS! BUMPED A WUMPUS!{/}",
           "{red-fg}You blunder into the Wumpus — it wakes with a roar!{/}")
         case wumpus_stirs
@@ -647,8 +641,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     if @bats.includes?(@player)
       say bat_snatch_msg(PLAYER)
       @player = rand(1..20)
-      # Credit the bats if they happened to drop you straight down a pit. The
-      # recursive enter_room below still credits the hole itself.
+      # Credit the bats if they dropped you straight down a pit; the recursive
+      # enter_room below still credits the hole itself.
       if @pits.includes?(@player)
         @score_bats += 1
         update_score
@@ -662,7 +656,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   end
 
   # The Wumpus stirs after a shot or a bump: 75% chance it shuffles to a random
-  # adjacent room (25% it stays put). Returns its fate via wumpus_landing:
+  # adjacent room. Returns its fate via wumpus_landing:
   #   :safe - nothing happened (still lurking somewhere harmless)
   #   :ate  - it ended up in your room (you're eaten)
   #   :pit  - it fell down a pit ("wimpus" on) — you win
@@ -671,11 +665,10 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     wumpus_landing
   end
 
-  # Work out what the Wumpus's current room means. It's eaten you if it's on
-  # you. With "wimpus" on it also faces the cave's hazards just like you do:
-  # bats whisk it to a random room (which the recursion re-checks), and a pit
-  # swallows it — which is your win. Always announces those events (in either
-  # wording), since the player can't otherwise see the Wumpus move.
+  # Work out what the Wumpus's current room means. Eaten if it's on you. With
+  # "wimpus" on it also faces the cave's hazards: bats whisk it to a random
+  # room (recursion re-checks), a pit swallows it (your win). Always announces
+  # these events since the player can't otherwise see the Wumpus move.
   private def wumpus_landing : Symbol
     return :ate if @wumpus == @player
     return :safe unless wimpus?
@@ -690,8 +683,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     :safe
   end
 
-  # The Wumpus fell down a pit (only possible with "wimpus" on): announce it in
-  # the same words a pit uses for the player, tally the win, and end the game.
+  # The Wumpus fell down a pit (only with "wimpus" on): announce it, tally the
+  # win, and end the game.
   private def wumpus_pit_win
     say pit_msg(WUMPUS)
     @score_player += 1
@@ -707,8 +700,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       return
     end
 
-    # Unless "crooked" is on, the arrow can't double straight back on itself: no
-    # room may equal the one two steps earlier in the path (A -> B -> A).
+    # Unless "crooked" is on, the arrow can't double back on itself: no room
+    # may equal the one two steps earlier in the path (A -> B -> A).
     unless crooked?
       (2...path.size).each do |i|
         if path[i] == path[i - 2]
@@ -719,8 +712,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       end
     end
 
-    # Trace the arrow's flight. A "crooked arrow" must turn between adjacent
-    # rooms; if you name a room it can't reach, it veers off randomly.
+    # Trace the arrow's flight: a "crooked arrow" must turn between adjacent
+    # rooms; naming a room it can't reach makes it veer off randomly.
     pos = @player
     path.each do |target|
       pos = if MAP[pos].includes?(target)
@@ -751,8 +744,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     say w("{cyan-fg}MISSED{/}", "{cyan-fg}Your arrow clatters away into the dark. A miss.{/}")
     @arrows -= 1
 
-    # The shot startles the Wumpus; it may shamble into an adjacent room — and
-    # with "wimpus" on, into a hazard there (bats relocate it, a pit wins).
+    # The shot startles the Wumpus; it may shamble into an adjacent room, and
+    # with "wimpus" on, into a hazard there.
     moved_from = @wumpus
     case wumpus_stirs
     when :ate
@@ -767,7 +760,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     end
 
     # It only grumbled off to a neighbouring room: in modern mode, note the move
-    # (the player has no reveal, so this is the only hint the Wumpus shifted).
+    # (the only hint the player gets that the Wumpus shifted).
     say "{red-fg}Wumpus moves with a grumble.{/}" if !mesg? && @wumpus != moved_from
 
     if @arrows <= 0
@@ -793,9 +786,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
 
   private def lose
     say "HA HA HA - YOU LOSE!" if mesg?
-    # @prev_wumpus (the Wumpus's room at the start of this turn), not @wumpus: a
-    # stir can move it onto you in the same turn, which would otherwise reveal
-    # your own room instead of where the Wumpus had been lurking.
+    # Uses @prev_wumpus, not @wumpus: a stir can move the Wumpus onto you in
+    # the same turn, and the reveal should name where it *was*, not your room.
     end_prompt
   end
 

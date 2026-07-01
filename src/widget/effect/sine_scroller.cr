@@ -6,22 +6,20 @@ require "../../colors"
 module Crysterm
   class Widget
     module Effect
-      # A sine-wave rainbow text scroller — the demoscene classic where a message
-      # scrolls horizontally while each glyph rides up and down a sine wave, every
-      # letter tinted its own cycling hue.
+      # A sine-wave rainbow text scroller — a message scrolls horizontally while
+      # each glyph rides up and down a sine wave, tinted its own cycling hue.
       #
-      # Extracted from the `cracktro.cr` feature demo. It is the 2-D companion to
+      # Extracted from the `cracktro.cr` feature demo. The 2-D companion to
       # `Marquee`: the same horizontally-looping message (wrapping modulo its own
       # length, so trailing spaces become the gap), but composited across the
       # widget's whole height — each non-space glyph placed on the row given by
-      # `sin(x * wave_frequency + frame * wave_speed)`. It reads its size lazily
+      # `sin(x * wave_frequency + frame * wave_speed)`. Reads its size lazily
       # each frame, so it tracks resize and `%`-relative sizing automatically.
       #
       # Like `Effect::Matrix` and `Marquee`, it drives its own animation: call
-      # `#start` to spawn the render fiber and `#stop` to halt it. `#step` (which
-      # only recomposes `content`; it does not render or sleep) is public so the
-      # effect can instead be advanced from an external clock when several effects
-      # must share one frame counter.
+      # `#start` to spawn the render fiber and `#stop` to halt it. `#step` (state
+      # only, no render/sleep) is public so the effect can be advanced from an
+      # external clock when several effects share one frame counter.
       #
       # ```
       # scroller = Widget::Effect::SineScroller.new parent: window, top: 0, left: 0,
@@ -29,13 +27,12 @@ module Crysterm
       # scroller.start
       # ```
       #
-      # The glyphs are painted straight into the window cells in `#render` —
-      # each cell's color is set as a native `0xRRGGBB` attribute via `sattr` —
-      # rather than by building a `{#rrggbb-fg}`-tagged content string and letting
-      # the content pipeline re-tokenize it (`_parse_tags`) every frame. A
-      # full-window scroller emits one color run per column, so the tag reparse
-      # was this widget's dominant per-frame cost; the direct path skips it
-      # entirely. (This mirrors how `Widget::Gradient` paints its cells.)
+      # Glyphs are painted straight into the window cells in `#render` — each
+      # cell's color set as a native `0xRRGGBB` attribute via `sattr` — rather
+      # than building a `{#rrggbb-fg}`-tagged content string re-tokenized
+      # (`_parse_tags`) every frame. A full-window scroller emits one color run
+      # per column, so the tag reparse was this widget's dominant per-frame
+      # cost; the direct path skips it. (Mirrors `Widget::Gradient`.)
       #
       # <!-- widget-examples:capture v1 -->
       # ![SineScroller screenshot](../../../tests/widget/effect/sine_scroller/sine_scroller.5s.apng)
@@ -54,7 +51,7 @@ module Crysterm
 
         def text=(@text : String)
           @chars = @text.chars
-          mark_dirty # the displayed message changed; repaint under damage tracking
+          mark_dirty # repaint under damage tracking
         end
 
         # Direction the text travels (shared with `Marquee`).
@@ -100,31 +97,29 @@ module Crysterm
         # calls `step` then triggers a single `window.render`.
         def step
           @frame += 1
-          mark_dirty # animation state changed; repaint under damage tracking
+          mark_dirty # repaint under damage tracking
         end
 
         # Paints the looping message across the full height on a sine wave,
         # writing each glyph's cell directly with its native color. `_render`
         # (via `with_inner_coords`) establishes this frame's coordinates; the box
-        # background is filled first (mirroring the spaces the old content string
-        # carried), then the glyphs are laid over it.
+        # background is filled first, then the glyphs are laid over it.
         def render
           with_inner_coords do |xi, xl, yi, yl|
             w = xl - xi
             h = yl - yi
             next if w <= 0 || h <= 0
 
-            # Pack the attr's invariant parts once per frame (flags + bg), exactly
-            # as `Effect::Direct#paint` does. Only the fg varies per column, so the
-            # per-column cost becomes a single `Attr.pack` rather than a full
-            # `sattr` rebuild (7-flag bitmask + bg pack) on every glyph cell.
+            # Pack the attr's invariant parts once per frame (flags + bg), as
+            # `Effect::Direct#paint` does. Only fg varies per column, so the
+            # per-column cost is a single `Attr.pack` rather than a full `sattr`
+            # rebuild on every glyph cell.
             da = sattr(style)
             flags = Attr.flags da
             bgf = Attr.bg da
             deff = Attr.fg da # widget's own fg, for the non-rainbow case
 
-            # Background fill: the box's own colors, every cell (the field the
-            # glyphs ride over).
+            # Background fill: the field the glyphs ride over.
             window.fill_region(da, ' ', xi, xl, yi, yl)
 
             n = text.size
@@ -134,9 +129,9 @@ module Crysterm
             amp = (h - 1) / 2.0
 
             (0...w).each do |x|
-              # Horizontal scroll, identical to `Marquee`: `:left` shifts the row
-              # left as f grows, `:right` mirrors it. Crystal's `%` follows the
-              # divisor's sign, so the index is always valid.
+              # Horizontal scroll, identical to `Marquee`: `:left` shifts left as
+              # f grows, `:right` mirrors it. Crystal's `%` follows the divisor's
+              # sign, so the index is always valid.
               idx = (direction.left? ? f + x : f - x) % n
               ch = @chars[idx]
               next if ch == ' '

@@ -2,14 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Window#save_focus` remembers the currently-focused widget so a later
-# `#restore_focus` can return focus to it (used by dialogs: `Widget::Message`,
-# `Question`, `Prompt`, `FileManager`, `ColorDialog`). If that saved widget is
-# *removed* from the screen before focus is restored — e.g. the dialog outlives
-# the widget it saved — the widget's `screen` becomes nil. `restore_focus` used
-# to call `Widget#focus` unconditionally, which dereferences `screen`
-# (`screen?.not_nil!`) and crashes. It must instead skip a saved widget that is
-# no longer attached to this screen.
+# `Window#save_focus` remembers the focused widget so `#restore_focus` can
+# return to it later (used by dialogs: `Widget::Message`, `Question`, `Prompt`,
+# `FileManager`, `ColorDialog`). If the saved widget is removed from the screen
+# before restore, its `screen` becomes nil. `restore_focus` used to call
+# `Widget#focus` unconditionally, dereferencing `screen` (`screen?.not_nil!`)
+# and crashing — it must instead skip a saved widget no longer attached.
 
 private def restore_focus_screen
   Crysterm::Window.new(

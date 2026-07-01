@@ -2,15 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# A malformed color *function* is an invalid declaration and, like a blank
-# value, must be dropped — leaving any previously-cascaded color intact rather
-# than clobbering it to unset. The realistic trigger is an undefined `var()`
-# inside a color function: `color: rgb(var(--x), 0, 0)` with `--x` undefined is
-# resolved by the cascade to `rgb(, 0, 0)` (the `var()` collapses to "") before
-# reaching `Properties.apply` — that no longer parses to a color, so per CSS the
-# whole declaration is dropped. (Distinct from the genuine-unset keyword forms
-# `inherit`/`initial`/`unset`/`currentColor`, which still reset so inheritance
-# can refill them.)
+# A malformed color *function* is an invalid declaration and must be dropped,
+# keeping any previously-cascaded color rather than clobbering it to unset.
+# Realistic trigger: `color: rgb(var(--x), 0, 0)` with `--x` undefined
+# resolves to `rgb(, 0, 0)`, which no longer parses, so per CSS the whole
+# declaration is dropped. Distinct from `inherit`/`initial`/`unset`/
+# `currentColor`, which still reset so inheritance can refill them.
 describe "CSS color (malformed function value)" do
   it "drops a malformed `rgb()` color, keeping a previously-set foreground" do
     s = Style.new

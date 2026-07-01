@@ -1,13 +1,13 @@
-# IMPRESSIVE DEMO: a TRUE-color image overlay via w3mimgdisplay.
+# True-color image overlay via w3mimgdisplay.
 #
-# Unlike Media::Ansi / Media::Glyph (which decode the image and draw it into the
-# terminal's character cells), `Widget::Media::Overlay` shells out to the external
-# `w3mimgdisplay` helper, which paints the *actual pixels* of the image directly
-# onto the terminal window — full photographic quality, on top of the cells.
+# Unlike Media::Ansi / Media::Glyph (which decode the image into terminal
+# character cells), `Widget::Media::Overlay` shells out to the external
+# `w3mimgdisplay` helper, which paints the actual pixels directly onto the
+# terminal window, on top of the cells.
 #
-# This needs a w3m-image-capable terminal (e.g. xterm) on a real display; it
-# does NOT work over a plain pipe/pseudo-terminal, since the overlay is real
-# graphics rather than characters in the output stream.
+# Needs a w3m-image-capable terminal (e.g. xterm) on a real display; does not
+# work over a plain pipe/pseudo-terminal since the overlay is real graphics,
+# not characters in the output stream.
 
 require "../../../../src/crysterm"
 
@@ -25,8 +25,8 @@ Widget::Media::Overlay.new \
   stretch: true,
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"
 
-# Optional self-terminate (used by the screenshot tooling so nothing external
-# has to be killed): OVERLAY_SECONDS=8 makes the demo exit on its own.
+# Optional self-terminate for screenshot tooling: OVERLAY_SECONDS=8 makes the
+# demo exit on its own.
 if secs = ENV["OVERLAY_SECONDS"]?
   spawn do
     sleep secs.to_f.seconds

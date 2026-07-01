@@ -2,14 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
-# Multiple `Window` surfaces sharing one `Screen` device (one tty) — the Qt
-# `QScreen` hosting several `QWindow`s. Crysterm does not composite surfaces
-# (no tiling/overlay); the model is *stacked* windows, one active at a time,
-# switchable with `Application#activate`, with a shared device whose lifecycle
-# is reference-counted so tearing down one surface never breaks its siblings.
+# Multiple `Window` surfaces sharing one `Screen` device (one tty), like a Qt
+# `QScreen` hosting several `QWindow`s. Crysterm doesn't composite surfaces;
+# the model is stacked windows, one active at a time, switchable via
+# `Application#activate`, with a reference-counted shared device so tearing
+# down one surface doesn't break its siblings.
 #
-# Everything is headless (fixed-size `IO::Memory` device); `default_quit_keys:
-# false` so a routed key is never intercepted as an app-quit (which calls exit).
+# Headless (fixed-size `IO::Memory` device); `default_quit_keys: false` so a
+# routed key is never intercepted as app-quit.
 
 private def shared_device
   Crysterm::Screen.new(
@@ -47,7 +47,7 @@ describe "multiple Windows sharing one Screen" do
     w1.on(Crysterm::Event::KeyPress) { seen << 1 }
     w2.on(Crysterm::Event::KeyPress) { seen << 2 }
 
-    # w2 is the most-recently-added → active.
+    # w2 is most-recently-added -> active.
     app.route_input dev, Tput::InputEvent.new('x', nil)
 
     app.activate(w1).should be(w1)
@@ -68,8 +68,8 @@ describe "multiple Windows sharing one Screen" do
 
     w2.destroy
 
-    # The device is NOT torn down — still in the alternate buffer — and the
-    # surviving window is untouched.
+    # Device is not torn down (still in the alternate buffer); surviving
+    # window is untouched.
     dev.tput.is_alt.should be_true
     w1.connected?.should be_true
     app.windows.should eq [w1]

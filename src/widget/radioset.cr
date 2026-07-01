@@ -6,8 +6,7 @@ module Crysterm
     # ![RadioSet screenshot](../../tests/widget/radioset/radioset.5s.apng)
     # <!-- /widget-examples:capture -->
     class RadioSet < Box
-      # D O:
-      # Possibly inherit parent's style.
+      # TODO: possibly inherit parent's style.
       # @style = @parent.style
     end
   end

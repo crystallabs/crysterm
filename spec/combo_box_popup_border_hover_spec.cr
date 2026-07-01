@@ -6,13 +6,13 @@ include Crysterm
 #
 #   1. `#position_popup` sized the popup with a hardcoded `+ 2` ("+ border"),
 #      assuming exactly a 1-cell border on each side. A themed/borderless popup
-#      then got phantom blank rows (or was clipped). The size must come from the
-#      popup's *real* interior insets (`#iheight`), the way `Widget::Menu` sizes
-#      itself — so it fits for ANY border (0-cell, 1-cell, asymmetric).
+#      then got phantom blank rows (or was clipped). Size must come from the
+#      popup's real interior insets (`#iheight`), like `Widget::Menu`, so it fits
+#      for any border (0-cell, 1-cell, asymmetric).
 #
 #   2. The drop-down list never enabled `#hover_select`, so moving the mouse over
-#      an entry did nothing (keyboard-only). It must highlight the entry under the
-#      pointer, like the `Completer` popup and a desktop combo box.
+#      an entry did nothing. It must highlight the entry under the pointer, like
+#      the `Completer` popup and a desktop combo box.
 
 private def cbph_screen
   Crysterm::Window.new(
@@ -27,8 +27,8 @@ end
 describe "ComboBox popup border sizing" do
   it "fits the visible rows for ANY border, deriving from iheight not a hardcoded +2" do
     s = cbph_screen
-    # A borderless, padding-less drop-down: its interior insets are 0, so a
-    # hardcoded `+ 2` would over-size it by two phantom rows.
+    # Borderless, padding-less drop-down: interior insets are 0, so a hardcoded
+    # `+ 2` would over-size it by two phantom rows.
     s.stylesheet = ".popup { border: none; padding: 0; }"
     s.apply_stylesheet
 
@@ -37,11 +37,10 @@ describe "ComboBox popup border sizing" do
     cb.open
     pop = cb.popup_widget.not_nil!
     s.apply_stylesheet # cascade the freshly-created popup -> `.popup` (borderless)
-    pop.render         # the per-frame refit the screen render loop runs via `el.render`:
-    #                    `Popup#render` re-fits the height to the now-resolved border
+    pop.render         # per-frame refit (`Popup#render` re-fits height to resolved border)
 
-    # Borderless: no interior insets, so the outer height is exactly the 3 rows
-    # (not 3 + 2). Proves the size tracks the popup's actual border.
+    # Borderless: no interior insets, so outer height is exactly 3 rows (not
+    # 3 + 2) — proves the size tracks the popup's actual border.
     pop.iheight.should eq 0
     pop.height.should eq 3
 
@@ -74,8 +73,8 @@ describe "ComboBox popup hover-select" do
     pop.hover_select?.should be_true
     pop.selected.should eq 0
 
-    # Move the pointer onto the third row ("blue"): it must become selected, with
-    # no click — matching keyboard nav and the Completer's hover behavior.
+    # Move the pointer onto the third row ("blue"): it must become selected with
+    # no click, matching keyboard nav and the Completer's hover behavior.
     content_top = pop.atop + pop.itop
     x = pop.aleft + 2
     s.dispatch_mouse ::Tput::Mouse::Event.new(

@@ -9,15 +9,13 @@ module Crysterm
       # Amiga-demo fame, as a self-contained, self-animating widget.
       #
       # Extracted from the `cracktro.cr` feature demo: every frame it repaints its
-      # whole background with the next hue, sweeping smoothly around the color
-      # wheel. `hue_offset` staggers several bars apart (so a stack of them forms a
-      # moving rainbow) and `hue_speed` sets how fast each cycles.
+      # background with the next hue. `hue_offset` staggers several bars apart
+      # (forming a moving rainbow) and `hue_speed` sets how fast each cycles.
       #
       # Like `Effect::Matrix` and `Marquee`, it drives its own animation: call
-      # `#start` to spawn the render fiber and `#stop` to halt it. `#step` (which
-      # only repaints `style.bg`; it does not render or sleep) is public so the bar
-      # can instead be advanced from an external clock — useful when several
-      # effects must share one frame counter.
+      # `#start` to spawn the render fiber and `#stop` to halt it. `#step` (repaints
+      # `style.bg` only; no render/sleep) is public so the bar can instead be
+      # advanced from an external clock shared by several effects.
       #
       # ```
       # bar = Widget::Effect::CopperBar.new parent: window, top: 0, left: 0,
@@ -35,7 +33,7 @@ module Crysterm
         # them around the color wheel.
         property hue_offset : Int32
 
-        # Hue degrees advanced per frame (the cycling speed).
+        # Hue degrees advanced per frame.
         property hue_speed : Int32
 
         # HSV saturation of the bar color (`0.0..1.0`).
@@ -44,8 +42,8 @@ module Crysterm
         # HSV value / brightness of the bar color (`0.0..1.0`).
         property brightness : Float64
 
-        # Monotonically advancing frame counter. Int64 so it never wraps in any
-        # realistic runtime; the hue is taken modulo 360.
+        # Monotonically advancing frame counter. Int64 so it never wraps; hue is
+        # taken modulo 360.
         @frame : Int64 = 0
 
         def initialize(
@@ -68,7 +66,7 @@ module Crysterm
         def step
           self.style.bg = color
           @frame += 1
-          mark_dirty # animation state/style changed; repaint under damage tracking
+          mark_dirty
         end
       end
     end

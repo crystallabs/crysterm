@@ -45,24 +45,23 @@ module Crysterm
 
         super **box
 
-        # A titled border is the default look; it now comes from the CSS theme
+        # Titled border is the default look, from the CSS theme
         # (`GroupBox { border: solid }`) so it stays overridable by author CSS.
         update_label
 
-        # `GroupBox::title { … }` styles the title — which is the auto-created label
-        # child (`#set_label`, snapshotting `style.label` at creation), so push the
-        # computed `title` sub-style onto it each frame after the cascade. Guarded
-        # by `same?`, so it's a no-op (and the label keeps its default style) unless
-        # a `::title` rule matched. See `Widget::TabWidget#sync_tab_style`.
+        # `GroupBox::title { … }` styles the title — the auto-created label child
+        # (`#set_label`, snapshotting `style.label` at creation) — so push the
+        # computed `title` sub-style onto it each frame after the cascade.
+        # Guarded by `same?`: no-op unless a `::title` rule matched. See
+        # `Widget::TabWidget#sync_tab_style`.
         on(::Crysterm::Event::PreRender) do
           t = style.title
           unless t.same?(style)
             # The title is an inline label, not a framed box, but the `title`
-            # sub-style folds in the group's own border (sub-styles inherit the
-            # parent style) — which would draw a full box around the title text.
-            # Strip it on an own copy, as `Menu#render_style_for` does for its
-            # separator rule. (Done here rather than via `apply_substyle` because
-            # that border-strip is GroupBox-specific.)
+            # sub-style inherits the group's own border — which would draw a full
+            # box around the title text. Strip it on an own copy, as
+            # `Menu#render_style_for` does for its separator rule (GroupBox-specific,
+            # so done here rather than via `apply_substyle`).
             t = t.dup
             t.border = false
             @_label.try(&.styles.normal = t)
@@ -71,23 +70,20 @@ module Crysterm
 
         if checkable?
           # Toggle only when the *title* row is clicked (Qt toggles via the group's
-          # checkbox, not the whole area). Toggling on any click in the group made
-          # stray clicks near the controls disable everything. Uses `Mouse` (not
-          # `Click`) because only it carries coordinates.
+          # checkbox, not the whole area) — toggling on any click made stray clicks
+          # near the controls disable everything. Uses `Mouse` (not `Click`)
+          # because only it carries coordinates.
           on(Crysterm::Event::Mouse) do |e|
             next unless e.action.down?
-            # Any click on the title (top-border) row toggles, like clicking a
-            # group-box's title checkbox. Restricting it to the whole row keeps it
-            # easy to hit while still not toggling on clicks down in the content.
             if e.y == atop && e.x >= aleft && e.x < aleft + awidth
               toggle
               e.accept
             end
           end
 
-          # A child added to an unchecked group must come up disabled. Children are
-          # appended by the caller *after* construction, so reflect the state onto
-          # each one as it is adopted (not just on toggle).
+          # A child added to an unchecked group must come up disabled. Children
+          # are appended after construction, so reflect state on each as it's
+          # adopted, not just on toggle.
           on(Crysterm::Event::Adopt) { apply_enabled }
         end
       end
@@ -123,14 +119,12 @@ module Crysterm
       # matches/unmatches (the shared CSS-toggle setter, `Box`).
       css_toggle_setter flat
 
-      # Reflects the checked state onto the children's `state`, so an unchecked
-      # group renders its contents with the `disabled` style. The auto-created
-      # label is left untouched.
+      # Reflects the checked state onto children's `state`, so an unchecked
+      # group renders disabled. The auto-created label is left untouched.
       #
       # When re-checking, only children *we* greyed out (currently `:disabled`)
-      # are restored to `:normal`; a child carrying any other state — focus,
-      # hover, selection — is left alone instead of being clobbered back to
-      # `:normal` on every toggle and every `Adopt`.
+      # are restored to `:normal`; a child in any other state — focus, hover,
+      # selection — is left alone.
       private def apply_enabled
         @children.each do |c|
           next if c.same? @_label

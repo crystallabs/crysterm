@@ -5,16 +5,16 @@ require "../../src/crysterm"
 # support. Item text is blue; the selected item gets a green background.
 # Selecting an item destroys the screen; q / Ctrl-C quit.
 module Crysterm
-  # NOTE: Blessed's `noAlt: true` (don't switch to the terminal's alternate
-  # screen buffer) has no Crysterm equivalent, so it is dropped.
+  # Blessed's `noAlt: true` (don't switch to the alternate screen buffer)
+  # has no Crysterm equivalent, so it is dropped.
   s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
   list = Widget::List.new(
     parent: s,
     align: ::Tput::AlignFlag::Center,
     mouse: true,
-    # NOTE: Crysterm's List enables key handling internally; there is no `keys:`
-    # kwarg (passing one collides with the value List forwards to its base), so
+    # Crysterm's List enables key handling internally; there is no `keys:`
+    # kwarg (it would collide with the value List forwards to its base), so
     # blessed's keys:true is implicit here.
     vi: true,
     width: "50%",

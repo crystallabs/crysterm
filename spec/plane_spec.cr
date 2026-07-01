@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Step 6: the multi-plane compositor. A `Plane` is an independent screen-sized
-# buffer; `#composite_onto` folds it over the base honoring per-cell `Attr::Alpha`
-# modes (Step 4) plus a per-plane opacity. These tests drive it directly (no
-# terminal) so the resulting cell colors are exact.
+# Multi-plane compositor. A `Plane` is an independent screen-sized buffer;
+# `#composite_onto` folds it over the base honoring per-cell `Attr::Alpha`
+# modes plus a per-plane opacity. Tests drive it directly (no terminal) so
+# resulting cell colors are exact.
 
 private def sized_screen(w, h)
   Crysterm::Window.new(
@@ -30,10 +30,8 @@ private def paint(plane, x0, x1, attr)
       c.attr = attr
       c.char = ' '
     end
-    # A real widget paint goes through the render path, which marks every row it
-    # writes `dirty` (see `Widget#_render`); `composite_onto` relies on that flag
-    # to skip rows the layer never touched. Mark it here too so this direct-paint
-    # stand-in matches how planes are actually populated in production.
+    # Real widget paint marks every written row `dirty` (see `Widget#_render`);
+    # `composite_onto` relies on that flag to skip untouched rows.
     row.dirty = true
   end
 end
@@ -49,7 +47,7 @@ describe Crysterm::Plane do
     pl.composite_onto s.lines
 
     bg_at(s, 2, 5).should eq 0xff0000  # painted (opaque) -> red replaces base
-    bg_at(s, 2, 15).should eq 0x0000ff # unpainted -> blue base shows through
+    bg_at(s, 2, 15).should eq 0x0000ff # unpainted -> base shows through
   end
 
   it "blends a translucent layer over OTHER widgets' content (cross-widget see-through)" do
@@ -61,7 +59,7 @@ describe Crysterm::Plane do
     pl.opacity = 0.5                                                              # ...but the plane is 50% -> red over blue
     pl.composite_onto s.lines
 
-    bg_at(s, 2, 10).should eq 0x7f007f # mix(red, blue) — base shows through the opaque overlay
+    bg_at(s, 2, 10).should eq 0x7f007f # mix(red, blue): base shows through overlay
   end
 
   it "honors per-cell Transparent and HighContrast alpha modes" do
@@ -69,10 +67,10 @@ describe Crysterm::Plane do
     fill_base s, 0x0000ff
     pl = Plane.new(0, 20, 3)
     pl.clear
-    # A *painted* cell whose bg is Transparent must still show the base through.
+    # A painted cell with Transparent bg still shows the base through.
     transp = Attr.with_bg_alpha(Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(0xff0000)), Attr::Alpha::Transparent)
     paint pl, 0, 5, transp
-    # A HighContrast bg recolors against the (dark blue) base -> a light shade.
+    # HighContrast bg recolors against the dark blue base -> a light shade.
     hc = Attr.with_bg_alpha(Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT), Attr::Alpha::HighContrast)
     paint pl, 10, 15, hc
     pl.opacity = 1.0
@@ -88,8 +86,8 @@ describe "CSS z-index auto-promotes a widget to a translucent layer" do
     s = sized_screen 30, 6
     Widget::Box.new(parent: s, top: 0, left: 0, width: 30, height: 6).add_css_class "under"
     Widget::Box.new(parent: s, top: 0, left: 0, width: 30, height: 6).add_css_class "over"
-    # `z-index` promotes `.over` to its own plane; `opacity` becomes the plane's
-    # opacity — so the opaque red overlay blends over the blue base, all from CSS.
+    # `z-index` promotes `.over` to its own plane; `opacity` becomes the
+    # plane's opacity, so the overlay blends over the base, all from CSS.
     s.stylesheet = ".under { background-color: #0000ff; } " \
                    ".over { background-color: #ff0000; z-index: 10; opacity: 0.5; }"
     s._render

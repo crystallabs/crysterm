@@ -15,14 +15,13 @@ module Crysterm
     #
     # In Qt, `QMenu : public QWidget` — a menu is a plain widget, **not** a
     # `QAbstractItemView` (which `CSS::Qss` maps to `List`). So `Menu` derives
-    # `Box` (the `QWidget`-like base) and only *includes* `Mixin::ItemView` for
-    # the item rows and navigation, rather than inheriting `List`. Its CSS
-    # identity is therefore `Menu < Box < Widget`, matching Qt's hierarchy
-    # (`QMenu < QWidget`): a theme's item-view rules — `QAbstractItemView {
-    # background-color; alternate-background-color; … }` — don't bleed onto menus,
-    # so the menu takes the window/`QMenu` surface like the other `QWidget`-derived
-    # chrome (`QMenuBar`/`QStatusBar`). (`Tree`/`ListTable`/the combo `Popup` are
-    # real `QAbstractItemView`s.)
+    # `Box` and only *includes* `Mixin::ItemView` for item rows/navigation,
+    # rather than inheriting `List`. Its CSS identity is `Menu < Box < Widget`,
+    # matching Qt's hierarchy: a theme's item-view rules (`QAbstractItemView {
+    # background-color; … }`) don't bleed onto menus, so it takes the
+    # `QMenu`/window surface like other `QWidget`-derived chrome
+    # (`QMenuBar`/`QStatusBar`). (`Tree`/`ListTable`/the combo `Popup` are real
+    # `QAbstractItemView`s.)
     #
     # ```
     # menu = Widget::Menu.new parent: window
@@ -45,11 +44,9 @@ module Crysterm
       property actions = [] of Action
 
       # Caps the auto-sized (popup/submenu) height to at most this many item rows,
-      # scrolling the remainder rather than growing past it — mirrors
-      # `ComboBox#max_visible`. `nil` (the default) fits every row. A long
-      # navigation dropdown (e.g. a `Calendar`'s ±100 year list, far taller than
-      # the window) sets this so the popup stays on-window and scrolls to its
-      # selected entry instead of being clamped over the content behind it.
+      # scrolling the remainder — mirrors `ComboBox#max_visible`. `nil` (default)
+      # fits every row. A long dropdown (e.g. a `Calendar`'s ±100 year list)
+      # sets this so the popup stays on-window and scrolls to its selection.
       property max_visible_rows : Int32? = nil
 
       # The menu this one is a submenu of (`nil` for a top-level menu). Set when a
@@ -89,17 +86,14 @@ module Crysterm
       @submenu_anchor : Widget?
 
       # Whether the highlighted row is drawn highlighted. A menu opens with *no*
-      # row highlighted (Qt-like): the highlight appears only once the user hovers
-      # a row (`#hover_item`) or presses a selection key (`#on_keypress`), and is
-      # cleared again when the menu is dismissed by an outside click. So an
-      # untouched, freshly-opened menu shows no pre-selected entry.
+      # row highlighted (Qt-like): it appears only once the user hovers a row
+      # (`#hover_item`) or presses a selection key (`#on_keypress`), and clears
+      # again on outside-click dismissal.
       @show_highlight = false
 
       # The item boxes that render as separator rules, rebuilt once per
-      # `#sync_items` (which already walks the visible actions). Lets
-      # `#render_style_for` decide "is this row a separator?" with an O(1) set
-      # lookup, instead of the per-row `@items.index` scan + fresh
-      # `visible_actions` array it would otherwise do on every child every frame.
+      # `#sync_items`. Lets `#render_style_for` decide "is this row a
+      # separator?" with an O(1) set lookup instead of a per-row scan every frame.
       @separator_items = Set(Widget).new
 
       # Window-level click watcher installed (on the top-level menu only) while a
@@ -117,16 +111,15 @@ module Crysterm
 
         super **widget
 
-        # Own our style: menus are independent (and frequently created from one
-        # shared style, e.g. a menu bar's File/Edit/Help). Since per-widget
-        # visibility is stored in `Style`, a *shared* style would couple their
-        # show/hide — opening one would reveal them all. Dup so each menu (hence
-        # each `#popup`) toggles only itself.
+        # Own our style: menus are often created from one shared style (e.g. a
+        # menu bar's File/Edit/Help). Since per-widget visibility lives in
+        # `Style`, a shared style would couple their show/hide. Dup so each menu
+        # toggles only itself.
         @style = @style.try(&.dup)
 
-        # Menus activate on a single click (open submenu / fire action), like a
-        # real menu — not the list's two-click select-then-activate. They also
-        # track the mouse: hovering a row selects it (see `#hover_item`).
+        # Menus activate on a single click (open submenu / fire action), not the
+        # list's two-click select-then-activate. Hovering a row selects it too
+        # (see `#hover_item`).
         @activate_on_click = true
         @hover_select = true
 
@@ -139,10 +132,9 @@ module Crysterm
       end
 
       # A menu is an overlay: at the unstyled floor (no theme/CSS) it carries a
-      # structural border so it separates from the content behind it. Any active
-      # theme makes the menu `css_styled`, so it stays free to set any border —
-      # including none (qdarkstyle's `QMenu { border: 0 }`); see
-      # `Mixin::Style#floor_border?`.
+      # structural border to separate from content behind it. An active theme
+      # makes it `css_styled`, free to set any border including none
+      # (qdarkstyle's `QMenu { border: 0 }`); see `Mixin::Style#floor_border?`.
       def floor_border? : Bool
         true
       end
@@ -167,15 +159,14 @@ module Crysterm
         self
       end
 
-      # Re-render the menu whenever *action*'s display state changes, mirroring
-      # how a Qt menu tracks its `QAction`s' `changed()` signal. Without this, an
-      # external `action.checked = ...` (or `text=`, `enabled=`, `visible=`)
-      # would not update the already-rendered rows.
+      # Re-render whenever *action*'s display state changes, mirroring a Qt
+      # menu tracking its `QAction`s' `changed()` signal. Without this, external
+      # `action.checked =`/`text=`/`enabled=`/`visible=` wouldn't update rows.
       private def watch_action(action : Action) : Nil
         return if @action_changed.has_key? action
         handler = ->(_e : ::Crysterm::Event::Changed) do
-          # Preserve the highlighted row across the rebuild (item count can shift
-          # when visibility toggles), matching the in-menu activate path.
+          # Preserve the highlighted row across the rebuild (item count can
+          # shift when visibility toggles).
           sel = selected
           sync_items
           selekt sel
@@ -248,9 +239,8 @@ module Crysterm
       # ```
       def popup(x : Int32, y : Int32) : self
         @popup_mode = true
-        # A (re)opened menu starts with no row highlighted — the highlight is a
-        # transient interaction state, not carried across opens. Without this a
-        # menu reopened after a prior hover would come up pre-highlighted.
+        # A (re)opened menu starts with no row highlighted — it's transient
+        # interaction state, not carried across opens.
         @show_highlight = false
         fit_to_content
         sw = window.awidth
@@ -265,10 +255,9 @@ module Crysterm
 
         # Dismiss on a press outside the *grab region* (not merely outside the
         # submenu chain): for a `MenuBar` the region also covers the bar's title
-        # strip, so clicking the open menu's own title is "inside" and does not
-        # auto-close here. That lets the title's toggle handler close it cleanly —
-        # otherwise this watcher would hide the popup and the toggle would
-        # immediately reopen it, so a second click never appeared to close.
+        # strip, so clicking the open menu's own title is "inside" and doesn't
+        # auto-close here, letting the title's own toggle handler close it
+        # cleanly instead of fighting an immediate reopen.
         @ev_popup ||= window.on_press_outside(->(px : Int32, py : Int32) { grab_contains?(px, py) }) { hide_popup }
 
         request_render
@@ -305,21 +294,19 @@ module Crysterm
       @autosize = false
 
       # The width that fits the rows: the widest row text plus the menu's own
-      # `iwidth` — its border **and** padding. The padding (`Menu { padding: 0 1 }`)
-      # is the single breathing source: a sane gap between the text and the side
-      # borders. Reserving it here (rather than insetting the text) lets
-      # `#size_rows` lay the rows out across the content box, with the padding
-      # falling outside as that gap. Bump the theme padding for a roomier menu.
+      # `iwidth` (border + padding). The padding (`Menu { padding: 0 1 }`) is the
+      # gap between text and side borders; reserving it here (rather than
+      # insetting the text) lets `#size_rows` lay rows across the content box
+      # with padding falling outside. Bump the theme padding for a roomier menu.
       private def fit_width : Int32
         w = ritems.max_of?(&.size) || (visible_actions.max_of?(&.text.size) || 8)
         w + iwidth
       end
 
       # The height that fits the rows: one row per visible action plus the menu's
-      # own `iheight` — its top/bottom border **and** any vertical padding. Derived
-      # from `iheight` rather than a hardcoded `+ 2` so a theme that draws no menu
-      # border (e.g. qdarkstyle's `QMenu { border: 0px }`) doesn't leave blank rows
-      # where the borders would have been — no assumption that a border exists.
+      # own `iheight` (top/bottom border + vertical padding). Derived from
+      # `iheight` rather than a hardcoded `+ 2` so a borderless theme (e.g.
+      # qdarkstyle's `QMenu { border: 0px }`) doesn't leave blank rows.
       private def fit_height : Int32
         rows = visible_actions.size
         if mv = @max_visible_rows
@@ -338,13 +325,11 @@ module Crysterm
         self.height = fit_height
       end
 
-      # Re-fits an auto-sized menu's box at render, now that the cascade has set
-      # the real box model — the row `QMenu::item` padding (in `@item_box_w`, just
-      # captured by `#strip_item_box_model`) and the menu's own border/padding (in
-      # `iwidth`/`iheight`). `#fit_to_content` runs before that for a submenu, so
-      # its width *and* height can miss the resolved box model (e.g. a border the
-      # theme adds, or omits); this corrects both — the menu grows rightward/down,
-      # its top-left anchor fixed. No-op for an explicitly-sized embedded menu.
+      # Re-fits an auto-sized menu's box at render, once the cascade has set the
+      # real box model (row padding, border/padding in `iwidth`/`iheight`).
+      # `#fit_to_content` runs before that for a submenu, so it can miss the
+      # resolved box model; this corrects both dimensions, growing rightward/down
+      # from a fixed top-left anchor. No-op for an explicitly-sized embedded menu.
       private def autosize : Nil
         return unless @autosize
         w = fit_width
@@ -374,11 +359,9 @@ module Crysterm
       end
 
       # Renders the menu, then docks its separator rules to the vertical borders
-      # so each reads as `├────┤` rather than a detached dash. Reuses the window's
-      # border-docking component (`#dock_rows`), so it needs no global
-      # `dock_borders`. Runs after `super` (which draws the border *and* the
-      # separator-row items), re-applying the junctions each frame the border is
-      # repainted.
+      # so each reads as `├────┤` rather than a detached dash. Reuses the
+      # window's border-docking component (`#dock_rows`); runs after `super`
+      # so it re-applies the junctions each frame the border is repainted.
       def render(with_children = true)
         strip_item_box_model
         autosize
@@ -393,13 +376,11 @@ module Crysterm
       end
 
       # Strips the `QMenu::item` `padding`/`border` from every row's computed
-      # style, in place, before the rows lay out (`super`). A row's content box
-      # then spans its full width, so its text — the `[x] ` checkable prefix, the
-      # label, and the right-aligned shortcut/▶ — sits flush: prefix at the left
-      # border, label after it, the ▶ at the right border. Honoring the theme's
-      # pixel padding here instead would inset the text (pushing labels right and
-      # leaving a gap after the ▶) — those columns are realized by the row text,
-      # not by literal padding. Colors (`background`, `:selected`) are left intact.
+      # style, in place, before rows lay out (`super`). A row's content box then
+      # spans its full width, so text — the `[x] ` prefix, label, right-aligned
+      # shortcut/▶ — sits flush against the borders. Honoring the theme's pixel
+      # padding here would inset the text instead; those columns are realized by
+      # row text, not literal padding. Colors (`background`, `:selected`) stay.
       private def strip_item_box_model : Nil
         @items.each do |it|
           next if @separator_items.includes? it
@@ -414,12 +395,10 @@ module Crysterm
       end
 
       # Stretches each separator's `─` rule across the menu's full inner width,
-      # sized here (at render) because that is the first point the final width is
-      # known — it is grown by `#fit_to_content` to reserve the rows' `QMenu::item`
-      # padding, which the rows are built before. A separator carries no item
-      # padding (it is not tagged `Item`), so it spans the whole content area and,
-      # via `#dock_rows`, joins the side borders as `├────┤`. Guarded so the
-      # content is only rewritten when the width actually changed.
+      # sized at render because that's the first point the final width is known.
+      # A separator carries no item padding (not tagged `Item`), so it spans the
+      # whole content area and, via `#dock_rows`, joins the borders as `├────┤`.
+      # Guarded so content is only rewritten when width actually changed.
       private def size_separators : Nil
         return if @separator_items.empty?
         inner = awidth - iwidth
@@ -443,16 +422,15 @@ module Crysterm
       # highlighted; otherwise rendering defers to `Mixin::ItemView`.
       def render_style_for(item : Widget) : Style
         # A separator draws from its own `Menu::separator` sub-style (Qt's
-        # `QMenu::separator`), regardless of highlight state — separators are
-        # never selectable, so they never take the highlight. The separator rows
-        # are precomputed in `#sync_items`, so this is an O(1) set lookup.
+        # `QMenu::separator`) regardless of highlight state — never selectable,
+        # so never highlighted. Precomputed in `#sync_items`: O(1) set lookup.
         if @separator_items.includes? item
           return separator_render_style
         end
         # Until the highlight is revealed (hover / first nav key), draw every row
-        # in its *normal* look — but still via the per-item CSS style, so themed
-        # colors apply. Falling back to a bare `item_render_style` here dropped the
-        # cascaded styling and made a freshly-opened menu look disabled.
+        # in its *normal* look but still via the per-item CSS style, so themed
+        # colors apply. A bare `item_render_style` here would drop cascaded
+        # styling and make a freshly-opened menu look disabled.
         base =
           if !@show_highlight && item.css_styled?
             item.state = ::Crysterm::WidgetState::Normal
@@ -465,13 +443,12 @@ module Crysterm
         item_on_surface base
       end
 
-      # A `QMenu::item { background: transparent }` row (Qt's default — the item
-      # shows the menu surface) resolves to *no* background; but a child widget
-      # with no background paints the terminal default, not its parent's painted
-      # surface. So fill an unset/transparent item background from the menu's own,
-      # giving the Qt look (rows flush with the frame) without a per-theme hack.
-      # The item's `padding`/`border` are *kept* — they're reserved in the menu's
-      # width by `#fit_to_content` so the label still fits.
+      # A `QMenu::item { background: transparent }` row (Qt's default) resolves
+      # to *no* background; but a child widget with no background paints the
+      # terminal default, not the parent's surface. Fill an unset/transparent
+      # item background from the menu's own, giving the Qt look without a
+      # per-theme hack. Item `padding`/`border` are kept (reserved in the menu's
+      # width by `#fit_to_content`).
       private def item_on_surface(st : Style) : Style
         bg = st.bg
         return st unless (bg.nil? || bg == -1) && (surface = style.bg)
@@ -480,14 +457,13 @@ module Crysterm
         out
       end
 
-      # The style for a separator row: the `─` rule (its content, built in
-      # `#sync_items`) sits on the menu's own surface — not a filled band of the
-      # divider color. Qt's `QMenu::separator` carries the divider color in its
-      # `background-color`, so that becomes the *line* color (the rule's
-      # foreground) when a rule set it; otherwise the menu's own foreground draws
-      # the line. Keeping the menu's background lets the separator integrate with
-      # the surrounding entries and the frame. The border is dropped (the menu
-      # draws the frame), mirroring `#item_render_style`.
+      # The style for a separator row: the `─` rule sits on the menu's own
+      # surface, not a filled band of the divider color. Qt's `QMenu::separator`
+      # carries the divider color in `background-color`, which becomes the
+      # line's foreground when set; otherwise the menu's own foreground draws
+      # it. Keeping the menu's background integrates the separator with the
+      # surrounding frame. Border dropped (menu draws the frame), mirroring
+      # `#item_render_style`.
       private def separator_render_style : Style
         sep = style.separator
         line = sep.dup
@@ -501,13 +477,13 @@ module Crysterm
         line
       end
 
-      # Pointer moved onto row *i* (`Mixin::ItemView#hover_item` override, active because
-      # menus set `#hover_select?`). Moves the highlight there — which closes any
-      # submenu anchored elsewhere — and, if the row opens a submenu, opens it.
-      # Separators are skipped; disabled rows highlight but don't open.
+      # Pointer moved onto row *i* (`Mixin::ItemView#hover_item` override, active
+      # because menus set `#hover_select?`). Moves the highlight there — closing
+      # any submenu anchored elsewhere — and opens the row's submenu if it has
+      # one. Separators are skipped; disabled rows highlight but don't open.
       # Whether *e* is a key that moves the list selection (so the first such
-      # press should reveal the highlight). Mirrors the keys `Mixin::ItemView#on_keypress`
-      # acts on, plus the vi aliases when `#vi?`.
+      # press should reveal the highlight). Mirrors the keys
+      # `Mixin::ItemView#on_keypress` acts on, plus vi aliases when `#vi?`.
       private def selection_key?(e) : Bool
         case e.key
         when ::Tput::Key::Up, ::Tput::Key::Down, ::Tput::Key::Home, ::Tput::Key::End,
@@ -535,11 +511,10 @@ module Crysterm
       end
 
       # The left (checkbox slot + label) and right (shortcut / ▶) text columns for
-      # each visible action; separators get empty entries. The **checkbox slot is
-      # always reserved** — `[x] `/`[ ] ` for a checkable action, four blanks
-      # otherwise — so labels start at a consistent column even in a menu with no
-      # checkable items (Qt always reserves the check/icon gutter). The same
-      # columns are measured by `#sync_items` and re-laid-out by `#size_rows`.
+      # each visible action; separators get empty entries. The checkbox slot is
+      # always reserved — `[x] `/`[ ] ` or four blanks — so labels start at a
+      # consistent column even with no checkable items (Qt always reserves the
+      # check/icon gutter). Measured here, re-laid-out by `#sync_items`/`#size_rows`.
       private def row_columns(acts : Array(Action)) : {Array(String), Array(String)}
         lefts = acts.map do |a|
           next "" if a.separator?
@@ -555,11 +530,10 @@ module Crysterm
         {lefts, rights}
       end
 
-      # Rebuilds the list rows from the visible actions. Each row's text holds the
-      # full column layout — the checkbox slot + label, then the shortcut/▶ — and
-      # `#size_rows` stretches it to the final width (label flush-left, shortcut/▶
-      # flush-right) at render. Separators are a placeholder here, sized by
-      # `#size_separators`.
+      # Rebuilds the list rows from the visible actions. Each row's text holds
+      # the full column layout (checkbox slot + label, then shortcut/▶), and
+      # `#size_rows` stretches it to the final width at render. Separators are a
+      # placeholder here, sized by `#size_separators`.
       private def sync_items
         acts = visible_actions
         lefts, rights = row_columns(acts)
@@ -577,14 +551,13 @@ module Crysterm
         set_items rows
 
         # Rebuild the separator-row lookup from the just-built rows. `set_items`
-        # left `@items[i]` corresponding to `acts[i]` (rows were built from
-        # `acts` in order), so a separator action's row is the same-index item.
-        # Each non-separator row is also tagged with the `Item` CSS class so it is
-        # styled as the menu's `::item` sub-control — Qt's model: a `QMenu`'s rows
-        # aren't independent widgets but the menu's `::item`, which inherits the
-        # menu surface (`QMenu::item { background: transparent | <surface> }`) and
-        # takes its highlight from `QMenu::item:selected`. Without this the row
-        # `Box`es fall through to generic `QWidget` rules and mismatch the frame.
+        # leaves `@items[i]` corresponding to `acts[i]`, so a separator action's
+        # row is the same-index item. Non-separator rows are tagged with the
+        # `Item` CSS class so they're styled as the menu's `::item` sub-control
+        # (Qt's rows aren't independent widgets but the menu's `::item`, which
+        # inherits the menu surface and takes its highlight from
+        # `QMenu::item:selected`). Without this, rows fall through to generic
+        # `QWidget` rules and mismatch the frame.
         @separator_items = Set(Widget).new
         @items.each_with_index do |itm, i|
           if (a = acts[i]?) && a.separator?
@@ -599,10 +572,9 @@ module Crysterm
       # direction is inferred from whether the requested index is above or below
       # the current selection.
       def selekt(index : Int)
-        # Note: `selekt` does *not* enable `@show_highlight` — that is driven only
-        # by user interaction (`#hover_item` / a selection key in `#on_keypress`),
-        # so a programmatic selection (the initial `selekt 0` when the first item
-        # is added, an action-change refresh, …) never lights up a row on its own.
+        # `selekt` does *not* enable `@show_highlight` — that's driven only by
+        # user interaction (`#hover_item` / a selection key in `#on_keypress`),
+        # so a programmatic selection never lights up a row on its own.
         acts = visible_actions
         unless acts.empty?
           dir = index >= selected ? 1 : -1
@@ -628,12 +600,10 @@ module Crysterm
           break if ni < 0 || ni >= n
           i = ni
         end
-        # Stepping in `dir` stops on a separator when it hits the array boundary
-        # before reaching a real item — e.g. a leading separator skipped upward,
-        # or a trailing one skipped downward. The highlight must never rest on a
-        # separator (`activate_index` refuses to fire one, so the row would be a
-        # dead selection), so fall back to scanning the opposite way for the
-        # nearest selectable action.
+        # Stepping in `dir` stops on a separator if it hits the array boundary
+        # first (e.g. a leading/trailing separator). The highlight must never
+        # rest on a separator (`activate_index` refuses to fire one, a dead
+        # selection), so fall back to scanning the opposite way.
         if acts[i]?.try &.separator?
           j = i
           while (j -= dir) >= 0 && j < n
@@ -652,9 +622,8 @@ module Crysterm
         return if action.separator?
         return unless action.enabled
 
-        # A submenu item opens its child menu instead of firing — or, if that
-        # same submenu is already open, toggles it closed (a second click/Enter on
-        # an open menu closes it).
+        # A submenu item opens its child menu instead of firing — or, if already
+        # open, toggles it closed (a second click/Enter closes it).
         if action.menu?
           if @submenu_open && @submenu_action == action
             close_submenu
@@ -665,13 +634,12 @@ module Crysterm
         end
 
         # `#activate` flips a checkable action's state before firing (emitting
-        # `Event::Toggled`/`Event::Changed`, which `watch_action` turns into a
+        # `Event::Toggled`/`Event::Changed`, turned by `watch_action` into a
         # marker redraw) and carries the new state on `Event::Triggered`.
         action.activate
 
-        # After a leaf action runs from within a submenu, close the whole submenu
-        # chain (back to the persistent top-level menu); a leaf fired directly on
-        # a top-level popup dismisses the popup.
+        # A leaf fired from within a submenu closes the whole chain back to the
+        # top-level menu; fired directly on a top-level popup dismisses it.
         if parent_menu
           close_chain
         else
@@ -681,9 +649,8 @@ module Crysterm
 
       def on_keypress(e)
         # A menu opens with no row highlighted; the first selection-moving key
-        # *reveals* the highlight on the current item rather than moving it (like
-        # pressing an arrow on a freshly-opened desktop menu). Subsequent keys
-        # move it normally via `super`.
+        # *reveals* the highlight on the current item rather than moving it.
+        # Subsequent keys move it normally via `super`.
         if !@show_highlight && selection_key?(e)
           @show_highlight = true
           request_render
@@ -691,9 +658,9 @@ module Crysterm
           return
         end
 
-        # Right opens the highlighted item's submenu; Left/Escape closes this
-        # submenu and returns focus to its parent. Handled before `super` so a
-        # submenu's Escape doesn't fall through to the item view's cancel path.
+        # Right opens the highlighted item's submenu; Left/Escape closes this one
+        # and returns focus to its parent. Handled before `super` so a submenu's
+        # Escape doesn't fall through to the item view's cancel path.
         if e.key == ::Tput::Key::Right
           act = selected_action
           if act && act.menu?
@@ -702,7 +669,7 @@ module Crysterm
             return
           elsif (nav = @on_navigate) && parent_menu.nil?
             # A top-level menu with no submenu to enter hands Right to its owner
-            # (e.g. a `MenuBar` moves to the next top-level menu).
+            # (e.g. `MenuBar` moves to the next top-level menu).
             nav.call 1
             e.accept
             return
@@ -751,39 +718,32 @@ module Crysterm
         close_submenu # replace any already-open child
 
         # Inherit this menu's own (inline) style so the child is bordered/colored
-        # identically *from its first frame*. Relying on the theme alone left a
-        # freshly-created child briefly unstyled until the next cascade — which,
-        # while the chain was being rapidly reopened, could flash a borderless
-        # copy alongside the styled one. Falls back to the theme (`Menu { ... }`)
-        # when this menu has no inline style.
+        # identically *from its first frame* — relying on the theme alone left a
+        # freshly-created child briefly unstyled until the next cascade, flashing
+        # a borderless copy during rapid reopening. Falls back to the theme when
+        # this menu has no inline style.
         child = Menu.new(window: window, style: css_inline_style.try(&.dup))
         subs.each { |a| child << a }
         child.parent_menu = self
 
-        # Add to the tree and resolve its themed box model *now*, before sizing or
-        # focusing. A submenu is created fresh on open, so (unlike a top-level menu
-        # built at startup and cascaded over earlier frames) its border/padding
-        # come only from the cascade — which otherwise wouldn't run until the next
+        # Add to the tree and resolve its themed box model *now*, before sizing
+        # or focusing. A submenu is created fresh on open, so its border/padding
+        # come only from the cascade, which otherwise wouldn't run until the next
         # render. Without this, `#fit_to_content` would size against a borderless
-        # `iheight == 0` box and the focus-time scroll math would run against that
-        # too-short height, scrolling the first rows out of view: the deep-submenu
-        # "last entry invisible until you hover" bug on bordered themes.
+        # `iheight == 0` box, scrolling the first rows out of view — the
+        # deep-submenu "last entry invisible until you hover" bug.
         window.append child
         window.restyle_structural child
         window.apply_stylesheet
 
-        # Size the child exactly like a top-level popup (`#fit_to_content`), so a
-        # submenu gets the same column layout, breathing and padding. Then float it
-        # to the right of the selected row. When the menu draws a border, the left
-        # baseline is the parent's right *border column* (`lp.xl - 1`) so the
-        # submenu's left border overlaps it (a shared divider, like a desktop
-        # menu); a borderless theme (e.g. qdarkstyle) has no border to share, so
-        # the child sits flush at the parent's right edge (`lp.xl`) rather than
-        # biting a content column — no assumption that a border exists. The
-        # vertical offset uses `itop` (0 when borderless) likewise. Any further gap
-        # is driven purely by the submenu's `style.margin` (`_get_coords` adds
-        # `margin.left`/`margin.top`), so a themed or explicit margin distances it
-        # without any hardcoded offset.
+        # Size the child like a top-level popup (`#fit_to_content`), then float
+        # it right of the selected row. When the menu draws a border, the left
+        # baseline is the parent's right border column (`lp.xl - 1`) so the
+        # submenu's left border overlaps it (shared divider); a borderless theme
+        # has no border to share, so the child sits flush at `lp.xl` instead —
+        # no assumption that a border exists. The vertical offset uses `itop`
+        # (0 when borderless) likewise. Further gap comes from the submenu's
+        # `style.margin` (`_get_coords` adds it), not a hardcoded offset.
         child.fit_to_content
         begin
           lp = last_rendered_position
@@ -801,14 +761,12 @@ module Crysterm
         @submenu_anchor = @items[selected]?
 
         # The top-level menu watches for a click anywhere outside the open chain
-        # (a different tab, another widget, …) and dismisses the submenus. In
-        # popup mode the `#popup` watcher already covers outside clicks (and
-        # dismisses the whole popup), so don't install a second one.
+        # and dismisses the submenus. In popup mode the `#popup` watcher already
+        # covers outside clicks, so don't install a second one.
         if parent_menu.nil? && @ev_outside.nil? && !@popup_mode
           # "Inside" = the open child chain, or the anchor row (which
-          # `#activate_index` toggles itself). A press anywhere else — another
-          # row, the menu's own empty area, or right off the menu — dismisses the
-          # submenu and drops the highlight, so no row is left looking selected.
+          # `#activate_index` toggles itself). A press anywhere else dismisses
+          # the submenu and drops the highlight.
           inside = ->(x : Int32, y : Int32) do
             (@submenu_open.try(&.in_chain?(x, y)) || false) ||
             (@submenu_anchor.try(&.contains_point?(x, y)) || false)

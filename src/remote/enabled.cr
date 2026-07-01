@@ -1,21 +1,19 @@
 module Crysterm
   # Runtime gate for the remote-control HTTP server.
   #
-  # Compiling with `-Dremote` *includes* the remote subsystem (HTML layout DOM +
-  # the HTTP bridge), but the network server still does not open until it is
-  # enabled at runtime — so a binary that ships with `-Dremote` exposes no port
-  # by default. Enable it either by setting `CRYSTERM_REMOTE` in the environment
-  # or programmatically:
+  # Compiling with `-Dremote` includes the remote subsystem, but the network
+  # server still doesn't open until enabled at runtime, so a `-Dremote` binary
+  # exposes no port by default. Enable via `CRYSTERM_REMOTE` env var or:
   #
   #     Crysterm::Remote.enabled = true
   #
-  # The local layout-DOM features (`#load_layout`, `#to_layout_html`, declarative
-  # actions, …) are unaffected by this gate — only `HTTPBridge#start` honors it.
+  # Local layout-DOM features (`#load_layout`, `#to_layout_html`, declarative
+  # actions) are unaffected — only `HTTPBridge#start` honors this gate.
   module Remote
     @@enabled : Bool? = nil
 
     # Forces the gate on/off, overriding the environment. `nil` restores
-    # environment-based detection.
+    # environment detection.
     def self.enabled=(value : Bool?)
       @@enabled = value
     end

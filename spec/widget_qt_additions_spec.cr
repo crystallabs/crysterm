@@ -55,7 +55,6 @@ describe Crysterm::ButtonGroup do
     a.checked?.should be_true
     g.checked_button.should eq a
 
-    # Switching selection to another member still works normally.
     b.check
     a.checked?.should be_false
     b.checked?.should be_true
@@ -248,12 +247,9 @@ describe Crysterm::Completer do
   end
 
   # The drop-down opens with its first row already highlighted (via
-  # `reset_cursor`/`selekt`): the box is focused and the list is open, so the
-  # user has in effect already entered the list. Movement single-steps from
-  # there — the arrow keys (`cursor_down`/`cursor_up`) or the mouse wheel. The
-  # per-item wheel handler `List` installs calls `move ±2`, so `Popup#move` is
-  # the funnel that turns the raw ±2 into a single-row step; otherwise a wheel
-  # over a row would jump two rows at a time.
+  # `reset_cursor`/`selekt`). Movement single-steps from there — arrow keys or
+  # mouse wheel. `List`'s per-item wheel handler calls `move ±2`, so
+  # `Popup#move` funnels the raw ±2 into a single-row step.
   it "highlights the first row on open and single-steps on any movement (arrows or wheel)" do
     s = add_mem_screen
     pop = Crysterm::Completer::Popup.new(window: s, width: 16, height: 6)
@@ -263,15 +259,13 @@ describe Crysterm::Completer do
     pop.reset_cursor
     pop.selected.should eq 0
 
-    # The arrow keys single-step from the first row: the first Down advances to
-    # the second row (index 1), not merely "into" the list.
+    # Arrow keys single-step from the first row.
     pop.cursor_down
     pop.selected.should eq 1
     pop.cursor_up
     pop.selected.should eq 0
 
-    # The wheel funnels through `move` (the per-item handler passes ±2): it too
-    # single-steps, never jumping rows.
+    # The wheel funnels through `move` (±2) and also single-steps.
     pop.reset_cursor
     pop.selected.should eq 0
     pop.move 2
@@ -280,10 +274,9 @@ describe Crysterm::Completer do
     pop.selected.should eq 0
   end
 
-  # End-to-end through the real open path: because the list is already open, the
-  # first row is highlighted on open (so the first Down advances to the *second*
-  # entry, rather than just landing on the first). Driving the box's actual
-  # KeyPress flow, [Down(open), Down, Enter] must commit the second match.
+  # End-to-end through the real open path: the first row is highlighted on
+  # open, so the first Down advances to the *second* entry. Driving the box's
+  # actual KeyPress flow, [Down(open), Down, Enter] must commit the second match.
   it "opens with the first candidate highlighted; the first Down advances to the second" do
     s = add_mem_screen
     box = Crysterm::Widget::LineEdit.new parent: s, width: 20, height: 1
@@ -295,8 +288,7 @@ describe Crysterm::Completer do
     box.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Down
     c.open?.should be_true
 
-    # One Down moves the highlight to the second row (apricot, index 1) — not the
-    # first — and Enter commits it.
+    # One Down moves the highlight to the second row (apricot); Enter commits it.
     box.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Down
     box.emit Crysterm::Event::KeyPress, '\r', Tput::Key::Enter
     box.value.should eq "apricot"
@@ -304,15 +296,12 @@ describe Crysterm::Completer do
     c.detach
   end
 
-  # Mouse-hover must keep the highlight on the entry actually under the pointer
-  # row, and must not run past the last shown row when the pointer drops below
-  # the list. The drop-down's item boxes are hit-tested by their *unscrolled*
-  # geometry, so before the `Popup#hover_item` override a downward drag (over and
-  # past the rows) advanced the selection onto phantom rows below the viewport —
-  # the highlight drifting away from the pointer by up to a viewport's worth of
-  # rows. Open with enough candidates to overflow, drag the pointer straight
-  # down, and assert selection == visible row, clamped to the last shown row once
-  # the pointer leaves the bottom.
+  # Mouse-hover must keep the highlight on the entry under the pointer row, and
+  # must not run past the last shown row once the pointer drops below the list.
+  # Item boxes are hit-tested by their *unscrolled* geometry, so before the
+  # `Popup#hover_item` override a downward drag advanced the selection onto
+  # phantom rows below the viewport. Open with enough candidates to overflow,
+  # drag straight down, assert selection == visible row, clamped at the bottom.
   it "keeps the hover highlight under the pointer row and clamps below the list" do
     s = add_mem_screen
     box = Crysterm::Widget::LineEdit.new parent: s, top: 2, left: 2, width: 30, height: 1
@@ -339,9 +328,8 @@ describe Crysterm::Completer do
         ::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, x, y)
       s.render
 
-      # Within the viewport the highlight is exactly the row under the pointer;
-      # below it, the highlight stays parked on the last shown row (never drifting
-      # onto an off-viewport/phantom entry, and never past the real item range).
+      # Within the viewport, highlight tracks the pointer; below it, highlight
+      # stays parked on the last shown row.
       expected = (pop.child_base + row).clamp(0, pop.child_base + visible - 1)
       expected = expected.clamp(0, 19)
       pop.selected.should eq expected

@@ -26,12 +26,10 @@ describe "Window#focus_offset" do
     s.focused.should eq a
   end
 
-  # Regression: from a no-focus state (reachable once focus has been cleared —
-  # e.g. the focused widget was removed, or the history emptied), navigation
-  # must enter from the natural end: `focus_next` onto the FIRST focusable
-  # widget and `focus_previous` onto the LAST. The old `-1` sentinel only got
-  # the forward case right; `focus_previous` landed mid-list (second-from-last,
-  # or with two widgets the first) instead of the last.
+  # Regression: from a no-focus state (e.g. focused widget removed, history
+  # emptied), navigation must enter from the natural end: `focus_next` onto the
+  # first focusable widget, `focus_previous` onto the last. The old `-1`
+  # sentinel only got the forward case right; `focus_previous` landed mid-list.
   it "enters from the correct end when nothing is focused" do
     s = focus_screen
     a = Widget::Box.new parent: s, keys: true
@@ -51,8 +49,8 @@ describe "Window#focus_offset" do
     s.focused.should eq c
   end
 
-  # Regression: `@keyable` is not pruned when a widget is removed, so it can hold
-  # detached widgets (whose `@screen` is nil). `focus_offset` must treat those as
+  # Regression: `@keyable` is not pruned when a widget is removed, so it can
+  # hold detached widgets (`@screen` nil). `focus_offset` must treat those as
   # "not attached" via `screen?` rather than crashing on the raising `screen`.
   it "does not crash when a removed widget lingers in the keyable list" do
     s = focus_screen
@@ -69,9 +67,8 @@ describe "Window#focus_offset" do
   end
 
   # Regression: a disabled widget does not react to keyboard input, so Tab /
-  # Shift+Tab navigation must step over it — focus must never land on a dead
-  # widget. (Landing on it would also route through `_focus`, which sets
-  # `state = :focused` and would silently clear the `Disabled` state.)
+  # Shift+Tab must step over it. Landing on it would route through `_focus`,
+  # which sets `state = :focused` and would silently clear `Disabled`.
   it "skips a disabled keyable widget" do
     s = focus_screen
     a = Widget::Box.new parent: s, keys: true
@@ -85,7 +82,7 @@ describe "Window#focus_offset" do
     s.focus_next # must skip the disabled `b` and land on `c`
     s.focused.should eq c
     s.focused.should_not eq b
-    # `b` is still disabled — navigation did not focus (and thereby un-disable) it.
+    # `b` is still disabled — navigation didn't focus (and un-disable) it.
     b.disabled?.should be_true
 
     # And backward navigation skips it too: from `c`, `focus_previous` lands on
@@ -107,11 +104,9 @@ describe "Window#focus_offset" do
   end
 
   # Regression: `@keyable` is not pruned when a widget is removed, so after a
-  # widget is MOVED from one screen to another it lingers in the old screen's
-  # `@keyable` — now with `screen?` pointing at the NEW screen. A bare truthy
-  # `screen?` guard would accept it, so Tab on the old screen could focus a
-  # widget that now lives on a different screen. The guard must require
-  # attachment to THIS screen (`screen? == self`).
+  # widget is moved to another screen it lingers in the old screen's `@keyable`
+  # — now with `screen?` pointing at the new screen. A bare truthy `screen?`
+  # guard would accept it; the guard must require `screen? == self`.
   it "does not focus a widget that was moved to another screen" do
     s1 = focus_screen
     s2 = focus_screen
@@ -135,9 +130,8 @@ describe "Window#focus_offset" do
   end
 
   # Regression: focus-candidate selection must be ancestor-aware. A keyable
-  # widget whose own `style.visible?` is still true but whose container is
-  # hidden is not actually on screen, so navigation must skip over it instead of
-  # landing focus inside an invisible subtree.
+  # widget whose own `style.visible?` is true but whose container is hidden
+  # isn't actually on screen, so navigation must skip it.
   it "skips a keyable widget whose ancestor is hidden" do
     s = focus_screen
     a = Widget::Box.new parent: s, keys: true
@@ -145,7 +139,7 @@ describe "Window#focus_offset" do
     inner = Widget::Box.new parent: container, keys: true
     b = Widget::Box.new parent: s, keys: true
 
-    container.hide # inner stays flagged visible, but its parent is hidden
+    container.hide # inner stays flagged visible, but parent is hidden
 
     a.focus
     s.focused.should eq a
@@ -157,9 +151,9 @@ end
 
 describe "Window#focus (re-focus of the already-focused widget)" do
   # Regression: `Window#focus` (and `focus_offset`, e.g. Tab wrapping back onto
-  # the sole focusable widget) routes straight to `_focus el, el`. The state
-  # assignment used to set `:focused` (a no-op) then `:normal`, clobbering the
-  # highlight — and emit a spurious `Blur` on the widget being focused.
+  # the sole focusable widget) routes to `_focus el, el`. The state assignment
+  # used to set `:focused` then `:normal`, clobbering the highlight and
+  # emitting a spurious `Blur` on the widget being focused.
   it "keeps the widget focused and emits no Blur on itself" do
     s = focus_screen
     a = Widget::Box.new parent: s, keys: true
@@ -191,8 +185,7 @@ end
 
 describe "Window#rewind_focus" do
   # Regression: `_focus` already emits `Event::Blur` on the previously-focused
-  # widget, so `rewind_focus` must NOT emit it a second time. It used to, leaving
-  # the blurred widget with a double Blur.
+  # widget, so `rewind_focus` must not emit it a second time (it used to).
   it "emits Blur on the old widget exactly once" do
     s = focus_screen
     a = Widget::Box.new parent: s, keys: true
@@ -210,12 +203,10 @@ describe "Window#rewind_focus" do
     blurs.should eq 1
   end
 
-  # Regression (deferred): when no valid prior target remains — the focused
-  # widget was hidden/removed and nothing earlier in the history is still
-  # attached and visible — `rewind_focus` must fully *clear* focus: `focused`
-  # becomes nil AND the previously-focused widget is blurred (its `:focused`
-  # state dropped and an `Event::Blur` emitted), instead of lingering in
-  # `WidgetState::Focused` with no Blur ever fired.
+  # Regression (deferred): when no valid prior target remains, `rewind_focus`
+  # must fully clear focus: `focused` becomes nil and the previously-focused
+  # widget is blurred (state dropped, `Event::Blur` emitted), instead of
+  # lingering in `WidgetState::Focused` with no Blur fired.
   it "blurs and clears focus when no valid prior target remains" do
     s = focus_screen
     a = Widget::Box.new parent: s, keys: true

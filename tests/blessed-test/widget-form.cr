@@ -2,9 +2,8 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-form.js
 #
-# Demonstrates `Widget::Form`: keyboard navigation (Tab / Shift+Tab, and vi
-# j/k) between a radio set, a text box, checkboxes and a submit button, plus
-# value collection on submit.
+# Demonstrates `Widget::Form`: Tab/Shift+Tab (and vi j/k) navigation between a
+# radio set, text box, checkboxes and submit button, with value collection on submit.
 class X
   include Crysterm
 

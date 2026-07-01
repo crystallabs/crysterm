@@ -5,14 +5,14 @@ module Crysterm
   class Widget
     # Hierarchical item view, modeled after Qt's `QTreeWidget`/`QTreeView`.
     #
-    # A `Tree` is an `AbstractItemView` (a sibling of `List`, exactly as Qt makes
+    # A `Tree` is an `AbstractItemView` (a sibling of `List`, as Qt makes
     # `QTreeWidget` a sibling of `QListWidget` under `QAbstractItemView`) whose
     # rows are the *visible* nodes of a node hierarchy, flattened depth-first with
     # each node indented by its depth and prefixed with an expand marker (`▸`
-    # collapsed, `▾` expanded, blank for a leaf). Collapsing a node hides its whole
-    # subtree; expanding it brings the subtree back. All of `Mixin::ItemView`'s
-    # navigation (arrow keys, Home/End, PageUp/Down, incremental search, the
-    # mouse) therefore works unchanged.
+    # collapsed, `▾` expanded, blank for a leaf). Collapsing a node hides its
+    # subtree; expanding brings it back. All of `Mixin::ItemView`'s navigation
+    # (arrow keys, Home/End, PageUp/Down, incremental search, mouse) works
+    # unchanged.
     #
     # On top of that the tree adds: Right to expand (or descend into an already-
     # expanded node), Left to collapse (or jump to the parent), and Space/Enter to
@@ -53,13 +53,10 @@ module Crysterm
         # flattened view after a structural change.
         getter tree : Tree?
 
-        # Setting the owning tree adopts the whole subtree, not just this node.
-        # A `Node` (and its children) can be built *detached* and attached later
-        # via `#add`; without propagating ownership downward, those descendants
-        # keep a `nil` `#tree`, so a later structural edit through one of them
-        # (`grandchild.add "x"`) would find `@tree` nil and silently skip the
-        # `rebuild`, leaving the view stale. Propagating here keeps every node
-        # in an attached subtree able to refresh the view.
+        # Setting the owning tree adopts the whole subtree, not just this node: a
+        # detached `Node` built with children keeps those children's `#tree` nil
+        # otherwise, so a later `grandchild.add "x"` would skip `rebuild` and
+        # leave the view stale.
         def tree=(@tree : Tree?) : Tree?
           @children.each(&.tree=(@tree))
           @tree
@@ -152,9 +149,9 @@ module Crysterm
           if i = @nodes.index prev
             selekt i
           elsif (anc = nearest_visible_ancestor prev) && (j = @nodes.index anc)
-            # The previously-selected node was hidden by a collapse; follow the
-            # selection up to its nearest still-visible ancestor (the collapsed
-            # node), as Qt does, rather than stranding it on row 0.
+            # Previously-selected node was hidden by a collapse; follow selection
+            # up to its nearest still-visible ancestor, as Qt does, rather than
+            # stranding it on row 0.
             selekt j
           end
         end

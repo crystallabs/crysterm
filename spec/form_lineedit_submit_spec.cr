@@ -2,15 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# A `Form` collects its fields' values through `Mixin::TextEditing`, not through
-# `PlainTextEdit` alone. `LineEdit` is a *sibling* of `PlainTextEdit` (it derives
-# `Input`, while `PlainTextEdit` derives `AbstractScrollArea`); the two only share
-# the text buffer via the mixin. Keying `#field_value`/`#reset_children` off
-# `PlainTextEdit` therefore silently dropped every `LineEdit` field on submit and
-# never cleared it on reset — yet a single-line text field is the form's primary
-# use case (see the `Widget::Form` class docs).
-#
-# Driven headlessly over in-memory IOs.
+# `Form` collects field values through `Mixin::TextEditing`, not `PlainTextEdit`
+# alone. `LineEdit` is a *sibling* of `PlainTextEdit` (derives `Input`, while
+# `PlainTextEdit` derives `AbstractScrollArea`); they only share the text buffer
+# via the mixin. Keying `#field_value`/`#reset_children` off `PlainTextEdit`
+# therefore silently dropped `LineEdit` fields on submit/reset.
 
 private def form_screen
   Crysterm::Window.new(

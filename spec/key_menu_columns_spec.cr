@@ -4,15 +4,15 @@ include Crysterm
 
 # `Widget::Pine::KeyMenu` lays its command hints out in a grid of `columns`
 # columns across a (typically `width: "100%"`) bottom bar. The old layout gave
-# each column a `100 // columns` *percentage* width and a `col * pct%` left,
+# each column a `100 // columns` percentage width and a `col * pct%` left,
 # rounding every column independently. Whenever `columns` did not divide 100
-# evenly (e.g. the default 6 → 16% each → 96% total) the columns drifted apart
-# (a stray cell of gap between them) and the rightmost stopped short of the right
-# edge, so the bar rendered with ragged gaps and a blank tail.
+# evenly (e.g. the default 6 -> 16% each -> 96% total) the columns drifted apart
+# and the rightmost stopped short of the right edge, leaving ragged gaps and a
+# blank tail.
 #
 # The fix tiles the cells with integer division on the resolved width at render
 # (`col * inner // n`), so consecutive columns share each boundary exactly: no
-# gap between columns and the last column reaches the right edge for any
+# gap between columns, last column reaches the right edge for any
 # `columns`/width combination.
 #
 # Driven headlessly over in-memory IOs: after one synchronous `_render` the cell

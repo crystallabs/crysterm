@@ -36,10 +36,9 @@ paths = files.map { |f| File.expand_path(File.join(IMAGE_DIR, f)) }
 start_idx = files.index { |f| !f.ends_with?(".ans") } || 0
 
 # `force_unicode` so the Glyph backend's rich mosaics (quadrant/sextant/octant,
-# braille) are emitted as their real Unicode glyphs. Without it, a terminal that
-# isn't auto-detected as Unicode-capable makes Crysterm reduce every non-ASCII
-# glyph to "?" (screen draw's ACS fallback). Octants are Unicode 16 (2024), so
-# even forced they only render in an up-to-date terminal font.
+# braille) render as real Unicode glyphs instead of Crysterm's ACS "?" fallback
+# on terminals not auto-detected as Unicode-capable. Octants are Unicode 16
+# (2024), so they still need an up-to-date terminal font.
 screen = Window.new title: "viewer.cr", force_unicode: true
 screen.enable_mouse
 
@@ -84,8 +83,7 @@ show = -> {
   cm = current_mode
   cc = current_colors
   # Backend-specific options (Glyph's `mode`, Ansi's `colors`) can't pass through
-  # the generic `Media.new` factory (it forwards one opts bag to every backend),
-  # so construct those concrete classes directly.
+  # the generic `Media.new` factory, so construct those concrete classes directly.
   m =
     if t.try(&.glyph?)
       M::Glyph.new(parent: viewer_box, file: current_path, width: "100%", height: "100%",
@@ -165,9 +163,9 @@ backend_defs = [
   {M::Type::Tek, [] of Tuple(String, String)},
 ]
 
-# Mark a node label when its backend can't render here. (Plain text — no color
-# tags, which would lengthen the row past the narrow pane and wrap it, throwing
-# off the click→row mapping.)
+# Mark a node label when its backend can't render here. Plain text — color tags
+# would lengthen the row past the narrow pane, wrapping it and throwing off the
+# click→row mapping.
 label_for = ->(text : String, avail : Bool) { avail ? text : "#{text} (n/a)" }
 
 backend_defs.each do |(type, subs)|

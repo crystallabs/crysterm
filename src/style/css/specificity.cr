@@ -78,13 +78,9 @@ module Crysterm
         i
       end
 
-      # The specificity a functional pseudo-class (`:is()`/`:not()`/`:has()`)
-      # contributes for *arg*, its argument: per Selectors Level 4 this is the
-      # specificity of its *most specific* argument — the maximum over the
-      # comma-separated list, NOT the sum. Each argument's full `(a, b, c)` is
-      # computed and the tuples compared lexicographically (`Tuple` is
-      # `Comparable`), so the single argument with the highest overall
-      # specificity wins. An empty argument list contributes nothing.
+      # Specificity contributed by a functional pseudo-class's argument list
+      # (`:is()`/`:not()`/`:has()`): per Selectors Level 4 this is the *max*
+      # over the comma-separated arguments, not the sum. Empty list contributes nothing.
       private def self.max_specificity(arg : String) : Tuple(Int32, Int32, Int32)
         best = {0, 0, 0}
         each_top_level_arg(arg) do |part|

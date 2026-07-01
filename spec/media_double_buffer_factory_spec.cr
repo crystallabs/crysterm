@@ -4,13 +4,11 @@ include Crysterm
 
 # Regression spec for `Widget::Media.new`'s `double_buffer:` forwarding.
 #
-# The factory constructs the concrete graphics backend with its own default
-# (`media.double_buffer`, which is `true`) and then overrides it from the
-# `double_buffer:` argument. That override used a plain truthiness test
-# (`if (db = double_buffer)`), so an explicit `double_buffer: false` — being
-# falsey — was silently dropped and the widget stayed double-buffered. A caller
-# therefore had no way to turn double-buffering *off* through the factory. The
-# fix distinguishes "not given" (nil) from an explicit `false`.
+# The factory builds the graphics backend with its own default
+# (`media.double_buffer`, `true`) then overrides it from `double_buffer:`.
+# The override used a plain truthiness test (`if (db = double_buffer)`), so
+# an explicit `double_buffer: false` was silently dropped. Fixed by
+# distinguishing "not given" (nil) from an explicit `false`.
 
 private def render_screen
   Crysterm::Window.new(

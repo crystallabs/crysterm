@@ -3,14 +3,14 @@ require "../src/crysterm"
 # Deterministic allocation check for the buffer/cache cleanups:
 #   * divert() reuses @tmpbuf instead of allocating a throwaway IO::Memory per
 #     line insert/delete op.
-#   * screenshot() reuses one IO::Memory across rows instead of a String::Builder
-#     per row.
+#   * screenshot() reuses one IO::Memory across rows instead of a
+#     String::Builder per row.
 #   * Table#calculate_maxes caches @maxes, so a render with unchanged data no
 #     longer re-scans every cell.
 #
-# Per the repo's benchmark philosophy, the meaningful metric is bytes allocated
-# (deterministic), not ips (noise-dominated). OLD vs NEW are reconstructed inline
-# for the first two; the table case exercises the real method both ways.
+# Metric is bytes allocated (deterministic), not ips (noise-dominated). OLD vs
+# NEW are reconstructed inline for the first two; the table case exercises the
+# real method both ways.
 #
 # Run:  crystal run --release benchmarks/cleanup-allocs.cr
 
@@ -33,7 +33,7 @@ puts "=" * 60
 # 1. divert temp buffer ------------------------------------------------------
 shared = IO::Memory.new
 old_divert = alloc_mb(ROUNDS) do
-  buf = IO::Memory.new # the throwaway the 4 call sites used to allocate
+  buf = IO::Memory.new # throwaway the 4 call sites used to allocate
   buf << CSR
   buf.to_slice
 end

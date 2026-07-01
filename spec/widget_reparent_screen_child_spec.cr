@@ -2,12 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Reparenting a *top-level* widget (one listed directly in a screen's `children`)
-# into another widget must remove it from the screen's `children` — otherwise it
-# stays in BOTH the old screen's `children` and the new parent's, i.e. it is
-# double-parented (rendered twice, inconsistent tree). `Widget#insert` previously
-# only called `element.remove_from_parent`, which can't detach a top-level widget
-# (it has no widget `@parent`, only a stored screen), so the move leaked.
+# Reparenting a *top-level* widget (listed directly in a screen's `children`)
+# into another widget must remove it from the screen's `children`, or it stays
+# double-parented (rendered twice). `Widget#insert` previously only called
+# `element.remove_from_parent`, which can't detach a top-level widget (it has
+# no widget `@parent`, only a stored screen), so the move leaked.
 
 private def headless_screen
   Crysterm::Window.new(

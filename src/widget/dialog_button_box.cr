@@ -6,9 +6,8 @@ module Crysterm
     # A horizontal row of standard dialog buttons, modeled after Qt's
     # `QDialogButtonBox`.
     #
-    # Instead of hand-placing "Ok"/"Cancel"/… buttons (and getting their order
-    # and roles subtly wrong each time), you declare which standard buttons you
-    # want and the box creates, labels, orders and wires them for you:
+    # Declare which standard buttons you want and the box creates, labels,
+    # orders and wires them for you:
     #
     # ```
     # bb = Widget::DialogButtonBox.new(
@@ -145,8 +144,8 @@ module Crysterm
       end
 
       # Re-spaces the buttons in a single left-to-right row and sizes the box to
-      # fit them (its "content" is the child buttons, not text, so it can't rely
-      # on the usual shrink-to-content behaviour).
+      # fit them (its content is the child buttons, not text, so shrink-to-
+      # content doesn't apply).
       private def relayout : Nil
         left = 0
         @buttons.each do |b|

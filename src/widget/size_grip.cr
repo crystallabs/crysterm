@@ -22,9 +22,9 @@ module Crysterm
       # Widget resized by dragging. Defaults to the grip's parent.
       property target : Widget?
 
-      # Smallest size the target may be dragged to. (Named `*_drag_*` to avoid
-      # colliding with `Widget#min_width`/`#min_height`, which are this grip's own
-      # CSS size constraints — a different concept from the target's drag floor.)
+      # Smallest size the target may be dragged to. Named `*_drag_*` to avoid
+      # colliding with `Widget#min_width`/`#min_height`, this grip's own CSS
+      # size constraints.
       property min_drag_width : Int32 = 3
       property min_drag_height : Int32 = 3
 
@@ -51,7 +51,7 @@ module Crysterm
               t.height = Math.max(@min_drag_height, e.y - t.atop + 1)
               t.request_render
             rescue
-              # Target not laid out yet — ignore this drag tick.
+              # Target not laid out yet.
             end
           end
         end

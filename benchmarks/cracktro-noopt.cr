@@ -1,7 +1,6 @@
-# Full-recomposite-only variant of cracktro-profile.cr for bisecting commits that
-# PREDATE the OptimizationFlag param. Constructs the scene without `optimization:`
-# and just calls `_render` N times (the only/legacy render path). Same scene and
-# per-frame mutation as the demo.
+# Full-recomposite-only variant of cracktro-profile.cr, for bisecting commits
+# that predate the OptimizationFlag param: constructs the scene without
+# `optimization:` and calls `_render` N times (the legacy render path).
 #
 # Run:  crystal run --release benchmarks/cracktro-noopt.cr
 

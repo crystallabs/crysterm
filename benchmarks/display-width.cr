@@ -1,11 +1,10 @@
 require "benchmark"
 require "../src/crysterm"
 
-# Micro-benchmark for `::Crysterm::Unicode.display_width` / `str_width`, the per-line
-# width measurement used during wrapping/alignment under `full_unicode?`.
+# Micro-benchmark for `::Crysterm::Unicode.display_width` / `str_width`, the
+# per-line width measurement used during wrapping/alignment under `full_unicode?`.
 #
-#   * ascii        — plain English text (the common case even in unicode apps);
-#                    every grapheme is width 1, so the result is just its length.
+#   * ascii        — plain English text; every grapheme is width 1.
 #   * accents      — latin + accented (non-ASCII, mostly width-1 graphemes).
 #   * cjk          — wide East-Asian content (width-2 graphemes).
 #   * emoji        — ZWJ / flag / skin-tone clusters.
@@ -19,7 +18,7 @@ accents = "café résumé naïve façade Zürich Köln " * 4
 cjk = "日本語のテキストをここに置きます。" * 4
 emoji = "👍🏽🎉🇯🇵👨‍👩‍👧‍👦abc " * 8
 
-# Sanity print so before/after results can be diffed.
+# Sanity print for before/after diffing.
 { {"ascii", ascii}, {"accents", accents}, {"cjk", cjk}, {"emoji", emoji} }.each do |name, s|
   print "#{name}: display_width=#{::Crysterm::Unicode.display_width(s)}\n"
 end

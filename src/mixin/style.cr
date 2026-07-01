@@ -6,29 +6,25 @@ module Crysterm
       # ameba:disable Lint/UselessAssign
       Crystallabs::Helpers::Enums.enum_property state : WidgetState = WidgetState::Normal
 
-      # Re-wrap the generated `state=` setters so that, when an active stylesheet
-      # has ancestor-state rules (`Form:focus Button`), a state transition
-      # invalidates styling and the cascade re-runs on the next render. Guarded
-      # on an actual change to avoid needless restyles (e.g. lists re-asserting an
-      # item's state every frame).
+      # Re-wraps the generated `state=` setters so a state transition invalidates
+      # styling and the cascade re-runs (needed for ancestor-state rules like
+      # `Form:focus Button`). Guarded on actual change to avoid needless restyles
+      # (e.g. lists re-asserting an item's state every frame).
       def state=(value : WidgetState) : WidgetState
         return value if @state == value
-        # Snapshot the animatable values of the *old* state's style so any CSS
-        # `transition` can tween from them to the new state's values.
+        # Snapshot the old state's animatable style values so a CSS `transition`
+        # can tween to the new state's values.
         prev = transition_from
         @state = value
-        # A state change selects a different style (e.g. `styles.selected` vs
-        # `styles.normal`), so the widget must be repainted. The tracked geometry
-        # setters can't see this in-place style swap, so flag it for damage
-        # tracking explicitly; otherwise the optimized render leaves the previous
-        # state's pixels in the buffer (a stale highlight). Guarded above on an
-        # actual change, so a list re-asserting the same state every frame is free.
+        # The style swap is in-place and invisible to the tracked geometry
+        # setters, so flag damage explicitly — otherwise the optimized render
+        # leaves the previous state's pixels behind (a stale highlight).
         mark_dirty
         window?.try do |scr|
           if scr.css_dynamic_state?
             scr.restyle_subtree self # ancestor-state rules exist: recascade
           else
-            scr.css_node_changed self # otherwise just keep the cached document in sync
+            scr.css_node_changed self # otherwise keep cached document in sync
           end
         end
         prev.try { |p| apply_style_transitions p }
@@ -44,22 +40,18 @@ module Crysterm
       # Only one style, `normal` is initialized by default, others default to it if `nil`.
       property styles : ::Crysterm::Styles = ::Crysterm::Styles.default
 
-      # Pristine, pre-CSS snapshot of `#styles`, captured lazily the first time
-      # the cascade asks for it. Each cascade rebuilds the computed styles from a
-      # fresh dup of this snapshot, so removed rules and changed inherited values
-      # don't linger (the cascade is otherwise non-destructive — it builds on the
-      # *current* styles).
+      # Pristine, pre-CSS snapshot of `#styles`, captured lazily on first cascade
+      # use. Each cascade rebuilds from a fresh dup of this snapshot, so removed
+      # rules and changed inherited values don't linger.
       @css_base_styles : ::Crysterm::Styles?
 
       # :ditto:
       def css_base_styles : ::Crysterm::Styles
         @css_base_styles ||= begin
           snap = styles.deep_dup
-          # The programmatic floor border (installed by `#ensure_floor_border` for
-          # overlays) must never seed the cascade: a stylesheet owns the border
-          # entirely. Drop it from the pristine snapshot so a theme *without* a
-          # border rule doesn't inherit the floor default (no themed regression),
-          # while a theme that does set one still wins.
+          # The programmatic floor border must never seed the cascade — a
+          # stylesheet owns the border entirely. Drop it so a theme without a
+          # border rule doesn't inherit the floor default.
           snap.normal.border = false if floor_border_installed?
           snap
         end
@@ -88,15 +80,14 @@ module Crysterm
       # so author `!important` rules can outrank inline.
       property? css_styled : Bool = false
 
-      # The raw, *persistent* backing `Style` for the current state — `#style`
-      # without the unstyled-floor highlight fallbacks. Inline `@style` (when not
-      # `css_styled`) still wins wholesale, exactly as `#style` resolves it.
+      # The raw, persistent backing `Style` for the current state — `#style`
+      # without the unstyled-floor highlight fallbacks.
       #
       # Persistent per-state fields — notably `visible` (toggled by `#hide`/
-      # `#show`) — MUST be read and written through here, never via `#style`: at
-      # the floor `#style` layers reverse-video on `:focused`/`:selected` by
-      # returning a transient `#dup`, so a write through it lands on a throwaway
-      # object and is lost (concretely: a focused `Button` could never be hidden).
+      # `#show`) — MUST be read/written through here, never via `#style`: at the
+      # floor, `#style` layers reverse-video on `:focused`/`:selected` via a
+      # transient `#dup`, so a write through it would be lost (a focused `Button`
+      # could never be hidden).
       def state_style : ::Crysterm::Style
         unless @css_styled
           @style.try { |style| return style }
@@ -113,23 +104,16 @@ module Crysterm
 
       # If specific style is not set, it will depend on current state
       def style : ::Crysterm::Style
-        # When CSS has computed this widget's styles, the inline `@style` has
-        # already been folded into them at the right cascade tier, so use the
-        # per-state style. Otherwise inline `@style` (if any) wins wholesale — and
-        # the floor border is installed lazily here, the one render-only step
-        # `#state_style` deliberately omits.
+        # When CSS has computed this widget's styles, inline `@style` is already
+        # folded in, so use the per-state style. Otherwise inline `@style` wins
+        # wholesale, and the floor border is installed lazily here (the one
+        # render-only step `#state_style` omits).
         unless @css_styled
-          # An inline `@style` wins wholesale (returned as-is). The floor border is
-          # installed onto `@styles.normal` — the per-state backing that an inline
-          # style bypasses entirely — so for an inline-styled widget the result of
-          # `ensure_floor_border` is never observed (the returned `@style` carries
-          # its own border, or none). Skip it in that case: `#style` is reached
-          # ~10x per widget per frame through the geometry/damage paths, and running
-          # `ensure_floor_border` (virtual dispatch + per-state lookups) on every
-          # one was the hottest render leaf — pure waste for an inline-styled widget
-          # (e.g. each of a full-window scene's cells). When `@style` is nil we fall
-          # through to the per-state style below, where the floor border IS observed,
-          # so it is still synced exactly as before.
+          # Skip `ensure_floor_border` when an inline `@style` will win wholesale
+          # (it bypasses `@styles.normal`, so the border would never be observed
+          # anyway). `#style` runs ~10x per widget per frame, and the virtual
+          # dispatch + per-state lookups in `ensure_floor_border` were the hottest
+          # render leaf — pure waste for inline-styled widgets.
           if style = @style
             return style
           end
@@ -137,9 +121,8 @@ module Crysterm
         end
 
         # Decorate only the per-state styles with the unstyled-floor highlight
-        # fallbacks (an inline `@style`, returned above, is never touched). The
-        # fallbacks are no-ops under any theme (`css_styled`), so this is the same
-        # cascade-computed style there.
+        # fallbacks; an inline `@style` (returned above) is never touched. These
+        # fallbacks are no-ops under any theme (`css_styled`).
         st = per_state_style
         case @state
         when .focused?  then focus_highlight_fallback st
@@ -150,37 +133,32 @@ module Crysterm
 
       # Whether this widget should carry a default structural border at the
       # unstyled floor (no CSS active). Overlays (Menu, popups, dialogs,
-      # tooltips, splash screens) override this to `true` so they separate from
-      # content when there is no color to do it; plain content widgets do not.
-      # May be *dynamic*: a `DockWidget` returns `true` only while floating, so a
-      # detached pane gets a frame to read against the content it covers while a
-      # docked one (separated by layout) stays borderless — `#ensure_floor_border`
-      # installs *and* removes to track such changes. The border is purely a
-      # programmatic *floor* default — any active theme makes the widget
-      # `css_styled`, so the cascade is then fully in control and free to set any
-      # border, including none (e.g. qdarkstyle's `QMenu { border: 0 }`).
+      # tooltips, splash screens) override to `true` to separate from content
+      # when there's no color to do it; plain content widgets don't. May be
+      # dynamic: a `DockWidget` returns `true` only while floating (docked panes
+      # stay borderless, separated by layout instead) — `#ensure_floor_border`
+      # installs and removes to track such changes. Any active theme makes the
+      # widget `css_styled`, putting the cascade fully in control (free to set
+      # any border, including none, e.g. qdarkstyle's `QMenu { border: 0 }`).
       def floor_border? : Bool
         false
       end
 
-      # *Which* floor border to install when unstyled, as a value `Border.from`
+      # Which floor border to install when unstyled, as a value `Border.from`
       # accepts: `false` (none), `true` (all four sides), or a `Border` selecting
       # specific sides. Defaults to a full border iff `#floor_border?`. A
       # `DockWidget` overrides this to a full frame while floating but only the
-      # single edge facing the central content while docked, so a docked pane is
-      # separated from the content it abuts without boxing in the whole panel.
+      # edge facing the central content while docked.
       def floor_border_value
         floor_border? ? true : false
       end
 
-      # Whether this widget should indicate *focus* via reverse-video at the
+      # Whether this widget should indicate focus via reverse-video at the
       # unstyled floor (no CSS active). Defaults to `false`: a large focusable
       # widget (container, list, text editor) must not invert its whole viewport
       # on focus. The small button family (`Button`/`CheckBox`/`RadioButton` —
       # see `AbstractButton`) overrides this to `true` so a focused control reads
-      # on any terminal with no theme. Like `#floor_border?`, this is purely a
-      # programmatic *floor* default — any active theme makes the widget
-      # `css_styled`, so the cascade is then fully in control of focus styling.
+      # on any terminal with no theme.
       def floor_focus_reverse? : Bool
         false
       end
@@ -193,9 +171,8 @@ module Crysterm
 
       # Whether a border was already set explicitly (inline style / author CSS)
       # before the floor logic first ran. Memoized on first use — distinct from
-      # `@floor_border_applied`, which tracks the *floor's own* border. When true,
-      # that explicit choice (including an explicit `border: false`) owns the
-      # border and the floor never touches it.
+      # `@floor_border_applied`, which tracks the floor's own border. When true,
+      # that explicit choice (including `border: false`) owns the border for good.
       @floor_border_user_set : Bool? = nil
 
       # Whether a floor border is currently installed (any side). Used by
@@ -204,41 +181,31 @@ module Crysterm
         (s = @floor_border_applied) ? (s != {0, 0, 0, 0}) : false
       end
 
-      # Syncs the structural *floor* border on `styles.normal` to what the widget
+      # Syncs the structural floor border on `styles.normal` to what the widget
       # currently wants (`#floor_border_value`), reached from `#style` only while
-      # no CSS is active. Both **installs and removes** (and updates which sides),
-      # so a dynamic floor border (e.g. a `DockWidget` switching between a full
-      # frame and a single content-facing edge as it floats/re-docks) stays in
-      # lock-step. The border is set *in place* (not on a dup) so it survives
-      # `hide`/`show`, which toggle `visible` on this very style, and is excluded
-      # from the cascade base (see `#css_base_styles`) so a theme stays in full
-      # control. An explicit author/inline border is honored — including
-      # `border: false`.
+      # no CSS is active. Installs and removes (and updates sides) so a dynamic
+      # floor border (e.g. a `DockWidget` floating/re-docking) stays in lock-step.
+      # Set in place (not on a dup) so it survives `hide`/`show`, and excluded
+      # from the cascade base (see `#css_base_styles`). An explicit author/inline
+      # border is honored — including `border: false`.
       private def ensure_floor_border : Nil
         normal = @styles.normal
         # Capture once whether a border was explicitly set before the floor ever
-        # touched it; that author/user choice then wins for good. (`||=` can't
-        # memoize a `false`, hence the explicit nil check.) After this method sets
-        # the border below, `specified?` flips true, so the memo must be taken
-        # first — and only once.
+        # touched it; that choice then wins for good. (`||=` can't memoize
+        # `false`, hence the explicit nil check — must run before this method
+        # sets the border below, which flips `specified?` true.)
         if @floor_border_user_set.nil?
           @floor_border_user_set = normal.specified?(:border)
         end
         return if @floor_border_user_set
 
         val = floor_border_value
-        # Resolve the wanted sides *without* constructing a `Border` for the common
-        # `Bool` floor values (`false` = no border, `true` = a full unit border) —
-        # what nearly every widget returns. `#ensure_floor_border` runs from
-        # `#style` on *every* render of an unstyled (non-`css_styled`) widget, and
-        # the steady state is "already in sync", so allocating a throwaway `Border`
-        # per call just to read its sides back was ~192 B of per-render garbage
-        # (and `#style` is called several times per `_render`, so ~2 KB/widget/frame).
-        # A non-`Bool` value (a `DockWidget`'s `Border`/side-symbol) still resolves
-        # through `Border.from`, exactly as before. When out of sync (a one-off
-        # state change) the `Bool` path also builds the `Border` to assign — the
-        # allocation that is actually needed. The applied border and
-        # `@floor_border_applied` end up byte-identical to before.
+        # Resolve wanted sides without constructing a `Border` for the common
+        # `Bool` floor values — `#ensure_floor_border` runs on every render of an
+        # unstyled widget, and allocating a throwaway `Border` just to read its
+        # sides back was ~2 KB/widget/frame of garbage. Non-`Bool` values still
+        # resolve through `Border.from` as before; out-of-sync changes still
+        # build the `Border` needed for the actual assignment.
         if quick = floor_border_quick_sides(val)
           return if @floor_border_applied == quick # already in sync — no allocation
           normal.border = ::Crysterm::Border.from(val)
@@ -252,11 +219,10 @@ module Crysterm
         end
       end
 
-      # The `{left, top, right, bottom}` a floor-border *value* resolves to for the
+      # The `{left, top, right, bottom}` a floor-border value resolves to for the
       # two `Bool` cases, computed without allocating a `Border`; `nil` for any
       # other value (resolved via `Border.from` by the caller). Mirrors
-      # `Border.from(true)` (a full unit border) and `Border.from(false)`/`nil`
-      # (no border). The returned tuple is a value type, so this allocates nothing.
+      # `Border.from(true)`/`Border.from(false)`.
       private def floor_border_quick_sides(value) : Tuple(Int32, Int32, Int32, Int32)?
         case value
         when true       then {1, 1, 1, 1}
@@ -265,39 +231,28 @@ module Crysterm
         end
       end
 
-      # At the unstyled floor (no CSS computed this widget — `@css_styled` is
-      # false), a `:selected` widget whose selected style carries no visible
-      # distinction of its own (no fg/bg/reverse — e.g. a `MenuBar`/`ToolBar`/
-      # `ListBar` item lazily falling back to `normal`) is shown via reverse-video,
-      # so the active entry reads on any terminal with no theme. Under any theme
-      # the widget is `css_styled` and this returns the cascade-computed style
-      # untouched; a `#dup` is taken before toggling so a shared style is never
-      # mutated in place.
+      # At the unstyled floor, a `:selected` widget whose style carries no
+      # visible distinction (no fg/bg/reverse — e.g. a `MenuBar`/`ToolBar`/
+      # `ListBar` item falling back to `normal`) is shown via reverse-video, so
+      # the active entry reads with no theme.
       private def selection_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         reverse_highlight_fallback st
       end
 
-      # Focus counterpart of `#selection_highlight_fallback`, gated additionally
-      # on `#floor_focus_reverse?` so only the opted-in small controls invert. At
-      # the unstyled floor (`@css_styled` false), a `:focused` control whose
-      # focused style carries no visible distinction of its own (no fg/bg/reverse
-      # — e.g. lazily falling back to `normal`) is shown via reverse-video, so the
-      # focused control reads with no theme. Widgets that don't opt in (the
-      # default — containers, lists, text editors) are returned untouched, so
-      # focus never wholesale-inverts a large viewport. Under any theme the widget
-      # is `css_styled` and the cascade-computed style is returned as-is; a `#dup`
-      # is taken before toggling so a shared style is never mutated in place.
+      # Focus counterpart of `#selection_highlight_fallback`, gated on
+      # `#floor_focus_reverse?` so only opted-in small controls invert. Widgets
+      # that don't opt in (containers, lists, text editors) are returned
+      # untouched, so focus never wholesale-inverts a large viewport.
       private def focus_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         return st unless floor_focus_reverse?
         reverse_highlight_fallback st
       end
 
       # Shared core of `#selection_highlight_fallback`/`#focus_highlight_fallback`:
-      # at the unstyled floor (`@css_styled` false), a state style that carries no
-      # visible distinction of its own (no fg/bg/reverse) is shown via reverse-video
-      # so the entry reads on any terminal with no theme; otherwise *st* is returned
-      # untouched. A `#dup` is taken before toggling so a shared style is never
-      # mutated in place.
+      # at the unstyled floor, a state style with no visible distinction of its
+      # own (no fg/bg/reverse) is shown via reverse-video; otherwise *st* is
+      # returned untouched. A `#dup` is taken before toggling so a shared style
+      # is never mutated in place.
       private def reverse_highlight_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         return st if @css_styled || st.specified?(:fg) || st.specified?(:bg) || st.reverse?
         st = st.dup
@@ -323,14 +278,10 @@ module Crysterm
       #             @styles.blurred
       #           end
       # end
-      # Current style being (or to be) applied during rendering.
-      # This variable is managed by Crysterm and points to currently valid/active style.
-      # Therefore it is kept in sync (modified together) with `Widget#state`.
-      # It is a reference to current style, and editing the style through this reference has not been prevented.
-      # Thus, editing `style` will edit whatever object's `style` is pointing to.
-      # But note: if widget is e.g. in state `focused` but no special style for focus was defined,
-      # widget will render use style `normal`. Editing `style` while widget is in that state
-      # will then actually edit the state for `normal`, not `focused`.
+      # Current style applied during rendering, kept in sync with `Widget#state`.
+      # A reference, not a copy — editing `style` edits whatever it points to.
+      # If a widget is e.g. `focused` but has no focus style defined, it renders
+      # `normal`; editing `style` then actually edits `normal`, not `focused`.
       # property style : Style # = Style.new # Placeholder
 
     end

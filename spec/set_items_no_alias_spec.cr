@@ -13,10 +13,10 @@ private def sina_screen
 end
 
 # `ItemView#set_items` must take ownership of its row data rather than aliasing
-# the caller's array: the list mutates `@ritems` in place on every
+# the caller's array: `@ritems` is mutated in place on every
 # `append_item`/`insert_item`/`remove_item`, so a stored alias would leak those
-# mutations back into the caller's array (and a caller mutating its own array
-# afterwards would desync `@ritems` from `@items`).
+# mutations back to the caller (and the caller mutating its array would desync
+# `@ritems` from `@items`).
 describe "ItemView#set_items array ownership" do
   it "does not mutate the caller's array when items are appended afterwards" do
     s = sina_screen
@@ -26,7 +26,7 @@ describe "ItemView#set_items array ownership" do
     list.set_items data
     list.push_item "d"
 
-    # The list grew, but the caller's array must be untouched.
+    # List grew, but the caller's array must be untouched.
     list.ritems.should eq ["a", "b", "c", "d"]
     data.should eq ["a", "b", "c"]
   end
@@ -39,7 +39,7 @@ describe "ItemView#set_items array ownership" do
     list.set_items data
     data << "z" # mutate the caller's array
 
-    # The list's own model must stay in sync with its item widgets (size 2).
+    # List's own model must stay in sync with its item widgets (size 2).
     list.ritems.should eq ["x", "y"]
     list.items.size.should eq 2
   end

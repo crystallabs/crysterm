@@ -4,9 +4,10 @@ module Crysterm
   class Widget
     # Renders an image as **sixel** graphics: an in-band DCS escape sequence that
     # a sixel-capable terminal (xterm -ti vt340, foot, wezterm, mlterm, …) draws
-    # as true raster pixels at the cursor position. Unlike `Media::Ansi`/`Media::Glyph`
-    # the pixels are owned by the terminal, not Crysterm's cell grid — so this
-    # inherits `Media::Graphics`'s window-owns-pixels erase/redraw lifecycle.
+    # as true raster pixels at the cursor position. Unlike
+    # `Media::Ansi`/`Media::Glyph` the pixels are owned by the terminal, not
+    # Crysterm's cell grid — so this inherits `Media::Graphics`'s
+    # window-owns-pixels erase/redraw lifecycle.
     #
     # The image is quantized to a fixed 6×7×6 (=252) level RGB palette and
     # dithered to smooth gradients (see `dither`; `Dither::Auto` by default),

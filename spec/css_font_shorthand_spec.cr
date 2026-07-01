@@ -3,8 +3,8 @@ require "./spec_helper"
 include Crysterm
 
 # Focused specs for the CSS `font` shorthand parser
-# (`Crysterm::CSS::Properties.apply`). The interesting case is the *weight*:
-# the shorthand must recognize the same numeric/relative CSS weights the
+# (`Crysterm::CSS::Properties.apply`). The interesting case is weight: the
+# shorthand must recognize the same numeric/relative CSS weights the
 # `font-weight` longhand does (via `font_weight_bold`) — `font: 700 14px serif`
 # is bold, not only the literal `bold` keyword. It used to test for the bare
 # string "bold" alone, silently rendering a clearly-bold shorthand non-bold.
@@ -65,10 +65,10 @@ describe "CSS font shorthand" do
     s.italic?.should be_true
   end
 
-  # The `font-style` *longhand* must recognize the same slant keywords the
+  # The `font-style` longhand must recognize the same slant keywords the
   # shorthand does. `oblique` slants like `italic`; the longhand used to accept
-  # only `italic`/`normal`, so `font-style: oblique` silently rendered upright —
-  # the mirror of the `font-weight` longhand/shorthand fix above.
+  # only `italic`/`normal`, silently rendering `font-style: oblique` upright —
+  # mirrors the `font-weight` longhand/shorthand fix above.
   it "is italic for the `font-style: oblique` longhand (matches the shorthand)" do
     long = Style.new
     Crysterm::CSS::Properties.apply(long, "font-style", "oblique")
@@ -86,12 +86,11 @@ describe "CSS font shorthand" do
     s.italic?.should be_false
   end
 
-  # A *blank* value — an undefined `var(--x)` that collapsed to "" before reaching
-  # the property — must be dropped (CSS's "drop the invalid declaration" rule),
-  # NOT treated as a shorthand reset that clobbers bold/italic. The `font-weight`/
-  # `font-style` longhands already preserve the current value on a blank input;
-  # the `font` shorthand must agree. (Mirror of the color/z-index/visibility/
-  # display invalid-value guards.)
+  # A blank value — an undefined `var(--x)` collapsed to "" — must be dropped
+  # (CSS's "drop the invalid declaration" rule), not treated as a shorthand
+  # reset that clobbers bold/italic. The `font-weight`/`font-style` longhands
+  # already preserve the current value on blank input; the shorthand must agree
+  # (mirrors the color/z-index/visibility/display invalid-value guards).
   it "drops a blank `font` value, keeping a previously-set bold/italic" do
     s = Style.new
     s.bold = true
@@ -106,8 +105,8 @@ describe "CSS font shorthand" do
     s.italic?.should be_true
   end
 
-  # A genuine `font` value with no weight/slant word still resets, exactly as
-  # before — the guard above only drops the *blank* (invalid) case.
+  # A genuine `font` value with no weight/slant word still resets; the guard
+  # above only drops the blank (invalid) case.
   it "still resets bold/italic for a real `font` value with no weight/slant" do
     s = Style.new
     s.bold = true

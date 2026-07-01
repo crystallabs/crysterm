@@ -11,9 +11,8 @@ module Crysterm
       property text : String = ""
 
       # Optional validator (Qt's `QLineEdit` validator / `QInputDialog`
-      # acceptance). Given the entered text, it returns whether the value is
-      # acceptable; on a `false` the dialog stays open for the user to correct
-      # the input instead of submitting. `nil` accepts anything.
+      # acceptance). Returns whether the entered text is acceptable; on `false`
+      # the dialog stays open instead of submitting. `nil` accepts anything.
       property validator : Proc(String, Bool)? = nil
 
       # TODO Positioning is bad for buttons.
@@ -27,9 +26,8 @@ module Crysterm
         height: 1,
         left: 2,
         right: 2,
-        # The prompt drives reading explicitly via `#read_input`; leaving
-        # `input_on_focus` on would auto-start a read (with no callback) the
-        # moment the field is focused, swallowing the real read's callback.
+        # `#read_input` drives reading explicitly; `input_on_focus` would
+        # auto-start a callback-less read on focus, swallowing the real callback.
         input_on_focus: false,
       )
 
@@ -44,13 +42,12 @@ module Crysterm
         super **box
 
         # Dialogs start hidden, like Blessed's `options.hidden = true`: `read_input`
-        # calls `show` to reveal the prompt. Without this the prompt renders on the
-        # first frame and, when several dialogs share a window, they stack on top
-        # of each other.
+        # calls `show` to reveal the prompt. Otherwise it renders on the first
+        # frame and, with several dialogs sharing a window, they stack up.
         hide
 
-        # Echo mode (Qt `QLineEdit::EchoMode`): hide the typed text entirely
-        # (`secret`) or mask it with `*` (`censor`), and an optional placeholder.
+        # Echo mode (Qt `QLineEdit::EchoMode`): hide the text entirely (`secret`)
+        # or mask it with `*` (`censor`), plus an optional placeholder.
         secret.try { |v| @textinput.secret = v }
         censor.try { |v| @textinput.censor = v }
         placeholder.try { |v| @textinput.placeholder = v }
@@ -84,9 +81,8 @@ module Crysterm
         reader = uninitialized -> Nil
         reader = -> do
           @textinput.read_input do |err, data|
-            # A non-nil `data` is a submit (Enter); validate it. On rejection,
-            # keep the dialog open and read again. Cancel (`data == nil`) and
-            # accepted values fall through to teardown.
+            # Non-nil `data` is a submit (Enter); validate and re-read on
+            # rejection. Cancel (`data == nil`) and accepted values fall through.
             if !data.nil? && (v = @validator) && !v.call(data)
               reader.call
               next

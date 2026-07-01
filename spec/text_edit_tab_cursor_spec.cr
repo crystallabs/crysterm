@@ -2,12 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# A TAB is stored as a single char in the editable buffer (`@value`) but is laid
-# out as `tab_char * tab_size` (default 4 spaces) in the rendered/wrapped lines
-# (`@_clines`). The caret model maps between the two; if it counts the rendered
-# columns as raw `@value` codepoints, a TAB before the caret shifts it left by
-# `tab_size - 1` — far enough that an Up/Down move lands on the wrong character,
-# even the wrong logical line. This locks the tab-aware mapping.
+# A TAB is a single char in the editable buffer (`@value`) but renders as
+# `tab_char * tab_size` (default 4 spaces) in the wrapped lines (`@_clines`).
+# The caret model maps between the two; treating rendered columns as raw
+# `@value` codepoints shifts the caret left by `tab_size - 1` per TAB, enough
+# to land Up/Down on the wrong character or logical line.
 private def te_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
 end

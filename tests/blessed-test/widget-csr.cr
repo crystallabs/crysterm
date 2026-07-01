@@ -6,14 +6,12 @@ require "../../src/crysterm"
 # the mouse, arrow keys or vi keys. Demonstrates that change-scroll-region
 # (CSR) optimization still renders correctly with overlapping widgets.
 module Crysterm
-  # NOTE: Blessed reads test/git.diff for the scrollable content. We don't have
-  # that file, so a long multi-line String is substituted to make scrolling
-  # visible.
+  # Blessed reads test/git.diff for scrollable content; substituted with a
+  # generated multi-line String.
   lorem = (1..40).map { |i| "Line #{i}: Lorem ipsum dolor sit amet, consectetur adipiscing elit." }.join("\n")
 
-  # NOTE: Blessed's cleanSides/_oscroll overrides and the thrown assertions are a
-  # blessed-internal test harness checking CSR behavior; they have no visual
-  # purpose and are dropped. Only the two visible widgets are kept.
+  # Blessed's cleanSides/_oscroll overrides and CSR test-harness assertions
+  # have no visual purpose; dropped. Only the two visible widgets remain.
   s = Window.new optimization: OptimizationFlag::SmartCSR, always_propagate: [::Tput::Key::CtrlQ]
 
   btext = Widget::Box.new(
@@ -35,9 +33,8 @@ module Crysterm
     draggable: true,
     width: "50%",
     height: "50%",
-    # NOTE: Blessed's `mouse: true` has no per-widget kwarg in Crysterm; mouse
-    # wheel scrolling comes from being scrollable and mouse drag from
-    # `draggable: true`, so it is dropped.
+    # Blessed's `mouse: true` has no per-widget kwarg here; wheel scrolling
+    # comes from being scrollable, drag from `draggable: true`.
     keys: true,
     vi: true,
   )

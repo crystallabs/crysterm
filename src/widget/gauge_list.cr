@@ -109,9 +109,8 @@ module Crysterm
 
       private def gauge_line(item : Item, lw : Int32, bar_cols : Int32, pct_w : Int32) : String
         pct = percent_of item.value
-        # The row is exactly `lw + 1 (gap) + bar_cols + pct_w` cells wide, so
-        # reserve that up front: growing these from empty (rebuilt for every gauge
-        # every animated frame) reallocs the backing buffer several times per row.
+        # Row is exactly `lw + 1 (gap) + bar_cols + pct_w` cells wide; reserve
+        # up front since these are rebuilt every gauge every animated frame.
         cap = lw + 1 + bar_cols + pct_w
         cells = Array(Char).new(cap)
         colors = Array(String?).new(cap)

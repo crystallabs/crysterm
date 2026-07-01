@@ -104,10 +104,9 @@ module Crysterm
       #
       # `@pos` is advanced *before* painting: the icon already shows `icons[0]`
       # from `initialize`/`spinner=`, so painting `icons[@pos]` first would
-      # re-draw that same frame on the very first tick — leaving the spinner
-      # frozen on frame 0 for two intervals before it began to move. Stepping
-      # first makes the first tick advance to `icons[1]`, so every interval
-      # shows a new frame.
+      # re-draw the same frame on the very first tick, freezing the spinner on
+      # frame 0 for two intervals. Stepping first makes the first tick advance
+      # to `icons[1]`, so every interval shows a new frame.
       def step
         @pos = (@pos + @step) % icons.size
         @icon.set_content icons[@pos]

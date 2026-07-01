@@ -70,9 +70,9 @@ module Crysterm
     @saved_attr : Int64
     # DECSC (`ESC 7`) also snapshots charset designations (G0/G1 special), the
     # active GL invocation, origin mode (DECOM) and autowrap (DECAWM), all
-    # restored by DECRC (`ESC 8`). Without these, a child drawing with the
-    # line-drawing set inside a DECSC/DECRC pair saw its charset left switched
-    # after restore, rendering line-drawing glyphs as plain ASCII.
+    # restored by DECRC (`ESC 8`) — otherwise a child drawing with the
+    # line-drawing set inside a DECSC/DECRC pair saw it switched back to ASCII
+    # after restore.
     @saved_g0_special = false
     @saved_g1_special = false
     @saved_gl = 0
@@ -103,7 +103,7 @@ module Crysterm
 
     # Parser state. The CSI/OSC accumulation buffers are reused `IO::Memory`s
     # (cleared, not reallocated, per sequence): avoids the per-byte `String`
-    # allocation the old `@csi_buf += c` did, and keeps long OSC payloads (e.g.
+    # allocation the old `@csi_buf += c` did, keeping long OSC payloads (e.g.
     # OSC 52 clipboard) linear instead of quadratic.
     @state : Symbol = :ground
     @csi_buf = IO::Memory.new
@@ -281,8 +281,8 @@ module Crysterm
       # Fast path: terminal output is overwhelmingly ASCII, so feed those bytes
       # straight as chars without materializing a `String` (control/escape bytes
       # are all ASCII, so this is safe for the parser). On a multibyte lead byte
-      # (>= 0x80), decode the *remainder* via `String` as before — same UTF-8 and
-      # invalid-byte handling — skipping the per-feed copy for the all-ASCII case.
+      # (>= 0x80), decode the *remainder* via `String` as before, skipping the
+      # per-feed copy for the all-ASCII case.
       ptr = complete.to_unsafe
       n = complete.size
       i = 0
@@ -328,7 +328,7 @@ module Crysterm
     private def handle_char(c : Char) : Nil
       # An ESC arriving mid escape/CSI/charset aborts the sequence in progress and
       # begins a *new* escape (the VT500 "anywhere: ESC → clear + enter escape"
-      # transition). Without it, an ESC mid-CSI dropped to `:ground` and the new
+      # transition); otherwise an ESC mid-CSI dropped to `:ground` and the new
       # sequence's `[` leaked into the grid as literal text. `:osc` (string) is
       # excluded: it does its own ESC handling for the `ESC \` (ST) terminator.
       if c.ord == 0x1b && (@state == :esc || @state == :csi || @state == :charset)
@@ -392,7 +392,7 @@ module Crysterm
       when '#', ' ', '%'
         # 3-byte intermediate escapes whose final byte must be swallowed, not
         # printed: `ESC # n` (DECALN / line size — not implemented), `ESC SP F/G`
-        # (S7C1T/S8C1T) and `ESC % @/G` (charset; we are always UTF-8). Route
+        # (S7C1T/S8C1T) and `ESC % @/G` (charset; always UTF-8 here). Route
         # through charset state with a designate-nothing index (-1) so the next
         # byte is consumed with no side effect.
         @charset_index = -1
@@ -436,8 +436,8 @@ module Crysterm
       # A DCS/SOS/PM/APC string was only swallowed for its terminator; never
       # interpret its payload as an OSC title.
       return if @osc_string
-      # Only window/icon title (codes 0, 1, 2) are acted on. The buffer is
-      # materialized once here (on the rare terminator), not per appended byte.
+      # Only window/icon title (codes 0, 1, 2) are acted on. Materialized once
+      # here (on the rare terminator), not per appended byte.
       buf = @osc_buf.to_s
       if idx = buf.index(';')
         code = buf[0, idx]
@@ -601,21 +601,21 @@ module Crysterm
       when 'm'
         # Only a *plain* CSI (no prefix) is SGR. A prefixed form like
         # `CSI > 4 ; 2 m` is xterm's modifyOtherKeys (emitted by vim/neovim/tmux
-        # at startup), NOT a colour/style change — running it through `apply_sgr`
-        # would misread its `4` as SGR underline.
+        # at startup), NOT a colour/style change — `apply_sgr` would misread its
+        # `4` as SGR underline.
         apply_sgr if @csi_prefix.nil?
       when 'r'
         # Only a *plain* `CSI Pt ; Pb r` is DECSTBM (set scroll region). The
         # private form `CSI ? Pm r` is XTRESTORE (restore DEC private modes,
-        # counterpart to the `CSI ? Pm s` XTSAVE the 's' handler ignores). We
-        # don't track saved modes, so the restore is a no-op — but it must NOT be
+        # counterpart to the `CSI ? Pm s` XTSAVE the 's' handler ignores). Saved
+        # modes aren't tracked, so the restore is a no-op, but it must NOT be
         # mistaken for DECSTBM (which would misread e.g. `CSI ? 7 r`'s `7` as a
-        # top margin). Gate on the plain-CSI `@csi_prefix.nil?`.
+        # top margin) — gate on the plain-CSI `@csi_prefix.nil?`.
         top = param(0, 1) - 1
-        # xterm *clamps* an over-large bottom margin to the last row and still
-        # sets the region (it does not reject the request). Rejecting it left a
-        # stale region in place — e.g. a child emitting `CSI 1;<oldrows> r` before
-        # processing SIGWINCH had its DECSTBM dropped. Clamp instead.
+        # xterm *clamps* an over-large bottom margin to the last row instead of
+        # rejecting the request. Rejecting it left a stale region in place — e.g.
+        # a child emitting `CSI 1;<oldrows> r` before processing SIGWINCH had its
+        # DECSTBM dropped.
         bot = Math.min(param(1, @rows) - 1, @rows - 1)
         if @csi_prefix.nil? && top < bot
           @scroll_top = Math.max(0, top)
@@ -627,15 +627,13 @@ module Crysterm
       when 'h' then set_mode true
       when 'l' then set_mode false
       when 's', 'u'
-        # SCOSC / SCORC (save/restore cursor) are only the *plain* `CSI s` / `CSI u`.
-        # A prefixed form is something else entirely and must NOT move the cursor:
-        # the Kitty keyboard protocol — which neovim, fish, kakoune, … negotiate at
-        # startup — pushes/pops/queries its flags with `CSI > Pn u`, `CSI < Pn u`,
-        # `CSI = Pn ; Pn u` and `CSI ? u`. Gating only on `@csi_private` (the `?`
-        # prefix) let `>`/`<`/`=` fall through to `restore_cursor`, so a child
-        # toggling Kitty-keyboard mode had its cursor yanked to the last saved
-        # position (0,0 if never saved). The same `@csi_prefix.nil?` gate the SGR
-        # ('m') handler uses for the modifyOtherKeys form applies here.
+        # SCOSC/SCORC (save/restore cursor) are only the *plain* `CSI s` / `CSI u`.
+        # A prefixed form must NOT move the cursor: the Kitty keyboard protocol —
+        # negotiated by neovim, fish, kakoune, … at startup — pushes/pops/queries
+        # its flags with `CSI > Pn u`, `CSI < Pn u`, `CSI = Pn ; Pn u` and
+        # `CSI ? u`. Gating only on `@csi_private` (the `?` prefix) let `>`/`<`/`=`
+        # fall through to `restore_cursor`, yanking the cursor to the last saved
+        # position on a Kitty-keyboard toggle. Same `@csi_prefix.nil?` gate as SGR.
         if @csi_prefix.nil?
           c == 's' ? save_cursor : restore_cursor
         end
@@ -655,10 +653,9 @@ module Crysterm
 
     private def set_mode(on : Bool) : Nil
       unless @csi_private
-        # ANSI (non-private) modes. IRM (4) is the only one acted on: it toggles
+        # ANSI (non-private) modes. IRM (4) is the only one acted on: toggles
         # insert/replace mode (terminfo `smir`/`rmir`), consumed in `#print_char`.
-        # The other standard ANSI modes (e.g. LNM 20) are not used by the target
-        # programs and are ignored.
+        # Other standard ANSI modes (e.g. LNM 20) are ignored.
         each_csi_param { |mode| @insert_mode = on if mode == 4 }
         return
       end
@@ -743,9 +740,9 @@ module Crysterm
 
     # 1-based cursor row for a CPR/DECXCPR reply. Under origin mode (DECOM) the
     # cursor row is addressed relative to the scroll region's top (see `#set_row`),
-    # so the report must be relative too — otherwise a child that homes with
-    # origin coords and then reads the position back gets a row that doesn't match
-    # the one it just set. The column is unaffected (no left/right margins here).
+    # so the report must match — otherwise a child homing with origin coords and
+    # reading the position back gets a mismatched row. Column is unaffected (no
+    # left/right margins here).
     private def cpr_row : Int32
       @origin_mode ? (@y - @scroll_top + 1) : (@y + 1)
     end
@@ -772,9 +769,9 @@ module Crysterm
     end
 
     private def apply_sgr : Nil
-      # Parse the bare parameter list (`@csi_buf`) directly, instead of rebuilding
-      # a framed `"\e[" + @csi_buf + "m"` string only to have `attr2code`
-      # re-scan it — one fewer `String` allocation per SGR sequence.
+      # Parse the bare parameter list (`@csi_buf`) directly instead of rebuilding
+      # a framed `"\e[" + @csi_buf + "m"` string for `attr2code` to re-scan — one
+      # fewer `String` allocation per SGR sequence.
       @cur_attr = Crysterm::Screen.attr2code_params(@csi_buf.to_slice, @cur_attr, @default_attr)
     end
 
@@ -806,10 +803,9 @@ module Crysterm
 
       line = cur_line
       if @insert_mode
-        # IRM: open w cells at the cursor — shift the tail of the line right by w,
-        # dropping the cells pushed past the end — so the glyph is inserted rather
-        # than overwriting. The same in-place shift `#insert_chars` (ICH) performs,
-        # applied per printed character.
+        # IRM: open w cells at the cursor by shifting the tail of the line right
+        # by w, dropping cells pushed past the end. Same in-place shift
+        # `#insert_chars` (ICH) performs, applied per printed character.
         i = line.size - 1
         while i - w >= @x
           line[i] = line[i - w]
@@ -833,12 +829,11 @@ module Crysterm
       end
     end
 
-    # REP (`CSI Pn b`): re-emit the last graphic character *n* more times, exactly
-    # as if it had been typed again (so it advances the cursor and wraps normally).
-    # A no-op when no graphic character has been printed yet. The count is capped
-    # at the grid area — repeating beyond a full window is pointless, and the cap
-    # keeps an adversarial `CSI 99999999 b` from spinning O(n), the same guard the
-    # SU/IL/ICH handlers apply.
+    # REP (`CSI Pn b`): re-emit the last graphic character *n* more times, as if
+    # typed again (advances the cursor, wraps normally). No-op when nothing has
+    # been printed yet. Count capped at the grid area — repeating beyond a full
+    # window is pointless and keeps an adversarial `CSI 99999999 b` from spinning
+    # O(n), the same guard the SU/IL/ICH handlers apply.
     private def repeat_last(n : Int32) : Nil
       c = @last_char || return
       n = Math.min(n, @cols * @rows)
@@ -911,12 +906,10 @@ module Crysterm
     end
 
     # Runs *block* (one scroll step) at most *n* times, capped at the scroll
-    # region's height. SU/SD by more than the region's height leaves the region
-    # fully blank either way, so the surplus is a no-op — but the raw
-    # `param.times` would still iterate it: an adversarial `CSI 99999999 S` would
-    # then spin O(n) (and, on a full-window region, push n blank lines toward the
-    # scrollback limit), tearing through the reader fiber. This is the same cap
-    # `#insert_lines`/`#delete_lines` apply to IL/DL.
+    # region's height. SU/SD by more than the region's height leaves it fully
+    # blank either way, so the surplus is a no-op, but uncapped `param.times`
+    # would still iterate it — an adversarial `CSI 99999999 S` would spin O(n).
+    # Same cap `#insert_lines`/`#delete_lines` apply to IL/DL.
     private def scroll_region_times(n : Int32, &) : Nil
       n = Math.min(n, @scroll_bottom - @scroll_top + 1)
       n.times { yield }
@@ -928,26 +921,22 @@ module Crysterm
     private def scroll_up : Nil
       if @scroll_top == 0 && @scroll_bottom == @rows - 1
         # The alternate window has NO scrollback (matching xterm): a full-window
-        # scroll discards the displaced top line rather than retaining it. Recycle
-        # its `Array(Cell)` storage in place as the new bottom row, so the alt page
-        # never grows `@lines`/`@ybase` (unbounded memory while a full-window app
-        # scrolls) and never exposes bogus "history" to scrollback navigation.
+        # scroll discards the displaced top line. Recycle its `Array(Cell)`
+        # storage in place as the new bottom row, so the alt page never grows
+        # `@lines`/`@ybase` and never exposes bogus "history" to scrollback nav.
         if @alt_active
           recycle_top_row
           return
         end
         # xterm holds the scrollback position when fresh output arrives while the
-        # user is scrolled back; the view only follows the live bottom when it is
+        # user is scrolled back; the view only follows the live bottom when it's
         # already there. `follow` captures "at bottom" *before* `@ybase` moves.
         follow = @ydisp == @ybase
         if @lines.size - @rows >= SCROLLBACK_LIMIT
-          # Scrollback is already full — the steady state while a child streams
-          # output. Rather than allocate a fresh `blank_line` for the new bottom
-          # row and let the shifted-off top line become garbage, recycle that
-          # line's `Array(Cell)` storage: `shift` it, blank it in place, and
-          # `push` it back as the new bottom row. The resulting `@lines` (and
-          # `@ybase`, left unchanged) are identical to the old push-then-trim, but
-          # this path now allocates nothing on every scrolled line.
+          # Scrollback already full (the steady state while a child streams
+          # output): recycle the shifted-off top line's storage as the new bottom
+          # row instead of allocating a fresh `blank_line`, so this path allocates
+          # nothing per scrolled line.
           recycle_top_row
           # Every row shifted up by one, so a held scrollback view shifts with it
           # (clamped at the top) to stay on the same content.
@@ -984,11 +973,10 @@ module Crysterm
         (0...@rows).each { |yy| clear_screen_line yy }
       when 3
         # ED 3 (xterm "Erase Saved Lines"): discard the scrollback ONLY; the
-        # visible page is left intact. This previously also cleared the visible
-        # rows (treating ED 3 as ED 2 + scrollback), so a child that sent a bare
-        # `CSI 3 J` to trim history — without the usual following `CSI 2 J` —
-        # wrongly lost its on-window content. Keep the live rows (they are exactly
-        # `@lines[@ybase, @rows]`); just drop everything above them.
+        # visible page is left intact. Previously also cleared the visible rows
+        # (treating ED 3 as ED 2 + scrollback), so a bare `CSI 3 J` to trim
+        # history wrongly lost on-window content. Live rows are exactly
+        # `@lines[@ybase, @rows]`; just drop everything above them.
         @lines = @lines[@ybase, @rows].dup
         @ybase = 0
         @ydisp = 0
@@ -1018,17 +1006,14 @@ module Crysterm
 
     # IL: open *n* blank lines at the cursor inside the scroll region, pushing the
     # rest down (lines below the region's bottom are lost). *n* is capped at the
-    # lines from the cursor to the region bottom — a larger count just blanks the
-    # whole region below the cursor, so the surplus is a no-op — so an adversarial
-    # `CSI 99999 L` can't spin in O(n·height) (nor allocate *n* blank lines), the
-    # same cap `#insert_chars`/`#delete_chars` apply on the row.
+    # lines from cursor to region bottom (a larger count just blanks the same
+    # area) so an adversarial `CSI 99999 L` can't spin in O(n·height). Same cap
+    # `#insert_chars`/`#delete_chars` apply on the row.
     private def insert_lines(n : Int32) : Nil
       return unless @y >= @scroll_top && @y <= @scroll_bottom
-      # IL moves the active position to the line home position (ECMA-48: "the
-      # active presentation position is moved to the line home position"), as
-      # xterm and modern terminals do. Without it the cursor was left at its old
-      # column, so a child that does `CSI L` and then prints — expecting the text
-      # at the left margin per spec, with no explicit CR — landed it mid-line.
+      # IL moves the active position to the line home position (ECMA-48), as
+      # xterm and modern terminals do — otherwise a child doing `CSI L` then
+      # printing, expecting text at the left margin, lands mid-line.
       @x = 0
       @wrap_pending = false
       n = Math.min(n, @scroll_bottom - @y + 1)
@@ -1044,7 +1029,7 @@ module Crysterm
     # up and backfilling the bottom with blanks. Same cap as `#insert_lines`.
     private def delete_lines(n : Int32) : Nil
       return unless @y >= @scroll_top && @y <= @scroll_bottom
-      # DL, like IL, moves the active position to the line home position (ECMA-48).
+      # DL, like IL, moves the active position to line home (ECMA-48).
       @x = 0
       @wrap_pending = false
       n = Math.min(n, @scroll_bottom - @y + 1)
@@ -1057,10 +1042,9 @@ module Crysterm
     end
 
     # ICH: open *n* blank cells at the cursor, shifting the rest of the line right
-    # (cells pushed past the end are lost). A single in-place shift — capping *n*
-    # at the cells from the cursor to the line end (a larger count just blanks the
-    # whole tail, so the surplus is a no-op) — instead of *n* O(width) `Array#insert`
-    # calls, so an adversarial `CSI 99999 @` can't spin in O(n·width).
+    # (cells pushed past the end are lost). A single in-place shift, capped at
+    # cells from cursor to line end, instead of *n* O(width) `Array#insert` calls
+    # — keeps an adversarial `CSI 99999 @` from spinning O(n·width).
     private def insert_chars(n : Int32) : Nil
       line = cur_line
       n = Math.min(n, line.size - @x)
@@ -1152,11 +1136,10 @@ module Crysterm
 
     # ───────────────────────── geometry / queries ─────────────────────────
 
-    # Pads or trims *grid* so its viewport (the lines from *base* onward) holds
-    # exactly *rows* lines: growing appends blank lines, shrinking drops the
-    # lines that fell off the bottom of the smaller viewport (content is kept at
-    # the top-left). Used on resize for both the live grid and the parked main
-    # buffer.
+    # Pads or trims *grid* so its viewport (lines from *base* onward) holds
+    # exactly *rows* lines: growing appends blank lines, shrinking drops lines
+    # off the bottom (content kept at top-left). Used on resize for both the
+    # live grid and the parked main buffer.
     private def fit_viewport(grid : Array(Array(Cell)), base : Int32, rows : Int32) : Nil
       screen_lines = grid.size - base
       if screen_lines < rows
@@ -1191,25 +1174,20 @@ module Crysterm
         end
       end
 
-      # Ensure the viewport holds exactly `rows` lines. Growing pads with blanks;
-      # shrinking drops the lines that fell off the bottom of the smaller viewport
-      # (content is preserved at the top-left, matching the per-line column
-      # truncation above). Without the trim those rows linger past the live window,
-      # and a later full-window `scroll_up` — which appends at the end of `@lines`
-      # and advances `@ybase` — would shift them back into view instead of the
-      # freshly scrolled-in blank.
+      # Ensure the viewport holds exactly `rows` lines, matching the per-line
+      # column truncation above. Without the trim, stale rows linger past the
+      # live window and a later full-window `scroll_up` would shift them back
+      # into view instead of the freshly scrolled-in blank.
       fit_viewport @lines, @ybase, rows
 
-      # When on the alt page, grow the parked main buffer's viewport too (it uses
-      # the saved `@main_ybase`); otherwise a grow-resize leaves `@main_lines`
-      # short and restoring it after `#leave_alt` would yield a truncated window.
+      # When on the alt page, grow the parked main buffer's viewport too;
+      # otherwise a grow-resize leaves `@main_lines` short, truncating the window
+      # on `#leave_alt`.
       if ml = @main_lines
         fit_viewport ml, @main_ybase, rows
-        # A resize resets the scroll margins to the full window on the active page
-        # (just below). Do the same to the *parked* main page, otherwise leaving
-        # the alt window after a resize would restore a stale (pre-resize) scroll
-        # region — e.g. quitting vim after the window grew would leave the shell
-        # scrolling inside the old, smaller region.
+        # Reset the parked main page's scroll margins too (mirroring the active
+        # page below), otherwise leaving the alt window after a resize restores a
+        # stale (pre-resize) scroll region.
         @main_scroll_top = 0
         @main_scroll_bottom = rows - 1
       end

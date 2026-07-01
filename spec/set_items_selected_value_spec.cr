@@ -12,12 +12,12 @@ private def sisv2_screen
     default_quit_keys: false)
 end
 
-# `ItemView#set_items` reuses the existing item widgets in place (`set_content`)
-# and relies on `#selekt` to refresh the cached selection `#value`. But `selekt`
-# early-returns on an unchanged index, so when the row set is replaced while the
-# selected index stays the same, `@value` was left pointing at the
-# *pre-replacement* text — stale for `Form` value collection and any other
-# `value` consumer. (Distinct from the `#set_item` and empty-list latch fixes.)
+# `ItemView#set_items` reuses existing item widgets in place (`set_content`) and
+# relies on `#selekt` to refresh the cached selection `#value`. But `selekt`
+# early-returns on an unchanged index, so replacing rows while the selected
+# index stays the same left `@value` pointing at pre-replacement text — stale
+# for `Form` value collection and other consumers. (Distinct from the
+# `#set_item` and empty-list latch fixes.)
 describe "ItemView#set_items selected value sync" do
   it "refreshes #value when rows are replaced and the index is unchanged" do
     s = sisv2_screen
@@ -36,7 +36,7 @@ describe "ItemView#set_items selected value sync" do
     list.selekt 1
     list.value.should eq "b"
 
-    # "b" is gone; same length, so the cursor re-lands on index 1.
+    # "b" is gone, but same length, so cursor re-lands on index 1.
     list.set_items ["p", "q", "r"]
     list.selected.should eq 1
     list.value.should eq "q"

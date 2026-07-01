@@ -4,9 +4,8 @@ include Crysterm
 
 # Render- and interaction-level specs for the Qt-inspired widgets. Unlike
 # `widget_qt_features_spec.cr` (which checks state/logic), these drive a real
-# synchronous render (`Window#_render`) on an in-memory screen and inspect the
-# resulting cell buffer, and feed real mouse events through `#dispatch_mouse` —
-# so the layout-, focus- and pointer-dependent paths actually get exercised.
+# synchronous render (`Window#_render`) on an in-memory screen, inspect the
+# resulting cell buffer, and feed real mouse events through `#dispatch_mouse`.
 
 private def render_screen
   Crysterm::Window.new(
@@ -65,8 +64,8 @@ describe "Slider rendering" do
     begin
       s = render_screen
       st = Crysterm::Style.new(fg: "white", bg: "black")
-      # A visibly distinct handle (indicator) style: if the readout inherited it
-      # at the overlapping cell, that digit would differ from the rest.
+      # Distinct handle style: if the readout inherited it at the overlapping
+      # cell, that digit would differ from the rest.
       st.indicator = Crysterm::Style.new(fg: "red", bg: "blue")
       Crysterm::Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1,
         minimum: 0, maximum: 100, value: 50, show_value: true, style: st
@@ -76,9 +75,7 @@ describe "Slider rendering" do
       s.lines[0][4].char.should eq '5'
       s.lines[0][5].char.should eq '0'
       track = s.lines[0][0].attr # a plain track cell, drawn with the base style
-      # Both digits carry the (single) track attr — the readout reads
-      # consistently rather than wearing the handle's indicator attr at the
-      # overlapping cell, so the two digits match each other and the track.
+      # Both digits carry the track attr, not the handle's indicator attr.
       s.lines[0][4].attr.should eq track
       s.lines[0][5].attr.should eq track
       s.lines[0][4].attr.should eq s.lines[0][5].attr
@@ -107,7 +104,6 @@ describe "Table alternating rows rendering" do
     s._render
 
     alt_bg = Crysterm::Colors.convert("blue")
-    # Some cell on the screen must now carry the alternate background...
     found = s.lines.any? { |line| line.any? { |cell| Crysterm::Attr.bg(cell.attr) == alt_bg } }
     found.should be_true
   end
@@ -260,9 +256,8 @@ describe "List scroll-bar column reservation" do
     list.show_scrollbar?.should be_false
     list.items.all? { |i| i.right == 0 }.should be_true
 
-    # Grow past the viewport: the bar now shows, and #render must re-sync every
-    # item's reservation to the real bar width (not leave the originals at 0,
-    # which the shown bar would then overpaint).
+    # Grow past the viewport: bar now shows, #render must re-sync every item's
+    # reservation to the real bar width, or the shown bar overpaints them.
     list.append_item "CCCCCCCCCC"
     list.append_item "DDDDDDDDDD"
     list.append_item "EEEEEEEEEE" # 5 items > height 4 -> overflow
@@ -482,8 +477,8 @@ describe "ScrollBar rendering" do
 
   it "paints the sub-control CSS slots into the rendered cells" do
     s = render_screen
-    # A focusable sibling holds focus, so the bar renders in its normal state
-    # (chrome is typically unfocused) — the state the unprefixed rules target.
+    # A focusable sibling holds focus, so the bar renders unfocused — the
+    # state the unprefixed rules target.
     Crysterm::Widget::LineEdit.new parent: s, top: 10, left: 0, width: 10, height: 1
     sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
       minimum: 0, maximum: 10, value: 0, stepper_buttons: true
@@ -493,7 +488,7 @@ describe "ScrollBar rendering" do
     # The slots route into the bar's sub-styles...
     sb.style.add_page.bg.should eq Crysterm::Colors.convert("#00ff00")
     sb.style.up_arrow.fg.should eq Crysterm::Colors.convert("#0000ff")
-    # ...and actually paint: blue up-arrow at the top, green add-page trough below.
+    # And actually paint: blue up-arrow at the top, green add-page trough below.
     s.lines[0][0].char.should eq '▲'
     Crysterm::Attr.unpack_color(Crysterm::Attr.fg(s.lines[0][0].attr)).should eq 0x0000ff
     s.lines[3][0].char.should eq '░'
@@ -679,8 +674,7 @@ describe "ListTable column-level horizontal scrolling (workstream D)" do
     s._render
 
     lt.show_scrollbar?.should be_true
-    # The header reserves the bar's column, matching the body items (List#render),
-    # so the shown bar never overpaints the header's last column.
+    # Header reserves the bar's column too, matching the body items (List#render).
     lt.header.right.should eq lt.scrollbar_width
     lt.items.all? { |i| i.right == lt.scrollbar_width }.should be_true
     # A content-sized table widens by that column so the bar gets its own cell.

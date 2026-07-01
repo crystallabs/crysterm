@@ -2,12 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Behavior lock for `Widget.dimension` — the extracted percentage
-# position/size resolver. It must match, exactly, the previous inline
-# `expr.split(/(?=\+|-)/)` formula used in widget_position/widget_size, which is
-# reproduced here as the reference oracle.
+# Behavior lock for `Widget.dimension` (the extracted percentage position/size
+# resolver): must match the previous inline `expr.split(/(?=\+|-)/)` formula
+# from widget_position/widget_size, reproduced below as the reference oracle.
 describe "Widget.dimension" do
-  # The exact pre-extraction computation (the six inline blocks).
+  # Pre-extraction computation (the six inline blocks).
   old = ->(expr : String, dim : Int32) {
     e = expr.split(/(?=\+|-)/)
     base = e[0][0...-1].to_f / 100

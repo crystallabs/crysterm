@@ -1,20 +1,19 @@
 module Crysterm
-  # Mixin providing the color setter overloads shared by `Style` and `Border`.
+  # Color setter overloads shared by `Style` and `Border`.
   #
-  # Both classes store colors as native `0xRRGGBB` ints (`-1` = terminal
-  # default, `nil` = unset) but, for backwards compatibility, also accept
-  # `"#rrggbb"`/named-color strings, which are parsed via `Colors.convert`.
-  # The including class is expected to declare `@fg`/`@bg` (as `Int32?`).
+  # Colors are stored as native `0xRRGGBB` ints (`-1` = terminal default,
+  # `nil` = unset), but `"#rrggbb"`/named-color strings are also accepted for
+  # backwards compatibility, parsed via `Colors.convert`. Including class must
+  # declare `@fg`/`@bg` (as `Int32?`).
   module Colorizable
     @fg : Int32?
     @bg : Int32?
 
-    # Generates the three color-setter overloads for a `@name` ivar: a native
-    # `Int` (`fg: 0x40e0c0`) stored directly, a `"#rrggbb"`/named-color `String`
-    # parsed via `Colors.convert_cached` (backwards compatibility), and `Nil`
-    # which clears it (unset → no SGR sequence emitted). Shared verbatim by
-    # `fg`/`bg` here and by `Style`'s `tint`/`gridline_color` (which mix it in
-    # via `Colorizable.color_setter`); the getter is declared by each class.
+    # Generates three setter overloads for a `@name` ivar: native `Int` stored
+    # directly, `"#rrggbb"`/named-color `String` parsed via
+    # `Colors.convert_cached`, and `Nil` which clears it (no SGR emitted).
+    # Also used by `Style`'s `tint`/`gridline_color`; getter is declared by
+    # each including class.
     macro color_setter(name)
       def {{name.id}}=(color : Int)
         @{{name.id}} = color.to_i32

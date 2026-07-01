@@ -2,14 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Focused specs for the CSS `box-shadow` property parser
-# (`Crysterm::CSS::Properties.apply`). The interesting case is a *blank* value:
-# an undefined `var(--x)` collapses to "" before reaching the property, and per
-# CSS's "drop the invalid declaration" rule it must be ignored — leaving any
-# previously-cascaded shadow intact. The old unguarded form treated an empty
-# value as "enable the default drop shadow", silently switching a shadow *on*
-# from nothing (the mirror of the `font`/`text-decoration`/`padding`/`margin`
-# blank-clobber guards).
+# Specs for the CSS `box-shadow` property parser (`Crysterm::CSS::Properties.apply`).
+# Key case: a blank value (an undefined `var(--x)` collapses to ""). CSS drops
+# such an invalid declaration, leaving a cascaded shadow intact. The old
+# unguarded form treated blank as "enable the default drop shadow", switching a
+# shadow on from nothing.
 describe "CSS box-shadow" do
   it "enables a drop shadow for a real value" do
     s = Style.new
@@ -27,8 +24,8 @@ describe "CSS box-shadow" do
 
   it "drops a blank value instead of enabling a default shadow" do
     s = Style.new
-    # An undefined `var()` collapses to "" before reaching the property. CSS
-    # drops such a declaration; it must NOT switch a shadow on from nothing.
+    # An undefined `var()` collapses to ""; CSS drops the declaration rather
+    # than switching a shadow on.
     Crysterm::CSS::Properties.apply(s, "box-shadow", "")
     s.shadow.any?.should be_false
   end

@@ -3,14 +3,14 @@ require "./spec_helper"
 include Crysterm
 
 # Headless coverage of the connect/disconnect/reattach lifecycle
-# (`window_connection.cr`). This path was previously exercised only indirectly
-# (`startup_interrupt_restore_spec.cr` drives teardown). It is locked in here as
-# the safety net for relocating the input fiber + listening state onto the
-# device — see QT-OBJECT-MODEL-PLAN.md, input-routing split.
+# (`window_connection.cr`), previously exercised only indirectly
+# (`startup_interrupt_restore_spec.cr`). Safety net for relocating the input
+# fiber + listening state onto the device — see QT-OBJECT-MODEL-PLAN.md,
+# input-routing split.
 #
-# Everything runs over `IO::Memory` pairs (no real tty): such a window does not
-# own its IO (`@owns_io` stays false), so `#disconnect` never closes the buffers
-# and we can keep inspecting them.
+# Runs over `IO::Memory` pairs (no real tty): such a window does not own its
+# IO (`@owns_io` stays false), so `#disconnect` never closes the buffers and
+# we can keep inspecting them.
 
 private def conn_window(output : IO) : Crysterm::Window
   Crysterm::Window.new(

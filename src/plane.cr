@@ -1,18 +1,17 @@
 module Crysterm
   # An independent, window-sized cell buffer with a z-order — the unit a widget
-  # (and its subtree) renders into once it is promoted to a *layer* (via CSS
+  # (and its subtree) renders into once promoted to a *layer* (via CSS
   # `z-index`, or `style.z_index`). After the base buffer is painted by the
-  # normal painter's algorithm, each plane is composited over it bottom-to-top,
-  # honoring the per-cell `Attr::Alpha` modes (Step 4) and the plane's own
-  # `opacity`. That composite pass is what lets an *opaque* overlay show other
-  # widgets' content through it — something the single-buffer painter can't do.
+  # normal painter, each plane is composited over it bottom-to-top, honoring
+  # the per-cell `Attr::Alpha` modes and the plane's own `opacity`. This is
+  # what lets an "opaque" overlay show other widgets' content through it.
   #
-  # Planes are opt-in: a UI that declares no z-index allocates none and the
-  # render path is unchanged.
+  # Planes are opt-in: a UI with no z-index allocates none and the render path
+  # is unchanged.
   class Plane
     # A cleared cell carries both channels' alpha as `Transparent` and a space,
-    # so an untouched cell contributes nothing (the base shows through). A
-    # widget's normal render overwrites the cells it actually paints (`Opaque`).
+    # so an untouched cell contributes nothing. A widget's render overwrites
+    # cells it actually paints (`Opaque`).
     CLEAR_ATTR = Attr.with_alpha(Window::DEFAULT_ATTR, Attr::Alpha::Transparent, Attr::Alpha::Transparent)
 
     getter z : Int32
@@ -59,33 +58,27 @@ module Crysterm
     # Folds this plane over *base* in place. Each painted cell is composited per
     # its `Attr::Alpha` modes (`Colors.composite`), then — when `opacity < 1` —
     # scaled toward the base so the whole layer reads as translucent. Untouched
-    # (transparent-sentinel) cells are skipped, so the base shows through.
+    # (transparent-sentinel) cells are skipped.
     #
-    # `xi`/`xl`/`yi`/`yl` clip the fold to a half-open sub-rectangle (defaults
-    # cover the whole plane). Damage tracking's Phase 4 selective plane frame
-    # uses this to re-fold the plane over only the region of the base it just
-    # rebuilt — re-folding over a carried-over (already-folded) base would
-    # saturate, so the caller rebuilds the base in this exact rectangle first.
+    # `xi`/`xl`/`yi`/`yl` clip the fold to a half-open sub-rectangle (default:
+    # whole plane). Damage tracking uses this to re-fold only the region of the
+    # base it just rebuilt — re-folding over an already-folded base would
+    # saturate, so the caller rebuilds the base in this rectangle first.
     def composite_onto(base : Array(Window::Row), xi : Int32 = 0, xl : Int32 = Int32::MAX, yi : Int32 = 0, yl : Int32 = Int32::MAX) : Nil
       op = @opacity
-      # The plane's opacity is constant for the whole composite, so decide once
-      # — not per cell — whether a painted cell is taken straight from the fold
-      # or blended toward the base. Replaces a per-cell `op >= 1.0` float compare
-      # with a per-cell read of this local bool.
+      # Opacity is constant for the whole composite, so decide once whether a
+      # cell is taken straight from the fold or blended toward the base.
       opaque = op >= 1.0
       rows = {@cells.size, base.size}.min
       y = yi < 0 ? 0 : yi
       rows = yl if yl < rows
       while y < rows
         pr = @cells.unsafe_fetch(y)
-        # A plane row that no widget painted into this frame is entirely the
-        # transparent sentinel — `#clear` marked it `dirty = false`, and the
-        # render path sets `dirty = true` on any row it writes — so it composites
-        # to nothing and the whole row scan can be skipped. The base buffer is
-        # rebuilt every frame (`Window#_render` clears it), so there is never a
-        # stale overlay left behind on a now-transparent row. For a small overlay
-        # on a large terminal this collapses the full O(width×height) scan to just
-        # the rows the layer actually touched.
+        # A plane row no widget painted this frame is entirely the transparent
+        # sentinel (`#clear` set `dirty = false`; the render path sets it true
+        # on any row it writes), so the scan can skip it. The base is rebuilt
+        # every frame, so no stale overlay is ever left on a transparent row.
+        # This collapses the O(width×height) scan to just the touched rows.
         unless pr.dirty
           y += 1
           next
@@ -95,11 +88,10 @@ module Crysterm
         ba = br.attrs; bc = br.chars
         cols = {pa.size, ba.size}.min
         cols = xl if xl < cols
-        # Whether this plane row carries any grapheme-cluster overlay. When it
-        # does not (the overwhelmingly common all-single-codepoint row), the
-        # per-cell `grapheme_at?` hash probe below is pointless and skipped — the
-        # base cell's own overlay (if a base-layer paint left one) is still
-        # cleared so an opaque plane cell never inherits a stale cluster.
+        # Whether this row carries any grapheme-cluster overlay. When not (the
+        # common all-single-codepoint case), the per-cell `grapheme_at?` probe
+        # below is skipped; the base cell's overlay is still cleared so an
+        # opaque plane cell never inherits a stale cluster.
         pr_has_g = pr.has_graphemes?
         changed = false
         x = xi < 0 ? 0 : xi

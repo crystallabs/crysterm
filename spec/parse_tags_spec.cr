@@ -12,9 +12,8 @@ private def tagged_box
   box
 end
 
-# Drop-malformed policy (todoc Q6): anything that is not a recognized tag is
-# stripped, while the surrounding valid text is preserved. Use {open}/{close}/
-# {escape} to emit literal braces.
+# Drop-malformed policy (todoc Q6): unrecognized tags are stripped, surrounding
+# text preserved. Use {open}/{close}/{escape} for literal braces.
 describe "Widget#_parse_tags malformed input" do
   it "drops a stray { but keeps the surrounding text" do
     tagged_box._parse_tags("a{b").should eq "ab"
@@ -54,8 +53,8 @@ describe "Widget#_parse_tags malformed input" do
     out.should contain "\e[1m" # bold on
   end
 
-  # A *recognized* closing tag with no matching opening tag leaves the nesting
-  # stack empty; the close handler must not raise (Crystal's `Array#pop` would).
+  # A recognized closing tag with no matching opener leaves the nesting stack
+  # empty; the close handler must not raise (Crystal's `Array#pop` would).
   it "does not raise on a recognized closing tag with no matching open" do
     box = tagged_box
     out = box._parse_tags("{/bold}")
@@ -78,9 +77,9 @@ end
 
 # `{left}`/`{center}`/`{right}` are line-alignment tags consumed later by
 # `#_wrap_content`, not attribute tags. They carry no SGR, so the drop-malformed
-# policy used to treat them as "unknown" and strip them in `_parse_tags` — which
-# silently disabled `{center}…{/center}` alignment (the content rendered
-# left-aligned). They must instead pass through parsing verbatim, like `{|}`.
+# policy used to treat them as unknown and strip them in `_parse_tags`, silently
+# disabling `{center}…{/center}` alignment. They must pass through verbatim,
+# like `{|}`.
 describe "Widget#_parse_tags alignment tags" do
   it "preserves {center}…{/center} verbatim (so wrapping can center)" do
     tagged_box._parse_tags("{center}Hi{/center}").should eq "{center}Hi{/center}"
@@ -100,7 +99,7 @@ describe "Widget#_parse_tags alignment tags" do
     box = Widget::Box.new parent: headless_screen, width: 20, height: 3
     box.parse_tags = true
     box.set_content "{center}Hi{/center}"
-    # 20-column interior: "Hi" centered => 9 cells + "Hi" + 9 cells.
+    # 20-column interior: "Hi" centered -> 9 cells + "Hi" + 9 cells.
     box._clines.lines.should eq ["         Hi         "]
   end
 
@@ -118,19 +117,18 @@ describe "Widget#_parse_tags alignment tags" do
     box._clines.lines.should eq ["     A      ", "     BB     "]
   end
 
-  # An alignment tag nested INSIDE an attribute tag is preceded/followed by SGR
-  # after `_parse_tags` (`{bold}{center}…{/center}{/bold}` ->
-  # `\e[1m{center}…{/center}\e[22m`). `#_wrap_content` used to match the alignment
-  # tag only at the absolute string edge, so the SGR-wrapped form was missed: the
-  # content rendered left-aligned AND the literal `{center}`/`{/center}` text
-  # leaked into the wrapped output. It must center identically to the un-nested
-  # form, with the surrounding SGR preserved.
+  # An alignment tag nested inside an attribute tag is wrapped in SGR after
+  # `_parse_tags` (`{bold}{center}…{/center}{/bold}` ->
+  # `\e[1m{center}…{/center}\e[22m`). `#_wrap_content` used to match the
+  # alignment tag only at the absolute string edge, so the SGR-wrapped form
+  # rendered left-aligned with the literal `{center}`/`{/center}` text leaking
+  # into output. It must center identically to the un-nested form.
   it "centers content when {center} is nested inside an attribute tag" do
     box = Widget::Box.new parent: headless_screen, width: 12, height: 3
     box.parse_tags = true
     box.set_content "{bold}{center}Hi{/center}{/bold}"
-    # 12-col interior, "Hi" centered => 5 + Hi + 5, with the SGR kept around it
-    # and no literal `{center}`/`{/center}` text remaining.
+    # 12-col interior, "Hi" centered -> 5 + Hi + 5, SGR kept around it, no
+    # literal `{center}`/`{/center}` text remaining.
     box._clines.lines.should eq ["     \e[1mHi\e[22m     "]
   end
 

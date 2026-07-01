@@ -3,17 +3,16 @@ require "./spec_helper"
 include Crysterm
 
 # `ProgressBar` keeps its own range (Qt's `QProgressBar` is a plain `QWidget`,
-# not a `QAbstractSlider`), and `minimum`/`maximum` used to be bare `Int32`
-# `property`s. The generated setters mutated the bound without doing either of
-# the two things `#value=` does on a change: re-clamp the value into the new
-# range, and schedule a repaint. Because `#filled` (and the `%p`/`%m`/`%M`
-# text) are all derived from the range, lowering `maximum` below the current
-# value left the value out of range AND the rendered bar stale until some
-# unrelated frame. The fix routes `minimum=`/`maximum=` through `#set_range`,
-# which re-clamps and `#request_render`s.
+# not a `QAbstractSlider`); `minimum`/`maximum` used to be bare `Int32`
+# `property`s, so the generated setters skipped what `#value=` does on
+# change: re-clamp into the new range and schedule a repaint. Since `#filled`
+# (and `%p`/`%m`/`%M` text) derive from the range, lowering `maximum` below
+# the current value left it out of range and the bar stale. Fixed by routing
+# `minimum=`/`maximum=` through `#set_range`, which re-clamps and
+# `#request_render`s.
 #
-# As in the checkbox repaint specs, a headless render fiber never paints, so the
-# observable synchronous effect is the *scheduled* repaint (the damage mark).
+# As in the checkbox repaint specs, a headless render fiber never paints, so
+# the observable effect is the scheduled repaint (the damage mark).
 private def pbr_screen
   Crysterm::Window.new(
     input: IO::Memory.new,

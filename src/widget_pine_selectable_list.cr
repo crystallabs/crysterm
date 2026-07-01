@@ -29,8 +29,8 @@ module Crysterm
       #   extra rows, e.g. spacers).
       abstract class SelectableList(T) < Widget::List
         # The records currently displayed, parallel to the visible rows.
-        # (Named `records`, not `data`, to avoid colliding with `Widget#data`
-        # — the unrelated `YAML::Any?` user-data slot from `Mixin::Data`.)
+        # Named `records`, not `data`, to avoid colliding with `Widget#data`
+        # (the unrelated `YAML::Any?` slot from `Mixin::Data`).
         getter records : Array(T)
 
         def initialize(data : Array(T) = [] of T, **list)

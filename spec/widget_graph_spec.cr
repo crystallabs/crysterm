@@ -3,9 +3,8 @@ require "./spec_helper"
 include Crysterm
 
 # Render-level specs for the block-glyph graphing widgets (`Graph::Bar`,
-# `Graph::StackedBar`, `Widget::Gauge`). Like `widget_qt_render_spec.cr`, these
-# drive a real synchronous render on an in-memory screen and inspect the cell
-# buffer.
+# `Graph::StackedBar`, `Widget::Gauge`). Drives a synchronous render on an
+# in-memory screen and inspects the cell buffer.
 
 private def render_screen
   Crysterm::Window.new(
@@ -53,8 +52,8 @@ describe "Graph::Bar rendering" do
 
   it "aligns category labels with the shown (tail) bars when values overflow" do
     s = render_screen
-    # Width fits 2 bars but 3 values are given, so only the last two (b/c) show.
-    # Their labels must be the matching tail ("two"/"thr"), not the leading ones.
+    # Width fits 2 bars but 3 values are given, so only the last two show;
+    # labels must be the matching tail ("two"/"thr"), not the leading ones.
     Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 7, height: 2,
       min: 0.0, max: 1.0, bar_width: 3, bar_spacing: 1,
       values: [1.0, 1.0, 1.0], labels: ["one", "two", "thr"]
@@ -76,8 +75,8 @@ describe "Graph::StackedBar rendering" do
 
   it "renders the topmost segment with a sub-cell partial block" do
     s = render_screen
-    # Bar of 2 cells, single segment at 3/4 height -> bottom cell full, top cell
-    # a 4/8 partial block (sub-cell precision on the top).
+    # Bar of 2 cells, single segment at 3/4 height -> bottom cell full, top
+    # cell a 4/8 partial block.
     Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0, width: 1, height: 2,
       max: 1.0, bar_width: 1, show_legend: false, values: [[0.75]]
     s._render
@@ -87,8 +86,8 @@ describe "Graph::StackedBar rendering" do
 
   it "drops a legend entry that does not fit, counting the inter-entry space" do
     s = render_screen
-    # Width 8: "█ ab" (4 cells) fits; a second entry " █ cd" needs 5 more cells
-    # (separator included) and would overrun, so it must be omitted entirely.
+    # Width 8: "█ ab" (4 cells) fits; a second entry needs 5 more cells
+    # (separator included) and would overrun, so it's omitted entirely.
     Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0, width: 8, height: 2,
       bar_width: 1, show_legend: true, segment_labels: %w[ab cd], values: [[1.0, 1.0]]
     s._render

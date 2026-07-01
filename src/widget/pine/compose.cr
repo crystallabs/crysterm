@@ -35,20 +35,17 @@ module Crysterm
         def initialize(**box)
           super **box
 
-          # The composer stacks three vertical bands: the header (label/field
-          # pairs), the separator, and the body. A `VBox` arranges them
-          # top-to-bottom; the header and separator have fixed heights, so the
-          # body (the only child without an explicit height) grows to fill the
-          # remaining vertical space. Set the ivar directly (not `self.layout=`)
-          # so it is in place before the children are appended below.
+          # Three vertical bands via `VBox`: header, separator, body. Header and
+          # separator have fixed heights, so the body (no explicit height) fills
+          # the rest. Set the ivar directly (not `self.layout=`) so it's in place
+          # before children are appended below.
           @layout = Crysterm::Layout::VBox.new
 
           label_style = Style.new bold: true
 
-          # The five label/field rows are a two-column form: a fixed 10-wide
-          # label column (no gap, matching the old `left: 10` field origin) and a
-          # field column that fills the rest of the width. The `Form` engine
-          # pairs the appended children (label, field, label, field, …) into rows.
+          # Two-column form: fixed 10-wide label column (no gap, matching the old
+          # `left: 10` field origin), field column fills the rest. `Form` pairs
+          # appended children (label, field, label, field, …) into rows.
           header = Widget::Box.new(
             window: window,
             height: FIELD_NAMES.size,
@@ -69,16 +66,15 @@ module Crysterm
               content: "",
             )
             # In a header field, Enter advances to the next field (Pine), not
-            # "submit-and-return". Don't rewind focus when the read finishes, and
-            # turn the resulting `Submit` into a Tab so the screen's own focus
-            # navigation moves on — the body keeps Enter as a newline (it emits no
-            # `Submit`).
+            # "submit-and-return": don't rewind focus on read completion, and turn
+            # the resulting `Submit` into a Tab. The body keeps Enter as a newline
+            # (it emits no `Submit`).
             input.rewind_on_done = false
             input.on(::Crysterm::Event::Submit) do
               window.emit ::Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Tab)
             end
-            # Up/Down move between fields (not input history) — single-line, so
-            # there is no in-field vertical movement to preserve.
+            # Up/Down move between fields (not input history) — single-line, no
+            # in-field vertical movement to preserve.
             input.history_keys = false
 
             @fields[name.downcase] = input
@@ -96,8 +92,8 @@ module Crysterm
           )
           append separator
 
-          # No explicit height: the `VBox` hands it the leftover space, so it
-          # fills everything below the separator (the old `bottom: 0` behavior).
+          # No explicit height: `VBox` hands it the leftover space below the
+          # separator (the old `bottom: 0` behavior).
           body = Widget::PlainTextEdit.new(
             window: window,
             input_on_focus: true,
@@ -109,10 +105,9 @@ module Crysterm
           wire_vertical_field_navigation
         end
 
-        # Up/Down move between the composer's controls (the Pine convention).
-        # Each header field steps to the previous/next control; in the multi-line
-        # body, Up only leaves (to the previous control) when the caret is already
-        # on the first line — otherwise Up/Down move within the body text.
+        # Up/Down move between the composer's controls (Pine convention). In the
+        # multi-line body, Up only leaves (to the previous control) when the
+        # caret is already on the first line — otherwise it moves within the text.
         private def wire_vertical_field_navigation
           order = focus_order
           order.each_with_index do |w, i|
@@ -133,8 +128,7 @@ module Crysterm
           end
         end
 
-        # The focusable controls in top-to-bottom order: the header fields then
-        # the body.
+        # Focusable controls, top-to-bottom: header fields then body.
         private def focus_order : Array(Widget)
           order = [] of Widget
           FIELD_NAMES.each { |n| @fields[n.downcase]?.try { |f| order << f } }
@@ -142,8 +136,8 @@ module Crysterm
           order
         end
 
-        # Whether the body's caret sits on its first (logical) line, so Up should
-        # leave the body rather than move within it.
+        # Whether the body's caret sits on its first line, so Up should leave the
+        # body rather than move within it.
         private def body_at_top? : Bool
           body.value[0, body.cursor_pos].count('\n') == 0
         end
@@ -153,9 +147,9 @@ module Crysterm
           @fields["to"]?.try &.focus
         end
 
-        # Whether *w* is one of this composer's header input fields (used by a
-        # host that wants Enter to advance between fields like Tab, while leaving
-        # the multi-line body's Enter to insert a newline).
+        # Whether *w* is one of this composer's header input fields (for a host
+        # that wants Enter to advance between fields like Tab, leaving the body's
+        # Enter as a newline).
         def header_field?(w) : Bool
           @fields.each_value.includes? w
         end

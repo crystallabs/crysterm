@@ -2,9 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# Qt-style sticky-bottom "follow tail" (`Widget#follow_tail`): the view stays
-# pinned to the bottom as content grows, but only while already at the bottom, so
-# a manual scroll-up is preserved. Driven headlessly through real widgets.
+# `Widget#follow_tail`: view stays pinned to the bottom as content grows, but
+# only while already at the bottom, so a manual scroll-up is preserved.
 
 private def ft_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)

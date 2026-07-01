@@ -5,9 +5,9 @@ require "../src/crysterm"
 # `paint`/`paint_two_color`/`paint_braille`/`paint_cell`) for the cell-grid image
 # backends (`Media::Ansi`, `Media::Glyph`). A media widget caches its sampled
 # bitmap per box size, so every animation frame / re-render re-runs `draw_sample`
-# over the content cells — that is the path measured here. We build a screen,
-# attach a backend with an injected bitmap (no decode), let the first render
-# build+cache the sample, then time repeated renders.
+# over the content cells — that's the path measured here. Build a screen, attach
+# a backend with an injected bitmap (no decode), let the first render build+cache
+# the sample, then time repeated renders.
 #
 # Run:  crystal run --release benchmarks/media-compose.cr
 

@@ -192,11 +192,9 @@ module Crysterm
           h = yl - yi
           return if w <= 0 || h <= 0
 
-          # A degenerate viewport (`look_at` with a zero span, or `min_*` set equal
-          # to `max_*`) leaves a zero-width/height window. The normalization below
-          # would then divide by zero, yielding `NaN`, and `NaN.to_i` raises
-          # `OverflowError` — crashing the whole render. There is nothing to project
-          # onto a zero-area view, so skip the markers.
+          # A degenerate viewport (zero span from `look_at`, or `min_*` == `max_*`)
+          # would divide by zero below, yielding `NaN`, and `NaN.to_i` raises
+          # `OverflowError`. Skip markers instead of crashing the render.
           lon_span = @max_lon - @min_lon
           lat_span = @max_lat - @min_lat
           return if lon_span <= 0 || lat_span <= 0

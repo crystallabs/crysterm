@@ -5,21 +5,20 @@ require "../../colors"
 module Crysterm
   class Widget
     module Effect
-      # "Plasma" effect — the slowly-undulating, rainbow-marbled field of demoscene
-      # fame, as a self-contained, self-animating widget.
+      # "Plasma" effect — an undulating, rainbow-marbled field of demoscene fame,
+      # as a self-contained, self-animating widget.
       #
       # Each cell's hue is a pure function of its position and the frame counter:
       # several sine waves (horizontal, vertical, diagonal, and a radial ripple
       # around the box centre) are summed and the total, normalised to `0.0..1.0`,
-      # is mapped onto the colour wheel — so the whole area churns through a smooth,
-      # seamless rainbow with no per-cell state to carry.
+      # is mapped onto the colour wheel — a seamless rainbow with no per-cell
+      # state to carry.
       #
-      # It paints its interior straight into the window's cell buffer as packed
+      # Paints its interior straight into the window's cell buffer as packed
       # `Int64` attrs (each fg a direct `0xRRGGBB`, via `Colors.hsv_i`) — see
-      # `Effect::Direct`. There is no tagged-content round-trip, so a full-window
-      # field costs no per-cell `String` and no per-frame tag re-parse. It reads
-      # its size lazily each frame (tracking resize and `%`-relative sizing) and
-      # drives its own animation: call `#start` to spawn the render fiber and
+      # `Effect::Direct` — avoiding a tagged-content round-trip and per-frame tag
+      # re-parse. Reads its size lazily each frame (tracking resize and
+      # `%`-relative sizing). Call `#start` to spawn the render fiber and
       # `#stop` to halt it. `#step` (state only) is public so the effect can
       # instead be advanced from an external clock.
       #
@@ -34,9 +33,8 @@ module Crysterm
       class Plasma < Box
         include Effect::Direct
 
-        # Glyph painted in every cell; only its colour varies. Defaults to the full
-        # block, so the field reads as solid colour; a lighter shade (`▒`) or a dot
-        # gives a more dithered, see-through look.
+        # Glyph painted in every cell; only its colour varies. Defaults to the
+        # full block; a lighter shade (`▒`) or a dot gives a dithered look.
         property glyph : Char
 
         # Radians of horizontal wave added per column (its spatial frequency).
@@ -51,8 +49,8 @@ module Crysterm
         # Radians every wave advances per frame (how fast the field churns).
         property speed : Float64
 
-        # Hue degrees added per frame on top of the wave field (the colour-cycling
-        # speed); `0` leaves the rainbow stationary in hue and only the shape moves.
+        # Hue degrees added per frame on top of the wave field; `0` leaves the
+        # rainbow stationary in hue and only the shape moves.
         property hue_speed : Float64
 
         # HSV saturation of the field colours (`0.0..1.0`).
@@ -61,8 +59,8 @@ module Crysterm
         # HSV value / brightness of the field colours (`0.0..1.0`).
         property brightness : Float64
 
-        # Monotonically advancing frame counter. Int64 so it never wraps in any
-        # realistic runtime; it only ever feeds `Math.sin` and a hue modulo.
+        # Monotonically advancing frame counter. Int64 so it never wraps; only
+        # ever feeds `Math.sin` and a hue modulo.
         @frame : Int64 = 0
 
         def initialize(

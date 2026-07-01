@@ -2,10 +2,9 @@ module Crysterm
   module Macros
     # Defines new_method as an alias of old_method.
     #
-    # This creates a new method new_method that invokes old_method.
-    #
-    # Note that due to current language limitations this is only useful
-    # when neither named arguments nor blocks are involved.
+    # Creates a new method new_method that invokes old_method. Due to current
+    # language limitations this only works when neither named arguments nor
+    # blocks are involved.
     #
     # ```
     # class Person
@@ -37,14 +36,13 @@ module Crysterm
     end
 
     # Registers a handler for the event, named after the event itself.
-    # This is a convenience function.
     #
     # E.g.:
     # ```
     # handle Event::Attach
     # ```
     #
-    # Will expand into:
+    # Expands into:
     #
     # ```
     # on(Event::Attach, ->on_attach(Event::Attach)

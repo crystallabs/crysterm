@@ -1,39 +1,35 @@
 require "./widget_media_base"
 require "./widget_media_screen_overlay"
 
-# `struct winsize` (for the `ws_xpixel`/`ws_ypixel` that come back from
-# `TIOCGWINSZ` alongside rows/cols, so a graphics backend can derive the *real*
-# cell pixel size instead of guessing), `ioctl` and `TIOCGWINSZ` are all already
-# bound on `LibC` by the term-window shard — reused here as `LibC::Winsize`.
+# `struct winsize` (for `ws_xpixel`/`ws_ypixel` from `TIOCGWINSZ`, letting a
+# graphics backend derive the real cell pixel size instead of guessing),
+# `ioctl` and `TIOCGWINSZ` are already bound on `LibC` by the term-window
+# shard — reused here as `LibC::Winsize`.
 
 module Crysterm
   class Widget
-    # Shared base for *in-band terminal-graphics* image widgets — those that emit
-    # an escape sequence the terminal itself renders into the VT window (sixel,
-    # ReGIS), as opposed to:
+    # Abstract base for the **in-band terminal-graphics** backends — those that
+    # emit an escape sequence the terminal itself renders as pixels
+    # (`Media::Sixel`, `Media::Regis`, `Media::Kitty`, `Media::Iterm`), as
+    # opposed to:
     #
-    # * `Media::Ansi`/`Media::Glyph`, which turn the image into character cells that
+    # * `Media::Ansi`/`Media::Glyph`, which turn the image into character cells
     #   Crysterm owns and diffs, or
     # * `Media::Overlay`, whose pixels are painted by an *external* helper.
     #
-    # Like `Media::Overlay`, the pixels here are owned by the terminal, not by
-    # Crysterm's cell buffer, so this class reuses the very same erase/redraw
+    # Like `Media::Overlay`, the pixels here are owned by the terminal, not
+    # Crysterm's cell buffer, so this class reuses the same erase/redraw
     # lifecycle: the graphic is (re)painted *after* the window flushes each
     # frame's cells (`Event::Rendered`), and the cells under the previous
     # position are force-re-emitted when the widget moves or hides
     # (`#invalidate_region`) so the terminal's own text rendering covers the
-    # stale graphic. See `Media::Overlay` for the rationale behind this dance.
+    # stale graphic. See `Media::Overlay` for the rationale.
     #
-    # Subclasses provide just two things: `#target_pixels` (the pixel resolution
-    # to decode/draw at, given the widget's cell box) and `#encode` (turn a
-    # decoded `PNGGIF::Bitmap` into the terminal-specific escape payload). This
-    # base handles decoding, caching, cursor positioning and the lifecycle.
-    # Abstract base for the **in-band terminal-graphics** backends — those that
-    # emit an escape sequence the terminal itself renders as pixels (`Media::Sixel`,
-    # `Media::Regis`, `Media::Kitty`, `Media::Iterm`). The image source and the
-    # render-driven animation framework come from `Media::Base`; this layer adds
-    # the pixel-resolution/encoding machinery and the "window owns the pixels"
-    # erase-on-move lifecycle the cell grid doesn't manage.
+    # The image source and render-driven animation framework come from
+    # `Media::Base`; subclasses provide `#target_pixels` (pixel resolution to
+    # decode/draw at, given the widget's cell box) and `#encode` (decoded
+    # `PNGGIF::Bitmap` -> terminal-specific escape payload). This base handles
+    # decoding, caching, cursor positioning and the lifecycle.
     abstract class Media::Graphics < Media::Base
       include Media::ScreenOverlay
 
@@ -57,9 +53,9 @@ module Crysterm
 
       # Present each frame's emit atomically by wrapping it in a synchronized
       # output (DEC private mode 2026) update, so the terminal never shows a
-      # partial/torn frame or a mid-update blank. `Media::Kitty` additionally
-      # double-buffers via alternating image ids. Terminals that don't understand
-      # 2026 ignore the wrapper, so this is always safe to leave on.
+      # partial/torn frame. `Media::Kitty` additionally double-buffers via
+      # alternating image ids. Terminals that don't understand 2026 ignore the
+      # wrapper, so this is always safe to leave on.
       property? double_buffer : Bool = true
 
       # Original (undecoded) bytes cache, for backends that transmit the file
@@ -69,11 +65,11 @@ module Crysterm
       # Set once the first paint has checked whether the source is animated.
       @anim_checked = false
 
-      # Per-frame payload cache for the *current* geometry, keyed on the
-      # animation frame index — so a looping animation re-encodes each frame at
-      # most once per size instead of on every loop. Cleared when the geometry
-      # (size/origin/fit) changes; bounded by the frame count. `@payload`/
-      # `@payload_key` track the payload currently selected, for the emit-skip.
+      # Per-frame payload cache for the *current* geometry, keyed by animation
+      # frame index, so a looping animation re-encodes each frame at most once
+      # per size. Cleared when the geometry (size/origin/fit) changes; bounded
+      # by the frame count. `@payload`/`@payload_key` track the payload
+      # currently selected, for the emit-skip.
       @frame_payloads = {} of Int32 => String
       @payload_geom : Tuple(Int32, Int32, Int32, Int32, Int32, Int32, Int32)?
       @payload : String?
@@ -100,9 +96,8 @@ module Crysterm
         setup_animate animate
 
         # Resolve the cell pixel size: when the caller didn't pin it, reuse what
-        # the Window already detected at startup (one shared TIOCGWINSZ plus an
-        # XTWINOPS fallback this path doesn't do itself), then fall back to a
-        # typical monospace cell when the terminal reported nothing.
+        # the Window already detected at startup (shared TIOCGWINSZ / XTWINOPS
+        # probe), falling back to a typical monospace cell if unreported.
         if s = window?
           @cell_pixel_width = s.cell_pixel_width if @cell_pixel_width <= 0
           @cell_pixel_height = s.cell_pixel_height if @cell_pixel_height <= 0
@@ -110,9 +105,9 @@ module Crysterm
         @cell_pixel_width = 10 if @cell_pixel_width <= 0
         @cell_pixel_height = 20 if @cell_pixel_height <= 0
 
-        # Mirror Media::Overlay: repaint after the *window* finishes each render
-        # (the cells are flushed by then, so the graphic lands on top), and use
-        # PreRender to deal with the graphic left at our previous position.
+        # Mirror Media::Overlay: repaint after the window finishes each render
+        # (cells flushed by then, so the graphic lands on top), and use
+        # PreRender for the graphic left at the previous position.
         register_overlay_listeners window
       end
 
@@ -149,18 +144,18 @@ module Crysterm
 
       # Turns a decoded *bmp* (`pw` × `ph` pixels) into the terminal escape
       # sequence that draws it. *ox*/*oy* are the widget's pixel origin in the
-      # terminal window — sixel ignores them (it draws at the cursor), but ReGIS
-      # addresses absolute window pixels and needs them. *cols*/*rows* are the
-      # target cell box; a backend that lets the terminal scale the image (Kitty's
-      # `c=`/`r=`) uses them so the transmitted pixel size can be smaller than the
-      # box. Pixel-exact backends (sixel/ReGIS) ignore them.
+      # terminal window — sixel ignores them (draws at the cursor), ReGIS needs
+      # them (addresses absolute window pixels). *cols*/*rows* are the target
+      # cell box; a backend that lets the terminal scale the image (Kitty's
+      # `c=`/`r=`) uses them so the transmitted pixel size can be smaller than
+      # the box. Pixel-exact backends (sixel/ReGIS) ignore them.
       abstract def encode(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
                           cols : Int32, rows : Int32) : String
 
-      # Native pixel resolution of the current source — the animation frame being
-      # shown (`@src_frames`) or, for a still, the decoded canvas. Used by a
-      # scaling backend to avoid transmitting more pixels than the source has
-      # (which for video would re-upload a full-window frame every tick).
+      # Native pixel resolution of the current source — the animation frame
+      # being shown (`@src_frames`) or, for a still, the decoded canvas. Used by
+      # a scaling backend to avoid transmitting more pixels than the source has
+      # (for video, that would re-upload a full-window frame every tick).
       protected def source_resolution : Tuple(Int32, Int32)?
         if (frames = @src_frames) && (f = frames[@anim_index]?)
           bmp = f[0]
@@ -213,7 +208,7 @@ module Crysterm
         nil
       end
 
-      # In-band terminal graphics ARE visible to the terminal, so they are
+      # In-band terminal graphics are visible to the terminal, so they are
       # composited into captures (`Crysterm::Capture`).
       def capture_pixels? : Bool
         true
@@ -231,10 +226,10 @@ module Crysterm
         {xi, yi, cols, rows}
       end
 
-      # Current frame resampled to the widget's content cell-box × font cell size,
-      # plus its content top-left cell origin — composited by the capture
-      # renderer at the same place the terminal draws the graphic. Mirrors the
-      # geometry of `#redraw_image`. `nil` while hidden or with no image.
+      # Current frame resampled to the widget's content cell-box × font cell
+      # size, plus its content top-left cell origin — composited by the capture
+      # renderer at the same place the terminal draws the graphic. Mirrors
+      # `#redraw_image`'s geometry. `nil` while hidden or with no image.
       def capture_layer(font_w : Int32, font_h : Int32) : Tuple(PNGGIF::Bitmap, Int32, Int32)?
         return nil unless visible?
         return nil unless has_image?
@@ -244,9 +239,9 @@ module Crysterm
       end
 
       # Resamples the source into a *bw*×*bh* pixel bitmap fit per `#fit` (pixels
-      # are square, so no aspect correction). This is what makes the backends
-      # resize-aware: it re-derives from the cached source for the current box on
-      # every size change. See `Media::Fitting`.
+      # are square, so no aspect correction). Re-derives from the cached source
+      # on every size change, making the backends resize-aware. See
+      # `Media::Fitting`.
       protected def fit_bitmap(bw : Int32, bh : Int32) : PNGGIF::Bitmap?
         src = source || return nil
         frame = @src_frames.try(&.[@anim_index]?).try &.[0]
@@ -270,10 +265,10 @@ module Crysterm
         play if src.frames && animate?
       end
 
-      # Builds the full escape payload for a *bw*×*bh* box. The default path
-      # resamples the source (fit into the box) and hands the bitmap to
-      # `#encode`. Backends that transmit the original file bytes (iTerm2)
-      # override this and use `#raw_bytes` + the cell box instead.
+      # Builds the full escape payload for a *bw*×*bh* box: resamples the source
+      # (fit into the box) and hands the bitmap to `#encode`. Backends that
+      # transmit the original file bytes (iTerm2) override this and use
+      # `#raw_bytes` + the cell box instead.
       protected def build_payload(bw : Int32, bh : Int32, ox : Int32, oy : Int32,
                                   cols : Int32, rows : Int32) : String?
         bmp = fit_bitmap(bw, bh) || return nil
@@ -283,10 +278,10 @@ module Crysterm
         encode(bmp, real_w, real_h, ox, oy, cols, rows)
       end
 
-      # Returns the payload for the given geometry + current frame, building it at
-      # most once per frame per geometry. The per-frame cache is dropped whenever
-      # the geometry (size/origin/fit) changes, so a looping animation at a stable
-      # size encodes each frame only once, while a resize still re-encodes.
+      # Returns the payload for the given geometry + current frame, building it
+      # at most once per frame per geometry. The per-frame cache is dropped
+      # whenever the geometry (size/origin/fit) changes, so a resize still
+      # re-encodes.
       private def payload_for(bw : Int32, bh : Int32, ox : Int32, oy : Int32,
                               cols : Int32, rows : Int32) : String?
         geom = {bw, bh, ox, oy, cols, rows, @fit.value}
@@ -304,31 +299,31 @@ module Crysterm
         p
       end
 
-      # Streaming reuses frame index 0 with new content each tick. Drop its cached
-      # payload so it re-encodes, and clear `@emitted_key` so the change-skip in
-      # `#redraw_image` (used by Kitty, `repaint_every_frame? == false`) doesn't
-      # treat the new frame as the already-emitted one and freeze on frame 0.
+      # Streaming reuses frame index 0 with new content each tick. Drop its
+      # cached payload so it re-encodes, and clear `@emitted_key` so the
+      # change-skip in `#redraw_image` (Kitty, `repaint_every_frame? == false`)
+      # doesn't treat the new frame as already-emitted and freeze on frame 0.
       protected def invalidate_frame(idx : Int32)
         @frame_payloads.delete idx
         @emitted_key = nil
       end
 
       # A directly-injected bitmap (`Media::Base#bitmap=`) replaces the source
-      # content without changing the box geometry, so `#payload_for`'s
-      # geometry-keyed cache would otherwise keep serving the *previous* frame's
-      # encoded payload (and the `#redraw_image` emit-skip would treat it as
-      # already on window for separate-layer backends like Kitty), freezing the
-      # graphic on the stale image. Drop the per-frame payload cache and the
-      # emit-tracking keys so the next render re-encodes the fresh bitmap and
-      # re-emits it. Mirrors `Media::Cells#reset_sample_cache`.
+      # without changing the box geometry, so `#payload_for`'s geometry-keyed
+      # cache would otherwise keep serving the *previous* frame's encoded
+      # payload — freezing the graphic on the stale image (the `#redraw_image`
+      # emit-skip would treat it as already on window for separate-layer
+      # backends like Kitty). Drop the per-frame cache and emit-tracking keys so
+      # the next render re-encodes and re-emits. Mirrors
+      # `Media::Cells#reset_sample_cache`.
       protected def reset_sample_cache : Nil
         reset_payload_cache
       end
 
       # Drops the per-frame payload cache and all emit-tracking keys, and forces
-      # the next paint to re-detect whether the source animates. Shared by
-      # `#load`, `#clear_image` and `#reset_sample_cache` — every entry point that
-      # invalidates the encoded-frame state.
+      # the next paint to re-detect whether the source animates. Shared by every
+      # entry point that invalidates the encoded-frame state (`#load`,
+      # `#clear_image`, `#reset_sample_cache`).
       private def reset_payload_cache : Nil
         @anim_checked = false
         @frame_payloads.clear
@@ -345,14 +340,13 @@ module Crysterm
       private def redraw_image
         return unless visible?
         # `visible?` only consults THIS widget's own flag. Unlike the cell-render
-        # pass (which never paints a hidden subtree, so its descendants are
-        # naturally skipped), this overlay runs as a standalone `Rendered`
-        # listener, so it must also bail when an ANCESTOR is hidden: the widget is
-        # then off-window, the hidden ancestor has no rendered position, and
-        # resolving coords against it (`_get_coords(true)` →
-        # `last_rendered_position`) would raise instead of returning nil — crashing
-        # the render-loop fiber. Walk the parent chain and skip if any link is
-        # hidden, mirroring the tree-aware visibility `Capture` uses.
+        # pass (which skips hidden subtrees naturally), this overlay runs as a
+        # standalone `Rendered` listener, so it must also bail when an ANCESTOR
+        # is hidden: the widget is then off-window, the hidden ancestor has no
+        # rendered position, and resolving coords against it (`_get_coords(true)`
+        # -> `last_rendered_position`) would raise instead of returning nil,
+        # crashing the render-loop fiber. Walk the parent chain and skip if any
+        # link is hidden, mirroring the tree-aware visibility `Capture` uses.
         anc = parent
         while anc
           return unless anc.visible?
@@ -369,9 +363,9 @@ module Crysterm
         payload = payload_for(pw, ph, ox, oy, cols, rows) || return
 
         # Sixel/ReGIS get overdrawn by the cells Crysterm flushes each frame, so
-        # they must be re-emitted every render. A Kitty image is a separate layer
-        # the cells don't touch, so it's emitted only when it actually changes
-        # (new frame / move / resize) — avoiding flicker and needless re-transmits.
+        # they must be re-emitted every render. A Kitty image is a separate
+        # layer the cells don't touch, so it's emitted only when it actually
+        # changes (new frame/move/resize), avoiding flicker and re-transmits.
         unless repaint_every_frame?
           if @emitted_key == @payload_key
             @last_drawn = {xi, yi, cols, rows}
@@ -394,9 +388,8 @@ module Crysterm
       end
 
       # Whether the graphic must be re-emitted on every window render (true when
-      # the terminal's cells overdraw it, e.g. sixel/ReGIS). Backends drawn on a
-      # separate layer the cells don't touch (Kitty) override this to false and
-      # are emitted only when the payload changes.
+      # the terminal's cells overdraw it, e.g. sixel/ReGIS). Backends on a
+      # separate layer the cells don't touch (Kitty) override this to false.
       protected def repaint_every_frame? : Bool
         true
       end
@@ -409,17 +402,16 @@ module Crysterm
         {xi, yi, (pos.xl - iright) - xi, (pos.yl - ibottom) - yi}
       end
 
-      # The graphic is only on window once an image is present — either a loaded
-      # file or a directly-injected in-memory source (`Media::Base#bitmap=`, the
-      # `Graph::Canvas` path), which leaves `@file` nil but sets `@source`.
+      # The graphic is only on window once an image is present — a loaded file
+      # or a directly-injected in-memory source (`Media::Base#bitmap=`, the
+      # `Graph::Canvas` path, which leaves `@file` nil but sets `@source`).
       protected def overlay_visible? : Bool
         has_image?
       end
 
       # Whether this backend currently has something to draw: a loaded file path
-      # or an injected in-memory source. The whole-frame paint/erase/capture
-      # lifecycle keys on this rather than on `@file` alone, so a bitmap-fed
-      # graphic (no file) still renders.
+      # or an injected in-memory source. The paint/erase/capture lifecycle keys
+      # on this rather than `@file` alone, so a bitmap-fed graphic still renders.
       protected def has_image? : Bool
         !(@file.nil? && @source.nil?)
       end
@@ -432,10 +424,9 @@ module Crysterm
       end
 
       # Hook for backends whose pixels are NOT erased by re-emitting the cells
-      # underneath (re-emitted text covers sixel/ReGIS, but not e.g. a Kitty
-      # image, which is a separate layer that must be explicitly deleted).
-      # Called from `#overlay_cleared` before the cells are invalidated. No-op by
-      # default.
+      # underneath (re-emitted text covers sixel/ReGIS, but not a Kitty image, a
+      # separate layer that must be explicitly deleted). Called from
+      # `#overlay_cleared` before the cells are invalidated. No-op by default.
       protected def graphic_cleared(s : ::Crysterm::Window)
       end
 

@@ -2,12 +2,11 @@ module Crysterm
   # Action negotiated between a drag source and a drop target, mirroring the
   # desktop (XDND / Wayland data-device / HTML5) copy/move/link vocabulary.
   #
-  # Crysterm deliberately reuses the desktop *data model* (this enum plus the
-  # MIME-typed payload in `DragData`) without speaking the window-to-window wire
-  # protocol — a TUI owns no window and so cannot be an XDND peer. Reusing the
-  # vocabulary keeps the engine self-contained while making the optional edge
-  # bridges (a desktop file-drop synthesized as a `text/uri-list` drop, or an
-  # outbound transfer pushed to the system clipboard via OSC 52) trivial.
+  # Crysterm reuses the desktop *data model* (this enum plus the MIME-typed
+  # payload in `DragData`) without the window-to-window wire protocol — a TUI
+  # owns no window and can't be an XDND peer. This keeps the engine
+  # self-contained while making optional edge bridges (a desktop file-drop as a
+  # `text/uri-list` drop, or an outbound OSC 52 clipboard transfer) trivial.
   enum DragAction
     None
     Move
@@ -15,9 +14,9 @@ module Crysterm
     Link
   end
 
-  # Which input sensor is driving a drag. The same `DragSession` and the same
-  # source/target events are used regardless, so a widget written for mouse
-  # drag-and-drop also works under keyboard drag-and-drop with no extra code.
+  # Which input sensor is driving a drag. Same `DragSession` and source/target
+  # events regardless, so a widget written for mouse drag-and-drop also works
+  # under keyboard drag-and-drop with no extra code.
   enum DragSensor
     Mouse
     Keyboard
@@ -29,8 +28,8 @@ module Crysterm
   # (delivered as `text/uri-list`) through one code path.
   #
   # For a *reposition* ("self-move") drag the payload is empty — the source just
-  # edits its own geometry. For a *transfer* drag the source fills the payload at
-  # `DragStart` and a (different) target consumes it on `Drop`.
+  # edits its own geometry. For a *transfer* drag the source fills the payload
+  # at `DragStart` and a different target consumes it on `Drop`.
   class DragData
     getter source : Widget
     # Actions the source is willing to perform (advertised at `DragStart`).
@@ -65,8 +64,8 @@ module Crysterm
       @items.keys
     end
 
-    # Called by a drop target (typically from a `DragEnter`/`DragOver` handler)
-    # to signal it will accept the drop, optionally pinning the action.
+    # Called by a drop target (from a `DragEnter`/`DragOver` handler) to signal
+    # it will accept the drop, optionally pinning the action.
     def accept(action : DragAction? = nil)
       @accepted = true
       @action = action if action
@@ -79,8 +78,8 @@ module Crysterm
     end
   end
 
-  # The state of one in-flight drag gesture. Owned by the `Window` (at most one
-  # at a time — a drag is modal) and shared by both sensors. Coordinates are
+  # State of one in-flight drag gesture. Owned by the `Window` (at most one at a
+  # time — a drag is modal) and shared by both sensors. Coordinates are
   # absolute (window) cell positions.
   class DragSession
     getter source : Widget
@@ -100,7 +99,7 @@ module Crysterm
 
     # A *discrete* drag advances by separate events rather than a held button:
     # the keyboard sensor, and the two-click mouse fallback for terminals that
-    # do not report motion. (A continuous mouse drag is press-move-release.)
+    # don't report motion. (A continuous mouse drag is press-move-release.)
     property? discrete : Bool = false
 
     def initialize(@source, @data, @x, @y, @sensor)

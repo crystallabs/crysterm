@@ -4,14 +4,12 @@ require "file_utils"
 include Crysterm
 
 # `Widget::FileManager#open_selected` must resolve the path from the entry's
-# *real* name, not by reverse-engineering it from the decorated row text. That
-# text carries `{...}` color tags plus a `/`/`@` suffix, so:
-#   * a name containing a `{...}` tag-like sequence would be mangled by
-#     `clean_tags` (which strips it as a style tag), and
-#   * a regular file whose name ends in `@` would have the `@` stripped as if it
-#     were the symlink decoration,
-# both yielding a wrong (non-existent) target. Driven headlessly over in-memory
-# IOs against a real temp directory tree.
+# real name, not by reverse-engineering the decorated row text (which carries
+# `{...}` color tags plus a `/`/`@` suffix):
+#   * a name containing `{...}` would be mangled by `clean_tags` (strips it as
+#     a style tag), and
+#   * a file ending in `@` would have it stripped as symlink decoration,
+# both yielding a wrong target.
 
 private def fm_screen
   Crysterm::Window.new(
@@ -36,8 +34,7 @@ describe Crysterm::Widget::FileManager do
       fm.selected = idx.not_nil!
       fm.enter_selected
 
-      # The clean_tags reconstruction would strip the `{x}` and land on a
-      # non-existent "mailc"-style path, leaving us stuck in `base`.
+      # clean_tags would strip `{x}`, landing on a non-existent path.
       fm.cwd.chomp('/').should eq dir
     ensure
       FileUtils.rm_rf base
@@ -63,8 +60,8 @@ describe Crysterm::Widget::FileManager do
       fm.on(Crysterm::Event::OpenFile) { |e| opened = e.path }
       fm.enter_selected
 
-      # The `@\z` strip would have produced base/"data" (missing) and emitted
-      # nothing; the real path must come through intact.
+      # The `@\z` strip would produce base/"data" (missing); real path must
+      # come through intact.
       opened.should eq target
       fm.path.should eq target
     ensure

@@ -3,14 +3,13 @@ module Crysterm
     # Resolves a CSS selector string to the live widgets it matches — the
     # runtime, query-anything counterpart to `#find_by_id`.
     #
-    # Reuses the exact machinery the cascade uses for styling: the widget tree
-    # is rendered to the CSS document (`#to_html`, which stamps each node with a
-    # `data-uid`), the selector is lowered with `CSS::Selectors.expand_types`
-    # (so bare type names like `Button` match), compiled by the `html5` engine,
-    # and each matched node is mapped back to its widget by `data-uid`. So the
-    # full Selectors-Level-3 grammar the stylesheet supports — `#id`, `.class`,
-    # `Type`, descendant/child combinators, `:nth-child`, attribute selectors —
-    # works here too. An unparseable selector yields an empty array.
+    # Reuses the cascade's machinery: the widget tree is rendered to a CSS
+    # document (`#to_html`, stamping each node with `data-uid`), the selector is
+    # lowered with `CSS::Selectors.expand_types` (so bare type names like
+    # `Button` match), compiled by the `html5` engine, and matched nodes are
+    # mapped back to widgets by `data-uid`. Full Selectors-Level-3 grammar
+    # applies — `#id`, `.class`, `Type`, combinators, `:nth-child`, attribute
+    # selectors. An unparseable selector yields an empty array.
     def resolve_selector(selector : String) : Array(Widget)
       compiled = ::CSS.compile(CSS::Selectors.expand_types(selector)) rescue nil
       return [] of Widget unless compiled

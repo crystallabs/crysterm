@@ -13,9 +13,9 @@ private def popup_mem_screen
 end
 
 # `Mixin::Popup#teardown_popup_on_destroy` must release the screen's modal grab
-# when a pop-up-owning widget is destroyed while still open. Otherwise the dead
+# when a popup-owning widget is destroyed while still open. Otherwise the dead
 # widget lingers in `Window#@grabs`, keeping `#grabbing?` true forever and
-# routing every later mouse press through `grab_contains?` on a destroyed widget.
+# routing later mouse presses through `grab_contains?` on a destroyed widget.
 describe Crysterm::Mixin::Popup do
   it "releases the modal grab when destroyed while open" do
     s = popup_mem_screen

@@ -11,8 +11,8 @@ module Crysterm
     # index) and `nil` otherwise.
     # `seen`, when given, dedups subscriptions across repeated calls: each
     # `(widget, event)` pair is wired at most once. The HTTP bridge re-runs this
-    # on every `append`/`remove`, so without it every existing binding would
-    # gain another listener each time and fire 2x, 3x, ... per event.
+    # on every `append`/`remove`, so without it bindings would fire 2x, 3x, ...
+    # per event.
     def self.each_binding(window : Window, seen : Set(String)? = nil,
                           &handler : Widget, String, String, String? ->) : Nil
       window.children.each do |top|
@@ -34,25 +34,22 @@ module Crysterm
       end
     end
 
-    # The single place that maps a layout event name (`"click"`, `"submit"`,
-    # `"select"`, ...) to the concrete `Event` class and subscribes to it,
-    # yielding `(canonical_type, value)` when it fires — `value` carries the
-    # event's payload (a `Submit`'s text, a `SelectItem`'s index) or `nil`.
+    # Maps a layout event name (`"click"`, `"submit"`, `"select"`, ...) to the
+    # concrete `Event` class and subscribes to it, yielding `(canonical_type,
+    # value)` when it fires — `value` carries the event's payload or `nil`.
     # Shared by the action wiring here and the HTTP bridge's runtime
-    # subscriptions so the mapping exists once. Unknown names are ignored.
+    # subscriptions. Unknown names are ignored.
     def self.on_widget_event(widget : Widget, event_name : String, &block : String, String? ->) : Nil
       case event_name
       when "click", "press"
-        # `Event::Press` is emitted *only* by `Widget::AbstractButton#activate`,
-        # and it fires for both a mouse click and a keyboard activation
-        # (Enter/Space) — so a button's declarative `onclick` (or a `"press"`
-        # subscription) reacts to either, matching a browser button. Any *other*
-        # widget never emits `Press`: binding it there would never fire, and —
-        # since `Widget#wants_mouse?` does not count `Press` handlers — the widget
-        # wouldn't even be hit-tested, so its `onclick` was silently dead. Bind
-        # those to `Event::Click`, which the window emits on a mouse press over any
-        # hit-tested widget; registering the `Click` handler also makes the widget
-        # mouse-responsive (`#wants_mouse?`), so the click can reach it.
+        # `Event::Press` is emitted only by `Widget::AbstractButton#activate`,
+        # firing for both mouse click and keyboard activation (Enter/Space) — so
+        # a button's `onclick`/`"press"` reacts to either, like a browser button.
+        # Other widgets never emit `Press`, and since `Widget#wants_mouse?`
+        # doesn't count `Press` handlers, they wouldn't even be hit-tested. Bind
+        # those to `Event::Click` instead, which the window emits on a mouse
+        # press over any hit-tested widget; registering it also makes the widget
+        # mouse-responsive.
         if widget.is_a?(::Crysterm::Widget::AbstractButton)
           widget.on(::Crysterm::Event::Press) { block.call "press", nil }
         else
@@ -70,8 +67,8 @@ module Crysterm
     end
 
     # Declarative action interpreter: lets simple behavior live entirely in the
-    # HTML, so an app can be fully driven without any handler process. An action
-    # is *declarative* when it names a built-in verb (optionally with
+    # HTML, so an app can run without a handler process. An action is
+    # *declarative* when it names a built-in verb (optionally with
     # colon-separated arguments); anything else is a *named* action passed
     # through to an out-of-process handler.
     #
@@ -132,8 +129,8 @@ module Crysterm
 
   class Window
     # Wires declarative `on*` actions in the loaded tree so simple apps need no
-    # handler process. Named (non-declarative) actions are ignored here — the
-    # HTTP bridge handles those. `on_quit` lets a host unwind cleanly on `quit`.
+    # handler process. Named actions are ignored here — the HTTP bridge handles
+    # those. `on_quit` lets a host unwind cleanly on `quit`.
     def wire_dom_actions(on_quit : Proc(Nil)? = nil) : Nil
       DOM.each_binding(self) do |widget, _type, action, _value|
         DOM::Actions.run(action, widget, self, on_quit) if DOM::Actions.declarative?(action)

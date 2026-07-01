@@ -6,10 +6,9 @@ require "../../src/crysterm"
 # builds a `Widget::Media::Overlay`, which draws a true-color image over the
 # terminal using the external `w3mimgdisplay` helper.
 #
-# `w3mimgdisplay` ships with w3m-img (package `w3m-img`/`w3m`). If it is not
-# installed, this program still runs: it shows a placeholder box explaining how
-# to enable image rendering instead of loading the file (which would otherwise
-# fail at draw time, exactly as Blessed's widget does without w3m).
+# `w3mimgdisplay` ships with w3m-img (package `w3m-img`/`w3m`). If not
+# installed, shows a placeholder box explaining how to enable image rendering
+# instead of loading the file.
 #
 # Pass an image path as the first argument, or it defaults to one of the repo's
 # bundled sample images.
@@ -32,19 +31,16 @@ class X
   def initialize
     s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 
-    # Default to a bundled sample image. Look in ../../data/image (running from
-    # tests/blessed-test/) first, then fall back to ./data/image (running from
-    # the repo root).
+    # Default to a bundled sample image: ../../data/image (running from
+    # tests/blessed-test/), falling back to ./data/image (running from repo root).
     file = ARGV[0]? || begin
       up = File.expand_path(File.join(__DIR__, "..", "..", "data", "image", "widget.png"))
       here = File.expand_path(File.join("data", "image", "widget.png"))
       File.exists?(up) ? up : here
     end
 
-    # The factory returns a `Widget::Media::Overlay` for `type: Overlay`. Its
-    # static return type is the `Media::Ansi | Media::Overlay` union (normalized to
-    # `Box+`), so narrow it to the overlay backend to use overlay-specific API
-    # like `#load`.
+    # Factory returns `Media::Ansi | Media::Overlay` (normalized to `Box+`);
+    # narrow to the overlay backend to use overlay-specific API like `#load`.
     img = Widget::Media.new(
       type: Widget::Media::Type::Overlay,
       parent: s,
@@ -80,10 +76,9 @@ class X
         exit
       end
 
-      # Arrow keys move the image around (clamped to the screen). Each move
-      # triggers a render: `Media::Overlay` redraws the overlay on top at the new
-      # spot and clears its previous position, so the image follows the box
-      # without ghosting and without being clobbered by the redrawn cells.
+      # Arrow keys move the image around (clamped to the screen); each move
+      # triggers a render so `Media::Overlay` redraws at the new spot and clears
+      # its previous position (no ghosting).
       case e.key
       when ::Tput::Key::Left  then img.left = Math.max(0, img.aleft - 2)
       when ::Tput::Key::Right then img.left = Math.min(s.awidth - img.awidth, img.aleft + 2)
@@ -94,9 +89,8 @@ class X
       s.render
     end
 
-    # A single initial render shows the image; it then stays painted on top
-    # across every later render, following the box as the arrow keys move it.
-    # `s.exec` issues that first render.
+    # `s.exec` issues the initial render; the image then stays painted on top
+    # across later renders as the arrow keys move it.
     s.exec
   end
 end

@@ -32,18 +32,17 @@ module Crysterm
         @maximum
       end
 
-      # Sets both bounds at once (Qt's `setRange`). Since `#filled` and the
-      # `%p`/`%m`/`%M` text are all derived from the range, changing it alters the
-      # rendered bar, so this re-clamps the current value into the new range and
-      # schedules a repaint. Never stores an inverted range (an `Int32` `property`
-      # used to do neither, leaving the value out of range and the bar stale).
+      # Sets both bounds at once (Qt's `setRange`). `#filled` and the
+      # `%p`/`%m`/`%M` text derive from the range, so this re-clamps the current
+      # value into the new range and schedules a repaint. Never stores an
+      # inverted range.
       def set_range(min : Int32, max : Int32) : Nil
         max = min if max < min
         return if min == @minimum && max == @maximum
         @minimum = min
         @maximum = max
-        # Re-clamp; `#value=` repaints and emits only on an actual change, so
-        # `#request_render` below covers the value-unchanged-but-range-changed case.
+        # `#value=` repaints/emits only on an actual change, so `#request_render`
+        # below covers the value-unchanged-but-range-changed case.
         self.value = @value.clamp(@minimum, @maximum)
         request_render
       end
@@ -100,8 +99,8 @@ module Crysterm
 
         if @mouse
           # Click (or drag) to set the progress from the pointer position along
-          # the bar, mirroring Blessed. Uses `Event::Mouse` (not the bare
-          # `Event::Click`) because it carries the cursor coordinates.
+          # the bar. Uses `Event::Mouse` (not `Event::Click`) since it carries
+          # cursor coordinates.
           on(Crysterm::Event::Mouse) do |e|
             next unless e.action.down?
 
@@ -109,9 +108,8 @@ module Crysterm
               pos = e.x - aleft - ileft
               span = awidth - iwidth - 1
             else
-              # The vertical bar fills bottom-up (see `#render`), so invert the
-              # axis: a click near the top reads as full, near the bottom as
-              # empty (mirrors `Slider`'s vertical mapping).
+              # Vertical bar fills bottom-up (see `#render`), so invert the axis:
+              # a click near the top reads as full, near the bottom as empty.
               span = aheight - iheight - 1
               pos = span - (e.y - atop - itop)
             end
@@ -171,9 +169,8 @@ module Crysterm
       def render
         with_inner_coords do |xi, xl, yi, yl|
           pct = filled
-          # Filled sub-region (the rest of the interior stays unfilled). Kept in
-          # separate variables so `xi`/`xl`/`yi`/`yl` remain the full interior for
-          # the text/content overlay below.
+          # Filled sub-region (rest of interior stays unfilled). Kept separate so
+          # `xi`/`xl`/`yi`/`yl` remain the full interior for the overlay below.
           fill_xl = xl
           fill_yi = yi
           if @orientation.horizontal?
@@ -182,11 +179,8 @@ module Crysterm
             fill_yi = yi + ((yl - yi) - (((yl - yi) * (pct / 100)).to_i))
           end
 
-          # NOTE We invert fg and bg here, so that progressbar's filled value would be
-          # rendered using foreground color. This is different than blessed, and:
-          # 1) Arguably more correct as far as logic goes
-          # 2) And also allows the widget to show filled value in a way which is visible
-          #    even if style.indicator is not specifically defined
+          # NOTE Invert fg/bg so the filled value renders using the foreground
+          # color: visible even when style.indicator isn't specifically defined.
           ind = style.indicator
           default_attr = sattr ind, ind.bg, ind.fg
 
@@ -194,24 +188,21 @@ module Crysterm
           # better that we do this in-memory only here?
           window.fill_region default_attr, style.percent_char, xi, fill_xl, fill_yi, yl
 
-          # Determine the text to overlay: the Qt-style indicator when enabled,
-          # otherwise any pre-parsed content (materialized via `#pcontent`).
+          # Text to overlay: the Qt-style indicator when enabled, otherwise any
+          # pre-parsed content (via `#pcontent`).
           if show_text?
             draw_overlay_text formatted_text
           elsif !(pc = pcontent).empty?
-            # Overlay on the stable top interior row (`yi`), as the comment above
-            # intends — not `fill_yi`, which for a *vertical* bar is the moving top
-            # edge of the filled region, so the label would slide up/down with the
-            # value. (`fill_yi == yi` for a horizontal bar, so that case is
-            # unchanged.)
+            # Overlay on the stable top interior row (`yi`), not `fill_yi`, which
+            # for a vertical bar is the moving top edge of the filled region (the
+            # label would slide with the value). `fill_yi == yi` for horizontal.
             draw_text_run yi, xi, pc, xl
           end
         end
       end
 
-      # Draws `text` centered over the whole inner region (used for `show_text?`),
-      # so the indicator stays readable regardless of how much of the bar is
-      # filled.
+      # Draws `text` centered over the whole inner region (used for `show_text?`)
+      # so the indicator stays readable regardless of fill amount.
       private def draw_overlay_text(text : String) : Nil
         return if text.empty?
         with_inner_coords do |xi, xl, yi, yl|
@@ -240,9 +231,8 @@ module Crysterm
       def on_keypress(e)
         k = e.key
         ch = e.char
-        # Since the keys aren't conflicting, support both regardless of
-        # orientation. `#progress` routes through `#value=`, which repaints on
-        # an actual change.
+        # Keys don't conflict, so support both regardless of orientation.
+        # `#progress` routes through `#value=`, which repaints on actual change.
         if k == Tput::Key::Left || k == Tput::Key::Down || ch == 'h' || ch == 'j'
           progress -@step
         elsif k == Tput::Key::Right || k == Tput::Key::Up || ch == 'l' || ch == 'k'

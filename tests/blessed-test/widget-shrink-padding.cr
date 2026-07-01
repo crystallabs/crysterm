@@ -1,9 +1,6 @@
 require "../../src/crysterm"
 
 # Port of Blessed's test/widget-shrink-padding.js
-# An outer shrink (resizable) box with padding 1 and a green background,
-# centered, containing an inner shrink box with content "foobar" and a
-# magenta background.
 module Crysterm
   s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 

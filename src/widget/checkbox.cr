@@ -34,7 +34,7 @@ module Crysterm
       def initialize(checked : Bool = false, tristate : Bool = false, **input)
         super **input
 
-        @checkable = true # a checkbox is inherently checkable (Qt's `QCheckBox`)
+        @checkable = true # a checkbox is inherently checkable
         @checked = checked
         @tristate = tristate
         @value = checked

@@ -5,10 +5,10 @@ module Crysterm
     # Seven-segment numeric display, modeled after Qt's `QLCDNumber`.
     #
     # Renders a number (or a short string of digits/`A`–`F`/`-`/`.`/`:`) in a
-    # classic three-row seven-segment font built from `_` and `|`. `#display`
-    # shows an `Int` (formatted per `#mode` — decimal/hex/oct/binary), a `Float`,
-    # or a `String`; the value is right-aligned in `#digit_count` cells. Needs
-    # three rows of interior height (e.g. `height: 3`, or `5` with a border).
+    # three-row seven-segment font built from `_` and `|`. `#display` shows an
+    # `Int` (formatted per `#mode`), a `Float`, or a `String`, right-aligned in
+    # `#digit_count` cells. Needs three rows of interior height (e.g. `height: 3`,
+    # or `5` with a border).
     #
     # ```
     # lcd = Widget::LCDNumber.new parent: window, width: 24, height: 3, digit_count: 5, style: Style.new(fg: "red")

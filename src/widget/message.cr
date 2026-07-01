@@ -6,9 +6,8 @@ module Crysterm
     # ![Message screenshot](../../tests/widget/message/message.5s.apng)
     # <!-- /widget-examples:capture -->
     class Message < Dialog
-      # These were previously set in the `class Widget` body (outside `Message`),
-      # which polluted every widget's defaults and left `Message` itself
-      # unscoped. They belong to `Message`.
+      # Previously set in the `class Widget` body, polluting every widget's
+      # defaults. Belong here instead.
       @resizable = true
       @parse_tags = true
 
@@ -26,9 +25,8 @@ module Crysterm
         request_render
 
         if !time || time.to_f <= 0
-          # No timeout: dismiss on the next keypress. Install the handler
-          # immediately. (It used to `sleep 10.seconds` first, which made the
-          # message un-dismissable for 10s and then linger until a key.)
+          # No timeout: dismiss on next keypress. (Previously slept 10s first,
+          # making the message un-dismissable for 10s then linger until a key.)
           @ev_keypress = window.on(Crysterm::Event::KeyPress) do |_|
             @ev_keypress.try do |w|
               window.off ::Crysterm::Event::KeyPress, w
@@ -43,11 +41,8 @@ module Crysterm
           spawn do
             sleep time
 
-            # Route the timed dismissal through `end_it` (as the keypress path
-            # does) so a scrollable message that grabbed focus on show restores
-            # it. Hiding directly here left focus stranded on the dismissed
-            # message. For a non-scrollable message `end_it` skips the restore,
-            # so its behaviour (hide + request_render + callback) is unchanged.
+            # Route through `end_it` (as the keypress path does) so a
+            # scrollable message restores focus instead of leaving it stranded.
             end_it do
               callback.try &.call
             end
@@ -76,9 +71,8 @@ module Crysterm
         display("{red-fg}Error: #{text}{/red-fg}", time, &callback)
       end
 
-      # Severity of a message, mirroring the icons of Qt's `QMessageBox`
-      # (`Information`, `Warning`, `Critical`, `Question`). Each maps to a colored
-      # leading glyph drawn before the text by `#display_with`.
+      # Severity of a message, mirroring Qt's `QMessageBox` icons. Each maps
+      # to a colored leading glyph drawn before the text by `#display_with`.
       enum Severity
         None
         Information
@@ -98,9 +92,8 @@ module Crysterm
         end
       end
 
-      # Shows *text* prefixed with *severity*'s icon (see `Severity`). This is the
-      # general form behind the `#information`/`#warning`/`#critical`/`#question`
-      # convenience helpers.
+      # Shows *text* prefixed with *severity*'s icon. General form behind
+      # `#information`/`#warning`/`#critical`/`#question`.
       def display_with(severity : Severity, text, time : Time::Span? = Crysterm::Config.message_display_time, &callback : Proc(Nil))
         display("#{severity.prefix}#{text}", time, &callback)
       end

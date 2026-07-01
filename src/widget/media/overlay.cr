@@ -28,8 +28,7 @@ module Crysterm
         @center = true,
         # The shared `Media::Base` contract knobs are accepted (so the `Media`
         # factory can forward them uniformly) but advisory here: an external
-        # helper does its own scaling (`stretch`/`center`) and can't animate.
-        # See `Media::External`.
+        # helper does its own scaling and can't animate. See `Media::External`.
         @fit : Media::Fit = Media::Fit::Stretch,
         @animate : Bool = false,
         @speed : Float64 = 1.0,
@@ -39,18 +38,15 @@ module Crysterm
 
         @file.try { |f| load f }
 
-        # Redraw the image after the *window* finishes each render, not after
-        # this widget renders. A w3m image is an external overlay painted
-        # directly onto the terminal, on top of whatever cells are currently
-        # there — so it must be (re)drawn *after* `Window#draw` has flushed this
-        # frame's cells, or those cells land on top and hide it.
+        # Redraw after the *window* finishes each render, not after this widget
+        # renders: a w3m image is painted directly onto the terminal on top of
+        # whatever cells are there, so it must be drawn after `Window#draw` has
+        # flushed this frame's cells or they'd land on top and hide it.
         #
-        # `Window#_render` flushes its cell buffer (`draw`) and only *then* emits
-        # `Event::Rendered`, so we hook the window's event. `PreRender` runs
-        # *before* the cells are composited/flushed; we use it to deal with the
-        # overlay left at our previous position when we move (see
-        # `#invalidate_old_position`). This mirrors Blessed's
-        # `onScreenEvent('render')`.
+        # `Window#_render` flushes cells then emits `Event::Rendered`, so we
+        # hook that. `PreRender` runs before flush; used to clean up the overlay
+        # left at our previous position when we move (see
+        # `#invalidate_old_position`). Mirrors Blessed's `onScreenEvent('render')`.
         register_overlay_listeners window
       end
 
@@ -72,20 +68,19 @@ module Crysterm
         super # stop + clear file/source/frames
       end
 
-      # The overlay is only on window once an image is loaded. (The erase rect is
-      # the full box — `Media::ScreenOverlay#overlay_rect`'s default — since the
+      # The overlay is only on window once an image is loaded. (Erase rect is the
+      # full box — `Media::ScreenOverlay#overlay_rect`'s default — since the
       # external helper paints over the whole box, borders/padding included.)
       protected def overlay_visible? : Bool
         !@image.nil?
       end
 
-      # (Re)paints the loaded image over the terminal at this widget's current
-      # position. Called after every window render so the overlay stays on top;
-      # skips while the widget is hidden or detached.
-      # Set once the external helper has failed (e.g. `w3mimgdisplay` is not
-      # installed), so we stop hammering it every render and never crash.
+      # Set once the external helper has failed (e.g. `w3mimgdisplay` not
+      # installed), so we stop retrying it every render.
       @helper_failed = false
 
+      # (Re)paints the loaded image at this widget's current position. Called
+      # after every window render; skips while hidden or detached.
       private def redraw_image
         return if @helper_failed
         return unless visible?
@@ -98,9 +93,9 @@ module Crysterm
             image.draw(pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi, @stretch, @center).sync.sync_communication
             @last_drawn = {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
           rescue
-            # w3mimgdisplay missing/failed: degrade instead of crashing the render
-            # fiber. Selection UIs should gate on `Media.available?`; this is a
-            # backstop.
+            # w3mimgdisplay missing/failed: degrade instead of crashing the
+            # render fiber. Selection UIs should gate on `Media.available?`;
+            # this is a backstop.
             @helper_failed = true
           end
         end

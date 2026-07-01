@@ -36,16 +36,14 @@ module Crysterm
     getter css_stylesheet_path : String?
 
     # Caches the last CSS document the cascade ran against, so an
-    # `#apply_stylesheet` whose document is byte-identical (nothing
-    # selector-relevant changed) is skipped. Reset whenever the *stylesheet*
-    # itself changes (the document doesn't encode the rules).
+    # `#apply_stylesheet` whose document is byte-identical is skipped. Reset
+    # whenever the stylesheet itself changes (the document doesn't encode rules).
     @css_last_document : String?
 
-    # Cached *parsed* document and the string it was parsed from, plus a
-    # `data-uid -> node` index into it. The parse is reused across cascades: on
-    # an attribute-only change the changed nodes are *patched* in place (see
-    # `@css_patch_widgets`) rather than re-parsing; a structural change
-    # (`@css_structural`) forces a fresh parse + index.
+    # Cached parsed document and the string it was parsed from, plus a
+    # `data-uid -> node` index. Reused across cascades: an attribute-only change
+    # patches nodes in place (see `@css_patch_widgets`) rather than re-parsing;
+    # a structural change (`@css_structural`) forces a fresh parse + index.
     @css_parsed_doc : HTML5::Node?
     @css_parsed_doc_string : String?
     @css_node_index : Hash(String, HTML5::Node)?
@@ -61,7 +59,7 @@ module Crysterm
     # Assigns a stylesheet from CSS source text.
     def stylesheet=(css : String) : String
       @css_stylesheet = CSS::Stylesheet.parse(css)
-      restyle # a new stylesheet means everything may change
+      restyle # new stylesheet means everything may change
       @css_last_document = nil
       css
     end
@@ -79,9 +77,9 @@ module Crysterm
     # loading to opt out.
     property? auto_reload_stylesheet = true
 
-    # File-watching is temporarily disabled (the `fswatch` shard was removed),
-    # so no live watcher is held. Kept as a path placeholder for the eventual
-    # re-integration via `event_handler`.
+    # File-watching is temporarily disabled (`fswatch` shard removed), so no
+    # live watcher is held. Path placeholder for eventual re-integration via
+    # `event_handler`.
     @css_watched_path : String?
 
     # Raw text of the stylesheet last read from a file. Used to skip redundant
@@ -100,12 +98,11 @@ module Crysterm
     # Applies the startup stylesheet configured via `Config.colors_stylesheet`
     # (a `.css` file path or inline CSS text), unless this screen already has an
     # author stylesheet set in code — explicit assignment always wins. Called
-    # once from the constructor, after the theme is installed, so the configured
-    # author CSS layers over the theme. An empty config value is a no-op.
+    # once from the constructor, after the theme is installed, so configured
+    # author CSS layers over the theme. Empty config value is a no-op.
     #
-    # The value is treated as inline CSS when it contains a `{` (a rule body);
-    # otherwise it's a file path (`~` expanded, `@import` resolved relative to
-    # it).
+    # Treated as inline CSS when it contains a `{` (a rule body); otherwise a
+    # file path (`~` expanded, `@import` resolved relative to it).
     protected def apply_config_stylesheet : Nil
       return unless @css_stylesheet.nil?
       source = Crysterm::Config.colors_stylesheet
@@ -128,21 +125,19 @@ module Crysterm
     # reload can be skipped.
     private def apply_stylesheet_source(source : String, path : String) : Nil
       @css_loaded_source = source
-      # A `.qss` (Qt Style Sheet) file is translated to Crysterm CSS first — the
-      # `Q` selector prefix is stripped and Qt class names are mapped to ours
-      # (see `CSS::Qss`). The raw text is what's cached above for the
-      # unchanged-reload check; only the copy fed to the parser is rewritten.
-      # Anything still unrecognised is skipped by the parser, never fatal.
+      # A `.qss` (Qt Style Sheet) file is translated to Crysterm CSS first (`Q`
+      # selector prefix stripped, Qt class names mapped, see `CSS::Qss`). The raw
+      # text is what's cached above for the unchanged-reload check; only the
+      # copy fed to the parser is rewritten.
       css = path.downcase.ends_with?(".qss") ? CSS::Qss.to_css(source) : source
       self.stylesheet = CSS::Stylesheet.parse(css, base_path: path)
     end
 
     # Stylesheet hot-reload. Temporarily DISABLED: the `fswatch` shard was
-    # removed, so this no longer starts a file watcher. It remains callable (and
-    # is still invoked by `#load_stylesheet` when `#auto_reload_stylesheet?`) so
-    # call sites keep working; it just records the path and returns without
-    # watching. To reload manually, call `#reload_stylesheet`. Hot-reload is to
-    # be re-introduced via `event_handler`.
+    # removed, so this no longer starts a file watcher — it just records the
+    # path and returns. Remains callable (still invoked by `#load_stylesheet`)
+    # so call sites keep working. Call `#reload_stylesheet` manually; hot-reload
+    # is to be re-introduced via `event_handler`.
     def watch_stylesheet(path : String? = @css_stylesheet_path) : Nil
       @css_watched_path = path || raise "no stylesheet path to watch (call load_stylesheet first)"
       nil
@@ -211,9 +206,8 @@ module Crysterm
     def apply_stylesheet : Nil
       author = @css_stylesheet
       default = CSS.default_stylesheet
-      # CSS is active whenever *either* an author stylesheet or the default
-      # (theme) stylesheet has rules. With neither, nothing is styled and
-      # widgets keep their programmatic look.
+      # CSS is active whenever either an author or the default (theme)
+      # stylesheet has rules; with neither, widgets keep their programmatic look.
       if (author.nil? || author.rules.empty?) && default.rules.empty?
         clear_css_dirty
         return
@@ -227,7 +221,7 @@ module Crysterm
       scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
       doc = css_parsed_document(document)
       # `Cascade.apply` folds the default stylesheet in beneath the author one;
-      # with no author sheet we run the default (theme) by itself.
+      # with no author sheet, run the default (theme) by itself.
       if author
         CSS::Cascade.apply author, self, doc, scope
       else
@@ -236,11 +230,11 @@ module Crysterm
       clear_css_dirty
     end
 
-    # Builds the "no theme" `CSS::Theme` for *this* screen from its terminal's
-    # probed colors (default background/foreground and 16-color palette). Any
-    # value the terminal didn't report is filled in from the built-in dark
-    # theme, and an undetected surface/text is left as the terminal default so
-    # the native background shows through.
+    # Builds the "no theme" `CSS::Theme` for this screen from its terminal's
+    # probed colors (default background/foreground and 16-color palette). Values
+    # the terminal didn't report are filled in from the built-in dark theme; an
+    # undetected surface/text is left as the terminal default so the native
+    # background shows through.
     def terminal_theme : CSS::Theme
       f = tput.features
       palette = f.palette.map { |c| css_rgb_to_i(c) }
@@ -254,9 +248,8 @@ module Crysterm
 
     # Returns the parsed document for *document*. A structural change (or no
     # cache) forces a fresh parse + node index. Otherwise the cached parse is
-    # reused: identical when the string matches (stylesheet-only change), or
-    # patched in place — node by node — for the widgets whose attributes changed,
-    # avoiding a re-parse on attribute-only changes (incremental matching).
+    # reused: identical when the string matches, or patched in place per changed
+    # widget's node, avoiding a re-parse on attribute-only changes.
     private def css_parsed_document(document : String) : HTML5::Node
       cached = @css_parsed_doc
       if @css_structural || cached.nil?

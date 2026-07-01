@@ -13,13 +13,12 @@ private def iiss_screen
 end
 
 # `ItemView#insert_item` must keep the single-selection cursor on the same
-# logical item when a row is inserted at or *before* it — every row from the
-# insertion point onward (including the selected one) shifts down by one, so the
-# cursor has to slide with them. This mirrors the multi-selection-index
-# alignment the same method already performs (`s >= i`) and is the inverse of
-# `remove_item`'s cursor realignment. Before the fix only an insert exactly *at*
-# the cursor was handled; an insert before it left `@selected` pointing at a
-# different item with `@value` stale.
+# logical item when a row is inserted at or before it: every row from the
+# insertion point onward (including the selected one) shifts down by one, and
+# the cursor must slide with them. Mirrors the multi-selection-index alignment
+# the method already performs (`s >= i`); inverse of `remove_item`'s cursor
+# realignment. Previously only an insert exactly at the cursor was handled; an
+# insert before it left `@selected` pointing at the wrong item with `@value` stale.
 describe "ItemView#insert_item single-selection cursor alignment" do
   it "slides the cursor down when an earlier row is inserted" do
     s = iiss_screen

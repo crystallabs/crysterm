@@ -4,9 +4,9 @@ require "http/client"
 {% if flag?(:remote) %}
   include Crysterm
 
-  # End-to-end proof of the HTTP/JSON-RPC bridge, headless: drive a real (memory
-  # backed) screen over HTTP — commands in via POST /rpc, events out via the SSE
-  # stream — exactly as the bash handler does, but in-process so it can assert.
+  # End-to-end test of the HTTP/JSON-RPC bridge, headless: drive a real
+  # (memory-backed) screen over HTTP — commands in via POST /rpc, events out via
+  # the SSE stream — in-process so it can assert.
 
   private def headless_screen
     Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
@@ -108,8 +108,7 @@ require "http/client"
     it "tears down (destroys) the old layout's widgets on hot-reload" do
       # A hot-reload must `destroy` the previous layout, not merely detach it:
       # `Window#remove` leaves animation fibers (and PTYs) running, so a
-      # pulsing/keyframed widget from the old layout would tick forever. After a
-      # reload the old widget's animation must be stopped.
+      # pulsing/keyframed widget would otherwise tick forever.
       s = headless_screen
       s.load_layout %(<w-screen><w-box id="fx" content="v1"></w-box></w-screen>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7108)
@@ -121,8 +120,7 @@ require "http/client"
 
       bridge.reload_layout %(<w-screen><w-box id="fx" content="v2"></w-box></w-screen>)
 
-      # The old widget was destroyed: its animation is stopped (no leaked fiber),
-      # and the new layout is live.
+      # Old widget destroyed: animation stopped (no leaked fiber), new layout live.
       anim.running?.should be_false
       s.find_by_id("fx").not_nil!.content.should eq "v2"
     end
@@ -150,8 +148,7 @@ require "http/client"
 
       before = s.children.size
 
-      # Selector matches no widget: nothing must be appended (neither under the
-      # missing parent nor at the screen root), and the reported count is 0.
+      # Selector matches no widget: nothing appended, reported count is 0.
       miss = HTTP::Client.post(base,
         body: %({"jsonrpc":"2.0","id":1,"method":"append","params":{"selector":"#nope","html":"<w-box id=\\"added\\"></w-box>"}}))
       JSON.parse(miss.body)["result"].as_i.should eq 0
@@ -203,8 +200,8 @@ require "http/client"
     end
 
     it "forwards a colon-bearing named action (unknown verb) to the handler" do
-      # `navigate:home` looks declarative (it has a colon) but names no built-in
-      # verb, so it must reach the handler rather than being silently dropped.
+      # `navigate:home` looks declarative but names no built-in verb, so it must
+      # reach the handler rather than being silently dropped.
       s = headless_screen
       s.load_layout %(<w-screen><w-button id="go" onclick="navigate:home"></w-button></w-screen>)
       Crysterm::HTTPBridge.new(s, port: 7105).start
@@ -237,10 +234,9 @@ require "http/client"
     end
 
     it "removes a top-level widget from the screen (not just nested children)" do
-      # A top-level widget (placed straight on the screen by the loader) has no
-      # widget parent, so the `remove` command must detach it from the *screen*.
-      # Using `remove_from_parent` here was a silent no-op: it reported a match
-      # but left the widget on screen.
+      # A top-level widget has no widget parent, so `remove` must detach it from
+      # the screen. `remove_from_parent` was a silent no-op here: reported a
+      # match but left the widget on screen.
       s = headless_screen
       s.load_layout %(<w-screen>) +
                     %(<w-box id="top"><w-box id="nested"></w-box></w-box>) +
@@ -256,8 +252,7 @@ require "http/client"
         body: %({"jsonrpc":"2.0","id":1,"method":"remove","params":{"selector":"#top"}}))
       JSON.parse(gone.body)["result"].as_i.should eq 1
 
-      # Actually detached: off the screen and no longer findable (the nested
-      # child goes with it).
+      # Actually detached: off screen, no longer findable (nested child too).
       s.children.size.should eq before - 1
       s.find_by_id("top").should be_nil
       s.find_by_id("nested").should be_nil

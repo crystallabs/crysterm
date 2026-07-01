@@ -2,10 +2,9 @@ module Crysterm
   # Base class for *child-arranging* layout engines.
   #
   # A layout is a strategy object installed on any container `Widget` via
-  # `Widget#layout=`. It is deliberately **not** a widget (cf. Qt's `QLayout`,
-  # which is not a `QWidget`): the container owns the on-window rectangle, the
-  # border, the padding and the z-order slot; the layout only decides where the
-  # children go *inside* that rectangle.
+  # `Widget#layout=`. Deliberately **not** a widget (cf. Qt's `QLayout`): the
+  # container owns the on-window rectangle, border, padding and z-order slot;
+  # the layout only decides where children go *inside* that rectangle.
   #
   # ### The contract
   #
@@ -20,8 +19,7 @@ module Crysterm
   # `#arrange` owns the whole pass: it sets each child's geometry
   # (`left`/`top`/`width`/`height`) and renders it via `#render_child`, or omits
   # it / `#skip`s it. Owning the loop (rather than a per-child callback into a
-  # fixed rectangle) is what lets the full range of layouts be expressed
-  # uniformly:
+  # fixed rectangle) lets the full range of layouts be expressed uniformly:
   #
   # * **flow** (`Masonry`, `Grid`) render each child *before* placing the next,
   #   so a content-sized child's real extent is known when laying out its
@@ -32,7 +30,7 @@ module Crysterm
   # * **stacking** layouts (a future Stack/Card) give every child the same rect
   #   and `#skip` all but the active one.
   #
-  # Engines that need extra per-child data (a Border region, a Grid cell+span, a
+  # Engines needing extra per-child data (a Border region, a Grid cell+span, a
   # flex grow factor) define a `Layout::Hint` subclass and read it from
   # `Widget#layout_hint`.
   #
@@ -43,23 +41,20 @@ module Crysterm
     # Per-child placement hint. Engines requiring data beyond a child's own
     # `left`/`top`/`width`/`height` define a concrete subclass (e.g. a Border
     # region, a Grid `{row, col, row_span, col_span}`, a flex `grow` factor) and
-    # read it off `Widget#layout_hint`. Kept as an open extension point so new
-    # engines can carry their own hint type without touching this hierarchy.
+    # read it off `Widget#layout_hint`. Open extension point for new engines.
     abstract class Hint
     end
 
     # Spacing between adjacent children, in cells (Qt's layout `spacing`, CSS
-    # `spacing`). Lives on the base so it can be set uniformly — e.g. from CSS via
-    # `Geometry.apply` — regardless of engine. The box/grid/form engines honor it;
-    # the flow engines (`Masonry`/`Wrap`/`UniformGrid`) currently ignore it and
-    # pack children at their natural spacing.
+    # `spacing`). Lives on the base so it can be set uniformly (e.g. from CSS via
+    # `Geometry.apply`) regardless of engine. Honored by box/grid/form engines;
+    # flow engines (`Masonry`/`Wrap`/`UniformGrid`) currently ignore it.
     property gap : Int32 = 0
 
     # Reused interior rectangle, mutated and returned by `#interior_coords` each
-    # frame instead of allocating a fresh `LPos` per render (mirroring
-    # `LPos#reset` on the widget render path). `#arrange` reads only its four
-    # coordinates and never retains it past the call, and a layout instance
-    # serves a single container, so one cached rectangle per layout is safe.
+    # frame instead of allocating a fresh `LPos` per render. `#arrange` reads
+    # only its four coordinates and never retains it past the call, and a layout
+    # instance serves a single container, so one cached rectangle is safe.
     @interior_lpos = LPos.new
 
     # Entry point invoked by `Widget#_render`. Computes the container's interior
@@ -78,19 +73,19 @@ module Crysterm
     # Renders one child, performing the same render-index bookkeeping the
     # default (no-layout) loop in `Widget#_render` does.
     protected def render_child(el : Widget) : Nil
-      # Layout-excluded chrome (e.g. a `background-image` layer) is rendered
+      # Layout-excluded chrome (e.g. a `background-image` layer) renders
       # out-of-band from `Widget#_render`, never through the child pass.
       return if el.layout_excluded?
       bump_index el
       render_or_defer el
     end
 
-    # Renders `el` inline, or — when it carries a `z_index` and we are not
+    # Renders `el` inline, or — when it carries a `z_index` and we aren't
     # already compositing a layer — defers it to its own plane (composited after
     # the base tree); while compositing a layer, nested layers flatten into the
-    # enclosing plane, so it renders inline there. Split from `#render_child`
-    # (which also bumps the render index) so the flow/stack engines, which bump
-    # every child themselves, can still honor the z-index deferral.
+    # enclosing plane and render inline. Split from `#render_child` (which also
+    # bumps the render index) so flow/stack engines, which bump every child
+    # themselves, can still honor the z-index deferral.
     protected def render_or_defer(el : Widget) : Nil
       scr = el.window
       if el.style.z_index && !scr.compositing_layers?
@@ -101,9 +96,9 @@ module Crysterm
     end
 
     # Assigns the child its z-order/render index for this frame. Split out from
-    # `#render_child` so flow engines can keep the index bookkeeping identical
-    # to the old loop (every child consumes an index, even one later `#skip`ped)
-    # while still controlling whether the child renders.
+    # `#render_child` so flow engines keep the index bookkeeping identical to the
+    # old loop (every child consumes an index, even one later `#skip`ped) while
+    # still controlling whether the child renders.
     protected def bump_index(el : Widget) : Nil
       if el.window._ci != -1
         el.index = el.window._ci
@@ -119,8 +114,8 @@ module Crysterm
     # Assigns `el`'s full rectangle (left/top/width/height) in one call — the
     # four-assignment geometry block the rectangular engines (`Border`, `Form`)
     # would otherwise repeat at every placement. Does not render; the caller
-    # follows with `#render_child` (so engines that place several children before
-    # rendering them — e.g. `Form`'s label/field pair — stay in control of order).
+    # follows with `#render_child` (so engines placing several children before
+    # rendering them, e.g. `Form`'s label/field pair, stay in control of order).
     protected def place_child(el : Widget, left : Int32, top : Int32, width : Int32, height : Int32) : Nil
       el.left = left
       el.top = top
@@ -129,11 +124,11 @@ module Crysterm
     end
 
     # Places `el`'s full rectangle and immediately renders it — the
-    # place-then-render pair the rectangular engines repeat when they place one
-    # child at a time (every `Border` region, and `Form`'s trailing full-width
-    # child). `Form`'s label/field *pair* deliberately does **not** use this: it
-    # places both children before rendering either (so the shared row height is
-    # applied to both), keeping the `#place_child`/`#render_child` calls separate.
+    # place-then-render pair rectangular engines repeat when placing one child at
+    # a time (every `Border` region, `Form`'s trailing full-width child).
+    # `Form`'s label/field pair deliberately does **not** use this: it places
+    # both children before rendering either (so shared row height applies to
+    # both), keeping `#place_child`/`#render_child` calls separate.
     protected def place_and_render(el : Widget, left : Int32, top : Int32, width : Int32, height : Int32) : Nil
       place_child el, left, top, width, height
       render_child el
@@ -141,13 +136,11 @@ module Crysterm
 
     # Yields each of the container's *arrangeable* children — the ones an engine
     # actually positions — skipping `layout_excluded?` chrome (e.g. a
-    # `background-image` layer or an out-of-band scrollbar, which is rendered
-    # separately from `Widget#_render` and carries its own full-interior `lpos`).
-    # Every engine's placement loop performs this same skip: an excluded child
-    # must not consume a gap, a `justify`/page slot, a grid cell, a form
-    # label/field, a dock region, nor inflate a flow row — so it lives here once
-    # instead of being re-coded (and re-explained) per engine. Block-yielding (no
-    # captured `Proc`), so it allocates nothing per frame.
+    # `background-image` layer or out-of-band scrollbar, rendered separately from
+    # `Widget#_render` with its own full-interior `lpos`). An excluded child must
+    # not consume a gap, a `justify`/page slot, a grid cell, a form label/field,
+    # a dock region, nor inflate a flow row, so this lives here once instead of
+    # per engine. Block-yielding, so it allocates nothing per frame.
     protected def each_arrangeable(container : Widget, &) : Nil
       container.children.each do |el|
         next if el.layout_excluded?
@@ -162,7 +155,7 @@ module Crysterm
     end
 
     # The container's interior content rectangle (inside border + padding), in
-    # absolute window coordinates, or nil if it has collapsed to nothing.
+    # absolute window coordinates, or nil if collapsed to nothing.
     # `container.lpos` is already up to date by the time children render, so
     # this reads it directly rather than re-deriving coordinates.
     protected def interior_coords(container : Widget) : LPos?
@@ -181,9 +174,9 @@ module Crysterm
       i
     end
 
-    # `el`'s rendered rectangle from the last frame if it was non-empty, else nil.
-    # Lets layout callers bind the `lpos` directly instead of re-reading it through
-    # a `not_nil!` after a separate `rendered?` check.
+    # `el`'s rendered rectangle from the last frame if non-empty, else nil. Lets
+    # layout callers bind `lpos` directly instead of re-reading it through a
+    # `not_nil!` after a separate `rendered?` check.
     @[AlwaysInline]
     protected def rendered_lpos(el : Widget) : LPos?
       return nil unless l = el.lpos
@@ -196,15 +189,13 @@ module Crysterm
     end
 
     # The most recently *rendered* child before index `i` (skipping children
-    # that collapsed to nothing on the last frame), or nil if none.
+    # that collapsed to nothing last frame), or nil if none.
     #
     # Layout-excluded chrome is skipped too: a `background-image` layer is a
-    # `layout_excluded?` child that is rendered out-of-band (so it carries a
-    # full-interior `lpos`) and lives in `children` like any other. Without this
-    # guard a flow child appended after such a layer would chain its left edge
-    # off the layer's full-width rect instead of off the previous *flow* child —
-    # mirroring the `layout_excluded?` skip every engine's placement loop already
-    # performs.
+    # `layout_excluded?` child rendered out-of-band (with a full-interior `lpos`)
+    # that still lives in `children`. Without this guard a flow child appended
+    # after such a layer would chain its left edge off the layer's full-width
+    # rect instead of off the previous flow child.
     protected def get_last(container : Widget, i : Int32) : Widget?
       while i > 0
         i -= 1
@@ -217,7 +208,7 @@ module Crysterm
   end
 end
 
-# The abstract `Flow` strategy base subclasses `Layout`, so it is required after
+# The abstract `Flow` strategy base subclasses `Layout`, so it's required after
 # the base above is defined; its concrete engines (Masonry, UniformGrid, Wrap)
 # live under `src/layout/`.
 require "./layout_flow"

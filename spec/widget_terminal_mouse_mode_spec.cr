@@ -4,14 +4,12 @@ include Crysterm
 
 # Regression spec for `Widget::Terminal#on_mouse` mouse-mode gating.
 #
-# A child enables mouse reporting with a specific xterm DECSET mode, and the
-# widget must forward only the event kinds that mode asked for. The modes are
-# progressive: X10 (9) = button presses only; normal (1000) adds release +
-# wheel but NOT motion; button-event (1002) adds motion *while a button is
-# held*; any-event (1003) adds free motion. Previously the widget forwarded
-# every `Event::Mouse` whenever any tracking was active, so a child in the
-# common normal mode received a flood of spurious motion reports it never
-# requested.
+# A child enables mouse reporting via an xterm DECSET mode, and the widget must
+# forward only the event kinds that mode asked for. Modes are progressive: X10
+# (9) = presses only; normal (1000) adds release + wheel but not motion;
+# button-event (1002) adds motion while a button is held; any-event (1003)
+# adds free motion. Previously the widget forwarded every `Event::Mouse` while
+# any tracking was active, flooding normal-mode children with motion reports.
 
 private def screen
   Crysterm::Window.new(
@@ -31,17 +29,17 @@ describe "Widget::Terminal#on_mouse (tracking-mode gating)" do
       parent: s, top: 0, left: 0, width: 10, height: 4,
       handler: ->(data : String) { captured << data; nil })
 
-    # Render once so the emulator is bootstrapped from the resolved geometry.
+    # Render once so the emulator bootstraps from resolved geometry.
     s._render
     term.emulator.should_not be_nil
 
-    # ── normal tracking (1000): motion must NOT be forwarded ──
+    # ── normal tracking (1000): motion not forwarded ──
     term.write "\e[?1000h"
     captured.clear
     term.on_mouse mouse(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, 2, 1)
     captured.should be_empty
 
-    # A button press IS forwarded.
+    # Button press is forwarded.
     term.on_mouse mouse(::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, 2, 1)
     captured.size.should eq 1
 

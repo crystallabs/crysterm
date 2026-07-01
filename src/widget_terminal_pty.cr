@@ -1,28 +1,23 @@
 module Crysterm
   # Pseudo-terminal (PTY) support.
   #
-  # SUPPORTING CODE — this is a self-contained helper with no dependency on the
-  # rest of Crysterm and is a prime candidate for extraction into a standalone
-  # `pty` shard (the way `tput`, `term_colors`, etc. already are). It is kept
-  # here for now so the `Widget::Terminal` port is usable out of the box.
+  # SUPPORTING CODE — self-contained, no dependency on the rest of Crysterm; a
+  # candidate for extraction into a standalone `pty` shard (like `tput`,
+  # `term_colors`). Kept here for now so `Widget::Terminal` is usable out of
+  # the box.
   #
-  # It allocates a master/slave pseudo-terminal pair with `openpty(3)` and spawns
-  # the child with Crystal's `Process`, wiring the slave to the child's
-  # stdin/stdout/stderr. The master side is exposed as an ordinary
-  # `IO::FileDescriptor`: read it for the child's output, write to it to deliver
-  # input. `#resize` issues the `TIOCSWINSZ` ioctl so the child learns about
-  # geometry changes.
+  # Allocates a master/slave PTY pair with `openpty(3)` and spawns the child
+  # with Crystal's `Process`, wiring the slave to its stdin/stdout/stderr. The
+  # master is exposed as an ordinary `IO::FileDescriptor`: read for output,
+  # write to send input. `#resize` issues `TIOCSWINSZ` for geometry changes.
   #
-  # SAFETY: spawning goes through `Process.new`, which performs a fork+exec the
-  # Crystal runtime is designed for, and reaps the child itself. We never call a
-  # raw `fork`/`forkpty` (unsafe inside a GC'd, fibered runtime) and never signal
-  # a raw PID — `#kill` only ever signals *this* `Process`, so it cannot affect
-  # any other process on the machine.
+  # SAFETY: spawning goes through `Process.new` (fork+exec, reaped by Crystal).
+  # No raw `fork`/`forkpty` (unsafe in a GC'd, fibered runtime) and no signaling
+  # a raw PID — `#kill` only signals *this* `Process`.
   #
-  # CONTROLLING TERMINAL: to get a controlling terminal (and therefore job
-  # control, and no "cannot set terminal process group" warning) without a
-  # pre-exec hook, the command is run through the `setsid(1)` helper — see
-  # `#spawn_child`. That keeps everything on the safe `Process` path.
+  # CONTROLLING TERMINAL: to get one (job control, no "cannot set terminal
+  # process group" warning) without a pre-exec hook, the command runs through
+  # the `setsid(1)` helper — see `#spawn_child`.
   class Pty
     # `openpty` lives in libutil; `ioctl` and `struct winsize` (`LibC::Winsize`)
     # are already bound by the term-window shard — reused here for both calls.
@@ -34,12 +29,11 @@ module Crysterm
                   termp : Void*, winp : LibC::Winsize*) : LibC::Int
     end
 
-    # `TIOCSWINSZ` request number — the write-side companion of the term-window
-    # shard's `LibC::TIOCGWINSZ`, and platform-specific for the same reason: the
-    # BSD/macOS `_IOW('t', 103, struct winsize)` encoding (`0x80087467`) differs
-    # from Linux's flat `0x5414`. A single hardcoded Linux value silently issued
-    # the wrong ioctl on macOS/BSD, so `#resize` was a no-op there and the child
-    # (vim/htop/less …) kept its initial geometry through every window resize.
+    # `TIOCSWINSZ` request number — write-side companion of the term-window
+    # shard's `LibC::TIOCGWINSZ`, platform-specific for the same reason: BSD/macOS
+    # `_IOW('t', 103, struct winsize)` encoding (`0x80087467`) differs from
+    # Linux's flat `0x5414`. A hardcoded Linux value would silently issue the
+    # wrong ioctl on macOS/BSD, making `#resize` a no-op there.
     {% if flag?(:darwin) || flag?(:bsd) %}
       TIOCSWINSZ = 0x80087467_u64
     {% elsif flag?(:solaris) %}
@@ -48,15 +42,14 @@ module Crysterm
       TIOCSWINSZ = 0x5414_u64 # Linux (and the default for anything else)
     {% end %}
 
-    # The master side of the PTY. Read it for child output; write to it to send
-    # input to the child. Crystal classifies a PTY master (a character device) as
-    # non-blocking, so reads from a fiber yield through the event loop rather than
-    # parking the whole (single) thread — which would otherwise starve the
-    # window's keyboard-input fiber.
+    # The master side of the PTY. Read for child output, write to send input.
+    # Crystal treats a PTY master as non-blocking, so fiber reads yield through
+    # the event loop instead of parking the thread and starving the window's
+    # keyboard-input fiber.
     getter master : IO::FileDescriptor
 
-    # The spawned child process. Signalling/reaping always go through this object,
-    # so they target exactly this PID and nothing else.
+    # The spawned child process. Signalling/reaping always go through this
+    # object, targeting exactly this PID.
     getter process : Process
 
     getter? closed = false
@@ -89,20 +82,18 @@ module Crysterm
       slave.close
     end
 
-    # Spawns the child on the safe `Process` path. When the `setsid(1)` helper is
-    # available it runs the command through `setsid -c`, which makes the child a
-    # session leader with the slave PTY as its **controlling terminal** — so job
-    # control works and an interactive shell no longer prints "cannot set
-    # terminal process group / no job control".
+    # Spawns the child on the safe `Process` path. When `setsid(1)` is available
+    # it runs the command through `setsid -c`, making the child a session leader
+    # with the slave PTY as its controlling terminal, so job control works and
+    # an interactive shell doesn't print "cannot set terminal process group".
     #
-    # We deliberately do NOT pass `-w` (wait): `-w` would keep `setsid` blocked
-    # on the child, so our own `#reap` (`Process#wait`) could hang forever if the
-    # child ignored the hang-up. Without `-w`, `setsid` exec's the command
-    # in place — so `@process` is the shell itself: directly signalable, reapable,
-    # and with the slave as its controlling terminal. Closing the master then
-    # delivers `SIGHUP` to it cleanly. (No bare `fork`/`forkpty` anywhere; if
-    # `setsid` is missing we fall back to a plain spawn, which works minus job
-    # control.)
+    # Deliberately no `-w` (wait): that would keep `setsid` blocked on the
+    # child, so `#reap` (`Process#wait`) could hang forever if the child ignored
+    # the hang-up. Without `-w`, `setsid` execs the command in place, so
+    # `@process` is the shell itself: directly signalable/reapable, with the
+    # slave as its controlling terminal, so closing the master delivers SIGHUP
+    # cleanly. Falls back to a plain spawn (minus job control) if `setsid` is
+    # missing.
     private def spawn_child(command, args, slave, env, chdir) : Process
       base = {input: slave, output: slave, error: slave, env: env, chdir: chdir}
       if Process.find_executable("setsid")
@@ -130,11 +121,10 @@ module Crysterm
       @master.flush
     end
 
-    # The child's exit status. Intended to be called once the master has reported
-    # EOF (the child has closed the PTY, so it is exiting): `Process#wait` then
-    # returns promptly with the status, cooperatively yielding the fiber rather
-    # than busy-waiting. Returns `nil` if the status carries no exit code (e.g.
-    # the child was terminated by a signal). The result is cached.
+    # The child's exit status. Call once the master reports EOF (child closing
+    # the PTY), so `Process#wait` returns promptly, yielding the fiber rather
+    # than busy-waiting. Returns `nil` if there's no exit code (e.g. killed by
+    # signal). Result is cached.
     def reap : Int32?
       return @exit_code if @reaped
       @reaped = true
@@ -149,7 +139,7 @@ module Crysterm
       begin
         @process.signal Signal::HUP unless @process.terminated?
       rescue
-        # Child already gone / not signalable — nothing to do.
+        # Child already gone / not signalable.
       end
       @master.close rescue nil
     end

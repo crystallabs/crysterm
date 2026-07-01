@@ -4,21 +4,17 @@ include Crysterm
 
 # Regression spec for `Crysterm::Pty#resize`.
 #
-# `#resize` issues the `TIOCSWINSZ` ioctl so the child program learns about a
-# new terminal geometry. That request number is platform-specific (BSD/macOS
-# encode it via `_IOW('t', 103, struct winsize)` = 0x80087467, Linux uses the
-# flat 0x5414) — exactly like the term-screen shard's read-side
-# `LibC::TIOCGWINSZ`. The constant used to be hardcoded to the Linux value, so
-# on macOS/BSD the ioctl number was wrong and the resize silently did nothing.
+# `#resize` issues the `TIOCSWINSZ` ioctl. The request number is
+# platform-specific (BSD/macOS: `_IOW('t', 103, struct winsize)` = 0x80087467;
+# Linux: flat 0x5414) — same as read-side `LibC::TIOCGWINSZ`. It used to be
+# hardcoded to the Linux value, silently no-oping the resize on macOS/BSD.
 #
-# Here we open a real PTY, resize it, and read the geometry back from the master
-# fd with `TIOCGWINSZ` (which reflects the line discipline's current winsize).
-# With the wrong (Linux) request on macOS the set is a no-op and the read-back
-# stays at the initial 80x24; with the correct platform value it reports 100x40.
+# Opens a real PTY, resizes it, and reads the geometry back via `TIOCGWINSZ`:
+# wrong (Linux) request on macOS leaves it at 80x24, correct value reports 100x40.
 describe Crysterm::Pty do
   describe "#resize" do
     it "propagates the new geometry to the PTY (correct TIOCSWINSZ per platform)" do
-      # A harmless, long-lived child that just sits on the slave PTY.
+      # Long-lived child on the slave PTY.
       pty = Crysterm::Pty.new("sleep", ["30"], cols: 80, rows: 24)
       begin
         pty.resize(100, 40)

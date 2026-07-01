@@ -35,16 +35,14 @@ module Crysterm
     event WindowOpened, screen : Crysterm::Window
 
     # Emitted when the terminal emulator window backing a `Window` goes away —
-    # typically because the user closed it. The `Window` itself is NOT destroyed
-    # by default (it is only disconnected, keeping its widget tree intact), so a
-    # handler may re-attach it to a new window via `Window.open(into: screen)` or
-    # tear it down with `screen.destroy`. `screen` is the affected screen.
+    # typically because the user closed it. The `Window` is only disconnected
+    # (not destroyed); re-attach via `Window.open(into: screen)` or tear it down
+    # with `screen.destroy`. `screen` is the affected screen.
     event WindowClosed, screen : Crysterm::Window
 
     # Emitted by an `Application` when a new physical device (`Screen`) is added —
-    # i.e. the first window on a tty is registered ↔
-    # `QGuiApplication::screenAdded`. This is the attach half of the detach/
-    # reattach machinery. `screen` is the device.
+    # i.e. the first window on a tty is registered ↔ `QGuiApplication::screenAdded`.
+    # `screen` is the device.
     event ScreenAdded, screen : Crysterm::Screen
 
     # Emitted by an `Application` when a device (`Screen`) is no longer backing any
@@ -58,12 +56,9 @@ module Crysterm
     event Blur, el : Widget? = nil
 
     # Emitted when a widget's scroll position changes. `delta` is the signed
-    # change in position, in lines (positive = toward the content end / down or
-    # right, negative = toward the start; `0` when the position was re-asserted
-    # without moving), and `orientation` is the axis that moved (`:vertical` for
-    # now — horizontal lands with the scroll-area work). Both default, so the
-    # bare `emit Event::Scroll` keeps working for callers that don't compute a
-    # delta; direction-aware listeners can read them without diffing state.
+    # change in lines (positive = toward content end; `0` if reasserted without
+    # moving); `orientation` is the axis (`:vertical` only for now). Both default
+    # so `emit Event::Scroll` still works without computing a delta.
     event Scroll, delta : Int32 = 0, orientation : Tput::Orientation = :vertical
 
     # # Emitted on some data
@@ -77,23 +72,19 @@ module Crysterm
 
     # Emitted when the user pastes text and bracketed paste (DEC 2004) is
     # enabled (`Window#enable_bracketed_paste`). `content` is the pasted text
-    # verbatim — never interpreted as key presses, so embedded control sequences
-    # are inert. Lets apps treat paste differently from typing (e.g. insert
-    # literally, skip auto-indent, guard against paste injection). A programmatic
-    # clipboard *read* reply arrives as `Clipboard` (below), not as a paste.
+    # verbatim, never interpreted as key presses. A programmatic clipboard
+    # *read* reply arrives as `Clipboard` (below), not as a paste.
     event Paste, content : String
 
     # Emitted when an OSC 52 clipboard *read* reply arrives, in answer to a
     # `Window#request_clipboard` / `Application::Clipboard#request` — the
     # `QClipboard::dataChanged` analogue. `content` is the decoded clipboard text.
-    # Distinct from `Paste`: this is the system clipboard's contents reported back
-    # asynchronously, not the user pasting into the app. The app-wide
-    # `Application#clipboard` cache is refreshed from it before this fires.
+    # Distinct from `Paste`: this is the clipboard reported back asynchronously,
+    # not the user pasting. `Application#clipboard` is refreshed from it first.
     event Clipboard, content : String
 
     # Emitted when the terminal reports a light/dark color-scheme change, once
-    # `Window#enable_color_scheme_notifications` (DEC 2031) is active. Lets an app
-    # adapt its palette to the terminal theme at runtime.
+    # `Window#enable_color_scheme_notifications` (DEC 2031) is active.
     event ColorScheme, scheme : ::Tput::ColorScheme
 
     # Emitted by a `Crysterm::Timer` on every tick. Widgets (and anything else)
@@ -130,9 +121,8 @@ module Crysterm
     event Press
 
     # Emitted by an `Action` when a display-affecting property (`text`,
-    # `enabled`, `checkable`, `checked`, `visible`) changes, so that any widget
-    # presenting the action (a `Widget::Menu`, tool bar, etc.) can refresh its
-    # rendering. Mirrors Qt's `QAction::changed()` signal.
+    # `enabled`, `checkable`, `checked`, `visible`) changes, so any widget
+    # presenting the action can refresh. Mirrors Qt's `QAction::changed()`.
     event Changed
 
     # Emitted on checkbox checked
@@ -145,9 +135,9 @@ module Crysterm
     # (indeterminate) state. Mirrors Qt's `Qt::PartiallyChecked`.
     event PartialCheck, value : Bool
 
-    # Emitted while the text of an editable text widget (e.g. `Widget::LineEdit`)
-    # changes interactively — on every keystroke, not just on submit. Mirrors
-    # Qt's `QLineEdit#textChanged(QString)` signal.
+    # Emitted on every keystroke as an editable text widget's (e.g.
+    # `Widget::LineEdit`) text changes, not just on submit. Mirrors Qt's
+    # `QLineEdit#textChanged(QString)`.
     event TextChange, value : String
 
     # Emitted when a numeric widget's value changes (e.g. `Widget::ProgressBar`).

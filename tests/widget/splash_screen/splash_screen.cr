@@ -7,7 +7,7 @@ require "../example"
 
 Crysterm::WidgetExample.run "SplashScreen" do |screen|
   screen.stylesheet = "SplashScreen { border: solid; background-color: #11121a; color: #c0caf5; }"
-  # `content` is the central widget shown on the splash (not a string).
+  # `content` is the central widget here, not a string.
   splash = Crysterm::Widget::SplashScreen.new parent: screen, width: 50, height: 15, message_height: 1,
     content: Crysterm::Widget::Box.new(
       top: "center", left: "center", width: 44, height: 8, parse_tags: true,

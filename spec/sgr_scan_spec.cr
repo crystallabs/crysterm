@@ -4,10 +4,8 @@ include Crysterm
 
 # Guards the SGR-scanning optimization (#7 in widget_rendering, #8 in
 # widget_content/_parse_attr): matching `SGR_REGEX` anchored *in place* at an
-# escape position must find exactly the same sequence, at the same position, as
-# the previous "slice the tail, then match the ^-anchored regex" approach —
-# without allocating the tail substring. Pure string/regex, so it needs no
-# Window (which the spec runner can't tear down cleanly).
+# escape position must find the same sequence/position as the old "slice the
+# tail, then match ^-anchored" approach, without allocating the tail substring.
 describe "SGR in-place anchored scanning" do
   sgr = Crysterm::Widget::SGR_REGEX
   sgr_at = Crysterm::Widget::SGR_REGEX_AT_BEGINNING

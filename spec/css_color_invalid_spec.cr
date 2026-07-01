@@ -3,13 +3,11 @@ require "./spec_helper"
 include Crysterm
 
 # Focused specs for CSS color properties (`Crysterm::CSS::Properties.apply`).
-# The interesting case — as with `z-index`/`visibility`/`display` (see their
-# specs) — is the *blank* value: a `var(--x)` whose custom property is undefined
-# collapses to "" before reaching the property. Per CSS such an invalid
-# declaration is dropped, leaving any previously-cascaded color intact; it must
-# NOT clobber the color to the terminal default (`-1`), which would silently
-# reset a color a lower-priority rule had set (e.g. the theme's
-# `Box { background-color: var(--surface) }`).
+# As with `z-index`/`visibility`/`display` (see their specs), the interesting
+# case is a blank value: an undefined `var(--x)` collapses to "" before
+# reaching the property. Per CSS this invalid declaration is dropped, leaving
+# any previously-cascaded color intact — it must not clobber to the terminal
+# default (`-1`).
 describe "CSS color (invalid value)" do
   it "parses a valid color" do
     s = Style.new
@@ -22,8 +20,7 @@ describe "CSS color (invalid value)" do
   it "drops a blank `color`, keeping a previously-set foreground" do
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "color", "#123456")
-    # An undefined `var()` collapses to "" before reaching the property — must
-    # not reset fg to the terminal default (-1).
+    # An undefined `var()` collapses to "" — must not reset fg to -1.
     Crysterm::CSS::Properties.apply(s, "color", "")
     s.fg.should eq 0x123456
   end
@@ -51,7 +48,7 @@ describe "CSS color (invalid value)" do
 
   it "drops a blank per-side `border-top-color`, leaving the side unset" do
     s = Style.new
-    # With no per-side override the side falls back to the whole-border color.
+    # No per-side override -> falls back to the whole-border color.
     Crysterm::CSS::Properties.apply(s, "border-color", "#0000ff")
     Crysterm::CSS::Properties.apply(s, "border-top-color", "")
     s.border.fg_top.should be_nil

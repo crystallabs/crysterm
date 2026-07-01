@@ -2,9 +2,8 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-listtable.js
 #
-# Demonstrates the interactive `Widget::ListTable`: a selectable table with a
-# pinned header row, line borders, styled header/cell, keyboard (and vi)
-# navigation, and re-setting the data after a delay.
+# Demonstrates `Widget::ListTable`: selectable table with pinned header row,
+# line borders, styled header/cell, keyboard/vi navigation, and re-setting data after a delay.
 class X
   include Crysterm
 

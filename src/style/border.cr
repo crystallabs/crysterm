@@ -89,12 +89,11 @@ module Crysterm
     # (`nil`) each falls back to `char` (see `#horizontal_char`, `#vertical_char`,
     # `#corner_char`).
     #
-    # Splitting the char three ways exists because terminal cells typically have
-    # a ~1x2 (width:height) aspect ratio, so a single char drawn along a
-    # horizontal run reads as "doubly wide" compared to the same char stacked
-    # vertically. Setting `char_horizontal`/`char_vertical`/`char_corner`
-    # independently lets the border look uniform: e.g. `─` horizontally, `│`
-    # vertically, and `┼`/`+` where they join.
+    # Split three ways because terminal cells have a ~1x2 (width:height)
+    # aspect ratio, so one char along a horizontal run reads "doubly wide"
+    # versus the same char stacked vertically. Setting
+    # `char_horizontal`/`char_vertical`/`char_corner` independently keeps the
+    # border uniform: e.g. `─` horizontally, `│` vertically, `┼`/`+` at joins.
     property char_horizontal : Char? = nil
     property char_vertical : Char? = nil
     property char_corner : Char? = nil
@@ -160,7 +159,7 @@ module Crysterm
       @right = @right,
       @bottom = @bottom,
     )
-      # Route through the setters so a native int or a `"#rrggbb"`/named string
+      # Route through setters so a native int or a `"#rrggbb"`/named string
       # both resolve to the native int form.
       self.bg = bg unless bg.nil?
       self.fg = fg unless fg.nil?

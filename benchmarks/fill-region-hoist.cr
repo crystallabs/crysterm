@@ -3,9 +3,9 @@ require "../src/crysterm"
 
 # Validates the array-hoist on `Screen#fill_region` — the per-frame full-screen
 # clear path (`clear_region` in `_render` runs it over the whole grid every
-# frame). OLD walked the region through `each_region_cell`, constructing a `Cell`
-# handle and a bounds-checked `line[x]?` per cell; NEW indexes the row's hoisted
-# `attrs`/`chars` arrays with `unsafe_fetch`/`unsafe_put`.
+# frame). OLD walked the region via `each_region_cell`, constructing a `Cell`
+# handle and a bounds-checked `line[x]?` per cell; NEW indexes the row's
+# hoisted `attrs`/`chars` arrays with `unsafe_fetch`/`unsafe_put`.
 #
 # Run:  crystal run --release benchmarks/fill-region-hoist.cr
 
@@ -16,8 +16,8 @@ HEIGHT =  50
 attr = Crysterm::Screen::DEFAULT_ATTR
 ch = ' '
 
-# Build a HEIGHT-row grid of plain ASCII cells (no grapheme overlays — the
-# common case), mirroring what `@lines` holds.
+# Build a HEIGHT-row grid of plain ASCII cells (no grapheme overlays, the
+# common case), mirroring `@lines`.
 def make_grid
   rows = Array(Crysterm::Screen::Row).new
   HEIGHT.times do
@@ -28,8 +28,8 @@ def make_grid
   rows
 end
 
-# OLD: the previous each_region_cell + Cell-handle implementation, inlined here
-# so both run in one process.
+# OLD: previous each_region_cell + Cell-handle implementation, inlined so both
+# run in one process.
 def fill_old(lines, attr, ch, override = false)
   0.upto(HEIGHT - 1) do |y|
     line = lines[y]
@@ -80,8 +80,8 @@ ok = HEIGHT.times.all? do |y|
 end
 puts "correctness (OLD == NEW, all cleared to default): #{ok ? "OK" : "MISMATCH"}"
 
-# Steady-state case: grid is ALREADY clear, so neither writes (the per-frame
-# common case once the background is stable — pure comparison cost).
+# Steady-state case: grid is already clear, so neither writes (per-frame
+# common case once the background is stable; pure comparison cost).
 puts "\n--- already-clear grid (no writes; pure scan cost) ---"
 Benchmark.ips do |x|
   x.report("OLD  Cell handle per cell") { fill_old grid_old, attr, ch }

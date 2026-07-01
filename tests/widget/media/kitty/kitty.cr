@@ -1,12 +1,11 @@
-# IMPRESSIVE DEMO: a true-color image via the KITTY graphics protocol.
+# True-color image demo via the Kitty graphics protocol.
 #
 # `Widget::Media::Kitty` decodes the PNG with the pure-Crystal PNGGIF reader and
 # transmits it as raw 32-bit RGBA (base64, chunked) in an in-band APC escape
 # (`ESC _G … ESC \`) that a Kitty-protocol terminal (kitty, WezTerm, Konsole,
-# Ghostty, …) draws as real pixels — full true-color, no palette, scaled by the
-# terminal to fill the widget's cell box. Here: the Matterhorn.
+# Ghostty, …) draws as real pixels, scaled to fill the widget's cell box.
 #
-# This needs a Kitty-graphics-capable terminal on a real display.
+# Needs a Kitty-graphics-capable terminal on a real display.
 
 require "../../../../src/crysterm"
 
@@ -25,7 +24,7 @@ ih = s.aheight - 1
 Widget::Media::Kitty.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
   cell_pixel_width: (ENV["CELL_PW"]? || "0").to_i,  # 0 = auto-detect (TIOCGWINSZ)
-  cell_pixel_height: (ENV["CELL_PH"]? || "0").to_i, # so the image matches real cells
+  cell_pixel_height: (ENV["CELL_PH"]? || "0").to_i,
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"
 
 if secs = ENV["DEMO_SECONDS"]?

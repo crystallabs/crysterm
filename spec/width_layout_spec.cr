@@ -2,14 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Phase 2a: the width-measurement hook `Widget#str_width`.
-#
-# This pure spec covers the legacy path (no screen attached -> `full_unicode?`
-# is false), which must stay codepoint-counted, and confirms SGR sequences are
-# stripped before measuring. The full-unicode (column-width) path needs an
-# attached, Unicode-capable screen and is exercised by
-# `test/`-style run verification rather than here, since constructing real
-# `Window`s in the spec process interferes with the spec runner's teardown.
+# Covers the legacy path of `Widget#str_width` (no screen attached ->
+# `full_unicode?` false), which stays codepoint-counted, and confirms SGR
+# sequences are stripped before measuring. The full-unicode (column-width)
+# path needs an attached, Unicode-capable screen and is exercised by
+# `test/`-style runs instead, since constructing real `Window`s here
+# interferes with the spec runner's teardown.
 describe "Widget#str_width (legacy / unattached)" do
   it "counts codepoints when full_unicode is not active" do
     b = Widget::Box.new

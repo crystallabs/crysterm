@@ -3,14 +3,12 @@ module Crysterm
     # The "list of selectable items" concern, extracted from `Widget::List` so
     # the item model can be shared without inheritance.
     #
-    # Qt makes `QListWidget`, `QTreeWidget`, and `QTableView` *siblings* under
-    # `QAbstractItemView`, while `QMenu` is a plain `QWidget`. Crysterm mirrors
-    # that: `List`/`Tree`/`ListTable`/`ComboBox::Popup`/`FileManager` derive
-    # `AbstractItemView` and `include` this module, and `Menu` — a `Box`, *not* an
-    # item view — includes it standalone to reuse the row machinery. (It is
-    # deliberately *not* mixed into `AbstractItemView`, so `Menu` can include it
-    # without becoming one.) `List` itself stays a usable concrete widget that
-    # also includes it, exactly as `Input` includes `Mixin::Interactive`.
+    # Mirrors Qt's `QAbstractItemView` siblings (`QListWidget`, `QTreeWidget`,
+    # `QTableView`): `List`/`Tree`/`ListTable`/`ComboBox::Popup`/`FileManager`
+    # derive `AbstractItemView` and `include` this module. `Menu` — a `Box`, not
+    # an item view — includes it standalone to reuse the row machinery without
+    # becoming an `AbstractItemView`. `List` itself includes it directly too,
+    # like `Input` includes `Mixin::Interactive`.
     #
     # The `@_is_list` flag plus `#item_selected?` (overridden here) are the
     # duck-typed hooks the renderer keys off — see `Widget#item_selected?` and
@@ -18,9 +16,8 @@ module Crysterm
     module ItemView
       property ignore_keys = true
       property scrollable = true
-      # Auto-show the scroll bar when items overflow (Qt `AsNeeded`); the bar's
-      # thumb sizes from the item-count model via `#get_scroll_height`.
-      # Inherited by `Tree`.
+      # Auto-show the scroll bar when items overflow (Qt `AsNeeded`); thumb size
+      # comes from `#get_scroll_height`. Inherited by `Tree`.
       @scrollbar_policy = Widget::ScrollBarPolicy::AsNeeded
 
       property _list_initialized = false
@@ -29,9 +26,8 @@ module Crysterm
       property selected = 0
 
       # Blank rows of vertical spacing inserted *between* items (Qt's
-      # `QListView` spacing). The gaps are not items — nothing sits there to
-      # click or select — so the list stays a clean 1:1 model of its rows while
-      # still reading visually spaced. `0` (the default) stacks items flush.
+      # `QListView` spacing). Gaps aren't items — nothing to click/select there.
+      # `0` (default) stacks items flush.
       getter item_spacing : Int32 = 0
 
       # Re-places existing items when the spacing changes at runtime.
@@ -41,16 +37,15 @@ module Crysterm
         value
       end
 
-      # The content row an item at *index* occupies, accounting for `item_spacing`
-      # (the gaps before it). With the default spacing of `0` this is just
-      # *index*, so the flush-stacked behavior is unchanged.
+      # The content row an item at *index* occupies, accounting for the gaps
+      # before it. With spacing `0` this is just *index*.
       private def item_row(index : Int) : Int32
         index * (1 + @item_spacing)
       end
 
-      # Total content height in rows, including the inter-item gaps so the
-      # scrollbar/overflow logic sees the real extent (the list `_scroll_bottom`
-      # otherwise counts items, ignoring spacing). Unchanged when not spaced.
+      # Total content height in rows, including inter-item gaps, so scrollbar/
+      # overflow logic sees the real extent (`_scroll_bottom` otherwise counts
+      # items, ignoring spacing). Unchanged when not spaced.
       def get_scroll_height
         base = super
         return base if @item_spacing.zero? || @items.empty?
@@ -62,39 +57,36 @@ module Crysterm
       property? activate_on_click : Bool = false
 
       # When true, moving the pointer over a row selects it (no click required),
-      # the way desktop menus track the mouse. Off for plain lists; set by
-      # `Widget::Menu`. The per-row hook is `#hover_item`.
+      # like desktop menus. Off for plain lists; set by `Widget::Menu`. Per-row
+      # hook is `#hover_item`.
       property? hover_select : Bool = false
 
-      # Whether more than one item can be selected at once, like Qt's
-      # `QAbstractItemView::MultiSelection`. When on, Space toggles the current
-      # item's membership in `#selected_indices` (the cursor still moves with the
-      # arrow keys). When off, the list behaves as a single-selection list and
-      # only the cursor item is highlighted.
+      # Whether more than one item can be selected at once (like Qt's
+      # `QAbstractItemView::MultiSelection`). When on, Space toggles the current
+      # item's membership in `#selected_indices` (cursor still moves with arrow
+      # keys). When off, only the cursor item is highlighted.
       property? multi_select : Bool = false
 
-      # Indices of the items that are part of the multi-selection (only
-      # meaningful when `#multi_select?`). Maintained across insert/remove so the
-      # marked items track their rows.
+      # Indices in the multi-selection (only meaningful when `#multi_select?`).
+      # Maintained across insert/remove so marked items track their rows.
       getter selected_indices = Set(Int32).new
 
-      # Tag-stripped text of the currently selected item (`""` when the list is
-      # empty). Kept in sync by `#selekt`; useful e.g. for `Widget::Form`
-      # value collection.
+      # Tag-stripped text of the currently selected item (`""` when empty).
+      # Kept in sync by `#selekt`; used e.g. by `Widget::Form` value collection.
       getter value : String = ""
 
       # Lazily-built map of `clean_tags(item) => first index`, used by the
-      # `get_item_index(String)` fallback so it doesn't re-run `clean_tags`
-      # (a full gsub per item) on every lookup. Invalidated to `nil` whenever
-      # `@ritems` is mutated; see `invalidate_item_index`.
+      # `get_item_index(String)` fallback to avoid re-running `clean_tags` (a
+      # full gsub per item) on every lookup. Invalidated by `invalidate_item_index`
+      # whenever `@ritems` is mutated.
       @clean_tags_index : Hash(String, Int32)? = nil
 
       @_is_list = true
       @interactive = true
 
       # React to mouse: click an item to select it (click the selected one to
-      # activate it), and scroll the selection with the wheel. Items are wired
-      # for this in `#create_item` when enabled.
+      # activate it), scroll the selection with the wheel. Wired up in
+      # `#create_item` when enabled.
       property? mouse = true
 
       def initialize(input = true, mouse = true, multi_select = false, items : Enumerable(String)? = nil, **box)
@@ -118,31 +110,19 @@ module Crysterm
       # Returns the `::Crysterm::Style` an item box should render with, given whether it is
       # the selected item.
       #
-      # The list draws its *own* border (and background) around the whole
-      # widget, so an individual item must never carry a border of its own.
-      # The non-selected branch of `::Crysterm::Style#item` falls back to the list's own
-      # style (`@item || self`), which — when the list has a border — would make
-      # every non-selected item draw a nested border, showing up as stray
-      # line-drawing characters. We therefore strip the border from the item
-      # style here. The selected branch (`styles.selected`) is already a
-      # separate, border-less style, but is run through the same guard for
-      # symmetry (and in case a user gives the selected style a border). See
-      # `Widget#_render`, which calls this.
+      # The list draws its own border around the whole widget, so individual
+      # items must never carry one — the non-selected branch of
+      # `::Crysterm::Style#item` falls back to the list's own style (`@item || self`),
+      # which would otherwise make every item draw a nested border. The
+      # selected branch (`styles.selected`) is already border-less but runs
+      # through the same guard for symmetry. See `Widget#_render`, which calls this.
       def item_render_style(selected : Bool) : ::Crysterm::Style
         return without_border(style.item) unless selected
-        # Fuse the two transforms the selected style needs — strip the list border
-        # (items never draw their own; the list owns the frame) and, at the
-        # unstyled floor, force reverse-video so the cursor row reads with no theme
-        # — into a SINGLE `#dup`. The old `selection_fallback(without_border(...))`
-        # dup'd twice (once to strip, once to set reverse) whenever both applied,
-        # discarding the first copy; this produces a byte-identical style with at
-        # most one copy. The shared `styles.selected` is never mutated in place
-        # (only the local copy is), and nothing is cached across frames — so this
-        # carries none of the staleness hazard a cross-frame cache would (the base
-        # state style is mutated in place elsewhere, e.g. `hide`/`show` toggling
-        # `visible`). Each guard mirrors the helper it replaces exactly, so the
-        # no-op cases (no border AND visibly-styled selection) still return the
-        # shared `styles.selected` untouched.
+        # Fuses the two transforms the selected style needs (strip border, and
+        # force reverse-video at the unstyled floor) into a single `#dup`, instead
+        # of the old `selection_fallback(without_border(...))` which dup'd twice
+        # and discarded the first copy. `styles.selected` itself is never mutated
+        # in place, and nothing is cached across frames.
         base = styles.selected
         strip = base.border.any?
         reverse = !selection_visibly_styled?
@@ -155,12 +135,11 @@ module Crysterm
 
       # Whether the selection state carries its own visible distinction (a color
       # or reverse video). When it does not — the unstyled floor, where
-      # `styles.selected` lazily falls back to `normal` with no selection colors
-      # — selection is shown via reverse-video instead (see `#selection_fallback`):
-      # the one highlight that needs no color and reads on any terminal
-      # background. This path is only reached for non-CSS-styled items (see
-      # `#render_style_for`), so a themed selection (which sets explicit colors
-      # via `Box:selected`) is never touched.
+      # `styles.selected` falls back to `normal` with no selection colors —
+      # selection falls back to reverse-video instead (see `#selection_fallback`),
+      # which needs no color and reads on any terminal background. Only reached
+      # for non-CSS-styled items (see `#render_style_for`); themed selections
+      # (`Box:selected`) are never touched.
       private def selection_visibly_styled? : Bool
         return false unless styles.own_selected?
         sel = styles.selected
@@ -169,9 +148,8 @@ module Crysterm
 
       # Returns *st* with reverse-video forced on when the selection has no
       # visible styling of its own, so the cursor row stays distinguishable with
-      # no theme active. A `#dup` is taken before toggling so a shared
-      # `styles.selected`/`normal` is never mutated in place. When the selection
-      # is already visibly styled, *st* is returned untouched.
+      # no theme active. Dups before toggling so the shared style is never
+      # mutated in place. Returns *st* untouched when already visibly styled.
       private def selection_fallback(st : ::Crysterm::Style) : ::Crysterm::Style
         return st if selection_visibly_styled?
         st = st.dup
@@ -179,12 +157,11 @@ module Crysterm
         st
       end
 
-      # Returns *base* with any border stripped: *base* untouched when it has no
-      # border (the common case — no allocation), else a borderless `#dup`. Items
-      # must never carry the list's border — the list draws the frame around the
-      # whole widget, so a per-item border would nest stray line-drawing chars and
-      # also reserve `iwidth`, shrinking the item's content area. Shared by the
-      # item-style paths here and in `ListTable`/`Menu` (which subclass `List`).
+      # Returns *base* with any border stripped: *base* untouched when borderless
+      # (no allocation), else a borderless `#dup`. Items must never carry the
+      # list's border — it would nest stray line-drawing chars and reserve
+      # `iwidth`, shrinking the item's content area. Shared by the item-style
+      # paths here and in `ListTable`/`Menu` (subclasses of `List`).
       protected def without_border(base : ::Crysterm::Style) : ::Crysterm::Style
         return base unless base.border.any?
         borderless = base.dup
@@ -192,23 +169,21 @@ module Crysterm
         borderless
       end
 
-      # Resolves the `::Crysterm::Style` an item box should render with. This is the single
+      # Resolves the `::Crysterm::Style` an item box should render with. Single
       # entry point called from `Widget#_render`; subclasses (e.g.
       # `Widget::ListTable`, for alternating rows) override it.
       #
       # The cursor item gets the full `selected` highlight. In `#multi_select?`
       # mode the *other* checked items are underlined so they read as selected
-      # without being confused with the cursor (Qt shows the current item and the
-      # selected set distinctly).
+      # without being confused with the cursor (mirrors Qt's distinct current-item
+      # vs. selected-set display).
       def render_style_for(item : Widget) : ::Crysterm::Style
-        # If CSS styled this item (e.g. `List Box`, `Item:nth-child(even)`), use
-        # the item's own cascade-computed style, reflecting selection through its
+        # CSS-styled item (e.g. `List Box`, `Item:nth-child(even)`): use the
+        # item's own cascade-computed style, reflecting selection through its
         # widget state so `:selected` rules apply.
         if item.css_styled?
-          # In multi-select the cursor item gets the full `:selected` highlight,
-          # while the *other* checked items stay in the normal state but are
-          # underlined — so they read as selected without being confused with the
-          # cursor (same distinction as the non-CSS path below).
+          # Multi-select: cursor item gets the full `:selected` highlight, other
+          # checked items stay normal but underlined.
           if multi_select?
             i = @items.index item
             item.state = (i == @selected) ? WidgetState::Selected : WidgetState::Normal
@@ -228,8 +203,8 @@ module Crysterm
           return selected ? selection_overlay(base) : base
         end
 
-        # Fast path (the overwhelmingly common case): no multi-selection, so the
-        # only "selected" item is the cursor — an O(1) array compare, no scan.
+        # Fast path: no multi-selection, so the only "selected" item is the
+        # cursor — O(1) array compare, no scan.
         unless multi_select?
           return item_render_style(@items[@selected]? == item)
         end
@@ -248,21 +223,18 @@ module Crysterm
 
       # Overlays the list-level selected style's colors onto a selected item's
       # CSS-computed *style* (from `selection-color`/`selection-background-color`,
-      # or a `List:selected` rule / code). On the per-item CSS render path the
-      # item box's own computed style is returned verbatim, so without this the
-      # list-level selection colors — which live on the list's `styles.selected`,
-      # not the item's — would never reach the window. A no-op (returns *style*
-      # unchanged) unless a distinct selected style was actually set.
+      # or a `List:selected` rule). Without this, list-level selection colors
+      # (on `styles.selected`, not the item's style) would never reach the
+      # window. No-op unless a distinct selected style was set.
       private def selection_overlay(style : ::Crysterm::Style) : ::Crysterm::Style
         return style unless styles.own_selected?
         overlay_colors style, styles.selected
       end
 
       # Returns *base* with *source*'s explicitly-set fg/bg laid over it: *base*
-      # itself when *source* specifies neither color (the common case), else a
-      # `#dup` carrying the overlaid colors. Used to bridge list-level
-      # `selection-*`/`alternate-background-color` onto per-item CSS styles
-      # without disturbing the item's other (non-color) properties.
+      # itself when neither color is specified, else a `#dup` carrying the
+      # overlaid colors. Bridges list-level `selection-*`/`alternate-background-color`
+      # onto per-item CSS styles without touching other properties.
       private def overlay_colors(base : ::Crysterm::Style, source : ::Crysterm::Style) : ::Crysterm::Style
         fg = source.specified?(:fg)
         bg = source.specified?(:bg)
@@ -276,8 +248,8 @@ module Crysterm
       # Whether *item* should render in the selected style: it is the cursor
       # item, or (in `#multi_select?` mode) it is part of `#selected_indices`.
       def item_selected?(item : Widget) : Bool
-        # Fast path: single-selection lists only need an O(1) compare against the
-        # cursor item (this runs once per item per frame from `Widget#_render`).
+        # Fast path: single-selection only needs an O(1) compare against the
+        # cursor item (runs once per item per frame from `Widget#_render`).
         return @items[@selected]? == item unless multi_select?
 
         i = @items.index item
@@ -289,11 +261,8 @@ module Crysterm
       # single-selection mode this is just `[value]` (or `[]` when empty).
       def selected_values : Array(String)
         unless multi_select?
-          # An empty list has no selection, so report none — `[]`, not `[""]`.
-          # `@value` is correctly `""` here, but wrapping it would surface a
-          # phantom one-element selection to callers (e.g. value collection),
-          # contradicting both this method's documented contract and the
-          # multi-select branch below, which yields `[]` for an empty selection.
+          # Empty list has no selection: report `[]`, not `[""]` (wrapping
+          # `@value` would surface a phantom one-element selection).
           return [] of String if @items.empty?
           return [@value]
         end
@@ -325,33 +294,26 @@ module Crysterm
         @selected_indices.clear
       end
 
-      # A `List` has a fixed viewport that scrolls its items, so "scrollable right
-      # now" must be a real content-vs-height overflow test — not the `@resizable`
-      # always-scrollable short-circuit it would otherwise inherit (`really_scrollable?`
-      # returns `@scrollable` for resizable widgets, which made an `AsNeeded`
-      # vertical scroll bar — its `█` thumb — appear even when every item fits).
-      # Mirrors `PlainTextEdit#really_scrollable?`.
+      # A `List` has a fixed viewport, so "scrollable right now" must be a real
+      # content-vs-height overflow test, not the `@resizable` always-scrollable
+      # short-circuit it would otherwise inherit (which made an `AsNeeded`
+      # scroll bar appear even when every item fits). Mirrors
+      # `PlainTextEdit#really_scrollable?`.
       def really_scrollable?
         content_overflows_height?
       end
 
       # Keeps every item's right-edge reservation in lock-step with the vertical
-      # scroll bar's *current* presence, each frame. The items *are* this widget's
-      # content, so their reservation is exactly `#content_margin_x` (the same
-      # columns the wrap/content-width math reserves — never a hardcoded `1`).
-      # Items bake `right` at creation (`#create_item`), but whether the bar shows
-      # can change after they exist — the list grew past the viewport, `#set_items`
-      # replaced the data reusing the old item widgets (which never re-run
-      # `create_item`), the viewport was resized, etc. A stale `right: 0` would let
-      # the shown bar overpaint the last content column (visible with centered/
-      # right-aligned rows, e.g. a `ListTable`); a stale reservation would waste a
-      # column the bar no longer needs (the `Paris → Pari` over-reservation).
-      # `right=` is a no-op when unchanged, so this costs nothing in steady state.
-      # Items created resizable carry `right: nil` (full width) and are left alone.
+      # scroll bar's *current* presence, each frame. Items bake `right` at
+      # creation (`#create_item`), but whether the bar shows can change later
+      # (list grows past viewport, `#set_items` reuses old item widgets, resize,
+      # etc.). A stale `right: 0` would let a shown bar overpaint the last
+      # content column; a stale reservation would waste a column the bar no
+      # longer needs. `right=` is a no-op when unchanged. Items created resizable
+      # carry `right: nil` and are left alone.
       def render(with_children = true)
-        # Only scrollable lists can reserve a bar column; for a plain list/menu
-        # `content_margin_x` is always 0 and every item already has `right: 0`, so
-        # skip the per-frame item walk entirely (the common non-scrolling case).
+        # Only scrollable lists reserve a bar column; for a plain list/menu
+        # `content_margin_x` is always 0, so skip the per-frame item walk.
         if scrollable?
           reserve = content_margin_x
           @items.each { |item| item.right = reserve unless item.right.nil? }
@@ -359,33 +321,28 @@ module Crysterm
         super
       end
 
-      # *right* defaults to `#content_margin_x` (the vertical bar's real width,
-      # reserved only when it shows) — just the item's *initial* value; `#render`
-      # re-syncs it every frame (see there). The horizontal bar reserves a bottom
-      # *row* via `#hscrollbar_rows`, so nothing is taken off the right for it.
+      # *right* defaults to `#content_margin_x` (vertical bar width, reserved
+      # only when shown) as the item's *initial* value; `#render` re-syncs it
+      # every frame. The horizontal bar reserves a bottom row via
+      # `#hscrollbar_rows` instead, so nothing is taken off the right for it.
       def create_item(content, window = ::Crysterm::Window.global, align : ::Tput::AlignFlag | Shorthands = @align, top = 0, left = 0, right = content_margin_x, parse_tags = @parse_tags, height = 1, focus_on_click = false, normal_resizable = false, width = nil, alpha = style.alpha) # XXX hover_effects, focus_effects
 
         if @resizable || normal_resizable
           right = nil
         end
 
-        # Items must not carry the list's border in their *layout* either: the
-        # list draws the border around the whole widget, and `#item_render_style`
-        # already strips it for drawing — but a border left on the item's own
-        # style still reserves `iwidth` (one cell each side), shrinking the
-        # content area (e.g. a tight popup menu showing "Abo" instead of "About").
-        # Give items a borderless base style so their geometry matches.
+        # Items must not carry the list's border in their *layout* either:
+        # `#item_render_style` strips it for drawing, but a border left on the
+        # item's own style still reserves `iwidth`, shrinking the content area
+        # (e.g. a tight popup menu showing "Abo" instead of "About"). Give items
+        # a borderless base style so geometry matches.
         item_style = style
         item_style = without_border item_style if item_style.border.any?
-        # An item's own style must not carry the list's *hidden* state: the
-        # parent's visibility gates the subtree, so a style captured while the
-        # list is hidden would otherwise keep `visible: false` and never reappear
-        # when the list is shown. This bites whenever rows are built from a hidden
-        # list — menu rows added after `hide`, or (now that menus are theme-driven
-        # rather than given an inline `Style.new(border: true)`) a freshly opened
-        # menu whose inline style has no border, so `without_border` above didn't
-        # already dup it. Dup if we're still pointing at the list's own style — so
-        # forcing this never flips the list itself visible — then mark it visible.
+        # An item's own style must not carry the list's *hidden* state: a style
+        # captured while the list is hidden would keep `visible: false` and never
+        # reappear when shown (e.g. menu rows added after `hide`). Dup only if
+        # still pointing at the list's own style, so this never flips the list
+        # itself visible.
         item_style = item_style.dup if item_style.same?(style)
         item_style.visible = true
 
@@ -393,9 +350,9 @@ module Crysterm
         # XXX above: alpha
 
         if mouse?
-          # By default a click selects the item and clicking the already-selected
-          # one activates it (Blessed-style two-click). With `#activate_on_click?`
-          # (used by menus) a single click both selects and activates.
+          # Default: click selects, clicking the already-selected one activates
+          # (Blessed-style two-click). `#activate_on_click?` (menus) makes a
+          # single click both select and activate.
           item.on(::Crysterm::Event::Click) do
             if i = @items.index item
               focus
@@ -408,8 +365,8 @@ module Crysterm
             end
           end
 
-          # Wheel moves the selection (and `#accept`s the event so the window's
-          # default "scroll the view" behavior doesn't also fire).
+          # Wheel moves the selection; `#accept`s so the window's default
+          # scroll-the-view behavior doesn't also fire.
           item.on(::Crysterm::Event::Mouse) do |e|
             if e.action.wheel_up?
               move -2
@@ -422,8 +379,8 @@ module Crysterm
             end
           end
 
-          # With `#hover_select?` (menus), merely moving the pointer onto a row
-          # highlights it — no click needed — via the overridable `#hover_item`.
+          # With `#hover_select?` (menus), moving onto a row highlights it via
+          # the overridable `#hover_item`.
           if hover_select?
             item.on(::Crysterm::Event::MouseOver) do
               if i = @items.index item
@@ -474,8 +431,8 @@ module Crysterm
 
         (i...@items.size).each { |j| @items[j].top = item_row(j) }
 
-        # Keep the multi-selection aligned with the shifted rows: drop the removed
-        # index and slide everything past it down by one.
+        # Keep the multi-selection aligned: drop the removed index, slide
+        # everything past it down by one.
         if @selected_indices.includes?(i) || @selected_indices.any? { |s| s > i }
           @selected_indices = @selected_indices.compact_map do |s|
             next nil if s == i
@@ -484,26 +441,18 @@ module Crysterm
         end
 
         # Keep the single-selection cursor on the same logical item. Removing a
-        # row *before* the cursor shifts every later row (including the selected
-        # one) down by one, so the cursor must slide down with it — exactly as
-        # the multi-selection indices are slid above. Without this `@selected`
-        # stayed put and silently jumped to the next item, or — when the
-        # selection was the last row — pointed past the end at a phantom row (so
-        # nothing rendered as selected and `@value` went stale). Removing the
-        # selected row itself keeps the original behavior (select the row before).
+        # row before the cursor shifts later rows down by one, so the cursor
+        # must slide too — mirrors the multi-selection slide above. Without
+        # this, `@selected` would silently jump to the next item or point past
+        # the end. Removing the selected row itself selects the row before it.
         if i < selected
           selekt selected - 1
         elsif i == selected
-          # The selected row itself was removed: the cursor lands on the prior
-          # row (`i - 1`), or — when the removed row was the first (`i == 0`) —
-          # stays at index 0, which now holds what used to be the *next* row.
-          # That latter case keeps the same `@selected` value (0), so `#selekt`'s
-          # unchanged-index short-circuit (`@selected == index &&
-          # @_list_initialized`) would return *without* refreshing `@value` or
-          # emitting `SelectItem`, leaving `value` pointing at the removed row's
-          # text. Clear the latch so the selection logic re-runs in full for the
-          # now-different item under the cursor. (For `i > 0` the index actually
-          # changes, so this is a harmless no-op there.)
+          # When the removed row was first (`i == 0`), the cursor stays at index
+          # 0 (now holding the old next row) — same `@selected` value, so
+          # `#selekt`'s unchanged-index short-circuit would skip refreshing
+          # `@value`/emitting `SelectItem`. Clear the latch to force a full
+          # re-run. No-op for `i > 0`, where the index actually changes.
           @_list_initialized = false
           selekt i - 1
         end
@@ -524,15 +473,13 @@ module Crysterm
       end
 
       def get_item_index(child : String)
-        # Exact (raw, tags-included) match takes priority, matching the
-        # previous behavior.
+        # Exact (raw, tags-included) match takes priority.
         i = @ritems.index child
         return i if i
 
-        # Fallback: match against the tag-stripped form of each item. The
-        # cleaned->index map is built once and reused until `@ritems` changes,
-        # instead of re-cleaning every item on each call. First index wins, as
-        # the previous linear scan did.
+        # Fallback: match against tag-stripped form. The cleaned->index map is
+        # built once and reused until `@ritems` changes, instead of re-cleaning
+        # every item per call. First index wins.
         index = @clean_tags_index ||= begin
           h = {} of String => Int32
           @ritems.each_with_index do |item, idx|
@@ -544,15 +491,15 @@ module Crysterm
         index[child]? || -1
       end
 
-      # Drops the cached `clean_tags` index. Called from every method that
-      # mutates `@ritems` so the lazily-rebuilt map can never go stale.
+      # Drops the cached `clean_tags` index so it's rebuilt fresh next lookup.
+      # Called from every method that mutates `@ritems`.
       private def invalidate_item_index
         @clean_tags_index = nil
       end
 
-      # Accepts any `Widget` (not only `Widget::Box`) so that callers holding
-      # a `child : Widget` resolve here. Returns -1 when not found, matching
-      # the `Int`/`String` overloads and the `>= 0` checks in callers.
+      # Accepts any `Widget` (not only `Widget::Box`) so callers holding a
+      # `child : Widget` resolve here. Returns -1 when not found, matching the
+      # `Int`/`String` overloads.
       def get_item_index(child : Widget)
         (@items.index child) || -1
       end
@@ -563,15 +510,11 @@ module Crysterm
         if @items.empty?
           @selected = 0
           @value = ""
-          # The selection is back to its uninitialized state: clear the
-          # `@_list_initialized` latch so that re-populating the list actually
-          # re-runs the body below. Without this, emptying a list (the last
-          # `remove_item`/a `set_items []`) leaves `@selected == 0` AND
-          # `@_list_initialized == true`, so the `selekt 0` that `append_item`
-          # fires for the first new row hits the unchanged-index short-circuit
-          # and returns *without* refreshing `@value` or emitting `SelectItem` —
-          # the new row renders as selected while `value` stays the empty string
-          # (stale `Form` value collection, no `SelectItem` listener fired).
+          # Clear the latch so re-populating the list re-runs the body below.
+          # Otherwise emptying a list leaves `@selected == 0` AND
+          # `@_list_initialized == true`, so `append_item`'s `selekt 0` for the
+          # first new row hits the unchanged-index short-circuit and skips
+          # refreshing `@value`/emitting `SelectItem`.
           @_list_initialized = false
           scroll_to 0
           return
@@ -587,15 +530,11 @@ module Crysterm
         @selected = index
         @value = clean_tags @ritems[@selected]
 
-        # Gate the scroll + `SelectItem` emit on having been laid out, not on
-        # having a `#parent`. A top-level widget appended straight to a `Window`
-        # has no `#parent` (a `Window` is not a `Widget`; `Window#insert` sets
-        # `window=`, not `parent=`), so the old `unless @parent` guard silently
-        # skipped `scroll_to`/`SelectItem` for every window-level list — the
-        # list would never scroll to keep the selection visible, nor notify
-        # listeners. `@lpos` is nil only until the first render (when scrolling
-        # can't be computed anyway), and set thereafter for parented and
-        # top-level widgets alike.
+        # Gate on having been laid out, not on having a `#parent`: a top-level
+        # widget appended straight to a `Window` has no `#parent` (`Window#insert`
+        # sets `window=`, not `parent=`), so an `unless @parent` guard would
+        # silently skip `scroll_to`/`SelectItem` for window-level lists. `@lpos`
+        # is nil only until the first render.
         return unless @lpos
 
         scroll_to @selected
@@ -627,8 +566,7 @@ module Crysterm
 
       def pop_item
         return if @items.empty?
-        # `remove_item` only accepts a `Widget`; pass the last item itself
-        # rather than an `Int` index (which matches no overload).
+        # `remove_item` only accepts a `Widget`, not an `Int` index.
         remove_item @items[-1]
       end
 
@@ -672,14 +610,11 @@ module Crysterm
         invalidate_item_index
         @items.insert i, item
         append item
-        # Keep the single-selection cursor on the same logical item. Inserting a
-        # row at or before the cursor shifts every row from the cursor onward
-        # (including the selected one) down by one, so the cursor must slide down
-        # with them — exactly as the multi-selection indices are slid above
-        # (`s >= i`), and the mirror of the realignment `remove_item` performs.
-        # The old `i == selected` guard only caught an insert *at* the cursor; an
-        # insert *before* it (`i < selected`) left `@selected` pointing at a
-        # different item, with `@value` going stale.
+        # Keep the single-selection cursor on the same logical item: inserting
+        # at or before the cursor shifts it down by one too, mirroring the
+        # multi-selection slide above (`s >= i`) and the realignment `remove_item`
+        # performs. Must check `i <= selected`, not just `i == selected`, or an
+        # insert before the cursor leaves `@selected`/`@value` stale.
         if i <= selected
           selekt selected + 1
         end
@@ -696,12 +631,9 @@ module Crysterm
         if i < @ritems.size
           @ritems[i] = content
           invalidate_item_index
-          # Keep the cached selection `#value` in sync when the *selected* row's
-          # text is changed. `@value` is otherwise only refreshed by `#selekt`,
-          # which early-returns on an unchanged index — so editing the current
-          # item's content in place (e.g. `Pine`'s status row, or a `ListTable`
-          # re-formatting its selected row) left `value` stale, and any consumer
-          # of it (`Form` value collection, etc.) saw the previous text.
+          # Keep cached `#value` in sync when the *selected* row's text changes
+          # in place — `#selekt` early-returns on an unchanged index, so it
+          # wouldn't otherwise refresh `@value`.
           @value = clean_tags(content) if i == @selected
         end
       end
@@ -711,8 +643,8 @@ module Crysterm
       end
 
       def set_items(items)
-        # The row set is being replaced wholesale; stale indices can't be
-        # meaningfully carried over, so drop the multi-selection.
+        # Wholesale replacement: stale indices can't be carried over, so drop
+        # the multi-selection.
         @selected_indices.clear
         original = @items.dup
         selekted = selected
@@ -728,26 +660,20 @@ module Crysterm
           end
         end
 
-        # Remove only the *leftover* original items (those past the end of the
-        # new list). The first `items.size` originals were reused above via
-        # `set_content`, so removing them too (as the old `original.each` did)
-        # detached the very widgets we just repopulated. Also use `remove_item`,
-        # not `remove`: `remove` only unlinks the widget from the children tree
-        # and leaves `@items`/`@ritems` holding stale entries, desyncing them.
+        # Remove only the *leftover* original items (past the end of the new
+        # list) — the first `items.size` were reused above via `set_content`.
+        # Use `remove_item`, not `remove`: `remove` only unlinks from the
+        # children tree, leaving `@items`/`@ritems` with stale entries.
         if original.size > items.size
           original[items.size..].each do |itm|
             remove_item itm
           end
         end
 
-        # `dup`, not a bare alias: the list owns `@ritems` and mutates it in place
-        # on every `append_item`/`insert_item`/`remove_item` (each paired with
-        # `invalidate_item_index`). Storing the caller's array directly would make
-        # those later mutations leak back into it — e.g. `list.set_items(arr)`
-        # followed by `list.push_item("x")` would silently append `"x"` to `arr` —
-        # and a caller mutating `arr` afterwards would desync `@ritems` from
-        # `@items`. A shallow copy (elements are immutable `String`s) severs both.
-        # (`to_a` would NOT do: `Array#to_a` returns `self`.)
+        # `dup`, not a bare alias: the list mutates `@ritems` in place on every
+        # append/insert/remove. Storing the caller's array directly would leak
+        # those mutations back into it (and vice versa). `to_a` would NOT do —
+        # `Array#to_a` returns `self`.
         @ritems = items.dup
         invalidate_item_index
 
@@ -757,21 +683,17 @@ module Crysterm
           if sel
             selekt sel
           elsif @items.size == original.size
-            # Use the saved selection (`selekted`); `selected` was just reset to
-            # 0 by `selekt 0` above.
+            # Use the saved selection; `selected` was just reset to 0 above.
             selekt selekted
           else
             selekt Math.min selekted, @items.size - 1
           end
         end
 
-        # Rows were reused in place (`set_content`) above, so the selection may
-        # land on the *same* index whose text just changed — in which case
-        # `selekt`'s unchanged-index short-circuit (`@selected == index &&
-        # @_list_initialized`) never refreshed the cached `#value`, leaving it on
-        # the pre-replacement text. Sync it to the now-current row (tags stripped,
-        # like `#selekt`/`#set_item`) so `Form` value collection and other `value`
-        # consumers don't read stale content. `""` when the list ended up empty.
+        # Rows were reused in place above, so the selection may land on the same
+        # index whose text just changed — `selekt`'s unchanged-index
+        # short-circuit wouldn't refresh `@value`. Sync it explicitly. `""` when
+        # the list ended up empty.
         @value = @ritems[@selected]?.try { |r| clean_tags r } || ""
 
         emit Crysterm::Event::SetItems
@@ -783,12 +705,9 @@ module Crysterm
       end
 
       def enter_selected
-        # Nothing to act on when the list is empty. The events carry a non-nil
-        # `Widget::Box`, and `items[selected]` would raise `IndexError` on an
-        # empty list (`selected == 0`, no rows) — a focused empty list pressing
-        # Enter routes straight here from `#on_keypress`. (Blessed's JS yields a
-        # benign `undefined` here; Crystal's strict indexing turns it into a
-        # crash, so we guard instead.)
+        # `items[selected]` would raise `IndexError` on an empty list (Blessed's
+        # JS yields a benign `undefined` here; Crystal's strict indexing crashes,
+        # so guard instead).
         return if @items.empty?
         emit Crysterm::Event::ActionItem, items[selected], selected
         emit Crysterm::Event::SelectItem, items[selected], selected
@@ -800,8 +719,7 @@ module Crysterm
       end
 
       def cancel_selected
-        # See `#enter_selected`: guard the empty list so Escape on a focused
-        # empty list does not raise `IndexError` on `items[selected]`.
+        # See `#enter_selected`: guard against `IndexError` on an empty list.
         return if @items.empty?
         emit Crysterm::Event::ActionItem, items[selected], selected
         emit Crysterm::Event::CancelItem, items[selected], selected
@@ -912,8 +830,8 @@ module Crysterm
           return
         end
 
-        # A key we handled: consume it (so it doesn't also drive an ancestor,
-        # e.g. a `Form`'s own vi `j`/`k`) and repaint.
+        # Consume the key so it doesn't also drive an ancestor (e.g. a `Form`'s
+        # own vi `j`/`k`), and repaint.
         e.accept
         request_render
       end

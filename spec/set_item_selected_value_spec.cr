@@ -13,12 +13,11 @@ private def sisv_screen
 end
 
 # `ItemView#set_item` must keep the cached selection `#value` in sync when it
-# rewrites the *selected* row's text. `@value` is only otherwise refreshed by
-# `#selekt`, which early-returns on an unchanged index — so changing the current
-# item's content in place left `value` pointing at the previous text (this is a
-# real path: `Pine` re-formats its selected status row via `set_item selected,
-# ...`, and `ListTable` re-sets item content during layout). Tags are stripped,
-# matching `#selekt`.
+# rewrites the *selected* row's text. `@value` is otherwise only refreshed by
+# `#selekt`, which early-returns on an unchanged index, so in-place edits left
+# `value` pointing at stale text (real path: `Pine` re-formats its selected
+# status row via `set_item selected, ...`; `ListTable` re-sets content during
+# layout). Tags are stripped, matching `#selekt`.
 describe "ItemView#set_item selected value sync" do
   it "updates #value when the selected row's content changes" do
     s = sisv_screen

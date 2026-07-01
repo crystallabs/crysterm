@@ -1,8 +1,8 @@
 require "../src/crysterm"
 
-# A sustained render loop over a heavy, STATIC scene, so an external sampling
-# profiler (`sample <pid>`) can attribute CPU time within the render/draw path.
-# Static content means we profile the per-frame COMPOSITING + DRAW-DIFF hot path
+# Sustained render loop over a heavy, static scene, for an external sampling
+# profiler (`sample <pid>`) to attribute CPU time in the render/draw path.
+# Static content isolates the per-frame compositing + draw-diff hot path
 # (the ~25µs the frame-profile attributed to render), not content reparse.
 #
 # Usage:
@@ -19,8 +19,7 @@ screen = Screen.new(
   input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
   width: 200, height: 60)
 
-# ~150 bordered panels with content laid across the screen — a heavy but
-# realistic compositing load.
+# ~150 bordered panels laid across the screen — heavy but realistic load.
 15.times do |row|
   10.times do |col|
     Widget::Box.new(

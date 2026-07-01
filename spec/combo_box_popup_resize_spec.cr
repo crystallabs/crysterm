@@ -2,13 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# An editable `ComboBox` sizes its drop-down to the match count (see
-# `#position_popup`: height = min(matches, max_visible) + border). The *first*
-# typed character opens the popup and sizes it, but every subsequent keystroke
-# only routed through `#refresh_popup`, which used to refresh the rows without
-# re-sizing — so the popup kept its initial height: too tall (blank rows) once
-# the filter narrowed, or too short (scrolling) once a Backspace widened it.
-# `#refresh_popup` must re-run `#position_popup` so the height tracks the filter.
+# Editable `ComboBox` sizes its drop-down to the match count (`#position_popup`:
+# height = min(matches, max_visible) + border). The first typed character opens
+# and sizes the popup, but subsequent keystrokes routed through `#refresh_popup`,
+# which refreshed rows without re-sizing — stale height once the filter
+# narrowed or widened. `#refresh_popup` must re-run `#position_popup`.
 
 private def combo_mem_screen
   Crysterm::Window.new(
@@ -31,8 +29,8 @@ describe "ComboBox editable popup resize" do
     cb = Crysterm::Widget::ComboBox.new parent: s, editable: true, width: 12,
       options: ["alpha", "alabama", "beta", "gamma", "delta", "zeta"]
 
-    # First char opens and sizes the popup: 6 matches, capped at max_visible (6),
-    # plus the 2 border rows.
+    # First char opens and sizes popup: 6 matches, capped at max_visible (6),
+    # plus 2 border rows.
     cb.on_keypress cb_key('a')
     cb.open?.should be_true
     pop = cb.popup_widget.not_nil!

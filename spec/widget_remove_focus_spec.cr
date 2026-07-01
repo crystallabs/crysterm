@@ -2,13 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# Removing a widget from its (widget) parent must move keyboard focus out of the
-# removed subtree, even when it is a *descendant* (not the removed widget itself)
-# that currently holds focus. Otherwise a detached, off-screen widget keeps focus
-# and keeps receiving key events. The focus condition must be sampled *before*
-# the unlink, so a focused descendant is still recognisable as belonging to the
-# removed subtree (`Widget::Box.new(parent: panel, ...)` exercises `Widget#remove`,
-# not the separate `Window#remove`).
+# Removing a widget from its (widget) parent must move keyboard focus out of
+# the removed subtree, even when a descendant (not the removed widget itself)
+# holds focus — otherwise a detached, off-screen widget keeps receiving key
+# events. The focus check must happen before the unlink, so a focused
+# descendant is still recognisable as belonging to the removed subtree
+# (`Widget::Box.new(parent: panel, ...)` exercises `Widget#remove`, not the
+# separate `Window#remove`).
 
 private def remove_focus_screen
   Crysterm::Window.new(
@@ -43,7 +43,7 @@ describe "Widget#remove" do
     child.focus
     s.focused.should eq child
 
-    # Removing the container must not leave focus on the now-detached child.
+    # Removing the container must not leave focus on the detached child.
     panel.remove container
     s.focused.should_not eq child
     s.focused.should eq other

@@ -3,13 +3,11 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget::Line` (and its `HLine`/`VLine` aliases) take a convenience `size`
-# argument that sets the line's *length* — its `width` when horizontal, its
-# `height` when vertical. It used to default to `"100%"` and be applied
-# unconditionally, so it silently overwrote an explicit `width:`/`height:`
-# passed through `**box`: `HLine.new(width: 40)` rendered full-width and
-# `VLine.new(height: 16)` full-height, ignoring the given value (as the bundled
-# hline/vline examples both do). An explicit dimension must now win; only a
-# line given no length at all falls back to filling its parent.
+# argument that sets the line's length (`width` when horizontal, `height` when
+# vertical). It used to default to `"100%"` and apply unconditionally,
+# silently overwriting an explicit `width:`/`height:` passed through `**box`:
+# `HLine.new(width: 40)` rendered full-width regardless. An explicit dimension
+# must now win; only a line given no length falls back to filling its parent.
 
 private def line_mem_screen
   Crysterm::Window.new(

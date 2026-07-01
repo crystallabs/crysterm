@@ -8,12 +8,12 @@ module Crysterm
     # window. Like sixel the pixels are owned by the terminal, so this inherits
     # `Media::Graphics`'s window-owns-pixels erase/redraw lifecycle.
     #
-    # ReGIS is a *vector* format with no native raster blit, so a photo is drawn
-    # the only faithful way: quantized to ReGIS's small set of built-in named
-    # colors and emitted as one run-length set of horizontal vectors per scan
-    # line. The result is a posterized, period-accurate ReGIS rendering rather
-    # than a photographic one. ReGIS also addresses *absolute window pixels*
-    # (not the text cursor), so the widget's pixel origin is honored.
+    # ReGIS is a *vector* format with no native raster blit, so a photo is
+    # quantized to ReGIS's small set of built-in named colors and emitted as
+    # run-length horizontal vectors per scan line — a posterized, period-
+    # accurate rendering rather than a photographic one. ReGIS also addresses
+    # *absolute window pixels* (not the text cursor), so the widget's pixel
+    # origin is honored.
     #
     # ```
     # img = Widget::Media::Regis.new file: "pic.png", width: 48, height: 14, parent: window
@@ -37,11 +37,11 @@ module Crysterm
         0xFFFFFF, # W white
       ]
 
-      # How colors are dithered down to ReGIS' 8-color palette. `Dither::None` by
-      # default (unlike the raster backends): ReGIS has only 8 colors and no
-      # raster blit, so any dithering both looks noisy and explodes the vector
-      # count — per-pixel color changes break up the run-length horizontal spans.
-      # `Ordered`/`Diffusion`/`Auto` are accepted for parity but rarely worth it.
+      # How colors are dithered down to ReGIS' 8-color palette. `Dither::None`
+      # by default (unlike the raster backends): dithering looks noisy and
+      # explodes the vector count, since per-pixel color changes break up the
+      # run-length horizontal spans. `Ordered`/`Diffusion`/`Auto` are accepted
+      # for parity but rarely worth it.
       property dither : Media::Dither = Media::Dither::None
 
       # ReGIS addresses a *fixed logical window* (not raw window pixels): xterm
@@ -59,10 +59,10 @@ module Crysterm
         @regis_width = regis_width
         @regis_height = regis_height
         super *args, **opts
-        # 0 ⇒ auto: derive the logical window from the terminal's real pixel size
-        # (the base already detected the per-cell pixels via TIOCGWINSZ). Pair it
-        # with xterm's `regisScreenSize: auto` so the logical space matches the
-        # window and the image fills it instead of leaving a black margin.
+        # 0 ⇒ auto: derive the logical window from the terminal's real pixel
+        # size (per-cell pixels already detected via TIOCGWINSZ). Pair with
+        # xterm's `regisScreenSize: auto` so the image fills the window instead
+        # of leaving a black margin.
         if @regis_width <= 0
           @regis_width = cell_pixel_width * (window?.try(&.awidth) || 80)
         end
@@ -71,10 +71,8 @@ module Crysterm
         end
       end
 
-      # ReGIS draws an animated image's frames one vector at a time — thousands
-      # of vectors per frame — which the terminal renders far too slowly for
-      # smooth playback, so we don't drive a frame loop: an animated source just
-      # shows its first frame.
+      # ReGIS draws thousands of vectors per frame, too slow for smooth
+      # animated playback — an animated source just shows its first frame.
       protected def needs_frame_loop? : Bool
         false
       end

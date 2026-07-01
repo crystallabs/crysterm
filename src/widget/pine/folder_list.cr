@@ -3,7 +3,7 @@ require "../../widget_pine_selectable_list"
 module Crysterm
   class Widget
     module Pine
-      # The Pine/Alpine FOLDER LIST: a selectable list of mail folders with their
+      # Pine/Alpine folder list: a selectable list of mail folders with their
       # message counts.
       #
       # ```

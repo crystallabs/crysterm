@@ -38,15 +38,15 @@ module Crysterm
       bg0 = rgb(default_bg)
       canvas = Array(Array(PNGGIF::Pixel)).new(ph) { Array(PNGGIF::Pixel).new(pw, bg0) }
 
-      # 1) Text cells from the rendered buffer. The region walk is shared with
-      #    `Dump.text` via `Window#each_content_cell`; here each cell is rasterized.
+      # Text cells from the rendered buffer. The region walk is shared with
+      # `Dump.text` via `Window#each_content_cell`; here each cell is rasterized.
       window.each_content_cell(xi, xl, yi, yl) do |cell, rx, ry|
         draw_cell canvas, cell, rx * cw, ry * ch, cw, ch,
           font, bold_font, default_fg, default_bg, cell.width
       end
 
-      # 2) Terminal-native graphics, composited over the text as the terminal
-      #    stacks them.
+      # Terminal-native graphics, composited over the text as the terminal
+      # stacks them.
       graphics_layers(window).each do |w|
         layer = w.capture_layer(cw, ch)
         next unless layer
@@ -101,7 +101,7 @@ module Crysterm
 
       case fmt
       when "gif"
-        # A generated palette + dithering looks far better than the default 216.
+        # A generated palette + dithering looks better than the default 216.
         a.concat ["-filter_complex", "[0:v]split[a][b];[a]palettegen[p];[b][p]paletteuse", "-loop", loops.to_s]
       when "apng"
         a.concat ["-plays", loops.to_s]
@@ -127,11 +127,11 @@ module Crysterm
     end
 
     # Draws one cell's background, glyph and line decorations into *canvas* at
-    # pixel origin (*px*,*py*). Cell size is *cw*×*ch*. A *cols*-column-wide cell
-    # (full-width / 2-column grapheme, e.g. CJK) spans `cols * cw` pixels: its
-    # continuation half carries no cell (`each_content_cell` skips it), so the
-    # lead cell paints the whole span (background + right half of a wide glyph).
-    # Clamped to the canvas so a wide cell at the right edge can't overflow.
+    # pixel origin (*px*,*py*). A *cols*-column-wide cell (full-width / 2-column
+    # grapheme, e.g. CJK) spans `cols * cw` pixels: its continuation half
+    # carries no cell (`each_content_cell` skips it), so the lead cell paints
+    # the whole span. Clamped to the canvas so a wide cell at the right edge
+    # can't overflow.
     private def self.draw_cell(canvas, cell, px : Int32, py : Int32, cw : Int32, ch : Int32,
                                font : Font, bold_font : Font, default_fg : Int32, default_bg : Int32,
                                cols : Int32 = 1)
@@ -222,13 +222,12 @@ module Crysterm
 
     private def self.collect_graphics(node, acc : Array(Widget::Media::Base)) : Nil
       node.children.each do |child|
-        # A hidden subtree isn't shown by the terminal (its `_render` is skipped),
-        # so it must not appear in a capture. `capture_layer` guards a graphics
-        # widget's OWN `visible?` flag but NOT its ancestors': a widget inside a
-        # hidden container (non-current tab page, `hide`-n parent) is flag-visible
-        # yet off-window. Pruning the walk at any hidden node drops the whole
-        # off-window subtree, matching `displayed_in_tree?` used by hit-testing
-        # and focus traversal.
+        # A hidden subtree isn't shown by the terminal, so it must not appear in
+        # a capture. `capture_layer` guards a graphics widget's own `visible?`
+        # flag but not its ancestors': a widget inside a hidden container
+        # (non-current tab page, hidden parent) is flag-visible yet off-window.
+        # Pruning the walk at any hidden node drops the whole subtree, matching
+        # `displayed_in_tree?` used by hit-testing and focus traversal.
         next unless child.visible?
         acc << child if child.is_a?(Widget::Media::Base) && child.capture_pixels?
         collect_graphics child, acc

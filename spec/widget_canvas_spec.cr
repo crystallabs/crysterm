@@ -27,7 +27,7 @@ describe Crysterm::Widget::Graph::Painter do
   it "maps logical coordinates through window→viewport" do
     bmp = blank_bitmap(4, 4)
     p = Crysterm::Widget::Graph::Painter.new bmp
-    # logical 0..2 maps onto the full 4px viewport, so logical (1,1) -> device (2,2)
+    # logical 0..2 maps onto the full 4px viewport, so logical (1,1) -> device (2,2).
     p.set_window 0, 0, 2, 2
     p.pen = 0x00FF00
     p.draw_point 1, 1
@@ -54,9 +54,9 @@ describe Crysterm::Widget::Graph::Canvas do
 
   it "fills only the interior of a bordered canvas (no overrun past the border)" do
     s = render_screen
-    # Neutralize the config-driven default theme that the first Window installs
-    # (it would drop the inline border in this headless run); a real terminal
-    # keeps the border, which is the condition under test.
+    # Neutralize the config-driven default theme (it would drop the inline
+    # border in this headless run); a real terminal keeps the border, which
+    # is the condition under test.
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
     begin
@@ -104,9 +104,8 @@ end
 
 describe "Media painter backend resolution" do
   it "ranks Sixel above iTerm for the Painter content kind" do
-    # Force a terminal that supports both sixel and iterm by excluding kitty;
-    # resolution honors the painter ranking [Kitty, Sixel, Iterm, Glyph, Ansi].
-    # We can at least assert the kind resolves to *some* supported backend.
+    # Resolution honors the painter ranking [Kitty, Sixel, Iterm, Glyph, Ansi];
+    # here we just assert it resolves to some supported backend.
     t = Crysterm::Widget::Media.resolve(Crysterm::Widget::Media::Content::Painter)
     [Crysterm::Widget::Media::Type::Kitty, Crysterm::Widget::Media::Type::Sixel,
      Crysterm::Widget::Media::Type::Iterm, Crysterm::Widget::Media::Type::Glyph,

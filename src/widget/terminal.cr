@@ -5,15 +5,13 @@ module Crysterm
   class Widget
     # A terminal-emulator widget: runs a child program (a shell by default)
     # inside a pseudo-terminal and renders its output as a live, scrollable
-    # window — the Crystal counterpart of blessed's `terminal` element.
+    # window.
     #
-    # The heavy lifting is split into two self-contained helpers that are
-    # candidates for their own shards (see their files): `Crysterm::Pty` spawns
-    # and talks to the child via a PTY, and `Crysterm::TerminalEmulator` parses
-    # the child's byte stream into a cell grid. This widget wires them to the
-    # window: it sizes them from its inner area, forwards keystrokes to the
-    # child, copies the emulator grid onto `window.lines` each render, and draws
-    # the cursor.
+    # Split into two self-contained helpers: `Crysterm::Pty` spawns and talks
+    # to the child via a PTY, `Crysterm::TerminalEmulator` parses its byte
+    # stream into a cell grid. This widget wires them to the window: sizes them
+    # from its inner area, forwards keystrokes, copies the emulator grid onto
+    # `window.lines` each render, and draws the cursor.
     #
     # Usage:
     # ```
@@ -41,8 +39,8 @@ module Crysterm
       # supplies the data instead of a spawned process.
       getter pty : Pty? = nil
 
-      # The emulator holding the parsed window grid. `nil` until the first render
-      # (we need the resolved inner geometry to size it).
+      # The emulator holding the parsed window grid. `nil` until the first
+      # render (needs the resolved inner geometry to size it).
       getter emulator : TerminalEmulator? = nil
 
       # The most recent window/icon title reported by the child (OSC 0/2).
@@ -58,9 +56,8 @@ module Crysterm
       @env : Process::Env
 
       # When set, the widget does not spawn a PTY; instead the block is called
-      # with raw input bytes (keystrokes) and the caller is responsible for
-      # feeding output back via `#write`. Mirrors blessed's `handler` option
-      # (used to drive a terminal from a remote socket, recording, etc.).
+      # with raw input bytes (keystrokes) and the caller feeds output back via
+      # `#write`. Used to drive a terminal from a remote socket, recording, etc.
       @handler : Proc(String, Nil)?
 
       @dattr : Int64 = 0_i64
@@ -85,7 +82,6 @@ module Crysterm
 
         super **box
 
-        # The widget must receive keyboard input and participate in focus.
         @keys = true
         @input = true
         window?.try &.register_keyable self
@@ -125,14 +121,11 @@ module Crysterm
 
         if handler = @handler
           # Externally driven: nothing to spawn. Keystrokes go to the handler
-          # (see #on_data); output arrives via #write. The emulator's *solicited*
+          # (see #on_data); output arrives via #write. The emulator's solicited
           # replies (DSR cursor-position, DA device-attributes) are child-bound
-          # too — the same direction as keystrokes and mouse/focus reports — so
-          # route them to the handler as well. Without this, `em.output` stayed
-          # nil for a handler-driven terminal and `respond` dropped every reply,
-          # so a child that probes the terminal at startup (vim/htop query DA/CPR)
-          # waited forever for an answer. The PTY path wires this to `pty.master`
-          # below; this is its handler-mode counterpart.
+          # too, so route them to the handler as well — otherwise `em.output`
+          # stays nil and a child probing the terminal at startup (vim/htop
+          # query DA/CPR) waits forever. PTY path wires this to `pty.master` below.
           em.output = HandlerSink.new handler
           return
         end
@@ -141,9 +134,8 @@ module Crysterm
         @pty = pty
         em.output = pty.master # so DSR/DA replies reach the child
 
-        # Reader fiber: pump child output into the emulator. Crystal fibers are
-        # cooperatively scheduled on one thread, so feeding the emulator and the
-        # render it triggers never race with the main loop.
+        # Reader fiber pumps child output into the emulator. Fibers are
+        # cooperatively scheduled, so this never races the main loop.
         spawn do
           buf = Bytes.new 8192
           loop do
@@ -153,8 +145,7 @@ module Crysterm
           rescue
             break
           end
-          # The child closed the PTY: reap it, surface its exit status, then tear
-          # down. `Event::Exit` carries the code; `Event::Destroy` cleans up.
+          # Child closed the PTY: reap it, surface exit status, tear down.
           code = pty.reap
           emit ::Crysterm::Event::Exit, code
           emit ::Crysterm::Event::Destroy
@@ -162,17 +153,15 @@ module Crysterm
       end
 
       # Forwards a keystroke to the child as raw bytes. `Event::KeyPress#sequence`
-      # carries the original input bytes tput read, which is exactly what the
-      # child expects (arrow keys arrive as their escape sequences, etc.).
+      # carries the original input bytes tput read, exactly what the child expects.
       def on_data(e : ::Crysterm::Event::KeyPress) : Nil
         return unless focused?
 
         data = e.sequence.join
 
-        # Scrollback navigation (Shift-PageUp / Shift-PageDown). These share the
-        # PageUp/PageDown key but carry the `;2` (shift) modifier in their raw
-        # sequence, so we match on the sequence and consume them instead of
-        # forwarding to the child.
+        # Shift-PageUp/PageDown share the PageUp/PageDown key but carry a `;2`
+        # modifier in their raw sequence; matched here and consumed for
+        # scrollback navigation instead of forwarding to the child.
         if em = @emulator
           page = Math.max(1, term_rows - 1)
           case data
@@ -204,20 +193,15 @@ module Crysterm
         forward_to_child((gained ? "\e[I" : "\e[O").to_slice)
       end
 
-      # Forwards a mouse event to the child when the child has enabled mouse
-      # tracking, encoded in whichever scheme it asked for (normal/SGR/urxvt).
-      # When tracking is off this is a no-op, so the window's default
-      # click-to-focus / wheel-scroll behaviour still applies.
+      # Forwards a mouse event to the child when mouse tracking is enabled,
+      # encoded in whichever scheme it asked for (normal/SGR/urxvt). No-op when
+      # tracking is off, so the window's default click-to-focus/wheel-scroll applies.
       def on_mouse(e : ::Crysterm::Event::Mouse) : Nil
         em = @emulator
         return unless em && em.mouse_enabled?
-        # Only forward the event kinds the child's *active* tracking mode asked
-        # for. xterm's modes are progressive: X10 (9) reports button presses
-        # only; normal (1000) adds release + wheel; button-event (1002) adds
-        # motion while a button is held; any-event (1003) adds free motion.
-        # Forwarding every event regardless (the old behaviour) flooded a child
-        # in the common *normal* mode with spurious motion reports it never
-        # requested — corrupting programs that read mouse input.
+        # Only forward what the child's active tracking mode asked for (see
+        # `#mouse_event_wanted?`) — forwarding everything floods a child in
+        # normal mode with unrequested motion reports.
         return unless mouse_event_wanted? em, e
 
         # Coordinates relative to the inner (content) area, 0-based.
@@ -225,8 +209,7 @@ module Crysterm
         row = e.y - (atop + itop)
         return if col < 0 || row < 0 || col >= term_cols || row >= term_rows
 
-        # A click still focuses the terminal (the default path is suppressed
-        # below by accepting the event).
+        # A click still focuses the terminal (default path suppressed below via accept).
         focus if e.action.down? && !focused?
 
         report = encode_mouse em, e, col, row
@@ -235,10 +218,9 @@ module Crysterm
         request_render
       end
 
-      # Whether the child's active mouse-tracking mode wants this event. Mirrors
-      # xterm's progressive DECSET modes (see `#on_mouse`): a higher mode is a
-      # superset of the lower ones. `mouse_tracking` is the live DECSET value
-      # (9 / 1000 / 1002 / 1003) the emulator parsed.
+      # Whether the child's active mouse-tracking mode wants this event. xterm's
+      # DECSET modes are progressive: a higher mode is a superset of lower ones.
+      # `mouse_tracking` is the live DECSET value (9/1000/1002/1003) parsed.
       private def mouse_event_wanted?(em : TerminalEmulator, e : ::Crysterm::Event::Mouse) : Bool
         case em.mouse_tracking
         when 9 # X10: button presses only (no release, wheel, or motion)
@@ -252,10 +234,9 @@ module Crysterm
         end
       end
 
-      # Encodes a normalized `Event::Mouse` back into an xterm mouse report, in
-      # the encoding the child selected. Returns raw bytes: the legacy/normal
-      # encoding packs values into single bytes (which may exceed 0x7f), so a
-      # `String` (UTF-8) would corrupt them — `Bytes` keeps them intact.
+      # Encodes a normalized `Event::Mouse` into an xterm mouse report, in the
+      # child's selected encoding. Returns raw bytes: legacy/normal encoding
+      # packs values that may exceed 0x7f, which a UTF-8 `String` would corrupt.
       private def encode_mouse(em : TerminalEmulator, e : ::Crysterm::Event::Mouse, col : Int32, row : Int32) : Bytes
         sgr = em.mouse_encoding == :sgr
         cb = mouse_cb e, sgr
@@ -278,9 +259,8 @@ module Crysterm
         io.to_slice
       end
 
-      # Reconstructs the xterm "Cb" button byte from the normalized event. In SGR
-      # the button is preserved on release (the trailing `m` signals it); in the
-      # legacy encoding a release is the generic "button 3".
+      # Reconstructs the xterm "Cb" button byte. In SGR the button is preserved
+      # on release (trailing `m` signals it); legacy encoding uses generic "button 3".
       private def mouse_cb(e : ::Crysterm::Event::Mouse, sgr : Bool) : Int32
         bits = case e.button
                when ::Tput::Mouse::Button::Left   then 0
@@ -312,8 +292,8 @@ module Crysterm
         end
       end
 
-      # Renders the box (border/background/children) via the base implementation,
-      # then overlays the emulator grid and cursor onto the inner area.
+      # Renders via the base implementation, then overlays the emulator grid and
+      # cursor onto the inner area.
       def render(with_children = true)
         coords = super
         return coords unless coords
@@ -339,8 +319,8 @@ module Crysterm
         em = @emulator
         return unless em
 
-        # Keep the emulator's notion of "default" in sync with the live style so
-        # default-coloured cells track theme/style changes.
+        # Keep the emulator's "default" attr in sync with the live style so
+        # default-coloured cells track theme changes.
         @dattr = sattr style
         em.default_attr = @dattr
 
@@ -377,9 +357,9 @@ module Crysterm
 
             attr = scell.attr
             ch = scell.char
-            # The emulator parks a NUL in the trailing half of a wide glyph; render
-            # it as a blank (in full-unicode mode the wide glyph below claims the
-            # following cell as a real continuation and this branch is skipped).
+            # The emulator parks a NUL in the trailing half of a wide glyph;
+            # render as blank (in full-unicode mode the wide glyph below claims
+            # the following cell as a real continuation, skipping this).
             ch = ' ' if ch == TerminalEmulator::CONTINUATION
 
             if x == cursor_col
@@ -393,8 +373,7 @@ module Crysterm
             end
 
             # Wide glyph: claim the following window cell as its continuation so
-            # the window grid stays 1 cell == 1 terminal column (matching how
-            # native wide content is laid out).
+            # the window grid stays 1 cell == 1 terminal column.
             if full_unicode && x != cursor_col && (nxt = line[x + 1]?) &&
                x + 1 < xl && ::Crysterm::Unicode.width(ch) == 2
               nxt.attr = attr
@@ -451,10 +430,9 @@ module Crysterm
         @pty = nil
       end
 
-      # A write-only `IO` that delivers the emulator's solicited replies
-      # (`TerminalEmulator#output`) to the external `handler`, the same
-      # child-bound channel keystrokes and mouse/focus reports use. Used in
-      # handler mode (no PTY); the PTY path uses `pty.master` directly.
+      # Write-only `IO` delivering the emulator's solicited replies to the
+      # external `handler`. Used in handler mode (no PTY); PTY path uses
+      # `pty.master` directly.
       private class HandlerSink < IO
         def initialize(@handler : Proc(String, Nil))
         end

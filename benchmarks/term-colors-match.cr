@@ -1,10 +1,10 @@
 require "benchmark"
 require "../lib/term_colors/src/term_colors"
 
-# `TermColors#match` (reached from Crysterm's `Colors.sgr_color_to` on
-# non-TrueColor terminals) scans all 256 `HI2RGB` entries per cache miss,
-# computing `color_distance` (which uses `**2`) each step, and probes
-# `CACHE_MATCH` twice on a hit (`has_key?` then `[]`). This benchmark checks:
+# `TermColors#match` (reached from `Colors.sgr_color_to` on non-TrueColor
+# terminals) scans all 256 `HI2RGB` entries per cache miss, computing
+# `color_distance` (using `**2`) each step, and probes `CACHE_MATCH` twice on
+# a hit (`has_key?` then `[]`). Checks:
 #  (a) `x ** 2` vs `x * x` in the distance inner loop, and
 #  (b) the cache-hit path (double vs single probe).
 #
@@ -26,7 +26,7 @@ Benchmark.ips do |x|
   x.report("color_distance  x*x") { dist_mul(12, 34, 56, 200, 100, 50) }
 end
 
-# Cache-hit path: warm the cache, then hammer one key.
+# Cache-hit path: warm the cache, then repeatedly hit one key.
 match 12, 34, 56
 h = (12 << 16) | (34 << 8) | 56
 Benchmark.ips do |x|

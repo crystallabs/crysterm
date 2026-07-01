@@ -2,15 +2,14 @@ require "event_handler"
 require "tput"
 
 module Crysterm
-  # Many common commands can be invoked via different interfaces (menus, toolbar buttons, keyboard shortcuts, etc.).
-  # Because they are expected to run in the same way, regardless of the user interface used, it is useful to represent them with `Action`s.
+  # Represents a command invokable from multiple interfaces (menus, toolbar
+  # buttons, keyboard shortcuts). Adding the same `Action` to several
+  # menus/toolbars keeps them in sync automatically (e.g. a "Bold" toolbar
+  # button and menu item share enabled/checked state).
   #
-  # Actions can be added to menus and toolbars, and will automatically be kept in sync because they are the same object.
-  # For example, if the user presses a "Bold" toolbar button in a text editor, the "Bold" menu item will automatically appear enabled where ever it is added.
-  #
-  # It is recommended to create `Action`s as children of the window they are used in.
-  #
-  # Actions are added to `Widget`s using `#addAction` or `<<(Action)`. Note that an action must be added to a widget before it can be used.
+  # Recommended to create `Action`s as children of the window they're used in.
+  # Add to `Widget`s via `#addAction` or `<<(Action)`; an action must be added
+  # to a widget before use.
   #
   # NOTE Actions are inspired by `QAction` (https://doc.qt.io/qt-6/qaction.html)
   class Action
@@ -28,10 +27,9 @@ module Crysterm
     alias KeySequence = Array(KeyStroke)
 
     # User payload carried on the action (Qt's `QAction::data`). A primitive
-    # value — typically an id or command name — attached to the action and read
-    # back in a `Triggered` handler. (Crystal disallows a universal `QVariant`
-    # type; for a richer payload, carry an id here and look the object up, or
-    # subclass `Action`.)
+    # value — typically an id or command name — read back in a `Triggered`
+    # handler. For a richer payload, carry an id here and look the object up,
+    # or subclass `Action`.
     alias Data = String | Int32 | Int64 | Float64 | Bool
 
     # Relative importance of the action (Qt's `QAction::Priority`). A toolbar may
@@ -53,13 +51,11 @@ module Crysterm
       Application
     end
 
-    # Defines a `name=` setter that assigns only on an actual change and then
-    # calls `#notify_changed` (emitting `Event::Changed`), so observers (menus,
-    # toolbars) refresh. Skipping the emit on a redundant assignment is what keeps
-    # repeated/no-op assignments from triggering needless re-renders. Shared by
-    # the display-affecting `Action` properties whose only side effect is a
-    # refresh; the ones that ALSO emit a granular event (enabled/checkable/
-    # checked/visible) define their setters explicitly below.
+    # Defines a `name=` setter that assigns only on an actual change and calls
+    # `#notify_changed` (emitting `Event::Changed`) so observers (menus,
+    # toolbars) refresh, skipping the emit on redundant assignments. Shared by
+    # display-affecting properties; ones that ALSO emit a granular event
+    # (enabled/checkable/checked/visible) define their setters explicitly below.
     private macro notifying_setter(name, type)
       def {{ name.id }}=(value : {{ type }}) : {{ type }}
         return value if @{{ name.id }} == value
@@ -69,10 +65,9 @@ module Crysterm
       end
     end
 
-    # The action's icon (Qt's `QAction::icon`). A terminal has no pixmap, so this
-    # is a Unicode glyph (or short string) such as `"📁"`, `"✂"`, `"▶"` — rendered
-    # before the label by menus and tool buttons. Meaningful wherever the font
-    # carries the glyph.
+    # The action's icon (Qt's `QAction::icon`). A terminal has no pixmap, so
+    # this is a Unicode glyph or short string (`"📁"`, `"✂"`, `"▶"`) rendered
+    # before the label by menus and tool buttons.
     getter icon : String?
 
     # :ditto:
@@ -105,9 +100,8 @@ module Crysterm
     end
 
     # Whether the action has an on/off checked state (Qt's `QAction#checkable`),
-    # e.g. a toggleable "Word Wrap" menu entry. A `Widget::Menu` draws a
-    # `[x]`/`[ ]` marker for checkable actions and flips `#checked?` when they are
-    # activated.
+    # e.g. a toggleable "Word Wrap" menu entry. `Widget::Menu` draws a
+    # `[x]`/`[ ]` marker and flips `#checked?` on activation.
     getter? checkable = false
 
     # Sets `#checkable`, emitting the granular `Event::CheckableChanged` (Qt's
@@ -124,9 +118,8 @@ module Crysterm
     getter? checked = false
 
     # Sets `#checked`, emitting `Event::Toggled` (Qt's `toggled(bool)`) plus
-    # `Event::Changed`, only on a real change. `Toggled` fires on *any* checked
-    # change — programmatic or via `#activate`/`#toggle` — unlike `Triggered`,
-    # which fires only on activation.
+    # `Event::Changed`, only on a real change. `Toggled` fires on any checked
+    # change, unlike `Triggered` which fires only on activation.
     def checked=(value : Bool) : Bool
       return value if @checked == value
       @checked = value
@@ -139,9 +132,8 @@ module Crysterm
     # (Qt's `QAction#isSeparator`). Created via `Action.separator`.
     property? separator = false
 
-    # Optional child actions forming a submenu (Qt's `QAction#menu`). When set, a
-    # `Widget::Menu` shows this action with a `▶` marker and opens a nested menu
-    # of these actions instead of activating it.
+    # Optional child actions forming a submenu (Qt's `QAction#menu`). When set,
+    # `Widget::Menu` shows a `▶` marker and opens a nested menu instead of activating.
     getter menu : Array(Action)?
 
     # :ditto:
@@ -205,8 +197,8 @@ module Crysterm
     notifying_setter shortcut_context, ShortcutContext
 
     # Whether holding a shortcut key auto-repeats the action (Qt's
-    # `QAction::autoRepeat`). When false, key auto-repeat events are ignored by
-    # the shortcut dispatcher. On by default.
+    # `QAction::autoRepeat`). When false, auto-repeat events are ignored by the
+    # shortcut dispatcher.
     property? auto_repeat = true
 
     # Relative importance hint (Qt's `QAction::priority`); advisory, consulted by
@@ -243,17 +235,14 @@ module Crysterm
     end
 
     # The widgets currently presenting this action (Qt's
-    # `QAction::associatedWidgets`) — the reverse of "added to". A `Widget::Menu`
-    # or `Widget::ToolBar` registers itself here when the action is added to it
-    # and removes itself when the action is removed, via `#associate`/`#dissociate`.
-    # The same action may be presented by several widgets at once. A `Set` (not an
-    # `Array`) because a widget can present an action only once; Crystal's `Set`
-    # keeps insertion order, so iteration still follows add order.
+    # `QAction::associatedWidgets`). A `Widget::Menu`/`Widget::ToolBar`
+    # registers/unregisters itself via `#associate`/`#dissociate`. A `Set` since
+    # a widget can present an action only once; Crystal's `Set` preserves
+    # insertion order.
     getter associated_widgets = Set(Widget).new
 
-    # Registers *widget* as a host presenting this action. Idempotent — the `Set`
-    # absorbs a repeat. Called by the host when the action is added to it; not
-    # normally called directly.
+    # Registers *widget* as a host presenting this action. Idempotent. Called by
+    # the host when the action is added to it; not normally called directly.
     def associate(widget : Widget) : Nil
       @associated_widgets << widget
     end
@@ -276,8 +265,7 @@ module Crysterm
     @shortcut_host : Widget?
 
     # Notifies observers (menus, tool bars) that a display-affecting property
-    # changed, by emitting `Event::Changed` (Qt's `QAction::changed()`). Emitted
-    # only on an actual change, so redundant assignments don't trigger re-renders.
+    # changed, by emitting `Event::Changed` (Qt's `QAction::changed()`).
     protected def notify_changed : Nil
       emit ::Crysterm::Event::Changed
     end
@@ -306,7 +294,7 @@ module Crysterm
       menu : Array(Action)? = nil,
       data : Data? = nil,
     )
-      # Assign ivars directly: at construction there are no observers yet, so the
+      # Assign ivars directly: at construction there are no observers yet, so
       # event-emitting setters would be wasted work.
       @icon = icon
       @icon_text = icon_text
@@ -331,18 +319,15 @@ module Crysterm
 
     # Activates the action: emits *event* (defaulting to `Event::Triggered`).
     #
-    # A **disabled** action does not fire its `Triggered` action — mirroring
-    # Qt's `QAction::activate`, which gates the `triggered()` emission on
-    # `isEnabled()`. Without this, a presenter that doesn't pre-check `#enabled`
-    # before calling `#activate` (e.g. `Widget::ToolBar`'s button handler) would
-    # run a greyed-out command. `Hovered` is *not* gated — hovering a disabled
-    # entry still notifies (as in Qt), so status-tip/tooltip feedback keeps
-    # working.
+    # A disabled action does not fire `Triggered` (mirrors Qt's
+    # `QAction::activate` gating on `isEnabled()`), guarding presenters that
+    # don't pre-check `#enabled`. `Hovered` is not gated — hovering a disabled
+    # entry still notifies, so tooltip feedback keeps working.
     #
-    # For a **checkable** action a `Triggered` activation first flips `#checked?`
-    # (emitting `Event::Toggled`), exactly as Qt's `activate(Trigger)` toggles
-    # before emitting `triggered(checked)`. The post-toggle state is carried on
-    # the `Triggered` event. Presenters therefore must NOT pre-toggle.
+    # For a checkable action, a `Triggered` activation first flips `#checked?`
+    # (emitting `Event::Toggled`), matching Qt's `activate(Trigger)`. The
+    # post-toggle state is carried on the `Triggered` event; presenters must
+    # NOT pre-toggle.
     def activate(event : OneOfEvents = Crysterm::Event::Triggered)
       if event == Crysterm::Event::Triggered
         return unless enabled
@@ -369,8 +354,7 @@ module Crysterm
       self.checked = !checked? if checkable?
     end
 
-    # The label with the `#icon` glyph prepended when set, e.g. `"📁 Open"`, else
-    # just `#text`. Used by tool buttons and other compact surfaces.
+    # The label with `#icon` prepended when set (e.g. `"📁 Open"`), else `#text`.
     def display_label : String
       i = @icon
       i ? "#{i} #{@text}" : @text
@@ -385,10 +369,9 @@ module Crysterm
       seq.map(&.to_s).join(", ")
     end
 
-    # Whether keypress *e* on its own completes one of this action's
-    # *single-keystroke* shortcuts (and the action is enabled). A convenience
-    # predicate; multi-keystroke chords are driven through `#feed_shortcut`'s
-    # state machine instead.
+    # Whether keypress *e* alone completes one of this action's single-keystroke
+    # shortcuts (and the action is enabled). Multi-keystroke chords go through
+    # `#feed_shortcut`'s state machine instead.
     def shortcut_matches?(e : ::Crysterm::Event::KeyPress) : Bool
       return false unless enabled
       k = e.key
@@ -397,9 +380,9 @@ module Crysterm
     end
 
     # Installs a window-level accelerator so this action fires when its shortcut
-    # is pressed (Qt's shortcut activation). *host* is the widget the action is
-    # presented in, used to gate `Widget`-context shortcuts on focus. Idempotent
-    # per window; a no-op when the action has no shortcut.
+    # is pressed. *host* is the widget the action is presented in, used to gate
+    # `Widget`-context shortcuts on focus. Idempotent per window; no-op without
+    # a shortcut.
     def install_shortcut(window : ::Crysterm::Window, host : Widget? = nil) : Nil
       @shortcut_host = host
       return if @shortcuts.empty?
@@ -422,11 +405,10 @@ module Crysterm
     # Feeds keypress *e* (on *window*) through the shortcut state machine,
     # supporting multi-keystroke chords (Qt's `QKeySequence`, e.g. "Ctrl+K,
     # Ctrl+B"). A single-stroke shortcut fires immediately; a chord advances a
-    # per-window pending prefix and fires only once the whole sequence is entered.
-    # A key that neither extends the pending prefix nor begins a fresh shortcut
-    # clears the prefix (there is no inter-stroke timeout). A consumed key — a
-    # fired shortcut or a held prefix — is `accept`ed so it does not also reach the
-    # focused widget.
+    # per-window pending prefix and fires only once fully entered. A key that
+    # neither extends the prefix nor begins a fresh shortcut clears it (no
+    # inter-stroke timeout). A consumed key is `accept`ed so it doesn't also
+    # reach the focused widget.
     private def feed_shortcut(window : ::Crysterm::Window, e : ::Crysterm::Event::KeyPress) : Nil
       return if e.repeat? && !auto_repeat?
       return unless enabled
@@ -466,8 +448,7 @@ module Crysterm
     end
 
     # Re-registers accelerators on every window they were installed on, so a
-    # later `#shortcut=`/`#shortcuts=` change takes effect on already-attached
-    # windows.
+    # later `#shortcut=`/`#shortcuts=` change takes effect on attached windows.
     private def reinstall_shortcuts : Nil
       windows = @shortcut_wrappers.keys
       host = @shortcut_host
@@ -477,10 +458,9 @@ module Crysterm
       end
     end
 
-    # Whether the shortcut may fire given its `#shortcut_context` and current
-    # focus. `Window`/`Application` always fire while installed; `Widget` requires
-    # one of the action's host widgets to hold focus; `WidgetWithChildren` also
-    # accepts focus on a descendant of a host.
+    # Whether the shortcut may fire given `#shortcut_context` and current focus.
+    # `Window`/`Application` always fire; `Widget` requires a host widget to
+    # hold focus; `WidgetWithChildren` also accepts focus on a host's descendant.
     private def shortcut_active? : Bool
       case shortcut_context
       in ShortcutContext::Application, ShortcutContext::Window
@@ -492,9 +472,8 @@ module Crysterm
       end
     end
 
-    # The widgets that gate a `Widget`-context shortcut: the hosts the action was
-    # added to, falling back to the host passed at `#install_shortcut` time (so
-    # gating still works if an action was wired without being formally associated).
+    # The widgets that gate a `Widget`-context shortcut: hosts the action was
+    # added to, falling back to the host passed at `#install_shortcut` time.
     private def shortcut_hosts : Enumerable(Widget)
       return @associated_widgets unless @associated_widgets.empty?
       (h = @shortcut_host) ? [h] : [] of Widget

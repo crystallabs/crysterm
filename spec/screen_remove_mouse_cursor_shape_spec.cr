@@ -3,12 +3,11 @@ require "./spec_helper"
 include Crysterm
 
 # Removing a hovered widget that owns a GUI mouse-pointer shape (OSC 22 — see
-# `Widget#mouse_cursor_shape=`) must restore the terminal-default pointer, just
+# `Widget#mouse_cursor_shape=`) must restore the terminal-default pointer, same
 # as the widget's own `Hide` handler does when it vanishes under the pointer.
-#
 # A removal emits no `MouseOut`, so without `Window#remove` restoring it the
-# pointer stays stuck in the detached widget's shape. Driven headlessly over
-# in-memory IOs through the public `#dispatch_mouse`/`#remove` entry points.
+# pointer stays stuck in the detached widget's shape. Driven headlessly via the
+# public `#dispatch_mouse`/`#remove` entry points.
 
 private def rmcs_screen(output)
   Crysterm::Window.new(
@@ -42,7 +41,7 @@ describe "Window#remove (GUI mouse-pointer shape)" do
     rmcs_drained(s, buf).should contain "\e]22;hand2\a"
     s.hovered.should eq box
 
-    s.remove box                                   # no MouseOut is emitted by a removal
+    s.remove box                                   # removal emits no MouseOut
     rmcs_drained(s, buf).should contain "\e]22;\a" # default pointer restored
     s.hovered.should be_nil
   end

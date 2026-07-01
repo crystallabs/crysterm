@@ -3,16 +3,14 @@ module Crysterm
     # Per-widget terminal cursor.
     #
     # `nil` (the default) means this widget inherits the window's default cursor
-    # (`Window#cursor`). As soon as any cursor setting is changed on the widget
-    # — via the methods below or via `#cursor!` — an override `Cursor` is created
-    # and stored here; while the widget is focused it takes precedence over the
-    # window default (the resolution happens in `Window#active_cursor`).
+    # (`Window#cursor`). Changing any cursor setting (via the methods below or
+    # `#cursor!`) creates an override `Cursor` here, which takes precedence over
+    # the window default while focused (resolved in `Window#active_cursor`).
     property cursor : Cursor? = nil
 
-    # Returns this widget's own cursor, creating (and thereby enabling) an
-    # override on first use. Use this to configure the cursor directly, e.g.
-    # `widget.cursor!.shape = :line`. Changes only take visible effect while the
-    # widget is focused; otherwise they are recorded and applied on focus.
+    # Returns this widget's own cursor, creating (and enabling) an override on
+    # first use, e.g. `widget.cursor!.shape = :line`. Changes take visible effect
+    # only while focused; otherwise recorded and applied on focus.
     def cursor! : Cursor
       @cursor ||= Cursor.new
     end
@@ -41,8 +39,8 @@ module Crysterm
     end
 
     # Drops this widget's cursor override, reverting to the window default. If
-    # the widget is focused, the window default is re-applied right away (and the
-    # window repainted, in case an artificial cursor was being drawn).
+    # focused, the window default is re-applied right away (and repainted, in
+    # case an artificial cursor was being drawn).
     def reset_cursor
       @cursor = nil
       if (s = window?) && s.focused == self

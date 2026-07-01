@@ -7,10 +7,10 @@ private def make_screen
     error: IO::Memory.new, width: 80, height: 24)
 end
 
-# A screen whose size is *not* pinned at construction, so it tracks the
+# A screen whose size is not pinned at construction, so it tracks the
 # terminal's reported size. Over an `IO::Memory` (non-tty) output the ioctl
-# probe falls back to the 80×24 default, which lets us tell an in-band-driven
-# size apart from an ioctl-driven one.
+# probe falls back to 80x24, letting us tell an in-band-driven size apart
+# from an ioctl-driven one.
 private def make_dynamic_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
     error: IO::Memory.new)
@@ -22,7 +22,7 @@ describe "Window cell geometry" do
   it "refreshes cell pixel size and CSS aspect ratio from an in-band resize report" do
     s = make_screen
     begin
-      # 960×720 px over 80×24 cells ⇒ a 12×30 px cell ⇒ aspect 2.5.
+      # 960x720 px over 80x24 cells -> 12x30 px cell -> aspect 2.5.
       ev = ::Tput::InputEvent.new('\0',
         resize: ::Tput::Resize.new(rows: 24, cols: 80, pixel_height: 720, pixel_width: 960))
       s.handle_input ev
@@ -47,9 +47,8 @@ describe "Window cell geometry" do
 
   it "drives the screen dimensions from the in-band report, not the ioctl re-probe" do
     s = make_dynamic_screen
-    # The report's 120×40 differs from the 80×24 the (non-tty) ioctl would
-    # report, so observing 120×40 proves the authoritative report drove the
-    # resize rather than a `reset_screen_size` re-probe.
+    # The report's 120x40 differs from the 80x24 ioctl fallback, so observing
+    # 120x40 proves the report drove the resize, not a `reset_screen_size` re-probe.
     ev = ::Tput::InputEvent.new('\0',
       resize: ::Tput::Resize.new(rows: 40, cols: 120, pixel_height: 0, pixel_width: 0))
     s.handle_input ev

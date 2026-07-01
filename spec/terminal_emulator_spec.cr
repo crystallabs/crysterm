@@ -2,9 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# Behaviour specs for the VT100/xterm-subset `TerminalEmulator`. The emulator is
-# pure (it only depends on `Attr` and the class method `Screen.attr2code`), so it
-# is exercised directly with no `Window`/PTY.
+# Behaviour specs for the VT100/xterm-subset `TerminalEmulator`. Pure (depends
+# only on `Attr` and `Screen.attr2code`), so exercised directly with no `Window`/PTY.
 
 private DFL = Crysterm::Attr.pack(0, Crysterm::Attr::COLOR_DEFAULT, Crysterm::Attr::COLOR_DEFAULT)
 
@@ -37,9 +36,8 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "discards DEL (0x7f) from the data stream instead of printing it" do
-      # DEL is a fill/padding control byte; VT100/xterm ignore it. It must not be
-      # written into the grid nor advance the cursor (it's `>= 0x20`, so a naive
-      # printable test would leak it as a spurious cell).
+      # DEL is a fill/padding control byte; must not be written into the grid nor
+      # advance the cursor (it's `>= 0x20`, so a naive printable test would leak it).
       em = emu
       em.feed "a\u{7f}b"
       row(em, 0).should eq "ab"
@@ -56,9 +54,8 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "sticks at the last column without wrapping when autowrap (DECAWM ?7) is off" do
-      # With autowrap disabled a child paints the bottom-right cell by writing
-      # past the last column; the cursor must stick there and overwrite it,
-      # never wrapping to (or scrolling in) the next line.
+      # With autowrap off, writing past the last column must stick the cursor
+      # there and overwrite, never wrap/scroll to the next line.
       em = emu(3, 2)
       em.feed "\e[?7l" # DECRST 7: autowrap off
       em.feed "abcd"   # 'a' 'b' 'c' fill row 0; 'd' overwrites the last column
@@ -82,10 +79,9 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "clears the deferred wrap on CNL/CPL/VPA cursor moves" do
-      # After exactly filling a row the cursor is parked in a pending-wrap state;
-      # an explicit cursor move (CNL 'E', CPL 'F', VPA 'd') must cancel it, like
-      # CUU/CUD/CUP do — otherwise the next printed char triggers a spurious
-      # extra line-feed (and, for VPA, the wrong column).
+      # An explicit cursor move (CNL 'E', CPL 'F', VPA 'd') must cancel a pending
+      # wrap, like CUU/CUD/CUP — otherwise the next char triggers a spurious
+      # line-feed (and, for VPA, the wrong column).
       em = emu(3, 3)
       em.feed "abc\e[EZ" # fill row 0, CNL to row 1 col 0, print Z
       em.lines[1][0].char.should eq 'Z'
@@ -98,10 +94,9 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "restarts the parser when an ESC arrives mid-sequence" do
-      # The VT500 parser treats an ESC as "abort whatever is in progress and begin
-      # a new escape" from any state but the string (OSC/DCS) states. A child that
-      # interrupts a half-emitted CSI with a fresh one (`CSI 1 ESC [ 2;3 H X`) must
-      # have the new CSI parsed — not have its leading `[` and params leak as text.
+      # The VT500 parser aborts in-progress state on ESC (except string OSC/DCS
+      # states). A half-emitted CSI interrupted by a fresh one
+      # (`CSI 1 ESC [ 2;3 H X`) must parse the new CSI, not leak `[`/params as text.
       em = emu
       em.feed "\e[1\e[2;3HX" # incomplete "CSI 1", then a full CUP to row 2 col 3
       em.lines[1][2].char.should eq 'X'
@@ -109,11 +104,9 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "swallows the final byte of ESC #/SP/% intermediate escapes" do
-      # `ESC # n` (DECALN / double-width line), `ESC SP F` (S7C1T) and
-      # `ESC % G` (UTF-8 select) are 3-byte sequences whose final byte is NOT
-      # text. The emulator does not implement them, but it must consume the
-      # final byte rather than printing it — otherwise e.g. a program selecting
-      # a double-width line with `ESC # 6` would leak a spurious '6'.
+      # `ESC # n` (DECALN/double-width line), `ESC SP F` (S7C1T), `ESC % G`
+      # (UTF-8 select) are 3-byte sequences; unimplemented, but the final byte
+      # must be consumed, not printed (e.g. `ESC # 6` would leak a spurious '6').
       em = emu
       em.feed "\e#6Z" # DECDWL select + print Z
       row(em, 0).should eq "Z"
@@ -137,10 +130,9 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "ignores a private/intermediate-prefixed CSI m (modifyOtherKeys), not as SGR" do
-      # `CSI > 4 ; 2 m` is xterm's modifyOtherKeys ("set key-modifier options"),
-      # which vim/neovim/tmux send at startup — it is NOT an SGR colour/style
-      # change. Treating it as SGR misread its `4` as underline, so every glyph
-      # printed afterwards came out wrongly underlined until the next reset.
+      # `CSI > 4 ; 2 m` is xterm's modifyOtherKeys (sent by vim/neovim/tmux at
+      # startup), not an SGR change. Misreading it as SGR treated `4` as underline,
+      # wrongly underlining every glyph until the next reset.
       em = emu
       em.feed "\e[>4;2mX"
       cell = em.lines[0][0]
@@ -153,10 +145,9 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "does not treat a prefixed CSI u (Kitty keyboard protocol) as a cursor restore" do
-      # `CSI > Pn u` / `CSI < Pn u` / `CSI = … u` push/pop/set the Kitty keyboard
-      # protocol flags (neovim, fish, kakoune negotiate them at startup) — they are
-      # NOT SCORC. Treating a prefixed `u` as restore-cursor yanked the cursor to
-      # the last saved position (0,0 if never saved). Plain `CSI s`/`CSI u` must
+      # `CSI > Pn u` / `CSI < Pn u` / `CSI = … u` push/pop/set Kitty keyboard
+      # protocol flags — NOT SCORC. Treating a prefixed `u` as restore-cursor
+      # yanked the cursor to the last saved position. Plain `CSI s`/`CSI u` must
       # still save/restore.
       em = emu
       em.feed "\e[s"     # SCOSC: save the home position (0,0)
@@ -188,9 +179,8 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "drops only the scrollback on ED 3, leaving the visible screen intact" do
-      # `CSI 3 J` is xterm's "Erase Saved Lines": it must discard the scrollback
-      # history ONLY, never the visible page. A child sending a bare `CSI 3 J`
-      # to trim history (without a following `CSI 2 J`) must keep what's on screen.
+      # `CSI 3 J` (xterm "Erase Saved Lines") must discard scrollback only,
+      # never the visible page.
       em = emu(5, 2)
       em.feed "L0\r\nL1\r\nL2\r\nL3" # L0/L1 scroll into history; L2/L3 stay visible
       em.ybase.should eq 2
@@ -208,7 +198,6 @@ describe Crysterm::TerminalEmulator do
       em = emu(5, 2)
       em.feed "L0\r\nL1\r\nL2\r\nL3" # no trailing newline: L3 stays on the last row
       em.ybase.should eq 2
-      # The two visible rows are the most recent; L0/L1 are in scrollback.
       row(em, 0).should eq "L2"
       row(em, 1).should eq "L3"
     end
@@ -267,12 +256,10 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "restores the charset across DECSC/DECRC (ESC 7 / ESC 8)" do
-      # DECSC saves the active charset along with the cursor; DECRC restores it.
-      # Save and the final print happen at the *same* column so the DECRC cursor
-      # restore (which also fires) doesn't overwrite an earlier glyph and confuse
-      # the assertion: with G0 special saved by ESC 7, then reset to ASCII, the
-      # ESC 8 must bring the line-drawing designation back — so the second 'q'
-      # renders as '─' ("──"), not the literal ASCII 'q' ("─q").
+      # DECSC saves the active charset with the cursor; DECRC restores both. With
+      # G0 special saved by ESC 7 then reset to ASCII, ESC 8 must bring the
+      # line-drawing designation back, so the second 'q' renders as '─' ("──"),
+      # not the literal ASCII 'q'.
       em = emu
       em.feed "\e(0" # G0 = special-graphics
       em.feed "q"    # '─' at col 0, cursor -> col 1
@@ -300,26 +287,23 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "resets the parked main scroll region when resized on the alt screen" do
-      # Quitting a full-screen app (which used the alt screen) after the window
-      # grew must not leave the restored main screen scrolling inside the old,
-      # smaller scroll region.
+      # Growing the window while on the alt screen must not leave the restored
+      # main screen scrolling inside the old, smaller scroll region.
       em = emu(4, 4)
       em.feed "\e[1;1HX"  # X at row 0 of the main buffer
       em.feed "\e[?1049h" # enter alt
       em.resize(4, 6)     # window grows while on the alt screen
       em.feed "\e[?1049l" # leave alt -> main buffer restored
-      # With a full-screen scroll region (rows 0..5), a line-feed from row 3 just
-      # advances the cursor; with a stale region (0..3) it would scroll row 0
-      # (the "X") off the top.
+      # With a full-screen region (0..5) LF from row 3 just advances; with a
+      # stale region (0..3) it would scroll row 0 (the "X") off the top.
       em.feed "\e[4;1H\n"
       em.cursor_y.should eq 4
       row(em, 0).should eq "X"
     end
 
     it "does not accumulate scrollback while on the alternate screen" do
-      # The alt screen has no scrollback: a full-screen app that scrolls past the
-      # bottom must neither grow @ybase/@lines (unbounded memory) nor expose a
-      # bogus history to scrollback navigation.
+      # The alt screen has no scrollback: scrolling past the bottom must not grow
+      # @ybase/@lines nor expose bogus history to scrollback navigation.
       em = emu(4, 3)
       em.feed "\e[?1049h" # enter alt
       em.ybase.should eq 0
@@ -369,8 +353,8 @@ describe Crysterm::TerminalEmulator do
       row(em, 0).should eq "L0"
       row(em, 1).should eq "L1"
       row(em, 2).should eq "L2"
-      # A full-screen scroll (LF at the bottom row) must bring up a freshly blank
-      # line, not the orphaned L3 that fell off the bottom on the shrink.
+      # LF at the bottom row must bring up a fresh blank line, not the orphaned
+      # L3 that fell off the bottom on the shrink.
       em.feed "\e[3;1H\n"
       row(em, 0).should eq "L1"
       row(em, 1).should eq "L2"
@@ -400,9 +384,8 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "caps an adversarial huge count at the region size (IL)" do
-      # `CSI 99999 L` must not spin O(n·height) / allocate 99999 lines: the count
-      # is capped to the lines from the cursor to the region bottom, beyond which
-      # the result is just a fully-blanked region.
+      # `CSI 99999 L` must not spin O(n·height): count is capped to the lines
+      # from cursor to region bottom, beyond which the region is just blanked.
       em = emu(4, 4)
       4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
       em.feed "\e[2;1H\e[99999L"
@@ -425,9 +408,8 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "moves the cursor to the left margin on IL and DL (ECMA-48 line home)" do
-      # Per ECMA-48, IL/DL move the active position to the line home position
-      # (column 0); xterm and modern terminals do this. The cursor must not be
-      # left at its prior column.
+      # Per ECMA-48, IL/DL move the active position to column 0; must not stay
+      # at the prior column.
       em = emu(10, 4)
       em.feed "\e[2;5H\e[L" # cursor row 2 / col 5 (0-based 4), then IL
       em.cursor_x.should eq 0
@@ -451,10 +433,8 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "caps an adversarial huge SU count at the region height" do
-      # `CSI 99999999 S` must not spin O(n) (nor push ~n blank lines toward the
-      # scrollback limit): scrolling more than the region's height just leaves it
-      # blank, so the count is capped — @lines grows by at most the region height
-      # (4 lines into scrollback here), not toward SCROLLBACK_LIMIT.
+      # `CSI 99999999 S` must not spin O(n) or push ~n lines toward the scrollback
+      # limit: count is capped at the region height (4 lines into scrollback here).
       em = emu(4, 4)
       4.times { |i| em.feed "\e[#{i + 1};1HL#{i}" }
       em.feed "\e[99999999S"
@@ -474,10 +454,9 @@ describe Crysterm::TerminalEmulator do
 
   describe "cursor up/down within a scroll region" do
     it "clamps CUU/CUD to the scroll-region margins, not the screen edges" do
-      # xterm's CursorUp/CursorDown stop at the scroll region's top/bottom margin
-      # when the cursor starts inside the region — so a child driving a bounded
-      # status area with CUU/CUD can't walk the cursor out of its region. A naive
-      # clamp to the screen edges (0 / rows-1) lets it escape.
+      # CUU/CUD stop at the scroll region's top/bottom margin when the cursor
+      # starts inside it. A naive clamp to the screen edges (0 / rows-1) lets
+      # the cursor escape the region.
       em = emu(10, 10)
       em.feed "\e[3;7r" # scroll region rows 3..7 (1-based) == 0-based rows 2..6
 
@@ -493,12 +472,10 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "does not treat a private-prefixed CSI r (XTRESTORE) as DECSTBM" do
-      # `CSI ? Pm r` is XTRESTORE (restore DEC private mode values) — the
-      # counterpart to the `CSI ? Pm s` XTSAVE the 's' handler already ignores.
-      # xterm-aware children pair them around a mode change, e.g. `CSI ? 7 r` to
-      # restore autowrap. Letting that fall through to DECSTBM misread its `7` as
-      # a top margin (rows 6..bottom) and homed the cursor — corrupting an app's
-      # scroll region. It must be a no-op (we don't track saved modes).
+      # `CSI ? Pm r` is XTRESTORE (restore DEC private mode values), counterpart
+      # to the `CSI ? Pm s` XTSAVE the 's' handler already ignores. Falling
+      # through to DECSTBM misread e.g. `CSI ? 7 r` as a top margin and homed the
+      # cursor, corrupting the scroll region. Must be a no-op (saved modes aren't tracked).
       em = emu(10, 10)
       em.feed "\e[6;4HX"      # park the cursor at 0-based row 5, col 3
       em.cursor_x.should eq 4 # after printing 'X'
@@ -506,8 +483,7 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[?7r"        # XTRESTORE autowrap: must NOT touch the scroll region
       em.cursor_x.should eq 4 # real DECSTBM would have homed to (0,0)
       em.cursor_y.should eq 5
-      # The full-screen region is intact: CUD walks all the way to the screen
-      # bottom (row 9), not a bogus margin a stray DECSTBM would have installed.
+      # Region intact: CUD walks to the screen bottom (row 9), not a bogus margin.
       em.feed "\e[20B"
       em.cursor_y.should eq 9
     end
@@ -515,10 +491,9 @@ describe Crysterm::TerminalEmulator do
 
   describe "reverse index (RI / ESC M)" do
     it "clears the deferred (last-column) wrap so the next glyph overwrites at the cursor" do
-      # RI repositions the active line, so — like its mirror IND (LF) and every
-      # CSI cursor move — it must cancel a pending last-column wrap. If the stale
-      # `@wrap_pending` survives, the glyph printed right after RI spuriously
-      # wraps to the next line instead of overwriting at the cursor's column.
+      # RI must cancel a pending last-column wrap, like its mirror IND (LF) and
+      # every CSI cursor move. A stale `@wrap_pending` would make the glyph
+      # printed right after RI spuriously wrap instead of overwriting.
       em = emu(3, 3)
       em.feed "\e[2;1H" # cursor to 0-based row 1 (middle), col 0
       em.feed "XYZ"     # fills row 1; cursor parks on the last column (wrap pending)
@@ -536,23 +511,19 @@ describe Crysterm::TerminalEmulator do
 
   describe "DECSTBM (set scroll region)" do
     it "clamps an over-large bottom margin instead of dropping the whole request" do
-      # xterm clamps a DECSTBM bottom that exceeds the screen to the last row and
-      # still installs the region; it does NOT reject the request. A child that
-      # still uses its pre-resize row count can emit `CSI 1;<oldrows> r` before it
-      # handles SIGWINCH — rejecting that left the previous (smaller) region in
-      # place, so scrolling stayed confined to it. After clamping, the region is
-      # the full screen and a line-feed below the old margin no longer scrolls.
+      # xterm clamps a DECSTBM bottom exceeding the screen to the last row and
+      # still installs the region rather than rejecting the request. Rejecting
+      # would leave a stale pre-resize region in place after e.g. SIGWINCH.
       em = emu(4, 4)
       em.feed "\e[1;2r"  # first install a small region: 0-based rows 0..1
       em.feed "\e[1;1HA" # 'A' at row 0
 
-      # Now an oversized DECSTBM (bottom 99 > 4 rows). Buggy code drops it, leaving
-      # the 0..1 region; fixed code clamps to the full 0..3 region.
+      # Oversized DECSTBM (bottom 99 > 4 rows): buggy code drops it, leaving the
+      # 0..1 region; fixed code clamps to the full 0..3 region.
       em.feed "\e[1;99r"
 
-      # Put the cursor on the *old* region's bottom margin (0-based row 1) and feed
-      # a line-feed. With the stale small region that LF scrolls (row 0's 'A' moves
-      # up and is lost); with the full region it just advances the cursor to row 2.
+      # Cursor on the *old* region's bottom margin (row 1), then LF. Stale small
+      # region scrolls (loses row 0's 'A'); full region just advances to row 2.
       em.feed "\e[2;1H\n"
       em.cursor_y.should eq 2  # advanced, not scrolled (full region in effect)
       row(em, 0).should eq "A" # row 0 untouched — no scroll happened
@@ -598,8 +569,7 @@ describe Crysterm::TerminalEmulator do
       em.feed "\e[?6h"  # DECOM on: row addressing is region-relative
       em.feed "\e[1;1H" # home to the region top in origin coords (== absolute row 2)
       em.feed "\e[6n"
-      # The reply must echo the origin-relative row (1), not the absolute row (2),
-      # so it round-trips with the CUP the child just issued.
+      # Must echo the origin-relative row (1), not the absolute row (2).
       io.to_s.should eq "\e[1;1R"
     end
   end
@@ -618,7 +588,7 @@ describe Crysterm::TerminalEmulator do
       em = emu
       titles = [] of String
       em.on_title = ->(t : String) { titles << t; nil }
-      # A sixel-shaped DCS payload begins '0;…' — must NOT fire on_title.
+      # Sixel-shaped DCS payload begins '0;…' — must NOT fire on_title.
       em.feed "\e[H\eP0;1;0qABC\e\\X"
       titles.should be_empty
       em.lines[0][0].char.should eq 'X' # parsing resumed after the DCS
@@ -633,8 +603,7 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "honours a tab stop set with HTS (ESC H)" do
-      # Clear all stops, set a single custom stop at column 4, then HT must land
-      # there — not on a hardcoded 8-column boundary.
+      # Custom stop at column 4: HT must land there, not a hardcoded 8-col boundary.
       em = emu(20, 2)
       em.feed "\e[3g"      # TBC 3: clear every stop
       em.feed "\e[1;5H\eH" # cursor to col 4 (0-based), HTS sets a stop here
@@ -664,9 +633,8 @@ describe Crysterm::TerminalEmulator do
 
   describe "repeat (REP / CSI b)" do
     it "repeats the last printed glyph n times" do
-      # ncurses emits REP on a terminal whose terminfo has `rep` (xterm-256color:
-      # `rep=\E[%p1%db`) to draw a run of one glyph — e.g. a horizontal rule — in a
-      # few bytes. `CSI Pn b` must re-emit the preceding character Pn more times.
+      # ncurses emits REP (terminfo `rep`) to draw a run of one glyph in few
+      # bytes. `CSI Pn b` must re-emit the preceding character Pn more times.
       em = emu
       em.feed "-\e[3b" # one '-' then REP 3 -> four dashes total
       row(em, 0).should eq "----"
@@ -688,9 +656,8 @@ describe Crysterm::TerminalEmulator do
     end
 
     it "caps an adversarial huge repeat count at the grid area" do
-      # `CSI 99999999 b` must not spin O(n): the count is capped at cols*rows, past
-      # which the screen is already full of the glyph. (Must return promptly and
-      # leave the grid full and the cursor in bounds, not loop ~10^8 times.)
+      # `CSI 99999999 b` must not spin O(n): count is capped at cols*rows, past
+      # which the screen is already full.
       em = emu(4, 2)
       em.feed "x\e[99999999b"
       row(em, 0).should eq "xxxx"
@@ -701,16 +668,14 @@ describe Crysterm::TerminalEmulator do
 
   describe "oversized CSI parameters" do
     it "does not overflow on a CSI parameter larger than Int32" do
-      # A child (buggy or hostile) can emit a numeric CSI parameter far beyond
-      # Int32::MAX. The in-place param accumulator must not raise OverflowError
-      # (which, in the reader fiber, would silently tear down the whole session);
-      # an out-of-range field reads as 0 — like the old `to_i? || 0` — so the move
-      # falls back to its default and the cursor stays in bounds.
+      # A numeric CSI parameter beyond Int32::MAX must not raise OverflowError
+      # (would silently tear down the reader fiber's session). Out-of-range reads
+      # as 0, like the old `to_i? || 0`, so the move falls back to its default.
       em = emu(10, 4)
       em.feed "\e[9999999999;9999999999HX" # CUP with both fields overflowing
       em.cursor_x.should be < em.cols
       em.cursor_y.should be < em.rows
-      # A real, in-range CUP still positions exactly (regression guard).
+      # In-range CUP still positions exactly (regression guard).
       em.feed "\e[2;3HY"
       em.lines[1][2].char.should eq 'Y'
     end
@@ -718,7 +683,7 @@ describe Crysterm::TerminalEmulator do
     it "does not overflow on an oversized private-mode (SGR / set_mode) parameter" do
       em = emu
       # `each_csi_param` (used by set_mode) shares the accumulator; a giant mode
-      # number must be swallowed, not crash, and unknown ⇒ no state change.
+      # number must be swallowed, not crash.
       em.feed "\e[?9999999999h"
       em.feed "\e[9999999999mZ" # oversized SGR param: ignored, char still prints
       em.lines[0][0].char.should eq 'Z'
@@ -727,10 +692,8 @@ describe Crysterm::TerminalEmulator do
 
   describe "insert mode (IRM / CSI 4 h)" do
     it "inserts printed glyphs at the cursor, shifting the rest of the line right" do
-      # IRM is the ANSI (non-private) mode 4 — terminfo smir/rmir. With it on, a
-      # printed character is inserted (the tail shifts right, overflow dropped)
-      # instead of overwriting the cell under the cursor. A child that edits a
-      # line with the insert-character capability relies on this.
+      # IRM is ANSI mode 4 (terminfo smir/rmir). With it on, a printed character
+      # is inserted (tail shifts right, overflow dropped) instead of overwriting.
       em = emu(10, 2)
       em.feed "ABC"   # row0 = "ABC"
       em.feed "\e[H"  # cursor home (row 0, col 0)

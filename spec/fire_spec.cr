@@ -2,10 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::Effect::Fire` paints its interior directly into the cell buffer as
-# packed `Int64` attrs (no tagged-content round-trip). Its simulation
-# (`#resize`/`#advance`/`#cell`) is exercised directly, headlessly, with no
-# animation fiber and no real terminal.
+# `Widget::Effect::Fire` paints directly into the cell buffer as packed `Int64`
+# attrs (no tagged-content round-trip). Simulation (`#resize`/`#advance`/`#cell`)
+# is exercised directly, headlessly, with no animation fiber or real terminal.
 
 private def fire_screen
   Crysterm::Window.new(
@@ -21,12 +20,12 @@ describe Crysterm::Widget::Effect::Fire do
     f.resize 16, 40
     f.advance 16, 40
 
-    # Bottom row is lit (a non-blank ramp glyph with a real color).
+    # Bottom row is lit: non-blank ramp glyph with a real color.
     bottom_ch, bottom_color = f.cell(0, 39, 16, 40)
     bottom_ch.should_not eq ' '
     bottom_color.should_not eq -1
 
-    # Far enough above the source the flame has decayed to nothing.
+    # Far above the source the flame has decayed to nothing.
     f.cell(0, 0, 16, 40).should eq({' ', -1})
   end
 

@@ -67,16 +67,16 @@ describe "Pine::KeyPrompt" do
     prompt.answer.should eq "N"
   end
 
-  # A plain Box does not receive key events; the prompt must register as keyable
-  # so the screen actually dispatches the choice keys to it once focused.
+  # A plain Box does not receive key events; the prompt must register as
+  # keyable so the screen dispatches choice keys to it once focused.
   it "is keyable so it receives key presses when focused" do
     s = pkp_screen
     prompt = Crysterm::Widget::Pine::KeyPrompt.yes_no("Quit?", parent: s)
     prompt.keyable?.should be_true
   end
 
-  # Each choice is a clickable child box, so the prompt can be answered with the
-  # mouse as well as the keyboard.
+  # Each choice is a clickable child box, so the prompt can be answered by
+  # mouse too.
   it "answers when a choice box is clicked" do
     s = pkp_screen
     ran = nil.as(String?)

@@ -39,8 +39,7 @@ module Crysterm
         @input.close rescue nil
         @output.close rescue nil
         @process.terminate rescue nil
-        # Reap the process so it doesn't linger as a zombie (important for apps
-        # that open/close many windows over their lifetime). Non-blocking: the
+        # Reap the process so it doesn't linger as a zombie. Non-blocking: the
         # wait happens on its own fiber.
         spawn { @process.wait rescue nil }
         File.delete(@path) rescue nil
@@ -151,13 +150,12 @@ module Crysterm
       exit 0
     end
 
-    # The in-window helper: reports this window's TTY back to the parent over the
-    # rendezvous socket, forwards SIGWINCH as resize notifications, then parks
-    # until the parent closes the socket (or sends "QUIT") — at which point it
-    # exits, which makes the emulator close the window. It deliberately never
-    # reads or alters its stdin (the window's TTY), leaving the parent the sole
-    # owner of the terminal's input and mode (the discipline documented in
-    # `examples/multiple-terminals.cr` as `exec sleep infinity`).
+    # The in-window helper: reports this window's TTY back to the parent over
+    # the rendezvous socket, forwards SIGWINCH as resize notifications, then
+    # parks until the parent closes the socket (or sends "QUIT"), at which
+    # point it exits, closing the window. Never reads or alters its stdin,
+    # leaving the parent sole owner of the terminal's input/mode (documented
+    # in `examples/multiple-terminals.cr` as `exec sleep infinity`).
     def self.run_helper(path : String) : Nil
       socket = UNIXSocket.new(path)
       tty = (File.readlink("/proc/self/fd/0") rescue nil)

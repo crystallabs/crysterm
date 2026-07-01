@@ -2,24 +2,23 @@ require "benchmark"
 require "../src/crysterm"
 
 # `Colors.composite` folds an overlay plane's cell over the base cell, per the
-# cell's per-channel `Attr::Alpha` mode. It runs PER CELL in the plane
-# compositor (`Plane#composite_onto`) over every painted cell of an overlay
-# (popups, alpha widgets, media). The overwhelmingly common painted cell is
-# fully **Opaque/Opaque** (a normal solid overlay), for which the result is just
-# `top` with its alpha/reserved bits cleared.
+# cell's per-channel `Attr::Alpha` mode. Runs per cell in the plane compositor
+# (`Plane#composite_onto`) over every painted cell of an overlay (popups, alpha
+# widgets, media). The overwhelmingly common case is fully Opaque/Opaque (a
+# normal solid overlay), where the result is just `top` with alpha/reserved
+# bits cleared.
 #
-# This benchmark compares the current `Colors.composite` against a candidate
-# that fast-paths the Opaque/Opaque case to a single mask, and asserts they
-# agree bit-for-bit across a mix of alpha modes.
+# Compares current `Colors.composite` against a candidate that fast-paths the
+# Opaque/Opaque case to a single mask, asserting bit-for-bit agreement across a
+# mix of alpha modes.
 #
 # Run:  crystal run --release benchmarks/composite-cells.cr
 
 include Crysterm
 
 # OLD (pre-optimization) `composite`: always runs both `composite_field`s and
-# `pack`, even for a fully-opaque cell. The live `Colors.composite` now
-# fast-paths the Opaque/Opaque case to a single mask; this replica lets the
-# harness show the before/after.
+# `pack`, even for a fully-opaque cell. Kept as a replica for the before/after
+# comparison; the live `Colors.composite` fast-paths Opaque/Opaque.
 def composite_old(top : Int64, under : Int64) : Int64
   fg = Colors.composite_field(Attr.fg_alpha(top), Attr.fg(top), Attr.fg(under), true)
   bg = Colors.composite_field(Attr.bg_alpha(top), Attr.bg(top), Attr.bg(under), false)
@@ -40,8 +39,8 @@ end
 TOPS  = Array(Int64).new(CELLS) { |i| rnd_attr(i) }
 UNDER = Array(Int64).new(CELLS) { |i| rnd_attr(i &* 7 &+ 3) }
 
-# Assign alpha modes: ~85% fully Opaque (the common solid overlay), the rest a
-# mix of Blend / Transparent / HighContrast on one or both channels.
+# Assign alpha modes: ~85% fully Opaque (the common case), rest a mix of
+# Blend/Transparent/HighContrast on one or both channels.
 CELLS.times do |i|
   case i % 20
   when 17 then TOPS[i] = Attr.with_alpha(TOPS[i], Attr::Alpha::Blend, Attr::Alpha::Blend)

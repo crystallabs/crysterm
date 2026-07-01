@@ -1,6 +1,5 @@
-# Media::Glyph::Braille — the Matterhorn rendered via the Glyph::Braille backend.
-#
-# A single fixed variant of Media::Glyph (see the sibling dirs for the rest).
+# Media::Glyph::Braille — Matterhorn rendered via the Glyph::Braille backend.
+# Fixed variant of Media::Glyph (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
 include Crysterm

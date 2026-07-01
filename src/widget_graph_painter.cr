@@ -4,17 +4,16 @@ module Crysterm
   class Widget
     module Graph
       # A small `QPainter`-style 2D rasterizer that draws into a `PNGGIF::Bitmap`
-      # (RGBA pixels). It is deliberately **backend-agnostic**: it knows nothing
-      # about terminals, cells, braille or sixel. `Graph::Canvas` allocates the
-      # bitmap at the native resolution of whatever Media backend the terminal
-      # was detected to support and hands it here; the same paint code then
-      # renders identically to braille, sixel, kitty, …
+      # (RGBA pixels). Backend-agnostic: knows nothing about terminals, cells,
+      # braille or sixel. `Graph::Canvas` allocates the bitmap at the native
+      # resolution of whatever Media backend the terminal supports and hands it
+      # here; the same paint code renders identically to braille, sixel, kitty, …
       #
-      # Coordinates are **logical**. `#set_window` (logical bounds) and
-      # `#set_viewport` (device-pixel bounds) define an affine logical→device map,
-      # exactly like `QPainter#setWindow`/`#setViewport`: declare your data space
-      # once and draw in those units, resolution-independently. With no window set,
-      # logical units equal device pixels.
+      # Coordinates are logical. `#set_window` (logical bounds) and
+      # `#set_viewport` (device-pixel bounds) define an affine logical→device
+      # map, like `QPainter#setWindow`/`#setViewport`: declare your data space
+      # once and draw resolution-independently. With no window set, logical
+      # units equal device pixels.
       #
       # `#pen` is the stroke color (`0xRRGGBB`); `#pen_alpha` its opacity. X and Y
       # scale independently (so axis-aligned plots fill the viewport regardless of
@@ -69,8 +68,8 @@ module Crysterm
           @vw, @vh = w.to_f, h.to_f
         end
 
-        # Fills the whole bitmap with *color* (default fully transparent, the
-        # natural "clear" since translucent pixels leave the terminal untouched).
+        # Fills the whole bitmap with *color* (default fully transparent, since
+        # translucent pixels leave the terminal untouched).
         def clear(color : Int32 = 0, alpha : UInt8 = 0_u8) : Nil
           px = PNGGIF::Pixel.new((color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff, alpha.to_i)
           @height.times { |y| @width.times { |x| @bmp[y][x] = px } }
@@ -134,13 +133,12 @@ module Crysterm
           ellipse dcx, dcy, drx.round.to_i, dry.round.to_i
         end
 
-        # Fills an annular sector (ring arc) in **device pixels**, centered at
-        # device (cx, cy), between `r_inner`..`r_outer` device-pixel radii, over
-        # `start_deg`..`start_deg + sweep_deg`. `0°` is up (12 o'clock), angles
-        # increase clockwise. The vertical radius is scaled by `#pixel_aspect` so
-        # the ring is physically round on non-square backends. Used by
-        # `Graph::Donut`; works in device space (not logical) so the geometry is
-        # independent of any window/viewport.
+        # Fills an annular sector (ring arc) in device pixels, centered at device
+        # (cx, cy), between `r_inner`..`r_outer` radii, over `start_deg`..
+        # `start_deg + sweep_deg`. `0°` is up (12 o'clock), angles increase
+        # clockwise. Vertical radius is scaled by `#pixel_aspect` so the ring is
+        # physically round on non-square backends. Used by `Graph::Donut`; works
+        # in device space so geometry is independent of any window/viewport.
         def fill_ring(cx : Int32, cy : Int32, r_inner : Number, r_outer : Number,
                       start_deg : Number = 0.0, sweep_deg : Number = 360.0,
                       step_deg : Number = 0.7) : Nil
@@ -257,12 +255,12 @@ module Crysterm
 
       # Shared text-overlay helpers for the Canvas-backed graph widgets
       # (`LineChart`, `Donut`, `Map`). These graphs draw their plot/pixels on a
-      # `Graph::Canvas` child, then stamp crisp terminal text — titles, axis
-      # labels, markers, readouts — directly onto `window.lines` on top. This
+      # `Graph::Canvas` child, then stamp crisp terminal text (titles, axis
+      # labels, markers, readouts) directly onto `window.lines` on top. This
       # module centralizes that stamping plus a small per-color attr memoizer.
       #
-      # Including types are `Widget` subclasses, so `window`, `style` and `sattr`
-      # are available.
+      # Including types are `Widget` subclasses, so `window`, `style` and
+      # `sattr` are available.
       module TextOverlay
         # Memoized cell attrs, keyed on *both* the requested color and the
         # current `style.bg`, so a background change doesn't keep serving a stale

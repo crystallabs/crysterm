@@ -3,16 +3,15 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget::Dial#pointer` maps the current value onto one of eight compass
-# glyphs. The old mapping used `frac * POINTERS.size` unconditionally, which is
-# only correct for a *wrapping* dial: there the maximum is meant to roll back
-# onto the minimum's "north". For the default *non-wrapping* dial it was a bug —
-# `frac == 1.0` rounded to `size` and wrapped (`% size`) back to index 0, so the
-# maximum showed `↑`, identical to the minimum, and an in-between direction could
-# be skipped. A non-wrapping dial must spread the range across the arc
-# (`frac * (size - 1)`) so the two ends point in distinct directions.
+# glyphs. The old mapping used `frac * POINTERS.size` unconditionally, correct
+# only for a *wrapping* dial (max rolls back onto min's "north"). For a
+# non-wrapping dial this was a bug: `frac == 1.0` rounded to `size` and wrapped
+# (`% size`) back to index 0, so the maximum showed `↑` same as the minimum,
+# and an in-between direction could be skipped. Fix: non-wrapping dials spread
+# the range across the arc (`frac * (size - 1)`) so the ends differ.
 #
 # Driven headlessly: the dial paints its pointer glyph into the center cell of
-# its interior, which these specs read back after one render.
+# its interior, read back after one render.
 
 private def dp_screen
   Crysterm::Window.new(
@@ -24,9 +23,9 @@ private def dp_screen
     default_quit_keys: false)
 end
 
-# The pointer glyph painted at the center of the dial's interior. The center is
-# computed exactly as `Dial#render` does (`with_inner_coords` insets), so it is
-# correct even if a theme gives the dial a border/padding.
+# Pointer glyph at the center of the dial's interior, computed the same way as
+# `Dial#render` (`with_inner_coords` insets), so it's correct with a themed
+# border/padding too.
 private def center_glyph(s, dial) : Char
   s._render
   cx = dial.aleft + dial.ileft + ((dial.awidth - dial.iwidth) // 2)
@@ -45,8 +44,8 @@ describe "Widget::Dial#pointer" do
 
     dial.value = 7 # the maximum
     at_max = center_glyph(s, dial)
-    at_max.should eq '↖'        # the last compass glyph, distinctly *not* north
-    at_max.should_not eq at_min # the core of the bug: ends must differ
+    at_max.should eq '↖'        # last compass glyph, not north
+    at_max.should_not eq at_min # core of the bug: ends must differ
   end
 
   it "shows every direction across a non-wrapping 8-value range (no skipped glyph)" do

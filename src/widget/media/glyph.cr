@@ -2,11 +2,10 @@ require "../../widget_media_cells"
 
 module Crysterm
   class Widget
-    # Renders an image into terminal cells at *sub-cell* resolution, using the
-    # several Unicode glyph families that pack more than one sub-pixel into a
-    # single character. This is parallel to `Media::Ansi` (and, like it, decodes
-    # with the pure-Crystal PNGGIF reader and supports animated GIF/APNG); it
-    # differs in that one cell can carry several sub-pixels:
+    # Renders an image into terminal cells at *sub-cell* resolution, using
+    # Unicode glyph families that pack more than one sub-pixel into a single
+    # character. Parallel to `Media::Ansi` (same PNGGIF decoder, same animated
+    # GIF/APNG support), but one cell can carry several sub-pixels:
     #
     #   Block     1x1   one cell per pixel (bg color)          (≈ Media::Ansi)
     #   Ascii     1x1   luminance glyph + fg                   (≈ Media::Ansi ascii)
@@ -48,12 +47,11 @@ module Crysterm
 
       getter mode : Mode
 
-      # Whether to key dots on *opacity* rather than luminance. For a photo, a
-      # `Braille` dot is on where the image is bright (luminance threshold). For
-      # *vector* content drawn on a transparent canvas (`Graph::Canvas`), that's
-      # wrong: a dark-but-drawn stroke (e.g. a donut's track) should still be a
-      # dot. With this on, a dot is on iff its pixel is opaque, and takes that
-      # pixel's own color — so each cell shows the color actually drawn there.
+      # Whether to key dots on *opacity* rather than luminance. Normally a
+      # `Braille` dot is on where the image is bright (luminance threshold), but
+      # for vector content on a transparent canvas (`Graph::Canvas`) a dark
+      # stroke should still be a dot. With this on, a dot is on iff its pixel is
+      # opaque, using that pixel's own color.
       property? alpha_key : Bool = false
 
       # Minimum local luminance gradient (sum of |dx|+|dy|) for a cell to be
@@ -63,7 +61,7 @@ module Crysterm
       def initialize(@file = nil, @mode : Mode = Mode::Half, animate : Bool | Timer = true,
                      @speed : Float64 = 1.0, @fit : Media::Fit = Media::Fit::Stretch, **box)
         super(**box)
-        setup_animate animate # before set_image, so a shared clock is known when play subscribes
+        setup_animate animate # before set_image, so shared clock is known when play subscribes
         @file.try { |f| set_image f }
         on(::Crysterm::Event::Destroy) { stop }
       end
@@ -73,18 +71,16 @@ module Crysterm
         source
       end
 
-      # Native resolution is the cell box times this mode's sub-cell grid (e.g.
-      # 2×4 for braille/octant), so a `Graph::Canvas` bitmap maps one pixel per
-      # sub-cell dot — crisp, no resampling.
+      # Cell box times this mode's sub-cell grid (e.g. 2x4 for braille/octant),
+      # so a `Graph::Canvas` bitmap maps one pixel per sub-cell dot, no resampling.
       def native_resolution(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
         sx, sy = @mode.subgrid
         {cols * sx, rows * sy}
       end
 
-      # A sub-cell pixel is `(cell_w/sx) × (cell_h/sy)`; with the terminal's
-      # measured cell aspect (`CSS::Length.cell_aspect_ratio`, cell height÷width)
-      # this is square for braille/octant (2×4) and half (1×2), wide for
-      # block/quadrant.
+      # A sub-cell pixel is `(cell_w/sx) x (cell_h/sy)`; with the terminal's
+      # measured cell aspect (`CSS::Length.cell_aspect_ratio`) this is square for
+      # braille/octant (2x4) and half (1x2), wide for block/quadrant.
       def native_pixel_aspect : Float64
         sx, sy = @mode.subgrid
         car = Crysterm::CSS::Length.cell_aspect_ratio
@@ -112,12 +108,11 @@ module Crysterm
       # Sample at the current mode's sub-cell resolution (cells × sub-grid).
       protected def compose(img : PNGGIF::PNG, cols : Int32, rows : Int32, frame : PNGGIF::Bitmap?) : PNGGIF::Bitmap?
         sx, sy = @mode.subgrid
-        # Sub-pixel aspect (height/width): a cell is `car`:1 (tall — the terminal's
-        # measured cell height÷width, see `CSS::Length.cell_aspect_ratio`), split
-        # into sx columns x sy rows, so a sub-pixel is (1/sx) wide x (car/sy) tall.
-        # It is only *square* when sy == car*sx; for the other modes it is
-        # non-square, and passing 1.0 would distort the fit so the image comes out
-        # a different size per mode. The correct correction is car*sx/sy.
+        # Sub-pixel aspect (height/width): a cell is `car`:1 tall (measured cell
+        # height/width, see `CSS::Length.cell_aspect_ratio`), split into sx
+        # columns x sy rows, giving a sub-pixel (1/sx) wide x (car/sy) tall. Only
+        # square when sy == car*sx; otherwise passing 1.0 would distort the fit
+        # and change the image size per mode. Correction factor is car*sx/sy.
         car = Crysterm::CSS::Length.cell_aspect_ratio
         car = 2.0 if car <= 0
         am = car * sx / sy
@@ -128,9 +123,9 @@ module Crysterm
         lines = window.lines
         sx, sy = @mode.subgrid
 
-        # Braille is one colour per cell, so it needs a single global on/off
-        # threshold (a per-cell threshold would just produce ~50% noise). Skipped
-        # under `#alpha_key?`, where opacity (not luminance) drives the dots.
+        # Braille is one color per cell, so it needs a single global on/off
+        # threshold (per-cell would just produce ~50% noise). Skipped under
+        # `#alpha_key?`, where opacity drives the dots instead.
         thr = (@mode.braille? && !alpha_key?) ? @threshold_memo.get(bmp) { global_threshold bmp } : 0.0
 
         (yi...yl).each do |y|
@@ -154,9 +149,8 @@ module Crysterm
           blend_cell cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(rgb_of px)), px.a / 255.0
         in Mode::Ascii
           # Edge-aware ASCII: every cell keeps the pixel's full color, but an
-          # ASCII glyph is overlaid ONLY where there is a real edge (high local
-          # contrast). The glyph traces the edge direction (- | / \), so it adds
-          # detail where it helps instead of dumping a character into every cell.
+          # ASCII glyph tracing the edge direction (- | / \) is overlaid only
+          # where local contrast is high, instead of every cell.
           px = pix(sub, cx, cy) || return
           a = px.a / 255.0
           bg = rgb_of px
@@ -173,8 +167,8 @@ module Crysterm
           top = pix(sub, cx, cy * 2 + 0)
           bot = pix(sub, cx, cy * 2 + 1)
           return unless top
-          # The cell's two sub-pixels become fg (top) and bg (bottom); its overall
-          # opacity is their mean alpha (a missing bottom reuses the top's).
+          # Sub-pixels become fg (top) and bg (bottom); opacity is their mean
+          # alpha (missing bottom reuses top's).
           at = top.a / 255.0
           ab = bot ? bot.a / 255.0 : at
           bcol = bot || top
@@ -186,15 +180,14 @@ module Crysterm
         end
       end
 
-      # Two-colour modes: split this cell's sub-pixels into "ink" (brighter than
+      # Two-color modes: split this cell's sub-pixels into "ink" (brighter than
       # the cell mean) and "paper", pick the glyph for the ink pattern, and use
-      # the average ink/paper colours as fg/bg.
+      # the average ink/paper colors as fg/bg.
       private def paint_two_color(cell, sub, cx, cy, sx, sy)
-        # Sub-pixels (≤ 2×4 = 8), cached on the stack in the first pass so the
-        # second pass need not re-fetch each `pix` (double bounds-checked nested
-        # array) nor recompute its `lum` — the per-cell hot spot of the multi-
-        # column modes. Enumeration is row-major (dy outer, dx inner), so cache
-        # slot `i` carries mask bit `1 << i`, matching the old `bit <<= 1` order.
+        # Sub-pixels (<= 2x4 = 8) cached on the stack in the first pass so the
+        # second pass skips re-fetching `pix` and recomputing `lum` — the
+        # per-cell hot spot of the multi-column modes. Enumeration is row-major
+        # (dy outer, dx inner), so cache slot `i` carries mask bit `1 << i`.
         pixels = uninitialized StaticArray(PNGGIF::Pixel, 8)
         lums = uninitialized StaticArray(Float64, 8)
         present = uninitialized StaticArray(Bool, 8)
@@ -269,15 +262,13 @@ module Crysterm
         end
         return if total == 0 # no in-bounds sub-pixels (letterbox): leave the cell
         if n == 0
-          # No lit dots: a blank cell whose opacity is the unlit pixels' mean
-          # alpha (so a transparent region leaves the cell untouched).
+          # No lit dots: blank cell, opacity is unlit pixels' mean alpha (so a
+          # transparent region leaves the cell untouched).
           blend_cell cell, ' ', Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT), (off_asum / 255.0) / total
         else
-          # Opacity is the mean alpha of the *lit* dots, not of the whole cell:
-          # the unlit dots are conveyed by the glyph (their bit is off), so they
-          # must not dilute the lit dots' color toward the cell's existing
-          # foreground. Diluting them was what gave a partially-filled edge cell
-          # a muddy, non-matching tint.
+          # Opacity is the mean alpha of the *lit* dots only: unlit dots are
+          # already conveyed by the glyph (bit off), so including them would
+          # dilute the lit color toward a muddy, non-matching tint.
           a = (on_asum / 255.0) / n
           fg = ((r // n) << 16) | ((g // n) << 8) | (b // n)
           blend_cell cell, (0x2800 + mask).chr, Attr.pack(0, Attr.pack_color(fg), Attr::COLOR_DEFAULT), a
@@ -294,8 +285,8 @@ module Crysterm
         Media.luminance px
       end
 
-      # Luminance of a neighbour sub-pixel, or *fallback* when out of bounds (so
-      # the image border doesn't read as a strong edge).
+      # Luminance of a neighboring sub-pixel, or *fallback* when out of bounds
+      # (so the image border doesn't read as a strong edge).
       private def neighbor_lum(sub, c, r, fallback : Float64) : Float64
         if p = pix(sub, c, r)
           lum p
@@ -324,9 +315,8 @@ module Crysterm
         (px.r << 16) | (px.g << 8) | px.b
       end
 
-      # Memoizes the braille on/off threshold (whole-bitmap luminance mean) for
-      # the *current* `@sample`, recomputed only when the sample bitmap actually
-      # changes (see `SampleMemo`).
+      # Memoizes the braille on/off threshold (whole-bitmap luminance mean),
+      # recomputed only when the sample bitmap changes (see `SampleMemo`).
       @threshold_memo = SampleMemo(Float64).new
 
       private def global_threshold(sub) : Float64
@@ -365,11 +355,11 @@ module Crysterm
 
       # 2x3 sextants (U+1FB00..1FB3B), 2x4 octants (U+1CD00..1CDE5). Each Unicode
       # block assigns one codepoint per sub-cell pattern in increasing bit-mask
-      # order, *skipping* the patterns that already have a character elsewhere
-      # (which the renderer must therefore map to those pre-existing glyphs).
+      # order, skipping patterns that already have a character elsewhere (the
+      # renderer maps those to the pre-existing glyphs).
       #
-      # Bit layout matches `paint_two_color` (LSB = top-left, then row-major), so
-      # the mask bit for Unicode "BLOCK OCTANT/SEXTANT position N" is `1 << (N-1)`:
+      # Bit layout matches `paint_two_color` (LSB = top-left, row-major), so the
+      # mask bit for Unicode "BLOCK OCTANT/SEXTANT position N" is `1 << (N-1)`:
       #     pos1=1   pos2=2          pos1=1   pos2=2
       #     pos3=4   pos4=8          pos3=4   pos4=8
       #     pos5=16  pos6=32         pos5=16  pos6=32
@@ -395,10 +385,9 @@ module Crysterm
 
       # The 26 octant patterns Unicode did NOT encode in the Block Octant range
       # (they already exist as half/quadrant/quarter blocks elsewhere). The other
-      # 230 masks take U+1CD00..1CDE5 sequentially in mask order. Deriving this
-      # set wrong both mis-maps glyphs and overruns past U+1CDE5 — the previous
-      # table listed only 6 of the 26, so it did both. Verified against the
-      # Unicode 16.0 UCD (NamesList for "Symbols for Legacy Computing Supplement").
+      # 230 masks take U+1CD00..1CDE5 sequentially in mask order. Getting this
+      # set wrong both mis-maps glyphs and overruns past U+1CDE5. Verified
+      # against Unicode 16.0 UCD ("Symbols for Legacy Computing Supplement").
       OCTANT = begin
         arr = Array(Char).new(256, ' ')
         # mask => pre-existing character (positions filled, per the bit layout above)
@@ -445,9 +434,8 @@ module Crysterm
       end
 
       # ---- single-mode backends ------------------------------------------
-      # Each subclass pins one drawing `Mode`, so it is a one-variant image
-      # backend that can be exemplified and documented on its own. The base
-      # `Glyph` stays usable (mode-selectable via `mode:`) for programmatic use.
+      # Each subclass pins one drawing `Mode` so it can be exemplified and
+      # documented on its own. The base `Glyph` stays mode-selectable via `mode:`.
       #
       # <!-- widget-examples:capture v1 -->
       # ![Block screenshot](../../../../tests/widget/media/glyph/block/block.5s.apng)

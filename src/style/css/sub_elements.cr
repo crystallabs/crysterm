@@ -6,8 +6,7 @@ module Crysterm
   #
   # The cascade already routes each slot into the matching `Style` sub-style
   # (see `Cascade#get_sub_style`); these overrides just make the nodes exist.
-  # Each calls `super` so the base scrollbar/track slots (when scrolling is
-  # enabled) are preserved.
+  # Each calls `super` to preserve the base scrollbar/track slots.
   class Widget
     class List
       def css_sub_elements : Array(String)
@@ -68,11 +67,10 @@ module Crysterm
     end
 
     # A standalone `ScrollBar` is not itself `scrollable?`, so the base slots
-    # don't surface; expose its own chrome instead: `track` (the trough,
-    # Qt's `::groove`), `indicator` (the handle, Qt's `::handle`), and the
-    # `QScrollBar` sub-controls — `sub-line`/`add-line` (stepper buttons),
-    # `up-arrow`/`down-arrow`/`left-arrow`/`right-arrow` (arrow glyphs), and
-    # `sub-page`/`add-page` (trough regions before/after the handle).
+    # don't surface; expose its own chrome instead: `track` (trough, Qt's
+    # `::groove`), `indicator` (handle, Qt's `::handle`), and the `QScrollBar`
+    # sub-controls — stepper buttons, arrow glyphs, and trough regions
+    # before/after the handle.
     class ScrollBar
       def css_sub_elements : Array(String)
         super + ["track", "indicator",

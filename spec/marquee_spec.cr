@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::Marquee` scroll logic, driven headlessly over in-memory IOs so no real
-# terminal is touched. The glyphs are painted straight into the screen cell
-# buffer in `#render` (`#step` only advances the frame clock), so these specs run
-# a real synchronous `Window#_render` and inspect the resulting cells. `#render`
-# reads `@frame`, so frame 0 is the state *before* the first `#step`.
+# `Widget::Marquee` scroll logic, driven headlessly over in-memory IOs. Glyphs
+# are painted straight into the screen cell buffer in `#render` (`#step` only
+# advances the frame clock), so these specs run a real synchronous
+# `Window#_render` and inspect the resulting cells. `#render` reads `@frame`, so
+# frame 0 is the state before the first `#step`.
 
 private def marquee_screen
   Crysterm::Window.new(
@@ -23,7 +23,7 @@ private def cell_fg(screen, y, x)
   Crysterm::Attr.unpack_color(Crysterm::Attr.fg(screen.lines[y][x].attr))
 end
 
-# The top content row, rendered, as a String.
+# Top content row, rendered, as a String.
 private def row0(screen, w)
   String.build { |io| (0...w).each { |x| io << cell_char(screen, 0, x) } }
 end
@@ -43,7 +43,7 @@ describe Crysterm::Widget::Marquee do
     m = Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 10, height: 1, text: "ABCDE"
     w = m.awidth
 
-    m.step # frame 1 — window has shifted left by one column
+    m.step # frame 1: window shifted left by one column
     s._render
     row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[(1 + x) % 5] } }
   end
@@ -54,7 +54,7 @@ describe Crysterm::Widget::Marquee do
       text: "ABCDE", direction: :right
     w = m.awidth
 
-    s._render # frame 0 — column x shows text[-x], using sign-safe modulo
+    s._render # frame 0: column x shows text[-x], via sign-safe modulo
     row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[((0 - x) % 5)] } }
   end
 
@@ -65,7 +65,7 @@ describe Crysterm::Widget::Marquee do
 
     s._render # frame 0
     first = row0(s, w)
-    # Over text.size steps the window returns to its starting frame.
+    # Over text.size steps, the window returns to its starting frame.
     m.text.size.times { m.step }
     s._render
     row0(s, w).should eq first
@@ -76,7 +76,7 @@ describe Crysterm::Widget::Marquee do
     s = marquee_screen
     Crysterm::Widget::Marquee.new parent: s, top: 0, left: 0, width: 6, height: 1,
       text: "AB", rainbow: true
-    s._render # frame 0: columns show A B A B A B, all tinted
+    s._render # frame 0: A B A B A B, all tinted
     cell_char(s, 0, 0).should eq 'A'
     cell_char(s, 0, 1).should eq 'B'
     cell_fg(s, 0, 0).should_not eq(-1)
@@ -90,7 +90,7 @@ describe Crysterm::Widget::Marquee do
     s._render
     (0...4).each do |x|
       cell_char(s, 0, x).should eq ' '
-      cell_fg(s, 0, x).should eq(-1) # spaces → nothing tinted
+      cell_fg(s, 0, x).should eq(-1) # spaces untinted
     end
   end
 end

@@ -2,20 +2,16 @@ require "../../src/crysterm"
 
 # Port of blessed's `example/widget.js`.
 #
-# A single centered Box that reacts to the mouse and the keyboard:
-#   * click it  -> its content changes,
-#   * press Enter while it's focused -> different content, plus a set/insert
-#     line demonstration,
+# A single centered Box that reacts to the mouse and keyboard:
+#   * click it -> content changes,
+#   * press Enter while focused -> different content, plus a set/insert line demo,
 #   * q / Escape / Ctrl-C quits.
-#
-# Crysterm uses the very same `{tag}` markup as blessed (`{bold}`, `{center}`,
-# `{red-fg}`, ...), so the content strings carry over unchanged.
 
 include Crysterm
 
 screen = Window.new title: "widget.cr"
 
-# A box perfectly centered horizontally and vertically.
+# Box centered horizontally and vertically.
 box = Widget::Box.new(
   parent: screen,
   top: "center",
@@ -27,13 +23,13 @@ box = Widget::Box.new(
   style: Style.new(fg: "white", bg: "magenta", border: true),
 )
 
-# If our box is clicked, change the content.
+# Change content on click.
 box.on(Event::Click) do
   box.set_content "{center}Some different {red-fg}content{/red-fg}.{/center}"
   screen.render
 end
 
-# If the box is focused, handle Enter and give us some more content.
+# Handle Enter when focused.
 box.on(Event::KeyPress) do |e|
   if e.key == Tput::Key::Enter
     box.set_content "{right}Even different {black-fg}content{/black-fg}.{/right}\n"
@@ -51,7 +47,6 @@ screen.on(Event::KeyPress) do |e|
   end
 end
 
-# Focus our element.
 box.focus
 
 screen.exec

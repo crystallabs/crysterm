@@ -2,11 +2,10 @@ require "../../src/crysterm"
 
 # Port of blessed's `example/time.js` — a big "seven-segment" clock.
 #
-# Each glyph (0-9, ':', a/p/m) is drawn as a small grid of solid blocks: a
-# parent cell box with several coloured child boxes forming the lit segments.
-# blessed pre-builds every glyph and shows/hides them; here the glyphs are built
-# lazily and cached per (column, character), then repositioned + shown each tick
-# — same visual result.
+# Each glyph (0-9, ':', a/p/m) is a parent cell box with coloured child boxes
+# forming the lit segments. Unlike blessed (which pre-builds every glyph),
+# glyphs here are built lazily and cached per (column, character), then
+# repositioned + shown each tick — same visual result.
 #
 # Flags (like the original):
 #   -s         show seconds
@@ -23,9 +22,9 @@ module Clock
 
   WID = ARGV.includes?("--skinny") ? 1 : 2
 
-  # A segment rectangle inside a glyph cell. Any of the six may be nil (unset),
-  # exactly like the blessed boxes; the explicit param types keep every `seg`
-  # the same NamedTuple type so they can live in one array and be `**`-splatted.
+  # A segment rectangle inside a glyph cell. Any of the six may be nil (unset).
+  # Explicit param types keep every `seg` the same NamedTuple type so they can
+  # live in one array and be `**`-splatted.
   def seg(top : Int32? = nil, left : Int32 | String | Nil = nil, right : Int32? = nil,
           bottom : Int32? = nil, width : Int32? = nil, height : Int32? = nil)
     {top: top, left: left, right: right, bottom: bottom, width: width, height: height}
@@ -142,9 +141,8 @@ update = -> {
 
 screen.on(Event::KeyPress) { |e| exit 0 if e.char == 'q' }
 
-# The glyphs' horizontal position is computed manually from `screen.awidth`
-# inside `update`, which early-returns when the time is unchanged. On a resize
-# the time is the same, so force a recompute by clearing the cached time.
+# `update` early-returns when the time is unchanged, but a resize needs a
+# recompute of the horizontal position, so clear the cached time first.
 screen.on(Event::Resize) do
   last_time = ""
   update.call

@@ -2,19 +2,15 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::Graph::Bar` rebuilds its glyph grid from `#values` in `#render`, but
-# its `#values=` setter used to just store the new data and return — scheduling
-# no repaint. Under the default `DamageTracking` optimization a widget is only
-# repainted when it is registered in the screen's pending dirty-roots set, so a
-# bare `bar.values = [...]` left the chart showing stale bars until some
-# unrelated frame dirtied it. Its sibling `Widget::Graph::StackedBar#values=`
-# already `mark_dirty`s on a data change; `Bar` now matches it.
+# `Widget::Graph::Bar#values=` used to store new data without scheduling a
+# repaint, so under `DamageTracking` a bare `bar.values = [...]` left stale
+# bars until an unrelated frame dirtied it. Sibling `StackedBar#values=`
+# already calls `mark_dirty`; `Bar` now matches it.
 #
-# `mark_dirty` records the changed widget (via its top-level ancestor) in
-# `@damage_dirty_roots`. The bar here is a direct screen child (the screen is not
-# a `Widget`, so its `parent` is nil), so it is its own root. These specs render
-# once, drain the damage set to a clean baseline, then assign new values with NO
-# manual render and assert the bar got marked for repaint.
+# `mark_dirty` records the widget (via its top-level ancestor) in
+# `@damage_dirty_roots`; the bar here is a direct screen child so it's its own
+# root. Specs render once, drain the damage set, then assign values with no
+# manual render and assert the bar got marked dirty.
 private def bvr_screen
   Crysterm::Window.new(
     input: IO::Memory.new,

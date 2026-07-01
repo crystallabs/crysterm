@@ -23,10 +23,9 @@ require "./widget_interaction"
 require "./widget_label"
 require "./widget_cursor"
 
-# Supporting code for the widget families whose concrete members live under
-# `src/widget/`: the abstract `Media` (image) backend bases + fitting/decoder,
-# the `Graph` rasterizer/scale helpers, the shared `Effect` animation mixins, the
-# `Terminal` backend (pty + emulator), and the table widgets' content-layout helper.
+# Supporting code for widget families under `src/widget/`: `Media` (image) backend
+# bases + fitting/decoder, `Graph` rasterizer/scale helpers, shared `Effect`
+# animation mixins, `Terminal` backend (pty + emulator), table layout helper.
 require "./widget_media_base"
 require "./widget_media_cells"
 require "./widget_media_graphics"
@@ -54,10 +53,8 @@ module Crysterm
     # Also does 'Unmanaged' belong here, indicating that Crysterm should not be
     # doing state transitions on it?
 
-    # The `state-*` class this state is stamped as in the CSS document (and that
-    # ancestor-state selectors are lowered to match). Each branch is a string
-    # *literal* — interned, so it allocates nothing — unlike `to_s.downcase`,
-    # which the per-widget per-cascade `Widget#to_html` would otherwise call.
+    # CSS `state-*` class for this state. Each branch is a string literal
+    # (allocation-free), unlike `to_s.downcase`.
     def css_class : String
       case self
       in .normal?   then "state-normal"
@@ -83,14 +80,12 @@ module Crysterm
     # Widget's parent `Widget`, if any.
     getter parent : Widget?
 
-    # (This must be defined here rather than in src/mixin/children.cr because classes
-    # which have children do not necessarily also have a parent, e.g. `Window`.)
+    # (Defined here rather than in src/mixin/children.cr because classes with
+    # children do not necessarily have a parent, e.g. `Window`.)
 
-    # Reparenting changes the window this subtree derives (`#window?`), so the
-    # memoized window pointer on this node *and every descendant* becomes stale.
-    # All reparenting goes through this setter (there are no direct `@parent`
-    # writes), so invalidating here is sufficient. The walk is O(subtree) but
-    # reparenting is rare, unlike the per-frame `#window?` reads it speeds up.
+    # Reparenting invalidates the memoized window (`#window?`) on this node and
+    # all descendants, since all reparenting goes through this setter (no direct
+    # `@parent` writes). O(subtree), but reparenting is rare vs. per-frame `#window?` reads.
     def parent=(parent : Widget?)
       @parent = parent
       invalidate_window_cache
@@ -98,33 +93,27 @@ module Crysterm
 
     # Owning `Window` (the surface) ↔ `QWidget::window()`.
     #
-    # Only a *top-level* widget (one with no `#parent`) stores this reference
-    # directly; a nested widget leaves it `nil` and derives its window from its
-    # parent (see `#window?`). This way the window is always consistent with the
-    # widget tree and never has to be propagated to, or kept in sync across,
-    # descendants.
+    # Only a top-level widget (no `#parent`) stores this directly; a nested
+    # widget derives it from its parent (see `#window?`).
     #
     # Do not read `@window` directly; use `#window` or `#window?`.
     @window : ::Crysterm::Window?
 
     # Memoized result of the `#window?` parent-chain walk. Cleared across the
     # whole subtree on reparenting (see `#parent=`/`#window=`/`#invalidate_window_cache`).
-    # Only ever holds a *non-nil* window — a detached widget leaves this nil and
-    # keeps resolving live, so it can never cache a stale window while detached.
+    # Only ever holds a non-nil window; a detached widget keeps this nil and resolves live.
     @window_cache : ::Crysterm::Window?
 
     # Returns the `Window` (surface) owning this widget, or `nil` if this widget's
     # subtree is not attached to any window ↔ `QWidget::window()`.
     #
-    # The value is derived by walking up the parent chain; only the top-level
-    # widget of the subtree holds the reference. Use this when the window may
-    # legitimately be absent; use `#window` when it must be present.
+    # Derived by walking up the parent chain; only the top-level widget of the
+    # subtree holds the reference. Use this when the window may legitimately be
+    # absent; use `#window` when it must be present.
     #
-    # The walk is memoized in `@window_cache`: `#window?` is read several times
-    # per widget per frame (the coordinate resolvers, `last_rendered_position`,
-    # `request_render`, …), and without the cache each read walks parent→…→root
-    # (O(depth) × widget count, every frame). The owning window only changes on
-    # reparenting, which clears the cache for the affected subtree.
+    # Memoized in `@window_cache` since `#window?` is read several times per
+    # widget per frame; without it each read would walk parent→…→root every
+    # frame. Cleared on reparenting.
     def window? : ::Crysterm::Window?
       if cached = @window_cache
         return cached
@@ -137,8 +126,7 @@ module Crysterm
     end
 
     # Clears the memoized `#window?` value on this node and all descendants.
-    # Called wherever the tree is relinked, since a node's window is derived
-    # through its ancestors and a move invalidates the whole subtree at once.
+    # Called wherever the tree is relinked.
     protected def invalidate_window_cache : Nil
       self_and_each_descendant &.reset_window_cache
     end
@@ -157,12 +145,10 @@ module Crysterm
 
     # Sets the owning `Window`.
     #
-    # Only meaningful on a top-level widget; on a nested widget `#window` is
-    # derived from `#parent`, so this value is ignored. Normally set only by
-    # `Window`/`Widget` (re)parenting code, not by user code.
+    # Only meaningful on a top-level widget; ignored on a nested widget (whose
+    # `#window` derives from `#parent`). Normally set only by `Window`/`Widget`
+    # (re)parenting code, not user code.
     def window=(@window : ::Crysterm::Window?)
-      # The stored reference is what the subtree derives from, so changing it
-      # invalidates the memoized `#window?` on this node and its descendants.
       invalidate_window_cache
     end
 
@@ -180,27 +166,24 @@ module Crysterm
 
     # Damage tracking (see `OptimizationFlag::DamageTracking`).
     #
-    # Coarse per-widget marker set by `#mark_dirty` whenever this widget's
-    # appearance may have changed since it was last painted. Note that the actual
-    # repaint decision is driven by the *window-level* dirty set
-    # (`Window#damage_mark_dirty`, which records the changed widget's top-level
-    # ancestor in `@damage_dirty_roots`), not by reading this flag back per
-    # widget — so this is an informational hint rather than the gate itself.
-    # Starts `true` so a never-yet-painted widget is treated as needing paint.
+    # Coarse per-widget marker set by `#mark_dirty` when this widget's appearance
+    # may have changed. The actual repaint decision is driven by the
+    # window-level dirty set (`Window#damage_mark_dirty`, recording the
+    # top-level ancestor in `@damage_dirty_roots`), not this flag — it's an
+    # informational hint, not the gate. Starts `true` so an unpainted widget is
+    # treated as needing paint.
     property render_dirty : Bool = true
 
     # Bounding rectangle (`{xi, xl, yi, yl}`, half-open) of this widget's whole
-    # subtree as of its last paint — the union of its own and all descendants'
-    # `@lpos`. Only maintained for top-level widgets, and only while damage
-    # tracking is on; used to clear a changed subtree's old footprint and to test
-    # whether a changed subtree overlaps an unchanged one. `nil` when the subtree
-    # rendered to nothing.
+    # subtree as of its last paint — union of its own and all descendants'
+    # `@lpos`. Maintained only for top-level widgets while damage tracking is on;
+    # used to clear a changed subtree's old footprint and test overlap with an
+    # unchanged one. `nil` when the subtree rendered to nothing.
     property damage_bounds : Tuple(Int32, Int32, Int32, Int32)? = nil
 
-    # Stamp used by `Window`'s damage overlap-grow for O(1) cluster membership:
-    # this widget is in the cluster being assembled iff `@damage_seen` equals the
-    # window's current grow stamp. Transient scratch, meaningful only mid-grow.
-    # `Int64` so it never wraps over the lifetime of a process.
+    # Stamp for `Window`'s damage overlap-grow: O(1) cluster membership test,
+    # true iff `@damage_seen` equals the window's current grow stamp. Transient
+    # scratch, meaningful only mid-grow. `Int64` so it never wraps.
     property damage_seen : Int64 = 0
 
     # Index of this widget within the window's base-child list for the current
@@ -208,21 +191,17 @@ module Crysterm
     property damage_idx : Int32 = -1
 
     # Marks this widget as needing a repaint and registers it (mapped to its
-    # top-level ancestor) with the owning window's damage set. Cheap and safe to
-    # call from any state-changing setter; a no-op for the buffer when damage
-    # tracking is off (the window simply ignores the registration on a full
-    # frame). Call this after an in-place change the tracked setters don't see
-    # (e.g. mutating a `Style` directly).
+    # top-level ancestor) with the owning window's damage set. Safe to call from
+    # any state-changing setter; no-op when damage tracking is off. Call after an
+    # in-place change the tracked setters don't see (e.g. mutating a `Style` directly).
     def mark_dirty : Nil
       @render_dirty = true
       window?.try &.damage_mark_dirty(self)
     end
 
-    # Requests a re-render of the owning `Window`, if this widget is attached to
-    # one. This is the safe form of `window.render` for use after a state change
-    # (it is a no-op when the widget is detached) and centralizes the
-    # render-triggering logic shared across widgets. Also flags this widget for
-    # damage tracking, since a render was requested specifically on its behalf.
+    # Requests a re-render of the owning `Window`, if attached. Safe form of
+    # `window.render` for use after a state change (no-op when detached). Also
+    # flags this widget for damage tracking.
     def request_render : Nil
       window?.try do |s|
         s.damage_mark_dirty self
@@ -230,23 +209,21 @@ module Crysterm
       end
     end
 
-    # Structural-change hook (a child was added/removed under this widget). The
-    # changed tree can shift unrelated widgets and leave vacated cells the
-    # per-subtree damage rects don't cover, so it forces the next frame to be a
-    # full re-composite. Mirrors the `invalidate_css_tree` structural hook.
+    # Structural-change hook (a child was added/removed under this widget).
+    # Forces the next frame to a full re-composite, since vacated cells aren't
+    # covered by per-subtree damage rects. Mirrors `invalidate_css_tree`.
     protected def _damage_invalidate_structure : Nil
       window?.try &.damage_force_full
     end
 
-    # Marks a widget as an item view (a list/tree/table/menu — anything that
-    # includes `Mixin::ItemView`). Duck-typed on purpose: the renderer keys off
-    # this flag plus `#item_selected?` rather than an `is_a?(List)` check, so an
-    # item view need not derive any one concrete class (Qt makes them siblings).
+    # Marks a widget as an item view (list/tree/table/menu — anything including
+    # `Mixin::ItemView`). Duck-typed: the renderer keys off this flag plus
+    # `#item_selected?` instead of an `is_a?(List)` check.
     property _is_list = false
 
-    # Whether *item* (a child) renders in the selected style. The base answer is
-    # `false`; `Mixin::ItemView` overrides it. Defined here so the render path can
-    # ask any parent without a concrete-type (`is_a?(List)`) special-case.
+    # Whether *item* (a child) renders in the selected style. Base answer is
+    # `false`; `Mixin::ItemView` overrides it. Lets the render path ask any
+    # parent without an `is_a?(List)` special-case.
     def item_selected?(item : Widget) : Bool
       false
     end
@@ -313,32 +290,30 @@ module Crysterm
       scrollable.try { |v| @scrollable = v }
       input.try { |v| @input = v }
       visible.try { |v| self.style.visible = v }
-      # Route through the setter so the hover handlers get wired (see
+      # Route through the setter so hover handlers get wired (see
       # `#mouse_cursor_shape=`); a plain `@mouse_cursor_shape = …` would not.
       mouse_cursor_shape.try { |v| self.mouse_cursor_shape = v }
 
-      # An explicitly-passed owning `Window` is recorded before parenting (a
-      # `parent:` still wins, since appending re-derives the window via the tree).
+      # An explicit owning `Window` is recorded before parenting (`parent:`
+      # still wins, since appending re-derives the window via the tree).
       @window = window if window
 
-      # Set up the parent hierarchy first. The `parent` arg may be a `Widget`
-      # or a `Window`; appending establishes `#parent` (for a Widget) or
-      # attaches to the `Window`, after which `#window` derives automatically.
+      # `parent` may be a `Widget` or a `Window`; appending establishes
+      # `#parent` (Widget) or attaches to the `Window`, after which `#window`
+      # derives automatically.
       parent.try &.append self
 
-      # If the widget is still stand-alone (created without a parent/window),
-      # fall back to the global window so it is immediately usable. Once it is
-      # later added to a parent or window, `#window` derives from there instead.
+      # Stand-alone widgets (no parent/window) fall back to the global window
+      # so they're immediately usable.
       @window ||= determine_window unless window?
 
-      # If this widget wants keyboard input, register it with its window so it
-      # receives key events. Widgets no longer have to do this themselves.
+      # Register for keyboard input with the window so widgets don't have to do it themselves.
       if @keys || @input
         window?.try &.register_keyable self
       end
 
-      # If constructed `draggable: true`, install the default reposition
-      # behavior now (the splat above only set the `@draggable` flag).
+      # `draggable: true` installs the default reposition behavior (the splat
+      # above only set the `@draggable` flag).
       enable_drag if @draggable
 
       children.each do |child|
@@ -359,8 +334,7 @@ module Crysterm
       # on(Crysterm::Event::Detach) { @lpos = nil } # XXX D O or E O?
 
       # Legacy `scrollbar: true/false` sugar maps onto `#scrollbar_policy`
-      # (`true` ⇒ `AsNeeded`, `false` ⇒ `AlwaysOff`). When omitted (`nil`), the
-      # class/`scrollbar_policy:` default stands.
+      # (`true` ⇒ `AsNeeded`, `false` ⇒ `AlwaysOff`); `nil` leaves the default.
       unless scrollbar.nil?
         self.scrollbar = scrollbar
       end
@@ -382,46 +356,39 @@ module Crysterm
     end
 
     def destroy
-      # Stop any animation driving this widget before it goes away. A `#pulse`
-      # (and an infinite CSS `@keyframes`) is a *ticker* that never ends on its
-      # own, so without this its fiber would spin forever on the now-detached
-      # widget — re-running `set_alpha`/`apply_keyframe` and a (no-op)
-      # `request_render` for the life of the process. The tween-based ones
-      # (fades, tints, transitions) would likewise keep ticking until their
-      # duration elapsed. Each stopper is a no-op when nothing is running.
+      # Stop any animation before this widget goes away. A `#pulse` (or
+      # infinite CSS `@keyframes`) is a ticker that never ends on its own; left
+      # running it would spin forever on the detached widget. Tween-based ones
+      # (fades, tints, transitions) would keep ticking until their duration
+      # elapsed. Each stopper is a no-op when nothing is running.
       stop_fade
       stop_tint
       stop_css_animation
       @style_transitions.try &.each_value &.stop
 
       # Iterate a snapshot: each child's `destroy` calls `remove_from_parent`,
-      # which mutates `@children` mid-iteration. Without the `dup`, the
-      # index-based `each` would skip every other child, leaking roughly half
-      # of them (no `Destroy` event; their PTYs/animations never torn down).
+      # mutating `@children` mid-iteration. Without `dup`, index-based `each`
+      # would skip every other child, leaking roughly half of them.
       @children.dup.each do |c|
         c.destroy
       end
-      # A hover tooltip is a window overlay (not a child), so drop it explicitly
-      # rather than leaking it past this widget's lifetime.
+      # A hover tooltip is a window overlay (not a child); drop it explicitly.
       if tip = @_tooltip
         tip.window?.try &.remove tip
         tip.destroy
         @_tooltip = nil
       end
-      # Detach from wherever this widget actually lives — a nested widget from
-      # its parent, a top-level one from its window (else it would be left in
-      # `window.children` after `destroy`: still painted, still keyable, still
-      # potentially holding focus/hover/grab). See `#detach_from_tree`.
+      # Detach from wherever this widget lives — a nested widget from its
+      # parent, a top-level one from its window — else it would remain in
+      # `window.children`: still painted, keyable, possibly holding focus/hover/grab.
       detach_from_tree
       emit Crysterm::Event::Destroy
     end
 
-    # Returns the `Window` to which a stand-alone (parent-less) widget should
-    # attach: the global window, creating one on demand if none exists yet.
-    # (Auto-creation lets short scripts skip explicit `Window` setup.)
-    #
-    # Widgets that have a parent do not need this: their `#window` is derived
-    # from the parent chain (see `#window?`).
+    # Returns the `Window` a stand-alone (parent-less) widget should attach to:
+    # the global window, created on demand if none exists (lets short scripts
+    # skip explicit `Window` setup). Widgets with a parent derive `#window`
+    # from the parent chain instead (see `#window?`).
     def determine_window : ::Crysterm::Window
       Window.global
     end
@@ -430,20 +397,18 @@ module Crysterm
     # If the widget already is `Window`, returns `nil`.
     def parent_or_window
       return self if Window === self
-      # `window` already returns a non-nil `Window` (it raises when unattached),
-      # so `@parent || window` is non-nil without a `not_nil!`.
+      # `window` raises rather than returning nil when unattached, so
+      # `@parent || window` is non-nil without a `not_nil!`.
       @parent || window
     end
 
-    # Captures this widget's on-window region via `Window#capture` (the single
-    # capture entry point), auto-selecting the area the widget occupies in the
-    # window's rendered content. All of `Window#capture`'s options are forwarded
-    # (`format`, `path`, `duration`, `fps`, `loops`, …); returns its result, or
-    # `nil` if the widget hasn't been rendered yet (no known position).
+    # Captures this widget's on-window region via `Window#capture`, auto-selecting
+    # the area it occupies. Forwards all of `Window#capture`'s options (`format`,
+    # `path`, `duration`, `fps`, `loops`, …); returns `nil` if not yet rendered.
     #
-    # By default the whole widget box (including decorations) is captured; pass
-    # `include_decorations: false` for the content area only. `d*` deltas
-    # grow/shrink the region per edge in cells.
+    # By default captures the whole widget box (including decorations); pass
+    # `include_decorations: false` for content area only. `d*` deltas grow/shrink
+    # the region per edge in cells.
     #
     # ```
     # widget.capture path: "widget.png"
@@ -461,11 +426,9 @@ module Crysterm
       window.capture(xi, xl, yi, yl, **opts)
     end
 
-    # Text counterpart to `Widget#capture`: dumps just this widget's on-window
-    # region via `Window#dump`, auto-selecting the area the widget occupies.
-    # Mirrors `#capture` exactly (same `include_decorations` + per-edge `d*`
-    # deltas, same forwarding of `Window#dump`'s options); returns the dump text,
-    # or `nil` if the widget hasn't been rendered yet (no known position).
+    # Text counterpart to `Widget#capture`: dumps this widget's on-window region
+    # via `Window#dump`. Mirrors `#capture` (same `include_decorations`/`d*`
+    # deltas, same option forwarding); returns `nil` if not yet rendered.
     #
     # ```
     # widget.dump                # -> String

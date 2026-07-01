@@ -37,26 +37,25 @@ module Crysterm
       end
     end
 
-    # Shared image-resampling used by every image backend to support rendering
-    # into a box of *varying* size. The key idea (see each backend): keep the
-    # decoded image as a resolution-independent **source** (`PNGGIF::PNG`, whose
-    # `bmp` is the full-res bitmap) and derive a box-sized render from it on
-    # demand, so a resize re-samples rather than re-decoding the file.
+    # Shared image-resampling used by every image backend to render into a box
+    # of *varying* size. Keeps the decoded image as a resolution-independent
+    # **source** (`PNGGIF::PNG`, whose `bmp` is the full-res bitmap) and derives
+    # a box-sized render from it on demand, so a resize re-samples rather than
+    # re-decoding the file.
     #
-    # `compose` resamples the source into a `bw`×`bh` bitmap, fit per `Media::Fit`,
-    # leaving any letterbox margin fully transparent (`a == 0`) so the backends
-    # can skip/keep it. *aspect_mul* corrects for non-square output cells: pixel
-    # backends pass `1.0`; `Media::Ansi` passes its `cell_aspect` (a cell is ~2×
-    # taller than wide); `Media::Glyph` passes `1.0` because its sub-grid already
-    # makes sub-pixels square.
+    # `compose` resamples the source into a `bw`×`bh` bitmap, fit per
+    # `Media::Fit`, leaving any letterbox margin fully transparent (`a == 0`).
+    # *aspect_mul* corrects for non-square output cells: pixel backends pass
+    # `1.0`; `Media::Ansi` passes its `cell_aspect` (a cell is ~2× taller than
+    # wide); `Media::Glyph` passes `1.0` since its sub-grid already makes
+    # sub-pixels square.
     module Media::Fitting
       TRANSPARENT = PNGGIF::Pixel.new(0, 0, 0, 0)
 
-      # Cap (long edge, px) for the composited *animation* source frames. A
-      # terminal box is at most a few hundred sub-pixels wide, so compositing 34×
-      # full-res frames of a large GIF is wasted work and memory; capping keeps
-      # quality effectively identical for any terminal box while cutting the
-      # (eager) build cost and per-frame memory. Stills keep their full-res source.
+      # Cap (long edge, px) for composited *animation* source frames. A terminal
+      # box is at most a few hundred sub-pixels wide, so compositing full-res
+      # frames of a large GIF wastes work/memory; capping keeps quality
+      # effectively identical while cutting build cost. Stills keep full-res source.
       ANIM_SOURCE_CAP = 200
 
       # Capped `{w, h}` to composite animation source frames at, preserving aspect.
@@ -78,8 +77,7 @@ module Crysterm
 
       # Fit either a specific animation *frame* (when non-nil) or *png*'s own
       # still bitmap into a *bw*×*bh* box — folding the `frame ? … : …` source
-      # pick that the cell (`Media::Ansi`/`Media::Glyph`) and graphics
-      # (`Media::Graphics#fit_bitmap`) backends each open-coded.
+      # pick each backend used to open-code.
       def self.compose(png : PNGGIF::PNG, frame : PNGGIF::Bitmap?, bw : Int32, bh : Int32,
                        fit : Media::Fit, aspect_mul : Float64 = 1.0,
                        sub_w : Int32 = 1, sub_h : Int32 = 1) : PNGGIF::Bitmap?
@@ -91,11 +89,10 @@ module Crysterm
       # `create_cellmap`. Letterbox margins are left fully transparent.
       #
       # *bw*/*bh* are in the caller's sampling units. For a sub-cell backend
-      # (`Media::Glyph`) those are *sub-pixels* — `cols*sub_w` × `rows*sub_h` — so
+      # (`Media::Glyph`) those are *sub-pixels* (`cols*sub_w` × `rows*sub_h`), so
       # `sub_w`/`sub_h` tell `Fit::None` how many sub-pixels make one terminal
-      # cell. That lets 1:1 size the image by its *terminal-cell* footprint
-      # (sub-grid-independent), so switching ascii/half/quadrant/sextant/octant
-      # changes only the detail, never the size.
+      # cell — letting 1:1 size the image by its terminal-cell footprint, so
+      # switching ascii/half/quadrant/sextant/octant changes only detail, never size.
       def self.compose(png : PNGGIF::PNG, src_bmp : PNGGIF::Bitmap, bw : Int32, bh : Int32,
                        fit : Media::Fit, aspect_mul : Float64 = 1.0,
                        sub_w : Int32 = 1, sub_h : Int32 = 1) : PNGGIF::Bitmap?
@@ -104,14 +101,12 @@ module Crysterm
         sw = sh > 0 ? src_bmp[0].size : 0
         return nil if sw <= 0 || sh <= 0
 
-        # 1:1 — draw at the source's native *terminal-cell* footprint, centered/
-        # cropped. The footprint uses the terminal's measured cell aspect ratio
-        # (cell height ÷ width, auto-detected from the reported pixel size / CSS
-        # config — see `CSS::Length.cell_aspect_ratio`), independent of the backend
-        # and of the Glyph sub-grid; the sub-grid only multiplies it up into
-        # sub-pixels. So every backend/sub-mode shows the image at the SAME size;
-        # finer sub-grids merely resolve more detail within it. (Separate from the
-        # ratio fits below, which fill the box and are already size-stable.)
+        # 1:1 — draw at the source's native terminal-cell footprint, centered/
+        # cropped. Uses the terminal's measured cell aspect ratio (height ÷
+        # width, auto-detected — see `CSS::Length.cell_aspect_ratio`), independent
+        # of backend/sub-grid; the sub-grid only multiplies it into sub-pixels.
+        # So every backend/sub-mode shows the image at the same size; finer
+        # sub-grids just resolve more detail within it.
         if fit.none?
           car = Crysterm::CSS::Length.cell_aspect_ratio
           car = 2.0 if car <= 0
@@ -147,9 +142,8 @@ module Crysterm
       end
 
       # Copies *src* into a fresh *bw*×*bh* fully-transparent canvas at pixel
-      # offset (*ox*, *oy*), clipping anything that falls outside the canvas. The
-      # shared compositing step behind both the fit (`#compose`) and the 1:1
-      # centering (`#place_centered`) paths.
+      # offset (*ox*, *oy*), clipping anything outside the canvas. Shared by the
+      # fit (`#compose`) and 1:1 centering (`#place_centered`) paths.
       private def self.place_at(src : PNGGIF::Bitmap, bw : Int32, bh : Int32,
                                 ox : Int32, oy : Int32) : PNGGIF::Bitmap
         out = Array(Array(PNGGIF::Pixel)).new(bh) { Array.new(bw, TRANSPARENT) }

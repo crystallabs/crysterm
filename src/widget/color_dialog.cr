@@ -2,8 +2,8 @@ require "./dialog"
 
 # `SpinBox`, `LineEdit`, `Button` and `DialogButtonBox` are referenced only in
 # method bodies (resolved after the whole `widget/**` glob is required), so they
-# need no explicit `require` here — and requiring `lineedit` directly would fail,
-# since it relies on the glob to have loaded its `PlainTextEdit` parent first.
+# need no explicit `require` here — requiring `lineedit` directly would fail
+# since it relies on the glob having loaded its `PlainTextEdit` parent first.
 
 module Crysterm
   class Widget
@@ -122,9 +122,9 @@ module Crysterm
 
       def initialize(colors : Array(String)? = nil, **box)
         @colors = colors || DEFAULT_COLORS
-        # One custom slot per basic color bar its first cell, which the "＋"
-        # button takes — so the custom row lines up exactly with the basic
-        # palette above (e.g. 16 colors -> "＋" plus 15 slots).
+        # One custom slot per basic color, minus its first cell (taken by the
+        # "＋" button) — so the custom row lines up with the palette above (e.g.
+        # 16 colors -> "＋" plus 15 slots).
         @custom_colors = Array(String?).new(Math.max(@colors.size - 1, 1), nil)
 
         super **box
@@ -179,13 +179,12 @@ module Crysterm
       # ------------------------------------------------------- construction
 
       private def build_children
-        # The right-hand editor area spans rightward as far as the row of basic
-        # colors below it (same right edge), so the preview and the editor columns
-        # line up with the palette.
+        # The right-hand editor area's width matches the row of basic colors
+        # below it, so the preview and editor columns line up with the palette.
         info_w = Math.max(@colors.size * COLOR_W - INFO_X, COLOR_W)
 
-        # A solid swatch (no border, so the color actually fills it) that tracks
-        # the current color live — see `refresh_ui`.
+        # A solid swatch (no border, so the color fills it) that tracks the
+        # current color live — see `refresh_ui`.
         @preview = Box.new parent: self, top: PREVIEW_Y, left: INFO_X, width: info_w,
           height: PREVIEW_H, style: Style.new(bg: "black")
 
@@ -197,18 +196,16 @@ module Crysterm
           Box.new parent: headers, height: 1, align: :left, content: name
         end
 
-        # Three side-by-side editor columns — RGB, HSV and HSL — each a small
-        # `Form` (a label column + its field) so the toolkit, not hand-computed
-        # coordinates, places the label/field rows. The `HBox` shares the width
-        # evenly between the columns.
+        # Three side-by-side editor columns — RGB, HSV, HSL — each a small
+        # `Form` (label column + field) so the toolkit places the label/field
+        # rows. The `HBox` shares the width evenly between the columns.
         cols = Box.new parent: self, top: COLS_Y, left: INFO_X, width: info_w, height: COLS_H,
           layout: Layout::HBox.new(gap: 1)
 
-        # Every field is editable and takes effect immediately, just like the Hex
-        # field, and all color spaces stay in sync (`refresh_ui`). R/G/B edits
-        # drive the state directly; H/S/V and H/S/L go through their color space.
-        # The apply path is wired per field inside `column_spin` (live on each
-        # keystroke / Enter / wheel).
+        # Every field applies immediately like the Hex field, keeping all color
+        # spaces in sync (`refresh_ui`). R/G/B edits drive the state directly;
+        # H/S/V and H/S/L go through their color space. The apply path is wired
+        # per field inside `column_spin` (live on keystroke / Enter / wheel).
         rgbcol = column_box cols
         @rspin = column_spin(rgbcol, "R", 0, 255) { apply_rgb_spins }
         @gspin = column_spin(rgbcol, "G", 0, 255) { apply_rgb_spins }
@@ -225,16 +222,16 @@ module Crysterm
         @llspin = column_spin(hslcol, "L", 0, 100) { apply_hsl_spins }
 
         # Hex field at the bottom, spanning the full width (a `Form` "Hex  […]").
-        # The editors are *chrome*: they carry no hardcoded color, so they follow
-        # the terminal default at the unstyled floor and the theme otherwise
-        # (only the swatches/preview/gradient below use functional color).
+        # The editors are *chrome*: no hardcoded color, so they follow the
+        # terminal default/theme (only the swatches/preview/gradient below use
+        # functional color).
         hexrow = Box.new parent: self, top: HEX_Y, left: INFO_X, width: info_w, height: 1,
           layout: Layout::Form.new(label_width: 4, gap: 0)
         Box.new parent: hexrow, height: 1, content: "Hex"
         @hexbox = hb = LineEdit.new parent: hexrow, height: 1
-        # Apply the color live, on every keystroke (`TextChange`) as well as on
-        # Enter (`Submit`); the leading space is cosmetic, so strip it first.
-        # Invalid/half-typed specs are ignored by `set_color`.
+        # Apply live on every keystroke (`TextChange`) and on Enter (`Submit`);
+        # strip the cosmetic leading space first. Invalid/half-typed specs are
+        # ignored by `set_color`.
         hb.on(Crysterm::Event::Submit) { |e| set_color e.value.strip }
         hb.on(Crysterm::Event::TextChange) do |e|
           next if @syncing
@@ -259,13 +256,12 @@ module Crysterm
         add = Button.new parent: self, top: CUST_Y, left: 0, width: COLOR_W, height: 1,
           content: "+", align: :center, focus_on_click: false
         add.on(Crysterm::Event::Press) { store_custom }
-        # Slots sit flush against the "＋" button (no gap, so the row's right edge
-        # lines up). Empty ones carry a "·" placeholder so they read as slots even
-        # before anything is stored in them. They take *functional* color only
-        # once filled. The painted color is folded onto the slot's *inline* style
-        # (`#paint_swatch`) so it survives a re-cascade — otherwise a reopened
-        # picker shows occupied-but-blank slots (the slot state agreed via
-        # `@custom_colors`, but the cascade had wiped the computed `style.bg`).
+        # Slots sit flush against the "＋" button (no gap). Empty ones carry a "·"
+        # placeholder so they read as slots before anything is stored. Painted
+        # color is folded onto the slot's *inline* style (`#paint_swatch`) so it
+        # survives a re-cascade — otherwise a reopened picker shows
+        # occupied-but-blank slots (state agrees via `@custom_colors`, but the
+        # cascade wiped the computed `style.bg`).
         cx = COLOR_W
         @custom_colors.each_with_index do |stored, i|
           slot = Box.new parent: self, top: CUST_Y, left: cx, width: COLOR_W, height: 1,
@@ -301,10 +297,9 @@ module Crysterm
       end
 
       # Appends a `"<label> [field]"` row to a `column_box`, returning the editable
-      # `LineEdit` field. The field behaves exactly like the Hex field: *apply*
-      # runs live on every keystroke (`TextChange`) and on Enter (`Submit`). The
-      # mouse wheel nudges this one component by ±1 (clamped to `min..max`) and
-      # re-applies through the same path.
+      # `LineEdit` field. Behaves like the Hex field: applies live on keystroke
+      # (`TextChange`) and on Enter (`Submit`). The mouse wheel nudges this one
+      # component by ±1 (clamped to `min..max`) and re-applies the same way.
       private def column_spin(col : Widget, label : String, min : Int32, max : Int32, &apply : -> Nil) : LineEdit
         Box.new parent: col, height: 1, content: label
         le = LineEdit.new parent: col, height: 1
@@ -326,8 +321,8 @@ module Crysterm
       end
 
       # Folds a functional background color onto *box*'s inline style so it shows
-      # now and survives the next cascade (cf. `Widget#set_visible`). Mutating only
-      # the computed `style.bg` would be rebuilt away on the next restyle.
+      # now and survives the next cascade (cf. `Widget#set_visible`). Mutating
+      # only the computed `style.bg` would be rebuilt away on the next restyle.
       private def paint_swatch(box : Box, hex : String) : Nil
         box.style.bg = hex
         box.persist_inline_style(&.bg = hex)
@@ -393,8 +388,8 @@ module Crysterm
         @syncing = true
         hex = current_color
         r, g, b = hsv_to_rgb @hue, @saturation, @value_v
-        # Fold onto the preview's inline style so the swatch survives a re-cascade
-        # (the same reason `#paint_swatch` exists for the custom slots).
+        # Fold onto the preview's inline style so the swatch survives a
+        # re-cascade (same reason `#paint_swatch` exists for the custom slots).
         if pv = @preview
           paint_swatch pv, hex
         end
@@ -416,7 +411,7 @@ module Crysterm
       end
 
       # Pushes *value* into editor field *le*, unless it is `nil` or currently
-      # focused — never clobbering a field the user is mid-typing into, since the
+      # focused — never clobbers a field the user is mid-typing into, since the
       # live `TextChange` handler already drove the change that got us here.
       private def sync_field(le : LineEdit?, value : String) : Nil
         le.value = value if le && !le.focused?
@@ -472,8 +467,8 @@ module Crysterm
 
       # ------------------------------------------------------------- input
 
-      # Whether one of the text/number editors currently holds focus (so the
-      # modal Enter/Escape shouldn't steal those keys from it).
+      # Whether a text/number editor currently holds focus (so the modal
+      # Enter/Escape shouldn't steal those keys from it).
       private def editing_focused? : Bool
         f = window?.try &.focused
         return false unless f
@@ -493,8 +488,8 @@ module Crysterm
 
       private def on_mouse(e : Crysterm::Event::Mouse) : Nil
         return unless @lpos
-        # While a window move or a window pick is in flight, a window-level
-        # listener owns the pointer — don't also treat motion as field/hue input.
+        # While a window move or pick is in flight, a window-level listener owns
+        # the pointer — don't also treat motion as field/hue input.
         return if @ev_move || @picking
         ox = aleft + ileft
         oy = atop + itop
@@ -672,9 +667,9 @@ module Crysterm
         0.299 * r + 0.587 * g + 0.114 * b
       end
 
-      # Maps a hue angle to its RGB sextant and scales by chroma *c* and offset
-      # *m* — the shared tail of `hsv_to_rgb`/`hsl_to_rgb` (which differ only in
-      # how they derive *c*/*m* from value vs lightness).
+      # Maps a hue angle to its RGB sextant, scaled by chroma *c* and offset *m*
+      # — the shared tail of `hsv_to_rgb`/`hsl_to_rgb` (which differ only in how
+      # they derive *c*/*m* from value vs lightness).
       private def hue_chroma_to_rgb(h : Float64, c : Float64, m : Float64) : {Int32, Int32, Int32}
         h = h % 360.0
         h += 360.0 if h < 0
@@ -691,8 +686,8 @@ module Crysterm
         {((r1 + m) * 255).round.to_i, ((g1 + m) * 255).round.to_i, ((b1 + m) * 255).round.to_i}
       end
 
-      # Normalized channels and the common hue angle (0..360) — the shared head
-      # of `rgb_to_hsv`/`rgb_to_hsl` (which finish with their own saturation and
+      # Normalized channels and the common hue angle (0..360) — shared head of
+      # `rgb_to_hsv`/`rgb_to_hsl` (which finish with their own saturation and
       # third axis, value vs lightness). Returns `{hue, max, min, delta}`.
       private def rgb_components(r : Int32, g : Int32, b : Int32) : {Float64, Float64, Float64, Float64}
         rf = r / 255.0
@@ -729,9 +724,8 @@ module Crysterm
         {h, s, max}
       end
 
-      # HSL (h 0..360, s/l 0..1) → RGB (each 0..255). HSL shares HSV's hue but
-      # uses lightness (mid-point) and its own saturation, so it gives a second
-      # intuitive handle on the same color (light/dark around a pure hue).
+      # HSL (h 0..360, s/l 0..1) → RGB (each 0..255). Shares HSV's hue but uses
+      # lightness (mid-point) and its own saturation.
       private def hsl_to_rgb(h : Float64, s : Float64, l : Float64) : {Int32, Int32, Int32}
         c = (1.0 - (2.0 * l - 1.0).abs) * s
         hue_chroma_to_rgb h, c, l - c / 2.0

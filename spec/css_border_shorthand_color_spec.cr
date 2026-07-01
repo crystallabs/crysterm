@@ -3,15 +3,15 @@ require "./spec_helper"
 include Crysterm
 
 # The whole-`border` shorthand must resolve its color token through `ColorValue`
-# exactly like the `border-color` longhand and the `border-<side>` shorthand —
-# so `currentColor` and the color *functions* (`rgb()`/`hsl()`) work, and a
-# function's internal spaces/commas aren't shredded by tokenization.
-# (`Crysterm::CSS::Properties.apply`, the `border` shorthand → `parse_border`.)
+# like the `border-color` longhand and `border-<side>` shorthand, so
+# `currentColor` and color functions (`rgb()`/`hsl()`) work and a function's
+# internal spaces/commas survive tokenization.
+# (`Crysterm::CSS::Properties.apply`, `border` shorthand → `parse_border`.)
 #
-# Previously `parse_border` split on plain whitespace and assigned the raw token
-# straight to `Border#fg`, bypassing resolution: `border: solid rgb(255,0,0)`
-# was torn into `rgb(255,`/`0,`/`0)` (each → the `-1` unknown sentinel), and
-# `border: solid currentColor` resolved to garbage instead of the text color.
+# Regression: `parse_border` used to split on whitespace and assign the raw
+# token straight to `Border#fg`, so `border: solid rgb(255,0,0)` was torn into
+# `rgb(255,`/`0,`/`0)` (each an unknown sentinel), and `currentColor` resolved
+# to garbage instead of the text color.
 describe "CSS border shorthand color" do
   it "resolves an rgb() color with internal spaces/commas" do
     s = Style.new

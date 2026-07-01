@@ -3,13 +3,10 @@ module Crysterm
   class Shadow
     include SidedGeometry
 
-    # A fresh zero-shadow instance ("no shadow": all sides 0). Deliberately *not*
-    # a shared singleton — exactly like `Padding.default`/`Margin.default`: a
-    # `Shadow` is mutable through its per-side/alpha setters (`left`/`top`/
-    # `right`/`bottom`/`alpha`), and `Style`'s default getter (`getter shadow =
-    # Shadow.default`) hands one to *every* `Style`. A single shared object would
-    # let one style's in-place edit leak into every other style (and corrupt the
-    # "no shadow" baseline). Each call returns its own.
+    # Fresh zero-shadow instance ("no shadow": all sides 0). Not a shared
+    # singleton (like `Padding.default`/`Margin.default`): `Shadow` is mutable,
+    # and `Style`'s default getter hands one to every `Style` — a shared
+    # instance would let one style's edit leak into all others.
     def self.default : Shadow
       new 0, 0, 0, 0
     end
@@ -48,9 +45,8 @@ module Crysterm
       in Shadow
         value
       in Symbol
-        # A side symbol (`:right`, `:horizontal`, ...) — turns the named
-        # side(s) *on* at their default extent (see the `Bool` constructor and
-        # `SidedGeometry.sides`).
+        # A side symbol (`:right`, `:horizontal`, ...) turns the named side(s)
+        # on at their default extent (see `Bool` constructor, `SidedGeometry.sides`).
         s = SidedGeometry.sides value
         Shadow.new s[:left] > 0, s[:top] > 0, s[:right] > 0, s[:bottom] > 0
       in Float

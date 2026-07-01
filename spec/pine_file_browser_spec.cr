@@ -12,9 +12,8 @@ private def pfb_screen
     default_quit_keys: false)
 end
 
-# `FileBrowser` is a thin Pine-flavored subclass of `Widget::FileManager`: it only
-# changes the defaults (reverse-video selected row, keyboard navigation on) and
-# adds no file logic of its own.
+# Thin Pine-flavored subclass of `Widget::FileManager`: only changes defaults
+# (reverse-video selected row, keyboard navigation on), no new file logic.
 describe "Pine::FileBrowser" do
   it "defaults the selected style to reverse video (the Pine look)" do
     s = pfb_screen
@@ -26,8 +25,8 @@ describe "Pine::FileBrowser" do
     s = pfb_screen
     fb = Crysterm::Widget::Pine::FileBrowser.new parent: s, cwd: Dir.current
     fb.refresh
-    # The repo root (Dir.current during specs) contains a `src` directory; the
-    # rendered row decorates it with color tags and a trailing slash.
+    # Repo root (Dir.current) contains `src`; the rendered row decorates it
+    # with color tags and a trailing slash.
     fb.ritems.any?(&.includes?("src")).should be_true
     # `..` is always prepended as the first entry.
     fb.ritems.any?(&.includes?("..")).should be_true

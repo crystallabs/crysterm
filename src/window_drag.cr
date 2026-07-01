@@ -2,17 +2,16 @@ module Crysterm
   class Window
     # Drag-and-drop engine.
     #
-    # A drag is **modal** and **per-screen**: at most one gesture is in flight on
-    # a screen at a time (`@_drag`). Both the mouse sensor (see `#dispatch_mouse`)
-    # and the keyboard sensor (see `#_drag_key_handled`) drive this same session,
-    # emitting the same source/target events, so widgets need no per-input
-    # branching.
+    # A drag is modal and per-screen: at most one gesture is in flight at a time
+    # (`@_drag`). The mouse sensor (`#dispatch_mouse`) and keyboard sensor
+    # (`#_drag_key_handled`) drive the same session and emit the same
+    # source/target events, so widgets need no per-input branching.
 
     # In-flight drag gesture, or `nil`.
     @_drag : DragSession? = nil
 
     # Armed (pending) drag: the pointer pressed over a draggable widget but has
-    # not yet moved. We only promote to a real drag once it moves, so a plain
+    # not yet moved. Promoted to a real drag only once it moves, so a plain
     # click is unaffected.
     @_arm : Widget? = nil
     @_arm_x = 0
@@ -30,9 +29,9 @@ module Crysterm
     # for the keyboard sensor (no pointer to follow).
     property? drag_ghost : Bool = true
 
-    # Optional sink for human-readable drag status, e.g. to drive a status-line
-    # "live region" so keyboard users know a drag's state ("Picked up …", "Over
-    # …", "Dropped on …", "Cancelled"). No-op when unset.
+    # Optional sink for human-readable drag status (e.g. a status-line "live
+    # region" for keyboard users: "Picked up …", "Over …", "Dropped on …",
+    # "Cancelled"). No-op when unset.
     property drag_announce : Proc(String, Nil)? = nil
 
     # The in-flight drag session on this screen, if any.
@@ -55,8 +54,7 @@ module Crysterm
 
       source.emit ::Crysterm::Event::DragStart, sess
 
-      # A transfer source (one that does not self-move) gets a floating ghost so
-      # the user can see what they are carrying.
+      # A transfer source (doesn't self-move) gets a floating ghost.
       if drag_ghost? && sensor.mouse? && !source.drag_repositions?
         make_ghost sess
       end
@@ -67,7 +65,7 @@ module Crysterm
       if sensor.mouse?
         retarget_over sess, widget_at(x, y, skip: source)
       else
-        # Keyboard: the target follows focus; it starts on the source itself.
+        # Keyboard: target follows focus, starting on the source itself.
         retarget_over sess, focused
       end
       render
@@ -187,8 +185,7 @@ module Crysterm
         left: gx,
         top: gy,
         content: label,
-        # Reverse-video so the drag ghost reads on any background (light or dark,
-        # any theme) without a hardcoded color.
+        # Reverse-video so the ghost reads on any theme without a hardcoded color.
         style: Style.new(reverse: true))
       @_drag_ghost = g
     end
@@ -201,16 +198,12 @@ module Crysterm
       g.top = gy
     end
 
-    # The ghost's `left`/`top` so that it floats at *absolute* cell
-    # (`sess.x + 1`, `sess.y`) — right under the pointer. A top-level widget's
-    # `left`/`top` are measured from the screen's *content* origin, so its
-    # absolute position is `aleft == screen.ileft + left` (see `Widget#aleft`'s
-    # near-offset branch). The pointer coordinates (`sess.x`/`sess.y`) are
-    # absolute, so the screen's padding must be subtracted here, exactly as the
-    # reposition handler does via `Widget#drag_origin`. Without it a ghost on a
-    # *padded* screen sat `ileft`/`itop` cells off the pointer (and drifted there
-    # for the whole drag); on an unpadded screen (the common case) `ileft`/`itop`
-    # are 0, so this is unchanged.
+    # Ghost `left`/`top` so it floats at absolute cell (`sess.x + 1`, `sess.y`),
+    # under the pointer. A top-level widget's `left`/`top` are relative to the
+    # screen's content origin (`aleft == screen.ileft + left`), while
+    # `sess.x`/`sess.y` are absolute, so the screen's padding must be subtracted
+    # here — same as `Widget#drag_origin` does for reposition. On an unpadded
+    # screen `ileft`/`itop` are 0, so this is a no-op there.
     private def ghost_origin(sess : DragSession) : Tuple(Int32, Int32)
       {sess.x + 1 - ileft, sess.y - itop}
     end
@@ -224,16 +217,14 @@ module Crysterm
 
     # --- Desktop-edge bridges -------------------------------------------------
 
-    # Outbound interop (`#copy_to_clipboard`) — OSC-52 system-clipboard write —
-    # now lives on the device (`Screen`, in `screen_osc.cr`); this surface
-    # delegates it (see `window.cr`).
+    # Outbound interop (`#copy_to_clipboard`, OSC-52 clipboard write) lives on
+    # `Screen` (`screen_osc.cr`); this surface delegates it (see `window.cr`).
 
     # Inbound interop: synthesize a drop of externally-provided *uris* (e.g. a
-    # file dragged from the desktop file manager, which terminals deliver as
-    # pasted `file://`/path text) onto *target*. Builds a `text/uri-list`
-    # payload and runs the same enter/over/drop negotiation an internal drag
-    # would, so a widget that accepts internal drops accepts desktop file-drops
-    # with no extra code. Returns whether the target accepted.
+    # file dragged from the desktop file manager, delivered as pasted
+    # `file://`/path text) onto *target*. Builds a `text/uri-list` payload and
+    # runs the same enter/over/drop negotiation an internal drag would, so
+    # accepting a drop needs no extra code path. Returns whether accepted.
     def drop_external(uris : Array(String), target : Widget? = focused) : Bool
       return false unless t = target
       src = t
@@ -266,9 +257,8 @@ module Crysterm
     def _drag_key_handled(e : ::Crysterm::Event::KeyPress) : Bool
       if sess = @_drag
         return false unless sess.sensor.keyboard?
-        # Space is a *printable* char, so the input layer delivers it as
-        # `char == ' '` with `key == nil` (unlike Enter/Tab/arrows, which are
-        # control sequences with a `key`). Match it by char.
+        # Space is a printable char, delivered as `char == ' '` with `key == nil`
+        # (unlike Enter/Tab/arrows). Match it by char.
         if e.char == ' ' || e.key == ::Tput::Key::Enter
           retarget_over sess, focused
           drag_release sess

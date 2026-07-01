@@ -30,34 +30,28 @@ module Crysterm
       # The table data, as rows of string cells.
       property rows : Array(Array(String))
 
-      # Whether every other body row is painted with `style.alternate_row` instead of
-      # `style.cell`, like Qt's `QTableWidget#alternatingRowColors`. Has no
-      # visible effect until `style.alternate_row` is given a distinct background.
+      # Whether every other body row is painted with `style.alternate_row` instead
+      # of `style.cell`. No visible effect until `style.alternate_row` gets a
+      # distinct background.
       property? alternate_rows : Bool = false
 
       # A table is sized to its content by default.
       @resizable = true
 
-      # The content is pre-formatted into fixed-width columns; it must never be
-      # line-wrapped (wrapping a row would push every following row down and
-      # desync the cell borders, which is especially visible with wide/CJK
-      # cells).
+      # Content is pre-formatted into fixed-width columns; must never be
+      # line-wrapped (would push following rows down and desync cell borders,
+      # especially visible with wide/CJK cells).
       @wrap_content = false
 
-      # A `Table` is *content-sized*: `#render` pins `@width = row_width + iwidth`
-      # so the box always grows to fit every column, and never overflows
-      # horizontally. It therefore intentionally opts out of horizontal scrolling
-      # — `child_base_x` stays 0, where `_hslice` is a no-op — and a wide table is
-      # simply clipped by its parent. For a scrollable wide table use the
-      # interactive `Widget::ListTable`, which decouples its width from its
-      # content and scrolls by whole columns.
+      # A `Table` is content-sized: `#render` pins `@width` so the box always fits
+      # every column and never overflows horizontally. It opts out of horizontal
+      # scrolling entirely (`child_base_x` stays 0) — a wide table is just clipped
+      # by its parent. For a scrollable wide table use `Widget::ListTable` instead.
 
       # Cached x→column map used by `#draw_borders` to resolve a CSS per-cell
-      # style from a window column. `col_for_x` depends only on `@maxes` and
-      # `ileft` — both stable between data/resize changes — yet `draw_borders`
-      # runs every frame, so rebuilding its `Hash` per frame is pure garbage.
-      # Rebuilt only when `@maxes` (reassigned wholesale by `#calculate_maxes`)
-      # or `ileft` changes.
+      # style from a window column. Depends only on `@maxes`/`ileft`, but
+      # `draw_borders` runs every frame, so this avoids rebuilding the `Hash` each
+      # time. Rebuilt only when `@maxes` or `ileft` changes.
       @border_col_map : Hash(Int32, Int32)? = nil
       @border_col_map_maxes : Array(Int32)? = nil
       @border_col_map_ileft : Int32 = -1
@@ -72,11 +66,10 @@ module Crysterm
         cached
       end
 
-      # Reused, allocation-free scratch set: the rows that actually carry a
-      # CSS-computed cell style this frame (`#draw_borders` repopulates it from
-      # `@css_cells`). The default theme styles only the `Header` (row 0), so an
-      # otherwise-unstyled table has just row 0 here and every body row then skips
-      # the per-cell CSS lookups entirely.
+      # Reused scratch set: rows that carry a CSS-computed cell style this frame
+      # (`#draw_borders` repopulates it from `@css_cells`). Default theme styles
+      # only row 0 (Header), so an otherwise-unstyled table lets every body row
+      # skip per-cell CSS lookups.
       @styled_rows = Set(Int32).new
 
       def initialize(
@@ -115,13 +108,11 @@ module Crysterm
       def set_data(rows)
         return unless reload_rows rows
 
-        # Pin the width to the exact table width so the box edge lines up with
-        # the column positions `#draw_borders` uses. Relying on shrink-to-content
-        # alone is not enough: blank separator lines and trailing-space trimming
-        # make the measured content width disagree with `@maxes`, which would
-        # leave the right border and last column ragged between text and
-        # separator rows. Height is still shrunk to the content (`@resizable`).
-        # Assigned directly to avoid the `Resize`-before-store recursion that
+        # Pin width to the exact table width so the box edge lines up with the
+        # column positions `#draw_borders` uses. Shrink-to-content alone isn't
+        # enough: blank separator lines and trailing-space trimming make the
+        # measured content width disagree with `@maxes`, leaving the right border
+        # ragged. Assigned directly to avoid the `Resize`-before-store recursion
         # `width=` would trigger via our own `Resize` handler.
         @width = row_width + iwidth
 
@@ -137,25 +128,18 @@ module Crysterm
       end
 
       def render(with_children = true)
-        # Re-pin the size now that the CSS cascade has run (it runs at the top of
-        # the window's `_render`, before any widget renders). `set_data` pins the
-        # width at construction/Attach time, but a border arriving via CSS isn't
-        # folded into `style` yet then, so `iwidth` would omit the two border
-        # columns and leave the box two columns too narrow — the internal
-        # separators (drawn against the post-cascade `coords`) would then
-        # overshoot the right edge.
+        # Re-pin the size now that the CSS cascade has run. `set_data` pins width
+        # at construction/Attach time, but a border arriving via CSS isn't folded
+        # into `style` yet then, so `iwidth` would omit the border columns and
+        # leave internal separators overshooting the right edge.
         #
-        # The height is pinned to the content too: a `Table` is a static,
-        # content-sized element (unlike the scrollable `ListTable`), and its
-        # cell-border junctions are placed relative to the *content* rows. If the
-        # box were taller than the content (e.g. an explicit `height:` larger
-        # than the rows need), the box's bottom edge would sit a row below the
-        # last junction, leaving a malformed half-drawn separator in the gap. The
-        # content is `render_row` lines joined by a blank separator line, so it
-        # spans `2*rows - 1` grid rows, plus the top/bottom insets.
+        # Height is pinned too: cell-border junctions are placed relative to the
+        # content rows, so a taller box (e.g. explicit `height:`) would leave a
+        # malformed half-drawn separator below the last junction. Content spans
+        # `2*rows - 1` grid rows (render_row lines + blank separators) plus insets.
         #
-        # Both are assigned directly (not via `width=`/`height=`) to avoid the
-        # `Resize`-before-store recursion our own `Resize` handler would trigger.
+        # Both assigned directly to avoid the `Resize`-before-store recursion our
+        # own `Resize` handler would trigger.
         calculate_maxes
         unless @maxes.empty?
           @width = row_width + iwidth
@@ -182,9 +166,8 @@ module Crysterm
         hattr = sattr style.header
         cattr = sattr style.cell
         aattr = sattr style.alternate_row
-        # Gridlines normally take the box border's attributes; `gridline-color`,
-        # when set, overrides just their foreground while keeping the border's
-        # background and text attributes.
+        # `gridline-color`, when set, overrides just the gridlines' foreground
+        # while keeping the border's background/text attributes.
         battr =
           if gc = style.gridline_color
             sattr style.border, fg: gc, bg: style.border.bg
@@ -192,15 +175,11 @@ module Crysterm
             sattr style.border
           end
 
-        # Maps each relative text-column x to its table column index (packed by
-        # `@maxes`), so CSS per-cell styles (`#css_cell_style`) can override the
-        # row default per column. Built (and cached, see `#border_col_map`) only
-        # when CSS per-cell rules actually exist: otherwise the map is dead weight
-        # (the per-cell lookup below always misses) and a plain table re-renders
-        # every frame. `@styled_rows` collects which rows carry any computed cell
-        # style, so unstyled rows skip the per-cell lookups entirely (≈20× faster
-        # text-attr pass on an otherwise-unstyled table — only the themed header
-        # row does lookups).
+        # Maps each relative text-column x to its table column index, so CSS
+        # per-cell styles (`#css_cell_style`) can override the row default. Built
+        # (cached, see `#border_col_map`) only when CSS per-cell rules exist,
+        # since a plain table re-renders every frame. `@styled_rows` lets unstyled
+        # rows skip per-cell lookups entirely (~20x faster on an unstyled table).
         @styled_rows.clear
         col_map = if (cc = @css_cells) && !cc.empty?
                     cc.each_key { |(r, _)| @styled_rows << r }
@@ -212,9 +191,9 @@ module Crysterm
         y = itop
         while y < height
           if line = lines[yi + y]?
-            # Each table row occupies two grid rows (text + separator), so the
-            # row index is `(y - itop) // 2`; index 0 is the header. Body rows
-            # 2, 4, … (the 2nd, 4th, … data rows) take the alternate attribute.
+            # Each table row occupies two grid rows (text + separator); row index
+            # is `(y - itop) // 2`, with index 0 the header. Body rows 2, 4, …
+            # take the alternate attribute.
             offset = y - itop
             row_index = offset // 2
             default_attr =
@@ -232,7 +211,6 @@ module Crysterm
             while x < width
               if cell = line[xi + x]?
                 if cell.attr == dattr
-                  # A CSS rule may have computed a style for this specific cell.
                   cell_style = if rm = row_map
                                  (col = rm[x]?) ? css_cell_style(row_index, col) : nil
                                end
@@ -266,9 +244,8 @@ module Crysterm
           @maxes.each_with_index do |max, mi|
             rx += max
 
-            # The first column draws the left edge on the box border. This is
-            # independent of the last-column handling below so a single-column
-            # table (where the first column is also the last) gets both.
+            # First column draws the left edge on the box border, independent of
+            # the last-column handling below, so a single-column table gets both.
             if mi == 0
               if cell = line[xi + 0]?
                 cell.attr = battr
@@ -281,11 +258,10 @@ module Crysterm
 
             if mi == last
               # The last cell is followed by a trailing spare column (see
-              # `TableLayout#render_row`), and the box's right border sits one
-              # column further still. On an internal separator row, continue the
-              # rule across the spare column and place the ┤ junction on the
-              # border itself — drawing it on the spare column (as a naive
-              # `xi + rx` would) leaves a stray char one short of the border.
+              # `TableLayout#render_row`), with the box's right border one column
+              # further. On an internal separator row, continue the rule across
+              # the spare column and place ┤ on the border itself — a naive
+              # `xi + rx` would leave a stray char short of the border.
               internal = ry != 0 && (ry // 2) != rows_n
               if cell = line[xi + rx + 1]?
                 rx += 1
@@ -301,9 +277,8 @@ module Crysterm
               next
             end
 
-            # Center junction between this column and the next (also drawn for
-            # the first column; never reached for the last column, which
-            # returned above).
+            # Center junction between this column and the next (never reached for
+            # the last column, which returned above).
             next unless line[xi + rx + 1]?
             rx += 1
             if cell = line[xi + rx]?
@@ -331,10 +306,8 @@ module Crysterm
           break unless line
 
           if ry.odd?
-            # Vertical separators between columns.
             draw_vertical_separators line, xi, battr
           else
-            # Horizontal rules across cell widths.
             rx = 1
             @maxes.each do |max|
               max.times do

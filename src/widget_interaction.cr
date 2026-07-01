@@ -9,26 +9,23 @@ module Crysterm
 
     # Whether this widget should receive mouse events by default.
     #
-    # Out of the box (mirroring GUI toolkits), a widget is mouse-responsive if it
-    # is interactive (`input?`/`keyable?`), `scrollable?` (so the wheel can scroll
-    # it), `draggable?`, was explicitly marked `clickable?`, or already has a
-    # `Click`/`Mouse` listener attached. This is what `Window#widget_at` uses for
-    # hit-testing, so e.g. a plain `Box` that the user later attaches an
-    # `Event::Click` handler to automatically starts receiving clicks, with no
-    # need to also set `clickable: true`.
+    # A widget is mouse-responsive if it is interactive (`input?`/`keyable?`),
+    # `scrollable?`, `draggable?`, explicitly marked `clickable?`, or already has
+    # a `Click`/`Mouse` listener attached. Used by `Window#widget_at` for
+    # hit-testing, so a plain `Box` that later gets an `Event::Click` handler
+    # automatically starts receiving clicks without also setting `clickable: true`.
     def wants_mouse?
       clickable? || input? || keyable? || scrollable? || draggable? ||
-        # A widget that listens for drops is a drop target and must be
-        # hit-testable so an in-flight drag can target it.
+        # A widget listening for drops is a drop target and must be hit-testable
+        # so an in-flight drag can target it.
         handlers(Crysterm::Event::DragEnter).any? ||
         handlers(Crysterm::Event::DragOver).any? ||
         handlers(Crysterm::Event::DragLeave).any? ||
         handlers(Crysterm::Event::Drop).any? ||
         handlers(Crysterm::Event::Click).any? ||
         handlers(Crysterm::Event::Mouse).any? ||
-        # Hover events each have their own handler list (they subclass `Mouse`
-        # but are emitted/registered separately), so check them explicitly —
-        # otherwise a widget with only hover handlers would never be hit-tested.
+        # Hover events subclass `Mouse` but are emitted/registered separately;
+        # check explicitly or a widget with only hover handlers is never hit-tested.
         handlers(Crysterm::Event::MouseOver).any? ||
         handlers(Crysterm::Event::MouseMove).any? ||
         handlers(Crysterm::Event::MouseOut).any?
@@ -62,27 +59,25 @@ module Crysterm
 
     # Puts current widget in focus
     def focus
-      # XXX Prevents getting multiple `Event::Focus`s. Remains to be
-      # seen whether that's good, or it should always happen, even
-      # if someone calls `#focus` multiple times in a row.
+      # XXX Prevents multiple `Event::Focus`es. TBD whether repeated `#focus`
+      # calls should always re-fire instead.
       return if focused?
       window.focus self
     end
 
     # Returns whether widget is currently in focus.
     #
-    # Uses the non-raising `#window?`: a *detached* widget (one removed from its
-    # window) holds no `@window` and derives none through a parent, so the raising
-    # `#window` would make this pure query crash with a `NilAssertionError`
-    # instead of answering. A detached widget can never be the window's focused
-    # widget, so the answer there is simply `false`.
+    # Uses the non-raising `#window?`: a detached widget holds no `@window` and
+    # derives none through a parent, so the raising `#window` would crash this
+    # pure query with `NilAssertionError`. A detached widget is never the
+    # window's focused widget, so the answer there is `false`.
     @[AlwaysInline]
     def focused?
       window?.try(&.focused) == self
     end
 
     # Hover help text shown in a floating `Widget::ToolTip` while the pointer is
-    # over this widget (Qt's `QWidget#toolTip`). `nil` (the default) means none.
+    # over this widget (Qt's `QWidget#toolTip`). `nil` means none.
     getter tool_tip : String?
 
     # The shared per-widget tooltip overlay, created lazily on first hover.
@@ -107,9 +102,8 @@ module Crysterm
     end
 
     # Whether the absolute point (*x*, *y*) lies within this widget's last-laid-out
-    # rectangle. Returns false before the widget has been laid out (its
-    # coordinates raise). The shared hit-test used by pop-ups for outside-click
-    # dismissal and grab containment.
+    # rectangle. Returns false before layout (coordinates raise). Shared hit-test
+    # used by pop-ups for outside-click dismissal and grab containment.
     def contains_point?(x : Int32, y : Int32) : Bool
       l = aleft
       t = atop
@@ -120,9 +114,9 @@ module Crysterm
 
     # Whether the absolute point (*x*, *y*) belongs to this widget's *grab
     # region* — used by `Window`'s input-grab to decide which points still
-    # interact while this widget is grabbing (see `Window#grab`). The default is
-    # the widget's own rectangle; pop-ups that own extra area (a drop-down list, a
-    # submenu chain) override this.
+    # interact while this widget is grabbing (see `Window#grab`). Default is the
+    # widget's own rectangle; pop-ups owning extra area (drop-downs, submenus)
+    # override this.
     def grab_contains?(x : Int32, y : Int32) : Bool
       contains_point? x, y
     end
@@ -137,18 +131,18 @@ module Crysterm
       @_tooltip_wired = true
       on(Crysterm::Event::MouseOver) { |e| show_tooltip e.x, e.y }
       on(Crysterm::Event::MouseOut) { remove_hover }
-      # A hidden widget must not leave its tooltip lingering on window.
+      # A hidden widget must not leave its tooltip lingering.
       on(Crysterm::Event::Hide) { remove_hover }
     end
 
-    # The GUI mouse-pointer (windowing-system cursor) shape requested while the
-    # pointer is over this widget — e.g. `::Tput::MouseCursorShape::PointingHandCursor`
-    # for a clickable widget. `nil` (the default) leaves the pointer unchanged.
+    # The GUI mouse-pointer shape requested while the pointer is over this widget
+    # — e.g. `::Tput::MouseCursorShape::PointingHandCursor` for a clickable
+    # widget. `nil` leaves the pointer unchanged.
     #
-    # Honored only when the window's `Window#mouse_cursor_shape?` gate (the
-    # `mouse.cursor_shape` config option, off by default) is on, and only on
-    # terminals that support OSC 22 (xterm-class); elsewhere it is silently
-    # ignored. See `::Tput::Output#mouse_cursor_shape`.
+    # Honored only when `Window#mouse_cursor_shape?` (the `mouse.cursor_shape`
+    # config option, off by default) is on, and only on terminals supporting
+    # OSC 22 (xterm-class); otherwise silently ignored. See
+    # `::Tput::Output#mouse_cursor_shape`.
     getter mouse_cursor_shape : ::Tput::MouseCursorShape?
 
     # Whether the pointer-shape hover handlers have been installed (so re-setting
@@ -156,10 +150,9 @@ module Crysterm
     @_mouse_cursor_shape_wired = false
 
     # Sets the hover mouse-pointer shape. A non-nil value makes the widget
-    # mouse-hover-tracked (it begins receiving `Event::MouseOver`/`MouseOut`): the
-    # GUI pointer takes *shape* on enter and reverts to the terminal default on
-    # leave. Set `nil` to stop requesting a shape (already-installed handlers then
-    # become no-ops, and the next leave restores the default).
+    # mouse-hover-tracked: the GUI pointer takes *shape* on enter and reverts to
+    # the terminal default on leave. `nil` stops requesting a shape
+    # (already-installed handlers become no-ops; next leave restores default).
     def mouse_cursor_shape=(shape : ::Tput::MouseCursorShape?)
       @mouse_cursor_shape = shape
       wire_mouse_cursor_shape if shape && !@_mouse_cursor_shape_wired
@@ -172,8 +165,8 @@ module Crysterm
         @mouse_cursor_shape.try { |shape| window?.try &.set_mouse_cursor_shape shape }
       end
       on(Crysterm::Event::MouseOut) { window?.try &.set_mouse_cursor_shape nil }
-      # If hidden while it owns the pointer shape, restore the default — there
-      # will be no `MouseOut` for a widget that vanishes under the pointer.
+      # If hidden while it owns the pointer shape, restore the default: no
+      # `MouseOut` fires for a widget that vanishes under the pointer.
       on(Crysterm::Event::Hide) do
         s = window?
         s.set_mouse_cursor_shape nil if s && s.hovered == self
@@ -193,10 +186,10 @@ module Crysterm
       tip.show_at x + 1, y + 1, text
     end
 
-    # These read/write `@draggable` (the ivar declared by `property? draggable`
-    # and set by the constructor). They previously used a separate `@_draggable`
-    # ivar that the constructor never touched, so `Widget.new(draggable: true)`
-    # left `draggable?` reporting false.
+    # Read/write `@draggable` (declared by `property? draggable`, set by the
+    # constructor). Previously used a separate `@_draggable` ivar the
+    # constructor never touched, so `Widget.new(draggable: true)` left
+    # `draggable?` reporting false.
     def draggable?
       @draggable
     end
@@ -214,13 +207,12 @@ module Crysterm
     # `draggable` repeatedly doesn't stack duplicate handlers).
     @_drag_reposition_installed = false
 
-    # Marks the widget as a drag source. By default also installs the
-    # **reposition** behavior: while dragged (by mouse or keyboard) the widget
-    # follows the anchor by editing its own `left`/`top` (the "self-move" flavor,
-    # matching Blessed's `enableDrag`).
+    # Marks the widget as a drag source. By default also installs **reposition**
+    # behavior: while dragged (mouse or keyboard) the widget follows the anchor
+    # by editing its own `left`/`top` ("self-move", matching Blessed's `enableDrag`).
     #
-    # Pass `reposition: false` for a **data-transfer** source that should stay
-    # put and instead hand a payload to a drop target — fill `data` in your own
+    # Pass `reposition: false` for a **data-transfer** source that stays put and
+    # hands a payload to a drop target instead — fill `data` in your own
     # `Event::DragStart` handler and react in `Event::DragEnd`/`Event::Drop`.
     def enable_drag(reposition = true) : Bool
       @draggable = true
@@ -236,10 +228,9 @@ module Crysterm
         on(Crysterm::Event::Drag) do |e|
           # `e.x`/`e.y` are absolute cell coordinates, but `left`/`top` are
           # relative to the parent's content origin (`aleft = parent.aleft +
-          # parent.ileft + left`). Subtract that origin so a *nested* draggable
+          # parent.ileft + left`). Subtract that origin so a nested draggable
           # widget tracks the pointer instead of jumping by its parent's absolute
-          # position. For a top-level widget (parent-less; window at 0,0 with no
-          # insets) the origin is (0, 0), so this is a no-op there.
+          # position. For a top-level widget with no insets, origin is (0, 0).
           ox, oy = drag_origin
           self.left = (e.x - @_drag_dx - ox).clamp(0, drag_max_left)
           self.top = (e.y - @_drag_dy - oy).clamp(0, drag_max_top)
@@ -249,15 +240,13 @@ module Crysterm
       @draggable
     end
 
-    # Absolute origin of this widget's `left`/`top` coordinate space — the point
-    # an integer `left`/`top` of 0 maps to in absolute cells. For a nested widget
-    # that is the parent's content corner (`parent.aleft + parent.ileft`); for a
-    # top-level (parent-less) widget it is the *window's* content corner — `(0, 0)`
-    # only when the window has no padding, but `(window.ileft, window.itop)` once
-    # it does, since a top-level widget at `left`/`top` 0 lands *after* the window
-    # padding (`aleft == window.ileft + left`; see `window.cr`). Used by
-    # the drag handler to convert the pointer's absolute position into a
-    # parent-relative `left`/`top`.
+    # Absolute origin of this widget's `left`/`top` coordinate space — where
+    # `left`/`top` of 0 maps to in absolute cells. For a nested widget that's the
+    # parent's content corner (`parent.aleft + parent.ileft`); for a top-level
+    # widget it's the window's content corner — `(window.ileft, window.itop)`,
+    # since `aleft == window.ileft + left` (see `window.cr`). Used by the drag
+    # handler to convert the pointer's absolute position into a parent-relative
+    # `left`/`top`.
     private def drag_origin : Tuple(Int32, Int32)
       if p = parent
         {p.aleft + p.ileft, p.atop + p.itop}
@@ -267,19 +256,15 @@ module Crysterm
       end
     end
 
-    # Largest `left`/`top` that keeps the widget within its parent (or the
-    # window, when parented directly to it).
+    # Largest `left`/`top` that keeps the widget within its parent (or window,
+    # if parented directly to it).
     #
-    # `left`/`top` are measured from the parent's *content* origin (`drag_origin`
-    # = `parent.aleft + parent.ileft`), so the upper clamp must be the parent's
-    # inner content extent — `awidth - iwidth` (`iwidth` is the summed left+right
-    # inset, see `widget_decoration`) — not the full `awidth`. Using `awidth` let
-    # a nested widget be dragged past the parent's right/bottom border by the
-    # inset amount (border + padding). For a top-level widget the parent is the
-    # window, whose content extent is likewise `awidth - iwidth` — equal to the
-    # full `awidth` only when the window has no padding, but correctly smaller
-    # once it does (mirroring `drag_origin`), so the widget can't be dragged across
-    # the padded edge.
+    # `left`/`top` are measured from the parent's content origin (`drag_origin`
+    # = `parent.aleft + parent.ileft`), so the clamp must use the parent's inner
+    # content extent — `awidth - iwidth` (`iwidth` = summed left+right inset, see
+    # `widget_decoration`) — not the full `awidth`, or a nested widget could be
+    # dragged past the parent's border by the inset amount. Same logic applies
+    # when the parent is the window (mirrors `drag_origin`).
     private def drag_max_left : Int32
       c = parent_or_window
       {c.awidth - c.iwidth - awidth, 0}.max
@@ -290,10 +275,10 @@ module Crysterm
       {c.aheight - c.iheight - aheight, 0}.max
     end
 
-    # Whether this widget self-moves while dragged (the default reposition
-    # behavior is installed). A transfer-only source (`enable_drag reposition:
-    # false`) returns false, which the engine uses to decide whether to float a
-    # drag "ghost".
+    # Whether this widget self-moves while dragged (reposition behavior
+    # installed). A transfer-only source (`enable_drag reposition: false`)
+    # returns false, which the engine uses to decide whether to float a drag
+    # "ghost".
     def drag_repositions? : Bool
       @_drag_reposition_installed
     end
@@ -306,6 +291,5 @@ module Crysterm
     # no-op in this place
     def _update_cursor(arg)
     end
-    # end
   end
 end

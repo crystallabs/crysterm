@@ -2,9 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# The kill ring (`Crysterm::KillRing`) and the emacs/readline editing keys added
-# to `Mixin::TextEditing` (gated by the `input.readline_keys` option). The key
-# handler is exercised headlessly through a real `Widget::LineEdit`.
+# Tests the kill ring (`Crysterm::KillRing`) and emacs/readline editing keys in
+# `Mixin::TextEditing` (gated by `input.readline_keys`), exercised headlessly
+# through a real `Widget::LineEdit`.
 
 private def editor(value : String, pos : Int32)
   s = Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)

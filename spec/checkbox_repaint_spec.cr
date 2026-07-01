@@ -3,28 +3,25 @@ require "./spec_helper"
 include Crysterm
 
 # `CheckBox#check`/`#uncheck`/`#partial` override `AbstractButton`'s versions
-# but used to drop the trailing `request_render`, so a *programmatic* state
-# change (or a label-click that routes through `press` → `toggle`) flipped
-# `checked?` and the `[x]`/`[ ]` marker without scheduling a repaint — the
-# rendered cell stayed stale until some unrelated frame. The marker-click and
+# but used to drop the trailing `request_render`, so a programmatic state
+# change (or a label-click routing through `press` → `toggle`) flipped
+# `checked?` and the marker without scheduling a repaint. The marker-click and
 # activate-key paths masked it by repainting themselves (in `CheckMarker`), but
 # the public API and `RadioButton` (which inherits the repainting versions)
 # disagreed.
 #
-# `request_render` does two things: it `damage_mark_dirty`s the widget (which,
-# under the default `DamageTracking` optimization, records the widget — via its
-# top-level ancestor — in the screen's pending dirty-roots set) and then calls
-# `Window#render`. In a headless spec the render fiber never runs, so that
-# `Window#render` (== `schedule_render`) only rings the doorbell and never
-# paints `s.lines` synchronously. The observable, synchronous effect of the fix
-# is therefore the *scheduled* repaint — the dirty mark — not an updated cell.
+# `request_render` both `damage_mark_dirty`s the widget (recording its
+# top-level ancestor in the screen's pending dirty-roots set under
+# `DamageTracking`) and calls `Window#render`. In a headless spec the render
+# fiber never runs, so `Window#render` only rings the doorbell — the
+# observable, synchronous effect of the fix is the scheduled repaint (dirty
+# mark), not an updated cell.
 #
 # These specs render once, drain the damage set to a clean baseline, then mutate
 # state with NO manual render and assert the widget got marked for repaint.
-# `invalidate_css` (also called by `#check`) routes to the *CSS* dirty sets, not
-# `@damage_dirty_roots`, so the only thing that lands the checkbox in the damage
-# set is `request_render`: drop it (the regression) and the state still flips but
-# the set stays empty and every case below fails.
+# `invalidate_css` (also called by `#check`) routes to the CSS dirty sets, not
+# `@damage_dirty_roots`, so only `request_render` lands the checkbox in the
+# damage set — drop it and the state still flips but every case below fails.
 private def cbr_screen
   Crysterm::Window.new(
     input: IO::Memory.new,
@@ -36,10 +33,9 @@ private def cbr_screen
     optimization: Crysterm::OptimizationFlag::DamageTracking)
 end
 
-# True iff *w* is registered for a repaint in *s*'s pending damage set. The set
-# records the changed widget's top-level ancestor; these checkboxes are direct
-# screen children (the screen is not a `Widget`, so their `parent` is nil), so
-# each is its own root.
+# True iff *w* is registered for a repaint in *s*'s pending damage set. These
+# checkboxes are direct screen children (screen is not a `Widget`, so `parent`
+# is nil), so each is its own root.
 private def repaint_scheduled?(s : Crysterm::Window, w : Crysterm::Widget)
   s.@damage_dirty_roots.includes? w
 end

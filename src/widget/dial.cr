@@ -54,12 +54,11 @@ module Crysterm
         frac = s == 0 ? 0.0 : (@value - @minimum) / s.to_f
         # A wrapping dial maps the range onto the full circle, so the maximum
         # rolls back onto the minimum's "north" (`frac * size` rounds 1.0 → size,
-        # which `% size` folds to 0). A non-wrapping dial must instead spread the
-        # range across the arc between the eight directions: `frac * (size - 1)`
-        # lands the maximum on the *last* glyph (`↖`), so the two ends point in
-        # distinct directions. With the old unconditional `* size`, a non-wrapping
-        # dial showed `↑` at both ends (a full dial looked identical to an empty
-        # one) and could skip an in-between direction (e.g. `↓` on an 8-value range).
+        # `% size` folds to 0). A non-wrapping dial instead spreads the range
+        # across the arc between the eight directions: `frac * (size - 1)` lands
+        # the maximum on the last glyph (`↖`). With the old unconditional
+        # `* size`, a non-wrapping dial showed `↑` at both ends and could skip an
+        # in-between direction.
         steps = wrap? ? POINTERS.size : POINTERS.size - 1
         POINTERS[(frac * steps).round.to_i % POINTERS.size]
       end
@@ -80,8 +79,7 @@ module Crysterm
           end
 
           if show_value?
-            # Bracket the number while focused so it's obvious the dial is the
-            # active control (arrow keys / wheel rotate it).
+            # Bracket the number while focused to show the dial is active.
             txt = focused? ? "‹#{@value}›" : @value.to_s
             tx = xi + Math.max(0, (xl - xi - txt.size) // 2)
             ty = yl - 1

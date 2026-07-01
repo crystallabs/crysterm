@@ -6,20 +6,16 @@ module Crysterm
     module Effect
       # "Spray" effect: glyphs are shot one after another from a single emitter
       # point and fly outward, each growing as it travels, until they land and
-      # fill the widget's whole area. The *order* in which cells are filled is a
-      # pluggable strategy (`#fill`) — a clockwise spiral, a raster scan, a radial
-      # spread, random confetti, or any caller-supplied ordering — so the spiral
-      # of the original `cracktro` demo is just the default, not the widget.
+      # fill the widget's whole area. The *order* cells are filled in is a
+      # pluggable strategy (`#fill`) — spiral (default), raster scan, radial
+      # spread, random, or any caller-supplied ordering.
       #
-      # Like `Widget::Effect::Plasma`, it paints its interior straight into the
-      # window's cell buffer as packed `Int64` attrs (each fg a direct `0xRRGGBB`)
-      # via `Effect::Direct` — there is no tagged-content round-trip, so a frame
-      # costs no per-cell `String` and no per-frame tag re-parse. Each frame the
-      # slot simulation is resolved once into two flat `w*h` cell buffers (glyph
-      # and color) in `#advance`, which `#cell` then reads. It is self-contained
-      # and self-animating, reads its size lazily each frame (tracking resize and
-      # `%`-relative sizing), and runs its own render fiber. Call `#start` to begin
-      # and `#stop` to halt.
+      # Like `Widget::Effect::Plasma`, it paints straight into the window's cell
+      # buffer as packed `Int64` attrs (direct `0xRRGGBB` fg) via `Effect::Direct`,
+      # avoiding per-cell `String`s and per-frame tag parsing. Each frame the slot
+      # simulation resolves once into two flat `w*h` buffers (glyph and color) in
+      # `#advance`, which `#cell` then reads. Self-contained and self-animating;
+      # call `#start`/`#stop`.
       #
       # ```
       # # Default: a spiral of dithered DOS bricks (`▒`) filling the box.
@@ -46,10 +42,9 @@ module Crysterm
         # returning a custom ordering.
         property fill : Symbol | FillProc
 
-        # Text the cells settle on once landed: its non-space chars are cycled
-        # across the visit order so the area fills in solid. Defaults to the DOS
-        # dithered block `▒`, so every cell lands the same brick and the spray
-        # paints a solid shaded fill; pass any string to spell it out instead.
+        # Text the cells settle on once landed: non-space chars are cycled across
+        # the visit order. Defaults to the DOS dithered block `▒` for a solid
+        # shaded fill; pass any string to spell it out instead.
         property pattern : String
 
         # Growth ramp a glyph steps through while in flight, faking a zoom toward
@@ -95,9 +90,8 @@ module Crysterm
         @frame = 0
 
         # Flat `w*h` per-cell buffers (row-major), filled once per frame in
-        # `#advance` and read back per cell in `#cell`. `@cell_glyph` defaults to a
-        # space and `@cell_color` to `-1` (the widget's default fg), so untouched
-        # cells paint as blank background.
+        # `#advance` and read back in `#cell`. Untouched cells default to a
+        # space glyph and `-1` color (widget's default fg).
         @cell_glyph = [] of Char
         @cell_color = [] of Int32
 
@@ -188,9 +182,8 @@ module Crysterm
         end
 
         # `Effect::Direct` hook: (re)allocate per-area state when the interior size
-        # changes. Builds the landing slots and the two flat `w*h` cell buffers the
-        # per-frame simulation fills; both buffers start cleared (blank glyph,
-        # default fg).
+        # changes. Builds the landing slots and the two flat `w*h` cell buffers,
+        # both cleared to blank glyph / default fg.
         def resize(w, h)
           reset_slots w, h
           @cell_glyph = Array(Char).new(w * h, ' ')
@@ -208,9 +201,8 @@ module Crysterm
         end
 
         # Project every slot to its position/glyph/color for the current frame and
-        # write it into the flat cell buffers. Cleared first so cells that no glyph
-        # currently covers fall back to blank background. No allocation: it only
-        # overwrites the buffers `#resize` already sized.
+        # write it into the flat cell buffers. Cleared first so uncovered cells
+        # fall back to blank. No allocation: only overwrites buffers `#resize` sized.
         private def recompute(w, h)
           ox, oy = emitter(w, h)
           cycle = fill_frame + @hold
@@ -239,9 +231,8 @@ module Crysterm
           end
         end
 
-        # `Effect::Direct` hook: the glyph and packed `0xRRGGBB` fg (or `-1` for the
-        # widget default) for interior cell `{x, y}`, read straight from the flat
-        # buffers `#advance` filled.
+        # `Effect::Direct` hook: glyph and packed `0xRRGGBB` fg (or `-1` for widget
+        # default) for interior cell `{x, y}`, read from the buffers `#advance` filled.
         def cell(x, y, w, h) : {Char, Int32}
           idx = y * w + x
           {@cell_glyph[idx], @cell_color[idx]}

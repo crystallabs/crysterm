@@ -4,11 +4,9 @@ require "file_utils"
 include Crysterm
 
 # `Widget::FileManager#reset` must return to the directory the manager was
-# *constructed* with — not to `@file`, which tracks the most recently selected
-# entry and can be a navigated-into subdirectory (or even a regular file, whose
+# constructed with — not to `@file`, which tracks the most recently selected
+# entry and can be a navigated-into subdirectory (or a regular file, whose
 # `Dir.children` listing would fail and leave the reset a silent no-op).
-#
-# Driven headlessly over in-memory IOs against a real temp directory tree.
 
 private def fm_screen
   Crysterm::Window.new(
@@ -34,12 +32,9 @@ describe Crysterm::Widget::FileManager do
       fm.selected = idx.not_nil!
       fm.enter_selected
 
-      # We are now inside the subdirectory (and `@file` points at it).
-      # (`@cwd` may carry a trailing slash from the path join; normalize to compare.)
+      # Now inside the subdirectory; `@cwd` may carry a trailing slash, normalize to compare.
       fm.cwd.chomp('/').should eq File.join(base, "sub")
 
-      # Reset must go back to the initial directory, not stay in (or break on)
-      # the last-selected entry.
       fm.reset
       fm.cwd.should eq base
     ensure

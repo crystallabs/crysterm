@@ -47,10 +47,9 @@ describe "TabWidget switching (regression check)" do
 
   it "renders a switched-to page immediately when a ::pane rule is active" do
     # A `TabWidget::pane` rule makes `sync_tab_style` push the pane sub-style onto
-    # the current page. The bug: the shared pane object was assigned directly, so
-    # `hide`-ing the old page flipped the shared object's `visible` to false and
-    # the freshly-raised page rendered blank for a frame (content only appeared
-    # after toggling back and forth). Each page must get its own copy.
+    # the current page. Bug: the shared pane object was assigned directly, so
+    # hiding the old page flipped the shared object's `visible` to false and the
+    # freshly-raised page rendered blank for a frame. Each page must get its own copy.
     s = tab_screen
     s.stylesheet = "TabWidget::pane { background-color: #202020; }"
     tw = Widget::TabWidget.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
@@ -71,9 +70,9 @@ describe "TabWidget switching (regression check)" do
   end
 end
 
-# Minimal includer to lock the `Mixin::PagedContainer` contract directly: the
-# real widgets never expose `current_index == -1` with pages present, but the
-# reusable mixin promises `current_page == nil` when no page is selected.
+# Minimal includer to lock the `Mixin::PagedContainer` contract directly: real
+# widgets never expose `current_index == -1` with pages present, but the mixin
+# promises `current_page == nil` when no page is selected.
 private class FakePaged
   include Crysterm::Mixin::PagedContainer
 end
@@ -84,8 +83,7 @@ describe Crysterm::Mixin::PagedContainer do
     f.current_page.should be_nil # empty
     f.pages << Widget::Box.new
     f.pages << Widget::Box.new
-    # current_index is still the -1 sentinel; must not negative-index to the
-    # last page.
+    # -1 sentinel; must not negative-index to the last page.
     f.current_index.should eq -1
     f.current_page.should be_nil
   end

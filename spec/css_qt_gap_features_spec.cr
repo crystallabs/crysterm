@@ -2,9 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# Three QT-CSS-GAP-NOTES additions driven end-to-end through the CSS pipeline:
+# Three QT-CSS-GAP-NOTES additions through the CSS pipeline:
 #   * `text-decoration: line-through` -> `Style#strike` (SGR 9),
-#   * the `dashed`/`dotted`/`double` `border-style` keywords (new `BorderType`s
+#   * `dashed`/`dotted`/`double` `border-style` keywords (new `BorderType`s
 #     with their own box-drawing glyph sets),
 #   * `lineedit-password-character` (Qt) -> `LineEdit#password_character`.
 

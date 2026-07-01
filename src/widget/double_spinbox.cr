@@ -44,22 +44,18 @@ module Crysterm
       end
 
       # Sets both bounds at once (Qt's `setRange`), re-clamping the current value
-      # into the new range and scheduling a repaint. Mirrors the integer
-      # `SpinBox` (`Mixin::RangedValue#set_range`) and `ProgressBar#set_range`:
-      # the bounds used to be plain `property` setters that just overwrote the
-      # field, leaving the value out of range, the range possibly inverted, and
-      # the displayed number stale. (`Event::RangeChange` is `Int32`-typed, so —
-      # like `ProgressBar` — the float path can't emit it.)
+      # into the new range and scheduling a repaint. Mirrors `SpinBox`
+      # (`Mixin::RangedValue#set_range`) and `ProgressBar#set_range`.
+      # (`Event::RangeChange` is `Int32`-typed, so — like `ProgressBar` — the
+      # float path can't emit it.)
       def set_range(min : Float64, max : Float64) : Nil
         max = min if max < min # never store an inverted range
         return if min == @minimum && max == @maximum
         @minimum = min
         @maximum = max
-        # Re-clamp the value into the new range. Pre-clamp here (rather than
-        # leaning on `#value=`) so a `#wrap?` box *clamps* on a range change:
-        # handing `#value=` a still-out-of-range value would trip its wrap branch
-        # and snap to the opposite bound. `#value=` repaints/emits only on an
-        # actual change, so `#request_render` covers the
+        # Pre-clamp here rather than leaning on `#value=`, so a `#wrap?` box
+        # *clamps* on a range change instead of tripping the wrap branch and
+        # snapping to the opposite bound. `#request_render` covers the
         # value-unchanged-but-range-changed case.
         self.value = @value.clamp(@minimum, @maximum)
         request_render

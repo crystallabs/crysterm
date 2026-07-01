@@ -6,12 +6,12 @@ module Crysterm
     # Renders a PNG / APNG / GIF image as colored terminal cells, ported from
     # Blessed's `ansiimage` element.
     #
-    # Unlike `Widget::Media::Overlay` (which paints a true-color image *over* the
-    # terminal via the external `w3mimgdisplay` helper), `Media::Ansi` decodes the
-    # image itself — using the pure-Crystal `PNGGIF::PNG` reader — and draws it
-    # into the normal cell grid. Each pixel of the downscaled image becomes one
-    # cell whose background is that pixel's color, so the result is portable to
-    # any TrueColor terminal with no external dependencies.
+    # Unlike `Widget::Media::Overlay` (which paints a true-color image over the
+    # terminal via the external `w3mimgdisplay` helper), `Media::Ansi` decodes
+    # the image itself with the pure-Crystal `PNGGIF::PNG` reader and draws it
+    # into the normal cell grid: each downscaled pixel becomes one cell whose
+    # background is that pixel's color, portable to any TrueColor terminal with
+    # no external dependencies.
     #
     # Because Crysterm renders in TrueColor, pixel RGB values are used directly;
     # there is no 256-color palette-matching step as in Blessed.
@@ -30,10 +30,10 @@ module Crysterm
     class Media::Ansi < Media::Cells
       # Color depth the image is rendered in. Crysterm is natively TrueColor and
       # only reduces colors at output time when the terminal can't do 24-bit; the
-      # non-`TrueColor` modes here additionally *quantize the pixels themselves*
-      # to the xterm-256, 16- or 8-color palette, so the classic low-color look is
-      # produced (and preserved) regardless of the terminal's own capability —
-      # the portability story Blessed's `ansiimage` had via palette-matching.
+      # non-`TrueColor` modes here additionally quantize the pixels themselves to
+      # the xterm-256/16/8-color palette, producing the classic low-color look
+      # regardless of terminal capability (matching Blessed's `ansiimage` palette-
+      # matching portability).
       enum ColorMode
         TrueColor # 24-bit RGB used directly (default)
         C256      # quantized to the xterm 256-color palette
@@ -55,10 +55,9 @@ module Crysterm
       # Render glyphs by luminance (ASCII-art look) instead of solid blocks.
       property? ascii : Bool
 
-      # Terminal cell height-to-width ratio, used to keep the image's aspect
-      # ratio correct on non-square cells (~2.0 for typical monospace fonts). A
-      # value of `1.0` assumes square cells. Changing it after construction takes
-      # effect on the next `#set_image`.
+      # Terminal cell height-to-width ratio, keeping the image's aspect ratio
+      # correct on non-square cells (~2.0 for typical monospace fonts); `1.0`
+      # assumes square cells. Changes take effect on the next `#set_image`.
       property cell_aspect : Float64
 
       def initialize(
@@ -67,17 +66,16 @@ module Crysterm
         animate : Bool | Timer = true,
         @ascii : Bool = false,
         @speed : Float64 = 1.0,
-        # Cell height÷width. Defaults to the terminal's measured ratio (CSS layer),
-        # not a hardcoded 2:1, so the image's proportions match the real cells.
+        # Cell height÷width; defaults to the terminal's measured ratio (CSS
+        # layer), not a hardcoded 2:1, so proportions match the real cells.
         @cell_aspect : Float64 = Crysterm::CSS::Length.cell_aspect_ratio,
         @colors : ColorMode = ColorMode::TrueColor,
         @dither : Media::Dither = Media::Dither::Auto,
         @fit : Media::Fit = Media::Fit::Stretch,
         **box,
       )
-        # Blessed sets `options.shrink = true`; the Crysterm equivalent is
-        # `resizable`, so the widget sizes itself to the image when no explicit
-        # width/height is given.
+        # Blessed's `options.shrink = true` equivalent: `resizable` sizes the
+        # widget to the image when no explicit width/height is given.
         super(**box.merge(resizable: true))
         setup_animate animate # before set_image, so a shared clock is known when play subscribes
 
@@ -94,11 +92,10 @@ module Crysterm
       # Size the widget to a native-scaled render when no explicit size was given;
       # `#render` then (re)samples to the actual box.
       protected def on_loaded(png : PNGGIF::PNG)
-        # Only auto-size an axis the caller left *unset*. A non-nil size — including
-        # a String like "100%"/"50%" — is explicit and must be honored (the box,
-        # resolved at render, then drives `#fit`). The old `@width.as?(Int32)` test
-        # treated any non-Int as unset, so a percentage width was silently replaced
-        # by the native size, defeating both box-fitting and the `fit` option.
+        # Only auto-size an axis the caller left unset. A non-nil size —
+        # including a String like "100%"/"50%" — is explicit and must be
+        # honored. The old `@width.as?(Int32)` test treated any non-Int as
+        # unset, silently replacing a percentage width with the native size.
         return unless @width.nil? || @height.nil?
         native = png.create_cellmap(png.bmp, scale: @scale, cell_aspect: @cell_aspect)
         self.width = (native[0]?.try(&.size) || 0) if @width.nil?
@@ -113,9 +110,9 @@ module Crysterm
 
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32)
         lines = window.lines
-        # In a reduced-color mode, dither the whole sample to the palette up front
-        # (error diffusion needs the neighbours, so it can't be done per cell).
-        # Memoized per sample bitmap; unused (and never computed) in TrueColor.
+        # In a reduced-color mode, dither the whole sample to the palette up
+        # front (error diffusion needs neighbours, can't be done per cell).
+        # Memoized per sample bitmap; unused in TrueColor.
         plane = @colors.true_color? ? nil : @dither_plane_memo.get(bmp) { dither_plane bmp }
         (yi...yl).each do |y|
           cmrow = bmp[y - yi]?
@@ -166,9 +163,9 @@ module Crysterm
         {ch, fg}
       end
 
-      # Memoizes the dithered colour plane for the *current* `@sample` (the full
-      # Floyd–Steinberg/ordered pass is the per-render hot spot, so it's rerun
-      # only when the sample bitmap actually changes — see `SampleMemo`).
+      # Memoizes the dithered colour plane for the current `@sample` (the full
+      # Floyd–Steinberg/ordered pass is the per-render hot spot, rerun only
+      # when the sample bitmap changes — see `SampleMemo`).
       @dither_plane_memo = SampleMemo(Array(Array(Int32))).new
 
       # Builds a palette-quantized, dithered color plane for the whole sample —
@@ -210,10 +207,8 @@ module Crysterm
       @quant_cache : Hash(Int32, Int32)?
 
       # The xterm palette as packed `0xRRGGBB`, precomputed once from
-      # `TermColors::HI2RGB` so the nearest-color search (`Media.nearest_index`)
-      # is a flat `Array(Int32)` scan: the first 8 entries are the base ANSI
-      # palette (`C8`), the first 16 the ANSI palette (`C16`), all 256 the xterm
-      # cube (`C256`).
+      # `TermColors::HI2RGB` so `Media.nearest_index` is a flat `Array(Int32)`
+      # scan: first 8 entries are `C8`, first 16 are `C16`, all 256 are `C256`.
       C256_PALETTE = TermColors::HI2RGB.map { |(pr, pg, pb)| (pr << 16) | (pg << 8) | pb }
       C16_PALETTE  = C256_PALETTE[0, 16]
       C8_PALETTE   = C256_PALETTE[0, 8]
@@ -239,9 +234,9 @@ module Crysterm
       end
 
       # ---- single-colormode backends -------------------------------------
-      # Each subclass pins one `ColorMode`, so it is a one-variant image backend
-      # that can be exemplified and documented on its own. The base `Ansi` stays
-      # usable (mode-selectable via `colors:`) for programmatic use.
+      # Each subclass pins one `ColorMode`, giving a one-variant backend that
+      # can be exemplified and documented on its own. `Ansi` itself stays
+      # mode-selectable via `colors:` for programmatic use.
       #
       # <!-- widget-examples:capture v1 -->
       # ![TrueColor screenshot](../../../../tests/widget/media/ansi/truecolor/truecolor.5s.apng)

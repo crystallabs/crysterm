@@ -41,10 +41,8 @@ module Crysterm
       # `Time#to_s` format used when `#timestamps?`.
       property timestamp_format : String = "%H:%M:%S"
 
-      # `scroll_percentage` must reflect/drive the real scroll position. It used
-      # to be a plain `property` (inert Int), so `self.scroll_percentage = 100`
-      # just stored 100 and never scrolled, and the `== 100` check below read a
-      # stale constant. Delegate to the actual scroll-percentage methods.
+      # Delegates to the real scroll-percentage methods; a plain `property`
+      # (inert Int) meant `self.scroll_percentage = 100` never actually scrolled.
       def scroll_percentage
         get_scroll_perc false
       end
@@ -68,8 +66,8 @@ module Crysterm
         # `max_lines` is the friendlier alias for `scrollback`.
         max_lines.try { |v| @scrollback = v }
 
-        # A log follows the tail by default (Qt sticky-bottom): new lines scroll
-        # into view unless the user has scrolled up to read back.
+        # Sticky-bottom by default: new lines scroll into view unless the user
+        # has scrolled up.
         @follow_tail = true
 
         on Crysterm::Event::SetContent, ->set_content(Crysterm::Event::SetContent)
@@ -124,18 +122,15 @@ module Crysterm
         log Level::Error, *args
       end
 
-      # Re-render when content changes; the actual tail-following is now the
-      # generic `#follow_tail` sticky-bottom (with `scroll_on_input` honored via
-      # `#stick_to_tail?` below), rather than a bespoke `@_user_scrolled` flag.
+      # Re-render when content changes; tail-following is the generic
+      # `#follow_tail` sticky-bottom (see `#stick_to_tail?` below).
       def set_content(e)
         request_render
       end
 
-      # Append a line to the log. Multiple arguments are stringified and joined
-      # with a space (like `puts`), so `add "mouse", x` logs `mouse 5` — not the
-      # `["mouse", 5]` that the old `args.inspect` produced. The new line scrolls
-      # into view at the bottom (unless the user has scrolled up to read back),
-      # and the oldest lines are dropped once `scrollback` is exceeded.
+      # Append a line to the log. Arguments are stringified and joined with a
+      # space (like `puts`), so `add "mouse", x` logs `mouse 5`. Oldest lines
+      # are dropped once `scrollback` is exceeded.
       def add(*args)
         text = args.map(&.to_s).join(" ")
 
@@ -144,20 +139,16 @@ module Crysterm
         ret = push_line text
 
         if @_clines.fake.size > @scrollback
-          # Trim a chunk (a third of the limit) rather than one line at a time,
-          # so a busy log doesn't shift on every append. `Math.max(1, …)` keeps
-          # this making progress for a tiny `scrollback`: `scrollback // 3` is 0
-          # for `max_lines` of 1 or 2, which would `shift_line 0` (a no-op) and
-          # let the buffer grow without bound past the limit.
+          # Trim a third of the limit at once rather than one line per append.
+          # `Math.max(1, …)` avoids a no-op `shift_line 0` when `scrollback` < 3.
           shift_line Math.max(1, @scrollback // 3)
         end
 
         ret
       end
 
-      # Sticky-bottom normally; `scroll_on_input` additionally jumps to the
-      # bottom whenever new content arrives (`content_max` grew past the previous
-      # extent), even after a manual scroll-up.
+      # Sticky-bottom normally; `scroll_on_input` also jumps to the bottom
+      # whenever new content arrives, even after a manual scroll-up.
       protected def stick_to_tail?(content_max : Int32) : Bool
         super || (@scroll_on_input && content_max > @last_scroll_max)
       end

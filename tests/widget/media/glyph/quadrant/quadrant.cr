@@ -1,6 +1,5 @@
-# Media::Glyph::Quadrant — the Matterhorn rendered via the Glyph::Quadrant backend.
-#
-# A single fixed variant of Media::Glyph (see the sibling dirs for the rest).
+# Media::Glyph::Quadrant — Matterhorn rendered via the Glyph::Quadrant backend.
+# Fixed variant of Media::Glyph (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
 include Crysterm

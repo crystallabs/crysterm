@@ -3,8 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Hiding a widget must move keyboard focus out of the hidden subtree, even when
-# it is a *descendant* (not the widget itself) that currently holds focus.
-# Otherwise an invisible widget keeps focus and keeps receiving key events.
+# a *descendant* (not the widget itself) holds focus.
 
 private def hide_focus_screen
   Crysterm::Window.new(

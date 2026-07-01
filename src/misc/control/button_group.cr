@@ -4,16 +4,14 @@ module Crysterm
   # Logical, non-visual grouping of checkable buttons, modeled after Qt's
   # `QButtonGroup`.
   #
-  # Unlike `Widget::RadioSet` (which groups radio buttons by *widget-tree
-  # containment*), a `ButtonGroup` groups buttons regardless of where they sit
-  # in the layout. In the default *exclusive* mode it enforces radio behaviour:
-  # checking one member unchecks the others, and — as with radio buttons — the
-  # checked member cannot be unchecked by clicking it (only by checking another),
-  # so exactly one stays checked once one has been. (`Widget::RadioButton`
+  # Unlike `Widget::RadioSet` (which groups radio buttons by widget-tree
+  # containment), a `ButtonGroup` groups buttons regardless of where they sit
+  # in the layout. In the default exclusive mode it enforces radio behaviour:
+  # checking one member unchecks the others, and the checked member cannot be
+  # unchecked by clicking it (only by checking another). `Widget::RadioButton`
   # members enforce this themselves; `CheckBox`/`Button` members are kept
-  # consistent here so the group behaves the same regardless of member type.)
-  # Set `#exclusive = false` to let any number be checked at once (e.g.
-  # independent toggle buttons that still report through one handler).
+  # consistent here so the group behaves uniformly. Set `#exclusive = false`
+  # to let any number be checked at once.
   #
   # Members may be any checkable button — a `Widget::Button` (it is switched to
   # `checkable` automatically on add), a `Widget::CheckBox`, or a
@@ -42,12 +40,12 @@ module Crysterm
     @ids = {} of Widget => Int32
     # Per-button `Event::Check` listener handles, so `#remove` can detach again.
     @handlers = {} of Widget => Crysterm::Event::Check::Wrapper
-    # Per-button `Event::UnCheck` listener handles. In an exclusive group these
-    # implement the "can't uncheck the selected member by clicking it" radio rule
-    # (see `#on_member_unchecked`); kept separately so `#remove` detaches them too.
+    # Per-button `Event::UnCheck` listener handles, implementing the "can't
+    # uncheck the selected member by clicking it" radio rule (see
+    # `#on_member_unchecked`); kept separately so `#remove` detaches them too.
     @uncheck_handlers = {} of Widget => Crysterm::Event::UnCheck::Wrapper
-    # Guards the cascade: unchecking siblings (and the exclusive re-check revert)
-    # must not itself trigger another round of exclusivity handling.
+    # Guards the cascade: unchecking siblings (and the exclusive re-check
+    # revert) must not itself trigger another round of exclusivity handling.
     @suppress = false
 
     def initialize(exclusive : Bool = true)
@@ -91,8 +89,8 @@ module Crysterm
     end
 
     # The member with the given *id*, or `nil`. `-1` is the "no id" sentinel (a
-    # member added without an explicit id, and the value `#checked_id` returns
-    # when nothing is checked), so — as in Qt — it never addresses a real button:
+    # member added without an explicit id, and what `#checked_id` returns when
+    # nothing is checked), so as in Qt it never addresses a real button:
     # `button(-1)` is always `nil`, even though several un-id'd members carry it.
     def button(id : Int32) : Widget?
       return nil if id == -1
@@ -120,17 +118,16 @@ module Crysterm
       emit Crysterm::Event::ButtonClick, button
     end
 
-    # Reacts to a member becoming unchecked. In an *exclusive* group a member
-    # cannot be unchecked by clicking it (radio behaviour): if unchecking it
-    # would leave the group with nothing selected, re-check it. The re-check is
-    # `@suppress`ed so it neither cascades nor re-announces a `ButtonClick`.
+    # Reacts to a member becoming unchecked. In an exclusive group a member
+    # cannot be unchecked by clicking it: if unchecking it would leave the group
+    # with nothing selected, re-check it. The re-check is `@suppress`ed so it
+    # neither cascades nor re-announces a `ButtonClick`.
     #
-    # `@suppress` is also already set during a legitimate switch (A→B unchecks A
-    # from inside `#on_member_checked`), so a normal selection change passes
-    # straight through — only a *direct* uncheck of the sole checked member is
-    # reverted. `Widget::RadioButton` members never reach here (their `#toggle`
-    # only ever checks), so this only changes `CheckBox`/`Button` members, making
-    # the whole group behave uniformly.
+    # `@suppress` is already set during a legitimate switch (A→B unchecks A from
+    # inside `#on_member_checked`), so a normal selection change passes straight
+    # through — only a direct uncheck of the sole checked member is reverted.
+    # `Widget::RadioButton`'s `#toggle` only ever checks, so this only affects
+    # `CheckBox`/`Button` members.
     private def on_member_unchecked(button : Widget) : Nil
       return if @suppress || !exclusive?
       return if @buttons.any? { |b| member_checked? b }
@@ -148,9 +145,8 @@ module Crysterm
 
     # Every member is a `Widget::AbstractButton` (`Button`, `CheckBox` and
     # `RadioButton` all derive from it), which declares the shared
-    # `#checked?`/`#uncheck` interface — so dispatch through that one type.
-    # Dispatching on the concrete leaf types instead used to miss
-    # `RadioButton`, silently breaking exclusivity for radio members.
+    # `#checked?`/`#uncheck` interface, so dispatch through that one type
+    # rather than the concrete leaf types (which used to miss `RadioButton`).
     private def member_checked?(b : Widget) : Bool
       b.is_a?(Widget::AbstractButton) ? b.checked? : false
     end

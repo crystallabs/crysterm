@@ -4,11 +4,9 @@ module Crysterm
       macro included
         # List of existing instances.
         #
-        # For automatic management of this list, make sure that `#bind` is called at
-        # creation and `#destroy` at termination.
-        #
-        # `#bind` does not have to be called explicitly because it happens during `#initialize`.
-        # `#destroy` does need to be called.
+        # For automatic management, `#bind` must be called at creation and
+        # `#destroy` at termination. `#bind` doesn't need to be called
+        # explicitly (it happens during `#initialize`); `#destroy` does.
         class_getter instances = [] of self
 
         # Returns number of created instances
@@ -17,12 +15,11 @@ module Crysterm
         end
 
         # Creates and/or returns the "global" instance — the most recently
-        # created one (`instances[-1]`), i.e. the one being built most recently.
-        # If none exist yet and *create* is true, a new one is created.
+        # created one (`instances[-1]`). If none exist yet and *create* is
+        # true, a new one is created.
         #
-        # An alternative approach, which is currently not implemented, would be to hold the global
-        # in a class variable, and return it here. In that way, the choice of the default/global
-        # object at a particular time would be configurable in runtime.
+        # Alternative (not implemented): hold the global in a class variable so
+        # the default object is configurable at runtime.
         def self.global(create : Bool = true)
           (instances[-1]? || (create ? new : nil)).not_nil!
         end
@@ -51,9 +48,8 @@ module Crysterm
         # end
       end
 
-      # Destroys self and removes it from the global list of `Window`s.
-      # Also remove all global events relevant to the object.
-      # If no screens remain, the app is essentially reset to its initial state.
+      # Destroys self and removes it from the global list of `Window`s, and
+      # removes all global events relevant to the object.
       def destroy
         if @@instances.delete self
           # if @@instances.empty?

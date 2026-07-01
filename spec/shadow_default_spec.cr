@@ -3,11 +3,10 @@ require "./spec_helper"
 include Crysterm
 
 # `Shadow.default` is the per-`Style` default shadow ("no shadow"). Like
-# `Padding.default`/`Margin.default` it must hand back a *fresh* instance rather
-# than a shared singleton: a `Shadow` is mutable through its public per-side/alpha
-# setters, and `Style` gives one to every instance (`getter shadow =
-# Shadow.default`). A shared object would let an in-place edit on one style's
-# shadow leak into every other style's default.
+# `Padding.default`/`Margin.default`, it must return a *fresh* instance, not a
+# shared singleton: `Shadow` is mutable via its per-side/alpha setters, and
+# `Style` gives one to every instance (`getter shadow = Shadow.default`). A
+# shared object would let an in-place edit leak into every other style's default.
 describe Crysterm::Shadow do
   describe ".default" do
     it "returns a distinct zero-shadow each call (not a shared singleton)" do
@@ -30,7 +29,7 @@ describe Crysterm::Shadow do
     s1 = Style.new
     s2 = Style.new
     s1.shadow.same?(s2.shadow).should be_false
-    # Mutating one style's (default zero) shadow must not affect another's.
+    # Mutating one style's default shadow must not affect another's.
     s1.shadow.right = 9
     s2.shadow.right.should eq 0
   end

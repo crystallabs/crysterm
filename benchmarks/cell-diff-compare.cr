@@ -14,10 +14,9 @@ require "../src/crysterm"
 #        o_attrs.unsafe_fetch(x) == desired_attr && o_chars.unsafe_fetch(x) == desired_char
 #        (grapheme_overlay check skipped entirely when !full_unicode)
 #
-# This change saves NO allocations (the primitive Tuple never escaped to the
-# heap), so the only metric is CPU time — which the render-hotpath bench warns
-# is noisy. Run it a few times and look for a CONSISTENT direction, not a
-# precise factor.
+# Saves NO allocations (the primitive Tuple never escaped to the heap), so the
+# only metric is CPU time, which is noisy — run it a few times and look for a
+# consistent direction, not a precise factor.
 #
 # Run:  crystal run --release benchmarks/cell-diff-compare.cr
 
@@ -27,8 +26,7 @@ WIDTH  =  200
 ROUNDS = 5000
 attr = Crysterm::Screen::DEFAULT_ATTR
 
-# Build two equal rows: the common hot case where every cell is unchanged, so
-# the diff guard fires on every cell (the path we sped up).
+# Two equal rows: the common hot case where every cell is unchanged.
 line = Crysterm::Screen::Row.new
 o = Crysterm::Screen::Row.new
 WIDTH.times do |i|
@@ -37,11 +35,11 @@ WIDTH.times do |i|
   o.push attr, ch
 end
 
-# A half-changed row, to also exercise the not-equal branch.
+# A half-changed row, exercising the not-equal branch.
 o_half = Crysterm::Screen::Row.new
 WIDTH.times { |i| o_half.push attr, (i < WIDTH // 2 ? ('a' + (i % 26)) : 'Z') }
 
-# OLD per-cell read + compare, faithful to the pre-change draw loop.
+# OLD per-cell read + compare, matching the pre-change draw loop.
 def old_diff(line, o)
   cnt = 0
   WIDTH.times do |x|
@@ -54,7 +52,7 @@ def old_diff(line, o)
   cnt
 end
 
-# NEW per-cell read + compare (legacy mode: full_unicode off → overlay skipped).
+# NEW per-cell read + compare (full_unicode off, so overlay check skipped).
 def new_diff(line, o)
   cnt = 0
   l_attrs = line.attrs
@@ -72,7 +70,7 @@ def new_diff(line, o)
   cnt
 end
 
-# Sanity: both produce identical verdicts.
+# Sanity: both must produce identical verdicts.
 raise "mismatch (equal)" unless old_diff(line, o) == new_diff(line, o)
 raise "mismatch (half)" unless old_diff(line, o_half) == new_diff(line, o_half)
 
@@ -97,7 +95,7 @@ end
 puts "  alloc: OLD #{alloc_mb(ROUNDS) { old_diff(line, o_half) }.round(2)} MB" \
      "  vs  NEW #{alloc_mb(ROUNDS) { new_diff(line, o_half) }.round(2)} MB  (#{ROUNDS} rows)"
 
-# MB allocated while running `block` `n` times (deterministic).
+# MB allocated running `block` `n` times.
 def alloc_mb(n, &block)
   GC.collect
   before = GC.stats.total_bytes

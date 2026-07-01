@@ -2,16 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Focused regression for `Widget#get_scroll_perc`'s degenerate divisor.
-#
-# The percentage is `(child_base + child_offset) / (get_scroll_height - 1) * 100`.
-# Crystal's integer `/` is float division, so when `get_scroll_height == 1` the
-# span `i - 1` is `0` and the bare expression yields Infinity (or NaN for the
-# `0 / 0` case), which `* 100` then propagates as a garbage percentage. The
-# degenerate case is reached when there is a single content line *and* the
-# visible content height is <= 0 (e.g. a height-1 widget whose border consumes
-# the whole interior). It must return a sane, finite percentage (0%, since top
-# == bottom) and never NaN/Infinity.
+# Regression for `Widget#get_scroll_perc`'s degenerate divisor: the percentage
+# is `(child_base + child_offset) / (get_scroll_height - 1) * 100`. When
+# `get_scroll_height == 1`, the span `i - 1` is 0 and division yields
+# Infinity/NaN, propagating a garbage percentage. Reached with a single
+# content line and visible height <= 0 (e.g. a height-1 widget whose border
+# consumes the whole interior). Must return 0% (top == bottom), never NaN/Infinity.
 
 private def sp_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)

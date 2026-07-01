@@ -23,7 +23,7 @@ module Crysterm
       def current_page : Widget?
         # Guard the `-1` sentinel explicitly: Crystal's `[]?` treats a negative
         # index as counting from the end, so `@pages[-1]?` would wrongly return
-        # the *last* page when no page is selected. Return `nil` instead.
+        # the last page instead of `nil`.
         return nil if @current_index < 0
         @pages[@current_index]?
       end
@@ -55,12 +55,10 @@ module Crysterm
       # Selects the previous page, wrapping at the start.
       protected def previous_index : Nil
         return if @pages.empty?
-        # Guard the `-1` "no page selected" sentinel explicitly, mirroring
-        # `#current_page`: a raw `(@current_index - 1) % size` maps `-1` to
-        # `size - 2`, silently *skipping* the last page (e.g. with 3 pages it
-        # lands on index 1, never 2). From the unselected state, "previous"
-        # should wrap to the last page — symmetric with `#next_index` landing on
-        # the first (`(-1 + 1) % size == 0`).
+        # Guard the `-1` sentinel explicitly, mirroring `#current_page`: a raw
+        # `(@current_index - 1) % size` maps `-1` to `size - 2`, silently
+        # skipping the last page. From unselected, "previous" should wrap to the
+        # last page, symmetric with `#next_index` landing on the first.
         i = @current_index < 0 ? @pages.size - 1 : (@current_index - 1) % @pages.size
         show_index i
       end

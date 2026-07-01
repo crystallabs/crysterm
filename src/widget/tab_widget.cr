@@ -114,13 +114,11 @@ module Crysterm
 
         # Closing via the `✕` marker is wired per tab-item in `#wire_close`: each
         # item box is itself the topmost widget under the pointer, so the click's
-        # `Event::Mouse` is delivered to the *item*, not to the bar (mouse events
-        # don't bubble) — a bar-level handler would never see clicks on a tab.
+        # `Event::Mouse` is delivered to the item, not the bar (no bubbling).
 
-        # Push any `TabWidget::tab`/`::pane` styling onto the tabs/current page
-        # each frame (see `#sync_tab_style`). PreRender fires after the cascade and
-        # before the bar/page (children) draw, so it lands even though they snapshot
-        # their style when first created.
+        # Push any `TabWidget::tab`/`::pane` styling onto tabs/current page each
+        # frame (see `#sync_tab_style`). PreRender fires after the cascade and
+        # before children draw, so it lands even though they snapshot style once.
         on(::Crysterm::Event::PreRender) { sync_tab_style }
 
         # Carousel auto-advance: start once attached to a window (the timer needs
@@ -132,18 +130,14 @@ module Crysterm
 
       # Applies the `TabWidget::tab` (Qt's `QTabBar::tab`) and `TabWidget::pane`
       # (`QTabWidget::pane`) sub-styles onto the bar's tabs and the current page.
-      # Each push is guarded by `same?`: when no such rule matched, the sub-style
-      # falls back to the widget's own style and that push is a no-op — so the
-      # default look is unchanged. (`::pane` styles the *current page itself*,
-      # since the page fills the pane region; an explicit `::pane` rule therefore
-      # overrides that page's normal style for the area beside the bar.)
+      # Each push is guarded by `same?`: no matching rule falls back to the
+      # widget's own style, a no-op, keeping the default look unchanged.
       private def sync_tab_style : Nil
-        # `apply_substyle` `dup`s the sub-style per child, so the pane the current
-        # page receives is its own copy — `show`/`hide` mutating one page's
-        # `visible` can't leak through a shared object and blank the next page.
+        # `apply_substyle` `dup`s the sub-style per child, so the current page's
+        # copy can't be mutated (`show`/`hide`'s `visible`) and leak into the next.
         bar.items.each { |it| apply_substyle it, style.tab }
 
-        # `::pane` styles the *current page itself*, since it fills the pane region.
+        # `::pane` styles the current page itself, since it fills the pane region.
         apply_substyle current_page, style.pane
       end
 
@@ -173,10 +167,8 @@ module Crysterm
       end
 
       # Wires *item* (a tab's bar box) so a click on its right-most two cells —
-      # where `display_title` puts the `✕` (one cell in from the edge, since the
-      # bar centers the text) — closes the corresponding tab instead of selecting
-      # it. Accepting the `Event::Mouse` suppresses the follow-up `Event::Click`
-      # that would otherwise switch to the tab.
+      # where `display_title` puts the `✕` — closes the tab instead of selecting
+      # it. Accepting the `Event::Mouse` suppresses the follow-up `Event::Click`.
       private def wire_close(item : Widget) : Nil
         item.on(::Crysterm::Event::Mouse) do |e|
           next if wheel_cycle e
@@ -196,18 +188,18 @@ module Crysterm
         tabs_closable? ? "#{title} ✕" : title
       end
 
-      # Re-points every tab command's callback at its *current* index. The
-      # commands capture an absolute index when added (`bar.add … { show_tab
-      # index }`), which goes stale after a tab is removed or reordered; this
-      # re-binds each to its present position. Callers wrap it in `@switching`.
+      # Re-points every tab command's callback at its current index: commands
+      # capture an absolute index when added (`bar.add … { show_tab index }`),
+      # which goes stale after a tab is removed/reordered. Callers wrap it in
+      # `@switching`.
       private def repoint_tab_callbacks : Nil
         @tab_titles.each_with_index do |_, i|
           bar.commands[i].callback = -> { show_tab i }
         end
       end
 
-      # Appends a tab titled *title* whose body is *page*. The page is sized to
-      # fill the area beside the tab bar. The first tab added becomes current.
+      # Appends a tab titled *title* whose body is *page*, sized to fill the
+      # area beside the tab bar. The first tab added becomes current.
       def add_tab(title : String, page : Widget) : self
         @tab_titles << title
         @pages << page
@@ -252,8 +244,8 @@ module Crysterm
         show_index index
       end
 
-      # Mirror the new selection in the bar without re-triggering its `SelectItem`
-      # handler (see `#initialize`). Runs after `#show_index` switches the page.
+      # Mirrors the new selection in the bar without re-triggering its
+      # `SelectItem` handler (see `#initialize`). Runs after `#show_index`.
       protected def after_show_index(index : Int) : Nil
         unless bar.selected == index
           @switching = true
@@ -262,9 +254,9 @@ module Crysterm
         end
       end
 
-      # Removes the tab at *index*, detaching (but **not** destroying) its page
-      # and returning it — Qt's `removeTab` likewise leaves page ownership with
-      # the caller. Keeps a valid current tab and emits `Event::RemoveItem`.
+      # Removes the tab at *index*, detaching (not destroying) its page and
+      # returning it — like Qt's `removeTab`. Keeps a valid current tab and
+      # emits `Event::RemoveItem`.
       def remove_tab(index : Int) : Widget?
         return nil unless 0 <= index < @pages.size
 
@@ -273,10 +265,8 @@ module Crysterm
 
         @switching = true
         bar.remove_item index
-        # After the removal the remaining commands' captured indices go stale, so
-        # re-point every callback at its current position. Otherwise pressing
-        # Enter on a tab past the removed one runs a stale callback and jumps to
-        # the wrong page.
+        # Remaining commands' captured indices go stale after removal; re-point
+        # them or Enter on a tab past the removed one jumps to the wrong page.
         repoint_tab_callbacks
         @switching = false
 
@@ -293,8 +283,8 @@ module Crysterm
         page
       end
 
-      # Like `#remove_tab`, but also destroys the detached page. This is the
-      # destructive action behind the `✕`/Delete UI affordances.
+      # Like `#remove_tab`, but also destroys the detached page — the
+      # destructive action behind the `✕`/Delete UI.
       def close_tab(index : Int) : Nil
         remove_tab(index).try &.destroy
       end
@@ -327,10 +317,9 @@ module Crysterm
         end
       end
 
-      # Cycles tabs on a wheel notch over the bar — down to the next tab, up to
-      # the previous (both wrap), matching a browser tab strip. Returns `true`
-      # when it consumed a wheel notch so the caller can stop; `false` otherwise.
-      # Accepting the event suppresses the window's default "scroll the view".
+      # Cycles tabs on a wheel notch over the bar — down/up, both wrapping,
+      # matching a browser tab strip. Returns whether it consumed the notch.
+      # Accepting the event suppresses the window's default scroll-the-view.
       private def wheel_cycle(e : ::Crysterm::Event::Mouse) : Bool
         if e.action.wheel_down?
           next_tab

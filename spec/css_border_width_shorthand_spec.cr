@@ -2,12 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# The `border-width` shorthand takes 1-4 cell widths in CSS TRBL order, with the
-# standard 1/2/3-value fill-ins — exactly like `padding`/`margin`. Previously
-# only a single value was honored: a multi-value form (e.g. `0 0 1px 0`, the
-# common Qt tab/header underline) was fed whole to the single-token length
-# parser, failed to parse, and silently collapsed *every* side to 0 — the
-# declared border vanished. (`Crysterm::CSS::Properties.apply`.)
+# `border-width` takes 1-4 cell widths in CSS TRBL order, with the standard
+# 1/2/3-value fill-ins, like `padding`/`margin`. Regression: only a single value
+# was honored; a multi-value form (e.g. `0 0 1px 0`, the Qt tab/header underline)
+# was fed whole to the single-token length parser, failed, and collapsed every
+# side to 0. (`Crysterm::CSS::Properties.apply`.)
 describe "CSS border-width shorthand" do
   it "applies four TRBL widths to the matching sides" do
     s = Style.new
@@ -37,8 +36,7 @@ describe "CSS border-width shorthand" do
   end
 
   it "keeps a single bottom underline visible (Qt tab/header pattern)" do
-    # `0 0 1px 0`: only the bottom edge is drawn. The 1px sub-cell width clamps
-    # up to 1 so the rule line stays visible; the other three sides are 0.
+    # `0 0 1px 0`: only the bottom edge is drawn; 1px clamps up to 1 cell.
     s = Style.new
     Crysterm::CSS::Properties.apply(s, "border-width", "0 0 1px 0")
     s.border.top.should eq 0
@@ -57,8 +55,8 @@ describe "CSS border-width shorthand" do
   end
 
   it "drops a blank value rather than clobbering the border to 0" do
-    # A collapsed undefined `var()` reaches here blank; an invalid declaration is
-    # dropped (CSS), leaving a border a lower-priority rule already set intact.
+    # An undefined `var()` collapses to blank; CSS drops the invalid declaration,
+    # leaving an already-set border intact.
     s = Style.new
     s.border = Crysterm::Border.new(left: 4, top: 4, right: 4, bottom: 4)
     Crysterm::CSS::Properties.apply(s, "border-width", "")

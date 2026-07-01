@@ -3,10 +3,9 @@ module Crysterm
   class Style
     include Colorizable
 
-    # These (and possibly others) can't default to any color since that would generate
-    # color-setting sequences in the terminal. It's better to have them nilable, in which
-    # case no sequences get generated and term's default is used. That's also how Blessed
-    # does it.
+    # These (and possibly others) can't default to any color, since that would
+    # generate color-setting sequences; nilable means no sequence is generated
+    # and the terminal default is used. Same approach as Blessed.
 
     # Foreground color (color of font/character).
     #
@@ -47,8 +46,8 @@ module Crysterm
     # Alpha (inverse of transparency). Alpha 0 == full transparency, 1 == full opacity.
     property alpha : Float64?
 
-    # Tint: a color the whole widget region is blended *toward* (a color overlay),
-    # by `tint_alpha`. `nil` = no tint. Native `0xRRGGBB`; the setter also accepts
+    # Tint: a color the whole widget region is blended toward, by `tint_alpha`.
+    # `nil` = no tint. Native `0xRRGGBB`; the setter also accepts
     # `"#rrggbb"`/named-color strings (like `fg`/`bg`). Animate `tint_alpha` (or
     # swap the color) for a tinting fade — see `Widget#tint_to`.
     getter tint : Int32?
@@ -62,8 +61,8 @@ module Crysterm
     Colorizable.color_setter tint
 
     # Compositing layer (CSS `z-index`). When set, the widget (and its subtree)
-    # is promoted to its own `Plane` at this z, composited over the base so it can
-    # show content from *other* widgets through it; its `alpha` becomes the
+    # is promoted to its own `Plane` at this z, composited over the base so it
+    # can show content from other widgets through it; its `alpha` becomes the
     # plane's opacity. `nil` = the base layer (the ordinary painter's path).
     property z_index : Int32?
 
@@ -75,10 +74,10 @@ module Crysterm
       Auto    # natural size, no scaling (CSS default `auto`)
     end
 
-    # CSS `background-image`: the `url(...)` path/URL of an image painted *behind*
+    # CSS `background-image`: the `url(...)` path/URL of an image painted behind
     # the widget's own content. `nil` = none. Realized lazily as an internal
     # `Widget::Media` background layer (see `Widget#update_background_media`); the
-    # backend is chosen by `Media.resolve(Content::Background)` and so only has a
+    # backend is chosen by `Media.resolve(Content::Background)`, so it only has
     # visible effect where a background-capable backend is available (Kitty for
     # true pixels under the text, or the cell-grid `Glyph`/`Ansi` fallback).
     property background_image : String?
@@ -94,9 +93,9 @@ module Crysterm
     end
 
     # CSS `transition`: animatable property name -> `{duration, easing}`. When an
-    # animated property's value changes (e.g. on a `:hover`/`:focus` state change)
-    # the new value is tweened in over its duration rather than snapping. Set by
-    # the CSS layer; consumed generically by `Widget#apply_style_transitions`.
+    # animated property's value changes (e.g. on a `:hover`/`:focus` state
+    # change) the new value tweens in over its duration rather than snapping.
+    # Set by the CSS layer; consumed by `Widget#apply_style_transitions`.
     property transitions : Hash(String, Tuple(Time::Span, Easing))?
 
     # A CSS `animation` binding: which `@keyframes` to play and how. `nil` = none.
@@ -107,22 +106,22 @@ module Crysterm
       iterations : Int32? = nil, # nil = infinite
       alternate : Bool = false   # ping-pong direction each cycle
 
-    # CSS `animation`: a named `@keyframes` sequence to loop. Set by the CSS layer;
-    # driven generically by `Widget#ensure_css_animation`.
+    # CSS `animation`: a named `@keyframes` sequence to loop. Set by the CSS
+    # layer; driven by `Widget#ensure_css_animation`.
     property animation : AnimationSpec?
 
-    # Tracks which text-attribute booleans (and the struct properties) were
-    # *explicitly* set (vs left at their default), so the CSS cascade can tell
-    # "set to false" from "unset" — needed for inline-style folding and
-    # inheritance. Colors and `alpha` carry their own unset signal (`nil`), so
-    # they are not tracked here.
+    # Tracks which text-attribute booleans (and struct properties) were
+    # explicitly set (vs left at default), so the CSS cascade can tell "set to
+    # false" from "unset" — needed for inline-style folding and inheritance.
+    # Colors and `alpha` carry their own unset signal (`nil`), so they aren't
+    # tracked here.
     #
     # Stored as a bitmask rather than a `Set(Symbol)`: the cascade resets every
-    # recomputed widget with a `#dup` per state per cascade (hundreds–thousands
-    # per frame on a deep tree), and a `Set` made each `#dup` allocate a fresh
-    # heap object. A `UInt32` is copied for free by the shallow `super` dup, so
-    # the reset path allocates nothing here, and the per-property checks become
-    # bit tests instead of hashed-set lookups.
+    # recomputed widget with a `#dup` per state per cascade (hundreds-thousands
+    # per frame on a deep tree), and a `Set` would allocate a fresh heap object
+    # each `#dup`. A `UInt32` is copied for free by the shallow `super` dup, so
+    # the reset path allocates nothing, and per-property checks become bit
+    # tests instead of hashed-set lookups.
     protected property specified_mask : UInt32 = 0_u32
 
     # Bit per tracked property. Order is arbitrary but must stay stable within a
@@ -136,8 +135,8 @@ module Crysterm
         SPEC_{{prop.upcase.id}} = 1_u32 << {{i}}
       {% end %}
 
-      # The mask bit for a tracked property symbol (`0` if untracked — those use
-      # a `nil` unset signal and are answered directly in `#specified?`).
+      # The mask bit for a tracked property symbol (`0` if untracked — those
+      # use a `nil` unset signal, answered directly in `#specified?`).
       private def specified_bit(property : Symbol) : UInt32
         case property
         {% for prop in tracked %}
@@ -174,31 +173,26 @@ module Crysterm
       end
     {% end %}
 
-    # A plain shallow `dup` would share the *mutable* sub-objects
+    # A plain shallow `dup` would share the mutable sub-objects
     # (`border`/`padding`/`shadow` are mutated in place by e.g.
-    # `border-left`/`padding-top`). Give the copy independent ones so a dup — in
-    # particular a cascade base snapshot — can't be corrupted by later in-place
-    # edits. (Sub-*styles* like `scrollbar` are replaced, not mutated, so they
-    # stay shared here. The `specified_mask` is a value field, copied for free by
-    # `super`.)
+    # `border-left`/`padding-top`). Give the copy independent ones so a dup —
+    # e.g. a cascade base snapshot — can't be corrupted by later in-place edits.
+    # Sub-styles like `scrollbar` are replaced, not mutated, so stay shared.
+    # `specified_mask` is a value field, copied for free by `super`.
     def dup
       copy = super
       @border.try { |border| copy.border = border.dup }
       copy.padding = @padding.dup
       copy.margin = @margin.dup
       copy.shadow = @shadow.dup
-      # The `border=`/`padding=`/`margin=`/`shadow=` setters above stamp their
-      # bits into the copy's mask; restore our exact mask so the dup reports
-      # precisely what *we* explicitly set, no more (a single value assignment,
-      # no allocation).
+      # The setters above stamp their bits into the copy's mask; restore our
+      # exact mask so the dup reports precisely what we explicitly set.
       copy.specified_mask = @specified_mask
       copy
     end
 
-    # Is any transparency defined?
-    #
-    # This function is needed because it is not possible to test just for `alpha == nil`.
-    # A value of 1.0 (full opacity) also effectively means that no transparency is enabled.
+    # Is any transparency defined? Testing `alpha == nil` alone isn't enough:
+    # 1.0 (full opacity) also means no transparency is enabled.
     def alpha?
       @alpha.try do |a|
         return a if a != 1.0
@@ -206,7 +200,7 @@ module Crysterm
     end
 
     # The active tint as `{color, alpha}`, or `nil` when no tint color is set or
-    # the overlay is fully transparent (`tint_alpha == 0`, i.e. a no-op). Mirrors
+    # the overlay is fully transparent (`tint_alpha == 0`, a no-op). Mirrors
     # `#alpha?`: a one-call "is there anything to apply" check for the renderer.
     def tint?
       @tint.try do |c|
@@ -221,12 +215,11 @@ module Crysterm
     property tab_char = " "
 
     # Re-wrap the `property`-generated setters for TAB expansion so an explicit
-    # assignment is recorded as `specified` (must come *after* the `property`
-    # declarations above so it overrides their plain setters). Otherwise the
+    # assignment is recorded as `specified` (must come after the `property`
+    # declarations above to override their plain setters). Otherwise the
     # `tab_size = 4`/`tab_char = " "` defaults are indistinguishable from an
     # intentional value, and the CSS cascade (`fold_inline`) can't carry an
-    # inline-set tab width/char once a stylesheet is active (`tab-size` is itself
-    # a CSS property, so inline must fold at the inline tier, beating author).
+    # inline-set tab width/char once a stylesheet is active.
     def tab_size=(value : Int32) : Int32
       @specified_mask |= SPEC_TAB_SIZE
       @tab_size = value
@@ -250,12 +243,12 @@ module Crysterm
     property background_char : Char = ' '
 
     # Re-wrap the `property`-generated setters for the per-glyph fill characters
-    # so an explicit assignment is recorded as `specified` (must come *after* the
-    # `property` declarations above so it overrides their plain setters).
-    # Otherwise these `Char = ' '` defaults are indistinguishable from an
-    # intentional `' '`, and the CSS cascade (`fold_inline`) can't tell an
-    # inline-set `fill_char` from the default — so e.g. `Widget::BigText`'s
-    # `fill_char: '▒'` would be silently dropped once CSS is active.
+    # so an explicit assignment is recorded as `specified` (must come after the
+    # `property` declarations above to override their plain setters). Otherwise
+    # these `Char = ' '` defaults are indistinguishable from an intentional
+    # `' '`, and the CSS cascade (`fold_inline`) can't tell an inline-set
+    # `fill_char` from the default — e.g. `Widget::BigText`'s `fill_char: '▒'`
+    # would be silently dropped once CSS is active.
     {% for attr in %w(fill_char percent_char foreground_char background_char) %}
       def {{attr.id}}=(value : Char) : Char
         @specified_mask |= SPEC_{{attr.upcase.id}}
@@ -271,11 +264,11 @@ module Crysterm
     # XXX Rename, or make more general, or otherwise unify.
     property? draw_over_border : Bool = false
 
-    # Re-wrap the `property?`-generated setters for `fill`/`draw_over_border` so an
-    # explicit assignment is recorded as `specified` (must come *after* the
-    # `property?` declarations above so it overrides their plain setters).
-    # Otherwise these defaults are indistinguishable from an intentional value, and
-    # the CSS cascade (`fold_inline`) can't carry an inline-set value once a
+    # Re-wrap the `property?`-generated setters for `fill`/`draw_over_border` so
+    # an explicit assignment is recorded as `specified` (must come after the
+    # `property?` declarations above to override their plain setters).
+    # Otherwise these defaults are indistinguishable from an intentional value,
+    # and the CSS cascade (`fold_inline`) can't carry an inline-set value once a
     # stylesheet is active.
     def fill=(value : Bool) : Bool
       @specified_mask |= SPEC_FILL
@@ -287,17 +280,14 @@ module Crysterm
       @draw_over_border = value
     end
 
-    # Each of the following subelements are separate and can be styled individually.
-    # If any of them is not defined, it defaults to main/parent style.
-    # Names of subelements could be improved over time to be more clear.
-
-    # Keep the list sorted alphabetically.
+    # Each subelement below is styled individually; if undefined, it defaults to
+    # the main/parent style. Keep the list sorted alphabetically.
 
     # Declares a nested sub-`Style` *slot*: a `setter` plus a getter that falls
     # back to *fallback* (`self` for most slots, `cell` for the alternate row)
     # when the slot was never explicitly assigned. Every sub-style below shares
-    # this exact `@slot || fallback` shape; see the canonical `slots` table for
-    # the cascade-facing name mapping.
+    # this `@slot || fallback` shape; see the `slots` table for the
+    # cascade-facing name mapping.
     private macro sub_style_accessor(name, fallback = "self")
       setter {{name.id}} : Style?
 
@@ -307,9 +297,9 @@ module Crysterm
     end
 
     # Style used for alternating (even) rows when a `Widget::Table` or
-    # `Widget::ListTable` has `alternate_rows` enabled — the equivalent of Qt's
-    # `QAbstractItemView#alternatingRowColors`. Defaults to `cell` (and thus to
-    # the main style), so it has no visible effect until styled.
+    # `Widget::ListTable` has `alternate_rows` enabled — equivalent to Qt's
+    # `QAbstractItemView#alternatingRowColors`. Defaults to `cell` (and thus the
+    # main style), so it has no visible effect until styled.
     sub_style_accessor alternate_row, "cell"
 
     # Whether a distinct alternate-row sub-style has been set (via
@@ -320,12 +310,12 @@ module Crysterm
     end
 
     # Sets the background of the alternating-row sub-style (CSS
-    # `alternate-background-color`). Works on a *dup* and reassigns, rather than
-    # mutating `#alternate_row` in place: until set, `@alternate_row` is `nil` and
-    # the getter falls back to `cell`/`self`, and a `dup`'d `Style` shares its
-    # sub-styles with the original (see `#dup`) — so an in-place edit would leak
-    # into the shared fallback. Only the background is touched, matching Qt's
-    # `alternate-background-color`; the foreground is left to fall through.
+    # `alternate-background-color`). Works on a dup and reassigns, rather than
+    # mutating `#alternate_row` in place: until set, `@alternate_row` is `nil`
+    # and the getter falls back to `cell`/`self`, and a `dup`'d `Style` shares
+    # its sub-styles with the original (see `#dup`), so an in-place edit would
+    # leak into the shared fallback. Only the background is touched, matching
+    # Qt's `alternate-background-color`; the foreground falls through.
     def alternate_background=(color) : Nil
       alt = (@alternate_row || Style.new).dup
       alt.bg = color
@@ -333,11 +323,10 @@ module Crysterm
     end
 
     # Color of a table's internal gridlines (Qt's `gridline-color`). `nil` (the
-    # default) means the gridlines follow the box `border` color, as before. When
-    # set, it overrides just the gridline foreground; the rest of the border
-    # attributes are kept (see `Widget::Table#draw_borders`). Stored as a native
-    # `0xRRGGBB` int; the setter also accepts `"#rrggbb"`/named-color strings,
-    # mirroring `tint`/`fg`/`bg`.
+    # default) means the gridlines follow the box `border` color. When set, it
+    # overrides just the gridline foreground; other border attributes are kept
+    # (see `Widget::Table#draw_borders`). Stored as a native `0xRRGGBB` int; the
+    # setter also accepts `"#rrggbb"`/named-color strings, mirroring `tint`/`fg`/`bg`.
     getter gridline_color : Int32?
 
     # :ditto: setters (Int/String/Nil), mirroring `tint`/`fg`/`bg`; see
@@ -349,9 +338,9 @@ module Crysterm
       @border = Border.from value
     end
 
-    # Border is always a non-nil object. "No border" is represented by a
-    # `Border` whose sides are all 0 (see `Border#any?`), which renders nothing
-    # and expands the widget by nothing — exactly like the old `nil` did.
+    # Border is always a non-nil object. "No border" is a `Border` whose sides
+    # are all 0 (see `Border#any?`), which renders nothing and expands the
+    # widget by nothing.
     getter border : Border { Border.new 0 }
 
     sub_style_accessor cell
@@ -371,46 +360,38 @@ module Crysterm
     sub_style_accessor separator
 
     # Style used for a `Widget::TabWidget` tab (Qt's `QTabBar::tab`). Defaults to
-    # `self`; `TabWidget` only pushes it onto its tabs when a `TabWidget::tab` rule
-    # actually set it (i.e. `tab.same?(self)` is false).
+    # `self`; `TabWidget` only pushes it onto its tabs when a `TabWidget::tab`
+    # rule actually set it (`tab.same?(self)` is false).
     sub_style_accessor tab
 
     # Style used for a widget's title chrome (Qt's `QGroupBox::title` /
-    # `QDockWidget::title`). Defaults to `self`; the owning widget only pushes it
-    # onto its title element when a `::title` rule actually set it.
+    # `QDockWidget::title`). Defaults to `self`; pushed onto the title element
+    # only when a `::title` rule actually set it.
     sub_style_accessor title
 
     # Style used for a `Widget::TabWidget` page area (Qt's `QTabWidget::pane`).
-    # Defaults to `self`; only pushed onto the current page when a `::pane` rule
+    # Defaults to `self`; pushed onto the current page only when a `::pane` rule
     # actually set it.
     sub_style_accessor pane
 
     # Styles for a `Widget::DockWidget`'s title-bar buttons (Qt's
     # `QDockWidget::close-button` / `::float-button`). Default to `self`; pushed
-    # onto the respective button only when a matching `::close-button`/
-    # `::float-button` rule set it.
+    # onto the respective button only when a matching rule set it.
     sub_style_accessor close_button
 
     sub_style_accessor float_button
 
-    # Label value is used only when internally instantiating labels on widgets,
-    # to be able to set their: `style: self.style.label`. Since labels are
-    # widgets, everything after that is done by looking up `@_label.style....`.
+    # Used when internally instantiating labels on widgets, to set
+    # `style: self.style.label`. Since labels are widgets, everything after
+    # that is looked up via `@_label.style....`.
     property label : Style { Style.new }
 
     # property label : Style? { Style.default.label.not_nil! }
     # property label : Style { self }
-    # TODO I am still not sure which of the above options is best.
-    # When a decision is made, the same should be applied to all other fields
-    # in this class for which it applies.
-    # Namely, in the current version, if a user does not specify style, a new
-    # one is generated. This requires users to style both the main widget and
-    # the label (and all other sub-features) separately.
-    # On the other hand, if we use the other (currently commented) implementation,
-    # it conveniently defaults to self, so it achieves more results out of the
-    # box. However, in many cases, you actually don't want the same style as for
-    # self! (For example, if self has border: true, you probably don't want
-    # border: true on the label as well!
+    # TODO Not sure which of the above is best — applies to all sub-features
+    # here. Currently, an unstyled label gets a fresh `Style`, requiring users
+    # to style the label separately. Defaulting to `self` instead would carry
+    # more automatically, but also unwanted properties (e.g. `border: true`).
 
     def padding=(value)
       @specified_mask |= SPEC_PADDING
@@ -419,7 +400,7 @@ module Crysterm
 
     getter padding = Padding.default
 
-    # Element's outer spacing. Unlike `padding`/`border` (inner insets), a margin
+    # Element's outer spacing. Unlike `padding`/`border` (inner insets), margin
     # offsets and shrinks the element itself within its allotted slot; see
     # `Margin` and `Widget#_get_coords`.
     def margin=(value)
@@ -446,9 +427,9 @@ module Crysterm
     # `Widget::ScrollBar` sub-control slots, mirroring Qt's `QScrollBar`
     # sub-controls (`::sub-line`/`::add-line` stepper buttons, `::up-arrow`/
     # `::down-arrow`/`::left-arrow`/`::right-arrow` arrow glyphs, and
-    # `::sub-page`/`::add-page`, the trough regions before/after the handle).
-    # Each defaults to `self`; the bar resolves an unset arrow/page slot back to
-    # its button/track slot at render time (see `ScrollBar#render`).
+    # `::sub-page`/`::add-page` trough regions). Each defaults to `self`; the bar
+    # resolves an unset arrow/page slot back to its button/track slot at render
+    # time (see `ScrollBar#render`).
     sub_style_accessor sub_line
 
     sub_style_accessor add_line
@@ -465,13 +446,12 @@ module Crysterm
 
     sub_style_accessor right_arrow
 
-    # Canonical CSS *slot* → sub-`Style` accessor mapping. Every place that maps a
-    # cascade slot name to a nested `Style` is generated from this single list, so
-    # the slot set can't drift between the methods (the previous five hand-kept
-    # copies had already diverged — `alternate-row` was missing from the cascade's
-    # getter/setter, silently dropping its rules). Maps each CSS pseudo-element
-    # name to the underlying accessor (`#scrollbar`, `#sub_line`, …); keep it
-    # sorted by accessor for readability.
+    # Canonical CSS *slot* → sub-`Style` accessor mapping. Every place that maps
+    # a cascade slot name to a nested `Style` is generated from this single
+    # list, so the slot set can't drift between methods (previously five
+    # hand-kept copies had already diverged — `alternate-row` was missing from
+    # the cascade's getter/setter, silently dropping its rules). Keep sorted by
+    # accessor for readability.
     {% begin %}
       {% slots = {
            "scrollbar"     => "scrollbar",
@@ -500,12 +480,12 @@ module Crysterm
          } %}
 
       # Folds *inline*'s explicitly-set nested sub-styles (`header`/`cell`/
-      # `alternate`/`bar`/…) onto this style. Used by the CSS cascade so an inline
-      # `@style` that carries a sub-style — e.g. `Style.new(alternate_row: ...)` on a
-      # `Widget::Table` — survives recomputation even when no `Widget::slot`
-      # sub-element rule matched. Reads the raw nilable ivars (an instance may
-      # touch another instance's privates), so only sub-styles the caller actually
-      # set are carried (the getters fall back to `self`/`cell`, which would
+      # `alternate`/`bar`/…) onto this style. Used by the CSS cascade so an
+      # inline `@style` that carries a sub-style — e.g.
+      # `Style.new(alternate_row: ...)` on a `Widget::Table` — survives
+      # recomputation even when no `Widget::slot` sub-element rule matched.
+      # Reads the raw nilable ivars so only sub-styles the caller actually set
+      # are carried (the getters fall back to `self`/`cell`, which would
       # otherwise always look "set").
       def fold_inline_sub_styles(inline : Style) : Nil
         {% for css_name, accessor in slots %}
@@ -513,12 +493,12 @@ module Crysterm
         {% end %}
       end
 
-      # The *explicitly-set* sub-`Style` for the cascade *slot* name, or `nil` when
+      # The explicitly-set sub-`Style` for the cascade *slot* name, or `nil` when
       # this style never set one. Unlike the public getters (`#indicator`, etc.),
-      # which fall back to `self`, this reports only what was actually assigned — so
-      # the cascade can tell "inline set an `indicator`" apart from "no indicator,
-      # use the base style". Used to re-fold an inline-only sub-style at the inline
-      # cascade tier so it outranks lower-tier (default/author) sub-element rules,
+      # which fall back to `self`, this reports only what was actually assigned
+      # — so the cascade can tell "inline set an `indicator`" apart from "no
+      # indicator, use the base style". Used to re-fold an inline-only sub-style
+      # at the inline cascade tier so it outranks lower-tier sub-element rules,
       # mirroring how the main style honors inline via `fold_inline`.
       def raw_sub_style(slot : String) : Style?
         case slot
@@ -597,13 +577,13 @@ module Crysterm
       draw_over_border = nil,
     )
       # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized
-      # to its `#rrggbb` string (the param is unrestricted, so each call type —
-      # String, Int, or Nil — resolves to the matching `fg=`/`bg=` overload).
+      # to its `#rrggbb` string (each call type — String, Int, Nil — resolves to
+      # the matching `fg=`/`bg=` overload).
       self.fg = fg
       self.bg = bg
       # Route booleans through their setters too, but only when given, so a
-      # constructed value is recorded as `specified` while an omitted one keeps
-      # the property default (and stays "unset").
+      # constructed value is recorded as `specified` while an omitted one stays
+      # at the default (unset).
       bold.try { |v| self.bold = v }
       italic.try { |v| self.italic = v }
       underline.try { |v| self.underline = v }
@@ -616,14 +596,12 @@ module Crysterm
       padding.try { |v| self.padding = Padding.from(v) }
       margin.try { |v| self.margin = Margin.from(v) }
       shadow.try { |v| self.shadow = Shadow.from(v) }
-      # Only record an explicitly-passed fill character as `specified` (an
-      # omitted one keeps the unspecified `' '` default).
+      # Only record an explicitly-passed fill character as `specified`.
       fill_char.try { |v| self.fill_char = v }
       percent_char.try { |v| self.percent_char = v }
       foreground_char.try { |v| self.foreground_char = v }
       background_char.try { |v| self.background_char = v }
-      # Only record an explicitly-passed `draw_over_border` as `specified` (an
-      # omitted one keeps the unspecified `false` default).
+      # Only record an explicitly-passed `draw_over_border` as `specified`.
       draw_over_border.try { |v| self.draw_over_border = v }
     end
 

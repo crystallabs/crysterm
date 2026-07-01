@@ -42,8 +42,7 @@ require "./widget"
 require "./widget/**"
 require "./capture"
 # Loaded after widgets: `misc/control/*` subclass widgets (e.g. `Completer::Popup
-# < Widget::List`), so the widget types must already be defined. The other misc
-# helpers only reference widgets inside method bodies, so their order is free.
+# < Widget::List`), so the widget types must already be defined.
 require "./misc/**"
 require "./layout"
 require "./layout/**"
@@ -51,13 +50,11 @@ require "./widgets"
 
 require "./style/css/**"
 
-# Remote control: the HTML layout DOM (serialize/load, declarative actions) and
-# the HTTP/JSON-RPC bridge. Everything beyond the cascade's basic `#to_html`
-# document lives in `src/remote/` and is compiled in only with `-Dremote`, so a
-# default build pays none of its compile cost (notably the per-widget
-# auto-serialization macro sweep) and pulls in no HTTP server. Even when
-# compiled in, the network server stays closed until enabled at runtime
-# (see `Crysterm::Remote`).
+# Remote control: HTML layout DOM (serialize/load, declarative actions) and the
+# HTTP/JSON-RPC bridge. Lives in `src/remote/`, compiled in only with `-Dremote`
+# (avoids the per-widget auto-serialization macro sweep and HTTP server in
+# default builds). Even when compiled in, the server stays closed until enabled
+# at runtime (see `Crysterm::Remote`).
 {% if flag?(:remote) %}
   require "./remote/*"
 {% end %}
@@ -80,17 +77,16 @@ require "./style/css/**"
 # s.exec
 # ```
 module Crysterm
-  # Short, project-wide alias for the "shorthand side" of an enum-valued
-  # argument: a single member shorthand (`Symbol` or `String`), or a collection
-  # of shorthands for `@[Flags]` enums. Used in initializer signatures as e.g.
+  # Project-wide alias for the "shorthand side" of an enum-valued argument: a
+  # single member shorthand (`Symbol` or `String`), or a collection of
+  # shorthands for `@[Flags]` enums. Used in initializer signatures as e.g.
   # `Tput::AlignFlag | Shorthands`, with the intended enum listed first.
   # See `Crystallabs::Helpers::Enums`.
   alias Shorthands = ::Crystallabs::Helpers::Enums::Shorthands
 
-  # Whether this process is attached to an interactive terminal — i.e. its
-  # standard output is a TTY. False when output is redirected to a file or a
-  # pipe, or there is no controlling terminal (as on CI). A `Window` built
-  # without explicit IO uses this to decide whether to run `headless?`.
+  # Whether this process's STDOUT is a TTY. False if redirected to a file/pipe
+  # or there's no controlling terminal (e.g. CI). Used by `headless?` to decide
+  # a `Window` built without explicit IO.
   def self.interactive? : Bool
     STDOUT.tty?
   rescue
@@ -98,10 +94,9 @@ module Crysterm
   end
 
   # Whether a `Window` constructed without explicit IO should default to a
-  # headless (in-memory) connection rather than the real `STDIN`/`STDOUT`/
-  # `STDERR`. Resolves the `screen.headless` config option: `Auto` (the default)
-  # follows the inverse of `interactive?` — non-interactive runs go headless —
-  # while `Yes`/`No` force the choice regardless of the terminal.
+  # headless (in-memory) connection rather than real `STDIN`/`STDOUT`/`STDERR`.
+  # Resolves `screen.headless` config: `Auto` follows the inverse of
+  # `interactive?`, `Yes`/`No` force the choice.
   def self.headless? : Bool
     case Config.screen_headless
     in Headless::Yes  then true
@@ -120,20 +115,16 @@ module Crysterm
   # (Currently we just call `exit` and count on `at_exit` handlers being invoked, but they
   # are unordered)
 
-  # SIGINT (Ctrl+C) MUST be trapped: Crystal's default action terminates the
-  # process WITHOUT running `at_exit`, so the terminal-restore chain (`at_exit`
-  # -> `Window#destroy` -> `#disconnect` -> `#restore_terminal`, which leaves the
-  # alternate buffer, shows the cursor, and disables raw mode + mouse reporting)
-  # would never run. Routing it through `exit` (like TERM/QUIT) makes that cleanup
-  # fire. This matters most during the startup window: between `Window.new`
-  # (which enters the alternate buffer) and the input fiber establishing raw mode
-  # (in `#listen`), the tty is still in cooked mode, so a Ctrl+C is delivered as a
-  # real SIGINT rather than a keystroke. A slow-to-build app (e.g. the cracktro
-  # demo, which constructs ~a screenful of widgets before `exec`) widens that
-  # window; without this trap, interrupting there leaves the terminal in the
-  # alternate buffer with raw mode / mouse reporting partially on (garbage on
-  # mouse movement, no echo). Once raw mode is active, ISIG is off and Ctrl+C
-  # arrives as a keystroke handled by the quit keys, so this trap is dormant then.
+  # SIGINT (Ctrl+C) must be trapped: Crystal's default action terminates the
+  # process without running `at_exit`, skipping the terminal-restore chain
+  # (`at_exit` -> `Window#destroy` -> `#disconnect` -> `#restore_terminal`).
+  # Routing it through `exit` (like TERM/QUIT) ensures cleanup runs. Matters
+  # most during startup: between `Window.new` (enters alt buffer) and the input
+  # fiber establishing raw mode (`#listen`), the tty is still in cooked mode, so
+  # Ctrl+C arrives as a real SIGINT rather than a keystroke — interrupting there
+  # without this trap leaves the terminal in the alt buffer with raw
+  # mode/mouse reporting partially on. Once raw mode is active, ISIG is off and
+  # Ctrl+C is handled as a keystroke by the quit keys, making this trap dormant.
   Signal::INT.trap do
     exit
   end
@@ -144,11 +135,10 @@ module Crysterm
     exit
   end
   # NOTE No `Signal::KILL.trap`: SIGKILL (like SIGSTOP) is uncatchable — the
-  # kernel never delivers it to a handler, so a trap can't run the exit/cleanup
-  # chain on it (Crystal's `sigaction` for it just fails silently). Attempting it
-  # is dead, misleading code (cf. `widget_media_video_source.cr`, which kills
-  # ffmpeg with SIGKILL *precisely because* it can't be trapped). A `kill -9`
-  # therefore leaves the terminal unrestored; that is unavoidable.
+  # kernel never delivers it to a handler, so `sigaction` for it just fails
+  # silently (cf. `widget_media_video_source.cr`, which kills ffmpeg with
+  # SIGKILL precisely because it can't be trapped). `kill -9` unavoidably
+  # leaves the terminal unrestored.
   Signal::WINCH.trap do
     # XXX IIRC, urwid has an additional method of tracking resizes. Check it out and add
     # additional support here if necessary.
@@ -161,7 +151,7 @@ module Crysterm
 end
 
 # If this process was launched as an in-window helper by `Window.open` (env var
-# set on the spawned emulator), run the helper loop and exit here — before any
-# user code runs. A plain no-op in every normal run. Placed at the very bottom so
-# the whole library is loaded by the time it executes.
+# set on the spawned emulator), run the helper loop and exit here before any
+# user code runs. No-op in normal runs. Placed at the bottom so the whole
+# library is loaded by the time it executes.
 Crysterm::Terminal.run_helper_if_requested

@@ -3,9 +3,9 @@ require "../../src/crysterm"
 # Port of Blessed's test/widget-dock.js
 #
 # Demonstrates `dock_borders`: four quadrant widgets whose adjacent borders
-# share/dock together. Each quadrant uses PER-SIDE border widths (1 = draw,
-# 0 = hide) so only the inner edges are drawn. The bottom-right quadrant is a
-# `Widget::ListTable`; a centered, draggable "Drag Me" box floats on top.
+# dock together. Each quadrant uses per-side border widths (1 = draw, 0 =
+# hide) so only inner edges are drawn. Bottom-right is a `Widget::ListTable`;
+# a centered, draggable "Drag Me" box floats on top.
 module Crysterm
   s = Window.new optimization: OptimizationFlag::SmartCSR, dock_borders: true, always_propagate: [::Tput::Key::CtrlQ]
 

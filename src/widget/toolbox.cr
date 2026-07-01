@@ -44,9 +44,9 @@ module Crysterm
         super **box
       end
 
-      # Relayout on every paint: the section heights depend on the widget's
-      # resolved inner size, which is only known once coordinates are computed
-      # (so doing it here also fixes up the very first frame and any resize).
+      # Relayout on every paint: section heights depend on the widget's resolved
+      # inner size, only known once coordinates are computed (also fixes up the
+      # first frame and any resize).
       def render(with_children = true)
         relayout
         super

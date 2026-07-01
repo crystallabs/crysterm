@@ -9,17 +9,17 @@ module Crysterm
     # Like sixel the pixels are owned by the terminal, so this inherits
     # `Media::Graphics`'s window-owns-pixels redraw lifecycle.
     #
-    # Two things differ from sixel/ReGIS:
+    # Differs from sixel/ReGIS:
     #
-    # * The image is transmitted as raw 32-bit RGBA (base64, chunked at 4096
-    #   bytes) — no palette quantization, so it's full true-color.
+    # * Transmitted as raw 32-bit RGBA (base64, chunked at 4096 bytes) — no
+    #   palette quantization, full true-color.
     # * A Kitty image is a *separate layer*, not pixels the cell grid can paint
-    #   over. So a stable image+placement id is used (re-transmitting replaces
-    #   rather than stacking), and erasing on hide/detach issues an explicit
-    #   delete (`a=d`) via the `#graphic_cleared` hook, not a cell invalidate.
+    #   over. A stable image+placement id is used (re-transmitting replaces
+    #   rather than stacking); erasing on hide/detach issues an explicit
+    #   delete (`a=d`) via `#graphic_cleared`, not a cell invalidate.
     #
     # The image is scaled by the terminal to exactly fill the widget's cell box
-    # (`c=`/`r=`), so it fills cleanly regardless of font metrics.
+    # (`c=`/`r=`), regardless of font metrics.
     #
     # ```
     # img = Widget::Media::Kitty.new file: "pic.png", width: 40, height: 12, parent: window
@@ -34,18 +34,17 @@ module Crysterm
       # Two Kitty image ids for double-buffering. With `double_buffer` on, an
       # animation alternates ids per frame (even→`@id_a`, odd→`@id_b`): each
       # frame transmits+places its id and *then* deletes the other, so the new
-      # frame is fully present before the previous is removed — no in-place
-      # replace and thus no mid-update blank. With `double_buffer` off, only
-      # `@id_a` is used and re-transmits replace it in place (the old behavior).
+      # frame is fully present before the old is removed — no mid-update blank.
+      # With `double_buffer` off, only `@id_a` is used and re-transmits replace
+      # it in place.
       @id_a : UInt32
       @id_b : UInt32
 
       # Stacking order, mapped to the Kitty placement `z=` parameter. `nil`
-      # (default) omits `z=`, so the image draws *on top of* text as before. A
-      # negative value draws it *under* text — the way a background is rendered:
-      # `z = -1` shows the image through default-background cells while a cell with
-      # a concrete background color hides it; a value below `INT32_MIN/2`
-      # (`-1_073_741_824`) additionally goes under non-default cell backgrounds.
+      # (default) omits `z=`, drawing on top of text. Negative draws under text:
+      # `z = -1` shows through default-background cells but is hidden by a
+      # concrete background color; below `INT32_MIN/2` (`-1_073_741_824`) also
+      # goes under non-default cell backgrounds.
       property z : Int32?
 
       # Convenience: render as a background (under text, `z = -1`) or back to the
@@ -77,13 +76,11 @@ module Crysterm
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
         pw = cols * cell_pixel_width
         ph = rows * cell_pixel_height
-        # The terminal scales our image to the cell box (c=/r=), so transmitting
-        # more pixels than the source actually has is pure waste — and for an
-        # animation/video it would re-upload a full-window frame every tick
-        # (megabytes), which both tanks the frame rate and, on kitty, flashes
-        # blank during the multi-chunk replace. Cap the transmitted resolution to
-        # the source's, scaling uniformly so the box aspect (and thus the c=/r=
-        # upscale) stays distortion-free.
+        # The terminal scales the image to the cell box (c=/r=), so transmitting
+        # more pixels than the source has is pure waste — for animation/video it
+        # would re-upload a full-window frame every tick, tanking frame rate and
+        # flashing blank during the multi-chunk replace. Cap resolution to the
+        # source's, scaling uniformly to keep the box aspect distortion-free.
         if res = source_resolution
           sw, sh = res
           long_box = {pw, ph}.max
@@ -118,8 +115,8 @@ module Crysterm
 
         b64 = Base64.strict_encode rgba
 
-        # Display scaled into the widget's cell box (c=/r=), so the transmitted
-        # s=×v= pixels fill the box exactly regardless of how small they are.
+        # Display scaled into the widget's cell box (c=/r=), filling it exactly
+        # regardless of transmitted pixel size.
         cols = 1 if cols < 1
         rows = 1 if rows < 1
 
@@ -137,10 +134,9 @@ module Crysterm
           if first
             # a=T transmit+display, f=32 RGBA, s/v pixel size, c/r cell box,
             # i/p stable ids (replace, don't accumulate), q=2 suppress replies.
-            # C=1 keeps the text cursor put: otherwise the terminal advances it
-            # past the image and a full-height image scrolls the window (carrying
-            # off whatever cells — e.g. a title row — sat above it). An optional
-            # `z=` sets the stacking order (negative ⇒ under text; see `#z`).
+            # C=1 keeps the text cursor put: otherwise a full-height image would
+            # scroll the window, carrying off cells above it (e.g. a title row).
+            # Optional `z=` sets stacking order (negative under text; see `#z`).
             io << "a=T,f=32,s=" << pw << ",v=" << ph \
               << ",i=" << id << ",p=1,c=" << cols << ",r=" << rows \
               << ",C=1,q=2"
@@ -152,10 +148,10 @@ module Crysterm
           end
           io << ';' << slice << "\e\\"
         end
-        # Double-buffer: now that the new frame is placed, delete the *other*
-        # buffer (the previous frame). Wrapped by the base in synchronized output,
-        # so the place+delete present as one atomic swap. (Deleting an id that was
-        # never created is a harmless no-op under q=2.)
+        # Double-buffer: delete the *other* buffer now that the new frame is
+        # placed. Wrapped by the base in synchronized output, so place+delete
+        # present as one atomic swap. (Deleting a never-created id is a no-op
+        # under q=2.)
         if double_buffer?
           other = id == @id_a ? @id_b : @id_a
           io << "\e_Ga=d,d=i,i=" << other << ",q=2\e\\"
@@ -163,9 +159,9 @@ module Crysterm
         io.to_s
       end
 
-      # A Kitty image is a separate layer the terminal's cells never overdraw, so
-      # it only needs (re)emitting when it actually changes (new frame / move /
-      # resize), not on every window render like sixel.
+      # A Kitty image is a separate layer the terminal's cells never overdraw,
+      # so it only needs (re)emitting on actual change (frame/move/resize), not
+      # on every window render like sixel.
       protected def repaint_every_frame? : Bool
         false
       end

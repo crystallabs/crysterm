@@ -1,5 +1,5 @@
-# Media::Glyph — the Matterhorn rendered with sub-cell mosaic glyphs, in the
-# default mode. The sibling dirs pin one mode each
+# Media::Glyph — Matterhorn rendered with sub-cell mosaic glyphs, in the
+# default mode. Sibling dirs pin one mode each
 # (block / half / quadrant / sextant / octant / braille / ascii).
 require "../../../../src/crysterm"
 

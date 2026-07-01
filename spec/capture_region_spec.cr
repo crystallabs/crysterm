@@ -17,10 +17,10 @@ describe "Window#dump region clamping" do
     text.not_nil!.should contain("w=4 h=2")
   end
 
-  # Regression: an inverted region (xl < xi / yl < yi) — reachable via e.g.
-  # `Widget#dump(dxl: <large negative>)` — used to reach `Dump.text` with a
-  # negative width/height and crash on `"-" * w` ("Negative argument") or
-  # `Array.new(h)`. It must instead clamp to an empty region.
+  # Regression: an inverted region (xl < xi / yl < yi), reachable via e.g.
+  # `Widget#dump(dxl: <large negative>)`, used to reach `Dump.text` with a
+  # negative width/height and crash on `"-" * w` or `Array.new(h)`. Must clamp
+  # to an empty region instead.
   it "collapses an inverted x region to empty instead of crashing" do
     s = capture_screen
     text = s.dump(40, 10, 0, 2) # xi=40 > xl=10

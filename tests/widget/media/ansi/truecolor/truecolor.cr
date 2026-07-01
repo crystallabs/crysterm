@@ -1,6 +1,5 @@
-# Media::Ansi::TrueColor — the Matterhorn rendered via the Ansi::TrueColor backend.
-#
-# A single fixed variant of Media::Ansi (see the sibling dirs for the rest).
+# Media::Ansi::TrueColor — Matterhorn rendered via the Ansi::TrueColor backend.
+# Fixed variant of Media::Ansi (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
 include Crysterm

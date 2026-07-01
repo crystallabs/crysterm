@@ -6,11 +6,11 @@ module Crysterm
   class Widget
     # Interactive list rendered as a table.
     #
-    # Combines `Mixin::ItemView` (selectable rows, keyboard/mouse navigation) with
-    # the column layout of `Widget::Table`. The first row of the supplied data
-    # is treated as a fixed header that stays pinned at the top while the body
-    # rows scroll. A sibling of `List` under `AbstractItemView` (it has no exact
-    # Qt class), it reuses the row machinery via the mixin rather than inheritance.
+    # Combines `Mixin::ItemView` (selectable rows, keyboard/mouse navigation)
+    # with the column layout of `Widget::Table`. The first row of the supplied
+    # data is a fixed header pinned at the top while body rows scroll. A
+    # sibling of `List` under `AbstractItemView` (no exact Qt class), reusing
+    # row machinery via the mixin rather than inheritance.
     #
     # ```
     # Widget::ListTable.new(
@@ -69,10 +69,9 @@ module Crysterm
       @horizontal_scrollbar_policy = ScrollBarPolicy::AsNeeded
 
       # Cached x→column map used by `#recolor_css_cells`. `col_for_x` depends only
-      # on `@maxes`, `@first_col` and `ileft`, all stable between data/scroll/
-      # resize changes, yet `recolor_css_cells` runs every render — so rebuilding
-      # its `Hash` per frame is pure garbage. Rebuilt only when one of those
-      # inputs changes.
+      # on `@maxes`, `@first_col` and `ileft`, stable between data/scroll/resize
+      # changes, but `recolor_css_cells` runs every render — rebuilt only when
+      # one of those inputs changes.
       @border_col_map : Hash(Int32, Int32)? = nil
       @border_col_map_maxes : Array(Int32)? = nil
       @border_col_map_ileft : Int32 = -1
@@ -90,11 +89,10 @@ module Crysterm
         cached
       end
 
-      # Reused, allocation-free scratch set: the rows that actually carry a
-      # CSS-computed cell style this frame (`#recolor_css_cells` repopulates it
-      # from `@css_cells`). The default theme styles only the `Header` (row 0),
-      # so an otherwise-unstyled table has just row 0 here and every body row
-      # then skips the per-cell CSS lookups entirely.
+      # Reused, allocation-free scratch set: rows that carry a CSS-computed cell
+      # style this frame (`#recolor_css_cells` repopulates it from `@css_cells`).
+      # The default theme styles only the `Header` (row 0), so an unstyled table
+      # skips per-cell CSS lookups for every body row.
       @styled_rows = Set(Int32).new
 
       def initialize(
@@ -121,24 +119,21 @@ module Crysterm
         # let the table scroll horizontally; otherwise size to content (below).
         @content_sized = @width.nil?
 
-        # Header overlay, pinned to the top of the list and kept above the
-        # items. Positioned at `left: 0` / `top: 0` like the item boxes:
-        # children are laid out relative to the list's *content* area (already
-        # inside the border), so an `ileft` offset here would shift the header
-        # right of the items and clip its last column.
+        # Header overlay, pinned to the top of the list, kept above the items.
+        # Positioned at `left: 0` / `top: 0` like the item boxes: children are
+        # laid out relative to the list's content area (already inside the
+        # border), so an `ileft` offset here would shift the header right of
+        # the items and clip its last column.
         #
-        # TODO (deferred to the width/scrollbar rework): when the table is
-        # *content-sized* (no explicit `width:`) the header collapses to its text
-        # width instead of stretching to the row width like the body items, so
-        # its `style.header` background stops a few cells short of the right
-        # border. The proper fix lives in the same content-width/scrollbar-width
-        # model being reworked separately.
-        # The header is an interior overlay: the table itself draws the frame and
-        # the `│` column separators, so the header must not carry the table's
-        # border. Inheriting it (via `style.header` folding in the table's
-        # `border`) gave the header box `ileft`/`iright` insets that shrank its
-        # content area by two columns, clipping the last visible column's text
-        # (`City` → `Cit`). Strip it, mirroring the body rows' `render_style_for`.
+        # TODO (deferred to the width/scrollbar rework): when content-sized (no
+        # explicit `width:`) the header collapses to its text width instead of
+        # stretching to the row width, so `style.header`'s background stops a
+        # few cells short of the right border.
+        # The header must not carry the table's own border (the table draws the
+        # frame and `│` separators itself). Inheriting it via `style.header`
+        # gave the header box `ileft`/`iright` insets that shrank its content
+        # area by two columns, clipping the last visible column's text
+        # (`City` → `Cit`). Strip it, mirroring body rows' `render_style_for`.
         @header = Box.new(
           parent: self,
           left: 0,
@@ -150,10 +145,10 @@ module Crysterm
 
         on(Crysterm::Event::Scroll) do
           header.front!
-          # The header overlays item 0 (the spacer). Children are already
-          # inset inside the list's border, so the header's top must track
-          # `child_base` directly — adding the border width again would push it
-          # down onto the first *data* row and hide it.
+          # Header overlays item 0 (the spacer). Children are already inset
+          # inside the list's border, so the header's top must track
+          # `child_base` directly — adding the border width again would push
+          # it onto the first data row and hide it.
           header.top = @child_base
         end
 
@@ -192,20 +187,17 @@ module Crysterm
           selected = item_selected?(item)
           item.state = selected ? WidgetState::Selected : WidgetState::Normal
           # A row never draws its own border: the table owns the outer frame and
-          # the `│` column separators, so a cell box painting a border would nest
-          # a frame inside each cell. The non-CSS paths strip it (`item_render_style`,
-          # `without_border`); the per-item CSS style must too. (Before `Box` type
-          # selectors matched, this branch was never reached for a plain cell.)
+          # `│` column separators, so a cell box painting a border would nest a
+          # frame inside each cell. The non-CSS paths strip it
+          # (`item_render_style`, `without_border`); the per-item CSS style must too.
           base = without_border(item.style)
           return selection_overlay(base) if selected
-          # Even (alternating) body rows pick up the table-level
-          # `alternate-background-color`. It is held on the *normal* style's
-          # `alternate_row` (a table-wide appearance, independent of the table's
-          # own focus/selection state), so read it from there rather than the
-          # current-state `style`, then overlay onto the row's own CSS style (the
-          # per-item path would otherwise return that verbatim).
-          # `alternate_row?` (a cheap nil check) gates before the O(items)
-          # `@items.index` scan, so an unstyled table skips it for every row.
+          # Alternating body rows pick up the table-level
+          # `alternate-background-color`, held on the normal style's
+          # `alternate_row` (table-wide, independent of focus/selection), so
+          # read it from there and overlay onto the row's own CSS style.
+          # `alternate_row?` gates before the O(items) `@items.index` scan, so
+          # an unstyled table skips it for every row.
           n = styles.normal
           if alternate_rows? && n.alternate_row? && (i = @items.index item) && i > 0 && i.even?
             return overlay_colors(base, n.alternate_row)
@@ -257,11 +249,10 @@ module Crysterm
       # widths (`@maxes`). Returns `nil` for a negative offset.
       private def column_at(x : Int32) : Int32?
         return nil if x < 0
-        # The header/rows render from `@first_col` (see `reslice_rows`), so a
-        # click at relative `x == 0` lands on column `@first_col`, not column 0 —
-        # accumulate the visible window from there so a horizontally-scrolled
-        # table sorts the column actually under the pointer. (Identical to the
-        # old column-0 scan when `@first_col == 0`.)
+        # Header/rows render from `@first_col` (see `reslice_rows`), so a click
+        # at relative `x == 0` lands on column `@first_col`, not column 0 —
+        # accumulate the visible window from there. Identical to the old
+        # column-0 scan when `@first_col == 0`.
         acc = 0
         (@first_col...@maxes.size).each do |i|
           acc += @maxes[i] + 1 # +1 for the inter-column separator
@@ -271,9 +262,9 @@ module Crysterm
       end
 
       # Body rows draw with `style.cell` (selected rows with `styles.selected`),
-      # mirroring Blessed's `style.item = style.cell` mapping — whereas a plain
-      # `List` uses `style.item`. `Style#cell` falls back to the list's own
-      # style when no `cell:` style is given, so the default look is unchanged.
+      # mirroring Blessed's `style.item = style.cell` mapping (a plain `List`
+      # uses `style.item`). `Style#cell` falls back to the list's own style
+      # when no `cell:` is given, so the default look is unchanged.
       def item_render_style(selected : Bool) : Style
         without_border(selected ? styles.selected : style.cell)
       end
@@ -317,9 +308,9 @@ module Crysterm
         max_col = column_for_offset max_left, offsets
         base = @child_base_x
         new_col = column_for_offset (base + offset).clamp(0, max_left), offsets
-        # A nonzero request that snaps back to the current column (e.g. a one-cell
-        # wheel tick smaller than a column) still advances one whole column, so
-        # column-level scrolling responds to fine input.
+        # A nonzero request that snaps back to the current column (e.g. a
+        # one-cell wheel tick smaller than a column) still advances one whole
+        # column, so scrolling responds to fine input.
         if new_col == @first_col && offset != 0
           new_col = (@first_col + (offset <=> 0)).clamp(0, max_col)
         end
@@ -344,10 +335,9 @@ module Crysterm
       end
 
       # Re-slices the header and every body item to the visible column window
-      # (from `@first_col`), updating their content in place — no item recreation,
-      # so selection/state survive. All rows are resliced (not just on-window
-      # ones) since vertical scrolling does not re-slice. Called when the
-      # horizontal offset changes.
+      # (from `@first_col`), updating content in place — no item recreation, so
+      # selection/state survive. All rows are resliced since vertical scrolling
+      # does not re-slice. Called when the horizontal offset changes.
       private def reslice_rows
         return if @maxes.empty?
         @rows.each_with_index do |row, i|
@@ -371,18 +361,15 @@ module Crysterm
         @first_col = @first_col.clamp(0, Math.max(0, @maxes.size - 1))
         @child_base_x = column_start_offsets[@first_col]? || 0
 
-        # Size the widget to the table's content width *unless* a fixed width was
-        # given (then it scrolls horizontally instead). A list otherwise sizes to
-        # its full-width item children (it has no content of its own to shrink
-        # to), which would stretch the last column across the whole parent and
-        # clip the header. `@maxes.sum + separators + insets` is the exact width
-        # of a rendered row plus the border/padding.
+        # Size the widget to the table's content width unless a fixed width was
+        # given (then it scrolls horizontally instead). A list otherwise sizes
+        # to its full-width item children, stretching the last column across
+        # the whole parent and clipping the header. `@maxes.sum + separators +
+        # insets` is the exact width of a rendered row plus border/padding.
         #
-        # The ivar is assigned directly rather than via `width=`: that setter
-        # emits `Resize` *before* storing the new value, and our own `Resize`
-        # handler calls `set_data` again — which would see the old width and
-        # re-emit, recursing forever. A direct assignment just updates the size
-        # for the upcoming render.
+        # Assigned directly rather than via `width=`: that setter emits
+        # `Resize` before storing the new value, and our `Resize` handler calls
+        # `set_data` again, which would see the old width and recurse forever.
         @width = row_width + iwidth if @content_sized
 
         # Index 0 is a spacer that the pinned header overlays.
@@ -417,27 +404,26 @@ module Crysterm
       end
 
       def render(with_children = true)
-        # Re-pin the width now that the CSS cascade has run (it runs at the top
-        # of the window's `_render`, before any widget renders). `set_data` pins
+        # Re-pin the width now that the CSS cascade has run (runs at the top of
+        # the window's `_render`, before any widget renders). `set_data` pins
         # the width at construction/Attach time, but a border arriving via CSS
         # isn't folded into `style` yet then, so `iwidth` would omit the border
-        # columns and leave the box too narrow — the header and separators would
-        # then disagree with the box edge. Recomputing here converges them on the
-        # first rendered frame. Assigned directly (not via `width=`) to avoid the
-        # `Resize`-before-store recursion our own `Resize` handler would trigger.
+        # columns, leaving the box too narrow. Recomputing here converges header
+        # and box edge on the first rendered frame. Assigned directly (not via
+        # `width=`) to avoid the `Resize`-before-store recursion (see `set_data`).
         calculate_maxes
 
         # Reserve the vertical scroll bar's column (when shown) for the pinned
-        # header too, mirroring the body items (synced in `Mixin::ItemView#render`). The
-        # header is an interior overlay built by `render_row` — already sliced for
-        # horizontal scroll like the rows — so it just needs the same right-edge
-        # reservation, else the shown bar overpaints its last column. `right=` is a
-        # no-op when unchanged.
+        # header too, mirroring body items (synced in `Mixin::ItemView#render`).
+        # The header is an interior overlay built by `render_row`, already
+        # sliced for horizontal scroll like the rows, so it needs the same
+        # right-edge reservation, else the shown bar overpaints its last
+        # column. `right=` is a no-op when unchanged.
         reserve = content_margin_x
         header.right = reserve
-        # A content-sized table widens by that column so the bar gets its own cell
-        # instead of clipping the last data column; a fixed-width table keeps its
-        # width and scrolls horizontally instead.
+        # A content-sized table widens by that column so the bar gets its own
+        # cell instead of clipping the last data column; a fixed-width table
+        # keeps its width and scrolls horizontally instead.
         @width = row_width + iwidth + reserve if @content_sized && !@maxes.empty?
 
         coords = super
@@ -461,15 +447,13 @@ module Crysterm
         xi, yi, width, height = border_extent coords
 
         # Map visible x → actual column index, starting from the first visible
-        # column so per-cell CSS recolors the right cells when scrolled right.
-        # Cached: `col_for_x` depends only on `@maxes`, `@first_col` and `ileft`,
-        # all stable between data/scroll/resize changes, so rebuilding its `Hash`
-        # on every frame is pure garbage (`recolor_css_cells` runs each render).
+        # column so per-cell CSS recolors correctly when scrolled right.
+        # Cached (see `@border_col_map`) since this runs every render.
         col_map = border_col_map
 
-        # Only rows carrying a computed cell style need the per-cell lookups; an
-        # otherwise-unstyled table styles only its header row (via the default
-        # theme), so every body row is skipped wholesale.
+        # Only rows carrying a computed cell style need per-cell lookups; an
+        # unstyled table styles only its header row via the default theme, so
+        # every body row is skipped wholesale.
         @styled_rows.clear
         cells.each_key { |(r, _)| @styled_rows << r }
 
@@ -503,10 +487,9 @@ module Crysterm
         battr = sattr border
         last = @maxes.size - 1
 
-        # Separators are drawn between the *visible* columns (`@first_col..`), with
-        # `rx` accumulating from the left of the viewport — matching the rows,
-        # which are likewise re-rendered from `@first_col` — and clipped once they
-        # pass the right edge.
+        # Separators are drawn between the visible columns (`@first_col..`),
+        # with `rx` accumulating from the left of the viewport — matching the
+        # rows, also re-rendered from `@first_col` — and clipped past the right edge.
 
         # Top/bottom junctions per grid row.
         ry = 0

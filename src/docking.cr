@@ -8,9 +8,9 @@ module Crysterm
 
   # Reusable "docking" component.
   #
-  # Docking takes the points where line-drawing characters cross or meet
-  # (e.g. two box borders touching, or `Widget::Line`s crossing) and replaces
-  # the overlapping/adjacent characters with a single character that joins them
+  # Docking takes points where line-drawing characters cross or meet (e.g. two
+  # box borders touching, or `Widget::Line`s crossing) and replaces the
+  # overlapping/adjacent characters with a single character that joins them
   # seamlessly. For example, these border-overlapped elements:
   #
   #     ┌─────────┌─────────┐
@@ -23,16 +23,16 @@ module Crysterm
   #     │ box1    │ box2    │
   #     └─────────┴─────────┘
   #
-  # The component is intentionally agnostic about *what* produced the
-  # characters. It operates purely on the in-memory grid of cells (`lines`),
-  # so the same logic serves borders, `Line` widgets, and anything else that
-  # draws with the box-drawing characters in `ANGLES`.
+  # The component is agnostic about *what* produced the characters: it operates
+  # purely on the in-memory grid of cells (`lines`), so the same logic serves
+  # borders, `Line` widgets, and anything else drawing with the box-drawing
+  # characters in `ANGLES`.
   #
   # Callers collect the set of rows ("stops") on which line-drawing characters
-  # were emitted (only rows with *horizontal* segments need to be collected;
-  # vertical segments are picked up when a horizontal stop crosses them), then
-  # call `dock` to re-evaluate every relevant cell on those rows. See
-  # `Window#_dock` and `Widget#register_dock_stops` for the callers.
+  # were emitted (only rows with *horizontal* segments need collecting; vertical
+  # segments are picked up when a horizontal stop crosses them), then call
+  # `dock` to re-evaluate every relevant cell on those rows. See `Window#_dock`
+  # and `Widget#register_dock_stops` for the callers.
   module Docking
     extend self
 
@@ -47,18 +47,14 @@ module Crysterm
     # All angles, uniq list
     ANGLES = {'┘', '┐', '┌', '└', '┼', '├', '┤', '┴', '┬', '│', '─'}
 
-    # Every ACS angle character can be
-    # represented by 4 bits ordered like this:
+    # Every ACS angle character can be represented by 4 bits ordered like this:
     # [langle][uangle][rangle][dangle]
     #
     # The all-zero pattern (`0000`, no line-drawing neighbor in any direction) is
     # deliberately *absent* rather than mapped to `' '`: `#angle_at` resolves it
     # via `ANGLE_TABLE[angle]? || ch`, so a missing `0` key falls through to the
-    # cell's original character. This mirrors blessed, whose `angleTable['0000']`
-    # is the empty (falsy) string and thus `angleTable[angle] || ch` keeps the
-    # original glyph. A truthy `' '` entry instead *erased* an isolated line
-    # glyph (e.g. a one-cell `Line`, or a rule whose neighbors were cleared) when
-    # docking ran over it.
+    # cell's original character. A truthy `' '` entry would instead *erase* an
+    # isolated line glyph (e.g. a one-cell `Line`) when docking ran over it.
     ANGLE_TABLE = {
        1 => '│', # ?   '0001'
        2 => '─', # ??  '0010'
@@ -83,9 +79,9 @@ module Crysterm
     BITWISE_D_ANGLE = 1 << 0
 
     # The inverse of `ANGLE_TABLE`: the 4-bit stroke pattern (`[L][U][R][D]`)
-    # each box-drawing glyph is itself made of. Lets `#angle_at` ask which arms a
-    # cell's OWN glyph draws, so docking can *add* a join without ever *severing*
-    # an arm the cell already extends toward a neighboring line. See the
+    # each box-drawing glyph is made of. Lets `#angle_at` ask which arms a
+    # cell's own glyph draws, so docking can *add* a join without *severing* an
+    # arm the cell already extends toward a neighboring line. See the
     # self-preservation pass in `#angle_at`.
     GLYPH_BITS = {
       '│' => BITWISE_U_ANGLE | BITWISE_D_ANGLE,
@@ -104,10 +100,9 @@ module Crysterm
     # Reusable scratch buffer for the sorted stop rows, mutated and reused by
     # every `#dock` call instead of allocating a fresh array per frame. `#dock`
     # runs once per frame from `Window#_dock` (and on demand from
-    # `Widget#dock_rows`); none of those paths nest or run concurrently
-    # (rendering is single-fiber, and `#dock` never re-enters itself), so one
-    # shared buffer is safe. `Array#clear` keeps the backing capacity, so after
-    # warmup the per-frame collection allocates nothing.
+    # `Widget#dock_rows`); neither nests or runs concurrently (rendering is
+    # single-fiber), so one shared buffer is safe. `Array#clear` keeps the
+    # backing capacity, so after warmup the per-frame collection allocates nothing.
     @@sorted_stops = [] of Int32
 
     # Re-evaluates and docks every angle character found on each of the `stops`
@@ -115,10 +110,9 @@ module Crysterm
     # `dock_contrast` controls how cells with differing colors/attributes are
     # treated (see `DockContrast`).
     def dock(lines, stops, width, dock_contrast : DockContrast)
-      # `stops` is a `Hash(Int32, Bool)`; both `keys` and the previous
-      # `.map(&.to_i)` allocated a fresh `Array(Int32)` every frame. Copy the
-      # keys into the reused scratch buffer and sort it in place instead, so the
-      # per-frame docking pass allocates nothing.
+      # `stops` is a `Hash(Int32, Bool)`; `keys` (and the previous
+      # `.map(&.to_i)`) allocated a fresh `Array(Int32)` every frame. Copy keys
+      # into the reused scratch buffer and sort in place instead.
       sorted = @@sorted_stops
       sorted.clear
       stops.each_key { |k| sorted << k }
@@ -128,10 +122,9 @@ module Crysterm
 
         # Hoist the row and operate on its backing `chars` array directly,
         # instead of re-indexing `lines[y]` and constructing a fresh `Cell`
-        # handle for every column (the row is fixed for the whole scan). Bound
-        # the scan by the row's actual width so the access can be unchecked;
-        # `width` is the window width and rows are sized to it, so in practice
-        # this still scans every column.
+        # handle per column. Bound the scan by the row's actual width so the
+        # access can be unchecked; `width` is the window width and rows are
+        # sized to it, so in practice this still scans every column.
         chars = row.chars
         n = width < chars.size ? width : chars.size
         x = 0
@@ -151,9 +144,9 @@ module Crysterm
     # in `lines`, based on which of its four neighbors also hold line-drawing
     # characters. `dock_contrast` decides what happens when a neighbor's
     # attribute differs from this cell's.
-    # Public entry point (original signature): resolves the cell's row and
-    # delegates to the row-hoisted overload below. `#dock` calls that overload
-    # directly with the row it already has.
+    #
+    # Public entry point: resolves the cell's row and delegates to the
+    # row-hoisted overload below, which `#dock` calls directly.
     def angle_at(lines, x, y, dock_contrast : DockContrast)
       angle_at lines, lines[y], x, y, dock_contrast
     end
@@ -162,24 +155,22 @@ module Crysterm
     def angle_at(lines, row, x, y, dock_contrast : DockContrast)
       # Two separate accumulators: `recip` is the arms contributed by neighbors
       # that *reciprocate* (point back at this cell — a real connection), and
-      # `preserve` is the cell's OWN arms that merely sit beside a present line
-      # glyph. They must stay distinct (see the guard below).
+      # `preserve` is the cell's own arms that merely sit beside a present line
+      # glyph. Must stay distinct (see the guard below).
       recip = 0
       preserve = 0
-      # The center cell's row is already resolved by the caller; read its attr
-      # and char from the backing arrays once instead of re-indexing `lines[y]`
-      # and building two `Cell` handles.
+      # Row is already resolved by the caller; read attr/char from the backing
+      # arrays once instead of re-indexing `lines[y]` and building two `Cell`
+      # handles.
       attr = row.attrs.unsafe_fetch(x)
       ch = row.chars.unsafe_fetch(x)
 
-      # The arms this cell's OWN glyph already draws (0 for a non-box char).
+      # The arms this cell's own glyph already draws (0 for a non-box char).
       self_bits = GLYPH_BITS[ch]? || 0
 
-      # Evaluate each of the four neighbors (left, up, right, down). The deltas
-      # double as the per-direction angle sets and bits. `each` over a tuple is
-      # unrolled at compile time, so this is as cheap as the four inline blocks
-      # it replaces. A `nil` result means `DontDock` hit a contrasting neighbor,
-      # in which case we keep the original character.
+      # Evaluate each of the four neighbors (left, up, right, down); `each`
+      # over a tuple unrolls at compile time. A `nil` result means `DontDock`
+      # hit a contrasting neighbor, in which case we keep the original character.
       { {-1, 0, L_ANGLES, BITWISE_L_ANGLE},
        {0, -1, U_ANGLES, BITWISE_U_ANGLE},
        {1, 0, R_ANGLES, BITWISE_R_ANGLE},
@@ -190,14 +181,14 @@ module Crysterm
 
         # Preserve this cell's own arm toward any *present* line-drawing
         # neighbor, even one whose glyph doesn't point back. Docking otherwise
-        # rebuilds a junction purely from neighbors that "reciprocate", so where
-        # one box's border continues past another box's overlapping corner — e.g.
-        # a parent menu's right border running past a sub-popup's top-left `┌`
-        # one row below — the parent's top-right `┐` finds no down-reciprocation
-        # and is reduced to `─`, dropping the corner. Keeping the arm where a
-        # real line sits below/beside it lets docking ADD joins without SEVERING
-        # an existing corner. Still gated on a line neighbor, so a `┐` against a
-        # blank/off-grid edge still reduces exactly as before.
+        # rebuilds a junction purely from reciprocating neighbors, so where one
+        # box's border continues past another's overlapping corner — e.g. a
+        # parent menu's right border running past a sub-popup's top-left `┌` one
+        # row below — the parent's top-right `┐` finds no down-reciprocation and
+        # is reduced to `─`, dropping the corner. Keeping the arm where a real
+        # line sits below/beside it lets docking add joins without severing an
+        # existing corner. Still gated on a line neighbor, so a `┐` against a
+        # blank/off-grid edge reduces as before.
         if (self_bits & bit) != 0 && neighbor_line?(lines, x, y, dx, dy)
           preserve |= bit
         end
@@ -205,23 +196,21 @@ module Crysterm
 
       # No neighbor reciprocates: nothing actually connects to this cell, so keep
       # its own glyph rather than letting self-preservation be the *sole* content
-      # of the angle. Self-preservation is meant to AUGMENT a real junction, never
-      # to stand alone — and a lone preserved arm maps to a straight stroke,
-      # severing the very corner the preservation exists to protect. Without this
-      # guard a `┌` with a `─` sitting directly below it (the `─` does not open
-      # upward, so it does not reciprocate) resolved to `│`, dropping the corner;
-      # likewise `└`/`┐`/`┘` against a single perpendicular rule. This subsumes
-      # the isolated-glyph rule (no neighbors at all → `recip == 0` → keep `ch`).
+      # of the angle. Self-preservation augments a real junction, never stands
+      # alone — a lone preserved arm maps to a straight stroke, severing the very
+      # corner it exists to protect. Without this guard a `┌` with a `─` directly
+      # below it (which doesn't reciprocate) resolved to `│`, dropping the
+      # corner; likewise `└`/`┐`/`┘` against a single perpendicular rule. This
+      # also subsumes the isolated-glyph rule (no neighbors → `recip == 0`).
       return ch if recip == 0
 
       ANGLE_TABLE[(recip | preserve)]? || ch
     end
 
     # Whether `c` is one of the box-drawing glyphs in `ANGLES`. All eleven live
-    # in the contiguous U+2500..U+253C span, so a two-comparison range pre-check
-    # rejects the (typically many) blank/non-box cells the per-frame `#dock`
-    # scan walks before falling back to the tuple membership test for the rest.
-    # Pure superset guard: identical result to `ANGLES.includes?(c)`.
+    # in the contiguous U+2500..U+253C span, so a range pre-check cheaply rejects
+    # the typically many blank/non-box cells before the tuple membership test.
+    # Identical result to `ANGLES.includes?(c)`.
     @[AlwaysInline]
     private def angle?(c : Char) : Bool
       o = c.ord
@@ -229,12 +218,10 @@ module Crysterm
     end
 
     # Resolves the neighbor cell offset by (`dx`, `dy`) from (`x`, `y`) to its
-    # `{row, column}`, or nil when it falls off the grid — the edge-guarded
-    # lookup `#neighbor_line?` and `#neighbor_angle` both need. The explicit
-    # `>= 0` guards matter: Crystal's `[]?` treats negative indices as counting
-    # from the end, so without them a left/up lookup at the grid edge would wrap
-    # around to the far side instead of being absent. Inlined so the per-cell
-    # docking scan keeps its original codegen.
+    # `{row, column}`, or nil when it falls off the grid. The explicit `>= 0`
+    # guards matter: Crystal's `[]?` treats negative indices as counting from
+    # the end, so without them a left/up lookup at the grid edge would wrap
+    # around instead of being absent.
     @[AlwaysInline]
     private def neighbor_cell(lines, x, y, dx, dy)
       nx, ny = x + dx, y + dy
@@ -254,14 +241,11 @@ module Crysterm
 
     # Evaluates a single neighbor of the cell at (`x`, `y`), offset by
     # (`dx`, `dy`). Returns `bit` if that neighbor holds a line-drawing
-    # character from `angles` (so the angle should include this direction), `0`
-    # if it does not participate, or `nil` to signal the caller to abort docking
-    # (`DontDock` with a contrasting neighbor). For `Blend`, the cell's
-    # attribute is blended with the neighbor's as a side effect.
+    # character from `angles`, `0` if it does not participate, or `nil` to
+    # signal the caller to abort docking (`DontDock` with a contrasting
+    # neighbor). For `Blend`, the cell's attribute is blended with the
+    # neighbor's as a side effect.
     private def neighbor_angle(lines, row, x, y, dx, dy, angles, bit, attr, dock_contrast)
-      # Resolve the neighbor cell once (edge-guarded) and read its char/attr
-      # straight from the backing arrays, rather than indexing `lines[ny][nx]`
-      # several times.
       return 0 unless cell = neighbor_cell(lines, x, y, dx, dy)
       nrow, nx = cell
 
@@ -273,19 +257,13 @@ module Crysterm
         when DockContrast::DontDock
           return nil
         when DockContrast::Blend
-          # Blend the center cell toward the neighbor's attr (writes the center
-          # row's backing array directly — same cell `lines[y][x]` as before).
           # Blend into the cell's *current* attr (`row.attrs[x]`), not the
-          # captured original `attr`: `#angle_at` evaluates all four neighbors in
-          # turn, and a `┼`/`├`/… junction can border more than one contrasting
-          # color. Blending against the original each time made every contrasting
-          # neighbor overwrite the previous one, so only the *last* one processed
-          # (down, in the L/U/R/D order) survived and the others' colors were lost
-          # — defeating Blend's "as smooth a transition as possible" intent.
-          # Accumulating into the running attr mixes in every contrasting
-          # neighbor. The contrast test above still compares against the original
-          # `attr`, so which neighbors count as contrasting is unchanged (a
-          # neighbor matching the cell's true color never triggers a blend).
+          # captured original `attr`: `#angle_at` evaluates all four neighbors,
+          # and a `┼`/`├`/… junction can border more than one contrasting color.
+          # Blending against the original each time made every contrasting
+          # neighbor overwrite the previous one, losing all but the last. The
+          # contrast test above still compares against the original `attr`, so
+          # which neighbors count as contrasting is unchanged.
           row.attrs.unsafe_put(x, Colors.blend(nattr, row.attrs.unsafe_fetch(x)))
           # when DockContrast::Ignore
           #  Note: ::Ignore needs no custom handler/code; it works as-is.

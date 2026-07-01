@@ -3,13 +3,12 @@ module Crysterm
     # The "horizontal bar of selectable commands" concern, extracted from
     # `Widget::ListBar` so the command model can be shared without inheritance.
     #
-    # Qt makes `QMenuBar` and `QToolBar` siblings under `QWidget`, not under any
+    # Qt makes `QMenuBar` and `QToolBar` siblings under `QWidget`, not under a
     # shared "bar" class. Crysterm mirrors that: `MenuBar`/`ToolBar` derive `Box`
-    # directly and `include` this module to get the command model, the
-    # left-to-right item layout, keyboard navigation, hotkeys, and rendering. The
-    # original `Widget::ListBar` stays a usable concrete widget that also includes
-    # it (a peer of `MenuBar`/`ToolBar`, exactly as `Input` includes
-    # `Mixin::Interactive`).
+    # directly and `include` this module for the command model, left-to-right
+    # layout, keyboard navigation, hotkeys, and rendering. `Widget::ListBar`
+    # stays a usable concrete widget that also includes it (a peer of
+    # `MenuBar`/`ToolBar`, like `Input` including `Mixin::Interactive`).
     #
     # Call `setup_action_bar` from `initialize` (after `super`) to wire the
     # keyboard/focus handlers.
@@ -41,8 +40,8 @@ module Crysterm
         property? separator = false
 
         # Window-level handler installed for this command's global hotkeys
-        # (`#keys`). Retained so it can be removed when the command — or the whole
-        # bar — is torn down, instead of leaking onto the window forever.
+        # (`#keys`). Retained so it can be removed when the command or bar is
+        # torn down, instead of leaking onto the window.
         property key_handler : ::Crysterm::Event::KeyPress::Wrapper?
 
         def initialize(@text, @callback = nil, *, @prefix = nil, @keys = nil)
@@ -75,18 +74,17 @@ module Crysterm
       property? auto_prefix = true
 
       # Inert cells between adjacent item boxes (no leading gap, so inert cells
-      # fall only after the last item). Defaults to 2 — the historical spacing; a
-      # `Widget::MenuBar`/`Widget::ToolBar` sets it to 0 so its titles/buttons
-      # pack flush, with every cell up to the last one belonging to an item. Each
-      # item box already carries its own side padding (`width = text + 2`), so 0
-      # still leaves breathing between items.
+      # fall only after the last item). Defaults to 2 (historical spacing); a
+      # `Widget::MenuBar`/`Widget::ToolBar` sets it to 0 so titles/buttons pack
+      # flush — each item box already carries its own side padding
+      # (`width = text + 2`), so 0 still leaves breathing room.
       property item_gap : Int32 = 2
 
       # Wires the keyboard navigation and focus re-selection handlers, and sets
       # the bar's interaction defaults. Call from `initialize` after `super`.
-      # `mouse`/`auto_prefix` default to the values already on the widget, so a
-      # plain `ListBar` calls it bare, while `MenuBar`/`ToolBar` (mouse-driven,
-      # label-only) pass `mouse: true, auto_prefix: false` in one line.
+      # `mouse`/`auto_prefix` default to the widget's existing values, so a plain
+      # `ListBar` calls it bare, while `MenuBar`/`ToolBar` pass
+      # `mouse: true, auto_prefix: false`.
       private def setup_action_bar(mouse = @mouse, auto_prefix = @auto_prefix) : Nil
         @mouse = mouse
         @auto_prefix = auto_prefix
@@ -95,11 +93,11 @@ module Crysterm
           on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
         end
 
-        # `auto_command_keys` (number-key selection) is handled inside the
-        # widget-local `#on_keypress` rather than via a global `window.on`: number
-        # keys must not be hijacked while the bar is unfocused (they would collide
-        # with any numeric input elsewhere), and a widget-local handler is torn
-        # down with the widget instead of leaking/accumulating on the window.
+        # `auto_command_keys` (number-key selection) is handled in the
+        # widget-local `#on_keypress` rather than a global `window.on`: number
+        # keys must not be hijacked while unfocused (would collide with numeric
+        # input elsewhere), and a widget-local handler is torn down with the
+        # widget instead of leaking on the window.
 
         on(::Crysterm::Event::Focus) { selekt selected }
       end
@@ -157,11 +155,10 @@ module Crysterm
       # Appends a `Command`.
       def add(cmd : Command)
         # Pack each item flush after the ones already added: its left is the sum
-        # of their widths plus `item_gap` inert cells between each. No leading
-        # gap, so inert cells fall only after the last item. Built from the stored
-        # command widths (relative to the bar), so it's correct before the bar is
-        # parented/rendered — unlike reading the previous item's absolute `aleft`,
-        # which double-counted the bar's own offset.
+        # of their widths plus `item_gap` between each, no leading gap. Built
+        # from stored command widths (relative to the bar), so it's correct
+        # before the bar is parented/rendered — unlike reading the previous
+        # item's absolute `aleft`, which double-counted the bar's own offset.
         drawn = @commands.sum(&.width) + item_gap * @commands.size
 
         if cmd.separator?
@@ -195,8 +192,8 @@ module Crysterm
           parse_tags: true,
         )
 
-        # Each item box renders according to its own state: the selected item
-        # uses the bar's `selected` style, all others the bar's `item` style.
+        # Each item box renders per its own state: the selected item uses the
+        # bar's `selected` style, others the `item` style.
         item.styles.normal = style.item
         item.styles.selected = styles.selected
 
@@ -206,9 +203,9 @@ module Crysterm
         @commands.push cmd
         append item
 
-        # Per-command hotkeys are intentional global accelerators (they fire
-        # regardless of focus, like a toolbar shortcut). The handler wrapper is
-        # stored on the command so it can be removed again (see `#detach_command`).
+        # Per-command hotkeys are global accelerators (fire regardless of focus,
+        # like a toolbar shortcut). The handler wrapper is stored on the command
+        # so it can be removed (see `#detach_command`).
         cmd.keys.try do |keys|
           if cmd.callback
             cmd.key_handler = window.on(::Crysterm::Event::KeyPress) do |e|
@@ -226,16 +223,14 @@ module Crysterm
         end
 
         # Auto-select the first *selectable* command. The old `@items.size == 1`
-        # test fired only for the very first item added, so a bar that opened
-        # with one or more separators (a leading `add_separator`) never selected
-        # its first real command — `selected` (and the focus highlight) stayed
-        # stuck on the non-selectable separator, with a dead Enter, until the
-        # user arrowed off it. Fire when this is the first non-separator command
-        # instead. The selection lives in `@left_base`/`@left_offset` (selected ==
-        # their sum): set them directly, since `#selekt`'s window math is gated on
-        # a laid-out `@lpos` and so cannot move the index before the first render
-        # (the original worked only because index 0 needs no offset). `@left_base`
-        # stays 0 so every command — separators included — remains visible.
+        # test fired only for the very first item added, so a bar opening with a
+        # leading `add_separator` never selected its first real command —
+        # `selected` stuck on the non-selectable separator with a dead Enter.
+        # Fire on the first non-separator command instead. `@left_base`/
+        # `@left_offset` (selected == their sum) are set directly rather than via
+        # `#selekt`, since its window math is gated on a laid-out `@lpos` and
+        # can't move the index before the first render. `@left_base` stays 0 so
+        # every command, separators included, remains visible.
         if !cmd.separator? && @commands.count { |c| !c.separator? } == 1
           @left_base = 0
           @left_offset = @items.size - 1
@@ -270,13 +265,11 @@ module Crysterm
       end
 
       def render(with_children = true)
-        # Item boxes are positioned with a *content-relative* `left` (0 == the
-        # bar's content origin): `Widget#aleft` already adds the parent's `ileft`
-        # to a child's relative `left`, so starting the cursor at `ileft` here
-        # double-counted the inset and shoved every item right by `ileft` (and
-        # the last items off the right edge) whenever the bar had a border or
-        # left padding. Start at 0, matching item creation in `#add` and the
-        # `drawn = 0` content-relative origin in `#selekt`'s visibility math.
+        # Item boxes use a *content-relative* `left` (0 == the bar's content
+        # origin): `Widget#aleft` already adds the parent's `ileft`, so starting
+        # the cursor at `ileft` here would double-count the inset and shove
+        # items right (off the edge) whenever the bar had a border/padding.
+        # Start at 0, matching `#add` and `#selekt`'s visibility math.
         drawn = 0
         @items.each_with_index do |el, i|
           if i < @left_base
@@ -301,22 +294,20 @@ module Crysterm
 
         el = @items[offset]?
 
-        # Keep every item box's state in sync with the new selection so the
-        # selected one renders with `styles.selected`.
+        # Keep every item box's state in sync with the new selection so it
+        # renders with `styles.selected`.
         @items.each_with_index do |item, i|
           item.state = (i == offset) ? :selected : :normal
         end
 
         # Mirror Blessed's `lpos = this._getCoords(); if (!lpos) return;`: the
         # horizontal-scroll math below needs a real layout. A top-level widget
-        # appended to a `Window` has no `#parent` (a `Window` is not a
-        # `Widget`), so gating on `#parent` — as the original port did — wrongly
-        # skipped the scroll update for every window-level listbar, freezing
-        # `#selected` (= `left_base + left_offset`) at 0. Gate on having been
-        # laid out instead (`@lpos` is set after the first render, for both
-        # parented and top-level bars; nil beforehand — note that the public
-        # `#last_rendered_position` *raises* when unrendered, so it can't be
-        # used as a predicate here).
+        # appended to a `Window` has no `#parent`, so gating on `#parent` (as
+        # the original port did) wrongly skipped the scroll update for every
+        # window-level listbar, freezing `#selected` at 0. Gate on `@lpos`
+        # instead (set after the first render; the public
+        # `#last_rendered_position` raises when unrendered, so it can't be used
+        # as a predicate here).
         unless @lpos
           el.try { |e| emit ::Crysterm::Event::SelectItem, e, offset }
           return
@@ -374,22 +365,18 @@ module Crysterm
         remove item
 
         # Keep the selection cursor on the same logical command. `selected` is
-        # `left_base + left_offset` (an *index*), so removing an item *before* it
-        # shifts every later command — including the selected one — down by one,
-        # and the cursor must slide down with them. Without this the cursor stayed
-        # at its old numeric index and silently pointed at the next command (or,
-        # when the last command was selected, past the end at nothing). This
-        # mirrors `ItemView#remove_item`'s cursor realignment.
+        # `left_base + left_offset` (an index), so removing an item *before* it
+        # shifts every later command down by one, and the cursor must follow.
+        # Mirrors `ItemView#remove_item`'s cursor realignment.
         if i < selected
-          # The formerly-selected (selectable) command is now one index lower.
+          # The formerly-selected command is now one index lower.
           selekt selected - 1
         elsif i == selected
           # The selected command itself was removed: fall back to the prior
-          # command, but skip back over any separators so the highlight never
-          # settles on a non-selectable separator (a dead cursor whose Enter does
-          # nothing) — mirroring how `#move` steps over separators, and the
-          # leading-separator skip in `#add`'s auto-select. Falls forward to the
-          # next selectable command when everything before the gap is a separator.
+          # command, skipping separators so the highlight never settles on a
+          # non-selectable one (mirrors `#move`'s separator-stepping and `#add`'s
+          # leading-separator skip). Falls forward when everything before the
+          # gap is a separator.
           if sel = nearest_selectable(i - 1)
             selekt sel
           end
@@ -399,15 +386,15 @@ module Crysterm
         item
       end
 
-      # Removes a command's global-hotkey handler from the window (if any), so it
-      # stops firing once the command is gone.
+      # Removes a command's global-hotkey handler from the window, so it stops
+      # firing once the command is gone.
       private def detach_command(cmd : Command)
         cmd.key_handler.try { |w| window?.try &.off ::Crysterm::Event::KeyPress, w }
         cmd.key_handler = nil
       end
 
-      # Tears down every command's global-hotkey handler before the bar is
-      # destroyed, so none linger on the window.
+      # Tears down every command's global-hotkey handler so none linger on the
+      # window after the bar is destroyed.
       def destroy
         @commands.each { |cmd| detach_command cmd }
         super
@@ -471,13 +458,9 @@ module Crysterm
         cmd = @commands[index]?
         return if cmd.nil?
         # A separator is not a real tab: selecting one would settle the highlight
-        # on a non-selectable command — a dead cursor whose Enter does nothing,
-        # the very state `#add`'s leading-separator skip, `#remove_item`'s
-        # `nearest_selectable` realignment and `#move`'s separator-stepping all
-        # already avoid. The `auto_command_keys` number keys route here by raw
-        # index (`select_tab i`), so a number landing on a separator must not
-        # highlight it (nor fire its nil callback / emit a `SelectTab` for it).
-        # Treat it like the out-of-range case above: a no-op.
+        # on a non-selectable command, the same state `#add`/`#remove_item`/
+        # `#move` already avoid. `auto_command_keys` routes here by raw index, so
+        # a number landing on a separator must be a no-op too.
         return if cmd.separator?
         cmd.callback.try &.call
         selekt index
@@ -487,8 +470,8 @@ module Crysterm
 
       def on_keypress(e)
         # Number-key selection (`auto_command_keys`): only while focused, so it
-        # can't collide with numeric input elsewhere. '1'..'9' pick tabs 0..8 and
-        # '0' picks the 10th (index 9), matching the original behavior.
+        # can't collide with numeric input elsewhere. '1'..'9' pick tabs 0..8,
+        # '0' picks the 10th (index 9).
         if auto_command_keys? && (c = e.char) && ('0'..'9').includes?(c)
           i = c.to_i - 1
           i = 9 if i < 0

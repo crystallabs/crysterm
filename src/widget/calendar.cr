@@ -8,10 +8,9 @@ module Crysterm
     # Displays one month at a time as a grid of day cells, with a navigation bar
     # for moving between months and years and an optional weekday / week-number
     # header. The *shown page* (`#month_shown`/`#year_shown`) is tracked
-    # separately from the *selected date* (`#selected_date`), exactly as in Qt:
-    # the navigation bar pages through months and years without changing the
-    # selection, while moving the selection with the keyboard pages along with
-    # it.
+    # separately from the *selected date* (`#selected_date`), as in Qt: the
+    # navigation bar pages through months/years without changing the selection,
+    # while moving the selection with the keyboard pages along with it.
     #
     # ### Selecting a day, month and year
     #
@@ -84,14 +83,12 @@ module Crysterm
       WEEKDAYS_SHORT  = %w[Su Mo Tu We Th Fr Sa]
       WEEKDAYS_SINGLE = %w[S M T W T F S]
       MONTHS          = %w[January February March April May June July August September October November December]
-      # Width of the navigation-bar month field, fixed to the longest month name
-      # ("September", 9 cols) so shorter names are padded/centered within it and
-      # the year and `‹`/`›` steppers keep a stable column as months cycle.
+      # Fixed to the longest month name ("September") so shorter names are
+      # padded/centered and the year/steppers keep a stable column.
       MONTH_FIELD_WIDTH = MONTHS.max_of &.size
 
-      # A calendar is an interactive control: mark it keyable so the window
-      # routes key events to it when focused (e.g. as a `DateEdit` popup, or when
-      # reached by Tab). Without this it would render but never receive keys.
+      # Marks the calendar keyable so the window routes key events to it when
+      # focused (e.g. as a `DateEdit` popup, or via Tab).
       @keys = true
 
       # Selected date (at the beginning of its day).
@@ -108,26 +105,25 @@ module Crysterm
       @nav_next_col = 0
       @nav_month_range = (0...0)
       @nav_year_range = (0...0)
-      # Content rows above the day grid (navigation bar + weekday header), and
-      # the left column offset taken by the week-number gutter.
+      # Content rows above the day grid (nav bar + weekday header), and the
+      # left column offset taken by the week-number gutter.
       @grid_top_row = 0
       @col_offset = 0
 
-      # Month/year pop-up menus, lazily created and reused. Exposed (read-only)
-      # so callers/tests can inspect the open dropdown's entries and selection.
+      # Month/year pop-up menus, lazily created and reused. Exposed read-only
+      # so callers/tests can inspect the open dropdown.
       getter month_menu : Menu?
       getter year_menu : Menu?
 
-      # `Time.local` is unavailable in some headless contexts; fall back to a
-      # fixed date so construction never raises (callers normally pass a date).
+      # `Time.local` is unavailable in some headless contexts; fall back so
+      # construction never raises.
       private def default_today : Time
         Time.local
       rescue
         Time.utc(2000, 1, 1)
       end
 
-      # Defines a redraw-on-change property: a getter plus a setter that repaints
-      # only on an actual change.
+      # Getter plus setter that repaints only on an actual change.
       private macro visual(name, type, default)
         @{{name}} : {{type}} = {{default}}
 
@@ -165,8 +161,8 @@ module Crysterm
         @highlight_today
       end
 
-      # Earliest/latest selectable dates (Qt's `minimumDate`/`maximumDate`). The
-      # defaults span Qt's own default range.
+      # Earliest/latest selectable dates (Qt's `minimumDate`/`maximumDate`),
+      # defaulting to Qt's own range.
       @minimum_date : Time = Time.utc(1752, 9, 14)
       @maximum_date : Time = Time.utc(9999, 12, 31)
 
@@ -188,7 +184,7 @@ module Crysterm
         @maximum_date
       end
 
-      # Sets both bounds at once (Qt's `setDateRange`), re-clamping the selection
+      # Sets both bounds at once (Qt's `setDateRange`), re-clamping selection
       # and shown page into the new range.
       def set_date_range(min : Time, max : Time) : Nil
         min = min.at_beginning_of_day
@@ -372,8 +368,7 @@ module Crysterm
         dim = Time.days_in_month(@shown_year, @shown_month)
         lead = column_of first
         nrows = (lead + dim + 6) // 7
-        # Resolve "today" once per render rather than once per day cell — up to
-        # ~42 `Time.local` calls otherwise (only needed when highlighting today).
+        # Resolve "today" once per render, not once per cell (up to ~42 `Time.local` calls).
         today = highlight_today? ? default_today : nil
 
         String.build do |io|
@@ -388,16 +383,12 @@ module Crysterm
           nrows.times do |r|
             if weeks
               row_date = first + (r * 7 - lead).days
-              # Derive the ISO week from the *Thursday* within this display row,
-              # not its leftmost cell. ISO weeks are Monday-based and identified
-              # by their Thursday; under the default Sunday-first calendar the
-              # leftmost cell is a Sunday — the last day of the *previous* ISO
-              # week — so labeling the row by it shows the week before the one the
-              # row mostly represents (e.g. a row of Jan 1–6 2024 mislabeled "52"
-              # instead of "1"). The Thursday is always one of the row's seven
-              # days, so it yields the correct, stable number for any
-              # `#first_day_of_week` (Monday-first is unaffected: its leftmost
-              # cell's week already matches its Thursday's).
+              # ISO weeks are identified by their Thursday, not their first day.
+              # Under the default Sunday-first calendar the leftmost cell is a
+              # Sunday (last day of the *previous* ISO week), so labeling by it
+              # would misreport the week (e.g. Jan 1-6 2024 as "52" instead of
+              # "1"). Using the row's Thursday is correct for any
+              # `#first_day_of_week`.
               first_col = first_day_of_week.value % 7
               thursday_offset = (::Time::DayOfWeek::Thursday.value % 7 - first_col + 7) % 7
               week = (row_date + thursday_offset.days).calendar_week[1]
@@ -416,8 +407,7 @@ module Crysterm
       end
 
       # Renders a single day cell, highlighting the selection and today. `today`
-      # is resolved once per render by `build_content` (nil when today isn't
-      # highlighted), so each cell is a cheap field comparison.
+      # is resolved once per render by `build_content` (nil when not highlighted).
       private def render_day(d : Int32, today : Time?) : String
         cell = d.to_s.rjust 2
         if selection_mode.single_selection? && @date.year == @shown_year && @date.month == @shown_month && @date.day == d
@@ -433,8 +423,7 @@ module Crysterm
       # arrows / month / year regions for hit-testing.
       private def build_nav_bar : String
         # Center the month name in a fixed `MONTH_FIELD_WIDTH` field so the year
-        # and steppers don't shift horizontally as months cycle (e.g. "May" vs
-        # "September"); the padding is split left/right to keep the name centered.
+        # and steppers don't shift as months cycle (e.g. "May" vs "September").
         name = MONTHS[@shown_month - 1]
         pad = MONTH_FIELD_WIDTH - name.size
         left_pad = pad // 2
@@ -444,8 +433,8 @@ module Crysterm
 
         @nav_prev_col = 0
         month_col = 2 # after "‹ "
-        # The whole fixed-width field is the month hit-test region (so a click
-        # anywhere over the centered name — or its padding — opens the dropdown).
+        # Whole fixed-width field is the hit-test region, so clicking the padding
+        # around a centered short name still opens the dropdown.
         @nav_month_range = (month_col...(month_col + MONTH_FIELD_WIDTH))
         year_col = month_col + MONTH_FIELD_WIDTH + 1 # after the space
         @nav_year_range = (year_col...(year_col + year.size))
@@ -474,7 +463,7 @@ module Crysterm
           handle_grid_mouse e, row - @grid_top_row, col
         end
       rescue
-        # Not laid out yet, or an out-of-range date; ignore the click.
+        # Not laid out yet, or out-of-range date; ignore the click.
       end
 
       private def handle_nav_mouse(e, col : Int32) : Nil
@@ -530,7 +519,7 @@ module Crysterm
 
       # ── Month / year pop-up menus ─────────────────────────────────────────
 
-      # Shared scaffold for the two navigation pop-ups: a window-gated, CSS
+      # Shared scaffold for the two nav pop-ups: a window-gated, CSS
       # `popup`-classed `Menu` populated by the block, or nil with no window.
       private def new_nav_menu(& : Menu ->) : Menu?
         return unless window?
@@ -553,7 +542,7 @@ module Crysterm
                         end
                       end
         @month_menu = menu
-        # Scroll to / center the currently-shown month.
+        # Scroll to / center the currently shown month.
         popup_nav_menu menu, col, @shown_month - 1
       end
 
@@ -566,42 +555,37 @@ module Crysterm
                         end
                       end
         @year_menu = menu
-        # The full ±100 list is far taller than the window; cap the visible rows
-        # (fitting the space below the nav bar) so the dropdown stays on-window
-        # and scrolls, rather than being clamped over the calendar behind it.
+        # The full ±100 list is far taller than the window; cap visible rows to
+        # the space below the nav bar so the dropdown scrolls in-window.
         menu.max_visible_rows = Math.max(1, Math.min(12, (window?.try(&.aheight) || 24) - 3))
-        # The shown year sits `YEAR_MENU_RADIUS` rows down — select/scroll to it
-        # so the dropdown opens centered on the current year.
+        # The shown year sits `YEAR_MENU_RADIUS` rows down; scroll to it so the
+        # dropdown opens centered on the current year.
         popup_nav_menu menu, col, YEAR_MENU_RADIUS
       end
 
       # Floats *menu* under nav column *col* and selects (scrolls to) *index*.
       #
-      # Also marks the calendar's own navigation bar as part of the menu's modal
-      # *grab region* (Qt's `QMenuBar` does the same with its title strip): while
-      # the dropdown is open the window's modal grab would otherwise swallow every
-      # event outside the menu, so a wheel — or click — over the month/year/arrows
-      # would never reach the calendar. That was the reported regression: opening
-      # the dropdown left the wheel "stuck" until an arrow was clicked (the first
-      # such click merely dismissed the popup via the modal grab, only the second
-      # paged). Counting the nav bar as inside the grab lets `Window#within_grab?`
-      # keep delivering its clicks/wheel to the calendar, so paging keeps working
-      # before, during, and after the dropdown — and the popup's own outside-press
-      # watcher still dismisses it on a click anywhere truly outside (e.g. a day).
+      # Also marks the calendar's nav bar as part of the menu's modal *grab
+      # region* (like Qt's `QMenuBar` with its title strip): otherwise the
+      # window's modal grab would swallow wheel/click events over the
+      # month/year/arrows while the dropdown is open, leaving the wheel "stuck"
+      # until an arrow click first dismissed the popup and a second click paged.
+      # Including the nav bar in the grab lets `Window#within_grab?` keep
+      # delivering to the calendar, while outside clicks (e.g. a day) still
+      # dismiss the popup normally.
       private def popup_nav_menu(menu : Menu, col : Int32, index : Int32) : Nil
         menu.grab_region = ->(x : Int32, y : Int32) { nav_grab_region? x, y }
         # Select *before* showing: `#popup` sizes the menu via `#fit_to_content`,
-        # whose height assignment fires the item view's `on_resize`, which scrolls
-        # the selected row into view. Selecting first (vs. after `#popup`, as a
-        # short list could) makes the long year list open already scrolled to the
-        # current year rather than at its top.
+        # whose height assignment fires the item view's `on_resize`, scrolling
+        # the selected row into view — so the long year list opens already
+        # scrolled to the current year instead of at its top.
         menu.selekt index
         menu.popup aleft + ileft + col, atop + itop + 1
       end
 
-      # Whether absolute point (*x*, *y*) falls on this calendar's navigation bar
-      # over an interactive region (the `‹`/`›` arrows or the month/year fields).
-      # Used as the open dropdown's extra grab region (see `#popup_nav_menu`).
+      # Whether absolute point (*x*, *y*) falls on an interactive region of the
+      # nav bar (arrows or month/year fields). Used as the open dropdown's extra
+      # grab region (see `#popup_nav_menu`).
       private def nav_grab_region?(x : Int32, y : Int32) : Bool
         return false unless navigation_bar_visible?
         col = x - aleft - ileft
@@ -610,8 +594,7 @@ module Crysterm
         col == @nav_prev_col || col == @nav_next_col ||
           @nav_month_range.includes?(col) || @nav_year_range.includes?(col)
       rescue
-        # Not laid out yet; treat as outside.
-        false
+        false # not laid out yet; treat as outside
       end
 
       # ── Keyboard ──────────────────────────────────────────────────────────
@@ -642,8 +625,7 @@ module Crysterm
         e.accept
         request_render
       rescue
-        # `Time.local` is unavailable in some headless contexts (as guarded in
-        # `#default_today` and `#handle_mouse`); ignore the key rather than raise.
+        # `Time.local` unavailable in some headless contexts (see `#default_today`).
       end
 
       def destroy

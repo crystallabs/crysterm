@@ -1,6 +1,5 @@
-# Media::Glyph::Half — the Matterhorn rendered via the Glyph::Half backend.
-#
-# A single fixed variant of Media::Glyph (see the sibling dirs for the rest).
+# Media::Glyph::Half — Matterhorn rendered via the Glyph::Half backend.
+# Fixed variant of Media::Glyph (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
 include Crysterm

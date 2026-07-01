@@ -8,11 +8,10 @@ include Crysterm
 # actually moves. Re-focusing the already-focused widget through a screen-level
 # entry point (`Window#focus`, or `focus_offset`/Tab wrapping onto the sole
 # focusable widget) routes straight to `_focus el, el`. The `old == cur` handling
-# already suppresses the spurious `Blur` and the state clobber, but the
-# terminating `Event::Focus` used to still fire — re-running the widget's focus
-# side effects on a widget that was already focused (the same family of defect
-# `window_rendering.cr#_render` guards against per frame). Driven headlessly over
-# in-memory IOs; no real terminal is touched.
+# already suppresses the spurious `Blur` and state clobber, but the terminating
+# `Event::Focus` used to still fire, re-running focus side effects on a widget
+# already focused (same family of defect `window_rendering.cr#_render` guards
+# against per frame).
 private def refocus_screen
   Crysterm::Window.new(
     input: IO::Memory.new,
@@ -23,9 +22,9 @@ end
 describe "Window#_focus re-focus emission" do
   it "emits Event::Focus once on a real change but not on re-focus" do
     s = refocus_screen
-    # The first focusable widget auto-focuses on insert (see
+    # First focusable widget auto-focuses on insert (see
     # `insert_chrome_focus_spec`), so `a` already holds focus. Add a second
-    # focusable widget to observe a genuine focus *move* onto it.
+    # to observe a genuine focus *move* onto it.
     a = Widget::Box.new parent: s, keys: true
     b = Widget::Box.new parent: s, keys: true
     s.focused.should eq a
@@ -38,8 +37,8 @@ describe "Window#_focus re-focus emission" do
     s.focused.should eq b
     focus_events.should eq 1
 
-    # Re-focusing the already-focused widget via the screen-level entry point is
-    # not a focus change: no further Event::Focus.
+    # Re-focusing via the screen-level entry point is not a focus change: no
+    # further Event::Focus.
     s.focus b
     s.focused.should eq b
     focus_events.should eq 1

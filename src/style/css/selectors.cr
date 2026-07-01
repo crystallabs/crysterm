@@ -2,7 +2,7 @@ module Crysterm
   module CSS
     # Selector text utilities.
     module Selectors
-      # Rewrites bare *type* selectors into *class* selectors so the widget type
+      # Rewrites bare *type* selectors into *class* selectors so widget type
       # names emitted as element classes can be targeted by their plain name.
       #
       # `Box` -> `.Box`, `Form > Button` -> `.Form > .Button`,
@@ -11,9 +11,6 @@ module Crysterm
       # universal `*` are left as-is. Parenthesized pseudo arguments (e.g.
       # `:not(...)`, `:nth-child(...)`) are copied verbatim — so inside `:not()`
       # use the class form (`.Box`) explicitly.
-      #
-      # This is what makes `Box`/`ScrollBar`-style selectors work against the
-      # class-based document while preserving exact PascalCase names.
       def self.expand_types(selector : String) : String
         chars = selector.chars
         n = chars.size
@@ -58,9 +55,9 @@ module Crysterm
       end
 
       # Copies the balanced region opened by *open* at *i* verbatim into *io*,
-      # returning the index just past its matching *close*. The region's extent
-      # (nesting, quoted strings) is found by the shared `skip_balanced`, then the
-      # exact slice is emitted — identical to a char-by-char copy.
+      # returning the index just past its matching *close*. Extent (nesting,
+      # quoted strings) is found via `skip_balanced`, then the exact slice is
+      # emitted.
       private def self.copy_balanced(chars : Array(Char), i : Int32, open : Char, close : Char, io) : Int32
         stop = skip_balanced(chars, i, open, close)
         (i...stop).each { |j| io << chars[j] }
@@ -68,8 +65,8 @@ module Crysterm
       end
 
       # Index just past the region opened by *open* at *i* up to its matching
-      # *close*, honoring nesting and quoted strings. The shared balanced-scan
-      # used by this module's `copy_balanced` and by `Specificity`.
+      # *close*, honoring nesting and quoted strings. Shared by `copy_balanced`
+      # and `Specificity`.
       def self.skip_balanced(chars : Array(Char), i : Int32, open : Char, close : Char) : Int32
         depth = 0
         n = chars.size
@@ -97,18 +94,17 @@ module Crysterm
         n = chars.size
         while i < n
           return i + 1 if chars[i] == quote
-          # Skip the escaped char (the loop's own `+= 1` consumes the backslash);
-          # the `i + 1 < n` guard keeps a malformed trailing `\` from running the
-          # returned index past the array end (callers slice up to it).
+          # Skip the escaped char (the loop's `+= 1` consumes the backslash);
+          # `i + 1 < n` guard keeps a malformed trailing `\` from running the
+          # index past the array end.
           i += 1 if chars[i] == '\\' && i + 1 < n
           i += 1
         end
         i
       end
 
-      # Whether *ch* may appear inside a CSS identifier (the shared grammar fact
-      # used by every selector scanner — this module, `Specificity`, the
-      # `Stylesheet` parser).
+      # Whether *ch* may appear inside a CSS identifier. Shared by every selector
+      # scanner (this module, `Specificity`, the `Stylesheet` parser).
       def self.ident?(ch : Char) : Bool
         ch.alphanumeric? || ch == '-' || ch == '_'
       end

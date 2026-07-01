@@ -1,15 +1,13 @@
 module Crysterm
   module CSS
     # Per-cell CSS support shared by `Table` and `ListTable`: each cell is
-    # emitted as a `Cell` node inside a `Row` node (header cells are also
-    # `Header`), so selectors can target cells individually — `Table Cell`,
+    # emitted as a `Cell` node inside a `Row` node (header cells also `Header`),
+    # so selectors can target cells individually — `Table Cell`,
     # `Cell:nth-child(2)` (a column), `Header`, `Row:nth-child(even)`. The
-    # cascade computes a `Style` per cell and stores it here; each widget's
-    # renderer looks it up with `#css_cell_style`.
+    # cascade computes a `Style` per cell, retrievable via `#css_cell_style`.
     #
     # Including this overrides the `Widget` extra-node hooks. The widget must
-    # provide `#rows`, `#style`, `#alternate_rows?` and `#uid` (both table
-    # widgets do).
+    # provide `#rows`, `#style`, `#alternate_rows?` and `#uid`.
     module TableCells
       @css_cells : Hash(Tuple(Int32, Int32), Style)?
 
@@ -17,8 +15,8 @@ module Crysterm
         @css_cells ||= {} of Tuple(Int32, Int32) => Style
       end
 
-      # The CSS-computed style for the cell at *row*/*col*, or `nil` if no rule
-      # targeted it (the renderer then uses its header/cell/alternate default).
+      # CSS-computed style for the cell at *row*/*col*, or `nil` if no rule
+      # targeted it (renderer then uses its header/cell/alternate default).
       def css_cell_style(row : Int32, col : Int32) : Style?
         @css_cells.try &.[{row, col}]?
       end
@@ -42,8 +40,8 @@ module Crysterm
         slots
       end
 
-      # The default a cell's rules apply onto: the header style for row 0, the
-      # alternate style for alternating body rows, otherwise the cell style.
+      # Default a cell's rules apply onto: header style for row 0, alternate
+      # style for alternating body rows, otherwise the cell style.
       def css_extra_base_style(slot : String) : Style
         row, _ = parse_css_cell(slot)
         if row == 0

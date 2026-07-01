@@ -4,13 +4,12 @@ module Crysterm
   class Layout
     # Stacked layout (Qt's `QStackedLayout`, Swing's `CardLayout`). All children
     # occupy the same area at the top-left of the interior; only the child at
-    # `#current` is rendered, the rest are suppressed. The backbone of tabbed
+    # `#current` is rendered, the rest are suppressed. Backbone of tabbed
     # panes, wizards and view-switchers.
     #
-    # Children keep their own size: one without an explicit `width`/`height`
-    # fills the interior (Crysterm's default sizing), one with an explicit size
-    # is shown at that size in the top-left. Set a different page with
-    # `#current = i`.
+    # Children keep their own size: one without explicit `width`/`height` fills
+    # the interior (Crysterm's default sizing); one with an explicit size is
+    # shown at that size in the top-left. Set a different page with `#current = i`.
     #
     # <!-- widget-examples:capture v1 -->
     # ![Stack screenshot](../../tests/layout/stack/stack.5s.apng)
@@ -25,9 +24,8 @@ module Crysterm
       def arrange(container : Widget, interior : LPos) : Nil
         # `#current` indexes the *pages* this engine arranges, not the raw child
         # array: layout-excluded chrome (rendered out-of-band; see
-        # `#each_arrangeable`) must not occupy a page slot. Counting raw children
-        # would shift the page indices (or, if `#current` landed on an excluded
-        # child, render nothing at all).
+        # `#each_arrangeable`) must not occupy a page slot, or page indices shift
+        # (or `#current` lands on an excluded child and nothing renders).
         n = arrangeable_count container
         return if n == 0
         shown = current.clamp(0, n - 1)

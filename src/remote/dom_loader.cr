@@ -8,11 +8,11 @@ module Crysterm
   #
   # Crystal has no runtime reflection, so the tag -> class map must be built at
   # compile time. Rather than a hand-maintained list, the registry is populated
-  # by a `macro finished` sweep that auto-discovers widgets *by namespace*: every
-  # concrete `Crysterm::Widget::*` is loadable (minus the `SKIP` exclusions). The
-  # leaf type name (lowercased) is the key, matching the `w-<leaf>` tag
-  # `#to_layout_html` emits. A new widget under `Widget::` is loadable with no
-  # extra wiring; `dom_autoserialize.cr` likewise gives it serialization for free.
+  # by a `macro finished` sweep that auto-discovers widgets *by namespace*:
+  # every concrete `Crysterm::Widget::*` is loadable (minus the `SKIP`
+  # exclusions). The leaf type name (lowercased) is the key, matching the
+  # `w-<leaf>` tag `#to_layout_html` emits. A new widget under `Widget::` is
+  # loadable with no extra wiring.
   #
   #     window = Window.new
   #     window.load_layout_file "ui.html"
@@ -25,12 +25,10 @@ module Crysterm
 
     # `Crysterm::Widget::*` widgets that namespace-based opt-in would otherwise
     # register, but must NOT be: each builds its own internal child subtree in
-    # its constructor, so a freshly-built instance already has children.
-    # Serializing those children and re-appending them on load would double the
-    # subtree — they aren't user-authored structure. (Widgets that don't
-    # construct with `.new(window:)` would also be excluded here, but all current
-    # widgets do.) The round-trip invariant spec (`spec/dom_registry_spec.cr`)
-    # fails loudly if a new self-populating widget slips through.
+    # its constructor, so re-appending serialized children on load would
+    # double the subtree. The round-trip invariant spec
+    # (`spec/dom_registry_spec.cr`) fails loudly if a new self-populating
+    # widget slips through.
     SKIP = %w[
       canvas colordialog compose dockwidget donut headerbar linechart
       listtable loading map prompt question splashscreen statusbar
@@ -39,9 +37,9 @@ module Crysterm
 
     # Tag (leaf type name, lowercased) -> widget factory, built lazily on first
     # use. The population sweep (`#fill_registry`, defined by a top-level
-    # `macro finished` at the bottom of this file) runs when all subclasses are
-    # known; building lazily — rather than at program-start — means top-level
-    # callers (e.g. the `crysterm` CLI) see a full registry too.
+    # `macro finished` at the bottom of this file) runs once all subclasses
+    # are known; building lazily (rather than at program-start) means
+    # top-level callers see a full registry too.
     @@registry : Hash(String, Factory)?
 
     def self.registry : Hash(String, Factory)
@@ -58,9 +56,9 @@ module Crysterm
     # CSS-document dump or an enriched file still loads what it can.
     def self.load(html : String, window : ::Crysterm::Window, parent : ::Crysterm::Widget? = nil) : Array(::Crysterm::Widget)
       doc = HTML5.parse(html)
-      # Self-contained layouts: any inline `<style>` is just CSS, handed to the
-      # stylesheet parser (composed with any external sheet). Only on a top-level
-      # load — appended fragments keep the page's existing styles.
+      # Self-contained layouts: any inline `<style>` is handed to the
+      # stylesheet parser. Only on a top-level load — appended fragments keep
+      # the page's existing styles.
       if parent.nil?
         css = String.build { |io| collect_style_css doc, io }
         window.add_inline_stylesheet css unless css.blank?
@@ -147,16 +145,14 @@ end
 
 # Defines `DOM.fill_registry` once the whole program is parsed (so
 # `all_subclasses` is complete). Must be at the top level — a `macro finished`
-# nested in a module is not honored. It only *defines* the populating method;
-# `DOM.registry` calls it lazily, so the timing of this hook (end of startup)
-# doesn't matter to callers.
+# nested in a module is not honored. Only *defines* the populating method;
+# `DOM.registry` calls it lazily.
 macro finished
   def Crysterm::DOM.fill_registry(reg) : Nil
     {% for t in Crysterm::Widget.all_subclasses %}
       {% leaf = t.name.split("::").last.downcase %}
-      # Opt-in is by namespace: every concrete `Crysterm::Widget::*` is loadable,
-      # except the `SKIP` exclusions (self-populating composites, and widgets
-      # that don't construct with `.new(window:)`).
+      # Opt-in is by namespace: every concrete `Crysterm::Widget::*` is
+      # loadable, except the `SKIP` exclusions (self-populating composites).
       {% if t.name.starts_with?("Crysterm::Widget::") && !t.abstract? && !Crysterm::DOM::SKIP.includes?(leaf) %}
         reg[{{ leaf }}] = ->(window : ::Crysterm::Window) { {{ t }}.new(window: window).as(::Crysterm::Widget) }
       {% end %}

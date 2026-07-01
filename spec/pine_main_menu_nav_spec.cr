@@ -24,10 +24,8 @@ private def press(menu, key : Tput::Key)
   menu.on_keypress Crysterm::Event::KeyPress.new('\0', key)
 end
 
-# `MainMenu` spaces its options apart with real list `item_spacing` (the gaps
-# are NOT items), instead of the old blank spacer rows. So there are no empty
-# rows to land on: the model is a clean 1:1 list of options, and the cursor
-# always sits on a real option.
+# `MainMenu` spaces options with `item_spacing` (gaps, not items) rather than
+# blank spacer rows, so the cursor always sits on a real option.
 describe "Pine::MainMenu spaced navigation" do
   it "has one item per option (no blank spacer rows)" do
     s = pmm_screen

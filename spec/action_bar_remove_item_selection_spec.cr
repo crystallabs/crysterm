@@ -18,15 +18,13 @@ private def abr_render(s)
   s._render
 end
 
-# `Mixin::ActionBar#remove_item` (the command model behind `Widget::ListBar`,
+# `Mixin::ActionBar#remove_item` (command model behind `Widget::ListBar`,
 # `MenuBar`, `ToolBar`) must keep the selection cursor on the same logical
-# command when an *earlier* command is removed: the commands at and after the
-# deletion (including the selected one) all shift down by one, so the cursor —
-# `selected` = `left_base + left_offset` — has to slide down with them. This
-# mirrors `ItemView#remove_item`. Before the fix only the `i == selected` case
-# was handled, so removing an earlier command left the cursor pointing at a
-# different command (or, when the last one was selected, past the end at
-# nothing).
+# command when an earlier command is removed: commands at and after the
+# deletion shift down by one, so `selected` (= `left_base + left_offset`) must
+# slide down too. Mirrors `ItemView#remove_item`. Previously only the
+# `i == selected` case was handled, so removing an earlier command left the
+# cursor pointing at the wrong command (or past the end).
 describe "Mixin::ActionBar#remove_item selection alignment" do
   it "slides the cursor down when an earlier command is removed" do
     s = abr_screen

@@ -12,8 +12,8 @@ class X
   def initialize
     s = Window.new always_propagate: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
-    # Blessed: a borderless `width:'shrink', height:'shrink'` box pinned top-right
-    # (so the "..." sit flush in the corner). `resizable: true` is Crysterm's shrink.
+    # Blessed: borderless `width:'shrink', height:'shrink'` box pinned top-right.
+    # `resizable: true` is Crysterm's shrink.
     box = Widget::Box.new \
       parent: s,
       top: 0,
@@ -39,7 +39,7 @@ class X
         selected: Style.new(bg: "blue"),
       )
 
-    # Build the commands. Each updates the corner box and re-renders.
+    # Each command updates the corner box and re-renders.
     names = %w[one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen]
     names.each do |name|
       bar.add(name) do

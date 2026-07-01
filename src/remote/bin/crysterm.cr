@@ -3,14 +3,14 @@ require "../../crysterm"
 
 # `crysterm` CLI — run a terminal GUI defined entirely in HTML + CSS, with
 # behavior supplied by a handler process in any language over the HTTP bridge.
-# This is the entry point that makes the framework usable without writing Crystal.
+# Entry point for using the framework without writing Crystal.
 #
 #   crystal build src/bin/crysterm.cr -Dremote -o crysterm
 #   crysterm run app.html --css app.css --handler "python3 app.py" --watch
 #
-# Requires `-Dremote` (the remote subsystem). Structure + geometry + named
-# actions live in the .html; appearance in the .css; behavior in the handler
-# (or, for simple apps, in declarative `on*` actions needing no handler at all).
+# Requires `-Dremote`. Structure + geometry + named actions live in the .html;
+# appearance in the .css; behavior in the handler (or, for simple apps,
+# declarative `on*` actions needing no handler at all).
 {% if flag?(:remote) %}
   module Crysterm::CLI
     extend self
@@ -52,8 +52,8 @@ require "../../crysterm"
       screen = Window.new
       if cp = css_path
         # `load_stylesheet` records the external source; inline `<style>` from the
-        # layout composes with it. Hot-reload (the `--watch` path) is temporarily
-        # disabled — see `CSS::FileWatcher` — so this currently has no effect.
+        # layout composes with it. Hot-reload (`--watch`) is temporarily disabled
+        # — see `CSS::FileWatcher` — so this currently has no effect.
         screen.auto_reload_stylesheet = false unless watch
         screen.load_stylesheet cp
       end
@@ -62,8 +62,8 @@ require "../../crysterm"
       bridge = HTTPBridge.new screen, host: host, port: port, token: token
 
       if watch
-        # File-watching disabled: `CSS::FileWatcher.watch` is a no-op, so layout
-        # hot-reload does nothing until watching is re-integrated via event_handler.
+        # File-watching disabled: `CSS::FileWatcher.watch` is a no-op until
+        # watching is re-integrated via event_handler.
         CSS::FileWatcher.watch(lp) { bridge.reload_layout File.read(lp) rescue nil }
       end
 

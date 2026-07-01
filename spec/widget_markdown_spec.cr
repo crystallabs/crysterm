@@ -133,8 +133,7 @@ describe "Markdown GFM extensions" do
 
   it "ignores a hard line break inside a table (no stray blank line)" do
     # markd parses a table row ending in trailing spaces as a hard LineBreak
-    # node within the table paragraph; like a soft break it must be swallowed
-    # while the table is drawn atomically, so the output matches the clean one.
+    # node; like a soft break it must be swallowed so output matches the clean one.
     clean = md_render "| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n"
     hard = md_render "| A | B |\n|---|---|\n| 1 | 2 |  \n| 3 | 4 |\n"
     hard.should eq clean

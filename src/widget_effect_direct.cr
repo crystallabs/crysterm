@@ -5,15 +5,15 @@ module Crysterm
   class Widget
     module Effect
       # Shared self-animation lifecycle for effects that drive their own frame
-      # loop. An including widget must be a `Widget` (the loop calls `window`) and
-      # define `#step` — advance the simulation and repaint one frame, *state and
-      # paint only* (no `window.render`, no `sleep`). This module supplies
-      # `#start` / `#stop` / `#toggle` and the fiber loop that ties
-      # `step` → `window.render` → `sleep interval` together.
+      # loop. An including widget must be a `Widget` (the loop calls `window`)
+      # and define `#step` — advance the simulation and repaint one frame,
+      # state and paint only (no `window.render`, no `sleep`). Supplies
+      # `#start`/`#stop`/`#toggle` and the fiber loop tying
+      # `step` -> `window.render` -> `sleep interval` together.
       #
-      # `#step` is public by convention so an effect can also be advanced from an
-      # external clock — several effects sharing one frame counter, with a single
-      # `window.render` then painting them all.
+      # `#step` is public so an effect can also be advanced from an external
+      # clock — several effects sharing one frame counter, one `window.render`
+      # painting them all.
       #
       # `Effect::Direct`, `Effect::CopperBar`, `Effect::SineScroller`, and
       # `Effect::Spray` all include this. A finite effect (like a non-looping
@@ -57,8 +57,8 @@ module Crysterm
             step
             request_render
             if done?
-              # End on this frame (so the final state is shown), then notify —
-              # `on_done` fires only on a *natural* finish, not an external `#stop`.
+              # End on this frame (so the final state is shown), then notify.
+              # `on_done` fires only on natural finish, not an external `#stop`.
               @animation.try &.stop
               on_done
             end
@@ -77,17 +77,17 @@ module Crysterm
       end
 
       # Shared machinery for "direct" effects — those that paint their interior
-      # straight into the window's cell buffer as packed `Int64` attrs (each fg a
-      # direct `0xRRGGBB` value), bypassing the `content` → tag-parse → SGR →
-      # re-parse pipeline entirely.
+      # straight into the window's cell buffer as packed `Int64` attrs (each fg
+      # a direct `0xRRGGBB` value), bypassing the `content` -> tag-parse -> SGR
+      # -> re-parse pipeline entirely.
       #
-      # That pipeline is a *content-change* path: `_parse_tags` reslices the
+      # That pipeline is a content-change path: `_parse_tags` reslices the
       # remaining string on every tag (O(n²)), so driving it every frame for a
-      # fully-tagged full-window field is catastrophic — a single 80×24 plasma
-      # frame copies ~100 MB and parses for ~800 ms, which freezes the render
-      # fiber (and with it the input loop, so mouse bytes leak to the terminal).
-      # A direct effect instead computes a glyph and a `0xRRGGBB` color per cell
-      # and writes the packed attr in place, with no per-cell `String` at all.
+      # fully-tagged full-window field is catastrophic — a single 80x24 plasma
+      # frame copies ~100 MB and parses for ~800 ms, freezing the render fiber
+      # (and the input loop, leaking mouse bytes to the terminal). A direct
+      # effect instead computes a glyph and `0xRRGGBB` color per cell and writes
+      # the packed attr in place, with no per-cell `String`.
       #
       # An including widget is a `Box` and must define:
       #
@@ -99,9 +99,9 @@ module Crysterm
       #   `0xRRGGBB`, or `-1` to keep the widget's default fg) for interior cell
       #   `{x, y}`. Called once per cell per frame; must not allocate.
       #
-      # Like the other effects it drives its own animation (`#start`/`#stop`), and
-      # `#step` (state only) is public so several effects can share one external
-      # clock — the shared `window.render` then paints them all.
+      # Drives its own animation (`#start`/`#stop`) like the other effects;
+      # `#step` (state only) is public so several effects can share one
+      # external clock, with a single `window.render` painting them all.
       module Direct
         include Animated
 
@@ -114,7 +114,7 @@ module Crysterm
         # be driven from an external clock instead of its own fiber.
         def step
           advance @cols, @rows
-          mark_dirty # animation state changed; repaint under damage tracking
+          mark_dirty # repaint under damage tracking
         end
 
         # Position via the normal `Box` render (borders, background, docking, and
@@ -129,8 +129,8 @@ module Crysterm
           return unless lpos = @lpos
           lines = window.lines
 
-          # Same border + padding inset the content-draw loop applies, so we paint
-          # exactly the interior region.
+          # Same border + padding inset the content-draw loop applies, so this
+          # paints exactly the interior region.
           xi, xl = lpos.xi, lpos.xl
           yi, yl = lpos.yi, lpos.yl
           if (b = style.border) && b.any?

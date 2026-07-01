@@ -1,14 +1,13 @@
 module Crysterm
   module CSS
-    # A color theme expressed in the Motif/CDE spirit: the author picks a small
-    # set of **primary** colors and the rest of the palette is *derived* from
-    # them, so a whole consistent look falls out of a handful of inputs.
+    # A color theme in the Motif/CDE spirit: the author picks a small set of
+    # **primary** colors and the rest of the palette is *derived* from them.
     #
-    # Concretely there are **8 primaries** (one per semantic role) and, for each,
-    # **5 derived shades** — `base`, `light` (top-shadow/highlight), `dark`
-    # (bottom-shadow), `select` (selection tint) and `fg` (a readable foreground
-    # on that color). That is the classic Motif "8 colors, 40 derived" palette
-    # (48 entries total), reused here for terminal widgets.
+    # There are **8 primaries** (one per semantic role) and, for each, **5
+    # derived shades** — `base`, `light` (top-shadow/highlight), `dark`
+    # (bottom-shadow), `select` (selection tint) and `fg` (readable foreground
+    # on that color). The classic Motif "8 colors, 40 derived" palette (48
+    # entries total), reused here for terminal widgets.
     #
     # A `Theme` renders to a `Stylesheet` (`#to_css` / `#stylesheet`) that is
     # installed as the CSS *default* stylesheet (`CSS.default_stylesheet`), so
@@ -18,14 +17,13 @@ module Crysterm
     # Three ready-made themes are provided:
     #
     # * `Theme.dark` / `Theme.light` — fixed, hand-picked palettes.
-    # * `Theme.from_terminal` — the "no theme" mode: it reads the terminal's own
-    #   default background/foreground and 16-color palette (probed by `tput`) and
-    #   *derives a matching theme*, so the app blends into the user's terminal
-    #   colors instead of imposing its own.
+    # * `Theme.from_terminal` — the "no theme" mode: derives a matching theme
+    #   from the terminal's own probed default background/foreground and
+    #   16-color palette, so the app blends into the user's terminal colors.
     struct Theme
       # The selectable values of the `colors.theme` config option (see
-      # `resolve_config_theme`). An explicit, validated enum so the choice is
-      # round-trippable through a config dump rather than a free-form string.
+      # `resolve_config_theme`). An explicit enum so the choice round-trips
+      # through a config dump rather than a free-form string.
       enum Choice
         Terminal # Derive the palette from the terminal's own probed colors
         Dark     # Built-in dark theme
@@ -47,10 +45,9 @@ module Crysterm
       # The eight primaries, keyed by role name (see `ROLES`).
       getter primaries : Hash(String, Int32)
 
-      # Whether to actually paint the base surface background / base text color.
-      # The terminal theme leaves these off when it couldn't detect the
-      # terminal's real colors, so the terminal's own background shows through
-      # (`-1`/default) rather than guessing.
+      # Whether to paint the base surface background / base text color. The
+      # terminal theme leaves these off when it couldn't detect the terminal's
+      # real colors, so the terminal's own default shows through instead of guessing.
       getter? paint_surface : Bool
       getter? paint_text : Bool
 
@@ -85,14 +82,12 @@ module Crysterm
         }
       end
 
-      # The "no theme" theme: derive a palette from the *terminal's own* probed
+      # The "no theme" theme: derives a palette from the terminal's own probed
       # colors. *bg*/*fg* are the terminal default background/foreground and
-      # *palette* its 16 ANSI colors (any may be `nil` if the terminal didn't
-      # answer the probe); missing values fall back to the built-in dark theme,
-      # and an undetected surface/text is left as the terminal default so the
-      # native background shows through.
+      # *palette* its 16 ANSI colors (any may be `nil` if unprobed); missing
+      # values fall back to the built-in dark theme, and an undetected
+      # surface/text is left as the terminal default.
       def self.from_terminal(bg : Int32?, fg : Int32?, palette : Array(Int32?)) : Theme
-        # Decide polarity from the detected background (default: dark).
         is_dark = bg ? Colors.luminance(bg) < 0.5 : true
         base = is_dark ? dark : light
 
@@ -114,8 +109,8 @@ module Crysterm
 
       # The five shades derived from a primary *base*: `{base, light, dark,
       # select, fg}`. `light`/`dark` step the lightness; `select` is a subtle
-      # highlight relative to the surface direction; `fg` is whichever of a near-
-      # black / near-white reads best on *base*.
+      # highlight relative to the surface direction; `fg` is whichever of
+      # near-black / near-white reads best on *base*.
       def shades(role : String) : NamedTuple(base: Int32, light: Int32, dark: Int32, select: Int32, fg: Int32)
         base = @primaries[role]
         {
@@ -134,12 +129,10 @@ module Crysterm
       def to_css : String
         String.build do |io|
           emit_variables io
-          # Base surface/text first, then the specific widget rules. Order
-          # matters: crysterm type selectors all carry equal specificity
-          # (`.Button` and its base `.Input` are both one class), so ties break
-          # on source order — generic types and normal states must precede
-          # specific subclasses and their `:focus`/`:hover` rules for the
-          # subclass/state to win.
+          # Base surface/text first, then widget rules. Type selectors all
+          # carry equal specificity, so ties break on source order — generic
+          # types/states must precede specific subclasses and their
+          # `:focus`/`:hover` rules for those to win.
           emit_surface_rules io
           io << WIDGET_RULES
         end
@@ -173,10 +166,9 @@ module Crysterm
         io << "Widget { color: var(--text); }\n" if paint_text?
       end
 
-      # The structural widget rules, identical across themes — only the variable
-      # *values* differ. Kept as a single CSS string so the look is auditable in
-      # one place. Each rule is overridable by an author stylesheet (these are
-      # tier-0 defaults).
+      # The structural widget rules, identical across themes — only the
+      # variable values differ. A single CSS string for auditability; each
+      # rule is overridable by an author stylesheet (tier-0 defaults).
       WIDGET_RULES = <<-CSS
 
       /* Editable fields (Button is an Input subclass, so this comes first and
@@ -194,22 +186,17 @@ module Crysterm
       GroupBox { border: solid; border-color: var(--muted); }
       /* Flat buttons/groups drop their frame (Qt's `flat` property). Overridable. */
       Button[flat], GroupBox[flat] { border: none; }
-      /* Overlays sit on their own compositing planes (z-index) so they layer
-         correctly over content. They are *opaque*: a translucent menu/popup blends
-         its plane over whatever sits behind it, so rows over darker content come
-         out darker than rows over lighter content — banding that reads as the
-         frame/rows "alternating". An overlay is a solid surface, so no opacity
-         here. (Set `opacity` on a specific menu to opt back into translucency.)
-         Background is `--surface` (the window/general surface), matching what an
-         unstyled `QMenu` inherits in Qt (the `Window` palette role). Upstream Qt
-         themes conventionally don't style the menu, so this baseline keeps menus
-         consistent with the loaded theme's surface; a theme that *does* style the
-         menu (e.g. qdarkstyle's explicit `QMenu`) overrides it. */
+      /* Overlays sit on their own compositing planes (z-index) and are *opaque*:
+         a translucent menu/popup would blend its plane over whatever's behind it,
+         causing banding where rows over darker vs lighter content look
+         "alternating". Set `opacity` on a specific menu to opt into translucency.
+         Background is `--surface`, matching what an unstyled `QMenu` inherits in
+         Qt; a theme that styles `QMenu` explicitly overrides it. */
       Menu { border: solid; border-color: var(--muted); background-color: var(--surface); z-index: 10; padding: 0 1; }
       .popup { border: solid; border-color: var(--muted); background-color: var(--surface); z-index: 10; }
 
-      /* Scrollbars and progress indicators. The scrollbar is a real widget
-         (.scrollbar) on a thin translucent plane so content shows faintly through. */
+      /* Scrollbars are a real widget (.scrollbar) on a thin translucent plane
+         so content shows faintly through. */
       .scrollbar { color: var(--muted); z-index: 5; opacity: 0.82; }
       Track { color: var(--surface-dark); }
       ProgressBar::indicator, Slider::indicator, Dial::indicator { color: var(--accent); }
@@ -230,11 +217,9 @@ module Crysterm
       .divider { background-color: var(--muted); }
       .search { background-color: var(--accent); color: var(--accent-fg); }
 
-      /* Selection highlight — `Box` is the base of (almost) every visible
-         widget, so this matches broadly at the same specificity as the base
-         surface rule and, coming last, wins the selected state. Widgets that
-         paint their selected row from `styles.selected` (List, Menu, ...) pick
-         this up too. */
+      /* Selection highlight — `Box` is the base of almost every visible widget;
+         coming last, this wins the selected state at equal specificity.
+         Widgets painting selected rows from `styles.selected` pick it up too. */
       Box:selected { background-color: var(--accent); color: var(--accent-fg); }
       CSS
     end
@@ -248,11 +233,9 @@ module Crysterm
     end
 
     # Installs *theme* as the active theme: its generated stylesheet becomes the
-    # CSS *default* (user-agent) stylesheet, so every window is styled by it out
-    # of the box. Passing `nil` clears the theme and empties the default
-    # stylesheet (back to "no theme"). Setting this — or a non-empty
-    # `default_stylesheet` — before the first `Window` is created suppresses the
-    # automatic config-driven theme.
+    # CSS default (user-agent) stylesheet. `nil` clears the theme (back to "no
+    # theme"). Setting this — or a non-empty `default_stylesheet` — before the
+    # first `Window` is created suppresses the automatic config-driven theme.
     def self.theme=(theme : Theme?) : Theme?
       @@active_theme = theme
       self.default_stylesheet = theme ? theme.stylesheet : Stylesheet.new
@@ -281,7 +264,7 @@ module Crysterm
       in .none?     then nil
       in .dark?     then Theme.dark
       in .light?    then Theme.light
-      in .terminal? then window.terminal_theme # derived from the terminal's probed colors
+      in .terminal? then window.terminal_theme
       end
     end
   end

@@ -1,11 +1,11 @@
-# IMPRESSIVE DEMO: a "cracktro" — the animated intro old-school crackers bolted
-# onto pirated games. Standard 80x15 window.
+# A "cracktro" — the animated intro old-school crackers bolted onto pirated
+# games. Standard 80x15 window.
 #
 # Letters are shot out of the CRT centre dot and land in a clockwise spiral that
-# fills the WHOLE screen: the top row first, then down the right border, the
-# bottom row right→left, up the left border, then inward (2nd row, ...) until
-# every cell is filled — at which point it resets and starts over clean. Each
-# letter fakes growing (. · : * o O 0 @) and adopts the background it flies over.
+# fills the whole screen: top row first, then down the right border, bottom row
+# right→left, up the left border, then inward until every cell is filled, then
+# it resets. Each letter fakes growing (. · : * o O 0 @) and adopts the
+# background it flies over.
 #
 # Underneath, the scene plays on until the spiral covers it:
 #   row 1 : copper / raster bar
@@ -17,15 +17,13 @@ require "../../src/crysterm"
 
 include Crysterm
 
-# This is a full-screen animation: every cell changes every frame (copper bars,
-# scrollers, and the spiral of per-cell letters all recolor continuously), and
-# the scene mutates `style.fg`/`bg` in place. Damage tracking (the default) can
-# never win here — selective repaint degenerates to the whole screen — so it only
-# pays per-frame bookkeeping (per-child damage bounds, dirty-set maintenance):
-# ~8-10% of render time measured on this scene. `OptimizationFlag::None` repaints
-# the whole buffer every frame, which is both faster here AND more correct (a
-# full composite always picks up the in-place style mutations that damage
-# tracking, keyed on explicit dirty marks, would miss).
+# Full-screen animation: every cell changes every frame, and the scene mutates
+# `style.fg`/`bg` in place. Damage tracking (the default) can't win here —
+# selective repaint degenerates to the whole screen — so it only pays per-frame
+# bookkeeping (~8-10% of render time measured on this scene).
+# `OptimizationFlag::None` repaints the whole buffer every frame: faster here
+# and more correct, since a full composite picks up in-place style mutations
+# that dirty-mark-based damage tracking would miss.
 s = Window.new title: "CRYSTERM cracktro", optimization: OptimizationFlag::None
 
 w = s.awidth
@@ -35,11 +33,10 @@ MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
        "BLESSED-CONTRIB * QT * NCURSES (R.I.P.) * EVERY CRYSTAL CODER * " +
        "THE WHOLE DEMOSCENE ...   REAL ONES NEVER REMOVE THE INTRO !   ......   ")
 
-# Copper bars on rows 1 and 3 (rows 0 and 2 carry the title and the line
-# scroller), as reusable `Widget::Effect::CopperBar`s. Each is staggered around
-# the color wheel by `hue_offset` and advanced explicitly from the master loop
-# below (via `step`) so the whole scene stays on one clock — `bg_under` recomputes
-# the very same hue independently, so flying letters ride over the bars seamlessly.
+# Copper bars on rows 1 and 3 (rows 0 and 2 carry the title and line scroller),
+# as reusable `Widget::Effect::CopperBar`s. Each is staggered around the color
+# wheel by `hue_offset` and advanced explicitly from the master loop below (via
+# `step`) so the whole scene stays on one clock.
 COPPER_ROWS = [1, 3]
 copper = COPPER_ROWS.map_with_index do |row, idx|
   Widget::Effect::CopperBar.new parent: s, top: row, left: 0, width: "100%", height: 1,
@@ -48,9 +45,9 @@ end
 copper_idx = {1 => 0, 3 => 1}
 
 # Row 2: right-to-left rainbow scroller of the same message, as a reusable
-# `Widget::Marquee`. Its frame is advanced explicitly from the master loop below
-# (via `step`, rather than `start` and its own fiber) so it stays locked to the
-# same clock as the rest of the scene and the recorded GIF still tiles seamlessly.
+# `Widget::Marquee`. Advanced explicitly via `step` (rather than `start` and its
+# own fiber) so it stays locked to the scene's clock and the recorded GIF tiles
+# seamlessly.
 hscroll = Widget::Marquee.new \
   parent: s, top: 2, left: 0, width: "100%", height: 1,
   text: MSG, rainbow: true, style: Style.new(bg: "black")
@@ -61,20 +58,19 @@ greet = Widget::Box.new \
   content: "* CRACKED BY THE CRYSTERM CREW *", style: Style.new(fg: "yellow", bg: "black")
 
 # Sine-wave rainbow scroller in the lower portion, as a reusable
-# `Widget::Effect::SineScroller`. Advanced from the master loop via `step` so it
-# shares the one frame clock (keeping the recorded GIF seamless).
+# `Widget::Effect::SineScroller`. Advanced via `step` so it shares the one frame
+# clock.
 sine_top = 5
 sine = Widget::Effect::SineScroller.new \
   parent: s, top: sine_top, left: 0, width: "100%", height: h - sine_top,
   text: MSG, style: Style.new(bg: "black")
 
 # Background present at each row for the current frame, so a flying letter can
-# adopt it and ride over the scene without changing the background it passes
-# across: the copper rows carry the current raster-bar hue, every other row is
-# black. Recomputed once per row each frame (`refresh_row_bg`) and then read by
-# index in the per-cell loop — turning what used to be a `Hash` lookup + an
-# `hsv` *string* (re-parsed by `style.bg=`) on every one of the screen's cells
-# into a single array read. (`hsv_i` yields the native `0xRRGGBB` int directly.)
+# adopt it without changing the background it passes over: copper rows carry
+# the current raster-bar hue, every other row is black. Recomputed once per row
+# each frame (`refresh_row_bg`), then read by index per cell — avoiding a `Hash`
+# lookup + `hsv` string re-parse per cell. (`hsv_i` yields the native
+# `0xRRGGBB` int directly.)
 row_bg = Array.new(h, 0x000000)
 refresh_row_bg = ->(fr : Int32) {
   (0...h).each do |r|
@@ -93,10 +89,10 @@ HOLD     = 28 # frames the finished row is held before re-firing
 cx = w // 2
 cy = h // 2
 
-# Clockwise spiral over every cell, starting at the top-left corner: the top row
-# left→right, then down the right border, the bottom row right→left, up the left
-# border, and then inward (2nd row from the top, ...) until the whole screen is
-# filled. Each successive cell is the destination of one shot-out letter.
+# Clockwise spiral over every cell, starting at the top-left corner: top row
+# left→right, then down the right border, bottom row right→left, up the left
+# border, then inward until the whole screen is filled. Each successive cell is
+# the destination of one shot-out letter.
 def spiral_order(w, h)
   cells = [] of Tuple(Int32, Int32)
   top = 0
@@ -132,9 +128,9 @@ letters = slots.map do |_|
     content: "·", style: Style.new(fg: 0xffffff, bg: 0x000000)
 end
 
-# Live performance overlay. Added last so it paints on top of the scene; it
-# updates itself from the screen's render stats each frame (no `step` needed).
-# Anchored top-left here (its default is bottom-left, where the sine scroller is).
+# Live performance overlay. Added last so it paints on top of the scene;
+# updates itself from render stats each frame (no `step` needed). Anchored
+# top-left here (default is bottom-left, where the sine scroller is).
 Widget::Fps.new \
   parent: s, top: 0, left: 0,
   format: " FPS %s (avg %s)  render %s  draw %s ",

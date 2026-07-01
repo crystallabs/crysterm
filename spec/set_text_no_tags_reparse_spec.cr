@@ -7,10 +7,10 @@ private def headless_screen
 end
 
 # `#set_text` sets content with `no_tags: true`, so even a `parse_tags = true`
-# widget shows the tags literally. This must survive a later cache-miss reparse
-# (a width change, resize, scroll, attach), which calls `process_content` with
-# the default `no_tags = false` — the `@_content_no_tags` mode is what keeps the
-# tags literal across those reparses.
+# widget shows tags literally. Must survive a later cache-miss reparse (width
+# change, resize, scroll, attach), which calls `process_content` with the
+# default `no_tags = false` — `@_content_no_tags` is what keeps tags literal
+# across those reparses.
 describe "Widget#set_text keeps tags literal across reparse" do
   it "does not parse tags on a width-triggered reparse" do
     box = Widget::Box.new parent: headless_screen, width: 20, height: 3

@@ -1,12 +1,11 @@
 module Crysterm
   # Class for margin definition.
   #
-  # NOTE "Margin" as in spacing *outside* the element — the mirror of `Padding`.
-  # Where `Padding`/`Border` are inner insets (they shrink the *content* area and
-  # push children inward, via `Widget#ileft` & co.), a margin is the element's own
-  # *outer* spacing: it shifts the element inward from its computed position and
-  # shrinks it within its allotted slot, without affecting the inner content
-  # offsets. Same per-side order as in HTML (ltrb).
+  # Margin is spacing *outside* the element — the mirror of `Padding`. Where
+  # `Padding`/`Border` are inner insets that shrink the content area (via
+  # `Widget#ileft` & co.), a margin shifts the element inward from its computed
+  # position and shrinks it within its allotted slot, without affecting inner
+  # content offsets. Same per-side order as HTML (ltrb).
   class Margin
     include SidedGeometry
 

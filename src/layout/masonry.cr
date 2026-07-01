@@ -3,10 +3,9 @@ require "../layout_flow"
 module Crysterm
   class Layout
     # Masonry / inline flow (blessed's `inline` layout). Children flow
-    # left-to-right at their natural widths, wrap to a new row on overflow, and
-    # then gravitate upward to sit directly beneath the nearest child on the row
-    # above — producing a packed, masonry-like arrangement of variably-sized
-    # boxes.
+    # left-to-right at their natural widths, wrap to a new row on overflow,
+    # then gravitate upward to sit beneath the nearest child on the row above,
+    # producing a packed masonry-like arrangement.
     #
     # <!-- widget-examples:capture v1 -->
     # ![Masonry screenshot](../../tests/layout/masonry/masonry.5s.apng)
@@ -18,9 +17,8 @@ module Crysterm
         overflow_action container, el, interior
       end
 
-      # Pulls `el` up to rest just below the child on the previous row whose
-      # left edge is nearest its own, so rows pack together instead of leaving
-      # ragged vertical gaps.
+      # Pulls `el` up to rest below the child on the previous row whose left
+      # edge is nearest its own, avoiding ragged vertical gaps.
       private def gravitate_up(container : Widget, el : Widget, interior : LPos) : Nil
         xi = interior.xi
         yi = interior.yi

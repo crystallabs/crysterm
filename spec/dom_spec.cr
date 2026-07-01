@@ -3,10 +3,10 @@ require "./spec_helper"
 {% if flag?(:remote) %}
   include Crysterm
 
-  # Exercises the *layout DOM*: the round-trippable, loadable HTML emitted by
-  # `#to_layout_html` and rebuilt by `DOM.load`. Where `css_spec.cr` pins the
-  # minimal match-only document, these tests pin that construction state survives
-  # a serialize -> load -> serialize round-trip.
+  # Exercises the layout DOM: round-trippable HTML emitted by `#to_layout_html`
+  # and rebuilt by `DOM.load`. Where `css_spec.cr` pins the minimal match-only
+  # document, these tests pin that construction state survives a
+  # serialize -> load -> serialize round-trip.
 
   private def headless_screen
     Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)

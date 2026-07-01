@@ -47,12 +47,12 @@ module Crysterm
 
         @active_font = style.bold? ? @bold : @normal
 
-        # The text is rendered as big glyphs from `@text`; clear the plain
-        # `content` that `super` set from the same string, otherwise the base
-        # renderer draws it as normal-size text showing through the glyph gaps.
-        # (Done *after* `@active_font` is assigned: `set_content` is a method
-        # call on `self`, and calling it earlier would leave `@active_font`
-        # uninitialized, which Crystal rejects as a nilable-ivar access.)
+        # Text renders as big glyphs from `@text`; clear the plain `content`
+        # that `super` set from the same string, otherwise the base renderer
+        # draws it as normal-size text showing through the glyph gaps. Done
+        # *after* `@active_font` is assigned: calling `set_content` earlier
+        # would leave `@active_font` uninitialized, which Crystal rejects as a
+        # nilable-ivar access.
         set_content "", true
       end
 
@@ -60,8 +60,8 @@ module Crysterm
         @content = ""
         @_content_version += 1
         @text = content || ""
-        # The glyphs are drawn from `@text`, so a content change must schedule a
-        # repaint just like the base `set_content` does — otherwise the new text
+        # Glyphs are drawn from `@text`, so a content change must schedule a
+        # repaint like the base `set_content` does — otherwise the new text
         # only appears on the next render triggered by something else.
         mark_dirty
       end
@@ -78,9 +78,9 @@ module Crysterm
         coords = _render
         return unless coords
 
-        # A degenerate font ratio (a malformed/missing custom font leaves
-        # `@ratio` at its 0×0 default) would divide-by-zero below; there is
-        # nothing to draw, so bail out with the computed coords.
+        # A degenerate font ratio (malformed/missing custom font leaves
+        # `@ratio` at its 0×0 default) would divide-by-zero below; nothing to
+        # draw, so bail out with the computed coords.
         return coords if @ratio.width <= 0 || @ratio.height <= 0
 
         lines = window.lines
@@ -101,8 +101,8 @@ module Crysterm
         x = @align.right? ? (right - max_chars*@ratio.width) : left
         max_chars.times do |i|
           ch = graphemes[i].to_s
-          # `Font#glyph` already falls back to "?" then a blank glyph, and pads
-          # every row to the font width, so `map[y - top]` is a non-nil row.
+          # `Font#glyph` falls back to "?" then a blank glyph, and pads every
+          # row to the font width, so `map[y - top]` is a non-nil row.
           map = @active_font.glyph(ch)
           y = top
           while y < Math.min(bottom, top + @ratio.height)

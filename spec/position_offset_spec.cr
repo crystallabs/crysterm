@@ -7,8 +7,7 @@ private def headless_screen
 end
 
 # `center±N` (positions) and `half±N` (sizes) used to crash (`Invalid Float64`)
-# because the offset form bypassed the alias->"50%" mapping. These assert the
-# offset is applied relative to the plain centered/half value.
+# because the offset form bypassed the alias->"50%" mapping.
 describe "center±N / half±N position & size offsets" do
   it "offsets a centered top/left by the trailing amount" do
     s = headless_screen
@@ -29,8 +28,8 @@ describe "center±N / half±N position & size offsets" do
 
     bp = base._get_coords(true).not_nil!
     pp = plus._get_coords(true).not_nil!
-    # Same shrunk size, and the offset shifts the box right by exactly 4 cells
-    # (it used to land far off because the recenter only matched bare "center").
+    # Same shrunk size; offset shifts the box right by exactly 4 cells (it used
+    # to land far off because recenter only matched bare "center").
     (pp.xl - pp.xi).should eq(bp.xl - bp.xi)
     (pp.xi - bp.xi).should eq 4
   end

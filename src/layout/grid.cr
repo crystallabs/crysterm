@@ -37,10 +37,9 @@ module Crysterm
 
       # `#gap` (inter-cell spacing) is inherited from `Layout`.
 
-      # Per-arrange scratch, reused across frames (cleared, not reallocated) so a
-      # grid re-render allocates nothing — `Set#clear`/`Array#clear` keep their
-      # capacity. Transient and not retained past `#arrange`; a layout instance
-      # serves a single container.
+      # Per-arrange scratch, reused across frames (cleared, not reallocated) so
+      # a grid re-render allocates nothing. Transient, not retained past
+      # `#arrange`; a layout instance serves a single container.
       @occupied = Set({Int32, Int32}).new
       @placements = [] of Tuple(Widget, Int32, Int32, Int32, Int32)
 
@@ -54,8 +53,7 @@ module Crysterm
 
         occupied = @occupied
         occupied.clear
-        # {widget, row, col, row_span, col_span}. The tuples live inline in the
-        # array's buffer (value types, no per-element heap box).
+        # {widget, row, col, row_span, col_span}
         placements = @placements
         placements.clear
 
@@ -82,19 +80,17 @@ module Crysterm
         end
 
         # Tallest occupied row index, without the intermediate array a
-        # `placements.map { … }.max?` would allocate. `reduce(0)` also yields the
-        # old `|| 0` for an empty grid.
+        # `placements.map { … }.max?` would allocate.
         nrows = @rows || placements.reduce(0) { |m, p| Math.max(m, p[1] + p[3]) }
         nrows = 1 if nrows < 1
 
-        # Interior space the cells share, with the inter-cell gaps removed. The
-        # columns/rows are carved out of this by *cumulative* integer division
-        # (see #fence) rather than a single floored `cell_w`/`cell_h`: a uniform
-        # floor dropped up to `cols - 1` columns (and `nrows - 1` rows) of
-        # remainder, leaving them blank at the right/bottom edge so the grid
-        # never filled a non-evenly-divisible interior. Carving by cumulative
-        # fences makes the column widths differ by at most one and sum to exactly
-        # `inner_w`, with the last column/row absorbing the remainder — matching
+        # Interior space the cells share, with inter-cell gaps removed.
+        # Columns/rows are carved out by *cumulative* integer division (see
+        # #fence) rather than a single floored `cell_w`/`cell_h`: a uniform
+        # floor would drop up to `cols - 1` columns (and `nrows - 1` rows) of
+        # remainder as blank space at the right/bottom edge. Cumulative fences
+        # make column widths differ by at most one and sum to exactly
+        # `inner_w`, the last column/row absorbing the remainder — matching
         # how Box/Form hand their leftover to the final cell.
         inner_w = w - (cols - 1) * @gap
         inner_h = h - (nrows - 1) * @gap
@@ -103,15 +99,12 @@ module Crysterm
 
         placements.each do |(el, row, col, rs, cs)|
           # Clamp the cell's start/end *to the grid* before deriving the gap
-          # terms. `#fence` already clamps the pixel fences, so the off-grid part
-          # of a span contributes no width — but the gap multipliers below used
-          # the raw span (`cs`/`rs`) and the raw start (`col`/`row`), so an
-          # off-grid span (e.g. the common `col_span: 99` "span to the end"
-          # idiom) added `(cs - on_grid_cols)` phantom inter-cell gaps, shoving
-          # the cell's right/bottom edge well past the interior — defeating the
-          # very edge-clamp `#fence` documents. Counting gaps from the on-grid
-          # extent keeps in-grid cells byte-identical (for them `c0..c1` == the
-          # raw span) while making off-grid spans truly stop at the edge.
+          # terms. `#fence` already clamps the pixel fences, but gap
+          # multipliers using the raw span/start would add phantom inter-cell
+          # gaps for an off-grid span (e.g. `col_span: 99` "span to the end"),
+          # pushing the cell's edge past the interior. Counting gaps from the
+          # on-grid extent keeps in-grid cells unaffected while making
+          # off-grid spans truly stop at the edge.
           c0 = col.clamp(0, cols)
           c1 = (col + cs).clamp(0, cols)
           r0 = row.clamp(0, nrows)
@@ -130,21 +123,19 @@ module Crysterm
         end
       end
 
-      # The cumulative offset of fence line `i` when `total` is divided into `n`
+      # Cumulative offset of fence line `i` when `total` is divided into `n`
       # equal-as-possible parts: `floor(i * total / n)`. Successive fences give
-      # each cell `fence(i+1) - fence(i)` (so the parts sum to exactly `total`,
-      # the last absorbing the remainder). `i` is clamped to `0..n` so an
-      # off-grid span (`col + col_span > columns`) stops at the interior edge
-      # instead of running past it.
+      # each cell `fence(i+1) - fence(i)`, summing to exactly `total` with the
+      # last absorbing the remainder. `i` clamped to `0..n` so an off-grid
+      # span (`col + col_span > columns`) stops at the interior edge.
       private def fence(total : Int32, n : Int32, i : Int32) : Int32
         i = i.clamp(0, n)
         (i * total) // n
       end
 
-      # Advances the row-major auto-flow cursor to the next cell, wrapping to the
-      # start of the next row once it runs past the last column. Returns the new
-      # `{row, col}` as a value tuple (no heap allocation). Shared by the free-cell
-      # scan and the post-placement step, which advance the cursor identically.
+      # Advances the row-major auto-flow cursor to the next cell, wrapping to
+      # the start of the next row once past the last column. Shared by the
+      # free-cell scan and the post-placement step.
       private def next_cell(r : Int32, c : Int32, cols : Int32) : Tuple(Int32, Int32)
         c += 1
         if c >= cols

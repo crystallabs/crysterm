@@ -95,8 +95,8 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s._render
-    # The viewport string is kept on the widget (not baked to cells), so it can
-    # re-resolve against the screen every frame.
+    # Viewport string is kept on the widget (not baked to cells), re-resolving
+    # against the screen every frame.
     a.width.should eq "50vw"
     a.awidth.should eq 40  # 50% of 80
     a.aheight.should eq 24 # 100% of 24
@@ -113,10 +113,9 @@ describe "CSS geometry units" do
 
   it "resolves an uppercased viewport unit (units are case-insensitive)" do
     s = render_screen # 80 x 24
-    # CSS units are case-insensitive, so `50VW`/`100VH` must behave exactly like
-    # their lowercase forms — the viewport string is kept on the widget and
-    # re-resolves against the screen, and an uppercased size constraint resolves
-    # once against the screen here (it isn't silently dropped).
+    # CSS units are case-insensitive: `50VW`/`100VH` must behave like their
+    # lowercase forms, and an uppercased size constraint must resolve (not be
+    # silently dropped).
     s.stylesheet = "Box#a { width: 50VW; height: 100VH; max-width: 30VW; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
@@ -167,9 +166,8 @@ describe "CSS geometry units" do
   end
 
   it "scales the border-width longhand's top/bottom edges by the cell aspect ratio" do
-    # A cell is taller than wide, so an absolute width on the top/bottom edges
-    # (a vertical measurement) resolves to fewer cells than on the left/right —
-    # the `border-width` shorthand must agree with the per-side longhands.
+    # A cell is taller than wide, so an absolute width on top/bottom resolves to
+    # fewer cells than on left/right; the shorthand must agree with the longhands.
     s = render_screen
     s.stylesheet = "Box#a { border-width: 200px; } " \
                    "Box#b { border-top-width: 200px; border-left-width: 200px; }"
@@ -182,16 +180,14 @@ describe "CSS geometry units" do
     a.style.border.right.should eq 20
     a.style.border.top.should eq 10 # 200 / (10 * 2.0)   (vertical)
     a.style.border.bottom.should eq 10
-    # The per-side longhands resolve the same way — the longhand and shorthand
-    # now agree on the vertical edges.
+    # Per-side longhands resolve the same way, agreeing with the shorthand.
     b.style.border.top.should eq a.style.border.top
     b.style.border.left.should eq a.style.border.left
   end
 
   it "clamps a negative border width to 0 rather than a negative cell count" do
-    # A negative `border-width` longhand is meaningless and must yield 0, not a
-    # negative count — a negative side would *shrink* the widget via
-    # `SidedGeometry#adjust` (inverted geometry), not just draw no border.
+    # A negative `border-width` must clamp to 0, not a negative count — a
+    # negative side would shrink the widget via `SidedGeometry#adjust`.
     s = render_screen
     s.stylesheet = "Box#a { border-width: -20px; } " \
                    "Box#b { border-top-width: -3; }"
@@ -207,10 +203,8 @@ describe "CSS geometry units" do
 
   it "honors (does not clamp) a sub-cell width in the border shorthand" do
     # Qt stylesheets put hairline widths in the `border`/`border-<side>`
-    # *shorthand* (`border: 0.04em solid #ccc`, `border: 1px solid #ccc`). In a
-    # cell grid these round to 0; clamping each up to a full-cell box would
-    # destroy short widgets and over-frame containers, so the shorthand honors
-    # the rounded count (only the explicit `border-width` longhand clamps).
+    # shorthand. In a cell grid these round to 0; only the explicit
+    # `border-width` longhand clamps up to 1 — the shorthand honors 0.
     s = render_screen
     s.stylesheet = "Box#a { border: 0.04em solid #cccccc; } " \
                    "Box#b { border: 1px solid #cccccc; } " \
@@ -277,8 +271,8 @@ describe "CSS geometry units" do
 
   it "maps the same absolute length to fewer cells vertically (cell aspect ratio)" do
     s = render_screen
-    # width and height carry the *same* px length; the vertical one resolves to
-    # fewer cells because a cell is taller than wide (default 2:1).
+    # Same px length on both axes; vertical resolves to fewer cells (default 2:1
+    # aspect ratio).
     s.stylesheet = "Box#a { width: 200px; height: 200px; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"

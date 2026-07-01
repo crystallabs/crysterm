@@ -8,10 +8,9 @@ private def headless_screen(width = 80, height = 24)
     width: width, height: height)
 end
 
-# Re-parenting: appending a widget that already has a parent must detach it from
-# the old parent before linking it to the new one, so a widget is never a child
-# of two containers at once (`Widget#insert`, src/widget_children.cr). Migrated
-# from `small-tests/parents.cr`, which only `STDERR.puts`ed the result.
+# Appending a widget that already has a parent must detach it from the old
+# parent first, so it's never a child of two containers at once
+# (`Widget#insert`, src/widget_children.cr).
 describe "Widget re-parenting" do
   it "moves a child from its current parent to the new one" do
     s = headless_screen

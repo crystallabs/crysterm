@@ -2,7 +2,7 @@ require "../../src/crysterm"
 
 # Proof-of-concept Pine/Alpine-style TUI mail client built from the
 # `Crysterm::Widget::Pine` widget set. All content is mocked; nothing is read
-# from disk or sent over the network. It demonstrates navigating between the
+# from disk or sent over the network. Demonstrates navigating between the
 # Alpine screens and reproduces Alpine's keyboard shortcuts:
 #
 #   MAIN MENU      pick a command (arrows + Enter, or the letter keys)
@@ -48,11 +48,10 @@ module Crysterm
   )
 
   # Full-screen backdrop, created first so it sits behind every other widget.
-  # Without it, the areas no widget covers (e.g. around the centered MAIN MENU)
-  # are left to the screen's erase path; on a transparent terminal profile
-  # (macOS Terminal) those cells render slightly differently from the
-  # widget-painted ones, making the menu look like a distinct rectangle. A
-  # backdrop paints the whole screen uniformly so the background is consistent.
+  # Without it, areas no widget covers (e.g. around the centered MAIN MENU) are
+  # left to the screen's erase path; on a transparent terminal profile those
+  # cells render slightly differently, making the menu look like a distinct
+  # rectangle. The backdrop paints the whole screen uniformly instead.
   Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
 
   # ----------------------------------------------------------------- mock data
@@ -104,15 +103,15 @@ module Crysterm
   # The original arrival order, so the "Arrival" sort can be restored.
   arrival = messages.dup
 
-  # Pair each message with its body by identity (NOT by position): the index can
-  # be re-sorted or have messages expunged, so a parallel `bodies[i]` lookup
-  # would show the wrong message's text after sorting.
+  # Pair each message with its body by identity, not position: the index can be
+  # re-sorted or have messages expunged, so a parallel `bodies[i]` lookup would
+  # show the wrong message's text after sorting.
   body_of = {} of MessageIndex::Message => String
   messages.each_with_index { |m, i| body_of[m] = bodies[i]? || "" }
 
   # Per-message flags are the source of truth for the index status column and
-  # the FLAG MAINTENANCE screen. Each maps to a single status character shown in
-  # the index (as in Alpine). Seeded from each message's initial status/unread.
+  # the FLAG MAINTENANCE screen; each maps to a status character shown in the
+  # index. Seeded from each message's initial status/unread.
   FLAG_CHARS = {"Important" => "*", "Deleted" => "D", "Answered" => "A", "Forwarded" => "F", "New" => "N"}
   flags_of = {} of MessageIndex::Message => Set(String)
   messages.each do |m|
@@ -179,8 +178,7 @@ module Crysterm
   status = Widget::Pine::StatusBar.new(parent: s, bottom: 2, status_content: "")
   key_menu = KeyMenu.new(parent: s, bottom: 0)
 
-  # A yellow "this is only a demo" banner, shown on the MAIN MENU only, roughly
-  # halfway between the header and the centered menu.
+  # A yellow "this is only a demo" banner, shown on MAIN MENU only.
   banner = Widget::Box.new(
     parent: s, top: 3, left: 0, width: "100%", height: 1,
     align: :hcenter, parse_tags: true, visible: false,
@@ -198,8 +196,8 @@ module Crysterm
   end
 
   # Make the bottom command bar clickable: a click on a hint emits the hint's
-  # key, which we turn into the matching keypress so it flows through the very
-  # same handlers as the physical key (no duplicated command logic).
+  # key, turned into the matching keypress so it flows through the same
+  # handlers as the physical key.
   key_menu.on(Event::Action) do |e|
     kp = case k = e.value.to_s
          when "Spc"   then Event::KeyPress.new(' ', nil)
@@ -248,8 +246,7 @@ module Crysterm
     ])
 
   index = MessageIndex.new(**body_opts, messages: messages, visible: false)
-  # Widen the status column so all of a message's flags show at once (the demo
-  # has up to 5: *DAFN), aligned, then re-render the rows at the new width.
+  # Widen the status column so all of a message's flags show at once (up to 5: *DAFN).
   index.status_width = FLAG_CHARS.size + 1
   index.set_messages messages
   view = Widget::Pine::MessageView.new(**body_opts, visible: false)
@@ -323,8 +320,7 @@ module Crysterm
     nil
   end
 
-  # Refocus whatever full-screen view is current (used after a transient prompt
-  # is dismissed).
+  # Refocus whatever full-screen view is current (after a transient prompt is dismissed).
   refocus = -> do
     active_view.focus
     s.render
@@ -435,10 +431,9 @@ module Crysterm
     nil
   end
 
-  # Show the composer. When *reset* is true the fields are cleared first (a new
-  # message); when false the current fields are kept (e.g. returning from the
-  # attachment file browser). *focus* names the field to land on — a header
-  # field name (e.g. "to", "attchmnt") or "body" for the message editor.
+  # Show the composer. *reset* clears the fields first (new message) or keeps
+  # them (e.g. returning from the attachment browser). *focus* names the field
+  # to land on — a header field name (e.g. "to", "attchmnt") or "body".
   show_compose = ->(reset : Bool, focus : String) do
     current = :compose
     header.section.content = "COMPOSE MESSAGE"
@@ -550,7 +545,7 @@ module Crysterm
     flag_target = m
     header.section.content = "FLAG MAINTENANCE"
     header.info.content = m ? %(Msg: "#{m.subject}") : ""
-    # Preselect the message's current flags so the screen round-trips.
+    # Preselect the message's current flags.
     m ? flagpick.set_checked(FLAG_NAMES.select { |f| flags_of[m].includes?(f) }) : flagpick.clear_selection
     show_only.call flagpick
     set_keys.call [
@@ -637,8 +632,8 @@ module Crysterm
     end
   end
 
-  # SORT ORDER picker (single-select `ListSelect`): on Enter it confirms with
-  # the highlighted order, actually reorders the index, and returns to it.
+  # SORT ORDER picker (single-select `ListSelect`): Enter confirms the
+  # highlighted order, reorders the index, and returns to it.
   sortpick.on_confirm = ->(sel : Array(String)) do
     sel.first?.try do |o|
       current_sort = o
@@ -656,9 +651,8 @@ module Crysterm
     nil
   end
 
-  # FLAG MAINTENANCE (multi-select `ListSelect`): Space/Enter/click toggle the
-  # checkboxes; leaving the screen ("<") calls `flagpick.confirm`, which runs
-  # this to apply the checked flags to the message and return to the index.
+  # FLAG MAINTENANCE (multi-select `ListSelect`): leaving the screen ("<")
+  # calls `flagpick.confirm`, which applies checked flags and returns to the index.
   flagpick.on_confirm = ->(sel : Array(String)) do
     flag_target.try do |m|
       flags_of[m] = sel.to_set
@@ -671,7 +665,7 @@ module Crysterm
   end
 
   # ATTACH FILE (FileBrowser): selecting a file fills the composer's Attchmnt
-  # field and returns to the composer; navigating directories updates the info.
+  # field and returns; navigating directories updates the info line.
   filebrowser.on(Event::OpenFile) do |e|
     compose.fields["attchmnt"]?.try &.value = File.basename(e.path)
     show_compose.call false, "attchmnt"
@@ -707,9 +701,9 @@ module Crysterm
 
   # ----------------------------------------------------- Alpine key shortcuts
   #
-  # The screen-level handler sees every keypress *before* the focused widget,
-  # so these global commands work even while a list or text field has focus.
-  # Each screen has its own command set, matching the bottom KeyMenu.
+  # The screen-level handler sees every keypress before the focused widget, so
+  # these global commands work even with a list or text field focused. Each
+  # screen has its own command set, matching the bottom KeyMenu.
 
   s.on(Event::KeyPress) do |e|
     ch = e.char
@@ -720,16 +714,16 @@ module Crysterm
       exit
     end
 
-    # While a yes/no prompt is up it owns the keyboard: let its own handler
-    # process Y/N, swallow everything else here, and treat Escape as "no".
+    # While a yes/no prompt is up it owns the keyboard: its own handler
+    # processes Y/N, swallow everything else here, Escape means "no".
     if prompt_active
       dismiss_prompt.call if key == Tput::Key::Escape
       next
     end
 
     # Escape goes "back" one screen, mirroring '<'. Compose keeps its own
-    # Escape (cancel), handled below. While the Config editor is mid inline-edit,
-    # Escape must cancel the edit (handled by the OptionList itself), not exit.
+    # Escape (cancel), handled below. Mid inline-edit, Escape must cancel the
+    # edit (handled by OptionList itself), not exit the Config screen.
     if key == Tput::Key::Escape && current != :compose
       handled = true
       case current

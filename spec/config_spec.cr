@@ -1,9 +1,9 @@
 require "./spec_helper"
 
 # `Crysterm::Config` is a transparent alias of the shared `Superconf` registry.
-# The registry mechanics (precedence, parsing, validation, dump, …) are covered
-# by superconf's own spec; these specs verify the *integration*: Crysterm's
-# options, tput's options, and the alias all work through one combined registry.
+# Registry mechanics are covered by superconf's own spec; these verify the
+# integration: Crysterm's options, tput's options, and the alias all work
+# through one combined registry.
 describe "Crysterm config integration" do
   it "registers Crysterm's builtin options with typed accessors (via the alias)" do
     Crysterm::Config.window_resize_interval.should eq 0.2.seconds
@@ -37,18 +37,16 @@ describe "Crysterm config integration" do
   end
 
   it "resolves image.backend, including 'auto' detection" do
-    # Explicit backend is used as-is. Set it from a string (as a config file /
-    # dump would), proving the enum option reloads from its rendered form.
+    # Set from a string (as a config file / dump would) to prove the enum reloads from its rendered form.
     Crysterm::Config["media.backend"].set_from_string "kitty", Superconf::Source::Runtime, "spec"
     Crysterm::Widget::Media.default_type.should eq Crysterm::Widget::Media::Type::Kitty
 
-    # 'auto' resolves the best backend against the terminal (a constructed Tput,
-    # so the test is independent of the host terminal and any global screen).
+    # 'auto' resolves against a constructed Tput, independent of the host
+    # terminal and any global screen.
     Crysterm::Config.set "media.backend", Crysterm::Widget::Media::Backend::Auto
     ti = (Unibilium.from_env rescue Unibilium.from_terminal("xterm"))
-    # `probe: false` — emulator facts are set explicitly below, so suppress the
-    # live terminal probe that would otherwise write query sequences to STDOUT
-    # (and echo the replies) into the middle of the spec run's progress output.
+    # probe: false — emulator facts are set explicitly below; suppress the live
+    # terminal probe, which would otherwise write query sequences into spec output.
     tput = Tput.new(terminfo: ti, input: STDIN, output: STDOUT, probe: false)
 
     # Picks Kitty when the terminal speaks the kitty graphics protocol...
@@ -56,19 +54,19 @@ describe "Crysterm config integration" do
     Crysterm::Widget::Media.resolve(Crysterm::Widget::Media::Content::Image, tput)
       .should eq Crysterm::Widget::Media::Type::Kitty
 
-    # ...the user 'umask' (image.exclude) removes it, so the next-best wins...
+    # ...excluding it (image.exclude) lets the next-best win...
     Crysterm::Config.set "media.exclude", "kitty,sixel"
     Crysterm::Widget::Media.resolve(Crysterm::Widget::Media::Content::Image, tput)
       .should_not eq Crysterm::Widget::Media::Type::Kitty
     Crysterm::Config.set "media.exclude", ""
 
-    # ...and with no graphics protocol it falls back to a cell backend.
+    # ...with no graphics protocol it falls back to a cell backend.
     tput.emulator.kitty = false
     fallback = Crysterm::Widget::Media.resolve(Crysterm::Widget::Media::Content::Image, tput)
     [Crysterm::Widget::Media::Type::Glyph, Crysterm::Widget::Media::Type::Ansi].should contain fallback
   ensure
     Crysterm::Config.set "media.exclude", ""
-    Crysterm::Config.set "media.backend", Crysterm::Widget::Media::Backend::Auto # restore (Runtime default)
+    Crysterm::Config.set "media.backend", Crysterm::Widget::Media::Backend::Auto # restore
   end
 
   it "validates and tracks source through the alias" do

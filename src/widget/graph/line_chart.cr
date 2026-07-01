@@ -7,11 +7,10 @@ module Crysterm
   class Widget
     module Graph
       # An X/Y chart, modeled after Qt Charts' `QChart` rather than
-      # blessed-contrib's `line`. The plot itself is drawn on a `Graph::Canvas`
-      # (so it uses the best graphics backend the terminal supports — sixel/kitty,
-      # else braille), while the *chrome* — title, value axes with ticks/labels,
-      # and legend — is real terminal text laid out around it. This is the
-      # "plot = pixels, labels = text" split, and it's why the axis text stays
+      # blessed-contrib's `line`. The plot is drawn on a `Graph::Canvas` (best
+      # graphics backend available — sixel/kitty, else braille), while the
+      # chrome — title, axes with ticks/labels, legend — is real terminal text
+      # around it. This "plot = pixels, labels = text" split keeps axis text
       # crisp and selectable on every backend.
       #
       # Qt-style pieces:
@@ -94,10 +93,9 @@ module Crysterm
         property? show_legend : Bool
         property? show_grid : Bool
 
-        # The Canvas the plot is drawn on. Built in `#initialize` after `super`
-        # (so it is stored nilable but is never `nil` post-construction). The
-        # `plot` accessor raises if read before construction completes; `plot?`
-        # is the nilable variant.
+        # The Canvas the plot is drawn on. Built in `#initialize` after `super`,
+        # so stored nilable but never `nil` post-construction. `plot` raises if
+        # read before construction completes; `plot?` is the nilable variant.
         getter! plot : Canvas
 
         # Resolved data ranges for the current frame (set in `#compute_ranges`,
@@ -164,13 +162,13 @@ module Crysterm
 
         def render(with_children = true)
           compute_ranges
-          # Tick positions are stable for the whole frame; compute each axis once
-          # here and reuse them in #margins, #paint_plot and #draw_chrome.
+          # Tick positions are stable for the whole frame; compute each axis
+          # once and reuse in #margins, #paint_plot and #draw_chrome.
           @x_ticks = axis_values(axis_x, @xmin, @xmax)
           @y_ticks = axis_values(axis_y, @ymin, @ymax)
           lm, tm, rm, bm = margins
-          # Position the plot Canvas inside the chrome margins (no width/height ->
-          # auto-stretch to the remaining interior).
+          # Position the plot Canvas inside the chrome margins (no width/height
+          # -> auto-stretch to the remaining interior).
           pl = plot
           pl.left = lm
           pl.top = tm
@@ -209,7 +207,7 @@ module Crysterm
         # --- plot (drawn on the Canvas) ---------------------------------------
 
         private def paint_plot(p : Painter) : Nil
-          # Logical window with Y flipped (data up ⇒ window up): height is negative.
+          # Logical window with Y flipped (data up = window up): height is negative.
           p.set_window @xmin, @ymax, @xmax - @xmin, @ymin - @ymax
 
           if show_grid?

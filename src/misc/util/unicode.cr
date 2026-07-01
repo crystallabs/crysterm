@@ -3,16 +3,15 @@ module Crysterm
   # support).
   #
   # Terminal layout is measured in **columns**, not codepoints: a combining mark
-  # occupies 0 columns, an East-Asian-Wide / emoji glyph occupies 2, and
-  # everything else 1. This module answers "how many columns does this text
-  # occupy", operating on **grapheme clusters** (via Crystal's UAX-#29
-  # `String#each_grapheme`) so a user-perceived character is measured — and later
-  # stored/rendered — as a single unit.
+  # occupies 0 columns, an East-Asian-Wide / emoji glyph occupies 2, everything
+  # else 1. This module answers "how many columns does this text occupy",
+  # operating on **grapheme clusters** (via Crystal's UAX-#29
+  # `String#each_grapheme`) so a user-perceived character is measured as a
+  # single unit.
   #
-  # The width rules are the common, pragmatic `wcwidth` + East-Asian-Width
-  # convention (à la Markus Kuhn's `wcwidth`, plus emoji). Terminals themselves
-  # disagree on a few cases (ambiguous-width chars, ZWJ emoji, flags); the rest
-  # of Crysterm should treat the values here as the authoritative cell width.
+  # Width rules follow the common `wcwidth` + East-Asian-Width convention plus
+  # emoji. Terminals disagree on a few cases (ambiguous-width chars, ZWJ emoji,
+  # flags); treat the values here as authoritative.
   #
   # NOTE (known approximation): zero-width detection uses `Char#mark?`, which
   # also matches spacing combining marks (general category Mc). True `wcwidth`
@@ -29,15 +28,11 @@ module Crysterm
     # Display width, in terminal columns, of a whole string: the sum of the
     # widths of its grapheme clusters.
     def display_width(string : String) : Int32
-      # Fast path for ASCII-only content (the bulk of typical TUI text, even in a
-      # `full_unicode` app): every ASCII codepoint is its own width-1 grapheme —
-      # no combining marks, wide glyphs, VS16 promotion, or flag pairs — so the
-      # column width is exactly the character count. `#ascii_only?` is O(1) once
-      # the string's `size` is memoized (it tests `bytesize == size`), and for
-      # ASCII `bytesize == size`, so return it directly. This skips the whole
-      # `each_grapheme` walk (a `Char::Reader` decode + grapheme-break state
-      # machine per char) AND the per-grapheme `String` allocation that
-      # `width(Grapheme)`'s `#to_s` otherwise incurs on every character.
+      # Fast path for ASCII-only content: every ASCII codepoint is its own
+      # width-1 grapheme (no combining marks, wide glyphs, VS16 promotion, or
+      # flag pairs), so column width equals bytesize. Skips the `each_grapheme`
+      # walk (decode + grapheme-break state machine per char) and the
+      # per-grapheme `String` allocation `width(Grapheme)`'s `#to_s` incurs.
       return string.bytesize if string.ascii_only?
       w = 0
       string.each_grapheme { |g| w += width(g) }
@@ -59,13 +54,12 @@ module Crysterm
       return 0 if grapheme.empty?
 
       first = grapheme[0]
-      # A flag is a cluster of regional indicators; it renders in 2 columns.
+      # A flag is a cluster of regional indicators; renders in 2 columns.
       return 2 if regional_indicator? first.ord
 
       w = codepoint_width first
-      # An emoji-presentation selector (VS16) promotes a narrow base to a wide
-      # glyph. VS16 can only occur in a multi-codepoint cluster, so the common
-      # single-codepoint grapheme skips the full-string `includes?` byte scan.
+      # VS16 promotes a narrow base to a wide glyph; it can only occur in a
+      # multi-codepoint cluster, so single-codepoint graphemes skip the scan.
       if w < 2 && grapheme.size > 1 && grapheme.includes? '\u{FE0F}'
         w = 2
       end
@@ -82,9 +76,8 @@ module Crysterm
     # zero-width), 2 (East-Asian-Wide / emoji), or 1 (everything else).
     def codepoint_width(char : Char) : Int32
       cp = char.ord
-      # Fast path for printable ASCII (the bulk of typical TUI content): always
-      # 1 column, never control/combining/zero-width/wide — so skip the
-      # `mark?` category lookup and the `wide?` binary search below.
+      # Fast path for printable ASCII: always 1 column, so skip the `mark?`
+      # category lookup and the `wide?` binary search below.
       return 1 if 0x20 <= cp <= 0x7E
       return 0 if cp == 0
       return 0 if char.control?

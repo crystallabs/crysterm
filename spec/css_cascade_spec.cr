@@ -7,12 +7,10 @@ private def headless_screen
 end
 
 # Runs *block* with the global default (user-agent) stylesheet emptied, then
-# restores it. The first `Window` auto-installs the config-driven default theme
-# (dark) into that global; its `Button:focus`/`Box:selected`/base-color rules
-# would otherwise materialize extra state styles / base colors and break specs
-# that assert author-CSS *cascade mechanics* in isolation. Must run after the
-# screen exists (the auto-install would override an earlier reset), and restores
-# so the theme-dependent rendering specs in other files still get their theme.
+# restores it. The auto-installed default theme would otherwise materialize
+# extra state styles/base colors and break specs asserting cascade mechanics in
+# isolation. Must run after the screen exists (auto-install would override an
+# earlier reset).
 private def without_default_theme(&)
   saved = Crysterm::CSS.default_stylesheet
   Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new
@@ -55,12 +53,9 @@ describe "CSS cascade" do
     CSS
     screen.apply_stylesheet
 
-    # base still applies in the focused state...
-    button.styles.focused.bold?.should be_true
-    # ...but the more specific :focus rule overrides color
-    button.styles.focused.fg.should eq rgb("green")
-    # normal state is unaffected by the :focus rule
-    button.styles.normal.fg.should eq rgb("red")
+    button.styles.focused.bold?.should be_true      # base still applies
+    button.styles.focused.fg.should eq rgb("green") # :focus overrides color
+    button.styles.normal.fg.should eq rgb("red")    # normal unaffected
   end
 
   it "matches the type chain so a base-class rule styles subclasses" do
@@ -140,16 +135,13 @@ describe "CSS cascade" do
 
   it "lets an inline sub-style outrank a sub-element rule (inline beats author/default)" do
     screen = headless_screen
-    # Inline `indicator` sub-style — the same shape the theme's
-    # `ProgressBar::indicator { color: accent }` would otherwise override.
     bar = Widget::ProgressBar.new style: Style.new(indicator: Style.new(fg: rgb("green")))
     screen.append bar
 
     screen.stylesheet = "ProgressBar::indicator { color: red; }"
     screen.apply_stylesheet
 
-    # Inline (`TIER_INLINE`) outranks the author sub-element rule, just as it does
-    # for the main style — the sub-element path must honor the same contract.
+    # Inline (`TIER_INLINE`) outranks the author sub-element rule, same as the main style.
     bar.styles.normal.indicator.fg.should eq rgb("green")
   end
 
@@ -159,10 +151,9 @@ describe "CSS cascade" do
     screen.append bar
     bar.state = WidgetState::Focused
 
-    # The widget-level `:focus` rule materializes the focused state; the base
-    # `::indicator` rule (no state of its own) must fold into it too, so a focused
-    # bar's indicator is themed identically to an unfocused one — not reverted to
-    # pristine.
+    # The base `::indicator` rule (no state of its own) must fold into the
+    # materialized `:focus` state too, so a focused bar's indicator is themed
+    # identically to an unfocused one — not reverted to pristine.
     screen.stylesheet = <<-CSS
       ProgressBar::indicator { color: cyan; }
       ProgressBar:focus { background-color: blue; }
@@ -199,8 +190,6 @@ describe "CSS cascade" do
     screen.append base_only
     screen.append stateful
 
-    # Isolate from the default theme, whose `Button:focus`/`:disabled` and
-    # `Box:selected` rules would themselves materialize state styles.
     without_default_theme do
       screen.stylesheet = <<-CSS
         Button { color: red; }
@@ -208,11 +197,9 @@ describe "CSS cascade" do
       CSS
       screen.apply_stylesheet
 
-      # base-only widget: no distinct focused style was built; it lazily resolves
-      # to normal
+      # base-only widget: no distinct focused style built, lazily resolves to normal
       base_only.styles.focused.should be base_only.styles.normal
-      # stateful widget: a distinct focused style exists
-      stateful.styles.focused.should_not be stateful.styles.normal
+      stateful.styles.focused.should_not be stateful.styles.normal # distinct style exists
       stateful.styles.focused.fg.should eq rgb("green")
     end
   end
@@ -225,8 +212,7 @@ describe "CSS cascade" do
     screen.stylesheet = "Button:blurred { color: red; }"
     screen.apply_stylesheet
 
-    # The selector must peel to `Button` (not be corrupted to `Buttonred`
-    # by stripping the shorter `:blur`), so the rule matches in the blurred state.
+    # Must peel to `Button`, not corrupted by stripping the shorter `:blur` substring.
     button.styles.blurred.fg.should eq rgb("red")
   end
 
@@ -267,9 +253,7 @@ describe "CSS cascade" do
     box = Widget::Box.new
     screen.append box
 
-    # A standard CSS `box-shadow` with a `0` offset must not read that `0` as
-    # alpha 0 (a fully transparent, invisible shadow) — only a fractional number
-    # is the opacity.
+    # A `0` offset must not be read as alpha 0 — only a fractional number is opacity.
     screen.stylesheet = "Box { box-shadow: 0 4px 8px rgba(0,0,0,0.5); }"
     screen.apply_stylesheet
 
@@ -296,8 +280,7 @@ describe "CSS cascade" do
     screen.append on
     screen.append off
 
-    # Isolate from the default theme, which would set a base text color on the
-    # unchecked box (making its `fg` non-nil).
+    # Isolate from the default theme, which sets a base text color on the unchecked box.
     without_default_theme do
       screen.stylesheet = "CheckBox[checked] { color: red; }"
       screen.apply_stylesheet
@@ -353,8 +336,7 @@ describe "CSS cascade" do
     screen.append a
     screen.append b
 
-    # `Box + Button` (type names + adjacent-sibling combinator) is rewritten to
-    # `.Box + .Button` and matched against the document.
+    # Type names + adjacent-sibling combinator rewrite to `.Box + .Button`.
     screen.stylesheet = "Box + Button { color: red; }"
     screen.apply_stylesheet
 
@@ -397,10 +379,9 @@ describe "CSS cascade" do
     box = Widget::Box.new
     screen.append box
 
-    # The outer `--brand` is defined, so its value wins and the nested-var
-    # fallback is dropped. A fallback parsed only up to the first `)` would
-    # leave a stray `)` (`cyan)`), which is not a valid color and silently
-    # fails to apply.
+    # Outer `--brand` is defined, so the nested-var fallback is dropped. A
+    # fallback parsed only to the first `)` would leave a stray `)` (`cyan)`),
+    # an invalid color.
     screen.stylesheet = <<-CSS
       :root { --brand: cyan; }
       Box { color: var(--brand, var(--other, red)); }
@@ -424,9 +405,8 @@ describe "CSS cascade" do
       box.styles.normal.fg.should eq rgb("red")  # author tier beats default tier
       box.styles.normal.bg.should eq rgb("gray") # default supplies what author omits
     ensure
-      # Restore the global UA sheet (the auto-installed theme), not blank it — a
-      # later `= ""` would strip the theme that other files' rendering specs rely
-      # on (suite order runs them after this file).
+      # Restore the global UA sheet: other files' rendering specs rely on the
+      # theme and run after this file.
       Crysterm::CSS.default_stylesheet = saved
     end
   end
@@ -439,12 +419,10 @@ describe "CSS cascade" do
     screen.stylesheet = "Button { color: red; background-color: blue; }"
     screen.apply_stylesheet
 
-    # inline color beats the author rule; the author bg still applies since
-    # inline didn't set one (per-property fold)
+    # inline color beats the author rule; author bg still applies (per-property fold)
     button.styles.normal.fg.should eq rgb("lime")
     button.styles.normal.bg.should eq rgb("blue")
-    # the getter returns the computed style (not the raw inline object)
-    button.style.fg.should eq rgb("lime")
+    button.style.fg.should eq rgb("lime") # getter returns computed style, not raw inline
   end
 
   it "lets !important beat inline @style" do
@@ -468,8 +446,8 @@ describe "CSS cascade" do
     box = Widget::Box.new style: inline
     screen.append box
 
-    # An author rule that touches the widget but not these fields must not drop
-    # the inline-set values during the reset-and-recompute.
+    # An author rule not touching these fields must not drop inline-set values
+    # during reset-and-recompute.
     screen.stylesheet = "Box { color: red; }"
     screen.apply_stylesheet
 
@@ -519,7 +497,7 @@ describe "CSS cascade" do
     box = Widget::Box.new
     screen.append box
 
-    # A capitalized keyword (as a Qt theme may emit) must still apply.
+    # A capitalized keyword must still apply.
     screen.stylesheet = "Box { text-align: CENTER; }"
     screen.apply_stylesheet
     box.align.should eq Tput::AlignFlag::HCenter
@@ -642,8 +620,7 @@ describe "CSS cascade" do
     screen.apply_stylesheet
     button.styles.normal.fg.should eq rgb("white") # form not focused
 
-    # focusing the form invalidates styling (dynamic state) and the recascade
-    # makes the ancestor-state rule match
+    # focusing the form invalidates styling; recascade makes the ancestor-state rule match
     form.state = WidgetState::Focused
     screen.css_dirty?.should be_true
     screen.apply_stylesheet
@@ -740,8 +717,7 @@ describe "CSS cascade" do
   end
 
   it "styles checkable widgets by native :checked/:indeterminate (plain author CSS, no .qss)" do
-    # Standard Selectors-L4 pseudos must work in an ordinary stylesheet, not only
-    # when translated from Qt — `Stylesheet` lowers them to the backing attributes.
+    # Standard Selectors-L4 pseudos must work in ordinary CSS, not only via Qt translation.
     screen = headless_screen
     on = Widget::CheckBox.new checked: true
     off = Widget::CheckBox.new checked: false
@@ -829,7 +805,6 @@ describe "CSS cascade" do
       flat = Widget::GroupBox.new title: "B", flat: true
       screen.append framed
       screen.append flat
-      # Mirrors the theme's `GroupBox { border: solid } / GroupBox[flat] { border: none }`.
       screen.stylesheet = "GroupBox { border: solid; }\nGroupBox[flat] { border: none; }"
       screen.apply_stylesheet
 
@@ -857,9 +832,7 @@ describe "CSS cascade" do
   end
 
   it "routes a native ::slot pseudo-element to its sub-style (plain author CSS, no .qss)" do
-    # The idiomatic `Type::slot` spelling must resolve in an ordinary stylesheet,
-    # not only when translated from Qt — `Stylesheet` lowers `::indicator` to the
-    # `Indicator` descendant slot node.
+    # The idiomatic `Type::slot` spelling must resolve without Qt translation.
     screen = headless_screen
     pb = Widget::ProgressBar.new
     slider = Widget::Slider.new
@@ -904,8 +877,7 @@ describe "CSS cascade" do
     screen.stylesheet = "Box { color: green; }" # unrelated rule
     screen.apply_stylesheet
     screen._render
-    # `style.tab` fell back to `self`, so the bridge is a no-op and the tabs keep
-    # ListBar's own item styling (the default look is unchanged).
+    # `style.tab` falls back to `self`, so the bridge is a no-op.
     tabs.style.tab.same?(tabs.style).should be_true
   end
 
@@ -986,14 +958,13 @@ describe "CSS cascade" do
     screen.stylesheet = "Box { color: red; }"
     screen.apply_stylesheet
 
-    # mutate the computed style directly, then re-apply with nothing changed:
-    # the document is byte-identical, so the cascade is skipped and our mutation
-    # survives (proving no recompute happened)
+    # Mutate the computed style, then re-apply with nothing changed: cascade is
+    # skipped (byte-identical document) so the mutation survives.
     box.styles.normal.fg = Crysterm::Colors.convert("green").to_i32
     screen.apply_stylesheet
     box.styles.normal.fg.should eq rgb("green")
 
-    # a real change (new class) invalidates the document cache and recomputes
+    # a real change (new class) invalidates the cache and recomputes
     screen.stylesheet = ".hot { color: red; }"
     box.add_css_class "hot"
     screen.apply_stylesheet
@@ -1237,14 +1208,13 @@ describe "CSS cascade" do
   it "applies an ancestor-position :has() rule to the right widget" do
     without_default_theme do
       screen = headless_screen
-      # f1's Button should match: its ancestor Form has an .error descendant.
+      # f1's Button matches (Form ancestor has an .error descendant); f2's doesn't.
       f1 = Widget::Form.new
       err = Widget::Box.new
       err.add_css_class "error"
       b1 = Widget::Button.new
       f1.append err
       f1.append b1
-      # f2's Button should not: its Form has no .error descendant.
       f2 = Widget::Form.new
       b2 = Widget::Button.new
       f2.append b2
@@ -1412,10 +1382,9 @@ describe "CSS cascade" do
   end
 
   it "preserves a widget hidden before the first cascade" do
-    # Regression: a widget `hide`-d at construction (visibility on the inline
-    # style) must stay hidden once CSS takes over. Before the fix the cascade
-    # rebuilt the computed style from a snapshot taken with `visible: true` and
-    # `fold_inline` didn't carry `visible`, so the widget reappeared.
+    # Regression: a widget hidden at construction must stay hidden once CSS
+    # takes over. The cascade used to rebuild from a `visible: true` snapshot
+    # and `fold_inline` didn't carry `visible`.
     screen = headless_screen
     box = Widget::Box.new parent: screen, style: Style.new(border: true)
     box.hide
@@ -1430,7 +1399,7 @@ describe "CSS cascade" do
 
   it "keeps an imperative show/hide across a recascade" do
     # Once `css_styled`, show/hide persist onto the inline style so a later
-    # cascade (which resets to the base snapshot + folds inline) doesn't revert.
+    # cascade (reset to base snapshot + fold inline) doesn't revert it.
     screen = headless_screen
     box = Widget::Box.new parent: screen, style: Style.new(border: true)
     box.hide
@@ -1469,13 +1438,10 @@ describe "CSS cascade" do
       screen.apply_stylesheet
 
       style = table.styles.normal
-      # The alternate row gets its own background...
-      style.alternate_row.bg.should eq rgb("blue")
-      # ...without leaking into the main/cell style (whose getter is the fallback).
-      style.bg.should be_nil
+      style.alternate_row.bg.should eq rgb("blue") # alternate row gets its own bg
+      style.bg.should be_nil                       # doesn't leak into main/cell style
       style.cell.bg.should be_nil
-      # The main foreground is unaffected.
-      style.fg.should eq rgb("red")
+      style.fg.should eq rgb("red") # main foreground unaffected
     end
   end
 
@@ -1494,11 +1460,9 @@ describe "CSS cascade" do
       # Selection colors land on the selected state, not normal.
       list.styles.selected.fg.should eq rgb("yellow")
       list.styles.selected.bg.should eq rgb("magenta")
-      # ...and override the base color folded into the selected state.
-      list.styles.normal.fg.should eq rgb("white")
+      list.styles.normal.fg.should eq rgb("white") # base color folded into selected
       list.styles.normal.bg.should eq rgb("black")
-      # A distinct selected style was materialized (not the lazy normal fallback).
-      list.styles.selected.should_not be list.styles.normal
+      list.styles.selected.should_not be list.styles.normal # distinct style materialized
     end
   end
 
@@ -1515,8 +1479,7 @@ describe "CSS cascade" do
       CSS
       screen.apply_stylesheet
 
-      # The id selector is more specific, so it wins on the selected state.
-      list.styles.selected.bg.should eq rgb("green")
+      list.styles.selected.bg.should eq rgb("green") # id selector wins
     end
   end
 end
@@ -1567,7 +1530,7 @@ describe "CSS::ColorValue" do
   it "resolves hsl() and wraps a negative hue" do
     Crysterm::CSS::ColorValue.resolve("hsl(120, 100%, 50%)", nil).should eq 0x00ff00 # green
     Crysterm::CSS::ColorValue.resolve("hsl(240, 100%, 50%)", nil).should eq 0x0000ff # blue
-    # A negative hue is valid CSS and wraps: -120 ≡ 240 (blue), not |−120| = 120.
+    # A negative hue wraps: -120 ≡ 240 (blue), not |−120| = 120.
     Crysterm::CSS::ColorValue.resolve("hsl(-120, 100%, 50%)", nil).should eq 0x0000ff
     Crysterm::CSS::ColorValue.resolve("hsl(-240, 100%, 50%)", nil).should eq 0x00ff00
   end
@@ -1599,8 +1562,7 @@ describe "CSS::ColorValue" do
     Crysterm::CSS::Properties.apply(hidden, "visibility", "Hidden")
     hidden.visible?.should be_false
 
-    # a border-style keyword still resolves when shouted (`DASHED`, distinct
-    # from the default `Line`, so this proves the keyword actually matched)
+    # `DASHED` differs from the default `Line`, proving the keyword matched.
     bordered = Crysterm::Style.new
     Crysterm::CSS::Properties.apply(bordered, "border", "DASHED")
     bordered.border.type.should eq Crysterm::BorderType::Dashed
@@ -1646,8 +1608,7 @@ describe "CSS::ColorValue" do
     vars = {"--accent" => "red"}
     Crysterm::CSS::Stylesheet.resolve_var("VAR(--accent)", vars).should eq "red"
     Crysterm::CSS::Stylesheet.resolve_var("Var(--accent)", vars).should eq "red"
-    # The name inside is case-sensitive: `--Accent` is undefined, so it falls
-    # back to empty (no fallback given) rather than resolving to `--accent`.
+    # `--Accent` is undefined (case-sensitive), so it falls back to empty.
     Crysterm::CSS::Stylesheet.resolve_var("var(--Accent)", vars).should eq ""
   end
 
@@ -1686,13 +1647,12 @@ describe "CSS::ColorValue" do
     button = Widget::Button.new
     screen.append button
     without_default_theme do
-      # `button` (lowercase) is not the PascalCase `Button` type, so it must not
-      # match — CSS keywords are case-insensitive, but type/widget names are not.
+      # Type/widget names are case-sensitive unlike CSS keywords.
       screen.stylesheet = "button { color: red; }"
       screen.apply_stylesheet
       button.styles.normal.fg.should be_nil
 
-      # ...while the correctly-cased `Button` does match.
+      # Correctly-cased `Button` does match.
       screen.stylesheet = "Button { color: red; }"
       screen.apply_stylesheet
       button.styles.normal.fg.should eq rgb("red")

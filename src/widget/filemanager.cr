@@ -40,13 +40,10 @@ module Crysterm
       # is replaced with the current directory on every navigation.
       property label_format : String?
 
-      # The real entry names (`".."`, `"foo"`, …), parallel to the rendered rows.
-      # Kept so `#open_selected` resolves the path from the *actual* name rather
-      # than reverse-engineering it from the decorated row text — that text
-      # carries color tags and a `/`/`@` suffix, so a filename containing a
-      # `{...}` tag-like sequence (stripped by `clean_tags`) or ending in `@`
-      # (stripped as a symlink decoration) would otherwise resolve to the wrong
-      # path. Storing the names is also cheaper (no per-activation tag strip).
+      # Real entry names (`".."`, `"foo"`, …), parallel to the rendered rows.
+      # `#open_selected` resolves from these rather than the decorated row text,
+      # which carries color tags and a `/`/`@` suffix that could mangle a
+      # filename containing `{...}` or a trailing `@`.
       @entry_names = [] of String
 
       @ev_file : Crysterm::Event::OpenFile::Wrapper?
@@ -54,7 +51,7 @@ module Crysterm
 
       def initialize(cwd : String? = nil, label : String? = nil, keys = nil, **list)
         # `keys` is absorbed here: an item view always enables key handling, so
-        # forwarding it would duplicate the `keys:` argument it passes to `super`.
+        # forwarding it would duplicate the `keys:` arg passed to `super`.
         @cwd = cwd || Dir.current
         @initial_cwd = @cwd
         @file = @cwd
@@ -127,10 +124,8 @@ module Crysterm
       end
 
       # Resets the file manager back to its initial directory (or *cwd*, when
-      # given) and reloads. Returns to the directory the manager was constructed
-      # with — *not* `@file`, which is the most recently selected *entry* and can
-      # be a regular file (whose `Dir.children` listing would fail, making the
-      # reset silently do nothing).
+      # given) and reloads. Uses the construction-time directory, not `@file`
+      # (the last-selected entry, which can be a regular file).
       def reset(cwd : String? = nil)
         @cwd = cwd || @initial_cwd
         refresh
@@ -187,9 +182,8 @@ module Crysterm
 
       private def open_selected
         return if @items.empty?
-        # Resolve from the stored real name (see `@entry_names`), not from the
-        # decorated row text — that would mishandle names with `{...}` tag-like
-        # sequences or a trailing `@`.
+        # Resolve from the stored real name (see `@entry_names`), not the
+        # decorated row text.
         name = @entry_names[selected]?
         return unless name
 

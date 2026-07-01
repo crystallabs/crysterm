@@ -1,10 +1,8 @@
-# IMPRESSIVE DEMO: a true-color image overlay via Überzug / Überzug++.
+# True-color image overlay demo via Überzug / Überzug++.
 #
-# `Widget::Media::Ueberzug` is the modern successor to the w3mimgdisplay overlay:
-# it drives the external `ueberzug`/`ueberzugpp` helper (JSON on stdin), which
-# paints the actual image pixels in an X11 child window placed over the terminal
-# — full photographic quality, positioned in terminal cells. Here: the
-# Matterhorn.
+# `Widget::Media::Ueberzug` succeeds the w3mimgdisplay overlay: it drives the
+# external `ueberzug`/`ueberzugpp` helper (JSON on stdin), which paints the
+# image in an X11 child window positioned over the terminal in cell coords.
 #
 # Needs the `ueberzug` (or `ueberzugpp`) binary on PATH and a real X display.
 

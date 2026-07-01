@@ -3,8 +3,8 @@ require "../../widget_pine_selectable_list"
 module Crysterm
   class Widget
     module Pine
-      # The Pine/Alpine ADDRESS BOOK: a selectable list of contacts, each with a
-      # short nickname, a full name and an email address.
+      # Pine/Alpine address book: a selectable list of contacts, each with a
+      # nickname, a full name, and an email address.
       #
       # ```
       #   john     John Smith            john.smith@example.com

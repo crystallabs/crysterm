@@ -2,12 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Symmetric counterpart to `widget_reparent_screen_child_spec.cr`: that one
-# covers pulling a top-level widget INTO a widget; this one covers moving a
-# widget ONTO a screen (making it top-level). `Window#insert` previously never
-# detached the element from its old home, so the move left it double-parented —
-# still listed in the old container's `children` while also listed in the new
-# screen's, rendered twice and repainting on a container it no longer belongs to.
+# Counterpart to `widget_reparent_screen_child_spec.cr` (pulling a top-level
+# widget into a widget); this covers moving a widget onto a screen. `Window#insert`
+# previously never detached the element from its old home, leaving it
+# double-parented: listed in both the old container's and new screen's `children`,
+# rendered twice.
 
 private def headless_screen
   Crysterm::Window.new(

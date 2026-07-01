@@ -12,18 +12,16 @@ private def abrs_screen
     default_quit_keys: false)
 end
 
-# Renders once headlessly so the bar gets an `@lpos` (its `#selekt` scroll math,
-# and thus the `selected` index, only updates once laid out).
+# Renders once so the bar gets an `@lpos` (`#selekt` scroll math, and thus
+# `selected`, only updates once laid out).
 private def abrs_render(s)
   s._render
 end
 
-# `Mixin::ActionBar#remove_item` realigns the selection cursor when a command is
-# removed, but the realignment must keep the cursor off non-selectable
-# *separators* — exactly as `#move` and `#add`'s auto-select already do.
+# `Mixin::ActionBar#remove_item` realigns the selection cursor on removal, but
+# must keep it off non-selectable separators, like `#move`/`#add` already do.
 # Removing the selected command when its prior neighbor is a separator used to
-# land the highlight on that separator: a dead cursor whose Enter does nothing
-# and which the user could only escape by arrowing off it.
+# land the highlight there — a dead cursor whose Enter does nothing.
 describe "Mixin::ActionBar#remove_item separator skipping" do
   it "skips back over a separator when the selected command is removed" do
     s = abrs_screen
@@ -38,8 +36,8 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
     bar.ritems[bar.selected].should eq "b"
 
     bar.remove_item bar.items[2] # remove the selected "b"
-    # The prior command is the separator at index 1; the cursor must skip back
-    # to the selectable "a" at index 0 rather than settle on the separator.
+    # Prior command is the separator at index 1; cursor must skip back to the
+    # selectable "a" rather than settle on the separator.
     bar.selected.should eq 0
     bar.commands[bar.selected].separator?.should be_false
     bar.ritems[bar.selected].should eq "a"
@@ -58,7 +56,7 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
 
     bar.remove_item bar.items[1] # remove the selected "a"
     # Index 0 (now-only-preceding) is a separator with nothing selectable
-    # before it, so the cursor must fall forward to "b".
+    # before it, so cursor falls forward to "b".
     bar.commands[bar.selected].separator?.should be_false
     bar.ritems[bar.selected].should eq "b"
   end

@@ -2,19 +2,16 @@ require "../src/crysterm"
 
 # Whole-frame profile on a representative UI: nested bordered boxes with content,
 # a list, and per-frame mutation (simulating an animation/live update). Reports
-# the deterministic metric that matters — heap allocation per frame — plus the
-# render-vs-draw time split (from the screen's own per-frame counters). Use this
-# to judge whether the per-frame path still has fat to trim, or whether further
-# wins require structural change (damage tracking, etc.).
+# heap allocation per frame plus the render-vs-draw time split (from the
+# screen's own per-frame counters).
 #
 # Run:  crystal run --release benchmarks/frame-profile.cr
 
 include Crysterm
 
-# Pinned to the full-recomposite path: this section measures the baseline
-# per-frame compositing cost. (Damage tracking is now the default, so without
-# this the STATIC pass would hit the no-change fast-path skip and stop measuring
-# what it is here to measure; the OFF/ON passes below do the damage comparison.)
+# Pinned to the full-recomposite path to measure baseline per-frame compositing
+# cost. Damage tracking is the default, so without this the STATIC pass would
+# hit the no-change fast-path skip; OFF/ON passes below do the damage comparison.
 screen = Screen.new(
   input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
   width: 120, height: 40,
@@ -47,8 +44,8 @@ FRAMES = 3000
 
 STDERR.puts "widgets≈#{4 + 4*6 + 1 + 12} (4 panels x6 rows + list x12 items), #{FRAMES} frames each"
 
-# Pass A: STATIC — nothing changes, just re-render. Isolates the baseline
-# per-frame compositing cost with no content reparse.
+# Pass A: STATIC — nothing changes, just re-render. Baseline per-frame
+# compositing cost with no content reparse.
 GC.collect
 before = GC.stats.total_bytes
 wall_a = Time.measure { FRAMES.times { screen._render } }
@@ -77,11 +74,10 @@ STDERR.printf "LIVE    alloc/frame: %5d bytes   wall/frame: %5.1f µs   (render 
 STDERR.printf "delta (4 content updates + list sel): %d bytes/frame (~%d per content update)\n",
   (live_alloc - static_alloc) // FRAMES, (live_alloc - static_alloc) // FRAMES // 4
 
-# Pass C: DAMAGE TRACKING — the headline metric for damage tracking. The SAME
-# scene as above, but only ONE widget changes per frame and the screen runs with
-# `OptimizationFlag::DamageTracking`. With damage tracking off this re-composites
-# all ~41 widgets every frame (O(N)); with it on, only the single changed
-# subtree is repainted (O(changed)). Compares both so the speedup is visible.
+# Pass C: DAMAGE TRACKING — same scene as above, but only ONE widget changes
+# per frame, comparing `OptimizationFlag::DamageTracking` off vs on. Off
+# re-composites all ~41 widgets every frame (O(N)); on, only the changed
+# subtree is repainted (O(changed)).
 private def build_scene(damage)
   s = Crysterm::Screen.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -125,12 +121,11 @@ end
 end
 
 # Pass D: PHASE 2 (overlap) — several *disjoint* overlap clusters (pairs of
-# overlapping panels, with pairs spaced apart). When one panel changes, damage
-# tracking recomposites just that panel's cluster (its pair) in z-order, not the
-# whole tree. With it off, every panel is re-composited each frame. (A fully
-# *connected* overlap chain would pull every panel into one cluster — then Phase
-# 2 correctly degenerates to a full recomposite with no win; the gain is real
-# only when clusters stay small relative to the widget count, as here.)
+# overlapping panels, spaced apart). When one panel changes, damage tracking
+# recomposites just its cluster in z-order, not the whole tree; off, every
+# panel is re-composited each frame. A fully *connected* overlap chain would
+# pull every panel into one cluster, degenerating to a full recomposite — the
+# gain here depends on clusters staying small relative to the widget count.
 private def build_overlap_scene(damage)
   s = Crysterm::Screen.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -168,11 +163,9 @@ end
 end
 
 # Pass E: PHASE 3 (alpha) — disjoint clusters, each an opaque base panel with a
-# translucent panel layered over it. One cluster's base changes per frame; the
-# translucent panel over it re-blends. With damage tracking off, every panel
-# (and every alpha blend) is recomputed each frame; with it on, only the changed
-# cluster's pair is recomposited (the alpha re-blends over the freshly rebuilt
-# base). Demonstrates that per-cell blend effects no longer force the full path.
+# translucent panel layered over it. One cluster's base changes per frame,
+# and its overlay re-blends. Off, every panel and blend is recomputed each
+# frame; on, only the changed cluster's pair is recomposited.
 private def build_alpha_scene(damage)
   s = Crysterm::Screen.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -210,15 +203,13 @@ end
   end
 end
 
-# Pass F: PHASE 4 (z-index plane) — the realistic plane workload: a static scene
-# of several opaque base panels filling the screen, plus ONE translucent
-# z-indexed overlay (a modal) covering a corner of it. Each frame, a base panel
-# *under* the overlay changes, so the overlay must re-blend over the freshly
-# rebuilt base region. With damage tracking off, every panel is re-composited and
-# the whole plane re-folded each frame (O(N)); with it on (Phase 4), only the
-# changed base panels and the plane's covered region are rebuilt and the plane is
-# re-folded over just that region (O(changed ∪ covered)). Before Phase 4 the ON
-# column matched OFF (planes always fell back to the full path).
+# Pass F: PHASE 4 (z-index plane) — a static scene of several opaque base panels
+# plus ONE translucent z-indexed overlay (a modal) covering a corner. Each frame,
+# a base panel *under* the overlay changes, forcing the overlay to re-blend over
+# the rebuilt region. Off, every panel and the whole plane are re-folded each
+# frame (O(N)); on, only the changed panels and the plane's covered region are
+# rebuilt (O(changed ∪ covered)). Before Phase 4, ON matched OFF here (planes
+# always fell back to the full path).
 private def build_plane_scene(damage)
   s = Crysterm::Screen.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -231,9 +222,8 @@ private def build_plane_scene(damage)
     bases << b
   end
   # One translucent z-indexed overlay over the far-left two panels (cols ~6..30).
-  # z-index/opacity are set via CSS — the supported way to promote a widget to a
-  # plane (the cascade folds them in; an inline `style.z_index=` is dropped by the
-  # first cascade run).
+  # z-index/opacity must be set via CSS to promote a widget to a plane — an
+  # inline `style.z_index=` is dropped by the first cascade run.
   overlay = Widget::Box.new(parent: s, top: 2, left: 6, width: 24, height: 8,
     style: Style.new(border: true, bg: 0x0055aa), content: "overlay")
   overlay.add_css_class "ov"

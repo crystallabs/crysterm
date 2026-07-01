@@ -3,16 +3,14 @@ module Crysterm
     # Drawing (displaying rendered state on screen).
     #
     # "Rendering" fills an (Y,X) array of cells in memory with the desired
-    # attributes and character (a framebuffer for the console). "Drawing" then
-    # diffs the current vs. desired screen state and emits the text + escape
-    # sequences needed to make the terminal match the in-memory picture in as few
-    # sequences as possible.
+    # attributes and character (a framebuffer). "Drawing" diffs current vs.
+    # desired screen state and emits the text + escape sequences needed to
+    # match the terminal to it in as few sequences as possible.
 
     # Any prefix we want the final buffer to have
     @_buf = IO::Memory.new
 
-    # Final buffer of data to print to screen. Contains content and escape sequences
-    # needed to make the screen look like desired by user.
+    # Final buffer of data to print to screen: content + escape sequences.
     @main : IO::Memory = IO::Memory.new 10_240 * 10
 
     # Temporary buffer for content and escape sequences for each individual row.
@@ -37,16 +35,15 @@ module Crysterm
     @pre = IO::Memory.new 1024
     @post = IO::Memory.new 1024
 
-    # Terminal control values used by the per-frame `#draw`. Derived from the
+    # Terminal control values used by the per-frame `#draw`, derived from the
     # connected terminal (terminfo + features) and constant for the screen's
-    # lifetime, so computed **once** here rather than per frame/cell. The static
+    # lifetime — computed **once** here rather than per frame/cell. Static
     # parameter-free sequences (`smacs`/`rmacs`/`el`) are captured (`dup`'d off
-    # terminfo's memory) for writing straight into the frame buffer. The
-    # parameterized hot-path sequences (`cup`/`cuf`/SGR) are emitted as direct
-    # ANSI at their call sites (terminfo `run` allocates a `Bytes` per call),
-    # gated on `ansi_cursor` so a non-conforming terminal falls back to the safe
-    # tput path. The `DrawCaps` record and `#compute_draw_caps` live on the
-    # device `Window`; read here via the delegated `#draw_caps`.
+    # terminfo's memory) for writing straight into the frame buffer. Parameterized
+    # hot-path sequences (`cup`/`cuf`/SGR) are emitted as direct ANSI at their call
+    # sites (terminfo `run` allocates a `Bytes` per call), gated on `ansi_cursor`
+    # so a non-conforming terminal falls back to the tput path. `DrawCaps` and
+    # `#compute_draw_caps` live on the device `Window`; read here via `#draw_caps`.
 
     # Bytes the previous `draw` wrote to the terminal (`@pre`+`@main`+`@post`).
     # Read by `_render` for `Widget::Fps` throughput. Zero on an unchanged frame.
@@ -62,8 +59,8 @@ module Crysterm
     # (e.g. raw newlines). The reset lives in an `ensure`, so a raising block
     # can't leave output permanently diverted; `dest` is written only on success.
     private def divert(buf : IO::Memory, dest : IO, & : IO::Memory ->) : Nil
-      # Clear here so the buffer can be safely reused across calls (callers used
-      # to either pass a throwaway `IO::Memory.new` or clear it themselves).
+      # Clear so the buffer can be reused across calls (callers used to either
+      # pass a throwaway `IO::Memory.new` or clear it themselves).
       buf.clear
       tput.ret = buf
       begin
@@ -77,9 +74,9 @@ module Crysterm
     # Whether to bracket each painted frame in a DEC 2026 *synchronized update*
     # (`\e[?2026h` … `\e[?2026l`) so the terminal presents it atomically,
     # eliminating flicker/tearing on a multi-write redraw. Markers are emitted
-    # only on frames that produce output (~14 bytes each), in the same write.
-    # Harmless on unsupporting terminals (ignored, auto-release after a timeout).
-    # Default from `Config.render_synchronized_output` (on).
+    # only on frames that produce output, in the same write. Harmless on
+    # unsupporting terminals (ignored, auto-release after a timeout). Default
+    # from `Config.render_synchronized_output` (on).
     property? synchronized_output : Bool = Config.render_synchronized_output
 
     # Draws the screen based on the contents of in-memory grid of cells (`@lines`).
@@ -96,8 +93,8 @@ module Crysterm
       acs = false
 
       # Terminal-constant capabilities (`@draw_caps`, via `#compute_draw_caps`),
-      # derived once per `@tput` and bound to locals here. Only `bce_opt` and
-      # `fu` — which can change at runtime — stay per-frame.
+      # bound to locals here. Only `bce_opt` and `fu` can change at runtime, so
+      # they stay per-frame.
       caps = draw_caps
       has_bce = caps.has_bce
       parm_right_cursor = caps.parm_right_cursor
@@ -114,7 +111,7 @@ module Crysterm
 
       bce_opt = @optimization.bce?
       fu = full_unicode?
-      # Whether the per-row scan may be bounded to the dirty-column range at all.
+      # Whether the per-row scan may be bounded to the dirty-column range.
       # BCE's clear look-ahead reaches past the changed span and full_unicode's
       # wide-grapheme continuations straddle cell boundaries, so both force a
       # full-width scan. Constant for the frame.
@@ -130,8 +127,7 @@ module Crysterm
       # The cursor that is actually drawn: the focused widget's own cursor if it
       # has one, else the screen default (see `Window#active_cursor`).
       c = active_cursor
-      # The artificial-cursor predicate and target position are constant for the
-      # whole draw, so hoist them out of the per-row/per-cell hot path.
+      # Constant for the whole draw, so hoisted out of the per-row/per-cell hot path.
       c_artificial = c.artificial?
       cursor_x = tput.cursor.x
       cursor_y = tput.cursor.y
@@ -140,9 +136,8 @@ module Crysterm
       # `draw` only scans dirty rows or the cursor's row, so when the cursor
       # moves to another row (or stops), the old row is otherwise untouched and
       # the cursor glyph in `@olines` would never be diffed away — a ghost cursor.
-      # Mark the vacated cell dirty so the diff re-emits the real content. Staying
-      # on the same cell needs no repair; a same-row move is covered by the full
-      # scan the cursor's row gets.
+      # Mark the vacated cell dirty so the diff re-emits the real content. A
+      # same-row move is covered by the full scan that row gets.
       draw_acur = c_artificial && !c._hidden && (c._state != 0) && cursor_y >= start && cursor_y <= stop
       new_acur_x = draw_acur ? cursor_x : -1
       new_acur_y = draw_acur ? cursor_y : -1
@@ -181,9 +176,9 @@ module Crysterm
         o_size = o_attrs.size
 
         # Whether either side of this row carries a grapheme overlay, hoisted
-        # once. When neither does (the overwhelming majority), the per-cell
-        # `grapheme_at?` probes all compare nil==nil and are skipped wholesale.
-        # `false` when full_unicode is off, collapsing the guards to a constant.
+        # once: when neither does (the common case), the per-cell `grapheme_at?`
+        # probes all compare nil==nil and are skipped wholesale. `false` when
+        # full_unicode is off, collapsing the guards to a constant.
         l_has_g = fu && line.has_graphemes?
         o_has_g = fu && o.has_graphemes?
         any_g = l_has_g || o_has_g
@@ -197,7 +192,7 @@ module Crysterm
 
         # Bound the per-cell scan to the columns that actually changed
         # (`[scan_lo, scan_hi]`), read before the dirty flag is cleared below.
-        # Only on the common fast path: BCE, full_unicode, or an artificial
+        # Only on the common fast path — BCE, full_unicode, or an artificial
         # cursor on this row all force a full-width scan (see `may_bound`).
         scan_lo = 0
         scan_hi = line_size - 1
@@ -234,14 +229,14 @@ module Crysterm
         # blank: erasing a run reaching the cursor with `el` would break out of
         # the scan before the cursor cell is emitted, leaving it undrawn (the
         # cursor attr lives only in `desired_attr`, not the buffer the look-ahead
-        # reads). `-1` in the common no-cursor case never matches a column.
+        # reads).
         acur_col = (draw_acur && y == cursor_y) ? cursor_x : -1
 
-        # When the scan starts past column 0, seed the skipped-run cursor exactly
-        # as the full scan's leading run over [0, scan_lo) would: set `lx = 0,
-        # ly = y` only if `lx` was -1 at row start; a leftover non-(-1) `lx` is
-        # preserved (so the first changed cell repositions with an absolute `cup`,
-        # matching the full scan). The row is prefixed with a cup to column 0 below.
+        # When the scan starts past column 0, seed the skipped-run cursor as the
+        # full scan's leading run over [0, scan_lo) would: set `lx = 0, ly = y`
+        # only if `lx` was -1 at row start; a leftover non-(-1) `lx` is preserved
+        # (so the first changed cell repositions with an absolute `cup`, matching
+        # the full scan). The row is prefixed with a cup to column 0 below.
         if scan_lo > 0 && lx == -1
           lx = 0
           ly = y
@@ -266,14 +261,13 @@ module Crysterm
             # XXX Is this needed:
           end
 
-          # Take advantage of xterm's back_color_erase feature by using a
-          # lookahead. Stop spitting out so many damn spaces. NOTE: Is checking
-          # the bg for non BCE terminals worth the overhead?
+          # Take advantage of xterm's back_color_erase via a lookahead, to avoid
+          # emitting runs of spaces.
           if bce_opt && (desired_char == ' ') && (x > bce_skip_until) &&
              (has_bce || (Attr.bg(desired_attr) == Attr.bg(@default_attr))) &&
              ((Attr.flags(desired_attr) & Attr::REVERSE) == (Attr.flags(@default_attr) & Attr::REVERSE))
             clr = true
-            neq = false # Current line 'not equal' to line as it was on previous render (i.e. it changed content)
+            neq = false # line changed content vs. previous render
             breaker = line_size
 
             (x...line_size).each do |xx|
@@ -285,8 +279,8 @@ module Crysterm
               # multi-codepoint cluster is never a bare space even if its base
               # codepoint is one, so the overlay must be nil.
               clearable = lc_attr == desired_attr && lc_char == ' '
-              # The artificial-cursor cell is never clearable (see `acur_col`): the
-              # cursor's reverse/glyph attribute lives only in the per-cell loop's
+              # The artificial-cursor cell is never clearable (see `acur_col`): its
+              # reverse/glyph attribute lives only in the per-cell loop's
               # `desired_attr`, not in the buffer this look-ahead reads, so clearing
               # over it with `el` would drop the cursor for the frame.
               clearable = false if xx == acur_col
@@ -309,12 +303,12 @@ module Crysterm
 
             # If the tail wasn't clearable, the offending cell at `breaker` stays
             # in range for every column in (x, breaker), and the run (x, breaker)
-            # shares `desired_attr`, so those scans would reach the same verdict.
-            # Skip them. `breaker` itself may begin a new run (different attr), so
+            # shares `desired_attr`, so those scans would reach the same verdict —
+            # skip them. `breaker` itself may begin a new run (different attr), so
             # it is left scannable.
             bce_skip_until = breaker - 1 unless clr
 
-            # Seems like this block performs clearing of a line, if it's not clear but needs to be
+            # This block clears a line if it's not clear but needs to be.
             if clr && neq
               lx = -1
               ly = -1
@@ -323,12 +317,11 @@ module Crysterm
                 # attribute active. `code2attr_to` writes the target attr from a
                 # *blank* SGR state and emits NOTHING for the default attr (see
                 # Screen.code2attr_to), so without this reset a transition to the
-                # default attr (the common "colored content then a default-space
-                # tail" line) would leave the previous cell's color/flags active:
-                # the `el` below would then erase the rest of the line with that
-                # stale background (BCE), and the leftover SGR would bleed into the
-                # cells/rows drawn afterward. Mirrors the per-cell path's
-                # `\e[m`-then-set sequence below.
+                # default attr would leave the previous cell's color/flags active:
+                # the `el` below would erase the rest of the line with that stale
+                # background (BCE), and the leftover SGR would bleed into cells/rows
+                # drawn afterward. Mirrors the per-cell path's `\e[m`-then-set
+                # sequence below.
                 @outbuf.print "\e[m" if attr != @default_attr
                 attr = desired_attr
                 # Allocation-free SGR emission straight into the line buffer;
@@ -398,11 +391,10 @@ module Crysterm
           end
 
           # Optimize by comparing the desired cell against what was last sent to
-          # the terminal (`@olines`). A cell that is unchanged is skipped
-          # entirely (nothing is emitted for it); `lx`/`ly` remember the start of
-          # the skipped run so that when the next changed cell appears, a single
-          # cursor move (cuf or cup) repositions over the run instead of redrawing
-          # it.
+          # the terminal (`@olines`). An unchanged cell is skipped entirely;
+          # `lx`/`ly` remember the start of the skipped run so the next changed
+          # cell repositions over it with a single cursor move (cuf or cup)
+          # instead of redrawing it.
           #
           # NOTE: the unchanged case must `next` the per-cell loop so the
           # emission code below is skipped. This therefore uses an explicit `if`
@@ -413,11 +405,11 @@ module Crysterm
           if x < o_size
             # Inlined, allocation-free cell diff, reading attr/char straight from
             # the backing arrays. In legacy mode a row never carries a grapheme
-            # overlay, so the compare is just `attr == && char ==` and skipping the
-            # `@graphemes` lookup is pure win on this per-cell hot path.
+            # overlay, so the compare is just `attr == && char ==`, skipping the
+            # `@graphemes` lookup on this hot path.
             #
             # Under `full_unicode` a cell's value also includes its grapheme
-            # cluster, so we compare the new cell's overlay against the old one
+            # cluster, so the new cell's overlay is compared against the old one
             # (`ox == line[x]` semantics) — `desired_char` is only the cluster's
             # BASE codepoint, so without this a cell going from 'e' to a combining
             # 'e'+◌́ (same base, same attr) would be wrongly skipped and the mark
@@ -425,7 +417,7 @@ module Crysterm
             # needlessly re-emitted every frame. `grapheme_at?` is the same lookup
             # `Cell#grapheme_overlay` does, without constructing a `Cell`.
             #
-            # The `legacy_cell_eq` flag still forces a miss for A/B benchmarking.
+            # `legacy_cell_eq` still forces a miss for A/B benchmarking.
             # `unchanged` is declared here (not inside the macro `if`) so it stays
             # visible below.
             unchanged = false
@@ -443,14 +435,13 @@ module Crysterm
               next
             elsif lx != -1
               # Cursor reposition over the skipped (unchanged) run, emitted as
-              # direct ANSI straight into the buffer rather than via terminfo.
-              # These carry (x,y)/distance parameters and fire per run-break every
-              # frame, so going through terminfo `run` would allocate a fresh
-              # `Bytes` each call. `cuf` (`\e[<n>C`) and `cup` (`\e[<row>;<col>H`,
-              # 1-based) are universal on every terminal Crysterm targets (it
-              # already assumes ANSI SGR), so the hardcoded forms match terminfo's
-              # output. Writing an `Int` to the IO emits its digits with no
-              # `String` allocation.
+              # direct ANSI straight into the buffer rather than via terminfo:
+              # these carry (x,y)/distance parameters and fire per run-break every
+              # frame, so terminfo `run` would allocate a fresh `Bytes` each call.
+              # `cuf` (`\e[<n>C`) and `cup` (`\e[<row>;<col>H`, 1-based) are
+              # universal on every terminal Crysterm targets (it already assumes
+              # ANSI SGR), so the hardcoded forms match terminfo's output. Writing
+              # an `Int` to the IO emits its digits with no `String` allocation.
               if !ansi_cursor
                 # Non-conforming terminal: route through tput (captured into the
                 # frame buffer via `divert`). Always an absolute move, since this
@@ -487,11 +478,10 @@ module Crysterm
 
               # Emit the SGR flags/colors via the shared helper (also used by
               # `Screen.code2attr_to`). If anything was written it ends in a ';',
-              # which we back over and replace with the terminating 'm'. Note we
-              # always emit "\e[" + "m" here (yielding a bare reset "\e[m" when
-              # nothing was written) because reaching this branch means
-              # `desired_attr != @default_attr`, which differs from
-              # `code2attr_to`'s "emit nothing for the default attr" contract.
+              # backed over and replaced with the terminating 'm'. Always emit
+              # "\e[" + "m" here (a bare reset "\e[m" when nothing was written)
+              # because reaching this branch means `desired_attr != @default_attr`,
+              # unlike `code2attr_to`'s "emit nothing for the default attr" contract.
               if Screen.sgr_params_to(@outbuf, desired_attr, ncolors)
                 @outbuf.seek -1, IO::Seek::Current
               end
@@ -529,78 +519,58 @@ module Crysterm
           #  end
           # end
 
-          # Attempt to use ACS for supported characters.
-          # This is not ideal, but it's how ncurses works.
-          # There are a lot of terminals that support ACS
-          # *and UTF8, but do not declare U8. So ACS ends
-          # up being used (slower than utf8). Terminals
-          # that do not support ACS and do not explicitly
-          # support UTF8 get their unicode characters
-          # replaced with really ugly ascii characters.
-          # It is possible there is a terminal out there
-          # somewhere that does not support ACS, but
-          # supports UTF8, but I imagine it's unlikely.
-          # Maybe remove !tput.unicode check, however,
-          # this seems to be the way ncurses does it.
+          # Attempt to use ACS for supported characters. Not ideal, but it's how
+          # ncurses works: many terminals support both ACS and UTF8 but don't
+          # declare U8, so ACS ends up used (slower than utf8); terminals
+          # supporting neither get unicode chars replaced with ascii fallbacks.
+          # Maybe remove the !tput.unicode check, but this matches ncurses.
           #
-          # Note the behavior of this IF/ELSE block. It may decide to
-          # print to @outbuf certain prefix data, but after the IF/ELSE block
-          # the 'ch' is always written. This logic is taken for speed. In the
-          # case that the contents of the IF/ELSE block change in incompatible
-          # way, this should be had in mind.
+          # This IF/ELSE block may print a prefix to @outbuf, but 'ch' is always
+          # written after it regardless — keep that in mind if changing the logic.
           # `acscr` is keyed only by non-ASCII glyphs in the `!broken_acs` case
           # used here (its lowest key is U+00A3), so probe the hash only for
           # non-ASCII cells — ASCII text and spaces, the vast majority, skip it
           # entirely. The single result is reused below instead of re-looked-up.
           acs_char = (alt_charset && !broken_acs && desired_char > '~') ? acscr[desired_char]? : nil
           if alt_charset && !broken_acs && (acs_char || acs)
-            # Fun fact: even if tput.brokenACS wasn't checked here,
-            # the linux console would still work fine because the acs
-            # table would fail the check of: tput.features.acscr[desired_char]
+            # Even without checking tput.brokenACS, the linux console would still
+            # work fine since its acs table fails tput.features.acscr[desired_char].
             if ac = acs_char
               if acs
                 desired_char = ac
               else
-                # This method of doing it (like blessed does it) is nasty
-                # since char gets changed to string when sm/rm escape
-                # sequence is added to it:
-                # sm = String.new smacs
-                # desired_char = sm + tput.features.acscr[desired_char]
-                #
-                # So instead of that, print smacs into outbuf (line buffer), and
-                # just set char to the desired char, knowing that it will be
-                # printed into outbuf at the end of the loop thanks to generic code.
+                # Avoid the (blessed-style) approach of turning char into a string
+                # with the sm/rm escape prepended (`String.new(smacs) + acscr[...]`).
+                # Instead, print smacs into outbuf directly and just set char to the
+                # desired char — it gets printed at the end of the loop as usual.
                 @outbuf.write smacs
                 desired_char = ac
                 acs = true
               end
             elsif acs
-              # Same trick as above, not this:
-              # rm = String.new rmacs
-              # desired_char = rm + desired_char
-              # But this:
+              # Same trick as above (write rmacs directly instead of prepending it
+              # to the char string).
               @outbuf.write rmacs
               acs = false
             end
           elsif desired_char > '~'
             # The terminal couldn't render this non-ASCII glyph via ACS (no ACS,
-            # or it's broken, or the glyph has no ACS mapping). U8 is not
-            # consistently correct: some terminals that don't declare it actually
-            # support utf8 (e.g. urxvt), but if a terminal declares neither ACS nor
-            # U8, chances are it doesn't support UTF8 either, so reducing to ASCII
-            # is the "safest" choice (fixes things like sun-color). It could also
-            # be that $LANG is all that matters in some cases.
+            # or it's broken, or the glyph has no ACS mapping). U8 isn't always
+            # reliable (some undeclared terminals support utf8 anyway, e.g. urxvt),
+            # but a terminal declaring neither ACS nor U8 likely doesn't support
+            # UTF8 either, so reducing to ASCII is the safest choice (fixes things
+            # like sun-color).
             if !term_unicode && (u8 != 1)
               # Reduction of ACS into ASCII chars.
               desired_char = Tput::ACSC::Data[desired_char]?.try(&.[2]) || '?'
             end
           end
 
-          # Now print the cell's content. Under full_unicode: a continuation
-          # cell (the trailing half of a wide grapheme) emits nothing — the wide
-          # glyph already advanced the cursor; a cluster cell emits its whole
-          # grapheme; and a wide cell claims its continuation cell, which the
-          # next iteration skips (keeping cell index == terminal column).
+          # Print the cell's content. Under full_unicode: a continuation cell
+          # (trailing half of a wide grapheme) emits nothing — the wide glyph
+          # already advanced the cursor; a cluster cell emits its whole grapheme;
+          # a wide cell claims its continuation cell, which the next iteration
+          # skips (keeping cell index == terminal column).
           if fu
             current = line[x]
             unless current.continuation?
@@ -633,9 +603,9 @@ module Crysterm
 
         # Reproduce the cursor-run state a full scan would leave: it would walk
         # the trailing unchanged cells (scan_hi, line_size) and, having reset `lx`
-        # at the last changed cell, record the start of that trailing run. Mirror
-        # it so the *next* row's reposition math is byte-identical to the full
-        # scan. (No-op on the full-scan path, where scan_hi == line_size - 1.)
+        # at the last changed cell, record the start of that trailing run. Mirrored
+        # so the *next* row's reposition math matches the full scan exactly.
+        # (No-op on the full-scan path, where scan_hi == line_size - 1.)
         if scan_hi < line_size - 1 && lx == -1
           lx = scan_hi + 1
           ly = y
@@ -669,15 +639,13 @@ module Crysterm
         hidden = tput.cursor_hidden?
 
         # Hide the *hardware* cursor for the duration of this multi-write frame so
-        # the real terminal cursor doesn't streak across the screen as the cell
-        # runs (each prefixed by a `cup`) are emitted, then restore it afterward.
-        # This MUST go straight to `tput` (not `Window#hide_cursor`/`#show_cursor`):
-        # those dispatch on the *active* cursor and, when it is artificial, take
-        # the artificial branch — which writes no escape (so the hardware cursor is
-        # left visible and streaks anyway) and calls `render_if_active`, scheduling
-        # a redundant render from *inside* `draw`. For a hardware cursor the
-        # delegating form was byte-identical to this; for an artificial one it was
-        # wrong on both counts. The captured sequences land in `@pre`/`@post`.
+        # it doesn't streak across the screen as the cell runs (each prefixed by a
+        # `cup`) are emitted, then restore it afterward. This MUST go straight to
+        # `tput` (not `Window#hide_cursor`/`#show_cursor`): those dispatch on the
+        # *active* cursor and, when it is artificial, take the artificial branch —
+        # which writes no escape (leaving the hardware cursor visible and
+        # streaking) and calls `render_if_active`, scheduling a redundant render
+        # from *inside* `draw`. The captured sequences land in `@pre`/`@post`.
         divert(@tmpbuf, @pre) do
           tput.save_cursor
           tput.hide_cursor unless hidden
@@ -716,8 +684,8 @@ module Crysterm
     end
 
     def blank_line(ch = ' ', dirty = false)
-      # `Row.new awidth` only reserves capacity (size 0); the row must actually
-      # be populated with `awidth` cells, otherwise the blank lines inserted by
+      # `Row.new awidth` only reserves capacity (size 0); the row must actually be
+      # populated with `awidth` cells, otherwise blank lines inserted by
       # `insert_line`/`delete_line` are zero-width and render as nothing (and
       # later writes to `lines[y][x]` fall out of range). Mirrors how the main
       # screen buffer fills rows via `adjust_width`.
@@ -867,15 +835,10 @@ module Crysterm
       delete_line(1, top, top, bottom)
     end
 
-    # Parse the sides of an element to determine
-    # whether an element has uniform cells on
-    # both sides. If it does, we can use CSR to
-    # optimize scrolling on a scrollable element.
-    # Not exactly sure how worthwhile this is.
-    # This will cause a performance/cpu-usage hit,
-    # but will it be less or greater than the
-    # performance hit of slow-rendering scrollable
-    # boxes with clean sides?
+    # Checks whether an element has uniform cells on both sides; if so, CSR can
+    # be used to optimize scrolling on a scrollable element. Not exactly sure
+    # how worthwhile this is — it costs CPU, but maybe less than slow-rendering
+    # scrollable boxes with clean sides would.
     def clean_sides(el)
       pos = el.lpos
 
@@ -951,17 +914,15 @@ module Crysterm
     # the next `#draw`, even if their content is unchanged from the previous
     # frame.
     #
-    # `#draw` diffs `@lines` (this frame) against `@olines` (what is on the
-    # terminal) and skips cells that did not change. That is normally what we
-    # want, but a widget drawing *outside* the cell model — e.g. a
-    # `Widget::Media::Overlay`, whose w3m image is an overlay painted on top of the
-    # terminal — needs the cells underneath a stale overlay to be physically
-    # re-emitted so the terminal redraws text over it. Poisoning `@olines` here
-    # makes the diff treat those cells as changed.
+    # `#draw` diffs `@lines` (this frame) against `@olines` (what's on the
+    # terminal) and skips unchanged cells. But a widget drawing *outside* the
+    # cell model — e.g. `Widget::Media::Overlay`'s w3m image, painted on top of
+    # the terminal — needs the cells underneath a stale overlay to be physically
+    # re-emitted so text redraws over it. Poisoning `@olines` here makes the
+    # diff treat those cells as changed.
     def invalidate_region(xi, xl, yi, yl)
-      # Damage tracking: this pokes `@olines` outside the cell model (a w3m image
-      # overlay), which the selective path can't reason about — force the full
-      # path for any frame that does it.
+      # This pokes `@olines` outside the cell model (a w3m image overlay), which
+      # the selective path can't reason about — force the full path instead.
       note_effect
 
       xi = 0 if xi < 0
@@ -985,19 +946,18 @@ module Crysterm
     # Walks every existing cell of the rectangular region `[xi, xl) × [yi, yl)`
     # in `@lines`, yielding each cell together with its line. A row's scan stops
     # at the first missing cell and the whole walk stops at the first missing
-    # row, mirroring the `break` behavior of the original per-region loops. With
-    # `clamp` (the default) a negative `xi`/`yi` origin is pulled back to 0; the
-    # shadow/blend callers pass their bounds verbatim with `clamp: false`.
+    # row. With `clamp` (the default) a negative `xi`/`yi` origin is pulled back
+    # to 0; the shadow/blend callers pass their bounds verbatim with `clamp: false`.
     #
     # A negative index is treated as off the top/left of the grid and SKIPPED
-    # (the cell at column/row 0 onward is still visited). This must be explicit:
-    # Crystal's `Array#[]?`/`Indexable#[]?` count a negative index *from the
-    # end* (`@lines[-1]?` is the last row, not `nil`), so a `clamp: false`
-    # caller passing a negative origin — exactly what a widget's top/left shadow
-    # does when it sits against the top/left screen edge (`yi - s.top`,
-    # `xi - s.left`) — would otherwise wrap around and blend the shadow band onto
-    # rows/columns at the OPPOSITE (bottom/right) edge. Off the bottom/right
-    # (index >= size) correctly yields `nil` and breaks.
+    # (row/column 0 onward is still visited). This must be explicit: Crystal's
+    # `Array#[]?`/`Indexable#[]?` count a negative index *from the end*
+    # (`@lines[-1]?` is the last row, not `nil`), so a `clamp: false` caller
+    # passing a negative origin — exactly what a widget's top/left shadow does
+    # against the top/left screen edge (`yi - s.top`, `xi - s.left`) — would
+    # otherwise wrap around and blend the shadow band onto the OPPOSITE
+    # (bottom/right) edge. Off the bottom/right (index >= size) correctly
+    # yields `nil` and breaks.
     private def each_region_cell(xi, xl, yi, yl, clamp = true, &)
       if clamp
         xi = 0 if xi < 0
@@ -1024,12 +984,11 @@ module Crysterm
     # This is the per-frame full-screen clear path (`clear_region` in `_render`
     # runs it over the whole grid every frame), so unlike the shared
     # `each_region_cell` it hoists the row's backing arrays (`attrs`/`chars`) and
-    # width once and indexes them with `unsafe_fetch`/`unsafe_put` — the same
-    # array-hoist `draw` uses — instead of constructing a `Cell` handle and going
-    # through a bounds-checked `line[x]?` per cell. `xi`/`yi` are clamped to >= 0
-    # (matching `each_region_cell`'s clamp), and cells are contiguous, so a cell
-    # is "missing" only when `x` runs past the row end (`xend`); every
-    # `unsafe_*` is thus provably in range.
+    # width once and indexes with `unsafe_fetch`/`unsafe_put` — the same
+    # array-hoist `draw` uses — instead of a `Cell` handle and bounds-checked
+    # `line[x]?` per cell. `xi`/`yi` are clamped to >= 0 (matching
+    # `each_region_cell`), and cells are contiguous, so a cell is "missing" only
+    # when `x` runs past the row end (`xend`); every `unsafe_*` is provably in range.
     def fill_region(attr, ch, xi, xl, yi, yl, override = false)
       xi = 0 if xi < 0
       yi = 0 if yi < 0
@@ -1043,11 +1002,9 @@ module Crysterm
         n = attrs.size
         xend = xl < n ? xl : n
         # Whether this row carries ANY grapheme overlay, hoisted once per row.
-        # This is the per-frame full-screen clear path, and the overwhelming
-        # majority of rows have no overlay — so skipping the per-cell
-        # `grapheme_at?`/`delete_grapheme` calls (each a method call whose
-        # overhead dominated the render profile) on those rows is a real win,
-        # not just the nil-check the per-cell probe already was.
+        # Most rows have none in this per-frame full-screen clear path, so
+        # skipping the per-cell `grapheme_at?`/`delete_grapheme` calls (overhead
+        # that dominated the render profile) on those rows is a real win.
         has_g = line.has_graphemes?
 
         x = xi

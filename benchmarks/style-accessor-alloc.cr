@@ -1,8 +1,7 @@
 require "../src/crysterm"
 
-# Verifies the per-call allocation of the per-frame style accessors that
-# `Widget#_render` invokes (the cross-scope lead claimed ~192 B/call each).
-# Deterministic GC.stats measurement over warm iterations.
+# Measures per-call allocation of the per-frame style accessors that
+# `Widget#_render` invokes, via GC.stats over warm iterations.
 #
 # Run:  crystal run --release benchmarks/style-accessor-alloc.cr
 
@@ -44,12 +43,12 @@ per_call("style + 6 accessors (per _render)") do
 end
 
 STDERR.puts "\n--- edge paths ---"
-# A non-css_styled widget (no theme reaching it) in :focused state that opts
-# into floor reverse-highlight: `.style` takes a `dup` (the one allocating path).
+# Non-css_styled widget (no theme reaching it), focused, opting into floor
+# reverse-highlight: `.style` takes a `dup` — the one allocating path.
 s2 = Screen.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
   width: 80, height: 24, optimization: Crysterm::OptimizationFlag::None)
 btn = Widget::Button.new(parent: s2, top: 0, left: 0, content: "OK")
-btn.css_styled = false # simulate "no theme reached this widget"
+btn.css_styled = false # no theme reached this widget
 btn.state = WidgetState::Focused
 STDERR.puts "button css_styled? #{btn.css_styled?} state=#{btn.state} floor_focus_reverse? #{btn.floor_focus_reverse?}"
 per_call("Button#style (unstyled, focused)") { btn.style }
@@ -58,6 +57,6 @@ per_call("Button#style (unstyled, focused)") { btn.style }
 btn.state = WidgetState::Normal
 per_call("Button#style (unstyled, normal)") { btn.style }
 
-# A css_styled widget in focused state — fallback returns st immediately.
+# css_styled widget, focused — fallback returns st immediately.
 w.state = WidgetState::Focused
 per_call("Box#style (css_styled, focused)") { w.style }

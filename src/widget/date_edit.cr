@@ -17,11 +17,11 @@ module Crysterm
     #
     # The shared section machinery (selection, navigation, wheel/press handling)
     # lives in `Mixin::SectionedField`.
-    # `DateEdit < DateTimeEdit` mirrors Qt's `QDateEdit < QDateTimeEdit`: it is a
-    # date-only specialization of the combined editor. It keeps its own `@date`
-    # backing store and overrides the section machinery (three sections instead
-    # of six), and adds the calendar popup; the keyboard/mouse wiring and initial
-    # render are inherited from `DateTimeEdit#initialize`.
+    # `DateEdit < DateTimeEdit` mirrors Qt's `QDateEdit < QDateTimeEdit`: a
+    # date-only specialization keeping its own `@date` backing store, overriding
+    # the section machinery (three sections instead of six) and adding the
+    # calendar popup. Keyboard/mouse wiring and initial render are inherited
+    # from `DateTimeEdit#initialize`.
     #
     # <!-- widget-examples:capture v1 -->
     # ![DateEdit screenshot](../../tests/widget/date_edit/date_edit.5s.apng)
@@ -84,11 +84,9 @@ module Crysterm
 
       # Maps an absolute x to a section index (year/month/day at the `YYYY-MM-DD`
       # columns 0-3 / 5-6 / 8-9); `nil` when off the field. The field is exactly
-      # 10 columns (last col 9) — a click in the widget's trailing area past the
-      # text is off the field and must return `nil`, as
-      # `Mixin::SectionedField#select_section_at` relies on (it leaves the active
-      # section untouched then). Without the upper bound a click right of the text
-      # fell into the day branch and wrongly moved the cursor onto the day.
+      # 10 columns (last col 9); `Mixin::SectionedField#select_section_at` relies
+      # on `nil` past that to leave the active section untouched — without the
+      # upper bound a click right of the text fell into the day branch.
       private def section_at(x : Int32) : Int32?
         col = x - aleft - ileft
         return nil if col < 0 || col > 9
@@ -103,10 +101,9 @@ module Crysterm
       end
 
       # Steps the active section by *delta*, wrapping within that section's own
-      # range without carrying into the others (the sectioned-editor convention,
-      # matching `TimeEdit`): the day wraps within the month, the month within
-      # the year, and the year is unbounded. The day is then clamped to the
-      # (possibly shorter) target month so the date stays valid.
+      # range without carrying (matching `TimeEdit`): day within month, month
+      # within year, year unbounded. Day is then clamped to the (possibly
+      # shorter) target month so the date stays valid.
       private def step(delta : Int32) : Nil
         y, m, d = @date.year, @date.month, @date.day
         dim = nil
@@ -128,8 +125,8 @@ module Crysterm
         @popup
       end
 
-      # Drops the calendar. (Grab, outside-click dismissal, and the open flag come
-      # from `Mixin::Popup`.)
+      # Drops the calendar. Grab, outside-click dismissal, and the open flag
+      # come from `Mixin::Popup`.
       def open : Nil
         return if @open || !calendar_popup?
         pop = ensure_popup

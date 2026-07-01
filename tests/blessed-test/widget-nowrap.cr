@@ -1,10 +1,9 @@
 require "../../src/crysterm"
 
 # Port of Blessed's test/widget-nowrap.js
-# A width-60 box with wrapping disabled and tags enabled, whose content is
-# this example file's own source. Lines longer than the box are clipped
-# instead of wrapped.
-# NOTE: Blessed's `wrap: false` maps to crysterm's `wrap_content: false`.
+# Width-60 box with wrapping disabled and tags enabled, content is this
+# file's own source; lines longer than the box are clipped instead of wrapped.
+# Blessed's `wrap: false` maps to crysterm's `wrap_content: false`.
 module Crysterm
   s = Window.new always_propagate: [::Tput::Key::CtrlQ]
 

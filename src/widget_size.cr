@@ -39,10 +39,9 @@ module Crysterm
     {% for dim in %w[min_width max_width min_height max_height] %}
       def {{dim.id}}=(val : Int32?)
         return if @{{dim.id}} == val
-        # A constraint change alters effective `awidth`/`aheight` just as
-        # `width=`/`height=` do, so it must emit `Resize` too — otherwise listeners
-        # (`Mixin::ItemView#on_resize`, `Mixin::TextEditing`'s
-        # Resize→`_update_cursor`) never fire and scroll/cursor state goes stale.
+        # Alters effective `awidth`/`aheight` like `width=`/`height=`, so must
+        # emit `Resize` too — otherwise listeners (`Mixin::ItemView#on_resize`,
+        # `Mixin::TextEditing`'s Resize→`_update_cursor`) go stale.
         emit ::Crysterm::Event::Resize
         @{{dim.id}} = val
         mark_dirty
@@ -71,37 +70,36 @@ module Crysterm
     # Returns computed width
     def awidth(get = false, with_margin = true)
       # Own left+right margins shrink the box (`_get_coords` does `xi += left`,
-      # `xl -= right`). Folding that in here keeps the hit-test rectangle
+      # `xl -= right`); folding that in here keeps the hit-test rectangle
       # (`#aleft + #awidth`) matching the paint. Render/anchoring callers pass
-      # `with_margin: false` for the un-shrunk base; applied at every return below.
+      # `with_margin: false` for the un-shrunk base.
       mw = (with_margin && (mg = style.margin).any?) ? mg.left + mg.right : 0
 
       oleft = @left
       oright = @right
       width = @width
 
-      # The parent's rendered position is only needed by the String/`nil` branches;
+      # Parent's rendered position is only needed by the String/`nil` branches;
       # a fixed `Int32` width (common case) ignores it, so it's resolved lazily
-      # inside the branches to avoid walking the ancestor chain every frame.
+      # to avoid walking the ancestor chain every frame.
       case width
       when String
         parent = get ? parent_or_window.last_rendered_position : parent_or_window
-        # A percentage is of the parent's *content* area (inside border/padding),
-        # like CSS `width: 100%`. The matching `aleft` adds the parent's near
-        # inset, so a `left: 0` child sits inside the border and `"100%"` reaches
-        # exactly the far inset.
+        # Percentage of the parent's content area (inside border/padding), like
+        # CSS `width: 100%`. Matching `aleft` adds the parent's near inset, so a
+        # `left: 0` child sits inside the border and `"100%"` reaches the far inset.
         return clamp_awidth(resolve_dimension(width, (parent.awidth || 0) - parent.ileft - parent.iright, "half")) - mw
       end
 
-      # For a stretched or shrunken element. Shrunken widths are computed in the
-      # render function from content width, which is itself seeded by the element's
-      # width, so it must be calculated here too.
+      # Stretched or shrunken element: shrunken widths are computed in the
+      # render function from content width, seeded by the element's own width,
+      # so it's calculated here too.
       if width.nil?
         parent = get ? parent_or_window.last_rendered_position : parent_or_window
         # `parent.awidth` climbs the whole ancestor chain (or reads the stored
-        # `LPos` under `get`). This branch needs it twice (string base + width
+        # `LPos` under `get`). Needed twice here (string base + width
         # subtraction); computing it once collapses O(2^depth) to O(depth) for a
-        # chain of nil-width + string-left widgets. Stays inside this branch so an
+        # chain of nil-width + string-left widgets. Kept inside this branch so an
         # integer-width widget never walks the chain.
         pw = parent.awidth || 0
         left = oleft || 0
@@ -121,36 +119,31 @@ module Crysterm
 
     # Returns computed height
     def aheight(get = false, with_margin = true)
-      # See `#awidth`: own top+bottom margins shrink the box; fold in so hit-test
-      # matches the paint. Base callers pass `with_margin: false`.
+      # See `#awidth`: own top+bottom margins shrink the box; folded in so
+      # hit-test matches the paint. Base callers pass `with_margin: false`.
       mh = (with_margin && (mg = style.margin).any?) ? mg.top + mg.bottom : 0
 
       otop = @top
       obottom = @bottom
       height = @height
 
-      # See `awidth`: the parent's rendered position is only needed by the
-      # String/`nil` branches, so it is resolved lazily there rather than on every
-      # call for every fixed-height widget.
+      # See `awidth`: parent's rendered position is only needed by the
+      # String/`nil` branches, resolved lazily rather than on every call.
       case height
       when String
         parent = get ? parent_or_window.last_rendered_position : parent_or_window
-        # Percentage of the parent's *content* height (inside border/padding);
-        # see `awidth` for the rationale (CSS-like, fills the interior).
+        # Percentage of the parent's content height; see `awidth` for rationale.
         return clamp_aheight(resolve_dimension(height, (parent.aheight || 0) - parent.itop - parent.ibottom, "half")) - mh
       end
 
-      # This is for if the element is being stretched or shrunken.
-      # Although the height for shrunken elements is calculated
-      # in the render function, it may be calculated based on
-      # the content height, and the content height is initially
-      # decided by the height of the element, so it needs to be
-      # calculated here.
+      # Stretched or shrunken element: shrunken height is computed in the render
+      # function but seeded by the content height, which is initially decided
+      # by the element's own height, so it's calculated here too.
       if height.nil?
         parent = get ? parent_or_window.last_rendered_position : parent_or_window
-        # See `awidth`: one `parent.aheight` shared between the string base and
-        # the height subtraction, kept inside this branch so a fixed-height
-        # widget still never recurses. O(2^depth) → O(depth).
+        # See `awidth`: one `parent.aheight` shared between string base and
+        # height subtraction, kept inside this branch so a fixed-height widget
+        # never recurses. O(2^depth) → O(depth).
         ph = parent.aheight || 0
         top = otop || 0
         if top.is_a? String
@@ -173,18 +166,14 @@ module Crysterm
         return Rectangle.new xi: xi, xl: xi + 1, yi: yi, yl: yi + 1
       end
 
-      # i, el, ret,
       mxi = xi
       mxl = xi + 1
       myi = yi
       myl = yi + 1
 
-      # This is a chicken and egg problem. We need to determine how the children
-      # will render in order to determine how this element renders, but it in
-      # order to figure out how the children will render, they need to know
-      # exactly how their parent renders, so, we can give them what we have so
-      # far.
-      # _lpos
+      # Chicken-and-egg: determining this element's render needs the children's
+      # render, but the children need to know their parent's render — so give
+      # them what we have so far.
       if get
         _lpos = @lpos
         @lpos = LPos.new xi: xi, xl: xl, yi: yi, yl: yl
@@ -203,11 +192,9 @@ module Crysterm
           next
         end
 
-        # Since the parent element is shrunk, and the child elements think it's
-        # going to take up as much space as possible, an element anchored to the
-        # right or bottom will inadvertently make the parent's shrunken size as
-        # large as possible. So, we can just use the height and/or width the of
-        # element.
+        # A shrunk parent's children assume max available space, so a
+        # right/bottom-anchored child would inflate the parent's shrunken size;
+        # use just the element's own height/width instead.
         # D O:
         # if get
         if el.left.nil? && !el.right.nil?
@@ -251,9 +238,8 @@ module Crysterm
         end
       end
       if @height.nil? && (@top.nil? || @bottom.nil?) && (!@scrollable || @_is_list)
-        # Note: Lists get special treatment if they are shrunken - assume they
-        # want all list items showing. This is one case we can calculate the
-        # height based on items/boxes.
+        # Shrunken lists assume all items should be showing; height can be
+        # calculated from item count.
         if @_is_list
           myi = 0 - itop
           myl = @items.size + ibottom
@@ -274,19 +260,12 @@ module Crysterm
 
     # Returns minimum widget size based on content.
     #
-    # NOTE For this function to return intended results, the widget whose contents
-    # are being examined should not have a particular `#align=` value.
-    # If `#align=` is used, the alignment method will align it by padding with
-    # spaces, and in turn make the minimal size returned from this method be the
-    # maximum/full size of the surrounding box.
+    # NOTE: the widget must not have `#align=` set, or the alignment padding
+    # will make the "minimal" size come out as the surrounding box's full size.
     def _minimal_content_rectangle(xi, xl, yi, yl)
       h = @_clines.size
       # `max_width` is `property max_width = 0` (Int32, never nil), so no `|| 0`.
       w = @_clines.max_width
-
-      # The extra IFs which are commented appear unnecessary.
-      # If a person sets resizable: true, this is expected to happen
-      # no matter what; not only if other coordinates are also left empty.
 
       # `mwidth`/`mheight` reserve room for the element's own margin, which
       # `_get_coords` insets back out of the resolved rectangle. Without this a
@@ -336,11 +315,10 @@ module Crysterm
         yl = minimal_content_rectangle.yl
       end
 
-      # Recenter shrunken elements. Matches `center`/`center±N` alike (via
+      # Recenter shrunken elements (matches `center`/`center±N` via
       # `center_expr?`): a shrunk widget pulled its origin back by half its
-      # *full* width in `aleft`, so without recentering by half the freed space
-      # an offset-centered (`center+N`) widget lands far off — the offset form is
-      # already honored everywhere else centering is computed.
+      # full width in `aleft`, so recentering by half the freed space is needed
+      # to keep an offset-centered (`center+N`) widget from landing far off.
       if xl < xll && center_expr?(@left)
         xll = (xll - xl) // 2
         xi += xll

@@ -58,9 +58,8 @@ module Crysterm
         refresh_buttons
       end
 
-      # Builds one of the wizard's three footer buttons: a centered, tag-parsed
-      # `Button` pinned to the bottom row with the given left/right anchor. The
-      # three buttons differ only in their label and horizontal anchor.
+      # Builds one of the wizard's footer buttons: a centered, tag-parsed `Button`
+      # pinned to the bottom row with the given left/right anchor.
       private def wizard_button(label : String, left = nil, right = nil) : Button
         Button.new(
           parent: self, bottom: 0, left: left, right: right, height: 1, width: 8,

@@ -2,10 +2,9 @@ require "../../../src/crysterm"
 
 # tid — terminal identification.
 #
-# A standalone diagnostic that answers one question: *what terminal am I running
-# in, and what can it do?* It leads with a synthesized verdict — the most likely
-# terminal, its version, and how confident that is — then prints the full
-# evidence behind it: the environment hints, the resolved terminfo, the
+# Standalone diagnostic answering: what terminal am I running in, and what can
+# it do? Leads with a synthesized verdict — likely terminal, version,
+# confidence — then the full evidence: environment hints, resolved terminfo,
 # emulator/feature heuristics, and (on a real TTY) the terminal's own replies to
 # live query sequences. The replies are authoritative; the heuristics are not.
 #
@@ -18,8 +17,8 @@ require "../../../src/crysterm"
 #   -h, --help       show this help
 #
 # Probing only happens on a real terminal; when output is redirected (a pipe or
-# a file) the live section is skipped and the verdict falls back to env/TERM
-# heuristics — which is expected, and called out in the report.
+# file) the live section is skipped and the verdict falls back to env/TERM
+# heuristics — called out in the report.
 module Crysterm
   include Tput::Namespace
 
@@ -48,22 +47,21 @@ module Crysterm
   end
 
   # A `Screen` is the physical device: constructing it builds the `Tput` (with
-  # `probe: false`) *and*, on top of it, Crysterm's per-terminal `DrawCaps` — all
-  # without entering the alt-screen or otherwise taking over the terminal. (The
-  # terminfo for the current $TERM is loaded automatically, with an `xterm`
-  # fallback when the environment has none.)
+  # `probe: false`) and, on top of it, Crysterm's per-terminal `DrawCaps` —
+  # without entering the alt-screen or otherwise taking over the terminal.
+  # (Terminfo for $TERM loads automatically, with an `xterm` fallback.)
   screen = Screen.new
   tput = screen.tput
 
-  # Ask the terminal about itself: round-trip the live query sequences (colors,
-  # palette, cursor style, kitty/modifyOtherKeys, DA1/DA2, XTVERSION, …) and read
-  # the replies. This is what turns a "best guess" into a confirmed identity. It
-  # no-ops when not attached to a real terminal (output redirected), so the
-  # report then shows only what env/terminfo can prove.
+  # Ask the terminal about itself: round-trip live query sequences (colors,
+  # palette, cursor style, kitty/modifyOtherKeys, DA1/DA2, XTVERSION, …) and
+  # read the replies, turning a "best guess" into a confirmed identity. No-ops
+  # when not attached to a real terminal, so the report shows only what
+  # env/terminfo can prove.
   unless no_probe
     tput.probe!
-    # Cell pixel geometry (ioctl, with an XTWINOPS fallback) — needed for the
-    # size line and the aspect ratio fed to layout.
+    # Cell pixel geometry (ioctl, with XTWINOPS fallback) — needed for the size
+    # line and the aspect ratio fed to layout.
     screen.detect_cell_geometry
   end
 
@@ -95,8 +93,8 @@ module Crysterm
     exit 0
   end
 
-  # Small aligned printer: name / value / how-it-was-determined, matching the
-  # layout of `Tput#dump`.
+  # Small aligned printer: name / value / how-it-was-determined, matching
+  # `Tput#dump`'s layout.
   section = ->(title : String, rows : Array({String, String, String})) {
     puts title
     nw = rows.max_of(&.[0].size)

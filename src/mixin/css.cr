@@ -22,25 +22,21 @@ module Crysterm
     #   humans and may be left unset.
     module Css
       macro included
-        # Generate a hierarchy-specific `#css_type_classes` for every subclass.
+        # Generates a hierarchy-specific `#css_type_classes` for every subclass.
         # `@type.ancestors` is filtered to the `Widget` chain so unrelated
-        # mixin/`EventHandler` ancestors don't leak in, and each class name's
-        # leaf is lowercased into a `w-`-prefixed token.
+        # mixin/`EventHandler` ancestors don't leak in.
         macro inherited
-          # The type chain, computed once at compile time and returned as a
-          # shared constant. `#to_html` reads it for every widget on every
-          # (dirty) document rebuild, so a fresh array per call would be needless
-          # allocation churn. Treat it as read-only (don't mutate the result).
+          # Computed once at compile time as a shared constant since `#to_html`
+          # reads it on every (dirty) document rebuild. Read-only — don't mutate.
           CSS_TYPE_CLASSES = \{{ ([@type] + @type.ancestors).select(&.<=(::Crysterm::Widget)).map { |t| t.name.split("::").last }.uniq }}
 
           def css_type_classes : Array(String)
             CSS_TYPE_CLASSES
           end
 
-          # The CSS document tag for this widget class (`w-` + lowercased leaf
-          # type, e.g. `w-button`), computed once at compile time. `#to_html`
-          # emits it for every widget on every (dirty) cascade, so a constant
-          # avoids the per-widget `"w-" + downcase` allocation.
+          # CSS document tag (`w-` + lowercased leaf type, e.g. `w-button`),
+          # computed once at compile time to avoid per-widget allocation on
+          # every (dirty) cascade.
           CSS_TAG = \{{ "w-" + @type.name.split("::").last.downcase }}
 
           def css_tag : String
@@ -102,8 +98,8 @@ module Crysterm
 
       # The complete class list emitted for this widget in the CSS document:
       # the automatic type chain followed by any user-assigned classes. With no
-      # user classes (the common case) the shared type-chain constant is returned
-      # directly — no allocation. Callers must not mutate the result.
+      # user classes (the common case) returns the shared constant directly —
+      # no allocation. Callers must not mutate the result.
       def css_all_classes : Array(String)
         return css_type_classes if css_classes.empty?
         css_type_classes + css_classes.to_a

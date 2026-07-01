@@ -3,20 +3,17 @@ module Crysterm
     # Shared pieces for the two simple modal dialogs that present a fixed
     # "Okay"/"Cancel" button pair — `Widget::Prompt` and `Widget::Question`.
     #
-    # Both hand-built the identical buttons (same single-row, centered,
-    # not-focus-on-click style, differing only in position) and both hand-rolled
-    # the same modal teardown: hide the dialog, restore the focus saved at open
-    # time, and unregister the OK/Cancel `Press` handlers. That is centralized
-    # here.
+    # Both duplicated identical button construction (same single-row, centered,
+    # not-focus-on-click style, differing only in position) and the same modal
+    # teardown (hide, restore saved focus, unregister OK/Cancel `Press`
+    # handlers). Centralized here.
     #
     # The including widget declares `@ok`/`@cancel` buttons (typically via
     # `.ok_button`/`.cancel_button`) and calls `#teardown_ok_cancel` when the
     # dialog closes.
     module OkCancelDialog
-      # Builds a dialog button labelled *content* at *top*/*left*/*width* with the
-      # shared single-row, centered, not-focus-on-click style — the identical
-      # `Button` construction the OK and Cancel builders otherwise repeat (they
-      # differ only in label and default width).
+      # Builds a dialog button labelled *content* at *top*/*left*/*width* with
+      # the shared single-row, centered, not-focus-on-click style.
       private def self.dialog_button(top, left, width, content : String) : ::Crysterm::Widget::Button
         ::Crysterm::Widget::Button.new(
           top: top,
@@ -42,10 +39,9 @@ module Crysterm
         dialog_button top, left, width, "Cancel"
       end
 
-      # Standard modal teardown shared by both dialogs: hide the dialog, restore
-      # the focus saved when it opened, and unregister the OK/Cancel `Press`
-      # handlers (*ev_ok*/*ev_cancel*, either of which may be nil if it was never
-      # registered).
+      # Standard modal teardown shared by both dialogs: hide, restore the focus
+      # saved when opened, and unregister the OK/Cancel `Press` handlers
+      # (*ev_ok*/*ev_cancel* may each be nil if never registered).
       protected def teardown_ok_cancel(ev_ok, ev_cancel) : Nil
         hide
         window.restore_focus

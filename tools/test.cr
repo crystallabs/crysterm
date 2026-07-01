@@ -6,7 +6,7 @@
 # directory at or below a root, picks the programs to run:
 #
 #   * if the dir has a file of the same name (`foo/foo.cr`), that is THE program
-#     and the dir's other `.cr` files are treated as its support code (untouched);
+#     and the dir's other `.cr` files are its support code (untouched);
 #   * otherwise every `.cr` directly in the dir is its own program.
 #
 # Each program is compiled and run headlessly to (re)produce its captures beside
@@ -19,10 +19,10 @@
 # The program emits whichever outputs the dest env vars request
 # (CRYSTERM_SHOT / CRYSTERM_ANIM / CRYSTERM_DUMP), all in a single run; --shot /
 # --anim / --dump scope the run to a subset (default: all three). A capture is
-# left alone when it is newer than its `.cr`, unless --force.
+# left alone when newer than its `.cr`, unless --force.
 #
-# Separately, `--doc-comments` embeds each widget's capture in its API docs by
-# maintaining a fenced block in the source class doc comment, and `--docs` runs
+# Separately, `--doc-comments` embeds each widget's capture in its API docs via
+# a fenced block in the source class doc comment, and `--docs` runs
 # `crystal docs` then copies `examples/` into the docs tree.
 #
 # Usage: crystal run tools/test.cr -- [options] [dir ...]   (default: examples tests)
@@ -40,11 +40,10 @@ module WidgetExamples
 
   # ---- program discovery ----------------------------------------------------
 
-  # Every program found by walking *roots* recursively. In each directory at or
-  # below a root: if there is a file of the same name (`foo/foo.cr`), that is the
-  # program and the dir's other `.cr` files are treated as its support code and
-  # left alone; otherwise every `.cr` directly in the dir is its own program (the
-  # shared `example.cr` harness excepted). Sorted and de-duped.
+  # Every program found by walking *roots* recursively. In each directory: a
+  # same-named file (`foo/foo.cr`) is the program and its other `.cr` files are
+  # support code, left alone; otherwise every `.cr` directly in the dir is its
+  # own program (the shared `example.cr` harness excepted). Sorted and de-duped.
   def self.discover_programs(roots : Array(String)) : Array(String)
     progs = [] of String
     roots.each do |root|
@@ -137,11 +136,11 @@ module WidgetExamples
 
   # Discover documented widgets/layouts by mirroring the example tree onto the
   # source. Each example program `<out_dir>/<rel>/<name>.cr` names one class; the
-  # exact FQN is read from the example's own instantiation — so irregular
+  # exact FQN is read from the example's own instantiation, so irregular
   # file<->class names (`lcd_number`<->`LCDNumber`, `hline`<->`HLine`) and nested
-  # classes (`Media::Glyph::Braille`) resolve with no registry — and the source
-  # file declaring it is found by walking up the rel path (a nested variant's
-  # class lives in its parent file: `media/glyph/braille` -> `media/glyph.cr`).
+  # classes (`Media::Glyph::Braille`) resolve with no registry. The source file
+  # is found by walking up the rel path (a nested variant's class lives in its
+  # parent file: `media/glyph/braille` -> `media/glyph.cr`).
   def self.discover : Array(Item)
     items = [] of Item
     KINDS.each do |kind|
@@ -160,8 +159,8 @@ module WidgetExamples
           f = m[0]
           f.starts_with?("Crysterm::") ? f : "Crysterm::#{f}"
         end.uniq
-        # The subject is the candidate whose leaf class is declared in *src* (this
-        # rejects incidental references like the label `Widget::Box`).
+        # The subject is the candidate whose leaf class is declared in *src*
+        # (rejects incidental references like the label `Widget::Box`).
         decl = File.read(src)
         subject = candidates.find do |fqn|
           leaf = fqn.split("::").last
@@ -193,8 +192,8 @@ module WidgetExamples
   # ---- doc-comment maintenance ----------------------------------------------
   #
   # Each widget's API docs (via `crystal docs`) get its screenshot embedded by a
-  # managed block inside the *class doc comment* of its source file. The block is
-  # fenced by HTML comments (invisible in the rendered Markdown) so the tool can
+  # managed block inside the *class doc comment* of its source file. The block
+  # is fenced by HTML comments (invisible in rendered Markdown) so the tool can
   # find, refresh, or migrate it without disturbing hand-written prose:
   #
   #     # <!-- widget-examples:capture v1 -->
@@ -203,13 +202,12 @@ module WidgetExamples
   #
   # `crystal docs` emits the `src` verbatim, resolved relative to the class's
   # generated page (`docs/Crysterm/Widget/Button.html`). `--docs` copies the
-  # example trees (`tests/widget/`, `examples/layout/` — see DOCS_ASSETS) into
-  # `docs/`, and the `../` prefix (one per namespace level of the class) walks
-  # from the page back to the docs root, so the reference resolves with no
-  # network and no per-page assets.
+  # example trees (`tests/widget/`, `examples/layout/`, see DOCS_ASSETS) into
+  # `docs/`; the `../` prefix (one per namespace level) walks from the page back
+  # to the docs root, so the reference resolves with no network or per-page assets.
 
-  # Bump when the block's rendered shape changes; lets `--doc-comments` recognize
-  # and rewrite an older block. The migration matcher keys off the stable
+  # Bump when the block's rendered shape changes, so `--doc-comments` recognizes
+  # and rewrites an older block. The migration matcher keys off the stable
   # `widget-examples:capture` token, so even the version label can change.
   DOC_VERSION = "v1"
   DOC_OPEN    = "<!-- widget-examples:capture #{DOC_VERSION} -->"
@@ -220,9 +218,9 @@ module WidgetExamples
   DOC_CLOSE_RE = /<!--\s*\/\s*widget-examples:capture\b[^>]*-->/
 
   # The image each example contributes to the docs, as a bare filename. Prefers
-  # the animation (`<stem>.<secs>s.apng`, which browsers play inline) and falls
-  # back to the still (`<stem>.png`) when there is no APNG. One entry per example
-  # program file that has a capture.
+  # the animation (`<stem>.<secs>s.apng`, which browsers play inline), falling
+  # back to the still (`<stem>.png`). One entry per example program that has a
+  # capture.
   def self.capture_filenames(w : Item) : Array(String)
     program_files(w).compact_map do |prog|
       stem = prog_stem(prog)
@@ -261,11 +259,11 @@ module WidgetExamples
   end
 
   # Source lines that the screenshot block attaches to: the widget's `class`,
-  # plus any *case-only* alias of it (e.g. `alias Checkbox = CheckBox`). The
-  # alias matters because, on a case-insensitive filesystem, `crystal docs`
-  # writes `Checkbox.html` and `CheckBox.html` to the same file and the alias
-  # page (no doc comment) would otherwise clobber the class page's screenshot —
-  # so we document the alias too. Each anchor is {line index, indentation}.
+  # plus any *case-only* alias (e.g. `alias Checkbox = CheckBox`). On a
+  # case-insensitive filesystem `crystal docs` writes `Checkbox.html` and
+  # `CheckBox.html` to the same file, so the alias page (no doc comment) would
+  # otherwise clobber the class page's screenshot — document the alias too.
+  # Each anchor is {line index, indentation}.
   def self.doc_anchors(lines : Array(String), klass : String) : Array({Int32, String})
     # Match the class by its leaf name, allowing a declared namespace prefix
     # (`class Media::Sixel` for klass `Sixel`); the leaf is anchored at an
@@ -302,8 +300,9 @@ module WidgetExamples
   # Insert/refresh the managed screenshot blocks for every documented class in
   # one source file at once — a file may host several (e.g. `Media::Glyph` plus
   # its nested `Block`/`Octant`/… variants), and `strip_managed_blocks` clears
-  # *all* of them, so they must be re-inserted together or siblings get clobbered.
-  # Returns a per-item outcome (:inserted/:updated/:unchanged/:no_capture/:no_class).
+  # *all* of them, so they must be re-inserted together or siblings get
+  # clobbered. Returns a per-item outcome
+  # (:inserted/:updated/:unchanged/:no_capture/:no_class).
   def self.maintain_doc_comments_in_file(src : String, items : Array(Item)) : Hash(Item, Symbol)
     original = File.read(src)
     lines = original.split('\n')
@@ -381,8 +380,8 @@ module WidgetExamples
   DOCS_ASSETS = ["tests/widget", "examples/layout"]
 
   # Run `crystal docs`, then mirror DOCS_ASSETS into the generated tree. The
-  # shard entry is passed explicitly — bare `crystal docs` mis-resolves the file
-  # set on this project (it documents src files in an order that leaves the
+  # shard entry is passed explicitly because bare `crystal docs` mis-resolves
+  # the file set on this project (documents src files in an order that leaves
   # `Mixin::*` constants undefined) and fails.
   def self.build_docs : Nil
     args = ["docs", "src/crysterm.cr"]
@@ -508,8 +507,8 @@ module WidgetExamples
   end
 
   # Run *work* over *items* with at most *jobs* fibers in flight. Each fiber's
-  # `crystal` subprocess runs in parallel via the OS while the fibers themselves
-  # stay cooperative (single-threaded), so shared counters need no locking.
+  # `crystal` subprocess runs in parallel via the OS while the fibers stay
+  # cooperative (single-threaded), so shared counters need no locking.
   def self.parallel_each(items : Array(T), jobs : Int32, &work : T ->) forall T
     return if items.empty?
     queue = Channel(T).new(items.size)
@@ -554,19 +553,19 @@ module WidgetExamples
 
   # Run *program* headlessly with *env* set, producing every file in *dests* in
   # ONE process. *env* holds whichever of `CRYSTERM_SHOT`/`CRYSTERM_DUMP`/
-  # `CRYSTERM_ANIM` were requested; the harness emits all of them in a single run,
-  # so the default costs one compile + one exec instead of one per output kind.
+  # `CRYSTERM_ANIM` were requested; the harness emits all of them in a single
+  # run, so the default costs one compile + one exec instead of one per kind.
   #
-  # We `crystal build` to a *unique* temp binary and then exec it, rather than
-  # `crystal run` — because two programs that share a basename would race on
-  # `crystal run`'s basename-derived temp executable under `--jobs`. The compile
-  # cache stays shared/warm; only the output binary is per-job.
+  # `crystal build` to a *unique* temp binary and exec it, rather than
+  # `crystal run`, because two programs sharing a basename would race on
+  # `crystal run`'s basename-derived temp executable under `--jobs`. The
+  # compile cache stays shared/warm; only the output binary is per-job.
   #
-  # The captured program self-renders only when it runs *headless*, which it
-  # auto-detects from `STDOUT.tty?` (`Crysterm.interactive?`). So its stdout must
-  # NOT be our terminal — otherwise it flips to interactive and takes over the
-  # tty instead of writing the capture. We give it a sink (and close stdin); the
-  # rendered escape codes would garble the terminal anyway.
+  # The captured program self-renders only when headless, auto-detected from
+  # `STDOUT.tty?` (`Crysterm.interactive?`), so its stdout must NOT be our
+  # terminal — otherwise it flips to interactive and takes over the tty instead
+  # of writing the capture. Give it a sink (and close stdin); the rendered
+  # escape codes would garble the terminal anyway.
   def self.capture_run(program : String, dests : Array(String), env : Process::Env) : Bool
     bin = File.tempname("crysterm-ex", "")
     build_args = ["build", "--no-color", program, "-o", bin]
@@ -617,7 +616,7 @@ module WidgetExamples
     all_ok
   end
 
-  # Compile every stale program next to its source (a build-health check).
+  # Compile every stale program next to its source (build-health check).
   # Returns whether every program built without error.
   def self.build(progs : Array(String), opts : Options) : Bool
     jobs = [] of {String, String}
@@ -635,7 +634,7 @@ module WidgetExamples
 
   # Print `git status` for *roots* and return whether they are clean (no new or
   # changed files). Used by --test to verify a regen reproduced the captures
-  # already in git, byte for byte.
+  # in git, byte for byte.
   def self.git_check(roots : Array(String)) : Bool
     rels = roots.map { |r| relative_to_root(File.expand_path(r)) }
     echo_cmd "git", ["status", "--"] + rels
@@ -651,7 +650,7 @@ module WidgetExamples
   def self.run(argv : Array(String))
     opts = parse_options(argv)
 
-    # Standalone doc steps operate on the registered widgets/layouts, not on the
+    # Standalone doc steps operate on the registered widgets/layouts, not the
     # captured directories.
     if opts.doc_comments
       maintain_doc_comments(discover)
@@ -682,8 +681,8 @@ module WidgetExamples
 
     ok = opts.build ? build(progs, opts) : capture(progs, opts)
 
-    # --test: after (re)producing missing outputs, the dirs must be byte-identical
-    # to what's committed. A failed run or any git change fails the check.
+    # --test: after (re)producing missing outputs, the dirs must be
+    # byte-identical to what's committed. A failed run or any git change fails.
     if opts.test
       ok = git_check(roots) && ok
       exit(ok ? 0 : 1)

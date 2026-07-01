@@ -10,17 +10,16 @@ module Crysterm
       # "Matrix" digital-rain effect, as a self-contained, self-animating widget.
       #
       # Each column is a falling "drop": a bright head glyph trailing a tail that
-      # fades from near-white down to deep green. It fills its own box (not
+      # fades from near-white down to deep green. Fills its own box (not
       # necessarily the whole window), reads its size lazily each frame, and so
       # tracks terminal resize and `%`-relative sizing automatically.
       #
-      # It paints its interior straight into the window's cell buffer as packed
+      # Paints its interior straight into the window's cell buffer as packed
       # `Int64` attrs (each fg a direct `0xRRGGBB` value) — see `Effect::Direct` —
-      # so there is no tagged-content round-trip and no per-frame tag re-parse.
-      # Animation is driven by the widget itself: call `#start` to spawn the render
-      # fiber and `#stop` to halt it (mirroring `Widget::Loading`). `#step` (state
-      # only) is public so the effect can instead be advanced from an external
-      # clock.
+      # avoiding a tagged-content round-trip and per-frame tag re-parse. Call
+      # `#start` to spawn the render fiber and `#stop` to halt it (mirroring
+      # `Widget::Loading`). `#step` (state only) is public so the effect can
+      # instead be advanced from an external clock.
       #
       # ```
       # rain = Widget::Effect::Matrix.new parent: window, width: "100%", height: "100%"
@@ -65,11 +64,9 @@ module Crysterm
         end
 
         # (Re)initialize per-column state for *w* columns and *h* rows. Heads are
-        # scattered over `[-h, h)` rather than only above the top: roughly half
-        # begin already on-window (at random heights) so the very first frame is
-        # already full of rain, while the rest fall in from above — so a fresh
-        # widget (or a single screenshot of it) looks established immediately,
-        # with no empty warm-up.
+        # scattered over `[-h, h)` rather than only above the top, so roughly half
+        # start already on-window: the first frame looks established immediately
+        # instead of needing a warm-up.
         def resize(w, h)
           @heads = Array.new(w) { (rand(2 * h) - h).to_f }
           @speeds = Array.new(w) { 0.25 + rand * 0.7 }
@@ -90,8 +87,8 @@ module Crysterm
           end
         end
 
-        # Glyph + packed `0xRRGGBB` colour for interior cell `{x, y}` (blank, with
-        # the default fg, for cells outside any drop's trail).
+        # Glyph + packed `0xRRGGBB` color for interior cell `{x, y}` (blank, with
+        # the default fg, outside any drop's trail).
         def cell(x, y, w, h) : {Char, Int32}
           dist = @heads[x] - y
           if dist >= 0 && dist < @lengths[x]
@@ -99,8 +96,8 @@ module Crysterm
             if dist < 1
               {ch, head_color}
             else
-              # Fade the trail from bright to deep green: r=0x00, b=0x22, with the
-              # green channel ramping down with distance from the head.
+              # Fade trail bright-to-deep-green: r=0x00, b=0x22, green ramps down
+              # with distance from the head.
               frac = 1.0 - dist / @lengths[x]
               g = (60 + 180 * frac).to_i.clamp(0, 255)
               {ch, (g << 8) | 0x22}

@@ -4,11 +4,10 @@ module Crysterm
   # Autocompletion helper for a text input, modeled after Qt's `QCompleter`.
   #
   # A `Completer` is not a widget; it attaches to a `Widget::LineEdit` and offers
-  # completions from a fixed list (its *model*) as the user types. The matches
+  # completions from a fixed list (its *model*) as the user types. Matches
   # appear in a drop-down `Widget::List` below the box; Down/Up move the
   # highlight (Down also opens the list), Enter or Tab inserts the highlighted
-  # completion, and Escape dismisses it. Typing keeps filtering; the box keeps
-  # focus throughout.
+  # completion, and Escape dismisses it. The box keeps focus throughout.
   #
   # ```
   # box = Widget::LineEdit.new parent: window, top: 2, left: 2, width: 30, height: 1
@@ -19,9 +18,9 @@ module Crysterm
   # Matching is case-insensitive prefix matching by default; set
   # `#case_sensitive` and/or `#mode` to change that.
   #
-  # NOTE The per-keystroke filter handler is (re)registered *after* the text
-  # box's own input handler so it always sees the updated value; this relies on
-  # the box using `input_on_focus` (the `Widget::LineEdit` default).
+  # NOTE: the per-keystroke filter handler is (re)registered *after* the box's
+  # own input handler so it always sees the updated value; relies on the box
+  # using `input_on_focus` (the `Widget::LineEdit` default).
   class Completer
     # How a candidate is matched against the typed text.
     enum Mode
@@ -48,16 +47,14 @@ module Crysterm
     # to the owning completer.
     class Popup < Widget::List
       @activate_on_click = true
-      # Moving the pointer onto a row highlights it (the box keeps focus, so the
+      # Moving the pointer onto a row highlights it (box keeps focus, so the
       # list gets these as hover, not key, events).
       @hover_select = true
-      # The drop-down never takes focus — the owning box keeps it the whole time
-      # (so typing keeps filtering). Without this, a wheel (or click) over the
-      # popup would auto-focus it (`Window#dispatch_mouse` focuses the topmost
-      # focusable widget under a wheel/press), blurring the box — which the
-      # completer treats as "focus left" and closes the popup. Opting out of
-      # focus-on-pointer keeps the box focused, so the wheel can scroll/cycle the
-      # list instead of dismissing it.
+      # The drop-down never takes focus — the box keeps it the whole time (so
+      # typing keeps filtering). Otherwise a wheel/click over the popup would
+      # auto-focus it (`Window#dispatch_mouse` focuses the topmost focusable
+      # widget under a wheel/press), blurring the box, which the completer
+      # treats as "focus left" and closes the popup.
       @focus_on_click = false
 
       property completer : Completer?
@@ -71,16 +68,14 @@ module Crysterm
       end
 
       # Parks the highlight on the first row. Called whenever the match set is
-      # (re)shown, so the drop-down always opens with its first entry already
-      # highlighted: the box is focused and the list is open, so the user has in
-      # effect already "entered" the list, and the next Down should advance to the
-      # *second* row rather than merely reveal a cursor on the first.
+      # (re)shown, so the next Down advances to the *second* row rather than
+      # merely revealing a cursor on the first.
       def reset_cursor : Nil
         selekt 0
       end
 
-      # Down/Up single-step the highlight from the currently selected row. The box
-      # keeps focus throughout, so the list never sees these as its own key
+      # Down/Up single-step the highlight from the currently selected row. The
+      # box keeps focus throughout, so the list never sees these as its own key
       # events — the completer routes them here.
       def cursor_down : Nil
         down
@@ -95,22 +90,14 @@ module Crysterm
       # pointer fell in — but item rectangles are hit-tested by their *unscrolled*
       # geometry (`Widget#atop` is `content_top + item.top`, with no `#child_base`
       # term; see `Window#widget_at`). So the index handed in is really the
-      # pointer's *visual row* from the top of the viewport (0 == the first shown
-      # row), independent of how far the list is scrolled — and rows *below* the
-      # last shown one still report a (phantom) index, since those off-viewport
-      # item boxes remain mouse-hittable at their raw positions.
+      # pointer's *visual row* from the top of the viewport, independent of
+      # scroll position — and rows below the last shown one still report a
+      # phantom index, since off-viewport item boxes stay mouse-hittable at
+      # their raw positions.
       #
-      # Left as the base `selekt i`, moving the pointer down past the last visible
-      # row therefore kept advancing the highlight onto rows that aren't under the
-      # cursor (the selection drifting away from the pointer by up to a viewport's
-      # worth of rows), and once scrolled the visual-row index no longer matched
-      # the underlying entry at all.
-      #
-      # Map it back: the entry under the pointer is `#child_base + visual_row`,
-      # with the visual row clamped to the viewport so a pointer below the list
-      # parks on the last *shown* row instead of running onto phantom entries, and
-      # the result clamped to the real item range so it can never select a
-      # non-existent row.
+      # Map it back to the real entry: `#child_base + visual_row`, with the
+      # visual row clamped to the viewport (so a pointer below the list parks on
+      # the last shown row) and the result clamped to the item range.
       def hover_item(i : Int)
         visible = visible_content_rows
         visible = 1 if visible < 1
@@ -118,11 +105,11 @@ module Crysterm
         selekt (@child_base + row).clamp(0, @items.size - 1)
       end
 
-      # All cursor movement (the arrow keys via `cursor_down`/`cursor_up`, and the
-      # per-row wheel handler `List` installs, which calls `move ±2`) funnels
-      # through here so the wheel behaves exactly like the arrows: one row per
-      # notch. The base `move` would step by the raw offset (±2), skipping rows;
-      # `selekt` (not `down`/`up`) avoids recursing back into `move`.
+      # All cursor movement (arrow keys via `cursor_down`/`cursor_up`, and the
+      # per-row wheel handler `List` installs, calling `move ±2`) funnels through
+      # here so the wheel behaves like the arrows: one row per notch. The base
+      # `move` would step by the raw offset, skipping rows; `selekt` avoids
+      # recursing back into `move`.
       def move(offset) : Nil
         return if offset == 0
         selekt @selected + (offset > 0 ? 1 : -1)
@@ -130,12 +117,7 @@ module Crysterm
 
       # The drop-down's auto-created scrollbar (appears once the match set
       # overflows `max_visible`) must not steal focus either — same reason as
-      # `@focus_on_click = false` above. A wheel (or press) over the bar
-      # otherwise focuses it (`Window#dispatch_mouse` focuses the topmost
-      # focusable widget under a wheel/press), blurring the box, which the
-      # completer treats as "focus left" and closes the popup. Opting the bar out
-      # of focus-on-pointer keeps the box focused, so the wheel scrolls the list
-      # through the bar instead of dismissing it.
+      # `@focus_on_click = false` above.
       private def bind_scrollbar(sb : Widget::ScrollBar) : Widget::ScrollBar
         sb.focus_on_click = false
         super
@@ -143,8 +125,7 @@ module Crysterm
 
       # Reverse-video the highlighted (selected) row. `List` defers the selected
       # look to `styles.selected` / a `:selected` CSS rule, neither of which
-      # covers the drop-down in the default theme, so the highlighted row would
-      # otherwise be indistinguishable.
+      # covers the drop-down in the default theme.
       def render_style_for(item : Widget) : Style
         st = super
         if @items[@selected]? == item
@@ -169,8 +150,8 @@ module Crysterm
     # Window-level "click-away to dismiss" watcher, live only while the drop-down
     # is open (the same `Window#on_press_outside` the pop-up menus use).
     @ev_outside : Crysterm::Event::Mouse::Wrapper?
-    # Set when the intercept handler has consumed a key, so the (later) filter
-    # handler skips that same keypress.
+    # Set when the intercept handler has consumed a key, so the filter handler
+    # skips that same keypress.
     @suppress_filter = false
 
     def initialize(@model : Array(String) = [] of String)
@@ -193,16 +174,15 @@ module Crysterm
       # (Re)install the filter at the tail on *every* focus, not just the first.
       # The box re-registers its own input handler each time it (re)enters read
       # mode (`#read_input`), appending it after our filter — so a once-installed
-      # filter would, from the second focus on, run *before* the box updates
-      # `#value` and keep seeing the pre-keystroke text (typing wouldn't open the
-      # popup). Re-appending on each focus keeps the filter last.
+      # filter would, from the second focus on, run before the box updates
+      # `#value` and miss the keystroke. Re-appending on each focus keeps the
+      # filter last.
       @ev_focus = widget.on(Crysterm::Event::Focus) { install_filter widget }
       install_filter widget if widget.focused?
 
-      # A press on the box while it is *already* focused toggles the popup. The
-      # `Event::Mouse` is emitted before click-to-focus is applied, so on the
-      # press that first focuses the box `focused?` is still false here — that
-      # press only focuses, it doesn't toggle.
+      # A press on the box while already focused toggles the popup. `Event::Mouse`
+      # is emitted before click-to-focus is applied, so on the press that first
+      # focuses the box `focused?` is still false here — that press only focuses.
       @ev_click = widget.on(Crysterm::Event::Mouse) do |e|
         toggle if e.action.down? && widget.focused?
       end
@@ -241,8 +221,8 @@ module Crysterm
     end
 
     # The per-keystroke filter handler. Re-registered at the tail (removing any
-    # prior one) so it always runs *after* the box's input handler and therefore
-    # sees the post-keystroke `#value`.
+    # prior one) so it always runs after the box's input handler and sees the
+    # post-keystroke `#value`.
     private def install_filter(widget : Widget::LineEdit) : Nil
       @filter.try { |h| widget.off Crysterm::Event::KeyPress, h }
       @filter = widget.on(Crysterm::Event::KeyPress, at: ::EventHandler.at_end) do |_|
@@ -270,8 +250,8 @@ module Crysterm
         when Tput::Key::Escape then close; consume e
         end
       elsif e.key == Tput::Key::Down
-        # Down opens the popup. `refilter` drops the whole model for an empty box
-        # (combo-box style), so the user can browse all candidates without typing.
+        # Down opens the popup. `refilter` yields the whole model for an empty
+        # box (combo-box style), so the user can browse without typing.
         refilter
         unless @matches.empty?
           open
@@ -280,10 +260,8 @@ module Crysterm
       end
     end
 
-    # Moves the popup's highlight (Up/Down) and re-renders so the change is
-    # actually visible — `List#selekt` updates the cursor but doesn't itself
-    # repaint. (The caller still `consume`s the key so the box doesn't also act
-    # on it.)
+    # Moves the popup's highlight (Up/Down) and re-renders — `List#selekt`
+    # updates the cursor but doesn't itself repaint.
     private def move_popup(&block : Popup ->) : Nil
       return unless pop = @popup
       block.call pop
@@ -300,8 +278,7 @@ module Crysterm
     end
 
     # The completions for *text* under the current `#mode`/`#case_sensitive?`
-    # settings (empty for empty input). Qt's `QCompleter` exposes the analogous
-    # match list via its completion model.
+    # settings (empty for empty input).
     def completions(text : String) : Array(String)
       return [] of String if text.empty?
       needle = case_sensitive? ? text : text.downcase
@@ -312,8 +289,8 @@ module Crysterm
     end
 
     # Recomputes `@matches` from the box's current value. An empty box yields the
-    # whole model (combo-box style) rather than nothing, so clearing the text
-    # reopens the full list instead of dismissing the popup.
+    # whole model (combo-box style), so clearing the text reopens the full list
+    # instead of dismissing the popup.
     private def refilter : Nil
       val = @widget.try(&.value) || ""
       @matches = val.empty? ? @model.dup : completions(val)
@@ -321,9 +298,7 @@ module Crysterm
 
     # Loads the current `@matches` into *pop*, re-parks the highlight on the
     # first row, and repositions the drop-down under *widget*. Shared by `#open`
-    # (initial show — open with the first match highlighted) and `#refresh` (a
-    # changed match set re-highlights the first row): both must re-seed the
-    # items, re-highlight the first entry, and re-place the drop-down.
+    # and `#refresh`.
     private def populate(pop : Popup, widget : Widget::LineEdit) : Nil
       pop.set_items @matches
       pop.reset_cursor
@@ -338,8 +313,8 @@ module Crysterm
       pop.show
       pop.front!
       @open = true
-      # Dismiss on a press outside both the drop-down and its box (a press on the
-      # box itself is "inside" — its own handler toggles the list).
+      # Dismiss on a press outside both the drop-down and its box (a press on
+      # the box itself is "inside" — its own handler toggles the list).
       @ev_outside ||= widget.window.on_press_outside(->(x : Int32, y : Int32) {
         (@popup.try(&.contains_point?(x, y)) || false) || (@widget.try(&.contains_point?(x, y)) || false)
       }) { close }
@@ -355,8 +330,7 @@ module Crysterm
     end
 
     # Toggles the popup: opens it on the current matches (the whole model for an
-    # empty box), or closes it if already open. Used by the click-to-toggle on an
-    # already-focused box.
+    # empty box), or closes it if already open.
     private def toggle : Nil
       if @open
         close
@@ -400,13 +374,11 @@ module Crysterm
           overflow: Crysterm::Overflow::MoveWidget,
         )
         pop.completer = self
-        # The wheel cycles the highlight while the list is open (the box keeps
-        # focus, so the list won't get these as key events). A wheel over a *row*
-        # is handled by the per-item handler `List` installs (`move ±2`), which
-        # `Popup#move` reroutes to a single-row step per notch;
-        # this handler covers a wheel over the popup's *border/padding* (where the
-        # topmost widget is the popup itself, not a row), going through the same
-        # `cursor_down`/`cursor_up` so both spots behave identically.
+        # The wheel cycles the highlight while the list is open (box keeps focus,
+        # so the list won't get these as key events). A wheel over a *row* is
+        # handled by the per-item handler `List` installs (`Popup#move` reroutes
+        # it to a single-row step); this handler covers a wheel over the popup's
+        # border/padding, going through the same `cursor_down`/`cursor_up`.
         pop.on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_down?
             pop.cursor_down; e.accept; pop.request_render
@@ -429,7 +401,7 @@ module Crysterm
         # Not laid out yet — keep defaults.
       end
       rows = Math.min(Math.max(@matches.size, 1), @max_visible)
-      pop.height = rows + 2 # + border
+      pop.height = rows + 2 # border
     end
   end
 end

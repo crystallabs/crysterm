@@ -6,9 +6,9 @@ module Crysterm
   module SidedGeometry
     # Resolves a side *symbol* into per-side `{left, top, right, bottom}`
     # amounts, for the `.from` convenience constructors of `Margin`/`Padding`/
-    # `Border`. This is what lets a single side be set declaratively — e.g.
+    # `Border`. Lets a single side be set declaratively — e.g.
     # `Style.new(margin: :right)` expands to a 1-cell right margin
-    # (`Margin.new 0, 0, 1, 0`). The constructors of all three classes take the
+    # (`Margin.new 0, 0, 1, 0`). All three constructors take the
     # `(left, top, right, bottom)` positional order, so the returned named tuple
     # can be splatted straight in.
     #
@@ -38,17 +38,15 @@ module Crysterm
     end
 
     # Generates the surface shared verbatim by the zero-defaulting integer
-    # sided-geometry classes (`Padding` and `Margin`), which are otherwise
-    # identical: the four per-side properties (each defaulting to 0), the
-    # `.default` factory, the `.from` value coercion, and the `all` /
-    # four-positional integer constructors. Mix it in with
-    # `SidedGeometry.zero_box` from the class body.
+    # sided-geometry classes (`Padding` and `Margin`): the four per-side
+    # properties (defaulting to 0), the `.default` factory, the `.from` value
+    # coercion, and the all-sides / four-positional integer constructors.
     #
-    # `.default` deliberately returns a *fresh* instance rather than a shared
-    # singleton: each box is mutated in place by the per-side longhands
+    # `.default` deliberately returns a *fresh* instance, not a shared
+    # singleton: boxes are mutated in place by the per-side longhands
     # (`padding-left` etc., see `CSS::Properties#apply`) and by `Style`'s default
-    # getter, so a single shared object would let one widget's edit leak into
-    # every other style (and corrupt the "no padding"/"no margin" baseline).
+    # getter, so a shared object would let one widget's edit leak into every
+    # other style.
     macro zero_box
       # A fresh zero box (all sides 0); never a shared singleton, see
       # `SidedGeometry.zero_box`.
@@ -70,8 +68,7 @@ module Crysterm
         in {{@type}}
           value
         in Symbol
-          # A side symbol (`:right`, `:horizontal`, ...) — one cell on the
-          # named side(s); see `SidedGeometry.sides`.
+          # One cell on the named side(s); see `SidedGeometry.sides`.
           s = SidedGeometry.sides value
           new s[:left], s[:top], s[:right], s[:bottom]
         in Int
@@ -122,12 +119,10 @@ module Crysterm
       pos
     end
 
-    # By-value counterpart of `#adjust` for callers that hold the rectangle as
-    # loose `xi/xl/yi/yl` locals rather than a position object: returns the
-    # grown (`sign = 1`) / shrunk (`sign = -1`) coordinates as a tuple, so they
-    # can be reassigned in one step (`xi, xl, yi, yl = border.adjust xi, xl, yi, yl`).
-    # The arithmetic is identical to the object form; `Tuple` is a value type so
-    # this allocates nothing.
+    # By-value counterpart of `#adjust` for callers holding the rectangle as
+    # loose `xi/xl/yi/yl` locals: returns the grown/shrunk coordinates as a
+    # tuple for one-step reassignment (`xi, xl, yi, yl = border.adjust xi, xl, yi, yl`).
+    # `Tuple` is a value type, so this allocates nothing.
     def adjust(xi : Int32, xl : Int32, yi : Int32, yl : Int32, sign = 1)
       {xi + sign * @left, xl - sign * @right, yi + sign * @top, yl - sign * @bottom}
     end

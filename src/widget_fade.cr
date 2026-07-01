@@ -2,8 +2,8 @@ module Crysterm
   class Widget
     # Opacity animation — fades and pulses — built on the tween side of
     # `FrameClock`. Each frame eases `style.alpha` and requests a render; the
-    # existing per-cell alpha blend (`Colors.blend`, see `widget_rendering`) turns
-    # that into actual translucency over whatever is behind the widget.
+    # per-cell alpha blend (`Colors.blend`, see `widget_rendering`) turns that
+    # into translucency over whatever is behind the widget.
     #
     # ```
     # box.fade_in                       # 0 → opaque over the default duration
@@ -39,12 +39,11 @@ module Crysterm
 
     # Builds (but does not start) a tween that eases a scalar from *from* to
     # *target* over *duration*/*easing*, handing each interpolated value to
-    # *apply* and requesting a render per frame. *on_done* fires once on natural
-    # completion only (not on an interrupting `#stop`). Shared by `#fade_to` and
-    # `#tint_to`, which differ only in the value they animate and where they stash
-    # the running `FrameClock` — the caller stops the previous one and records the
-    # returned one *before* starting it, so the start (synchronous under reduced
-    # motion) already sees it stored.
+    # *apply* and requesting a render per frame. *on_done* fires only on natural
+    # completion (not on an interrupting `#stop`). Shared by `#fade_to` and
+    # `#tint_to`; the caller stops its previous tween and records the returned
+    # one *before* starting it, so a synchronous start (reduced motion) already
+    # sees it stored.
     private def build_value_tween(from : Float64, target : Float64, duration : Time::Span,
                                   easing : Easing | Symbol, fps : Int32,
                                   on_done : ->, &apply : Float64 ->) : FrameClock
@@ -54,8 +53,8 @@ module Crysterm
         request_render
       end
       # `completed?` distinguishes a natural finish from an interrupting `#stop`;
-      # checked on the captured `anim` (not the caller's ivar, which a superseding
-      # animation may have already reassigned).
+      # checked on the captured `anim`, not the caller's ivar (which a
+      # superseding animation may have already reassigned).
       anim.on_stop { on_done.call if anim.completed? }
       anim
     end
@@ -67,9 +66,9 @@ module Crysterm
       fade_to(target, duration, easing, fps) { }
     end
 
-    # Makes the widget visible and fades it from fully transparent to fully
-    # opaque, then clears `style.alpha` (so it carries no per-cell blend cost once
-    # shown). *on_done* runs after it lands.
+    # Makes the widget visible and fades it from fully transparent to opaque,
+    # then clears `style.alpha` (no per-cell blend cost once shown). *on_done*
+    # runs after it lands.
     def fade_in(duration : Time::Span = FADE_DURATION,
                 easing : Easing | Symbol = :in_out_sine,
                 fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
@@ -96,10 +95,8 @@ module Crysterm
                  fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
       fade_to(0.0, duration, easing, fps) do
         hide
-        # Clear the residual `alpha == 0.0` the tween lands on (mirroring
-        # `fade_in`'s `set_alpha nil`): the widget is now hidden, but leaving it
-        # fully transparent would make a *later* plain `#show` paint nothing —
-        # the widget would silently stay invisible.
+        # Clear the residual alpha == 0.0 (mirrors `fade_in`'s `set_alpha nil`):
+        # otherwise a later plain `#show` would paint nothing.
         set_alpha nil
         on_done.call
       end
@@ -119,8 +116,8 @@ module Crysterm
               period : Time::Span = 0.8.seconds, fps : Int32 = FADE_FPS) : FrameClock
       @fade.try &.stop
       interval = (1.0 / fps).seconds
-      # A ticker (not a tween): map elapsed time through a triangle + sine so the
-      # value eases at both ends and never stops on its own (runs until stopped).
+      # A ticker (not a tween): maps elapsed time through a triangle + sine so
+      # the value eases at both ends and runs until stopped.
       half = period.total_seconds
       elapsed = 0.0
       anim = FrameClock.new(interval) do |_clock|
@@ -146,11 +143,10 @@ module Crysterm
     # fade and tint at the same time.
     @tint_anim : FrameClock?
 
-    # Animates a color overlay: tints the widget toward *color*, ramping the
-    # overlay strength to *target* (`0.0`..`1.0`) over *duration*. From an
-    # existing tint it eases from the current strength; from none it ramps in
-    # from 0. Cancels any tint already running. *on_done* fires on natural
-    # completion (not on an interrupting `#stop_tint`). Returns the `FrameClock`.
+    # Animates a color overlay: tints the widget toward *color*, ramping overlay
+    # strength to *target* (`0.0`..`1.0`) over *duration*. Eases from the current
+    # strength if a tint is already running, else from 0. Cancels any tint
+    # already running. *on_done* fires on natural completion only.
     def tint_to(color, target : Float64 = 0.5, duration : Time::Span = FADE_DURATION,
                 easing : Easing | Symbol = :in_out_sine,
                 fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
@@ -174,16 +170,15 @@ module Crysterm
       @tint_anim = nil
     end
 
-    # Sets `style.alpha`, and — when CSS has taken over styling — also persists it
-    # onto the inline `@style`, so the next cascade doesn't discard it. Mirrors
+    # Sets `style.alpha`, and — when CSS has taken over styling — persists it
+    # onto the inline `@style` so the next cascade doesn't discard it. Mirrors
     # `#set_visible` (see `widget_visibility`).
     private def set_alpha(value : Float64?) : Nil
-      # Write the *raw* backing style (`#state_style`), not `#style`: at the
-      # unstyled floor `#style` returns a transient reverse-video `#dup` for a
-      # `:focused`/`:selected` small control (`floor_focus_reverse?` — `Button`,
-      # `CheckBox`, `RadioButton`), so a write through it would be discarded and
-      # the fade/pulse would never take effect (the same trap `#set_visible`
-      # avoids).
+      # Write the raw backing style (`#state_style`), not `#style`: at the
+      # unstyled floor, `#style` returns a transient reverse-video `#dup` for
+      # small focused/selected controls (`floor_focus_reverse?` — `Button`,
+      # `CheckBox`, `RadioButton`), so a write through it would be discarded
+      # (same trap `#set_visible` avoids).
       self.state_style.alpha = value
       persist_inline_style(&.alpha=(value))
     end

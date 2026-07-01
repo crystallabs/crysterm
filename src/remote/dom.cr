@@ -26,9 +26,8 @@ module Crysterm
     #
     # Only the *inputs* a user would set are emitted (never computed values like
     # `#aleft`/`#awidth`), and only when they differ from the constructor
-    # default — so the output stays small and reads like hand-written markup.
-    # A `nil`-valued entry emits a bare boolean attribute, as in
-    # `#css_attributes`.
+    # default, so the output reads like hand-written markup. A `nil`-valued
+    # entry emits a bare boolean attribute, as in `#css_attributes`.
     def dom_attributes : Hash(String, String?)
       attrs = {} of String => String?
       (v = @left) && (attrs["left"] = v.to_s)
@@ -74,8 +73,8 @@ module Crysterm
       when "id"                then self.css_id = value
       when "class"             then value.try &.split.each { |c| add_css_class c unless c.empty? }
       when .starts_with?("on") then dom_events[key.lchop("on")] = value || "" if key.size > 2
-        # `data-uid`/`state-*` and friends belong to the CSS document, not here;
-        # silently ignore anything unrecognized so an enriched file still loads.
+        # `data-uid`/`state-*` belong to the CSS document, not here; unrecognized
+        # keys are ignored so an enriched file still loads.
       else
         return false
       end
@@ -122,8 +121,8 @@ module Crysterm
     end
 
     # Finds the first widget in this subtree (self included) whose `#css_id`
-    # matches `id`. The intended way to grab a handle on a widget loaded from a
-    # layout file in order to attach event handlers.
+    # matches `id`. Intended for grabbing a handle on a widget loaded from a
+    # layout file to attach event handlers.
     def find_by_id(id : String) : Widget?
       return self if css_id == id
       children.each do |child|

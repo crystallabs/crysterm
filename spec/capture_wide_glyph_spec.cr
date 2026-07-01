@@ -3,12 +3,10 @@ require "./spec_helper"
 include Crysterm
 
 # Regression: `Capture.draw_cell` used to clamp every cell's background fill and
-# glyph to a single cell width (`cw`). A wide (2-column) grapheme such as a
-# full-width CJK character is 16 px wide in the default Unifont, and its trailing
-# continuation cell carries no cell of its own (`each_content_cell` skips it), so
-# the right half of the glyph — and the wide cell's background over that column —
-# was never painted, leaving a clipped half-glyph on a default-colored gap.
-# Driven headlessly over in-memory IOs.
+# glyph to a single cell width (`cw`). A wide (2-column) grapheme is 16px wide in
+# the default Unifont, and its continuation cell is skipped by
+# `each_content_cell`, so the right half of the glyph and background was never
+# painted. Driven headlessly over in-memory IOs.
 
 private def wide_screen
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,
@@ -34,8 +32,8 @@ describe "Capture wide-glyph rendering" do
     fgi = (fg >> 8) & 0xff
     fb = fg & 0xff
 
-    # The right half (columns [cw, 2*cw)) — i.e. the continuation column's
-    # pixels — must contain at least one foreground (lit-glyph) pixel.
+    # The continuation column's pixels (columns [cw, 2*cw)) must contain at
+    # least one lit-glyph pixel.
     lit_right = false
     bmp.each do |row|
       (cw...(2 * cw)).each do |x|

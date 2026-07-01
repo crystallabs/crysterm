@@ -98,9 +98,8 @@ describe "Pine::OptionList" do
     ol.records[2].to_i.should eq 4
   end
 
-  # A mouse click selects the clicked row *before* it activates it. An edit in
-  # progress must therefore commit to the row where it began (not the row just
-  # clicked), or the typed value leaks into the wrong option.
+  # A mouse click selects the clicked row before activating it, so an edit in
+  # progress must commit to the row where it began, not the clicked row.
   it "commits an in-progress edit to its own row when another row is activated" do
     s = pol_screen
     ol = Crysterm::Widget::Pine::OptionList.new pol_options, parent: s
@@ -109,8 +108,7 @@ describe "Pine::OptionList" do
     ol.activate   # begin editing row 1 ("hi")
     press ol, 'X' # buffer -> "hiX"
 
-    # Simulate a click on row 3 (theme): the selection moves first, then the
-    # click activates.
+    # Simulate a click on row 3 (theme): selection moves first, then activates.
     ol.selekt 3
     ol.activate
 

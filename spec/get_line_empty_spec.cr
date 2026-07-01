@@ -7,8 +7,8 @@ private def headless_screen
 end
 
 # `Widget#get_line` / `#get_baseline` (Blessed `getLine` parity) must not raise
-# on empty content. Empty content leaves `@_clines.fake` empty, and Crystal's
-# two-arg `clamp(0, -1)` returns -1, so the old `fake[-1]` raised `IndexError`.
+# on empty content: empty content leaves `@_clines.fake` empty, and Crystal's
+# `clamp(0, -1)` returns -1, so the old `fake[-1]` raised `IndexError`.
 describe "Widget#get_line on empty content" do
   it "returns a blank line instead of raising on a freshly built widget" do
     box = Widget::Box.new parent: headless_screen

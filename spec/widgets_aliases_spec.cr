@@ -1,13 +1,11 @@
 require "./spec_helper"
 
-# The `Widgets` module is a convenience namespace of aliases onto the real
-# `Widget::*` classes (the documented `include Widgets; Text.new` shortcut).
-# Each alias must point at a class that actually exists: a typo on the
-# right-hand side (e.g. `Widget::Checkbox` for the real `Widget::CheckBox`)
-# compiles silently — Crystal only evaluates an unused constant when it is first
-# referenced — and only blows up as `undefined constant` the moment a user
-# reaches for the shortcut. Referencing the aliases here forces that resolution
-# at compile time, so a broken alias fails the build instead of an app.
+# `Widgets` is a namespace of aliases onto the real `Widget::*` classes (the
+# documented `include Widgets; Text.new` shortcut). A typo on the right-hand
+# side (e.g. `Widget::Checkbox` for `Widget::CheckBox`) compiles silently,
+# since Crystal only evaluates a constant when first referenced, and only
+# fails as `undefined constant` when a user reaches for the shortcut.
+# Referencing the aliases here forces resolution at compile time.
 describe Crysterm::Widgets do
   it "exposes the checkable-button aliases as the real Widget classes" do
     Crysterm::Widgets::CheckBox.should eq Crysterm::Widget::CheckBox

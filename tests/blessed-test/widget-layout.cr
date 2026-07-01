@@ -1,8 +1,7 @@
 require "../../src/crysterm"
 
-# For reproducibility, the section near the end generating 10 widgets has been
-# changed to always use fixed sizes instead of Random. The patch for Blessed's
-# test file to get the same behavior is in file widget-layout.cr.blessed-patch.
+# The section generating 10 widgets near the end uses fixed sizes instead of
+# Random for reproducibility. Patch for Blessed's test file to match: widget-layout.cr.blessed-patch.
 
 module Crysterm
   s = Window.new optimization: OptimizationFlag::SmartCSR, dock_borders: false
@@ -13,7 +12,7 @@ module Crysterm
     width: "100%-2",
     height: "100%-2",
     layout: ARGV[0]? == "grid" ? Crysterm::Layout::UniformGrid.new : Crysterm::Layout::Masonry.new,
-    overflow: Overflow::Ignore, # Setting not existing in Blessed. Controls what to do when widget is overflowing available space. Value of 'ignore' ignores the issue and renders such widgets overflown.
+    overflow: Overflow::Ignore, # Not in Blessed. Controls overflow handling; `ignore` lets overflowing widgets render overflown.
     style: Style.new(
     bg: "red",
     border: Border.new(
@@ -168,5 +167,5 @@ module Crysterm
 
   s.render
 
-  s.exec # We use exec to run the main loop. Similar to Qt.
+  s.exec # runs the main loop, similar to Qt
 end

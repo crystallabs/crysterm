@@ -1,5 +1,5 @@
-# Media::Ansi — the Matterhorn rendered as cell backgrounds, one cell per pixel,
-# in the default colormode. The sibling dirs pin one colormode each
+# Media::Ansi — Matterhorn rendered as cell backgrounds, one cell per pixel,
+# in the default colormode. Sibling dirs pin one colormode each
 # (truecolor / c256 / c16 / c8).
 require "../../../../src/crysterm"
 

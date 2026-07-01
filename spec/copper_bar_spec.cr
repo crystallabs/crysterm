@@ -3,9 +3,8 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget::Effect::CopperBar` hue-cycling logic, driven headlessly over in-memory
-# IOs so no real terminal is touched. `#step` is pure (it only repaints
-# `style.bg`; it does not render or sleep), so it can be exercised directly
-# without the animation fiber.
+# IOs. `#step` is pure (only repaints `style.bg`, no render/sleep), so it can
+# be exercised directly without the animation fiber.
 
 private def copper_screen
   Crysterm::Window.new(

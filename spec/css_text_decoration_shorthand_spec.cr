@@ -3,11 +3,11 @@ require "./spec_helper"
 include Crysterm
 
 # Focused specs for the CSS `text-decoration` shorthand parser
-# (`Crysterm::CSS::Properties.apply`). The interesting case is a *blank* value —
-# an undefined `var(--x)` that collapsed to "" before reaching the property. It
-# must be dropped (CSS's "drop the invalid declaration" rule), NOT treated as a
-# shorthand reset that clobbers underline/blink/strike/reverse. A genuine value
-# with no decoration word still resets, exactly like the `font` shorthand.
+# (`Crysterm::CSS::Properties.apply`). Key case: a blank value (an undefined
+# `var(--x)` collapsed to "") must be dropped per CSS's "invalid declaration"
+# rule, not treated as a shorthand reset that clobbers
+# underline/blink/strike/reverse. A genuine value with no decoration word still
+# resets, like the `font` shorthand.
 describe "CSS text-decoration shorthand" do
   it "sets underline / blink / line-through / reverse" do
     s = Style.new
@@ -24,7 +24,7 @@ describe "CSS text-decoration shorthand" do
     s.reverse?.should be_true
   end
 
-  # The core regression: a blank value must not switch off a decoration a
+  # Regression: a blank value must not switch off a decoration a
   # lower-priority rule had set.
   it "drops a blank value, keeping previously-set decorations" do
     s = Style.new
@@ -32,13 +32,13 @@ describe "CSS text-decoration shorthand" do
     s.blink = true
     s.strike = true
     s.reverse = true
-    # Undefined `var()` collapses to "" before reaching the property.
+    # Undefined var() collapses to "" before reaching the property.
     Crysterm::CSS::Properties.apply(s, "text-decoration", "")
     s.underline?.should be_true
     s.blink?.should be_true
     s.strike?.should be_true
     s.reverse?.should be_true
-    # Whitespace-only (also how a blank value can arrive) is dropped too.
+    # Whitespace-only value is dropped too.
     Crysterm::CSS::Properties.apply(s, "text-decoration", "   ")
     s.underline?.should be_true
     s.blink?.should be_true
@@ -47,7 +47,7 @@ describe "CSS text-decoration shorthand" do
   end
 
   # A genuine value with no matching decoration word still resets (shorthand
-  # `absent -> off`), exactly as before — the guard only drops the blank case.
+  # absent -> off); the guard only drops the blank case.
   it "still resets decorations for a real value with no matching word" do
     s = Style.new
     s.underline = true

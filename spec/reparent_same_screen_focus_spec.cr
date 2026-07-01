@@ -3,12 +3,11 @@ require "./spec_helper"
 include Crysterm
 
 # Reparenting a focused widget between two containers *on the same screen* must
-# preserve its keyboard focus. The widget never leaves the screen and is re-homed
-# immediately, so its focus is still valid — but `Widget#remove` (src/
-# widget_children.cr) used to `rewind_focus` unconditionally on the unlink, which
-# pops the still-on-screen widget out of the focus history and blurs it. The
-# screen-level `Attach`/`Detach` suppression for a same-screen move must likewise
-# leave focus untouched; a genuine *cross-screen* move must still rewind.
+# preserve its keyboard focus. `Widget#remove` (src/widget_children.cr) used to
+# `rewind_focus` unconditionally on unlink, popping the still-on-screen widget
+# out of the focus history and blurring it. Screen-level `Attach`/`Detach`
+# suppression for a same-screen move must likewise leave focus untouched; a
+# genuine *cross-screen* move must still rewind.
 
 private def headless_screen
   Crysterm::Window.new(

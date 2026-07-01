@@ -2,22 +2,20 @@ require "gpm"
 
 module Crysterm
   # Device-side mouse transport — the raw-input half of mouse support, on the
-  # physical device (`Screen`). It enables/disables terminal mouse reporting,
+  # physical device (`Screen`). Enables/disables terminal mouse reporting,
   # reads the Linux-console `gpm` daemon, and drives the GUI mouse-cursor shape
-  # (OSC 22) — all pure `tput`/IO concerns. Parsed mouse events are routed *up*
-  # to the `Application` dispatcher exactly like keys; the surface-side hit-test
-  # and hover/drag handling (`#dispatch_mouse`, `#widget_at`, …) stays on
-  # `Window` in `window_mouse.cr`.
+  # (OSC 22). Parsed mouse events are routed *up* to the `Application`
+  # dispatcher exactly like keys; hit-test and hover/drag handling
+  # (`#dispatch_mouse`, `#widget_at`, …) stays on `Window` in `window_mouse.cr`.
   #
-  # Crysterm receives mouse input from two possible sources, unified behind a
-  # single mechanism:
+  # Two input sources feed the same path:
   #
   #   * **Terminal escape sequences** (xterm SGR/X10) — enabled via `Tput` and
   #     parsed by the device read fiber (`Screen#listen_keys`), which yields a
   #     `Tput::InputEvent` carrying a `::Tput::Mouse::Event`.
   #   * **The Linux console `gpm` daemon** — read from `/dev/gpmctl` and
   #     converted to the same `::Tput::Mouse::Event`, then wrapped in a
-  #     `Tput::InputEvent` so it travels the identical routing path.
+  #     `Tput::InputEvent`.
   #
   # Both reach `Window#dispatch_mouse` (via `Application#route_input` →
   # `Window#handle_input`), so listeners never need to know the source.
@@ -34,19 +32,18 @@ module Crysterm
     # set per-device to override. See `Widget#mouse_cursor_shape=`.
     property? mouse_cursor_shape : Bool = Config.mouse_cursor_shape
 
-    # The GUI mouse-pointer shape currently pushed to the terminal via OSC 22, or
-    # `nil` for the terminal default. Tracked so we only emit on an actual change
-    # and can restore the default on teardown.
+    # GUI mouse-pointer shape currently pushed via OSC 22, or `nil` for the
+    # terminal default. Tracked so we only emit on change and can restore the
+    # default on teardown.
     @_mouse_cursor_shape : ::Tput::MouseCursorShape? = nil
 
-    # Requests the GUI mouse-pointer (the windowing-system cursor) take *shape*
-    # while it is over this terminal, or restores the terminal default when
-    # *shape* is `nil`. A no-op unless `#mouse_cursor_shape?` (the
-    # `mouse.cursor_shape` gate) is on, and a no-op when the request matches what
-    # is already applied. Best-effort: only xterm-class terminals honor OSC 22
-    # (see `::Tput::Output#mouse_cursor_shape`); elsewhere it is silently ignored.
+    # Requests the GUI mouse-pointer take *shape* while over this terminal, or
+    # restores the terminal default when *shape* is `nil`. No-op unless
+    # `#mouse_cursor_shape?` is on, or when the request matches what's already
+    # applied. Best-effort: only xterm-class terminals honor OSC 22 (see
+    # `::Tput::Output#mouse_cursor_shape`); elsewhere silently ignored.
     #
-    # Widgets drive this on hover in/out via `Widget#mouse_cursor_shape=`; it can
+    # Widgets drive this on hover in/out via `Widget#mouse_cursor_shape=`; can
     # also be called directly to set a screen-wide pointer shape.
     def set_mouse_cursor_shape(shape : ::Tput::MouseCursorShape?) : Nil
       return unless mouse_cursor_shape?
@@ -71,24 +68,22 @@ module Crysterm
       tput.disable_mouse
       @_gpm.try &.stop
       @_gpm = nil
-      # Also drop the fiber handle. Stopping the daemon ends `get_event`'s loop,
-      # so the fiber terminates on its own — but `listen_gpm` guards on
-      # `@_gpm_fiber` being nil, so leaving the (now-dead) handle set would make a
-      # later `listen_mouse` (e.g. after a disconnect/reattach, or any leave→listen
-      # cycle) silently skip re-establishing the gpm connection.
+      # Stopping the daemon ends `get_event`'s loop so the fiber terminates on
+      # its own, but `listen_gpm` guards on `@_gpm_fiber` being nil — leaving
+      # the dead handle set would make a later `listen_mouse` silently skip
+      # re-establishing the gpm connection.
       @_gpm_fiber = nil
       @_listened_mouse = false
-      # With reporting off there will be no further `MouseOut` to revert a
-      # hover-set pointer shape, so restore the terminal default now — otherwise
-      # the GUI pointer could stay stuck in a widget's shape after teardown.
+      # No reporting means no further `MouseOut` to revert a hover-set pointer
+      # shape, so restore the terminal default now.
       set_mouse_cursor_shape nil
     end
 
     # Sets up mouse listening: enables terminal mouse reporting and, when
-    # available, also starts reading from the `gpm` console daemon. Both sources
+    # available, starts reading from the `gpm` console daemon. Both sources
     # are routed (via `Application#route_input`) to `Window#dispatch_mouse`.
     #
-    # The terminal escape-sequence reports are consumed by the device read fiber
+    # Terminal escape-sequence reports are consumed by the device read fiber
     # (`#listen_keys`), so this method does not spawn a fiber for them.
     def listen_mouse
       return if @_listened_mouse
@@ -100,10 +95,9 @@ module Crysterm
 
     # Attempts to connect to the `gpm` daemon and, on success, spawns a fiber
     # that converts each `GPM::Event` into a `::Tput::Mouse::Event`, wraps it in a
-    # `Tput::InputEvent`, and routes it up to the dispatcher — the same path the
-    # terminal escape-sequence reports take. If `gpm` is unavailable (not a Linux
-    # console, daemon not running, no socket), this silently does nothing — the
-    # terminal escape-sequence path remains fully functional.
+    # `Tput::InputEvent`, and routes it to the dispatcher — same path as the
+    # terminal escape-sequence reports. If `gpm` is unavailable (not a Linux
+    # console, daemon not running, no socket), this silently does nothing.
     private def listen_gpm
       return if @_gpm_fiber
 
@@ -124,7 +118,7 @@ module Crysterm
     end
 
     # Converts a `GPM::Event` (Linux console mouse) into the normalized
-    # `::Tput::Mouse::Event`. GPM coordinates are 1-based; we shift them to the
+    # `::Tput::Mouse::Event`. GPM coordinates are 1-based; shifted here to the
     # 0-based convention used throughout mouse handling.
     private def gpm_to_event(e : GPM::Event) : ::Tput::Mouse::Event
       button = if e.left?

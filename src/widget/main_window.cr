@@ -83,10 +83,7 @@ module Crysterm
           set_geo mb, top: 0, left: 0, right: 0, height: @menu_height
         end
         if tb = @tool_bar
-          # The tool bar sits directly below the menu bar — at the very top when
-          # there is no menu bar (otherwise row 0 would be left blank and the tool
-          # bar would overlap the central widget, which the `top` accumulator above
-          # already places below both bars).
+          # Sits directly below the menu bar, or at the very top if there is none.
           set_geo tb, top: (@menu_bar ? @menu_height : 0), left: 0, right: 0, height: @tool_height
         end
         if sb = @status_bar
@@ -119,7 +116,7 @@ module Crysterm
       end
 
       # Yields each visible dock in *area* without the per-frame `Array` a
-      # `@docks.select` would allocate (relayout calls this four times a frame).
+      # `@docks.select` would allocate.
       private def each_active_dock(area : DockWidget::Area, &)
         @docks.each do |d|
           yield d if d.area == area && d.visible?

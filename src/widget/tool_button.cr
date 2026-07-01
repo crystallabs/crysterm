@@ -5,15 +5,14 @@ module Crysterm
   class Widget
     # Compact action button, modeled after Qt's `QToolButton`.
     #
-    # Like `Button` it activates on Space/Enter or a click, but it adds the two
+    # Like `Button` it activates on Space/Enter or a click, but adds two
     # features that set a tool button apart from a plain push button:
     #
     # * **A default `Action`** (`#action=`, Qt's `setDefaultAction`). When set,
     #   the button shows the action's text and, on activation, triggers the
     #   action (emitting its `Event::Triggered`) in addition to its own
-    #   `Event::Press`. The same `Action` can then drive a menu entry and a
-    #   toolbar button at once, keeping them in sync. A disabled action is not
-    #   triggered.
+    #   `Event::Press`. The same `Action` can drive a menu entry and a toolbar
+    #   button at once, keeping them in sync. A disabled action is not triggered.
     #
     # * **A popup `Menu`** (`#menu=`, Qt's `setMenu`). How it opens depends on
     #   `#popup_mode`:
@@ -24,10 +23,10 @@ module Crysterm
     #     - `DelayedPopup`    — treated like `MenuButtonPopup`, since a terminal
     #       has no press-and-hold gesture.
     #
-    # `#auto_raise?` mirrors Qt's flat-until-hovered appearance; it is stored and
-    # exposed (e.g. for CSS/styling) — the default push/activation behavior is
-    # inherited from `AbstractButton` (a sibling of `Button`, as in Qt where
-    # `QToolButton` and `QPushButton` are both `QAbstractButton`s).
+    # `#auto_raise?` mirrors Qt's flat-until-hovered appearance; stored and
+    # exposed for CSS/styling — default push/activation behavior is inherited
+    # from `AbstractButton` (as in Qt, `QToolButton` and `QPushButton` are
+    # both `QAbstractButton`s).
     #
     # <!-- widget-examples:capture v1 -->
     # ![ToolButton screenshot](../../tests/widget/tool_button/tool_button.5s.apng)
@@ -60,8 +59,8 @@ module Crysterm
       )
         super **button
 
-        # Activate-key / click wiring (previously inherited from `Button`, now
-        # that `ToolButton` derives `AbstractButton` directly like Qt).
+        # Activate-key / click wiring (ToolButton derives `AbstractButton`
+        # directly, not `Button`).
         handle Crysterm::Event::KeyPress
         handle Crysterm::Event::Click
 
@@ -72,8 +71,7 @@ module Crysterm
         menu.try { |m| self.menu = m }
         action.try { |a| self.action = a }
 
-        # The mouse wheel cycles through the menu's actions, triggering each in
-        # turn (handy on a tool button that stands in for a small set of choices).
+        # Mouse wheel cycles through the menu's actions, triggering each in turn.
         on(Crysterm::Event::Mouse) do |e|
           next unless m = @menu
           if e.action.wheel_down?
@@ -93,9 +91,8 @@ module Crysterm
 
       # Sets (or clears) the default action, mirroring its text onto the button.
       def action=(a : Action?) : Action?
-        # Idempotent: re-assigning the same action re-stamps identical content
-        # and requests a needless repaint, so skip it (the guard only matters
-        # because a render follows).
+        # Idempotent: re-assigning the same action would re-stamp identical
+        # content and request a needless repaint.
         return a if a == @action
         @action = a
         if a && !a.text.empty?
@@ -131,8 +128,8 @@ module Crysterm
       end
 
       def press
-        # InstantPopup: the whole button is the menu drop-down — open it instead
-        # of emitting a press / triggering the action.
+        # InstantPopup: the whole button is the menu drop-down — open it
+        # instead of emitting a press / triggering the action.
         if @menu && @popup_mode.instant_popup?
           focus
           show_menu
@@ -147,10 +144,9 @@ module Crysterm
         end
       end
 
-      # A click opens the popup menu (when one is attached); otherwise it presses
-      # the button like a normal `Button`. (A terminal has no separate arrow
-      # sub-region, so the whole button surface opens the menu — keyboard
-      # Enter/Space still triggers the default action.)
+      # A click opens the popup menu (when one is attached); otherwise presses
+      # the button like a normal `Button`. A terminal has no separate arrow
+      # sub-region, so the whole button surface opens the menu.
       def on_click(e)
         if @menu
           focus

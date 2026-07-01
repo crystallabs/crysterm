@@ -9,18 +9,17 @@ module Crysterm
     #
     # * **Main axis:** a child with an explicit main-axis size keeps it; the rest
     #   share the leftover space in proportion to their `grow` factor (default
-    #   1 — i.e. equal shares, matching the original behavior). Set a per-child
-    #   factor with `layout_hint: Layout::Box::Hint.new(grow: 2)`.
-    # * **`justify`** distributes leftover space along the main axis *when there
-    #   are no growing children* (Start/Center/End/SpaceBetween/SpaceAround).
+    #   1, i.e. equal shares). Set a per-child factor with
+    #   `layout_hint: Layout::Box::Hint.new(grow: 2)`.
+    # * **`justify`** distributes leftover space along the main axis when no
+    #   children grow (Start/Center/End/SpaceBetween/SpaceAround).
     # * **`align`** sets cross-axis placement: `Stretch` (default) fills the
     #   cross axis for children without an explicit cross size; `Start`/`Center`/
     #   `End` keep the child's own cross size and position it.
     #
-    # Sizes this layout assigns are remembered (`@flex`/`@filled`) so a child it
-    # sized is still recognised as managed next frame, and reassigned through the
-    # normal setters (which no-op when unchanged) so a stable layout emits no
-    # events after the first frame.
+    # Assigned sizes are remembered (`@flex`/`@filled`) so a sized child stays
+    # recognised as managed, and reassigned through the normal setters (no-op
+    # when unchanged) so a stable layout emits no events after the first frame.
     class Box < Layout
       enum Orientation
         Horizontal
@@ -58,30 +57,26 @@ module Crysterm
       @cursor = 0
       @avail = 0
       @total_grow = 0
-      # Running sum of the grow factors of the flex children placed so far, used
-      # to distribute @avail by cumulative rounding (see #place). Reset each
+      # Running sum of grow factors of flex children placed so far; used to
+      # distribute @avail by cumulative rounding (see #place). Reset each
       # #measure, consumed in #place order.
       @grow_seen = 0
       # Leftover space distributed along the main axis by `justify` when nothing
       # grows. Carved into per-child gaps by *cumulative* rounding (see `#place`
-      # and `#justify_before`) rather than a single floored `leftover // slots`: a
-      # uniform floor dropped up to `slots - 1` columns, so the last child of a
-      # `SpaceBetween` row stopped short of the far edge (and `SpaceAround` came
-      # out lopsided) on a non-evenly-divisible leftover — the same defect the grow
-      # shares and Grid/Form already avoid by cumulative carving. `@just_n` is the
-      # arranged-child count and `@just_k` the running placement ordinal.
+      # and `#justify_before`) rather than a floored `leftover // slots`, which
+      # drops up to `slots - 1` columns (last child of `SpaceBetween` falls short
+      # of the far edge, `SpaceAround` comes out lopsided) — same fix Grid/Form
+      # use. `@just_n` is the arranged-child count, `@just_k` the placement ordinal.
       @just_leftover = 0
       @just_n = 0
       @just_around = false
       @just_k = 0
       @flex = Set(Widget).new
       @filled = Set(Widget).new
-      # Per-arrange cache of fixed children's resolved main-axis size, so the
-      # `a_main_size` (an `awidth`/`aheight` ancestor-chain walk) computed in
-      # `measure` is reused by `place` instead of walked a second time. Repopulated
-      # every `measure`; a child's main size is stable between the two passes (the
-      # only mutation in between is its cross-axis size, which the main axis does
-      # not depend on).
+      # Per-arrange cache of fixed children's resolved main-axis size, so
+      # `a_main_size` (an ancestor-chain walk) computed in `measure` isn't walked
+      # again in `place`. Repopulated every `measure`; stable between passes since
+      # only cross-axis size changes in between.
       @measured = {} of Widget => Int32
 
       def initialize(
@@ -108,9 +103,8 @@ module Crysterm
         @filled.select! { |el| children.includes? el }
 
         main = main_extent interior
-        # Count only the children this engine actually arranges (see
-        # `#each_arrangeable`): layout-excluded chrome must not consume a gap or a
-        # `justify` slot.
+        # Only children this engine actually arranges (see `#each_arrangeable`)
+        # count: layout-excluded chrome must not consume a gap or justify slot.
         n = arrangeable_count container
         gaps = n > 1 ? @gap * (n - 1) : 0
 
@@ -143,15 +137,15 @@ module Crysterm
           when .center? then lead = leftover // 2
           when .end?    then lead = leftover
           when .space_between?
-            # First child flush to the start, last flush to the end; the leftover
-            # between them is carved by cumulative rounding in `#place`.
+            # First child flush start, last flush end; leftover between them
+            # carved by cumulative rounding in `#place`.
             @just_leftover = leftover
           when .space_around?
-            # Equal space on both sides of every child (a half-slot at each end).
+            # Equal space on both sides of every child (half-slot at each end).
             @just_leftover = leftover
             @just_around = true
           end
-          # The lead for between/around is the cumulative offset before the first
+          # Lead for between/around is the cumulative offset before the first
           # child (0 for between, a half-slot for around).
           lead = justify_before(0) if @just_leftover > 0
         end
@@ -180,15 +174,12 @@ module Crysterm
         # Main axis: explicit size wins; otherwise a grow-weighted share.
         size =
           if main_flex? el
-            # Distribute @avail by *cumulative* rounding rather than rounding each
-            # child's share independently: a per-child `(@avail * grow) //
-            # total_grow` floors every child, so up to `total_grow - 1` columns
-            # were dropped and left blank at the far edge of a stretch layout
-            # (e.g. two equal-grow children in an odd-width HBox lost the last
-            # column). Taking each child's size as the difference of successive
-            # cumulative floors makes the shares sum to exactly @avail (the last
-            # flex child absorbs the remainder), matching how Grid/Form hand their
-            # leftover to the final cell.
+            # Distribute @avail by cumulative rounding rather than rounding each
+            # child's share independently: an independent `(@avail * grow) //
+            # total_grow` floors every child, dropping up to `total_grow - 1`
+            # columns at the far edge. Taking each child's size as the difference
+            # of successive cumulative floors sums to exactly @avail (the last
+            # flex child absorbs the remainder), matching Grid/Form.
             s =
               if @total_grow > 0
                 before = (@avail * @grow_seen) // @total_grow
@@ -208,20 +199,17 @@ module Crysterm
         set_main_pos el, @cursor
         # Advance past this child, its base `@gap`, and its share of the justify
         # leftover. The justify gap is the difference of successive cumulative
-        # offsets (see `#justify_before`), so the per-child gaps sum to exactly the
-        # leftover and the last child lands flush against the far edge — instead of
-        # a floored `leftover // slots` that left up to `slots - 1` columns blank
-        # at the end of a `SpaceBetween` row.
+        # offsets (see `#justify_before`), so per-child gaps sum to exactly the
+        # leftover and the last child lands flush against the far edge.
         gap_after = justify_before(@just_k + 1) - justify_before(@just_k)
         @just_k += 1
         @cursor += size + @gap + gap_after
       end
 
       # Cumulative justify offset laid down *before* the `j`-th placed child, so a
-      # child's gap is `justify_before(k + 1) - justify_before(k)`. Carving the
-      # gaps this way makes them sum to `@just_leftover` exactly (no remainder
-      # stranded at the far edge), mirroring the cumulative grow-share and Grid
-      # `#fence` distributions.
+      # child's gap is `justify_before(k + 1) - justify_before(k)`. Sums to
+      # `@just_leftover` exactly (no remainder stranded at the far edge),
+      # mirroring the cumulative grow-share and Grid `#fence` distributions.
       #
       # * `SpaceBetween`: `j` of the `n - 1` gaps precede child `j`, i.e.
       #   `floor(j * leftover / (n - 1))` — 0 before the first, the whole leftover

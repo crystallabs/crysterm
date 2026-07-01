@@ -11,8 +11,8 @@ require "./spec_helper"
     Crysterm::Colors.convert(name).to_i32
   end
 
-  # Self-contained layouts: a `<style>` block in the HTML is extracted and handed
-  # to the same CSS parser/cascade, so one file can carry structure + appearance.
+  # A `<style>` block in the HTML is extracted and handed to the same CSS
+  # parser/cascade, so one file can carry structure + appearance.
   describe "inline <style> in a layout" do
     it "applies CSS from an inline <style> block" do
       s = headless_screen

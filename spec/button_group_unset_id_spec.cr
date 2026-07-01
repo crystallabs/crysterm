@@ -3,9 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # Regression: `ButtonGroup#button` must treat `-1` (the "no id" sentinel, as in
-# Qt) as un-addressable, even when members were added without an explicit id and
-# therefore all carry `-1`. Otherwise `button(checked_id)` with nothing checked
-# (`checked_id` == -1) would hand back the first un-id'd member instead of nil.
+# Qt) as un-addressable, even when all members carry it (added without an
+# explicit id). Otherwise `button(checked_id)` with nothing checked would
+# return the first un-id'd member instead of nil.
 
 private def add_mem_screen
   Crysterm::Window.new(
@@ -26,15 +26,14 @@ describe Crysterm::ButtonGroup do
     g.add a # no explicit id -> id is -1
     g.add b # no explicit id -> id is -1
 
-    # The members carry the unset-id sentinel...
+    # Members carry the unset-id sentinel...
     g.id(a).should eq -1
     g.id(b).should eq -1
 
     # ...yet -1 must not resolve to any of them.
     g.button(-1).should be_nil
 
-    # Nothing is checked, so checked_id is the same sentinel; round-tripping it
-    # through #button must yield nil, not the first member.
+    # Nothing checked, so checked_id is the same sentinel; must round-trip to nil.
     g.checked_id.should eq -1
     g.button(g.checked_id).should be_nil
 

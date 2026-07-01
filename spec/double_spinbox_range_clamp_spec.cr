@@ -6,10 +6,10 @@ include Crysterm
 # (via `Mixin::RangedValue#set_range`) and `ProgressBar#set_range`: re-clamp the
 # current value into the new range, never store an inverted range, and repaint.
 #
-# They used to be plain `property` setters that just overwrote the bound, so a
-# `setMinimum` above (or `setMaximum` below) the current value left `value`
-# outside `[minimum, maximum]` and the displayed number stale — diverging from
-# Qt's `QDoubleSpinBox` and from the integer sibling.
+# They used to be plain `property` setters that just overwrote the bound, so
+# raising the minimum (or lowering the maximum) past the current value left
+# `value` outside `[minimum, maximum]` and the display stale, diverging from
+# Qt's `QDoubleSpinBox`.
 
 private def dsr_screen
   Crysterm::Window.new(

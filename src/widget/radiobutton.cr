@@ -6,11 +6,11 @@ module Crysterm
   class Widget
     # Radio button element, modeled after Qt's `QRadioButton`.
     #
-    # Derives `AbstractButton` directly — a sibling of `CheckBox`, exactly as Qt
-    # makes `QRadioButton` a sibling of `QCheckBox` under `QAbstractButton`
-    # (rather than `QRadioButton < QCheckBox`). The marker rendering and input
-    # wiring it shares with `CheckBox` come from `Mixin::CheckMarker`; what it
-    # adds is the group exclusivity (`#on_check`) and the check-only `#toggle`.
+    # Derives `AbstractButton` directly — a sibling of `CheckBox`, as Qt makes
+    # `QRadioButton` a sibling of `QCheckBox` under `QAbstractButton` (rather
+    # than `QRadioButton < QCheckBox`). Marker rendering and input wiring shared
+    # with `CheckBox` come from `Mixin::CheckMarker`; this class adds group
+    # exclusivity (`#on_check`) and the check-only `#toggle`.
     #
     # <!-- widget-examples:capture v1 -->
     # ![RadioButton screenshot](../../tests/widget/radiobutton/radiobutton.5s.apng)
@@ -41,9 +41,9 @@ module Crysterm
 
       # A radio button only ever *checks* itself when toggled; the containing
       # group unchecks the others (see `#on_check`). Without this override it
-      # would inherit `AbstractButton#toggle` (which flips checked/unchecked), so
-      # pressing Space/Enter on the selected radio would uncheck it and leave
-      # the group with nothing selected.
+      # inherits `AbstractButton#toggle` (flips checked/unchecked), so
+      # Space/Enter on the selected radio would uncheck it, leaving the group
+      # with nothing selected.
       def toggle
         check
       end

@@ -57,8 +57,7 @@ module Crysterm
           return
         end
 
-        # A key we handled: consume it (so it doesn't also drive an ancestor)
-        # and repaint.
+        # Consume the handled key (don't also drive an ancestor) and repaint.
         e.accept
         request_render
       end

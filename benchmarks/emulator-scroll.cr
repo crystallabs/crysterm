@@ -4,11 +4,10 @@ require "../src/crysterm"
 # `TerminalEmulator` stores its grid as `Array(Array(Cell))` with a heap-`class`
 # `Cell` per occupied cell. Every scrolled line allocates a fresh `blank_line`
 # (`@cols` `Cell` objects + the array), and once scrollback fills, `@lines.shift`
-# is O(scrollback) per scrolled line. This benchmark drives heavy scrolling
-# output (the emulator's hottest real path — a child `cat`ing a big file) and
-# reports throughput + total bytes allocated, so we can judge whether converting
-# `Cell` to a struct (+ a `Deque` scrollback) is worth the cross-cutting rewrite
-# of every `line[x].attr = …` in-place mutation.
+# is O(scrollback) per scrolled line. Drives heavy scrolling output (the
+# emulator's hottest real path) and reports throughput + bytes allocated, to
+# judge whether converting `Cell` to a struct (+ `Deque` scrollback) is worth
+# the cross-cutting rewrite of every in-place `line[x].attr = …` mutation.
 #
 # Run:  crystal run --release benchmarks/emulator-scroll.cr
 
@@ -18,7 +17,7 @@ COLS  =      80
 ROWS  =      24
 LINES = 200_000
 
-# A realistic-ish line: some text, then a newline. ASCII so 1 byte/char.
+# Realistic-ish line: text then a newline. ASCII so 1 byte/char.
 payload = String.build do |s|
   LINES.times { |i| s << "The quick brown fox jumps over line number "; s << i; s << '\n' }
 end

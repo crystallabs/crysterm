@@ -72,10 +72,9 @@ module Crysterm
 
         handle Crysterm::Event::KeyPress
 
-        # Click *or drag* along the track to move the handle to the pointer. A
-        # press sets the value; while the button stays held, motion events (which
-        # still report the held button) keep updating it, so the handle follows
-        # the drag. A free move (no button) is ignored.
+        # Click or drag along the track to move the handle to the pointer: a
+        # press sets the value, and held-button motion events keep updating it.
+        # A free move (no button) is ignored.
         on(Crysterm::Event::Mouse) do |e|
           # Wheel nudges the value by one step (up = increase).
           next if ranged_wheel e
@@ -199,11 +198,9 @@ module Crysterm
             txt = @value.to_s
             cx = xi + Math.max(0, (xl - xi - txt.size) // 2)
             cy = yi + (yl - yi - 1) // 2
-            # Set the attr too, not just the glyph: the value text rides over the
-            # center row, which also carries the handle cell. Writing only the
-            # char left a digit landing on the handle wearing the handle's
-            # (indicator/reverse) attr, so the readout came out unevenly styled.
-            # Stamp the track attr so every digit reads consistently.
+            # Stamp the track attr too, not just the glyph: the center row also
+            # carries the handle cell, and writing only the char left a digit on
+            # the handle wearing its (indicator/reverse) attr.
             draw_text_run cy, cx, txt, xl, track_attr
           end
         end

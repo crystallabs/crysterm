@@ -1,13 +1,13 @@
 require "benchmark"
 require "../src/crysterm"
 
-# Micro-benchmarks for the `widget_content.cr` hot paths.
+# Micro-benchmarks for `widget_content.cr` hot paths.
 #
 #   * cache_hit   — `process_content` on an unchanged single-line widget (the
-#                   per-frame common case: just the cache-key check + `sattr`).
+#                   per-frame common case: cache-key check + `sattr`).
 #   * reparse     — `set_content` of changing plain text (full reparse: clean
 #                   gsub + wrap + parse_attr + ci + pcontent).
-#   * reparse_tag — same, but with `{bold}`-tagged content (adds `_parse_tags`).
+#   * reparse_tag — same, with `{bold}`-tagged content (adds `_parse_tags`).
 #   * wrap_multi  — `_wrap_content` of a multi-line, word-wrapped paragraph.
 #   * parse_tags  — `_parse_tags` alone on a heavily-tagged line.
 #
@@ -22,7 +22,7 @@ screen.width = 200
 screen.height = 60
 screen.realloc
 
-# Single-line plain widget (label-like): the overwhelmingly common shape.
+# Single-line plain widget (label-like).
 plain = Widget::Box.new parent: screen, top: 0, left: 0, width: 40, height: 1,
   content: "Hello, world!"
 plain.process_content # prime the cache

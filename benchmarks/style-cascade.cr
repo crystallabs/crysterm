@@ -3,15 +3,15 @@ require "../src/crysterm"
 
 # Benchmark for the CSS-cascade style-reset hot path.
 #
-# The cascade (CSS::Cascade.apply_sheets) is not per-frame, but on every
-# (re)cascade it resets EVERY recompute candidate to a fresh dup of its pristine
-# styles — `widget.styles = widget.css_base_styles.deep_dup` — and then dups a
-# per-state base style for every touched (widget, state). On a deep tree that is
-# thousands of `Style#dup` calls, each of which allocates the Style plus its
-# `padding`/`margin`/`shadow` (and `border`) sub-objects.
+# The cascade (CSS::Cascade.apply_sheets) is not per-frame, but every (re)cascade
+# resets EVERY recompute candidate to a fresh dup of its pristine styles —
+# `widget.styles = widget.css_base_styles.deep_dup` — then dups a per-state base
+# style for every touched (widget, state). On a deep tree that's thousands of
+# `Style#dup` calls, each allocating the Style plus its `padding`/`margin`/
+# `shadow`/`border` sub-objects.
 #
-# The DETERMINISTIC metric (bytes/allocations per batch) is the real result; the
-# ips figures are noise-dominated on a dev box.
+# The DETERMINISTIC metric (bytes/allocations per batch) is the real result; ips
+# figures are noise-dominated on a dev box.
 #
 # Run:  crystal run --release benchmarks/style-cascade.cr
 
@@ -37,10 +37,9 @@ puts "=" * 72
 puts "Crysterm style cascade hot-path"
 puts "=" * 72
 
-# A plain, default style (the overwhelmingly common case: no padding/margin/
-# shadow/border set — a content widget under a color-only theme).
+# Common case: no padding/margin/shadow/border set (color-only theme).
 plain = Style.new
-# A style that actually sets the box sub-objects.
+# A style that sets the box sub-objects.
 boxed = Style.new(padding: 1, margin: 1, shadow: true, border: true)
 
 puts "\n#1  Style#dup  (per state per widget, every cascade)"
@@ -50,8 +49,8 @@ Benchmark.ips do |x|
 end
 puts "  alloc: plain #{alloc_bytes(ROUNDS) { plain.dup }} B/op   boxed #{alloc_bytes(ROUNDS) { boxed.dup }} B/op"
 
-# Styles#deep_dup of a default Styles (only `normal`, no extra states) — exactly
-# what `css_base_styles.deep_dup` does for a plain widget.
+# Styles#deep_dup of a default Styles (only `normal`, no extra states) — what
+# `css_base_styles.deep_dup` does for a plain widget.
 styles = Styles.default
 puts "\n#2  Styles#deep_dup  (per recompute candidate, every cascade)"
 Benchmark.ips do |x|
@@ -61,8 +60,8 @@ puts "  alloc: #{alloc_bytes(ROUNDS) { styles.deep_dup }} B/op"
 
 # ---------------------------------------------------------------------------
 # Case.fold_property / fold_keyword — run per declaration per (widget, state)
-# in the cascade inner loop. CSS tokens are already-lowercase ASCII in the
-# common case, where the OLD `String#downcase` still allocated a fresh String.
+# in the cascade inner loop. CSS tokens are usually already-lowercase ASCII,
+# where the OLD `String#downcase` still allocated a fresh String.
 puts "\n#3  Case.fold_property / fold_keyword  (per declaration, every cascade)"
 props = ["color", "background-color", "border-left-width", "font-weight", "padding-top"]
 kws = ["none", "bold", "dashed", "hidden", "infinite"]
@@ -91,8 +90,8 @@ puts "  correctness: OK (fold_property/fold_keyword match downcase semantics)"
 
 # ---------------------------------------------------------------------------
 # ColorValue.resolve — run per color declaration (fg/bg/border/...) per widget
-# on every cascade. For the common bare hex/named color it short-circuits to
-# the value itself; the OLD `v.downcase` still allocated a throwaway copy.
+# on every cascade. The common bare hex/named color short-circuits to the value
+# itself; the OLD `v.downcase` still allocated a throwaway copy.
 puts "\n#4  ColorValue.resolve  (per color declaration, every cascade)"
 colors = ["#1e1e2e", "#ff8800", "red", "steelblue", "#cdd6f4"]
 old_resolve = ->(value : String) do
@@ -115,9 +114,9 @@ end
 puts "  alloc: OLD #{alloc_bytes(ROUNDS) { colors.each { |c| old_resolve.call c } }} B/op" \
      "  vs NEW #{alloc_bytes(ROUNDS) { colors.each { |c| Crysterm::CSS::ColorValue.resolve(c, nil) } }} B/op  (x5 colors)"
 
-# Correctness: the `else` branch returns the ORIGINAL-case value (hex/named case
-# is preserved for downstream Colors.convert) in both old and new — so a hex stays
-# upper-case. What matters is that NEW dispatches identically to a plain downcase.
+# Correctness: the `else` branch returns the ORIGINAL-case value (preserved for
+# downstream Colors.convert) in both old and new; NEW must dispatch identically
+# to a plain downcase.
 raise "hex case preserved" unless Crysterm::CSS::ColorValue.resolve("#1E1E2E", nil) == "#1E1E2E"
 raise "named case preserved" unless Crysterm::CSS::ColorValue.resolve("RED", nil) == "RED"
 raise "transparent" unless Crysterm::CSS::ColorValue.resolve("TRANSPARENT", nil) == -1

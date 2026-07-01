@@ -7,8 +7,6 @@ require "../example"
 
 Crysterm::WidgetExample.run "ColorDialog" do |screen|
   screen.stylesheet = "ColorDialog { border: solid; }"
-  # ColorDialog lays out its own gradient field, hue bar and RGB/HSV spin
-  # boxes; it wants roughly 56x20 (see the class docs) — too small a box and
-  # its children spill past the border.
+  # Wants roughly 56x20 (see class docs); smaller and children spill past the border.
   Crysterm::Widget::ColorDialog.new parent: screen, top: "center", left: "center", width: 56, height: 20
 end

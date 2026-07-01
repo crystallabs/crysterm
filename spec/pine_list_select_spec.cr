@@ -92,9 +92,8 @@ describe "Pine::ListSelect" do
     ls.checked.should eq ["Banana", "Cherry"]
   end
 
-  # In multi mode, activation (a click, via activate_on_click) TOGGLES the row
-  # rather than confirming — so clicking a row checks/unchecks it without
-  # dismissing. `#confirm` is the explicit apply.
+  # In multi mode, activation (via activate_on_click) toggles the row rather
+  # than confirming. `#confirm` is the explicit apply.
   it "toggles (not confirms) on activate in multi mode; #confirm applies" do
     s = pls_screen
     confirmed = nil.as(Array(String)?)

@@ -2,17 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: `Media::Graphics#redraw_image` runs as a standalone `Rendered`
-# screen listener (the in-band-graphics overlay), separate from the cell-render
-# pass. Its guard was `return unless visible?`, which only checks the widget's
-# OWN visibility flag. When an ANCESTOR was hidden, the graphics widget stayed
-# own-visible but went off-screen; the hidden ancestor has no rendered position,
-# so resolving the widget's coords (`_get_coords(true)` -> `last_rendered_position`)
-# raised "Shouldn't happen" instead of returning nil, crashing the render-loop
-# fiber on the next render after the ancestor was hidden.
-#
-# The fix walks the parent chain and skips the overlay paint if any ancestor is
-# hidden, mirroring the tree-aware visibility `Capture` uses. Headless / in-memory.
+# Regression: `Media::Graphics#redraw_image` (a standalone `Rendered` screen
+# listener) guarded with `return unless visible?`, which only checks the
+# widget's own visibility. When an ancestor was hidden, the widget stayed
+# own-visible but had no rendered position, so `_get_coords(true) ->
+# last_rendered_position` raised "Shouldn't happen" instead of returning nil,
+# crashing the render-loop fiber. Fix walks the parent chain and skips the
+# overlay paint if any ancestor is hidden, mirroring `Capture`'s tree-aware
+# visibility check.
 describe "Media::Graphics overlay redraw with a hidden ancestor" do
   it "does not raise when a render happens after an ancestor is hidden" do
     s = Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new,

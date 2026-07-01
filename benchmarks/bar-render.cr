@@ -1,10 +1,9 @@
 require "../src/crysterm"
 
 # Per-frame render profile for the bar-chart widgets (Bar / StackedBar). Both
-# rebuild their tagged glyph grid every frame via `BarChart#plot_row`, which is
-# called once per plot row. This harness animates the data (a rolling window,
-# the live-chart usage pattern) and re-renders on the full-recomposite path,
-# reporting heap allocation per frame plus wall time.
+# rebuild their tagged glyph grid every frame via `BarChart#plot_row`, once per
+# plot row. Animates a rolling-window dataset and re-renders on the
+# full-recomposite path, reporting heap allocation per frame plus wall time.
 #
 # Run:  crystal run --release benchmarks/bar-render.cr
 
@@ -30,7 +29,7 @@ def bench_bar(label, bar_width, bar_spacing, n)
     bar.values = Array.new(n) { |i| ((i * 7 + t * 3) % 100).to_f }
   }
 
-  50.times { step.call; s._render } # warm caches + first full frames
+  50.times { step.call; s._render } # warm caches
 
   GC.collect
   before = GC.stats.total_bytes

@@ -13,8 +13,8 @@ describe Crysterm::Widget::Tree do
     s = tree_screen
     tree = Widget::Tree.new parent: s, width: 30, height: 12
 
-    # Build a multi-level subtree *before* attaching it: at this point the
-    # owning tree is unknown, so these nodes have a nil `#tree`.
+    # Multi-level subtree built before attaching: owning tree unknown, so
+    # nodes have a nil `#tree`.
     root = Widget::Tree::Node.new "root"
     child = root.add "child"
     grandchild = child.add "grandchild"
@@ -22,14 +22,14 @@ describe Crysterm::Widget::Tree do
     grandchild.tree.should be_nil
 
     # Attaching the root must adopt the entire subtree, not just the root —
-    # otherwise a structural edit through a descendant finds `@tree` nil and
-    # silently skips the `rebuild` that keeps the flattened view in sync.
+    # otherwise an edit through a descendant finds `@tree` nil and skips the
+    # `rebuild` that keeps the flattened view in sync.
     tree.add root
     root.tree.should eq tree
     child.tree.should eq tree
     grandchild.tree.should eq tree
 
-    # And a node added through the (formerly detached) child is now owned too.
+    # A node added through the (formerly detached) child is now owned too.
     leaf = child.add "leaf"
     leaf.tree.should eq tree
   end

@@ -2,11 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Specs for output color-depth resolution: the `colors.depth` config option and
-# the `screen.color_force` policy (resolved from the NO_COLOR / FORCE_COLOR /
-# CLICOLOR[_FORCE] environment conventions via `Crysterm.color_force_from_env`),
-# plus the monochrome guard in `Colors.sgr_color_to` that emits the terminal's
-# default rather than a palette color once the depth collapses below 2.
+# Specs for output color-depth resolution: the `colors.depth` config option, the
+# `screen.color_force` policy (resolved from NO_COLOR / FORCE_COLOR /
+# CLICOLOR[_FORCE] via `Crysterm.color_force_from_env`), and the monochrome guard
+# in `Colors.sgr_color_to` that emits the terminal default once depth drops below 2.
 describe "output color-depth resolution" do
   describe "Crysterm::ColorDepth#to_count" do
     it "maps each depth to its terminal color count (Auto has none)" do
@@ -19,9 +18,8 @@ describe "output color-depth resolution" do
     end
   end
 
-  # `resolve_color_depth` maps the `screen.color_force` policy (+ `colors.depth`)
-  # to a concrete count. Drive the option directly; snapshot/restore both options
-  # around each example.
+  # Maps `screen.color_force` (+ `colors.depth`) to a concrete count.
+  # Snapshot/restore both options around each example.
   describe "Screen.resolve_color_depth" do
     saved_force = Crysterm::ColorForce::None
     prev_depth = Crysterm::ColorDepth::Auto
@@ -73,8 +71,8 @@ describe "output color-depth resolution" do
     end
   end
 
-  # The env precedence that seeds the option default: NO_COLOR, then CLICOLOR=0,
-  # then FORCE_COLOR's level, then a non-zero CLICOLOR_FORCE.
+  # Precedence: NO_COLOR, then CLICOLOR=0, then FORCE_COLOR's level, then a
+  # non-zero CLICOLOR_FORCE.
   describe "Crysterm.color_force_from_env" do
     vars = %w[NO_COLOR CLICOLOR FORCE_COLOR CLICOLOR_FORCE]
     saved = {} of String => String?

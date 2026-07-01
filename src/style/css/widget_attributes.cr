@@ -5,26 +5,26 @@ module Crysterm
   #
   # Names are kept CSS/HTML-conventional (`checked`, `indeterminate`, ...). A
   # `nil` value emits a bare boolean attribute, present only while the state
-  # holds — so `[checked]` matches exactly the checked widgets.
+  # holds.
   #
-  # Note: *disabled* is a `WidgetState`, not an attribute, so it is targeted with
-  # the `:disabled` state pseudo-class rather than `[disabled]`.
+  # *disabled* is a `WidgetState`, not an attribute, so it's targeted with the
+  # `:disabled` state pseudo-class rather than `[disabled]`.
 
   class Widget
     class Button
       def css_attributes : Hash(String, String?)
-        # The common plain push-button has none of these — reuse the shared empty.
+        # Plain push-button has none of these — reuse the shared empty.
         return EMPTY_CSS_ATTRIBUTES unless checkable? || flat? || default?
         attrs = {} of String => String?
         attrs["checkable"] = nil if checkable?
         if checkable?
-          # Both checked and its complement are surfaced: Qt's `:unchecked`/`:off`
-          # translate to `[unchecked]` because an attribute selector inside
-          # `:not()` doesn't compile in our selector engine.
+          # Both checked and its complement surfaced: Qt's `:unchecked`/`:off`
+          # become `[unchecked]` since `:not()` doesn't compile in our selector
+          # engine.
           attrs[checked? ? "checked" : "unchecked"] = nil
         end
-        # Qt's `:flat`/`:default` (see `CSS::Qss`) — frameless and dialog-default
-        # buttons. The theme's `Button[flat]` strips the border.
+        # Qt's `:flat`/`:default` (see `CSS::Qss`); the theme's `Button[flat]`
+        # strips the border.
         attrs["flat"] = nil if flat?
         attrs["default"] = nil if default?
         attrs
@@ -74,7 +74,7 @@ module Crysterm
           attrs["indeterminate"] = nil # Qt's PartiallyChecked / CSS :indeterminate
         else
           # Complementary `[checked]`/`[unchecked]` (Qt `:checked`/`:unchecked`,
-          # `:on`/`:off`); `:not([checked])` can't be used — see `CSS::Qss`.
+          # `:on`/`:off`); `:not([checked])` can't be used.
           attrs[checked? ? "checked" : "unchecked"] = nil
         end
         attrs

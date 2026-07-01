@@ -2,17 +2,16 @@ require "benchmark"
 require "../src/crysterm"
 
 # Per-frame cost of the child-arranging layout engines (`src/layout/*`). Each
-# engine's `#arrange` runs on every `Widget#_render` of a container that has a
+# engine's `#arrange` runs on every `Widget#_render` of a container with a
 # layout installed, so any per-frame allocation there is paid every frame.
 #
 # Method: build one headless screen per engine holding a single container with
 # N identical children, prime it with a full `s._render`, then measure
-# `layout.render_children(container)` directly in a loop. (A repeated
-# `s._render` short-circuits on the now-clean tree and never re-runs `arrange`;
-# calling `render_children` forces the engine every iteration.) The children's
-# geometry is unchanged between calls, so the setters no-op and child
-# re-renders stay cheap — leaving the engine's *own* per-frame collections as
-# the dominant, deterministic B/frame signal. ns/frame is noisy.
+# `layout.render_children(container)` directly in a loop (a repeated
+# `s._render` would short-circuit on the clean tree and skip `arrange`).
+# Children's geometry is unchanged between calls, so setters no-op and child
+# re-renders stay cheap, leaving the engine's own per-frame collections as the
+# dominant, deterministic B/frame signal. ns/frame is noisy.
 #
 # Run:  crystal run --release benchmarks/layout-arrange.cr
 
@@ -20,9 +19,8 @@ include Crysterm
 
 N = 12 # children per container
 
-# Builds a fresh headless screen with one container using `layout`, populated by
-# the block, primes it, and returns {layout, container} so the engine can be
-# driven directly.
+# Builds a fresh headless screen with one container using `layout`, populated
+# by the block, primes it, and returns {layout, container}.
 def make(layout : Layout, & : Widget -> _) : {Layout, Widget}
   s = Screen.new input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new
   box = Widget::Box.new parent: s, left: 0, top: 0, width: 60, height: 20,
