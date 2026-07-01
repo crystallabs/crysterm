@@ -418,9 +418,13 @@ module Crysterm
       @child_base = 0
       @child_offset_x = 0
       @child_base_x = 0
-      # Keep `#stick_to_tail?` honest after a programmatic reset: otherwise the
-      # stale tail mark would make the base compare as still-at-tail.
-      @last_scroll_max = 0
+      # NOTE: `@last_scroll_max` is deliberately NOT reset here. `#stick_to_tail?`
+      # is `@child_base >= @last_scroll_max`; after this reset `@child_base == 0`,
+      # so a stale positive `@last_scroll_max` correctly evaluates as "not at the
+      # tail", leaving a `#follow_tail?` view at the top on the next content growth
+      # (a reset-to-top must stay at the top, per the sticky-bottom contract).
+      # Zeroing it would instead make `0 >= 0` true and snap the view to the
+      # bottom — the exact yank BUGS3 #3 mis-attributed to the original code.
       mark_dirty
       emit Crysterm::Event::Scroll, -prev
     end
