@@ -57,7 +57,7 @@ describe Crysterm::Widget::LCDNumber do
     rows.size.should eq 3
     # "1" is right-justified to width 3 => two leading blank glyphs then '1'.
     # Each glyph is 3 cells with a one-cell gap between glyphs (3*3 + 2 = 11).
-    rows.each { |r| r.size.should eq 11 }
+    rows.each(&.size.should(eq(11)))
     # The '1' glyph's middle/bottom rows put the bar in the right-most column.
     seg1 = Crysterm::Widget::LCDNumber::SEGMENTS['1']
     rows[1].ends_with?(seg1[1]).should be_true
