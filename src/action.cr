@@ -260,9 +260,11 @@ module Crysterm
     # multi-stroke shortcut, awaiting completion. Empty/absent between chords.
     @shortcut_pending = {} of ::Crysterm::Window => KeySequence
 
-    # The host widget supplied at install time, used to gate `Widget`-context
-    # shortcuts on focus.
-    @shortcut_host : Widget?
+    # Per-window host widget supplied at install time, used to gate
+    # `Widget`-context shortcuts on focus. Keyed by window so the same action
+    # installed on several windows keeps each window's own host, rather than a
+    # single ivar collapsing them to whichever was installed last.
+    @shortcut_host_by_window = {} of ::Crysterm::Window => Widget
 
     # Notifies observers (menus, tool bars) that a display-affecting property
     # changed, by emitting `Event::Changed` (Qt's `QAction::changed()`).
@@ -384,7 +386,11 @@ module Crysterm
     # `Widget`-context shortcuts on focus. Idempotent per window; no-op without
     # a shortcut.
     def install_shortcut(window : ::Crysterm::Window, host : Widget? = nil) : Nil
-      @shortcut_host = host
+      if host
+        @shortcut_host_by_window[window] = host
+      else
+        @shortcut_host_by_window.delete window
+      end
       return if @shortcuts.empty?
       return if @shortcut_wrappers.has_key?(window)
       @shortcut_wrappers[window] = window.on(::Crysterm::Event::KeyPress) do |e|
@@ -397,6 +403,7 @@ module Crysterm
     # drops any half-entered chord prefix for it.
     def uninstall_shortcut(window : ::Crysterm::Window) : Nil
       @shortcut_pending.delete window
+      @shortcut_host_by_window.delete window
       @shortcut_wrappers.delete(window).try do |w|
         window.off(::Crysterm::Event::KeyPress, w)
       end
@@ -412,7 +419,7 @@ module Crysterm
     private def feed_shortcut(window : ::Crysterm::Window, e : ::Crysterm::Event::KeyPress) : Nil
       return if e.repeat? && !auto_repeat?
       return unless enabled
-      return unless shortcut_active?
+      return unless shortcut_active? window
       k = e.key
       return unless k
 
@@ -450,33 +457,34 @@ module Crysterm
     # Re-registers accelerators on every window they were installed on, so a
     # later `#shortcut=`/`#shortcuts=` change takes effect on attached windows.
     private def reinstall_shortcuts : Nil
+      hosts = @shortcut_host_by_window.dup
       windows = @shortcut_wrappers.keys
-      host = @shortcut_host
       windows.each do |w|
         uninstall_shortcut w
-        install_shortcut w, host
+        install_shortcut w, hosts[w]?
       end
     end
 
     # Whether the shortcut may fire given `#shortcut_context` and current focus.
     # `Window`/`Application` always fire; `Widget` requires a host widget to
     # hold focus; `WidgetWithChildren` also accepts focus on a host's descendant.
-    private def shortcut_active? : Bool
+    private def shortcut_active?(window : ::Crysterm::Window) : Bool
       case shortcut_context
       in ShortcutContext::Application, ShortcutContext::Window
         true
       in ShortcutContext::Widget
-        shortcut_hosts.any? &.focused?
+        shortcut_hosts(window).any? &.focused?
       in ShortcutContext::WidgetWithChildren
-        shortcut_hosts.any? { |h| h.focused? || descendant_focused?(h) }
+        shortcut_hosts(window).any? { |h| h.focused? || descendant_focused?(h) }
       end
     end
 
-    # The widgets that gate a `Widget`-context shortcut: hosts the action was
-    # added to, falling back to the host passed at `#install_shortcut` time.
-    private def shortcut_hosts : Enumerable(Widget)
+    # The widgets that gate a `Widget`-context shortcut on *window*: hosts the
+    # action was added to, falling back to the host passed at
+    # `#install_shortcut` time for that specific window.
+    private def shortcut_hosts(window : ::Crysterm::Window) : Enumerable(Widget)
       return @associated_widgets unless @associated_widgets.empty?
-      (h = @shortcut_host) ? [h] : [] of Widget
+      (h = @shortcut_host_by_window[window]?) ? [h] : [] of Widget
     end
 
     # Whether the focused widget of *host*'s window is *host* itself or a

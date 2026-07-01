@@ -1030,6 +1030,21 @@ module Crysterm
       @_content_version += 1
       cl.content_version = @_content_version
 
+      # If the appended lines crossed the viewport-overflow threshold, an
+      # `AsNeeded` vertical scroll bar just flipped on (or off), so
+      # `content_margin_x` changed. The existing lines *and* the just-wrapped
+      # segment were wrapped against the pre-flip margin (`@_clines.margin`,
+      # which the splice above leaves untouched), but a full reparse would
+      # re-wrap every line at the new width. Reconcile now with one full reparse
+      # so we never leave stale-margin lines behind — otherwise they survive
+      # until the next `process_content`, desyncing readers (`get_scroll_height`,
+      # `Log` auto-scroll) that run off the events emitted just below. Rare: only
+      # the single append that crosses the threshold pays this; once the bar's
+      # presence is stable, subsequent appends stay on the O(appended) fast path.
+      if cl.margin != content_margin_x
+        process_content
+      end
+
       # Mirror the full path: mark for repaint, emit the same events —
       # `ParsedContent` (scrollable widgets' `_recalculate_index`) and
       # `SetContent` (e.g. `Log` auto-scroll).
