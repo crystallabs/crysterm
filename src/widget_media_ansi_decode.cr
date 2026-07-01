@@ -180,15 +180,15 @@ module Crysterm
               while k < params.size
                 c = params[k]
                 case c
-                when 0      then fg = nil; bg = nil; fgb = false; bgb = false; rev = false
-                when 1      then fgb = true
-                when 7      then rev = true  # reverse video: swap fg/bg at raster time
-                when 27     then rev = false # reverse off
-                when 22     then fgb = false
-                when 30..37 then fg = c - 30
-                when 90..97 then fg = c - 90; fgb = true
-                when 39     then fg = nil
-                when 40..47 then bg = c - 40; bgb = false # normal bg clears any prior bright bg
+                when 0        then fg = nil; bg = nil; fgb = false; bgb = false; rev = false
+                when 1        then fgb = true
+                when 7        then rev = true  # reverse video: swap fg/bg at raster time
+                when 27       then rev = false # reverse off
+                when 22       then fgb = false
+                when 30..37   then fg = c - 30
+                when 90..97   then fg = c - 90; fgb = true
+                when 39       then fg = nil
+                when 40..47   then bg = c - 40; bgb = false # normal bg clears any prior bright bg
                 when 100..107 then bg = c - 100; bgb = true
                 when 49       then bg = nil; bgb = false
                 when 38, 48
