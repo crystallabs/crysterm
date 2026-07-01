@@ -116,9 +116,12 @@ module Crysterm
     # an *h*×*w* 0/1 grid.
     private def convert(lines : Array(String), w : Int32, h : Int32) : Array(Array(Int32))
       rows = lines.dup
+      # Center-crop toward *h* rows, removing from top and bottom. Guard the
+      # bottom `pop` so a single excess row drops one row (not two, which would
+      # undershoot *h* and force a real row to be re-padded back).
       while rows.size > h
         rows.shift
-        rows.pop
+        rows.pop if rows.size > h
       end
       grid = rows.map do |line|
         cells = line.chars.map { |c| c == ' ' ? 0 : 1 }

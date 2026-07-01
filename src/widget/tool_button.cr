@@ -144,11 +144,13 @@ module Crysterm
         end
       end
 
-      # A click opens the popup menu (when one is attached); otherwise presses
-      # the button like a normal `Button`. A terminal has no separate arrow
-      # sub-region, so the whole button surface opens the menu.
+      # A click mirrors `#press`: in InstantPopup mode the whole surface is the
+      # menu drop-down, so it opens the menu; in the (default) MenuButtonPopup/
+      # DelayedPopup modes activation is reserved for the action/press, and the
+      # menu is summoned separately (Down key). Deferring to `press` keeps the
+      # bound `action:` reachable by mouse.
       def on_click(e)
-        if @menu
+        if @menu && @popup_mode.instant_popup?
           focus
           show_menu
         else

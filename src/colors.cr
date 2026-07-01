@@ -112,6 +112,10 @@ module Crysterm
         dfl = fg ? default_fg_rgb : default_bg_rgb
         a = Attr.default?(field) ? dfl : field.to_i32
         b = Attr.default?(other) ? dfl : other.to_i32
+        # An unknown terminal default (`-1`) has no bits to blend — `mix` would
+        # read `-1` as `0xFFFFFF` and wash toward white. Fall back to the other
+        # side (mirrors `#composite_field`'s Blend branch and `#tint_field`).
+        return Attr.pack_color(a == -1 ? b : a) if a == -1 || b == -1
         Attr.pack_color(mix(a, b, alpha))
       end
     end

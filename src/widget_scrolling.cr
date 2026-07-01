@@ -291,7 +291,7 @@ module Crysterm
     # Potentially use this wherever .scrollable? is used
     def really_scrollable?
       return @scrollable if @resizable
-      get_scroll_height > aheight
+      get_scroll_height > (aheight - iheight)
     end
 
     # Whether laid-out content exceeds the visible content height (viewport minus
