@@ -256,23 +256,17 @@ module Crysterm
       # state a blurred widget may legitimately hold.
       old.try { |o| o.state = :normal if o.state.focused? }
 
-      # If we're in a scrollable element,
-      # automatically scroll to the focused element.
+      # If we're in a scrollable element, automatically scroll the focused
+      # element into view. Delegate to `#ensure_widget_visible`, the purpose-built
+      # primitive that maps the descendant's row into `el`'s content space via
+      # absolute tops (`cur.atop - el.atop - el.itop`) and uses
+      # `#visible_content_rows` for the viewport. The previous hand-rolled math
+      # used `cur.rtop`, which is relative to `cur`'s *immediate* parent — correct
+      # only when `cur` is a direct child of `el`; for a deeper descendant (an
+      # input inside a plain container inside a scrollable box) it omitted the
+      # intervening offsets and scrolled to the wrong place (or not at all).
       if el && el.window
-        # This needs the visible content height of the scrolling element itself
-        # (`el`), not the whole window nor the element within it (`cur`): `el`'s
-        # own height minus its top/bottom insets (border + padding). `aheight`
-        # can be nil pre-layout; `itop`/`ibottom` are always Int32.
-        visible = (el.aheight || 0) - el.itop - el.ibottom
-        if cur.rtop < el.child_base
-          el.scroll_to cur.rtop
-          cur.window.render
-        elsif (cur.rtop + cur.aheight - cur.ibottom) > (el.child_base + visible)
-          # el.itop accounts for scrollable elements with borders, otherwise the
-          # element gets covered by the bottom border.
-          el.scroll_to cur.rtop - (el.aheight - cur.aheight) + el.itop, true
-          cur.window.render
-        end
+        cur.window.render if el.ensure_widget_visible cur
       end
 
       if old

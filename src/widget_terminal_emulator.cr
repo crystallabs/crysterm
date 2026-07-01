@@ -596,8 +596,14 @@ module Crysterm
       when 'P' then delete_chars(param(0, 1))
       when '@' then insert_chars(param(0, 1))
       when 'X' then erase_chars(param(0, 1))
-      when 'S' then scroll_region_times(param(0, 1)) { scroll_up }   # SU
-      when 'T' then scroll_region_times(param(0, 1)) { scroll_down } # SD
+      # SU/SD are only the *plain* `CSI Ps S` / `CSI Ps T`. A prefixed form is a
+      # different command that must NOT scroll: `CSI ? Pi;Pa;Pv S` is XTSMGRAPHICS
+      # (a common sixel-capability probe at startup) and `CSI > Pm T` resets xterm
+      # title modes. Without the gate, `param(0, 1)` read the probe's first field
+      # and scrolled the live screen (e.g. `\e[?2;1;0S` → `scroll_up` twice).
+      # Same `@csi_prefix.nil?` gate as SGR/DECSTBM/SCOSC/DA.
+      when 'S' then scroll_region_times(param(0, 1)) { scroll_up } if @csi_prefix.nil?   # SU
+      when 'T' then scroll_region_times(param(0, 1)) { scroll_down } if @csi_prefix.nil? # SD
       when 'b' then repeat_last(param(0, 1))                         # REP
       when 'I' then forward_tab(param(0, 1)); @wrap_pending = false  # CHT
       when 'Z' then back_tab(param(0, 1))                            # CBT

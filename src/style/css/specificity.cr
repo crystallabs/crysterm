@@ -35,10 +35,18 @@ module Crysterm
           when ':'
             if i + 1 < n && chars[i + 1] == ':'
               c += 1 # pseudo-element
-              i = skip_ident(chars, i + 2)
+              name_end = skip_ident(chars, i + 2)
+              # A functional pseudo-element (`::foo(bar)`) — skip its argument so
+              # `bar` isn't re-scanned as further selector tokens (double-count).
+              i = (name_end < n && chars[name_end] == '(') ? Selectors.skip_balanced(chars, name_end, '(', ')') : name_end
             else
               name_end = skip_ident(chars, i + 1)
-              name = String.build { |str| (i + 1...name_end).each { |idx| str << chars[idx] } }
+              # Pseudo-class names are case-insensitive; fold so `:NOT(#id)` scores
+              # like `:not(#id)` (recurse into its argument) rather than counting
+              # as a plain class, and `:WHERE(...)` contributes nothing like
+              # `:where(...)`. (An ident here is never a custom-property/type name,
+              # so folding is safe.)
+              name = String.build { |str| (i + 1...name_end).each { |idx| str << chars[idx] } }.downcase
               if name_end < n && chars[name_end] == '('
                 arg_end = Selectors.skip_balanced(chars, name_end, '(', ')')
                 if RECURSIVE_PSEUDOS.includes?(name)

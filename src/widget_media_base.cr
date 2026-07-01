@@ -94,6 +94,12 @@ module Crysterm
       # external clock — e.g. to keep several images in lockstep.
       getter anim_index : Int32 = 0
 
+      # Whether a *finite* animation ran to completion and is now holding its last
+      # frame. Distinguishes "done" from "paused mid-stream" so `#play` can rewind
+      # before replaying (a completed loop leaves `@anim_index` at the last frame;
+      # replaying without a rewind would only re-show that frame and re-stop).
+      @finished = false
+
       # Sets the shown frame. Assigning a *new* index marks the widget dirty so it
       # repaints under `OptimizationFlag::DamageTracking` (on by default): unlike
       # the internal animation loops — which assign `@anim_index` directly and pair
@@ -165,6 +171,7 @@ module Crysterm
         @source = nil
         @src_frames = nil
         @anim_index = 0
+        @finished = false
         @load_failed = false
       end
 
@@ -222,6 +229,15 @@ module Crysterm
       # first paint); the loop then advances the frame index and re-renders.
       def play
         return if @playing
+        # Replaying a finite animation that ran to completion: rewind to the
+        # first frame. Without this the loop would start already at the last
+        # frame and immediately re-complete, only flashing that frame. `#pause`
+        # keeps `@anim_index` for resume, so gate on the completion flag rather
+        # than the index value.
+        if @finished
+          @anim_index = 0
+          @finished = false
+        end
         png = source # (re)opens the streaming decoder when applicable
         return unless png
 
@@ -328,6 +344,7 @@ module Crysterm
         @animation.try &.stop
         unsubscribe_clock
         @anim_index = 0
+        @finished = false
         if st = @stream
           @stream = nil
           @source = nil # force `#source` to re-open the stream on next play
@@ -363,6 +380,7 @@ module Crysterm
                 # wrapping to 0, so the last render doesn't snap back to the start.
                 @anim_index = src.size - 1
                 @playing = false
+                @finished = true
               else
                 @anim_index = 0
               end

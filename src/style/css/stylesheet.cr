@@ -9,8 +9,14 @@ module Crysterm
       def initialize(@conditions)
       end
 
-      # Matches `(feature: value)` pairs, e.g. `(min-width: 80)`.
-      FEATURE_RE = /\(\s*([a-z-]+)\s*:\s*(\d+)\s*\)/
+      # Matches `(feature: value)` pairs, e.g. `(min-width: 80)`. A trailing unit
+      # (`px`, `em`, `%`, …) is tolerated and ignored: crysterm features are in
+      # cell counts, but authors porting CSS habits write `(max-width: 40px)`.
+      # Requiring a bare integer made a unit'd feature fail to match, so it was
+      # dropped from `conditions`; if it was the only feature, the now-empty
+      # conjunction (`[].all?` is `true`) matched *every* terminal — the opposite
+      # of the intent. Swallowing the unit keeps the query meaningful.
+      FEATURE_RE = /\(\s*([a-z-]+)\s*:\s*(\d+)[a-z%]*\s*\)/
 
       # Parses a condition string such as `(min-width: 80) and (max-width: 120)`.
       def self.parse(condition : String) : MediaQuery

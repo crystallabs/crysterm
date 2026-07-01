@@ -485,7 +485,13 @@ module Crysterm
 
         y = itop
         while y < height
-          row = y - itop
+          # `@css_cells`/`@styled_rows` are keyed by *data-row* index (into
+          # `#rows`, row 0 == header), but the body scrolls by `@child_base`, so
+          # screen row `r >= 1` shows data row `r + @child_base`. Screen row 0 is
+          # always the pinned header overlay (data row 0). Mapping the screen row
+          # straight to the data row recolored the wrong rows once scrolled.
+          screen_row = y - itop
+          row = screen_row == 0 ? 0 : screen_row + @child_base
           if @styled_rows.includes?(row) && (line = lines[yi + y]?)
             x = ileft
             while x < width

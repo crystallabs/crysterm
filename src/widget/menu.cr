@@ -589,6 +589,17 @@ module Crysterm
         end
       end
 
+      # A click lands on a *raw* row index (`Mixin::ItemView#create_item`), so a
+      # click on a separator row would call `enter_selected(i)` → `selekt` (which
+      # `#skip_separators` off the divider onto a neighbor) → `ActionItem` for
+      # that neighbor → `activate_index`, silently firing the adjacent command.
+      # Ignore activation when the clicked row is itself a separator; keyboard
+      # activation is unaffected (its `selected` never rests on a separator).
+      def enter_selected(i)
+        return if @items[i]?.try { |it| @separator_items.includes? it }
+        super
+      end
+
       private def skip_separators(index : Int, dir : Int, acts : Array(Action)) : Int32
         n = acts.size
         return index.to_i if n == 0

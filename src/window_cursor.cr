@@ -197,7 +197,12 @@ module Crysterm
       c.shape = :block
       c.blink = false
       # No forced color: the artificial block cursor is reverse-video of the cell
-      # (see `#_artificial_cursor_attr`), so needs no hardcoded bg.
+      # (see `#_artificial_cursor_attr`), so needs no hardcoded fg/bg. `style.fg`
+      # is the single source of truth `#apply_cursor` reads (line ~57), so
+      # leaving it set let a later re-apply (on the next focus change or
+      # `#cursor_shape`/`#cursor_color`) re-issue the old color — the OSC-112
+      # reset done here only held until then.
+      c.style.fg = nil
       c.style.bg = nil
       c._set = false
 
