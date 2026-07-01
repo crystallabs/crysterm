@@ -124,7 +124,7 @@ describe "Application#route_input" do
 
   it "drops input from a device with no window (no error)" do
     app = Crysterm::Application.new
-    orphan = routing_screen # built but never added to the app
+    orphan = routing_screen                                     # built but never added to the app
     app.route_input orphan.screen, press('a', Tput::Key::CtrlA) # no-op, not a raise
   end
 

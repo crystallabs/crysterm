@@ -23,7 +23,7 @@ ih = s.aheight - 1
 
 Widget::Media::Kitty.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
-  cell_pixel_width: (ENV["CELL_PW"]? || "0").to_i,  # 0 = auto-detect (TIOCGWINSZ)
+  cell_pixel_width: (ENV["CELL_PW"]? || "0").to_i, # 0 = auto-detect (TIOCGWINSZ)
   cell_pixel_height: (ENV["CELL_PH"]? || "0").to_i,
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"
 

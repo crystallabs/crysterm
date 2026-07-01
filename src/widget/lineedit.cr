@@ -71,7 +71,7 @@ module Crysterm
           e.accept
           record_history @value
           @_done.try do |done2|
-            done2.call nil, @value
+            done2.call @value
           end
           return
         end

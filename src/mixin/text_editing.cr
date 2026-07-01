@@ -94,8 +94,8 @@ module Crysterm
       # by any other cursor movement or edit. `nil` means "no memory yet".
       @goal_col : Int32? = nil
 
-      property _done : Proc(String?, String?, Nil)?
-      property __done : Proc(String?, String?, Nil)?
+      property _done : Proc(String?, Nil)?
+      property __done : Proc(String?, Nil)?
       property __listener : Proc(Crysterm::Event::KeyPress, Nil)?
 
       @ev_read_input_on_focus : Crysterm::Event::Focus::Wrapper?
@@ -947,7 +947,7 @@ module Crysterm
           clipboard = Crysterm::Config.input_clipboard_keys
 
           if k == Tput::Key::Escape
-            done.try &.call nil, nil
+            done.try &.call nil
           elsif clipboard && k == Tput::Key::CtrlC # copy selection
             copy_selection
           elsif clipboard && !read_only? && k == Tput::Key::CtrlX # cut selection
@@ -1066,14 +1066,14 @@ module Crysterm
       # which treats Enter as inserting a newline) so `Submit`/`read_input` fires.
       def submit
         return unless @__listener
-        @_done.try &.call nil, value
+        @_done.try &.call value
       end
 
       # Finishes the current read, cancelling (no value). Calls the
       # done-callback directly rather than routing Escape through `@__listener`.
       def cancel
         return unless @__listener
-        @_done.try &.call nil, nil
+        @_done.try &.call nil
       end
 
       def clear_value
@@ -1103,7 +1103,7 @@ module Crysterm
           @__listener.try &.call e
         }
 
-        @__done = @_done = ->_done_default(String?, String?)
+        @__done = @_done = ->_done_default(String?)
 
         # Store the wrapper so `__done_default` can remove it. Otherwise a new
         # Blur handler accumulates on every focus; worse, `rewind_focus` emits
@@ -1116,7 +1116,7 @@ module Crysterm
           # make Tab a no-op). Only rewind when focus is cleared entirely
           # (`e.el.nil?`) or finishing via Enter/Escape. See `#__done_default`.
           @_skip_rewind = !e.el.nil?
-          @__done.try &.call nil, nil
+          @__done.try &.call nil
           @_skip_rewind = false
         }
       end
@@ -1135,7 +1135,7 @@ module Crysterm
         _read_input
       end
 
-      def __done_default(err = nil, data = nil)
+      def __done_default(data = nil)
         return unless @_reading
 
         # return if self(block).done?
@@ -1168,12 +1168,7 @@ module Crysterm
           window.rewind_focus
         end
 
-        # damn
-        return if err == "stop"
-
-        if err
-          raise err # XXX just temporary
-        elsif data
+        if data
           # `data` distinguishes submit (Enter, text) from cancel (Escape/blur,
           # nil) — `value` is always non-nil so it can't tell them apart.
           emit Crysterm::Event::Submit, value
@@ -1183,14 +1178,16 @@ module Crysterm
 
         emit Crysterm::Event::Action, value
 
-        # Invoke the `read_input(&callback)` block with `(err, data)`.
-        callback.try &.call(err, data)
+        # Invoke the `read_input(&callback)` block. The block keeps blessed's
+        # `(err, data)` arity for API compatibility, but this event-driven read
+        # path has no error source, so `err` is always nil.
+        callback.try &.call(nil, data)
 
         nil
       end
 
-      def _done_default(err = nil, data = nil)
-        __done_default err, data
+      def _done_default(data = nil)
+        __done_default data
       end
     end
   end
