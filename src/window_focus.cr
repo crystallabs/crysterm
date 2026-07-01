@@ -241,13 +241,7 @@ module Crysterm
         end
       end
 
-      # TODO is it valid that this isn't Widget?
-      # unless el.is_a? Widget
-      #  raise "Unexpected"
-      # end
-
-      # TODO temporary
-      cur.try &.state = :focused
+      cur.state = :focused
       old.try &.state = :normal
 
       # If we're in a scrollable element,
@@ -258,19 +252,12 @@ module Crysterm
         # NOTE why a/i values can be nil?
         visible = cur.window.aheight - (el.atop || 0) - (el.itop || 0) - (el.abottom || 0) - (el.ibottom || 0)
         if cur.rtop < el.child_base
-          # XXX remove 'if' when Window is no longer parent of elements
-          if el.is_a? Widget
-            el.scroll_to cur.rtop
-          end
+          el.scroll_to cur.rtop
           cur.window.render
         elsif (cur.rtop + cur.aheight - cur.ibottom) > (el.child_base + visible)
           # el.itop accounts for scrollable elements with borders, otherwise the
           # element gets covered by the bottom border.
-          # XXX remove 'if' when Window is no longer parent of elements (Now it's not
-          # so removing. Eventually remove this note altogether.)
-          # if el.is_a? Widget
           el.scroll_to cur.rtop - (el.aheight - cur.aheight) + el.itop, true
-          # end
           cur.window.render
         end
       end
