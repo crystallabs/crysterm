@@ -94,6 +94,10 @@ module Crysterm
 
       # Goes to the next page, or finishes when already on the last page.
       def advance : Nil
+        # A page-less wizard sits at the `-1` `current_index` sentinel; treat it
+        # as having nothing to advance or complete (pages are added after
+        # construction), so it can't "finish" with zero pages.
+        return if page_count == 0
         if current_index >= page_count - 1
           emit ::Crysterm::Event::Complete
         else
@@ -117,7 +121,9 @@ module Crysterm
       # first page, Next labeled "Finish" on the last.
       private def refresh_buttons : Nil
         first = current_index <= 0
-        last = current_index >= page_count - 1
+        # With no pages there is no "last" page to finish on — the `-1 >= -1`
+        # sentinel would otherwise render an active "Finish".
+        last = page_count > 0 && current_index >= page_count - 1
 
         back_button.state = first ? WidgetState::Disabled : WidgetState::Normal
         next_button.set_content(last ? "{center}Finish{/center}" : "{center}Next{/center}")

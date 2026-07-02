@@ -306,8 +306,9 @@ module Crysterm
       def cycle(delta : Int)
         return if @options.empty?
         n = @options.size
+        # Crystal's `%` with a positive divisor is always non-negative, so this
+        # wraps a negative delta correctly with no extra guard.
         @selected = (@selected + delta) % n
-        @selected += n if @selected < 0
         # Pass the computed index as authoritative: `#set_value`'s value-based
         # lookup would resolve a repeated label to its first occurrence,
         # preventing cycling onto a later duplicate.

@@ -115,7 +115,11 @@ module Crysterm
 
       # (Re)places the image when its cell rectangle changes.
       private def redraw_image
-        return unless visible?
+        # Bail when this widget OR any ancestor is hidden: a standalone
+        # `Rendered` listener must not resolve `_get_coords(true)` against a
+        # hidden ancestor with no rendered position (it would raise and kill the
+        # render fiber). Mirrors `Media::Graphics#redraw_image`.
+        return unless visible_in_tree?
         window? || return
         path = @path || return
         pos = _get_coords(true) || return

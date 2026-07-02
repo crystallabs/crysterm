@@ -74,11 +74,12 @@ module Crysterm
         on(::Crysterm::Event::Destroy) { window?.try { |s| delete_image s } }
       end
 
-      # The image id this frame transmits to: the front buffer when not
-      # double-buffering, else the buffer chosen by the current emit parity.
-      private def frame_id : UInt32
-        double_buffer? && @buffer_parity ? @id_b : @id_a
-      end
+      # Placeholders `#encode` bakes into the cached payload in place of the
+      # concrete image ids; `#finalize_payload` substitutes the real ids per
+      # emit. They must never collide with the base64 payload (alphabet
+      # `A-Za-z0-9+/=`) or the numeric control keys — the braces guarantee that.
+      ID_PLACEHOLDER    = "{i}"
+      OTHER_PLACEHOLDER = "{o}"
 
       def target_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
         pw = cols * cell_pixel_width
@@ -127,7 +128,6 @@ module Crysterm
         cols = 1 if cols < 1
         rows = 1 if rows < 1
 
-        id = frame_id
         io = String::Builder.new
         chunk = 4096
         offset = 0
@@ -145,7 +145,7 @@ module Crysterm
             # scroll the window, carrying off cells above it (e.g. a title row).
             # Optional `z=` sets stacking order (negative under text; see `#z`).
             io << "a=T,f=32,s=" << pw << ",v=" << ph \
-              << ",i=" << id << ",p=1,c=" << cols << ",r=" << rows \
+              << ",i=" << ID_PLACEHOLDER << ",p=1,c=" << cols << ",r=" << rows \
               << ",C=1,q=2"
             @z.try { |z| io << ",z=" << z }
             io << ",m=" << more
@@ -158,13 +158,26 @@ module Crysterm
         # Double-buffer: delete the *other* buffer now that the new frame is
         # placed. Wrapped by the base in synchronized output, so place+delete
         # present as one atomic swap. (Deleting a never-created id is a no-op
-        # under q=2.)
+        # under q=2.) The concrete ids are filled in per emit by
+        # `#finalize_payload` — see below.
         if double_buffer?
-          other = id == @id_a ? @id_b : @id_a
-          io << "\e_Ga=d,d=i,i=" << other << ",q=2\e\\"
-          @buffer_parity = !@buffer_parity # next emit targets the other buffer
+          io << "\e_Ga=d,d=i,i=" << OTHER_PLACEHOLDER << ",q=2\e\\"
         end
         io.to_s
+      end
+
+      # Substitute the concrete image ids at emit time. Because
+      # `Media::Graphics#payload_for` memoizes the encoded string per frame, the
+      # id must *not* be baked in — otherwise a fixed-size looping animation
+      # serves every frame from cache after the first loop and the buffer
+      # alternation (which defeats tearing) freezes to a per-index parity. Doing
+      # the swap here, per emit, keeps alternation tied to emit order. When not
+      # double-buffering there is a single buffer (`@id_a`) and no swap.
+      def finalize_payload(payload : String) : String
+        return payload.gsub(ID_PLACEHOLDER, @id_a.to_s) unless double_buffer?
+        primary, other = @buffer_parity ? {@id_b, @id_a} : {@id_a, @id_b}
+        @buffer_parity = !@buffer_parity # next emit targets the other buffer
+        payload.gsub(ID_PLACEHOLDER, primary.to_s).gsub(OTHER_PLACEHOLDER, other.to_s)
       end
 
       # A Kitty image is a separate layer the terminal's cells never overdraw,

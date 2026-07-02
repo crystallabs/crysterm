@@ -338,20 +338,15 @@ module Crysterm
       # hidden or detached. Wraps the emit in DECSC/DECRC so the terminal cursor
       # (and thus Crysterm's positioning on the next frame) is left untouched.
       private def redraw_image
-        return unless visible?
         # `visible?` only consults THIS widget's own flag. Unlike the cell-render
         # pass (which skips hidden subtrees naturally), this overlay runs as a
         # standalone `Rendered` listener, so it must also bail when an ANCESTOR
         # is hidden: the widget is then off-window, the hidden ancestor has no
         # rendered position, and resolving coords against it (`_get_coords(true)`
         # -> `last_rendered_position`) would raise instead of returning nil,
-        # crashing the render-loop fiber. Walk the parent chain and skip if any
-        # link is hidden, mirroring the tree-aware visibility `Capture` uses.
-        anc = parent
-        while anc
-          return unless anc.visible?
-          anc = anc.parent
-        end
+        # crashing the render-loop fiber. `#visible_in_tree?` walks the parent
+        # chain, mirroring the tree-aware visibility `Capture` uses.
+        return unless visible_in_tree?
         s = window? || return
         return unless has_image?
         ensure_animation
@@ -377,7 +372,11 @@ module Crysterm
         io << "\e[?2026h" if double_buffer?               # BSU: begin synchronized update
         io << "\e7"                                       # DECSC: save cursor
         io << "\e[" << (yi + 1) << ';' << (xi + 1) << 'H' # CUP to content top-left (1-based)
-        io << payload
+        # `#finalize_payload` runs once per *emit* (not per cache-fill), letting a
+        # double-buffering backend choose its target buffer by emit order rather
+        # than baking it into the cached bytes. Reached only on a real emit (past
+        # the emit-skip above), so any per-emit state it advances stays in sync.
+        io << finalize_payload(payload)
         io << "\e8"                         # DECRC: restore cursor
         io << "\e[?2026l" if double_buffer? # ESU: end synchronized update — present atomically
         s.tput._oprint io.to_s
@@ -392,6 +391,15 @@ module Crysterm
       # separate layer the cells don't touch (Kitty) override this to false.
       protected def repaint_every_frame? : Bool
         true
+      end
+
+      # Last-mile transform applied to a payload at emit time, once per emit.
+      # Default is identity; `Media::Kitty` overrides it to substitute the
+      # double-buffer image id per emit (so buffer alternation follows emit
+      # order even when the payload itself is served from the per-frame cache).
+      # Public so the emit-order contract can be exercised directly.
+      def finalize_payload(payload : String) : String
+        payload
       end
 
       # Draw into the *content* area, inside any border/padding (the in-band

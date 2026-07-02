@@ -1345,6 +1345,25 @@ module Crysterm
       kept.join
     end
 
+    # Longest *prefix* of `text` whose display width fits within `cols` columns,
+    # measured by grapheme cluster (wide characters count as 2; clusters are
+    # never split). The head-side mirror of `#tail_within`, for truncating an
+    # over-long line to fit an inner width without splitting a wide glyph.
+    def head_within(text : String, cols : Int) : String
+      return "" if cols <= 0
+      return text if str_width(text) <= cols
+
+      kept = String::Builder.new
+      width = 0
+      text.each_grapheme do |g|
+        gw = Unicode.width g
+        break if width + gw > cols
+        width += gw
+        kept << g.to_s
+      end
+      kept.to_s
+    end
+
     # Returns `text` with its last grapheme cluster removed (e.g. a base +
     # combining mark, or a wide emoji, comes off as one unit). Used for
     # grapheme-aware backspace in text inputs. Empty in, empty out.

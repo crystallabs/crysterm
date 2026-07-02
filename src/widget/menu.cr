@@ -299,7 +299,10 @@ module Crysterm
       # insetting the text) lets `#size_rows` lay rows across the content box
       # with padding falling outside. Bump the theme padding for a roomier menu.
       private def fit_width : Int32
-        w = ritems.max_of?(&.size) || (visible_actions.max_of?(&.text.size) || 8)
+        # Display width, not codepoint count: an icon glyph (`a.icon`) or CJK/
+        # emoji label is wider than its `.size`, and undersizing here would clip
+        # the label.
+        w = ritems.max_of? { |r| str_width r } || (visible_actions.max_of? { |a| str_width a.text } || 8)
         w + iwidth
       end
 
@@ -352,8 +355,10 @@ module Crysterm
           next if @separator_items.includes? it
           l = lefts[i]
           r = rights[i]
-          pad = inner - l.size - r.size
-          content = pad >= 1 ? "#{l}#{" " * pad}#{r}" : "#{l}#{r}"[0, inner]
+          # Display width, not codepoint count: an icon/CJK label would otherwise
+          # over-pad and push the right-aligned shortcut/▶ past the border.
+          pad = inner - str_width(l) - str_width(r)
+          content = pad >= 1 ? "#{l}#{" " * pad}#{r}" : head_within("#{l}#{r}", inner)
           it.set_content(content) unless it.content == content
         end
       end
@@ -659,10 +664,14 @@ module Crysterm
       end
 
       def on_keypress(e)
-        # A menu opens with no row highlighted; the first selection-moving key
-        # *reveals* the highlight on the current item rather than moving it.
-        # Subsequent keys move it normally via `super`.
-        if !@show_highlight && selection_key?(e)
+        # A menu opens with no row highlighted; the first selection-moving key —
+        # or Enter — *reveals* the highlight on the current item rather than
+        # moving/activating it. Without gating Enter here it would fall through to
+        # `super` (`enter_selected` -> `activate_index 0`) and fire the first
+        # action though no row was ever shown highlighted, contradicting the
+        # documented "no highlight until interaction" model. Subsequent keys move
+        # /activate normally via `super`.
+        if !@show_highlight && (selection_key?(e) || e.key == ::Tput::Key::Enter)
           @show_highlight = true
           request_render
           e.accept
@@ -696,6 +705,13 @@ module Crysterm
           return if dismiss_to_parent_menu e
           if @popup_mode
             hide_popup
+            e.accept
+            return
+          end
+          # A non-popup top-level menu with nothing revealed yet: swallow Escape
+          # rather than letting `super` fire a `CancelItem` on the unhighlighted
+          # item 0 (same "no highlight until interaction" model as above).
+          if !@show_highlight
             e.accept
             return
           end

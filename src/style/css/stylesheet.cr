@@ -1,20 +1,38 @@
 module Crysterm
   module CSS
-    # A parsed `@media` condition: a conjunction of feature tests evaluated
-    # against the terminal's size and color depth. Only width/height and
+    # A parsed `@media` condition: a logical **OR** of comma-separated queries,
+    # each a **conjunction** (AND) of feature tests, evaluated against the
+    # terminal's size and color depth. Only width/height and
     # `min-colors`/`max-colors` features are supported.
+    #
+    # A comma in a media query is an OR of full queries (`@media (max-width: 40),
+    # (min-width: 100)` matches a narrow *or* a wide terminal), so each
+    # comma-separated group is stored and evaluated independently — AND-ing them
+    # all would make such a list unsatisfiable.
     struct MediaQuery
-      getter conditions : Array(Tuple(String, Int32))
-
-      # Whether the query is satisfiable at all. A non-empty `@media` prelude
-      # that yields no recognizable numeric feature — a media type (`print`), an
+      # One entry per comma-separated query: its AND-ed feature conditions paired
+      # with whether that query is satisfiable at all. A non-empty query that
+      # yields no recognizable numeric feature — a media type (`print`), an
       # unknown or non-integer feature (`(prefers-color-scheme: dark)`,
       # `(orientation: portrait)`) — is *unmatchable* rather than vacuously true.
       # Without this, the empty conjunction (`[].all?` is `true`) would apply the
       # guarded rule at every terminal, inverting the author's intent.
-      getter? matchable : Bool
+      getter groups : Array(Tuple(Array(Tuple(String, Int32)), Bool))
 
-      def initialize(@conditions, @matchable = true)
+      def initialize(@groups)
+      end
+
+      # All feature conditions across every comma-separated group, flattened.
+      # Convenience accessor (a single-query prelude — the common case — has one
+      # group, so this returns exactly its conditions).
+      def conditions : Array(Tuple(String, Int32))
+        groups.flat_map { |(conds, _)| conds }
+      end
+
+      # Whether the query is satisfiable at all — true when *any* group is
+      # (comma-separated queries are OR-ed).
+      def matchable? : Bool
+        groups.any? { |(_, ok)| ok }
       end
 
       # The numeric media features crysterm understands (cell counts / color
@@ -32,41 +50,50 @@ module Crysterm
       # `FEATURE_RE` can't parse) can be detected and mark the query unmatchable.
       GROUP_RE = /\([^()]*\)/
 
-      # Parses a condition string such as `(min-width: 80) and (max-width: 120)`.
+      # Parses a condition string such as `(min-width: 80) and (max-width: 120)`,
+      # or a comma-separated OR list like `(max-width: 40), (min-width: 100)`.
+      # Media feature values are integers, so a top-level comma only ever
+      # separates whole queries — never appears inside a `(feature: value)`.
       def self.parse(condition : String) : MediaQuery
-        conditions = [] of Tuple(String, Int32)
-        matchable = true
-        condition.scan(GROUP_RE) do |group|
-          if m = group[0].match(FEATURE_RE)
-            feature = m[1].downcase
-            if FEATURES.includes?(feature)
-              conditions << {feature, m[2].to_i}
-              next
+        groups = condition.split(',').map do |query|
+          conditions = [] of Tuple(String, Int32)
+          matchable = true
+          query.scan(GROUP_RE) do |group|
+            if m = group[0].match(FEATURE_RE)
+              feature = m[1].downcase
+              if FEATURES.includes?(feature)
+                conditions << {feature, m[2].to_i}
+                next
+              end
             end
+            # A `(...)` group that isn't a known numeric feature (e.g.
+            # `(orientation: portrait)`) makes this query unmatchable.
+            matchable = false
           end
-          # A `(...)` group that isn't a known numeric feature (e.g.
-          # `(orientation: portrait)`) makes the whole query unmatchable.
-          matchable = false
+          # A non-empty query that produced no usable condition (a media type
+          # like `print`, or an unparsable feature) must not match everywhere.
+          matchable = false if conditions.empty? && !query.strip.empty?
+          {conditions, matchable}
         end
-        # A non-empty prelude that produced no usable condition (a media type
-        # like `print`, or an unparsable feature) must not match everywhere.
-        matchable = false if conditions.empty? && !condition.strip.empty?
-        new conditions, matchable
+        new groups
       end
 
       # Whether this query matches a terminal of *width*×*height* cells with
-      # *colors* available.
+      # *colors* available — true when **any** comma-separated group matches
+      # (OR), each group requiring **all** its conditions (AND).
       def matches?(width : Int32, height : Int32, colors : Int32) : Bool
-        return false unless matchable?
-        conditions.all? do |(feature, value)|
-          case feature
-          when "min-width"  then width >= value
-          when "max-width"  then width <= value
-          when "min-height" then height >= value
-          when "max-height" then height <= value
-          when "min-colors" then colors >= value
-          when "max-colors" then colors <= value
-          else                   true
+        groups.any? do |(conditions, matchable)|
+          next false unless matchable
+          conditions.all? do |(feature, value)|
+            case feature
+            when "min-width"  then width >= value
+            when "max-width"  then width <= value
+            when "min-height" then height >= value
+            when "max-height" then height <= value
+            when "min-colors" then colors >= value
+            when "max-colors" then colors <= value
+            else                   true
+            end
           end
         end
       end
@@ -204,12 +231,20 @@ module Crysterm
 
       # Matches exactly the `ATTR_PSEUDOS` tokens as whole pseudo-classes (the
       # trailing lookahead keeps `:enabled` from biting into a longer identifier).
-      ATTR_PSEUDO = /:(checked|indeterminate|enabled)(?![A-Za-z0-9_-])/
+      # Case-insensitive (CSS pseudo-class names are), matching the state-pseudo
+      # matchers — the captured token is folded to lowercase for the lookup.
+      ATTR_PSEUDO = /:(checked|indeterminate|enabled)(?![A-Za-z0-9_-])/i
 
       # Matches a `::slot` pseudo-element token (`ProgressBar::indicator`). Lowered
       # to the *capitalized descendant node* Crysterm emits for that slot; see
-      # `lower_sub_elements`.
-      SUB_ELEMENT_PSEUDO = /::([a-z][a-z-]*)/
+      # `lower_sub_elements`. Case-insensitive (pseudo-element names are);
+      # `String#capitalize` normalizes the captured name's casing.
+      SUB_ELEMENT_PSEUDO = /::([a-z][a-z-]*)/i
+
+      # The `:has(` opener, matched case-insensitively (`:HAS(` is legal CSS).
+      # Length is fixed at 5 chars regardless of case, so `index + 4` still points
+      # at the `(` — the peel/strip helpers rely on that.
+      HAS_OPEN = /:has\(/i
 
       # Mutable state threaded through the recursive parse.
       private class ParseCtx
@@ -586,12 +621,19 @@ module Crysterm
         end
         name = name.downcase
         ctx.warnings << "unknown property: #{name.inspect}" unless Properties.known?(name)
-        if value.downcase.ends_with?("!important")
-          important[name] = value[0...value.size - "!important".size].rstrip
+        # CSS permits whitespace between `!` and `important` (`red ! important`),
+        # so match tolerantly rather than testing a fixed 10-char suffix — else
+        # the spaced form is stored as a normal declaration with a bogus value.
+        if m = value.match(IMPORTANT_RE)
+          important[name] = m.pre_match.rstrip
         else
           declarations[name] = value
         end
       end
+
+      # Trailing `!important` marker, tolerant of interior whitespace (and case),
+      # anchored to the end of the value.
+      IMPORTANT_RE = /!\s*important\s*\z/i
 
       # State pseudo-class tokens, longest first, so a longer token is matched
       # before any shorter token it contains as a substring (e.g. `:blurred`
@@ -707,7 +749,7 @@ module Crysterm
       # combinator (`> .x`) is anchored with `:scope`. Only the first `:has` is
       # handled; the `html5` engine has no `:has`, so the cascade evaluates it.
       private def self.peel_has(selector : String) : Tuple(String?, String)
-        idx = selector.index(":has(")
+        idx = selector.index(HAS_OPEN)
         return {nil, selector} unless idx
         open = idx + 4 # index of '('
         close = matching_paren(selector, open)
@@ -726,10 +768,10 @@ module Crysterm
       # has all `:has(...)` stripped (the `html5` engine can't parse it); it's
       # re-applied relationally in the cascade.
       private def self.peel_ancestor_has(prefix : String) : Tuple(Array(Tuple(String, String))?, String)
-        return {nil, prefix} unless prefix.includes?(":has(")
+        return {nil, prefix} unless prefix.matches?(HAS_OPEN)
         conditions = [] of Tuple(String, String)
         search = 0
-        while idx = prefix.index(":has(", search)
+        while idx = prefix.index(HAS_OPEN, search)
           open = idx + 4 # index of '('
           close = matching_paren(prefix, open)
           break unless close
@@ -770,7 +812,7 @@ module Crysterm
       # parse `:has`; it's evaluated relationally in the cascade instead).
       private def self.strip_has(selector : String) : String
         result = selector
-        while idx = result.index(":has(")
+        while idx = result.index(HAS_OPEN)
           open = idx + 4
           close = matching_paren(result, open)
           break unless close
@@ -820,7 +862,7 @@ module Crysterm
       # actually matched — an attribute and a pseudo-class weigh the same.
       private def self.lower_attr_pseudos(selector : String) : String
         return selector unless selector.includes?(':') # fast path: no pseudo at all
-        selector.gsub(ATTR_PSEUDO) { ATTR_PSEUDOS[$1] }
+        selector.gsub(ATTR_PSEUDO) { ATTR_PSEUDOS[$1.downcase] }
       end
 
       # Rewrites `Type::slot` pseudo-elements into the capitalized descendant node

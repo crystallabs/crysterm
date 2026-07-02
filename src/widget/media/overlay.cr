@@ -83,7 +83,11 @@ module Crysterm
       # after every window render; skips while hidden or detached.
       private def redraw_image
         return if @helper_failed
-        return unless visible?
+        # Bail when this widget OR any ancestor is hidden: a standalone
+        # `Rendered` listener must not resolve `_get_coords(true)` against a
+        # hidden ancestor with no rendered position (it would raise and kill the
+        # render fiber). Mirrors `Media::Graphics#redraw_image`.
+        return unless visible_in_tree?
         window? || return
         @image.try do |image|
           pos = _get_coords(true) || return

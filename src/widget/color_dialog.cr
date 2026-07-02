@@ -440,10 +440,12 @@ module Crysterm
         end
       end
 
-      private def finish(color : String?) : Nil
-        hide
-        # Drop any in-flight window move / eyedropper before closing.
-        end_move
+      # Releases every window-level resource `#pick`/`#begin_pick` installed —
+      # the accelerator, the eyedropper `Event::Mouse` listener, the modal grab
+      # and the saved focus. Shared by `#finish` (the Ok/Cancel/Escape path) and
+      # `#destroy` (host tears the dialog down without either), so neither leaks
+      # a handler onto the window or leaves it modally grabbed to a dead widget.
+      private def release_window_state : Nil
         if @picking
           @picking = false
           @ev_pick.try { |w| window?.try &.off Crysterm::Event::Mouse, w }
@@ -453,6 +455,24 @@ module Crysterm
         @ev_keys.try { |w| window?.try &.off Crysterm::Event::KeyPress, w }
         @ev_keys = nil
         window?.try &.restore_focus
+      end
+
+      # Released outside the accept/cancel path: drop the listeners, grab and
+      # saved focus, and discard the callback so a stray later key can't fire it
+      # on the destroyed dialog.
+      def destroy
+        # Drop any in-flight window move / eyedropper before releasing.
+        end_move
+        release_window_state
+        @callback = nil
+        super
+      end
+
+      private def finish(color : String?) : Nil
+        hide
+        # Drop any in-flight window move / eyedropper before closing.
+        end_move
+        release_window_state
         if color
           emit Crysterm::Event::Action, color
           emit Crysterm::Event::Accepted

@@ -773,6 +773,16 @@ module Crysterm
         selected
       end
 
+      # The incremental-search `LineEdit` is appended to the *window* (a sibling
+      # of this list, not a child), so `Widget#destroy` — which only tears down
+      # this widget and its own children — would leave it orphaned at the window
+      # bottom for the window's lifetime. Drop it explicitly here.
+      def destroy
+        @search_box.try &.destroy
+        @search_box = nil
+        super
+      end
+
       private def ensure_search_box : Widget::LineEdit
         @search_box ||= begin
           box = Widget::LineEdit.new(

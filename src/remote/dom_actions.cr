@@ -112,7 +112,10 @@ module Crysterm
         when "focus"
           targets(rest, source, window).each &.focus
         when "add-class", "remove-class", "toggle-class"
-          sel, _, klass = rest.partition(':')
+          # Split the class token off the *right*: the class name is colon-free,
+          # but a target selector legitimately contains `:` (a pseudo-class, e.g.
+          # `.tab:hover`). A left split would strip the selector's own colons.
+          sel, _, klass = rest.rpartition(':')
           targets(sel, source, window).each do |w|
             case verb
             when "add-class"    then w.add_css_class klass

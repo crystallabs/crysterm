@@ -73,5 +73,21 @@ module Crysterm
       # self_and_each_ancestor { |a| visible &&= a.style.visible? }
       # visible
     end
+
+    # Returns whether this widget *and every ancestor* is visible. Unlike
+    # `#visible?` (which consults only this node's own flag), this walks the
+    # whole parent chain, so it is false when a container above us is hidden.
+    # Standalone `Rendered` listeners (the media overlays) must use this before
+    # resolving rendered coordinates: hiding an ancestor only clears that node's
+    # flag, leaving a descendant `visible?`, but the hidden ancestor has no
+    # rendered position and `_get_coords(true)` would raise against it.
+    def visible_in_tree? : Bool
+      anc = self
+      while anc
+        return false unless anc.visible?
+        anc = anc.parent
+      end
+      true
+    end
   end
 end

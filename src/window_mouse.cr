@@ -53,6 +53,15 @@ module Crysterm
       @grabs.any? &.grab_contains?(x, y)
     end
 
+    # A disabled widget under the pointer receives no interaction events
+    # (press/release/motion): hit-testing still returns it (so click-to-focus is
+    # suppressed and a scrollable ancestor can still take the wheel), but it never
+    # sees `Event::Mouse`/`Event::Click`, mirroring the keyboard path (a disabled
+    # widget can't hold focus, so never gets `on_keypress`).
+    private def disabled_interaction?(w : Widget, ev : ::Tput::Mouse::Event) : Bool
+      w.disabled? && (ev.action.down? || ev.action.up? || ev.action.move?)
+    end
+
     # Widget the pointer is currently hovering over (topmost), used to detect
     # hover in/out transitions.
     @_hover : Widget?
@@ -204,6 +213,12 @@ module Crysterm
           # apply this first motion immediately.
           ax, ay = @_arm_x, @_arm_y
           @_arm = nil
+          # The arming press is consumed by this drag and never reaches the
+          # widget as an `Event::Click`, so undo the count bumped on `down` —
+          # otherwise a later real click on the same spot within the
+          # double-click interval would read an inflated `#click_count`
+          # (mirrors the two-click-drag branch above).
+          reset_click_count
           sess = start_drag armed, ax, ay, ::Crysterm::DragSensor::Mouse,
             action: drag_action_for(ev.shift?, ev.ctrl?, ::Crysterm::DragAction::Move)
           drag_motion sess, ev.x, ev.y, ev.shift?, ev.ctrl?
@@ -212,7 +227,7 @@ module Crysterm
           # No motion: it was a click after all. Draggable widgets emit their
           # click on release since the press was ambiguous.
           @_arm = nil
-          armed.emit ::Crysterm::Event::Click if w == armed
+          armed.emit ::Crysterm::Event::Click if w == armed && !armed.disabled?
           return
         end
       end
@@ -229,6 +244,10 @@ module Crysterm
           render
         end
       end
+
+      # A disabled widget under the pointer takes no press/release/motion (see
+      # `#disabled_interaction?`).
+      return if disabled_interaction? w, ev
 
       # Splat form: builds the `Mouse` event only if `w` has a listener; `nil`
       # otherwise, so `me.try(&.accepted?)` correctly falls through to the

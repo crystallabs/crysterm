@@ -105,11 +105,15 @@ describe Crysterm::Widget::Media::Kitty do
     k.anim_index.should eq 0
     k.double_buffer?.should be_true
 
-    e1 = k.encode(bmp, 4, 4, 0, 0, 4, 3)
-    e2 = k.encode(bmp, 4, 4, 0, 0, 4, 3)
-    e3 = k.encode(bmp, 4, 4, 0, 0, 4, 3)
-
-    id1, id2, id3 = kitty_id(e1), kitty_id(e2), kitty_id(e3)
+    # `#encode` no longer bakes the id in (it would be frozen by
+    # `#payload_for`'s per-frame cache); the concrete id is chosen at *emit* time
+    # by `#finalize_payload`. So finalize the SAME cached payload repeatedly —
+    # exactly the cache-hit path a fixed-size loop hits after its first pass —
+    # and the emitted buffer id must still alternate.
+    cached = k.encode(bmp, 4, 4, 0, 0, 4, 3)
+    id1 = kitty_id(k.finalize_payload(cached))
+    id2 = kitty_id(k.finalize_payload(cached))
+    id3 = kitty_id(k.finalize_payload(cached))
     id1.should_not be_nil
     id1.should_not eq id2    # alternates a -> b
     id2.should_not eq id3    # ...and b -> a
@@ -125,9 +129,11 @@ describe Crysterm::Widget::Media::Kitty do
     bmp = solid_bitmap
     k.bitmap = bmp
 
-    e1 = k.encode(bmp, 4, 4, 0, 0, 4, 3)
-    e2 = k.encode(bmp, 4, 4, 0, 0, 4, 3)
-    kitty_id(e1).should eq kitty_id(e2) # only @id_a used; no swap
+    cached = k.encode(bmp, 4, 4, 0, 0, 4, 3)
+    f1 = k.finalize_payload(cached)
+    f2 = k.finalize_payload(cached)
+    kitty_id(f1).should eq kitty_id(f2) # only @id_a used; no swap
+    f1.should_not contain("{i}")        # placeholder fully substituted
   ensure
     s.try &.destroy
   end

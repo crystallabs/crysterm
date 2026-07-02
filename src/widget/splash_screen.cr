@@ -76,9 +76,32 @@ module Crysterm
             finish
           end
         end
+        # Wire the key-dismiss accelerator with the splash's attach lifecycle so
+        # it works even when the splash is constructed detached (no `parent:`/
+        # `window:`) and appended later — at construction `window?` would be nil,
+        # so a one-shot install here would silently never fire for keys. Install
+        # now too, in case it's already on a window.
+        on(Crysterm::Event::Attach) { install_key_dismiss }
+        # `Widget#remove` nulls `parent`/`window` before `Window#detach` emits
+        # `Event::Detach`, so the previous window comes via the payload.
+        on(Crysterm::Event::Detach) { |e| remove_key_dismiss e.object.as?(Crysterm::Window) }
+        install_key_dismiss
+      end
+
+      # Installs the window-level key-press accelerator (idempotent).
+      private def install_key_dismiss : Nil
+        return if @ev_keys
         @ev_keys = window?.try &.on(Crysterm::Event::KeyPress) do
           finish if dismiss_on_event?
         end
+      end
+
+      # Withdraws the key-press accelerator from *w* (the window the splash is
+      # leaving, supplied via the `Detach` payload; falls back to the current
+      # window for direct teardown).
+      private def remove_key_dismiss(w : Crysterm::Window? = window?) : Nil
+        @ev_keys.try { |h| w.try &.off Crysterm::Event::KeyPress, h }
+        @ev_keys = nil
       end
 
       # Sets (replacing any previous) the splash's content widget, filling the
@@ -109,8 +132,7 @@ module Crysterm
         @finished = true
         # Capture the window before detaching — `window?` goes nil once removed.
         scr = window?
-        @ev_keys.try { |w| scr.try &.off Crysterm::Event::KeyPress, w }
-        @ev_keys = nil
+        remove_key_dismiss scr
         emit ::Crysterm::Event::Complete
         scr.try &.remove self
         destroy
@@ -127,6 +149,15 @@ module Crysterm
           sleep span
           window?.try &.post { finish }
         end
+      end
+
+      # Torn down without a `#finish` (window/app teardown): drop the key-press
+      # accelerator so it can't linger on the window referencing a dead splash.
+      # (A normal `#finish` already removed it, and the `Detach` handler covers a
+      # detach-then-destroy; this covers a direct destroy while still attached.)
+      def destroy
+        remove_key_dismiss
+        super
       end
     end
   end

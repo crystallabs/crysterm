@@ -41,9 +41,13 @@ module Crysterm
         return if min == @minimum && max == @maximum
         @minimum = min
         @maximum = max
-        # `#value=` repaints/emits only on an actual change, so `#request_render`
-        # below covers the value-unchanged-but-range-changed case.
-        self.value = @value.clamp(@minimum, @maximum)
+        # Re-clamp without emitting `Event::Complete`: shrinking the range onto
+        # the current value (e.g. reusing a full bar for a new, shorter task) is
+        # a reconfiguration, not a completion — `Complete` should fire only when
+        # the value *rises* to `maximum`. `#request_render` below covers the
+        # value-unchanged-but-range-changed case (the clamp emits only on a real
+        # change).
+        set_value @value.clamp(@minimum, @maximum), complete: false
         request_render
       end
 
@@ -148,11 +152,19 @@ module Crysterm
       # Sets the value, clamping it into range. Emits `Event::ValueChange` when it
       # actually changes, and `Event::Complete` upon reaching `#maximum`.
       def value=(v : Int32) : Int32
+        set_value v, complete: true
+      end
+
+      # Assigns the value (clamped), emitting `Event::ValueChange` on a real
+      # change and — when *complete* — `Event::Complete` upon reaching
+      # `#maximum`. `#set_range`'s re-clamp passes `complete: false` so shrinking
+      # the range onto the value doesn't fire a spurious completion.
+      protected def set_value(v : Int32, complete : Bool) : Int32
         v = v.clamp(@minimum, @maximum)
         return v if v == @value
         @value = v
         emit Crysterm::Event::ValueChange, @value
-        emit Crysterm::Event::Complete if @value == @maximum && span > 0
+        emit Crysterm::Event::Complete if complete && @value == @maximum && span > 0
         request_render
         @value
       end

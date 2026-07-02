@@ -22,6 +22,12 @@ module Crysterm
         # `nil` means no prefix is rendered.
         property prefix : String?
 
+        # Whether `#prefix` was auto-generated (the `N:` position number) rather
+        # than set explicitly or derived from a hotkey. Only auto prefixes are
+        # renumbered when a sibling is removed (see `#remove_item`), so the shown
+        # `N:` labels stay in step with the raw index number-key selection uses.
+        property? auto_prefix = false
+
         # Invoked when the command is triggered (Enter / click / hotkey).
         property callback : Proc(Nil)?
 
@@ -161,24 +167,23 @@ module Crysterm
         # item's absolute `aleft`, which double-counted the bar's own offset.
         drawn = @commands.sum(&.width) + item_gap * @commands.size
 
-        if cmd.separator?
-          # Separators carry no prefix/hotkey and are sized to their glyph.
-          title = cmd.text
-          cmd.width = cmd.text.size + 2
-        else
-          cmd.prefix ||= (@items.size + 1).to_s if auto_prefix?
-
-          # A per-command hotkey doubles as the displayed prefix, matching Blessed.
-          cmd.keys.try do |keys|
-            cmd.prefix = keys[0] if keys[0]?
+        unless cmd.separator?
+          if auto_prefix? && cmd.prefix.nil?
+            cmd.prefix = (@items.size + 1).to_s
+            cmd.auto_prefix = true
           end
 
-          prefix = cmd.prefix
-          tags = prefix_tags
-          title = (prefix ? "#{tags[:open]}#{prefix}#{tags[:close]}:" : "") + cmd.text
-          len = ((prefix ? "#{prefix}:" : "") + cmd.text).size
-          cmd.width = len + 2
+          # A per-command hotkey doubles as the displayed prefix, matching Blessed
+          # (and is not an auto prefix — it must not be renumbered).
+          cmd.keys.try do |keys|
+            if keys[0]?
+              cmd.prefix = keys[0]
+              cmd.auto_prefix = false
+            end
+          end
         end
+        # Sets `cmd.width` too.
+        title = command_title cmd
 
         item = Widget::Box.new(
           window: window,
@@ -364,6 +369,13 @@ module Crysterm
         detach_command @commands.delete_at i
         remove item
 
+        # Auto prefixes were baked in at `#add` time as position numbers, but
+        # number-key selection routes by raw index (`select_tab i`). After a
+        # removal the indices shifted, so renumber the auto-prefixed commands and
+        # rebuild their labels/positions — otherwise e.g. removing `1:open` from
+        # `1:open 2:save` would leave `2:save` while `2` now selects nothing.
+        renumber_prefixes if auto_prefix?
+
         # Keep the selection cursor on the same logical command. `selected` is
         # `left_base + left_offset` (an index), so removing an item *before* it
         # shifts every later command down by one, and the cursor must follow.
@@ -384,6 +396,43 @@ module Crysterm
 
         emit ::Crysterm::Event::RemoveItem
         item
+      end
+
+      # Builds a command's displayed title from its (optionally prefixed) text,
+      # and updates `cmd.width` to match. Shared by `#add` and
+      # `#renumber_prefixes` so both stay in sync.
+      private def command_title(cmd : Command) : String
+        if cmd.separator?
+          cmd.width = cmd.text.size + 2
+          cmd.text
+        else
+          prefix = cmd.prefix
+          tags = prefix_tags
+          title = (prefix ? "#{tags[:open]}#{prefix}#{tags[:close]}:" : "") + cmd.text
+          len = ((prefix ? "#{prefix}:" : "") + cmd.text).size
+          cmd.width = len + 2
+          title
+        end
+      end
+
+      # Reassigns each auto-prefixed command the position number matching its raw
+      # index, rebuilds its label + box width, and re-packs every item's `left`
+      # (mirroring `#add`'s packing) so the row stays flush even when a label
+      # width changes (e.g. `10:` shrinking to `9:`).
+      private def renumber_prefixes : Nil
+        @commands.each_with_index do |cmd, i|
+          next unless cmd.auto_prefix?
+          cmd.prefix = (i + 1).to_s
+          cmd.element.try &.set_content command_title(cmd)
+        end
+        drawn = 0
+        @commands.each do |cmd|
+          cmd.element.try do |el|
+            el.left = drawn
+            el.width = cmd.width
+          end
+          drawn += cmd.width + item_gap
+        end
       end
 
       # Removes a command's global-hotkey handler from the window, so it stops

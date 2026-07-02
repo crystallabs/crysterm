@@ -110,7 +110,12 @@ module Crysterm
         i += 1
       end
       span = b.offset - a.offset
-      t = span > 0 ? (p - a.offset) / span : 0.0
+      # Clamp the interpolation fraction: when the declared stops don't span the
+      # whole `0%..100%` range (CSS would fill the missing boundary from the
+      # element's computed value, which we don't synthesize), `p` outside
+      # `[a.offset, b.offset]` yields `t` outside `[0,1]`, extrapolating alpha
+      # past `[0,1]` and the color lerps past their endpoints.
+      t = span > 0 ? ((p - a.offset) / span).clamp(0.0, 1.0) : 0.0
 
       if (av = a.alpha) && (bv = b.alpha)
         st.alpha = av + (bv - av) * t

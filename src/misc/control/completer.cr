@@ -394,8 +394,14 @@ module Crysterm
 
     private def position(pop : Widget::List, widget : Widget::LineEdit) : Nil
       begin
-        pop.top = widget.atop + widget.aheight
-        pop.left = widget.aleft
+        # `aleft`/`atop` are absolute screen coordinates, but the popup is a
+        # top-level child whose `left`/`top` are relative to the window's content
+        # origin (`aleft == window.ileft + left`). Subtract the window insets so a
+        # padded/bordered window doesn't shift the popup right/down by the inset
+        # (cf. `window_drag.cr#ghost_origin`, a no-op on an unpadded screen).
+        win = widget.window
+        pop.top = widget.atop + widget.aheight - win.itop
+        pop.left = widget.aleft - win.ileft
         pop.width = Math.max(widget.awidth, 8)
       rescue
         # Not laid out yet — keep defaults.

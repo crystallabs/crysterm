@@ -119,9 +119,13 @@ module Crysterm
       # A ticker (not a tween): maps elapsed time through a triangle + sine so
       # the value eases at both ends and runs until stopped.
       half = period.total_seconds
-      elapsed = 0.0
+      # Drive the phase from real wall-clock elapsed (like the keyframe/tween
+      # path), not a fixed per-tick step: `FrameClock` drops catch-up ticks when
+      # behind, so a fixed accumulator undercounts every dropped/late tick and the
+      # breathe cadence stretches slow under CPU load / GC pauses.
+      start_at = Time.instant
       anim = FrameClock.new(interval) do |_clock|
-        elapsed += interval.total_seconds
+        elapsed = (Time.instant - start_at).total_seconds
         # Triangle phase 0→1→0 over `2*half`, eased by sine for a soft turnaround.
         phase = (elapsed % (2.0 * half)) / half  # 0..2
         tri = phase <= 1.0 ? phase : 2.0 - phase # 0..1..0

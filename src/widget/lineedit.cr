@@ -181,29 +181,32 @@ module Crysterm
           @view_start = 0
           @password_character.to_s * (full_unicode? ? @value.graphemes.size : @value.size)
         else
-          val = @value.gsub /\t/, style.tab_char * style.tab_size
+          val = expanded_value
           # Visible width (`awidth - iwidth - 1`; -1 leaves room for the caret).
+          # `cols` is a *display*-column budget.
           cols = Math.max 0, awidth - iwidth - 1
-          # Caret column in the tab-expanded value (single line → from index 0).
+          # `@view_start` is a codepoint index into `val`; measure the slide in
+          # *display* columns so wide (CJK/emoji) glyphs count as 2. Mixing the
+          # codepoint index against a display-column budget would leave the caret
+          # off-screen for wide content (`caret_cp - cols` under-scrolls). Convert
+          # back to a codepoint index via `column_index` for the actual slice.
           caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
-          # Slide the window to keep the caret inside `[@view_start, +cols]`,
-          # then clamp so we never scroll past the value's end (showing the tail
-          # when the caret sits there, the previous unconditional behavior).
-          if caret_cp < @view_start
+          caret_col = str_width val[0, caret_cp]
+          view_col = str_width val[0, @view_start]
+          # Slide the window to keep the caret inside `[view_col, view_col+cols]`.
+          if caret_col < view_col
             @view_start = caret_cp
-          elsif caret_cp > @view_start + cols
-            @view_start = caret_cp - cols
+          elsif caret_col > view_col + cols
+            @view_start = column_index(val, caret_col - cols)
           end
-          @view_start = @view_start.clamp(0, Math.max(0, val.size - cols))
+          # Clamp so we never scroll past the value's end (showing the tail when
+          # the caret sits there, the previous unconditional behavior).
+          @view_start = @view_start.clamp(0, column_index(val, Math.max(0, str_width(val) - cols)))
 
           window = val[@view_start..]
-          if full_unicode?
-            # Leading graphemes of the window that fit `cols` display columns.
-            window[0, column_index(window, cols)]
-          else
-            # Legacy: one column per codepoint.
-            window[0, cols]
-          end
+          # Leading graphemes/codepoints of the window that fit `cols` display
+          # columns (`column_index` is codepoint-unit under the legacy path).
+          window[0, column_index(window, cols)]
         end
       end
 
@@ -283,17 +286,27 @@ module Crysterm
         end
       end
 
-      # Caret's column within the shown window (see `#compute_display`), used by
-      # `#_update_cursor`. `0` in secret mode (nothing shown); grapheme/codepoint
-      # count before the caret in censor mode (the mask isn't windowed).
+      # The tab-expanded value as shown by `#compute_display` (`@view_start` and
+      # the caret indices are codepoint offsets into this).
+      private def expanded_value : String
+        @value.gsub /\t/, style.tab_char * style.tab_size
+      end
+
+      # Caret's *display* column within the shown window (see `#compute_display`),
+      # used by `#_update_cursor`. `0` in secret mode (nothing shown);
+      # grapheme/codepoint count before the caret in censor mode (the mask isn't
+      # windowed). Measured with `str_width` so a wide glyph before the caret
+      # advances the column by 2, keeping the caret off-by drift-free.
       private def caret_view_col : Int32
         return 0 if @secret
         if @censor
           before = @value[0...@cursor_pos.clamp(0, @value.size)]
           return full_unicode? ? before.graphemes.size : before.size
         end
+        val = expanded_value
         caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
-        Math.max(0, caret_cp - @view_start)
+        return 0 if caret_cp <= @view_start
+        str_width val[@view_start...caret_cp]
       end
 
       # Overrides `Mixin::TextEditing#_update_cursor`: the inherited version maps
@@ -338,9 +351,14 @@ module Crysterm
       # `#compute_display` on that render.
       private def ensure_cursor_visible_x : Bool
         return false if @secret || @censor
+        # Compare in display columns (matching `#compute_display`), so a wide
+        # glyph pushing the caret past the visible width still flags a scroll.
         cols = Math.max 0, awidth - iwidth - 1
+        val = expanded_value
         caret_cp = expanded_width(@value[0...@cursor_pos.clamp(0, @value.size)])
-        caret_cp < @view_start || caret_cp > @view_start + cols
+        caret_col = str_width val[0, caret_cp]
+        view_col = str_width val[0, @view_start]
+        caret_col < view_col || caret_col > view_col + cols
       end
     end
   end
