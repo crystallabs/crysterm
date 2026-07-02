@@ -18,6 +18,70 @@ module Crysterm
       def floor_border? : Bool
         true
       end
+
+      # ---- Modal key accelerator (FORMAL-WIDGETS B3.1 / B3.2) -----------------
+      #
+      # Every modal dialog that reacts to Enter/Escape used to hand-roll the same
+      # dance: install a window-level `KeyPress` listener, remember the window so
+      # it can be `off`'d even after detach, and route Enter→accept /
+      # Escape→cancel. It was copied (and had drifted) across `ColorDialog#pick`/
+      # `#on_key`/`#release_window_state`, `Wizard#install_keys`/`#on_key`, and
+      # `Question#ask`. The *mechanics* live here once; each dialog decides only
+      # *when* to install (on open vs. on attach) and *whether* a given key
+      # applies (via `#dialog_keys_active?`), plus what accept/cancel do.
+
+      # Window-level accelerator handle + the window it was installed on, captured
+      # so teardown works from `Detach`/`Destroy` where `window?` is already nil.
+      @dialog_keys : Crysterm::Event::KeyPress::Wrapper?
+      @dialog_keys_window : Window?
+
+      # Installs the window-level Enter/Escape accelerator (idempotent).
+      protected def install_dialog_keys : Nil
+        uninstall_dialog_keys
+        return unless w = window?
+        @dialog_keys_window = w
+        @dialog_keys = w.on(Crysterm::Event::KeyPress) { |e| dialog_key e }
+      end
+
+      # Removes the accelerator via the captured window (idempotent — safe to call
+      # from both the normal close path and `#destroy`).
+      protected def uninstall_dialog_keys : Nil
+        if (h = @dialog_keys) && (w = @dialog_keys_window)
+          w.off Crysterm::Event::KeyPress, h
+        end
+        @dialog_keys = nil
+        @dialog_keys_window = nil
+      end
+
+      # Default accelerator body: Enter accepts, Escape cancels. Runs only when
+      # `#dialog_keys_active?` allows it, so a focused editor/button keeps the key
+      # first. Subclasses tune the guard via `#dialog_keys_active?` and the
+      # actions via `#accept`/`#cancel`.
+      protected def dialog_key(e : Crysterm::Event::KeyPress) : Nil
+        return unless dialog_keys_active? e
+        case e.key
+        when Tput::Key::Enter  then accept; e.accept
+        when Tput::Key::Escape then cancel; e.accept
+        end
+        request_render if e.accepted?
+      end
+
+      # Whether the accelerator should act on *e*. Default: always. Overridden to
+      # stand down while a field is focused (`ColorDialog`) or once the focused
+      # widget already consumed the key (`Wizard`).
+      protected def dialog_keys_active?(e : Crysterm::Event::KeyPress) : Bool
+        true
+      end
+
+      # Affirmative gesture (Enter / Ok), mirroring Qt's `QDialog#accept`.
+      # No-op by default; concrete dialogs override it.
+      def accept : Nil
+      end
+
+      # Negative gesture (Escape / Cancel), mirroring Qt's `QDialog#reject`.
+      # No-op by default; concrete dialogs override it.
+      def cancel : Nil
+      end
     end
   end
 end

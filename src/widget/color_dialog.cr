@@ -103,7 +103,6 @@ module Crysterm
       @custom_index = 0
 
       @callback : Proc(String?, Nil)?
-      @ev_keys : Crysterm::Event::KeyPress::Wrapper?
       # Guards the editor<->state feedback loop while we push state into the
       # spin boxes / hex field (their `value=` would otherwise re-enter here).
       @syncing = false
@@ -162,7 +161,8 @@ module Crysterm
         show
         front!
         focus
-        @ev_keys ||= window.on(Crysterm::Event::KeyPress) { |e| on_key e }
+        # The `Dialog` base owns the window-level Enter/Escape accelerator.
+        install_dialog_keys
         request_render
       end
 
@@ -452,8 +452,7 @@ module Crysterm
           @ev_pick = nil
           window?.try &.ungrab self
         end
-        @ev_keys.try { |w| window?.try &.off Crysterm::Event::KeyPress, w }
-        @ev_keys = nil
+        uninstall_dialog_keys
         window?.try &.restore_focus
       end
 
@@ -497,13 +496,10 @@ module Crysterm
           f == @lhspin || f == @lsspin || f == @llspin
       end
 
-      private def on_key(e : Crysterm::Event::KeyPress) : Nil
-        return if editing_focused?
-        case e.key
-        when Tput::Key::Enter  then accept; e.accept
-        when Tput::Key::Escape then cancel; e.accept
-        end
-        request_render if e.accepted?
+      # The `Dialog` accelerator stands down while a spin/hex field is focused, so
+      # a field's own Enter/Escape isn't stolen to accept/cancel the dialog.
+      protected def dialog_keys_active?(e : Crysterm::Event::KeyPress) : Bool
+        !editing_focused?
       end
 
       private def on_mouse(e : Crysterm::Event::Mouse) : Nil

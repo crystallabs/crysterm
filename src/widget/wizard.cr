@@ -36,12 +36,6 @@ module Crysterm
       # Rows reserved for the button row.
       property button_height : Int32 = 1
 
-      # Window-level Enter/Escape accelerator handle (installed while attached),
-      # plus the window it was installed on — captured so teardown can `off` it
-      # even from `Detach`/`Destroy`, where `window?` has already been nilled.
-      @ev_keys : Crysterm::Event::KeyPress::Wrapper?
-      @key_window : Window?
-
       def initialize(button_height = 1, **box)
         @button_height = button_height
 
@@ -63,45 +57,31 @@ module Crysterm
 
         # Enter advances/finishes, Escape cancels — the modal-dialog convention
         # `ColorDialog`/`Question` already follow, which `Wizard` had missed
-        # entirely (cancel was reachable only via the button). Installed at the
-        # window level while attached, and torn down on detach/destroy so it
-        # can't fire on a dead widget.
-        on(::Crysterm::Event::Attach) { install_keys }
-        on(::Crysterm::Event::Detach) { uninstall_keys }
-        on(::Crysterm::Event::Destroy) { uninstall_keys }
-        install_keys # in case we are already on a window (parent: window)
+        # entirely (cancel was reachable only via the button). The `Dialog` base
+        # owns the window-level accelerator; the wizard keeps it installed while
+        # attached and torn down on detach/destroy so it can't fire on a dead
+        # widget.
+        on(::Crysterm::Event::Attach) { install_dialog_keys }
+        on(::Crysterm::Event::Detach) { uninstall_dialog_keys }
+        on(::Crysterm::Event::Destroy) { uninstall_dialog_keys }
+        install_dialog_keys # in case we are already on a window (parent: window)
 
         refresh_buttons
       end
 
-      private def install_keys : Nil
-        uninstall_keys
-        return unless w = window?
-        @key_window = w
-        @ev_keys = w.on(::Crysterm::Event::KeyPress) { |e| on_key e }
+      # For the wizard the affirmative gesture is "advance" (Enter → next page /
+      # Finish on the last), not a single close — see `#advance`.
+      def accept : Nil
+        advance
       end
 
-      private def uninstall_keys : Nil
-        if (h = @ev_keys) && (w = @key_window)
-          w.off Crysterm::Event::KeyPress, h
-        end
-        @ev_keys = nil
-        @key_window = nil
-      end
-
-      # Enter → advance/finish, Escape → cancel. The window's own key routing
-      # delivers to the focused widget *first* (see `window_interaction.cr`); if
-      # that widget already consumed the key — a text editor taking Enter, a
-      # focused footer button activating on it — `e.accepted?` is set and this
-      # accelerator stands down, so it never hijacks a field's Enter nor
-      # double-advances when a button already handled it.
-      private def on_key(e : Crysterm::Event::KeyPress) : Nil
-        return if e.accepted?
-        case e.key
-        when Tput::Key::Enter  then advance; e.accept
-        when Tput::Key::Escape then cancel; e.accept
-        end
-        request_render if e.accepted?
+      # The window's own key routing delivers to the focused widget *first* (see
+      # `window_interaction.cr`); if that widget already consumed the key — a text
+      # editor taking Enter, a focused footer button activating on it —
+      # `e.accepted?` is set and the accelerator stands down, so it never hijacks
+      # a field's Enter nor double-advances when a button already handled it.
+      protected def dialog_keys_active?(e : Crysterm::Event::KeyPress) : Bool
+        !e.accepted?
       end
 
       # Builds one of the wizard's footer buttons: a centered, tag-parsed `Button`
