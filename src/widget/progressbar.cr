@@ -12,6 +12,8 @@ module Crysterm
     # ![ProgressBar screenshot](../../tests/widget/progressbar/progressbar.5s.apng)
     # <!-- /widget-examples:capture -->
     class ProgressBar < Input
+      include Mixin::RangeText
+
       # Lower/upper bounds of the value range (inclusive), like Qt's
       # `minimum`/`maximum`. With the defaults (0..100) a value equals its
       # percentage. Setting `maximum == minimum` yields a "busy"/empty bar.
@@ -178,11 +180,7 @@ module Crysterm
 
       # Builds the textual indicator from `#text_format`.
       private def formatted_text : String
-        text_format
-          .gsub("%p", filled.to_s)
-          .gsub("%v", @value.to_s)
-          .gsub("%m", @maximum.to_s)
-          .gsub("%M", @minimum.to_s)
+        format_range_text text_format, filled.to_s, @value.to_s, @maximum.to_s, @minimum.to_s
       end
 
       def render

@@ -247,15 +247,24 @@ module Crysterm
         item
       end
 
-      # Triggers a command: emits action/select events, runs its callback,
-      # selects it, and re-renders.
+      # Fires the command at *index*: emits `ActionItem`/`SelectItem` for it and
+      # runs its callback. Shared by keyboard-Enter activation and `#trigger`
+      # (each adds its own selection/render around this core). *item* defaults to
+      # the row at *index*; `#trigger` passes the command's element explicitly.
+      private def fire(index : Int32, item = @items[index]?)
+        return unless item
+        emit ::Crysterm::Event::ActionItem, item, index
+        emit ::Crysterm::Event::SelectItem, item, index
+        @commands[index]?.try &.callback.try &.call
+      end
+
+      # Triggers a command: fires its action/select events + callback, selects
+      # it, and re-renders.
       private def trigger(cmd : Command)
         el = cmd.element
         return unless el
         idx = @items.index(el) || selected
-        emit ::Crysterm::Event::ActionItem, el, idx
-        emit ::Crysterm::Event::SelectItem, el, idx
-        cmd.callback.try &.call
+        fire idx, el
         selekt el
         request_render
       end
@@ -562,12 +571,7 @@ module Crysterm
           request_render
           e.accept if e.key == ::Tput::Key::Tab
         when e.key == ::Tput::Key::Enter, (@vi && e.char == 'k')
-          idx = selected
-          if item = @items[idx]?
-            emit ::Crysterm::Event::ActionItem, item, idx
-            emit ::Crysterm::Event::SelectItem, item, idx
-            @commands[idx]?.try &.callback.try &.call
-          end
+          fire selected
           request_render
         when e.key == ::Tput::Key::Escape, (@vi && e.char == 'q')
           if item = @items[selected]?

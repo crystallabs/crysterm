@@ -33,6 +33,8 @@ module Crysterm
     class Gauge < Box
       # Float-valued `#span`/`#percent_of` helpers (shared with `GaugeList`).
       include Mixin::PercentRange
+      # `%p`/`%v`/`%m`/`%M` template expansion (shared with `ProgressBar`).
+      include Mixin::RangeText
 
       # One colored slice of a stacked gauge.
       struct Segment
@@ -118,11 +120,7 @@ module Crysterm
       end
 
       private def formatted_text : String
-        @format
-          .gsub("%p", percent.round.to_i.to_s)
-          .gsub("%v", Graph::Scale.fmt(@value))
-          .gsub("%m", Graph::Scale.fmt(@maximum))
-          .gsub("%M", Graph::Scale.fmt(@minimum))
+        format_range_text @format, percent.round.to_i.to_s, Graph::Scale.fmt(@value), Graph::Scale.fmt(@maximum), Graph::Scale.fmt(@minimum)
       end
 
       private def build_content : String
