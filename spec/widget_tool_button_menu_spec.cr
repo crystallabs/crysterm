@@ -16,6 +16,10 @@ private def wheel(dir : Tput::Mouse::Action, x = 0, y = 0)
   Crysterm::Event::Mouse.new(Tput::Mouse::Event.new(dir, Tput::Mouse::Button::Left, x, y))
 end
 
+private def sb_down(s, x, y)
+  s.dispatch_mouse(Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, x, y, source: :test))
+end
+
 # Behavioral specs for `Widget::ToolButton`'s menu features (the default-action
 # path is covered elsewhere): the `▾` indicator, `popup_mode` press semantics,
 # and the wheel-cycles-menu-actions behavior.
@@ -107,6 +111,47 @@ describe Crysterm::Widget::ToolButton do
       tb.on_click nil
       triggered.should be_true   # click activates the action (reachable by mouse)
       m.visible?.should be_false # ...and the menu stays closed (Down opens it)
+    end
+  end
+
+  # Split-button: with a default action bound (MenuButtonPopup), a mouse click on
+  # the button *body* triggers the action, while a click on the trailing `▾`
+  # arrow opens the menu — Qt's split tool button. This is the only mouse route
+  # to the menu (a plain click runs the action), so it must work; a regression
+  # left the menu reachable only by the Down key.
+  describe "split-button menu access by mouse" do
+    it "opens the menu on a press over the ▾ arrow" do
+      s = tbm_screen
+      m = Crysterm::Widget::Menu.new parent: s, width: 12, height: 3
+      m.add "Rename"
+      m.hide
+      act = Crysterm::Action.new "Apply"
+      triggered = false
+      act.on(Crysterm::Event::Triggered) { triggered = true }
+      tb = Crysterm::Widget::ToolButton.new parent: s, top: 3, left: 10,
+        width: 12, height: 1, action: act, menu: m, align: :center
+      s._render
+
+      sb_down s, tb.aleft + tb.awidth - 1, tb.atop # rightmost cell == the ▾ zone
+      m.visible?.should be_true                    # the arrow opened the menu...
+      triggered.should be_false                    # ...and did NOT run the action
+    end
+
+    it "triggers the action on a press over the button body" do
+      s = tbm_screen
+      m = Crysterm::Widget::Menu.new parent: s, width: 12, height: 3
+      m.add "Rename"
+      m.hide
+      act = Crysterm::Action.new "Apply"
+      triggered = false
+      act.on(Crysterm::Event::Triggered) { triggered = true }
+      tb = Crysterm::Widget::ToolButton.new parent: s, top: 3, left: 10,
+        width: 12, height: 1, action: act, menu: m, align: :center
+      s._render
+
+      sb_down s, tb.aleft, tb.atop # leftmost cell == body, left of the ▾
+      triggered.should be_true     # the body ran the action...
+      m.visible?.should be_false   # ...and left the menu closed
     end
   end
 

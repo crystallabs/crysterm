@@ -102,6 +102,29 @@ module Crysterm
           row = i.clamp(0, visible - 1)
           selekt (@child_base + row).clamp(0, @items.size - 1)
         end
+
+        # Wheel scrolls the drop-down under a (near-)stationary pointer and
+        # re-selects the entry that lands under the cursor, so the wheel and
+        # hover-select agree instead of fighting (which snaps the selection back
+        # to the pointer's row mid-scroll). At the top/bottom edges, where the
+        # view can no longer scroll, it steps the selection within the visible
+        # page so the first/last entries stay reachable. Mirrors
+        # `Completer::Popup#wheel_scroll`; *dir* is `-1` up / `+1` down.
+        def wheel_scroll(dir : Int32) : Nil
+          return if dir == 0 || @items.empty?
+          step = dir > 0 ? 1 : -1
+          visible = visible_content_rows
+          visible = 1 if visible < 1
+          max_base = Math.max(0, @items.size - visible)
+          row = @child_offset # selection's viewport row == where the pointer hovered
+          nb = (@child_base + step).clamp(0, max_base)
+          if nb != @child_base
+            @child_base = nb
+            selekt (nb + row).clamp(0, @items.size - 1)
+          else
+            selekt (@selected + step).clamp(0, @items.size - 1)
+          end
+        end
       end
 
       getter options : Array(String)
@@ -142,14 +165,16 @@ module Crysterm
         handle Crysterm::Event::KeyPress
         handle Crysterm::Event::Click
 
-        # Mouse wheel cycles the value while closed, moves the popup highlight while open.
+        # Mouse wheel cycles the value while closed; while open it scrolls the
+        # drop-down (via `Popup#wheel_scroll`, keeping the selection under the
+        # pointer) rather than dragging the highlight like an arrow key.
         on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_down?
-            @open ? @popup.try(&.down) : cycle(1)
+            @open ? @popup.try(&.wheel_scroll(1)) : cycle(1)
             e.accept
             request_render
           elsif e.action.wheel_up?
-            @open ? @popup.try(&.up) : cycle(-1)
+            @open ? @popup.try(&.wheel_scroll(-1)) : cycle(-1)
             e.accept
             request_render
           end

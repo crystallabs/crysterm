@@ -383,15 +383,18 @@ module Crysterm
             end
           end
 
-          # Wheel moves the selection; `#accept`s so the window's default
-          # scroll-the-view behavior doesn't also fire.
+          # Wheel over a row scrolls the list; `#accept`s so the window's default
+          # scroll-the-view behavior doesn't also fire. Routed through
+          # `#wheel_scroll` so a subclass can give the wheel its own semantics
+          # (e.g. a hover-select drop-down scrolls the view under a stationary
+          # pointer) without disturbing the arrow-key path.
           item.on(::Crysterm::Event::Mouse) do |e|
             if e.action.wheel_up?
-              move -2
+              wheel_scroll -1
               e.accept
               request_render
             elsif e.action.wheel_down?
-              move 2
+              wheel_scroll 1
               e.accept
               request_render
             end
@@ -605,6 +608,17 @@ module Crysterm
 
       def move(offset)
         selekt selected + offset
+      end
+
+      # Handles one mouse-wheel notch (*dir* is `-1` up / `+1` down). The default
+      # treats the wheel like the arrow keys — it moves the selection, scrolling
+      # only as a side-effect to keep it visible (two rows per notch, matching the
+      # historical feel). Drop-downs that highlight the row under the pointer
+      # (`#hover_select?`) override this to scroll the *view* under a stationary
+      # cursor instead, so the wheel and hover-select don't fight over the
+      # selection (see `Completer::Popup#wheel_scroll`).
+      def wheel_scroll(dir : Int32) : Nil
+        move dir * 2
       end
 
       def up(offset = 1)

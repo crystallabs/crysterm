@@ -71,9 +71,24 @@ module Crysterm
         menu.try { |m| self.menu = m }
         action.try { |a| self.action = a }
 
-        # Mouse wheel cycles through the menu's actions, triggering each in turn.
+        # Mouse handling for the menu: a press on the trailing `▾` indicator opens
+        # the drop-down (Qt's split-button arrow subcontrol), and the wheel cycles
+        # through the menu's actions, triggering each in turn.
         on(Crysterm::Event::Mouse) do |e|
           next unless m = @menu
+          # Split-button: when a default action is bound (MenuButtonPopup), a plain
+          # click triggers the action (handled by `#on_click`), so the *only* mouse
+          # route to the menu is the `▾` region — a press there opens it. `#accept`
+          # suppresses the click-to-focus + `Event::Click` (which would `#press`),
+          # so we focus here ourselves. Menu-only / InstantPopup buttons open on
+          # any click via `#on_click`, so they don't need this.
+          if e.action.down? && @action && !@popup_mode.instant_popup? &&
+             (col = menu_indicator_column) && e.x >= col
+            focus
+            show_menu
+            e.accept
+            next
+          end
           if e.action.wheel_down?
             cycle_menu m, 1
             e.accept
@@ -149,8 +164,10 @@ module Crysterm
       # button (no bound `action:`). The keyboard reserves press for the action
       # and summons the menu with Down, but a mouse click has no Down equivalent,
       # so a pure dropdown tool button must open on click. When an `action:` is
-      # bound (MenuButtonPopup/DelayedPopup), the click defers to `press` so the
-      # action stays reachable by mouse; Down still opens the menu.
+      # bound (MenuButtonPopup/DelayedPopup), the click body defers to `press` so
+      # the action stays reachable by mouse; the menu is reached by clicking the
+      # trailing `▾` (Qt's split-button arrow — see the `Event::Mouse` handler) or
+      # with the Down key.
       def on_click(e)
         if @menu && (@popup_mode.instant_popup? || @action.nil?)
           focus
@@ -181,6 +198,26 @@ module Crysterm
         # result, so no negative-index correction is needed.
         @menu_index = (@menu_index + delta) % acts.size
         acts[@menu_index].activate
+      end
+
+      # Absolute screen column of the trailing `▾` indicator (the menu-arrow
+      # subcontrol), or `nil` when there's no menu/indicator or the button hasn't
+      # been laid out yet. A press at or past this column opens the menu; anything
+      # to its left is the action. Accounts for horizontal alignment: the label
+      # (with its ` ▾` suffix) is centered/right-aligned within the content width,
+      # so the arrow's column shifts with it.
+      private def menu_indicator_column : Int32?
+        return nil unless @menu && window?
+        c = content
+        return nil unless c.ends_with?(" ▾")
+        cw = str_width c
+        start = aleft + ileft
+        if (align & Tput::AlignFlag::HCenter) != Tput::AlignFlag::None
+          start += Math.max(0, content_width - cw) // 2
+        elsif (align & Tput::AlignFlag::Right) != Tput::AlignFlag::None
+          start += Math.max(0, content_width - cw)
+        end
+        start + cw - 1 # the `▾` is the last (width-1) glyph of the label
       end
 
       # The label without the trailing indicator.

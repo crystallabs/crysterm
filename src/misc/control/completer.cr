@@ -105,14 +105,42 @@ module Crysterm
         selekt (@child_base + row).clamp(0, @items.size - 1)
       end
 
-      # All cursor movement (arrow keys via `cursor_down`/`cursor_up`, and the
-      # per-row wheel handler `List` installs, calling `move ±2`) funnels through
-      # here so the wheel behaves like the arrows: one row per notch. The base
-      # `move` would step by the raw offset, skipping rows; `selekt` avoids
-      # recursing back into `move`.
+      # Arrow-key movement (via `cursor_down`/`cursor_up`) funnels through here so
+      # each keypress steps exactly one row: the base `move` would step by the raw
+      # offset, skipping rows; `selekt` avoids recursing back into `move`. The
+      # wheel does *not* come through here — it has its own `#wheel_scroll`.
       def move(offset) : Nil
         return if offset == 0
         selekt @selected + (offset > 0 ? 1 : -1)
+      end
+
+      # The wheel scrolls the drop-down *under* a (near-)stationary pointer rather
+      # than dragging the selection around like an arrow key. It shifts the
+      # viewport one row (`#child_base`) and re-selects whatever entry lands under
+      # the cursor — i.e. the selection's current viewport row (`@child_offset`,
+      # which `#hover_item` keeps pinned to the pointer). This makes the wheel and
+      # hover-select agree on a single rule ("selected == entry under the cursor"),
+      # instead of the wheel nudging the selection only for the next hover to snap
+      # it back to the pointer's row (the "jumps back under the cursor" bug).
+      #
+      # At the top/bottom edges, where the view can no longer scroll, it steps the
+      # selection within the visible page instead, so the first/last entries stay
+      # reachable by the wheel alone (without moving the mouse). *dir* is `-1` up /
+      # `+1` down.
+      def wheel_scroll(dir : Int32) : Nil
+        return if dir == 0 || @items.empty?
+        step = dir > 0 ? 1 : -1
+        visible = visible_content_rows
+        visible = 1 if visible < 1
+        max_base = Math.max(0, @items.size - visible)
+        row = @child_offset # selection's viewport row == where the pointer hovered
+        nb = (@child_base + step).clamp(0, max_base)
+        if nb != @child_base
+          @child_base = nb
+          selekt (nb + row).clamp(0, @items.size - 1)
+        else
+          selekt (@selected + step).clamp(0, @items.size - 1)
+        end
       end
 
       # The drop-down's auto-created scrollbar (appears once the match set
@@ -374,16 +402,16 @@ module Crysterm
           overflow: Crysterm::Overflow::MoveWidget,
         )
         pop.completer = self
-        # The wheel cycles the highlight while the list is open (box keeps focus,
-        # so the list won't get these as key events). A wheel over a *row* is
-        # handled by the per-item handler `List` installs (`Popup#move` reroutes
-        # it to a single-row step); this handler covers a wheel over the popup's
-        # border/padding, going through the same `cursor_down`/`cursor_up`.
+        # The wheel scrolls the list while it's open (box keeps focus, so the list
+        # won't get these as key events). A wheel over a *row* is handled by the
+        # per-item handler `List` installs (routed through `Popup#wheel_scroll`);
+        # this handler covers a wheel over the popup's border/padding, going
+        # through the same `#wheel_scroll` so both behave identically.
         pop.on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_down?
-            pop.cursor_down; e.accept; pop.request_render
+            pop.wheel_scroll 1; e.accept; pop.request_render
           elsif e.action.wheel_up?
-            pop.cursor_up; e.accept; pop.request_render
+            pop.wheel_scroll -1; e.accept; pop.request_render
           end
         end
         widget.window.append pop
