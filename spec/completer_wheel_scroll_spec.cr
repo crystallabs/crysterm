@@ -32,11 +32,16 @@ end
 
 private def cws_move(s, x, y)
   s.dispatch_mouse(Tput::Mouse::Event.new(Tput::Mouse::Action::Move, Tput::Mouse::Button::None, x, y, source: :test))
+  # Re-render so item hit rectangles (`lpos`) reflect the current scroll, exactly
+  # as the running app repaints between input events — mouse hit-testing reads
+  # `lpos`, so a stale frame would mis-map which entry is under the pointer.
+  s._render
 end
 
 private def cws_wheel(s, dir, x, y)
   act = dir > 0 ? Tput::Mouse::Action::WheelDown : Tput::Mouse::Action::WheelUp
   s.dispatch_mouse(Tput::Mouse::Event.new(act, Tput::Mouse::Button::None, x, y, source: :test))
+  s._render
 end
 
 describe "Completer drop-down wheel scrolling" do
@@ -85,12 +90,16 @@ describe "Completer drop-down wheel scrolling" do
       pop.selected.should eq row # unscrolled: selection == the row under the pointer
     end
 
-    # Scroll a few rows, then hover: the highlight must follow the pointer at the
-    # new scroll offset (child_base + visual row), not stay put.
-    5.times { cws_wheel s, 1, x, base + 2 }
+    # Scroll to the very bottom, then hover each visible row: the highlight must
+    # follow the pointer to a *distinct* entry per row (child_base + visual row),
+    # not sit stuck on the last one. Regression: once scrolled, hovering the
+    # visible rows did nothing because the hook mis-treated the item's absolute
+    # index as a viewport row and clamped it to the last visible slot.
+    15.times { cws_wheel s, 1, x, base + 2 }
     cb = pop.@child_base
     cb.should be > 0
-    [0, 1, 3].each do |row|
+    vis = pop.visible_content_rows
+    (0...vis).each do |row|
       cws_move s, x, base + row
       pop.selected.should eq cb + row
     end

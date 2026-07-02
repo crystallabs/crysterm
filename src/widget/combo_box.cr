@@ -91,18 +91,6 @@ module Crysterm
           super
         end
 
-        # Maps a hovered item index back to the entry under the pointer. Item
-        # boxes are hit-tested by unscrolled geometry (see `Widget#atop`), so the
-        # index is the visual row from the viewport top, independent of scroll.
-        # Clamp to the viewport and add `#child_base`, mirroring
-        # `Completer::Popup#hover_item`.
-        def hover_item(i : Int)
-          visible = visible_content_rows
-          visible = 1 if visible < 1
-          row = i.clamp(0, visible - 1)
-          selekt (@child_base + row).clamp(0, @items.size - 1)
-        end
-
         # Wheel scrolls the drop-down under a (near-)stationary pointer and
         # re-selects the entry that lands under the cursor, so the wheel and
         # hover-select agree instead of fighting (which snaps the selection back

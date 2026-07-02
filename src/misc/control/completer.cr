@@ -85,26 +85,6 @@ module Crysterm
         up
       end
 
-      # Pointer-tracked highlight (`#hover_select?`). The per-row `MouseOver` hook
-      # in `Mixin::ItemView` passes the index of the item whose rectangle the
-      # pointer fell in — but item rectangles are hit-tested by their *unscrolled*
-      # geometry (`Widget#atop` is `content_top + item.top`, with no `#child_base`
-      # term; see `Window#widget_at`). So the index handed in is really the
-      # pointer's *visual row* from the top of the viewport, independent of
-      # scroll position — and rows below the last shown one still report a
-      # phantom index, since off-viewport item boxes stay mouse-hittable at
-      # their raw positions.
-      #
-      # Map it back to the real entry: `#child_base + visual_row`, with the
-      # visual row clamped to the viewport (so a pointer below the list parks on
-      # the last shown row) and the result clamped to the item range.
-      def hover_item(i : Int)
-        visible = visible_content_rows
-        visible = 1 if visible < 1
-        row = i.clamp(0, visible - 1)
-        selekt (@child_base + row).clamp(0, @items.size - 1)
-      end
-
       # Arrow-key movement (via `cursor_down`/`cursor_up`) funnels through here so
       # each keypress steps exactly one row: the base `move` would step by the raw
       # offset, skipping rows; `selekt` avoids recursing back into `move`. The

@@ -574,11 +574,20 @@ module Crysterm
         end
       end
 
-      # Hook invoked when the pointer moves onto row *i* and `#hover_select?` is
-      # on. The default just moves the selection there; `Widget::Menu` overrides
-      # it to also open/close submenus.
+      # Hook invoked when the pointer moves onto item *i* and `#hover_select?` is
+      # on. *i* is the item's absolute index (`Window#widget_at` hit-tests against
+      # painted geometry, so a scrolled list reports the real entry under the
+      # pointer, not a viewport row). Selecting it directly is therefore correct at
+      # any scroll offset; the clamp to the visible window `[child_base,
+      # child_base + visible - 1]` only guards the fringe where an item box painted
+      # right at the viewport's edge is still hit-testable one row past the last
+      # fully-shown row — so a hover there parks on the last visible entry instead
+      # of jumping to an off-screen one. `Widget::Menu` overrides this to also
+      # open/close submenus.
       def hover_item(i : Int)
-        selekt i
+        vis = visible_content_rows
+        vis = 1 if vis < 1
+        selekt i.clamp(@child_base, @child_base + vis - 1)
       end
 
       def clear_items
