@@ -201,22 +201,19 @@ module Crysterm
         1
       end
 
-      # Title highlight tracks the *open* menu, not the action bar's raw selection.
-      # `Mixin::ActionBar#trigger` re-`selekt`s the clicked item after our toggle
-      # callback runs, so a click that closed the menu would otherwise leave its
-      # title lit — re-impose the open-menu highlight here.
-      def selekt(offset : Int)
-        super
-        sync_highlight
+      # Title highlight tracks the *open* menu, not the action bar's raw
+      # selection. `Mixin::ActionBar#trigger` re-`selekt`s the clicked item after
+      # our toggle callback runs, so a click that closed the menu would otherwise
+      # leave its title lit — the shared `#reapply_highlight` scaffold re-imposes
+      # the open-menu highlight through this predicate.
+      protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool
+        index == @open_index
       end
 
-      # Highlights only *active*'s title (none when `nil`).
-      private def highlight(active : Int32?) : Nil
-        items.each_with_index { |it, j| it.state = (j == active) ? :selected : :normal }
-      end
-
+      # Re-light the open menu's title outside a selection (focus/blur, a menu
+      # opening/closing).
       private def sync_highlight : Nil
-        highlight @open_index
+        reapply_highlight
       end
 
       # The pop-up menus are window children, so tear them down with the bar.

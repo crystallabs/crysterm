@@ -91,19 +91,20 @@ module Crysterm
         @item_actions.each_value(&.uninstall_shortcut(w))
       end
 
-      # A tool bar has no persistent cursor: only checkable buttons stay lit.
-      # Re-applied after every `Mixin::ActionBar#selekt`, which a click/move
-      # would otherwise leave highlighting the last button.
-      private def refresh : Nil
-        items.each do |it|
-          act = @item_actions[it]?
-          it.state = (act && act.checkable? && act.checked?) ? :selected : :normal
-        end
+      # A tool bar has no persistent cursor: only checkable buttons stay lit, so
+      # the highlight tracks each action's checked state rather than the raw
+      # selection. `Mixin::ActionBar#selekt` re-applies this via the shared
+      # `#reapply_highlight` scaffold, so a click/move no longer leaves the last
+      # button highlighted.
+      protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool
+        act = @item_actions[item]?
+        !!(act && act.checkable? && act.checked?)
       end
 
-      def selekt(offset : Int)
-        super
-        refresh
+      # Re-light after a checkable toggles outside a selection (external
+      # `Action#changed`, `#activate_action`, add-time state).
+      private def refresh : Nil
+        reapply_highlight
       end
     end
   end

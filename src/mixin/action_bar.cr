@@ -300,10 +300,11 @@ module Crysterm
         el = @items[offset]?
 
         # Keep every item box's state in sync with the new selection so it
-        # renders with `styles.selected`.
-        @items.each_with_index do |item, i|
-          item.state = (i == offset) ? :selected : :normal
-        end
+        # renders with `styles.selected`. Routed through `#highlight_item?` so a
+        # bar with its own highlight semantics (ToolBar: checked checkables;
+        # MenuBar: the open menu) inherits the re-highlight without re-overriding
+        # `#selekt`.
+        reapply_highlight offset
 
         # Mirror Blessed's `lpos = this._getCoords(); if (!lpos) return;`: the
         # horizontal-scroll math below needs a real layout. A top-level widget
@@ -356,6 +357,26 @@ module Crysterm
       def selekt(widget : Widget)
         if i = @items.index widget
           selekt i
+        end
+      end
+
+      # Whether the item box at *index* should render highlighted (`:selected`)
+      # after a (re)selection targeting *offset*. The base bar highlights the
+      # just-selected item; subclasses with a different highlight model override
+      # this and inherit the `#reapply_highlight` scaffold. (`selected` is not
+      # yet updated to *offset* when `#selekt` calls this, so the target index is
+      # passed explicitly.)
+      protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool
+        index == offset
+      end
+
+      # Re-imposes each item box's `:selected`/`:normal` state via
+      # `#highlight_item?`. Shared by `#selekt` and by subclasses that must
+      # re-light after a state change outside a selection (a checkable toggling,
+      # a menu opening/closing, focus change) — so the walk lives once.
+      protected def reapply_highlight(offset : Int32 = selected) : Nil
+        @items.each_with_index do |item, i|
+          item.state = highlight_item?(item, i, offset) ? :selected : :normal
         end
       end
 
