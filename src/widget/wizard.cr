@@ -84,12 +84,15 @@ module Crysterm
         !e.accepted?
       end
 
-      # Builds one of the wizard's footer buttons: a centered, tag-parsed `Button`
-      # pinned to the bottom row with the given left/right anchor.
+      # Builds one of the wizard's footer buttons: a centered `Button` pinned to
+      # the bottom row with the given left/right anchor. Uses `align: :center`
+      # like the rest of the dialog-button family (`DialogButtonBox#make_button`,
+      # `OkCancelDialog.dialog_button`) rather than the `{center}` tag form it had
+      # drifted to (same result, one styling convention across the dialogs).
       private def wizard_button(label : String, left = nil, right = nil) : Button
         Button.new(
           parent: self, bottom: 0, left: left, right: right, height: 1, width: 8,
-          content: "{center}#{label}{/center}", parse_tags: true,
+          content: label, align: :center,
         )
       end
 
@@ -152,7 +155,7 @@ module Crysterm
         last = page_count > 0 && current_index >= page_count - 1
 
         back_button.state = first ? WidgetState::Disabled : WidgetState::Normal
-        next_button.set_content(last ? "{center}Finish{/center}" : "{center}Next{/center}")
+        next_button.set_content(last ? "Finish" : "Next")
         request_render
       end
     end

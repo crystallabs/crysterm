@@ -108,23 +108,14 @@ module Crysterm
         @ok.hide
         @cancel.hide
 
-        buttons = [] of Button
-        left = 1
-        choices.each do |label|
-          b = Button.new(
-            parent: self,
-            left: left,
-            top: 4,
-            height: 1,
-            width: label.size + 2,
-            resizable: true,
-            content: label,
-            align: :center,
-            focus_on_click: true,
-          )
-          left += label.size + 3
-          buttons << b
-        end
+        # Build the choice row through `DialogButtonBox`, which already owns the
+        # single-row button style and left-to-right layout this method used to
+        # inline (byte-for-byte the same `make_button` body + spacing math). The
+        # buttons carry `Role::Apply`, so the box emits no accept/reject signal —
+        # each choice's meaning is its index, wired on its own `Press` below.
+        bb = DialogButtonBox.new parent: self, top: 4, left: 1
+        choices.each { |label| bb.add_button label, DialogButtonBox::Role::Apply }
+        buttons = bb.buttons
 
         cur = default.clamp(0, Math.max(0, buttons.size - 1))
         ev_keys = nil
@@ -139,7 +130,7 @@ module Crysterm
           @ok.show
           @cancel.show
           @ok.focus
-          buttons.each &.destroy
+          bb.destroy
           hide
           window.restore_focus
           block.call idx

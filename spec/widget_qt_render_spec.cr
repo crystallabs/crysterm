@@ -275,9 +275,11 @@ describe "Question#ask_choices" do
     q.ask_choices("Pick one", ["Yes", "No", "Maybe"]) { |i| chosen = i }
     s._render
 
-    buttons = q.children.select { |c| c.is_a?(Crysterm::Widget::Button) && c.visible? }
-    buttons.size.should eq 3
-    buttons[1].as(Crysterm::Widget::Button).press
+    # The choice row is now a `DialogButtonBox` child (was inline direct-child
+    # buttons); the standard OK/Cancel pair stays direct children (hidden here).
+    bb = q.children.find(&.is_a?(Crysterm::Widget::DialogButtonBox)).as(Crysterm::Widget::DialogButtonBox)
+    bb.buttons.size.should eq 3
+    bb.buttons[1].press
 
     chosen.should eq 1
     # Choice buttons gone; the standard OK/Cancel pair is shown again.
