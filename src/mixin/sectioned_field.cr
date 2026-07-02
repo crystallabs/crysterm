@@ -15,6 +15,9 @@ module Crysterm
     #                                        (`nil` when off the field);
     #   * `step(delta : Int32)`            — step the active section by ±1;
     #   * `update_content`                 — repaint, highlighting `@section`.
+    # `section_at` is usually a one-liner over `#section_from_columns` (only the
+    # per-editor column layout differs), and `step` over `#step_time_field` (only
+    # which `Time` field each `@section` maps to differs).
     # It may override `on_section_press`/`on_section_wheel` to add behavior (e.g.
     # `DateEdit` toggles/closes its calendar popup), and calls
     # `setup_section_mouse` from its constructor.
@@ -54,6 +57,48 @@ module Crysterm
         yield
         e.accept
         request_render
+      end
+
+      # Maps an absolute *x* to a section index given each section's inclusive
+      # end-column *ends* (ascending; `ends[i]` is the last column belonging to
+      # section `i`). Returns `nil` when *x* is left of the field or right of
+      # `ends[-1]` (past the text) — `select_section_at` relies on that `nil` to
+      # leave the active section untouched on a click past the value. Single-sources
+      # the column arithmetic and the right-edge guard that `DateEdit`/`TimeEdit`/
+      # `DateTimeEdit` otherwise copied (the "return nil past the text" fix had been
+      # pasted into all three `section_at`s).
+      private def section_from_columns(x : Int32, ends : Array(Int32)) : Int32?
+        col = x - aleft - ileft
+        return nil if col < 0 || col > ends[-1]
+        ends.index { |e| col <= e }
+      rescue
+        nil
+      end
+
+      # Steps one calendar field of *t* by *delta*, wrapping within that field's
+      # own range without carrying into the next (year is only clamped to `Time`'s
+      # supported 1..9999). The day is then re-clamped to the (possibly shorter)
+      # resulting month so the `Time` stays valid. *field* is the absolute
+      # component index — 0=year 1=month 2=day 3=hour 4=minute 5=second — so each
+      # editor maps its `@section` onto it (`DateEdit` 1:1, `TimeEdit` +3,
+      # `DateTimeEdit` 1:1). Single-sources the stepping body (and the day-overflow
+      # clamp `date_edit.cr`/`date_time_edit.cr` had verbatim) the three editors
+      # otherwise re-implement per-field.
+      protected def step_time_field(t : Time, field : Int32, delta : Int32) : Time
+        y, mo, d = t.year, t.month, t.day
+        h, mi, s = t.hour, t.minute, t.second
+        dim = nil
+        case field
+        when 0 then y = (y + delta).clamp(1, 9999)
+        when 1 then mo = wrap(mo - 1, delta, 12) + 1
+        when 2 then d = wrap(d - 1, delta, dim = Time.days_in_month(y, mo)) + 1
+        when 3 then h = wrap(h, delta, 24)
+        when 4 then mi = wrap(mi, delta, 60)
+        else        s = wrap(s, delta, 60)
+        end
+        # Year/month branches changed y/mo, so recompute days-in-month if unset.
+        d = Math.min(d, dim || Time.days_in_month(y, mo))
+        Time.local(y, mo, d, h, mi, s)
       end
 
       # Selects the section under absolute *x* (no-op when off the field or

@@ -70,26 +70,13 @@ module Crysterm
         show_seconds? ? 6 : 5
       end
 
-      # Maps an absolute x to a section, by the `YYYY-MM-DD HH:MM:SS` layout
+      # Maps an absolute x to a section over the `YYYY-MM-DD HH:MM:SS` layout
       # (19 cols, last col 18) or `YYYY-MM-DD HH:MM` with seconds hidden (16 cols,
-      # last col 15). Returns `nil` past the text (trailing widget area), which
-      # `Mixin::SectionedField#select_section_at` relies on to leave the active
-      # section untouched — without the upper bound such a click fell through to
-      # the last section.
+      # last col 15). The inclusive end-columns per section: YYYY+`-` → 4, MM → 7,
+      # DD+` ` → 10, HH → 13, MM → 16, SS → 18. `nil` past the text (see
+      # `Mixin::SectionedField#section_from_columns`).
       private def section_at(x : Int32) : Int32?
-        col = x - aleft - ileft
-        return nil if col < 0 || col > (show_seconds? ? 18 : 15)
-        sec = case col
-              when .<=(4)  then 0 # YYYY (and the '-')
-              when .<=(7)  then 1 # MM
-              when .<=(10) then 2 # DD (and the ' ')
-              when .<=(13) then 3 # HH
-              when .<=(16) then 4 # MM
-              else              5 # SS
-              end
-        sec.clamp(0, section_count - 1)
-      rescue
-        nil
+        section_from_columns x, show_seconds? ? [4, 7, 10, 13, 16, 18] : [4, 7, 10, 13, 15]
       end
 
       private def update_content : Nil
@@ -109,23 +96,10 @@ module Crysterm
         set_content "#{date} #{time}"
       end
 
-      # Steps the active section by *delta*, wrapping within its own range without
-      # carrying; the day is then clamped to the target month.
+      # Steps the active section by *delta* (its `@section` is the component index
+      # directly), wrapping within its own range; day clamped to the target month.
       private def step(delta : Int32) : Nil
-        y, mo, d = @datetime.year, @datetime.month, @datetime.day
-        h, mi, s = @datetime.hour, @datetime.minute, @datetime.second
-        dim = nil
-        case @section
-        when 0 then y = (y + delta).clamp(1, 9999) # `Time` only supports years 1..9999
-        when 1 then mo = wrap(mo - 1, delta, 12) + 1
-        when 2 then d = wrap(d - 1, delta, dim = Time.days_in_month(y, mo)) + 1
-        when 3 then h = wrap(h, delta, 24)
-        when 4 then mi = wrap(mi, delta, 60)
-        else        s = wrap(s, delta, 60)
-        end
-        # Year/month branches changed y/mo, so recompute if not already set.
-        d = Math.min(d, dim || Time.days_in_month(y, mo))
-        self.date_time = Time.local(y, mo, d, h, mi, s)
+        self.date_time = step_time_field @datetime, @section, delta
       end
 
       def on_keypress(e)

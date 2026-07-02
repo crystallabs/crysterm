@@ -55,20 +55,13 @@ module Crysterm
         show_seconds? ? 3 : 2
       end
 
-      # Maps an absolute x to a section index. Sections sit at `HH:MM:SS`
-      # columns 0-1 / 3-4 / 6-7 (3 cells apart); `nil` when off the field. The
-      # field is `HH:MM:SS` (8 cols, last col 7) or `HH:MM` (5 cols, last col
-      # 4) — clicks past the text must return `nil`, since
-      # `Mixin::SectionedField#select_section_at` relies on that to leave the
-      # active section untouched. Without the upper bound a click right of the
-      # text fell through `(col // 3).clamp` to the last section, wrongly
-      # moving the cursor there.
+      # Maps an absolute x to a section index. Sections sit at `HH:MM:SS` columns
+      # 0-1 / 3-4 / 6-7 (3 cells apart, the `:` at col 2/5 belonging to the field
+      # before it), so the inclusive end-columns are 2/5/7 (or 2/4 for `HH:MM`).
+      # `nil` past the text leaves the active section untouched (see
+      # `Mixin::SectionedField#section_from_columns`).
       private def section_at(x : Int32) : Int32?
-        col = x - aleft - ileft
-        return nil if col < 0 || col > (show_seconds? ? 7 : 4)
-        (col // 3).clamp(0, section_count - 1)
-      rescue
-        nil
+        section_from_columns x, show_seconds? ? [2, 5, 7] : [2, 4]
       end
 
       private def update_content : Nil
@@ -77,15 +70,11 @@ module Crysterm
         set_content highlight_part(parts).join(':')
       end
 
-      # Steps the active section by *delta*, wrapping within its own range.
+      # Steps the active section by *delta*, wrapping within its own range. The
+      # time sections 0/1/2 (hour/minute/second) are the component indices 3/4/5,
+      # so offset `@section` by 3; the date component is left untouched.
       private def step(delta : Int32) : Nil
-        h, m, sec = @time.hour, @time.minute, @time.second
-        case @section
-        when 0 then h = wrap(h, delta, 24)
-        when 1 then m = wrap(m, delta, 60)
-        else        sec = wrap(sec, delta, 60)
-        end
-        self.time = Time.local(@time.year, @time.month, @time.day, h, m, sec)
+        self.time = step_time_field @time, @section + 3, delta
       end
 
       def on_keypress(e)

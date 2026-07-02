@@ -84,18 +84,13 @@ module Crysterm
 
       # Maps an absolute x to a section index (year/month/day at the `YYYY-MM-DD`
       # columns 0-4 / 5-7 / 8-9); `nil` when off the field. A separator column
-      # belongs to the field it follows — so the `-` at col 4 is part of the year
-      # and the `-` at col 7 part of the month, matching `DateTimeEdit#section_at`
-      # for the shared `YYYY-MM-DD` layout. The field is exactly 10 columns (last
-      # col 9); `Mixin::SectionedField#select_section_at` relies on `nil` past
-      # that to leave the active section untouched — without the upper bound a
-      # click right of the text fell into the day branch.
+      # belongs to the field it follows — the `-` at col 4 is part of the year and
+      # the `-` at col 7 part of the month — so the inclusive end-columns 4/7/9
+      # match `DateTimeEdit`'s for the shared `YYYY-MM-DD` prefix. The field is
+      # exactly 10 columns (last col 9); `nil` past it leaves the active section
+      # untouched (see `Mixin::SectionedField#section_from_columns`).
       private def section_at(x : Int32) : Int32?
-        col = x - aleft - ileft
-        return nil if col < 0 || col > 9
-        col <= 4 ? 0 : (col <= 7 ? 1 : 2)
-      rescue
-        nil
+        section_from_columns x, [4, 7, 9]
       end
 
       private def update_content : Nil
@@ -104,23 +99,12 @@ module Crysterm
       end
 
       # Steps the active section by *delta*, wrapping within that section's own
-      # range without carrying (matching `TimeEdit`): day within month, month
-      # within year, year unbounded. Day is then clamped to the (possibly
-      # shorter) target month so the date stays valid.
+      # range without carrying: day within month, month within year, year
+      # unbounded; day then clamped to the (possibly shorter) target month. The
+      # date-only sections 0/1/2 map to the year/month/day component indices
+      # directly; the date carries no time, so the untouched h/m/s stay 0.
       private def step(delta : Int32) : Nil
-        y, m, d = @date.year, @date.month, @date.day
-        dim = nil
-        case @section
-        when 0                           # year
-          y = (y + delta).clamp(1, 9999) # `Time` only supports years 1..9999
-        when 1                           # month, wrapping 1..12
-          m = wrap(m - 1, delta, 12) + 1
-        else # day, wrapping 1..days-in-month
-          d = wrap(d - 1, delta, dim = Time.days_in_month(y, m)) + 1
-        end
-        # Reuse the day branch's count; year/month branches changed y/m, so recompute.
-        d = Math.min(d, dim || Time.days_in_month(y, m))
-        self.date = Time.local(y, m, d)
+        self.date = step_time_field @date, @section, delta
       end
 
       # The calendar drop-down (for `Mixin::Popup`).
