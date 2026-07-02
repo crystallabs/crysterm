@@ -136,6 +136,11 @@ module Crysterm
       when sock = ch.receive
         sock
       when timeout(HANDSHAKE_TIMEOUT)
+        # The accept fiber may still be blocked in `accept?`; if it later
+        # completes (or is unblocked by `spawn_window`'s `server.close`), drain
+        # whatever it sends into this capacity-1 channel and close any late
+        # socket so it doesn't leak its fd for the process lifetime.
+        spawn { ch.receive?.try &.close }
         nil
       end
     end

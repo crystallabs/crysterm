@@ -49,8 +49,11 @@ module Crysterm
         else
           external || inline
         end
-      return unless combined
-      self.stylesheet = CSS::Stylesheet.parse(combined, base_path: base_path)
+      # `combined.nil?` here means a *cleared* source (e.g. a hot-reload to a
+      # layout with no `<style>` and no external sheet): parse an empty document
+      # so the previously composed rules are dropped rather than left stale. An
+      # early return would leave the old inline CSS active.
+      self.stylesheet = CSS::Stylesheet.parse(combined || "", base_path: base_path)
     end
   end
 end

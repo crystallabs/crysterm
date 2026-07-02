@@ -119,6 +119,12 @@ module Crysterm
           @stops[0]
         else
           pf = p - p.floor # wrapped into 0.0...1.0
+          # A position landing exactly on a cycle boundary (whole `p`, e.g. the
+          # inclusive endpoint `t == 1.0` of a single-cycle gradient) is the
+          # gradient's *end*, not the start of the next repeat: keep it at 1.0 so
+          # the final stop's exact color is painted rather than wrapping to the
+          # first stop.
+          pf = 1.0 if pf == 0.0 && p > 0.0
           seg = pf * (@stops.size - 1)
           i = seg.to_i
           i = @stops.size - 2 if i > @stops.size - 2
@@ -141,15 +147,20 @@ module Crysterm
           fg_packed = Attr.fg base
 
           if @direction.horizontal?
+            # Inclusive endpoints: with W columns, the divisor is W-1 so the last
+            # column maps to t = 1.0 and paints the final stop's exact color. A
+            # single-column bar has no span to divide, so it just shows t = 0.
             span = (xl - xi).to_f
+            den = span > 1 ? span - 1 : 1.0
             (xi...xl).each do |x|
-              attr = Attr.pack flags, fg_packed, Attr.pack_color(color_at((x - xi) / span))
+              attr = Attr.pack flags, fg_packed, Attr.pack_color(color_at((x - xi) / den))
               window.fill_region attr, ' ', x, x + 1, yi, yl
             end
           else
             span = (yl - yi).to_f
+            den = span > 1 ? span - 1 : 1.0
             (yi...yl).each do |y|
-              attr = Attr.pack flags, fg_packed, Attr.pack_color(color_at((y - yi) / span))
+              attr = Attr.pack flags, fg_packed, Attr.pack_color(color_at((y - yi) / den))
               window.fill_region attr, ' ', xi, xl, y, y + 1
             end
           end

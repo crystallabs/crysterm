@@ -378,7 +378,7 @@ module Crysterm
 
           widths = Array.new(cols, 0)
           ([header] + body).each do |row|
-            row.each_with_index { |cell, i| widths[i] = Math.max(widths[i], cell.size) if i < cols }
+            row.each_with_index { |cell, i| widths[i] = Math.max(widths[i], ::Crysterm::Unicode.display_width(cell)) if i < cols }
           end
 
           blank_line
@@ -429,7 +429,7 @@ module Crysterm
         end
 
         private def pad_cell(cell : String, width : Int32, align : Symbol) : String
-          pad = width - cell.size
+          pad = width - ::Crysterm::Unicode.display_width(cell)
           return cell if pad <= 0
           case align
           when :right  then (" " * pad) + cell

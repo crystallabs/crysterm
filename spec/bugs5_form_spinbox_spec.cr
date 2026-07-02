@@ -40,7 +40,7 @@ describe "BUGS5 Form focus (bug 1, already fixed) — 2-field edge case" do
   it "#previous_focusable with no selection returns the LAST of two fields" do
     s = bugs5_screen
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
-    a = Crysterm::Widget::Box.new(parent: form, keys: true, top: 0, left: 0, width: 5, height: 1)
+    Crysterm::Widget::Box.new(parent: form, keys: true, top: 0, left: 0, width: 5, height: 1)
     b = Crysterm::Widget::Box.new(parent: form, keys: true, top: 1, left: 0, width: 5, height: 1)
     s.render
 

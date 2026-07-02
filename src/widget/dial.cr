@@ -38,6 +38,9 @@ module Crysterm
         super **input
 
         @wrap = wrap
+        # Never store an inverted range (mirrors `Mixin::RangedValue#set_range`),
+        # which would otherwise leave `#value` permanently stuck after `clamp`.
+        @maximum = Math.max(@minimum, @maximum)
         @value = (value || @minimum).clamp(@minimum, @maximum)
 
         handle Crysterm::Event::KeyPress
@@ -67,9 +70,13 @@ module Crysterm
         with_inner_coords do |xi, xl, yi, yl|
           window.fill_region sattr(style), style.fill_char, xi, xl, yi, yl
 
-          # Pointer in the middle of the knob.
+          # Pointer in the middle of the knob. When the value is shown it owns the
+          # bottom row (`yl - 1`), so center the pointer in the rows above it
+          # (`yi..yl-2`); otherwise the value text would overwrite and hide the
+          # pointer on a short (inner height <= 2) dial.
+          pointer_bottom = show_value? ? Math.max(yi, yl - 2) : yl
           cx = xi + (xl - xi) // 2
-          cy = yi + (yl - yi) // 2
+          cy = yi + (pointer_bottom - yi) // 2
           window.lines[cy]?.try do |line|
             line[cx]?.try do |cell|
               cell.char = pointer
@@ -78,11 +85,13 @@ module Crysterm
             line.dirty = true
           end
 
-          if show_value?
+          # Draw the value on the reserved bottom row, but only when it does not
+          # land on the pointer row: on a 1-row dial there is no spare row, so
+          # keep the pointer rather than let the number overwrite it.
+          if show_value? && (ty = yl - 1) != cy
             # Bracket the number while focused to show the dial is active.
             txt = focused? ? "‹#{@value}›" : @value.to_s
             tx = xi + Math.max(0, (xl - xi - txt.size) // 2)
-            ty = yl - 1
             draw_text_run ty, tx, txt, xl
           end
         end

@@ -417,9 +417,15 @@ module Crysterm
     # inter-stroke timeout). A consumed key is `accept`ed so it doesn't also
     # reach the focused widget.
     private def feed_shortcut(window : ::Crysterm::Window, e : ::Crysterm::Event::KeyPress) : Nil
-      return if e.repeat? && !auto_repeat?
-      return unless enabled
-      return unless shortcut_active? window
+      # A press that can't advance this action's shortcut — a dropped auto-repeat,
+      # a disabled action, or one pressed out of its focus context — neither
+      # extends nor begins a shortcut, so it clears any half-entered chord prefix
+      # (matching the doc above). Without this a stale prefix could complete a
+      # chord spuriously after intervening keys or a focus change.
+      if (e.repeat? && !auto_repeat?) || !enabled || !shortcut_active?(window)
+        @shortcut_pending.delete window
+        return
+      end
       k = e.key
       return unless k
 
@@ -489,7 +495,11 @@ module Crysterm
     # action was added to, falling back to the host passed at
     # `#install_shortcut` time for that specific window.
     private def shortcut_hosts(window : ::Crysterm::Window) : Enumerable(Widget)
-      return @associated_widgets unless @associated_widgets.empty?
+      # Only hosts on *window* gate its shortcut: an associated widget focused on
+      # another window must not let the shortcut fire here (a multi-window action
+      # is installed on each window separately).
+      hosts = @associated_widgets.select { |w| w.window? == window }
+      return hosts unless hosts.empty?
       (h = @shortcut_host_by_window[window]?) ? [h] : [] of Widget
     end
 

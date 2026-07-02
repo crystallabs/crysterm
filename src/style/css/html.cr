@@ -49,7 +49,14 @@ module Crysterm
     # Child widgets are emitted recursively to preserve descendant/child
     # combinator semantics. No text content is emitted: CSS Level 3 has no
     # text-matching selectors.
-    def to_html(io : IO) : Nil
+    #
+    # When *structural* is true, the sub-element/extra pseudo-nodes are omitted,
+    # yielding a document whose direct children are only real child widgets. The
+    # cascade matches backward/only structural pseudo-classes (`:last-child`,
+    # `:nth-last-child`, `:only-child`, `:last-of-type`) against this variant so
+    # those pseudos count real children only — a trailing `<w-scrollbar>` or a
+    # `Menu`'s `<w-separator>` must not occupy a real child's last-child slot.
+    def to_html(io : IO, structural : Bool = false) : Nil
       # Matching is by class (the type chain is emitted as classes, and the
       # parser rewrites type selectors to class selectors), so the tag name is
       # cosmetic. Use the lowercased leaf type for a valid, readable tag.
@@ -79,17 +86,19 @@ module Crysterm
       io << '>'
       # Child widgets first, so they occupy clean `:nth-child` positions
       # (1..N) — important for list items / table rows styled positionally.
-      children.each &.to_html(io)
-      # Sub-element pseudo-nodes (scrollbar, track, ...) come after the children.
-      # Each carries a `uid::slot` writeback key routing computed style back into
-      # the matching sub-`Style`, classed with the capitalized slot name (e.g.
-      # `Scrollbar`) so `Scrollbar { ... }` / `Box Scrollbar { ... }` styles it.
-      css_sub_elements.each do |slot|
-        io << "<w-" << slot << " data-uid=\"" << uid << "::" << slot << '"'
-        io << " class=\"" << slot.capitalize << "\"></w-" << slot << '>'
+      children.each &.to_html(io, structural)
+      unless structural
+        # Sub-element pseudo-nodes (scrollbar, track, ...) come after the children.
+        # Each carries a `uid::slot` writeback key routing computed style back into
+        # the matching sub-`Style`, classed with the capitalized slot name (e.g.
+        # `Scrollbar`) so `Scrollbar { ... }` / `Box Scrollbar { ... }` styles it.
+        css_sub_elements.each do |slot|
+          io << "<w-" << slot << " data-uid=\"" << uid << "::" << slot << '"'
+          io << " class=\"" << slot.capitalize << "\"></w-" << slot << '>'
+        end
+        # Extra widget-specific nodes (e.g. a table's per-cell grid).
+        css_render_extra io
       end
-      # Extra widget-specific nodes (e.g. a table's per-cell grid).
-      css_render_extra io
       io << "</" << tag << '>'
     end
 
@@ -127,8 +136,8 @@ module Crysterm
     end
 
     # :ditto:
-    def to_html : String
-      String.build { |io| to_html io }
+    def to_html(structural : Bool = false) : String
+      String.build { |io| to_html io, structural }
     end
 
     # This widget's current attributes as parsed-node `HTML5::Attribute`s, matching
@@ -180,15 +189,15 @@ module Crysterm
   class Window
     # Serializes the window as the root of the CSS document: a `w-window`
     # element wrapping every top-level widget's subtree.
-    def to_html(io : IO) : Nil
+    def to_html(io : IO, structural : Bool = false) : Nil
       io << "<w-window>"
-      children.each &.to_html(io)
+      children.each &.to_html(io, structural)
       io << "</w-window>"
     end
 
     # :ditto:
-    def to_html : String
-      String.build { |io| to_html io }
+    def to_html(structural : Bool = false) : String
+      String.build { |io| to_html io, structural }
     end
   end
 end

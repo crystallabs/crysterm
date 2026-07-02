@@ -68,9 +68,9 @@ module Crysterm
       return color unless color.starts_with?('#')
       case color.size
       when 5 # #rgba -> #rgb
-        color[0, 4] if color[1, 4].each_char.all? { |c| c.to_i?(16) }
+        color[0, 4] if color[1, 4].each_char.all?(&.to_i?(16))
       when 9 # #rrggbbaa -> #rrggbb
-        color[0, 7] if color[1, 8].each_char.all? { |c| c.to_i?(16) }
+        color[0, 7] if color[1, 8].each_char.all?(&.to_i?(16))
       end || color
     end
 

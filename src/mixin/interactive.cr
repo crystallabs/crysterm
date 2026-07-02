@@ -12,7 +12,10 @@ module Crysterm
     # Sets the widget interactive (`@input`) and freely-resizable (`@resizable`),
     # and wires the viewport scroll keys (when `keys:` is on and `ignore_keys` is
     # off): Up/Down (and, with `vi:`, `k`/`j`) by a line, `Ctrl-U`/`Ctrl-D` by a
-    # half page, `Ctrl-B`/`Ctrl-F` by a full page, and `g`/`G` to the top/bottom.
+    # half page, `PageUp`/`PageDown` (and `Ctrl-B`/`Ctrl-F`) by a full page,
+    # `Home`/`End` to the top/bottom, and — with `vi:` — `g`/`G` to the
+    # top/bottom. Paging/jump keys mirror `ScrollableBox#on_keypress`; only the
+    # single-char `k`/`j`/`g`/`G` are `vi`-gated.
     module Interactive
       macro included
         @input = true
@@ -38,25 +41,35 @@ module Crysterm
               next
             end
 
-            if @vi
-              # Page scrolling uses the resolved `aheight`, not the raw `height`
-              # property, so it works correctly even when `height` is a percentage
-              # (e.g. `"100%"`) or unset.
-              case key
-              when Tput::Key::CtrlU
-                page_scroll(-aheight // 2, -1)
-                next
-              when Tput::Key::CtrlD
-                page_scroll(aheight // 2, 1)
-                next
-              when Tput::Key::CtrlB
-                page_scroll(-aheight, -1)
-                next
-              when Tput::Key::CtrlF
-                page_scroll(aheight, 1)
-                next
-              end
+            # Paging and jump-to-edge are not vi-only (matching
+            # `ScrollableBox#on_keypress`). Page scrolling uses the resolved
+            # `aheight`, not the raw `height` property, so it works correctly even
+            # when `height` is a percentage (e.g. `"100%"`) or unset.
+            case key
+            when Tput::Key::CtrlU
+              page_scroll(-aheight // 2, -1)
+              next
+            when Tput::Key::CtrlD
+              page_scroll(aheight // 2, 1)
+              next
+            when Tput::Key::PageUp, Tput::Key::CtrlB
+              page_scroll(-aheight, -1)
+              next
+            when Tput::Key::PageDown, Tput::Key::CtrlF
+              page_scroll(aheight, 1)
+              next
+            when Tput::Key::Home
+              scroll_to 0
+              request_render
+              next
+            when Tput::Key::End
+              scroll_to get_scroll_height
+              request_render
+              next
+            end
 
+            # The single-char jump keys stay vi-gated per the docstring.
+            if @vi
               case ch
               when 'g'
                 scroll_to 0

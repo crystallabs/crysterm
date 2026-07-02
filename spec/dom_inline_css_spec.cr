@@ -17,12 +17,12 @@ require "./spec_helper"
     it "applies CSS from an inline <style> block" do
       s = headless_screen
       s.load_layout <<-HTML
-      <w-screen>
+      <w-window>
         <style>
           #hello { color: red; }
         </style>
         <w-box id="hello"></w-box>
-      </w-screen>
+      </w-window>
       HTML
       s.apply_stylesheet
 
@@ -32,7 +32,7 @@ require "./spec_helper"
     it "composes inline styles after an external stylesheet (inline wins on ties)" do
       s = headless_screen
       s.stylesheet = "#hello { color: red; }"
-      s.load_layout %(<w-screen><style>#hello { color: blue; }</style><w-box id="hello"></w-box></w-screen>)
+      s.load_layout %(<w-window><style>#hello { color: blue; }</style><w-box id="hello"></w-box></w-window>)
       s.apply_stylesheet
 
       s.find_by_id("hello").not_nil!.styles.normal.fg.should eq rgb("blue")
@@ -40,20 +40,20 @@ require "./spec_helper"
 
     it "does not build the <style> element as a widget" do
       s = headless_screen
-      s.load_layout %(<w-screen><style>Box{color:red}</style><w-box id="a"></w-box></w-screen>)
+      s.load_layout %(<w-window><style>Box{color:red}</style><w-box id="a"></w-box></w-window>)
       s.children.size.should eq 1
       s.children.first.css_id.should eq "a"
     end
 
     it "re-applies inline styles after a hot-reload" do
       s = headless_screen
-      s.load_layout %(<w-screen><style>#x{color:red}</style><w-box id="x"></w-box></w-screen>)
+      s.load_layout %(<w-window><style>#x{color:red}</style><w-box id="x"></w-box></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7106)
       bridge.start
       s.apply_stylesheet
       s.find_by_id("x").not_nil!.styles.normal.fg.should eq rgb("red")
 
-      bridge.reload_layout %(<w-screen><style>#x{color:green}</style><w-box id="x"></w-box></w-screen>)
+      bridge.reload_layout %(<w-window><style>#x{color:green}</style><w-box id="x"></w-box></w-window>)
       s.apply_stylesheet
       s.find_by_id("x").not_nil!.styles.normal.fg.should eq rgb("green")
     end

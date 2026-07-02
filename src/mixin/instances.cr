@@ -15,13 +15,22 @@ module Crysterm
         end
 
         # Creates and/or returns the "global" instance — the most recently
-        # created one (`instances[-1]`). If none exist yet and *create* is
-        # true, a new one is created.
+        # created one (`instances[-1]`). If none exist yet, a new one is created,
+        # so the result is never nil.
         #
         # Alternative (not implemented): hold the global in a class variable so
         # the default object is configurable at runtime.
-        def self.global(create : Bool = true)
-          (instances[-1]? || (create ? new : nil)).not_nil!
+        def self.global : self
+          instances[-1]? || new
+        end
+
+        # Returns the "global" instance (most recently created), optionally
+        # creating one if none exist. With *create* false this is a pure query
+        # that returns nil when the list is empty (rather than raising).
+        def self.global(create : Bool) : self?
+          existing = instances[-1]?
+          return existing if existing
+          create ? new : nil
         end
       end
 

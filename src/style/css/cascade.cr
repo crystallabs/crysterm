@@ -68,6 +68,16 @@ module Crysterm
         # same selector can recur across tiers, states and `@media` blocks).
         selector_cache = Hash(String, Array(HTML5::Node)).new
 
+        # Backward/only structural pseudo-classes (`:last-child`, ...) must count
+        # only real child widgets, but the document trails each widget's real
+        # children with sub-element/extra pseudo-nodes. When such nodes exist,
+        # match those rules against a *structural* document (built lazily, once)
+        # that omits the pseudo-nodes; slot nodes still match against the full
+        # document. See `matched_nodes` below.
+        has_slots = index.any? { |key, _| key.includes?("::") }
+        structural_doc : HTML5::Node? = nil
+        structural_cache = Hash(String, Array(HTML5::Node)).new
+
         # Terminal metrics for `@media` evaluation.
         media_width = window.width
         media_height = window.height
@@ -106,25 +116,19 @@ module Crysterm
             if mq = rule.media
               next unless mq.matches?(media_width, media_height, media_colors)
             end
-            nodes = selector_cache.fetch(rule.selector) do
-              # Reuse the sheet's compiled selector (cross-cascade); a selector
-              # the engine can't parse compiles to `nil` and matches nothing.
-              selector_cache[rule.selector] = select_nodes(sheet, doc, rule.selector)
-            end
-            # `:has(...)` — keep only nodes with a descendant matching the inner
-            # selector (engine has no native `:has`).
-            if has = rule.has
-              nodes = nodes.select { |node| has_descendant?(node, has) }
-            end
-            # Ancestor-position `:has(...)` (`Form:has(.error) Button`): the
-            # structural selector already pins the subject under the qualifier
-            # compound; additionally require a matching ancestor satisfying the
-            # relational `:has` (has an `inner` descendant). All conditions AND.
-            if anc = rule.ancestor_has
-              anc.each do |(qualifier, inner)|
-                qualified = qualified_ancestors(sheet, doc, qualifier, inner, selector_cache)
-                nodes = qualified.empty? ? [] of HTML5::Node : nodes.select { |node| descends_from?(node, qualified) }
+            if has_slots && backward_structural?(rule.selector)
+              # Real child widgets are matched against the pseudo-node-free
+              # structural document so their backward/only structural pseudos
+              # count only real siblings; slot/extra nodes (whose `data-uid`
+              # bears `::`) still come from the full document, where they exist.
+              sdoc = structural_doc ||= HTML5.parse(window.to_html(structural: true))
+              real = matched_nodes(sheet, sdoc, rule, structural_cache)
+              slots = matched_nodes(sheet, doc, rule, selector_cache).select do |node|
+                (k = node["data-uid"]?) ? k.val.includes?("::") : false
               end
+              nodes = real + slots
+            else
+              nodes = matched_nodes(sheet, doc, rule, selector_cache)
             end
             # A state pseudo-class rule (`:hover`/`:selected`/`:focus`/…) is more
             # specific than the state-agnostic inline `@style`: a themed
@@ -297,6 +301,43 @@ module Crysterm
         else
           [] of HTML5::Node
         end
+      end
+
+      # Selectors bearing a backward/only structural pseudo-class, whose sibling
+      # counting must exclude the trailing sub-element/extra pseudo-nodes.
+      # `:nth-last-` covers both `:nth-last-child` and `:nth-last-of-type`.
+      BACKWARD_STRUCTURAL = /:(?:last-child|only-child|last-of-type|only-of-type|nth-last-)/
+
+      private def self.backward_structural?(selector : String) : Bool
+        selector.matches?(BACKWARD_STRUCTURAL)
+      end
+
+      # Nodes matching *rule* against *doc*: the compiled selector's matches,
+      # then the relational `:has`/ancestor-`:has` post-filters (the engine has
+      # no native `:has`). *cache* memoizes selector results for *doc*; pass a
+      # per-document cache so full- and structural-document results don't collide.
+      private def self.matched_nodes(sheet : Stylesheet, doc : HTML5::Node, rule : Rule, cache : Hash(String, Array(HTML5::Node))) : Array(HTML5::Node)
+        nodes = cache.fetch(rule.selector) do
+          # Reuse the sheet's compiled selector (cross-cascade); a selector the
+          # engine can't parse compiles to `nil` and matches nothing.
+          cache[rule.selector] = select_nodes(sheet, doc, rule.selector)
+        end
+        # `:has(...)` — keep only nodes with a descendant matching the inner
+        # selector.
+        if has = rule.has
+          nodes = nodes.select { |node| has_descendant?(node, has) }
+        end
+        # Ancestor-position `:has(...)` (`Form:has(.error) Button`): the
+        # structural selector already pins the subject under the qualifier
+        # compound; additionally require a matching ancestor satisfying the
+        # relational `:has` (has an `inner` descendant). All conditions AND.
+        if anc = rule.ancestor_has
+          anc.each do |(qualifier, inner)|
+            qualified = qualified_ancestors(sheet, doc, qualifier, inner, cache)
+            nodes = qualified.empty? ? [] of HTML5::Node : nodes.select { |node| descends_from?(node, qualified) }
+          end
+        end
+        nodes
       end
 
       # The set of nodes matching *qualifier* (an ancestor compound) that satisfy

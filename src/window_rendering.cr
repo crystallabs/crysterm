@@ -91,7 +91,15 @@ module Crysterm
       loop do
         select
         when job = @ui_queue.receive
-          job.call
+          begin
+            job.call
+          rescue ex
+            # A posted job must never kill the render fiber: a dead render fiber
+            # freezes the whole UI and drains no further jobs. Cross-fiber
+            # callers that need the failure (e.g. the HTTP bridge's `on_ui`)
+            # capture it inside their own job and re-raise on the requesting
+            # fiber; here we swallow so the loop survives.
+          end
         else
           break
         end

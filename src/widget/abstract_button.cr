@@ -40,10 +40,15 @@ module Crysterm
         @checked = checked
       end
 
-      # Activates the button: focuses it, emits `Event::Press`, and toggles the
-      # checked state when `#checkable?`.
+      # Activates the button: focuses it (unless `#focus_on_click?` is off),
+      # emits `Event::Press`, and toggles the checked state when `#checkable?`.
+      #
+      # A keyboard press already has focus, so gating on `#focus_on_click?` only
+      # suppresses mouse-click focus theft — letting a dialog button opt out
+      # (`focus_on_click: false`) so a click doesn't pull focus off a live read
+      # (e.g. a `Prompt`'s `LineEdit`), which would end the read as a cancel.
       def press
-        focus
+        focus if focus_on_click?
         @value = true
         emit Crysterm::Event::Press
         @value = false

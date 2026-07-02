@@ -34,6 +34,18 @@ module Crysterm
       end
     end
 
+    # The event names `on_widget_event` knows how to wire. Any other name wires
+    # nothing, so callers (e.g. the bridge's `subscribe`) can reject it up front
+    # rather than claiming a subscription that will never fire.
+    def self.known_event?(event_name : String) : Bool
+      case event_name
+      when "click", "press", "submit", "focus", "blur", "select", "change"
+        true
+      else
+        false
+      end
+    end
+
     # Maps a layout event name (`"click"`, `"submit"`, `"select"`, ...) to the
     # concrete `Event` class and subscribes to it, yielding `(canonical_type,
     # value)` when it fires — `value` carries the event's payload or `nil`.

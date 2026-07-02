@@ -6,6 +6,11 @@ module Crysterm
       set_visible true
       mark_dirty
       emit Crysterm::Event::Show
+      # Descendants stop/resume rendering with the ancestor but never receive
+      # their own `Show`/`Hide` otherwise, so their hover/tooltip/pointer-shape
+      # cleanup (see `widget_interaction.cr`) is skipped. Propagate down so those
+      # handlers run; they're idempotent, so re-emitting is safe.
+      emit_descendants Crysterm::Event::Show
     end
 
     # Hides widget from window
@@ -17,6 +22,9 @@ module Crysterm
       set_visible false
       mark_dirty
       emit Crysterm::Event::Hide
+      # See `#show`: descendants must run their own Hide cleanup (tooltip removal,
+      # OSC-22 pointer-shape restore) even though only the ancestor was hidden.
+      emit_descendants Crysterm::Event::Hide
 
       window?.try do |s|
         # Rewind focus out of this subtree when it (or a descendant) holds

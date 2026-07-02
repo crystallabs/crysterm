@@ -73,6 +73,16 @@ module Crysterm
       @just_k = 0
       @flex = Set(Widget).new
       @filled = Set(Widget).new
+      # Last main/cross size this layout *assigned* to a flex/filled child, so a
+      # child can be released from layout control when its raw size is changed
+      # out from under us. `@flex`/`@filled` alone can't tell a layout-assigned
+      # size (which is non-nil after `place`) from a fresh user-set size, so
+      # without this a `child.width = 20` after the first frame is silently
+      # overwritten by a grow-share every frame. `main_flex?`/`cross_flex?` treat
+      # a set-member as managed only while its raw size still equals what we
+      # last put there; a mismatch means the user reclaimed it (see BUGS6 §5).
+      @flex_size = {} of Widget => Int32
+      @filled_size = {} of Widget => Int32
       # Per-arrange cache of fixed children's resolved main-axis size, so
       # `a_main_size` (an ancestor-chain walk) computed in `measure` isn't walked
       # again in `place`. Repopulated every `measure`; stable between passes since
@@ -101,6 +111,8 @@ module Crysterm
         children = container.children
         @flex.select! { |el| children.includes? el }
         @filled.select! { |el| children.includes? el }
+        @flex_size.select! { |el, _| children.includes? el }
+        @filled_size.select! { |el, _| children.includes? el }
 
         main = main_extent interior
         # Only children this engine actually arranges (see `#each_arrangeable`)
@@ -159,6 +171,7 @@ module Crysterm
           if cross_flex? el
             set_cross_size el, cross
             @filled << el
+            @filled_size[el] = cross
           end
           set_cross_pos el, 0
         else
@@ -190,7 +203,15 @@ module Crysterm
               end
             set_main_size el, s
             @flex << el
-            s
+            @flex_size[el] = s
+            # Advance the cursor by the *clamped* used size, not the raw share
+            # `s`: a CSS min/max-width (min/max-height in a VBox) makes the child
+            # render at `a_main_size`, not `s`, so advancing by `s` would overlap
+            # the next child (min > s) or leave a gap (max < s, last child short
+            # of the far edge). An unconstrained child clamps back to exactly
+            # `s`, preserving the remainder-exact fill (BUGS3 §4). Mirrors the
+            # fixed branch, which already advances by the clamped `a_main_size`.
+            a_main_size el
           else
             # Reuse the size measured for this fixed child in `measure`.
             @measured[el]? || a_main_size el
@@ -233,14 +254,18 @@ module Crysterm
         (el.layout_hint.as?(Hint)).try(&.grow) || 1
       end
 
-      # Whether the child's main-axis size is decided by this layout.
+      # Whether the child's main-axis size is decided by this layout: either its
+      # raw size is unset (`nil`), or we assigned it and it still holds that
+      # value. If the raw size no longer matches what we last assigned, the user
+      # reclaimed the child (`child.width = 20`), so it reverts to fixed.
       private def main_flex?(el : Widget) : Bool
-        main_size(el).nil? || @flex.includes? el
+        main_size(el).nil? || (@flex.includes?(el) && main_size(el) == @flex_size[el]?)
       end
 
-      # Whether the child's cross-axis size is decided (stretched) by this layout.
+      # Whether the child's cross-axis size is decided (stretched) by this layout;
+      # released the same way as `main_flex?` when the user sets an explicit size.
       private def cross_flex?(el : Widget) : Bool
-        cross_size(el).nil? || @filled.includes? el
+        cross_size(el).nil? || (@filled.includes?(el) && cross_size(el) == @filled_size[el]?)
       end
 
       private def main_extent(interior : LPos) : Int32

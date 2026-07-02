@@ -6,30 +6,58 @@ module Crysterm
     struct MediaQuery
       getter conditions : Array(Tuple(String, Int32))
 
-      def initialize(@conditions)
+      # Whether the query is satisfiable at all. A non-empty `@media` prelude
+      # that yields no recognizable numeric feature — a media type (`print`), an
+      # unknown or non-integer feature (`(prefers-color-scheme: dark)`,
+      # `(orientation: portrait)`) — is *unmatchable* rather than vacuously true.
+      # Without this, the empty conjunction (`[].all?` is `true`) would apply the
+      # guarded rule at every terminal, inverting the author's intent.
+      getter? matchable : Bool
+
+      def initialize(@conditions, @matchable = true)
       end
 
-      # Matches `(feature: value)` pairs, e.g. `(min-width: 80)`. A trailing unit
-      # (`px`, `em`, `%`, …) is tolerated and ignored: crysterm features are in
-      # cell counts, but authors porting CSS habits write `(max-width: 40px)`.
-      # Requiring a bare integer made a unit'd feature fail to match, so it was
-      # dropped from `conditions`; if it was the only feature, the now-empty
-      # conjunction (`[].all?` is `true`) matched *every* terminal — the opposite
-      # of the intent. Swallowing the unit keeps the query meaningful.
-      FEATURE_RE = /\(\s*([a-z-]+)\s*:\s*(\d+)[a-z%]*\s*\)/
+      # The numeric media features crysterm understands (cell counts / color
+      # depth). Any other `(feature: …)` group marks the whole query unmatchable.
+      FEATURES = {"min-width", "max-width", "min-height", "max-height", "min-colors", "max-colors"}
+
+      # Matches one `(feature: value)` group. Feature names fold to lowercase
+      # (CSS media features are case-insensitive), and a trailing unit
+      # (`px`, `em`, `%`, …) on the integer value is tolerated and ignored:
+      # crysterm features are in cell counts, but authors porting CSS habits
+      # write `(max-width: 40px)`.
+      FEATURE_RE = /\(\s*([a-z-]+)\s*:\s*(\d+)[a-z%]*\s*\)/i
+
+      # Matches any parenthesized group, so an unrecognized feature (one that
+      # `FEATURE_RE` can't parse) can be detected and mark the query unmatchable.
+      GROUP_RE = /\([^()]*\)/
 
       # Parses a condition string such as `(min-width: 80) and (max-width: 120)`.
       def self.parse(condition : String) : MediaQuery
         conditions = [] of Tuple(String, Int32)
-        condition.scan(FEATURE_RE) do |match|
-          conditions << {match[1], match[2].to_i}
+        matchable = true
+        condition.scan(GROUP_RE) do |group|
+          if m = group[0].match(FEATURE_RE)
+            feature = m[1].downcase
+            if FEATURES.includes?(feature)
+              conditions << {feature, m[2].to_i}
+              next
+            end
+          end
+          # A `(...)` group that isn't a known numeric feature (e.g.
+          # `(orientation: portrait)`) makes the whole query unmatchable.
+          matchable = false
         end
-        new conditions
+        # A non-empty prelude that produced no usable condition (a media type
+        # like `print`, or an unparsable feature) must not match everywhere.
+        matchable = false if conditions.empty? && !condition.strip.empty?
+        new conditions, matchable
       end
 
       # Whether this query matches a terminal of *width*×*height* cells with
       # *colors* available.
       def matches?(width : Int32, height : Int32, colors : Int32) : Bool
+        return false unless matchable?
         conditions.all? do |(feature, value)|
           case feature
           when "min-width"  then width >= value
@@ -505,12 +533,17 @@ module Crysterm
       # inside a nested function's parens.
       private def self.top_level_comma(value : String) : Int32?
         depth = 0
-        value.each_char_with_index do |ch, i|
-          case ch
+        i = 0
+        while i < value.size
+          case value[i]
+          when '"', '\''
+            i = skip_string(value, i) # a comma inside a quoted string isn't the separator
+            next
           when '(' then depth += 1
           when ')' then depth -= 1
           when ',' then return i if depth == 0
           end
+          i += 1
         end
         nil
       end
@@ -607,6 +640,9 @@ module Crysterm
         i = 0
         while i <= last
           case selector[i]
+          when '"', '\''
+            i = skip_string(selector, i) # skip quoted spans so `:x` inside them isn't peeled
+            next
           when '[', '(' then depth += 1
           when ']', ')' then depth -= 1
           else
@@ -636,13 +672,20 @@ module Crysterm
       private def self.split_subject(selector : String) : Tuple(String, String)
         depth = 0
         cut = -1
-        selector.each_char_with_index do |char, idx|
+        i = 0
+        while i < selector.size
+          char = selector[i]
+          if char == '"' || char == '\''
+            i = skip_string(selector, i) # a combinator inside a quoted value is not structural
+            next
+          end
           case char
           when '[', '(' then depth += 1
           when ']', ')' then depth -= 1
           when ' ', '>', '+', '~'
-            cut = idx + 1 if depth == 0
+            cut = i + 1 if depth == 0
           end
+          i += 1
         end
         return {"", selector} if cut < 0
         {selector[0...cut], selector[cut..].strip}
@@ -710,6 +753,9 @@ module Crysterm
         i = from
         while i < selector.size
           case selector[i]
+          when '"', '\''
+            i = skip_string(selector, i) # a combinator inside a quoted value isn't structural
+            next
           when '[', '(' then depth += 1
           when ']', ')' then depth -= 1
           when ' ', '>', '+', '~'
@@ -737,13 +783,18 @@ module Crysterm
       # unbalanced.
       private def self.matching_paren(selector : String, open : Int32) : Int32?
         depth = 0
-        (open...selector.size).each do |i|
+        i = open
+        while i < selector.size
           case selector[i]
+          when '"', '\''
+            i = skip_string(selector, i) # a paren inside a quoted value doesn't nest
+            next
           when '(' then depth += 1
           when ')'
             depth -= 1
             return i if depth == 0
           end
+          i += 1
         end
         nil
       end

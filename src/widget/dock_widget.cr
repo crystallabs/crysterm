@@ -192,8 +192,12 @@ module Crysterm
       # `{left, top, width, height}`. Coordinate accessors raise before layout,
       # handled by callers' `rescue`.
       private def current_float_rect : Tuple(Int32, Int32, Int32, Int32)
-        px = parent.try(&.aleft) || 0
-        py = parent.try(&.atop) || 0
+        # `left`/`top` are relative to the parent's *content* origin
+        # (`widget_position.cr` adds `parent.ileft`/`itop`), so the origin to
+        # subtract is `parent.aleft + parent.ileft` (and `atop + itop`), not the
+        # outer `aleft`/`atop`. Matches `Splitter#wire_divider`.
+        px = parent.try { |p| p.aleft + p.ileft } || 0
+        py = parent.try { |p| p.atop + p.itop } || 0
         {aleft - px, atop - py, awidth, aheight}
       end
 
@@ -315,14 +319,17 @@ module Crysterm
         end
         titlebar.on(::Crysterm::Event::Drag) do |e|
           next unless floating?
-          # `left`/`top` are parent-relative but the pointer (`e.x`/`e.y`) is
-          # absolute; convert by subtracting the parent's origin (matches the
-          # `aleft - px` convention in `#save_float_geom`/`#freeze_rect`), else the
-          # dock only tracks the pointer when its parent is at the window origin.
-          px = parent.try(&.aleft) || 0
-          py = parent.try(&.atop) || 0
-          bound_w = (parent.try(&.awidth) || window.awidth) - awidth
-          bound_h = (parent.try(&.aheight) || window.aheight) - aheight
+          # `left`/`top` are content-origin-relative but the pointer (`e.x`/`e.y`)
+          # is absolute; convert by subtracting the parent's content origin
+          # (`aleft + ileft`, matching `#current_float_rect`), else the dock only
+          # tracks the pointer when its parent has no border/padding.
+          px = parent.try { |p| p.aleft + p.ileft } || 0
+          py = parent.try { |p| p.atop + p.itop } || 0
+          # Clamp against the parent's *content* extent (`awidth - iwidth`), not
+          # its outer size, so a floating dock can't be dragged out over the
+          # parent's border/padding.
+          bound_w = (parent.try { |p| p.awidth - p.iwidth } || (window.awidth - window.iwidth)) - awidth
+          bound_h = (parent.try { |p| p.aheight - p.iheight } || (window.aheight - window.iheight)) - aheight
           self.left = (e.x - @drag_dx - px).clamp(0, Math.max(0, bound_w))
           self.top = (e.y - @drag_dy - py).clamp(0, Math.max(0, bound_h))
           request_render

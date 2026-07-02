@@ -35,11 +35,11 @@ require "./spec_helper"
     it "rebuilds a widget tree from layout HTML" do
       s = headless_screen
       html = <<-HTML
-      <w-screen>
+      <w-window>
         <w-box id="outer" top="1" left="2" width="40" height="10">
           <w-button id="ok" top="center" left="center" width="10" height="3" content="OK"></w-button>
         </w-box>
-      </w-screen>
+      </w-window>
       HTML
 
       built = s.load_layout(html)
@@ -90,7 +90,7 @@ require "./spec_helper"
 
     it "skips unknown tags instead of failing" do
       s = headless_screen
-      built = s.load_layout %(<w-screen><w-nonesuch></w-nonesuch><w-box></w-box></w-screen>)
+      built = s.load_layout %(<w-window><w-nonesuch></w-nonesuch><w-box></w-box></w-window>)
       built.size.should eq 1
       built.first.should be_a Widget::Box
     end

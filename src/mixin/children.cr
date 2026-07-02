@@ -53,7 +53,16 @@ module Crysterm
         end
       end
 
-      # Inserts `element` into list of children widgets
+      # Low-level list primitive: inserts `element` into the children list at `i`.
+      #
+      # This bare form is a no-op (returns nil) if `element` is already present —
+      # the `@children_set` guard rejects the duplicate before any list mutation,
+      # so on its own it can't reposition an existing child. Real widgets never
+      # hit that path for a re-insert: `Widget#insert`/`Window#insert` override
+      # this to first detach `element` from its current parent and then call
+      # `super`, which is how `append`/`prepend`/`insert_before`/`insert_after`
+      # *do* reposition an existing child (remove-then-add). `set_index`
+      # (`widget_children.cr`) is the other reorder path.
       def insert(element, i = -1)
         return unless @children_set.add? element
         @children.insert i, element

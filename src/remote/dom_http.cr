@@ -1,5 +1,6 @@
 require "http/server"
 require "json"
+require "crypto/subtle"
 
 module Crysterm
   # HTTP/JSON-RPC bridge — "a browser for the terminal".
@@ -129,6 +130,10 @@ module Crysterm
     # a plain `event` notification (no action). Deduped per widget+event so
     # it's safe to call repeatedly (e.g. on re-wire). Returns the match count.
     private def wire_subscription(selector : String, event : String) : Int32
+      # An unknown event name wires nothing (`on_widget_event` no-ops), so report
+      # 0 rather than the match count — otherwise `subscribe` claims N live
+      # subscriptions while none can ever fire.
+      return 0 unless DOM.known_event? event
       matches = match selector
       matches.each do |widget|
         key = "#{widget.uid}:#{event}"
@@ -164,8 +169,12 @@ module Crysterm
 
     private def authorized?(context : HTTP::Server::Context) : Bool
       return true unless token = @token
-      context.request.headers["X-Crysterm-Token"]? == token ||
-        context.request.query_params["token"]? == token
+      # Only the `X-Crysterm-Token` header is honored: a query-param token lands
+      # in access logs, proxy logs and browser history, so it's rejected even
+      # though it once worked. Compared in constant time so a caller can't probe
+      # the secret byte-by-byte via response timing.
+      presented = context.request.headers["X-Crysterm-Token"]? || ""
+      Crypto::Subtle.constant_time_compare presented, token
     end
 
     private def handle_events(context : HTTP::Server::Context) : Nil
@@ -195,14 +204,24 @@ module Crysterm
 
     private def handle_rpc(context : HTTP::Server::Context) : Nil
       body = context.request.body.try(&.gets_to_end) || "{}"
-      request = JSON.parse body
-      id = request["id"]?
-      method = request["method"]?.try(&.as_s) || ""
-      params = request["params"]?
-
+      # The parse and shape extraction live *inside* the rescue: malformed JSON,
+      # or valid-but-non-object JSON (`5`, `"x"`, `[]`), must come back as a
+      # structured JSON-RPC error rather than an uncaught 500 / broken socket.
+      id = nil
       begin
+        request = JSON.parse body
+        # A JSON-RPC request is an object; a bare scalar/array carries no
+        # `id`/`method` and indexing it would raise, so reject it as -32600.
+        raise InvalidRequest.new "request must be a JSON object" unless request.as_h?
+        id = request["id"]?
+        method = request["method"]?.try(&.as_s) || ""
+        params = request["params"]?
         result = dispatch method, params
         respond context, id, result: result
+      rescue JSON::ParseException
+        respond_error context, id, -32_700, "parse error"
+      rescue ex : InvalidRequest
+        respond_error context, id, -32_600, ex.message
       rescue ex : UnknownMethod
         respond_error context, id, -32_601, ex.message
       rescue ex : BadParams
@@ -247,6 +266,8 @@ module Crysterm
 
     class BadParams < Exception; end
 
+    class InvalidRequest < Exception; end
+
     # Mutating commands return the number of widgets affected (so a handler can
     # tell "matched nothing" from "done"); getters return their value.
     private def dispatch(method : String, params : JSON::Any?) : Int32 | String | Array(String) | Nil
@@ -260,7 +281,7 @@ module Crysterm
       when "setAttribute"
         name = string_param params, "name"
         attr_value = params.try(&.["value"]?).try(&.as_s)
-        each_match(selector) { |w| w.dom_apply name, attr_value }
+        each_match(selector) { |w| set_attribute w, name, attr_value }
       when "addClass"
         klass = string_param params, "class"
         each_match(selector, &.add_css_class(klass))
@@ -327,6 +348,20 @@ module Crysterm
       end
     end
 
+    # Applies one attribute with DOM `setAttribute` *replace* semantics. `class`
+    # is special-cased: it replaces the whole user class list (clear, then add
+    # each token), matching a browser's `setAttribute("class", …)`. `dom_apply`'s
+    # `class` handler is additive (built for load-time attribute replay), so
+    # routing through it here would only ever grow the list.
+    private def set_attribute(widget : Widget, name : String, value : String?) : Nil
+      if name == "class"
+        widget.css_classes.dup.each { |c| widget.remove_css_class c }
+        value.try &.split.each { |c| widget.add_css_class c unless c.empty? }
+      else
+        widget.dom_apply name, value
+      end
+    end
+
     private def string_param(params : JSON::Any?, key : String) : String
       params.try(&.[key]?).try(&.as_s) || raise BadParams.new(%(missing param "#{key}"))
     end
@@ -351,12 +386,25 @@ module Crysterm
     end
 
     private def on_ui(&block : -> T) : T forall T
-      result = Channel(T).new(1)
+      # Runs `block` on the render fiber and blocks until it produces a value.
+      # The block's exception is *captured* and shipped back over the channel,
+      # then re-raised here on the requesting (HTTP) fiber. Two failures are
+      # avoided: (1) if the block raised on the render fiber without sending,
+      # this `receive` would block forever and hang the HTTP request; (2) an
+      # unhandled raise on the render fiber would kill it and freeze the UI.
+      # Re-raising here lets `handle_rpc` map it to a JSON-RPC -32603.
+      result = Channel(T | Exception).new(1)
       @window.post do
-        result.send block.call
+        begin
+          result.send block.call
+        rescue ex
+          result.send ex
+        end
         nil
       end
-      result.receive
+      value = result.receive
+      raise value if value.is_a?(Exception)
+      value
     end
 
     # ---- event fan-out ------------------------------------------------------

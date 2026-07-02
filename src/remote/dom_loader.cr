@@ -61,7 +61,10 @@ module Crysterm
       # the page's existing styles.
       if parent.nil?
         css = String.build { |io| collect_style_css doc, io }
-        window.add_inline_stylesheet css unless css.blank?
+        # Always apply on a top-level load, even when empty: `add_inline_stylesheet`
+        # clears via `css.presence`, so a hot-reload to a `<style>`-less layout
+        # drops the previous layout's inline rules instead of leaving them stale.
+        window.add_inline_stylesheet css
       end
       # The parser wraps content in <html><body>...; prefer our own `w-window`
       # root, else fall back to the synthesized `body` so a bare fragment (no
@@ -152,8 +155,10 @@ macro finished
     {% for t in Crysterm::Widget.all_subclasses %}
       {% leaf = t.name.split("::").last.downcase %}
       # Opt-in is by namespace: every concrete `Crysterm::Widget::*` is
-      # loadable, except the `SKIP` exclusions (self-populating composites).
-      {% if t.name.starts_with?("Crysterm::Widget::") && !t.abstract? && !Crysterm::DOM::SKIP.includes?(leaf) %}
+      # loadable, except the `SKIP` exclusions (self-populating composites) and
+      # generic widgets (e.g. `ListSelect(T)`), which can't be instantiated
+      # without a type argument and have no stable tag name anyway.
+      {% if t.name.starts_with?("Crysterm::Widget::") && !t.abstract? && t.type_vars.empty? && !Crysterm::DOM::SKIP.includes?(leaf) %}
         reg[{{ leaf }}] = ->(window : ::Crysterm::Window) { {{ t }}.new(window: window).as(::Crysterm::Widget) }
       {% end %}
     {% end %}

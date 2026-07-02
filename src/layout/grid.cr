@@ -79,9 +79,27 @@ module Crysterm
           r, c = next_cell r, c, cols
         end
 
-        # Tallest occupied row index, without the intermediate array a
-        # `placements.map { … }.max?` would allocate.
-        nrows = @rows || placements.reduce(0) { |m, p| Math.max(m, p[1] + p[3]) }
+        # Row count. When `rows` is given, use it. Otherwise infer from the
+        # placements — but unlike the column axis (whose count is the fixed
+        # `columns`, so an over-large `col_span: 99` "span to the end" is simply
+        # clamped to the last column by `#fence`), the row axis has no fixed
+        # bound to clamp an over-large `row_span` against. Taken literally,
+        # `p[1] + p[3]` would let a single `row_span: 99` inflate the grid to 99
+        # rows, squeezing every cell to nothing and driving `inner_h` negative
+        # once gaps are subtracted — collapsing the whole grid.
+        #
+        # So cap the inferred count at the rows that actually hold content: the
+        # deeper of the rows reached by child *origins* (`p[1] + 1`) and the
+        # child count (an upper bound on distinct rows). An over-large span then
+        # spans to the last real row via `#fence`'s clamp, making `row_span: 99`
+        # behave symmetrically to `col_span: 99` as "span to the last row".
+        if r = @rows
+          nrows = r
+        else
+          start_rows = placements.reduce(0) { |m, p| Math.max(m, p[1] + 1) }
+          span_rows = placements.reduce(0) { |m, p| Math.max(m, p[1] + p[3]) }
+          nrows = Math.min(span_rows, Math.max(start_rows, placements.size))
+        end
         nrows = 1 if nrows < 1
 
         # Interior space the cells share, with inter-cell gaps removed.

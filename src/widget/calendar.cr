@@ -123,6 +123,17 @@ module Crysterm
         Time.utc(2000, 1, 1)
       end
 
+      # Builds a `Time` for the given calendar date, falling back to UTC when
+      # `Time.local` is unavailable (see `#default_today`). Routing every
+      # constructed date through here keeps render/setter/constructor paths from
+      # raising in headless contexts, which would otherwise defeat the
+      # `default_today` fallback.
+      private def local_date(year : Int32, month : Int32, day : Int32) : Time
+        Time.local(year, month, day)
+      rescue
+        Time.utc(year, month, day)
+      end
+
       # Getter plus setter that repaints only on an actual change.
       private macro visual(name, type, default)
         @{{name}} : {{type}} = {{default}}
@@ -332,7 +343,7 @@ module Crysterm
         y = total // 12
         m = total % 12 + 1
         d = Math.min(@date.day, Time.days_in_month(y, m))
-        self.selected_date = Time.local(y, m, d)
+        self.selected_date = local_date(y, m, d)
       end
 
       # ── Rendering ─────────────────────────────────────────────────────────
@@ -364,7 +375,7 @@ module Crysterm
         @col_offset = weeks ? 3 : 0
         sep = grid_visible? ? '│' : ' '
 
-        first = Time.local(@shown_year, @shown_month, 1)
+        first = local_date(@shown_year, @shown_month, 1)
         dim = Time.days_in_month(@shown_year, @shown_month)
         lead = column_of first
         nrows = (lead + dim + 6) // 7
@@ -500,19 +511,23 @@ module Crysterm
       # Day number under grid cell (*grid_row*, content column *col*), or `nil`.
       private def day_at(grid_row : Int32, col : Int32) : Int32?
         return nil if grid_row < 0
-        c = col - @col_offset
-        return nil if c < 0
-        c //= 3
+        rel = col - @col_offset
+        return nil if rel < 0
+        # Each day cell is 2 columns wide followed by a 1-column separator, so
+        # `rel % 3 == 2` is the separator (or trailing blank past the grid): it
+        # belongs to no day, and must not hit-test onto the adjacent cell.
+        return nil if rel % 3 == 2
+        c = rel // 3
         return nil if c > 6
 
-        first = Time.local(@shown_year, @shown_month, 1)
+        first = local_date(@shown_year, @shown_month, 1)
         d = grid_row * 7 + c - column_of(first) + 1
         (1 <= d <= Time.days_in_month(@shown_year, @shown_month)) ? d : nil
       end
 
       # Selects (in `SingleSelection`) and activates day *d* of the shown month.
       private def activate_day(d : Int32) : Nil
-        t = Time.local(@shown_year, @shown_month, d)
+        t = local_date(@shown_year, @shown_month, d)
         self.selected_date = t unless selection_mode.no_selection?
         emit Crysterm::Event::Action, clamp_date(t).to_s("%Y-%m-%d")
       end
@@ -614,9 +629,9 @@ module Crysterm
         when Tput::Key::PageDown
           shift_selection_months 1
         when Tput::Key::Home
-          self.selected_date = Time.local(@shown_year, @shown_month, 1)
+          self.selected_date = local_date(@shown_year, @shown_month, 1)
         when Tput::Key::End
-          self.selected_date = Time.local(@shown_year, @shown_month, Time.days_in_month(@shown_year, @shown_month))
+          self.selected_date = local_date(@shown_year, @shown_month, Time.days_in_month(@shown_year, @shown_month))
         when Tput::Key::Enter
           emit Crysterm::Event::Action, @date.to_s("%Y-%m-%d")
         else

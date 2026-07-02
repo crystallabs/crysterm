@@ -20,9 +20,10 @@ module Crysterm
       # of Qt's `:flat` pseudo-class (see `CSS::Qss`).
       getter? flat : Bool = false
 
-      # Whether this is the dialog's *default* button, activated by a bare Enter
-      # (Qt's `QPushButton#default`). Surfaced as `[default]` for the `:default`
-      # pseudo-class.
+      # Whether this is the dialog's *default* button (Qt's
+      # `QPushButton#default`). This is a styling marker only: it is surfaced as
+      # `[default]` for the `:default` pseudo-class so theme CSS can highlight
+      # it, but nothing currently wires a bare Enter to activate it.
       getter? default : Bool = false
 
       def initialize(checkable : Bool = false, checked : Bool = false, flat : Bool = false, default : Bool = false, **input)

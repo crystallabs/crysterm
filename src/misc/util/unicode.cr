@@ -28,12 +28,18 @@ module Crysterm
     # Display width, in terminal columns, of a whole string: the sum of the
     # widths of its grapheme clusters.
     def display_width(string : String) : Int32
-      # Fast path for ASCII-only content: every ASCII codepoint is its own
-      # width-1 grapheme (no combining marks, wide glyphs, VS16 promotion, or
+      # Fast path for printable-ASCII content: every char in `0x20..0x7E` is its
+      # own width-1 grapheme (no combining marks, wide glyphs, VS16 promotion, or
       # flag pairs), so column width equals bytesize. Skips the `each_grapheme`
       # walk (decode + grapheme-break state machine per char) and the
       # per-grapheme `String` allocation `width(Grapheme)`'s `#to_s` incurs.
-      return string.bytesize if string.ascii_only?
+      #
+      # `ascii_only?` alone is not enough: it is also true for C0 controls
+      # (TAB/CR/ESC) and DEL, which `codepoint_width` maps to 0 — the fast path
+      # would miscount those, so fall through to the grapheme walk instead.
+      if string.ascii_only? && string.each_char.all? { |c| 0x20 <= c.ord <= 0x7E }
+        return string.bytesize
+      end
       w = 0
       string.each_grapheme { |g| w += width(g) }
       w

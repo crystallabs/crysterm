@@ -124,9 +124,10 @@ module Crysterm
 
           (0...w).each do |x|
             # For `:left`, column x shows text[f + x] so the row shifts left as
-            # f grows; `:right` is the mirror. Crystal's `%` follows the
-            # divisor's sign, so the index is always valid.
-            idx = (direction.left? ? f + x : f - x) % n
+            # f grows; `:right` shows text[x - f] so it shifts right (the same
+            # glyph ordering, travelling the other way — not mirrored). Crystal's
+            # `%` follows the divisor's sign, so the index is always valid.
+            idx = (direction.left? ? f + x : x - f) % n
             ch = @chars[idx]
             next if ch == ' '
             attr = rainbow? ? Attr.pack(flags, Attr.pack_color(Colors.hsv_i((x * @hue_spread + f * @hue_speed) % 360)), bg_packed) : base

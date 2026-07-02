@@ -40,7 +40,10 @@ module Crysterm
         # Install/withdraw keyboard accelerators with the bar's attach lifecycle,
         # so e.g. `Ctrl+B` fires whenever the bar is on a window, not only on click.
         on(::Crysterm::Event::Attach) { install_action_shortcuts }
-        on(::Crysterm::Event::Detach) { uninstall_action_shortcuts }
+        # Uninstall from the window carried on the event: `Widget#remove` nulls
+        # `parent`/`window` before `Window#detach` emits `Event::Detach`, so
+        # `window?` is already nil here — the previous window comes via the payload.
+        on(::Crysterm::Event::Detach) { |e| uninstall_action_shortcuts e.object.as?(::Crysterm::Window) }
       end
 
       # Adds a button for *action*, returns its box. Clicking triggers the action
@@ -81,9 +84,10 @@ module Crysterm
         @item_actions.each_value(&.install_shortcut(w, self))
       end
 
-      # Withdraws every backing action's accelerator from the bar's window.
-      private def uninstall_action_shortcuts : Nil
-        w = window? || return
+      # Withdraws every backing action's accelerator from *w* (the window the bar
+      # is leaving, supplied via the `Detach` event payload).
+      private def uninstall_action_shortcuts(w : ::Crysterm::Window?) : Nil
+        return unless w
         @item_actions.each_value(&.uninstall_shortcut(w))
       end
 

@@ -104,11 +104,16 @@ module Crysterm
           # `Font#glyph` falls back to "?" then a blank glyph, and pads every
           # row to the font width, so `map[y - top]` is a non-nil row.
           map = @active_font.glyph(ch)
+          # Full-width glyphs (CJK, etc.) decode to a 16-px-wide grid even though
+          # `@ratio.width` is the half-width cell size (8 for Unifont). Use the
+          # glyph's own column count so wide glyphs render in full and the pen
+          # advances past all of them instead of clipping to the left half.
+          gw = map[0]?.try(&.size) || @ratio.width
           y = top
           while y < Math.min(bottom, top + @ratio.height)
             mline = map[y - top]
             mx = 0
-            while mx < @ratio.width
+            while mx < gw && x + mx < right
               mcell = mline[mx]?
               break if mcell.nil?
 
@@ -129,7 +134,7 @@ module Crysterm
             y += 1
           end
 
-          x += @ratio.width
+          x += gw
         end
 
         coords

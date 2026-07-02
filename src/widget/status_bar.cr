@@ -105,9 +105,14 @@ module Crysterm
       private def draw_permanent : Nil
         return if @permanent.empty?
         with_inner_coords do |xi, xl, yi, _yl|
+          avail = xl - xi
+          return if avail <= 0
           text = @permanent_text
-          start = Math.max(xi, xl - text.size)
-          draw_text_run yi, start, text, xl, sattr(style)
+          # Right-aligned: on overflow drop the *left* end so the tail (the most
+          # recently added sections) stays visible, rather than truncating the
+          # right end by pinning the start to `xi`.
+          text = text[(text.size - avail)..] if text.size > avail
+          draw_text_run yi, xl - text.size, text, xl, sattr(style)
         end
       end
     end

@@ -15,10 +15,10 @@ require "http/client"
   describe "HTTPBridge" do
     it "applies rpc commands and streams named-action events" do
       s = headless_screen
-      s.load_layout %(<w-screen>) +
+      s.load_layout %(<w-window>) +
                     %(<w-box id="status" content="hi"></w-box>) +
                     %(<w-button id="ok" onclick="save"></w-button>) +
-                    %(</w-screen>)
+                    %(</w-window>)
 
       Crysterm::HTTPBridge.new(s, port: 7099).start
       sleep 100.milliseconds # let the server bind
@@ -66,10 +66,10 @@ require "http/client"
 
     it "applies a command to every match of a general selector" do
       s = headless_screen
-      s.load_layout %(<w-screen>) +
+      s.load_layout %(<w-window>) +
                     %(<w-button id="a" class="primary"></w-button>) +
                     %(<w-button id="b" class="primary"></w-button>) +
-                    %(</w-screen>)
+                    %(</w-window>)
       Crysterm::HTTPBridge.new(s, port: 7100).start
       sleep 100.milliseconds
 
@@ -83,7 +83,7 @@ require "http/client"
 
     it "enforces a bearer token when configured" do
       s = headless_screen
-      s.load_layout %(<w-screen><w-box id="x"></w-box></w-screen>)
+      s.load_layout %(<w-window><w-box id="x"></w-box></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7101, token: "s3cret").start
       sleep 100.milliseconds
       base = "http://127.0.0.1:7101/rpc"
@@ -96,12 +96,12 @@ require "http/client"
 
     it "hot-reloads the whole layout" do
       s = headless_screen
-      s.load_layout %(<w-screen><w-box id="status" content="v1"></w-box></w-screen>)
+      s.load_layout %(<w-window><w-box id="status" content="v1"></w-box></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7102)
       bridge.start
 
       s.find_by_id("status").not_nil!.content.should eq "v1"
-      bridge.reload_layout %(<w-screen><w-box id="status" content="v2"></w-box></w-screen>)
+      bridge.reload_layout %(<w-window><w-box id="status" content="v2"></w-box></w-window>)
       s.find_by_id("status").not_nil!.content.should eq "v2"
     end
 
@@ -110,7 +110,7 @@ require "http/client"
       # `Window#remove` leaves animation fibers (and PTYs) running, so a
       # pulsing/keyframed widget would otherwise tick forever.
       s = headless_screen
-      s.load_layout %(<w-screen><w-box id="fx" content="v1"></w-box></w-screen>)
+      s.load_layout %(<w-window><w-box id="fx" content="v1"></w-box></w-window>)
       bridge = Crysterm::HTTPBridge.new(s, port: 7108)
       bridge.start
 
@@ -118,7 +118,7 @@ require "http/client"
       anim = old.pulse # a never-ending ticker, stopped only by #destroy
       anim.running?.should be_true
 
-      bridge.reload_layout %(<w-screen><w-box id="fx" content="v2"></w-box></w-screen>)
+      bridge.reload_layout %(<w-window><w-box id="fx" content="v2"></w-box></w-window>)
 
       # Old widget destroyed: animation stopped (no leaked fiber), new layout live.
       anim.running?.should be_false
@@ -127,7 +127,7 @@ require "http/client"
 
     it "returns a structured match count from mutating commands" do
       s = headless_screen
-      s.load_layout %(<w-screen><w-box class="x"></w-box><w-box class="x"></w-box></w-screen>)
+      s.load_layout %(<w-window><w-box class="x"></w-box><w-box class="x"></w-box></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7103).start
       sleep 100.milliseconds
       base = "http://127.0.0.1:7103/rpc"
@@ -141,7 +141,7 @@ require "http/client"
 
     it "does not append to the screen root when the parent selector matches nothing" do
       s = headless_screen
-      s.load_layout %(<w-screen><w-box id="root" content="r"></w-box></w-screen>)
+      s.load_layout %(<w-window><w-box id="root" content="r"></w-box></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7106).start
       sleep 100.milliseconds
       base = "http://127.0.0.1:7106/rpc"
@@ -166,7 +166,7 @@ require "http/client"
 
     it "lets a handler subscribe to events at runtime (no on* attribute)" do
       s = headless_screen
-      s.load_layout %(<w-screen><w-button id="ok"></w-button></w-screen>)
+      s.load_layout %(<w-window><w-button id="ok"></w-button></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7104).start
       sleep 100.milliseconds
       base = "http://127.0.0.1:7104"
@@ -203,7 +203,7 @@ require "http/client"
       # `navigate:home` looks declarative but names no built-in verb, so it must
       # reach the handler rather than being silently dropped.
       s = headless_screen
-      s.load_layout %(<w-screen><w-button id="go" onclick="navigate:home"></w-button></w-screen>)
+      s.load_layout %(<w-window><w-button id="go" onclick="navigate:home"></w-button></w-window>)
       Crysterm::HTTPBridge.new(s, port: 7105).start
       sleep 100.milliseconds
       base = "http://127.0.0.1:7105"
@@ -238,9 +238,9 @@ require "http/client"
       # the screen. `remove_from_parent` was a silent no-op here: reported a
       # match but left the widget on screen.
       s = headless_screen
-      s.load_layout %(<w-screen>) +
+      s.load_layout %(<w-window>) +
                     %(<w-box id="top"><w-box id="nested"></w-box></w-box>) +
-                    %(</w-screen>)
+                    %(</w-window>)
       Crysterm::HTTPBridge.new(s, port: 7107).start
       sleep 100.milliseconds
       base = "http://127.0.0.1:7107/rpc"

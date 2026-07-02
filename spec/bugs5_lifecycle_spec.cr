@@ -36,7 +36,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     s = lifecycle_screen
     parent = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 10)
     a = Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
-    b = Crysterm::Widget::Box.new(parent: parent, top: 1, left: 0, width: 5, height: 1)
+    Crysterm::Widget::Box.new(parent: parent, top: 1, left: 0, width: 5, height: 1)
 
     # Render once to clear any pending dirty/CSS state.
     s.render
@@ -54,7 +54,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
   it "#back! on a nested widget reorders it and invalidates" do
     s = lifecycle_screen
     parent = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 10)
-    a = Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
+    Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
     b = Crysterm::Widget::Box.new(parent: parent, top: 1, left: 0, width: 5, height: 1)
 
     s.render
@@ -71,7 +71,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
   it "#front! on a top-level widget (window parent) reorders and invalidates" do
     s = lifecycle_screen
     a = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 5, height: 1)
-    b = Crysterm::Widget::Box.new(parent: s, top: 1, left: 0, width: 5, height: 1)
+    Crysterm::Widget::Box.new(parent: s, top: 1, left: 0, width: 5, height: 1)
 
     s.render
     a.render_dirty = false
@@ -87,7 +87,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
   it "#front! is a no-op (no reorder) when already at the front slot" do
     s = lifecycle_screen
     parent = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 20, height: 10)
-    a = Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
+    Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
     b = Crysterm::Widget::Box.new(parent: parent, top: 1, left: 0, width: 5, height: 1)
 
     s.render
@@ -110,12 +110,12 @@ describe "BUGS5 capture_animation first-frame ordering (fix #2)" do
   # ffmpeg's stdin.
   it "writes the first frame before registering the Rendered handler" do
     src = File.read(File.join(__DIR__, "..", "src", "window_capture.cr"))
-    body_start = src.index("private def capture_animation").not_nil!
-    body_end = src.index("private def run_ffmpeg", body_start).not_nil!
+    body_start = src.index!("private def capture_animation")
+    body_end = src.index!("private def run_ffmpeg", body_start)
     body = src[body_start...body_end]
 
-    first_write = body.index("input.write Capture.rgba(first)").not_nil!
-    handler_register = body.index("on(::Crysterm::Event::Rendered)").not_nil!
+    first_write = body.index!("input.write Capture.rgba(first)")
+    handler_register = body.index!("on(::Crysterm::Event::Rendered)")
 
     first_write.should be < handler_register
   end

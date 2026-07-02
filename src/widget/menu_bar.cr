@@ -55,7 +55,10 @@ module Crysterm
         # Wire menu actions' keyboard accelerators to the window lifecycle, so e.g.
         # "Copy" (Ctrl+C) fires without opening the menu first (Qt's menu-action shortcuts).
         on(::Crysterm::Event::Attach) { install_menu_shortcuts }
-        on(::Crysterm::Event::Detach) { uninstall_menu_shortcuts }
+        # Uninstall from the window carried on the event: `Widget#remove` nulls
+        # `parent`/`window` before `Window#detach` emits `Event::Detach`, so
+        # `window?` is already nil here — the previous window comes via the payload.
+        on(::Crysterm::Event::Detach) { |e| uninstall_menu_shortcuts e.object.as?(::Crysterm::Window) }
       end
 
       # Adds a top-level menu titled *title* (optionally pre-filled with
@@ -103,9 +106,10 @@ module Crysterm
         @menus.each { |m| visit_actions(m, &.install_shortcut(w, self)) }
       end
 
-      # Withdraws every menu action's accelerator from the bar's window.
-      private def uninstall_menu_shortcuts : Nil
-        w = window? || return
+      # Withdraws every menu action's accelerator from *w* (the window the bar
+      # is leaving, supplied via the `Detach` event payload).
+      private def uninstall_menu_shortcuts(w : ::Crysterm::Window?) : Nil
+        return unless w
         @menus.each { |m| visit_actions(m, &.uninstall_shortcut(w)) }
       end
 

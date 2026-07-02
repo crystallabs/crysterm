@@ -129,10 +129,11 @@ module Crysterm
             amp = (h - 1) / 2.0
 
             (0...w).each do |x|
-              # Horizontal scroll, identical to `Marquee`: `:left` shifts left as
-              # f grows, `:right` mirrors it. Crystal's `%` follows the divisor's
-              # sign, so the index is always valid.
-              idx = (direction.left? ? f + x : f - x) % n
+              # Horizontal scroll, identical to `Marquee`: `:left` shows
+              # text[f + x] (shifts left as f grows), `:right` shows text[x - f]
+              # (shifts right, same glyph ordering). Crystal's `%` follows the
+              # divisor's sign, so the index is always valid.
+              idx = (direction.left? ? f + x : x - f) % n
               ch = @chars[idx]
               next if ch == ' '
               r = (amp * (1.0 + Math.sin(x * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, h - 1)

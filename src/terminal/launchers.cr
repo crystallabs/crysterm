@@ -148,7 +148,10 @@ module Crysterm
         return known if known.available?
       end
       return nil unless Process.find_executable(name)
-      Launcher.flags(base, run_flag: "-e")
+      # Build the fallback with the resolved spec (the literal `name`, which may
+      # be an absolute path), not `base`, so `Process.new` execs exactly what
+      # was validated instead of doing a PATH lookup on the basename.
+      Launcher.flags(name, run_flag: "-e")
     end
   end
 end

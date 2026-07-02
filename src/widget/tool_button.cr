@@ -177,8 +177,9 @@ module Crysterm
       private def cycle_menu(m : Menu, delta : Int32) : Nil
         acts = m.actions.select { |a| !a.separator? && a.enabled && !a.menu? }
         return if acts.empty?
+        # Crystal's `%` with a positive divisor already yields a non-negative
+        # result, so no negative-index correction is needed.
         @menu_index = (@menu_index + delta) % acts.size
-        @menu_index += acts.size if @menu_index < 0
         acts[@menu_index].activate
       end
 

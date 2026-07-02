@@ -54,8 +54,15 @@ describe Crysterm::Widget::Marquee do
       text: "ABCDE", direction: :right
     w = m.awidth
 
-    s._render # frame 0: column x shows text[-x], via sign-safe modulo
-    row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[((0 - x) % 5)] } }
+    # Frame 0: column x shows text[x] — the message reads normally (not mirrored).
+    s._render
+    row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[x % 5] } }
+
+    # After one step the window slides *right*: column x now shows text[x-1]
+    # (sign-safe modulo), i.e. the whole string moves one column to the right.
+    m.step
+    s._render
+    row0(s, w).should eq String.build { |io| (0...w).each { |x| io << "ABCDE"[((x - 1) % 5)] } }
   end
 
   it "loops seamlessly through trailing-space gaps" do
