@@ -1,4 +1,5 @@
 require "event_handler"
+require "../../mixin/exclusive_group"
 
 module Crysterm
   # Logical, non-visual grouping of checkable buttons, modeled after Qt's
@@ -31,6 +32,7 @@ module Crysterm
   # ```
   class ButtonGroup
     include EventHandler
+    include Mixin::ExclusiveGroup
 
     # Whether at most one member may be checked at a time (Qt's
     # `QButtonGroup#exclusive`). Defaults to `true`.
@@ -112,9 +114,10 @@ module Crysterm
     # others; then re-announces the click on the group.
     private def on_member_checked(button : Widget) : Nil
       return if @suppress
-      if exclusive?
-        suppressed { @buttons.each { |b| member_uncheck b unless b == button } }
-      end
+      # Exclusive mode enforces "at most one checked" via the shared
+      # `ExclusiveGroup` rule; `suppressed` stops the cascade of unchecks from
+      # re-entering this handler (see `#on_member_unchecked`).
+      suppressed { exclude_peers @buttons, button } if exclusive?
       emit Crysterm::Event::ButtonClick, button
     end
 
@@ -149,10 +152,6 @@ module Crysterm
     # rather than the concrete leaf types (which used to miss `RadioButton`).
     private def member_checked?(b : Widget) : Bool
       b.is_a?(Widget::AbstractButton) ? b.checked? : false
-    end
-
-    private def member_uncheck(b : Widget) : Nil
-      b.uncheck if b.is_a?(Widget::AbstractButton)
     end
 
     private def member_check(b : Widget) : Nil

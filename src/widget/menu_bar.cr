@@ -218,10 +218,7 @@ module Crysterm
 
       # The pop-up menus are window children, so tear them down with the bar.
       def destroy
-        @menus.each do |m|
-          window?.try &.remove m
-          m.destroy
-        end
+        @menus.each { |m| Widget.destroy_satellite m }
         @menus.clear
         super
       end

@@ -183,10 +183,7 @@ module Crysterm
       @filter.off
       @dismiss.try &.close
       @dismiss = nil
-      if pop = @popup
-        pop.window?.try &.remove pop
-        pop.destroy
-      end
+      Widget.destroy_satellite @popup
       @popup = nil
       @open = false
       @widget = nil

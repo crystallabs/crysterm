@@ -33,6 +33,26 @@ module Crysterm
       end
     end
 
+    # Tears down an owned *satellite* widget — one a control appends to the
+    # *window* (a search box, a pop-up menu, a completion/dropdown list, a hover
+    # tooltip) rather than to itself, so the owner's own `#destroy` (which only
+    # recurses into its children) never reaches it. The owner drops it here from
+    # its own teardown.
+    #
+    # A class method (not an instance method) so the non-widget `Completer` can
+    # call it too, and so it reaches through the *satellite's own* `#window?`
+    # rather than the owner's — the robust choice (it works even after the owner
+    # has already detached) and the one that single-sources the `window` /
+    # `window?` / `satellite.window?` split the ~5 hand-rolled copies had drifted
+    # on. `#destroy` self-detaches from the window as well, so the explicit
+    # `#remove` is belt-and-suspenders, but keeping it preserves the prior
+    # behavior verbatim. Nil-safe.
+    def self.destroy_satellite(satellite : Widget?) : Nil
+      return unless satellite
+      satellite.window?.try &.remove satellite
+      satellite.destroy
+    end
+
     # Stretches *child* to fill this widget, `top`/`left`/`right`/`bottom`
     # giving the inset on each side (all `0` — flush — by default). This is the
     # geometry idiom the paged and single-content containers all share, where a

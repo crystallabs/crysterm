@@ -82,10 +82,7 @@ module Crysterm
         # `Window#grabbing?` true and routing presses to a dead widget).
         @open = false
         @dismiss.try &.close
-        if pop = popup_widget
-          window?.try &.remove pop
-          pop.destroy
-        end
+        ::Crysterm::Widget.destroy_satellite popup_widget
       end
     end
   end

@@ -128,4 +128,35 @@ describe "Checkable conformance (B8)" do
       members
     },
   )
+
+  # B5.7 — the two exclusive-selection models share the "uncheck the peers"
+  # enforcement (`Mixin::ExclusiveGroup#exclude_peer`) but *intentionally* differ
+  # in the non-empty guarantee. Pinned here as explicit, opposite exceptions so
+  # that divergence stays documented rather than drifting silently (the exact
+  # drift B0/B5.7 flags): if either side's policy changes, one of these fails.
+  describe "exclusive-group non-empty policy (intended divergence)" do
+    it "ButtonGroup forbids unchecking the sole selected member (reverts)" do
+      s = mem_screen
+      g = Crysterm::ButtonGroup.new exclusive: true
+      a = Crysterm::Widget::Button.new parent: s
+      b = Crysterm::Widget::Button.new parent: s
+      g.add a
+      g.add b
+      a.check
+      a.uncheck                 # try to empty the group by unchecking the sole member
+      a.checked?.should be_true # reverted — still exactly one selected
+      g.buttons.count(&.as(Crysterm::Widget::AbstractButton).checked?).should eq 1
+    end
+
+    it "RadioSet permits a programmatic uncheck to empty the group" do
+      s = mem_screen
+      rs = Crysterm::Widget::RadioSet.new parent: s
+      a = Crysterm::Widget::RadioButton.new parent: rs
+      b = Crysterm::Widget::RadioButton.new parent: rs
+      a.check
+      a.uncheck # no revert — radios prevent *interactive* emptying via check-only #toggle only
+      a.checked?.should be_false
+      [a, b].count(&.checked?).should eq 0
+    end
+  end
 end

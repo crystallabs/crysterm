@@ -372,12 +372,9 @@ module Crysterm
       @children.dup.each do |c|
         c.destroy
       end
-      # A hover tooltip is a window overlay (not a child); drop it explicitly.
-      if tip = @_tooltip
-        tip.window?.try &.remove tip
-        tip.destroy
-        @_tooltip = nil
-      end
+      # A hover tooltip is a window-level satellite (not a child); drop it here.
+      Widget.destroy_satellite @_tooltip
+      @_tooltip = nil
       # Detach from wherever this widget lives — a nested widget from its
       # parent, a top-level one from its window — else it would remain in
       # `window.children`: still painted, keyable, possibly holding focus/hover/grab.

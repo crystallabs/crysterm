@@ -845,7 +845,7 @@ module Crysterm
       # this widget and its own children — would leave it orphaned at the window
       # bottom for the window's lifetime. Drop it explicitly here.
       def destroy
-        @search_box.try &.destroy
+        Widget.destroy_satellite @search_box
         @search_box = nil
         super
       end

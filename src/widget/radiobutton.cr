@@ -1,5 +1,6 @@
 require "./abstract_button"
 require "../mixin/check_marker"
+require "../mixin/exclusive_group"
 require "./radioset"
 
 module Crysterm
@@ -17,6 +18,7 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class RadioButton < AbstractButton
       include Mixin::CheckMarker
+      include Mixin::ExclusiveGroup
 
       # TODO option for changing icons
 
@@ -62,8 +64,11 @@ module Crysterm
         end
         el = el || parent
 
+        # Uncheck the sibling radios (only radios — a `RadioSet` may hold other
+        # checkables that this exclusivity must not touch). The shared decision
+        # ("different, currently-checked → uncheck") lives in `ExclusiveGroup`.
         el.try &.each_descendant do |cel|
-          cel.uncheck if cel.is_a?(RadioButton) && cel != self
+          exclude_peer cel, self if cel.is_a?(RadioButton)
         end
       end
     end
