@@ -59,9 +59,8 @@ module Crysterm
       )
         super **button
 
-        # Activate-key / click wiring (ToolButton derives `AbstractButton`
-        # directly, not `Button`).
-        handle Crysterm::Event::KeyPress
+        # Activate-key wiring is inherited from `AbstractButton`; like `Button`,
+        # a tool button also activates on a click anywhere on it.
         handle Crysterm::Event::Click
 
         @auto_raise = auto_raise

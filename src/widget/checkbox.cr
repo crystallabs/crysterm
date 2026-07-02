@@ -59,24 +59,12 @@ module Crysterm
         ' '
       end
 
-      def check
-        return if checked? && !partial?
-        @checked = true
+      # Resets the partially-checked state on a check/uncheck transition. This
+      # is the only per-widget delta in `AbstractButton#check`/`#uncheck`, so it
+      # is expressed as this hook and the shared transition body lives once (the
+      # `checked?`/`partial?` guards there already account for the tri-state).
+      private def clear_partial : Nil
         @partial = false
-        @value = true
-        invalidate_css # `checked`/`indeterminate` attribute selectors may now match
-        emit Crysterm::Event::Check, @value
-        request_render # repaint the marker (matches `AbstractButton#check`)
-      end
-
-      def uncheck
-        return if !checked? && !partial?
-        @checked = false
-        @partial = false
-        @value = false
-        invalidate_css
-        emit Crysterm::Event::UnCheck, @value
-        request_render # repaint the marker (matches `AbstractButton#uncheck`)
       end
 
       # Puts the box in its partially-checked (indeterminate) state. No-op unless

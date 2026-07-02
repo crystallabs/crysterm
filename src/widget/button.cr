@@ -34,7 +34,8 @@ module Crysterm
         @flat = flat
         @default = default
 
-        handle Crysterm::Event::KeyPress
+        # Activate-key wiring is inherited from `AbstractButton`; a push button
+        # additionally activates on a click anywhere on it.
         handle Crysterm::Event::Click
       end
 

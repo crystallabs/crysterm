@@ -13,7 +13,8 @@ module Crysterm
       # Wires the activate keys, focus/blur cursor handling, and the marker-click
       # hit-test. Call from `initialize`, after `super`.
       private def setup_check_marker : Nil
-        handle Crysterm::Event::KeyPress
+        # `KeyPress` is already wired by `AbstractButton#initialize` (activate
+        # keys are family-wide); here we add only the marker-specific handlers.
         handle Crysterm::Event::Focus
         handle Crysterm::Event::Blur
 
@@ -42,12 +43,11 @@ module Crysterm
         end
       end
 
-      def on_keypress(e)
-        if e.activates?
-          e.accept
-          toggle
-          request_render
-        end
+      # The marker controls toggle (rather than push) on activation; the shared
+      # `AbstractButton#on_keypress` calls this.
+      protected def activate
+        toggle
+        request_render
       end
 
       def on_focus(e)

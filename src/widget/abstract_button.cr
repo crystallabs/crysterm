@@ -38,6 +38,14 @@ module Crysterm
         super **input
         @checkable = checkable
         @checked = checked
+
+        # Activate-key wiring is shared by the whole family (push buttons and the
+        # marker controls both activate on Space/Enter), so it lives here rather
+        # than in each subclass — a subclass can no longer be silently dead to
+        # the keyboard by forgetting it. The `Click` wiring is push-only and
+        # stays in `Button`/`ToolButton` (the marker controls hit-test the marker
+        # glyph via `Mouse` instead — see `Mixin::CheckMarker`).
+        handle Crysterm::Event::KeyPress
       end
 
       # Activates the button: focuses it (unless `#focus_on_click?` is off),
@@ -71,13 +79,28 @@ module Crysterm
         request_render
       end
 
+      # Whether a third, partially-checked (indeterminate) state is currently
+      # set. Always false for a plain button; `CheckBox` overrides it (via its
+      # `#tristate?` support) so `#check`/`#uncheck` here treat "partial" as a
+      # state that a transition must settle out of.
+      def partial? : Bool
+        false
+      end
+
+      # Clears any partially-checked state as part of a `#check`/`#uncheck`
+      # transition. No-op for a plain button; `CheckBox` overrides it to reset
+      # its `@partial` flag, letting the transition body below live once.
+      private def clear_partial : Nil
+      end
+
       # Sets the checked state (only when `#checkable?`), emitting `Event::Check`
       # if it changed. Lets a checkable button be driven through the same
       # interface as `CheckBox` (e.g. by `ButtonGroup`).
       def check
         return unless checkable?
-        return if checked?
+        return if checked? && !partial? # already settled on checked
         @checked = true
+        clear_partial
         @value = true # `#value` mirrors `#checked?` for a checkable control
         invalidate_css
         emit Crysterm::Event::Check, @checked
@@ -88,8 +111,9 @@ module Crysterm
       # `Event::UnCheck` if it changed. Counterpart to `#check`.
       def uncheck
         return unless checkable?
-        return unless checked?
+        return if !checked? && !partial? # already settled on unchecked
         @checked = false
+        clear_partial
         @value = false # `#value` mirrors `#checked?` for a checkable control
         invalidate_css
         emit Crysterm::Event::UnCheck, @checked
@@ -104,10 +128,18 @@ module Crysterm
         true
       end
 
+      # The keyboard activation gesture, invoked by `#on_keypress` on Space/Enter.
+      # A push button `#press`es; the marker controls (`CheckBox`/`RadioButton`)
+      # override this via `Mixin::CheckMarker` to `#toggle` instead, so one
+      # `#on_keypress` serves the whole family.
+      protected def activate
+        press
+      end
+
       def on_keypress(e)
         if e.activates?
           e.accept
-          press
+          activate
         end
       end
 
