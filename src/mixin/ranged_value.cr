@@ -1,67 +1,96 @@
 module Crysterm
   module Mixin
-    # Shared integer-range value behavior for the numeric controls
-    # `Widget::Slider`, `Widget::SpinBox` and `Widget::Dial`: a `#value` kept
-    # within `[#minimum, #maximum]` (clamped, or wrapped when `#wrap?`), stepped
-    # by `#step`, emitting `Event::ValueChange` only on an actual change.
+    # Shared bounded-range value behavior for the numeric controls
+    # `Widget::Slider`, `Widget::SpinBox`, `Widget::Dial` and
+    # `Widget::DoubleSpinBox`: a `#value` kept within `[#minimum, #maximum]`
+    # (clamped, or wrapped when `#wrap?`), stepped by `#step`, emitting a
+    # value-change signal only on an actual change.
     #
-    # `Widget::ProgressBar` is intentionally *not* built on this: its value drives
-    # a derived fill percentage and emits an extra `Event::Complete`, so it keeps
-    # its own implementation.
-    module RangedValue
-      getter minimum : Int32 = 0
-      getter maximum : Int32 = 100
+    # The module is generic over the numeric type *T*, so the integer controls
+    # include `RangedValue(Int32)` and `DoubleSpinBox` includes
+    # `RangedValue(Float64)` — collapsing the range machinery each had copied.
+    # The two signals differ by type, so they route through the overridable
+    # `#emit_value_change`/`#emit_range_change` hooks: the default emits the
+    # `Int32` `Event::ValueChange`/`Event::RangeChange`, and `DoubleSpinBox`
+    # overrides `#emit_value_change` to emit `Event::DoubleValueChange` (and
+    # `#emit_range_change` to a no-op, since there is no `Float64` range event).
+    #
+    # `Widget::ProgressBar` is intentionally *not* built on this even though its
+    # range is `Int32`: its value drives a derived fill percentage and emits an
+    # extra `Event::Complete` gated on a `complete:` flag that a range-shrink
+    # re-clamp must suppress — a shape `#value=`/`#set_range` here can't express —
+    # so it keeps its own implementation.
+    module RangedValue(T)
+      @minimum : T = T.zero
+      @maximum : T = T.zero
+      @value : T = T.zero
+      @step : T = T.zero
+
+      # Current lower/upper bounds of the value range.
+      def minimum : T
+        @minimum
+      end
+
+      # :ditto:
+      def maximum : T
+        @maximum
+      end
 
       # Sets the lower bound (Qt's `setMinimum`), re-clamping the value and
-      # emitting `Event::RangeChange` on an actual change. See `#set_range`.
+      # emitting the range-change signal on an actual change. See `#set_range`.
       #
       # As in Qt, a new minimum above the current maximum carries the maximum
       # up with it (range collapses to the single value `v`) rather than
       # inverting.
-      def minimum=(v : Int32) : Int32
+      def minimum=(v : T) : T
         set_range v, Math.max(v, @maximum)
         @minimum
       end
 
       # Sets the upper bound (Qt's `setMaximum`), re-clamping the value and
-      # emitting `Event::RangeChange` on an actual change. See `#set_range`.
+      # emitting the range-change signal on an actual change. See `#set_range`.
       #
       # As in Qt, a new maximum below the current minimum carries the minimum
       # down with it (range collapses to the single value `v`) rather than
       # inverting.
-      def maximum=(v : Int32) : Int32
+      def maximum=(v : T) : T
         set_range Math.min(v, @minimum), v
         @maximum
       end
 
       # Amount the arrow keys / `#increment` / `#decrement` move the value by.
-      property step : Int32 = 1
-
-      # Qt's `singleStep`: an alias for `#step`, the amount a single line-step
-      # (arrow key, wheel notch) moves the value by.
-      def single_step : Int32
+      def step : T
         @step
       end
 
       # :ditto:
-      def single_step=(v : Int32) : Int32
+      def step=(v : T) : T
+        @step = v
+      end
+
+      # Qt's `singleStep`: an alias for `#step`, the amount a single line-step
+      # (arrow key, wheel notch) moves the value by.
+      def single_step : T
+        @step
+      end
+
+      # :ditto:
+      def single_step=(v : T) : T
         @step = v
       end
 
       # Whether stepping past a bound wraps around to the other end.
       property? wrap : Bool = false
 
-      @value : Int32 = 0
-
       # Current value, within `[#minimum, #maximum]`.
-      def value : Int32
+      def value : T
         @value
       end
 
       # Sets the value — wrapping when `#wrap?`, otherwise clamping into range.
-      # On an actual change it runs `#on_value_changed`, emits
-      # `Event::ValueChange`, and repaints.
-      def value=(v : Int32) : Int32
+      # On an actual change it runs `#on_value_changed`, emits the value-change
+      # signal (via `#emit_value_change`), and repaints.
+      def value=(v : T) : T
         if wrap? && @maximum > @minimum
           if v > @maximum
             v = @minimum
@@ -73,22 +102,22 @@ module Crysterm
         return v if v == @value
         @value = v
         on_value_changed
-        emit Crysterm::Event::ValueChange, @value
+        emit_value_change
         request_render
         @value
       end
 
-      def increment(by : Int32 = @step)
+      def increment(by : T = @step)
         self.value = @value + by
       end
 
-      def decrement(by : Int32 = @step)
+      def decrement(by : T = @step)
         self.value = @value - by
       end
 
       # Size of the value range (`maximum - minimum`), never negative.
-      def value_span : Int32
-        Math.max(0, @maximum - @minimum)
+      def value_span : T
+        Math.max(T.zero, @maximum - @minimum)
       end
 
       # Constructor-time range+value initialiser: stores a non-inverted range and
@@ -97,7 +126,7 @@ module Crysterm
       # "never store an inverted range" guard (which `#value=`/`#value_span`/the
       # percent helpers all assume) can't be forgotten — `ScrollBar` forgot it and
       # `ScrollBar.new(minimum: 100, maximum: 0)` stored an inverted range.
-      protected def init_range(min : Int32, max : Int32, value : Int32? = nil) : Nil
+      protected def init_range(min : T, max : T, value : T? = nil) : Nil
         @minimum = min
         @maximum = Math.max(min, max)
         @value = (value || @minimum).clamp(@minimum, @maximum)
@@ -167,10 +196,11 @@ module Crysterm
       end
 
       # Sets both bounds at once (Qt's `setRange(min, max)`). On an actual change
-      # it runs `#on_range_changed`, emits `Event::RangeChange`, re-clamps the
-      # current value into the new range (which may emit `Event::ValueChange`),
-      # and repaints. No-op when neither bound moves.
-      def set_range(min : Int32, max : Int32) : Nil
+      # it runs `#on_range_changed`, emits the range-change signal (via
+      # `#emit_range_change`), re-clamps the current value into the new range
+      # (which may emit a value change), and repaints. No-op when neither bound
+      # moves.
+      def set_range(min : T, max : T) : Nil
         # Never store an inverted range: `#value=`/`#value_span`/the percent
         # helpers all assume `min <= max`. Mirrors Qt's `setRange`, where a max
         # below min collapses the range to `min`. (`#minimum=`/`#maximum=`
@@ -180,7 +210,7 @@ module Crysterm
         @minimum = min
         @maximum = max
         on_range_changed
-        emit Crysterm::Event::RangeChange, @minimum, @maximum
+        emit_range_change
         # Pre-clamp (rather than let `#value=` handle it) so a `#wrap?` control
         # clamps on a range change instead of wrapping to the opposite bound:
         # an out-of-range `@value` would trip `#value=`'s wrap branch. A
@@ -193,21 +223,38 @@ module Crysterm
       # `setRange`). An exclusive range (`begin...end`) covers `begin..end - 1`,
       # matching Crystal's own `Range` semantics. A degenerate empty exclusive
       # range (`n...n`) collapses to the single value `n` instead of inverting.
-      def range=(r : ::Range(Int32, Int32)) : ::Range(Int32, Int32)
+      def range=(r : ::Range(T, T)) : ::Range(T, T)
         max = r.exclusive? ? Math.max(r.begin, r.end - 1) : r.end
         set_range r.begin, max
         r
       end
 
-      # Overridable hook run (before `Event::RangeChange`) whenever `#minimum`
+      # Overridable hook run (before the range-change signal) whenever `#minimum`
       # or `#maximum` actually changes. No-op by default.
       protected def on_range_changed
       end
 
-      # Overridable hook run (before `Event::ValueChange`) whenever the value
+      # Overridable hook run (before the value-change signal) whenever the value
       # actually changes — e.g. `SpinBox` refreshes its displayed text. No-op by
       # default.
       protected def on_value_changed
+      end
+
+      # Emits the value-change signal on an actual change. The default is the
+      # `Int32` `Event::ValueChange` used by the integer controls
+      # (`Slider`/`Dial`/`ScrollBar`/`SpinBox`); `DoubleSpinBox` overrides it to
+      # emit the `Float64` `Event::DoubleValueChange`. Kept as a hook because the
+      # two events are distinct types — a single `emit` here would not type-check
+      # across both `T` instantiations.
+      protected def emit_value_change : Nil
+        emit Crysterm::Event::ValueChange, @value
+      end
+
+      # Emits the range-change signal on an actual change. The default is the
+      # `Int32` `Event::RangeChange`; `DoubleSpinBox` overrides it to a no-op
+      # (there is no `Float64` range event, matching its prior behavior).
+      protected def emit_range_change : Nil
+        emit Crysterm::Event::RangeChange, @minimum, @maximum
       end
     end
 

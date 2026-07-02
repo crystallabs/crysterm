@@ -22,7 +22,7 @@ module Crysterm
     class SpinBox < AbstractSpinBox
       # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
       # `#increment`/`#decrement`, `Event::ValueChange`).
-      include Mixin::RangedValue
+      include Mixin::RangedValue(Int32)
 
       # Edit buffer, key dispatch, wheel/blur wiring, `#text`/`#commit_edit`/…
       include Mixin::SpinBoxEditing

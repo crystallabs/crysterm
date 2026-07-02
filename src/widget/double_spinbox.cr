@@ -1,4 +1,5 @@
 require "./abstract_spin_box"
+require "../mixin/ranged_value"
 require "../mixin/spinbox_editing"
 
 module Crysterm
@@ -11,55 +12,24 @@ module Crysterm
     # (digits, one `.`, and a leading `-` when negatives are in range); Enter
     # commits, Escape/blur discards. Emits `Event::DoubleValueChange` on change.
     #
-    # It is a separate widget (not built on `Mixin::RangedValue`, which is
-    # integer-only) so the integer controls keep their simpler `Int32` path.
+    # Its value/range logic is `Mixin::RangedValue(Float64)` — the same generic
+    # bounded-range machinery the integer controls use as `RangedValue(Int32)`;
+    # it overrides only the value-change signal (`Event::DoubleValueChange`
+    # instead of the `Int32` `Event::ValueChange`).
     #
     # <!-- widget-examples:capture v1 -->
     # ![DoubleSpinBox screenshot](../../tests/widget/double_spinbox/double_spinbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class DoubleSpinBox < AbstractSpinBox
+      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrap?`,
+      # `#increment`/`#decrement`, `#set_range`), in `Float64`.
+      include Mixin::RangedValue(Float64)
+
       # Edit buffer, key dispatch, wheel/blur wiring, `#text`/`#commit_edit`/…
       include Mixin::SpinBoxEditing
 
       # Honor the given `width` rather than shrinking to the content.
       @resizable = false
-
-      # Lower/upper bounds of the value range (Qt's `minimum`/`maximum`).
-      getter minimum : Float64 = 0.0
-      getter maximum : Float64 = 100.0
-      property step : Float64 = 1.0
-
-      # Sets the lower bound (Qt's `setMinimum`), re-clamping the value into the
-      # new range and repainting. See `#set_range`.
-      def minimum=(v : Float64) : Float64
-        set_range v, @maximum
-        @minimum
-      end
-
-      # Sets the upper bound (Qt's `setMaximum`), re-clamping the value into the
-      # new range and repainting. See `#set_range`.
-      def maximum=(v : Float64) : Float64
-        set_range @minimum, v
-        @maximum
-      end
-
-      # Sets both bounds at once (Qt's `setRange`), re-clamping the current value
-      # into the new range and scheduling a repaint. Mirrors `SpinBox`
-      # (`Mixin::RangedValue#set_range`) and `ProgressBar#set_range`.
-      # (`Event::RangeChange` is `Int32`-typed, so — like `ProgressBar` — the
-      # float path can't emit it.)
-      def set_range(min : Float64, max : Float64) : Nil
-        max = min if max < min # never store an inverted range
-        return if min == @minimum && max == @maximum
-        @minimum = min
-        @maximum = max
-        # Pre-clamp here rather than leaning on `#value=`, so a `#wrap?` box
-        # *clamps* on a range change instead of tripping the wrap branch and
-        # snapping to the opposite bound. `#request_render` covers the
-        # value-unchanged-but-range-changed case.
-        self.value = @value.clamp(@minimum, @maximum)
-        request_render
-      end
 
       # Number of fractional digits shown (Qt's `QDoubleSpinBox#decimals`).
       # Never negative — a negative count would make the `"%.*f"` format string
@@ -76,13 +46,8 @@ module Crysterm
       property prefix : String = ""
       property suffix : String = ""
 
-      # Whether stepping past a bound wraps to the other end.
-      property? wrap : Bool = false
-
       # Whether the value can be typed directly.
       property? editable : Bool = true
-
-      @value : Float64 = 0.0
 
       def initialize(
         value : Float64? = nil,
@@ -100,10 +65,10 @@ module Crysterm
 
         @wrap = wrap
         @decimals = Math.max(decimals, 0)
-        # Never store an inverted range (mirrors `#set_range`), which would
-        # otherwise leave `#value` permanently stuck after `clamp`.
-        @maximum = Math.max(@minimum, @maximum)
-        @value = (value || @minimum).clamp(@minimum, @maximum)
+        # Store a non-inverted range and a clamped value (the shared guard;
+        # `RangedValue#init_range` does the `maximum >= minimum` fix-up that an
+        # inverted range would otherwise leave `#value` stuck under).
+        init_range @minimum, @maximum, value
 
         handle Crysterm::Event::KeyPress
         install_spinbox_editing
@@ -111,36 +76,21 @@ module Crysterm
         update_content
       end
 
-      # Current value, within `[#minimum, #maximum]`.
-      def value : Float64
-        @value
-      end
-
-      # Sets the value — wrapping when `#wrap?`, otherwise clamping into range.
-      # Emits `Event::DoubleValueChange` only on an actual change.
-      def value=(v : Float64) : Float64
-        if wrap? && @maximum > @minimum
-          if v > @maximum
-            v = @minimum
-          elsif v < @minimum
-            v = @maximum
-          end
-        end
-        v = v.clamp(@minimum, @maximum)
-        return v if v == @value
-        @value = v
+      # Refresh the displayed number whenever the value changes (`RangedValue`
+      # hook), mirroring `SpinBox`.
+      protected def on_value_changed
         update_content
+      end
+
+      # Emit the `Float64` value-change signal (`RangedValue` hook); the integer
+      # controls emit `Event::ValueChange` here instead.
+      protected def emit_value_change : Nil
         emit Crysterm::Event::DoubleValueChange, @value
-        request_render
-        @value
       end
 
-      def increment(by : Float64 = @step)
-        self.value = @value + by
-      end
-
-      def decrement(by : Float64 = @step)
-        self.value = @value - by
+      # No `Float64` range-change event exists, so range changes emit nothing
+      # (as before); `RangedValue#set_range` still re-clamps and repaints.
+      protected def emit_range_change : Nil
       end
 
       # The value formatted to `#decimals` places.

@@ -43,12 +43,15 @@ describe "DoubleSpinBox range clamping" do
     d.value.should eq 25.0
   end
 
-  it "never stores an inverted range (a max below min collapses it, Qt setRange)" do
+  it "never stores an inverted range (a max below min carries the min down, Qt setMaximum)" do
     s = dsr_screen
     d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 100.0, value: 40.0
     d.maximum = -10.0
-    d.minimum.should eq 0.0
-    d.maximum.should eq 0.0
-    d.value.should eq 0.0
+    # Now shares `Mixin::RangedValue(Float64)`, so a maximum below the minimum
+    # carries the minimum down with it — collapsing to the single value `-10.0`,
+    # identical to the integer `SpinBox` (see `ranged_value_inverted_range_spec`).
+    d.minimum.should eq -10.0
+    d.maximum.should eq -10.0
+    d.value.should eq -10.0
   end
 end

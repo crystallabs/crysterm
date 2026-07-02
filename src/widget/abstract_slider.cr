@@ -14,7 +14,7 @@ module Crysterm
     # `ProgressBar` does *not* derive this: Qt's `QProgressBar` is a plain
     # `QWidget`, not a `QAbstractSlider`, so it keeps its own range.
     abstract class AbstractSlider < Input
-      include Mixin::RangedValue
+      include Mixin::RangedValue(Int32)
 
       # `Slider`/`Dial` indicate focus via reverse-video at the unstyled floor
       # (see `Mixin::Style#floor_focus_reverse?`), same as the button family.
