@@ -301,6 +301,15 @@ module Crysterm
         # end
         # Redundant: the logic below already no-ops if cursor is at coords.
 
+        move_terminal_caret display, cx, cy
+      end
+
+      # Emits the minimal terminal caret move from the terminal's current cursor
+      # to `(cx, cy)`: a relative `cuf`/`cub`/`cud`/`cuu` when the caret shares a
+      # row or column with it (a no-op when already there), else an absolute
+      # `cup`. Shared with `LineEdit#_update_cursor`, which computes `cx`/`cy`
+      # differently but emits the caret move identically.
+      private def move_terminal_caret(display, cx, cy)
         if cy == display.tput.cursor.y
           if cx > display.tput.cursor.x
             display.tput.cuf(cx - display.tput.cursor.x)

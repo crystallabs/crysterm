@@ -326,21 +326,7 @@ module Crysterm
         cy = lpos.yi + itop
         cx = (left + caret_view_col).clamp(left, left + Math.max(0, content_width))
 
-        if cy == display.tput.cursor.y
-          if cx > display.tput.cursor.x
-            display.tput.cuf(cx - display.tput.cursor.x)
-          elsif cx < display.tput.cursor.x
-            display.tput.cub(display.tput.cursor.x - cx)
-          end
-        elsif cx == display.tput.cursor.x
-          if cy > display.tput.cursor.y
-            display.tput.cud(cy - display.tput.cursor.y)
-          elsif cy < display.tput.cursor.y
-            display.tput.cuu(display.tput.cursor.y - cy)
-          end
-        else
-          display.tput.cup(cy, cx)
-        end
+        move_terminal_caret display, cx, cy
       end
 
       # Overrides the mixin's `#ensure_cursor_visible_x` (a no-op while not a
