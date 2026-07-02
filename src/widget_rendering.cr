@@ -496,6 +496,13 @@ module Crysterm
         # A border with all sides 0 is "no border": nothing to draw.
         next unless border.any?
 
+        # An explicitly transparent border background (`bg: "transparent"` → -1,
+        # distinct from an unset `nil`) shows whatever is already in the buffer
+        # behind the border — e.g. a backdrop widget beneath — instead of painting
+        # the terminal default over it. Each border cell then keeps its existing
+        # bg and only the glyph + fg are drawn over it (see below).
+        border_bg_transparent = border.bg == -1
+
         # Per-side attributes so `border-top-color` etc. can differ, each falling
         # back to the whole-border color. Border bg falls back to the widget's
         # own bg (not the terminal default), so a themed frame sits flush with
@@ -555,6 +562,10 @@ module Crysterm
                       in_left ? left_attr : right_attr
                     end
 
+            # Transparent bg: substitute the cell's current background so the
+            # backdrop shows through, keeping only the border's flags + fg.
+            battr = Attr.pack(Attr.flags(battr), Attr.fg(battr), Attr.bg(cell.attr)) if border_bg_transparent
+
             cell.set_if_changed(battr, ch)
           end
         end
@@ -563,27 +574,59 @@ module Crysterm
       # Shadow: each side blends a band of cells toward black via
       # `Window#blend_region`, differing only in bounds.
       if (s = style.shadow) && s.any?
-        if s.left?
-          i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
-          l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
-          scr.blend_region s.alpha, xi - s.left, xi, Math.max(i, 0), l
-        end
+        if s.glyphs?
+          # Half-block (thin) shadow: each band is split into the straight run
+          # alongside the box and the corner caps beyond its edges, so the cell
+          # where two bands meet gets its own diagonal glyph rather than the
+          # abutting side's (see `Shadow`'s glyph resolution). Corner ownership
+          # follows the same band-partition the plain path relies on, so no cell
+          # is painted twice.
+          if s.left?
+            i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
+            l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
+            blend_shadow_v scr, s, xi - s.left, xi, i, l, yi, yl, s.left_char, s.top_left_char, s.bottom_left_char
+          end
 
-        if s.top?
-          l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
-          scr.blend_region s.alpha, Math.max(xi, 0), l, yi - s.top, yi
-        end
+          if s.top?
+            l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
+            blend_shadow_h scr, s, xi, l, yi - s.top, yi, xi, xl, s.top_char, s.top_left_char, s.top_right_char
+          end
 
-        if s.right?
-          i = (s.top? || s.left?) ? yi : yi + s.bottom
-          l = s.bottom? ? yl + s.bottom : yl
-          scr.blend_region s.alpha, xl, xl + s.right, Math.max(i, 0), l
-        end
+          if s.right?
+            i = (s.top? || s.left?) ? yi : yi + s.bottom
+            l = s.bottom? ? yl + s.bottom : yl
+            blend_shadow_v scr, s, xl, xl + s.right, i, l, yi, yl, s.right_char, s.top_right_char, s.bottom_right_char
+          end
 
-        if s.bottom?
-          i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
-          l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
-          scr.blend_region s.alpha, Math.max(i, 0), l, yl, yl + s.bottom
+          if s.bottom?
+            i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
+            l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
+            blend_shadow_h scr, s, i, l, yl, yl + s.bottom, xi, xl, s.bottom_char, s.bottom_left_char, s.bottom_right_char
+          end
+        else
+          # Plain full-cell shadow (no glyphs): a single blend per band.
+          if s.left?
+            i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
+            l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
+            scr.blend_region s.alpha, xi - s.left, xi, Math.max(i, 0), l
+          end
+
+          if s.top?
+            l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
+            scr.blend_region s.alpha, Math.max(xi, 0), l, yi - s.top, yi
+          end
+
+          if s.right?
+            i = (s.top? || s.left?) ? yi : yi + s.bottom
+            l = s.bottom? ? yl + s.bottom : yl
+            scr.blend_region s.alpha, xl, xl + s.right, Math.max(i, 0), l
+          end
+
+          if s.bottom?
+            i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
+            l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
+            scr.blend_region s.alpha, Math.max(i, 0), l, yl, yl + s.bottom
+          end
         end
       end
 
@@ -604,6 +647,27 @@ module Crysterm
       emit Crysterm::Event::Rendered # , coords
 
       coords
+    end
+
+    # Paints a vertical (left/right) thin-shadow band in columns *cx0*...*cx1*,
+    # rows *i*...*l*, split at the box's own row span *yi*...*yl*: the middle run
+    # uses *run*, and the caps beyond the box's top/bottom edges — where this band
+    # meets a horizontal one — use *top_cap*/*bot_cap*. Sub-ranges that collapse
+    # to nothing (no cap on that side) draw no cells, so each corner is painted by
+    # exactly one band.
+    private def blend_shadow_v(scr, s, cx0, cx1, i, l, yi, yl, run, top_cap, bot_cap)
+      scr.blend_region s.alpha, cx0, cx1, i, Math.min(l, yi), glyph: top_cap
+      scr.blend_region s.alpha, cx0, cx1, Math.max(i, yi), Math.min(l, yl), glyph: run
+      scr.blend_region s.alpha, cx0, cx1, Math.max(i, yl), l, glyph: bot_cap
+    end
+
+    # :ditto: for a horizontal (top/bottom) band in rows *ry0*...*ry1*, columns
+    # *i*...*l*, split at the box's own column span *xi*...*xl* (run + left/right
+    # corner caps).
+    private def blend_shadow_h(scr, s, i, l, ry0, ry1, xi, xl, run, left_cap, right_cap)
+      scr.blend_region s.alpha, i, Math.min(l, xi), ry0, ry1, glyph: left_cap
+      scr.blend_region s.alpha, Math.max(i, xi), Math.min(l, xl), ry0, ry1, glyph: run
+      scr.blend_region s.alpha, Math.max(i, xl), l, ry0, ry1, glyph: right_cap
     end
 
     # Registers on the window the rows where this widget emits horizontal

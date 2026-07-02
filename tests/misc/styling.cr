@@ -21,11 +21,16 @@ Widget::Box.new \
   content: "{center}Borders, shadows and text attributes{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#403040")
 
-# Line border + shadow
+# Line border + shadow. The shadow is drawn thin so it doesn't inherit the
+# terminal's ~2:1 cell aspect ratio: the bottom band uses the lower-half block
+# `▄`, whose solid half is the shadow-toned cell background filling the TOP of
+# the cell (hugging the box edge with no hairline gap), while the right band is
+# 1 cell wide — a 1-cell run reads about as thin as half a cell tall.
 Widget::Box.new \
   parent: s, top: 2, left: 2, width: 22, height: 5,
-  content: "{center}Line border\n+ drop shadow{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#2050a0", border: Border.new(type: :line), shadow: true)
+  content: "{center}Line border\n+ thin shadow{/center}", parse_tags: true,
+  style: Style.new(fg: "white", bg: "#2050a0", border: Border.new(type: :line),
+    shadow: Shadow.new(right: 1, bottom: 1, horizontal_char: '▄'))
 
 # Solid (bg) border with a shadow on all four sides. Left/right are 2 cells,
 # top/bottom 1, so it looks even (terminal cells are ~2x taller than wide).
@@ -34,14 +39,17 @@ Widget::Box.new \
   content: "{center}Solid bg border\n+ even shadow{/center}", parse_tags: true,
   style: Style.new(fg: "black", bg: "#d0a020", border: Border.new(type: :bg, bg: "#a07010"))
 
-# Text attributes via inline tags
+# Text attributes via inline tags. The line border keeps its glyphs (drawn in
+# the terminal default fg) but its background is transparent, so the neutral
+# backdrop shows through the border ring instead of the box's own dark fill.
 Widget::Box.new \
   parent: s, top: 2, left: 54, width: 24, height: 5,
   content: "{bold}bold{/bold} {underline}underline{/underline} {italic}italic{/italic}\n" \
            "{reverse}reverse{/reverse} {strike}strike{/strike}\n" \
            "{red-fg}red{/} {green-fg}green{/} {blue-fg}blue{/}",
   parse_tags: true,
-  style: Style.new(fg: "white", bg: "#101010", border: true)
+  style: Style.new(fg: "white", bg: "#101010",
+    border: Border.new(type: :line, bg: "transparent"))
 
 # A strip of animated 24-bit color: `Widget::Gradient` in rainbow mode,
 # hue-cycling over time, driven by a shared `Timer` (can sync several widgets).

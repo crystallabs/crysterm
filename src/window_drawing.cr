@@ -1076,10 +1076,30 @@ module Crysterm
     # shadow callers already pass the exact (sometimes intentionally unclamped)
     # bounds, and the `lines[y]?`/`line[x]?` lookups skip anything off the grid —
     # so the four call sites keep their precise original behavior.
-    def blend_region(alpha, xi, xl, yi, yl)
+    # With *glyph* set (a half-block such as `▀`/`▄`/`▌`/`▐`), the band is painted
+    # with that character instead of darkening the whole cell, so only part of the
+    # cell reads as shadow — a thin shadow that escapes the terminal's ~2:1 cell
+    # aspect ratio (see `Shadow`'s glyph fields).
+    #
+    # The shadow tone is carried by the cell's *background*, not the glyph's
+    # foreground: a background is a solid fill that reaches the cell edges, whereas
+    # a foreground half-block can leave a hairline gap at the top/side in some
+    # fonts. The glyph's foreground instead paints the untouched backdrop over the
+    # complementary half. So pick the glyph whose *solid* half faces AWAY from the
+    # widget: `▄` shadows the top half (bottom-edge shadow), `▀` the bottom, `▐`
+    # the left half (right-edge shadow), `▌` the right.
+    def blend_region(alpha, xi, xl, yi, yl, glyph : Char? = nil)
       each_region_cell(xi, xl, yi, yl, clamp: false) do |cell, line|
-        cell.attr = Colors.blend(cell.attr, alpha: alpha)
-        line.dirty = true
+        if glyph
+          base = cell.attr
+          shadowed = Colors.blend(base, alpha: alpha)
+          # bg = darkened backdrop (the solid shadow half), fg = untouched backdrop
+          # (the glyph half). Flags cleared so the glyph isn't bold/underlined/etc.
+          cell.set_if_changed Attr.pack(0_i64, Attr.bg(base), Attr.bg(shadowed)), glyph
+        else
+          cell.attr = Colors.blend(cell.attr, alpha: alpha)
+          line.dirty = true
+        end
       end
     end
 

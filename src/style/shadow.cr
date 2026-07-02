@@ -26,12 +26,105 @@ module Crysterm
     # Shadow alpha value (0 == full transparency, 1 == full opacity)
     property alpha : Float64 = 0.5
 
+    # Optional glyphs used to paint a *thin* shadow. When a band's glyph is set,
+    # that band is drawn with the half-block character instead of darkening the
+    # whole cell — so the shadow occupies only part of a cell and escapes the
+    # terminal's ~2:1 cell aspect ratio. `nil` (the default for every field)
+    # keeps the classic full-cell alpha-blended shadow.
+    #
+    # The shadow tone is the cell *background* (a gap-free solid fill), and the
+    # glyph's foreground carries the untouched backdrop over the other half —
+    # so choose the glyph whose *solid* half faces away from the widget: `▄`
+    # shadows the top half (a bottom-edge shadow that hugs the widget), `▀` the
+    # bottom, `▐` the left half (a right-edge shadow), `▌` the right.
+    #
+    # There are eight independently selectable glyphs — the four sides and the
+    # four diagonal (corner) cells where two sides meet — resolved through group
+    # fallbacks so you set only what differs:
+    #
+    # * side runs fall back per axis to `horizontal_char` (top/bottom) and
+    #   `vertical_char` (left/right);
+    # * the corner cells fall back to `diagonal_char`, then to `horizontal_char`
+    #   (the glyph running along the merge line).
+    #
+    # Split this finely because a cell's height and width differ, so each run and
+    # corner may need its own half-block to read as equally thin.
+    property horizontal_char : Char? = nil
+    property vertical_char : Char? = nil
+    property diagonal_char : Char? = nil
+
+    @top_char : Char? = nil
+    @bottom_char : Char? = nil
+    @left_char : Char? = nil
+    @right_char : Char? = nil
+    @top_left_char : Char? = nil
+    @top_right_char : Char? = nil
+    @bottom_left_char : Char? = nil
+    @bottom_right_char : Char? = nil
+
+    # Per-side/per-corner overrides; each falls back to its group default above.
+    setter top_char, bottom_char, left_char, right_char
+    setter top_left_char, top_right_char, bottom_left_char, bottom_right_char
+
+    # The top/bottom run glyphs (override or the `horizontal_char` axis default).
+    def top_char : Char?
+      @top_char || @horizontal_char
+    end
+
+    # :ditto:
+    def bottom_char : Char?
+      @bottom_char || @horizontal_char
+    end
+
+    # The left/right run glyphs (override or the `vertical_char` axis default).
+    def left_char : Char?
+      @left_char || @vertical_char
+    end
+
+    # :ditto:
+    def right_char : Char?
+      @right_char || @vertical_char
+    end
+
+    # The corner (diagonal) glyphs, each falling back to `diagonal_char` and then
+    # to `horizontal_char` — the run along the merge line between the two bands.
+    def top_left_char : Char?
+      @top_left_char || @diagonal_char || @horizontal_char
+    end
+
+    # :ditto:
+    def top_right_char : Char?
+      @top_right_char || @diagonal_char || @horizontal_char
+    end
+
+    # :ditto:
+    def bottom_left_char : Char?
+      @bottom_left_char || @diagonal_char || @horizontal_char
+    end
+
+    # :ditto:
+    def bottom_right_char : Char?
+      @bottom_right_char || @diagonal_char || @horizontal_char
+    end
+
+    # Whether any half-block glyph is configured (any group, side or corner).
+    # When false the shadow is a plain full-cell alpha blend and the renderer
+    # takes its faster, undivided path.
+    def glyphs? : Bool
+      !(@horizontal_char.nil? && @vertical_char.nil? && @diagonal_char.nil? &&
+        @top_char.nil? && @bottom_char.nil? && @left_char.nil? && @right_char.nil? &&
+        @top_left_char.nil? && @top_right_char.nil? && @bottom_left_char.nil? && @bottom_right_char.nil?)
+    end
+
     def initialize(
       @left = @left,
       @top = @top,
       @right = @right,
       @bottom = @bottom,
       @alpha = @alpha,
+      @horizontal_char = @horizontal_char,
+      @vertical_char = @vertical_char,
+      @diagonal_char = @diagonal_char,
     )
     end
 
