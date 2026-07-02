@@ -25,19 +25,10 @@ module Crysterm
       # Appends *page*, sized to fill the widget. The first page added becomes
       # current; later ones come up hidden.
       def add_page(page : Widget) : self
-        page.top = 0
-        page.left = 0
-        page.right = 0
-        page.bottom = 0
+        fill_parent page
         @pages << page
         append page
-
-        if current_index < 0
-          show_page 0
-        else
-          page.hide
-        end
-
+        register_page page
         self
       end
 

@@ -107,15 +107,8 @@ module Crysterm
       # Sets (replacing any previous) the splash's content widget, filling the
       # area above the message line.
       def content_widget=(widget : Widget) : Widget
-        @content_widget.try &.remove_from_parent
-        @content_widget = widget
-        widget.top = 0
-        widget.left = 0
-        widget.right = 0
-        widget.bottom = message_box.height.as?(Int) || 1
-        append widget
-        request_render
-        widget
+        @content_widget = replace_content_child @content_widget, widget,
+          bottom: message_box.height.as?(Int) || 1
       end
 
       # Updates the bottom status line (Qt's `showMessage`).

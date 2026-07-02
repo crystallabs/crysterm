@@ -33,6 +33,33 @@ module Crysterm
       end
     end
 
+    # Stretches *child* to fill this widget, `top`/`left`/`right`/`bottom`
+    # giving the inset on each side (all `0` — flush — by default). This is the
+    # geometry idiom the paged and single-content containers all share, where a
+    # child fills the parent with a per-container offset on one side (a tab
+    # bar's height, a dock title row, a splash message line). Returns *child*.
+    def fill_parent(child : Widget, *, top = 0, left = 0, right = 0, bottom = 0) : Widget
+      child.top = top
+      child.left = left
+      child.right = right
+      child.bottom = bottom
+      child
+    end
+
+    # Installs *new_child* as this widget's single replaceable content child
+    # (Qt's `setWidget` semantics), removing *old* first. Fills the parent with
+    # the given insets (see `#fill_parent`), appends, and requests a render.
+    # Returns *new_child* so the caller can store it. Used by
+    # `SplashScreen#content_widget=` and `DockWidget#widget=`.
+    def replace_content_child(old : Widget?, new_child : Widget, *,
+                              top = 0, left = 0, right = 0, bottom = 0) : Widget
+      old.try &.remove_from_parent
+      fill_parent new_child, top: top, left: left, right: right, bottom: bottom
+      append new_child
+      request_render
+      new_child
+    end
+
     # Inserts `element` to list of children at a specified position (at end by default)
     def insert(element, i = -1)
       # A widget can never become a child of itself or of one of its own

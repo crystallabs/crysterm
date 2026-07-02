@@ -46,6 +46,20 @@ module Crysterm
       protected def after_show_index(index : Int) : Nil
       end
 
+      # Finalizes the visibility of a freshly-added *page*: the first page added
+      # (`@current_index` still the `-1` sentinel) is raised via `#show_index 0`
+      # and becomes current; every later one comes up hidden. Call after pushing
+      # *page* onto `#pages` and appending its child — each container appends with
+      # its own sizing, and `TabWidget` needs the new index in between, so the
+      # push/append stay at the call site.
+      protected def register_page(page : Widget) : Nil
+        if @current_index < 0
+          show_index 0
+        else
+          page.hide
+        end
+      end
+
       # Selects the next page, wrapping at the end.
       protected def next_index : Nil
         return if @pages.empty?

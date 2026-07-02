@@ -131,17 +131,10 @@ module Crysterm
       # Sets (replacing any previous) the dock's content widget, laid out to fill
       # the area below the title bar (Qt's `QDockWidget#setWidget`).
       def widget=(w : Widget) : Widget
-        @dock_content.try &.remove_from_parent
-        @dock_content = w
-        w.top = 1
-        w.left = 0
-        w.right = 0
-        w.bottom = 0
-        append w
+        @dock_content = replace_content_child @dock_content, w, top: 1
         # Content is appended after the grip, so it would render over the grip's
         # corner cell without this.
         @size_grip.try(&.front!)
-        request_render
         w
       end
 

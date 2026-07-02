@@ -221,25 +221,16 @@ module Crysterm
         @switching = false
         bar.items.last?.try { |it| wire_close it }
 
-        if current_index < 0
-          show_tab 0
-        else
-          page.hide
-        end
-
+        register_page page
         self
       end
 
       # Positions *page* to fill the widget beside the tab bar.
       private def layout_page(page : Widget) : Nil
-        page.left = 0
-        page.right = 0
         if @tab_position.top?
-          page.top = @tab_height
-          page.bottom = 0
+          fill_parent page, top: @tab_height, bottom: 0
         else
-          page.top = 0
-          page.bottom = @tab_height
+          fill_parent page, top: 0, bottom: @tab_height
         end
       end
 
