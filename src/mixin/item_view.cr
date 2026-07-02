@@ -1,3 +1,5 @@
+require "./nav_keys"
+
 module Crysterm
   module Mixin
     # The "list of selectable items" concern, extracted from `Widget::List` so
@@ -14,6 +16,8 @@ module Crysterm
     # duck-typed hooks the renderer keys off — see `Widget#item_selected?` and
     # `widget_rendering.cr` — so no `is_a?(List)` check is needed.
     module ItemView
+      include NavKeys
+
       # How a mouse-wheel notch is interpreted (see `#wheel_scroll`). The two
       # drop-down popups (`ComboBox::Popup`, `Completer::Popup`) used to each
       # override `#wheel_scroll` with a byte-identical body; this flag replaces
@@ -892,41 +896,39 @@ module Crysterm
         visible = visible_content_rows
         half = Math.max visible // 2, 1
 
-        case
-        when e.key == ::Tput::Key::Up, (@vi && e.char == 'k')
-          up
-        when e.key == ::Tput::Key::Down, (@vi && e.char == 'j')
-          down
-        when e.key == ::Tput::Key::Home, (@vi && e.char == 'g')
-          selekt 0
-        when e.key == ::Tput::Key::End, (@vi && e.char == 'G')
-          selekt @items.size - 1
-        when e.key == ::Tput::Key::CtrlU
-          move -half
-        when e.key == ::Tput::Key::CtrlD
-          move half
-        when e.key == ::Tput::Key::PageUp, e.key == ::Tput::Key::CtrlB
-          move -visible
-        when e.key == ::Tput::Key::PageDown, e.key == ::Tput::Key::CtrlF
-          move visible
-        when @vi && e.char == 'H'
-          selekt @child_base
-        when @vi && e.char == 'M'
-          selekt @child_base + visible // 2
-        when @vi && e.char == 'L'
-          selekt @child_base + visible - 1
-        when search? && e.char == '/'
-          start_search false
-        when search? && e.char == '?'
-          start_search true
-        when multi_select? && e.char == ' '
-          toggle_selection selected
-        when e.key == ::Tput::Key::Enter
-          enter_selected
-        when e.key == ::Tput::Key::Escape
-          cancel_selected
+        # Vertical navigation (Up/Down/paging/Home-End + vi k/j/g/G) is
+        # classified once in `Mixin::NavKeys` and shared with `Interactive`; here
+        # each intent maps onto a selection move rather than a viewport scroll.
+        case nav_intent(e)
+        when .backward?      then up
+        when .forward?       then down
+        when .first?         then selekt 0
+        when .last?          then selekt @items.size - 1
+        when .half_backward? then move -half
+        when .half_forward?  then move half
+        when .page_backward? then move -visible
+        when .page_forward?  then move visible
         else
-          return
+          case
+          when @vi && e.char == 'H'
+            selekt @child_base
+          when @vi && e.char == 'M'
+            selekt @child_base + visible // 2
+          when @vi && e.char == 'L'
+            selekt @child_base + visible - 1
+          when search? && e.char == '/'
+            start_search false
+          when search? && e.char == '?'
+            start_search true
+          when multi_select? && e.char == ' '
+            toggle_selection selected
+          when e.key == ::Tput::Key::Enter
+            enter_selected
+          when e.key == ::Tput::Key::Escape
+            cancel_selected
+          else
+            return
+          end
         end
 
         # Consume the key so it doesn't also drive an ancestor (e.g. a `Form`'s

@@ -1,3 +1,5 @@
+require "./nav_keys"
+
 module Crysterm
   module Mixin
     # The "is interactive" concern — a focusable widget that accepts keyboard
@@ -17,6 +19,8 @@ module Crysterm
     # top/bottom. Paging/jump keys mirror `ScrollableBox#on_keypress`; only the
     # single-char `k`/`j`/`g`/`G` are `vi`-gated.
     module Interactive
+      include NavKeys
+
       macro included
         @input = true
         @resizable = true
@@ -27,59 +31,18 @@ module Crysterm
 
         if @keys && !@ignore_keys
           on(Crysterm::Event::KeyPress) do |e|
-            key = e.key
-            ch = e.char
-
-            if key == Tput::Key::Up || (@vi && ch == 'k')
-              scroll(-1)
-              request_render
-              next
-            end
-            if key == Tput::Key::Down || (@vi && ch == 'j')
-              scroll(1)
-              request_render
-              next
-            end
-
-            # Paging and jump-to-edge are not vi-only (matching
-            # `ScrollableBox#on_keypress`). Page scrolling uses the resolved
-            # `aheight`, not the raw `height` property, so it works correctly even
-            # when `height` is a percentage (e.g. `"100%"`) or unset.
-            case key
-            when Tput::Key::CtrlU
-              page_scroll(-aheight // 2, -1)
-              next
-            when Tput::Key::CtrlD
-              page_scroll(aheight // 2, 1)
-              next
-            when Tput::Key::PageUp, Tput::Key::CtrlB
-              page_scroll(-aheight, -1)
-              next
-            when Tput::Key::PageDown, Tput::Key::CtrlF
-              page_scroll(aheight, 1)
-              next
-            when Tput::Key::Home
-              scroll_to 0
-              request_render
-              next
-            when Tput::Key::End
-              scroll_to get_scroll_height
-              request_render
-              next
-            end
-
-            # The single-char jump keys stay vi-gated per the docstring.
-            if @vi
-              case ch
-              when 'g'
-                scroll_to 0
-                request_render
-                next
-              when 'G'
-                scroll_to get_scroll_height
-                request_render
-                next
-              end
+            # Page scrolling uses the resolved `aheight`, not the raw `height`
+            # property, so it works correctly even when `height` is a percentage
+            # (e.g. `"100%"`) or unset.
+            case nav_intent(e)
+            when .backward?      then scroll(-1); request_render
+            when .forward?       then scroll(1); request_render
+            when .half_backward? then page_scroll(-aheight // 2, -1)
+            when .half_forward?  then page_scroll(aheight // 2, 1)
+            when .page_backward? then page_scroll(-aheight, -1)
+            when .page_forward?  then page_scroll(aheight, 1)
+            when .first?         then scroll_to 0; request_render
+            when .last?          then scroll_to get_scroll_height; request_render
             end
           end
         end
