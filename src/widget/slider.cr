@@ -1,4 +1,5 @@
 require "./abstract_slider"
+require "../mixin/track_geometry"
 
 module Crysterm
   class Widget
@@ -13,6 +14,8 @@ module Crysterm
     # ![Slider screenshot](../../tests/widget/slider/slider.5s.apng)
     # <!-- /widget-examples:capture -->
     class Slider < AbstractSlider
+      include Mixin::TrackGeometry
+
       # Where tick marks are drawn relative to the groove (Qt's
       # `QSlider::TickPosition`). `Above`/`Below` are the cross-axis edges of the
       # widget (top/bottom for a horizontal slider, left/right for a vertical
@@ -82,16 +85,10 @@ module Crysterm
           next if ranged_wheel e
 
           next unless e.action.down? || (e.action.move? && !e.button.none?)
-          if @orientation.horizontal?
-            pos = e.x - aleft - ileft
-            span_px = awidth - iwidth - 1
-          else
-            # Vertical sliders run bottom (min) to top (max).
-            pos = (aheight - iheight - 1) - (e.y - atop - itop)
-            span_px = aheight - iheight - 1
-          end
+          # Vertical sliders run bottom (min) to top (max), hence `invert`.
+          pos, span_px = pointer_offset e, invert: true
           next if span_px <= 0
-          self.value = @minimum + (pos * value_span / span_px.to_f).round.to_i
+          self.value = value_at pos, span_px
           e.accept
         end
       end

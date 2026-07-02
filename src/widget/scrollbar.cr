@@ -168,7 +168,9 @@ module Crysterm
           pos = raw - (steppers ? 1 : 0)
           span = (steppers ? inner - 2 : inner) - 1
           next if span <= 0
-          self.slider_position = @minimum + (pos.clamp(0, span) * value_span / span.to_f).round.to_i
+          # Shared pointer→value mapping; ScrollBar clamps `pos` (it sizes a
+          # thumb and must not seek past the ends). See `AbstractSlider#value_at`.
+          self.slider_position = value_at pos.clamp(0, span), span
           # Capture the mouse so an untracked drag that leaves our bounds still
           # delivers its release here — the commit below (on `up`) only fires on
           # a report the bar receives, so without capture a release off the bar

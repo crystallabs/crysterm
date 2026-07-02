@@ -13,6 +13,7 @@ module Crysterm
     # <!-- /widget-examples:capture -->
     class ProgressBar < Input
       include Mixin::RangeText
+      include Mixin::TrackGeometry
 
       # Lower/upper bounds of the value range (inclusive), like Qt's
       # `minimum`/`maximum`. With the defaults (0..100) a value equals its
@@ -117,15 +118,9 @@ module Crysterm
           on(Crysterm::Event::Mouse) do |e|
             next unless e.action.down?
 
-            if @orientation.horizontal?
-              pos = e.x - aleft - ileft
-              span = awidth - iwidth - 1
-            else
-              # Vertical bar fills bottom-up (see `#render`), so invert the axis:
-              # a click near the top reads as full, near the bottom as empty.
-              span = aheight - iheight - 1
-              pos = span - (e.y - atop - itop)
-            end
+            # Vertical bar fills bottom-up (see `#render`), so invert the axis: a
+            # click near the top reads as full, near the bottom as empty.
+            pos, span = pointer_offset e, invert: true
             next if span <= 0
 
             self.filled = (pos * 100 // span).clamp(0, 100)
