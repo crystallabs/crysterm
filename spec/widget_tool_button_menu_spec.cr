@@ -16,8 +16,9 @@ private def wheel(dir : Tput::Mouse::Action, x = 0, y = 0)
   Crysterm::Event::Mouse.new(Tput::Mouse::Event.new(dir, Tput::Mouse::Button::Left, x, y))
 end
 
-private def sb_down(s, x, y)
+private def sb_click(s, x, y)
   s.dispatch_mouse(Tput::Mouse::Event.new(Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, x, y, source: :test))
+  s.dispatch_mouse(Tput::Mouse::Event.new(Tput::Mouse::Action::Up, Tput::Mouse::Button::Left, x, y, source: :test))
 end
 
 # Behavioral specs for `Widget::ToolButton`'s menu features (the default-action
@@ -97,11 +98,11 @@ describe Crysterm::Widget::ToolButton do
       pressed.should be_false   # ...instead of emitting a bare Press
     end
 
-    it "activates the bound action (not the menu) when an action is present" do
+    it "opens the menu on a click even when an action is bound" do
       s = tbm_screen
-      m = Crysterm::Widget::Menu.new
+      m = Crysterm::Widget::Menu.new parent: s
       m.add "Item"
-      m.hide # stays hidden; the action's click must not summon it
+      m.hide
       act = Crysterm::Action.new "Apply"
       triggered = false
       act.on(Crysterm::Event::Triggered) { triggered = true }
@@ -109,49 +110,48 @@ describe Crysterm::Widget::ToolButton do
       s._render
 
       tb.on_click nil
-      triggered.should be_true   # click activates the action (reachable by mouse)
-      m.visible?.should be_false # ...and the menu stays closed (Down opens it)
+      m.visible?.should be_true # a click opens the drop-down (the whole button)...
+      triggered.should be_false # ...it doesn't run the action (that's Space/Enter)
     end
   end
 
-  # Split-button: with a default action bound (MenuButtonPopup), a mouse click on
-  # the button *body* triggers the action, while a click on the trailing `▾`
-  # arrow opens the menu — Qt's split tool button. This is the only mouse route
-  # to the menu (a plain click runs the action), so it must work; a regression
-  # left the menu reachable only by the Down key.
-  describe "split-button menu access by mouse" do
-    it "opens the menu on a press over the ▾ arrow" do
+  # A click anywhere on a menu-bearing tool button toggles its drop-down: the
+  # whole surface is the affordance, so a click opens it and a second click (or a
+  # click-away) closes it. A regression opened it only from the `▾` arrow and,
+  # worse, a second click couldn't close it (the outside-dismiss shut the menu
+  # and the same click reopened it).
+  describe "click toggles the menu" do
+    it "opens on the body and closes on a second body click" do
       s = tbm_screen
       m = Crysterm::Widget::Menu.new parent: s, width: 12, height: 3
       m.add "Rename"
+      m.add "Delete"
       m.hide
       act = Crysterm::Action.new "Apply"
-      triggered = false
-      act.on(Crysterm::Event::Triggered) { triggered = true }
       tb = Crysterm::Widget::ToolButton.new parent: s, top: 3, left: 10,
         width: 12, height: 1, action: act, menu: m, align: :center
       s._render
 
-      sb_down s, tb.aleft + tb.awidth - 1, tb.atop # rightmost cell == the ▾ zone
-      m.visible?.should be_true                    # the arrow opened the menu...
-      triggered.should be_false                    # ...and did NOT run the action
+      sb_click s, tb.aleft + 1, tb.atop # body, left of the ▾
+      m.visible?.should be_true         # opened
+      sb_click s, tb.aleft + 1, tb.atop # same spot again
+      m.visible?.should be_false        # ...and closed (no reopen race)
     end
 
-    it "triggers the action on a press over the button body" do
+    it "opens on the ▾ arrow and closes on a second arrow click" do
       s = tbm_screen
       m = Crysterm::Widget::Menu.new parent: s, width: 12, height: 3
       m.add "Rename"
       m.hide
       act = Crysterm::Action.new "Apply"
-      triggered = false
-      act.on(Crysterm::Event::Triggered) { triggered = true }
       tb = Crysterm::Widget::ToolButton.new parent: s, top: 3, left: 10,
         width: 12, height: 1, action: act, menu: m, align: :center
       s._render
 
-      sb_down s, tb.aleft, tb.atop # leftmost cell == body, left of the ▾
-      triggered.should be_true     # the body ran the action...
-      m.visible?.should be_false   # ...and left the menu closed
+      sb_click s, tb.aleft + tb.awidth - 1, tb.atop # the arrow cell
+      m.visible?.should be_true
+      sb_click s, tb.aleft + tb.awidth - 1, tb.atop
+      m.visible?.should be_false
     end
   end
 
