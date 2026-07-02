@@ -589,7 +589,7 @@ module Crysterm
       # delivering to the calendar, while outside clicks (e.g. a day) still
       # dismiss the popup normally.
       private def popup_nav_menu(menu : Menu, col : Int32, index : Int32) : Nil
-        menu.grab_region = ->(x : Int32, y : Int32) { nav_grab_region? x, y }
+        menu.treat_as_inside { |x, y| nav_grab_region? x, y }
         # Select *before* showing: `#popup` sizes the menu via `#fit_to_content`,
         # whose height assignment fires the item view's `on_resize`, scrolling
         # the selected row into view — so the long year list opens already

@@ -118,7 +118,7 @@ module Crysterm
         # the menu is open is *not* treated as a click-away that auto-dismisses it.
         # Instead the click reaches `#on_click`, which toggles it shut cleanly —
         # otherwise the outside-dismiss would close it and the same click reopen it.
-        m.try { |mm| mm.grab_region = ->(x : Int32, y : Int32) { contains_point? x, y } }
+        m.try { |mm| mm.treat_as_inside { |x, y| contains_point? x, y } }
         # Re-stamp the current label so the indicator is added/removed.
         set_content with_indicator(base_label)
         request_render

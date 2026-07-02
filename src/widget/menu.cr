@@ -65,6 +65,15 @@ module Crysterm
       # still switches menus while one is open.
       property grab_region : Proc(Int32, Int32, Bool)?
 
+      # Marks *block* as an extra region counted as "inside" this menu's modal
+      # grab (see `#grab_contains?`), on top of its own submenu chain — so a
+      # press there (e.g. the owning `MenuBar`'s title strip, a `ToolButton`, a
+      # `Calendar`'s nav bar) is *not* read as a click-away that auto-dismisses
+      # the menu. A readable alias for assigning the raw `#grab_region` proc.
+      def treat_as_inside(&block : Int32, Int32 -> Bool) : Nil
+        @grab_region = block
+      end
+
       # While open, the grab region is the whole submenu chain plus any extra
       # `#grab_region` (e.g. the owning menu bar).
       def grab_contains?(x : Int32, y : Int32) : Bool
@@ -96,14 +105,17 @@ module Crysterm
       # separator?" with an O(1) set lookup instead of a per-row scan every frame.
       @separator_items = Set(Widget).new
 
-      # Window-level click watcher installed (on the top-level menu only) while a
-      # submenu is open, to dismiss the chain when the user clicks away — e.g.
-      # switching tabs.
-      @ev_outside : Crysterm::Event::Mouse::Wrapper?
+      # Click-away dismissal for the submenu chain, installed (on the top-level
+      # menu only) while a submenu is open, to dismiss the chain when the user
+      # clicks away — e.g. switching tabs. A shared `Overlay::DismissSession`
+      # with *no* grab (`grab_owner: nil`) — a `#popup`/`MenuBar` grab is taken
+      # separately by the popup session below.
+      @submenu_session : Crysterm::Overlay::DismissSession?
 
-      # Window-level click watcher installed while shown as a `#popup` context
-      # menu, to dismiss the whole popup when the user clicks outside it.
-      @ev_popup : Crysterm::Event::Mouse::Wrapper?
+      # Modal grab + click-away dismissal installed while shown as a `#popup`
+      # context menu, to dismiss the whole popup when the user clicks outside it.
+      # Same `Overlay::DismissSession` object `Mixin::Popup`/`Completer` use.
+      @popup_session : Crysterm::Overlay::DismissSession?
 
       def initialize(title = "", keys = nil, **widget)
         # `keys` is absorbed: an item view always enables key handling.
@@ -251,14 +263,21 @@ module Crysterm
         show
         front!
         focus
-        window.grab self # modal: suppress hover/clicks outside the menu chain
 
-        # Dismiss on a press outside the *grab region* (not merely outside the
-        # submenu chain): for a `MenuBar` the region also covers the bar's title
-        # strip, so clicking the open menu's own title is "inside" and doesn't
-        # auto-close here, letting the title's own toggle handler close it
-        # cleanly instead of fighting an immediate reopen.
-        @ev_popup ||= window.on_press_outside(->(px : Int32, py : Int32) { grab_contains?(px, py) }) { hide_popup }
+        # Modal grab (suppress hover/clicks outside the menu chain) + dismiss on a
+        # press outside the *grab region* (not merely outside the submenu chain):
+        # for a `MenuBar` the region also covers the bar's title strip, so clicking
+        # the open menu's own title is "inside" and doesn't auto-close here,
+        # letting the title's own toggle handler close it cleanly instead of
+        # fighting an immediate reopen. Both live in one session bound to the
+        # current window (guarded so a re-`popup` while open is a no-op).
+        unless @popup_session
+          s = ::Crysterm::Overlay::DismissSession.new(
+            window, grab_owner: self,
+            inside: ->(px : Int32, py : Int32) { grab_contains?(px, py) }) { hide_popup }
+          s.open
+          @popup_session = s
+        end
 
         request_render
         self
@@ -277,9 +296,10 @@ module Crysterm
         @popup_mode = false
         close_submenu
         hide
-        window?.try &.ungrab self
-        @ev_popup.try { |w| window?.try &.off Crysterm::Event::Mouse, w }
-        @ev_popup = nil
+        # Releases the modal grab and detaches the watcher via the session's
+        # captured window (safe even if `window?` is already nil).
+        @popup_session.try &.close
+        @popup_session = nil
         request_render
       end
 
@@ -790,19 +810,23 @@ module Crysterm
         # The top-level menu watches for a click anywhere outside the open chain
         # and dismisses the submenus. In popup mode the `#popup` watcher already
         # covers outside clicks, so don't install a second one.
-        if parent_menu.nil? && @ev_outside.nil? && !@popup_mode
+        if parent_menu.nil? && @submenu_session.nil? && !@popup_mode
           # "Inside" = the open child chain, or the anchor row (which
           # `#activate_index` toggles itself). A press anywhere else dismisses
-          # the submenu and drops the highlight.
+          # the submenu and drops the highlight. No grab here — an embedded menu
+          # (not a `#popup`) stays non-modal; only the outside-click watcher runs.
           inside = ->(x : Int32, y : Int32) do
             (@submenu_open.try(&.in_chain?(x, y)) || false) ||
             (@submenu_anchor.try(&.contains_point?(x, y)) || false)
           end
-          @ev_outside = window.on_press_outside(inside) do
+          s = ::Crysterm::Overlay::DismissSession.new(
+            window, grab_owner: nil, inside: inside) do
             close_submenu
             @show_highlight = false
             request_render
           end
+          s.open
+          @submenu_session = s
         end
 
         request_render
@@ -824,8 +848,8 @@ module Crysterm
 
         # Once the top-level menu has no submenu left, drop the click watcher.
         if parent_menu.nil?
-          @ev_outside.try { |w| window?.try &.off Crysterm::Event::Mouse, w }
-          @ev_outside = nil
+          @submenu_session.try &.close
+          @submenu_session = nil
         end
       end
 

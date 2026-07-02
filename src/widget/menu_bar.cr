@@ -76,7 +76,7 @@ module Crysterm
         menu.on_navigate = ->(dir : Int32) { switch_relative dir }
         # The bar's own strip counts as "inside" the open menu's modal grab, so
         # hovering another title still switches menus while one is open.
-        menu.grab_region = ->(x : Int32, y : Int32) { grab_contains? x, y }
+        menu.treat_as_inside { |x, y| grab_contains? x, y }
         menu.on(::Crysterm::Event::Hide) { on_menu_hidden menu }
         # Close the menu when it loses focus to something outside the bar's world
         # (mouse-click dismissal is handled separately by `Menu#popup`'s
